@@ -1,8 +1,8 @@
 [submodule "event-graph-walker"]
 	path = event-graph-walker
 	url = https://github.com/dowdiness/event-graph-walker.git
-[submodule "parser"]
-	path = parser
+[submodule "loom"]
+	path = loom
 	url = https://github.com/dowdiness/loom.git
 [submodule "svg-dsl"]
 	path = svg-dsl
