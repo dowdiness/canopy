@@ -6,8 +6,11 @@
     "dowdiness/event-graph-walker": {
       "path": "./event-graph-walker"
     },
-    "dowdiness/parser": {
-      "path": "./parser"
+    "dowdiness/lambda": {
+      "path": "./loom/examples/lambda"
+    },
+    "dowdiness/loom": {
+      "path": "./loom/loom"
     }
   },
   "readme": "README.mbt.md",

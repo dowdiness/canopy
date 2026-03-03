@@ -7,7 +7,7 @@ The codebase is organized as a **monorepo with git submodules**:
 | Submodule | GitHub Repo | MoonBit Module |
 |---|---|---|
 | `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | `dowdiness/event-graph-walker` |
-| `parser/` | [dowdiness/parser](https://github.com/dowdiness/parser) | `dowdiness/parser` |
+| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | `dowdiness/lambda` (root pkg) |
 | `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | `antisatori/svg-dsl` |
 | `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | `antisatori/graphviz` |
 | `valtio/` | [dowdiness/valtio](https://github.com/dowdiness/valtio) | `antisatori/valtio` |
@@ -38,16 +38,17 @@ CRDT document model (general-purpose text document).
 
 **See:** [event-graph-walker/README.md](../../event-graph-walker/README.md) for detailed documentation.
 
-## `parser/` Module (Lambda Calculus Parser)
+## `loom/` Module (Lambda Calculus Parser + Framework)
 
-Standalone incremental lambda calculus parser. Now a separate MoonBit module (`dowdiness/parser`).
+Rabbita-style monorepo containing the incremental parser framework and lambda calculus example.
+The `crdt` module uses `dowdiness/lambda` (`loom/examples/lambda/`) — the root package is aliased `@parser` in pkg files for source compatibility.
 
-- Lexer and parser for lambda calculus with arithmetic and conditionals
-- Error recovery for partial/invalid syntax
-- Incremental parsing with damage tracking and parse caching
-- CRDT integration for AST updates
+- `loom/loom/` — `dowdiness/loom`: generic parser framework (core, bridge, pipeline, incremental, viz)
+- `loom/seam/` — `dowdiness/seam`: language-agnostic CST (`CstNode`, `SyntaxNode`)
+- `loom/incr/` — `dowdiness/incr`: reactive signals (`Signal`, `Memo`)
+- `loom/examples/lambda/` — `dowdiness/lambda`: lambda calculus tokenizer, grammar, AST, benchmarks
 
-**See:** [parser/README.md](../../parser/README.md) for detailed documentation.
+**See:** [loom/README.md](../../loom/README.md) for detailed documentation.
 
 ## `crdt/` Module (Lambda Calculus Editor Application)
 
@@ -80,9 +81,9 @@ valtio (independent)
 
 event-graph-walker (independent, quickcheck only)
 
-parser (independent, stdlib only)
+loom (independent: loom/seam/incr/lambda submodules)
 
-crdt (depends on event-graph-walker + parser via path deps)
+crdt (depends on event-graph-walker + dowdiness/lambda via path deps)
 ```
 
 ## MoonBit Module Configuration
@@ -93,7 +94,7 @@ The root `moon.mod.json` declares path dependencies on the submodules:
 {
   "deps": {
     "dowdiness/event-graph-walker": { "path": "./event-graph-walker" },
-    "dowdiness/parser": { "path": "./parser" }
+    "dowdiness/lambda": { "path": "./loom/examples/lambda" }
   }
 }
 ```
@@ -101,9 +102,10 @@ The root `moon.mod.json` declares path dependencies on the submodules:
 ## Run Tests
 
 ```bash
-moon test                           # crdt module
-cd event-graph-walker && moon test # CRDT library
-cd parser && moon test             # Parser
+moon test                                    # crdt module
+cd event-graph-walker && moon test          # CRDT library
+cd loom/loom && moon test                   # Parser framework
+cd loom/examples/lambda && moon test        # Lambda example
 ```
 
 ## Design Rationale

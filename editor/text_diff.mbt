@@ -17,11 +17,11 @@ pub fn compute_edit(old_text : String, new_text : String) -> @parser.Edit {
     old_text, new_text, old_suffix_start, new_suffix_start, old_len, new_len,
   )
 
-  // Compute edit range
+  // Compute edit range (lengths, not endpoints)
   let start = prefix_len
   let old_end = old_len - suffix_len
   let new_end = new_len - suffix_len
-  @parser.Edit::new(start, old_end, new_end)
+  @parser.Edit::new(start, old_end - start, new_end - start)
 }
 
 ///|

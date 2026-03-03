@@ -2,7 +2,8 @@
 package "dowdiness/crdt/projection"
 
 import {
-  "dowdiness/parser",
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/core",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -11,9 +12,9 @@ pub fn[A, B, C] compose(Lens[A, B], Lens[B, C]) -> Lens[A, C]
 
 pub fn[M] identity() -> Lens[M, M]
 
-pub fn is_leaf_node(@parser.TermKind) -> Bool
+pub fn is_leaf_node(@ast.AstKind) -> Bool
 
-pub fn is_valid_drop(@parser.TermKind, @parser.TermKind, DropPosition) -> Bool
+pub fn is_valid_drop(@ast.AstKind, @ast.AstKind, DropPosition) -> Bool
 
 pub fn[M, P] over(Lens[M, P], M, (P) -> P) -> Result[M, String]
 
@@ -29,13 +30,13 @@ pub fn text_lens_put(CanonicalModel, String) -> Result[CanonicalModel, String]
 
 pub fn text_lens_with_diff() -> LensDiff[CanonicalModel, String, ProjectionEdit]
 
-pub fn tree_lens() -> Lens[CanonicalModel, @parser.TermNode?]
+pub fn tree_lens() -> Lens[CanonicalModel, @ast.AstNode?]
 
 pub fn tree_lens_apply_edit(CanonicalModel, TreeEditOp) -> Result[CanonicalModel, String]
 
-pub fn tree_lens_get(CanonicalModel) -> Result[@parser.TermNode?, String]
+pub fn tree_lens_get(CanonicalModel) -> Result[@ast.AstNode?, String]
 
-pub fn tree_lens_put(CanonicalModel, @parser.TermNode?) -> Result[CanonicalModel, String]
+pub fn tree_lens_put(CanonicalModel, @ast.AstNode?) -> Result[CanonicalModel, String]
 
 pub fn[M, P] view(Lens[M, P], M) -> Result[P, String]
 
@@ -43,8 +44,8 @@ pub fn[M, P] view(Lens[M, P], M) -> Result[P, String]
 
 // Types and methods
 pub struct CanonicalModel {
-  mut ast : @parser.TermNode?
-  node_registry : Map[NodeId, @parser.TermNode]
+  mut ast : @ast.AstNode?
+  node_registry : Map[NodeId, @ast.AstNode]
   source_map : SourceMap
   dirty_projections : Map[ProjectionId, Bool]
   mut next_node_id : Int
@@ -52,12 +53,12 @@ pub struct CanonicalModel {
   mut history_position : Int
 }
 pub fn CanonicalModel::apply_operation(Self, ModelOperation) -> Result[Unit, String]
-pub fn CanonicalModel::find_parent(Self, NodeId) -> (@parser.TermNode, Int)?
-pub fn CanonicalModel::from_ast(@parser.TermNode) -> Self
-pub fn CanonicalModel::get_ast(Self) -> @parser.TermNode?
+pub fn CanonicalModel::find_parent(Self, NodeId) -> (@ast.AstNode, Int)?
+pub fn CanonicalModel::from_ast(@ast.AstNode) -> Self
+pub fn CanonicalModel::get_ast(Self) -> @ast.AstNode?
 pub fn CanonicalModel::get_errors(Self) -> Array[String]
-pub fn CanonicalModel::get_node(Self, NodeId) -> @parser.TermNode?
-pub fn CanonicalModel::get_node_range(Self, NodeId) -> @parser.Range?
+pub fn CanonicalModel::get_node(Self, NodeId) -> @ast.AstNode?
+pub fn CanonicalModel::get_node_range(Self, NodeId) -> @core.Range?
 pub fn CanonicalModel::get_source_map(Self) -> SourceMap
 pub fn CanonicalModel::has_errors(Self) -> Bool
 pub fn CanonicalModel::is_dirty(Self, ProjectionId) -> Bool
@@ -68,7 +69,7 @@ pub fn CanonicalModel::new() -> Self
 pub fn CanonicalModel::new_node_id(Self) -> NodeId
 pub fn CanonicalModel::node_at_position(Self, Int) -> NodeId?
 pub fn CanonicalModel::node_count(Self) -> Int
-pub fn CanonicalModel::set_ast(Self, @parser.TermNode) -> Unit
+pub fn CanonicalModel::set_ast(Self, @ast.AstNode) -> Unit
 pub fn CanonicalModel::unregister_node(Self, NodeId) -> Unit
 
 pub enum DropPosition {
@@ -81,17 +82,17 @@ pub impl Show for DropPosition
 
 pub struct InteractiveTreeNode {
   id : NodeId
-  kind : @parser.TermKind
+  kind : @ast.AstKind
   label : String
   children : Array[InteractiveTreeNode]
   selected : Bool
   editing : Bool
   collapsed : Bool
   drop_target : Bool
-  text_range : @parser.Range
+  text_range : @core.Range
 }
-pub fn InteractiveTreeNode::from_term_node(@parser.TermNode, SourceMap) -> Self
-pub fn InteractiveTreeNode::from_term_node_with_state(@parser.TermNode, SourceMap, @hashset.HashSet[NodeId]) -> Self
+pub fn InteractiveTreeNode::from_term_node(@ast.AstNode, SourceMap) -> Self
+pub fn InteractiveTreeNode::from_term_node_with_state(@ast.AstNode, SourceMap, @hashset.HashSet[NodeId]) -> Self
 pub impl Show for InteractiveTreeNode
 
 pub enum LeafValue {
@@ -115,9 +116,9 @@ pub struct LensDiff[M, P, E] {
 pub fn[M, P, E] LensDiff::new(Lens[M, P], (P, P) -> Array[E]) -> Self[M, P, E]
 
 pub enum ModelOperation {
-  InsertNode(parent~ : NodeId, index~ : Int, node~ : @parser.TermNode)
+  InsertNode(parent~ : NodeId, index~ : Int, node~ : @ast.AstNode)
   DeleteNode(node_id~ : NodeId)
-  ReplaceNode(node_id~ : NodeId, new_node~ : @parser.TermNode)
+  ReplaceNode(node_id~ : NodeId, new_node~ : @ast.AstNode)
   UpdateLeaf(node_id~ : NodeId, new_value~ : LeafValue)
   MoveNode(node_id~ : NodeId, new_parent~ : NodeId, new_index~ : Int)
 }
@@ -150,18 +151,18 @@ pub impl Hash for ProjectionId
 pub impl Show for ProjectionId
 
 pub struct SourceMap {
-  node_to_range : Map[NodeId, @parser.Range]
-  ranges : Array[(@parser.Range, NodeId)]
+  node_to_range : Map[NodeId, @core.Range]
+  ranges : Array[(@core.Range, NodeId)]
 }
-pub fn SourceMap::apply_edit(Self, Int, @parser.Range) -> Unit
-pub fn SourceMap::from_ast(@parser.TermNode) -> Self
-pub fn SourceMap::get_range(Self, NodeId) -> @parser.Range?
+pub fn SourceMap::apply_edit(Self, Int, @core.Range) -> Unit
+pub fn SourceMap::from_ast(@ast.AstNode) -> Self
+pub fn SourceMap::get_range(Self, NodeId) -> @core.Range?
 pub fn SourceMap::innermost_node_at(Self, Int) -> NodeId?
 pub fn SourceMap::new() -> Self
 pub fn SourceMap::node_count(Self) -> Int
 pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
-pub fn SourceMap::nodes_in_range(Self, @parser.Range) -> Array[NodeId]
-pub fn SourceMap::rebuild(Self, @parser.TermNode) -> Unit
+pub fn SourceMap::nodes_in_range(Self, @core.Range) -> Array[NodeId]
+pub fn SourceMap::rebuild(Self, @ast.AstNode) -> Unit
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
 
@@ -174,7 +175,7 @@ pub enum TreeEditOp {
   Delete(node_id~ : NodeId)
   WrapInLambda(node_id~ : NodeId, var_name~ : String)
   WrapInApp(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @parser.TermKind)
+  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @ast.AstKind)
   StartDrag(node_id~ : NodeId)
   DragOver(target~ : NodeId, position~ : DropPosition)
   Drop(source~ : NodeId, target~ : NodeId, position~ : DropPosition)

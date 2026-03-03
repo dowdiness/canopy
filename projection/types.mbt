@@ -2,7 +2,10 @@
 // These types enable bidirectional transformation between projections
 
 ///|
-using @parser {type Range, type TermNode, type TermKind}
+using @ast {type AstNode, type AstKind}
+
+///|
+using @loomcore {type Range}
 
 ///|
 /// Unique identifier for AST nodes (persistent across edits)
@@ -28,11 +31,11 @@ pub enum LeafValue {
 /// Operations on the canonical model (edit algebra)
 pub enum ModelOperation {
   /// Insert a new node as a child
-  InsertNode(parent~ : NodeId, index~ : Int, node~ : TermNode)
+  InsertNode(parent~ : NodeId, index~ : Int, node~ : AstNode)
   /// Delete a node and its descendants
   DeleteNode(node_id~ : NodeId)
   /// Replace a node with a new one (preserves ID)
-  ReplaceNode(node_id~ : NodeId, new_node~ : TermNode)
+  ReplaceNode(node_id~ : NodeId, new_node~ : AstNode)
   /// Update a leaf value (Int, Var name, Op symbol)
   UpdateLeaf(node_id~ : NodeId, new_value~ : LeafValue)
   /// Move a node to a new parent

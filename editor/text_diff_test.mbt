@@ -6,8 +6,8 @@ test "compute_edit - insert at start" {
   let new = "xabc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="0")
-  inspect(edit.old_end, content="0")
-  inspect(edit.new_end, content="1")
+  inspect(edit.old_end(), content="0")
+  inspect(edit.new_end(), content="1")
 }
 
 ///|
@@ -16,8 +16,8 @@ test "compute_edit - insert at end" {
   let new = "abcx"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="3")
-  inspect(edit.old_end, content="3")
-  inspect(edit.new_end, content="4")
+  inspect(edit.old_end(), content="3")
+  inspect(edit.new_end(), content="4")
 }
 
 ///|
@@ -26,8 +26,8 @@ test "compute_edit - insert in middle" {
   let new = "aXbc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end, content="1")
-  inspect(edit.new_end, content="2")
+  inspect(edit.old_end(), content="1")
+  inspect(edit.new_end(), content="2")
 }
 
 ///|
@@ -36,8 +36,8 @@ test "compute_edit - delete at start" {
   let new = "bc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="0")
-  inspect(edit.old_end, content="1")
-  inspect(edit.new_end, content="0")
+  inspect(edit.old_end(), content="1")
+  inspect(edit.new_end(), content="0")
 }
 
 ///|
@@ -46,8 +46,8 @@ test "compute_edit - delete at end" {
   let new = "ab"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="2")
-  inspect(edit.old_end, content="3")
-  inspect(edit.new_end, content="2")
+  inspect(edit.old_end(), content="3")
+  inspect(edit.new_end(), content="2")
 }
 
 ///|
@@ -56,8 +56,8 @@ test "compute_edit - delete in middle" {
   let new = "ac"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end, content="2")
-  inspect(edit.new_end, content="1")
+  inspect(edit.old_end(), content="2")
+  inspect(edit.new_end(), content="1")
 }
 
 ///|
@@ -66,8 +66,8 @@ test "compute_edit - replace single char" {
   let new = "aXc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end, content="2")
-  inspect(edit.new_end, content="2")
+  inspect(edit.old_end(), content="2")
+  inspect(edit.new_end(), content="2")
 }
 
 ///|
@@ -76,8 +76,8 @@ test "compute_edit - replace multiple chars" {
   let new = "aXYc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end, content="2")
-  inspect(edit.new_end, content="3")
+  inspect(edit.old_end(), content="2")
+  inspect(edit.new_end(), content="3")
 }
 
 ///|
@@ -86,8 +86,8 @@ test "compute_edit - no change" {
   let new = "abc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="3")
-  inspect(edit.old_end, content="3")
-  inspect(edit.new_end, content="3")
+  inspect(edit.old_end(), content="3")
+  inspect(edit.new_end(), content="3")
 }
 
 ///|
@@ -96,8 +96,8 @@ test "compute_edit - empty to text" {
   let new = "abc"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="0")
-  inspect(edit.old_end, content="0")
-  inspect(edit.new_end, content="3")
+  inspect(edit.old_end(), content="0")
+  inspect(edit.new_end(), content="3")
 }
 
 ///|
@@ -106,8 +106,8 @@ test "compute_edit - text to empty" {
   let new = ""
   let edit = compute_edit(old, new)
   inspect(edit.start, content="0")
-  inspect(edit.old_end, content="3")
-  inspect(edit.new_end, content="0")
+  inspect(edit.old_end(), content="3")
+  inspect(edit.new_end(), content="0")
 }
 
 ///|
@@ -116,8 +116,8 @@ test "compute_edit - lambda expression edit" {
   let new = "λx.x + 1"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="4")
-  inspect(edit.old_end, content="4")
-  inspect(edit.new_end, content="8")
+  inspect(edit.old_end(), content="4")
+  inspect(edit.new_end(), content="8")
 }
 
 ///|
@@ -126,8 +126,8 @@ test "compute_edit - lambda parameter change" {
   let new = "λy.y"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end, content="4")
-  inspect(edit.new_end, content="4")
+  inspect(edit.old_end(), content="4")
+  inspect(edit.new_end(), content="4")
 }
 
 ///|
@@ -136,6 +136,6 @@ test "compute_edit - complex lambda edit" {
   let new = "λf.λx.f (f x)"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="8")
-  inspect(edit.old_end, content="9")
-  inspect(edit.new_end, content="13")
+  inspect(edit.old_end(), content="9")
+  inspect(edit.new_end(), content="13")
 }

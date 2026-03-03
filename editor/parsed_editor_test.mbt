@@ -8,7 +8,7 @@ test "create and insert text" {
 
   // Get AST
   let ast = pe.get_ast()
-  let ast_str = @parser.print_term_node(ast)
+  let ast_str = @ast.print_ast_node(ast)
   inspect(ast_str, content="x")
 }
 
@@ -19,14 +19,14 @@ test "sequential inserts update AST" {
 
   // First AST
   let ast1 = pe.get_ast()
-  inspect(@parser.print_term_node(ast1), content="x")
+  inspect(@ast.print_ast_node(ast1), content="x")
 
   // Add more text
   try! pe.insert(" + 1")
 
   // Second AST should be different
   let ast2 = pe.get_ast()
-  let ast2_str = @parser.print_term_node(ast2)
+  let ast2_str = @ast.print_ast_node(ast2)
   inspect(ast2_str, content="(x + 1)")
 }
 
@@ -92,8 +92,8 @@ test "concurrent edits converge to same AST" {
   inspect(text1 == text2, content="true")
   let ast1 = pe1.get_ast()
   let ast2 = pe2.get_ast()
-  let ast1_str = @parser.print_term_node(ast1)
-  let ast2_str = @parser.print_term_node(ast2)
+  let ast1_str = @ast.print_ast_node(ast1)
+  let ast2_str = @ast.print_ast_node(ast2)
   inspect(ast1_str == ast2_str, content="true")
 }
 
@@ -126,8 +126,8 @@ test "collaborative lambda editing" {
   let ast2 = pe2.get_ast()
 
   // ASTs should be identical after convergence
-  let ast1_str = @parser.print_term_node(ast1)
-  let ast2_str = @parser.print_term_node(ast2)
+  let ast1_str = @ast.print_ast_node(ast1)
+  let ast2_str = @ast.print_ast_node(ast2)
   inspect(ast1_str == ast2_str, content="true")
 }
 
@@ -148,7 +148,7 @@ test "incremental parsing vs full reparse" {
   let ast2 = pe.get_ast()
 
   // Verify change
-  let ast2_str = @parser.print_term_node(ast2)
+  let ast2_str = @ast.print_ast_node(ast2)
   inspect(ast2_str, content="(λf. (λx. if (f x) then (x + 1) else (x - 2)))")
 }
 
@@ -161,7 +161,6 @@ test "empty document" {
 
   // Should still be able to get AST (may be error node)
   let _ast = pe.get_ast()
-
 }
 
 ///|
@@ -206,7 +205,7 @@ test "lazy AST evaluation" {
   let ast2 = pe.get_ast()
 
   // Verify AST is correct
-  let ast2_str = @parser.print_term_node(ast2)
+  let ast2_str = @ast.print_ast_node(ast2)
   inspect(ast2_str, content="x")
 }
 
@@ -226,7 +225,7 @@ test "merge invalidates AST cache" {
 
   // get_ast() should reparse
   let ast2 = pe1.get_ast()
-  let _ast2_str = @parser.print_term_node(ast2)
+  let _ast2_str = @ast.print_ast_node(ast2)
 
   // AST should reflect merged text
   inspect(pe1.get_text(), content="xy")

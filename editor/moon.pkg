@@ -1,0 +1,11 @@
+import {
+  "dowdiness/event-graph-walker/core",
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast" @ast,
+  "moonbitlang/core/quickcheck",
+}
+
+options(
+  is_main: false,
+)

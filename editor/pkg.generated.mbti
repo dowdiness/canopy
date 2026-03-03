@@ -2,13 +2,14 @@
 package "dowdiness/crdt/editor"
 
 import {
-  "dowdiness/event-graph-walker/core",
   "dowdiness/event-graph-walker/text",
-  "dowdiness/parser",
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/incremental",
+  "dowdiness/seam",
 }
 
 // Values
-pub fn compute_edit(String, String) -> @parser.Edit
+pub fn compute_edit(String, String) -> @dowdiness/loom/core.Edit
 
 // Errors
 
@@ -17,46 +18,46 @@ pub struct Editor {
   doc : @text.TextDoc
   mut cursor : Int
 }
-pub fn Editor::apply_remote(Self, @core.Op) -> Unit raise
+pub fn Editor::apply_remote(Self, @dowdiness/event-graph-walker/core.Op) -> Unit raise
 pub fn Editor::apply_sync(Self, @text.SyncMessage) -> Unit raise
 pub fn Editor::backspace(Self) -> Bool
 pub fn Editor::delete(Self) -> Bool
 pub fn Editor::export_all(Self) -> @text.SyncMessage raise
 pub fn Editor::export_since(Self, @text.Version) -> @text.SyncMessage raise
 pub fn Editor::get_cursor(Self) -> Int
-pub fn Editor::get_frontier(Self) -> @core.Frontier
-pub fn Editor::get_frontier_raw(Self) -> Array[@core.RawVersion] raise
-pub fn Editor::get_operations(Self) -> Array[@core.Op]
+pub fn Editor::get_frontier(Self) -> @dowdiness/event-graph-walker/core.Frontier
+pub fn Editor::get_frontier_raw(Self) -> Array[@dowdiness/event-graph-walker/core.RawVersion] raise
+pub fn Editor::get_operations(Self) -> Array[@dowdiness/event-graph-walker/core.Op]
 pub fn Editor::get_text(Self) -> String
 pub fn Editor::get_version(Self) -> @text.Version
 pub fn Editor::insert(Self, String) -> Unit raise
 pub fn Editor::insert_at(Self, Int, String) -> Unit raise
-pub fn Editor::merge_remote(Self, Array[@core.Op], Array[@core.RawVersion]) -> Unit raise
+pub fn Editor::merge_remote(Self, Array[@dowdiness/event-graph-walker/core.Op], Array[@dowdiness/event-graph-walker/core.RawVersion]) -> Unit raise
 pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self
 pub impl Show for Editor
 
 pub struct ParsedEditor {
   editor : Editor
-  parser : @parser.IncrementalParser
-  mut ast : @parser.TermNode?
+  parser : @incremental.ImperativeParser[@seam.SyntaxNode]
+  mut ast : @ast.AstNode?
   mut parse_dirty : Bool
   mut cached_text : String
   mut cached_errors : Array[String]
 }
 pub fn ParsedEditor::backspace(Self) -> Bool
 pub fn ParsedEditor::delete(Self) -> Bool
-pub fn ParsedEditor::get_ast(Self) -> @parser.TermNode
+pub fn ParsedEditor::get_ast(Self) -> @ast.AstNode
 pub fn ParsedEditor::get_cursor(Self) -> Int
 pub fn ParsedEditor::get_errors(Self) -> Array[String]
-pub fn ParsedEditor::get_frontier(Self) -> @core.Frontier
-pub fn ParsedEditor::get_frontier_raw(Self) -> Array[@core.RawVersion] raise
-pub fn ParsedEditor::get_operations(Self) -> Array[@core.Op]
+pub fn ParsedEditor::get_frontier(Self) -> @dowdiness/event-graph-walker/core.Frontier
+pub fn ParsedEditor::get_frontier_raw(Self) -> Array[@dowdiness/event-graph-walker/core.RawVersion] raise
+pub fn ParsedEditor::get_operations(Self) -> Array[@dowdiness/event-graph-walker/core.Op]
 pub fn ParsedEditor::get_text(Self) -> String
 pub fn ParsedEditor::insert(Self, String) -> Unit raise
 pub fn ParsedEditor::is_parse_valid(Self) -> Bool
 pub fn ParsedEditor::mark_dirty(Self) -> Unit
-pub fn ParsedEditor::merge_remote(Self, Array[@core.Op], Array[@core.RawVersion]) -> Unit raise
+pub fn ParsedEditor::merge_remote(Self, Array[@dowdiness/event-graph-walker/core.Op], Array[@dowdiness/event-graph-walker/core.RawVersion]) -> Unit raise
 pub fn ParsedEditor::move_cursor(Self, Int) -> Unit
 pub fn ParsedEditor::new(String) -> Self
 

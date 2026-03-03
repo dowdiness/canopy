@@ -1,8 +1,0 @@
-{
-  "is_main": false,
-  "import": [
-    "dowdiness/parser",
-    "moonbitlang/core/cmp",
-    { "path": "moonbitlang/core/immut/hashset", "alias": "immut/hashset" }
-  ]
-}

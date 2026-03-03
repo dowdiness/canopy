@@ -120,7 +120,7 @@ pub fn get_ast_dot(_handle : Int) -> String {
   match editor.val {
     Some(ed) => {
       let ast = ed.get_ast()
-      @parser.term_node_to_dot(ast)
+      @parser.to_dot(ast)
     }
     None => "digraph { }"
   }
@@ -280,9 +280,7 @@ pub fn create_editor_with_undo(
   capture_timeout_ms : Int,
 ) -> Int {
   editor.val = Some(@editor.ParsedEditor::new(agent_id))
-  undo_mgr.val = Some(
-    @undo.UndoManager::new(agent_id, capture_timeout_ms=capture_timeout_ms),
-  )
+  undo_mgr.val = Some(@undo.UndoManager::new(agent_id, capture_timeout_ms~))
   1
 }
 
@@ -300,7 +298,7 @@ pub fn insert_and_record(
         @text.Pos::at(pos),
         text,
         mgr,
-        timestamp_ms=timestamp_ms,
+        timestamp_ms~,
       )
       ed.editor.move_cursor(pos + text.length())
       ed.mark_dirty()
@@ -316,11 +314,7 @@ pub fn delete_and_record(_handle : Int, timestamp_ms : Int) -> Bool {
     (Some(ed), Some(mgr)) => {
       let pos = ed.editor.get_cursor()
       try {
-        ed.editor.doc.delete_and_record(
-          @text.Pos::at(pos),
-          mgr,
-          timestamp_ms=timestamp_ms,
-        )
+        ed.editor.doc.delete_and_record(@text.Pos::at(pos), mgr, timestamp_ms~)
         ed.mark_dirty()
         true
       } catch {
@@ -343,7 +337,7 @@ pub fn backspace_and_record(_handle : Int, timestamp_ms : Int) -> Bool {
           ed.editor.doc.delete_and_record(
             @text.Pos::at(new_pos),
             mgr,
-            timestamp_ms=timestamp_ms,
+            timestamp_ms~,
           )
           ed.editor.move_cursor(new_pos)
           ed.mark_dirty()
@@ -377,7 +371,9 @@ pub fn set_text_and_record(
       let old_len = old_text.length()
       let new_len = new_text.length()
       let mut prefix = 0
-      while prefix < old_len && prefix < new_len && old_text[prefix] == new_text[prefix] {
+      while prefix < old_len &&
+            prefix < new_len &&
+            old_text[prefix] == new_text[prefix] {
         prefix = prefix + 1
       }
       let mut suffix = 0
@@ -390,13 +386,11 @@ pub fn set_text_and_record(
       let ins_len = new_len - prefix - suffix
       // Delete changed region (delete from prefix position, del_count times)
       for _i = 0; _i < del_count; _i = _i + 1 {
-        try {
-          ed.editor.doc.delete_and_record(
-            @text.Pos::at(prefix),
-            mgr,
-            timestamp_ms=timestamp_ms,
-          )
-        } catch {
+        ed.editor.doc.delete_and_record(
+          @text.Pos::at(prefix),
+          mgr,
+          timestamp_ms~,
+        ) catch {
           _ => ()
         }
       }
@@ -406,14 +400,12 @@ pub fn set_text_and_record(
           _ => ""
         }
         if inserted.length() > 0 {
-          try {
-            ed.editor.doc.insert_and_record(
-              @text.Pos::at(prefix),
-              inserted,
-              mgr,
-              timestamp_ms=timestamp_ms,
-            )
-          } catch {
+          ed.editor.doc.insert_and_record(
+            @text.Pos::at(prefix),
+            inserted,
+            mgr,
+            timestamp_ms~,
+          ) catch {
             _ => ()
           }
         }

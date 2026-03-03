@@ -1,0 +1,8 @@
+import {
+  "dowdiness/crdt/editor",
+  "dowdiness/event-graph-walker/core",
+}
+
+options(
+  "is-main": true,
+)

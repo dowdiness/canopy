@@ -1,17 +1,15 @@
-// TreeLens: Bidirectional transformation between CanonicalModel and TermNode
+// TreeLens: Bidirectional transformation between CanonicalModel and AstNode
 // Model ↔ Interactive Tree (AST view)
 
 ///|
-/// Create a tree lens for CanonicalModel ↔ TermNode? transformation
-pub fn tree_lens() -> Lens[CanonicalModel, @parser.TermNode?] {
+/// Create a tree lens for CanonicalModel ↔ AstNode? transformation
+pub fn tree_lens() -> Lens[CanonicalModel, @ast.AstNode?] {
   Lens::new(tree_lens_get, tree_lens_put)
 }
 
 ///|
 /// Get the interactive tree from the canonical model
-pub fn tree_lens_get(
-  model : CanonicalModel,
-) -> Result[@parser.TermNode?, String] {
+pub fn tree_lens_get(model : CanonicalModel) -> Result[@ast.AstNode?, String] {
   Ok(model.get_ast())
 }
 
@@ -19,7 +17,7 @@ pub fn tree_lens_get(
 /// Put an AST back into the canonical model
 pub fn tree_lens_put(
   model : CanonicalModel,
-  ast : @parser.TermNode?,
+  ast : @ast.AstNode?,
 ) -> Result[CanonicalModel, String] {
   match ast {
     Some(new_ast) =>
@@ -57,7 +55,7 @@ pub enum TreeEditOp {
   Delete(node_id~ : NodeId)
   WrapInLambda(node_id~ : NodeId, var_name~ : String)
   WrapInApp(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @parser.TermKind)
+  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @ast.AstKind)
 
   // Drag and drop
   StartDrag(node_id~ : NodeId)
@@ -92,9 +90,8 @@ pub fn tree_lens_apply_edit(
       Ok(model)
     }
     TreeEditOp::CommitEdit(node_id~, new_value~) => {
-      // Parse the new value to get a TermNode
-      let parser = @parser.IncrementalParser::new(new_value)
-      let parsed = parser.parse()
+      // Parse the new value to get an AstNode
+      let (parsed, _) = @parser.parse_with_error_recovery(new_value)
       // Assign fresh IDs to avoid collisions with existing AST nodes
       let new_node = assign_fresh_ids(parsed, model)
       // Replace the node with the parsed content
@@ -120,11 +117,10 @@ pub fn tree_lens_apply_edit(
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Get text representation of the existing node
-          let existing_text = @parser.print_term_node(existing)
+          let existing_text = @ast.print_ast_node(existing)
           // Parse a lambda wrapping it
           let lambda_text = "λ" + var_name + "." + existing_text
-          let parser = @parser.IncrementalParser::new(lambda_text)
-          let parsed = parser.parse()
+          let (parsed, _) = @parser.parse_with_error_recovery(lambda_text)
           // Assign fresh IDs to avoid collisions with existing AST nodes
           let new_node = assign_fresh_ids(parsed, model)
           // Replace the node
@@ -141,11 +137,10 @@ pub fn tree_lens_apply_edit(
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Get text representation of the existing node
-          let existing_text = @parser.print_term_node(existing)
+          let existing_text = @ast.print_ast_node(existing)
           // Parse an application with a placeholder argument
           let app_text = "(" + existing_text + ") _"
-          let parser = @parser.IncrementalParser::new(app_text)
-          let parsed = parser.parse()
+          let (parsed, _) = @parser.parse_with_error_recovery(app_text)
           // Assign fresh IDs to avoid collisions with existing AST nodes
           let new_node = assign_fresh_ids(parsed, model)
           // Replace the node
@@ -158,18 +153,18 @@ pub fn tree_lens_apply_edit(
       }
     TreeEditOp::InsertChild(parent~, index~, kind~) => {
       // Create a placeholder node based on the kind
-      // Since we can't create TermKind directly, we'll parse a placeholder
+      // Since we can't create AstKind directly, we'll parse a placeholder
       let placeholder_text = match kind {
-        @parser.TermKind::Int(_) => "0"
-        @parser.TermKind::Var(_) => "_"
-        @parser.TermKind::Lam(_) => "λx.x"
-        @parser.TermKind::App => "f x"
-        @parser.TermKind::Bop(_) => "0 + 0"
-        @parser.TermKind::If => "if 0 then 0 else 0"
-        @parser.TermKind::Error(_) => "_"
+        @ast.AstKind::Int(_) => "0"
+        @ast.AstKind::Var(_) => "_"
+        @ast.AstKind::Lam(_) => "λx.x"
+        @ast.AstKind::App => "f x"
+        @ast.AstKind::Bop(_) => "0 + 0"
+        @ast.AstKind::If => "if 0 then 0 else 0"
+        @ast.AstKind::Let(_) => "let x = 0 in x"
+        @ast.AstKind::Error(_) => "_"
       }
-      let parser = @parser.IncrementalParser::new(placeholder_text)
-      let parsed = parser.parse()
+      let (parsed, _) = @parser.parse_with_error_recovery(placeholder_text)
       // Assign fresh IDs to avoid collisions with existing AST nodes
       let new_node = assign_fresh_ids(parsed, model)
       let op = InsertNode(parent~, index~, node=new_node)

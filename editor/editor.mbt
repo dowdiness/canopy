@@ -63,7 +63,6 @@ pub fn Editor::insert_at(
   text : String,
 ) -> Unit raise {
   let _ = self.doc.insert(@text.Pos::at(position), text)
-
 }
 
 ///| Delete character at current cursor position

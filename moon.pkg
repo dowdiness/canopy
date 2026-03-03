@@ -1,14 +1,16 @@
-{
-  "import": [
-    "dowdiness/crdt/editor",
-    "dowdiness/event-graph-walker/core",
-    "dowdiness/event-graph-walker/causal_graph",
-    "dowdiness/event-graph-walker/text",
-    "dowdiness/event-graph-walker/undo",
-    "dowdiness/parser",
-    "moonbitlang/core/json"
-  ],
-  "link": {
+import {
+  "dowdiness/crdt/editor",
+  "dowdiness/event-graph-walker/core",
+  "dowdiness/event-graph-walker/causal_graph",
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/undo",
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast" @ast,
+  "moonbitlang/core/json",
+}
+
+options(
+  link: {
     "js": {
       "exports": [
         "create_editor",
@@ -37,8 +39,8 @@
         "undo_manager_can_undo",
         "undo_manager_can_redo",
         "undo_manager_set_tracking",
-        "undo_manager_clear"
-      ]
-    }
-  }
-}
+        "undo_manager_clear",
+      ],
+    },
+  },
+)

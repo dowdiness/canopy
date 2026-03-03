@@ -1,0 +1,11 @@
+import {
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast" @ast,
+  "dowdiness/loom/core" @loomcore,
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/immut/hashset" @immut/hashset,
+}
+
+options(
+  is_main: false,
+)

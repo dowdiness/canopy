@@ -6,8 +6,8 @@
 /// Keeps them synchronized via lazy evaluation and text diffing
 pub struct ParsedEditor {
   editor : Editor // CRDT text editor
-  parser : @parser.IncrementalParser // Incremental parser
-  mut ast : @parser.TermNode? // Cached AST (lazy evaluation)
+  parser : @parser.ImperativeParser[@parser.SyntaxNode] // Incremental parser
+  mut ast : @ast.AstNode? // Cached AST (lazy evaluation)
   mut parse_dirty : Bool // Does AST need reparsing?
   mut cached_text : String // Last parsed text (for computing Edit)
   mut cached_errors : Array[String] // Cached errors from last parse
@@ -17,7 +17,7 @@ pub struct ParsedEditor {
 /// Create a new ParsedEditor with the given agent ID
 pub fn ParsedEditor::new(agent_id : String) -> ParsedEditor {
   let editor = Editor::new(agent_id)
-  let parser = @parser.IncrementalParser::new("")
+  let parser = @parser.new_imperative_parser("")
   {
     editor,
     parser,
@@ -85,7 +85,7 @@ pub fn ParsedEditor::mark_dirty(self : ParsedEditor) -> Unit {
 ///|
 /// Get the AST (lazy evaluation - only reparses if dirty)
 /// Raises an error if parsing fails
-pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @parser.TermNode {
+pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @ast.AstNode {
   if self.parse_dirty {
     self.reparse()
   }
@@ -101,7 +101,7 @@ pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @parser.TermNode {
 fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
   let old_text = self.cached_text
   let new_text = self.editor.get_text()
-  let ast = if old_text.length() == 0 && new_text.length() == 0 {
+  let syntax_node = if old_text.length() == 0 && new_text.length() == 0 {
     // Both empty - create an empty AST or error node
     // For now, try to parse empty string
     let edit = @parser.Edit::new(0, 0, 0)
@@ -115,7 +115,8 @@ fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
     let edit = compute_edit(old_text, new_text)
     self.parser.edit(edit, new_text)
   }
-
+  let counter = Ref::new(0)
+  let ast = @parser.syntax_node_to_ast_node(syntax_node, counter)
   // Cache the AST and collect errors
   self.ast = Some(ast)
   self.cached_errors = @parser.collect_errors(ast)

@@ -5,7 +5,7 @@
 /// Interactive tree node with editing state
 pub struct InteractiveTreeNode {
   id : NodeId
-  kind : TermKind
+  kind : AstKind
   label : String
   children : Array[InteractiveTreeNode]
   /// Currently selected
@@ -21,9 +21,9 @@ pub struct InteractiveTreeNode {
 } derive(Show)
 
 ///|
-/// Create an interactive tree node from a TermNode
+/// Create an interactive tree node from a AstNode
 pub fn InteractiveTreeNode::from_term_node(
-  node : TermNode,
+  node : AstNode,
   source_map : SourceMap,
 ) -> InteractiveTreeNode {
   InteractiveTreeNode::from_term_node_with_state(
@@ -43,10 +43,10 @@ priv struct TreeUIState {
 }
 
 ///|
-/// Create an interactive tree node from a TermNode with UI state applied
-/// This is the lens get operation: InteractiveTree = get(TermNode, UIState)
+/// Create an interactive tree node from a AstNode with UI state applied
+/// This is the lens get operation: InteractiveTree = get(AstNode, UIState)
 pub fn InteractiveTreeNode::from_term_node_with_state(
-  node : TermNode,
+  node : AstNode,
   source_map : SourceMap,
   collapsed_nodes : @immut/hashset.HashSet[NodeId],
 ) -> InteractiveTreeNode {
@@ -62,7 +62,7 @@ pub fn InteractiveTreeNode::from_term_node_with_state(
 ///|
 /// Create an interactive tree node with full UI state (internal)
 fn from_term_node_with_full_state(
-  node : TermNode,
+  node : AstNode,
   source_map : SourceMap,
   ui_state : TreeUIState,
 ) -> InteractiveTreeNode {
@@ -100,7 +100,7 @@ fn from_term_node_with_full_state(
 
 ///|
 /// Get display label for a node kind
-fn get_node_label(kind : TermKind) -> String {
+fn get_node_label(kind : AstKind) -> String {
   match kind {
     Int(n) => n.to_string()
     Var(name) => name
@@ -108,6 +108,7 @@ fn get_node_label(kind : TermKind) -> String {
     App => "App"
     Bop(op) => op.to_string()
     If => "if"
+    Let(name) => "let " + name
     Error(msg) => "Error: " + msg
   }
 }
@@ -245,13 +246,13 @@ pub fn TreeEditorState::refresh_from_model(
 
 ///|
 /// Collect all node IDs from AST as immutable set
-fn collect_all_ids_from_ast(node : TermNode) -> @immut/hashset.HashSet[NodeId] {
+fn collect_all_ids_from_ast(node : AstNode) -> @immut/hashset.HashSet[NodeId] {
   collect_ids_from_ast_helper(node, @immut/hashset.new())
 }
 
 ///|
 fn collect_ids_from_ast_helper(
-  node : TermNode,
+  node : AstNode,
   result : @immut/hashset.HashSet[NodeId],
 ) -> @immut/hashset.HashSet[NodeId] {
   let mut acc = result.add(NodeId(node.node_id))
@@ -612,7 +613,7 @@ fn update_node_collapsed(
 
 ///|
 /// Check if a node is a leaf (editable inline)
-pub fn is_leaf_node(kind : @parser.TermKind) -> Bool {
+pub fn is_leaf_node(kind : @ast.AstKind) -> Bool {
   match kind {
     Int(_) => true
     Var(_) => true
@@ -624,8 +625,8 @@ pub fn is_leaf_node(kind : @parser.TermKind) -> Bool {
 ///|
 /// Check if a drop is valid
 pub fn is_valid_drop(
-  source : @parser.TermKind,
-  target : @parser.TermKind,
+  source : @ast.AstKind,
+  target : @ast.AstKind,
   position : DropPosition,
 ) -> Bool {
   // Prevent dropping a node into itself or its descendants

@@ -12,7 +12,7 @@ digraph CRDT_Architecture {
     // Core foundation packages (no dependencies)
     causal_graph [label="causal_graph", shape=box, style="rounded,filled", fillcolor="#7ED321"];
     fugue [label="fugue", shape=box, style="rounded,filled", fillcolor="#7ED321"];
-    parser [label="parser", shape=box, style="rounded,filled", fillcolor="#7ED321"];
+    loom [label="loom", shape=box, style="rounded,filled", fillcolor="#7ED321"];
     
     // Mid-tier packages (depend on foundation)
     oplog [label="oplog", shape=box, style="rounded,filled", fillcolor="#F5A623"];
@@ -30,14 +30,14 @@ digraph CRDT_Architecture {
     // Root package dependencies
     root -> editor [label="imports"];
     root -> oplog [label="imports"];
-    root -> parser [label="imports"];
+    root -> loom [label="imports"];
     
     // Editor dependencies
     editor -> causal_graph [label="imports"];
     editor -> oplog [label="imports"];
     editor -> fugue [label="imports"];
     editor -> merge [label="imports"];
-    editor -> parser [label="imports"];
+    editor -> loom [label="imports"];
     
     // Oplog dependencies
     oplog -> causal_graph [label="imports"];
@@ -74,7 +74,7 @@ digraph CRDT_Architecture {
         
         causal_graph;
         fugue;
-        parser;
+        loom;
     }
     
     subgraph cluster_midtier {

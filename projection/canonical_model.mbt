@@ -5,9 +5,9 @@
 /// The canonical model containing the AST and metadata
 pub struct CanonicalModel {
   /// Current AST root
-  mut ast : TermNode?
-  /// Fast lookup: NodeId → TermNode
-  node_registry : Map[NodeId, TermNode]
+  mut ast : AstNode?
+  /// Fast lookup: NodeId → AstNode
+  node_registry : Map[NodeId, AstNode]
   /// Bidirectional position mapping
   source_map : SourceMap
   /// Set of projections that need update
@@ -36,7 +36,7 @@ pub fn CanonicalModel::new() -> CanonicalModel {
 
 ///|
 /// Create a CanonicalModel from an existing AST
-pub fn CanonicalModel::from_ast(ast : TermNode) -> CanonicalModel {
+pub fn CanonicalModel::from_ast(ast : AstNode) -> CanonicalModel {
   let model = CanonicalModel::new()
   model.set_ast(ast)
   model
@@ -44,13 +44,13 @@ pub fn CanonicalModel::from_ast(ast : TermNode) -> CanonicalModel {
 
 ///|
 /// Get the current AST
-pub fn CanonicalModel::get_ast(self : CanonicalModel) -> TermNode? {
+pub fn CanonicalModel::get_ast(self : CanonicalModel) -> AstNode? {
   self.ast
 }
 
 ///|
 /// Set a new AST and rebuild all indices
-pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : TermNode) -> Unit {
+pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : AstNode) -> Unit {
   self.ast = Some(ast)
   self.rebuild_indices(ast)
   self.mark_all_dirty()
@@ -60,7 +60,7 @@ pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : TermNode) -> Unit {
 /// Rebuild the node registry and source map from an AST
 fn CanonicalModel::rebuild_indices(
   self : CanonicalModel,
-  root : TermNode,
+  root : AstNode,
 ) -> Unit {
   self.node_registry.clear()
   self.register_node(root)
@@ -72,10 +72,7 @@ fn CanonicalModel::rebuild_indices(
 
 ///|
 /// Recursively register a node and its children
-fn CanonicalModel::register_node(
-  self : CanonicalModel,
-  node : TermNode,
-) -> Unit {
+fn CanonicalModel::register_node(self : CanonicalModel, node : AstNode) -> Unit {
   let node_id = NodeId(node.node_id)
   self.node_registry[node_id] = node
   for child in node.children {
@@ -87,7 +84,7 @@ fn CanonicalModel::register_node(
 /// Find the maximum node_id in a tree
 fn CanonicalModel::find_max_node_id(
   self : CanonicalModel,
-  node : TermNode,
+  node : AstNode,
 ) -> Int {
   let mut max_id = node.node_id
   for child in node.children {
@@ -112,7 +109,7 @@ pub fn CanonicalModel::new_node_id(self : CanonicalModel) -> NodeId {
 pub fn CanonicalModel::get_node(
   self : CanonicalModel,
   node_id : NodeId,
-) -> TermNode? {
+) -> AstNode? {
   self.node_registry.get(node_id)
 }
 
@@ -186,7 +183,7 @@ pub fn CanonicalModel::mark_clean(
 pub fn CanonicalModel::find_parent(
   self : CanonicalModel,
   node_id : NodeId,
-) -> (TermNode, Int)? {
+) -> (AstNode, Int)? {
   match self.ast {
     None => None
     Some(root) =>
@@ -200,10 +197,7 @@ pub fn CanonicalModel::find_parent(
 
 ///|
 /// Recursive helper to find parent
-fn find_parent_recursive(
-  node : TermNode,
-  target_id : NodeId,
-) -> (TermNode, Int)? {
+fn find_parent_recursive(node : AstNode, target_id : NodeId) -> (AstNode, Int)? {
   for i, child in node.children {
     if NodeId(child.node_id) == target_id {
       return Some((node, i))
@@ -219,18 +213,18 @@ fn find_parent_recursive(
 ///|
 /// Update a node in the tree by its ID (returns new tree root)
 fn update_node_in_tree(
-  root : TermNode,
+  root : AstNode,
   target_id : NodeId,
-  new_node : TermNode,
-) -> TermNode {
+  new_node : AstNode,
+) -> AstNode {
   if NodeId(root.node_id) == target_id {
     new_node
   } else {
-    let new_children : Array[TermNode] = []
+    let new_children : Array[AstNode] = []
     for child in root.children {
       new_children.push(update_node_in_tree(child, target_id, new_node))
     }
-    @parser.TermNode::new(
+    @ast.AstNode::new(
       root.kind,
       root.start,
       root.end,
@@ -242,26 +236,20 @@ fn update_node_in_tree(
 
 ///|
 /// Remove a child from a node's children by index
-fn remove_child_at(node : TermNode, index : Int) -> TermNode {
-  let new_children : Array[TermNode] = []
+fn remove_child_at(node : AstNode, index : Int) -> AstNode {
+  let new_children : Array[AstNode] = []
   for i, child in node.children {
     if i != index {
       new_children.push(child)
     }
   }
-  @parser.TermNode::new(
-    node.kind,
-    node.start,
-    node.end,
-    node.node_id,
-    new_children,
-  )
+  @ast.AstNode::new(node.kind, node.start, node.end, node.node_id, new_children)
 }
 
 ///|
 /// Insert a child into a node's children at index
-fn insert_child_at(node : TermNode, index : Int, child : TermNode) -> TermNode {
-  let new_children : Array[TermNode] = []
+fn insert_child_at(node : AstNode, index : Int, child : AstNode) -> AstNode {
+  let new_children : Array[AstNode] = []
   for i, c in node.children {
     if i == index {
       new_children.push(child)
@@ -272,13 +260,7 @@ fn insert_child_at(node : TermNode, index : Int, child : TermNode) -> TermNode {
   if index >= node.children.length() {
     new_children.push(child)
   }
-  @parser.TermNode::new(
-    node.kind,
-    node.start,
-    node.end,
-    node.node_id,
-    new_children,
-  )
+  @ast.AstNode::new(node.kind, node.start, node.end, node.node_id, new_children)
 }
 
 ///|
@@ -332,7 +314,7 @@ pub fn CanonicalModel::apply_operation(
         None => return Err("Node not found: " + node_id.to_string())
         Some(_) => {
           // Create a node with the same ID but new content
-          let replacement = @parser.TermNode::new(
+          let replacement = @ast.AstNode::new(
             new_node.kind,
             new_node.start,
             new_node.end,
@@ -349,23 +331,22 @@ pub fn CanonicalModel::apply_operation(
         }
       }
     UpdateLeaf(node_id~, new_value~) => {
-      // UpdateLeaf requires creating TermKind values, but the constructors are
-      // private to the parser module. Use ReplaceNode with a parsed node instead.
+      // UpdateLeaf requires creating AstKind values, but the constructors are
+      // private to the ast module. Use ReplaceNode with a parsed node instead.
       // For now, we'll parse the value and extract the node.
       let value_str = match new_value {
         IntValue(n) => n.to_string()
         VarName(name) => name
         OpSymbol(op) => op
       }
-      // Parse the value to get a TermNode
-      let parser = @parser.IncrementalParser::new(value_str)
-      let parsed = parser.parse()
+      // Parse the value to get an AstNode
+      let (parsed, _) = @parser.parse_with_error_recovery(value_str)
       // The parsed node should have the right kind - use ReplaceNode logic
       match self.get_node(node_id) {
         None => return Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Create replacement preserving the original node_id and position
-          let replacement = @parser.TermNode::new(
+          let replacement = @ast.AstNode::new(
             parsed.kind,
             existing.start,
             existing.end,
@@ -452,7 +433,7 @@ pub fn CanonicalModel::apply_operation(
 
 ///|
 /// Helper to find a node in a tree by ID
-fn get_node_in_tree(root : TermNode, target_id : NodeId) -> TermNode? {
+fn get_node_in_tree(root : AstNode, target_id : NodeId) -> AstNode? {
   if NodeId(root.node_id) == target_id {
     Some(root)
   } else {
@@ -469,7 +450,7 @@ fn get_node_in_tree(root : TermNode, target_id : NodeId) -> TermNode? {
 ///|
 /// Helper to unregister a node tree from the model
 fn unregister_node_tree_from_model(
-  node : TermNode,
+  node : AstNode,
   model : CanonicalModel,
 ) -> Unit {
   model.unregister_node(NodeId(node.node_id))
