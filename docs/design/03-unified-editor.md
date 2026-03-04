@@ -2,7 +2,7 @@
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
 **Status:** Draft
-**Updated:** 2026-03-04
+**Updated:** 2026-03-05
 
 ---
 
@@ -12,7 +12,7 @@ The current architecture has three overlapping "editor" types:
 
 | Type | Location | Source of truth for... |
 |------|----------|----------------------|
-| `Editor` | `editor/editor.mbt` | Cursor position, wraps `TextDoc` |
+| `Editor` | `editor/editor.mbt` | Legacy cursor wrapper around `TextDoc` |
 | `ParsedEditor` | `editor/parsed_editor.mbt` | AST cache, dirty flag, wraps `Editor` |
 | `CanonicalModel` | `projection/canonical_model.mbt` | Node registry, source map, own edit history |
 
@@ -48,6 +48,15 @@ pub struct SyncEditor {
   awareness : AwarenessState             // Peer cursors (§4)
 }
 ```
+
+### `Editor` Decision (Explicit)
+
+`Editor` is **kept** as a thin compatibility shim in this phase, but it is no longer
+the architectural center once `SyncEditor` exists.
+
+- `SyncEditor` owns the production facade used by `crdt.mbt` and sync paths.
+- `Editor` may remain for compatibility/tests and small local cursor helpers.
+- `Editor` must not become a second source of truth (no parse cache, no history, no awareness state).
 
 ### Responsibilities
 
@@ -145,6 +154,7 @@ All existing FFI functions (`create_editor`, `insert`, `get_ast_json`, `merge_op
 
 | File / Type | Action |
 |---|---|
+| `editor/editor.mbt` (`Editor`) | Keep as thin compatibility wrapper; not the primary facade |
 | `editor/parsed_editor.mbt` | Delete — replaced by `SyncEditor` |
 | `projection/canonical_model.mbt` | Retire after tree editor is migrated to AST + SourceMap inputs |
 | `editor/text_diff.mbt` | Keep as fallback for batch merges, but no longer on hot path |
@@ -175,6 +185,7 @@ All existing FFI functions (`create_editor`, `insert`, `get_ast_json`, `merge_op
 
 - Delete `parsed_editor.mbt`
 - Remove `CanonicalModel` if no other consumers
+- Keep `Editor` as a compatibility shim (or alias) until all direct consumers are migrated
 - Update tests
 
 ---

@@ -2,7 +2,7 @@
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
 **Status:** Draft
-**Updated:** 2026-03-04
+**Updated:** 2026-03-05
 
 ---
 
@@ -56,7 +56,7 @@ Tree Edit → Unparse → Text Diff → CRDT Ops → Broadcast → Remote: Apply
 **Option A: Text CRDT only (chosen)**
 - Tree edit → unparse → text diff → CRDT text ops
 - Simple. Leverages existing CRDT. Peers just see text changes.
-- Downside: Unparse may produce different formatting than original.
+- Downside: Unparse is lossy; formatting may change.
 
 **Option B: Tree CRDT (not chosen)**
 - Structural CRDT operations on the AST directly (e.g., Fugue on tree nodes)
@@ -66,7 +66,7 @@ Tree Edit → Unparse → Text Diff → CRDT Ops → Broadcast → Remote: Apply
 **Option A is correct for this project** because:
 1. eg-walker's text CRDT is already battle-tested
 2. Lambda calculus expressions are small enough that reparsing is cheap
-3. Formatting loss is acceptable (no comments in lambda calculus)
+3. Formatting loss is acceptable for lambda calculus syntax, but is user-visible
 4. A tree CRDT would require a fundamentally different architecture
 
 ---
@@ -97,6 +97,10 @@ pub fn unparse(ast : Ast) -> String {
 
 **Future improvement:** Use loom's CST (`SyntaxNode`) for whitespace-preserving unparse. The CST contains trivia (whitespace, comments) that the AST discards. With CST-aware unparsing, the roundtrip preserves formatting.
 
+**User-visible constraint (current behavior):** the first tree edit can "snap" the file
+to canonical unparser formatting because AST unparsing discards original trivia.
+After that first normalization, subsequent tree edits operate on the normalized style.
+
 ### 2. Tree Edit → Text CRDT Bridge
 
 ```moonbit
@@ -107,6 +111,7 @@ pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit r
 
   // Build a temporary canonical model, apply tree edit, then render to text.
   // Exact model<->AST plumbing is finalized in §3.
+  // NOTE: this full rebuild is O(N) in AST size per tree edit.
   let model = CanonicalModel::from_ast(self.ast())
   let updated = match tree_lens_apply_edit(model, op) {
     Ok(m) => m
@@ -133,6 +138,21 @@ pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit r
   self.parser.set_source(self.doc.text())
 }
 ```
+
+### 2.1 Performance Note: Full Model Rebuild Is O(N)
+
+The baseline implementation above does a full `CanonicalModel::from_ast(self.ast())`
+for every tree edit. That makes each edit at least O(N) in document/AST size before
+diffing and CRDT application, and is expected to become a bottleneck on larger files.
+
+This is acceptable as a correctness-first phase, but should be optimized after
+behavior stabilizes.
+
+Planned optimization directions:
+
+1. Reuse an incremental tree model between edits instead of rebuilding from AST.
+2. Fast-path `UpdateLeaf` (already sketched below) for common rename/value edits.
+3. Prefer source-map-targeted edits where possible to reduce unparse+diff scope.
 
 ### 3. Node ID Preservation Across Roundtrip
 

@@ -2,7 +2,7 @@
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
 **Status:** Draft
-**Updated:** 2026-03-04
+**Updated:** 2026-03-05
 
 ---
 
@@ -37,9 +37,14 @@ pub struct AwarenessMessage {
   selection : (Int, Int)?          // Selection range (start, end), None = no selection
   display_name : String?          // Human-readable name
   color : String?                 // CSS color for cursor rendering
-  timestamp_ms : Int              // For staleness detection
+  timestamp_ms : Int64            // Unix epoch milliseconds; Int would overflow
 }
 ```
+
+`timestamp_ms` is explicitly `Int64` because Unix epoch milliseconds are already well
+beyond 32-bit range. On the JS side this is still safe to transport as `number`
+(`Date.now()` values are currently far below `2^53 - 1`), then converted to `Int64`
+at the FFI boundary.
 
 ### Awareness State (Per Peer)
 
@@ -48,7 +53,7 @@ pub struct AwarenessMessage {
 pub struct AwarenessState {
   local_peer : String
   peers : Map[String, PeerState]
-  stale_timeout_ms : Int           // Remove peer after this many ms of silence
+  stale_timeout_ms : Int64         // Remove peer after this many ms of silence
 }
 
 pub struct PeerState {
@@ -56,7 +61,7 @@ pub struct PeerState {
   selection : (Int, Int)?
   display_name : String
   color : String
-  last_seen_ms : Int
+  last_seen_ms : Int64
 }
 ```
 
@@ -123,7 +128,7 @@ type Message =
 Peers that haven't sent awareness in `stale_timeout_ms` (default: 60s) are removed:
 
 ```moonbit
-pub fn AwarenessState::cleanup_stale(self : AwarenessState, now_ms : Int) -> Unit {
+pub fn AwarenessState::cleanup_stale(self : AwarenessState, now_ms : Int64) -> Unit {
   let stale_peers : Array[String] = []
   for peer_id, state in self.peers {
     if now_ms - state.last_seen_ms > self.stale_timeout_ms {
@@ -181,7 +186,7 @@ pub fn apply_awareness_json(handle : Int, json : String) -> Unit
 pub fn get_peer_cursors_json(handle : Int) -> String
 
 /// Cleanup stale peers
-pub fn awareness_cleanup(handle : Int, now_ms : Int) -> Unit
+pub fn awareness_cleanup(handle : Int, now_ms : Int64) -> Unit
 ```
 
 ---
