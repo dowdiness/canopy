@@ -7,20 +7,17 @@ test "ParsedEditor: error recovery - invalid to valid syntax" {
 
   // Start with valid syntax
   try! editor.insert("x")
-  let ast1 = editor.get_ast()
-  let errors1 = @parser.collect_errors(ast1)
+  let errors1 = editor.get_errors()
   inspect(errors1.length(), content="0") // No errors
 
   // Add invalid syntax
   try! editor.insert("+") // "x+"
-  let ast2 = editor.get_ast()
-  let errors2 = @parser.collect_errors(ast2)
+  let errors2 = editor.get_errors()
   inspect(errors2.length() > 0, content="true") // Should have errors
 
   // Fix the syntax
   try! editor.insert(" 1") // "x+ 1"
-  let ast3 = editor.get_ast()
-  let errors3 = @parser.collect_errors(ast3)
+  let errors3 = editor.get_errors()
   inspect(errors3.length(), content="0") // Errors should be cleared!
 }
 
@@ -30,26 +27,22 @@ test "ParsedEditor: error recovery - multiple edits" {
 
   // Type: λx.
   try! editor.insert("λx.")
-  let ast1 = editor.get_ast()
-  let errors1 = @parser.collect_errors(ast1)
+  let errors1 = editor.get_errors()
   inspect(errors1.length() > 0, content="true") // Incomplete lambda - error
 
   // Complete it: λx.x
   try! editor.insert("x")
-  let ast2 = editor.get_ast()
-  let errors2 = @parser.collect_errors(ast2)
+  let errors2 = editor.get_errors()
   inspect(errors2.length(), content="0") // Complete - no errors
 
   // Break it again: λx.x+
   try! editor.insert("+")
-  let ast3 = editor.get_ast()
-  let errors3 = @parser.collect_errors(ast3)
+  let errors3 = editor.get_errors()
   inspect(errors3.length() > 0, content="true") // Invalid - error
 
   // Fix it: λx.x+ 1
   try! editor.insert(" 1")
-  let ast4 = editor.get_ast()
-  let errors4 = @parser.collect_errors(ast4)
+  let errors4 = editor.get_errors()
   inspect(errors4.length(), content="0") // Valid - no errors
 }
 
@@ -59,8 +52,7 @@ test "ParsedEditor: incremental parser is used" {
 
   // Insert some text
   try! editor.insert("λf.λx.f x")
-  let ast1 = editor.get_ast()
-  let errors1 = @parser.collect_errors(ast1)
+  let errors1 = editor.get_errors()
   inspect(errors1.length(), content="0") // Valid
 
   // Make a small change at the end - change x to y
@@ -69,9 +61,8 @@ test "ParsedEditor: incremental parser is used" {
   let _ = editor.delete() // Delete 'x'
   try! editor.insert("y") // Add 'y'
 
-  // Get AST again - should use incremental parser
-  let ast2 = editor.get_ast()
-  let errors2 = @parser.collect_errors(ast2)
+  // Get errors again - should use incremental parser
+  let errors2 = editor.get_errors()
   inspect(errors2.length(), content="0") // Should still be valid
 
   // Verify text is correct

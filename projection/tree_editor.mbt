@@ -5,7 +5,7 @@
 /// Interactive tree node with editing state
 pub struct InteractiveTreeNode {
   id : NodeId
-  kind : AstKind
+  kind : @ast.Term
   label : String
   children : Array[InteractiveTreeNode]
   /// Currently selected
@@ -21,9 +21,9 @@ pub struct InteractiveTreeNode {
 } derive(Show)
 
 ///|
-/// Create an interactive tree node from a AstNode
+/// Create an interactive tree node from a ProjNode
 pub fn InteractiveTreeNode::from_term_node(
-  node : AstNode,
+  node : ProjNode,
   source_map : SourceMap,
 ) -> InteractiveTreeNode {
   InteractiveTreeNode::from_term_node_with_state(
@@ -43,10 +43,10 @@ priv struct TreeUIState {
 }
 
 ///|
-/// Create an interactive tree node from a AstNode with UI state applied
-/// This is the lens get operation: InteractiveTree = get(AstNode, UIState)
+/// Create an interactive tree node from a ProjNode with UI state applied
+/// This is the lens get operation: InteractiveTree = get(ProjNode, UIState)
 pub fn InteractiveTreeNode::from_term_node_with_state(
-  node : AstNode,
+  node : ProjNode,
   source_map : SourceMap,
   collapsed_nodes : @immut/hashset.HashSet[NodeId],
 ) -> InteractiveTreeNode {
@@ -62,7 +62,7 @@ pub fn InteractiveTreeNode::from_term_node_with_state(
 ///|
 /// Create an interactive tree node with full UI state (internal)
 fn from_term_node_with_full_state(
-  node : AstNode,
+  node : ProjNode,
   source_map : SourceMap,
   ui_state : TreeUIState,
 ) -> InteractiveTreeNode {
@@ -100,15 +100,16 @@ fn from_term_node_with_full_state(
 
 ///|
 /// Get display label for a node kind
-fn get_node_label(kind : AstKind) -> String {
+fn get_node_label(kind : @ast.Term) -> String {
   match kind {
     Int(n) => n.to_string()
     Var(name) => name
-    Lam(param) => "λ" + param
-    App => "App"
-    Bop(op) => op.to_string()
-    If => "if"
-    Let(name) => "let " + name
+    Lam(param, _) => "λ" + param
+    App(_, _) => "App"
+    Bop(op, _, _) => op.to_string()
+    If(_, _, _) => "if"
+    Let(name, _, _) => "let " + name
+    Unit => "()"
     Error(msg) => "Error: " + msg
   }
 }
@@ -246,13 +247,13 @@ pub fn TreeEditorState::refresh_from_model(
 
 ///|
 /// Collect all node IDs from AST as immutable set
-fn collect_all_ids_from_ast(node : AstNode) -> @immut/hashset.HashSet[NodeId] {
+fn collect_all_ids_from_ast(node : ProjNode) -> @immut/hashset.HashSet[NodeId] {
   collect_ids_from_ast_helper(node, @immut/hashset.new())
 }
 
 ///|
 fn collect_ids_from_ast_helper(
-  node : AstNode,
+  node : ProjNode,
   result : @immut/hashset.HashSet[NodeId],
 ) -> @immut/hashset.HashSet[NodeId] {
   let mut acc = result.add(NodeId(node.node_id))
@@ -612,12 +613,13 @@ fn update_node_collapsed(
 }
 
 ///|
-/// Check if a node is a leaf (editable inline)
-pub fn is_leaf_node(kind : @ast.AstKind) -> Bool {
+/// Check if a node is a leaf (editable inline).
+/// Error nodes are treated as leaves so they can be edited in place.
+pub fn is_leaf_node(kind : @ast.Term) -> Bool {
   match kind {
     Int(_) => true
     Var(_) => true
-    Bop(_) => true
+    Error(_) => true
     _ => false
   }
 }
@@ -625,8 +627,8 @@ pub fn is_leaf_node(kind : @ast.AstKind) -> Bool {
 ///|
 /// Check if a drop is valid
 pub fn is_valid_drop(
-  source : @ast.AstKind,
-  target : @ast.AstKind,
+  source : @ast.Term,
+  target : @ast.Term,
   position : DropPosition,
 ) -> Bool {
   // Prevent dropping a node into itself or its descendants

@@ -12,13 +12,9 @@ test "Web scenario: error persistence bug" {
     None => ()
   }
 
-  // Get AST and errors (like web UI does)
-  let (_ast1, errors1) = match editor_ref.val {
-    Some(ed) => {
-      let ast = ed.get_ast()
-      let errors = @parser.collect_errors(ast)
-      (ast, errors)
-    }
+  // Get errors (like web UI does)
+  let errors1 = match editor_ref.val {
+    Some(ed) => ed.get_errors()
     None => abort("No editor")
   }
   println("After typing 'x':")
@@ -31,13 +27,9 @@ test "Web scenario: error persistence bug" {
     None => ()
   }
 
-  // Get AST and errors
-  let (_ast2, errors2) = match editor_ref.val {
-    Some(ed) => {
-      let ast = ed.get_ast()
-      let errors = @parser.collect_errors(ast)
-      (ast, errors)
-    }
+  // Get errors
+  let errors2 = match editor_ref.val {
+    Some(ed) => ed.get_errors()
     None => abort("No editor")
   }
   println("After typing 'x+':")
@@ -50,13 +42,9 @@ test "Web scenario: error persistence bug" {
     None => ()
   }
 
-  // Get AST and errors
-  let (_ast3, errors3) = match editor_ref.val {
-    Some(ed) => {
-      let ast = ed.get_ast()
-      let errors = @parser.collect_errors(ast)
-      (ast, errors)
-    }
+  // Get errors
+  let errors3 = match editor_ref.val {
+    Some(ed) => ed.get_errors()
     None => abort("No editor")
   }
   println("After typing 'x+ 1':")

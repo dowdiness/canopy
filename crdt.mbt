@@ -120,7 +120,7 @@ pub fn get_ast_dot(_handle : Int) -> String {
   match editor.val {
     Some(ed) => {
       let ast = ed.get_ast()
-      @parser.to_dot(ast)
+      @parser.term_to_dot(ast)
     }
     None => "digraph { }"
   }

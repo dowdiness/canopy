@@ -3,13 +3,13 @@
 
 ///|
 /// Create a tree lens for CanonicalModel ↔ AstNode? transformation
-pub fn tree_lens() -> Lens[CanonicalModel, @ast.AstNode?] {
+pub fn tree_lens() -> Lens[CanonicalModel, ProjNode?] {
   Lens::new(tree_lens_get, tree_lens_put)
 }
 
 ///|
 /// Get the interactive tree from the canonical model
-pub fn tree_lens_get(model : CanonicalModel) -> Result[@ast.AstNode?, String] {
+pub fn tree_lens_get(model : CanonicalModel) -> Result[ProjNode?, String] {
   Ok(model.get_ast())
 }
 
@@ -17,7 +17,7 @@ pub fn tree_lens_get(model : CanonicalModel) -> Result[@ast.AstNode?, String] {
 /// Put an AST back into the canonical model
 pub fn tree_lens_put(
   model : CanonicalModel,
-  ast : @ast.AstNode?,
+  ast : ProjNode?,
 ) -> Result[CanonicalModel, String] {
   match ast {
     Some(new_ast) =>
@@ -55,7 +55,7 @@ pub enum TreeEditOp {
   Delete(node_id~ : NodeId)
   WrapInLambda(node_id~ : NodeId, var_name~ : String)
   WrapInApp(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @ast.AstKind)
+  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @ast.Term)
 
   // Drag and drop
   StartDrag(node_id~ : NodeId)
@@ -90,8 +90,8 @@ pub fn tree_lens_apply_edit(
       Ok(model)
     }
     TreeEditOp::CommitEdit(node_id~, new_value~) => {
-      // Parse the new value to get an AstNode
-      let (parsed, _) = @parser.parse_with_error_recovery(new_value)
+      // Parse the new value to get a ProjNode
+      let (parsed, _) = parse_to_proj_node(new_value)
       // Assign fresh IDs to avoid collisions with existing AST nodes
       let new_node = assign_fresh_ids(parsed, model)
       // Replace the node with the parsed content
@@ -117,10 +117,10 @@ pub fn tree_lens_apply_edit(
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Get text representation of the existing node
-          let existing_text = @ast.print_ast_node(existing)
+          let existing_text = @ast.print_term(existing.kind)
           // Parse a lambda wrapping it
           let lambda_text = "λ" + var_name + "." + existing_text
-          let (parsed, _) = @parser.parse_with_error_recovery(lambda_text)
+          let (parsed, _) = parse_to_proj_node(lambda_text)
           // Assign fresh IDs to avoid collisions with existing AST nodes
           let new_node = assign_fresh_ids(parsed, model)
           // Replace the node
@@ -137,10 +137,10 @@ pub fn tree_lens_apply_edit(
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Get text representation of the existing node
-          let existing_text = @ast.print_ast_node(existing)
+          let existing_text = @ast.print_term(existing.kind)
           // Parse an application with a placeholder argument
           let app_text = "(" + existing_text + ") _"
-          let (parsed, _) = @parser.parse_with_error_recovery(app_text)
+          let (parsed, _) = parse_to_proj_node(app_text)
           // Assign fresh IDs to avoid collisions with existing AST nodes
           let new_node = assign_fresh_ids(parsed, model)
           // Replace the node
@@ -153,18 +153,18 @@ pub fn tree_lens_apply_edit(
       }
     TreeEditOp::InsertChild(parent~, index~, kind~) => {
       // Create a placeholder node based on the kind
-      // Since we can't create AstKind directly, we'll parse a placeholder
       let placeholder_text = match kind {
-        @ast.AstKind::Int(_) => "0"
-        @ast.AstKind::Var(_) => "_"
-        @ast.AstKind::Lam(_) => "λx.x"
-        @ast.AstKind::App => "f x"
-        @ast.AstKind::Bop(_) => "0 + 0"
-        @ast.AstKind::If => "if 0 then 0 else 0"
-        @ast.AstKind::Let(_) => "let x = 0 in x"
-        @ast.AstKind::Error(_) => "_"
+        @ast.Term::Int(_) => "0"
+        @ast.Term::Var(_) => "_"
+        @ast.Term::Lam(_, _) => "λx.x"
+        @ast.Term::App(_, _) => "f x"
+        @ast.Term::Bop(_, _, _) => "0 + 0"
+        @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
+        @ast.Term::Let(_, _, _) => "let x = 0 in x"
+        @ast.Term::Unit => "()"
+        @ast.Term::Error(_) => "_"
       }
-      let (parsed, _) = @parser.parse_with_error_recovery(placeholder_text)
+      let (parsed, _) = parse_to_proj_node(placeholder_text)
       // Assign fresh IDs to avoid collisions with existing AST nodes
       let new_node = assign_fresh_ids(parsed, model)
       let op = InsertNode(parent~, index~, node=new_node)

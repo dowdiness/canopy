@@ -5,7 +5,7 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
 }
 
@@ -37,18 +37,14 @@ pub impl Show for Editor
 
 pub struct ParsedEditor {
   editor : Editor
-  parser : @incremental.ImperativeParser[@seam.SyntaxNode]
-  mut ast : @ast.AstNode?
-  mut parse_dirty : Bool
-  mut cached_text : String
-  mut cached_errors : Array[String]
+  parser : @pipeline.ReactiveParser[@seam.SyntaxNode]
 }
 pub fn ParsedEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
 pub fn ParsedEditor::backspace(Self) -> Bool
 pub fn ParsedEditor::delete(Self) -> Bool
 pub fn ParsedEditor::export_all(Self) -> @text.SyncMessage raise
 pub fn ParsedEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
-pub fn ParsedEditor::get_ast(Self) -> @ast.AstNode
+pub fn ParsedEditor::get_ast(Self) -> @ast.Term
 pub fn ParsedEditor::get_cursor(Self) -> Int
 pub fn ParsedEditor::get_errors(Self) -> Array[String]
 pub fn ParsedEditor::get_text(Self) -> String

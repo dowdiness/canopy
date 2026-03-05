@@ -3,7 +3,7 @@
 ///|
 /// Helper to create a tree editor state from source code
 fn create_editor_state(source : String) -> TreeEditorState {
-  let (ast, _) = @parser.parse_with_error_recovery(source)
+  let (ast, _) = parse_to_proj_node(source)
   let model = CanonicalModel::from_ast(ast)
   TreeEditorState::from_model(model)
 }
@@ -69,7 +69,7 @@ test "Expand clears collapsed state on node" {
 
 ///|
 test "Collapse preserves state across refresh_from_model" {
-  let (ast, _) = @parser.parse_with_error_recovery("λx.x + 1")
+  let (ast, _) = parse_to_proj_node("λx.x + 1")
   let model = CanonicalModel::from_ast(ast)
   let state = TreeEditorState::from_model(model)
   let ids = collect_all_node_ids(state.tree)
@@ -271,7 +271,7 @@ test "InsertChild selects parent node" {
   let ids = collect_all_node_ids(state.tree)
   let parent_id = ids[0]
   let new_state = state.apply_edit(
-    InsertChild(parent=parent_id, index=0, kind=@ast.AstKind::Int(0)),
+    InsertChild(parent=parent_id, index=0, kind=@ast.Term::Int(0)),
   )
   inspect(new_state.selection.length(), content="1")
   inspect(new_state.selection[0] == parent_id, content="true")
@@ -381,7 +381,7 @@ test "CancelEdit clears editing state" {
 
 ///|
 test "from_term_node_with_state applies collapsed state" {
-  let (ast, _) = @parser.parse_with_error_recovery("λx.x")
+  let (ast, _) = parse_to_proj_node("λx.x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   // Create collapsed set with root (immutable)
@@ -397,7 +397,7 @@ test "from_term_node_with_state applies collapsed state" {
 
 ///|
 test "from_term_node_with_state preserves non-collapsed nodes" {
-  let (ast, _) = @parser.parse_with_error_recovery("λx.x")
+  let (ast, _) = parse_to_proj_node("λx.x")
   let model = CanonicalModel::from_ast(ast)
   // Empty collapsed set (immutable)
   let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.new()
@@ -651,7 +651,7 @@ test "Delete uses copy-on-write for collapsed_nodes" {
 
 ///|
 test "refresh_from_model prunes stale selection IDs" {
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let state = TreeEditorState::from_model(model)
   let ids = collect_all_node_ids(state.tree)
@@ -671,7 +671,7 @@ test "refresh_from_model prunes stale selection IDs" {
 
 ///|
 test "refresh_from_model clears stale editing_node" {
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let state = TreeEditorState::from_model(model)
   // Set editing_node to a stale ID
@@ -689,7 +689,7 @@ test "refresh_from_model clears stale editing_node" {
 
 ///|
 test "refresh_from_model prunes stale collapsed_nodes" {
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let state = TreeEditorState::from_model(model)
   let ids = collect_all_node_ids(state.tree)

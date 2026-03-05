@@ -5,9 +5,9 @@
 /// The canonical model containing the AST and metadata
 pub struct CanonicalModel {
   /// Current AST root
-  mut ast : AstNode?
-  /// Fast lookup: NodeId → AstNode
-  node_registry : Map[NodeId, AstNode]
+  mut ast : ProjNode?
+  /// Fast lookup: NodeId → ProjNode
+  node_registry : Map[NodeId, ProjNode]
   /// Bidirectional position mapping
   source_map : SourceMap
   /// Set of projections that need update
@@ -36,7 +36,7 @@ pub fn CanonicalModel::new() -> CanonicalModel {
 
 ///|
 /// Create a CanonicalModel from an existing AST
-pub fn CanonicalModel::from_ast(ast : AstNode) -> CanonicalModel {
+pub fn CanonicalModel::from_ast(ast : ProjNode) -> CanonicalModel {
   let model = CanonicalModel::new()
   model.set_ast(ast)
   model
@@ -44,13 +44,13 @@ pub fn CanonicalModel::from_ast(ast : AstNode) -> CanonicalModel {
 
 ///|
 /// Get the current AST
-pub fn CanonicalModel::get_ast(self : CanonicalModel) -> AstNode? {
+pub fn CanonicalModel::get_ast(self : CanonicalModel) -> ProjNode? {
   self.ast
 }
 
 ///|
 /// Set a new AST and rebuild all indices
-pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : AstNode) -> Unit {
+pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : ProjNode) -> Unit {
   self.ast = Some(ast)
   self.rebuild_indices(ast)
   self.mark_all_dirty()
@@ -60,7 +60,7 @@ pub fn CanonicalModel::set_ast(self : CanonicalModel, ast : AstNode) -> Unit {
 /// Rebuild the node registry and source map from an AST
 fn CanonicalModel::rebuild_indices(
   self : CanonicalModel,
-  root : AstNode,
+  root : ProjNode,
 ) -> Unit {
   self.node_registry.clear()
   self.register_node(root)
@@ -72,7 +72,10 @@ fn CanonicalModel::rebuild_indices(
 
 ///|
 /// Recursively register a node and its children
-fn CanonicalModel::register_node(self : CanonicalModel, node : AstNode) -> Unit {
+fn CanonicalModel::register_node(
+  self : CanonicalModel,
+  node : ProjNode,
+) -> Unit {
   let node_id = NodeId(node.node_id)
   self.node_registry[node_id] = node
   for child in node.children {
@@ -84,7 +87,7 @@ fn CanonicalModel::register_node(self : CanonicalModel, node : AstNode) -> Unit 
 /// Find the maximum node_id in a tree
 fn CanonicalModel::find_max_node_id(
   self : CanonicalModel,
-  node : AstNode,
+  node : ProjNode,
 ) -> Int {
   let mut max_id = node.node_id
   for child in node.children {
@@ -109,7 +112,7 @@ pub fn CanonicalModel::new_node_id(self : CanonicalModel) -> NodeId {
 pub fn CanonicalModel::get_node(
   self : CanonicalModel,
   node_id : NodeId,
-) -> AstNode? {
+) -> ProjNode? {
   self.node_registry.get(node_id)
 }
 
@@ -183,7 +186,7 @@ pub fn CanonicalModel::mark_clean(
 pub fn CanonicalModel::find_parent(
   self : CanonicalModel,
   node_id : NodeId,
-) -> (AstNode, Int)? {
+) -> (ProjNode, Int)? {
   match self.ast {
     None => None
     Some(root) =>
@@ -197,7 +200,10 @@ pub fn CanonicalModel::find_parent(
 
 ///|
 /// Recursive helper to find parent
-fn find_parent_recursive(node : AstNode, target_id : NodeId) -> (AstNode, Int)? {
+fn find_parent_recursive(
+  node : ProjNode,
+  target_id : NodeId,
+) -> (ProjNode, Int)? {
   for i, child in node.children {
     if NodeId(child.node_id) == target_id {
       return Some((node, i))
@@ -213,19 +219,19 @@ fn find_parent_recursive(node : AstNode, target_id : NodeId) -> (AstNode, Int)? 
 ///|
 /// Update a node in the tree by its ID (returns new tree root)
 fn update_node_in_tree(
-  root : AstNode,
+  root : ProjNode,
   target_id : NodeId,
-  new_node : AstNode,
-) -> AstNode {
+  new_node : ProjNode,
+) -> ProjNode {
   if NodeId(root.node_id) == target_id {
     new_node
   } else {
-    let new_children : Array[AstNode] = []
+    let new_children : Array[ProjNode] = []
     for child in root.children {
       new_children.push(update_node_in_tree(child, target_id, new_node))
     }
-    @ast.AstNode::new(
-      root.kind,
+    ProjNode::new(
+      rebuild_kind(root.kind, new_children),
       root.start,
       root.end,
       root.node_id,
@@ -236,20 +242,26 @@ fn update_node_in_tree(
 
 ///|
 /// Remove a child from a node's children by index
-fn remove_child_at(node : AstNode, index : Int) -> AstNode {
-  let new_children : Array[AstNode] = []
+fn remove_child_at(node : ProjNode, index : Int) -> ProjNode {
+  let new_children : Array[ProjNode] = []
   for i, child in node.children {
     if i != index {
       new_children.push(child)
     }
   }
-  @ast.AstNode::new(node.kind, node.start, node.end, node.node_id, new_children)
+  ProjNode::new(
+    rebuild_kind(node.kind, new_children),
+    node.start,
+    node.end,
+    node.node_id,
+    new_children,
+  )
 }
 
 ///|
 /// Insert a child into a node's children at index
-fn insert_child_at(node : AstNode, index : Int, child : AstNode) -> AstNode {
-  let new_children : Array[AstNode] = []
+fn insert_child_at(node : ProjNode, index : Int, child : ProjNode) -> ProjNode {
+  let new_children : Array[ProjNode] = []
   for i, c in node.children {
     if i == index {
       new_children.push(child)
@@ -260,7 +272,13 @@ fn insert_child_at(node : AstNode, index : Int, child : AstNode) -> AstNode {
   if index >= node.children.length() {
     new_children.push(child)
   }
-  @ast.AstNode::new(node.kind, node.start, node.end, node.node_id, new_children)
+  ProjNode::new(
+    rebuild_kind(node.kind, new_children),
+    node.start,
+    node.end,
+    node.node_id,
+    new_children,
+  )
 }
 
 ///|
@@ -314,7 +332,7 @@ pub fn CanonicalModel::apply_operation(
         None => return Err("Node not found: " + node_id.to_string())
         Some(_) => {
           // Create a node with the same ID but new content
-          let replacement = @ast.AstNode::new(
+          let replacement = ProjNode::new(
             new_node.kind,
             new_node.start,
             new_node.end,
@@ -339,14 +357,14 @@ pub fn CanonicalModel::apply_operation(
         VarName(name) => name
         OpSymbol(op) => op
       }
-      // Parse the value to get an AstNode
-      let (parsed, _) = @parser.parse_with_error_recovery(value_str)
+      // Parse the value to get a ProjNode
+      let (parsed, _) = parse_to_proj_node(value_str)
       // The parsed node should have the right kind - use ReplaceNode logic
       match self.get_node(node_id) {
         None => return Err("Node not found: " + node_id.to_string())
         Some(existing) => {
           // Create replacement preserving the original node_id and position
-          let replacement = @ast.AstNode::new(
+          let replacement = ProjNode::new(
             parsed.kind,
             existing.start,
             existing.end,
@@ -433,7 +451,7 @@ pub fn CanonicalModel::apply_operation(
 
 ///|
 /// Helper to find a node in a tree by ID
-fn get_node_in_tree(root : AstNode, target_id : NodeId) -> AstNode? {
+fn get_node_in_tree(root : ProjNode, target_id : NodeId) -> ProjNode? {
   if NodeId(root.node_id) == target_id {
     Some(root)
   } else {
@@ -450,7 +468,7 @@ fn get_node_in_tree(root : AstNode, target_id : NodeId) -> AstNode? {
 ///|
 /// Helper to unregister a node tree from the model
 fn unregister_node_tree_from_model(
-  node : AstNode,
+  node : ProjNode,
   model : CanonicalModel,
 ) -> Unit {
   model.unregister_node(NodeId(node.node_id))
@@ -463,8 +481,23 @@ fn unregister_node_tree_from_model(
 /// Check if AST has any errors
 pub fn CanonicalModel::has_errors(self : CanonicalModel) -> Bool {
   match self.ast {
-    Some(ast) => @parser.has_errors(ast)
+    Some(ast) => proj_node_has_errors(ast)
     None => true
+  }
+}
+
+///|
+fn proj_node_has_errors(node : ProjNode) -> Bool {
+  match node.kind {
+    Error(_) => true
+    _ => {
+      for child in node.children {
+        if proj_node_has_errors(child) {
+          return true
+        }
+      }
+      false
+    }
   }
 }
 
@@ -472,9 +505,25 @@ pub fn CanonicalModel::has_errors(self : CanonicalModel) -> Bool {
 /// Get all error messages from the AST
 pub fn CanonicalModel::get_errors(self : CanonicalModel) -> Array[String] {
   match self.ast {
-    Some(ast) => @parser.collect_errors(ast)
+    Some(ast) => collect_proj_node_errors(ast)
     None => ["No AST available"]
   }
+}
+
+///|
+fn collect_proj_node_errors(node : ProjNode) -> Array[String] {
+  let errors : Array[String] = []
+  fn walk(n : ProjNode) -> Unit {
+    match n.kind {
+      Error(msg) => errors.push(msg)
+      _ => ()
+    }
+    for child in n.children {
+      walk(child)
+    }
+  }
+  walk(node)
+  errors
 }
 
 ///|

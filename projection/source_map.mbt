@@ -18,8 +18,8 @@ pub fn SourceMap::new() -> SourceMap {
 }
 
 ///|
-/// Build a SourceMap from a AstNode tree
-pub fn SourceMap::from_ast(root : AstNode) -> SourceMap {
+/// Build a SourceMap from a ProjNode tree
+pub fn SourceMap::from_ast(root : ProjNode) -> SourceMap {
   let map = SourceMap::new()
   map.build_from_node(root)
   map.rebuild_ranges()
@@ -28,7 +28,7 @@ pub fn SourceMap::from_ast(root : AstNode) -> SourceMap {
 
 ///|
 /// Recursively build the map from an AST node
-fn SourceMap::build_from_node(self : SourceMap, node : AstNode) -> Unit {
+fn SourceMap::build_from_node(self : SourceMap, node : ProjNode) -> Unit {
   let node_id = NodeId(node.node_id)
   let range = Range::new(node.start, node.end)
   self.node_to_range[node_id] = range
@@ -176,7 +176,7 @@ pub fn SourceMap::apply_edit(
 
 ///|
 /// Clear and rebuild from a new AST
-pub fn SourceMap::rebuild(self : SourceMap, root : AstNode) -> Unit {
+pub fn SourceMap::rebuild(self : SourceMap, root : ProjNode) -> Unit {
   self.node_to_range.clear()
   self.ranges.clear()
   self.build_from_node(root)

@@ -1,153 +1,95 @@
-// ParsedEditor: Integration of CRDT text editor with incremental parser
-// Combines Editor (CRDT text) and IncrementalParser (AST) using wrapper pattern
+// ParsedEditor: Integration of CRDT text editor with reactive parser
+// Combines Editor (CRDT text) and ReactiveParser (AST) using loom's Signal/Memo pipeline
 
 ///|
-/// ParsedEditor wraps both the CRDT editor and incremental parser
-/// Keeps them synchronized via lazy evaluation and text diffing
+/// ParsedEditor wraps the CRDT editor and a ReactiveParser.
+/// Lazy AST evaluation is handled by the Signal/Memo pipeline — no manual
+/// dirty flags needed. Call set_source after any text mutation.
 pub struct ParsedEditor {
   editor : Editor // CRDT text editor
-  parser : @parser.ImperativeParser[@parser.SyntaxNode] // Incremental parser
-  mut ast : @ast.AstNode? // Cached AST (lazy evaluation)
-  mut parse_dirty : Bool // Does AST need reparsing?
-  mut cached_text : String // Last parsed text (for computing Edit)
-  mut cached_errors : Array[String] // Cached errors from last parse
+  parser : @loom.ReactiveParser[@parser.SyntaxNode] // Reactive incremental parser
 }
 
 ///|
 /// Create a new ParsedEditor with the given agent ID
 pub fn ParsedEditor::new(agent_id : String) -> ParsedEditor {
   let editor = Editor::new(agent_id)
-  let parser = @parser.new_imperative_parser("")
-  {
-    editor,
-    parser,
-    ast: None,
-    parse_dirty: true,
-    cached_text: "",
-    cached_errors: [],
-  }
+  let parser = @loom.new_reactive_parser("", @parser.lambda_grammar)
+  { editor, parser }
 }
 
 ///|
-/// Insert text at the current cursor position
-/// Marks AST as dirty for lazy reparsing
 pub fn ParsedEditor::insert(self : ParsedEditor, text : String) -> Unit raise {
   self.editor.insert(text)
-  self.parse_dirty = true
+  self.parser.set_source(self.editor.get_text())
 }
 
 ///|
-/// Delete character at cursor position (forward delete)
-/// Returns true if deletion succeeded, false if at end of document
 pub fn ParsedEditor::delete(self : ParsedEditor) -> Bool {
   let result = self.editor.delete()
   if result {
-    self.parse_dirty = true
+    self.parser.set_source(self.editor.get_text())
   }
   result
 }
 
 ///|
-/// Delete character before cursor (backspace)
-/// Returns true if deletion succeeded, false if at start of document
 pub fn ParsedEditor::backspace(self : ParsedEditor) -> Bool {
   let result = self.editor.backspace()
   if result {
-    self.parse_dirty = true
+    self.parser.set_source(self.editor.get_text())
   }
   result
 }
 
 ///|
-/// Move cursor to specific position
 pub fn ParsedEditor::move_cursor(self : ParsedEditor, position : Int) -> Unit {
   self.editor.move_cursor(position)
 }
 
 ///|
-/// Get current cursor position
 pub fn ParsedEditor::get_cursor(self : ParsedEditor) -> Int {
   self.editor.get_cursor()
 }
 
 ///|
-/// Get the current text content
 pub fn ParsedEditor::get_text(self : ParsedEditor) -> String {
   self.editor.get_text()
 }
 
 ///|
-/// Mark the AST as dirty so it will be reparsed on next access
+/// Notify the parser that text changed (e.g. after undo/redo on the raw doc).
+/// Calls set_source — a no-op if the text is unchanged.
 pub fn ParsedEditor::mark_dirty(self : ParsedEditor) -> Unit {
-  self.parse_dirty = true
+  self.parser.set_source(self.editor.get_text())
 }
 
 ///|
-/// Get the AST (lazy evaluation - only reparses if dirty)
-/// Raises an error if parsing fails
-pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @ast.AstNode {
-  if self.parse_dirty {
-    self.reparse()
-  }
-  match self.ast {
-    Some(ast) => ast
-    None => abort("No valid parse tree")
-  }
+/// Get the AST as a Term (lazy — recomputes only if source changed since last call).
+pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @ast.Term {
+  let syntax_node = self.parser.term()
+  @parser.syntax_node_to_term(syntax_node)
 }
 
 ///|
-/// Incremental reparse using the Edit Bridge.
-/// Converts old→new text via loom's TextDelta API and applies the resulting
-/// edits to the incremental parser.
-fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
-  let old_text = self.cached_text
-  let new_text = self.editor.get_text()
-  let edits = merge_to_edits(old_text, new_text)
-  // text_to_delta always produces at most one contiguous change, so edits
-  // has length 0 (identical strings) or 1.
-  let syntax_node = if edits.is_empty() {
-    // No textual change (e.g., identical text or failed op).
-    // Apply a no-op edit at position 0 to obtain the current SyntaxNode.
-    self.parser.edit(@parser.Edit::new(0, 0, 0), new_text)
-  } else {
-    self.parser.edit(edits[0], new_text)
-  }
-  let counter = Ref::new(0)
-  let ast = @parser.syntax_node_to_ast_node(syntax_node, counter)
-  self.ast = Some(ast)
-  self.cached_errors = @parser.collect_errors(ast)
-  self.cached_text = new_text
-  self.parse_dirty = false
-}
-
-///|
-/// Get cached errors from the last parse
-/// Ensures AST is up-to-date before returning errors
+/// Get parse errors from the current source (memoized via cst_memo).
 pub fn ParsedEditor::get_errors(self : ParsedEditor) -> Array[String] {
-  // Ensure the AST is up-to-date (triggers reparse if dirty)
-  let _ = self.get_ast()
-  // Return the cached errors (collected during reparse)
-  self.cached_errors
+  self.parser.diagnostics()
 }
 
 ///|
-/// Check if the current parse tree is valid (no errors)
+/// Check if the current parse tree is valid (no errors).
 pub fn ParsedEditor::is_parse_valid(self : ParsedEditor) -> Bool {
-  match self.ast {
-    Some(ast) => not(@parser.has_errors(ast))
-    None => false
-  }
+  self.get_errors().is_empty()
 }
 
 ///|
-/// Apply a sync message from a remote peer and update local state.
-/// Marks AST as dirty for reparsing after merge.
 pub fn ParsedEditor::apply_sync(
   self : ParsedEditor,
   msg : @text.SyncMessage,
 ) -> Unit raise {
   self.editor.apply_sync(msg)
-  self.parse_dirty = true
+  self.parser.set_source(self.editor.get_text())
 }
 
 ///|

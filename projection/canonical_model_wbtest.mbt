@@ -3,13 +3,13 @@
 ///|
 test "apply_operation InsertNode adds child" {
   // Create a model with a simple binary operation: 1 + 2
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let initial_children = ast.children.length()
 
   // Parse a new node to insert
-  let (new_node, _) = @parser.parse_with_error_recovery("3")
+  let (new_node, _) = parse_to_proj_node("3")
 
   // Insert at the end
   let op = InsertNode(parent=root_id, index=initial_children, node=new_node)
@@ -26,7 +26,7 @@ test "apply_operation InsertNode adds child" {
 ///|
 test "apply_operation DeleteNode removes child" {
   // Create a model with: 1 + 2
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
 
   // Get the first child (the "1")
@@ -52,12 +52,12 @@ test "apply_operation DeleteNode removes child" {
 ///|
 test "apply_operation ReplaceNode changes node content" {
   // Create a model with: x
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
   // Parse a replacement node
-  let (new_node, _) = @parser.parse_with_error_recovery("42")
+  let (new_node, _) = parse_to_proj_node("42")
 
   // Replace the root
   let op = ReplaceNode(node_id=root_id, new_node~)
@@ -71,7 +71,7 @@ test "apply_operation ReplaceNode changes node content" {
       // Should now be an Int kind
       inspect(
         match updated_ast.kind {
-          @ast.AstKind::Int(_) => "true"
+          @ast.Term::Int(_) => "true"
           _ => "false"
         },
         content="true",
@@ -84,7 +84,7 @@ test "apply_operation ReplaceNode changes node content" {
 ///|
 test "apply_operation UpdateLeaf changes leaf value" {
   // Create a model with: 1
-  let (ast, _) = @parser.parse_with_error_recovery("1")
+  let (ast, _) = parse_to_proj_node("1")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -98,7 +98,7 @@ test "apply_operation UpdateLeaf changes leaf value" {
     Some(updated_ast) =>
       inspect(
         match updated_ast.kind {
-          @ast.AstKind::Int(42) => "true"
+          @ast.Term::Int(42) => "true"
           _ => "false"
         },
         content="true",
@@ -110,7 +110,7 @@ test "apply_operation UpdateLeaf changes leaf value" {
 ///|
 test "apply_operation MoveNode reparents node" {
   // Create a model with: (x + y) z
-  let (ast, _) = @parser.parse_with_error_recovery("(x + y) z")
+  let (ast, _) = parse_to_proj_node("(x + y) z")
   let model = CanonicalModel::from_ast(ast)
 
   // This is an App node with children: [(x + y), z]
@@ -139,7 +139,7 @@ test "apply_operation MoveNode reparents node" {
 ///|
 test "find_parent finds correct parent and index" {
   // Create: 1 + 2
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
 
   // Find parent of the first child (the "1")
@@ -155,7 +155,7 @@ test "find_parent finds correct parent and index" {
 
 ///|
 test "find_parent returns None for root" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   inspect(model.find_parent(root_id) is None, content="true")
@@ -163,7 +163,7 @@ test "find_parent returns None for root" {
 
 ///|
 test "apply_operation error on invalid node_id" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
 
   // Try to delete a non-existent node
@@ -174,12 +174,12 @@ test "apply_operation error on invalid node_id" {
 
 ///|
 test "apply_operation InsertNode with invalid parent returns error" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let initial_history_len = model.edit_history.length()
 
   // Try to insert with non-existent parent
-  let (new_node, _) = @parser.parse_with_error_recovery("1")
+  let (new_node, _) = parse_to_proj_node("1")
   let op = InsertNode(parent=NodeId(9999), index=0, node=new_node)
   let result = model.apply_operation(op)
 
@@ -191,12 +191,12 @@ test "apply_operation InsertNode with invalid parent returns error" {
 
 ///|
 test "apply_operation ReplaceNode with invalid node_id returns error" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let initial_history_len = model.edit_history.length()
 
   // Try to replace a non-existent node
-  let (new_node, _) = @parser.parse_with_error_recovery("42")
+  let (new_node, _) = parse_to_proj_node("42")
   let op = ReplaceNode(node_id=NodeId(9999), new_node~)
   let result = model.apply_operation(op)
 
@@ -209,7 +209,7 @@ test "apply_operation ReplaceNode with invalid node_id returns error" {
     Some(updated_ast) =>
       inspect(
         match updated_ast.kind {
-          @ast.AstKind::Var("x") => "true"
+          @ast.Term::Var("x") => "true"
           _ => "false"
         },
         content="true",
@@ -223,7 +223,7 @@ test "apply_operation MoveNode within same parent adjusts index" {
   // Create a model with: (a b c d) - Application with multiple args
   // We'll use a simpler case: 1 + 2 + 3 which creates nested Bop
   // Instead, let's use a direct approach with InsertNode to build children
-  let (ast, _) = @parser.parse_with_error_recovery("f a b c")
+  let (ast, _) = parse_to_proj_node("f a b c")
   let _model = CanonicalModel::from_ast(ast)
 
   // The AST for "f a b c" is App(App(App(f, a), b), c)
@@ -231,13 +231,13 @@ test "apply_operation MoveNode within same parent adjusts index" {
   // For this we need a node with multiple children at same level
 
   // Create a fresh test with InsertNode to get [A, B, C, D]
-  let (ast2, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast2, _) = parse_to_proj_node("1 + 2")
   let model2 = CanonicalModel::from_ast(ast2)
   let root_id = NodeId(ast2.node_id)
 
   // Insert two more children to get [1, 2, 3, 4]
-  let (n3, _) = @parser.parse_with_error_recovery("3")
-  let (n4, _) = @parser.parse_with_error_recovery("4")
+  let (n3, _) = parse_to_proj_node("3")
+  let (n4, _) = parse_to_proj_node("4")
   let n3 = assign_fresh_ids(n3, model2)
   let n4 = assign_fresh_ids(n4, model2)
   let _ = model2.apply_operation(InsertNode(parent=root_id, index=2, node=n3))
@@ -265,28 +265,28 @@ test "apply_operation MoveNode within same parent adjusts index" {
           // Verify order: [1, 3, 2, 4]
           inspect(
             match final_ast.children[0].kind {
-              @ast.AstKind::Int(1) => "true"
+              @ast.Term::Int(1) => "true"
               _ => "false"
             },
             content="true",
           )
           inspect(
             match final_ast.children[1].kind {
-              @ast.AstKind::Int(3) => "true"
+              @ast.Term::Int(3) => "true"
               _ => "false"
             },
             content="true",
           )
           inspect(
             match final_ast.children[2].kind {
-              @ast.AstKind::Int(2) => "true"
+              @ast.Term::Int(2) => "true"
               _ => "false"
             },
             content="true",
           )
           inspect(
             match final_ast.children[3].kind {
-              @ast.AstKind::Int(4) => "true"
+              @ast.Term::Int(4) => "true"
               _ => "false"
             },
             content="true",
@@ -301,7 +301,7 @@ test "apply_operation MoveNode within same parent adjusts index" {
 
 ///|
 test "apply_operation MoveNode with invalid new_parent returns error" {
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let initial_history_len = model.edit_history.length()
 
@@ -318,7 +318,7 @@ test "apply_operation MoveNode with invalid new_parent returns error" {
 
 ///|
 test "apply_operation DeleteNode on root returns error" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let initial_history_len = model.edit_history.length()
@@ -335,7 +335,7 @@ test "apply_operation DeleteNode on root returns error" {
 
 ///|
 test "node IDs remain unique after operations" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -344,7 +344,7 @@ test "node IDs remain unique after operations" {
   let _ = tree_lens_apply_edit(model, edit)
 
   // Collect all node IDs from the AST
-  fn collect_ids(node : @ast.AstNode, acc : Array[Int]) -> Unit {
+  fn collect_ids(node : ProjNode, acc : Array[Int]) -> Unit {
     acc.push(node.node_id)
     for child in node.children {
       collect_ids(child, acc)
@@ -379,7 +379,7 @@ test "node IDs remain unique after operations" {
 
 ///|
 test "tree_lens_apply_edit CommitEdit replaces node" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -398,7 +398,7 @@ test "tree_lens_apply_edit CommitEdit replaces node" {
 ///|
 test "tree_lens_apply_edit Delete removes node" {
   // Create: 1 + 2
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
 
   // Delete the first child (the "1")
@@ -418,7 +418,7 @@ test "tree_lens_apply_edit Delete removes node" {
 
 ///|
 test "tree_lens_apply_edit WrapInLambda wraps node" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -431,7 +431,7 @@ test "tree_lens_apply_edit WrapInLambda wraps node" {
           // Should now be a Lam node
           inspect(
             match updated_ast.kind {
-              @ast.AstKind::Lam("y") => "true"
+              @ast.Term::Lam("y", _) => "true"
               _ => "false"
             },
             content="true",
@@ -444,7 +444,7 @@ test "tree_lens_apply_edit WrapInLambda wraps node" {
 
 ///|
 test "tree_lens_apply_edit WrapInApp wraps node as function" {
-  let (ast, _) = @parser.parse_with_error_recovery("f")
+  let (ast, _) = parse_to_proj_node("f")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -466,7 +466,7 @@ test "tree_lens_apply_edit WrapInApp wraps node as function" {
 
 ///|
 test "tree_lens_apply_edit Select does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::Select(node_id=root_id)
@@ -483,7 +483,7 @@ test "tree_lens_apply_edit Select does not modify model" {
 ///|
 test "roundtrip: text -> tree edit -> text" {
   // Parse initial text
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
 
   // Get the "2" node (second child of root Bop)
@@ -498,7 +498,7 @@ test "roundtrip: text -> tree edit -> text" {
           // Verify the second child is now Int(3)
           inspect(
             match updated_ast.children[1].kind {
-              @ast.AstKind::Int(3) => "true"
+              @ast.Term::Int(3) => "true"
               _ => "false"
             },
             content="true",
@@ -516,7 +516,7 @@ test "roundtrip: text -> tree edit -> text" {
 ///|
 test "apply_operation MoveNode into own descendant returns error" {
   // Create: λx.(y z) - a lambda with an application body
-  let (ast, _) = @parser.parse_with_error_recovery("λx.(y z)")
+  let (ast, _) = parse_to_proj_node("λx.(y z)")
   let model = CanonicalModel::from_ast(ast)
 
   // The AST is Lam with body App(y, z)
@@ -535,13 +535,13 @@ test "apply_operation MoveNode into own descendant returns error" {
 
 ///|
 test "tree_lens_apply_edit InsertChild adds Int placeholder" {
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::InsertChild(
     parent=root_id,
     index=2,
-    kind=@ast.AstKind::Int(0),
+    kind=@ast.Term::Int(0),
   )
   match tree_lens_apply_edit(model, edit) {
     Ok(updated_model) =>
@@ -551,7 +551,7 @@ test "tree_lens_apply_edit InsertChild adds Int placeholder" {
           // The new child should be Int(0)
           inspect(
             match updated_ast.children[2].kind {
-              @ast.AstKind::Int(0) => "true"
+              @ast.Term::Int(0) => "true"
               _ => "false"
             },
             content="true",
@@ -566,13 +566,13 @@ test "tree_lens_apply_edit InsertChild adds Int placeholder" {
 ///|
 test "tree_lens_apply_edit InsertChild adds Var placeholder" {
   // Use 1 + 2 which has 2 children at root level
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::InsertChild(
     parent=root_id,
     index=2,
-    kind=@ast.AstKind::Var("_"),
+    kind=@ast.Term::Var("_"),
   )
   match tree_lens_apply_edit(model, edit) {
     Ok(updated_model) =>
@@ -589,13 +589,13 @@ test "tree_lens_apply_edit InsertChild adds Var placeholder" {
 ///|
 test "tree_lens_apply_edit InsertChild adds Lam placeholder" {
   // Use 1 + 2 which has children at root level
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::InsertChild(
     parent=root_id,
     index=2,
-    kind=@ast.AstKind::Lam("x"),
+    kind=@ast.Term::Lam("x", @ast.Term::Var("x")),
   )
   match tree_lens_apply_edit(model, edit) {
     Ok(updated_model) =>
@@ -606,7 +606,7 @@ test "tree_lens_apply_edit InsertChild adds Lam placeholder" {
           // The new child should be a Lam
           inspect(
             match updated_ast.children[2].kind {
-              @ast.AstKind::Lam(_) => "true"
+              @ast.Term::Lam(_, _) => "true"
               _ => "false"
             },
             content="true",
@@ -621,13 +621,13 @@ test "tree_lens_apply_edit InsertChild adds Lam placeholder" {
 ///|
 test "tree_lens_apply_edit Drop with Before position" {
   // Create: 1 + 2, then add 3 and 4 to get [1, 2, 3, 4]
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
   // Add children 3 and 4
-  let (n3_raw, _) = @parser.parse_with_error_recovery("3")
-  let (n4_raw, _) = @parser.parse_with_error_recovery("4")
+  let (n3_raw, _) = parse_to_proj_node("3")
+  let (n4_raw, _) = parse_to_proj_node("4")
   let n3 = assign_fresh_ids(n3_raw, model)
   let n4 = assign_fresh_ids(n4_raw, model)
   let _ = model.apply_operation(InsertNode(parent=root_id, index=2, node=n3))
@@ -650,28 +650,28 @@ test "tree_lens_apply_edit Drop with Before position" {
               // Should be [1, 4, 2, 3]
               inspect(
                 match final_ast.children[0].kind {
-                  @ast.AstKind::Int(1) => "true"
+                  @ast.Term::Int(1) => "true"
                   _ => "false"
                 },
                 content="true",
               )
               inspect(
                 match final_ast.children[1].kind {
-                  @ast.AstKind::Int(4) => "true"
+                  @ast.Term::Int(4) => "true"
                   _ => "false"
                 },
                 content="true",
               )
               inspect(
                 match final_ast.children[2].kind {
-                  @ast.AstKind::Int(2) => "true"
+                  @ast.Term::Int(2) => "true"
                   _ => "false"
                 },
                 content="true",
               )
               inspect(
                 match final_ast.children[3].kind {
-                  @ast.AstKind::Int(3) => "true"
+                  @ast.Term::Int(3) => "true"
                   _ => "false"
                 },
                 content="true",
@@ -689,10 +689,10 @@ test "tree_lens_apply_edit Drop with Before position" {
 ///|
 test "tree_lens_apply_edit Drop with After position" {
   // Create: 1 + 2, then add 3 to get [1, 2, 3]
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
-  let (n3_raw, _) = @parser.parse_with_error_recovery("3")
+  let (n3_raw, _) = parse_to_proj_node("3")
   let n3 = assign_fresh_ids(n3_raw, model)
   let _ = model.apply_operation(InsertNode(parent=root_id, index=2, node=n3))
 
@@ -709,21 +709,21 @@ test "tree_lens_apply_edit Drop with After position" {
               // Should be [2, 1, 3]
               inspect(
                 match final_ast.children[0].kind {
-                  @ast.AstKind::Int(2) => "true"
+                  @ast.Term::Int(2) => "true"
                   _ => "false"
                 },
                 content="true",
               )
               inspect(
                 match final_ast.children[1].kind {
-                  @ast.AstKind::Int(1) => "true"
+                  @ast.Term::Int(1) => "true"
                   _ => "false"
                 },
                 content="true",
               )
               inspect(
                 match final_ast.children[2].kind {
-                  @ast.AstKind::Int(3) => "true"
+                  @ast.Term::Int(3) => "true"
                   _ => "false"
                 },
                 content="true",
@@ -741,7 +741,7 @@ test "tree_lens_apply_edit Drop with After position" {
 ///|
 test "tree_lens_apply_edit Drop with Inside position" {
   // Create: (f x) y - App(App(f, x), y)
-  let (ast, _) = @parser.parse_with_error_recovery("(f x) y")
+  let (ast, _) = parse_to_proj_node("(f x) y")
   let model = CanonicalModel::from_ast(ast)
 
   // Drop y inside the inner App (f x)
@@ -776,7 +776,7 @@ test "tree_lens_apply_edit Drop with Inside position" {
 
 ///|
 test "tree_lens_apply_edit CommitEdit with incomplete parse creates error node" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
 
@@ -795,7 +795,7 @@ test "tree_lens_apply_edit CommitEdit with incomplete parse creates error node" 
 ///|
 test "tree_lens_apply_edit WrapInLambda preserves body structure" {
   // Wrap a complex expression: 1 + 2
-  let (ast, _) = @parser.parse_with_error_recovery("1 + 2")
+  let (ast, _) = parse_to_proj_node("1 + 2")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::WrapInLambda(node_id=root_id, var_name="x")
@@ -806,7 +806,7 @@ test "tree_lens_apply_edit WrapInLambda preserves body structure" {
           // Root should be Lam("x")
           inspect(
             match updated_ast.kind {
-              @ast.AstKind::Lam("x") => "true"
+              @ast.Term::Lam("x", _) => "true"
               _ => "false"
             },
             content="true",
@@ -815,7 +815,7 @@ test "tree_lens_apply_edit WrapInLambda preserves body structure" {
           inspect(updated_ast.children.length(), content="1")
           inspect(
             match updated_ast.children[0].kind {
-              @ast.AstKind::Bop(_) => "true"
+              @ast.Term::Bop(_, _, _) => "true"
               _ => "false"
             },
             content="true",
@@ -829,7 +829,7 @@ test "tree_lens_apply_edit WrapInLambda preserves body structure" {
 
 ///|
 test "tree_lens_apply_edit WrapInApp creates App with placeholder" {
-  let (ast, _) = @parser.parse_with_error_recovery("f")
+  let (ast, _) = parse_to_proj_node("f")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::WrapInApp(node_id=root_id)
@@ -856,7 +856,7 @@ test "tree_lens_apply_edit WrapInApp creates App with placeholder" {
 
 ///|
 test "tree_lens_apply_edit SelectRange does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let start_id = NodeId(ast.node_id)
   let end_id = NodeId(ast.node_id)
@@ -873,7 +873,7 @@ test "tree_lens_apply_edit SelectRange does not modify model" {
 
 ///|
 test "tree_lens_apply_edit StartEdit does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::StartEdit(node_id=root_id)
@@ -889,7 +889,7 @@ test "tree_lens_apply_edit StartEdit does not modify model" {
 
 ///|
 test "tree_lens_apply_edit CancelEdit does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let edit = TreeEditOp::CancelEdit
   match tree_lens_apply_edit(model, edit) {
@@ -904,7 +904,7 @@ test "tree_lens_apply_edit CancelEdit does not modify model" {
 
 ///|
 test "tree_lens_apply_edit StartDrag does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::StartDrag(node_id=root_id)
@@ -920,7 +920,7 @@ test "tree_lens_apply_edit StartDrag does not modify model" {
 
 ///|
 test "tree_lens_apply_edit DragOver does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let target_id = NodeId(ast.node_id)
   let edit = TreeEditOp::DragOver(target=target_id, position=Before)
@@ -936,7 +936,7 @@ test "tree_lens_apply_edit DragOver does not modify model" {
 
 ///|
 test "tree_lens_apply_edit Collapse does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::Collapse(node_id=root_id)
@@ -952,7 +952,7 @@ test "tree_lens_apply_edit Collapse does not modify model" {
 
 ///|
 test "tree_lens_apply_edit Expand does not modify model" {
-  let (ast, _) = @parser.parse_with_error_recovery("x")
+  let (ast, _) = parse_to_proj_node("x")
   let model = CanonicalModel::from_ast(ast)
   let root_id = NodeId(ast.node_id)
   let edit = TreeEditOp::Expand(node_id=root_id)
