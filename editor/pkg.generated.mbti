@@ -44,7 +44,7 @@ pub fn ParsedEditor::backspace(Self) -> Bool
 pub fn ParsedEditor::delete(Self) -> Bool
 pub fn ParsedEditor::export_all(Self) -> @text.SyncMessage raise
 pub fn ParsedEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
-pub fn ParsedEditor::get_ast(Self) -> @ast.AstNode
+pub fn ParsedEditor::get_ast(Self) -> @ast.Term
 pub fn ParsedEditor::get_cursor(Self) -> Int
 pub fn ParsedEditor::get_errors(Self) -> Array[String]
 pub fn ParsedEditor::get_text(Self) -> String
