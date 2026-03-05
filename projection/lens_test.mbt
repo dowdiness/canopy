@@ -9,6 +9,50 @@ test "SourceMap from_ast" {
 }
 
 ///|
+test "parse_to_proj_node preserves child-specific ranges" {
+  let (ast, _) = parse_to_proj_node("x + 1")
+  inspect(ast.children.length(), content="2")
+  if ast.children.length() >= 2 {
+    inspect(ast.children[0].start < ast.children[1].start, content="true")
+    inspect(ast.children[0].end <= ast.children[1].start, content="true")
+  }
+}
+
+///|
+test "node_at_position distinguishes left and right operands" {
+  let (ast, _) = parse_to_proj_node("x + 1")
+  guard ast.children.length() == 2 else {
+    abort("Expected binary expression with two children")
+  }
+  let model = CanonicalModel::from_ast(ast)
+  let left_pos = ast.children[0].start
+  let right_pos = if ast.children[1].end > ast.children[1].start {
+    ast.children[1].end - 1
+  } else {
+    ast.children[1].start
+  }
+
+  match model.node_at_position(left_pos) {
+    Some(node_id) =>
+      match model.get_node(node_id) {
+        Some(node) =>
+          inspect(node.start, content=ast.children[0].start.to_string())
+        None => abort("Expected left operand node to exist")
+      }
+    None => abort("Expected node at left operand position")
+  }
+  match model.node_at_position(right_pos) {
+    Some(node_id) =>
+      match model.get_node(node_id) {
+        Some(node) =>
+          inspect(node.start, content=ast.children[1].start.to_string())
+        None => abort("Expected right operand node to exist")
+      }
+    None => abort("Expected node at right operand position")
+  }
+}
+
+///|
 test "CanonicalModel creation" {
   let model = CanonicalModel::new()
   inspect(model.node_count(), content="0")
