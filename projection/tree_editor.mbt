@@ -612,7 +612,8 @@ fn update_node_collapsed(
 }
 
 ///|
-/// Check if a node is a leaf (editable inline)
+/// Check if a node is a leaf (editable inline).
+/// Error nodes are treated as leaves so they can be edited in place.
 pub fn is_leaf_node(kind : @ast.Term) -> Bool {
   match kind {
     Int(_) => true

@@ -473,13 +473,12 @@ fn proj_node_has_errors(node : ProjNode) -> Bool {
   match node.kind {
     Error(_) => true
     _ => {
-      let mut found = false
       for child in node.children {
         if proj_node_has_errors(child) {
-          found = true
+          return true
         }
       }
-      found
+      false
     }
   }
 }

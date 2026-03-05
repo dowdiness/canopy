@@ -216,23 +216,6 @@ fn reconcile_ast(
 }
 
 ///|
-/// Check if two Term values have the same constructor tag.
-/// Used for LCS-based matching in children reconciliation.
-fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
-  match (a, b) {
-    (Int(_), Int(_)) => true
-    (Var(_), Var(_)) => true
-    (Lam(_, _), Lam(_, _)) => true
-    (App(_, _), App(_, _)) => true
-    (Bop(_, _, _), Bop(_, _, _)) => true
-    (If(_, _, _), If(_, _, _)) => true
-    (Let(_, _, _), Let(_, _, _)) => true
-    (Error(_), Error(_)) => true
-    _ => false
-  }
-}
-
-///|
 /// Reconcile arrays of children using LCS (Longest Common Subsequence) matching.
 /// LCS finds the best structural alignment between old and new children based on
 /// their kind tags, preserving node IDs even when children are inserted, deleted,
@@ -308,19 +291,10 @@ fn reconcile_children(
   // Unregister removed old children that weren't matched
   for i = 0; i < old_len; i = i + 1 {
     if old_matched[i] < 0 {
-      unregister_node_tree(old_children[i], model)
+      unregister_node_tree_from_model(old_children[i], model)
     }
   }
   result
-}
-
-///|
-/// Recursively unregister a node and all its children from the model's registry
-fn unregister_node_tree(node : ProjNode, model : CanonicalModel) -> Unit {
-  model.unregister_node(NodeId(node.node_id))
-  for child in node.children {
-    unregister_node_tree(child, model)
-  }
 }
 
 ///|

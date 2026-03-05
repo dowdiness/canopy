@@ -80,7 +80,7 @@ pub fn ParsedEditor::get_errors(self : ParsedEditor) -> Array[String] {
 ///|
 /// Check if the current parse tree is valid (no errors).
 pub fn ParsedEditor::is_parse_valid(self : ParsedEditor) -> Bool {
-  self.parser.diagnostics().is_empty()
+  self.get_errors().is_empty()
 }
 
 ///|

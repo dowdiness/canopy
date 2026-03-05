@@ -67,6 +67,23 @@ pub fn term_to_proj_node(
 }
 
 ///|
+/// Check if two Term values have the same constructor tag.
+/// Used for LCS-based matching in children reconciliation.
+pub fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
+  match (a, b) {
+    (Int(_), Int(_)) => true
+    (Var(_), Var(_)) => true
+    (Lam(_, _), Lam(_, _)) => true
+    (App(_, _), App(_, _)) => true
+    (Bop(_, _, _), Bop(_, _, _)) => true
+    (If(_, _, _), If(_, _, _)) => true
+    (Let(_, _, _), Let(_, _, _)) => true
+    (Error(_), Error(_)) => true
+    _ => false
+  }
+}
+
+///|
 /// Parse text and return a ProjNode tree (replaces @parser.parse_with_error_recovery).
 /// Uses ImperativeParser internally. Positions are approximate (full text range).
 pub fn parse_to_proj_node(text : String) -> (ProjNode, Array[String]) {
