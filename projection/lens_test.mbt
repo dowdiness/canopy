@@ -291,6 +291,24 @@ test "reconcile preserves IDs for matching nodes" {
 }
 
 // =============================================================================
+// Regression: parenthesized expressions cover paren positions
+// =============================================================================
+
+///|
+test "node_at_position covers parenthesis positions" {
+  // (x) should have span 0..3, not 1..2
+  let (ast, _) = parse_to_proj_node("(x)")
+  let model = CanonicalModel::from_ast(ast)
+  // Position 0 = '(' — must resolve to a node
+  inspect(model.node_at_position(0) is None, content="false")
+  // Position 2 = ')' — must resolve to a node
+  inspect(model.node_at_position(2) is None, content="false")
+  // The inner node should span the full parenthesized range
+  inspect(ast.start, content="0")
+  inspect(ast.end, content="3")
+}
+
+// =============================================================================
 // Bug Fix Tests: apply_edit (position shifting)
 // See source_map_wbtest.mbt for whitebox tests that access internal types
 // =============================================================================

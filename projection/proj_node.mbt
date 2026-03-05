@@ -194,7 +194,18 @@ fn syntax_to_proj_node(node : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode 
     )
   } else if @parser.ParenExprView::cast(node) is Some(v) {
     match v.inner() {
-      Some(inner) => syntax_to_proj_node(inner, counter)
+      Some(inner) => {
+        // Unwrap to inner Term (no Paren variant in Term), but keep
+        // the outer ParenExpr span so positions on ( and ) are covered.
+        let inner_node = syntax_to_proj_node(inner, counter)
+        ProjNode::new(
+          inner_node.kind,
+          node.start(),
+          node.end(),
+          inner_node.node_id,
+          inner_node.children,
+        )
+      }
       None => error_node_for_syntax("empty parentheses", node, counter)
     }
   } else {
