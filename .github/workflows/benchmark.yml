@@ -54,16 +54,18 @@ jobs:
         run: moon update
 
       - name: Run base benchmarks
+        continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          moon bench --release > base_bench.txt 2>&1
+          moon bench --release > base_bench.txt 2>&1 || echo "(base branch benchmark failed — may not compile)" > base_bench.txt
           cat base_bench.txt
 
       - name: Run submodule benchmarks (base - event-graph-walker)
+        continue-on-error: true
         working-directory: event-graph-walker
         run: |
           moon update
-          moon bench --release > ../base_egw_bench.txt 2>&1
+          moon bench --release > ../base_egw_bench.txt 2>&1 || echo "(base branch benchmark failed — may not compile)" > ../base_egw_bench.txt
           cat ../base_egw_bench.txt
 
       - name: Compare results
