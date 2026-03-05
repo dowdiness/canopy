@@ -22,8 +22,6 @@ pub fn parse_to_proj_node(String) -> (ProjNode, Array[String])
 
 pub fn[M, P] set(Lens[M, P], M, P) -> Result[M, String]
 
-pub fn term_to_proj_node(@ast.Term, Ref[Int], Int, Int) -> ProjNode
-
 pub fn text_lens() -> Lens[CanonicalModel, String]
 
 pub fn text_lens_diff(String, String) -> Array[ProjectionEdit]

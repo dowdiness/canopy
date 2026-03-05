@@ -230,7 +230,7 @@ test "merge invalidates AST cache" {
 }
 
 ///|
-test "ReactiveParser: get_ast() twice without text change does not re-parse" {
+test "ReactiveParser: get_ast() returns identical AST when called twice without text change" {
   let pe = ParsedEditor::new("agent1")
   try! pe.insert("x + 1")
   let ast1 = pe.get_ast()

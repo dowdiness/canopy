@@ -30,7 +30,7 @@ pub fn ProjNode::new(
 /// Each Term node gets a unique node_id from the counter.
 /// children mirrors the Term structure so that tree operations (insert,
 /// delete, reconcile) can navigate and mutate the tree.
-pub fn term_to_proj_node(
+fn term_to_proj_node(
   term : @ast.Term,
   counter : Ref[Int],
   start : Int,
