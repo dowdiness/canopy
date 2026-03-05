@@ -4,6 +4,7 @@ import {
   "dowdiness/lambda/ast" @ast,
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
+  "dowdiness/seam",
   "moonbitlang/core/quickcheck",
 }
 

@@ -11,6 +11,9 @@
     },
     "dowdiness/loom": {
       "path": "./loom/loom"
+    },
+    "dowdiness/seam": {
+      "path": "./loom/seam"
     }
   },
   "readme": "README.mbt.md",

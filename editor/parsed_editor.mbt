@@ -65,60 +65,24 @@ pub fn ParsedEditor::mark_dirty(self : ParsedEditor) -> Unit {
 }
 
 ///|
-/// Get the AST (lazy evaluation - only reparses if dirty)
-/// Raises an error if parsing fails
+/// Get the AST (lazy — recomputes only if source changed since last call).
+/// Returns @ast.AstNode for compatibility with current callsites.
 pub fn ParsedEditor::get_ast(self : ParsedEditor) -> @ast.AstNode {
-  if self.parse_dirty {
-    self.reparse()
-  }
-  match self.ast {
-    Some(ast) => ast
-    None => abort("No valid parse tree")
-  }
-}
-
-///|
-/// Incremental reparse using the Edit Bridge.
-/// Converts old→new text via loom's TextDelta API and applies the resulting
-/// edits to the incremental parser.
-fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
-  let old_text = self.cached_text
-  let new_text = self.editor.get_text()
-  let edits = merge_to_edits(old_text, new_text)
-  // text_to_delta always produces at most one contiguous change, so edits
-  // has length 0 (identical strings) or 1.
-  let syntax_node = if edits.is_empty() {
-    // No textual change (e.g., identical text or failed op).
-    // Apply a no-op edit at position 0 to obtain the current SyntaxNode.
-    self.parser.edit(@parser.Edit::new(0, 0, 0), new_text)
-  } else {
-    self.parser.edit(edits[0], new_text)
-  }
+  let syntax_node = self.parser.term()
   let counter = Ref::new(0)
-  let ast = @parser.syntax_node_to_ast_node(syntax_node, counter)
-  self.ast = Some(ast)
-  self.cached_errors = @parser.collect_errors(ast)
-  self.cached_text = new_text
-  self.parse_dirty = false
+  @parser.syntax_node_to_ast_node(syntax_node, counter)
 }
 
 ///|
-/// Get cached errors from the last parse
-/// Ensures AST is up-to-date before returning errors
+/// Get parse errors from the current source (memoized via cst_memo).
 pub fn ParsedEditor::get_errors(self : ParsedEditor) -> Array[String] {
-  // Ensure the AST is up-to-date (triggers reparse if dirty)
-  let _ = self.get_ast()
-  // Return the cached errors (collected during reparse)
-  self.cached_errors
+  self.parser.diagnostics()
 }
 
 ///|
-/// Check if the current parse tree is valid (no errors)
+/// Check if the current parse tree is valid (no errors).
 pub fn ParsedEditor::is_parse_valid(self : ParsedEditor) -> Bool {
-  match self.ast {
-    Some(ast) => not(@parser.has_errors(ast))
-    None => false
-  }
+  self.parser.diagnostics().is_empty()
 }
 
 ///|
