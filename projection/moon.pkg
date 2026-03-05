@@ -6,7 +6,8 @@ import {
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 
+warnings = "-2-6"
+
 options(
   is_main: false,
-  "warn-list": "-2-6",
 )
