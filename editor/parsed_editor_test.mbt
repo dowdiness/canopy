@@ -228,3 +228,13 @@ test "merge invalidates AST cache" {
   // AST should reflect merged text
   inspect(pe1.get_text(), content="xy")
 }
+
+///|
+test "ReactiveParser: get_ast() twice without text change does not re-parse" {
+  let pe = ParsedEditor::new("agent1")
+  try! pe.insert("x + 1")
+  let ast1 = pe.get_ast()
+  let ast2 = pe.get_ast() // second call — must hit cache, not re-parse
+  inspect(@ast.print_ast_node(ast1), content="(x + 1)")
+  inspect(@ast.print_ast_node(ast2), content="(x + 1)")
+}
