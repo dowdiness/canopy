@@ -49,7 +49,7 @@ jobs:
       matrix:
         submodule:
           - event-graph-walker
-          - parser
+          - loom/loom
           - svg-dsl
           - graphviz
     steps:
