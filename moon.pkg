@@ -1,7 +1,6 @@
 import {
   "dowdiness/crdt/editor",
   "dowdiness/event-graph-walker/text",
-  "dowdiness/event-graph-walker/undo",
   "dowdiness/lambda" @parser,
   "moonbitlang/core/json",
 }
