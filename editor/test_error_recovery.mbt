@@ -1,9 +1,9 @@
-// Test error recovery in ParsedEditor
+// Test error recovery in SyncEditor
 // Verifies that errors clear when syntax is corrected
 
 ///|
-test "ParsedEditor: error recovery - invalid to valid syntax" {
-  let editor = ParsedEditor::new("agent1")
+test "SyncEditor: error recovery - invalid to valid syntax" {
+  let editor = SyncEditor::new("agent1")
 
   // Start with valid syntax
   try! editor.insert("x")
@@ -22,8 +22,8 @@ test "ParsedEditor: error recovery - invalid to valid syntax" {
 }
 
 ///|
-test "ParsedEditor: error recovery - multiple edits" {
-  let editor = ParsedEditor::new("agent2")
+test "SyncEditor: error recovery - multiple edits" {
+  let editor = SyncEditor::new("agent2")
 
   // Type: λx.
   try! editor.insert("λx.")
@@ -47,8 +47,8 @@ test "ParsedEditor: error recovery - multiple edits" {
 }
 
 ///|
-test "ParsedEditor: incremental parser is used" {
-  let editor = ParsedEditor::new("agent3")
+test "SyncEditor: incremental parser is used" {
+  let editor = SyncEditor::new("agent3")
 
   // Insert some text
   try! editor.insert("λf.λx.f x")

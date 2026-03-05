@@ -1,15 +1,16 @@
 # Performance Benchmark Results
 
-**Date:** 2026-01-04
-**After:** Priority 3 Performance Optimizations Complete
+**Date:** 2026-03-05 (updated), originally 2026-01-04
+**After:** SyncEditor migration + Priority 3 Performance Optimizations
 
 ## Executive Summary
 
-All performance optimizations from Priority 3 have been successfully implemented and tested. The benchmarks confirm:
+All performance optimizations remain in effect after the SyncEditor migration (PR #17). `ParsedEditor` has been replaced by `SyncEditor`, a unified facade composing `TextDoc`, `UndoManager`, and `ReactiveParser`. The benchmarks confirm:
 
 1. **Serialization:** O(n²) → O(n) optimization working correctly
 2. **Error Collection Caching:** Negligible overhead for cached lookups
 3. **Overall Performance:** All operations complete in microseconds
+4. **eg-walker CRDT:** 91 benchmarks pass, all within expected ranges
 
 ---
 
@@ -60,7 +61,7 @@ After optimization with array building + join pattern:
 
 **Analysis:** Error collection is very fast. The real win is avoiding repeated calls.
 
-### ParsedEditor Cached Error Access
+### SyncEditor Cached Error Access
 | Test Case | Time (mean ± σ) | Performance |
 |-----------|-----------------|-------------|
 | First call (triggers parse) | 6.22 µs ± 0.09 µs | ✅ Fast |
@@ -135,7 +136,7 @@ For comparison, here are the parser benchmarks:
 
 **After optimization:**
 - Errors collected once during parse
-- Cached in ParsedEditor
+- Cached in SyncEditor
 - Subsequent calls return cached array (O(1))
 
 **Measured impact:**
@@ -183,15 +184,77 @@ All performance targets met:
 
 ---
 
-## Benchmarking Notes
+## eg-walker CRDT Benchmarks (2026-03-05)
 
-- **Platform:** Native compilation with `--release` flag
-- **Method:** MoonLang built-in benchmark framework
-- **Runs:** 10 iterations with varying sample sizes (automatically tuned)
-- **Measurement:** Mean time ± standard deviation
-- **All tests:** 223/223 passing (100%)
+91 benchmarks pass. Key results:
+
+### Text Operations
+
+| Benchmark | Time (mean ± σ) |
+|-----------|-----------------|
+| insert append (100 chars) | 4.02 ms ± 154.56 µs |
+| insert append (1000 chars) | 3.85 s ± 48.04 ms |
+| insert prepend (100 chars) | 4.26 ms ± 78.66 µs |
+| delete (100 from 100-char doc) | 15.39 ms ± 266.76 µs |
+| text() (100-char doc) | 102.14 µs ± 1.42 µs |
+| text() (1000-char doc) | 12.86 ms ± 136.93 µs |
+| len() (1000-char doc) | 0.01 µs ± 0.00 µs |
+
+### Sync Operations
+
+| Benchmark | Time (mean ± σ) |
+|-----------|-----------------|
+| export_all (100 ops) | 0.18 µs ± 0.00 µs |
+| export_all (1000 ops) | 1.42 µs ± 0.03 µs |
+| export_since (50-op delta) | 458.74 µs ± 14.72 µs |
+| apply (50 remote ops) | 71.44 µs ± 1.54 µs |
+| apply (500 remote ops) | 1.23 ms ± 62.72 µs |
+| bidirectional sync (2 peers, 50 ops) | 147.57 µs ± 2.76 µs |
+
+### Undo Operations
+
+| Benchmark | Time (mean ± σ) |
+|-----------|-----------------|
+| record_insert (100 ops, 1 group) | 1.68 µs ± 0.03 µs |
+| record_insert (100 ops, 100 groups) | 2.27 µs ± 0.05 µs |
+| undo() (10-op group) | 35.96 µs ± 0.31 µs |
+| undo() (50-op group) | 2.24 ms ± 23.10 µs |
+| undo+redo roundtrip (10-op) | 41.80 µs ± 0.80 µs |
+| 10 undo+redo cycles (10-op) | 347.22 µs ± 6.77 µs |
+
+### Branch & Merge
+
+| Benchmark | Time (mean ± σ) |
+|-----------|-----------------|
+| checkout (10 ops) | 4.55 µs ± 0.03 µs |
+| checkout (100 ops) | 76.26 µs ± 0.76 µs |
+| checkout (1000 ops) | 1.43 ms ± 34.48 µs |
+| merge concurrent (2 agents x 50) | 130.17 µs ± 1.32 µs |
+| merge concurrent (2 agents x 200) | 727.09 µs ± 19.65 µs |
+| merge many agents (5 x 20) | 193.78 µs ± 2.08 µs |
+| realistic typing (50 chars) | 66.60 ms ± 19.46 ms |
+
+### Walker (Causal Graph)
+
+| Benchmark | Time (mean ± σ) |
+|-----------|-----------------|
+| linear history (100 ops) | 60.76 µs ± 1.88 µs |
+| linear history (1000 ops) | 1.14 ms ± 18.15 µs |
+| linear history (100000 ops) | 695.43 ms ± 45.78 ms |
+| concurrent branches (5 agents x 20) | 59.29 µs ± 0.83 µs |
+| concurrent branches (100000 ops) | 706.69 ms ± 44.71 ms |
 
 ---
 
-**Generated:** 2026-01-04
-**Context:** Priority 3 Performance Optimizations Complete
+## Benchmarking Notes
+
+- **Platform:** Native compilation with `--release` flag
+- **Method:** MoonBit built-in benchmark framework
+- **Runs:** 10 iterations with varying sample sizes (automatically tuned)
+- **Measurement:** Mean time ± standard deviation
+- **All tests:** 188/188 passing (100%), 91/91 benchmarks passing
+
+---
+
+**Updated:** 2026-03-05
+**Context:** SyncEditor migration (PR #17) + eg-walker benchmark refresh

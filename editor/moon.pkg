@@ -1,5 +1,6 @@
 import {
   "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/undo",
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/loom" @loom,

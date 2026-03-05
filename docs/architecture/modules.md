@@ -60,8 +60,7 @@ JavaScript FFI bindings (`crdt.mbt`) that expose the editor API to JavaScript.
 ### `editor/`
 High-level editor abstractions (application-specific).
 
-- `Editor` - Text editor with cursor tracking (wraps Document from event-graph-walker)
-- `ParsedEditor` - Editor with integrated incremental parsing for lambda calculus
+- `SyncEditor` - Unified facade composing TextDoc, UndoManager, and ReactiveParser with cursor tracking
 - Text diff utilities for incremental parser integration
 
 ### `projection/`

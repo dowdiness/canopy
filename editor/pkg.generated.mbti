@@ -5,8 +5,6 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
-  "dowdiness/loom/pipeline",
-  "dowdiness/seam",
 }
 
 // Values
@@ -35,25 +33,35 @@ pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self
 pub impl Show for Editor
 
-pub struct ParsedEditor {
-  editor : Editor
-  parser : @pipeline.ReactiveParser[@seam.SyntaxNode]
+pub struct SyncEditor {
+  // private fields
 }
-pub fn ParsedEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
-pub fn ParsedEditor::backspace(Self) -> Bool
-pub fn ParsedEditor::delete(Self) -> Bool
-pub fn ParsedEditor::export_all(Self) -> @text.SyncMessage raise
-pub fn ParsedEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
-pub fn ParsedEditor::get_ast(Self) -> @ast.Term
-pub fn ParsedEditor::get_cursor(Self) -> Int
-pub fn ParsedEditor::get_errors(Self) -> Array[String]
-pub fn ParsedEditor::get_text(Self) -> String
-pub fn ParsedEditor::get_version(Self) -> @text.Version
-pub fn ParsedEditor::insert(Self, String) -> Unit raise
-pub fn ParsedEditor::is_parse_valid(Self) -> Bool
-pub fn ParsedEditor::mark_dirty(Self) -> Unit
-pub fn ParsedEditor::move_cursor(Self, Int) -> Unit
-pub fn ParsedEditor::new(String) -> Self
+pub fn SyncEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
+pub fn SyncEditor::backspace(Self) -> Bool
+pub fn SyncEditor::backspace_and_record(Self, Int) -> Bool
+pub fn SyncEditor::can_redo(Self) -> Bool
+pub fn SyncEditor::can_undo(Self) -> Bool
+pub fn SyncEditor::clear_undo(Self) -> Unit
+pub fn SyncEditor::delete(Self) -> Bool
+pub fn SyncEditor::delete_and_record(Self, Int) -> Bool
+pub fn SyncEditor::export_all(Self) -> @text.SyncMessage raise
+pub fn SyncEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
+pub fn SyncEditor::get_ast(Self) -> @ast.Term
+pub fn SyncEditor::get_cursor(Self) -> Int
+pub fn SyncEditor::get_errors(Self) -> Array[String]
+pub fn SyncEditor::get_text(Self) -> String
+pub fn SyncEditor::get_version(Self) -> @text.Version
+pub fn SyncEditor::insert(Self, String) -> Unit raise
+pub fn SyncEditor::insert_and_record(Self, String, Int) -> Unit raise
+pub fn SyncEditor::is_parse_valid(Self) -> Bool
+pub fn SyncEditor::mark_dirty(Self) -> Unit
+pub fn SyncEditor::move_cursor(Self, Int) -> Unit
+pub fn SyncEditor::new(String, capture_timeout_ms? : Int) -> Self
+pub fn SyncEditor::redo(Self) -> Bool
+pub fn SyncEditor::set_text(Self, String) -> Unit
+pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
+pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
+pub fn SyncEditor::undo(Self) -> Bool
 
 // Type aliases
 
