@@ -8,4 +8,5 @@ import {
 
 options(
   is_main: false,
+  "warn-list": "-2-6",
 )

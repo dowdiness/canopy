@@ -224,7 +224,7 @@ test "apply_operation MoveNode within same parent adjusts index" {
   // We'll use a simpler case: 1 + 2 + 3 which creates nested Bop
   // Instead, let's use a direct approach with InsertNode to build children
   let (ast, _) = @parser.parse_with_error_recovery("f a b c")
-  let model = CanonicalModel::from_ast(ast)
+  let _model = CanonicalModel::from_ast(ast)
 
   // The AST for "f a b c" is App(App(App(f, a), b), c)
   // Let's use a simpler test: move second child to after third child
