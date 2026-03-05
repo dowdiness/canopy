@@ -8,12 +8,12 @@ export default defineConfig({
         {
           name: '@moonbit/crdt',
           path: '..',
-          output: 'target/js/release/build/crdt.js'
+          output: '_build/js/release/build/crdt.js'
         },
         {
           name: '@moonbit/graphviz',
           path: '../graphviz',
-          output: 'target/js/release/build/browser/browser.js'
+          output: '_build/js/release/build/browser/browser.js'
         }
       ]
     })
