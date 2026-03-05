@@ -103,16 +103,14 @@ fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
   let old_text = self.cached_text
   let new_text = self.editor.get_text()
   let edits = merge_to_edits(old_text, new_text)
+  // text_to_delta always produces at most one contiguous change, so edits
+  // has length 0 (identical strings) or 1.
   let syntax_node = if edits.is_empty() {
     // No textual change (e.g., identical text or failed op).
     // Apply a no-op edit at position 0 to obtain the current SyntaxNode.
     self.parser.edit(@parser.Edit::new(0, 0, 0), new_text)
   } else {
-    let mut node = self.parser.edit(edits[0], new_text)
-    for i = 1; i < edits.length(); i = i + 1 {
-      node = self.parser.edit(edits[i], new_text)
-    }
-    node
+    self.parser.edit(edits[0], new_text)
   }
   let counter = Ref::new(0)
   let ast = @parser.syntax_node_to_ast_node(syntax_node, counter)
