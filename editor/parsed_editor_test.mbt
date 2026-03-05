@@ -72,7 +72,7 @@ test "concurrent edits converge to same AST" {
 
   // Initial: "x"
   try! pe1.insert("x")
-  try! pe2.merge_remote(pe1.get_operations(), try! pe1.get_frontier_raw())
+  try! pe2.apply_sync(try! pe1.export_all())
 
   // Verify text convergence
   inspect(pe1.get_text(), content="x")
@@ -83,8 +83,8 @@ test "concurrent edits converge to same AST" {
   try! pe2.insert(" - 2")
 
   // Merge
-  try! pe1.merge_remote(pe2.get_operations(), try! pe2.get_frontier_raw())
-  try! pe2.merge_remote(pe1.get_operations(), try! pe1.get_frontier_raw())
+  try! pe1.apply_sync(try! pe2.export_all())
+  try! pe2.apply_sync(try! pe1.export_all())
 
   // Verify text and AST convergence
   let text1 = pe1.get_text()
@@ -104,7 +104,7 @@ test "collaborative lambda editing" {
 
   // Agent 1 creates lambda skeleton
   try! pe1.insert("λx.")
-  try! pe2.merge_remote(pe1.get_operations(), try! pe1.get_frontier_raw())
+  try! pe2.apply_sync(try! pe1.export_all())
 
   // Verify convergence
   inspect(pe1.get_text(), content="λx.")
@@ -115,8 +115,8 @@ test "collaborative lambda editing" {
   try! pe2.insert("x - 1")
 
   // Merge and verify both valid
-  try! pe1.merge_remote(pe2.get_operations(), try! pe2.get_frontier_raw())
-  try! pe2.merge_remote(pe1.get_operations(), try! pe1.get_frontier_raw())
+  try! pe1.apply_sync(try! pe2.export_all())
+  try! pe2.apply_sync(try! pe1.export_all())
   let text1 = pe1.get_text()
   let text2 = pe2.get_text()
   inspect(text1 == text2, content="true")
@@ -184,13 +184,11 @@ test "delete at end returns false" {
 }
 
 ///|
-test "operations and frontier" {
+test "export_all produces non-empty message" {
   let pe = ParsedEditor::new("agent1")
   try! pe.insert("x")
-  let ops = pe.get_operations()
-  let frontier = pe.get_frontier()
-  inspect(ops.length() > 0, content="true")
-  inspect(frontier.0.length() > 0, content="true")
+  let msg = try! pe.export_all()
+  inspect(msg.op_count() > 0, content="true")
 }
 
 ///|
@@ -216,12 +214,12 @@ test "merge invalidates AST cache" {
 
   // Start with common base
   try! pe1.insert("x")
-  try! pe2.merge_remote(pe1.get_operations(), try! pe1.get_frontier_raw())
+  try! pe2.apply_sync(try! pe1.export_all())
   let _ast1 = pe1.get_ast()
 
   // pe2 makes change and pe1 merges
   try! pe2.insert("y")
-  try! pe1.merge_remote(pe2.get_operations(), try! pe2.get_frontier_raw())
+  try! pe1.apply_sync(try! pe2.export_all())
 
   // get_ast() should reparse
   let ast2 = pe1.get_ast()

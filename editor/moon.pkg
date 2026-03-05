@@ -1,8 +1,8 @@
 import {
-  "dowdiness/event-graph-walker/core",
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
+  "dowdiness/loom/core" @loom_core,
   "moonbitlang/core/quickcheck",
 }
 

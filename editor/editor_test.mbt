@@ -105,17 +105,15 @@ test "concurrent edits from two editors" {
   // Bob types "World"
   try! bob.insert("World")
 
-  // They exchange operations
-  let alice_ops = alice.get_operations()
-  let bob_ops = bob.get_operations()
-  let alice_frontier = try! alice.get_frontier_raw()
-  let bob_frontier = try! bob.get_frontier_raw()
+  // They exchange all operations via SyncMessage
+  let alice_msg = try! alice.export_all()
+  let bob_msg = try! bob.export_all()
 
   // Alice receives Bob's operations
-  try! alice.merge_remote(bob_ops, bob_frontier)
+  try! alice.apply_sync(bob_msg)
 
   // Bob receives Alice's operations
-  try! bob.merge_remote(alice_ops, alice_frontier)
+  try! bob.apply_sync(alice_msg)
 
   // Both should have converged to same text
   let alice_text = alice.get_text()
@@ -138,9 +136,7 @@ test "concurrent inserts at same position" {
   // Both start with "AC"
   try! alice.insert("A")
   try! alice.insert("C")
-  let ops = alice.get_operations()
-  let frontier = try! alice.get_frontier_raw()
-  try! bob.merge_remote(ops, frontier)
+  try! bob.apply_sync(try! alice.export_all())
 
   // Verify both have "AC"
   inspect(alice.get_text(), content="AC")
@@ -152,15 +148,9 @@ test "concurrent inserts at same position" {
   bob.move_cursor(1)
   try! bob.insert("Y")
 
-  // Get the new operations (only the ones after the merge)
-  let alice_new_ops = alice.get_operations()
-  let bob_new_ops = bob.get_operations()
-  let alice_new_frontier = try! alice.get_frontier_raw()
-  let bob_new_frontier = try! bob.get_frontier_raw()
-
-  // Cross-merge
-  try! alice.merge_remote(bob_new_ops, bob_new_frontier)
-  try! bob.merge_remote(alice_new_ops, alice_new_frontier)
+  // Cross-merge via export_all
+  try! alice.apply_sync(try! bob.export_all())
+  try! bob.apply_sync(try! alice.export_all())
 
   // Both should converge to same text
   let alice_text = alice.get_text()

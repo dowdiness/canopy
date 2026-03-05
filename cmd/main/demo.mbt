@@ -19,21 +19,13 @@ fn show_editor(agent_name : String, editor : @editor.Editor) -> Unit {
 }
 
 ///|
-/// Show operations
-fn show_operations(editor : @editor.Editor) -> Unit {
-  let ops = editor.get_operations()
-  println("Operations (\{ops.length()} total):")
-  for i = 0; i < ops.length(); i = i + 1 {
-    let op = ops[i]
-    let mut line = "  [\{op.lv}] "
-    match op.content {
-      @core.Insert(text) =>
-        line = line +
-          "Insert(\"\{text}\") left=\{op.origin_left} right=\{op.origin_right}"
-      @core.Delete => line = line + "Delete() left=\{op.origin_left}"
-      @core.Undelete => line = line + "Undelete() left=\{op.origin_left}"
-    }
-    println(line)
+/// Show sync info (op count via SyncMessage)
+fn show_sync_info(editor : @editor.Editor) -> Unit {
+  try {
+    let msg = editor.export_all()
+    println("Operations (\{msg.op_count()} total in sync message)")
+  } catch {
+    _ => ()
   }
 }
 
@@ -63,7 +55,7 @@ pub fn run_convergence_demo() -> Unit {
   show_editor("Alice", alice)
   println("")
   println("4. View operation log:")
-  show_operations(alice)
+  show_sync_info(alice)
   println("")
   println("5. Alice moves cursor to position 0 and inserts 'Hey! '")
   alice.move_cursor(0)
@@ -71,19 +63,9 @@ pub fn run_convergence_demo() -> Unit {
   show_editor("Alice", alice)
   println("")
   println("6. Final operation log:")
-  show_operations(alice)
+  show_sync_info(alice)
   println("")
-  let frontier = alice.get_frontier()
-  let frontier_values = frontier.0
-  let mut frontier_str = "Frontier: ["
-  for i = 0; i < frontier_values.length(); i = i + 1 {
-    if i > 0 {
-      frontier_str = frontier_str + ", "
-    }
-    frontier_str = frontier_str + frontier_values[i].to_string()
-  }
-  frontier_str = frontier_str + "]"
-  println(frontier_str)
+  println("Version: \{alice.get_version()}")
   println("")
   print_separator()
   println("Key features demonstrated:")

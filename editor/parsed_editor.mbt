@@ -144,33 +144,33 @@ pub fn ParsedEditor::is_parse_valid(self : ParsedEditor) -> Bool {
 }
 
 ///|
-/// Merge remote operations and update local state
-/// Marks AST as dirty for reparsing after merge
-pub fn ParsedEditor::merge_remote(
+/// Apply a sync message from a remote peer and update local state.
+/// Marks AST as dirty for reparsing after merge.
+pub fn ParsedEditor::apply_sync(
   self : ParsedEditor,
-  ops : Array[@core.Op],
-  frontier : Array[@core.RawVersion],
+  msg : @text.SyncMessage,
 ) -> Unit raise {
-  self.editor.merge_remote(ops, frontier)
+  self.editor.apply_sync(msg)
   self.parse_dirty = true
 }
 
 ///|
-/// Get all operations from the operation log
-pub fn ParsedEditor::get_operations(self : ParsedEditor) -> Array[@core.Op] {
-  self.editor.get_operations()
+/// Get the current version (for sync)
+pub fn ParsedEditor::get_version(self : ParsedEditor) -> @text.Version {
+  self.editor.get_version()
 }
 
 ///|
-/// Get the current version frontier
-pub fn ParsedEditor::get_frontier(self : ParsedEditor) -> @core.Frontier {
-  self.editor.get_frontier()
+/// Export all operations as a SyncMessage (for initial peer sync)
+pub fn ParsedEditor::export_all(self : ParsedEditor) -> @text.SyncMessage raise {
+  self.editor.export_all()
 }
 
 ///|
-/// Get frontier as RawVersions for network sync
-pub fn ParsedEditor::get_frontier_raw(
+/// Export operations since a peer's version (for delta sync)
+pub fn ParsedEditor::export_since(
   self : ParsedEditor,
-) -> Array[@core.RawVersion] raise {
-  self.editor.get_frontier_raw()
+  peer_version : @text.Version,
+) -> @text.SyncMessage raise {
+  self.editor.export_since(peer_version)
 }

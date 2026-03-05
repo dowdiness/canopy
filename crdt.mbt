@@ -139,132 +139,58 @@ pub fn get_errors_json(_handle : Int) -> String {
 }
 
 ///|
-/// Get all operations as JSON
-pub fn get_operations_json(_handle : Int) -> String {
-  match editor.val {
-    Some(editor) => editor.get_operations().to_json().stringify()
-    None => "[]"
-  }
-}
-
-///|
-/// Get frontier as JSON
-pub fn get_frontier_json(_handle : Int) -> String {
-  match editor.val {
-    Some(editor) => editor.get_frontier().0.to_json().stringify()
-    None => "[]"
-  }
-}
-
-///|
-/// Get frontier (RawVersions) as JSON for network sync
-pub fn get_frontier_raw_json(_handle : Int) -> String {
-  match editor.val {
-    Some(editor) =>
-      editor.get_frontier_raw().to_json().stringify() catch {
-        _ => "[]"
-      }
-    None => "[]"
-  }
-}
-
-///|
-/// Get version vector as JSON
-/// Returns a JSON object mapping agent IDs to sequence numbers
-/// Example: {"alice": 5, "bob": 3}
-pub fn get_version_vector_json(_handle : Int) -> String {
+/// Export all operations as a SyncMessage JSON string.
+/// Use this for initial peer sync (send full history).
+pub fn export_all_json(_handle : Int) -> String {
   match editor.val {
     Some(ed) =>
-      // Use TextDoc API to build the version vector
-      ed.editor.doc.get_version_vector().to_json().stringify() catch {
-        _ => "{}"
+      try {
+        ed.export_all().to_json_string()
+      } catch {
+        _ => "{\"ops\":[],\"heads\":[]}"
       }
-    None => "{}"
+    None => "{\"ops\":[],\"heads\":[]}"
   }
 }
 
 ///|
-/// Parse operations from JSON
-/// Uses @json.from_json with FromJson trait
-fn parse_ops_from_json(json_str : String) -> Array[@core.Op] {
-  try {
-    let json_val = @json.parse(json_str)
-    // Use FromJson trait - Op already derives FromJson
-    @json.from_json(json_val)
-  } catch {
-    _ => [] // Return empty array on any error
-  }
-}
-
-///|
-/// Parse RawVersion frontier from JSON
-/// Uses @json.from_json with FromJson trait
-fn parse_frontier_raw_from_json(json_str : String) -> Array[@core.RawVersion] {
-  try {
-    let json_val = @json.parse(json_str)
-    @json.from_json(json_val)
-  } catch {
-    _ => [] // Return empty array on any error
-  }
-}
-
-///|
-/// Parse version vector from JSON
-/// Uses @json.from_json with FromJson trait
-fn parse_version_vector_from_json(
-  json_str : String,
-) -> @causal_graph.VersionVector? {
-  try {
-    let json_val = @json.parse(json_str)
-    // Use FromJson trait - VersionVector implements FromJson
-    Some(@json.from_json(json_val))
-  } catch {
-    _ => None // Return None on any error
-  }
-}
-
-///|
-/// Merge remote operations into local editor
-/// This implements Phase 3 of the eg-walker algorithm
-/// Optimized with version vector comparison to skip redundant merges
-pub fn merge_operations(
-  _handle : Int,
-  ops_json : String,
-  frontier_json : String,
-  version_vector_json : String,
-) -> Unit {
+/// Export operations since a peer's version as a SyncMessage JSON string.
+/// The peer_version_json is the JSON produced by `get_version_json`.
+pub fn export_since_json(_handle : Int, peer_version_json : String) -> String {
   match editor.val {
-    Some(ed) => {
-      // Get local version vector for comparison
-      let local_vv = ed.editor.doc.get_version_vector() catch {
-        _ => @causal_graph.VersionVector::new()
+    Some(ed) =>
+      try {
+        let ver = @text.Version::from_json_string(peer_version_json)
+        ed.export_since(ver).to_json_string()
+      } catch {
+        _ => "{\"ops\":[],\"heads\":[]}"
       }
+    None => "{\"ops\":[],\"heads\":[]}"
+  }
+}
 
-      // Parse remote version vector
-      match parse_version_vector_from_json(version_vector_json) {
-        Some(remote_vv) =>
-          // Optimization: If remote version vector is <= local, we already have
-          // all those operations. Skip the merge to avoid redundant processing.
-          if remote_vv <= local_vv {
-            // Already synced - remote has no new operations for us
-            return
-          }
-        None => () // If parsing fails, proceed with merge anyway
+///|
+/// Apply a SyncMessage received from a peer.
+/// The sync_json is produced by `export_all_json` or `export_since_json`.
+pub fn apply_sync_json(_handle : Int, sync_json : String) -> Unit {
+  match editor.val {
+    Some(ed) =>
+      try {
+        let msg = @text.SyncMessage::from_json_string(sync_json)
+        ed.apply_sync(msg)
+      } catch {
+        _ => ()
       }
-
-      // Parse remote operations from JSON
-      // Serialization uses ToJson trait (.to_json().to_string())
-      // Deserialization uses @json.parse + manual field extraction
-      let remote_ops = parse_ops_from_json(ops_json)
-      let remote_frontier = parse_frontier_raw_from_json(frontier_json)
-
-      // Use ParsedEditor's merge_remote which calls Editor::merge_remote
-      // which calls Document::merge_remote which uses the merge module
-      try! ed.merge_remote(remote_ops, remote_frontier)
-
-      // ParsedEditor::merge_remote already marks as dirty for reparsing
-    }
     None => ()
+  }
+}
+
+///|
+/// Get the current version as a JSON string for use with `export_since_json`.
+pub fn get_version_json(_handle : Int) -> String {
+  match editor.val {
+    Some(ed) => ed.get_version().to_json_string()
+    None => "\"\""
   }
 }
 
@@ -417,36 +343,38 @@ pub fn set_text_and_record(
 }
 
 ///|
-/// Undo the last operation group
-/// Returns JSON string of ops for peer sync, or "[]" if nothing to undo
-pub fn undo_manager_undo(_handle : Int) -> String {
+/// Undo the last operation group.
+/// Returns true if undo was performed, false if nothing to undo.
+/// Use export_all_json after undo to sync the result to peers.
+pub fn undo_manager_undo(_handle : Int) -> Bool {
   match (editor.val, undo_mgr.val) {
     (Some(ed), Some(mgr)) =>
       try {
-        let ops = mgr.undo(ed.editor.doc)
+        mgr.undo(ed.editor.doc)
         ed.mark_dirty()
-        ops.to_json().stringify()
+        true
       } catch {
-        _ => "[]"
+        _ => false
       }
-    _ => "[]"
+    _ => false
   }
 }
 
 ///|
-/// Redo the last undone operation group
-/// Returns JSON string of ops for peer sync, or "[]" if nothing to redo
-pub fn undo_manager_redo(_handle : Int) -> String {
+/// Redo the last undone operation group.
+/// Returns true if redo was performed, false if nothing to redo.
+/// Use export_all_json after redo to sync the result to peers.
+pub fn undo_manager_redo(_handle : Int) -> Bool {
   match (editor.val, undo_mgr.val) {
     (Some(ed), Some(mgr)) =>
       try {
-        let ops = mgr.redo(ed.editor.doc)
+        mgr.redo(ed.editor.doc)
         ed.mark_dirty()
-        ops.to_json().stringify()
+        true
       } catch {
-        _ => "[]"
+        _ => false
       }
-    _ => "[]"
+    _ => false
   }
 }
 

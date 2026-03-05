@@ -153,33 +153,15 @@ fn execute_command(state : ReplState, line : String) -> Bool {
     return true
   }
   if command == "frontier" || command == "f" {
-    let frontier = state.editor.get_frontier()
-    let frontier_values = frontier.0
-    let mut output = "Frontier: ["
-    for i = 0; i < frontier_values.length(); i = i + 1 {
-      if i > 0 {
-        output = output + ", "
-      }
-      output = output + frontier_values[i].to_string()
-    }
-    output = output + "]"
-    println(output)
+    println("Version: \{state.editor.get_version()}")
     return true
   }
   if command == "ops" || command == "o" {
-    let ops = state.editor.get_operations()
-    println("Operations (\{ops.length()} total):")
-    for i = 0; i < ops.length(); i = i + 1 {
-      let op = ops[i]
-      let mut line = "  [\{op.lv}] "
-      match op.content {
-        @core.Insert(text) =>
-          line = line +
-            "Insert(\"\{text}\") left=\{op.origin_left} right=\{op.origin_right}"
-        @core.Delete => line = line + "Delete() left=\{op.origin_left}"
-        @core.Undelete => line = line + "Undelete() left=\{op.origin_left}"
-      }
-      println(line)
+    try {
+      let msg = state.editor.export_all()
+      println("Operations (\{msg.op_count()} total in sync message)")
+    } catch {
+      _ => ()
     }
     return true
   }

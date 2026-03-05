@@ -47,7 +47,7 @@ pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
 ///|
 /// After insertion, cursor moves to after the inserted text
 pub fn Editor::insert(self : Editor, text : String) -> Unit raise {
-  let _ = self.doc.insert(@text.Pos::at(self.cursor), text)
+  self.doc.insert(@text.Pos::at(self.cursor), text)
   self.cursor = self.cursor + text.length()
 }
 
@@ -62,7 +62,7 @@ pub fn Editor::insert_at(
   position : Int,
   text : String,
 ) -> Unit raise {
-  let _ = self.doc.insert(@text.Pos::at(position), text)
+  self.doc.insert(@text.Pos::at(position), text)
 }
 
 ///| Delete character at current cursor position
@@ -105,49 +105,6 @@ pub fn Editor::backspace(self : Editor) -> Bool {
   } else {
     false
   }
-}
-
-///|
-/// Apply a remote operation to this editor
-pub fn Editor::apply_remote(self : Editor, op : @core.Op) -> Unit raise {
-  self.doc.apply_remote(op)
-  // Adjust cursor position if needed
-  self.adjust_cursor()
-}
-
-///|
-/// Merge remote operations into this editor.
-/// Preserves frontier validation even when ops is empty.
-pub fn Editor::merge_remote(
-  self : Editor,
-  remote_ops : Array[@core.Op],
-  remote_frontier : Array[@core.RawVersion],
-) -> Unit raise {
-  // Preserve frontier validation even when ops is empty.
-  // SyncSession::apply skips validation in that case, which could
-  // allow inconsistent sync states to pass silently.
-  self.doc.merge_remote(remote_ops, remote_frontier)
-  // Adjust cursor position if needed
-  self.adjust_cursor()
-}
-
-///|
-/// Get the current frontier
-pub fn Editor::get_frontier(self : Editor) -> @core.Frontier {
-  self.doc.version().to_frontier()
-}
-
-///|
-/// Get frontier as RawVersions for network sync.
-/// Delegates to TextDoc for O(1) access.
-pub fn Editor::get_frontier_raw(self : Editor) -> Array[@core.RawVersion] raise {
-  self.doc.get_frontier_raw()
-}
-
-///|
-/// Get all operations (for sending to remote)
-pub fn Editor::get_operations(self : Editor) -> Array[@core.Op] {
-  self.doc.get_all_ops()
 }
 
 ///|

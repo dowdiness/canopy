@@ -1,6 +1,6 @@
 import {
   "dowdiness/crdt/editor",
-  "dowdiness/event-graph-walker/core",
+  "dowdiness/event-graph-walker/text",
 }
 
 options(
