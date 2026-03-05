@@ -107,3 +107,143 @@ pub fn SyncEditor::get_errors(self : SyncEditor) -> Array[String] {
 pub fn SyncEditor::is_parse_valid(self : SyncEditor) -> Bool {
   self.get_errors().is_empty()
 }
+
+// --- Sync methods ---
+
+///|
+fn SyncEditor::adjust_cursor(self : SyncEditor) -> Unit {
+  let text_len = self.doc.len()
+  if self.cursor > text_len {
+    self.cursor = text_len
+  }
+}
+
+///|
+pub fn SyncEditor::apply_sync(
+  self : SyncEditor,
+  msg : @text.SyncMessage,
+) -> Unit raise {
+  self.doc.sync().apply(msg)
+  self.adjust_cursor()
+  self.parser.set_source(self.doc.text())
+}
+
+///|
+pub fn SyncEditor::get_version(self : SyncEditor) -> @text.Version {
+  self.doc.version()
+}
+
+///|
+pub fn SyncEditor::export_all(self : SyncEditor) -> @text.SyncMessage raise {
+  self.doc.sync().export_all()
+}
+
+///|
+pub fn SyncEditor::export_since(
+  self : SyncEditor,
+  peer_version : @text.Version,
+) -> @text.SyncMessage raise {
+  self.doc.sync().export_since(peer_version)
+}
+
+// --- Undo methods ---
+
+///|
+pub fn SyncEditor::insert_and_record(
+  self : SyncEditor,
+  text : String,
+  timestamp_ms : Int,
+) -> Unit raise {
+  self.doc.insert_and_record(
+    @text.Pos::at(self.cursor),
+    text,
+    self.undo,
+    timestamp_ms~,
+  )
+  self.cursor = self.cursor + text.length()
+  self.parser.set_source(self.doc.text())
+}
+
+///|
+pub fn SyncEditor::delete_and_record(
+  self : SyncEditor,
+  timestamp_ms : Int,
+) -> Bool {
+  try {
+    self.doc.delete_and_record(
+      @text.Pos::at(self.cursor),
+      self.undo,
+      timestamp_ms~,
+    )
+    self.parser.set_source(self.doc.text())
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub fn SyncEditor::backspace_and_record(
+  self : SyncEditor,
+  timestamp_ms : Int,
+) -> Bool {
+  if self.cursor > 0 {
+    let new_pos = self.cursor - 1
+    try {
+      self.doc.delete_and_record(
+        @text.Pos::at(new_pos),
+        self.undo,
+        timestamp_ms~,
+      )
+      self.cursor = new_pos
+      self.parser.set_source(self.doc.text())
+      true
+    } catch {
+      _ => false
+    }
+  } else {
+    false
+  }
+}
+
+///|
+pub fn SyncEditor::undo(self : SyncEditor) -> Bool {
+  try {
+    self.undo.undo(self.doc)
+    self.mark_dirty()
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub fn SyncEditor::redo(self : SyncEditor) -> Bool {
+  try {
+    self.undo.redo(self.doc)
+    self.mark_dirty()
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub fn SyncEditor::can_undo(self : SyncEditor) -> Bool {
+  self.undo.can_undo()
+}
+
+///|
+pub fn SyncEditor::can_redo(self : SyncEditor) -> Bool {
+  self.undo.can_redo()
+}
+
+///|
+pub fn SyncEditor::set_tracking(self : SyncEditor, enabled : Bool) -> Unit {
+  self.undo.set_tracking(enabled)
+}
+
+///|
+pub fn SyncEditor::clear_undo(self : SyncEditor) -> Unit {
+  self.undo.clear()
+}
