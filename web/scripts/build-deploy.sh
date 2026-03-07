@@ -8,7 +8,9 @@ moon version --all
 
 # Install MoonBit package dependencies for each module
 cd ..
+git submodule update --init --recursive
 moon update
+cd graphviz && moon update && cd ..
 
 cd web
 
