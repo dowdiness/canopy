@@ -1,7 +1,7 @@
 # ToDot/FromDot Traits Design
 
 **Date:** 2026-03-07
-**Status:** Approved
+**Status:** Complete
 
 ## Overview
 
