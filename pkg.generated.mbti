@@ -22,6 +22,8 @@ pub fn export_since_json(Int, String) -> String
 
 pub fn get_ast_dot(Int) -> String
 
+pub fn get_ast_dot_resolved(Int) -> String
+
 pub fn get_ast_json(Int) -> String
 
 pub fn get_cursor(Int) -> Int

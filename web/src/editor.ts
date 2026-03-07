@@ -134,7 +134,7 @@ export class LambdaEditor {
   private async updateASTDisplay(): Promise<void> {
     try {
       // Get DOT representation from MoonBit
-      const dotString = crdt.get_ast_dot(this.handle);
+      const dotString = crdt.get_ast_dot_resolved(this.handle);
       console.log('[AST Display] DOT string length:', dotString.length);
 
       console.log('[AST Display] Rendering DOT to SVG using graphviz package...');

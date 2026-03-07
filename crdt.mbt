@@ -99,6 +99,15 @@ pub fn get_ast_dot(_handle : Int) -> String {
 }
 
 ///|
+/// Get AST as DOT format with name resolution coloring
+pub fn get_ast_dot_resolved(_handle : Int) -> String {
+  match editor.val {
+    Some(ed) => ed.get_dot_resolved()
+    None => "digraph { }"
+  }
+}
+
+///|
 /// Get parse errors as JSON array
 pub fn get_errors_json(_handle : Int) -> String {
   match editor.val {

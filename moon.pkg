@@ -19,6 +19,7 @@ options(
         "set_cursor",
         "get_ast_json",
         "get_ast_dot",
+        "get_ast_dot_resolved",
         "get_errors_json",
         "export_all_json",
         "export_since_json",
