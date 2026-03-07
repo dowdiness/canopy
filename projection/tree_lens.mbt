@@ -139,7 +139,7 @@ pub fn tree_lens_apply_edit(
           // Get text representation of the existing node
           let existing_text = @ast.print_term(existing.kind)
           // Parse an application with a placeholder argument
-          let app_text = "(" + existing_text + ") _"
+          let app_text = "(" + existing_text + ") a"
           let (parsed, _) = parse_to_proj_node(app_text)
           // Assign fresh IDs to avoid collisions with existing AST nodes
           let new_node = assign_fresh_ids(parsed, model)
@@ -155,14 +155,14 @@ pub fn tree_lens_apply_edit(
       // Create a placeholder node based on the kind
       let placeholder_text = match kind {
         @ast.Term::Int(_) => "0"
-        @ast.Term::Var(_) => "_"
+        @ast.Term::Var(_) => "a"
         @ast.Term::Lam(_, _) => "λx.x"
         @ast.Term::App(_, _) => "f x"
         @ast.Term::Bop(_, _, _) => "0 + 0"
         @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
         @ast.Term::Let(_, _, _) => "let x = 0 in x"
         @ast.Term::Unit => "()"
-        @ast.Term::Error(_) => "_"
+        @ast.Term::Error(_) => "a"
       }
       let (parsed, _) = parse_to_proj_node(placeholder_text)
       // Assign fresh IDs to avoid collisions with existing AST nodes

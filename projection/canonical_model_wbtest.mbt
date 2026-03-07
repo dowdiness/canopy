@@ -828,6 +828,10 @@ test "tree_lens_apply_edit WrapInLambda preserves body structure" {
 }
 
 ///|
+// Regression: WrapInApp previously used "_" as the placeholder argument,
+// but "_" is not a valid variable name in the lambda parser, causing the
+// parse of "(f) _" to silently fail and leave the AST unchanged as Var("f").
+// Fixed by using "a" as the placeholder (see tree_lens.mbt WrapInApp).
 test "tree_lens_apply_edit WrapInApp creates App with placeholder" {
   let (ast, _) = parse_to_proj_node("f")
   let model = CanonicalModel::from_ast(ast)
@@ -843,7 +847,7 @@ test "tree_lens_apply_edit WrapInApp creates App with placeholder" {
           match text_lens_get(updated_model) {
             Ok(text) =>
               // The result should be different from just "f"
-              // (it's "(f) _" or similar)
+              // (it's "(f a)" or similar)
               inspect(text.length() > 1, content="true")
             Err(_) => ()
           }
