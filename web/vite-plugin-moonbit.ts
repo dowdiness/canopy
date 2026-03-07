@@ -138,7 +138,7 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
             'build',
             '--target', target,
             '--watch',
-            ...(release ? [] : ['--debug']),
+            ...(release ? ['--release'] : []),
             ...(mod.buildFlags || [])
           ];
 
@@ -266,7 +266,7 @@ async function buildModule(
 ): Promise<void> {
   const flags = [
     '--target', target,
-    ...(release ? [] : ['--debug']),
+    ...(release ? ['--release'] : []),
     ...(mod.buildFlags || [])
   ];
 
