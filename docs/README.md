@@ -65,6 +65,7 @@ Historical documentation and investigations:
 - [ToDot/FromDot Traits Design](archive/completed-phases/2026-03-07-todot-fromdot-traits-design.md) (Complete)
 - [Name Resolution Design](archive/completed-phases/2026-03-07-name-resolution-design.md) (Complete)
 - [Name Resolution Implementation](archive/completed-phases/2026-03-07-name-resolution-implementation.md) (Complete)
+- [Simplify Web Integration](archive/completed-phases/2026-03-08-simplify-web-integration.md) (Complete)
 
 ## External Resources
 
