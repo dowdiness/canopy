@@ -99,6 +99,18 @@ pub fn SyncEditor::get_ast(self : SyncEditor) -> @ast.Term {
 }
 
 ///|
+pub fn SyncEditor::get_resolution(self : SyncEditor) -> @parser.Resolution {
+  @parser.resolve(self.get_ast())
+}
+
+///|
+pub fn SyncEditor::get_dot_resolved(self : SyncEditor) -> String {
+  let ast = self.get_ast()
+  let res = @parser.resolve(ast)
+  @parser.term_to_dot_resolved(ast, res)
+}
+
+///|
 pub fn SyncEditor::get_errors(self : SyncEditor) -> Array[String] {
   self.parser.diagnostics()
 }

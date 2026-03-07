@@ -217,3 +217,14 @@ test "SyncEditor: clear_undo empties stacks" {
   inspect(se.get_text(), content="xy")
   inspect(se.get_cursor() <= se.get_text().length(), content="true")
 }
+
+///|
+test "SyncEditor: get_resolution returns bound/free info" {
+  let se = SyncEditor::new("agent1")
+  // λx. (x + y) — x is bound, y is free
+  try! insert_each(se, "\\x. x + y")
+  let res = se.get_resolution()
+  // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
+  inspect(res.vars.get(2), content="Some(Bound(depth=1))")
+  inspect(res.vars.get(3), content="Some(Free)")
+}

@@ -3,6 +3,7 @@ package "dowdiness/crdt/editor"
 
 import {
   "dowdiness/event-graph-walker/text",
+  "dowdiness/lambda",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
 }
@@ -48,7 +49,9 @@ pub fn SyncEditor::export_all(Self) -> @text.SyncMessage raise
 pub fn SyncEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
 pub fn SyncEditor::get_ast(Self) -> @ast.Term
 pub fn SyncEditor::get_cursor(Self) -> Int
+pub fn SyncEditor::get_dot_resolved(Self) -> String
 pub fn SyncEditor::get_errors(Self) -> Array[String]
+pub fn SyncEditor::get_resolution(Self) -> @lambda.Resolution
 pub fn SyncEditor::get_text(Self) -> String
 pub fn SyncEditor::get_version(Self) -> @text.Version
 pub fn SyncEditor::insert(Self, String) -> Unit raise
