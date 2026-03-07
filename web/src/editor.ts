@@ -6,14 +6,70 @@ import * as crdt from '@moonbit/crdt';
 import * as graphviz from '@moonbit/graphviz';
 
 export interface ASTNode {
-  // MoonBit enum serialization:
-  // - Variants without data (App, If) → string: "App"
-  // - Variants with data (Lam("x"), Int(5)) → array: ["Lam", "x"]
   kind: string | [string, string | number];
   start: number;
   end: number;
   node_id: number;
   children: ASTNode[];
+}
+
+// Convert MoonBit's derived ToJson enum format to ASTNode.
+// MoonBit array format: ["App", ["Lam", "x", ["Var", "x"]], ["Int", 42]]
+// String for no-data variants: "Unit"
+function termJsonToAstNode(raw: unknown, counter = { id: 0 }): ASTNode {
+  const nodeId = counter.id++;
+
+  // String variant (e.g., "Unit")
+  if (typeof raw === 'string') {
+    return { kind: raw, start: 0, end: 0, node_id: nodeId, children: [] };
+  }
+
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { kind: ['Error', 'unknown'], start: 0, end: 0, node_id: nodeId, children: [] };
+  }
+
+  const tag = raw[0] as string;
+
+  // Format: ["Tag", ...args] where args are values or nested terms
+  switch (tag) {
+    case 'Int':   // ["Int", 42]
+      return { kind: ['Int', raw[1] as number], start: 0, end: 0, node_id: nodeId, children: [] };
+    case 'Var':   // ["Var", "x"]
+      return { kind: ['Var', raw[1] as string], start: 0, end: 0, node_id: nodeId, children: [] };
+    case 'Lam':   // ["Lam", "x", <body>]
+      return {
+        kind: ['Lam', raw[1] as string], start: 0, end: 0, node_id: nodeId,
+        children: [termJsonToAstNode(raw[2], counter)],
+      };
+    case 'App':   // ["App", <func>, <arg>]
+      return {
+        kind: 'App', start: 0, end: 0, node_id: nodeId,
+        children: [termJsonToAstNode(raw[1], counter), termJsonToAstNode(raw[2], counter)],
+      };
+    case 'Bop':   // ["Bop", "Plus"|"Minus", <left>, <right>]
+      return {
+        kind: ['Bop', raw[1] as string], start: 0, end: 0, node_id: nodeId,
+        children: [termJsonToAstNode(raw[2], counter), termJsonToAstNode(raw[3], counter)],
+      };
+    case 'If':    // ["If", <cond>, <then>, <else>]
+      return {
+        kind: 'If', start: 0, end: 0, node_id: nodeId,
+        children: [
+          termJsonToAstNode(raw[1], counter),
+          termJsonToAstNode(raw[2], counter),
+          termJsonToAstNode(raw[3], counter),
+        ],
+      };
+    case 'Let':   // ["Let", "x", <init>, <body>]
+      return {
+        kind: ['Let', raw[1] as string], start: 0, end: 0, node_id: nodeId,
+        children: [termJsonToAstNode(raw[2], counter), termJsonToAstNode(raw[3], counter)],
+      };
+    case 'Error': // ["Error", "msg"]
+      return { kind: ['Error', raw[1] as string], start: 0, end: 0, node_id: nodeId, children: [] };
+    default:
+      return { kind: tag, start: 0, end: 0, node_id: nodeId, children: [] };
+  }
 }
 
 export class LambdaEditor {
@@ -101,7 +157,8 @@ export class LambdaEditor {
           throw new Error('Invalid errors JSON: ' + typeof errorsJson);
         }
 
-        const ast: ASTNode = JSON.parse(astJson);
+        const rawAst = JSON.parse(astJson);
+        const ast: ASTNode = termJsonToAstNode(rawAst);
         const errors: string[] = JSON.parse(errorsJson);
 
         // Update side panels with current AST and errors
@@ -267,7 +324,8 @@ export class LambdaEditor {
       const astJson = crdt.get_ast_json(this.handle);
       const errorsJson = crdt.get_errors_json(this.handle);
 
-      const ast: ASTNode = JSON.parse(astJson);
+      const rawAst = JSON.parse(astJson);
+      const ast: ASTNode = termJsonToAstNode(rawAst);
       const errors: string[] = JSON.parse(errorsJson);
 
       this.updateASTDisplay();
