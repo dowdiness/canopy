@@ -74,7 +74,7 @@ The grand design is realized through five sub-designs, each addressing a specifi
 | 2 | [Reactive Pipeline](./02-reactive-pipeline.md) | Replace manual dirty-flag with `Signal`/`Memo` | Phase 1 done |
 | 3 | [Unified Editor Facade](./03-unified-editor.md) | Single `SyncEditor` replacing `ParsedEditor` | Phase 1 done |
 | 4 | [Ephemeral Store](./04-ephemeral-store.md) | Peer cursors, selections, presence over network | Design complete |
-| 5 | [Tree Edit Roundtrip](./05-tree-edit-roundtrip.md) | Structural AST edits -> text CRDT ops -> reparse | Design complete |
+| 5 | [Tree Edit Roundtrip](./05-tree-edit-roundtrip.md) | Structural AST edits -> text CRDT ops -> reparse | Phase 1 partial (bridge + tests) |
 
 ### Dependency Graph
 
@@ -91,7 +91,7 @@ The grand design is realized through five sub-designs, each addressing a specifi
       |                   |
       v                   v
 [4] Ephemeral Store  [5] Tree Edit Roundtrip
-    (not started)        (bridge exists, needs §3 Memo integration)
+    (not started)        (bridge + tests done, needs §3 Memo integration)
 ```
 
 Documents 1-3 are foundational and their Phase 1 implementations are complete.
@@ -116,7 +116,7 @@ Remaining Phase 2 work: direct Op->Edit path (§1), Strategy C with edit-aware p
 | `Editor` | `editor/editor.mbt` | Kept as compatibility shim |
 | **`SyncEditor`** | `editor/sync_editor.mbt` | **Phase 1 done** — core facade |
 | **Edit Bridge** (fallback) | `editor/edit_bridge.mbt` | **Phase 1 done** — `merge_to_edits` |
-| **Tree Edit Bridge** | `editor/tree_edit_bridge.mbt` | **Exists** — uses `CanonicalModel` |
+| **Tree Edit Bridge** | `editor/tree_edit_bridge.mbt` | **Phase 1 done** — uses `CanonicalModel`, 9 tests |
 
 ### Still to build
 

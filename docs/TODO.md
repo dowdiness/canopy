@@ -89,8 +89,12 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ### CRDT API limitations
 
-- [ ] **Char-by-char delete for range deletions** — `TextDoc` only exposes single-char `delete(Pos)`. `apply_projection_edits` loops O(n) for range deletes. Adding `delete_range` to `event-graph-walker/text` would eliminate this.
-- [ ] **No undo tracking for tree edits** — `apply_projection_edits` uses bare `doc.insert`/`doc.delete` (no `_and_record` variants). Tree edits are not undoable via `SyncEditor.undo()`. Decide whether tree edits should integrate with UndoManager.
+- [ ] **Char-by-char delete for range deletions** — `TextDoc` only exposes single-char `delete(Pos)`. Adding `delete_range` to `event-graph-walker/text` would eliminate char-by-char loops.
+- [ ] **No undo tracking for tree edits** — `apply_tree_edit` uses `set_text` (bare `doc.insert`/`doc.delete`, no `_and_record` variants). Tree edits are not undoable via `SyncEditor.undo()`. Decide whether tree edits should integrate with UndoManager.
+
+### Resolved: CRDT position ordering bug
+
+- [x] **`apply_projection_edits` used insert-first ordering** — `text_lens_diff` produces edits with insert-before-delete and adjusted positions. FugueMax's position semantics require delete-first ordering; insert-first caused position drift producing corrupted text. **Fixed:** replaced with `set_text(new_text)` which uses proven delete-all + insert approach.
 
 ---
 

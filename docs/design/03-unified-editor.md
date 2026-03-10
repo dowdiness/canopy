@@ -119,7 +119,7 @@ pub fn SyncEditor::clear_undo(self) -> Unit
 pub fn SyncEditor::mark_dirty(self) -> Unit  // calls parser.set_source(doc.text())
 
 /// Tree editing (in editor/tree_edit_bridge.mbt)
-pub fn SyncEditor::apply_tree_edit(self, canonical : CanonicalModel, op : TreeEditOp) -> Unit raise
+pub fn SyncEditor::apply_tree_edit(self, canonical : CanonicalModel, op : TreeEditOp) -> Result[Unit, String]
 ```
 
 ### Internal Flow: Local Insert

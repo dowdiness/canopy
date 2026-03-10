@@ -1,7 +1,7 @@
 # Design 05: Tree Edit Roundtrip
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Draft
+**Status:** Phase 1 Partial (bridge implemented, uses CanonicalModel; Memo-derived ProjNode deferred to §3)
 **Updated:** 2026-03-10
 
 ---
@@ -137,59 +137,52 @@ Error("msg")      -> "<error: msg>"
 
 ### 2. Tree Edit -> Text CRDT Bridge
 
+**Current implementation** (`editor/tree_edit_bridge.mbt`):
+
 ```moonbit
 /// Apply a tree edit by round-tripping through text.
-/// The entire operation is synchronous within one event loop tick,
-/// so no interleaving with remote ops is possible (single-threaded JS/WASM).
-pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit raise {
-  let old_text = self.text()
+/// Current: takes external CanonicalModel (dual-state, see §3 Phase 2 for retirement).
+pub fn SyncEditor::apply_tree_edit(
+  self : SyncEditor,
+  canonical : @proj.CanonicalModel,
+  op : @proj.TreeEditOp,
+) -> Result[Unit, String] {
+  let old_text = self.get_text()
 
-  // 1. Get current ProjNode tree (with stable IDs) from derived Memo
-  let proj = self.proj_node()  // Memo[ProjNode] — reconciled, ID-stable
+  // 1. Apply tree edit structurally to CanonicalModel
+  match @proj.tree_lens_apply_edit(canonical, op) { ... }
 
-  // 2. Apply tree edit structurally to produce modified ProjNode
-  let modified = tree_lens_apply_edit_to_proj(proj, op)?
+  // 2. Get text representation of modified AST
+  let new_text = match @proj.text_lens_get(canonical) { ... }
 
-  // 3. Unparse via the existing @ast.print_term
-  let new_text = @ast.print_term(modified.kind)
+  // 3. Skip if text unchanged (UI-only ops: Select, Collapse)
+  if old_text == new_text { return Ok(()) }
 
-  // 4. Diff old text vs new text
-  let edits = text_lens_diff(old_text, new_text)
+  // 4. Apply text change to CRDT
+  self.set_text(new_text)
 
-  // 5. Apply diffs as CRDT ops
-  apply_projection_edits(self, edits)
-
-  // 6. Trigger reparse (ProjNode reconciliation happens lazily on next access)
-  self.parser.set_source(self.doc.text())
-}
-
-/// Apply ProjectionEdits to the CRDT TextDoc.
-fn apply_projection_edits(
-  editor : SyncEditor,
-  edits : Array[ProjectionEdit],
-) -> Unit raise {
-  // Process edits in reverse order so positions remain valid
-  // (text_lens_diff produces a single contiguous edit, but this
-  // handles the general case for future multi-edit support)
-  for i = edits.length() - 1; i >= 0; i = i - 1 {
-    match edits[i] {
-      TextDelete(start~, end~) => {
-        // Delete one character at a time from the end backwards.
-        // Each delete at position `start` removes the next char.
-        let count = end - start
-        for _j = 0; _j < count; _j = _j + 1 {
-          editor.doc.delete(@text.Pos::at(start))
-        }
-      }
-      TextInsert(position~, text~) =>
-        editor.doc.insert(@text.Pos::at(position), text)
-      _ => ()  // NodeSelect, NodeValueChange, StructuralChange — UI-only
-    }
-  }
+  // 5. Re-reconcile CanonicalModel from authoritative CRDT text
+  let _ = @proj.text_lens_put(canonical, self.doc.text())
+  Ok(())
 }
 ```
 
-**Note on `text_lens_diff`:** The current implementation uses prefix/suffix trimming, producing at most one contiguous `TextDelete` + one `TextInsert`. This is sufficient for now but may produce suboptimal diffs for tree edits that create disjoint changes (e.g., `MoveNode` deletes from one location and inserts at another). A future optimization could use a smarter diff algorithm to produce minimal edits.
+**Target implementation** (after §3 Phase 2 — Memo-derived ProjNode):
+
+```moonbit
+/// Target: no external CanonicalModel argument, ProjNode is a derived Memo.
+pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit raise {
+  let old_text = self.text()
+  let proj = self.proj_node()  // Memo[ProjNode] — reconciled, ID-stable
+  let modified = tree_lens_apply_edit_to_proj(proj, op)?
+  let new_text = @ast.print_term(modified.kind)
+  if old_text == new_text { return }
+  self.set_text(new_text)
+  // ProjNode reconciliation happens lazily on next proj_node() access
+}
+```
+
+**Design note:** An earlier version used `text_lens_diff` + `apply_projection_edits` (insert-first ordering with adjusted delete positions). This was replaced by `set_text` because FugueMax's position semantics require delete-first ordering — inserting before deleting caused position drift, producing corrupted text. The `set_text` approach is correct and sufficient for lambda calculus (small expressions).
 
 ### 3. Node ID Preservation Across Roundtrip
 
@@ -307,8 +300,8 @@ This is a future optimization, not required for the initial implementation.
 
 | File | Content |
 |------|---------|
-| `editor/tree_edit_bridge.mbt` | `apply_tree_edit`, `update_leaf`, `apply_projection_edits` |
-| `editor/tree_edit_bridge_test.mbt` | Roundtrip and leaf-edit tests |
+| `editor/tree_edit_bridge.mbt` | `apply_tree_edit` (implemented) |
+| `editor/tree_edit_bridge_test.mbt` | 9 roundtrip tests (implemented) |
 
 The unparser is `@ast.print_term` in `loom/examples/lambda/src/ast/ast.mbt` (existing, no new file needed).
 
