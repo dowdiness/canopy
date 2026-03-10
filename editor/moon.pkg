@@ -6,6 +6,7 @@ import {
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
   "dowdiness/seam",
+  "dowdiness/crdt/projection" @proj,
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
 }

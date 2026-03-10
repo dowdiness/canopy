@@ -68,7 +68,33 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 ---
 
-## 6. Code Cleanup
+## 6. Tree Edit Bridge Tech Debt
+
+**Impact:** Medium | **Effort:** Medium-High
+
+Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (text CRDT approach per §5).
+
+### Dual-state architecture (SyncEditor + CanonicalModel)
+
+- [ ] **Encapsulate CanonicalModel inside SyncEditor** — `apply_tree_edit` takes both as separate arguments, leaking internal coupling to callers. Per §3, CanonicalModel should be retired; its useful parts (ProjNode reconciliation, node registry, source map) become derived state on SyncEditor with `Memo[ProjNode]`.
+- [ ] **Double parse per tree edit** — `set_source` invalidates the reactive parser (lazy), then `text_lens_put` eagerly parses via `parse_to_proj_node`. Both are needed because SyncEditor and CanonicalModel maintain separate parse pipelines. Unifying them eliminates one full parse per edit.
+
+### Diff logic triplication
+
+- [ ] **Consolidate prefix/suffix diff** — The same longest-common-prefix/suffix algorithm exists in three places: `projection/text_lens.mbt` (`text_lens_diff`), `editor/sync_editor.mbt` (`set_text_and_record` inline), and `editor/text_diff.mbt` (`compute_edit`). Each returns a different type. Extract a shared diff core with adapters per return type.
+
+### TextInput path efficiency
+
+- [ ] **`set_text` is brute-force O(n)** — Deletes all chars one-by-one then re-inserts. `set_text_and_record` already has a diff-based approach but couples undo tracking. Extract the diff+apply core as a shared helper so `set_text` can use it too. Acceptable for lambda calculus (small expressions) but would matter for larger documents.
+
+### CRDT API limitations
+
+- [ ] **Char-by-char delete for range deletions** — `TextDoc` only exposes single-char `delete(Pos)`. `apply_projection_edits` loops O(n) for range deletes. Adding `delete_range` to `event-graph-walker/text` would eliminate this.
+- [ ] **No undo tracking for tree edits** — `apply_projection_edits` uses bare `doc.insert`/`doc.delete` (no `_and_record` variants). Tree edits are not undoable via `SyncEditor.undo()`. Decide whether tree edits should integrate with UndoManager.
+
+---
+
+## 7. Code Cleanup
 
 **Impact:** Low | **Effort:** Low
 
@@ -95,8 +121,9 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 | 3 | Complete WebSocket collaboration | High | High |
 | 4 | E2E browser tests | Low | Medium |
 | 5 | Benchmark regression CI | Medium | Medium |
-| 6 | Incremental parsing TODOs | Medium | Medium |
-| 7 | Single-command test runner | Low | Low-Med |
-| 8 | Code cleanup | Low | Low |
-| 9 | Memory optimization | High | Medium |
-| 10 | Fuzz testing | Medium | Medium |
+| 6 | Tree edit bridge tech debt | Medium-High | Medium |
+| 7 | Incremental parsing TODOs | Medium | Medium |
+| 8 | Single-command test runner | Low | Low-Med |
+| 9 | Code cleanup | Low | Low |
+| 10 | Memory optimization | High | Medium |
+| 11 | Fuzz testing | Medium | Medium |

@@ -21,6 +21,7 @@ enum Msg {
 
 ///|
 struct Model {
+  editor : @editor.SyncEditor
   canonical : @proj.CanonicalModel
   tree_state : @proj.TreeEditorState
   text_view : String
@@ -72,17 +73,16 @@ fn find_selected(
 ///|
 fn init_model() -> Model {
   let init_text = "let id = λx.x in let apply = λf.λx.f x in apply id 42"
+  let editor = @editor.SyncEditor::new("local")
+  editor.set_text(init_text)
   let canonical = @proj.CanonicalModel::new()
   let _ = @proj.text_lens_put(canonical, init_text)
-  let text_view = match @proj.text_lens_get(canonical) {
-    Ok(t) => t
-    Err(_) => init_text
-  }
   let tree_state = @proj.TreeEditorState::from_model(canonical)
   {
+    editor,
     canonical,
     tree_state,
-    text_view,
+    text_view: init_text,
     workspace_mode: Split,
     diagnostics_open: true,
     peers: [("alice", 18), ("bob", 33)],
@@ -93,10 +93,8 @@ fn init_model() -> Model {
 
 ///|
 fn refresh(model : Model) -> Model {
-  let text_view = match @proj.text_lens_get(model.canonical) {
-    Ok(t) => t
-    Err(_) => model.text_view
-  }
+  // Get text from CRDT (authoritative source)
+  let text_view = model.editor.get_text()
   let tree_state = model.tree_state.refresh_from_model(model.canonical)
   { ..model, text_view, tree_state }
 }
@@ -108,7 +106,8 @@ fn update(msg : Msg, model : Model) -> Model {
     ToggleDiagnostics =>
       { ..model, diagnostics_open: !model.diagnostics_open }
     TextInput(new_text) => {
-      // Parse text and update AST; show user's text as-is for smooth editing
+      // Update CRDT text + parse and reconcile AST
+      model.editor.set_text(new_text)
       let _ = @proj.text_lens_put(model.canonical, new_text)
       let tree_state = model.tree_state.refresh_from_model(model.canonical)
       { ..model, text_view: new_text, tree_state }
@@ -117,8 +116,8 @@ fn update(msg : Msg, model : Model) -> Model {
       // Update UI state (selection, collapse, drag)
       let tree_state = model.tree_state.apply_edit(op)
       let model = { ..model, tree_state }
-      // Apply structural changes to canonical model, then re-derive both views
-      match @proj.tree_lens_apply_edit(model.canonical, op) {
+      // Round-trip tree edit through text CRDT so ops are broadcastable
+      match model.editor.apply_tree_edit(model.canonical, op) {
         Ok(_) => refresh(model)
         Err(_) => model
       }

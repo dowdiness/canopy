@@ -2,6 +2,7 @@
 package "dowdiness/crdt/editor"
 
 import {
+  "dowdiness/crdt/projection",
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
@@ -38,6 +39,7 @@ pub struct SyncEditor {
   // private fields
 }
 pub fn SyncEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
+pub fn SyncEditor::apply_tree_edit(Self, @projection.CanonicalModel, @projection.TreeEditOp) -> Result[Unit, String]
 pub fn SyncEditor::backspace(Self) -> Bool
 pub fn SyncEditor::backspace_and_record(Self, Int) -> Bool
 pub fn SyncEditor::can_redo(Self) -> Bool
