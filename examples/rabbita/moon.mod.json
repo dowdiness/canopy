@@ -2,7 +2,10 @@
   "name": "dowdiness/rabbita-projectional-editor",
   "version": "0.1.0",
   "deps": {
-    "moonbit-community/rabbita": "0.11.5"
+    "moonbit-community/rabbita": "0.11.5",
+    "dowdiness/crdt": {
+      "path": "../.."
+    }
   },
   "readme": "README.md",
   "repository": "https://github.com/dowdiness/crdt",

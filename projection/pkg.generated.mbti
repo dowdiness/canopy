@@ -178,7 +178,7 @@ pub fn SourceMap::rebuild(Self, ProjNode) -> Unit
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
 
-pub enum TreeEditOp {
+pub(all) enum TreeEditOp {
   Select(node_id~ : NodeId)
   SelectRange(start~ : NodeId, end~ : NodeId)
   StartEdit(node_id~ : NodeId)

@@ -1,6 +1,7 @@
 import {
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/html",
+  "dowdiness/crdt/projection" @proj,
 }
 
 options(

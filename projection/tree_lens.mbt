@@ -41,7 +41,7 @@ pub fn tree_lens_put(
 
 ///|
 /// Tree edit operations for the interactive tree editor
-pub enum TreeEditOp {
+pub(all) enum TreeEditOp {
   // Selection
   Select(node_id~ : NodeId)
   SelectRange(start~ : NodeId, end~ : NodeId)

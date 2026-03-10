@@ -1,5 +1,5 @@
 ///|
-using @html {div, h1, h2, li, p, pre, text, ul}
+using @html {button, div, h1, h2, li, p, span, text, textarea, ul}
 
 ///|
 using @rabbita {type Cmd, type Dispatch, type Html}
@@ -15,104 +15,186 @@ enum WorkspaceMode {
 enum Msg {
   SetMode(WorkspaceMode)
   ToggleDiagnostics
-  SelectNode(String)
-}
-
-///|
-struct TreeNode {
-  id : String
-  kind : String
-  label : String
-  children : Array[TreeNode]
+  TextInput(String)
+  TreeEdited(@proj.TreeEditOp)
 }
 
 ///|
 struct Model {
+  canonical : @proj.CanonicalModel
+  tree_state : @proj.TreeEditorState
+  text_view : String
   workspace_mode : WorkspaceMode
   diagnostics_open : Bool
-  selected_node : String
-  text_view : String
-  diagnostics : Array[String]
   peers : Array[(String, Int)]
-  tree : TreeNode
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+///|
+fn kind_of(label : String) -> String {
+  if label.has_prefix("λ") {
+    "lambda"
+  } else if label == "App" {
+    "app"
+  } else if label.has_prefix("let ") {
+    "let"
+  } else if label == "if" {
+    "if"
+  } else if label == "()" {
+    "unit"
+  } else if label.has_prefix("Error:") {
+    "error"
+  } else if label == "Plus" || label == "Minus" {
+    "binop"
+  } else {
+    "term"
+  }
 }
 
 ///|
+fn find_selected(
+  node : @proj.InteractiveTreeNode
+) -> @proj.InteractiveTreeNode? {
+  if node.selected {
+    return Some(node)
+  }
+  node.children.fold(init=None, fn(acc, child) {
+    match acc {
+      Some(_) => acc
+      None => find_selected(child)
+    }
+  })
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+
+///|
 fn init_model() -> Model {
+  let init_text = "let id = λx.x in let apply = λf.λx.f x in apply id 42"
+  let canonical = @proj.CanonicalModel::new()
+  let _ = @proj.text_lens_put(canonical, init_text)
+  let text_view = match @proj.text_lens_get(canonical) {
+    Ok(t) => t
+    Err(_) => init_text
+  }
+  let tree_state = @proj.TreeEditorState::from_model(canonical)
   {
+    canonical,
+    tree_state,
+    text_view,
     workspace_mode: Split,
     diagnostics_open: true,
-    selected_node: "root",
-    text_view:
-      "let id = λx.x in\n" +
-      "let apply = λf.λx.f x in\n" +
-      "apply id 42\n",
-    diagnostics: [
-      "Selection is still local UI state in this prototype.",
-      "Tree gestures should become explicit TreeEditOp messages.",
-      "Text pane is secondary; the projectional tree should be primary.",
-    ],
     peers: [("alice", 18), ("bob", 33)],
-    tree: {
-      id: "root",
-      kind: "let",
-      label: "let apply = ...",
-      children: [
-        {
-          id: "lambda-id",
-          kind: "lambda",
-          label: "λx.x",
-          children: [
-            { id: "var-x", kind: "var", label: "x", children: [] },
-          ],
-        },
-        {
-          id: "lambda-apply",
-          kind: "lambda",
-          label: "λf.λx.f x",
-          children: [
-            { id: "var-f", kind: "var", label: "f", children: [] },
-            { id: "var-x-2", kind: "var", label: "x", children: [] },
-          ],
-        },
-        {
-          id: "call",
-          kind: "app",
-          label: "apply id 42",
-          children: [
-            { id: "var-apply", kind: "var", label: "apply", children: [] },
-            { id: "var-id", kind: "var", label: "id", children: [] },
-            { id: "int-42", kind: "int", label: "42", children: [] },
-          ],
-        },
-      ],
-    },
   }
+}
+
+// ── Update ──────────────────────────────────────────────────────────
+
+///|
+fn refresh(model : Model) -> Model {
+  let text_view = match @proj.text_lens_get(model.canonical) {
+    Ok(t) => t
+    Err(_) => model.text_view
+  }
+  let tree_state = model.tree_state.refresh_from_model(model.canonical)
+  { ..model, text_view, tree_state }
 }
 
 ///|
 fn update(msg : Msg, model : Model) -> Model {
   match msg {
-    SetMode(workspace_mode) => { ..model, workspace_mode }
-    ToggleDiagnostics => { ..model, diagnostics_open: !model.diagnostics_open }
-    SelectNode(node_id) => { ..model, selected_node: node_id }
+    SetMode(mode) => { ..model, workspace_mode: mode }
+    ToggleDiagnostics =>
+      { ..model, diagnostics_open: !model.diagnostics_open }
+    TextInput(new_text) => {
+      // Parse text and update AST; show user's text as-is for smooth editing
+      let _ = @proj.text_lens_put(model.canonical, new_text)
+      let tree_state = model.tree_state.refresh_from_model(model.canonical)
+      { ..model, text_view: new_text, tree_state }
+    }
+    TreeEdited(op) => {
+      // Update UI state (selection, collapse, drag)
+      let tree_state = model.tree_state.apply_edit(op)
+      let model = { ..model, tree_state }
+      // Apply structural changes to canonical model, then re-derive both views
+      match @proj.tree_lens_apply_edit(model.canonical, op) {
+        Ok(_) => refresh(model)
+        Err(_) => model
+      }
+    }
   }
 }
+
+// ── View helpers ────────────────────────────────────────────────────
 
 ///|
 fn control(
   label : String,
   on_click~ : Cmd,
-  active~ : Bool = false,
+  active~ : Bool = false
 ) -> Html {
   let class_name = if active { "control active" } else { "control" }
   div(class=class_name, on_click~, [text(label)])
 }
 
+// ── Tree view ───────────────────────────────────────────────────────
+
 ///|
-fn tree_tool(label : String) -> Html {
-  div(class="tree-tool", [text(label)])
+fn view_tree_node(
+  dispatch : Dispatch[Msg],
+  node : @proj.InteractiveTreeNode
+) -> Html {
+  let class_name = if node.selected {
+    "tree-node selected"
+  } else {
+    "tree-node"
+  }
+  let toggle_cmd = if node.collapsed {
+    dispatch(TreeEdited(@proj.Expand(node_id=node.id)))
+  } else {
+    dispatch(TreeEdited(@proj.Collapse(node_id=node.id)))
+  }
+  let toggle_label = if node.collapsed { "▶" } else { "▼" }
+  let children_view = if node.collapsed {
+    div(class="tree-collapsed", [text("…")])
+  } else if node.children.is_empty() {
+    div(class="hidden-note", [text("Leaf node")])
+  } else {
+    div(
+      class="tree-children",
+      node.children.map(fn(child) { view_tree_node(dispatch, child) }),
+    )
+  }
+  div(class=class_name, [
+    div(
+      class="tree-label",
+      on_click=dispatch(TreeEdited(@proj.Select(node_id=node.id))),
+      [
+        button(class="tree-toggle", on_click=toggle_cmd, [text(toggle_label)]),
+        span(class="tree-text", [text(node.label)]),
+        span(class="tree-kind", [text(kind_of(node.label))]),
+      ],
+    ),
+    div(class="tree-tools", [
+      button(
+        class="tree-tool",
+        on_click=dispatch(
+          TreeEdited(@proj.WrapInLambda(node_id=node.id, var_name="x")),
+        ),
+        [text("Wrap λ")],
+      ),
+      button(
+        class="tree-tool",
+        on_click=dispatch(TreeEdited(@proj.Delete(node_id=node.id))),
+        [text("Delete")],
+      ),
+    ]),
+    children_view,
+  ])
 }
+
+// ── Panels ──────────────────────────────────────────────────────────
 
 ///|
 fn panel(title : String, meta : String, body : Html) -> Html {
@@ -126,80 +208,70 @@ fn panel(title : String, meta : String, body : Html) -> Html {
 }
 
 ///|
-fn view_tree_node(dispatch : Dispatch[Msg], model : Model, node : TreeNode) -> Html {
-  let class_name =
-    if model.selected_node == node.id {
-      "tree-node selected"
-    } else {
-      "tree-node"
-    }
-  let child_views = node.children.map(fn(child) { view_tree_node(dispatch, model, child) })
-  div(class=class_name, [
-    div(class="tree-label", [
-      text(node.label),
-      div(class="tree-kind", [text(node.kind)]),
-    ]),
-    div(class="tree-tools", [
-      control("Select", on_click=dispatch(SelectNode(node.id))),
-      tree_tool("Wrap λ"),
-      tree_tool("Insert"),
-      tree_tool("Delete"),
-    ]),
-    if child_views.length() == 0 {
-      div(class="hidden-note", [text("Leaf node")])
-    } else {
-      div(class="tree-children", child_views)
-    },
-  ])
-}
-
-///|
 fn tree_panel(dispatch : Dispatch[Msg], model : Model) -> Html {
-  panel(
-    "Tree",
-    "projection-first editing surface",
-    div(class="tree-root", [view_tree_node(dispatch, model, model.tree)]),
-  )
+  let body = match model.tree_state.tree {
+    Some(root) => div(class="tree-root", [view_tree_node(dispatch, root)])
+    None => div(class="hidden-note", [text("No AST available")])
+  }
+  panel("Tree", "projection-first editing surface", body)
 }
 
 ///|
-fn text_panel(model : Model) -> Html {
+fn text_panel(dispatch : Dispatch[Msg], model : Model) -> Html {
   panel(
     "Text",
     "secondary synchronized projection",
-    pre(class="text-pane", model.text_view),
+    textarea(
+      class="text-editor",
+      value=model.text_view,
+      rows=12,
+      on_input=fn(s) { dispatch(TextInput(s)) },
+      "",
+    ),
   )
 }
 
+// ── Sidebar ─────────────────────────────────────────────────────────
+
 ///|
 fn selection_section(model : Model) -> Html {
+  let content = match model.tree_state.tree {
+    Some(tree) =>
+      match find_selected(tree) {
+        Some(node) =>
+          div(class="sidebar-detail", [
+            p(class="sidebar-copy", "Node: \{node.label}"),
+            p(class="sidebar-copy", "Kind: \{kind_of(node.label)}"),
+            p(class="sidebar-copy", "Children: \{node.children.length()}"),
+          ])
+        None => p(class="sidebar-copy", "No node selected.")
+      }
+    None => p(class="sidebar-copy", "No tree available.")
+  }
   div(class="sidebar-section", [
     h2(class="sidebar-title", "Selection"),
-    div(class="sidebar-copy", [
-      text("Selected node: "),
-      div(class="sidebar-inline-code", [text(model.selected_node)]),
-    ]),
-    p(class="sidebar-copy", "Persistent IDs keep UI focus stable across projections."),
+    content,
+    p(
+      class="sidebar-copy",
+      "Persistent IDs keep UI focus stable across projections.",
+    ),
   ])
 }
 
 ///|
 fn diagnostics_section(model : Model) -> Html {
-  let body =
-    if model.diagnostics_open {
-      ul(
-        class="sidebar-list",
-        model.diagnostics.map(fn(item) {
-          li(class="sidebar-item", item)
-        }),
-      )
-    } else {
-      p(class="hidden-note", "Diagnostics are hidden.")
-    }
-  div(class="sidebar-section", [
-    h2(class="sidebar-title", "Diagnostics"),
-    body,
-  ])
+  let errors = model.canonical.get_errors()
+  let items = if errors.is_empty() {
+    [li(class="sidebar-item", "No errors.")]
+  } else {
+    errors.map(fn(e) { li(class="sidebar-item", e) })
+  }
+  let body = if model.diagnostics_open {
+    ul(class="sidebar-list", items)
+  } else {
+    p(class="hidden-note", "Diagnostics are hidden.")
+  }
+  div(class="sidebar-section", [h2(class="sidebar-title", "Diagnostics"), body])
 }
 
 ///|
@@ -225,6 +297,8 @@ fn sidebar(model : Model) -> Html {
   ])
 }
 
+// ── Workspace & chrome ──────────────────────────────────────────────
+
 ///|
 fn workspace_class(mode : WorkspaceMode) -> String {
   match mode {
@@ -237,9 +311,10 @@ fn workspace_class(mode : WorkspaceMode) -> String {
 ///|
 fn workspace(dispatch : Dispatch[Msg], model : Model) -> Html {
   let panes = match model.workspace_mode {
-    Split => [tree_panel(dispatch, model), text_panel(model), sidebar(model)]
+    Split =>
+      [tree_panel(dispatch, model), text_panel(dispatch, model), sidebar(model)]
     TreeOnly => [tree_panel(dispatch, model), sidebar(model)]
-    TextOnly => [text_panel(model), sidebar(model)]
+    TextOnly => [text_panel(dispatch, model), sidebar(model)]
   }
   div(class=workspace_class(model.workspace_mode), panes)
 }
@@ -262,21 +337,21 @@ fn toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
       on_click=dispatch(SetMode(TextOnly)),
       active=model.workspace_mode == TextOnly,
     ),
-    control(
-      "Toggle Diagnostics",
-      on_click=dispatch(ToggleDiagnostics),
-    ),
+    control("Diagnostics", on_click=dispatch(ToggleDiagnostics)),
   ])
 }
 
 ///|
 fn hero() -> Html {
   div(class="hero", [
-    p(class="eyebrow", "Rabbita Template Setup"),
-    h1(class="hero-title", "Projectional editor shell with a tree-first workspace"),
+    p(class="eyebrow", "Rabbita Projectional Editor"),
+    h1(
+      class="hero-title",
+      "Projectional editor shell with a tree-first workspace",
+    ),
     p(
       class="hero-copy",
-      "This Rabbita app is the projection layer only. The editor core should own text, AST, sync, and undo state; the UI should dispatch explicit edit messages and render derived projections.",
+      "Tree and text are synchronized through a canonical AST model. Edit either projection and both update.",
     ),
   ])
 }
@@ -289,6 +364,8 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
     workspace(dispatch, model),
   ])
 }
+
+// ── Main ────────────────────────────────────────────────────────────
 
 ///|
 fn main {
