@@ -2,7 +2,7 @@
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
 **Status:** Draft
-**Updated:** 2026-03-05
+**Updated:** 2026-03-10
 
 ---
 
@@ -17,7 +17,7 @@ The `projection/` layer defines structural AST operations (`InsertNode`, `Delete
 For true collaborative projectional editing, tree edits must round-trip through the text CRDT:
 
 ```
-Tree Edit → Unparse → Text Diff → CRDT Ops → Broadcast → Remote: Apply → Reparse
+Tree Edit -> Unparse -> Text Diff -> CRDT Ops -> Broadcast -> Remote: Apply -> Reparse
 ```
 
 ---
@@ -27,36 +27,40 @@ Tree Edit → Unparse → Text Diff → CRDT Ops → Broadcast → Remote: Apply
 ### The Roundtrip
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Tree Edit Roundtrip                        │
-│                                                              │
-│  1. User drags node in tree editor                           │
-│     → TreeEditOp::Drop(source, target, position)             │
-│                                                              │
-│  2. Apply to AST (locally, optimistically)                   │
-│     → new_ast = apply_tree_op(old_ast, op)                   │
-│                                                              │
-│  3. Unparse new AST to text                                  │
-│     → new_text = unparse(new_ast)                            │
-│                                                              │
-│  4. Diff against current CRDT text                           │
-│     → edits = text_lens_diff(old_text, new_text)             │
-│                                                              │
-│  5. Apply diffs as CRDT ops                                  │
-│     → for each edit: doc.delete() / doc.insert()             │
-│                                                              │
-│  6. CRDT ops broadcast to peers                              │
-│     → peers apply ops → reparse → see updated AST            │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
++--------------------------------------------------------------+
+|                    Tree Edit Roundtrip                        |
+|                                                              |
+|  1. User drags node in tree editor                           |
+|     -> TreeEditOp::Drop(source, target, position)            |
+|                                                              |
+|  2. Apply to ProjNode tree (structurally)                    |
+|     -> new_proj = apply_tree_op(old_proj, op)                |
+|                                                              |
+|  3. Unparse new ProjNode to text                             |
+|     -> new_text = @ast.print_term(new_proj.kind)             |
+|                                                              |
+|  4. Diff against current CRDT text                           |
+|     -> edits = text_lens_diff(old_text, new_text)            |
+|                                                              |
+|  5. Apply diffs as CRDT ops                                  |
+|     -> for each edit: doc.delete() / doc.insert()            |
+|                                                              |
+|  6. Trigger reparse + reconcile                              |
+|     -> parser.set_source(doc.text())                         |
+|     -> ProjNode tree reconciled to preserve node IDs         |
+|                                                              |
+|  7. CRDT ops broadcast to peers                              |
+|     -> peers apply ops -> reparse -> see updated AST         |
+|                                                              |
++--------------------------------------------------------------+
 ```
 
 ### Why Round-Trip Through Text?
 
 **Option A: Text CRDT only (chosen)**
-- Tree edit → unparse → text diff → CRDT text ops
+- Tree edit -> unparse -> text diff -> CRDT text ops
 - Simple. Leverages existing CRDT. Peers just see text changes.
-- Downside: Unparse is lossy; formatting may change.
+- Downside: Unparse may normalize formatting.
 
 **Option B: Tree CRDT (not chosen)**
 - Structural CRDT operations on the AST directly (e.g., Fugue on tree nodes)
@@ -66,110 +70,147 @@ Tree Edit → Unparse → Text Diff → CRDT Ops → Broadcast → Remote: Apply
 **Option A is correct for this project** because:
 1. eg-walker's text CRDT is already battle-tested
 2. Lambda calculus expressions are small enough that reparsing is cheap
-3. Formatting loss is acceptable for lambda calculus syntax, but is user-visible
+3. Formatting normalization is acceptable for lambda calculus syntax, but is user-visible
 4. A tree CRDT would require a fundamentally different architecture
+
+---
+
+## Architecture: How SyncEditor and ProjNode Relate
+
+Per [§3](./03-unified-editor.md), `CanonicalModel` is retired. Its useful parts become derived state on `SyncEditor`:
+
+| Old (`CanonicalModel`) | New (`SyncEditor` derived) |
+|---|---|
+| `ast : ProjNode?` | `Memo[ProjNode]` — built from `parser.term()` + reconciliation |
+| `node_registry` | `Memo[Map[NodeId, ProjNode]]` — traversal of ProjNode tree |
+| `source_map` | `Memo[SourceMap]` — built from ProjNode tree |
+| `next_node_id` | Counter in `SyncEditor` |
+| `edit_history` | `TextDoc.OpLog` (CRDT is the real history) |
+| `dirty_projections` | Deleted — `Memo` auto-tracks |
+
+**The ProjNode tree is the derived, ID-stable view of the AST.** It is rebuilt from `@ast.Term` (parser output) via reconciliation with the previous ProjNode tree, preserving node IDs for unchanged subtrees. This reconciliation already exists in `projection/text_lens.mbt` (`reconcile_ast` using LCS matching).
+
+**Data flow:**
+
+```
+TextDoc (CRDT text)
+  -> ReactiveParser -> @ast.Term (no node IDs)
+  -> reconcile with previous ProjNode tree
+  -> ProjNode tree (with stable node IDs)
+  -> SourceMap, NodeRegistry (derived)
+```
+
+Tree edits flow in the reverse direction:
+
+```
+TreeEditOp
+  -> modify ProjNode tree structurally
+  -> @ast.print_term(modified.kind) -> new text
+  -> diff -> CRDT ops -> TextDoc
+  -> ReactiveParser reparses -> new @ast.Term
+  -> reconcile -> updated ProjNode tree (IDs preserved)
+```
 
 ---
 
 ## Components
 
-### 1. Unparser (AST → Text)
+### 1. Unparser
 
-Convert an AST back to text. This must produce syntactically valid lambda calculus:
+The unparser already exists: `@ast.print_term(term)` in `loom/examples/lambda/src/ast/ast.mbt`. It produces canonical lambda calculus text:
 
-```moonbit
-/// Unparse an AST node to text
-pub fn unparse(ast : Ast) -> String {
-  match ast {
-    Int(n) => n.to_string()
-    Var(name) => name
-    Lam(param, body) => "λ" + param + "." + unparse(body)
-    App(func, arg) => "(" + unparse(func) + " " + unparse(arg) + ")"
-    Bop(op, left, right) => unparse(left) + op.to_string() + unparse(right)
-    If(cond, then_, else_) =>
-      "if " + unparse(cond) + " then " + unparse(then_) + " else " + unparse(else_)
-    Let(name, value, body) =>
-      "let " + name + " = " + unparse(value) + " in " + unparse(body)
-    Error(_) => "???"  // Placeholder for error nodes
-  }
-}
+```
+Int(42)           -> "42"
+Var("x")          -> "x"
+Lam("x", body)    -> "(λx. <body>)"
+App(f, arg)       -> "(<f> <arg>)"
+Bop(Plus, l, r)   -> "(<l> + <r>)"
+If(c, t, e)       -> "if <c> then <t> else <e>"
+Let("x", v, b)    -> "let x = <v> in <b>"
+Unit              -> "()"
+Error("msg")      -> "<error: msg>"
 ```
 
-**Future improvement:** Use loom's CST (`SyntaxNode`) for whitespace-preserving unparse. The CST contains trivia (whitespace, comments) that the AST discards. With CST-aware unparsing, the roundtrip preserves formatting.
+**No second unparser should be created.** Two unparse functions producing different text would cause different CRDT ops and divergence bugs. All tree-edit code must use `@ast.print_term`.
 
-**User-visible constraint (current behavior):** the first tree edit can "snap" the file
-to canonical unparser formatting because AST unparsing discards original trivia.
-After that first normalization, subsequent tree edits operate on the normalized style.
+**User-visible constraint:** The first tree edit normalizes the file to `@ast.print_term` formatting (explicit parentheses around applications, lambdas, and binary ops). After that first normalization, subsequent tree edits preserve the canonical style. CST-aware unparsing (see [Future Work](#future-cst-aware-unparsing)) would eliminate this.
 
-### 2. Tree Edit → Text CRDT Bridge
+### 2. Tree Edit -> Text CRDT Bridge
 
 ```moonbit
-/// Apply a tree edit by round-tripping through text
-/// (uses existing projection diff shape: TextInsert/TextDelete(start,end))
+/// Apply a tree edit by round-tripping through text.
+/// The entire operation is synchronous within one event loop tick,
+/// so no interleaving with remote ops is possible (single-threaded JS/WASM).
 pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit raise {
   let old_text = self.text()
 
-  // Build a temporary canonical model, apply tree edit, then render to text.
-  // Exact model<->AST plumbing is finalized in §3.
-  // NOTE: this full rebuild is O(N) in AST size per tree edit.
-  let model = CanonicalModel::from_ast(self.ast())
-  let updated = match tree_lens_apply_edit(model, op) {
-    Ok(m) => m
-    Err(msg) => abort(msg)
-  }
-  let new_text = match text_lens_get(updated) {
-    Ok(s) => s
-    Err(msg) => abort(msg)
-  }
+  // 1. Get current ProjNode tree (with stable IDs) from derived Memo
+  let proj = self.proj_node()  // Memo[ProjNode] — reconciled, ID-stable
 
+  // 2. Apply tree edit structurally to produce modified ProjNode
+  let modified = tree_lens_apply_edit_to_proj(proj, op)?
+
+  // 3. Unparse via the existing @ast.print_term
+  let new_text = @ast.print_term(modified.kind)
+
+  // 4. Diff old text vs new text
   let edits = text_lens_diff(old_text, new_text)
-  for edit in edits {
-    match edit {
-      TextDelete(start~, end~) =>
-        for i = start; i < end; i = i + 1 {
-          self.doc.delete(Pos::at(start))
+
+  // 5. Apply diffs as CRDT ops
+  apply_projection_edits(self, edits)
+
+  // 6. Trigger reparse (ProjNode reconciliation happens lazily on next access)
+  self.parser.set_source(self.doc.text())
+}
+
+/// Apply ProjectionEdits to the CRDT TextDoc.
+fn apply_projection_edits(
+  editor : SyncEditor,
+  edits : Array[ProjectionEdit],
+) -> Unit raise {
+  // Process edits in reverse order so positions remain valid
+  // (text_lens_diff produces a single contiguous edit, but this
+  // handles the general case for future multi-edit support)
+  for i = edits.length() - 1; i >= 0; i = i - 1 {
+    match edits[i] {
+      TextDelete(start~, end~) => {
+        // Delete one character at a time from the end backwards.
+        // Each delete at position `start` removes the next char.
+        let count = end - start
+        for _j = 0; _j < count; _j = _j + 1 {
+          editor.doc.delete(@text.Pos::at(start))
         }
+      }
       TextInsert(position~, text~) =>
-        self.doc.insert(Pos::at(position), text)
-      _ => ()
+        editor.doc.insert(@text.Pos::at(position), text)
+      _ => ()  // NodeSelect, NodeValueChange, StructuralChange — UI-only
     }
   }
-
-  self.parser.set_source(self.doc.text())
 }
 ```
 
-### 2.1 Performance Note: Full Model Rebuild Is O(N)
-
-The baseline implementation above does a full `CanonicalModel::from_ast(self.ast())`
-for every tree edit. That makes each edit at least O(N) in document/AST size before
-diffing and CRDT application, and is expected to become a bottleneck on larger files.
-
-This is acceptable as a correctness-first phase, but should be optimized after
-behavior stabilizes.
-
-Planned optimization directions:
-
-1. Reuse an incremental tree model between edits instead of rebuilding from AST.
-2. Fast-path `UpdateLeaf` (already sketched below) for common rename/value edits.
-3. Prefer source-map-targeted edits where possible to reduce unparse+diff scope.
+**Note on `text_lens_diff`:** The current implementation uses prefix/suffix trimming, producing at most one contiguous `TextDelete` + one `TextInsert`. This is sufficient for now but may produce suboptimal diffs for tree edits that create disjoint changes (e.g., `MoveNode` deletes from one location and inserts at another). A future optimization could use a smarter diff algorithm to produce minimal edits.
 
 ### 3. Node ID Preservation Across Roundtrip
 
-The critical challenge: after tree edit → unparse → reparse, AST node IDs will
-be different. The existing reconciliation logic in
-`projection/text_lens.mbt` (used by text/tree lens puts) solves this by
-matching nodes structurally and preserving IDs:
+After tree edit -> unparse -> reparse, the parser produces a fresh `@ast.Term` with no node IDs. The existing reconciliation logic in `projection/text_lens.mbt` solves this:
 
 ```
-Old AST (with IDs): λx[1]. (x[2] + 1[3])
+Old ProjNode (with IDs): λx[1]. (x[2] + 1[3])
 Tree edit: Move 1[3] before x[2]
-New AST (unparsed→reparsed): λx[?]. (1[?] + x[?])
-Reconcile: Match structure → λx[1]. (1[3] + x[2])  // IDs preserved
+Unparse -> reparse: λx[?]. (1[?] + x[?])
+Reconcile: LCS match children -> λx[1]. (1[3] + x[2])  // IDs preserved
 ```
 
-This reconciliation already exists in the codebase. The roundtrip should reuse
-that logic rather than introducing a second ID-preservation algorithm.
+**When reconciliation runs:** It is triggered lazily when `SyncEditor.proj_node()` is accessed after a text change. The `Memo[ProjNode]` dependency chain is:
+
+```
+Signal[String] (TextDoc text) invalidated
+  -> Memo[@ast.Term] recomputes (ReactiveParser)
+  -> Memo[ProjNode] recomputes (reconcile new Term with previous ProjNode)
+```
+
+The reconciliation uses `reconcile_ast(old_proj, new_proj, ...)` with LCS-based child matching (`reconcile_children`). Unchanged subtrees keep their IDs; new subtrees get fresh IDs via `assign_fresh_ids`.
 
 ---
 
@@ -177,44 +218,88 @@ that logic rather than introducing a second ID-preservation algorithm.
 
 | Operation | Text roundtrip behavior |
 |-----------|------------------------|
-| `UpdateLeaf(id, value)` | Change a token in-place (e.g., variable name `x` → `y`) |
+| `UpdateLeaf(id, value)` | Change a token in-place (e.g., variable name `x` -> `y`) |
 | `DeleteNode(id)` | Remove the node's text span, reparse surrounding |
 | `InsertNode(parent, idx, node)` | Unparse new node, insert text at parent's span |
 | `ReplaceNode(id, new_node)` | Replace node's text span with unparsed new node |
 | `MoveNode(id, new_parent, idx)` | Delete from old position, insert at new position |
 
-These are `ModelOperation`s from `projection/types.mbt`. UI-level
-`TreeEditOp` values in `projection/tree_lens.mbt` are translated to them.
+These are `ModelOperation`s from `projection/types.mbt`. UI-level `TreeEditOp` values in `projection/tree_lens.mbt` are translated to them.
 
 ### `UpdateLeaf` Optimization
 
-For simple leaf edits (rename variable, change number), we can skip full unparse:
+For simple leaf edits (rename variable, change number), we can skip full unparse by editing the text span directly via the `SourceMap`:
 
 ```moonbit
-/// Optimized leaf update: directly edit the text span
+/// Optimized leaf update: directly edit the text span.
+/// Avoids full unparse/reparse for the most common tree edit.
 pub fn SyncEditor::update_leaf(
   self : SyncEditor,
   node_id : NodeId,
   new_value : String,
 ) -> Unit raise {
+  // source_map() is a derived Memo on SyncEditor (see §3)
   let range = self.source_map().get_range(node_id)
   match range {
     Some(r) => {
-      let start = source_map_start(r) // helper: expose Range start from SourceMap API
-      // Delete old text
-      let n = r.length()
-      for i = 0; i < n; i = i + 1 {
-        self.doc.delete(Pos::at(start))
+      let start = r.start()
+      let count = r.length()
+      // Delete old text (one char at a time, always at `start`)
+      for _i = 0; _i < count; _i = _i + 1 {
+        self.doc.delete(@text.Pos::at(start))
       }
       // Insert new text
-      self.doc.insert(Pos::at(start), new_value)
+      self.doc.insert(@text.Pos::at(start), new_value)
+      self.parser.set_source(self.doc.text())
     }
-    None => raise TextError::NodeNotFound(node_id)
+    None => raise TreeEditError("node not found: " + node_id.to_string())
   }
 }
 ```
 
-This avoids full unparse/reparse for the most common tree edit operation.
+### Performance
+
+The full roundtrip (unparse entire AST + diff + apply) is O(N) in AST size per tree edit. This is acceptable for lambda calculus (small expressions), but optimization directions exist:
+
+1. **`UpdateLeaf` fast path** (above) — O(1) for the most common edit
+2. **Subtree-scoped unparse** — only unparse the modified subtree and splice into the surrounding text via `SourceMap` ranges
+3. **Incremental ProjNode** — reuse unchanged subtrees rather than full reconciliation
+
+---
+
+## Atomicity
+
+The entire roundtrip (steps 1-6) executes synchronously within a single function call. In single-threaded JS/WASM, no remote CRDT ops can interleave. This means:
+
+- No intermediate state is observable by the UI or network layer
+- The ProjNode `Memo` sees a single text change (old text -> new text), not incremental steps
+- No locking or queueing is needed
+
+If the runtime ever becomes multi-threaded, the roundtrip would need to be wrapped in a transaction or queue.
+
+---
+
+## Concurrent Tree Edits
+
+If two peers make tree edits simultaneously, both round-trip through text. The CRDT resolves the text-level conflicts (insert/delete ordering via FugueMax). The resulting merged text is then reparsed independently by each peer, producing the same AST (since parsing is deterministic).
+
+The merged AST may not match either peer's intended structural edit — this is the same as concurrent text edits producing merged text that neither peer typed. This is acceptable and inherent to the text-CRDT approach.
+
+---
+
+## Future: CST-Aware Unparsing
+
+The current unparser (`@ast.print_term`) discards original formatting because it works from `@ast.Term`, not from `SyntaxNode`. A CST-aware unparser would:
+
+1. Walk the `SyntaxNode` tree (which includes trivia: whitespace, comments)
+2. Only re-render the modified subtree
+3. Preserve surrounding whitespace and formatting
+
+This eliminates the "first tree edit normalizes formatting" problem. It requires:
+- A way to map ProjNode back to the corresponding `SyntaxNode` subtree
+- A `SyntaxNode` -> `String` function that preserves trivia (loom doesn't have this yet, but each `CstToken` stores its original `text`, so reconstructing is straightforward)
+
+This is a future optimization, not required for the initial implementation.
 
 ---
 
@@ -222,35 +307,30 @@ This avoids full unparse/reparse for the most common tree edit operation.
 
 | File | Content |
 |------|---------|
-| `editor/unparser.mbt` | `unparse(ast) -> String` |
-| `editor/unparser_test.mbt` | Roundtrip property tests |
-| `editor/tree_edit_bridge.mbt` | `apply_tree_edit`, `update_leaf` |
+| `editor/tree_edit_bridge.mbt` | `apply_tree_edit`, `update_leaf`, `apply_projection_edits` |
+| `editor/tree_edit_bridge_test.mbt` | Roundtrip and leaf-edit tests |
+
+The unparser is `@ast.print_term` in `loom/examples/lambda/src/ast/ast.mbt` (existing, no new file needed).
 
 ---
 
 ## Verification
 
-1. **Roundtrip property:** For any AST, `parse(unparse(ast)) ≈ ast` (structurally equivalent, ignoring IDs and whitespace).
-2. **CRDT convergence:** Two peers — one edits via text, one via tree — converge to same document.
-3. **Node ID preservation:** After tree edit roundtrip, unchanged nodes keep their IDs.
-4. **Leaf optimization:** `update_leaf` produces identical result to full roundtrip.
-
----
-
-## Open Questions
-
-1. **Whitespace preservation:** Unparsing loses the original formatting. Should we use CST-aware unparsing (via `SyntaxNode`) to preserve whitespace? This is important for larger languages but may be overkill for lambda calculus.
-
-2. **Concurrent tree edits:** If two peers make tree edits simultaneously, both round-trip through text. The CRDT resolves text conflicts, but the resulting AST may not match either peer's intended tree edit. Is this acceptable? (Yes — same as concurrent text edits.)
-
-3. **Error node handling:** What text does `unparse(Error("msg"))` produce? Using `???` as a placeholder preserves document structure but introduces invalid syntax. Alternative: omit error nodes entirely.
+1. **Roundtrip property:** For any AST, `parse(print_term(ast)) ≈ ast` (structurally equivalent, ignoring node IDs and whitespace). Already partially tested in loom's `print_term` tests.
+2. **CRDT convergence:** Two peers — one edits via text, one via tree — converge to same document text and same AST.
+3. **Node ID preservation:** After tree edit roundtrip, unchanged nodes keep their IDs. Verified via `reconcile_ast` outputting stable IDs for LCS-matched children.
+4. **Leaf optimization:** `update_leaf("x", "y")` produces identical CRDT text as the full roundtrip of `UpdateLeaf(id, VarName("y"))`.
+5. **Error node roundtrip:** `print_term(Error("msg"))` produces `"<error: msg>"` which parses back to an error recovery node. Verify the roundtrip doesn't lose or corrupt surrounding valid syntax.
+6. **Atomicity:** No observable intermediate state — `proj_node()` before and after `apply_tree_edit` returns consistent ProjNode trees with no stale mix of old/new structure.
+7. **Concurrent edits:** Two peers with concurrent tree edits converge to identical text after CRDT sync.
 
 ---
 
 ## Dependencies
 
-- **Depends on:** [§3 Unified Editor](./03-unified-editor.md) (SyncEditor API)
-- **Depends on:** `projection/tree_lens.mbt` (tree edit operations)
-- **Depends on:** `projection/text_lens.mbt` (diff + reconciliation logic)
-- **Depends on:** `projection/source_map.mbt` (node → text range, existing)
+- **Depends on:** [§3 Unified Editor](./03-unified-editor.md) (`SyncEditor` with `proj_node()`, `source_map()` Memos)
+- **Depends on:** `@ast.print_term` in `loom/examples/lambda/src/ast/ast.mbt` (existing unparser)
+- **Depends on:** `projection/text_lens.mbt` (`text_lens_diff`, `reconcile_ast`)
+- **Depends on:** `projection/tree_lens.mbt` (`tree_lens_apply_edit` / tree edit ops)
+- **Depends on:** `projection/source_map.mbt` (node -> text range, for `update_leaf`)
 - **Depended on by:** None (leaf node)
