@@ -1,43 +1,4 @@
-// TreeLens: Bidirectional transformation between CanonicalModel and AstNode
-// Model ↔ Interactive Tree (AST view)
-
-///|
-/// Create a tree lens for CanonicalModel ↔ AstNode? transformation
-pub fn tree_lens() -> Lens[CanonicalModel, ProjNode?] {
-  Lens::new(tree_lens_get, tree_lens_put)
-}
-
-///|
-/// Get the interactive tree from the canonical model
-pub fn tree_lens_get(model : CanonicalModel) -> Result[ProjNode?, String] {
-  Ok(model.get_ast())
-}
-
-///|
-/// Put an AST back into the canonical model
-pub fn tree_lens_put(
-  model : CanonicalModel,
-  ast : ProjNode?,
-) -> Result[CanonicalModel, String] {
-  match ast {
-    Some(new_ast) =>
-      // Reconcile with existing AST to preserve node IDs
-      match model.get_ast() {
-        Some(old_ast) => {
-          let reconciled = reconcile_ast(old_ast, new_ast, model)
-          model.set_ast(reconciled)
-          Ok(model)
-        }
-        None => {
-          model.set_ast(new_ast)
-          Ok(model)
-        }
-      }
-    None =>
-      // Cannot clear AST - return error as this is not a valid operation
-      Err("Cannot set AST to None - model requires an AST")
-  }
-}
+// Tree editing operations over pure ProjNode trees.
 
 ///|
 /// Tree edit operations for the interactive tree editor
@@ -68,97 +29,106 @@ pub(all) enum TreeEditOp {
 } derive(Show)
 
 ///|
-/// Apply a tree edit operation to the canonical model
-pub fn tree_lens_apply_edit(
-  model : CanonicalModel,
+/// Apply a tree edit operation directly to a ProjNode tree.
+pub fn apply_edit_to_proj(
+  root : ProjNode,
   edit : TreeEditOp,
-) -> Result[CanonicalModel, String] {
+  registry : Map[NodeId, ProjNode],
+  counter : Ref[Int],
+) -> Result[ProjNode, String] {
   match edit {
     // Selection operations don't modify the AST
     TreeEditOp::Select(node_id~) => {
       let _ = node_id
-      Ok(model)
+      Ok(root)
     }
     TreeEditOp::SelectRange(start~, end~) => {
       let _ = (start, end)
-      Ok(model)
+      Ok(root)
     }
 
     // Inline editing
     TreeEditOp::StartEdit(node_id~) => {
       let _ = node_id
-      Ok(model)
+      Ok(root)
     }
     TreeEditOp::CommitEdit(node_id~, new_value~) => {
-      // Parse the new value to get a ProjNode
       let (parsed, _) = parse_to_proj_node(new_value)
-      // Assign fresh IDs to avoid collisions with existing AST nodes
-      let new_node = assign_fresh_ids(parsed, model)
-      // Replace the node with the parsed content
-      let op = ReplaceNode(node_id~, new_node~)
-      match model.apply_operation(op) {
-        Ok(_) => Ok(model)
-        Err(msg) => Err(msg)
+      let new_node = assign_fresh_ids(parsed, counter)
+      match registry.get(node_id) {
+        None => Err("Node not found: " + node_id.to_string())
+        Some(_) => {
+          let replacement = ProjNode::new(
+            new_node.kind,
+            new_node.start,
+            new_node.end,
+            node_id.0,
+            new_node.children,
+          )
+          Ok(update_node_in_tree(root, node_id, replacement))
+        }
       }
     }
-    TreeEditOp::CancelEdit => Ok(model)
+    TreeEditOp::CancelEdit => Ok(root)
 
     // Structural operations
-    TreeEditOp::Delete(node_id~) => {
-      let op = DeleteNode(node_id~)
-      match model.apply_operation(op) {
-        Ok(_) => Ok(model)
-        Err(msg) => Err(msg)
+    TreeEditOp::Delete(node_id~) =>
+      if NodeId(root.node_id) == node_id {
+        Err("Cannot delete root or node not found")
+      } else {
+        match find_parent_recursive(root, node_id) {
+          None => Err("Cannot delete root or node not found")
+          Some((parent_node, index)) => {
+            let new_parent = remove_child_at(parent_node, index)
+            Ok(
+              update_node_in_tree(root, NodeId(parent_node.node_id), new_parent),
+            )
+          }
+        }
       }
-    }
     TreeEditOp::WrapInLambda(node_id~, var_name~) =>
-      // Get the existing node to wrap
-      match model.get_node(node_id) {
+      match registry.get(node_id) {
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
-          // Get text representation of the existing node
           let existing_text = @ast.print_term(existing.kind)
-          // Parse a lambda wrapping it
           let lambda_text = "λ" + var_name + "." + existing_text
           let (parsed, diagnostics) = parse_to_proj_node(lambda_text)
           if diagnostics.length() > 0 {
             return Err("Failed to parse wrapped lambda: " + diagnostics[0])
           }
-          // Assign fresh IDs to avoid collisions with existing AST nodes
-          let new_node = assign_fresh_ids(parsed, model)
-          // Replace the node
-          let op = ReplaceNode(node_id~, new_node~)
-          match model.apply_operation(op) {
-            Ok(_) => Ok(model)
-            Err(msg) => Err(msg)
-          }
+          let new_node = assign_fresh_ids(parsed, counter)
+          let replacement = ProjNode::new(
+            new_node.kind,
+            new_node.start,
+            new_node.end,
+            node_id.0,
+            new_node.children,
+          )
+          Ok(update_node_in_tree(root, node_id, replacement))
         }
       }
     TreeEditOp::WrapInApp(node_id~) =>
-      // Get the existing node to wrap as the function
-      match model.get_node(node_id) {
+      match registry.get(node_id) {
         None => Err("Node not found: " + node_id.to_string())
         Some(existing) => {
-          // Get text representation of the existing node
           let existing_text = @ast.print_term(existing.kind)
-          // Parse an application with a placeholder argument
           let app_text = "(" + existing_text + ") a"
           let (parsed, diagnostics) = parse_to_proj_node(app_text)
           if diagnostics.length() > 0 {
             return Err("Failed to parse wrapped application: " + diagnostics[0])
           }
-          // Assign fresh IDs to avoid collisions with existing AST nodes
-          let new_node = assign_fresh_ids(parsed, model)
-          // Replace the node
-          let op = ReplaceNode(node_id~, new_node~)
-          match model.apply_operation(op) {
-            Ok(_) => Ok(model)
-            Err(msg) => Err(msg)
-          }
+          let new_node = assign_fresh_ids(parsed, counter)
+          let replacement = ProjNode::new(
+            new_node.kind,
+            new_node.start,
+            new_node.end,
+            node_id.0,
+            new_node.children,
+          )
+          Ok(update_node_in_tree(root, node_id, replacement))
         }
       }
     TreeEditOp::InsertChild(parent~, index~, kind~) => {
-      // Create a placeholder node based on the kind
       let placeholder_text = match kind {
         @ast.Term::Int(_) => "0"
         @ast.Term::Var(_) => "a"
@@ -174,27 +144,27 @@ pub fn tree_lens_apply_edit(
       if diagnostics.length() > 0 {
         return Err("Failed to parse placeholder: " + diagnostics[0])
       }
-      // Assign fresh IDs to avoid collisions with existing AST nodes
-      let new_node = assign_fresh_ids(parsed, model)
-      let op = InsertNode(parent~, index~, node=new_node)
-      match model.apply_operation(op) {
-        Ok(_) => Ok(model)
-        Err(msg) => Err(msg)
+      let new_node = assign_fresh_ids(parsed, counter)
+      match registry.get(parent) {
+        None => Err("Parent node not found: " + parent.to_string())
+        Some(parent_node) => {
+          let new_parent = insert_child_at(parent_node, index, new_node)
+          Ok(update_node_in_tree(root, parent, new_parent))
+        }
       }
     }
 
     // Drag and drop
     TreeEditOp::StartDrag(node_id~) => {
       let _ = node_id
-      Ok(model)
+      Ok(root)
     }
     TreeEditOp::DragOver(target~, position~) => {
       let _ = (target, position)
-      Ok(model)
+      Ok(root)
     }
     TreeEditOp::Drop(source~, target~, position~) =>
-      // Get the target's parent to determine where to insert
-      match model.find_parent(target) {
+      match find_parent_recursive(root, target) {
         None => Err("Cannot drop on root node")
         Some((parent_node, target_index)) => {
           let new_index = match position {
@@ -206,10 +176,55 @@ pub fn tree_lens_apply_edit(
             Before | After => NodeId(parent_node.node_id)
             Inside => target
           }
-          let op = MoveNode(node_id=source, new_parent~, new_index~)
-          match model.apply_operation(op) {
-            Ok(_) => Ok(model)
-            Err(msg) => Err(msg)
+          match registry.get(source) {
+            None => Err("Node to move not found: " + source.to_string())
+            Some(node_to_move) =>
+              match find_parent_recursive(root, source) {
+                None => Err("Cannot move root node")
+                Some((old_parent, old_index)) => {
+                  let old_parent_id = NodeId(old_parent.node_id)
+                  let parent_after_remove = remove_child_at(
+                    old_parent, old_index,
+                  )
+                  match get_node_in_tree(root, new_parent) {
+                    None =>
+                      Err("New parent not found: " + new_parent.to_string())
+                    Some(_) =>
+                      if get_node_in_tree(node_to_move, new_parent) is Some(_) {
+                        Err(
+                          "Cannot move node under its own subtree: " +
+                          new_parent.to_string(),
+                        )
+                      } else {
+                        let root_after_remove = update_node_in_tree(
+                          root, old_parent_id, parent_after_remove,
+                        )
+                        let adjusted_index = if old_parent_id == new_parent &&
+                          old_index < new_index {
+                          new_index - 1
+                        } else {
+                          new_index
+                        }
+                        match get_node_in_tree(root_after_remove, new_parent) {
+                          None =>
+                            Err(
+                              "New parent not found: " + new_parent.to_string(),
+                            )
+                          Some(new_parent_node) => {
+                            let parent_after_insert = insert_child_at(
+                              new_parent_node, adjusted_index, node_to_move,
+                            )
+                            Ok(
+                              update_node_in_tree(
+                                root_after_remove, new_parent, parent_after_insert,
+                              ),
+                            )
+                          }
+                        }
+                      }
+                  }
+                }
+              }
           }
         }
       }
@@ -217,11 +232,104 @@ pub fn tree_lens_apply_edit(
     // Navigation (doesn't modify AST)
     TreeEditOp::Collapse(node_id~) => {
       let _ = node_id
-      Ok(model)
+      Ok(root)
     }
     TreeEditOp::Expand(node_id~) => {
       let _ = node_id
-      Ok(model)
+      Ok(root)
     }
+  }
+}
+
+///|
+fn find_parent_recursive(
+  node : ProjNode,
+  target_id : NodeId,
+) -> (ProjNode, Int)? {
+  for i, child in node.children {
+    if child.id() == target_id {
+      return Some((node, i))
+    }
+    match find_parent_recursive(child, target_id) {
+      Some(result) => return Some(result)
+      None => continue
+    }
+  }
+  None
+}
+
+///|
+fn update_node_in_tree(
+  root : ProjNode,
+  target_id : NodeId,
+  new_node : ProjNode,
+) -> ProjNode {
+  if root.id() == target_id {
+    new_node
+  } else {
+    let new_children : Array[ProjNode] = []
+    for child in root.children {
+      new_children.push(update_node_in_tree(child, target_id, new_node))
+    }
+    ProjNode::new(
+      rebuild_kind(root.kind, new_children),
+      root.start,
+      root.end,
+      root.node_id,
+      new_children,
+    )
+  }
+}
+
+///|
+fn remove_child_at(node : ProjNode, index : Int) -> ProjNode {
+  let new_children : Array[ProjNode] = []
+  for i, child in node.children {
+    if i != index {
+      new_children.push(child)
+    }
+  }
+  ProjNode::new(
+    rebuild_kind(node.kind, new_children),
+    node.start,
+    node.end,
+    node.node_id,
+    new_children,
+  )
+}
+
+///|
+fn insert_child_at(node : ProjNode, index : Int, child : ProjNode) -> ProjNode {
+  let new_children : Array[ProjNode] = []
+  for i, c in node.children {
+    if i == index {
+      new_children.push(child)
+    }
+    new_children.push(c)
+  }
+  if index >= node.children.length() {
+    new_children.push(child)
+  }
+  ProjNode::new(
+    rebuild_kind(node.kind, new_children),
+    node.start,
+    node.end,
+    node.node_id,
+    new_children,
+  )
+}
+
+///|
+fn get_node_in_tree(root : ProjNode, target_id : NodeId) -> ProjNode? {
+  if root.id() == target_id {
+    Some(root)
+  } else {
+    for child in root.children {
+      match get_node_in_tree(child, target_id) {
+        Some(found) => return Some(found)
+        None => continue
+      }
+    }
+    None
   }
 }

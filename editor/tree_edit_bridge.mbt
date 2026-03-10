@@ -1,46 +1,46 @@
-// Tree Edit Bridge: Round-trip tree edits through the text CRDT
-// TreeEditOp -> CanonicalModel (structural) -> unparse -> set_text -> reparse
+// Tree Edit Bridge: Apply structural projection edits through the text CRDT.
+// TreeEditOp -> ProjNode -> unparse -> set_text_and_record -> memo reconcile
 
 ///|
 /// Apply a tree edit by round-tripping through the text CRDT.
 ///
-/// 1. Apply tree edit structurally to CanonicalModel
+/// 1. Apply tree edit structurally to the current ProjNode
 /// 2. Unparse modified AST to text
-/// 3. Set CRDT text to the new text (generates broadcastable ops)
-/// 4. Re-reconcile CanonicalModel from authoritative CRDT text
+/// 3. Set CRDT text to the new text (generates broadcastable ops + undo history)
+/// 4. Memo chain re-derives ProjNode from authoritative text on next access
 pub fn SyncEditor::apply_tree_edit(
   self : SyncEditor,
-  canonical : @proj.CanonicalModel,
   op : @proj.TreeEditOp,
+  timestamp_ms : Int,
 ) -> Result[Unit, String] {
   let old_text = self.get_text()
   let old_cursor = self.get_cursor()
 
-  // 1. Apply tree edit structurally to CanonicalModel
-  match @proj.tree_lens_apply_edit(canonical, op) {
-    Ok(_) => ()
+  let proj = match self.get_proj_node() {
+    Some(p) => p
+    None => return Err("No ProjNode available")
+  }
+  let new_proj = match
+    @proj.apply_edit_to_proj(
+      proj,
+      op,
+      self.registry_memo.get(),
+      self.next_node_id,
+    ) {
+    Ok(updated) => updated
     Err(msg) => return Err(msg)
   }
-
-  // 2. Get text representation of modified AST
-  let new_text = match @proj.text_lens_get(canonical) {
-    Ok(t) => t
-    Err(msg) => return Err("text_lens_get failed: " + msg)
-  }
+  let new_text = @ast.print_term(new_proj.kind)
 
   // 3. Skip CRDT ops if text unchanged (UI-only ops: Select, Collapse, etc.)
   if old_text == new_text {
     return Ok(())
   }
 
-  // 4. Apply text change to CRDT (set_text handles diff internally)
-  self.set_text(new_text)
+  // Seed memo reconciliation with the structurally edited tree so the
+  // subsequent reparse preserves node identities from the edit result.
+  self.seed_proj_node(Some(new_proj))
+  self.set_text_and_record(new_text, timestamp_ms)
   self.move_cursor(old_cursor)
-
-  // 5. Re-reconcile CanonicalModel from authoritative CRDT text
-  // (re-parses to update positions; known double-parse, see TODO.md §6)
-  match @proj.text_lens_put(canonical, self.doc.text()) {
-    Ok(_) => Ok(())
-    Err(msg) => Err("text_lens_put failed: " + msg)
-  }
+  Ok(())
 }

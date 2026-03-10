@@ -6,6 +6,9 @@
     "dowdiness/event-graph-walker": {
       "path": "./event-graph-walker"
     },
+    "dowdiness/incr": {
+      "path": "./loom/incr"
+    },
     "dowdiness/lambda": {
       "path": "./loom/examples/lambda"
     },

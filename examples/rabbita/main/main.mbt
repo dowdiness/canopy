@@ -22,12 +22,12 @@ enum Msg {
 ///|
 struct Model {
   editor : @editor.SyncEditor
-  canonical : @proj.CanonicalModel
   tree_state : @proj.TreeEditorState
   text_view : String
   workspace_mode : WorkspaceMode
   diagnostics_open : Bool
   peers : Array[(String, Int)]
+  next_timestamp : Int
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -75,17 +75,18 @@ fn init_model() -> Model {
   let init_text = "let id = λx.x in let apply = λf.λx.f x in apply id 42"
   let editor = @editor.SyncEditor::new("local")
   editor.set_text(init_text)
-  let canonical = @proj.CanonicalModel::new()
-  let _ = @proj.text_lens_put(canonical, init_text)
-  let tree_state = @proj.TreeEditorState::from_model(canonical)
+  let tree_state = @proj.TreeEditorState::from_projection(
+    editor.get_proj_node(),
+    editor.get_source_map(),
+  )
   {
     editor,
-    canonical,
     tree_state,
     text_view: init_text,
     workspace_mode: Split,
     diagnostics_open: true,
     peers: [("alice", 18), ("bob", 33)],
+    next_timestamp: 1,
   }
 }
 
@@ -95,7 +96,10 @@ fn init_model() -> Model {
 fn refresh(model : Model) -> Model {
   // Get text from CRDT (authoritative source)
   let text_view = model.editor.get_text()
-  let tree_state = model.tree_state.refresh_from_model(model.canonical)
+  let tree_state = model.tree_state.refresh(
+    model.editor.get_proj_node(),
+    model.editor.get_source_map(),
+  )
   { ..model, text_view, tree_state }
 }
 
@@ -106,10 +110,12 @@ fn update(msg : Msg, model : Model) -> Model {
     ToggleDiagnostics =>
       { ..model, diagnostics_open: !model.diagnostics_open }
     TextInput(new_text) => {
-      // Update CRDT text + parse and reconcile AST
+      // Update CRDT text; projection state derives from SyncEditor.
       model.editor.set_text(new_text)
-      let _ = @proj.text_lens_put(model.canonical, new_text)
-      let tree_state = model.tree_state.refresh_from_model(model.canonical)
+      let tree_state = model.tree_state.refresh(
+        model.editor.get_proj_node(),
+        model.editor.get_source_map(),
+      )
       { ..model, text_view: new_text, tree_state }
     }
     TreeEdited(op) => {
@@ -117,8 +123,11 @@ fn update(msg : Msg, model : Model) -> Model {
       let tree_state = model.tree_state.apply_edit(op)
       let model = { ..model, tree_state }
       // Round-trip tree edit through text CRDT so ops are broadcastable
-      match model.editor.apply_tree_edit(model.canonical, op) {
-        Ok(_) => refresh(model)
+      match model.editor.apply_tree_edit(op, model.next_timestamp) {
+        Ok(_) => {
+          let refreshed = refresh(model)
+          { ..refreshed, next_timestamp: model.next_timestamp + 1 }
+        }
         Err(_) => model
       }
     }
@@ -259,7 +268,7 @@ fn selection_section(model : Model) -> Html {
 
 ///|
 fn diagnostics_section(model : Model) -> Html {
-  let errors = model.canonical.get_errors()
+  let errors = model.editor.get_errors()
   let items = if errors.is_empty() {
     [li(class="sidebar-item", "No errors.")]
   } else {

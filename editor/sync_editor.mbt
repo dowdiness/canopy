@@ -7,6 +7,11 @@ pub struct SyncEditor {
   priv undo : @undo.UndoManager
   priv parser : @loom.ReactiveParser[@parser.SyntaxNode]
   priv mut cursor : Int
+  priv prev_proj_node : Ref[@proj.ProjNode?]
+  priv proj_memo : @incr.Memo[@proj.ProjNode?]
+  priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
+  priv source_map_memo : @incr.Memo[@proj.SourceMap]
+  priv next_node_id : Ref[Int]
 }
 
 ///|
@@ -14,11 +19,22 @@ pub fn SyncEditor::new(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> SyncEditor {
+  let parser = @loom.new_reactive_parser("", @parser.lambda_grammar)
+  let prev_proj_node : Ref[@proj.ProjNode?] = Ref::new(None)
+  let next_node_id : Ref[Int] = Ref::new(0)
+  let (proj_memo, registry_memo, source_map_memo) = build_projection_memos(
+    parser, prev_proj_node, next_node_id,
+  )
   {
     doc: @text.TextDoc::new(agent_id),
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
-    parser: @loom.new_reactive_parser("", @parser.lambda_grammar),
+    parser,
     cursor: 0,
+    prev_proj_node,
+    proj_memo,
+    registry_memo,
+    source_map_memo,
+    next_node_id,
   }
 }
 

@@ -12,7 +12,7 @@ pub struct ProjNode {
   children : Array[ProjNode]
   start : Int
   end : Int
-} derive(Show)
+} derive(Show, Eq)
 
 ///|
 pub fn ProjNode::new(
@@ -23,6 +23,11 @@ pub fn ProjNode::new(
   children : Array[ProjNode],
 ) -> ProjNode {
   { node_id, kind, children, start, end }
+}
+
+///|
+pub fn ProjNode::id(self : ProjNode) -> NodeId {
+  NodeId(self.node_id)
 }
 
 ///|
@@ -97,7 +102,10 @@ fn bop_node(
 }
 
 ///|
-fn syntax_to_proj_node(node : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
+pub fn syntax_to_proj_node(
+  node : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode {
   if @parser.IntLiteralView::cast(node) is Some(v) {
     ProjNode::new(
       Int(v.value().unwrap_or(0)),
@@ -230,7 +238,7 @@ fn is_term_expression_node(node : @seam.SyntaxNode) -> Bool {
 }
 
 ///|
-fn unwrap_expression_root(node : @seam.SyntaxNode) -> @seam.SyntaxNode {
+pub fn unwrap_expression_root(node : @seam.SyntaxNode) -> @seam.SyntaxNode {
   if is_term_expression_node(node) {
     node
   } else {

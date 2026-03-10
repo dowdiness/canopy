@@ -4,76 +4,31 @@ package "dowdiness/crdt/projection"
 import {
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
+  "dowdiness/seam",
   "moonbitlang/core/immut/hashset",
+  "moonbitlang/core/ref",
 }
 
 // Values
-pub fn[A, B, C] compose(Lens[A, B], Lens[B, C]) -> Lens[A, C]
-
-pub fn[M] identity() -> Lens[M, M]
+pub fn apply_edit_to_proj(ProjNode, TreeEditOp, Map[NodeId, ProjNode], @ref.Ref[Int]) -> Result[ProjNode, String]
 
 pub fn is_leaf_node(@ast.Term) -> Bool
 
 pub fn is_valid_drop(@ast.Term, @ast.Term, DropPosition) -> Bool
 
-pub fn[M, P] over(Lens[M, P], M, (P) -> P) -> Result[M, String]
-
 pub fn parse_to_proj_node(String) -> (ProjNode, Array[String])
 
-pub fn[M, P] set(Lens[M, P], M, P) -> Result[M, String]
+pub fn reconcile_ast(ProjNode, ProjNode, @ref.Ref[Int]) -> ProjNode
 
-pub fn text_lens() -> Lens[CanonicalModel, String]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
 
 pub fn text_lens_diff(String, String) -> Array[ProjectionEdit]
 
-pub fn text_lens_get(CanonicalModel) -> Result[String, String]
-
-pub fn text_lens_put(CanonicalModel, String) -> Result[CanonicalModel, String]
-
-pub fn text_lens_with_diff() -> LensDiff[CanonicalModel, String, ProjectionEdit]
-
-pub fn tree_lens() -> Lens[CanonicalModel, ProjNode?]
-
-pub fn tree_lens_apply_edit(CanonicalModel, TreeEditOp) -> Result[CanonicalModel, String]
-
-pub fn tree_lens_get(CanonicalModel) -> Result[ProjNode?, String]
-
-pub fn tree_lens_put(CanonicalModel, ProjNode?) -> Result[CanonicalModel, String]
-
-pub fn[M, P] view(Lens[M, P], M) -> Result[P, String]
+pub fn unwrap_expression_root(@seam.SyntaxNode) -> @seam.SyntaxNode
 
 // Errors
 
 // Types and methods
-pub struct CanonicalModel {
-  mut ast : ProjNode?
-  node_registry : Map[NodeId, ProjNode]
-  source_map : SourceMap
-  dirty_projections : Map[ProjectionId, Bool]
-  mut next_node_id : Int
-  edit_history : Array[ModelOperation]
-  mut history_position : Int
-}
-pub fn CanonicalModel::apply_operation(Self, ModelOperation) -> Result[Unit, String]
-pub fn CanonicalModel::find_parent(Self, NodeId) -> (ProjNode, Int)?
-pub fn CanonicalModel::from_ast(ProjNode) -> Self
-pub fn CanonicalModel::get_ast(Self) -> ProjNode?
-pub fn CanonicalModel::get_errors(Self) -> Array[String]
-pub fn CanonicalModel::get_node(Self, NodeId) -> ProjNode?
-pub fn CanonicalModel::get_node_range(Self, NodeId) -> @core.Range?
-pub fn CanonicalModel::get_source_map(Self) -> SourceMap
-pub fn CanonicalModel::has_errors(Self) -> Bool
-pub fn CanonicalModel::is_dirty(Self, ProjectionId) -> Bool
-pub fn CanonicalModel::mark_all_dirty(Self) -> Unit
-pub fn CanonicalModel::mark_clean(Self, ProjectionId) -> Unit
-pub fn CanonicalModel::mark_dirty(Self, ProjectionId) -> Unit
-pub fn CanonicalModel::new() -> Self
-pub fn CanonicalModel::new_node_id(Self) -> NodeId
-pub fn CanonicalModel::node_at_position(Self, Int) -> NodeId?
-pub fn CanonicalModel::node_count(Self) -> Int
-pub fn CanonicalModel::set_ast(Self, ProjNode) -> Unit
-pub fn CanonicalModel::unregister_node(Self, NodeId) -> Unit
-
 pub enum DropPosition {
   Before
   After
@@ -105,18 +60,6 @@ pub enum LeafValue {
 pub impl Eq for LeafValue
 pub impl Show for LeafValue
 
-pub struct Lens[M, P] {
-  get : (M) -> Result[P, String]
-  put : (M, P) -> Result[M, String]
-}
-pub fn[M, P] Lens::new((M) -> Result[P, String], (M, P) -> Result[M, String]) -> Self[M, P]
-
-pub struct LensDiff[M, P, E] {
-  lens : Lens[M, P]
-  diff : (P, P) -> Array[E]
-}
-pub fn[M, P, E] LensDiff::new(Lens[M, P], (P, P) -> Array[E]) -> Self[M, P, E]
-
 pub enum ModelOperation {
   InsertNode(parent~ : NodeId, index~ : Int, node~ : ProjNode)
   DeleteNode(node_id~ : NodeId)
@@ -141,7 +84,9 @@ pub struct ProjNode {
   start : Int
   end : Int
 }
+pub fn ProjNode::id(Self) -> NodeId
 pub fn ProjNode::new(@ast.Term, Int, Int, Int, Array[Self]) -> Self
+pub impl Eq for ProjNode
 pub impl Show for ProjNode
 
 pub enum ProjectionEdit {
@@ -207,9 +152,9 @@ pub struct TreeEditorState {
   collapsed_nodes : @hashset.HashSet[NodeId]
 }
 pub fn TreeEditorState::apply_edit(Self, TreeEditOp) -> Self
-pub fn TreeEditorState::from_model(CanonicalModel) -> Self
+pub fn TreeEditorState::from_projection(ProjNode?, SourceMap) -> Self
 pub fn TreeEditorState::new() -> Self
-pub fn TreeEditorState::refresh_from_model(Self, CanonicalModel) -> Self
+pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
 
 pub enum ValidationLevel {
   Syntactic

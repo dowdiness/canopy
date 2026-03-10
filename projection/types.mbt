@@ -40,6 +40,16 @@ pub enum ModelOperation {
 } derive(Show)
 
 ///|
+/// Projection-level edits used by text diff utilities and higher-level UIs.
+pub enum ProjectionEdit {
+  TextInsert(position~ : Int, text~ : String)
+  TextDelete(start~ : Int, end~ : Int)
+  NodeSelect(node_id~ : NodeId)
+  NodeValueChange(node_id~ : NodeId, new_value~ : LeafValue)
+  StructuralChange(operation~ : ModelOperation)
+} derive(Show)
+
+///|
 /// Validation levels for AST nodes
 pub enum ValidationLevel {
   /// Is the syntax valid?

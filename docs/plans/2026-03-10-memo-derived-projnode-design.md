@@ -83,13 +83,13 @@ proj_memo (Memo[ProjNode?])     ← NEW: CST → ProjNode → reconcile with pre
 
 ```moonbit
 pub fn SyncEditor::get_proj_node(self) -> ProjNode?
-pub fn SyncEditor::get_source_map(self) -> SourceMap  // detached snapshot, not the memo-owned instance
+pub fn SyncEditor::get_source_map(self) -> SourceMap  // cached Memo value
 pub fn SyncEditor::get_node(self, id : NodeId) -> ProjNode?
 pub fn SyncEditor::node_at_position(self, position : Int) -> NodeId?
 pub fn SyncEditor::get_node_range(self, id : NodeId) -> Range?
 ```
 
-`get_proj_node`, `get_node`, `node_at_position`, and `get_node_range` read Memo-owned caches directly. `get_source_map()` returns a detached snapshot rebuilt from the current projection so callers cannot mutate the cached `source_map_memo` state via `SourceMap::apply_edit` / `rebuild`.
+`get_proj_node`, `get_source_map`, `get_node`, `node_at_position`, and `get_node_range` read Memo-owned caches directly. `get_source_map()` returns the cached `source_map_memo` value so external callers do not pay an extra tree walk/sort on every refresh.
 
 ### Tree edit signature change
 
@@ -139,7 +139,7 @@ Goes CST → SyntaxNode → ProjNode directly, skipping Term → unparse → rep
 
 ### Reconciliation state (side-channel approach)
 
-The Memo compute function closes over SyncEditor, reads `prev_proj_node` (untracked), reconciles, and updates it as a side effect. The impurity is benign — it only stores state for the next computation. Requires single-threaded Runtime evaluation (current guarantee).
+The Memo compute function closes over SyncEditor, reads `prev_proj_node` (untracked), reconciles, and updates it as a side effect. Tree edits may also seed `prev_proj_node` with the structurally edited `ProjNode` before committing text, so the next reparse reconciles against the edit result instead of the pre-edit tree. The impurity is benign — it only stores state for the next computation. Requires single-threaded Runtime evaluation (current guarantee).
 
 ```moonbit
 let proj_memo = @incr.Memo::new(rt, fn() {
@@ -186,8 +186,9 @@ The `unregister_node_tree_from_model` calls in `reconcile_children` are removed 
 1. proj = self.get_proj_node()                    // current ProjNode from Memo
 2. new_proj = apply_edit_to_proj(proj, op, ...)   // functional structural edit
 3. new_text = @ast.print_term(new_proj.kind)      // unparse
-4. self.set_text_and_record(new_text, timestamp_ms) // CRDT ops + UndoManager history
-5. // Memo chain auto-reconciles on next get_proj_node() access
+4. self.seed_proj_node(Some(new_proj))            // seed reconcile baseline with edit result
+5. self.set_text_and_record(new_text, timestamp_ms) // CRDT ops + UndoManager history
+6. // Memo chain reparses text and reconciles against seeded new_proj
 ```
 
 ### Parse errors
@@ -264,7 +265,7 @@ These functions currently live as methods on `CanonicalModel` or as helpers in `
 | `get_node` / `node_at_position` | Registry and source map derived correctly |
 | `apply_tree_edit` without CanonicalModel | Same 10 roundtrip tests, simplified setup |
 | `apply_tree_edit` undo/redo | Tree edits are recorded in `UndoManager`, not lost |
-| `get_source_map` snapshot isolation | Mutating the returned `SourceMap` does not corrupt memo-owned caches |
+| `apply_tree_edit` seeded reconciliation | Structural edits preserve intended node IDs after memo reparse |
 | `apply_edit_to_proj` unit tests | Each TreeEditOp variant |
 
 ---
@@ -296,5 +297,5 @@ Steps 0a-0b are loom/projection prerequisites. Steps 1-4 are additive (no breaka
 
 - **Double reconciliation on tree edits:** `set_text_and_record` triggers Memo chain reparse+reconcile, but the structural edit already produced a correct ProjNode. The reconciliation should preserve IDs via LCS. Acceptable for lambda calculus scale; consistent with current double-parse (TODO.md §6).
 - **Memo[ProjNode?] Eq requirement:** `ProjNode` must derive `Eq` for `Memo::new` to compile (see Prerequisites). Positions always change on text edits, so backdating won't fire — downstream Memos always recompute. This is fine.
-- **Detached `SourceMap` snapshots cost O(N):** external callers that need a `SourceMap` get a rebuilt snapshot rather than the memo-owned mutable object. This preserves cache integrity at the cost of one tree walk per external snapshot request; internal query APIs still use `source_map_memo` directly.
+- **Memo-owned `SourceMap` is mutable:** `get_source_map()` now returns the cached `source_map_memo` object directly for performance. Callers must treat it as read-only; mutating it via `SourceMap::apply_edit` / `rebuild` can corrupt the cache seen by later readers.
 - **SyncEditor ↔ projection dependency deepens:** Already exists (`editor/moon.pkg.json` imports projection). No new package dependency, just more usage surface.

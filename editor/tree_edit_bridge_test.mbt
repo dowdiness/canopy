@@ -1,71 +1,56 @@
 // Tests for the tree edit bridge roundtrip:
-// TreeEditOp -> CanonicalModel (structural) -> unparse -> set_text -> reparse
+// TreeEditOp -> ProjNode (structural) -> unparse -> set_text_and_record -> memo reconcile
 
 ///|
-/// Helper: create a SyncEditor + CanonicalModel pair initialized with the same text
-fn setup_bridge(text : String) -> (SyncEditor, @proj.CanonicalModel) {
+fn setup_bridge(text : String) -> SyncEditor {
   let editor = SyncEditor::new("test")
   editor.set_text(text)
-  let canonical = @proj.CanonicalModel::new()
-  let _ = @proj.text_lens_put(canonical, text)
-  (editor, canonical)
+  editor
 }
 
 ///|
-/// Helper: get root NodeId from canonical model via TreeEditorState
-fn get_root_id(canonical : @proj.CanonicalModel) -> @proj.NodeId {
-  let state = @proj.TreeEditorState::from_model(canonical)
-  match state.tree {
-    Some(node) => node.id
+fn get_root_id(editor : SyncEditor) -> @proj.NodeId {
+  match editor.get_proj_node() {
+    Some(node) => node.id()
     None => abort("No tree root")
   }
 }
 
 ///|
-/// Helper: assert CRDT text and canonical model text are equal
-fn assert_converged(
-  editor : SyncEditor,
-  canonical : @proj.CanonicalModel,
-) -> Unit raise {
+fn assert_converged(editor : SyncEditor) -> Unit raise {
   let crdt_text = editor.get_text()
-  let canonical_text = match @proj.text_lens_get(canonical) {
-    Ok(t) => t
-    Err(msg) => abort("text_lens_get failed: " + msg)
+  let proj_text = match editor.get_proj_node() {
+    Some(proj) => @ast.print_term(proj.kind)
+    None => ""
   }
-  assert_eq(crdt_text, canonical_text)
+  assert_eq(crdt_text, proj_text)
 }
 
 ///|
 test "apply_tree_edit - Select preserves text" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
-  let result = editor.apply_tree_edit(
-    canonical,
-    @proj.TreeEditOp::Select(node_id=id),
-  )
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
+  let result = editor.apply_tree_edit(@proj.TreeEditOp::Select(node_id=id), 1)
   inspect(result, content="Ok(())")
   inspect(editor.get_text(), content="42")
 }
 
 ///|
 test "apply_tree_edit - Collapse preserves text" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
-  let result = editor.apply_tree_edit(
-    canonical,
-    @proj.TreeEditOp::Collapse(node_id=id),
-  )
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
+  let result = editor.apply_tree_edit(@proj.TreeEditOp::Collapse(node_id=id), 1)
   inspect(result, content="Ok(())")
   inspect(editor.get_text(), content="42")
 }
 
 ///|
 test "apply_tree_edit - WrapInLambda" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
+    1,
   )
   inspect(result, content="Ok(())")
   inspect(editor.get_text(), content="(λx. 42)")
@@ -73,11 +58,11 @@ test "apply_tree_edit - WrapInLambda" {
 
 ///|
 test "apply_tree_edit - WrapInApp" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::WrapInApp(node_id=id),
+    1,
   )
   inspect(result, content="Ok(())")
   inspect(editor.get_text(), content="(42 a)")
@@ -85,11 +70,11 @@ test "apply_tree_edit - WrapInApp" {
 
 ///|
 test "apply_tree_edit - CommitEdit replaces value" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
+    1,
   )
   inspect(result, content="Ok(())")
   inspect(editor.get_text(), content="99")
@@ -97,12 +82,12 @@ test "apply_tree_edit - CommitEdit replaces value" {
 
 ///|
 test "apply_tree_edit - preserves cursor for follow-up text edits" {
-  let (editor, canonical) = setup_bridge("42")
+  let editor = setup_bridge("42")
   editor.move_cursor(1)
-  let id = get_root_id(canonical)
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
+    1,
   )
   inspect(result, content="Ok(())")
   inspect(editor.get_cursor(), content="1")
@@ -112,60 +97,95 @@ test "apply_tree_edit - preserves cursor for follow-up text edits" {
 
 ///|
 test "apply_tree_edit - CommitEdit with expression" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    1,
   )
   inspect(result, content="Ok(())")
-  // Parser canonicalizes λz.z -> (λz. z)
   inspect(editor.get_text(), content="(λz. z)")
 }
 
 ///|
-test "apply_tree_edit - CRDT and canonical converge after WrapInLambda" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+test "apply_tree_edit - ProjNode and text converge after WrapInLambda" {
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
+    1,
   )
   inspect(result, content="Ok(())")
-  assert_converged(editor, canonical)
+  assert_converged(editor)
 }
 
 ///|
-test "apply_tree_edit - CRDT and canonical converge after CommitEdit" {
-  let (editor, canonical) = setup_bridge("42")
-  let id = get_root_id(canonical)
+test "apply_tree_edit - ProjNode and text converge after CommitEdit" {
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    1,
   )
   inspect(result, content="Ok(())")
-  assert_converged(editor, canonical)
+  assert_converged(editor)
+}
+
+///|
+test "apply_tree_edit - WrapInLambda preserves root node id after memo reconcile" {
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
+  let result = editor.apply_tree_edit(
+    @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
+    1,
+  )
+  inspect(result, content="Ok(())")
+  inspect(get_root_id(editor), content=id.to_string())
+}
+
+///|
+test "apply_tree_edit - CommitEdit expression preserves edited node id" {
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
+  let result = editor.apply_tree_edit(
+    @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    1,
+  )
+  inspect(result, content="Ok(())")
+  inspect(get_root_id(editor), content=id.to_string())
 }
 
 ///|
 test "apply_tree_edit - sequential edits" {
-  let (editor, canonical) = setup_bridge("42")
-  // First: wrap in lambda
-  let id1 = get_root_id(canonical)
+  let editor = setup_bridge("42")
+  let id1 = get_root_id(editor)
   let result1 = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::WrapInLambda(node_id=id1, var_name="x"),
+    1,
   )
   inspect(result1, content="Ok(())")
   inspect(editor.get_text(), content="(λx. 42)")
-  // Second: wrap the whole thing in an application
-  let id2 = get_root_id(canonical)
+  let id2 = get_root_id(editor)
   let result2 = editor.apply_tree_edit(
-    canonical,
     @proj.TreeEditOp::WrapInApp(node_id=id2),
+    2,
   )
   inspect(result2, content="Ok(())")
   inspect(editor.get_text(), content="((λx. 42) a)")
-  // Verify convergence
-  assert_converged(editor, canonical)
+  assert_converged(editor)
+}
+
+///|
+test "apply_tree_edit - tree edits are undoable" {
+  let editor = setup_bridge("42")
+  let id = get_root_id(editor)
+  let result = editor.apply_tree_edit(
+    @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
+    1,
+  )
+  inspect(result, content="Ok(())")
+  inspect(editor.get_text(), content="(λx. 42)")
+  inspect(editor.can_undo(), content="true")
+  inspect(editor.undo(), content="true")
+  inspect(editor.get_text(), content="42")
 }

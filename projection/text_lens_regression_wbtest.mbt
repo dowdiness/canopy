@@ -1,13 +1,9 @@
 ///|
 // Regression: ProjNode.kind must be rebuilt from reconciled children so that
-// text_lens_get renders the updated term, not the stale pre-edit kind.
-test "text_lens_put should update rendered text after same-shape edit" {
-  let (ast, _) = parse_to_proj_node("x + 1")
-  let model = CanonicalModel::from_ast(ast)
-  let _ = text_lens_put(model, "x + 2")
-  let text = match text_lens_get(model) {
-    Ok(t) => t
-    Err(msg) => abort(msg)
-  }
-  inspect(text, content="(x + 2)")
+// rendering reflects the updated tree after a same-shape edit.
+test "reconcile_ast rebuilds rendered text after same-shape edit" {
+  let (old_root, _) = parse_to_proj_node("x + 1")
+  let (new_root, _) = parse_to_proj_node("x + 2")
+  let reconciled = reconcile_ast(old_root, new_root, Ref::new(100))
+  inspect(@ast.print_term(reconciled.kind), content="(x + 2)")
 }

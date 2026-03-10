@@ -151,16 +151,17 @@ pub fn TreeEditorState::new() -> TreeEditorState {
 }
 
 ///|
-/// Create tree editor state from a canonical model
-pub fn TreeEditorState::from_model(model : CanonicalModel) -> TreeEditorState {
+/// Create tree editor state from a projection snapshot.
+pub fn TreeEditorState::from_projection(
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
   let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.new()
-  let tree = match model.get_ast() {
+  let tree = match proj {
     Some(ast) =>
       Some(
         InteractiveTreeNode::from_term_node_with_state(
-          ast,
-          model.get_source_map(),
-          collapsed_nodes,
+          ast, source_map, collapsed_nodes,
         ),
       )
     None => None
@@ -178,22 +179,18 @@ pub fn TreeEditorState::from_model(model : CanonicalModel) -> TreeEditorState {
 }
 
 ///|
-/// Refresh tree from model while preserving UI state (collapsed nodes)
-/// This is the lens-based approach: tree = lens_get(model, ui_state)
+/// Refresh tree from projection while preserving UI state (collapsed nodes).
 /// Also prunes stale IDs from UI state that no longer exist in the tree.
-pub fn TreeEditorState::refresh_from_model(
+pub fn TreeEditorState::refresh(
   self : TreeEditorState,
-  model : CanonicalModel,
+  proj : ProjNode?,
+  source_map : SourceMap,
 ) -> TreeEditorState {
-  match model.get_ast() {
+  match proj {
     Some(ast) => {
-      // Build set of valid IDs from new tree
       let valid_ids = collect_all_ids_from_ast(ast)
-      // Prune stale IDs from collapsed_nodes using set intersection
       let collapsed_nodes = self.collapsed_nodes.intersection(valid_ids)
-      // Prune stale IDs from selection
       let selection = self.selection.filter(fn(id) { valid_ids.contains(id) })
-      // Clear editing_node if stale
       let editing_node = match self.editing_node {
         Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
         None => None
@@ -203,12 +200,10 @@ pub fn TreeEditorState::refresh_from_model(
       } else {
         self.edit_value
       }
-      // Clear dragging if stale
       let dragging = match self.dragging {
         Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
         None => None
       }
-      // Clear drop_target if stale
       let drop_target = match self.drop_target {
         Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
         None => None
@@ -218,18 +213,14 @@ pub fn TreeEditorState::refresh_from_model(
       } else {
         self.drop_position
       }
-      // Build selection set for tree construction
       let selection_set = @immut/hashset.from_iter(selection.iter())
-      // Build tree with full UI state
       let ui_state : TreeUIState = {
         collapsed_nodes,
         selection: selection_set,
         editing_node,
         drop_target,
       }
-      let tree = Some(
-        from_term_node_with_full_state(ast, model.get_source_map(), ui_state),
-      )
+      let tree = Some(from_term_node_with_full_state(ast, source_map, ui_state))
       {
         tree,
         selection,
@@ -354,17 +345,17 @@ pub fn TreeEditorState::apply_edit(
     }
     WrapInLambda(node_id~, var_name~) => {
       // UI state: keep the wrapped node selected
-      // Structural change is handled by tree_lens_apply_edit + refresh_from_model
+      // Structural change is handled by SyncEditor::apply_tree_edit + refresh
       let _ = var_name
       { ..self, selection: [node_id] }
     }
     WrapInApp(node_id~) =>
       // UI state: keep the wrapped node selected
-      // Structural change is handled by tree_lens_apply_edit + refresh_from_model
+      // Structural change is handled by SyncEditor::apply_tree_edit + refresh
       { ..self, selection: [node_id] }
     InsertChild(parent~, index~, kind~) => {
       // UI state: select the parent node
-      // Structural change is handled by tree_lens_apply_edit + refresh_from_model
+      // Structural change is handled by SyncEditor::apply_tree_edit + refresh
       let _ = (index, kind)
       { ..self, selection: [parent] }
     }

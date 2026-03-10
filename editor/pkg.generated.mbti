@@ -39,7 +39,7 @@ pub struct SyncEditor {
   // private fields
 }
 pub fn SyncEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
-pub fn SyncEditor::apply_tree_edit(Self, @projection.CanonicalModel, @projection.TreeEditOp) -> Result[Unit, String]
+pub fn SyncEditor::apply_tree_edit(Self, @projection.TreeEditOp, Int) -> Result[Unit, String]
 pub fn SyncEditor::backspace(Self) -> Bool
 pub fn SyncEditor::backspace_and_record(Self, Int) -> Bool
 pub fn SyncEditor::can_redo(Self) -> Bool
@@ -54,7 +54,11 @@ pub fn SyncEditor::get_ast_pretty(Self) -> String
 pub fn SyncEditor::get_cursor(Self) -> Int
 pub fn SyncEditor::get_dot_resolved(Self) -> String
 pub fn SyncEditor::get_errors(Self) -> Array[String]
+pub fn SyncEditor::get_node(Self, @projection.NodeId) -> @projection.ProjNode?
+pub fn SyncEditor::get_node_range(Self, @projection.NodeId) -> @core.Range?
+pub fn SyncEditor::get_proj_node(Self) -> @projection.ProjNode?
 pub fn SyncEditor::get_resolution(Self) -> @lambda.Resolution
+pub fn SyncEditor::get_source_map(Self) -> @projection.SourceMap
 pub fn SyncEditor::get_text(Self) -> String
 pub fn SyncEditor::get_version(Self) -> @text.Version
 pub fn SyncEditor::insert(Self, String) -> Unit raise
@@ -63,6 +67,7 @@ pub fn SyncEditor::is_parse_valid(Self) -> Bool
 pub fn SyncEditor::mark_dirty(Self) -> Unit
 pub fn SyncEditor::move_cursor(Self, Int) -> Unit
 pub fn SyncEditor::new(String, capture_timeout_ms? : Int) -> Self
+pub fn SyncEditor::node_at_position(Self, Int) -> @projection.NodeId?
 pub fn SyncEditor::redo(Self) -> Bool
 pub fn SyncEditor::set_text(Self, String) -> Unit
 pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
