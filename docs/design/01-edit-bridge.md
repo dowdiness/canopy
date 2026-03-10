@@ -1,21 +1,21 @@
 # Design 01: Edit Bridge
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Draft
-**Updated:** 2026-03-04
+**Status:** Phase 1 Complete (fallback path), Phase 2 deferred (direct Op->Edit)
+**Updated:** 2026-03-10
 
 ---
 
 ## Problem
 
-Every time the CRDT text changes, `ParsedEditor` materializes the full text string, then runs `compute_edit(old_text, new_text)` — a prefix/suffix string diff — to produce a loom `Edit`. This is wasteful because the CRDT operation already knows _exactly_ what changed and where.
+Every time the CRDT text changes, the editor materializes the full text string, then diffs it to produce a loom `Edit`. This is wasteful because the CRDT operation already knows _exactly_ what changed and where.
 
 ```
-CURRENT (O(n) per edit):
-  Op::Insert(pos=5, "x") → doc.text() → compute_edit(old, new) → Edit{5, 0, 1}
+CURRENT (O(n) per edit) — Phase 1, implemented:
+  Op::Insert(pos=5, "x") -> doc.text() -> text_to_delta(old, new) -> Edit{5, 0, 1}
 
-IDEAL (O(1) per edit):
-  Op::Insert(pos=5, "x") → Edit{5, 0, 1}   // direct conversion
+IDEAL (O(1) per edit) — Phase 2, deferred:
+  Op::Insert(pos=5, "x") -> Edit{5, 0, 1}   // direct conversion
 ```
 
 ---
@@ -24,7 +24,7 @@ IDEAL (O(1) per edit):
 
 ### 1. Use existing `TextDelta` API (in loom)
 
-`TextDelta` already exists in loom and should be reused directly:
+`TextDelta` already exists in loom and is reused directly:
 
 - `TextDelta::{Retain, Insert, Delete}`
 - `to_edits(deltas : Array[TextDelta]) -> Array[Edit]`
@@ -32,10 +32,24 @@ IDEAL (O(1) per edit):
 
 **Location:** `loom/loom/src/core/delta.mbt` (existing)
 
-This design should consume the existing API rather than introducing a new
-`text_delta.mbt` file or a duplicate `deltas_to_edits()` function.
+### 2. Fallback Path: `merge_to_edits` (Phase 1 — implemented)
 
-### 2. `Op → TextDelta` Converter (in bridge package)
+The fallback path diffs two text strings via loom's `TextDelta` API:
+
+```moonbit
+/// Convert a batch change by diffing whole strings.
+/// Used for both local ops and remote merges in Phase 1.
+pub fn merge_to_edits(old_text : String, new_text : String) -> Array[@loom_core.Edit] {
+  if old_text == new_text {
+    return []
+  }
+  @loom_core.to_edits(@loom_core.text_to_delta(old_text, new_text))
+}
+```
+
+This is O(n) per edit (prefix/suffix scan of full text), but correct and simple. It is the only active path today.
+
+### 3. Direct Path: `Op -> TextDelta` Converter (Phase 2 — deferred)
 
 Each eg-walker `Op` maps trivially to a `TextDelta`:
 
@@ -48,53 +62,44 @@ fn op_to_delta(op : @core.Op, visible_position : Int) -> Array[TextDelta] {
     @core.OpContent::Delete =>
       [TextDelta::Retain(visible_position), TextDelta::Delete(1)]
     @core.OpContent::Undelete =>
-      [] // handled by fallback path until undelete text is exposed
+      [] // handled by fallback path
   }
 }
 ```
 
-**Key constraint:** The CRDT op contains a logical version (LV), not a visible
-position. The internal `Document` provides `lv_to_position()`, but `TextDoc`
-does not currently expose it publicly. Direct `Op → Edit` conversion therefore
-requires a small `event-graph-walker/text` API addition.
-
-### 3. Batch Conversion for Remote Ops
-
-When merging remote ops, multiple ops arrive together. The bridge converts them as a batch:
-
-```moonbit
-/// Convert a batch change by diffing whole strings (fallback path)
-fn merge_to_edits(old_text : String, new_text : String) -> Array[@loom.Edit] {
-  @loom.to_edits(@loom.text_to_delta(old_text, new_text))
-}
-```
-
-**Design decision:** For single local ops, target O(1) direct conversion. For
-batch remote merges (multiple concurrent ops), use a string-based fallback
-(`text_to_delta`/`compute_edit`) since ops may interleave in complex ways.
+**Blocked on:** `TextDoc` does not currently expose `lv_to_position()` or `insert_with_op()`. These small API additions in `event-graph-walker/text` are required before the direct path can be implemented.
 
 ### 4. Integration Point
 
-The bridge sits between `TextDoc` and loom's parser.
+The bridge sits between `TextDoc` and loom's parser. Currently, `SyncEditor` uses the fallback path:
 
-Current implementation path (works with today's APIs):
-
+```moonbit
+// In SyncEditor (current implementation):
+pub fn insert(self : SyncEditor, text : String) -> Unit raise {
+  self.doc.insert(@text.Pos::at(self.cursor), text)
+  self.cursor = self.cursor + text.length()
+  self.parser.set_source(self.doc.text())  // ReactiveParser handles the rest
+}
 ```
-TextDoc.insert()
-  → parser.set_source(doc.text())
-  // optional: fallback diff old/new text
-```
 
-Target path (after small API additions in `event-graph-walker/text`):
+The `merge_to_edits` function is available but `SyncEditor` currently delegates to `ReactiveParser.set_source()` which internally diffs the old and new source strings. Once the direct path is available, the flow becomes:
 
 ```
 TextDoc.insert_with_op()
-  → Op created, applied to FugueTree, returned to caller
-  → doc.lv_to_position(op.lv()) → visible_position
-  → op_to_delta(op, visible_position)
-  → @loom.to_edits(...)
-  → parser.edit(edit, new_source)
+  -> Op created, applied to FugueTree, returned to caller
+  -> doc.lv_to_position(op.lv()) -> visible_position
+  -> op_to_delta(op, visible_position)
+  -> @loom.to_edits(...)
+  -> parser.apply_edit(edit, new_source)
 ```
+
+---
+
+## Resolved Questions
+
+1. **Multi-character inserts:** `TextDoc.insert(pos, "hello")` accepts a full `String`. The CRDT handles character-level op splitting internally. The bridge treats this as a single `Edit{pos, 0, 5}` which is correct for the parser.
+
+2. **Undelete mapping:** Deferred. `Undelete` is a sync-only operation that currently goes through the fallback path (full text diff after merge). It does not need special bridge handling.
 
 ---
 
@@ -103,31 +108,23 @@ TextDoc.insert_with_op()
 | File | Package | Content |
 |------|---------|---------|
 | `loom/loom/src/core/delta.mbt` | `dowdiness/loom/core` | Existing `TextDelta`, `to_edits`, `text_to_delta` |
-| `editor/edit_bridge.mbt` | `dowdiness/crdt/editor` | `op_to_delta()`, `merge_to_edits()` |
-| `editor/edit_bridge_test.mbt` | `dowdiness/crdt/editor` | Property tests: direct == string-diff |
-| `event-graph-walker/text/text_doc.mbt` | `dowdiness/event-graph-walker/text` | Optional API additions for direct path (`insert_with_op`, `delete_with_op`, `lv_to_position`) |
+| `editor/edit_bridge.mbt` | `dowdiness/crdt/editor` | `merge_to_edits()` (implemented) |
+| `editor/edit_bridge_test.mbt` | `dowdiness/crdt/editor` | 13 tests: parity between `merge_to_edits` and `compute_edit` |
+| `editor/text_diff.mbt` | `dowdiness/crdt/editor` | `compute_edit()` — kept as reference baseline |
 
 ---
 
 ## Verification
 
-1. **Fallback parity:** `to_edits(text_to_delta(...))` produces parser-equivalent edits vs `compute_edit(old, new)`.
-2. **Direct-path parity (after API addition):** For local insert/delete ops, `op_to_delta → to_edits` matches string-diff baseline.
-3. **Benchmark:** Direct conversion vs string diff on 10K-character document (single-char edits).
-4. **Integration test:** insert via editor → bridge → loom edit path → incremental reparse → AST parity.
-
----
-
-## Open Questions
-
-1. **Multi-character inserts:** `TextDoc.insert(pos, "hello")` creates 5 individual CRDT ops (one per char). Should the bridge batch them into a single `Edit{pos, 0, 5}` or emit 5 separate `Edit`s? Batching is better for parser performance (one reparse instead of five).
-
-2. **Undelete mapping:** Should `OpContent::Undelete` map to `Insert(1-char)` in direct mode, or be handled as a sync-only operation that bypasses parser edit generation?
+1. **Fallback parity:** `merge_to_edits(old, new)` produces parser-equivalent edits vs `compute_edit(old, new)`. **13 tests passing.**
+2. **Direct-path parity (Phase 2):** For local insert/delete ops, `op_to_delta -> to_edits` should match string-diff baseline.
+3. **Benchmark (Phase 2):** Direct conversion vs string diff on 10K-character document.
+4. **Integration:** insert via SyncEditor -> `parser.set_source()` -> incremental reparse -> correct AST. **Working in production.**
 
 ---
 
 ## Dependencies
 
 - **Depends on:** Existing loom `TextDelta` API (`to_edits`, `text_to_delta`)
-- **Depends on:** Exported `TextDoc` op/position APIs for the fully direct path (to be added)
+- **Depends on (Phase 2):** Exported `TextDoc` op/position APIs (`lv_to_position`, `insert_with_op`)
 - **Depended on by:** [§2 Reactive Pipeline](./02-reactive-pipeline.md), [§3 Unified Editor](./03-unified-editor.md)
