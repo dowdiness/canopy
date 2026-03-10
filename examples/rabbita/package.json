@@ -1,7 +1,9 @@
 {
+  "packageManager": "bun@1.2.15",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "sh scripts/build.sh",
+    "build:deploy": "CI=true sh scripts/build.sh"
   },
   "type": "module",
   "dependencies": {
