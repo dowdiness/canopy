@@ -93,6 +93,32 @@ test "apply_edit_to_proj Delete removes child from container" {
 }
 
 ///|
+test "apply_edit_to_proj Delete replaces fixed-arity child with valid placeholder" {
+  let (root, _) = parse_to_proj_node("x + 1")
+  let target = root.children[1]
+  let result = apply_edit_to_proj(
+    root,
+    Delete(node_id=target.id()),
+    tree_edit_test_registry(root),
+    Ref::new(100),
+  )
+  match result {
+    Ok(updated) => {
+      inspect(updated.children[1].node_id, content=target.node_id.to_string())
+      inspect(
+        match updated.children[1].kind {
+          @ast.Term::Int(0) => "true"
+          _ => "false"
+        },
+        content="true",
+      )
+      inspect(@ast.print_term(updated.kind), content="(x + 0)")
+    }
+    Err(msg) => abort(msg)
+  }
+}
+
+///|
 test "apply_edit_to_proj InsertChild inserts placeholder node" {
   let root = tree_edit_test_container([
     tree_edit_test_var(1, "a"),

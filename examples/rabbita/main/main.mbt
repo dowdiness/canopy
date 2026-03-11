@@ -729,6 +729,20 @@ test "TreeEdited Delete preserves UI state when editor rejects it" {
 }
 
 ///|
+test "TreeEdited Delete round-trips through editor for non-root node" {
+  let model = init_model()
+  let literal_id = selected_node_id_for_test(model, "42")
+  let (_, updated) = update(
+    _ => none,
+    TreeEdited(@proj.Delete(node_id=literal_id)),
+    model,
+  )
+  inspect(updated.next_timestamp, content="2")
+  inspect(updated.editor.get_text().contains("42"), content="false")
+  inspect(updated.editor.get_text().contains("0"), content="true")
+}
+
+///|
 test "TextInput defers projection refresh" {
   let model = init_model()
   let new_text = "let id = λx.x in let apply = λf.λx.f x in apply id 99"

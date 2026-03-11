@@ -156,6 +156,22 @@ test "apply_tree_edit - CommitEdit expression preserves edited node id" {
 }
 
 ///|
+test "apply_tree_edit - Delete non-root node inserts valid placeholder" {
+  let editor = setup_bridge("x + 1")
+  let target = match editor.get_proj_node() {
+    Some(root) => root.children[1].id()
+    None => abort("No tree root")
+  }
+  let result = editor.apply_tree_edit(
+    @proj.TreeEditOp::Delete(node_id=target),
+    1,
+  )
+  inspect(result, content="Ok(())")
+  inspect(editor.get_text(), content="(x + 0)")
+  assert_converged(editor)
+}
+
+///|
 test "apply_tree_edit - sequential edits" {
   let editor = setup_bridge("42")
   let id1 = get_root_id(editor)

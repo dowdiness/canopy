@@ -79,10 +79,25 @@ pub fn apply_edit_to_proj(
         match find_parent_recursive(root, node_id) {
           None => Err("Cannot delete root or node not found")
           Some((parent_node, index)) => {
-            let new_parent = remove_child_at(parent_node, index)
-            Ok(
-              update_node_in_tree(root, NodeId(parent_node.node_id), new_parent),
-            )
+            let target = parent_node.children[index]
+            match parent_node.kind {
+              @ast.Term::Error(_) => {
+                let new_parent = remove_child_at(parent_node, index)
+                Ok(
+                  update_node_in_tree(
+                    root,
+                    NodeId(parent_node.node_id),
+                    new_parent,
+                  ),
+                )
+              }
+              _ =>
+                match deleted_placeholder(target, counter) {
+                  Ok(replacement) =>
+                    Ok(update_node_in_tree(root, node_id, replacement))
+                  Err(msg) => Err(msg)
+                }
+            }
           }
         }
       }
@@ -129,17 +144,7 @@ pub fn apply_edit_to_proj(
         }
       }
     TreeEditOp::InsertChild(parent~, index~, kind~) => {
-      let placeholder_text = match kind {
-        @ast.Term::Int(_) => "0"
-        @ast.Term::Var(_) => "a"
-        @ast.Term::Lam(_, _) => "λx.x"
-        @ast.Term::App(_, _) => "f x"
-        @ast.Term::Bop(_, _, _) => "0 + 0"
-        @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
-        @ast.Term::Let(_, _, _) => "let x = 0 in x"
-        @ast.Term::Unit => "()"
-        @ast.Term::Error(_) => "a"
-      }
+      let placeholder_text = placeholder_text_for_kind(kind)
       let (parsed, diagnostics) = parse_to_proj_node(placeholder_text)
       if diagnostics.length() > 0 {
         return Err("Failed to parse placeholder: " + diagnostics[0])
@@ -296,6 +301,44 @@ fn remove_child_at(node : ProjNode, index : Int) -> ProjNode {
     node.node_id,
     new_children,
   )
+}
+
+///|
+fn deleted_placeholder(
+  node : ProjNode,
+  counter : Ref[Int],
+) -> Result[ProjNode, String] {
+  let placeholder_text = placeholder_text_for_kind(node.kind)
+  let (parsed, diagnostics) = parse_to_proj_node(placeholder_text)
+  if diagnostics.length() > 0 {
+    Err("Failed to parse delete placeholder: " + diagnostics[0])
+  } else {
+    let replacement = assign_fresh_ids(parsed, counter)
+    Ok(
+      ProjNode::new(
+        replacement.kind,
+        node.start,
+        node.end,
+        node.node_id,
+        replacement.children,
+      ),
+    )
+  }
+}
+
+///|
+fn placeholder_text_for_kind(kind : @ast.Term) -> String {
+  match kind {
+    @ast.Term::Int(_) => "0"
+    @ast.Term::Var(_) => "a"
+    @ast.Term::Lam(_, _) => "λx.x"
+    @ast.Term::App(_, _) => "f x"
+    @ast.Term::Bop(_, _, _) => "0 + 0"
+    @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
+    @ast.Term::Let(_, _, _) => "let x = 0 in x"
+    @ast.Term::Unit => "()"
+    @ast.Term::Error(_) => "a"
+  }
 }
 
 ///|
