@@ -62,6 +62,7 @@ fn kind_of(label : String) -> String {
   }
 }
 
+///|
 fn selected_proj_node(model : Model) -> @proj.ProjNode? {
   match model.tree_state.selection {
     [selected, ..] => model.editor.get_node(selected)
@@ -101,7 +102,8 @@ fn selected_tree_node(model : Model) -> @proj.InteractiveTreeNode? {
 fn selected_node_details(model : Model) -> SelectedNodeDetails? {
   if model.projection_dirty {
     match selected_tree_node(model) {
-      Some(node) => Some({ label: node.label, child_count: node.children.length() })
+      Some(node) =>
+        Some({ label: node.label, child_count: node.children.length() })
       None => None
     }
   } else {
@@ -171,11 +173,7 @@ fn is_ui_only_tree_edit(op : @proj.TreeEditOp) -> Bool {
 }
 
 ///|
-fn update(
-  dispatch : Dispatch[Msg],
-  msg : Msg,
-  model : Model,
-) -> (Cmd, Model) {
+fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => (none, { ..model, workspace_mode: mode })
     ToggleDiagnostics =>
@@ -208,17 +206,16 @@ fn update(
         }
       }
     }
-    RefreshProjection => {
+    RefreshProjection =>
       if model.projection_dirty {
         (none, refresh(model))
       } else {
         (none, { ..model, refresh_scheduled: false })
       }
-    }
     TreeEdited(op) => {
       // Update UI state (selection, collapse, drag)
       let tree_state = model.tree_state.apply_edit(op)
-      let model = { ..model, tree_state }
+      let model = { ..model, tree_state, }
       if is_ui_only_tree_edit(op) {
         return (none, model)
       }
@@ -237,11 +234,7 @@ fn update(
 // ── View helpers ────────────────────────────────────────────────────
 
 ///|
-fn control(
-  label : String,
-  on_click~ : Cmd,
-  active~ : Bool = false
-) -> Html {
+fn control(label : String, on_click~ : Cmd, active? : Bool = false) -> Html {
   let class_name = if active { "control active" } else { "control" }
   div(class=class_name, on_click~, [text(label)])
 }
@@ -251,7 +244,7 @@ fn control(
 ///|
 fn view_tree_node(
   dispatch : Dispatch[Msg],
-  node : @proj.InteractiveTreeNode
+  node : @proj.InteractiveTreeNode,
 ) -> Html {
   let class_name = if node.selected {
     "tree-node selected"
