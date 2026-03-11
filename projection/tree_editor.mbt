@@ -45,6 +45,57 @@ priv struct TreeUIState {
 }
 
 ///|
+/// Non-recursive node summary used by refresh-time subtree reuse.
+priv enum InteractiveNodeShape {
+  Int(Int)
+  Var(String)
+  Lam(String)
+  App
+  Bop(@ast.Bop)
+  If
+  Let(String)
+  Unit
+  Error(String)
+} derive(Eq)
+
+///|
+/// Shallow stamp for deciding whether a previously loaded subtree can be reused.
+priv struct InteractiveNodeStamp {
+  id : NodeId
+  shape : InteractiveNodeShape
+  label : String
+  child_ids : Array[NodeId]
+  selected : Bool
+  editing : Bool
+  collapsed : Bool
+  drop_target : Bool
+  text_range : Range
+} derive(Eq)
+
+///|
+/// Result of a refresh build, including whether the previous node was reused.
+priv struct RefreshedInteractiveNode {
+  node : InteractiveTreeNode
+  reused_previous : Bool
+}
+
+///|
+/// Build the non-recursive node shape for stamp comparison.
+fn interactive_node_shape(kind : @ast.Term) -> InteractiveNodeShape {
+  match kind {
+    Int(n) => Int(n)
+    Var(name) => Var(name)
+    Lam(param, _) => Lam(param)
+    App(_, _) => App
+    Bop(op, _, _) => Bop(op)
+    If(_, _, _) => If
+    Let(name, _, _) => Let(name)
+    Unit => Unit
+    Error(msg) => Error(msg)
+  }
+}
+
+///|
 /// Create an interactive tree node from a ProjNode with UI state applied
 /// This is the lens get operation: InteractiveTree = get(ProjNode, UIState)
 pub fn InteractiveTreeNode::from_term_node_with_state(
@@ -108,14 +159,153 @@ fn from_term_node_with_optional_ids(
 }
 
 ///|
-/// Create an interactive tree node with full UI state while collecting valid IDs.
-fn from_term_node_with_full_state_and_ids(
+/// Index the currently loaded interactive tree by node ID for reuse during refresh.
+fn build_loaded_node_index(
+  tree : InteractiveTreeNode?,
+) -> Map[NodeId, InteractiveTreeNode] {
+  let index : Map[NodeId, InteractiveTreeNode] = {}
+  match tree {
+    None => ()
+    Some(node) => index_loaded_nodes(index, node)
+  }
+  index
+}
+
+///|
+fn index_loaded_nodes(
+  index : Map[NodeId, InteractiveTreeNode],
+  node : InteractiveTreeNode,
+) -> Unit {
+  index[node.id] = node
+  for child in node.children {
+    index_loaded_nodes(index, child)
+  }
+}
+
+///|
+/// Build the shallow reuse stamp for an interactive node.
+fn interactive_node_stamp(
+  node : InteractiveTreeNode,
+) -> InteractiveNodeStamp {
+  let child_ids : Array[NodeId] = []
+  for child in node.children {
+    child_ids.push(child.id)
+  }
+  {
+    id: node.id,
+    shape: interactive_node_shape(node.kind),
+    label: node.label,
+    child_ids,
+    selected: node.selected,
+    editing: node.editing,
+    collapsed: node.collapsed,
+    drop_target: node.drop_target,
+    text_range: node.text_range,
+  }
+}
+
+///|
+/// Refresh a node while reusing the previous loaded subtree when its shallow
+/// stamp and ordered child reuse state are unchanged.
+fn refresh_node_with_reuse(
   node : ProjNode,
   source_map : SourceMap,
   ui_state : TreeUIState,
   valid_ids : Array[NodeId],
-) -> InteractiveTreeNode {
-  from_term_node_with_optional_ids(node, source_map, ui_state, Some(valid_ids))
+  previous_nodes : Map[NodeId, InteractiveTreeNode],
+) -> RefreshedInteractiveNode {
+  let node_id = NodeId(node.node_id)
+  valid_ids.push(node_id)
+  let text_range = match source_map.get_range(node_id) {
+    Some(range) => range
+    None => Range::new(node.start, node.end)
+  }
+  let collapsed = ui_state.collapsed_nodes.contains(node_id)
+  let selected = ui_state.selection.contains(node_id)
+  let editing = match ui_state.editing_node {
+    Some(id) => id == node_id
+    None => false
+  }
+  let drop_target = match ui_state.drop_target {
+    Some(id) => id == node_id
+    None => false
+  }
+  let label = get_node_label(node.kind)
+  let children : Array[InteractiveTreeNode] = []
+  let child_ids : Array[NodeId] = []
+  let previous_node = previous_nodes.get(node_id)
+  let mut children_reused = match previous_node {
+    Some(_) => true
+    None => false
+  }
+  for child_index, child in node.children {
+    let child_result = refresh_node_with_reuse(
+      child,
+      source_map,
+      ui_state,
+      valid_ids,
+      previous_nodes,
+    )
+    child_ids.push(child_result.node.id)
+    children.push(child_result.node)
+    match previous_node {
+      Some(previous) =>
+        if child_index >= previous.children.length() ||
+          previous.children[child_index].id != child_result.node.id ||
+          not(child_result.reused_previous) {
+          children_reused = false
+        }
+      None => ()
+    }
+  }
+  let stamp : InteractiveNodeStamp = {
+    id: node_id,
+    shape: interactive_node_shape(node.kind),
+    label,
+    child_ids,
+    selected,
+    editing,
+    collapsed,
+    drop_target,
+    text_range,
+  }
+  match previous_node {
+    Some(previous) =>
+      if children_reused &&
+        previous.children.length() == children.length() &&
+        interactive_node_stamp(previous) == stamp {
+        { node: previous, reused_previous: true }
+      } else {
+        {
+          node: {
+            id: node_id,
+            kind: node.kind,
+            label,
+            children,
+            selected,
+            editing,
+            collapsed,
+            drop_target,
+            text_range,
+          },
+          reused_previous: false,
+        }
+      }
+    None => {
+      node: {
+        id: node_id,
+        kind: node.kind,
+        label,
+        children,
+        selected,
+        editing,
+        collapsed,
+        drop_target,
+        text_range,
+      },
+      reused_previous: false,
+    }
+  }
 }
 
 ///|
@@ -209,6 +399,7 @@ pub fn TreeEditorState::refresh(
   match proj {
     Some(ast) => {
       let valid_id_list : Array[NodeId] = []
+      let previous_nodes = build_loaded_node_index(self.tree)
       let selection_set = @immut/hashset.from_iter(self.selection.iter())
       let ui_state : TreeUIState = {
         collapsed_nodes: self.collapsed_nodes,
@@ -217,9 +408,11 @@ pub fn TreeEditorState::refresh(
         drop_target: self.drop_target,
       }
       let tree = Some(
-        from_term_node_with_full_state_and_ids(
+        refresh_node_with_reuse(
           ast, source_map, ui_state, valid_id_list,
-        ),
+          previous_nodes,
+        )
+        .node,
       )
       let valid_ids = @immut/hashset.from_iter(valid_id_list.iter())
       let collapsed_nodes = self.collapsed_nodes.intersection(valid_ids)

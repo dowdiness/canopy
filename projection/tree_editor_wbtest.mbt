@@ -165,3 +165,159 @@ test "refresh prunes stale ids from UI state" {
   inspect(refreshed.collapsed_nodes.contains(ids[0]), content="true")
   inspect(refreshed.collapsed_nodes.contains(stale_id), content="false")
 }
+
+///|
+test "refresh builder reuses unchanged sibling subtree after unrelated leaf change" {
+  let (old_root, _) = parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let old_source_map = SourceMap::from_ast(old_root)
+  let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
+  let previous_nodes = build_loaded_node_index(state.tree)
+  let (new_root, _) = parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let reconciled = reconcile_ast(old_root, new_root, Ref::new(1000))
+  let source_map = SourceMap::from_ast(reconciled)
+  let ui_state : TreeUIState = {
+    collapsed_nodes: @immut/hashset.new(),
+    selection: @immut/hashset.new(),
+    editing_node: None,
+    drop_target: None,
+  }
+
+  let root_valid_ids : Array[NodeId] = []
+  let refreshed_root = refresh_node_with_reuse(
+    reconciled,
+    source_map,
+    ui_state,
+    root_valid_ids,
+    previous_nodes,
+  )
+  let left_valid_ids : Array[NodeId] = []
+  let refreshed_left = refresh_node_with_reuse(
+    reconciled.children[0],
+    source_map,
+    ui_state,
+    left_valid_ids,
+    previous_nodes,
+  )
+  let right_valid_ids : Array[NodeId] = []
+  let refreshed_right = refresh_node_with_reuse(
+    reconciled.children[1],
+    source_map,
+    ui_state,
+    right_valid_ids,
+    previous_nodes,
+  )
+
+  inspect(refreshed_root.reused_previous, content="false")
+  inspect(refreshed_left.reused_previous, content="true")
+  inspect(refreshed_right.reused_previous, content="false")
+}
+
+///|
+test "refresh builder reuses root when projection and UI state are unchanged" {
+  let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let previous_nodes = build_loaded_node_index(state.tree)
+  let ui_state : TreeUIState = {
+    collapsed_nodes: state.collapsed_nodes,
+    selection: @immut/hashset.from_iter(state.selection.iter()),
+    editing_node: state.editing_node,
+    drop_target: state.drop_target,
+  }
+
+  let valid_ids : Array[NodeId] = []
+  let refreshed = refresh_node_with_reuse(
+    root,
+    source_map,
+    ui_state,
+    valid_ids,
+    previous_nodes,
+  )
+
+  inspect(refreshed.reused_previous, content="true")
+}
+
+///|
+test "refresh builder limits UI-only selection invalidation to selected branch" {
+  let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let tree = match state.tree {
+    Some(tree) => tree
+    None => abort("expected initial tree")
+  }
+  let selected_leaf = tree.children[1].children[1].id
+  let selected_state = state.apply_edit(Select(node_id=selected_leaf))
+  let previous_nodes = build_loaded_node_index(selected_state.tree)
+  let ui_state : TreeUIState = {
+    collapsed_nodes: selected_state.collapsed_nodes,
+    selection: @immut/hashset.from_iter(selected_state.selection.iter()),
+    editing_node: selected_state.editing_node,
+    drop_target: selected_state.drop_target,
+  }
+
+  let root_valid_ids : Array[NodeId] = []
+  let refreshed_root = refresh_node_with_reuse(
+    root,
+    source_map,
+    ui_state,
+    root_valid_ids,
+    previous_nodes,
+  )
+  let left_valid_ids : Array[NodeId] = []
+  let refreshed_left = refresh_node_with_reuse(
+    root.children[0],
+    source_map,
+    ui_state,
+    left_valid_ids,
+    previous_nodes,
+  )
+  let right_valid_ids : Array[NodeId] = []
+  let refreshed_right = refresh_node_with_reuse(
+    root.children[1],
+    source_map,
+    ui_state,
+    right_valid_ids,
+    previous_nodes,
+  )
+  let leaf_valid_ids : Array[NodeId] = []
+  let refreshed_leaf = refresh_node_with_reuse(
+    root.children[1].children[1],
+    source_map,
+    ui_state,
+    leaf_valid_ids,
+    previous_nodes,
+  )
+
+  inspect(refreshed_root.reused_previous, content="false")
+  inspect(refreshed_left.reused_previous, content="true")
+  inspect(refreshed_right.reused_previous, content="false")
+  inspect(refreshed_leaf.reused_previous, content="false")
+}
+
+///|
+test "TreeEditorState::refresh preserves unchanged sibling subtree through public API" {
+  let (old_root, _) = parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let old_source_map = SourceMap::from_ast(old_root)
+  let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
+  let old_tree = match state.tree {
+    Some(tree) => tree
+    None => abort("expected initial tree")
+  }
+  let old_left = old_tree.children[0]
+  let old_right = old_tree.children[1]
+
+  let (new_root, _) = parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let reconciled = reconcile_ast(old_root, new_root, Ref::new(1000))
+  let source_map = SourceMap::from_ast(reconciled)
+  let refreshed = state.refresh(Some(reconciled), source_map)
+  let refreshed_tree = match refreshed.tree {
+    Some(tree) => tree
+    None => abort("expected refreshed tree")
+  }
+  let refreshed_left = refreshed_tree.children[0]
+  let refreshed_right = refreshed_tree.children[1]
+
+  inspect(
+    interactive_node_stamp(refreshed_left) == interactive_node_stamp(old_left),
+    content="true",
+  )
+  inspect(interactive_node_stamp(refreshed_right) == interactive_node_stamp(old_right), content="true")
+  inspect(refreshed_right.children[1].label, content="5")
+}
