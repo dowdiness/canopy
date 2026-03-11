@@ -20,6 +20,31 @@ pub extern "js" fn now_ms() -> Int =
   #|}
 
 ///|
+pub extern "js" fn cli_mode() -> String =
+  #|() => {
+  #|  const argv =
+  #|    typeof process !== "undefined" && Array.isArray(process.argv)
+  #|      ? process.argv.slice(2)
+  #|      : [];
+  #|  const mode = argv.find((arg) => arg.length > 0) ?? "all";
+  #|  return mode.toLowerCase();
+  #|}
+
+///|
+pub extern "js" fn cli_iterations() -> Int? =
+  #|() => {
+  #|  const argv =
+  #|    typeof process !== "undefined" && Array.isArray(process.argv)
+  #|      ? process.argv.slice(2)
+  #|      : [];
+  #|  if (argv.length < 2) {
+  #|    return null;
+  #|  }
+  #|  const parsed = Number.parseInt(argv[1], 10);
+  #|  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  #|}
+
+///|
 fn benchmark_source(let_count : Int, tail_literal : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < let_count - 1; i = i + 1 {
@@ -45,6 +70,14 @@ fn scenarios() -> Array[Scenario] {
       iterations: 5,
     },
   ]
+}
+
+///|
+fn with_iterations(scenario : Scenario, iterations : Int?) -> Scenario {
+  match iterations {
+    Some(iterations) => { ..scenario, iterations }
+    None => scenario
+  }
 }
 
 ///|
@@ -89,31 +122,57 @@ fn print_report_line(
 }
 
 ///|
-fn main {
-  let benchmark_scenarios = scenarios()
-  let medium = benchmark_scenarios[0]
-  let large = benchmark_scenarios[1]
-  println("Rabbita performance report")
-  println("Source sizes: medium=80 lets, large=320 lets")
-  print_report_line("legacy set_text + refresh", medium, fn(session, text) {
+fn print_medium_report(scenario : Scenario) -> Unit {
+  print_report_line("legacy set_text + refresh", scenario, fn(session, text) {
     session.legacy_set_text_refresh(text)
   })
-  print_report_line("incremental apply_text_edit + refresh", medium, fn(
+  print_report_line("incremental apply_text_edit + refresh", scenario, fn(
     session,
     text,
   ) {
     session.incremental_eager_refresh(text)
   })
-  print_report_line("deferred text input only", medium, fn(session, text) {
+  print_report_line("deferred text input only", scenario, fn(session, text) {
     session.deferred_text_input(text)
   })
-  print_report_line("deferred full cycle", medium, fn(session, text) {
+  print_report_line("deferred full cycle", scenario, fn(session, text) {
     session.deferred_full_cycle(text)
   })
-  print_report_line("deferred text input only", large, fn(session, text) {
+}
+
+///|
+fn print_large_report(scenario : Scenario) -> Unit {
+  print_report_line("deferred text input only", scenario, fn(session, text) {
     session.deferred_text_input(text)
   })
-  print_report_line("deferred full cycle", large, fn(session, text) {
+  print_report_line("deferred full cycle", scenario, fn(session, text) {
     session.deferred_full_cycle(text)
   })
+}
+
+///|
+fn main {
+  let benchmark_scenarios = scenarios()
+  let iterations = cli_iterations()
+  let medium = with_iterations(benchmark_scenarios[0], iterations)
+  let large = with_iterations(benchmark_scenarios[1], iterations)
+  let mode = cli_mode()
+  println("Rabbita performance report")
+  println("Source sizes: medium=80 lets, large=320 lets")
+  println("Mode: \{mode}")
+  match iterations {
+    Some(iterations) => println("Iterations override: \{iterations}")
+    None => ()
+  }
+  match mode {
+    "large" => print_large_report(large)
+    "medium" => print_medium_report(medium)
+    "all" => {
+      print_medium_report(medium)
+      print_large_report(large)
+    }
+    _ => {
+      println("Unknown mode '\{mode}', expected one of: all, medium, large")
+    }
+  }
 }
