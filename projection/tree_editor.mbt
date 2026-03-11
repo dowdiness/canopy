@@ -719,8 +719,28 @@ pub fn TreeEditorState::refresh(
 }
 
 ///|
+/// Expand a node and hydrate its children from the current projection snapshot
+/// when the expanded branch is currently elided.
+pub fn TreeEditorState::expand_node(
+  self : TreeEditorState,
+  node_id : NodeId,
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
+  let expanded = self.apply_edit(Expand(node_id=node_id))
+  match self.loaded_nodes.get(node_id) {
+    Some(current_node) =>
+      match current_node.children {
+        Elided(_) => expanded.hydrate_subtree(node_id, proj, source_map)
+        Loaded(_) => expanded
+      }
+    None => expanded
+  }
+}
+
+///|
 /// Rebuild a single materialized subtree from the current projection snapshot.
-pub fn TreeEditorState::hydrate_subtree(
+fn TreeEditorState::hydrate_subtree(
   self : TreeEditorState,
   node_id : NodeId,
   proj : ProjNode?,

@@ -247,15 +247,14 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       match op {
         @proj.Expand(node_id=node_id) => {
           let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
-          let tree_state = model.tree_state.apply_edit(op)
           let tree_state = if hydrate_after_expand {
-            tree_state.hydrate_subtree(
+            model.tree_state.expand_node(
               node_id,
               model.editor.get_proj_node(),
               model.editor.get_source_map(),
             )
           } else {
-            tree_state
+            model.tree_state.apply_edit(op)
           }
           return (none, { ..model, tree_state, })
         }

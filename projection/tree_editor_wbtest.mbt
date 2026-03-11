@@ -171,9 +171,7 @@ test "hydrate_subtree expands an elided branch without full refresh" {
   let elided = state
     .apply_edit(Collapse(node_id=right.id))
     .refresh(Some(root), source_map)
-  let expanded = elided
-    .apply_edit(Expand(node_id=right.id))
-    .hydrate_subtree(right.id, Some(root), source_map)
+  let expanded = elided.expand_node(right.id, Some(root), source_map)
   let expanded_tree = match expanded.tree {
     Some(tree) => tree
     None => abort("expected hydrated tree")
