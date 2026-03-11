@@ -2,13 +2,16 @@
 // Used to convert CRDT text updates into incremental parser Edit operations
 
 ///|
-/// Compute an Edit from the difference between old and new text
-/// Uses longest common prefix/suffix algorithm for efficient diff
-pub fn compute_edit(old_text : String, new_text : String) -> @parser.Edit {
-  // Find longest common prefix
-  let prefix_len = find_common_prefix(old_text, new_text)
+pub struct TextSplice {
+  start : Int
+  delete_len : Int
+  inserted : String
+} derive(Eq, Show)
 
-  // Find longest common suffix (after prefix)
+///|
+/// Compute the minimal single-span splice between two strings.
+pub fn compute_text_splice(old_text : String, new_text : String) -> TextSplice {
+  let prefix_len = find_common_prefix(old_text, new_text)
   let old_suffix_start = prefix_len
   let new_suffix_start = prefix_len
   let old_len = old_text.length()
@@ -16,12 +19,21 @@ pub fn compute_edit(old_text : String, new_text : String) -> @parser.Edit {
   let suffix_len = find_common_suffix_after_prefix(
     old_text, new_text, old_suffix_start, new_suffix_start, old_len, new_len,
   )
-
-  // Compute edit range (lengths, not endpoints)
-  let start = prefix_len
   let old_end = old_len - suffix_len
-  let new_end = new_len - suffix_len
-  @parser.Edit::new(start, old_end - start, new_end - start)
+  let inserted_end = new_len - suffix_len
+  {
+    start: prefix_len,
+    delete_len: old_end - prefix_len,
+    inserted: new_text[prefix_len:inserted_end].to_string(),
+  }
+}
+
+///|
+/// Compute an Edit from the difference between old and new text
+/// Uses longest common prefix/suffix algorithm for efficient diff
+pub fn compute_edit(old_text : String, new_text : String) -> @parser.Edit {
+  let splice = compute_text_splice(old_text, new_text)
+  @parser.Edit::new(splice.start, splice.delete_len, splice.inserted.length())
 }
 
 ///|

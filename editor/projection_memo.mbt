@@ -1,9 +1,11 @@
 // Projection Memo: Reactive derivation of ProjNode, registry, and source map
-// from SyncEditor's ReactiveParser.
+// from SyncEditor's incremental parser-backed signals.
 
 ///|
 fn build_projection_memos(
-  parser : @loom.ReactiveParser[@parser.SyntaxNode],
+  rt : @incr.Runtime,
+  source_text : @incr.Signal[String],
+  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   prev_proj_ref : Ref[@proj.ProjNode?],
   next_id_ref : Ref[Int],
 ) -> (
@@ -11,17 +13,20 @@ fn build_projection_memos(
   @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]],
   @incr.Memo[@proj.SourceMap],
 ) {
-  let rt = parser.runtime()
-
   let proj_memo : @incr.Memo[@proj.ProjNode?] = @incr.Memo::new(
     rt,
     fn() -> @proj.ProjNode? {
-      if parser.get_source() == "" {
+      if source_text.get() == "" {
         prev_proj_ref.val = None
         return None
       }
-      let cst_stage = parser.cst()
-      let syntax_root = @seam.SyntaxNode::from_cst(cst_stage.cst)
+      let syntax_root = match syntax_tree.get() {
+        Some(root) => root
+        None => {
+          prev_proj_ref.val = None
+          return None
+        }
+      }
       let expr_root = @proj.unwrap_expression_root(syntax_root)
       let counter = Ref::new(next_id_ref.val)
       let new_proj = @proj.syntax_to_proj_node(expr_root, counter)

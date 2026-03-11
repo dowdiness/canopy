@@ -110,13 +110,20 @@ fn update(msg : Msg, model : Model) -> Model {
     ToggleDiagnostics =>
       { ..model, diagnostics_open: !model.diagnostics_open }
     TextInput(new_text) => {
-      // Update CRDT text; projection state derives from SyncEditor.
-      model.editor.set_text(new_text)
-      let tree_state = model.tree_state.refresh(
-        model.editor.get_proj_node(),
-        model.editor.get_source_map(),
-      )
-      { ..model, text_view: new_text, tree_state }
+      let old_text = model.editor.get_text()
+      if old_text == new_text {
+        model
+      } else {
+        let splice = @editor.compute_text_splice(old_text, new_text)
+        model.editor.apply_text_edit(
+          splice.start,
+          splice.delete_len,
+          splice.inserted,
+          model.next_timestamp,
+        )
+        let refreshed = refresh(model)
+        { ..refreshed, next_timestamp: model.next_timestamp + 1 }
+      }
     }
     TreeEdited(op) => {
       // Update UI state (selection, collapse, drag)

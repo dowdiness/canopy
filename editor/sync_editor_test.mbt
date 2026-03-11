@@ -206,6 +206,40 @@ test "SyncEditor: backspace_and_record + undo" {
 }
 
 ///|
+test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
+  let se = SyncEditor::new("agent1")
+  se.set_text("abc")
+  se.move_cursor(0)
+  se.apply_text_edit(1, 1, "XYZ", 1000)
+  inspect(se.get_text(), content="aXYZc")
+  inspect(se.get_cursor(), content="4")
+}
+
+///|
+test "SyncEditor: apply_text_edit records undo" {
+  let se = SyncEditor::new("agent1")
+  try! insert_each_and_record(se, "abc", 1000)
+  se.apply_text_edit(1, 1, "XYZ", 2000)
+  inspect(se.get_text(), content="aXYZc")
+  let undone = se.undo()
+  inspect(undone, content="true")
+  inspect(se.get_text(), content="abc")
+}
+
+///|
+test "SyncEditor: apply_text_edit reuses parser structure on local edit" {
+  let se = SyncEditor::new("agent1")
+  se.set_text("λf.λx.f x")
+  ignore(se.get_ast())
+  se.apply_text_edit(8, 1, "y", 1000)
+  inspect(se.get_text(), content="λf.λx.f y")
+  inspect(
+    @ast.print_term(se.get_ast()),
+    content="(λf. (λx. (f y)))",
+  )
+}
+
+///|
 test "SyncEditor: clear_undo empties stacks" {
   let se = SyncEditor::new("agent1")
   try! se.insert_and_record("x", 1000)

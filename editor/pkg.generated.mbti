@@ -12,6 +12,8 @@ import {
 // Values
 pub fn compute_edit(String, String) -> @core.Edit
 
+pub fn compute_text_splice(String, String) -> TextSplice
+
 pub fn merge_to_edits(String, String) -> Array[@core.Edit]
 
 // Errors
@@ -39,6 +41,7 @@ pub struct SyncEditor {
   // private fields
 }
 pub fn SyncEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
+pub fn SyncEditor::apply_text_edit(Self, Int, Int, String, Int) -> Unit
 pub fn SyncEditor::apply_tree_edit(Self, @projection.TreeEditOp, Int) -> Result[Unit, String]
 pub fn SyncEditor::backspace(Self) -> Bool
 pub fn SyncEditor::backspace_and_record(Self, Int) -> Bool
@@ -73,6 +76,14 @@ pub fn SyncEditor::set_text(Self, String) -> Unit
 pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
 pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
 pub fn SyncEditor::undo(Self) -> Bool
+
+pub struct TextSplice {
+  start : Int
+  delete_len : Int
+  inserted : String
+}
+pub impl Eq for TextSplice
+pub impl Show for TextSplice
 
 // Type aliases
 

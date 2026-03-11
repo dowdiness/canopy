@@ -1,11 +1,14 @@
-// SyncEditor: Unified facade composing TextDoc + UndoManager + ReactiveParser
+// SyncEditor: Unified facade composing TextDoc + UndoManager + incremental parser
 // Replaces ParsedEditor + separate UndoManager global
 
 ///|
 pub struct SyncEditor {
   priv doc : @text.TextDoc
   priv undo : @undo.UndoManager
-  priv parser : @loom.ReactiveParser[@parser.SyntaxNode]
+  priv parser : @loom.ImperativeParser[@parser.SyntaxNode]
+  priv parser_rt : @incr.Runtime
+  priv source_text : @incr.Signal[String]
+  priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
   priv prev_proj_node : Ref[@proj.ProjNode?]
   priv proj_memo : @incr.Memo[@proj.ProjNode?]
@@ -19,16 +22,26 @@ pub fn SyncEditor::new(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> SyncEditor {
-  let parser = @loom.new_reactive_parser("", @parser.lambda_grammar)
+  let parser = @loom.new_imperative_parser("", @parser.lambda_grammar)
+  let parser_rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
+  let syntax_tree = @incr.Signal::new(
+    parser_rt,
+    None,
+    label="editor_syntax_tree",
+  )
   let prev_proj_node : Ref[@proj.ProjNode?] = Ref::new(None)
   let next_node_id : Ref[Int] = Ref::new(0)
   let (proj_memo, registry_memo, source_map_memo) = build_projection_memos(
-    parser, prev_proj_node, next_node_id,
+    parser_rt, source_text, syntax_tree, prev_proj_node, next_node_id,
   )
   {
     doc: @text.TextDoc::new(agent_id),
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
     parser,
+    parser_rt,
+    source_text,
+    syntax_tree,
     cursor: 0,
     prev_proj_node,
     proj_memo,
@@ -41,19 +54,72 @@ pub fn SyncEditor::new(
 // --- Editing methods ---
 
 ///|
+fn SyncEditor::set_parser_signals(
+  self : SyncEditor,
+  source : String,
+  syntax : @seam.SyntaxNode?,
+) -> Unit {
+  self.parser_rt.batch(fn() {
+    self.source_text.set(source)
+    self.syntax_tree.set(syntax)
+  })
+}
+
+///|
+fn SyncEditor::sync_parser_after_text_change(
+  self : SyncEditor,
+  old_source : String,
+  new_source : String,
+) -> Unit {
+  if old_source == new_source {
+    return
+  }
+  if new_source == "" {
+    ignore(self.parser.reset(new_source))
+    self.set_parser_signals(new_source, None)
+    return
+  }
+  let edit = compute_edit(old_source, new_source)
+  let syntax = self.parser.edit(edit, new_source)
+  self.set_parser_signals(new_source, Some(syntax))
+}
+
+///|
+fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode {
+  let source = self.doc.text()
+  let syntax = self.parser.reset(source)
+  if source == "" {
+    self.set_parser_signals(source, None)
+  } else {
+    self.set_parser_signals(source, Some(syntax))
+  }
+  syntax
+}
+
+///|
+fn SyncEditor::current_syntax_tree(self : SyncEditor) -> @seam.SyntaxNode {
+  match self.syntax_tree.get() {
+    Some(tree) => tree
+    None => self.force_parser_reset()
+  }
+}
+
+///|
 pub fn SyncEditor::insert(self : SyncEditor, text : String) -> Unit raise {
+  let old_source = self.doc.text()
   self.doc.insert(@text.Pos::at(self.cursor), text)
   self.cursor = self.cursor + text.length()
-  self.parser.set_source(self.doc.text())
+  self.sync_parser_after_text_change(old_source, self.doc.text())
 }
 
 ///|
 pub fn SyncEditor::delete(self : SyncEditor) -> Bool {
+  let old_source = self.doc.text()
   try self.doc.delete(@text.Pos::at(self.cursor)) catch {
     _ => false
   } noraise {
     _ => {
-      self.parser.set_source(self.doc.text())
+      self.sync_parser_after_text_change(old_source, self.doc.text())
       true
     }
   }
@@ -62,6 +128,7 @@ pub fn SyncEditor::delete(self : SyncEditor) -> Bool {
 ///|
 pub fn SyncEditor::backspace(self : SyncEditor) -> Bool {
   if self.cursor > 0 {
+    let old_source = self.doc.text()
     self.cursor = self.cursor - 1
     try self.doc.delete(@text.Pos::at(self.cursor)) catch {
       _ => {
@@ -70,7 +137,7 @@ pub fn SyncEditor::backspace(self : SyncEditor) -> Bool {
       }
     } noraise {
       _ => {
-        self.parser.set_source(self.doc.text())
+        self.sync_parser_after_text_change(old_source, self.doc.text())
         true
       }
     }
@@ -105,12 +172,12 @@ pub fn SyncEditor::get_cursor(self : SyncEditor) -> Int {
 
 ///|
 pub fn SyncEditor::mark_dirty(self : SyncEditor) -> Unit {
-  self.parser.set_source(self.doc.text())
+  ignore(self.force_parser_reset())
 }
 
 ///|
 pub fn SyncEditor::get_ast(self : SyncEditor) -> @ast.Term {
-  let syntax_node = self.parser.term()
+  let syntax_node = self.current_syntax_tree()
   @parser.syntax_node_to_term(syntax_node)
 }
 
@@ -134,6 +201,9 @@ pub fn SyncEditor::get_dot_resolved(self : SyncEditor) -> String {
 
 ///|
 pub fn SyncEditor::get_errors(self : SyncEditor) -> Array[String] {
+  if self.doc.text() == "" {
+    return []
+  }
   self.parser.diagnostics()
 }
 
@@ -157,9 +227,10 @@ pub fn SyncEditor::apply_sync(
   self : SyncEditor,
   msg : @text.SyncMessage,
 ) -> Unit raise {
+  let old_source = self.doc.text()
   self.doc.sync().apply(msg)
   self.adjust_cursor()
-  self.parser.set_source(self.doc.text())
+  self.sync_parser_after_text_change(old_source, self.doc.text())
 }
 
 ///|
@@ -183,25 +254,99 @@ pub fn SyncEditor::export_since(
 // --- Bulk text methods ---
 
 ///|
+fn SyncEditor::apply_text_edit_internal(
+  self : SyncEditor,
+  start : Int,
+  deleted_len : Int,
+  inserted : String,
+  timestamp_ms : Int,
+  record_undo : Bool,
+  move_cursor_to_edit_end : Bool,
+) -> Unit {
+  let old_source = self.doc.text()
+  let text_len = self.doc.len()
+  let safe_start = if start < 0 {
+    0
+  } else if start > text_len {
+    text_len
+  } else {
+    start
+  }
+  let max_delete_len = text_len - safe_start
+  let safe_delete_len = if deleted_len < 0 {
+    0
+  } else if deleted_len > max_delete_len {
+    max_delete_len
+  } else {
+    deleted_len
+  }
+  for _i = 0; _i < safe_delete_len; _i = _i + 1 {
+    if record_undo {
+      self.doc.delete_and_record(
+        @text.Pos::at(safe_start),
+        self.undo,
+        timestamp_ms~,
+      ) catch {
+        _ => ()
+      }
+    } else {
+      self.doc.delete(@text.Pos::at(safe_start)) catch {
+        _ => ()
+      }
+    }
+  }
+  if inserted.length() > 0 {
+    if record_undo {
+      self.doc.insert_and_record(
+        @text.Pos::at(safe_start),
+        inserted,
+        self.undo,
+        timestamp_ms~,
+      ) catch {
+        _ => ()
+      }
+    } else {
+      self.doc.insert(@text.Pos::at(safe_start), inserted) catch {
+        _ => ()
+      }
+    }
+  }
+  if move_cursor_to_edit_end {
+    self.cursor = safe_start + inserted.length()
+  } else {
+    self.adjust_cursor()
+  }
+  self.sync_parser_after_text_change(old_source, self.doc.text())
+}
+
+///|
+pub fn SyncEditor::apply_text_edit(
+  self : SyncEditor,
+  start : Int,
+  deleted_len : Int,
+  inserted : String,
+  timestamp_ms : Int,
+) -> Unit {
+  self.apply_text_edit_internal(
+    start, deleted_len, inserted, timestamp_ms, true, true,
+  )
+}
+
+///|
 pub fn SyncEditor::set_text(self : SyncEditor, new_text : String) -> Unit {
   let old_text = self.doc.text()
   if old_text == new_text {
     return
   }
-  let old_len = old_text.length()
-  self.cursor = 0
-  for _i = 0; _i < old_len; _i = _i + 1 {
-    self.doc.delete(@text.Pos::at(0)) catch {
-      _ => ()
-    }
-  }
-  if new_text.length() > 0 {
-    self.doc.insert(@text.Pos::at(0), new_text) catch {
-      _ => ()
-    }
-    self.cursor = new_text.length()
-  }
-  self.parser.set_source(self.doc.text())
+  let splice = compute_text_splice(old_text, new_text)
+  self.apply_text_edit_internal(
+    splice.start,
+    splice.delete_len,
+    splice.inserted,
+    0,
+    false,
+    true,
+  )
 }
 
 ///|
@@ -214,42 +359,15 @@ pub fn SyncEditor::set_text_and_record(
   if old_text == new_text {
     return
   }
-  let old_len = old_text.length()
-  let new_len = new_text.length()
-  let mut prefix = 0
-  while prefix < old_len &&
-        prefix < new_len &&
-        old_text[prefix] == new_text[prefix] {
-    prefix = prefix + 1
-  }
-  let mut suffix = 0
-  while suffix < old_len - prefix &&
-        suffix < new_len - prefix &&
-        old_text[old_len - 1 - suffix] == new_text[new_len - 1 - suffix] {
-    suffix = suffix + 1
-  }
-  let del_count = old_len - prefix - suffix
-  let ins_len = new_len - prefix - suffix
-  for _i = 0; _i < del_count; _i = _i + 1 {
-    self.doc.delete_and_record(@text.Pos::at(prefix), self.undo, timestamp_ms~) catch {
-      _ => ()
-    }
-  }
-  if ins_len > 0 {
-    try {
-      let ins_text = new_text[prefix:prefix + ins_len].to_string()
-      self.doc.insert_and_record(
-        @text.Pos::at(prefix),
-        ins_text,
-        self.undo,
-        timestamp_ms~,
-      )
-    } catch {
-      _ => ()
-    }
-  }
-  self.adjust_cursor()
-  self.parser.set_source(self.doc.text())
+  let splice = compute_text_splice(old_text, new_text)
+  self.apply_text_edit_internal(
+    splice.start,
+    splice.delete_len,
+    splice.inserted,
+    timestamp_ms,
+    true,
+    false,
+  )
 }
 
 // --- Undo methods ---
@@ -260,6 +378,7 @@ pub fn SyncEditor::insert_and_record(
   text : String,
   timestamp_ms : Int,
 ) -> Unit raise {
+  let old_source = self.doc.text()
   self.doc.insert_and_record(
     @text.Pos::at(self.cursor),
     text,
@@ -267,7 +386,7 @@ pub fn SyncEditor::insert_and_record(
     timestamp_ms~,
   )
   self.cursor = self.cursor + text.length()
-  self.parser.set_source(self.doc.text())
+  self.sync_parser_after_text_change(old_source, self.doc.text())
 }
 
 ///|
@@ -275,13 +394,14 @@ pub fn SyncEditor::delete_and_record(
   self : SyncEditor,
   timestamp_ms : Int,
 ) -> Bool {
+  let old_source = self.doc.text()
   try {
     self.doc.delete_and_record(
       @text.Pos::at(self.cursor),
       self.undo,
       timestamp_ms~,
     )
-    self.parser.set_source(self.doc.text())
+    self.sync_parser_after_text_change(old_source, self.doc.text())
     true
   } catch {
     _ => false
@@ -294,6 +414,7 @@ pub fn SyncEditor::backspace_and_record(
   timestamp_ms : Int,
 ) -> Bool {
   if self.cursor > 0 {
+    let old_source = self.doc.text()
     let new_pos = self.cursor - 1
     try {
       self.doc.delete_and_record(
@@ -302,7 +423,7 @@ pub fn SyncEditor::backspace_and_record(
         timestamp_ms~,
       )
       self.cursor = new_pos
-      self.parser.set_source(self.doc.text())
+      self.sync_parser_after_text_change(old_source, self.doc.text())
       true
     } catch {
       _ => false

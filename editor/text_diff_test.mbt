@@ -1,6 +1,22 @@
 // Tests for text diffing utilities
 
 ///|
+test "compute_text_splice - replace in middle" {
+  let splice = compute_text_splice("abc", "aXYc")
+  inspect(splice.start, content="1")
+  inspect(splice.delete_len, content="1")
+  inspect(splice.inserted, content="XY")
+}
+
+///|
+test "compute_text_splice - no change" {
+  let splice = compute_text_splice("abc", "abc")
+  inspect(splice.start, content="3")
+  inspect(splice.delete_len, content="0")
+  inspect(splice.inserted, content="")
+}
+
+///|
 test "compute_edit - insert at start" {
   let old = "abc"
   let new = "xabc"
