@@ -45,9 +45,7 @@ fn tree_editor_test_loaded_children(
 }
 
 ///|
-fn tree_editor_test_elided_descendant_count(
-  node : InteractiveTreeNode,
-) -> Int {
+fn tree_editor_test_elided_descendant_count(node : InteractiveTreeNode) -> Int {
   match node.children {
     Elided(descendant_count) => descendant_count
     Loaded(_) => abort("expected elided children")
@@ -148,7 +146,10 @@ test "refresh elides collapsed descendants while keeping structural indexes" {
   let refreshed_right = tree_editor_test_loaded_children(refreshed_tree)[1]
 
   inspect(refreshed_right.collapsed, content="true")
-  inspect(tree_editor_test_elided_descendant_count(refreshed_right), content="2")
+  inspect(
+    tree_editor_test_elided_descendant_count(refreshed_right),
+    content="2",
+  )
   inspect(
     refreshed.preorder_range_by_root.get(right.id) == Some((4, 6)),
     content="true",
@@ -212,7 +213,9 @@ test "SelectRange spans elided subtrees via structural indexes" {
   let refreshed = state
     .apply_edit(Collapse(node_id=right_id))
     .refresh(Some(root), source_map)
-  let selected = refreshed.apply_edit(SelectRange(start=left_id, end=right_leaf_id))
+  let selected = refreshed.apply_edit(
+    SelectRange(start=left_id, end=right_leaf_id),
+  )
 
   inspect(selected.selection.length(), content="6")
   inspect(selected.selection[0] == left_id, content="true")
@@ -441,11 +444,7 @@ test "refresh builder reuses unchanged sibling subtree after unrelated leaf chan
 
   let root_valid_ids : Array[NodeId] = []
   let refreshed_root = tree_editor_test_refresh_with_reuse(
-    reconciled,
-    source_map,
-    ui_state,
-    root_valid_ids,
-    previous_nodes,
+    reconciled, source_map, ui_state, root_valid_ids, previous_nodes,
   )
   let left_valid_ids : Array[NodeId] = []
   let refreshed_left = tree_editor_test_refresh_with_reuse(
@@ -482,11 +481,7 @@ test "refresh builder reuses root when projection and UI state are unchanged" {
 
   let valid_ids : Array[NodeId] = []
   let refreshed = tree_editor_test_refresh_with_reuse(
-    root,
-    source_map,
-    ui_state,
-    valid_ids,
-    previous_nodes,
+    root, source_map, ui_state, valid_ids, previous_nodes,
   )
 
   inspect(refreshed.reused_previous, content="true")
@@ -513,11 +508,7 @@ test "refresh builder limits UI-only selection invalidation to selected branch" 
 
   let root_valid_ids : Array[NodeId] = []
   let refreshed_root = tree_editor_test_refresh_with_reuse(
-    root,
-    source_map,
-    ui_state,
-    root_valid_ids,
-    previous_nodes,
+    root, source_map, ui_state, root_valid_ids, previous_nodes,
   )
   let left_valid_ids : Array[NodeId] = []
   let refreshed_left = tree_editor_test_refresh_with_reuse(
@@ -574,12 +565,17 @@ test "TreeEditorState::refresh preserves unchanged sibling subtree through publi
   let refreshed_root_children = tree_editor_test_loaded_children(refreshed_tree)
   let refreshed_left = refreshed_root_children[0]
   let refreshed_right = refreshed_root_children[1]
-  let refreshed_right_children = tree_editor_test_loaded_children(refreshed_right)
+  let refreshed_right_children = tree_editor_test_loaded_children(
+    refreshed_right,
+  )
 
   inspect(
     interactive_node_stamp(refreshed_left) == interactive_node_stamp(old_left),
     content="true",
   )
-  inspect(interactive_node_stamp(refreshed_right) == interactive_node_stamp(old_right), content="true")
+  inspect(
+    interactive_node_stamp(refreshed_right) == interactive_node_stamp(old_right),
+    content="true",
+  )
   inspect(refreshed_right_children[1].label, content="5")
 }

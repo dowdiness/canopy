@@ -242,9 +242,7 @@ fn index_loaded_nodes(
 
 ///|
 /// Build the shallow reuse stamp for an interactive node.
-fn interactive_node_stamp(
-  node : InteractiveTreeNode,
-) -> InteractiveNodeStamp {
+fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
   let child_ids : Array[NodeId] = []
   let elided_descendant_count = match node.children {
     Loaded(children) => {
@@ -385,10 +383,7 @@ fn refresh_node_with_reuse_impl(
             preorder_start,
             indexes.preorder_ids.length() - 1,
           )
-          {
-            node: refreshed,
-            reused_previous: false,
-          }
+          { node: refreshed, reused_previous: false }
         }
       None => {
         let refreshed = {
@@ -407,10 +402,7 @@ fn refresh_node_with_reuse_impl(
           preorder_start,
           indexes.preorder_ids.length() - 1,
         )
-        {
-          node: refreshed,
-          reused_previous: false,
-        }
+        { node: refreshed, reused_previous: false }
       }
     }
   } else {
@@ -471,8 +463,7 @@ fn refresh_node_with_reuse_impl(
     }
     match previous_node {
       Some(previous) =>
-        if children_reused &&
-          interactive_node_stamp(previous) == stamp {
+        if children_reused && interactive_node_stamp(previous) == stamp {
           indexes.loaded_nodes[node_id] = previous
           indexes.preorder_range_by_root[node_id] = (
             preorder_start,
@@ -496,10 +487,7 @@ fn refresh_node_with_reuse_impl(
             preorder_start,
             indexes.preorder_ids.length() - 1,
           )
-          {
-            node: refreshed,
-            reused_previous: false,
-          }
+          { node: refreshed, reused_previous: false }
         }
       None => {
         let refreshed = {
@@ -518,10 +506,7 @@ fn refresh_node_with_reuse_impl(
           preorder_start,
           indexes.preorder_ids.length() - 1,
         )
-        {
-          node: refreshed,
-          reused_previous: false,
-        }
+        { node: refreshed, reused_previous: false }
       }
     }
   }
@@ -548,8 +533,7 @@ fn build_tree_projection_snapshot(
           previous_nodes,
           None,
           indexes,
-        )
-        .node,
+        ).node,
       )
     None => None
   }
@@ -945,10 +929,13 @@ pub fn TreeEditorState::apply_edit(
         let collapsed_nodes = self.collapsed_nodes.add(node_id)
         // Update tree node to reflect collapsed state
         let (tree, changed_nodes) = update_collapsed_state(
-          self.tree, node_id, true,
+          self.tree,
+          node_id,
+          true,
         )
         let loaded_nodes = update_loaded_nodes_for_path(
-          self.loaded_nodes, changed_nodes,
+          self.loaded_nodes,
+          changed_nodes,
         )
         { ..self, tree, collapsed_nodes, loaded_nodes }
       } else {
@@ -961,10 +948,13 @@ pub fn TreeEditorState::apply_edit(
         let collapsed_nodes = self.collapsed_nodes.remove(node_id)
         // Update tree node to reflect expanded state
         let (tree, changed_nodes) = update_collapsed_state(
-          self.tree, node_id, false,
+          self.tree,
+          node_id,
+          false,
         )
         let loaded_nodes = update_loaded_nodes_for_path(
-          self.loaded_nodes, changed_nodes,
+          self.loaded_nodes,
+          changed_nodes,
         )
         { ..self, tree, collapsed_nodes, loaded_nodes }
       } else {
@@ -1039,10 +1029,11 @@ fn collect_nodes_in_range(
   start : NodeId,
   end : NodeId,
 ) -> Array[NodeId] {
-  match (
-    state.preorder_range_by_root.get(start),
-    state.preorder_range_by_root.get(end),
-  ) {
+  match
+    (
+      state.preorder_range_by_root.get(start),
+      state.preorder_range_by_root.get(end),
+    ) {
     (Some((start_idx, _)), Some((end_idx, _))) => {
       let min_idx = if start_idx < end_idx { start_idx } else { end_idx }
       let max_idx = if start_idx > end_idx { start_idx } else { end_idx }
@@ -1082,9 +1073,7 @@ fn replace_loaded_subtree(
     None => (None, [])
     Some(node) => {
       let (updated, _, changed_nodes) = replace_loaded_subtree_node(
-        node,
-        node_id,
-        replacement,
+        node, node_id, replacement,
       )
       (Some(updated), changed_nodes)
     }
@@ -1110,9 +1099,7 @@ fn replace_loaded_subtree_node(
             children.push(child)
           } else {
             let (updated_child, child_found, changed_nodes) = replace_loaded_subtree_node(
-              child,
-              target_id,
-              replacement,
+              child, target_id, replacement,
             )
             children.push(updated_child)
             if child_found {
@@ -1124,7 +1111,7 @@ fn replace_loaded_subtree_node(
           }
         }
         if found {
-          let updated = { ..node, children: Loaded(children), }
+          let updated = { ..node, children: Loaded(children) }
           let changed_path : Array[InteractiveTreeNode] = [updated]
           for changed in child_path {
             changed_path.push(changed)
@@ -1172,7 +1159,7 @@ fn update_node_collapsed(
           }
         }
         if found {
-          let updated = { ..node, children: Loaded(children), }
+          let updated = { ..node, children: Loaded(children) }
           let changed_path : Array[InteractiveTreeNode] = [updated]
           for changed in child_path {
             changed_path.push(changed)
