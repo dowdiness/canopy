@@ -1,7 +1,7 @@
 # Design 03: Unified Editor Facade (`SyncEditor`)
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Phase 1 Complete (core facade), Phase 2 deferred (Memo-derived views, CanonicalModel retirement)
+**Status:** Core facade and memo-derived projection views implemented; broader editor/product integration still deferred
 **Updated:** 2026-03-10
 
 ---
@@ -14,13 +14,13 @@ The old architecture had three overlapping "editor" types:
 |------|----------|----------------------|--------|
 | `Editor` | `editor/editor.mbt` | Thin cursor wrapper around `TextDoc` | Kept (compatibility) |
 | `ParsedEditor` | `editor/parsed_editor.mbt` | AST cache, dirty flag, wraps `Editor` | **Deleted** |
-| `CanonicalModel` | `projection/canonical_model.mbt` | Node registry, source map, own edit history | Still exists (used by tree edit bridge) |
+| `CanonicalModel` | `projection/canonical_model.mbt` | Historical projection container | Still exists in `projection/`, but no longer required by `SyncEditor` tree edits |
 
 The dual source-of-truth problems have been partially resolved:
 - `ParsedEditor` is deleted — `SyncEditor` replaces it
 - `CanonicalModel.edit_history` is no longer authoritative — `TextDoc.OpLog` is the real history
 - Manual `parse_dirty` flag is gone — `ReactiveParser` handles invalidation
-- `CanonicalModel` still exists for tree editing (see [§5](./05-tree-edit-roundtrip.md))
+- Tree edits now use `SyncEditor`'s memo-derived `ProjNode`, registry, and source map directly
 
 ---
 
@@ -66,8 +66,8 @@ pub struct SyncEditor {
 | Operation history | `TextDoc.OpLog` | No own `edit_history` |
 | Undo/redo | `UndoManager` | No own `history_position` |
 | Incremental parse | `ReactiveParser` | No dirty flags or cached text |
-| Source map | `CanonicalModel` (current) / Memo (future) | No manual `rebuild_indices` |
-| Node registry | `CanonicalModel` (current) / Memo (future) | -- |
+| Source map | `SyncEditor` memo-derived projection view | No manual `rebuild_indices` |
+| Node registry | `SyncEditor` memo-derived projection view | -- |
 | Cursor position | `SyncEditor.cursor` | -- |
 | Dirty tracking | `Memo` auto-invalidation | No `dirty_projections` map |
 
@@ -119,7 +119,7 @@ pub fn SyncEditor::clear_undo(self) -> Unit
 pub fn SyncEditor::mark_dirty(self) -> Unit  // calls parser.set_source(doc.text())
 
 /// Tree editing (in editor/tree_edit_bridge.mbt)
-pub fn SyncEditor::apply_tree_edit(self, canonical : CanonicalModel, op : TreeEditOp) -> Result[Unit, String]
+pub fn SyncEditor::apply_tree_edit(self, op : TreeEditOp, timestamp_ms : Int) -> Result[Unit, String]
 ```
 
 ### Internal Flow: Local Insert
@@ -168,14 +168,14 @@ All existing FFI functions delegate to `SyncEditor` methods. **No JavaScript cha
 | `CanonicalModel.edit_history` | No longer authoritative — `OpLog` is the history | **Done** |
 | `editor/text_diff.mbt` | Kept as test baseline | **Done** |
 | `editor/editor.mbt` (`Editor`) | Kept as compatibility shim | **Done** |
-| `projection/canonical_model.mbt` | Still in use by `tree_edit_bridge.mbt` | **Deferred** |
-| `CanonicalModel.dirty_projections` | Still in use by projection layer | **Deferred** |
+| `projection/canonical_model.mbt` | Retained as older projection infrastructure, not the active `SyncEditor` path | **Partially retired** |
+| `CanonicalModel.dirty_projections` | No longer part of the active editor flow | **Retired from `SyncEditor` path** |
 
 ---
 
-## `CanonicalModel` -> Derived Computation (Phase 2)
+## `CanonicalModel` -> Derived Computation (Implemented in `SyncEditor`)
 
-The useful parts of `CanonicalModel` should become derived `Memo`s on `SyncEditor`:
+The useful parts of `CanonicalModel` have been replaced by derived `Memo`s on `SyncEditor`:
 
 | `CanonicalModel` field | Becomes |
 |---|---|
@@ -186,17 +186,20 @@ The useful parts of `CanonicalModel` should become derived `Memo`s on `SyncEdito
 | `edit_history` | `TextDoc.OpLog` (the real history) |
 | `dirty_projections` | Deleted — `Memo` auto-tracks |
 
-The `TreeEditorState.refresh_from_model()` method would take `ProjNode` + `SourceMap` directly instead of `CanonicalModel`:
+`TreeEditorState` now refreshes directly from `ProjNode?` + `SourceMap`:
 
 ```moonbit
 pub fn TreeEditorState::refresh(
   self : TreeEditorState,
-  proj : ProjNode,
+  proj : ProjNode?,
   source_map : SourceMap,
 ) -> TreeEditorState
 ```
 
-**Current gap:** `apply_tree_edit` takes an external `CanonicalModel` argument because `SyncEditor` doesn't yet hold Memo-derived ProjNode/SourceMap. This creates a dual-state situation where `SyncEditor` and `CanonicalModel` must be kept in sync manually. Resolving this is the main remaining work for §3.
+`SyncEditor::apply_tree_edit(...)` now uses `get_proj_node()`,
+`get_source_map()`, and the internal registry memo directly. The remaining gap
+is not dual state inside `SyncEditor`; it is the broader cleanup of older
+projection-era documentation and APIs that still mention `CanonicalModel`.
 
 ---
 
@@ -205,7 +208,7 @@ pub fn TreeEditorState::refresh(
 1. **API compatibility:** All `crdt.mbt` FFI functions produce identical JSON output before and after migration. **Verified.**
 2. **Test coverage:** All existing tests pass against `SyncEditor`. **Passing.**
 3. **Web demo:** Type, delete, undo, sync — all work identically. **Working.**
-4. **No dual state (partial):** `parse_dirty` gone. `CanonicalModel` still exists for tree editing.
+4. **No dual state in active editor flow:** tree edits, source maps, and node lookup are all driven from `SyncEditor`'s memo-derived projection state.
 
 ---
 

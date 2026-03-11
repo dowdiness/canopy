@@ -20,7 +20,8 @@ export default defineConfig({
   ],
   server: {
     fs: {
-      // Allow serving files from parent directory
+      // Allow the example app to read MoonBit build output from the repo root
+      // and sibling submodules above `examples/web/`.
       allow: ['../..']
     }
   },

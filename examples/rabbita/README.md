@@ -12,8 +12,10 @@ layout:
 - `vite.config.js`
 - `package.json`
 
-The app is a frontend shell for the projectional editor architecture in this
-repo. It is intentionally a UI-first prototype, not a fully wired editor yet.
+The app is the current end-to-end example of the projectional editor
+architecture in this repo. It is still a focused example app rather than the
+final product UI, but the tree editor is wired through `SyncEditor` and the
+projection packages rather than being a static mock.
 
 ## What is here
 
@@ -22,7 +24,10 @@ repo. It is intentionally a UI-first prototype, not a fully wired editor yet.
   - a tree-first editor pane
   - a synchronized text pane
   - an inspector sidebar
-- `app_sketch.mbt` keeps the larger AST-first integration sketch
+- tree operations routed through `SyncEditor::apply_tree_edit(...)`
+- collapsed-subtree elision plus targeted expand hydration
+- index-backed tree selection, range selection, drag guards, and delete
+- `perf_report/` for Rabbita-specific editor benchmarks
 
 ## Getting started
 
@@ -40,9 +45,11 @@ Then open the Vite URL in your browser.
 
 - This example is a separate MoonBit module under `examples/rabbita`.
 - It is not wired into the root `dowdiness/crdt` module graph.
-- The current UI demonstrates the intended Rabbita shape while the editor core
-  is still converging on the `SyncEditor` facade described in
-  `docs/design/03-unified-editor.md`.
+- The current UI is built on the `SyncEditor` facade and `TreeEditorState`
+  implementation in the root packages.
+- It remains the most complete example of the projectional editor flow, but it
+  is still intentionally narrower than the future multi-pane product design
+  described in `docs/design/03-unified-editor.md`.
 
 ## Cloudflare Pages
 

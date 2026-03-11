@@ -207,10 +207,12 @@ The existing codebase has:
 | TreeLens | ✅ Complete | `projection/tree_lens.mbt` |
 | AST Reconciliation | ✅ Complete | `projection/tree_lens.mbt` |
 | apply_operation | ✅ Complete | `projection/canonical_model.mbt` |
+| SyncEditor tree edit bridge | ✅ Complete | `editor/tree_edit_bridge.mbt` |
 | InteractiveTreeNode | ✅ Complete | `projection/tree_editor.mbt` |
-| TreeEditorState | ✅ Complete | `projection/tree_editor.mbt` (immutable, with guards) |
-| TreeUIState | ✅ Complete | `projection/tree_editor.mbt` (derives node flags) |
-| refresh_from_model | ✅ Complete | `projection/tree_editor.mbt` (stale ID pruning) |
+| TreeEditorState | ✅ Complete | `projection/tree_editor.mbt` (immutable UI state, structural indexes, subtree reuse) |
+| TreeUIState | ✅ Complete | `projection/tree_editor.mbt` (private refresh-time helper) |
+| TreeEditorState::refresh | ✅ Complete | `projection/tree_editor.mbt` (rebuild + stale ID pruning) |
+| Rabbita example integration | ✅ Complete | `examples/rabbita/main/main.mbt` |
 | ProjectedEditor | ❌ Not started | Integration facade (Phase 3.5) |
 | Bidirectional Sync | 🔶 Partial | — |
 | CstNode | ✅ Complete | `loom/seam/` |
@@ -624,12 +626,16 @@ enum ValidationLevel {
 
 **Prerequisites**: Phase 2 must be complete first. ✅
 
-**Status**: Core UI state management complete, web integration pending.
+**Status**: The MoonBit tree editor core is implemented and integrated in the
+`examples/rabbita` app. A generic reusable web tree widget / projection manager
+layer is still pending.
 
 **Files created/modified**:
 - ✅ `projection/tree_editor.mbt` — TreeEditorState with immutable UI state
-- ✅ `projection/tree_editor_wbtest.mbt` — 14 whitebox tests for guards/immutability
-- ❌ `crdt/src/crdt.mbt` — Extended FFI for tree operations
+- ✅ `projection/tree_editor_wbtest.mbt` — White-box coverage for reuse, elision, hydration, and guard paths
+- ✅ `editor/tree_edit_bridge.mbt` — Tree edit bridge through `SyncEditor`
+- ✅ `examples/rabbita/main/main.mbt` — Active Rabbita integration example
+- ❌ `crdt/src/crdt.mbt` — Extended FFI for generic tree operations
 - ❌ `examples/web/src/tree-editor.ts` — Unified tree editor component
 - ❌ `examples/web/src/tree-renderer.ts` — SVG/Canvas tree rendering
 - ❌ `examples/web/src/projection-manager.ts` — Projection synchronization
@@ -644,15 +650,21 @@ enum ValidationLevel {
 2. ✅ `InteractiveTreeNode` — Derived view with flags:
    - `selected`, `editing`, `collapsed`, `drop_target` derived from `TreeUIState`
    - Flags computed during tree construction, not stored separately
-3. ✅ `refresh_from_model()` — Stale ID pruning via set intersection
+3. ✅ `TreeEditorState::refresh(...)` — Rebuild, subtree reuse, and stale ID pruning
 4. ✅ Guards for invalid operations:
    - `Collapse`/`Expand` on missing nodes → no-op
    - `DragOver`/`Drop` on self or descendant → rejected
    - `Drop` with mismatched source → clears drag state only
+5. ✅ Collapsed-descendant elision and targeted rehydration:
+   - collapsed descendants are represented as `InteractiveChildren::Elided`
+   - `expand_node(...)` hydrates elided branches when the projection snapshot is clean
+6. ✅ Tree edits round-trip through text:
+   - structural edits use `SyncEditor::apply_tree_edit(...)`
+   - `Delete` replaces fixed-arity terms with valid placeholders so edits remain printable
 
 **Pending Deliverables**:
-1. ❌ JavaScript API for tree operations (FFI binding)
-2. ❌ **Unified Tree Editor** that combines visualization + editing:
+1. ❌ JavaScript API for generic tree operations (FFI binding)
+2. ❌ **Reusable web tree editor** that combines visualization + editing outside Rabbita:
    - Click node to select/focus
    - Double-click to edit leaf values inline
    - Drag nodes to reorder/reparent
@@ -734,7 +746,7 @@ enum ValidationLevel {
 │  │    1. Update text_crdt                                       │   │
 │  │    2. Reparse → new AST                                      │   │
 │  │    3. Reconcile AST (preserve node IDs)                      │   │
-│  │    4. ui_state.refresh_from_model(model) (prune stale IDs)  │   │
+│  │    4. ui_state.refresh(proj, source_map) (prune stale IDs)  │   │
 │  │    5. Return updated editor                                  │   │
 │  │                                                              │   │
 │  │  fn apply_tree_edit(op: TreeEditOp) -> ProjectedEditor       │   │
@@ -755,9 +767,11 @@ enum ValidationLevel {
 |----------|-----------|
 | **Immutable `collapsed_nodes`** | Uses `@immut/hashset` to prevent aliasing bugs in undo/redo scenarios |
 | **Derived node flags** | `selected`/`editing`/`drop_target` computed from `TreeUIState` during tree construction, not stored on nodes |
-| **Stale ID pruning** | `refresh_from_model()` uses set intersection to remove IDs that no longer exist in AST |
+| **Stale ID pruning** | `TreeEditorState::refresh(...)` removes UI IDs that no longer exist in the current projection snapshot |
 | **Guards on operations** | `Collapse`/`Expand`/`DragOver`/`Drop` validate node existence and prevent self/descendant drops |
 | **UI state separate from model** | `TreeEditorState` holds ephemeral UI state; `CanonicalModel` holds persistent data |
+| **Hidden subtree handling** | Collapsed descendants can be elided from the interactive tree while structural indexes remain available |
+| **Expand hydration** | `expand_node(...)` rehydrates elided branches without requiring a full text edit round-trip |
 
 **Files to create**:
 - `projection/projected_editor.mbt` — Unified editor facade

@@ -6,8 +6,11 @@ curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 export PATH="$HOME/.moon/bin:$PATH"
 moon version --all
 
-# Move to repo root
-cd ..
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)"
+
+# Move to repo root regardless of the caller's current working directory.
+cd "$REPO_ROOT"
 
 # Initialize git submodules
 echo "==> Initializing submodules..."

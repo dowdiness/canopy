@@ -9,8 +9,10 @@ Documentation for the Lambda Calculus CRDT Editor project.
 
 ## Grand Design
 
-The future vision for combining eg-walker CRDT + loom incremental parser into a collaborative projectional editor.
-These documents are draft designs and explicitly call out required API additions where current public APIs are insufficient.
+The long-range vision for combining eg-walker CRDT + loom incremental parser
+into a collaborative projectional editor. Some parts of this stack are already
+implemented in the root MoonBit packages and the `examples/rabbita` app; these
+design docs describe the remaining target architecture and intended cleanup.
 
 - **[Grand Design](design/GRAND_DESIGN.md)** — Vision, principles, and implementation order
   - [01 — Edit Bridge](design/01-edit-bridge.md) — CRDT ops → loom `Edit` without string diffing
@@ -53,7 +55,10 @@ Detailed documentation for each module:
 
 ## Active Plans
 
-(none)
+- [Memo-Derived ProjNode Design](plans/2026-03-10-memo-derived-projnode-design.md)
+- [Tree Editor Subtree Reuse Design](plans/2026-03-11-tree-editor-subtree-reuse-design.md)
+- [Rabbita Projection Editor Performance Plan](plans/2026-03-11-rabbita-projection-editor-performance-plan.md)
+- [Rabbita Perf Harness Redesign](plans/2026-03-11-rabbita-perf-harness-redesign.md)
 
 ## Archive
 

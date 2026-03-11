@@ -62,7 +62,7 @@ git push origin v0.2.0
 
 **Features:**
 - ✅ Automatic GitHub Actions updates
-- ✅ Automatic npm dependency updates (web, examples/demo-react, valtio)
+- ✅ Automatic npm dependency updates (examples/web, examples/demo-react, valtio)
 - ✅ Grouped updates for Playwright and Vite
 - ✅ All updates tested by CI before merge
 
