@@ -160,6 +160,7 @@ pub struct TreeEditorState {
 pub fn TreeEditorState::apply_edit(Self, TreeEditOp) -> Self
 pub fn TreeEditorState::expand_node(Self, NodeId, ProjNode?, SourceMap) -> Self
 pub fn TreeEditorState::from_projection(ProjNode?, SourceMap) -> Self
+pub fn TreeEditorState::get_loaded_node(Self, NodeId) -> InteractiveTreeNode?
 pub fn TreeEditorState::new() -> Self
 pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
 

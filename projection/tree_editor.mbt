@@ -584,6 +584,15 @@ pub struct TreeEditorState {
 }
 
 ///|
+/// Look up a materialized interactive node by ID. O(1) via the loaded-node index.
+pub fn TreeEditorState::get_loaded_node(
+  self : TreeEditorState,
+  node_id : NodeId,
+) -> InteractiveTreeNode? {
+  self.loaded_nodes.get(node_id)
+}
+
+///|
 /// Create a new tree editor state
 pub fn TreeEditorState::new() -> TreeEditorState {
   let indexes = empty_tree_structure_indexes()
@@ -996,19 +1005,17 @@ fn apply_selection_edit(
   selection : Array[NodeId],
 ) -> TreeEditorState {
   let selection_set = @immut/hashset.from_iter(selection.iter())
-  let tree = apply_selection_to_tree(state.tree, selection_set)
-  let loaded_nodes = build_loaded_node_index(tree)
-  { ..state, selection, tree, loaded_nodes }
-}
-
-///|
-fn apply_selection_to_tree(
-  tree : InteractiveTreeNode?,
-  selection : @immut/hashset.HashSet[NodeId],
-) -> InteractiveTreeNode? {
-  match tree {
-    None => None
-    Some(node) => Some(apply_selection_to_node(node, selection))
+  match state.tree {
+    None => { ..state, selection, }
+    Some(root) => {
+      let (updated, changed) = apply_selection_to_node(root, selection_set)
+      if changed {
+        let loaded_nodes = build_loaded_node_index(Some(updated))
+        { ..state, selection, tree: Some(updated), loaded_nodes }
+      } else {
+        { ..state, selection, }
+      }
+    }
   }
 }
 
@@ -1016,18 +1023,37 @@ fn apply_selection_to_tree(
 fn apply_selection_to_node(
   node : InteractiveTreeNode,
   selection : @immut/hashset.HashSet[NodeId],
-) -> InteractiveTreeNode {
-  let children = match node.children {
+) -> (InteractiveTreeNode, Bool) {
+  let new_selected = selection.contains(node.id)
+  match node.children {
     Loaded(existing_children) => {
       let updated_children : Array[InteractiveTreeNode] = []
+      let mut any_child_changed = false
       for child in existing_children {
-        updated_children.push(apply_selection_to_node(child, selection))
+        let (updated, changed) = apply_selection_to_node(child, selection)
+        updated_children.push(updated)
+        if changed {
+          any_child_changed = true
+        }
       }
-      Loaded(updated_children)
+      if new_selected == node.selected && not(any_child_changed) {
+        (node, false)
+      } else {
+        let children = if any_child_changed {
+          Loaded(updated_children)
+        } else {
+          node.children
+        }
+        ({ ..node, selected: new_selected, children }, true)
+      }
     }
-    Elided(descendant_count) => Elided(descendant_count)
+    Elided(_) =>
+      if new_selected == node.selected {
+        (node, false)
+      } else {
+        ({ ..node, selected: new_selected }, true)
+      }
   }
-  { ..node, selected: selection.contains(node.id), children }
 }
 
 ///|
@@ -1243,37 +1269,36 @@ fn update_node_collapsed(
 
 ///|
 /// Patch only the changed node path into the loaded-node index.
-/// Mutates `loaded_nodes` in place. Callers must not retain the original.
+/// Mutates `loaded_nodes` in place; callers must not retain the original.
 fn update_loaded_nodes_for_path(
   loaded_nodes : Map[NodeId, InteractiveTreeNode],
   changed_nodes : Array[InteractiveTreeNode],
 ) -> Map[NodeId, InteractiveTreeNode] {
-  let updated = loaded_nodes.copy()
   for node in changed_nodes {
-    updated[node.id] = node
+    loaded_nodes[node.id] = node
   }
-  updated
+  loaded_nodes
 }
 
 ///|
 /// Replace the materialized node index for one subtree and patch changed ancestors.
+/// Mutates `loaded_nodes` in place; callers must not retain the original.
 fn replace_loaded_nodes_for_subtree(
   loaded_nodes : Map[NodeId, InteractiveTreeNode],
   subtree_ids : Array[NodeId],
   replacement_nodes : Map[NodeId, InteractiveTreeNode],
   changed_nodes : Array[InteractiveTreeNode],
 ) -> Map[NodeId, InteractiveTreeNode] {
-  let updated = loaded_nodes.copy()
   for node_id in subtree_ids {
-    updated.remove(node_id)
+    loaded_nodes.remove(node_id)
   }
   for node_id, node in replacement_nodes {
-    updated[node_id] = node
+    loaded_nodes[node_id] = node
   }
   for node in changed_nodes {
-    updated[node.id] = node
+    loaded_nodes[node.id] = node
   }
-  updated
+  loaded_nodes
 }
 
 ///|

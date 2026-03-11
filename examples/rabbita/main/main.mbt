@@ -63,34 +63,10 @@ fn kind_of(label : String) -> String {
 }
 
 ///|
-fn find_tree_node_by_id(
-  node : @proj.InteractiveTreeNode,
-  target : @proj.NodeId,
-) -> @proj.InteractiveTreeNode? {
-  if node.id == target {
-    return Some(node)
-  }
-  match node.children {
-    @proj.Loaded(children) =>
-      children.fold(init=None, fn(found, child) {
-        match found {
-          Some(_) => found
-          None => find_tree_node_by_id(child, target)
-        }
-      })
-    @proj.Elided(_) => None
-  }
-}
-
-///|
 fn selected_tree_node(model : Model) -> @proj.InteractiveTreeNode? {
-  let selected = match model.tree_state.selection {
-    [selected, ..] => Some(selected)
+  match model.tree_state.selection {
+    [node_id, ..] => model.tree_state.get_loaded_node(node_id)
     [] => None
-  }
-  match (selected, model.tree_state.tree) {
-    (Some(node_id), Some(tree)) => find_tree_node_by_id(tree, node_id)
-    _ => None
   }
 }
 
@@ -120,15 +96,11 @@ fn tree_node_is_elided(
   state : @proj.TreeEditorState,
   node_id : @proj.NodeId,
 ) -> Bool {
-  match state.tree {
-    Some(tree) =>
-      match find_tree_node_by_id(tree, node_id) {
-        Some(node) =>
-          match node.children {
-            @proj.Elided(_) => true
-            @proj.Loaded(_) => false
-          }
-        None => false
+  match state.get_loaded_node(node_id) {
+    Some(node) =>
+      match node.children {
+        @proj.Elided(_) => true
+        @proj.Loaded(_) => false
       }
     None => false
   }
