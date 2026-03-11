@@ -37,11 +37,17 @@ pub enum DropPosition {
 pub impl Eq for DropPosition
 pub impl Show for DropPosition
 
+pub enum InteractiveChildren {
+  Loaded(Array[InteractiveTreeNode])
+  Elided(Int)
+}
+pub impl Show for InteractiveChildren
+
 pub struct InteractiveTreeNode {
   id : NodeId
   kind : @ast.Term
   label : String
-  children : Array[InteractiveTreeNode]
+  children : InteractiveChildren
   selected : Bool
   editing : Bool
   collapsed : Bool
@@ -49,7 +55,6 @@ pub struct InteractiveTreeNode {
   text_range : @core.Range
 }
 pub fn InteractiveTreeNode::from_term_node(ProjNode, SourceMap) -> Self
-pub fn InteractiveTreeNode::from_term_node_with_state(ProjNode, SourceMap, @hashset.HashSet[NodeId]) -> Self
 pub impl Show for InteractiveTreeNode
 
 pub enum LeafValue {
@@ -150,9 +155,12 @@ pub struct TreeEditorState {
   drop_target : NodeId?
   drop_position : DropPosition?
   collapsed_nodes : @hashset.HashSet[NodeId]
+  // private fields
 }
 pub fn TreeEditorState::apply_edit(Self, TreeEditOp) -> Self
+pub fn TreeEditorState::expand_node(Self, NodeId, ProjNode?, SourceMap) -> Self
 pub fn TreeEditorState::from_projection(ProjNode?, SourceMap) -> Self
+pub fn TreeEditorState::get_loaded_node(Self, NodeId) -> InteractiveTreeNode?
 pub fn TreeEditorState::new() -> Self
 pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
 

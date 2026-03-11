@@ -241,6 +241,91 @@ This investigation was based on static code analysis rather than browser profili
 3. cost difference between text edits and UI-only tree actions
 4. subtree size sensitivity for node insertion and sibling reorder operations
 
+## Current Benchmark Status
+
+The current `examples/rabbita/perf_report` harness is now easier to drive than the original version:
+
+- `moon run perf_report medium`
+- `moon run perf_report large`
+- `moon run perf_report large 1`
+
+However, current branch measurements still show that the harness is not yet a reliable large-tree reporter.
+
+Latest bounded runs on this branch:
+
+- `timeout 60s moon run perf_report medium 1`
+  - emitted one completed line before timing out:
+    - `medium legacy set_text + refresh: ~336 ms/edit`
+  - did not complete the remaining medium cases within `60s`
+- `timeout 60s moon run perf_report large 1`
+  - emitted no completed report lines before timing out
+
+Practical interpretation:
+
+- medium performance is still in the hundreds of milliseconds per edit on the eager legacy path
+- large-tree behavior remains effectively non-interactive
+- the benchmark harness still needs timeout-aware per-case reporting and phase breakdowns before it can serve as the primary diagnostic tool for large-tree stalls
+- the subtree reuse / elision / hydration work should therefore be read as an incremental win in architecture and medium-path behavior, not as a worst-case large-tree fix
+- the most likely remaining bottleneck is still the structural pipeline:
+  - projection rebuild / reconcile
+  - source map rebuild
+  - `TreeEditorState::refresh(...)`
+  - deferred full-cycle reducer work around those steps
+
+That harness redesign is tracked separately in:
+
+- `docs/plans/2026-03-11-rabbita-perf-harness-redesign.md`
+
 ## Conclusion
 
 The Rabbita projectional editor is currently structured around whole-document and whole-tree recomputation. That architecture explains both the poor responsiveness and the awkward editing feel. The first meaningful improvement will come from changing the text input path to incremental edits and preventing unnecessary full refreshes for UI-only actions.
+
+## Roadmap To Stable 60fps
+
+If the eventual goal is stable `60fps` UI response, the next work should be ordered around frame-budget control rather than more isolated tree-editor tweaks.
+
+**Caveat:** This roadmap is meant to complement the linked recovery plan, not supersede it. If the implementation phases change, this section should be revised so the investigation note and the execution plan do not drift apart.
+
+### Practical Priority Order
+
+1. Instrument the full deferred path end to end.
+   Add coarse timings for:
+   - text edit application
+   - parser / syntax update
+   - `ProjNode` rebuild / reconcile
+   - `SourceMap::from_ast(...)`
+   - `TreeEditorState::refresh(...)`
+   - Rabbita update / render work
+
+   Until this breakdown exists, optimization decisions remain speculative.
+
+2. Identify the single worst large-tree hotspot and fix that first.
+   The large-tree harness still behaves as effectively non-interactive, so the next step is to find which slice dominates that path instead of assuming the remaining bottleneck is still tree-node allocation.
+
+3. Incrementalize projection metadata rebuilds.
+   Stable `60fps` is unlikely if every meaningful edit still rebuilds:
+   - preorder indexes
+   - parent links
+   - source maps
+   - full projection snapshots
+
+   After the subtree reuse/elision work, this is the most likely remaining scaling wall.
+
+4. Keep UI-only actions strictly local and synchronous.
+   `Select`, `Collapse`, `Expand`, drag hover, and sidebar updates should stay inside the visible-tree budget and avoid triggering parser or whole-projection work.
+
+5. Push structural refresh off the immediate interaction budget when needed.
+   If a structural refresh cannot reliably fit inside one frame, preserve immediate local UI response and treat projection refresh as deferred/coalesced work with explicit stale-view rules.
+
+6. Optimize render scope only after compute costs are understood.
+   Once the compute pipeline is measured and bounded, then revisit Rabbita diff/render costs such as large array-child diffs and subtree rerender scope.
+
+7. Track frame-budget metrics instead of averages alone.
+   Throughput benchmarks are useful, but `60fps` work should be judged by thresholds such as:
+   - p50 / p95 / p99 for UI-only actions
+   - p50 / p95 for deferred structural refresh
+   - explicit `< 16ms` and `< 50ms` budgets by scenario size
+
+### What This Means For The Current Branch
+
+The subtree reuse, collapsed-descendant elision, and targeted expand hydration work is a meaningful incremental win, especially for medium deferred interactions, but it is not yet the final answer for worst-case slowness. The current evidence still points toward full-tree projection metadata work as the next major focus area.

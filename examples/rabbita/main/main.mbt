@@ -63,30 +63,10 @@ fn kind_of(label : String) -> String {
 }
 
 ///|
-fn find_tree_node_by_id(
-  node : @proj.InteractiveTreeNode,
-  target : @proj.NodeId,
-) -> @proj.InteractiveTreeNode? {
-  if node.id == target {
-    return Some(node)
-  }
-  node.children.fold(init=None, fn(found, child) {
-    match found {
-      Some(_) => found
-      None => find_tree_node_by_id(child, target)
-    }
-  })
-}
-
-///|
 fn selected_tree_node(model : Model) -> @proj.InteractiveTreeNode? {
-  let selected = match model.tree_state.selection {
-    [selected, ..] => Some(selected)
+  match model.tree_state.selection {
+    [node_id, ..] => model.tree_state.get_loaded_node(node_id)
     [] => None
-  }
-  match (selected, model.tree_state.tree) {
-    (Some(node_id), Some(tree)) => find_tree_node_by_id(tree, node_id)
-    _ => None
   }
 }
 
@@ -94,9 +74,42 @@ fn selected_tree_node(model : Model) -> @proj.InteractiveTreeNode? {
 fn selected_node_details(model : Model) -> SelectedNodeDetails? {
   match selected_tree_node(model) {
     Some(node) =>
-      Some({ label: node.label, child_count: node.children.length() })
+      Some({
+        label: node.label,
+        child_count: match node.children {
+          @proj.Loaded(children) => children.length()
+          @proj.Elided(descendant_count) => descendant_count
+        },
+      })
     None => None
   }
+}
+
+///|
+fn has_hidden_selection(model : Model) -> Bool {
+  not(model.tree_state.selection.is_empty()) &&
+  selected_tree_node(model) is None
+}
+
+///|
+fn tree_node_is_elided(
+  state : @proj.TreeEditorState,
+  node_id : @proj.NodeId,
+) -> Bool {
+  match state.get_loaded_node(node_id) {
+    Some(node) =>
+      match node.children {
+        @proj.Elided(_) => true
+        @proj.Loaded(_) => false
+      }
+    None => false
+  }
+}
+
+///|
+fn can_hydrate_tree_node(model : Model, node_id : @proj.NodeId) -> Bool {
+  not(model.projection_dirty) &&
+  tree_node_is_elided(model.tree_state, node_id)
 }
 
 // ── Init ────────────────────────────────────────────────────────────
@@ -161,14 +174,6 @@ fn is_ui_only_tree_edit(op : @proj.TreeEditOp) -> Bool {
 }
 
 ///|
-fn needs_tree_refresh(op : @proj.TreeEditOp) -> Bool {
-  match op {
-    @proj.Select(..) | @proj.SelectRange(..) => true
-    _ => false
-  }
-}
-
-///|
 fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => (none, { ..model, workspace_mode: mode })
@@ -209,10 +214,21 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, { ..model, refresh_scheduled: false })
       }
     TreeEdited(op) => {
-      if needs_tree_refresh(op) {
-        let tree_state = model.tree_state.apply_edit(op)
-        let model = { ..model, tree_state, }
-        return (none, refresh(model))
+      match op {
+        @proj.Expand(node_id=node_id) => {
+          let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
+          let tree_state = if hydrate_after_expand {
+            model.tree_state.expand_node(
+              node_id,
+              model.editor.get_proj_node(),
+              model.editor.get_source_map(),
+            )
+          } else {
+            model.tree_state.apply_edit(op)
+          }
+          return (none, { ..model, tree_state, })
+        }
+        _ => ()
       }
       if is_ui_only_tree_edit(op) {
         let tree_state = model.tree_state.apply_edit(op)
@@ -259,13 +275,23 @@ fn view_tree_node(
   let toggle_label = if node.collapsed { "▶" } else { "▼" }
   let children_view = if node.collapsed {
     div(class="tree-collapsed", [text("…")])
-  } else if node.children.is_empty() {
-    div(class="hidden-note", [text("Leaf node")])
   } else {
-    div(
-      class="tree-children",
-      node.children.map(fn(child) { view_tree_node(dispatch, child) }),
-    )
+    match node.children {
+      @proj.Loaded(children) =>
+        if children.is_empty() {
+          div(class="hidden-note", [text("Leaf node")])
+        } else {
+          div(
+            class="tree-children",
+            children.map(fn(child) { view_tree_node(dispatch, child) }),
+          )
+        }
+      @proj.Elided(descendant_count) =>
+        div(
+          class="hidden-note",
+          [text("\{descendant_count} hidden descendants")],
+        )
+    }
   }
   div(class=class_name, [
     div(
@@ -344,7 +370,15 @@ fn selection_section(model : Model) -> Html {
       ])
     None =>
       match model.tree_state.tree {
-        Some(_) => p(class="sidebar-copy", "No node selected.")
+        Some(_) =>
+          if has_hidden_selection(model) {
+            p(
+              class="sidebar-copy",
+              "Selected node is inside a collapsed subtree.",
+            )
+          } else {
+            p(class="sidebar-copy", "No node selected.")
+          }
         None => p(class="sidebar-copy", "No tree available.")
       }
   }
@@ -481,12 +515,16 @@ fn node_id_for_label_for_test(
   if node.label == label {
     return Some(node.id)
   }
-  node.children.fold(init=None, fn(found, child) {
-    match found {
-      Some(_) => found
-      None => node_id_for_label_for_test(child, label)
-    }
-  })
+  match node.children {
+    @proj.Loaded(children) =>
+      children.fold(init=None, fn(found, child) {
+        match found {
+          Some(_) => found
+          None => node_id_for_label_for_test(child, label)
+        }
+      })
+    @proj.Elided(_) => None
+  }
 }
 
 ///|
@@ -554,6 +592,102 @@ test "TreeEdited StartEdit stays local to UI state" {
   inspect(updated.editor.get_text(), content=old_text)
   inspect(updated.next_timestamp, content="1")
   inspect(updated.tree_state.editing_node == Some(root_id), content="true")
+}
+
+///|
+test "TreeEdited Expand hydrates an elided subtree without editor refresh" {
+  let model = init_model()
+  let root_id = root_node_id_for_test(model)
+  let old_text = model.editor.get_text()
+  let (_, collapsed) = update(
+    _ => none,
+    TreeEdited(@proj.Collapse(node_id=root_id)),
+    model,
+  )
+  let elided = refresh(collapsed)
+  match elided.tree_state.tree {
+    Some(root) =>
+      match root.children {
+        @proj.Elided(_) => ()
+        @proj.Loaded(_) => abort("expected elided subtree after refresh")
+      }
+    None => abort("expected elided tree")
+  }
+
+  let (_, expanded) = update(
+    _ => none,
+    TreeEdited(@proj.Expand(node_id=root_id)),
+    elided,
+  )
+
+  inspect(expanded.editor.get_text(), content=old_text)
+  inspect(expanded.next_timestamp, content="1")
+  inspect(expanded.text_view, content=old_text)
+  match expanded.tree_state.tree {
+    Some(root) => {
+      inspect(root.collapsed, content="false")
+      match root.children {
+        @proj.Loaded(children) => inspect(children.length() > 0, content="true")
+        @proj.Elided(_) => abort("expected hydrated children")
+      }
+    }
+    None => abort("expected expanded tree")
+  }
+}
+
+///|
+test "TreeEdited Expand does not hydrate elided subtree while projection is dirty" {
+  let model = init_model()
+  let root_id = root_node_id_for_test(model)
+  let (_, collapsed) = update(
+    _ => none,
+    TreeEdited(@proj.Collapse(node_id=root_id)),
+    model,
+  )
+  let elided = refresh(collapsed)
+  let new_text = "let id = λx.x in let apply = λf.λx.f x in apply id 99"
+  let (_, dirty) = update(_ => none, TextInput(new_text), elided)
+
+  let (_, expanded) = update(
+    _ => none,
+    TreeEdited(@proj.Expand(node_id=root_id)),
+    dirty,
+  )
+
+  inspect(expanded.projection_dirty, content="true")
+  inspect(expanded.refresh_scheduled, content="true")
+  match expanded.tree_state.tree {
+    Some(root) => {
+      inspect(root.collapsed, content="true")
+      match root.children {
+        @proj.Elided(descendant_count) =>
+          inspect(descendant_count > 0, content="true")
+        @proj.Loaded(_) => abort("expected stale tree to remain unhydrated")
+      }
+    }
+    None => abort("expected stale tree")
+  }
+}
+
+///|
+test "Hidden selection stays visible in sidebar context after elision" {
+  let model = init_model()
+  let literal_id = selected_node_id_for_test(model, "42")
+  let (_, selected) = update(
+    _ => none,
+    TreeEdited(@proj.Select(node_id=literal_id)),
+    model,
+  )
+  let root_id = root_node_id_for_test(selected)
+  let (_, collapsed) = update(
+    _ => none,
+    TreeEdited(@proj.Collapse(node_id=root_id)),
+    selected,
+  )
+  let elided = refresh(collapsed)
+
+  inspect(selected_node_details(elided) is None, content="true")
+  inspect(has_hidden_selection(elided), content="true")
 }
 
 ///|
