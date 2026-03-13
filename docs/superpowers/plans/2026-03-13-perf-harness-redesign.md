@@ -176,7 +176,7 @@ pub extern "js" fn cli_iterations() -> Int? =
   #|    const p2 = Number.parseInt(argv[2], 10);
   #|    if (Number.isFinite(p2) && p2 > 0) return p2;
   #|  }
-  #|  return null;
+  #|  return undefined;
   #|}
 
 ///|
@@ -186,9 +186,9 @@ pub extern "js" fn cli_operation_filter() -> String? =
   #|    typeof process !== "undefined" && Array.isArray(process.argv)
   #|      ? process.argv.slice(2)
   #|      : [];
-  #|  if (argv.length < 2) return null;
+  #|  if (argv.length < 2) return undefined;
   #|  const parsed = Number.parseInt(argv[1], 10);
-  #|  if (Number.isFinite(parsed) && parsed > 0) return null;
+  #|  if (Number.isFinite(parsed) && parsed > 0) return undefined;
   #|  return argv[1].replace(/-/g, " ");
   #|}
 
@@ -549,7 +549,7 @@ Expected: Build succeeds with no errors.
 
 Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report medium 1`
 Expected output pattern:
-```
+```text
 Rabbita performance report
 Source sizes: medium=80 lets, large=320 lets
 Mode: medium
