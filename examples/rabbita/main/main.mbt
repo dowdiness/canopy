@@ -108,8 +108,7 @@ fn tree_node_is_elided(
 
 ///|
 fn can_hydrate_tree_node(model : Model, node_id : @proj.NodeId) -> Bool {
-  not(model.projection_dirty) &&
-  tree_node_is_elided(model.tree_state, node_id)
+  not(model.projection_dirty) && tree_node_is_elided(model.tree_state, node_id)
 }
 
 // ── Init ────────────────────────────────────────────────────────────
@@ -215,7 +214,7 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     TreeEdited(op) => {
       match op {
-        @proj.Expand(node_id=node_id) => {
+        @proj.Expand(node_id~) => {
           let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
           let tree_state = if hydrate_after_expand {
             model.tree_state.expand_node(
@@ -287,10 +286,9 @@ fn view_tree_node(
           )
         }
       @proj.Elided(descendant_count) =>
-        div(
-          class="hidden-note",
-          [text("\{descendant_count} hidden descendants")],
-        )
+        div(class="hidden-note", [
+          text("\{descendant_count} hidden descendants"),
+        ])
     }
   }
   div(class=class_name, [

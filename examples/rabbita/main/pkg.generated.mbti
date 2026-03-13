@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita-projectional-editor/main"
+
+// Values
+pub fn now_ms() -> Int
+
+// Errors
+
+// Types and methods
+pub(all) struct BenchmarkMeasurement {
+  total_ms : Int
+  phases : Array[(String, Int)]
+}
+
+pub struct BenchmarkSession {
+  // private fields
+}
+pub fn BenchmarkSession::deferred_full_cycle(Self, String) -> Unit
+pub fn BenchmarkSession::deferred_full_cycle_timed(Self, String) -> BenchmarkMeasurement
+pub fn BenchmarkSession::deferred_text_input(Self, String) -> Unit
+pub fn BenchmarkSession::has_tree(Self) -> Bool
+pub fn BenchmarkSession::incremental_eager_refresh(Self, String) -> Unit
+pub fn BenchmarkSession::legacy_set_text_refresh(Self, String) -> Unit
+pub fn BenchmarkSession::new(String) -> Self
+pub fn BenchmarkSession::projection_dirty(Self) -> Bool
+pub fn BenchmarkSession::refresh_projection(Self) -> Unit
+
+type Model
+
+type Msg
+
+type SelectedNodeDetails
+pub impl Eq for SelectedNodeDetails
+pub impl Show for SelectedNodeDetails
+
+type WorkspaceMode
+pub impl Eq for WorkspaceMode
+
+// Type aliases
+
+// Traits
+
