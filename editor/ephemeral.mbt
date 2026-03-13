@@ -86,8 +86,9 @@ pub struct EphemeralStore {
 }
 
 ///|
-/// Wall-clock milliseconds. JS target uses Date.now().
-/// Non-JS targets return 0 (tests use whitebox backdating for timeout tests).
+/// Wall-clock milliseconds. Returns 0 on non-JS targets.
+/// Timeout tests use `remove_outdated_at(now)` with explicit timestamps
+/// rather than relying on this function. JS target override TBD.
 fn now_ms() -> UInt64 {
   0UL
 }
@@ -174,8 +175,10 @@ fn EphemeralStore::set_state(
   }
   let record : EphemeralRecord = { value, clock: next_clock, updated_at: now }
   self.states[key] = record
-  // Notify local subscribers with encoded bytes
-  self.local_subs = filter_local_subs(self.local_subs, self.encode(key))
+  // Notify local subscribers with encoded bytes (skip encode if no subscribers)
+  if self.local_subs.length() > 0 {
+    self.local_subs = filter_local_subs(self.local_subs, self.encode(key))
+  }
   // Build event
   let added : Array[String] = []
   let updated : Array[String] = []
