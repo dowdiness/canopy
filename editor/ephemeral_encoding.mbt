@@ -72,7 +72,9 @@ fn read_ivarint(reader : Reader) -> Int64 raise {
 
 ///|
 fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
-  let bytes = s.to_bytes()
+  let tmp = @buffer.new()
+  tmp.write_string(s)
+  let bytes = tmp.to_bytes()
   write_uvarint(buf, bytes.length().to_uint64())
   buf.write_bytes(bytes)
 }
