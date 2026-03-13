@@ -1,11 +1,4 @@
 ///|
-pub extern "js" fn now_ms() -> Int =
-  #|() => {
-  #|  const clock = globalThis.performance?.now?.bind(globalThis.performance);
-  #|  return Math.round(clock ? clock() : Date.now());
-  #|}
-
-///|
 pub extern "js" fn cli_mode() -> String =
   #|() => {
   #|  const argv =
@@ -159,19 +152,19 @@ fn run_operation(
   match op {
     DeferredFullCycle => session.deferred_full_cycle_timed(text)
     LegacySetTextRefresh => {
-      let t0 = now_ms()
+      let t0 = @app.now_ms()
       session.legacy_set_text_refresh(text)
-      { total_ms: now_ms() - t0, phases: [] }
+      { total_ms: @app.now_ms() - t0, phases: [] }
     }
     IncrementalEagerRefresh => {
-      let t0 = now_ms()
+      let t0 = @app.now_ms()
       session.incremental_eager_refresh(text)
-      { total_ms: now_ms() - t0, phases: [] }
+      { total_ms: @app.now_ms() - t0, phases: [] }
     }
     DeferredTextInput => {
-      let t0 = now_ms()
+      let t0 = @app.now_ms()
       session.deferred_text_input(text)
-      { total_ms: now_ms() - t0, phases: [] }
+      { total_ms: @app.now_ms() - t0, phases: [] }
     }
   }
 }
