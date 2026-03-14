@@ -164,6 +164,22 @@ test "non-numeric keys raise error on delete" {
 }
 
 ///|
+test "peer IDs must be canonical decimal strings" {
+  let store = @editor.EphemeralStore::new(60000UL)
+  let rejected : Array[Bool] = []
+  for key in ["01", "0x10", "1_2"] {
+    let mut caught = false
+    store.set(key, @editor.EphemeralValue::I64(42L)) catch {
+      _ => caught = true
+    }
+    rejected.push(caught)
+  }
+  store.set("0", @editor.EphemeralValue::I64(7L))
+  inspect(rejected, content="[true, true, true]")
+  inspect(store.get("0"), content="Some(I64(7))")
+}
+
+///|
 test "subscribe_local_updates receives bytes and can apply to another store" {
   let store = @editor.EphemeralStore::new(60000UL)
   let received_bytes : Ref[Bytes] = Ref::new(Bytes::new(0))
@@ -219,4 +235,42 @@ test "apply triggers updated event on existing key" {
   inspect(events[0].by(), content="Import")
   inspect(events[0].updated(), content="[\"1\"]")
   inspect(events[0].added(), content="[]")
+}
+
+///|
+test "apply heartbeat with unchanged value refreshes state without updated event" {
+  let store = @editor.EphemeralStore::new(60000UL)
+  store.set(
+    "1",
+    @editor.EphemeralValue::Map({
+      "cursor": @editor.EphemeralValue::I64(10L),
+      "name": @editor.EphemeralValue::String("Alice"),
+      "color": @editor.EphemeralValue::String("#ff0000"),
+    }),
+  )
+  let events : Array[@editor.EphemeralStoreEvent] = []
+  let _sub = store.subscribe(fn(event) {
+    events.push(event)
+    true
+  })
+  let remote = @editor.EphemeralStore::new(60000UL)
+  remote.set(
+    "1",
+    @editor.EphemeralValue::Map({
+      "cursor": @editor.EphemeralValue::I64(10L),
+      "name": @editor.EphemeralValue::String("Alice"),
+      "color": @editor.EphemeralValue::String("#ff0000"),
+    }),
+  )
+  remote.set(
+    "1",
+    @editor.EphemeralValue::Map({
+      "cursor": @editor.EphemeralValue::I64(10L),
+      "name": @editor.EphemeralValue::String("Alice"),
+      "color": @editor.EphemeralValue::String("#ff0000"),
+    }),
+  )
+  store.apply(remote.encode_all())
+  inspect(events.length(), content="0")
+  inspect(store.get("1") != None, content="true")
 }

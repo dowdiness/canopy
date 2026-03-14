@@ -227,7 +227,19 @@ fn read_f64_le(reader : Reader) -> Double raise {
 
 ///|
 fn parse_peer_id(key : String) -> UInt64? {
-  Some(@strconv.parse_uint64(key.view())) catch {
+  let chars = key.to_array()
+  if chars.length() == 0 {
+    return None
+  }
+  if chars.length() > 1 && chars[0] == '0' {
+    return None
+  }
+  for ch in chars {
+    if not(ch.is_ascii_digit()) {
+      return None
+    }
+  }
+  Some(@strconv.parse_uint64(key.view(), base=10)) catch {
     _ => None
   }
 }
