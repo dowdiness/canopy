@@ -86,18 +86,6 @@ pub struct EphemeralStore {
 }
 
 ///|
-/// Wall-clock milliseconds for expiry checks.
-fn now_ms() -> UInt64 {
-  js_now_ms().reinterpret_as_uint64()
-}
-
-///|
-extern "js" fn js_now_ms() -> Int64 =
-  #|() => {
-  #|  return BigInt(Date.now());
-  #|}
-
-///|
 pub fn EphemeralStore::new(timeout_ms : UInt64) -> EphemeralStore {
   { timeout_ms, next_sub_id: 1, states: Map::new(), local_subs: [], subs: [] }
 }

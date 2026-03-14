@@ -137,6 +137,7 @@ pub fn SyncEditor::can_undo(Self) -> Bool
 pub fn SyncEditor::clear_undo(Self) -> Unit
 pub fn SyncEditor::delete(Self) -> Bool
 pub fn SyncEditor::delete_and_record(Self, Int) -> Bool
+pub fn SyncEditor::delete_local_presence(Self) -> Unit
 pub fn SyncEditor::encode_ephemeral_all(Self) -> Bytes
 pub fn SyncEditor::export_all(Self) -> @text.SyncMessage raise
 pub fn SyncEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise

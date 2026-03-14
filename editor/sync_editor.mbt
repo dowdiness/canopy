@@ -41,22 +41,31 @@ pub fn SyncEditor::new(
   )
   let ephemeral = EphemeralStore::new(ephemeral_timeout_ms)
   let cursor_view = PeerCursorView::new()
-  // Subscribe to ephemeral store events to update cursor_view
+  // Subscribe to ephemeral store events to update cursor_view (skip local peer)
   ignore(
     ephemeral.subscribe(fn(event) {
       for key in event.added() {
+        if key == agent_id {
+          continue
+        }
         match ephemeral.get(key) {
           Some(value) => cursor_view.apply_raw_update(key, value)
           None => ()
         }
       }
       for key in event.updated() {
+        if key == agent_id {
+          continue
+        }
         match ephemeral.get(key) {
           Some(value) => cursor_view.apply_raw_update(key, value)
           None => ()
         }
       }
       for key in event.removed() {
+        if key == agent_id {
+          continue
+        }
         cursor_view.remove(key)
       }
       true

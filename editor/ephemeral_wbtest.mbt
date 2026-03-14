@@ -157,7 +157,7 @@ test "remove_outdated_at expires old entries with explicit clock" {
 }
 
 ///|
-test "encode_all excludes expired entries" {
+test "encode_entries and apply roundtrip" {
   let store = EphemeralStore::new(1000UL)
   store.set("1", EphemeralValue::I64(42L))
   store.set("2", EphemeralValue::I64(99L))

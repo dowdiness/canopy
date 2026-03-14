@@ -14,6 +14,8 @@ pub fn delete_and_record(Int, Int) -> Bool
 
 pub fn ephemeral_apply(Int, Bytes) -> Unit
 
+pub fn ephemeral_delete_presence(Int) -> Unit
+
 pub fn ephemeral_encode_all(Int) -> Bytes
 
 pub fn ephemeral_get_peer_cursors_json(Int) -> String

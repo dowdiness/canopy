@@ -275,6 +275,15 @@ pub fn ephemeral_set_presence_with_selection(
 }
 
 ///|
+/// Delete local presence (call on beforeunload for graceful disconnect)
+pub fn ephemeral_delete_presence(_handle : Int) -> Unit {
+  match editor.val {
+    Some(ed) => ed.delete_local_presence()
+    None => ()
+  }
+}
+
+///|
 /// Remove expired ephemeral entries (call on timer)
 pub fn ephemeral_remove_outdated(_handle : Int) -> Unit {
   match editor.val {

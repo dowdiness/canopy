@@ -55,6 +55,14 @@ fn read_uvarint(reader : Reader) -> UInt64 raise {
 }
 
 ///|
+fn safe_uvarint_to_int(v : UInt64) -> Int raise {
+  if v > 2147483647UL {
+    raise Failure::Failure("varint value exceeds maximum safe Int size")
+  }
+  v.to_int()
+}
+
+///|
 fn write_ivarint(buf : @buffer.Buffer, value : Int64) -> Unit {
   // zigzag encoding: (value << 1) ^ (value >> 63)
   let zigzag = ((value << 1) ^ (value >> 63)).reinterpret_as_uint64()
@@ -81,7 +89,7 @@ fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
 
 ///|
 fn read_string(reader : Reader) -> String raise {
-  let len = read_uvarint(reader).to_int()
+  let len = safe_uvarint_to_int(read_uvarint(reader))
   let bytes = reader.read_bytes(len)
   bytes.to_unchecked_string()
 }
@@ -94,7 +102,7 @@ fn write_len_bytes(buf : @buffer.Buffer, b : Bytes) -> Unit {
 
 ///|
 fn read_len_bytes(reader : Reader) -> Bytes raise {
-  let len = read_uvarint(reader).to_int()
+  let len = safe_uvarint_to_int(read_uvarint(reader))
   reader.read_bytes(len)
 }
 
@@ -187,14 +195,14 @@ fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise {
   } else if tag == tag_bytes {
     EphemeralValue::Bytes(read_len_bytes(reader))
   } else if tag == tag_list {
-    let count = read_uvarint(reader).to_int()
+    let count = safe_uvarint_to_int(read_uvarint(reader))
     let items : Array[EphemeralValue] = []
     for i = 0; i < count; i = i + 1 {
       items.push(read_ephemeral_value(reader))
     }
     EphemeralValue::List(items)
   } else if tag == tag_map {
-    let count = read_uvarint(reader).to_int()
+    let count = safe_uvarint_to_int(read_uvarint(reader))
     let map : Map[String, EphemeralValue] = {}
     for i = 0; i < count; i = i + 1 {
       let key = read_string(reader)
@@ -279,7 +287,7 @@ fn decode_entries(data : Bytes) -> Array[(String, EphemeralRecord)] raise {
     return []
   }
   let reader = Reader::new(data)
-  let count = read_uvarint(reader).to_int()
+  let count = safe_uvarint_to_int(read_uvarint(reader))
   let out : Array[(String, EphemeralRecord)] = []
   for i = 0; i < count; i = i + 1 {
     let peer = read_uvarint(reader)

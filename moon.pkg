@@ -33,6 +33,7 @@ options(
         "ephemeral_apply",
         "ephemeral_set_presence",
         "ephemeral_set_presence_with_selection",
+        "ephemeral_delete_presence",
         "ephemeral_remove_outdated",
         "ephemeral_get_peer_cursors_json",
       ],
