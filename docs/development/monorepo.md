@@ -192,3 +192,15 @@ crdt (root module)
 3. **Focused testing** — Each library has its own test suite and CI
 4. **Clear boundaries** — Dependencies are explicit in `moon.mod.json`
 5. **Separate issue tracking** — Bugs in the CRDT library are tracked in its own repository
+
+## Debt Routing
+
+When a problem appears in the root `crdt` module, do not assume the fix belongs
+there.
+
+- Missing text-edit primitives belong in `event-graph-walker/`
+- Parser/edit semantics belong in `loom/`
+- Root-module helpers should only exist when multiple root packages need them
+- Standalone submodules should not grow dependencies upward on `crdt/`
+
+See [Paying Technical Debt](technical-debt.md) for the full strategy.

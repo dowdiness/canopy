@@ -1,5 +1,7 @@
 // Tree Edit Bridge: Apply structural projection edits through the text CRDT.
 // TreeEditOp -> ProjNode -> unparse -> set_text_and_record -> memo reconcile
+// Debt rule: tree edits must route back through authoritative text state.
+// Do not introduce a second persistent AST/editor model alongside SyncEditor.
 
 ///|
 /// Apply a tree edit by round-tripping through the text CRDT.

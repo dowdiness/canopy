@@ -19,6 +19,7 @@ crdt/
 ├── graphviz/             # Graphviz DOT renderer (submodule)
 ├── valtio/               # Valtio state management (submodule)
 ├── editor/               # Editor abstractions
+├── text_change/          # Shared contiguous text-change helpers
 ├── projection/           # Projectional editing
 ├── cmd/                  # CLI entry points
 ├── examples/web/         # Web frontend (Vite)

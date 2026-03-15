@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-All performance optimizations remain in effect after the SyncEditor migration (PR #17). `ParsedEditor` has been replaced by `SyncEditor`, a unified facade composing `TextDoc`, `UndoManager`, and `ReactiveParser`. The benchmarks confirm:
+All performance optimizations remain in effect after the SyncEditor migration (PR #17). `ParsedEditor` has been replaced by `SyncEditor`, a unified facade composing `TextDoc`, `UndoManager`, an edit-aware `ImperativeParser`, and memo-derived projection state. The benchmarks confirm:
 
 1. **Serialization:** O(n²) → O(n) optimization working correctly
 2. **Error Collection Caching:** Negligible overhead for cached lookups

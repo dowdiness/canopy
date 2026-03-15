@@ -1,8 +1,8 @@
 # Design 05: Tree Edit Roundtrip
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Phase 1 Partial (bridge implemented, uses CanonicalModel; Memo-derived ProjNode deferred to §3)
-**Updated:** 2026-03-10
+**Status:** Implemented in the active `SyncEditor` path
+**Updated:** 2026-03-15
 
 ---
 
@@ -39,11 +39,8 @@ Tree Edit -> Unparse -> Text Diff -> CRDT Ops -> Broadcast -> Remote: Apply -> R
 |  3. Unparse new ProjNode to text                             |
 |     -> new_text = @ast.print_term(new_proj.kind)             |
 |                                                              |
-|  4. Diff against current CRDT text                           |
-|     -> edits = text_lens_diff(old_text, new_text)            |
-|                                                              |
-|  5. Apply diffs as CRDT ops                                  |
-|     -> for each edit: doc.delete() / doc.insert()            |
+|  4. Apply a contiguous text change through `SyncEditor`      |
+|     -> set_text_and_record(new_text, timestamp_ms)           |
 |                                                              |
 |  6. Trigger reparse + reconcile                              |
 |     -> parser.set_source(doc.text())                         |
@@ -88,13 +85,13 @@ Per [§3](./03-unified-editor.md), `CanonicalModel` is retired. Its useful parts
 | `edit_history` | `TextDoc.OpLog` (CRDT is the real history) |
 | `dirty_projections` | Deleted — `Memo` auto-tracks |
 
-**The ProjNode tree is the derived, ID-stable view of the AST.** It is rebuilt from `@ast.Term` (parser output) via reconciliation with the previous ProjNode tree, preserving node IDs for unchanged subtrees. This reconciliation already exists in `projection/text_lens.mbt` (`reconcile_ast` using LCS matching).
+**The ProjNode tree is the derived, ID-stable view of the AST.** It is rebuilt from parser output via reconciliation with the previous ProjNode tree, preserving node IDs for unchanged subtrees. This reconciliation now lives in `projection/reconcile_ast.mbt` (`reconcile_ast` using LCS matching).
 
 **Data flow:**
 
 ```
 TextDoc (CRDT text)
-  -> ReactiveParser -> @ast.Term (no node IDs)
+  -> ImperativeParser + syntax signal -> @ast.Term (no node IDs)
   -> reconcile with previous ProjNode tree
   -> ProjNode tree (with stable node IDs)
   -> SourceMap, NodeRegistry (derived)
@@ -107,7 +104,7 @@ TreeEditOp
   -> modify ProjNode tree structurally
   -> @ast.print_term(modified.kind) -> new text
   -> diff -> CRDT ops -> TextDoc
-  -> ReactiveParser reparses -> new @ast.Term
+  -> parser.edit/reset reparses -> new @ast.Term
   -> reconcile -> updated ProjNode tree (IDs preserved)
 ```
 
@@ -141,44 +138,27 @@ Error("msg")      -> "<error: msg>"
 
 ```moonbit
 /// Apply a tree edit by round-tripping through text.
-/// Current: takes external CanonicalModel (dual-state, see §3 Phase 2 for retirement).
 pub fn SyncEditor::apply_tree_edit(
   self : SyncEditor,
-  canonical : @proj.CanonicalModel,
   op : @proj.TreeEditOp,
+  timestamp_ms : Int,
 ) -> Result[Unit, String] {
   let old_text = self.get_text()
+  let proj = self.get_proj_node()?
 
-  // 1. Apply tree edit structurally to CanonicalModel
-  match @proj.tree_lens_apply_edit(canonical, op) { ... }
+  // 1. Apply tree edit structurally to the current ProjNode
+  let modified = @proj.apply_edit_to_proj(proj, op, self.registry_memo.get(), self.next_node_id)?
 
   // 2. Get text representation of modified AST
-  let new_text = match @proj.text_lens_get(canonical) { ... }
+  let new_text = @ast.print_term(modified.kind)
 
   // 3. Skip if text unchanged (UI-only ops: Select, Collapse)
   if old_text == new_text { return Ok(()) }
 
-  // 4. Apply text change to CRDT
-  self.set_text(new_text)
-
-  // 5. Re-reconcile CanonicalModel from authoritative CRDT text
-  let _ = @proj.text_lens_put(canonical, self.doc.text())
+  // 4. Seed reconciliation and round-trip through the CRDT
+  self.seed_proj_node(Some(modified))
+  self.set_text_and_record(new_text, timestamp_ms)
   Ok(())
-}
-```
-
-**Target implementation** (after §3 Phase 2 — Memo-derived ProjNode):
-
-```moonbit
-/// Target: no external CanonicalModel argument, ProjNode is a derived Memo.
-pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit raise {
-  let old_text = self.text()
-  let proj = self.proj_node()  // Memo[ProjNode] — reconciled, ID-stable
-  let modified = tree_lens_apply_edit_to_proj(proj, op)?
-  let new_text = @ast.print_term(modified.kind)
-  if old_text == new_text { return }
-  self.set_text(new_text)
-  // ProjNode reconciliation happens lazily on next proj_node() access
 }
 ```
 
@@ -186,7 +166,7 @@ pub fn SyncEditor::apply_tree_edit(self : SyncEditor, op : TreeEditOp) -> Unit r
 
 ### 3. Node ID Preservation Across Roundtrip
 
-After tree edit -> unparse -> reparse, the parser produces a fresh `@ast.Term` with no node IDs. The existing reconciliation logic in `projection/text_lens.mbt` solves this:
+After tree edit -> unparse -> reparse, the parser produces a fresh `@ast.Term` with no node IDs. The existing reconciliation logic in `projection/reconcile_ast.mbt` solves this:
 
 ```
 Old ProjNode (with IDs): λx[1]. (x[2] + 1[3])
@@ -199,7 +179,7 @@ Reconcile: LCS match children -> λx[1]. (1[3] + x[2])  // IDs preserved
 
 ```
 Signal[String] (TextDoc text) invalidated
-  -> Memo[@ast.Term] recomputes (ReactiveParser)
+  -> `SyncEditor::get_ast()` / `get_proj_node()` reads the updated syntax signal
   -> Memo[ProjNode] recomputes (reconcile new Term with previous ProjNode)
 ```
 
@@ -323,7 +303,7 @@ The unparser is `@ast.print_term` in `loom/examples/lambda/src/ast/ast.mbt` (exi
 
 - **Depends on:** [§3 Unified Editor](./03-unified-editor.md) (`SyncEditor` with `proj_node()`, `source_map()` Memos)
 - **Depends on:** `@ast.print_term` in `loom/examples/lambda/src/ast/ast.mbt` (existing unparser)
-- **Depends on:** `projection/text_lens.mbt` (`text_lens_diff`, `reconcile_ast`)
+- **Depends on:** `projection/reconcile_ast.mbt`, `editor/tree_edit_bridge.mbt`, `text_change/`
 - **Depends on:** `projection/tree_lens.mbt` (`tree_lens_apply_edit` / tree edit ops)
 - **Depends on:** `projection/source_map.mbt` (node -> text range, for `update_leaf`)
 - **Depended on by:** None (leaf node)

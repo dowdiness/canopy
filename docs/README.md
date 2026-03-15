@@ -36,6 +36,7 @@ Guides for contributing and developing.
 - [Monorepo & Submodules](development/monorepo.md) - Git submodule setup and workflows
 - [Workflow](development/workflow.md) - Development process and common commands
 - [Conventions](development/conventions.md) - MoonBit coding standards
+- [Paying Technical Debt](development/technical-debt.md) - Where debt should be fixed and how to retire old paths
 - [Testing](development/testing.md) - Testing guide and best practices
 
 ## Performance

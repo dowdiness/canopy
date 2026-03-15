@@ -60,11 +60,16 @@ JavaScript FFI bindings (`crdt.mbt`) that expose the editor API to JavaScript.
 ### `editor/`
 High-level editor abstractions (application-specific).
 
-- `SyncEditor` - Unified facade composing TextDoc, UndoManager, and ReactiveParser with cursor tracking
-- Text diff utilities for incremental parser integration
+- `SyncEditor` - Unified facade composing `TextDoc`, `UndoManager`, an edit-aware `ImperativeParser`, and memo-derived projection views
+- `text_change/` - Shared contiguous text-change adapter used by editor/projection diff code
+- `Editor` - Thin compatibility shim for CLI/tests; not the primary editor path
 
 ### `projection/`
 Projectional editing support.
+
+- Pure `ProjNode`/`SourceMap` derivation and reconciliation
+- Interactive tree UI state (`TreeEditorState`)
+- Functional tree-edit operations that round-trip through `SyncEditor`
 
 ### `cmd/main/`
 Command-line entry points and REPL.

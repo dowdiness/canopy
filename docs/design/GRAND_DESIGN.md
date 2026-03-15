@@ -6,6 +6,12 @@
 
 ---
 
+> Status note (2026-03-15): the current `SyncEditor` path uses
+> `ImperativeParser` plus SyncEditor-owned `Signal`/`Memo` state rather than a
+> stored `ReactiveParser`. Tree editing already round-trips through
+> `SyncEditor::apply_tree_edit(...)`; the remaining gaps are documentation
+> cleanup, direct Op→Edit plumbing, and CRDT range-edit APIs.
+
 ## Vision
 
 Combine three independently developed systems into a unified collaborative editing experience:
@@ -108,7 +114,7 @@ Remaining Phase 2 work: direct Op->Edit path (§1), Strategy C with edit-aware p
 | `TextDoc` / `SyncSession` | `event-graph-walker/text/` | Stable |
 | `OpLog` / `CausalGraph` / `FugueTree` | `event-graph-walker/internal/` | Stable |
 | `UndoManager` | `event-graph-walker/undo/` | Stable |
-| `ReactiveParser` | `loom/loom/src/` | Stable, in use by `SyncEditor` |
+| `ImperativeParser` + `Signal`/`Memo` wiring | `loom/loom/src/` + `editor/` | Stable, in use by `SyncEditor` |
 | `Signal` / `Memo` | `loom/incr/` | Stable |
 | `CstNode` / `SyntaxNode` | `loom/seam/` | Stable |
 | `Lens` / `SourceMap` | `projection/` | Stable |
@@ -116,7 +122,7 @@ Remaining Phase 2 work: direct Op->Edit path (§1), Strategy C with edit-aware p
 | `Editor` | `editor/editor.mbt` | Kept as compatibility shim |
 | **`SyncEditor`** | `editor/sync_editor.mbt` | **Phase 1 done** — core facade |
 | **Edit Bridge** (fallback) | `editor/edit_bridge.mbt` | **Phase 1 done** — `merge_to_edits` |
-| **Tree Edit Bridge** | `editor/tree_edit_bridge.mbt` | **Phase 1 done** — uses `CanonicalModel`, 9 tests |
+| **Tree Edit Bridge** | `editor/tree_edit_bridge.mbt` | **Implemented** — uses `SyncEditor` projection memos, undo-aware text roundtrip |
 
 ### Still to build
 
@@ -146,9 +152,9 @@ Phase 1 works without these via `parser.set_source(doc.text())` and string-based
 |-----------|--------|-------------|--------|
 | `ParsedEditor` | Redundant facade | `SyncEditor` | **Deleted** |
 | `ParsedEditor.parse_dirty` flag | Manual cache invalidation | `Memo` auto-invalidation | **Done** |
-| `ParsedEditor.cached_text` | Redundant string cache | `Signal[String]` in `ReactiveParser` | **Done** |
+| `ParsedEditor.cached_text` | Redundant string cache | `Signal[String]` in `SyncEditor` | **Done** |
 | `CanonicalModel.edit_history` | Duplicates CRDT OpLog | eg-walker `UndoManager` | **Not authoritative** |
-| `CanonicalModel.dirty_projections` | Manual dirty tracking | `Memo` dependency tracking | **Deferred** |
+| `CanonicalModel.dirty_projections` | Manual dirty tracking | `Memo` dependency tracking | **Retired from the active path** |
 
 ---
 
@@ -157,15 +163,15 @@ Phase 1 works without these via `parser.set_source(doc.text())` and string-based
 ### Phase 1: Foundation (complete)
 
 1. ~~Reuse existing loom `TextDelta` API~~ -> `merge_to_edits` in `edit_bridge.mbt`
-2. ~~Wire `TextDoc` text output into `ReactiveParser`~~ -> `parser.set_source(doc.text())`
-3. ~~Create `SyncEditor` combining `TextDoc` + `ReactiveParser` + `UndoManager`~~
+2. ~~Wire parser state to the CRDT text~~ -> `SyncEditor` updates `ImperativeParser` + signals after each text change
+3. ~~Create `SyncEditor` combining `TextDoc` + parser state + `UndoManager`~~
 4. ~~Expose FFI surface, retire `ParsedEditor`~~ -> `crdt.mbt` delegates to `SyncEditor`
 5. ~~Verify: all tests pass, web demo works~~ -> confirmed
 
 ### Phase 2: Optimization + Integration (next)
 
-6. Add Memo-derived `ProjNode` and `SourceMap` to `SyncEditor` (retire `CanonicalModel`)
-7. Integrate tree edit bridge into `SyncEditor` (no external `CanonicalModel` argument)
+6. ~~Add Memo-derived `ProjNode` and `SourceMap` to `SyncEditor`~~
+7. ~~Integrate tree edit bridge into `SyncEditor` (no external `CanonicalModel` argument)~~
 8. Add `lv_to_position` / `insert_with_op` to `TextDoc` for direct Op->Edit
 9. Implement `ReactiveParser::apply_edit(edit, source)` in loom (Strategy C)
 10. Verify: tree edits produce correct CRDT ops, no dual state

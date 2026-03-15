@@ -1,8 +1,8 @@
 # Design 03: Unified Editor Facade (`SyncEditor`)
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Core facade and memo-derived projection views implemented; broader editor/product integration still deferred
-**Updated:** 2026-03-10
+**Status:** Core facade and memo-derived projection views implemented
+**Updated:** 2026-03-15
 
 ---
 
@@ -14,12 +14,12 @@ The old architecture had three overlapping "editor" types:
 |------|----------|----------------------|--------|
 | `Editor` | `editor/editor.mbt` | Thin cursor wrapper around `TextDoc` | Kept (compatibility) |
 | `ParsedEditor` | `editor/parsed_editor.mbt` | AST cache, dirty flag, wraps `Editor` | **Deleted** |
-| `CanonicalModel` | `projection/canonical_model.mbt` | Historical projection container | Still exists in `projection/`, but no longer required by `SyncEditor` tree edits |
+| `CanonicalModel` | `projection/canonical_model.mbt` | Historical projection container | Deleted from active code; kept only in historical docs/plans |
 
 The dual source-of-truth problems have been partially resolved:
 - `ParsedEditor` is deleted — `SyncEditor` replaces it
 - `CanonicalModel.edit_history` is no longer authoritative — `TextDoc.OpLog` is the real history
-- Manual `parse_dirty` flag is gone — `ReactiveParser` handles invalidation
+- Manual `parse_dirty` flag is gone — `SyncEditor` drives invalidation via `ImperativeParser` + `Signal`/`Memo`
 - Tree edits now use `SyncEditor`'s memo-derived `ProjNode`, registry, and source map directly
 
 ---
@@ -35,8 +35,14 @@ The dual source-of-truth problems have been partially resolved:
 pub struct SyncEditor {
   priv doc : @text.TextDoc                              // CRDT text (eg-walker)
   priv undo : @undo.UndoManager                        // Undo/redo (eg-walker)
-  priv parser : @loom.ReactiveParser[@parser.SyntaxNode] // Incremental parser (loom)
-  priv mut cursor : Int                                  // Local cursor position
+  priv parser : @loom.ImperativeParser[@parser.SyntaxNode] // Edit-aware parser
+  priv parser_rt : @incr.Runtime
+  priv source_text : @incr.Signal[String]
+  priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
+  priv mut cursor : Int
+  priv proj_memo : @incr.Memo[@proj.ProjNode?]
+  priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
+  priv source_map_memo : @incr.Memo[@proj.SourceMap]
 }
 ```
 
@@ -65,7 +71,7 @@ pub struct SyncEditor {
 | Text content | `TextDoc` (delegate) | -- |
 | Operation history | `TextDoc.OpLog` | No own `edit_history` |
 | Undo/redo | `UndoManager` | No own `history_position` |
-| Incremental parse | `ReactiveParser` | No dirty flags or cached text |
+| Incremental parse | `ImperativeParser` + SyncEditor-managed signals | No dirty flags or cached text |
 | Source map | `SyncEditor` memo-derived projection view | No manual `rebuild_indices` |
 | Node registry | `SyncEditor` memo-derived projection view | -- |
 | Cursor position | `SyncEditor.cursor` | -- |
@@ -85,10 +91,10 @@ pub fn SyncEditor::delete(self) -> Bool
 pub fn SyncEditor::backspace(self) -> Bool
 pub fn SyncEditor::move_cursor(self, position : Int) -> Unit
 
-/// Derived state (lazy, via ReactiveParser)
+/// Derived state (lazy, via SyncEditor parser/projection memos)
 pub fn SyncEditor::get_text(self) -> String        // delegates to TextDoc
 pub fn SyncEditor::get_cursor(self) -> Int
-pub fn SyncEditor::get_ast(self) -> @ast.Term      // delegates to ReactiveParser
+pub fn SyncEditor::get_ast(self) -> @ast.Term      // derives from current syntax tree
 pub fn SyncEditor::get_ast_pretty(self) -> String  // expression + debug tree
 pub fn SyncEditor::get_errors(self) -> Array[String]
 pub fn SyncEditor::is_parse_valid(self) -> Bool
@@ -127,10 +133,9 @@ pub fn SyncEditor::apply_tree_edit(self, op : TreeEditOp, timestamp_ms : Int) ->
 ```
 user types "x"
   -> self.doc.insert(@text.Pos::at(cursor), "x")
-  -> self.parser.set_source(self.doc.text())    // Signal updated
+  -> self.parser.edit(edit, self.doc.text())    // Syntax tree updated
   -> cursor += text.length()
-  // AST is NOT recomputed here -- lazy
-  // Next call to self.get_ast() triggers memo recompute
+  // AST/projection views are still read lazily
 ```
 
 ### Internal Flow: Remote Merge
@@ -138,8 +143,8 @@ user types "x"
 ```
 receive SyncMessage from peer
   -> self.doc.sync().apply(msg)                 // CRDT merge
-  -> self.parser.set_source(self.doc.text())    // Signal updated
-  // AST lazily recomputed on next access
+  -> compute_edit(old, new) -> parser.edit(...)  // syntax signal updated
+  // AST/projection views lazily recompute on next access
 ```
 
 ---
@@ -163,12 +168,12 @@ All existing FFI functions delegate to `SyncEditor` methods. **No JavaScript cha
 | File / Type | Action | Status |
 |---|---|---|
 | `editor/parsed_editor.mbt` | Delete | **Done** |
-| `ParsedEditor.parse_dirty` | Gone — `Memo` handles this | **Done** |
-| `ParsedEditor.cached_text` | Gone — `Signal[String]` handles this | **Done** |
+| `ParsedEditor.parse_dirty` | Gone — SyncEditor-managed parser state handles this | **Done** |
+| `ParsedEditor.cached_text` | Gone — `source_text : Signal[String]` handles this | **Done** |
 | `CanonicalModel.edit_history` | No longer authoritative — `OpLog` is the history | **Done** |
-| `editor/text_diff.mbt` | Kept as test baseline | **Done** |
+| `editor/text_diff.mbt` | Kept as compatibility wrapper over `text_change/` | **Done** |
 | `editor/editor.mbt` (`Editor`) | Kept as compatibility shim | **Done** |
-| `projection/canonical_model.mbt` | Retained as older projection infrastructure, not the active `SyncEditor` path | **Partially retired** |
+| `projection/canonical_model.mbt` | Deleted from active codebase | **Done** |
 | `CanonicalModel.dirty_projections` | No longer part of the active editor flow | **Retired from `SyncEditor` path** |
 
 ---
@@ -179,7 +184,7 @@ The useful parts of `CanonicalModel` have been replaced by derived `Memo`s on `S
 
 | `CanonicalModel` field | Becomes |
 |---|---|
-| `ast` | `Memo[ProjNode]` — built from `parser.term()` + reconciliation |
+| `ast` | `Memo[ProjNode]` — built from `syntax_tree` + reconciliation |
 | `node_registry` | `Memo[Map[NodeId, ProjNode]]` — traversal of ProjNode tree |
 | `source_map` | `Memo[SourceMap]` derived from ProjNode tree |
 | `next_node_id` | Counter in `SyncEditor` |

@@ -1,4 +1,5 @@
 import {
+  "dowdiness/crdt/text_change" @text_change,
   "dowdiness/event-graph-walker/text",
   "dowdiness/event-graph-walker/undo",
   "dowdiness/incr" @incr,

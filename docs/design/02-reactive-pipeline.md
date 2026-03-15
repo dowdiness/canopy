@@ -6,6 +6,12 @@
 
 ---
 
+> Status note (2026-03-15): the live `SyncEditor` implementation no longer
+> stores a `ReactiveParser` directly. It uses `ImperativeParser` for edit-aware
+> reparsing plus `Signal`/`Memo` state for the derived projection pipeline.
+> Treat the `ReactiveParser` sections below as design history unless they are
+> explicitly called out as future work.
+
 ## Problem
 
 The old `ParsedEditor` (now deleted) used loom's `ImperativeParser` with manual dirty-flag tracking:

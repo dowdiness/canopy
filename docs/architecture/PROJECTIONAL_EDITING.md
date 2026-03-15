@@ -4,6 +4,14 @@
 
 This plan outlines a **general theoretical architecture** for Projectional Editing that can be applied to any domain, with specific implementation guidance for the Lambda Calculus CRDT Editor. The core insight is treating **projections as lenses** over a canonical model, with **bidirectional transformations** maintaining semantic equivalence (bisimulation).
 
+> Status note (2026-03-15): this document is partly historical. The active
+> implementation no longer uses `CanonicalModel`, `projection/canonical_model.mbt`,
+> or `projection/text_lens.mbt`. The live path is `SyncEditor` +
+> memo-derived `ProjNode`/`SourceMap` + `TreeEditorState::from_projection` /
+> `refresh`. See [docs/design/03-unified-editor.md](../design/03-unified-editor.md),
+> [docs/design/05-tree-edit-roundtrip.md](../design/05-tree-edit-roundtrip.md),
+> and [docs/architecture/modules.md](./modules.md) for the current structure.
+
 ---
 
 ## Part 1: Theoretical Architecture for General Projectional Editing
@@ -200,13 +208,13 @@ The existing codebase has:
 | Lambda Parser | ✅ Complete | `loom/examples/lambda/` |
 | AST (TermNode) | ✅ Complete | `loom/examples/lambda/src/ast/` |
 | AST Visualization | ✅ DOT export | `loom/examples/lambda/src/dot_node.mbt` |
-| AST↔CRDT Bridge | 🔶 Partial | `editor/parsed_editor.mbt` |
-| CanonicalModel | ✅ Complete | `projection/canonical_model.mbt` |
+| AST↔CRDT Bridge | ✅ Complete | `editor/sync_editor*.mbt` |
+| CanonicalModel | Retired | Historical docs/plans only |
 | SourceMap | ✅ Complete | `projection/source_map.mbt` |
-| TextLens | ✅ Complete | `projection/text_lens.mbt` |
+| Text diff adapter | ✅ Complete | `projection/text_projection_diff.mbt` |
 | TreeLens | ✅ Complete | `projection/tree_lens.mbt` |
-| AST Reconciliation | ✅ Complete | `projection/tree_lens.mbt` |
-| apply_operation | ✅ Complete | `projection/canonical_model.mbt` |
+| AST Reconciliation | ✅ Complete | `projection/reconcile_ast.mbt` |
+| apply_operation | Retired | Replaced by `apply_edit_to_proj(...)` |
 | SyncEditor tree edit bridge | ✅ Complete | `editor/tree_edit_bridge.mbt` |
 | InteractiveTreeNode | ✅ Complete | `projection/tree_editor.mbt` |
 | TreeEditorState | ✅ Complete | `projection/tree_editor.mbt` (immutable UI state, structural indexes, subtree reuse) |

@@ -76,13 +76,20 @@ The bridge sits between `TextDoc` and loom's parser. Currently, `SyncEditor` use
 ```moonbit
 // In SyncEditor (current implementation):
 pub fn insert(self : SyncEditor, text : String) -> Unit raise {
+  let old_source = self.doc.text()
   self.doc.insert(@text.Pos::at(self.cursor), text)
   self.cursor = self.cursor + text.length()
-  self.parser.set_source(self.doc.text())  // ReactiveParser handles the rest
+  self.sync_parser_after_text_change(
+    old_source,
+    self.doc.text(),
+    Some(@parser.Edit::insert(self.cursor - text.length(), text.length())),
+  )
 }
 ```
 
-The `merge_to_edits` function is available but `SyncEditor` currently delegates to `ReactiveParser.set_source()` which internally diffs the old and new source strings. Once the direct path is available, the flow becomes:
+The `merge_to_edits` function is available but `SyncEditor` currently uses the
+fallback path only for cases where it does not already know the edit shape (for
+example after remote sync). Once the direct path is available, the flow becomes:
 
 ```
 TextDoc.insert_with_op()

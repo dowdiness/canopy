@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/crdt/text_change"
+
+import {
+  "dowdiness/loom/core",
+}
+
+// Values
+pub fn compute_text_change(String, String) -> TextChange
+
+// Errors
+
+// Types and methods
+pub struct TextChange {
+  start : Int
+  delete_len : Int
+  inserted : String
+}
+pub fn TextChange::is_noop(Self) -> Bool
+pub fn TextChange::to_parser_edit(Self) -> @core.Edit
+pub impl Eq for TextChange
+pub impl Show for TextChange
+
+// Type aliases
+
+// Traits
+

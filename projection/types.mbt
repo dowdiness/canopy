@@ -1,5 +1,8 @@
-// Core types for Projectional Editing
-// These types enable bidirectional transformation between projections
+// Core and compatibility types for projection editing.
+// `NodeId` / `DropPosition` are active runtime types. The edit-algebra enums
+// below remain for compatibility-oriented tests/docs, not the SyncEditor path.
+// Retire them rather than extending them if the active editor flow no longer
+// needs this public surface.
 
 ///|
 using @loomcore {type Range}

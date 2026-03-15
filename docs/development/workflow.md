@@ -15,6 +15,19 @@
 
 See [Monorepo & Submodules](monorepo.md) for the full guide on the git submodule setup, daily workflows, and common pitfalls.
 
+## Paying Technical Debt
+
+Before patching around a design problem locally, check
+[Paying Technical Debt](technical-debt.md).
+
+The short version:
+
+- fix missing CRDT/parser APIs in the owning submodule,
+- keep only one active editor architecture,
+- centralize shared logic once,
+- isolate any unavoidable workaround in a single helper with a comment naming
+  the missing upstream API.
+
 ## Working with the Parser
 
 The parser lives in `loom/examples/lambda/`. The framework is in `loom/loom/`. When modifying:
@@ -39,8 +52,9 @@ The CRDT implementation is split across two modules:
 
 **Application layer (crdt module):**
 - `editor/editor.mbt` - Basic editor with cursor tracking
-- `editor/parsed_editor.mbt` - Editor with incremental parser integration
+- `editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
 - `editor/text_diff.mbt` - Text diffing utilities
+- `text_change/` - Shared contiguous text-change helpers
 
 When adding features, consult:
 - [event-graph-walker/README.md](../../event-graph-walker/README.md)
