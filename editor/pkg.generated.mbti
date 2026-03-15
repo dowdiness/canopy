@@ -7,12 +7,13 @@ import {
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
+  "dowdiness/text_change",
 }
 
 // Values
 pub fn compute_edit(String, String) -> @core.Edit
 
-pub fn compute_text_splice(String, String) -> TextSplice
+pub fn compute_text_splice(String, String) -> @text_change.TextChange
 
 pub fn merge_to_edits(String, String) -> Array[@core.Edit]
 
@@ -76,14 +77,6 @@ pub fn SyncEditor::set_text(Self, String) -> Unit
 pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
 pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
 pub fn SyncEditor::undo(Self) -> Bool
-
-pub struct TextSplice {
-  start : Int
-  delete_len : Int
-  inserted : String
-}
-pub impl Eq for TextSplice
-pub impl Show for TextSplice
 
 // Type aliases
 

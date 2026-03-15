@@ -88,12 +88,7 @@ fn SyncEditor::apply_replace_span(
 ) -> Unit {
   let range = @text.Range::from_ints(start, start + deleted_len)
   if record_undo {
-    self.doc.replace_range_and_record(
-      range,
-      inserted,
-      self.undo,
-      timestamp_ms~,
-    ) catch {
+    self.doc.replace_range_and_record(range, inserted, self.undo, timestamp_ms~) catch {
       _ => ()
     }
   } else {
@@ -133,11 +128,7 @@ fn SyncEditor::apply_text_edit_internal(
   // Funnel all bulk text mutation through one helper so CRDT range-edit and
   // undo behavior stay aligned at a single boundary.
   self.apply_replace_span(
-    safe_start,
-    safe_delete_len,
-    inserted,
-    timestamp_ms,
-    record_undo,
+    safe_start, safe_delete_len, inserted, timestamp_ms, record_undo,
   )
   if move_cursor_to_edit_end {
     self.cursor = safe_start + inserted.length()
