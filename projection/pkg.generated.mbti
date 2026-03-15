@@ -20,11 +20,9 @@ pub fn parse_to_proj_node(String) -> (ProjNode, Array[String])
 
 pub fn reconcile_ast(ProjNode, ProjNode, @ref.Ref[Int]) -> ProjNode
 
-pub fn source_file_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
-
 pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
 
-pub fn text_lens_diff(String, String) -> Array[ProjectionEdit]
+pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
 
 // Errors
 
@@ -57,23 +55,6 @@ pub struct InteractiveTreeNode {
 pub fn InteractiveTreeNode::from_term_node(ProjNode, SourceMap) -> Self
 pub impl Show for InteractiveTreeNode
 
-pub enum LeafValue {
-  IntValue(Int)
-  VarName(String)
-  OpSymbol(String)
-}
-pub impl Eq for LeafValue
-pub impl Show for LeafValue
-
-pub enum ModelOperation {
-  InsertNode(parent~ : NodeId, index~ : Int, node~ : ProjNode)
-  DeleteNode(node_id~ : NodeId)
-  ReplaceNode(node_id~ : NodeId, new_node~ : ProjNode)
-  UpdateLeaf(node_id~ : NodeId, new_value~ : LeafValue)
-  MoveNode(node_id~ : NodeId, new_parent~ : NodeId, new_index~ : Int)
-}
-pub impl Show for ModelOperation
-
 pub struct NodeId(Int)
 #deprecated
 pub fn NodeId::inner(Self) -> Int
@@ -93,24 +74,6 @@ pub fn ProjNode::id(Self) -> NodeId
 pub fn ProjNode::new(@ast.Term, Int, Int, Int, Array[Self]) -> Self
 pub impl Eq for ProjNode
 pub impl Show for ProjNode
-
-pub enum ProjectionEdit {
-  TextInsert(position~ : Int, text~ : String)
-  TextDelete(start~ : Int, end~ : Int)
-  NodeSelect(node_id~ : NodeId)
-  NodeValueChange(node_id~ : NodeId, new_value~ : LeafValue)
-  StructuralChange(operation~ : ModelOperation)
-}
-pub impl Show for ProjectionEdit
-
-pub enum ProjectionId {
-  Text
-  Tree
-  Custom(String)
-}
-pub impl Eq for ProjectionId
-pub impl Hash for ProjectionId
-pub impl Show for ProjectionId
 
 pub struct SourceMap {
   node_to_range : Map[NodeId, @core.Range]
@@ -163,14 +126,6 @@ pub fn TreeEditorState::from_projection(ProjNode?, SourceMap) -> Self
 pub fn TreeEditorState::get_loaded_node(Self, NodeId) -> InteractiveTreeNode?
 pub fn TreeEditorState::new() -> Self
 pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
-
-pub enum ValidationLevel {
-  Syntactic
-  Semantic
-  Dynamic
-}
-pub impl Eq for ValidationLevel
-pub impl Show for ValidationLevel
 
 // Type aliases
 

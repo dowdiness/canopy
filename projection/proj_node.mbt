@@ -215,10 +215,7 @@ pub fn syntax_to_proj_node(
 /// mirroring `syntax_node_to_term` but preserving spans and IDs.
 ///
 /// LetDef children are right-folded into nested Let(name, init, body) nodes.
-pub fn to_proj_node(
-  root : @seam.SyntaxNode,
-  counter : Ref[Int],
-) -> ProjNode {
+pub fn to_proj_node(root : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
   let defs : Array[(String, ProjNode, Int)] = []
   let mut final_proj : ProjNode? = None
   for child in root.children() {
