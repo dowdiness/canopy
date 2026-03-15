@@ -46,6 +46,61 @@ If you already cloned without `--recursive`:
 git submodule update --init --recursive
 ```
 
+## Daily Cheat Sheet
+
+### Edit a submodule
+
+```bash
+cd event-graph-walker
+git checkout main            # or your feature branch
+
+# make changes
+moon check
+moon test
+
+git add -A
+git commit -m "feat: ..."
+git push origin main
+
+cd ..
+git add event-graph-walker
+git commit -m "chore: update event-graph-walker submodule"
+```
+
+### Sync after pulling the monorepo
+
+```bash
+git pull
+git submodule update --init --recursive
+```
+
+### Advance a submodule to latest upstream
+
+```bash
+git submodule update --remote event-graph-walker
+
+# then test what depends on it
+cd event-graph-walker && moon test && cd ..
+moon test
+
+git add event-graph-walker
+git commit -m "chore: update event-graph-walker submodule"
+```
+
+### Inspect submodule changes
+
+```bash
+git status                   # monorepo root: pointer changes only
+cd event-graph-walker
+git status                   # submodule: actual file changes
+```
+
+### Daily rule
+
+- Always make two commits: one inside the submodule, one in the root repo.
+- If you change `event-graph-walker`, run its tests and root `moon test`.
+- If you change `loom`, run `cd loom/loom && moon test` and any affected root tests.
+
 ## Daily Workflow
 
 ### Working on monorepo packages (editor/, projection/, cmd/, examples/web/)
