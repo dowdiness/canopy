@@ -184,22 +184,6 @@ pub fn syntax_to_proj_node(
       next_proj_node_id(counter),
       [cond, then_, else_],
     )
-  } else if @parser.LetExprView::cast(node) is Some(v) {
-    let init = match v.init() {
-      Some(n) => syntax_to_proj_node(n, counter)
-      None => error_node_for_syntax("missing let binding value", node, counter)
-    }
-    let body = match v.body() {
-      Some(n) => syntax_to_proj_node(n, counter)
-      None => error_node_for_syntax("missing let body", node, counter)
-    }
-    ProjNode::new(
-      Let(v.name(), init.kind, body.kind),
-      node.start(),
-      node.end(),
-      next_proj_node_id(counter),
-      [init, body],
-    )
   } else if @parser.ParenExprView::cast(node) is Some(v) {
     match v.inner() {
       Some(inner) => {
@@ -228,14 +212,10 @@ pub fn syntax_to_proj_node(
 ///|
 /// Convert a SourceFile SyntaxNode (LetDef* Expression?) to a ProjNode tree.
 /// Right-folds LetDef children into nested Let(name, init, body) ProjNodes,
-/// mirroring `syntax_node_to_source_file_term` but preserving spans and IDs.
+/// mirroring `syntax_node_to_term` but preserving spans and IDs.
 ///
-/// Also handles inline `let x = 0 in body` (LetExpr nodes) — these are passed
-/// through to `syntax_to_proj_node` which already handles LetExprView.
-pub fn source_file_to_proj_node(
-  root : @seam.SyntaxNode,
-  counter : Ref[Int],
-) -> ProjNode {
+/// LetDef children are right-folded into nested Let(name, init, body) nodes.
+pub fn to_proj_node(root : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
   let defs : Array[(String, ProjNode, Int)] = []
   let mut final_proj : ProjNode? = None
   for child in root.children() {
@@ -266,30 +246,6 @@ pub fn source_file_to_proj_node(
     )
   }
   result
-}
-
-///|
-fn is_term_expression_node(node : @seam.SyntaxNode) -> Bool {
-  @parser.IntLiteralView::cast(node) is Some(_) ||
-  @parser.VarRefView::cast(node) is Some(_) ||
-  @parser.LambdaExprView::cast(node) is Some(_) ||
-  @parser.AppExprView::cast(node) is Some(_) ||
-  @parser.BinaryExprView::cast(node) is Some(_) ||
-  @parser.IfExprView::cast(node) is Some(_) ||
-  @parser.LetExprView::cast(node) is Some(_) ||
-  @parser.ParenExprView::cast(node) is Some(_)
-}
-
-///|
-fn unwrap_expression_root(node : @seam.SyntaxNode) -> @seam.SyntaxNode {
-  if is_term_expression_node(node) {
-    node
-  } else {
-    match node.nth_child(0) {
-      Some(child) => child
-      None => node
-    }
-  }
 }
 
 ///|
@@ -352,17 +308,13 @@ fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
 }
 
 ///|
-/// Parse a single expression and return a ProjNode tree.
-/// Uses `lambda_grammar` (not `source_file_grammar`) because this is for
-/// sub-expression parsing in tree_lens operations, not whole-document parsing.
-/// The editor's top-level parsing uses `source_file_to_proj_node` instead.
+/// Parse text and return a ProjNode tree.
+/// Uses the unified source-file grammar for both single expressions and
+/// multi-definition files.
 pub fn parse_to_proj_node(text : String) -> (ProjNode, Array[String]) {
   let ip = @loom.new_imperative_parser(text, @parser.lambda_grammar)
   let syntax_node : @seam.SyntaxNode = ip.parse()
   let errors = ip.diagnostics()
-  let root = syntax_to_proj_node(
-    unwrap_expression_root(syntax_node),
-    Ref::new(0),
-  )
+  let root = to_proj_node(syntax_node, Ref::new(0))
   (root, errors)
 }

@@ -7,7 +7,7 @@ pub fn compute_text_change(String, String) -> TextChange
 // Errors
 
 // Types and methods
-pub struct TextChange {
+pub(all) struct TextChange {
   start : Int
   delete_len : Int
   inserted : String

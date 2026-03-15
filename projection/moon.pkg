@@ -1,5 +1,4 @@
 import {
-  "dowdiness/text_change" @text_change,
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/loom" @loom,

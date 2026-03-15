@@ -2,7 +2,7 @@
 // Keep this module leaf-only: no parser, CRDT, or UI dependencies.
 
 ///|
-pub struct TextChange {
+pub(all) struct TextChange {
   start : Int
   delete_len : Int
   inserted : String

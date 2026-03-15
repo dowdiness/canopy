@@ -5,6 +5,9 @@
     "moonbit-community/rabbita": "0.11.5",
     "dowdiness/crdt": {
       "path": "../.."
+    },
+    "dowdiness/text_change": {
+      "path": "../../lib/text-change"
     }
   },
   "readme": "README.md",

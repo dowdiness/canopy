@@ -3,6 +3,7 @@ import {
   "moonbit-community/rabbita/html",
   "dowdiness/crdt/editor" @editor,
   "dowdiness/crdt/projection" @proj,
+  "dowdiness/text_change",
 }
 
 options(

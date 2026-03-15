@@ -36,53 +36,6 @@ test "SourceMap innermost_node_at distinguishes operands" {
 }
 
 ///|
-test "text_lens_diff detects changes" {
-  let edits = text_lens_diff("hello", "hello")
-  inspect(edits.length(), content="0")
-  inspect(text_lens_diff("hello", "world").length() > 0, content="true")
-}
-
-///|
-test "text_lens_diff preserves common prefix and suffix" {
-  let edits = text_lens_diff("hello world", "hello there")
-  inspect(edits.length(), content="2")
-  match edits[0] {
-    TextInsert(position~, text~) => {
-      inspect(position, content="6")
-      inspect(text, content="there")
-    }
-    _ => abort("Expected TextInsert first")
-  }
-  match edits[1] {
-    TextDelete(start~, end~) => {
-      inspect(start, content="11")
-      inspect(end, content="16")
-    }
-    _ => abort("Expected TextDelete second")
-  }
-}
-
-///|
-test "text_lens_diff handles replacement in middle" {
-  let edits = text_lens_diff("abXYZcd", "ab123cd")
-  inspect(edits.length(), content="2")
-  match edits[0] {
-    TextInsert(position~, text~) => {
-      inspect(position, content="2")
-      inspect(text, content="123")
-    }
-    _ => abort("Expected TextInsert first")
-  }
-  match edits[1] {
-    TextDelete(start~, end~) => {
-      inspect(start, content="5")
-      inspect(end, content="8")
-    }
-    _ => abort("Expected TextDelete second")
-  }
-}
-
-///|
 test "TreeEditorState from_projection" {
   let (root, _) = parse_to_proj_node("x + 1")
   let state = TreeEditorState::from_projection(

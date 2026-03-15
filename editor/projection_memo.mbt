@@ -28,7 +28,7 @@ fn build_projection_memos(
         }
       }
       let counter = Ref::new(next_id_ref.val)
-      let new_proj = @proj.source_file_to_proj_node(syntax_root, counter)
+      let new_proj = @proj.to_proj_node(syntax_root, counter)
       let reconciled = match prev_proj_ref.val {
         None => new_proj
         Some(prev) => @proj.reconcile_ast(prev, new_proj, counter)

@@ -60,8 +60,6 @@ Detailed documentation for each module:
 - [Tree Editor Subtree Reuse Design](plans/2026-03-11-tree-editor-subtree-reuse-design.md)
 - [Rabbita Projection Editor Performance Plan](plans/2026-03-11-rabbita-projection-editor-performance-plan.md)
 - [Rabbita Perf Harness Redesign](plans/2026-03-11-rabbita-perf-harness-redesign.md)
-- [Boundary Correction And Cross-Module Deduplication](plans/2026-03-15-boundary-correction-and-dedup-plan.md)
-
 ## Archive
 
 Historical documentation and investigations:
@@ -73,6 +71,7 @@ Historical documentation and investigations:
 - [Name Resolution Design](archive/completed-phases/2026-03-07-name-resolution-design.md) (Complete)
 - [Name Resolution Implementation](archive/completed-phases/2026-03-07-name-resolution-implementation.md) (Complete)
 - [Simplify Web Integration](archive/completed-phases/2026-03-08-simplify-web-integration.md) (Complete)
+- [Boundary Correction And Cross-Module Deduplication](archive/completed-phases/2026-03-15-boundary-correction-and-dedup-plan.md) (Complete)
 
 ## External Resources
 

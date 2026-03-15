@@ -22,7 +22,7 @@ pub fn SyncEditor::new(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> SyncEditor {
-  let parser = @loom.new_imperative_parser("", @parser.source_file_grammar)
+  let parser = @loom.new_imperative_parser("", @parser.lambda_grammar)
   let parser_rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
   let syntax_tree = @incr.Signal::new(

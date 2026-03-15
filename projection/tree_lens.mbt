@@ -335,7 +335,7 @@ fn placeholder_text_for_kind(kind : @ast.Term) -> String {
     @ast.Term::App(_, _) => "f x"
     @ast.Term::Bop(_, _, _) => "0 + 0"
     @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
-    @ast.Term::Let(_, _, _) => "let x = 0 in x"
+    @ast.Term::Let(_, _, _) => "let x = 0\nx"
     @ast.Term::Unit => "()"
     @ast.Term::Error(_) => "a"
   }

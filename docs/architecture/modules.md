@@ -90,14 +90,16 @@ Command-line entry points and REPL.
 svg-dsl (independent)
    ↑
 graphviz (depends on svg-dsl via path ../svg-dsl)
+   ↑
+   ├── loom/viz (depends on graphviz via path ../../graphviz)
 
-valtio (independent)
+text-change (leaf module, independent)
+   ↑
+   ├── loom/core (depends on text-change via path ../../lib/text-change)
+   ├── valtio (depends on text-change via path ../lib/text-change)
+   └── crdt (depends on text-change via path ./lib/text-change)
 
 event-graph-walker (independent, quickcheck only)
-
-loom (independent: loom/seam/incr/lambda submodules)
-
-text-change (leaf module shared by crdt + loom + valtio)
 
 crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/loom + dowdiness/text_change via path deps)
 ```

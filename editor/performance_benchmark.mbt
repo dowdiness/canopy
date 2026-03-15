@@ -34,7 +34,7 @@ test "parser benchmark - reactive full reparse medium" (b : @bench.T) {
   let scenario = parser_bench_scenario(80)
   let parser = @loom.new_reactive_parser(
     scenario.source,
-    @parser.source_file_grammar,
+    @parser.lambda_grammar,
   )
   ignore(parser.term())
   let mut use_edited = true
@@ -55,7 +55,7 @@ test "parser benchmark - imperative incremental medium" (b : @bench.T) {
   let scenario = parser_bench_scenario(80)
   let parser = @loom.new_imperative_parser(
     scenario.source,
-    @parser.source_file_grammar,
+    @parser.lambda_grammar,
   )
   ignore(parser.parse())
   let mut use_edited = true
@@ -80,7 +80,7 @@ test "parser benchmark - reactive full reparse large" (b : @bench.T) {
   let scenario = parser_bench_scenario(320)
   let parser = @loom.new_reactive_parser(
     scenario.source,
-    @parser.source_file_grammar,
+    @parser.lambda_grammar,
   )
   ignore(parser.term())
   let mut use_edited = true
@@ -101,7 +101,7 @@ test "parser benchmark - imperative incremental large" (b : @bench.T) {
   let scenario = parser_bench_scenario(320)
   let parser = @loom.new_imperative_parser(
     scenario.source,
-    @parser.source_file_grammar,
+    @parser.lambda_grammar,
   )
   ignore(parser.parse())
   let mut use_edited = true

@@ -63,7 +63,7 @@ pub fn SyncEditor::mark_dirty(self : SyncEditor) -> Unit {
 ///|
 pub fn SyncEditor::get_ast(self : SyncEditor) -> @ast.Term {
   let syntax_node = self.current_syntax_tree()
-  @parser.syntax_node_to_source_file_term(syntax_node)
+  @parser.syntax_node_to_term(syntax_node)
 }
 
 ///|
