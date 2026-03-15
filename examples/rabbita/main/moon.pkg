@@ -3,12 +3,8 @@ import {
   "moonbit-community/rabbita/html",
   "dowdiness/crdt/editor" @editor,
   "dowdiness/crdt/projection" @proj,
-  "dowdiness/text_change" @text_change,
+  "dowdiness/text_change",
 }
-
-// 29 — @text_change import is needed for struct field access on TextChange
-//       returned by @editor.compute_text_splice, even though the alias is unused
-warnings = "-29"
 
 options(
   "is-main": true,
