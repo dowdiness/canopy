@@ -121,3 +121,7 @@ As of 2026-03-15, the highest-value debt to pay next is:
 3. Keep active architecture docs aligned with the current
    `SyncEditor -> TextDoc + UndoManager + ImperativeParser + memo-derived projection`
    design.
+
+Detailed execution plan:
+
+- [Boundary Correction And Cross-Module Deduplication](../plans/2026-03-15-boundary-correction-and-dedup-plan.md)

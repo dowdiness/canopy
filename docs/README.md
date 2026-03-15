@@ -60,6 +60,7 @@ Detailed documentation for each module:
 - [Tree Editor Subtree Reuse Design](plans/2026-03-11-tree-editor-subtree-reuse-design.md)
 - [Rabbita Projection Editor Performance Plan](plans/2026-03-11-rabbita-projection-editor-performance-plan.md)
 - [Rabbita Perf Harness Redesign](plans/2026-03-11-rabbita-perf-harness-redesign.md)
+- [Boundary Correction And Cross-Module Deduplication](plans/2026-03-15-boundary-correction-and-dedup-plan.md)
 
 ## Archive
 
