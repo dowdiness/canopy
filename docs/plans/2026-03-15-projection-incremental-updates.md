@@ -1,151 +1,107 @@
 # Projection Layer Incremental Updates
 
 **Date:** 2026-03-15
-**Status:** Approved
+**Status:** Draft (revised after review)
 
 ## Problem
 
 Every edit triggers four O(n) passes in the projection pipeline:
 
-1. `to_proj_node()` — full syntax tree → ProjNode conversion with right-fold
-2. `reconcile_ast()` — O(n*m) LCS matching to preserve node IDs
+1. `to_proj_node()` — full syntax tree → ProjNode right-fold
+2. `reconcile_ast()` — recursive traversal of nested Let spine
 3. `register_node_tree()` — flat registry rebuild
 4. `SourceMap::from_ast()` — position mapping rebuild
 
-For 80 LetDefs, a single-character edit in one LetDef rebuilds all 80 ProjNodes, reconciles all 80, rebuilds the registry, and rebuilds the source map.
-
 ## Research findings
 
-### LetDef CST nodes are NOT reused by the incremental parser
+### The projection is a nested Let spine, not a flat list
 
-`parse_let_item` uses `ctx.start_at(mark, LetDef)` — the raw mark/start_at pattern, not `ctx.node(kind, body)` which is the reuse-aware combinator. Top-level LetDef nodes are always re-parsed from scratch on every incremental edit.
+`to_proj_node` right-folds LetDef children into nested Let ProjNodes:
 
-However, **`NodeInterner` deduplicates them**. Two structurally identical LetDefs (same tokens, same children) built in different parse runs are interned to the same canonical CstNode. So `physical_equal(old_letdef, new_letdef)` correctly returns `true` for unchanged LetDefs, even though they were re-parsed.
+```
+Let("x", init_x, Let("y", init_y, Let("z", init_z, Expr)))
+```
+
+Each Let's `children` is `[init, body]` where `body` is the entire remaining chain. Changing `init_z` forces rebuilding Let("z"), Let("y"), and Let("x") because each node's body child changed. **The entire spine rebuilds for ANY content edit.**
+
+`physical_equal` on SourceFile CST children can detect which init subtree changed, but the right-fold itself is always O(n) — n new Let ProjNodes must be created with updated body references.
+
+### reconcile_ast is already O(n), not O(n*m)
+
+`reconcile_children` uses LCS, but Let nodes always have exactly 2 children `[init, body]`. The DP table is always 2x2. The total cost is O(n) recursive calls through the 80-deep Let spine, each with a constant-size LCS — not one 80x80 LCS as initially assumed.
 
 ### Eliminating reconciliation breaks structural edits
 
-For **content-only edits** (typing within a LetDef), positional matching works: each LetDef stays at the same index, `physical_equal` correctly identifies unchanged nodes.
+For content edits, positional matching works. For LetDef insertion/deletion, positional matching misaligns IDs for all subsequent LetDefs. Reconciliation must be kept.
 
-For **structural edits** (inserting/deleting a LetDef), positional matching fails:
+### LetDef CST nodes are deduplicated by NodeInterner
 
-```
-Before: [LetDef(a), LetDef(b), LetDef(c), Expr]
-After:  [LetDef(a), LetDef(NEW), LetDef(b), LetDef(c), Expr]
-```
+`parse_let_item` uses `start_at` (no `try_reuse`), so LetDefs are re-parsed from scratch. But `NodeInterner` deduplicates structurally identical nodes — `physical_equal(old, new)` returns true for unchanged LetDefs.
 
-Without LCS, positional matching assigns:
-- Position 1: old LetDef(b)'s ID → new LetDef(NEW) — wrong
-- Position 2: old LetDef(c)'s ID → new LetDef(b) — wrong
+### prev_root/prev_proj alignment breaks after tree edits
 
-The LCS reconciler correctly aligns old LetDef(b) with new LetDef(b) despite the shift. Without it, every LetDef after an insertion gets the wrong ID, breaking cursor tracking, selection state, and `tree_edit_bridge`'s structural editing.
+`apply_tree_edit()` seeds `prev_proj_node` with a structurally edited projection BEFORE reparsing. After a tree edit, `prev_proj` doesn't correspond to the previous CST. Any `physical_equal` scheme assuming alignment would break on this path.
 
-### Conclusion: keep reconciliation, make it fast via physical_equal
+## Revised approach: flat top-level projection
 
-Feed the reconciler mostly-identical trees. When 79/80 ProjNode children are literally the same object, reconciliation is trivially fast — LCS on runs of equal elements degenerates to O(n) identity comparisons.
+The nested Let spine forces O(n) rebuilds because each node embeds its successors. The fix: introduce a **flat intermediate representation** at the SourceFile level, then fold to nested Let only when needed.
 
-## Solution
-
-Use `physical_equal` on CstNode children of SourceFile to detect unchanged LetDefs. Reuse old ProjNodes for unchanged LetDefs, only rebuild the changed one. Optimize the downstream pipeline to skip identical subtrees.
-
-### Phase 1: `to_proj_node` incremental
-
-**Current:** `to_proj_node(syntax_root, counter)` traverses ALL children, builds fresh ProjNodes for every LetDef, right-folds into nested Let terms.
-
-**Change:** Accept an optional previous ProjNode tree. For each SourceFile child:
-- Compare old and new CstNode via `physical_equal`
-- If same: reuse the old ProjNode (and its ID, children, everything)
-- If different: build a new ProjNode via `syntax_to_proj_node`
-- Right-fold as before, but with reused ProjNodes for unchanged LetDefs
-
-This makes `to_proj_node` O(n) pointer comparisons + O(changed_subtree) actual work, instead of O(total_nodes) tree traversal.
-
-### Phase 2: `reconcile_ast` optimization
-
-**Current:** `reconcile_children` builds an O(old*new) LCS DP table on every call.
-
-**Change:** Before LCS, scan both children arrays for the first mismatch. If only one position differs (content edit), reconcile only that child — skip LCS entirely. If multiple positions differ (structural edit), fall back to LCS on the mismatched region only.
-
-For content edits: O(n) scan + O(1) reconcile.
-For structural edits: O(n) scan + O(k) LCS on k mismatched children.
-
-### Phase 3: `register_node_tree` and `SourceMap` patch
-
-**Current:** Both do O(n) full tree traversals on every edit.
-
-**Change:** Keep full rebuilds for now. At O(n) with n=80, they take microseconds. Optimize only if profiling shows they matter.
-
-## Data flow (after optimization)
-
-```
-Edit → incremental parse → new CstNode tree
-                              ↓
-to_proj_node(new_cst, prev_proj)
-  ├─ For each SourceFile child:
-  │   physical_equal(old_cst_child, new_cst_child)?
-  │     → true:  reuse old ProjNode
-  │     → false: build new ProjNode via syntax_to_proj_node
-  ├─ Right-fold reused + new ProjNodes
-  └─ Return mostly-reused ProjNode tree
-                              ↓
-reconcile_ast(prev_proj, new_proj)
-  ├─ Scan children: physical_equal fast path
-  ├─ Only reconcile changed positions
-  └─ Return reconciled tree (mostly same IDs)
-                              ↓
-register_node_tree + SourceMap (full rebuild, fast)
-```
-
-## API changes
-
-### `to_proj_node` (projection/proj_node.mbt)
-
-Add optional parameter for previous parse state:
+### Flat representation
 
 ```moonbit
-pub fn to_proj_node(
-  root : @seam.SyntaxNode,
-  counter : Ref[Int],
-  prev_root? : @seam.SyntaxNode? = None,
-  prev_proj? : ProjNode? = None,
-) -> ProjNode
-```
-
-When `prev_root` and `prev_proj` are provided, use `physical_equal` on CstNode children to reuse ProjNodes.
-
-### `reconcile_children` (projection/reconcile_ast.mbt)
-
-Optimize to skip `physical_equal` matches:
-
-```moonbit
-fn reconcile_children(old, new, counter) -> Array[ProjNode] {
-  // Fast path: scan for first mismatch
-  // If all match: return old array
-  // If one mismatch: reconcile only that child
-  // If multiple: fall back to LCS on mismatched region
+struct FlatProj {
+  defs : Array[(String, ProjNode, Int, NodeId)]  // (name, init, start, id)
+  final_expr : ProjNode?
 }
 ```
 
-### `projection_memo.mbt` (editor/projection_memo.mbt)
+### Incremental update on flat representation
 
-Pass previous SyntaxNode and ProjNode to `to_proj_node`:
+1. Compare old and new SourceFile CST children via `physical_equal`
+2. For unchanged LetDefs: reuse the old `(name, init, start, id)` entry
+3. For changed LetDefs: rebuild only that entry's init via `syntax_to_proj_node`
+4. Patch the flat array in O(1) for content edits
 
-```moonbit
-let new_proj = @proj.to_proj_node(
-  syntax_root,
-  counter,
-  prev_root=prev_syntax_ref.val,
-  prev_proj=prev_proj_ref.val,
-)
-```
+### Fold to nested Let on demand
 
-## Expected outcome
+When the UI needs a nested ProjNode tree (for rendering, tree editing):
+- Right-fold `FlatProj.defs` into nested Let ProjNodes
+- Cache the result and invalidate when `FlatProj` changes
+- The fold is O(n) but only runs when the nested form is actually accessed
 
-- Content edits (common): O(n) pointer comparisons + O(1) actual work
-- Structural edits (rare): O(n) pointer comparisons + O(k) reconciliation
-- Registry/source map: unchanged (O(n), but fast at n=80)
+### What this changes
+
+- `to_proj_node` → `to_flat_proj` (returns `FlatProj`)
+- `projection_memo` stores `FlatProj` and lazily folds
+- `reconcile_ast` operates on `FlatProj` (align flat arrays, not nested spines)
+- Registry and source map build from `FlatProj` directly
+
+### Trade-offs vs current approach
+
+| | Current (nested spine) | Flat intermediate |
+|---|---|---|
+| Content edit cost | O(n) right-fold + O(n) reconcile | O(n) physical_equal scan + O(1) patch |
+| Structural edit cost | O(n) right-fold + O(n) reconcile | O(n) scan + O(k) reconcile on flat array |
+| Nested tree access | O(1) — already computed | O(n) lazy fold — only when accessed |
+| Data structure change | None | New `FlatProj` type |
+
+### What stays the same
+
+- `syntax_to_proj_node` (single expression → ProjNode) — unchanged
+- `ProjNode` data structure — unchanged
+- The nested Let form — still produced, just lazily
+- Node IDs — still stable via flat array alignment
+
+## Open questions
+
+1. Does the UI/rendering always need the nested form, or can it work with `FlatProj` directly? If it can use `FlatProj`, the lazy fold becomes unnecessary.
+
+2. Should `FlatProj` live in the `projection` package or the `editor` package?
+
+3. How does `apply_tree_edit` work with `FlatProj`? It currently operates on the nested ProjNode tree. Would it need to be updated, or can it fold → edit → unfold?
 
 ## Non-goals
 
-- Making registry/source map incremental (optimize later if needed)
-- Changing the ProjNode data structure
+- Changing the `ProjNode` data structure itself
+- Making registry/source map incremental (optimize later)
 - Changing the incr/Signal/Memo infrastructure
