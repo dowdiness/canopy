@@ -91,6 +91,10 @@ fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
 fn read_string(reader : Reader) -> String raise {
   let len = safe_uvarint_to_int(read_uvarint(reader))
   let bytes = reader.read_bytes(len)
+  // Wire data originates from our own write_string (valid UTF-8), but
+  // to_unchecked_string is used because MoonBit Bytes has no checked
+  // UTF-8-to-String conversion in the public API. Callers should treat
+  // decoded strings as untrusted display data, not executable content.
   bytes.to_unchecked_string()
 }
 

@@ -121,6 +121,8 @@ fn diff_steps_to_edits(
   let mut pending_delete_len = 0
   let mut pending_insert_len = 0
   let mut has_pending = false
+  // cursor tracks position in the *new* text. Delete consumes from old
+  // text only (no cursor advance); Insert and Equal advance in new text.
   for step in steps {
     match step {
       Equal => {
