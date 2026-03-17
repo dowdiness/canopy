@@ -18,12 +18,13 @@ pub fn SyncEditor::apply_tree_edit(
   let old_text = self.get_text()
   let old_cursor = self.get_cursor()
 
-  // Get FlatProj, convert to ProjNode for tree edit
-  let fp = match self.get_flat_proj() {
-    Some(fp) => fp
-    None => return Err("No FlatProj available")
+  // Use cached ProjNode — same tree the registry was built from.
+  // Avoids rematerializing a separate ProjNode with potentially different
+  // Unit fallback IDs that wouldn't match the registry.
+  let proj = match self.get_proj_node() {
+    Some(p) => p
+    None => return Err("No ProjNode available")
   }
-  let proj = fp.to_proj_node(self.next_node_id)
 
   let new_proj = match
     @proj.apply_edit_to_proj(
