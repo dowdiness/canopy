@@ -178,3 +178,80 @@ test "print_flat_proj: equivalence with print_term on nested spine" {
     content="true",
   )
 }
+
+///|
+test "FlatProj::to_proj_node: single expression" {
+  let ip = @loom.new_imperative_parser("42", @parser.lambda_grammar)
+  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let proj = fp.to_proj_node(Ref::new(100))
+  inspect(proj.kind, content="Int(42)")
+}
+
+///|
+test "FlatProj::to_proj_node: let defs reconstruct nested spine" {
+  let ip = @loom.new_imperative_parser(
+    "let x = 1\nlet y = 2\nx + y", @parser.lambda_grammar,
+  )
+  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let proj = fp.to_proj_node(Ref::new(100))
+  inspect(
+    proj.kind,
+    content="Let(\"x\", Int(1), Let(\"y\", Int(2), Bop(Plus, Var(\"x\"), Var(\"y\"))))",
+  )
+}
+
+///|
+test "FlatProj::to_proj_node: def NodeIds used as Let node IDs" {
+  let ip = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
+  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let def_id = fp.defs[0].3
+  let proj = fp.to_proj_node(Ref::new(100))
+  inspect(proj.node_id == def_id.0, content="true")
+}
+
+///|
+test "FlatProj::from_proj_node: extracts Let spine" {
+  let (proj, _) = parse_to_proj_node("let x = 1\nlet y = 2\nx + y")
+  let fp = FlatProj::from_proj_node(proj)
+  inspect(fp.defs.length(), content="2")
+  inspect(fp.defs[0].0, content="x")
+  inspect(fp.defs[1].0, content="y")
+}
+
+///|
+test "FlatProj::from_proj_node: single expression (no Let)" {
+  let (proj, _) = parse_to_proj_node("42")
+  let fp = FlatProj::from_proj_node(proj)
+  inspect(fp.defs.length(), content="0")
+}
+
+///|
+test "FlatProj roundtrip: to_flat_proj -> to_proj_node matches to_proj_node" {
+  let text = "let x = 1\nlet y = 2\nx + y"
+  let ip1 = @loom.new_imperative_parser(text, @parser.lambda_grammar)
+  let counter1 = Ref::new(0)
+  let nested = to_proj_node(ip1.parse(), counter1)
+
+  let ip2 = @loom.new_imperative_parser(text, @parser.lambda_grammar)
+  let counter2 = Ref::new(0)
+  let flat = to_flat_proj(ip2.parse(), counter2)
+  let roundtripped = flat.to_proj_node(Ref::new(100))
+
+  // Same structure (kind matches)
+  inspect(
+    @ast.print_term(roundtripped.kind) == @ast.print_term(nested.kind),
+    content="true",
+  )
+}
+
+///|
+test "FlatProj roundtrip: from_proj_node -> to_proj_node preserves text" {
+  let text = "let x = 1\nlet y = 2\nx + y"
+  let (proj, _) = parse_to_proj_node(text)
+  let fp = FlatProj::from_proj_node(proj)
+  let roundtripped = fp.to_proj_node(Ref::new(100))
+  inspect(
+    @ast.print_term(roundtripped.kind) == @ast.print_term(proj.kind),
+    content="true",
+  )
+}

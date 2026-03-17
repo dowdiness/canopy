@@ -113,6 +113,61 @@ pub fn reconcile_flat_proj(
 }
 
 ///|
+/// Reconstruct a nested Let ProjNode spine from FlatProj.
+/// Uses stored NodeIds for Let nodes. Counter only used for Unit fallback.
+pub fn FlatProj::to_proj_node(self : FlatProj, counter : Ref[Int]) -> ProjNode {
+  let mut result = match self.final_expr {
+    Some(expr) => expr
+    None => {
+      // Use last def's end position so the synthetic Unit node doesn't
+      // interfere with SourceMap position queries at offset 0.
+      let end_pos = if self.defs.length() > 0 {
+        self.defs[self.defs.length() - 1].1.end
+      } else {
+        0
+      }
+      ProjNode::new(Unit, end_pos, end_pos, next_proj_node_id(counter), [])
+    }
+  }
+  for i = self.defs.length() - 1; i >= 0; i = i - 1 {
+    let (name, init, def_start, id) = self.defs[i]
+    result = ProjNode::new(
+      Let(name, init.kind, result.kind),
+      def_start,
+      result.end,
+      id.0,
+      [init, result],
+    )
+  }
+  result
+}
+
+///|
+/// Extract a FlatProj from a nested ProjNode Let spine.
+/// Walks the Let chain collecting entries until a non-Let node is found.
+pub fn FlatProj::from_proj_node(root : ProjNode) -> FlatProj {
+  let defs : Array[(String, ProjNode, Int, NodeId)] = []
+  let mut current = root
+  while true {
+    match current.kind {
+      Let(name, _, _) =>
+        if current.children.length() >= 2 {
+          defs.push((name, current.children[0], current.start, NodeId(current.node_id)))
+          current = current.children[1]
+        } else {
+          break
+        }
+      _ => break
+    }
+  }
+  let final_expr = match current.kind {
+    Unit => None
+    _ => Some(current)
+  }
+  { defs, final_expr }
+}
+
+///|
 /// Print a FlatProj to text. Equivalent to @ast.print_term on the nested spine.
 pub fn print_flat_proj(fp : FlatProj) -> String {
   let parts : Array[String] = []
