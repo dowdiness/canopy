@@ -10,11 +10,11 @@
 /// TextDelta API instead of a bespoke string diff.
 ///
 /// Returns an empty array when old == new (no edit needed).
-/// Returns exactly one Edit for any single contiguous change (the common case
-/// for both local keystrokes and batch remote merges).
+/// Returns sequential Edits for disjoint insert/delete regions, so callers can
+/// preserve cursor positions across multi-edit remote merges.
 pub fn merge_to_edits(
   old_text : String,
   new_text : String,
 ) -> Array[@loom_core.Edit] {
-  @loom_core.to_edits(@loom_core.text_to_delta(old_text, new_text))
+  compute_text_edits(old_text, new_text)
 }

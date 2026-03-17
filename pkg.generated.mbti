@@ -12,6 +12,20 @@ pub fn create_editor_with_undo(String, Int) -> Int
 
 pub fn delete_and_record(Int, Int) -> Bool
 
+pub fn ephemeral_apply(Int, Bytes) -> Unit
+
+pub fn ephemeral_delete_presence(Int) -> Unit
+
+pub fn ephemeral_encode_all(Int) -> Bytes
+
+pub fn ephemeral_get_peer_cursors_json(Int) -> String
+
+pub fn ephemeral_remove_outdated(Int) -> Unit
+
+pub fn ephemeral_set_presence(Int, String, String) -> Unit
+
+pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> Unit
+
 pub fn export_all_json(Int) -> String
 
 pub fn export_since_json(Int, String) -> String

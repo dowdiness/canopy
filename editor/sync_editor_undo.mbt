@@ -15,7 +15,7 @@ pub fn SyncEditor::insert_and_record(
     timestamp_ms~,
   )
   self.cursor = self.cursor + text.length()
-  self.sync_parser_after_text_change(
+  self.apply_local_text_change(
     old_source,
     self.doc.text(),
     Some(@parser.Edit::insert(insert_start, text.length())),
@@ -34,7 +34,7 @@ pub fn SyncEditor::delete_and_record(
       self.undo,
       timestamp_ms~,
     )
-    self.sync_parser_after_text_change(
+    self.apply_local_text_change(
       old_source,
       self.doc.text(),
       Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
@@ -60,7 +60,7 @@ pub fn SyncEditor::backspace_and_record(
         timestamp_ms~,
       )
       self.cursor = new_pos
-      self.sync_parser_after_text_change(
+      self.apply_local_text_change(
         old_source,
         self.doc.text(),
         Some(@parser.Edit::delete(new_pos, new_pos + 1)),
@@ -76,9 +76,12 @@ pub fn SyncEditor::backspace_and_record(
 
 ///|
 pub fn SyncEditor::undo(self : SyncEditor) -> Bool {
+  let old_source = self.doc.text()
   try {
     self.undo.undo(self.doc)
+    let new_source = self.doc.text()
     self.adjust_cursor()
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
     self.mark_dirty()
     true
   } catch {
@@ -88,9 +91,12 @@ pub fn SyncEditor::undo(self : SyncEditor) -> Bool {
 
 ///|
 pub fn SyncEditor::redo(self : SyncEditor) -> Bool {
+  let old_source = self.doc.text()
   try {
     self.undo.redo(self.doc)
+    let new_source = self.doc.text()
     self.adjust_cursor()
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
     self.mark_dirty()
     true
   } catch {

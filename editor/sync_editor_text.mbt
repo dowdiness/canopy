@@ -6,7 +6,7 @@ pub fn SyncEditor::insert(self : SyncEditor, text : String) -> Unit raise {
   let insert_start = self.cursor
   self.doc.insert(@text.Pos::at(self.cursor), text)
   self.cursor = self.cursor + text.length()
-  self.sync_parser_after_text_change(
+  self.apply_local_text_change(
     old_source,
     self.doc.text(),
     Some(@parser.Edit::insert(insert_start, text.length())),
@@ -20,7 +20,7 @@ pub fn SyncEditor::delete(self : SyncEditor) -> Bool {
     _ => false
   } noraise {
     _ => {
-      self.sync_parser_after_text_change(
+      self.apply_local_text_change(
         old_source,
         self.doc.text(),
         Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
@@ -42,7 +42,7 @@ pub fn SyncEditor::backspace(self : SyncEditor) -> Bool {
       }
     } noraise {
       _ => {
-        self.sync_parser_after_text_change(
+        self.apply_local_text_change(
           old_source,
           self.doc.text(),
           Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
@@ -135,7 +135,7 @@ fn SyncEditor::apply_text_edit_internal(
   } else {
     self.adjust_cursor()
   }
-  self.sync_parser_after_text_change(
+  self.apply_local_text_change(
     old_source,
     self.doc.text(),
     Some(@parser.Edit::new(safe_start, safe_delete_len, inserted.length())),
@@ -156,6 +156,18 @@ pub fn SyncEditor::apply_text_edit(
 }
 
 ///|
+/// Replace the document text with `new_text` via a single range edit.
+///
+/// **CRDT position caveat:** `replace_range` inserts all characters as a
+/// contiguous batch, so the internal FugueMax tree has no interleaving
+/// points between them. A subsequent `insert` / `insert_and_record` at
+/// position 0 may resolve to the *end* of the batch rather than prepending,
+/// because FugueMax's tie-breaking places the new character after the
+/// batch's root. Use `set_text` only for bulk initialization or
+/// synchronization; for interactive typing, prefer the per-character
+/// `insert` / `insert_and_record` methods which create proper interleaving
+/// points. See `resolve_applied_edit` in `sync_editor_parser.mbt` for how
+/// the cursor adjustment layer compensates for this divergence.
 pub fn SyncEditor::set_text(self : SyncEditor, new_text : String) -> Unit {
   let old_text = self.doc.text()
   if old_text == new_text {

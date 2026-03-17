@@ -134,3 +134,15 @@ test "merge_to_edits - lambda expression edit" {
   assert_eq(e.old_len, expected.old_len)
   assert_eq(e.new_len, expected.new_len)
 }
+
+///|
+test "merge_to_edits - disjoint inserts stay separate" {
+  let edits = merge_to_edits("abcd", "XabcdY")
+  inspect(edits.length(), content="2")
+  inspect(edits[0].start, content="0")
+  inspect(edits[0].old_len, content="0")
+  inspect(edits[0].new_len, content="1")
+  inspect(edits[1].start, content="5")
+  inspect(edits[1].old_len, content="0")
+  inspect(edits[1].new_len, content="1")
+}

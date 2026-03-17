@@ -15,8 +15,10 @@ pub fn SyncEditor::apply_sync(
 ) -> Unit raise {
   let old_source = self.doc.text()
   self.doc.sync().apply(msg)
+  let new_source = self.doc.text()
   self.adjust_cursor()
-  self.sync_parser_after_text_change(old_source, self.doc.text(), None)
+  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+  self.sync_parser_after_text_change(old_source, new_source, None)
 }
 
 ///|
