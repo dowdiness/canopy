@@ -115,6 +115,8 @@ pub fn SyncEditor::set_local_presence(
       ])
     None => ()
   }
+  // ephemeral_peer_id is always a valid numeric string from to_wire_peer_id,
+  // so set() cannot fail; catch is defensive only.
   self.ephemeral.set(self.ephemeral_peer_id, EphemeralValue::Map(map)) catch {
     _ => ()
   }
@@ -122,12 +124,15 @@ pub fn SyncEditor::set_local_presence(
 
 ///|
 pub fn SyncEditor::delete_local_presence(self : SyncEditor) -> Unit {
+  // ephemeral_peer_id is always valid; see set_local_presence.
   self.ephemeral.delete(self.ephemeral_peer_id) catch {
     _ => ()
   }
 }
 
 ///|
+/// Best-effort application of remote ephemeral data. Malformed wire data from
+/// a remote peer is silently dropped to avoid crashing the local editor.
 pub fn SyncEditor::apply_ephemeral(self : SyncEditor, data : Bytes) -> Unit {
   self.ephemeral.apply(data) catch {
     _ => ()

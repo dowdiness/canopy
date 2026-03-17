@@ -50,11 +50,7 @@ type EphemeralLocalEntry
 type EphemeralRecord
 
 pub struct EphemeralStore {
-  timeout_ms : UInt64
-  mut next_sub_id : Int
-  mut states : Map[String, EphemeralRecord]
-  mut local_subs : Array[EphemeralLocalEntry]
-  mut subs : Array[EphemeralSubscriberEntry]
+  // private fields
 }
 pub fn EphemeralStore::apply(Self, Bytes) -> Unit raise
 pub fn EphemeralStore::delete(Self, String) -> Unit raise
@@ -84,8 +80,7 @@ pub impl Show for EphemeralStoreEvent
 type EphemeralSubscriberEntry
 
 pub struct EphemeralSubscription {
-  store : EphemeralStore
-  id : Int
+  // private fields
 }
 pub fn EphemeralSubscription::unsubscribe(Self) -> Unit
 

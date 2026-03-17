@@ -301,6 +301,11 @@ pub fn ephemeral_get_peer_cursors_json(_handle : Int) -> String {
       let cursors = ed.get_peer_cursors()
       let items : Array[String] = []
       for peer_id, cursor in cursors {
+        let adj = if cursor.adjusted_cursor < 0 {
+          0
+        } else {
+          cursor.adjusted_cursor
+        }
         let sel = match cursor.selection {
           Some((s, e)) => "[" + s.to_string() + "," + e.to_string() + "]"
           None => "null"
@@ -308,7 +313,7 @@ pub fn ephemeral_get_peer_cursors_json(_handle : Int) -> String {
         let item = "{\"peer_id\":" +
           peer_id.to_json().stringify() +
           ",\"cursor\":" +
-          cursor.adjusted_cursor.to_string() +
+          adj.to_string() +
           ",\"name\":" +
           cursor.display_name.to_json().stringify() +
           ",\"color\":" +

@@ -72,17 +72,17 @@ struct EphemeralSubscriberEntry {
 
 ///|
 pub struct EphemeralSubscription {
-  store : EphemeralStore
-  id : Int
+  priv store : EphemeralStore
+  priv id : Int
 }
 
 ///|
 pub struct EphemeralStore {
-  timeout_ms : UInt64
-  mut next_sub_id : Int
-  mut states : Map[String, EphemeralRecord]
-  mut local_subs : Array[EphemeralLocalEntry]
-  mut subs : Array[EphemeralSubscriberEntry]
+  priv timeout_ms : UInt64
+  priv mut next_sub_id : Int
+  priv mut states : Map[String, EphemeralRecord]
+  priv mut local_subs : Array[EphemeralLocalEntry]
+  priv mut subs : Array[EphemeralSubscriberEntry]
 }
 
 ///|
@@ -228,7 +228,7 @@ pub fn EphemeralStore::subscribe(
 ///|
 fn EphemeralStore::alloc_sub_id(self : EphemeralStore) -> Int {
   let id = self.next_sub_id
-  self.next_sub_id = id + 1
+  self.next_sub_id = if id == @int.max_value { 1 } else { id + 1 }
   id
 }
 
