@@ -36,6 +36,72 @@ fn SyncEditor::sync_parser_after_text_change(
 }
 
 ///|
+fn SyncEditor::adjust_peer_cursors_after_text_change(
+  self : SyncEditor,
+  old_source : String,
+  new_source : String,
+  known_edit : @parser.Edit?,
+) -> Unit {
+  if old_source == new_source {
+    return
+  }
+  match known_edit {
+    Some(edit) =>
+      self.cursor_view.adjust_for_edit(
+        edit.start(),
+        edit.old_len(),
+        edit.new_len(),
+      )
+    None =>
+      for edit in merge_to_edits(old_source, new_source) {
+        self.cursor_view.adjust_for_edit(
+          edit.start(),
+          edit.old_len(),
+          edit.new_len(),
+        )
+      }
+  }
+}
+
+///|
+/// The CRDT may place inserts at different positions than the cursor indicates
+/// (e.g. after set_text, position semantics can diverge). Verify the known edit
+/// against the actual text change so cursor adjustments use the real positions.
+fn resolve_applied_edit(
+  old_source : String,
+  new_source : String,
+  known_edit : @parser.Edit?,
+) -> @parser.Edit? {
+  match known_edit {
+    None => None
+    Some(edit) => {
+      let actual = compute_edit(old_source, new_source)
+      if edit.start() == actual.start() &&
+        edit.old_len() == actual.old_len() &&
+        edit.new_len() == actual.new_len() {
+        Some(edit)
+      } else {
+        Some(actual)
+      }
+    }
+  }
+}
+
+///|
+fn SyncEditor::apply_local_text_change(
+  self : SyncEditor,
+  old_source : String,
+  new_source : String,
+  known_edit : @parser.Edit?,
+) -> Unit {
+  let applied_edit = resolve_applied_edit(old_source, new_source, known_edit)
+  self.adjust_peer_cursors_after_text_change(
+    old_source, new_source, applied_edit,
+  )
+  self.sync_parser_after_text_change(old_source, new_source, applied_edit)
+}
+
+///|
 fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode {
   let source = self.doc.text()
   let syntax = self.parser.reset(source)

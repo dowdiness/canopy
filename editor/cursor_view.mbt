@@ -10,11 +10,12 @@ pub(all) struct PeerCursor {
 ///|
 pub struct PeerCursorView {
   cursors : Map[String, PeerCursor]
+  wire_keys : Map[String, String]
 }
 
 ///|
 pub fn PeerCursorView::new() -> PeerCursorView {
-  { cursors: Map::new() }
+  { cursors: Map::new(), wire_keys: Map::new() }
 }
 
 ///|
@@ -45,7 +46,13 @@ pub fn PeerCursorView::get_cursor(
 
 ///|
 pub fn PeerCursorView::remove(self : PeerCursorView, peer_id : String) -> Unit {
-  self.cursors.remove(peer_id)
+  match self.wire_keys.get(peer_id) {
+    Some(logical_peer_id) => {
+      self.wire_keys.remove(peer_id)
+      self.cursors.remove(logical_peer_id)
+    }
+    None => self.cursors.remove(peer_id)
+  }
 }
 
 ///|
@@ -90,6 +97,10 @@ pub fn PeerCursorView::apply_raw_update(
 ) -> Unit {
   match value {
     EphemeralValue::Map(map) => {
+      let logical_peer_id = match map.get("peer_id") {
+        Some(EphemeralValue::String(s)) => s
+        _ => peer_id
+      }
       let cursor = match map.get("cursor") {
         Some(EphemeralValue::I64(n)) => n.to_int()
         _ => 0
@@ -115,7 +126,15 @@ pub fn PeerCursorView::apply_raw_update(
           }
         _ => None
       }
-      self.set_cursor(peer_id, cursor, name, color, selection~)
+      match self.wire_keys.get(peer_id) {
+        Some(old_peer_id) =>
+          if old_peer_id != logical_peer_id {
+            self.cursors.remove(old_peer_id)
+          }
+        None => ()
+      }
+      self.wire_keys[peer_id] = logical_peer_id
+      self.set_cursor(logical_peer_id, cursor, name, color, selection~)
     }
     _ => () // Non-Map values are ignored
   }

@@ -18,6 +18,7 @@ pub struct SyncEditor {
   priv ephemeral : EphemeralStore
   priv cursor_view : PeerCursorView
   priv peer_id : String
+  priv ephemeral_peer_id : String
 }
 
 ///|
@@ -41,11 +42,12 @@ pub fn SyncEditor::new(
   )
   let ephemeral = EphemeralStore::new(ephemeral_timeout_ms)
   let cursor_view = PeerCursorView::new()
+  let ephemeral_peer_id = to_wire_peer_id(agent_id)
   // Subscribe to ephemeral store events to update cursor_view (skip local peer)
   ignore(
     ephemeral.subscribe(fn(event) {
       for key in event.added() {
-        if key == agent_id {
+        if key == ephemeral_peer_id {
           continue
         }
         match ephemeral.get(key) {
@@ -54,7 +56,7 @@ pub fn SyncEditor::new(
         }
       }
       for key in event.updated() {
-        if key == agent_id {
+        if key == ephemeral_peer_id {
           continue
         }
         match ephemeral.get(key) {
@@ -63,7 +65,7 @@ pub fn SyncEditor::new(
         }
       }
       for key in event.removed() {
-        if key == agent_id {
+        if key == ephemeral_peer_id {
           continue
         }
         cursor_view.remove(key)
@@ -87,6 +89,7 @@ pub fn SyncEditor::new(
     ephemeral,
     cursor_view,
     peer_id: agent_id,
+    ephemeral_peer_id,
   }
 }
 
@@ -100,6 +103,7 @@ pub fn SyncEditor::set_local_presence(
   selection? : (Int, Int)? = None,
 ) -> Unit {
   let map : Map[String, EphemeralValue] = {}
+  map["peer_id"] = EphemeralValue::String(self.peer_id)
   map["cursor"] = EphemeralValue::I64(self.cursor.to_int64())
   map["name"] = EphemeralValue::String(name)
   map["color"] = EphemeralValue::String(color)
@@ -111,14 +115,14 @@ pub fn SyncEditor::set_local_presence(
       ])
     None => ()
   }
-  self.ephemeral.set(self.peer_id, EphemeralValue::Map(map)) catch {
+  self.ephemeral.set(self.ephemeral_peer_id, EphemeralValue::Map(map)) catch {
     _ => ()
   }
 }
 
 ///|
 pub fn SyncEditor::delete_local_presence(self : SyncEditor) -> Unit {
-  self.ephemeral.delete(self.peer_id) catch {
+  self.ephemeral.delete(self.ephemeral_peer_id) catch {
     _ => ()
   }
 }

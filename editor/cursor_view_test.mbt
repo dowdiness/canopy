@@ -151,6 +151,22 @@ test "PeerCursorView: apply_raw_update extracts cursor from Map" {
 }
 
 ///|
+test "PeerCursorView: apply_raw_update honors logical peer_id and remove uses wire key" {
+  let view = @editor.PeerCursorView::new()
+  let value = @editor.EphemeralValue::Map({
+    "peer_id": @editor.EphemeralValue::String("web-user"),
+    "cursor": @editor.EphemeralValue::I64(7L),
+    "name": @editor.EphemeralValue::String("Bob"),
+    "color": @editor.EphemeralValue::String("#00ff00"),
+  })
+  view.apply_raw_update("123", value)
+  inspect(view.get_cursor("123"), content="None")
+  inspect(view.get_cursor("web-user").unwrap().display_name, content="Bob")
+  view.remove("123")
+  inspect(view.get_cursor("web-user"), content="None")
+}
+
+///|
 test "PeerCursorView: apply_raw_update ignores non-Map values" {
   let view = @editor.PeerCursorView::new()
   view.apply_raw_update("peer1", @editor.EphemeralValue::I64(42L))

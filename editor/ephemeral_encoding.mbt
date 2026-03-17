@@ -253,14 +253,45 @@ fn parse_peer_id(key : String) -> UInt64? {
 }
 
 ///|
+let hashed_peer_mask : UInt64 = 0x8000000000000000UL
+
+///|
+let unhashed_peer_mask : UInt64 = 0x7FFFFFFFFFFFFFFFUL
+
+///|
+fn wire_peer_id(key : String) -> UInt64 {
+  match parse_peer_id(key) {
+    Some(value) => value
+    None => (stable_peer_hash(key) & unhashed_peer_mask) | hashed_peer_mask
+  }
+}
+
+///|
+/// Presence wire format still encodes peer IDs as uvarints. Preserve existing
+/// numeric IDs and map arbitrary agent IDs into a reserved high-bit range.
+fn to_wire_peer_id(key : String) -> String {
+  wire_peer_id(key).to_string()
+}
+
+///|
+fn stable_peer_hash(key : String) -> UInt64 {
+  let buf = @buffer.new()
+  buf.write_string(key)
+  let bytes = buf.to_bytes()
+  let mut hash = 14695981039346656037UL
+  for i = 0; i < bytes.length(); i = i + 1 {
+    hash = hash ^ bytes[i].to_uint64()
+    hash = hash * 1099511628211UL
+  }
+  hash
+}
+
+///|
 fn encode_entries(entries : Array[(String, EphemeralRecord)]) -> Bytes {
   let filtered : Array[(UInt64, Int64, EphemeralValue)] = []
   for entry in entries {
     let (key, record) = entry
-    let peer = match parse_peer_id(key) {
-      Some(value) => value
-      None => continue
-    }
+    let peer = wire_peer_id(key)
     let value = match record.value {
       Some(value) => value
       None => EphemeralValue::Null

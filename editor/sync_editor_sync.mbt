@@ -17,16 +17,8 @@ pub fn SyncEditor::apply_sync(
   self.doc.sync().apply(msg)
   let new_source = self.doc.text()
   self.adjust_cursor()
+  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
   self.sync_parser_after_text_change(old_source, new_source, None)
-  // Adjust derived cursor view for the text change
-  if old_source != new_source {
-    let splice = @text_change.compute_text_change(old_source, new_source)
-    self.cursor_view.adjust_for_edit(
-      splice.start,
-      splice.delete_len,
-      splice.inserted.length(),
-    )
-  }
 }
 
 ///|

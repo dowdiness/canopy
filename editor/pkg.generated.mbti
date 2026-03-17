@@ -113,6 +113,7 @@ pub impl Show for PeerCursor
 
 pub struct PeerCursorView {
   cursors : Map[String, PeerCursor]
+  wire_keys : Map[String, String]
 }
 pub fn PeerCursorView::adjust_for_edit(Self, Int, Int, Int) -> Unit
 pub fn PeerCursorView::all_cursors(Self) -> Map[String, PeerCursor]

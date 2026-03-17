@@ -6,7 +6,7 @@ pub fn SyncEditor::insert(self : SyncEditor, text : String) -> Unit raise {
   let insert_start = self.cursor
   self.doc.insert(@text.Pos::at(self.cursor), text)
   self.cursor = self.cursor + text.length()
-  self.sync_parser_after_text_change(
+  self.apply_local_text_change(
     old_source,
     self.doc.text(),
     Some(@parser.Edit::insert(insert_start, text.length())),
@@ -20,7 +20,7 @@ pub fn SyncEditor::delete(self : SyncEditor) -> Bool {
     _ => false
   } noraise {
     _ => {
-      self.sync_parser_after_text_change(
+      self.apply_local_text_change(
         old_source,
         self.doc.text(),
         Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
@@ -42,7 +42,7 @@ pub fn SyncEditor::backspace(self : SyncEditor) -> Bool {
       }
     } noraise {
       _ => {
-        self.sync_parser_after_text_change(
+        self.apply_local_text_change(
           old_source,
           self.doc.text(),
           Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
@@ -135,7 +135,7 @@ fn SyncEditor::apply_text_edit_internal(
   } else {
     self.adjust_cursor()
   }
-  self.sync_parser_after_text_change(
+  self.apply_local_text_change(
     old_source,
     self.doc.text(),
     Some(@parser.Edit::new(safe_start, safe_delete_len, inserted.length())),

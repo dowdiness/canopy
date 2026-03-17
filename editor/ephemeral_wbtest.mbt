@@ -180,6 +180,29 @@ test "encode_entries and apply roundtrip" {
 }
 
 ///|
+test "wire_peer_id reserves high bit for hashed non-numeric keys" {
+  let alice = wire_peer_id("alice")
+  let numeric = wire_peer_id("42")
+  inspect((alice & hashed_peer_mask) != 0UL, content="true")
+  inspect((numeric & hashed_peer_mask) == 0UL, content="true")
+}
+
+///|
+test "encode_entries keeps non-numeric keys by hashing them" {
+  let bytes = encode_entries([
+    (
+      "alice",
+      { value: Some(EphemeralValue::I64(42L)), clock: 1L, updated_at: 0UL },
+    ),
+  ])
+  let decoded = decode_entries(bytes)
+  inspect(decoded.length(), content="1")
+  inspect(decoded[0].1.value, content="Some(I64(42))")
+  let peer = parse_peer_id(decoded[0].0).unwrap()
+  inspect((peer & hashed_peer_mask) != 0UL, content="true")
+}
+
+///|
 test "apply with higher clock refreshes record" {
   let store = EphemeralStore::new(60000UL)
   store.set("1", EphemeralValue::I64(10L))
