@@ -105,6 +105,58 @@ pub fn SyncEditor::redo(self : SyncEditor) -> Bool {
 }
 
 ///|
+/// Undo and return a SyncMessage containing the inverse ops for peer broadcast.
+/// Returns None if undo stack is empty or undo fails.
+pub fn SyncEditor::undo_and_export(self : SyncEditor) -> @text.SyncMessage? {
+  let ver_before = self.doc.version()
+  let old_source = self.doc.text()
+  let success = try {
+    self.undo.undo(self.doc)
+    let new_source = self.doc.text()
+    self.adjust_cursor()
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+    self.mark_dirty()
+    true
+  } catch {
+    _ => false
+  }
+  if not(success) {
+    return None
+  }
+  try {
+    Some(self.doc.sync().export_since(ver_before))
+  } catch {
+    _ => None
+  }
+}
+
+///|
+/// Redo and return a SyncMessage containing the ops for peer broadcast.
+/// Returns None if redo stack is empty or redo fails.
+pub fn SyncEditor::redo_and_export(self : SyncEditor) -> @text.SyncMessage? {
+  let ver_before = self.doc.version()
+  let old_source = self.doc.text()
+  let success = try {
+    self.undo.redo(self.doc)
+    let new_source = self.doc.text()
+    self.adjust_cursor()
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+    self.mark_dirty()
+    true
+  } catch {
+    _ => false
+  }
+  if not(success) {
+    return None
+  }
+  try {
+    Some(self.doc.sync().export_since(ver_before))
+  } catch {
+    _ => None
+  }
+}
+
+///|
 pub fn SyncEditor::can_undo(self : SyncEditor) -> Bool {
   self.undo.can_undo()
 }
