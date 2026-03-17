@@ -42,9 +42,13 @@ pub fn get_version_json(Int) -> String
 
 pub fn insert_and_record(Int, String, Int) -> Unit
 
+pub fn redo_and_export_json(Int) -> String
+
 pub fn set_text(Int, String) -> Unit
 
 pub fn set_text_and_record(Int, String, Int) -> Unit
+
+pub fn undo_and_export_json(Int) -> String
 
 pub fn undo_manager_can_redo(Int) -> Bool
 

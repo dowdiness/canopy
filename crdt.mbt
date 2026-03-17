@@ -188,6 +188,34 @@ pub fn undo_manager_redo(_handle : Int) -> Bool {
 }
 
 ///|
+/// Undo and return sync ops as JSON for peer broadcast.
+/// Returns empty string if undo stack is empty.
+pub fn undo_and_export_json(_handle : Int) -> String {
+  match editor.val {
+    Some(ed) =>
+      match ed.undo_and_export() {
+        Some(msg) => msg.to_json_string()
+        None => ""
+      }
+    None => ""
+  }
+}
+
+///|
+/// Redo and return sync ops as JSON for peer broadcast.
+/// Returns empty string if redo stack is empty.
+pub fn redo_and_export_json(_handle : Int) -> String {
+  match editor.val {
+    Some(ed) =>
+      match ed.redo_and_export() {
+        Some(msg) => msg.to_json_string()
+        None => ""
+      }
+    None => ""
+  }
+}
+
+///|
 /// Check if undo is possible
 pub fn undo_manager_can_undo(_handle : Int) -> Bool {
   match editor.val {

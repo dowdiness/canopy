@@ -160,6 +160,7 @@ pub fn SyncEditor::move_cursor(Self, Int) -> Unit
 pub fn SyncEditor::new(String, capture_timeout_ms? : Int, ephemeral_timeout_ms? : UInt64) -> Self
 pub fn SyncEditor::node_at_position(Self, Int) -> @projection.NodeId?
 pub fn SyncEditor::redo(Self) -> Bool
+pub fn SyncEditor::redo_and_export(Self) -> @text.SyncMessage?
 pub fn SyncEditor::remove_ephemeral_outdated(Self) -> Unit
 pub fn SyncEditor::set_local_presence(Self, String, String, selection? : (Int, Int)?) -> Unit
 pub fn SyncEditor::set_text(Self, String) -> Unit
@@ -167,6 +168,7 @@ pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
 pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
 pub fn SyncEditor::subscribe_ephemeral_local(Self, (Bytes) -> Bool) -> EphemeralSubscription
 pub fn SyncEditor::undo(Self) -> Bool
+pub fn SyncEditor::undo_and_export(Self) -> @text.SyncMessage?
 
 // Type aliases
 

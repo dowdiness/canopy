@@ -123,9 +123,7 @@ pub fn SyncEditor::undo_and_export(self : SyncEditor) -> @text.SyncMessage? {
   if not(success) {
     return None
   }
-  try {
-    Some(self.doc.sync().export_since(ver_before))
-  } catch {
+  Some(self.doc.sync().export_since(ver_before)) catch {
     _ => None
   }
 }
@@ -149,9 +147,7 @@ pub fn SyncEditor::redo_and_export(self : SyncEditor) -> @text.SyncMessage? {
   if not(success) {
     return None
   }
-  try {
-    Some(self.doc.sync().export_since(ver_before))
-  } catch {
+  Some(self.doc.sync().export_since(ver_before)) catch {
     _ => None
   }
 }
