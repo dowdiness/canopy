@@ -10,6 +10,7 @@ Lambda Calculus CRDT Editor - eg-walker implementation in MoonBit
 - `svg-dsl/` - SVG DSL (submodule → [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl))
 - `graphviz/` - Graphviz renderer (submodule → [dowdiness/graphviz](https://github.com/dowdiness/graphviz))
 - `valtio/` - Valtio state management (submodule → [dowdiness/valtio](https://github.com/dowdiness/valtio))
+- `rle/` - RLE data structure library (submodule → [dowdiness/rle](https://github.com/dowdiness/rle))
 - `editor/`, `projection/`, `cmd/` - Application packages (in monorepo)
 - `examples/web/`, `examples/demo-react/` - Web frontends (in monorepo)
 
@@ -101,7 +102,7 @@ git commit -m "chore: update event-graph-walker submodule"
 **Language:** MoonBit
 **Parser:** Lambda calculus with arithmetic (`λx.x`, `1+2`, `if-then-else`)
 **Modules:** 3 MoonBit modules (crdt app + event-graph-walker lib + loom framework)
-**Submodules:** 5 git submodules (event-graph-walker, loom, svg-dsl, graphviz, valtio)
+**Submodules:** 6 git submodules (event-graph-walker, loom, svg-dsl, graphviz, valtio, rle)
 
 ## Development Workflow
 

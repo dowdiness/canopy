@@ -1,58 +1,8 @@
-## Module Structure
+# Module Structure
 
 The codebase is organized as a **monorepo with git submodules**:
 
-```mermaid
-graph TD
-    %% Core Libraries
-    subgraph "Core Libraries (Submodules)"
-        EGW[event-graph-walker]
-        Loom[loom]
-        TC[lib/text-change]
-    end
-
-    %% Application Layer
-    subgraph "Application (crdt module)"
-        Editor[editor]
-        Proj[projection]
-        Cmd[cmd]
-        Bindings[crdt.mbt (JS FFI)]
-    end
-
-    %% External
-    subgraph "Frontend"
-        Web[examples/web]
-    end
-
-    %% Dependencies
-    Editor --> EGW
-    Editor --> Loom
-    Editor --> TC
-
-    Proj --> Editor
-    Proj --> Loom
-
-    Bindings --> Editor
-
-    Cmd --> Editor
-    Cmd --> Proj
-
-    Web -.-> Bindings : WASM/JS Bridge
-
-    %% Internal Library Deps
-    Loom --> TC
-
-    classDef core fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef app fill:#e2e3e5,stroke:#6c757d,stroke-width:2px;
-    classDef web fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
-
-    class EGW,Loom,TC core;
-    class Editor,Proj,Cmd,Bindings app;
-    class Web web;
-```
-
 ## Git Submodules (Standalone Libraries)
-
 
 | Submodule | GitHub Repo | MoonBit Module |
 |---|---|---|
@@ -61,6 +11,7 @@ graph TD
 | `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | `antisatori/svg-dsl` |
 | `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | `antisatori/graphviz` |
 | `valtio/` | [dowdiness/valtio](https://github.com/dowdiness/valtio) | `antisatori/valtio` |
+| `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | `dowdiness/rle` |
 
 ## `event-graph-walker/` Module (Core CRDT Library)
 
@@ -144,7 +95,9 @@ text-change (leaf module, independent)
    ├── valtio (depends on text-change via path ../lib/text-change)
    └── crdt (depends on text-change via path ./lib/text-change)
 
-event-graph-walker (independent, quickcheck only)
+rle (independent, quickcheck only)
+   ↑
+event-graph-walker (depends on rle + quickcheck)
 
 crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/loom + dowdiness/text_change via path deps)
 ```
