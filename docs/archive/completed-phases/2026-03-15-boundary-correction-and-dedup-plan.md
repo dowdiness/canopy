@@ -63,7 +63,7 @@ Realign ownership so that:
   should converge on that canonical owner rather than introducing a third home.
 - Shared leaf utilities used by both `crdt` and submodules should be created as
   independent MoonBit modules at monorepo root, not as packages inside the root
-  `dowdiness/crdt` application module.
+  `dowdiness/canopy` application module.
 
 ### Language Constraints
 
@@ -360,7 +360,7 @@ monorepo root:
 
 - `lib/text-change/`
 
-This is cleaner than placing it under the root `dowdiness/crdt` module because
+This is cleaner than placing it under the root `dowdiness/canopy` module because
 both the app and submodules can depend on it downward without ambiguity.
 
 Initial dependency mode:

@@ -115,9 +115,9 @@ TextDoc.insert_with_op()
 | File | Package | Content |
 |------|---------|---------|
 | `loom/loom/src/core/delta.mbt` | `dowdiness/loom/core` | Existing `TextDelta`, `to_edits`, `text_to_delta` |
-| `editor/edit_bridge.mbt` | `dowdiness/crdt/editor` | `merge_to_edits()` (implemented) |
-| `editor/edit_bridge_test.mbt` | `dowdiness/crdt/editor` | 13 tests: parity between `merge_to_edits` and `compute_edit` |
-| `editor/text_diff.mbt` | `dowdiness/crdt/editor` | `compute_edit()` — kept as reference baseline |
+| `editor/edit_bridge.mbt` | `dowdiness/canopy/editor` | `merge_to_edits()` (implemented) |
+| `editor/edit_bridge_test.mbt` | `dowdiness/canopy/editor` | 13 tests: parity between `merge_to_edits` and `compute_edit` |
+| `editor/text_diff.mbt` | `dowdiness/canopy/editor` | `compute_edit()` — kept as reference baseline |
 
 ---
 

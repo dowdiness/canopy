@@ -51,7 +51,7 @@ test "SyncEditor: apply_sync does not pollute undo stack" {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `moon test -p dowdiness/crdt/editor -f sync_editor_test.mbt -i 0`
+Run: `moon test -p dowdiness/canopy/editor -f sync_editor_test.mbt -i 0`
 Expected: FAIL — `can_undo()` returns `true` because remote ops are recorded.
 
 - [ ] **Step 3: Add tracking suppression to apply_sync**
@@ -75,7 +75,7 @@ pub fn SyncEditor::apply_sync(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `moon test -p dowdiness/crdt/editor -f sync_editor_test.mbt -i 0`
+Run: `moon test -p dowdiness/canopy/editor -f sync_editor_test.mbt -i 0`
 Expected: PASS
 
 - [ ] **Step 5: Run full test suite**
@@ -154,7 +154,7 @@ test "SyncEditor: undo sync ops can be applied to peer" {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `moon test -p dowdiness/crdt/editor -f sync_editor_test.mbt -i 0`
+Run: `moon test -p dowdiness/canopy/editor -f sync_editor_test.mbt -i 0`
 Expected: FAIL — `undo_and_export` not defined.
 
 - [ ] **Step 3: Implement undo_and_export / redo_and_export**
@@ -211,7 +211,7 @@ pub fn SyncEditor::redo_and_export(self : SyncEditor) -> @text.SyncMessage? {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `moon test -p dowdiness/crdt/editor -f sync_editor_test.mbt -i 0`
+Run: `moon test -p dowdiness/canopy/editor -f sync_editor_test.mbt -i 0`
 Expected: PASS
 
 - [ ] **Step 5: Run full test suite**

@@ -189,7 +189,7 @@ test "string roundtrip" {
 }
 ```
 
-- [ ] **Run tests:** `moon test -p dowdiness/crdt/editor -f ephemeral_test.mbt`
+- [ ] **Run tests:** `moon test -p dowdiness/canopy/editor -f ephemeral_test.mbt`
 - [ ] **Commit:** `feat(editor): add binary encoding utilities for ephemeral store`
 
 ---
@@ -965,7 +965,7 @@ test "non-numeric keys are silently skipped in encoding" {
 }
 ```
 
-- [ ] **Run tests:** `moon test -p dowdiness/crdt/editor`
+- [ ] **Run tests:** `moon test -p dowdiness/canopy/editor`
 - [ ] **Run:** `moon info && moon fmt`
 - [ ] **Commit:** `feat(editor): add EphemeralStore encode/decode and LWW`
 
@@ -1066,7 +1066,7 @@ test "clock increments on each set" {
 }
 ```
 
-- [ ] **Run tests:** `moon test -p dowdiness/crdt/editor`
+- [ ] **Run tests:** `moon test -p dowdiness/canopy/editor`
 - [ ] **Commit:** `test(editor): add whitebox tests for EphemeralStore timeout`
 
 ---
@@ -1222,7 +1222,7 @@ pub fn adjust_position(pos : Int, edit_start : Int, old_len : Int, new_len : Int
 }
 ```
 
-- [ ] **Run tests:** `moon test -p dowdiness/crdt/editor`
+- [ ] **Run tests:** `moon test -p dowdiness/canopy/editor`
 - [ ] **Run:** `moon info && moon fmt`
 - [ ] **Commit:** `feat(editor): add PeerCursorView for cursor awareness`
 

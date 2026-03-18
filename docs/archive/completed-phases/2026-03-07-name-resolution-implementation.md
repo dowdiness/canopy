@@ -380,7 +380,7 @@ test "SyncEditor: get_resolution returns bound/free info" {
 
 **Step 2: Run the test to verify it fails**
 
-Run: `moon test -f sync_editor_test.mbt -p dowdiness/crdt/editor`
+Run: `moon test -f sync_editor_test.mbt -p dowdiness/canopy/editor`
 Expected: FAIL — `get_resolution` not defined
 
 **Step 3: Add `get_resolution` to `SyncEditor`**
@@ -396,7 +396,7 @@ pub fn SyncEditor::get_resolution(self : SyncEditor) -> @parser.Resolution {
 
 **Step 4: Run the test**
 
-Run: `moon test -f sync_editor_test.mbt -p dowdiness/crdt/editor`
+Run: `moon test -f sync_editor_test.mbt -p dowdiness/canopy/editor`
 Expected: all tests pass. If snapshot mismatches, run `moon test --update` and verify.
 
 **Step 5: Also add `get_dot_resolved`**

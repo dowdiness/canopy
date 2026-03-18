@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/crdt/cmd/main"
+package "dowdiness/canopy/cmd/main"
 
 // Values
 pub fn run_convergence_demo() -> Unit

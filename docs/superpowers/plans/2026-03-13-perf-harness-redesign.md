@@ -109,18 +109,18 @@ pub fn BenchmarkSession::deferred_full_cycle_timed(
 
 - [ ] **Step 3: Run `moon check` in the rabbita module**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon check`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon check`
 Expected: No errors. If there are type/syntax issues, fix them.
 
 - [ ] **Step 4: Run `moon info && moon fmt`**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon info && moon fmt`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon info && moon fmt`
 Expected: Updates `.mbti` interface file with new public types. Verify `BenchmarkMeasurement`, `now_ms`, and `deferred_full_cycle_timed` appear in the generated interface.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign
 git add examples/rabbita/main/benchmark_support.mbt
 git commit -m "feat(perf): add BenchmarkMeasurement type and phase-timed deferred full cycle"
 ```
@@ -511,7 +511,7 @@ fn main {
 
 - [ ] **Step 2: Run `moon check` in the rabbita module**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon check`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon check`
 Expected: No errors. Fix any type/syntax issues.
 
 Common issues to watch for:
@@ -521,13 +521,13 @@ Common issues to watch for:
 
 - [ ] **Step 3: Run `moon fmt`**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon fmt`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon fmt`
 Expected: File is formatted. Review any changes `moon fmt` made.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign
 git add examples/rabbita/perf_report/main.mbt
 git commit -m "feat(perf): rewrite perf harness with explicit cases, progress logging, timeout, and JSON output"
 ```
@@ -542,12 +542,12 @@ git commit -m "feat(perf): rewrite perf harness with explicit cases, progress lo
 
 - [ ] **Step 1: Build for JS target**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon build --target js`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon build --target js`
 Expected: Build succeeds with no errors.
 
 - [ ] **Step 2: Run medium benchmark with 1 iteration**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report medium 1`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report medium 1`
 Expected output pattern:
 ```text
 Rabbita performance report
@@ -583,17 +583,17 @@ Key things to verify:
 
 - [ ] **Step 3: Run with operation filter**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report medium deferred-full-cycle 1`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report medium deferred-full-cycle 1`
 Expected: Only the "deferred full cycle" case runs. Output should show `Cases: 1` and only one START/DONE pair.
 
 - [ ] **Step 4: Run large benchmark with 1 iteration (bounded)**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report large 1`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && timeout 120s moon run perf_report large 1`
 Expected: Either DONE or TIMEOUT lines for each large case. The harness should NOT hang silently — if a case exceeds its timeout budget, it prints a TIMEOUT line with elapsed time.
 
 - [ ] **Step 5: Run existing tests to verify no regressions**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/perf-harness-redesign/examples/rabbita && moon test`
 Expected: All existing tests in `main/main.mbt` pass (Collapse, Select, StartEdit, Expand, WrapInLambda, Delete, TextInput, RefreshProjection tests).
 
 - [ ] **Step 6: Final commit with verification note**

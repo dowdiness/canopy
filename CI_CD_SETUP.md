@@ -160,7 +160,7 @@ Installable with `make install-hooks`:
 
 1. **Clone and setup:**
    ```bash
-   git clone --recursive https://github.com/dowdiness/crdt.git
+   git clone --recursive https://github.com/dowdiness/canopy.git
    cd crdt
    make install-hooks  # Install pre-commit hooks
    ```
@@ -277,8 +277,8 @@ Makefile                        # Development task runner
 
 1. **Add status badges to README:**
    ```markdown
-   ![CI](https://github.com/dowdiness/crdt/workflows/CI/badge.svg)
-   ![Deploy](https://github.com/dowdiness/crdt/workflows/Deploy/badge.svg)
+   ![CI](https://github.com/dowdiness/canopy/workflows/CI/badge.svg)
+   ![Deploy](https://github.com/dowdiness/canopy/workflows/Deploy/badge.svg)
    ```
 
 2. **Configure notifications:**

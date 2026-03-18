@@ -808,7 +808,7 @@ The root `moon.pkg` currently imports `dowdiness/event-graph-walker/undo`. Since
 ```moonbit
 // moon.pkg — remove "dowdiness/event-graph-walker/undo"
 import {
-  "dowdiness/crdt/editor",
+  "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda" @parser,
   "moonbitlang/core/json",

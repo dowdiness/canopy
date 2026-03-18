@@ -1,0 +1,318 @@
+<h2>Approach B Deep Dive: ProseMirror Shell + CM6 NodeViews</h2>
+<p class="subtitle">How ProseMirror's schema maps to your AST, and how edits flow through the CRDT</p>
+
+<div class="section">
+  <h3>1. PM Schema ↔ AST Term Mapping</h3>
+  <p>Your <code>@ast.Term</code> variants become ProseMirror node types. PM's schema system enforces valid AST structure.</p>
+
+  <div class="mockup">
+    <div class="mockup-header">Schema Mapping: Term → PM NodeSpec</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid var(--border);">
+          <th style="text-align: left; padding: 8px;">MoonBit Term</th>
+          <th style="text-align: left; padding: 8px;">PM Node Type</th>
+          <th style="text-align: left; padding: 8px;">Content Expression</th>
+          <th style="text-align: left; padding: 8px;">Editable Part</th>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border); background: rgba(99, 102, 241, 0.08);">
+          <td style="padding: 8px;"><code>Int(n)</code></td>
+          <td style="padding: 8px;"><code>int_literal</code></td>
+          <td style="padding: 8px;">(leaf — inline text)</td>
+          <td style="padding: 8px;">CM6 inline: number</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 8px;"><code>Var(name)</code></td>
+          <td style="padding: 8px;"><code>var_ref</code></td>
+          <td style="padding: 8px;">(leaf — inline text)</td>
+          <td style="padding: 8px;">CM6 inline: identifier</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border); background: rgba(99, 102, 241, 0.08);">
+          <td style="padding: 8px;"><code>Lam(x, body)</code></td>
+          <td style="padding: 8px;"><code>lambda</code></td>
+          <td style="padding: 8px;"><code>"param term"</code></td>
+          <td style="padding: 8px;">Param name: CM6 inline.<br/>Body: nested PM node.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 8px;"><code>App(f, x)</code></td>
+          <td style="padding: 8px;"><code>application</code></td>
+          <td style="padding: 8px;"><code>"term term"</code></td>
+          <td style="padding: 8px;">Both children: nested PM nodes.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border); background: rgba(99, 102, 241, 0.08);">
+          <td style="padding: 8px;"><code>Bop(op, l, r)</code></td>
+          <td style="padding: 8px;"><code>binary_op</code></td>
+          <td style="padding: 8px;"><code>"term term"</code></td>
+          <td style="padding: 8px;">Operator: attr. Operands: nested PM nodes.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 8px;"><code>If(c, t, e)</code></td>
+          <td style="padding: 8px;"><code>if_expr</code></td>
+          <td style="padding: 8px;"><code>"term term term"</code></td>
+          <td style="padding: 8px;">3 children: nested PM nodes.</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border); background: rgba(99, 102, 241, 0.08);">
+          <td style="padding: 8px;"><code>Module(defs, body)</code></td>
+          <td style="padding: 8px;"><code>module</code></td>
+          <td style="padding: 8px;"><code>"let_def* term"</code></td>
+          <td style="padding: 8px;">Top-level container. Defs + final expr.</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px;"><code>Error(msg)</code></td>
+          <td style="padding: 8px;"><code>error_node</code></td>
+          <td style="padding: 8px;">(leaf)</td>
+          <td style="padding: 8px;">Red highlight, shows message. Not editable.</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. Architecture: Three Layers</h3>
+
+  <div class="mockup">
+    <div class="mockup-header">Data Flow: Edit → CRDT → Reconcile → Re-render</div>
+    <div class="mockup-body">
+      <pre style="font-size: 11px; line-height: 1.6; overflow-x: auto;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PRESENTATION LAYER                                  │
+│                                                                             │
+│  ┌─ ProseMirror EditorView ────────────────────────────────────────────┐   │
+│  │                                                                      │   │
+│  │  ┌─ module (NodeView) ──────────────────────────────────────────┐   │   │
+│  │  │                                                               │   │   │
+│  │  │  ┌─ let_def ──────────────────────────┐                      │   │   │
+│  │  │  │ let [CM6: name] = [lambda node]     │  ← each let_def     │   │   │
+│  │  │  └─────────────────────────────────────┘    is a PM node     │   │   │
+│  │  │                                                               │   │   │
+│  │  │  ┌─ lambda (NodeView) ───────────────┐                      │   │   │
+│  │  │  │ λ[CM6: param].                     │  ← param name is    │   │   │
+│  │  │  │   ┌─ application ──────────┐       │    a CM6 NodeView   │   │   │
+│  │  │  │   │ [var_ref] [int_lit]    │       │                      │   │   │
+│  │  │  │   │  ↑CM6       ↑CM6       │       │  ← leaf values are  │   │   │
+│  │  │  │   └────────────────────────┘       │    CM6 NodeViews    │   │   │
+│  │  │  └────────────────────────────────────┘                      │   │   │
+│  │  │                                                               │   │   │
+│  │  │  [CM6: final expression]              ← body expression      │   │   │
+│  │  └───────────────────────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  User actions produce PM Transactions (structural) or CM6 Changes (text)   │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          BRIDGE LAYER  (TypeScript)                          │
+│                                                                             │
+│  ┌─ PM Transaction Handler ──────────────────────────────────────────────┐ │
+│  │                                                                        │ │
+│  │  classify(step):                                                       │ │
+│  │    ReplaceStep on leaf node → text edit → insert/delete_and_record()  │ │
+│  │    ReplaceStep structural  → TreeEditOp → SyncEditor.apply_tree_edit()│ │
+│  │    AddMarkStep             → (future: annotations)                    │ │
+│  │                                                                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ CRDT → PM Reconciler ───────────────────────────────────────────────┐ │
+│  │                                                                        │ │
+│  │  on CRDT change (local or remote):                                    │ │
+│  │    1. get_proj_node() → new ProjNode tree                             │ │
+│  │    2. diff(old PM doc, new ProjNode) → PM Transaction                 │ │
+│  │    3. dispatch transaction (with "remote" metadata to skip re-bridge) │ │
+│  │                                                                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     CRDT LAYER  (MoonBit → JS FFI)                          │
+│                                                                             │
+│  SyncEditor                                                                 │
+│  ├─ TextDoc (FugueMax CRDT) ← character-level ops, causal graph            │
+│  ├─ ImperativeParser        ← incremental parse on text change              │
+│  ├─ ProjNode memo           ← derived AST with stable node IDs             │
+│  ├─ SourceMap memo          ← NodeId ↔ text positions                       │
+│  ├─ Registry memo           ← NodeId → ProjNode lookup                      │
+│  ├─ UndoManager             ← undo/redo across both text + tree edits      │
+│  └─ EphemeralStore          ← peer cursors, selections                      │
+│                                                                             │
+│  Sync: export_since() / apply_sync() via WebSocket                          │
+└─────────────────────────────────────────────────────────────────────────────┘</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. CM6 NodeView: Where Text Editing Happens</h3>
+  <p>Leaf nodes and editable names use embedded CodeMirror 6 instances inside ProseMirror NodeViews.</p>
+
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">What the user sees</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 14px; line-height: 2;">
+        <div style="padding: 8px; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 8px;">
+          <span style="color: var(--text-muted);">let</span>
+          <span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">double</span>
+          <span style="color: var(--text-muted);">=</span>
+          <span style="color: #c084fc;">λ</span><span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">x</span><span style="color: var(--text-muted);">.</span>
+          <span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">x</span>
+          <span style="color: #f59e0b;">+</span>
+          <span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">x</span>
+        </div>
+        <div style="padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
+          <span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">double</span>
+          <span style="background: rgba(99, 102, 241, 0.15); padding: 2px 4px; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">5</span>
+        </div>
+        <p style="font-family: sans-serif; font-size: 12px; color: var(--text-muted); margin-top: 12px;">
+          Blue-highlighted spans = CM6 inline editors (click to edit)<br/>
+          Structure between them = PM nodes (drag to restructure)
+        </p>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">PM document tree (internal)</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8;">
+<pre style="margin: 0;">module
+├─ let_def {name: "double"}
+│  └─ lambda {param: "x"}
+│     └─ binary_op {op: "Plus"}
+│        ├─ var_ref {name: "x"}  ← CM6
+│        └─ var_ref {name: "x"}  ← CM6
+└─ application
+   ├─ var_ref {name: "double"}   ← CM6
+   └─ int_literal {value: 5}     ← CM6</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>4. Edit Flow Examples</h3>
+
+  <div class="mockup">
+    <div class="mockup-header">Flow A: User types in a CM6 NodeView (text edit)</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <pre style="margin: 0; line-height: 1.6;">
+User renames variable "x" → "y" inside CM6 NodeView
+  │
+  ├─ 1. CM6 onChange fires with ChangeSet {from: 0, to: 1, insert: "y"}
+  │
+  ├─ 2. CM6 NodeView.forwardUpdate() →
+  │      converts CM6 offset to PM document position →
+  │      dispatches PM Transaction: ReplaceStep(pos, pos+1, "y")
+  │
+  ├─ 3. Bridge classifies: leaf text edit →
+  │      calls SyncEditor.insert_and_record() / delete_and_record()
+  │      (character-level CRDT ops, NOT set_text)
+  │
+  ├─ 4. CRDT generates ops → broadcast via export_since()
+  │
+  └─ 5. Memo chain: text → re-parse → new ProjNode (stable IDs) → SourceMap
+         PM doc stays in sync (originated here, no reconcile needed)</pre>
+    </div>
+  </div>
+
+  <div class="mockup" style="margin-top: 12px;">
+    <div class="mockup-header">Flow B: User drags a node (structural edit)</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <pre style="margin: 0; line-height: 1.6;">
+User drags "double 5" application above the let_def
+  │
+  ├─ 1. PM drag plugin fires → produces ReplaceStep (move content)
+  │
+  ├─ 2. Bridge classifies: structural edit →
+  │      maps PM node positions to NodeIds (via SourceMap) →
+  │      constructs TreeEditOp::Drop(source, target, position)
+  │
+  ├─ 3. SyncEditor.apply_tree_edit(op, timestamp) →
+  │      apply_edit_to_proj() → modified ProjNode →
+  │      unparse → new text → set_text_and_record() →
+  │      character-level CRDT diff ops generated
+  │
+  ├─ 4. CRDT ops broadcast
+  │
+  └─ 5. Reconciler: new ProjNode → diff against PM doc → PM Transaction
+         Updates PM doc to match new structure</pre>
+    </div>
+  </div>
+
+  <div class="mockup" style="margin-top: 12px;">
+    <div class="mockup-header">Flow C: Remote peer sends changes</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <pre style="margin: 0; line-height: 1.6;">
+WebSocket receives SyncMessage from peer
+  │
+  ├─ 1. apply_sync_json() → CRDT merges remote ops
+  │
+  ├─ 2. Memo chain re-derives: text → ProjNode → SourceMap
+  │
+  ├─ 3. Reconciler diffs old vs new ProjNode →
+  │      generates PM Transaction with ReplaceSteps →
+  │      dispatches with {remote: true} metadata
+  │
+  └─ 4. PM applies transaction → NodeViews update →
+         CM6 instances receive new content via update() method
+         (updating flag prevents feedback loop)</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>5. Key Design Decision: Where is the Source of Truth?</h3>
+
+  <div class="mockup">
+    <div class="mockup-header">Authority Model</div>
+    <div class="mockup-body">
+      <pre style="font-size: 12px; line-height: 1.6; margin: 0;">
+  ╔════════════════════════════════════════════════════════════════╗
+  ║  CRDT TextDoc is ALWAYS the source of truth                   ║
+  ║                                                                ║
+  ║  PM EditorState is a DERIVED VIEW — like a React component    ║
+  ║  rendering from a store. It can propose changes, but the      ║
+  ║  CRDT decides the canonical state.                            ║
+  ║                                                                ║
+  ║  This means:                                                   ║
+  ║  • PM state may temporarily diverge during edit → reconcile   ║
+  ║  • Undo/redo uses SyncEditor.UndoManager, not PM history      ║
+  ║  • Collab uses eg-walker sync, not prosemirror-collab          ║
+  ║  • PM schema validation is advisory (CRDT text may parse to   ║
+  ║    Error nodes — PM renders them, doesn't reject them)        ║
+  ╚════════════════════════════════════════════════════════════════╝</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>6. Framework Generalization Path</h3>
+  <p>How this architecture extends beyond lambda calculus:</p>
+
+  <div class="mockup">
+    <div class="mockup-header">Pluggable Schema Layer</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <pre style="margin: 0; line-height: 1.6;">
+┌──────────────────────────────────────────────────────────┐
+│                  Schema Registry                          │
+│                                                           │
+│  register("lambda-calculus", {                           │
+│    astToSchema:  Term → PM NodeSpec mapping               │
+│    schemaToAst:  PM Node → Term mapping                   │
+│    parser:       text → CST → AST                         │
+│    printer:      AST → text                               │
+│    lezerGrammar: (optional) for CM6 syntax highlighting   │
+│  })                                                       │
+│                                                           │
+│  register("markdown", { ... })     ← future              │
+│  register("json-schema", { ... })  ← future              │
+│  register("custom-dsl", { ... })   ← user-defined        │
+└──────────────────────────────────────────────────────────┘
+
+The Bridge Layer stays the same — it works with:
+  • PM Transactions (generic)
+  • TreeEditOps (generic structural ops)
+  • SyncEditor (generic text CRDT)
+
+Only the Schema mapping is language-specific.</pre>
+    </div>
+  </div>
+</div>

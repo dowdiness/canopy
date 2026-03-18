@@ -2,7 +2,7 @@
 
 A collaborative lambda calculus editor built with MoonBit CRDT and JavaScript.
 
-Part of the [dowdiness/crdt](https://github.com/dowdiness/crdt) monorepo.
+Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo.
 
 ## Features
 
@@ -19,7 +19,7 @@ Part of the [dowdiness/crdt](https://github.com/dowdiness/crdt) monorepo.
 - MoonBit compiler (`curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash`)
 - The full monorepo cloned with submodules:
   ```bash
-  git clone --recursive https://github.com/dowdiness/crdt.git
+  git clone --recursive https://github.com/dowdiness/canopy.git
   ```
 
 ### Development

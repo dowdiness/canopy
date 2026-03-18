@@ -1,0 +1,94 @@
+<h2>Editor Landscape vs. Your Priorities</h2>
+<p class="subtitle">Open-source editors evaluated against: Text UX → Structural Editing → Extensibility → Collaboration</p>
+
+<div class="section">
+  <h3>Text / Code Editors</h3>
+  <div class="options">
+    <div class="option" data-choice="cm6" onclick="toggleSelect(this)">
+      <div class="letter">CM6</div>
+      <div class="content">
+        <h3>CodeMirror 6</h3>
+        <p><strong>Text UX:</strong> ★★★★★ — Built for code. Syntax highlighting, keybindings, multi-cursor, line numbers.</p>
+        <p><strong>Structural:</strong> ★★☆☆☆ — Text-only model. No native block/node structure.</p>
+        <p><strong>Extensibility:</strong> ★★★★★ — Modular architecture, Lezer parser system, rich plugin ecosystem.</p>
+        <p><strong>Collab:</strong> ★★★★☆ — Built-in <code>@codemirror/collab</code> extension. Maps cleanly to OT/CRDT.</p>
+        <p style="color: var(--text-muted);">~150KB gzip. Used by: Replit, Observable, Chrome DevTools.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="monaco" onclick="toggleSelect(this)">
+      <div class="letter">MO</div>
+      <div class="content">
+        <h3>Monaco Editor</h3>
+        <p><strong>Text UX:</strong> ★★★★★ — VS Code's editor. Full IDE experience out-of-box.</p>
+        <p><strong>Structural:</strong> ★☆☆☆☆ — Purely text. No structural editing support.</p>
+        <p><strong>Extensibility:</strong> ★★★☆☆ — VS Code extension API, but tightly coupled architecture.</p>
+        <p><strong>Collab:</strong> ★★☆☆☆ — No built-in collab. Must build custom integration.</p>
+        <p style="color: var(--text-muted);">~2MB gzip. Heavy, hard to embed. Designed for full-page IDE.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Structured / Rich-Text Editors</h3>
+  <div class="options">
+    <div class="option" data-choice="pm" onclick="toggleSelect(this)">
+      <div class="letter">PM</div>
+      <div class="content">
+        <h3>ProseMirror</h3>
+        <p><strong>Text UX:</strong> ★★★☆☆ — Rich text, not code. No syntax highlighting, no line numbers.</p>
+        <p><strong>Structural:</strong> ★★★★★ — Schema-driven document model. Custom node types. Block manipulation.</p>
+        <p><strong>Extensibility:</strong> ★★★★★ — Plugin system, custom schemas, decorations, node views.</p>
+        <p><strong>Collab:</strong> ★★★★★ — <code>prosemirror-collab</code> + Step-based OT. Built for it.</p>
+        <p style="color: var(--text-muted);">~100KB gzip. Used by: Notion, Atlassian, NY Times.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="lexical" onclick="toggleSelect(this)">
+      <div class="letter">LX</div>
+      <div class="content">
+        <h3>Lexical (Meta)</h3>
+        <p><strong>Text UX:</strong> ★★★☆☆ — Rich text focus. Code blocks via plugin, not native.</p>
+        <p><strong>Structural:</strong> ★★★★☆ — Custom node classes. Tree-based model. React-native.</p>
+        <p><strong>Extensibility:</strong> ★★★★☆ — Node/plugin system. Growing ecosystem, less mature than PM.</p>
+        <p><strong>Collab:</strong> ★★★☆☆ — Yjs integration exists, but less battle-tested than PM.</p>
+        <p style="color: var(--text-muted);">~30KB gzip. Newer (2022). React-first but has vanilla JS mode.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="tiptap" onclick="toggleSelect(this)">
+      <div class="letter">TT</div>
+      <div class="content">
+        <h3>Tiptap</h3>
+        <p><strong>Text UX:</strong> ★★★☆☆ — Built on ProseMirror. Same rich-text strengths/weaknesses.</p>
+        <p><strong>Structural:</strong> ★★★★☆ — Inherits PM's schema system with friendlier API.</p>
+        <p><strong>Extensibility:</strong> ★★★★☆ — Extension kit wrapping PM plugins. Easier but less flexible.</p>
+        <p><strong>Collab:</strong> ★★★★☆ — Yjs + Hocuspocus. Collab-as-a-service model (paid tier).</p>
+        <p style="color: var(--text-muted);">Built on ProseMirror. Higher-level API, React/Vue wrappers. Open core.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Emerging / Specialized</h3>
+  <div class="options">
+    <div class="option" data-choice="slate" onclick="toggleSelect(this)">
+      <div class="letter">SL</div>
+      <div class="content">
+        <h3>Slate</h3>
+        <p><strong>Text UX:</strong> ★★☆☆☆ — Minimal defaults. You build everything.</p>
+        <p><strong>Structural:</strong> ★★★★☆ — JSON document model. Flexible node/mark system.</p>
+        <p><strong>Extensibility:</strong> ★★★☆☆ — Flexible but fragmented. Less plugin ecosystem.</p>
+        <p><strong>Collab:</strong> ★★☆☆☆ — Possible but no built-in support. Slate-yjs exists but rough.</p>
+        <p style="color: var(--text-muted);">React-only. History of breaking changes. v0.x still.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="lezer" onclick="toggleSelect(this)">
+      <div class="letter">LZ</div>
+      <div class="content">
+        <h3>Lezer (Parser System)</h3>
+        <p>Not an editor — CodeMirror 6's incremental parser. Worth mentioning because it's <strong>architecturally similar to your MoonBit ImperativeParser</strong>. Could potentially share parsing infrastructure or inform your parser's design for new languages.</p>
+        <p style="color: var(--text-muted);">Incremental, error-recovering, grammar-driven. Same author as CM6 & PM (Marijn Haverbeke).</p>
+      </div>
+    </div>
+  </div>
+</div>

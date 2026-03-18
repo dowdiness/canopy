@@ -208,7 +208,7 @@ Expected: All 291 tests pass
 
 - [ ] **Step 11: Run all parent repo tests**
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon test`
 Expected: All tests pass
 
 - [ ] **Step 12: Benchmark baseline before children index**
@@ -427,7 +427,7 @@ test "cursor partial hit: mid-document sequential insert" {
 Run: `cd event-graph-walker && moon test`
 Expected: All tests pass
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon test`
 Expected: All tests pass
 
 - [ ] **Step 11: Benchmark**
@@ -551,7 +551,7 @@ Expected: PASS
 Run: `cd event-graph-walker && moon test`
 Expected: All tests pass
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon test`
 Expected: All tests pass
 
 - [ ] **Step 6: Benchmark**
@@ -942,7 +942,7 @@ self.tree.set_batch_inserting(false)
 Run: `cd event-graph-walker && moon test`
 Expected: All tests pass (including convergence fuzz tests)
 
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon test`
 Expected: All tests pass
 
 - [ ] **Step 11: Benchmark**
@@ -975,7 +975,7 @@ Run: `cd event-graph-walker && moon bench --release 2>&1 | tee /tmp/bench-final.
 - [ ] **Step 2: Run full test suite (both repos)**
 
 Run: `cd event-graph-walker && moon test`
-Run: `cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon test`
+Run: `cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon test`
 
 - [ ] **Step 3: Write performance summary**
 
@@ -992,7 +992,7 @@ git add docs/benchmarks/2026-03-18-performance-summary.md
 git commit -m "docs: add performance optimization summary"
 git push origin main
 
-cd /home/antisatori/ghq/github.com/dowdiness/crdt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy
 git add event-graph-walker
 git commit -m "chore: update event-graph-walker submodule (performance optimizations)"
 git push origin main

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "deps": {
     "moonbit-community/rabbita": "0.11.5",
-    "dowdiness/crdt": {
+    "dowdiness/canopy": {
       "path": "../.."
     },
     "dowdiness/text_change": {
@@ -11,7 +11,7 @@
     }
   },
   "readme": "README.md",
-  "repository": "https://github.com/dowdiness/crdt",
+  "repository": "https://github.com/dowdiness/canopy",
   "license": "Apache-2.0",
   "keywords": [
     "rabbita",

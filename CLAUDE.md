@@ -30,7 +30,7 @@ Lambda Calculus CRDT Editor - eg-walker implementation in MoonBit
 
 ### Setup (after clone)
 ```bash
-git clone --recursive https://github.com/dowdiness/crdt.git
+git clone --recursive https://github.com/dowdiness/canopy.git
 # or if already cloned:
 git submodule update --init --recursive
 ```

@@ -89,7 +89,7 @@ test "source_file_to_proj_node: no final expression defaults to Unit" {
 
 - [ ] **Step 2: Run tests — expect compile error**
 
-Run: `moon test -p dowdiness/crdt/projection -f proj_node_test.mbt`
+Run: `moon test -p dowdiness/canopy/projection -f proj_node_test.mbt`
 Expected: FAIL — `source_file_to_proj_node` not found
 
 - [ ] **Step 3: Implement `source_file_to_proj_node`**
@@ -145,12 +145,12 @@ pub fn source_file_to_proj_node(
 
 - [ ] **Step 4: Run tests — expect pass**
 
-Run: `moon test -p dowdiness/crdt/projection -f proj_node_test.mbt`
+Run: `moon test -p dowdiness/canopy/projection -f proj_node_test.mbt`
 Expected: PASS (may need `moon test --update` for snapshot content)
 
 - [ ] **Step 5: Run all projection tests**
 
-Run: `moon test -p dowdiness/crdt/projection`
+Run: `moon test -p dowdiness/canopy/projection`
 Expected: All existing tests still pass (they use `parse_to_proj_node` which stays on `lambda_grammar`)
 
 - [ ] **Step 6: Update interfaces**
@@ -208,7 +208,7 @@ let new_proj = @proj.source_file_to_proj_node(syntax_root, counter)
 
 - [ ] **Step 4: Run editor tests**
 
-Run: `moon test -p dowdiness/crdt/editor`
+Run: `moon test -p dowdiness/canopy/editor`
 Expected: All tests pass. Existing tests use simple expressions (no let chains) which parse identically under `source_file_grammar`.
 
 - [ ] **Step 5: Run full test suite**
@@ -264,7 +264,7 @@ Replace all `@parser.lambda_grammar` with `@parser.source_file_grammar` in `perf
 
 - [ ] **Step 3: Run benchmarks to verify they work**
 
-Run: `moon test -p dowdiness/crdt/editor -f performance_benchmark.mbt`
+Run: `moon test -p dowdiness/canopy/editor -f performance_benchmark.mbt`
 Expected: Tests compile and pass (benchmarks run as tests with no-op bench harness).
 
 - [ ] **Step 4: Commit**
@@ -285,7 +285,7 @@ Expected: All tests pass across all packages.
 
 - [ ] **Step 2: Run benchmarks**
 
-Run: `moon bench --release -p dowdiness/crdt/editor -f performance_benchmark.mbt`
+Run: `moon bench --release -p dowdiness/canopy/editor -f performance_benchmark.mbt`
 Expected: Benchmarks complete. With flat LetDef structure, incremental should now be competitive with or faster than full reparse.
 
 - [ ] **Step 3: Format and final check**

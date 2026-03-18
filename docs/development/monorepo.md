@@ -7,7 +7,7 @@ This project was restructured from a single `til` repository into a monorepo wit
 Previously, all code lived in a single `dowdiness/til` repository. The restructuring extracted reusable libraries into independent repositories and links them back via git submodules:
 
 ```
-crdt/                           ← monorepo (dowdiness/crdt)
+crdt/                           ← monorepo (dowdiness/canopy)
 ├── event-graph-walker/         ← submodule (dowdiness/event-graph-walker)
 ├── loom/                       ← submodule (dowdiness/loom)
 ├── svg-dsl/                    ← submodule (dowdiness/svg-dsl)
@@ -20,7 +20,7 @@ crdt/                           ← monorepo (dowdiness/crdt)
 └── examples/demo-react/        ← monorepo (React demo)
 ```
 
-The root MoonBit module (`dowdiness/crdt`) depends on submodules via path dependencies in `moon.mod.json`:
+The root MoonBit module (`dowdiness/canopy`) depends on submodules via path dependencies in `moon.mod.json`:
 
 ```json
 {
@@ -37,7 +37,7 @@ The root MoonBit module (`dowdiness/crdt`) depends on submodules via path depend
 Clone with `--recursive` to fetch all submodules:
 
 ```bash
-git clone --recursive https://github.com/dowdiness/crdt.git
+git clone --recursive https://github.com/dowdiness/canopy.git
 ```
 
 If you already cloned without `--recursive`:

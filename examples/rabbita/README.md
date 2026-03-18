@@ -44,7 +44,7 @@ Then open the Vite URL in your browser.
 ## Notes
 
 - This example is a separate MoonBit module under `examples/rabbita`.
-- It is not wired into the root `dowdiness/crdt` module graph.
+- It is not wired into the root `dowdiness/canopy` module graph.
 - The current UI is built on the `SyncEditor` facade and `TreeEditorState`
   implementation in the root packages.
 - It remains the most complete example of the projectional editor flow, but it

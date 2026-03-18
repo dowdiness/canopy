@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/crdt"
+package "dowdiness/canopy"
 
 // Values
 pub fn apply_sync_json(Int, String) -> Unit

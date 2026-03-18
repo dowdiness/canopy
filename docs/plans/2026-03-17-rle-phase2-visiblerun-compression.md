@@ -41,7 +41,7 @@ options(
 - [ ] **Step 2: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 Expected: Clean check. The `@rle` alias will be available as `@rle`.
@@ -283,19 +283,19 @@ test "item_offset_to_utf16: basic ASCII" {
 - [ ] **Step 3: Verify compilation and run tests**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check && moon test -p dowdiness/event-graph-walker/internal/document
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check && moon test -p dowdiness/event-graph-walker/internal/document
 ```
 
 - [ ] **Step 4: Format and update interfaces**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
 ```
 
 - [ ] **Step 5: Commit inside submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/document/moon.pkg internal/document/visible_run.mbt internal/document/visible_run_wbtest.mbt internal/document/pkg.generated.mbti
 git commit -m "feat(document): define VisibleRun type with RLE trait impls (Phase 2, Task 1-2)
 
@@ -400,7 +400,7 @@ fn Document::get_compressed_cache(self : Document) -> @rle.Rle[VisibleRun] {
 - [ ] **Step 3: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 Expected: Compilation errors in functions that still reference the old cache type. These will be fixed in subsequent steps.
@@ -493,7 +493,7 @@ fn Document::position_to_lv(self : Document, position : Int) -> Int {
 - [ ] **Step 2: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 ---
@@ -553,7 +553,7 @@ pub fn Document::lv_to_position(self : Document, lv : Int) -> Int? {
 - [ ] **Step 2: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 ---
@@ -605,7 +605,7 @@ pub fn Document::get_visible_items(
 - [ ] **Step 2: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 ---
@@ -840,19 +840,19 @@ pub fn Document::delete_range(
 - [ ] **Step 5: Verify compilation**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon check
 ```
 
 - [ ] **Step 6: Format and update interfaces**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
 ```
 
 - [ ] **Step 7: Commit inside submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/document/document.mbt internal/document/pkg.generated.mbti
 git commit -m "feat(document): use Rle[VisibleRun] for compressed position cache (Phase 2)
 
@@ -873,7 +873,7 @@ Replace Array[(Lv, Item[String])] position_cache with Rle[VisibleRun].
 - [ ] **Step 1: Run document package tests**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon test -p dowdiness/event-graph-walker/internal/document
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon test -p dowdiness/event-graph-walker/internal/document
 ```
 
 Expected: All tests pass, including:
@@ -891,7 +891,7 @@ Expected: All tests pass, including:
 - [ ] **Step 2: Run full event-graph-walker test suite**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon test
 ```
 
 Expected: All tests pass. Key packages to watch:
@@ -902,7 +902,7 @@ Expected: All tests pass. Key packages to watch:
 - [ ] **Step 3: Run root crdt module tests**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0 && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0 && moon test
 ```
 
 Expected: All tests pass.
@@ -912,23 +912,23 @@ Expected: All tests pass.
 If any snapshot tests show changed output (e.g., `Show` output for Document which now contains `Rle[VisibleRun]?` instead of `Array[...]?`):
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon test --update
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon test --update
 ```
 
 Then review the snapshot diffs to verify they are expected:
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && git diff
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && git diff
 ```
 
 - [ ] **Step 5: Verify .mbti interface**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon info
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon info
 ```
 
 Check that the public API of `document` package is unchanged:
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && git diff internal/document/pkg.generated.mbti
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && git diff internal/document/pkg.generated.mbti
 ```
 
 The public API should be identical — `Document::get_visible_items` still returns `Array[(@fugue.Lv, @fugue.Item[String])]`, `Document::lv_to_position` still returns `Int?`. The only expected change is the new `dowdiness/rle` import in the mbti header.
@@ -936,7 +936,7 @@ The public API should be identical — `Document::get_visible_items` still retur
 - [ ] **Step 6: Commit snapshot updates if any**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/document/*.mbt internal/document/*.mbti
 git diff --cached --stat
 git commit -m "test(document): update snapshots for Rle[VisibleRun] position cache"
@@ -954,7 +954,7 @@ Only run this if Step 4 produced changes.
 - [ ] **Step 1: Stage and commit in parent repo**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git add event-graph-walker
 git commit -m "chore: update event-graph-walker submodule (Phase 2: VisibleRun compression)"
 ```
@@ -962,7 +962,7 @@ git commit -m "chore: update event-graph-walker submodule (Phase 2: VisibleRun c
 - [ ] **Step 2: Verify final state**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git status
 git submodule status event-graph-walker
 ```

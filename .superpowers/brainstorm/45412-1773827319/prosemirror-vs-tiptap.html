@@ -1,0 +1,86 @@
+<h2>ProseMirror vs Tiptap</h2>
+<p class="subtitle">Tiptap is built on ProseMirror — the question is whether the abstraction layer helps or hinders your use case</p>
+
+<div class="section">
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">ProseMirror</div>
+      <div class="mockup-body">
+        <h3>What it is</h3>
+        <p>Low-level toolkit. You compose EditorState, EditorView, Schema, Plugins, and Transactions yourself. No opinions — maximum control.</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li><strong>Full control over document model</strong> — you define the schema, transaction handling, and state management exactly how you need</li>
+              <li><strong>Custom CRDT integration</strong> — you can intercept transactions at any level and route them to your eg-walker CRDT instead of ProseMirror's built-in history</li>
+              <li><strong>No abstraction leaks</strong> — when something breaks, you're debugging ProseMirror directly, not Tiptap-wrapping-ProseMirror</li>
+              <li><strong>Framework-agnostic</strong> — vanilla JS. Works with React, MoonBit/Rabbita, or no framework</li>
+              <li><strong>Battle-tested collab</strong> — prosemirror-collab is the reference implementation for collaborative editing</li>
+              <li><strong>Mature & stable API</strong> — rarely breaking changes since 1.0 (2018)</li>
+              <li><strong>Perfect for framework builders</strong> — you're building a general projectional editing framework, not an app. PM gives you the primitives.</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li><strong>Steep learning curve</strong> — you must understand EditorState, Transactions, Plugins, NodeViews, Decorations, Schema spec</li>
+              <li><strong>Verbose setup</strong> — basic editor requires ~50-100 lines of boilerplate</li>
+              <li><strong>No built-in UI</strong> — menus, toolbars, drag handles are all DIY</li>
+              <li><strong>Documentation is dense</strong> — comprehensive but assumes deep knowledge</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Tiptap</div>
+      <div class="mockup-body">
+        <h3>What it is</h3>
+        <p>Opinionated wrapper around ProseMirror. Provides Extension API, React/Vue bindings, and pre-built components. Open-core model (some features paid).</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>Pros</h4>
+            <ul>
+              <li><strong>Faster to prototype</strong> — get a working editor in ~10 lines</li>
+              <li><strong>Extension system</strong> — StarterKit bundles common extensions (bold, italic, headings, etc.)</li>
+              <li><strong>React/Vue first-class</strong> — if you're using React, hooks and components are ready</li>
+              <li><strong>Pre-built collab</strong> — Hocuspocus server + Yjs integration out of box</li>
+              <li><strong>Better docs for beginners</strong> — guides, examples, interactive playground</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>Cons</h4>
+            <ul>
+              <li><strong>Abstraction over your CRDT</strong> — Tiptap's collab assumes Yjs. Replacing with eg-walker means fighting the abstraction, not benefiting from it.</li>
+              <li><strong>Open-core model</strong> — drag handle, AI, advanced collab features are paid (Tiptap Cloud). Your framework would depend on a commercial product's decisions.</li>
+              <li><strong>Extra indirection</strong> — debugging goes through Tiptap → ProseMirror → DOM. You'll end up reading PM source anyway.</li>
+              <li><strong>Framework coupling</strong> — Tiptap's React/Vue bindings assume those frameworks. Your MoonBit/Rabbita frontend would bypass them entirely.</li>
+              <li><strong>Upgrade risk</strong> — Tiptap has had breaking changes between major versions. You'd track both Tiptap AND ProseMirror versions.</li>
+              <li><strong>Wrong abstraction level for framework builders</strong> — Tiptap is designed for app developers, not for people building editor frameworks. It hides exactly the parts you need to control.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>For your specific case</h3>
+  <div class="options">
+    <div class="option" data-choice="prosemirror" onclick="toggleSelect(this)">
+      <div class="letter">→</div>
+      <div class="content">
+        <h3>ProseMirror is the better fit</h3>
+        <p>You're building a <strong>general projectional editing framework</strong> with a <strong>custom CRDT</strong> (eg-walker, not Yjs). Tiptap's value proposition — quick setup, pre-built collab, React bindings — doesn't apply because:</p>
+        <ul style="margin-top: 8px; color: var(--text-muted);">
+          <li>You'd replace Tiptap's collab layer with eg-walker anyway</li>
+          <li>Your frontend is MoonBit/Rabbita, not React/Vue</li>
+          <li>You need deep control over the document model for AST↔text bidirectional sync</li>
+          <li>You're building the framework that Tiptap-like wrappers would be built <em>on top of</em></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,8 +1,8 @@
 import {
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/html",
-  "dowdiness/crdt/editor" @editor,
-  "dowdiness/crdt/projection" @proj,
+  "dowdiness/canopy/editor" @editor,
+  "dowdiness/canopy/projection" @proj,
   "dowdiness/text_change",
 }
 

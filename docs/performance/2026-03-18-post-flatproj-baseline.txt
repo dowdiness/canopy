@@ -2,13 +2,13 @@
 # HEAD: 9d7817d feat: add JS bindings for undo/redo with sync export
 
 ## crdt module (editor)
-[dowdiness/crdt] bench editor/performance_benchmark.mbt:33 ("parser benchmark - reactive full reparse medium") ok
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:33 ("parser benchmark - reactive full reparse medium") ok
  195.20 µs ±   9.44 µs   185.99 µs … 215.71 µs  in 10 ×    459 runs
-[dowdiness/crdt] bench editor/performance_benchmark.mbt:54 ("parser benchmark - imperative incremental medium") ok
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:54 ("parser benchmark - imperative incremental medium") ok
  195.65 µs ±   4.72 µs   190.92 µs … 204.30 µs  in 10 ×    503 runs
-[dowdiness/crdt] bench editor/performance_benchmark.mbt:79 ("parser benchmark - reactive full reparse large") ok
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:79 ("parser benchmark - reactive full reparse large") ok
  791.27 µs ±   9.79 µs   776.42 µs … 807.68 µs  in 10 ×    128 runs
-[dowdiness/crdt] bench editor/performance_benchmark.mbt:100 ("parser benchmark - imperative incremental large") ok
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:100 ("parser benchmark - imperative incremental large") ok
  804.22 µs ±  16.57 µs   784.42 µs … 836.41 µs  in 10 ×    124 runs
 
 ## event-graph-walker

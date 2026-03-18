@@ -19,7 +19,7 @@ Runs comprehensive checks on every push and PR:
 
 **Status Badge:**
 ```markdown
-![CI](https://github.com/dowdiness/crdt/workflows/CI/badge.svg)
+![CI](https://github.com/dowdiness/canopy/workflows/CI/badge.svg)
 ```
 
 ### 2. Benchmark Regression (`benchmark.yml`)

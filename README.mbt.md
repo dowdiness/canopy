@@ -1,6 +1,6 @@
-# dowdiness/crdt
+# dowdiness/canopy
 
-- [Repository](https://github.com/dowdiness/crdt)
+- [Repository](https://github.com/dowdiness/canopy)
 - [Web App](https://lambda-editor.koji-ishimoto.workers.dev/)
 
 ## Eg-Walker CRDT Editor in MoonBit
@@ -31,7 +31,7 @@ See [Monorepo & Submodule Guide](docs/development/monorepo.md) for the full work
 ## Getting Started
 
 ```sh
-git clone --recursive https://github.com/dowdiness/crdt.git
+git clone --recursive https://github.com/dowdiness/canopy.git
 cd crdt
 moon test
 ```

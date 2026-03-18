@@ -226,7 +226,7 @@ test "property: merge_to_edits matches compute_edit for all single-char deletes"
 **Step 3: Run the tests — expect them to fail**
 
 ```bash
-cd /path/to/crdt && moon test -p dowdiness/crdt/editor
+cd /path/to/crdt && moon test -p dowdiness/canopy/editor
 ```
 
 Expected: compile error — `merge_to_edits` is not defined.
@@ -266,7 +266,7 @@ pub fn merge_to_edits(
 **Step 2: Run the tests — expect them to pass**
 
 ```bash
-moon test -p dowdiness/crdt/editor
+moon test -p dowdiness/canopy/editor
 ```
 
 Expected: all tests in `edit_bridge_test.mbt` pass. All pre-existing tests in `text_diff_test.mbt`, `parsed_editor_test.mbt`, `editor_test.mbt` continue to pass.
@@ -303,7 +303,7 @@ The current implementation uses a three-way if:
 **Step 2: Verify the existing tests still pass before touching anything**
 
 ```bash
-moon test -p dowdiness/crdt/editor
+moon test -p dowdiness/canopy/editor
 ```
 
 Expected: all pass. Baseline confirmed.
@@ -346,7 +346,7 @@ fn ParsedEditor::reparse(self : ParsedEditor) -> Unit {
 **Step 4: Run all editor tests**
 
 ```bash
-moon test -p dowdiness/crdt/editor
+moon test -p dowdiness/canopy/editor
 ```
 
 Expected: all tests pass — including `parsed_editor_test.mbt` (convergence, incremental parsing, cursor tracking, etc.). The behaviour is identical because `merge_to_edits` uses the same prefix/suffix algorithm as `compute_edit`.
@@ -408,7 +408,7 @@ Merged via PR #15 (2026-03-05). Tasks 1-2, 4 completed as planned. Task 3 (wire 
 
 ## Success criteria
 
-1. `moon test -p dowdiness/crdt/editor` — all tests pass
+1. `moon test -p dowdiness/canopy/editor` — all tests pass
 2. `moon test` — full module test suite passes (185/185)
 3. `grep -r "compute_edit" editor/parsed_editor.mbt` — returns nothing (`reparse()` removed entirely by reactive pipeline)
 4. `grep -r "merge_to_edits" editor/parsed_editor.mbt` — superseded: `reparse()` no longer exists; `ReactiveParser.set_source()` handles re-parsing internally

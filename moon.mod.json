@@ -1,5 +1,5 @@
 {
-  "name": "dowdiness/crdt",
+  "name": "dowdiness/canopy",
   "version": "0.1.0",
   "deps": {
     "moonbitlang/quickcheck": "0.9.9",
@@ -23,9 +23,9 @@
     }
   },
   "readme": "README.mbt.md",
-  "repository": "https://github.com/dowdiness/crdt",
+  "repository": "https://github.com/dowdiness/canopy",
   "license": "Apache-2.0",
-  "keywords": ["crdt", "collaborative-editing", "lambda-calculus"],
-  "description": "Lambda Calculus CRDT Editor - eg-walker implementation in MoonBit",
+  "keywords": ["incremental-parsing", "projectional-editing", "crdt", "collaborative-editing", "lambda-calculus"],
+  "description": "Canopy — incremental projectional editor with CRDT collaboration, built in MoonBit",
   "preferred-target": "js"
 }

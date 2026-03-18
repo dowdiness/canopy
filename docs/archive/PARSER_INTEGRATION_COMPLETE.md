@@ -85,7 +85,7 @@ ParsedEditor {
 ## Files Modified
 
 ### 1. `editor/moon.pkg.json`
-Added `dowdiness/crdt/parser` dependency.
+Added `dowdiness/canopy/parser` dependency.
 
 ### 2. `crdt.mbt` (+45 LOC)
 Exported ParsedEditor types and functions:
@@ -96,7 +96,7 @@ Exported ParsedEditor types and functions:
 - `parsed_merge_remote(ops, frontier)`
 
 ### 3. `moon.pkg.json` (root)
-Added `dowdiness/crdt/parser` dependency.
+Added `dowdiness/canopy/parser` dependency.
 
 ## Architecture
 

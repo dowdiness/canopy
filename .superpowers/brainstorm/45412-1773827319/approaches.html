@@ -1,0 +1,146 @@
+<h2>Three Integration Approaches</h2>
+<p class="subtitle">How to wire CodeMirror 6 and ProseMirror into the eg-walker CRDT pipeline</p>
+
+<div class="section">
+  <div class="options">
+    <div class="option" data-choice="a" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Dual Editor — CM6 (text) + PM (structural)</h3>
+        <p>Two separate editor instances, each doing what it's best at. Maps directly to your existing split-view architecture.</p>
+        <pre style="font-size: 12px; line-height: 1.5; background: var(--bg-secondary); padding: 12px; border-radius: 6px; overflow-x: auto;">
+┌─────────────────────┐    ┌─────────────────────────┐
+│   CodeMirror 6      │    │     ProseMirror          │
+│   (text pane)       │    │     (tree pane)          │
+│                     │    │                           │
+│ • syntax highlight  │    │ • custom AST schema       │
+│ • line numbers      │    │ • block drag-drop         │
+│ • code keybindings  │    │ • inline node editing     │
+│ • multi-cursor      │    │ • collapse/expand         │
+└────────┬────────────┘    └──────────┬────────────────┘
+         │ ChangeSet                  │ Transaction (Steps)
+         │ (char-level)              │ (structural)
+         ▼                            ▼
+┌─────────────────────────────────────────────────────┐
+│              Editor Adapter Layer                     │
+│  CM6 changes → insert/delete ops                     │
+│  PM steps → TreeEditOp → unparse → text diff → ops  │
+└────────────────────────┬────────────────────────────┘
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│          eg-walker CRDT  (MoonBit / SyncEditor)      │
+│  TextDoc ← FugueMax ← OpLog ← causal graph          │
+│  Memo: text → parse → AST → ProjNode → SourceMap    │
+└─────────────────────────────────────────────────────┘</pre>
+        <div class="pros-cons">
+          <div class="pros"><h4>Pros</h4><ul>
+            <li>Each editor used for its strength</li>
+            <li>Maps cleanly to existing text+tree architecture</li>
+            <li>Independent upgrade/replace of either pane</li>
+          </ul></div>
+          <div class="cons"><h4>Cons</h4><ul>
+            <li>Two editor integrations to maintain</li>
+            <li>Synchronizing selection/focus between panes</li>
+            <li>Two dependency trees</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option" data-choice="b" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>ProseMirror Outer Shell + CM6 NodeViews</h3>
+        <p>ProseMirror as the unified document model. Code-editing regions embed CM6 instances inside PM NodeViews. <strong>Recommended.</strong></p>
+        <pre style="font-size: 12px; line-height: 1.5; background: var(--bg-secondary); padding: 12px; border-radius: 6px; overflow-x: auto;">
+┌─────────────────────────────────────────────────────┐
+│                  ProseMirror                         │
+│          (unified document model)                    │
+│                                                      │
+│  ┌──────────────┐  ┌──────────────┐                 │
+│  │ TermNode      │  │ TermNode      │  ← PM nodes   │
+│  │ (structural)  │  │ (structural)  │    (AST shape) │
+│  │               │  │               │                │
+│  │ ┌──────────┐ │  │ ┌──────────┐ │                 │
+│  │ │ CM6 view │ │  │ │ CM6 view │ │  ← embedded     │
+│  │ │ (inline) │ │  │ │ (inline) │ │    code editing  │
+│  │ └──────────┘ │  │ └──────────┘ │                 │
+│  └──────────────┘  └──────────────┘                 │
+│                                                      │
+│  Transaction (Steps) — both structural + text        │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│              CRDT Bridge Layer                        │
+│  PM Steps → classify:                                │
+│    structural → TreeEditOp → tree_edit_bridge         │
+│    text (from CM6 NodeView) → insert/delete ops      │
+└────────────────────────┬────────────────────────────┘
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│          eg-walker CRDT  (MoonBit / SyncEditor)      │
+└─────────────────────────────────────────────────────┘</pre>
+        <div class="pros-cons">
+          <div class="pros"><h4>Pros</h4><ul>
+            <li>Single document model — PM schema mirrors your AST</li>
+            <li>Best of both: PM structural editing + CM6 text editing</li>
+            <li>Well-documented pattern (prosemirror.net/examples/codemirror/)</li>
+            <li>One selection system, one undo stack, one transaction flow</li>
+            <li>Natural fit for projectional editing framework</li>
+          </ul></div>
+          <div class="cons"><h4>Cons</h4><ul>
+            <li>PM NodeView ↔ CM6 coordination is non-trivial</li>
+            <li>PM schema must faithfully represent your AST grammar</li>
+            <li>Harder to reason about: PM state + embedded CM6 states</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="option" data-choice="c" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>CodeMirror 6 Only + Structural Decorations</h3>
+        <p>CM6 as the single editor. Use decorations, widgets, and gutter markers to overlay structural editing features on top of text.</p>
+        <pre style="font-size: 12px; line-height: 1.5; background: var(--bg-secondary); padding: 12px; border-radius: 6px; overflow-x: auto;">
+┌─────────────────────────────────────────────────────┐
+│                  CodeMirror 6                         │
+│           (text model + decorations)                 │
+│                                                      │
+│  λx. ───────── [collapse widget]                     │
+│    let y = 1 ─ [type annotation decoration]          │
+│    x + y ───── [AST node highlight]                  │
+│                                                      │
+│  Structural ops via:                                 │
+│  • Fold/unfold (native CM6 folding)                  │
+│  • Widget decorations (inline controls)              │
+│  • Gutter markers (node type indicators)             │
+│  • Keybindings (structural transforms)               │
+└────────────────────────┬────────────────────────────┘
+                         │ ChangeSet (always char-level)
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│          eg-walker CRDT  (MoonBit / SyncEditor)      │
+└─────────────────────────────────────────────────────┘</pre>
+        <div class="pros-cons">
+          <div class="pros"><h4>Pros</h4><ul>
+            <li>Simplest integration — one editor, one model</li>
+            <li>Direct char-level mapping to CRDT (no translation)</li>
+            <li>Lightest weight, fastest to build MVP</li>
+          </ul></div>
+          <div class="cons"><h4>Cons</h4><ul>
+            <li>Structural editing is bolted-on, not native</li>
+            <li>Limited: can't do true block drag-drop, node insertion</li>
+            <li>Doesn't scale well as a general projectional editing framework</li>
+            <li>Fighting CM6's linear text model for tree operations</li>
+          </ul></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px;">
+  <p><strong>My recommendation: Approach B</strong> — ProseMirror as the outer shell with CM6 NodeViews for code regions. It's the natural architecture for a projectional editing framework: PM's schema-driven document model <em>is</em> a projection of your AST, and CM6 handles the text editing UX where you need it. This pattern is proven (Notion-style editors use it) and scales to new content types by defining new PM schemas.</p>
+</div>

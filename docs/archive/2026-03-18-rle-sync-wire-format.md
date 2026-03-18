@@ -2,7 +2,7 @@
 
 **Status:** Completed.
 **Date:** 2026-03-18
-**PRs:** [event-graph-walker#8](https://github.com/dowdiness/event-graph-walker/pull/8), [crdt#35](https://github.com/dowdiness/crdt/pull/35)
+**PRs:** [event-graph-walker#8](https://github.com/dowdiness/event-graph-walker/pull/8), [crdt#35](https://github.com/dowdiness/canopy/pull/35)
 
 ---
 

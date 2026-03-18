@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/crdt/editor"
+package "dowdiness/canopy/editor"
 
 import {
-  "dowdiness/crdt/projection",
+  "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",

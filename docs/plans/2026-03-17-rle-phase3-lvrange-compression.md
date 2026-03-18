@@ -29,7 +29,7 @@ LvRange goes in `internal/core/` because it is consumed by causal_graph, oplog, 
 
 - [ ] **Step 1: Add `dowdiness/rle` to core's moon.pkg**
 
-Edit `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/core/moon.pkg`:
+Edit `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/core/moon.pkg`:
 
 ```
 import {
@@ -45,7 +45,7 @@ options(
 
 - [ ] **Step 2: Create LvRange type and trait impls**
 
-Create `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/core/lv_range.mbt`:
+Create `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/core/lv_range.mbt`:
 
 ```moonbit
 ///|
@@ -109,7 +109,7 @@ pub fn LvRange::end(self : LvRange) -> Int {
 
 - [ ] **Step 3: Create tests for LvRange**
 
-Create `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/core/lv_range_test.mbt`:
+Create `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/core/lv_range_test.mbt`:
 
 ```moonbit
 ///|
@@ -219,21 +219,21 @@ test "LvRange - Rle from_sorted_ints single" {
 - [ ] **Step 4: Build and test**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check && moon test -p dowdiness/event-graph-walker/internal/core
 ```
 
 - [ ] **Step 5: Update interfaces and format**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon info && moon fmt
 ```
 
 - [ ] **Step 6: Commit inside the submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/core/lv_range.mbt internal/core/lv_range_test.mbt internal/core/moon.pkg internal/core/pkg.generated.mbti
 git commit -m "feat(core): add LvRange type with RLE trait impls
 
@@ -257,7 +257,7 @@ topological_sort produces output in LV order, which for linear histories is asce
 
 - [ ] **Step 1: Add `dowdiness/rle` to causal_graph's moon.pkg**
 
-Edit `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/moon.pkg`:
+Edit `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/moon.pkg`:
 
 ```
 import {
@@ -279,7 +279,7 @@ options(
 
 - [ ] **Step 2: Change topological_sort return type to Rle[LvRange]**
 
-In `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker.mbt`, change the `topological_sort` function signature and compress the result:
+In `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker.mbt`, change the `topological_sort` function signature and compress the result:
 
 Replace the return type and final lines of `topological_sort`. The function currently builds `result : Array[Int]` via Kahn's algorithm (lines 88-177). Change only the signature and the return value.
 
@@ -318,7 +318,7 @@ Note: The result array from Kahn's algorithm is already in topological order (as
 - [ ] **Step 3: Build and verify — expect compilation errors in downstream consumers**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check 2>&1 | head -30
 ```
 
@@ -336,7 +336,7 @@ Now that `topological_sort` returns `Rle[LvRange]`, update the two public functi
 
 - [ ] **Step 1: Update walk_from_frontier**
 
-In `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker.mbt`, replace:
+In `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker.mbt`, replace:
 
 ```moonbit
 pub fn CausalGraph::walk_from_frontier(
@@ -421,7 +421,7 @@ pub fn CausalGraph::diff_frontiers_lvs(
 
 The tests access results via array indexing (`result[0]`, `result.length()`, `result.contains()`). Update them to use `iter_units()` expansion.
 
-Replace the entire contents of `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker_test.mbt` with:
+Replace the entire contents of `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/causal_graph/walker_test.mbt` with:
 
 ```moonbit
 // Tests for Event Graph Walker
@@ -695,7 +695,7 @@ test "diff_frontiers_lvs compression ratio" {
 - [ ] **Step 4: Build and test causal_graph (expect downstream errors)**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check 2>&1 | head -30
 moon test -p dowdiness/event-graph-walker/internal/causal_graph
 ```
@@ -707,14 +707,14 @@ Expected: causal_graph tests pass. oplog and branch packages will have type erro
 Verify `walker_benchmark.mbt` compiles without changes (it uses `b.keep(result)` which is type-agnostic).
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check 2>&1 | grep -i walker_benchmark || echo "No benchmark errors"
 ```
 
 - [ ] **Step 5: Commit inside the submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/causal_graph/walker.mbt internal/causal_graph/walker_test.mbt internal/causal_graph/moon.pkg internal/causal_graph/pkg.generated.mbti
 git commit -m "feat(causal_graph): return Rle[LvRange] from topological_sort/walk/diff
 
@@ -738,7 +738,7 @@ The oplog walker functions call `walk_from_frontier` and `diff_frontiers_lvs`, w
 
 - [ ] **Step 1: Add `dowdiness/rle` to oplog's moon.pkg**
 
-Edit `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/oplog/moon.pkg`:
+Edit `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/oplog/moon.pkg`:
 
 ```
 import {
@@ -757,7 +757,7 @@ options(
 
 - [ ] **Step 2: Add get_ops_rle overload**
 
-In `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/oplog/oplog.mbt`, add a new function after the existing `get_ops`:
+In `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/oplog/oplog.mbt`, add a new function after the existing `get_ops`:
 
 ```moonbit
 ///|
@@ -782,7 +782,7 @@ pub fn OpLog::get_ops_rle(
 
 - [ ] **Step 3: Update walker.mbt functions**
 
-Replace the entire contents of `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/oplog/walker.mbt` with:
+Replace the entire contents of `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/oplog/walker.mbt` with:
 
 ```moonbit
 ///| OpLog-specific walker functions
@@ -852,7 +852,7 @@ pub fn OpLog::diff_and_collect(
 - [ ] **Step 4: Build and test oplog**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check 2>&1 | head -30
 moon test -p dowdiness/event-graph-walker/internal/oplog
 ```
@@ -862,14 +862,14 @@ Expected: oplog tests pass. Branch tests may still fail (fixed in Task 5).
 - [ ] **Step 5: Update interfaces and format**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon info && moon fmt
 ```
 
 - [ ] **Step 6: Commit inside the submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/oplog/walker.mbt internal/oplog/oplog.mbt internal/oplog/moon.pkg internal/oplog/pkg.generated.mbti
 git commit -m "feat(oplog): add get_ops_rle, update walker to use Rle[LvRange]
 
@@ -893,7 +893,7 @@ Part of RLE Phase 3: LvRange compression."
 - [ ] **Step 1: Verify branch compiles and tests pass without changes**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check && moon test -p dowdiness/event-graph-walker/internal/branch
 ```
 
@@ -914,7 +914,7 @@ Switching to `diff_frontiers_lvs` (which returns topologically sorted, Rle-compr
 
 - [ ] **Step 1: Add `dowdiness/rle` to branch's moon.pkg**
 
-Edit `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/branch/moon.pkg`:
+Edit `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/branch/moon.pkg`:
 
 ```
 import {
@@ -933,7 +933,7 @@ options(
 
 - [ ] **Step 2: Update MergeContext methods to accept Rle[LvRange]**
 
-In `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/branch/branch_merge.mbt`, replace `apply_operations` and `retreat_operations`:
+In `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/branch/branch_merge.mbt`, replace `apply_operations` and `retreat_operations`:
 
 Replace:
 
@@ -1053,7 +1053,7 @@ pub fn merge(
 
 The tests that call `apply_operations` and `retreat_operations` directly pass `Array[Int]`. Convert those to `Rle[LvRange]`.
 
-In `/home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker/internal/branch/branch_merge_test.mbt`:
+In `/home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker/internal/branch/branch_merge_test.mbt`:
 
 Replace every direct call to `ctx.apply_operations([...])` and `ctx.retreat_operations([...])` to wrap the array as `Rle[LvRange]`:
 
@@ -1099,7 +1099,7 @@ There are 4 occurrences total across 4 test functions:
 - [ ] **Step 5: Build and test the full suite**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon check && moon test
 ```
 
@@ -1108,14 +1108,14 @@ Expected: All tests pass.
 - [ ] **Step 6: Update interfaces and format**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon info && moon fmt
 ```
 
 - [ ] **Step 7: Commit inside the submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add internal/branch/branch_merge.mbt internal/branch/branch_merge_test.mbt internal/branch/moon.pkg internal/branch/pkg.generated.mbti
 git commit -m "feat(branch): use Rle[LvRange] in merge context, fix unsorted retreat bug
 
@@ -1142,35 +1142,35 @@ Part of RLE Phase 3: LvRange compression."
 - [ ] **Step 1: Run full test suite in event-graph-walker**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon test
 ```
 
 - [ ] **Step 2: Update snapshots if any behavior changed**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon test --update
 ```
 
 - [ ] **Step 3: Run full test suite in root crdt module**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 moon test
 ```
 
 - [ ] **Step 4: Final moon info and moon fmt**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 moon info && moon fmt
 ```
 
 - [ ] **Step 5: Verify no unexpected API changes**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git diff *.mbti
 ```
 
@@ -1183,7 +1183,7 @@ Expected changes:
 - [ ] **Step 6: Commit any remaining changes inside submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker
 git add -A
 git status
 ```
@@ -1204,7 +1204,7 @@ git commit -m "chore: update snapshots and interfaces for RLE Phase 3"
 - [ ] **Step 1: Stage and commit the submodule pointer in parent repo**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git add event-graph-walker
 git status
 ```
@@ -1221,7 +1221,7 @@ Compresses graph traversal results using Rle[LvRange]:
 - [ ] **Step 2: Verify final state**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git status
 git submodule status event-graph-walker
 ```

@@ -440,8 +440,8 @@ Dependabot PRs have restricted permissions and must pass CI before merging.
 Add to README:
 
 ```markdown
-![CI](https://github.com/dowdiness/crdt/actions/workflows/ci.yml/badge.svg)
-![Deploy](https://github.com/dowdiness/crdt/actions/workflows/deploy.yml/badge.svg)
+![CI](https://github.com/dowdiness/canopy/actions/workflows/ci.yml/badge.svg)
+![Deploy](https://github.com/dowdiness/canopy/actions/workflows/deploy.yml/badge.svg)
 ```
 
 ### Notifications

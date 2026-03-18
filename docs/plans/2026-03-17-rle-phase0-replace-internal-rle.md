@@ -23,7 +23,7 @@
 - [ ] **Step 1: Add the submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy
 git submodule add https://github.com/dowdiness/rle.git rle
 ```
 
@@ -79,7 +79,7 @@ Edit `event-graph-walker/moon.mod.json` to add the dependency:
 - [ ] **Step 2: Run `moon update` in event-graph-walker to refresh lockfile**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/event-graph-walker && moon update
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/event-graph-walker && moon update
 ```
 
 Note: If `moon update` creates or modifies `moon.lock.json`, it must be committed inside the submodule in Task 5.
@@ -87,7 +87,7 @@ Note: If `moon update` creates or modifies `moon.lock.json`, it must be committe
 - [ ] **Step 3: Verify event-graph-walker still builds with the new dependency**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/event-graph-walker && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/event-graph-walker && moon check
 ```
 
 Expected: Clean check with no errors.
@@ -102,7 +102,7 @@ Expected: Clean check with no errors.
 - [ ] **Step 1: Delete the internal RLE directory**
 
 ```bash
-rm -rf /home/antisatori/ghq/github.com/dowdiness/crdt/event-graph-walker/internal/rle
+rm -rf /home/antisatori/ghq/github.com/dowdiness/canopy/event-graph-walker/internal/rle
 ```
 
 Note: `internal/` contains 6 other packages (branch, causal_graph, core, document, fugue, oplog) — do NOT delete it.
@@ -110,7 +110,7 @@ Note: `internal/` contains 6 other packages (branch, causal_graph, core, documen
 - [ ] **Step 2: Verify event-graph-walker still builds and all tests pass**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/event-graph-walker && moon check && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/event-graph-walker && moon check && moon test
 ```
 
 Expected: All checks pass, all tests pass (the deleted code had zero importers).
@@ -118,7 +118,7 @@ Expected: All checks pass, all tests pass (the deleted code had zero importers).
 - [ ] **Step 3: Run `moon update` in root crdt module, then verify it builds and tests pass**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt && moon update && moon check && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy && moon update && moon check && moon test
 ```
 
 Expected: All checks pass.
@@ -165,7 +165,7 @@ Since `event-graph-walker/` is a git submodule, changes inside it must be commit
 - [ ] **Step 1: Commit inside event-graph-walker submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/event-graph-walker
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/event-graph-walker
 git add moon.mod.json
 git rm -r internal/rle
 git status
@@ -189,7 +189,7 @@ The external library uses a tighter extend version-bump heuristic
 - [ ] **Step 2: Stage and commit in parent repo**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy
 git add .gitmodules rle event-graph-walker docs/architecture/modules.md
 ```
 

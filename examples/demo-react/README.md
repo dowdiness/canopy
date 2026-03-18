@@ -2,7 +2,7 @@
 
 A demonstration of integrating React with the MoonBit Valtio FFI module (`valtio-egwalker`).
 
-Part of the [dowdiness/crdt](https://github.com/dowdiness/crdt) monorepo. Depends on the [valtio](../../valtio/) and [event-graph-walker](../../event-graph-walker/) submodules.
+Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo. Depends on the [valtio](../../valtio/) and [event-graph-walker](../../event-graph-walker/) submodules.
 
 ## Features
 
@@ -17,7 +17,7 @@ Part of the [dowdiness/crdt](https://github.com/dowdiness/crdt) monorepo. Depend
 Make sure you cloned the monorepo with submodules:
 
 ```bash
-git clone --recursive https://github.com/dowdiness/crdt.git
+git clone --recursive https://github.com/dowdiness/canopy.git
 cd crdt/examples/demo-react
 npm install
 npm run dev

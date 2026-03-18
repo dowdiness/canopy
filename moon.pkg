@@ -1,5 +1,5 @@
 import {
-  "dowdiness/crdt/editor",
+  "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/text",
   "moonbitlang/core/json",
 }

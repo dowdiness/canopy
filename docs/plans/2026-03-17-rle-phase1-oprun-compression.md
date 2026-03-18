@@ -1260,7 +1260,7 @@ All tests must pass.
 - [ ] **Step 2: Run root crdt module tests**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0 && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0 && moon test
 ```
 
 If any tests reference `ops_ref` or make assumptions about `OpLog.operations` being an Array, fix them.
@@ -1268,7 +1268,7 @@ If any tests reference `ops_ref` or make assumptions about `OpLog.operations` be
 - [ ] **Step 3: Run `moon check` at root level**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0 && moon check
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0 && moon check
 ```
 
 - [ ] **Step 4: Fix any breakage found**
@@ -1426,14 +1426,14 @@ compression), and longer typing sessions."
 - [ ] **Step 1: Verify all tests pass one final time**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon test
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0 && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon test
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0 && moon test
 ```
 
 - [ ] **Step 2: Run moon info && moon fmt inside submodule**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0/event-graph-walker && moon info && moon fmt
 ```
 
 If any files changed, commit them:
@@ -1445,7 +1445,7 @@ cd event-graph-walker && git add -A && git commit -m "chore: update interfaces a
 - [ ] **Step 3: Stage submodule pointer update in parent repo**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git add event-graph-walker
 git commit -m "chore: update event-graph-walker submodule (OpRun compression Phase 1)
 
@@ -1457,7 +1457,7 @@ get_op(lv) is now O(log n) via binary search + offset decompress."
 - [ ] **Step 4: Verify final state**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/.worktrees/rle-phase0
+cd /home/antisatori/ghq/github.com/dowdiness/canopy/.worktrees/rle-phase0
 git status
 git submodule status event-graph-walker
 ```
