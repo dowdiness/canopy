@@ -15,4 +15,5 @@ examples/demo-react/playwright-report/
 examples/demo-react/test-results/
 .grepai/
 .worktrees/
+.claude/worktrees/
 .superpowers/
