@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "paths": {
+      "@moonbit/crdt": ["../../_build/js/release/build/crdt.d.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "../../_build"]
+}
