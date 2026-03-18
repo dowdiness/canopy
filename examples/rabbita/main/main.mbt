@@ -1,5 +1,5 @@
 ///|
-using @html {button, div, h1, h2, li, p, span, text, textarea, ul}
+using @html {button, div, p, span, text, textarea}
 
 ///|
 using @rabbita {type Cmd, type Dispatch, type Html, delay, none}
@@ -249,9 +249,9 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
 // ── View helpers ────────────────────────────────────────────────────
 
 ///|
-fn control(label : String, on_click~ : Cmd, active? : Bool = false) -> Html {
-  let class_name = if active { "control active" } else { "control" }
-  div(class=class_name, on_click~, [text(label)])
+fn tab(label : String, on_click~ : Cmd, active? : Bool = false) -> Html {
+  let class_name = if active { "tab active" } else { "tab" }
+  button(class=class_name, on_click~, [text(label)])
 }
 
 // ── Tree view ───────────────────────────────────────────────────────
@@ -260,11 +260,14 @@ fn control(label : String, on_click~ : Cmd, active? : Bool = false) -> Html {
 fn view_tree_node(
   dispatch : Dispatch[Msg],
   node : @proj.InteractiveTreeNode,
+  depth : Int,
 ) -> Html {
-  let class_name = if node.selected {
-    "tree-node selected"
-  } else {
-    "tree-node"
+  let kind = kind_of(node.label)
+  let selected_suffix = if node.selected { " selected" } else { "" }
+  let row_class = "tree-row depth-\{depth} kind-\{kind}\{selected_suffix}"
+  let is_leaf = match node.children {
+    @proj.Loaded(children) => children.is_empty()
+    @proj.Elided(_) => false
   }
   let toggle_cmd = if node.collapsed {
     dispatch(TreeEdited(@proj.Expand(node_id=node.id)))
@@ -272,228 +275,252 @@ fn view_tree_node(
     dispatch(TreeEdited(@proj.Collapse(node_id=node.id)))
   }
   let toggle_label = if node.collapsed { "▶" } else { "▼" }
-  let children_view = if node.collapsed {
-    div(class="tree-collapsed", [text("…")])
+  let toggle : Html = if is_leaf {
+    div(class="tree-toggle", [text("")])
+  } else {
+    button(class="tree-toggle", on_click=toggle_cmd, [text(toggle_label)])
+  }
+  let row_items : Array[Html] = [
+    div(class="tree-accent", [text("")]),
+    toggle,
+    span(class="tree-label-text", [text(node.label)]),
+  ]
+  if node.collapsed {
+    let count = match node.children {
+      @proj.Elided(n) => n
+      @proj.Loaded(children) => children.length()
+    }
+    if count > 0 {
+      row_items.push(span(class="collapsed-badge", [text(count.to_string())]))
+    }
+  }
+  if node.selected {
+    row_items.push(
+      div(class="tree-actions", [
+        button(
+          class="tree-action",
+          on_click=dispatch(
+            TreeEdited(@proj.WrapInLambda(node_id=node.id, var_name="x")),
+          ),
+          [text("Wrap λ")],
+        ),
+        button(
+          class="tree-action",
+          on_click=dispatch(TreeEdited(@proj.Delete(node_id=node.id))),
+          [text("Delete")],
+        ),
+      ]),
+    )
+  }
+  let select_cmd = dispatch(TreeEdited(@proj.Select(node_id=node.id)))
+  let row = div(class=row_class, on_click=select_cmd, row_items)
+  let child_views : Array[Html] = if node.collapsed {
+    []
   } else {
     match node.children {
       @proj.Loaded(children) =>
-        if children.is_empty() {
-          div(class="hidden-note", [text("Leaf node")])
-        } else {
-          div(
-            class="tree-children",
-            children.map(fn(child) { view_tree_node(dispatch, child) }),
-          )
-        }
-      @proj.Elided(descendant_count) =>
-        div(class="hidden-note", [
-          text("\{descendant_count} hidden descendants"),
-        ])
+        children.map(fn(child) { view_tree_node(dispatch, child, depth + 1) })
+      @proj.Elided(n) => [p(class="no-tree-note", "\{n} hidden descendants")]
     }
   }
-  div(class=class_name, [
-    div(
-      class="tree-label",
-      on_click=dispatch(TreeEdited(@proj.Select(node_id=node.id))),
-      [
-        button(class="tree-toggle", on_click=toggle_cmd, [text(toggle_label)]),
-        span(class="tree-text", [text(node.label)]),
-        span(class="tree-kind", [text(kind_of(node.label))]),
-      ],
-    ),
-    div(class="tree-tools", [
-      button(
-        class="tree-tool",
-        on_click=dispatch(
-          TreeEdited(@proj.WrapInLambda(node_id=node.id, var_name="x")),
-        ),
-        [text("Wrap λ")],
-      ),
-      button(
-        class="tree-tool",
-        on_click=dispatch(TreeEdited(@proj.Delete(node_id=node.id))),
-        [text("Delete")],
-      ),
-    ]),
-    children_view,
-  ])
+  let all : Array[Html] = [row]
+  child_views.each(fn(v) { all.push(v) })
+  div(class="tree-item", all)
 }
 
-// ── Panels ──────────────────────────────────────────────────────────
+// ── Panes ───────────────────────────────────────────────────────────
 
 ///|
-fn panel(title : String, meta : String, body : Html) -> Html {
-  div(class="panel", [
-    div(class="panel-header", [
-      h2(class="panel-title", title),
-      div(class="panel-meta", meta),
-    ]),
-    div(class="panel-body", [body]),
-  ])
-}
-
-///|
-fn tree_panel(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn structure_pane(dispatch : Dispatch[Msg], model : Model) -> Html {
   let body = match model.tree_state.tree {
-    Some(root) => div(class="tree-root", [view_tree_node(dispatch, root)])
-    None => div(class="hidden-note", [text("No AST available")])
+    Some(root) => div(class="tree-rows", [view_tree_node(dispatch, root, 0)])
+    None => p(class="no-tree-note", "No AST available")
   }
-  panel("Tree", "projection-first editing surface", body)
+  div(class="structure-pane", [
+    div(class="pane-header", [span(class="pane-label", [text("Structure")])]),
+    body,
+  ])
 }
 
 ///|
-fn text_panel(dispatch : Dispatch[Msg], model : Model) -> Html {
-  panel(
-    "Text",
-    "secondary synchronized projection",
+fn text_pane_view(dispatch : Dispatch[Msg], model : Model) -> Html {
+  div(class="text-pane", [
+    div(class="pane-header", [span(class="pane-label", [text("Text")])]),
     textarea(
       class="text-editor",
       value=model.text_view,
-      rows=12,
+      rows=20,
       on_input=fn(s) { dispatch(TextInput(s)) },
       "",
     ),
-  )
+  ])
 }
 
-// ── Sidebar ─────────────────────────────────────────────────────────
+// ── Inspector ───────────────────────────────────────────────────────
 
 ///|
-fn selection_section(model : Model) -> Html {
-  let content = match selected_node_details(model) {
-    Some(node) =>
-      div(class="sidebar-detail", [
-        p(class="sidebar-copy", "Node: \{node.label}"),
-        p(class="sidebar-copy", "Children: \{node.child_count}"),
+fn inspector_node_section(model : Model) -> Html {
+  match selected_node_details(model) {
+    Some(node) => {
+      let kind = kind_of(node.label)
+      div(class="inspector-section", [
+        p(class="inspector-label", "Selected Node"),
+        div(class="inspector-row", [
+          span(class="inspector-key", [text("Type")]),
+          span(class="inspector-value", [text(kind)]),
+        ]),
+        div(class="inspector-row", [
+          span(class="inspector-key", [text("Label")]),
+          span(class="inspector-value", [text(node.label)]),
+        ]),
+        div(class="inspector-row", [
+          span(class="inspector-key", [text("Children")]),
+          span(class="inspector-value", [text(node.child_count.to_string())]),
+        ]),
       ])
+    }
     None =>
       match model.tree_state.tree {
         Some(_) =>
           if has_hidden_selection(model) {
-            p(
-              class="sidebar-copy",
-              "Selected node is inside a collapsed subtree.",
-            )
+            div(class="inspector-section", [
+              p(class="inspector-label", "Selected Node"),
+              p(
+                class="inspector-copy",
+                "Selected node is inside a collapsed subtree.",
+              ),
+            ])
           } else {
-            p(class="sidebar-copy", "No node selected.")
+            div(class="inspector-section", [
+              p(class="inspector-label", "Selected Node"),
+              p(class="inspector-copy", "No node selected."),
+            ])
           }
-        None => p(class="sidebar-copy", "No tree available.")
+        None =>
+          div(class="inspector-section", [
+            p(class="inspector-label", "Selected Node"),
+            p(class="inspector-copy", "No tree available."),
+          ])
       }
   }
-  div(class="sidebar-section", [
-    h2(class="sidebar-title", "Selection"),
-    content,
-    p(
-      class="sidebar-copy",
-      "Persistent IDs keep UI focus stable across projections.",
-    ),
-  ])
 }
 
 ///|
 fn diagnostics_section(model : Model) -> Html {
   let errors = model.editor.get_errors()
   let items = if errors.is_empty() {
-    [li(class="sidebar-item", "No errors.")]
+    [p(class="diagnostics-item", "No errors.")]
   } else {
-    errors.map(fn(e) { li(class="sidebar-item", e) })
+    errors.map(fn(e) { p(class="diagnostics-item", e) })
   }
   let body = if model.diagnostics_open {
-    ul(class="sidebar-list", items)
+    div(class="diagnostics-list", items)
   } else {
     p(class="hidden-note", "Diagnostics are hidden.")
   }
-  div(class="sidebar-section", [h2(class="sidebar-title", "Diagnostics"), body])
-}
-
-///|
-fn peers_section(model : Model) -> Html {
-  div(class="sidebar-section", [
-    h2(class="sidebar-title", "Peers"),
-    ul(
-      class="sidebar-list",
-      model.peers.map(fn(peer) {
-        let (name, pos) = peer
-        li(class="sidebar-item", "\{name} cursor at \{pos}")
-      }),
-    ),
+  div(class="inspector-section", [
+    p(class="inspector-label", "Diagnostics"),
+    body,
   ])
 }
 
 ///|
-fn sidebar(model : Model) -> Html {
-  div(class="sidebar", [
-    selection_section(model),
+fn inspector(model : Model) -> Html {
+  div(class="inspector", [
+    div(class="pane-header", [span(class="pane-label", [text("Inspector")])]),
+    inspector_node_section(model),
     diagnostics_section(model),
-    peers_section(model),
   ])
 }
 
 // ── Workspace & chrome ──────────────────────────────────────────────
 
 ///|
-fn workspace_class(mode : WorkspaceMode) -> String {
-  match mode {
-    Split => "workspace split"
-    TreeOnly => "workspace tree-only"
-    TextOnly => "workspace text-only"
-  }
-}
-
-///|
 fn workspace(dispatch : Dispatch[Msg], model : Model) -> Html {
   let panes = match model.workspace_mode {
     Split =>
-      [tree_panel(dispatch, model), text_panel(dispatch, model), sidebar(model)]
-    TreeOnly => [tree_panel(dispatch, model), sidebar(model)]
-    TextOnly => [text_panel(dispatch, model), sidebar(model)]
+      [
+        structure_pane(dispatch, model),
+        text_pane_view(dispatch, model),
+        inspector(model),
+      ]
+    TreeOnly => [structure_pane(dispatch, model), inspector(model)]
+    TextOnly => [text_pane_view(dispatch, model), inspector(model)]
   }
-  div(class=workspace_class(model.workspace_mode), panes)
+  div(class="workspace", panes)
 }
 
 ///|
-fn toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
-  div(class="toolbar", [
-    control(
-      "Split",
-      on_click=dispatch(SetMode(Split)),
-      active=model.workspace_mode == Split,
-    ),
-    control(
-      "Tree",
-      on_click=dispatch(SetMode(TreeOnly)),
-      active=model.workspace_mode == TreeOnly,
-    ),
-    control(
-      "Text",
-      on_click=dispatch(SetMode(TextOnly)),
-      active=model.workspace_mode == TextOnly,
-    ),
-    control("Diagnostics", on_click=dispatch(ToggleDiagnostics)),
-  ])
+fn top_bar(dispatch : Dispatch[Msg], model : Model) -> Html {
+  let peer_items : Array[Html] = model.peers.map(fn(peer) {
+    let (name, _pos) = peer
+    div(class="peer-indicator", [
+      div(class="peer-dot peer-\{name}", [text("")]),
+      span(class="peer-name", [text(name)]),
+    ])
+  })
+  let errors = model.editor.get_errors()
+  let error_status = if errors.is_empty() {
+    div(class="status-indicator", [
+      div(class="status-dot status-ok", [text("")]),
+      span(class="status-text", [text("No errors")]),
+    ])
+  } else {
+    div(class="status-indicator", [
+      div(class="status-dot status-error", [text("")]),
+      span(class="status-text", [text("\{errors.length()} errors")]),
+    ])
+  }
+  let bar_items : Array[Html] = [
+    span(class="top-bar-title", [text("projectional editor")]),
+    div(class="top-bar-spacer", [text("")]),
+    div(class="tab-group", [
+      tab(
+        "Split",
+        on_click=dispatch(SetMode(Split)),
+        active=model.workspace_mode == Split,
+      ),
+      tab(
+        "Tree",
+        on_click=dispatch(SetMode(TreeOnly)),
+        active=model.workspace_mode == TreeOnly,
+      ),
+      tab(
+        "Text",
+        on_click=dispatch(SetMode(TextOnly)),
+        active=model.workspace_mode == TextOnly,
+      ),
+      tab("Diagnostics", on_click=dispatch(ToggleDiagnostics)),
+    ]),
+    div(class="top-bar-spacer", [text("")]),
+  ]
+  peer_items.each(fn(p) { bar_items.push(p) })
+  bar_items.push(div(class="divider-v", [text("")]))
+  bar_items.push(error_status)
+  div(class="top-bar", bar_items)
 }
 
 ///|
-fn hero() -> Html {
-  div(class="hero", [
-    p(class="eyebrow", "Rabbita Projectional Editor"),
-    h1(
-      class="hero-title",
-      "Projectional editor shell with a tree-first workspace",
-    ),
-    p(
-      class="hero-copy",
-      "Tree and text are synchronized through a canonical AST model. Edit either projection and both update.",
-    ),
+fn status_bar(model : Model) -> Html {
+  let selection_text = match selected_node_details(model) {
+    Some(node) => node.label
+    None => "No selection"
+  }
+  div(class="status-bar", [
+    span(class="status-breadcrumb", [text(selection_text)]),
+    div(class="status-bar-spacer", [text("")]),
+    span(class="status-info", [text("\{model.peers.length()} peers connected")]),
+    div(class="divider-v", [text("")]),
+    span(class="status-info", [text("eg-walker")]),
   ])
 }
 
 ///|
 fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
   div(class="app-shell", [
-    hero(),
-    toolbar(dispatch, model),
+    top_bar(dispatch, model),
     workspace(dispatch, model),
+    status_bar(model),
   ])
 }
 
