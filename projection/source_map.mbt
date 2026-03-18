@@ -178,7 +178,9 @@ pub fn SourceMap::apply_edit(
 }
 
 ///|
-/// Clear and rebuild from a new AST
+/// Clear and rebuild from a new AST.
+/// Note: this clears token_spans. Call populate_token_spans() afterward
+/// if token-level spans are needed.
 pub fn SourceMap::rebuild(self : SourceMap, root : ProjNode) -> Unit {
   self.node_to_range.clear()
   self.ranges.clear()
