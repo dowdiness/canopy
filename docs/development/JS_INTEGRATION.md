@@ -53,25 +53,32 @@ All FFI functions take a `handle` (currently always `1` in the MVP) as their fir
 ## JSON Data Schemas
 
 ### `SyncMessage`
-Used for transporting CRDT operations between peers.
+Used for transporting CRDT operations between peers. Operations are RLE-compressed as `OpRun` arrays.
 
 ```json
 {
-  "ops": [
+  "runs": [
     {
+      "start_lv": 0,
       "agent": "agent-1",
-      "seq": 1,
-      "parents": [{"agent": "agent-0", "seq": 5}],
-      "content": { "Insert": "a" },
-      "origin_left": {"agent": "agent-0", "seq": 5},
-      "origin_right": null
+      "start_seq": 0,
+      "content": {"Inserts": "hello"},
+      "parents": [],
+      "origin_left": null,
+      "origin_right": null,
+      "count": 5
     }
   ],
   "heads": [
-    {"agent": "agent-1", "seq": 1}
+    {"agent": "agent-1", "seq": 4}
   ]
 }
 ```
+
+Each run represents multiple consecutive operations from the same agent. For linear typing, 1000 characters compress to a single run. `content` is one of:
+- `{"Inserts": "text"}` — concatenated inserted characters
+- `"Deletes"` — count consecutive delete ops
+- `"Undeletes"` — count consecutive undelete ops
 
 ### `PeerCursor` (via `ephemeral_get_peer_cursors_json`)
 ```json
