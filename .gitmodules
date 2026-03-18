@@ -13,3 +13,6 @@
 [submodule "valtio"]
 	path = valtio
 	url = https://github.com/dowdiness/valtio.git
+[submodule "rle"]
+	path = rle
+	url = https://github.com/dowdiness/rle.git
