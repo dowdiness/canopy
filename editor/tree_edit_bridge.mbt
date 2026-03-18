@@ -27,15 +27,17 @@ pub fn SyncEditor::apply_tree_edit(
       // Apply span edits in reverse document order to avoid position shifts.
       // IMPORTANT: use apply_text_edit_internal (not apply_replace_span)
       // because it calls apply_local_text_change to notify the incremental parser.
+      // Record undo only on the last edit so the entire tree edit is one undo group.
       let sorted = edits.copy()
-      sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
-      for edit in sorted {
+      sorted.sort_by((a, b) => b.start.compare(a.start))
+      for i, edit in sorted {
+        let is_last = i == sorted.length() - 1
         self.apply_text_edit_internal(
           edit.start,
           edit.delete_len,
           edit.inserted,
           timestamp_ms,
-          true, // record_undo
+          is_last, // record_undo only on last edit
           false, // move_cursor_to_edit_end
         )
       }

@@ -18,7 +18,7 @@ fn text_edit_test_registry(root : ProjNode) -> Map[NodeId, ProjNode] {
 /// Apply span edits to text (in reverse document order) and return the result.
 fn apply_edits(text : String, edits : Array[SpanEdit]) -> String {
   let sorted = edits.copy()
-  sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
+  sorted.sort_by((a, b) => b.start.compare(a.start))
   let mut result = text
   for edit in sorted {
     result = result[:edit.start].to_string() +
@@ -216,9 +216,9 @@ test "compute_text_edit: InsertChild into Module inserts def text" {
   match result {
     Ok(Some(edits)) => {
       inspect(edits.length(), content="1")
-      // Should insert "\nlet x = 0" at the body position
+      // Should insert "let x = 0\n" at the body position
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="let y = 1\n\nlet x = 0y")
+      inspect(new_text, content="let y = 1\nlet x = 0\ny")
     }
     _ => abort("expected Some edits")
   }
@@ -243,10 +243,10 @@ test "compute_text_edit: InsertChild into non-Module re-renders parent" {
   match result {
     Ok(Some(edits)) => {
       inspect(edits.length(), content="1")
-      // Bop with new child inserted via rebuild_kind + print_term
+      // Bop re-rendered via rebuild_kind + print_term with new child inserted
       let new_text = apply_edits(text, edits)
-      // The re-rendered text comes from print_term of the rebuilt kind
-      inspect(new_text.length() > 0, content="true")
+      // Verify the result is non-empty and different from original
+      inspect(new_text.length() > 0 && new_text != text, content="true")
     }
     _ => abort("expected Some edits")
   }
@@ -270,9 +270,13 @@ test "compute_text_edit: Drop produces two edits" {
     fp,
   )
   match result {
-    Ok(Some(edits)) =>
+    Ok(Some(edits)) => {
       // Drop should produce 2 edits: delete at source + insert at target
       inspect(edits.length(), content="2")
+      let new_text = apply_edits(text, edits)
+      // Source "x" removed from position 0, inserted after "1" at position 5
+      inspect(new_text.length() > 0, content="true")
+    }
     _ => abort("expected Some edits")
   }
 }

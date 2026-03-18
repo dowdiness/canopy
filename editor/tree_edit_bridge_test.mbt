@@ -145,9 +145,8 @@ test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
   )
   inspect(result, content="Ok(())")
   // New text path: node IDs are re-derived by the incremental parser,
-  // so we verify a valid root exists rather than ID preservation.
-  let new_root_id = get_root_id(editor)
-  inspect(new_root_id == new_root_id, content="true")
+  // so we verify a valid tree exists rather than ID preservation.
+  inspect(editor.get_proj_node() is Some(_), content="true")
   inspect(editor.get_text(), content="(λy. 42)")
 }
 
@@ -161,9 +160,7 @@ test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
   )
   inspect(result, content="Ok(())")
   // New path: raw text splice — the memo chain re-derives a fresh tree.
-  // Node ID preservation depends on reconciliation, not the edit bridge.
-  let new_root = get_root_id(editor)
-  inspect(new_root == new_root, content="true") // valid tree exists
+  inspect(editor.get_proj_node() is Some(_), content="true")
 }
 
 ///|
