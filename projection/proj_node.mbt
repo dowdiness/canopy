@@ -300,6 +300,7 @@ fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
     (Module(_, _), Module(_, _)) => true
     (Unit, Unit) => true
     (Error(_), Error(_)) => true
+    (Unbound(_), Unbound(_)) => true
     _ => false
   }
 }
