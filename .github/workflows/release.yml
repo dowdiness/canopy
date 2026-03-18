@@ -70,7 +70,7 @@ jobs:
 
           # Package MoonBit builds
           tar -czf release/crdt-moonbit-${VERSION}.tar.gz \
-            target/js/release/build/crdt.js \
+            target/js/release/build/canopy.js \
             moon.mod.json \
             moon.pkg.json \
             README.md \

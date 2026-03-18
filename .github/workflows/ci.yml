@@ -151,7 +151,7 @@ jobs:
         with:
           name: moonbit-js-build
           path: |
-            _build/js/release/build/crdt.js
+            _build/js/release/build/canopy.js
             graphviz/_build/js/release/build/browser/browser.js
           retention-days: 7
 

@@ -8,7 +8,7 @@ export default defineConfig({
         {
           name: '@moonbit/crdt',
           path: '../..',
-          output: '_build/js/release/build/crdt.js'
+          output: '_build/js/release/build/canopy.js'
         },
         {
           name: '@moonbit/graphviz',
