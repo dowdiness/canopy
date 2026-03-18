@@ -33,6 +33,89 @@ pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
 }
 
 ///|
+/// Build a FlatProj incrementally by comparing old and new CST children.
+///
+/// For each child pair, compares underlying CstNodes. If unchanged
+/// (physical_equal via NodeInterner), reuses the old FlatProj entry
+/// directly — skipping both syntax_to_proj_node and reconcile_ast.
+/// Only changed children are rebuilt and reconciled.
+///
+/// Cost: O(n) CstNode pointer comparisons + O(changed_subtree) rebuilds.
+pub fn to_flat_proj_incremental(
+  new_root : @seam.SyntaxNode,
+  old_root : @seam.SyntaxNode,
+  old_fp : FlatProj,
+  counter : Ref[Int],
+) -> FlatProj {
+  // Extract LetDef children from old and new roots
+  let new_children = new_root.children()
+  let old_let_children : Array[@seam.SyntaxNode] = []
+  let mut old_final_child : @seam.SyntaxNode? = None
+  for child in old_root.children() {
+    if @parser.LetDefView::cast(child) is Some(_) {
+      old_let_children.push(child)
+    } else if old_final_child is None {
+      old_final_child = Some(child)
+    }
+  }
+  // Parallel scan: compare new LetDefs against old LetDefs by index.
+  // physical_equal checks pointer identity (same interned CstNode object).
+  // When content and position are both unchanged, the parser returns
+  // the exact same object, making physical_equal true.
+  let defs : Array[(String, ProjNode, Int, NodeId)] = []
+  let mut final_proj : ProjNode? = None
+  let mut old_def_idx = 0
+  let mut any_changed = false
+  for new_child in new_children {
+    if @parser.LetDefView::cast(new_child) is Some(v) {
+      let mut reused = false
+      if old_def_idx < old_let_children.length() &&
+        old_def_idx < old_fp.defs.length() {
+        let old_child = old_let_children[old_def_idx]
+        if physical_equal(new_child.cst_node(), old_child.cst_node()) {
+          // Same pointer — safe to reuse old entry with same positions
+          let old_entry = old_fp.defs[old_def_idx]
+          defs.push((old_entry.0, old_entry.1, old_entry.2, old_entry.3))
+          reused = true
+        }
+        old_def_idx = old_def_idx + 1
+      }
+      if not(reused) {
+        any_changed = true
+        let init = match v.init() {
+          Some(n) => syntax_to_proj_node(n, counter)
+          None =>
+            error_node_for_syntax(
+              "missing let binding value", new_child, counter,
+            )
+        }
+        let id = NodeId(next_proj_node_id(counter))
+        defs.push((v.name(), init, new_child.start(), id))
+      }
+    } else if final_proj is None {
+      match old_final_child {
+        Some(old_fc) if physical_equal(new_child.cst_node(), old_fc.cst_node()) =>
+          final_proj = old_fp.final_expr
+        _ => {
+          any_changed = true
+          final_proj = Some(syntax_to_proj_node(new_child, counter))
+        }
+      }
+    }
+  }
+  // If number of defs changed, that's also a change
+  if old_fp.defs.length() != defs.length() {
+    any_changed = true
+  }
+  let new_fp : FlatProj = { defs, final_expr: final_proj }
+  if any_changed {
+    reconcile_flat_proj(old_fp, new_fp, counter)
+  } else {
+    new_fp
+  }
+}
+
+///|
 /// O(n) hash-based key matching. For each new key, finds the corresponding
 /// old index by consuming old entries in order per key.
 /// Handles duplicate keys correctly via per-key cursors.

@@ -11,6 +11,7 @@ pub struct SyncEditor {
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
   priv prev_flat_proj : Ref[@proj.FlatProj?]
+  priv prev_syntax_root : Ref[@seam.SyntaxNode?]
   priv proj_memo : @incr.Memo[@proj.FlatProj?]
   priv cached_proj_node : @incr.Memo[@proj.ProjNode?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
@@ -37,9 +38,10 @@ pub fn SyncEditor::new(
     label="editor_syntax_tree",
   )
   let prev_flat_proj : Ref[@proj.FlatProj?] = Ref::new(None)
+  let prev_syntax_root : Ref[@seam.SyntaxNode?] = Ref::new(None)
   let next_node_id : Ref[Int] = Ref::new(0)
   let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_projection_memos(
-    parser_rt, source_text, syntax_tree, prev_flat_proj, next_node_id,
+    parser_rt, source_text, syntax_tree, prev_flat_proj, prev_syntax_root, next_node_id,
   )
   let ephemeral = EphemeralStore::new(ephemeral_timeout_ms)
   let cursor_view = PeerCursorView::new()
@@ -83,6 +85,7 @@ pub fn SyncEditor::new(
     syntax_tree,
     cursor: 0,
     prev_flat_proj,
+    prev_syntax_root,
     proj_memo,
     cached_proj_node,
     registry_memo,

@@ -28,6 +28,8 @@ pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
 
 pub fn to_flat_proj(@seam.SyntaxNode, @ref.Ref[Int]) -> FlatProj
 
+pub fn to_flat_proj_incremental(@seam.SyntaxNode, @seam.SyntaxNode, FlatProj, @ref.Ref[Int]) -> FlatProj
+
 pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
 
 // Errors

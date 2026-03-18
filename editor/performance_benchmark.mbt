@@ -1,3 +1,40 @@
+// Projection pipeline benchmarks — measures to_flat_proj + reconcile + to_proj_node
+// Uses single-char insert/delete to avoid CRDT set_text overhead.
+
+///|
+fn run_projection_incremental_bench(b : @bench.T, let_count : Int) -> Unit {
+  let source = parser_bench_source(let_count, "0")
+  let editor = SyncEditor::new("bench")
+  editor.set_text(source)
+  ignore(editor.get_proj_node()) // warm up — initial parse + project
+  let edit_pos = source.length() - 2
+  editor.move_cursor(edit_pos)
+  let mut inserted = false
+  b.bench(() => {
+    if inserted {
+      ignore(editor.backspace())
+    } else {
+      editor.insert("1") catch {
+        _ => ()
+      }
+    }
+    b.keep(editor.get_proj_node())
+    inserted = not(inserted)
+  })
+}
+
+///|
+test "projection pipeline - incremental keystroke (20 defs)" (b : @bench.T) {
+  run_projection_incremental_bench(b, 20)
+}
+
+///|
+test "projection pipeline - incremental keystroke (80 defs)" (b : @bench.T) {
+  run_projection_incremental_bench(b, 80)
+}
+
+// Parser-only benchmarks — measures parse layer without projection
+
 ///|
 priv struct ParserBenchScenario {
   source : String

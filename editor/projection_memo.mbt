@@ -7,6 +7,7 @@ fn build_projection_memos(
   source_text : @incr.Signal[String],
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   prev_flat_proj_ref : Ref[@proj.FlatProj?],
+  prev_syntax_root_ref : Ref[@seam.SyntaxNode?],
   next_id_ref : Ref[Int],
 ) -> (
   @incr.Memo[@proj.FlatProj?],
@@ -19,24 +20,36 @@ fn build_projection_memos(
     fn() -> @proj.FlatProj? {
       if source_text.get() == "" {
         prev_flat_proj_ref.val = None
+        prev_syntax_root_ref.val = None
         return None
       }
       let syntax_root = match syntax_tree.get() {
         Some(root) => root
         None => {
           prev_flat_proj_ref.val = None
+          prev_syntax_root_ref.val = None
           return None
         }
       }
       let counter = Ref::new(next_id_ref.val)
-      let new_fp = @proj.to_flat_proj(syntax_root, counter)
-      let reconciled = match prev_flat_proj_ref.val {
-        None => new_fp
-        Some(prev) => @proj.reconcile_flat_proj(prev, new_fp, counter)
+      let result = match (prev_flat_proj_ref.val, prev_syntax_root_ref.val) {
+        (Some(prev_fp), Some(prev_root)) =>
+          // Incremental path: compare CST children via physical_equal
+          @proj.to_flat_proj_incremental(
+            syntax_root, prev_root, prev_fp, counter,
+          )
+        (Some(prev_fp), None) => {
+          // No previous syntax root (e.g., after tree edit) — build fresh
+          // and reconcile to preserve node IDs
+          let new_fp = @proj.to_flat_proj(syntax_root, counter)
+          @proj.reconcile_flat_proj(prev_fp, new_fp, counter)
+        }
+        _ => @proj.to_flat_proj(syntax_root, counter)
       }
       next_id_ref.val = counter.val
-      prev_flat_proj_ref.val = Some(reconciled)
-      Some(reconciled)
+      prev_flat_proj_ref.val = Some(result)
+      prev_syntax_root_ref.val = Some(syntax_root)
+      Some(result)
     },
     label="proj_node",
   )
@@ -116,6 +129,9 @@ pub fn SyncEditor::get_source_map(self : SyncEditor) -> @proj.SourceMap {
 ///|
 fn SyncEditor::seed_flat_proj(self : SyncEditor, fp : @proj.FlatProj?) -> Unit {
   self.prev_flat_proj.val = fp
+  // Clear prev syntax root so next memo evaluation uses non-incremental path.
+  // After tree edits, the syntax root doesn't correspond to the seeded FlatProj.
+  self.prev_syntax_root.val = None
 }
 
 ///|
