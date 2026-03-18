@@ -2,6 +2,7 @@ import { EditorView as PmView, NodeView } from "prosemirror-view";
 import { Node as PmNode } from "prosemirror-model";
 import { EditorView as CmView } from "@codemirror/view";
 import { EditorState as CmState } from "@codemirror/state";
+import type { CrdtBridge } from "./bridge";
 
 export class TermLeafView implements NodeView {
   dom: HTMLElement;
@@ -9,7 +10,7 @@ export class TermLeafView implements NodeView {
   node: PmNode;
   updating = false;
 
-  constructor(node: PmNode, _pmView: PmView, _getPos: () => number | undefined) {
+  constructor(node: PmNode, _pmView: PmView, _getPos: () => number | undefined, private bridge?: CrdtBridge) {
     this.node = node;
     this.dom = document.createElement("span");
     this.dom.className = `pm-leaf pm-${node.type.name}`;
@@ -31,6 +32,17 @@ export class TermLeafView implements NodeView {
           CmState.transactionFilter.of(tr => {
             if (tr.newDoc.lines > 1) return [];
             return tr;
+          }),
+          // Forward edits to CRDT bridge
+          CmView.updateListener.of(update => {
+            if (this.updating || !update.docChanged || !this.bridge) return;
+            const changes: { from: number; to: number; insert: string }[] = [];
+            update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+              changes.push({ from: fromA, to: toA, insert: inserted.toString() });
+            });
+            if (changes.length > 0) {
+              this.bridge.handleLeafEdit(this.node.attrs.nodeId, changes);
+            }
           }),
         ],
       }),
