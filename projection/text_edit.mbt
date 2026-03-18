@@ -98,13 +98,7 @@ pub fn compute_text_edit(
                   for i, c in parent_node.children {
                     if i == child_index {
                       new_children.push(
-                        ProjNode::new(
-                          pk,
-                          c.start,
-                          c.end,
-                          c.node_id,
-                          [],
-                        ),
+                        ProjNode::new(pk, c.start, c.end, c.node_id, []),
                       )
                     } else {
                       new_children.push(c)
