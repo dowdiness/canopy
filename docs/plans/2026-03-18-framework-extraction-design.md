@@ -106,6 +106,36 @@ Languages that have a module structure (like lambda calculus with `let` defs) im
 
 The framework's projection pipeline produces `ProjNode[T]` directly. Language packages optionally wrap it with flattening logic.
 
+### Generic Incremental Pipeline
+
+The current pipeline goes through FlatProj:
+```
+SyntaxNode → to_flat_proj (with CstNode physical_equal skip) → reconcile_flat_proj → to_proj_node → ProjNode
+```
+
+The generic framework pipeline bypasses FlatProj:
+```
+SyntaxNode → cst_to_ast (inside ImperativeParser) → T → build_proj_node[T] → reconcile[T] → ProjNode[T]
+```
+
+**Incremental reuse** is preserved at two levels:
+
+1. **Layer 1 (CstNode level):** loom's `ImperativeParser` already does incremental reparsing — only damaged CstNode subtrees are rebuilt. Unchanged subtrees are reused via `physical_equal`. This is generic and stays in loom.
+
+2. **Layer 2 (ProjNode level):** `reconcile[T]` preserves node IDs across reparses by matching via `T::same_kind`. This is generic and stays in the framework.
+
+The FlatProj-level incremental reuse (`to_flat_proj_incremental` using CstNode `physical_equal` to skip unchanged defs) is **language-specific** — it depends on "module-shaped" grammars with named top-level definitions. It moves to `lang/lambda/flat/` as a language-specific optimization. Languages without a module structure get the two generic levels above, which are sufficient.
+
+For lambda, the full pipeline with FlatProj optimization is:
+```
+ImperativeParser[Term] → Term → lang/lambda/flat/to_flat_proj_incremental → reconcile_flat_proj → to_proj_node → ProjNode[Term]
+```
+
+For a simple language (no module structure):
+```
+ImperativeParser[T] → T → framework/build_proj_node[T] → reconcile[T] → ProjNode[T]
+```
+
 ### Reconciliation
 
 Uses `T::same_kind` for node matching:
@@ -121,8 +151,6 @@ fn[T : TreeNode + Renderable] reconcile(
   }
 }
 ```
-
-The incremental fast-path (CstNode `physical_equal` comparison) is preserved: it operates at Layer 1 before `T` is involved. Only changed CstNode subtrees trigger the `cst_to_ast` catamorphism.
 
 ## Three-Tier Tree Edit API
 
@@ -222,13 +250,10 @@ pub struct SyncEditor[T] {
   priv doc : @text.TextDoc
   priv undo_mgr : @undo.UndoManager
 
-  // Parser layer (parameterized)
+  // Parser layer (parameterized — ImperativeParser[T] hides Grammar type params)
   priv parser : @loom.ImperativeParser[T]
-  priv parser_rt : @incr.Runtime
 
-  // Reactive pipeline (read-only projection)
-  priv source_text : @incr.Signal[String]
-  priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
+  // Reactive pipeline (read-only projection, generic over T)
   priv cached_proj_node : @incr.Memo[ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[NodeId, ProjNode[T]]]
   priv source_map_memo : @incr.Memo[SourceMap]
@@ -250,12 +275,26 @@ Note: `proj_memo : Memo[FlatProj[T]?]` is removed from the framework. Language p
 ```moonbit
 pub fn[T : TreeNode + Renderable] SyncEditor::new(
   agent_id : String,
-  grammar : @loom.Grammar,
-  cst_to_ast : (@seam.SyntaxNode) -> T?,
+  make_parser : (String) -> @loom.ImperativeParser[T],
 ) -> SyncEditor[T]
 ```
 
-`cst_to_ast` is the hylomorphism boundary — the grammar-specific catamorphism from concrete layer to abstract layer. The `grammar` parameter configures loom's parser. Together they fully define a language for the framework.
+`make_parser` is a factory closure that creates an `ImperativeParser[T]` from initial source text. This hides loom's `Grammar[T, K, Ast]` type parameters (`T` = token kind, `K` = syntax kind) from the framework — the framework only sees `ImperativeParser[T]` where `T` is the AST type.
+
+The `cst_to_ast` catamorphism (the hylomorphism boundary from Layer 1 to Layer 2) is embedded inside the `ImperativeParser[T]` via loom's `Grammar.fold_node`. Language packages configure this when constructing the grammar:
+
+```moonbit
+// Lambda language package provides:
+fn make_lambda_parser(source : String) -> @loom.ImperativeParser[Term] {
+  @loom.new_imperative_parser(source, @parser.lambda_grammar)
+  // lambda_grammar already contains fold_node: SyntaxNode → Term
+}
+
+// Usage:
+let editor = SyncEditor::new("alice", make_lambda_parser)
+```
+
+This matches the existing pattern where `@parser.lambda_grammar` is used internally by `new_imperative_parser`, never exposed to the editor layer.
 
 ### Refresh boundary (Phase 4)
 
