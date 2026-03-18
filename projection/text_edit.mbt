@@ -7,6 +7,23 @@ pub(all) struct SpanEdit {
 } derive(Show, Eq)
 
 ///|
+/// Return a placeholder Term for a given Term kind (for Delete replacement).
+fn placeholder_term_for_kind(kind : @ast.Term) -> @ast.Term {
+  match kind {
+    @ast.Term::Int(_) => @ast.Term::Int(0)
+    @ast.Term::Var(_) => @ast.Term::Var("a")
+    @ast.Term::Lam(_, _) => @ast.Term::Lam("x", @ast.Term::Var("x"))
+    @ast.Term::App(_, _) =>
+      @ast.Term::App(@ast.Term::Var("f"), @ast.Term::Var("x"))
+    @ast.Term::Bop(_, _, _) =>
+      @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Int(0), @ast.Term::Int(0))
+    @ast.Term::If(_, _, _) =>
+      @ast.Term::If(@ast.Term::Int(0), @ast.Term::Int(0), @ast.Term::Int(0))
+    _ => @ast.Term::Var("a")
+  }
+}
+
+///|
 /// Translate a TreeEditOp into text span edits using the source map.
 /// All TreeEditOp variants are handled — no fallback to the old path.
 /// Returns Some([]) for no-op ops (Select, Collapse, etc.).
@@ -75,34 +92,14 @@ pub fn compute_text_edit(
                 _ => {
                   // Replace child with placeholder in parent, then re-render parent
                   let target = parent_node.children[child_index]
-                  let placeholder_kind = match target.kind {
-                    @ast.Term::Int(_) => @ast.Term::Int(0)
-                    @ast.Term::Var(_) => @ast.Term::Var("a")
-                    @ast.Term::Lam(_, _) =>
-                      @ast.Term::Lam("x", @ast.Term::Var("x"))
-                    @ast.Term::App(_, _) =>
-                      @ast.Term::App(@ast.Term::Var("f"), @ast.Term::Var("x"))
-                    @ast.Term::Bop(_, _, _) =>
-                      @ast.Term::Bop(
-                        @ast.Bop::Plus,
-                        @ast.Term::Int(0),
-                        @ast.Term::Int(0),
-                      )
-                    @ast.Term::If(_, _, _) =>
-                      @ast.Term::If(
-                        @ast.Term::Int(0),
-                        @ast.Term::Int(0),
-                        @ast.Term::Int(0),
-                      )
-                    _ => @ast.Term::Var("a")
-                  }
+                  let pk = placeholder_term_for_kind(target.kind)
                   // Build new children array with placeholder at child_index
                   let new_children : Array[ProjNode] = []
                   for i, c in parent_node.children {
                     if i == child_index {
                       new_children.push(
                         ProjNode::new(
-                          placeholder_kind,
+                          pk,
                           c.start,
                           c.end,
                           c.node_id,

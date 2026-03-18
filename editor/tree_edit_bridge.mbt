@@ -28,10 +28,9 @@ pub fn SyncEditor::apply_tree_edit(
       // IMPORTANT: use apply_text_edit_internal (not apply_replace_span)
       // because it calls apply_local_text_change to notify the incremental parser.
       // Record undo only on the last edit so the entire tree edit is one undo group.
-      let sorted = edits.copy()
-      sorted.sort_by((a, b) => b.start.compare(a.start))
-      for i, edit in sorted {
-        let is_last = i == sorted.length() - 1
+      edits.sort_by((a, b) => b.start.compare(a.start))
+      for i, edit in edits {
+        let is_last = i == edits.length() - 1
         self.apply_text_edit_internal(
           edit.start,
           edit.delete_len,
