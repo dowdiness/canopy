@@ -271,8 +271,8 @@ fn SourceMap::collect_token_spans_source_file(
             let ident_token = syn_child.find_token(@syntax.IdentToken.to_raw())
             match ident_token {
               Some(tok) => {
-                let name = v.name()
-                let role = "name:" + name
+                // Use index-based key for stability across renames
+                let role = "name:" + def_idx.to_string()
                 self.set_token_span(
                   proj_root.id(),
                   role,
@@ -376,10 +376,10 @@ fn SourceMap::collect_token_spans_expr(
             self.collect_token_spans_expr(func_syn, innermost.children[0])
             self.collect_token_spans_expr(args[0], innermost.children[1])
           }
-          // Walk back up: proj_chain[i] = App(proj_chain[i+1], args[i+1])
+          // Walk back up: proj_chain[i]'s right child = args[chain_len - 1 - i]
           for i = proj_chain.length() - 2; i >= 0; i = i - 1 {
             let parent = proj_chain[i]
-            let arg_idx = args.length() - (proj_chain.length() - 1 - i)
+            let arg_idx = proj_chain.length() - 1 - i
             if arg_idx < args.length() && parent.children.length() >= 2 {
               self.collect_token_spans_expr(args[arg_idx], parent.children[1])
             }
@@ -415,7 +415,7 @@ fn SourceMap::collect_token_spans_expr(
       }
       for i = proj_chain.length() - 2; i >= 0; i = i - 1 {
         let parent = proj_chain[i]
-        let op_idx = operands.length() - (proj_chain.length() - 1 - i)
+        let op_idx = proj_chain.length() - 1 - i
         if op_idx < operands.length() && parent.children.length() >= 2 {
           self.collect_token_spans_expr(operands[op_idx], parent.children[1])
         }

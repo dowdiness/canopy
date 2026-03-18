@@ -49,7 +49,8 @@ export class LetDefView implements NodeView {
               changes.push({ from: fromA, to: toA, insert: inserted.toString() });
             });
             if (changes.length > 0) {
-              this.bridge.handleTokenEdit(moduleNodeId, "name:" + this.node.attrs.name, changes);
+              const defIndex = this.getDefIndex();
+              this.bridge.handleTokenEdit(moduleNodeId, "name:" + defIndex, changes);
             }
           }),
         ],
@@ -68,6 +69,14 @@ export class LetDefView implements NodeView {
     this.contentDOM = document.createElement("span");
     this.contentDOM.className = "pm-let-init";
     this.dom.appendChild(this.contentDOM);
+  }
+
+  /** Get this let_def's index among its sibling let_defs in the parent module */
+  private getDefIndex(): number {
+    const pos = this.getPos();
+    if (pos == null) return 0;
+    const resolved = this.pmView.state.doc.resolve(pos);
+    return resolved.index(resolved.depth);
   }
 
   /** Walk up the PM doc to find the parent module node's nodeId */
@@ -98,6 +107,10 @@ export class LetDefView implements NodeView {
     return true;
   }
 
-  ignoreMutation() { return true; }
+  ignoreMutation(mutation: { target: Node }) {
+    // Let PM observe mutations inside contentDOM (init expression)
+    // but ignore mutations in the name editor and outer structure
+    return !this.contentDOM.contains(mutation.target);
+  }
   destroy() { this.nameCm.destroy(); }
 }

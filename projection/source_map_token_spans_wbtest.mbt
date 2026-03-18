@@ -69,7 +69,7 @@ test "token span: let def name" {
   let sm = SourceMap::from_ast(proj)
   sm.populate_token_spans(syntax, proj)
   let module_id = proj.id()
-  guard sm.get_token_span(module_id, "name:x") is Some(span)
+  guard sm.get_token_span(module_id, "name:0") is Some(span)
   inspect(span.start, content="4")
   inspect(span.end, content="5")
 }
@@ -84,11 +84,11 @@ test "token span: multiple let defs" {
   sm.populate_token_spans(syntax, proj)
   let module_id = proj.id()
   // First let: "x" at position 4..5
-  guard sm.get_token_span(module_id, "name:x") is Some(x_span)
+  guard sm.get_token_span(module_id, "name:0") is Some(x_span)
   inspect(x_span.start, content="4")
   inspect(x_span.end, content="5")
   // Second let: "y" at position 14..15
-  guard sm.get_token_span(module_id, "name:y") is Some(y_span)
+  guard sm.get_token_span(module_id, "name:1") is Some(y_span)
   inspect(y_span.start, content="14")
   inspect(y_span.end, content="15")
 }
@@ -106,16 +106,16 @@ test "token span: no token spans for simple expression" {
 
 ///|
 test "token span: lambda inside let def" {
-  // let f = λx.x\nf — both "name:f" and lambda "param" should be recorded
+  // let f = λx.x\nf — both "name:0" and lambda "param" should be recorded
   let text = "let f = \u{03BB}x.x\nf"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref::new(0)
   let proj = to_proj_node(syntax, counter)
   let sm = SourceMap::from_ast(proj)
   sm.populate_token_spans(syntax, proj)
-  // Module node should have "name:f"
+  // Module node should have "name:0"
   let module_id = proj.id()
-  guard sm.get_token_span(module_id, "name:f") is Some(_)
+  guard sm.get_token_span(module_id, "name:0") is Some(_)
   // The lambda (child 0 of Module = init of first def) should have "param"
   let lambda_node = proj.children[0]
   guard sm.get_token_span(lambda_node.id(), "param") is Some(param_span)

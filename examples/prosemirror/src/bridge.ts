@@ -70,22 +70,7 @@ export class CrdtBridge {
     const basePos: number = entry.start;
     const ts = Date.now();
 
-    // Process changes sequentially, tracking position offset
-    let posOffset = 0;
-    for (const change of changes) {
-      const deleteLen = change.to - change.from;
-      // Delete in reverse order to preserve positions
-      for (let i = deleteLen - 1; i >= 0; i--) {
-        this.crdt.delete_at(this.handle, basePos + change.from + i + posOffset, ts);
-      }
-      posOffset -= deleteLen;
-      // Insert character-at-a-time
-      for (let i = 0; i < change.insert.length; i++) {
-        this.crdt.insert_at(this.handle, basePos + change.from + posOffset + i, change.insert[i], ts);
-      }
-      posOffset += change.insert.length;
-    }
-
+    if (!this.applyCharChanges(basePos, ts, changes)) return;
     this.afterLocalEdit();
   }
 
@@ -100,20 +85,7 @@ export class CrdtBridge {
     const basePos: number = entry.token_spans[tokenRole].start;
     const ts = Date.now();
 
-    // Same char-at-a-time logic as handleLeafEdit
-    let posOffset = 0;
-    for (const change of changes) {
-      const deleteLen = change.to - change.from;
-      for (let i = deleteLen - 1; i >= 0; i--) {
-        this.crdt.delete_at(this.handle, basePos + change.from + i + posOffset, ts);
-      }
-      posOffset -= deleteLen;
-      for (let i = 0; i < change.insert.length; i++) {
-        this.crdt.insert_at(this.handle, basePos + change.from + posOffset + i, change.insert[i], ts);
-      }
-      posOffset += change.insert.length;
-    }
-
+    if (!this.applyCharChanges(basePos, ts, changes)) return;
     this.afterLocalEdit();
   }
 
@@ -133,6 +105,31 @@ export class CrdtBridge {
   applyRemote(syncJson: string): void {
     this.crdt.apply_sync_json(this.handle, syncJson);
     this.reconcile();
+  }
+
+  /** Apply char-at-a-time CRDT changes. Returns false if any delete fails. */
+  private applyCharChanges(
+    basePos: number,
+    ts: number,
+    changes: { from: number; to: number; insert: string }[],
+  ): boolean {
+    let posOffset = 0;
+    for (const change of changes) {
+      const deleteLen = change.to - change.from;
+      for (let i = deleteLen - 1; i >= 0; i--) {
+        const ok = this.crdt.delete_at(this.handle, basePos + change.from + i + posOffset, ts);
+        if (!ok) {
+          console.warn("delete_at failed at", basePos + change.from + i + posOffset);
+          return false;
+        }
+      }
+      posOffset -= deleteLen;
+      for (let i = 0; i < change.insert.length; i++) {
+        this.crdt.insert_at(this.handle, basePos + change.from + posOffset + i, change.insert[i], ts);
+      }
+      posOffset += change.insert.length;
+    }
+    return true;
   }
 
   /** Called after any local edit — broadcast to peers + schedule reconcile */

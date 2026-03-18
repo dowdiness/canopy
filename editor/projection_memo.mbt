@@ -74,10 +74,11 @@ fn build_projection_memos(
           prev_module_id_ref.val = Some(proj.node_id)
           Some(proj)
         }
-        None => {
-          prev_module_id_ref.val = None
+        None =>
+          // Keep prev_module_id_ref intact on transient projection misses
+          // so stable Module IDs survive intermediate states.
+          // Only the explicit empty-source paths in proj_memo clear it.
           None
-        }
       }
     },
     label="cached_proj_node",

@@ -83,6 +83,10 @@ export class LambdaView implements NodeView {
     return true;
   }
 
-  ignoreMutation() { return true; }
+  ignoreMutation(mutation: { target: Node }) {
+    // Let PM observe mutations inside contentDOM (lambda body)
+    // but ignore mutations in the param editor and outer structure
+    return !this.contentDOM.contains(mutation.target);
+  }
   destroy() { this.paramCm.destroy(); }
 }

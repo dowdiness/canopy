@@ -156,9 +156,11 @@ export function setupSync(
 
     try {
       const delta = crdt.export_since_json(handle, lastSentVersion);
-      // Only send if there are actual operations to share.
-      // An empty sync message has no ops; skip sending it.
-      if (delta && delta !== '{"ops":[],"heads":[]}') {
+      if (!delta) return;
+      // Parse to check for actual operations instead of fragile string comparison
+      const parsed = JSON.parse(delta);
+      const hasOps = Array.isArray(parsed.ops) && parsed.ops.length > 0;
+      if (hasOps) {
         ws.send(JSON.stringify({ type: "operation", op: delta }));
         lastSentVersion = crdt.get_version_json(handle);
       }

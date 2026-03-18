@@ -193,6 +193,10 @@ pub fn SyncEditor::insert_at(
   text : String,
   timestamp_ms : Int,
 ) -> Unit {
+  let text_len = self.doc.len()
+  if position < 0 || position > text_len {
+    return
+  }
   self.apply_text_edit_internal(position, 0, text, timestamp_ms, true, false)
 }
 

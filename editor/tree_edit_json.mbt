@@ -26,7 +26,8 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, String] {
     "WrapInLambda" => {
       let var_name = match m.get("var_name") {
         Some(Json::String(s)) => s
-        _ => "x"
+        None => "x"
+        Some(_) => return Err("var_name must be a string")
       }
       Ok(@proj.TreeEditOp::WrapInLambda(node_id~, var_name~))
     }

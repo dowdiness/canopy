@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>CRDT Projectional Editor — ProseMirror</title>
@@ -50,7 +50,7 @@
 </head>
 <body>
   <h1>ProseMirror + eg-walker</h1>
-  <div id="status" class="status disconnected">Connecting...</div>
+  <div id="status" class="status disconnected" role="status" aria-live="polite" aria-atomic="true">Connecting...</div>
   <div id="editor"></div>
   <pre id="debug"></pre>
   <script type="module" src="/src/main.ts"></script>

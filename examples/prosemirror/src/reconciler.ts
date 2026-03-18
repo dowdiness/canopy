@@ -237,14 +237,20 @@ function diffModule(
     return;
   }
 
-  let childIndex = 0;
-  pmNode.forEach((pmChild, offset) => {
+  // Collect PM children first (can't bail out of forEach)
+  const pmChildren: { node: PmNode; offset: number }[] = [];
+  pmNode.forEach((child, offset) => {
+    pmChildren.push({ node: child, offset });
+  });
+
+  for (let childIndex = 0; childIndex < pmChildren.length; childIndex++) {
+    const { node: pmChild, offset } = pmChildren[childIndex];
     const childPmPos = pmPos + 1 + offset;
 
     if (childIndex < numDefs) {
       // This PM child should be a let_def wrapping projChildren[childIndex]
       if (pmChild.type.name !== "let_def") {
-        // Type mismatch — replace entire module
+        // Type mismatch — replace entire module and stop
         replaceSubtree(tr, pmNode, proj, pmPos);
         return;
       }
@@ -269,11 +275,9 @@ function diffModule(
       const initProj = projChildren[childIndex];
       if (pmChild.childCount === 1) {
         const initPm = pmChild.firstChild!;
-        // let_def open tag is at childPmPos, so init is at childPmPos + 1
         const initPmPos = childPmPos + 1;
         diffNode(tr, initPm, initProj, initPmPos);
       } else {
-        // Unexpected let_def structure — replace the let_def's content
         const newInitPm = projNodeToPmNode(initProj);
         const from = tr.mapping.map(childPmPos + 1);
         const to = tr.mapping.map(childPmPos + 1 + pmChild.content.size);
@@ -283,7 +287,5 @@ function diffModule(
       // Last child: the body term (not wrapped in let_def)
       diffNode(tr, pmChild, bodyProj, childPmPos);
     }
-
-    childIndex++;
-  });
+  }
 }
