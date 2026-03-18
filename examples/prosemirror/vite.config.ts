@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 import { moonbitPlugin } from '../web/vite-plugin-moonbit';
 
 export default defineConfig({
@@ -11,7 +11,7 @@ export default defineConfig({
           output: '_build/js/release/build/canopy.js'
         }
       ]
-    })
+    }) as PluginOption
   ],
   server: {
     fs: {
