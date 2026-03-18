@@ -66,7 +66,14 @@ Single multiplexed WebSocket connection. WebSocket framing handles message bound
 
 ```
 WebSocket message:
-  [version: u8][message_type: u8][payload: bytes]
+  [version: u8][message_type: u8][flags: u8][payload: bytes]
+
+flags (bit field, reserved for BFT — see bft-adapter-design.md):
+  0x00 = no BFT (default for v1)
+  bit 0 = has_digest
+  bit 1 = has_signature
+  bit 2 = has_author_key
+  bit 3 = has_dep_digests
 
 version:
   0x01 = v1 (this design)
