@@ -12,6 +12,8 @@ import {
 // Values
 pub fn apply_edit_to_proj(ProjNode, TreeEditOp, Map[NodeId, ProjNode], @ref.Ref[Int]) -> Result[ProjNode, String]
 
+pub fn compute_text_edit(TreeEditOp, String, SourceMap, Map[NodeId, ProjNode], FlatProj) -> Result[Array[SpanEdit]?, String]
+
 pub fn is_leaf_node(@ast.Term) -> Bool
 
 pub fn is_valid_drop(@ast.Term, @ast.Term, DropPosition) -> Bool
@@ -108,6 +110,14 @@ pub fn SourceMap::nodes_in_range(Self, @core.Range) -> Array[NodeId]
 pub fn SourceMap::rebuild(Self, ProjNode) -> Unit
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
+
+pub(all) struct SpanEdit {
+  start : Int
+  delete_len : Int
+  inserted : String
+}
+pub impl Eq for SpanEdit
+pub impl Show for SpanEdit
 
 pub(all) enum TreeEditOp {
   Select(node_id~ : NodeId)
