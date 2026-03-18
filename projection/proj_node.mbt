@@ -312,9 +312,11 @@ fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
 /// Uses the unified source-file grammar for both single expressions and
 /// multi-definition files.
 pub fn parse_to_proj_node(text : String) -> (ProjNode, Array[String]) {
-  let ip = @loom.new_imperative_parser(text, @parser.lambda_grammar)
-  let syntax_node : @seam.SyntaxNode = ip.parse()
-  let errors = ip.diagnostics()
+  let (cst, diagnostics) = @parser.parse_cst(text) catch {
+    _ => abort("parse failed")
+  }
+  let syntax_node = @seam.SyntaxNode::from_cst(cst)
+  let errors = diagnostics.map(fn(d) { d.message })
   let root = to_proj_node(syntax_node, Ref::new(0))
   (root, errors)
 }

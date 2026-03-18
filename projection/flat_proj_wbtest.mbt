@@ -1,7 +1,12 @@
 ///|
+fn parse_syntax(text : String) -> @seam.SyntaxNode {
+  let (cst, _) = @parser.parse_cst(text) catch { _ => abort("parse failed") }
+  @seam.SyntaxNode::from_cst(cst)
+}
+
+///|
 test "to_flat_proj: single expression" {
-  let ip = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let syntax = ip.parse()
+  let syntax = parse_syntax("42")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="0")
   inspect(
@@ -12,8 +17,7 @@ test "to_flat_proj: single expression" {
 
 ///|
 test "to_flat_proj: single let def + expression" {
-  let ip = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let syntax = ip.parse()
+  let syntax = parse_syntax("let x = 1\nx")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="1")
   inspect(fp.defs[0].0, content="x")
@@ -26,10 +30,7 @@ test "to_flat_proj: single let def + expression" {
 
 ///|
 test "to_flat_proj: multiple let defs" {
-  let ip = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx + y", @parser.lambda_grammar,
-  )
-  let syntax = ip.parse()
+  let syntax = parse_syntax("let x = 1\nlet y = 2\nx + y")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="2")
   inspect(fp.defs[0].0, content="x")
@@ -38,8 +39,7 @@ test "to_flat_proj: multiple let defs" {
 
 ///|
 test "to_flat_proj: no final expression defaults to None" {
-  let ip = @loom.new_imperative_parser("let x = 1\n", @parser.lambda_grammar)
-  let syntax = ip.parse()
+  let syntax = parse_syntax("let x = 1\n")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="1")
   inspect(fp.final_expr, content="None")
@@ -47,8 +47,7 @@ test "to_flat_proj: no final expression defaults to None" {
 
 ///|
 test "to_flat_proj: empty document" {
-  let ip = @loom.new_imperative_parser("", @parser.lambda_grammar)
-  let syntax = ip.parse()
+  let syntax = parse_syntax("")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="0")
   inspect(fp.final_expr, content="None")
@@ -56,19 +55,13 @@ test "to_flat_proj: empty document" {
 
 ///|
 test "reconcile_flat_proj: unchanged defs preserve IDs" {
-  let ip = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx", @parser.lambda_grammar,
-  )
-  let syntax = ip.parse()
+  let syntax = parse_syntax("let x = 1\nlet y = 2\nx")
   let counter = Ref::new(0)
   let old = to_flat_proj(syntax, counter)
   let old_ids = old.defs.map(fn(d) { d.3 })
 
   // Simulate reparse (same text, fresh IDs)
-  let ip2 = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx", @parser.lambda_grammar,
-  )
-  let syntax2 = ip2.parse()
+  let syntax2 = parse_syntax("let x = 1\nlet y = 2\nx")
   let new_fp = to_flat_proj(syntax2, counter)
 
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
@@ -79,12 +72,10 @@ test "reconcile_flat_proj: unchanged defs preserve IDs" {
 ///|
 test "reconcile_flat_proj: changed init gets reconciled children" {
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("let x = 1\nx"), counter)
   let old_id = old.defs[0].3
 
-  let ip2 = @loom.new_imperative_parser("let x = 2\nx", @parser.lambda_grammar)
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("let x = 2\nx"), counter)
 
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
   // Def NodeId preserved (same name, same position)
@@ -96,14 +87,10 @@ test "reconcile_flat_proj: changed init gets reconciled children" {
 ///|
 test "reconcile_flat_proj: insertion gets fresh ID" {
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("let x = 1\nx"), counter)
   let old_x_id = old.defs[0].3
 
-  let ip2 = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx", @parser.lambda_grammar,
-  )
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("let x = 1\nlet y = 2\nx"), counter)
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
 
   inspect(reconciled.defs.length(), content="2")
@@ -116,12 +103,10 @@ test "reconcile_flat_proj: insertion gets fresh ID" {
 ///|
 test "reconcile_flat_proj: final_expr reconciled" {
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("42"), counter)
   let old_final_id = old.final_expr.unwrap().node_id
 
-  let ip2 = @loom.new_imperative_parser("99", @parser.lambda_grammar)
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("99"), counter)
 
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
   // Same kind (Int) → old ID preserved
@@ -135,61 +120,55 @@ test "reconcile_flat_proj: final_expr reconciled" {
 
 ///|
 test "print_flat_proj: single expression" {
-  let ip = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax("42"), Ref::new(0))
   inspect(print_flat_proj(fp), content="42")
 }
 
 ///|
 test "print_flat_proj: single let + expression" {
-  let ip = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax("let x = 1\nx"), Ref::new(0))
   inspect(print_flat_proj(fp), content="let x = 1\nx")
 }
 
 ///|
 test "print_flat_proj: multiple lets" {
-  let ip = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx + y", @parser.lambda_grammar,
+  let fp = to_flat_proj(
+    parse_syntax("let x = 1\nlet y = 2\nx + y"),
+    Ref::new(0),
   )
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
   inspect(print_flat_proj(fp), content="let x = 1\nlet y = 2\n(x + y)")
 }
 
 ///|
 test "print_flat_proj: defs only (no final expression)" {
-  let ip = @loom.new_imperative_parser("let x = 1\n", @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax("let x = 1\n"), Ref::new(0))
   inspect(print_flat_proj(fp), content="let x = 1\n()")
 }
 
 ///|
 test "print_flat_proj: equivalence with print_term on nested spine" {
   let text = "let x = 1\nlet y = 2\nx + y"
-  let ip = @loom.new_imperative_parser(text, @parser.lambda_grammar)
-  let syntax = ip.parse()
+  let syntax = parse_syntax(text)
   let counter = Ref::new(0)
   let nested = to_proj_node(syntax, counter)
   let counter2 = Ref::new(0)
-  let ip2 = @loom.new_imperative_parser(text, @parser.lambda_grammar)
-  let flat = to_flat_proj(ip2.parse(), counter2)
+  let flat = to_flat_proj(parse_syntax(text), counter2)
   inspect(print_flat_proj(flat) == @ast.print_term(nested.kind), content="true")
 }
 
 ///|
 test "FlatProj::to_proj_node: single expression" {
-  let ip = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax("42"), Ref::new(0))
   let proj = fp.to_proj_node(Ref::new(100))
   inspect(proj.kind, content="Int(42)")
 }
 
 ///|
 test "FlatProj::to_proj_node: let defs reconstruct nested spine" {
-  let ip = @loom.new_imperative_parser(
-    "let x = 1\nlet y = 2\nx + y", @parser.lambda_grammar,
+  let fp = to_flat_proj(
+    parse_syntax("let x = 1\nlet y = 2\nx + y"),
+    Ref::new(0),
   )
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
   let proj = fp.to_proj_node(Ref::new(100))
   inspect(
     proj.kind,
@@ -199,8 +178,7 @@ test "FlatProj::to_proj_node: let defs reconstruct nested spine" {
 
 ///|
 test "FlatProj::to_proj_node: def NodeIds used as Let node IDs" {
-  let ip = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax("let x = 1\nx"), Ref::new(0))
   let def_id = fp.defs[0].3
   let proj = fp.to_proj_node(Ref::new(100))
   inspect(proj.node_id == def_id.0, content="true")
@@ -225,13 +203,11 @@ test "FlatProj::from_proj_node: single expression (no Let)" {
 ///|
 test "FlatProj roundtrip: to_flat_proj -> to_proj_node matches to_proj_node" {
   let text = "let x = 1\nlet y = 2\nx + y"
-  let ip1 = @loom.new_imperative_parser(text, @parser.lambda_grammar)
   let counter1 = Ref::new(0)
-  let nested = to_proj_node(ip1.parse(), counter1)
+  let nested = to_proj_node(parse_syntax(text), counter1)
 
-  let ip2 = @loom.new_imperative_parser(text, @parser.lambda_grammar)
   let counter2 = Ref::new(0)
-  let flat = to_flat_proj(ip2.parse(), counter2)
+  let flat = to_flat_proj(parse_syntax(text), counter2)
   let roundtripped = flat.to_proj_node(Ref::new(100))
 
   // Same structure (kind matches)
@@ -257,17 +233,11 @@ test "FlatProj roundtrip: from_proj_node -> to_proj_node preserves text" {
 test "reconcile_flat_proj: duplicate/shadowed names preserve correct IDs" {
   // old: let x = 1, let x = 2, x  →  new: let x = 1, let x = 2, x
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser(
-    "let x = 1\nlet x = 2\nx", @parser.lambda_grammar,
-  )
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("let x = 1\nlet x = 2\nx"), counter)
   let old_id_0 = old.defs[0].3 // first x
   let old_id_1 = old.defs[1].3 // second x
 
-  let ip2 = @loom.new_imperative_parser(
-    "let x = 1\nlet x = 2\nx", @parser.lambda_grammar,
-  )
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("let x = 1\nlet x = 2\nx"), counter)
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
 
   // Both IDs preserved in correct positions
@@ -279,14 +249,10 @@ test "reconcile_flat_proj: duplicate/shadowed names preserve correct IDs" {
 test "reconcile_flat_proj: shadow with insertion preserves first x ID" {
   // old: [x=1], x  →  new: [x=1, x=2], x
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("let x = 1\nx", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("let x = 1\nx"), counter)
   let old_x_id = old.defs[0].3
 
-  let ip2 = @loom.new_imperative_parser(
-    "let x = 1\nlet x = 2\nx", @parser.lambda_grammar,
-  )
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("let x = 1\nlet x = 2\nx"), counter)
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
 
   inspect(reconciled.defs.length(), content="2")
@@ -299,11 +265,9 @@ test "reconcile_flat_proj: shadow with insertion preserves first x ID" {
 ///|
 test "reconcile_flat_proj: empty old defs" {
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("42"), counter)
 
-  let ip2 = @loom.new_imperative_parser("let x = 1\n42", @parser.lambda_grammar)
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("let x = 1\n42"), counter)
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
 
   inspect(reconciled.defs.length(), content="1")
@@ -313,11 +277,9 @@ test "reconcile_flat_proj: empty old defs" {
 ///|
 test "reconcile_flat_proj: empty new defs" {
   let counter = Ref::new(0)
-  let ip1 = @loom.new_imperative_parser("let x = 1\n42", @parser.lambda_grammar)
-  let old = to_flat_proj(ip1.parse(), counter)
+  let old = to_flat_proj(parse_syntax("let x = 1\n42"), counter)
 
-  let ip2 = @loom.new_imperative_parser("42", @parser.lambda_grammar)
-  let new_fp = to_flat_proj(ip2.parse(), counter)
+  let new_fp = to_flat_proj(parse_syntax("42"), counter)
   let reconciled = reconcile_flat_proj(old, new_fp, counter)
 
   inspect(reconciled.defs.length(), content="0")
@@ -326,8 +288,7 @@ test "reconcile_flat_proj: empty new defs" {
 ///|
 test "print_flat_proj: defs-only roundtrips through tree edit" {
   let text = "let x = 1\nlet y = 2\n"
-  let ip = @loom.new_imperative_parser(text, @parser.lambda_grammar)
-  let fp = to_flat_proj(ip.parse(), Ref::new(0))
+  let fp = to_flat_proj(parse_syntax(text), Ref::new(0))
   let printed = print_flat_proj(fp)
   // Reconstruct via nested spine and verify equivalence
   let proj = fp.to_proj_node(Ref::new(100))

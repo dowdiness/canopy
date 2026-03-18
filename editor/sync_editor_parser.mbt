@@ -4,7 +4,7 @@
 fn SyncEditor::set_parser_signals(
   self : SyncEditor,
   source : String,
-  syntax : @seam.SyntaxNode?,
+  syntax? : @seam.SyntaxNode? = None,
 ) -> Unit {
   self.parser_rt.batch(fn() {
     self.source_text.set(source)
@@ -23,16 +23,16 @@ fn SyncEditor::sync_parser_after_text_change(
     return
   }
   if new_source == "" {
-    ignore(self.parser.reset(new_source))
-    self.set_parser_signals(new_source, None)
+    let _ = self.parser.reset(new_source)
+    self.set_parser_signals(new_source)
     return
   }
   let edit = match known_edit {
     Some(edit) => edit
     None => compute_edit(old_source, new_source)
   }
-  let syntax = self.parser.edit(edit, new_source)
-  self.set_parser_signals(new_source, Some(syntax))
+  let _ = self.parser.edit(edit, new_source)
+  self.set_parser_signals(new_source, syntax=self.parser.get_syntax_tree())
 }
 
 ///|
@@ -102,34 +102,32 @@ fn SyncEditor::apply_local_text_change(
 }
 
 ///|
-fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode {
+fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode? {
   let source = self.doc.text()
-  let syntax = self.parser.reset(source)
-  if source == "" {
-    self.set_parser_signals(source, None)
-  } else {
-    self.set_parser_signals(source, Some(syntax))
-  }
+  let _ = self.parser.reset(source)
+  let syntax = self.parser.get_syntax_tree()
+  self.set_parser_signals(source, syntax~)
   syntax
 }
 
 ///|
-fn SyncEditor::current_syntax_tree(self : SyncEditor) -> @seam.SyntaxNode {
+fn SyncEditor::current_syntax_tree(self : SyncEditor) -> @seam.SyntaxNode? {
   match self.syntax_tree.get() {
-    Some(tree) => tree
+    Some(tree) => Some(tree)
     None => self.force_parser_reset()
   }
 }
 
 ///|
 pub fn SyncEditor::mark_dirty(self : SyncEditor) -> Unit {
-  ignore(self.force_parser_reset())
+  let _ = self.force_parser_reset()
 }
 
 ///|
 pub fn SyncEditor::get_ast(self : SyncEditor) -> @ast.Term {
-  let syntax_node = self.current_syntax_tree()
-  @parser.syntax_node_to_term(syntax_node)
+  // Ensure parser has run, then get the Term directly
+  let _ = self.current_syntax_tree()
+  self.parser.get_tree().unwrap_or(@ast.Term::Unit)
 }
 
 ///|

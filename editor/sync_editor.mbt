@@ -5,7 +5,7 @@
 pub struct SyncEditor {
   priv doc : @text.TextDoc
   priv undo : @undo.UndoManager
-  priv parser : @loom.ImperativeParser[@parser.SyntaxNode]
+  priv parser : @loom.ImperativeParser[@ast.Term]
   priv parser_rt : @incr.Runtime
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
