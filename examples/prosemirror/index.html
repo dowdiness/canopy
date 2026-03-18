@@ -6,16 +6,41 @@
   <style>
     body { font-family: system-ui, sans-serif; margin: 40px; }
     #editor { border: 1px solid #ccc; padding: 8px; min-height: 200px; }
-    .ProseMirror { outline: none; font-family: monospace; font-size: 16px; line-height: 1.6; }
-    .pm-leaf { display: inline-block; }
+    .ProseMirror { outline: none; font-family: monospace; font-size: 16px; line-height: 1.8; }
+    /* Module container */
+    .pm-module { display: block; }
+    /* Let definitions on their own lines */
+    .pm-let-def { display: block; margin: 2px 0; }
+    .pm-let-keyword { color: #60a5fa; font-weight: bold; }
+    .pm-let-eq { color: #888; }
+    .pm-let-init { display: inline; }
+    /* Lambda */
     .pm-lambda { display: inline; }
     .pm-lambda-prefix { color: #c084fc; font-weight: bold; }
     .pm-lambda-dot { color: #888; }
-    .pm-let-def { margin: 4px 0; }
-    .pm-let-keyword { color: #60a5fa; font-weight: bold; }
-    .pm-let-eq { color: #888; }
-    /* Atom nodes get a subtle background */
-    .pm-leaf .cm-editor { background: rgba(99, 102, 241, 0.08); border-radius: 3px; }
+    .pm-lambda-body { display: inline; }
+    /* Compound terms: inline */
+    .pm-application { display: inline; }
+    .pm-application > * { margin-right: 4px; }
+    .pm-binary-op { display: inline; }
+    .pm-binary-op > *:first-child::after { content: " + "; color: #f59e0b; font-weight: bold; }
+    .pm-if-expr { display: inline; }
+    /* Leaf nodes */
+    .pm-leaf { display: inline-block; vertical-align: baseline; }
+    /* Force ALL CM6 editors inside PM to be inline */
+    .ProseMirror .cm-editor { display: inline-block !important; vertical-align: baseline; }
+    .ProseMirror .cm-content { display: inline !important; }
+    .ProseMirror .cm-line { display: inline !important; }
+    .ProseMirror .cm-scroller { display: inline !important; overflow: visible !important; }
+    .pm-leaf .cm-editor { background: rgba(99, 102, 241, 0.08); border-radius: 3px; padding: 0 2px; }
+    .pm-leaf .cm-focused { outline: 2px solid rgba(99, 102, 241, 0.4); }
+    .pm-lambda-param .cm-editor, .pm-let-name .cm-editor {
+      background: rgba(99, 102, 241, 0.08); border-radius: 3px; padding: 0 2px;
+    }
+    /* Error/special */
+    .pm-error-node { color: #ef4444; font-style: italic; }
+    .pm-unit { color: #888; }
+    .pm-unbound-ref { text-decoration: wavy underline #ef4444; }
   </style>
 </head>
 <body>
