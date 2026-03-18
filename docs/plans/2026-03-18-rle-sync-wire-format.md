@@ -1,6 +1,6 @@
 # RLE-Aware Sync Wire Format
 
-**Status:** Completed (MoonBit side). Valtio/WebSocket TS update pending.
+**Status:** Completed.
 **Date:** 2026-03-18
 **PRs:** [event-graph-walker#8](https://github.com/dowdiness/event-graph-walker/pull/8), [crdt#35](https://github.com/dowdiness/crdt/pull/35)
 
@@ -39,10 +39,9 @@ Changed `SyncMessage` from `Array[Op]` to `Array[OpRun]` with custom JSON serial
 
 5. **Docs** — `JS_INTEGRATION.md` updated with new schema
 
-### Remaining (not yet implemented)
+### Valtio/WebSocket — No changes needed
 
-- **`ws-server.ts`** — update `'sync'` message handler for `runs` format
-- **`egwalker_api.ts` / `egwalker_api_stub.ts`** — update batch sync
+The WebSocket relay (`ws-server.ts`) and clients (`egwalker_api_sync.ts`) use a separate protocol that sends individual `Operation` objects via `apply_remote_op`. They never call `export_all_json`/`apply_sync_json` or reference `SyncMessage`. The `SyncMessage` wire format change is transparent to them.
 
 ## Wire Format
 
