@@ -1,16 +1,11 @@
 // Tree Edit Bridge: Apply structural projection edits through the text CRDT.
-// TreeEditOp -> ProjNode -> unparse -> set_text_and_record -> memo reconcile
+// TreeEditOp -> compute_text_edit -> apply_text_edit_internal -> memo reconcile
 // Debt rule: tree edits must route back through authoritative text state.
 // Do not introduce a second persistent AST/editor model alongside SyncEditor.
 
 ///|
-/// Apply a tree edit by round-tripping through the text CRDT.
-///
-/// Dual-path strategy:
-/// 1. **New path** — try `compute_text_edit` first; if it returns span edits,
-///    apply them directly via `apply_text_edit_internal` (incremental-parser-aware).
-/// 2. **Old path** — fall back to apply_edit_to_proj → from_proj_node → print_flat_proj
-///    for any ops not yet handled by `compute_text_edit`.
+/// Apply a tree edit by computing span-level text edits and applying them
+/// through the text CRDT (incremental-parser-aware).
 pub fn SyncEditor::apply_tree_edit(
   self : SyncEditor,
   op : @proj.TreeEditOp,
@@ -18,8 +13,6 @@ pub fn SyncEditor::apply_tree_edit(
 ) -> Result[Unit, String] {
   let old_text = self.get_text()
   let old_cursor = self.get_cursor()
-
-  // New path: try compute_text_edit first
   let source_map = self.get_source_map()
   let registry = self.registry_memo.get()
   let flat_proj = match self.get_flat_proj() {
@@ -47,29 +40,9 @@ pub fn SyncEditor::apply_tree_edit(
         )
       }
       self.move_cursor(old_cursor)
-      return Ok(())
+      Ok(())
     }
-    Ok(None) => () // fall through to old path
-    Err(msg) => return Err(msg)
+    Ok(None) => Err("Unhandled tree edit op: " + op.to_string())
+    Err(msg) => Err(msg)
   }
-
-  // Old path: apply_edit_to_proj → from_proj_node → print_flat_proj
-  let proj = match self.get_proj_node() {
-    Some(p) => p
-    None => return Err("No ProjNode available")
-  }
-  let new_proj = match
-    @proj.apply_edit_to_proj(proj, op, registry, self.next_node_id) {
-    Ok(updated) => updated
-    Err(msg) => return Err(msg)
-  }
-  let new_fp = @proj.FlatProj::from_proj_node(new_proj)
-  let new_text = @proj.print_flat_proj(new_fp)
-  if old_text == new_text {
-    return Ok(())
-  }
-  self.seed_flat_proj(Some(new_fp))
-  self.set_text_and_record(new_text, timestamp_ms)
-  self.move_cursor(old_cursor)
-  Ok(())
 }

@@ -10,8 +10,6 @@ import {
 }
 
 // Values
-pub fn apply_edit_to_proj(ProjNode, TreeEditOp, Map[NodeId, ProjNode], @ref.Ref[Int]) -> Result[ProjNode, String]
-
 pub fn compute_text_edit(TreeEditOp, String, SourceMap, Map[NodeId, ProjNode], FlatProj) -> Result[Array[SpanEdit]?, String]
 
 pub fn is_leaf_node(@ast.Term) -> Bool
