@@ -34,8 +34,8 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 - [ ] Complete WebSocket client integration (sync protocol designed, TypeScript API stub exists)
 - [x] Fix P2-1: Remote sync pollutes undo history — `UndoManager.set_tracking()` implemented; valtio TS layer suppresses tracking during remote op application (see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Fix P2-2: Position-based undo replays stale positions after concurrent edits — replaced with LV-based UndoManager; tombstone revival restores characters at exact CRDT position regardless of concurrent edits (Phase 1+2 complete, see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
-- [ ] Wire `apply_sync` to suppress undo tracking — `SyncEditor::apply_sync` doesn't disable tracking before applying remote ops; also `crdt.mbt` JS binding `apply_sync_json` is missing tracking suppression
-- [ ] Sync undo/redo ops to peers — `SyncEditor::undo()`/`redo()` don't capture inverse ops via `export_since()` for peer broadcast (see design doc pattern)
+- [x] Wire `apply_sync` to suppress undo tracking — `SyncEditor::apply_sync` now disables tracking before applying remote ops
+- [x] Sync undo/redo ops to peers — `SyncEditor::undo_and_export()`/`redo_and_export()` capture inverse ops via `export_since()` for peer broadcast; JS bindings `undo_and_export_json`/`redo_and_export_json` added
 - [ ] Add remote cursor/selection tracking
 
 ---
@@ -83,10 +83,13 @@ Tracked by:
 
 **Impact:** Medium | **Effort:** Low-Medium
 
-- [ ] Add fuzz testing — random byte streams to parser, random operation sequences to CRDT
+- [x] Add CRDT convergence fuzz testing — multi-agent (2-5) property tests with random insert/delete/undo/redo/partial-sync, verifying all replicas converge after full sync
+- [x] Add sync-order-independence property test — verifies convergence regardless of sync direction
+- [x] Add undo-under-concurrency property test — agent undoes while another edits concurrently
+- [x] Fix Delete/Undelete convergence bug found by fuzz testing — LWW conflict resolution with Lamport timestamps and add-wins semantics (`event-graph-walker/internal/fugue/tree.mbt`)
+- [ ] Add parser fuzz testing — random byte streams, verify no panics/aborts
 - [ ] Add E2E browser tests with Playwright (already a devDependency, no automated tests yet)
 - [ ] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions
-- [ ] Add multi-agent stress tests in MoonBit — property-test N concurrent agents with random interleaving
 
 ---
 
@@ -144,7 +147,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 |---|----------|--------|--------|
 | 1 | CI test automation | Low | High |
 | 2 | ~~Fix undo/redo (P2-1, P2-2)~~ ✅ Done | ~~Medium~~ | ~~High~~ |
-| 2a | Wire apply_sync tracking suppression + sync undo ops to peers | Low-Medium | High |
+| 2a | ~~Wire apply_sync tracking suppression + sync undo ops to peers~~ ✅ Done | ~~Low-Medium~~ | ~~High~~ |
 | 3 | Complete WebSocket collaboration | High | High |
 | 4 | E2E browser tests | Low | Medium |
 | 5 | Benchmark regression CI | Medium | Medium |
@@ -154,4 +157,5 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 | 9 | Single-command test runner | Low | Low-Med |
 | 10 | Code cleanup | Low | Low |
 | 11 | Memory optimization | High | Medium |
-| 12 | Fuzz testing | Medium | Medium |
+| 12 | ~~CRDT convergence fuzz testing~~ ✅ Done (+ bug found & fixed) | ~~Medium~~ | ~~Medium~~ |
+| 12a | Parser fuzz testing | Low | Medium |
