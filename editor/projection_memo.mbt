@@ -127,14 +127,6 @@ pub fn SyncEditor::get_source_map(self : SyncEditor) -> @proj.SourceMap {
 }
 
 ///|
-fn SyncEditor::seed_flat_proj(self : SyncEditor, fp : @proj.FlatProj?) -> Unit {
-  self.prev_flat_proj.val = fp
-  // Clear prev syntax root so next memo evaluation uses non-incremental path.
-  // After tree edits, the syntax root doesn't correspond to the seeded FlatProj.
-  self.prev_syntax_root.val = None
-}
-
-///|
 pub fn SyncEditor::get_node(
   self : SyncEditor,
   id : @proj.NodeId,

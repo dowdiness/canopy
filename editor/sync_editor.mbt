@@ -10,13 +10,10 @@ pub struct SyncEditor {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv prev_flat_proj : Ref[@proj.FlatProj?]
-  priv prev_syntax_root : Ref[@seam.SyntaxNode?]
   priv proj_memo : @incr.Memo[@proj.FlatProj?]
   priv cached_proj_node : @incr.Memo[@proj.ProjNode?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
-  priv next_node_id : Ref[Int]
   priv ephemeral : EphemeralStore
   priv cursor_view : PeerCursorView
   priv peer_id : String
@@ -84,13 +81,10 @@ pub fn SyncEditor::new(
     source_text,
     syntax_tree,
     cursor: 0,
-    prev_flat_proj,
-    prev_syntax_root,
     proj_memo,
     cached_proj_node,
     registry_memo,
     source_map_memo,
-    next_node_id,
     ephemeral,
     cursor_view,
     peer_id: agent_id,

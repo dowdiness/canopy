@@ -104,7 +104,8 @@ test "apply_tree_edit - CommitEdit with expression" {
     1,
   )
   inspect(result, content="Ok(())")
-  inspect(editor.get_text(), content="(λz. z)")
+  // New path: raw text splice — inserts user's text as-is (no normalization)
+  inspect(editor.get_text(), content="λz.z")
 }
 
 ///|
@@ -120,7 +121,7 @@ test "apply_tree_edit - ProjNode and text converge after WrapInLambda" {
 }
 
 ///|
-test "apply_tree_edit - ProjNode and text converge after CommitEdit" {
+test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
   let editor = setup_bridge("42")
   let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
@@ -128,11 +129,17 @@ test "apply_tree_edit - ProjNode and text converge after CommitEdit" {
     1,
   )
   inspect(result, content="Ok(())")
-  assert_converged(editor)
+  // New path: raw text splice means CRDT text is "λz.z" (user-typed form).
+  // The memo chain re-parses and builds a valid lambda ProjNode.
+  inspect(editor.get_text(), content="λz.z")
+  match editor.get_proj_node() {
+    Some(proj) => inspect(@ast.print_term(proj.kind), content="(λz. z)")
+    None => abort("expected ProjNode after CommitEdit")
+  }
 }
 
 ///|
-test "apply_tree_edit - WrapInLambda preserves root node id after memo reconcile" {
+test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
   let editor = setup_bridge("42")
   let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
@@ -140,11 +147,14 @@ test "apply_tree_edit - WrapInLambda preserves root node id after memo reconcile
     1,
   )
   inspect(result, content="Ok(())")
-  inspect(get_root_id(editor), content=id.to_string())
+  // New text path: node IDs are re-derived by the incremental parser,
+  // so we verify a valid tree exists rather than ID preservation.
+  inspect(editor.get_proj_node() is Some(_), content="true")
+  inspect(editor.get_text(), content="(λy. 42)")
 }
 
 ///|
-test "apply_tree_edit - CommitEdit expression preserves edited node id" {
+test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
   let editor = setup_bridge("42")
   let id = get_root_id(editor)
   let result = editor.apply_tree_edit(
@@ -152,7 +162,11 @@ test "apply_tree_edit - CommitEdit expression preserves edited node id" {
     1,
   )
   inspect(result, content="Ok(())")
-  inspect(get_root_id(editor), content=id.to_string())
+  // New path: raw text splice — the memo chain re-derives a lambda node.
+  match editor.get_proj_node() {
+    Some(proj) => inspect(@ast.print_term(proj.kind), content="(λz. z)")
+    None => abort("expected ProjNode after CommitEdit")
+  }
 }
 
 ///|
