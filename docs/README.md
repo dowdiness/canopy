@@ -61,7 +61,6 @@ Detailed documentation for each module:
 ## Active Plans
 
 - [Framework Extraction Design](plans/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits
-- [Ephemeral Store v2 — Hub, Namespaces & Sync Protocol](plans/2026-03-19-ephemeral-store-v2-design.md) — Namespace-based ephemeral state + multiplexed sync
 - [BFT Adapter — Byzantine Fault Tolerance](plans/2026-03-19-bft-adapter-design.md) — Design only, implement after sync working
 
 ## Archive
@@ -86,6 +85,8 @@ Historical documentation, completed plans, and investigations.
 - [Text-Delta Tree Edit](archive/2026-03-18-projectional-edit-text-delta-plan.md) — SpanEdit via source map, old tree edit path removed
 - [ProseMirror + CodeMirror 6 Design](archive/2026-03-18-prosemirror-codemirror-integration-design.md) — PM structural shell + CM6 inline leaf editors
 - [ProseMirror + CodeMirror 6 Impl](archive/2026-03-18-prosemirror-codemirror-integration-impl.md)
+- [Ephemeral Store v2 Design](archive/2026-03-19-ephemeral-store-v2-design.md) — Hub, namespaces, sync protocol
+- [Ephemeral Store v2 Impl](archive/2026-03-19-ephemeral-store-v2-impl.md)
 
 ### Earlier Archive
 
