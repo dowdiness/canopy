@@ -11,9 +11,12 @@ test "encode/decode CrdtOps roundtrip" {
   let msg = CrdtOps(payload)
   match decode_message(encode_message(msg)) {
     Some(CrdtOps(decoded_payload)) =>
-      inspect(decoded_payload.length(), content=(
-        #|10
-      ))
+      inspect(
+        decoded_payload.length(),
+        content=(
+          #|10
+        ),
+      )
     _ => fail("expected CrdtOps")
   }
 }
@@ -75,21 +78,24 @@ test "decode rejects too short" {
 
 ///|
 test "wire format: version byte is 0x01" {
-  let encoded = encode_message(CrdtOps(b"")
-)
+  let encoded = encode_message(CrdtOps(b""))
   inspect(encoded[0], content="b'\\x01'")
 }
 
 ///|
 test "wire format: flags byte is 0x00" {
-  let encoded = encode_message(CrdtOps(b"")
-)
+  let encoded = encode_message(CrdtOps(b""))
   inspect(encoded[2], content="b'\\x00'")
 }
 
 ///|
 test "EphemeralUpdate all namespaces" {
-  let namespaces : Array[EphemeralNamespace] = [Cursor, EditMode, Drag, Presence]
+  let namespaces : Array[EphemeralNamespace] = [
+    Cursor,
+    EditMode,
+    Drag,
+    Presence,
+  ]
   for ns in namespaces {
     let msg = EphemeralUpdate(ns, str_to_bytes("x"))
     match decode_message(encode_message(msg)) {

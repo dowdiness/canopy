@@ -75,7 +75,9 @@ pub fn DragState::to_ephemeral(self : DragState) -> EphemeralValue {
   match self.target {
     Some((target_id, position)) => {
       map["target_id"] = EphemeralValue::String(target_id)
-      map["position"] = EphemeralValue::String(drag_position_to_string(position))
+      map["position"] = EphemeralValue::String(
+        drag_position_to_string(position),
+      )
     }
     None => ()
   }
@@ -89,7 +91,10 @@ pub fn DragState::from_ephemeral(value : EphemeralValue) -> DragState? {
       match map.get("source_id") {
         Some(EphemeralValue::String(source_id)) => {
           let target = match (map.get("target_id"), map.get("position")) {
-            (Some(EphemeralValue::String(tid)), Some(EphemeralValue::String(pos))) =>
+            (
+              Some(EphemeralValue::String(tid)),
+              Some(EphemeralValue::String(pos)),
+            ) =>
               match drag_position_from_string(pos) {
                 Some(dp) => Some((tid, dp))
                 None => None

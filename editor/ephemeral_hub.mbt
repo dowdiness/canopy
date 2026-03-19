@@ -38,7 +38,12 @@ fn namespace_from_byte(b : Byte) -> EphemeralNamespace? {
 }
 
 ///|
-let all_namespaces : Array[EphemeralNamespace] = [Cursor, EditMode, Drag, Presence]
+let all_namespaces : Array[EphemeralNamespace] = [
+  Cursor,
+  EditMode,
+  Drag,
+  Presence,
+]
 
 ///|
 pub struct EphemeralHub {
