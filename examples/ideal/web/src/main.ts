@@ -1,1 +1,2 @@
-console.log('Canopy Ideal Editor');
+import './canopy-editor';
+console.log('Canopy Ideal Editor loaded');

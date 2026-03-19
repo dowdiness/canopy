@@ -1,0 +1,37 @@
+:root {
+  --canopy-bg: #1a1a2e;
+  --canopy-panel-bg: #1e1e36;
+  --canopy-surface: #252540;
+  --canopy-border: #2a2a48;
+  --canopy-fg: #e8e8f0;
+  --canopy-muted: #5a5a7a;
+  --canopy-accent: #8250df;
+  --canopy-keyword: #c792ea;
+  --canopy-identifier: #82aaff;
+  --canopy-number: #f78c6c;
+  --canopy-string: #c3e88d;
+  --canopy-operator: #ff5370;
+  --canopy-error: #cf222e;
+  --canopy-success: #28c840;
+  --canopy-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --canopy-font-ui: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--canopy-bg);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-ui);
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
