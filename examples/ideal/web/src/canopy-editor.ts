@@ -9,6 +9,13 @@ import { structuralKeymap } from "./keymap";
 import { CanopyEvents } from "./events";
 import { CrdtBridge } from "./bridge";
 import { projNodeToDoc } from "./convert";
+import {
+  peerCursorPlugin,
+  peerCursorKey,
+  errorDecoPlugin,
+  errorDecoKey,
+} from "./decorations";
+import type { PeerCursor, ErrorRange } from "./decorations";
 import type { CrdtModule, ProjNodeJson } from './types';
 
 /** Extract a human-readable label from a PM node based on its type */
@@ -102,6 +109,8 @@ export class CanopyEditor extends HTMLElement {
       doc,
       plugins: [
         structuralKeymap(this),
+        peerCursorPlugin(),
+        errorDecoPlugin(),
       ],
     });
 
@@ -143,6 +152,12 @@ export class CanopyEditor extends HTMLElement {
     }) as EventListener);
     // Note: request-undo / request-redo already bubble with composed:true
     // so Rabbita (which owns undo via SyncEditor) can listen for them.
+
+    // Wire sync-received: apply remote CRDT ops through the bridge
+    this.addEventListener('sync-received', ((e: CustomEvent) => {
+      if (!this.bridge) return;
+      this.bridge.applyRemote(e.detail.data);
+    }) as EventListener);
   }
 
   // --- Properties (Rabbita -> PM) ---
@@ -159,11 +174,29 @@ export class CanopyEditor extends HTMLElement {
   }
 
   set peers(json: string) {
-    // Task 12: update peer cursor decorations
+    if (!this.pmView) return;
+    try {
+      const peers: PeerCursor[] = JSON.parse(json);
+      const tr = this.pmView.state.tr;
+      tr.setMeta(peerCursorKey, peers);
+      tr.setMeta('fromExternal', true);
+      this.pmView.dispatch(tr);
+    } catch (err) {
+      console.error("[canopy-editor] Failed to parse peers JSON:", err);
+    }
   }
 
   set errors(json: string) {
-    // Task 9: update error squiggly decorations
+    if (!this.pmView) return;
+    try {
+      const errors: ErrorRange[] = JSON.parse(json);
+      const tr = this.pmView.state.tr;
+      tr.setMeta(errorDecoKey, errors);
+      tr.setMeta('fromExternal', true);
+      this.pmView.dispatch(tr);
+    } catch (err) {
+      console.error("[canopy-editor] Failed to parse errors JSON:", err);
+    }
   }
 
   set selectedNode(id: string | null) {
