@@ -188,6 +188,11 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
         @html.nothing
       },
     ]),
+    if model.workspace.bottom_visible {
+      view_bottom(dispatch, model)
+    } else {
+      @html.nothing
+    },
   ])
 }
 
