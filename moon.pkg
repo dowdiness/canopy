@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/relay",
   "dowdiness/event-graph-walker/text",
   "moonbitlang/core/json",
 }
@@ -43,6 +44,13 @@ options(
         "delete_at",
         "undo_and_export_json",
         "redo_and_export_json",
+        "relay_on_connect",
+        "relay_on_message",
+        "relay_on_disconnect",
+        "ws_on_open",
+        "ws_on_message",
+        "ws_on_close",
+        "ws_broadcast_edit",
       ],
     },
   },

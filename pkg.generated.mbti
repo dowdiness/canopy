@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy"
 
+import {
+  "dowdiness/canopy/editor",
+}
+
 // Values
 pub fn apply_sync_json(Int, String) -> Unit
 
@@ -54,6 +58,12 @@ pub fn insert_at(Int, Int, String, Int) -> Unit
 
 pub fn redo_and_export_json(Int) -> String
 
+pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Unit
+
+pub fn relay_on_disconnect(String, String) -> Unit
+
+pub fn relay_on_message(String, String, Bytes) -> Unit
+
 pub fn set_text(Int, String) -> Unit
 
 pub fn set_text_and_record(Int, String, Int) -> Unit
@@ -71,6 +81,14 @@ pub fn undo_manager_redo(Int) -> Bool
 pub fn undo_manager_set_tracking(Int, Bool) -> Unit
 
 pub fn undo_manager_undo(Int) -> Bool
+
+pub fn ws_broadcast_edit(Int) -> Unit
+
+pub fn ws_on_close(Int) -> Unit
+
+pub fn ws_on_message(Int, Bytes) -> Unit
+
+pub fn ws_on_open(Int, @editor.JsWebSocket) -> Unit
 
 // Errors
 
