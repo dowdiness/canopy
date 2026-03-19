@@ -14,6 +14,10 @@ pub fn adjust_position(Int, Int, Int, Int) -> Int
 
 pub fn compute_edit(String, String) -> @core.Edit
 
+pub fn decode_message(Bytes) -> SyncMessage?
+
+pub fn encode_message(SyncMessage) -> Bytes
+
 pub fn merge_to_edits(String, String) -> Array[@core.Edit]
 
 pub fn parse_tree_edit_op(Json) -> Result[@projection.TreeEditOp, String]
@@ -21,6 +25,31 @@ pub fn parse_tree_edit_op(Json) -> Result[@projection.TreeEditOp, String]
 // Errors
 
 // Types and methods
+pub(all) enum DragPosition {
+  Before
+  After
+  Inside
+}
+pub impl Eq for DragPosition
+pub impl Show for DragPosition
+
+pub(all) struct DragState {
+  source_id : String
+  target : (String, DragPosition)?
+}
+pub fn DragState::from_ephemeral(EphemeralValue) -> Self?
+pub fn DragState::to_ephemeral(Self) -> EphemeralValue
+pub impl Eq for DragState
+pub impl Show for DragState
+
+pub(all) struct EditModeState {
+  node_id : String
+}
+pub fn EditModeState::from_ephemeral(EphemeralValue) -> Self?
+pub fn EditModeState::to_ephemeral(Self) -> EphemeralValue
+pub impl Eq for EditModeState
+pub impl Show for EditModeState
+
 pub struct Editor {
   doc : @text.TextDoc
   mut cursor : Int
@@ -47,7 +76,43 @@ pub(all) enum EphemeralEventTrigger {
 pub impl Eq for EphemeralEventTrigger
 pub impl Show for EphemeralEventTrigger
 
+pub struct EphemeralHub {
+  local_peer_id : String
+  wire_peer_id : String
+  stores : Map[EphemeralNamespace, EphemeralStore]
+}
+pub fn EphemeralHub::apply(Self, EphemeralNamespace, Bytes) -> Unit
+pub fn EphemeralHub::apply_all(Self, Bytes) -> Unit
+pub fn EphemeralHub::clear_drag(Self) -> Unit
+pub fn EphemeralHub::clear_edit_mode(Self) -> Unit
+pub fn EphemeralHub::encode(Self, EphemeralNamespace) -> Bytes
+pub fn EphemeralHub::encode_all(Self) -> Bytes
+pub fn EphemeralHub::get_all_editing(Self) -> Map[String, EditModeState]
+pub fn EphemeralHub::get_cursor(Self, String) -> (Int, (Int, Int)?)?
+pub fn EphemeralHub::get_edit_mode(Self, String) -> EditModeState?
+pub fn EphemeralHub::get_online_peers(Self) -> Array[PeerPresence]
+pub fn EphemeralHub::get_presence(Self, String) -> PeerPresence?
+pub fn EphemeralHub::get_store(Self, EphemeralNamespace) -> EphemeralStore
+pub fn EphemeralHub::new(String) -> Self
+pub fn EphemeralHub::on_peer_leave(Self, String) -> Unit
+pub fn EphemeralHub::remove_outdated(Self) -> Unit
+pub fn EphemeralHub::set_cursor(Self, Int, selection? : (Int, Int)?) -> Unit
+pub fn EphemeralHub::set_drag(Self, String, target? : (String, DragPosition)?) -> Unit
+pub fn EphemeralHub::set_edit_mode(Self, String) -> Unit
+pub fn EphemeralHub::set_presence(Self, String, String, PresenceStatus) -> Unit
+
 type EphemeralLocalEntry
+
+pub(all) enum EphemeralNamespace {
+  Cursor
+  EditMode
+  Drag
+  Presence
+}
+pub impl Compare for EphemeralNamespace
+pub impl Eq for EphemeralNamespace
+pub impl Hash for EphemeralNamespace
+pub impl Show for EphemeralNamespace
 
 type EphemeralRecord
 
@@ -99,6 +164,18 @@ pub(all) enum EphemeralValue {
 pub impl Eq for EphemeralValue
 pub impl Show for EphemeralValue
 
+pub struct InMemoryRoom {
+  peers : Map[String, Array[(Bytes) -> Unit]]
+}
+pub fn InMemoryRoom::new() -> Self
+
+pub struct InMemoryTransport {
+  peer_id : String
+  room : InMemoryRoom
+}
+pub fn InMemoryTransport::new(String, InMemoryRoom) -> Self
+pub impl SyncTransport for InMemoryTransport
+
 pub(all) struct PeerCursor {
   mut raw_cursor : Int
   mut adjusted_cursor : Int
@@ -120,6 +197,24 @@ pub fn PeerCursorView::get_cursor(Self, String) -> PeerCursor?
 pub fn PeerCursorView::new() -> Self
 pub fn PeerCursorView::remove(Self, String) -> Unit
 pub fn PeerCursorView::set_cursor(Self, String, Int, String, String, selection? : (Int, Int)?) -> Unit
+
+pub(all) struct PeerPresence {
+  peer_id : String
+  display_name : String
+  color : String
+  status : PresenceStatus
+}
+pub fn PeerPresence::from_ephemeral(EphemeralValue) -> Self?
+pub fn PeerPresence::to_ephemeral(Self) -> EphemeralValue
+pub impl Eq for PeerPresence
+pub impl Show for PeerPresence
+
+pub(all) enum PresenceStatus {
+  Active
+  Idle
+}
+pub impl Eq for PresenceStatus
+pub impl Show for PresenceStatus
 
 pub struct SyncEditor {
   // private fields
@@ -146,6 +241,7 @@ pub fn SyncEditor::get_cursor(Self) -> Int
 pub fn SyncEditor::get_dot_resolved(Self) -> String
 pub fn SyncEditor::get_errors(Self) -> Array[String]
 pub fn SyncEditor::get_flat_proj(Self) -> @projection.FlatProj?
+pub fn SyncEditor::get_hub(Self) -> EphemeralHub
 pub fn SyncEditor::get_node(Self, @projection.NodeId) -> @projection.ProjNode?
 pub fn SyncEditor::get_node_range(Self, @projection.NodeId) -> @core.Range?
 pub fn SyncEditor::get_peer_cursors(Self) -> Map[String, PeerCursor]
@@ -161,7 +257,7 @@ pub fn SyncEditor::insert_at(Self, Int, String, Int) -> Unit
 pub fn SyncEditor::is_parse_valid(Self) -> Bool
 pub fn SyncEditor::mark_dirty(Self) -> Unit
 pub fn SyncEditor::move_cursor(Self, Int) -> Unit
-pub fn SyncEditor::new(String, capture_timeout_ms? : Int, ephemeral_timeout_ms? : UInt64) -> Self
+pub fn SyncEditor::new(String, capture_timeout_ms? : Int) -> Self
 pub fn SyncEditor::node_at_position(Self, Int) -> @projection.NodeId?
 pub fn SyncEditor::redo(Self) -> Bool
 pub fn SyncEditor::redo_and_export(Self) -> @text.SyncMessage?
@@ -174,7 +270,23 @@ pub fn SyncEditor::subscribe_ephemeral_local(Self, (Bytes) -> Bool) -> Ephemeral
 pub fn SyncEditor::undo(Self) -> Bool
 pub fn SyncEditor::undo_and_export(Self) -> @text.SyncMessage?
 
+pub(all) enum SyncMessage {
+  CrdtOps(Bytes)
+  EphemeralUpdate(EphemeralNamespace, Bytes)
+  SyncRequest(Bytes)
+  SyncResponse(Bytes)
+  PeerJoined(String)
+  PeerLeft(String)
+}
+pub impl Eq for SyncMessage
+pub impl Show for SyncMessage
+
 // Type aliases
 
 // Traits
+pub(open) trait SyncTransport {
+  send(Self, Bytes) -> Unit
+  on_receive(Self, (Bytes) -> Unit) -> Unit
+  close(Self) -> Unit
+}
 

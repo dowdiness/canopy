@@ -14,17 +14,15 @@ pub struct SyncEditor {
   priv cached_proj_node : @incr.Memo[@proj.ProjNode?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
-  priv ephemeral : EphemeralStore
+  priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
   priv peer_id : String
-  priv ephemeral_peer_id : String
 }
 
 ///|
 pub fn SyncEditor::new(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
-  ephemeral_timeout_ms? : UInt64 = 60000UL,
 ) -> SyncEditor {
   let parser = @loom.new_imperative_parser("", @parser.lambda_grammar)
   let parser_rt = @incr.Runtime::new()
@@ -40,32 +38,35 @@ pub fn SyncEditor::new(
   let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_projection_memos(
     parser_rt, source_text, syntax_tree, prev_flat_proj, prev_syntax_root, next_node_id,
   )
-  let ephemeral = EphemeralStore::new(ephemeral_timeout_ms)
+  let hub = EphemeralHub::new(agent_id)
   let cursor_view = PeerCursorView::new()
-  let ephemeral_peer_id = to_wire_peer_id(agent_id)
-  // Subscribe to ephemeral store events to update cursor_view (skip local peer)
+  let wire_peer_id = hub.wire_peer_id
+  // Subscribe to cursor store events to update cursor_view (skip local peer).
+  // The cursor store holds position + selection; presence (name, color) is
+  // joined from the presence store by apply_raw_update via the full Map value.
+  let cursor_store = hub.get_store(Cursor)
   ignore(
-    ephemeral.subscribe(fn(event) {
+    cursor_store.subscribe(fn(event) {
       for key in event.added() {
-        if key == ephemeral_peer_id {
+        if key == wire_peer_id {
           continue
         }
-        match ephemeral.get(key) {
+        match cursor_store.get(key) {
           Some(value) => cursor_view.apply_raw_update(key, value)
           None => ()
         }
       }
       for key in event.updated() {
-        if key == ephemeral_peer_id {
+        if key == wire_peer_id {
           continue
         }
-        match ephemeral.get(key) {
+        match cursor_store.get(key) {
           Some(value) => cursor_view.apply_raw_update(key, value)
           None => ()
         }
       }
       for key in event.removed() {
-        if key == ephemeral_peer_id {
+        if key == wire_peer_id {
           continue
         }
         cursor_view.remove(key)
@@ -85,10 +86,9 @@ pub fn SyncEditor::new(
     cached_proj_node,
     registry_memo,
     source_map_memo,
-    ephemeral,
+    hub,
     cursor_view,
     peer_id: agent_id,
-    ephemeral_peer_id,
   }
 }
 
@@ -101,6 +101,7 @@ pub fn SyncEditor::set_local_presence(
   color : String,
   selection? : (Int, Int)? = None,
 ) -> Unit {
+  // Write cursor data to cursor store (with name/color for cursor_view compat)
   let map : Map[String, EphemeralValue] = {}
   map["peer_id"] = EphemeralValue::String(self.peer_id)
   map["cursor"] = EphemeralValue::I64(self.cursor.to_int64())
@@ -114,38 +115,35 @@ pub fn SyncEditor::set_local_presence(
       ])
     None => ()
   }
-  // ephemeral_peer_id is always a valid numeric string from to_wire_peer_id,
-  // so set() cannot fail; catch is defensive only.
-  self.ephemeral.set(self.ephemeral_peer_id, EphemeralValue::Map(map)) catch {
+  self.hub
+  .get_store(Cursor)
+  .set(self.hub.wire_peer_id, EphemeralValue::Map(map)) catch {
     _ => ()
   }
+  // Also write to presence store for get_online_peers()
+  self.hub.set_presence(name, color, Active)
 }
 
 ///|
 pub fn SyncEditor::delete_local_presence(self : SyncEditor) -> Unit {
-  // ephemeral_peer_id is always valid; see set_local_presence.
-  self.ephemeral.delete(self.ephemeral_peer_id) catch {
-    _ => ()
-  }
+  self.hub.on_peer_leave(self.peer_id)
 }
 
 ///|
 /// Best-effort application of remote ephemeral data. Malformed wire data from
 /// a remote peer is silently dropped to avoid crashing the local editor.
 pub fn SyncEditor::apply_ephemeral(self : SyncEditor, data : Bytes) -> Unit {
-  self.ephemeral.apply(data) catch {
-    _ => ()
-  }
+  self.hub.apply_all(data)
 }
 
 ///|
 pub fn SyncEditor::encode_ephemeral_all(self : SyncEditor) -> Bytes {
-  self.ephemeral.encode_all()
+  self.hub.encode_all()
 }
 
 ///|
 pub fn SyncEditor::remove_ephemeral_outdated(self : SyncEditor) -> Unit {
-  self.ephemeral.remove_outdated()
+  self.hub.remove_outdated()
 }
 
 ///|
@@ -161,9 +159,14 @@ pub fn SyncEditor::get_peer_id(self : SyncEditor) -> String {
 }
 
 ///|
+pub fn SyncEditor::get_hub(self : SyncEditor) -> EphemeralHub {
+  self.hub
+}
+
+///|
 pub fn SyncEditor::subscribe_ephemeral_local(
   self : SyncEditor,
   callback : (Bytes) -> Bool,
 ) -> EphemeralSubscription {
-  self.ephemeral.subscribe_local_updates(callback)
+  self.hub.get_store(Cursor).subscribe_local_updates(callback)
 }
