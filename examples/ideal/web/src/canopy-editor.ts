@@ -1,8 +1,15 @@
+import { EditorState, NodeSelection } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
+import { editorSchema } from "./schema";
+import { TermLeafView } from "./leaf-editor";
+import { LambdaView, LetDefView } from "./text-nodeview";
+import { structuralKeymap } from "./keymap";
 import type { CrdtModule } from './types';
 
 export class CanopyEditor extends HTMLElement {
   private shadow: ShadowRoot;
   private editorContainer: HTMLDivElement;
+  private pmView: EditorView | null = null;
   private _mode: 'text' | 'structure' = 'text';
   private _crdtHandle: number | null = null;
   private _crdt: CrdtModule | null = null;
@@ -44,7 +51,10 @@ export class CanopyEditor extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Cleanup PM + CM6 if needed
+    if (this.pmView) {
+      this.pmView.destroy();
+      this.pmView = null;
+    }
   }
 
   attributeChangedCallback(name: string, _old: string | null, val: string | null) {
@@ -57,7 +67,49 @@ export class CanopyEditor extends HTMLElement {
   mount(crdtHandle: number, crdt: CrdtModule): void {
     this._crdtHandle = crdtHandle;
     this._crdt = crdt;
-    // Will be filled in Task 4 (PM EditorView creation)
+
+    // For now, create an empty doc — reconciler (Task 5) will handle conversion
+    const doc = editorSchema.node("doc", null, [
+      editorSchema.node("module", { nodeId: 0 }),
+    ]);
+
+    const pmState = EditorState.create({
+      doc,
+      plugins: [
+        structuralKeymap(this),
+      ],
+    });
+
+    this.pmView = new EditorView(this.editorContainer, {
+      state: pmState,
+      nodeViews: {
+        int_literal: (node, view, getPos) => new TermLeafView(node, view, getPos, null),
+        var_ref: (node, view, getPos) => new TermLeafView(node, view, getPos, null),
+        unbound_ref: (node, view, getPos) => new TermLeafView(node, view, getPos, null),
+        lambda: (node, view, getPos) => new LambdaView(node, view, getPos, null),
+        let_def: (node, view, getPos) => new LetDefView(node, view, getPos, null),
+      },
+      dispatchTransaction: (tr) => {
+        if (!this.pmView) return;
+        this.pmView.updateState(this.pmView.state.apply(tr));
+        // Loop prevention: suppress events for external reconciliation
+        if (tr.getMeta('fromExternal')) return;
+        // Node selection events
+        if (tr.selectionSet) {
+          const sel = tr.selection;
+          if (sel instanceof NodeSelection) {
+            this.dispatchEvent(new CustomEvent('node-selected', {
+              detail: {
+                nodeId: String(sel.node.attrs.nodeId),
+                kind: sel.node.type.name,
+                label: sel.node.attrs.name || sel.node.attrs.param || String(sel.node.attrs.value) || '',
+              },
+              bubbles: true, composed: true,
+            }));
+          }
+        }
+      },
+    });
   }
 
   // --- Properties (Rabbita -> PM) ---
