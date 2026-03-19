@@ -80,7 +80,8 @@ fn view_outline_node(
         children.map(fn(child) {
           view_outline_node(dispatch, child, depth + 1, selected_node)
         })
-      @proj.Elided(n) => [@html.p(class="no-tree-note", "\{n} hidden descendants")]
+      @proj.Elided(n) =>
+        [@html.p(class="no-tree-note", "\{n} hidden descendants")]
     }
   }
   let all : Array[Html] = [row]

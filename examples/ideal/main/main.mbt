@@ -1,5 +1,5 @@
 ///|
-using @html {button, div, p, span, text}
+using @html {button, div, p, span, strong, text}
 
 ///|
 using @rabbita {type Cmd, type Dispatch, type Html, none}
@@ -106,10 +106,22 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     SelectBottomTab(tab) => (none, { ..model, bottom_tab: tab })
     NodeSelected(node_id) => (none, { ..model, selected_node: Some(node_id) })
     StructuralEditRequested(op~, node_id~) => {
-      // TODO: apply tree edit to CRDT, then reconcile
-      ignore(op)
-      ignore(node_id)
-      (none, model)
+      let node_id_int = @strconv.parse_int(node_id) catch {
+        _ => return (none, model)
+      }
+      let nid = @proj.NodeId::from_int(node_id_int)
+      let tree_op : @proj.TreeEditOp = match op {
+        "WrapInLambda" => @proj.WrapInLambda(node_id=nid, var_name="x")
+        "Delete" => @proj.Delete(node_id=nid)
+        _ => return (none, model)
+      }
+      match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
+        Ok(_) => {
+          let cmd = @rabbita.effect(fn() { js_reconcile_editor() })
+          (cmd, refresh({ ..model, next_timestamp: model.next_timestamp + 1 }))
+        }
+        Err(_) => (none, model)
+      }
     }
     TreeEdited(op) =>
       match op {
@@ -170,6 +182,11 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
         @html.nothing
       },
       view_editor(dispatch, model),
+      if model.workspace.inspector_visible {
+        view_inspector(dispatch, model)
+      } else {
+        @html.nothing
+      },
     ]),
   ])
 }

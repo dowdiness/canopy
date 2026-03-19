@@ -4,6 +4,7 @@ import {
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
   "dowdiness/text_change",
+  "moonbitlang/core/strconv",
 }
 
 options(
