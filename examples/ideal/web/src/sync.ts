@@ -59,6 +59,13 @@ export class SyncClient {
     }
 
     this.ws = new WebSocket(url);
+    this.host.dispatchEvent(
+      new CustomEvent("sync-status", {
+        detail: { status: "connecting" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
 
     this.ws.addEventListener("open", () => {
       this.reconnectDelay = RECONNECT_DELAY_MS;

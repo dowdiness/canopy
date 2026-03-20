@@ -15,6 +15,7 @@ pub enum Msg {
   // UI
   LoadExample(String)
   OutlineNodeClicked(String)
-  // Sync: CM6 text changed, need to pull from JS-side CRDT
+  // Sync
   TextChangedFromEditor
+  SyncStatusChanged(String)
 }

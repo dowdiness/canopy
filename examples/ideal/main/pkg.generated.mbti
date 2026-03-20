@@ -69,6 +69,7 @@ pub struct Model {
   diagnostics_open : Bool
   next_timestamp : Int
   bottom_tab : BottomTab
+  sync_status : SyncStatus
 }
 
 pub enum Msg {
@@ -83,6 +84,7 @@ pub enum Msg {
   LoadExample(String)
   OutlineNodeClicked(String)
   TextChangedFromEditor
+  SyncStatusChanged(String)
 }
 
 pub enum PanelId {
@@ -91,6 +93,14 @@ pub enum PanelId {
   Bottom
 }
 pub impl Eq for PanelId
+
+pub enum SyncStatus {
+  Offline
+  Connecting
+  Connected
+  Error
+}
+pub impl Eq for SyncStatus
 
 pub struct WorkspaceLayout {
   outline_visible : Bool

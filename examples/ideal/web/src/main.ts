@@ -19,6 +19,7 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_agent_id?: string;
   __canopy_pending_node_selection?: string | null;
   __canopy_pending_structural_edit?: StructuralEditDetail | null;
+  __canopy_pending_sync_status?: string | null;
 };
 
 const canopyGlobal = globalThis as CanopyGlobal;
@@ -89,6 +90,13 @@ function wireEditorEvents(el: CanopyEditor) {
   el.addEventListener(CanopyEvents.REQUEST_REDO, () => {
     clickTrigger('canopy-redo-trigger');
   }, { signal });
+  el.addEventListener('sync-status', ((event: Event) => {
+    const { status } = (event as CustomEvent<{ status: string }>).detail ?? {};
+    if (status) {
+      canopyGlobal.__canopy_pending_sync_status = status;
+      clickTrigger('canopy-sync-status-trigger');
+    }
+  }) as EventListener, { signal });
 }
 
 function startSync(el: CanopyEditor, handle: number, crdt: CrdtModule) {

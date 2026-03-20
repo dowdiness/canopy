@@ -27,6 +27,14 @@ pub struct WorkspaceLayout {
 }
 
 ///|
+pub enum SyncStatus {
+  Offline
+  Connecting
+  Connected
+  Error
+} derive(Eq)
+
+///|
 pub struct Model {
   editor : @editor.SyncEditor
   outline_state : @proj.TreeEditorState
@@ -36,4 +44,5 @@ pub struct Model {
   diagnostics_open : Bool
   next_timestamp : Int
   bottom_tab : BottomTab
+  sync_status : SyncStatus
 }

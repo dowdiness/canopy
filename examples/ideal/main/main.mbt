@@ -34,6 +34,7 @@ fn init_model() -> Model {
     diagnostics_open: false,
     next_timestamp: 1,
     bottom_tab: Problems,
+    sync_status: Connecting,
   }
 }
 
@@ -296,6 +297,17 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let cmd = @rabbita.effect(fn() { js_set_editor_selected_node(node_id) })
       (cmd, { ..model, selected_node: Some(node_id) })
     }
+    SyncStatusChanged(status) => {
+      let resolved = if status == "" { js_take_sync_status() } else { status }
+      let sync_status : SyncStatus = match resolved {
+        "connected" => Connected
+        "connecting" => Connecting
+        "disconnected" => Offline
+        "error" => Error
+        _ => model.sync_status
+      }
+      (none, { ..model, sync_status, })
+    }
     TextChangedFromEditor => {
       // model.editor IS the crdt singleton — text is already updated by CM6.
       // Refresh the outline immediately. The projection memo system handles
@@ -304,6 +316,22 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (graphviz_render_cmd(new_model), new_model)
     }
   }
+}
+
+///|
+fn view_peer_status(model : Model) -> Html {
+  let (dot_class, label) : (String, String) = match model.sync_status {
+    Connected => ("peer-dot connected", "You (connected)")
+    Connecting => ("peer-dot connecting", "Connecting\u{2026}")
+    Offline => ("peer-dot offline", "Offline \u{2014} reconnecting\u{2026}")
+    Error => ("peer-dot error", "Connection error")
+  }
+  div(class="peer-item", [
+    div(class=dot_class, attrs=@html.Attrs::build().aria_hidden("true"), [
+      text(""),
+    ]),
+    span(class="peer-label", [text(label)]),
+  ])
 }
 
 ///|
@@ -339,7 +367,7 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
         view_outline_content(dispatch, model),
         div(class="panel-section", [
           span(class="panel-label", [text("PEERS")]),
-          div(class="peer-item", [text("Alice (you)")]),
+          view_peer_status(model),
         ]),
       ]),
       view_editor(dispatch, model),

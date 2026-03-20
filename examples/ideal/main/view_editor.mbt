@@ -57,5 +57,14 @@ fn view_editor(
         .tabindex(-1),
       [@html.text("")],
     ),
+    @html.button(
+      on_click=dispatch(SyncStatusChanged("")),
+      attrs=@html.Attrs::build()
+        .class("hidden-trigger")
+        .id("canopy-sync-status-trigger")
+        .aria_hidden("true")
+        .tabindex(-1),
+      [@html.text("")],
+    ),
   ])
 }
