@@ -492,6 +492,8 @@ pub fn relay_on_disconnect(room_id : String, peer_id : String) -> Unit {
 
 // ============================================================
 // WebSocket client exports
+// TODO: _handle param is ignored — single global editor only.
+// Multi-editor support requires a handle→SyncEditor map.
 // ============================================================
 
 ///|

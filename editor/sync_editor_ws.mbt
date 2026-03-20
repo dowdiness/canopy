@@ -18,6 +18,9 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
     CrdtOps(payload) => {
       // to_unchecked_string is safe here: malformed data is caught by from_json_string.
       let json_str = payload.to_unchecked_string()
+      // TODO: silently dropping malformed/incompatible CrdtOps leaves the editor
+      // diverged with no recovery. Implement SyncRequest/SyncResponse resync
+      // so peers can request missing state after errors.
       try {
         let crdt_msg = @text.SyncMessage::from_json_string(json_str)
         self.apply_sync(crdt_msg)

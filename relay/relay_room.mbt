@@ -5,6 +5,9 @@ struct RelayPeer {
 }
 
 ///|
+/// Room of connected peers. Peer IDs are trusted (assigned by the server-side
+/// TypeScript glue, e.g. crypto.randomUUID() in CF Worker). No duplicate-ID
+/// or membership validation — callers must ensure IDs are unique.
 pub struct RelayRoom {
   priv mut peers : Array[RelayPeer]
 }
