@@ -1,7 +1,7 @@
-.PHONY: help test test-all check check-all fmt build build-js build-web clean install-hooks
+.PHONY: help test test-all check check-all fmt fmt-check build build-js build-web clean install-hooks release-artifacts
 
 help: ## Show this help message
-	@echo "Lambda Calculus CRDT Editor - Development Tasks"
+	@echo "Canopy - Development Tasks"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
@@ -9,13 +9,13 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
 test: ## Run tests for main module
-	moon test --release
+	@./scripts/run-moon-module.sh test .
 
 test-all: ## Run tests for all modules (including submodules)
 	@./scripts/test-all.sh
 
 check: ## Run moon check for main module
-	moon check --deny-warn
+	@./scripts/run-moon-module.sh check .
 
 check-all: ## Run moon check and fmt for all modules
 	@./scripts/check-all.sh
@@ -24,23 +24,25 @@ fmt: ## Format code with moon fmt
 	moon fmt
 	moon info
 
+fmt-check: ## Check formatting for the main module without keeping changes
+	@./scripts/run-moon-module.sh fmt-check .
+
 build: ## Build main module (default target)
 	moon build --release
 
-build-js: ## Build for JavaScript target
-	moon build --target js --release
+build-js: ## Build JavaScript artifacts for canopy + graphviz
+	@./scripts/build-js.sh
 
 build-web: ## Build web application (MoonBit + Vite)
 	@./scripts/build-web.sh
 
-web-dev: build-js ## Build JS and start web dev server
-	@cp _build/js/release/build/crdt.js examples/web/public/
+web-dev: build-js ## Build JS artifacts and start the web dev server
 	@cd examples/web && npm run dev
 
 clean: ## Clean build artifacts
 	moon clean
 	rm -rf target _build
-	rm -rf examples/web/dist examples/web/public/crdt.js
+	rm -rf examples/web/dist release
 
 install-hooks: ## Install git pre-commit hooks
 	@./scripts/install-hooks.sh
@@ -51,9 +53,15 @@ update: ## Update MoonBit dependencies
 	moon update
 	cd event-graph-walker && moon update
 	cd loom/loom && moon update
+	cd svg-dsl && moon update
+	cd graphviz && moon update
 
 bench: ## Run benchmarks
 	moon bench --release
 	cd event-graph-walker && moon bench --release
+
+release-artifacts: ## Package release artifacts (set VERSION=x.y.z)
+	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)
+	@./scripts/package-release.sh "$(VERSION)"
 
 .DEFAULT_GOAL := help

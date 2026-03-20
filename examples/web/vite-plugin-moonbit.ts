@@ -14,7 +14,7 @@ export interface MoonBitModule {
   name: string;
   /** Path to the MoonBit module directory (relative to Vite root) */
   path: string;
-  /** Path to the built JS file (relative to module path, defaults to 'target/js/release/build/{last-part-of-name}.js') */
+  /** Path to the built JS file (relative to module path, defaults to '_build/js/release/build/{last-part-of-name}.js') */
   output?: string;
   /** Glob patterns to watch for changes (relative to module path, defaults to ['**\/*.mbt']) */
   watch?: string[];
@@ -48,12 +48,12 @@ export interface MoonBitPluginOptions {
  *     {
  *       name: '@moonbit/crdt',
  *       path: '..',
- *       output: 'target/js/release/build/crdt.js'
+ *       output: '_build/js/release/build/canopy.js'
  *     },
  *     {
  *       name: '@moonbit/graphviz',
  *       path: '../graphviz',
- *       output: 'target/js/release/build/browser/browser.js'
+ *       output: '_build/js/release/build/browser/browser.js'
  *     }
  *   ]
  * })
@@ -222,7 +222,7 @@ function inferOutputPath(moduleName: string, target: string, release: boolean): 
   // Extract last part of module name (e.g., '@moonbit/crdt' -> 'crdt')
   const baseName = moduleName.split('/').pop() || 'module';
   const mode = release ? 'release' : 'debug';
-  return `target/${target}/${mode}/build/${baseName}.js`;
+  return `_build/${target}/${mode}/build/${baseName}.js`;
 }
 
 /**

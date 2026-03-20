@@ -9,7 +9,7 @@
 5. Run `moon info` to update `.mbti` interface files
 6. Check git diff on `.mbti` files to verify expected changes
 7. Run `moon fmt` to format
-8. If web interface is affected, rebuild and copy JS files
+8. If the web interface is affected, rebuild the shared JS artifacts
 
 ## Working with Submodules
 
@@ -80,10 +80,8 @@ npm run preview    # Preview production build
 After making changes to MoonBit code that affects the web interface:
 
 ```bash
-# From the crdt/ directory
-moon build --target js
-cp _build/js/release/build/crdt.js examples/web/public/
-cp _build/js/release/build/crdt.d.ts examples/web/public/
+# From the repo root
+make build-js
 ```
 
 ## Git Commit Process
@@ -121,7 +119,6 @@ When creating a pull request:
 ```bash
 moon build                  # Build all
 moon build --target js      # JavaScript build
-moon build --target wasm-gc # WebAssembly build
 
 moon test                   # Test crdt module
 cd event-graph-walker && moon test  # Test CRDT library

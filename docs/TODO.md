@@ -29,7 +29,7 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 - [x] Repair release workflow path drift after repo/layout rename (`parser/` → `loom/`, `web/` → `examples/web/`, `_build/.../canopy.js`, no root `moon.pkg.json`)
 - [x] Replace obsolete local copy-based web helpers (`crdt.js` → `examples/web/public/`) with the Vite plugin + `_build/js/release/build/canopy.js` flow
-- [ ] Add cross-target CI (`moon check --target all` or explicit JS/native/wasm jobs); current wasm path fails on `editor/ephemeral_time_native.mbt`
+- [ ] If wasm support is added later, add a dedicated wasm implementation and CI job; current supported targets are native and JS only
 - [x] Unify TypeScript path aliases and generated artifact names across `examples/web` and `examples/demo-react` (`canopy.{js,d.ts}` under `_build`)
 - [x] Make release/deploy jobs call shared scripts or `make` targets instead of hard-coding duplicate module paths and artifact locations
 
@@ -147,12 +147,12 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ## 9. Developer Experience
 
-**Impact:** Low-Medium | **Effort:** Low-Medium | **Status:** In Progress
+**Impact:** Low-Medium | **Effort:** Low-Medium | **Status:** Done
 
 - [x] Add top-level `Makefile` or `justfile` wrapping both-module test commands into a single invocation
 - [x] Add pre-commit hook running `moon check && moon fmt --check`
 - [x] Script the web build workflow
-- [ ] Refresh stale integration docs and examples that still refer to `crdt.js`, `target/js`, or WASM-only loading after the canopy rename and JS build flow
+- [x] Refresh stale integration docs and examples that still refer to `crdt.js`, `target/js`, or old JS loading patterns after the canopy rename and JS build flow
 
 ---
 
@@ -161,7 +161,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 | # | Proposal | Effort | Impact |
 |---|----------|--------|--------|
 | 1 | Automation drift cleanup + shared CI/release scripts | Low-Medium | High |
-| 2 | Cross-target CI / explicit wasm stance | Low-Medium | High |
+| 2 | Future wasm support, currently unsupported | Low-Medium | High |
 | 3 | Complete WebSocket collaboration + recovery | High | High |
 | 4 | Run existing browser E2E in CI and pick a canonical browser app | Low-Medium | Medium |
 | 5 | Multi-editor FFI handle table | Medium | Medium-High |

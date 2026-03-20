@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build script for web deployment
-# Automates: moon build --target js && cp _build/js/release/build/crdt.js examples/web/public/
+
+# Build the examples/web app against the current MoonBit JS outputs.
 
 set -euo pipefail
 
@@ -9,16 +9,14 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
 
-echo "🔨 Building MoonBit for JavaScript target..."
-moon build --target js --release
+"$SCRIPT_DIR/build-js.sh"
 
-echo "📦 Copying JS build to examples/web/public/..."
-mkdir -p examples/web/public
-cp _build/js/release/build/crdt.js examples/web/public/
+echo "Building examples/web..."
+cd examples/web
 
-echo "✅ MoonBit build copied successfully!"
-echo ""
-echo "Next steps:"
-echo "  cd examples/web"
-echo "  npm run build    # Build for production"
-echo "  npm run dev      # Start dev server"
+if [ ! -d node_modules ]; then
+    echo "Installing web dependencies..."
+    npm ci
+fi
+
+npm run build

@@ -12,32 +12,24 @@ echo "Installing pre-commit hook..."
 
 cat > "$HOOK_FILE" << 'EOF'
 #!/usr/bin/env bash
-# Pre-commit hook: Run moon check and moon fmt --check
+# Pre-commit hook: use repo entrypoints for root checks
 
 set -e
 
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
 echo "Running pre-commit checks..."
 
-# Check if moon is available
-if ! command -v moon &> /dev/null; then
-    echo "❌ moon command not found. Please install MoonBit."
+echo "🔍 Running make check..."
+if ! make check; then
+    echo "❌ Root check failed. Please fix the issues and try again."
     exit 1
 fi
 
-# Run moon check
-echo "🔍 Running moon check..."
-if ! moon check --deny-warn; then
-    echo "❌ moon check failed. Please fix the issues and try again."
-    exit 1
-fi
-
-# Run moon fmt and check for changes
-echo "📝 Running moon fmt..."
-moon fmt
-
-if ! git diff --exit-code --quiet; then
-    echo "❌ Code is not formatted. Changes have been made by moon fmt."
-    echo "   Please review the changes and commit again."
+echo "📝 Running make fmt-check..."
+if ! make fmt-check; then
+    echo "❌ Formatting drift detected. Please run 'make fmt' and review the changes."
     exit 1
 fi
 
@@ -48,6 +40,6 @@ chmod +x "$HOOK_FILE"
 
 echo "✅ Pre-commit hook installed successfully!"
 echo ""
-echo "The hook will run 'moon check --deny-warn' and 'moon fmt' before each commit."
+echo "The hook will run 'make check' and 'make fmt-check' before each commit."
 echo ""
 echo "To bypass the hook (not recommended), use: git commit --no-verify"

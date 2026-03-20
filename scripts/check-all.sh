@@ -25,11 +25,9 @@ check_module() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     if [ -d "$dir" ]; then
-        pushd "$dir" > /dev/null
-
         # Run moon check
         echo "Running moon check..."
-        if moon check --deny-warn; then
+        if "$SCRIPT_DIR/run-moon-module.sh" check "$dir"; then
             echo "  ✅ moon check passed"
         else
             echo "  ❌ moon check failed"
@@ -37,16 +35,13 @@ check_module() {
         fi
 
         # Run moon fmt check
-        echo "Running moon fmt..."
-        moon fmt
-        if git diff --exit-code --quiet .; then
+        echo "Running moon fmt check..."
+        if "$SCRIPT_DIR/run-moon-module.sh" fmt-check "$dir"; then
             echo "  ✅ Code is formatted"
         else
             echo "  ❌ Code is not formatted (changes detected)"
             FAILED+=("$name (format)")
         fi
-
-        popd > /dev/null
     else
         echo "⚠️  $name: Directory not found, skipping"
     fi
@@ -54,11 +49,11 @@ check_module() {
 }
 
 # Check main module
-check_module "." "Main Module (crdt)"
+check_module "." "Main Module (canopy)"
 
 # Check submodules
 check_module "event-graph-walker" "event-graph-walker"
-check_module "parser" "parser"
+check_module "loom/loom" "loom"
 check_module "svg-dsl" "svg-dsl"
 check_module "graphviz" "graphviz"
 

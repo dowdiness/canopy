@@ -41,7 +41,8 @@ A general-purpose Vite plugin for building and importing MoonBit modules.
 ```bash
 # Manual workflow
 cd ../moonbit-module && moon build --target js
-cp target/js/release/build/module.js ../examples/web/public/
+# copy the generated JS bundle into your app's chosen static location,
+# or wire it into your bundler manually
 cd ../examples/web && npm run dev
 
 # For every change:
@@ -119,12 +120,12 @@ moonbitPlugin({
     {
       name: '@moonbit/core',
       path: '../core',
-      output: 'target/js/release/build/core.js'
+      output: '_build/js/release/build/core.js'
     },
     {
       name: '@moonbit/utils',
       path: '../utils',
-      output: 'target/js/release/build/browser/browser.js'
+      output: '_build/js/release/build/browser/browser.js'
     }
   ]
 })
@@ -192,14 +193,14 @@ Creates a Vite plugin for MoonBit modules.
 If `output` is not specified, it's inferred from the module name:
 
 ```
-target/{target}/{release|debug}/build/{module-basename}.js
+_build/{target}/{release|debug}/build/{module-basename}.js
 ```
 
 For example:
-- Module name: `@moonbit/crdt`
+- Module name: `@moonbit/mymodule`
 - Target: `js`
 - Release: `true`
-- Inferred output: `target/js/release/build/crdt.js`
+- Inferred output: `_build/js/release/build/mymodule.js`
 
 ## TypeScript Configuration
 
@@ -209,7 +210,7 @@ Add path mappings to `tsconfig.json`:
 {
   "compilerOptions": {
     "paths": {
-      "@moonbit/mymodule": ["../mymodule/target/js/release/build/mymodule.d.ts"]
+      "@moonbit/mymodule": ["../mymodule/_build/js/release/build/mymodule.d.ts"]
     }
   }
 }
@@ -274,7 +275,7 @@ project/
 │   ├── src/
 │   │   └── lib.mbt
 │   ├── moon.mod.json
-│   └── target/
+│   └── _build/
 │       └── js/
 │           └── release/
 │               └── build/
@@ -372,7 +373,7 @@ When you edit a `.mbt` file:
 {
   "compilerOptions": {
     "paths": {
-      "@moonbit/mymodule": ["../mymodule/target/js/release/build/mymodule.d.ts"]
+      "@moonbit/mymodule": ["../mymodule/_build/js/release/build/mymodule.d.ts"]
     }
   }
 }
@@ -450,23 +451,23 @@ Debug builds are faster but larger and include debug symbols.
 
 Add to `.eslintignore`:
 ```
-../target/
-../graphviz/target/
+../_build/
+../graphviz/_build/
 ```
 
 ### Prettier
 
 Add to `.prettierignore`:
 ```
-../target/
-../graphviz/target/
+../_build/
+../graphviz/_build/
 ```
 
 ### Git
 
 Add to `.gitignore`:
 ```
-target/
+_build/
 ```
 
 ## FAQ
@@ -479,9 +480,9 @@ Yes! The plugin runs `moon build` once during production builds (`vite build`) w
 
 The plugin is Vite-specific, but the core concepts (Rollup hooks) work with any Rollup-based tool. You'd need to adapt the watch mode logic.
 
-### Does this support WASM output?
+### Does this repo support WASM output?
 
-Yes! Set `target: 'wasm'` in the plugin config. You'll need to handle WASM module loading separately.
+Not in this repo's supported browser path. The plugin is used here for JS output, and the documented integration flow assumes generated JavaScript modules under `_build/...`.
 
 ### How do I debug MoonBit code in the browser?
 

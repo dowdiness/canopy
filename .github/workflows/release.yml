@@ -30,23 +30,15 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Update dependencies
-        run: moon update
+        run: make update
 
       - name: Run tests
-        run: |
-          moon test --release
-          cd event-graph-walker && moon test --release
-          cd ../parser && moon test --release
+        run: make test-all
 
-      - name: Build all targets
+      - name: Build supported targets
         run: |
-          moon build --release
-          moon build --target js --release
-          moon build --target wasm --release || echo "WASM build skipped (may not be supported)"
-
-      - name: Build graphviz module
-        working-directory: graphviz
-        run: moon build --target js --release
+          make build
+          make build-js
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -54,10 +46,7 @@ jobs:
           node-version: '20'
 
       - name: Build web application
-        working-directory: web
-        run: |
-          npm ci
-          npm run build
+        run: make build-web
 
       - name: Create release archive
         run: |
@@ -66,20 +55,7 @@ jobs:
             VERSION=${{ inputs.version }}
           fi
 
-          mkdir -p release
-
-          # Package MoonBit builds
-          tar -czf release/crdt-moonbit-${VERSION}.tar.gz \
-            target/js/release/build/canopy.js \
-            moon.mod.json \
-            moon.pkg.json \
-            README.md \
-            LICENSE
-
-          # Package web build
-          cd examples/web/dist
-          tar -czf ../../../release/crdt-web-${VERSION}.tar.gz .
-          cd ../../..
+          make release-artifacts VERSION="$VERSION"
 
       - name: Generate changelog
         id: changelog

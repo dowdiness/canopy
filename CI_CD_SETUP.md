@@ -1,6 +1,6 @@
-# CI/CD Setup Complete ✅
+# CI/CD Setup Status
 
-This document summarizes the CI/CD infrastructure that has been set up for the Lambda Calculus CRDT Editor project.
+This document summarizes the current CI/CD infrastructure for the Canopy project and the follow-up cleanup completed after the 2026-03-21 automation audit.
 
 ## What's Been Implemented
 
@@ -10,11 +10,11 @@ This document summarizes the CI/CD infrastructure that has been set up for the L
 **Runs on:** Every push and pull request
 
 **Features:**
-- ✅ Tests main module with `moon test --release`
+- ✅ Tests main module through shared `make` entrypoints
 - ✅ Tests all submodules in parallel (event-graph-walker, loom, svg-dsl, graphviz)
-- ✅ Code quality checks with `moon check --deny-warn`
-- ✅ Format verification with `moon fmt`
-- ✅ JavaScript build verification (`moon build --target js`)
+- ✅ Code quality checks with `make check`
+- ✅ Format verification with `make fmt-check`
+- ✅ JavaScript build verification with `make build-js`
 - ✅ Web frontend build and testing
 - ✅ Benchmark execution on PRs
 - ✅ Single "all checks passed" status for easy merge decisions
@@ -25,15 +25,15 @@ This document summarizes the CI/CD infrastructure that has been set up for the L
 **Features:**
 - ✅ Compares PR performance vs base branch
 - ✅ Posts detailed comparison as PR comment
-- ✅ Tests both main module and event-graph-walker
+- ✅ Tests both main module and event-graph-walker through `scripts/run-moon-module.sh`
 - ✅ Stores results as artifacts (30-day retention)
 
 #### 3. Deploy to GitHub Pages (`.github/workflows/deploy.yml`)
 **Runs on:** Push to main
 
 **Features:**
-- ✅ Builds MoonBit for JavaScript
-- ✅ Builds web frontend with Vite
+- ✅ Builds shared MoonBit JS artifacts with `make build-js`
+- ✅ Builds web frontend with `make build-web`
 - ✅ Automatically deploys to GitHub Pages
 - ✅ Future URL: `https://dowdiness.github.io/crdt/`
 
@@ -46,8 +46,8 @@ This document summarizes the CI/CD infrastructure that has been set up for the L
 
 **Features:**
 - ✅ Full test suite execution
-- ✅ Builds all targets (native, JS, WASM)
-- ✅ Creates release archives
+- ✅ Builds supported targets (native and JS)
+- ✅ Creates `canopy-moonbit-*` and `canopy-web-*` archives
 - ✅ Auto-generates changelog from commits
 - ✅ Creates GitHub Release with downloadable artifacts
 
@@ -75,8 +75,8 @@ Automates the web build workflow:
 ```bash
 ./scripts/build-web.sh
 # Equivalent to:
-# moon build --target js --release
-# cp _build/js/release/build/crdt.js examples/web/public/
+# ./scripts/build-js.sh
+# cd examples/web && npm run build
 ```
 
 #### `test-all.sh`
@@ -90,7 +90,26 @@ Runs tests for all modules with pretty output:
 Runs quality checks for all modules:
 ```bash
 ./scripts/check-all.sh
-# Runs: moon check --deny-warn && moon fmt
+# Runs shared check + fmt-check helpers per module
+```
+
+#### `run-moon-module.sh`
+Shared entrypoint for root and submodule CI actions:
+```bash
+./scripts/run-moon-module.sh ci .
+./scripts/run-moon-module.sh bench event-graph-walker
+```
+
+#### `build-js.sh`
+Builds the canonical JS artifacts used by CI, deploy, release, and the web app:
+```bash
+./scripts/build-js.sh
+```
+
+#### `package-release.sh`
+Creates release archives from current build outputs:
+```bash
+./scripts/package-release.sh v0.2.0
 ```
 
 #### `install-hooks.sh`
@@ -127,8 +146,8 @@ make bench         # Run benchmarks
 Installable with `make install-hooks`:
 
 **Runs before each commit:**
-- `moon check --deny-warn` - Lint code
-- `moon fmt` - Format code
+- `make check` - Run root type checks
+- `make fmt-check` - Detect formatting drift
 
 **Prevents:**
 - Committing unformatted code
@@ -151,8 +170,8 @@ Installable with `make install-hooks`:
    - Performance optimization tips
 
 3. **`docs/TODO.md`** (Updated)
-   - Marked CI/CD tasks as complete ✅
-   - Marked Developer Experience tasks as complete ✅
+   - Tracks completed automation cleanup
+   - Tracks remaining CI/docs follow-up work
 
 ## Quick Start Guide
 
@@ -161,14 +180,14 @@ Installable with `make install-hooks`:
 1. **Clone and setup:**
    ```bash
    git clone --recursive https://github.com/dowdiness/canopy.git
-   cd crdt
+   cd canopy
    make install-hooks  # Install pre-commit hooks
    ```
 
 2. **Make changes:**
    ```bash
    # Edit files
-   moon fmt           # Format
+   make fmt           # Format
    make test-all      # Test
    ```
 
@@ -239,14 +258,17 @@ From `docs/TODO.md` Section 7 (Developer Experience):
 └── dependabot.yml              # Dependency updates
 
 scripts/
+├── build-js.sh                 # Shared JS artifact build
 ├── build-web.sh                # Web build automation
+├── package-release.sh          # Release archive packaging
+├── run-moon-module.sh          # Shared module runner
 ├── test-all.sh                 # Test all modules
 ├── check-all.sh                # Check all modules
 └── install-hooks.sh            # Install git hooks
 
 docs/
 ├── CI_CD.md                    # Comprehensive CI/CD docs
-└── TODO.md                     # Updated with completed tasks
+└── TODO.md                     # Tracks remaining follow-up work
 
 Makefile                        # Development task runner
 ```
@@ -314,7 +336,7 @@ Makefile                        # Development task runner
 
 **If format check fails:**
 ```bash
-moon fmt
+make fmt
 git add .
 git commit -m "chore: format code"
 ```
@@ -332,7 +354,7 @@ git commit -m "chore: format code"
 
 ## Success Criteria
 
-All requirements from TODO.md have been met:
+Core CI/CD requirements from TODO.md are implemented, with follow-up audit items still tracked separately:
 
 - ✅ Automated testing on push/PR
 - ✅ Code quality enforcement
@@ -342,7 +364,7 @@ All requirements from TODO.md have been met:
 - ✅ Release automation
 - ✅ Developer experience improvements
 
-The project now has a production-ready CI/CD pipeline!
+The project now has an operational CI/CD pipeline with shared entrypoints for CI, deploy, release, and benchmarks. Remaining gaps are tracked in `docs/TODO.md`, primarily around browser CI coverage and future optional wasm support.
 
 ## Documentation References
 

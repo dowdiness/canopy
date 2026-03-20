@@ -8,13 +8,13 @@ This directory contains GitHub Actions workflows for automated testing, deployme
 
 **Triggers:** Push to `main`, Pull Requests, Manual dispatch
 
-Runs comprehensive checks on every push and PR:
+Runs comprehensive checks on every push and PR via shared `make` and `scripts/` entrypoints:
 
-- **Test Main Module** - Tests the main CRDT module
-- **Test Submodules** - Tests each submodule (event-graph-walker, parser, svg-dsl, graphviz) in parallel
-- **Format Check** - Ensures code is formatted with `moon fmt`
-- **Build JS** - Builds for JavaScript target and uploads artifacts
-- **Web Tests** - Builds and tests the web frontend with Playwright
+- **Test Main Module** - Tests the main Canopy module
+- **Test Submodules** - Tests each submodule (`event-graph-walker`, `loom`, `svg-dsl`, `graphviz`) in parallel
+- **Format Check** - Ensures root formatting is clean via `make fmt-check`
+- **Build JS** - Builds `canopy.js`/`canopy.d.ts` plus Graphviz browser artifacts
+- **Web Tests** - Builds `examples/web` through `make build-web` and runs Playwright if tests exist
 - **Benchmark** - Runs benchmarks on PRs (optional)
 
 **Status Badge:**
@@ -26,7 +26,7 @@ Runs comprehensive checks on every push and PR:
 
 **Triggers:** Pull Requests to `main`, Manual dispatch
 
-Compares benchmark performance between PR and base branch:
+Compares benchmark performance between PR and base branch using the shared MoonBit module runner:
 
 - Runs benchmarks on PR branch
 - Checks out base branch and runs benchmarks
@@ -41,8 +41,8 @@ Helps detect performance regressions before merging.
 
 Builds and deploys the web application to GitHub Pages:
 
-1. Builds MoonBit for JavaScript
-2. Builds web frontend with Vite
+1. Builds shared JS artifacts with `make build-js`
+2. Builds `examples/web` with `make build-web`
 3. Deploys to GitHub Pages
 
 **Requirements:**
@@ -58,9 +58,9 @@ Builds and deploys the web application to GitHub Pages:
 Creates GitHub releases with artifacts:
 
 - Runs full test suite
-- Builds all targets (native, JS, WASM if supported)
+- Builds supported targets (native, JS)
 - Builds web application
-- Creates release archives
+- Creates `canopy-moonbit-<version>.tar.gz` and `canopy-web-<version>.tar.gz`
 - Generates changelog from commits
 - Creates GitHub Release with artifacts
 
@@ -166,7 +166,7 @@ Benchmarks can be noisy. Look for:
 
 Run locally:
 ```bash
-moon fmt
+make fmt
 git diff  # Check what changed
 ```
 

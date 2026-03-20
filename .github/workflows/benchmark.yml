@@ -22,21 +22,16 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
-      - name: Update dependencies
-        run: moon update
-
       - name: Run PR benchmarks
         run: |
           echo "Running benchmarks on PR branch..."
-          moon bench --release > pr_bench.txt 2>&1
+          ./scripts/run-moon-module.sh bench . > pr_bench.txt 2>&1
           cat pr_bench.txt
 
       - name: Run submodule benchmarks (event-graph-walker)
-        working-directory: event-graph-walker
         run: |
-          moon update
-          moon bench --release > ../pr_egw_bench.txt 2>&1
-          cat ../pr_egw_bench.txt
+          ./scripts/run-moon-module.sh bench event-graph-walker > pr_egw_bench.txt 2>&1
+          cat pr_egw_bench.txt
 
       - name: Store PR results
         run: |
@@ -51,23 +46,30 @@ jobs:
           submodules: recursive
           clean: false
 
-      - name: Update dependencies (base)
-        run: moon update || true
-
       - name: Run base benchmarks
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          moon bench --release > base_bench.txt 2>&1 || echo "(base branch benchmark failed — may not compile)" > base_bench.txt
-          cat base_bench.txt
+          if moon update && moon bench --release > base_bench.txt 2>&1; then
+            cat base_bench.txt
+          else
+            echo "(base branch benchmark failed — may not compile)" > base_bench.txt
+            cat base_bench.txt
+          fi
 
       - name: Run submodule benchmarks (base - event-graph-walker)
         continue-on-error: true
-        working-directory: event-graph-walker
         run: |
-          moon update || true
-          moon bench --release > ../base_egw_bench.txt 2>&1 || echo "(base branch benchmark failed — may not compile)" > ../base_egw_bench.txt
-          cat ../base_egw_bench.txt
+          if (
+            cd event-graph-walker
+            moon update
+            moon bench --release
+          ) > base_egw_bench.txt 2>&1; then
+            cat base_egw_bench.txt
+          else
+            echo "(base branch benchmark failed — may not compile)" > base_egw_bench.txt
+            cat base_egw_bench.txt
+          fi
 
       - name: Compare results
         id: compare

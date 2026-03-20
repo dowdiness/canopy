@@ -4,27 +4,33 @@ This document describes how to integrate the MoonBit CRDT editor into a JavaScri
 
 ## Overview
 
-The editor is compiled to WebAssembly (WASM). The `crdt.mbt` file defines the JavaScript FFI, which uses a "handle-based" system for managing `SyncEditor` instances.
+The browser integration uses the generated JavaScript build, not WebAssembly. The `crdt.mbt` file defines the JavaScript FFI exposed through the JS build output.
 
-### Loading the WASM Module
+The canonical browser example lives under `examples/web/`, where the Vite plugin exposes `_build/js/release/build/canopy.js` as the virtual module `@moonbit/crdt`.
+
+### Loading the JavaScript Module
 
 Refer to the `examples/web/` directory for a complete integration example using Vite.
 
-```javascript
-// Basic loading pattern
-import init, { create_editor, get_text, insert_and_record } from './crdt.js';
+```ts
+import * as crdt from '@moonbit/crdt';
 
-async function setup() {
-  await init(); // Initialize the WASM module
-  const handle = create_editor("agent-1"); // Create a new editor for "agent-1"
-  const text = get_text(handle);
+function setup() {
+  const handle = crdt.create_editor("agent-1");
+  const text = crdt.get_text(handle);
   console.log("Initial text:", text);
 }
 ```
 
+For local development, build the JS artifacts first:
+
+```bash
+make build-js
+```
+
 ## Editor API (FFI)
 
-All FFI functions take a `handle` (currently always `1` in the MVP) as their first argument.
+All FFI functions take a `handle` as their first argument. The current implementation still behaves like an MVP singleton internally, so the public handle API is more future-facing than the underlying storage.
 
 ### Initialization
 - `create_editor(agent_id: string): number`
@@ -100,4 +106,4 @@ Each run represents multiple consecutive operations from the same agent. For lin
 3.  **Synchronization Loop:**
     - Listen for local changes and broadcast `export_since_json` deltas to peers via WebSockets/WebRTC.
     - Periodically call `ephemeral_remove_outdated` to prune disconnected peers.
-4.  **Error Handling:** FFI calls that might fail are wrapped in `try/catch` in MoonBit; however, ensure your JS integration also handles potential WASM runtime errors.
+4.  **Error Handling:** FFI calls that might fail are wrapped in `try/catch` in MoonBit; ensure your JS integration also handles generated-module/runtime errors.

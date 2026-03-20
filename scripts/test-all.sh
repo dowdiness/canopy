@@ -25,14 +25,12 @@ run_test() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     if [ -d "$dir" ]; then
-        pushd "$dir" > /dev/null
-        if moon test --release; then
+        if "$SCRIPT_DIR/run-moon-module.sh" test "$dir"; then
             echo "✅ $name: PASSED"
         else
             echo "❌ $name: FAILED"
             FAILED+=("$name")
         fi
-        popd > /dev/null
     else
         echo "⚠️  $name: Directory not found, skipping"
     fi
@@ -40,11 +38,11 @@ run_test() {
 }
 
 # Test main module
-run_test "." "Main Module (crdt)"
+run_test "." "Main Module (canopy)"
 
 # Test submodules
 run_test "event-graph-walker" "event-graph-walker"
-run_test "parser" "parser"
+run_test "loom/loom" "loom"
 run_test "svg-dsl" "svg-dsl"
 run_test "graphviz" "graphviz"
 

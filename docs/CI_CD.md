@@ -1,6 +1,6 @@
 # CI/CD Documentation
 
-Comprehensive guide to the continuous integration and deployment setup for the Lambda Calculus CRDT Editor.
+Comprehensive guide to the continuous integration and deployment setup for Canopy.
 
 ## Overview
 
@@ -51,31 +51,30 @@ Runs on every push and pull request to ensure code quality.
 
 #### Jobs
 
-1. **test-main** - Tests the main CRDT module
+1. **test-main** - Tests the main Canopy module
    ```bash
-   moon update
-   moon check --deny-warn
-   moon test --release
-   moon build --release
+   make update
+   make check
+   make test
+   make build
    ```
 
 2. **test-submodules** - Tests all submodules in parallel
    - event-graph-walker
-   - parser
+   - loom
    - svg-dsl
    - graphviz
 
 3. **format-check** - Ensures consistent formatting
    ```bash
-   moon fmt
-   git diff --exit-code  # Fails if changes detected
+   make fmt-check
    ```
 
 4. **build-js** - Builds JavaScript target
    ```bash
-   moon build --target js --release
+   make build-js
    ```
-   Uploads `crdt.js` as artifact for downstream jobs.
+   Uploads `canopy.js`, `canopy.d.ts`, and Graphviz browser artifacts.
 
 5. **web-test** - Tests web frontend
    - Installs Node.js dependencies
@@ -84,7 +83,7 @@ Runs on every push and pull request to ensure code quality.
 
 6. **benchmark** (on PRs only) - Runs performance tests
    ```bash
-   moon bench --release
+   ./scripts/run-moon-module.sh bench .
    ```
 
 #### Status Checks
@@ -101,7 +100,7 @@ Compares benchmark results between PR and base branch.
 
 1. Run benchmarks on PR branch
 2. Checkout base branch
-3. Run benchmarks on base branch
+3. Run root and `event-graph-walker` benchmarks through `./scripts/run-moon-module.sh bench <module>`
 4. Compare results
 5. Post comparison as PR comment
 6. Upload raw results as artifacts
@@ -138,15 +137,12 @@ Automatically deploys to GitHub Pages on push to `main`.
 
 1. **MoonBit Build**
    ```bash
-   moon build --target js --release
-   cp _build/js/release/build/crdt.js examples/web/public/
+   make build-js
    ```
 
 2. **Web Build**
    ```bash
-   cd examples/web
-   npm ci
-   npm run build
+   make build-web
    ```
 
 3. **Deploy**
@@ -167,6 +163,8 @@ First deployment may take a few minutes. Subsequent deploys are faster.
 
 Creates GitHub releases with build artifacts.
 
+Current supported release targets are native and JavaScript. WebAssembly is not supported yet and is not part of the release workflow.
+
 #### Triggering Releases
 
 **Via Git Tag:**
@@ -185,12 +183,12 @@ git push origin v0.2.0
 
 The workflow creates:
 
-1. **MoonBit Package** - `crdt-moonbit-{version}.tar.gz`
+1. **MoonBit Package** - `canopy-moonbit-{version}.tar.gz`
    - JavaScript builds
    - Module configuration
    - README and LICENSE
 
-2. **Web Package** - `crdt-web-{version}.tar.gz`
+2. **Web Package** - `canopy-web-{version}.tar.gz`
    - Production web build
    - Ready to deploy
 
@@ -224,8 +222,7 @@ Dependabot creates PRs that are automatically tested by CI.
 
 Update manually:
 ```bash
-moon update                           # Update main module
-cd event-graph-walker && moon update  # Update submodule
+make update
 ```
 
 Add to CI if you need to test against latest dependencies.
@@ -265,7 +262,7 @@ make update        # Update all dependencies
 
 Located in `scripts/`:
 
-1. **build-web.sh** - Builds MoonBit JS + copies to web
+1. **build-web.sh** - Builds shared JS artifacts and then builds `examples/web`
    ```bash
    ./scripts/build-web.sh
    ```
@@ -275,7 +272,7 @@ Located in `scripts/`:
    ./scripts/test-all.sh
    ```
 
-3. **check-all.sh** - Runs check + format for all modules
+3. **check-all.sh** - Runs check + format validation for all modules
    ```bash
    ./scripts/check-all.sh
    ```
@@ -285,14 +282,30 @@ Located in `scripts/`:
    ./scripts/install-hooks.sh
    ```
 
+5. **run-moon-module.sh** - Shared entrypoint for `check`, `test`, `fmt-check`, `ci`, and `bench`
+   ```bash
+   ./scripts/run-moon-module.sh ci .
+   ./scripts/run-moon-module.sh bench event-graph-walker
+   ```
+
+6. **build-js.sh** - Builds the canonical JS artifacts for Canopy + Graphviz
+   ```bash
+   ./scripts/build-js.sh
+   ```
+
+7. **package-release.sh** - Creates release archives from the current build outputs
+   ```bash
+   ./scripts/package-release.sh v0.2.0
+   ```
+
 ### Pre-commit Hooks
 
 Install with `make install-hooks` or `./scripts/install-hooks.sh`.
 
 The hook runs:
 ```bash
-moon check --deny-warn  # Lint code
-moon fmt                # Format code
+make check
+make fmt-check
 ```
 
 Prevents committing code that would fail CI.
@@ -312,7 +325,7 @@ CI runs submodule tests in parallel using matrix strategy:
 ```yaml
 strategy:
   matrix:
-    submodule: [event-graph-walker, parser, svg-dsl, graphviz]
+    submodule: [event-graph-walker, loom, svg-dsl, graphviz]
 ```
 
 **Caching:**
@@ -351,18 +364,19 @@ Adjust retention periods in workflow files if needed.
 
 **Solution:**
 ```bash
-moon fmt
+make fmt
 git add .
 git commit -m "chore: format code"
 ```
 
 #### Web Build Fails
 
-**Symptom:** `crdt.js` not found in web build
+**Symptom:** `canopy.js` or `canopy.d.ts` not found in web build
 
-**Solution:** Ensure JS build completes before web build:
-```yaml
-needs: build-js  # ← Web job depends on JS job
+**Solution:** Run the shared JS entrypoint before building the frontend:
+```bash
+make build-js
+make build-web
 ```
 
 #### Benchmark Results Noisy
@@ -453,14 +467,12 @@ Configure in **Settings** → **Notifications**:
 
 ## Future Improvements
 
-From `docs/TODO.md`:
+Active follow-ups are tracked in `docs/TODO.md`. Current CI/CD-related gaps include:
 
-- [ ] Store benchmark baselines (not just PR comparisons)
+- [ ] If wasm support is added later, add a dedicated target implementation and CI coverage
+- [ ] Run one canonical Playwright browser app in CI
 - [ ] Add code coverage reporting
 - [ ] Add Docker builds for reproducible environments
-- [ ] Matrix testing across MoonBit versions
-- [ ] Automated changelogs with conventional commits
-- [ ] Semantic version bumping
 
 ## References
 

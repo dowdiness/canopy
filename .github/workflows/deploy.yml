@@ -30,14 +30,7 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Update dependencies
-        run: moon update
-
-      - name: Build main module for JavaScript
-        run: moon build --target js --release
-
-      - name: Build graphviz module for JavaScript
-        working-directory: graphviz
-        run: moon build --target js --release
+        run: make update
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,13 +39,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: examples/web/package-lock.json
 
-      - name: Install web dependencies
-        working-directory: examples/web
-        run: npm ci
-
       - name: Build web application
-        working-directory: examples/web
-        run: npm run build
+        run: make build-web
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
