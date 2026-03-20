@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/buffer",
+}
+
+options(
+  is_main: false,
+)

@@ -176,6 +176,11 @@ pub struct InMemoryTransport {
 pub fn InMemoryTransport::new(String, InMemoryRoom) -> Self
 pub impl SyncTransport for InMemoryTransport
 
+#external
+pub type JsWebSocket
+pub fn JsWebSocket::close(Self) -> Unit
+pub fn JsWebSocket::send_bytes(Self, Bytes) -> Unit
+
 pub(all) struct PeerCursor {
   mut raw_cursor : Int
   mut adjusted_cursor : Int
@@ -269,6 +274,12 @@ pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
 pub fn SyncEditor::subscribe_ephemeral_local(Self, (Bytes) -> Bool) -> EphemeralSubscription
 pub fn SyncEditor::undo(Self) -> Bool
 pub fn SyncEditor::undo_and_export(Self) -> @text.SyncMessage?
+pub fn SyncEditor::ws_broadcast_cursor(Self) -> Unit
+pub fn SyncEditor::ws_broadcast_edit(Self) -> Unit
+pub fn SyncEditor::ws_on_close(Self) -> Unit
+pub fn SyncEditor::ws_on_message(Self, Bytes) -> Unit
+pub fn SyncEditor::ws_on_open(Self, JsWebSocket) -> Unit
+pub fn SyncEditor::ws_send(Self, Bytes) -> Unit
 
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)

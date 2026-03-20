@@ -436,3 +436,102 @@ pub fn apply_tree_edit_json(
     None => "error: no editor"
   }
 }
+
+// ============================================================
+// Relay exports
+// ============================================================
+
+///|
+let relay_rooms : Map[String, @relay.RelayRoom] = Map::new()
+
+///|
+fn get_or_create_room(room_id : String) -> @relay.RelayRoom {
+  match relay_rooms.get(room_id) {
+    Some(room) => room
+    None => {
+      let room = @relay.RelayRoom::new()
+      relay_rooms[room_id] = room
+      room
+    }
+  }
+}
+
+///|
+pub fn relay_on_connect(
+  room_id : String,
+  peer_id : String,
+  send_fn : (Bytes) -> Unit,
+) -> Unit {
+  get_or_create_room(room_id).on_connect(peer_id, send_fn)
+}
+
+///|
+pub fn relay_on_message(
+  room_id : String,
+  peer_id : String,
+  data : Bytes,
+) -> Unit {
+  match relay_rooms.get(room_id) {
+    Some(room) => room.on_message(peer_id, data)
+    None => () // ignore messages for non-existent rooms
+  }
+}
+
+///|
+pub fn relay_on_disconnect(room_id : String, peer_id : String) -> Unit {
+  match relay_rooms.get(room_id) {
+    Some(room) => {
+      room.on_disconnect(peer_id)
+      if room.peer_count() == 0 {
+        relay_rooms.remove(room_id)
+      }
+    }
+    None => ()
+  }
+}
+
+// ============================================================
+// WebSocket client exports
+// TODO: _handle param is ignored — single global editor only.
+// Multi-editor support requires a handle→SyncEditor map.
+// ============================================================
+
+///|
+pub fn ws_on_open(_handle : Int, ws : @editor.JsWebSocket) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_on_open(ws)
+    None => ()
+  }
+}
+
+///|
+pub fn ws_on_message(_handle : Int, data : Bytes) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_on_message(data)
+    None => ()
+  }
+}
+
+///|
+pub fn ws_on_close(_handle : Int) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_on_close()
+    None => ()
+  }
+}
+
+///|
+pub fn ws_broadcast_edit(_handle : Int) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_broadcast_edit()
+    None => ()
+  }
+}
+
+///|
+pub fn ws_broadcast_cursor(_handle : Int) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_broadcast_cursor()
+    None => ()
+  }
+}
