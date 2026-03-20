@@ -348,15 +348,40 @@ button:focus-visible, .action-btn:focus-visible,
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--canopy-peer-blue);
   flex-shrink: 0;
-  box-shadow: 0 0 6px var(--canopy-peer-blue);
-  animation: pulse 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--canopy-peer-blue); }
-  50% { opacity: 0.6; box-shadow: 0 0 3px var(--canopy-peer-blue); }
+.peer-dot.connected {
+  background: var(--canopy-string);
+  box-shadow: 0 0 6px var(--canopy-string);
+  animation: pulse-connected 2s ease-in-out infinite;
+}
+
+.peer-dot.connecting {
+  background: var(--canopy-number);
+  box-shadow: 0 0 4px var(--canopy-number);
+  animation: pulse-connecting 1s ease-in-out infinite;
+}
+
+.peer-dot.offline {
+  background: var(--canopy-muted);
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.peer-dot.error {
+  background: var(--canopy-operator);
+  box-shadow: 0 0 6px var(--canopy-operator);
+}
+
+@keyframes pulse-connected {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes pulse-connecting {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* ── Empty States ──────────────────────────────────────── */
@@ -561,31 +586,16 @@ canopy-editor {
 /* ── Graphviz ───────────────────────────────────────────── */
 
 .graphviz-content {
+  overflow: auto;
   display: flex;
-  gap: var(--space-lg);
-  overflow: auto;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-md);
 }
 
-.graphviz-svg-container {
-  flex: 1;
-  min-width: 0;
-  overflow: auto;
-}
-
-.graphviz-svg-container svg {
+.graphviz-content svg {
   max-width: 100%;
   height: auto;
-}
-
-.graphviz-dot-source {
-  font-family: var(--canopy-font-mono);
-  font-size: var(--text-small);
-  color: var(--canopy-text-dim);
-  white-space: pre;
-  overflow: auto;
-  margin: 0;
-  flex: 1;
-  min-width: 0;
 }
 
 /* ── Panel visibility transitions ───────────────────────── */

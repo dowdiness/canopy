@@ -223,7 +223,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       (none, { ..model, workspace, })
     }
-    SelectBottomTab(tab) => (none, { ..model, bottom_tab: tab })
+    SelectBottomTab(tab) => {
+      let new_model = { ..model, bottom_tab: tab }
+      (graphviz_render_cmd(new_model), new_model)
+    }
     NodeSelected(node_id) => {
       let resolved_node_id = if node_id == "" {
         js_take_selected_node_id()
@@ -283,18 +286,23 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       model.editor.set_text(example_text)
       let new_model = refresh(model)
       let text = new_model.editor.get_text()
-      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+      let cmd = @rabbita.batch([
+        @rabbita.effect(fn() { js_reconcile_editor_with_text(text) }),
+        graphviz_render_cmd(new_model),
+      ])
       (cmd, new_model)
     }
     OutlineNodeClicked(node_id) => {
       let cmd = @rabbita.effect(fn() { js_set_editor_selected_node(node_id) })
       (cmd, { ..model, selected_node: Some(node_id) })
     }
-    TextChangedFromEditor =>
+    TextChangedFromEditor => {
       // model.editor IS the crdt singleton — text is already updated by CM6.
       // Refresh the outline immediately. The projection memo system handles
       // incremental recomputation efficiently, so debouncing is unnecessary.
-      (none, refresh(model))
+      let new_model = refresh(model)
+      (graphviz_render_cmd(new_model), new_model)
+    }
   }
 }
 

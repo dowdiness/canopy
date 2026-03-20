@@ -8,6 +8,9 @@
     },
     "dowdiness/text_change": {
       "path": "../../lib/text-change"
+    },
+    "antisatori/graphviz": {
+      "path": "../../graphviz"
     }
   },
   "source": ".",

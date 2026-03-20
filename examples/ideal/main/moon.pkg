@@ -5,6 +5,10 @@ import {
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
   "moonbitlang/core/strconv",
+  "moonbit-community/rabbita/cmd" @rabbita_cmd,
+  "antisatori/graphviz/lib/parser" @gv_parser,
+  "antisatori/graphviz/lib/layout" @gv_layout,
+  "antisatori/graphviz/lib/svg" @gv_svg,
 }
 
 options(

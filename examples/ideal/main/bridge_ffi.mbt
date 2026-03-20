@@ -112,4 +112,12 @@ extern "js" fn js_redo_and_sync() -> Unit =
   #|   if (btn) btn.click();
   #| }
 
+///|
+/// Set innerHTML of an element by ID. Used for Graphviz SVG rendering.
+extern "js" fn js_set_inner_html(element_id : String, html : String) -> Unit =
+  #| function(id, html) {
+  #|   var el = document.getElementById(id);
+  #|   if (el) el.innerHTML = html;
+  #| }
+
 // Note: editor event wiring is done in main.ts wireEditorEvents() — not here.
