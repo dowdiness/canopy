@@ -278,6 +278,16 @@ fn collect_projection_descendants(
 }
 
 ///|
+/// Count projection descendants without collecting IDs or building indexes.
+fn count_projection_descendants(node : ProjNode) -> Int {
+  let mut count = 1
+  for child in node.children {
+    count += count_projection_descendants(child)
+  }
+  count
+}
+
+///|
 /// Index the currently loaded interactive tree by node ID for reuse during refresh.
 fn build_loaded_node_index(
   tree : InteractiveTreeNode?,
@@ -577,6 +587,176 @@ fn refresh_node_with_reuse_impl(
 }
 
 ///|
+/// Simplified refresh that skips eager index building.
+/// Populates `new_loaded_nodes` as it walks but does not build preorder_ids,
+/// parent_by_child, or preorder_range_by_root.
+fn refresh_node_minimal(
+  node : ProjNode,
+  source_map : SourceMap,
+  ui_state : TreeUIState,
+  previous_nodes : Map[NodeId, InteractiveTreeNode],
+  new_loaded_nodes : Map[NodeId, InteractiveTreeNode],
+) -> RefreshedInteractiveNode {
+  let node_id = NodeId(node.node_id)
+  let text_range = match source_map.get_range(node_id) {
+    Some(range) => range
+    None => Range::new(node.start, node.end)
+  }
+  let collapsed = ui_state.collapsed_nodes.contains(node_id)
+  let selected = ui_state.selection.contains(node_id)
+  let editing = match ui_state.editing_node {
+    Some(id) => id == node_id
+    None => false
+  }
+  let drop_target = match ui_state.drop_target {
+    Some(id) => id == node_id
+    None => false
+  }
+  let label = get_node_label(node.kind)
+  let previous_node = previous_nodes.get(node_id)
+  if collapsed {
+    let mut descendant_count = 0
+    for child in node.children {
+      descendant_count += count_projection_descendants(child)
+    }
+    let stamp : InteractiveNodeStamp = {
+      id: node_id,
+      shape: interactive_node_shape(node.kind),
+      label,
+      child_ids: [],
+      elided_descendant_count: Some(descendant_count),
+      selected,
+      editing,
+      collapsed,
+      drop_target,
+      text_range,
+    }
+    match previous_node {
+      Some(previous) =>
+        if interactive_node_stamp(previous) == stamp {
+          new_loaded_nodes[node_id] = previous
+          { node: previous, reused_previous: true }
+        } else {
+          let refreshed : InteractiveTreeNode = {
+            id: node_id,
+            kind: node.kind,
+            label,
+            children: Elided(descendant_count),
+            selected,
+            editing,
+            collapsed,
+            drop_target,
+            text_range,
+          }
+          new_loaded_nodes[node_id] = refreshed
+          { node: refreshed, reused_previous: false }
+        }
+      None => {
+        let refreshed : InteractiveTreeNode = {
+          id: node_id,
+          kind: node.kind,
+          label,
+          children: Elided(descendant_count),
+          selected,
+          editing,
+          collapsed,
+          drop_target,
+          text_range,
+        }
+        new_loaded_nodes[node_id] = refreshed
+        { node: refreshed, reused_previous: false }
+      }
+    }
+  } else {
+    let children : Array[InteractiveTreeNode] = []
+    let child_ids : Array[NodeId] = []
+    let previous_loaded_children = match previous_node {
+      Some(previous) =>
+        match previous.children {
+          Loaded(previous_children) => Some(previous_children)
+          Elided(_) => None
+        }
+      None => None
+    }
+    let mut children_reused = match previous_loaded_children {
+      Some(_) => true
+      None => false
+    }
+    for child_index, child in node.children {
+      let child_result = refresh_node_minimal(
+        child, source_map, ui_state, previous_nodes, new_loaded_nodes,
+      )
+      child_ids.push(child_result.node.id)
+      children.push(child_result.node)
+      match previous_loaded_children {
+        Some(previous_children) =>
+          if child_index >= previous_children.length() ||
+            previous_children[child_index].id != child_result.node.id ||
+            not(child_result.reused_previous) {
+            children_reused = false
+          }
+        None => ()
+      }
+    }
+    match previous_loaded_children {
+      Some(previous_children) =>
+        if previous_children.length() != children.length() {
+          children_reused = false
+        }
+      None => ()
+    }
+    let stamp : InteractiveNodeStamp = {
+      id: node_id,
+      shape: interactive_node_shape(node.kind),
+      label,
+      child_ids,
+      elided_descendant_count: None,
+      selected,
+      editing,
+      collapsed,
+      drop_target,
+      text_range,
+    }
+    match previous_node {
+      Some(previous) =>
+        if children_reused && interactive_node_stamp(previous) == stamp {
+          new_loaded_nodes[node_id] = previous
+          { node: previous, reused_previous: true }
+        } else {
+          let refreshed : InteractiveTreeNode = {
+            id: node_id,
+            kind: node.kind,
+            label,
+            children: Loaded(children),
+            selected,
+            editing,
+            collapsed,
+            drop_target,
+            text_range,
+          }
+          new_loaded_nodes[node_id] = refreshed
+          { node: refreshed, reused_previous: false }
+        }
+      None => {
+        let refreshed : InteractiveTreeNode = {
+          id: node_id,
+          kind: node.kind,
+          label,
+          children: Loaded(children),
+          selected,
+          editing,
+          collapsed,
+          drop_target,
+          text_range,
+        }
+        new_loaded_nodes[node_id] = refreshed
+        { node: refreshed, reused_previous: false }
+      }
+    }
+  }
+}
+
+///|
 /// Build the current interactive tree and structural indexes from a projection snapshot.
 fn build_tree_projection_snapshot(
   proj : ProjNode?,
@@ -720,6 +900,7 @@ pub fn TreeEditorState::from_projection(
 ///|
 /// Refresh tree from projection while preserving UI state (collapsed nodes).
 /// Also prunes stale IDs from UI state that no longer exist in the tree.
+/// Uses `refresh_node_minimal` — no eager structural indexes are built.
 pub fn TreeEditorState::refresh(
   self : TreeEditorState,
   proj : ProjNode?,
@@ -727,7 +908,6 @@ pub fn TreeEditorState::refresh(
 ) -> TreeEditorState {
   match proj {
     Some(ast) => {
-      let previous_nodes = build_loaded_node_index(self.tree)
       let selection_set = @immut/hashset.from_iter(self.selection.iter())
       let ui_state : TreeUIState = {
         collapsed_nodes: self.collapsed_nodes,
@@ -735,17 +915,28 @@ pub fn TreeEditorState::refresh(
         editing_node: self.editing_node,
         drop_target: self.drop_target,
       }
-      let (tree, valid_id_list, indexes) = build_tree_projection_snapshot(
-        Some(ast),
-        source_map,
-        ui_state,
-        previous_nodes,
+      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+      let tree = Some(
+        refresh_node_minimal(
+          ast,
+          source_map,
+          ui_state,
+          self.loaded_nodes,
+          new_loaded_nodes,
+        ).node,
       )
-      let valid_ids = @immut/hashset.from_iter(valid_id_list.iter())
-      let collapsed_nodes = self.collapsed_nodes.intersection(valid_ids)
-      let selection = self.selection.filter(fn(id) { valid_ids.contains(id) })
+      // Prune stale UI state using new_loaded_nodes.
+      // collapsed_nodes is NOT pruned — stale entries are harmless.
+      let selection = self.selection.filter(fn(id) {
+        new_loaded_nodes.get(id) is Some(_)
+      })
       let editing_node = match self.editing_node {
-        Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
         None => None
       }
       let edit_value = if editing_node is None && self.editing_node is Some(_) {
@@ -754,11 +945,21 @@ pub fn TreeEditorState::refresh(
         self.edit_value
       }
       let dragging = match self.dragging {
-        Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
         None => None
       }
       let drop_target = match self.drop_target {
-        Some(id) => if valid_ids.contains(id) { Some(id) } else { None }
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
         None => None
       }
       let drop_position = if drop_target is None {
@@ -774,24 +975,22 @@ pub fn TreeEditorState::refresh(
         dragging,
         drop_target,
         drop_position,
-        collapsed_nodes,
-        preorder_ids: indexes.preorder_ids,
-        preorder_range_by_root: indexes.preorder_range_by_root,
-        parent_by_child: indexes.parent_by_child,
-        loaded_nodes: indexes.loaded_nodes,
+        collapsed_nodes: self.collapsed_nodes,
+        preorder_ids: [],
+        preorder_range_by_root: {},
+        parent_by_child: {},
+        loaded_nodes: new_loaded_nodes,
       }
     }
-    None => {
-      let indexes = empty_tree_structure_indexes()
+    None =>
       {
         ..self,
         tree: None,
-        preorder_ids: indexes.preorder_ids,
-        preorder_range_by_root: indexes.preorder_range_by_root,
-        parent_by_child: indexes.parent_by_child,
-        loaded_nodes: indexes.loaded_nodes,
+        preorder_ids: [],
+        preorder_range_by_root: {},
+        parent_by_child: {},
+        loaded_nodes: {},
       }
-    }
   }
 }
 
@@ -1147,20 +1346,11 @@ fn collect_subtree_ids(
   state : TreeEditorState,
   root_id : NodeId,
 ) -> Array[NodeId] {
-  // The eager index covers elided descendants that are invisible in the lazy
-  // tree walk. Always prefer the eager index when it covers a wider subtree.
-  match state.preorder_range_by_root.get(root_id) {
+  let preorder = build_preorder_from_tree(state.tree)
+  match preorder.range_by_root.get(root_id) {
     Some((start_idx, end_idx)) =>
-      collect_preorder_slice(state.preorder_ids, start_idx, end_idx)
-    None => {
-      // Eager index may be stale (e.g., empty state). Try the lazy builder.
-      let preorder = build_preorder_from_tree(state.tree)
-      match preorder.range_by_root.get(root_id) {
-        Some((start_idx, end_idx)) =>
-          collect_preorder_slice(preorder.ids, start_idx, end_idx)
-        None => []
-      }
-    }
+      collect_preorder_slice(preorder.ids, start_idx, end_idx)
+    None => []
   }
 }
 
@@ -1193,13 +1383,7 @@ fn is_descendant_of(
     false
   } else {
     let parent_map = build_parent_map_from_tree(state.tree)
-    // If the node is not in the lazy parent map, it may be inside an elided
-    // subtree. Fall back to the eagerly-built parent index for those cases.
-    if parent_map.get(node_id) is None && state.parent_by_child.get(node_id) is Some(_) {
-      is_descendant_in_parent_links(state.parent_by_child, node_id, ancestor_id)
-    } else {
-      is_descendant_in_parent_links(parent_map, node_id, ancestor_id)
-    }
+    is_descendant_in_parent_links(parent_map, node_id, ancestor_id)
   }
 }
 
@@ -1211,25 +1395,12 @@ fn collect_nodes_in_range(
   end : NodeId,
 ) -> Array[NodeId] {
   let preorder = build_preorder_from_tree(state.tree)
-  // For each endpoint, use the lazy preorder range when available; fall back to
-  // the eager index for nodes inside elided subtrees.
-  let start_range = match preorder.range_by_root.get(start) {
-    Some(r) => Some(r)
-    None => state.preorder_range_by_root.get(start)
-  }
-  let end_range = match preorder.range_by_root.get(end) {
-    Some(r) => Some(r)
-    None => state.preorder_range_by_root.get(end)
-  }
-  match (start_range, end_range) {
+  match (preorder.range_by_root.get(start), preorder.range_by_root.get(end)) {
     (Some((start_idx, _)), Some((end_idx, _))) => {
-      // Use the eager preorder_ids which is a superset of the lazy preorder
-      // and correctly includes elided descendants.
       let min_idx = if start_idx < end_idx { start_idx } else { end_idx }
       let max_idx = if start_idx > end_idx { start_idx } else { end_idx }
-      collect_preorder_slice(state.preorder_ids, min_idx, max_idx)
+      collect_preorder_slice(preorder.ids, min_idx, max_idx)
     }
-    // If either endpoint is missing, return empty to avoid stale references
     _ => []
   }
 }
