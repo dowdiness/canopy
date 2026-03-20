@@ -738,7 +738,18 @@ pub fn TreeEditorState::refresh(
         loaded_nodes: new_loaded_nodes,
       }
     }
-    None => { ..self, tree: None, loaded_nodes: {} }
+    None =>
+      {
+        ..self,
+        tree: None,
+        selection: [],
+        editing_node: None,
+        edit_value: "",
+        dragging: None,
+        drop_target: None,
+        drop_position: None,
+        loaded_nodes: {},
+      }
   }
 }
 
@@ -1134,18 +1145,26 @@ fn is_descendant_in_parent_links(
 }
 
 ///|
-/// Check if a node is a descendant of another node using parent links.
+/// Check if a node is a descendant of another node.
+/// Short-circuits if either node is not in loaded_nodes (e.g., inside an
+/// Elided subtree or missing entirely). Only builds the parent map when
+/// both nodes are confirmed loaded.
 fn is_descendant_of(
   state : TreeEditorState,
   node_id : NodeId,
   ancestor_id : NodeId,
 ) -> Bool {
   if node_id == ancestor_id {
-    false
-  } else {
-    let parent_map = build_parent_map_from_tree(state.tree)
-    is_descendant_in_parent_links(parent_map, node_id, ancestor_id)
+    return false
   }
+  // Both nodes must be loaded (visible in the UI) for ancestry to matter.
+  // Elided or missing nodes cannot be valid drag targets/sources.
+  if state.loaded_nodes.get(node_id) is None ||
+    state.loaded_nodes.get(ancestor_id) is None {
+    return false
+  }
+  let parent_map = build_parent_map_from_tree(state.tree)
+  is_descendant_in_parent_links(parent_map, node_id, ancestor_id)
 }
 
 ///|
