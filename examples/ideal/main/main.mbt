@@ -9,8 +9,13 @@ let deferred_refresh_ms = 150
 
 ///|
 fn init_model() -> Model {
+  // Create the editor through the crdt module so it sets the singleton.
+  // JS (main.ts doMount) will later call create_editor_with_undo which
+  // overwrites the singleton — but that's fine because we get_sync_editor()
+  // in the update loop to stay in sync.
+  let _handle = @crdt.create_editor_with_undo("local", 500)
+  let editor = @crdt.get_sync_editor().unwrap()
   let init_text = "let id = \\x.x\nlet apply = \\f.\\x.f x\napply id 42"
-  let editor = @editor.SyncEditor::new("local")
   editor.set_text(init_text)
   let outline_state = @proj.TreeEditorState::from_projection(
     editor.get_proj_node(),

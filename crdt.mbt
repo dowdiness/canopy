@@ -7,6 +7,12 @@
 let editor : Ref[@editor.SyncEditor?] = { val: None }
 
 ///|
+/// Get the current singleton SyncEditor, if one has been created.
+pub fn get_sync_editor() -> @editor.SyncEditor? {
+  editor.val
+}
+
+///|
 /// Create a new SyncEditor instance
 /// Returns handle 1 (MVP: single editor only)
 pub fn create_editor(agent_id : String) -> Int {
