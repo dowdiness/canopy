@@ -30,10 +30,6 @@ export function collectChanges(
 /**
  * Create an inline CM6 editor for use inside PM NodeViews.
  * Handles theme, single-line filter, and change forwarding.
- */
-/**
- * Create an inline CM6 editor for use inside PM NodeViews.
- * Handles theme, single-line filter, and change forwarding.
  *
  * When running inside Shadow DOM, pass `root` so CM6 injects
  * its styles into the shadow root instead of document.head.

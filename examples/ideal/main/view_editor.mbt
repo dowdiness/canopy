@@ -9,14 +9,18 @@ fn view_editor(
   let attrs = @html.Attrs::build()
     .class("editor-container")
     .id("canopy-editor")
+  let trigger_attrs = @html.Attrs::build()
+    .class("hidden-trigger")
+    .id("canopy-text-sync-trigger")
+    .aria_hidden("true")
+    .tabindex(-1)
   div(class="editor-wrapper", [
     node("canopy-editor", attrs, [@html.text("")]),
     // Hidden button clicked by JS when text-changed fires.
-    // Works around Rabbita's handler API not exposing Scheduler.add().
+    // aria-hidden + tabindex=-1: invisible to screen readers and keyboard.
     button(
-      id="canopy-text-sync-trigger",
-      class="hidden-trigger",
       on_click=dispatch(TextChangedFromEditor),
+      attrs=trigger_attrs,
       [@html.text("")],
     ),
   ])

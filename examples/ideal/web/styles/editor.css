@@ -1,20 +1,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 
 :root {
+  /* ── Background surfaces ───────────────────────────────── */
   --canopy-bg: #1a1a2e;
+  --canopy-header-bg: #151528;
   --canopy-panel-bg: #1e1e36;
   --canopy-surface: #252540;
   --canopy-border: #2a2a48;
+
+  /* ── Text hierarchy ────────────────────────────────────── */
   --canopy-fg: #e8e8f0;
-  --canopy-muted: #5a5a7a;
+  --canopy-text-secondary: #c0c0d8;
+  --canopy-muted: #8888a8;           /* was #5a5a7a — raised for WCAG AA (4.5:1 on panel-bg) */
+  --canopy-text-dim: #6a6a88;        /* for very low-emphasis elements only on dark bg */
+
+  /* ── Accent ────────────────────────────────────────────── */
   --canopy-accent: #8250df;
+  --canopy-accent-hover: rgba(130, 80, 223, 0.15);
+  --canopy-accent-text: #b090e0;
+  --canopy-focus-ring: #a070ef;
+
+  /* ── Syntax (semantic color) ───────────────────────────── */
   --canopy-keyword: #c792ea;
   --canopy-identifier: #82aaff;
   --canopy-number: #f78c6c;
   --canopy-string: #c3e88d;
   --canopy-operator: #ff5370;
+
+  /* ── Status (semantic color) ───────────────────────────── */
   --canopy-error: #cf222e;
+  --canopy-error-text: #ef4444;
   --canopy-success: #28c840;
+  --canopy-peer-blue: #3b82f6;
+
+  /* ── Fonts ─────────────────────────────────────────────── */
   --canopy-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   --canopy-font-ui: 'Inter', system-ui, sans-serif;
 }
@@ -36,6 +55,31 @@ body {
   flex-direction: column;
 }
 
+/* ── Reduced motion ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Focus (WCAG 2.4.7) ────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--canopy-focus-ring);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+.action-btn:focus-visible,
+.tab:focus-visible,
+.tree-toggle:focus-visible {
+  outline: 2px solid var(--canopy-focus-ring);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
 /* ── App Shell ──────────────────────────────────────────── */
 
 .app-shell {
@@ -52,7 +96,7 @@ body {
   align-items: center;
   padding: 0 16px;
   height: 44px;
-  background: #151528;
+  background: var(--canopy-header-bg);
   border-bottom: 1px solid var(--canopy-border);
   gap: 6px;
   flex-shrink: 0;
@@ -72,13 +116,14 @@ body {
   font-family: var(--canopy-font-ui);
   font-size: 11px;
   font-weight: 500;
-  padding: 5px 12px;
+  padding: 6px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   background: transparent;
   color: var(--canopy-muted);
   transition: background 0.1s, color 0.1s;
+  min-height: 28px;
 }
 
 .tab.active {
@@ -98,7 +143,7 @@ body {
 
 .example-btn {
   font-size: 11px;
-  color: #7c7c9a;
+  color: var(--canopy-muted);
 }
 
 /* ── Workspace ──────────────────────────────────────────── */
@@ -126,10 +171,10 @@ body {
 }
 
 .panel-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--canopy-muted);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -159,7 +204,7 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
-  color: #c8c8e0;
+  color: var(--canopy-text-secondary);
   line-height: 1.4;
 }
 
@@ -168,8 +213,8 @@ body {
 }
 
 .tree-row.selected {
-  background: rgba(130, 80, 223, 0.15);
-  color: #b090e0;
+  background: var(--canopy-accent-hover);
+  color: var(--canopy-accent-text);
 }
 
 .tree-accent {
@@ -182,7 +227,7 @@ body {
 .tree-row.kind-lambda .tree-accent { background: var(--canopy-keyword); }
 .tree-row.kind-let .tree-accent { background: var(--canopy-identifier); }
 .tree-row.kind-module .tree-accent { background: var(--canopy-accent); }
-.tree-row.kind-app .tree-accent { background: #7c7c9a; }
+.tree-row.kind-app .tree-accent { background: var(--canopy-muted); }
 .tree-row.kind-int .tree-accent { background: var(--canopy-number); }
 .tree-row.kind-var .tree-accent { background: var(--canopy-identifier); }
 .tree-row.kind-if .tree-accent { background: var(--canopy-keyword); }
@@ -209,12 +254,14 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Tree indentation via depth classes */
+/* Tree indentation */
 .tree-row.depth-1 { padding-left: 22px; }
 .tree-row.depth-2 { padding-left: 38px; }
 .tree-row.depth-3 { padding-left: 54px; }
 .tree-row.depth-4 { padding-left: 70px; }
 .tree-row.depth-5 { padding-left: 86px; }
+.tree-row.depth-6 { padding-left: 102px; }
+.tree-row.depth-7 { padding-left: 118px; }
 
 .collapsed-badge {
   font-size: 10px;
@@ -239,7 +286,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #c8c8e0;
+  color: var(--canopy-text-secondary);
   padding: 4px 0;
 }
 
@@ -247,7 +294,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--canopy-peer-blue);
   flex-shrink: 0;
 }
 
@@ -255,11 +302,14 @@ body {
 
 .hidden-trigger {
   position: absolute;
-  width: 0;
-  height: 0;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
 }
 
 .editor-wrapper {
@@ -298,10 +348,10 @@ canopy-editor {
 }
 
 .inspector-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--canopy-muted);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   margin-bottom: 10px;
 }
@@ -346,17 +396,17 @@ canopy-editor {
 }
 
 .action-btn:hover {
-  background: rgba(130, 80, 223, 0.15);
-  color: #b090e0;
+  background: var(--canopy-accent-hover);
+  color: var(--canopy-accent-text);
 }
 
 .action-btn.danger {
-  color: var(--canopy-error);
+  color: var(--canopy-error-text);
 }
 
 .action-btn.danger:hover {
   background: rgba(207, 34, 46, 0.12);
-  color: #ef4444;
+  color: var(--canopy-error-text);
 }
 
 /* ── Bottom Panel ───────────────────────────────────────── */
@@ -395,7 +445,7 @@ canopy-editor {
 }
 
 .problem-text {
-  color: var(--canopy-error);
+  color: var(--canopy-error-text);
   font-family: var(--canopy-font-mono);
 }
 
@@ -419,20 +469,13 @@ canopy-editor {
 
 /* ── Scrollbar ──────────────────────────────────────────── */
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
