@@ -49,7 +49,7 @@ let examples : Array[(String, String)] = [
   ("Identity", "let id = \\x.x\nid 42"),
   ("Church 2", "let two = \\f.\\x.f (f x)\ntwo"),
   ("Add", "let add = \\x.\\y.x + y\nadd 1 2"),
-  ("Conditional", "if 1 > 0 then 42 else 0"),
+  ("Conditional", "if 1 then 42 else 0"),
   ("Apply", "let apply = \\f.\\x.f x\napply (\\x.x + 1) 5"),
 ]
 

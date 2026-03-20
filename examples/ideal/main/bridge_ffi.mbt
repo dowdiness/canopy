@@ -15,10 +15,10 @@ extern "js" fn js_reconcile_editor_with_text(new_text : String) -> Unit =
   #|   if (!crdt) return;
   #|   crdt.set_text(1, new_text);
   #|   var el = document.querySelector('canopy-editor');
-  #|   if (el && el.getBridge) {
-  #|     var bridge = el.getBridge();
-  #|     if (bridge) bridge.reconcile();
-  #|   }
+  #|   if (!el) return;
+  #|   // Trigger projNode setter which syncs CM6 in text mode
+  #|   // and reconciles PM in structure mode
+  #|   el.projNode = '';
   #| }
 
 ///|
