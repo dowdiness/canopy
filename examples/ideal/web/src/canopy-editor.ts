@@ -1,4 +1,4 @@
-import { EditorView as CmView, keymap as cmKeymap } from "@codemirror/view";
+import { EditorView as CmView, keymap as cmKeymap, lineNumbers } from "@codemirror/view";
 import { EditorState as CmState } from "@codemirror/state";
 import { defaultKeymap } from "@codemirror/commands";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
@@ -202,6 +202,7 @@ export class CanopyEditor extends HTMLElement {
             ...defaultKeymap,
           ]),
           CmView.lineWrapping,
+          lineNumbers(),
           lambda(),
           syntaxHighlighting(lambdaHighlightStyle),
           // Forward text changes to CRDT
