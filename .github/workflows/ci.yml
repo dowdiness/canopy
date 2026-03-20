@@ -170,6 +170,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: examples/web/package-lock.json
 
+      - name: Update MoonBit dependencies
+        run: make update
+
       - name: Build web
         run: make build-web
 
@@ -201,6 +204,9 @@ jobs:
       - name: Install Playwright browser
         working-directory: examples/demo-react
         run: npx playwright install --with-deps chromium
+
+      - name: Update MoonBit dependencies
+        run: make update
 
       - name: Run demo-react Playwright suite
         run: make test-demo-react-e2e
