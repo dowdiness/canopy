@@ -48,6 +48,15 @@ export class SyncClient {
     room: string = DEFAULT_ROOM,
   ): void {
     if (this.disposed) return;
+    // Guard against duplicate connections
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
     this.ws = new WebSocket(url);
 

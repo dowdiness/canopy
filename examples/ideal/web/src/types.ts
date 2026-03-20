@@ -18,8 +18,17 @@ export type TermKindTag =
   | "Unbound"
   | "Error";
 
+const VALID_TAGS = new Set<string>(["Int", "Var", "Lam", "App", "Bop", "If", "Module", "Unit", "Unbound", "Error"]);
+
 export function getKindTag(kind: any[]): TermKindTag {
-  return kind[0] as TermKindTag;
+  if (!Array.isArray(kind) || kind.length === 0) {
+    throw new Error(`Invalid kind: expected non-empty array, got ${JSON.stringify(kind)}`);
+  }
+  const tag = kind[0];
+  if (!VALID_TAGS.has(tag)) {
+    throw new Error(`Unknown kind tag: "${tag}"`);
+  }
+  return tag as TermKindTag;
 }
 
 export interface CrdtModule {

@@ -1,4 +1,4 @@
-import { EditorView as CmView } from "@codemirror/view";
+import { EditorView as CmView, type ViewUpdate } from "@codemirror/view";
 import { EditorState as CmState } from "@codemirror/state";
 
 /** Shared theme for all inline CM6 editors (no gutters, inline display) */
@@ -18,7 +18,7 @@ export const singleLineFilter = CmState.transactionFilter.of(tr => {
 
 /** Collect CM6 changes into an array for forwarding to bridge */
 export function collectChanges(
-  update: { changes: { iterChanges: Function }; docChanged: boolean },
+  update: ViewUpdate,
 ): { from: number; to: number; insert: string }[] {
   const changes: { from: number; to: number; insert: string }[] = [];
   update.changes.iterChanges((fromA: number, toA: number, _fromB: number, _toB: number, inserted: { toString(): string }) => {

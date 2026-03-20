@@ -85,12 +85,38 @@ export class CanopyEditor extends HTMLElement {
     }
   }
 
-  attributeChangedCallback(_name: string, _old: string | null, _val: string | null) {
-    // Mode is always read from the attribute via the getter; no internal state to sync.
+  attributeChangedCallback(name: string, _old: string | null, val: string | null) {
+    if (!this.pmView) return; // Not yet mounted
+    if (name === 'mode' && val) {
+      const m = val as 'text' | 'structure';
+      if (this.pmView && this.bridge) {
+        this.pmView.setProps({
+          nodeViews: m === 'text'
+            ? this.createTextNodeViews()
+            : this.createStructureNodeViews(),
+        });
+      }
+    }
+    if (name === 'readonly') {
+      const isReadonly = val !== null && val !== 'false';
+      if (this.pmView) {
+        this.pmView.setProps({ editable: () => !isReadonly });
+      }
+    }
   }
 
   // Called by Rabbita's raw_effect(AfterRender)
   mount(crdtHandle: number, crdt: CrdtModule): void {
+    // Clean up existing instances if mount() is called again
+    if (this.bridge) {
+      this.bridge.destroy();
+      this.bridge = null;
+    }
+    if (this.pmView) {
+      this.pmView.destroy();
+      this.pmView = null;
+    }
+
     // Create the bridge
     this.bridge = new CrdtBridge(crdtHandle, crdt);
 
@@ -216,7 +242,25 @@ export class CanopyEditor extends HTMLElement {
   }
 
   set selectedNode(id: string | null) {
-    // Task 8: highlight/scroll to node in PM
+    if (!this.pmView || !id) return;
+    // Walk the PM doc to find the node with matching nodeId attr
+    const state = this.pmView.state;
+    let targetPos: number | null = null;
+    state.doc.descendants((node, pos) => {
+      if (targetPos !== null) return false; // already found
+      if (node.attrs.nodeId != null && String(node.attrs.nodeId) === id) {
+        targetPos = pos;
+        return false;
+      }
+      return true; // keep searching children
+    });
+    if (targetPos !== null) {
+      const tr = state.tr.setSelection(
+        NodeSelection.create(state.doc, targetPos)
+      ).scrollIntoView();
+      tr.setMeta('fromExternal', true);
+      this.pmView.dispatch(tr);
+    }
   }
 
   get mode(): 'text' | 'structure' {

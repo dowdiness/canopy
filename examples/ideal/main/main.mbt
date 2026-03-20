@@ -5,7 +5,11 @@ using @html {button, div, p, span, text}
 using @rabbita {type Cmd, type Dispatch, type Html, none}
 
 ///|
-let deferred_refresh_ms = 16
+// Note: deferred_refresh_ms is unused because text edits bypass Rabbita entirely
+// (they flow through the Web Component bridge → CM6 → CRDT → reconcile).
+// Outline refresh is synchronous via the `refresh()` helper.
+// Retained for future use if async outline refresh is needed.
+let _deferred_refresh_ms = 16
 
 ///|
 fn init_model() -> Model {

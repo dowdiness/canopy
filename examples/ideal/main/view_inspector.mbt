@@ -63,14 +63,14 @@ fn view_actions(dispatch : Dispatch[Msg], node_id_str : String) -> Html {
     span(class="panel-label", [text("ACTIONS")]),
     div(class="inspector-actions", [
       button(
-        class="inspector-action-btn",
+        class="action-btn",
         on_click=dispatch(
           StructuralEditRequested(op="WrapInLambda", node_id=node_id_str),
         ),
         [text("Wrap in \u{03BB}")],
       ),
       button(
-        class="inspector-action-btn danger",
+        class="action-btn danger",
         on_click=dispatch(
           StructuralEditRequested(op="Delete", node_id=node_id_str),
         ),

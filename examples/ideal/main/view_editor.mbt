@@ -17,9 +17,9 @@ fn view_editor(
     .handler("node-selected", fn(event, _scheduler) {
       match event.to_custom_event() {
         Some(ce) => {
-          let _detail = ce.get_detail()
-          // TODO: extract nodeId from detail and dispatch
-          ignore(dispatch(NodeSelected("")))
+          let detail = ce.get_detail()
+          let node_id : String = detail.get_with_string("nodeId")
+          ignore(dispatch(NodeSelected(node_id)))
         }
         None => ()
       }

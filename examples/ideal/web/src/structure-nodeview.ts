@@ -127,8 +127,10 @@ export class StructureCompoundView implements NodeView {
  */
 export class StructureLeafView implements NodeView {
   dom: HTMLElement;
+  private nodeType: string;
 
   constructor(node: PmNode) {
+    this.nodeType = node.type.name;
     const typeName = node.type.name;
     this.dom = document.createElement("div");
     this.dom.className = `structure-block structure-leaf structure-${typeName}`;
@@ -147,6 +149,7 @@ export class StructureLeafView implements NodeView {
   }
 
   update(node: PmNode): boolean {
+    if (node.type.name !== this.nodeType) return false;
     const valueEl = this.dom.querySelector(".structure-value");
     if (valueEl) valueEl.textContent = getLeafText(node);
     return true;

@@ -63,6 +63,7 @@ export class CrdtBridge {
     const entry = smJson.find((r: any) => r.node_id === nodeId);
     if (!entry) {
       console.warn("SourceMap entry not found for nodeId:", nodeId);
+      this.scheduleReconcile();
       return;
     }
     const basePos: number = entry.start;
@@ -82,6 +83,7 @@ export class CrdtBridge {
     const entry = smJson.find((r: any) => r.node_id === nodeId);
     if (!entry?.token_spans?.[tokenRole]) {
       console.warn("Token span not found:", nodeId, tokenRole);
+      this.scheduleReconcile();
       return;
     }
     const basePos: number = entry.token_spans[tokenRole].start;

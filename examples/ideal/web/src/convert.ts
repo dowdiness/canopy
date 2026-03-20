@@ -39,6 +39,9 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
     case "Error":
       return editorSchema.node("error_node", attrsForKind(proj, tag));
     case "Lam": {
+      if (proj.children.length < 1) {
+        return editorSchema.node("error_node", { message: "malformed Lam: missing body", nodeId: proj.node_id });
+      }
       const paramName = proj.kind[1];
       const bodyPm = projNodeToPmNode(proj.children[0]);
       return editorSchema.node(
@@ -51,6 +54,9 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
       );
     }
     case "App": {
+      if (proj.children.length < 2) {
+        return editorSchema.node("error_node", { message: "malformed App: needs func and arg", nodeId: proj.node_id });
+      }
       const funcPm = projNodeToPmNode(proj.children[0]);
       const argPm = projNodeToPmNode(proj.children[1]);
       return editorSchema.node(
@@ -62,6 +68,9 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
       );
     }
     case "Bop": {
+      if (proj.children.length < 2) {
+        return editorSchema.node("error_node", { message: "malformed Bop: needs left and right", nodeId: proj.node_id });
+      }
       const op = proj.kind[1];
       const leftPm = projNodeToPmNode(proj.children[0]);
       const rightPm = projNodeToPmNode(proj.children[1]);
@@ -75,6 +84,9 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
       );
     }
     case "If": {
+      if (proj.children.length < 3) {
+        return editorSchema.node("error_node", { message: "malformed If: needs cond, then, else", nodeId: proj.node_id });
+      }
       const condPm = projNodeToPmNode(proj.children[0]);
       const thenPm = projNodeToPmNode(proj.children[1]);
       const elsePm = projNodeToPmNode(proj.children[2]);
@@ -87,6 +99,9 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
       );
     }
     case "Module": {
+      if (proj.children.length < 1) {
+        return editorSchema.node("error_node", { message: "malformed Module: missing body", nodeId: proj.node_id });
+      }
       // Module kind: ["Module", [["name0", term0], ["name1", term1]], body_term]
       // ProjNode children: [init0, init1, ..., body]
       const defs: [string, any][] = proj.kind[1];

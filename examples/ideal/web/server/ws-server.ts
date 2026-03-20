@@ -50,7 +50,12 @@ wss.on("connection", (ws) => {
 
       switch (message.type) {
         case "join": {
-          const roomId = message.room as string;
+          const room = message.room;
+          if (typeof room !== "string" || room.length === 0) {
+            ws.send(JSON.stringify({ type: "error", message: "Invalid room name" }));
+            return;
+          }
+          const roomId = room;
           currentRoomId = roomId;
           currentRoom = getOrCreateRoom(roomId);
           currentRoom.clients.add(ws);
