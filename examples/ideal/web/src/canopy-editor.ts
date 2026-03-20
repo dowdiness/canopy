@@ -373,13 +373,13 @@ const SHADOW_STYLES = `
     gap: 6px;
   }
   .structure-grip {
-    color: var(--canopy-muted, #5a5a7a);
+    color: var(--canopy-muted, #8888a8);
     cursor: grab;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
   .structure-badge {
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 0.625rem;
+    font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     padding: 1px 5px;
