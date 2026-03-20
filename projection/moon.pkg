@@ -4,6 +4,7 @@ import {
   "dowdiness/lambda/syntax" @syntax,
   "dowdiness/loom/core" @loomcore,
   "dowdiness/seam" @seam,
+  "moonbitlang/core/bench" @bench,
   "moonbitlang/core/cmp",
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }

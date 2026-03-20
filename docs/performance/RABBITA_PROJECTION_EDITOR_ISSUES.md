@@ -48,28 +48,20 @@ Relevant call sites:
 
 **Fix:** `editor/sync_editor_parser.mbt` L34
 
-### P1. Tree refresh rebuilds the full interactive tree state
+### ~~P1. Tree refresh rebuilds the full interactive tree state~~ ✅ FIXED
 
-After every text change, Rabbita calls `tree_state.refresh(editor.get_proj_node(), editor.get_source_map())`.
+`TreeEditorState::refresh` now uses lazy structural indexes and Phase 2 subtree skip. Unchanged subtrees are reused entirely — no stamp construction, no InteractiveTreeNode allocation, no UI state lookups. Structural indexes (preorder, parent map) are computed on-demand only when tree operations need them, never during typing.
 
-`TreeEditorState::refresh` in `projection/tree_editor.mbt`:
+**Benchmark results (PR #42):**
 
-- traverses the entire AST to collect valid node IDs
-- prunes stale UI state
-- recursively rebuilds the full `InteractiveTreeNode` tree
+| Tree size | Before | After | Speedup |
+|-----------|--------|-------|---------|
+| 80 defs (unchanged) | 62 µs | 18 µs | **3.5x** |
+| 320 defs (unchanged) | 287 µs | 72 µs | **4.0x** |
+| 1000 defs (unchanged) | 1.18 ms | 279 µs | **4.2x** |
+| 1000 defs (1 changed) | 1.24 ms | 469 µs | **2.6x** |
 
-This means typing cost includes a complete UI-state regeneration pass over the whole projection tree.
-
-**Impact**
-
-- Refresh cost scales with tree size, not changed subtree size.
-- Node-rich programs will feel disproportionately slow even for tiny edits.
-
-**Evidence**
-
-- `examples/rabbita/main/main.mbt#L115`
-- `projection/tree_editor.mbt#L184`
-- `projection/tree_editor.mbt#L64`
+**Fix:** `projection/tree_editor.mbt` — `refresh_node_minimal`, `can_skip_subtree`, lazy `build_preorder_from_tree`/`build_parent_map_from_tree`
 
 ### P2. All expensive work runs synchronously on the UI thread
 
@@ -177,9 +169,13 @@ That stack happens in one input cycle. Even if each individual step is merely li
 
 `TextInput` defers projection refresh via `delay(dispatch(RefreshProjection), deferred_refresh_ms)`.
 
-### 5. Reduce rerender scope — REMAINING
+### ~~5. Reduce tree refresh scope~~ ✅ DONE
 
-Prefer keyed or identity-aware tree rendering and avoid rebuilding unchanged subtrees where possible. `TreeEditorState::refresh` currently walks the entire tree to rebuild structural indexes (`preorder_ids`, `parent_by_child`, `preorder_range_by_root`) even when only a single leaf changed. Options: (A) persistent indexes with incremental patching keyed off FlatProj LCS diff, or (B) lazy index population — defer index computation to when `collect_subtree_ids`, `is_descendant_of`, or `collect_nodes_in_range` are actually called.
+Lazy structural indexes + Phase 2 subtree skip (PR #42). `TreeEditorState::refresh` now skips unchanged subtrees entirely and defers index construction to when tree operations need them. 3-4x speedup for unchanged projections, 2-2.6x for single-def changes. See `docs/performance/2026-03-20-lazy-tree-refresh-benchmarks.md`.
+
+### 6. Reduce Rabbita VDOM rerender scope — REMAINING
+
+Prefer keyed or identity-aware tree rendering in Rabbita view layer. The tree refresh is now fast, but the VDOM diff still walks the full rendered tree.
 
 ### 6. Remove redundant render-time traversals — REMAINING
 
@@ -231,7 +227,14 @@ That harness redesign is tracked separately in:
 
 ## Conclusion
 
-The front-of-pipeline bottlenecks (full-doc CRDT replacement, full-source reparse, UI-only refresh bypass, deferred projection refresh) have all been addressed. The remaining bottleneck is `TreeEditorState::refresh` rebuilding structural indexes from scratch on every projection change, and Rabbita view-layer diff scope for large trees.
+All identified pipeline bottlenecks have been addressed:
+- ~~Full-doc CRDT replacement~~ → `apply_text_edit` with splice
+- ~~Full-source reparse~~ → `ImperativeParser.edit()` incremental path
+- ~~UI-only refresh bypass~~ → `is_ui_only_tree_edit` guard
+- ~~Deferred projection refresh~~ → `delay(dispatch(RefreshProjection), ms)`
+- ~~Tree refresh full rebuild~~ → lazy indexes + subtree skip (3-4x speedup)
+
+The remaining optimization target is Rabbita's VDOM diff scope for large trees — the tree refresh is now fast, but the view layer still walks the full rendered tree on every projection update.
 
 ## Roadmap To Stable 60fps
 
