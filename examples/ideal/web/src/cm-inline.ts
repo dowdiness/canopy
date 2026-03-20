@@ -31,9 +31,17 @@ export function collectChanges(
  * Create an inline CM6 editor for use inside PM NodeViews.
  * Handles theme, single-line filter, and change forwarding.
  */
+/**
+ * Create an inline CM6 editor for use inside PM NodeViews.
+ * Handles theme, single-line filter, and change forwarding.
+ *
+ * When running inside Shadow DOM, pass `root` so CM6 injects
+ * its styles into the shadow root instead of document.head.
+ */
 export function createInlineCm(opts: {
   doc: string;
   parent: HTMLElement;
+  root?: ShadowRoot | Document;
   onEdit?: (changes: { from: number; to: number; insert: string }[]) => void;
   isUpdating: () => boolean;
 }): CmView {
@@ -53,5 +61,7 @@ export function createInlineCm(opts: {
       ],
     }),
     parent: opts.parent,
+    // Inject CM6 styles into Shadow DOM root (not document.head)
+    root: opts.root ?? document,
   });
 }

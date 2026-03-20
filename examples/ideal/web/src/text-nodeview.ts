@@ -22,6 +22,7 @@ export class LambdaView implements NodeView {
     _pmView: PmView,
     _getPos: () => number | undefined,
     private bridge: CrdtBridge | null,
+    private shadowRoot?: ShadowRoot,
   ) {
     this.node = node;
     this.dom = document.createElement("span");
@@ -39,6 +40,7 @@ export class LambdaView implements NodeView {
     this.paramCm = createInlineCm({
       doc: node.attrs.param,
       parent: paramWrap,
+      root: this.shadowRoot,
       onEdit: this.bridge
         ? (changes) => this.bridge!.handleTokenEdit(this.node.attrs.nodeId, "param", changes)
         : undefined,
@@ -100,6 +102,7 @@ export class LetDefView implements NodeView {
     private pmView: PmView,
     private getPos: () => number | undefined,
     private bridge: CrdtBridge | null,
+    private shadowRoot?: ShadowRoot,
   ) {
     this.node = node;
     this.dom = document.createElement("div");
@@ -117,6 +120,7 @@ export class LetDefView implements NodeView {
     this.nameCm = createInlineCm({
       doc: node.attrs.name,
       parent: nameWrap,
+      root: this.shadowRoot,
       onEdit: this.bridge
         ? (changes) => {
             const ctx = this.resolveContext();

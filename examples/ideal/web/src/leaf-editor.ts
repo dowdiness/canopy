@@ -23,6 +23,7 @@ export class TermLeafView implements NodeView {
     _pmView: PmView,
     _getPos: () => number | undefined,
     private bridge: CrdtBridge | null,
+    private shadowRoot?: ShadowRoot,
   ) {
     this.node = node;
     this.dom = document.createElement("span");
@@ -32,6 +33,7 @@ export class TermLeafView implements NodeView {
     this.cm = createInlineCm({
       doc: text,
       parent: this.dom,
+      root: this.shadowRoot,
       onEdit: this.bridge
         ? (changes) => this.bridge!.handleLeafEdit(this.node.attrs.nodeId, changes)
         : undefined,

@@ -47,7 +47,7 @@ export class CanopyEditor extends HTMLElement {
     super();
     this.shadow = this.attachShadow({ mode: 'open' });
 
-    // Inject styles that read CSS custom properties from host
+    // Inject styles into Shadow DOM — host styles don't penetrate
     const style = document.createElement('style');
     style.textContent = `
       :host {
@@ -62,6 +62,191 @@ export class CanopyEditor extends HTMLElement {
         width: 100%;
         height: 100%;
         overflow: auto;
+        padding: 16px;
+      }
+
+      /* ProseMirror base styles (required for contenteditable to work) */
+      .ProseMirror {
+        position: relative;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+        white-space: break-spaces;
+        font-family: var(--canopy-font-mono, 'JetBrains Mono', monospace);
+        font-size: 14px;
+        line-height: 1.6;
+        outline: none;
+        min-height: 200px;
+      }
+      .ProseMirror-focused {
+        outline: none;
+      }
+      .ProseMirror [contenteditable="false"] {
+        white-space: normal;
+      }
+
+      /* PM NodeView styles */
+      .pm-module {
+        padding: 4px 0;
+      }
+      .pm-let-def {
+        padding: 2px 0;
+      }
+      .pm-let-keyword {
+        color: var(--canopy-keyword, #c792ea);
+      }
+      .pm-let-name .cm-editor {
+        color: var(--canopy-identifier, #82aaff);
+      }
+      .pm-let-eq {
+        color: var(--canopy-muted, #5a5a7a);
+      }
+      .pm-lambda {
+        display: inline;
+      }
+      .pm-lambda-prefix {
+        color: var(--canopy-keyword, #c792ea);
+      }
+      .pm-lambda-param .cm-editor {
+        color: var(--canopy-fg, #e8e8f0);
+      }
+      .pm-lambda-dot {
+        color: var(--canopy-muted, #5a5a7a);
+      }
+      .pm-leaf {
+        display: inline;
+      }
+      .pm-int-literal .cm-editor {
+        color: var(--canopy-number, #f78c6c);
+      }
+      .pm-var-ref .cm-editor {
+        color: var(--canopy-identifier, #82aaff);
+      }
+      .pm-unbound-ref .cm-editor {
+        color: var(--canopy-error, #cf222e);
+      }
+      .pm-binary-op, .pm-application, .pm-if-expr {
+        display: inline;
+      }
+      .pm-error-node {
+        color: var(--canopy-error, #cf222e);
+      }
+      .pm-unit {
+        color: var(--canopy-muted, #5a5a7a);
+      }
+
+      /* CM6 inline editor overrides inside Shadow DOM */
+      .cm-editor {
+        display: inline-block !important;
+        background: transparent;
+      }
+      .cm-editor.cm-focused {
+        outline: 1px solid var(--canopy-accent, #8250df);
+      }
+      .cm-content {
+        padding: 0 !important;
+        caret-color: var(--canopy-fg, #e8e8f0);
+      }
+      .cm-line {
+        padding: 0 2px !important;
+      }
+      .cm-cursor {
+        border-left-color: var(--canopy-fg, #e8e8f0);
+      }
+
+      /* Slider */
+      .canopy-slider {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+      }
+      .canopy-slider input[type="range"] {
+        width: 50px;
+        height: 3px;
+        accent-color: var(--canopy-number, #f78c6c);
+        vertical-align: middle;
+      }
+
+      /* Structure mode blocks */
+      .structure-block {
+        border: 1px solid var(--canopy-border, #2a2a48);
+        border-radius: 6px;
+        margin: 4px 0;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .structure-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .structure-grip {
+        color: var(--canopy-muted, #5a5a7a);
+        cursor: grab;
+        font-size: 11px;
+      }
+      .structure-badge {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .structure-label {
+        font-family: var(--canopy-font-mono, monospace);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--canopy-fg, #e8e8f0);
+      }
+      .structure-children {
+        margin-left: 20px;
+        margin-top: 6px;
+      }
+      .structure-leaf {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+      }
+      .structure-value {
+        font-family: var(--canopy-font-mono, monospace);
+        font-size: 13px;
+        color: var(--canopy-fg, #e8e8f0);
+      }
+
+      /* Peer cursors */
+      .peer-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 16px;
+        border-left: 2px solid;
+        position: relative;
+        vertical-align: text-bottom;
+      }
+      .peer-cursor-label {
+        position: absolute;
+        top: -16px;
+        left: -2px;
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 2px;
+        color: #fff;
+        white-space: nowrap;
+      }
+
+      /* Error squigglies */
+      .error-squiggly {
+        text-decoration: wavy underline var(--canopy-error, #cf222e);
+        text-underline-offset: 2px;
+      }
+
+      /* Eval ghosts */
+      .eval-ghost {
+        font-size: 11px;
+        color: var(--canopy-muted, #5a5a7a);
+        opacity: 0.6;
+        margin-left: 12px;
       }
     `;
     this.shadow.appendChild(style);
@@ -302,17 +487,18 @@ export class CanopyEditor extends HTMLElement {
 
   private createTextNodeViews() {
     const bridge = this.bridge;
+    const sr = this.shadow;
     return {
       int_literal: (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new TermLeafView(node, view, getPos, bridge),
+        new TermLeafView(node, view, getPos, bridge, sr),
       var_ref: (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new TermLeafView(node, view, getPos, bridge),
+        new TermLeafView(node, view, getPos, bridge, sr),
       unbound_ref: (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new TermLeafView(node, view, getPos, bridge),
+        new TermLeafView(node, view, getPos, bridge, sr),
       lambda: (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new LambdaView(node, view, getPos, bridge),
+        new LambdaView(node, view, getPos, bridge, sr),
       let_def: (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new LetDefView(node, view, getPos, bridge),
+        new LetDefView(node, view, getPos, bridge, sr),
     };
   }
 
