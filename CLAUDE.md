@@ -167,6 +167,25 @@ git commit -m "chore: update event-graph-walker submodule"
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
 
+## Design Context
+
+**Personality:** Elegant, Thoughtful, Deep — beauty emerging from structure.
+
+**References:** Zed Editor, Dark/Luna, Strudel (strudel.cc)
+
+**Anti-references:** Generic SaaS, toy/playground aesthetics.
+
+**Design Principles:**
+1. **Structure reveals meaning** — color, spacing, nesting communicate relationships before labels
+2. **Progressive disclosure** — clean and focused by default, reveal depth on demand
+3. **Typography carries weight** — Inter (UI) vs JetBrains Mono (code) creates clear zones
+4. **Color is semantic, not decorative** — every color means something, no color without purpose
+5. **Calm confidence** — solid and trustworthy, never frantic. Subtle transitions, generous whitespace
+
+**Palette:** Deep navy base (`#1a1a2e`), purple accent (`#8250df`), syntax colors: keyword `#c792ea`, identifier `#82aaff`, number `#f78c6c`, string `#c3e88d`, operator `#ff5370`
+
+See `.impeccable.md` for full design tokens and context.
+
 ## References
 
 - [eg-walker paper](https://arxiv.org/abs/2409.14252)
