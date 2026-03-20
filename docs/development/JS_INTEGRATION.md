@@ -19,6 +19,10 @@ function setup() {
   const handle = crdt.create_editor("agent-1");
   const text = crdt.get_text(handle);
   console.log("Initial text:", text);
+
+  return () => {
+    crdt.destroy_editor(handle);
+  };
 }
 ```
 
@@ -30,11 +34,12 @@ make build-js
 
 ## Editor API (FFI)
 
-All FFI functions take a `handle` as their first argument. The current implementation still behaves like an MVP singleton internally, so the public handle API is more future-facing than the underlying storage.
+All FFI functions take a `handle` as their first argument. The implementation now keeps a real handle-to-editor registry, so multiple JS-created editors can coexist in the same module instance.
 
 ### Initialization
 - `create_editor(agent_id: string): number`
 - `create_editor_with_undo(agent_id: string, capture_timeout_ms: number): number`
+- `destroy_editor(handle: number): void`
 
 ### Text Operations
 - `get_text(handle: number): string`
@@ -106,4 +111,5 @@ Each run represents multiple consecutive operations from the same agent. For lin
 3.  **Synchronization Loop:**
     - Listen for local changes and broadcast `export_since_json` deltas to peers via WebSockets/WebRTC.
     - Periodically call `ephemeral_remove_outdated` to prune disconnected peers.
-4.  **Error Handling:** FFI calls that might fail are wrapped in `try/catch` in MoonBit; ensure your JS integration also handles generated-module/runtime errors.
+4.  **Lifecycle:** Call `destroy_editor(handle)` when an editor is permanently torn down so the JS module can release it from the handle registry.
+5.  **Error Handling:** FFI calls that might fail are wrapped in `try/catch` in MoonBit; ensure your JS integration also handles generated-module/runtime errors.

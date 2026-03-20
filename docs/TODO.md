@@ -143,7 +143,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 **Impact:** Medium | **Effort:** Medium
 
 - [ ] Convert `abort()` calls in test files to proper assertions (`assert_true` / `inspect`) for better error messages
-- [ ] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
+- [x] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
 - [ ] Split `projection/tree_editor.mbt` into focused files (render model, refresh/reuse logic, UI/edit operations, tree indexes)
 - [ ] Split `crdt.mbt` into focused FFI files (editor core, undo, presence, relay, websocket)
 
@@ -166,10 +166,9 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 |---|----------|--------|--------|
 | 1 | Future wasm support, currently unsupported | Low-Medium | High |
 | 2 | Complete WebSocket collaboration + recovery | High | High |
-| 3 | Multi-editor FFI handle table | Medium | Medium-High |
-| 4 | Projection/editor file decomposition | Medium | Medium |
-| 5 | Rabbita projection editor performance | High | High |
-| 6 | Incremental parsing TODOs | Medium | Medium |
-| 7 | Memory optimization | High | Medium |
-| 8 | Parser fuzz testing | Low | Medium |
-| 9 | Code cleanup | Medium | Medium |
+| 3 | Projection/editor file decomposition | Medium | Medium |
+| 4 | Rabbita projection editor performance | High | High |
+| 5 | Incremental parsing TODOs | Medium | Medium |
+| 6 | Memory optimization | High | Medium |
+| 7 | Parser fuzz testing | Low | Medium |
+| 8 | Code cleanup | Medium | Medium |
