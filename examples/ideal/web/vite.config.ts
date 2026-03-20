@@ -9,6 +9,11 @@ export default defineConfig({
           name: '@moonbit/canopy',
           path: '../../..',
           output: '_build/js/release/build/canopy.js'
+        },
+        {
+          name: '@moonbit/ideal-editor',
+          path: '..',
+          output: '_build/js/release/build/main/main.js'
         }
       ]
     }) as PluginOption
@@ -23,6 +28,6 @@ export default defineConfig({
     target: 'esnext'
   },
   optimizeDeps: {
-    exclude: ['@moonbit/canopy']
+    exclude: ['@moonbit/canopy', '@moonbit/ideal-editor']
   }
 });

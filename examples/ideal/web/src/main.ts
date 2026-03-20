@@ -1,9 +1,12 @@
 import './canopy-editor';
 import type { CanopyEditor } from './canopy-editor';
 
-// Import the compiled MoonBit CRDT module.
-// This also runs MoonBit's main() which mounts Rabbita and renders <canopy-editor>.
+// Import the CRDT module (handle-based FFI for the Web Component)
 import * as crdt from '@moonbit/canopy';
+
+// Import the ideal editor module — this runs MoonBit's main(),
+// which mounts the Rabbita app and renders <canopy-editor> into the DOM.
+import '@moonbit/ideal-editor';
 
 // Expose CRDT module globally for MoonBit FFI bridge functions
 (globalThis as any).__canopy_crdt = crdt;
