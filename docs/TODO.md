@@ -58,12 +58,12 @@ Tracked by:
 - `docs/performance/RABBITA_PROJECTION_EDITOR_ISSUES.md`
 - `docs/archive/2026-03-11-rabbita-projection-editor-performance-plan.md` (Complete)
 
-- [ ] Add baseline timing instrumentation for text edit application, parser update, projection refresh, `TreeEditorState::refresh`, and Rabbita render/update
-- [ ] Add an edit-based `SyncEditor` text API for typing (`apply_text_edit(...)`) and stop using whole-string replacement from Rabbita `TextInput`
-- [ ] Feed incremental text edits into the parser layer instead of rebuilding from the entire source string on every keystroke
-- [ ] Split UI-only tree actions (`Select`, `Collapse`, `Expand`) from structural tree edits so they do not trigger parser/projection refresh
-- [ ] Introduce an explicit projection refresh boundary so text edits and structural tree refresh can be coalesced
-- [ ] Reduce `TreeEditorState::refresh` rebuild scope to changed subtrees where possible
+- [x] Add baseline timing instrumentation for text edit application, parser update, projection refresh, `TreeEditorState::refresh`, and Rabbita render/update — ✅ Done. `BenchmarkSession::deferred_full_cycle_timed()` provides per-phase breakdown (text_input_ms, get_proj_node_ms, get_source_map_ms, tree_refresh_ms) in `examples/rabbita/main/benchmark_support.mbt`
+- [x] Add an edit-based `SyncEditor` text API for typing (`apply_text_edit(...)`) and stop using whole-string replacement from Rabbita `TextInput` — ✅ Done. `SyncEditor::apply_text_edit()` in `editor/sync_editor_text.mbt`; Rabbita `TextInput` handler uses `compute_text_change` + `apply_text_edit` instead of `set_text`
+- [x] Feed incremental text edits into the parser layer instead of rebuilding from the entire source string on every keystroke — ✅ Done. `SyncEditor` uses `ImperativeParser` with `parser.edit(edit, new_source)` in `editor/sync_editor_parser.mbt`, not `set_source()` full reparse
+- [x] Split UI-only tree actions (`Select`, `Collapse`, `Expand`) from structural tree edits so they do not trigger parser/projection refresh — ✅ Done. `is_ui_only_tree_edit(op)` guard in Rabbita update loop returns early with only `tree_state.apply_edit(op)`, skipping `apply_tree_edit` and `refresh`
+- [x] Introduce an explicit projection refresh boundary so text edits and structural tree refresh can be coalesced — ✅ Done. `TextInput` sets `projection_dirty: true` and schedules `RefreshProjection` via `delay(dispatch(RefreshProjection), deferred_refresh_ms)`, coalescing rapid keystrokes
+- [ ] Reduce `TreeEditorState::refresh` rebuild scope to changed subtrees where possible — stamp-based reuse exists but refresh still walks the entire tree to rebuild structural indexes (`preorder_ids`, `parent_by_child`, `preorder_range_by_root`) from scratch every time
 - [ ] Reduce Rabbita tree rerender/diff work for insert/reorder-heavy trees with keyed or identity-aware child rendering
 - [ ] Remove redundant render-time tree scans such as sidebar selection lookup from the full rendered tree
 
@@ -110,12 +110,12 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ### TextInput path efficiency
 
-- [ ] **`set_text` is brute-force O(n)** — Deletes all chars one-by-one then re-inserts. `set_text_and_record` already has a diff-based approach but couples undo tracking. Extract the diff+apply core as a shared helper so `set_text` can use it too. Acceptable for lambda calculus (small expressions) but would matter for larger documents.
+- [x] **`set_text` is brute-force O(n)** — ✅ No longer used for typing. `TextInput` uses `apply_text_edit(start, delete_len, inserted)` which applies only the changed span. `set_text` still exists as a fallback but is not on the hot path.
 
 ### CRDT API limitations
 
-- [ ] **Char-by-char delete for range deletions** — `TextDoc` only exposes single-char `delete(Pos)`. Adding `delete_range` to `event-graph-walker/text` would eliminate char-by-char loops.
-- [ ] **No undo tracking for tree edits** — `apply_tree_edit` uses `set_text` (bare `doc.insert`/`doc.delete`, no `_and_record` variants). Tree edits are not undoable via `SyncEditor.undo()`. Decide whether tree edits should integrate with UndoManager.
+- [x] **Char-by-char delete for range deletions** — ✅ Done. `TextDoc` now exposes `replace_range` in `event-graph-walker/text/text_doc.mbt`.
+- [x] **No undo tracking for tree edits** — ✅ Done. `apply_tree_edit` now uses `apply_text_edit_internal` with `record_undo=true`. Tree edits are undoable via `SyncEditor.undo()`.
 
 ### Resolved: CRDT position ordering bug
 

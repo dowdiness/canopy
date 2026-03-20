@@ -171,13 +171,13 @@ Phase 1 works without these via `parser.set_source(doc.text())` and string-based
 4. ~~Expose FFI surface, retire `ParsedEditor`~~ -> `crdt.mbt` delegates to `SyncEditor`
 5. ~~Verify: all tests pass, web demo works~~ -> confirmed
 
-### Phase 2: Optimization + Integration (next)
+### Phase 2: Optimization + Integration (substantially complete)
 
 6. ~~Add Memo-derived `ProjNode` and `SourceMap` to `SyncEditor`~~
 7. ~~Integrate tree edit bridge into `SyncEditor` (no external `CanonicalModel` argument)~~
-8. Add `lv_to_position` / `insert_with_op` to `TextDoc` for direct Op->Edit
-9. Implement `ReactiveParser::apply_edit(edit, source)` in loom (Strategy C)
-10. Verify: tree edits produce correct CRDT ops, no dual state
+8. ~~Add `lv_to_position`~~ ✅ / `insert_with_op` (remaining) to `TextDoc` for direct Op->Edit
+9. ~~Implement incremental parser edit path~~ ✅ `ImperativeParser.edit(edit, source)` used by `SyncEditor`
+10. ~~Verify: tree edits produce correct CRDT ops, no dual state~~ ✅
 
 ### Phase 3: Awareness + Collaboration (complete)
 

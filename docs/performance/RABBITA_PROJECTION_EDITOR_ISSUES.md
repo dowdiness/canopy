@@ -1,82 +1,52 @@
 # Rabbita Projection Editor Performance Issues
 
 **Date:** 2026-03-11
-**Status:** Initial investigation
+**Status:** Partially resolved (updated 2026-03-20)
 **Scope:** `examples/rabbita` projectional editor responsiveness
 
 ## Executive Summary
 
 The Rabbita projectional editor is slow because a single user action triggers multiple whole-document and whole-tree passes on the main UI thread.
 
-The dominant costs are:
+The dominant costs were (items 1-2 now fixed, 3-4 remain):
 
-1. Text input replaces the full CRDT document on every keystroke.
-2. Each edit reparses the entire source through the reactive parser path.
-3. Each refresh rebuilds the full projectional tree UI state.
+1. ~~Text input replaces the full CRDT document on every keystroke.~~ ✅ Fixed: `apply_text_edit()` with splice
+2. ~~Each edit reparses the entire source through the reactive parser path.~~ ✅ Fixed: `ImperativeParser.edit()` incremental path
+3. Each refresh rebuilds the full projectional tree UI state. **Still open** — stamp-based reuse exists but structural indexes are rebuilt from scratch
 4. The view layer rerenders and diffs the full tree synchronously.
 
-This is not one isolated hotspot. The lag is the compounded effect of several O(n) or worse operations stacked in one synchronous update cycle.
+Items 1-2 addressed the front of the pipeline. The remaining bottleneck is tree refresh (item 3) — `TreeEditorState::refresh` walks the entire tree to rebuild `preorder_ids`, `parent_by_child`, and `preorder_range_by_root` even for unchanged subtrees.
 
 ## Observed Update Path
 
 For ordinary text typing in `examples/rabbita/main/main.mbt`, the current path is:
 
 1. `textarea` emits `TextInput(new_text)`.
-2. `model.editor.set_text(new_text)` replaces the full CRDT document.
-3. `tree_state.refresh(editor.get_proj_node(), editor.get_source_map())` rebuilds projection-backed tree state.
-4. Rabbita rerenders the full tree view and diffs it on the main thread.
+2. ~~`model.editor.set_text(new_text)` replaces the full CRDT document.~~ → Now: `compute_text_change` + `apply_text_edit(start, delete_len, inserted)` applies only the changed span.
+3. Projection refresh is **deferred** via `delay(dispatch(RefreshProjection), deferred_refresh_ms)`, coalescing rapid keystrokes.
+4. On `RefreshProjection`: `tree_state.refresh(editor.get_proj_node(), editor.get_source_map())` rebuilds projection-backed tree state.
+5. Rabbita rerenders the full tree view and diffs it on the main thread.
 
 Relevant call sites:
 
 - `TextInput` handler: `examples/rabbita/main/main.mbt`
-- `SyncEditor::set_text`: `editor/sync_editor.mbt`
+- `SyncEditor::apply_text_edit`: `editor/sync_editor_text.mbt`
+- `SyncEditor::apply_local_text_change` → `parser.edit()`: `editor/sync_editor_parser.mbt`
 - `TreeEditorState::refresh`: `projection/tree_editor.mbt`
-- Rabbita runtime message drain: `examples/rabbita/.mooncakes/moonbit-community/rabbita/internal/runtime/sandbox.mbt`
 
 ## Prioritized Issues
 
-### P1. Text input performs full-document replacement
+### ~~P1. Text input performs full-document replacement~~ ✅ FIXED
 
-`TextInput(new_text)` currently calls `editor.set_text(new_text)` in `examples/rabbita/main/main.mbt`.
+`TextInput(new_text)` now uses `compute_text_change` + `SyncEditor::apply_text_edit(start, delete_len, inserted)` to apply only the changed span. The old `set_text()` brute-force path is no longer used for typing.
 
-`SyncEditor::set_text` in `editor/sync_editor.mbt` deletes the old document from the start position one character at a time and then inserts the entire replacement string. That means a one-character user edit is implemented as:
+**Fix:** `examples/rabbita/main/main.mbt` L186-191, `editor/sync_editor_text.mbt`
 
-- `old_len` deletes
-- one full-string insert
+### ~~P1. Live typing uses the full-source reactive parser path~~ ✅ FIXED
 
-This is the worst possible edit path for interactive typing latency in a CRDT-backed editor.
+`SyncEditor` now uses `ImperativeParser` and calls `parser.edit(edit, new_source)` — the incremental edit path — not `set_source()` full reparse. The edit shape is passed through from `apply_text_edit` via `apply_local_text_change` → `sync_parser_after_text_change`.
 
-**Impact**
-
-- Keystroke cost scales with total document length, not edit size.
-- The expensive text rewrite invalidates downstream parser and projection state.
-
-**Evidence**
-
-- `examples/rabbita/main/main.mbt#L112`
-- `editor/sync_editor.mbt#L186`
-
-### P1. Live typing uses the full-source reactive parser path
-
-`SyncEditor` is constructed with `new_reactive_parser("", @parser.lambda_grammar)` in `editor/sync_editor.mbt`.
-
-The reactive parser factory in `loom/loom/src/factories.mbt` rebuilds token state from the full source string, reparses the CST, and then reconstructs the term representation from that result. For live typing, this means each keystroke goes through:
-
-- full retokenization
-- full parse
-- full AST / projection derivation
-
-This discards the main benefit expected from incremental editing.
-
-**Impact**
-
-- Parsing cost scales with whole-document size.
-- Small text edits pay the same structural recomputation tax as large edits.
-
-**Evidence**
-
-- `editor/sync_editor.mbt#L21`
-- `loom/loom/src/factories.mbt#L182`
+**Fix:** `editor/sync_editor_parser.mbt` L34
 
 ### P1. Tree refresh rebuilds the full interactive tree state
 
@@ -133,21 +103,11 @@ Rabbita’s array child diff matches children positionally rather than by stable
 - `examples/rabbita/main/main.mbt#L152`
 - `examples/rabbita/.mooncakes/moonbit-community/rabbita/internal/runtime/vdom.mbt#L513`
 
-### P2. UI-only tree operations still trigger full refresh work
+### ~~P2. UI-only tree operations still trigger full refresh work~~ ✅ FIXED
 
-In `TreeEdited(op)`, Rabbita first updates local tree state with `tree_state.apply_edit(op)`, but then still calls `editor.apply_tree_edit(...)` and `refresh(model)` on every successful operation.
+The Rabbita update loop now checks `is_ui_only_tree_edit(op)` and returns early with only `tree_state.apply_edit(op)`, skipping `apply_tree_edit` and `refresh`. `Expand` is also handled separately with `expand_node` for hydration.
 
-In `editor/tree_edit_bridge.mbt`, operations where the produced text is unchanged return early. That includes stateful UI actions such as selection and collapse/expand. Even so, the example still performs the expensive refresh path after success.
-
-**Impact**
-
-- Non-structural UI actions pay for parser + projection + tree refresh work they do not need.
-- This makes the editor feel sluggish even when no source text changed.
-
-**Evidence**
-
-- `examples/rabbita/main/main.mbt#L121`
-- `editor/tree_edit_bridge.mbt#L35`
+**Fix:** `examples/rabbita/main/main.mbt` L216-235
 
 ### P2. Structural tree edits do multiple full-tree passes
 
@@ -201,34 +161,27 @@ That stack happens in one input cycle. Even if each individual step is merely li
 
 ## Recommended Fix Order
 
-### 1. Stop full-document replacement for typing
+### ~~1. Stop full-document replacement for typing~~ ✅ DONE
 
-Replace `TextInput -> set_text(new_text)` with an edit-based path that applies only the actual inserted or deleted span.
+`TextInput` now uses `compute_text_change` + `apply_text_edit` to apply only the changed span.
 
-This is the highest-value fix because it shrinks the work at the very front of the pipeline.
+### ~~2. Use an actually incremental parse/update path for live text edits~~ ✅ DONE
 
-### 2. Use an actually incremental parse/update path for live text edits
+`SyncEditor` uses `ImperativeParser` with `parser.edit(edit, new_source)`.
 
-Either:
+### ~~3. Skip projection refresh for UI-only tree actions~~ ✅ DONE
 
-- feed incremental edits into the parser layer, or
-- use the imperative incremental parser path for interactive typing rather than reparsing from the entire source string
+`is_ui_only_tree_edit(op)` guard returns early without parser/projection work.
 
-Without this change, text editing will continue to pay whole-source parser costs.
+### ~~4. Decouple typing from full tree refresh~~ ✅ DONE
 
-### 3. Skip projection refresh for UI-only tree actions
+`TextInput` defers projection refresh via `delay(dispatch(RefreshProjection), deferred_refresh_ms)`.
 
-Do not call the expensive editor refresh path after `Select`, `Collapse`, `Expand`, and similar operations when text has not changed.
+### 5. Reduce rerender scope — REMAINING
 
-### 4. Decouple typing from full tree refresh
+Prefer keyed or identity-aware tree rendering and avoid rebuilding unchanged subtrees where possible. `TreeEditorState::refresh` currently walks the entire tree to rebuild structural indexes (`preorder_ids`, `parent_by_child`, `preorder_range_by_root`) even when only a single leaf changed. Options: (A) persistent indexes with incremental patching keyed off FlatProj LCS diff, or (B) lazy index population — defer index computation to when `collect_subtree_ids`, `is_descendant_of`, or `collect_nodes_in_range` are actually called.
 
-Text editing and projection-tree rebuilding do not need to happen at the same cadence. Typing should update immediately, while projection/tree recomputation should be deferred, debounced, or incrementally updated.
-
-### 5. Reduce rerender scope
-
-Prefer keyed or identity-aware tree rendering and avoid rebuilding unchanged subtrees where possible.
-
-### 6. Remove redundant render-time traversals
+### 6. Remove redundant render-time traversals — REMAINING
 
 Sidebar selection details should come from the already-tracked selected node state, not from a new full tree scan.
 
@@ -278,7 +231,7 @@ That harness redesign is tracked separately in:
 
 ## Conclusion
 
-The Rabbita projectional editor is currently structured around whole-document and whole-tree recomputation. That architecture explains both the poor responsiveness and the awkward editing feel. The first meaningful improvement will come from changing the text input path to incremental edits and preventing unnecessary full refreshes for UI-only actions.
+The front-of-pipeline bottlenecks (full-doc CRDT replacement, full-source reparse, UI-only refresh bypass, deferred projection refresh) have all been addressed. The remaining bottleneck is `TreeEditorState::refresh` rebuilding structural indexes from scratch on every projection change, and Rabbita view-layer diff scope for large trees.
 
 ## Roadmap To Stable 60fps
 
