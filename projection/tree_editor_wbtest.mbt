@@ -53,25 +53,6 @@ fn tree_editor_test_elided_descendant_count(node : InteractiveTreeNode) -> Int {
 }
 
 ///|
-fn tree_editor_test_refresh_with_reuse(
-  node : ProjNode,
-  source_map : SourceMap,
-  ui_state : TreeUIState,
-  valid_ids : Array[NodeId],
-  previous_nodes : Map[NodeId, InteractiveTreeNode],
-) -> RefreshedInteractiveNode {
-  refresh_node_with_reuse_impl(
-    node,
-    source_map,
-    ui_state,
-    valid_ids,
-    previous_nodes,
-    None,
-    empty_tree_structure_indexes(),
-  )
-}
-
-///|
 fn tree_editor_test_refresh_minimal(
   node : ProjNode,
   source_map : SourceMap,

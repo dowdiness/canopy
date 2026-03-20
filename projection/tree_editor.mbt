@@ -86,25 +86,6 @@ priv struct RefreshedInteractiveNode {
 }
 
 ///|
-/// Structural indexes for the current projection snapshot.
-priv struct TreeStructureIndexes {
-  preorder_ids : Array[NodeId]
-  preorder_range_by_root : Map[NodeId, (Int, Int)]
-  parent_by_child : Map[NodeId, NodeId]
-  loaded_nodes : Map[NodeId, InteractiveTreeNode]
-}
-
-///|
-fn empty_tree_structure_indexes() -> TreeStructureIndexes {
-  {
-    preorder_ids: [],
-    preorder_range_by_root: {},
-    parent_by_child: {},
-    loaded_nodes: {},
-  }
-}
-
-///|
 /// Lazy preorder index, built on demand.
 priv struct LazyPreorder {
   ids : Array[NodeId]
@@ -343,250 +324,6 @@ fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
 }
 
 ///|
-/// Record a refreshed node into structural indexes and return the refresh result.
-fn finish_refreshed_interactive_node(
-  indexes : TreeStructureIndexes,
-  node_id : NodeId,
-  preorder_start : Int,
-  node : InteractiveTreeNode,
-  reused_previous : Bool,
-) -> RefreshedInteractiveNode {
-  indexes.loaded_nodes[node_id] = node
-  indexes.preorder_range_by_root[node_id] = (
-    preorder_start,
-    indexes.preorder_ids.length() - 1,
-  )
-  { node, reused_previous }
-}
-
-///|
-/// Record projection-only subtree structure without materializing interactive nodes.
-fn record_projection_subtree(
-  node : ProjNode,
-  valid_ids : Array[NodeId],
-  parent_id : NodeId?,
-  indexes : TreeStructureIndexes,
-) -> Int {
-  let node_id = NodeId(node.node_id)
-  valid_ids.push(node_id)
-  let preorder_start = indexes.preorder_ids.length()
-  indexes.preorder_ids.push(node_id)
-  match parent_id {
-    Some(parent_id) => indexes.parent_by_child[node_id] = parent_id
-    None => ()
-  }
-  let mut subtree_size = 1
-  for child in node.children {
-    subtree_size += record_projection_subtree(
-      child,
-      valid_ids,
-      Some(node_id),
-      indexes,
-    )
-  }
-  indexes.preorder_range_by_root[node_id] = (
-    preorder_start,
-    indexes.preorder_ids.length() - 1,
-  )
-  subtree_size
-}
-
-///|
-/// Refresh a node while reusing the previous loaded subtree when its shallow
-/// stamp and ordered child reuse state are unchanged.
-fn refresh_node_with_reuse_impl(
-  node : ProjNode,
-  source_map : SourceMap,
-  ui_state : TreeUIState,
-  valid_ids : Array[NodeId],
-  previous_nodes : Map[NodeId, InteractiveTreeNode],
-  parent_id : NodeId?,
-  indexes : TreeStructureIndexes,
-) -> RefreshedInteractiveNode {
-  let node_id = NodeId(node.node_id)
-  valid_ids.push(node_id)
-  let preorder_start = indexes.preorder_ids.length()
-  indexes.preorder_ids.push(node_id)
-  match parent_id {
-    Some(parent_id) => indexes.parent_by_child[node_id] = parent_id
-    None => ()
-  }
-  let text_range = match source_map.get_range(node_id) {
-    Some(range) => range
-    None => Range::new(node.start, node.end)
-  }
-  let collapsed = ui_state.collapsed_nodes.contains(node_id)
-  let selected = ui_state.selection.contains(node_id)
-  let editing = match ui_state.editing_node {
-    Some(id) => id == node_id
-    None => false
-  }
-  let drop_target = match ui_state.drop_target {
-    Some(id) => id == node_id
-    None => false
-  }
-  let label = get_node_label(node.kind)
-  let previous_node = previous_nodes.get(node_id)
-  if collapsed {
-    let mut descendant_count = 0
-    for child in node.children {
-      descendant_count += record_projection_subtree(
-        child,
-        valid_ids,
-        Some(node_id),
-        indexes,
-      )
-    }
-    let stamp : InteractiveNodeStamp = {
-      id: node_id,
-      shape: interactive_node_shape(node.kind),
-      label,
-      child_ids: [],
-      elided_descendant_count: Some(descendant_count),
-      selected,
-      editing,
-      collapsed,
-      drop_target,
-      text_range,
-    }
-    match previous_node {
-      Some(previous) =>
-        if interactive_node_stamp(previous) == stamp {
-          finish_refreshed_interactive_node(
-            indexes, node_id, preorder_start, previous, true,
-          )
-        } else {
-          let refreshed = {
-            id: node_id,
-            kind: node.kind,
-            label,
-            children: Elided(descendant_count),
-            selected,
-            editing,
-            collapsed,
-            drop_target,
-            text_range,
-          }
-          finish_refreshed_interactive_node(
-            indexes, node_id, preorder_start, refreshed, false,
-          )
-        }
-      None => {
-        let refreshed = {
-          id: node_id,
-          kind: node.kind,
-          label,
-          children: Elided(descendant_count),
-          selected,
-          editing,
-          collapsed,
-          drop_target,
-          text_range,
-        }
-        finish_refreshed_interactive_node(
-          indexes, node_id, preorder_start, refreshed, false,
-        )
-      }
-    }
-  } else {
-    let children : Array[InteractiveTreeNode] = []
-    let child_ids : Array[NodeId] = []
-    let previous_loaded_children = match previous_node {
-      Some(previous) =>
-        match previous.children {
-          Loaded(previous_children) => Some(previous_children)
-          Elided(_) => None
-        }
-      None => None
-    }
-    let mut children_reused = match previous_loaded_children {
-      Some(_) => true
-      None => false
-    }
-    for child_index, child in node.children {
-      let child_result = refresh_node_with_reuse_impl(
-        child,
-        source_map,
-        ui_state,
-        valid_ids,
-        previous_nodes,
-        Some(node_id),
-        indexes,
-      )
-      child_ids.push(child_result.node.id)
-      children.push(child_result.node)
-      match previous_loaded_children {
-        Some(previous_children) =>
-          if child_index >= previous_children.length() ||
-            previous_children[child_index].id != child_result.node.id ||
-            not(child_result.reused_previous) {
-            children_reused = false
-          }
-        None => ()
-      }
-    }
-    match previous_loaded_children {
-      Some(previous_children) =>
-        if previous_children.length() != children.length() {
-          children_reused = false
-        }
-      None => ()
-    }
-    let stamp : InteractiveNodeStamp = {
-      id: node_id,
-      shape: interactive_node_shape(node.kind),
-      label,
-      child_ids,
-      elided_descendant_count: None,
-      selected,
-      editing,
-      collapsed,
-      drop_target,
-      text_range,
-    }
-    match previous_node {
-      Some(previous) =>
-        if children_reused && interactive_node_stamp(previous) == stamp {
-          finish_refreshed_interactive_node(
-            indexes, node_id, preorder_start, previous, true,
-          )
-        } else {
-          let refreshed = {
-            id: node_id,
-            kind: node.kind,
-            label,
-            children: Loaded(children),
-            selected,
-            editing,
-            collapsed,
-            drop_target,
-            text_range,
-          }
-          finish_refreshed_interactive_node(
-            indexes, node_id, preorder_start, refreshed, false,
-          )
-        }
-      None => {
-        let refreshed = {
-          id: node_id,
-          kind: node.kind,
-          label,
-          children: Loaded(children),
-          selected,
-          editing,
-          collapsed,
-          drop_target,
-          text_range,
-        }
-        finish_refreshed_interactive_node(
-          indexes, node_id, preorder_start, refreshed, false,
-        )
-      }
-    }
-  }
-}
-
-///|
 /// Simplified refresh that skips eager index building.
 /// Populates `new_loaded_nodes` as it walks but does not build preorder_ids,
 /// parent_by_child, or preorder_range_by_root.
@@ -757,34 +494,6 @@ fn refresh_node_minimal(
 }
 
 ///|
-/// Build the current interactive tree and structural indexes from a projection snapshot.
-fn build_tree_projection_snapshot(
-  proj : ProjNode?,
-  source_map : SourceMap,
-  ui_state : TreeUIState,
-  previous_nodes : Map[NodeId, InteractiveTreeNode],
-) -> (InteractiveTreeNode?, Array[NodeId], TreeStructureIndexes) {
-  let valid_ids : Array[NodeId] = []
-  let indexes = empty_tree_structure_indexes()
-  let tree = match proj {
-    Some(ast) =>
-      Some(
-        refresh_node_with_reuse_impl(
-          ast,
-          source_map,
-          ui_state,
-          valid_ids,
-          previous_nodes,
-          None,
-          indexes,
-        ).node,
-      )
-    None => None
-  }
-  (tree, valid_ids, indexes)
-}
-
-///|
 /// Get display label for a node kind
 fn get_node_label(kind : @ast.Term) -> String {
   match kind {
@@ -823,12 +532,6 @@ pub struct TreeEditorState {
   drop_position : DropPosition?
   /// Set of collapsed node IDs (UI state separate from model, immutable)
   collapsed_nodes : @immut/hashset.HashSet[NodeId]
-  /// Preorder list for the full projection tree
-  priv preorder_ids : Array[NodeId]
-  /// Inclusive preorder slice for each subtree root
-  priv preorder_range_by_root : Map[NodeId, (Int, Int)]
-  /// Parent links for structural queries
-  priv parent_by_child : Map[NodeId, NodeId]
   /// Currently materialized interactive nodes by ID
   priv loaded_nodes : Map[NodeId, InteractiveTreeNode]
 }
@@ -845,7 +548,6 @@ pub fn TreeEditorState::get_loaded_node(
 ///|
 /// Create a new tree editor state
 pub fn TreeEditorState::new() -> TreeEditorState {
-  let indexes = empty_tree_structure_indexes()
   {
     tree: None,
     selection: [],
@@ -855,10 +557,7 @@ pub fn TreeEditorState::new() -> TreeEditorState {
     drop_target: None,
     drop_position: None,
     collapsed_nodes: @immut/hashset.new(),
-    preorder_ids: indexes.preorder_ids,
-    preorder_range_by_root: indexes.preorder_range_by_root,
-    parent_by_child: indexes.parent_by_child,
-    loaded_nodes: indexes.loaded_nodes,
+    loaded_nodes: {},
   }
 }
 
@@ -875,12 +574,14 @@ pub fn TreeEditorState::from_projection(
     editing_node: None,
     drop_target: None,
   }
-  let (tree, _, indexes) = build_tree_projection_snapshot(
-    proj,
-    source_map,
-    ui_state,
-    {},
-  )
+  let loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+  let tree = match proj {
+    Some(ast) =>
+      Some(
+        refresh_node_minimal(ast, source_map, ui_state, {}, loaded_nodes).node,
+      )
+    None => None
+  }
   {
     tree,
     selection: [],
@@ -890,10 +591,7 @@ pub fn TreeEditorState::from_projection(
     drop_target: None,
     drop_position: None,
     collapsed_nodes,
-    preorder_ids: indexes.preorder_ids,
-    preorder_range_by_root: indexes.preorder_range_by_root,
-    parent_by_child: indexes.parent_by_child,
-    loaded_nodes: indexes.loaded_nodes,
+    loaded_nodes,
   }
 }
 
@@ -976,21 +674,10 @@ pub fn TreeEditorState::refresh(
         drop_target,
         drop_position,
         collapsed_nodes: self.collapsed_nodes,
-        preorder_ids: [],
-        preorder_range_by_root: {},
-        parent_by_child: {},
         loaded_nodes: new_loaded_nodes,
       }
     }
-    None =>
-      {
-        ..self,
-        tree: None,
-        preorder_ids: [],
-        preorder_range_by_root: {},
-        parent_by_child: {},
-        loaded_nodes: {},
-      }
+    None => { ..self, tree: None, loaded_nodes: {} }
   }
 }
 
@@ -1039,17 +726,13 @@ fn TreeEditorState::hydrate_subtree(
                 editing_node: self.editing_node,
                 drop_target: self.drop_target,
               }
-              let subtree_valid_ids : Array[NodeId] = []
-              let subtree_indexes = empty_tree_structure_indexes()
-              let parent_map = build_parent_map_from_tree(self.tree)
-              let hydrated = refresh_node_with_reuse_impl(
+              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+              let hydrated = refresh_node_minimal(
                 proj_node,
                 source_map,
                 ui_state,
-                subtree_valid_ids,
                 self.loaded_nodes,
-                parent_map.get(node_id),
-                subtree_indexes,
+                subtree_loaded_nodes,
               )
               let (updated_tree, changed_nodes) = replace_loaded_subtree(
                 Some(tree),
@@ -1059,7 +742,7 @@ fn TreeEditorState::hydrate_subtree(
               let loaded_nodes = replace_loaded_nodes_for_subtree(
                 self.loaded_nodes,
                 collect_subtree_ids(self, node_id),
-                subtree_indexes.loaded_nodes,
+                subtree_loaded_nodes,
                 changed_nodes,
               )
               { ..self, tree: updated_tree, loaded_nodes }
