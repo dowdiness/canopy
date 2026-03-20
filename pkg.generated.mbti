@@ -20,6 +20,8 @@ pub fn delete_and_record(Int, Int) -> Bool
 
 pub fn delete_at(Int, Int, Int) -> Bool
 
+pub fn destroy_editor(Int) -> Unit
+
 pub fn ephemeral_apply(Int, Bytes) -> Unit
 
 pub fn ephemeral_delete_presence(Int) -> Unit

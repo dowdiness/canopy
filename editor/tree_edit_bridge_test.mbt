@@ -132,10 +132,8 @@ test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
   // New path: raw text splice means CRDT text is "λz.z" (user-typed form).
   // The memo chain re-parses and builds a valid lambda ProjNode.
   inspect(editor.get_text(), content="λz.z")
-  match editor.get_proj_node() {
-    Some(proj) => inspect(@ast.print_term(proj.kind), content="(λz. z)")
-    None => abort("expected ProjNode after CommitEdit")
-  }
+  guard editor.get_proj_node() is Some(proj)
+  inspect(@ast.print_term(proj.kind), content="(λz. z)")
 }
 
 ///|
@@ -163,10 +161,8 @@ test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
   )
   inspect(result, content="Ok(())")
   // New path: raw text splice — the memo chain re-derives a lambda node.
-  match editor.get_proj_node() {
-    Some(proj) => inspect(@ast.print_term(proj.kind), content="(λz. z)")
-    None => abort("expected ProjNode after CommitEdit")
-  }
+  guard editor.get_proj_node() is Some(proj2)
+  inspect(@ast.print_term(proj2.kind), content="(λz. z)")
 }
 
 ///|

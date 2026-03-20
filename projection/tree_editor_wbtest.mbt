@@ -92,7 +92,7 @@ test "refresh_node_minimal skips unchanged subtrees" {
   // All left subtree nodes should be carried over to new_loaded_nodes
   let old_tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let left_children = tree_editor_test_loaded_children(
     tree_editor_test_loaded_children(old_tree)[0],
@@ -122,7 +122,7 @@ test "Collapse sets collapsed state on node" {
       inspect(node.collapsed, content="true")
       inspect(tree_editor_test_loaded_children(node).length(), content="1")
     }
-    None => abort("Loaded node not found")
+    None => fail("Loaded node not found")
   }
 }
 
@@ -136,7 +136,7 @@ test "Expand clears collapsed state on node" {
   inspect(expanded.collapsed_nodes.contains(root_id), content="false")
   match expanded.loaded_nodes.get(root_id) {
     Some(node) => inspect(node.collapsed, content="false")
-    None => abort("Loaded node not found")
+    None => fail("Loaded node not found")
   }
 }
 
@@ -150,7 +150,7 @@ test "Collapse state survives refresh" {
   inspect(refreshed.collapsed_nodes.contains(root_id), content="true")
   match refreshed.loaded_nodes.get(root_id) {
     Some(node) => inspect(node.collapsed, content="true")
-    None => abort("Loaded node not found")
+    None => fail("Loaded node not found")
   }
 }
 
@@ -159,7 +159,7 @@ test "refresh elides collapsed descendants while keeping structural indexes" {
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right = root_children[1]
@@ -171,7 +171,7 @@ test "refresh elides collapsed descendants while keeping structural indexes" {
     .refresh(Some(root), source_map)
   let refreshed_tree = match refreshed.tree {
     Some(tree) => tree
-    None => abort("expected refreshed tree")
+    None => fail("expected refreshed tree")
   }
   let refreshed_right = tree_editor_test_loaded_children(refreshed_tree)[1]
 
@@ -190,7 +190,7 @@ test "hydrate_subtree expands an elided branch without full refresh" {
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right = root_children[1]
@@ -202,7 +202,7 @@ test "hydrate_subtree expands an elided branch without full refresh" {
   let expanded = elided.expand_node(right.id, Some(root), source_map)
   let expanded_tree = match expanded.tree {
     Some(tree) => tree
-    None => abort("expected hydrated tree")
+    None => fail("expected hydrated tree")
   }
   let hydrated_right = tree_editor_test_loaded_children(expanded_tree)[1]
   let hydrated_children = tree_editor_test_loaded_children(hydrated_right)
@@ -218,7 +218,7 @@ test "apply_edit Expand is a no-op for elided branches" {
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let right = tree_editor_test_loaded_children(tree)[1]
   let elided = state
@@ -227,7 +227,7 @@ test "apply_edit Expand is a no-op for elided branches" {
   let expanded = elided.apply_edit(Expand(node_id=right.id))
   let expanded_tree = match expanded.tree {
     Some(tree) => tree
-    None => abort("expected expanded tree")
+    None => fail("expected expanded tree")
   }
   let expanded_right = tree_editor_test_loaded_children(expanded_tree)[1]
 
@@ -253,14 +253,14 @@ test "Select updates loaded tree flags locally" {
   let (_, _, state) = tree_editor_test_state("1 + 2")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right = root_children[1]
   let selected = state.apply_edit(Select(node_id=right.id))
   let selected_tree = match selected.tree {
     Some(tree) => tree
-    None => abort("expected selected tree")
+    None => fail("expected selected tree")
   }
   let selected_children = tree_editor_test_loaded_children(selected_tree)
 
@@ -274,7 +274,7 @@ test "SelectRange updates loaded tree flags locally" {
   let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let selected = state.apply_edit(
@@ -282,7 +282,7 @@ test "SelectRange updates loaded tree flags locally" {
   )
   let selected_tree = match selected.tree {
     Some(tree) => tree
-    None => abort("expected selected tree")
+    None => fail("expected selected tree")
   }
   let selected_children = tree_editor_test_loaded_children(selected_tree)
 
@@ -297,7 +297,7 @@ test "SelectRange ignores elided subtree endpoints" {
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let left_id = root_children[0].id
@@ -341,7 +341,7 @@ test "Delete clears hidden descendant UI state when subtree is elided" {
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right = root_children[1]
@@ -385,7 +385,7 @@ test "DragOver rejects descendant as drop target" {
   let (_, _, state) = tree_editor_test_state("λx.x + 1")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let root_id = tree.id
   let root_children = tree_editor_test_loaded_children(tree)
@@ -406,7 +406,7 @@ test "DragOver allows elided descendant as drop target (lazy parent map)" {
   let (root, source_map, state) = tree_editor_test_state("λx.x + 1")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let lambda_body = tree_editor_test_loaded_children(root_children[0])
@@ -462,7 +462,7 @@ test "from_projection builds structural indexes" {
   let ids = tree_editor_test_ids(state.tree)
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right_children = tree_editor_test_loaded_children(root_children[1])
@@ -497,7 +497,7 @@ test "refresh rebuilds structural indexes for updated projection" {
   let ids = tree_editor_test_ids(refreshed.tree)
   let tree = match refreshed.tree {
     Some(tree) => tree
-    None => abort("expected refreshed tree")
+    None => fail("expected refreshed tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right_children = tree_editor_test_loaded_children(root_children[1])
@@ -511,7 +511,7 @@ test "refresh rebuilds structural indexes for updated projection" {
   inspect(parent_map.get(right_leaf_id) == Some(right_id), content="true")
   match refreshed.loaded_nodes.get(right_leaf_id) {
     Some(node) => inspect(node.label, content="5")
-    None => abort("expected loaded node")
+    None => fail("expected loaded node")
   }
 }
 
@@ -579,7 +579,7 @@ test "refresh builder limits UI-only selection invalidation to selected branch" 
   let (root, source_map, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let root_children = tree_editor_test_loaded_children(tree)
   let right_children = tree_editor_test_loaded_children(root_children[1])
@@ -628,7 +628,7 @@ test "build_parent_map_from_tree matches eagerly-built parent_by_child" {
   let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let lazy_map = build_parent_map_from_tree(Some(tree))
   let root_children = tree_editor_test_loaded_children(tree)
@@ -646,7 +646,7 @@ test "build_preorder_from_tree matches eagerly-built indexes" {
   let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
   let tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected tree")
+    None => fail("expected tree")
   }
   let lazy_preorder = build_preorder_from_tree(Some(tree))
   let root_children = tree_editor_test_loaded_children(tree)
@@ -666,7 +666,7 @@ test "TreeEditorState::refresh preserves unchanged sibling subtree through publi
   let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
   let old_tree = match state.tree {
     Some(tree) => tree
-    None => abort("expected initial tree")
+    None => fail("expected initial tree")
   }
   let old_root_children = tree_editor_test_loaded_children(old_tree)
   let old_left = old_root_children[0]
@@ -678,7 +678,7 @@ test "TreeEditorState::refresh preserves unchanged sibling subtree through publi
   let refreshed = state.refresh(Some(reconciled), source_map)
   let refreshed_tree = match refreshed.tree {
     Some(tree) => tree
-    None => abort("expected refreshed tree")
+    None => fail("expected refreshed tree")
   }
   let refreshed_root_children = tree_editor_test_loaded_children(refreshed_tree)
   let refreshed_left = refreshed_root_children[0]

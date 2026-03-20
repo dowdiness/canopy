@@ -11,6 +11,7 @@ options(
     "js": {
       "exports": [
         "create_editor",
+        "destroy_editor",
         "get_text",
         "set_text",
         "get_ast_dot_resolved",

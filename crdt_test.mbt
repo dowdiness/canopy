@@ -13,10 +13,8 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors (like web UI does)
-  let errors1 = match editor_ref.val {
-    Some(ed) => ed.get_errors()
-    None => abort("No editor")
-  }
+  guard editor_ref.val is Some(ed1)
+  let errors1 = ed1.get_errors()
   println("After typing 'x':")
   println("  Errors: " + errors1.length().to_string())
   inspect(errors1.length(), content="0")
@@ -28,10 +26,8 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors
-  let errors2 = match editor_ref.val {
-    Some(ed) => ed.get_errors()
-    None => abort("No editor")
-  }
+  guard editor_ref.val is Some(ed2)
+  let errors2 = ed2.get_errors()
   println("After typing 'x+':")
   println("  Errors: " + errors2.length().to_string())
   inspect(errors2.length() > 0, content="true")
@@ -43,10 +39,8 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors
-  let errors3 = match editor_ref.val {
-    Some(ed) => ed.get_errors()
-    None => abort("No editor")
-  }
+  guard editor_ref.val is Some(ed3)
+  let errors3 = ed3.get_errors()
   println("After typing 'x+ 1':")
   let text = match editor_ref.val {
     Some(ed) => ed.get_text()

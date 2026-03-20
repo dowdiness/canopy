@@ -1,29 +1,50 @@
 // JavaScript bindings for CRDT Editor
 // Exposes SyncEditor API to JavaScript via FFI
 
-// Global editor state (single editor for MVP)
+// Handle-based editor registry (supports multiple concurrent editors)
 
 ///|
-let editor : Ref[@editor.SyncEditor?] = { val: None }
+let editors : Map[Int, @editor.SyncEditor] = Map::new()
 
 ///|
-/// Get the current singleton SyncEditor, if one has been created.
+let next_handle : Ref[Int] = { val: 1 }
+
+///|
+let last_created_handle : Ref[Int?] = { val: None }
+
+///|
+/// Get the most recently created editor for legacy MoonBit consumers.
 pub fn get_sync_editor() -> @editor.SyncEditor? {
-  editor.val
+  match last_created_handle.val {
+    Some(handle) => editors.get(handle)
+    None => None
+  }
 }
 
 ///|
-/// Create a new SyncEditor instance
-/// Returns handle 1 (MVP: single editor only)
+/// Create a new SyncEditor instance.
+/// Returns a unique handle for this editor.
 pub fn create_editor(agent_id : String) -> Int {
-  editor.val = Some(@editor.SyncEditor::new(agent_id))
-  1
+  let handle = next_handle.val
+  next_handle.val = handle + 1
+  editors[handle] = @editor.SyncEditor::new(agent_id)
+  last_created_handle.val = Some(handle)
+  handle
+}
+
+///|
+/// Destroy an editor instance and free its resources.
+pub fn destroy_editor(handle : Int) -> Unit {
+  editors.remove(handle)
+  if last_created_handle.val == Some(handle) {
+    last_created_handle.val = None
+  }
 }
 
 ///|
 /// Get current text content
-pub fn get_text(_handle : Int) -> String {
-  match editor.val {
+pub fn get_text(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) => ed.get_text()
     None => ""
   }
@@ -31,8 +52,8 @@ pub fn get_text(_handle : Int) -> String {
 
 ///|
 /// Set text content directly (replaces entire document)
-pub fn set_text(_handle : Int, new_text : String) -> Unit {
-  match editor.val {
+pub fn set_text(handle : Int, new_text : String) -> Unit {
+  match editors.get(handle) {
     Some(ed) => ed.set_text(new_text)
     None => ()
   }
@@ -40,8 +61,8 @@ pub fn set_text(_handle : Int, new_text : String) -> Unit {
 
 ///|
 /// Get AST as DOT format with name resolution coloring
-pub fn get_ast_dot_resolved(_handle : Int) -> String {
-  match editor.val {
+pub fn get_ast_dot_resolved(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) => ed.get_dot_resolved()
     None => "digraph { }"
   }
@@ -49,8 +70,8 @@ pub fn get_ast_dot_resolved(_handle : Int) -> String {
 
 ///|
 /// Get AST as pretty-printed string (expression + debug tree)
-pub fn get_ast_pretty(_handle : Int) -> String {
-  match editor.val {
+pub fn get_ast_pretty(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) => ed.get_ast_pretty()
     None => ""
   }
@@ -58,8 +79,8 @@ pub fn get_ast_pretty(_handle : Int) -> String {
 
 ///|
 /// Get parse errors as JSON array
-pub fn get_errors_json(_handle : Int) -> String {
-  match editor.val {
+pub fn get_errors_json(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) => ed.get_errors().to_json().stringify()
     None => "[]"
   }
@@ -67,8 +88,8 @@ pub fn get_errors_json(_handle : Int) -> String {
 
 ///|
 /// Export all operations as a SyncMessage JSON string.
-pub fn export_all_json(_handle : Int) -> String {
-  match editor.val {
+pub fn export_all_json(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) =>
       ed.export_all().to_json_string() catch {
         _ => "{\"ops\":[],\"heads\":[]}"
@@ -79,8 +100,8 @@ pub fn export_all_json(_handle : Int) -> String {
 
 ///|
 /// Export operations since a peer's version as a SyncMessage JSON string.
-pub fn export_since_json(_handle : Int, peer_version_json : String) -> String {
-  match editor.val {
+pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
+  match editors.get(handle) {
     Some(ed) =>
       try {
         let ver = @text.Version::from_json_string(peer_version_json)
@@ -94,8 +115,8 @@ pub fn export_since_json(_handle : Int, peer_version_json : String) -> String {
 
 ///|
 /// Apply a SyncMessage received from a peer.
-pub fn apply_sync_json(_handle : Int, sync_json : String) -> Unit {
-  match editor.val {
+pub fn apply_sync_json(handle : Int, sync_json : String) -> Unit {
+  match editors.get(handle) {
     Some(ed) =>
       try {
         let msg = @text.SyncMessage::from_json_string(sync_json)
@@ -109,435 +130,9 @@ pub fn apply_sync_json(_handle : Int, sync_json : String) -> Unit {
 
 ///|
 /// Get the current version as a JSON string.
-pub fn get_version_json(_handle : Int) -> String {
-  match editor.val {
+pub fn get_version_json(handle : Int) -> String {
+  match editors.get(handle) {
     Some(ed) => ed.get_version().to_json_string()
     None => "\"\""
-  }
-}
-
-// ============================================================
-// UndoManager-integrated API
-// ============================================================
-
-///|
-/// Create a new SyncEditor with undo support
-/// Returns handle 1 (MVP: single editor only)
-pub fn create_editor_with_undo(
-  agent_id : String,
-  capture_timeout_ms : Int,
-) -> Int {
-  editor.val = Some(@editor.SyncEditor::new(agent_id, capture_timeout_ms~))
-  1
-}
-
-///|
-/// Insert text at cursor position and record for undo
-pub fn insert_and_record(
-  _handle : Int,
-  text : String,
-  timestamp_ms : Int,
-) -> Unit {
-  match editor.val {
-    Some(ed) => try! ed.insert_and_record(text, timestamp_ms)
-    None => ()
-  }
-}
-
-///|
-/// Delete character at cursor (forward delete) and record for undo
-pub fn delete_and_record(_handle : Int, timestamp_ms : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.delete_and_record(timestamp_ms)
-    None => false
-  }
-}
-
-///|
-/// Delete character before cursor (backspace) and record for undo
-pub fn backspace_and_record(_handle : Int, timestamp_ms : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.backspace_and_record(timestamp_ms)
-    None => false
-  }
-}
-
-///|
-/// Insert text at a specific position without moving the cursor.
-/// Records the operation for undo. Used by ProseMirror bridge.
-pub fn insert_at(
-  _handle : Int,
-  position : Int,
-  text : String,
-  timestamp_ms : Int,
-) -> Unit {
-  match editor.val {
-    Some(ed) => ed.insert_at(position, text, timestamp_ms)
-    None => ()
-  }
-}
-
-///|
-/// Delete the character at a specific position without moving the cursor.
-/// Records the operation for undo. Returns false if position is out of bounds.
-/// Used by ProseMirror bridge.
-pub fn delete_at(_handle : Int, position : Int, timestamp_ms : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.delete_at(position, timestamp_ms)
-    None => false
-  }
-}
-
-///|
-/// Set text content directly and record changes for undo
-pub fn set_text_and_record(
-  _handle : Int,
-  new_text : String,
-  timestamp_ms : Int,
-) -> Unit {
-  match editor.val {
-    Some(ed) => ed.set_text_and_record(new_text, timestamp_ms)
-    None => ()
-  }
-}
-
-///|
-/// Undo the last operation group.
-pub fn undo_manager_undo(_handle : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.undo()
-    None => false
-  }
-}
-
-///|
-/// Redo the last undone operation group.
-pub fn undo_manager_redo(_handle : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.redo()
-    None => false
-  }
-}
-
-///|
-/// Undo and return sync ops as JSON for peer broadcast.
-/// Returns empty string if undo stack is empty.
-pub fn undo_and_export_json(_handle : Int) -> String {
-  match editor.val {
-    Some(ed) =>
-      match ed.undo_and_export() {
-        Some(msg) => msg.to_json_string()
-        None => ""
-      }
-    None => ""
-  }
-}
-
-///|
-/// Redo and return sync ops as JSON for peer broadcast.
-/// Returns empty string if redo stack is empty.
-pub fn redo_and_export_json(_handle : Int) -> String {
-  match editor.val {
-    Some(ed) =>
-      match ed.redo_and_export() {
-        Some(msg) => msg.to_json_string()
-        None => ""
-      }
-    None => ""
-  }
-}
-
-///|
-/// Check if undo is possible
-pub fn undo_manager_can_undo(_handle : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.can_undo()
-    None => false
-  }
-}
-
-///|
-/// Check if redo is possible
-pub fn undo_manager_can_redo(_handle : Int) -> Bool {
-  match editor.val {
-    Some(ed) => ed.can_redo()
-    None => false
-  }
-}
-
-///|
-/// Enable or disable undo tracking
-pub fn undo_manager_set_tracking(_handle : Int, enabled : Bool) -> Unit {
-  match editor.val {
-    Some(ed) => ed.set_tracking(enabled)
-    None => ()
-  }
-}
-
-///|
-/// Clear both undo and redo stacks
-pub fn undo_manager_clear(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.clear_undo()
-    None => ()
-  }
-}
-
-// ============================================================
-// Ephemeral Presence API
-// ============================================================
-
-///|
-/// Encode all local ephemeral state as binary (for sending to peers)
-pub fn ephemeral_encode_all(_handle : Int) -> Bytes {
-  match editor.val {
-    Some(ed) => ed.encode_ephemeral_all()
-    None => Bytes::new(0)
-  }
-}
-
-///|
-/// Apply remote ephemeral update (binary received from peer)
-pub fn ephemeral_apply(_handle : Int, data : Bytes) -> Unit {
-  match editor.val {
-    Some(ed) => ed.apply_ephemeral(data)
-    None => ()
-  }
-}
-
-///|
-/// Set local presence (cursor position, name, color)
-pub fn ephemeral_set_presence(
-  _handle : Int,
-  name : String,
-  color : String,
-) -> Unit {
-  match editor.val {
-    Some(ed) => ed.set_local_presence(name, color)
-    None => ()
-  }
-}
-
-///|
-/// Set local presence with selection range
-pub fn ephemeral_set_presence_with_selection(
-  _handle : Int,
-  name : String,
-  color : String,
-  sel_start : Int,
-  sel_end : Int,
-) -> Unit {
-  match editor.val {
-    Some(ed) =>
-      ed.set_local_presence(name, color, selection=Some((sel_start, sel_end)))
-    None => ()
-  }
-}
-
-///|
-/// Delete local presence (call on beforeunload for graceful disconnect)
-pub fn ephemeral_delete_presence(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.delete_local_presence()
-    None => ()
-  }
-}
-
-///|
-/// Remove expired ephemeral entries (call on timer)
-pub fn ephemeral_remove_outdated(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.remove_ephemeral_outdated()
-    None => ()
-  }
-}
-
-///|
-/// Get adjusted peer cursors as JSON for rendering
-/// Returns: [{"peer_id":"123","cursor":8,"name":"Alice","color":"#ff0000","selection":null}, ...]
-pub fn ephemeral_get_peer_cursors_json(_handle : Int) -> String {
-  match editor.val {
-    Some(ed) => {
-      let cursors = ed.get_peer_cursors()
-      let items : Array[String] = []
-      for peer_id, cursor in cursors {
-        let adj = if cursor.adjusted_cursor < 0 {
-          0
-        } else {
-          cursor.adjusted_cursor
-        }
-        let sel = match cursor.selection {
-          Some((s, e)) => "[" + s.to_string() + "," + e.to_string() + "]"
-          None => "null"
-        }
-        let item = "{\"peer_id\":" +
-          peer_id.to_json().stringify() +
-          ",\"cursor\":" +
-          adj.to_string() +
-          ",\"name\":" +
-          cursor.display_name.to_json().stringify() +
-          ",\"color\":" +
-          cursor.color.to_json().stringify() +
-          ",\"selection\":" +
-          sel +
-          "}"
-        items.push(item)
-      }
-      "[" + items.join(",") + "]"
-    }
-    None => "[]"
-  }
-}
-
-// ============================================================
-// Projection JSON API (for ProseMirror bridge)
-// ============================================================
-
-///|
-/// Get the ProjNode tree as JSON string.
-/// Returns "null" if no projection is available.
-pub fn get_proj_node_json(_handle : Int) -> String {
-  match editor.val {
-    Some(ed) =>
-      match ed.get_proj_node() {
-        Some(proj) => proj.to_json().stringify()
-        None => "null"
-      }
-    None => "null"
-  }
-}
-
-///|
-/// Get the SourceMap as JSON string.
-/// Returns an array of {node_id, start, end} entries.
-pub fn get_source_map_json(_handle : Int) -> String {
-  match editor.val {
-    Some(ed) => ed.get_source_map().to_json().stringify()
-    None => "[]"
-  }
-}
-
-///|
-/// Apply a structural tree edit from a JSON-encoded TreeEditOp.
-/// Returns "ok" on success, or "error: <message>" on failure.
-pub fn apply_tree_edit_json(
-  _handle : Int,
-  op_json : String,
-  timestamp_ms : Int,
-) -> String {
-  match editor.val {
-    Some(ed) => {
-      let json = @json.parse(op_json) catch {
-        _ => return "error: invalid JSON"
-      }
-      match @editor.parse_tree_edit_op(json) {
-        Ok(op) =>
-          match ed.apply_tree_edit(op, timestamp_ms) {
-            Ok(_) => "ok"
-            Err(msg) => "error: " + msg
-          }
-        Err(msg) => "error: " + msg
-      }
-    }
-    None => "error: no editor"
-  }
-}
-
-// ============================================================
-// Relay exports
-// ============================================================
-
-///|
-let relay_rooms : Map[String, @relay.RelayRoom] = Map::new()
-
-///|
-fn get_or_create_room(room_id : String) -> @relay.RelayRoom {
-  match relay_rooms.get(room_id) {
-    Some(room) => room
-    None => {
-      let room = @relay.RelayRoom::new()
-      relay_rooms[room_id] = room
-      room
-    }
-  }
-}
-
-///|
-pub fn relay_on_connect(
-  room_id : String,
-  peer_id : String,
-  send_fn : (Bytes) -> Unit,
-) -> Unit {
-  get_or_create_room(room_id).on_connect(peer_id, send_fn)
-}
-
-///|
-pub fn relay_on_message(
-  room_id : String,
-  peer_id : String,
-  data : Bytes,
-) -> Unit {
-  match relay_rooms.get(room_id) {
-    Some(room) => room.on_message(peer_id, data)
-    None => () // ignore messages for non-existent rooms
-  }
-}
-
-///|
-pub fn relay_on_disconnect(room_id : String, peer_id : String) -> Unit {
-  match relay_rooms.get(room_id) {
-    Some(room) => {
-      room.on_disconnect(peer_id)
-      if room.peer_count() == 0 {
-        relay_rooms.remove(room_id)
-      }
-    }
-    None => ()
-  }
-}
-
-// ============================================================
-// WebSocket client exports
-// TODO: _handle param is ignored — single global editor only.
-// Multi-editor support requires a handle→SyncEditor map.
-// ============================================================
-
-///|
-pub fn ws_on_open(_handle : Int, ws : @editor.JsWebSocket) -> Unit {
-  match editor.val {
-    Some(ed) => ed.ws_on_open(ws)
-    None => ()
-  }
-}
-
-///|
-pub fn ws_on_message(_handle : Int, data : Bytes) -> Unit {
-  match editor.val {
-    Some(ed) => ed.ws_on_message(data)
-    None => ()
-  }
-}
-
-///|
-pub fn ws_on_close(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.ws_on_close()
-    None => ()
-  }
-}
-
-///|
-pub fn ws_broadcast_edit(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.ws_broadcast_edit()
-    None => ()
-  }
-}
-
-///|
-pub fn ws_broadcast_cursor(_handle : Int) -> Unit {
-  match editor.val {
-    Some(ed) => ed.ws_broadcast_cursor()
-    None => ()
   }
 }

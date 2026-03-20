@@ -50,7 +50,7 @@ test "compute_text_edit: CommitEdit replaces single expression" {
       inspect(edits[0].delete_len, content="2")
       inspect(apply_edits(text, edits), content="99")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -77,7 +77,7 @@ test "compute_text_edit: CommitEdit replaces left operand in binary expr" {
       inspect(edits[0].delete_len, content="1")
       inspect(apply_edits(text, edits), content="y + 1")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -119,7 +119,7 @@ test "compute_text_edit: Delete replaces node with placeholder" {
       // Int node → placeholder "0"
       inspect(apply_edits(text, edits), content="0")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -145,7 +145,7 @@ test "compute_text_edit: Delete replaces Var with placeholder" {
       // Var → placeholder "a", parent re-rendered with print_term
       inspect(apply_edits(text, edits), content="(a + 1)")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -169,7 +169,7 @@ test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
       inspect(edits.length(), content="1")
       inspect(apply_edits(text, edits), content="(λx. 42)")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -193,7 +193,7 @@ test "compute_text_edit: WrapInApp wraps node in application" {
       inspect(edits.length(), content="1")
       inspect(apply_edits(text, edits), content="(42 a)")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -220,7 +220,7 @@ test "compute_text_edit: InsertChild into Module inserts def text" {
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="let y = 1\nlet x = 0\ny")
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -253,7 +253,7 @@ test "compute_text_edit: InsertChild into non-Module re-renders parent" {
         ),
       )
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 
@@ -286,7 +286,7 @@ test "compute_text_edit: Drop produces two edits" {
         ),
       )
     }
-    _ => abort("expected Some edits")
+    _ => fail("expected Some edits")
   }
 }
 

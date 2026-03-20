@@ -19,7 +19,7 @@ test "apply_edit shifts positions backward on delete" {
       inspect(range.start, content="3")
       inspect(range.end, content="8")
     }
-    None => abort("Node not found after edit")
+    None => fail("Node not found after edit")
   }
 }
 
@@ -40,7 +40,7 @@ test "apply_edit leaves nodes before deletion unchanged" {
       inspect(range.start, content="0")
       inspect(range.end, content="3")
     }
-    None => abort("Node not found after edit")
+    None => fail("Node not found after edit")
   }
 }
 
@@ -63,7 +63,7 @@ test "apply_edit handles overlapping deletion" {
       // End was 10, deletion of 2 chars (7-5=2) inside shifts end to 8
       inspect(range.end, content="8")
     }
-    None => abort("Node not found after edit")
+    None => fail("Node not found after edit")
   }
 }
 
@@ -88,7 +88,7 @@ test "apply_edit multiple nodes" {
       inspect(range.start, content="0")
       inspect(range.end, content="3")
     }
-    None => abort("Node A not found")
+    None => fail("Node A not found")
   }
 
   // Node B (5-8): overlaps, start unchanged, end shifts backward by 2
@@ -97,7 +97,7 @@ test "apply_edit multiple nodes" {
       inspect(range.start, content="5")
       inspect(range.end, content="6") // 8 - 2 = 6
     }
-    None => abort("Node B not found")
+    None => fail("Node B not found")
   }
 
   // Node C (10-15): after deletion, shifts backward by 2
@@ -106,7 +106,7 @@ test "apply_edit multiple nodes" {
       inspect(range.start, content="8") // 10 - 2 = 8
       inspect(range.end, content="13") // 15 - 2 = 13
     }
-    None => abort("Node C not found")
+    None => fail("Node C not found")
   }
 }
 
@@ -127,6 +127,6 @@ test "apply_edit with zero-length deletion does nothing" {
       inspect(range.start, content="5")
       inspect(range.end, content="10")
     }
-    None => abort("Node not found after edit")
+    None => fail("Node not found after edit")
   }
 }
