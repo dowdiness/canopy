@@ -182,22 +182,17 @@ fn InteractiveTreeNode::from_term_node_with_state(
     editing_node: None,
     drop_target: None,
   }
-  from_term_node_with_optional_ids(node, source_map, ui_state, None)
+  from_term_node_impl(node, source_map, ui_state)
 }
 
 ///|
-/// Create an interactive tree node and optionally collect valid IDs.
-fn from_term_node_with_optional_ids(
+/// Create an interactive tree node with UI state applied.
+fn from_term_node_impl(
   node : ProjNode,
   source_map : SourceMap,
   ui_state : TreeUIState,
-  valid_ids : Array[NodeId]?,
 ) -> InteractiveTreeNode {
   let node_id = NodeId(node.node_id)
-  match valid_ids {
-    Some(valid_ids) => valid_ids.push(node_id)
-    None => ()
-  }
   let text_range = match source_map.get_range(node_id) {
     Some(range) => range
     None => Range::new(node.start, node.end)
@@ -215,15 +210,13 @@ fn from_term_node_with_optional_ids(
   let children = if collapsed {
     let mut descendant_count = 0
     for child in node.children {
-      descendant_count += collect_projection_descendants(child, valid_ids)
+      descendant_count += count_projection_descendants(child)
     }
     Elided(descendant_count)
   } else {
     let loaded : Array[InteractiveTreeNode] = []
     for child in node.children {
-      loaded.push(
-        from_term_node_with_optional_ids(child, source_map, ui_state, valid_ids),
-      )
+      loaded.push(from_term_node_impl(child, source_map, ui_state))
     }
     Loaded(loaded)
   }
@@ -241,19 +234,11 @@ fn from_term_node_with_optional_ids(
 }
 
 ///|
-/// Count projection descendants while collecting valid IDs for hidden branches.
-fn collect_projection_descendants(
-  node : ProjNode,
-  valid_ids : Array[NodeId]?,
-) -> Int {
-  let node_id = NodeId(node.node_id)
-  match valid_ids {
-    Some(valid_ids) => valid_ids.push(node_id)
-    None => ()
-  }
+/// Count projection descendants.
+fn count_projection_descendants(node : ProjNode) -> Int {
   let mut subtree_size = 1
   for child in node.children {
-    subtree_size += collect_projection_descendants(child, valid_ids)
+    subtree_size += count_projection_descendants(child)
   }
   subtree_size
 }
@@ -357,7 +342,19 @@ fn can_skip_subtree(
       }
       true
     }
-    Elided(_) => collapsed // Elided matches if still collapsed
+    Elided(prev_count) =>
+      // Must still be collapsed AND descendant count unchanged.
+      // Without the count check, edits inside a collapsed subtree
+      // (e.g., adding/removing a let-def) would reuse a stale Elided(n).
+      if not(collapsed) {
+        false
+      } else {
+        let mut current_count = 0
+        for child in proj_node.children {
+          current_count += count_projection_descendants(child)
+        }
+        current_count == prev_count
+      }
   }
 }
 
@@ -418,7 +415,7 @@ fn refresh_node_minimal(
   if collapsed {
     let mut descendant_count = 0
     for child in node.children {
-      descendant_count += collect_projection_descendants(child, None)
+      descendant_count += count_projection_descendants(child)
     }
     let stamp : InteractiveNodeStamp = {
       id: node_id,
