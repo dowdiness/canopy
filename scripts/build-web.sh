@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build script for web deployment
-# Automates: moon build --target js && cp target/js/release/build/crdt.js examples/web/public/
+# Automates: moon build --target js && cp _build/js/release/build/crdt.js examples/web/public/
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ moon build --target js --release
 
 echo "📦 Copying JS build to examples/web/public/..."
 mkdir -p examples/web/public
-cp target/js/release/build/crdt.js examples/web/public/
+cp _build/js/release/build/crdt.js examples/web/public/
 
 echo "✅ MoonBit build copied successfully!"
 echo ""

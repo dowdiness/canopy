@@ -1,8 +1,8 @@
 # Design 04: Ephemeral Store (Awareness Protocol)
 
 **Parent:** [Grand Design](./GRAND_DESIGN.md)
-**Status:** Draft
-**Updated:** 2026-03-10
+**Status:** ✅ Implemented (EphemeralStore + EphemeralHub integrated into SyncEditor)
+**Updated:** 2026-03-20
 
 ---
 

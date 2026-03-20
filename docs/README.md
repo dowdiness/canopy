@@ -62,6 +62,9 @@ Detailed documentation for each module:
 
 - [Framework Extraction Design](plans/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits
 - [BFT Adapter — Byzantine Fault Tolerance](plans/2026-03-19-bft-adapter-design.md) — Design only, implement after sync working
+- [Ideal Editor Implementation](plans/2026-03-19-ideal-editor-impl.md) — Rabbita host + PM/CM6 Web Component unified editor
+- [Rabbita Web Component Interop Design](plans/2026-03-20-rabbita-web-component-interop-design.md) — Export Rabbita cells as custom elements
+- [Rabbita Web Component Interop Impl](plans/2026-03-20-rabbita-web-component-interop-impl.md) — Step-by-step implementation
 
 ## Archive
 

@@ -82,8 +82,8 @@ After making changes to MoonBit code that affects the web interface:
 ```bash
 # From the crdt/ directory
 moon build --target js
-cp target/js/release/build/crdt.js examples/web/public/
-cp target/js/release/build/crdt.d.ts examples/web/public/
+cp _build/js/release/build/crdt.js examples/web/public/
+cp _build/js/release/build/crdt.d.ts examples/web/public/
 ```
 
 ## Git Commit Process

@@ -101,12 +101,12 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ### Dual-state architecture (SyncEditor + CanonicalModel)
 
-- [ ] **Encapsulate CanonicalModel inside SyncEditor** — `apply_tree_edit` takes both as separate arguments, leaking internal coupling to callers. Per §3, CanonicalModel should be retired; its useful parts (ProjNode reconciliation, node registry, source map) become derived state on SyncEditor with `Memo[ProjNode]`.
-- [ ] **Double parse per tree edit** — `set_source` invalidates the reactive parser (lazy), then `text_lens_put` eagerly parses via `parse_to_proj_node`. Both are needed because SyncEditor and CanonicalModel maintain separate parse pipelines. Unifying them eliminates one full parse per edit.
+- [x] **Encapsulate CanonicalModel inside SyncEditor** — ✅ Done. `CanonicalModel` fully retired. `SyncEditor::apply_tree_edit` computes span-level text edits via FlatProj. ProjNode reconciliation, node registry, and source map are all memo-derived on SyncEditor.
+- [x] **Double parse per tree edit** — ✅ Done. Single parse pipeline via SyncEditor memo chain (FlatProj → cached ProjNode → registry/source map).
 
 ### Diff logic triplication
 
-- [x] **Consolidate prefix/suffix diff** — Already resolved: `projection/text_lens.mbt` was deleted in earlier refactoring. Both `set_text_and_record` and `compute_edit` now delegate to the shared `@text_change.compute_text_change()` in `lib/text-change/`. The remaining `compute_text_edits` in `editor/text_diff.mbt` is a separate LCS-based multi-edit diff for batch remote merges — not a duplicate.
+- [x] **Consolidate prefix/suffix diff** — Already resolved: `projection/text_lens.mbt` was removed (only `text_lens_regression_wbtest.mbt` remains for regression tests). Both `set_text_and_record` and `compute_edit` now delegate to the shared `@text_change.compute_text_change()` in `lib/text-change/`. The remaining `compute_text_edits` in `editor/text_diff.mbt` is a separate LCS-based multi-edit diff for batch remote merges — not a duplicate.
 
 ### TextInput path efficiency
 
@@ -137,7 +137,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 - [x] Add top-level `Makefile` or `justfile` wrapping both-module test commands into a single invocation
 - [x] Add pre-commit hook running `moon check && moon fmt --check`
-- [x] Script the web build workflow (`moon build --target js && cp target/js/release/build/crdt.js examples/web/public/`)
+- [x] Script the web build workflow (`moon build --target js && cp _build/js/release/build/crdt.js examples/web/public/`)
 
 ---
 

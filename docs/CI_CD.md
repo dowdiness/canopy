@@ -139,7 +139,7 @@ Automatically deploys to GitHub Pages on push to `main`.
 1. **MoonBit Build**
    ```bash
    moon build --target js --release
-   cp target/js/release/build/crdt.js examples/web/public/
+   cp _build/js/release/build/crdt.js examples/web/public/
    ```
 
 2. **Web Build**

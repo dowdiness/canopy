@@ -76,7 +76,7 @@ Automates the web build workflow:
 ./scripts/build-web.sh
 # Equivalent to:
 # moon build --target js --release
-# cp target/js/release/build/crdt.js examples/web/public/
+# cp _build/js/release/build/crdt.js examples/web/public/
 ```
 
 #### `test-all.sh`

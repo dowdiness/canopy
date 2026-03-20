@@ -67,7 +67,7 @@ fn op_to_delta(op : @core.Op, visible_position : Int) -> Array[TextDelta] {
 }
 ```
 
-**Blocked on:** `TextDoc` does not currently expose `lv_to_position()` or `insert_with_op()`. These small API additions in `event-graph-walker/text` are required before the direct path can be implemented.
+**Partially unblocked:** `lv_to_position()` is now implemented in `event-graph-walker/internal/document/document.mbt`. `insert_with_op()` is still needed before the direct path can be fully implemented.
 
 ### 4. Integration Point
 
