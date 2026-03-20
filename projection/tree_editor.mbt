@@ -842,13 +842,14 @@ fn TreeEditorState::hydrate_subtree(
               }
               let subtree_valid_ids : Array[NodeId] = []
               let subtree_indexes = empty_tree_structure_indexes()
+              let parent_map = build_parent_map_from_tree(self.tree)
               let hydrated = refresh_node_with_reuse_impl(
                 proj_node,
                 source_map,
                 ui_state,
                 subtree_valid_ids,
                 self.loaded_nodes,
-                self.parent_by_child.get(node_id),
+                parent_map.get(node_id),
                 subtree_indexes,
               )
               let (updated_tree, changed_nodes) = replace_loaded_subtree(
@@ -1146,10 +1147,20 @@ fn collect_subtree_ids(
   state : TreeEditorState,
   root_id : NodeId,
 ) -> Array[NodeId] {
+  // The eager index covers elided descendants that are invisible in the lazy
+  // tree walk. Always prefer the eager index when it covers a wider subtree.
   match state.preorder_range_by_root.get(root_id) {
     Some((start_idx, end_idx)) =>
       collect_preorder_slice(state.preorder_ids, start_idx, end_idx)
-    None => []
+    None => {
+      // Eager index may be stale (e.g., empty state). Try the lazy builder.
+      let preorder = build_preorder_from_tree(state.tree)
+      match preorder.range_by_root.get(root_id) {
+        Some((start_idx, end_idx)) =>
+          collect_preorder_slice(preorder.ids, start_idx, end_idx)
+        None => []
+      }
+    }
   }
 }
 
@@ -1181,7 +1192,14 @@ fn is_descendant_of(
   if node_id == ancestor_id {
     false
   } else {
-    is_descendant_in_parent_links(state.parent_by_child, node_id, ancestor_id)
+    let parent_map = build_parent_map_from_tree(state.tree)
+    // If the node is not in the lazy parent map, it may be inside an elided
+    // subtree. Fall back to the eagerly-built parent index for those cases.
+    if parent_map.get(node_id) is None && state.parent_by_child.get(node_id) is Some(_) {
+      is_descendant_in_parent_links(state.parent_by_child, node_id, ancestor_id)
+    } else {
+      is_descendant_in_parent_links(parent_map, node_id, ancestor_id)
+    }
   }
 }
 
@@ -1192,12 +1210,21 @@ fn collect_nodes_in_range(
   start : NodeId,
   end : NodeId,
 ) -> Array[NodeId] {
-  match
-    (
-      state.preorder_range_by_root.get(start),
-      state.preorder_range_by_root.get(end),
-    ) {
+  let preorder = build_preorder_from_tree(state.tree)
+  // For each endpoint, use the lazy preorder range when available; fall back to
+  // the eager index for nodes inside elided subtrees.
+  let start_range = match preorder.range_by_root.get(start) {
+    Some(r) => Some(r)
+    None => state.preorder_range_by_root.get(start)
+  }
+  let end_range = match preorder.range_by_root.get(end) {
+    Some(r) => Some(r)
+    None => state.preorder_range_by_root.get(end)
+  }
+  match (start_range, end_range) {
     (Some((start_idx, _)), Some((end_idx, _))) => {
+      // Use the eager preorder_ids which is a superset of the lazy preorder
+      // and correctly includes elided descendants.
       let min_idx = if start_idx < end_idx { start_idx } else { end_idx }
       let max_idx = if start_idx > end_idx { start_idx } else { end_idx }
       collect_preorder_slice(state.preorder_ids, min_idx, max_idx)
