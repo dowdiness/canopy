@@ -120,7 +120,10 @@ fn view_inspector(dispatch : Dispatch[Msg], model : Model) -> Html {
         None => p(class="no-tree-note", "No matching node")
       }
     }
-    None => p(class="no-tree-note", "No selection")
+    None =>
+      div(class="empty-state", [
+        p(class="empty-state-text", "Click a node in the outline or editor to inspect it"),
+      ])
   }
   let aside_attrs = @html.Attrs::build()
     .role("complementary")

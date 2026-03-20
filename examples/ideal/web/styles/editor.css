@@ -335,6 +335,24 @@ button:focus-visible, .action-btn:focus-visible,
   background: var(--canopy-peer-blue);
   flex-shrink: 0;
   box-shadow: 0 0 6px var(--canopy-peer-blue);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--canopy-peer-blue); }
+  50% { opacity: 0.6; box-shadow: 0 0 3px var(--canopy-peer-blue); }
+}
+
+/* ── Empty States ──────────────────────────────────────── */
+
+.empty-state {
+  padding: var(--space-lg);
+}
+
+.empty-state-text {
+  font-size: var(--text-small);
+  color: var(--canopy-text-dim);
+  line-height: var(--leading-relaxed);
 }
 
 /* ── Editor ─────────────────────────────────────────────── */
