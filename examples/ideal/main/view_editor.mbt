@@ -14,7 +14,10 @@ fn view_editor(
     .id("canopy-text-sync-trigger")
     .aria_hidden("true")
     .tabindex(-1)
-  div(class="editor-wrapper", [
+  let main_attrs = @html.Attrs::build()
+    .role("main")
+    .aria_label("Code editor")
+  div(class="editor-wrapper", attrs=main_attrs, [
     node("canopy-editor", attrs, [@html.text("")]),
     // Hidden button clicked by JS when text-changed fires.
     // aria-hidden + tabindex=-1: invisible to screen readers and keyboard.

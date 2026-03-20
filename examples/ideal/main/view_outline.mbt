@@ -99,12 +99,19 @@ fn view_outline(dispatch : Dispatch[Msg], model : Model) -> Html {
       ])
     None => p(class="no-tree-note", "No AST available")
   }
-  div(class="outline-panel", [
-    div(class="panel-header", [span(class="panel-label", [text("OUTLINE")])]),
-    tree_body,
-    div(class="panel-section", [
-      span(class="panel-label", [text("PEERS")]),
-      div(class="peer-item", [text("Alice (you)")]),
-    ]),
-  ])
+  let nav_attrs = @html.Attrs::build()
+    .role("navigation")
+    .aria_label("AST outline")
+  div(
+    class="outline-panel",
+    attrs=nav_attrs,
+    [
+      div(class="panel-header", [span(class="panel-label", [text("OUTLINE")])]),
+      tree_body,
+      div(class="panel-section", [
+        span(class="panel-label", [text("PEERS")]),
+        div(class="peer-item", [text("Alice (you)")]),
+      ]),
+    ],
+  )
 }

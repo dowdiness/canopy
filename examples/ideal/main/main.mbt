@@ -69,11 +69,17 @@ fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
     button(
       class=if model.mode == Text { "tab active" } else { "tab" },
       on_click=dispatch(SetMode(Text)),
+      attrs=@html.Attrs::build().aria_pressed(
+        if model.mode == Text { "true" } else { "false" },
+      ),
       [text("Text")],
     ),
     button(
       class=if model.mode == Structure { "tab active" } else { "tab" },
       on_click=dispatch(SetMode(Structure)),
+      attrs=@html.Attrs::build().aria_pressed(
+        if model.mode == Structure { "true" } else { "false" },
+      ),
       [text("Structure")],
     ),
     div(class="toolbar-spacer", [text("")]),
@@ -87,6 +93,9 @@ fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
         "panel-toggle"
       },
       on_click=dispatch(TogglePanel(Outline)),
+      attrs=@html.Attrs::build().aria_pressed(
+        if model.workspace.outline_visible { "true" } else { "false" },
+      ),
       [text("Outline")],
     ),
     button(
@@ -96,6 +105,9 @@ fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
         "panel-toggle"
       },
       on_click=dispatch(TogglePanel(Inspector)),
+      attrs=@html.Attrs::build().aria_pressed(
+        if model.workspace.inspector_visible { "true" } else { "false" },
+      ),
       [text("Inspector")],
     ),
     button(
@@ -105,6 +117,9 @@ fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
         "panel-toggle"
       },
       on_click=dispatch(TogglePanel(Bottom)),
+      attrs=@html.Attrs::build().aria_pressed(
+        if model.workspace.bottom_visible { "true" } else { "false" },
+      ),
       [text("Panels")],
     ),
     div(class="toolbar-spacer", [text("")]),

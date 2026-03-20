@@ -122,9 +122,16 @@ fn view_inspector(dispatch : Dispatch[Msg], model : Model) -> Html {
     }
     None => p(class="no-tree-note", "No selection")
   }
-  div(class="inspector-panel", [
-    div(class="panel-header", [span(class="panel-label", [text("INSPECTOR")])]),
-    node_section,
-    view_crdt_info(model),
-  ])
+  let aside_attrs = @html.Attrs::build()
+    .role("complementary")
+    .aria_label("Node inspector")
+  div(
+    class="inspector-panel",
+    attrs=aside_attrs,
+    [
+      div(class="panel-header", [span(class="panel-label", [text("INSPECTOR")])]),
+      node_section,
+      view_crdt_info(model),
+    ],
+  )
 }
