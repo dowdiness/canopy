@@ -29,9 +29,13 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 - [x] Repair release workflow path drift after repo/layout rename (`parser/` → `loom/`, `web/` → `examples/web/`, `_build/.../canopy.js`, no root `moon.pkg.json`)
 - [x] Replace obsolete local copy-based web helpers (`crdt.js` → `examples/web/public/`) with the Vite plugin + `_build/js/release/build/canopy.js` flow
+- [x] Make the supported target matrix explicit in release/docs: native + JS supported, wasm not supported yet
 - [ ] If wasm support is added later, add a dedicated wasm implementation and CI job; current supported targets are native and JS only
 - [x] Unify TypeScript path aliases and generated artifact names across `examples/web` and `examples/demo-react` (`canopy.{js,d.ts}` under `_build`)
 - [x] Make release/deploy jobs call shared scripts or `make` targets instead of hard-coding duplicate module paths and artifact locations
+- [x] Point Loom CI/local helpers at the actual module root (`loom/loom`) and make the shared module runner reject non-module paths
+- [x] Keep benchmark base-branch comparison self-contained after the second checkout instead of assuming helper scripts exist on the base ref
+- [x] Fix local `fmt-check` to use `moon fmt --check` instead of mutating the worktree and diffing git state
 
 ---
 
@@ -99,7 +103,7 @@ Tracked by:
 - [x] Fix Delete/Undelete convergence bug found by fuzz testing — LWW conflict resolution with Lamport timestamps and add-wins semantics (`event-graph-walker/internal/fugue/tree.mbt`)
 - [ ] Add parser fuzz testing — random byte streams, verify no panics/aborts
 - [x] Add E2E browser tests with Playwright — `examples/demo-react` now has Playwright coverage
-- [ ] Run existing Playwright E2E in CI and pick a canonical browser app under test (`examples/demo-react` vs `examples/web`)
+- [x] Run existing Playwright E2E in CI and pick a canonical browser app under test (`examples/demo-react`)
 - [ ] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions
 
 ---
@@ -160,14 +164,12 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 | # | Proposal | Effort | Impact |
 |---|----------|--------|--------|
-| 1 | Automation drift cleanup + shared CI/release scripts | Low-Medium | High |
-| 2 | Future wasm support, currently unsupported | Low-Medium | High |
-| 3 | Complete WebSocket collaboration + recovery | High | High |
-| 4 | Run existing browser E2E in CI and pick a canonical browser app | Low-Medium | Medium |
-| 5 | Multi-editor FFI handle table | Medium | Medium-High |
-| 6 | Projection/editor file decomposition | Medium | Medium |
-| 7 | Rabbita projection editor performance | High | High |
-| 8 | Incremental parsing TODOs | Medium | Medium |
-| 9 | Memory optimization | High | Medium |
-| 10 | Parser fuzz testing | Low | Medium |
-| 11 | Code cleanup | Medium | Medium |
+| 1 | Future wasm support, currently unsupported | Low-Medium | High |
+| 2 | Complete WebSocket collaboration + recovery | High | High |
+| 3 | Multi-editor FFI handle table | Medium | Medium-High |
+| 4 | Projection/editor file decomposition | Medium | Medium |
+| 5 | Rabbita projection editor performance | High | High |
+| 6 | Incremental parsing TODOs | Medium | Medium |
+| 7 | Memory optimization | High | Medium |
+| 8 | Parser fuzz testing | Low | Medium |
+| 9 | Code cleanup | Medium | Medium |

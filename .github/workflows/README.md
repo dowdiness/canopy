@@ -11,10 +11,11 @@ This directory contains GitHub Actions workflows for automated testing, deployme
 Runs comprehensive checks on every push and PR via shared `make` and `scripts/` entrypoints:
 
 - **Test Main Module** - Tests the main Canopy module
-- **Test Submodules** - Tests each submodule (`event-graph-walker`, `loom`, `svg-dsl`, `graphviz`) in parallel
+- **Test Submodules** - Tests each submodule (`event-graph-walker`, `loom/loom`, `svg-dsl`, `graphviz`) in parallel using explicit module roots
 - **Format Check** - Ensures root formatting is clean via `make fmt-check`
 - **Build JS** - Builds `canopy.js`/`canopy.d.ts` plus Graphviz browser artifacts
-- **Web Tests** - Builds `examples/web` through `make build-web` and runs Playwright if tests exist
+- **Build Web Example** - Builds `examples/web` through `make build-web`
+- **Demo React E2E** - Runs the canonical Playwright browser suite through `make test-demo-react-e2e`
 - **Benchmark** - Runs benchmarks on PRs (optional)
 
 **Status Badge:**
@@ -29,7 +30,7 @@ Runs comprehensive checks on every push and PR via shared `make` and `scripts/` 
 Compares benchmark performance between PR and base branch using the shared MoonBit module runner:
 
 - Runs benchmarks on PR branch
-- Checks out base branch and runs benchmarks
+- Checks out base branch and runs equivalent self-contained `moon update` / `moon bench` commands
 - Posts comparison comment to PR
 - Stores results as artifacts (30-day retention)
 
@@ -108,10 +109,13 @@ make check-all
 # Build web application
 make build-web
 
+# Run the canonical browser E2E suite
+make test-demo-react-e2e
+
 # Install pre-commit hooks
 make install-hooks
 
-# Run full CI locally
+# Run the MoonBit CI checks locally
 make ci
 ```
 
@@ -166,8 +170,9 @@ Benchmarks can be noisy. Look for:
 
 Run locally:
 ```bash
+make fmt-check
+# or, to rewrite files:
 make fmt
-git diff  # Check what changed
 ```
 
 Commit formatting changes before pushing.

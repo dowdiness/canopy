@@ -61,7 +61,7 @@ Runs on every push and pull request to ensure code quality.
 
 2. **test-submodules** - Tests all submodules in parallel
    - event-graph-walker
-   - loom
+   - loom (`loom/loom` module root)
    - svg-dsl
    - graphviz
 
@@ -76,12 +76,16 @@ Runs on every push and pull request to ensure code quality.
    ```
    Uploads `canopy.js`, `canopy.d.ts`, and Graphviz browser artifacts.
 
-5. **web-test** - Tests web frontend
+5. **web-build** - Verifies `examples/web` still builds
    - Installs Node.js dependencies
-   - Builds with Vite
-   - Runs Playwright tests (if available)
+   - Runs `make build-web`
 
-6. **benchmark** (on PRs only) - Runs performance tests
+6. **demo-react-e2e** - Runs the canonical browser E2E suite
+   - Installs `examples/demo-react` dependencies
+   - Installs Playwright Chromium
+   - Runs `make test-demo-react-e2e`
+
+7. **benchmark** (on PRs only) - Runs performance tests
    ```bash
    ./scripts/run-moon-module.sh bench .
    ```
@@ -100,7 +104,7 @@ Compares benchmark results between PR and base branch.
 
 1. Run benchmarks on PR branch
 2. Checkout base branch
-3. Run root and `event-graph-walker` benchmarks through `./scripts/run-moon-module.sh bench <module>`
+3. Run root and `event-graph-walker` benchmarks on the base checkout with self-contained `moon update` / `moon bench --release` commands so the workflow does not depend on new helper scripts already existing there
 4. Compare results
 5. Post comparison as PR comment
 6. Upload raw results as artifacts
@@ -247,11 +251,12 @@ make fmt           # Format code
 make build         # Build main module
 make build-js      # Build JavaScript target
 make build-web     # Build web application
+make test-demo-react-e2e # Run canonical browser E2E
 
 # Development
 make web-dev       # Build JS + start dev server
 make clean         # Clean build artifacts
-make ci            # Run full CI locally
+make ci            # Run MoonBit CI checks locally
 
 # Setup
 make install-hooks # Install git pre-commit hooks
@@ -287,6 +292,7 @@ Located in `scripts/`:
    ./scripts/run-moon-module.sh ci .
    ./scripts/run-moon-module.sh bench event-graph-walker
    ```
+   The helper validates that the provided path is a real MoonBit module root before running commands, so `loom/loom` is used instead of the umbrella `loom/` directory.
 
 6. **build-js.sh** - Builds the canonical JS artifacts for Canopy + Graphviz
    ```bash
@@ -325,7 +331,15 @@ CI runs submodule tests in parallel using matrix strategy:
 ```yaml
 strategy:
   matrix:
-    submodule: [event-graph-walker, loom, svg-dsl, graphviz]
+    include:
+      - name: event-graph-walker
+        path: event-graph-walker
+      - name: loom
+        path: loom/loom
+      - name: svg-dsl
+        path: svg-dsl
+      - name: graphviz
+        path: graphviz
 ```
 
 **Caching:**
@@ -470,7 +484,7 @@ Configure in **Settings** → **Notifications**:
 Active follow-ups are tracked in `docs/TODO.md`. Current CI/CD-related gaps include:
 
 - [ ] If wasm support is added later, add a dedicated target implementation and CI coverage
-- [ ] Run one canonical Playwright browser app in CI
+- [x] Run one canonical Playwright browser app in CI (`examples/demo-react`)
 - [ ] Add code coverage reporting
 - [ ] Add Docker builds for reproducible environments
 

@@ -149,8 +149,8 @@ jobs:
             graphviz/_build/js/release/build/browser/browser.d.ts
           retention-days: 7
 
-  web-test:
-    name: Web Frontend Tests
+  web-build:
+    name: Build Web Example
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -173,16 +173,37 @@ jobs:
       - name: Build web
         run: make build-web
 
-      - name: Run Playwright tests (if they exist)
-        working-directory: examples/web
-        continue-on-error: true
+  demo-react-e2e:
+    name: Demo React E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
         run: |
-          if [ -d "tests" ] || [ -d "e2e" ]; then
-            npx playwright install --with-deps chromium
-            npx playwright test
-          else
-            echo "No Playwright tests found, skipping"
-          fi
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: examples/demo-react/package-lock.json
+
+      - name: Install demo-react dependencies
+        working-directory: examples/demo-react
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: examples/demo-react
+        run: npx playwright install --with-deps chromium
+
+      - name: Run demo-react Playwright suite
+        run: make test-demo-react-e2e
 
   all-checks-passed:
     name: All Checks Passed
@@ -192,7 +213,8 @@ jobs:
       - test-submodules
       - format-check
       - build-js
-      - web-test
+      - web-build
+      - demo-react-e2e
     if: always()
     steps:
       - name: Check all job statuses
@@ -201,7 +223,8 @@ jobs:
              [[ "${{ needs.test-submodules.result }}" != "success" ]] || \
              [[ "${{ needs.format-check.result }}" != "success" ]] || \
              [[ "${{ needs.build-js.result }}" != "success" ]] || \
-             [[ "${{ needs.web-test.result }}" != "success" ]]; then
+             [[ "${{ needs.web-build.result }}" != "success" ]] || \
+             [[ "${{ needs.demo-react-e2e.result }}" != "success" ]]; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

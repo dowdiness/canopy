@@ -11,11 +11,12 @@ This document summarizes the current CI/CD infrastructure for the Canopy project
 
 **Features:**
 - ✅ Tests main module through shared `make` entrypoints
-- ✅ Tests all submodules in parallel (event-graph-walker, loom, svg-dsl, graphviz)
+- ✅ Tests all submodules in parallel (event-graph-walker, loom/loom, svg-dsl, graphviz)
 - ✅ Code quality checks with `make check`
 - ✅ Format verification with `make fmt-check`
 - ✅ JavaScript build verification with `make build-js`
-- ✅ Web frontend build and testing
+- ✅ `examples/web` build verification
+- ✅ Canonical browser E2E coverage via `examples/demo-react`
 - ✅ Benchmark execution on PRs
 - ✅ Single "all checks passed" status for easy merge decisions
 
@@ -25,7 +26,8 @@ This document summarizes the current CI/CD infrastructure for the Canopy project
 **Features:**
 - ✅ Compares PR performance vs base branch
 - ✅ Posts detailed comparison as PR comment
-- ✅ Tests both main module and event-graph-walker through `scripts/run-moon-module.sh`
+- ✅ Tests PR-branch benchmarks through `scripts/run-moon-module.sh`
+- ✅ Runs base-branch benchmarks with self-contained `moon update` / `moon bench` commands after the second checkout
 - ✅ Stores results as artifacts (30-day retention)
 
 #### 3. Deploy to GitHub Pages (`.github/workflows/deploy.yml`)
@@ -97,14 +99,22 @@ Runs quality checks for all modules:
 Shared entrypoint for root and submodule CI actions:
 ```bash
 ./scripts/run-moon-module.sh ci .
-./scripts/run-moon-module.sh bench event-graph-walker
+./scripts/run-moon-module.sh ci loom/loom
 ```
+Rejects non-module directories up front, so umbrella folders like `loom/` cannot silently rerun the wrong module.
 
 #### `build-js.sh`
 Builds the canonical JS artifacts used by CI, deploy, release, and the web app:
 ```bash
 ./scripts/build-js.sh
 ```
+
+#### `test-demo-react-e2e.sh`
+Builds the current JS artifacts and runs the canonical Playwright suite:
+```bash
+./scripts/test-demo-react-e2e.sh
+```
+Forces CI-style Playwright settings locally so the shared helper matches the GitHub Actions path.
 
 #### `package-release.sh`
 Creates release archives from current build outputs:
@@ -133,10 +143,11 @@ make fmt           # Format code
 make build         # Build main module
 make build-js      # Build JavaScript
 make build-web     # Build web app
+make test-demo-react-e2e # Run canonical browser E2E
 make web-dev       # Start dev server
 make clean         # Clean artifacts
 make install-hooks # Install pre-commit hooks
-make ci            # Run full CI locally
+make ci            # Run MoonBit CI checks locally
 make update        # Update dependencies
 make bench         # Run benchmarks
 ```
@@ -215,10 +226,11 @@ git push origin v0.2.0
 # Automatically creates GitHub Release with artifacts
 ```
 
-**Run full CI locally:**
+**Run MoonBit CI locally:**
 ```bash
 make ci
-# Runs all checks that CI would run
+# Runs the MoonBit CI checks
+# Use `make test-demo-react-e2e` for the browser suite
 ```
 
 ## Coverage of TODO.md Requirements
