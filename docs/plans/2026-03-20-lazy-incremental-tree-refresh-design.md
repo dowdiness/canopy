@@ -196,11 +196,11 @@ When reusing a subtree, walk the reused `InteractiveTreeNode` to copy its entrie
 
 ## Testing Strategy
 
-1. **Behavioral equivalence** — All existing `tree_editor_wbtest.mbt` tests pass unchanged. The optimization is internal; external behavior is identical.
+1. **Behavioral equivalence** — All existing `tree_editor_wbtest.mbt` tests pass, with one expected change: the `"refresh prunes stale ids from UI state"` test assertion for `collapsed_nodes` must change from `content="false"` to `content="true"` since stale `collapsed_nodes` entries are no longer pruned. All other assertions in that test (selection, editing_node, dragging, drop_target, drop_position) remain unchanged — those fields are still pruned.
 2. **Reuse verification** — New whitebox tests verify:
    - Refresh after single-char edit reuses unchanged subtrees (Phase 2)
    - Lazy indexes are `None` after refresh, populated after first tree operation
-   - Stale collapsed/selection IDs don't cause errors
+   - Stale `collapsed_nodes` entries persist harmlessly after refresh
 3. **Benchmark comparison** — Use existing `BenchmarkSession::deferred_full_cycle_timed()` to measure `tree_refresh_ms` phase before and after, on 20-def and 80-def programs.
 4. **No new dependencies** — pure refactor of `projection/tree_editor.mbt`.
 
