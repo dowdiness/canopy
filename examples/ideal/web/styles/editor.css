@@ -13,7 +13,7 @@
   --canopy-fg: #e4e4f0;
   --canopy-text-secondary: #b8b8d0;
   --canopy-muted: #8888a8;
-  --canopy-text-dim: #6a6a88;
+  --canopy-text-dim: #787896;        /* 4.5:1 on panel-bg */
 
   /* ── Accent ────────────────────────────────────────────── */
   --canopy-accent: #8250df;
