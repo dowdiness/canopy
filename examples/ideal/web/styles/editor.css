@@ -405,6 +405,7 @@ canopy-editor {
   color: var(--canopy-muted);
   width: 76px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .inspector-value {
@@ -513,6 +514,66 @@ canopy-editor {
   font-family: var(--canopy-font-mono);
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+
+/* Tablet: narrow panels, hide one if both are on */
+@media (max-width: 1024px) {
+  .outline-panel { width: 180px; }
+  .inspector-panel { width: 200px; }
+}
+
+/* Mobile: hide panels by default, editor fills screen */
+@media (max-width: 768px) {
+  .outline-panel,
+  .inspector-panel {
+    position: fixed;
+    top: 48px;
+    bottom: 0;
+    z-index: 10;
+    width: 260px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .outline-panel {
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+  }
+
+  .inspector-panel {
+    right: 0;
+    transform: translateX(100%);
+    transition: transform 0.2s ease-out;
+  }
+
+  /* When visible (toggled on), slide in */
+  .outline-panel:not([hidden]) {
+    transform: translateX(0);
+  }
+
+  .inspector-panel:not([hidden]) {
+    transform: translateX(0);
+  }
+
+  .toolbar {
+    gap: var(--space-xs);
+    padding: 0 var(--space-sm);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide example buttons on narrow screens */
+  .example-btn { display: none; }
+
+  .toolbar-title {
+    font-size: var(--text-small);
+  }
+
+  .bottom-panel {
+    max-height: 160px;
+  }
 }
 
 /* ── Scrollbar ──────────────────────────────────────────── */
