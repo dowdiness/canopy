@@ -12,7 +12,7 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 ## 1. CI/CD & Automation
 
-**Impact:** High | **Effort:** Low-Medium | **Status:** ✅ Done
+**Impact:** High | **Effort:** Low-Medium | **Status:** In Progress
 
 - [x] Add GitHub Actions workflow to run `moon test` for both modules on push/PR
 - [x] Add `moon check` and `moon fmt --check` to CI pipeline
@@ -25,6 +25,14 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 - [x] Add helper scripts (build-web.sh, test-all.sh, check-all.sh)
 - [x] Add pre-commit hook installation script
 
+### 2026-03-21 audit follow-up
+
+- [x] Repair release workflow path drift after repo/layout rename (`parser/` → `loom/`, `web/` → `examples/web/`, `_build/.../canopy.js`, no root `moon.pkg.json`)
+- [x] Replace obsolete local copy-based web helpers (`crdt.js` → `examples/web/public/`) with the Vite plugin + `_build/js/release/build/canopy.js` flow
+- [ ] Add cross-target CI (`moon check --target all` or explicit JS/native/wasm jobs); current wasm path fails on `editor/ephemeral_time_native.mbt`
+- [x] Unify TypeScript path aliases and generated artifact names across `examples/web` and `examples/demo-react` (`canopy.{js,d.ts}` under `_build`)
+- [x] Make release/deploy jobs call shared scripts or `make` targets instead of hard-coding duplicate module paths and artifact locations
+
 ---
 
 ## 2. Collaboration Features
@@ -32,6 +40,8 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 **Impact:** High | **Effort:** High
 
 - [ ] Complete WebSocket client integration (sync protocol designed, TypeScript API stub exists)
+- [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` does not leave peers diverged silently
+- [ ] Reject duplicate/invalid relay peer IDs in `RelayRoom` instead of trusting caller uniqueness
 - [x] Fix P2-1: Remote sync pollutes undo history — `UndoManager.set_tracking()` implemented; valtio TS layer suppresses tracking during remote op application (see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Fix P2-2: Position-based undo replays stale positions after concurrent edits — replaced with LV-based UndoManager; tombstone revival restores characters at exact CRDT position regardless of concurrent edits (Phase 1+2 complete, see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Wire `apply_sync` to suppress undo tracking — `SyncEditor::apply_sync` now disables tracking before applying remote ops
@@ -88,7 +98,8 @@ Tracked by:
 - [x] Add undo-under-concurrency property test — agent undoes while another edits concurrently
 - [x] Fix Delete/Undelete convergence bug found by fuzz testing — LWW conflict resolution with Lamport timestamps and add-wins semantics (`event-graph-walker/internal/fugue/tree.mbt`)
 - [ ] Add parser fuzz testing — random byte streams, verify no panics/aborts
-- [ ] Add E2E browser tests with Playwright (already a devDependency, no automated tests yet)
+- [x] Add E2E browser tests with Playwright — `examples/demo-react` now has Playwright coverage
+- [ ] Run existing Playwright E2E in CI and pick a canonical browser app under test (`examples/demo-react` vs `examples/web`)
 - [ ] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions
 
 ---
@@ -125,19 +136,23 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ## 8. Code Cleanup
 
-**Impact:** Low | **Effort:** Low
+**Impact:** Medium | **Effort:** Medium
 
 - [ ] Convert `abort()` calls in test files to proper assertions (`assert_true` / `inspect`) for better error messages
+- [ ] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
+- [ ] Split `projection/tree_editor.mbt` into focused files (render model, refresh/reuse logic, UI/edit operations, tree indexes)
+- [ ] Split `crdt.mbt` into focused FFI files (editor core, undo, presence, relay, websocket)
 
 ---
 
 ## 9. Developer Experience
 
-**Impact:** Low-Medium | **Effort:** Low | **Status:** ✅ Done
+**Impact:** Low-Medium | **Effort:** Low-Medium | **Status:** In Progress
 
 - [x] Add top-level `Makefile` or `justfile` wrapping both-module test commands into a single invocation
 - [x] Add pre-commit hook running `moon check && moon fmt --check`
-- [x] Script the web build workflow (`moon build --target js && cp _build/js/release/build/crdt.js examples/web/public/`)
+- [x] Script the web build workflow
+- [ ] Refresh stale integration docs and examples that still refer to `crdt.js`, `target/js`, or WASM-only loading after the canopy rename and JS build flow
 
 ---
 
@@ -145,17 +160,14 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 | # | Proposal | Effort | Impact |
 |---|----------|--------|--------|
-| 1 | CI test automation | Low | High |
-| 2 | ~~Fix undo/redo (P2-1, P2-2)~~ ✅ Done | ~~Medium~~ | ~~High~~ |
-| 2a | ~~Wire apply_sync tracking suppression + sync undo ops to peers~~ ✅ Done | ~~Low-Medium~~ | ~~High~~ |
-| 3 | Complete WebSocket collaboration | High | High |
-| 4 | E2E browser tests | Low | Medium |
-| 5 | Benchmark regression CI | Medium | Medium |
-| 6 | Rabbita projection editor performance | High | High |
-| 7 | Tree edit bridge tech debt | Medium-High | Medium |
+| 1 | Automation drift cleanup + shared CI/release scripts | Low-Medium | High |
+| 2 | Cross-target CI / explicit wasm stance | Low-Medium | High |
+| 3 | Complete WebSocket collaboration + recovery | High | High |
+| 4 | Run existing browser E2E in CI and pick a canonical browser app | Low-Medium | Medium |
+| 5 | Multi-editor FFI handle table | Medium | Medium-High |
+| 6 | Projection/editor file decomposition | Medium | Medium |
+| 7 | Rabbita projection editor performance | High | High |
 | 8 | Incremental parsing TODOs | Medium | Medium |
-| 9 | Single-command test runner | Low | Low-Med |
-| 10 | Code cleanup | Low | Low |
-| 11 | Memory optimization | High | Medium |
-| 12 | ~~CRDT convergence fuzz testing~~ ✅ Done (+ bug found & fixed) | ~~Medium~~ | ~~Medium~~ |
-| 12a | Parser fuzz testing | Low | Medium |
+| 9 | Memory optimization | High | Medium |
+| 10 | Parser fuzz testing | Low | Medium |
+| 11 | Code cleanup | Medium | Medium |
