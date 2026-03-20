@@ -87,6 +87,8 @@ Historical documentation, completed plans, and investigations.
 - [ProseMirror + CodeMirror 6 Impl](archive/2026-03-18-prosemirror-codemirror-integration-impl.md)
 - [Ephemeral Store v2 Design](archive/2026-03-19-ephemeral-store-v2-design.md) — Hub, namespaces, sync protocol
 - [Ephemeral Store v2 Impl](archive/2026-03-19-ephemeral-store-v2-impl.md)
+- [WebSocket Transport Design](archive/2026-03-19-websocket-transport-design.md) — MoonBit-first relay + client, CF Durable Objects
+- [WebSocket Transport Impl](archive/2026-03-19-websocket-transport-impl.md)
 
 ### Earlier Archive
 
