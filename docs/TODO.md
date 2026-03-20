@@ -12,7 +12,7 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 ## 1. CI/CD & Automation
 
-**Impact:** High | **Effort:** Low-Medium | **Status:** In Progress
+**Impact:** High | **Effort:** Low-Medium | **Status:** Done
 
 - [x] Add GitHub Actions workflow to run `moon test` for both modules on push/PR
 - [x] Add `moon check` and `moon fmt --check` to CI pipeline
@@ -87,7 +87,7 @@ Tracked by:
 
 **Impact:** Medium | **Effort:** High
 
-- [ ] Apply RLE memory optimization across full pipeline (estimated 50-80% reduction, Phase 2 TextSpan done)
+- [x] Apply RLE memory optimization across CRDT pipeline — ✅ Done. Phases 0-3 merged: OpLog compressed to `Rle[OpRun]`, Document position cache to `Rle[VisibleRun]`, walker output to `Rle[LvRange]`, sync wire format compressed. See `event-graph-walker/docs/benchmarks/2026-03-18-rle-all-phases-complete.md`
 - [ ] Implement lazy loading for 100k+ operation documents (load causal graph skeleton, hydrate on demand)
 - [ ] Add B-tree indexing for FugueTree (O(n) → O(log n) random-access character lookup)
 
