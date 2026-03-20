@@ -517,3 +517,6 @@ cd examples/prosemirror && npm run dev
 3. **Binary CRDT codec** — MVP uses JSON-as-Bytes for `@text.SyncMessage` serialization. A binary codec would be more efficient but is not needed for MVP.
 4. **Multiple rooms** — the CF Worker routes by room ID in the URL query param. Each room gets its own DO instance.
 5. **N-peer state dump** — when a late joiner connects, all N existing peers send full state. A future optimization could designate one peer as the responder.
+6. **Error recovery / resync** — malformed or incompatible CrdtOps are silently dropped, leaving the peer diverged. Implement SyncRequest/SyncResponse so peers can request missing state after errors.
+7. **Multi-editor support** — the JS export layer uses a single global editor (`_handle` is ignored). Multi-editor requires a handle→SyncEditor map.
+8. **Relay peer ID trust** — RelayRoom trusts caller-supplied peer IDs (no duplicate check, no membership validation). Server-side TypeScript assigns IDs via `crypto.randomUUID()`, but the relay itself has no guards.
