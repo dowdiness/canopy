@@ -2,14 +2,10 @@
 using @html {button, div, p, span, text}
 
 ///|
-using @rabbita {type Cmd, type Dispatch, type Html, none}
+using @rabbita {type Cmd, type Dispatch, type Html, delay, none}
 
 ///|
-// Note: deferred_refresh_ms is unused because text edits bypass Rabbita entirely
-// (they flow through the Web Component bridge → CM6 → CRDT → reconcile).
-// Outline refresh is synchronous via the `refresh()` helper.
-// Retained for future use if async outline refresh is needed.
-let _deferred_refresh_ms = 16
+let deferred_refresh_ms = 16
 
 ///|
 fn init_model() -> Model {
@@ -248,7 +244,15 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let js_text = js_get_editor_text()
       if js_text != "" && js_text != model.editor.get_text() {
         model.editor.set_text(js_text)
-        (none, refresh(model))
+        let updated = { ..model, projection_dirty: true }
+        if model.refresh_scheduled {
+          (none, updated)
+        } else {
+          (
+            delay(dispatch(RefreshProjection), deferred_refresh_ms),
+            { ..updated, refresh_scheduled: true },
+          )
+        }
       } else {
         (none, model)
       }
