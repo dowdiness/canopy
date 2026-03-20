@@ -273,7 +273,7 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         _ => (none, model)
       }
-    RefreshProjection => {
+    RefreshProjection =>
       // model.editor IS the crdt singleton — already has latest text.
       // Just rebuild the outline from the current projection.
       if model.projection_dirty {
@@ -281,7 +281,6 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (none, { ..model, refresh_scheduled: false })
       }
-    }
     Undo => {
       // Undo on JS-side CRDT, sync CM6, then trigger text sync back
       let cmd = @rabbita.effect(fn() { js_undo_and_sync() })
@@ -305,21 +304,14 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     TextChangedFromEditor => {
       // model.editor IS the crdt singleton — text is already updated by CM6.
       // Just mark projection dirty and schedule a deferred refresh.
-      if model.projection_dirty && model.refresh_scheduled {
-        // Already scheduled — no-op
-        (none, model)
+      let updated = { ..model, projection_dirty: true }
+      if model.refresh_scheduled {
+        (none, updated)
       } else {
-        let updated = { ..model, projection_dirty: true }
-        if model.refresh_scheduled {
-          (none, updated)
-        } else {
-          (
-            delay(dispatch(RefreshProjection), deferred_refresh_ms),
-            { ..updated, refresh_scheduled: true },
-          )
-        }
-      } else {
-        (none, model)
+        (
+          delay(dispatch(RefreshProjection), deferred_refresh_ms),
+          { ..updated, refresh_scheduled: true },
+        )
       }
     }
   }

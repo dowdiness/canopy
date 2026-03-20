@@ -558,6 +558,36 @@ canopy-editor {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Graphviz ───────────────────────────────────────────── */
+
+.graphviz-content {
+  display: flex;
+  gap: var(--space-lg);
+  overflow: auto;
+}
+
+.graphviz-svg-container {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.graphviz-svg-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.graphviz-dot-source {
+  font-family: var(--canopy-font-mono);
+  font-size: var(--text-small);
+  color: var(--canopy-text-dim);
+  white-space: pre;
+  overflow: auto;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Panel visibility transitions ───────────────────────── */
 
 .panel-visible {

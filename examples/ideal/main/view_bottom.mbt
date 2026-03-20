@@ -67,11 +67,9 @@ fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
         ]),
       ])
     Graphviz =>
-      @html.div(class="bottom-content", [
-        @html.span(class="no-problems", [
-          @html.text(
-            "Graphviz visualization (requires graphviz submodule integration)",
-          ),
+      @html.div(class="bottom-content graphviz-content", [
+        @html.pre(class="graphviz-dot-source", [
+          @html.text(model.editor.get_dot_resolved()),
         ]),
       ])
   }
