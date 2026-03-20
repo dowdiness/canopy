@@ -296,6 +296,94 @@ fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
 }
 
 ///|
+/// Check if a subtree can be completely skipped during refresh.
+fn can_skip_subtree(
+  proj_node : ProjNode,
+  prev_node : InteractiveTreeNode,
+  source_map : SourceMap,
+  ui_state : TreeUIState,
+) -> Bool {
+  let node_id = prev_node.id
+  // Check text_range — positions shift when text is inserted/deleted before this node
+  let text_range = match source_map.get_range(node_id) {
+    Some(range) => range
+    None => Range::new(proj_node.start, proj_node.end)
+  }
+  if text_range != prev_node.text_range {
+    return false
+  }
+  // Check UI state matches
+  let collapsed = ui_state.collapsed_nodes.contains(node_id)
+  if collapsed != prev_node.collapsed {
+    return false
+  }
+  let selected = ui_state.selection.contains(node_id)
+  if selected != prev_node.selected {
+    return false
+  }
+  let editing = match ui_state.editing_node {
+    Some(id) => id == node_id
+    None => false
+  }
+  if editing != prev_node.editing {
+    return false
+  }
+  let drop_target = match ui_state.drop_target {
+    Some(id) => id == node_id
+    None => false
+  }
+  if drop_target != prev_node.drop_target {
+    return false
+  }
+  // Check shape matches
+  if interactive_node_shape(proj_node.kind) !=
+    interactive_node_shape(prev_node.kind) {
+    return false
+  }
+  if get_node_label(proj_node.kind) != prev_node.label {
+    return false
+  }
+  // Check children representation matches current collapsed state and recurse
+  match prev_node.children {
+    Loaded(prev_children) => {
+      // If currently collapsed but previously loaded, must rebuild as Elided
+      if collapsed {
+        return false
+      }
+      if proj_node.children.length() != prev_children.length() {
+        return false
+      }
+      for i, child in proj_node.children {
+        if NodeId(child.node_id) != prev_children[i].id {
+          return false
+        }
+        if not(can_skip_subtree(child, prev_children[i], source_map, ui_state)) {
+          return false
+        }
+      }
+      true
+    }
+    Elided(_) => collapsed // Elided matches if still collapsed
+  }
+}
+
+///|
+/// Copy all loaded_nodes entries from a reused subtree.
+fn carry_over_loaded_nodes(
+  node : InteractiveTreeNode,
+  target : Map[NodeId, InteractiveTreeNode],
+) -> Unit {
+  target[node.id] = node
+  match node.children {
+    Loaded(children) =>
+      for child in children {
+        carry_over_loaded_nodes(child, target)
+      }
+    Elided(_) => ()
+  }
+}
+
+///|
 /// Simplified refresh that skips eager index building.
 /// Populates `new_loaded_nodes` as it walks but does not build preorder_ids,
 /// parent_by_child, or preorder_range_by_root.
@@ -323,6 +411,16 @@ fn refresh_node_minimal(
   }
   let label = get_node_label(node.kind)
   let previous_node = previous_nodes.get(node_id)
+  // Phase 2: subtree skip — check if entire subtree can be reused
+  match previous_node {
+    Some(previous) =>
+      if can_skip_subtree(node, previous, source_map, ui_state) {
+        // Carry over all loaded_nodes entries from reused subtree
+        carry_over_loaded_nodes(previous, new_loaded_nodes)
+        return { node: previous, reused_previous: true }
+      }
+    None => ()
+  }
   if collapsed {
     let mut descendant_count = 0
     for child in node.children {

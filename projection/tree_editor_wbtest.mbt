@@ -66,6 +66,42 @@ fn tree_editor_test_refresh_minimal(
 }
 
 ///|
+test "refresh_node_minimal skips unchanged subtrees" {
+  let (old_root, _) = parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let old_source_map = SourceMap::from_ast(old_root)
+  let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
+  let (new_root, _) = parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let reconciled = reconcile_ast(old_root, new_root, Ref::new(1000))
+  let source_map = SourceMap::from_ast(reconciled)
+  let ui_state : TreeUIState = {
+    collapsed_nodes: @immut/hashset.new(),
+    selection: @immut/hashset.new(),
+    editing_node: None,
+    drop_target: None,
+  }
+  let new_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+  let left_result = refresh_node_minimal(
+    reconciled.children[0],
+    source_map,
+    ui_state,
+    state.loaded_nodes,
+    new_loaded_nodes,
+  )
+  // Left subtree is unchanged — should be reused AND children carried over
+  inspect(left_result.reused_previous, content="true")
+  // All left subtree nodes should be carried over to new_loaded_nodes
+  let old_tree = match state.tree {
+    Some(tree) => tree
+    None => abort("expected tree")
+  }
+  let left_children = tree_editor_test_loaded_children(
+    tree_editor_test_loaded_children(old_tree)[0],
+  )
+  inspect(new_loaded_nodes.get(left_children[0].id) is Some(_), content="true")
+  inspect(new_loaded_nodes.get(left_children[1].id) is Some(_), content="true")
+}
+
+///|
 test "TreeEditorState::new creates empty state" {
   let state = TreeEditorState::new()
   inspect(state.tree is None, content="true")
