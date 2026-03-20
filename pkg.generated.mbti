@@ -82,6 +82,8 @@ pub fn undo_manager_set_tracking(Int, Bool) -> Unit
 
 pub fn undo_manager_undo(Int) -> Bool
 
+pub fn ws_broadcast_cursor(Int) -> Unit
+
 pub fn ws_broadcast_edit(Int) -> Unit
 
 pub fn ws_on_close(Int) -> Unit

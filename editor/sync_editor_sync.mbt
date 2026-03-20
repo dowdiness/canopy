@@ -15,7 +15,12 @@ pub fn SyncEditor::apply_sync(
 ) -> Unit raise {
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
-  self.doc.sync().apply(msg)
+  self.doc.sync().apply(msg) catch {
+    e => {
+      self.undo.set_tracking(true)
+      raise e
+    }
+  }
   self.undo.set_tracking(true)
   let new_source = self.doc.text()
   self.adjust_cursor()

@@ -9,13 +9,10 @@ pub fn encode_peer_left(String) -> Bytes
 // Errors
 
 // Types and methods
-pub struct RelayPeer {
-  peer_id : String
-  send_fn : (Bytes) -> Unit
-}
+type RelayPeer
 
 pub struct RelayRoom {
-  mut peers : Array[RelayPeer]
+  // private fields
 }
 pub fn RelayRoom::new() -> Self
 pub fn RelayRoom::on_connect(Self, String, (Bytes) -> Unit) -> Unit

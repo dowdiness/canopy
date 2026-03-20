@@ -471,7 +471,10 @@ pub fn relay_on_message(
   peer_id : String,
   data : Bytes,
 ) -> Unit {
-  get_or_create_room(room_id).on_message(peer_id, data)
+  match relay_rooms.get(room_id) {
+    Some(room) => room.on_message(peer_id, data)
+    None => () // ignore messages for non-existent rooms
+  }
 }
 
 ///|
@@ -519,6 +522,14 @@ pub fn ws_on_close(_handle : Int) -> Unit {
 pub fn ws_broadcast_edit(_handle : Int) -> Unit {
   match editor.val {
     Some(ed) => ed.ws_broadcast_edit()
+    None => ()
+  }
+}
+
+///|
+pub fn ws_broadcast_cursor(_handle : Int) -> Unit {
+  match editor.val {
+    Some(ed) => ed.ws_broadcast_cursor()
     None => ()
   }
 }

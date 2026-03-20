@@ -7,8 +7,8 @@ test "two editors sync via relay" {
   let editor_b = @editor.SyncEditor::new("bob")
   // Create relay room and wire send functions to editors
   let room = @relay.RelayRoom::new()
-  let send_to_a : (Bytes) -> Unit = fn(data) { editor_a.ws_on_message(data) }
-  let send_to_b : (Bytes) -> Unit = fn(data) { editor_b.ws_on_message(data) }
+  let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
+  let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)
   room.on_connect("alice", send_to_a)
   room.on_connect("bob", send_to_b)
   // Alice sets text
@@ -27,14 +27,13 @@ test "two editors sync via relay" {
 }
 
 ///|
-test "late joiner catches up via PeerJoined" {
+test "late joiner catches up via CrdtOps frame" {
   // Alice creates editor and sets text before Bob joins
   let editor_a = @editor.SyncEditor::new("alice")
   editor_a.set_text("world")
   inspect(editor_a.get_text(), content="world")
-  // Bob joins later
+  // Bob joins later — simulate catch-up by sending full CRDT state directly
   let editor_b = @editor.SyncEditor::new("bob")
-  // Simulate PeerJoined catch-up: Alice manually sends full CRDT state to Bob
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
   let buf = @buffer.new()
@@ -60,8 +59,8 @@ test "peer disconnect cleans up ephemeral via relay" {
   inspect(peers_before.length(), content="1")
   // Now simulate Bob disconnecting via relay
   let room = @relay.RelayRoom::new()
-  let send_to_a : (Bytes) -> Unit = fn(data) { editor_a.ws_on_message(data) }
-  let send_to_b : (Bytes) -> Unit = fn(data) { editor_b.ws_on_message(data) }
+  let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
+  let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)
   room.on_connect("alice", send_to_a)
   room.on_connect("bob", send_to_b)
   // Disconnect bob — relay sends PeerLeft to alice

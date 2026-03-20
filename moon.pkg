@@ -52,6 +52,7 @@ options(
         "ws_on_message",
         "ws_on_close",
         "ws_broadcast_edit",
+        "ws_broadcast_cursor",
       ],
     },
   },

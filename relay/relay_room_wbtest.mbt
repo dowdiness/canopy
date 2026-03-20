@@ -1,7 +1,7 @@
 ///|
 fn make_recorder() -> ((Bytes) -> Unit, Array[Bytes]) {
   let messages : Array[Bytes] = []
-  let send_fn = fn(data : Bytes) { messages.push(data) }
+  let send_fn = (data : Bytes) => messages.push(data)
   (send_fn, messages)
 }
 

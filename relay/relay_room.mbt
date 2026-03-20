@@ -1,12 +1,12 @@
 ///|
-pub struct RelayPeer {
+struct RelayPeer {
   peer_id : String
   send_fn : (Bytes) -> Unit
 }
 
 ///|
 pub struct RelayRoom {
-  mut peers : Array[RelayPeer]
+  priv mut peers : Array[RelayPeer]
 }
 
 ///|
