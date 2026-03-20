@@ -119,7 +119,7 @@ export class CanopyEditor extends HTMLElement {
               backgroundColor: "transparent",
               color: "var(--canopy-fg, #e8e8f0)",
               fontFamily: "var(--canopy-font-mono, 'Iosevka', monospace)",
-              fontSize: "14px",
+              fontSize: "18px",
             },
             ".cm-content": {
               caretColor: "var(--canopy-fg, #e8e8f0)",

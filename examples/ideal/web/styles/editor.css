@@ -40,11 +40,11 @@
   --canopy-font-mono: 'Iosevka', 'Iosevka Web', monospace;
   --canopy-font-ui: 'Manrope', system-ui, sans-serif;
 
-  /* ── Type scale (1.25 ratio, rem for zoom support) ───── */
-  --text-caption: 0.6875rem;    /* 11px — labels, badges, metadata */
-  --text-small: 0.75rem;        /* 12px — tree, inspector, secondary */
-  --text-body: 0.8125rem;       /* 13px — toolbar, primary UI */
-  --text-code: 0.875rem;        /* 14px — code editor */
+  /* ── Type scale (generous for readability) ───────────── */
+  --text-caption: 0.8125rem;    /* 13px — labels, badges, metadata */
+  --text-small: 0.875rem;       /* 14px — tree, inspector, secondary */
+  --text-body: 1rem;             /* 16px — toolbar, primary UI */
+  --text-code: 1.125rem;         /* 18px — code editor */
 
   /* ── Type weights (clear role separation) ────────────── */
   --weight-regular: 400;        /* body text, values, code */
@@ -255,7 +255,7 @@ button:focus-visible,
 .tree-row.kind-error .tree-accent { background: var(--canopy-error); }
 
 .tree-toggle {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   width: 14px;
   text-align: center;
   background: none;
@@ -285,7 +285,7 @@ button:focus-visible,
 .tree-row.depth-7 { padding-left: 118px; }
 
 .collapsed-badge {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--canopy-muted);
   margin-left: auto;
   background: var(--canopy-surface);
