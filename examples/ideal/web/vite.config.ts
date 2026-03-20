@@ -6,11 +6,6 @@ export default defineConfig({
     moonbitPlugin({
       modules: [
         {
-          name: '@moonbit/canopy',
-          path: '../../..',
-          output: '_build/js/release/build/canopy.js'
-        },
-        {
           name: '@moonbit/ideal-editor',
           path: '..',
           output: '_build/js/release/build/main/main.js'
@@ -20,7 +15,6 @@ export default defineConfig({
   ],
   server: {
     fs: {
-      // Allow reading MoonBit build output from the monorepo root
       allow: ['../../..']
     }
   },
@@ -28,6 +22,6 @@ export default defineConfig({
     target: 'esnext'
   },
   optimizeDeps: {
-    exclude: ['@moonbit/canopy', '@moonbit/ideal-editor']
+    exclude: ['@moonbit/ideal-editor']
   }
 });
