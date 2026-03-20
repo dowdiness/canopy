@@ -1,5 +1,5 @@
 import { defineConfig, type PluginOption } from 'vite';
-import { moonbitPlugin } from '../web/vite-plugin-moonbit';
+import { moonbitPlugin } from '../../web/vite-plugin-moonbit';
 
 export default defineConfig({
   plugins: [
@@ -7,7 +7,7 @@ export default defineConfig({
       modules: [
         {
           name: '@moonbit/canopy',
-          path: '../..',
+          path: '../../..',
           output: '_build/js/release/build/canopy.js'
         }
       ]
@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     fs: {
       // Allow reading MoonBit build output from the monorepo root
-      allow: ['../..']
+      allow: ['../../..']
     }
   },
   build: {
