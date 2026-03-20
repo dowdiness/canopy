@@ -8,18 +8,28 @@ import * as crdt from '@moonbit/canopy';
 // Expose CRDT module globally for MoonBit FFI bridge functions
 (globalThis as any).__canopy_crdt = crdt;
 
-// After Rabbita renders <canopy-editor>, mount the PM editor.
-// requestAnimationFrame ensures the custom element is in the DOM.
-requestAnimationFrame(() => {
+// Wait for Rabbita to render <canopy-editor> into the DOM, then mount PM+CM6.
+// Rabbita renders asynchronously, so we use MutationObserver instead of requestAnimationFrame.
+function mountWhenReady() {
   const el = document.querySelector('canopy-editor') as CanopyEditor | null;
-  if (!el) {
-    console.warn('[main] canopy-editor element not found in DOM');
+  if (el) {
+    const handle = crdt.create_editor_with_undo('local', 500);
+    const text = 'let id = \\x.x in let apply = \\f.\\x.f x in apply id 42';
+    crdt.set_text(handle, text);
+    el.mount(handle, crdt);
     return;
   }
-  // Create a CRDT editor via the handle-based API (singleton handle = 1)
-  const handle = crdt.create_editor_with_undo('local', 500);
-  // Initialize with the same text as MoonBit's init_model
-  const text = 'let id = \\x.x in let apply = \\f.\\x.f x in apply id 42';
-  crdt.set_text(handle, text);
-  el.mount(handle, crdt);
-});
+  // Element not yet rendered — observe DOM for its appearance
+  const observer = new MutationObserver((_mutations, obs) => {
+    const found = document.querySelector('canopy-editor') as CanopyEditor | null;
+    if (found) {
+      obs.disconnect();
+      const handle = crdt.create_editor_with_undo('local', 500);
+      const text = 'let id = \\x.x in let apply = \\f.\\x.f x in apply id 42';
+      crdt.set_text(handle, text);
+      found.mount(handle, crdt);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+mountWhenReady();
