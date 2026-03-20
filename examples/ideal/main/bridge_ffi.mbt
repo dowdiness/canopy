@@ -48,6 +48,32 @@ extern "js" fn js_get_editor_text() -> String =
   #| }
 
 ///|
+/// Undo on the JS-side CRDT editor, sync CM6, and trigger MoonBit text sync.
+extern "js" fn js_undo_and_sync() -> Unit =
+  #| function() {
+  #|   var crdt = globalThis.__canopy_crdt;
+  #|   if (!crdt) return;
+  #|   crdt.undo_manager_undo(1);
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (el) el.projNode = '';
+  #|   var btn = document.getElementById('canopy-text-sync-trigger');
+  #|   if (btn) btn.click();
+  #| }
+
+///|
+/// Redo on the JS-side CRDT editor, sync CM6, and trigger MoonBit text sync.
+extern "js" fn js_redo_and_sync() -> Unit =
+  #| function() {
+  #|   var crdt = globalThis.__canopy_crdt;
+  #|   if (!crdt) return;
+  #|   crdt.undo_manager_redo(1);
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (el) el.projNode = '';
+  #|   var btn = document.getElementById('canopy-text-sync-trigger');
+  #|   if (btn) btn.click();
+  #| }
+
+///|
 /// Wire the text-changed event from <canopy-editor> to click a hidden button.
 /// The hidden button has Rabbita's on_click=dispatch(TextChangedFromEditor),
 /// so clicking it triggers the Rabbita update loop properly.

@@ -230,18 +230,13 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     Undo => {
-      ignore(model.editor.undo())
-      let new_model = refresh(model)
-      let text = new_model.editor.get_text()
-      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
-      (cmd, new_model)
+      // Undo on JS-side CRDT, sync CM6, then trigger text sync back
+      let cmd = @rabbita.effect(fn() { js_undo_and_sync() })
+      (cmd, model)
     }
     Redo => {
-      ignore(model.editor.redo())
-      let new_model = refresh(model)
-      let text = new_model.editor.get_text()
-      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
-      (cmd, new_model)
+      let cmd = @rabbita.effect(fn() { js_redo_and_sync() })
+      (cmd, model)
     }
     LoadExample(example_text) => {
       model.editor.set_text(example_text)
