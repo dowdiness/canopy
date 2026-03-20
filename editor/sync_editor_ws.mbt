@@ -1,9 +1,11 @@
 // WebSocket lifecycle methods for SyncEditor.
 
 ///|
+/// Called when WebSocket connects. Stores the ws reference.
+/// Note: the relay server handles PeerJoined broadcast on connect —
+/// the client does NOT send PeerJoined itself (that would duplicate it).
 pub fn SyncEditor::ws_on_open(self : SyncEditor, ws : JsWebSocket) -> Unit {
   self.ws = Some(ws)
-  self.ws_send(encode_message(PeerJoined(self.peer_id)))
 }
 
 ///|
