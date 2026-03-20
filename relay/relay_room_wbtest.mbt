@@ -84,6 +84,7 @@ test "sender does not receive own broadcast" {
   room.on_message("bob", b"\xFF")
   inspect(msgs_b.length(), content="0")
   inspect(msgs_a.length(), content="1")
+  inspect(msgs_a[0] == b"\xFF", content="true")
 }
 
 ///|

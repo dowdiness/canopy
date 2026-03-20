@@ -18,6 +18,11 @@ pub fn SyncEditor::apply_sync(
   self.doc.sync().apply(msg) catch {
     e => {
       self.undo.set_tracking(true)
+      // Reconcile derived state in case apply partially mutated the doc
+      let new_source = self.doc.text()
+      self.adjust_cursor()
+      self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+      self.sync_parser_after_text_change(old_source, new_source, None)
       raise e
     }
   }
