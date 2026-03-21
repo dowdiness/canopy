@@ -630,6 +630,7 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
       ]),
     ]),
     div(class=bottom_class, [view_bottom_content(dispatch, model)]),
+    view_action_overlay(dispatch, model),
   ])
 }
 
