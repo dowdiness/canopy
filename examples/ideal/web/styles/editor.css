@@ -600,6 +600,12 @@ canopy-editor {
   height: auto;
 }
 
+/* ── Panel scrim (mobile only — hidden on desktop) ─────── */
+
+.panel-scrim {
+  display: none;
+}
+
 /* ── Panel visibility transitions ───────────────────────── */
 
 .panel-visible {
@@ -682,11 +688,11 @@ canopy-editor {
   /* Hide example buttons — use the examples via menu on mobile */
   .example-btn { display: none; }
 
-  /* Larger touch targets for toolbar buttons */
+  /* Touch targets: 44px minimum per WCAG 2.5.8 */
   .toolbar-btn, .tab, .panel-toggle {
-    min-height: 36px;
-    min-width: 36px;
-    padding: var(--space-sm) var(--space-md);
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--space-md) var(--space-md);
   }
 
   /* Hide spacers on mobile — let flex-gap handle spacing */
@@ -697,7 +703,7 @@ canopy-editor {
   .outline-panel,
   .inspector-panel {
     position: fixed;
-    top: 48px;
+    top: calc(48px + env(safe-area-inset-top, 0px));
     bottom: 0;
     z-index: 20;
     width: min(280px, 80vw);
@@ -705,6 +711,25 @@ canopy-editor {
     /* Reset desktop transitions/hidden state */
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* ── Scrim: dim backdrop behind drawer panels ──────────── */
+
+  .panel-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    z-index: 15;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity var(--duration-normal) var(--ease-out-quart);
+  }
+
+  .panel-scrim.scrim-hidden {
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* Outline slides from left */
@@ -768,16 +793,16 @@ canopy-editor {
   .tree-row.depth-6 { padding-left: 80px; }
   .tree-row.depth-7 { padding-left: 92px; }
 
-  /* Larger touch target for tree rows */
+  /* Touch targets: 44px minimum per WCAG 2.5.8 */
   .tree-row {
-    padding-top: 8px;
-    padding-bottom: 8px;
-    min-height: 36px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    min-height: 44px;
   }
 
   .tree-toggle {
-    width: 24px;
-    min-height: 24px;
+    width: 28px;
+    min-height: 28px;
     font-size: var(--text-small);
   }
 
@@ -827,12 +852,16 @@ canopy-editor {
 
   .outline-panel,
   .inspector-panel {
-    top: 40px;
+    top: calc(40px + env(safe-area-inset-top, 0px));
   }
 
   .outline-panel.panel-hidden,
   .inspector-panel.panel-hidden {
-    top: 40px;
+    top: calc(40px + env(safe-area-inset-top, 0px));
+  }
+
+  .panel-scrim {
+    top: calc(40px + env(safe-area-inset-top, 0px));
   }
 
   .bottom-panel { max-height: 30vh; }

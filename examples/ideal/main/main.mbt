@@ -224,6 +224,11 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       (none, { ..model, workspace, })
     }
+    DismissPanels => {
+      let ws = model.workspace
+      let workspace = { ..ws, outline_visible: false, inspector_visible: false }
+      (none, { ..model, workspace, })
+    }
     SelectBottomTab(tab) => {
       let new_model = { ..model, bottom_tab: tab }
       (graphviz_render_cmd(new_model), new_model)
@@ -359,9 +364,22 @@ fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
   let inspector_attrs = @html.Attrs::build()
     .role("complementary")
     .aria_label("Node inspector")
+  // Scrim visible when either side panel is open (used on mobile as drawer backdrop)
+  let scrim_class = if model.workspace.outline_visible ||
+    model.workspace.inspector_visible {
+    "panel-scrim"
+  } else {
+    "panel-scrim scrim-hidden"
+  }
   div(class="app-shell", [
     view_toolbar(dispatch, model),
     div(class="workspace", [
+      div(
+        class=scrim_class,
+        on_click=dispatch(DismissPanels),
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        [text("")],
+      ),
       div(class=outline_class, attrs=outline_attrs, [
         div(class="panel-header", [span(class="panel-label", [text("OUTLINE")])]),
         view_outline_content(dispatch, model),

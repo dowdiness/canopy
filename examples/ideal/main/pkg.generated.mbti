@@ -81,6 +81,7 @@ pub enum Msg {
   Undo
   Redo
   TreeEdited(@projection.TreeEditOp)
+  DismissPanels
   LoadExample(String)
   OutlineNodeClicked(String)
   TextChangedFromEditor

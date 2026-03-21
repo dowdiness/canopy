@@ -13,6 +13,7 @@ pub enum Msg {
   // Tree editing (outline collapse/expand)
   TreeEdited(@proj.TreeEditOp)
   // UI
+  DismissPanels
   LoadExample(String)
   OutlineNodeClicked(String)
   // Sync
