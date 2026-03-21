@@ -40,6 +40,7 @@ pub struct OverlayState {
   actions : Array[@proj.Action]
   node_context : NodeActionContext?
   submenu : @proj.Action?
+  pending_action : @proj.Action?
   name_prompt : Bool
   name_value : String
   name_error : String

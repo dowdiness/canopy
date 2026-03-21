@@ -40,6 +40,7 @@ fn init_model() -> Model {
       actions: [],
       node_context: None,
       submenu: None,
+      pending_action: None,
       name_prompt: false,
       name_value: "",
       name_error: "",
@@ -216,6 +217,134 @@ fn apply_structural_edit_request(
 }
 
 ///|
+fn closed_overlay() -> OverlayState {
+  {
+    visible: false,
+    actions: [],
+    node_context: None,
+    submenu: None,
+    pending_action: None,
+    name_prompt: false,
+    name_value: "",
+    name_error: "",
+    anchor_top: 0,
+    anchor_left: 0,
+  }
+}
+
+///|
+/// Parse the bounding rect JSON from js_get_selected_node_rect into (top, left).
+fn parse_anchor_rect(json_str : String) -> (Int, Int) {
+  let json = try {
+    @json.parse(json_str)
+  } catch {
+    _ => return (0, 0)
+  }
+  match json {
+    Json::Object(m) => {
+      let top = match m.get("bottom") {
+        Some(Json::Number(n, ..)) => n.to_int()
+        _ => 0
+      }
+      let left = match m.get("left") {
+        Some(Json::Number(n, ..)) => n.to_int()
+        _ => 0
+      }
+      (top, left)
+    }
+    _ => (0, 0)
+  }
+}
+
+///|
+/// Open the action overlay for the given node ID string.
+fn open_action_overlay(model : Model, node_id_str : String) -> Model {
+  if node_id_str == "" {
+    return model
+  }
+  let ctx = match detect_action_context(model.editor, node_id_str) {
+    Some(c) => c
+    None => return model
+  }
+  let term = match term_from_kind_name(ctx.kind) {
+    Some(t) => t
+    None => return model
+  }
+  let proj_ctx = to_proj_context(ctx)
+  let actions = @proj.get_actions_for_node(term, proj_ctx)
+  if actions.is_empty() {
+    return model
+  }
+  let rect_json = js_get_selected_node_rect()
+  let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
+  js_set_overlay_open(true)
+  {
+    ..model,
+    overlay: {
+      visible: true,
+      actions,
+      node_context: Some(ctx),
+      submenu: None,
+      pending_action: None,
+      name_prompt: false,
+      name_value: "",
+      name_error: "",
+      anchor_top,
+      anchor_left,
+    },
+  }
+}
+
+///|
+/// Execute an action: build the tree edit op and apply it.
+/// Returns (Cmd, Model) after execution.
+fn execute_action(
+  model : Model,
+  action : @proj.Action,
+  choice : String,
+  name : String,
+) -> (Cmd, Model) {
+  let ctx = match model.overlay.node_context {
+    Some(c) => c
+    None => return (none, model)
+  }
+  match build_tree_edit_op(action.id, ctx, choice, name) {
+    Ok(Some(op)) =>
+      match model.editor.apply_tree_edit(op, model.next_timestamp) {
+        Ok(_) => {
+          js_set_overlay_open(false)
+          let cmd = @rabbita.effect(fn() { js_reconcile_after_tree_edit() })
+          let new_model = refresh({
+            ..model,
+            next_timestamp: model.next_timestamp + 1,
+            overlay: closed_overlay(),
+          })
+          (cmd, new_model)
+        }
+        Err(msg) => {
+          let overlay = { ..model.overlay, name_error: msg }
+          (none, { ..model, overlay, })
+        }
+      }
+    Ok(None) => {
+      // Action needs a name prompt
+      let overlay = {
+        ..model.overlay,
+        pending_action: Some(action),
+        name_prompt: true,
+        name_value: "",
+        name_error: "",
+      }
+      (none, { ..model, overlay, })
+    }
+    Err(msg) => {
+      let overlay = { ..model.overlay, name_error: msg }
+      (none, { ..model, overlay, })
+    }
+  }
+}
+
+///|
 fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => {
@@ -331,10 +460,102 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let new_model = refresh(model)
       (graphviz_render_cmd(new_model), new_model)
     }
-    OpenActionOverlay | CloseActionOverlay | LongPressTriggered =>
-      (none, model)
-    ActionKeyPressed(_) | ActionTapped(_) => (none, model)
-    NamePromptInput(_) | NamePromptSubmit | NamePromptCancel => (none, model)
+    OpenActionOverlay | LongPressTriggered => {
+      let node_id_str = js_take_action_overlay_node()
+      (none, open_action_overlay(model, node_id_str))
+    }
+    CloseActionOverlay => {
+      js_set_overlay_open(false)
+      (none, { ..model, overlay: closed_overlay() })
+    }
+    ActionKeyPressed(_key_arg) => {
+      let key = js_take_action_key()
+      if key == "" {
+        return (none, model)
+      }
+      // Escape always closes
+      if key == "Escape" {
+        js_set_overlay_open(false)
+        return (none, { ..model, overlay: closed_overlay() })
+      }
+      // If in submenu mode, match numeric keys to choices
+      match model.overlay.submenu {
+        Some(sub_action) => {
+          // Submenu choices: keys "1", "2", "3" etc.
+          execute_action(model, sub_action, key, "")
+        }
+        None =>
+          // If in name prompt mode, let the view handle input
+          if model.overlay.name_prompt {
+            (none, model)
+          } else {
+            // Match mnemonic: find the action whose mnemonic matches the key
+            let matched = model.overlay.actions.iter().find_first(fn(a) {
+              a.mnemonic == key
+            })
+            match matched {
+              Some(action) =>
+                if action.needs_input {
+                  // Show name prompt
+                  let overlay = {
+                    ..model.overlay,
+                    pending_action: Some(action),
+                    name_prompt: true,
+                    name_value: "",
+                    name_error: "",
+                  }
+                  (none, { ..model, overlay, })
+                } else {
+                  execute_action(model, action, "", "")
+                }
+              None => (none, model)
+            }
+          }
+      }
+    }
+    ActionTapped(action_id) => {
+      let matched = model.overlay.actions.iter().find_first(fn(a) {
+        a.id == action_id
+      })
+      match matched {
+        Some(action) =>
+          if action.needs_input {
+            let overlay = {
+              ..model.overlay,
+              pending_action: Some(action),
+              name_prompt: true,
+              name_value: "",
+              name_error: "",
+            }
+            (none, { ..model, overlay, })
+          } else {
+            execute_action(model, action, "", "")
+          }
+        None => (none, model)
+      }
+    }
+    NamePromptInput(value) => {
+      let overlay = { ..model.overlay, name_value: value, name_error: "" }
+      (none, { ..model, overlay, })
+    }
+    NamePromptSubmit => {
+      let name = model.overlay.name_value
+      if name == "" {
+        let overlay = {
+          ..model.overlay,
+          name_error: "Name cannot be empty",
+        }
+        return (none, { ..model, overlay, })
+      }
+      match model.overlay.pending_action {
+        Some(action) => execute_action(model, action, "", name)
+        None => (none, model)
+      }
+    }
+    NamePromptCancel => {
+      js_set_overlay_open(false)
+      (none, { ..model, overlay: closed_overlay() })
+    }
   }
 }
 
