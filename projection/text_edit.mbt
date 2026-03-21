@@ -211,16 +211,10 @@ pub fn compute_text_edit(
             Some(parent_range) =>
               match parent_node.kind {
                 @ast.Term::Module(_) => {
-                  // Insert a def between existing defs, with trailing newline separator
-                  let insert_text = "let x = " + placeholder + "\n"
+                  // Insert a def at the given index, with newline separators
                   let insert_pos = if index >= parent_node.children.length() {
-                    // Insert before the body (last child)
-                    let body = parent_node.children[parent_node.children.length() -
-                      1]
-                    match source_map.get_range(NodeId(body.node_id)) {
-                      Some(r) => r.start
-                      None => parent_range.end
-                    }
+                    // Append after the last child (at end of module)
+                    parent_range.end
                   } else {
                     match
                       source_map.get_range(
@@ -229,6 +223,12 @@ pub fn compute_text_edit(
                       Some(r) => r.start
                       None => parent_range.start
                     }
+                  }
+                  // Prepend newline when appending at end (no trailing newline after last item)
+                  let insert_text = if index >= parent_node.children.length() {
+                    "\nlet x = " + placeholder
+                  } else {
+                    "let x = " + placeholder + "\n"
                   }
                   Ok(
                     Some([

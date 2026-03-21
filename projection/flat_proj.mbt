@@ -148,13 +148,22 @@ fn[K : Eq + Hash] key_match(
 }
 
 ///|
-/// Generate a key for matching FlatProjItems.
-/// Defs use their name; Exprs use a sentinel key.
-fn item_key(item : FlatProjItem) -> String {
-  match item {
-    Def(name, _, _, _) => "def:" + name
-    Expr(_) => "expr:"
+/// Generate keys for matching FlatProjItems.
+/// Defs are keyed by name; Exprs by ordinal among expressions,
+/// so identity is stable when Defs are inserted/removed around them.
+fn item_keys(items : Array[FlatProjItem]) -> Array[String] {
+  let keys : Array[String] = []
+  let mut expr_ord = 0
+  for i = 0; i < items.length(); i = i + 1 {
+    match items[i] {
+      Def(name, _, _, _) => keys.push("def:" + name)
+      Expr(_) => {
+        keys.push("expr:" + expr_ord.to_string())
+        expr_ord += 1
+      }
+    }
   }
+  keys
 }
 
 ///|
@@ -167,8 +176,8 @@ pub fn reconcile_flat_proj(
 ) -> FlatProj {
   let old_items = old_fp.items
   let new_items = new_fp.items
-  let old_keys = old_items.map(item_key)
-  let new_keys = new_items.map(item_key)
+  let old_keys = item_keys(old_items)
+  let new_keys = item_keys(new_items)
   let new_matched = key_match(old_keys, new_keys)
 
   // Build reconciled items
