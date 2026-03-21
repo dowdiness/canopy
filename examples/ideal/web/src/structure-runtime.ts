@@ -141,11 +141,18 @@ export function createStructureModeSession(
         }));
       }
     }, 500);
-    const cancel = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
-    parent.addEventListener('pointerup', cancel, { once: true });
-    parent.addEventListener('pointermove', (me) => {
-      if (Math.abs(me.clientX - startX) > 10 || Math.abs(me.clientY - startY) > 10) cancel();
-    }, { once: true });
+    const onMove = (me: PointerEvent) => {
+      if (Math.abs(me.clientX - startX) > 10 || Math.abs(me.clientY - startY) > 10) cleanup();
+    };
+    const cleanup = () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      parent.removeEventListener('pointermove', onMove);
+      parent.removeEventListener('pointerup', cleanup);
+      parent.removeEventListener('pointercancel', cleanup);
+    };
+    parent.addEventListener('pointermove', onMove);
+    parent.addEventListener('pointerup', cleanup, { once: true });
+    parent.addEventListener('pointercancel', cleanup, { once: true });
   }, { passive: true, signal: gestureController.signal });
 
   return {

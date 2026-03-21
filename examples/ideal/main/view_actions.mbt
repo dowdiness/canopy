@@ -115,6 +115,11 @@ fn view_action_overlay(
   // Determine content: name prompt, submenu, or main action list
   let content : @rabbita.Html = if not(model.overlay.pending_action is None) {
     view_name_prompt(dispatch, model)
+  } else if not(model.overlay.submenu is None) {
+    match model.overlay.submenu {
+      Some(sub_action) => view_action_list(dispatch, [sub_action])
+      None => view_action_list(dispatch, model.overlay.actions)
+    }
   } else {
     view_action_list(dispatch, model.overlay.actions)
   }

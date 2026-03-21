@@ -507,11 +507,13 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, overlay, })
     }
     NamePromptSubmit => {
-      let name = model.overlay.name_value
+      let name = model.overlay.name_value.trim().to_string()
       if name == "" {
         let overlay = { ..model.overlay, name_error: "Name cannot be empty" }
         return (none, { ..model, overlay, })
       }
+      let overlay = { ..model.overlay, name_value: name }
+      let model = { ..model, overlay }
       match model.overlay.pending_action {
         Some(action) => execute_action(model, action, "", name)
         None => (none, model)

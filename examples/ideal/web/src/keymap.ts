@@ -72,7 +72,11 @@ export function actionKeyForwardPlugin(host: HTMLElement) {
         if (!g.__canopy_overlay_open) return false;
         g.__canopy_pending_action_key = event.key;
         const btn = document.getElementById('canopy-action-key-trigger');
-        if (btn) btn.click();
+        if (btn) {
+          btn.click();
+        } else {
+          console.warn('[canopy] action-key trigger button not found for key:', event.key);
+        }
         event.preventDefault();
         return true;
       },

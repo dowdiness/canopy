@@ -107,7 +107,7 @@ fn build_tree_edit_op(
         "0" => 0
         "1" => 1
         "2" => 2
-        _ => 0
+        _ => return Err("Invalid unwrap choice: " + choice)
       }
       Ok(Some(@proj.Unwrap(node_id~, keep_child_index~)))
     }
@@ -129,7 +129,7 @@ fn build_tree_edit_op(
     "wrap_bop" => {
       let op = match parse_bop(choice) {
         Some(op) => op
-        None => @ast.Bop::Plus
+        None => return Err("Invalid operator choice: " + choice)
       }
       Ok(Some(@proj.WrapInBop(node_id~, op~)))
     }
