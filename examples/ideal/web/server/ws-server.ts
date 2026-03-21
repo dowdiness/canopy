@@ -105,6 +105,24 @@ wss.on("connection", (ws) => {
           break;
         }
 
+        case "ephemeral": {
+          // Broadcast ephemeral data to all other peers (no history storage)
+          if (!currentRoom) {
+            console.warn(
+              "[Warn] Ephemeral received but client not in a room",
+            );
+            return;
+          }
+
+          const ephRelay = JSON.stringify({ type: "ephemeral", data: message.data });
+          for (const client of currentRoom.clients) {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(ephRelay);
+            }
+          }
+          break;
+        }
+
         case "reset": {
           if (currentRoom) {
             currentRoom.ops = [];

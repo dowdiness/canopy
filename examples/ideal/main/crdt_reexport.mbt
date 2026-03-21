@@ -96,3 +96,50 @@ pub fn undo_manager_can_undo(handle : Int) -> Bool {
 pub fn undo_manager_can_redo(handle : Int) -> Bool {
   @crdt.undo_manager_can_redo(handle)
 }
+
+///|
+pub fn ephemeral_encode_all(handle : Int) -> Bytes {
+  @crdt.ephemeral_encode_all(handle)
+}
+
+///|
+pub fn ephemeral_apply(handle : Int, data : Bytes) -> Unit {
+  @crdt.ephemeral_apply(handle, data)
+}
+
+///|
+pub fn ephemeral_set_presence(
+  handle : Int,
+  name : String,
+  color : String,
+) -> Unit {
+  @crdt.ephemeral_set_presence(handle, name, color)
+}
+
+///|
+pub fn ephemeral_set_presence_with_selection(
+  handle : Int,
+  name : String,
+  color : String,
+  sel_start : Int,
+  sel_end : Int,
+) -> Unit {
+  @crdt.ephemeral_set_presence_with_selection(
+    handle, name, color, sel_start, sel_end,
+  )
+}
+
+///|
+pub fn ephemeral_delete_presence(handle : Int) -> Unit {
+  @crdt.ephemeral_delete_presence(handle)
+}
+
+///|
+pub fn ephemeral_get_peer_cursors_json(handle : Int) -> String {
+  @crdt.ephemeral_get_peer_cursors_json(handle)
+}
+
+///|
+pub fn ephemeral_remove_outdated(handle : Int) -> Unit {
+  @crdt.ephemeral_remove_outdated(handle)
+}

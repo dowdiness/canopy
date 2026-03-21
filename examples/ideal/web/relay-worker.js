@@ -88,6 +88,25 @@ export class RelayRoom {
             break;
           }
 
+          case "ephemeral": {
+            // Broadcast ephemeral data to all other peers (no history storage)
+            if (!joined) {
+              ws.send(JSON.stringify({ type: "error", message: "Not joined" }));
+              break;
+            }
+            const relay = JSON.stringify({ type: "ephemeral", data: msg.data });
+            for (const peer of this.clients) {
+              if (peer !== ws) {
+                try {
+                  peer.send(relay);
+                } catch {
+                  this.clients.delete(peer);
+                }
+              }
+            }
+            break;
+          }
+
           case "reset": {
             this.ops = [];
             break;

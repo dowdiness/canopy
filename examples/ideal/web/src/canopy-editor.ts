@@ -6,6 +6,8 @@ import { tags as t } from "@lezer/highlight";
 import { lambda } from "./lang/lambda-language";
 import { CanopyEvents } from "./events";
 import type { CrdtModule } from './types';
+import { peerCursors, updatePeerCursors } from "./cm6-peer-cursors";
+import type { PeerCursor } from "./cm6-peer-cursors";
 
 /** Syntax highlighting colors matching the Canopy design tokens */
 const lambdaHighlightStyle = HighlightStyle.define([
@@ -53,6 +55,9 @@ export class CanopyEditor extends HTMLElement {
   private broadcastFn: (() => void) | null = null;
   private pendingSelectedNode: string | null = null;
   private updating = false;
+  private cursorBroadcastTimer: ReturnType<typeof setTimeout> | null = null;
+  private agentName: string = "";
+  private agentColor: string = "";
 
   static get observedAttributes() {
     return ['mode', 'readonly'];
@@ -74,6 +79,10 @@ export class CanopyEditor extends HTMLElement {
   connectedCallback() {}
 
   disconnectedCallback() {
+    if (this.cursorBroadcastTimer !== null) {
+      clearTimeout(this.cursorBroadcastTimer);
+      this.cursorBroadcastTimer = null;
+    }
     if (this.mountAbortController) {
       this.mountAbortController.abort();
       this.mountAbortController = null;
@@ -205,6 +214,7 @@ export class CanopyEditor extends HTMLElement {
           lineNumbers(),
           lambda(),
           syntaxHighlighting(lambdaHighlightStyle),
+          ...peerCursors(),
           // Forward text changes to CRDT
           CmView.updateListener.of(update => {
             if (this.updating || !update.docChanged || !this.crdt || this.crdtHandle === null) return;
@@ -221,6 +231,12 @@ export class CanopyEditor extends HTMLElement {
             this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {
               bubbles: true, composed: true,
             }));
+          }),
+          // Broadcast cursor position on selection changes (debounced)
+          CmView.updateListener.of(update => {
+            if (update.selectionSet || update.docChanged) {
+              this.broadcastCursorDebounced();
+            }
           }),
         ],
       }),
@@ -360,7 +376,9 @@ export class CanopyEditor extends HTMLElement {
 
   set sourceMap(_json: string) { /* bridge reads on demand */ }
 
-  set peers(_json: string) { /* TODO: CM6 peer cursor decorations */ }
+  set peers(_json: string) {
+    this.updatePeerCursorsFromCrdt();
+  }
   set errors(_json: string) { /* TODO: CM6 lint decorations */ }
   set evalResults(_json: string) { /* TODO: CM6 eval ghost decorations */ }
 
@@ -407,6 +425,48 @@ export class CanopyEditor extends HTMLElement {
       return;
     }
     if (this.broadcastFn) this.broadcastFn();
+  }
+
+  setAgentIdentity(name: string, color: string): void {
+    this.agentName = name;
+    this.agentColor = color;
+  }
+
+  updatePeerCursorsFromCrdt(): void {
+    if (!this.cmView || !this.crdt || this.crdtHandle === null) return;
+    const json = this.crdt.ephemeral_get_peer_cursors_json(this.crdtHandle);
+    try {
+      const cursors: PeerCursor[] = JSON.parse(json);
+      updatePeerCursors(this.cmView, cursors);
+    } catch {
+      // Malformed JSON — ignore
+    }
+  }
+
+  private broadcastCursorDebounced(): void {
+    if (this.cursorBroadcastTimer !== null) return;
+    this.cursorBroadcastTimer = setTimeout(() => {
+      this.cursorBroadcastTimer = null;
+      this.broadcastCursorNow();
+    }, 50);
+  }
+
+  private broadcastCursorNow(): void {
+    if (!this.crdt || this.crdtHandle === null || !this.cmView) return;
+    if (!this.agentName) return;
+    const sel = this.cmView.state.selection.main;
+    this.crdt.ephemeral_set_presence_with_selection(
+      this.crdtHandle,
+      this.agentName,
+      this.agentColor,
+      sel.from,
+      sel.to,
+    );
+    // Broadcast ephemeral data to peers
+    this.dispatchEvent(new CustomEvent('ephemeral-local-update', {
+      bubbles: true,
+      composed: true,
+    }));
   }
 }
 
@@ -490,5 +550,32 @@ const SHADOW_STYLES = `
     font-family: var(--canopy-font-mono, monospace);
     font-size: 13px;
     color: var(--canopy-fg, #e4e4f0);
+  }
+
+  /* Peer cursor decorations (CM6 text mode) */
+  .peer-cursor-widget {
+    position: relative;
+    display: inline;
+    border-left: 2px solid var(--color);
+    margin-left: -1px;
+    pointer-events: none;
+  }
+  .peer-cursor-label {
+    position: absolute;
+    bottom: 100%;
+    left: -1px;
+    background: var(--color);
+    color: #fff;
+    font-size: 10px;
+    font-family: system-ui, sans-serif;
+    padding: 1px 4px;
+    border-radius: 2px 2px 2px 0;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+  .peer-selection {
+    background-color: var(--color);
+    opacity: 0.2;
   }
 `;

@@ -31,6 +31,7 @@ let crdtPromise: Promise<CrdtModule> | null = null;
 let activeSyncClient: SyncClient | null = null;
 let editorEventsController: AbortController | null = null;
 let beforeUnloadRegistered = false;
+let ephemeralCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 function loadCrdtModule(): Promise<CrdtModule> {
   if (!crdtPromise) {
@@ -60,6 +61,23 @@ function getSessionAgentId(): string {
   } catch {
     return createAgentId();
   }
+}
+
+/** Generate a deterministic color from agent ID (hash -> HSL with fixed S/L). */
+function agentColor(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    hash = ((hash << 5) - hash + agentId.charCodeAt(i)) | 0;
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+/** Derive a short display name from the agent ID. */
+function agentDisplayName(agentId: string): string {
+  // Use last 4 chars of the ID as the display name
+  const suffix = agentId.slice(-4);
+  return `Peer-${suffix}`;
 }
 
 function clickTrigger(id: string) {
@@ -112,6 +130,16 @@ function wireEditorEvents(el: CanopyEditor) {
       clickTrigger('canopy-sync-status-trigger');
     }
   }) as EventListener, { signal });
+
+  // When remote ephemeral data arrives, update CM6 peer cursor decorations
+  el.addEventListener('sync-cursors-updated', () => {
+    el.updatePeerCursorsFromCrdt();
+  }, { signal });
+
+  // When local cursor changes, broadcast ephemeral data to peers
+  el.addEventListener('ephemeral-local-update', () => {
+    activeSyncClient?.broadcastEphemeral();
+  }, { signal });
 }
 
 function startSync(el: CanopyEditor, handle: number, crdt: CrdtModule) {
@@ -129,6 +157,16 @@ function startSync(el: CanopyEditor, handle: number, crdt: CrdtModule) {
   if (!beforeUnloadRegistered) {
     beforeUnloadRegistered = true;
     window.addEventListener('beforeunload', () => {
+      // Delete local presence before disconnecting
+      if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
+        canopyGlobal.__canopy_crdt.ephemeral_delete_presence(canopyGlobal.__canopy_crdt_handle);
+        // Send final ephemeral update so peers know we left
+        activeSyncClient?.broadcastEphemeral();
+      }
+      if (ephemeralCleanupTimer !== null) {
+        clearInterval(ephemeralCleanupTimer);
+        ephemeralCleanupTimer = null;
+      }
       activeSyncClient?.disconnect();
     });
   }
@@ -157,10 +195,29 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   canopyGlobal.__canopy_crdt_handle = handle;
   canopyGlobal.__canopy_pending_node_selection = null;
   canopyGlobal.__canopy_pending_structural_edit = null;
+
+  // Set up agent identity for cursor broadcasting
+  const agentId = getSessionAgentId();
+  const name = agentDisplayName(agentId);
+  const color = agentColor(agentId);
+  el.setAgentIdentity(name, color);
+
+  // Announce presence to ephemeral hub
+  crdt.ephemeral_set_presence(handle, name, color);
+
   // Text already set by MoonBit's init_model — don't overwrite.
   el.mount(handle, crdt);
   wireEditorEvents(el);
   startSync(el, handle, crdt);
+
+  // Periodically remove outdated ephemeral entries (every 10s)
+  if (ephemeralCleanupTimer !== null) {
+    clearInterval(ephemeralCleanupTimer);
+  }
+  ephemeralCleanupTimer = setInterval(() => {
+    crdt.ephemeral_remove_outdated(handle);
+    el.updatePeerCursorsFromCrdt();
+  }, 10_000);
 }
 
 async function bootstrap() {

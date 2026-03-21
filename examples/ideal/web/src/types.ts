@@ -48,5 +48,12 @@ export interface CrdtModule {
   export_all_json(handle: number): string;
   export_since_json(handle: number, peerVersionJson: string): string;
   apply_tree_edit_json(handle: number, opJson: string, timestampMs: number): string;
+  ephemeral_encode_all(handle: number): Uint8Array;
+  ephemeral_apply(handle: number, data: Uint8Array): void;
+  ephemeral_set_presence(handle: number, name: string, color: string): void;
+  ephemeral_set_presence_with_selection(handle: number, name: string, color: string, selStart: number, selEnd: number): void;
+  ephemeral_delete_presence(handle: number): void;
+  ephemeral_get_peer_cursors_json(handle: number): string;
+  ephemeral_remove_outdated(handle: number): void;
   [key: string]: any;
 }

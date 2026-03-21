@@ -98,6 +98,9 @@ export class SyncClient {
           composed: true,
         }),
       );
+
+      // Broadcast ephemeral presence so existing peers see us immediately.
+      this.broadcastEphemeral();
     });
 
     this.ws.addEventListener("message", (event) => {
@@ -146,6 +149,19 @@ export class SyncClient {
           case "error":
             console.warn("[sync] server error:", data.message);
             break;
+
+          case "ephemeral": {
+            // Remote ephemeral data (peer cursors, presence)
+            const bytes = new Uint8Array(data.data as number[]);
+            this.crdt.ephemeral_apply(this.handle, bytes);
+            this.host.dispatchEvent(
+              new CustomEvent("sync-cursors-updated", {
+                bubbles: true,
+                composed: true,
+              }),
+            );
+            break;
+          }
 
           default:
             console.warn("[sync] unknown message type:", data.type);
@@ -204,6 +220,25 @@ export class SyncClient {
       }
     } catch (err) {
       console.error("[sync] broadcast failed:", err);
+    }
+  }
+
+  /**
+   * Broadcast local ephemeral state (cursors, presence) to all peers.
+   * Ephemeral data is NOT stored in server history.
+   */
+  broadcastEphemeral(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    try {
+      const bytes = this.crdt.ephemeral_encode_all(this.handle);
+      if (!bytes || bytes.length === 0) return;
+      // Convert Uint8Array to number array for JSON serialization
+      this.ws.send(
+        JSON.stringify({ type: "ephemeral", data: Array.from(bytes) }),
+      );
+    } catch (err) {
+      console.error("[sync] ephemeral broadcast failed:", err);
     }
   }
 
