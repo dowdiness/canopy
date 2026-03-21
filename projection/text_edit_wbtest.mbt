@@ -1169,3 +1169,36 @@ test "compute_text_edit: Rename with unknown node returns error" {
   )
   inspect(result is Err(_), content="true")
 }
+
+///|
+test "compute_text_edit: Rename rejects capture of free variable" {
+  // λx. y  — renaming x to y would capture the free y
+  let text = "\u{03BB}x.y"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let lam_id = proj.id()
+  let result = compute_text_edit(
+    Rename(node_id=lam_id, new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: Rename rejects duplicate module binding name" {
+  let text = "let x = 0\nlet y = 1\nx + y"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let _ = proj
+  // Rename binding x → y should fail because y already exists
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    Rename(node_id=binding_id, new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}

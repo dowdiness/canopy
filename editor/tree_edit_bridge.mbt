@@ -43,17 +43,23 @@ pub fn SyncEditor::apply_tree_edit(
       match focus_hint {
         @proj.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
         @proj.FocusHint::MoveCursor(position~) => {
-          // Remap position through applied edits to get post-edit coordinates.
-          // Edits are already sorted reverse by start position.
+          // Remap pre-edit position through applied edits to get post-edit coordinates.
+          // IMPORTANT: This remapping is only correct when edits don't overlap and
+          // are at distinct positions. For overlapping or complex multi-edit cases,
+          // use RestoreCursor instead and handle focus in the UI layer.
           let mut adjusted = position
-          for edit in edits {
-            if edit.start <= position {
-              if position < edit.start + edit.delete_len {
-                adjusted = edit.start
-              } else {
-                adjusted = adjusted + edit.inserted.length() - edit.delete_len
-              }
+          // Process edits in ascending order for correct position tracking
+          let ascending = edits.copy()
+          ascending.sort_by(fn(a, b) { a.start.compare(b.start) })
+          for edit in ascending {
+            if adjusted > edit.start + edit.delete_len {
+              // Position is after this edit — shift by length delta
+              adjusted = adjusted + edit.inserted.length() - edit.delete_len
+            } else if adjusted > edit.start {
+              // Position is inside a deleted region — snap to edit start
+              adjusted = edit.start
             }
+            // Position is before this edit — no adjustment needed
           }
           self.move_cursor(adjusted)
         }

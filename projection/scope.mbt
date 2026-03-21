@@ -132,6 +132,22 @@ fn collect_var_usages(
 }
 
 ///|
+/// Look up the FlatProj binding NodeId for a given init expression NodeId.
+/// The UI selects init expression ProjNodes (children of Module); this function
+/// maps that to the corresponding binding NodeId needed by binding-level operations.
+pub fn find_binding_for_init(
+  init_node_id : NodeId,
+  flat_proj : FlatProj,
+) -> (NodeId, Int)? {
+  for i, def in flat_proj.defs {
+    if def.1.id() == init_node_id {
+      return Some((def.3, i))
+    }
+  }
+  None
+}
+
+///|
 /// Collect Lam parameter names in scope at a node position (walking up the tree).
 pub fn collect_lam_env(
   node_id : NodeId,

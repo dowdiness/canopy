@@ -14,6 +14,8 @@ pub fn collect_lam_env(NodeId, Map[NodeId, ProjNode]) -> @hashset.HashSet[String
 
 pub fn compute_text_edit(TreeEditOp, String, SourceMap, Map[NodeId, ProjNode], FlatProj) -> Result[(Array[SpanEdit], FocusHint)?, String]
 
+pub fn find_binding_for_init(NodeId, FlatProj) -> (NodeId, Int)?
+
 pub fn find_usages(String, Int, FlatProj, Map[NodeId, ProjNode]) -> Array[NodeId]
 
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]

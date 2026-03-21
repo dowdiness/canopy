@@ -69,6 +69,21 @@ fn rename_lam_param(
   registry : Map[NodeId, ProjNode],
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let _ = registry
+  // Guard: check if new_name is free in the lambda body — renaming would capture it
+  match lam_node.kind {
+    @ast.Term::Lam(_, body) => {
+      let bound : @immut/hashset.HashSet[String] = @immut/hashset.new().add(
+        old_name,
+      )
+      let body_fv = free_vars(body, bound)
+      if body_fv.contains(new_name) {
+        return Err(
+          "Cannot rename: would capture free variable '" + new_name + "'",
+        )
+      }
+    }
+    _ => ()
+  }
   let edits : Array[SpanEdit] = []
   // Get param token span
   match source_map.get_token_span(lam_id, "param") {
@@ -219,6 +234,17 @@ fn rename_module_binding(
   registry : Map[NodeId, ProjNode],
   source_map : SourceMap,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  // Guard: check if another binding already uses new_name
+  for i, def in flat_proj.defs {
+    if i != def_index && def.0 == new_name {
+      return Err(
+        "Cannot rename: binding '" +
+        new_name +
+        "' already exists at index " +
+        i.to_string(),
+      )
+    }
+  }
   let edits : Array[SpanEdit] = []
   // Get the name token span
   let role = "name:" + def_index.to_string()
