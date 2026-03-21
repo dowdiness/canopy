@@ -446,5 +446,7 @@ pub fn TreeEditorState::apply_edit(
           }
         None => self
       }
+    // Catch-all for new structural ops — clear editing state
+    _ => { ..self, editing_node: None, edit_value: "" }
   }
 }

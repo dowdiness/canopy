@@ -26,6 +26,9 @@ pub(all) enum TreeEditOp {
   // Navigation
   Collapse(node_id~ : NodeId)
   Expand(node_id~ : NodeId)
+
+  // New structural actions
+  Unwrap(node_id~ : NodeId, keep_child_index~ : Int)
 } derive(Show)
 
 ///|

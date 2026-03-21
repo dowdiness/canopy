@@ -307,6 +307,36 @@ pub fn compute_text_edit(
           }
       }
     }
+    // Unwrap: replace a node with one of its children
+    Unwrap(node_id~, keep_child_index~) =>
+      match (source_map.get_range(node_id), registry.get(node_id)) {
+        (Some(range), Some(node)) =>
+          if keep_child_index >= node.children.length() {
+            Err("Child index out of range")
+          } else {
+            let kept = node.children[keep_child_index]
+            let kept_text = @ast.print_term(kept.kind)
+            let kept_start = match source_map.get_range(kept.id()) {
+              Some(r) => r.start
+              None => range.start
+            }
+            Ok(
+              Some(
+                (
+                  [
+                    {
+                      start: range.start,
+                      delete_len: range.end - range.start,
+                      inserted: kept_text,
+                    },
+                  ],
+                  MoveCursor(position=kept_start),
+                ),
+              ),
+            )
+          }
+        _ => Err("Node not found: " + node_id.to_string())
+      }
     // Drop: move a node from source to target position
     Drop(source~, target~, position~) => {
       let source_range = match source_map.get_range(source) {

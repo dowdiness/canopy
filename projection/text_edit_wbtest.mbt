@@ -340,3 +340,71 @@ test "compute_text_edit: CommitEdit with unknown node returns error" {
   )
   inspect(result is Err(_), content="true")
 }
+
+///|
+test "compute_text_edit: Unwrap Lam keeps body" {
+  let text = "(λx. 42)"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let lam_id = proj.id()
+  let result = compute_text_edit(
+    Unwrap(node_id=lam_id, keep_child_index=0),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="42")
+      // Should use MoveCursor, not RestoreCursor
+      inspect(hint == FocusHint::RestoreCursor, content="false")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Unwrap Bop keeps left" {
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let bop_id = proj.id()
+  let result = compute_text_edit(
+    Unwrap(node_id=bop_id, keep_child_index=0),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => inspect(apply_edits(text, edits), content="1")
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Unwrap Bop keeps right" {
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let bop_id = proj.id()
+  let result = compute_text_edit(
+    Unwrap(node_id=bop_id, keep_child_index=1),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => inspect(apply_edits(text, edits), content="2")
+    _ => fail("expected Some edits")
+  }
+}

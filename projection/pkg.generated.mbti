@@ -194,6 +194,7 @@ pub(all) enum TreeEditOp {
   Drop(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
   Collapse(node_id~ : NodeId)
   Expand(node_id~ : NodeId)
+  Unwrap(node_id~ : NodeId, keep_child_index~ : Int)
 }
 pub impl Show for TreeEditOp
 
