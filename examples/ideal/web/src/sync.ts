@@ -13,7 +13,13 @@
 
 import type { CrdtModule } from "./types";
 
-const DEFAULT_WS_URL = "ws://localhost:8787";
+// Relay server URL: set VITE_RELAY_URL for Cloudflare deployment,
+// falls back to local dev server.
+const DEFAULT_WS_URL =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as Record<string, Record<string, string>>).env
+      ?.VITE_RELAY_URL) ||
+  "ws://localhost:8787";
 const DEFAULT_ROOM = "canopy-room";
 
 /** Reconnection parameters. */
@@ -58,7 +64,12 @@ export class SyncClient {
       this.reconnectTimer = null;
     }
 
-    this.ws = new WebSocket(url);
+    // Append /room/<name> path for Cloudflare Worker routing.
+    // Local dev server ignores the path (room sent in join message).
+    const wsUrl = url.includes("localhost")
+      ? url
+      : `${url.replace(/\/$/, "")}/room/${encodeURIComponent(room)}`;
+    this.ws = new WebSocket(wsUrl);
     this.host.dispatchEvent(
       new CustomEvent("sync-status", {
         detail: { status: "connecting" },

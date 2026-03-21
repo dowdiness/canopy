@@ -1,0 +1,13 @@
+name = "canopy-relay"
+main = "relay-worker.js"
+compatibility_date = "2026-01-04"
+
+# Durable Objects binding — one instance per room
+[[durable_objects.bindings]]
+name = "RELAY_ROOM"
+class_name = "RelayRoom"
+
+# Migration to create the Durable Object class
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayRoom"]
