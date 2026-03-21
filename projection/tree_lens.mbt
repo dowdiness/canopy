@@ -33,6 +33,9 @@ pub(all) enum TreeEditOp {
   WrapInIf(node_id~ : NodeId)
   WrapInBop(node_id~ : NodeId, op~ : @ast.Bop)
   ChangeOperator(node_id~ : NodeId, new_op~ : @ast.Bop)
+
+  // Module-level binding actions
+  DeleteBinding(binding_node_id~ : NodeId)
 } derive(Show)
 
 ///|

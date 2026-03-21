@@ -454,6 +454,79 @@ pub fn compute_text_edit(
           }
         _ => Err("Node not found: " + node_id.to_string())
       }
+    // DeleteBinding: remove a let binding line from a Module
+    DeleteBinding(binding_node_id~) => {
+      // Find the def entry matching this binding_node_id
+      let mut def_index = -1
+      for i, def in flat_proj.defs {
+        if def.3 == binding_node_id {
+          def_index = i
+        }
+      }
+      if def_index < 0 {
+        return Err(
+          "Binding not found: " + binding_node_id.to_string(),
+        )
+      }
+      let init_node = flat_proj.defs[def_index].1
+      let init_range = match source_map.get_range(init_node.id()) {
+        Some(r) => r
+        None => return Err("Init node not in source map")
+      }
+      // Scan backwards from init_range.start to find "let " keyword
+      let mut let_start = init_range.start
+      while let_start > 0 {
+        let_start = let_start - 1
+        if let_start + 3 < source_text.length() &&
+          source_text[let_start] == 'l' &&
+          source_text[let_start + 1] == 'e' &&
+          source_text[let_start + 2] == 't' &&
+          source_text[let_start + 3] == ' ' {
+          break
+        }
+      }
+      // Compute deletion end: include the trailing newline
+      let binding_end = init_range.end
+      let delete_end = if binding_end < source_text.length() &&
+        source_text[binding_end] == '\n' {
+        binding_end + 1
+      } else {
+        // No trailing newline — if there's a leading newline, consume it instead
+        if let_start > 0 && source_text[let_start - 1] == '\n' {
+          // Adjust start to consume the preceding newline
+          return Ok(
+            Some(
+              (
+                [
+                  {
+                    start: let_start - 1,
+                    delete_len: binding_end - let_start + 1,
+                    inserted: "",
+                  },
+                ],
+                RestoreCursor,
+              ),
+            ),
+          )
+        } else {
+          binding_end
+        }
+      }
+      Ok(
+        Some(
+          (
+            [
+              {
+                start: let_start,
+                delete_len: delete_end - let_start,
+                inserted: "",
+              },
+            ],
+            RestoreCursor,
+          ),
+        ),
+      )
+    }
     // Drop: move a node from source to target position
     Drop(source~, target~, position~) => {
       let source_range = match source_map.get_range(source) {

@@ -507,3 +507,94 @@ test "compute_text_edit: SwapChildren swaps Bop operands" {
     _ => fail("expected Some edits")
   }
 }
+
+///|
+test "compute_text_edit: DeleteBinding removes first let line" {
+  let text = "let x = 0\nlet y = 1\nx + y"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // Delete first binding
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=binding_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 1\nx + y")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding removes second let line" {
+  let text = "let x = 0\nlet y = 1\nx + y"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // Delete second binding
+  let binding_id = fp.defs[1].3
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=binding_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let x = 0\nx + y")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding removes only binding" {
+  let text = "let x = 42\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=binding_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="x")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding with unknown id returns error" {
+  let text = "let x = 0\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=NodeId(9999)),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}
