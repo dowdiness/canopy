@@ -68,6 +68,9 @@ export function actionKeyForwardPlugin(host: HTMLElement) {
       handleKeyDown(_view, event) {
         const g = globalThis as any;
         if (!g.__canopy_overlay_open) return false;
+        // If the name prompt input has focus, let keys flow to it naturally.
+        const nameInput = document.querySelector('.name-prompt-input');
+        if (nameInput && document.activeElement === nameInput) return false;
         // Overlay is open — swallow all keys to prevent ProseMirror handling.
         // Only forward Escape and unmodified single-char keys (Shift allowed).
         if (event.key === 'Escape') {

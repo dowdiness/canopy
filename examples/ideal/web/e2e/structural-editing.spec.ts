@@ -152,12 +152,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expect(page.locator('.name-prompt-label')).toContainText('Rename');
   });
 
-  // Known issue: Enter key in name prompt may be intercepted by the PM key
-  // forwarding plugin before reaching the Rabbita input handler. The name
-  // prompt's on_keydown should capture Enter, but if focus is not on the input,
-  // the PM plugin intercepts first. This test is skipped until the key
-  // forwarding is fixed to not intercept when the name prompt input has focus.
-  test.skip('empty name shows error on Rename', async ({ page }) => {
+  test('empty name shows error on Rename', async ({ page }) => {
     await setupStructureMode(page);
     await selectNodeInEditor(page, 'var', 0);
     await page.keyboard.press('Space');
