@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx vite --port 5190 --strictPort',
+    command: 'npm run prebuild:moonbit && npx vite --port 5190 --strictPort',
     url: 'http://localhost:5190',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
