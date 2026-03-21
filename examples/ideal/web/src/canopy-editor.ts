@@ -236,16 +236,37 @@ export class CanopyEditor extends HTMLElement {
     }
   }
 
-  /** Sync CM6 content from CRDT (after external changes) */
+  /**
+   * Sync CM6 content from CRDT (after external/remote changes).
+   *
+   * Computes a minimal diff so CM6's cursor mapping preserves the local
+   * cursor position and selection. Only the changed region is replaced,
+   * not the entire document.
+   */
   private syncCmFromCrdt(): void {
     if (!this.cmView || !this.crdt || this.crdtHandle === null) return;
     this.updating = true;
     const newText = this.crdt.get_text(this.crdtHandle);
     const oldText = this.cmView.state.doc.toString();
     if (newText !== oldText) {
-      this.cmView.dispatch({
-        changes: { from: 0, to: oldText.length, insert: newText },
-      });
+      // Find the common prefix and suffix to minimize the replaced range.
+      // CM6 automatically maps cursor/selection through minimal changes.
+      const minLen = Math.min(oldText.length, newText.length);
+      let prefixLen = 0;
+      while (prefixLen < minLen && oldText[prefixLen] === newText[prefixLen]) {
+        prefixLen++;
+      }
+      let suffixLen = 0;
+      while (
+        suffixLen < minLen - prefixLen &&
+        oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
+      ) {
+        suffixLen++;
+      }
+      const from = prefixLen;
+      const to = oldText.length - suffixLen;
+      const insert = newText.slice(prefixLen, newText.length - suffixLen);
+      this.cmView.dispatch({ changes: { from, to, insert } });
     }
     this.updating = false;
   }
