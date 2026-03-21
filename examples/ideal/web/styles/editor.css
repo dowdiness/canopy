@@ -35,11 +35,21 @@
   --canopy-peer-blue: #58a6ff;
   --canopy-shadow-heavy: rgba(0, 0, 0, 0.5);
 
+  /* ── Derived (hover/interaction overlays) ────────────── */
+  --canopy-hover-overlay: rgba(255, 255, 255, 0.03);
+  --canopy-accent-border: rgba(130, 80, 223, 0.2);
+  --canopy-error-bg: rgba(207, 34, 46, 0.1);
+  --canopy-error-border: rgba(207, 34, 46, 0.2);
+  --canopy-scrollbar: rgba(255, 255, 255, 0.08);
+  --canopy-scrollbar-hover: rgba(255, 255, 255, 0.15);
+  --canopy-fg-inverse: #fff;
+
   /* ── Fonts ─────────────────────────────────────────────── */
   --canopy-font-mono: 'Iosevka', 'Iosevka Web', monospace;
   --canopy-font-ui: 'Manrope', system-ui, sans-serif;
 
   /* ── Type scale ────────────────────────────────────────── */
+  --text-label: 0.6875rem;
   --text-caption: 0.8125rem;
   --text-small: 0.875rem;
   --text-body: 1rem;
@@ -174,7 +184,7 @@ button:focus-visible, .action-btn:focus-visible,
 
 .tab.active {
   background: var(--canopy-accent);
-  color: #fff;
+  color: var(--canopy-fg-inverse);
 }
 
 .toolbar-btn:hover, .tab:hover, .panel-toggle:hover, .example-btn:hover {
@@ -214,7 +224,7 @@ button:focus-visible, .action-btn:focus-visible,
 }
 
 .panel-label {
-  font-size: 0.6875rem;
+  font-size: var(--text-label);
   font-weight: var(--weight-semibold);
   color: var(--canopy-text-dim);
   letter-spacing: 0.1em;
@@ -254,7 +264,7 @@ button:focus-visible, .action-btn:focus-visible,
 }
 
 .tree-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--canopy-hover-overlay);
 }
 
 .tree-row.selected {
@@ -287,7 +297,7 @@ button:focus-visible, .action-btn:focus-visible,
 .tree-row.kind-error .tree-accent { background: var(--canopy-error); }
 
 .tree-toggle {
-  font-size: 0.6875rem;
+  font-size: var(--text-label);
   width: 16px;
   text-align: center;
   background: none;
@@ -320,7 +330,7 @@ button:focus-visible, .action-btn:focus-visible,
 .tree-row.depth-7 { padding-left: 120px; }
 
 .collapsed-badge {
-  font-size: 0.6875rem;
+  font-size: var(--text-label);
   color: var(--canopy-text-dim);
   margin-left: auto;
   background: var(--canopy-surface);
@@ -446,7 +456,7 @@ canopy-editor {
 }
 
 .inspector-label {
-  font-size: 0.6875rem;
+  font-size: var(--text-label);
   font-weight: var(--weight-semibold);
   color: var(--canopy-text-dim);
   letter-spacing: 0.1em;
@@ -504,7 +514,7 @@ canopy-editor {
 
 .action-btn:hover {
   background: var(--canopy-accent-hover);
-  border-color: rgba(130, 80, 223, 0.2);
+  border-color: var(--canopy-accent-border);
   color: var(--canopy-accent-text);
 }
 
@@ -513,8 +523,8 @@ canopy-editor {
 }
 
 .action-btn.danger:hover {
-  background: rgba(207, 34, 46, 0.1);
-  border-color: rgba(207, 34, 46, 0.2);
+  background: var(--canopy-error-bg);
+  border-color: var(--canopy-error-border);
   color: var(--canopy-error-text);
 }
 
@@ -837,7 +847,7 @@ canopy-editor {
     background: transparent;
     color: var(--canopy-text-dim);
   }
-  .tab.active:hover { background: var(--canopy-accent); color: #fff; }
+  .tab.active:hover { background: var(--canopy-accent); color: var(--canopy-fg-inverse); }
   .panel-toggle.active:hover {
     background: var(--canopy-surface);
     color: var(--canopy-fg);
@@ -870,10 +880,10 @@ canopy-editor {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+::-webkit-scrollbar-thumb { background: var(--canopy-scrollbar); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--canopy-scrollbar-hover); }
 
 .app-shell, .app-shell * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: var(--canopy-scrollbar) transparent;
 }
