@@ -33,6 +33,7 @@
   --canopy-error-text: #ef4444;
   --canopy-success: #34d058;
   --canopy-peer-blue: #58a6ff;
+  --canopy-shadow-heavy: rgba(0, 0, 0, 0.5);
 
   /* ── Fonts ─────────────────────────────────────────────── */
   --canopy-font-mono: 'Iosevka', 'Iosevka Web', monospace;
@@ -667,14 +668,11 @@ canopy-editor {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  /* ── Toolbar: compact, scrollable, safe-area aware ─────── */
+
   .toolbar {
     padding-left: max(var(--space-sm), env(safe-area-inset-left));
     padding-right: max(var(--space-sm), env(safe-area-inset-right));
-  }
-
-  /* ── Toolbar: compact, scrollable ──────────────────────── */
-
-  .toolbar {
     gap: var(--space-xs);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -721,7 +719,7 @@ canopy-editor {
     inset: 0;
     top: calc(48px + env(safe-area-inset-top, 0px));
     z-index: 15;
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--canopy-shadow-heavy);
     opacity: 1;
     pointer-events: auto;
     transition: opacity var(--duration-normal) var(--ease-out-quart);
@@ -736,7 +734,7 @@ canopy-editor {
   .outline-panel {
     left: 0;
     border-right: 1px solid var(--canopy-border);
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.5);
+    box-shadow: 8px 0 32px var(--canopy-shadow-heavy);
     transform: translateX(0);
     transition: transform var(--duration-normal) var(--ease-out-quart);
   }
@@ -757,7 +755,7 @@ canopy-editor {
   .inspector-panel {
     right: 0;
     border-left: 1px solid var(--canopy-border);
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+    box-shadow: -8px 0 32px var(--canopy-shadow-heavy);
     transform: translateX(0);
     transition: transform var(--duration-normal) var(--ease-out-quart);
   }
@@ -783,15 +781,15 @@ canopy-editor {
     max-height: 40vh;
   }
 
-  /* ── Tree: reduce indentation for narrow screens ───────── */
+  /* ── Tree: reduce indentation, cap at depth 5 ──────────── */
 
   .tree-row.depth-1 { padding-left: 20px; }
   .tree-row.depth-2 { padding-left: 32px; }
   .tree-row.depth-3 { padding-left: 44px; }
   .tree-row.depth-4 { padding-left: 56px; }
-  .tree-row.depth-5 { padding-left: 68px; }
-  .tree-row.depth-6 { padding-left: 80px; }
-  .tree-row.depth-7 { padding-left: 92px; }
+  .tree-row.depth-5,
+  .tree-row.depth-6,
+  .tree-row.depth-7 { padding-left: 64px; }
 
   /* Touch targets: 44px minimum per WCAG 2.5.8 */
   .tree-row {
