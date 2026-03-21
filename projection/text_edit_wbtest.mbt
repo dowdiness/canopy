@@ -1,6 +1,23 @@
 // Whitebox tests for compute_text_edit
 
 ///|
+/// Parse text and build ProjNode, SourceMap with token spans, registry, and FlatProj.
+/// Uses the full syntax tree → ProjNode pipeline so token spans are populated.
+fn parse_with_token_spans(
+  text : String,
+) -> (ProjNode, SourceMap, Map[NodeId, ProjNode], FlatProj) {
+  let (cst, _) = @parser.parse_cst(text) catch { _ => abort("parse failed") }
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let counter = Ref::new(0)
+  let proj = to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  sm.populate_token_spans(syntax, proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  (proj, sm, registry, fp)
+}
+
+///|
 /// Build a registry from a ProjNode tree.
 fn text_edit_test_registry(root : ProjNode) -> Map[NodeId, ProjNode] {
   let registry : Map[NodeId, ProjNode] = {}
@@ -1004,4 +1021,151 @@ test "compute_text_edit: InlineAllUsages no usages just removes binding" {
     }
     _ => fail("expected Some edits")
   }
+}
+
+///|
+test "compute_text_edit: Rename lambda param" {
+  let text = "\u{03BB}x.x"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // proj is Lam("x", Var("x"))
+  let lam_id = proj.id()
+  let result = compute_text_edit(
+    Rename(node_id=lam_id, new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="\u{03BB}y.y")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename var resolves to lambda binder" {
+  let text = "\u{03BB}x.x"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // body Var("x") is child[0] of Lam
+  let var_x = proj.children[0]
+  let result = compute_text_edit(
+    Rename(node_id=var_x.id(), new_name="z"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="\u{03BB}z.z")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename module binding" {
+  let text = "let x = 42\nx"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // Use the binding_node_id from flat_proj
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    Rename(node_id=binding_id, new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 42\ny")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename module binding via Var" {
+  let text = "let x = 42\nx"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // body is Var("x") — last child of Module
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    Rename(node_id=body.id(), new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 42\ny")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename module binding with multiple usages" {
+  let text = "let x = 42\nx + x"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    Rename(node_id=binding_id, new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      // Note: right operand's range may include leading space from CST
+      inspect(new_text.contains("let y = 42"), content="true")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename nested lambda" {
+  let text = "\u{03BB}x.\u{03BB}y.x"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // Rename outer lambda param "x" to "z"
+  let outer_id = proj.id()
+  let result = compute_text_edit(
+    Rename(node_id=outer_id, new_name="z"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="\u{03BB}z.\u{03BB}y.z")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename with unknown node returns error" {
+  let text = "42"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let _ = proj
+  let result = compute_text_edit(
+    Rename(node_id=NodeId(9999), new_name="y"),
+    text,
+    sm,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
 }

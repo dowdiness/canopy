@@ -59,6 +59,205 @@ fn get_binding_text_range(
 }
 
 ///|
+/// Rename a Lam's parameter and all bound Var occurrences in its body.
+fn rename_lam_param(
+  lam_id : NodeId,
+  lam_node : ProjNode,
+  old_name : String,
+  new_name : String,
+  source_map : SourceMap,
+  registry : Map[NodeId, ProjNode],
+) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  let _ = registry
+  let edits : Array[SpanEdit] = []
+  // Get param token span
+  match source_map.get_token_span(lam_id, "param") {
+    Some(param_range) =>
+      edits.push(
+        {
+          start: param_range.start,
+          delete_len: param_range.end - param_range.start,
+          inserted: new_name,
+        },
+      )
+    None => {
+      // Fallback: if no token span, re-render the whole Lam
+      match (lam_node.kind, source_map.get_range(lam_id)) {
+        (@ast.Term::Lam(_, body), Some(range)) => {
+          let new_kind = @ast.Term::Lam(new_name, body)
+          let new_text = @ast.print_term(new_kind)
+          return Ok(
+            Some(
+              (
+                [
+                  {
+                    start: range.start,
+                    delete_len: range.end - range.start,
+                    inserted: new_text,
+                  },
+                ],
+                RestoreCursor,
+              ),
+            ),
+          )
+        }
+        _ => return Err("Cannot rename: lambda not in source map")
+      }
+    }
+  }
+  // Find all bound Var occurrences in the body
+  let var_ids : Array[NodeId] = []
+  for child in lam_node.children {
+    collect_var_usages(child, old_name, var_ids)
+  }
+  // Add edits for each var, collecting ranges first
+  let var_ranges : Array[(Int, Int)] = []
+  for vid in var_ids {
+    match source_map.get_range(vid) {
+      Some(r) => var_ranges.push((r.start, r.end))
+      None => ()
+    }
+  }
+  // Sort descending by position for reverse-order application
+  var_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+  for vr in var_ranges {
+    edits.push(
+      { start: vr.0, delete_len: vr.1 - vr.0, inserted: new_name },
+    )
+  }
+  // Sort all edits by start position descending (param edit might be first)
+  edits.sort_by(fn(a, b) { b.start.compare(a.start) })
+  Ok(Some((edits, RestoreCursor)))
+}
+
+///|
+/// Rename a variable by resolving its binder and renaming at the definition site + all usages.
+fn rename_from_var(
+  var_node_id : NodeId,
+  old_name : String,
+  new_name : String,
+  flat_proj : FlatProj,
+  registry : Map[NodeId, ProjNode],
+  source_map : SourceMap,
+) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  let binder = match resolve_binder(
+    var_node_id, old_name, flat_proj, registry, source_map,
+  ) {
+    Some(b) => b
+    None => return Err("No binding found for variable: " + old_name)
+  }
+  match binder {
+    LamBinder(lam_id~) =>
+      match registry.get(lam_id) {
+        Some(lam_node) =>
+          rename_lam_param(lam_id, lam_node, old_name, new_name, source_map, registry)
+        None => Err("Lambda node not found in registry")
+      }
+    ModuleBinder(binding_node_id~, def_index~) => {
+      let _ = binding_node_id
+      // Find the Module node in the registry
+      let mut module_id : NodeId? = None
+      for pid, pnode in registry {
+        if pnode.kind is @ast.Term::Module(_, _) {
+          module_id = Some(pid)
+          break
+        }
+      }
+      match module_id {
+        Some(mid) =>
+          rename_module_binding(
+            mid, def_index, old_name, new_name, flat_proj, registry,
+            source_map,
+          )
+        None => Err("Module node not found in registry")
+      }
+    }
+  }
+}
+
+///|
+/// Rename a module binding by its binding_node_id.
+fn rename_binding_by_id(
+  binding_node_id : NodeId,
+  new_name : String,
+  flat_proj : FlatProj,
+  registry : Map[NodeId, ProjNode],
+  source_map : SourceMap,
+) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  let mut def_index = -1
+  for i, def in flat_proj.defs {
+    if def.3 == binding_node_id {
+      def_index = i
+    }
+  }
+  if def_index < 0 {
+    return Err("Node not found and not a binding: " + binding_node_id.to_string())
+  }
+  let old_name = flat_proj.defs[def_index].0
+  // Find Module node
+  let mut module_id : NodeId? = None
+  for pid, pnode in registry {
+    if pnode.kind is @ast.Term::Module(_, _) {
+      module_id = Some(pid)
+      break
+    }
+  }
+  match module_id {
+    Some(mid) =>
+      rename_module_binding(
+        mid, def_index, old_name, new_name, flat_proj, registry, source_map,
+      )
+    None => Err("Module node not found in registry")
+  }
+}
+
+///|
+/// Core rename logic for a module-level binding: renames the binding name token + all usages.
+fn rename_module_binding(
+  module_id : NodeId,
+  def_index : Int,
+  old_name : String,
+  new_name : String,
+  flat_proj : FlatProj,
+  registry : Map[NodeId, ProjNode],
+  source_map : SourceMap,
+) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  let edits : Array[SpanEdit] = []
+  // Get the name token span
+  let role = "name:" + def_index.to_string()
+  match source_map.get_token_span(module_id, role) {
+    Some(name_range) =>
+      edits.push(
+        {
+          start: name_range.start,
+          delete_len: name_range.end - name_range.start,
+          inserted: new_name,
+        },
+      )
+    None => return Err("No token span for binding name at def index " + def_index.to_string())
+  }
+  // Find all usages
+  let usage_ids = find_usages(old_name, def_index + 1, flat_proj, registry)
+  let usage_ranges : Array[(Int, Int)] = []
+  for uid in usage_ids {
+    match source_map.get_range(uid) {
+      Some(r) => usage_ranges.push((r.start, r.end))
+      None => ()
+    }
+  }
+  // Sort descending by position
+  usage_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+  for ur in usage_ranges {
+    edits.push(
+      { start: ur.0, delete_len: ur.1 - ur.0, inserted: new_name },
+    )
+  }
+  // Sort all edits descending
+  edits.sort_by(fn(a, b) { b.start.compare(a.start) })
+  Ok(Some((edits, RestoreCursor)))
+}
+
+///|
 /// Translate a TreeEditOp into text span edits using the source map.
 /// All TreeEditOp variants are handled — no fallback to the old path.
 /// Returns Some([]) for no-op ops (Select, Collapse, etc.).
@@ -1062,10 +1261,34 @@ pub fn compute_text_edit(
       edits.push({ start: del_start, delete_len: del_len, inserted: "" })
       Ok(Some((edits, RestoreCursor)))
     }
-    // Rename: placeholder — implemented after token span resolution
+    // Rename: scope-aware renaming of variables and bindings
     Rename(node_id~, new_name~) => {
-      let _ = (node_id, new_name)
-      Err("Rename not yet implemented in compute_text_edit")
+      let node = registry.get(node_id)
+      match node {
+        Some(n) =>
+          match n.kind {
+            @ast.Term::Var(old_name) =>
+              // Var: resolve to binder and rename binder + all usages
+              rename_from_var(
+                node_id, old_name, new_name, flat_proj, registry, source_map,
+              )
+            @ast.Term::Lam(old_name, _) =>
+              // Lam: rename param + all bound Var occurrences in body
+              rename_lam_param(
+                node_id, n, old_name, new_name, source_map, registry,
+              )
+            _ =>
+              // Check if this node_id is a binding_node_id in flat_proj
+              rename_binding_by_id(
+                node_id, new_name, flat_proj, registry, source_map,
+              )
+          }
+        None =>
+          // Node not in registry — check if it's a binding_node_id
+          rename_binding_by_id(
+            node_id, new_name, flat_proj, registry, source_map,
+          )
+      }
     }
   }
 }
