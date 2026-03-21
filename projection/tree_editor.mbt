@@ -446,7 +446,24 @@ pub fn TreeEditorState::apply_edit(
           }
         None => self
       }
-    // Catch-all for new structural ops — clear editing state
-    _ => { ..self, editing_node: None, edit_value: "" }
+    // Structural ops that use node_id — clear editing state
+    Unwrap(node_id~, ..) |
+    SwapChildren(node_id~) |
+    WrapInIf(node_id~) |
+    WrapInBop(node_id~, ..) |
+    ChangeOperator(node_id~, ..) |
+    ExtractToLet(node_id~, ..) |
+    InlineDefinition(node_id~) |
+    Rename(node_id~, ..) => {
+      let _ = node_id
+      { ..self, editing_node: None, edit_value: "" }
+    }
+    // Binding-level ops — clear editing state
+    DeleteBinding(..) |
+    InlineAllUsages(..) |
+    DuplicateBinding(..) |
+    MoveBindingUp(..) |
+    MoveBindingDown(..) |
+    AddBinding(..) => { ..self, editing_node: None, edit_value: "" }
   }
 }
