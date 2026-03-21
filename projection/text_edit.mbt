@@ -361,6 +361,56 @@ pub fn compute_text_edit(
         }
         _ => Err("Node not found: " + node_id.to_string())
       }
+    // WrapInBop: wrap a node in a binary operation with placeholder right operand
+    WrapInBop(node_id~, op~) =>
+      match (source_map.get_range(node_id), registry.get(node_id)) {
+        (Some(range), Some(node)) => {
+          let wrapped = @ast.print_term(Bop(op, node.kind, Int(0)))
+          // "(expr + 0)" — placeholder "0" is at wrapped.length() - 2 from start
+          let placeholder_pos = range.start + wrapped.length() - 2
+          Ok(
+            Some(
+              (
+                [
+                  {
+                    start: range.start,
+                    delete_len: range.end - range.start,
+                    inserted: wrapped,
+                  },
+                ],
+                MoveCursor(position=placeholder_pos),
+              ),
+            ),
+          )
+        }
+        _ => Err("Node not found: " + node_id.to_string())
+      }
+    // ChangeOperator: change the operator of a Bop node
+    ChangeOperator(node_id~, new_op~) =>
+      match (source_map.get_range(node_id), registry.get(node_id)) {
+        (Some(range), Some(node)) =>
+          match node.kind {
+            @ast.Term::Bop(_, l, r) => {
+              let new_text = @ast.print_term(Bop(new_op, l, r))
+              Ok(
+                Some(
+                  (
+                    [
+                      {
+                        start: range.start,
+                        delete_len: range.end - range.start,
+                        inserted: new_text,
+                      },
+                    ],
+                    RestoreCursor,
+                  ),
+                ),
+              )
+            }
+            _ => Err("ChangeOperator requires Bop node")
+          }
+        _ => Err("Node not found: " + node_id.to_string())
+      }
     // SwapChildren: swap left/right children of Bop, or then/else of If
     SwapChildren(node_id~) =>
       match (source_map.get_range(node_id), registry.get(node_id)) {

@@ -435,6 +435,56 @@ test "compute_text_edit: WrapInIf wraps node in if-then-else" {
 }
 
 ///|
+test "compute_text_edit: WrapInBop wraps node in binary operation" {
+  let text = "42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let root_id = proj.id()
+  let result = compute_text_edit(
+    WrapInBop(node_id=root_id, op=@ast.Bop::Plus),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="(42 + 0)")
+      // MoveCursor should point to placeholder "0" at offset 6
+      inspect(hint, content="MoveCursor(position=6)")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: ChangeOperator changes Bop operator" {
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let root_id = proj.id()
+  let result = compute_text_edit(
+    ChangeOperator(node_id=root_id, new_op=@ast.Bop::Minus),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      inspect(apply_edits(text, edits), content="(1 - 2)")
+      inspect(hint, content="RestoreCursor")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: SwapChildren swaps Bop operands" {
   let text = "1 + 2"
   let (proj, _) = parse_to_proj_node(text)

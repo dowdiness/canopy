@@ -31,6 +31,8 @@ pub(all) enum TreeEditOp {
   Unwrap(node_id~ : NodeId, keep_child_index~ : Int)
   SwapChildren(node_id~ : NodeId)
   WrapInIf(node_id~ : NodeId)
+  WrapInBop(node_id~ : NodeId, op~ : @ast.Bop)
+  ChangeOperator(node_id~ : NodeId, new_op~ : @ast.Bop)
 } derive(Show)
 
 ///|
