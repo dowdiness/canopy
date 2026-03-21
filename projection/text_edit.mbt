@@ -337,6 +337,49 @@ pub fn compute_text_edit(
           }
         _ => Err("Node not found: " + node_id.to_string())
       }
+    // SwapChildren: swap left/right children of Bop, or then/else of If
+    SwapChildren(node_id~) =>
+      match (source_map.get_range(node_id), registry.get(node_id)) {
+        (Some(range), Some(node)) =>
+          match node.kind {
+            @ast.Term::Bop(op, l, r) => {
+              let swapped = @ast.print_term(Bop(op, r, l))
+              Ok(
+                Some(
+                  (
+                    [
+                      {
+                        start: range.start,
+                        delete_len: range.end - range.start,
+                        inserted: swapped,
+                      },
+                    ],
+                    RestoreCursor,
+                  ),
+                ),
+              )
+            }
+            @ast.Term::If(c, t, e) => {
+              let swapped = @ast.print_term(If(c, e, t))
+              Ok(
+                Some(
+                  (
+                    [
+                      {
+                        start: range.start,
+                        delete_len: range.end - range.start,
+                        inserted: swapped,
+                      },
+                    ],
+                    RestoreCursor,
+                  ),
+                ),
+              )
+            }
+            _ => Err("SwapChildren requires Bop or If node")
+          }
+        _ => Err("Node not found: " + node_id.to_string())
+      }
     // Drop: move a node from source to target position
     Drop(source~, target~, position~) => {
       let source_range = match source_map.get_range(source) {

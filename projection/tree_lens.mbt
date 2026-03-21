@@ -29,6 +29,7 @@ pub(all) enum TreeEditOp {
 
   // New structural actions
   Unwrap(node_id~ : NodeId, keep_child_index~ : Int)
+  SwapChildren(node_id~ : NodeId)
 } derive(Show)
 
 ///|

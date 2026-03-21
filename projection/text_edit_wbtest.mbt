@@ -408,3 +408,27 @@ test "compute_text_edit: Unwrap Bop keeps right" {
     _ => fail("expected Some edits")
   }
 }
+
+///|
+test "compute_text_edit: SwapChildren swaps Bop operands" {
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let root_id = proj.id()
+  let result = compute_text_edit(
+    SwapChildren(node_id=root_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      inspect(apply_edits(text, edits), content="(2 + 1)")
+      inspect(hint, content="RestoreCursor")
+    }
+    _ => fail("expected Some edits")
+  }
+}
