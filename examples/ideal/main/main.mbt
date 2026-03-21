@@ -323,7 +323,8 @@ fn execute_action(
 }
 
 ///|
-/// Dispatch an action immediately if it needs no input, or open the name prompt.
+/// Dispatch an action immediately, open a submenu for choice-based actions,
+/// or open the name prompt for input-requiring actions.
 fn dispatch_or_prompt(model : Model, action : @proj.Action) -> (Cmd, Model) {
   if action.needs_input {
     let overlay = {
@@ -334,7 +335,18 @@ fn dispatch_or_prompt(model : Model, action : @proj.Action) -> (Cmd, Model) {
     }
     (none, { ..model, overlay, })
   } else {
-    execute_action(model, action, "", "")
+    // Check if this action needs a choice submenu
+    let ctx_kind = match model.overlay.node_context {
+      Some(ctx) => ctx.kind
+      None => @ast.Term::Unit
+    }
+    let choices = get_submenu_choices(action.id, ctx_kind)
+    if choices.length() > 0 {
+      let overlay = { ..model.overlay, submenu: Some(action) }
+      (none, { ..model, overlay, })
+    } else {
+      execute_action(model, action, "", "")
+    }
   }
 }
 
@@ -474,9 +486,22 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       // If in submenu mode, match numeric keys to choices
       match model.overlay.submenu {
-        Some(sub_action) =>
-          // Submenu choices: keys "1", "2", "3" etc.
-          execute_action(model, sub_action, key, "")
+        Some(sub_action) => {
+          let ctx_kind = match model.overlay.node_context {
+            Some(ctx) => ctx.kind
+            None => @ast.Term::Unit
+          }
+          let choices = get_submenu_choices(sub_action.id, ctx_kind)
+          let idx = @strconv.parse_int(key) catch { _ => -1 }
+          let idx = idx - 1 // "1" → 0, "2" → 1, etc.
+          if idx >= 0 && idx < choices.length() {
+            let (_, value) = choices[idx]
+            execute_action(model, sub_action, value, "")
+          } else {
+            // Invalid key — close submenu
+            (none, { ..model, overlay: { ..model.overlay, submenu: None } })
+          }
+        }
         None =>
           // If in name prompt mode, let the view handle input
           if not(model.overlay.pending_action is None) {
@@ -494,12 +519,36 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     ActionTapped(action_id) => {
-      let matched = model.overlay.actions
-        .iter()
-        .find_first(fn(a) { a.id == action_id })
-      match matched {
-        Some(action) => dispatch_or_prompt(model, action)
-        None => (none, model)
+      // Check for submenu choice format: "action_id:value"
+      if action_id.contains(":") {
+        // Split on first ':'
+        let mut base_id = ""
+        let mut choice = ""
+        let mut found_colon = false
+        action_id.iter().each(fn(ch) {
+          if not(found_colon) && ch == ':' {
+            found_colon = true
+          } else if found_colon {
+            choice = choice + ch.to_string()
+          } else {
+            base_id = base_id + ch.to_string()
+          }
+        })
+        let matched = model.overlay.actions
+          .iter()
+          .find_first(fn(a) { a.id == base_id })
+        match matched {
+          Some(action) => execute_action(model, action, choice, "")
+          None => (none, model)
+        }
+      } else {
+        let matched = model.overlay.actions
+          .iter()
+          .find_first(fn(a) { a.id == action_id })
+        match matched {
+          Some(action) => dispatch_or_prompt(model, action)
+          None => (none, model)
+        }
       }
     }
     NamePromptInput(value) => {

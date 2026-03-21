@@ -99,6 +99,36 @@ fn view_name_prompt(
 }
 
 ///|
+/// Render submenu choices (e.g., Plus/Minus for change_op, left/right for unwrap).
+fn view_submenu_choices(
+  dispatch : @rabbita.Dispatch[Msg],
+  action : @proj.Action,
+  kind : @ast.Term,
+) -> @rabbita.Html {
+  let choices = get_submenu_choices(action.id, kind)
+  let items : Array[@rabbita.Html] = []
+  items.push(
+    @html.div(class="action-group-label", [@html.text(action.label)]),
+  )
+  for i, choice in choices {
+    let (label, value) = choice
+    items.push(
+      @html.div(
+        class="action-overlay-item",
+        on_click=dispatch(ActionTapped(action.id + ":" + value)),
+        [
+          @html.span(class="action-mnemonic", [
+            @html.text((i + 1).to_string()),
+          ]),
+          @html.span(class="action-label-text", [@html.text(label)]),
+        ],
+      ),
+    )
+  }
+  @html.div(class="action-overlay-list", items)
+}
+
+///|
 /// Render the action overlay: scrim + positioned panel.
 /// Returns nothing if the overlay is not visible.
 fn view_action_overlay(
@@ -116,9 +146,10 @@ fn view_action_overlay(
   let content : @rabbita.Html = if not(model.overlay.pending_action is None) {
     view_name_prompt(dispatch, model)
   } else if not(model.overlay.submenu is None) {
-    match model.overlay.submenu {
-      Some(sub_action) => view_action_list(dispatch, [sub_action])
-      None => view_action_list(dispatch, model.overlay.actions)
+    match (model.overlay.submenu, model.overlay.node_context) {
+      (Some(sub_action), Some(ctx)) =>
+        view_submenu_choices(dispatch, sub_action, ctx.kind)
+      _ => view_action_list(dispatch, model.overlay.actions)
     }
   } else {
     view_action_list(dispatch, model.overlay.actions)

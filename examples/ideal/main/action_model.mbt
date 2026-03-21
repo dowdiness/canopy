@@ -66,6 +66,27 @@ fn to_proj_context(ctx : NodeActionContext) -> @proj.NodeContext {
 }
 
 ///|
+/// Get submenu choices for an action that requires a choice.
+/// Returns array of (label, value) pairs, empty if no submenu needed.
+fn get_submenu_choices(
+  action_id : String,
+  kind : @ast.Term,
+) -> Array[(String, String)] {
+  match action_id {
+    "change_op" | "wrap_bop" => [("Plus", "Plus"), ("Minus", "Minus")]
+    "unwrap" =>
+      match kind {
+        @ast.Term::Bop(_, _, _) => [("left", "0"), ("right", "1")]
+        @ast.Term::If(_, _, _) =>
+          [("cond", "0"), ("then", "1"), ("else", "2")]
+        @ast.Term::App(_, _) => [("fn", "0"), ("arg", "1")]
+        _ => [("body", "0")]
+      }
+    _ => []
+  }
+}
+
+///|
 /// Parse a Bop choice string to a @ast.Bop value.
 fn parse_bop(choice : String) -> @ast.Bop? {
   match choice {

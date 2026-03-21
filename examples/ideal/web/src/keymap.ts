@@ -66,10 +66,19 @@ export function actionKeyForwardPlugin(host: HTMLElement) {
   return new Plugin({
     props: {
       handleKeyDown(_view, event) {
-        // Don't forward modifier/function keys (except Escape)
-        if (event.key.length > 1 && event.key !== 'Escape') return false;
         const g = globalThis as any;
         if (!g.__canopy_overlay_open) return false;
+        // Overlay is open — swallow all keys to prevent ProseMirror handling.
+        // Only forward Escape and unmodified single-char keys (Shift allowed).
+        if (event.key === 'Escape') {
+          // Forward Escape
+        } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          // Forward printable character (Shift allowed for uppercase mnemonics)
+        } else {
+          // Swallow but don't forward (modifier combos, function keys, etc.)
+          event.preventDefault();
+          return true;
+        }
         g.__canopy_pending_action_key = event.key;
         const btn = document.getElementById('canopy-action-key-trigger');
         if (btn) {

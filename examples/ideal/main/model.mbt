@@ -35,7 +35,7 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
-pub struct OverlayState {
+struct OverlayState {
   visible : Bool
   actions : Array[@proj.Action]
   node_context : NodeActionContext?
@@ -48,7 +48,7 @@ pub struct OverlayState {
 }
 
 ///|
-pub struct NodeActionContext {
+struct NodeActionContext {
   node_id : @proj.NodeId
   kind : @ast.Term
   is_let_binding : Bool
