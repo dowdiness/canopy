@@ -11,6 +11,9 @@
     },
     "antisatori/graphviz": {
       "path": "../../graphviz"
+    },
+    "dowdiness/lambda": {
+      "path": "../../loom/examples/lambda"
     }
   },
   "source": ".",

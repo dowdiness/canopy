@@ -4,6 +4,7 @@ import {
   "dowdiness/canopy" @crdt,
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/strconv",
   "moonbit-community/rabbita/cmd" @rabbita_cmd,
   "antisatori/graphviz/lib/parser" @gv_parser,
