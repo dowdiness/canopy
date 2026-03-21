@@ -79,6 +79,10 @@ export class CanopyEditor extends HTMLElement {
   connectedCallback() {}
 
   disconnectedCallback() {
+    if (this.cursorBroadcastTimer !== null) {
+      clearTimeout(this.cursorBroadcastTimer);
+      this.cursorBroadcastTimer = null;
+    }
     if (this.mountAbortController) {
       this.mountAbortController.abort();
       this.mountAbortController = null;

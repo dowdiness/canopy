@@ -106,7 +106,13 @@ pub fn SyncEditor::set_local_presence(
   // Write cursor data to cursor store (with name/color for cursor_view compat)
   let map : Map[String, EphemeralValue] = {}
   map["peer_id"] = EphemeralValue::String(self.peer_id)
-  map["cursor"] = EphemeralValue::I64(self.cursor.to_int64())
+  // Use selection start as cursor position when provided (CM6 passes
+  // the actual caret position via sel_start, not self.cursor).
+  let cursor_pos = match selection {
+    Some((start, _)) => start
+    None => self.cursor
+  }
+  map["cursor"] = EphemeralValue::I64(cursor_pos.to_int64())
   map["name"] = EphemeralValue::String(name)
   map["color"] = EphemeralValue::String(color)
   match selection {

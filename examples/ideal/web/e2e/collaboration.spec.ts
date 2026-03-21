@@ -167,11 +167,11 @@ test.describe('Collaboration - Two Peers', () => {
       await typeInEditor(pageA, '\nlet y = 2');
       await pageA.waitForTimeout(2000);
 
-      // Peer B should eventually see the text
+      // Peer B should eventually see the synced text containing "let y = 2"
+      await pageB.waitForTimeout(2000);
       const textB = await getEditorText(pageB);
-      // The CRDT text should contain the typed content
-      // (may not be exact due to CRDT merge ordering)
-      expect(textB.length).toBeGreaterThan(10);
+      expect(textB).toContain('let');
+      expect(textB).toContain('y');
     } finally {
       await contextA.close();
       await contextB.close();
@@ -199,10 +199,15 @@ test.describe('Collaboration - Two Peers', () => {
       await pageA.keyboard.press('End');
       await pageA.waitForTimeout(1000);
 
-      // Peer B should see peer A's cursor
-      const cursorCount = await getPeerCursorCount(pageB);
-      expect(cursorCount).toBeGreaterThanOrEqual(0);
-      // Note: cursor may not appear immediately due to ephemeral propagation delay
+      // Peer B should see peer A's cursor after ephemeral propagation
+      // Retry with polling since ephemeral delivery has network latency
+      let cursorCount = 0;
+      for (let i = 0; i < 10; i++) {
+        cursorCount = await getPeerCursorCount(pageB);
+        if (cursorCount > 0) break;
+        await pageB.waitForTimeout(500);
+      }
+      expect(cursorCount).toBeGreaterThan(0);
     } finally {
       await contextA.close();
       await contextB.close();
@@ -227,12 +232,11 @@ test.describe('Collaboration - Two Peers', () => {
       const outlineA = await pageA.getByLabel('AST outline').innerText();
       expect(outlineA).toContain('module [add]');
 
-      // Peer B should eventually sync and show the same outline
-      // (CRDT sync may take a moment)
+      // Peer B should eventually sync and show the same definitions
       await pageB.waitForTimeout(3000);
       const outlineB = await pageB.getByLabel('AST outline').innerText();
-      // After sync, B should have content (may differ from A if initial state differs)
-      expect(outlineB.length).toBeGreaterThan(0);
+      // After CRDT sync, B's outline should contain the "add" definition
+      expect(outlineB).toContain('add');
     } finally {
       await contextA.close();
       await contextB.close();

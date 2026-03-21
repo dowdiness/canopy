@@ -98,6 +98,9 @@ export class SyncClient {
           composed: true,
         }),
       );
+
+      // Broadcast ephemeral presence so existing peers see us immediately.
+      this.broadcastEphemeral();
     });
 
     this.ws.addEventListener("message", (event) => {
