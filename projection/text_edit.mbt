@@ -905,5 +905,167 @@ pub fn compute_text_edit(
         }
       }
     }
+    // InlineDefinition: inline a single Var usage of a module binding
+    InlineDefinition(node_id~) => {
+      let node = match registry.get(node_id) {
+        Some(n) => n
+        None => return Err("Node not found: " + node_id.to_string())
+      }
+      let var_name = match node.kind {
+        @ast.Term::Var(name) => name
+        _ => return Err("InlineDefinition requires a Var node")
+      }
+      let range = match source_map.get_range(node_id) {
+        Some(r) => r
+        None => return Err("Var not in source map")
+      }
+      // Resolve the binding
+      let binder = match resolve_binder(
+        node_id, var_name, flat_proj, registry, source_map,
+      ) {
+        Some(b) => b
+        None => return Err("No binding found for variable: " + var_name)
+      }
+      match binder {
+        LamBinder(..) =>
+          return Err("Cannot inline lambda-bound variable: " + var_name)
+        ModuleBinder(def_index~, ..) => {
+          let def = flat_proj.defs[def_index]
+          let init_text = @ast.print_term(def.1.kind)
+          // Check if this is the sole usage
+          let usages = find_usages(
+            var_name, def_index + 1, flat_proj, registry,
+          )
+          if usages.length() <= 1 {
+            // Sole usage — inline and delete the binding
+            let (let_start, binding_end) = match
+              get_binding_text_range(source_text, source_map, def) {
+              Ok(r) => r
+              Err(e) => return Err(e)
+            }
+            // Determine delete range for the binding line (including newline)
+            let (del_start, del_len) = if binding_end < source_text.length() &&
+              source_text[binding_end] == '\n' {
+              (let_start, binding_end + 1 - let_start)
+            } else if let_start > 0 && source_text[let_start - 1] == '\n' {
+              (let_start - 1, binding_end - let_start + 1)
+            } else {
+              (let_start, binding_end - let_start)
+            }
+            // If the var range is after the binding, we need to adjust
+            // for the deletion. Produce edits in reverse document order.
+            if range.start >= binding_end {
+              // Var is after binding — two non-overlapping edits
+              Ok(
+                Some(
+                  (
+                    [
+                      {
+                        start: range.start,
+                        delete_len: range.end - range.start,
+                        inserted: init_text,
+                      },
+                      {
+                        start: del_start,
+                        delete_len: del_len,
+                        inserted: "",
+                      },
+                    ],
+                    MoveCursor(position=range.start),
+                  ),
+                ),
+              )
+            } else {
+              // Var is within the binding init — just replace the var
+              Ok(
+                Some(
+                  (
+                    [
+                      {
+                        start: range.start,
+                        delete_len: range.end - range.start,
+                        inserted: init_text,
+                      },
+                    ],
+                    MoveCursor(position=range.start),
+                  ),
+                ),
+              )
+            }
+          } else {
+            // Multiple usages — just replace this single var
+            Ok(
+              Some(
+                (
+                  [
+                    {
+                      start: range.start,
+                      delete_len: range.end - range.start,
+                      inserted: init_text,
+                    },
+                  ],
+                  MoveCursor(position=range.start),
+                ),
+              ),
+            )
+          }
+        }
+      }
+    }
+    // InlineAllUsages: replace all usages of a binding and remove the binding
+    InlineAllUsages(binding_node_id~) => {
+      // Find the binding
+      let mut def_index = -1
+      for i, def in flat_proj.defs {
+        if def.3 == binding_node_id {
+          def_index = i
+        }
+      }
+      if def_index < 0 {
+        return Err("Binding not found: " + binding_node_id.to_string())
+      }
+      let def = flat_proj.defs[def_index]
+      let var_name = def.0
+      let init_text = @ast.print_term(def.1.kind)
+      // Find all usages
+      let usage_ids = find_usages(var_name, def_index + 1, flat_proj, registry)
+      // Build replacement edits for all usages (reverse document order)
+      let edits : Array[SpanEdit] = []
+      // Collect usage ranges, sorted by position (descending)
+      let usage_ranges : Array[(Int, Int)] = []
+      for uid in usage_ids {
+        match source_map.get_range(uid) {
+          Some(r) => usage_ranges.push((r.start, r.end))
+          None => ()
+        }
+      }
+      usage_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+      for ur in usage_ranges {
+        edits.push(
+          { start: ur.0, delete_len: ur.1 - ur.0, inserted: init_text },
+        )
+      }
+      // Delete the binding
+      let (let_start, binding_end) = match
+        get_binding_text_range(source_text, source_map, def) {
+        Ok(r) => r
+        Err(e) => return Err(e)
+      }
+      let (del_start, del_len) = if binding_end < source_text.length() &&
+        source_text[binding_end] == '\n' {
+        (let_start, binding_end + 1 - let_start)
+      } else if let_start > 0 && source_text[let_start - 1] == '\n' {
+        (let_start - 1, binding_end - let_start + 1)
+      } else {
+        (let_start, binding_end - let_start)
+      }
+      edits.push({ start: del_start, delete_len: del_len, inserted: "" })
+      Ok(Some((edits, RestoreCursor)))
+    }
+    // Rename: placeholder — implemented after token span resolution
+    Rename(node_id~, new_name~) => {
+      let _ = (node_id, new_name)
+      Err("Rename not yet implemented in compute_text_edit")
+    }
   }
 }

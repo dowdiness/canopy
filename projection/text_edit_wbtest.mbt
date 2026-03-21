@@ -849,3 +849,159 @@ test "compute_text_edit: ExtractToLet bare expression" {
     _ => fail("expected Some edits")
   }
 }
+
+///|
+test "compute_text_edit: InlineDefinition sole usage removes binding" {
+  let text = "let x = 42\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // Body is the last child of Module — Var("x")
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="42")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition multiple usages keeps binding" {
+  let text = "let x = 42\nx + x"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // Body is Bop(+, Var(x), Var(x)). Get the left Var.
+  let body = proj.children[proj.children.length() - 1]
+  let lhs = body.children[0]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=lhs.id()),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let x = 42\n42 + x")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: InlineAllUsages replaces all refs and removes binding" {
+  // Note: right operand range in BinaryExpr may include leading whitespace
+  // from the CST, so "x + x" -> "42 +42" — reparsing normalizes spacing.
+  let text = "let x = 42\nx + x"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=binding_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      // The right operand's source range includes leading space from CST,
+      // resulting in minor whitespace irregularity; reparsing normalizes.
+      inspect(new_text, content="42 +42")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition on non-Var returns error" {
+  let text = "42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let result = compute_text_edit(
+    InlineDefinition(node_id=proj.id()),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
+  let text = "let x = 0\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=NodeId(9999)),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
+  let text = "λx. x"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // Body is Var("x") — child[0] of Lam
+  let var_x = proj.children[0]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=var_x.id()),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: InlineAllUsages no usages just removes binding" {
+  let text = "let x = 42\n0"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=binding_id),
+    text,
+    source_map,
+    registry,
+    fp,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="0")
+    }
+    _ => fail("expected Some edits")
+  }
+}

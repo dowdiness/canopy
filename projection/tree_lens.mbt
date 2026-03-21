@@ -43,6 +43,13 @@ pub(all) enum TreeEditOp {
 
   // Extract to let
   ExtractToLet(node_id~ : NodeId, var_name~ : String)
+
+  // Inline
+  InlineDefinition(node_id~ : NodeId)
+  InlineAllUsages(binding_node_id~ : NodeId)
+
+  // Rename
+  Rename(node_id~ : NodeId, new_name~ : String)
 } derive(Show)
 
 ///|
