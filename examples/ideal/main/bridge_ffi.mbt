@@ -129,4 +129,49 @@ extern "js" fn js_set_inner_html(element_id : String, html : String) -> Unit =
   #|   if (el) el.innerHTML = html;
   #| }
 
+///|
+/// Consume the pending action overlay node ID set by JS.
+extern "js" fn js_take_action_overlay_node() -> String =
+  #| function() {
+  #|   var v = globalThis.__canopy_pending_action_overlay_node;
+  #|   globalThis.__canopy_pending_action_overlay_node = null;
+  #|   return v || '';
+  #| }
+
+///|
+/// Consume the pending action key pressed set by JS.
+extern "js" fn js_take_action_key() -> String =
+  #| function() {
+  #|   var v = globalThis.__canopy_pending_action_key;
+  #|   globalThis.__canopy_pending_action_key = null;
+  #|   return v || '';
+  #| }
+
+///|
+/// Tell JS whether the action overlay is currently open.
+extern "js" fn js_set_overlay_open(open : Bool) -> Unit =
+  #| function(open) {
+  #|   globalThis.__canopy_overlay_open = open;
+  #| }
+
+///|
+/// Get the bounding rect of the currently selected ProseMirror node as JSON.
+extern "js" fn js_get_selected_node_rect() -> String =
+  #| function() {
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (!el || !el.shadowRoot) return '{}';
+  #|   var sel = el.shadowRoot.querySelector('.ProseMirror-selectednode');
+  #|   if (!sel) return '{}';
+  #|   var r = sel.getBoundingClientRect();
+  #|   return JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), bottom: Math.round(r.bottom), right: Math.round(r.right) });
+  #| }
+
+///|
+/// Reconcile ProseMirror after a tree edit applied on the MoonBit side.
+extern "js" fn js_reconcile_after_tree_edit() -> Unit =
+  #| function() {
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (el && el._bridge) el._bridge.afterLocalEdit();
+  #| }
+
 // Note: editor event wiring is done in main.ts wireEditorEvents() — not here.
