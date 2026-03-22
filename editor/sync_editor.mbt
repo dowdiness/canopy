@@ -18,6 +18,8 @@ pub struct SyncEditor {
   priv cursor_view : PeerCursorView
   priv peer_id : String
   priv mut ws : JsWebSocket?
+  priv mut recovery : RecoveryContext?
+  priv mut recovery_epoch : Int
 }
 
 ///|
@@ -91,6 +93,8 @@ pub fn SyncEditor::new(
     cursor_view,
     peer_id: agent_id,
     ws: None,
+    recovery: None,
+    recovery_epoch: 0,
   }
 }
 

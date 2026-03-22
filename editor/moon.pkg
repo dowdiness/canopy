@@ -25,6 +25,7 @@ options(
     "ephemeral_time_js.mbt": [ "js" ],
     "ephemeral_time_native.mbt": [ "not", "js" ],
     "error_path_wbtest.mbt": [ "not", "js" ],
+    "recovery_wbtest.mbt": [ "not", "js" ],
     "sync_editor_ws_wbtest.mbt": [ "not", "js" ],
     "websocket_js.mbt": [ "js" ],
     "websocket_native.mbt": [ "not", "js" ],

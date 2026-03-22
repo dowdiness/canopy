@@ -29,12 +29,50 @@ pub fn RelayRoom::on_connect(
 }
 
 ///|
+/// Send data to a specific peer by ID. Silent no-op if peer not found.
+/// Public API — used by on_message routing and crdt_relay.mbt FFI.
+pub fn RelayRoom::send_to(
+  self : RelayRoom,
+  peer_id : String,
+  data : Bytes,
+) -> Unit {
+  for peer in self.peers {
+    if peer.peer_id == peer_id {
+      (peer.send_fn)(data)
+      return
+    }
+  }
+}
+
+///|
 pub fn RelayRoom::on_message(
   self : RelayRoom,
   sender : String,
   data : Bytes,
 ) -> Unit {
-  self.broadcast(sender, data)
+  // Safety: short or non-v2 frames broadcast unchanged
+  if data.length() < 3 || data[0] != version {
+    self.broadcast(sender, data)
+    return
+  }
+  let msg_type = data[1]
+  match msg_type {
+    b'\x01' => {
+      // CrdtOps -> wrap as RelayedCrdtOps (0x06) with sender ID, broadcast
+      let wrapped = wrap_with_sender(sender, b'\x06', data, 3)
+      self.broadcast(sender, wrapped)
+    }
+    b'\x03' | b'\x04' =>
+      // SyncRequest/SyncResponse -> read target, wrap with sender, send_to target
+      match read_relay_string(data, 3) {
+        Some((target, after_target)) => {
+          let wrapped = wrap_with_sender(sender, data[1], data, after_target)
+          self.send_to(target, wrapped)
+        }
+        None => () // Malformed target_id — drop. Monitor at CF Worker layer if needed.
+      }
+    _ => self.broadcast(sender, data)
+  }
 }
 
 ///|

@@ -19,6 +19,7 @@ pub fn RelayRoom::on_connect(Self, String, (Bytes) -> Unit) -> Unit
 pub fn RelayRoom::on_disconnect(Self, String) -> Unit
 pub fn RelayRoom::on_message(Self, String, Bytes) -> Unit
 pub fn RelayRoom::peer_count(Self) -> Int
+pub fn RelayRoom::send_to(Self, String, Bytes) -> Unit
 
 // Type aliases
 

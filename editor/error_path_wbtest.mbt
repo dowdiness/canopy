@@ -14,12 +14,12 @@ test "decode_message: empty bytes returns None" {
 
 ///|
 test "decode_message: 1-byte too short returns None" {
-  inspect(decode_message(b"\x01") is None, content="true")
+  inspect(decode_message(b"\x02") is None, content="true")
 }
 
 ///|
 test "decode_message: 2-byte too short returns None" {
-  inspect(decode_message(b"\x01\x01") is None, content="true")
+  inspect(decode_message(b"\x02\x01") is None, content="true")
 }
 
 ///|
@@ -29,43 +29,43 @@ test "decode_message: wrong protocol version returns None" {
 
 ///|
 test "decode_message: unknown message type returns None" {
-  inspect(decode_message(b"\x01\xFF\x00") is None, content="true")
+  inspect(decode_message(b"\x02\xFF\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: CrdtOps with empty payload" {
-  let msg = decode_message(b"\x01\x01\x00")
+  let msg = decode_message(b"\x02\x01\x00")
   inspect(msg is Some(CrdtOps(_)), content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate missing namespace byte returns None" {
   // Header only, no namespace byte after it
-  inspect(decode_message(b"\x01\x02\x00") is None, content="true")
+  inspect(decode_message(b"\x02\x02\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate invalid namespace returns None" {
   // Header + invalid namespace byte 0xFF
-  inspect(decode_message(b"\x01\x02\x00\xFF") is None, content="true")
+  inspect(decode_message(b"\x02\x02\x00\xFF") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined missing sub_type returns None" {
   // Header for peer message (0x05) but no sub_type byte
-  inspect(decode_message(b"\x01\x05\x00") is None, content="true")
+  inspect(decode_message(b"\x02\x05\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined truncated peer_id returns None" {
   // Header + sub_type Join (0x01) but no peer_id string
-  inspect(decode_message(b"\x01\x05\x00\x01") is None, content="true")
+  inspect(decode_message(b"\x02\x05\x00\x01") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined unknown sub_type returns None" {
   // Header + unknown sub_type 0xFF
-  inspect(decode_message(b"\x01\x05\x00\xFF") is None, content="true")
+  inspect(decode_message(b"\x02\x05\x00\xFF") is None, content="true")
 }
 
 ///|
@@ -100,7 +100,7 @@ test "ws_on_message: empty bytes does not panic" {
 ///|
 test "ws_on_message: truncated wire does not panic" {
   let editor = SyncEditor::new("alice")
-  editor.ws_on_message(b"\x01")
+  editor.ws_on_message(b"\x02")
   inspect(editor.get_text(), content="")
 }
 

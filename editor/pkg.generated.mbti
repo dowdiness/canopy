@@ -18,6 +18,12 @@ pub fn decode_message(Bytes) -> SyncMessage?
 
 pub fn encode_message(SyncMessage) -> Bytes
 
+pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
+
+pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
+
+pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
+
 pub fn merge_to_edits(String, String) -> Array[@core.Edit]
 
 pub fn parse_tree_edit_op(Json) -> Result[@projection.TreeEditOp, String]
@@ -221,6 +227,8 @@ pub(all) enum PresenceStatus {
 pub impl Eq for PresenceStatus
 pub impl Show for PresenceStatus
 
+type RecoveryContext
+
 pub struct SyncEditor {
   // private fields
 }
@@ -288,6 +296,7 @@ pub(all) enum SyncMessage {
   SyncResponse(Bytes)
   PeerJoined(String)
   PeerLeft(String)
+  RelayedCrdtOps(sender~ : String, payload~ : Bytes)
 }
 pub impl Eq for SyncMessage
 pub impl Show for SyncMessage

@@ -1,6 +1,6 @@
 ///|
 /// Wire protocol version byte.
-let version : Byte = b'\x01'
+let version : Byte = b'\x02'
 
 ///|
 /// Message type byte for room control messages.
@@ -45,6 +45,68 @@ fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
   let peer_bytes = tmp.to_bytes()
   write_relay_uvarint(buf, peer_bytes.length())
   buf.write_bytes(peer_bytes)
+  buf.to_bytes()
+}
+
+///|
+/// Read a uvarint from a byte slice starting at offset. Returns (value, new_offset).
+fn read_relay_uvarint(data : Bytes, offset : Int) -> (Int, Int)? {
+  let mut result = 0
+  let mut shift = 0
+  let mut pos = offset
+  for i = 0; i < 10; i = i + 1 {
+    if pos >= data.length() {
+      return None
+    }
+    let b = data[pos].to_int()
+    pos += 1
+    result = result | ((b & 0x7F) << shift)
+    if (b & 0x80) == 0 {
+      return Some((result, pos))
+    }
+    shift += 7
+  }
+  None
+}
+
+///|
+/// Read a length-prefixed string from data at offset. Returns (string, new_offset).
+fn read_relay_string(data : Bytes, offset : Int) -> (String, Int)? {
+  match read_relay_uvarint(data, offset) {
+    None => None
+    Some((len, pos)) => {
+      if pos + len > data.length() {
+        return None
+      }
+      let bytes = data.view(start=pos, end=pos + len).to_bytes()
+      Some((bytes.to_unchecked_string(), pos + len))
+    }
+  }
+}
+
+///|
+/// Wrap a message with sender ID and a new type byte.
+/// Output: [version][new_type][flags][sender_id (uvarint len + bytes)][payload from offset]
+fn wrap_with_sender(
+  sender : String,
+  new_type : Byte,
+  data : Bytes,
+  payload_offset : Int,
+) -> Bytes {
+  let buf = @buffer.new()
+  buf.write_byte(version)
+  buf.write_byte(new_type)
+  buf.write_byte(flags_none)
+  let tmp = @buffer.new()
+  tmp.write_string(sender)
+  let sender_bytes = tmp.to_bytes()
+  write_relay_uvarint(buf, sender_bytes.length())
+  buf.write_bytes(sender_bytes)
+  if payload_offset < data.length() {
+    buf.write_bytes(
+      data.view(start=payload_offset, end=data.length()).to_bytes(),
+    )
+  }
   buf.to_bytes()
 }
 
