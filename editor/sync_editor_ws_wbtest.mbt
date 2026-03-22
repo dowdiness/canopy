@@ -71,3 +71,45 @@ test "ws_on_message: EphemeralUpdate applies to hub" {
   let bob_cursor = editor.hub.get_cursor("bob")
   inspect(bob_cursor is None, content="false")
 }
+
+///|
+test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
+  let editor_a = SyncEditor::new("alice")
+  let editor_b = SyncEditor::new("bob")
+  editor_a.set_text("hello")
+  let crdt_msg = editor_a.export_all() catch {
+    _ => {
+      fail("export failed")
+      return
+    }
+  }
+  let json_str = crdt_msg.to_json_string()
+  let buf = @buffer.new()
+  buf.write_string(json_str)
+  let wire = encode_relayed_crdt_ops("alice", buf.to_bytes())
+  editor_b.ws_on_message(wire)
+  inspect(editor_b.get_text(), content="hello")
+}
+
+///|
+test "ws_on_message: RelayedCrdtOps buffers during recovery" {
+  let editor = SyncEditor::new("bob")
+  let empty_msg = @text.SyncMessage::from_json_string(
+    "{\"runs\":[],\"heads\":[]}",
+  ) catch {
+    _ => {
+      fail("parse failed")
+      return
+    }
+  }
+  // Manually set recovery state for "alice"
+  editor.recovery_epoch = 1
+  editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  // Send RelayedCrdtOps from "alice" — should be buffered, not applied
+  let buf = @buffer.new()
+  buf.write_string("{\"runs\":[],\"heads\":[]}")
+  let wire = encode_relayed_crdt_ops("alice", buf.to_bytes())
+  editor.ws_on_message(wire)
+  // Message should be buffered
+  inspect(editor.recovery.unwrap().deferred.length(), content="1")
+}
