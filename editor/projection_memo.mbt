@@ -65,6 +65,14 @@ fn build_projection_memos(
             result.defs.is_empty() {
             changed_def_indices_ref.val = None
           } else {
+            // When there is no final_expr, to_proj_node_with_prev_module_id
+            // synthesizes a fresh Unit body node (new node_id each time).
+            // Always mark the body as changed so the patch path updates it.
+            if result.final_expr is None && not(result.defs.is_empty()) {
+              if not(changed.val.contains(-1)) {
+                changed.val.push(-1)
+              }
+            }
             changed_def_indices_ref.val = Some(changed.val)
           }
           result

@@ -506,3 +506,26 @@ test "incremental patch: final_expr removal triggers full rebuild" {
   // Should still have a valid projection (Module with Unit body)
   inspect(proj is Some(_), content="true")
 }
+
+///|
+test "incremental patch: no-final-expr module keeps body node registered" {
+  // Module with no trailing expression: "let x = 1\n"
+  // to_proj_node_with_prev_module_id synthesizes a Unit body each time.
+  // The patch path must update the body even when only defs change.
+  let editor = SyncEditor::new("test")
+  editor.set_text("let x = 0\nlet y = 2\n")
+  let proj1 = editor.get_proj_node().unwrap()
+  // Body is the last child (synthesized Unit)
+  let _body1_id = proj1.children[proj1.children.length() - 1].id()
+  ignore(editor.get_source_map())
+  // Edit def x: 0 → 9
+  editor.move_cursor(10) // position of '0' in x = 0
+  ignore(editor.backspace())
+  try! editor.insert("9")
+  let proj2 = editor.get_proj_node().unwrap()
+  let body2_id = proj2.children[proj2.children.length() - 1].id()
+  // The new body node should be findable in the registry
+  inspect(editor.get_node(body2_id) is Some(_), content="true")
+  // The new body node range should be in the source map
+  inspect(editor.get_node_range(body2_id) is Some(_), content="true")
+}
