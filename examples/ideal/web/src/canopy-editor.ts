@@ -591,13 +591,13 @@ const SHADOW_STYLES = `
     z-index: 101;
     min-width: 200px;
     max-width: 320px;
-    background: var(--canopy-bg, #161625);
+    background: var(--canopy-panel-bg, #1a1a2c);
     border: 1px solid var(--canopy-border, #28283e);
-    border-radius: 8px;
-    padding: 6px 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 8px 32px var(--canopy-shadow-heavy, rgba(0, 0, 0, 0.5));
     font-family: var(--canopy-font-mono, 'Iosevka', monospace);
-    font-size: 0.875rem;
+    font-size: var(--text-small, 0.875rem);
     outline: none;
   }
   .action-overlay-list {
@@ -608,7 +608,7 @@ const SHADOW_STYLES = `
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     min-height: 44px;
     box-sizing: border-box;
     cursor: pointer;
@@ -618,18 +618,22 @@ const SHADOW_STYLES = `
   }
   .action-overlay-item:hover,
   .action-overlay-item:focus-visible {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--canopy-accent-hover, rgba(130, 80, 223, 0.12));
   }
   .action-overlay-item:focus-visible {
-    outline: 2px solid var(--canopy-accent, #8250df);
+    outline: 2px solid var(--canopy-focus-ring, #a070ef);
     outline-offset: -2px;
   }
   .action-overlay-item.danger {
-    color: var(--canopy-error, #ff5370);
+    color: var(--canopy-error-text, #ef4444);
+  }
+  .action-overlay-item.danger:hover,
+  .action-overlay-item.danger:focus-visible {
+    background: var(--canopy-error-bg, rgba(207, 34, 46, 0.1));
   }
   .action-overlay-item.danger .action-mnemonic {
-    background: rgba(255, 83, 112, 0.12);
-    color: var(--canopy-error, #ff5370);
+    background: var(--canopy-error-bg, rgba(207, 34, 46, 0.1));
+    color: var(--canopy-error-text, #ef4444);
   }
   .action-mnemonic {
     display: inline-flex;
@@ -639,21 +643,21 @@ const SHADOW_STYLES = `
     height: 20px;
     padding: 0 4px;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--canopy-syntax-keyword, #c792ea);
-    font-size: 0.75rem;
-    font-weight: 600;
+    background: var(--canopy-scrollbar, rgba(255, 255, 255, 0.08));
+    color: var(--canopy-keyword, #c792ea);
+    font-size: var(--text-label, 0.6875rem);
+    font-weight: var(--weight-semibold, 600);
   }
   .action-label-text {
     color: inherit;
   }
   .action-group-label {
     padding: 4px 12px 2px;
-    font-size: 0.6875rem;
-    font-weight: 600;
+    font-size: var(--text-label, 0.6875rem);
+    font-weight: var(--weight-semibold, 600);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--canopy-muted, #8888a8);
+    color: var(--canopy-text-dim, #8a8aaa);
   }
 
   /* Name prompt */
@@ -661,31 +665,31 @@ const SHADOW_STYLES = `
     padding: 8px 12px;
   }
   .name-prompt-label {
-    font-size: 0.75rem;
+    font-size: var(--text-label, 0.6875rem);
     color: var(--canopy-muted, #8888a8);
     margin-bottom: 4px;
   }
   .name-prompt-input-row {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
   .name-prompt-input {
     flex: 1;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--canopy-hover-overlay, rgba(255, 255, 255, 0.03));
     border: 1px solid var(--canopy-border, #28283e);
     border-radius: 4px;
     padding: 4px 8px;
     color: var(--canopy-fg, #e4e4f0);
     font-family: var(--canopy-font-mono, 'Iosevka', monospace);
-    font-size: 0.875rem;
+    font-size: var(--text-small, 0.875rem);
     outline: none;
   }
   .name-prompt-input:focus {
-    border-color: var(--canopy-accent, #8250df);
+    border-color: var(--canopy-focus-ring, #a070ef);
   }
   .name-prompt-error {
-    font-size: 0.75rem;
-    color: var(--canopy-error, #ff5370);
+    font-size: var(--text-label, 0.6875rem);
+    color: var(--canopy-error-text, #ef4444);
     margin-top: 4px;
   }
 
@@ -695,7 +699,6 @@ const SHADOW_STYLES = `
       background: rgba(0, 0, 0, 0.5);
     }
     .action-overlay-panel {
-      /* Override inline positioning — anchor to bottom */
       top: auto !important;
       left: 0 !important;
       right: 0;
@@ -716,10 +719,10 @@ const SHADOW_STYLES = `
     .action-mnemonic {
       min-width: 24px;
       height: 24px;
-      font-size: 0.8125rem;
+      font-size: var(--text-caption, 0.8125rem);
     }
     .action-label-text {
-      font-size: 1rem;
+      font-size: var(--text-body, 1rem);
     }
     .action-group-label {
       padding: 8px 16px 4px;
@@ -729,7 +732,7 @@ const SHADOW_STYLES = `
     }
     .name-prompt-input {
       padding: 8px 12px;
-      font-size: 1rem;
+      font-size: var(--text-body, 1rem);
     }
   }
 `;
