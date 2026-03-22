@@ -49,8 +49,20 @@ fn build_projection_memos(
             counter,
             changed_indices=changed,
           )
-          // If def count changed, force full rebuild — indices are not meaningful
-          if result.defs.length() != prev_fp.defs.length() {
+          // Force full rebuild when structural shape changed:
+          // - def count changed (indices not meaningful across different lengths)
+          // - final_expr added or removed (patch path assumes stable child layout)
+          // - expression-only document (no defs → ProjNode is not a Module,
+          //   patch path's children[idx] logic doesn't apply)
+          let final_expr_changed = match
+            (prev_fp.final_expr, result.final_expr) {
+            (Some(_), None) => true
+            (None, Some(_)) => true
+            _ => false
+          }
+          if result.defs.length() != prev_fp.defs.length() ||
+            final_expr_changed ||
+            result.defs.is_empty() {
             changed_def_indices_ref.val = None
           } else {
             changed_def_indices_ref.val = Some(changed.val)

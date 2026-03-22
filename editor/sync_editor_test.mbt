@@ -472,3 +472,37 @@ test "incremental patch: get_node returns correct node after edit" {
     None => fail("x init node not found after y edit")
   }
 }
+
+///|
+test "incremental patch: expression-only document edit works" {
+  // Expression-only: no defs, ProjNode is NOT a Module.
+  // Patch path must fall back to full rebuild.
+  let editor = SyncEditor::new("test")
+  editor.set_text("42")
+  let sm1 = editor.get_source_map()
+  inspect(sm1.innermost_node_at(0) is Some(_), content="true")
+  // Edit: 42 → 99
+  editor.move_cursor(0)
+  ignore(editor.backspace())
+  ignore(editor.backspace())
+  try! editor.insert("9")
+  try! editor.insert("9")
+  let sm2 = editor.get_source_map()
+  inspect(sm2.innermost_node_at(0) is Some(_), content="true")
+}
+
+///|
+test "incremental patch: final_expr removal triggers full rebuild" {
+  // Remove final expression: "let x = 1\nx" → "let x = 1\n"
+  let editor = SyncEditor::new("test")
+  editor.set_text("let x = 1\nx")
+  ignore(editor.get_proj_node())
+  ignore(editor.get_source_map())
+  // Delete the final 'x'
+  let text = editor.get_text()
+  editor.move_cursor(text.length())
+  ignore(editor.backspace())
+  let proj = editor.get_proj_node()
+  // Should still have a valid projection (Module with Unit body)
+  inspect(proj is Some(_), content="true")
+}
