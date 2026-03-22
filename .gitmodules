@@ -16,3 +16,6 @@
 [submodule "rle"]
 	path = rle
 	url = https://github.com/dowdiness/rle.git
+[submodule "order-tree"]
+	path = order-tree
+	url = https://github.com/dowdiness/order-tree.git

@@ -20,6 +20,9 @@
     },
     "dowdiness/seam": {
       "path": "./loom/seam"
+    },
+    "dowdiness/order-tree": {
+      "path": "./order-tree"
     }
   },
   "readme": "README.mbt.md",
