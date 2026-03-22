@@ -44,7 +44,7 @@ fn SourceMap::build_from_node(self : SourceMap, node : ProjNode) -> Unit {
 
 ///|
 /// Rebuild the sorted ranges array for efficient position queries
-fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
+pub fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
   self.ranges.clear()
   for node_id, range in self.node_to_range {
     self.ranges.push((range, node_id))
@@ -60,6 +60,31 @@ fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
       range_b.end.compare(range_a.end)
     }
   })
+}
+
+///|
+/// Remove all entries for a ProjNode subtree from the source map.
+/// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
+/// all patches are done.
+pub fn SourceMap::remove_subtree(self : SourceMap, node : ProjNode) -> Unit {
+  let node_id = NodeId(node.node_id)
+  self.node_to_range.remove(node_id)
+  self.token_spans.remove(node_id)
+  for child in node.children {
+    self.remove_subtree(child)
+  }
+}
+
+///|
+/// Add entries for a ProjNode subtree to the source map.
+/// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
+/// all patches are done.
+pub fn SourceMap::patch_subtree(self : SourceMap, node : ProjNode) -> Unit {
+  let node_id = NodeId(node.node_id)
+  self.node_to_range[node_id] = Range::new(node.start, node.end)
+  for child in node.children {
+    self.patch_subtree(child)
+  }
 }
 
 ///|

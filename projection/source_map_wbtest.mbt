@@ -185,8 +185,8 @@ test "SourceMap::patch_subtree adds new node entries" {
   )
   sm.patch_subtree(node)
   inspect(sm.node_count(), content="3")
-  inspect(sm.get_range(NodeId(10)).is_empty(), content="false")
-  inspect(sm.get_range(NodeId(11)).is_empty(), content="false")
+  inspect(sm.get_range(NodeId(10)) is Some(_), content="true")
+  inspect(sm.get_range(NodeId(11)) is Some(_), content="true")
 }
 
 ///|
@@ -211,5 +211,5 @@ test "SourceMap::remove_subtree then patch_subtree replaces entries" {
   inspect(sm.node_count(), content="3")
 
   inspect(sm.get_range(NodeId(5)), content="None")
-  inspect(sm.get_range(NodeId(7)).is_empty(), content="false")
+  inspect(sm.get_range(NodeId(7)) is Some(_), content="true")
 }
