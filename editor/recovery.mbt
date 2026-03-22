@@ -45,6 +45,10 @@ fn RecoveryContext::is_exhausted(self : RecoveryContext) -> Bool {
 
 ///|
 /// Buffer a message from the recovering peer. Drops oldest if at capacity.
+/// Note: dropping messages can break convergence if the dropped message
+/// contains causal history needed by later messages. The cap prevents
+/// memory exhaustion from a flooding peer. In practice, recovery completes
+/// within 3 retries (~3.5s) and 32 messages is generous for that window.
 fn RecoveryContext::buffer_message(
   self : RecoveryContext,
   msg : @text.SyncMessage,

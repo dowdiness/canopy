@@ -108,7 +108,11 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
         }
       }
       self.apply_sync(delta) catch {
-        _ => ()
+        _ => {
+          // Delta failed — partial state possible, retry recovery
+          self.handle_recovery_retry()
+          return
+        }
       }
       // Retry the original pending message
       self.apply_sync(ctx.pending_msg) catch {
@@ -145,9 +149,9 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
                 self.recovery = Some(new_ctx)
                 self.send_sync_request(ctx.peer_id, self.recovery_epoch)
               }
-              _ => () // Non-retryable, skip
+              _ => continue // Non-retryable, skip and try next
             }
-            break
+            break // Retryable — entered new recovery, stop draining
           }
         }
       }
@@ -228,7 +232,10 @@ fn SyncEditor::enter_recovery(
   peer_id : String,
   failed_msg : @text.SyncMessage,
 ) -> Unit {
-  // Only one recovery at a time
+  // Only one recovery at a time. If peer Y fails while recovering from X,
+  // Y's message is dropped. This is a known limitation — once X's recovery
+  // fills the causal gap, Y's future messages should succeed. If not,
+  // a page reload triggers full PeerJoined exchange which resyncs.
   if self.recovery is Some(_) {
     return
   }
