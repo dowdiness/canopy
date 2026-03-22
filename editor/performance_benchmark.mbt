@@ -40,8 +40,15 @@ test "projection pipeline - incremental keystroke (320 defs)" (b : @bench.T) {
   run_projection_incremental_bench(b, 320)
 }
 
-// 500-def benchmark omitted: FugueTree::traverse_tree hits stack overflow
-// at ~500 nodes (pre-existing CRDT limitation, not projection-related).
+///|
+test "projection pipeline - incremental keystroke (500 defs)" (b : @bench.T) {
+  run_projection_incremental_bench(b, 500)
+}
+
+///|
+test "projection pipeline - incremental keystroke (1000 defs)" (b : @bench.T) {
+  run_projection_incremental_bench(b, 1000)
+}
 
 // Parser-only benchmarks — measures parse layer without projection
 

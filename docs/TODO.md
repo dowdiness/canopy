@@ -90,6 +90,9 @@ Tracked by:
 **Impact:** Medium | **Effort:** High
 
 - [x] Apply RLE memory optimization across CRDT pipeline — ✅ Done. Phases 0-3 merged: OpLog compressed to `Rle[OpRun]`, Document position cache to `Rle[VisibleRun]`, walker output to `Rle[LvRange]`, sync wire format compressed. See `event-graph-walker/docs/benchmarks/2026-03-18-rle-all-phases-complete.md`
+- [ ] **Fix FugueTree stack overflow at ~500 nodes** — `traverse_tree` is recursive and blows the JS call stack. Convert to iterative traversal with explicit stack. Hard blocker for 500+ def documents. (`event-graph-walker/internal/fugue/tree.mbt`)
+- [ ] **Profile CRDT at 500+ def scale** — FugueMax operations dominate keystroke latency (~5ms of 9ms at 320 defs). Once stack overflow is fixed, benchmark at 500/1000 defs and identify whether `traverse_tree`, `Branch::advance`, or position lookups are the bottleneck.
+- [ ] **Memo Eq backdating cost** — `registry_memo` and `source_map_memo` use `derive(Eq)` for backdating, causing O(all_nodes) deep structural comparison per keystroke. Add versioned wrapper type or `physical_equal` fast-path in the Memo system. (`loom/incr/cells/memo.mbt`, `editor/projection_memo.mbt`)
 - [ ] Implement lazy loading for 100k+ operation documents (load causal graph skeleton, hydrate on demand)
 - [ ] Add B-tree indexing for FugueTree (O(n) → O(log n) random-access character lookup)
 
@@ -184,11 +187,11 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 | # | Proposal | Effort | Impact |
 |---|----------|--------|--------|
-| 1 | Future wasm support, currently unsupported | Low-Medium | High |
-| 2 | Complete WebSocket collaboration + recovery | High | High |
-| 3 | Projection/editor file decomposition | Medium | Medium | ✅ Done |
-| 4 | Rabbita projection editor performance | High | High |
-| 5 | Incremental parsing TODOs | Medium | Medium | ✅ Phases 1-3 done |
-| 6 | Memory optimization | High | Medium |
-| 7 | Parser fuzz testing | Low | Medium | ✅ Done |
+| 1 | **Fix FugueTree stack overflow** — hard blocker for 500+ defs | Low | **Critical** |
+| 2 | **Profile CRDT at scale** — find the real bottleneck | Low | High |
+| 3 | **Memo Eq backdating** — eliminate O(n) comparison per keystroke | Medium | High |
+| 4 | Future wasm support, currently unsupported | Low-Medium | High |
+| 5 | Complete WebSocket collaboration + recovery | High | High |
+| 6 | Rabbita projection editor performance | High | High | Mostly done |
+| 7 | Memory optimization (lazy loading, B-tree indexing) | High | Medium |
 | 8 | Code cleanup | Medium | Medium | Mostly done |
