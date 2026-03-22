@@ -243,8 +243,18 @@ fn build_projection_memos(
               }
               prev_sm
             }
-            (Some(indices), Some(prev_sm), _) if indices.length() == 0 =>
+            (Some(indices), Some(prev_sm), _) if indices.length() == 0 => {
+              // No structural changes, but offsets may have shifted (e.g.,
+              // whitespace edits). Refresh token spans from the SyntaxNode
+              // tree which always has correct positions.
+              prev_sm.token_spans.clear()
+              match syntax_tree.get() {
+                Some(syntax_root) =>
+                  prev_sm.populate_token_spans(syntax_root, root)
+                None => ()
+              }
               prev_sm
+            }
             _ => {
               // Full rebuild
               let new_sm = @proj.SourceMap::from_ast(root)
