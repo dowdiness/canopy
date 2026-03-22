@@ -198,13 +198,11 @@ fn build_projection_memos(
                   if last >= 0 {
                     prev_sm.patch_subtree(root.children[last])
                   }
-                } else if idx >= 0 {
+                } else if idx >= 0 && idx < root.children.length() {
                   if idx < prev_children.length() {
                     prev_sm.remove_subtree(prev_children[idx])
                   }
-                  if idx < root.children.length() {
-                    prev_sm.patch_subtree(root.children[idx])
-                  }
+                  prev_sm.patch_subtree(root.children[idx])
                 }
               }
               // Update Module node range
