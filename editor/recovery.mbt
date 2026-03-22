@@ -69,12 +69,6 @@ fn RecoveryContext::buffer_message(
 }
 
 ///|
-/// Convert request_id to wire format string for encode_sync_request/response.
-fn RecoveryContext::request_id_string(self : RecoveryContext) -> String {
-  self.request_id.to_string()
-}
-
-///|
 fn RecoveryContext::matches_request_id(
   self : RecoveryContext,
   id : String,

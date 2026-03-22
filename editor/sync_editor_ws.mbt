@@ -16,11 +16,10 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
   }
   match msg {
     CrdtOps(payload) => {
-      // to_unchecked_string is safe here: malformed data is caught by from_json_string.
+      // CrdtOps is used for backwards-compatible full-state exchange (PeerJoined).
+      // Recovery is not possible here because there is no sender ID.
+      // Once all peers use RelayedCrdtOps, this path only handles PeerJoined sync.
       let json_str = payload.to_unchecked_string()
-      // TODO: silently dropping malformed/incompatible CrdtOps leaves the editor
-      // diverged with no recovery. Implement SyncRequest/SyncResponse resync
-      // so peers can request missing state after errors.
       try {
         let crdt_msg = @text.SyncMessage::from_json_string(json_str)
         self.apply_sync(crdt_msg)
@@ -64,36 +63,20 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
       // Parse requester's version and export delta
       let peer_version = @text.Version::from_json_string(version_json) catch {
         _ => {
-          // Can't parse version — send empty response
-          let wire = encode_sync_response(
-            target=sender,
-            request_id~,
-            sync_json="",
-          )
-          self.ws_send(wire)
+          self.send_empty_sync_response(sender, request_id)
           return
         }
       }
       let delta = self.export_since(peer_version) catch {
         _ => {
-          let wire = encode_sync_response(
-            target=sender,
-            request_id~,
-            sync_json="",
-          )
-          self.ws_send(wire)
+          self.send_empty_sync_response(sender, request_id)
           return
         }
       }
       let sync_json = delta.to_json_string()
       // Cap response size at 1MB
       if sync_json.length() > 1_000_000 {
-        let wire = encode_sync_response(
-          target=sender,
-          request_id~,
-          sync_json="",
-        )
-        self.ws_send(wire)
+        self.send_empty_sync_response(sender, request_id)
         return
       }
       let wire = encode_sync_response(target=sender, request_id~, sync_json~)
@@ -130,6 +113,7 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
       // Retry the original pending message
       self.apply_sync(ctx.pending_msg) catch {
         _ => {
+          // Re-export version for next retry (delta may have advanced our state)
           self.handle_recovery_retry()
           return
         }
@@ -137,9 +121,34 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
       // Success! Drain deferred messages
       let deferred = ctx.deferred
       self.recovery = None
-      for msg in deferred {
+      for i, msg in deferred {
         self.apply_sync(msg) catch {
-          _ => ()
+          err => {
+            // Re-enter recovery with the failed deferred message,
+            // carrying over remaining un-applied messages
+            match err {
+              @text.TextError::SyncFailed(
+                @text.SyncFailure::MissingDependency(..)
+              )
+              | @text.TextError::SyncFailed(@text.SyncFailure::Timeout(..))
+              | @text.TextError::VersionNotFound => {
+                self.recovery_epoch += 1
+                let new_ctx = RecoveryContext::new(
+                  ctx.peer_id,
+                  msg,
+                  self.recovery_epoch,
+                )
+                // Buffer remaining deferred messages
+                for j = i + 1; j < deferred.length(); j = j + 1 {
+                  new_ctx.buffer_message(deferred[j])
+                }
+                self.recovery = Some(new_ctx)
+                self.send_sync_request(ctx.peer_id, self.recovery_epoch)
+              }
+              _ => () // Non-retryable, skip
+            }
+            break
+          }
         }
       }
     }
@@ -203,6 +212,16 @@ pub fn SyncEditor::ws_broadcast_cursor(self : SyncEditor) -> Unit {
 }
 
 ///|
+/// Send an empty SyncResponse (responder can't satisfy the request).
+fn SyncEditor::send_empty_sync_response(
+  self : SyncEditor,
+  target : String,
+  request_id : String,
+) -> Unit {
+  self.ws_send(encode_sync_response(target~, request_id~, sync_json=""))
+}
+
+///|
 /// Enter recovery mode for a specific peer. Sends SyncRequest.
 fn SyncEditor::enter_recovery(
   self : SyncEditor,
@@ -221,6 +240,7 @@ fn SyncEditor::enter_recovery(
 
 ///|
 /// Send a SyncRequest to a specific peer via the relay.
+/// Always uses the current version (not stale from recovery entry).
 fn SyncEditor::send_sync_request(
   self : SyncEditor,
   target : String,
@@ -249,6 +269,6 @@ fn SyncEditor::handle_recovery_retry(self : SyncEditor) -> Unit {
     self.recovery = None
     return
   }
-  // Send another SyncRequest
+  // Send another SyncRequest with current version (may have advanced from delta)
   self.send_sync_request(ctx.peer_id, ctx.request_id)
 }
