@@ -62,27 +62,11 @@ pub fn RelayRoom::on_message(
       self.broadcast(sender, wrapped)
     }
     b'\x03' | b'\x04' =>
-      // SyncRequest/SyncResponse -> read target, wrap with sender, send_to
+      // SyncRequest/SyncResponse -> read target, wrap with sender, send_to target
       match read_relay_string(data, 3) {
         Some((target, after_target)) => {
-          // Rebuild: [version][type][flags][sender_id][remaining after target]
-          let buf = @buffer.new()
-          buf.write_byte(version)
-          buf.write_byte(data[1])
-          buf.write_byte(flags_none)
-          // Write sender ID
-          let tmp = @buffer.new()
-          tmp.write_string(sender)
-          let sender_bytes = tmp.to_bytes()
-          write_relay_uvarint(buf, sender_bytes.length())
-          buf.write_bytes(sender_bytes)
-          // Write remaining payload (everything after target_id)
-          if after_target < data.length() {
-            buf.write_bytes(
-              data.view(start=after_target, end=data.length()).to_bytes(),
-            )
-          }
-          self.send_to(target, buf.to_bytes())
+          let wrapped = wrap_with_sender(sender, data[1], data, after_target)
+          self.send_to(target, wrapped)
         }
         None => () // Can't parse target, drop silently
       }

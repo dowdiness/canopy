@@ -46,7 +46,8 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
     }
     PeerLeft(peer_id) => self.hub.on_peer_leave(peer_id)
     SyncRequest(_) | SyncResponse(_) => ()
-    RelayedCrdtOps(payload~, ..) => {
+    RelayedCrdtOps(sender=_sender, payload~) => {
+      // TODO(Task 6): use _sender for recovery — enter_recovery(sender, msg) on retryable failure
       let json_str = payload.to_unchecked_string()
       try {
         let crdt_msg = @text.SyncMessage::from_json_string(json_str)
