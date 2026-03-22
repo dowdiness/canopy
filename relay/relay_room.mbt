@@ -30,6 +30,7 @@ pub fn RelayRoom::on_connect(
 
 ///|
 /// Send data to a specific peer by ID. Silent no-op if peer not found.
+/// Public API — used by on_message routing and crdt_relay.mbt FFI.
 pub fn RelayRoom::send_to(
   self : RelayRoom,
   peer_id : String,
@@ -68,7 +69,7 @@ pub fn RelayRoom::on_message(
           let wrapped = wrap_with_sender(sender, data[1], data, after_target)
           self.send_to(target, wrapped)
         }
-        None => () // Can't parse target, drop silently
+        None => () // Malformed target_id — drop. Monitor at CF Worker layer if needed.
       }
     _ => self.broadcast(sender, data)
   }

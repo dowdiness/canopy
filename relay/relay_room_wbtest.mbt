@@ -105,10 +105,13 @@ test "send_to: delivers to correct peer" {
 ///|
 test "send_to: unknown peer is silent no-op" {
   let room = RelayRoom::new()
-  let (send_a, _) = make_recorder()
+  let (send_a, msgs_a) = make_recorder()
   room.on_connect("alice", send_a)
+  msgs_a.clear()
   room.send_to("nobody", b"\x42")
   inspect(room.peer_count(), content="1")
+  // Alice should not receive anything
+  inspect(msgs_a.length(), content="0")
 }
 
 ///|

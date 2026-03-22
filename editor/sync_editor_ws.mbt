@@ -263,19 +263,21 @@ fn SyncEditor::send_sync_request(
 }
 
 ///|
-/// Handle a failed recovery retry: increment retries or give up.
+/// Handle a failed recovery retry: send another request or give up.
+/// Check exhaustion BEFORE advancing so retries=0,1,2 each send a request
+/// and retries=3 gives up (3 retries total).
 fn SyncEditor::handle_recovery_retry(self : SyncEditor) -> Unit {
   let ctx = match self.recovery {
     Some(ctx) => ctx
     None => return
   }
-  self.recovery_epoch += 1
-  ctx.advance_retry(self.recovery_epoch)
   if ctx.is_exhausted() {
     // Give up — clear recovery, TODO: set SyncStatus::Error
     self.recovery = None
     return
   }
-  // Send another SyncRequest with current version (may have advanced from delta)
-  self.send_sync_request(ctx.peer_id, ctx.request_id)
+  // Send retry request, then advance for next attempt
+  self.recovery_epoch += 1
+  self.send_sync_request(ctx.peer_id, self.recovery_epoch)
+  ctx.advance_retry(self.recovery_epoch)
 }
