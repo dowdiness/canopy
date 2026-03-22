@@ -1,4 +1,4 @@
-// Interactive Tree Editor: Data types and rendering model
+// Interactive Tree Editor: Data types, rendering model, and editor state
 
 ///|
 /// Rendered children for an interactive node.
@@ -254,4 +254,95 @@ pub fn is_valid_drop(
   // For now, allow most drops
   let _ = (source, target, position)
   true
+}
+
+///|
+/// Editor state for the interactive tree
+pub struct TreeEditorState {
+  /// The interactive tree representation
+  tree : InteractiveTreeNode?
+  /// Currently selected nodes
+  selection : Array[NodeId]
+  /// Node being edited inline
+  editing_node : NodeId?
+  /// Current edit value for inline editing
+  edit_value : String
+  /// Node being dragged
+  dragging : NodeId?
+  /// Current drop target
+  drop_target : NodeId?
+  /// Drop position relative to target
+  drop_position : DropPosition?
+  /// Set of collapsed node IDs (UI state separate from model, immutable)
+  collapsed_nodes : @immut/hashset.HashSet[NodeId]
+  /// Currently materialized interactive nodes by ID
+  priv loaded_nodes : Map[NodeId, InteractiveTreeNode]
+}
+
+///|
+/// Look up a materialized interactive node by ID. O(1) via the loaded-node index.
+pub fn TreeEditorState::get_loaded_node(
+  self : TreeEditorState,
+  node_id : NodeId,
+) -> InteractiveTreeNode? {
+  self.loaded_nodes.get(node_id)
+}
+
+///|
+/// Check if a node ID is valid in the current tree state.
+pub fn TreeEditorState::has_node(
+  self : TreeEditorState,
+  node_id : NodeId,
+) -> Bool {
+  self.loaded_nodes.get(node_id) is Some(_)
+}
+
+///|
+/// Create a new tree editor state
+pub fn TreeEditorState::new() -> TreeEditorState {
+  {
+    tree: None,
+    selection: [],
+    editing_node: None,
+    edit_value: "",
+    dragging: None,
+    drop_target: None,
+    drop_position: None,
+    collapsed_nodes: @immut/hashset.new(),
+    loaded_nodes: {},
+  }
+}
+
+///|
+/// Create tree editor state from a projection snapshot.
+pub fn TreeEditorState::from_projection(
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
+  let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.new()
+  let ui_state : TreeUIState = {
+    collapsed_nodes,
+    selection: @immut/hashset.new(),
+    editing_node: None,
+    drop_target: None,
+  }
+  let loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+  let tree = match proj {
+    Some(ast) =>
+      Some(
+        refresh_node_minimal(ast, source_map, ui_state, {}, loaded_nodes).node,
+      )
+    None => None
+  }
+  {
+    tree,
+    selection: [],
+    editing_node: None,
+    edit_value: "",
+    dragging: None,
+    drop_target: None,
+    drop_position: None,
+    collapsed_nodes,
+    loaded_nodes,
+  }
 }

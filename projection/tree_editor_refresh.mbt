@@ -635,3 +635,173 @@ fn apply_selection_to_node(
       }
   }
 }
+
+///|
+/// Refresh tree from projection while preserving UI state (collapsed nodes).
+/// Also prunes stale IDs from UI state that no longer exist in the tree.
+/// Uses `refresh_node_minimal` — no eager structural indexes are built.
+pub fn TreeEditorState::refresh(
+  self : TreeEditorState,
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
+  match proj {
+    Some(ast) => {
+      let selection_set = @immut/hashset.from_iter(self.selection.iter())
+      let ui_state : TreeUIState = {
+        collapsed_nodes: self.collapsed_nodes,
+        selection: selection_set,
+        editing_node: self.editing_node,
+        drop_target: self.drop_target,
+      }
+      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+      let tree = Some(
+        refresh_node_minimal(
+          ast,
+          source_map,
+          ui_state,
+          self.loaded_nodes,
+          new_loaded_nodes,
+        ).node,
+      )
+      // Prune stale UI state using new_loaded_nodes.
+      // collapsed_nodes is NOT pruned — stale entries are harmless.
+      let selection = self.selection.filter(fn(id) {
+        new_loaded_nodes.get(id) is Some(_)
+      })
+      let editing_node = match self.editing_node {
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
+        None => None
+      }
+      let edit_value = if editing_node is None && self.editing_node is Some(_) {
+        ""
+      } else {
+        self.edit_value
+      }
+      let dragging = match self.dragging {
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
+        None => None
+      }
+      let drop_target = match self.drop_target {
+        Some(id) =>
+          if new_loaded_nodes.get(id) is Some(_) {
+            Some(id)
+          } else {
+            None
+          }
+        None => None
+      }
+      let drop_position = if drop_target is None {
+        None
+      } else {
+        self.drop_position
+      }
+      {
+        tree,
+        selection,
+        editing_node,
+        edit_value,
+        dragging,
+        drop_target,
+        drop_position,
+        collapsed_nodes: self.collapsed_nodes,
+        loaded_nodes: new_loaded_nodes,
+      }
+    }
+    None =>
+      {
+        ..self,
+        tree: None,
+        selection: [],
+        editing_node: None,
+        edit_value: "",
+        dragging: None,
+        drop_target: None,
+        drop_position: None,
+        loaded_nodes: {},
+      }
+  }
+}
+
+///|
+/// Expand a node and hydrate its children from the current projection snapshot
+/// when the expanded branch is currently elided.
+pub fn TreeEditorState::expand_node(
+  self : TreeEditorState,
+  node_id : NodeId,
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
+  match self.loaded_nodes.get(node_id) {
+    Some(current_node) =>
+      match current_node.children {
+        Elided(_) => {
+          let hydrated = self.hydrate_subtree(node_id, proj, source_map)
+          hydrated.apply_edit(Expand(node_id~))
+        }
+        Loaded(_) => self.apply_edit(Expand(node_id~))
+      }
+    None => self
+  }
+}
+
+///|
+/// Rebuild a single materialized subtree from the current projection snapshot.
+/// This still does an O(n) `get_node_in_tree(...)` lookup and is intended for
+/// one-off expand hydration, not bulk expand-all.
+fn TreeEditorState::hydrate_subtree(
+  self : TreeEditorState,
+  node_id : NodeId,
+  proj : ProjNode?,
+  source_map : SourceMap,
+) -> TreeEditorState {
+  match (self.tree, proj, self.loaded_nodes.get(node_id)) {
+    (Some(tree), Some(proj), Some(current_node)) =>
+      match current_node.children {
+        Loaded(_) => self
+        Elided(_) =>
+          match get_node_in_tree(proj, node_id) {
+            Some(proj_node) => {
+              let ui_state : TreeUIState = {
+                collapsed_nodes: self.collapsed_nodes.remove(node_id),
+                selection: @immut/hashset.from_iter(self.selection.iter()),
+                editing_node: self.editing_node,
+                drop_target: self.drop_target,
+              }
+              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+              let hydrated = refresh_node_minimal(
+                proj_node,
+                source_map,
+                ui_state,
+                self.loaded_nodes,
+                subtree_loaded_nodes,
+              )
+              let (updated_tree, changed_nodes) = replace_loaded_subtree(
+                Some(tree),
+                node_id,
+                hydrated.node,
+              )
+              let loaded_nodes = replace_loaded_nodes_for_subtree(
+                self.loaded_nodes,
+                collect_subtree_ids(self, node_id),
+                subtree_loaded_nodes,
+                changed_nodes,
+              )
+              { ..self, tree: updated_tree, loaded_nodes }
+            }
+            None => self
+          }
+      }
+    _ => self
+  }
+}
