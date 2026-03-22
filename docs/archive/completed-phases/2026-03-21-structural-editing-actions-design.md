@@ -1,7 +1,7 @@
 # Structural Editing Actions — Design Spec
 
 **Date:** 2026-03-21
-**Status:** Draft
+**Status:** Complete
 **Scope:** Add structural editing actions with context-sensitive UI for desktop (keyboard) and mobile (touch)
 
 ## Problem
