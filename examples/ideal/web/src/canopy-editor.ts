@@ -585,6 +585,11 @@ const SHADOW_STYLES = `
     inset: 0;
     background: rgba(0, 0, 0, 0.35);
     z-index: 100;
+    opacity: 1;
+    transition: opacity 100ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  @starting-style {
+    .action-overlay-scrim { opacity: 0; }
   }
   .action-overlay-panel {
     position: fixed;
@@ -599,6 +604,19 @@ const SHADOW_STYLES = `
     font-family: var(--canopy-font-mono, 'Iosevka', monospace);
     font-size: var(--text-small, 0.875rem);
     outline: none;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 120ms cubic-bezier(0.25, 1, 0.5, 1),
+                transform 120ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  @starting-style {
+    .action-overlay-panel { opacity: 0; transform: translateY(4px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .action-overlay-scrim,
+    .action-overlay-panel {
+      transition: none;
+    }
   }
   .action-overlay-list {
     display: flex;
@@ -708,6 +726,7 @@ const SHADOW_STYLES = `
       border-radius: 12px 12px 0 0;
       padding-bottom: env(safe-area-inset-bottom, 8px);
       max-height: 60vh;
+      transform: translateY(0);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
