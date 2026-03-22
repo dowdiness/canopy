@@ -106,7 +106,7 @@ Tracked by:
 - [x] Add parser fuzz testing — random byte streams, verify no panics/aborts — ✅ Done. 7 fuzz tests in `loom/examples/lambda/src/parser_byte_fuzz_test.mbt`: raw BMP byte streams, control chars, high Unicode, mixed syntax, incremental edits with raw bytes
 - [x] Add E2E browser tests with Playwright — `examples/demo-react` now has Playwright coverage
 - [x] Run existing Playwright E2E in CI and pick a canonical browser app under test (`examples/demo-react`)
-- [ ] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions
+- [x] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions — ✅ Done. `editor/error_path_wbtest.mbt` (20 tests: wire protocol, ws_on_message, apply_sync, export), `relay/error_path_wbtest.mbt` (9 tests: duplicate peers, non-existent peers, empty rooms)
 
 ---
 
