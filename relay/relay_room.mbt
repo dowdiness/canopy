@@ -29,12 +29,65 @@ pub fn RelayRoom::on_connect(
 }
 
 ///|
+/// Send data to a specific peer by ID. Silent no-op if peer not found.
+pub fn RelayRoom::send_to(
+  self : RelayRoom,
+  peer_id : String,
+  data : Bytes,
+) -> Unit {
+  for peer in self.peers {
+    if peer.peer_id == peer_id {
+      (peer.send_fn)(data)
+      return
+    }
+  }
+}
+
+///|
 pub fn RelayRoom::on_message(
   self : RelayRoom,
   sender : String,
   data : Bytes,
 ) -> Unit {
-  self.broadcast(sender, data)
+  // Safety: short or non-v2 frames broadcast unchanged
+  if data.length() < 3 || data[0] != version {
+    self.broadcast(sender, data)
+    return
+  }
+  let msg_type = data[1]
+  match msg_type {
+    b'\x01' => {
+      // CrdtOps -> wrap as RelayedCrdtOps (0x06) with sender ID, broadcast
+      let wrapped = wrap_with_sender(sender, b'\x06', data, 3)
+      self.broadcast(sender, wrapped)
+    }
+    b'\x03' | b'\x04' =>
+      // SyncRequest/SyncResponse -> read target, wrap with sender, send_to
+      match read_relay_string(data, 3) {
+        Some((target, after_target)) => {
+          // Rebuild: [version][type][flags][sender_id][remaining after target]
+          let buf = @buffer.new()
+          buf.write_byte(version)
+          buf.write_byte(data[1])
+          buf.write_byte(flags_none)
+          // Write sender ID
+          let tmp = @buffer.new()
+          tmp.write_string(sender)
+          let sender_bytes = tmp.to_bytes()
+          write_relay_uvarint(buf, sender_bytes.length())
+          buf.write_bytes(sender_bytes)
+          // Write remaining payload (everything after target_id)
+          if after_target < data.length() {
+            buf.write_bytes(
+              data.view(start=after_target, end=data.length()).to_bytes(),
+            )
+          }
+          self.send_to(target, buf.to_bytes())
+        }
+        None => () // Can't parse target, drop silently
+      }
+    _ => self.broadcast(sender, data)
+  }
 }
 
 ///|
