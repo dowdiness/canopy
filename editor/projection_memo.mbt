@@ -231,12 +231,14 @@ fn build_projection_memos(
                 root.end,
               )
               prev_sm.rebuild_ranges()
-              // Repopulate token_spans for changed defs only
+              // Always repopulate ALL token spans, not just changed indices.
+              // Reused defs keep old ProjNode positions, but the SyntaxNode tree
+              // has correct positions from the parser. Token spans (used by rename)
+              // must reflect current positions even for unchanged defs whose
+              // offsets shifted due to earlier edits.
               match syntax_tree.get() {
                 Some(syntax_root) =>
-                  prev_sm.populate_token_spans_for_indices(
-                    syntax_root, root, indices,
-                  )
+                  prev_sm.populate_token_spans(syntax_root, root)
                 None => ()
               }
               prev_sm
