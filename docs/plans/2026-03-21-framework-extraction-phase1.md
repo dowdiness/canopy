@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Parameterize ProjNode, reconciliation, and the projection pipeline over a generic AST type `T`, constrained by `TreeNode + Renderable` traits. All 333 existing tests pass after every task.
+**Goal:** Parameterize ProjNode, reconciliation, and the projection pipeline over a generic AST type `T`, constrained by `TreeNode + Renderable` traits. All 472 existing tests pass after every task.
 
 **Architecture:** Add two capability traits (`TreeNode`, `Renderable`) to `projection/`. Parameterize `ProjNode[T]`, `InteractiveTreeNode[T]`, reconciliation, and the projection pipeline. Lambda's `@ast.Term` implements both traits. `SyncEditor` becomes `SyncEditor[T]` accepting a parser factory. FlatProj stays lambda-specific (not parameterized).
 
@@ -32,13 +32,18 @@
 | Modify | `projection/proj_node.mbt` | ProjNode → ProjNode[T], syntax_to_proj_node stays Term-specific |
 | Modify | `projection/proj_node_json.mbt` | `impl[T : ToJson] ToJson for ProjNode[T]` |
 | Modify | `projection/reconcile_ast.mbt` | reconcile_ast → reconcile[T], same_kind_tag → T::same_kind |
-| Modify | `projection/tree_editor_model.mbt` | InteractiveTreeNode[T], get_node_label → T::label |
-| Modify | `projection/tree_editor.mbt` | TreeEditorState[T] |
-| Modify | `projection/tree_editor_refresh.mbt` | Generic refresh functions |
+| Modify | `projection/tree_editor_model.mbt` | InteractiveTreeNode[T], TreeEditorState[T], get_node_label → T::label. **Note:** TreeEditorState struct is here (moved from tree_editor.mbt during refactoring) |
+| Modify | `projection/tree_editor.mbt` | apply_edit[T] — edit operations only (no struct definition) |
+| Modify | `projection/tree_editor_refresh.mbt` | Generic refresh functions, TreeEditorState::refresh[T], expand_node[T], hydrate_subtree[T] |
 | Modify | `projection/source_map.mbt` | SourceMap::from_ast[T] |
 | Modify | `projection/tree_lens.mbt` | TreeEditOp keeps @ast.Term for InsertChild, placeholder via T::placeholder |
 | Modify | `projection/text_edit.mbt` | compute_text_edit stays Term-specific (uses rebuild_kind, FlatProj) |
+| Modify | `projection/text_edit_rename.mbt` | Stays Term-specific (split from text_edit.mbt) |
+| Modify | `projection/text_edit_utils.mbt` | Stays Term-specific (split from text_edit.mbt) |
 | Modify | `projection/flat_proj.mbt` | FlatProj stays @ast.Term-specific, uses ProjNode[@ast.Term] |
+| Keep   | `projection/actions.mbt` | **Lambda-specific** — `get_actions_for_node` pattern-matches on `@ast.Term`. Stays Term-specific for Phase 1 (extraction to `lang/lambda/` is Phase 2) |
+| Keep   | `projection/scope.mbt` | **Lambda-specific** — `resolve_binder`, `find_usages` reference `@ast.Term`. Stays Term-specific |
+| Keep   | `projection/free_vars.mbt` | **Lambda-specific** — `free_vars` pattern-matches on `@ast.Term`. Stays Term-specific |
 | Modify | `editor/sync_editor.mbt` | SyncEditor[T] with parser factory |
 | Modify | `editor/projection_memo.mbt` | Generic memo pipeline |
 | Modify | `editor/tree_edit_bridge.mbt` | Generic tree edit roundtrip |
@@ -51,6 +56,20 @@
 | Modify | `crdt.mbt` + FFI files | Concrete type SyncEditor[@ast.Term] |
 | Update | `projection/pkg.generated.mbti` | moon info |
 | Update | `editor/pkg.generated.mbti` | moon info |
+
+### Lambda-specific files (stay @ast.Term, move to lang/lambda/ in Phase 2)
+
+These files were added by the structural editing actions implementation (2026-03-21) and pattern-match directly on `@ast.Term` variants. They stay Term-specific in Phase 1:
+
+| File | Why Term-specific |
+|------|-------------------|
+| `projection/actions.mbt` | `get_actions_for_node` matches `@ast.Term::Int`, `Var`, `Lam`, etc. |
+| `projection/scope.mbt` | `resolve_binder`, `find_usages` walk Term structure |
+| `projection/free_vars.mbt` | `free_vars` matches `Lam`, `Module`, `Bop`, etc. |
+| `projection/text_edit.mbt` | `compute_text_edit` uses `rebuild_kind`, FlatProj |
+| `projection/text_edit_rename.mbt` | Rename logic uses token spans, Term-specific |
+| `projection/text_edit_utils.mbt` | Helper functions for text editing |
+| `projection/flat_proj.mbt` | FlatProj is lambda-specific |
 
 ### Test files (updated alongside their package)
 
@@ -66,11 +85,16 @@
 | `projection/source_map_token_spans_wbtest.mbt` | Whitebox — uses ProjNode |
 | `projection/lens_test.mbt` | Blackbox — uses ProjNode, reconcile_ast |
 | `projection/tree_refresh_benchmark.mbt` | Benchmark — uses ProjNode, TreeEditorState |
+| `projection/actions_wbtest.mbt` | Whitebox — Term-specific, stays as-is |
+| `projection/scope_wbtest.mbt` | Whitebox — Term-specific, stays as-is |
+| `projection/free_vars_wbtest.mbt` | Whitebox — Term-specific, stays as-is |
 | `editor/sync_editor_test.mbt` | Blackbox — SyncEditor::new |
 | `editor/tree_edit_bridge_test.mbt` | Blackbox — SyncEditor::new |
 | `editor/tree_edit_json_test.mbt` | Blackbox — parse_tree_edit_op |
 | `editor/sync_editor_text_wbtest.mbt` | Whitebox — SyncEditor methods |
 | `editor/sync_editor_ws_wbtest.mbt` | Whitebox — SyncEditor methods |
+| `editor/error_path_wbtest.mbt` | Whitebox — SyncEditor, wire protocol |
+| `editor/ephemeral_encoding_wbtest.mbt` | Whitebox — ephemeral encoding |
 
 ---
 
