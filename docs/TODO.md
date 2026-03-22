@@ -148,6 +148,8 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 - [x] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
 - [x] Split `projection/tree_editor.mbt` into focused files (render model, refresh/reuse logic, UI/edit operations, tree indexes) — ✅ Done. `tree_editor.mbt` (edit ops), `tree_editor_model.mbt` (types + state + constructors), `tree_editor_refresh.mbt` (refresh/reuse/indexes)
 - [x] Split `crdt.mbt` into focused FFI files (editor core, undo, presence, relay, websocket) — ✅ Done. Split into 6 files: `crdt.mbt` (core), `crdt_undo.mbt`, `crdt_ephemeral.mbt`, `crdt_relay.mbt`, `crdt_websocket.mbt`, `crdt_projection.mbt`
+- [x] Split `projection/text_edit.mbt` (1,348 lines) into focused modules — ✅ Done. Split into `text_edit.mbt` (1,064), `text_edit_rename.mbt` (231), `text_edit_utils.mbt` (51)
+- [x] Split `editor/ephemeral_hub.mbt` (19 methods) into focused files — ✅ Done. Split into `ephemeral_hub.mbt` (core), `ephemeral_hub_state.mbt` (typed writes), `ephemeral_hub_readers.mbt` (typed reads)
 
 ---
 
@@ -184,9 +186,9 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 |---|----------|--------|--------|
 | 1 | Future wasm support, currently unsupported | Low-Medium | High |
 | 2 | Complete WebSocket collaboration + recovery | High | High |
-| 3 | Projection/editor file decomposition | Medium | Medium |
+| 3 | Projection/editor file decomposition | Medium | Medium | ✅ Done |
 | 4 | Rabbita projection editor performance | High | High |
-| 5 | Incremental parsing TODOs | Medium | Medium |
+| 5 | Incremental parsing TODOs | Medium | Medium | ✅ Phases 1-3 done |
 | 6 | Memory optimization | High | Medium |
-| 7 | Parser fuzz testing | Low | Medium |
-| 8 | Code cleanup | Medium | Medium |
+| 7 | Parser fuzz testing | Low | Medium | ✅ Done |
+| 8 | Code cleanup | Medium | Medium | Mostly done |
