@@ -158,20 +158,28 @@ fn build_projection_memos(
             (Some(indices), Some(prev_reg), Some(prev_children)) if indices.length() >
               0 &&
               not(skipped) => {
-              // Patch path: only update changed subtrees
+              // Patch path: two-phase remove then add to avoid interleaving
+              // issues when defs are reordered (a later remove could delete
+              // an entry just added by an earlier iteration).
+              // Phase 1: remove all old subtrees
+              for idx in indices {
+                if idx == -1 {
+                  let last = prev_children.length() - 1
+                  if last >= 0 {
+                    unregister_subtree(prev_children[last], prev_reg)
+                  }
+                } else if idx >= 0 && idx < prev_children.length() {
+                  unregister_subtree(prev_children[idx], prev_reg)
+                }
+              }
+              // Phase 2: add all new subtrees
               for idx in indices {
                 if idx == -1 {
                   let last = root.children.length() - 1
-                  if last >= 0 && last < prev_children.length() {
-                    unregister_subtree(prev_children[last], prev_reg)
-                  }
                   if last >= 0 {
                     register_node_tree(root.children[last], prev_reg)
                   }
                 } else if idx >= 0 && idx < root.children.length() {
-                  if idx < prev_children.length() {
-                    unregister_subtree(prev_children[idx], prev_reg)
-                  }
                   register_node_tree(root.children[idx], prev_reg)
                 }
               }
@@ -179,10 +187,6 @@ fn build_projection_memos(
               prev_reg[root.id()] = root
               prev_reg
             }
-            (Some(indices), Some(prev_reg), _) if indices.length() == 0 &&
-              not(skipped) =>
-              // Nothing changed — reuse previous registry
-              prev_reg
             _ => {
               // Full rebuild
               let reg : Map[@proj.NodeId, @proj.ProjNode] = {}
@@ -228,20 +232,27 @@ fn build_projection_memos(
             (Some(indices), Some(prev_sm), Some(prev_children)) if indices.length() >
               0 &&
               not(skipped) => {
-              // Patch path: remove old subtrees, add new subtrees
+              // Patch path: two-phase remove then add to avoid interleaving
+              // issues when defs are reordered with ID-preserving reconciliation.
+              // Phase 1: remove all old subtrees
+              for idx in indices {
+                if idx == -1 {
+                  let last = prev_children.length() - 1
+                  if last >= 0 {
+                    prev_sm.remove_subtree(prev_children[last])
+                  }
+                } else if idx >= 0 && idx < prev_children.length() {
+                  prev_sm.remove_subtree(prev_children[idx])
+                }
+              }
+              // Phase 2: add all new subtrees
               for idx in indices {
                 if idx == -1 {
                   let last = root.children.length() - 1
-                  if last >= 0 && last < prev_children.length() {
-                    prev_sm.remove_subtree(prev_children[last])
-                  }
                   if last >= 0 {
                     prev_sm.patch_subtree(root.children[last])
                   }
                 } else if idx >= 0 && idx < root.children.length() {
-                  if idx < prev_children.length() {
-                    prev_sm.remove_subtree(prev_children[idx])
-                  }
                   prev_sm.patch_subtree(root.children[idx])
                 }
               }
@@ -251,23 +262,9 @@ fn build_projection_memos(
                 root.end,
               )
               prev_sm.rebuild_ranges()
-              // Always repopulate ALL token spans, not just changed indices.
-              // Reused defs keep old ProjNode positions, but the SyntaxNode tree
-              // has correct positions from the parser. Token spans (used by rename)
-              // must reflect current positions even for unchanged defs whose
-              // offsets shifted due to earlier edits.
-              match syntax_tree.get() {
-                Some(syntax_root) =>
-                  prev_sm.populate_token_spans(syntax_root, root)
-                None => ()
-              }
-              prev_sm
-            }
-            (Some(indices), Some(prev_sm), _) if indices.length() == 0 &&
-              not(skipped) => {
-              // No structural changes, but offsets may have shifted (e.g.,
-              // whitespace edits). Refresh token spans from the SyntaxNode
-              // tree which always has correct positions.
+              // Always repopulate ALL token spans from the SyntaxNode tree.
+              // CstNode interning is position-independent, so reused defs may
+              // have shifted offsets that only the SyntaxNode reflects correctly.
               match syntax_tree.get() {
                 Some(syntax_root) =>
                   prev_sm.populate_token_spans(syntax_root, root)
