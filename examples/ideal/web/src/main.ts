@@ -68,7 +68,7 @@ function getSessionAgentId(): string {
 function getRoomId(): string {
   const hash = location.hash.slice(1);
   if (hash) return hash;
-  const id = crypto.randomUUID
+  const id = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
     ? crypto.randomUUID().slice(0, 8)
     : Math.random().toString(36).slice(2, 10);
   history.replaceState(null, '', '#' + id);
@@ -253,14 +253,18 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   canopyGlobal.__canopy_pending_structural_edit = null;
 
   // Restore from localStorage if available
-  const savedState = localStorage.getItem(STORAGE_KEY_PREFIX + roomId);
-  if (savedState) {
-    try {
-      crdt.apply_sync_json(handle, savedState);
-    } catch (e) {
-      console.warn('Failed to restore from localStorage, removing corrupted entry:', e);
-      localStorage.removeItem(STORAGE_KEY_PREFIX + roomId);
+  try {
+    const savedState = localStorage.getItem(STORAGE_KEY_PREFIX + roomId);
+    if (savedState) {
+      try {
+        crdt.apply_sync_json(handle, savedState);
+      } catch (e) {
+        console.warn('Failed to restore from localStorage, removing corrupted entry:', e);
+        try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
+      }
     }
+  } catch (e) {
+    console.warn('localStorage unavailable, skipping restore:', e);
   }
 
   // Set up agent identity for cursor broadcasting

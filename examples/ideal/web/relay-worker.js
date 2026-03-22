@@ -84,6 +84,19 @@ export class RelayRoom {
               "INSERT INTO operations (data) VALUES (?)", op
             );
 
+            // Evict oldest ops if table exceeds soft limit
+            const MAX_OPS = 10_000;
+            const countCursor = this.state.storage.sql.exec(
+              "SELECT COUNT(*) as cnt FROM operations"
+            );
+            for (const row of countCursor) {
+              if (row.cnt > MAX_OPS) {
+                this.state.storage.sql.exec(
+                  "DELETE FROM operations WHERE id <= (SELECT id FROM operations ORDER BY id LIMIT 1)"
+                );
+              }
+            }
+
             // Broadcast to all other clients
             const relay = JSON.stringify({ type: "operation", op });
             for (const peer of this.clients) {
