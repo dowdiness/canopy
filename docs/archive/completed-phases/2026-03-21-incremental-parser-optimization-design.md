@@ -1,7 +1,7 @@
 # Incremental Parser Optimization — Design
 
 **Date:** 2026-03-21
-**Status:** Phases 1–3 complete; Phase 0 (SyntaxNode boundary enforcement) remains — mechanical test/benchmark migration
+**Status:** Complete
 **Scope:** loom (parser framework) + seam (CST library)
 
 ---

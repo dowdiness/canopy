@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phases 1–3 complete; Phase 0 remains
+**Status:** Complete
 
 **Goal:** Make loom's incremental parser faster than batch for flat let-chains by skipping reuse overhead on small nodes.
 

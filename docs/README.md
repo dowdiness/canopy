@@ -66,8 +66,6 @@ Detailed documentation for each module:
 - [Rabbita Web Component Interop Design](plans/2026-03-20-rabbita-web-component-interop-design.md) — Export Rabbita cells as custom elements
 - [Rabbita Web Component Interop Impl](plans/2026-03-20-rabbita-web-component-interop-impl.md) — Step-by-step implementation
 - [Framework Extraction Phase 1](plans/2026-03-21-framework-extraction-phase1.md) — Parameterize ProjNode[T] (deferred)
-- [Incremental Parser Optimization Design](plans/2026-03-21-incremental-parser-optimization-design.md) — Phases 1–3 done, Phase 0 (test/benchmark cleanup) remains
-- [Incremental Parser Optimization Impl](plans/2026-03-21-incremental-parser-optimization-impl.md)
 - [Structural Editing Actions Design](plans/2026-03-21-structural-editing-actions-design.md) — Backend complete, UI partial
 - [Structural Editing Actions Impl](plans/2026-03-21-structural-editing-actions-impl.md)
 - [Structural Editing UI Impl](plans/2026-03-21-structural-editing-ui-impl.md)
@@ -102,6 +100,8 @@ Historical documentation, completed plans, and investigations.
 - [Lazy Incremental Tree Refresh Design](archive/completed-phases/2026-03-20-lazy-incremental-tree-refresh-design.md) (Complete)
 - [Lazy Incremental Tree Refresh Impl](archive/completed-phases/2026-03-20-lazy-incremental-tree-refresh-impl.md) (Complete)
 - [Refactoring Plans: File Decomposition](archive/completed-phases/2026-03-22-refactoring-plans.md) (Complete)
+- [Incremental Parser Optimization Design](archive/completed-phases/2026-03-21-incremental-parser-optimization-design.md) (Complete)
+- [Incremental Parser Optimization Impl](archive/completed-phases/2026-03-21-incremental-parser-optimization-impl.md) (Complete)
 
 ### Earlier Archive
 
