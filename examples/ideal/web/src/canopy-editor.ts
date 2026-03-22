@@ -681,11 +681,55 @@ const SHADOW_STYLES = `
     outline: none;
   }
   .name-prompt-input:focus {
-    border-color: #8250df;
+    border-color: var(--canopy-accent, #8250df);
   }
   .name-prompt-error {
     font-size: 0.75rem;
     color: var(--canopy-error, #ff5370);
     margin-top: 4px;
+  }
+
+  /* Mobile: bottom sheet instead of positioned popover */
+  @media (max-width: 767px) {
+    .action-overlay-scrim {
+      background: rgba(0, 0, 0, 0.5);
+    }
+    .action-overlay-panel {
+      /* Override inline positioning — anchor to bottom */
+      top: auto !important;
+      left: 0 !important;
+      right: 0;
+      bottom: 0;
+      max-width: none;
+      width: 100%;
+      border-radius: 12px 12px 0 0;
+      padding-bottom: env(safe-area-inset-bottom, 8px);
+      max-height: 60vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .action-overlay-item {
+      padding: 12px 16px;
+      min-height: 48px;
+      gap: 12px;
+    }
+    .action-mnemonic {
+      min-width: 24px;
+      height: 24px;
+      font-size: 0.8125rem;
+    }
+    .action-label-text {
+      font-size: 1rem;
+    }
+    .action-group-label {
+      padding: 8px 16px 4px;
+    }
+    .name-prompt-container {
+      padding: 12px 16px;
+    }
+    .name-prompt-input {
+      padding: 8px 12px;
+      font-size: 1rem;
+    }
   }
 `;
