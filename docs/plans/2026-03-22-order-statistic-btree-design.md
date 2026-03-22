@@ -37,7 +37,7 @@ enum OrderNode[T] {
 struct OrderTree[T] {
   mut root: OrderNode[T]?
   min_degree: Int       // default 10 (benchmark to confirm for JS/Wasm)
-  mut size: Int         // total items across all leaves
+  mut size: Int         // total leaf entries (not span — may differ when items have span > 1)
 }
 ```
 
@@ -58,14 +58,17 @@ This means:
 
 ### Core operations
 
+**Phase 1a operates on `span() == 1` items only.** All positions map 1:1 to leaf entries. Multi-span items (`span() > 1`) and mid-item splitting require `Sliceable` and are deferred to Phase 1b.
+
 | Method | Cost | Description |
 |---|---|---|
 | `insert_at(pos, item)` | O(log n) | Insert item at span position, update counts to root |
 | `delete_at(pos) -> T?` | O(log n) | Remove item at span position, update counts to root |
 | `get_at(pos) -> T?` | O(log n) | Look up item at span position |
 | `set_at(pos, item)` | O(log n) | Replace item at position, propagate span change if any |
-| `delete_range(start, end)` | O(log n) | Remove items in span range [start, end) |
+| `delete_range(start, end)` | O(k log n) | Remove k items in span range [start, end). Uses subtree splicing when possible, point-deletes otherwise. |
 | `span() -> Int` | O(1) | Total span (root.total) |
+| `size() -> Int` | O(1) | Total leaf entries (may differ from span when items have span > 1) |
 | `iter() -> Iter[T]` | O(n) | Lazy left-to-right leaf scan |
 | `each(f)` | O(n) | Callback-based traversal |
 | `to_array() -> Array[T]` | O(n) | Collect all items in order |
@@ -109,10 +112,21 @@ This eliminates the double-lookup pattern in the current `Rle::find` + `Rle::get
 ### Bulk build
 
 `from_array` builds the tree bottom-up in O(n):
-1. Partition items into leaf-sized groups (each leaf holds up to `2 * min_degree - 1` items)
-2. Create leaf nodes from each group
-3. Build internal nodes layer by layer: each internal node holds up to `2 * min_degree` children, with counts computed from children's totals
-4. Repeat until one root node remains
+1. Partition items into leaf-sized groups. Each leaf holds `min_degree - 1` to `2 * min_degree - 1` items. The last leaf may hold fewer if needed, but must hold at least `min_degree - 1` items (unless it's the only leaf). If the last group is underfull, redistribute items from the previous group.
+2. Create leaf nodes from each group, computing `total` from span sums.
+3. Build internal nodes layer by layer: each internal node holds `min_degree` to `2 * min_degree` children. Same redistribution rule for the last node at each level.
+4. Repeat until one root node remains. The root is exempt from minimum occupancy.
+
+This ensures all non-root nodes satisfy the B-tree occupancy invariant: at least `t-1` keys (leaves) or `t` children (internal).
+
+### Underflow handling (delete)
+
+When `delete_at` reduces a node below minimum occupancy (`min_degree - 1` items for leaves, `min_degree` children for internal nodes):
+1. Try to borrow from left sibling (rotate through parent)
+2. Try to borrow from right sibling (rotate through parent)
+3. Merge with a sibling (combine two underfull nodes + parent separator)
+
+This is the standard B-tree deletion algorithm. The existing `tree_structure_zoo` B-tree implements all three cases (`borrow_from_prev`, `borrow_from_next`, `merge`), providing a reference for the mechanics.
 
 ### Leaf merging (deferred to Phase 1b)
 
@@ -137,7 +151,12 @@ OrderTree::iter() -> Iter[T]
 
 Phase 1 does not include reverse lookup (`find_by_value`). The current `Document::lv_to_position` does O(n) linear scan, and this is used infrequently (undo, cursor tracking).
 
-Phase 2 will add a secondary `Array[Int?]` index mapping LV → leaf position for O(1) reverse lookup. This is deferred because it requires CRDT-specific knowledge (LVs are sequential integers) that doesn't belong in a generic library.
+Phase 2a will add a secondary `Array[Int?]` index mapping LV → span position for O(1) reverse lookup. This is required for:
+- `Document::lv_to_position` (used by undo system via `Undoable` trait)
+- Remote `Delete`/`Undelete` by LV (not by visible position)
+- Cursor adjustment after remote ops
+
+The index is deferred to Phase 2 because it requires CRDT-specific knowledge (LVs are sequential integers) that doesn't belong in a generic library. Phase 2a will maintain this index alongside the OrderTree, updating it on every insert/delete.
 
 ### Traits required from T
 
@@ -195,7 +214,7 @@ Single package, same structure as `rle/`.
 - `delete_at(pos)` reduces `span()` by the deleted item's span
 - `from_array(items).to_array()` roundtrips
 - Random insert/delete sequences maintain valid B-tree invariants (all leaves same depth, node sizes within bounds, counts sum correctly)
-- Test with both `span() == 1` items (simple) and `span() > 1` items (to exercise span arithmetic)
+- Phase 1a: all items have `span() == 1`. Phase 1b adds tests with `span() > 1` items (merged runs) to exercise span arithmetic and `Sliceable` splitting
 
 ### Benchmarks
 - insert_at sequential (1000, 10000 items)
