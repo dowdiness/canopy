@@ -166,9 +166,12 @@ pub fn SourceMap::new() -> Self
 pub fn SourceMap::node_count(Self) -> Int
 pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
 pub fn SourceMap::nodes_in_range(Self, @core.Range) -> Array[NodeId]
+pub fn SourceMap::patch_subtree(Self, ProjNode) -> Unit
 pub fn SourceMap::populate_token_spans(Self, @seam.SyntaxNode, ProjNode) -> Unit
 pub fn SourceMap::populate_token_spans_for_indices(Self, @seam.SyntaxNode, ProjNode, Array[Int]) -> Unit
 pub fn SourceMap::rebuild(Self, ProjNode) -> Unit
+pub fn SourceMap::rebuild_ranges(Self) -> Unit
+pub fn SourceMap::remove_subtree(Self, ProjNode) -> Unit
 pub fn SourceMap::set_token_span(Self, NodeId, String, @core.Range) -> Unit
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
