@@ -178,15 +178,9 @@ fn compute_inline_definition(ctx : EditContext, node_id : NodeId) -> EditResult 
           Ok(r) => r
           Err(e) => return Err(e)
         }
-        // Determine delete range for the binding line (including newline)
-        let (del_start, del_len) = if binding_end < source_text.length() &&
-          source_text[binding_end] == '\n' {
-          (let_start, binding_end + 1 - let_start)
-        } else if let_start > 0 && source_text[let_start - 1] == '\n' {
-          (let_start - 1, binding_end - let_start + 1)
-        } else {
-          (let_start, binding_end - let_start)
-        }
+        let (del_start, del_len) = binding_delete_range(
+          source_text, let_start, binding_end,
+        )
         // If the var range is after the binding, we need to adjust
         // for the deletion. Produce edits in reverse document order.
         if range.start >= binding_end {
@@ -250,15 +244,9 @@ fn compute_inline_all_usages(
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, registry, flat_proj } = ctx
-  // Find the binding
-  let mut def_index = -1
-  for i, def in flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let def_index = match find_def_index(flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   let def = flat_proj.defs[def_index]
   let var_name = def.0
@@ -297,14 +285,9 @@ fn compute_inline_all_usages(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  let (del_start, del_len) = if binding_end < source_text.length() &&
-    source_text[binding_end] == '\n' {
-    (let_start, binding_end + 1 - let_start)
-  } else if let_start > 0 && source_text[let_start - 1] == '\n' {
-    (let_start - 1, binding_end - let_start + 1)
-  } else {
-    (let_start, binding_end - let_start)
-  }
+  let (del_start, del_len) = binding_delete_range(
+    source_text, let_start, binding_end,
+  )
   edits.push({ start: del_start, delete_len: del_len, inserted: "" })
   Ok(Some((edits, RestoreCursor)))
 }

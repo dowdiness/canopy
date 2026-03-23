@@ -34,6 +34,34 @@ fn find_let_start(source_text : String, from : Int) -> Int {
 }
 
 ///|
+fn find_def_index(
+  flat_proj : FlatProj,
+  binding_node_id : NodeId,
+) -> Result[Int, String] {
+  for i, def in flat_proj.defs {
+    if def.3 == binding_node_id {
+      return Ok(i)
+    }
+  }
+  Err("Binding not found: " + binding_node_id.to_string())
+}
+
+///|
+fn binding_delete_range(
+  source_text : String,
+  let_start : Int,
+  binding_end : Int,
+) -> (Int, Int) {
+  if binding_end < source_text.length() && source_text[binding_end] == '\n' {
+    (let_start, binding_end - let_start + 1)
+  } else if let_start > 0 && source_text[let_start - 1] == '\n' {
+    (let_start - 1, binding_end - let_start + 1)
+  } else {
+    (let_start, binding_end - let_start)
+  }
+}
+
+///|
 /// Get the text range of a binding line: from "let " to end of init expression.
 /// Returns (let_start, init_end).
 fn get_binding_text_range(

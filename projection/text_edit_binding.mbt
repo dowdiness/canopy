@@ -4,49 +4,21 @@ fn compute_delete_binding(
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
-  let mut def_index = -1
-  for i, def in flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let def_index = match find_def_index(flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   let (let_start, binding_end) = match
     get_binding_text_range(source_text, source_map, flat_proj.defs[def_index]) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  // Include the trailing newline in deletion
-  let delete_end = if binding_end < source_text.length() &&
-    source_text[binding_end] == '\n' {
-    binding_end + 1
-  } else if let_start > 0 && source_text[let_start - 1] == '\n' {
-    // No trailing newline — consume the preceding newline instead
-    return Ok(
-      Some(
-        (
-          [
-            {
-              start: let_start - 1,
-              delete_len: binding_end - let_start + 1,
-              inserted: "",
-            },
-          ],
-          RestoreCursor,
-        ),
-      ),
-    )
-  } else {
-    binding_end
-  }
+  let (del_start, del_len) = binding_delete_range(
+    source_text, let_start, binding_end,
+  )
   Ok(
     Some(
-      (
-        [{ start: let_start, delete_len: delete_end - let_start, inserted: "" }],
-        RestoreCursor,
-      ),
+      ([{ start: del_start, delete_len: del_len, inserted: "" }], RestoreCursor),
     ),
   )
 }
@@ -57,14 +29,9 @@ fn compute_duplicate_binding(
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
-  let mut def_index = -1
-  for i, def in flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let def_index = match find_def_index(flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   let def = flat_proj.defs[def_index]
   let (let_start, binding_end) = match
@@ -107,14 +74,9 @@ fn compute_move_binding_up(
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
-  let mut def_index = -1
-  for i, def in flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let def_index = match find_def_index(flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   if def_index == 0 {
     return Err("Cannot move first binding up")
@@ -177,14 +139,9 @@ fn compute_move_binding_down(
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
-  let mut def_index = -1
-  for i, def in flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let def_index = match find_def_index(flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   if def_index >= flat_proj.defs.length() - 1 {
     return Err("Cannot move last binding down")

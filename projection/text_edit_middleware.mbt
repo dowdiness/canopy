@@ -4,14 +4,6 @@ priv trait EditMiddleware {
 }
 
 ///|
-fn[M : EditMiddleware] wrap(
-  middleware : M,
-  inner : (TreeEditOp, EditContext) -> EditResult,
-) -> (TreeEditOp, EditContext) -> EditResult {
-  fn(op, ctx) { middleware.apply(inner, op, ctx) }
-}
-
-///|
 priv struct ValidateNodeExists {}
 
 ///|

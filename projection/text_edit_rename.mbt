@@ -108,7 +108,11 @@ fn rename_from_var(
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let binder = match
     resolve_binder(
-      var_node_id, old_name, ctx.flat_proj, ctx.registry, ctx.source_map,
+      var_node_id,
+      old_name,
+      ctx.flat_proj,
+      ctx.registry,
+      ctx.source_map,
     ) {
     Some(b) => b
     None => return Err("No binding found for variable: " + old_name)
@@ -146,16 +150,9 @@ fn rename_binding_by_id(
   binding_node_id : NodeId,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let mut def_index = -1
-  for i, def in ctx.flat_proj.defs {
-    if def.3 == binding_node_id {
-      def_index = i
-    }
-  }
-  if def_index < 0 {
-    return Err(
-      "Node not found and not a binding: " + binding_node_id.to_string(),
-    )
+  let def_index = match find_def_index(ctx.flat_proj, binding_node_id) {
+    Ok(i) => i
+    Err(e) => return Err(e)
   }
   let old_name = ctx.flat_proj.defs[def_index].0
   // Find Module node
@@ -167,8 +164,7 @@ fn rename_binding_by_id(
     }
   }
   match module_id {
-    Some(mid) =>
-      rename_module_binding(ctx, mid, def_index, old_name, new_name)
+    Some(mid) => rename_module_binding(ctx, mid, def_index, old_name, new_name)
     None => Err("Module node not found in registry")
   }
 }
