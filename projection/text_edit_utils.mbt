@@ -65,6 +65,23 @@ fn binding_delete_range(
 }
 
 ///|
+/// Find the parent of a node by scanning the registry.
+/// Returns (parent_id, parent_node, child_index) or None for root nodes.
+fn find_parent(
+  registry : Map[NodeId, ProjNode],
+  node_id : NodeId,
+) -> (NodeId, ProjNode, Int)? {
+  for pid, pnode in registry {
+    for i, child in pnode.children {
+      if NodeId(child.node_id) == node_id {
+        return Some((pid, pnode, i))
+      }
+    }
+  }
+  None
+}
+
+///|
 /// Get the text range of a binding line: from "let " to end of init expression.
 /// Returns (let_start, init_end).
 fn get_binding_text_range(
