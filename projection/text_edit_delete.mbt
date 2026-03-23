@@ -3,17 +3,8 @@ fn compute_delete(ctx : EditContext, node_id : NodeId) -> EditResult {
   let { source_map, registry, .. } = ctx
   match source_map.get_range(node_id) {
     None => Err("Node not found: " + node_id.to_string())
-    Some(range) => {
-      // Find parent of the deleted node
-      let mut parent_info : (NodeId, ProjNode, Int)? = None
-      for pid, pnode in registry {
-        for i, child in pnode.children {
-          if NodeId(child.node_id) == node_id {
-            parent_info = Some((pid, pnode, i))
-          }
-        }
-      }
-      match parent_info {
+    Some(range) =>
+      match find_parent(registry, node_id) {
         Some((parent_id, parent_node, child_index)) =>
           match parent_node.kind {
             @ast.Term::Error(_) =>
@@ -111,6 +102,5 @@ fn compute_delete(ctx : EditContext, node_id : NodeId) -> EditResult {
           )
         }
       }
-    }
   }
 }

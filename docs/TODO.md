@@ -172,7 +172,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [ ] **Term enum extensibility** — Term (10 variants, 24 match sites) is the biggest Expression Problem hotspot. If new language features are planned (let-rec, match, records), consider two-layer architecture: Finally Tagless traits for extensible operations + concrete enum for pattern matching. See `docs/plans/2026-03-23-handler-chain-design.md` SuperOOP analysis.
 - [ ] **AST transform pipeline** — The `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
 - [x] **Coordinate arithmetic audit** — ✅ Done. Audited all 9 `MoveCursor` sites across handler files. The two bugs (unwrap cursor, inline_definition cursor) were already fixed in PR #54. Remaining sites are correct: single-edit cases have no shift issues, multi-edit cases have cursor before or at the other edit's position.
-- [ ] **Parent lookup index** — `compute_delete` scans all nodes O(n×m) to find the parent. Add a `child_to_parent : Map[NodeId, (NodeId, Int)]` to `EditContext` (or precompute alongside `registry`) to make parent lookup O(1).
+- [x] **Parent lookup index** — ✅ Done. Extracted `find_parent` helper to `text_edit_utils.mbt` with early return. Replaces inline O(n) loop in `compute_delete` that didn't break on match. Reusable by other handlers.
 
 ---
 
