@@ -62,6 +62,12 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 - [x] Implement selective cache invalidation by range instead of full reparse fallback (loom incremental engine) — ✅ Done. Size-threshold skip (Phase 1), balanced RepeatGroups (Phase 2), block reparse (Phase 3) all implemented. Phase 0 (SyntaxNode boundary enforcement in test/benchmark code) remains as cleanup
 - [x] Implement LCS matching for AST child reconciliation instead of positional matching (`projection/text_lens.mbt:219`)
+- [ ] **Incremental parse is 1.2-1.25x slower than full reparse at all scales** — Profiling (2026-03-23) shows ReuseCursor overhead exceeds reuse savings. Tree build with ReuseNode IS faster (41µs vs 73µs at 320 lets, 44% savings), proving reuse saves work inside subtrees. But cursor setup/validation overhead negates the win. Root causes and fixes:
+  - **ReuseCursor old-token materialization** — `collect_old_tokens()` walks entire old CST on every `edit()` call because the cache is per-instance, not persistent. Fix: persist old-token cache across edits, invalidate only at edit range. (`loom/loom/src/core/reuse_cursor.mbt:185-204`)
+  - **Trailing-context validation** — Every reuse candidate calls `trailing_context_matches()` with binary search + linear scan. Fix: lazy per-node trailing-context instead of global materialization. (`reuse_cursor.mbt:265-277`)
+  - **TokenBuffer array copy** — `TokenBuffer::update` copies entire token array (prefix + re-lexed + suffix) even for 1-char edits. Fix: in-place splice. (`loom/loom/src/core/token_buffer.mbt:297-340`)
+  - **CstFold warm-cache verification** — When a subtree is reused, unvisited children are still walked for cache warming. Fix: remove or defer verification. (`loom/loom/src/core/cst_fold.mbt:80-87`)
+  - **Alternative:** if fixes are too complex, consider switching to batch reparse (`set_source` instead of `edit`) — simpler and currently faster
 
 ---
 
@@ -97,7 +103,9 @@ Tracked by:
   - **CRDT-only is slower than full pipeline** — `get_text()` (45.8ms at 1000 defs) is more expensive than `get_proj_node() + get_source_map()` (39.1ms) because `to_text()` does string concatenation from 1000 individual chars.
   - **Actual bottleneck is immutable HashMap overhead** — FugueTree uses `@immut/hashmap.HashMap` for both `items` and `children`. Each insert creates new HAMT nodes. At 1000 nodes, the cumulative cost of immutable data structure operations (insert, lookup, copy-on-write) dominates.
   - **Per-keystroke breakdown at 1000 defs (~39ms full pipeline):** CRDT data structure ops (~20ms), position cache rebuild via RLE construction (~5ms), LCA index rebuild (~5ms), parser incremental (~2ms), projection pipeline (~5ms), SourceMap token spans (~2ms)
-- [ ] **Reduce CRDT data structure overhead** — The dominant cost at 1000 defs is immutable HashMap operations in FugueTree (`@immut/hashmap.HashMap[Lv, Item[T]]` for items, `@immut/hashmap.HashMap[Lv, Array[Lv]]` for children). Options: (a) switch to mutable HashMap (`Map[Lv, Item[T]]`) — simplest, biggest win, but breaks undo snapshot semantics, (b) structural sharing with copy-on-write at branch boundaries only, (c) persistent array-mapped trie with cheaper updates
+- [x] **Reduce CRDT data structure overhead (Phase 2b)** — ✅ Done. Replaced immutable HashMap with dense Array storage: `items: Array[Item[T]?]`, `children: Array[Array[Lv]]` + `root_children`, `LcaIndex.first: Array[Int]` + `root_first`. Delete/undelete use in-place field mutation. `@immut/hashmap` dependency removed from fugue package. Result: 1000-char append 1.61ms → 1.05ms (1.5x), delete 2.66ms → 1.51ms (1.76x), text() 285µs → 154µs (1.85x). See `docs/plans/2026-03-23-fugue-store-array-design.md`.
+- [ ] **LCA index rebuild on every insert — ~3-5ms at 1000 items** — `add_item` sets `lca_index = None`; next `is_ancestor` triggers O(n log n) Euler Tour + Sparse Table rebuild. Now the single largest CRDT cost per keystroke. Options: (a) amortized rebuild (only rebuild when queried and stale — already done, but rebuild is still expensive), (b) online LCA maintenance (update Euler tour incrementally on insert), (c) skip LCA for sequential local inserts where origin_left is always ancestor of origin_right (common case)
+- [ ] **Position cache full rebuild on non-sequential inserts** — Clicking to a new cursor position then typing invalidates the cache. Full rebuild via `traverse_tree` + `OrderTree.from_array` is O(n). Sequential typing and delete are incremental. Fix: extend `VisibleRun` merge contract to support non-consecutive LV runs, or compute document position for non-sequential inserts
 - [ ] **Memo Eq backdating cost** — `registry_memo` and `source_map_memo` use `derive(Eq)` for backdating, causing O(all_nodes) deep structural comparison per keystroke. Add versioned wrapper type or `physical_equal` fast-path in the Memo system. (`loom/incr/cells/memo.mbt`, `editor/projection_memo.mbt`)
 - [ ] Implement lazy loading for 100k+ operation documents (load causal graph skeleton, hydrate on demand)
 - [ ] Add B-tree indexing for FugueTree (O(n) → O(log n) random-access character lookup)
@@ -209,10 +217,12 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 |---|----------|--------|--------|
 | 1 | ~~Fix FugueTree stack overflow~~ | ~~Low~~ | ~~Critical~~ | ✅ Done |
 | 2 | ~~Profile CRDT at scale~~ | ~~Low~~ | ~~High~~ | ✅ Done |
-| 3 | **Reduce CRDT data structure overhead** — immutable HashMap is dominant cost at 1000 defs | Medium | High |
-| 4 | **Memo Eq backdating** — eliminate O(n) comparison per keystroke | Medium | High |
-| 5 | Future wasm support, currently unsupported | Low-Medium | High |
-| 6 | Complete WebSocket collaboration + recovery | High | High |
-| 7 | Rabbita projection editor performance | High | High | Mostly done |
-| 8 | Memory optimization (lazy loading, B-tree indexing) | High | Medium |
-| 9 | Code cleanup | Medium | Medium | Mostly done |
+| 3 | ~~Reduce CRDT data structure overhead~~ | ~~Medium~~ | ~~High~~ | ✅ Done (Phase 2b) |
+| 4 | **LCA index rebuild per insert** — now the largest CRDT cost (~3-5ms at 1000 items) | Medium | High |
+| 5 | **Incremental parser slower than batch** — 1.2-1.25x overhead from ReuseCursor; consider batch fallback or fix cursor persistence | Medium | Medium |
+| 6 | **Memo Eq backdating** — eliminate O(n) comparison per keystroke | Medium | High |
+| 7 | Future wasm support, currently unsupported | Low-Medium | High |
+| 8 | Complete WebSocket collaboration + recovery | High | High |
+| 9 | Rabbita projection editor performance | High | High | Mostly done |
+| 10 | Memory optimization (lazy loading, B-tree indexing) | High | Medium |
+| 11 | Code cleanup | Medium | Medium | Mostly done |
