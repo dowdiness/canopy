@@ -19,9 +19,17 @@ pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
 
 ///|
 /// Translate a TreeEditOp into text span edits using the source map.
+/// Wraps core_dispatch with middleware (currently: ValidateNodeExists).
+pub fn compute_text_edit(op : TreeEditOp, ctx : EditContext) -> EditResult {
+  let pipeline = wrap(ValidateNodeExists::{  }, core_dispatch)
+  pipeline(op, ctx)
+}
+
+///|
+/// Core dispatch: routes each TreeEditOp variant to its handler.
 /// All TreeEditOp variants are handled — no fallback to the old path.
 /// Returns Some([]) for no-op ops (Select, Collapse, etc.).
-pub fn compute_text_edit(op : TreeEditOp, ctx : EditContext) -> EditResult {
+fn core_dispatch(op : TreeEditOp, ctx : EditContext) -> EditResult {
   match op {
     // No-op operations — these don't modify source text
     Select(..)

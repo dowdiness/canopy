@@ -1105,3 +1105,15 @@ test "compute_text_edit: InlineAllUsages rejects capture" {
   )
   inspect(result is Err(_), content="true")
 }
+
+///|
+test "compute_text_edit: middleware rejects missing node for structural ops" {
+  let text = "42"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let fake_id = NodeId(99999)
+  let result = compute_text_edit(
+    Delete(node_id=fake_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result, content="Err(\"Node not found: NodeId(99999)\")")
+}
