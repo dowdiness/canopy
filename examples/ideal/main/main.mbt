@@ -255,12 +255,12 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
       let panel_w = 320
       let panel_h = 300
       let clamped_left = if raw_left + panel_w > vw {
-        @int.maximum(8, vw - panel_w - 8)
+        { let a = 8; let b = vw - panel_w - 8; if a > b { a } else { b } }
       } else {
         raw_left
       }
       let clamped_top = if raw_top + panel_h > vh {
-        @int.maximum(8, vh - panel_h - 8)
+        { let a = 8; let b = vh - panel_h - 8; if a > b { a } else { b } }
       } else {
         raw_top
       }
