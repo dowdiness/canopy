@@ -115,13 +115,15 @@ export class CrdtBridge {
   }
 
   /** Apply remote CRDT ops and reconcile PM state */
-  applyRemote(syncJson: string): void {
-    this.crdt.apply_sync_json(this.handle, syncJson);
+  applyRemote(syncJson: string): string {
+    const result = this.crdt.apply_sync_json(this.handle, syncJson);
+    if (result !== "ok") return result;
     if (this.reconcileRafId !== null) {
       cancelAnimationFrame(this.reconcileRafId);
       this.reconcileRafId = null;
     }
     this.reconcile();
+    return "ok";
   }
 
   /** Reconcile PM state from CRDT's ProjNode */

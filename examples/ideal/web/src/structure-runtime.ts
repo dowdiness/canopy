@@ -15,7 +15,7 @@ import {
 import type { CrdtModule } from "./types";
 
 export type StructureModeSession = {
-  applyRemote(syncJson: string): void;
+  applyRemote(syncJson: string): string;
   destroy(): void;
   notifyLocalChange(): void;
   reconcile(): void;
@@ -156,8 +156,8 @@ export function createStructureModeSession(
   }, { passive: true, signal: gestureController.signal });
 
   return {
-    applyRemote(syncJson: string): void {
-      bridge.applyRemote(syncJson);
+    applyRemote(syncJson: string): string {
+      return bridge.applyRemote(syncJson);
     },
     destroy(): void {
       gestureController.abort();

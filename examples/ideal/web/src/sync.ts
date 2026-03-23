@@ -8,8 +8,11 @@
 // Protocol (matches server/ws-server.ts):
 //   Client -> Server: { type: "join", room: string }
 //   Client -> Server: { type: "operation", op: string }  (CRDT sync JSON)
+//   Client -> Server: { type: "resync" }                 (request full history replay)
+//   Client -> Server: { type: "ping" }                   (keepalive)
 //   Server -> Client: { type: "sync", ops: string[] }    (history for late joiners)
 //   Server -> Client: { type: "operation", op: string }   (relayed from another peer)
+//   Server -> Client: { type: "pong" }                   (keepalive reply)
 
 import type { CrdtModule } from "./types";
 
@@ -26,6 +29,13 @@ const DEFAULT_ROOM = "canopy-room";
 const RECONNECT_DELAY_MS = 2_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
+/** Heartbeat parameters. */
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_TIMEOUT_MS = 5_000;
+
+/** Offline queue cap — beyond this, fall back to full state on reconnect. */
+const MAX_PENDING_OPS = 1_000;
+
 export class SyncClient {
   private ws: WebSocket | null = null;
   private host: HTMLElement;
@@ -38,6 +48,19 @@ export class SyncClient {
   private url: string = DEFAULT_WS_URL;
   private room: string = DEFAULT_ROOM;
 
+  /** Queued deltas accumulated while disconnected. */
+  private pendingOps: string[] = [];
+
+  /** Heartbeat state. */
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /** Abort controller for host event listeners. */
+  private hostAbort: AbortController | null = null;
+
+  /** Resync cooldown timestamp. */
+  private lastResyncTime = 0;
+
   constructor(host: HTMLElement, handle: number, crdt: CrdtModule) {
     this.host = host;
     this.handle = handle;
@@ -45,12 +68,6 @@ export class SyncClient {
     this.lastSentVersion = crdt.get_version_json(handle);
   }
 
-  /**
-   * Connect to the relay server and join a room.
-   *
-   * @param url  - WebSocket server URL (default: ws://localhost:8787)
-   * @param room - Room name to join (default: "canopy-room")
-   */
   connect(
     url: string = DEFAULT_WS_URL,
     room: string = DEFAULT_ROOM,
@@ -58,18 +75,21 @@ export class SyncClient {
     this.url = url;
     this.room = room;
     if (this.disposed) return;
-    // Guard against duplicate connections
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
-    // Clear any pending reconnect timer
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
 
-    // Append /room/<name> path for Cloudflare Worker routing.
-    // Local dev server ignores the path (room sent in join message).
+    // Listen for sync-error events to trigger resync
+    this.hostAbort?.abort();
+    this.hostAbort = new AbortController();
+    this.host.addEventListener('sync-error', () => {
+      this.requestResync();
+    }, { signal: this.hostAbort.signal });
+
     const wsUrl = url.includes("localhost")
       ? url
       : `${url.replace(/\/$/, "")}/room/${encodeURIComponent(room)}`;
@@ -85,14 +105,21 @@ export class SyncClient {
     this.ws.addEventListener("open", () => {
       this.reconnectDelay = RECONNECT_DELAY_MS;
 
-      // Join the room.
       this.ws!.send(JSON.stringify({ type: "join", room }));
 
-      // Send full state so any peers already in the room can merge.
-      const fullState = this.crdt.export_all_json(this.handle);
-      this.ws!.send(JSON.stringify({ type: "operation", op: fullState }));
-
-      // Update the sent-version watermark.
+      // Flush any ops queued while offline, or send full state.
+      if (this.pendingOps.length > 0 && this.pendingOps.length <= MAX_PENDING_OPS) {
+        for (const op of this.pendingOps) {
+          this.ws!.send(JSON.stringify({ type: "operation", op }));
+        }
+        this.pendingOps = [];
+        // Pending ops cover the delta — no need for full state.
+      } else {
+        this.pendingOps = [];
+        // No queued ops (or too many) — send full state for peers to merge.
+        const fullState = this.crdt.export_all_json(this.handle);
+        this.ws!.send(JSON.stringify({ type: "operation", op: fullState }));
+      }
       this.lastSentVersion = this.crdt.get_version_json(this.handle);
 
       this.host.dispatchEvent(
@@ -103,8 +130,8 @@ export class SyncClient {
         }),
       );
 
-      // Broadcast ephemeral presence so existing peers see us immediately.
       this.broadcastEphemeral();
+      this.startHeartbeat();
     });
 
     this.ws.addEventListener("message", (event) => {
@@ -113,7 +140,6 @@ export class SyncClient {
 
         switch (data.type) {
           case "operation": {
-            // Single relayed operation from another peer.
             const syncJson =
               typeof data.op === "string"
                 ? data.op
@@ -125,16 +151,12 @@ export class SyncClient {
                 composed: true,
               }),
             );
-            // After applying remote ops our version has advanced.
             this.lastSentVersion = this.crdt.get_version_json(this.handle);
             break;
           }
 
           case "sync": {
-            // History replay -- array of ops for late joiners.
-            const ops: unknown[] = Array.isArray(data.ops)
-              ? data.ops
-              : [];
+            const ops: unknown[] = Array.isArray(data.ops) ? data.ops : [];
             for (const op of ops) {
               const syncJson =
                 typeof op === "string" ? op : JSON.stringify(op);
@@ -150,12 +172,18 @@ export class SyncClient {
             break;
           }
 
+          case "pong":
+            if (this.heartbeatTimeout !== null) {
+              clearTimeout(this.heartbeatTimeout);
+              this.heartbeatTimeout = null;
+            }
+            break;
+
           case "error":
             console.warn("[sync] server error:", data.message);
             break;
 
           case "ephemeral": {
-            // Remote ephemeral data (peer cursors, presence)
             const bytes = new Uint8Array(data.data as number[]);
             this.crdt.ephemeral_apply(this.handle, bytes);
             this.host.dispatchEvent(
@@ -177,6 +205,7 @@ export class SyncClient {
 
     this.ws.addEventListener("close", () => {
       this.ws = null;
+      this.stopHeartbeat();
       if (!this.disposed) {
         this.host.dispatchEvent(
           new CustomEvent("sync-status", {
@@ -198,46 +227,47 @@ export class SyncClient {
           composed: true,
         }),
       );
-      // The close event will fire after this, triggering reconnect.
     });
   }
 
-  /**
-   * Broadcast local CRDT changes to all connected peers.
-   * Called by the bridge after every local edit.
-   */
   broadcast(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
     try {
       const delta = this.crdt.export_since_json(
         this.handle,
         this.lastSentVersion,
       );
       if (!delta) return;
-      // Parse to check for actual operations
       const parsed = JSON.parse(delta);
       const hasOps = Array.isArray(parsed.ops) && parsed.ops.length > 0;
-      if (hasOps) {
-        this.ws.send(JSON.stringify({ type: "operation", op: delta }));
+      if (!hasOps) return;
+
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        if (this.pendingOps.length < MAX_PENDING_OPS) {
+          this.pendingOps.push(delta);
+        }
         this.lastSentVersion = this.crdt.get_version_json(this.handle);
+        this.host.dispatchEvent(
+          new CustomEvent("sync-status", {
+            detail: { status: "buffering", pending: this.pendingOps.length },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
       }
+
+      this.ws.send(JSON.stringify({ type: "operation", op: delta }));
+      this.lastSentVersion = this.crdt.get_version_json(this.handle);
     } catch (err) {
       console.error("[sync] broadcast failed:", err);
     }
   }
 
-  /**
-   * Broadcast local ephemeral state (cursors, presence) to all peers.
-   * Ephemeral data is NOT stored in server history.
-   */
   broadcastEphemeral(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
     try {
       const bytes = this.crdt.ephemeral_encode_all(this.handle);
       if (!bytes || bytes.length === 0) return;
-      // Convert Uint8Array to number array for JSON serialization
       this.ws.send(
         JSON.stringify({ type: "ephemeral", data: Array.from(bytes) }),
       );
@@ -246,9 +276,20 @@ export class SyncClient {
     }
   }
 
-  /** Disconnect and stop reconnecting. */
+  requestResync(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const now = Date.now();
+    if (now - this.lastResyncTime < 10_000) return; // 10s cooldown
+    this.lastResyncTime = now;
+    console.info("[sync] requesting resync from server");
+    this.ws.send(JSON.stringify({ type: "resync" }));
+  }
+
   disconnect(): void {
     this.disposed = true;
+    this.stopHeartbeat();
+    this.hostAbort?.abort();
+    this.hostAbort = null;
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -256,6 +297,29 @@ export class SyncClient {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+      this.ws.send(JSON.stringify({ type: "ping" }));
+      this.heartbeatTimeout = setTimeout(() => {
+        console.warn("[sync] heartbeat timeout, reconnecting");
+        this.ws?.close();
+      }, HEARTBEAT_TIMEOUT_MS);
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval !== null) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.heartbeatTimeout !== null) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
     }
   }
 

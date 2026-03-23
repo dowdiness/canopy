@@ -115,16 +115,17 @@ pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
 
 ///|
 /// Apply a SyncMessage received from a peer.
-pub fn apply_sync_json(handle : Int, sync_json : String) -> Unit {
+pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
   match editors.get(handle) {
     Some(ed) =>
       try {
         let msg = @text.SyncMessage::from_json_string(sync_json)
         ed.apply_sync(msg)
+        "ok"
       } catch {
-        _ => ()
+        err => "{\"error\":\"\{err}\"}"
       }
-    None => ()
+    None => "{\"error\":\"invalid handle\"}"
   }
 }
 

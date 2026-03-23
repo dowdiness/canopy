@@ -10,6 +10,7 @@ release/
 
 .env
 _build
+*.db
 
 .playwright-mcp/
 examples/demo-react/playwright-report/

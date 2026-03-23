@@ -22,7 +22,7 @@ const lambdaHighlightStyle = HighlightStyle.define([
 ]);
 
 type StructureModeSession = {
-  applyRemote(syncJson: string): void;
+  applyRemote(syncJson: string): string;
   destroy(): void;
   notifyLocalChange(): void;
   reconcile(): void;
@@ -122,10 +122,19 @@ export class CanopyEditor extends HTMLElement {
     // Wire sync-received
     const { signal } = this.mountAbortController;
     this.addEventListener('sync-received', ((e: CustomEvent) => {
+      let result = "ok";
       if (this.structureSession) {
-        this.structureSession.applyRemote(e.detail.data);
+        result = this.structureSession.applyRemote(e.detail.data);
       } else if (this.crdt && this.crdtHandle !== null) {
-        this.crdt.apply_sync_json(this.crdtHandle, e.detail.data);
+        result = this.crdt.apply_sync_json(this.crdtHandle, e.detail.data);
+      }
+      if (result !== "ok") {
+        console.warn("[sync] apply_sync_json failed:", result);
+        this.dispatchEvent(new CustomEvent('sync-error', {
+          detail: { error: result },
+          bubbles: true, composed: true,
+        }));
+        return;
       }
       this.syncCmFromCrdt();
       this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {

@@ -68,7 +68,7 @@ pub fn export_since_json(handle : Int, peer_version : String) -> String {
 }
 
 ///|
-pub fn apply_sync_json(handle : Int, sync_json : String) -> Unit {
+pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
   @crdt.apply_sync_json(handle, sync_json)
 }
 

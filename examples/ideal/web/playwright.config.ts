@@ -17,10 +17,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run prebuild:moonbit && npx vite --port 5190 --strictPort',
-    url: 'http://localhost:5190',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  webServer: [
+    {
+      command: 'npm run prebuild:moonbit && npx vite --port 5190 --strictPort',
+      url: 'http://localhost:5190',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+    },
+    {
+      command: 'npm run server',
+      port: 8787,
+      reuseExistingServer: !process.env.CI,
+      timeout: 15000,
+    },
+  ],
 });

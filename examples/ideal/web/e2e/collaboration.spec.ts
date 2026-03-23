@@ -1,29 +1,10 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Collaboration E2E tests using two browser contexts.
  *
- * These tests require the WebSocket relay server running on ws://localhost:8787.
- * Start it with: npm run server
- *
- * Without the relay server, tests are skipped gracefully.
+ * The relay server is auto-started by Playwright config (webServer).
  */
-
-const RELAY_URL = 'ws://localhost:8787';
-
-/** Check if the relay server is available. */
-async function isRelayRunning(): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const ws = new (require('ws'))(RELAY_URL);
-      ws.on('open', () => { ws.close(); resolve(true); });
-      ws.on('error', () => resolve(false));
-      setTimeout(() => { try { ws.close(); } catch {} resolve(false); }, 2000);
-    } catch {
-      resolve(false);
-    }
-  });
-}
 
 /** Wait for the editor to fully load in a page. */
 async function waitForEditor(page: Page) {
@@ -82,17 +63,6 @@ async function getPeerCursorCount(page: Page): Promise<number> {
 // ── Without relay: basic sync status tests ───────────────────
 
 test.describe('Collaboration - Offline', () => {
-  test('shows Connecting then Offline without relay server', async ({ page }) => {
-    await waitForEditor(page);
-    // Without relay, status should transition from Connecting to Offline
-    // Wait for the reconnection timeout
-    await page.waitForTimeout(3000);
-    const status = await getSyncStatus(page);
-    expect(
-      status.includes('Connecting') || status.includes('Offline'),
-    ).toBe(true);
-  });
-
   test('no peer cursors without collaboration', async ({ page }) => {
     await waitForEditor(page);
     expect(await hasPeerCursors(page)).toBe(false);
@@ -102,20 +72,7 @@ test.describe('Collaboration - Offline', () => {
 // ── With relay: two-peer collaboration tests ─────────────────
 
 test.describe('Collaboration - Two Peers', () => {
-  let relayAvailable: boolean;
-
-  test.beforeAll(async () => {
-    relayAvailable = await isRelayRunning();
-  });
-
-  test.beforeEach(async ({ }, testInfo) => {
-    if (!relayAvailable) {
-      testInfo.skip();
-    }
-  });
-
   test('two peers connect and see each other', async ({ browser }) => {
-    // Create two independent browser contexts (two separate "users")
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
@@ -136,7 +93,6 @@ test.describe('Collaboration - Two Peers', () => {
         ).catch(() => {}),
       ]);
 
-      // Both should show Connected status
       const statusA = await getSyncStatus(pageA);
       const statusB = await getSyncStatus(pageB);
       expect(statusA).toContain('connected');
@@ -157,21 +113,25 @@ test.describe('Collaboration - Two Peers', () => {
       await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
 
       // Wait for connection
-      await pageA.waitForTimeout(3000);
+      await expect.poll(async () => {
+        const s = await getSyncStatus(pageA);
+        return s.includes('connected');
+      }, { timeout: 10000 }).toBeTruthy();
 
       // Peer A loads an example
       await pageA.getByRole('button', { name: 'Identity' }).click();
-      await pageA.waitForTimeout(1000);
+      await expect.poll(async () => {
+        return (await getEditorText(pageA)).length > 0;
+      }, { timeout: 5000 }).toBeTruthy();
 
       // Peer A types additional text
       await typeInEditor(pageA, '\nlet y = 2');
-      await pageA.waitForTimeout(2000);
 
-      // Peer B should eventually see the synced text containing "let y = 2"
-      await pageB.waitForTimeout(2000);
-      const textB = await getEditorText(pageB);
-      expect(textB).toContain('let');
-      expect(textB).toContain('y');
+      // Peer B should eventually see the synced text
+      await expect.poll(async () => {
+        const textB = await getEditorText(pageB);
+        return textB.includes('let') && textB.includes('y');
+      }, { timeout: 10000 }).toBeTruthy();
     } finally {
       await contextA.close();
       await contextB.close();
@@ -187,8 +147,11 @@ test.describe('Collaboration - Two Peers', () => {
     try {
       await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
 
-      // Wait for connection and ephemeral sync
-      await pageA.waitForTimeout(3000);
+      // Wait for connection
+      await expect.poll(async () => {
+        const s = await getSyncStatus(pageA);
+        return s.includes('connected');
+      }, { timeout: 10000 }).toBeTruthy();
 
       // Peer A clicks in the editor to set cursor position
       await pageA.evaluate(() => {
@@ -197,17 +160,11 @@ test.describe('Collaboration - Two Peers', () => {
         cm?.focus();
       });
       await pageA.keyboard.press('End');
-      await pageA.waitForTimeout(1000);
 
-      // Peer B should see peer A's cursor after ephemeral propagation
-      // Retry with polling since ephemeral delivery has network latency
-      let cursorCount = 0;
-      for (let i = 0; i < 10; i++) {
-        cursorCount = await getPeerCursorCount(pageB);
-        if (cursorCount > 0) break;
-        await pageB.waitForTimeout(500);
-      }
-      expect(cursorCount).toBeGreaterThan(0);
+      // Peer B should see peer A's cursor
+      await expect.poll(async () => {
+        return await getPeerCursorCount(pageB);
+      }, { timeout: 10000 }).toBeGreaterThan(0);
     } finally {
       await contextA.close();
       await contextB.close();
@@ -222,21 +179,27 @@ test.describe('Collaboration - Two Peers', () => {
 
     try {
       await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
-      await pageA.waitForTimeout(3000);
+
+      // Wait for connection
+      await expect.poll(async () => {
+        const s = await getSyncStatus(pageA);
+        return s.includes('connected');
+      }, { timeout: 10000 }).toBeTruthy();
 
       // Peer A loads Add example
       await pageA.getByRole('button', { name: 'Add' }).click();
-      await pageA.waitForTimeout(2000);
 
       // Peer A's outline should show module [add]
-      const outlineA = await pageA.getByLabel('AST outline').innerText();
-      expect(outlineA).toContain('module [add]');
+      await expect.poll(async () => {
+        const text = await pageA.getByLabel('AST outline').innerText();
+        return text.includes('module [add]');
+      }, { timeout: 5000 }).toBeTruthy();
 
-      // Peer B should eventually sync and show the same definitions
-      await pageB.waitForTimeout(3000);
-      const outlineB = await pageB.getByLabel('AST outline').innerText();
-      // After CRDT sync, B's outline should contain the "add" definition
-      expect(outlineB).toContain('add');
+      // Peer B should eventually sync and show the same
+      await expect.poll(async () => {
+        const text = await pageB.getByLabel('AST outline').innerText();
+        return text.includes('add');
+      }, { timeout: 10000 }).toBeTruthy();
     } finally {
       await contextA.close();
       await contextB.close();

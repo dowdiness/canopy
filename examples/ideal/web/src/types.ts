@@ -44,7 +44,7 @@ export interface CrdtModule {
   delete_at(handle: number, pos: number, timestamp: number): boolean;
   undo_manager_undo(handle: number): boolean;
   undo_manager_redo(handle: number): boolean;
-  apply_sync_json(handle: number, json: string): void;
+  apply_sync_json(handle: number, json: string): string;
   export_all_json(handle: number): string;
   export_since_json(handle: number, peerVersionJson: string): string;
   apply_tree_edit_json(handle: number, opJson: string, timestampMs: number): string;
