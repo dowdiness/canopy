@@ -160,178 +160,19 @@ pub fn compute_text_edit(
       }
     // WrapInLambda: wrap node text in a lambda abstraction
     WrapInLambda(node_id~, var_name~) =>
-      match source_map.get_range(node_id) {
-        None => Err("Node not found: " + node_id.to_string())
-        Some(range) => {
-          let existing = match registry.get(node_id) {
-            Some(node) => @ast.print_term(node.kind)
-            None => return Err("Node not found in registry")
-          }
-          let wrapped = "(λ" + var_name + ". " + existing + ")"
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: wrapped,
-                  },
-                ],
-                RestoreCursor,
-              ),
-            ),
-          )
-        }
-      }
+      compute_wrap_lambda(ctx, node_id, var_name)
     // WrapInApp: wrap node text in an application
-    WrapInApp(node_id~) =>
-      match source_map.get_range(node_id) {
-        None => Err("Node not found: " + node_id.to_string())
-        Some(range) => {
-          let existing_kind = match registry.get(node_id) {
-            Some(node) => node.kind
-            None => return Err("Node not found in registry")
-          }
-          let wrapped = @ast.print_term(App(existing_kind, Var("a")))
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: wrapped,
-                  },
-                ],
-                RestoreCursor,
-              ),
-            ),
-          )
-        }
-      }
+    WrapInApp(node_id~) => compute_wrap_app(ctx, node_id)
     // InsertChild: insert a new child at the given index
-    InsertChild(parent~, index~, kind~) => {
-      let placeholder = placeholder_text_for_kind(kind)
-      match registry.get(parent) {
-        None => Err("Parent not found: " + parent.to_string())
-        Some(parent_node) =>
-          match source_map.get_range(parent) {
-            None => Err("Parent not in source map")
-            Some(parent_range) =>
-              match parent_node.kind {
-                @ast.Term::Module(_, _) => {
-                  // Insert a def between existing defs, with trailing newline separator
-                  let insert_text = "let x = " + placeholder + "\n"
-                  let insert_pos = if index >= parent_node.children.length() {
-                    // Insert before the body (last child)
-                    let body = parent_node.children[parent_node.children.length() -
-                      1]
-                    match source_map.get_range(NodeId(body.node_id)) {
-                      Some(r) => r.start
-                      None => parent_range.end
-                    }
-                  } else {
-                    match
-                      source_map.get_range(
-                        NodeId(parent_node.children[index].node_id),
-                      ) {
-                      Some(r) => r.start
-                      None => parent_range.start
-                    }
-                  }
-                  Ok(
-                    Some(
-                      (
-                        [
-                          {
-                            start: insert_pos,
-                            delete_len: 0,
-                            inserted: insert_text,
-                          },
-                        ],
-                        RestoreCursor,
-                      ),
-                    ),
-                  )
-                }
-                _ => {
-                  // Re-render whole parent with new child inserted
-                  let new_child = ProjNode::new(kind, 0, 0, 0, [])
-                  let new_parent = insert_child_at(
-                    parent_node, index, new_child,
-                  )
-                  let new_text = @ast.print_term(new_parent.kind)
-                  Ok(
-                    Some(
-                      (
-                        [
-                          {
-                            start: parent_range.start,
-                            delete_len: parent_range.end - parent_range.start,
-                            inserted: new_text,
-                          },
-                        ],
-                        RestoreCursor,
-                      ),
-                    ),
-                  )
-                }
-              }
-          }
-      }
-    }
+    InsertChild(parent~, index~, kind~) =>
+      compute_insert_child(ctx, parent, index, kind)
     // Unwrap: replace a node with one of its children
     Unwrap(node_id~, keep_child_index~) =>
       compute_unwrap(ctx, node_id, keep_child_index)
     // WrapInIf: wrap a node in an if-then-else with placeholder condition
-    WrapInIf(node_id~) =>
-      match (source_map.get_range(node_id), registry.get(node_id)) {
-        (Some(range), Some(node)) => {
-          let wrapped = @ast.print_term(If(Int(0), node.kind, Int(0)))
-          // "if 0 then ..." — condition placeholder "0" starts at offset 3
-          let condition_pos = range.start + 3
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: wrapped,
-                  },
-                ],
-                MoveCursor(position=condition_pos),
-              ),
-            ),
-          )
-        }
-        _ => Err("Node not found: " + node_id.to_string())
-      }
+    WrapInIf(node_id~) => compute_wrap_if(ctx, node_id)
     // WrapInBop: wrap a node in a binary operation with placeholder right operand
-    WrapInBop(node_id~, op~) =>
-      match (source_map.get_range(node_id), registry.get(node_id)) {
-        (Some(range), Some(node)) => {
-          let wrapped = @ast.print_term(Bop(op, node.kind, Int(0)))
-          // "(expr + 0)" — placeholder "0" is at wrapped.length() - 2 from start
-          let placeholder_pos = range.start + wrapped.length() - 2
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: wrapped,
-                  },
-                ],
-                MoveCursor(position=placeholder_pos),
-              ),
-            ),
-          )
-        }
-        _ => Err("Node not found: " + node_id.to_string())
-      }
+    WrapInBop(node_id~, op~) => compute_wrap_bop(ctx, node_id, op)
     // ChangeOperator: change the operator of a Bop node
     ChangeOperator(node_id~, new_op~) =>
       compute_change_operator(ctx, node_id, new_op)
