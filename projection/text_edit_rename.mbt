@@ -4,42 +4,29 @@ fn compute_rename(
   node_id : NodeId,
   new_name : String,
 ) -> EditResult {
-  let { source_text: _, source_map, registry, flat_proj } = ctx
-  let node = registry.get(node_id)
-  match node {
+  match ctx.registry.get(node_id) {
     Some(n) =>
       match n.kind {
         @ast.Term::Var(old_name) =>
-          // Var: resolve to binder and rename binder + all usages
-          rename_from_var(
-            node_id, old_name, new_name, flat_proj, registry, source_map,
-          )
+          rename_from_var(ctx, node_id, old_name, new_name)
         @ast.Term::Lam(old_name, _) =>
-          // Lam: rename param + all bound Var occurrences in body
-          rename_lam_param(node_id, n, old_name, new_name, source_map, registry)
-        _ =>
-          // Check if this node_id is a binding_node_id in flat_proj
-          rename_binding_by_id(
-            node_id, new_name, flat_proj, registry, source_map,
-          )
+          rename_lam_param(ctx, node_id, n, old_name, new_name)
+        _ => rename_binding_by_id(ctx, node_id, new_name)
       }
-    None =>
-      // Node not in registry — check if it's a binding_node_id
-      rename_binding_by_id(node_id, new_name, flat_proj, registry, source_map)
+    None => rename_binding_by_id(ctx, node_id, new_name)
   }
 }
 
 ///|
 /// Rename a Lam's parameter and all bound Var occurrences in its body.
 fn rename_lam_param(
+  ctx : EditContext,
   lam_id : NodeId,
   lam_node : ProjNode,
   old_name : String,
   new_name : String,
-  source_map : SourceMap,
-  registry : Map[NodeId, ProjNode],
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let _ = registry
+  let source_map = ctx.source_map
   // Guard: check if new_name is free in the lambda body — renaming would capture it
   match lam_node.kind {
     @ast.Term::Lam(_, body) => {
@@ -114,32 +101,30 @@ fn rename_lam_param(
 ///|
 /// Rename a variable by resolving its binder and renaming at the definition site + all usages.
 fn rename_from_var(
+  ctx : EditContext,
   var_node_id : NodeId,
   old_name : String,
   new_name : String,
-  flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode],
-  source_map : SourceMap,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let binder = match
-    resolve_binder(var_node_id, old_name, flat_proj, registry, source_map) {
+    resolve_binder(
+      var_node_id, old_name, ctx.flat_proj, ctx.registry, ctx.source_map,
+    ) {
     Some(b) => b
     None => return Err("No binding found for variable: " + old_name)
   }
   match binder {
     LamBinder(lam_id~) =>
-      match registry.get(lam_id) {
+      match ctx.registry.get(lam_id) {
         Some(lam_node) =>
-          rename_lam_param(
-            lam_id, lam_node, old_name, new_name, source_map, registry,
-          )
+          rename_lam_param(ctx, lam_id, lam_node, old_name, new_name)
         None => Err("Lambda node not found in registry")
       }
     ModuleBinder(binding_node_id~, def_index~) => {
       let _ = binding_node_id
       // Find the Module node in the registry
       let mut module_id : NodeId? = None
-      for pid, pnode in registry {
+      for pid, pnode in ctx.registry {
         if pnode.kind is @ast.Term::Module(_, _) {
           module_id = Some(pid)
           break
@@ -147,9 +132,7 @@ fn rename_from_var(
       }
       match module_id {
         Some(mid) =>
-          rename_module_binding(
-            mid, def_index, old_name, new_name, flat_proj, registry, source_map,
-          )
+          rename_module_binding(ctx, mid, def_index, old_name, new_name)
         None => Err("Module node not found in registry")
       }
     }
@@ -159,14 +142,12 @@ fn rename_from_var(
 ///|
 /// Rename a module binding by its binding_node_id.
 fn rename_binding_by_id(
+  ctx : EditContext,
   binding_node_id : NodeId,
   new_name : String,
-  flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode],
-  source_map : SourceMap,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let mut def_index = -1
-  for i, def in flat_proj.defs {
+  for i, def in ctx.flat_proj.defs {
     if def.3 == binding_node_id {
       def_index = i
     }
@@ -176,10 +157,10 @@ fn rename_binding_by_id(
       "Node not found and not a binding: " + binding_node_id.to_string(),
     )
   }
-  let old_name = flat_proj.defs[def_index].0
+  let old_name = ctx.flat_proj.defs[def_index].0
   // Find Module node
   let mut module_id : NodeId? = None
-  for pid, pnode in registry {
+  for pid, pnode in ctx.registry {
     if pnode.kind is @ast.Term::Module(_, _) {
       module_id = Some(pid)
       break
@@ -187,9 +168,7 @@ fn rename_binding_by_id(
   }
   match module_id {
     Some(mid) =>
-      rename_module_binding(
-        mid, def_index, old_name, new_name, flat_proj, registry, source_map,
-      )
+      rename_module_binding(ctx, mid, def_index, old_name, new_name)
     None => Err("Module node not found in registry")
   }
 }
@@ -197,14 +176,13 @@ fn rename_binding_by_id(
 ///|
 /// Core rename logic for a module-level binding: renames the binding name token + all usages.
 fn rename_module_binding(
+  ctx : EditContext,
   module_id : NodeId,
   def_index : Int,
   old_name : String,
   new_name : String,
-  flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode],
-  source_map : SourceMap,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+  let { source_map, registry, flat_proj, .. } = ctx
   // Guard: check if another binding already uses new_name
   for i, def in flat_proj.defs {
     if i != def_index && def.0 == new_name {
