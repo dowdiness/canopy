@@ -158,7 +158,21 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 - [x] Split `projection/tree_editor.mbt` into focused files (render model, refresh/reuse logic, UI/edit operations, tree indexes) — ✅ Done. `tree_editor.mbt` (edit ops), `tree_editor_model.mbt` (types + state + constructors), `tree_editor_refresh.mbt` (refresh/reuse/indexes)
 - [x] Split `crdt.mbt` into focused FFI files (editor core, undo, presence, relay, websocket) — ✅ Done. Split into 6 files: `crdt.mbt` (core), `crdt_undo.mbt`, `crdt_ephemeral.mbt`, `crdt_relay.mbt`, `crdt_websocket.mbt`, `crdt_projection.mbt`
 - [x] Split `projection/text_edit.mbt` (1,348 lines) into focused modules — ✅ Done. Split into `text_edit.mbt` (1,064), `text_edit_rename.mbt` (231), `text_edit_utils.mbt` (51)
+- [x] Decompose `text_edit.mbt` into handler chain — ✅ Done (PR #54). 1,064-line match → 96-line router + 8 handler files + `EditMiddleware` trait. Shared helpers extracted (`find_def_index`, `binding_delete_range`). Bug fixes: move-binding scoping, cursor positions, defensive guards.
 - [x] Split `editor/ephemeral_hub.mbt` (19 methods) into focused files — ✅ Done. Split into `ephemeral_hub.mbt` (core), `ephemeral_hub_state.mbt` (typed writes), `ephemeral_hub_readers.mbt` (typed reads)
+
+---
+
+## 8b. Handler Chain Follow-ups
+
+**Impact:** Medium | **Effort:** Low-Medium
+
+From SuperOOP analysis and handler chain refactor (PR #54):
+
+- [ ] **Term enum extensibility** — Term (10 variants, 24 match sites) is the biggest Expression Problem hotspot. If new language features are planned (let-rec, match, records), consider two-layer architecture: Finally Tagless traits for extensible operations + concrete enum for pattern matching. See `docs/plans/2026-03-23-handler-chain-design.md` SuperOOP analysis.
+- [ ] **AST transform pipeline** — The `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
+- [x] **Coordinate arithmetic audit** — ✅ Done. Audited all 9 `MoveCursor` sites across handler files. The two bugs (unwrap cursor, inline_definition cursor) were already fixed in PR #54. Remaining sites are correct: single-edit cases have no shift issues, multi-edit cases have cursor before or at the other edit's position.
+- [ ] **Parent lookup index** — `compute_delete` scans all nodes O(n×m) to find the parent. Add a `child_to_parent : Map[NodeId, (NodeId, Int)]` to `EditContext` (or precompute alongside `registry`) to make parent lookup O(1).
 
 ---
 
