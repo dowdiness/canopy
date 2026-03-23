@@ -62,12 +62,12 @@ Improvement proposals for the eg-walker CRDT Lambda Calculus Editor.
 
 - [x] Implement selective cache invalidation by range instead of full reparse fallback (loom incremental engine) — ✅ Done. Size-threshold skip (Phase 1), balanced RepeatGroups (Phase 2), block reparse (Phase 3) all implemented. Phase 0 (SyntaxNode boundary enforcement in test/benchmark code) remains as cleanup
 - [x] Implement LCS matching for AST child reconciliation instead of positional matching (`projection/text_lens.mbt:219`)
-- [ ] **Incremental parse is 1.2-1.25x slower than full reparse at all scales** — Profiling (2026-03-23) shows ReuseCursor overhead exceeds reuse savings. Tree build with ReuseNode IS faster (41µs vs 73µs at 320 lets, 44% savings), proving reuse saves work inside subtrees. But cursor setup/validation overhead negates the win. Root causes and fixes:
-  - **ReuseCursor old-token materialization** — `collect_old_tokens()` walks entire old CST on every `edit()` call because the cache is per-instance, not persistent. Fix: persist old-token cache across edits, invalidate only at edit range. (`loom/loom/src/core/reuse_cursor.mbt:185-204`)
-  - **Trailing-context validation** — Every reuse candidate calls `trailing_context_matches()` with binary search + linear scan. Fix: lazy per-node trailing-context instead of global materialization. (`reuse_cursor.mbt:265-277`)
-  - **TokenBuffer array copy** — `TokenBuffer::update` copies entire token array (prefix + re-lexed + suffix) even for 1-char edits. Fix: in-place splice. (`loom/loom/src/core/token_buffer.mbt:297-340`)
-  - **CstFold warm-cache verification** — When a subtree is reused, unvisited children are still walked for cache warming. Fix: remove or defer verification. (`loom/loom/src/core/cst_fold.mbt:80-87`)
-  - **Alternative:** if fixes are too complex, consider switching to batch reparse (`set_source` instead of `edit`) — simpler and currently faster
+- [x] **Incremental parse overhead reduced** — (2026-03-24) Three fixes brought tail-edit overhead from 1.29x to 1.01x batch at 40 realistic defs, and 0.90x (faster) at 160 defs. Block edits remain 13µs regardless of size. See loom PR #49.
+  - [x] **Persistent OldTokenCache** — cache flattened old-token array across edits with delta-adjusted lookups. Eliminates O(n) `collect_old_tokens` rebuild per edit (~50µs savings).
+  - [x] **ctx.node() for LetDef/MemberNode** — replaced mark/start_at with ctx.node() so try_reuse is called for individual definitions/members.
+  - [x] **reuse_size_threshold=0** — default 64-byte threshold was blocking reuse of most definitions (<64 bytes).
+  - [x] **Realistic benchmarks** — added benchmarks exercising full grammar (blocks, lambdas, if-then-else, application) for both lambda and JSON. Old trivial `let x = 0` benchmarks were misleading.
+  - [ ] **Remaining: flat edits on tiny nodes** — JSON 20-member flat edit is 2x batch. Per-node reuse overhead exceeds parse cost for 3-token members. Grammar-level tradeoff, not a framework bug. Options: (a) accept for tiny structures, (b) batch-reparse fallback when reuse count is zero, (c) amortized threshold that learns from reuse hit rate
 
 ---
 
@@ -219,7 +219,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 | 2 | ~~Profile CRDT at scale~~ | ~~Low~~ | ~~High~~ | ✅ Done |
 | 3 | ~~Reduce CRDT data structure overhead~~ | ~~Medium~~ | ~~High~~ | ✅ Done (Phase 2b) |
 | 4 | **LCA index rebuild per insert** — now the largest CRDT cost (~3-5ms at 1000 items) | Medium | High |
-| 5 | **Incremental parser slower than batch** — 1.2-1.25x overhead from ReuseCursor; consider batch fallback or fix cursor persistence | Medium | Medium |
+| 5 | ~~Incremental parser slower than batch~~ | ~~Medium~~ | ~~Medium~~ | ✅ Done (persistent cache + ctx.node + threshold=0). Tail edit 1.01x at 40 defs, 0.90x at 160 defs. Flat tiny-node case (JSON 2x) is a known tradeoff. |
 | 6 | **Memo Eq backdating** — eliminate O(n) comparison per keystroke | Medium | High |
 | 7 | Future wasm support, currently unsupported | Low-Medium | High |
 | 8 | Complete WebSocket collaboration + recovery | High | High |
