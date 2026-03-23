@@ -34,6 +34,7 @@ fn find_let_start(source_text : String, from : Int) -> Int {
 }
 
 ///|
+/// Find a module binding's index in flat_proj.defs by its NodeId.
 fn find_def_index(
   flat_proj : FlatProj,
   binding_node_id : NodeId,
@@ -47,6 +48,8 @@ fn find_def_index(
 }
 
 ///|
+/// Compute (start, length) for deleting a binding line, consuming
+/// the adjacent newline if present (trailing preferred, else leading).
 fn binding_delete_range(
   source_text : String,
   let_start : Int,

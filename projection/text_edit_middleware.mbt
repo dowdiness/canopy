@@ -1,9 +1,14 @@
 ///|
+/// Middleware wraps core dispatch with cross-cutting concerns.
+/// Each middleware receives `next` (the inner handler) and can
+/// short-circuit or delegate — SuperOOP's `super` pattern.
 priv trait EditMiddleware {
   apply(Self, (TreeEditOp, EditContext) -> EditResult, TreeEditOp, EditContext) -> EditResult
 }
 
 ///|
+/// Rejects structural ops whose primary node ID is missing from the registry.
+/// No-op ops (Select, Collapse, etc.) bypass validation.
 priv struct ValidateNodeExists {}
 
 ///|
@@ -20,6 +25,8 @@ impl EditMiddleware for ValidateNodeExists with apply(_self, next, op, ctx) {
 }
 
 ///|
+/// Returns the primary target node for ops that require registry lookup.
+/// Returns None for no-ops so they bypass validation.
 fn extract_primary_node_id(op : TreeEditOp) -> NodeId? {
   match op {
     // No-ops: unconditional in core router, skip validation
