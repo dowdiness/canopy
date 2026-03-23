@@ -125,6 +125,9 @@ fn compute_insert_child(
   index : Int,
   kind : @ast.Term,
 ) -> EditResult {
+  if index < 0 {
+    return Err("Negative index")
+  }
   let { source_map, registry, .. } = ctx
   let placeholder = placeholder_text_for_kind(kind)
   match registry.get(parent) {

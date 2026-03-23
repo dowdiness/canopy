@@ -1117,3 +1117,92 @@ test "compute_text_edit: middleware rejects missing node for structural ops" {
   )
   inspect(result, content="Err(\"Node not found: NodeId(99999)\")")
 }
+
+///|
+test "compute_text_edit: MoveBindingUp allows valid swap where prev uses cur" {
+  // prev (x) uses cur's name (y) — after swap, y comes first so ref is valid
+  let text = "let x = y\nlet y = 0\nx"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[1].3
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 0\nlet x = y\nx")
+    }
+    _ => fail("expected Some edits, got: " + result.to_string())
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingDown allows valid swap where cur uses next" {
+  // cur (x) uses next's name (y) — after swap, y comes first so ref is valid
+  let text = "let x = y\nlet y = 0\nx"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 0\nlet x = y\nx")
+    }
+    _ => fail("expected Some edits, got: " + result.to_string())
+  }
+}
+
+///|
+test "compute_text_edit: Unwrap cursor at replacement start" {
+  // Unwrap Bop keeps right child — cursor should be at range.start (0),
+  // not the original position of the right child
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let bop_id = proj.id()
+  let result = compute_text_edit(
+    Unwrap(node_id=bop_id, keep_child_index=1),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((_, hint))) =>
+      match hint {
+        MoveCursor(position~) =>
+          // Cursor at start of replacement text, not right child's original pos
+          inspect(position, content="0")
+        _ => fail("expected MoveCursor, got: " + hint.to_string())
+      }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: InsertChild rejects negative index" {
+  let text = "let x = 0\nx"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let module_id = fp.final_expr.unwrap().id()
+  let result = compute_text_edit(
+    InsertChild(parent=module_id, index=-1, kind=@ast.Term::Int(0)),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: AddBinding rejects non-Module target" {
+  let text = "42"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let root_id = NodeId(0)
+  // root is an Int, not a Module
+  let result = compute_text_edit(
+    AddBinding(module_node_id=root_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}

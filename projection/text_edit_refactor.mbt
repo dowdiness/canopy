@@ -184,7 +184,9 @@ fn compute_inline_definition(ctx : EditContext, node_id : NodeId) -> EditResult 
         // If the var range is after the binding, we need to adjust
         // for the deletion. Produce edits in reverse document order.
         if range.start >= binding_end {
-          // Var is after binding — two non-overlapping edits
+          // Var is after binding — two non-overlapping edits.
+          // Cursor must use post-edit coordinates: the binding deletion
+          // shifts everything after del_start left by del_len.
           Ok(
             Some(
               (
@@ -196,7 +198,7 @@ fn compute_inline_definition(ctx : EditContext, node_id : NodeId) -> EditResult 
                   },
                   { start: del_start, delete_len: del_len, inserted: "" },
                 ],
-                MoveCursor(position=range.start),
+                MoveCursor(position=range.start - del_len),
               ),
             ),
           )

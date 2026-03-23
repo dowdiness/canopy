@@ -87,14 +87,12 @@ fn compute_move_binding_up(
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.1.kind, empty_env)
   let prev_fv = free_vars(prev_def.1.kind, empty_env)
+  // Only check if cur depends on prev: after swap, cur comes first,
+  // so prev (now below) wouldn't be in scope for cur's init.
+  // The reverse (prev depends on cur) is safe: after swap, cur is above prev.
   if cur_fv.contains(prev_def.0) {
     return Err(
       "Cannot move up: " + cur_def.0 + " uses " + prev_def.0 + " in its init",
-    )
-  }
-  if prev_fv.contains(cur_def.0) {
-    return Err(
-      "Cannot move up: " + prev_def.0 + " uses " + cur_def.0 + " in its init",
     )
   }
   if cur_def.0 == prev_def.0 {
@@ -152,14 +150,12 @@ fn compute_move_binding_down(
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.1.kind, empty_env)
   let next_fv = free_vars(next_def.1.kind, empty_env)
+  // Only check if next depends on cur: after swap, next comes first,
+  // so cur (now below) wouldn't be in scope for next's init.
+  // The reverse (cur depends on next) is safe: after swap, next is above cur.
   if next_fv.contains(cur_def.0) {
     return Err(
       "Cannot move down: " + next_def.0 + " uses " + cur_def.0 + " in its init",
-    )
-  }
-  if cur_fv.contains(next_def.0) {
-    return Err(
-      "Cannot move down: " + cur_def.0 + " uses " + next_def.0 + " in its init",
     )
   }
   if cur_def.0 == next_def.0 {
@@ -202,11 +198,20 @@ fn compute_add_binding(
   ctx : EditContext,
   module_node_id : NodeId,
 ) -> EditResult {
-  let { flat_proj, .. } = ctx
-  compute_insert_child(
-    ctx,
-    module_node_id,
-    flat_proj.defs.length(),
-    @ast.Term::Int(0),
-  )
+  let { registry, flat_proj, .. } = ctx
+  // Validate target is a Module node before delegating
+  match registry.get(module_node_id) {
+    None => Err("Module not found: " + module_node_id.to_string())
+    Some(node) =>
+      match node.kind {
+        @ast.Term::Module(_, _) =>
+          compute_insert_child(
+            ctx,
+            module_node_id,
+            flat_proj.defs.length(),
+            @ast.Term::Int(0),
+          )
+        _ => Err("AddBinding target is not a Module node")
+      }
+  }
 }

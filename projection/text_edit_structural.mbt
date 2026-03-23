@@ -7,15 +7,13 @@ fn compute_unwrap(
   let { source_map, registry, .. } = ctx
   match (source_map.get_range(node_id), registry.get(node_id)) {
     (Some(range), Some(node)) =>
-      if keep_child_index >= node.children.length() {
+      if keep_child_index < 0 || keep_child_index >= node.children.length() {
         Err("Child index out of range")
       } else {
         let kept = node.children[keep_child_index]
         let kept_text = @ast.print_term(kept.kind)
-        let kept_start = match source_map.get_range(kept.id()) {
-          Some(r) => r.start
-          None => range.start
-        }
+        // Cursor at start of the replacement text (the parent's original start),
+        // not the kept child's original position which is invalidated by the edit.
         Ok(
           Some(
             (
@@ -26,7 +24,7 @@ fn compute_unwrap(
                   inserted: kept_text,
                 },
               ],
-              MoveCursor(position=kept_start),
+              MoveCursor(position=range.start),
             ),
           ),
         )
