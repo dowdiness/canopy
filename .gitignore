@@ -18,5 +18,5 @@ examples/ideal/web/playwright-report/
 examples/ideal/web/test-results/
 .grepai/
 .worktrees/
-.claude/worktrees/
+.claude/
 .superpowers/
