@@ -1,7 +1,9 @@
 ///|
-fn scope_test_registry(root : ProjNode) -> Map[NodeId, ProjNode] {
-  let registry : Map[NodeId, ProjNode] = {}
-  fn register(node : ProjNode) {
+fn scope_test_registry(
+  root : ProjNode[@ast.Term],
+) -> Map[NodeId, ProjNode[@ast.Term]] {
+  let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
+  fn register(node : ProjNode[@ast.Term]) {
     registry[node.id()] = node
     for child in node.children {
       register(child)

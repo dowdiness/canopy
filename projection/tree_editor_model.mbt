@@ -2,18 +2,18 @@
 
 ///|
 /// Rendered children for an interactive node.
-pub enum InteractiveChildren {
-  Loaded(Array[InteractiveTreeNode])
+pub enum InteractiveChildren[T] {
+  Loaded(Array[InteractiveTreeNode[T]])
   Elided(Int)
 } derive(Show)
 
 ///|
 /// Interactive tree node with editing state
-pub struct InteractiveTreeNode {
+pub struct InteractiveTreeNode[T] {
   id : NodeId
-  kind : @ast.Term
+  kind : T
   label : String
-  children : InteractiveChildren
+  children : InteractiveChildren[T]
   /// Currently selected
   selected : Bool
   /// Inline editing active
@@ -28,10 +28,10 @@ pub struct InteractiveTreeNode {
 
 ///|
 /// Create an interactive tree node from a ProjNode
-pub fn InteractiveTreeNode::from_term_node(
-  node : ProjNode,
+pub fn[T : TreeNode + Renderable] InteractiveTreeNode::from_term_node(
+  node : ProjNode[T],
   source_map : SourceMap,
-) -> InteractiveTreeNode {
+) -> InteractiveTreeNode[T] {
   InteractiveTreeNode::from_term_node_with_state(
     node,
     source_map,
@@ -49,24 +49,10 @@ priv struct TreeUIState {
 }
 
 ///|
-/// Non-recursive node summary used by refresh-time subtree reuse.
-priv enum InteractiveNodeShape {
-  Int(Int)
-  Var(String)
-  Lam(String)
-  App
-  Bop(@ast.Bop)
-  If
-  Module
-  Unit
-  Error(String)
-} derive(Eq)
-
-///|
 /// Shallow stamp for deciding whether a previously loaded subtree can be reused.
-priv struct InteractiveNodeStamp {
+priv struct InteractiveNodeStamp[T] {
   id : NodeId
-  shape : InteractiveNodeShape
+  kind : T
   label : String
   child_ids : Array[NodeId]
   elided_descendant_count : Int?
@@ -79,8 +65,8 @@ priv struct InteractiveNodeStamp {
 
 ///|
 /// Result of a refresh build, including whether the previous node was reused.
-priv struct RefreshedInteractiveNode {
-  node : InteractiveTreeNode
+priv struct RefreshedInteractiveNode[T] {
+  node : InteractiveTreeNode[T]
   reused_previous : Bool
 }
 
@@ -92,25 +78,10 @@ priv struct LazyPreorder {
 }
 
 ///|
-/// Build the non-recursive node shape for stamp comparison.
-fn interactive_node_shape(kind : @ast.Term) -> InteractiveNodeShape {
-  match kind {
-    Int(n) => Int(n)
-    Var(name) => Var(name)
-    Lam(param, _) => Lam(param)
-    App(_, _) => App
-    Bop(op, _, _) => Bop(op)
-    If(_, _, _) => If
-    Module(_, _) => Module
-    Unit => Unit
-    Unbound(name) => Var(name) // Unbound rendered same as Var in editor
-    Error(msg) => Error(msg)
-  }
-}
-
-///|
 /// Build the shallow reuse stamp for an interactive node.
-fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
+fn[T : Eq] interactive_node_stamp(
+  node : InteractiveTreeNode[T],
+) -> InteractiveNodeStamp[T] {
   let child_ids : Array[NodeId] = []
   let elided_descendant_count = match node.children {
     Loaded(children) => {
@@ -123,7 +94,7 @@ fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
   }
   {
     id: node.id,
-    shape: interactive_node_shape(node.kind),
+    kind: node.kind,
     label: node.label,
     child_ids,
     elided_descendant_count,
@@ -139,11 +110,11 @@ fn interactive_node_stamp(node : InteractiveTreeNode) -> InteractiveNodeStamp {
 /// Create an interactive tree node from a ProjNode with UI state applied.
 /// This is a rendering helper only; index-backed editor operations should use
 /// `TreeEditorState::from_projection(...)`.
-fn InteractiveTreeNode::from_term_node_with_state(
-  node : ProjNode,
+fn[T : TreeNode + Renderable] InteractiveTreeNode::from_term_node_with_state(
+  node : ProjNode[T],
   source_map : SourceMap,
   collapsed_nodes : @immut/hashset.HashSet[NodeId],
-) -> InteractiveTreeNode {
+) -> InteractiveTreeNode[T] {
   let ui_state : TreeUIState = {
     collapsed_nodes,
     selection: @immut/hashset.new(),
@@ -155,11 +126,11 @@ fn InteractiveTreeNode::from_term_node_with_state(
 
 ///|
 /// Create an interactive tree node with UI state applied.
-fn from_term_node_impl(
-  node : ProjNode,
+fn[T : TreeNode + Renderable] from_term_node_impl(
+  node : ProjNode[T],
   source_map : SourceMap,
   ui_state : TreeUIState,
-) -> InteractiveTreeNode {
+) -> InteractiveTreeNode[T] {
   let node_id = NodeId(node.node_id)
   let text_range = match source_map.get_range(node_id) {
     Some(range) => range
@@ -182,7 +153,7 @@ fn from_term_node_impl(
     }
     Elided(descendant_count)
   } else {
-    let loaded : Array[InteractiveTreeNode] = []
+    let loaded : Array[InteractiveTreeNode[T]] = []
     for child in node.children {
       loaded.push(from_term_node_impl(child, source_map, ui_state))
     }
@@ -191,7 +162,7 @@ fn from_term_node_impl(
   {
     id: node_id,
     kind: node.kind,
-    label: get_node_label(node.kind),
+    label: Renderable::label(node.kind),
     children,
     selected,
     editing,
@@ -203,7 +174,7 @@ fn from_term_node_impl(
 
 ///|
 /// Count projection descendants.
-fn count_projection_descendants(node : ProjNode) -> Int {
+fn[T] count_projection_descendants(node : ProjNode[T]) -> Int {
   let mut subtree_size = 1
   for child in node.children {
     subtree_size += count_projection_descendants(child)
@@ -212,35 +183,10 @@ fn count_projection_descendants(node : ProjNode) -> Int {
 }
 
 ///|
-/// Get display label for a node kind
-fn get_node_label(kind : @ast.Term) -> String {
-  match kind {
-    Int(n) => n.to_string()
-    Var(name) => name
-    Lam(param, _) => "λ" + param
-    App(_, _) => "App"
-    Bop(op, _, _) => op.to_string()
-    If(_, _, _) => "if"
-    Module(defs, _) => {
-      let names = defs.map(fn(d) { d.0 })
-      "module [" + names.join(", ") + "]"
-    }
-    Unit => "()"
-    Unbound(name) => "?" + name
-    Error(msg) => "Error: " + msg
-  }
-}
-
-///|
 /// Check if a node is a leaf (editable inline).
-/// Error nodes are treated as leaves so they can be edited in place.
-pub fn is_leaf_node(kind : @ast.Term) -> Bool {
-  match kind {
-    Int(_) => true
-    Var(_) => true
-    Error(_) => true
-    _ => false
-  }
+/// A leaf has no structural children per the TreeNode trait.
+pub fn[T : TreeNode] is_leaf_node(kind : T) -> Bool {
+  T::children(kind).is_empty()
 }
 
 ///|
@@ -258,9 +204,9 @@ pub fn is_valid_drop(
 
 ///|
 /// Editor state for the interactive tree
-pub struct TreeEditorState {
+pub struct TreeEditorState[T] {
   /// The interactive tree representation
-  tree : InteractiveTreeNode?
+  tree : InteractiveTreeNode[T]?
   /// Currently selected nodes
   selection : Array[NodeId]
   /// Node being edited inline
@@ -276,22 +222,22 @@ pub struct TreeEditorState {
   /// Set of collapsed node IDs (UI state separate from model, immutable)
   collapsed_nodes : @immut/hashset.HashSet[NodeId]
   /// Currently materialized interactive nodes by ID
-  priv loaded_nodes : Map[NodeId, InteractiveTreeNode]
+  priv loaded_nodes : Map[NodeId, InteractiveTreeNode[T]]
 }
 
 ///|
 /// Look up a materialized interactive node by ID. O(1) via the loaded-node index.
-pub fn TreeEditorState::get_loaded_node(
-  self : TreeEditorState,
+pub fn[T] TreeEditorState::get_loaded_node(
+  self : TreeEditorState[T],
   node_id : NodeId,
-) -> InteractiveTreeNode? {
+) -> InteractiveTreeNode[T]? {
   self.loaded_nodes.get(node_id)
 }
 
 ///|
 /// Check if a node ID is valid in the current tree state.
-pub fn TreeEditorState::has_node(
-  self : TreeEditorState,
+pub fn[T] TreeEditorState::has_node(
+  self : TreeEditorState[T],
   node_id : NodeId,
 ) -> Bool {
   self.loaded_nodes.get(node_id) is Some(_)
@@ -299,7 +245,7 @@ pub fn TreeEditorState::has_node(
 
 ///|
 /// Create a new tree editor state
-pub fn TreeEditorState::new() -> TreeEditorState {
+pub fn[T] TreeEditorState::new() -> TreeEditorState[T] {
   {
     tree: None,
     selection: [],
@@ -315,10 +261,10 @@ pub fn TreeEditorState::new() -> TreeEditorState {
 
 ///|
 /// Create tree editor state from a projection snapshot.
-pub fn TreeEditorState::from_projection(
-  proj : ProjNode?,
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::from_projection(
+  proj : ProjNode[T]?,
   source_map : SourceMap,
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.new()
   let ui_state : TreeUIState = {
     collapsed_nodes,
@@ -326,7 +272,7 @@ pub fn TreeEditorState::from_projection(
     editing_node: None,
     drop_target: None,
   }
-  let loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+  let loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
   let tree = match proj {
     Some(ast) =>
       Some(

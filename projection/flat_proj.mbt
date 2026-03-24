@@ -1,7 +1,7 @@
 ///|
 pub struct FlatProj {
-  defs : Array[(String, ProjNode, Int, NodeId)] // (name, init, start, id)
-  final_expr : ProjNode?
+  defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] // (name, init, start, id)
+  final_expr : ProjNode[@ast.Term]?
 } derive(Show, Eq)
 
 ///|
@@ -14,8 +14,8 @@ pub fn FlatProj::empty() -> FlatProj {
 /// Iterates LetDef children and collects them as flat array entries.
 /// Each init subtree is built via syntax_to_proj_node (unchanged).
 pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
-  let defs : Array[(String, ProjNode, Int, NodeId)] = []
-  let mut final_proj : ProjNode? = None
+  let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
+  let mut final_proj : ProjNode[@ast.Term]? = None
   for child in root.children() {
     if @parser.LetDefView::cast(child) is Some(v) {
       let init = match v.init() {
@@ -63,8 +63,8 @@ pub fn to_flat_proj_incremental(
   // physical_equal checks pointer identity (same interned CstNode object).
   // When content and position are both unchanged, the parser returns
   // the exact same object, making physical_equal true.
-  let defs : Array[(String, ProjNode, Int, NodeId)] = []
-  let mut final_proj : ProjNode? = None
+  let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
+  let mut final_proj : ProjNode[@ast.Term]? = None
   let mut old_def_idx = 0
   let mut any_changed = false
   for new_child in new_children {
@@ -171,7 +171,7 @@ pub fn reconcile_flat_proj(
   let new_matched = key_match(old_names, new_names)
 
   // Build reconciled defs
-  let result_defs : Array[(String, ProjNode, Int, NodeId)] = []
+  let result_defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
   for j = 0; j < new_defs.length(); j = j + 1 {
     let new_entry = new_defs[j]
     let name = new_entry.0
@@ -202,7 +202,10 @@ pub fn reconcile_flat_proj(
 ///|
 /// Reconstruct a Module ProjNode from FlatProj.
 /// Uses stored NodeIds for the Module node. Counter only used for Unit fallback.
-pub fn FlatProj::to_proj_node(self : FlatProj, counter : Ref[Int]) -> ProjNode {
+pub fn FlatProj::to_proj_node(
+  self : FlatProj,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
   self.to_proj_node_with_prev_module_id(counter, None)
 }
 
@@ -218,7 +221,7 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
   self : FlatProj,
   counter : Ref[Int],
   prev_module_id : Int?,
-) -> ProjNode {
+) -> ProjNode[@ast.Term] {
   let body = match self.final_expr {
     Some(expr) => expr
     None => {
@@ -235,7 +238,7 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
   if self.defs.is_empty() {
     return body
   }
-  let children : Array[ProjNode] = self.defs.map(fn(d) { d.1 })
+  let children : Array[ProjNode[@ast.Term]] = self.defs.map(fn(d) { d.1 })
   children.push(body)
   let term_defs : Array[(@ast.VarName, @ast.Term)] = self.defs.map(fn(d) {
     (d.0, d.1.kind)
@@ -257,10 +260,10 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
 ///|
 /// Extract a FlatProj from a Module ProjNode.
 /// Reads def entries from Module children and extracts the body.
-pub fn FlatProj::from_proj_node(root : ProjNode) -> FlatProj {
+pub fn FlatProj::from_proj_node(root : ProjNode[@ast.Term]) -> FlatProj {
   match root.kind {
     Module(term_defs, _) => {
-      let defs : Array[(String, ProjNode, Int, NodeId)] = []
+      let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
       for i = 0; i < term_defs.length(); i = i + 1 {
         if i < root.children.length() - 1 {
           let init_child = root.children[i]

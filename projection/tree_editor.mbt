@@ -2,10 +2,10 @@
 
 ///|
 /// Apply a tree edit operation to the editor state
-pub fn TreeEditorState::apply_edit(
-  self : TreeEditorState,
+pub fn[T] TreeEditorState::apply_edit(
+  self : TreeEditorState[T],
   edit : TreeEditOp,
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   match edit {
     Select(node_id~) => apply_selection_edit(self, [node_id])
     SelectRange(start~, end~) => {

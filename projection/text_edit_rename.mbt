@@ -1,6 +1,6 @@
 ///|
 fn compute_rename(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   new_name : String,
 ) -> EditResult {
@@ -20,9 +20,9 @@ fn compute_rename(
 ///|
 /// Rename a Lam's parameter and all bound Var occurrences in its body.
 fn rename_lam_param(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   lam_id : NodeId,
-  lam_node : ProjNode,
+  lam_node : ProjNode[@ast.Term],
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
@@ -101,7 +101,7 @@ fn rename_lam_param(
 ///|
 /// Rename a variable by resolving its binder and renaming at the definition site + all usages.
 fn rename_from_var(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   var_node_id : NodeId,
   old_name : String,
   new_name : String,
@@ -146,7 +146,7 @@ fn rename_from_var(
 ///|
 /// Rename a module binding by its binding_node_id.
 fn rename_binding_by_id(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
@@ -172,7 +172,7 @@ fn rename_binding_by_id(
 ///|
 /// Core rename logic for a module-level binding: renames the binding name token + all usages.
 fn rename_module_binding(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   module_id : NodeId,
   def_index : Int,
   old_name : String,

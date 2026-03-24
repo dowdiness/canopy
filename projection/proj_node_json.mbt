@@ -3,7 +3,7 @@
 // and position mappings from JavaScript via FFI.
 
 ///|
-pub impl ToJson for ProjNode with to_json(self) {
+pub impl[T : ToJson] ToJson for ProjNode[T] with to_json(self) {
   let children_json : Array[Json] = self.children.map(fn(c) { c.to_json() })
   {
     "node_id": self.node_id,

@@ -9,10 +9,10 @@ pub(all) struct SpanEdit {
 ///|
 /// Shared context for all edit handlers. Constructed by the editor bridge
 /// and passed through the middleware pipeline to per-file handler functions.
-pub(all) struct EditContext {
+pub(all) struct EditContext[T] {
   source_text : String
   source_map : SourceMap
-  registry : Map[NodeId, ProjNode]
+  registry : Map[NodeId, ProjNode[T]]
   flat_proj : FlatProj
 }
 
@@ -22,13 +22,16 @@ pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
 ///|
 /// Translate a TreeEditOp into text span edits.
 /// Passes through ValidateNodeExists middleware before core dispatch.
-pub fn compute_text_edit(op : TreeEditOp, ctx : EditContext) -> EditResult {
+pub fn compute_text_edit(
+  op : TreeEditOp,
+  ctx : EditContext[@ast.Term],
+) -> EditResult {
   ValidateNodeExists::{  }.apply(core_dispatch, op, ctx)
 }
 
 ///|
 /// Exhaustive router: delegates each TreeEditOp variant to its handler file.
-fn core_dispatch(op : TreeEditOp, ctx : EditContext) -> EditResult {
+fn core_dispatch(op : TreeEditOp, ctx : EditContext[@ast.Term]) -> EditResult {
   match op {
     Select(..)
     | SelectRange(..)

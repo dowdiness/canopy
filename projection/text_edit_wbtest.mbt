@@ -5,7 +5,12 @@
 /// Uses the full syntax tree → ProjNode pipeline so token spans are populated.
 fn parse_with_token_spans(
   text : String,
-) -> (ProjNode, SourceMap, Map[NodeId, ProjNode], FlatProj) {
+) -> (
+  ProjNode[@ast.Term],
+  SourceMap,
+  Map[NodeId, ProjNode[@ast.Term]],
+  FlatProj,
+) {
   let (cst, _) = @parser.parse_cst(text) catch { _ => abort("parse failed") }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref::new(0)
@@ -19,9 +24,11 @@ fn parse_with_token_spans(
 
 ///|
 /// Build a registry from a ProjNode tree.
-fn text_edit_test_registry(root : ProjNode) -> Map[NodeId, ProjNode] {
-  let registry : Map[NodeId, ProjNode] = {}
-  fn register(node : ProjNode) {
+fn text_edit_test_registry(
+  root : ProjNode[@ast.Term],
+) -> Map[NodeId, ProjNode[@ast.Term]] {
+  let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
+  fn register(node : ProjNode[@ast.Term]) {
     registry[node.id()] = node
     for child in node.children {
       register(child)
@@ -49,9 +56,9 @@ fn apply_edits(text : String, edits : Array[SpanEdit]) -> String {
 fn make_edit_ctx(
   text : String,
   source_map : SourceMap,
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
   fp : FlatProj,
-) -> EditContext {
+) -> EditContext[@ast.Term] {
   { source_text: text, source_map, registry, flat_proj: fp }
 }
 

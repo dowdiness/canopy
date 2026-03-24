@@ -22,7 +22,7 @@ pub fn SourceMap::new() -> SourceMap {
 
 ///|
 /// Build a SourceMap from a ProjNode tree
-pub fn SourceMap::from_ast(root : ProjNode) -> SourceMap {
+pub fn[T] SourceMap::from_ast(root : ProjNode[T]) -> SourceMap {
   let map = SourceMap::new()
   map.build_from_node(root)
   map.rebuild_ranges()
@@ -31,7 +31,7 @@ pub fn SourceMap::from_ast(root : ProjNode) -> SourceMap {
 
 ///|
 /// Recursively build the map from an AST node
-fn SourceMap::build_from_node(self : SourceMap, node : ProjNode) -> Unit {
+fn[T] SourceMap::build_from_node(self : SourceMap, node : ProjNode[T]) -> Unit {
   let node_id = NodeId(node.node_id)
   let range = Range::new(node.start, node.end)
   self.node_to_range[node_id] = range
@@ -66,7 +66,10 @@ pub fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
 /// Remove all entries for a ProjNode subtree from the source map.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
-pub fn SourceMap::remove_subtree(self : SourceMap, node : ProjNode) -> Unit {
+pub fn[T] SourceMap::remove_subtree(
+  self : SourceMap,
+  node : ProjNode[T],
+) -> Unit {
   let node_id = NodeId(node.node_id)
   self.node_to_range.remove(node_id)
   self.token_spans.remove(node_id)
@@ -79,7 +82,10 @@ pub fn SourceMap::remove_subtree(self : SourceMap, node : ProjNode) -> Unit {
 /// Add entries for a ProjNode subtree to the source map.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
-pub fn SourceMap::patch_subtree(self : SourceMap, node : ProjNode) -> Unit {
+pub fn[T] SourceMap::patch_subtree(
+  self : SourceMap,
+  node : ProjNode[T],
+) -> Unit {
   let node_id = NodeId(node.node_id)
   self.node_to_range[node_id] = Range::new(node.start, node.end)
   for child in node.children {
@@ -206,7 +212,7 @@ pub fn SourceMap::apply_edit(
 /// Clear and rebuild from a new AST.
 /// Note: this clears token_spans. Call populate_token_spans() afterward
 /// if token-level spans are needed.
-pub fn SourceMap::rebuild(self : SourceMap, root : ProjNode) -> Unit {
+pub fn[T] SourceMap::rebuild(self : SourceMap, root : ProjNode[T]) -> Unit {
   self.node_to_range.clear()
   self.ranges.clear()
   self.token_spans.clear()
@@ -263,7 +269,7 @@ pub fn SourceMap::get_token_span(
 pub fn SourceMap::populate_token_spans(
   self : SourceMap,
   syntax_root : @seam.SyntaxNode,
-  proj_root : ProjNode,
+  proj_root : ProjNode[@ast.Term],
 ) -> Unit {
   self.collect_token_spans_source_file(syntax_root, proj_root)
 }
@@ -275,7 +281,7 @@ pub fn SourceMap::populate_token_spans(
 fn SourceMap::collect_token_spans_source_file(
   self : SourceMap,
   syntax_root : @seam.SyntaxNode,
-  proj_root : ProjNode,
+  proj_root : ProjNode[@ast.Term],
 ) -> Unit {
   // For a Module ProjNode, children are: [init_0, init_1, ..., body]
   // The syntax_root has LetDef children and optionally a final expression child.
@@ -350,7 +356,7 @@ fn SourceMap::collect_token_spans_source_file(
 fn SourceMap::collect_token_spans_expr(
   self : SourceMap,
   syntax_node : @seam.SyntaxNode,
-  proj_node : ProjNode,
+  proj_node : ProjNode[@ast.Term],
 ) -> Unit {
   if @parser.LambdaExprView::cast(syntax_node) is Some(v) {
     // Extract param token span
@@ -387,7 +393,7 @@ fn SourceMap::collect_token_spans_expr(
           let mut current_proj = proj_node
           // Walk down left children to find the innermost
           let depth = args.length()
-          let proj_chain : Array[ProjNode] = []
+          let proj_chain : Array[ProjNode[@ast.Term]] = []
           proj_chain.push(current_proj)
           for i = 0; i < depth - 1; i = i + 1 {
             if current_proj.children.length() >= 1 {
@@ -424,7 +430,7 @@ fn SourceMap::collect_token_spans_expr(
       // Navigate nested Bop tree: Bop(Bop(a, b), c) for a + b + c
       let mut current_proj = proj_node
       let depth = operands.length() - 1
-      let proj_chain : Array[ProjNode] = []
+      let proj_chain : Array[ProjNode[@ast.Term]] = []
       proj_chain.push(current_proj)
       for i = 0; i < depth - 1; i = i + 1 {
         if current_proj.children.length() >= 1 {

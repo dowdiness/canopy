@@ -1,6 +1,6 @@
 ///|
 fn compute_unwrap(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   keep_child_index : Int,
 ) -> EditResult {
@@ -34,7 +34,10 @@ fn compute_unwrap(
 }
 
 ///|
-fn compute_swap_children(ctx : EditContext, node_id : NodeId) -> EditResult {
+fn compute_swap_children(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult {
   let { source_map, registry, .. } = ctx
   match (source_map.get_range(node_id), registry.get(node_id)) {
     (Some(range), Some(node)) =>
@@ -81,7 +84,7 @@ fn compute_swap_children(ctx : EditContext, node_id : NodeId) -> EditResult {
 
 ///|
 fn compute_change_operator(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   new_op : @ast.Bop,
 ) -> EditResult {

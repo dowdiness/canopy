@@ -1,6 +1,6 @@
 ///|
 fn compute_extract_to_let(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
@@ -129,7 +129,10 @@ fn compute_extract_to_let(
 }
 
 ///|
-fn compute_inline_definition(ctx : EditContext, node_id : NodeId) -> EditResult {
+fn compute_inline_definition(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult {
   let { source_text, source_map, registry, flat_proj } = ctx
   let node = match registry.get(node_id) {
     Some(n) => n
@@ -242,7 +245,7 @@ fn compute_inline_definition(ctx : EditContext, node_id : NodeId) -> EditResult 
 
 ///|
 fn compute_inline_all_usages(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, registry, flat_proj } = ctx

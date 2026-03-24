@@ -1,6 +1,6 @@
 ///|
 fn compute_wrap_lambda(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
@@ -32,7 +32,10 @@ fn compute_wrap_lambda(
 }
 
 ///|
-fn compute_wrap_app(ctx : EditContext, node_id : NodeId) -> EditResult {
+fn compute_wrap_app(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult {
   let { source_map, registry, .. } = ctx
   match source_map.get_range(node_id) {
     None => Err("Node not found: " + node_id.to_string())
@@ -61,7 +64,10 @@ fn compute_wrap_app(ctx : EditContext, node_id : NodeId) -> EditResult {
 }
 
 ///|
-fn compute_wrap_if(ctx : EditContext, node_id : NodeId) -> EditResult {
+fn compute_wrap_if(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult {
   let { source_map, registry, .. } = ctx
   match (source_map.get_range(node_id), registry.get(node_id)) {
     (Some(range), Some(node)) => {
@@ -89,7 +95,7 @@ fn compute_wrap_if(ctx : EditContext, node_id : NodeId) -> EditResult {
 
 ///|
 fn compute_wrap_bop(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   op : @ast.Bop,
 ) -> EditResult {
@@ -120,7 +126,7 @@ fn compute_wrap_bop(
 
 ///|
 fn compute_insert_child(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   parent : NodeId,
   index : Int,
   kind : @ast.Term,

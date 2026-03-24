@@ -14,7 +14,13 @@ fn tree_refresh_bench_source(let_count : Int, tail_literal : String) -> String {
 ///|
 fn tree_refresh_bench_setup(
   let_count : Int,
-) -> (TreeEditorState, ProjNode, SourceMap, ProjNode, SourceMap) {
+) -> (
+  TreeEditorState[@ast.Term],
+  ProjNode[@ast.Term],
+  SourceMap,
+  ProjNode[@ast.Term],
+  SourceMap,
+) {
   let source_a = tree_refresh_bench_source(let_count, "0")
   let source_b = tree_refresh_bench_source(let_count, "1")
   let (root_a, _) = parse_to_proj_node(source_a)

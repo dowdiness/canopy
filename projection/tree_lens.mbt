@@ -53,24 +53,17 @@ pub(all) enum TreeEditOp {
 } derive(Show)
 
 ///|
-fn placeholder_text_for_kind(kind : @ast.Term) -> String {
-  match kind {
-    @ast.Term::Int(_) => "0"
-    @ast.Term::Var(_) => "a"
-    @ast.Term::Lam(_, _) => "λx.x"
-    @ast.Term::App(_, _) => "f x"
-    @ast.Term::Bop(_, _, _) => "0 + 0"
-    @ast.Term::If(_, _, _) => "if 0 then 0 else 0"
-    @ast.Term::Module(_, _) => "let x = 0\nx"
-    @ast.Term::Unit => "()"
-    @ast.Term::Unbound(_) => "a"
-    @ast.Term::Error(_) => "a"
-  }
+fn[T : Renderable] placeholder_text_for_kind(kind : T) -> String {
+  T::placeholder(kind)
 }
 
 ///|
-fn insert_child_at(node : ProjNode, index : Int, child : ProjNode) -> ProjNode {
-  let new_children : Array[ProjNode] = []
+fn insert_child_at(
+  node : ProjNode[@ast.Term],
+  index : Int,
+  child : ProjNode[@ast.Term],
+) -> ProjNode[@ast.Term] {
+  let new_children : Array[ProjNode[@ast.Term]] = []
   for i, c in node.children {
     if i == index {
       new_children.push(child)
@@ -90,7 +83,7 @@ fn insert_child_at(node : ProjNode, index : Int, child : ProjNode) -> ProjNode {
 }
 
 ///|
-fn get_node_in_tree(root : ProjNode, target_id : NodeId) -> ProjNode? {
+fn[T] get_node_in_tree(root : ProjNode[T], target_id : NodeId) -> ProjNode[T]? {
   if root.id() == target_id {
     Some(root)
   } else {

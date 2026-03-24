@@ -1,6 +1,6 @@
 ///|
 fn compute_delete_binding(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
@@ -25,7 +25,7 @@ fn compute_delete_binding(
 
 ///|
 fn compute_duplicate_binding(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
@@ -70,7 +70,7 @@ fn compute_duplicate_binding(
 
 ///|
 fn compute_move_binding_up(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
@@ -133,7 +133,7 @@ fn compute_move_binding_up(
 
 ///|
 fn compute_move_binding_down(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, flat_proj, .. } = ctx
@@ -195,7 +195,7 @@ fn compute_move_binding_down(
 
 ///|
 fn compute_add_binding(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   module_node_id : NodeId,
 ) -> EditResult {
   let { registry, flat_proj, .. } = ctx

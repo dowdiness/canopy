@@ -12,7 +12,7 @@ pub fn resolve_binder(
   var_node_id : NodeId,
   var_name : String,
   flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
   source_map : SourceMap,
 ) -> BindingSite? {
   // Check if it's inside a Lam that binds this name (walk up)
@@ -59,7 +59,7 @@ pub fn resolve_binder(
 fn find_enclosing_lam_binder(
   node_id : NodeId,
   name : String,
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> BindingSite? {
   for pid, pnode in registry {
     for child in pnode.children {
@@ -86,7 +86,7 @@ pub fn find_usages(
   var_name : String,
   scope_start_index : Int,
   flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> Array[NodeId] {
   let results : Array[NodeId] = []
   let mut shadowed = false
@@ -112,7 +112,7 @@ pub fn find_usages(
 ///|
 /// Recursively collect Var nodes matching the given name, stopping at shadowing Lam params.
 fn collect_var_usages(
-  node : ProjNode,
+  node : ProjNode[@ast.Term],
   name : String,
   results : Array[NodeId],
 ) -> Unit {
@@ -151,7 +151,7 @@ pub fn find_binding_for_init(
 /// Collect Lam parameter names in scope at a node position (walking up the tree).
 pub fn collect_lam_env(
   node_id : NodeId,
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> @immut/hashset.HashSet[String] {
   let mut env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   fn walk_up(nid : NodeId) {

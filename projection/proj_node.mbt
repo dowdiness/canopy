@@ -6,27 +6,27 @@
 ///|
 /// Local node type for the projection package.
 /// Replaces the removed @ast.AstNode with a Term-based equivalent.
-pub struct ProjNode {
+pub struct ProjNode[T] {
   node_id : Int
-  kind : @ast.Term
-  children : Array[ProjNode]
+  kind : T
+  children : Array[ProjNode[T]]
   start : Int
   end : Int
 } derive(Show, Eq)
 
 ///|
-pub fn ProjNode::new(
-  kind : @ast.Term,
+pub fn[T] ProjNode::new(
+  kind : T,
   start : Int,
   end : Int,
   node_id : Int,
-  children : Array[ProjNode],
-) -> ProjNode {
+  children : Array[ProjNode[T]],
+) -> ProjNode[T] {
   { node_id, kind, children, start, end }
 }
 
 ///|
-pub fn ProjNode::id(self : ProjNode) -> NodeId {
+pub fn[T] ProjNode::id(self : ProjNode[T]) -> NodeId {
   NodeId(self.node_id)
 }
 
@@ -61,7 +61,7 @@ fn error_node_with_span(
   start : Int,
   end : Int,
   counter : Ref[Int],
-) -> ProjNode {
+) -> ProjNode[@ast.Term] {
   ProjNode::new(Error(message), start, end, next_proj_node_id(counter), [])
 }
 
@@ -70,12 +70,16 @@ fn error_node_for_syntax(
   message : String,
   node : @seam.SyntaxNode,
   counter : Ref[Int],
-) -> ProjNode {
+) -> ProjNode[@ast.Term] {
   error_node_with_span(message, node.start(), node.end(), counter)
 }
 
 ///|
-fn app_node(left : ProjNode, right : ProjNode, counter : Ref[Int]) -> ProjNode {
+fn app_node(
+  left : ProjNode[@ast.Term],
+  right : ProjNode[@ast.Term],
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
   ProjNode::new(
     App(left.kind, right.kind),
     min_int(left.start, right.start),
@@ -88,10 +92,10 @@ fn app_node(left : ProjNode, right : ProjNode, counter : Ref[Int]) -> ProjNode {
 ///|
 fn bop_node(
   op : @ast.Bop,
-  left : ProjNode,
-  right : ProjNode,
+  left : ProjNode[@ast.Term],
+  right : ProjNode[@ast.Term],
   counter : Ref[Int],
-) -> ProjNode {
+) -> ProjNode[@ast.Term] {
   ProjNode::new(
     Bop(op, left.kind, right.kind),
     min_int(left.start, right.start),
@@ -105,7 +109,7 @@ fn bop_node(
 pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
-) -> ProjNode {
+) -> ProjNode[@ast.Term] {
   if @parser.IntLiteralView::cast(node) is Some(v) {
     ProjNode::new(
       Int(v.value().unwrap_or(0)),
@@ -215,9 +219,12 @@ pub fn syntax_to_proj_node(
 /// mirroring `syntax_node_to_term` but preserving spans and IDs.
 ///
 /// LetDef children are collected into a single Module node with flat children.
-pub fn to_proj_node(root : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
-  let defs : Array[(String, ProjNode, Int)] = []
-  let mut final_proj : ProjNode? = None
+pub fn to_proj_node(
+  root : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  let defs : Array[(String, ProjNode[@ast.Term], Int)] = []
+  let mut final_proj : ProjNode[@ast.Term]? = None
   for child in root.children() {
     if @parser.LetDefView::cast(child) is Some(v) {
       let init = match v.init() {
@@ -236,7 +243,7 @@ pub fn to_proj_node(root : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
       ProjNode::new(Unit, root.end(), root.end(), next_proj_node_id(counter), [])
   }
   if defs.length() > 0 {
-    let children : Array[ProjNode] = defs.map(fn(d) { d.1 })
+    let children : Array[ProjNode[@ast.Term]] = defs.map(fn(d) { d.1 })
     children.push(result)
     let term_defs : Array[(@ast.VarName, @ast.Term)] = defs.map(fn(d) {
       (d.0, d.1.kind)
@@ -257,7 +264,10 @@ pub fn to_proj_node(root : @seam.SyntaxNode, counter : Ref[Int]) -> ProjNode {
 /// `shape` provides the constructor tag and scalar metadata (param name, op, let name).
 /// `children` provides the updated sub-terms.
 /// Leaf terms (Int, Var, Unit, Error) are returned unchanged.
-fn rebuild_kind(shape : @ast.Term, children : Array[ProjNode]) -> @ast.Term {
+fn rebuild_kind(
+  shape : @ast.Term,
+  children : Array[ProjNode[@ast.Term]],
+) -> @ast.Term {
   fn child_kind(i : Int) -> @ast.Term {
     if i < children.length() {
       children[i].kind
@@ -287,29 +297,12 @@ fn rebuild_kind(shape : @ast.Term, children : Array[ProjNode]) -> @ast.Term {
 }
 
 ///|
-/// Check if two Term values have the same constructor tag.
-/// Used for LCS-based matching in children reconciliation.
-fn same_kind_tag(a : @ast.Term, b : @ast.Term) -> Bool {
-  match (a, b) {
-    (Int(_), Int(_)) => true
-    (Var(_), Var(_)) => true
-    (Lam(_, _), Lam(_, _)) => true
-    (App(_, _), App(_, _)) => true
-    (Bop(_, _, _), Bop(_, _, _)) => true
-    (If(_, _, _), If(_, _, _)) => true
-    (Module(_, _), Module(_, _)) => true
-    (Unit, Unit) => true
-    (Error(_), Error(_)) => true
-    (Unbound(_), Unbound(_)) => true
-    _ => false
-  }
-}
-
-///|
 /// Parse text and return a ProjNode tree.
 /// Uses the unified source-file grammar for both single expressions and
 /// multi-definition files.
-pub fn parse_to_proj_node(text : String) -> (ProjNode, Array[String]) {
+pub fn parse_to_proj_node(
+  text : String,
+) -> (ProjNode[@ast.Term], Array[String]) {
   let (cst, diagnostics) = @parser.parse_cst(text) catch {
     _ => abort("parse failed")
   }

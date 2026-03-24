@@ -2,8 +2,8 @@
 
 ///|
 /// Build parent map by walking the InteractiveTreeNode tree.
-fn build_parent_map_from_tree(
-  tree : InteractiveTreeNode?,
+fn[T] build_parent_map_from_tree(
+  tree : InteractiveTreeNode[T]?,
 ) -> Map[NodeId, NodeId] {
   let map : Map[NodeId, NodeId] = {}
   match tree {
@@ -14,8 +14,8 @@ fn build_parent_map_from_tree(
 }
 
 ///|
-fn build_parent_map_walk(
-  node : InteractiveTreeNode,
+fn[T] build_parent_map_walk(
+  node : InteractiveTreeNode[T],
   map : Map[NodeId, NodeId],
 ) -> Unit {
   match node.children {
@@ -30,7 +30,7 @@ fn build_parent_map_walk(
 
 ///|
 /// Build preorder index by walking the InteractiveTreeNode tree.
-fn build_preorder_from_tree(tree : InteractiveTreeNode?) -> LazyPreorder {
+fn[T] build_preorder_from_tree(tree : InteractiveTreeNode[T]?) -> LazyPreorder {
   let ids : Array[NodeId] = []
   let range_by_root : Map[NodeId, (Int, Int)] = {}
   match tree {
@@ -41,8 +41,8 @@ fn build_preorder_from_tree(tree : InteractiveTreeNode?) -> LazyPreorder {
 }
 
 ///|
-fn build_preorder_walk(
-  node : InteractiveTreeNode,
+fn[T] build_preorder_walk(
+  node : InteractiveTreeNode[T],
   ids : Array[NodeId],
   range_by_root : Map[NodeId, (Int, Int)],
 ) -> Unit {
@@ -60,9 +60,9 @@ fn build_preorder_walk(
 
 ///|
 /// Check if a subtree can be completely skipped during refresh.
-fn can_skip_subtree(
-  proj_node : ProjNode,
-  prev_node : InteractiveTreeNode,
+fn[T : TreeNode + Eq + Renderable] can_skip_subtree(
+  proj_node : ProjNode[T],
+  prev_node : InteractiveTreeNode[T],
   source_map : SourceMap,
   ui_state : TreeUIState,
 ) -> Bool {
@@ -98,12 +98,11 @@ fn can_skip_subtree(
   if drop_target != prev_node.drop_target {
     return false
   }
-  // Check shape matches
-  if interactive_node_shape(proj_node.kind) !=
-    interactive_node_shape(prev_node.kind) {
+  // Check kind matches
+  if proj_node.kind != prev_node.kind {
     return false
   }
-  if get_node_label(proj_node.kind) != prev_node.label {
+  if Renderable::label(proj_node.kind) != prev_node.label {
     return false
   }
   // Check children match recursively. Recursive verification is necessary
@@ -148,9 +147,9 @@ fn can_skip_subtree(
 
 ///|
 /// Copy all loaded_nodes entries from a reused subtree.
-fn carry_over_loaded_nodes(
-  node : InteractiveTreeNode,
-  target : Map[NodeId, InteractiveTreeNode],
+fn[T] carry_over_loaded_nodes(
+  node : InteractiveTreeNode[T],
+  target : Map[NodeId, InteractiveTreeNode[T]],
 ) -> Unit {
   target[node.id] = node
   match node.children {
@@ -166,13 +165,13 @@ fn carry_over_loaded_nodes(
 /// Simplified refresh that skips eager index building.
 /// Populates `new_loaded_nodes` as it walks but does not build preorder_ids,
 /// parent_by_child, or preorder_range_by_root.
-fn refresh_node_minimal(
-  node : ProjNode,
+fn[T : TreeNode + Renderable + Eq] refresh_node_minimal(
+  node : ProjNode[T],
   source_map : SourceMap,
   ui_state : TreeUIState,
-  previous_nodes : Map[NodeId, InteractiveTreeNode],
-  new_loaded_nodes : Map[NodeId, InteractiveTreeNode],
-) -> RefreshedInteractiveNode {
+  previous_nodes : Map[NodeId, InteractiveTreeNode[T]],
+  new_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
+) -> RefreshedInteractiveNode[T] {
   let node_id = NodeId(node.node_id)
   let text_range = match source_map.get_range(node_id) {
     Some(range) => range
@@ -188,7 +187,7 @@ fn refresh_node_minimal(
     Some(id) => id == node_id
     None => false
   }
-  let label = get_node_label(node.kind)
+  let label = Renderable::label(node.kind)
   let previous_node = previous_nodes.get(node_id)
   // Phase 2: subtree skip — check if entire subtree can be reused
   match previous_node {
@@ -208,7 +207,7 @@ fn refresh_node_minimal(
     // No stamp comparison needed: can_skip_subtree (called above) already
     // validated all stamp fields for the collapsed case. If we reach here,
     // either the subtree changed or there is no previous node to reuse.
-    let refreshed : InteractiveTreeNode = {
+    let refreshed : InteractiveTreeNode[T] = {
       id: node_id,
       kind: node.kind,
       label,
@@ -222,7 +221,7 @@ fn refresh_node_minimal(
     new_loaded_nodes[node_id] = refreshed
     { node: refreshed, reused_previous: false }
   } else {
-    let children : Array[InteractiveTreeNode] = []
+    let children : Array[InteractiveTreeNode[T]] = []
     let child_ids : Array[NodeId] = []
     let previous_loaded_children = match previous_node {
       Some(previous) =>
@@ -259,9 +258,9 @@ fn refresh_node_minimal(
         }
       None => ()
     }
-    let stamp : InteractiveNodeStamp = {
+    let stamp : InteractiveNodeStamp[T] = {
       id: node_id,
-      shape: interactive_node_shape(node.kind),
+      kind: node.kind,
       label,
       child_ids,
       elided_descendant_count: None,
@@ -277,7 +276,7 @@ fn refresh_node_minimal(
           new_loaded_nodes[node_id] = previous
           { node: previous, reused_previous: true }
         } else {
-          let refreshed : InteractiveTreeNode = {
+          let refreshed : InteractiveTreeNode[T] = {
             id: node_id,
             kind: node.kind,
             label,
@@ -292,7 +291,7 @@ fn refresh_node_minimal(
           { node: refreshed, reused_previous: false }
         }
       None => {
-        let refreshed : InteractiveTreeNode = {
+        let refreshed : InteractiveTreeNode[T] = {
           id: node_id,
           kind: node.kind,
           label,
@@ -326,8 +325,8 @@ fn collect_preorder_slice(
 
 ///|
 /// Collect all node IDs in a subtree rooted at the given node using preorder ranges.
-fn collect_subtree_ids(
-  state : TreeEditorState,
+fn[T] collect_subtree_ids(
+  state : TreeEditorState[T],
   root_id : NodeId,
 ) -> Array[NodeId] {
   let preorder = build_preorder_from_tree(state.tree)
@@ -361,8 +360,8 @@ fn is_descendant_in_parent_links(
 /// Short-circuits if either node is not in loaded_nodes (e.g., inside an
 /// Elided subtree or missing entirely). Only builds the parent map when
 /// both nodes are confirmed loaded.
-fn is_descendant_of(
-  state : TreeEditorState,
+fn[T] is_descendant_of(
+  state : TreeEditorState[T],
   node_id : NodeId,
   ancestor_id : NodeId,
 ) -> Bool {
@@ -381,8 +380,8 @@ fn is_descendant_of(
 
 ///|
 /// Collect all node IDs between start and end (inclusive) using preorder indexes.
-fn collect_nodes_in_range(
-  state : TreeEditorState,
+fn[T] collect_nodes_in_range(
+  state : TreeEditorState[T],
   start : NodeId,
   end : NodeId,
 ) -> Array[NodeId] {
@@ -399,11 +398,11 @@ fn collect_nodes_in_range(
 
 ///|
 /// Update the collapsed state of a node in the tree
-fn update_collapsed_state(
-  tree : InteractiveTreeNode?,
+fn[T] update_collapsed_state(
+  tree : InteractiveTreeNode[T]?,
   node_id : NodeId,
   collapsed : Bool,
-) -> (InteractiveTreeNode?, Array[InteractiveTreeNode]) {
+) -> (InteractiveTreeNode[T]?, Array[InteractiveTreeNode[T]]) {
   match tree {
     None => (None, [])
     Some(node) => {
@@ -417,11 +416,11 @@ fn update_collapsed_state(
 
 ///|
 /// Replace a loaded subtree with a freshly hydrated subtree and return the changed path.
-fn replace_loaded_subtree(
-  tree : InteractiveTreeNode?,
+fn[T] replace_loaded_subtree(
+  tree : InteractiveTreeNode[T]?,
   node_id : NodeId,
-  replacement : InteractiveTreeNode,
-) -> (InteractiveTreeNode?, Array[InteractiveTreeNode]) {
+  replacement : InteractiveTreeNode[T],
+) -> (InteractiveTreeNode[T]?, Array[InteractiveTreeNode[T]]) {
   match tree {
     None => (None, [])
     Some(node) => {
@@ -434,18 +433,18 @@ fn replace_loaded_subtree(
 }
 
 ///|
-fn replace_loaded_subtree_node(
-  node : InteractiveTreeNode,
+fn[T] replace_loaded_subtree_node(
+  node : InteractiveTreeNode[T],
   target_id : NodeId,
-  replacement : InteractiveTreeNode,
-) -> (InteractiveTreeNode, Bool, Array[InteractiveTreeNode]) {
+  replacement : InteractiveTreeNode[T],
+) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
   if node.id == target_id {
     (replacement, true, [replacement])
   } else {
     match node.children {
       Loaded(existing_children) => {
-        let children : Array[InteractiveTreeNode] = []
-        let child_path : Array[InteractiveTreeNode] = []
+        let children : Array[InteractiveTreeNode[T]] = []
+        let child_path : Array[InteractiveTreeNode[T]] = []
         let mut found = false
         for child in existing_children {
           if found {
@@ -465,7 +464,7 @@ fn replace_loaded_subtree_node(
         }
         if found {
           let updated = { ..node, children: Loaded(children) }
-          let changed_path : Array[InteractiveTreeNode] = [updated]
+          let changed_path : Array[InteractiveTreeNode[T]] = [updated]
           for changed in child_path {
             changed_path.push(changed)
           }
@@ -481,19 +480,19 @@ fn replace_loaded_subtree_node(
 
 ///|
 /// Recursively update a node's collapsed state and return the changed path.
-fn update_node_collapsed(
-  node : InteractiveTreeNode,
+fn[T] update_node_collapsed(
+  node : InteractiveTreeNode[T],
   target_id : NodeId,
   collapsed : Bool,
-) -> (InteractiveTreeNode, Bool, Array[InteractiveTreeNode]) {
+) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
   if node.id == target_id {
     let updated = { ..node, collapsed, }
     (updated, true, [updated])
   } else {
     match node.children {
       Loaded(existing_children) => {
-        let children : Array[InteractiveTreeNode] = []
-        let child_path : Array[InteractiveTreeNode] = []
+        let children : Array[InteractiveTreeNode[T]] = []
+        let child_path : Array[InteractiveTreeNode[T]] = []
         let mut found = false
         for child in existing_children {
           if found {
@@ -513,7 +512,7 @@ fn update_node_collapsed(
         }
         if found {
           let updated = { ..node, children: Loaded(children) }
-          let changed_path : Array[InteractiveTreeNode] = [updated]
+          let changed_path : Array[InteractiveTreeNode[T]] = [updated]
           for changed in child_path {
             changed_path.push(changed)
           }
@@ -529,10 +528,10 @@ fn update_node_collapsed(
 
 ///|
 /// Patch only the changed node path into the loaded-node index.
-fn update_loaded_nodes_for_path(
-  loaded_nodes : Map[NodeId, InteractiveTreeNode],
-  changed_nodes : Array[InteractiveTreeNode],
-) -> Map[NodeId, InteractiveTreeNode] {
+fn[T] update_loaded_nodes_for_path(
+  loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
+  changed_nodes : Array[InteractiveTreeNode[T]],
+) -> Map[NodeId, InteractiveTreeNode[T]] {
   let updated = loaded_nodes.copy()
   for node in changed_nodes {
     updated[node.id] = node
@@ -542,12 +541,12 @@ fn update_loaded_nodes_for_path(
 
 ///|
 /// Replace the materialized node index for one subtree and patch changed ancestors.
-fn replace_loaded_nodes_for_subtree(
-  loaded_nodes : Map[NodeId, InteractiveTreeNode],
+fn[T] replace_loaded_nodes_for_subtree(
+  loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
   subtree_ids : Array[NodeId],
-  replacement_nodes : Map[NodeId, InteractiveTreeNode],
-  changed_nodes : Array[InteractiveTreeNode],
-) -> Map[NodeId, InteractiveTreeNode] {
+  replacement_nodes : Map[NodeId, InteractiveTreeNode[T]],
+  changed_nodes : Array[InteractiveTreeNode[T]],
+) -> Map[NodeId, InteractiveTreeNode[T]] {
   let updated = loaded_nodes.copy()
   for node_id in subtree_ids {
     updated.remove(node_id)
@@ -563,10 +562,10 @@ fn replace_loaded_nodes_for_subtree(
 
 ///|
 /// Apply selection state locally to the loaded interactive tree.
-fn apply_selection_edit(
-  state : TreeEditorState,
+fn[T] apply_selection_edit(
+  state : TreeEditorState[T],
   selection : Array[NodeId],
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   let selection_set = @immut/hashset.from_iter(selection.iter())
   match state.tree {
     None => { ..state, selection, }
@@ -588,15 +587,15 @@ fn apply_selection_edit(
 }
 
 ///|
-fn apply_selection_to_node(
-  node : InteractiveTreeNode,
+fn[T] apply_selection_to_node(
+  node : InteractiveTreeNode[T],
   selection : @immut/hashset.HashSet[NodeId],
-) -> (InteractiveTreeNode, Bool, Array[InteractiveTreeNode]) {
+) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
   let new_selected = selection.contains(node.id)
   match node.children {
     Loaded(existing_children) => {
-      let updated_children : Array[InteractiveTreeNode] = []
-      let child_path : Array[InteractiveTreeNode] = []
+      let updated_children : Array[InteractiveTreeNode[T]] = []
+      let child_path : Array[InteractiveTreeNode[T]] = []
       let mut any_child_changed = false
       for child in existing_children {
         let (updated, changed, changed_nodes) = apply_selection_to_node(
@@ -619,7 +618,7 @@ fn apply_selection_to_node(
           node.children
         }
         let updated = { ..node, selected: new_selected, children }
-        let changed_path : Array[InteractiveTreeNode] = [updated]
+        let changed_path : Array[InteractiveTreeNode[T]] = [updated]
         for cn in child_path {
           changed_path.push(cn)
         }
@@ -640,11 +639,11 @@ fn apply_selection_to_node(
 /// Refresh tree from projection while preserving UI state (collapsed nodes).
 /// Also prunes stale IDs from UI state that no longer exist in the tree.
 /// Uses `refresh_node_minimal` — no eager structural indexes are built.
-pub fn TreeEditorState::refresh(
-  self : TreeEditorState,
-  proj : ProjNode?,
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::refresh(
+  self : TreeEditorState[T],
+  proj : ProjNode[T]?,
   source_map : SourceMap,
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   match proj {
     Some(ast) => {
       let selection_set = @immut/hashset.from_iter(self.selection.iter())
@@ -654,7 +653,7 @@ pub fn TreeEditorState::refresh(
         editing_node: self.editing_node,
         drop_target: self.drop_target,
       }
-      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
       let tree = Some(
         refresh_node_minimal(
           ast,
@@ -736,12 +735,12 @@ pub fn TreeEditorState::refresh(
 ///|
 /// Expand a node and hydrate its children from the current projection snapshot
 /// when the expanded branch is currently elided.
-pub fn TreeEditorState::expand_node(
-  self : TreeEditorState,
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::expand_node(
+  self : TreeEditorState[T],
   node_id : NodeId,
-  proj : ProjNode?,
+  proj : ProjNode[T]?,
   source_map : SourceMap,
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   match self.loaded_nodes.get(node_id) {
     Some(current_node) =>
       match current_node.children {
@@ -759,12 +758,12 @@ pub fn TreeEditorState::expand_node(
 /// Rebuild a single materialized subtree from the current projection snapshot.
 /// This still does an O(n) `get_node_in_tree(...)` lookup and is intended for
 /// one-off expand hydration, not bulk expand-all.
-fn TreeEditorState::hydrate_subtree(
-  self : TreeEditorState,
+fn[T : TreeNode + Renderable + Eq] TreeEditorState::hydrate_subtree(
+  self : TreeEditorState[T],
   node_id : NodeId,
-  proj : ProjNode?,
+  proj : ProjNode[T]?,
   source_map : SourceMap,
-) -> TreeEditorState {
+) -> TreeEditorState[T] {
   match (self.tree, proj, self.loaded_nodes.get(node_id)) {
     (Some(tree), Some(proj), Some(current_node)) =>
       match current_node.children {
@@ -778,7 +777,7 @@ fn TreeEditorState::hydrate_subtree(
                 editing_node: self.editing_node,
                 drop_target: self.drop_target,
               }
-              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode] = {}
+              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
               let hydrated = refresh_node_minimal(
                 proj_node,
                 source_map,

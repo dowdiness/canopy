@@ -1,6 +1,6 @@
 ///|
 fn compute_drop(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   source : NodeId,
   target : NodeId,
   position : DropPosition,

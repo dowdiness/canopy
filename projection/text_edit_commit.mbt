@@ -1,6 +1,6 @@
 ///|
 fn compute_commit(
-  ctx : EditContext,
+  ctx : EditContext[@ast.Term],
   node_id : NodeId,
   new_value : String,
 ) -> EditResult {

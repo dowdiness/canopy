@@ -68,9 +68,9 @@ fn binding_delete_range(
 /// Find the parent of a node by scanning the registry.
 /// Returns (parent_id, parent_node, child_index) or None for root nodes.
 fn find_parent(
-  registry : Map[NodeId, ProjNode],
+  registry : Map[NodeId, ProjNode[@ast.Term]],
   node_id : NodeId,
-) -> (NodeId, ProjNode, Int)? {
+) -> (NodeId, ProjNode[@ast.Term], Int)? {
   for pid, pnode in registry {
     for i, child in pnode.children {
       if NodeId(child.node_id) == node_id {
@@ -87,7 +87,7 @@ fn find_parent(
 fn get_binding_text_range(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode, Int, NodeId),
+  def : (String, ProjNode[@ast.Term], Int, NodeId),
 ) -> Result[(Int, Int), String] {
   let init_node = def.1
   let init_range = match source_map.get_range(init_node.id()) {

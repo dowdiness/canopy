@@ -1,5 +1,5 @@
 ///|
-fn compute_delete(ctx : EditContext, node_id : NodeId) -> EditResult {
+fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult {
   let { source_map, registry, .. } = ctx
   match source_map.get_range(node_id) {
     None => Err("Node not found: " + node_id.to_string())
@@ -28,7 +28,7 @@ fn compute_delete(ctx : EditContext, node_id : NodeId) -> EditResult {
               let target = parent_node.children[child_index]
               let pk = placeholder_term_for_kind(target.kind)
               // Build new children array with placeholder at child_index
-              let new_children : Array[ProjNode] = []
+              let new_children : Array[ProjNode[@ast.Term]] = []
               for i, c in parent_node.children {
                 if i == child_index {
                   new_children.push(

@@ -3,7 +3,12 @@
 /// Each middleware receives `next` (the inner handler) and can
 /// short-circuit or delegate — SuperOOP's `super` pattern.
 priv trait EditMiddleware {
-  apply(Self, (TreeEditOp, EditContext) -> EditResult, TreeEditOp, EditContext) -> EditResult
+  apply(
+    Self,
+    (TreeEditOp, EditContext[@ast.Term]) -> EditResult,
+    TreeEditOp,
+    EditContext[@ast.Term],
+  ) -> EditResult
 }
 
 ///|
