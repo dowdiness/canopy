@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Parameterize ProjNode, reconciliation, and the projection pipeline over a generic AST type `T`, constrained by `TreeNode + Renderable` traits. All 472 existing tests pass after every task.
+**Goal:** Parameterize ProjNode, reconciliation, and the projection pipeline over a generic AST type `T`, constrained by `TreeNode + Renderable` traits. All 507 existing tests pass after every task.
 
 **Architecture:** Add two capability traits (`TreeNode`, `Renderable`) to `projection/`. Parameterize `ProjNode[T]`, `InteractiveTreeNode[T]`, reconciliation, and the projection pipeline. Lambda's `@ast.Term` implements both traits. `SyncEditor` becomes `SyncEditor[T]` accepting a parser factory. FlatProj stays lambda-specific (not parameterized).
 
@@ -37,7 +37,15 @@
 | Modify | `projection/tree_editor_refresh.mbt` | Generic refresh functions, TreeEditorState::refresh[T], expand_node[T], hydrate_subtree[T] |
 | Modify | `projection/source_map.mbt` | SourceMap::from_ast[T] |
 | Modify | `projection/tree_lens.mbt` | TreeEditOp keeps @ast.Term for InsertChild, placeholder via T::placeholder |
-| Modify | `projection/text_edit.mbt` | compute_text_edit stays Term-specific (uses rebuild_kind, FlatProj) |
+| Modify | `projection/text_edit.mbt` | EditContext[T], core_dispatch[T], compute_text_edit stays Term-specific |
+| Modify | `projection/text_edit_middleware.mbt` | EditMiddleware trait — parameterize with [T] |
+| Modify | `projection/text_edit_binding.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_commit.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_delete.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_drop.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_refactor.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_structural.mbt` | Handler: parameterize with [T] where accessing registry |
+| Modify | `projection/text_edit_wrap.mbt` | Handler: parameterize with [T] where accessing registry |
 | Modify | `projection/text_edit_rename.mbt` | Stays Term-specific (split from text_edit.mbt) |
 | Modify | `projection/text_edit_utils.mbt` | Stays Term-specific (split from text_edit.mbt) |
 | Modify | `projection/flat_proj.mbt` | FlatProj stays @ast.Term-specific, uses ProjNode[@ast.Term] |
@@ -532,19 +540,26 @@ Update `get_node_in_tree`:
 pub fn get_node_in_tree[T](root : ProjNode[T], target : NodeId) -> ProjNode[T]?
 ```
 
-- [ ] **Step 3: Update text_edit.mbt**
+- [ ] **Step 3: Update text_edit.mbt and EditContext**
 
+**Note (2026-03-24 refresh):** The handler chain refactor (PR #54) split `text_edit.mbt` into a middleware pipeline. `EditContext` struct and `EditMiddleware` trait now exist. The per-handler files (`text_edit_binding.mbt`, `text_edit_commit.mbt`, `text_edit_delete.mbt`, `text_edit_drop.mbt`, `text_edit_refactor.mbt`, `text_edit_structural.mbt`, `text_edit_wrap.mbt`) also reference `ProjNode` and `EditContext`.
+
+Parameterize `EditContext`:
 ```moonbit
-pub fn compute_text_edit[T : TreeNode + Renderable](
-  op : TreeEditOp,
-  source_text : String,
-  source_map : SourceMap,
-  registry : Map[NodeId, ProjNode[T]],
-  flat_proj : FlatProj,
-) -> Result[Array[SpanEdit]?, String]
+pub(all) struct EditContext[T] {
+  source_text : String
+  source_map : SourceMap
+  registry : Map[NodeId, ProjNode[T]]
+  flat_proj : FlatProj
+}
 ```
 
-Note: `FlatProj` stays as-is (lambda-specific). `compute_text_edit` takes both generic `registry` and lambda-specific `flat_proj`.
+Parameterize `core_dispatch` and all handler functions in the per-handler files:
+```moonbit
+fn core_dispatch[T : TreeNode + Renderable](op : TreeEditOp, ctx : EditContext[T]) -> EditResult
+```
+
+Each `text_edit_*.mbt` handler file's functions must also be parameterized with `[T : TreeNode + Renderable]` where they access `ctx.registry` (which is now `Map[NodeId, ProjNode[T]]`).
 
 Replace `@ast.print_term(kind)` calls with `Renderable::unparse(kind)`.
 Replace `placeholder_text_for_kind(kind)` calls — already generic from Step 2.
@@ -648,6 +663,8 @@ pub struct SyncEditor[T] {
   priv cursor_view : PeerCursorView
   priv peer_id : String
   priv mut ws : JsWebSocket?
+  priv mut recovery : RecoveryContext?
+  priv mut recovery_epoch : Int
 }
 ```
 
@@ -774,7 +791,7 @@ Expected: Everything compiles.
 - [ ] **Step 4: Run full test suite**
 
 Run: `moon test`
-Expected: All 333 tests pass.
+Expected: All 507 tests pass.
 
 - [ ] **Step 5: moon info + moon fmt**
 
