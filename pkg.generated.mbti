@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn apply_sync_json(Int, String) -> Unit
+pub fn apply_sync_json(Int, String) -> String
 
 pub fn apply_tree_edit_json(Int, String, Int) -> String
 
