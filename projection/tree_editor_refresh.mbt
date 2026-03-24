@@ -232,10 +232,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
         }
       None => None
     }
-    let mut children_reused = match previous_loaded_children {
-      Some(_) => true
-      None => false
-    }
+    let mut children_reused = previous_loaded_children.is_some()
     for child_index, child in node.children {
       let child_result = refresh_node_minimal(
         child, source_map, ui_state, previous_nodes, new_loaded_nodes,
