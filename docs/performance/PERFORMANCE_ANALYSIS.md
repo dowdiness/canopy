@@ -1,5 +1,7 @@
 # Performance Analysis - Baseline Results
 
+> **Note (2026-03-24):** This analysis was written on 2026-01-09, before Phase 2b (Array-backed FugueStore), binary lifting (jump pointers for LCA), and Phase 3 (two-count retreat/advance). The benchmark numbers and bottleneck claims below are historical. For current performance, run `moon bench --release` against the latest code.
+
 **Date**: 2026-01-09
 **Total Benchmarks**: 56 tests across 5 modules
 **Status**: ✅ All tests passed

@@ -1,5 +1,7 @@
 # Performance Benchmark Results
 
+> **Note (2026-03-24):** These results predate Phase 2b (Array-backed FugueStore, 2026-03-23), binary lifting LCA (2026-03-24), and Phase 3 (two-count retreat/advance, 2026-03-23). Numbers below are historical snapshots, not current performance.
+
 **Date:** 2026-03-05 (updated), originally 2026-01-04
 **After:** SyncEditor migration + Priority 3 Performance Optimizations
 
