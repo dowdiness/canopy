@@ -126,7 +126,7 @@ fn[T : TreeNode + Renderable] InteractiveTreeNode::from_term_node_with_state(
 
 ///|
 /// Create an interactive tree node with UI state applied.
-fn[T : TreeNode + Renderable] from_term_node_impl(
+fn[T : Renderable] from_term_node_impl(
   node : ProjNode[T],
   source_map : SourceMap,
   ui_state : TreeUIState,

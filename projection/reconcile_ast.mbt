@@ -2,7 +2,7 @@
 
 ///|
 /// Generic reconciliation: Preserve node IDs where possible when AST changes.
-pub fn[T : TreeNode + Eq] reconcile(
+pub fn[T : TreeNode] reconcile(
   old : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
@@ -37,7 +37,7 @@ pub fn reconcile_ast(
 
 ///|
 /// Reconcile arrays of children using LCS matching on node kinds.
-fn[T : TreeNode + Eq] reconcile_children(
+fn[T : TreeNode] reconcile_children(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
   counter : Ref[Int],

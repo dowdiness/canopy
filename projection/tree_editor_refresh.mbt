@@ -60,7 +60,7 @@ fn[T] build_preorder_walk(
 
 ///|
 /// Check if a subtree can be completely skipped during refresh.
-fn[T : TreeNode + Eq + Renderable] can_skip_subtree(
+fn[T : Eq + Renderable] can_skip_subtree(
   proj_node : ProjNode[T],
   prev_node : InteractiveTreeNode[T],
   source_map : SourceMap,

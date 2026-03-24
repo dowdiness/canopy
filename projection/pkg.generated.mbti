@@ -30,7 +30,7 @@ pub fn parse_to_proj_node(String) -> (ProjNode[@ast.Term], Array[String])
 
 pub fn print_flat_proj(FlatProj) -> String
 
-pub fn[T : TreeNode + Eq] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
+pub fn[T : TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
 pub fn reconcile_ast(ProjNode[@ast.Term], ProjNode[@ast.Term], @ref.Ref[Int]) -> ProjNode[@ast.Term]
 
