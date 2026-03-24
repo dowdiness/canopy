@@ -28,14 +28,20 @@
 
 ```moonbit
 struct JumpAncestors {
-  depth : Array[Int]         // depth[lv.0] = depth in FugueTree. Root children = 1.
-  jump : Array[Array[Lv]]   // jump[lv.0][k] = 2^k-th ancestor of lv
+  depth : Array[Int]         // depth[lv.0] = depth in FugueTree. -1 = not a tree node (gap).
+  jump : Array[Array[Lv]]   // jump[lv.0][k] = 2^k-th ancestor of lv. [] = gap.
 }
 ```
 
 Both arrays are indexed by `lv.0` (non-negative). Root (`Lv(-1)`) is handled by early returns in `is_ancestor()`, never accessed in the arrays.
 
-Each node's entry is written once at insertion time and never modified.
+**Sparse LV handling:** LV space is shared with the oplog — delete/undelete operations consume LVs that have no FugueTree item. The arrays contain gaps at these positions. `depth` uses `-1` as sentinel for non-tree LVs. `jump` uses `[]` (empty array). This matches the existing pattern in `FugueTree.items : Array[Item[T]?]` which uses `None` for gaps. When growing arrays to reach a new LV index, pad with sentinel/empty values.
+
+**Memory:** O(oplog_size × log(max_depth)), not O(tree_size × log(max_depth)). The gap overhead is proportional to the number of delete/undelete operations. In typical editing, inserts dominate (~60-80% of ops), so the overhead is modest.
+
+Each tree node's entry is written once at insertion time and never modified.
+
+**Precondition:** `add(lv, parent)` requires that `parent` was already added (or is `root_lv`). This is guaranteed because the oplog replays operations in causal/topological order — a child's insert operation always has a higher LV than its parent's. This ordering is enforced by `walk_from_frontier()` in the causal graph walker and by the sequential LV assignment in local inserts. An assertion `depth[parent.0] != -1 || parent == root_lv` should guard against violations.
 
 ### API
 
@@ -48,6 +54,13 @@ fn JumpAncestors::is_ancestor(self, x : Lv, y : Lv) -> Bool     // O(log depth)
 ### Insert: `add(lv, parent)`
 
 ```
+// Grow arrays with sentinel padding for any gap LVs
+while depth.length() <= lv.0: depth.push(-1)
+while jump.length() <= lv.0: jump.push([])
+
+// Assert precondition: parent already added (or is root)
+assert(parent == root_lv || depth[parent.0] != -1)
+
 depth[lv.0] = if parent == root_lv { 1 } else { depth[parent.0] + 1 }
 
 jumps = [parent]                          // jump[0] = direct parent
@@ -69,6 +82,10 @@ Produces `⌊log₂(depth)⌋ + 1` entries. O(log depth) time and space.
 ```
 // Caller (FugueTree::is_ancestor) handles: x==y, x==root, y==root
 
+// Bounds + gap checks: absent LVs are not ancestors of anything
+if x.0 >= depth.length() || depth[x.0] == -1: return false
+if y.0 >= depth.length() || depth[y.0] == -1: return false
+
 depth_x = depth[x.0]
 depth_y = depth[y.0]
 if depth_x > depth_y: return false        // deeper node can't be ancestor
@@ -86,7 +103,7 @@ while diff > 0 && k >= 0:
 return current == x
 ```
 
-O(log depth) — at most 17 iterations for 100K items.
+O(log depth) — at most 17 iterations for 100K items. Returns `false` for absent or out-of-bounds LVs, preserving the current API contract (tested at `tree_test.mbt:487,522`).
 
 ### Correctness argument
 
@@ -191,6 +208,9 @@ After all removals, run `moon info && moon fmt` to update `.mbti` interface file
 - `test_jump_branching_tree` — tree with 3+ branches of different depths, verify `is_ancestor(a, b) == false` across branches and `== true` within a branch. This is the critical topology where depth-lifting logic is fully exercised.
 - `prop_jump_depth_consistency` — `depth[x] == depth[parent] + 1` for all non-root items
 - `prop_jump_matches_naive_branching` — generate random tree topologies (each new node picks a random existing node as parent), verify binary lifting agrees with naive walk for all pairs. Wider coverage than chain-only property tests.
+- `test_jump_absent_lv` — `is_ancestor(absent_lv, x)` and `is_ancestor(x, absent_lv)` both return `false`. Preserves existing behavior (tree_test.mbt:487,522).
+- `test_jump_sparse_lv` — add items at non-consecutive LVs (simulating gaps from delete/undelete ops), verify correct ancestry across gaps.
+- `prop_jump_via_insert` — generate operations through `FugueTree::insert()` (not raw `add_item`), including concurrent ops that trigger `find_parent_and_side`, verify ancestry matches naive walk. Integration-level property test.
 
 ## Benchmarks
 
@@ -202,6 +222,8 @@ After all removals, run `moon info && moon fmt` to update `.mbti` interface file
 | `bench_concurrent_insert_10k` | Same at larger scale | 10,000 items |
 | `bench_batch_merge_1k` | 100 concurrent ops merged into 1K doc | 1,000 + 100 ops |
 | `bench_sequential_append_1k` | Regression check: sequential typing (no is_ancestor) | 1,000 items |
+| `bench_degenerate_chain_remote` | Adversarial: sequential chain + remote inserts forcing is_ancestor on O(n)-deep tree | 1,000 items |
+| `bench_sparse_lv_insert` | Inserts interleaved with delete/undelete ops (sparse LV space) | 1,000 items |
 
 ### Methodology
 
