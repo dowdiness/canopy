@@ -2,7 +2,7 @@
 
 ///|
 test "insert_at inserts at specified position without moving cursor" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("hello")
   editor.move_cursor(0) // cursor at start
   editor.insert_at(5, "!", 0) // insert at end
@@ -12,7 +12,7 @@ test "insert_at inserts at specified position without moving cursor" {
 
 ///|
 test "delete_at deletes at specified position without moving cursor" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("hello!")
   editor.move_cursor(0)
   let deleted = editor.delete_at(5, 0) // delete '!' at position 5
@@ -23,7 +23,7 @@ test "delete_at deletes at specified position without moving cursor" {
 
 ///|
 test "insert_at in middle does not move cursor" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("abcd")
   editor.move_cursor(2) // cursor in middle
   editor.insert_at(2, "X", 0) // insert at cursor position
@@ -34,7 +34,7 @@ test "insert_at in middle does not move cursor" {
 
 ///|
 test "delete_at before cursor clamps cursor to text length" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   // Use per-character inserts to avoid FugueMax batch-insert caveat
   editor.insert("a") catch {
     _ => ()
@@ -61,7 +61,7 @@ test "delete_at before cursor clamps cursor to text length" {
 
 ///|
 test "insert_at records undo" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("abc")
   editor.move_cursor(0)
   editor.insert_at(3, "d", 1000)
@@ -73,7 +73,7 @@ test "insert_at records undo" {
 
 ///|
 test "delete_at records undo" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("abcd")
   editor.move_cursor(0)
   let deleted = editor.delete_at(3, 1000) // delete 'd' at position 3
@@ -86,7 +86,7 @@ test "delete_at records undo" {
 
 ///|
 test "delete_at at end of text returns false" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("abc")
   editor.move_cursor(0)
   let result = editor.delete_at(3, 0) // position == length, nothing to delete
@@ -96,7 +96,7 @@ test "delete_at at end of text returns false" {
 
 ///|
 test "insert_at with multi-char text" {
-  let editor = SyncEditor::new("test-agent")
+  let editor = SyncEditor::new_lambda("test-agent")
   editor.set_text("ac")
   editor.move_cursor(0)
   editor.insert_at(1, "b", 0)

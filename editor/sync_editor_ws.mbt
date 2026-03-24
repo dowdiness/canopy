@@ -4,12 +4,15 @@
 /// Called when WebSocket connects. Stores the ws reference.
 /// Note: the relay server handles PeerJoined broadcast on connect —
 /// the client does NOT send PeerJoined itself (that would duplicate it).
-pub fn SyncEditor::ws_on_open(self : SyncEditor, ws : JsWebSocket) -> Unit {
+pub fn[T] SyncEditor::ws_on_open(
+  self : SyncEditor[T],
+  ws : JsWebSocket,
+) -> Unit {
   self.ws = Some(ws)
 }
 
 ///|
-pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
+pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit {
   let msg = match decode_message(data) {
     Some(m) => m
     None => return
@@ -185,13 +188,13 @@ pub fn SyncEditor::ws_on_message(self : SyncEditor, data : Bytes) -> Unit {
 }
 
 ///|
-pub fn SyncEditor::ws_on_close(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::ws_on_close(self : SyncEditor[T]) -> Unit {
   self.ws = None
   self.recovery = None
 }
 
 ///|
-pub fn SyncEditor::ws_broadcast_edit(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::ws_broadcast_edit(self : SyncEditor[T]) -> Unit {
   match self.ws {
     None => return
     Some(_) => ()
@@ -204,7 +207,7 @@ pub fn SyncEditor::ws_broadcast_edit(self : SyncEditor) -> Unit {
 }
 
 ///|
-pub fn SyncEditor::ws_broadcast_cursor(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::ws_broadcast_cursor(self : SyncEditor[T]) -> Unit {
   match self.ws {
     None => return
     Some(_) => ()
@@ -217,8 +220,8 @@ pub fn SyncEditor::ws_broadcast_cursor(self : SyncEditor) -> Unit {
 
 ///|
 /// Send an empty SyncResponse (responder can't satisfy the request).
-fn SyncEditor::send_empty_sync_response(
-  self : SyncEditor,
+fn[T] SyncEditor::send_empty_sync_response(
+  self : SyncEditor[T],
   target : String,
   request_id : String,
 ) -> Unit {
@@ -227,8 +230,8 @@ fn SyncEditor::send_empty_sync_response(
 
 ///|
 /// Enter recovery mode for a specific peer. Sends SyncRequest.
-fn SyncEditor::enter_recovery(
-  self : SyncEditor,
+fn[T] SyncEditor::enter_recovery(
+  self : SyncEditor[T],
   peer_id : String,
   failed_msg : @text.SyncMessage,
 ) -> Unit {
@@ -248,8 +251,8 @@ fn SyncEditor::enter_recovery(
 ///|
 /// Send a SyncRequest to a specific peer via the relay.
 /// Always uses the current version (not stale from recovery entry).
-fn SyncEditor::send_sync_request(
-  self : SyncEditor,
+fn[T] SyncEditor::send_sync_request(
+  self : SyncEditor[T],
   target : String,
   request_id : Int,
 ) -> Unit {
@@ -266,7 +269,7 @@ fn SyncEditor::send_sync_request(
 /// Handle a failed recovery retry: send another request or give up.
 /// Check exhaustion BEFORE advancing so retries=0,1,2 each send a request
 /// and retries=3 gives up (3 retries total).
-fn SyncEditor::handle_recovery_retry(self : SyncEditor) -> Unit {
+fn[T] SyncEditor::handle_recovery_retry(self : SyncEditor[T]) -> Unit {
   let ctx = match self.recovery {
     Some(ctx) => ctx
     None => return

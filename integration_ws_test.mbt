@@ -4,8 +4,8 @@
 ///|
 test "two editors sync via relay" {
   // Create two editors
-  let editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
   // Create relay room and wire send functions to editors
   let room = @relay.RelayRoom::new()
   let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
@@ -30,11 +30,11 @@ test "two editors sync via relay" {
 ///|
 test "late joiner catches up via CrdtOps frame" {
   // Alice creates editor and sets text before Bob joins
-  let editor_a = @editor.SyncEditor::new("alice")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
   editor_a.set_text("world")
   inspect(editor_a.get_text(), content="world")
   // Bob joins later — simulate catch-up by sending full CRDT state directly
-  let editor_b = @editor.SyncEditor::new("bob")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
   let buf = @buffer.new()
@@ -48,8 +48,8 @@ test "late joiner catches up via CrdtOps frame" {
 ///|
 test "peer disconnect cleans up ephemeral via relay" {
   // Create two editors
-  let editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
   // Bob sets presence
   editor_b.set_local_presence("Bob", "#0000ff")
   // Encode Bob's ephemeral state and send to Alice
@@ -77,8 +77,8 @@ test "peer disconnect cleans up ephemeral via relay" {
 
 ///|
 test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
-  let editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
   let room = @relay.RelayRoom::new()
   let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
   let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)
@@ -99,9 +99,9 @@ test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
 
 ///|
 test "v2 relay: SyncRequest routed to target peer only" {
-  let _editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
-  let _editor_c = @editor.SyncEditor::new("charlie")
+  let _editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
+  let _editor_c = @editor.SyncEditor::new_lambda("charlie")
   let msgs_a : Array[Bytes] = []
   let msgs_c : Array[Bytes] = []
   let room = @relay.RelayRoom::new()
@@ -127,9 +127,9 @@ test "v2 relay: SyncRequest routed to target peer only" {
 
 ///|
 test "v2 relay: three peers sync via RelayedCrdtOps" {
-  let editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
-  let editor_c = @editor.SyncEditor::new("charlie")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
+  let editor_c = @editor.SyncEditor::new_lambda("charlie")
   let room = @relay.RelayRoom::new()
   let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
   let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)
@@ -154,8 +154,8 @@ test "v2 relay: three peers sync via RelayedCrdtOps" {
 
 ///|
 test "v2 relay: PeerLeft cleans up ephemeral state" {
-  let editor_a = @editor.SyncEditor::new("alice")
-  let editor_b = @editor.SyncEditor::new("bob")
+  let editor_a = @editor.SyncEditor::new_lambda("alice")
+  let editor_b = @editor.SyncEditor::new_lambda("bob")
   let room = @relay.RelayRoom::new()
   let send_to_a : (Bytes) -> Unit = data => editor_a.ws_on_message(data)
   let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)

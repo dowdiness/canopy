@@ -2,17 +2,17 @@
 // Parsing stays edit-aware via ImperativeParser; projection views are memo-derived.
 
 ///|
-pub struct SyncEditor {
+pub struct SyncEditor[T] {
   priv doc : @text.TextDoc
   priv undo : @undo.UndoManager
-  priv parser : @loom.ImperativeParser[@ast.Term]
+  priv parser : @loom.ImperativeParser[T]
   priv parser_rt : @incr.Runtime
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
   priv proj_memo : @incr.Memo[@proj.FlatProj?]
-  priv cached_proj_node : @incr.Memo[@proj.ProjNode?]
-  priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]]
+  priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
+  priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
@@ -23,11 +23,23 @@ pub struct SyncEditor {
 }
 
 ///|
-pub fn SyncEditor::new(
+pub fn[T] SyncEditor::new(
   agent_id : String,
+  make_parser : (String) -> @loom.ImperativeParser[T],
+  build_memos : (
+    @incr.Runtime,
+    @incr.Signal[String],
+    @incr.Signal[@seam.SyntaxNode?],
+    @loom.ImperativeParser[T],
+  ) -> (
+    @incr.Memo[@proj.FlatProj?],
+    @incr.Memo[@proj.ProjNode[T]?],
+    @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
+    @incr.Memo[@proj.SourceMap],
+  ),
   capture_timeout_ms? : Int = 500,
-) -> SyncEditor {
-  let parser = @loom.new_imperative_parser("", @parser.lambda_grammar)
+) -> SyncEditor[T] {
+  let parser = make_parser("")
   let parser_rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
   let syntax_tree = @incr.Signal::new(
@@ -35,11 +47,8 @@ pub fn SyncEditor::new(
     None,
     label="editor_syntax_tree",
   )
-  let prev_flat_proj : Ref[@proj.FlatProj?] = Ref::new(None)
-  let prev_syntax_root : Ref[@seam.SyntaxNode?] = Ref::new(None)
-  let next_node_id : Ref[Int] = Ref::new(0)
-  let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_projection_memos(
-    parser_rt, source_text, syntax_tree, prev_flat_proj, prev_syntax_root, next_node_id,
+  let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_memos(
+    parser_rt, source_text, syntax_tree, parser,
   )
   let hub = EphemeralHub::new(agent_id)
   let cursor_view = PeerCursorView::new()
@@ -98,11 +107,25 @@ pub fn SyncEditor::new(
   }
 }
 
+///|
+/// Convenience constructor for lambda calculus — creates a SyncEditor[@ast.Term].
+pub fn SyncEditor::new_lambda(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+) -> SyncEditor[@ast.Term] {
+  SyncEditor::new(
+    agent_id,
+    fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
+    build_lambda_projection_memos,
+    capture_timeout_ms~,
+  )
+}
+
 // --- Ephemeral presence methods ---
 
 ///|
-pub fn SyncEditor::set_local_presence(
-  self : SyncEditor,
+pub fn[T] SyncEditor::set_local_presence(
+  self : SyncEditor[T],
   name : String,
   color : String,
   selection? : (Int, Int)? = None,
@@ -137,46 +160,49 @@ pub fn SyncEditor::set_local_presence(
 }
 
 ///|
-pub fn SyncEditor::delete_local_presence(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::delete_local_presence(self : SyncEditor[T]) -> Unit {
   self.hub.on_peer_leave(self.peer_id)
 }
 
 ///|
 /// Best-effort application of remote ephemeral data. Malformed wire data from
 /// a remote peer is silently dropped to avoid crashing the local editor.
-pub fn SyncEditor::apply_ephemeral(self : SyncEditor, data : Bytes) -> Unit {
+pub fn[T] SyncEditor::apply_ephemeral(
+  self : SyncEditor[T],
+  data : Bytes,
+) -> Unit {
   self.hub.apply_all(data)
 }
 
 ///|
-pub fn SyncEditor::encode_ephemeral_all(self : SyncEditor) -> Bytes {
+pub fn[T] SyncEditor::encode_ephemeral_all(self : SyncEditor[T]) -> Bytes {
   self.hub.encode_all()
 }
 
 ///|
-pub fn SyncEditor::remove_ephemeral_outdated(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::remove_ephemeral_outdated(self : SyncEditor[T]) -> Unit {
   self.hub.remove_outdated()
 }
 
 ///|
-pub fn SyncEditor::get_peer_cursors(
-  self : SyncEditor,
+pub fn[T] SyncEditor::get_peer_cursors(
+  self : SyncEditor[T],
 ) -> Map[String, PeerCursor] {
   self.cursor_view.all_cursors()
 }
 
 ///|
-pub fn SyncEditor::get_peer_id(self : SyncEditor) -> String {
+pub fn[T] SyncEditor::get_peer_id(self : SyncEditor[T]) -> String {
   self.peer_id
 }
 
 ///|
-pub fn SyncEditor::get_hub(self : SyncEditor) -> EphemeralHub {
+pub fn[T] SyncEditor::get_hub(self : SyncEditor[T]) -> EphemeralHub {
   self.hub
 }
 
 ///|
-pub fn SyncEditor::ws_send(self : SyncEditor, data : Bytes) -> Unit {
+pub fn[T] SyncEditor::ws_send(self : SyncEditor[T], data : Bytes) -> Unit {
   match self.ws {
     Some(ws) => ws.send_bytes(data)
     None => ()
@@ -184,8 +210,8 @@ pub fn SyncEditor::ws_send(self : SyncEditor, data : Bytes) -> Unit {
 }
 
 ///|
-pub fn SyncEditor::subscribe_ephemeral_local(
-  self : SyncEditor,
+pub fn[T] SyncEditor::subscribe_ephemeral_local(
+  self : SyncEditor[T],
   callback : (Bytes) -> Bool,
 ) -> EphemeralSubscription {
   self.hub.get_store(Cursor).subscribe_local_updates(callback)

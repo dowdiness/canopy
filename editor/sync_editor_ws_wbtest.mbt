@@ -2,7 +2,7 @@
 
 ///|
 test "ws_on_close: clears ws reference" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let ws = JsWebSocket(0)
   editor.ws_on_open(ws)
   inspect(editor.ws is None, content="false")
@@ -12,7 +12,7 @@ test "ws_on_close: clears ws reference" {
 
 ///|
 test "ws_send: does nothing when disconnected" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   // ws is None by default — should not panic
   editor.ws_send(Bytes::new(0))
   inspect(editor.ws is None, content="true")
@@ -20,7 +20,7 @@ test "ws_send: does nothing when disconnected" {
 
 ///|
 test "ws_on_message: PeerLeft removes peer from hub" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   // Set some presence for "bob" in the hub
   let bob_wire = to_wire_peer_id("bob")
   editor.hub.get_store(Cursor).set(bob_wire, EphemeralValue::I64(42L)) catch {
@@ -37,8 +37,8 @@ test "ws_on_message: PeerLeft removes peer from hub" {
 
 ///|
 test "ws_on_message: CrdtOps applies remote edits" {
-  let editor_a = SyncEditor::new("alice")
-  let editor_b = SyncEditor::new("bob")
+  let editor_a = SyncEditor::new_lambda("alice")
+  let editor_b = SyncEditor::new_lambda("bob")
   // Alice types some text
   editor_a.set_text("hello")
   // Export alice's state as JSON bytes
@@ -59,7 +59,7 @@ test "ws_on_message: CrdtOps applies remote edits" {
 
 ///|
 test "ws_on_message: EphemeralUpdate applies to hub" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   // Create some ephemeral data from a different hub
   let other_hub = EphemeralHub::new("bob")
   other_hub.set_cursor(42)
@@ -74,8 +74,8 @@ test "ws_on_message: EphemeralUpdate applies to hub" {
 
 ///|
 test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
-  let editor_a = SyncEditor::new("alice")
-  let editor_b = SyncEditor::new("bob")
+  let editor_a = SyncEditor::new_lambda("alice")
+  let editor_b = SyncEditor::new_lambda("bob")
   editor_a.set_text("hello")
   let crdt_msg = editor_a.export_all() catch {
     _ => {
@@ -93,7 +93,7 @@ test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
 
 ///|
 test "ws_on_message: RelayedCrdtOps buffers during recovery" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {
@@ -116,7 +116,7 @@ test "ws_on_message: RelayedCrdtOps buffers during recovery" {
 
 ///|
 test "ws_on_message: SyncResponse with stale request_id is ignored" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {
@@ -143,7 +143,7 @@ test "ws_on_message: SyncResponse with stale request_id is ignored" {
 
 ///|
 test "ws_on_message: SyncResponse with empty delta increments retries" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {
@@ -170,7 +170,7 @@ test "ws_on_message: SyncResponse with empty delta increments retries" {
 
 ///|
 test "ws_on_message: PeerLeft aborts recovery for that peer" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {
@@ -187,7 +187,7 @@ test "ws_on_message: PeerLeft aborts recovery for that peer" {
 
 ///|
 test "ws_on_message: PeerLeft for other peer does not abort recovery" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {
@@ -205,7 +205,7 @@ test "ws_on_message: PeerLeft for other peer does not abort recovery" {
 
 ///|
 test "ws_on_close: clears recovery state" {
-  let editor = SyncEditor::new("bob")
+  let editor = SyncEditor::new_lambda("bob")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
   ) catch {

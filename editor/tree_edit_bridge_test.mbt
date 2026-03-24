@@ -2,14 +2,14 @@
 // TreeEditOp -> ProjNode (structural) -> unparse -> set_text_and_record -> memo reconcile
 
 ///|
-fn setup_bridge(text : String) -> SyncEditor {
-  let editor = SyncEditor::new("test")
+fn setup_bridge(text : String) -> SyncEditor[@ast.Term] {
+  let editor = SyncEditor::new_lambda("test")
   editor.set_text(text)
   editor
 }
 
 ///|
-fn get_root_id(editor : SyncEditor) -> @proj.NodeId {
+fn get_root_id(editor : SyncEditor[@ast.Term]) -> @proj.NodeId {
   match editor.get_proj_node() {
     Some(node) => node.id()
     None => abort("No tree root")
@@ -17,7 +17,7 @@ fn get_root_id(editor : SyncEditor) -> @proj.NodeId {
 }
 
 ///|
-fn assert_converged(editor : SyncEditor) -> Unit raise {
+fn assert_converged(editor : SyncEditor[@ast.Term]) -> Unit raise {
   let crdt_text = editor.get_text()
   let proj_text = match editor.get_proj_node() {
     Some(proj) => @ast.print_term(proj.kind)

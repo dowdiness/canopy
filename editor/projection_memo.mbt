@@ -2,19 +2,22 @@
 // from SyncEditor's incremental parser-backed signals.
 
 ///|
-fn build_projection_memos(
+/// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
+/// and produces ProjNode[@ast.Term] memos for the SyncEditor constructor.
+fn build_lambda_projection_memos(
   rt : @incr.Runtime,
   source_text : @incr.Signal[String],
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  prev_flat_proj_ref : Ref[@proj.FlatProj?],
-  prev_syntax_root_ref : Ref[@seam.SyntaxNode?],
-  next_id_ref : Ref[Int],
+  _parser : @loom.ImperativeParser[@ast.Term],
 ) -> (
   @incr.Memo[@proj.FlatProj?],
-  @incr.Memo[@proj.ProjNode?],
-  @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]],
+  @incr.Memo[@proj.ProjNode[@ast.Term]?],
+  @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]],
   @incr.Memo[@proj.SourceMap],
 ) {
+  let prev_flat_proj_ref : Ref[@proj.FlatProj?] = Ref::new(None)
+  let prev_syntax_root_ref : Ref[@seam.SyntaxNode?] = Ref::new(None)
+  let next_id_ref : Ref[Int] = Ref::new(0)
   // Change tracking side-channel: set by proj_memo, read by registry and source_map.
   // None = full rebuild needed (first parse, def count change, no prev root).
   // Some([]) = nothing changed. Some([2, 5]) = defs 2 and 5 changed. -1 = final_expr.
@@ -108,9 +111,9 @@ fn build_projection_memos(
   // prev_module_id_ref holds the Module node_id from the most recent successful
   // conversion, so stable Module IDs survive incremental rebuilds.
   let prev_module_id_ref : Ref[Int?] = Ref::new(None)
-  let cached_proj_node : @incr.Memo[@proj.ProjNode?] = @incr.Memo::new(
+  let cached_proj_node : @incr.Memo[@proj.ProjNode[@ast.Term]?] = @incr.Memo::new(
     rt,
-    fn() -> @proj.ProjNode? {
+    fn() -> @proj.ProjNode[@ast.Term]? {
       match proj_memo.get() {
         Some(fp) => {
           let counter = Ref::new(next_id_ref.val)
@@ -133,15 +136,17 @@ fn build_projection_memos(
     label="cached_proj_node",
   )
 
-  let prev_registry_ref : Ref[Map[@proj.NodeId, @proj.ProjNode]?] = Ref::new(
+  let prev_registry_ref : Ref[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]?] = Ref::new(
     None,
   )
-  let registry_prev_children_ref : Ref[Array[@proj.ProjNode]?] = Ref::new(None)
+  let registry_prev_children_ref : Ref[Array[@proj.ProjNode[@ast.Term]]?] = Ref::new(
+    None,
+  )
   let registry_last_revision_ref : Ref[Int] = Ref::new(0)
 
-  let registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode]] = @incr.Memo::new(
+  let registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]] = @incr.Memo::new(
     rt,
-    fn() -> Map[@proj.NodeId, @proj.ProjNode] {
+    fn() -> Map[@proj.NodeId, @proj.ProjNode[@ast.Term]] {
       match cached_proj_node.get() {
         Some(root) => {
           // Detect revision skew: if this memo skipped revisions (wasn't
@@ -189,7 +194,7 @@ fn build_projection_memos(
             }
             _ => {
               // Full rebuild
-              let reg : Map[@proj.NodeId, @proj.ProjNode] = {}
+              let reg : Map[@proj.NodeId, @proj.ProjNode[@ast.Term]] = {}
               register_node_tree(root, reg)
               reg
             }
@@ -211,7 +216,7 @@ fn build_projection_memos(
   )
 
   let prev_source_map_ref : Ref[@proj.SourceMap?] = Ref::new(None)
-  let source_map_prev_children_ref : Ref[Array[@proj.ProjNode]?] = Ref::new(
+  let source_map_prev_children_ref : Ref[Array[@proj.ProjNode[@ast.Term]]?] = Ref::new(
     None,
   )
   let source_map_last_revision_ref : Ref[Int] = Ref::new(0)
@@ -303,9 +308,9 @@ fn build_projection_memos(
 }
 
 ///|
-fn register_node_tree(
-  node : @proj.ProjNode,
-  registry : Map[@proj.NodeId, @proj.ProjNode],
+fn[T] register_node_tree(
+  node : @proj.ProjNode[T],
+  registry : Map[@proj.NodeId, @proj.ProjNode[T]],
 ) -> Unit {
   registry[node.id()] = node
   for child in node.children {
@@ -314,9 +319,9 @@ fn register_node_tree(
 }
 
 ///|
-fn unregister_subtree(
-  node : @proj.ProjNode,
-  registry : Map[@proj.NodeId, @proj.ProjNode],
+fn[T] unregister_subtree(
+  node : @proj.ProjNode[T],
+  registry : Map[@proj.NodeId, @proj.ProjNode[T]],
 ) -> Unit {
   registry.remove(node.id())
   for child in node.children {
@@ -325,40 +330,42 @@ fn unregister_subtree(
 }
 
 ///|
-pub fn SyncEditor::get_flat_proj(self : SyncEditor) -> @proj.FlatProj? {
+pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @proj.FlatProj? {
   self.proj_memo.get()
 }
 
 ///|
 /// Returns the cached ProjNode (converted from FlatProj once per invalidation).
-pub fn SyncEditor::get_proj_node(self : SyncEditor) -> @proj.ProjNode? {
+pub fn[T : Eq] SyncEditor::get_proj_node(
+  self : SyncEditor[T],
+) -> @proj.ProjNode[T]? {
   self.cached_proj_node.get()
 }
 
 ///|
-pub fn SyncEditor::get_source_map(self : SyncEditor) -> @proj.SourceMap {
+pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @proj.SourceMap {
   self.source_map_memo.get()
 }
 
 ///|
-pub fn SyncEditor::get_node(
-  self : SyncEditor,
+pub fn[T : Eq] SyncEditor::get_node(
+  self : SyncEditor[T],
   id : @proj.NodeId,
-) -> @proj.ProjNode? {
+) -> @proj.ProjNode[T]? {
   self.registry_memo.get().get(id)
 }
 
 ///|
-pub fn SyncEditor::node_at_position(
-  self : SyncEditor,
+pub fn[T] SyncEditor::node_at_position(
+  self : SyncEditor[T],
   position : Int,
 ) -> @proj.NodeId? {
   self.source_map_memo.get().innermost_node_at(position)
 }
 
 ///|
-pub fn SyncEditor::get_node_range(
-  self : SyncEditor,
+pub fn[T] SyncEditor::get_node_range(
+  self : SyncEditor[T],
   id : @proj.NodeId,
 ) -> @loom_core.Range? {
   self.source_map_memo.get().get_range(id)

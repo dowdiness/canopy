@@ -9,7 +9,10 @@ pub fn create_editor_with_undo(
 ) -> Int {
   let handle = next_handle.val
   next_handle.val = handle + 1
-  editors[handle] = @editor.SyncEditor::new(agent_id, capture_timeout_ms~)
+  editors[handle] = @editor.SyncEditor::new_lambda(
+    agent_id,
+    capture_timeout_ms~,
+  )
   last_created_handle.val = Some(handle)
   handle
 }

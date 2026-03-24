@@ -1,8 +1,8 @@
 // Parser-facing SyncEditor methods.
 
 ///|
-fn SyncEditor::set_parser_signals(
-  self : SyncEditor,
+fn[T] SyncEditor::set_parser_signals(
+  self : SyncEditor[T],
   source : String,
   syntax? : @seam.SyntaxNode? = None,
 ) -> Unit {
@@ -13,8 +13,8 @@ fn SyncEditor::set_parser_signals(
 }
 
 ///|
-fn SyncEditor::sync_parser_after_text_change(
-  self : SyncEditor,
+fn[T] SyncEditor::sync_parser_after_text_change(
+  self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @parser.Edit?,
@@ -36,8 +36,8 @@ fn SyncEditor::sync_parser_after_text_change(
 }
 
 ///|
-fn SyncEditor::adjust_peer_cursors_after_text_change(
-  self : SyncEditor,
+fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
+  self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @parser.Edit?,
@@ -88,8 +88,8 @@ fn resolve_applied_edit(
 }
 
 ///|
-fn SyncEditor::apply_local_text_change(
-  self : SyncEditor,
+fn[T] SyncEditor::apply_local_text_change(
+  self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @parser.Edit?,
@@ -102,7 +102,7 @@ fn SyncEditor::apply_local_text_change(
 }
 
 ///|
-fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode? {
+fn[T] SyncEditor::force_parser_reset(self : SyncEditor[T]) -> @seam.SyntaxNode? {
   let source = self.doc.text()
   let _ = self.parser.reset(source)
   let syntax = self.parser.get_syntax_tree()
@@ -111,7 +111,9 @@ fn SyncEditor::force_parser_reset(self : SyncEditor) -> @seam.SyntaxNode? {
 }
 
 ///|
-fn SyncEditor::current_syntax_tree(self : SyncEditor) -> @seam.SyntaxNode? {
+fn[T] SyncEditor::current_syntax_tree(
+  self : SyncEditor[T],
+) -> @seam.SyntaxNode? {
   match self.syntax_tree.get() {
     Some(tree) => Some(tree)
     None => self.force_parser_reset()
@@ -119,38 +121,44 @@ fn SyncEditor::current_syntax_tree(self : SyncEditor) -> @seam.SyntaxNode? {
 }
 
 ///|
-pub fn SyncEditor::mark_dirty(self : SyncEditor) -> Unit {
+pub fn[T] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
   let _ = self.force_parser_reset()
 }
 
 ///|
-pub fn SyncEditor::get_ast(self : SyncEditor) -> @ast.Term {
+/// Lambda-specific: returns the parsed @ast.Term.
+pub fn SyncEditor::get_ast(self : SyncEditor[@ast.Term]) -> @ast.Term {
   // Ensure parser has run, then get the Term directly
   let _ = self.current_syntax_tree()
   self.parser.get_tree().unwrap_or(@ast.Term::Unit)
 }
 
 ///|
-pub fn SyncEditor::get_ast_pretty(self : SyncEditor) -> String {
+/// Lambda-specific: returns pretty-printed AST.
+pub fn SyncEditor::get_ast_pretty(self : SyncEditor[@ast.Term]) -> String {
   let ast = self.get_ast()
   "Expression: " + @ast.print_term(ast) + "\n\nAST:\n" + @debug.to_string(ast)
 }
 
 ///|
-pub fn SyncEditor::get_resolution(self : SyncEditor) -> @parser.Resolution {
+/// Lambda-specific: returns name resolution info.
+pub fn SyncEditor::get_resolution(
+  self : SyncEditor[@ast.Term],
+) -> @parser.Resolution {
   let (_, res) = @parser.resolve(self.get_ast())
   res
 }
 
 ///|
-pub fn SyncEditor::get_dot_resolved(self : SyncEditor) -> String {
+/// Lambda-specific: returns Graphviz DOT with resolution.
+pub fn SyncEditor::get_dot_resolved(self : SyncEditor[@ast.Term]) -> String {
   let ast = self.get_ast()
   let (resolved_ast, res) = @parser.resolve(ast)
   @parser.term_to_dot_resolved(resolved_ast, res)
 }
 
 ///|
-pub fn SyncEditor::get_errors(self : SyncEditor) -> Array[String] {
+pub fn[T] SyncEditor::get_errors(self : SyncEditor[T]) -> Array[String] {
   if self.doc.text() == "" {
     return []
   }
@@ -158,6 +166,6 @@ pub fn SyncEditor::get_errors(self : SyncEditor) -> Array[String] {
 }
 
 ///|
-pub fn SyncEditor::is_parse_valid(self : SyncEditor) -> Bool {
+pub fn[T] SyncEditor::is_parse_valid(self : SyncEditor[T]) -> Bool {
   self.get_errors().is_empty()
 }

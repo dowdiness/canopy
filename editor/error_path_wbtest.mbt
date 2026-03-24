@@ -91,7 +91,7 @@ test "decode_message: roundtrip preserves all message types" {
 
 ///|
 test "ws_on_message: empty bytes does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.ws_on_message(Bytes::new(0))
   // Editor should be in default state
   inspect(editor.get_text(), content="")
@@ -99,21 +99,21 @@ test "ws_on_message: empty bytes does not panic" {
 
 ///|
 test "ws_on_message: truncated wire does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.ws_on_message(b"\x02")
   inspect(editor.get_text(), content="")
 }
 
 ///|
 test "ws_on_message: wrong protocol version ignored" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.ws_on_message(b"\xFF\x01\x00some payload")
   inspect(editor.get_text(), content="")
 }
 
 ///|
 test "ws_on_message: CrdtOps with invalid JSON does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let buf = @buffer.new()
   buf.write_string("this is not valid json {{{")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
@@ -124,7 +124,7 @@ test "ws_on_message: CrdtOps with invalid JSON does not panic" {
 
 ///|
 test "ws_on_message: CrdtOps with wrong JSON schema does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let buf = @buffer.new()
   buf.write_string("{\"wrong\": \"schema\"}")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
@@ -134,7 +134,7 @@ test "ws_on_message: CrdtOps with wrong JSON schema does not panic" {
 
 ///|
 test "ws_on_message: CrdtOps with empty JSON object does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let buf = @buffer.new()
   buf.write_string("{}")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
@@ -144,7 +144,7 @@ test "ws_on_message: CrdtOps with empty JSON object does not panic" {
 
 ///|
 test "ws_on_message: CrdtOps with empty payload does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let wire = encode_message(CrdtOps(Bytes::new(0)))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
@@ -152,7 +152,7 @@ test "ws_on_message: CrdtOps with empty payload does not panic" {
 
 ///|
 test "ws_on_message: PeerLeft for unknown peer does not panic" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   let wire = encode_message(PeerLeft("nonexistent_peer"))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
@@ -160,8 +160,8 @@ test "ws_on_message: PeerLeft for unknown peer does not panic" {
 
 ///|
 test "ws_on_message: malformed message after valid sync preserves text" {
-  let editor_a = SyncEditor::new("alice")
-  let editor_b = SyncEditor::new("bob")
+  let editor_a = SyncEditor::new_lambda("alice")
+  let editor_b = SyncEditor::new_lambda("bob")
   // Valid sync: alice types, bob receives
   editor_a.set_text("hello")
   let crdt_msg = editor_a.export_all() catch {
@@ -188,7 +188,7 @@ test "ws_on_message: malformed message after valid sync preserves text" {
 
 ///|
 test "apply_sync: empty SyncMessage is safe" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.set_text("hello")
   let empty_msg = @text.SyncMessage::from_json_string(
     "{\"runs\":[],\"heads\":[]}",
@@ -207,7 +207,7 @@ test "apply_sync: empty SyncMessage is safe" {
 
 ///|
 test "apply_sync: error does not corrupt editor state" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.set_text("hello world")
   let original_text = editor.get_text()
   // Try to apply a message with invalid JSON — should raise
@@ -227,11 +227,11 @@ test "apply_sync: error does not corrupt editor state" {
 
 ///|
 test "export_since: empty version exports all" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.set_text("hello")
   let empty_version = editor.get_version()
   // Create a fresh editor to get an empty version
-  let fresh = SyncEditor::new("bob")
+  let fresh = SyncEditor::new_lambda("bob")
   let fresh_version = fresh.get_version()
   try {
     let msg = editor.export_since(fresh_version)
@@ -250,7 +250,7 @@ test "export_since: empty version exports all" {
 
 ///|
 test "ws_broadcast_edit: no-op when disconnected" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.set_text("hello")
   // Should not panic when ws is None
   editor.ws_broadcast_edit()
@@ -259,7 +259,7 @@ test "ws_broadcast_edit: no-op when disconnected" {
 
 ///|
 test "ws_broadcast_cursor: no-op when disconnected" {
-  let editor = SyncEditor::new("alice")
+  let editor = SyncEditor::new_lambda("alice")
   editor.hub.set_cursor(5)
   // Should not panic when ws is None
   editor.ws_broadcast_cursor()

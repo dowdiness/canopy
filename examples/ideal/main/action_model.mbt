@@ -7,7 +7,7 @@
 /// Parses the node ID string, looks up the node in the editor's projection,
 /// checks if it's a let-binding init, and finds the enclosing Module node.
 fn detect_action_context(
-  editor : @editor.SyncEditor,
+  editor : @editor.SyncEditor[@ast.Term],
   selected_node : String,
 ) -> NodeActionContext? {
   let node_id_int = @strconv.parse_int(selected_node) catch { _ => return None }

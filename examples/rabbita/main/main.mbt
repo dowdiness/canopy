@@ -22,7 +22,7 @@ enum Msg {
 
 ///|
 struct Model {
-  editor : @editor.SyncEditor
+  editor : @editor.SyncEditor[@ast.Term]
   tree_state : @proj.TreeEditorState
   text_view : String
   workspace_mode : WorkspaceMode
@@ -116,7 +116,7 @@ fn can_hydrate_tree_node(model : Model, node_id : @proj.NodeId) -> Bool {
 ///|
 fn init_model() -> Model {
   let init_text = "let id = λx.x\nlet apply = λf.λx.f x\napply id 42"
-  let editor = @editor.SyncEditor::new("local")
+  let editor = @editor.SyncEditor::new_lambda("local")
   editor.set_text(init_text)
   let tree_state = @proj.TreeEditorState::from_projection(
     editor.get_proj_node(),

@@ -4,7 +4,7 @@
 // Handle-based editor registry (supports multiple concurrent editors)
 
 ///|
-let editors : Map[Int, @editor.SyncEditor] = Map::new()
+let editors : Map[Int, @editor.SyncEditor[@ast.Term]] = Map::new()
 
 ///|
 let next_handle : Ref[Int] = { val: 1 }
@@ -14,7 +14,7 @@ let last_created_handle : Ref[Int?] = { val: None }
 
 ///|
 /// Get the most recently created editor for legacy MoonBit consumers.
-pub fn get_sync_editor() -> @editor.SyncEditor? {
+pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
   match last_created_handle.val {
     Some(handle) => editors.get(handle)
     None => None
@@ -27,7 +27,7 @@ pub fn get_sync_editor() -> @editor.SyncEditor? {
 pub fn create_editor(agent_id : String) -> Int {
   let handle = next_handle.val
   next_handle.val = handle + 1
-  editors[handle] = @editor.SyncEditor::new(agent_id)
+  editors[handle] = @editor.SyncEditor::new_lambda(agent_id)
   last_created_handle.val = Some(handle)
   handle
 }

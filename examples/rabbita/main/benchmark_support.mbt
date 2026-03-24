@@ -10,7 +10,7 @@ fn benchmark_dispatch(_msg : Msg) -> @rabbita.Cmd {
 
 ///|
 fn benchmark_model(source : String) -> Model {
-  let editor = @editor.SyncEditor::new("bench")
+  let editor = @editor.SyncEditor::new_lambda("bench")
   editor.set_text(source)
   {
     editor,

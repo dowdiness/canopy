@@ -4,7 +4,7 @@
 ///|
 fn run_projection_incremental_bench(b : @bench.T, let_count : Int) -> Unit {
   let source = parser_bench_source(let_count, "0")
-  let editor = SyncEditor::new("bench")
+  let editor = SyncEditor::new_lambda("bench")
   editor.set_text(source)
   ignore(editor.get_proj_node()) // warm up — initial parse + project
   ignore(editor.get_source_map())

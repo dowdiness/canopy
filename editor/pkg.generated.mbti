@@ -4,9 +4,12 @@ package "dowdiness/canopy/editor"
 import {
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
+  "dowdiness/loom/incremental",
+  "dowdiness/seam",
 }
 
 // Values
@@ -229,65 +232,66 @@ pub impl Show for PresenceStatus
 
 type RecoveryContext
 
-pub struct SyncEditor {
+pub struct SyncEditor[T] {
   // private fields
 }
-pub fn SyncEditor::apply_ephemeral(Self, Bytes) -> Unit
-pub fn SyncEditor::apply_sync(Self, @text.SyncMessage) -> Unit raise
-pub fn SyncEditor::apply_text_edit(Self, Int, Int, String, Int) -> Unit
-pub fn SyncEditor::apply_tree_edit(Self, @projection.TreeEditOp, Int) -> Result[Unit, String]
-pub fn SyncEditor::backspace(Self) -> Bool
-pub fn SyncEditor::backspace_and_record(Self, Int) -> Bool
-pub fn SyncEditor::can_redo(Self) -> Bool
-pub fn SyncEditor::can_undo(Self) -> Bool
-pub fn SyncEditor::clear_undo(Self) -> Unit
-pub fn SyncEditor::delete(Self) -> Bool
-pub fn SyncEditor::delete_and_record(Self, Int) -> Bool
-pub fn SyncEditor::delete_at(Self, Int, Int) -> Bool
-pub fn SyncEditor::delete_local_presence(Self) -> Unit
-pub fn SyncEditor::encode_ephemeral_all(Self) -> Bytes
-pub fn SyncEditor::export_all(Self) -> @text.SyncMessage raise
-pub fn SyncEditor::export_since(Self, @text.Version) -> @text.SyncMessage raise
-pub fn SyncEditor::get_ast(Self) -> @ast.Term
-pub fn SyncEditor::get_ast_pretty(Self) -> String
-pub fn SyncEditor::get_cursor(Self) -> Int
-pub fn SyncEditor::get_dot_resolved(Self) -> String
-pub fn SyncEditor::get_errors(Self) -> Array[String]
-pub fn SyncEditor::get_flat_proj(Self) -> @projection.FlatProj?
-pub fn SyncEditor::get_hub(Self) -> EphemeralHub
-pub fn SyncEditor::get_node(Self, @projection.NodeId) -> @projection.ProjNode?
-pub fn SyncEditor::get_node_range(Self, @projection.NodeId) -> @core.Range?
-pub fn SyncEditor::get_peer_cursors(Self) -> Map[String, PeerCursor]
-pub fn SyncEditor::get_peer_id(Self) -> String
-pub fn SyncEditor::get_proj_node(Self) -> @projection.ProjNode?
-pub fn SyncEditor::get_resolution(Self) -> @lambda.Resolution
-pub fn SyncEditor::get_source_map(Self) -> @projection.SourceMap
-pub fn SyncEditor::get_text(Self) -> String
-pub fn SyncEditor::get_version(Self) -> @text.Version
-pub fn SyncEditor::insert(Self, String) -> Unit raise
-pub fn SyncEditor::insert_and_record(Self, String, Int) -> Unit raise
-pub fn SyncEditor::insert_at(Self, Int, String, Int) -> Unit
-pub fn SyncEditor::is_parse_valid(Self) -> Bool
-pub fn SyncEditor::mark_dirty(Self) -> Unit
-pub fn SyncEditor::move_cursor(Self, Int) -> Unit
-pub fn SyncEditor::new(String, capture_timeout_ms? : Int) -> Self
-pub fn SyncEditor::node_at_position(Self, Int) -> @projection.NodeId?
-pub fn SyncEditor::redo(Self) -> Bool
-pub fn SyncEditor::redo_and_export(Self) -> @text.SyncMessage?
-pub fn SyncEditor::remove_ephemeral_outdated(Self) -> Unit
-pub fn SyncEditor::set_local_presence(Self, String, String, selection? : (Int, Int)?) -> Unit
-pub fn SyncEditor::set_text(Self, String) -> Unit
-pub fn SyncEditor::set_text_and_record(Self, String, Int) -> Unit
-pub fn SyncEditor::set_tracking(Self, Bool) -> Unit
-pub fn SyncEditor::subscribe_ephemeral_local(Self, (Bytes) -> Bool) -> EphemeralSubscription
-pub fn SyncEditor::undo(Self) -> Bool
-pub fn SyncEditor::undo_and_export(Self) -> @text.SyncMessage?
-pub fn SyncEditor::ws_broadcast_cursor(Self) -> Unit
-pub fn SyncEditor::ws_broadcast_edit(Self) -> Unit
-pub fn SyncEditor::ws_on_close(Self) -> Unit
-pub fn SyncEditor::ws_on_message(Self, Bytes) -> Unit
-pub fn SyncEditor::ws_on_open(Self, JsWebSocket) -> Unit
-pub fn SyncEditor::ws_send(Self, Bytes) -> Unit
+pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
+pub fn[T] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
+pub fn[T] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
+pub fn SyncEditor::apply_tree_edit(Self[@ast.Term], @projection.TreeEditOp, Int) -> Result[Unit, String]
+pub fn[T] SyncEditor::backspace(Self[T]) -> Bool
+pub fn[T] SyncEditor::backspace_and_record(Self[T], Int) -> Bool
+pub fn[T] SyncEditor::can_redo(Self[T]) -> Bool
+pub fn[T] SyncEditor::can_undo(Self[T]) -> Bool
+pub fn[T] SyncEditor::clear_undo(Self[T]) -> Unit
+pub fn[T] SyncEditor::delete(Self[T]) -> Bool
+pub fn[T] SyncEditor::delete_and_record(Self[T], Int) -> Bool
+pub fn[T] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
+pub fn[T] SyncEditor::delete_local_presence(Self[T]) -> Unit
+pub fn[T] SyncEditor::encode_ephemeral_all(Self[T]) -> Bytes
+pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
+pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise
+pub fn SyncEditor::get_ast(Self[@ast.Term]) -> @ast.Term
+pub fn SyncEditor::get_ast_pretty(Self[@ast.Term]) -> String
+pub fn[T] SyncEditor::get_cursor(Self[T]) -> Int
+pub fn SyncEditor::get_dot_resolved(Self[@ast.Term]) -> String
+pub fn[T] SyncEditor::get_errors(Self[T]) -> Array[String]
+pub fn[T] SyncEditor::get_flat_proj(Self[T]) -> @projection.FlatProj?
+pub fn[T] SyncEditor::get_hub(Self[T]) -> EphemeralHub
+pub fn[T : Eq] SyncEditor::get_node(Self[T], @projection.NodeId) -> @projection.ProjNode[T]?
+pub fn[T] SyncEditor::get_node_range(Self[T], @projection.NodeId) -> @core.Range?
+pub fn[T] SyncEditor::get_peer_cursors(Self[T]) -> Map[String, PeerCursor]
+pub fn[T] SyncEditor::get_peer_id(Self[T]) -> String
+pub fn[T : Eq] SyncEditor::get_proj_node(Self[T]) -> @projection.ProjNode[T]?
+pub fn SyncEditor::get_resolution(Self[@ast.Term]) -> @lambda.Resolution
+pub fn[T] SyncEditor::get_source_map(Self[T]) -> @projection.SourceMap
+pub fn[T] SyncEditor::get_text(Self[T]) -> String
+pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
+pub fn[T] SyncEditor::insert(Self[T], String) -> Unit raise
+pub fn[T] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
+pub fn[T] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
+pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
+pub fn[T] SyncEditor::mark_dirty(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
+pub fn[T] SyncEditor::new(String, (String) -> @incremental.ImperativeParser[T], (@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[T]) -> (@cells.Memo[@projection.FlatProj?], @cells.Memo[@projection.ProjNode[T]?], @cells.Memo[Map[@projection.NodeId, @projection.ProjNode[T]]], @cells.Memo[@projection.SourceMap]), capture_timeout_ms? : Int) -> Self[T]
+pub fn SyncEditor::new_lambda(String, capture_timeout_ms? : Int) -> Self[@ast.Term]
+pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @projection.NodeId?
+pub fn[T] SyncEditor::redo(Self[T]) -> Bool
+pub fn[T] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T] SyncEditor::remove_ephemeral_outdated(Self[T]) -> Unit
+pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (Int, Int)?) -> Unit
+pub fn[T] SyncEditor::set_text(Self[T], String) -> Unit
+pub fn[T] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
+pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
+pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> EphemeralSubscription
+pub fn[T] SyncEditor::undo(Self[T]) -> Bool
+pub fn[T] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T] SyncEditor::ws_broadcast_cursor(Self[T]) -> Unit
+pub fn[T] SyncEditor::ws_broadcast_edit(Self[T]) -> Unit
+pub fn[T] SyncEditor::ws_on_close(Self[T]) -> Unit
+pub fn[T] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
+pub fn[T] SyncEditor::ws_on_open(Self[T], JsWebSocket) -> Unit
+pub fn[T] SyncEditor::ws_send(Self[T], Bytes) -> Unit
 
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)

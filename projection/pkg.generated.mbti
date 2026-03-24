@@ -10,39 +10,41 @@ import {
 }
 
 // Values
-pub fn collect_lam_env(NodeId, Map[NodeId, ProjNode]) -> @hashset.HashSet[String]
+pub fn collect_lam_env(NodeId, Map[NodeId, ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
 
-pub fn compute_text_edit(TreeEditOp, EditContext) -> Result[(Array[SpanEdit], FocusHint)?, String]
+pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[SpanEdit], FocusHint)?, String]
 
 pub fn find_binding_for_init(NodeId, FlatProj) -> (NodeId, Int)?
 
-pub fn find_usages(String, Int, FlatProj, Map[NodeId, ProjNode]) -> Array[NodeId]
+pub fn find_usages(String, Int, FlatProj, Map[NodeId, ProjNode[@ast.Term]]) -> Array[NodeId]
 
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 
-pub fn is_leaf_node(@ast.Term) -> Bool
+pub fn[T : TreeNode] is_leaf_node(T) -> Bool
 
 pub fn is_valid_drop(@ast.Term, @ast.Term, DropPosition) -> Bool
 
-pub fn parse_to_proj_node(String) -> (ProjNode, Array[String])
+pub fn parse_to_proj_node(String) -> (ProjNode[@ast.Term], Array[String])
 
 pub fn print_flat_proj(FlatProj) -> String
 
-pub fn reconcile_ast(ProjNode, ProjNode, @ref.Ref[Int]) -> ProjNode
+pub fn[T : TreeNode + Eq] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
+
+pub fn reconcile_ast(ProjNode[@ast.Term], ProjNode[@ast.Term], @ref.Ref[Int]) -> ProjNode[@ast.Term]
 
 pub fn reconcile_flat_proj(FlatProj, FlatProj, @ref.Ref[Int]) -> FlatProj
 
-pub fn resolve_binder(NodeId, String, FlatProj, Map[NodeId, ProjNode], SourceMap) -> BindingSite?
+pub fn resolve_binder(NodeId, String, FlatProj, Map[NodeId, ProjNode[@ast.Term]], SourceMap) -> BindingSite?
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[@ast.Term]
 
 pub fn to_flat_proj(@seam.SyntaxNode, @ref.Ref[Int]) -> FlatProj
 
 pub fn to_flat_proj_incremental(@seam.SyntaxNode, @seam.SyntaxNode, FlatProj, @ref.Ref[Int], changed_indices? : @ref.Ref[Array[Int]]) -> FlatProj
 
-pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode
+pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[@ast.Term]
 
 // Errors
 
@@ -81,21 +83,21 @@ pub enum DropPosition {
 pub impl Eq for DropPosition
 pub impl Show for DropPosition
 
-pub(all) struct EditContext {
+pub(all) struct EditContext[T] {
   source_text : String
   source_map : SourceMap
-  registry : Map[NodeId, ProjNode]
+  registry : Map[NodeId, ProjNode[T]]
   flat_proj : FlatProj
 }
 
 pub struct FlatProj {
-  defs : Array[(String, ProjNode, Int, NodeId)]
-  final_expr : ProjNode?
+  defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)]
+  final_expr : ProjNode[@ast.Term]?
 }
 pub fn FlatProj::empty() -> Self
-pub fn FlatProj::from_proj_node(ProjNode) -> Self
-pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> ProjNode
-pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> ProjNode
+pub fn FlatProj::from_proj_node(ProjNode[@ast.Term]) -> Self
+pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> ProjNode[@ast.Term]
+pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> ProjNode[@ast.Term]
 pub impl Eq for FlatProj
 pub impl Show for FlatProj
 
@@ -106,25 +108,25 @@ pub(all) enum FocusHint {
 pub impl Eq for FocusHint
 pub impl Show for FocusHint
 
-pub enum InteractiveChildren {
-  Loaded(Array[InteractiveTreeNode])
+pub enum InteractiveChildren[T] {
+  Loaded(Array[InteractiveTreeNode[T]])
   Elided(Int)
 }
-pub impl Show for InteractiveChildren
+pub impl[T : Show] Show for InteractiveChildren[T]
 
-pub struct InteractiveTreeNode {
+pub struct InteractiveTreeNode[T] {
   id : NodeId
-  kind : @ast.Term
+  kind : T
   label : String
-  children : InteractiveChildren
+  children : InteractiveChildren[T]
   selected : Bool
   editing : Bool
   collapsed : Bool
   drop_target : Bool
   text_range : @core.Range
 }
-pub fn InteractiveTreeNode::from_term_node(ProjNode, SourceMap) -> Self
-pub impl Show for InteractiveTreeNode
+pub fn[T : TreeNode + Renderable] InteractiveTreeNode::from_term_node(ProjNode[T], SourceMap) -> Self[T]
+pub impl[T : Show] Show for InteractiveTreeNode[T]
 
 pub(all) struct NodeContext {
   is_let_binding : Bool
@@ -146,18 +148,18 @@ pub impl Eq for NodeId
 pub impl Hash for NodeId
 pub impl Show for NodeId
 
-pub struct ProjNode {
+pub struct ProjNode[T] {
   node_id : Int
-  kind : @ast.Term
-  children : Array[ProjNode]
+  kind : T
+  children : Array[ProjNode[T]]
   start : Int
   end : Int
 }
-pub fn ProjNode::id(Self) -> NodeId
-pub fn ProjNode::new(@ast.Term, Int, Int, Int, Array[Self]) -> Self
-pub impl Eq for ProjNode
-pub impl Show for ProjNode
-pub impl ToJson for ProjNode
+pub fn[T] ProjNode::id(Self[T]) -> NodeId
+pub fn[T] ProjNode::new(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
+pub impl[T : Eq] Eq for ProjNode[T]
+pub impl[T : Show] Show for ProjNode[T]
+pub impl[T : ToJson] ToJson for ProjNode[T]
 
 pub struct SourceMap {
   node_to_range : Map[NodeId, @core.Range]
@@ -165,7 +167,7 @@ pub struct SourceMap {
   token_spans : Map[NodeId, Map[String, @core.Range]]
 }
 pub fn SourceMap::apply_edit(Self, Int, @core.Range) -> Unit
-pub fn SourceMap::from_ast(ProjNode) -> Self
+pub fn[T] SourceMap::from_ast(ProjNode[T]) -> Self
 pub fn SourceMap::get_range(Self, NodeId) -> @core.Range?
 pub fn SourceMap::get_token_span(Self, NodeId, String) -> @core.Range?
 pub fn SourceMap::innermost_node_at(Self, Int) -> NodeId?
@@ -173,11 +175,11 @@ pub fn SourceMap::new() -> Self
 pub fn SourceMap::node_count(Self) -> Int
 pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
 pub fn SourceMap::nodes_in_range(Self, @core.Range) -> Array[NodeId]
-pub fn SourceMap::patch_subtree(Self, ProjNode) -> Unit
-pub fn SourceMap::populate_token_spans(Self, @seam.SyntaxNode, ProjNode) -> Unit
-pub fn SourceMap::rebuild(Self, ProjNode) -> Unit
+pub fn[T] SourceMap::patch_subtree(Self, ProjNode[T]) -> Unit
+pub fn SourceMap::populate_token_spans(Self, @seam.SyntaxNode, ProjNode[@ast.Term]) -> Unit
+pub fn[T] SourceMap::rebuild(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::rebuild_ranges(Self) -> Unit
-pub fn SourceMap::remove_subtree(Self, ProjNode) -> Unit
+pub fn[T] SourceMap::remove_subtree(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::set_token_span(Self, NodeId, String, @core.Range) -> Unit
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
@@ -223,8 +225,8 @@ pub(all) enum TreeEditOp {
 }
 pub impl Show for TreeEditOp
 
-pub struct TreeEditorState {
-  tree : InteractiveTreeNode?
+pub struct TreeEditorState[T] {
+  tree : InteractiveTreeNode[T]?
   selection : Array[NodeId]
   editing_node : NodeId?
   edit_value : String
@@ -234,13 +236,13 @@ pub struct TreeEditorState {
   collapsed_nodes : @hashset.HashSet[NodeId]
   // private fields
 }
-pub fn TreeEditorState::apply_edit(Self, TreeEditOp) -> Self
-pub fn TreeEditorState::expand_node(Self, NodeId, ProjNode?, SourceMap) -> Self
-pub fn TreeEditorState::from_projection(ProjNode?, SourceMap) -> Self
-pub fn TreeEditorState::get_loaded_node(Self, NodeId) -> InteractiveTreeNode?
-pub fn TreeEditorState::has_node(Self, NodeId) -> Bool
-pub fn TreeEditorState::new() -> Self
-pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
+pub fn[T] TreeEditorState::apply_edit(Self[T], TreeEditOp) -> Self[T]
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::expand_node(Self[T], NodeId, ProjNode[T]?, SourceMap) -> Self[T]
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::from_projection(ProjNode[T]?, SourceMap) -> Self[T]
+pub fn[T] TreeEditorState::get_loaded_node(Self[T], NodeId) -> InteractiveTreeNode[T]?
+pub fn[T] TreeEditorState::has_node(Self[T], NodeId) -> Bool
+pub fn[T] TreeEditorState::new() -> Self[T]
+pub fn[T : TreeNode + Renderable + Eq] TreeEditorState::refresh(Self[T], ProjNode[T]?, SourceMap) -> Self[T]
 
 // Type aliases
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]

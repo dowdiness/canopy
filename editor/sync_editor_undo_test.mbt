@@ -2,14 +2,14 @@
 
 ///|
 test "undo: empty stack reports not undoable" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   inspect(se.can_undo(), content="false")
   inspect(se.can_redo(), content="false")
 }
 
 ///|
 test "undo: insert then undo restores" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("hello", 1000)
   inspect(se.get_text(), content="hello")
   inspect(se.can_undo(), content="true")
@@ -20,7 +20,7 @@ test "undo: insert then undo restores" {
 
 ///|
 test "undo: redo after undo" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("hello", 1000)
   inspect(se.undo(), content="true")
   inspect(se.get_text(), content="")
@@ -31,7 +31,7 @@ test "undo: redo after undo" {
 
 ///|
 test "undo: redo cleared on new edit" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("a", 1000)
   inspect(se.undo(), content="true")
   inspect(se.get_text(), content="")
@@ -43,7 +43,7 @@ test "undo: redo cleared on new edit" {
 
 ///|
 test "undo: tracking suppression" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   se.set_tracking(false)
   try! se.insert_and_record("x", 1000)
   se.set_tracking(true)
@@ -54,7 +54,7 @@ test "undo: tracking suppression" {
 
 ///|
 test "undo: backspace and record" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("ab", 1000)
   inspect(se.get_text(), content="ab")
   // Cursor is at 2 after insert, backspace deletes "b"
@@ -68,7 +68,7 @@ test "undo: backspace and record" {
 
 ///|
 test "undo: delete and record" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("ab", 1000)
   inspect(se.get_text(), content="ab")
   // Move cursor to position 0, then delete forward removes "a"
@@ -83,7 +83,7 @@ test "undo: delete and record" {
 
 ///|
 test "undo: multiple undos in sequence" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("a", 1000)
   try! se.insert_and_record("b", 2000)
   try! se.insert_and_record("c", 3000)
@@ -100,7 +100,7 @@ test "undo: multiple undos in sequence" {
 
 ///|
 test "undo: clear stacks" {
-  let se = SyncEditor::new("agent1")
+  let se = SyncEditor::new_lambda("agent1")
   try! se.insert_and_record("hello", 1000)
   inspect(se.can_undo(), content="true")
   se.clear_undo()

@@ -3,8 +3,8 @@
 ///|
 test "Web scenario: error persistence bug" {
   // Simulate web editor usage
-  let editor_ref : Ref[@editor.SyncEditor?] = { val: None }
-  editor_ref.val = Some(@editor.SyncEditor::new("web-user"))
+  let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None }
+  editor_ref.val = Some(@editor.SyncEditor::new_lambda("web-user"))
 
   // Type "x"
   match editor_ref.val {

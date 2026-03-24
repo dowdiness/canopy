@@ -6,8 +6,9 @@
 ///|
 /// Apply a tree edit by computing span-level text edits and applying them
 /// through the text CRDT (incremental-parser-aware).
+/// Lambda-specific: constructs EditContext[@ast.Term] for the projection pipeline.
 pub fn SyncEditor::apply_tree_edit(
-  self : SyncEditor,
+  self : SyncEditor[@ast.Term],
   op : @proj.TreeEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
@@ -19,7 +20,7 @@ pub fn SyncEditor::apply_tree_edit(
     Some(fp) => fp
     None => return Err("No FlatProj available")
   }
-  let ctx : @proj.EditContext = {
+  let ctx : @proj.EditContext[@ast.Term] = {
     source_text: old_text,
     source_map,
     registry,
