@@ -246,4 +246,17 @@ pub fn TreeEditorState::refresh(Self, ProjNode?, SourceMap) -> Self
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
 
 // Traits
+pub trait Renderable {
+  kind_tag(Self) -> String
+  label(Self) -> String
+  placeholder(Self) -> String
+  unparse(Self) -> String
+}
+pub impl Renderable for @ast.Term
+
+pub trait TreeNode {
+  children(Self) -> Array[Self]
+  same_kind(Self, Self) -> Bool
+}
+pub impl TreeNode for @ast.Term
 
