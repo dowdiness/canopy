@@ -1,8 +1,10 @@
 # Block Editor: Project Vision
 
 **Date:** 2026-03-28
-**Status:** Conceptual design
+**Status:** Conceptual design — not an implementation plan
 **Reference:** Thymer (thymer.com) — IDE-like, keyboard-driven, local-first, real-time collaboration
+
+> This document captures the product vision and architectural direction. Open questions are listed honestly — several must be resolved before implementation planning begins. See [documentation doctrine](../development/documentation-doctrine.md) for how this doc relates to architecture docs and implementation plans.
 
 ## What We're Building
 
@@ -51,7 +53,7 @@ Serialization   Import/export Markdown files
 - **Git-friendly:** Diffs, history, branching all work naturally
 - **Trust signal:** Users can verify their data is portable at any time
 
-**Round-trip expectations:** We target `parse(export(model)) == model` — the model survives a round-trip through Markdown. We do NOT promise `export(import(md)) == md` byte-for-byte, because Markdown has too many equivalent representations (bullet style, fence style, whitespace, etc.). Unsupported syntax is preserved as opaque raw blocks until the user edits them.
+**Round-trip expectations:** For a defined "supported subset" of Markdown (CommonMark + GFM tables + directives), we target `parse(export(model)) ≈ model` — the model survives a round-trip through Markdown, where "≈" means structural equivalence after normalization (e.g., `- ` and `* ` both produce a bullet list item, and export always emits `- `). We do NOT promise `export(import(md)) == md` byte-for-byte. Unsupported syntax is preserved as opaque raw blocks; editing an opaque block promotes it to a structured block (losing the original byte representation). The normalization rules and model equality definition are open questions.
 
 ### Inline formatting strategy
 
@@ -96,14 +98,16 @@ ProjNode[BlockType]
 UI
 ```
 
-### What transfers
+### What transfers — with caveats
 
-- **eg-walker / FugueMax** → per-block text CRDT (unchanged)
-- **Loom** → incremental parsing for inline Markdown + code syntax highlighting
-- **ProjNode[T]** → ProjNode[BlockType] (same generic, new type parameter)
-- **TreeEditorState** → block selection, drag-drop, collapsed state
-- **EphemeralHub** → peer cursors and presence
-- **Rabbita** → block rendering (extend with new renderers)
+The existing components are reusable in concept, but this is an architectural fork, not a retargeting exercise. Canopy today has a single text CRDT as ground truth with tree edits round-tripping through text. This proposal replaces that with a multi-CRDT document model. The mental models and algorithms transfer; the integration code largely does not.
+
+- **eg-walker / FugueMax** → per-block text CRDT (algorithm unchanged, but now N instances per document instead of one)
+- **Loom** → incremental parsing for inline Markdown + code syntax highlighting (framework unchanged, new grammars needed)
+- **ProjNode[T]** → ProjNode[BlockType] (generic structure transfers, but the unfold logic is entirely new)
+- **TreeEditorState** → block selection, drag-drop, collapsed state (concepts transfer, implementation needs rework for tree CRDT)
+- **EphemeralHub** → peer cursors and presence (needs extension for per-block cursor tracking)
+- **Rabbita** → block rendering (framework transfers, all renderers are new)
 
 ### What's new
 
@@ -116,19 +120,31 @@ UI
 
 ## Open Questions
 
-These need answers before or during implementation. They are not blockers for starting — they're the hard problems this project exists to solve.
+These need answers before implementation planning begins. Some are prerequisites for the architecture (marked **blocking**); others can be resolved during implementation of later phases.
 
-1. **Joint CRDT invariants.** How do tree ops and text ops compose? What happens on concurrent block-delete + text-edit? What's the atomicity model for create-block-with-initial-text?
+### Blocking — must resolve before implementation
 
-2. **Undo across CRDTs.** Current UndoManager is single-CRDT. Block-level operations (e.g., "convert paragraph to heading" = set_property + maybe text edit) need atomic undo. What's the transaction boundary?
+1. **Joint CRDT invariants.** How do tree ops and text ops compose? What happens on concurrent block-delete + text-edit? What's the atomicity model for create-block-with-initial-text? Without this, we can't define convergence for the document as a whole.
 
-3. **Split view authority.** Rabbita has a text view + tree view today. A Markdown source pane for the block editor is conceptually similar but mechanically different — it's a serialization of many CRDTs, not a single text CRDT. Is it read-only? Editable (implies a re-import path)? Deferred?
+2. **Container semantics.** Are lists, quotes, callouts, and toggles container nodes in the tree CRDT (with children), wrapper properties on leaf blocks, or something else? This determines move/nest behavior, serialization structure, selection semantics, and undo granularity. Tables have the same question (table → row → cell hierarchy vs flat structure).
 
-4. **Table data model.** Does a table own one text CRDT (pipe-delimited)? One per cell? Is the table structure part of the tree CRDT or a nested structure inside a single block?
+3. **External file authority.** What happens when the `.md` file changes on disk while the CRDT-backed document is open? Scenarios: git pull, external editor save, git merge conflict. Options include: re-import (lose unsaved CRDT ops), diff-and-merge (complex), file-watcher with conflict prompt, or CRDT-only persistence (Markdown export is manual). This is central to the "trust comes from transparency" principle.
 
-5. **Extended block serialization.** Toggle, embed, and other non-standard blocks need a Markdown convention. Directive syntax (`:::`)? HTML comments? Custom fenced blocks?
+4. **Undo across CRDTs.** Current UndoManager is single-CRDT. Block-level operations (e.g., "convert paragraph to heading" = set_property + maybe text edit) need atomic undo. What's the transaction boundary?
 
-6. **Fractional index scheme.** The concrete key representation, tie-break rules for concurrent inserts at the same position, and growth/compaction strategy.
+### Non-blocking — resolve during implementation
+
+5. **Split view authority.** Rabbita has a text view + tree view today. A Markdown source pane is mechanically different — it's a serialization of many CRDTs, not a single text CRDT. Is it read-only? Editable (implies a re-import path)? Deferred until core editing works?
+
+6. **Table data model.** Does a table own one text CRDT (pipe-delimited)? One per cell? Is the table structure part of the tree CRDT or a nested structure inside a single block?
+
+7. **Extended block serialization.** Toggle, embed, and other non-standard blocks need a Markdown convention. Directive syntax (`:::`)? HTML comments? Custom fenced blocks?
+
+8. **Fractional index scheme.** The concrete key representation, tie-break rules for concurrent inserts at the same position, and growth/compaction strategy.
+
+9. **Model equality and normalization.** What counts as "same model" after parse → export → parse? How are equivalent Markdown representations (e.g., `*` vs `-` bullets) normalized? When does an opaque raw block become structured?
+
+10. **First end-to-end slice.** What is the minimal vertical cut that proves the architecture works? Candidate: paragraph + heading + list, single peer, save/load as Markdown, no collaboration. This should be defined before implementation planning.
 
 ## Non-Goals
 
