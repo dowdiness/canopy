@@ -4,12 +4,9 @@ package "dowdiness/canopy/editor"
 import {
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/text",
-  "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
   "dowdiness/loom/core",
-  "dowdiness/loom/incremental",
-  "dowdiness/seam",
 }
 
 // Values
@@ -273,7 +270,6 @@ pub fn[T] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
 pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
 pub fn[T] SyncEditor::mark_dirty(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
-pub fn[T] SyncEditor::new(String, (String) -> @incremental.ImperativeParser[T], (@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[T]) -> (@cells.Memo[@projection.FlatProj?], @cells.Memo[@projection.ProjNode[T]?], @cells.Memo[Map[@projection.NodeId, @projection.ProjNode[T]]], @cells.Memo[@projection.SourceMap]), capture_timeout_ms? : Int) -> Self[T]
 pub fn SyncEditor::new_lambda(String, capture_timeout_ms? : Int) -> Self[@ast.Term]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @projection.NodeId?
 pub fn[T] SyncEditor::redo(Self[T]) -> Bool

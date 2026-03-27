@@ -2,6 +2,24 @@
 // from SyncEditor's incremental parser-backed signals.
 
 ///|
+/// Wraps FlatProj? with a revision stamp for O(1) BackdateEq.
+/// changed_at only advances when the FlatProj content actually changes.
+/// Sequential keystrokes with no AST change leave changed_at stable,
+/// causing proj_memo to backdate and saving all downstream recomputation.
+priv struct VersionedFlatProj {
+  proj : @proj.FlatProj?
+  changed_at : @incr.Revision
+} derive(Eq)
+
+///|
+impl @incr.HasChangedAt for VersionedFlatProj with changed_at(self) -> @incr.Revision {
+  self.changed_at
+}
+
+///|
+impl @incr.BackdateEq for VersionedFlatProj
+
+///|
 /// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
 /// and produces ProjNode[@ast.Term] memos for the SyncEditor constructor.
 fn build_lambda_projection_memos(
@@ -10,7 +28,7 @@ fn build_lambda_projection_memos(
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   _parser : @loom.ImperativeParser[@ast.Term],
 ) -> (
-  @incr.Memo[@proj.FlatProj?],
+  @incr.Memo[VersionedFlatProj],
   @incr.Memo[@proj.ProjNode[@ast.Term]?],
   @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]],
   @incr.Memo[@proj.SourceMap],
@@ -27,15 +45,22 @@ fn build_lambda_projection_memos(
   // access pattern), the delta in changed_def_indices_ref doesn't match their
   // prev state, so they must fall back to full rebuild.
   let proj_revision_ref : Ref[Int] = Ref::new(0)
+  let proj_changed_at_ref : Ref[@incr.Revision] = Ref::new(
+    @incr.Revision::initial(),
+  )
 
-  let proj_memo : @incr.Memo[@proj.FlatProj?] = @incr.Memo::new(
+  let proj_memo : @incr.Memo[VersionedFlatProj] = @incr.Memo::new_memo(
     rt,
-    fn() -> @proj.FlatProj? {
+    fn() -> VersionedFlatProj {
       if source_text.get() == "" {
         prev_flat_proj_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
-        return None
+        proj_changed_at_ref.val = proj_changed_at_ref.val.next()
+        return VersionedFlatProj::{
+          proj: None,
+          changed_at: proj_changed_at_ref.val,
+        }
       }
       let syntax_root = match syntax_tree.get() {
         Some(root) => root
@@ -43,7 +68,11 @@ fn build_lambda_projection_memos(
           prev_flat_proj_ref.val = None
           prev_syntax_root_ref.val = None
           changed_def_indices_ref.val = None
-          return None
+          proj_changed_at_ref.val = proj_changed_at_ref.val.next()
+          return VersionedFlatProj::{
+            proj: None,
+            changed_at: proj_changed_at_ref.val,
+          }
         }
       }
       let counter = Ref::new(next_id_ref.val)
@@ -101,7 +130,20 @@ fn build_lambda_projection_memos(
       prev_flat_proj_ref.val = Some(result)
       prev_syntax_root_ref.val = Some(syntax_root)
       proj_revision_ref.val = proj_revision_ref.val + 1
-      Some(result)
+      // Advance changed_at only when content actually changed.
+      // Some([]) = incremental, nothing changed → do not advance (backdate will fire).
+      // Some([...]) or None = changes or full rebuild → advance.
+      let unchanged = match changed_def_indices_ref.val {
+        Some(indices) => indices.is_empty()
+        None => false
+      }
+      if not(unchanged) {
+        proj_changed_at_ref.val = proj_changed_at_ref.val.next()
+      }
+      VersionedFlatProj::{
+        proj: Some(result),
+        changed_at: proj_changed_at_ref.val,
+      }
     },
     label="proj_node",
   )
@@ -111,10 +153,10 @@ fn build_lambda_projection_memos(
   // prev_module_id_ref holds the Module node_id from the most recent successful
   // conversion, so stable Module IDs survive incremental rebuilds.
   let prev_module_id_ref : Ref[Int?] = Ref::new(None)
-  let cached_proj_node : @incr.Memo[@proj.ProjNode[@ast.Term]?] = @incr.Memo::new(
+  let cached_proj_node : @incr.Memo[@proj.ProjNode[@ast.Term]?] = @incr.Memo::new_no_backdate(
     rt,
     fn() -> @proj.ProjNode[@ast.Term]? {
-      match proj_memo.get() {
+      match proj_memo.get().proj {
         Some(fp) => {
           let counter = Ref::new(next_id_ref.val)
           let proj = fp.to_proj_node_with_prev_module_id(
@@ -144,7 +186,7 @@ fn build_lambda_projection_memos(
   )
   let registry_last_revision_ref : Ref[Int] = Ref::new(0)
 
-  let registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]] = @incr.Memo::new(
+  let registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]] = @incr.Memo::new_no_backdate(
     rt,
     fn() -> Map[@proj.NodeId, @proj.ProjNode[@ast.Term]] {
       match cached_proj_node.get() {
@@ -221,7 +263,7 @@ fn build_lambda_projection_memos(
   )
   let source_map_last_revision_ref : Ref[Int] = Ref::new(0)
 
-  let source_map_memo : @incr.Memo[@proj.SourceMap] = @incr.Memo::new(
+  let source_map_memo : @incr.Memo[@proj.SourceMap] = @incr.Memo::new_no_backdate(
     rt,
     fn() -> @proj.SourceMap {
       match cached_proj_node.get() {
@@ -331,7 +373,7 @@ fn[T] unregister_subtree(
 
 ///|
 pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @proj.FlatProj? {
-  self.proj_memo.get()
+  self.proj_memo.get().proj
 }
 
 ///|

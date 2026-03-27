@@ -10,7 +10,7 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv proj_memo : @incr.Memo[@proj.FlatProj?]
+  priv proj_memo : @incr.Memo[VersionedFlatProj]
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
@@ -23,7 +23,7 @@ pub struct SyncEditor[T] {
 }
 
 ///|
-pub fn[T] SyncEditor::new(
+fn[T] SyncEditor::new(
   agent_id : String,
   make_parser : (String) -> @loom.ImperativeParser[T],
   build_memos : (
@@ -32,7 +32,7 @@ pub fn[T] SyncEditor::new(
     @incr.Signal[@seam.SyntaxNode?],
     @loom.ImperativeParser[T],
   ) -> (
-    @incr.Memo[@proj.FlatProj?],
+    @incr.Memo[VersionedFlatProj],
     @incr.Memo[@proj.ProjNode[T]?],
     @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
     @incr.Memo[@proj.SourceMap],
