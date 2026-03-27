@@ -44,7 +44,11 @@ Serialization   Import/export Markdown files
 
 **Block content** needs text CRDTs because inline editing is fundamentally character-level. Each text-bearing block owns a FugueMax instance from eg-walker. This is what Canopy already does well.
 
-**The joint invariant problem** (what happens when one peer deletes a block while another edits its text?) is an open design question. Possible approaches: tombstone-with-content (preserve edits on deleted blocks), last-writer-wins for deletion, or undo-based conflict surfacing. This needs investigation before implementation.
+**Joint invariant model (resolved):** Following Loro's approach, all containers (tree + per-block text CRDTs) live inside a **single document with a unified version vector and oplog**. They are not independent CRDTs — they share causal history. This guarantees document-level convergence.
+
+- **Delete block while another peer edits its text:** Delete = move to a TRASH node (Kleppmann's model). Text edits on deleted blocks are preserved in the oplog, not rejected. If the block is restored via undo, the text edits surface. Content is never silently lost.
+- **Create block with initial text:** Two operations (tree create + text insert) grouped in a single commit/transaction. Causal delivery ensures a peer won't see the text insert without first seeing the node creation. Not atomic at the CRDT level, but atomic for event emission and undo.
+- **Known risk:** Yjs has an open bug (#642) where undoing compound operations across nested types causes peer divergence. This pattern needs extensive testing in our implementation.
 
 ### Why Markdown serialization
 
@@ -61,30 +65,48 @@ Start with **Markdown syntax in FugueMax text** — bold is `**text**` in the CR
 
 Known limitation: concurrent formatting on overlapping ranges can produce syntactically broken Markdown. Loom's error recovery prevents crashes but doesn't preserve intent. This is acceptable for small team use (rare edge case) and can be upgraded to Peritext later if needed.
 
-## Block Types
+## Block Model (resolved)
 
-### Core (standard Markdown)
+### Container semantics: standalone items, no list containers
 
-| Type | Markdown | Notes |
+Following Notion and BlockNote, blocks are **standalone nodes with a `type` property**. There are no list-container or quote-container wrapper nodes. This is the industry-validated approach for tree CRDTs.
+
+**Why this wins for a movable tree CRDT:**
+- **Move = one tree op.** Moving a list item is one CRDT operation. Container models require multi-step transactions (move item + handle empty container).
+- **No empty-container problem.** In a CRDT, auto-deleting empty containers is unsafe — another peer might concurrently be adding children. Standalone items eliminate this class of bug entirely.
+- **Type change = property change.** Converting a bullet item to a paragraph is `set_property(type, paragraph)`, not a tree restructure.
+- **Concurrent merge quality.** Two users both creating list items just create nodes with the same type. Container models create duplicate containers needing post-merge fixup.
+
+**Visual grouping via run detection:** The renderer groups consecutive same-type sibling blocks into visual lists (e.g., consecutive `bulletListItem` blocks render as one `<ul>`). This is O(n) in siblings — trivially cheap.
+
+**Exceptions:**
+- **Tables** are containers: `table > table_row > cells`. Tables have fixed structure that doesn't change type.
+- **Toggle/collapsible** blocks are standalone with a `collapsed: bool` property. Children are tree children. No special container.
+
+### Block types
+
+#### Core (standard Markdown)
+
+| Type | Markdown | Tree structure |
 |---|---|---|
-| Paragraph | Plain text | Default block type |
-| Heading | `# ` through `###### ` | Levels 1-6 |
-| List item | `- `, `1. `, `- [ ] ` | Bullet, numbered, todo |
-| Quote | `> ` | Nestable |
-| Code | ` ``` ` | With language tag; Loom parses for syntax highlighting |
-| Divider | `---` | |
+| Paragraph | Plain text | Leaf (text CRDT) |
+| Heading | `# ` through `###### ` | Leaf (text CRDT + level property) |
+| List item | `- `, `1. `, `- [ ] ` | Leaf or parent (text CRDT + style property; children = nested items) |
+| Quote | `> ` | Leaf or parent (text CRDT; children = nested blocks) |
+| Code | ` ``` ` | Leaf (text CRDT + language property; Loom parses for syntax) |
+| Divider | `---` | Leaf (no text CRDT) |
 
-### Extended (need Markdown extensions or conventions)
+#### Extended (need Markdown extensions or conventions)
 
-| Type | Serialization | Notes |
+| Type | Serialization | Tree structure |
 |---|---|---|
-| Image | `![alt](src)` | Standard Markdown, but rendered as visual block |
-| Table | GFM pipe tables | Cell content in text CRDTs — structure TBD |
-| Callout | `:::type ... :::` | Directive syntax (common extension) |
-| Toggle | TBD | Collapsible — no standard Markdown |
-| Embed | TBD | URL preview — no standard Markdown |
+| Image | `![alt](src)` | Leaf (no text CRDT; src/alt as properties) |
+| Table | GFM pipe tables | Container: table > table_row > cells (text CRDTs per cell) |
+| Callout | `:::type ... :::` | Parent (style property; children = nested blocks) |
+| Toggle | TBD | Parent (collapsed property; children = nested blocks) |
+| Embed | TBD | Leaf (url property) |
 
-Block types without standard Markdown serialization need design decisions about their text representation. These should be deferred until the core block types work.
+Block types without standard Markdown serialization (toggle, embed) should be deferred until the core block types work.
 
 ## How Canopy's Architecture Maps
 
@@ -118,33 +140,59 @@ The existing components are reusable in concept, but this is an architectural fo
 - **Document type** — unified wrapper coordinating tree CRDT + per-block text CRDTs
 - **Cross-CRDT undo** — UndoManager needs to span tree ops + text ops atomically
 
-## Open Questions
+## Resolved Decisions
 
-These need answers before implementation planning begins. Some are prerequisites for the architecture (marked **blocking**); others can be resolved during implementation of later phases.
+These were blocking open questions, now answered through research into Loro, Yjs, Automerge, Notion, BlockNote, ProseMirror, Obsidian, VS Code, and Zed.
 
-### Blocking — must resolve before implementation
+### 1. Joint CRDT invariants → unified document model
 
-1. **Joint CRDT invariants.** How do tree ops and text ops compose? What happens on concurrent block-delete + text-edit? What's the atomicity model for create-block-with-initial-text? Without this, we can't define convergence for the document as a whole.
+All containers share a **single document with one version vector and one oplog** (Loro's model). Delete = move-to-TRASH, preserving text edits on deleted blocks. Create-with-initial-text = two ops in one commit, causally ordered. See "Why two CRDTs" section above for details.
 
-2. **Container semantics.** Are lists, quotes, callouts, and toggles container nodes in the tree CRDT (with children), wrapper properties on leaf blocks, or something else? This determines move/nest behavior, serialization structure, selection semantics, and undo granularity. Tables have the same question (table → row → cell hierarchy vs flat structure).
+### 2. Container semantics → standalone items, no list containers
 
-3. **External file authority.** What happens when the `.md` file changes on disk while the CRDT-backed document is open? Scenarios: git pull, external editor save, git merge conflict. Options include: re-import (lose unsaved CRDT ops), diff-and-merge (complex), file-watcher with conflict prompt, or CRDT-only persistence (Markdown export is manual). This is central to the "trust comes from transparency" principle.
+Blocks are standalone tree nodes with a `type` property (Notion/BlockNote model). No list or quote containers. Run detection groups consecutive same-type siblings for rendering. Tables are the exception (container with row children). See "Block Model" section above for details.
 
-4. **Undo across CRDTs.** Current UndoManager is single-CRDT. Block-level operations (e.g., "convert paragraph to heading" = set_property + maybe text edit) need atomic undo. What's the transaction boundary?
+### 3. External file authority → dual persistence with sidecar
 
-### Non-blocking — resolve during implementation
+No production system persists both Markdown and CRDT state as a coordinated pair. This is novel, but the pattern is analogous to Git (working tree + `.git/` object store).
 
-5. **Split view authority.** Rabbita has a text view + tree view today. A Markdown source pane is mechanically different — it's a serialization of many CRDTs, not a single text CRDT. Is it read-only? Editable (implies a re-import path)? Deferred until core editing works?
+```
+On disk:
+  document.md              — human-readable Markdown (always current)
+  .canopy/document.crdt    — CRDT binary state (sidecar)
+```
 
-6. **Table data model.** Does a table own one text CRDT (pipe-delimited)? One per cell? Is the table structure part of the tree CRDT or a nested structure inside a single block?
+**Flows:**
+- **Save:** Serialize CRDT → `.md` + write CRDT binary → `.canopy/`. Atomic via temp-file rename.
+- **Load with sidecar:** Load `.crdt` for full CRDT state with merge capability. Verify against `.md`. If they diverge (external edit), apply `.md` diff as synthetic operations from a reserved "filesystem peer" agent ID.
+- **Load without sidecar** (file from git, email, etc.): Parse `.md`, create fresh CRDT. Collaboration history starts fresh.
+- **External file change** (file watcher): Diff new `.md` against CRDT state. Apply diff as "filesystem peer" operations. Preserves local CRDT history while incorporating external edits.
+- **`.gitignore` policy:** `.canopy/` is gitignored — it's cache, not source of truth. `.md` files are committed. Losing `.canopy/` loses collaboration history but preserves all content. Analogous to `node_modules/` vs `package.json`.
 
-7. **Extended block serialization.** Toggle, embed, and other non-standard blocks need a Markdown convention. Directive syntax (`:::`)? HTML comments? Custom fenced blocks?
+**Key invariant:** `.md` is always authoritative for content. `.crdt` is an acceleration layer that can be rebuilt. If they conflict, trust the `.md` and apply it as a "filesystem peer" edit to the CRDT.
 
-8. **Fractional index scheme.** The concrete key representation, tie-break rules for concurrent inserts at the same position, and growth/compaction strategy.
+### 4. Undo across CRDTs → document-level undo with transaction grouping
 
-9. **Model equality and normalization.** What counts as "same model" after parse → export → parse? How are equivalent Markdown representations (e.g., `*` vs `-` bullets) normalized? When does an opaque raw block become structured?
+Following Loro's model:
+- **UndoManager operates at the document level**, not per-container. One undo stack for all tree ops + text ops.
+- **Transaction grouping:** Multi-op user actions (e.g., convert paragraph to heading = `set_property` + text edit) are wrapped in `groupStart()`/`groupEnd()`. Everything in the group is one undo step.
+- **Time-based merging:** Rapid sequential edits within a merge interval (~1000ms) collapse into one undo step.
+- **Local undo only:** Undo reverts your own operations. Other peers' edits are preserved. From their perspective, your undo looks like a normal edit.
+- **Undo creates new operations,** not rollbacks. This preserves CRDT convergence guarantees.
 
-10. **First end-to-end slice.** What is the minimal vertical cut that proves the architecture works? Candidate: paragraph + heading + list, single peer, save/load as Markdown, no collaboration. This should be defined before implementation planning.
+## Remaining Open Questions
+
+These can be resolved during implementation.
+
+1. **Split view authority.** Rabbita has a text view + tree view today. A Markdown source pane is mechanically different — it's a serialization of many CRDTs, not a single text CRDT. Is it read-only? Editable (implies a re-import path)? Deferred until core editing works?
+
+2. **Extended block serialization.** Toggle, embed, and other non-standard blocks need a Markdown convention. Directive syntax (`:::`)? HTML comments? Custom fenced blocks?
+
+3. **Fractional index scheme.** The concrete key representation, tie-break rules for concurrent inserts at the same position, and growth/compaction strategy.
+
+4. **Model equality and normalization.** What counts as "same model" after parse → export → parse? How are equivalent Markdown representations (e.g., `*` vs `-` bullets) normalized? When does an opaque raw block become structured?
+
+5. **First end-to-end slice.** What is the minimal vertical cut that proves the architecture works? Candidate: paragraph + heading + list, single peer, save/load as Markdown, no collaboration. This should be defined before implementation planning.
 
 ## Non-Goals
 
@@ -156,8 +204,29 @@ These need answers before implementation planning begins. Some are prerequisites
 
 ## References
 
+### CRDT algorithms
 - [Kleppmann — A highly-available move operation for replicated trees](https://martin.kleppmann.com/papers/move-op.pdf)
 - [Loro — Movable tree CRDTs and Loro's implementation](https://loro.dev/blog/movable-tree)
+- [Loro — Tree CRDT documentation](https://www.loro.dev/docs/tutorial/tree)
+- [Loro — Undo/redo documentation](https://loro.dev/docs/advanced/undo)
+- [Loro — Persistence documentation](https://loro.dev/docs/tutorial/persistence)
 - [Made by Evan — CRDT: Mutable Tree Hierarchy](https://madebyevan.com/algos/crdt-mutable-tree-hierarchy/)
-- [Thymer](https://thymer.com/) — reference product
 - [eg-walker paper](https://arxiv.org/abs/2409.14252)
+- [Stewen & Kleppmann — Undo and Redo Support for Replicated Registers (PaPoC 2024)](https://arxiv.org/abs/2404.11308)
+- [Bauwens & Gonzalez Boix — Nested Pure Operation-Based CRDTs (ECOOP 2023)](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2023.2)
+
+### Block editor data models
+- [Notion API — Block reference](https://developers.notion.com/reference/block)
+- [Notion — Data model behind Notion](https://www.notion.com/blog/data-model-behind-notion)
+- [BlockNote — Document structure](https://www.blocknotejs.org/docs/editor-basics/document-structure)
+- [ProseMirror — Guide](https://prosemirror.net/docs/guide/)
+- [BlockSuite — Working with Block Tree](https://block-suite.com/guide/working-with-block-tree.html)
+- [Fluid Framework — Undo/redo and transactions](https://fluidframework.com/docs/data-structures/tree/undo-redo)
+
+### File authority and persistence
+- [Zed — How CRDTs make multiplayer text editing part of Zed's DNA](https://zed.dev/blog/crdts)
+- [Tonsky — Local, first, forever (crdt-filesync)](https://tonsky.me/blog/crdt-filesync/)
+- [Ink & Switch — Local-first software](https://www.inkandswitch.com/essay/local-first/)
+
+### Reference product
+- [Thymer](https://thymer.com/) — IDE-like, keyboard-driven, local-first editor
