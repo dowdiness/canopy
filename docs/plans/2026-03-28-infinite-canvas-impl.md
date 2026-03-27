@@ -23,7 +23,6 @@
 | `examples/canvas/main/ffi.mbt` | Stub file for future JS externs |
 | `examples/canvas/web/index.html` | HTML shell with `#canvas-root`, `#world`, `#overlay` stub |
 | `examples/canvas/web/src/main.ts` | Bootstrap, event wiring, RAF render loop, DOM patching |
-| `examples/canvas/web/tsconfig.json` | TypeScript config with `@moonbit/canopy-canvas` path mapping |
 | `examples/canvas/web/vite.config.ts` | Vite config (mirrors examples/ideal/web/vite.config.ts) |
 | `examples/canvas/web/package.json` | npm scripts |
 
@@ -36,7 +35,6 @@
 - Create: `examples/canvas/main/moon.pkg`
 - Create: `examples/canvas/main/ffi.mbt`
 - Create: `examples/canvas/web/package.json`
-- Create: `examples/canvas/web/tsconfig.json`
 - Create: `examples/canvas/web/vite.config.ts`
 - Create: `examples/canvas/web/index.html`
 
@@ -53,15 +51,9 @@
 
 Save to: `examples/canvas/moon.mod.json`
 
-- [ ] **Step 2: Create main/moon.pkg**
-
-`moonbitlang/core/json` is required for `derive(ToJson)` and `.to_json()`. Exports are filled in Task 9.
+- [ ] **Step 2: Create main/moon.pkg (minimal, exports added in Task 9)**
 
 ```
-import {
-  "moonbitlang/core/json",
-}
-
 options(
   "is-main": true,
   link: {
@@ -102,32 +94,7 @@ Save to: `examples/canvas/main/ffi.mbt`
 
 Save to: `examples/canvas/web/package.json`
 
-- [ ] **Step 5: Create web/tsconfig.json**
-
-The `paths` entry tells TypeScript where to find the virtual `@moonbit/canopy-canvas` module that Vite resolves at runtime.
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "paths": {
-      "@moonbit/canopy-canvas": ["../../_build/js/release/build/main/main.js"]
-    }
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
-}
-```
-
-Save to: `examples/canvas/web/tsconfig.json`
-
-- [ ] **Step 6: Create web/vite.config.ts**
+- [ ] **Step 5: Create web/vite.config.ts**
 
 ```typescript
 import { defineConfig, type PluginOption } from 'vite';
@@ -161,7 +128,7 @@ export default defineConfig({
 
 Save to: `examples/canvas/web/vite.config.ts`
 
-- [ ] **Step 7: Create web/index.html**
+- [ ] **Step 6: Create web/index.html**
 
 ```html
 <!DOCTYPE html>
@@ -190,7 +157,7 @@ Save to: `examples/canvas/web/vite.config.ts`
       /* transform set by JS */
     }
 
-    /* Future hybrid: Canvas 2D overlay for selection handles, arrows */
+    /* Future: Canvas 2D overlay for selection handles, arrows */
     #overlay {
       position: absolute;
       top: 0; left: 0;
@@ -208,6 +175,7 @@ Save to: `examples/canvas/web/vite.config.ts`
       justify-content: center;
       cursor: pointer;
       user-select: none;
+      transition: box-shadow 0.1s;
     }
     .canvas-node.selected {
       box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8250df;
@@ -234,7 +202,7 @@ Save to: `examples/canvas/web/vite.config.ts`
 
 Save to: `examples/canvas/web/index.html`
 
-- [ ] **Step 8: Verify moon check passes**
+- [ ] **Step 7: Verify moon check passes**
 
 ```bash
 cd examples/canvas && moon check
@@ -242,7 +210,7 @@ cd examples/canvas && moon check
 
 Expected: no errors (empty package is valid).
 
-- [ ] **Step 9: Commit scaffold**
+- [ ] **Step 8: Commit scaffold**
 
 ```bash
 git add examples/canvas/
@@ -258,16 +226,10 @@ git commit -m "feat: scaffold examples/canvas standalone MoonBit module"
 
 - [ ] **Step 1: Write canvas_state.mbt**
 
-Note:
-- `NodeId` follows the `pub struct NodeId(Int)` tuple-struct pattern from `projection/types.mbt`
-- Struct construction uses `({ ... } : TypeName)` or `let s : TypeName = { ... }` — never `TypeName { ... }`
-- `pub(all)` on structs allows construction from test files (whitebox tests are same package, but explicit)
-
 ```moonbit
 ///|
-/// Opaque integer ID for canvas nodes.
-/// Uses tuple-struct pattern from projection/types.mbt.
-pub struct NodeId(Int) derive(Show, Eq, ToJson)
+/// Opaque integer ID for canvas nodes. Uses newtype for type safety.
+pub type NodeId Int derive(Show, Eq, ToJson)
 
 ///|
 /// Visual kind of a node.
@@ -296,13 +258,13 @@ pub(all) struct CanvasNode {
   w    : Double
   h    : Double
   kind : NodeKind
-} derive(Show, Eq)
+} derive(Show, Eq, ToJson)
 
 ///|
 /// State captured at the start of a node drag gesture.
 pub(all) struct DragState {
   node_id  : NodeId
-  /// Offset from cursor world position to node origin (node.x - cursor.x at drag start).
+  /// Offset from the cursor world position to the node origin.
   offset_x : Double
   offset_y : Double
 } derive(Show, Eq)
@@ -362,10 +324,6 @@ git commit -m "feat(canvas): define CanvasState type hierarchy"
 
 - [ ] **Step 1: Write the failing tests first**
 
-Codebase test conventions:
-- Use `inspect(value, content="expected_string")` — not `assert_eq!`
-- Use `guard x is Some(p)` for Option unpacking — not `let Some(p) = x`
-
 ```moonbit
 ///|
 fn make_test_state() -> CanvasState {
@@ -376,9 +334,9 @@ fn make_test_state() -> CanvasState {
       { id: NodeId(2), x: 400.0, y: 200.0, w: 150.0, h:  80.0, kind: NodeKind::Text("hello") },
     ],
     interaction: {
-      dragging:     None,
-      panning:      None,
-      selected:     None,
+      dragging: None,
+      panning:  None,
+      selected: None,
       pointer_down: false,
       did_move:     false,
     },
@@ -389,13 +347,15 @@ fn make_test_state() -> CanvasState {
 test "pan_start records start screen position and current pan" {
   let state = make_test_state()
   let s = update_pan_start(state, 150.0, 250.0)
-  guard s.interaction.panning is Some(p)
-  inspect(p.start_screen_x, content="150.0")
-  inspect(p.start_screen_y, content="250.0")
-  inspect(p.start_pan_x, content="0.0")
-  inspect(p.start_pan_y, content="0.0")
-  inspect(s.interaction.pointer_down, content="true")
-  inspect(s.interaction.did_move, content="false")
+  let pan = s.interaction.panning
+  assert!(pan is Some(_))
+  let Some(p) = pan
+  assert_eq!(p.start_screen_x, 150.0)
+  assert_eq!(p.start_screen_y, 250.0)
+  assert_eq!(p.start_pan_x, 0.0)
+  assert_eq!(p.start_pan_y, 0.0)
+  assert_eq!(s.interaction.pointer_down, true)
+  assert_eq!(s.interaction.did_move, false)
 }
 
 ///|
@@ -404,28 +364,28 @@ test "pan_move translates viewport by delta from start" {
   let s0 = update_pan_start(state, 100.0, 100.0)
   // Move pointer to (160, 140) → delta (60, 40)
   let s1 = update_pan_move(s0, 160.0, 140.0)
-  inspect(s1.viewport.x, content="60.0")
-  inspect(s1.viewport.y, content="40.0")
-  inspect(s1.viewport.scale, content="1.0")
+  assert_eq!(s1.viewport.x, 60.0)
+  assert_eq!(s1.viewport.y, 40.0)
+  assert_eq!(s1.viewport.scale, 1.0)
 }
 
 ///|
-test "pan_move is absolute not cumulative" {
+test "pan_move is absolute not cumulative (avoids float drift)" {
   let state = make_test_state()
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pan_move(s0, 50.0, 30.0)
   let s2 = update_pan_move(s1, 80.0, 50.0)
-  // Second move uses original start_pan (0,0), not the intermediate position
-  inspect(s2.viewport.x, content="80.0")
-  inspect(s2.viewport.y, content="50.0")
+  // Second move from same start → absolute from start_pan
+  assert_eq!(s2.viewport.x, 80.0)
+  assert_eq!(s2.viewport.y, 50.0)
 }
 
 ///|
 test "pan_move is no-op when not panning" {
   let state = make_test_state()
   let s = update_pan_move(state, 999.0, 999.0)
-  inspect(s.viewport.x, content="0.0")
-  inspect(s.viewport.y, content="0.0")
+  assert_eq!(s.viewport.x, 0.0)
+  assert_eq!(s.viewport.y, 0.0)
 }
 ```
 
@@ -441,8 +401,6 @@ Expected: compilation error — `update_pan_start` and `update_pan_move` not def
 
 - [ ] **Step 3: Implement pan functions in canvas_update.mbt**
 
-Struct construction uses `let s : TypeName = { ... }` — not `TypeName { ... }`.
-
 ```moonbit
 ///|
 fn update_pan_start(
@@ -450,13 +408,13 @@ fn update_pan_start(
   screen_x : Double,
   screen_y : Double
 ) -> CanvasState {
-  let pan : PanState = {
+  let pan = PanState {
     start_screen_x: screen_x,
     start_screen_y: screen_y,
     start_pan_x:    state.viewport.x,
     start_pan_y:    state.viewport.y,
   }
-  let new_interaction : InteractionState = {
+  let new_interaction = {
     ..state.interaction,
     panning:      Some(pan),
     pointer_down: true,
@@ -466,7 +424,7 @@ fn update_pan_start(
 }
 
 ///|
-/// Pan is computed as absolute offset from start_pan to avoid
+/// Pan is computed as an absolute offset from `start_pan` to avoid
 /// float accumulation across multiple move events.
 fn update_pan_move(
   state    : CanvasState,
@@ -476,7 +434,7 @@ fn update_pan_move(
   match state.interaction.panning {
     None => state
     Some(pan) => {
-      let new_viewport : Viewport = {
+      let new_viewport = {
         ..state.viewport,
         x: pan.start_pan_x + (screen_x - pan.start_screen_x),
         y: pan.start_pan_y + (screen_y - pan.start_screen_y),
@@ -520,42 +478,44 @@ Append to `examples/canvas/main/canvas_update_wbtest.mbt`:
 ///|
 test "zoom out (delta > 0) decreases scale" {
   let state = make_test_state()
+  // cursor at (500, 400), scroll down → zoom out
   let s = update_zoom(state, 1.0, 500.0, 400.0)
-  // scale should be less than 1.0
-  inspect(s.viewport.scale < 1.0, content="true")
+  assert!(s.viewport.scale < 1.0)
 }
 
 ///|
 test "zoom in (delta < 0) increases scale" {
   let state = make_test_state()
   let s = update_zoom(state, -1.0, 500.0, 400.0)
-  inspect(s.viewport.scale > 1.0, content="true")
+  assert!(s.viewport.scale > 1.0)
 }
 
 ///|
 test "zoom clamps to min 0.1" {
-  let state : CanvasState = { ..make_test_state(), viewport: { x: 0.0, y: 0.0, scale: 0.11 } }
+  let state = { ..make_test_state(), viewport: { x: 0.0, y: 0.0, scale: 0.11 } }
   let s = update_zoom(state, 1.0, 0.0, 0.0)
-  inspect(s.viewport.scale, content="0.1")
+  assert_eq!(s.viewport.scale, 0.1)
 }
 
 ///|
 test "zoom clamps to max 8.0" {
-  let state : CanvasState = { ..make_test_state(), viewport: { x: 0.0, y: 0.0, scale: 7.5 } }
+  let state = { ..make_test_state(), viewport: { x: 0.0, y: 0.0, scale: 7.5 } }
   let s = update_zoom(state, -1.0, 0.0, 0.0)
-  inspect(s.viewport.scale, content="8.0")
+  assert_eq!(s.viewport.scale, 8.0)
 }
 
 ///|
 test "zoom keeps cursor world position fixed" {
+  // World point under cursor before and after zoom must be identical.
   let state = make_test_state() // pan=(0,0), scale=1.0
   let cx = 300.0
   let cy = 200.0
+  // world point under cursor before: (cx - pan.x) / scale = (300-0)/1 = 300
   let world_x_before = (cx - state.viewport.x) / state.viewport.scale
-  let s = update_zoom(state, 1.0, cx, cy)
+  let s = update_zoom(state, 1.0, cx, cy) // zoom out
   let world_x_after = (cx - s.viewport.x) / s.viewport.scale
-  // Difference should be negligible (float precision)
-  inspect((world_x_before - world_x_after).abs() < 1.0e-9, content="true")
+  // Allow tiny float error
+  assert!((world_x_before - world_x_after).abs() < 1.0e-9)
 }
 ```
 
@@ -573,8 +533,8 @@ Append to `examples/canvas/main/canvas_update.mbt`:
 
 ```moonbit
 ///|
-/// Zoom the viewport toward cursor position `(cx, cy)` in canvas-local screen coords.
-/// delta > 0 = zoom out (factor 0.9), delta < 0 = zoom in (factor 1/0.9).
+/// Zoom the viewport toward the cursor position `(cx, cy)` in canvas-local
+/// screen coords. Factor 0.9 = zoom out, 1/0.9 ≈ 1.111 = zoom in.
 fn update_zoom(
   state : CanvasState,
   delta : Double,
@@ -592,7 +552,7 @@ fn update_zoom(
     raw
   }
   let ratio = new_scale / old_scale
-  let new_viewport : Viewport = {
+  let new_viewport = {
     ..state.viewport,
     scale: new_scale,
     x:     cx + (state.viewport.x - cx) * ratio,
@@ -602,7 +562,7 @@ fn update_zoom(
 }
 ```
 
-- [ ] **Step 4: Run all tests to confirm they pass**
+- [ ] **Step 4: Run tests to confirm all pass**
 
 ```bash
 cd examples/canvas && moon test
@@ -633,34 +593,38 @@ Append to `examples/canvas/main/canvas_update_wbtest.mbt`:
 ///|
 test "node_drag_start records offset from cursor to node origin" {
   let state = make_test_state()
-  // Node 1 is at (100, 100). Grab at world (110, 120).
+  // Node 1 is at (100, 100). Grab it at world (110, 120).
   // offset = node_pos - cursor = (100-110, 100-120) = (-10, -20)
   let s = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
-  guard s.interaction.dragging is Some(d)
-  inspect(d.node_id, content="NodeId(1)")
-  inspect(d.offset_x, content="-10.0")
-  inspect(d.offset_y, content="-20.0")
-  inspect(s.interaction.pointer_down, content="true")
-  inspect(s.interaction.did_move, content="false")
+  let drag = s.interaction.dragging
+  assert!(drag is Some(_))
+  let Some(d) = drag
+  assert_eq!(d.node_id, NodeId(1))
+  assert_eq!(d.offset_x, -10.0)
+  assert_eq!(d.offset_y, -20.0)
+  assert_eq!(s.interaction.pointer_down, true)
+  assert_eq!(s.interaction.did_move, false)
 }
 
 ///|
 test "node_drag_start is no-op for unknown node id" {
   let state = make_test_state()
   let s = update_node_drag_start(state, NodeId(99), 0.0, 0.0)
-  inspect(s.interaction.dragging, content="None")
+  assert!(s.interaction.dragging is None)
 }
 
 ///|
 test "node_drag_move updates node position" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
-  // offset = (-10, -20). Move cursor to world (200, 300).
-  // new pos = cursor + offset = (200 + -10, 300 + -20) = (190, 280)
+  // offset = (-10, -20). Move cursor to (200, 300).
+  // new node pos = cursor + offset = (200 + -10, 300 + -20) = (190, 280)
   let s1 = update_node_drag_move(s0, 200.0, 300.0)
-  inspect(s1.nodes[0].x, content="190.0")
-  inspect(s1.nodes[0].y, content="280.0")
-  inspect(s1.interaction.did_move, content="true")
+  let node = s1.nodes[0]
+  assert_eq!(node.id, NodeId(1))
+  assert_eq!(node.x, 190.0)
+  assert_eq!(node.y, 280.0)
+  assert_eq!(s1.interaction.did_move, true)
 }
 
 ///|
@@ -668,16 +632,17 @@ test "node_drag_move does not affect other nodes" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
   let s1 = update_node_drag_move(s0, 200.0, 300.0)
-  inspect(s1.nodes[1].x, content="400.0")
-  inspect(s1.nodes[1].y, content="200.0")
+  // Node 2 is unchanged
+  assert_eq!(s1.nodes[1].x, 400.0)
+  assert_eq!(s1.nodes[1].y, 200.0)
 }
 
 ///|
 test "node_drag_move is no-op when not dragging" {
   let state = make_test_state()
   let s = update_node_drag_move(state, 999.0, 999.0)
-  inspect(s.nodes[0].x, content="100.0")
-  inspect(s.nodes[0].y, content="100.0")
+  assert_eq!(s.nodes[0].x, 100.0)
+  assert_eq!(s.nodes[0].y, 100.0)
 }
 ```
 
@@ -714,12 +679,12 @@ fn update_node_drag_start(
   match find_node(state.nodes, node_id) {
     None => state
     Some(node) => {
-      let drag : DragState = {
+      let drag = DragState {
         node_id,
         offset_x: node.x - world_x,
         offset_y: node.y - world_y,
       }
-      let new_interaction : InteractionState = {
+      let new_interaction = {
         ..state.interaction,
         dragging:     Some(drag),
         pointer_down: true,
@@ -741,19 +706,19 @@ fn update_node_drag_move(
     Some(drag) => {
       let new_nodes = state.nodes.map(fn(node) {
         if node.id == drag.node_id {
-          ({ ..node, x: world_x + drag.offset_x, y: world_y + drag.offset_y } : CanvasNode)
+          { ..node, x: world_x + drag.offset_x, y: world_y + drag.offset_y }
         } else {
           node
         }
       })
-      let new_interaction : InteractionState = { ..state.interaction, did_move: true }
+      let new_interaction = { ..state.interaction, did_move: true }
       { ..state, nodes: new_nodes, interaction: new_interaction }
     }
   }
 }
 ```
 
-- [ ] **Step 4: Run all tests to confirm they pass**
+- [ ] **Step 4: Run tests to confirm all pass**
 
 ```bash
 cd examples/canvas && moon test
@@ -786,8 +751,8 @@ test "pointer_up clears panning state" {
   let state = make_test_state()
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0)
-  inspect(s1.interaction.panning, content="None")
-  inspect(s1.interaction.pointer_down, content="false")
+  assert!(s1.interaction.panning is None)
+  assert_eq!(s1.interaction.pointer_down, false)
 }
 
 ///|
@@ -795,41 +760,36 @@ test "pointer_up clears dragging state" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId(1), 0.0, 0.0)
   let s1 = update_pointer_up(s0, 1)
-  inspect(s1.interaction.dragging, content="None")
-  inspect(s1.interaction.pointer_down, content="false")
+  assert!(s1.interaction.dragging is None)
+  assert_eq!(s1.interaction.pointer_down, false)
 }
 
 ///|
 test "pointer_up on node without movement selects it" {
   let state = make_test_state()
-  // pointerdown on node 1, no movement → did_move stays false
+  // Simulate pointerdown on node 1 with no movement
   let s0 = update_node_drag_start(state, NodeId(1), 100.0, 100.0)
+  // No drag_move → did_move stays false
   let s1 = update_pointer_up(s0, 1)
-  inspect(s1.interaction.selected, content="Some(NodeId(1))")
+  assert_eq!(s1.interaction.selected, Some(NodeId(1)))
 }
 
 ///|
-test "pointer_up after drag movement does not change selection" {
-  let state : CanvasState = {
-    ..make_test_state(),
-    interaction: { ..make_test_state().interaction, selected: Some(NodeId(2)) },
-  }
+test "pointer_up after movement does not change selection" {
+  let state = { ..make_test_state(), interaction: { ..make_test_state().interaction, selected: Some(NodeId(2)) } }
   let s0 = update_node_drag_start(state, NodeId(1), 100.0, 100.0)
   let s1 = update_node_drag_move(s0, 200.0, 200.0) // sets did_move = true
   let s2 = update_pointer_up(s1, 1)
   // Selection unchanged because movement occurred (it was a drag, not a click)
-  inspect(s2.interaction.selected, content="Some(NodeId(2))")
+  assert_eq!(s2.interaction.selected, Some(NodeId(2)))
 }
 
 ///|
-test "pointer_up on background deselects" {
-  let state : CanvasState = {
-    ..make_test_state(),
-    interaction: { ..make_test_state().interaction, selected: Some(NodeId(1)) },
-  }
+test "pointer_up on background (node_id=0) deselects" {
+  let state = { ..make_test_state(), interaction: { ..make_test_state().interaction, selected: Some(NodeId(1)) } }
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0)
-  inspect(s1.interaction.selected, content="None")
+  assert!(s1.interaction.selected is None)
 }
 ```
 
@@ -847,21 +807,20 @@ Append to `examples/canvas/main/canvas_update.mbt`:
 
 ```moonbit
 ///|
-/// Handle pointer release. `node_id_int` is the canvas node id under the pointer,
-/// or 0 if released over the background.
-/// A "click" = pointer_down was true AND no movement occurred → select the node.
+/// Handle pointer release. `node_id_int` is the JS node id under the pointer,
+/// or `0` if the pointer was released over the background.
 fn update_pointer_up(
   state       : CanvasState,
   node_id_int : Int
 ) -> CanvasState {
   let hovered : NodeId? = if node_id_int == 0 { None } else { Some(NodeId(node_id_int)) }
-  let new_selected : NodeId? = if state.interaction.pointer_down &&
-    not(state.interaction.did_move) {
-    hovered
+  // A click is: pointer_down was true AND no movement occurred.
+  let new_selected = if state.interaction.pointer_down && not(state.interaction.did_move) {
+    hovered  // select the hovered node (or None to deselect)
   } else {
-    state.interaction.selected
+    state.interaction.selected  // drag occurred — keep existing selection
   }
-  let new_interaction : InteractionState = {
+  let new_interaction = {
     ..state.interaction,
     dragging:     None,
     panning:      None,
@@ -899,13 +858,13 @@ git commit -m "feat(canvas): implement pointer_up and click-to-select with tests
 
 ```moonbit
 ///|
-/// Global handle registry. Index = handle (Int returned by create_canvas).
+/// Global handle registry. Index is the handle (Int) returned by create_canvas.
 let _registry : Array[CanvasState] = []
 
 ///|
 fn make_initial_state() -> CanvasState {
   {
-    // Center the world origin roughly in a 1440×800 browser viewport
+    // Center the origin in a typical 1440×800 browser window
     viewport: { x: 520.0, y: 300.0, scale: 1.0 },
     nodes: [
       { id: NodeId(1), x: -320.0, y: -160.0, w: 200.0, h: 120.0, kind: NodeKind::Shape("#8250df") },
@@ -953,9 +912,7 @@ pub fn node_drag_start(
   world_x : Double,
   world_y : Double
 ) -> Unit {
-  _registry[handle] = update_node_drag_start(
-    _registry[handle], NodeId(node_id), world_x, world_y,
-  )
+  _registry[handle] = update_node_drag_start(_registry[handle], NodeId(node_id), world_x, world_y)
 }
 
 ///|
@@ -983,7 +940,7 @@ Expected: no errors.
 
 ```bash
 git add examples/canvas/main/canvas_init.mbt
-git commit -m "feat(canvas): handle registry and bridge wrapper functions"
+git commit -m "feat(canvas): handle registry + bridge wrapper functions"
 ```
 
 ---
@@ -994,39 +951,57 @@ git commit -m "feat(canvas): handle registry and bridge wrapper functions"
 - Modify: `examples/canvas/main/canvas_init.mbt`
 - Modify: `examples/canvas/main/canvas_update_wbtest.mbt`
 
-- [ ] **Step 1: Add serialization test first**
-
-The test uses exact `inspect` snapshot — run with `moon test --update` on first run to capture the actual output, then lock it in.
+- [ ] **Step 1: Add serialization types and failing test**
 
 Append to `examples/canvas/main/canvas_update_wbtest.mbt`:
 
 ```moonbit
 ///|
-test "get_render_state returns correct JSON shape" {
-  // create_canvas returns handle 0 on first call in test process
+test "get_render_state returns valid JSON with viewport and nodes" {
   let handle = create_canvas()
   let json_str = get_render_state(handle)
-  // Run `moon test --update` on first run to capture actual snapshot.
-  inspect(json_str, content="")
+  // Must parse without error and contain expected keys.
+  // Verify it's non-empty JSON object.
+  assert!(json_str.length() > 10)
+  assert!(json_str.contains("viewport"))
+  assert!(json_str.contains("nodes"))
+  assert!(json_str.contains("selected"))
+}
+
+///|
+test "get_render_state selected is null when nothing selected" {
+  let handle = create_canvas()
+  let json_str = get_render_state(handle)
+  assert!(json_str.contains("\"selected\":null"))
+}
+
+///|
+test "get_render_state NodeKind encoding uses array format" {
+  let handle = create_canvas()
+  let json_str = get_render_state(handle)
+  // Shape nodes serialize as ["Shape", "#color"]
+  assert!(json_str.contains("\"Shape\""))
+  // Text nodes serialize as ["Text", "content"]
+  assert!(json_str.contains("\"Text\""))
 }
 ```
 
-- [ ] **Step 2: Run tests to confirm the test fails**
+- [ ] **Step 2: Run tests to confirm they fail**
 
 ```bash
 cd examples/canvas && moon test
 ```
 
-Expected: compilation error — `get_render_state` not defined.
+Expected: fails with `get_render_state` not defined.
 
-- [ ] **Step 3: Implement get_render_state in canvas_init.mbt**
+- [ ] **Step 3: Add get_render_state to canvas_init.mbt**
 
 Append to `examples/canvas/main/canvas_init.mbt`:
 
 ```moonbit
 ///|
-/// Serializable node snapshot. Uses plain Int for `id` to avoid
-/// the NodeId newtype wrapper appearing in JSON output.
+/// Serializable snapshot of a canvas node (uses plain Int for id to avoid
+/// newtype wrapper in JSON output).
 struct NodeJson {
   id   : Int
   x    : Double
@@ -1037,8 +1012,7 @@ struct NodeJson {
 } derive(ToJson)
 
 ///|
-/// Serializable render snapshot sent to TypeScript each RAF frame.
-/// `selected` is null (None) when no node is selected.
+/// Serializable render snapshot sent to TypeScript each frame.
 struct RenderStateJson {
   viewport : Viewport
   nodes    : Array[NodeJson]
@@ -1061,21 +1035,7 @@ pub fn get_render_state(handle : Int) -> String {
 }
 ```
 
-- [ ] **Step 4: Run tests and capture snapshot**
-
-```bash
-cd examples/canvas && moon test --update
-```
-
-Expected: tests pass, `inspect` snapshot in `canvas_update_wbtest.mbt` updated with the actual JSON string. Verify the captured snapshot looks like:
-
-```json
-{"viewport":{"x":520.0,"y":300.0,"scale":1.0},"nodes":[{"id":1,"x":-320.0,...}],"selected":null}
-```
-
-If the snapshot content is wrong, inspect it manually and correct in the test file.
-
-- [ ] **Step 5: Run tests again to confirm locked snapshot passes**
+- [ ] **Step 4: Run tests to confirm they pass**
 
 ```bash
 cd examples/canvas && moon test
@@ -1083,11 +1043,11 @@ cd examples/canvas && moon test
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add examples/canvas/main/canvas_init.mbt examples/canvas/main/canvas_update_wbtest.mbt
-git commit -m "feat(canvas): get_render_state JSON serialization with snapshot test"
+git commit -m "feat(canvas): implement get_render_state JSON serialization"
 ```
 
 ---
@@ -1099,13 +1059,9 @@ git commit -m "feat(canvas): get_render_state JSON serialization with snapshot t
 
 - [ ] **Step 1: Update moon.pkg with full export list**
 
-Replace `examples/canvas/main/moon.pkg`:
+Replace the contents of `examples/canvas/main/moon.pkg`:
 
 ```
-import {
-  "moonbitlang/core/json",
-}
-
 options(
   "is-main": true,
   link: {
@@ -1125,23 +1081,23 @@ options(
 )
 ```
 
-- [ ] **Step 2: Build for JS**
+- [ ] **Step 2: Build for JS target**
 
 ```bash
 cd examples/canvas && moon build --target js --release
 ```
 
-Expected: no errors. Output at `_build/js/release/build/main/main.js`.
+Expected: no errors, output at `_build/js/release/build/main/main.js`.
 
-- [ ] **Step 3: Verify exported symbols in built JS**
+- [ ] **Step 3: Verify exported symbols exist in the built JS**
 
 ```bash
-grep -c "create_canvas\|pan_start\|pan_move\|node_drag_start\|node_drag_move\|pointer_up\|get_render_state" examples/canvas/_build/js/release/build/main/main.js
+grep -o "create_canvas\|pan_start\|pan_move\|zoom\|node_drag_start\|node_drag_move\|pointer_up\|get_render_state" examples/canvas/_build/js/release/build/main/main.js | sort -u
 ```
 
-Expected: a count > 0 (all symbols appear in the output).
+Expected: all 8 function names appear.
 
-- [ ] **Step 4: Run moon test to confirm nothing broke**
+- [ ] **Step 4: Run moon test one more time to confirm nothing broke**
 
 ```bash
 cd examples/canvas && moon test
@@ -1165,39 +1121,33 @@ git commit -m "feat(canvas): configure JS exports in moon.pkg"
 
 - [ ] **Step 1: Create web/src/main.ts**
 
-Notes:
-- `localCoords` accepts `MouseEvent` (not `PointerEvent`) so it works for both `PointerEvent` and `WheelEvent` (both extend `MouseEvent`)
-- `// (Future) drawOverlay(state)` stub marks the hybrid Canvas 2D upgrade point
-- The render loop always patches node divs on each frame. This is a no-op for node style properties during pan/zoom (values don't change), which is acceptable for a 6-node demo
-
 ```typescript
 type CanvasModule = {
-  create_canvas:   () => number;
-  pan_start:       (h: number, sx: number, sy: number) => void;
-  pan_move:        (h: number, sx: number, sy: number) => void;
-  zoom:            (h: number, delta: number, cx: number, cy: number) => void;
-  node_drag_start: (h: number, id: number, wx: number, wy: number) => void;
-  node_drag_move:  (h: number, wx: number, wy: number) => void;
-  pointer_up:      (h: number, nodeId: number) => void;
-  get_render_state:(h: number) => string;
+  create_canvas: () => number;
+  pan_start:        (h: number, sx: number, sy: number) => void;
+  pan_move:         (h: number, sx: number, sy: number) => void;
+  zoom:             (h: number, delta: number, cx: number, cy: number) => void;
+  node_drag_start:  (h: number, id: number, wx: number, wy: number) => void;
+  node_drag_move:   (h: number, wx: number, wy: number) => void;
+  pointer_up:       (h: number, nodeId: number) => void;
+  get_render_state: (h: number) => string;
 };
 
-type Viewport   = { x: number; y: number; scale: number };
-type NodeKind   = ['Shape', string] | ['Text', string];
-type NodeData   = { id: number; x: number; y: number; w: number; h: number; kind: NodeKind };
+type Viewport = { x: number; y: number; scale: number };
+type NodeKind = ['Shape', string] | ['Text', string];
+type NodeData = { id: number; x: number; y: number; w: number; h: number; kind: NodeKind };
 type RenderState = { viewport: Viewport; nodes: NodeData[]; selected: number | null };
 
 let mb: CanvasModule;
 let handle = -1;
 let rafPending = false;
-// Cached viewport — used by screenToWorld without re-parsing JSON
 let lastViewport: Viewport = { x: 0, y: 0, scale: 1 };
 
-const root     = document.getElementById('canvas-root') as HTMLDivElement;
-const world    = document.getElementById('world') as HTMLDivElement;
+const root    = document.getElementById('canvas-root') as HTMLDivElement;
+const world   = document.getElementById('world') as HTMLDivElement;
 const nodeDivs = new Map<number, HTMLDivElement>();
 
-// ─── RAF render loop ─────────────────────────────────────────────────────────
+// ─── RAF render loop ────────────────────────────────────────────────────────
 
 function scheduleRender(): void {
   if (rafPending) return;
@@ -1210,11 +1160,11 @@ function render(): void {
   const state: RenderState = JSON.parse(mb.get_render_state(handle));
   lastViewport = state.viewport;
 
-  // 1. Update world transform (pan + zoom — only #world touched, not node divs)
+  // 1. Update world transform (pan + zoom)
   const { x, y, scale } = state.viewport;
   world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
 
-  // 2. Sync node divs (only meaningful changes during node drag)
+  // 2. Sync node divs
   const seen = new Set<number>();
   for (const node of state.nodes) {
     seen.add(node.id);
@@ -1246,38 +1196,40 @@ function render(): void {
 
   // 3. Remove divs for deleted nodes (future: add/delete support)
   for (const [id, div] of nodeDivs) {
-    if (!seen.has(id)) { div.remove(); nodeDivs.delete(id); }
+    if (!seen.has(id)) {
+      div.remove();
+      nodeDivs.delete(id);
+    }
   }
 
   // 4. (Future) drawOverlay(state);
 }
 
-// ─── Coordinate helpers ───────────────────────────────────────────────────────
+// ─── Coordinate helpers ──────────────────────────────────────────────────────
 
-/** Pointer/wheel position in canvas-local screen space.
- *  Accepts MouseEvent so it works for both PointerEvent and WheelEvent. */
-function localCoords(e: MouseEvent): [number, number] {
+/** Pointer position in canvas-local screen space. */
+function localCoords(e: PointerEvent): [number, number] {
   const rect = root.getBoundingClientRect();
   return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
-/** Convert canvas-local screen coords to world coords. */
+/** Convert canvas-local screen coords to world coords using last-known viewport. */
 function screenToWorld(sx: number, sy: number): [number, number] {
   const { x, y, scale } = lastViewport;
   return [(sx - x) / scale, (sy - y) / scale];
 }
 
-/** Walk up the DOM from event target to find data-node-id. Returns 0 for background. */
-function nodeIdFromTarget(target: EventTarget | null): number {
-  let el = target as HTMLElement | null;
+/** Read node id from a pointer event target, walking up to find data-node-id. */
+function nodeIdFromEvent(e: PointerEvent): number {
+  let el = e.target as HTMLElement | null;
   while (el && el !== world) {
-    if (el.dataset?.nodeId) return parseInt(el.dataset.nodeId);
+    if (el.dataset.nodeId) return parseInt(el.dataset.nodeId);
     el = el.parentElement;
   }
-  return 0;
+  return 0; // 0 = background
 }
 
-// ─── Event wiring ─────────────────────────────────────────────────────────────
+// ─── Event wiring ────────────────────────────────────────────────────────────
 
 type Interaction = 'none' | 'pan' | 'drag';
 let activeInteraction: Interaction = 'none';
@@ -1287,7 +1239,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   root.setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;
   const [sx, sy] = localCoords(e);
-  const nodeId = nodeIdFromTarget(e.target);
+  const nodeId = nodeIdFromEvent(e);
 
   if (nodeId !== 0) {
     const [wx, wy] = screenToWorld(sx, sy);
@@ -1304,6 +1256,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
 root.addEventListener('pointermove', (e: PointerEvent) => {
   if (e.pointerId !== activePointerId) return;
   const [sx, sy] = localCoords(e);
+
   if (activeInteraction === 'pan') {
     mb.pan_move(handle, sx, sy);
   } else if (activeInteraction === 'drag') {
@@ -1315,7 +1268,7 @@ root.addEventListener('pointermove', (e: PointerEvent) => {
 
 root.addEventListener('pointerup', (e: PointerEvent) => {
   if (e.pointerId !== activePointerId) return;
-  const nodeId = nodeIdFromTarget(e.target);
+  const nodeId = nodeIdFromEvent(e);
   mb.pointer_up(handle, nodeId);
   activeInteraction = 'none';
   activePointerId = -1;
@@ -1334,18 +1287,18 @@ root.addEventListener('pointercancel', () => {
 
 root.addEventListener('wheel', (e: WheelEvent) => {
   e.preventDefault();
-  const [cx, cy] = localCoords(e); // WheelEvent extends MouseEvent ✓
+  const [cx, cy] = localCoords(e);
   mb.zoom(handle, e.deltaY, cx, cy);
   scheduleRender();
 }, { passive: false });
 
-// ─── Bootstrap ────────────────────────────────────────────────────────────────
+// ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
   const mod = await import('@moonbit/canopy-canvas') as CanvasModule;
   mb = mod;
   handle = mb.create_canvas();
-  render(); // initial render
+  render(); // initial render to populate DOM
 }
 
 init();
@@ -1370,7 +1323,7 @@ git commit -m "feat(canvas): TypeScript bootstrap, event wiring, RAF render loop
 cd examples/canvas/web && npm install
 ```
 
-Expected: `node_modules/` created, no errors.
+Expected: `node_modules/` created.
 
 - [ ] **Step 2: Start dev server**
 
@@ -1391,20 +1344,21 @@ Open the URL. Expected:
 
 Click and drag on the background. Expected:
 - All nodes move together as the viewport pans
-- Cursor changes to `grabbing`
-- Nodes return to normal cursor on release
+- Cursor changes to `grabbing` while panning
+- Nodes return to normal when released
 
 - [ ] **Step 5: Verify zoom**
 
 Scroll the mouse wheel (or pinch on trackpad). Expected:
 - Nodes scale around the cursor position
-- Scale clamped — can't zoom past 8× or below 0.1×
+- Scale is clamped (can't zoom past 8× or below 0.1×)
 
 - [ ] **Step 6: Verify node drag**
 
 Click and drag a colored rectangle. Expected:
 - Only that node moves
 - Other nodes stay in place
+- Node is draggable independently of the viewport
 
 - [ ] **Step 7: Verify click-to-select**
 
@@ -1424,25 +1378,25 @@ git commit -m "feat: infinite canvas demo — pan, zoom, drag, select"
 
 ## Self-Review
 
-**Spec coverage:**
-- ✅ Pan, zoom (clamped [0.1, 8.0]), node drag
-- ✅ Shape nodes (filled rect), text nodes (label)
-- ✅ Click-to-select (CSS `.selected` class)
-- ✅ Hybrid overlay stub (`#overlay` + `// (Future) drawOverlay` comment)
+**Spec coverage check:**
+- ✅ Pan (pan_start, pan_move)
+- ✅ Zoom clamped to [0.1, 8.0]
+- ✅ Node drag
+- ✅ Shape nodes (filled rect)
+- ✅ Text nodes (label)
+- ✅ Click-to-select (visual only)
+- ✅ Hybrid overlay stub (`#overlay` canvas + `// (Future) drawOverlay` comment)
 - ✅ Pointer capture (`setPointerCapture`)
 - ✅ Standalone module layout (moon.mod.json + main/moon.pkg + web/)
 - ✅ Handle-first bridge
-- ✅ Canvas-local coordinates (`localCoords` subtracts `getBoundingClientRect`)
-- ✅ RAF-batched render
-- ✅ JSON schema matches spec (NodeKind array-encoded, selected null or Int)
-- ✅ `moonbitlang/core/json` imported in moon.pkg
-- ✅ `tsconfig.json` with `@moonbit/canopy-canvas` path
+- ✅ Canvas-local coordinates (localCoords subtracts getBoundingClientRect)
+- ✅ RAF-batched render (scheduleRender + requestAnimationFrame)
+- ✅ JSON schema for get_render_state matches spec
 
-**Placeholder scan:** No TBDs. Task 8 Step 4 explicitly instructs to run `--update` and lock the snapshot — intentional, not a placeholder.
+**Placeholder scan:** No TBDs, no TODOs, no "implement later". All code blocks are complete.
 
 **Type consistency:**
-- `NodeId(n)` construction and `let NodeId(id) = n.id` destructuring — consistent with `pub struct NodeId(Int)` tuple-struct definition
-- `update_pointer_up(state, node_id_int: Int)` and bridge `pointer_up(handle, node_id)` — both use plain Int for node id
-- `find_node` defined in `canvas_update.mbt`, used in `update_node_drag_start` — same file
-- `_registry` array defined once in `canvas_init.mbt`, accessed only there
-- `NodeJson` / `RenderStateJson` defined in `canvas_init.mbt`, not exposed outside
+- `NodeId` newtype used in MoonBit, converted to `Int` for JSON output — TypeScript uses plain `number`.
+- `update_pointer_up(state, node_id_int: Int)` and bridge `pointer_up(handle, node_id)` both use plain Int for node id. Consistent.
+- `find_node` used in `update_node_drag_start` — defined in the same file. Consistent.
+- `_registry` accessed in both `canvas_init.mbt` wrappers and `get_render_state`. Consistent.
