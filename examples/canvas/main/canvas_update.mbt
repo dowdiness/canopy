@@ -128,3 +128,29 @@ fn update_node_drag_move(
     }
   }
 }
+
+///|
+/// Handle pointer release. `node_id_int` is the canvas node id under the pointer,
+/// or 0 if released over the background.
+/// A "click" = pointer_down was true AND no movement occurred → select the node.
+fn update_pointer_up(
+  state       : CanvasState,
+  node_id_int : Int
+) -> CanvasState {
+  let hovered : NodeId? = if node_id_int == 0 { None } else { Some(NodeId(node_id_int)) }
+  let new_selected : NodeId? = if state.interaction.pointer_down &&
+    not(state.interaction.did_move) {
+    hovered
+  } else {
+    state.interaction.selected
+  }
+  let new_interaction : InteractionState = {
+    ..state.interaction,
+    dragging:     None,
+    panning:      None,
+    pointer_down: false,
+    did_move:     false,
+    selected:     new_selected,
+  }
+  { ..state, interaction: new_interaction }
+}
