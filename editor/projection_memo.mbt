@@ -133,11 +133,11 @@ fn build_lambda_projection_memos(
       // Advance changed_at only when content actually changed.
       // Some([]) = incremental, nothing changed → do not advance (backdate will fire).
       // Some([...]) or None = changes or full rebuild → advance.
-      let unchanged = match changed_def_indices_ref.val {
-        Some(indices) => indices.is_empty()
-        None => false
+      let has_changes = match changed_def_indices_ref.val {
+        Some(indices) => not(indices.is_empty())
+        None => true
       }
-      if not(unchanged) {
+      if has_changes {
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
       }
       VersionedFlatProj::{
