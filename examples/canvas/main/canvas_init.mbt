@@ -124,7 +124,8 @@ struct NodeJson {
 
 ///|
 /// Serializable render snapshot sent to TypeScript each RAF frame.
-/// `selected` is null (None) when no node is selected.
+/// `selected` is absent (key omitted) when no node is selected — MoonBit derive(ToJson) omits None keys.
+/// TypeScript: use `rs.selected != null` (loose equality) not `rs.selected !== null`.
 struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
