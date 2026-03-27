@@ -46,7 +46,7 @@ Serialization   Import/export Markdown files
 
 **Joint invariant model (resolved):** Following Loro's approach, all containers (tree + per-block text CRDTs) live inside a **single document with a unified version vector and oplog**. They are not independent CRDTs — they share causal history. This guarantees document-level convergence.
 
-- **Delete block while another peer edits its text:** Delete = move to a TRASH node (Kleppmann's model). Text edits on deleted blocks are preserved in the oplog, not rejected. If the block is restored via undo, the text edits surface. Content is never silently lost.
+- **Delete block while another peer edits its text:** Delete = move to a TRASH node (Kleppmann's model). Text edits on deleted blocks are preserved in the oplog, not rejected. If the block is restored via undo, the text edits surface. **Durability caveat:** TRASH content exists only in the CRDT oplog, not in the `.md` file. If the sidecar is lost, TRASH content is lost. This is acceptable — TRASH is a collaboration-session concept, not a persistence guarantee. The `.md` always reflects the visible document state.
 - **Create block with initial text:** Two operations (tree create + text insert) grouped in a single commit/transaction. Causal delivery ensures a peer won't see the text insert without first seeing the node creation. Not atomic at the CRDT level, but atomic for event emission and undo.
 - **Known risk:** Yjs has an open bug (#642) where undoing compound operations across nested types causes peer divergence. This pattern needs extensive testing in our implementation.
 
@@ -77,7 +77,7 @@ Following Notion and BlockNote, blocks are **standalone nodes with a `type` prop
 - **Type change = property change.** Converting a bullet item to a paragraph is `set_property(type, paragraph)`, not a tree restructure.
 - **Concurrent merge quality.** Two users both creating list items just create nodes with the same type. Container models create duplicate containers needing post-merge fixup.
 
-**Visual grouping via run detection:** The renderer groups consecutive same-type sibling blocks into visual lists (e.g., consecutive `bulletListItem` blocks render as one `<ul>`). This is O(n) in siblings — trivially cheap.
+**Visual grouping via run detection:** The renderer groups consecutive sibling blocks with the **same `type` AND same `style`** into visual lists (e.g., consecutive blocks with `type: listItem, style: bullet` render as one `<ul>`, while adjacent `style: numbered` blocks render as a separate `<ol>`). This is O(n) in siblings — trivially cheap. A bullet item adjacent to a numbered item produces two separate visual lists, not one mixed list.
 
 **Exceptions:**
 - **Tables** are containers: `table > table_row > cells`. Tables have fixed structure that doesn't change type.
@@ -91,8 +91,8 @@ Following Notion and BlockNote, blocks are **standalone nodes with a `type` prop
 |---|---|---|
 | Paragraph | Plain text | Leaf (text CRDT) |
 | Heading | `# ` through `###### ` | Leaf (text CRDT + level property) |
-| List item | `- `, `1. `, `- [ ] ` | Leaf or parent (text CRDT + style property; children = nested items) |
-| Quote | `> ` | Leaf or parent (text CRDT; children = nested blocks) |
+| List item | `- `, `1. `, `- [ ] ` | Leaf or parent (text CRDT; properties: `style` (bullet/numbered/todo), `checked` (bool, todo only), `start` (int, numbered only); children = any block type) |
+| Quote | `> ` | Leaf or parent (text CRDT; children = any block type) |
 | Code | ` ``` ` | Leaf (text CRDT + language property; Loom parses for syntax) |
 | Divider | `---` | Leaf (no text CRDT) |
 
@@ -162,14 +162,30 @@ On disk:
   .canopy/document.crdt    — CRDT binary state (sidecar)
 ```
 
+**Durability contract — what lives where:**
+
+| State | Durable in `.md`? | In `.crdt` sidecar? | On sidecar loss |
+|---|---|---|---|
+| Visible block tree + content | Yes | Yes | Rebuilt from `.md` |
+| Block properties (type, style, level, etc.) | Yes (encoded in Markdown syntax) | Yes | Rebuilt from `.md` |
+| CRDT operation history + version vectors | No | Yes | Lost — fresh CRDT |
+| TRASH (deleted blocks with preserved edits) | No | Yes | Lost |
+| Undo/redo stack | No | Yes (or session-only) | Lost |
+| Peer cursors / presence | No | No (ephemeral) | N/A |
+
 **Flows:**
-- **Save:** Serialize CRDT → `.md` + write CRDT binary → `.canopy/`. Atomic via temp-file rename.
-- **Load with sidecar:** Load `.crdt` for full CRDT state with merge capability. Verify against `.md`. If they diverge (external edit), apply `.md` diff as synthetic operations from a reserved "filesystem peer" agent ID.
+
+- **Save:** Write `.md` first (temp file + rename), then write `.crdt` (temp file + rename). Order matters: if the process crashes between the two writes, the `.md` is current and the `.crdt` is stale — the safe direction. The two files are NOT atomically paired. A stale `.crdt` is detected on next load via divergence check and corrected.
+- **Load with sidecar:** Load `.crdt` for full CRDT state. Export CRDT to normalized Markdown. Compare against the `.md` file on disk (text diff, not model comparison — avoids the normalization problem). If they match: ready. If they diverge: the `.md` has been externally edited. Apply the text diff as block-level synthetic operations from a reserved "filesystem peer" agent ID (see reconciliation below). These synthetic ops are NOT undoable by the user — they represent external reality.
 - **Load without sidecar** (file from git, email, etc.): Parse `.md`, create fresh CRDT. Collaboration history starts fresh.
-- **External file change** (file watcher): Diff new `.md` against CRDT state. Apply diff as "filesystem peer" operations. Preserves local CRDT history while incorporating external edits.
+- **External file change** (file watcher): Same as load-with-sidecar divergence path. Debounce to avoid self-triggered loops (ignore file changes within 1s of our own save). The watcher pauses during save and resumes after.
 - **`.gitignore` policy:** `.canopy/` is gitignored — it's cache, not source of truth. `.md` files are committed. Losing `.canopy/` loses collaboration history but preserves all content. Analogous to `node_modules/` vs `package.json`.
 
-**Key invariant:** `.md` is always authoritative for content. `.crdt` is an acceleration layer that can be rebuilt. If they conflict, trust the `.md` and apply it as a "filesystem peer" edit to the CRDT.
+**Block-identity reconciliation on external `.md` change:**
+
+When the `.md` diverges from the CRDT, we need to map external changes back to existing blocks. V1 approach: **text diff at the Markdown level, not block matching.** Export the CRDT to Markdown, diff against the new `.md` (character-level diff), apply the diff as synthetic insert/delete text ops to the single-document CRDT. This is coarse — a block move looks like a delete + insert (losing that block's CRDT history) — but it's correct and simple. Block-identity-preserving reconciliation (e.g., LCS matching on block content hashes) is a future optimization.
+
+**Key invariant:** `.md` is always authoritative for visible content. `.crdt` is an acceleration layer that can be rebuilt. If they conflict, trust the `.md`.
 
 ### 4. Undo across CRDTs → document-level undo with transaction grouping
 
@@ -182,7 +198,7 @@ Following Loro's model:
 
 ## Remaining Open Questions
 
-These can be resolved during implementation.
+These can be resolved during implementation. None are architectural blockers.
 
 1. **Split view authority.** Rabbita has a text view + tree view today. A Markdown source pane is mechanically different — it's a serialization of many CRDTs, not a single text CRDT. Is it read-only? Editable (implies a re-import path)? Deferred until core editing works?
 
@@ -190,9 +206,11 @@ These can be resolved during implementation.
 
 3. **Fractional index scheme.** The concrete key representation, tie-break rules for concurrent inserts at the same position, and growth/compaction strategy.
 
-4. **Model equality and normalization.** What counts as "same model" after parse → export → parse? How are equivalent Markdown representations (e.g., `*` vs `-` bullets) normalized? When does an opaque raw block become structured?
+4. **Model equality and normalization.** What counts as "same model" after parse → export → parse? How are equivalent Markdown representations (e.g., `*` vs `-` bullets) normalized? When does an opaque raw block become structured? Note: the file-authority reconciliation sidesteps this by diffing at the Markdown text level, but normalization still matters for round-trip quality assertions.
 
-5. **First end-to-end slice.** What is the minimal vertical cut that proves the architecture works? Candidate: paragraph + heading + list, single peer, save/load as Markdown, no collaboration. This should be defined before implementation planning.
+5. **Block-identity-preserving reconciliation.** V1 uses text-level diff for external `.md` changes, which means external block moves look like delete + insert (losing per-block CRDT history). A future optimization could use LCS matching on block content hashes to detect moves and preserve identity. Not needed for v1.
+
+6. **First end-to-end slice.** What is the minimal vertical cut that proves the architecture works? Candidate: paragraph + heading + list, single peer, save/load as Markdown, no collaboration. This should be defined before implementation planning.
 
 ## Non-Goals
 
