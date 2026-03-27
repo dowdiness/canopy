@@ -79,6 +79,8 @@ Following Notion and BlockNote, blocks are **standalone nodes with a `type` prop
 
 **Visual grouping via run detection:** The renderer groups consecutive sibling blocks with the **same `type` AND same `style`** into visual lists (e.g., consecutive blocks with `type: listItem, style: bullet` render as one `<ul>`, while adjacent `style: numbered` blocks render as a separate `<ol>`). This is O(n) in siblings — trivially cheap. A bullet item adjacent to a numbered item produces two separate visual lists, not one mixed list.
 
+**Ordered-list numbering** is a run-level rendering concern, not a per-item property. The first item in a numbered run renders as `1.` (or whatever the Markdown `start` attribute was on import); subsequent items auto-increment. On import, if the Markdown source has `3.` as the first item, the run starts at 3. On export, only the first item's start number is emitted; subsequent items use auto-numbering. There is no per-item `start` property — `start` is computed by the renderer from the run's first item position in the source Markdown. This avoids conflicts when concurrent edits reorder numbered items.
+
 **Exceptions:**
 - **Tables** are containers: `table > table_row > cells`. Tables have fixed structure that doesn't change type.
 - **Toggle/collapsible** blocks are standalone with a `collapsed: bool` property. Children are tree children. No special container.
@@ -91,7 +93,7 @@ Following Notion and BlockNote, blocks are **standalone nodes with a `type` prop
 |---|---|---|
 | Paragraph | Plain text | Leaf (text CRDT) |
 | Heading | `# ` through `###### ` | Leaf (text CRDT + level property) |
-| List item | `- `, `1. `, `- [ ] ` | Leaf or parent (text CRDT; properties: `style` (bullet/numbered/todo), `checked` (bool, todo only), `start` (int, numbered only); children = any block type) |
+| List item | `- `, `1. `, `- [ ] ` | Leaf or parent (text CRDT; properties: `style` (bullet/numbered/todo), `checked` (bool, todo only); children = any block type) |
 | Quote | `> ` | Leaf or parent (text CRDT; children = any block type) |
 | Code | ` ``` ` | Leaf (text CRDT + language property; Loom parses for syntax) |
 | Divider | `---` | Leaf (no text CRDT) |
@@ -105,6 +107,14 @@ Following Notion and BlockNote, blocks are **standalone nodes with a `type` prop
 | Callout | `:::type ... :::` | Parent (style property; children = nested blocks) |
 | Toggle | TBD | Parent (collapsed property; children = nested blocks) |
 | Embed | TBD | Leaf (url property) |
+
+#### Raw/opaque block (interoperability)
+
+| Type | Serialization | Tree structure |
+|---|---|---|
+| Raw | Original Markdown bytes, verbatim | Leaf (text CRDT holding the original source) |
+
+When the Markdown importer encounters syntax it doesn't recognize (HTML blocks, footnote definitions, custom extensions from other tools, etc.), it creates a `raw` block that preserves the original bytes verbatim in its text CRDT. The renderer displays raw blocks as monospace pre-formatted text (or collapsed with a "raw Markdown" label). On export, the raw block's text CRDT content is emitted unchanged. Editing a raw block's content is allowed but does not attempt to re-parse it into a structured block — the user can convert it manually via slash commands or type changes.
 
 Block types without standard Markdown serialization (toggle, embed) should be deferred until the core block types work.
 
@@ -181,9 +191,21 @@ On disk:
 - **External file change** (file watcher): Same as load-with-sidecar divergence path. Debounce to avoid self-triggered loops (ignore file changes within 1s of our own save). The watcher pauses during save and resumes after.
 - **`.gitignore` policy:** `.canopy/` is gitignored — it's cache, not source of truth. `.md` files are committed. Losing `.canopy/` loses collaboration history but preserves all content. Analogous to `node_modules/` vs `package.json`.
 
-**Block-identity reconciliation on external `.md` change:**
+**Reconciliation on external `.md` change:**
 
-When the `.md` diverges from the CRDT, we need to map external changes back to existing blocks. V1 approach: **text diff at the Markdown level, not block matching.** Export the CRDT to Markdown, diff against the new `.md` (character-level diff), apply the diff as synthetic insert/delete text ops to the single-document CRDT. This is coarse — a block move looks like a delete + insert (losing that block's CRDT history) — but it's correct and simple. Block-identity-preserving reconciliation (e.g., LCS matching on block content hashes) is a future optimization.
+When the `.md` diverges from the CRDT, we need to ingest external changes into the multi-CRDT document model. V1 approach: **re-import, not diff.**
+
+1. Parse the new `.md` into a fresh block tree (using Loom's Markdown grammar).
+2. Parse the CRDT's current exported Markdown into a block tree (same grammar).
+3. Run a **block-level structural diff** between the two trees: match blocks by position + content similarity (not CRDT identity). Produce a list of: added blocks, deleted blocks, changed blocks (content or properties), moved blocks.
+4. Translate each diff entry into CRDT operations on the live document:
+   - **Added block:** `tree.create(parent, position, type)` + `text.insert(content)` as "filesystem peer"
+   - **Deleted block:** `tree.move(block, TRASH)` as "filesystem peer"
+   - **Changed content:** character-level diff on the block's text, applied as insert/delete ops to that block's FugueMax instance
+   - **Changed properties:** `tree.set_property(block, key, value)` as "filesystem peer"
+   - **Moved block:** `tree.move(block, new_parent, new_position)` as "filesystem peer"
+
+This is coarse — block matching by position is heuristic, and a fully rewritten block looks like delete + create (losing that block's CRDT history) — but it correctly translates external Markdown edits into the native tree + per-block text CRDT operations. Block-identity-preserving reconciliation (e.g., content-hash fingerprinting) is a future optimization.
 
 **Key invariant:** `.md` is always authoritative for visible content. `.crdt` is an acceleration layer that can be rebuilt. If they conflict, trust the `.md`.
 
