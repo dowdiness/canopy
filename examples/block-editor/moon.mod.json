@@ -1,0 +1,14 @@
+{
+  "name": "dowdiness/canopy-block-editor",
+  "version": "0.1.0",
+  "source": ".",
+  "preferred-target": "js",
+  "deps": {
+    "dowdiness/canopy": {
+      "path": "../.."
+    },
+    "dowdiness/event-graph-walker": {
+      "path": "../../event-graph-walker"
+    }
+  }
+}

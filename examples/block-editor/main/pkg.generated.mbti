@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-block-editor/main"
+
+// Values
+pub fn block_type_from_props(String, (String) -> String?) -> BlockType
+
+pub fn block_type_to_string(BlockType) -> (String, Map[String, String])
+
+// Errors
+
+// Types and methods
+pub enum BlockType {
+  Paragraph
+  Heading(Int)
+  ListItem(ListStyle)
+  Quote
+  Code(String)
+  Divider
+  Raw
+}
+pub impl Eq for BlockType
+pub impl Show for BlockType
+
+pub enum ListStyle {
+  Bullet
+  Numbered
+  Todo
+}
+pub impl Eq for ListStyle
+pub impl Show for ListStyle
+
+// Type aliases
+
+// Traits
+
