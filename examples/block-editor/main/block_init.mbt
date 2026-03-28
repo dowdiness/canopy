@@ -88,15 +88,19 @@ pub fn get_render_state(handle : Int) -> String {
         buf.write_string("\",\"block_type\":\"")
         buf.write_string(type_str)
         buf.write_string("\",\"level\":\"")
-        buf.write_string(match props.get("level") {
-          Some(v) => v
-          None => ""
-        })
+        buf.write_string(
+          match props.get("level") {
+            Some(v) => v
+            None => ""
+          },
+        )
         buf.write_string("\",\"list_style\":\"")
-        buf.write_string(match props.get("list_style") {
-          Some(v) => v
-          None => ""
-        })
+        buf.write_string(
+          match props.get("list_style") {
+            Some(v) => v
+            None => ""
+          },
+        )
         buf.write_string("\",\"checked\":")
         buf.write_string(if doc.get_checked(id) { "true" } else { "false" })
         buf.write_string(",\"text\":\"")
@@ -148,7 +152,11 @@ pub fn editor_insert_block_after(
 }
 
 ///|
-pub fn editor_set_block_text(handle : Int, id_str : String, text : String) -> Unit {
+pub fn editor_set_block_text(
+  handle : Int,
+  id_str : String,
+  text : String,
+) -> Unit {
   match docs.get(handle) {
     Some(doc) => doc.set_text(parse_block_id(id_str), text)
     None => ()
