@@ -39,7 +39,12 @@ pub fn[T : @proj.Renderable] SyncEditor::delete_node(
   let placeholder = @proj.Renderable::placeholder(node.kind)
   let delete_len = range.end - range.start
   self.apply_text_edit_internal(
-    range.start, delete_len, placeholder, timestamp_ms, true, false,
+    range.start,
+    delete_len,
+    placeholder,
+    timestamp_ms,
+    true,
+    false,
   )
   Ok(())
 }
@@ -62,7 +67,12 @@ pub fn[T] SyncEditor::commit_edit(
   }
   let delete_len = range.end - range.start
   self.apply_text_edit_internal(
-    range.start, delete_len, new_text, timestamp_ms, true, true,
+    range.start,
+    delete_len,
+    new_text,
+    timestamp_ms,
+    true,
+    true,
   )
   Ok(())
 }
@@ -83,7 +93,8 @@ pub fn[T] SyncEditor::apply_text_transform(
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
   let range = match self.get_node_range(node_id) {
-    None => return Err("apply_text_transform: node \{node_id} not in source map")
+    None =>
+      return Err("apply_text_transform: node \{node_id} not in source map")
     Some(r) => r
   }
   let source = self.get_text()
@@ -93,7 +104,12 @@ pub fn[T] SyncEditor::apply_text_transform(
   }
   let delete_len = range.end - range.start
   self.apply_text_edit_internal(
-    range.start, delete_len, replacement, timestamp_ms, true, false,
+    range.start,
+    delete_len,
+    replacement,
+    timestamp_ms,
+    true,
+    false,
   )
   Ok(())
 }
@@ -135,7 +151,12 @@ pub fn[T : @proj.Renderable] SyncEditor::move_node(
 
   // Step 1: delete source span (replace with placeholder)
   self.apply_text_edit_internal(
-    src_range.start, src_len, placeholder, timestamp_ms, true, false,
+    src_range.start,
+    src_len,
+    placeholder,
+    timestamp_ms,
+    true,
+    false,
   )
 
   // Step 2: compute insert position, adjusting for source deletion if source < target
@@ -154,7 +175,12 @@ pub fn[T : @proj.Renderable] SyncEditor::move_node(
   // Separator is a space — language-specific grammars may need wrapping.
   // Use apply_text_transform with a custom closure for precise control.
   self.apply_text_edit_internal(
-    adjusted_insert, 0, src_text + " ", timestamp_ms, true, false,
+    adjusted_insert,
+    0,
+    src_text + " ",
+    timestamp_ms,
+    true,
+    false,
   )
   Ok(())
 }

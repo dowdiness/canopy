@@ -9,7 +9,7 @@ import {
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 
-warnings = "-2-6"
+warnings = "-2-6-9"
 
 options(
   is_main: false,
