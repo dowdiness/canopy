@@ -205,7 +205,8 @@ document.getElementById('btn-upload')!.addEventListener('click', () => {
 });
 
 document.getElementById('file-input')!.addEventListener('change', (e) => {
-  const file = (e.target as HTMLInputElement).files?.[0];
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
@@ -215,6 +216,7 @@ document.getElementById('file-input')!.addEventListener('change', (e) => {
     render();
   };
   reader.readAsText(file);
+  input.value = ''; // Reset so re-uploading same file triggers change
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────
