@@ -1,7 +1,7 @@
 # AST Zipper for Tree Pane Navigation and Structural Editing
 
 **Date:** 2026-03-28
-**Status:** Draft
+**Status:** Approved
 
 **Prerequisites (in order):**
 
@@ -340,6 +340,22 @@ pub fn from_root(term : Term) -> Zipper
 pub fn depth(z : Zipper) -> Int
 ```
 
+### navigate_to_child
+
+Navigate to the nth child of the focused node (0 = first child). Used by `dispatch_tier2`
+for `UnwrapKeeping` to get a Zipper suitable for structural `find_proj_node_for_focus`.
+
+```moonbit
+fn navigate_to_child(z : Zipper, child_idx : Int) -> Zipper? {
+  let first = go_down(z)?
+  var current = first
+  for _ in 1..<child_idx {
+    current = go_right(current)?
+  }
+  Some(current)
+}
+```
+
 ### ctx_to_child_index
 
 Maps a context frame to the child index of the hole within the reconstructed parent.
@@ -479,7 +495,7 @@ NodeId and dispatches via the Tier-2 methods from Framework Extraction Phase 1:
 if result.is_structural {
   let proj_root = sync_editor.get_proj_node()??  // None → bail
   let proj_node = find_proj_node_for_focus(zipper, proj_root)??  // None → bail
-  let _ = dispatch_tier2(sync_editor, proj_node.node_id, proj_node, result.action, timestamp_ms)
+  let _ = dispatch_tier2(sync_editor, proj_node.node_id, proj_node, zipper, result.action, timestamp_ms)
 }
 ```
 
@@ -489,7 +505,8 @@ if result.is_structural {
 fn dispatch_tier2(
   editor : SyncEditor[Term],
   node_id : NodeId,
-  proj_node : ProjNode[Term],  // focused node — needed by UnwrapKeeping to find kept child's span
+  proj_node : ProjNode[Term],  // focused node's ProjNode
+  zipper : Zipper,             // focused Zipper — needed by UnwrapKeeping for child navigation
   action : EditAction,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
@@ -516,16 +533,27 @@ fn dispatch_tier2(
     }
     UnwrapKeeping(child_idx) => {
       // Replace parent span with the source text of the kept child.
-      // The kept child's span is looked up via its NodeId in the ProjNode tree.
-      editor.apply_text_transform(node_id, fn(src, _, _) {
-        // proj_node.children[child_idx] is the kept child's ProjNode
-        // Its NodeId → range gives the preserved source span
-        let kept_id = proj_node.children[child_idx].node_id  // captured from outer scope
-        match editor.get_node_range(kept_id) {
-          Some(r) => Ok(src.substring(r.start, r.end_))
-          None    => Err("kept child not in source map")
+      // Navigate to the kept child via go_down + go_right to get a Zipper,
+      // then use find_proj_node_for_focus for structural matching.
+      // This is safe against error recovery nodes (ProjNode children and Term
+      // children do not correspond 1:1 — see "Bidirectional Text ↔ Zipper Mapping").
+      // Direct proj_node.children[child_idx] would be wrong for malformed input.
+      let proj_root = match editor.get_proj_node() {
+        Some(r) => r
+        None    => return Err("no proj root for UnwrapKeeping")
+      }
+      let kept_zipper = navigate_to_child(zipper, child_idx)?
+      let kept_proj = match find_proj_node_for_focus(kept_zipper, proj_root) {
+        Some(n) => n
+        None    => return Err("kept child not found in ProjNode tree")
+      }
+      match editor.get_node_range(kept_proj.node_id) {
+        None    => Err("kept child not in source map")
+        Some(r) => {
+          let src = editor.get_text()
+          editor.commit_edit(node_id, src.substring(r.start, r.end_), timestamp_ms)
         }
-      }, timestamp_ms)
+      }
     }
     Move(_) => Ok(())  // navigation — no text edit
   }
@@ -580,7 +608,10 @@ fn zipper_to_trail(z : Zipper) -> Array[(Term, Int)] {
       }
     }
   }
-  entries.rev()  // rev() returns a new reversed array; this is the return value
+  // entries was built focus→root; reverse to root→focus.
+  // Use Array::reverse() (in-place) if rev() is not available, then return entries.
+  entries.reverse()
+  entries
 }
 
 fn walk_matching(
@@ -755,7 +786,7 @@ fn on_tree_key(
           None => return state  // Zipper focus not found in ProjNode tree
           Some(proj_node) => {
             let _ = dispatch_tier2(
-              sync_editor, proj_node.node_id, proj_node, result.action, timestamp_ms,
+              sync_editor, proj_node.node_id, proj_node, zipper, result.action, timestamp_ms,
             )
           }
         }
@@ -766,8 +797,9 @@ fn on_tree_key(
       log.push((result.action, result.role))
 
       // 3. Sync Zipper to reparsed AST (after text round-trip).
-      // get_ast() is synchronous and always returns a Term (Error(_) on parse failure).
-      // dispatch_tier2 completes synchronously, so get_ast() here sees the updated tree.
+      // The entire pipeline is synchronous: dispatch_tier2 → apply_text_edit_internal →
+      // CRDT op → memo dirty flag. get_ast() forces the memo chain (parse + project),
+      // always returning a Term (Error(_) on parse failure, never absent).
       let synced = sync_after_roundtrip(result.zipper, sync_editor.get_ast())
 
       // 4. Register hole metadata for newly created holes
