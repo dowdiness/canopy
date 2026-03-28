@@ -72,12 +72,17 @@ pub fn BlockDoc::delete_block(self : BlockDoc, id : @tree.TreeNodeId) -> Unit {
 }
 
 ///|
-/// Move a block to a new parent (Phase 2 nesting).
+/// Move a block within the same parent (V1: root-to-root reorder only).
+/// Moving between root and nested parents is Phase 2 — `order` is not updated
+/// for cross-level moves, so this aborts if either node is non-root.
 pub fn BlockDoc::move_block(
   self : BlockDoc,
   id : @tree.TreeNodeId,
   new_parent~ : @tree.TreeNodeId,
 ) -> Unit {
+  if not(id_eq(new_parent, root_block_id)) {
+    abort("BlockDoc::move_block: cross-level moves are Phase 2 only")
+  }
   self.tree.move_node(target=id, new_parent~)
 }
 
@@ -125,7 +130,7 @@ pub fn BlockDoc::get_text(self : BlockDoc, id : @tree.TreeNodeId) -> String {
 }
 
 ///|
-/// Bulk-replace block text (CRDT delete-all + insert).
+/// Bulk-replace block text (atomic CRDT replace).
 pub fn BlockDoc::set_text(
   self : BlockDoc,
   id : @tree.TreeNodeId,
@@ -135,11 +140,10 @@ pub fn BlockDoc::set_text(
     Some(tdoc) => {
       let len = tdoc.len()
       if len > 0 {
-        tdoc.delete_range(@text.Range::from_ints(0, len)) catch {
+        tdoc.replace_range(@text.Range::from_ints(0, len), text) catch {
           _ => ()
         }
-      }
-      if text != "" {
+      } else if text != "" {
         tdoc.insert(@text.Pos::at(0), text) catch {
           _ => ()
         }
