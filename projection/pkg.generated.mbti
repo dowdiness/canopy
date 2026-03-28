@@ -75,13 +75,20 @@ pub(all) enum BindingSite {
 pub impl Eq for BindingSite
 pub impl Show for BindingSite
 
-pub enum DropPosition {
+pub(all) enum DropPosition {
   Before
   After
   Inside
 }
 pub impl Eq for DropPosition
 pub impl Show for DropPosition
+
+pub struct EditAction[T] {
+  label : String
+  shortcut : String?
+  applicable : (ProjNode[T], NodeId) -> Bool
+  compute_replacement : (String, Int, Int) -> Result[String, String]
+}
 
 pub(all) struct EditContext[T] {
   source_text : String

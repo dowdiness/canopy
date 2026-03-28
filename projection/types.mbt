@@ -16,7 +16,7 @@ pub fn NodeId::from_int(n : Int) -> NodeId {
 
 ///|
 /// Drop position for drag-and-drop operations
-pub enum DropPosition {
+pub(all) enum DropPosition {
   /// Insert before the target
   Before
   /// Insert after the target

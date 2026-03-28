@@ -20,6 +20,7 @@ pub struct SyncEditor[T] {
   priv mut ws : JsWebSocket?
   priv mut recovery : RecoveryContext?
   priv mut recovery_epoch : Int
+  priv mut projection_dirty : Bool
 }
 
 ///|
@@ -104,6 +105,7 @@ fn[T] SyncEditor::new(
     ws: None,
     recovery: None,
     recovery_epoch: 0,
+    projection_dirty: false,
   }
 }
 
