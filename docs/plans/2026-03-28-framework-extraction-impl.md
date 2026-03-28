@@ -6,7 +6,7 @@
 
 **Design reference:** `docs/plans/2026-03-18-framework-extraction-design.md`
 
-**Current state:** Core parameterization done (`ProjNode[T]`, `TreeNode`, `Renderable`, `SyncEditor[T]`). Package structure not yet extracted. FlatProj still in `projection/`. Public Tier-2 edit API not yet exposed.
+**Current state:** Phase 1 complete (merged PR #60, 2026-03-28). `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`. Phase 2 (FlatProj separation) is next.
 
 **Module:** `dowdiness/canopy` (root `moon.mod.json`)
 
@@ -14,13 +14,13 @@
 
 ## Phase overview
 
-| Phase | Tasks | Risk | PR |
-|-------|-------|------|----|
-| 1 — Additive API | 1–3 | Low | 1 |
-| 2 — Separate FlatProj | 4 | Medium | 2 |
-| 3 — Extract framework/ | 5–7 | High | 3 |
-| 4 — Extract lang/lambda/ | 8 | High | 4 |
-| 5 — Verification | 9 | Low | 5 |
+| Phase | Tasks | Risk | PR | Status |
+|-------|-------|------|----|----|
+| 1 — Additive API | 1–3 | Low | [#60](https://github.com/dowdiness/canopy/pull/60) | ✅ Done |
+| 2 — Separate FlatProj | 4 | Medium | 2 | Not started |
+| 3 — Extract framework/ | 5–7 | High | 3 | Not started |
+| 4 — Extract lang/lambda/ | 8 | High | 4 | Blocked on TermSym |
+| 5 — Verification | 9 | Low | 5 | Not started |
 
 Each phase must pass `moon test` before moving to the next.
 
@@ -36,7 +36,7 @@ No file moves. All tasks are purely additive. Can be done in a single PR.
 
 **File:** `projection/traits.mbt` (append after existing trait definitions)
 
-- [ ] **Step 1: Add `EditAction[T]` to `projection/traits.mbt`**
+- [x] **Step 1: Add `EditAction[T]` to `projection/traits.mbt`**
 
 ```moonbit
 ///|
@@ -55,7 +55,7 @@ pub struct EditAction[T] {
 }
 ```
 
-- [ ] **Step 2: Verify compilation**
+- [x] **Step 2: Verify compilation**
 
 ```bash
 cd /path/to/canopy && moon check
@@ -63,7 +63,7 @@ cd /path/to/canopy && moon check
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add projection/traits.mbt
@@ -79,7 +79,7 @@ They do **not** use `FlatProj`, `TreeEditOp`, or any lambda-specific code.
 
 **New file:** `editor/sync_editor_tree_edit.mbt`
 
-- [ ] **Step 1: Create `editor/sync_editor_tree_edit.mbt`**
+- [x] **Step 1: Create `editor/sync_editor_tree_edit.mbt`**
 
 ```moonbit
 // Generic Tier-2 structural edit methods for SyncEditor[T].
@@ -237,7 +237,7 @@ pub fn[T : @proj.TreeNode + @proj.Renderable] SyncEditor::move_node(
 > `editor/sync_editor_text.mbt` — it uses positional args, not labelled args.
 > Adjust the call sites above to match the real signature.
 
-- [ ] **Step 2: Verify compilation**
+- [x] **Step 2: Verify compilation**
 
 ```bash
 moon check
@@ -245,7 +245,7 @@ moon check
 
 Expected: no errors. If `apply_text_edit_internal` uses positional args, fix the calls.
 
-- [ ] **Step 3: Add tests in `editor/sync_editor_tree_edit_wbtest.mbt`**
+- [x] **Step 3: Add tests in `editor/sync_editor_tree_edit_wbtest.mbt`**
 
 ```moonbit
 // Whitebox tests for generic Tier-2 tree edit methods.
@@ -306,7 +306,7 @@ test "apply_text_transform wraps node in lambda" {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 moon test -p dowdiness/canopy/editor
@@ -314,7 +314,7 @@ moon test -p dowdiness/canopy/editor
 
 Expected: new tests pass. Fix any `apply_text_edit_internal` signature mismatches.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add editor/sync_editor_tree_edit.mbt editor/sync_editor_tree_edit_wbtest.mbt
@@ -332,7 +332,7 @@ Currently memos are lazily evaluated on first access after an edit. Adding an ex
 - `editor/sync_editor.mbt` — add `projection_dirty` field
 - `editor/sync_editor_text.mbt` — set dirty flag after text edits
 
-- [ ] **Step 1: Add `projection_dirty` field to `SyncEditor[T]` struct** (`editor/sync_editor.mbt`)
+- [x] **Step 1: Add `projection_dirty` field to `SyncEditor[T]` struct** (`editor/sync_editor.mbt`)
 
 Find the struct definition and add:
 ```moonbit
@@ -341,7 +341,7 @@ Find the struct definition and add:
 
 Initialize to `false` in `SyncEditor::new`.
 
-- [ ] **Step 2: Add `is_dirty`, `refresh`, `get_proj_node_if_dirty` to `editor/sync_editor_tree_edit.mbt`**
+- [x] **Step 2: Add `is_dirty`, `refresh`, `get_proj_node_if_dirty` to `editor/sync_editor_tree_edit.mbt`**
 
 ```moonbit
 ///|
@@ -363,12 +363,12 @@ pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
 }
 ```
 
-- [ ] **Step 3: Set `projection_dirty = true` after text edits**
+- [x] **Step 3: Set `projection_dirty = true` after text edits**
 
 In `editor/sync_editor_text.mbt`, find `apply_text_edit_internal` and add
 `self.projection_dirty = true` at the end of the function body.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 moon test
@@ -376,7 +376,7 @@ moon test
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add editor/sync_editor.mbt editor/sync_editor_text.mbt editor/sync_editor_tree_edit.mbt
