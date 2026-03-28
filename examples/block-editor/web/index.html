@@ -16,7 +16,7 @@
       --border: #2a2a48;
       --text-primary: #e8e8f0;
       --text-secondary: #c8c8e0;
-      --text-muted: #5a5a7a;
+      --text-muted: #7a7a9a;
       --accent: #8250df;
       --accent-08: rgba(130, 80, 223, 0.08);
       --accent-15: rgba(130, 80, 223, 0.15);
@@ -219,6 +219,16 @@
     #shortcut-hints span {
       white-space: nowrap;
     }
+    #shortcut-hints .hints-instruction {
+      margin-left: auto;
+      opacity: 0.7;
+    }
+    /* ── Reduced motion ────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -233,7 +243,7 @@
     <span><kbd>1.</kbd> numbered</span>
     <span><kbd>- [ ]</kbd> todo</span>
     <span><kbd>&gt;</kbd> quote</span>
-    <span style="margin-left: auto; opacity: 0.7">type shortcut + Space</span>
+    <span class="hints-instruction">type shortcut + Space</span>
   </div>
   <main>
     <div id="editor-blocks" role="textbox" aria-multiline="true" aria-label="Document editor"></div>
