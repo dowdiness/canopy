@@ -152,6 +152,7 @@ function wireEvents(div: HTMLDivElement) {
         render();
         const updated = blockDivs.get(id);
         if (updated) updated.focus();
+        dismissShortcutHints();
       }
     }
   });
@@ -178,6 +179,14 @@ function detectAutoformat(
     return { type: 'quote', level: 0, listStyle: '' };
 
   return null;
+}
+
+// ── Shortcut hints (dismiss after first autoformat) ───────────────────
+function dismissShortcutHints() {
+  const hints = document.getElementById('shortcut-hints');
+  if (hints && !hints.classList.contains('hidden')) {
+    hints.classList.add('hidden');
+  }
 }
 
 // ── Toolbar ────────────────────────────────────────────────────────────

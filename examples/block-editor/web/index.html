@@ -186,6 +186,39 @@
       min-height: 0;
       padding: var(--space-sm) 0;
     }
+
+    /* ── Shortcut hints ───────────────────────────────────────── */
+    #shortcut-hints {
+      display: flex;
+      gap: var(--space-lg);
+      padding: 6px var(--space-lg);
+      background: var(--accent-05);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: opacity 300ms ease-out, max-height 300ms ease-out;
+      overflow: hidden;
+      max-height: 2rem;
+    }
+    #shortcut-hints.hidden {
+      opacity: 0;
+      max-height: 0;
+      padding: 0 var(--space-lg);
+      border-bottom: none;
+    }
+    #shortcut-hints kbd {
+      display: inline-block;
+      padding: 0 4px;
+      background: var(--accent-08);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--font-code);
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    #shortcut-hints span {
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -194,6 +227,14 @@
     <button id="btn-upload">Upload .md</button>
     <input type="file" id="file-input" accept=".md" aria-label="Upload markdown file" style="display:none" />
   </nav>
+  <div id="shortcut-hints" role="status" aria-label="Formatting shortcuts">
+    <span><kbd>#</kbd> heading</span>
+    <span><kbd>-</kbd> list</span>
+    <span><kbd>1.</kbd> numbered</span>
+    <span><kbd>- [ ]</kbd> todo</span>
+    <span><kbd>&gt;</kbd> quote</span>
+    <span style="margin-left: auto; opacity: 0.7">type shortcut + Space</span>
+  </div>
   <main>
     <div id="editor-blocks" role="textbox" aria-multiline="true" aria-label="Document editor"></div>
   </main>
