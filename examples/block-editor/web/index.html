@@ -9,11 +9,37 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@fontsource-variable/iosevka@5/index.min.css" rel="stylesheet" />
   <style>
+    /* ── Design tokens ──────────────────────────────────────── */
+    :root {
+      --bg-base: #1a1a2e;
+      --bg-surface: #252540;
+      --border: #2a2a48;
+      --text-primary: #e8e8f0;
+      --text-secondary: #c8c8e0;
+      --text-muted: #5a5a7a;
+      --accent: #8250df;
+      --accent-08: rgba(130, 80, 223, 0.08);
+      --accent-15: rgba(130, 80, 223, 0.15);
+      --accent-20: rgba(130, 80, 223, 0.2);
+      --accent-22: rgba(130, 80, 223, 0.22);
+      --accent-35: rgba(130, 80, 223, 0.35);
+      --accent-40: rgba(130, 80, 223, 0.4);
+      --accent-05: rgba(130, 80, 223, 0.05);
+      --font-ui: 'Manrope', system-ui, sans-serif;
+      --font-code: 'Iosevka', 'Iosevka Variable', monospace;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 48px;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 100%; height: 100%;
-      background: #1a1a2e; color: #e8e8f0;
-      font-family: 'Manrope', system-ui, sans-serif;
+      background: var(--bg-base); color: var(--text-primary);
+      font-family: var(--font-ui);
       font-size: 1rem;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
@@ -23,17 +49,17 @@
     /* ── Toolbar ──────────────────────────────────────────────── */
     nav[aria-label="Document tools"] {
       display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid #2a2a48;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border);
     }
 
     nav[aria-label="Document tools"] button {
       padding: 6px 14px;
-      background: rgba(130, 80, 223, 0.08);
-      border: 1px solid rgba(130, 80, 223, 0.2);
+      background: var(--accent-08);
+      border: 1px solid var(--accent-20);
       border-radius: 6px;
-      color: #c8c8e0;
+      color: var(--text-secondary);
       font-family: inherit;
       font-size: 0.8125rem;
       font-weight: 500;
@@ -41,85 +67,124 @@
       transition: background 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
     }
     nav[aria-label="Document tools"] button:hover {
-      background: rgba(130, 80, 223, 0.15);
-      border-color: rgba(130, 80, 223, 0.35);
-      color: #e8e8f0;
+      background: var(--accent-15);
+      border-color: var(--accent-35);
+      color: var(--text-primary);
     }
     nav[aria-label="Document tools"] button:active {
-      background: rgba(130, 80, 223, 0.22);
+      background: var(--accent-22);
     }
     nav[aria-label="Document tools"] button:focus-visible {
-      outline: 2px solid #8250df;
+      outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
 
-    /* ── Editor ───────────────────────────────────────────────── */
+    /* ── Editor container ─────────────────────────────────────── */
     #editor-blocks {
       max-width: 720px;
       margin: 0 auto;
-      padding: 48px 24px;
+      padding: var(--space-2xl) var(--space-xl);
+      counter-reset: list-number;
     }
 
-    /* Block focus — purple left accent */
-    #editor-blocks [contenteditable]:focus-visible {
+    /* ── Block base ───────────────────────────────────────────── */
+    #editor-blocks > div {
+      min-height: 1.4em;
+      padding: var(--space-xs) 0;
       outline: none;
-      box-shadow: -3px 0 0 0 #8250df;
     }
-    #editor-blocks [contenteditable]:focus:not(:focus-visible) {
-      outline: none;
+
+    /* Focus — purple left accent */
+    #editor-blocks > div[contenteditable]:focus-visible {
+      box-shadow: -3px 0 0 0 var(--accent);
     }
 
     /* Empty editor placeholder */
     #editor-blocks:empty::after {
       content: "Start typing or upload a .md file";
-      color: #5a5a7a;
+      color: var(--text-muted);
       font-style: italic;
       display: block;
-      padding: 4px 0;
+      padding: var(--space-xs) 0;
     }
 
     /* ── Block spacing rhythm ─────────────────────────────────── */
     #editor-blocks > div + div { margin-top: 2px; }
     #editor-blocks > div[data-type="heading"] { margin-top: 20px; }
     #editor-blocks > div[data-type="heading"]:first-child { margin-top: 0; }
-    #editor-blocks > div[data-type="divider"] { margin-top: 16px; }
-    #editor-blocks > div[data-type="divider"] + div { margin-top: 16px; }
+    #editor-blocks > div[data-type="divider"] { margin-top: var(--space-lg); }
+    #editor-blocks > div[data-type="divider"] + div { margin-top: var(--space-lg); }
 
-    /* ── List item markers ────────────────────────────────────── */
+    /* ── Headings (1.25 ratio type scale) ─────────────────────── */
+    #editor-blocks > div[data-type="heading"] { font-weight: 600; }
+    #editor-blocks > div[data-type="heading"][data-level="1"] {
+      font-size: 1.953rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="2"] {
+      font-size: 1.563rem; line-height: 1.2; letter-spacing: -0.015em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="3"] {
+      font-size: 1.25rem; line-height: 1.3; letter-spacing: -0.01em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="4"] {
+      font-size: 1.1rem; line-height: 1.35;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="5"] {
+      font-size: 1rem; line-height: 1.4; letter-spacing: 0.01em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="6"] {
+      font-size: 0.875rem; line-height: 1.4; letter-spacing: 0.02em;
+    }
+
+    /* ── List items ───────────────────────────────────────────── */
     #editor-blocks > div[data-type="list_item"] {
       position: relative;
+      padding-left: var(--space-xl);
     }
     #editor-blocks > div[data-type="list_item"]::before {
       position: absolute;
-      left: 4px;
-      color: #5a5a7a;
+      left: var(--space-xs);
+      color: var(--text-muted);
       pointer-events: none;
     }
-
-    /* Bullet: • */
-    #editor-blocks > div[data-list-style="bullet"]::before {
-      content: "•";
-    }
-
-    /* Numbered: counter */
-    #editor-blocks { counter-reset: list-number; }
+    #editor-blocks > div[data-list-style="bullet"]::before { content: "•"; }
     #editor-blocks > div[data-list-style="numbered"] { counter-increment: list-number; }
     #editor-blocks > div[data-list-style="numbered"]::before {
       content: counter(list-number) ".";
       font-variant-numeric: tabular-nums;
       font-size: 0.875rem;
     }
-    /* Reset counter when a non-numbered block breaks the run */
     #editor-blocks > div:not([data-list-style="numbered"]) { counter-reset: list-number; }
-
-    /* Todo: checkbox */
     #editor-blocks > div[data-list-style="todo"]::before {
       content: "☐";
       font-size: 0.875rem;
     }
     #editor-blocks > div[data-list-style="todo"][data-checked="true"]::before {
       content: "☑";
-      color: #8250df;
+      color: var(--accent);
+    }
+
+    /* ── Quote ─────────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="quote"] {
+      border-left: 3px solid var(--accent-40);
+      padding-left: var(--space-lg);
+      color: var(--text-secondary);
+    }
+
+    /* ── Code ──────────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="code"] {
+      font-family: var(--font-code);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      background: var(--accent-05);
+      padding-left: var(--space-md);
+    }
+
+    /* ── Divider ───────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="divider"] {
+      border-top: 1px solid var(--border);
+      min-height: 0;
+      padding: var(--space-sm) 0;
     }
   </style>
 </head>

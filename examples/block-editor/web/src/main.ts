@@ -32,20 +32,18 @@ function render() {
       div = document.createElement('div');
       div.contentEditable = 'true';
       div.dataset.blockId = block.id;
-      div.style.minHeight = '1.4em';
-      div.style.padding = '4px 0';
       wireEvents(div);
       container.appendChild(div);
       blockDivs.set(block.id, div);
     }
 
-    // Update attributes and ARIA roles
+    // Data attributes drive CSS styling — no inline styles needed
     div.dataset.type = block.block_type;
     div.dataset.level = block.level;
     div.dataset.listStyle = block.list_style;
     div.dataset.checked = String(block.checked);
+    div.contentEditable = block.block_type === 'divider' ? 'false' : 'true';
     applyAriaRoles(div, block);
-    styleBlock(div, block);
 
     // Only update text if not focused (avoid clobbering cursor)
     if (document.activeElement !== div && div.textContent !== block.text) {
@@ -97,65 +95,6 @@ function applyAriaRoles(div: HTMLDivElement, block: Block) {
       break;
     case 'divider':
       div.setAttribute('role', 'separator');
-      break;
-  }
-}
-
-// ── Block styling ──────────────────────────────────────────────────────
-
-// Type scale (1.25 ratio): body 1rem, each heading level steps up
-const HEADING_SCALE: Record<string, { size: string; weight: string; lineHeight: string; letterSpacing: string }> = {
-  '1': { size: '1.953rem', weight: '700', lineHeight: '1.15', letterSpacing: '-0.02em' },
-  '2': { size: '1.563rem', weight: '600', lineHeight: '1.2',  letterSpacing: '-0.015em' },
-  '3': { size: '1.25rem',  weight: '600', lineHeight: '1.3',  letterSpacing: '-0.01em' },
-  '4': { size: '1.1rem',   weight: '600', lineHeight: '1.35', letterSpacing: '0' },
-  '5': { size: '1rem',     weight: '600', lineHeight: '1.4',  letterSpacing: '0.01em' },
-  '6': { size: '0.875rem', weight: '600', lineHeight: '1.4',  letterSpacing: '0.02em' },
-};
-
-function styleBlock(div: HTMLDivElement, block: Block) {
-  // Reset
-  div.style.fontWeight = '';
-  div.style.fontSize = '';
-  div.style.fontFamily = '';
-  div.style.lineHeight = '';
-  div.style.letterSpacing = '';
-  div.style.borderLeft = '';
-  div.style.paddingLeft = '';
-  div.style.color = '';
-  div.style.background = '';
-  div.style.borderTop = '';
-  div.contentEditable = 'true';
-
-  switch (block.block_type) {
-    case 'heading': {
-      const scale = HEADING_SCALE[block.level] || HEADING_SCALE['2'];
-      div.style.fontSize = scale.size;
-      div.style.fontWeight = scale.weight;
-      div.style.lineHeight = scale.lineHeight;
-      div.style.letterSpacing = scale.letterSpacing;
-      break;
-    }
-    case 'list_item':
-      div.style.paddingLeft = '24px';
-      break;
-    case 'quote':
-      div.style.borderLeft = '3px solid rgba(130, 80, 223, 0.4)';
-      div.style.paddingLeft = '16px';
-      div.style.color = '#c8c8e0';
-      break;
-    case 'code':
-      div.style.fontFamily = "'Iosevka', 'Iosevka Variable', monospace";
-      div.style.fontSize = '0.9rem';
-      div.style.lineHeight = '1.5';
-      div.style.background = 'rgba(130, 80, 223, 0.05)';
-      div.style.paddingLeft = '12px';
-      break;
-    case 'divider':
-      div.contentEditable = 'false';
-      div.style.borderTop = '1px solid #2a2a48';
-      div.style.minHeight = '0';
-      div.style.padding = '8px 0';
       break;
   }
 }
