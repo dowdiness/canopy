@@ -246,7 +246,7 @@ pub fn[T] SyncEditor::delete(Self[T]) -> Bool
 pub fn[T] SyncEditor::delete_and_record(Self[T], Int) -> Bool
 pub fn[T] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
 pub fn[T] SyncEditor::delete_local_presence(Self[T]) -> Unit
-pub fn[T : @projection.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/framework/core.NodeId, Int) -> Result[Unit, String]
+pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/framework/core.NodeId, Int) -> Result[Unit, String]
 pub fn[T] SyncEditor::encode_ephemeral_all(Self[T]) -> Bytes
 pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
 pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise
@@ -273,7 +273,7 @@ pub fn[T] SyncEditor::is_dirty(Self[T]) -> Bool
 pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
 pub fn[T] SyncEditor::mark_dirty(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
-pub fn[T : @projection.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.NodeId, @projection.DropPosition, Int) -> Result[Unit, String]
+pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.NodeId, @projection.DropPosition, Int) -> Result[Unit, String]
 pub fn SyncEditor::new_lambda(String, capture_timeout_ms? : Int) -> Self[@ast.Term]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/framework/core.NodeId?
 pub fn[T] SyncEditor::redo(Self[T]) -> Bool

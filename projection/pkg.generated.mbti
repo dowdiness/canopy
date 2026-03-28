@@ -21,7 +21,7 @@ pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 
-pub fn[T : TreeNode] is_leaf_node(T) -> Bool
+pub fn[T : @dowdiness/loom/core.TreeNode] is_leaf_node(T) -> Bool
 
 pub fn is_valid_drop(@ast.Term, @ast.Term, DropPosition) -> Bool
 
@@ -29,7 +29,7 @@ pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/framework/core.ProjNode[
 
 pub fn print_flat_proj(FlatProj) -> String
 
-pub fn[T : TreeNode] reconcile(@dowdiness/canopy/framework/core.ProjNode[T], @dowdiness/canopy/framework/core.ProjNode[T], @ref.Ref[Int]) -> @dowdiness/canopy/framework/core.ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(@dowdiness/canopy/framework/core.ProjNode[T], @dowdiness/canopy/framework/core.ProjNode[T], @ref.Ref[Int]) -> @dowdiness/canopy/framework/core.ProjNode[T]
 
 pub fn reconcile_ast(@dowdiness/canopy/framework/core.ProjNode[@ast.Term], @dowdiness/canopy/framework/core.ProjNode[@ast.Term], @ref.Ref[Int]) -> @dowdiness/canopy/framework/core.ProjNode[@ast.Term]
 
@@ -124,7 +124,7 @@ pub struct InteractiveTreeNode[T] {
   drop_target : Bool
   text_range : @dowdiness/loom/core.Range
 }
-pub fn[T : Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/framework/core.ProjNode[T], SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/framework/core.ProjNode[T], SourceMap) -> Self[T]
 pub impl[T : Show] Show for InteractiveTreeNode[T]
 
 pub(all) struct NodeContext {
@@ -214,12 +214,12 @@ pub struct TreeEditorState[T] {
   // private fields
 }
 pub fn[T] TreeEditorState::apply_edit(Self[T], TreeEditOp) -> Self[T]
-pub fn[T : TreeNode + Renderable] TreeEditorState::expand_node(Self[T], @dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
-pub fn[T : TreeNode + Renderable] TreeEditorState::from_projection(@dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::expand_node(Self[T], @dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::from_projection(@dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
 pub fn[T] TreeEditorState::get_loaded_node(Self[T], @dowdiness/canopy/framework/core.NodeId) -> InteractiveTreeNode[T]?
 pub fn[T] TreeEditorState::has_node(Self[T], @dowdiness/canopy/framework/core.NodeId) -> Bool
 pub fn[T] TreeEditorState::new() -> Self[T]
-pub fn[T : TreeNode + Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
 
 // Type aliases
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
@@ -228,18 +228,9 @@ pub using @dowdiness/canopy/framework/core {type NodeId}
 
 pub using @dowdiness/canopy/framework/core {type ProjNode}
 
-// Traits
-pub(open) trait Renderable {
-  kind_tag(Self) -> String
-  label(Self) -> String
-  placeholder(Self) -> String
-  unparse(Self) -> String
-}
-pub impl Renderable for @ast.Term
+pub using @dowdiness/loom/core {trait Renderable}
 
-pub(open) trait TreeNode {
-  children(Self) -> Array[Self]
-  same_kind(Self, Self) -> Bool
-}
-pub impl TreeNode for @ast.Term
+pub using @dowdiness/loom/core {trait TreeNode}
+
+// Traits
 
