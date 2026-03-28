@@ -222,8 +222,6 @@ pub fn[T] TreeEditorState::new() -> Self[T]
 pub fn[T : TreeNode + Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/framework/core.ProjNode[T]?, SourceMap) -> Self[T]
 
 // Type aliases
-pub using @dowdiness/canopy/framework/core {type EditAction}
-
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
 
 pub using @dowdiness/canopy/framework/core {type NodeId}
