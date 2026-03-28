@@ -18,6 +18,8 @@ Canopy — incremental projectional editor with CRDT collaboration, built in Moo
 - `editor/`, `projection/`, `cmd/` - Application packages (in monorepo)
 - `examples/web/`, `examples/demo-react/` - Web frontends (in monorepo)
 
+**Archive paths:** Completed plans go to `docs/archive/`, not `docs/plans/archive/`. Always confirm the archive directory with existing structure before moving files.
+
 ## MoonBit Language Notes
 
 - `pub` vs `pub(all)` visibility modifiers have different semantics — check current docs before using
@@ -27,6 +29,7 @@ Canopy — incremental projectional editor with CRDT collaboration, built in Moo
 - `ref` is a reserved keyword — do not use as variable/field names
 - Blackbox tests cannot construct internal structs — use whitebox tests or expose constructors
 - For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
+- Error handling syntax: use `Unit!Error` or `T!Error` for fallible return types. Error propagation uses `!` suffix on calls, not `raise` keyword. Always verify MoonBit syntax against recent compiler behavior before committing.
 
 ## Quick Commands
 
@@ -135,6 +138,10 @@ git commit -m "chore: update event-graph-walker submodule"
 5. **Interface review**: Update `.mbti` files and verify API changes are intentional
 6. **Format & lint**: Run `moon fmt` and `moon check` before completing
 
+### Incremental Edit Rule
+
+**CRITICAL:** After every file edit, run `moon check` before proceeding to the next file. If there are errors, fix them immediately before continuing with the plan.
+
 ### Standard Workflow
 
 1. Make edits
@@ -155,6 +162,10 @@ git commit -m "chore: update event-graph-walker submodule"
 - **Trait impl:** `pub impl Trait for Type with method(self) { ... }` — one method per impl block
 - **Arrow functions:** `() => expr`, `() => { stmts }`. Empty body: `() => ()` not `() => {}`
 
+## Code Changes
+
+- Before suggesting code removal, check if symbols are re-exported as public API for downstream consumers. Do not delete structs/types that appear unused internally but may be part of the library's public interface.
+
 ## Code Review Standards
 
 - Never dismiss a review request — always do a thorough line-by-line review even if changes seem minor
@@ -172,11 +183,13 @@ git commit -m "chore: update event-graph-walker submodule"
 - **Benchmarks:** Always use `--release` flag
 - **Parser module:** `dowdiness/lambda` in `loom/examples/lambda/`
 
-## Git Workflow
+## Git & PR Workflow
 
 - Always check if git is initialized before running git commands
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
+- When merging PRs, always verify CI status is actually passing (not skipped) before proceeding. Never represent CI as green if any checks were skipped or failed.
+- After rebasing or refactoring, verify file paths haven't shifted unexpectedly. Run `git diff --stat` to confirm only intended files changed.
 
 ## Design Context
 
