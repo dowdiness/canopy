@@ -1,12 +1,3 @@
-// `TreeNodeId` impl traits (Eq, Hash, Compare, Show) live in an internal
-// event-graph-walker package that is invisible to external consumers, so we
-// cannot use TreeNodeId directly as a Map key or with ==.
-//
-// Workaround (V1):
-//   - Use Map[String, TextDoc] keyed by id_key(id)  ("agent:counter")
-//   - Use id_eq / id_key helpers for all identity operations
-//   - Public API still exposes @tree.TreeNodeId as the block identifier
-
 ///|
 /// The block identifier type — a tree node ID.
 pub type BlockId = @tree.TreeNodeId
@@ -19,18 +10,16 @@ pub let root_block_id : @tree.TreeNodeId = @tree.root_id
 /// A collaborative block document.
 ///
 /// Wraps a `TreeDoc` for block hierarchy and a per-block `TextDoc` map for
-/// text content. Block display order for root children is tracked explicitly
-/// in `order` (V1 workaround — TreeDoc lacks `create_node_after`).
+/// text content. Block ordering delegates to the tree CRDT's fractional indexing.
 pub struct BlockDoc {
   priv tree : @tree.TreeDoc
   priv texts : Map[String, @text.TextDoc]
-  priv mut order : Array[@tree.TreeNodeId]
   priv replica_id : String
 }
 
 ///|
 pub fn BlockDoc::new(replica_id : String) -> BlockDoc {
-  { tree: @tree.TreeDoc::new(replica_id), texts: {}, order: [], replica_id }
+  { tree: @tree.TreeDoc::new(replica_id), texts: {}, replica_id }
 }
 
 ///|
@@ -43,9 +32,6 @@ pub fn BlockDoc::create_block(
   let id = self.tree.create_node(parent~)
   self.texts[id_key(id)] = @text.TextDoc::new(self.replica_id)
   self.apply_block_type(id, block_type)
-  if id_eq(parent, root_block_id) {
-    self.order.push(id)
-  }
   id
 }
 
@@ -56,49 +42,35 @@ pub fn BlockDoc::create_block_after(
   after_id : @tree.TreeNodeId,
   block_type : BlockType,
 ) -> @tree.TreeNodeId {
-  let id = self.tree.create_node(parent=root_block_id)
+  let id = self.tree.create_node_after(parent=root_block_id, after=after_id)
   self.texts[id_key(id)] = @text.TextDoc::new(self.replica_id)
   self.apply_block_type(id, block_type)
-  let idx = self.order_index(after_id)
-  self.order.insert(idx + 1, id)
   id
 }
 
 ///|
-/// Delete a block: move it to the tree trash and remove from order.
+/// Delete a block: move it to the tree trash.
 pub fn BlockDoc::delete_block(self : BlockDoc, id : @tree.TreeNodeId) -> Unit {
   self.tree.delete_node(id)
-  self.order = self.order.filter(fn(bid) { not(id_eq(bid, id)) })
 }
 
 ///|
-/// Move a block within the same parent (V1: root-to-root reorder only).
-/// Moving between root and nested parents is Phase 2 — `order` is not updated
-/// for cross-level moves, so this aborts if either node is non-root.
+/// Move a block to a new parent.
 pub fn BlockDoc::move_block(
   self : BlockDoc,
   id : @tree.TreeNodeId,
   new_parent~ : @tree.TreeNodeId,
 ) -> Unit {
-  if not(id_eq(new_parent, root_block_id)) {
-    abort("BlockDoc::move_block: cross-level moves are Phase 2 only")
-  }
   self.tree.move_node(target=id, new_parent~)
 }
 
 ///|
 /// Return children of `parent` in display order.
-/// For root: returns the explicit `order` array (filtered for alive blocks).
-/// For other nodes: delegates to the tree (Phase 2 nesting).
 pub fn BlockDoc::children(
   self : BlockDoc,
   parent : @tree.TreeNodeId,
 ) -> Array[@tree.TreeNodeId] {
-  if id_eq(parent, root_block_id) {
-    self.order.filter(fn(id) { self.tree.is_alive(id) })
-  } else {
-    self.tree.children(parent)
-  }
+  self.tree.children(parent)
 }
 
 ///|
@@ -215,15 +187,4 @@ fn BlockDoc::apply_block_type(
   let (type_str, props) = block_type_to_string(t)
   self.tree.set_property(id, "block_type", type_str)
   props.each(fn(k, v) { self.tree.set_property(id, k, v) })
-}
-
-///|
-/// Return the index of `id` in `order`, or the last index if not found.
-fn BlockDoc::order_index(self : BlockDoc, id : @tree.TreeNodeId) -> Int {
-  for i = 0; i < self.order.length(); i = i + 1 {
-    if id_eq(self.order[i], id) {
-      return i
-    }
-  }
-  self.order.length() - 1
 }
