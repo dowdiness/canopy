@@ -32,7 +32,6 @@ function render() {
       div = document.createElement('div');
       div.contentEditable = 'true';
       div.dataset.blockId = block.id;
-      div.style.outline = 'none';
       div.style.minHeight = '1.4em';
       div.style.padding = '4px 0';
       wireEvents(div);
@@ -40,10 +39,11 @@ function render() {
       blockDivs.set(block.id, div);
     }
 
-    // Update attributes
+    // Update attributes and ARIA roles
     div.dataset.type = block.block_type;
     div.dataset.level = block.level;
     div.dataset.listStyle = block.list_style;
+    applyAriaRoles(div, block);
     styleBlock(div, block);
 
     // Only update text if not focused (avoid clobbering cursor)
@@ -74,6 +74,29 @@ function render() {
       }
     }
     prev = div;
+  }
+}
+
+// ── ARIA roles ─────────────────────────────────────────────────────────
+function applyAriaRoles(div: HTMLDivElement, block: Block) {
+  // Clear previous roles
+  div.removeAttribute('role');
+  div.removeAttribute('aria-level');
+
+  switch (block.block_type) {
+    case 'heading':
+      div.setAttribute('role', 'heading');
+      div.setAttribute('aria-level', block.level || '1');
+      break;
+    case 'list_item':
+      div.setAttribute('role', 'listitem');
+      break;
+    case 'quote':
+      div.setAttribute('role', 'blockquote');
+      break;
+    case 'divider':
+      div.setAttribute('role', 'separator');
+      break;
   }
 }
 
@@ -146,19 +169,18 @@ function wireEvents(div: HTMLDivElement) {
       return;
     }
 
-    // Backspace on empty → delete block, focus previous
+    // Backspace on empty → delete block, focus previous (keep at least one block)
     if (e.key === 'Backspace' && (div.textContent || '') === '') {
-      e.preventDefault();
       const prev = div.previousElementSibling as HTMLDivElement | null;
+      if (!prev) return; // Don't delete the first/only block
+      e.preventDefault();
       ed.editor_delete_block(handle, id);
       render();
-      if (prev) {
-        prev.focus();
-        const sel = window.getSelection();
-        if (sel && prev.childNodes.length > 0) {
-          sel.selectAllChildren(prev);
-          sel.collapseToEnd();
-        }
+      prev.focus();
+      const sel = window.getSelection();
+      if (sel && prev.childNodes.length > 0) {
+        sel.selectAllChildren(prev);
+        sel.collapseToEnd();
       }
       return;
     }
