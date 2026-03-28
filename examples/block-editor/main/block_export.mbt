@@ -2,9 +2,7 @@
 /// Export a BlockDoc to Markdown.
 ///
 /// Rules:
-/// - Blank line before/after: headings, dividers, quotes, code blocks
-/// - No blank lines between consecutive list items of the same style
-/// - Different list styles get a blank line between
+/// - Blank line between all block pairs except consecutive same-style list items
 /// - Numbered list items renumbered from 1
 /// - Code: ```lang\n…\n```
 /// - Divider: ---
@@ -14,34 +12,24 @@ pub fn block_doc_to_markdown(doc : BlockDoc) -> String {
   let children = doc.children(root_block_id)
   let len = children.length()
   let mut numbered_counter = 1
+  let mut prev_type : BlockType? = None
   for i = 0; i < len; i = i + 1 {
     let id = children[i]
     let bt = doc.get_type(id)
     let text = doc.get_text(id)
-    let prev_type : BlockType? = if i > 0 {
-      Some(doc.get_type(children[i - 1]))
-    } else {
-      None
-    }
-    // Blank line logic: before headings, dividers, quotes, code blocks,
-    // and when switching between list styles or from list to non-list.
     if i > 0 {
       let need_blank = match (prev_type, bt) {
-        // Same list style: no blank line
         (Some(ListItem(a)), ListItem(b)) => a != b
-        // Everything else gets a blank line between blocks
         _ => true
       }
       if need_blank {
         buf.write_string("\n")
       }
     }
-    // Reset numbered counter when not in a numbered run
     match bt {
       ListItem(Numbered) => ()
       _ => numbered_counter = 1
     }
-    // Write the block
     match bt {
       Paragraph => {
         buf.write_string(text)
@@ -94,6 +82,7 @@ pub fn block_doc_to_markdown(doc : BlockDoc) -> String {
         buf.write_string("\n")
       }
     }
+    prev_type = Some(bt)
   }
   buf.to_string()
 }
