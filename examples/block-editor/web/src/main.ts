@@ -1,1 +1,236 @@
-// Block editor TypeScript shell — filled in plan 1d
+import * as ed from '@moonbit/canopy-block-editor';
+
+// ── Types ──────────────────────────────────────────────────────────────
+interface Block {
+  id: string;
+  block_type: string;
+  level: string;
+  list_style: string;
+  checked: boolean;
+  text: string;
+}
+
+// ── State ──────────────────────────────────────────────────────────────
+const handle = ed.create_editor('local');
+const container = document.getElementById('editor-blocks')!;
+const blockDivs = new Map<string, HTMLDivElement>();
+let suppressNextInput = false;
+
+// Seed
+ed.editor_import_markdown(handle, '# Welcome\n\nStart typing here.\n');
+
+// ── Render ─────────────────────────────────────────────────────────────
+function render() {
+  const state: { blocks: Block[] } = JSON.parse(ed.get_render_state(handle));
+  const liveIds = new Set<string>();
+
+  for (const block of state.blocks) {
+    liveIds.add(block.id);
+    let div = blockDivs.get(block.id);
+
+    if (!div) {
+      div = document.createElement('div');
+      div.contentEditable = 'true';
+      div.dataset.blockId = block.id;
+      div.style.outline = 'none';
+      div.style.minHeight = '1.4em';
+      div.style.padding = '4px 0';
+      wireEvents(div);
+      container.appendChild(div);
+      blockDivs.set(block.id, div);
+    }
+
+    // Update attributes
+    div.dataset.type = block.block_type;
+    div.dataset.level = block.level;
+    div.dataset.listStyle = block.list_style;
+    styleBlock(div, block);
+
+    // Only update text if not focused (avoid clobbering cursor)
+    if (document.activeElement !== div && div.textContent !== block.text) {
+      div.textContent = block.text;
+    }
+  }
+
+  // Remove stale divs
+  for (const [id, div] of blockDivs) {
+    if (!liveIds.has(id)) {
+      div.remove();
+      blockDivs.delete(id);
+    }
+  }
+
+  // Reorder divs to match state order
+  let prev: Element | null = null;
+  for (const block of state.blocks) {
+    const div = blockDivs.get(block.id);
+    if (!div) continue;
+    const expected = prev ? prev.nextElementSibling : container.firstElementChild;
+    if (div !== expected) {
+      if (prev) {
+        prev.after(div);
+      } else {
+        container.prepend(div);
+      }
+    }
+    prev = div;
+  }
+}
+
+// ── Block styling ──────────────────────────────────────────────────────
+function styleBlock(div: HTMLDivElement, block: Block) {
+  // Reset
+  div.style.fontWeight = '';
+  div.style.fontSize = '';
+  div.style.fontFamily = '';
+  div.style.borderLeft = '';
+  div.style.paddingLeft = '';
+  div.style.color = '';
+  div.style.background = '';
+  div.style.borderTop = '';
+  div.contentEditable = 'true';
+
+  switch (block.block_type) {
+    case 'heading': {
+      const sizes: Record<string, string> = {
+        '1': '2em', '2': '1.5em', '3': '1.25em',
+        '4': '1.1em', '5': '1em', '6': '0.9em',
+      };
+      div.style.fontSize = sizes[block.level] || '1.5em';
+      div.style.fontWeight = 'bold';
+      break;
+    }
+    case 'list_item':
+      div.style.paddingLeft = '24px';
+      break;
+    case 'quote':
+      div.style.borderLeft = '3px solid rgba(130, 160, 255, 0.4)';
+      div.style.paddingLeft = '16px';
+      div.style.color = 'rgba(232, 232, 240, 0.7)';
+      break;
+    case 'code':
+      div.style.fontFamily = "'JetBrains Mono', monospace";
+      div.style.background = 'rgba(130, 160, 255, 0.05)';
+      div.style.paddingLeft = '12px';
+      break;
+    case 'divider':
+      div.contentEditable = 'false';
+      div.style.borderTop = '1px solid rgba(130, 160, 255, 0.2)';
+      div.style.minHeight = '0';
+      div.style.padding = '8px 0';
+      break;
+  }
+}
+
+// ── Events ─────────────────────────────────────────────────────────────
+function wireEvents(div: HTMLDivElement) {
+  div.addEventListener('input', () => {
+    if (suppressNextInput) {
+      suppressNextInput = false;
+      return;
+    }
+    const id = div.dataset.blockId!;
+    ed.editor_set_block_text(handle, id, div.textContent || '');
+  });
+
+  div.addEventListener('keydown', (e: KeyboardEvent) => {
+    const id = div.dataset.blockId!;
+
+    // Enter → insert block after
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const newId = ed.editor_insert_block_after(handle, id, 'paragraph');
+      render();
+      const newDiv = blockDivs.get(newId);
+      if (newDiv) newDiv.focus();
+      return;
+    }
+
+    // Backspace on empty → delete block, focus previous
+    if (e.key === 'Backspace' && (div.textContent || '') === '') {
+      e.preventDefault();
+      const prev = div.previousElementSibling as HTMLDivElement | null;
+      ed.editor_delete_block(handle, id);
+      render();
+      if (prev) {
+        prev.focus();
+        const sel = window.getSelection();
+        if (sel && prev.childNodes.length > 0) {
+          sel.selectAllChildren(prev);
+          sel.collapseToEnd();
+        }
+      }
+      return;
+    }
+
+    // Space → check autoformat
+    if (e.key === ' ') {
+      const text = div.textContent || '';
+      const fmt = detectAutoformat(text);
+      if (fmt) {
+        e.preventDefault();
+        ed.editor_set_block_type(handle, id, fmt.type, fmt.level, fmt.listStyle);
+        ed.editor_set_block_text(handle, id, '');
+        suppressNextInput = true;
+        div.textContent = '';
+        render();
+        const updated = blockDivs.get(id);
+        if (updated) updated.focus();
+      }
+    }
+  });
+}
+
+// ── Autoformat ─────────────────────────────────────────────────────────
+function detectAutoformat(
+  text: string,
+): { type: string; level: number; listStyle: string } | null {
+  const headingMatch = text.match(/^(#{1,6})$/);
+  if (headingMatch)
+    return { type: 'heading', level: headingMatch[1].length, listStyle: '' };
+
+  if (text === '- [ ]' || text === '- [x]')
+    return { type: 'list_item', level: 0, listStyle: 'todo' };
+
+  if (text === '-' || text === '*')
+    return { type: 'list_item', level: 0, listStyle: 'bullet' };
+
+  if (/^\d+\.$/.test(text))
+    return { type: 'list_item', level: 0, listStyle: 'numbered' };
+
+  if (text === '>')
+    return { type: 'quote', level: 0, listStyle: '' };
+
+  return null;
+}
+
+// ── Toolbar ────────────────────────────────────────────────────────────
+document.getElementById('btn-download')!.addEventListener('click', () => {
+  const md = ed.editor_export_markdown(handle);
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'document.md';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('btn-upload')!.addEventListener('click', () => {
+  document.getElementById('file-input')!.click();
+});
+
+document.getElementById('file-input')!.addEventListener('change', (e) => {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    ed.editor_import_markdown(handle, reader.result as string);
+    blockDivs.clear();
+    container.innerHTML = '';
+    render();
+  };
+  reader.readAsText(file);
+});
+
+// ── Boot ───────────────────────────────────────────────────────────────
+render();
