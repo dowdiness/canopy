@@ -3,10 +3,11 @@ package "dowdiness/canopy-block-editor/main"
 
 import {
   "dowdiness/event-graph-walker/internal/movable_tree",
+  "dowdiness/event-graph-walker/tree",
 }
 
 // Values
-pub fn block_doc_from_markdown(String, String) -> BlockDoc
+pub fn block_doc_from_markdown(String, String) -> BlockDoc raise @tree.TreeDocError
 
 pub fn block_doc_to_markdown(BlockDoc) -> String
 
@@ -41,17 +42,17 @@ pub struct BlockDoc {
   // private fields
 }
 pub fn BlockDoc::children(Self, @movable_tree.TreeNodeId) -> Array[@movable_tree.TreeNodeId]
-pub fn BlockDoc::create_block(Self, BlockType, parent? : @movable_tree.TreeNodeId) -> @movable_tree.TreeNodeId
-pub fn BlockDoc::create_block_after(Self, @movable_tree.TreeNodeId, BlockType) -> @movable_tree.TreeNodeId
-pub fn BlockDoc::delete_block(Self, @movable_tree.TreeNodeId) -> Unit
+pub fn BlockDoc::create_block(Self, BlockType, parent? : @movable_tree.TreeNodeId) -> @movable_tree.TreeNodeId raise @tree.TreeDocError
+pub fn BlockDoc::create_block_after(Self, @movable_tree.TreeNodeId, BlockType) -> @movable_tree.TreeNodeId raise @tree.TreeDocError
+pub fn BlockDoc::delete_block(Self, @movable_tree.TreeNodeId) -> Unit raise @tree.TreeDocError
 pub fn BlockDoc::delete_char(Self, @movable_tree.TreeNodeId, Int) -> Unit
 pub fn BlockDoc::get_checked(Self, @movable_tree.TreeNodeId) -> Bool
 pub fn BlockDoc::get_text(Self, @movable_tree.TreeNodeId) -> String
 pub fn BlockDoc::get_type(Self, @movable_tree.TreeNodeId) -> BlockType
 pub fn BlockDoc::insert_char(Self, @movable_tree.TreeNodeId, Int, String) -> Unit
 pub fn BlockDoc::is_alive(Self, @movable_tree.TreeNodeId) -> Bool
-pub fn BlockDoc::move_block(Self, @movable_tree.TreeNodeId, new_parent~ : @movable_tree.TreeNodeId) -> Unit
-pub fn BlockDoc::new(String) -> Self
+pub fn BlockDoc::move_block(Self, @movable_tree.TreeNodeId, new_parent~ : @movable_tree.TreeNodeId) -> Unit raise @tree.TreeDocError
+pub fn BlockDoc::new(String) -> Self raise @tree.TreeDocError
 pub fn BlockDoc::set_checked(Self, @movable_tree.TreeNodeId, Bool) -> Unit
 pub fn BlockDoc::set_text(Self, @movable_tree.TreeNodeId, String) -> Unit
 pub fn BlockDoc::set_type(Self, @movable_tree.TreeNodeId, BlockType) -> Unit
