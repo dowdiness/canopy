@@ -1,0 +1,19 @@
+import {
+  "moonbitlang/core/json",
+}
+
+options(
+  "is-main": true,
+  link: {
+    "js": {
+      "exports": [
+        "create_canvas",
+        "pointer_down",
+        "pointer_move",
+        "pointer_up",
+        "zoom",
+        "get_render_state",
+      ],
+    },
+  },
+)

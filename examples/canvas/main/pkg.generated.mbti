@@ -1,0 +1,99 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-canvas/main"
+
+// Values
+pub fn create_canvas() -> Int
+
+pub fn get_render_state(Int) -> String
+
+pub fn pointer_down(Int, Int, Double, Double) -> Unit
+
+pub fn pointer_move(Int, Double, Double) -> Unit
+
+pub fn pointer_up(Int, Int) -> Unit
+
+pub fn zoom(Int, Double, Double, Double) -> Unit
+
+// Errors
+
+// Types and methods
+pub(all) struct CanvasNode {
+  id : NodeId
+  x : Double
+  y : Double
+  w : Double
+  h : Double
+  kind : NodeKind
+}
+pub impl Eq for CanvasNode
+pub impl Show for CanvasNode
+
+pub(all) struct CanvasState {
+  viewport : Viewport
+  nodes : Array[CanvasNode]
+  interaction : InteractionState
+}
+pub impl Default for CanvasState
+pub impl Show for CanvasState
+
+pub(all) struct DragState {
+  node_id : NodeId
+  offset_x : Double
+  offset_y : Double
+}
+pub impl Eq for DragState
+pub impl Show for DragState
+
+pub(all) struct InteractionState {
+  dragging : DragState?
+  panning : PanState?
+  selected : NodeId?
+  pointer_down : Bool
+  did_move : Bool
+}
+pub impl Eq for InteractionState
+pub impl Show for InteractionState
+
+pub struct NodeId(Int)
+#deprecated
+pub fn NodeId::inner(Self) -> Int
+pub impl Eq for NodeId
+pub impl Show for NodeId
+pub impl ToJson for NodeId
+
+type NodeJson
+pub impl ToJson for NodeJson
+
+pub enum NodeKind {
+  Shape(String)
+  Text(String)
+}
+pub impl Eq for NodeKind
+pub impl Show for NodeKind
+pub impl ToJson for NodeKind
+
+pub(all) struct PanState {
+  start_screen_x : Double
+  start_screen_y : Double
+  start_pan_x : Double
+  start_pan_y : Double
+}
+pub impl Eq for PanState
+pub impl Show for PanState
+
+type RenderStateJson
+pub impl ToJson for RenderStateJson
+
+pub(all) struct Viewport {
+  x : Double
+  y : Double
+  scale : Double
+}
+pub impl Eq for Viewport
+pub impl Show for Viewport
+pub impl ToJson for Viewport
+
+// Type aliases
+
+// Traits
+

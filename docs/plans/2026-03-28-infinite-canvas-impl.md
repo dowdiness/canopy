@@ -53,7 +53,7 @@ Save to: `examples/canvas/moon.mod.json`
 
 - [ ] **Step 2: Create main/moon.pkg (minimal, exports added in Task 9)**
 
-```
+```moonpkg
 options(
   "is-main": true,
   link: {
