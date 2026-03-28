@@ -88,7 +88,8 @@ function applyAriaRoles(div: HTMLDivElement, block: Block) {
       div.setAttribute('aria-level', block.level || '1');
       break;
     case 'list_item':
-      div.setAttribute('role', 'listitem');
+      // No role — role="listitem" requires a parent role="list" wrapper,
+      // which conflicts with flat contenteditable block layout.
       break;
     case 'quote':
       div.setAttribute('role', 'blockquote');
@@ -123,18 +124,22 @@ function wireEvents(div: HTMLDivElement) {
       return;
     }
 
-    // Backspace on empty → delete block, focus previous (keep at least one block)
+    // Backspace on empty → delete block, focus neighbor (keep at least one block)
     if (e.key === 'Backspace' && (div.textContent || '') === '') {
       const prev = div.previousElementSibling as HTMLDivElement | null;
-      if (!prev) return; // Don't delete the first/only block
+      const next = div.nextElementSibling as HTMLDivElement | null;
+      if (!prev && !next) return; // Don't delete the only block
       e.preventDefault();
       ed.editor_delete_block(handle, id);
       render();
-      prev.focus();
-      const sel = window.getSelection();
-      if (sel && prev.childNodes.length > 0) {
-        sel.selectAllChildren(prev);
-        sel.collapseToEnd();
+      const target = prev || next;
+      if (target) {
+        target.focus();
+        const sel = window.getSelection();
+        if (sel && target.childNodes.length > 0) {
+          sel.selectAllChildren(target);
+          sel.collapseToEnd();
+        }
       }
       return;
     }

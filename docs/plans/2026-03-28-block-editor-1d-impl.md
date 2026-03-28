@@ -129,7 +129,7 @@ Run: `moon test 2>&1`
 
 - [ ] **Step 6: Commit**
 
-```
+```bash
 git add examples/block-editor/main/block_init.mbt examples/block-editor/main/block_init_wbtest.mbt
 git commit -m "feat(block-editor): 1d handle registry and parse_block_id"
 ```
@@ -247,7 +247,7 @@ Note: `Map.get` returns `Option`. Check if `.or("")` works on `String?` — if n
 
 - [ ] **Step 6: Commit**
 
-```
+```bash
 git commit -am "feat(block-editor): 1d get_render_state JSON bridge"
 ```
 
@@ -440,7 +440,7 @@ pub fn destroy_editor(handle : Int) -> Unit {
 
 - [ ] **Step 6: Commit**
 
-```
+```bash
 git commit -am "feat(block-editor): 1d block mutation bridge functions"
 ```
 
@@ -453,7 +453,7 @@ git commit -am "feat(block-editor): 1d block mutation bridge functions"
 
 - [ ] **Step 1: Update moon.pkg with full export list**
 
-```
+```text
 import {
   "dowdiness/event-graph-walker/tree" @tree,
   "dowdiness/event-graph-walker/text" @text,
@@ -489,7 +489,7 @@ Expected: 9
 
 - [ ] **Step 5: Commit**
 
-```
+```bash
 git add examples/block-editor/main/moon.pkg
 git commit -m "feat(block-editor): 1d JS export list"
 ```
@@ -748,7 +748,7 @@ Note: Dev server test is manual (smoke test in Task 6).
 
 - [ ] **Step 3: Commit**
 
-```
+```bash
 git add examples/block-editor/web/src/main.ts
 git commit -m "feat(block-editor): 1d TypeScript web shell"
 ```
@@ -792,7 +792,7 @@ Checklist:
 
 - [ ] **Step 6: Final commit**
 
-```
+```bash
 git add -A
 git commit -m "feat(block-editor): 1d JS bridge and TypeScript web shell"
 ```

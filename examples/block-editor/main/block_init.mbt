@@ -84,18 +84,20 @@ pub fn get_render_state(handle : Int) -> String {
         let id = children[i]
         let (type_str, props) = block_type_to_string(doc.get_type(id))
         buf.write_string("{\"id\":\"")
-        buf.write_string(id_key(id))
+        write_json_escaped(buf, id_key(id))
         buf.write_string("\",\"block_type\":\"")
-        buf.write_string(type_str)
+        write_json_escaped(buf, type_str)
         buf.write_string("\",\"level\":\"")
-        buf.write_string(
+        write_json_escaped(
+          buf,
           match props.get("level") {
             Some(v) => v
             None => ""
           },
         )
         buf.write_string("\",\"list_style\":\"")
-        buf.write_string(
+        write_json_escaped(
+          buf,
           match props.get("list_style") {
             Some(v) => v
             None => ""
