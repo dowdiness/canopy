@@ -6,7 +6,11 @@
 
 **Design reference:** `docs/plans/2026-03-18-framework-extraction-design.md`
 
-**Current state:** Phase 1 complete (merged PR #60, 2026-03-28). `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`. Phase 2 (FlatProj separation) is next.
+**Current state:** Phase 2 complete (2026-03-28). `lang/lambda/flat/` created with `VersionedFlatProj`.
+`FlatProj` stays in `projection/` until Phase 4 (circular dep: `text_edit.mbt` uses `FlatProj`).
+Phase 3 (extract `framework/`) is next.
+
+**Phase 1 summary:** `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`. Phase 2 (FlatProj separation) is next.
 
 **Module:** `dowdiness/canopy` (root `moon.mod.json`)
 
@@ -17,7 +21,7 @@
 | Phase | Tasks | Risk | PR | Status |
 |-------|-------|------|----|----|
 | 1 — Additive API | 1–3 | Low | [#60](https://github.com/dowdiness/canopy/pull/60) | ✅ Done |
-| 2 — Separate FlatProj | 4 | Medium | 2 | Not started |
+| 2 — Create lang/lambda/flat/ | 4 | Low | 2 | ✅ Done |
 | 3 — Extract framework/ | 5–7 | High | 3 | Not started |
 | 4 — Extract lang/lambda/ | 8 | High | 4 | Blocked on TermSym |
 | 5 — Verification | 9 | Low | 5 | Not started |
@@ -385,117 +389,51 @@ git commit -m "feat(editor): add is_dirty/refresh projection boundary to SyncEdi
 
 ---
 
-## Phase 2 — Separate FlatProj from framework path
+## Phase 2 — Create `lang/lambda/flat/` package
 
-**Goal:** Move `FlatProj` and its pipeline into a new `lang/lambda/flat/` package.
-After this phase, `projection/` contains no lambda-specific projection logic.
+**Goal:** Create the `lang/lambda/flat/` package and migrate `VersionedFlatProj` out
+of `editor/`. `FlatProj` itself moves in Phase 4 (see architectural note below).
+
+**Architectural note — why FlatProj stays in `projection/` until Phase 4:**
+Moving `FlatProj` to `lang/lambda/flat/` creates a circular dependency:
+- `lang/lambda/flat/` → `projection/` (needs `ProjNode`, `syntax_to_proj_node`, `reconcile_ast`, etc.)
+- `projection/` → `lang/lambda/flat/` (`text_edit.mbt`'s `EditContext.flat_proj : FlatProj`)
+
+The cycle breaks naturally in Phase 4 when `text_edit*`, `scope`, and other
+lambda-specific files in `projection/` all move to `lang/lambda/`. At that point,
+`projection/` no longer depends on `lang/lambda/flat/` so the dependency is one-way.
+
+**Phase 3 prerequisite:** Extracting `framework/` in Phase 3 also clears the path:
+after Phase 3, `lang/lambda/flat/` can import `framework/core/` (for `ProjNode`, etc.)
+instead of `projection/`, so `projection/` can safely import `lang/lambda/flat/`.
 
 ---
 
-### Task 4: Create `lang/lambda/flat/` and move `FlatProj`
+### Task 4: Create `lang/lambda/flat/` and move `VersionedFlatProj` ✅ Done (PR #61)
 
-**Files to create:**
-- `lang/lambda/flat/` (new directory)
-- `lang/lambda/flat/moon.pkg`
-- `lang/lambda/flat/flat_proj.mbt` (moved from `projection/flat_proj.mbt`)
-- `lang/lambda/flat/versioned_flat_proj.mbt` (extracted from `editor/projection_memo.mbt`)
+**Files created:**
+- `lang/lambda/flat/moon.pkg` — imports `@proj` and `@incr`
+- `lang/lambda/flat/versioned_flat_proj.mbt` — `pub(all) struct VersionedFlatProj` + impls
 
-**Files to modify:**
-- `editor/projection_memo.mbt` — import from new package, remove `VersionedFlatProj` definition
-- `editor/tree_edit_bridge.mbt` — update `@proj.FlatProj` → `@lambda_flat.FlatProj`
-- `projection/moon.pkg` — audit whether `@ast` import can be removed after move
+**Files modified:**
+- `editor/moon.pkg` — added `"dowdiness/canopy/lang/lambda/flat" @lambda_flat`
+- `editor/projection_memo.mbt` — replaced local `priv struct VersionedFlatProj` with `@lambda_flat.VersionedFlatProj`
+- `editor/sync_editor.mbt` — updated `proj_memo` field and `build_memos` closure type to use `@lambda_flat.VersionedFlatProj`
 
-- [ ] **Step 1: Create `lang/lambda/flat/moon.pkg`**
+**Deferred to Phase 4:**
+- Moving `projection/flat_proj.mbt` → `lang/lambda/flat/flat_proj.mbt`
+- Moving `projection/text_edit*.mbt`, `projection/scope.mbt`, etc. → `lang/lambda/`
+- Removing lambda-specific files from `projection/`
 
-```json
-{
-  "import": [
-    "dowdiness/lambda/ast",
-    "dowdiness/canopy/projection",
-    "dowdiness/seam",
-    "dowdiness/incr"
-  ]
-}
-```
+- [x] **Step 1: Create `lang/lambda/flat/moon.pkg`**
 
-Alias `"dowdiness/canopy/projection"` as `@proj` in the file header.
+- [x] **Step 2: Create `lang/lambda/flat/versioned_flat_proj.mbt`** (extracted from `editor/projection_memo.mbt`)
 
-- [ ] **Step 2: Move `projection/flat_proj.mbt` → `lang/lambda/flat/flat_proj.mbt`**
+- [x] **Step 3: Update `editor/projection_memo.mbt`** (removed local struct, uses `@lambda_flat.VersionedFlatProj`)
 
-Update the package declaration at the top if needed. The `@ast` and `@proj` imports
-become explicit (from `moon.pkg` above). Run `moon check` to catch missing imports.
+- [x] **Step 4: Run full test suite** (508 tests pass)
 
-- [ ] **Step 3: Create `lang/lambda/flat/versioned_flat_proj.mbt`**
-
-Extract `VersionedFlatProj` struct and its `HasChangedAt` / `BackdateEq` impls
-from `editor/projection_memo.mbt` into this new file:
-
-```moonbit
-// VersionedFlatProj: wraps FlatProj? with a revision stamp for BackdateEq.
-// Lives in lang/lambda/flat/ because it is lambda-specific (holds FlatProj).
-
-///|
-pub struct VersionedFlatProj {
-  proj : FlatProj?
-  changed_at : @incr.Revision
-}
-
-///|
-pub impl @incr.HasChangedAt for VersionedFlatProj with changed_at(self) -> @incr.Revision {
-  self.changed_at
-}
-
-///|
-pub impl @incr.BackdateEq for VersionedFlatProj
-```
-
-- [ ] **Step 4: Update `editor/projection_memo.mbt`**
-
-Replace `priv struct VersionedFlatProj` + impls with import from new package:
-
-In `editor/moon.pkg`, add:
-```
-"dowdiness/canopy/lang/lambda/flat" @lambda_flat,
-```
-
-Replace all `VersionedFlatProj` references with `@lambda_flat.VersionedFlatProj`.
-Replace all `@proj.FlatProj` references (in memo functions) with `@lambda_flat.FlatProj`.
-Replace `@proj.to_flat_proj_incremental` etc. with `@lambda_flat.to_flat_proj_incremental`.
-
-- [ ] **Step 5: Update `editor/tree_edit_bridge.mbt`**
-
-Replace `@proj.FlatProj` with `@lambda_flat.FlatProj` everywhere.
-Replace `@proj.to_flat_proj`, `@proj.reconcile_flat_proj` with `@lambda_flat.*`.
-
-- [ ] **Step 6: Remove `flat_proj.mbt` from `projection/`**
-
-```bash
-git rm projection/flat_proj.mbt
-```
-
-- [ ] **Step 7: Audit `projection/moon.pkg` for now-unused imports**
-
-After removing `flat_proj.mbt`, check if `@ast` is still needed in `projection/`.
-The remaining files in `projection/` that use `@ast`:
-- `actions.mbt`, `free_vars.mbt`, `scope.mbt`, `text_edit*.mbt`, `reconcile_ast.mbt`, `traits_term.mbt`
-
-If these still exist in `projection/`, the `@ast` import stays. They will be moved in Phase 4.
-
-- [ ] **Step 8: Run full test suite**
-
-```bash
-moon test
-```
-
-Expected: all tests pass. If `FlatProj`-related tests fail, check import paths.
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add lang/lambda/flat/ editor/projection_memo.mbt editor/tree_edit_bridge.mbt editor/moon.pkg
-git rm projection/flat_proj.mbt
-git commit -m "refactor: move FlatProj pipeline to lang/lambda/flat/ package"
-```
+- [x] **Step 5: Commit** (`refactor: create lang/lambda/flat/ and move VersionedFlatProj there`)
 
 ---
 
