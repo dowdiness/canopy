@@ -1,5 +1,4 @@
 // TreeNode and Renderable stay here (orphan rule).
-// EditAction[T] is in framework/core — import @core directly to use it.
 
 ///|
 /// Tree structure capability — provides structural access for reconciliation and traversal.
