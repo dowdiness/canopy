@@ -29,19 +29,8 @@ pub fn block_doc_to_markdown(doc : BlockDoc) -> String {
       let need_blank = match (prev_type, bt) {
         // Same list style: no blank line
         (Some(ListItem(a)), ListItem(b)) => not(list_style_eq(a, b))
-        // Before elements that need breathing room
-        (_, Heading(_)) => true
-        (_, Divider) => true
-        (_, Quote) => true
-        (_, Code(_)) => true
-        (_, ListItem(_)) => true
-        // After elements that need breathing room
-        (Some(Heading(_)), _) => true
-        (Some(Divider), _) => true
-        (Some(Quote), _) => true
-        (Some(Code(_)), _) => true
-        (Some(ListItem(_)), _) => true
-        _ => false
+        // Everything else gets a blank line between blocks
+        _ => true
       }
       if need_blank {
         buf.write_string("\n")

@@ -271,3 +271,70 @@ test "round-trip: heading + paragraph + bullet list" {
   let out = block_doc_to_markdown(doc)
   inspect(out, content=md)
 }
+
+// ── Edge-case tests ───────────────────────────────────────────────────────
+
+///|
+test "import: empty input" {
+  let doc = block_doc_from_markdown("", "alice")
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="0")
+}
+
+///|
+test "export: empty document" {
+  let doc = BlockDoc::new("alice")
+  inspect(block_doc_to_markdown(doc), content="")
+}
+
+///|
+test "round-trip: two adjacent paragraphs" {
+  let md =
+    #|first paragraph
+    #|
+    #|second paragraph
+    #|
+  let doc = block_doc_from_markdown(md, "alice")
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="2")
+  inspect(doc.get_text(children[0]), content="first paragraph")
+  inspect(doc.get_text(children[1]), content="second paragraph")
+  let out = block_doc_to_markdown(doc)
+  inspect(out, content=md)
+}
+
+///|
+test "import: consecutive blank lines collapse" {
+  let doc = block_doc_from_markdown("aaa\n\n\n\nbbb\n", "alice")
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="2")
+  inspect(doc.get_text(children[0]), content="aaa")
+  inspect(doc.get_text(children[1]), content="bbb")
+}
+
+///|
+test "import: unclosed code fence consumes to EOF" {
+  let doc = block_doc_from_markdown("```js\nlet x = 1\n", "alice")
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="1")
+  inspect(doc.get_type(children[0]), content="Code(\"js\")")
+  inspect(doc.get_text(children[0]), content="let x = 1")
+}
+
+///|
+test "import: heading-like lines inside code fence stay as code" {
+  let md =
+    #|```
+    #|# not a heading
+    #|--- not a divider
+    #|```
+    #|
+  let doc = block_doc_from_markdown(md, "alice")
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="1")
+  inspect(doc.get_type(children[0]), content="Code(\"\")")
+  let expected =
+    #|# not a heading
+    #|--- not a divider
+  inspect(doc.get_text(children[0]), content=expected)
+}
