@@ -1,6 +1,22 @@
-// Generic Tier-2 structural edit methods for SyncEditor[T].
+// Generic Tier-2 structural edit methods and projection boundary for SyncEditor[T].
 // All edits reduce to: span lookup → compute replacement text → apply_text_edit_internal.
 // No FlatProj, no TreeEditOp, no lambda-specific logic.
+
+///|
+/// Returns true if any text edit has been applied since the last refresh().
+/// Does not force memo evaluation.
+pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
+  self.projection_dirty
+}
+
+///|
+/// Forces evaluation of all projection memos and clears the dirty flag.
+/// Call this when ready to re-render (e.g., on animation frame).
+/// Multiple edits between refresh() calls are processed as a single update.
+pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
+  self.projection_dirty = false
+  let _ = self.cached_proj_node.get()
+}
 
 ///|
 /// Delete a node by replacing its source span with the node's placeholder text.
