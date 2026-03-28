@@ -144,7 +144,7 @@ fn update_pointer_up(
   state       : CanvasState,
   node_id_int : Int
 ) -> CanvasState {
-  let hovered : NodeId? = if node_id_int == 0 { None } else { Some(NodeId(node_id_int)) }
+  let hovered : NodeId? = if node_id_int <= 0 { None } else { Some(NodeId(node_id_int)) }
   let new_selected : NodeId? = if state.interaction.pointer_down &&
     not(state.interaction.did_move) {
     hovered
