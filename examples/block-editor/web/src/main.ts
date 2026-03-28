@@ -102,6 +102,12 @@ function applyAriaRoles(div: HTMLDivElement, block: Block) {
 
 // ── Events ─────────────────────────────────────────────────────────────
 function wireEvents(div: HTMLDivElement) {
+  div.addEventListener('paste', (e: ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData?.getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+  });
+
   div.addEventListener('input', () => {
     if (suppressNextInput) {
       suppressNextInput = false;

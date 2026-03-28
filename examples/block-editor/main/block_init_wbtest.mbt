@@ -48,10 +48,9 @@ test "destroy_editor removes handle" {
 ///|
 test "get_render_state returns block JSON" {
   let h = create_editor("test_render")
-  with_doc(h, fn(doc) {
-    let id = doc.create_block(Heading(2))
-    doc.set_text(id, "Hello")
-  })
+  let doc = docs.get(h).unwrap()
+  let id = doc.create_block(Heading(2))
+  doc.set_text(id, "Hello")
   let json = get_render_state(h)
   inspect(string_contains(json, "heading"), content="true")
   inspect(string_contains(json, "Hello"), content="true")
@@ -71,24 +70,13 @@ test "editor_insert_block_after creates block" {
   let h = create_editor("test_insert")
   editor_import_markdown(h, "# Title\n")
   let json1 = get_render_state(h)
-  inspect(string_contains(json1, "Title"), content="true")
-  // Extract the block id from JSON and insert after it
-  let state1 = get_render_state(h)
-  // The id is in format "test_insert:N" — find it
-  // Insert a paragraph after the first block
-  let children_before = state1
-  inspect(string_contains(children_before, "heading"), content="true")
-  // Use the bridge to insert — we need the id string
-  // Import gives us one block; get its id via render state
-  with_doc(h, fn(doc) {
-    let kids = doc.children(root_block_id)
-    let first_id = id_key(kids[0])
-    let new_id = editor_insert_block_after(h, first_id, "paragraph")
-    // Verify new block was created
-    inspect(new_id.length() > 0, content="true")
-  })
+  inspect(string_contains(json1, "heading"), content="true")
+  // Get the first block's id to insert after
+  let doc = docs.get(h).unwrap()
+  let first_id = id_key(doc.children(root_block_id)[0])
+  let new_id = editor_insert_block_after(h, first_id, "paragraph")
+  inspect(new_id.length() > 0, content="true")
   let json2 = get_render_state(h)
-  // Should now have 2 blocks: heading + paragraph
   inspect(string_contains(json2, "heading"), content="true")
   inspect(string_contains(json2, "paragraph"), content="true")
 }
@@ -100,11 +88,9 @@ test "editor_set_block_type changes type" {
   let json1 = get_render_state(h)
   inspect(string_contains(json1, "paragraph"), content="true")
   // Change to heading via bridge
-  with_doc(h, fn(doc) {
-    let kids = doc.children(root_block_id)
-    let block_id = id_key(kids[0])
-    editor_set_block_type(h, block_id, "heading", 2, "")
-  })
+  let doc = docs.get(h).unwrap()
+  let block_id = id_key(doc.children(root_block_id)[0])
+  editor_set_block_type(h, block_id, "heading", 2, "")
   let json2 = get_render_state(h)
   inspect(string_contains(json2, "heading"), content="true")
   inspect(string_contains(json2, "Hello"), content="true")

@@ -63,14 +63,6 @@ fn parse_block_id(s : String) -> @tree.TreeNodeId {
 }
 
 ///|
-fn with_doc(handle : Int, f : (BlockDoc) -> Unit) -> Unit {
-  match docs.get(handle) {
-    Some(doc) => f(doc)
-    None => ()
-  }
-}
-
-///|
 pub fn get_render_state(handle : Int) -> String {
   match docs.get(handle) {
     Some(doc) => {
@@ -130,9 +122,39 @@ fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
       buf.write_string("\\r")
     } else if ch == '\t' {
       buf.write_string("\\t")
+    } else if ch.to_int() < 0x20 {
+      // JSON requires all control chars below 0x20 to be escaped
+      buf.write_string("\\u00")
+      let hi = (ch.to_int() >> 4) & 0xf
+      let lo = ch.to_int() & 0xf
+      buf.write_string(hex_digit(hi))
+      buf.write_string(hex_digit(lo))
     } else {
       buf.write_string(s[i:i + 1].to_string())
     }
+  }
+}
+
+///|
+fn hex_digit(n : Int) -> String {
+  match n {
+    0 => "0"
+    1 => "1"
+    2 => "2"
+    3 => "3"
+    4 => "4"
+    5 => "5"
+    6 => "6"
+    7 => "7"
+    8 => "8"
+    9 => "9"
+    10 => "a"
+    11 => "b"
+    12 => "c"
+    13 => "d"
+    14 => "e"
+    15 => "f"
+    _ => "0"
   }
 }
 
