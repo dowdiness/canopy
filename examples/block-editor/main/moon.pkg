@@ -1,3 +1,8 @@
+import {
+  "dowdiness/event-graph-walker/tree" @tree,
+  "dowdiness/event-graph-walker/text" @text,
+}
+
 options(
   "is-main": true,
   link: { "js": { "exports": [ ] } },

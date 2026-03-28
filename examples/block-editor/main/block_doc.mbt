@@ -1,0 +1,229 @@
+// `TreeNodeId` impl traits (Eq, Hash, Compare, Show) live in an internal
+// event-graph-walker package that is invisible to external consumers, so we
+// cannot use TreeNodeId directly as a Map key or with ==.
+//
+// Workaround (V1):
+//   - Use Map[String, TextDoc] keyed by id_key(id)  ("agent:counter")
+//   - Use id_eq / id_key helpers for all identity operations
+//   - Public API still exposes @tree.TreeNodeId as the block identifier
+
+///|
+/// The block identifier type — a tree node ID.
+pub type BlockId = @tree.TreeNodeId
+
+///|
+/// Sentinel for the document root (parent of all top-level blocks).
+pub let root_block_id : @tree.TreeNodeId = @tree.root_id
+
+///|
+/// A collaborative block document.
+///
+/// Wraps a `TreeDoc` for block hierarchy and a per-block `TextDoc` map for
+/// text content. Block display order for root children is tracked explicitly
+/// in `order` (V1 workaround — TreeDoc lacks `create_node_after`).
+pub struct BlockDoc {
+  priv tree : @tree.TreeDoc
+  priv texts : Map[String, @text.TextDoc]
+  priv mut order : Array[@tree.TreeNodeId]
+  priv replica_id : String
+}
+
+///|
+pub fn BlockDoc::new(replica_id : String) -> BlockDoc {
+  { tree: @tree.TreeDoc::new(replica_id), texts: {}, order: [], replica_id }
+}
+
+///|
+/// Create a block as the last child of `parent` (default: root).
+pub fn BlockDoc::create_block(
+  self : BlockDoc,
+  block_type : BlockType,
+  parent? : @tree.TreeNodeId = root_block_id,
+) -> @tree.TreeNodeId {
+  let id = self.tree.create_node(parent~)
+  self.texts[id_key(id)] = @text.TextDoc::new(self.replica_id)
+  self.apply_block_type(id, block_type)
+  if id_eq(parent, root_block_id) {
+    self.order.push(id)
+  }
+  id
+}
+
+///|
+/// Create a block immediately after `after_id` in document order.
+pub fn BlockDoc::create_block_after(
+  self : BlockDoc,
+  after_id : @tree.TreeNodeId,
+  block_type : BlockType,
+) -> @tree.TreeNodeId {
+  let id = self.tree.create_node(parent=root_block_id)
+  self.texts[id_key(id)] = @text.TextDoc::new(self.replica_id)
+  self.apply_block_type(id, block_type)
+  let idx = self.order_index(after_id)
+  self.order.insert(idx + 1, id)
+  id
+}
+
+///|
+/// Delete a block: move it to the tree trash and remove from order.
+pub fn BlockDoc::delete_block(self : BlockDoc, id : @tree.TreeNodeId) -> Unit {
+  self.tree.delete_node(id)
+  self.order = self.order.filter(fn(bid) { not(id_eq(bid, id)) })
+}
+
+///|
+/// Move a block within the same parent (V1: root-to-root reorder only).
+/// Moving between root and nested parents is Phase 2 — `order` is not updated
+/// for cross-level moves, so this aborts if either node is non-root.
+pub fn BlockDoc::move_block(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  new_parent~ : @tree.TreeNodeId,
+) -> Unit {
+  if not(id_eq(new_parent, root_block_id)) {
+    abort("BlockDoc::move_block: cross-level moves are Phase 2 only")
+  }
+  self.tree.move_node(target=id, new_parent~)
+}
+
+///|
+/// Return children of `parent` in display order.
+/// For root: returns the explicit `order` array (filtered for alive blocks).
+/// For other nodes: delegates to the tree (Phase 2 nesting).
+pub fn BlockDoc::children(
+  self : BlockDoc,
+  parent : @tree.TreeNodeId,
+) -> Array[@tree.TreeNodeId] {
+  if id_eq(parent, root_block_id) {
+    self.order.filter(fn(id) { self.tree.is_alive(id) })
+  } else {
+    self.tree.children(parent)
+  }
+}
+
+///|
+pub fn BlockDoc::is_alive(self : BlockDoc, id : @tree.TreeNodeId) -> Bool {
+  self.tree.is_alive(id)
+}
+
+///|
+pub fn BlockDoc::get_type(self : BlockDoc, id : @tree.TreeNodeId) -> BlockType {
+  let type_str = self.tree.get_property(id, "block_type").unwrap_or("paragraph")
+  block_type_from_props(type_str, fn(k) { self.tree.get_property(id, k) })
+}
+
+///|
+pub fn BlockDoc::set_type(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  t : BlockType,
+) -> Unit {
+  self.apply_block_type(id, t)
+}
+
+///|
+pub fn BlockDoc::get_text(self : BlockDoc, id : @tree.TreeNodeId) -> String {
+  match self.texts.get(id_key(id)) {
+    Some(tdoc) => tdoc.text()
+    None => ""
+  }
+}
+
+///|
+/// Bulk-replace block text (atomic CRDT replace).
+pub fn BlockDoc::set_text(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  text : String,
+) -> Unit {
+  match self.texts.get(id_key(id)) {
+    Some(tdoc) => {
+      let len = tdoc.len()
+      if len > 0 {
+        tdoc.replace_range(@text.Range::from_ints(0, len), text) catch {
+          _ => ()
+        }
+      } else if text != "" {
+        tdoc.insert(@text.Pos::at(0), text) catch {
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+/// Insert a single character at `pos` (preferred for typing).
+pub fn BlockDoc::insert_char(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  pos : Int,
+  ch : String,
+) -> Unit {
+  match self.texts.get(id_key(id)) {
+    Some(tdoc) => tdoc.insert(@text.Pos::at(pos), ch) catch { _ => () }
+    None => ()
+  }
+}
+
+///|
+/// Delete the character at `pos`.
+pub fn BlockDoc::delete_char(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  pos : Int,
+) -> Unit {
+  match self.texts.get(id_key(id)) {
+    Some(tdoc) => tdoc.delete(@text.Pos::at(pos)) catch { _ => () }
+    None => ()
+  }
+}
+
+///|
+pub fn BlockDoc::get_checked(self : BlockDoc, id : @tree.TreeNodeId) -> Bool {
+  self.tree.get_property(id, "checked") == Some("true")
+}
+
+///|
+pub fn BlockDoc::set_checked(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  v : Bool,
+) -> Unit {
+  self.tree.set_property(id, "checked", if v { "true" } else { "false" })
+}
+
+// ── Private helpers ────────────────────────────────────────────────────────
+
+///|
+fn id_key(id : @tree.TreeNodeId) -> String {
+  @tree.tree_node_id_key(id)
+}
+
+///|
+fn id_eq(a : @tree.TreeNodeId, b : @tree.TreeNodeId) -> Bool {
+  @tree.tree_node_id_eq(a, b)
+}
+
+///|
+fn BlockDoc::apply_block_type(
+  self : BlockDoc,
+  id : @tree.TreeNodeId,
+  t : BlockType,
+) -> Unit {
+  let (type_str, props) = block_type_to_string(t)
+  self.tree.set_property(id, "block_type", type_str)
+  props.each(fn(k, v) { self.tree.set_property(id, k, v) })
+}
+
+///|
+/// Return the index of `id` in `order`, or the last index if not found.
+fn BlockDoc::order_index(self : BlockDoc, id : @tree.TreeNodeId) -> Int {
+  for i = 0; i < self.order.length(); i = i + 1 {
+    if id_eq(self.order[i], id) {
+      return i
+    }
+  }
+  self.order.length() - 1
+}
