@@ -31,8 +31,8 @@ fn app_node(
 ) -> ProjNode[@ast.Term] {
   ProjNode::new(
     App(left.kind, right.kind),
-    @core.min_int(left.start, right.start),
-    @core.max_int(left.end, right.end),
+    @cmp.minimum(left.start, right.start),
+    @cmp.maximum(left.end, right.end),
     @core.next_proj_node_id(counter),
     [left, right],
   )
@@ -47,8 +47,8 @@ fn bop_node(
 ) -> ProjNode[@ast.Term] {
   ProjNode::new(
     Bop(op, left.kind, right.kind),
-    @core.min_int(left.start, right.start),
-    @core.max_int(left.end, right.end),
+    @cmp.minimum(left.start, right.start),
+    @cmp.maximum(left.end, right.end),
     @core.next_proj_node_id(counter),
     [left, right],
   )

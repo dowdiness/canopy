@@ -38,24 +38,6 @@ pub fn next_proj_node_id(counter : Ref[Int]) -> Int {
 }
 
 ///|
-pub fn min_int(a : Int, b : Int) -> Int {
-  if a < b {
-    a
-  } else {
-    b
-  }
-}
-
-///|
-pub fn max_int(a : Int, b : Int) -> Int {
-  if a > b {
-    a
-  } else {
-    b
-  }
-}
-
-///|
 /// Assign fresh IDs to a ProjNode subtree.
 /// Public for cross-package use by reconciliation.
 pub fn[T] assign_fresh_ids(

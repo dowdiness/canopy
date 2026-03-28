@@ -8,10 +8,6 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
-pub fn max_int(Int, Int) -> Int
-
-pub fn min_int(Int, Int) -> Int
-
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
 // Errors
