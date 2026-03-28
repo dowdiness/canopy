@@ -1,5 +1,4 @@
-// ProjNode re-exported from framework/core.
-// Lambda-specific projection builders moved to lang/lambda/proj/.
+// Re-exports so @proj.ProjNode and @proj.syntax_to_proj_node continue to work.
 
 ///|
 pub using @core {type ProjNode}

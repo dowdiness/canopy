@@ -1,5 +1,4 @@
-// SourceMap re-exported from framework/core.
-// Lambda-specific token span extraction re-exported from lang/lambda/proj.
+// Re-exports so @proj.SourceMap and @proj.populate_token_spans continue to work.
 
 ///|
 pub using @core {type SourceMap}

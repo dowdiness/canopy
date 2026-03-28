@@ -1,22 +1,6 @@
 // Interactive Tree Editor: Refresh/reuse logic and tree indexes
 
 ///|
-/// Find a node in a ProjNode tree by its NodeId.
-fn[T] get_node_in_tree(root : ProjNode[T], target_id : NodeId) -> ProjNode[T]? {
-  if root.id() == target_id {
-    Some(root)
-  } else {
-    for child in root.children {
-      match get_node_in_tree(child, target_id) {
-        Some(found) => return Some(found)
-        None => continue
-      }
-    }
-    None
-  }
-}
-
-///|
 /// Build parent map by walking the InteractiveTreeNode tree.
 fn[T] build_parent_map_from_tree(
   tree : InteractiveTreeNode[T]?,
@@ -783,7 +767,7 @@ fn[T : TreeNode + Renderable] TreeEditorState::hydrate_subtree(
       match current_node.children {
         Loaded(_) => self
         Elided(_) =>
-          match get_node_in_tree(proj, node_id) {
+          match @core.get_node_in_tree(proj, node_id) {
             Some(proj_node) => {
               let ui_state : TreeUIState = {
                 collapsed_nodes: self.collapsed_nodes.remove(node_id),

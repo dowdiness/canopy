@@ -8,6 +8,8 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
+pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
+
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
 pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]

@@ -11,6 +11,8 @@ import {
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 
+// -29: unused binding in wbtest files that still use @parser/@seam
+
 warnings = "-2-6-29"
 
 options(

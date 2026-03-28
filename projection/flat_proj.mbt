@@ -1,5 +1,4 @@
-// FlatProj re-exported from lang/lambda/proj.
-// Lambda-specific flat projection builders moved to lang/lambda/proj/.
+// Re-exports so @proj.FlatProj and @proj.to_flat_proj continue to work.
 
 ///|
 pub using @lambda_proj {
