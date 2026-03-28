@@ -62,3 +62,38 @@ test "commit_edit returns error for unknown node_id" {
   let result = editor.commit_edit(bad_id, "y", 0)
   inspect(result is Err(_), content="true")
 }
+
+///|
+test "is_dirty set after set_text" {
+  let editor = SyncEditor::new_lambda("test")
+  editor.set_text("x")
+  inspect(editor.is_dirty(), content="true")
+}
+
+///|
+test "is_dirty set after insert/backspace" {
+  let editor = SyncEditor::new_lambda("test")
+  // Consume initial dirty from construction
+  editor.refresh()
+  inspect(editor.is_dirty(), content="false")
+  // insert goes through apply_local_text_change → set_parser_signals
+  editor.insert("x") catch {
+    _ => ()
+  }
+  inspect(editor.is_dirty(), content="true")
+  editor.refresh()
+  inspect(editor.is_dirty(), content="false")
+  // backspace also sets dirty
+  editor.move_cursor(1)
+  let _ = editor.backspace()
+  inspect(editor.is_dirty(), content="true")
+}
+
+///|
+test "refresh clears dirty flag" {
+  let editor = SyncEditor::new_lambda("test")
+  editor.set_text("x")
+  inspect(editor.is_dirty(), content="true")
+  editor.refresh()
+  inspect(editor.is_dirty(), content="false")
+}

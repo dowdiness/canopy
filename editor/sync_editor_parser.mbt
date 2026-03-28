@@ -10,6 +10,9 @@ fn[T] SyncEditor::set_parser_signals(
     self.source_text.set(source)
     self.syntax_tree.set(syntax)
   })
+  // All text-changing paths (insert, backspace, apply_text_edit_internal,
+  // undo/redo via mark_dirty, remote sync) converge here.
+  self.projection_dirty = true
 }
 
 ///|

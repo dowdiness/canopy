@@ -140,7 +140,6 @@ fn[T] SyncEditor::apply_text_edit_internal(
     self.doc.text(),
     Some(@parser.Edit::new(safe_start, safe_delete_len, inserted.length())),
   )
-  self.projection_dirty = true
 }
 
 ///|

@@ -10,9 +10,12 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 }
 
 ///|
-/// Forces evaluation of all projection memos and clears the dirty flag.
-/// Call this when ready to re-render (e.g., on animation frame).
-/// Multiple edits between refresh() calls are processed as a single update.
+/// Clears the dirty flag and eagerly evaluates the projection memo.
+/// The dirty flag is advisory — get_proj_node() / get_source_map() etc.
+/// still force recomputation on demand. refresh() is useful when callers
+/// want to batch edits and trigger a single projection pass at a known
+/// point (e.g., on animation frame) rather than paying the cost lazily
+/// inside a getter.
 pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
   self.projection_dirty = false
   let _ = self.cached_proj_node.get()
