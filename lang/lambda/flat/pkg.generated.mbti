@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/flat"
+
+import {
+  "dowdiness/canopy/projection",
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct VersionedFlatProj {
+  proj : @projection.FlatProj?
+  changed_at : @types.Revision
+}
+pub impl @types.BackdateEq for VersionedFlatProj
+pub impl @types.HasChangedAt for VersionedFlatProj
+
+// Type aliases
+
+// Traits
+

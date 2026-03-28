@@ -56,5 +56,5 @@ pub fn block_type_from_props(
 
 ## Checks
 
-- [ ] `moon check` passes
-- [ ] Commit: `feat(block-editor): scaffold module and block types`
+- [x] `moon check` passes
+- [x] Commit: `feat(block-editor): scaffold module and block types`

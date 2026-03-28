@@ -9,6 +9,7 @@ import {
   "dowdiness/loom/core" @loom_core,
   "dowdiness/seam",
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
   "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",

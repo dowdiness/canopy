@@ -2,7 +2,7 @@
 
 **Outcome:** `BlockDoc` CRUD is tested and passes. Insertion order is correct.
 
-**Prereq:** [1a-scaffold.md](2026-03-28-block-editor-1a-scaffold.md) complete.
+**Prereq:** [1a-scaffold.md](../archive/2026-03-28-block-editor-1a-scaffold.md) complete.
 **Next plan:** [1c-markdown.md](2026-03-28-block-editor-1c-markdown.md)
 
 ---
@@ -24,7 +24,7 @@ pub struct BlockDoc {
   priv replica_id  : String
 }
 
-pub typealias BlockId = @tree.TreeNodeId
+pub type BlockId = @tree.TreeNodeId
 pub let root_block_id : BlockId = @tree.root_id
 ```
 

@@ -1,30 +1,6 @@
 // Projection Memo: Reactive derivation of FlatProj, ProjNode, registry, and source map
 // from SyncEditor's incremental parser-backed signals.
-
-///|
-/// Wraps FlatProj? with a revision stamp for O(1) BackdateEq.
-/// changed_at only advances when the FlatProj content actually changes.
-/// Sequential keystrokes with no AST change leave changed_at stable,
-/// causing proj_memo to backdate and skipping cached_proj_node,
-/// registry_memo, and source_map_memo recomputation entirely.
-///
-/// Measured: whitespace-only keystrokes (trivia edits) are ~5–10% faster
-/// than content-changing keystrokes at 1000 defs. The remaining cost is
-/// dominated by the incremental parse + O(N) to_flat_proj_incremental scan,
-/// not the downstream memos. The win grows when heavier downstream
-/// consumers (type checking, rendering) are added.
-priv struct VersionedFlatProj {
-  proj : @proj.FlatProj?
-  changed_at : @incr.Revision
-}
-
-///|
-impl @incr.HasChangedAt for VersionedFlatProj with changed_at(self) -> @incr.Revision {
-  self.changed_at
-}
-
-///|
-impl @incr.BackdateEq for VersionedFlatProj
+// @lambda_flat.VersionedFlatProj lives in @lambda_flat (lang/lambda/flat/) — imported here.
 
 ///|
 /// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
@@ -35,7 +11,7 @@ fn build_lambda_projection_memos(
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   _parser : @loom.ImperativeParser[@ast.Term],
 ) -> (
-  @incr.Memo[VersionedFlatProj],
+  @incr.Memo[@lambda_flat.VersionedFlatProj],
   @incr.Memo[@proj.ProjNode[@ast.Term]?],
   @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]],
   @incr.Memo[@proj.SourceMap],
@@ -56,15 +32,15 @@ fn build_lambda_projection_memos(
     @incr.Revision::initial(),
   )
 
-  let proj_memo : @incr.Memo[VersionedFlatProj] = @incr.Memo::new_memo(
+  let proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj] = @incr.Memo::new_memo(
     rt,
-    fn() -> VersionedFlatProj {
+    fn() -> @lambda_flat.VersionedFlatProj {
       if source_text.get() == "" {
         prev_flat_proj_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-        return VersionedFlatProj::{
+        return @lambda_flat.VersionedFlatProj::{
           proj: None,
           changed_at: proj_changed_at_ref.val,
         }
@@ -76,7 +52,7 @@ fn build_lambda_projection_memos(
           prev_syntax_root_ref.val = None
           changed_def_indices_ref.val = None
           proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-          return VersionedFlatProj::{
+          return @lambda_flat.VersionedFlatProj::{
             proj: None,
             changed_at: proj_changed_at_ref.val,
           }
@@ -147,7 +123,7 @@ fn build_lambda_projection_memos(
       if has_changes {
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
       }
-      VersionedFlatProj::{
+      @lambda_flat.VersionedFlatProj::{
         proj: Some(result),
         changed_at: proj_changed_at_ref.val,
       }
