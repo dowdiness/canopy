@@ -14,6 +14,12 @@ pub fn block_type_from_props(String, (String) -> String?) -> BlockType
 
 pub fn block_type_to_string(BlockType) -> (String, Map[String, String])
 
+pub fn create_editor(String) -> Int
+
+pub fn destroy_editor(Int) -> Unit
+
+pub fn get_render_state(Int) -> String
+
 pub let root_block_id : @movable_tree.TreeNodeId
 
 // Errors
