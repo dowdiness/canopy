@@ -1,20 +1,20 @@
 ///|
 fn update_pan_start(
-  state    : CanvasState,
+  state : CanvasState,
   screen_x : Double,
-  screen_y : Double
+  screen_y : Double,
 ) -> CanvasState {
   let pan : PanState = {
     start_screen_x: screen_x,
     start_screen_y: screen_y,
-    start_pan_x:    state.viewport.x,
-    start_pan_y:    state.viewport.y,
+    start_pan_x: state.viewport.x,
+    start_pan_y: state.viewport.y,
   }
   let new_interaction : InteractionState = {
     ..state.interaction,
-    panning:      Some(pan),
+    panning: Some(pan),
     pointer_down: true,
-    did_move:     false,
+    did_move: false,
   }
   { ..state, interaction: new_interaction }
 }
@@ -23,9 +23,9 @@ fn update_pan_start(
 /// Pan is computed as absolute offset from start_pan to avoid
 /// float accumulation across multiple move events.
 fn update_pan_move(
-  state    : CanvasState,
+  state : CanvasState,
   screen_x : Double,
-  screen_y : Double
+  screen_y : Double,
 ) -> CanvasState {
   match state.interaction.panning {
     None => state
@@ -53,24 +53,18 @@ fn update_pan_move(
 fn update_zoom(
   state : CanvasState,
   delta : Double,
-  cx    : Double,
-  cy    : Double
+  cx : Double,
+  cy : Double,
 ) -> CanvasState {
   let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
   let old_scale = state.viewport.scale
   let raw = old_scale * factor
-  let new_scale = if raw < 0.1 {
-    0.1
-  } else if raw > 8.0 {
-    8.0
-  } else {
-    raw
-  }
+  let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
   let ratio = new_scale / old_scale
   let new_viewport : Viewport = {
     scale: new_scale,
-    x:     cx + (state.viewport.x - cx) * ratio,
-    y:     cy + (state.viewport.y - cy) * ratio,
+    x: cx + (state.viewport.x - cx) * ratio,
+    y: cy + (state.viewport.y - cy) * ratio,
   }
   { ..state, viewport: new_viewport }
 }
@@ -78,8 +72,8 @@ fn update_zoom(
 ///|
 fn screen_to_world(
   viewport : Viewport,
-  sx       : Double,
-  sy       : Double
+  sx : Double,
+  sy : Double,
 ) -> (Double, Double) {
   ((sx - viewport.x) / viewport.scale, (sy - viewport.y) / viewport.scale)
 }
@@ -88,10 +82,10 @@ fn screen_to_world(
 /// Dispatch a pointer-down event to pan or drag based on node_id.
 /// Accepts screen coordinates; converts to world coords internally for dragging.
 fn update_pointer_down(
-  state   : CanvasState,
+  state : CanvasState,
   node_id : NodeId?,
-  sx      : Double,
-  sy      : Double
+  sx : Double,
+  sy : Double,
 ) -> CanvasState {
   match node_id {
     None => update_pan_start(state, sx, sy)
@@ -105,7 +99,11 @@ fn update_pointer_down(
 ///|
 /// Dispatch a pointer-move event to the active gesture.
 /// Accepts screen coordinates; converts to world coords internally for dragging.
-fn update_pointer_move(state : CanvasState, sx : Double, sy : Double) -> CanvasState {
+fn update_pointer_move(
+  state : CanvasState,
+  sx : Double,
+  sy : Double,
+) -> CanvasState {
   match state.interaction.dragging {
     Some(_) => {
       let (wx, wy) = screen_to_world(state.viewport, sx, sy)
@@ -127,10 +125,10 @@ fn find_node(nodes : Array[CanvasNode], id : NodeId) -> CanvasNode? {
 
 ///|
 fn update_node_drag_start(
-  state   : CanvasState,
+  state : CanvasState,
   node_id : NodeId,
   world_x : Double,
-  world_y : Double
+  world_y : Double,
 ) -> CanvasState {
   match find_node(state.nodes, node_id) {
     None => state
@@ -142,9 +140,9 @@ fn update_node_drag_start(
       }
       let new_interaction : InteractionState = {
         ..state.interaction,
-        dragging:     Some(drag),
+        dragging: Some(drag),
         pointer_down: true,
-        did_move:     false,
+        did_move: false,
       }
       { ..state, interaction: new_interaction }
     }
@@ -153,9 +151,9 @@ fn update_node_drag_start(
 
 ///|
 fn update_node_drag_move(
-  state   : CanvasState,
+  state : CanvasState,
   world_x : Double,
-  world_y : Double
+  world_y : Double,
 ) -> CanvasState {
   match state.interaction.dragging {
     None => state
@@ -180,11 +178,12 @@ fn update_node_drag_move(
 /// Handle pointer release. `node_id_int` is the canvas node id under the pointer,
 /// or 0 if released over the background.
 /// A "click" = pointer_down was true AND no movement occurred → select the node.
-fn update_pointer_up(
-  state       : CanvasState,
-  node_id_int : Int
-) -> CanvasState {
-  let hovered : NodeId? = if node_id_int <= 0 { None } else { Some(NodeId(node_id_int)) }
+fn update_pointer_up(state : CanvasState, node_id_int : Int) -> CanvasState {
+  let hovered : NodeId? = if node_id_int <= 0 {
+    None
+  } else {
+    Some(NodeId(node_id_int))
+  }
   let new_selected : NodeId? = if state.interaction.pointer_down &&
     not(state.interaction.did_move) {
     hovered
@@ -192,11 +191,11 @@ fn update_pointer_up(
     state.interaction.selected
   }
   let new_interaction : InteractionState = {
-    dragging:     None,
-    panning:      None,
+    dragging: None,
+    panning: None,
     pointer_down: false,
-    did_move:     false,
-    selected:     new_selected,
+    did_move: false,
+    selected: new_selected,
   }
   { ..state, interaction: new_interaction }
 }

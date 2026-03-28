@@ -243,7 +243,6 @@ test "get_render_state returns correct JSON shape" {
     json_str,
     content=(
       #|{"viewport":{"x":520,"y":300,"scale":1},"nodes":[{"id":1,"x":-320,"y":-160,"w":200,"h":120,"kind":["Shape","#8250df"]},{"id":2,"x":-60,"y":-160,"w":200,"h":120,"kind":["Shape","#c792ea"]},{"id":3,"x":200,"y":-160,"w":200,"h":120,"kind":["Shape","#82aaff"]},{"id":4,"x":-320,"y":20,"w":200,"h":60,"kind":["Text","Canopy Canvas"]},{"id":5,"x":-60,"y":20,"w":200,"h":60,"kind":["Text","Pan · Zoom · Drag"]},{"id":6,"x":200,"y":20,"w":200,"h":60,"kind":["Text","∞"]}]}
-
     ),
   )
 }

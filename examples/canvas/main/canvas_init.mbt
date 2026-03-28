@@ -12,10 +12,10 @@ pub fn create_canvas() -> Int {
 /// Handle pointer-down. `node_id` is the canvas node id under the pointer,
 /// or 0 for background. Dispatches to pan or drag start internally.
 pub fn pointer_down(
-  handle  : Int,
+  handle : Int,
   node_id : Int,
-  sx      : Double,
-  sy      : Double
+  sx : Double,
+  sy : Double,
 ) -> Unit {
   let id : NodeId? = if node_id <= 0 { None } else { Some(NodeId(node_id)) }
   _registry[handle] = update_pointer_down(_registry[handle], id, sx, sy)
