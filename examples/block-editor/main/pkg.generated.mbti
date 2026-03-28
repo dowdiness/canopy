@@ -6,6 +6,10 @@ import {
 }
 
 // Values
+pub fn block_doc_from_markdown(String, String) -> BlockDoc
+
+pub fn block_doc_to_markdown(BlockDoc) -> String
+
 pub fn block_type_from_props(String, (String) -> String?) -> BlockType
 
 pub fn block_type_to_string(BlockType) -> (String, Map[String, String])
