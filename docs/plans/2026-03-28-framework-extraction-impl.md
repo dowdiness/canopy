@@ -10,7 +10,7 @@
 `FlatProj` stays in `projection/` until Phase 4 (circular dep: `text_edit.mbt` uses `FlatProj`).
 Phase 3 (extract `framework/`) is next.
 
-**Phase 1 summary:** `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`. Phase 2 (FlatProj separation) is next.
+**Phase 1 summary:** `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`.
 
 **Module:** `dowdiness/canopy` (root `moon.mod.json`)
 
@@ -406,10 +406,14 @@ lambda-specific files in `projection/` all move to `lang/lambda/`. At that point
 **Phase 3 prerequisite:** Extracting `framework/` in Phase 3 also clears the path:
 after Phase 3, `lang/lambda/flat/` can import `framework/core/` (for `ProjNode`, etc.)
 instead of `projection/`, so `projection/` can safely import `lang/lambda/flat/`.
+However, Phase 3 alone is not sufficient — `flat_proj.mbt` also calls package-private
+helpers in `projection/` (`next_proj_node_id`, `error_node_for_syntax` from `proj_node.mbt`;
+`assign_fresh_ids` from `reconcile_ast.mbt`). These will need to be made public or
+co-located before the move is mechanically possible.
 
 ---
 
-### Task 4: Create `lang/lambda/flat/` and move `VersionedFlatProj` ✅ Done (PR #61)
+### Task 4: Create `lang/lambda/flat/` and move `VersionedFlatProj` ✅ Done (PR #62)
 
 **Files created:**
 - `lang/lambda/flat/moon.pkg` — imports `@proj` and `@incr`
