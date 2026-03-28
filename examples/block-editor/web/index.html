@@ -40,8 +40,8 @@
       width: 100%; height: 100%;
       background: var(--bg-base); color: var(--text-primary);
       font-family: var(--font-ui);
-      font-size: 1rem;
-      line-height: 1.6;
+      font-size: 1.0625rem;
+      line-height: 1.7;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
@@ -111,31 +111,31 @@
     }
 
     /* ── Block spacing rhythm ─────────────────────────────────── */
-    #editor-blocks > div + div { margin-top: 2px; }
-    #editor-blocks > div[data-type="heading"] { margin-top: 20px; }
+    #editor-blocks > div + div { margin-top: var(--space-sm); }
+    #editor-blocks > div[data-type="heading"] { margin-top: var(--space-xl); }
     #editor-blocks > div[data-type="heading"]:first-child { margin-top: 0; }
-    #editor-blocks > div[data-type="divider"] { margin-top: var(--space-lg); }
-    #editor-blocks > div[data-type="divider"] + div { margin-top: var(--space-lg); }
+    #editor-blocks > div[data-type="divider"] { margin-top: var(--space-xl); }
+    #editor-blocks > div[data-type="divider"] + div { margin-top: var(--space-xl); }
 
     /* ── Headings (1.25 ratio type scale) ─────────────────────── */
     #editor-blocks > div[data-type="heading"] { font-weight: 600; }
     #editor-blocks > div[data-type="heading"][data-level="1"] {
-      font-size: 1.953rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em;
+      font-size: 1.953rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em;
     }
     #editor-blocks > div[data-type="heading"][data-level="2"] {
-      font-size: 1.563rem; line-height: 1.2; letter-spacing: -0.015em;
+      font-size: 1.563rem; line-height: 1.25; letter-spacing: -0.015em;
     }
     #editor-blocks > div[data-type="heading"][data-level="3"] {
-      font-size: 1.25rem; line-height: 1.3; letter-spacing: -0.01em;
+      font-size: 1.25rem; line-height: 1.35; letter-spacing: -0.01em;
     }
     #editor-blocks > div[data-type="heading"][data-level="4"] {
-      font-size: 1.1rem; line-height: 1.35;
+      font-size: 1.1rem; line-height: 1.4;
     }
     #editor-blocks > div[data-type="heading"][data-level="5"] {
-      font-size: 1rem; line-height: 1.4; letter-spacing: 0.01em;
+      font-size: 1.0625rem; line-height: 1.45; letter-spacing: 0.01em;
     }
     #editor-blocks > div[data-type="heading"][data-level="6"] {
-      font-size: 0.875rem; line-height: 1.4; letter-spacing: 0.02em;
+      font-size: 1rem; line-height: 1.5; letter-spacing: 0.02em;
     }
 
     /* ── List items ───────────────────────────────────────────── */
