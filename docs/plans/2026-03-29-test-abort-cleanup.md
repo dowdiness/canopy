@@ -37,6 +37,11 @@ Remaining work:
 - any remaining assertion-like `abort(...)` uses outside the first-pass main
   module files
 
+Completed in the second pass:
+
+- `loom/examples/json` parser, error-recovery, and incremental tests now use
+  `try!` / `fail(...)` instead of assertion-style `abort(...)`
+
 ## Desired State
 
 - Routine expectation failures in tests use assertions or snapshots rather than

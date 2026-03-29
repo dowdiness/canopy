@@ -203,7 +203,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
   Why: assertion-style failures currently use `abort(...)` in many tests, which makes diagnostics harsher and less informative than explicit assertions.
   Plan: `docs/plans/2026-03-29-test-abort-cleanup.md`
   Exit: targeted test-side `abort(...)` checks are replaced with assertion-based failures and affected suites stay green.
-  Progress: in progress; first pass targets main-module test helpers and parser fixture setup.
+  Progress: in progress; first pass covered main-module helpers and parser fixtures, and the second pass has started in `loom/examples/json`.
 - [x] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
 - [x] Split `projection/tree_editor.mbt` into focused files (render model, refresh/reuse logic, UI/edit operations, tree indexes) — ✅ Done. `tree_editor.mbt` (edit ops), `tree_editor_model.mbt` (types + state + constructors), `tree_editor_refresh.mbt` (refresh/reuse/indexes)
 - [x] Split `crdt.mbt` into focused FFI files (editor core, undo, presence, relay, websocket) — ✅ Done. Split into 6 files: `crdt.mbt` (core), `crdt_undo.mbt`, `crdt_ephemeral.mbt`, `crdt_relay.mbt`, `crdt_websocket.mbt`, `crdt_projection.mbt`
