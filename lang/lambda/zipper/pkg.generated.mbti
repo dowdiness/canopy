@@ -1,0 +1,54 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/zipper"
+
+import {
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/list",
+}
+
+// Values
+pub fn depth(Zipper) -> Int
+
+pub fn focus_at(@ast.Term, Array[Int]) -> Zipper
+
+pub fn from_root(@ast.Term) -> Zipper
+
+pub fn go_down(Zipper) -> Zipper?
+
+pub fn go_left(Zipper) -> Zipper?
+
+pub fn go_right(Zipper) -> Zipper?
+
+pub fn go_up(Zipper) -> Zipper?
+
+pub fn to_path_indices(Zipper) -> Array[Int]
+
+pub fn to_root(Zipper) -> @ast.Term
+
+// Errors
+
+// Types and methods
+pub(all) enum TermCtx {
+  CtxLamBody(String)
+  CtxAppFunc(@ast.Term)
+  CtxAppArg(@ast.Term)
+  CtxBopLeft(@ast.Bop, @ast.Term)
+  CtxBopRight(@ast.Bop, @ast.Term)
+  CtxIfCond(@ast.Term, @ast.Term)
+  CtxIfThen(@ast.Term, @ast.Term)
+  CtxIfElse(@ast.Term, @ast.Term)
+  CtxModuleDef(Array[(String, @ast.Term)], String, Array[(String, @ast.Term)], @ast.Term)
+  CtxModuleBody(Array[(String, @ast.Term)])
+}
+pub impl Show for TermCtx
+
+pub(all) struct Zipper {
+  focus : @ast.Term
+  path : @list.List[TermCtx]
+}
+pub impl Show for Zipper
+
+// Type aliases
+
+// Traits
+
