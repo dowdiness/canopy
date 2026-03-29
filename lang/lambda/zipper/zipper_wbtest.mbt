@@ -128,6 +128,27 @@ test "let definition role carries name" {
 }
 
 ///|
+test "to_tree_edit_op maps Delete" {
+  let id = @core.NodeId::from_int(5)
+  let op = to_tree_edit_op(id, Delete)
+  inspect(op, content="Delete(node_id=NodeId(5))")
+}
+
+///|
+test "to_tree_edit_op maps WrapLam" {
+  let id = @core.NodeId::from_int(5)
+  let op = to_tree_edit_op(id, WrapLam("x"))
+  inspect(op, content="WrapInLambda(node_id=NodeId(5), var_name=\"x\")")
+}
+
+///|
+test "to_tree_edit_op maps Unwrap" {
+  let id = @core.NodeId::from_int(5)
+  let op = to_tree_edit_op(id, Unwrap(1))
+  inspect(op, content="Unwrap(node_id=NodeId(5), keep_child_index=1)")
+}
+
+///|
 test "to_path_indices round-trip" {
   let term = @ast.If(@ast.Int(1), @ast.Int(2), @ast.Int(3))
   let z = from_root(term)
