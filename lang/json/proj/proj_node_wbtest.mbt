@@ -106,18 +106,17 @@ test "parse error recovery {\"a\": } → Object with Error child" {
 }
 
 ///|
-test "object child ProjNode uses MemberNode span" {
-  // "{\"a\": 1}" — the member "a": 1 starts after { and before }
+test "object child ProjNode uses value span (not member span)" {
+  // "{\"a\": 1}" — the NumberValue node includes leading trivia (space)
+  // so it spans [5, 7), not [1, 7) which would be the MemberNode span
   let (proj, _errors) = parse_to_proj_node("{\"a\": 1}")
   let child = proj.children[0]
-  // Child span should cover the member, not just the value
-  // The member span includes the key "a", colon, and value 1
   // Object starts at 0, ends at 8
   inspect(proj.start, content="0")
   inspect(proj.end, content="8")
-  // Member child should start at "a" and end after 1
-  // "a": 1 spans from position 1 to 7
-  inspect(child.start, content="1")
+  // Child span should cover only the value node, not the full member.
+  // The NumberValue node starts at 5 (leading trivia) and ends at 7.
+  inspect(child.start, content="5")
   inspect(child.end, content="7")
 }
 
@@ -135,7 +134,7 @@ test "SourceMap from_ast produces correct ranges" {
 }
 
 ///|
-test "token spans for object keys present" {
+test "token spans for object keys stored on Object node" {
   let text = "{\"a\": 1, \"b\": 2}"
   let (cst, _) = @json.parse_cst(text) catch { _ => abort("parse failed") }
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
@@ -143,12 +142,16 @@ test "token spans for object keys present" {
   let proj = syntax_to_proj_node(syntax_node, counter)
   let sm = @core.SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax_node, proj)
-  // First child should have key:0 token span
-  let key0_span = sm.get_token_span(proj.children[0].id(), "key:0")
+  // Key spans are stored on the Object ProjNode (parent), not on children
+  let key0_span = sm.get_token_span(proj.id(), "key:0")
   inspect(key0_span is Some(_), content="true")
-  // Second child should have key:1 token span
-  let key1_span = sm.get_token_span(proj.children[1].id(), "key:1")
+  let key1_span = sm.get_token_span(proj.id(), "key:1")
   inspect(key1_span is Some(_), content="true")
+  // Member spans are also stored on the Object ProjNode
+  let member0_span = sm.get_token_span(proj.id(), "member:0")
+  inspect(member0_span is Some(_), content="true")
+  let member1_span = sm.get_token_span(proj.id(), "member:1")
+  inspect(member1_span is Some(_), content="true")
 }
 
 ///|

@@ -119,11 +119,13 @@ fn build_object_node(
     match @json.SyntaxKind::from_raw(child.kind()) {
       MemberNode => {
         let (key, value_proj) = extract_member(child, counter)
-        // Use MemberNode span for the child ProjNode
+        // Use value span for the child ProjNode (not member span).
+        // The full member span (key + colon + value) is stored separately
+        // as a "member:N" token span on the Object for delete operations.
         let member_proj = ProjNode::new(
           value_proj.kind,
-          child.start(),
-          child.end(),
+          value_proj.start,
+          value_proj.end,
           @core.next_proj_node_id(counter),
           value_proj.children,
         )

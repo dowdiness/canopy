@@ -15,6 +15,8 @@ pub fn build_json_projection_memos(@cells.Runtime, @cells.Signal[String], @cells
 
 pub fn key_role(Int) -> String
 
+pub fn member_role(Int) -> String
+
 pub fn parse_to_proj_node(String) -> (@core.ProjNode[@json.JsonValue], Array[String])
 
 pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@json.JsonValue]) -> Unit

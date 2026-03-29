@@ -52,7 +52,8 @@ fn json_escape_key(key : String) -> String {
 
 ///|
 /// Delete a node from its parent container.
-/// For object members, the source_map range covers the full MemberNode span.
+/// For object members, uses the "member:N" token span to cover the full
+/// "key": value text. For array elements, uses the node's own range.
 /// Handles comma cleanup for proper JSON formatting.
 fn compute_delete(
   source : String,
@@ -60,18 +61,20 @@ fn compute_delete(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  // Determine the delete range: for object members, use the member span
+  // which covers "key": value; for other nodes, use the node's own range.
+  let (range_start, range_end) = match
+    find_parent_member_span(proj, source_map, node_id) {
+    Some(span) => span
+    None =>
+      match source_map.get_range(node_id) {
+        Some(r) => (r.start, r.end)
+        None => return Err("node not found in source map")
+      }
   }
   // Find parent to handle comma cleanup
   let (delete_start, delete_end) = find_delete_range_with_comma(
-    source,
-    range.start,
-    range.end,
-    proj,
-    source_map,
-    node_id,
+    source, range_start, range_end, proj, source_map, node_id,
   )
   let delete_len = delete_end - delete_start
   Ok(
@@ -82,6 +85,53 @@ fn compute_delete(
       ),
     ),
   )
+}
+
+///|
+/// If node_id is a child of an Object, return the member span (start, end)
+/// from the parent Object's "member:N" token span.
+/// Returns None if the node is not an Object member.
+fn find_parent_member_span(
+  proj : ProjNode[@json.JsonValue],
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Int, Int)? {
+  match find_parent_object(proj, node_id) {
+    Some((parent_id, child_index)) =>
+      match
+        source_map.get_token_span(
+          parent_id,
+          @json_proj.member_role(child_index),
+        ) {
+        Some(r) => Some((r.start, r.end))
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+/// Walk the ProjNode tree to find a parent Object that contains node_id
+/// as a direct child. Returns (parent_id, child_index) or None.
+fn find_parent_object(
+  root : ProjNode[@json.JsonValue],
+  target_id : NodeId,
+) -> (NodeId, Int)? {
+  if root.kind is @json.Object(_) {
+    for i, child in root.children {
+      if child.id() == target_id {
+        return Some((root.id(), i))
+      }
+    }
+  }
+  // Recurse into all children
+  for child in root.children {
+    match find_parent_object(child, target_id) {
+      Some(found) => return Some(found)
+      None => continue
+    }
+  }
+  None
 }
 
 ///|

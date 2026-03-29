@@ -11,6 +11,14 @@ pub fn key_role(index : Int) -> String {
 }
 
 ///|
+/// Token span role for full object members (key + colon + value).
+/// Convention: "member:0", "member:1", etc.
+/// Used by Delete to remove the complete member text.
+pub fn member_role(index : Int) -> String {
+  "member:" + index.to_string()
+}
+
+///|
 /// Populate token-level spans by walking a SyntaxNode tree in parallel
 /// with a ProjNode tree. Handles RootNode unwrapping.
 pub fn populate_token_spans(
@@ -42,21 +50,28 @@ fn collect_token_spans(
     ObjectNode => {
       // For ObjectNode, iterate MemberNode children.
       // Each ProjNode child corresponds to a MemberNode.
+      // Key spans and member spans are stored on the Object ProjNode (parent),
+      // since RenameKey and Delete operate by object_id + index.
       let member_nodes = syntax_node.children()
       let mut proj_idx = 0
       for member_syn in member_nodes {
         if @json.SyntaxKind::from_raw(member_syn.kind()) == @json.MemberNode &&
           proj_idx < proj_node.children.length() {
           let child_proj = proj_node.children[proj_idx]
-          // Find the StringToken key and record its span
+          // Record the full member span on the Object node
+          source_map.set_token_span(
+            proj_node.id(),
+            member_role(proj_idx),
+            @loomcore.Range::new(member_syn.start(), member_syn.end()),
+          )
+          // Find the StringToken key and record its span on the Object node
           for elem in member_syn.all_children() {
             match elem {
               @seam.SyntaxElement::Token(t) =>
                 if t.kind() == @json.StringToken.to_raw() {
-                  let role = key_role(proj_idx)
                   source_map.set_token_span(
-                    child_proj.id(),
-                    role,
+                    proj_node.id(),
+                    key_role(proj_idx),
                     @loomcore.Range::new(t.start(), t.end()),
                   )
                   break

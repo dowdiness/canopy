@@ -223,3 +223,150 @@ test "error recovery — malformed JSON still produces projection" {
   editor.set_text("{\"a\": }")
   inspect(editor.get_proj_node() is Some(_), content="true")
 }
+
+///|
+test "CommitEdit on value inside object preserves key" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      // p is the Object, p.children[0] is the value node for member "a"
+      let value_node = p.children[0]
+      let result = apply_json_edit(
+        editor,
+        CommitEdit(node_id=value_node.id(), new_value="99"),
+        0,
+      )
+      inspect(result is Ok(_), content="true")
+      inspect(
+        editor.get_text(),
+        content=(
+          #|{"a":99}
+        ),
+      )
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "ChangeType on value inside object preserves key" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      let value_node = p.children[0]
+      let result = apply_json_edit(
+        editor,
+        ChangeType(node_id=value_node.id(), new_type=JArray),
+        0,
+      )
+      inspect(result is Ok(_), content="true")
+      inspect(
+        editor.get_text(),
+        content=(
+          #|{"a":[]}
+        ),
+      )
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "WrapInArray on value inside object preserves key" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      let value_node = p.children[0]
+      let result = apply_json_edit(
+        editor,
+        WrapInArray(node_id=value_node.id()),
+        0,
+      )
+      inspect(result is Ok(_), content="true")
+      inspect(
+        editor.get_text(),
+        content=(
+          #|{"a":[ 1]}
+        ),
+      )
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "WrapInObject on value inside object preserves key" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      let value_node = p.children[0]
+      let result = apply_json_edit(
+        editor,
+        WrapInObject(node_id=value_node.id(), key="inner"),
+        0,
+      )
+      inspect(result is Ok(_), content="true")
+      inspect(
+        editor.get_text(),
+        content=(
+          #|{"a":{"inner":  1}}
+        ),
+      )
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "Delete member from object with two members" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1, \"b\": 2}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      // Delete the first member (value node for "a")
+      let value_a = p.children[0]
+      let result = apply_json_edit(editor, Delete(node_id=value_a.id()), 0)
+      inspect(result is Ok(_), content="true")
+      inspect(editor.get_text(), content="{\"b\": 2}")
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "Delete second member from object" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"a\": 1, \"b\": 2}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      // Delete the second member (value node for "b")
+      let value_b = p.children[1]
+      let result = apply_json_edit(editor, Delete(node_id=value_b.id()), 0)
+      inspect(result is Ok(_), content="true")
+      inspect(editor.get_text(), content="{\"a\": 1}")
+    }
+    None => fail("expected projection")
+  }
+}
+
+///|
+test "RenameKey on object" {
+  let editor = new_json_editor("test")
+  editor.set_text("{\"old\": 1}")
+  match editor.get_proj_node() {
+    Some(p) => {
+      let result = apply_json_edit(
+        editor,
+        RenameKey(object_id=p.id(), key_index=0, new_key="new"),
+        0,
+      )
+      inspect(result is Ok(_), content="true")
+      inspect(editor.get_text(), content="{\"new\": 1}")
+    }
+    None => fail("expected projection")
+  }
+}
