@@ -19,16 +19,23 @@ pub fn available_actions(z : Zipper) -> Array[EditAction] {
   let actions : Array[EditAction] = []
   match focus {
     @ast.Hole(_) => () // Hole is already a placeholder — Delete is a no-op
+    @ast.Module(_, _) => () // Module-level ops use dedicated binding actions, not Delete
     _ => actions.push(Delete)
   }
-  actions.push(WrapLam("x"))
-  actions.push(WrapApp)
-  actions.push(WrapIf)
-  actions.push(WrapBop(@ast.Plus))
-  actions.push(WrapBop(@ast.Minus))
-  let n = children_count(focus)
-  for i in 0..<n {
-    actions.push(Unwrap(i))
+  // Wrap and Unwrap not offered for Module (matches existing action filter in actions.mbt)
+  match focus {
+    @ast.Module(_, _) => ()
+    _ => {
+      actions.push(WrapLam("x"))
+      actions.push(WrapApp)
+      actions.push(WrapIf)
+      actions.push(WrapBop(@ast.Plus))
+      actions.push(WrapBop(@ast.Minus))
+      let n = children_count(focus)
+      for i in 0..<n {
+        actions.push(Unwrap(i))
+      }
+    }
   }
   // SwapChildren: Bop and If only (backend only supports these)
   match focus {
