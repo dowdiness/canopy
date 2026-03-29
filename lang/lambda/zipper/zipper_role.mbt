@@ -17,7 +17,10 @@ pub(all) enum PositionRole {
 pub fn available_actions(z : Zipper) -> Array[EditAction] {
   let focus = z.focus
   let actions : Array[EditAction] = []
-  actions.push(Delete)
+  match focus {
+    @ast.Hole(_) => () // Hole is already a placeholder — Delete is a no-op
+    _ => actions.push(Delete)
+  }
   actions.push(WrapLam("x"))
   actions.push(WrapApp)
   actions.push(WrapIf)

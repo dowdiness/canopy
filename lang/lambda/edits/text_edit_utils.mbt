@@ -11,6 +11,7 @@ fn placeholder_term_for_kind(kind : @ast.Term) -> @ast.Term {
       @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Int(0), @ast.Term::Int(0))
     @ast.Term::If(_, _, _) =>
       @ast.Term::If(@ast.Term::Int(0), @ast.Term::Int(0), @ast.Term::Int(0))
+    @ast.Term::Hole(_) => @ast.Term::Hole(0)
     _ => @ast.Term::Var("a")
   }
 }

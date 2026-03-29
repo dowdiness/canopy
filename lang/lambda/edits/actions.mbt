@@ -140,7 +140,7 @@ pub fn get_actions_for_node(
     }
     @ast.Term::Error(_) => actions.push(delete)
     @ast.Term::Unbound(_) => actions.push(delete)
-    @ast.Term::Hole(_) => actions.push(delete)
+    @ast.Term::Hole(_) => () // Hole is already a placeholder — Delete is a no-op
   }
   // Add binding-level actions when the node is in a let-binding context
   if context.is_let_binding {
