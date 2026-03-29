@@ -38,14 +38,13 @@ fn resolve_selected_node(
       let node_id_int = @strconv.parse_int(target_id) catch { _ => return None }
       let node_id = @proj.NodeId::from_int(node_id_int)
       match model.editor.get_node(node_id) {
-        Some(node) =>
-          {
-            let itn : @proj.InteractiveTreeNode[@ast.Term] = @proj.InteractiveTreeNode::from_term_node(
-              node,
-              model.editor.get_source_map(),
-            )
-            Some(itn)
-          }
+        Some(node) => {
+          let itn : @proj.InteractiveTreeNode[@ast.Term] = @proj.InteractiveTreeNode::from_term_node(
+            node,
+            model.editor.get_source_map(),
+          )
+          Some(itn)
+        }
         None => None
       }
     }

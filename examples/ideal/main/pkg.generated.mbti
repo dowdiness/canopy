@@ -3,18 +3,33 @@ package "dowdiness/ideal-editor/main"
 
 import {
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/projection",
   "dowdiness/lambda/ast",
 }
 
 // Values
-pub fn apply_sync_json(Int, String) -> Unit
+pub fn apply_sync_json(Int, String) -> String
 
 pub fn apply_tree_edit_json(Int, String, Int) -> String
 
 pub fn create_editor_with_undo(String, Int) -> Int
 
 pub fn delete_at(Int, Int, Int) -> Bool
+
+pub fn ephemeral_apply(Int, Bytes) -> Unit
+
+pub fn ephemeral_delete_presence(Int) -> Unit
+
+pub fn ephemeral_encode_all(Int) -> Bytes
+
+pub fn ephemeral_get_peer_cursors_json(Int) -> String
+
+pub fn ephemeral_remove_outdated(Int) -> Unit
+
+pub fn ephemeral_set_presence(Int, String, String) -> Unit
+
+pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> Unit
 
 pub fn export_all_json(Int) -> String
 
@@ -62,8 +77,8 @@ pub enum EditorMode {
 pub impl Eq for EditorMode
 
 pub struct Model {
-  editor : @editor.SyncEditor
-  outline_state : @projection.TreeEditorState
+  editor : @editor.SyncEditor[@ast.Term]
+  outline_state : @projection.TreeEditorState[@ast.Term]
   mode : EditorMode
   workspace : WorkspaceLayout
   selected_node : String?
@@ -82,7 +97,7 @@ pub enum Msg {
   StructuralEditRequested(op~ : String, node_id~ : String)
   Undo
   Redo
-  TreeEdited(@projection.TreeEditOp)
+  TreeEdited(@edits.TreeEditOp)
   DismissPanels
   LoadExample(String)
   OutlineNodeClicked(String)
@@ -98,26 +113,9 @@ pub enum Msg {
   LongPressTriggered
 }
 
-pub struct NodeActionContext {
-  node_id : @projection.NodeId
-  kind : @ast.Term
-  is_let_binding : Bool
-  binding_node_id : @projection.NodeId?
-  binding_def_index : Int?
-  module_node_id : @projection.NodeId?
-}
+type NodeActionContext
 
-pub struct OverlayState {
-  visible : Bool
-  actions : Array[@projection.Action]
-  node_context : NodeActionContext?
-  submenu : @projection.Action?
-  pending_action : @projection.Action?
-  name_value : String
-  name_error : String
-  anchor_top : Int
-  anchor_left : Int
-}
+type OverlayState
 
 pub enum PanelId {
   Outline

@@ -767,7 +767,7 @@ fn[T : TreeNode + Renderable] TreeEditorState::hydrate_subtree(
       match current_node.children {
         Loaded(_) => self
         Elided(_) =>
-          match get_node_in_tree(proj, node_id) {
+          match @core.get_node_in_tree(proj, node_id) {
             Some(proj_node) => {
               let ui_state : TreeUIState = {
                 collapsed_nodes: self.collapsed_nodes.remove(node_id),

@@ -187,8 +187,8 @@ fn apply_structural_edit_request(
   }
   let nid = @proj.NodeId::from_int(node_id_int)
   let tree_op : @proj.TreeEditOp = match op {
-    "WrapInLambda" => @proj.WrapInLambda(node_id=nid, var_name="x")
-    "Delete" => @proj.Delete(node_id=nid)
+    "WrapInLambda" => @lambda_edits.WrapInLambda(node_id=nid, var_name="x")
+    "Delete" => @lambda_edits.Delete(node_id=nid)
     _ => return (none, model)
   }
   match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
@@ -255,12 +255,24 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
       let panel_w = 320
       let panel_h = 300
       let clamped_left = if raw_left + panel_w > vw {
-        { let a = 8; let b = vw - panel_w - 8; if a > b { a } else { b } }
+        let a = 8
+        let b = vw - panel_w - 8
+        if a > b {
+          a
+        } else {
+          b
+        }
       } else {
         raw_left
       }
       let clamped_top = if raw_top + panel_h > vh {
-        { let a = 8; let b = vh - panel_h - 8; if a > b { a } else { b } }
+        let a = 8
+        let b = vh - panel_h - 8
+        if a > b {
+          a
+        } else {
+          b
+        }
       } else {
         raw_top
       }
@@ -436,7 +448,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     TreeEdited(op) =>
       match op {
-        @proj.Expand(node_id~) => {
+        @lambda_edits.Expand(node_id~) => {
           let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
           let outline_state = if hydrate_after_expand {
             model.outline_state.expand_node(
@@ -449,7 +461,9 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           }
           return (none, { ..model, outline_state, })
         }
-        @proj.Collapse(..) | @proj.Select(..) | @proj.SelectRange(..) => {
+        @lambda_edits.Collapse(..)
+        | @lambda_edits.Select(..)
+        | @lambda_edits.SelectRange(..) => {
           let outline_state = model.outline_state.apply_edit(op)
           return (none, { ..model, outline_state, })
         }
@@ -558,14 +572,16 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           }
       }
     }
-    ActionTapped(action_id) => {
+    ActionTapped(action_id) =>
       // Check for submenu choice format: "action_id:value"
       if action_id.contains(":") {
         // Split on first ':'
         let mut base_id = ""
         let mut choice = ""
         let mut found_colon = false
-        action_id.iter().each(fn(ch) {
+        action_id
+        .iter()
+        .each(fn(ch) {
           if not(found_colon) && ch == ':' {
             found_colon = true
           } else if found_colon {
@@ -590,7 +606,6 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           None => (none, model)
         }
       }
-    }
     NamePromptInput(value) => {
       let overlay = { ..model.overlay, name_value: value, name_error: "" }
       (none, { ..model, overlay, })
@@ -598,11 +613,14 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     NamePromptSubmit => {
       let name = model.overlay.name_value.trim().to_string()
       if name == "" {
-        let overlay = { ..model.overlay, name_error: "Enter a name to continue" }
+        let overlay = {
+          ..model.overlay,
+          name_error: "Enter a name to continue",
+        }
         return (none, { ..model, overlay, })
       }
       let overlay = { ..model.overlay, name_value: name }
-      let model = { ..model, overlay }
+      let model = { ..model, overlay, }
       match model.overlay.pending_action {
         Some(action) => execute_action(model, action, "", name)
         None => (none, model)

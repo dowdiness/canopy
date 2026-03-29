@@ -1,5 +1,4 @@
 // ToJson for SourceMap.
-// ToJson for ProjNode is in framework/core.
 
 ///|
 pub impl ToJson for SourceMap with to_json(self) {

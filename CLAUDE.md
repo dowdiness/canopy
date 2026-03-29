@@ -71,12 +71,14 @@ git commit -m "chore: update event-graph-walker submodule"
 | Package | Path | Purpose |
 |---------|------|---------|
 | `dowdiness/canopy` | `./` | Root: JS FFI entry, exports all public functions to JS |
-| `dowdiness/canopy/framework/core` | `framework/core/` | Generic types: NodeId, ProjNode[T], assign_fresh_ids |
+| `dowdiness/canopy/framework/core` | `framework/core/` | Generic types: NodeId, ProjNode[T], SourceMap, reconcile, helpers |
 | `dowdiness/canopy/editor` | `editor/` | SyncEditor, EphemeralHub, cursor/presence tracking, undo |
-| `dowdiness/canopy/projection` | `projection/` | Traits, SourceMap, TextEdit, tree/text lenses, reconcile |
+| `dowdiness/canopy/projection` | `projection/` | Re-export facade + TreeEditorState, tree refresh, tree editor ops |
 | `dowdiness/canopy/relay` | `relay/` | Relay room, wire protocol (multi-peer sync) |
 | `dowdiness/canopy/cmd/main` | `cmd/main/` | CLI entry point, REPL, demo |
-| `dowdiness/canopy/lang/lambda/flat` | `lang/lambda/flat/` | Flat lambda AST representation |
+| `dowdiness/canopy/lang/lambda/flat` | `lang/lambda/flat/` | VersionedFlatProj (incr memo wrapper) |
+| `dowdiness/canopy/lang/lambda/proj` | `lang/lambda/proj/` | FlatProj, syntax_to_proj_node, populate_token_spans |
+| `dowdiness/canopy/lang/lambda/edits` | `lang/lambda/edits/` | TreeEditOp, text edit handlers, scope, free_vars, actions |
 
 **Local module: `dowdiness/text_change`** (`lib/text-change/`) — text change utilities
 

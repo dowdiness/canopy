@@ -1,7 +1,4 @@
-// Re-export generic types from framework/core for backward compatibility.
-// NodeId (struct) can be re-exported via pub using.
-// DropPosition and FocusHint (enums) are kept here as local typedefs
-// because pub using makes enums abstract (no constructor access, no derives).
+// Re-export types from framework/core and lang/lambda/edits for backward compatibility.
 
 ///|
 using @loomcore {type Range}
@@ -10,20 +7,23 @@ using @loomcore {type Range}
 pub using @core {type NodeId}
 
 ///|
-/// Drop position for drag-and-drop operations
-pub(all) enum DropPosition {
-  /// Insert before the target
-  Before
-  /// Insert after the target
-  After
-  /// Insert as a child of the target
-  Inside
-} derive(Show, Eq)
-
-///|
-/// Hint for where to place the cursor after a structural edit.
-/// MoveCursor(position~) uses post-edit coordinates — the bridge applies them directly.
-pub(all) enum FocusHint {
-  RestoreCursor
-  MoveCursor(position~ : Int)
-} derive(Show, Eq)
+// Re-export lambda edit types so editor/ can use @proj.TreeEditOp etc.
+pub using @lambda_edits {
+  type TreeEditOp,
+  type EditContext,
+  type SpanEdit,
+  type EditResult,
+  type FocusHint,
+  type DropPosition,
+  type ActionGroup,
+  type Action,
+  type NodeContext,
+  type BindingSite,
+  compute_text_edit,
+  get_actions_for_node,
+  resolve_binder,
+  find_usages,
+  find_binding_for_init,
+  collect_lam_env,
+  free_vars,
+}

@@ -46,9 +46,9 @@ fn view_outline_node(
     @proj.Elided(_) => false
   }
   let toggle_cmd = if node.collapsed {
-    dispatch(TreeEdited(@proj.Expand(node_id=node.id)))
+    dispatch(TreeEdited(@lambda_edits.Expand(node_id=node.id)))
   } else {
-    dispatch(TreeEdited(@proj.Collapse(node_id=node.id)))
+    dispatch(TreeEdited(@lambda_edits.Collapse(node_id=node.id)))
   }
   let toggle_label = if node.collapsed { "\u{25B6}" } else { "\u{25BC}" }
   let toggle : Html = if is_leaf {

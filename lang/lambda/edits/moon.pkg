@@ -1,20 +1,12 @@
 import {
   "dowdiness/canopy/framework/core" @core,
-  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/loom/core" @loomcore,
   "dowdiness/seam" @seam,
-  "moonbitlang/core/bench" @bench,
   "moonbitlang/core/cmp",
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 
-// -29: unused binding in wbtest files that still use @parser/@seam
-
 warnings = "-2-6-29"
-
-options(
-  is_main: false,
-)

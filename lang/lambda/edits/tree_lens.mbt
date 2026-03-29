@@ -81,18 +81,3 @@ fn insert_child_at(
     new_children,
   )
 }
-
-///|
-fn[T] get_node_in_tree(root : ProjNode[T], target_id : NodeId) -> ProjNode[T]? {
-  if root.id() == target_id {
-    Some(root)
-  } else {
-    for child in root.children {
-      match get_node_in_tree(child, target_id) {
-        Some(found) => return Some(found)
-        None => continue
-      }
-    }
-    None
-  }
-}

@@ -38,6 +38,25 @@ pub fn next_proj_node_id(counter : Ref[Int]) -> Int {
 }
 
 ///|
+/// Find a node in a ProjNode tree by its NodeId.
+pub fn[T] get_node_in_tree(
+  root : ProjNode[T],
+  target_id : NodeId,
+) -> ProjNode[T]? {
+  if root.id() == target_id {
+    Some(root)
+  } else {
+    for child in root.children {
+      match get_node_in_tree(child, target_id) {
+        Some(found) => return Some(found)
+        None => continue
+      }
+    }
+    None
+  }
+}
+
+///|
 /// Assign fresh IDs to a ProjNode subtree (post-order: children before parent).
 /// Public for cross-package use by reconciliation.
 pub fn[T] assign_fresh_ids(

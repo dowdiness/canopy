@@ -6,24 +6,20 @@
 
 **Design reference:** `docs/plans/2026-03-18-framework-extraction-design.md`
 
-**Current state:** Phase 3 done (2026-03-28, PR #66). `framework/core/` created with
-`NodeId`, `ProjNode[T]`, `next_proj_node_id`, `assign_fresh_ids`, `ToJson for ProjNode[T]`.
-`projection/` imports via `pub using` for backward compat. `EditAction[T]` removed (zero consumers).
+**Current state:** Phase 4 done (2026-03-28, PR #69). All phases complete.
 
-**MoonBit constraints discovered in Phase 3:**
-- **Orphan rule (package-level):** `impl Trait for Type` must be in the package defining
-  either the trait or the type. This blocks moving `TreeNode`/`Renderable` to `framework/core/`
-  (the `@ast.Term` impls would become foreign-trait-for-foreign-type in `projection/`).
-- **Foreign-type methods:** Can't define methods on types from other packages. This blocks
-  moving `SourceMap` to `framework/core/` unless `populate_token_spans` becomes a standalone fn.
-- **`pub using` with enums:** Makes them abstract (constructors unavailable). `DropPosition`/
-  `FocusHint` must stay as local definitions, not re-exports.
+**Phase 3 (PR #66):** `framework/core/` created with `NodeId`, `ProjNode[T]`, helpers.
 
-**Ideal end state (requires loom submodule change):**
-Move `TreeNode`/`Renderable` trait definitions to `dowdiness/loom/core` (the parser framework
-defines how editors inspect ASTs). Then `dowdiness/lambda/ast` implements them (it already
-depends on loom). This resolves the orphan rule and lets `framework/core/` use the traits
-for `reconcile[T]` and `SourceMap::from_ast[T]` without depending on `@ast`.
+**Phase 4 (PR #69):** Traits moved to loom/core (orphan rule resolved). SourceMap + reconcile
+moved to framework/core. Lambda code moved to `lang/lambda/proj/` and `lang/lambda/edits/`.
+`projection/` is now a re-export facade + generic tree editor state.
+
+**MoonBit constraints discovered and resolved:**
+- **Orphan rule:** Resolved by moving traits to `dowdiness/loom/core` (Phase 4a) and impls
+  to `dowdiness/lambda/ast` (Phase 4b). Both packages own their respective side.
+- **Foreign-type methods:** Resolved by converting `populate_token_spans` to standalone fn.
+- **`pub using` with enums:** Enum constructors become inaccessible via re-export. External
+  consumers (rabbita, ideal) import `@lambda_edits` directly for TreeEditOp constructors.
 
 **Phase 1 summary:** `EditAction[T]`, Tier-2 edit methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`), and `is_dirty`/`refresh` boundary live in `projection/` and `editor/`. Package structure not yet extracted. FlatProj still in `projection/`.
 
@@ -37,9 +33,9 @@ for `reconcile[T]` and `SourceMap::from_ast[T]` without depending on `@ast`.
 |-------|-------|------|----|----|
 | 1 — Additive API | 1–3 | Low | [#60](https://github.com/dowdiness/canopy/pull/60) | ✅ Done |
 | 2 — Create lang/lambda/flat/ | 4 | Low | 2 | ✅ Done |
-| 3 — Extract framework/ | 5–7 | High | [#66](https://github.com/dowdiness/canopy/pull/66) | ✅ Partial (Tasks 5-6 done; Task 7 deferred) |
-| 4 — Extract lang/lambda/ | 8 | High | 4 | Blocked on TermSym |
-| 5 — Verification | 9 | Low | 5 | Not started |
+| 3 — Extract framework/ | 5–7 | High | [#66](https://github.com/dowdiness/canopy/pull/66) | ✅ Done (Tasks 5-6; Task 7 deferred to Phase 4) |
+| 4 — Traits to loom + extract lang/lambda/ | — | High | [#69](https://github.com/dowdiness/canopy/pull/69) | ✅ Done |
+| 5 — Verification | 9 | Low | — | Acid test passes (grep confirms zero @ast in framework/core/) |
 
 Each phase must pass `moon test` before moving to the next.
 

@@ -1,0 +1,132 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/edits"
+
+import {
+  "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/lang/lambda/proj",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/immut/hashset",
+}
+
+// Values
+pub fn collect_lam_env(@core.NodeId, Map[@core.NodeId, @core.ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
+
+pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[SpanEdit], FocusHint)?, String]
+
+pub fn find_binding_for_init(@core.NodeId, @proj.FlatProj) -> (@core.NodeId, Int)?
+
+pub fn find_usages(String, Int, @proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]]) -> Array[@core.NodeId]
+
+pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
+
+pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
+
+pub fn resolve_binder(@core.NodeId, String, @proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]], @core.SourceMap) -> BindingSite?
+
+// Errors
+
+// Types and methods
+pub(all) struct Action {
+  id : String
+  label : String
+  mnemonic : String
+  group : ActionGroup
+  needs_input : Bool
+}
+pub impl Eq for Action
+pub impl Show for Action
+
+pub(all) enum ActionGroup {
+  Core
+  Wrap
+  Binding
+  Module
+}
+pub impl Eq for ActionGroup
+pub impl Show for ActionGroup
+
+pub(all) enum BindingSite {
+  LamBinder(lam_id~ : @core.NodeId)
+  ModuleBinder(binding_node_id~ : @core.NodeId, def_index~ : Int)
+}
+pub impl Eq for BindingSite
+pub impl Show for BindingSite
+
+pub(all) enum DropPosition {
+  Before
+  After
+  Inside
+}
+pub impl Eq for DropPosition
+pub impl Show for DropPosition
+
+pub(all) struct EditContext[T] {
+  source_text : String
+  source_map : @core.SourceMap
+  registry : Map[@core.NodeId, @core.ProjNode[T]]
+  flat_proj : @proj.FlatProj
+}
+
+pub(all) enum FocusHint {
+  RestoreCursor
+  MoveCursor(position~ : Int)
+}
+pub impl Eq for FocusHint
+pub impl Show for FocusHint
+
+pub(all) struct NodeContext {
+  is_let_binding : Bool
+  binding_node_id : @core.NodeId?
+  binding_def_index : Int?
+  module_node_id : @core.NodeId?
+}
+pub fn NodeContext::new() -> Self
+pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
+pub impl Eq for NodeContext
+pub impl Show for NodeContext
+
+pub(all) struct SpanEdit {
+  start : Int
+  delete_len : Int
+  inserted : String
+}
+pub impl Eq for SpanEdit
+pub impl Show for SpanEdit
+
+pub(all) enum TreeEditOp {
+  Select(node_id~ : @core.NodeId)
+  SelectRange(start~ : @core.NodeId, end~ : @core.NodeId)
+  StartEdit(node_id~ : @core.NodeId)
+  CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
+  CancelEdit
+  Delete(node_id~ : @core.NodeId)
+  WrapInLambda(node_id~ : @core.NodeId, var_name~ : String)
+  WrapInApp(node_id~ : @core.NodeId)
+  InsertChild(parent~ : @core.NodeId, index~ : Int, kind~ : @ast.Term)
+  StartDrag(node_id~ : @core.NodeId)
+  DragOver(target~ : @core.NodeId, position~ : DropPosition)
+  Drop(source~ : @core.NodeId, target~ : @core.NodeId, position~ : DropPosition)
+  Collapse(node_id~ : @core.NodeId)
+  Expand(node_id~ : @core.NodeId)
+  Unwrap(node_id~ : @core.NodeId, keep_child_index~ : Int)
+  SwapChildren(node_id~ : @core.NodeId)
+  WrapInIf(node_id~ : @core.NodeId)
+  WrapInBop(node_id~ : @core.NodeId, op~ : @ast.Bop)
+  ChangeOperator(node_id~ : @core.NodeId, new_op~ : @ast.Bop)
+  DeleteBinding(binding_node_id~ : @core.NodeId)
+  DuplicateBinding(binding_node_id~ : @core.NodeId)
+  MoveBindingUp(binding_node_id~ : @core.NodeId)
+  MoveBindingDown(binding_node_id~ : @core.NodeId)
+  AddBinding(module_node_id~ : @core.NodeId)
+  ExtractToLet(node_id~ : @core.NodeId, var_name~ : String)
+  InlineDefinition(node_id~ : @core.NodeId)
+  InlineAllUsages(binding_node_id~ : @core.NodeId)
+  Rename(node_id~ : @core.NodeId, new_name~ : String)
+}
+pub impl Show for TreeEditOp
+
+// Type aliases
+pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
+
+// Traits
+

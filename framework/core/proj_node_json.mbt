@@ -1,5 +1,5 @@
 // ToJson implementation for ProjNode.
-// ToJson for SourceMap stays in projection/ (SourceMap is defined there).
+// ToJson for SourceMap is in source_map_json.mbt.
 
 ///|
 pub impl[T : ToJson] ToJson for ProjNode[T] with to_json(self) {

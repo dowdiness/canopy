@@ -4,6 +4,7 @@ import {
   "dowdiness/lambda/ast" @ast,
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/text_change",
 }
 

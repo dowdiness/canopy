@@ -192,19 +192,6 @@ pub fn[T : TreeNode] is_leaf_node(kind : T) -> Bool {
 }
 
 ///|
-/// Check if a drop is valid
-pub fn is_valid_drop(
-  source : @ast.Term,
-  target : @ast.Term,
-  position : DropPosition,
-) -> Bool {
-  // Prevent dropping a node into itself or its descendants
-  // For now, allow most drops
-  let _ = (source, target, position)
-  true
-}
-
-///|
 /// Editor state for the interactive tree
 pub struct TreeEditorState[T] {
   /// The interactive tree representation

@@ -8,7 +8,11 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
+pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
+
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
+
+pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
 // Errors
 
@@ -34,6 +38,29 @@ pub fn[T] ProjNode::new(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
 pub impl[T : Eq] Eq for ProjNode[T]
 pub impl[T : Show] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]
+
+pub struct SourceMap {
+  node_to_range : Map[NodeId, @dowdiness/loom/core.Range]
+  ranges : Array[(@dowdiness/loom/core.Range, NodeId)]
+  token_spans : Map[NodeId, Map[String, @dowdiness/loom/core.Range]]
+}
+pub fn SourceMap::apply_edit(Self, Int, @dowdiness/loom/core.Range) -> Unit
+pub fn[T] SourceMap::from_ast(ProjNode[T]) -> Self
+pub fn SourceMap::get_range(Self, NodeId) -> @dowdiness/loom/core.Range?
+pub fn SourceMap::get_token_span(Self, NodeId, String) -> @dowdiness/loom/core.Range?
+pub fn SourceMap::innermost_node_at(Self, Int) -> NodeId?
+pub fn SourceMap::new() -> Self
+pub fn SourceMap::node_count(Self) -> Int
+pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
+pub fn SourceMap::nodes_in_range(Self, @dowdiness/loom/core.Range) -> Array[NodeId]
+pub fn[T] SourceMap::patch_subtree(Self, ProjNode[T]) -> Unit
+pub fn[T] SourceMap::rebuild(Self, ProjNode[T]) -> Unit
+pub fn SourceMap::rebuild_ranges(Self) -> Unit
+pub fn[T] SourceMap::remove_subtree(Self, ProjNode[T]) -> Unit
+pub fn SourceMap::set_token_span(Self, NodeId, String, @dowdiness/loom/core.Range) -> Unit
+pub impl Eq for SourceMap
+pub impl Show for SourceMap
+pub impl ToJson for SourceMap
 
 // Type aliases
 

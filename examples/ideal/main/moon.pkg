@@ -4,6 +4,7 @@ import {
   "dowdiness/canopy" @crdt,
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/strconv",
   "moonbitlang/core/json",

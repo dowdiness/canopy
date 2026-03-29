@@ -2,7 +2,7 @@
 package "dowdiness/canopy/lang/lambda/flat"
 
 import {
-  "dowdiness/canopy/projection",
+  "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/incr/types",
 }
 
@@ -12,7 +12,7 @@ import {
 
 // Types and methods
 pub(all) struct VersionedFlatProj {
-  proj : @projection.FlatProj?
+  proj : @proj.FlatProj?
   changed_at : @types.Revision
 }
 pub impl @types.BackdateEq for VersionedFlatProj

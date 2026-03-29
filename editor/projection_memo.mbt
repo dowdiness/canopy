@@ -297,7 +297,7 @@ fn build_lambda_projection_memos(
               // have shifted offsets that only the SyntaxNode reflects correctly.
               match syntax_tree.get() {
                 Some(syntax_root) =>
-                  prev_sm.populate_token_spans(syntax_root, root)
+                  @proj.populate_token_spans(prev_sm, syntax_root, root)
                 None => ()
               }
               prev_sm
@@ -307,7 +307,7 @@ fn build_lambda_projection_memos(
               let new_sm = @proj.SourceMap::from_ast(root)
               match syntax_tree.get() {
                 Some(syntax_root) =>
-                  new_sm.populate_token_spans(syntax_root, root)
+                  @proj.populate_token_spans(new_sm, syntax_root, root)
                 None => ()
               }
               new_sm

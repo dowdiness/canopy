@@ -1,2 +1,4 @@
 import {
+  "dowdiness/loom/core" @loomcore,
+  "moonbitlang/core/cmp",
 }

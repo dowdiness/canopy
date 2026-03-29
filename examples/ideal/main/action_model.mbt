@@ -84,8 +84,7 @@ fn get_submenu_choices(
             ("Keep then branch", "1"),
             ("Keep else branch", "2"),
           ]
-        @ast.Term::App(_, _) =>
-          [("Keep function", "0"), ("Keep argument", "1")]
+        @ast.Term::App(_, _) => [("Keep function", "0"), ("Keep argument", "1")]
         _ => [("Keep body", "0")]
       }
     _ => []
@@ -115,19 +114,19 @@ fn build_tree_edit_op(
 ) -> Result[@proj.TreeEditOp?, String] {
   let node_id = ctx.node_id
   match action_id {
-    "delete" => Ok(Some(@proj.Delete(node_id~)))
+    "delete" => Ok(Some(@lambda_edits.Delete(node_id~)))
     "extract_to_let" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@proj.ExtractToLet(node_id~, var_name=name)))
+        Ok(Some(@lambda_edits.ExtractToLet(node_id~, var_name=name)))
       }
-    "inline" => Ok(Some(@proj.InlineDefinition(node_id~)))
+    "inline" => Ok(Some(@lambda_edits.InlineDefinition(node_id~)))
     "rename" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@proj.Rename(node_id~, new_name=name)))
+        Ok(Some(@lambda_edits.Rename(node_id~, new_name=name)))
       }
     "unwrap" => {
       let keep_child_index = match choice {
@@ -136,68 +135,71 @@ fn build_tree_edit_op(
         "2" => 2
         _ => return Err("Select which child to keep")
       }
-      Ok(Some(@proj.Unwrap(node_id~, keep_child_index~)))
+      Ok(Some(@lambda_edits.Unwrap(node_id~, keep_child_index~)))
     }
-    "swap" => Ok(Some(@proj.SwapChildren(node_id~)))
+    "swap" => Ok(Some(@lambda_edits.SwapChildren(node_id~)))
     "change_op" => {
       let new_op = match parse_bop(choice) {
         Some(op) => op
         None => return Err("Select an operator")
       }
-      Ok(Some(@proj.ChangeOperator(node_id~, new_op~)))
+      Ok(Some(@lambda_edits.ChangeOperator(node_id~, new_op~)))
     }
     "wrap_lambda" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@proj.WrapInLambda(node_id~, var_name=name)))
+        Ok(Some(@lambda_edits.WrapInLambda(node_id~, var_name=name)))
       }
-    "wrap_if" => Ok(Some(@proj.WrapInIf(node_id~)))
+    "wrap_if" => Ok(Some(@lambda_edits.WrapInIf(node_id~)))
     "wrap_bop" => {
       let op = match parse_bop(choice) {
         Some(op) => op
         None => return Err("Select an operator")
       }
-      Ok(Some(@proj.WrapInBop(node_id~, op~)))
+      Ok(Some(@lambda_edits.WrapInBop(node_id~, op~)))
     }
-    "wrap_app" => Ok(Some(@proj.WrapInApp(node_id~)))
+    "wrap_app" => Ok(Some(@lambda_edits.WrapInApp(node_id~)))
     "binding_rename" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@proj.Rename(node_id~, new_name=name)))
+        Ok(Some(@lambda_edits.Rename(node_id~, new_name=name)))
       }
     "binding_duplicate" =>
       match ctx.binding_node_id {
         Some(binding_node_id) =>
-          Ok(Some(@proj.DuplicateBinding(binding_node_id~)))
+          Ok(Some(@lambda_edits.DuplicateBinding(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_move_up" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) => Ok(Some(@proj.MoveBindingUp(binding_node_id~)))
+        Some(binding_node_id) =>
+          Ok(Some(@lambda_edits.MoveBindingUp(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_move_down" =>
       match ctx.binding_node_id {
         Some(binding_node_id) =>
-          Ok(Some(@proj.MoveBindingDown(binding_node_id~)))
+          Ok(Some(@lambda_edits.MoveBindingDown(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_inline_all" =>
       match ctx.binding_node_id {
         Some(binding_node_id) =>
-          Ok(Some(@proj.InlineAllUsages(binding_node_id~)))
+          Ok(Some(@lambda_edits.InlineAllUsages(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_delete" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) => Ok(Some(@proj.DeleteBinding(binding_node_id~)))
+        Some(binding_node_id) =>
+          Ok(Some(@lambda_edits.DeleteBinding(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "add_binding" =>
       match ctx.module_node_id {
-        Some(module_node_id) => Ok(Some(@proj.AddBinding(module_node_id~)))
+        Some(module_node_id) =>
+          Ok(Some(@lambda_edits.AddBinding(module_node_id~)))
         None => Err("No module in scope")
       }
     _ => Err("Unknown action")

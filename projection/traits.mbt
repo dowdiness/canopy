@@ -1,17 +1,6 @@
-// TreeNode and Renderable stay here (orphan rule).
+// Traits re-exported from loom/core for backward compatibility.
+// Canonical definitions: dowdiness/loom/core/proj_traits.mbt
+// Canonical impls for Term: dowdiness/lambda/ast/proj_traits.mbt
 
 ///|
-/// Tree structure capability — provides structural access for reconciliation and traversal.
-pub(open) trait TreeNode {
-  children(Self) -> Array[Self]
-  same_kind(Self, Self) -> Bool
-}
-
-///|
-/// Rendering + text capability — provides display and serialization for projections.
-pub(open) trait Renderable {
-  kind_tag(Self) -> String
-  label(Self) -> String
-  placeholder(Self) -> String
-  unparse(Self) -> String
-}
+pub using @loomcore {trait TreeNode, trait Renderable}

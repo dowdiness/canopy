@@ -16,7 +16,7 @@ fn parse_with_token_spans(
   let counter = Ref::new(0)
   let proj = to_proj_node(syntax, counter)
   let sm = SourceMap::from_ast(proj)
-  sm.populate_token_spans(syntax, proj)
+  populate_token_spans(sm, syntax, proj)
   let registry = text_edit_test_registry(proj)
   let fp = FlatProj::from_proj_node(proj)
   (proj, sm, registry, fp)

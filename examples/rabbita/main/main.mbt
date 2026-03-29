@@ -160,14 +160,14 @@ let deferred_refresh_ms = 16
 ///|
 fn is_ui_only_tree_edit(op : @proj.TreeEditOp) -> Bool {
   match op {
-    @proj.Select(..)
-    | @proj.SelectRange(..)
-    | @proj.StartEdit(..)
-    | @proj.CancelEdit
-    | @proj.StartDrag(..)
-    | @proj.DragOver(..)
-    | @proj.Collapse(..)
-    | @proj.Expand(..) => true
+    @lambda_edits.Select(..)
+    | @lambda_edits.SelectRange(..)
+    | @lambda_edits.StartEdit(..)
+    | @lambda_edits.CancelEdit
+    | @lambda_edits.StartDrag(..)
+    | @lambda_edits.DragOver(..)
+    | @lambda_edits.Collapse(..)
+    | @lambda_edits.Expand(..) => true
     _ => false
   }
 }
@@ -214,7 +214,7 @@ fn update(dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     TreeEdited(op) => {
       match op {
-        @proj.Expand(node_id~) => {
+        @lambda_edits.Expand(node_id~) => {
           let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
           let tree_state = if hydrate_after_expand {
             model.tree_state.expand_node(
@@ -270,9 +270,9 @@ fn view_tree_node(
     @proj.Elided(_) => false
   }
   let toggle_cmd = if node.collapsed {
-    dispatch(TreeEdited(@proj.Expand(node_id=node.id)))
+    dispatch(TreeEdited(@lambda_edits.Expand(node_id=node.id)))
   } else {
-    dispatch(TreeEdited(@proj.Collapse(node_id=node.id)))
+    dispatch(TreeEdited(@lambda_edits.Collapse(node_id=node.id)))
   }
   let toggle_label = if node.collapsed { "▶" } else { "▼" }
   let toggle : Html = if is_leaf {
@@ -300,19 +300,21 @@ fn view_tree_node(
         button(
           class="tree-action",
           on_click=dispatch(
-            TreeEdited(@proj.WrapInLambda(node_id=node.id, var_name="x")),
+            TreeEdited(
+              @lambda_edits.WrapInLambda(node_id=node.id, var_name="x"),
+            ),
           ),
           [text("Wrap λ")],
         ),
         button(
           class="tree-action",
-          on_click=dispatch(TreeEdited(@proj.Delete(node_id=node.id))),
+          on_click=dispatch(TreeEdited(@lambda_edits.Delete(node_id=node.id))),
           [text("Delete")],
         ),
       ]),
     )
   }
-  let select_cmd = dispatch(TreeEdited(@proj.Select(node_id=node.id)))
+  let select_cmd = dispatch(TreeEdited(@lambda_edits.Select(node_id=node.id)))
   let row = div(class=row_class, on_click=select_cmd, row_items)
   let child_views : Array[Html] = if node.collapsed {
     []
@@ -571,7 +573,7 @@ test "TreeEdited Collapse stays local to UI state" {
   let old_text = model.editor.get_text()
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.Collapse(node_id=root_id)),
+    TreeEdited(@lambda_edits.Collapse(node_id=root_id)),
     model,
   )
   inspect(updated.editor.get_text(), content=old_text)
@@ -590,7 +592,7 @@ test "TreeEdited Select stays local to UI state" {
   let old_text = model.editor.get_text()
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.Select(node_id=root_id)),
+    TreeEdited(@lambda_edits.Select(node_id=root_id)),
     model,
   )
   inspect(updated.editor.get_text(), content=old_text)
@@ -611,7 +613,7 @@ test "TreeEdited StartEdit stays local to UI state" {
   let old_text = model.editor.get_text()
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.StartEdit(node_id=root_id)),
+    TreeEdited(@lambda_edits.StartEdit(node_id=root_id)),
     model,
   )
   inspect(updated.editor.get_text(), content=old_text)
@@ -626,7 +628,7 @@ test "TreeEdited Expand hydrates an elided subtree without editor refresh" {
   let old_text = model.editor.get_text()
   let (_, collapsed) = update(
     _ => none,
-    TreeEdited(@proj.Collapse(node_id=root_id)),
+    TreeEdited(@lambda_edits.Collapse(node_id=root_id)),
     model,
   )
   let elided = refresh(collapsed)
@@ -641,7 +643,7 @@ test "TreeEdited Expand hydrates an elided subtree without editor refresh" {
 
   let (_, expanded) = update(
     _ => none,
-    TreeEdited(@proj.Expand(node_id=root_id)),
+    TreeEdited(@lambda_edits.Expand(node_id=root_id)),
     elided,
   )
 
@@ -666,7 +668,7 @@ test "TreeEdited Expand does not hydrate elided subtree while projection is dirt
   let root_id = root_node_id_for_test(model)
   let (_, collapsed) = update(
     _ => none,
-    TreeEdited(@proj.Collapse(node_id=root_id)),
+    TreeEdited(@lambda_edits.Collapse(node_id=root_id)),
     model,
   )
   let elided = refresh(collapsed)
@@ -675,7 +677,7 @@ test "TreeEdited Expand does not hydrate elided subtree while projection is dirt
 
   let (_, expanded) = update(
     _ => none,
-    TreeEdited(@proj.Expand(node_id=root_id)),
+    TreeEdited(@lambda_edits.Expand(node_id=root_id)),
     dirty,
   )
 
@@ -700,13 +702,13 @@ test "Hidden selection stays visible in sidebar context after elision" {
   let literal_id = selected_node_id_for_test(model, "42")
   let (_, selected) = update(
     _ => none,
-    TreeEdited(@proj.Select(node_id=literal_id)),
+    TreeEdited(@lambda_edits.Select(node_id=literal_id)),
     model,
   )
   let root_id = root_node_id_for_test(selected)
   let (_, collapsed) = update(
     _ => none,
-    TreeEdited(@proj.Collapse(node_id=root_id)),
+    TreeEdited(@lambda_edits.Collapse(node_id=root_id)),
     selected,
   )
   let elided = refresh(collapsed)
@@ -721,7 +723,7 @@ test "TreeEdited WrapInLambda still round-trips through editor" {
   let root_id = root_node_id_for_test(model)
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.WrapInLambda(node_id=root_id, var_name="x")),
+    TreeEdited(@lambda_edits.WrapInLambda(node_id=root_id, var_name="x")),
     model,
   )
   inspect(updated.next_timestamp, content="2")
@@ -734,13 +736,13 @@ test "TreeEdited Delete preserves UI state when editor rejects it" {
   let root_id = root_node_id_for_test(model)
   let (_, selected) = update(
     _ => none,
-    TreeEdited(@proj.Select(node_id=root_id)),
+    TreeEdited(@lambda_edits.Select(node_id=root_id)),
     model,
   )
   let old_text = selected.editor.get_text()
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.Delete(node_id=root_id)),
+    TreeEdited(@lambda_edits.Delete(node_id=root_id)),
     selected,
   )
   inspect(updated.editor.get_text(), content=old_text)
@@ -759,7 +761,7 @@ test "TreeEdited Delete round-trips through editor for non-root node" {
   let literal_id = selected_node_id_for_test(model, "42")
   let (_, updated) = update(
     _ => none,
-    TreeEdited(@proj.Delete(node_id=literal_id)),
+    TreeEdited(@lambda_edits.Delete(node_id=literal_id)),
     model,
   )
   inspect(updated.next_timestamp, content="2")
@@ -785,7 +787,7 @@ test "Selected sidebar details stay on the stale tree until RefreshProjection" {
   let literal_id = selected_node_id_for_test(model, "42")
   let (_, selected) = update(
     _ => none,
-    TreeEdited(@proj.Select(node_id=literal_id)),
+    TreeEdited(@lambda_edits.Select(node_id=literal_id)),
     model,
   )
   let new_text = "let id = λx.x in let apply = λf.λx.f x in apply id 99"

@@ -141,9 +141,7 @@ fn view_submenu_choices(
         on_click=dispatch(ActionTapped(action.id + ":" + value)),
         attrs=@html.Attrs::build().role("menuitem").tabindex(0),
         [
-          @html.span(class="action-mnemonic", [
-            @html.text((i + 1).to_string()),
-          ]),
+          @html.span(class="action-mnemonic", [@html.text((i + 1).to_string())]),
           @html.span(class="action-label-text", [@html.text(label)]),
         ],
       ),
