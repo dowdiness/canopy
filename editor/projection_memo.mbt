@@ -356,7 +356,10 @@ fn[T] unregister_subtree(
 
 ///|
 pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @proj.FlatProj? {
-  self.proj_memo.get().proj
+  match self.proj_memo {
+    Some(memo) => memo.get().proj
+    None => None
+  }
 }
 
 ///|

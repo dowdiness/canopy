@@ -10,7 +10,7 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]
+  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]?
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
@@ -95,7 +95,7 @@ fn[T] SyncEditor::new(
     source_text,
     syntax_tree,
     cursor: 0,
-    proj_memo,
+    proj_memo: Some(proj_memo),
     cached_proj_node,
     registry_memo,
     source_map_memo,
@@ -121,6 +121,90 @@ pub fn SyncEditor::new_lambda(
     build_lambda_projection_memos,
     capture_timeout_ms~,
   )
+}
+
+///|
+/// Generic constructor for languages without FlatProj.
+/// The build_memos callback returns 3 memos (ProjNode, registry, SourceMap).
+pub fn[T] SyncEditor::new_generic(
+  agent_id : String,
+  make_parser : (String) -> @loom.ImperativeParser[T],
+  build_memos : (
+    @incr.Runtime,
+    @incr.Signal[String],
+    @incr.Signal[@seam.SyntaxNode?],
+    @loom.ImperativeParser[T],
+  ) -> (
+    @incr.Memo[@proj.ProjNode[T]?],
+    @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
+    @incr.Memo[@proj.SourceMap],
+  ),
+  capture_timeout_ms? : Int = 500,
+) -> SyncEditor[T] {
+  let parser = make_parser("")
+  let parser_rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
+  let syntax_tree = @incr.Signal::new(
+    parser_rt,
+    None,
+    label="editor_syntax_tree",
+  )
+  let (cached_proj_node, registry_memo, source_map_memo) = build_memos(
+    parser_rt, source_text, syntax_tree, parser,
+  )
+  let hub = EphemeralHub::new(agent_id)
+  let cursor_view = PeerCursorView::new()
+  let wire_peer_id = hub.wire_peer_id
+  let cursor_store = hub.get_store(Cursor)
+  ignore(
+    cursor_store.subscribe(fn(event) {
+      for key in event.added() {
+        if key == wire_peer_id {
+          continue
+        }
+        match cursor_store.get(key) {
+          Some(value) => cursor_view.apply_raw_update(key, value)
+          None => ()
+        }
+      }
+      for key in event.updated() {
+        if key == wire_peer_id {
+          continue
+        }
+        match cursor_store.get(key) {
+          Some(value) => cursor_view.apply_raw_update(key, value)
+          None => ()
+        }
+      }
+      for key in event.removed() {
+        if key == wire_peer_id {
+          continue
+        }
+        cursor_view.remove(key)
+      }
+      true
+    }),
+  )
+  {
+    doc: @text.TextState::new(agent_id),
+    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
+    parser,
+    parser_rt,
+    source_text,
+    syntax_tree,
+    cursor: 0,
+    proj_memo: None,
+    cached_proj_node,
+    registry_memo,
+    source_map_memo,
+    hub,
+    cursor_view,
+    peer_id: agent_id,
+    ws: None,
+    recovery: None,
+    recovery_epoch: 0,
+    projection_dirty: false,
+  }
 }
 
 // --- Ephemeral presence methods ---
