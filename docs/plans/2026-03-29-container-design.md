@@ -60,9 +60,15 @@ Document
 
 FugueTree stores items as `items: Array[Item[T]?]` where index = ID. With a shared Lv space, a block's text ops have sparse Lvs like [3, 7, 12, 45] — 46-slot array for 4 items. At scale (11K total ops, 100 per block), 110x overhead. Per-block dense ItemIds avoid this.
 
+ItemIds are **replica-local**. Different replicas may assign different ItemIds to the same global Lv. This is correct because FugueTree conflict resolution uses timestamps and origin references, not ItemIds. ItemIds are storage handles, not identity.
+
 ### Why tree uses Lvs directly
 
 One tree. Its ops are not interleaved with another tree's ops. MovableTree and TreeOpLog use global Lvs without sparseness.
+
+### Container composes internals directly
+
+The Container uses MovableTree, TreeOpLog, FugueTree, Branch, OpLog, and CausalGraph directly — NOT through TreeState or TextState. Those wrappers remain as public packages for standalone single-CRDT consumers (e.g., canopy's lambda editor uses TextState alone). They are not Container internals.
 
 ## Refactoring Scope
 
@@ -111,7 +117,7 @@ pub(all) struct LogEntry {
 }
 ```
 
-Transaction grouping tracked separately as `(agent, start_lv, end_lv)` ranges — not a field on Op.
+Transaction grouping tracked on Document as `transactions: Array[TransactionRange]` where `TransactionRange = { agent: String, start_lv: Lv, end_lv: Lv }`. Not a field on Op — transactions are metadata about LV ranges in the unified oplog.
 
 ## Text Container Lifecycle
 
@@ -146,7 +152,7 @@ Text (per-block, one char per op):
 - `get_text(id) -> String`
 - `text_len(id) -> Int`
 
-Sync:
+Sync (SyncMessage schema defined in Phase 3):
 - `export_ops(since?: Version) -> SyncMessage`
 - `apply_remote(SyncMessage) raise DocumentError`
 - `version() -> Version`
@@ -161,8 +167,12 @@ Undo:
 
 ## Dispatch
 
+Two paths: local ops (direct apply) and remote ops (merge with retreat/advance).
+
+**Local ops** — sequential, no concurrency. Direct apply:
+
 ```moonbit
-fn Document::dispatch_op(self, lv: Lv, op: Op) raise DocumentError {
+fn Document::dispatch_local(self, lv: Lv, op: Op) raise DocumentError {
   match op {
     TreeMove(m) => self.tree_log.apply(self.tree, m)
     TreeProperty(p) => self.apply_property_lww(p)
@@ -183,6 +193,8 @@ fn Document::dispatch_op(self, lv: Lv, op: Op) raise DocumentError {
   }
 }
 ```
+
+**Remote ops** — potentially concurrent. Text ops go through Branch.merge (eg-walker retreat/advance on the shared CausalGraph, filtered and translated to per-block ItemIds). Tree ops go through TreeOpLog.apply (Kleppmann undo-do-redo). The shared CausalGraph provides the causal structure for both paths.
 
 ## Error Type
 
