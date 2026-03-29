@@ -839,18 +839,29 @@ fn available_actions(
   let focus = z.focus
   let actions : Array[EditAction] = []
 
-  // Always available
-  actions.push(Delete)
-  actions.push(WrapLam("x"))
-  actions.push(WrapApp)
-  actions.push(WrapIf)
-  actions.push(WrapBop(Plus))
-  actions.push(WrapBop(Minus))
+  // Hole is already a placeholder — Delete is a no-op
+  // Module uses dedicated binding actions, not generic Delete/Wrap/Unwrap
+  match focus {
+    Hole(_) | Module(_, _) => ()
+    _ => actions.push(Delete)
+  }
 
-  // Unwrap: one per child (non-leaf only)
-  let n = children_of(focus).length()
-  for i in 0..<n {
-    actions.push(Unwrap(i))
+  // Wrap and Unwrap not offered for Module or Hole
+  match focus {
+    Module(_, _) => ()
+    _ => {
+      actions.push(WrapLam("x"))
+      actions.push(WrapApp)
+      actions.push(WrapIf)
+      actions.push(WrapBop(Plus))
+      actions.push(WrapBop(Minus))
+
+      // Unwrap: one per child (non-leaf only)
+      let n = children_count(focus)
+      for i in 0..<n {
+        actions.push(Unwrap(i))
+      }
+    }
   }
 
   // SwapChildren: Bop and If only (backend only supports these)
@@ -901,8 +912,10 @@ With TermSym already landed, adding `Hole(Int)` requires updating only the TermS
 | `loom/examples/lambda/src/ast/sym.mbt` | Add `Pretty::hole` impl: `{ repr: "_" }` |
 | `loom/examples/lambda/src/ast/sym.mbt` | Add `Term::hole` impl: `Hole(n)` |
 | `loom/examples/lambda/src/parser/` | Parser recognizes `_` as `Hole` token (always ID 0) |
+| `loom/examples/lambda/src/cst_parser.mbt` | Add `@token.Hole` to `token_starts_expression`, `token_starts_application_atom`, `parse_atom`, and `parse_application` |
+| `loom/examples/lambda/src/lambda_spec.mbt` | Add `HoleToken => Some(@token.Hole)` to `syntax_kind_to_token_kind` (required for incremental subtree reuse) |
 | `loom/examples/lambda/src/ast/proj_traits.mbt` | Add `Hole` cases to `TreeNode` (`children`, `same_kind`) and `Renderable` impls |
-| `loom/examples/lambda/src/ast/proj_traits.mbt` | Add `(Hole(_), Hole(_)) => true` to `same_kind` |
+| `lang/lambda/proj/proj_node.mbt` | Add `HoleLiteral => Hole(0)` to `syntax_to_proj_node` |
 
 ### New files
 
@@ -911,13 +924,19 @@ All zipper files land directly in `lang/lambda/zipper/`.
 **`lang/lambda/zipper/moon.pkg`:**
 ```
 import {
-  "dowdiness/lambda/ast" @ast,
   "dowdiness/canopy/framework/core" @core,
   "dowdiness/canopy/lang/lambda/edits" @edits,
-  "moonbitlang/core/immut/list" @immut/list,
+  "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/immut/hashset" @immut/hashset,
+  "moonbitlang/core/list" @list,
 }
+
+import {
+  "dowdiness/canopy/lang/lambda/proj" @proj,
+} for "wbtest"
 ```
+
+Note: Implementation uses `@list.List` (from `moonbitlang/core/list`) instead of `@immut/list.T` — the immutable list API changed in recent MoonBit versions. List constructors are `Empty`/`More(head, tail=rest)`, constructed via `@list.cons()` / `@list.new()`.
 
 | File | Purpose |
 |------|---------|

@@ -25,6 +25,8 @@ The initial EditAction enum covers operations that are context-free — they nee
 
 These operations share a property: they require only the cursor NodeId and (for wrap/unwrap) the immediate children structure. No scope analysis, no multi-node coordination, no FlatProj lookup.
 
+**Suppressed for certain node types:** Delete, Wrap, and Unwrap are not offered for Hole nodes (already a placeholder — deleting would produce a meaningless substitution) or Module nodes (Module uses dedicated binding-level operations from Tier A). This matches the existing action filter policy.
+
 ---
 
 ## Deferred Operations

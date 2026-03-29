@@ -1,8 +1,16 @@
 # AST Zipper Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Status:** Complete (implemented on `feat/ast-zipper` branch, PR #89)
 
 **Goal:** Add a Huet Zipper package over `Term` with navigation, context, EditAction dispatch, and Hole support. This plan covers the zipper library and Hole variant only — `LambdaEditorState`, `relocate_cursor`, and JS bridge integration are a separate follow-up plan.
+
+**Implementation notes (discovered during execution):**
+- MoonBit's `@immut/list` was replaced by `@list.List` (stdlib change). List constructors are `Empty`/`More(head, tail=rest)`.
+- `HoleLiteral` was missing from `lang/lambda/proj/proj_node.mbt` (`syntax_to_proj_node`) — added post-review.
+- `@token.Hole` was missing from `token_starts_application_atom` and `parse_application` — `f _` didn't parse as App. Fixed.
+- `HoleToken` was missing from `syntax_kind_to_token_kind` in `lambda_spec.mbt` — broke incremental subtree reuse. Fixed.
+- Delete/Wrap/Unwrap suppressed for Hole and Module nodes in `available_actions` — matches existing action policy.
+- `@proj` import moved to `import { ... } for "wbtest"` to avoid CI warnings-as-errors.
 
 **Architecture:** Cursor is a NodeId (stable via reconciliation). Zipper is a transient computation constructed on demand for navigation and context. EditAction maps trivially to TreeEditOp. All text computation reuses existing `compute_*` handlers. See `docs/plans/2026-03-28-ast-zipper-design.md` for the full design.
 

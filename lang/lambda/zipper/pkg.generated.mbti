@@ -1,0 +1,130 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/zipper"
+
+import {
+  "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/lang/lambda/edits",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/immut/hashset",
+  "moonbitlang/core/list",
+}
+
+// Values
+pub fn available_actions(Zipper) -> Array[EditAction]
+
+pub fn depth(Zipper) -> Int
+
+pub fn find_proj_node_for_focus(Zipper, @core.ProjNode[@ast.Term]) -> @core.ProjNode[@ast.Term]?
+
+pub fn focus_at(@ast.Term, Array[Int]) -> Zipper
+
+pub fn from_root(@ast.Term) -> Zipper
+
+pub fn go_down(Zipper) -> Zipper?
+
+pub fn go_left(Zipper) -> Zipper?
+
+pub fn go_right(Zipper) -> Zipper?
+
+pub fn go_up(Zipper) -> Zipper?
+
+pub fn navigate(@core.NodeId, Direction, @ast.Term, @core.ProjNode[@ast.Term]) -> @core.NodeId?
+
+pub fn path_indices_to_node(@core.ProjNode[@ast.Term], @core.NodeId) -> Array[Int]?
+
+pub fn position_role(Zipper) -> PositionRole
+
+pub fn to_path_indices(Zipper) -> Array[Int]
+
+pub fn to_root(Zipper) -> @ast.Term
+
+pub fn to_tree_edit_op(@core.NodeId, EditAction) -> @edits.TreeEditOp
+
+pub fn zipper_from_node_id(@core.NodeId, @ast.Term, @core.ProjNode[@ast.Term]) -> Zipper?
+
+// Errors
+
+// Types and methods
+pub(all) struct ActionRecord {
+  action : EditAction
+  cursor_before : @core.NodeId
+  cursor_after : @core.NodeId
+  role : PositionRole
+}
+pub impl Show for ActionRecord
+
+pub(all) enum Direction {
+  Up
+  Down
+  Left
+  Right
+}
+pub impl Show for Direction
+
+pub(all) enum EditAction {
+  Delete
+  WrapLam(String)
+  WrapApp
+  WrapIf
+  WrapBop(@ast.Bop)
+  Unwrap(Int)
+  SwapChildren
+  ChangeOperator(@ast.Bop)
+  CommitEdit(String)
+}
+pub impl Show for EditAction
+
+pub(all) struct HoleInfo {
+  created_by : EditAction
+  role : PositionRole
+}
+pub impl Show for HoleInfo
+
+pub(all) struct HoleRegistry {
+  // private fields
+}
+pub fn HoleRegistry::fresh_hole_id(Self) -> Int
+pub fn HoleRegistry::get(Self, @core.NodeId) -> HoleInfo?
+pub fn HoleRegistry::new() -> Self
+pub fn HoleRegistry::prune(Self, @hashset.HashSet[@core.NodeId]) -> Unit
+pub fn HoleRegistry::register(Self, @core.NodeId, HoleInfo) -> Unit
+
+pub(all) enum PositionRole {
+  Root
+  FunctionPosition
+  ArgumentPosition
+  BinderBody(String)
+  Condition
+  ThenBranch
+  ElseBranch
+  OperandLeft(@ast.Bop)
+  OperandRight(@ast.Bop)
+  LetDefinition(String)
+  LetBody
+}
+pub impl Show for PositionRole
+
+pub(all) enum TermCtx {
+  CtxLamBody(String)
+  CtxAppFunc(@ast.Term)
+  CtxAppArg(@ast.Term)
+  CtxBopLeft(@ast.Bop, @ast.Term)
+  CtxBopRight(@ast.Bop, @ast.Term)
+  CtxIfCond(@ast.Term, @ast.Term)
+  CtxIfThen(@ast.Term, @ast.Term)
+  CtxIfElse(@ast.Term, @ast.Term)
+  CtxModuleDef(Array[(String, @ast.Term)], String, Array[(String, @ast.Term)], @ast.Term)
+  CtxModuleBody(Array[(String, @ast.Term)])
+}
+pub impl Show for TermCtx
+
+pub(all) struct Zipper {
+  focus : @ast.Term
+  path : @list.List[TermCtx]
+}
+pub impl Show for Zipper
+
+// Type aliases
+
+// Traits
+
