@@ -153,6 +153,14 @@ pub fn syntax_to_proj_node(
       }
       None => error_node_for_syntax("empty parentheses", node, counter)
     }
+  } else if @syntax.SyntaxKind::from_raw(node.kind()) == @syntax.HoleLiteral {
+    ProjNode::new(
+      Hole(0),
+      node.start(),
+      node.end(),
+      @core.next_proj_node_id(counter),
+      [],
+    )
   } else {
     error_node_for_syntax(
       "unknown node kind: " + node.kind().to_string(),
