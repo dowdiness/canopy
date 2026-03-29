@@ -99,7 +99,7 @@ fn[T] SyncEditor::apply_replace_span(
 }
 
 ///|
-fn[T] SyncEditor::apply_text_edit_internal(
+pub fn[T] SyncEditor::apply_text_edit_internal(
   self : SyncEditor[T],
   start : Int,
   deleted_len : Int,

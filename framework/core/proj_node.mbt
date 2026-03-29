@@ -38,6 +38,18 @@ pub fn next_proj_node_id(counter : Ref[Int]) -> Int {
 }
 
 ///|
+/// Build a NodeId → ProjNode lookup by walking the tree.
+pub fn[T] collect_registry(
+  node : ProjNode[T],
+  reg : Map[NodeId, ProjNode[T]],
+) -> Unit {
+  reg[node.id()] = node
+  for child in node.children {
+    collect_registry(child, reg)
+  }
+}
+
+///|
 /// Find a node in a ProjNode tree by its NodeId.
 pub fn[T] get_node_in_tree(
   root : ProjNode[T],

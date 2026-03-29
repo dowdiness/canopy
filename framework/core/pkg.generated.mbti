@@ -8,6 +8,8 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
+pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
+
 pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
 
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
@@ -17,6 +19,13 @@ pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @r
 // Errors
 
 // Types and methods
+pub(all) enum FocusHint {
+  RestoreCursor
+  MoveCursor(position~ : Int)
+}
+pub impl Eq for FocusHint
+pub impl Show for FocusHint
+
 pub struct NodeId(Int)
 pub fn NodeId::from_int(Int) -> Self
 #deprecated
@@ -61,6 +70,14 @@ pub fn SourceMap::set_token_span(Self, NodeId, String, @dowdiness/loom/core.Rang
 pub impl Eq for SourceMap
 pub impl Show for SourceMap
 pub impl ToJson for SourceMap
+
+pub(all) struct SpanEdit {
+  start : Int
+  delete_len : Int
+  inserted : String
+}
+pub impl Eq for SpanEdit
+pub impl Show for SpanEdit
 
 // Type aliases
 

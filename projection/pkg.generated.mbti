@@ -13,7 +13,9 @@ import {
 // Values
 pub fn collect_lam_env(@dowdiness/canopy/framework/core.NodeId, Map[@dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
 
-pub fn compute_text_edit(@edits.TreeEditOp, @edits.EditContext[@ast.Term]) -> Result[(Array[@edits.SpanEdit], @edits.FocusHint)?, String]
+pub fn[T] collect_registry(@dowdiness/canopy/framework/core.ProjNode[T], Map[@dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.ProjNode[T]]) -> Unit
+
+pub fn compute_text_edit(@edits.TreeEditOp, @edits.EditContext[@ast.Term]) -> Result[(Array[@dowdiness/canopy/framework/core.SpanEdit], @dowdiness/canopy/framework/core.FocusHint)?, String]
 
 pub fn find_binding_for_init(@dowdiness/canopy/framework/core.NodeId, @proj.FlatProj) -> (@dowdiness/canopy/framework/core.NodeId, Int)?
 
@@ -102,11 +104,11 @@ pub using @edits {type DropPosition}
 
 pub using @edits {type EditContext}
 
-pub type EditResult = Result[(Array[@edits.SpanEdit], @edits.FocusHint)?, String]
+pub type EditResult = Result[(Array[@dowdiness/canopy/framework/core.SpanEdit], @dowdiness/canopy/framework/core.FocusHint)?, String]
 
 pub using @proj {type FlatProj}
 
-pub using @edits {type FocusHint}
+pub using @dowdiness/canopy/framework/core {type FocusHint}
 
 pub using @edits {type NodeContext}
 
@@ -116,7 +118,7 @@ pub using @dowdiness/canopy/framework/core {type ProjNode}
 
 pub using @dowdiness/canopy/framework/core {type SourceMap}
 
-pub using @edits {type SpanEdit}
+pub using @dowdiness/canopy/framework/core {type SpanEdit}
 
 pub using @edits {type TreeEditOp}
 

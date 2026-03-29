@@ -10,7 +10,7 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]
+  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]?
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
@@ -51,12 +51,104 @@ fn[T] SyncEditor::new(
   let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_memos(
     parser_rt, source_text, syntax_tree, parser,
   )
+  let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
+  {
+    doc: @text.TextState::new(agent_id),
+    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
+    parser,
+    parser_rt,
+    source_text,
+    syntax_tree,
+    cursor: 0,
+    proj_memo: Some(proj_memo),
+    cached_proj_node,
+    registry_memo,
+    source_map_memo,
+    hub,
+    cursor_view,
+    peer_id: agent_id,
+    ws: None,
+    recovery: None,
+    recovery_epoch: 0,
+    projection_dirty: false,
+  }
+}
+
+///|
+/// Convenience constructor for lambda calculus — creates a SyncEditor[@ast.Term].
+pub fn SyncEditor::new_lambda(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+) -> SyncEditor[@ast.Term] {
+  SyncEditor::new(
+    agent_id,
+    fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
+    build_lambda_projection_memos,
+    capture_timeout_ms~,
+  )
+}
+
+///|
+/// Generic constructor for languages without FlatProj.
+/// The build_memos callback returns 3 memos (ProjNode, registry, SourceMap).
+pub fn[T] SyncEditor::new_generic(
+  agent_id : String,
+  make_parser : (String) -> @loom.ImperativeParser[T],
+  build_memos : (
+    @incr.Runtime,
+    @incr.Signal[String],
+    @incr.Signal[@seam.SyntaxNode?],
+    @loom.ImperativeParser[T],
+  ) -> (
+    @incr.Memo[@proj.ProjNode[T]?],
+    @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
+    @incr.Memo[@proj.SourceMap],
+  ),
+  capture_timeout_ms? : Int = 500,
+) -> SyncEditor[T] {
+  let parser = make_parser("")
+  let parser_rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
+  let syntax_tree = @incr.Signal::new(
+    parser_rt,
+    None,
+    label="editor_syntax_tree",
+  )
+  let (cached_proj_node, registry_memo, source_map_memo) = build_memos(
+    parser_rt, source_text, syntax_tree, parser,
+  )
+  let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
+  {
+    doc: @text.TextState::new(agent_id),
+    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
+    parser,
+    parser_rt,
+    source_text,
+    syntax_tree,
+    cursor: 0,
+    proj_memo: None,
+    cached_proj_node,
+    registry_memo,
+    source_map_memo,
+    hub,
+    cursor_view,
+    peer_id: agent_id,
+    ws: None,
+    recovery: None,
+    recovery_epoch: 0,
+    projection_dirty: false,
+  }
+}
+
+// --- Hub and cursor setup ---
+
+///|
+/// Create an EphemeralHub and PeerCursorView, wiring up the cursor store
+/// subscription so remote peer cursors are tracked automatically.
+fn setup_hub_and_cursor(agent_id : String) -> (EphemeralHub, PeerCursorView) {
   let hub = EphemeralHub::new(agent_id)
   let cursor_view = PeerCursorView::new()
   let wire_peer_id = hub.wire_peer_id
-  // Subscribe to cursor store events to update cursor_view (skip local peer).
-  // The cursor store holds position + selection; presence (name, color) is
-  // joined from the presence store by apply_raw_update via the full Map value.
   let cursor_store = hub.get_store(Cursor)
   ignore(
     cursor_store.subscribe(fn(event) {
@@ -87,40 +179,7 @@ fn[T] SyncEditor::new(
       true
     }),
   )
-  {
-    doc: @text.TextState::new(agent_id),
-    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
-    parser,
-    parser_rt,
-    source_text,
-    syntax_tree,
-    cursor: 0,
-    proj_memo,
-    cached_proj_node,
-    registry_memo,
-    source_map_memo,
-    hub,
-    cursor_view,
-    peer_id: agent_id,
-    ws: None,
-    recovery: None,
-    recovery_epoch: 0,
-    projection_dirty: false,
-  }
-}
-
-///|
-/// Convenience constructor for lambda calculus — creates a SyncEditor[@ast.Term].
-pub fn SyncEditor::new_lambda(
-  agent_id : String,
-  capture_timeout_ms? : Int = 500,
-) -> SyncEditor[@ast.Term] {
-  SyncEditor::new(
-    agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
-    build_lambda_projection_memos,
-    capture_timeout_ms~,
-  )
+  (hub, cursor_view)
 }
 
 // --- Ephemeral presence methods ---

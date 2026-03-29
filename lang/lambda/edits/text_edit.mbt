@@ -1,10 +1,5 @@
 ///|
-/// A text span replacement: replace source_text[start : start+delete_len] with inserted.
-pub(all) struct SpanEdit {
-  start : Int
-  delete_len : Int
-  inserted : String
-} derive(Show, Eq)
+pub using @core {type SpanEdit}
 
 ///|
 /// Shared context for all edit handlers. Constructed by the editor bridge

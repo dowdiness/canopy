@@ -5,8 +5,11 @@ import {
   "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
+  "dowdiness/loom/incremental",
+  "dowdiness/seam",
 }
 
 // Values
@@ -276,6 +279,7 @@ pub struct SyncEditor[T] {
 pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
 pub fn[T] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
 pub fn[T] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
+pub fn[T] SyncEditor::apply_text_edit_internal(Self[T], Int, Int, String, Int, Bool, Bool) -> Unit
 pub fn[T] SyncEditor::apply_text_transform(Self[T], @dowdiness/canopy/framework/core.NodeId, (String, Int, Int) -> Result[String, String], Int) -> Result[Unit, TreeEditError]
 pub fn SyncEditor::apply_tree_edit(Self[@ast.Term], @edits.TreeEditOp, Int) -> Result[Unit, TreeEditError]
 pub fn[T] SyncEditor::backspace(Self[T]) -> Bool
@@ -316,6 +320,7 @@ pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
 pub fn[T] SyncEditor::mark_dirty(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
 pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.NodeId, @edits.DropPosition, Int) -> Result[Unit, TreeEditError]
+pub fn[T] SyncEditor::new_generic(String, (String) -> @incremental.ImperativeParser[T], (@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[T]) -> (@cells.Memo[@dowdiness/canopy/framework/core.ProjNode[T]?], @cells.Memo[Map[@dowdiness/canopy/framework/core.NodeId, @dowdiness/canopy/framework/core.ProjNode[T]]], @cells.Memo[@dowdiness/canopy/framework/core.SourceMap]), capture_timeout_ms? : Int) -> Self[T]
 pub fn SyncEditor::new_lambda(String, capture_timeout_ms? : Int) -> Self[@ast.Term]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/framework/core.NodeId?
 pub fn[T] SyncEditor::redo(Self[T]) -> Bool
