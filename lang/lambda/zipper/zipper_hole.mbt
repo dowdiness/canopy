@@ -32,7 +32,10 @@ pub fn HoleRegistry::register(
 }
 
 ///|
-pub fn HoleRegistry::get(self : HoleRegistry, node_id : @core.NodeId) -> HoleInfo? {
+pub fn HoleRegistry::get(
+  self : HoleRegistry,
+  node_id : @core.NodeId,
+) -> HoleInfo? {
   self.holes.get(node_id)
 }
 
