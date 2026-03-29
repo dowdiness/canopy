@@ -1,6 +1,6 @@
 # Documentation Index
 
-Documentation for the Lambda Calculus CRDT Editor project.
+Documentation for Canopy — an incremental projectional editor with CRDT collaboration.
 
 ## Quick Start
 
@@ -10,9 +10,7 @@ Documentation for the Lambda Calculus CRDT Editor project.
 ## Grand Design
 
 The long-range vision for combining eg-walker CRDT + loom incremental parser
-into a collaborative projectional editor. Some parts of this stack are already
-implemented in the root MoonBit packages and the `examples/rabbita` app; these
-design docs describe the remaining target architecture and intended cleanup.
+into a collaborative projectional editor.
 
 - **[Grand Design](design/GRAND_DESIGN.md)** — Vision, principles, and implementation order
   - [01 — Edit Bridge](design/01-edit-bridge.md) — CRDT ops → loom `Edit` without string diffing
@@ -29,6 +27,12 @@ Understand the system design and CRDT implementation.
 - [System Architecture](architecture/ARCHITECTURE_DIAGRAM.md) - High-level data flow diagram
 - [Module Structure](architecture/modules.md) - Monorepo organization with git submodules
 - [Projectional Editing](architecture/PROJECTIONAL_EDITING.md) - Projectional editing architecture
+
+## Decisions
+
+Architectural Decision Records (ADRs) for significant design choices.
+
+- [Framework Genericity Contract](decisions/2026-03-29-framework-genericity-contract.md) — TestExpr proof: why framework/core/ must stay language-agnostic
 
 ## Development
 
@@ -60,12 +64,14 @@ Detailed documentation for each module:
 
 ## Active Plans
 
-- [Framework Extraction Design](plans/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits (deferred)
-- [BFT Adapter — Byzantine Fault Tolerance](plans/2026-03-19-bft-adapter-design.md) — Design only, implement after sync working (deferred)
-- [Ideal Editor Implementation](plans/2026-03-19-ideal-editor-impl.md) — Rabbita host + PM/CM6 Web Component unified editor
-- [Rabbita Web Component Interop Design](plans/2026-03-20-rabbita-web-component-interop-design.md) — Export Rabbita cells as custom elements
-- [Rabbita Web Component Interop Impl](plans/2026-03-20-rabbita-web-component-interop-impl.md) — Step-by-step implementation
-- [Framework Extraction Phase 1](plans/2026-03-21-framework-extraction-phase1.md) — Parameterize ProjNode[T] (deferred)
+- [Block Editor Design](plans/2026-03-28-block-editor-design.md) — Block-based document editor vision
+- [Block Editor 1b](plans/2026-03-28-block-editor-1b-document.md) — BlockDoc CRUD
+- [Block Editor 1c](plans/2026-03-28-block-editor-1c-markdown.md) — Markdown import/export
+- [Block Editor 1d](plans/2026-03-28-block-editor-1d-web.md) — JS bridge + web shell
+- [AST Zipper Design](plans/2026-03-28-ast-zipper-design.md) — Structural cursor + typed holes
+- [BFT Adapter](plans/2026-03-19-bft-adapter-design.md) — Byzantine Fault Tolerance (deferred)
+- [Ideal Editor](plans/2026-03-19-ideal-editor-impl.md) — Rabbita host + Web Component unified editor
+- [Rabbita Web Component Interop](plans/2026-03-20-rabbita-web-component-interop-design.md) — Export Rabbita cells as custom elements
 
 ## Archive
 
@@ -73,51 +79,23 @@ Historical documentation, completed plans, and investigations.
 
 ### Completed Plans (2026-03)
 
+- [Framework Extraction Design](archive/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits
+- [Framework Extraction Impl](archive/2026-03-28-framework-extraction-impl.md) — Phases 1–4 implementation
+- [Framework Extraction Phase 4](archive/2026-03-28-framework-extraction-phase4.md) — Traits to loom, lambda code to lang/lambda/
 - [Memo-Derived ProjNode Design](archive/2026-03-10-memo-derived-projnode-design.md) — CanonicalModel retired, memo-derived projections on SyncEditor
 - [Rabbita Projection Editor Performance Plan](archive/2026-03-11-rabbita-projection-editor-performance-plan.md) — Edit-based APIs, incremental parser, UI/structural split
 - [Tree Editor Subtree Reuse Design](archive/2026-03-11-tree-editor-subtree-reuse-design.md) — InteractiveChildren Loaded/Elided, structural indexes
 - [Rabbita Perf Harness Redesign](archive/2026-03-11-rabbita-perf-harness-redesign.md) — BenchmarkMeasurement, phase timing, timeout-aware results
 - [Projection Incremental Updates (FlatProj)](archive/2026-03-15-projection-incremental-updates.md) — FlatProj replaces nested Let spine
 - [RLE Library Integration](archive/2026-03-15-rle-library-integration.md) — 4-phase RLE compression plan (all phases complete)
-- [RLE Phase 0: Replace Internal RLE](archive/2026-03-17-rle-phase0-replace-internal-rle.md)
-- [RLE Phase 1: OpRun Compression](archive/2026-03-17-rle-phase1-oprun-compression.md)
-- [RLE Phase 2: VisibleRun Compression](archive/2026-03-17-rle-phase2-visiblerun-compression.md)
-- [RLE Phase 3: LvRange Compression](archive/2026-03-17-rle-phase3-lvrange-compression.md)
-- [CRDT Append Performance](archive/2026-03-18-crdt-append-performance.md) — Children index, cursor fast-path, batch invalidation, LCA index
-- [CRDT Append Performance Impl](archive/2026-03-18-crdt-append-performance-impl.md)
-- [LWW Delete/Undelete](archive/2026-03-18-lww-delete-undelete.md) — Convergent delete with Lamport timestamps
-- [Text-Delta Tree Edit](archive/2026-03-18-projectional-edit-text-delta-plan.md) — SpanEdit via source map, old tree edit path removed
-- [ProseMirror + CodeMirror 6 Design](archive/2026-03-18-prosemirror-codemirror-integration-design.md) — PM structural shell + CM6 inline leaf editors
-- [ProseMirror + CodeMirror 6 Impl](archive/2026-03-18-prosemirror-codemirror-integration-impl.md)
-- [Ephemeral Store v2 Design](archive/2026-03-19-ephemeral-store-v2-design.md) — Hub, namespaces, sync protocol
-- [Ephemeral Store v2 Impl](archive/2026-03-19-ephemeral-store-v2-impl.md)
-- [WebSocket Transport Design](archive/2026-03-19-websocket-transport-design.md) — MoonBit-first relay + client, CF Durable Objects
-- [WebSocket Transport Impl](archive/2026-03-19-websocket-transport-impl.md)
-- [Lazy Incremental Tree Refresh Design](archive/completed-phases/2026-03-20-lazy-incremental-tree-refresh-design.md) (Complete)
-- [Lazy Incremental Tree Refresh Impl](archive/completed-phases/2026-03-20-lazy-incremental-tree-refresh-impl.md) (Complete)
-- [Refactoring Plans: File Decomposition](archive/completed-phases/2026-03-22-refactoring-plans.md) (Complete)
-- [Incremental Parser Optimization Design](archive/completed-phases/2026-03-21-incremental-parser-optimization-design.md) (Complete)
-- [Incremental Parser Optimization Impl](archive/completed-phases/2026-03-21-incremental-parser-optimization-impl.md) (Complete)
-- [Structural Editing Actions Design](archive/completed-phases/2026-03-21-structural-editing-actions-design.md) (Complete)
-- [Structural Editing Actions Impl](archive/completed-phases/2026-03-21-structural-editing-actions-impl.md) (Complete)
-- [Structural Editing UI Impl](archive/completed-phases/2026-03-21-structural-editing-ui-impl.md) (Complete)
-- [Incremental SourceMap & Registry](archive/completed-phases/2026-03-22-incremental-sourcemap-registry.md) (Complete)
-- [Two-Layer Architecture Design](archive/completed-phases/2026-03-28-two-layer-architecture-design.md) — `TermSym` Finally Tagless trait, `replay`, `Pretty` interpretation (Complete)
-- [Two-Layer Architecture Impl](archive/completed-phases/2026-03-28-two-layer-architecture-impl.md) — 6-task implementation plan (Complete)
-- [Infinite Canvas Design](archive/completed-phases/2026-03-28-infinite-canvas-design.md) — pan/zoom/drag CSS-transformed DOM canvas (Complete)
-- [Infinite Canvas Impl](archive/completed-phases/2026-03-28-infinite-canvas-impl.md) — `examples/canvas/` implementation plan (Complete)
-- [MovableTree CRDT Impl](archive/completed-phases/2026-03-28-movable-tree-crdt-impl.md) — Kleppmann's move algorithm in event-graph-walker (Complete)
+- [Text-Delta Tree Edit](archive/2026-03-18-projectional-edit-text-delta-plan.md) — SpanEdit via source map
+- [Two-Layer Architecture](archive/completed-phases/2026-03-28-two-layer-architecture-design.md) — TermSym Finally Tagless (Complete)
+- [MovableTree CRDT](archive/completed-phases/2026-03-28-movable-tree-crdt-impl.md) — Kleppmann's move algorithm (Complete)
 
 ### Earlier Archive
 
 - [Investigation Index](archive/INVESTIGATION_INDEX.md)
 - [Branch Variance Investigations](archive/investigations/branch-variance/)
-- [Sync Editor Design](archive/completed-phases/2026-03-05-sync-editor-design.md) (Complete)
-- [ToDot/FromDot Traits Design](archive/completed-phases/2026-03-07-todot-fromdot-traits-design.md) (Complete)
-- [Name Resolution Design](archive/completed-phases/2026-03-07-name-resolution-design.md) (Complete)
-- [Name Resolution Implementation](archive/completed-phases/2026-03-07-name-resolution-implementation.md) (Complete)
-- [Simplify Web Integration](archive/completed-phases/2026-03-08-simplify-web-integration.md) (Complete)
-- [Boundary Correction And Cross-Module Deduplication](archive/completed-phases/2026-03-15-boundary-correction-and-dedup-plan.md) (Complete)
 
 ## External Resources
 

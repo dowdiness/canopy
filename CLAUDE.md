@@ -103,6 +103,9 @@ git commit -m "chore: update event-graph-walker submodule"
   - [Anamorphism Discipline](docs/architecture/anamorphism-discipline.md)
   - [Projectional Editing](docs/architecture/PROJECTIONAL_EDITING.md)
 
+- **Decisions:** [docs/decisions/](docs/decisions/)
+  - [Framework Genericity Contract](docs/decisions/2026-03-29-framework-genericity-contract.md) — why framework/core/ must stay language-agnostic
+
 - **Development:** [docs/development/](docs/development/)
   - [Workflow](docs/development/workflow.md)
   - [Conventions](docs/development/conventions.md)
