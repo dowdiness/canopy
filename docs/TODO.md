@@ -256,6 +256,17 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 ---
 
+## 11. Editor Drag-and-Drop Foundation
+
+**Impact:** High | **Effort:** Medium-High
+
+- [ ] Prepare drag-and-drop foundations for `examples/ideal` and `examples/block-editor`
+  Why: both editors need relocation UX, but the real missing pieces are a canonical move contract, backend legality checks, and model-level positioned move APIs rather than DOM-only gesture code.
+  Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md`
+  Exit: `block-editor` exposes positioned block moves plus structural render metadata, and `ideal` accepts validated `Drop` edits through the canonical tree-edit bridge.
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |
