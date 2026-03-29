@@ -140,7 +140,14 @@ pub fn get_actions_for_node(
     }
     @ast.Term::Error(_) => actions.push(delete)
     @ast.Term::Unbound(_) => actions.push(delete)
-    @ast.Term::Hole(_) => () // Hole is already a placeholder — Delete is a no-op
+    @ast.Term::Hole(_) => {
+      // Hole is already a placeholder — no Delete (would produce Var("a"))
+      // But wraps are available so the user can fill the hole structurally
+      actions.push(wrap_lambda)
+      actions.push(wrap_if)
+      actions.push(wrap_bop)
+      actions.push(wrap_app)
+    }
   }
   // Add binding-level actions when the node is in a let-binding context
   if context.is_let_binding {
