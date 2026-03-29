@@ -11,7 +11,7 @@ import {
 // Values
 pub fn collect_lam_env(@core.NodeId, Map[@core.NodeId, @core.ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
 
-pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[SpanEdit], FocusHint)?, String]
+pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
 
 pub fn find_binding_for_init(@core.NodeId, @proj.FlatProj) -> (@core.NodeId, Int)?
 
@@ -67,13 +67,6 @@ pub(all) struct EditContext[T] {
   flat_proj : @proj.FlatProj
 }
 
-pub(all) enum FocusHint {
-  RestoreCursor
-  MoveCursor(position~ : Int)
-}
-pub impl Eq for FocusHint
-pub impl Show for FocusHint
-
 pub(all) struct NodeContext {
   is_let_binding : Bool
   binding_node_id : @core.NodeId?
@@ -84,14 +77,6 @@ pub fn NodeContext::new() -> Self
 pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
 pub impl Eq for NodeContext
 pub impl Show for NodeContext
-
-pub(all) struct SpanEdit {
-  start : Int
-  delete_len : Int
-  inserted : String
-}
-pub impl Eq for SpanEdit
-pub impl Show for SpanEdit
 
 pub(all) enum TreeEditOp {
   Select(node_id~ : @core.NodeId)
@@ -126,7 +111,11 @@ pub(all) enum TreeEditOp {
 pub impl Show for TreeEditOp
 
 // Type aliases
-pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
+pub type EditResult = Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
+
+pub using @core {type FocusHint}
+
+pub using @core {type SpanEdit}
 
 // Traits
 
