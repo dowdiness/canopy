@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn available_actions_for_zipper(Zipper) -> Array[EditAction]
+
 pub fn depth(Zipper) -> Int
 
 pub fn find_proj_node_for_focus(Zipper, @dowdiness/canopy/framework/core.ProjNode[@ast.Term]) -> @dowdiness/canopy/framework/core.ProjNode[@ast.Term]?
