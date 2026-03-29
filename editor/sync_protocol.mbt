@@ -187,16 +187,27 @@ pub fn decode_message_result(
         return Err(ProtocolError::MissingRoomControlSubtype)
       }
       let sub_type = data[payload_start]
-      let reader = Reader::new(
-        data.view(start=payload_start + 1, end=data.length()).to_bytes(),
-      )
-      let peer_id = match read_string_field(reader, "peer_id") {
-        Ok(peer_id) => peer_id
-        Err(err) => return Err(err)
-      }
       match sub_type {
-        b'\x01' => Ok(PeerJoined(peer_id))
-        b'\x02' => Ok(PeerLeft(peer_id))
+        b'\x01' => {
+          let reader = Reader::new(
+            data.view(start=payload_start + 1, end=data.length()).to_bytes(),
+          )
+          let peer_id = match read_string_field(reader, "peer_id") {
+            Ok(peer_id) => peer_id
+            Err(err) => return Err(err)
+          }
+          Ok(PeerJoined(peer_id))
+        }
+        b'\x02' => {
+          let reader = Reader::new(
+            data.view(start=payload_start + 1, end=data.length()).to_bytes(),
+          )
+          let peer_id = match read_string_field(reader, "peer_id") {
+            Ok(peer_id) => peer_id
+            Err(err) => return Err(err)
+          }
+          Ok(PeerLeft(peer_id))
+        }
         _ => Err(ProtocolError::InvalidRoomControlSubtype(sub_type~))
       }
     }

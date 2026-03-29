@@ -262,3 +262,10 @@ test "decode_message_result reports missing room control subtype" {
   guard result is Err(err)
   inspect(err.message(), content="missing room control subtype")
 }
+
+///|
+test "decode_message_result reports invalid room control subtype before peer id" {
+  let result = decode_message_result(b"\x02\x05\x00\xFF")
+  guard result is Err(err)
+  inspect(err.message(), content="invalid room control subtype: 255")
+}
