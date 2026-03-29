@@ -10,9 +10,9 @@ fn Reader::new(data : Bytes) -> Reader {
 }
 
 ///|
-fn Reader::read_byte(self : Reader) -> Byte raise {
+fn Reader::read_byte(self : Reader) -> Byte raise EphemeralError {
   if self.pos >= self.data.length() {
-    raise Failure::Failure("unexpected end of input")
+    raise EphemeralError::UnexpectedEndOfInput
   }
   let b = self.data[self.pos]
   self.pos += 1
@@ -20,9 +20,9 @@ fn Reader::read_byte(self : Reader) -> Byte raise {
 }
 
 ///|
-fn Reader::read_bytes(self : Reader, n : Int) -> Bytes raise {
+fn Reader::read_bytes(self : Reader, n : Int) -> Bytes raise EphemeralError {
   if self.pos + n > self.data.length() {
-    raise Failure::Failure("unexpected end of input")
+    raise EphemeralError::UnexpectedEndOfInput
   }
   let out = self.data.view(start=self.pos, end=self.pos + n).to_bytes()
   self.pos += n
@@ -40,7 +40,7 @@ fn write_uvarint(buf : @buffer.Buffer, value : UInt64) -> Unit {
 }
 
 ///|
-fn read_uvarint(reader : Reader) -> UInt64 raise {
+fn read_uvarint(reader : Reader) -> UInt64 raise EphemeralError {
   let mut result : UInt64 = 0UL
   let mut shift = 0
   for i = 0; i < 10; i = i + 1 {
@@ -51,13 +51,13 @@ fn read_uvarint(reader : Reader) -> UInt64 raise {
     }
     shift += 7
   }
-  raise Failure::Failure("varint too long")
+  raise EphemeralError::VarintTooLong
 }
 
 ///|
-fn safe_uvarint_to_int(v : UInt64) -> Int raise {
+fn safe_uvarint_to_int(v : UInt64) -> Int raise EphemeralError {
   if v > 2147483647UL {
-    raise Failure::Failure("varint value exceeds maximum safe Int size")
+    raise EphemeralError::VarintValueTooLarge
   }
   v.to_int()
 }
@@ -70,7 +70,7 @@ fn write_ivarint(buf : @buffer.Buffer, value : Int64) -> Unit {
 }
 
 ///|
-fn read_ivarint(reader : Reader) -> Int64 raise {
+fn read_ivarint(reader : Reader) -> Int64 raise EphemeralError {
   let zigzag = read_uvarint(reader)
   // zigzag decoding: (zigzag >>> 1) ^ -(zigzag & 1)
   let signed = (zigzag >> 1).reinterpret_as_int64() ^
@@ -88,7 +88,7 @@ fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
 }
 
 ///|
-fn read_string(reader : Reader) -> String raise {
+fn read_string(reader : Reader) -> String raise EphemeralError {
   let len = safe_uvarint_to_int(read_uvarint(reader))
   let bytes = reader.read_bytes(len)
   // Wire data originates from our own write_string (valid UTF-8), but
@@ -105,7 +105,7 @@ fn write_len_bytes(buf : @buffer.Buffer, b : Bytes) -> Unit {
 }
 
 ///|
-fn read_len_bytes(reader : Reader) -> Bytes raise {
+fn read_len_bytes(reader : Reader) -> Bytes raise EphemeralError {
   let len = safe_uvarint_to_int(read_uvarint(reader))
   reader.read_bytes(len)
 }
@@ -177,7 +177,7 @@ fn write_ephemeral_value(buf : @buffer.Buffer, value : EphemeralValue) -> Unit {
 }
 
 ///|
-fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise {
+fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise EphemeralError {
   let tag = reader.read_byte()
   if tag == tag_null {
     EphemeralValue::Null
@@ -188,7 +188,7 @@ fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise {
     } else if raw == b'\x01' {
       EphemeralValue::Bool(true)
     } else {
-      raise Failure::Failure("invalid bool value")
+      raise EphemeralError::InvalidBoolValue
     }
   } else if tag == tag_f64 {
     EphemeralValue::F64(read_f64_le(reader))
@@ -215,7 +215,7 @@ fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise {
     }
     EphemeralValue::Map(map)
   } else {
-    raise Failure::Failure("invalid ephemeral value tag")
+    raise EphemeralError::InvalidValueTag
   }
 }
 
@@ -228,7 +228,7 @@ fn write_f64_le(buf : @buffer.Buffer, value : Double) -> Unit {
 }
 
 ///|
-fn read_f64_le(reader : Reader) -> Double raise {
+fn read_f64_le(reader : Reader) -> Double raise EphemeralError {
   let bytes = reader.read_bytes(8)
   let mut bits : UInt64 = 0UL
   for i = 0; i < 8; i = i + 1 {
@@ -317,7 +317,9 @@ fn encode_entries(entries : Array[(String, EphemeralRecord)]) -> Bytes {
 }
 
 ///|
-fn decode_entries(data : Bytes) -> Array[(String, EphemeralRecord)] raise {
+fn decode_entries(
+  data : Bytes,
+) -> Array[(String, EphemeralRecord)] raise EphemeralError {
   if data.length() == 0 {
     return []
   }

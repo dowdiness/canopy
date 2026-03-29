@@ -55,21 +55,21 @@ test "parse_tree_edit_op: Expand" {
 test "parse_tree_edit_op: unknown type" {
   let json = @json.parse("{\"type\": \"Foo\", \"node_id\": 1}")
   guard parse_tree_edit_op(json) is Err(msg)
-  inspect(msg, content="unknown op type: Foo")
+  inspect(msg.message(), content="unknown op type: Foo")
 }
 
 ///|
 test "parse_tree_edit_op: missing type" {
   let json = @json.parse("{\"node_id\": 1}")
   guard parse_tree_edit_op(json) is Err(msg)
-  inspect(msg, content="missing type field")
+  inspect(msg.message(), content="missing type field")
 }
 
 ///|
 test "parse_tree_edit_op: not an object" {
   let json = @json.parse("42")
   guard parse_tree_edit_op(json) is Err(msg)
-  inspect(msg, content="expected JSON object")
+  inspect(msg.message(), content="expected JSON object")
 }
 
 ///|
@@ -194,12 +194,12 @@ test "parse_tree_edit_op: AddBinding" {
 test "parse_tree_edit_op: DeleteBinding missing binding_node_id" {
   let json = @json.parse("{\"type\": \"DeleteBinding\", \"node_id\": 5}")
   guard parse_tree_edit_op(json) is Err(msg)
-  inspect(msg, content="missing binding_node_id field")
+  inspect(msg.message(), content="missing binding_node_id field")
 }
 
 ///|
 test "parse_tree_edit_op: AddBinding missing module_node_id" {
   let json = @json.parse("{\"type\": \"AddBinding\", \"node_id\": 5}")
   guard parse_tree_edit_op(json) is Err(msg)
-  inspect(msg, content="missing module_node_id field")
+  inspect(msg.message(), content="missing module_node_id field")
 }

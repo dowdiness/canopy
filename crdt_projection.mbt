@@ -41,9 +41,9 @@ pub fn apply_tree_edit_json(
         Ok(op) =>
           match ed.apply_tree_edit(op, timestamp_ms) {
             Ok(_) => "ok"
-            Err(msg) => "error: " + msg
+            Err(err) => "error: " + err.message()
           }
-        Err(msg) => "error: " + msg
+        Err(err) => "error: " + err.message()
       }
     }
     None => "error: no editor"

@@ -31,7 +31,7 @@ test "apply_tree_edit - Select preserves text" {
   let editor = setup_bridge("42")
   let id = get_root_id(editor)
   let result = editor.apply_tree_edit(@proj.TreeEditOp::Select(node_id=id), 1)
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="42")
 }
 
@@ -40,7 +40,7 @@ test "apply_tree_edit - Collapse preserves text" {
   let editor = setup_bridge("42")
   let id = get_root_id(editor)
   let result = editor.apply_tree_edit(@proj.TreeEditOp::Collapse(node_id=id), 1)
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="42")
 }
 
@@ -52,7 +52,7 @@ test "apply_tree_edit - WrapInLambda" {
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="(λx. 42)")
 }
 
@@ -64,7 +64,7 @@ test "apply_tree_edit - WrapInApp" {
     @proj.TreeEditOp::WrapInApp(node_id=id),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="(42 a)")
 }
 
@@ -76,7 +76,7 @@ test "apply_tree_edit - CommitEdit replaces value" {
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="99")
 }
 
@@ -89,7 +89,7 @@ test "apply_tree_edit - preserves cursor for follow-up text edits" {
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_cursor(), content="1")
   try! editor.insert("x")
   inspect(editor.get_text(), content="9x9")
@@ -103,7 +103,7 @@ test "apply_tree_edit - CommitEdit with expression" {
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   // New path: raw text splice — inserts user's text as-is (no normalization)
   inspect(editor.get_text(), content="λz.z")
 }
@@ -116,7 +116,7 @@ test "apply_tree_edit - ProjNode and text converge after WrapInLambda" {
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   assert_converged(editor)
 }
 
@@ -128,7 +128,7 @@ test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   // New path: raw text splice means CRDT text is "λz.z" (user-typed form).
   // The memo chain re-parses and builds a valid lambda ProjNode.
   inspect(editor.get_text(), content="λz.z")
@@ -144,7 +144,7 @@ test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   // New text path: node IDs are re-derived by the incremental parser,
   // so we verify a valid tree exists rather than ID preservation.
   inspect(editor.get_proj_node() is Some(_), content="true")
@@ -159,7 +159,7 @@ test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
     @proj.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   // New path: raw text splice — the memo chain re-derives a lambda node.
   guard editor.get_proj_node() is Some(proj2)
   inspect(@ast.print_term(proj2.kind), content="(λz. z)")
@@ -176,7 +176,7 @@ test "apply_tree_edit - Delete non-root node inserts valid placeholder" {
     @proj.TreeEditOp::Delete(node_id=target),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="(x + 0)")
   assert_converged(editor)
 }
@@ -189,14 +189,14 @@ test "apply_tree_edit - sequential edits" {
     @proj.TreeEditOp::WrapInLambda(node_id=id1, var_name="x"),
     1,
   )
-  inspect(result1, content="Ok(())")
+  inspect(result1 is Ok(_), content="true")
   inspect(editor.get_text(), content="(λx. 42)")
   let id2 = get_root_id(editor)
   let result2 = editor.apply_tree_edit(
     @proj.TreeEditOp::WrapInApp(node_id=id2),
     2,
   )
-  inspect(result2, content="Ok(())")
+  inspect(result2 is Ok(_), content="true")
   inspect(editor.get_text(), content="((λx. 42) a)")
   assert_converged(editor)
 }
@@ -209,7 +209,7 @@ test "apply_tree_edit - tree edits are undoable" {
     @proj.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
     1,
   )
-  inspect(result, content="Ok(())")
+  inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="(λx. 42)")
   inspect(editor.can_undo(), content="true")
   inspect(editor.undo(), content="true")

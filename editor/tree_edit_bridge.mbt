@@ -11,14 +11,14 @@ pub fn SyncEditor::apply_tree_edit(
   self : SyncEditor[@ast.Term],
   op : @proj.TreeEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, TreeEditError] {
   let old_text = self.get_text()
   let old_cursor = self.get_cursor()
   let source_map = self.get_source_map()
   let registry = self.registry_memo.get()
   let flat_proj = match self.get_flat_proj() {
     Some(fp) => fp
-    None => return Err("No FlatProj available")
+    None => return Err(TreeEditError::FlatProjUnavailable)
   }
   let ctx : @proj.EditContext[@ast.Term] = {
     source_text: old_text,
@@ -55,7 +55,7 @@ pub fn SyncEditor::apply_tree_edit(
       }
       Ok(())
     }
-    Ok(None) => Err("Unhandled tree edit op: " + op.to_string())
-    Err(msg) => Err(msg)
+    Ok(None) => Err(TreeEditError::UnhandledOperation(detail=op.to_string()))
+    Err(msg) => Err(TreeEditError::ProjectionEdit(detail=msg))
   }
 }

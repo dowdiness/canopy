@@ -132,9 +132,9 @@ pub fn EphemeralStore::set(
   self : EphemeralStore,
   key : String,
   value : EphemeralValue,
-) -> Unit raise {
+) -> Unit raise EphemeralError {
   if parse_peer_id(key) is None {
-    raise Failure::Failure("ephemeral key must be a numeric peer ID")
+    raise EphemeralError::InvalidPeerKey(key~)
   }
   match value {
     EphemeralValue::Null => self.set_state(key, None)
@@ -146,9 +146,9 @@ pub fn EphemeralStore::set(
 pub fn EphemeralStore::delete(
   self : EphemeralStore,
   key : String,
-) -> Unit raise {
+) -> Unit raise EphemeralError {
   if parse_peer_id(key) is None {
-    raise Failure::Failure("ephemeral key must be a numeric peer ID")
+    raise EphemeralError::InvalidPeerKey(key~)
   }
   self.set_state(key, None)
 }
@@ -289,7 +289,10 @@ pub fn EphemeralStore::encode_all(self : EphemeralStore) -> Bytes {
 }
 
 ///|
-pub fn EphemeralStore::apply(self : EphemeralStore, data : Bytes) -> Unit raise {
+pub fn EphemeralStore::apply(
+  self : EphemeralStore,
+  data : Bytes,
+) -> Unit raise EphemeralError {
   let entries = decode_entries(data)
   if entries.length() == 0 {
     return

@@ -8,12 +8,12 @@ test "uvarint roundtrip: boundary values" {
   write_uvarint(buf, 16383UL) // max two-byte
   write_uvarint(buf, 16384UL) // first three-byte
   let reader = Reader::new(buf.to_bytes())
-  inspect(try? read_uvarint(reader), content="Ok(0)")
-  inspect(try? read_uvarint(reader), content="Ok(127)")
-  inspect(try? read_uvarint(reader), content="Ok(128)")
-  inspect(try? read_uvarint(reader), content="Ok(255)")
-  inspect(try? read_uvarint(reader), content="Ok(16383)")
-  inspect(try? read_uvarint(reader), content="Ok(16384)")
+  inspect(try! read_uvarint(reader), content="0")
+  inspect(try! read_uvarint(reader), content="127")
+  inspect(try! read_uvarint(reader), content="128")
+  inspect(try! read_uvarint(reader), content="255")
+  inspect(try! read_uvarint(reader), content="16383")
+  inspect(try! read_uvarint(reader), content="16384")
 }
 
 ///|
@@ -27,19 +27,21 @@ test "ivarint roundtrip: signed boundaries" {
   write_ivarint(buf, 9223372036854775807L) // Int64 max
   write_ivarint(buf, -9223372036854775808L) // Int64 min
   let reader = Reader::new(buf.to_bytes())
-  inspect(try? read_ivarint(reader), content="Ok(0)")
-  inspect(try? read_ivarint(reader), content="Ok(1)")
-  inspect(try? read_ivarint(reader), content="Ok(-1)")
-  inspect(try? read_ivarint(reader), content="Ok(127)")
-  inspect(try? read_ivarint(reader), content="Ok(-128)")
-  inspect(try? read_ivarint(reader), content="Ok(9223372036854775807)")
-  inspect(try? read_ivarint(reader), content="Ok(-9223372036854775808)")
+  inspect(try! read_ivarint(reader), content="0")
+  inspect(try! read_ivarint(reader), content="1")
+  inspect(try! read_ivarint(reader), content="-1")
+  inspect(try! read_ivarint(reader), content="127")
+  inspect(try! read_ivarint(reader), content="-128")
+  inspect(try! read_ivarint(reader), content="9223372036854775807")
+  inspect(try! read_ivarint(reader), content="-9223372036854775808")
 }
 
 ///|
 test "reader: empty buffer raises" {
   let reader = Reader::new(Bytes::new(0))
-  let result = try? reader.read_byte()
+  let result : Result[Byte, EphemeralError] = Ok(reader.read_byte()) catch {
+    err => Err(err)
+  }
   inspect(result is Err(_), content="true")
 }
 
@@ -86,24 +88,21 @@ test "ephemeral value roundtrip: all variants" {
     read_ephemeral_value(reader)
   }
 
-  inspect(try? roundtrip(EphemeralValue::Null), content="Ok(Null)")
-  inspect(try? roundtrip(EphemeralValue::Bool(true)), content="Ok(Bool(true))")
+  inspect(try! roundtrip(EphemeralValue::Null), content="Null")
+  inspect(try! roundtrip(EphemeralValue::Bool(true)), content="Bool(true)")
+  inspect(try! roundtrip(EphemeralValue::Bool(false)), content="Bool(false)")
+  inspect(try! roundtrip(EphemeralValue::I64(42L)), content="I64(42)")
+  inspect(try! roundtrip(EphemeralValue::I64(0L)), content="I64(0)")
+  inspect(try! roundtrip(EphemeralValue::I64(-1L)), content="I64(-1)")
+  inspect(try! roundtrip(EphemeralValue::F64(3.14)), content="F64(3.14)")
+  inspect(try! roundtrip(EphemeralValue::F64(0.0)), content="F64(0)")
   inspect(
-    try? roundtrip(EphemeralValue::Bool(false)),
-    content="Ok(Bool(false))",
-  )
-  inspect(try? roundtrip(EphemeralValue::I64(42L)), content="Ok(I64(42))")
-  inspect(try? roundtrip(EphemeralValue::I64(0L)), content="Ok(I64(0))")
-  inspect(try? roundtrip(EphemeralValue::I64(-1L)), content="Ok(I64(-1))")
-  inspect(try? roundtrip(EphemeralValue::F64(3.14)), content="Ok(F64(3.14))")
-  inspect(try? roundtrip(EphemeralValue::F64(0.0)), content="Ok(F64(0))")
-  inspect(
-    try? roundtrip(EphemeralValue::String("hello")),
-    content="Ok(String(\"hello\"))",
+    try! roundtrip(EphemeralValue::String("hello")),
+    content="String(\"hello\")",
   )
   inspect(
-    try? roundtrip(EphemeralValue::String("")),
-    content="Ok(String(\"\"))",
+    try! roundtrip(EphemeralValue::String("")),
+    content="String(\"\")",
   )
   // Bytes
   let bytes_buf = @buffer.new()
@@ -181,8 +180,8 @@ test "ephemeral value roundtrip: empty containers" {
   let empty_map : Map[String, EphemeralValue] = {}
   write_ephemeral_value(buf, EphemeralValue::Map(empty_map))
   let reader = Reader::new(buf.to_bytes())
-  inspect(try? read_ephemeral_value(reader), content="Ok(List([]))")
-  inspect(try? read_ephemeral_value(reader), content="Ok(Map({}))")
+  inspect(try! read_ephemeral_value(reader), content="List([])")
+  inspect(try! read_ephemeral_value(reader), content="Map({})")
 }
 
 ///|
@@ -241,21 +240,21 @@ test "f64 roundtrip: special values" {
     read_f64_le(reader)
   }
 
-  inspect(try? roundtrip_f64(0.0), content="Ok(0)")
-  inspect(try? roundtrip_f64(-0.0), content="Ok(0)")
-  inspect(try? roundtrip_f64(1.0), content="Ok(1)")
-  inspect(try? roundtrip_f64(-1.0), content="Ok(-1)")
+  inspect(try! roundtrip_f64(0.0), content="0")
+  inspect(try! roundtrip_f64(-0.0), content="0")
+  inspect(try! roundtrip_f64(1.0), content="1")
+  inspect(try! roundtrip_f64(-1.0), content="-1")
   inspect(
-    try? roundtrip_f64(1.7976931348623157e308),
-    content="Ok(1.7976931348623157e+308)",
+    try! roundtrip_f64(1.7976931348623157e308),
+    content="1.7976931348623157e+308",
   ) // Double max
   let min_pos = 5.0e-324
-  inspect(try? roundtrip_f64(min_pos), content="Ok(5e-324)") // Double min positive
+  inspect(try! roundtrip_f64(min_pos), content="5e-324") // Double min positive
   let inf : Double = 1.0 / 0.0
   let neg_inf : Double = -1.0 / 0.0
   let nan : Double = 0.0 / 0.0
-  inspect(try? roundtrip_f64(inf), content="Ok(Infinity)")
-  inspect(try? roundtrip_f64(neg_inf), content="Ok(-Infinity)")
+  inspect(try! roundtrip_f64(inf), content="Infinity")
+  inspect(try! roundtrip_f64(neg_inf), content="-Infinity")
   inspect((try! roundtrip_f64(nan)).is_nan(), content="true")
 }
 
@@ -266,19 +265,9 @@ test "string roundtrip: edge cases" {
   write_string(buf, " ") // single space
   write_string(buf, "\n\t\r") // whitespace chars
   let reader = Reader::new(buf.to_bytes())
-  inspect(try? read_string(reader), content="Ok(\"\")")
-  inspect(
-    try? read_string(reader),
-    content=(
-      #|Ok(" ")
-    ),
-  )
-  inspect(
-    try? read_string(reader),
-    content=(
-      #|Ok("\n\t\r")
-    ),
-  )
+  inspect(try! read_string(reader) == "", content="true")
+  inspect(try! read_string(reader) == " ", content="true")
+  inspect(try! read_string(reader) == "\n\t\r", content="true")
 }
 
 ///|

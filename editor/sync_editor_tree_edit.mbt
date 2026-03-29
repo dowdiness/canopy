@@ -30,13 +30,19 @@ pub fn[T : @proj.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
   node_id : @proj.NodeId,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, TreeEditError] {
   let range = match self.get_node_range(node_id) {
-    None => return Err("delete_node: node \{node_id} not in source map")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInSourceMap(action="delete_node", node_id~),
+      )
     Some(r) => r
   }
   let node = match self.get_node(node_id) {
-    None => return Err("delete_node: node \{node_id} not in registry")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInRegistry(action="delete_node", node_id~),
+      )
     Some(n) => n
   }
   let placeholder = @proj.Renderable::placeholder(node.kind)
@@ -63,9 +69,12 @@ pub fn[T] SyncEditor::commit_edit(
   node_id : @proj.NodeId,
   new_text : String,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, TreeEditError] {
   let range = match self.get_node_range(node_id) {
-    None => return Err("commit_edit: node \{node_id} not in source map")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInSourceMap(action="commit_edit", node_id~),
+      )
     Some(r) => r
   }
   let delete_len = range.end - range.start
@@ -94,15 +103,20 @@ pub fn[T] SyncEditor::apply_text_transform(
   node_id : @proj.NodeId,
   compute_replacement : (String, Int, Int) -> Result[String, String],
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, TreeEditError] {
   let range = match self.get_node_range(node_id) {
     None =>
-      return Err("apply_text_transform: node \{node_id} not in source map")
+      return Err(
+        TreeEditError::NodeNotInSourceMap(
+          action="apply_text_transform",
+          node_id~,
+        ),
+      )
     Some(r) => r
   }
   let source = self.get_text()
   let replacement = match compute_replacement(source, range.start, range.end) {
-    Err(msg) => return Err("apply_text_transform: \{msg}")
+    Err(msg) => return Err(TreeEditError::TextTransformFailed(detail=msg))
     Ok(r) => r
   }
   let delete_len = range.end - range.start
@@ -132,19 +146,37 @@ pub fn[T : @proj.Renderable] SyncEditor::move_node(
   target_id : @proj.NodeId,
   position : @proj.DropPosition,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, TreeEditError] {
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
-    None => return Err("move_node: source \{source_id} not in source map")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInSourceMap(
+          action="move_node: source",
+          node_id=source_id,
+        ),
+      )
     Some(r) => r
   }
   let src_node = match self.get_node(source_id) {
-    None => return Err("move_node: source \{source_id} not in registry")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInRegistry(
+          action="move_node: source",
+          node_id=source_id,
+        ),
+      )
     Some(n) => n
   }
   // Resolve target
   let tgt_range = match self.get_node_range(target_id) {
-    None => return Err("move_node: target \{target_id} not in source map")
+    None =>
+      return Err(
+        TreeEditError::NodeNotInSourceMap(
+          action="move_node: target",
+          node_id=target_id,
+        ),
+      )
     Some(r) => r
   }
   let src_text = @proj.Renderable::unparse(src_node.kind)

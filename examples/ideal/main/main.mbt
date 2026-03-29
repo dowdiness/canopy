@@ -342,8 +342,8 @@ fn execute_action(
           })
           (cmd, new_model)
         }
-        Err(msg) => {
-          let overlay = { ..model.overlay, name_error: msg }
+        Err(err) => {
+          let overlay = { ..model.overlay, name_error: err.message() }
           (none, { ..model, overlay, })
         }
       }

@@ -6,29 +6,32 @@
 fn require_node_id(
   m : Map[String, Json],
   key : String,
-) -> Result[@proj.NodeId, String] {
+) -> Result[@proj.NodeId, TreeEditError] {
   match m.get(key) {
     Some(Json::Number(n, ..)) => Ok(@proj.NodeId::from_int(n.to_int()))
-    _ => Err("missing " + key + " field")
+    _ => Err(TreeEditError::MissingField(field=key))
   }
 }
 
 ///|
 /// Parse a binary operator name string into an ast Bop.
-fn parse_bop_string(s : String) -> Result[@ast.Bop, String] {
+fn parse_bop_string(s : String) -> Result[@ast.Bop, TreeEditError] {
   match s {
     "Plus" => Ok(@ast.Bop::Plus)
     "Minus" => Ok(@ast.Bop::Minus)
-    _ => Err("unknown bop: " + s)
+    _ => Err(TreeEditError::UnknownBop(name=s))
   }
 }
 
 ///|
 /// Extract a required Bop from a JSON map at the given key.
-fn require_bop(m : Map[String, Json], key : String) -> Result[@ast.Bop, String] {
+fn require_bop(
+  m : Map[String, Json],
+  key : String,
+) -> Result[@ast.Bop, TreeEditError] {
   match m.get(key) {
     Some(Json::String(s)) => parse_bop_string(s)
-    _ => Err("missing " + key + " field")
+    _ => Err(TreeEditError::MissingField(field=key))
   }
 }
 
@@ -37,10 +40,10 @@ fn require_bop(m : Map[String, Json], key : String) -> Result[@ast.Bop, String] 
 fn require_string(
   m : Map[String, Json],
   key : String,
-) -> Result[String, String] {
+) -> Result[String, TreeEditError] {
   match m.get(key) {
     Some(Json::String(s)) => Ok(s)
-    _ => Err("missing " + key + " field")
+    _ => Err(TreeEditError::MissingField(field=key))
   }
 }
 
@@ -50,14 +53,14 @@ fn require_string(
 ///   {"type": "Delete", "node_id": 5}
 ///   {"type": "WrapInLambda", "node_id": 5, "var_name": "x"}
 ///   {"type": "Select", "node_id": 5}
-pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, String] {
+pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError] {
   let m = match json {
     Json::Object(m) => m
-    _ => return Err("expected JSON object")
+    _ => return Err(TreeEditError::ExpectedJsonObject)
   }
   let op_type = match m.get("type") {
     Some(Json::String(s)) => s
-    _ => return Err("missing type field")
+    _ => return Err(TreeEditError::MissingField(field="type"))
   }
   match op_type {
     "Delete" => {
@@ -75,7 +78,7 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, String] {
       let var_name = match m.get("var_name") {
         Some(Json::String(s)) => s
         None => "x"
-        Some(_) => return Err("var_name must be a string")
+        Some(_) => return Err(TreeEditError::FieldMustBeString(field="var_name"))
       }
       Ok(@proj.TreeEditOp::WrapInLambda(node_id~, var_name~))
     }
@@ -114,7 +117,7 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, String] {
       }
       let keep_child_index = match m.get("keep_child_index") {
         Some(Json::Number(n, ..)) => n.to_int()
-        _ => return Err("missing keep_child_index field")
+        _ => return Err(TreeEditError::MissingField(field="keep_child_index"))
       }
       Ok(@proj.TreeEditOp::Unwrap(node_id~, keep_child_index~))
     }
@@ -225,6 +228,6 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, String] {
       }
       Ok(@proj.TreeEditOp::AddBinding(module_node_id~))
     }
-    _ => Err("unknown op type: " + op_type)
+    _ => Err(TreeEditError::UnknownOpType(op_type~))
   }
 }
