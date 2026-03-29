@@ -149,6 +149,24 @@ test "to_tree_edit_op maps Unwrap" {
 }
 
 ///|
+test "HoleRegistry fresh_hole_id increments" {
+  let reg = HoleRegistry::new()
+  inspect(reg.fresh_hole_id(), content="0")
+  inspect(reg.fresh_hole_id(), content="1")
+  inspect(reg.fresh_hole_id(), content="2")
+}
+
+///|
+test "HoleRegistry register and get" {
+  let reg = HoleRegistry::new()
+  let id = @core.NodeId::from_int(5)
+  let info : HoleInfo = { created_by: Delete, role: Root }
+  reg.register(id, info)
+  inspect(reg.get(id) is None, content="false")
+  inspect(reg.get(@core.NodeId::from_int(99)) is None, content="true")
+}
+
+///|
 test "to_path_indices round-trip" {
   let term = @ast.If(@ast.Int(1), @ast.Int(2), @ast.Int(3))
   let z = from_root(term)
