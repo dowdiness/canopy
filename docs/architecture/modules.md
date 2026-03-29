@@ -67,40 +67,50 @@ is deferred until the shared API shape settles.
 ### `framework/core/`
 Generic projectional editing primitives, independent of any language.
 
-- Node identity, projection node structure, ID allocation, JSON serialization
+- NodeId, ProjNode[T], SourceMap, reconcile, assign_fresh_ids, get_node_in_tree
+- ToJson for ProjNode and SourceMap
 - Zero dependencies on `@ast` or `@lambda` — the acid test for framework genericity
-- Consumed by `projection/` (via `pub using` re-exports) and `editor/`
+- Uses `TreeNode`/`Renderable` traits from `dowdiness/loom/core`
 
 ### `editor/`
 High-level editor abstractions.
 
-- `SyncEditor[T]` - Generic facade composing `TextDoc`, `UndoManager`, `ImperativeParser`, and memo-derived projection views
+- `SyncEditor[T]` — generic facade composing `TextDoc`, `UndoManager`, `ImperativeParser`, and memo-derived projection views
 - Lambda-specific wiring: projection memo builder, tree edit bridge, tree edit JSON
 
 ### `projection/`
-Projectional editing traits, source mapping, and lambda-specific projection builders.
+Re-export facade + generic tree editor state.
 
-- Capability traits (`TreeNode`, `Renderable`) that define how the framework inspects any AST type
-- `SourceMap` — bidirectional mapping between AST nodes and text positions
-- Reconciliation — preserves node identities across reparses
-- Lambda-specific: CST→ProjNode builders, FlatProj, text edit handlers, scope analysis
-- Re-exports generic types from `framework/core/` for backward compatibility
+- Re-exports types from `framework/core/`, `lang/lambda/proj/`, `lang/lambda/edits/` via `pub using` (backward compat for `@proj.*` references)
+- `TreeEditorState[T]` — interactive tree UI state, refresh/reuse algorithm
+- `TreeNode`/`Renderable` traits re-exported from `dowdiness/loom/core`
+
+### `lang/lambda/proj/`
+Lambda-specific projection builders.
+
+- FlatProj, syntax_to_proj_node, to_proj_node, rebuild_kind, parse_to_proj_node
+- populate_token_spans (standalone fn, lambda-specific token span extraction)
+
+### `lang/lambda/edits/`
+Lambda-specific structural edit handlers.
+
+- TreeEditOp enum (Select, Delete, WrapInLambda, etc.)
+- 12 text_edit handler files (binding, commit, delete, drop, refactor, rename, structural, wrap)
+- scope analysis, free variables, actions
+- DropPosition, FocusHint enums (defined here, re-exported by projection/)
 
 ### `lang/lambda/flat/`
-Lambda-specific flat projection representation.
+VersionedFlatProj — incr memo wrapper for incremental FlatProj updates.
 
 ### `cmd/main/`
 Command-line entry points and REPL.
 
-### Planned: trait placement migration
+### Trait placement
 
-`TreeNode` and `Renderable` currently live in `projection/` due to MoonBit's
-package-level orphan rule (the `@ast.Term` impls must colocate with the trait
-definitions or the type). The ideal architecture moves these traits to
-`dowdiness/loom/core` — the parser framework defines both how to build ASTs
-(grammar) and how editors inspect them (capability traits). The `@ast.Term`
-impls would then live in `dowdiness/lambda/ast` (which already depends on loom).
-This migration requires changes to the loom submodule.
+`TreeNode` and `Renderable` are defined in `dowdiness/loom/core` (the parser framework
+defines how editors inspect ASTs). `dowdiness/lambda/ast` implements them for `Term`
+(the type owner imports the traits). This resolves MoonBit's orphan rule cleanly:
+neither side is "foreign" at the impl site.
 
 ## Dependencies
 
@@ -122,10 +132,12 @@ rle (independent, quickcheck only)
 event-graph-walker (depends on rle + quickcheck)
 
 crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/loom + dowdiness/text_change via path deps)
-  ├── framework/core (zero external deps — generic types)
-  ├── projection (depends on framework/core + lambda + loom + seam)
-  ├── editor (depends on projection + framework/core + event-graph-walker + loom + incr)
-  └── lang/lambda/flat (depends on projection + incr)
+  ├── framework/core (depends on loom/core — generic types + traits)
+  ├── lang/lambda/proj (depends on framework/core + lambda + seam)
+  ├── lang/lambda/edits (depends on framework/core + lang/lambda/proj + lambda)
+  ├── lang/lambda/flat (depends on projection + incr)
+  ├── projection (re-export facade: depends on framework/core + lang/lambda/proj + lang/lambda/edits)
+  └── editor (depends on projection + framework/core + event-graph-walker + loom + incr)
 ```
 
 ## MoonBit Module Configuration
