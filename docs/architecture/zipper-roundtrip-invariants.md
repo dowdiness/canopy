@@ -28,17 +28,17 @@ The only case requiring special handling: structural edits that change the const
 
 When a structural edit changes the cursor's constructor, the relocation strategy uses two tiers:
 
-**Fast path:** check if the old node identity still exists in the new tree. If yes, cursor stays. This handles text edits, leaf changes, and any structural edit where the constructor at the cursor position doesn't change.
+**Fast path:** check if the old node identity still exists in the new tree. If yes, cursor stays. This handles text edits and any edit where the constructor at the cursor position doesn't change. (A leaf edit that changes the constructor — e.g., replacing a variable name with a number — causes a constructor change, so it falls through to the slow path.)
 
-**Slow path:** save the cursor's path indices before the edit. After reparse, replay them on the new tree to find the node at the same structural position. This node has a fresh identity, which becomes the new cursor.
+**Slow path:** follow the text cursor. The existing text-edit handlers already encode cursor-after-edit intent — after wrapping in an if-expression, the text cursor moves to the condition hole so the user can immediately type. The tree cursor follows the text cursor via the source map's inverse lookup, ensuring both cursors agree.
 
-The slow path uses an ancestor-walk principle: if replaying path indices fails at depth N (the tree diverged), stop at depth N-1 and focus on the deepest reachable ancestor. The cursor might be shallower than intended, but it is never lost entirely.
+This is simpler and more correct than path-index replay because each text-edit handler already knows where the cursor should land after its specific operation.
 
 ---
 
-## Why Path Indices Are Robust
+## Why Hole Support Matters
 
-The slow path relies on the reparsed tree having the same structure as the intended edit. This is guaranteed by a key invariant:
+Structural edits modify text that the parser must re-consume. If the modified text triggers error recovery, the reparsed tree can have unexpected shape — different constructors, different nesting, different child counts.
 
 **Hole support makes structural edits roundtrip-safe.** When the placeholder (`_`) is a valid expression everywhere in the grammar, every structural edit produces text that reparses to the expected structure:
 
@@ -46,7 +46,9 @@ The slow path relies on the reparsed tree having the same structure as the inten
 - Wrapping inserts parenthesized structure around existing text — valid by construction
 - Unwrapping extracts exact source text from a child span — valid because it was valid before
 
-Without Hole support, deletion could produce text the parser can't handle, triggering error recovery that reshapes the tree unpredictably. With it, path indices after the roundtrip match the intended structure in all standard cases. The ancestor-walk fallback covers the remaining edge cases (error recovery during user-typed leaf edits, concurrent remote edits).
+Without Hole support, deletion could produce text the parser can't handle, and the reparsed tree would diverge from what the edit intended. With it, the text-edit handlers' FocusHint values land on the expected node — because that node actually exists in the reparsed tree.
+
+This invariant also benefits Zipper construction: when building a transient Zipper from a NodeId via path indices, the tree structure matches the projection tree, so path replay succeeds. The ancestor-walk fallback in `focus_at` covers the remaining edge cases (error recovery during user-typed leaf edits, concurrent remote edits).
 
 ---
 

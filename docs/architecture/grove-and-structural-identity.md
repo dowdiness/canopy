@@ -72,7 +72,7 @@ The gap between text-first and structure-first need not be crossed in one step:
 
 ### Level 0: Positional identity (current)
 
-Reconciliation matches nodes by constructor and position. The cursor is a stable node identity; the Zipper is a transient computation constructed on demand for navigation and context. Structural edits break identity for reshaped subtrees, handled by path-index relocation with ancestor-walk fallback. Acceptable when structural editing is single-user.
+Reconciliation matches nodes by constructor and position. The cursor is a stable node identity; the Zipper is a transient computation constructed on demand for navigation and context. After structural edits, the tree cursor follows the text cursor (which the existing edit handlers position via FocusHint). Acceptable when structural editing is single-user.
 
 ### Level 1: Edit-aware reconciliation
 

@@ -1,52 +1,63 @@
 # AST Zipper for Tree Pane Navigation and Structural Editing
 
 **Date:** 2026-03-28
+**Revised:** 2026-03-29
 **Status:** Approved
 
 **Prerequisites (in order):**
 
-1. **Two-layer architecture (TermSym)** (`docs/plans/2026-03-28-two-layer-architecture-impl.md`) — must land first. Adding `Hole(Int)` to `Term` triggers all exhaustive match sites. With TermSym in place, only `replay` and `TermSym` impls need updating; all `TermSym` consumers get compile errors that self-document what to fix.
+1. **Two-layer architecture (TermSym)** — ✅ Complete (archived). Adding `Hole(Int)` to `Term` triggers only `replay` and `TermSym` impls; all `TermSym` consumers get compile errors that self-document what to fix.
 
-2. **Framework Extraction Phase 1** (`docs/plans/2026-03-28-framework-extraction-impl.md`, Tasks 1–3) — additive API (`delete_node`, `commit_edit`, `apply_text_transform`, `EditAction[T]`) must be in place so `LambdaEditorState` can use the generic Tier-2 methods for text dispatch.
+2. **Framework Extraction Phase 1** — ✅ Complete. Tier-2 methods (`delete_node`, `commit_edit`, `apply_text_transform`, `move_node`) are in place on `SyncEditor[T]`.
 
-3. **Framework Extraction Phase 2** (`docs/plans/2026-03-28-framework-extraction-impl.md`, Task 4) — `FlatProj` must have moved to `lang/lambda/flat/` before zipper files are created, so zipper files land directly in their final location (`lang/lambda/zipper/`) without needing a second move.
+3. **Framework Extraction Phase 2** — ✅ Complete. `FlatProj` moved to `lang/lambda/flat/`. Zipper files land directly in their final location.
+
 **References:**
 - Huet, "Functional Pearl: The Zipper" (1997) — core data structure
 - McBride, "The Derivative of a Regular Type is its Type of One-Hole Contexts" (2001) — Zipper as type derivative
 - Omar et al., "Hazelnut: a bidirectionally typed structure editor calculus" (POPL 2017) — edit action semantics, typed holes
+- Adams et al., "Grove: A Bidirectionally Typed Collaborative Structure Editor Calculus" (POPL 2025) — structural identity, future collaborative editing (see `docs/architecture/grove-and-structural-identity.md`)
 - [tylr paper (TyDe 2022)](https://hazel.org/papers/tiny-tylr-tyde2022.pdf) — tile-based editing (reviewed, deferred)
+
+**Architecture docs:**
+- `docs/architecture/zipper-roundtrip-invariants.md` — transient Zipper principle, cursor relocation, projection isomorphism
+- `docs/architecture/grove-and-structural-identity.md` — text-first vs structure-first, incremental adoption path
+- `docs/architecture/edit-action-progression.md` — deferred operations and promotion path
 
 ## Goal
 
 Add a Huet Zipper over `Term` to Canopy's tree pane with four properties:
 
-1. **Structural cursor** — the focused node + path to root, with context-aware position information
-2. **Edit actions as data** — structural operations are reified values, not just functions, enabling undo/redo, operation logging, and future collaborative structural editing
-3. **Bidirectional text ↔ Zipper mapping** — text editing is never obstructed; text cursor position and Zipper position stay synchronized
+1. **NodeId-primary cursor** — the cursor is a stable node identity; the Zipper is a transient computation constructed on demand for navigation and context
+2. **Edit actions as data** — structural operations are reified values mapping to the existing `TreeEditOp` backend, enabling undo/redo, operation logging, and future collaborative structural editing
+3. **Bidirectional text ↔ tree cursor sync** — text cursor position and tree cursor (NodeId) stay synchronized via SourceMap
 4. **Hole-ready AST** — a dedicated `Hole` variant (not `Var("_")`) that reserves space for future type-aware editing
 
 The design does not force a choice between text editing fluidity and structural editing semantics. Both coexist.
 
-## Key Architectural Premise: Two Representations, One Truth
+## Key Architectural Premise: NodeId Is the Cursor, Zipper Is a Lens
 
-Text CRDT remains ground truth. The Zipper is a **structural lens** over the derived AST — it describes *where* the user is and *what* they are doing in structural terms, while all mutations flow through text:
+Text CRDT remains ground truth. The cursor is a **NodeId** — stable across reparses via reconciliation. The Zipper is a **transient lens** constructed from the NodeId when structural navigation or context information is needed, then discarded.
 
 ```
 Text edit:
   keystroke → CRDT op → loom reparse → new Term
-  → sync Zipper to new Term (preserve structural position)
+  → NodeId survives automatically (reconcile preserves it)
 
 Structural edit:
-  EditAction on Zipper → compute_text_edit (existing) → TextDelta
+  EditAction → resolve cursor NodeId → map to TreeEditOp → apply_tree_edit
   → CRDT op → loom reparse → new Term
-  → sync Zipper to new Term
+  → relocate cursor (follow text cursor via FocusHint, NodeId fallback)
+
+Navigation:
+  Direction → construct Zipper from cursor NodeId → navigate → extract new NodeId
 
 Cursor sync:
-  Text cursor at offset N → find deepest ProjNode → Zipper position
-  Zipper at position P → find matching ProjNode → highlight text span
+  Text cursor at offset N → source_map.innermost_node_at(N) → NodeId
+  Tree cursor NodeId → source_map.get_range(NodeId) → highlight text span
 ```
 
-The Zipper does not bypass the text round-trip. It adds a structural interpretation layer that text editing alone cannot provide.
+The Zipper is never persisted. There is no `sync_after_roundtrip`.
 
 ## The Actual AST
 
@@ -68,7 +79,7 @@ pub(all) enum Term {
 }
 ```
 
-**`Hole(Int)` replaces `Var("_")` as placeholder.** The `Int` is a hole ID, unique within a single edit session. Holes are **ephemeral** — they do not survive the text round-trip. `print_term` outputs `_` for all holes regardless of ID. After reparse, the parser reads `_` as a fresh `Hole` with a new ID. Hole metadata (creation context, position role) is managed via NodeId after reconciliation, not via hole IDs embedded in Term. See "Hole Lifecycle" for details.
+**`Hole(Int)` replaces `Var("_")` as placeholder.** The `Int` is a hole ID, unique within a single edit session. Holes are **ephemeral** — they do not survive the text round-trip. `print_term` outputs `_` for all holes regardless of ID. After reparse, the parser reads `_` as a fresh `Hole` with a new ID (recommendation: always use 0 — the parser has no global counter). Hole metadata is managed via NodeId after reconciliation, not via hole IDs embedded in Term. See "Hole Lifecycle" for details.
 
 ---
 
@@ -149,29 +160,28 @@ pub fn position_role(z : Zipper) -> PositionRole {
 ```
 
 **Uses:**
-- UI: context menu filters available actions by role (function position → suggest λ, condition → suggest boolean expressions)
+- UI: context menu filters available actions by role
 - Future type checker: `PositionRole` → expected type constraint for the focused hole
 - Accessibility: screen reader can announce "you are in the else branch of an if expression"
 
-### Edit Action (Reified)
+### Edit Action (Cursor-Relative Frontend for TreeEditOp)
 
-Structural operations are **data**, not just functions. Every edit action is a value that can be stored, inspected, inverted, and logged.
+Structural operations are **data**, not just functions. Each EditAction maps trivially to a `TreeEditOp` by resolving the cursor NodeId. Navigation is a separate function, not an EditAction.
 
 ```moonbit
 pub(all) enum EditAction {
-  // Navigation (no AST change, recorded for undo cursor position)
-  Move(Direction)
-
-  // Structural modification
+  // Core structural
   Delete
-  Replace(Term)
   WrapLam(VarName)
   WrapApp
+  WrapIf
   WrapBop(Bop)
-  UnwrapKeeping(Int)   // which child index to keep (0 = first child)
+  Unwrap(Int)            // child index to keep (0 = first child)
+  SwapChildren
+  ChangeOperator(Bop)
 
   // Leaf editing
-  CommitLeafEdit(String)   // new text for focused leaf
+  CommitEdit(String)     // new text for focused leaf
 }
 
 pub(all) enum Direction {
@@ -182,37 +192,38 @@ pub(all) enum Direction {
 }
 ```
 
-**`UnwrapKeeping(Int)` instead of `Unwrap`:** Plain unwrap silently discards siblings. `UnwrapKeeping(0)` on `App(f, arg)` keeps `f` and discards `arg`. `UnwrapKeeping(1)` keeps `arg` and discards `f`. The UI presents a choice when the node has multiple non-trivial children. If the non-kept children are all `Hole`s or trivial literals, no confirmation is needed.
+**`Unwrap(Int)` instead of plain `Unwrap`:** Plain unwrap silently discards siblings. `Unwrap(0)` on `App(f, arg)` keeps `f` and discards `arg`. `Unwrap(1)` keeps `arg` and discards `f`. The UI presents a choice when the node has multiple non-trivial children. If the non-kept children are all `Hole`s or trivial literals, no confirmation is needed.
 
 **Why data, not functions:**
 
-| Capability | Functions (`wrap_in_lambda(z, "x")`) | Data (`WrapLam("x")`) |
+| Capability | Functions (`wrap_in_lambda(id, "x")`) | Data (`WrapLam("x")`) |
 |---|---|---|
 | Structural undo | ✗ must diff text | ✓ invert the action |
-| Operation log | ✗ "some function was called" | ✓ `[Delete, Move(Up), WrapLam("f")]` |
+| Operation log | ✗ "some function was called" | ✓ `[Delete, WrapLam("f")]` |
 | Collaborative conflict detection | ✗ compare text diffs | ✓ "A wrapped in λ, B deleted same node" |
 | Serialization (eg-walker TransformOp) | ✗ | ✓ `EditAction` is serializable |
 | Context menu rendering | redundant labels | `EditAction` → label + shortcut |
 
-### Edit Result
+**Deferred operations** (stay TreeEditOp-only for now):
+- Module binding operations (Add, Delete, Duplicate, MoveUp/Down) — need FlatProj access
+- Refactoring (ExtractToLet, Inline, InlineAll, Rename) — need scope analysis
+- Drop/Relocate — needs two-cursor model (cut/paste)
+- InsertChild (non-Module) — fixed-arity constructors
 
-Applying an action produces a result that couples the Zipper change with the data needed for the text round-trip and operation log:
+See `docs/architecture/edit-action-progression.md` for the promotion path for each.
+
+### Action Record
+
+Each structural edit is logged with cursor context:
 
 ```moonbit
-pub(all) struct EditResult {
-  zipper : Zipper        // new Zipper state
-  action : EditAction    // the action that was applied (for logging)
-  role : PositionRole    // position role before the edit
-  is_structural : Bool   // false for Move (navigation-only); true for all edits that mutate text
+pub(all) struct ActionRecord {
+  action : EditAction
+  cursor_before : NodeId
+  cursor_after : NodeId
+  role : PositionRole       // position context at time of edit
 }
 ```
-
-`EditResult` does **not** carry a `TreeEditOp` or `NodeId`. The Zipper has no access to
-`NodeId` — those live in the ProjNode tree, which `apply_action` does not receive.
-Instead, `apply_action` returns the new Zipper state and an `is_structural` flag.
-The integration layer (`on_tree_key`) holds both the Zipper and the `SyncEditor`, so it
-resolves the `NodeId` via `find_proj_node_for_focus` and dispatches via the Tier-2 methods
-(`delete_node`, `commit_edit`, `apply_text_transform`) from Framework Extraction Phase 1.
 
 ---
 
@@ -221,15 +232,14 @@ resolves the `NodeId` via `find_proj_node_for_focus` and dispatches via the Tier
 Holes are ephemeral markers. Their lifecycle is:
 
 ```
-1. User performs Delete or Wrap → apply_action creates Hole(fresh_id)
+1. User performs Delete → TreeEditOp::Delete(cursor) → text becomes "_"
    Hole metadata stored in HoleRegistry keyed by the hole's NodeId (assigned by reconcile)
 
 2. print_term(Hole(_)) → outputs `_`
 
-3. CRDT op → loom reparse → parser reads `_` → produces Hole(new_id)
-   (new_id ≠ old_id — IDs do not survive text)
+3. CRDT op → loom reparse → parser reads `_` → produces Hole(0)
 
-4. reconcile matches old ProjNode[Hole(old_id)] with new ProjNode[Hole(new_id)]
+4. reconcile matches old ProjNode[Hole(_)] with new ProjNode[Hole(_)]
    via same_kind (both are Hole) → preserves NodeId
 
 5. HoleRegistry is keyed by NodeId, not hole ID → metadata survives round-trip
@@ -275,7 +285,7 @@ pub fn HoleRegistry::get(self : HoleRegistry, node_id : NodeId) -> HoleInfo? {
 }
 
 /// Remove entries for NodeIds no longer in the tree.
-pub fn HoleRegistry::prune(self : HoleRegistry, live_ids : @hashset.HashSet[NodeId]) -> Unit {
+pub fn HoleRegistry::prune(self : HoleRegistry, live_ids : @immut/hashset.HashSet[NodeId]) -> Unit {
   let stale : Array[NodeId] = []
   for id in self.holes.keys() {
     if not(live_ids.contains(id)) { stale.push(id) }
@@ -284,13 +294,13 @@ pub fn HoleRegistry::prune(self : HoleRegistry, live_ids : @hashset.HashSet[Node
 }
 ```
 
-`HoleRegistry::prune` is called during `TreeEditorState::refresh`, alongside the existing stale-ID pruning for collapsed\_nodes and selection.
+`HoleRegistry::prune` is called during `TreeEditorState::refresh`, alongside the existing stale-ID pruning for selection, editing\_node, and drag state. (Note: `collapsed_nodes` is not pruned — stale entries are harmless.)
 
 ---
 
 ## Navigation
 
-Four directions. All return `Zipper?` — `None` means movement not possible.
+Four directions. All return `Zipper?` — `None` means movement not possible. Navigation is a **separate function**, not an EditAction.
 
 ### plug
 
@@ -332,6 +342,29 @@ Each function pattern-matches on `z.focus` (for `go_down`) or `z.path` (for `go_
 
 **Leaf nodes:** `go_down` on `Int`, `Var`, `Unit`, `Unbound`, `Error`, `Hole` returns `None`.
 
+### navigate (NodeId-level)
+
+Constructs a transient Zipper, navigates, extracts the new NodeId:
+
+```moonbit
+pub fn navigate(
+  cursor : NodeId,
+  direction : Direction,
+  term : Term,
+  proj_root : ProjNode[Term],
+) -> NodeId? {
+  let z = zipper_from_node_id(cursor, term, proj_root)?
+  let z2 = match direction {
+    Up => go_up(z)?
+    Down => go_down(z)?
+    Left => go_left(z)?
+    Right => go_right(z)?
+  }
+  let proj = find_proj_node_for_focus(z2, proj_root)?
+  Some(proj.node_id)
+}
+```
+
 ### Helpers
 
 ```moonbit
@@ -340,26 +373,9 @@ pub fn from_root(term : Term) -> Zipper
 pub fn depth(z : Zipper) -> Int
 ```
 
-### navigate_to_child
-
-Navigate to the nth child of the focused node (0 = first child). Used by `dispatch_tier2`
-for `UnwrapKeeping` to get a Zipper suitable for structural `find_proj_node_for_focus`.
-
-```moonbit
-fn navigate_to_child(z : Zipper, child_idx : Int) -> Zipper? {
-  let first = go_down(z)?
-  var current = first
-  for _ in 1..<child_idx {
-    current = go_right(current)?
-  }
-  Some(current)
-}
-```
-
 ### ctx_to_child_index
 
 Maps a context frame to the child index of the hole within the reconstructed parent.
-Used by `zipper_to_trail` to walk the ProjNode tree in parallel with the Zipper path.
 
 ```moonbit
 fn ctx_to_child_index(ctx : TermCtx) -> Int {
@@ -378,90 +394,9 @@ fn ctx_to_child_index(ctx : TermCtx) -> Int {
 }
 ```
 
-This matches the index table in the "Path Indices" section.
-
----
-
-## Applying Edit Actions
-
-`apply_action` translates an `EditAction` into a `Zipper` change and a `TreeEditOp`. Text delta computation is **not** done here — it is delegated to the existing `compute_text_edit` pipeline which handles source text preservation and span lookup.
+### children_of
 
 ```moonbit
-pub fn apply_action(
-  z : Zipper,
-  action : EditAction,
-  holes : HoleRegistry,
-) -> Result[EditResult, String] {
-  let role = position_role(z)
-  match action {
-    Move(dir) => {
-      let nav = match dir {
-        Up => go_up(z)
-        Down => go_down(z)
-        Left => go_left(z)
-        Right => go_right(z)
-      }
-      match nav {
-        Some(z2) => Ok({ zipper: z2, action, role, is_structural: false })
-        None => Err("cannot move " + dir.to_string())
-      }
-    }
-
-    Delete => {
-      let hole_id = holes.fresh_hole_id()
-      let z2 = { ..z, focus: Hole(hole_id) }
-      Ok({ zipper: z2, action, role, is_structural: true })
-    }
-
-    Replace(new_term) => {
-      let z2 = { ..z, focus: new_term }
-      Ok({ zipper: z2, action, role, is_structural: true })
-    }
-
-    WrapLam(param) => {
-      let z2 = { ..z, focus: Lam(param, z.focus) }
-      Ok({ zipper: z2, action, role, is_structural: true })
-    }
-
-    WrapApp => {
-      let hole_id = holes.fresh_hole_id()
-      let z2 = { ..z, focus: App(z.focus, Hole(hole_id)) }
-      Ok({ zipper: z2, action, role, is_structural: true })
-    }
-
-    WrapBop(op) => {
-      let hole_id = holes.fresh_hole_id()
-      let z2 = { ..z, focus: Bop(op, z.focus, Hole(hole_id)) }
-      Ok({ zipper: z2, action, role, is_structural: true })
-    }
-
-    UnwrapKeeping(child_idx) => {
-      match unwrap_keeping(z, child_idx) {
-        Some(z2) => Ok({ zipper: z2, action, role, is_structural: true })
-        None => Err("cannot unwrap: invalid child index or leaf node")
-      }
-    }
-
-    CommitLeafEdit(new_text) => {
-      // Zipper stays at focus (text changed, structure unchanged)
-      Ok({ zipper: z, action, role, is_structural: true })
-    }
-  }
-}
-```
-
-### UnwrapKeeping
-
-```moonbit
-fn unwrap_keeping(z : Zipper, child_idx : Int) -> Zipper? {
-  let children = children_of(z.focus)
-  if child_idx >= 0 && child_idx < children.length() {
-    Some({ ..z, focus: children[child_idx] })
-  } else {
-    None
-  }
-}
-
 fn children_of(term : Term) -> Array[Term] {
   match term {
     Lam(_, body) => [body]
@@ -479,202 +414,175 @@ fn children_of(term : Term) -> Array[Term] {
 }
 ```
 
-**UI behavior:** When the user triggers unwrap on a node with multiple non-trivial children, the UI presents choices. For `App(complex_f, complex_arg)`:
-- "Keep function" → `UnwrapKeeping(0)`
-- "Keep argument" → `UnwrapKeeping(1)`
+---
 
-If only one child is non-trivial (the rest are Holes or literals), the UI auto-selects the non-trivial child without prompting.
+## Edit Dispatch
 
-### Text Delta Delegation
-
-When `result.is_structural` is true, the integration layer (`on_tree_key`) resolves the
-NodeId and dispatches via the Tier-2 methods from Framework Extraction Phase 1:
+EditAction maps trivially to TreeEditOp by resolving the cursor NodeId. The existing `compute_*` handlers in `projection/text_edit_*.mbt` do the text computation. No new text computation code.
 
 ```moonbit
-// In the integration layer (see Integration section):
-if result.is_structural {
-  let proj_root = sync_editor.get_proj_node()??  // None → bail
-  let proj_node = find_proj_node_for_focus(zipper, proj_root)??  // None → bail
-  let _ = dispatch_tier2(sync_editor, proj_node.node_id, proj_node, zipper, result.action, timestamp_ms)
-}
-```
-
-`dispatch_tier2` maps each `EditAction` to the appropriate Tier-2 call:
-
-```moonbit
-fn dispatch_tier2(
-  editor : SyncEditor[Term],
-  node_id : NodeId,
-  proj_node : ProjNode[Term],  // focused node's ProjNode
-  zipper : Zipper,             // focused Zipper — needed by UnwrapKeeping for child navigation
-  action : EditAction,
-  timestamp_ms : Int,
-) -> Result[Unit, String] {
+fn to_tree_edit_op(cursor : NodeId, action : EditAction) -> @edits.TreeEditOp {
   match action {
-    Delete =>
-      editor.delete_node(node_id, timestamp_ms)
-    CommitLeafEdit(text) =>
-      editor.commit_edit(node_id, text, timestamp_ms)
-    Replace(new_term) =>
-      editor.commit_edit(node_id, @ast.print_term(new_term), timestamp_ms)
-    WrapLam(param) =>
-      editor.apply_text_transform(node_id, fn(src, s, e) {
-        Ok("(λ\{param}. \{src.substring(s, e)})")
-      }, timestamp_ms)
-    WrapApp =>
-      editor.apply_text_transform(node_id, fn(src, s, e) {
-        Ok("(\{src.substring(s, e)} _)")
-      }, timestamp_ms)
-    WrapBop(op) => {
-      let sym = match op { Plus => "+"; Minus => "-" }
-      editor.apply_text_transform(node_id, fn(src, s, e) {
-        Ok("(\{src.substring(s, e)} \{sym} _)")
-      }, timestamp_ms)
-    }
-    UnwrapKeeping(child_idx) => {
-      // Replace parent span with the source text of the kept child.
-      // Navigate to the kept child via go_down + go_right to get a Zipper,
-      // then use find_proj_node_for_focus for structural matching.
-      // This is safe against error recovery nodes (ProjNode children and Term
-      // children do not correspond 1:1 — see "Bidirectional Text ↔ Zipper Mapping").
-      // Direct proj_node.children[child_idx] would be wrong for malformed input.
-      let proj_root = match editor.get_proj_node() {
-        Some(r) => r
-        None    => return Err("no proj root for UnwrapKeeping")
-      }
-      let kept_zipper = navigate_to_child(zipper, child_idx)?
-      let kept_proj = match find_proj_node_for_focus(kept_zipper, proj_root) {
-        Some(n) => n
-        None    => return Err("kept child not found in ProjNode tree")
-      }
-      match editor.get_node_range(kept_proj.node_id) {
-        None    => Err("kept child not in source map")
-        Some(r) => {
-          let src = editor.get_text()
-          editor.commit_edit(node_id, src.substring(r.start, r.end_), timestamp_ms)
-        }
-      }
-    }
-    Move(_) => Ok(())  // navigation — no text edit
+    Delete => @edits.TreeEditOp::Delete(node_id=cursor)
+    WrapLam(name) => @edits.TreeEditOp::WrapInLambda(node_id=cursor, var_name=name)
+    WrapApp => @edits.TreeEditOp::WrapInApp(node_id=cursor)
+    WrapIf => @edits.TreeEditOp::WrapInIf(node_id=cursor)
+    WrapBop(op) => @edits.TreeEditOp::WrapInBop(node_id=cursor, op=op)
+    Unwrap(idx) => @edits.TreeEditOp::Unwrap(node_id=cursor, keep_child_index=idx)
+    SwapChildren => @edits.TreeEditOp::SwapChildren(node_id=cursor)
+    ChangeOperator(op) => @edits.TreeEditOp::ChangeOperator(node_id=cursor, new_op=op)
+    CommitEdit(text) => @edits.TreeEditOp::CommitEdit(node_id=cursor, new_value=text)
   }
 }
 ```
 
-This avoids reimplementing text delta logic. The Tier-2 methods handle:
-- Source text span lookup via `SourceMap`
-- CRDT op production + undo recording
-- Memo invalidation + incremental reparse
+---
 
-Note: `UnwrapKeeping` requires `proj_node` (the focused node's ProjNode, found by
-`find_proj_node_for_focus`) to be in scope in `dispatch_tier2`. In practice, pass it as a
-parameter alongside `node_id`.
+## Cursor Relocation After Structural Edits
+
+When a structural edit changes the constructor at the cursor position (wrap, unwrap, delete), reconciliation assigns a fresh NodeId. The cursor must be relocated.
+
+`apply_tree_edit` already applies `FocusHint` internally — it moves the text cursor to the appropriate position (e.g., after `WrapIf`, the text cursor lands on the condition hole). The tree cursor should follow the text cursor to stay synchronized.
+
+```moonbit
+fn relocate_cursor(
+  old_cursor : NodeId,
+  editor : SyncEditor[Term],
+) -> NodeId? {
+  // Primary strategy: follow the text cursor.
+  // apply_tree_edit already applied FocusHint (e.g., MoveCursor to the
+  // condition hole after WrapIf). Use the text cursor position to derive
+  // the tree cursor, ensuring text and tree cursors stay synchronized.
+  let source_map = editor.get_source_map()?
+  let text_cursor = editor.get_cursor()
+  match source_map.innermost_node_at(text_cursor) {
+    Some(id) => Some(id)
+    None => {
+      // Fallback: FocusHint didn't land on a node (e.g., whitespace).
+      // Check if old NodeId survived reconcile.
+      let proj_root = editor.get_proj_node()?
+      if node_exists_in_tree(proj_root, old_cursor) {
+        Some(old_cursor)
+      } else {
+        None
+      }
+    }
+  }
+}
+```
+
+```moonbit
+fn node_exists_in_tree(proj_root : ProjNode[Term], target : NodeId) -> Bool {
+  if proj_root.node_id == target.to_int() { return true }
+  for child in proj_root.children {
+    if node_exists_in_tree(child, target) { return true }
+  }
+  false
+}
+```
+
+This approach is simpler and more correct than path-index replay because:
+- It respects the existing `FocusHint` logic in each `compute_*` handler
+- Text and tree cursors always agree (no divergence after wraps)
+- No path indices to save/replay, no ancestor-walk needed for relocation
+
+### focus_at (with ancestor-walk fallback)
+
+```moonbit
+pub fn focus_at(term : Term, indices : Array[Int]) -> Zipper {
+  let mut z = from_root(term)
+  for idx in indices {
+    match navigate_to_child(z, idx) {
+      Some(z2) => z = z2
+      None => break  // stop at deepest reachable ancestor
+    }
+  }
+  z  // always succeeds — returns at least root
+}
+
+fn navigate_to_child(z : Zipper, child_idx : Int) -> Zipper? {
+  let first = go_down(z)?
+  var current = first
+  for _ in 0..<child_idx {
+    current = go_right(current)?
+  }
+  Some(current)
+}
+```
+
+**Why ancestor-walk, not `None`:** With Hole support, structural edits always produce parseable text, so path indices match the new tree in practice. The ancestor walk is cheap insurance for edge cases (error recovery during user-typed leaf edits, concurrent remote edits). See `docs/architecture/zipper-roundtrip-invariants.md`.
 
 ---
 
-## Bidirectional Text ↔ Zipper Mapping
+## Zipper ↔ NodeId Bridge
 
-### Zipper → ProjNode (structural matching)
+### zipper_from_node_id
 
-Path indices alone are unreliable because ProjNode children and Term children may not correspond 1:1 (error recovery nodes, parser-inserted wrappers). Instead, the bridge uses **structural matching**: walk the ProjNode tree using `same_kind` comparison between `ProjNode.kind` and the Zipper's focus/context siblings.
+Constructs a transient Zipper from a NodeId:
+
+```moonbit
+pub fn zipper_from_node_id(
+  node_id : NodeId,
+  term : Term,
+  proj_root : ProjNode[Term],
+) -> Zipper? {
+  let indices = path_indices_to_node(proj_root, node_id)?
+  Some(focus_at(term, indices))
+}
+```
+
+### find_proj_node_for_focus
+
+Extracts a ProjNode (and its NodeId) from a Zipper position. Uses direct child indexing — safe because ProjNode[Term] is structurally isomorphic to Term by construction (see `docs/architecture/zipper-roundtrip-invariants.md`).
 
 ```moonbit
 pub fn find_proj_node_for_focus(
   z : Zipper,
   proj_root : ProjNode[Term],
 ) -> ProjNode[Term]? {
-  // Convert Zipper path to root→focus sequence of Term values
   let trail = zipper_to_trail(z)
-  // Walk ProjNode tree, matching each level by same_kind
-  walk_matching(proj_root, trail, 0)
+  walk_proj(proj_root, trail, 0)
 }
 
-/// Produces [(root_term, child_index), ..., (parent_term, child_index)]
-/// describing the path from root to focus.
-fn zipper_to_trail(z : Zipper) -> Array[(Term, Int)] {
-  let entries = Array::new()
+fn zipper_to_trail(z : Zipper) -> Array[Int] {
+  let indices = Array::new()
   let mut current = z
   while true {
     match current.path {
       Nil => break
       Cons(ctx, _) => {
-        let idx = ctx_to_child_index(ctx)
+        indices.push(ctx_to_child_index(ctx))
         match go_up(current) {
-          Some(parent) => {
-            entries.push((parent.focus, idx))
-            current = parent
-          }
+          Some(parent) => current = parent
           None => break
         }
       }
     }
   }
-  // entries was built focus→root; reverse to root→focus.
-  // Use Array::reverse() (in-place) if rev() is not available, then return entries.
-  entries.reverse()
-  entries
+  indices.reverse()
+  indices
 }
 
-fn walk_matching(
+fn walk_proj(
   node : ProjNode[Term],
-  trail : Array[(Term, Int)],
+  trail : Array[Int],
   depth : Int,
 ) -> ProjNode[Term]? {
   if depth >= trail.length() {
-    return Some(node)  // reached the target depth
+    return Some(node)
   }
-  let (expected_parent, child_idx) = trail[depth]
-  // Verify this ProjNode matches the expected parent
-  if not(Term::same_kind(node.kind, expected_parent)) {
-    return None
-  }
+  let child_idx = trail[depth]
   if child_idx < node.children.length() {
-    walk_matching(node.children[child_idx], trail, depth + 1)
+    walk_proj(node.children[child_idx], trail, depth + 1)
   } else {
     None
   }
 }
 ```
 
-### Zipper → Text Range
+### path_indices_to_node
 
 ```moonbit
-pub fn text_range_from_zipper(
-  z : Zipper,
-  proj_root : ProjNode[Term],
-  source_map : SourceMap,
-) -> (Int, Int)? {
-  match find_proj_node_for_focus(z, proj_root) {
-    Some(proj_node) => source_map.get_range(proj_node.id())
-    None => None
-  }
-}
-```
-
-### Text Offset → Zipper
-
-When the user clicks or moves the cursor in the text pane, find the deepest AST node containing that offset, then construct a Zipper focused on it:
-
-```moonbit
-pub fn zipper_from_text_offset(
-  root : Term,
-  proj_root : ProjNode[Term],
-  source_map : SourceMap,
-  offset : Int,
-) -> Zipper? {
-  // 1. Find deepest ProjNode whose span contains offset
-  let node_id = source_map.node_at_offset(offset)?
-  // 2. Compute path from ProjNode root to target
-  let indices = path_indices_to_node(proj_root, node_id)?
-  // 3. Replay on Term to build Zipper
-  focus_at(root, indices)
-}
-```
-
-`path_indices_to_node` walks the ProjNode tree to find the child index sequence to a given NodeId. `focus_at` replays those indices on the Term via `go_down` + `go_right`.
-
-```moonbit
-/// Returns the sequence of child indices from root down to the node with the given NodeId.
-/// None if the NodeId is not in the tree.
 fn path_indices_to_node(
   root : ProjNode[Term],
   target : NodeId,
@@ -695,22 +603,34 @@ fn path_indices_to_node(
 }
 ```
 
-**This enables:**
-- Click in text pane → tree pane highlights corresponding node (Zipper focus)
-- Arrow keys in tree pane → text pane highlights corresponding span
-- Selection sync: select range in text → deepest containing node highlighted in tree
+### Text ↔ NodeId sync
+
+```moonbit
+// Text cursor → tree cursor
+pub fn node_id_at_offset(
+  source_map : SourceMap,
+  offset : Int,
+) -> NodeId? {
+  source_map.innermost_node_at(offset)
+}
+
+// Tree cursor → text highlight
+pub fn text_range_from_node_id(
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Int, Int)? {
+  source_map.get_range(node_id)
+}
+```
 
 ---
 
-## Path Indices (for Zipper Persistence)
+## Path Indices
 
 ```moonbit
 pub fn to_path_indices(z : Zipper) -> Array[Int]
-pub fn focus_at(term : Term, indices : Array[Int]) -> Zipper?
-pub fn sync_after_roundtrip(old_zipper : Zipper, new_term : Term) -> Zipper?
+pub fn focus_at(term : Term, indices : Array[Int]) -> Zipper  // with ancestor-walk
 ```
-
-`sync_after_roundtrip` is best-effort: if the tree structure changed incompatibly (child count at some depth is different), it returns `None` and the integration layer clears the Zipper.
 
 Index mapping per context:
 
@@ -733,26 +653,25 @@ Index mapping per context:
 
 The Zipper is **not** part of the generic framework (`framework/`). It lives in the language package (`lang/lambda/`). Reasons:
 
-1. `TermCtx` is the derivative of `Term` — a different AST enum has a different derivative. There is no generic way to compute the derivative from `TreeNode + Renderable` alone.
+1. `TermCtx` is the derivative of `Term` — a different AST enum has a different derivative.
 2. `TreeEditorState[T]` is framework-level and must not depend on lambda-specific types.
 3. `EditAction` variants like `WrapLam(VarName)` are lambda-specific.
 
-The Zipper wraps `TreeEditorState[T]` from outside, rather than being embedded inside it:
-
 ```moonbit
-/// Lambda-specific editor state that adds Zipper on top of the generic tree editor.
+/// Lambda-specific editor state that adds hole management and action logging
+/// on top of the generic tree editor.
 /// Lives in lang/lambda/, not in framework/.
 pub struct LambdaEditorState {
   tree_state : TreeEditorState[Term]
-  zipper : Zipper?
   hole_registry : HoleRegistry
-  action_log : Array[(EditAction, PositionRole)]  // for undo/debugging
+  action_log : Array[ActionRecord]
+  // NO zipper: Zipper? — the Zipper is transient
 }
 ```
 
-**Acid test:** `framework/` compiles with zero imports from `zipper.mbt` or `TermCtx`.
+The cursor IS `tree_state.selection[0]`. No separate cursor field.
 
-**Future generalization:** If multiple languages need Zippers, a `Zippable` trait or code generator (`loomgen`) can produce `TermCtx` and navigation functions from a grammar definition. This is out of scope for this plan.
+**Acid test:** `framework/` compiles with zero imports from `zipper.mbt` or `TermCtx`.
 
 ---
 
@@ -767,129 +686,204 @@ fn on_tree_key(
   sync_editor : SyncEditor[Term],
   timestamp_ms : Int,
 ) -> LambdaEditorState {
-  let zipper = match state.zipper {
-    Some(z) => z
+  let cursor = match state.tree_state.selection.get(0) {
+    Some(id) => id
     None => return state
   }
 
-  match apply_action(zipper, action, state.hole_registry) {
-    Err(_) => state  // invalid action, no-op
+  let proj_root = match sync_editor.get_proj_node() {
+    Some(r) => r
+    None => return state
+  }
 
-    Ok(result) => {
-      // 1. If structural edit, resolve NodeId and dispatch via Tier-2
-      if result.is_structural {
-        let proj_root = match sync_editor.get_proj_node() {
-          Some(r) => r
-          None => return state
-        }
-        match find_proj_node_for_focus(zipper, proj_root) {
-          None => return state  // Zipper focus not found in ProjNode tree
-          Some(proj_node) => {
-            let _ = dispatch_tier2(
-              sync_editor, proj_node.node_id, proj_node, zipper, result.action, timestamp_ms,
-            )
-          }
-        }
+  // 1. Compute context before edit (transient Zipper)
+  let role = match zipper_from_node_id(cursor, sync_editor.get_ast(), proj_root) {
+    Some(z) => position_role(z)
+    None => Root
+  }
+
+  // 2. Map EditAction to TreeEditOp and dispatch via existing pipeline
+  //    apply_tree_edit handles FocusHint internally (moves text cursor)
+  let tree_op = to_tree_edit_op(cursor, action)
+  match sync_editor.apply_tree_edit(tree_op, timestamp_ms) {
+    Err(_) => return state
+    Ok(_) => ()
+  }
+
+  // 3. Relocate tree cursor to follow text cursor (FocusHint already applied)
+  let new_cursor = match relocate_cursor(cursor, sync_editor) {
+    Some(id) => id
+    None => return state
+  }
+
+  // 4. Update selection
+  let new_tree_state = { ..state.tree_state, selection: [new_cursor] }
+
+  // 5. Log the action
+  let log = state.action_log.copy()
+  log.push({
+    action,
+    cursor_before: cursor,
+    cursor_after: new_cursor,
+    role,
+  })
+
+  // 6. Register hole metadata for newly created holes
+  match action {
+    Delete | WrapApp | WrapIf | WrapBop(_) =>
+      register_new_holes(state.hole_registry, sync_editor, action)
+    _ => ()
+  }
+
+  { ..state, tree_state: new_tree_state, action_log: log }
+}
+```
+
+### on_tree_navigate
+
+```moonbit
+fn on_tree_navigate(
+  state : LambdaEditorState,
+  direction : Direction,
+  sync_editor : SyncEditor[Term],
+) -> LambdaEditorState {
+  let cursor = match state.tree_state.selection.get(0) {
+    Some(id) => id
+    None => return state
+  }
+
+  let proj_root = match sync_editor.get_proj_node() {
+    Some(r) => r
+    None => return state
+  }
+
+  // Expand collapsed node on Down navigation
+  let tree_state = match direction {
+    Down =>
+      if state.tree_state.collapsed_nodes.contains(cursor) {
+        state.tree_state.expand_node(cursor, proj_root, sync_editor.get_source_map())
+      } else {
+        state.tree_state
       }
+    _ => state.tree_state
+  }
 
-      // 2. Log the action
-      let log = state.action_log.copy()
-      log.push((result.action, result.role))
-
-      // 3. Sync Zipper to reparsed AST (after text round-trip).
-      // The entire pipeline is synchronous: dispatch_tier2 → apply_text_edit_internal →
-      // CRDT op → memo dirty flag. get_ast() forces the memo chain (parse + project),
-      // always returning a Term (Error(_) on parse failure, never absent).
-      let synced = sync_after_roundtrip(result.zipper, sync_editor.get_ast())
-
-      // 4. Register hole metadata for newly created holes
-      match result.action {
-        Delete | WrapApp | WrapBop(_) => {
-          register_new_holes(state.hole_registry, sync_editor, result)
-        }
-        _ => ()
-      }
-
-      {
-        tree_state: state.tree_state,  // refreshed separately on next frame
-        zipper: synced,
-        hole_registry: state.hole_registry,
-        action_log: log,
-      }
-    }
+  match navigate(cursor, direction, sync_editor.get_ast(), proj_root) {
+    Some(new_cursor) =>
+      { ..state, tree_state: { ..tree_state, selection: [new_cursor] } }
+    None => state
   }
 }
 ```
 
 ### register_new_holes
 
-After the text round-trip, any newly created `Hole` nodes have stable `NodeId`s assigned
-by reconciliation. Scan the fresh ProjNode tree for holes not yet in the registry:
+After the text round-trip, scan the ProjNode tree for holes not yet in the registry.
+Each hole gets its role from its **position in the post-edit tree**, not from the pre-edit
+cursor role. This matters for wraps that create multiple holes: `WrapIf` creates holes at
+Condition and ElseBranch positions, and each should get the correct role.
 
 ```moonbit
 fn register_new_holes(
   registry : HoleRegistry,
   sync_editor : SyncEditor[Term],
-  result : EditResult,
+  action : EditAction,
 ) -> Unit {
   let proj_root = match sync_editor.get_proj_node() {
     Some(r) => r
     None => return
   }
-  let info = HoleInfo::{ created_by: result.action, role: result.role }
-  collect_new_holes(proj_root, registry, info)
+  let term = sync_editor.get_ast()
+  collect_new_holes(proj_root, term, registry, action)
 }
 
 fn collect_new_holes(
-  node : ProjNode[Term],
+  proj_root : ProjNode[Term],
+  term : Term,
   registry : HoleRegistry,
-  info : HoleInfo,
+  action : EditAction,
 ) -> Unit {
-  match node.kind {
-    Hole(_) =>
-      if registry.get(node.node_id).is_empty() {
-        registry.register(node.node_id, info)
-      }
-    _ => ()
+  fn go(node : ProjNode[Term]) {
+    match node.kind {
+      Hole(_) =>
+        if registry.get(node.node_id).is_empty() {
+          // Derive role from this hole's position in the post-edit tree
+          let role = match zipper_from_node_id(node.node_id, term, proj_root) {
+            Some(z) => position_role(z)
+            None => Root
+          }
+          registry.register(node.node_id, { created_by: action, role })
+        }
+      _ => ()
+    }
+    for child in node.children {
+      go(child)
+    }
   }
-  for child in node.children {
-    collect_new_holes(child, registry, info)
-  }
+  go(proj_root)
 }
 ```
-```
 
-### Collapsed Node Interaction
+### Context Menu (available_actions)
 
-`Move(Down)` into a collapsed subtree: `LambdaEditorState` checks `tree_state.collapsed_nodes`, expands the node first, then applies the navigation.
-
-### Keyboard Mapping (Phase 4)
-
-```
-↑  →  EditAction::Move(Up)
-↓  →  EditAction::Move(Down)       — expand if collapsed
-←  →  EditAction::Move(Left)
-→  →  EditAction::Move(Right)
-
-Enter       →  EditAction::CommitLeafEdit or start inline editing
-Delete/Bksp →  EditAction::Delete
-Escape      →  zipper = None
-```
-
-Context menu items are generated from `EditAction` values filtered by `position_role`:
 ```moonbit
-fn available_actions(z : Zipper) -> Array[EditAction] {
-  let role = position_role(z)
-  let actions : Array[EditAction] = [Delete, WrapLam("x"), WrapApp]
-  // Filter by role — e.g. WrapBop only if in expression position
-  // Add UnwrapKeeping(i) for each child index if focus is non-leaf
-  let n = children_of(z.focus).length()
-  for i in 0..<n {
-    actions.push(UnwrapKeeping(i))
+fn available_actions(
+  cursor : NodeId,
+  term : Term,
+  proj_root : ProjNode[Term],
+) -> Array[EditAction] {
+  let z = match zipper_from_node_id(cursor, term, proj_root) {
+    Some(z) => z
+    None => return []
   }
+  let focus = z.focus
+  let actions : Array[EditAction] = []
+
+  // Always available
+  actions.push(Delete)
+  actions.push(WrapLam("x"))
+  actions.push(WrapApp)
+  actions.push(WrapIf)
+  actions.push(WrapBop(Plus))
+  actions.push(WrapBop(Minus))
+
+  // Unwrap: one per child (non-leaf only)
+  let n = children_of(focus).length()
+  for i in 0..<n {
+    actions.push(Unwrap(i))
+  }
+
+  // SwapChildren: Bop and If only (backend only supports these)
+  match focus {
+    Bop(..) | If(..) => actions.push(SwapChildren)
+    _ => ()
+  }
+
+  // ChangeOperator: Bop focus only
+  match focus {
+    Bop(Plus, _, _) => actions.push(ChangeOperator(Minus))
+    Bop(Minus, _, _) => actions.push(ChangeOperator(Plus))
+    _ => ()
+  }
+
   actions
 }
 ```
+
+### Keyboard Mapping
+
+```
+↑  →  on_tree_navigate(Up)
+↓  →  on_tree_navigate(Down)       — expand if collapsed
+←  →  on_tree_navigate(Left)
+→  →  on_tree_navigate(Right)
+
+Enter       →  start inline editing (TreeEditorState)
+Delete/Bksp →  on_tree_key(Delete)
+Escape      →  clear selection
+```
+
+Context menu items are generated from `available_actions`.
 
 ---
 
@@ -897,8 +891,7 @@ fn available_actions(z : Zipper) -> Array[EditAction] {
 
 ### Prerequisite change to Term
 
-With TermSym already landed, adding `Hole(Int)` requires updating only the TermSym
-boundary — not every exhaustive match site.
+With TermSym already landed, adding `Hole(Int)` requires updating only the TermSym boundary.
 
 | File | Change |
 |------|--------|
@@ -907,56 +900,49 @@ boundary — not every exhaustive match site.
 | `loom/examples/lambda/src/ast/sym.mbt` | Add `hole` arm to `replay` (one new match arm) |
 | `loom/examples/lambda/src/ast/sym.mbt` | Add `Pretty::hole` impl: `{ repr: "_" }` |
 | `loom/examples/lambda/src/ast/sym.mbt` | Add `Term::hole` impl: `Hole(n)` |
-| `loom/examples/lambda/src/parser/` | Parser recognizes `_` as `Hole` token (fresh ID on each parse) |
-| `lang/lambda/traits/traits_term.mbt` | Add `Hole` cases to `TreeNode` and `Renderable` impls |
-
-**Note:** `print_term` in `ast.mbt` is already a one-liner wrapper over `replay` after the
-TermSym migration — it picks up `Hole` for free once `Pretty::hole` is implemented.
-All other `TermSym` implementations (e-graph builder, future type checker) get a
-compile error on the missing `hole` method, self-documenting what to add.
+| `loom/examples/lambda/src/parser/` | Parser recognizes `_` as `Hole` token (always ID 0) |
+| `loom/examples/lambda/src/ast/proj_traits.mbt` | Add `Hole` cases to `TreeNode` (`children`, `same_kind`) and `Renderable` impls |
+| `loom/examples/lambda/src/ast/proj_traits.mbt` | Add `(Hole(_), Hole(_)) => true` to `same_kind` |
 
 ### New files
 
-All zipper files land directly in `lang/lambda/zipper/` — their final location after
-framework extraction. No second move required.
+All zipper files land directly in `lang/lambda/zipper/`.
 
 **`lang/lambda/zipper/moon.pkg`:**
-```json
-{
-  "import": [
-    "dowdiness/lambda/ast",
-    "dowdiness/canopy/framework/core",
-    "dowdiness/canopy/framework/editor",
-    "dowdiness/canopy/lang/lambda/flat",
-    "moonbitlang/core/immut/list"
-  ]
+```
+import {
+  "dowdiness/lambda/ast" @ast,
+  "dowdiness/canopy/framework/core" @core,
+  "dowdiness/canopy/lang/lambda/edits" @edits,
+  "moonbitlang/core/immut/list" @immut/list,
+  "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 ```
 
 | File | Purpose |
 |------|---------|
-| `lang/lambda/zipper/zipper.mbt` | `Zipper`, `TermCtx`, `plug`, navigation, path indices, `sync_after_roundtrip` |
-| `lang/lambda/zipper/zipper_action.mbt` | `EditAction`, `Direction`, `EditResult`, `apply_action`, `unwrap_keeping`, `children_of` |
+| `lang/lambda/zipper/zipper.mbt` | `Zipper`, `TermCtx`, `plug`, navigation, `children_of`, `ctx_to_child_index`, path indices, `to_root`, `from_root`, `focus_at` (with ancestor-walk) |
+| `lang/lambda/zipper/zipper_action.mbt` | `EditAction`, `Direction`, `ActionRecord`, `to_tree_edit_op` |
 | `lang/lambda/zipper/zipper_role.mbt` | `PositionRole`, `position_role`, `available_actions` |
 | `lang/lambda/zipper/zipper_hole.mbt` | `HoleInfo`, `HoleRegistry` (keyed by NodeId) |
-| `lang/lambda/zipper/zipper_bridge.mbt` | `find_proj_node_for_focus`, `text_range_from_zipper`, `zipper_from_text_offset` |
+| `lang/lambda/zipper/zipper_bridge.mbt` | `zipper_from_node_id`, `find_proj_node_for_focus`, `path_indices_to_node`, `node_id_at_offset`, `text_range_from_node_id` |
 | `lang/lambda/zipper/zipper_wbtest.mbt` | White-box tests |
-| `lang/lambda/lambda_editor_state.mbt` | `LambdaEditorState` wrapper (Zipper + TreeEditorState[Term] + HoleRegistry) |
+| `lang/lambda/lambda_editor_state.mbt` | `LambdaEditorState`, `on_tree_key`, `on_tree_navigate`, `relocate_cursor`, `register_new_holes` |
 
 ### Modified files
 
 | File | Change |
 |------|--------|
-| (none in `TreeEditorState`) | Zipper is in `LambdaEditorState`, not in `TreeEditorState[T]` |
+| (none in `TreeEditorState`) | Cursor is `TreeEditorState.selection[0]`, no new fields |
 
 ### Unchanged
 
-- `framework/editor/tree_editor_model.mbt` — `TreeEditorState[T]` unchanged, no Zipper field
-- `framework/editor/sync_editor*.mbt` — Zipper goes through existing `compute_text_edit` path
+- `framework/editor/tree_editor_model.mbt` — `TreeEditorState[T]` unchanged
+- `framework/editor/sync_editor*.mbt` — Zipper goes through existing `apply_tree_edit` path
 - `editor/tree_edit_bridge.mbt` — existing round-trip unchanged
 - `framework/core/reconcile.mbt` — reconciliation unchanged
-- `lang/lambda/flat/flat_proj.mbt` — FlatProj unchanged (already moved in Phase 2)
-- `lang/lambda/edits/text_edit.mbt` — `compute_text_edit` reused, not reimplemented
+- `projection/text_edit_*.mbt` — existing `compute_*` handlers reused, not reimplemented
+- `lang/lambda/flat/flat_proj.mbt` — FlatProj unchanged
 - `event-graph-walker/` — CRDT untouched
 - `loom/loom/` — parser framework untouched
 
@@ -964,14 +950,14 @@ framework extraction. No second move required.
 
 ```
 lang/lambda/zipper/zipper.mbt        → @ast.Term, @ast.Bop, @ast.VarName (only)
-lang/lambda/zipper/zipper_action.mbt → zipper.mbt, @lambda_edits.TreeEditOp
+lang/lambda/zipper/zipper_action.mbt → zipper.mbt, @edits.TreeEditOp
 lang/lambda/zipper/zipper_role.mbt   → zipper.mbt
 lang/lambda/zipper/zipper_hole.mbt   → @framework_core.NodeId
 lang/lambda/zipper/zipper_bridge.mbt → zipper.mbt, @framework_core.ProjNode[Term], @framework_core.SourceMap
-lang/lambda/lambda_editor_state.mbt  → all of the above + @framework_editor.TreeEditorState[Term]
+lang/lambda/lambda_editor_state.mbt  → all of the above + @framework_editor.TreeEditorState[Term], SyncEditor[Term]
 ```
 
-No dependency on `SyncEditor`, CRDT, or loom internals from zipper files. `LambdaEditorState` depends on `SyncEditor[Term]` for the integration dispatch only.
+No dependency on `SyncEditor`, CRDT, or loom internals from zipper files. `LambdaEditorState` depends on `SyncEditor[Term]` for integration dispatch only.
 
 ---
 
@@ -1018,93 +1004,64 @@ test "let definition role carries name" {
 }
 ```
 
-### Edit actions
+### Edit action dispatch
 
 ```moonbit
-test "Delete creates Hole and marks structural" {
-  let holes = HoleRegistry::new()
-  let z = from_root(Bop(Plus, Int(1), Int(2)))
-    |> go_down() |> Option::unwrap()
-  let result = apply_action(z, Delete, holes).unwrap()
-  // focus is Hole(_)
-  match result.zipper.focus { Hole(_) => (); _ => abort("expected Hole") }
-  // role was OperandLeft(Plus)
-  inspect!(result.role, content="OperandLeft(Plus)")
-  // is_structural is true — integration layer will dispatch via delete_node
-  inspect!(result.is_structural, content="true")
+test "to_tree_edit_op maps Delete" {
+  let op = to_tree_edit_op(NodeId::from_int(5), Delete)
+  inspect!(op, content="Delete(NodeId(5))")
 }
 
-test "WrapLam produces correct structure" {
-  let holes = HoleRegistry::new()
-  let z = from_root(Int(42))
-  let result = apply_action(z, WrapLam("x"), holes).unwrap()
-  inspect!(to_root(result.zipper), content="Lam(\"x\", Int(42))")
+test "to_tree_edit_op maps WrapLam" {
+  let op = to_tree_edit_op(NodeId::from_int(5), WrapLam("x"))
+  inspect!(op, content="WrapInLambda(NodeId(5), \"x\")")
 }
 
-test "Move is not structural" {
-  let holes = HoleRegistry::new()
-  let z = from_root(App(Var("f"), Int(1)))
-  let result = apply_action(z, Move(Down), holes).unwrap()
-  inspect!(result.is_structural, content="false")
+test "to_tree_edit_op maps Unwrap" {
+  let op = to_tree_edit_op(NodeId::from_int(5), Unwrap(1))
+  inspect!(op, content="Unwrap(NodeId(5), 1)")
 }
+```
 
-test "UnwrapKeeping(0) keeps first child" {
-  let holes = HoleRegistry::new()
-  let z = from_root(App(Var("f"), Int(1)))
-  let result = apply_action(z, UnwrapKeeping(0), holes).unwrap()
-  inspect!(to_root(result.zipper), content="Var(\"f\")")
-}
+### Cursor relocation
 
-test "UnwrapKeeping(1) keeps second child" {
-  let holes = HoleRegistry::new()
-  let z = from_root(App(Var("f"), Int(1)))
-  let result = apply_action(z, UnwrapKeeping(1), holes).unwrap()
-  inspect!(to_root(result.zipper), content="Int(1)")
+```moonbit
+test "relocate_cursor: follows text cursor after FocusHint" { ... }
+test "relocate_cursor: falls back to old NodeId when text cursor lands on whitespace" { ... }
+test "focus_at ancestor-walk: stops at deepest reachable" {
+  let term = App(Var("f"), Int(1))
+  let z = focus_at(term, [0, 0, 0])  // too deep
+  inspect!(depth(z), content="1")     // stops at Var("f"), depth 1
 }
+```
 
-test "UnwrapKeeping on leaf returns Err" {
-  let holes = HoleRegistry::new()
-  let z = from_root(Int(42))
-  inspect!(apply_action(z, UnwrapKeeping(0), holes).is_err(), content="true")
-}
+### Bridge functions
+
+```moonbit
+test "zipper_from_node_id round-trips" { ... }
+test "find_proj_node_for_focus uses direct child indexing" { ... }
+test "path_indices_to_node finds target" { ... }
 ```
 
 ### Hole lifecycle
 
 ```moonbit
 test "hole metadata survives round-trip via NodeId" {
-  // 1. Create hole via Delete
+  // 1. Create hole via Delete → TreeEditOp::Delete
   // 2. print_term → "_"
-  // 3. Simulate reparse → new Hole(new_id)
-  // 4. reconcile preserves NodeId
+  // 3. Simulate reparse → new Hole(0)
+  // 4. reconcile preserves NodeId (same_kind(Hole, Hole) = true)
   // 5. HoleRegistry.get(node_id) returns original metadata
 }
 ```
 
-### Bidirectional mapping
-
-```moonbit
-test "find_proj_node_for_focus uses structural matching" { ... }
-test "text_range_from_zipper returns correct span" { ... }
-test "zipper_from_text_offset finds deepest node" { ... }
-test "structural matching survives error recovery nodes" { ... }
-```
-
-### Path indices
-
-```moonbit
-test "to_path_indices and focus_at round-trip" { ... }
-test "sync_after_roundtrip preserves position when structure unchanged" { ... }
-test "sync_after_roundtrip returns None when structure changed incompatibly" { ... }
-```
-
 ### Edge cases
 
-- `apply_action` with `Move(Up)` at root → `Err`
-- `UnwrapKeeping(5)` with only 2 children → `Err`
-- `sync_after_roundtrip` when child count changed → `None`
-- `zipper_from_text_offset` at whitespace between nodes → nearest enclosing node
-- `find_proj_node_for_focus` when ProjNode has error recovery children not in Term → graceful fallback
+- `navigate` at root with `Up` → `None`
+- `Unwrap(5)` with only 2 children → `Err` from TreeEditOp handler
+- `focus_at` with out-of-bounds indices → ancestor-walk stops early
+- `node_id_at_offset` at whitespace → nearest enclosing node
+- `available_actions` on Hole → all wraps (fill the hole)
 
 ---
 
@@ -1112,34 +1069,40 @@ test "sync_after_roundtrip returns None when structure changed incompatibly" { .
 
 - **Tile/shard decomposition** — no text-like input in tree pane (reviewed tylr, deferred)
 - **Structural undo implementation** — `EditAction` as data enables it, but the undo manager integration is a separate plan
-- **Collaborative structural conflict resolution** — `EditAction` + `PositionRole` provide the data, but eg-walker TransformOp integration is a separate plan
+- **Collaborative structural conflict resolution** — `EditAction` + `PositionRole` provide the data, but eg-walker TransformOp integration is a separate plan. See `docs/architecture/grove-and-structural-identity.md` for the Grove-informed adoption path.
 - **Type checker** — `HoleRegistry` reserves space for expected types, but type inference is not part of this plan
-- **Module-level list surgery** — `insert_def_after`, `remove_def`, `reorder_def` deferred
-- **Generic Zipper[T]** — the Zipper is defined on `Term`. Each grammar needs its own context type. Generalization via codegen is a future concern
-- **Reimplementing `compute_text_edit`** — structural edits dispatch via Tier-2 methods (`delete_node`, `commit_edit`, `apply_text_transform`); no `compute_text_edit` reimplementation needed
+- **Deferred EditAction operations** — module binding ops, refactoring, cut/paste, InsertChild. See `docs/architecture/edit-action-progression.md` for the promotion path.
+- **Generic Zipper[T]** — the Zipper is defined on `Term`. Each grammar needs its own context type. Generalization via codegen is a future concern.
+- **Cached Zipper for rapid navigation** — constructing a transient Zipper per keystroke is O(depth), negligible for interactive use. Caching during navigation bursts is a future optimization if profiling shows a need.
 
-## Open Questions (To Resolve Before Implementation)
+## Resolved Questions
 
-1. **Hole in parser:** Adding `Hole(Int)` to `Term` requires the parser to recognize `_` as a hole token. Should the parser assign sequential IDs or always use ID 0? **Recommendation:** always use 0. The parser doesn't have a global counter. The actual ID is irrelevant — `reconcile` will assign a stable `NodeId`, which is what `HoleRegistry` keys on.
+1. **Hole in parser:** Parser always uses ID 0. The parser has no global counter. The actual ID is irrelevant — `reconcile` assigns stable `NodeId` via `same_kind(Hole, Hole) = true`.
 
-2. **EditAction serialization format:** For eg-walker TransformOp integration (future), EditActions need a wire format. **Recommendation:** defer. Define `ToJson`/`FromJson` when the sync protocol needs it.
+2. **EditAction serialization format:** Deferred. Define `ToJson`/`FromJson` when the sync protocol needs it.
 
-3. **SourceMap.node\_at\_offset:** The current SourceMap stores `NodeId → Range`. The inverse lookup (`offset → NodeId`) may need an interval tree or sorted array for O(log n) performance. **Recommendation:** check if this already exists in `source_map.mbt`. If not, add a sorted-span index during SourceMap construction.
+3. **SourceMap inverse lookup:** Already exists as `SourceMap::innermost_node_at(position: Int) -> NodeId?` in `framework/core/source_map.mbt`. No additional work needed.
 
-4. **Hole rendering in tree pane:** How should `Hole(3)` appear in the tree editor? **Recommendation:** use role-specific placeholder from `HoleInfo.role` for tree pane (e.g. `<body>`, `<condition>`), plain `_` for text pane.
+4. **Hole rendering in tree pane:** Use role-specific placeholder from `HoleInfo.role` for tree pane (e.g. `<body>`, `<condition>`), plain `_` for text pane.
 
-5. **LambdaEditorState location:** Files land directly in `lang/lambda/zipper/` and `lang/lambda/` — their final post-extraction location. No intermediate placement in `projection/`.
+5. **LambdaEditorState location:** Files land directly in `lang/lambda/zipper/` and `lang/lambda/`. No intermediate placement.
+
+6. **ProjNode-Term isomorphism:** Verified. ProjNode[Term] mirrors Term exactly — no synthetic wrappers from error recovery. Direct child indexing is safe. `same_kind` guards are belt-and-suspenders.
+
+7. **Cursor representation:** NodeId is primary. Zipper is transient. No `sync_after_roundtrip` needed.
+
+8. **EditAction vs TreeEditOp:** EditAction is a cursor-relative frontend. Dispatch is a trivial mapping. Existing compute_* handlers do the work.
 
 ## Implementation Order
 
-1. **Add `Hole(Int)` to Term** — add variant + `TermSym::hole`, update `replay`, `Pretty`, parser, trait impls
-2. **`lang/lambda/zipper/zipper.mbt`** — `Zipper`, `TermCtx`, `plug`, navigation, `ctx_to_child_index`, path indices, `to_root`, `from_root`, `sync_after_roundtrip`
+1. **Add `Hole(Int)` to Term** — add variant + `TermSym::hole`, update `replay`, `Pretty`, parser, trait impls, `same_kind`
+2. **`lang/lambda/zipper/zipper.mbt`** — `Zipper`, `TermCtx`, `plug`, navigation, `ctx_to_child_index`, `children_of`, path indices, `to_root`, `from_root`, `focus_at` (with ancestor-walk)
 3. **`lang/lambda/zipper/zipper_role.mbt`** — `PositionRole`, `position_role`
-4. **`lang/lambda/zipper/zipper_hole.mbt`** — `HoleInfo`, `HoleRegistry` (with `new()`, `fresh_hole_id`, `register`, `get`, `prune`)
-5. **`lang/lambda/zipper/zipper_action.mbt`** — `EditAction`, `Direction`, `EditResult` (`is_structural`), `apply_action`
-6. **`lang/lambda/zipper/zipper_bridge.mbt`** — `find_proj_node_for_focus`, `path_indices_to_node`, `zipper_from_text_offset`, `text_range_from_zipper`
+4. **`lang/lambda/zipper/zipper_action.mbt`** — `EditAction`, `Direction`, `ActionRecord`, `to_tree_edit_op` (must come before HoleRegistry because `HoleInfo` depends on `EditAction`)
+5. **`lang/lambda/zipper/zipper_hole.mbt`** — `HoleInfo`, `HoleRegistry` (with `new()`, `fresh_hole_id`, `register`, `get`, `prune`)
+6. **`lang/lambda/zipper/zipper_bridge.mbt`** — `zipper_from_node_id`, `find_proj_node_for_focus`, `path_indices_to_node`, `node_id_at_offset`, `text_range_from_node_id`
 7. **`lang/lambda/zipper/zipper_wbtest.mbt`** — all tests
-8. **`lang/lambda/lambda_editor_state.mbt`** — `LambdaEditorState`, `dispatch_tier2`, `on_tree_key`, `register_new_holes`
+8. **`lang/lambda/lambda_editor_state.mbt`** — `LambdaEditorState`, `on_tree_key`, `on_tree_navigate`, `relocate_cursor`, `register_new_holes`, `available_actions`
 9. **Integration** — keyboard dispatch, collapsed-node interception, `HoleRegistry::prune` in refresh
 
 Steps 1-8 are additive — no existing code modified except `Term` (step 1). Step 9 wires everything together.
