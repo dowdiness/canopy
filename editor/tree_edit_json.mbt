@@ -56,7 +56,9 @@ fn require_string(
 ///   {"type": "Delete", "node_id": 5}
 ///   {"type": "WrapInLambda", "node_id": 5, "var_name": "x"}
 ///   {"type": "Select", "node_id": 5}
-pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError] {
+pub fn parse_tree_edit_op(
+  json : Json,
+) -> Result[@proj.TreeEditOp, TreeEditError] {
   let m = match json {
     Json::Object(m) => m
     _ => return Err(TreeEditError::ExpectedJsonObject)
@@ -82,7 +84,8 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError
       let var_name = match m.get("var_name") {
         Some(Json::String(s)) => s
         None => "x"
-        Some(_) => return Err(TreeEditError::FieldMustBeString(field="var_name"))
+        Some(_) =>
+          return Err(TreeEditError::FieldMustBeString(field="var_name"))
       }
       Ok(@proj.TreeEditOp::WrapInLambda(node_id~, var_name~))
     }
@@ -121,7 +124,8 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError
       }
       let keep_child_index = match m.get("keep_child_index") {
         Some(Json::Number(n, ..)) => n.to_int()
-        None => return Err(TreeEditError::MissingField(field="keep_child_index"))
+        None =>
+          return Err(TreeEditError::MissingField(field="keep_child_index"))
         Some(_) =>
           return Err(TreeEditError::FieldMustBeNumber(field="keep_child_index"))
       }

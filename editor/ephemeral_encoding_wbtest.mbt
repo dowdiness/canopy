@@ -100,10 +100,7 @@ test "ephemeral value roundtrip: all variants" {
     try! roundtrip(EphemeralValue::String("hello")),
     content="String(\"hello\")",
   )
-  inspect(
-    try! roundtrip(EphemeralValue::String("")),
-    content="String(\"\")",
-  )
+  inspect(try! roundtrip(EphemeralValue::String("")), content="String(\"\")")
   // Bytes
   let bytes_buf = @buffer.new()
   bytes_buf.write_byte(b'\x01')
@@ -265,9 +262,9 @@ test "string roundtrip: edge cases" {
   write_string(buf, " ") // single space
   write_string(buf, "\n\t\r") // whitespace chars
   let reader = Reader::new(buf.to_bytes())
-  inspect(try! read_string(reader) == "", content="true")
-  inspect(try! read_string(reader) == " ", content="true")
-  inspect(try! read_string(reader) == "\n\t\r", content="true")
+  inspect(try! (read_string(reader) == ""), content="true")
+  inspect(try! (read_string(reader) == " "), content="true")
+  inspect(try! (read_string(reader) == "\n\t\r"), content="true")
 }
 
 ///|

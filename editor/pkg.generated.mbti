@@ -59,6 +59,7 @@ pub(all) suberror TreeEditError {
   ExpectedJsonObject
   MissingField(field~ : String)
   FieldMustBeString(field~ : String)
+  FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
   FlatProjUnavailable

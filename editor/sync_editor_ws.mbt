@@ -53,7 +53,8 @@ fn parse_sync_response_payload(
 ///|
 fn should_retry_sync_error(err : Error) -> Bool {
   match err {
-    @text.TextError::SyncFailed(@text.SyncFailure::MissingDependency(..)) => true
+    @text.TextError::SyncFailed(@text.SyncFailure::MissingDependency(..)) =>
+      true
     @text.TextError::SyncFailed(@text.SyncFailure::Timeout(..)) => true
     @text.TextError::VersionNotFound => true
     _ => false
@@ -119,9 +120,8 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
       }
     }
     SyncRequest(payload) => {
-      let (sender, request_id, version_json) = match parse_sync_request_payload(
-        payload,
-      ) {
+      let (sender, request_id, version_json) = match
+        parse_sync_request_payload(payload) {
         Ok(parts) => parts
         Err(_) => return
       }
@@ -148,9 +148,8 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
       self.ws_send(wire)
     }
     SyncResponse(payload) => {
-      let (_sender, request_id, sync_json) = match parse_sync_response_payload(
-        payload,
-      ) {
+      let (_sender, request_id, sync_json) = match
+        parse_sync_response_payload(payload) {
         Ok(parts) => parts
         Err(_) => return
       }

@@ -82,7 +82,8 @@ pub fn ProtocolError::message(self : ProtocolError) -> String {
     UnknownMessageType(msg_type~) =>
       "unknown protocol message type: \{msg_type.to_int()}"
     MissingNamespace => "missing ephemeral namespace byte"
-    InvalidNamespace(tag~) => "invalid ephemeral namespace byte: \{tag.to_int()}"
+    InvalidNamespace(tag~) =>
+      "invalid ephemeral namespace byte: \{tag.to_int()}"
     MissingRoomControlSubtype => "missing room control subtype"
     InvalidRoomControlSubtype(sub_type~) =>
       "invalid room control subtype: \{sub_type.to_int()}"

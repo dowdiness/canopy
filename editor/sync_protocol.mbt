@@ -150,7 +150,9 @@ fn read_string_field(
 }
 
 ///|
-pub fn decode_message_result(data : Bytes) -> Result[SyncMessage, ProtocolError] {
+pub fn decode_message_result(
+  data : Bytes,
+) -> Result[SyncMessage, ProtocolError] {
   if data.length() < 3 {
     return Err(ProtocolError::MessageTooShort(length=data.length()))
   }
