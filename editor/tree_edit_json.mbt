@@ -9,7 +9,8 @@ fn require_node_id(
 ) -> Result[@proj.NodeId, TreeEditError] {
   match m.get(key) {
     Some(Json::Number(n, ..)) => Ok(@proj.NodeId::from_int(n.to_int()))
-    _ => Err(TreeEditError::MissingField(field=key))
+    None => Err(TreeEditError::MissingField(field=key))
+    Some(_) => Err(TreeEditError::FieldMustBeNumber(field=key))
   }
 }
 
@@ -31,7 +32,8 @@ fn require_bop(
 ) -> Result[@ast.Bop, TreeEditError] {
   match m.get(key) {
     Some(Json::String(s)) => parse_bop_string(s)
-    _ => Err(TreeEditError::MissingField(field=key))
+    None => Err(TreeEditError::MissingField(field=key))
+    Some(_) => Err(TreeEditError::FieldMustBeString(field=key))
   }
 }
 
@@ -43,7 +45,8 @@ fn require_string(
 ) -> Result[String, TreeEditError] {
   match m.get(key) {
     Some(Json::String(s)) => Ok(s)
-    _ => Err(TreeEditError::MissingField(field=key))
+    None => Err(TreeEditError::MissingField(field=key))
+    Some(_) => Err(TreeEditError::FieldMustBeString(field=key))
   }
 }
 
@@ -60,7 +63,8 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError
   }
   let op_type = match m.get("type") {
     Some(Json::String(s)) => s
-    _ => return Err(TreeEditError::MissingField(field="type"))
+    None => return Err(TreeEditError::MissingField(field="type"))
+    Some(_) => return Err(TreeEditError::FieldMustBeString(field="type"))
   }
   match op_type {
     "Delete" => {
@@ -117,7 +121,9 @@ pub fn parse_tree_edit_op(json : Json) -> Result[@proj.TreeEditOp, TreeEditError
       }
       let keep_child_index = match m.get("keep_child_index") {
         Some(Json::Number(n, ..)) => n.to_int()
-        _ => return Err(TreeEditError::MissingField(field="keep_child_index"))
+        None => return Err(TreeEditError::MissingField(field="keep_child_index"))
+        Some(_) =>
+          return Err(TreeEditError::FieldMustBeNumber(field="keep_child_index"))
       }
       Ok(@proj.TreeEditOp::Unwrap(node_id~, keep_child_index~))
     }

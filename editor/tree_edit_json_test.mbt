@@ -66,6 +66,13 @@ test "parse_tree_edit_op: missing type" {
 }
 
 ///|
+test "parse_tree_edit_op: type must be string" {
+  let json = @json.parse("{\"type\": 1, \"node_id\": 1}")
+  guard parse_tree_edit_op(json) is Err(msg)
+  inspect(msg.message(), content="type must be a string")
+}
+
+///|
 test "parse_tree_edit_op: not an object" {
   let json = @json.parse("42")
   guard parse_tree_edit_op(json) is Err(msg)
@@ -195,6 +202,29 @@ test "parse_tree_edit_op: DeleteBinding missing binding_node_id" {
   let json = @json.parse("{\"type\": \"DeleteBinding\", \"node_id\": 5}")
   guard parse_tree_edit_op(json) is Err(msg)
   inspect(msg.message(), content="missing binding_node_id field")
+}
+
+///|
+test "parse_tree_edit_op: Delete node_id must be number" {
+  let json = @json.parse("{\"type\": \"Delete\", \"node_id\": \"five\"}")
+  guard parse_tree_edit_op(json) is Err(msg)
+  inspect(msg.message(), content="node_id must be a number")
+}
+
+///|
+test "parse_tree_edit_op: Unwrap keep_child_index must be number" {
+  let json = @json.parse(
+    "{\"type\": \"Unwrap\", \"node_id\": 5, \"keep_child_index\": \"0\"}",
+  )
+  guard parse_tree_edit_op(json) is Err(msg)
+  inspect(msg.message(), content="keep_child_index must be a number")
+}
+
+///|
+test "parse_tree_edit_op: WrapInBop op must be string" {
+  let json = @json.parse("{\"type\": \"WrapInBop\", \"node_id\": 4, \"op\": 1}")
+  guard parse_tree_edit_op(json) is Err(msg)
+  inspect(msg.message(), content="op must be a string")
 }
 
 ///|

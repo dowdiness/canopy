@@ -27,6 +27,7 @@ pub(all) suberror TreeEditError {
   ExpectedJsonObject
   MissingField(field~ : String)
   FieldMustBeString(field~ : String)
+  FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
   FlatProjUnavailable
@@ -43,6 +44,7 @@ pub fn TreeEditError::message(self : TreeEditError) -> String {
     ExpectedJsonObject => "expected JSON object"
     MissingField(field~) => "missing \{field} field"
     FieldMustBeString(field~) => "\{field} must be a string"
+    FieldMustBeNumber(field~) => "\{field} must be a number"
     UnknownBop(name~) => "unknown bop: \{name}"
     UnknownOpType(op_type~) => "unknown op type: \{op_type}"
     FlatProjUnavailable => "No FlatProj available"
