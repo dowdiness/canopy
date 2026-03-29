@@ -21,6 +21,9 @@
     "dowdiness/seam": {
       "path": "./loom/seam"
     },
+    "dowdiness/json": {
+      "path": "./loom/examples/json"
+    },
     "dowdiness/order-tree": {
       "path": "./order-tree"
     }

@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/json/proj"
+
+import {
+  "dowdiness/canopy/framework/core",
+  "dowdiness/json",
+  "dowdiness/seam",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn parse_to_proj_node(String) -> (@core.ProjNode[@json.JsonValue], Array[String])
+
+pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@json.JsonValue]) -> Unit
+
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@json.JsonValue]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
