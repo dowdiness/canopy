@@ -247,11 +247,11 @@ fn parse_peer_id(key : String) -> UInt64? {
     return None
   }
   for ch in chars {
-    if not(ch.is_ascii_digit()) {
+    if !ch.is_ascii_digit() {
       return None
     }
   }
-  Some(@strconv.parse_uint64(key.view(), base=10)) catch {
+  Some(@string.parse_uint64(key.view(), base=10)) catch {
     _ => None
   }
 }

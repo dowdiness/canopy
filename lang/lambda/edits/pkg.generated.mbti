@@ -32,33 +32,25 @@ pub(all) struct Action {
   mnemonic : String
   group : ActionGroup
   needs_input : Bool
-}
-pub impl Eq for Action
-pub impl Show for Action
+} derive(Eq, Show)
 
 pub(all) enum ActionGroup {
   Core
   Wrap
   Binding
   Module
-}
-pub impl Eq for ActionGroup
-pub impl Show for ActionGroup
+} derive(Eq, Show)
 
 pub(all) enum BindingSite {
   LamBinder(lam_id~ : @core.NodeId)
   ModuleBinder(binding_node_id~ : @core.NodeId, def_index~ : Int)
-}
-pub impl Eq for BindingSite
-pub impl Show for BindingSite
+} derive(Eq, Show)
 
 pub(all) enum DropPosition {
   Before
   After
   Inside
-}
-pub impl Eq for DropPosition
-pub impl Show for DropPosition
+} derive(Eq, Show)
 
 pub(all) struct EditContext[T] {
   source_text : String
@@ -72,11 +64,9 @@ pub(all) struct NodeContext {
   binding_node_id : @core.NodeId?
   binding_def_index : Int?
   module_node_id : @core.NodeId?
-}
+} derive(Eq, Show)
 pub fn NodeContext::new() -> Self
 pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
-pub impl Eq for NodeContext
-pub impl Show for NodeContext
 
 pub(all) enum TreeEditOp {
   Select(node_id~ : @core.NodeId)
@@ -107,8 +97,7 @@ pub(all) enum TreeEditOp {
   InlineDefinition(node_id~ : @core.NodeId)
   InlineAllUsages(binding_node_id~ : @core.NodeId)
   Rename(node_id~ : @core.NodeId, new_name~ : String)
-}
-pub impl Show for TreeEditOp
+} derive(Show)
 
 // Type aliases
 pub type EditResult = Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]

@@ -12,7 +12,7 @@ pub fn[T] TreeEditorState::apply_edit(
       // Collect all nodes between start and end (inclusive) in preorder.
       // If either endpoint is stale (missing), preserve existing selection.
       let new_selection = collect_nodes_in_range(self, start, end)
-      if new_selection.is_empty() && not(self.selection.is_empty()) {
+      if new_selection.is_empty() && !self.selection.is_empty() {
         self
       } else {
         apply_selection_edit(self, new_selection)
@@ -35,9 +35,7 @@ pub fn[T] TreeEditorState::apply_edit(
       // Collect all node IDs in subtree being deleted
       let subtree_ids = collect_subtree_ids(self, node_id)
       // Remove all subtree nodes from selection
-      let selection = self.selection.filter(fn(id) {
-        not(subtree_ids.contains(id))
-      })
+      let selection = self.selection.filter(fn(id) { !subtree_ids.contains(id) })
       // Clear editing if editing any node in subtree
       let (editing_node, edit_value) = match self.editing_node {
         Some(edit_id) =>
@@ -134,7 +132,7 @@ pub fn[T] TreeEditorState::apply_edit(
         Some(drag_id) =>
           if drag_id == source &&
             source != target &&
-            not(is_descendant_of(self, target, source)) {
+            !is_descendant_of(self, target, source) {
             // Valid drop
             let _ = position
             {

@@ -79,31 +79,25 @@ pub(all) enum DragPosition {
   Before
   After
   Inside
-}
-pub impl Eq for DragPosition
-pub impl Show for DragPosition
+} derive(Eq, Show)
 
 pub(all) struct DragState {
   source_id : String
   target : (String, DragPosition)?
-}
+} derive(Eq, Show)
 pub fn DragState::from_ephemeral(EphemeralValue) -> Self?
 pub fn DragState::to_ephemeral(Self) -> EphemeralValue
-pub impl Eq for DragState
-pub impl Show for DragState
 
 pub(all) struct EditModeState {
   node_id : String
-}
+} derive(Eq, Show)
 pub fn EditModeState::from_ephemeral(EphemeralValue) -> Self?
 pub fn EditModeState::to_ephemeral(Self) -> EphemeralValue
-pub impl Eq for EditModeState
-pub impl Show for EditModeState
 
 pub struct Editor {
   doc : @text.TextState
   mut cursor : Int
-}
+} derive(Show)
 pub fn Editor::apply_sync(Self, @text.SyncMessage) -> Unit raise
 pub fn Editor::backspace(Self) -> Bool
 pub fn Editor::delete(Self) -> Bool
@@ -116,15 +110,12 @@ pub fn Editor::insert(Self, String) -> Unit raise
 pub fn Editor::insert_at(Self, Int, String) -> Unit raise
 pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self
-pub impl Show for Editor
 
 pub(all) enum EphemeralEventTrigger {
   Local
   Import
   Timeout
-}
-pub impl Eq for EphemeralEventTrigger
-pub impl Show for EphemeralEventTrigger
+} derive(Eq, Show)
 
 pub struct EphemeralHub {
   local_peer_id : String
@@ -158,11 +149,7 @@ pub(all) enum EphemeralNamespace {
   EditMode
   Drag
   Presence
-}
-pub impl Compare for EphemeralNamespace
-pub impl Eq for EphemeralNamespace
-pub impl Hash for EphemeralNamespace
-pub impl Show for EphemeralNamespace
+} derive(Compare, Eq, Hash, Show)
 
 type EphemeralRecord
 
@@ -187,12 +174,11 @@ pub(all) struct EphemeralStoreEvent {
   added : Array[String]
   updated : Array[String]
   removed : Array[String]
-}
+} derive(Show)
 pub fn EphemeralStoreEvent::added(Self) -> Array[String]
 pub fn EphemeralStoreEvent::by(Self) -> EphemeralEventTrigger
 pub fn EphemeralStoreEvent::removed(Self) -> Array[String]
 pub fn EphemeralStoreEvent::updated(Self) -> Array[String]
-pub impl Show for EphemeralStoreEvent
 
 type EphemeralSubscriberEntry
 
@@ -210,9 +196,7 @@ pub(all) enum EphemeralValue {
   Bytes(Bytes)
   List(Array[EphemeralValue])
   Map(Map[String, EphemeralValue])
-}
-pub impl Eq for EphemeralValue
-pub impl Show for EphemeralValue
+} derive(Eq, Show)
 
 pub struct InMemoryRoom {
   peers : Map[String, Array[(Bytes) -> Unit]]
@@ -237,8 +221,7 @@ pub(all) struct PeerCursor {
   mut display_name : String
   mut color : String
   mut selection : (Int, Int)?
-}
-pub impl Show for PeerCursor
+} derive(Show)
 
 pub struct PeerCursorView {
   cursors : Map[String, PeerCursor]
@@ -258,18 +241,14 @@ pub(all) struct PeerPresence {
   display_name : String
   color : String
   status : PresenceStatus
-}
+} derive(Eq, Show)
 pub fn PeerPresence::from_ephemeral(EphemeralValue) -> Self?
 pub fn PeerPresence::to_ephemeral(Self) -> EphemeralValue
-pub impl Eq for PeerPresence
-pub impl Show for PeerPresence
 
 pub(all) enum PresenceStatus {
   Active
   Idle
-}
-pub impl Eq for PresenceStatus
-pub impl Show for PresenceStatus
+} derive(Eq, Show)
 
 type RecoveryContext
 
@@ -349,9 +328,7 @@ pub(all) enum SyncMessage {
   PeerJoined(String)
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-}
-pub impl Eq for SyncMessage
-pub impl Show for SyncMessage
+} derive(Eq, Show)
 
 // Type aliases
 

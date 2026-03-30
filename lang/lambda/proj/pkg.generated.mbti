@@ -33,13 +33,11 @@ pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term
 pub struct FlatProj {
   defs : Array[(String, @core.ProjNode[@ast.Term], Int, @core.NodeId)]
   final_expr : @core.ProjNode[@ast.Term]?
-}
+} derive(Eq, Show)
 pub fn FlatProj::empty() -> Self
 pub fn FlatProj::from_proj_node(@core.ProjNode[@ast.Term]) -> Self
 pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
 pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @core.ProjNode[@ast.Term]
-pub impl Eq for FlatProj
-pub impl Show for FlatProj
 
 // Type aliases
 

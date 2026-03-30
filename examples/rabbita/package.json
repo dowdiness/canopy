@@ -1,5 +1,4 @@
 {
-  "packageManager": "bun@1.2.15",
   "scripts": {
     "dev": "vite",
     "build": "sh scripts/build.sh",

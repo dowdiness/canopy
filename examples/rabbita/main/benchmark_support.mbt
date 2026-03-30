@@ -126,7 +126,7 @@ pub fn BenchmarkSession::deferred_full_cycle_timed(
   let t0 = now_ms()
   self.deferred_text_input(new_text)
   let t1 = now_ms()
-  if not(self.model.projection_dirty) {
+  if !(self.model.projection_dirty) {
     // Match RefreshProjection's no-op behavior when the edit did not dirty
     // the projection, such as identical text input.
     self.refresh_projection()

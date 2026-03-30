@@ -57,8 +57,7 @@ pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/framew
 pub enum InteractiveChildren[T] {
   Loaded(Array[InteractiveTreeNode[T]])
   Elided(Int)
-}
-pub impl[T : Show] Show for InteractiveChildren[T]
+} derive(Show)
 
 pub struct InteractiveTreeNode[T] {
   id : @dowdiness/canopy/framework/core.NodeId
@@ -70,9 +69,8 @@ pub struct InteractiveTreeNode[T] {
   collapsed : Bool
   drop_target : Bool
   text_range : @dowdiness/loom/core.Range
-}
+} derive(Show)
 pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/framework/core.ProjNode[T], @dowdiness/canopy/framework/core.SourceMap) -> Self[T]
-pub impl[T : Show] Show for InteractiveTreeNode[T]
 
 pub struct TreeEditorState[T] {
   tree : InteractiveTreeNode[T]?

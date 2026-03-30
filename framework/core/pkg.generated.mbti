@@ -22,18 +22,12 @@ pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @r
 pub(all) enum FocusHint {
   RestoreCursor
   MoveCursor(position~ : Int)
-}
-pub impl Eq for FocusHint
-pub impl Show for FocusHint
+} derive(Eq, Show)
 
-pub struct NodeId(Int)
+pub struct NodeId(Int) derive(Compare, Eq, Hash, Show)
 pub fn NodeId::from_int(Int) -> Self
 #deprecated
 pub fn NodeId::inner(Self) -> Int
-pub impl Compare for NodeId
-pub impl Eq for NodeId
-pub impl Hash for NodeId
-pub impl Show for NodeId
 
 pub struct ProjNode[T] {
   node_id : Int
@@ -41,18 +35,16 @@ pub struct ProjNode[T] {
   children : Array[ProjNode[T]]
   start : Int
   end : Int
-}
+} derive(Eq, Show)
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
 pub fn[T] ProjNode::new(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
-pub impl[T : Eq] Eq for ProjNode[T]
-pub impl[T : Show] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]
 
 pub struct SourceMap {
   node_to_range : Map[NodeId, @dowdiness/loom/core.Range]
   ranges : Array[(@dowdiness/loom/core.Range, NodeId)]
   token_spans : Map[NodeId, Map[String, @dowdiness/loom/core.Range]]
-}
+} derive(Eq, Show)
 pub fn SourceMap::apply_edit(Self, Int, @dowdiness/loom/core.Range) -> Unit
 pub fn[T] SourceMap::from_ast(ProjNode[T]) -> Self
 pub fn SourceMap::get_range(Self, NodeId) -> @dowdiness/loom/core.Range?
@@ -67,17 +59,13 @@ pub fn[T] SourceMap::rebuild(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::rebuild_ranges(Self) -> Unit
 pub fn[T] SourceMap::remove_subtree(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::set_token_span(Self, NodeId, String, @dowdiness/loom/core.Range) -> Unit
-pub impl Eq for SourceMap
-pub impl Show for SourceMap
 pub impl ToJson for SourceMap
 
 pub(all) struct SpanEdit {
   start : Int
   delete_len : Int
   inserted : String
-}
-pub impl Eq for SpanEdit
-pub impl Show for SpanEdit
+} derive(Eq, Show)
 
 // Type aliases
 

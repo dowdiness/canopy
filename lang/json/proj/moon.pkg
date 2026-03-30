@@ -6,4 +6,5 @@ import {
   "dowdiness/loom/core" @loomcore,
   "dowdiness/seam" @seam,
   "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
 }

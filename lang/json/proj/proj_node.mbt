@@ -29,7 +29,7 @@ pub fn syntax_to_proj_node(
     StringValue => {
       let text = node.token_text(@json.StringToken.to_raw())
       let value = if text.length() >= 2 {
-        @json.JsonValue::String(@json.parse_json_string(text))
+        @json.JsonValue::String(parse_json_string(text))
       } else {
         @json.JsonValue::Error("malformed string")
       }
@@ -43,7 +43,7 @@ pub fn syntax_to_proj_node(
     }
     NumberValue => {
       let text = node.token_text(@json.NumberToken.to_raw())
-      let n = @strconv.parse_double(text) catch {
+      let n = @string.parse_double(text) catch {
         _ => {
           let value = @json.JsonValue::Error("invalid number: " + text)
           return ProjNode::new(
@@ -180,7 +180,7 @@ fn extract_member(
     match elem {
       @seam.SyntaxElement::Token(t) =>
         if t.kind() == @json.StringToken.to_raw() {
-          key_text = @json.parse_json_string(t.text())
+          key_text = parse_json_string(t.text())
           break
         }
       _ => ()

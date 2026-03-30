@@ -27,9 +27,7 @@ pub(all) enum JsonEditOp {
   ChangeType(node_id~ : @core.NodeId, new_type~ : JsonType)
   RenameKey(object_id~ : @core.NodeId, key_index~ : Int, new_key~ : String)
   CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
-}
-pub impl Eq for JsonEditOp
-pub impl Show for JsonEditOp
+} derive(Eq, Show)
 
 pub(all) enum JsonType {
   JNull
@@ -38,9 +36,7 @@ pub(all) enum JsonType {
   JString
   JArray
   JObject
-}
-pub impl Eq for JsonType
-pub impl Show for JsonType
+} derive(Eq, Show)
 
 // Type aliases
 

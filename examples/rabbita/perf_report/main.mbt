@@ -466,7 +466,7 @@ fn run_case(
   let measurements : Array[@app.BenchmarkMeasurement] = []
   let mut total_elapsed = 0
   let mut i = 0
-  while i < case_.iterations && not(timed_out) {
+  while i < case_.iterations && !(timed_out) {
     let base = if i % 2 == 0 { source } else { edited_source }
     let next = if i % 2 == 0 { edited_source } else { source }
     match run_step_with_deadline(case_.operation, base, next, deadline_ms) {

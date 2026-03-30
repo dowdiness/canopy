@@ -87,7 +87,7 @@ test "tree refresh 1 changed (20 defs)" (b : @bench.T) {
     let (proj, sm) = if use_b { (reconciled_b, sm_b) } else { (root_a, sm_a) }
     state = state.refresh(Some(proj), sm)
     b.keep(state.tree)
-    use_b = not(use_b)
+    use_b = !use_b
   })
 }
 
@@ -102,7 +102,7 @@ test "tree refresh 1 changed (320 defs)" (b : @bench.T) {
     let (proj, sm) = if use_b { (reconciled_b, sm_b) } else { (root_a, sm_a) }
     state = state.refresh(Some(proj), sm)
     b.keep(state.tree)
-    use_b = not(use_b)
+    use_b = !use_b
   })
 }
 
@@ -117,7 +117,7 @@ test "tree refresh 1 changed (1000 defs)" (b : @bench.T) {
     let (proj, sm) = if use_b { (reconciled_b, sm_b) } else { (root_a, sm_a) }
     state = state.refresh(Some(proj), sm)
     b.keep(state.tree)
-    use_b = not(use_b)
+    use_b = !use_b
   })
 }
 
@@ -132,6 +132,6 @@ test "tree refresh 1 changed (80 defs)" (b : @bench.T) {
     let (proj, sm) = if use_b { (reconciled_b, sm_b) } else { (root_a, sm_a) }
     state = state.refresh(Some(proj), sm)
     b.keep(state.tree)
-    use_b = not(use_b)
+    use_b = !use_b
   })
 }

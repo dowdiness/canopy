@@ -122,7 +122,7 @@ pub fn[T] SyncEditor::undo_and_export(
   } catch {
     _ => false
   }
-  if not(success) {
+  if !success {
     return None
   }
   Some(self.doc.sync().export_since(ver_before)) catch {
@@ -148,7 +148,7 @@ pub fn[T] SyncEditor::redo_and_export(
   } catch {
     _ => false
   }
-  if not(success) {
+  if !success {
     return None
   }
   Some(self.doc.sync().export_since(ver_before)) catch {

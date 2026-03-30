@@ -50,16 +50,14 @@ pub(all) struct ActionRecord {
   cursor_before : @core.NodeId
   cursor_after : @core.NodeId
   role : PositionRole
-}
-pub impl Show for ActionRecord
+} derive(Show)
 
 pub(all) enum Direction {
   Up
   Down
   Left
   Right
-}
-pub impl Show for Direction
+} derive(Show)
 
 pub(all) enum EditAction {
   Delete
@@ -71,14 +69,12 @@ pub(all) enum EditAction {
   SwapChildren
   ChangeOperator(@ast.Bop)
   CommitEdit(String)
-}
-pub impl Show for EditAction
+} derive(Show)
 
 pub(all) struct HoleInfo {
   created_by : EditAction
   role : PositionRole
-}
-pub impl Show for HoleInfo
+} derive(Show)
 
 pub(all) struct HoleRegistry {
   // private fields
@@ -101,8 +97,7 @@ pub(all) enum PositionRole {
   OperandRight(@ast.Bop)
   LetDefinition(String)
   LetBody
-}
-pub impl Show for PositionRole
+} derive(Show)
 
 pub(all) enum TermCtx {
   CtxLamBody(String)
@@ -115,14 +110,12 @@ pub(all) enum TermCtx {
   CtxIfElse(@ast.Term, @ast.Term)
   CtxModuleDef(Array[(String, @ast.Term)], String, Array[(String, @ast.Term)], @ast.Term)
   CtxModuleBody(Array[(String, @ast.Term)])
-}
-pub impl Show for TermCtx
+} derive(Show)
 
 pub(all) struct Zipper {
   focus : @ast.Term
   path : @list.List[TermCtx]
-}
-pub impl Show for Zipper
+} derive(Show)
 
 // Type aliases
 

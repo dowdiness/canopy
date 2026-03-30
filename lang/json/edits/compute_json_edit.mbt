@@ -267,7 +267,7 @@ fn compute_add_member(
 fn has_content_between(source : String, start : Int, end : Int) -> Bool {
   let mut i = start
   while i < end {
-    if not(is_ws_code(source[i])) {
+    if !is_ws_code(source[i]) {
       return true
     }
     i = i + 1

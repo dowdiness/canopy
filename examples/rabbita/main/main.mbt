@@ -87,7 +87,7 @@ fn selected_node_details(model : Model) -> SelectedNodeDetails? {
 
 ///|
 fn has_hidden_selection(model : Model) -> Bool {
-  not(model.tree_state.selection.is_empty()) &&
+  !(model.tree_state.selection.is_empty()) &&
   selected_tree_node(model) is None
 }
 
@@ -108,7 +108,7 @@ fn tree_node_is_elided(
 
 ///|
 fn can_hydrate_tree_node(model : Model, node_id : @proj.NodeId) -> Bool {
-  not(model.projection_dirty) && tree_node_is_elided(model.tree_state, node_id)
+  !(model.projection_dirty) && tree_node_is_elided(model.tree_state, node_id)
 }
 
 // ── Init ────────────────────────────────────────────────────────────

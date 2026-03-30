@@ -21,7 +21,7 @@ fn run_projection_incremental_bench(b : @bench.T, let_count : Int) -> Unit {
     }
     b.keep(editor.get_proj_node())
     b.keep(editor.get_source_map())
-    inserted = not(inserted)
+    inserted = !inserted
   })
 }
 
@@ -94,7 +94,7 @@ fn run_whitespace_keystroke_bench(b : @bench.T, let_count : Int) -> Unit {
     }
     b.keep(editor.get_proj_node())
     b.keep(editor.get_source_map())
-    inserted = not(inserted)
+    inserted = !inserted
   })
 }
 

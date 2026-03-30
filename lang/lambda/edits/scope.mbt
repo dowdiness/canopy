@@ -100,7 +100,7 @@ pub fn find_usages(
     collect_var_usages(def.1, var_name, results)
   }
   // Check body only if not shadowed
-  if not(shadowed) {
+  if !shadowed {
     match flat_proj.final_expr {
       Some(body) => collect_var_usages(body, var_name, results)
       None => ()

@@ -53,4 +53,4 @@ if [ "${CI:-}" = "true" ] || [ ! -d "$REPO_ROOT/.mooncakes" ] || [ ! -d "$PROJEC
 fi
 
 echo "==> Building Rabbita app..."
-exec vite build
+npx vite build

@@ -228,7 +228,7 @@ pub fn EphemeralStore::subscribe(
 ///|
 fn EphemeralStore::alloc_sub_id(self : EphemeralStore) -> Int {
   let id = self.next_sub_id
-  self.next_sub_id = if id == @int.max_value { 1 } else { id + 1 }
+  self.next_sub_id = if id == @int.MAX_VALUE { 1 } else { id + 1 }
   id
 }
 
@@ -281,7 +281,7 @@ pub fn EphemeralStore::encode_all(self : EphemeralStore) -> Bytes {
   let now = now_ms()
   let entries : Array[(String, EphemeralRecord)] = []
   for key, record in self.states {
-    if not(is_expired(record.updated_at, now, self.timeout_ms)) {
+    if !is_expired(record.updated_at, now, self.timeout_ms) {
       entries.push((key, record))
     }
   }

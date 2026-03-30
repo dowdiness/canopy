@@ -135,14 +135,14 @@ fn diff_steps_to_edits(
         cursor = cursor + 1
       }
       Delete => {
-        if not(has_pending) {
+        if !has_pending {
           pending_start = cursor
           has_pending = true
         }
         pending_delete_len = pending_delete_len + 1
       }
       Insert => {
-        if not(has_pending) {
+        if !has_pending {
           pending_start = cursor
           has_pending = true
         }
