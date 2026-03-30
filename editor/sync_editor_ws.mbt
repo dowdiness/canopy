@@ -158,7 +158,7 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
         None => return // Not recovering, ignore
       }
       // Stale response check
-      if not(ctx.matches_request_id(request_id)) {
+      if !ctx.matches_request_id(request_id) {
         return
       }
       // Empty response = responder can't help

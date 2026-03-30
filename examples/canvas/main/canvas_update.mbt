@@ -185,7 +185,7 @@ fn update_pointer_up(state : CanvasState, node_id_int : Int) -> CanvasState {
     Some(NodeId(node_id_int))
   }
   let new_selected : NodeId? = if state.interaction.pointer_down &&
-    not(state.interaction.did_move) {
+    !(state.interaction.did_move) {
     hovered
   } else {
     state.interaction.selected

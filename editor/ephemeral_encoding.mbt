@@ -247,7 +247,7 @@ fn parse_peer_id(key : String) -> UInt64? {
     return None
   }
   for ch in chars {
-    if not(ch.is_ascii_digit()) {
+    if !ch.is_ascii_digit() {
       return None
     }
   }

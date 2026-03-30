@@ -88,8 +88,8 @@ fn build_lambda_projection_memos(
             // When there is no final_expr, to_proj_node_with_prev_module_id
             // synthesizes a fresh Unit body node (new node_id each time).
             // Always mark the body as changed so the patch path updates it.
-            if result.final_expr is None && not(result.defs.is_empty()) {
-              if not(changed.val.contains(-1)) {
+            if result.final_expr is None && !result.defs.is_empty() {
+              if !changed.val.contains(-1) {
                 changed.val.push(-1)
               }
             }
@@ -117,7 +117,7 @@ fn build_lambda_projection_memos(
       // Some([]) = incremental, nothing changed → do not advance (backdate will fire).
       // Some([...]) or None = changes or full rebuild → advance.
       let has_changes = match changed_def_indices_ref.val {
-        Some(indices) => not(indices.is_empty())
+        Some(indices) => !indices.is_empty()
         None => true
       }
       if has_changes {
@@ -187,7 +187,7 @@ fn build_lambda_projection_memos(
             ) {
             (Some(indices), Some(prev_reg), Some(prev_children)) if indices.length() >
               0 &&
-              not(skipped) => {
+              !skipped => {
               // Patch path: two-phase remove then add to avoid interleaving
               // issues when defs are reordered (a later remove could delete
               // an entry just added by an earlier iteration).
@@ -261,7 +261,7 @@ fn build_lambda_projection_memos(
             ) {
             (Some(indices), Some(prev_sm), Some(prev_children)) if indices.length() >
               0 &&
-              not(skipped) => {
+              !skipped => {
               // Patch path: two-phase remove then add to avoid interleaving
               // issues when defs are reordered with ID-preserving reconciliation.
               // Phase 1: remove all old subtrees

@@ -84,7 +84,7 @@ pub fn to_flat_proj_incremental(
         }
         old_def_idx = old_def_idx + 1
       }
-      if not(reused) {
+      if !reused {
         any_changed = true
         changed_indices.val.push(defs.length())
         let init = match v.init() {

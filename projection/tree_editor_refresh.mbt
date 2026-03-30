@@ -100,7 +100,7 @@ fn[T : TreeNode + Renderable] can_skip_subtree(
   }
   // Check kind matches — use same_kind + label instead of full T equality
   // to avoid deep subtree comparison on complex AST types
-  if not(TreeNode::same_kind(proj_node.kind, prev_node.kind)) {
+  if !TreeNode::same_kind(proj_node.kind, prev_node.kind) {
     return false
   }
   if Renderable::label(proj_node.kind) != prev_node.label {
@@ -124,7 +124,7 @@ fn[T : TreeNode + Renderable] can_skip_subtree(
         if NodeId::from_int(child.node_id) != prev_children[i].id {
           return false
         }
-        if not(can_skip_subtree(child, prev_children[i], source_map, ui_state)) {
+        if !can_skip_subtree(child, prev_children[i], source_map, ui_state) {
           return false
         }
       }
@@ -134,7 +134,7 @@ fn[T : TreeNode + Renderable] can_skip_subtree(
       // Must still be collapsed AND descendant count unchanged.
       // Without the count check, edits inside a collapsed subtree
       // (e.g., adding/removing a let-def) would reuse a stale Elided(n).
-      if not(collapsed) {
+      if !collapsed {
         false
       } else {
         let mut current_count = 0
@@ -243,7 +243,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
         Some(previous_children) =>
           if child_index >= previous_children.length() ||
             previous_children[child_index].id != child_result.node.id ||
-            not(child_result.reused_previous) {
+            !child_result.reused_previous {
             children_reused = false
           }
         None => ()
@@ -607,7 +607,7 @@ fn[T] apply_selection_to_node(
           }
         }
       }
-      if new_selected == node.selected && not(any_child_changed) {
+      if new_selected == node.selected && !any_child_changed {
         (node, false, [])
       } else {
         let children = if any_child_changed {

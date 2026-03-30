@@ -28,8 +28,8 @@ pub fn block_doc_from_markdown(
       let code_buf = StringBuilder::new()
       i = i + 1
       let mut first = true
-      while i < len && not(starts_with(lines[i], "```")) {
-        if not(first) {
+      while i < len && !(starts_with(lines[i], "```")) {
+        if !(first) {
           code_buf.write_string("\n")
         }
         code_buf.write_string(lines[i])
@@ -68,7 +68,7 @@ pub fn block_doc_from_markdown(
       starts_with(line, "- [x] ") ||
       starts_with(line, "- [X] ") {
       flush_paragraph(doc, para_buf)
-      let checked = not(starts_with(line, "- [ ] "))
+      let checked = !(starts_with(line, "- [ ] "))
       let text = line[6:].to_string()
       let id = doc.create_block(ListItem(Todo))
       doc.set_text(id, text)

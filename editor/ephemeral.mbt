@@ -281,7 +281,7 @@ pub fn EphemeralStore::encode_all(self : EphemeralStore) -> Bytes {
   let now = now_ms()
   let entries : Array[(String, EphemeralRecord)] = []
   for key, record in self.states {
-    if not(is_expired(record.updated_at, now, self.timeout_ms)) {
+    if !is_expired(record.updated_at, now, self.timeout_ms) {
       entries.push((key, record))
     }
   }

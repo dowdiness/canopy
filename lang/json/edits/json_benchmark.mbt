@@ -65,7 +65,7 @@ fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
     }
     b.keep(editor.get_proj_node())
     b.keep(editor.get_source_map())
-    inserted = not(inserted)
+    inserted = !inserted
   })
 }
 
@@ -90,7 +90,7 @@ fn run_json_array_bench(b : @bench.T, element_count : Int) -> Unit {
     }
     b.keep(editor.get_proj_node())
     b.keep(editor.get_source_map())
-    inserted = not(inserted)
+    inserted = !inserted
   })
 }
 

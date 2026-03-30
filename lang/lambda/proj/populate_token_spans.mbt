@@ -68,7 +68,7 @@ fn collect_token_spans_source_file(
             }
           }
           def_idx = def_idx + 1
-        } else if not(expr_seen) {
+        } else if !expr_seen {
           expr_seen = true
           // This is the final expression — last child of Module ProjNode
           let body_idx = proj_root.children.length() - 1

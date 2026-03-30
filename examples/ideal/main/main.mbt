@@ -558,7 +558,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         None =>
           // If in name prompt mode, let the view handle input
-          if not(model.overlay.pending_action is None) {
+          if !(model.overlay.pending_action is None) {
             (none, model)
           } else {
             // Match mnemonic: find the action whose mnemonic matches the key
@@ -582,7 +582,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         action_id
         .iter()
         .each(fn(ch) {
-          if not(found_colon) && ch == ':' {
+          if !(found_colon) && ch == ':' {
             found_colon = true
           } else if found_colon {
             choice = choice + ch.to_string()

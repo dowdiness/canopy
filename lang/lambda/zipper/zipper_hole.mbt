@@ -46,7 +46,7 @@ pub fn HoleRegistry::prune(
 ) -> Unit {
   let stale : Array[@core.NodeId] = []
   for id in self.holes.keys() {
-    if not(live_ids.contains(id)) {
+    if !live_ids.contains(id) {
       stale.push(id)
     }
   }
