@@ -267,6 +267,19 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 ---
 
+## 12. Multi-Language Support
+
+**Impact:** High | **Effort:** Medium
+
+- [x] **Framework extraction** — ✅ Done (Phases 1–4, PRs #60, #62, #66, #69). `framework/core/` has generic types; traits in `loom/core`.
+- [x] **TestExpr proof** — ✅ Done (PR #77). Framework works with non-lambda AST type. ADR: `docs/decisions/2026-03-29-framework-genericity-contract.md`.
+- [x] **JSON projectional editor** — ✅ Done (PR #100). Second language consumer: `lang/json/proj/` + `lang/json/edits/`. Shared SpanEdit/FocusHint in framework/core. SyncEditor::new_generic (no FlatProj). 8 benchmarks.
+- [ ] **JSON FlatProj optimization** — 1000-member objects at 28ms exceed 16ms budget. Add incremental per-member derivation when needed.
+- [ ] **loomgen design update** — Update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON. Two real examples now inform the generator.
+- [ ] **Markdown editor** — Third language for the block editor. Depends on loomgen or manual implementation.
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |

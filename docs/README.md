@@ -90,6 +90,8 @@ Historical documentation, completed plans, and investigations.
 - [Framework Extraction Design](archive/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits
 - [Framework Extraction Impl](archive/2026-03-28-framework-extraction-impl.md) — Phases 1–4 implementation
 - [Framework Extraction Phase 4](archive/2026-03-28-framework-extraction-phase4.md) — Traits to loom, lambda code to lang/lambda/
+- [JSON Editor Design](archive/2026-03-29-json-projectional-editor-design.md) — Second language consumer of framework/core
+- [JSON Editor Impl](archive/2026-03-29-json-projectional-editor-impl.md) — 9-task implementation plan (Complete)
 - [Memo-Derived ProjNode Design](archive/2026-03-10-memo-derived-projnode-design.md) — CanonicalModel retired, memo-derived projections on SyncEditor
 - [Rabbita Projection Editor Performance Plan](archive/2026-03-11-rabbita-projection-editor-performance-plan.md) — Edit-based APIs, incremental parser, UI/structural split
 - [Tree Editor Subtree Reuse Design](archive/2026-03-11-tree-editor-subtree-reuse-design.md) — InteractiveChildren Loaded/Elided, structural indexes

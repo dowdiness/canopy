@@ -102,6 +102,12 @@ Lambda-specific structural edit handlers.
 ### `lang/lambda/flat/`
 VersionedFlatProj — incr memo wrapper for incremental FlatProj updates.
 
+### `lang/json/proj/`
+JSON projection builders: syntax_to_proj_node, populate_token_spans, memo builder.
+
+### `lang/json/edits/`
+JSON structural edit handlers, bridge to SyncEditor, new_json_editor constructor, benchmarks.
+
 ### `cmd/main/`
 Command-line entry points and REPL.
 
@@ -131,11 +137,13 @@ rle (independent, quickcheck only)
    ↑
 event-graph-walker (depends on rle + quickcheck)
 
-crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/loom + dowdiness/text_change via path deps)
-  ├── framework/core (depends on loom/core — generic types + traits)
+crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdiness/loom + dowdiness/text_change via path deps)
+  ├── framework/core (depends on loom/core — generic types + traits + SpanEdit + FocusHint)
   ├── lang/lambda/proj (depends on framework/core + lambda + seam)
   ├── lang/lambda/edits (depends on framework/core + lang/lambda/proj + lambda)
   ├── lang/lambda/flat (depends on projection + incr)
+  ├── lang/json/proj (depends on framework/core + json + loom + seam + incr)
+  ├── lang/json/edits (depends on framework/core + lang/json/proj + json + editor)
   ├── projection (re-export facade: depends on framework/core + lang/lambda/proj + lang/lambda/edits)
   └── editor (depends on projection + framework/core + event-graph-walker + loom + incr)
 ```

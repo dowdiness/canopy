@@ -84,6 +84,8 @@ git commit -m "chore: update event-graph-walker submodule"
 | `dowdiness/canopy/lang/lambda/flat` | `lang/lambda/flat/` | VersionedFlatProj (incr memo wrapper) |
 | `dowdiness/canopy/lang/lambda/proj` | `lang/lambda/proj/` | FlatProj, syntax_to_proj_node, populate_token_spans |
 | `dowdiness/canopy/lang/lambda/edits` | `lang/lambda/edits/` | TreeEditOp, text edit handlers, scope, free_vars, actions |
+| `dowdiness/canopy/lang/json/proj` | `lang/json/proj/` | JSON syntax_to_proj_node, populate_token_spans, memo builder |
+| `dowdiness/canopy/lang/json/edits` | `lang/json/edits/` | JsonEditOp, edit handlers, bridge, new_json_editor |
 
 **Local module: `dowdiness/text_change`** (`lib/text-change/`) — text change utilities
 
