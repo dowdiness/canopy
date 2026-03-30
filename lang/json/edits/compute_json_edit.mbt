@@ -34,7 +34,30 @@ pub fn compute_json_edit(
 }
 
 ///|
-/// Escape a string for use as a JSON key.
+fn hex_digit(n : Int) -> String {
+  match n {
+    0 => "0"
+    1 => "1"
+    2 => "2"
+    3 => "3"
+    4 => "4"
+    5 => "5"
+    6 => "6"
+    7 => "7"
+    8 => "8"
+    9 => "9"
+    10 => "a"
+    11 => "b"
+    12 => "c"
+    13 => "d"
+    14 => "e"
+    _ => "f"
+  }
+}
+
+///|
+/// Escape a string for use as a JSON key or value.
+/// Handles all control characters per RFC 8259 §7.
 fn json_escape_key(key : String) -> String {
   let buf = StringBuilder::new()
   for ch in key {
@@ -44,7 +67,20 @@ fn json_escape_key(key : String) -> String {
       '\n' => buf.write_string("\\n")
       '\t' => buf.write_string("\\t")
       '\r' => buf.write_string("\\r")
-      _ => buf.write_char(ch)
+      '\u0008' => buf.write_string("\\b")
+      '\u000C' => buf.write_string("\\f")
+      _ =>
+        if ch.to_int() <= 0x1F {
+          // Control character U+0000–U+001F: emit \uXXXX
+          let code = ch.to_int()
+          buf.write_string("\\u")
+          buf.write_string(hex_digit(code / 0x1000 % 16))
+          buf.write_string(hex_digit(code / 0x100 % 16))
+          buf.write_string(hex_digit(code / 0x10 % 16))
+          buf.write_string(hex_digit(code % 16))
+        } else {
+          buf.write_char(ch)
+        }
     }
   }
   buf.to_string()
