@@ -281,6 +281,24 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 ---
 
+## 13. Pretty-Printer Engine
+
+**Impact:** High | **Effort:** Done (engine) / Medium (integration)
+
+- [x] **Wadler-Lindig engine** — ✅ Done (PR #106). `canopy/pretty/` with generic `Layout[A]`, suffix-aware group flattening, two renderers (`render_string`, `render_spans`), 7 property-based tests.
+  Design: `docs/plans/2026-03-31-pretty-printer-design.md`
+  Impl: `docs/plans/2026-03-31-pretty-printer-impl.md`
+- [x] **Lambda TermSym integration** — ✅ Done. `PrettyLayout` wrapper with precedence tracking in `lang/lambda/proj/pretty_layout.mbt`.
+- [x] **JSON pretty-printing** — ✅ Done. `json_to_layout` with string escaping in `lang/json/proj/pretty_layout.mbt`.
+- [ ] **Wire into REPL** — Use `render_string` in `cmd/main/` for formatted AST output.
+  Exit: REPL displays width-aware formatted expressions.
+- [ ] **Wire into web editor** — Use `render_spans` to feed annotated output to the projectional editor UI.
+  Exit: editor renders syntax-highlighted, width-aware formatted code.
+- [ ] **Πe extension** — Add `Choice` constructor and cost-factory resolver for more expressive layout decisions.
+  Exit: layout engine supports user-defined cost functions per "A Pretty Expressive Printer" (OOPSLA 2023).
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |
