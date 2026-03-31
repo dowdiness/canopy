@@ -101,7 +101,10 @@ test "render_string nested brackets" {
     content=(
       #|[
       #|  x,
-      #|  [ a, b ],
+      #|  [
+      #|    a,
+      #|    b
+      #|  ],
       #|  y
       #|]
     ),

@@ -82,5 +82,8 @@ pub fn[A] braces(doc : Layout[A]) -> Layout[A] {
 
 ///|
 pub fn[A] bracket(l : String, r : String, doc : Layout[A]) -> Layout[A] {
-  group(text(l) + nest(line() + doc) + line() + text(r))
+  match doc {
+    Empty => group(text(l) + text(r))
+    _ => group(text(l) + nest(line() + doc) + line() + text(r))
+  }
 }

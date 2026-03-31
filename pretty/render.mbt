@@ -35,7 +35,16 @@ fn[A] flat_width(layout : Layout[A]) -> Int {
 ///|
 pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
   let cmds : Array[Cmd[A]] = []
-  fn go(indent : Int, mode : Mode, column : Int, lay : Layout[A]) -> Int {
+  // suffix_fw: flat width of content that follows on the same line.
+  // Used by Group to decide Flat vs Break — the group's content plus
+  // whatever suffix shares the line must fit within the remaining width.
+  fn go(
+    indent : Int,
+    mode : Mode,
+    column : Int,
+    lay : Layout[A],
+    suffix_fw : Int,
+  ) -> Int {
     match lay {
       Empty => column
       Text(s) => {
@@ -57,25 +66,34 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
         cmds.push(CNewline(indent))
         indent
       }
-      Nest(i, doc) => go(indent + i, mode, column, doc)
+      Nest(i, doc) => go(indent + i, mode, column, doc, suffix_fw)
       Concat(l, r) => {
-        let col = go(indent, mode, column, l)
-        go(indent, mode, col, r)
+        let r_fw = flat_width(r)
+        // Left child's suffix = right child's flat width + outer suffix.
+        // If right child contains HardLine (r_fw < 0), it will break
+        // somewhere — conservatively set suffix to 0 for the left child.
+        let left_suffix = if r_fw >= 0 { r_fw + suffix_fw } else { 0 }
+        let col = go(indent, mode, column, l, left_suffix)
+        go(indent, mode, col, r, suffix_fw)
       }
       Group(doc) => {
         let fw = flat_width(doc)
-        let m = if fw >= 0 && fw <= width - column { Flat } else { Break }
-        go(indent, m, column, doc)
+        let m = if fw >= 0 && fw + suffix_fw <= width - column {
+          Flat
+        } else {
+          Break
+        }
+        go(indent, m, column, doc, suffix_fw)
       }
       Annotate(ann, doc) => {
         cmds.push(CAnnStart(ann))
-        let col = go(indent, mode, column, doc)
+        let col = go(indent, mode, column, doc, suffix_fw)
         cmds.push(CAnnEnd(ann))
         col
       }
     }
   }
 
-  let _ = go(0, Break, 0, layout)
+  let _ = go(0, Break, 0, layout, 0)
   cmds
 }
