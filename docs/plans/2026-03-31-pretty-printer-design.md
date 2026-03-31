@@ -95,24 +95,31 @@ pub enum Layout[A] {
   Concat(Layout[A], Layout[A])
   Group(Layout[A])        // try flat, fall back to broken
   Annotate(A, Layout[A])  // attach metadata to a subtree
+} derive(Show, Eq)
+
+// Rendering mode — used internally by the layout algorithm
+priv enum Mode {
+  Flat    // inside a group that fits — Line becomes space
+  Break   // normal mode — Line becomes newline + indent
 }
 
 // Annotation for editor rendering
-pub struct Ann {
+// pub(all) so lang packages can construct Ann values directly
+pub(all) struct Ann {
   category : SyntaxCategory
-  node_id : @core.NodeId?
-}
+  node_id : @core.NodeId?       // @core = dowdiness/canopy/framework/core
+} derive(Show, Eq)
 
 pub enum SyntaxCategory {
   Keyword; Identifier; Number; StringLit
   Operator; Punctuation; Comment; Error
-}
+} derive(Show, Eq)
 
 // Span in rendered output
-pub struct Span {
+pub(all) struct Span {
   start : Int
   end : Int
-}
+} derive(Show, Eq)
 
 // Intermediate command stream
 pub enum Cmd[A] {
@@ -120,6 +127,15 @@ pub enum Cmd[A] {
   CNewline(Int)       // newline + indent spaces
   CAnnStart(A)
   CAnnEnd(A)
+} derive(Show, Eq)
+```
+
+The `moon.pkg.json` for `canopy/pretty/` imports framework/core as `@core`:
+```json
+{
+  "import": [
+    { "path": "dowdiness/canopy/framework/core", "alias": "core" }
+  ]
 }
 ```
 
@@ -128,9 +144,9 @@ pub enum Cmd[A] {
 ```moonbit
 pub fn text[A](s : String) -> Layout[A]
 pub fn char[A](c : Char) -> Layout[A]
-pub let line : Layout[_]                      // space or newline
-pub let hardline : Layout[_]                  // always newline
-pub let softline : Layout[_]                  // empty or newline
+pub fn line[A]() -> Layout[A]                 // space or newline
+pub fn hardline[A]() -> Layout[A]             // always newline
+pub fn softline[A]() -> Layout[A]             // empty or newline (= group(line()))
 pub fn nest[A](indent~ : Int = 2, doc : Layout[A]) -> Layout[A]
 pub fn group[A](doc : Layout[A]) -> Layout[A]
 pub fn concat[A](l : Layout[A], r : Layout[A]) -> Layout[A]
@@ -151,7 +167,8 @@ Two-pass architecture:
 2. `cmds -> String` or `cmds -> Array[(Span, A)]` — output formatting
 
 ```moonbit
-// Layout resolution: recursive tree traversal, column-threaded
+// Layout resolution: recursive tree traversal, column-threaded.
+// Mode (Flat/Break) is defined in Core Types above.
 pub fn resolve[A](width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
   let cmds : Array[Cmd[A]] = []
   fn go(indent : Int, mode : Mode, column : Int, lay : Layout[A]) -> Int {
@@ -225,6 +242,15 @@ to thread offset as a functional loop variable.
 
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.Ann]
+}
+
+// Convenience constructors for Ann (using pub(all) struct fields)
+fn ann_plain(category : @pretty.SyntaxCategory) -> @pretty.Ann {
+  { category, node_id: None }
+}
+
+fn ann_node(category : @pretty.SyntaxCategory, id : @core.NodeId) -> @pretty.Ann {
+  { category, node_id: Some(id) }
 }
 
 // Helper functions for annotated text fragments
@@ -308,8 +334,9 @@ cd loom/examples/lambda && moon test
 
 ## Risks
 
-- **MoonBit closure semantics**: local `fn go(...)` capturing `Array` —
-  verify mutable reference capture works correctly in practice
+- **MoonBit closure semantics**: local `fn go(...)` capturing `Array` (a
+  reference type) — verify this works correctly in practice. If not,
+  thread `cmds` as a parameter or use a top-level private function
 - **`flat_width` performance**: recursive traversal on every `Group` node.
   If profiling shows this is hot, add pre-computed `Requirement` caching
   (as in Yoorkin/prettyprinter). Benchmark first.
