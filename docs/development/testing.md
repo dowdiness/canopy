@@ -76,7 +76,7 @@ test "property: commutativity" @qc(100) {
 
 **Examples in codebase:**
 - Version vectors have 25 property tests with 100 test cases each
-- See `causal_graph/version_vector_properties_test.mbt`
+- See `event-graph-walker/` submodule for property test examples (e.g., version vector properties)
 
 ### 3. Unit Tests
 
@@ -319,4 +319,4 @@ git diff *.mbti
 
 - [MoonBit Testing Guide](https://docs.moonbitlang.com/testing)
 - Parser edge cases: `loom/examples/lambda/`
-- QuickCheck properties: `causal_graph/version_vector_properties_test.mbt`
+- QuickCheck properties: `event-graph-walker/` submodule (version vector properties, CRDT convergence)

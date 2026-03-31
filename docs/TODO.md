@@ -173,7 +173,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ### Diff logic triplication
 
-- [x] **Consolidate prefix/suffix diff** — Already resolved: `projection/text_lens.mbt` was removed (only `text_lens_regression_wbtest.mbt` remains for regression tests). Both `set_text_and_record` and `compute_edit` now delegate to the shared `@text_change.compute_text_change()` in `lib/text-change/`. The remaining `compute_text_edits` in `editor/text_diff.mbt` is a separate LCS-based multi-edit diff for batch remote merges — not a duplicate.
+- [x] **Consolidate prefix/suffix diff** — Already resolved: `projection/text_lens.mbt` was removed. Both `set_text_and_record` and `compute_edit` now delegate to the shared `@text_change.compute_text_change()` in `lib/text-change/`. The remaining `compute_text_edits` in `editor/text_diff.mbt` is a separate LCS-based multi-edit diff for batch remote merges — not a duplicate.
 
 ### TextInput path efficiency
 

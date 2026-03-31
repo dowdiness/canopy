@@ -50,21 +50,14 @@ The parser lives in `loom/examples/lambda/`. The framework is in `loom/loom/`. W
 The CRDT implementation is split across two modules:
 
 **Core CRDT library (`event-graph-walker/`):**
-- `causal_graph/graph.mbt` - Core graph operations
-- `causal_graph/walker.mbt` - Topological traversal (eg-walker)
-- `causal_graph/version_vector.mbt` - Version vector implementation
-- `oplog/oplog.mbt` - Operation storage and retrieval
-- `fugue/tree.mbt` - Sequence CRDT implementation
-- `branch/branch.mbt` - Branch system
-- `branch/branch_merge.mbt` - Merge operations
-- `document/document.mbt` - Document model
+Causal graph (graph ops, eg-walker traversal, version vectors), operation log,
+FugueMax sequence CRDT, branch system with merge, and document model.
+See `event-graph-walker/README.md` for the full package map.
 
 **Application layer (crdt module):**
-- `editor/editor.mbt` - Basic editor with cursor tracking
 - `editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
 - `editor/text_diff.mbt` - Text diffing utilities
 - `lib/text-change/` - Shared leaf contiguous text-change module
-- `text_change/` - Root compatibility adapter over the shared leaf
 
 The shared `lib/text-change/` module is monorepo-local for now. Standalone
 packaging for submodules that consume it is a follow-up after the API shape
@@ -106,7 +99,7 @@ Only create commits when requested by the user. When asked to commit:
 3. Add relevant files to staging area
 4. Create commit with message ending in:
    ```
-   Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+   Co-Authored-By: Claude <model> <noreply@anthropic.com>
    ```
 5. Run `git status` after commit to verify
 
