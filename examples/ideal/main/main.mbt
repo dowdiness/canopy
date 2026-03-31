@@ -524,15 +524,20 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             next_timestamp: model.next_timestamp + 1,
           })
           // Relocate selection to where FocusHint placed the text cursor
-          let new_selected : String? = match new_model.editor.get_source_map().innermost_node_at(
+          let (new_selected, outline_state) = match new_model.editor.get_source_map().innermost_node_at(
             new_model.editor.get_cursor(),
           ) {
-            Some(nid) => Some(node_id_to_string(nid))
-            None => None
+            Some(nid) => {
+              let os = new_model.outline_state.apply_edit(
+                @lambda_edits.Select(node_id=nid),
+              )
+              (Some(node_id_to_string(nid)), os)
+            }
+            None => (None, new_model.outline_state)
           }
           let text = new_model.editor.get_text()
           let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
-          (cmd, { ..new_model, selected_node: new_selected })
+          (cmd, { ..new_model, selected_node: new_selected, outline_state })
         }
         Err(_) => (none, model)
       }

@@ -198,8 +198,13 @@ fn view_action_overlay(
         let key = kb.key()
         if key == "Escape" {
           dispatch(CloseActionOverlay)
-        } else {
+        } else if key.length() == 1 {
+          // Only forward single-char keys (mnemonics & digit choices).
+          // Ignore navigation keys (ArrowUp, Tab, Enter, etc.) that would
+          // incorrectly close submenus.
           dispatch(ActionKeyPressed(key))
+        } else {
+          @rabbita.none
         }
       },
       attrs=@html.Attrs::build()
