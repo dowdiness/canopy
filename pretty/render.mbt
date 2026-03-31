@@ -2,7 +2,7 @@
 priv enum Mode {
   Flat
   Break
-} derive(Show, Eq)
+}
 
 ///|
 pub enum Cmd[A] {

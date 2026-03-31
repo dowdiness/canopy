@@ -14,14 +14,18 @@ fn escape_json_string(s : String) -> String {
       '\r' => buf.write_string("\\r")
       '\t' => buf.write_string("\\t")
       '\b' => buf.write_string("\\b")
-      '\x0C' => buf.write_string("\\f")
+      '\u000C' => buf.write_string("\\f")
       ch => {
         let code = ch.to_uint()
         if code < 0x20 {
           let hex = b"0123456789abcdef"
           buf.write_string("\\u00")
-          buf.write_char(Char::from_int(hex[(code >> 4).to_int()].to_int()))
-          buf.write_char(Char::from_int(hex[(code & 0xf).to_int()].to_int()))
+          buf.write_char(
+            hex[(code >> 4).reinterpret_as_int()].to_int().unsafe_to_char(),
+          )
+          buf.write_char(
+            hex[(code & 0xf).reinterpret_as_int()].to_int().unsafe_to_char(),
+          )
         } else {
           buf.write_char(ch)
         }
