@@ -651,11 +651,15 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         None => model.outline_state
       }
-      let scroll_cmd = @rabbita_cmd.raw_effect(
-        fn(_) { js_scroll_outline_to_selected() },
-        kind=@rabbita_cmd.after_render,
-      )
-      (scroll_cmd, { ..model, selected_node: new_selected, outline_state })
+      let cmd = match new_selected {
+        Some(_) =>
+          @rabbita_cmd.raw_effect(
+            fn(_) { js_scroll_outline_to_selected() },
+            kind=@rabbita_cmd.after_render,
+          )
+        None => none
+      }
+      (cmd, { ..model, selected_node: new_selected, outline_state })
     }
     OutlineStructuralEdit(tree_op) =>
       match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
