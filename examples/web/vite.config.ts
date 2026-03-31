@@ -26,7 +26,13 @@ export default defineConfig({
     }
   },
   build: {
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        json: 'json.html',
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['*.wasm', '@moonbit/crdt', '@moonbit/graphviz']
