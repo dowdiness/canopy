@@ -167,7 +167,9 @@ test "SyncEditor: merge invalidates AST cache" {
   try! se2.insert("y")
   try! se1.apply_sync(try! se2.export_all())
   let _ast2 = se1.get_ast()
-  inspect(se1.get_text(), content="xy")
+  inspect(se1.get_text(), content=(
+    #|yx
+  ))
 }
 
 ///|
@@ -294,14 +296,16 @@ test "SyncEditor: local edits and undo keep peer cursors in sync" {
   )
   local_editor.move_cursor(0)
   try! local_editor.insert_and_record("X", 1000)
-  // NOTE: "abcdX" not "Xabcd" — set_text creates a batch range-edit whose
-  // FugueMax tree has no interleaving points. insert_and_record at position 0
-  // resolves to the end of the batch. resolve_applied_edit compensates so
-  // the peer cursor stays at 3 (the insert is effectively an append).
-  inspect(local_editor.get_text(), content="abcdX")
+  // Insert at position 0 correctly places X before "abcd" per Fugue
+  // Algorithm 1 (left child of rightOrigin). Peer cursor shifts to 4.
+  inspect(local_editor.get_text(), content=(
+    #|Xabcd
+  ))
   inspect(
     local_editor.get_peer_cursors().get("remote-user").unwrap().adjusted_cursor,
-    content="3",
+    content=(
+      #|4
+    ),
   )
   inspect(local_editor.undo(), content="true")
   inspect(local_editor.get_text(), content="abcd")
@@ -325,12 +329,15 @@ test "SyncEditor: remote sync tracks actual merged text positions" {
   remote.move_cursor(remote.get_text().length())
   try! remote.insert("Y")
   try! viewer.apply_sync(try! remote.export_all())
-  // "abcdXY" not "XabcdY" — same FugueMax batch-insert caveat as above:
-  // insert at position 0 after set_text resolves to the end of the batch.
-  inspect(viewer.get_text(), content="abcdXY")
+  // X at position 0 (before "abcd"), Y appended at end → "XabcdY"
+  inspect(viewer.get_text(), content=(
+    #|XabcdY
+  ))
   inspect(
     viewer.get_peer_cursors().get("peer-b").unwrap().adjusted_cursor,
-    content="1",
+    content=(
+      #|2
+    ),
   )
 }
 
