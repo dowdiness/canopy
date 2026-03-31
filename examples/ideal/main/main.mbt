@@ -492,6 +492,84 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let cmd = @rabbita.effect(fn() { js_set_editor_selected_node(node_id) })
       (cmd, { ..model, selected_node: Some(node_id) })
     }
+    OutlineNavigate(node_id_str) => {
+      // Update selection without touching editor focus — outline keeps keyboard focus
+      let new_selected : String? = if node_id_str == "" {
+        None
+      } else {
+        Some(node_id_str)
+      }
+      let outline_state = match new_selected {
+        Some(s) => {
+          let nid_int = @strconv.parse_int(s) catch { _ => return (none, model) }
+          let nid = @proj.NodeId::from_int(nid_int)
+          model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
+        }
+        None => model.outline_state
+      }
+      let scroll_cmd = @rabbita_cmd.raw_effect(
+        fn(_) { js_scroll_outline_to_selected() },
+        kind=@rabbita_cmd.after_render,
+      )
+      (scroll_cmd, { ..model, selected_node: new_selected, outline_state })
+    }
+    OutlineStructuralEdit(tree_op) =>
+      match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
+        Ok(_) => {
+          let new_model = refresh({
+            ..model,
+            next_timestamp: model.next_timestamp + 1,
+          })
+          // Relocate selection to where FocusHint placed the text cursor
+          let new_selected : String? = match new_model.editor.get_source_map().innermost_node_at(
+            new_model.editor.get_cursor(),
+          ) {
+            Some(nid) => Some(nid.0.to_string())
+            None => None
+          }
+          let text = new_model.editor.get_text()
+          let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+          (cmd, { ..new_model, selected_node: new_selected })
+        }
+        Err(_) => (none, model)
+      }
+    OpenActionOverlayFromOutline => {
+      let node_id_str = match model.selected_node {
+        Some(s) => s
+        None => return (none, model)
+      }
+      let ctx = match detect_action_context(model.editor, node_id_str) {
+        Some(c) => c
+        None => return (none, model)
+      }
+      let proj_ctx = to_proj_context(ctx)
+      let actions = @proj.get_actions_for_node(ctx.kind, proj_ctx)
+      if actions.is_empty() {
+        return (none, model)
+      }
+      let rect_json = js_get_outline_selected_rect()
+      let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
+      js_set_overlay_open(true)
+      let new_model = {
+        ..model,
+        overlay: {
+          visible: true,
+          actions,
+          node_context: Some(ctx),
+          submenu: None,
+          pending_action: None,
+          name_value: "",
+          name_error: "",
+          anchor_top,
+          anchor_left,
+        },
+      }
+      let focus_cmd = @rabbita_cmd.raw_effect(
+        fn(_) { js_focus_outline_overlay() },
+        kind=@rabbita_cmd.after_render,
+      )
+      (focus_cmd, new_model)
+    }
     SyncStatusChanged(status) => {
       let resolved = if status == "" { js_take_sync_status() } else { status }
       let sync_status : SyncStatus = match resolved {
@@ -528,8 +606,8 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       js_set_overlay_open(false)
       (none, { ..model, overlay: closed_overlay() })
     }
-    ActionKeyPressed(_key_arg) => {
-      let key = js_take_action_key()
+    ActionKeyPressed(key_arg) => {
+      let key = if key_arg != "" { key_arg } else { js_take_action_key() }
       if key == "" {
         return (none, model)
       }

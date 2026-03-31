@@ -192,4 +192,31 @@ extern "js" fn js_get_viewport_size() -> String =
   #|   return JSON.stringify({ width: window.innerWidth, height: window.innerHeight });
   #| }
 
+///|
+/// Get bounding rect of the selected outline row for overlay anchoring.
+extern "js" fn js_get_outline_selected_rect() -> String =
+  #| function() {
+  #|   var sel = document.querySelector('.outline-panel .tree-row.selected');
+  #|   if (!sel) return '{}';
+  #|   var r = sel.getBoundingClientRect();
+  #|   return JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), bottom: Math.round(r.bottom), right: Math.round(r.right) });
+  #| }
+
+///|
+/// Scroll the selected outline row into view.
+extern "js" fn js_scroll_outline_to_selected() -> Unit =
+  #| function() {
+  #|   var sel = document.querySelector('.outline-panel .tree-row.selected');
+  #|   if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  #| }
+
+///|
+/// Focus the action overlay panel in the page DOM (not shadow DOM).
+/// Used when overlay is opened from outline keyboard context.
+extern "js" fn js_focus_outline_overlay() -> Unit =
+  #| function() {
+  #|   var panel = document.querySelector('.action-overlay-panel');
+  #|   if (panel) panel.focus();
+  #| }
+
 // Note: editor event wiring is done in main.ts wireEditorEvents() — not here.

@@ -194,6 +194,14 @@ fn view_action_overlay(
     // Overlay panel — receives focus on open via after_render in main.mbt
     @html.div(
       class="action-overlay-panel",
+      on_keydown=fn(kb : @html.Keyboard) {
+        let key = kb.key()
+        if key == "Escape" {
+          dispatch(CloseActionOverlay)
+        } else {
+          dispatch(ActionKeyPressed(key))
+        }
+      },
       attrs=@html.Attrs::build()
         .role("menu")
         .aria_label("Structural editing actions")

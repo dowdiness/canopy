@@ -90,13 +90,109 @@ fn view_outline_node(
 }
 
 ///|
-/// Render outline tree content (without wrapper — wrapper is in view()).
+/// Compute structural navigation from the current selection.
+fn navigate_outline(
+  model : Model,
+  direction : @zipper.Direction,
+) -> String? {
+  let node_id_str = match model.selected_node {
+    Some(s) => s
+    None => return None
+  }
+  let n = @strconv.parse_int(node_id_str) catch { _ => return None }
+  let node_id = @proj.NodeId::from_int(n)
+  let proj_root = match model.editor.get_proj_node() {
+    Some(p) => p
+    None => return None
+  }
+  let term = model.editor.get_ast()
+  match @zipper.navigate(node_id, direction, term, proj_root) {
+    Some(new_id) => Some(new_id.0.to_string())
+    None => None
+  }
+}
+
+///|
+/// Get the NodeId of the currently selected outline node.
+fn get_selected_node_id(model : Model) -> @proj.NodeId? {
+  let s = match model.selected_node {
+    Some(s) => s
+    None => return None
+  }
+  let n = @strconv.parse_int(s) catch { _ => return None }
+  Some(@proj.NodeId::from_int(n))
+}
+
+///|
+/// Render outline tree content with keyboard navigation.
 fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+  let handle_keydown = fn(kb : @html.Keyboard) {
+    let key = kb.key()
+    match key {
+      "ArrowUp" =>
+        match navigate_outline(model, @zipper.Direction::Up) {
+          Some(id) => dispatch(OutlineNavigate(id))
+          None => @rabbita.none
+        }
+      "ArrowDown" =>
+        match navigate_outline(model, @zipper.Direction::Down) {
+          Some(id) => dispatch(OutlineNavigate(id))
+          None => @rabbita.none
+        }
+      "ArrowLeft" =>
+        match navigate_outline(model, @zipper.Direction::Left) {
+          Some(id) => dispatch(OutlineNavigate(id))
+          None => @rabbita.none
+        }
+      "ArrowRight" =>
+        match navigate_outline(model, @zipper.Direction::Right) {
+          Some(id) => dispatch(OutlineNavigate(id))
+          None => @rabbita.none
+        }
+      "Enter" =>
+        match get_selected_node_id(model) {
+          Some(nid) => {
+            let op = if model.outline_state.collapsed_nodes.contains(nid) {
+              @lambda_edits.Expand(node_id=nid)
+            } else {
+              @lambda_edits.Collapse(node_id=nid)
+            }
+            dispatch(TreeEdited(op))
+          }
+          None => @rabbita.none
+        }
+      "Delete" | "Backspace" =>
+        match get_selected_node_id(model) {
+          Some(nid) =>
+            dispatch(
+              OutlineStructuralEdit(
+                @zipper.to_tree_edit_op(nid, @zipper.EditAction::Delete),
+              ),
+            )
+          None => @rabbita.none
+        }
+      "." =>
+        match model.selected_node {
+          Some(_) => dispatch(OpenActionOverlayFromOutline)
+          None => @rabbita.none
+        }
+      "Escape" =>
+        if model.overlay.visible {
+          dispatch(CloseActionOverlay)
+        } else {
+          dispatch(OutlineNavigate(""))
+        }
+      _ => @rabbita.none
+    }
+  }
   match model.outline_state.tree {
     Some(root) =>
-      div(class="tree-rows", [
-        view_outline_node(dispatch, root, 0, model.selected_node),
-      ])
+      div(
+        class="tree-rows",
+        on_keydown=handle_keydown,
+        attrs=@html.Attrs::build().tabindex(0),
+        [view_outline_node(dispatch, root, 0, model.selected_node)],
+      )
     None => @html.p(class="no-tree-note", "No AST available")
   }
 }

@@ -16,6 +16,12 @@ pub enum Msg {
   DismissPanels
   LoadExample(String)
   OutlineNodeClicked(String)
+  // Keyboard navigation in outline — updates selection without stealing editor focus
+  OutlineNavigate(String)
+  // Keyboard structural edit in outline — CRDT round-trip
+  OutlineStructuralEdit(@lambda_edits.TreeEditOp)
+  // Open action overlay anchored to outline row, node from model.selected_node
+  OpenActionOverlayFromOutline
   // Sync
   TextChangedFromEditor
   SyncStatusChanged(String)
