@@ -3,6 +3,7 @@ package "dowdiness/canopy/lang/json/proj"
 
 import {
   "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/pretty",
   "dowdiness/incr/cells",
   "dowdiness/json",
   "dowdiness/loom/incremental",
@@ -12,6 +13,8 @@ import {
 
 // Values
 pub fn build_json_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@json.JsonValue]) -> (@cells.Memo[@core.ProjNode[@json.JsonValue]?], @cells.Memo[Map[@core.NodeId, @core.ProjNode[@json.JsonValue]]], @cells.Memo[@core.SourceMap])
+
+pub fn json_to_layout(@json.JsonValue) -> @pretty.Layout[@pretty.Ann]
 
 pub fn key_role(Int) -> String
 
