@@ -80,9 +80,13 @@ When adding features, consult:
 cd examples/web
 npm install
 npm run dev        # Start development server (http://localhost:5173)
-npm run build      # Build for production
+npm run build      # Build for production (multi-page: index.html + json.html)
 npm run preview    # Preview production build
 ```
+
+Two editor pages are available:
+- **Lambda editor:** `http://localhost:5173/` — lambda calculus with AST visualization
+- **JSON editor:** `http://localhost:5173/json.html` — structural JSON editing with tree view
 
 ### Updating Web JavaScript
 

@@ -57,6 +57,8 @@ moon check                          # Lint
 ### Web Development
 ```bash
 cd examples/web && npm run dev      # Dev server (localhost:5173)
+# Lambda editor: http://localhost:5173/
+# JSON editor:   http://localhost:5173/json.html
 moon build --target js              # Build for web
 ```
 
@@ -91,7 +93,7 @@ git commit -m "chore: update event-graph-walker submodule"
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `dowdiness/canopy` | `./` | Root: JS FFI entry, exports all public functions to JS |
+| `dowdiness/canopy` | `./` | Root: JS FFI entry (`crdt.mbt` lambda, `crdt_json.mbt` JSON), exports all public functions to JS |
 | `dowdiness/canopy/framework/core` | `framework/core/` | Generic types: NodeId, ProjNode[T], SourceMap, reconcile, helpers |
 | `dowdiness/canopy/editor` | `editor/` | SyncEditor, EphemeralHub, cursor/presence tracking, undo |
 | `dowdiness/canopy/projection` | `projection/` | Re-export facade + TreeEditorState, tree refresh, tree editor ops |
