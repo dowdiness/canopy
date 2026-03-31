@@ -26,6 +26,9 @@
     },
     "dowdiness/order-tree": {
       "path": "./order-tree"
+    },
+    "dowdiness/pretty": {
+      "path": "./loom/pretty"
     }
   },
   "readme": "README.mbt.md",

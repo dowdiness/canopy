@@ -3,7 +3,6 @@ package "dowdiness/canopy/lang/lambda/proj"
 
 import {
   "dowdiness/canopy/framework/core",
-  "dowdiness/canopy/pretty",
   "dowdiness/lambda/ast",
   "dowdiness/seam",
   "moonbitlang/core/ref",
@@ -39,12 +38,6 @@ pub fn FlatProj::empty() -> Self
 pub fn FlatProj::from_proj_node(@core.ProjNode[@ast.Term]) -> Self
 pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
 pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @core.ProjNode[@ast.Term]
-
-pub struct PrettyLayout {
-  layout : @pretty.Layout[@pretty.Ann]
-  prec : Int
-}
-pub impl @ast.TermSym for PrettyLayout
 
 // Type aliases
 

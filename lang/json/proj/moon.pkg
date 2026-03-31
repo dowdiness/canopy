@@ -1,6 +1,5 @@
 import {
   "dowdiness/canopy/framework/core" @core,
-  "dowdiness/canopy/pretty" @pretty,
   "dowdiness/incr" @incr,
   "dowdiness/json" @json,
   "dowdiness/loom" @loom,
