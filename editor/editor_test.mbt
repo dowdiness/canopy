@@ -40,9 +40,12 @@ test "move cursor" {
   editor.move_cursor(0)
   inspect(editor.get_cursor(), content="0")
   try! editor.insert("X")
-  inspect(editor.get_text(), content=(
-    #|XHello
-  ))
+  inspect(
+    editor.get_text(),
+    content=(
+      #|XHello
+    ),
+  )
 }
 
 ///|

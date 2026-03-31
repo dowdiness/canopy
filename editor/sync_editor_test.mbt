@@ -167,9 +167,12 @@ test "SyncEditor: merge invalidates AST cache" {
   try! se2.insert("y")
   try! se1.apply_sync(try! se2.export_all())
   let _ast2 = se1.get_ast()
-  inspect(se1.get_text(), content=(
-    #|yx
-  ))
+  inspect(
+    se1.get_text(),
+    content=(
+      #|yx
+    ),
+  )
 }
 
 ///|
@@ -298,9 +301,12 @@ test "SyncEditor: local edits and undo keep peer cursors in sync" {
   try! local_editor.insert_and_record("X", 1000)
   // Insert at position 0 correctly places X before "abcd" per Fugue
   // Algorithm 1 (left child of rightOrigin). Peer cursor shifts to 4.
-  inspect(local_editor.get_text(), content=(
-    #|Xabcd
-  ))
+  inspect(
+    local_editor.get_text(),
+    content=(
+      #|Xabcd
+    ),
+  )
   inspect(
     local_editor.get_peer_cursors().get("remote-user").unwrap().adjusted_cursor,
     content=(
@@ -330,9 +336,12 @@ test "SyncEditor: remote sync tracks actual merged text positions" {
   try! remote.insert("Y")
   try! viewer.apply_sync(try! remote.export_all())
   // X at position 0 (before "abcd"), Y appended at end → "XabcdY"
-  inspect(viewer.get_text(), content=(
-    #|XabcdY
-  ))
+  inspect(
+    viewer.get_text(),
+    content=(
+      #|XabcdY
+    ),
+  )
   inspect(
     viewer.get_peer_cursors().get("peer-b").unwrap().adjusted_cursor,
     content=(
