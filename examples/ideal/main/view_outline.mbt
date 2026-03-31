@@ -107,7 +107,7 @@ fn navigate_outline(
   }
   let term = model.editor.get_ast()
   match @zipper.navigate(node_id, direction, term, proj_root) {
-    Some(new_id) => Some(new_id.0.to_string())
+    Some(new_id) => Some(node_id_to_string(new_id))
     None => None
   }
 }
