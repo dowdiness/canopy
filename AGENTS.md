@@ -18,6 +18,22 @@ Canopy — incremental projectional editor with CRDT collaboration, built in Moo
 - For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
 - Error handling syntax: use `Unit!Error` or `T!Error` for fallible return types. Error propagation uses `!` suffix on calls, not `raise` keyword. Always verify MoonBit syntax against recent compiler behavior before committing.
 
+## MoonBit Code Search
+
+Prefer `moon ide` over grep/glob for MoonBit-specific code search. These commands use the compiler's semantic understanding, not text matching.
+
+```bash
+moon ide peek-def SyncEditor              # Go-to-definition with context
+moon ide peek-def -loc editor/foo.mbt:5   # Definition at cursor position
+moon ide find-references SyncEditor       # All usages across codebase
+moon ide outline editor/                  # Package structure overview
+moon ide doc "String::*rev*"              # API discovery with wildcards
+```
+
+Symbol syntax: `Symbol`, `@pkg.Symbol`, `Type::method`, `@pkg.Type::method`
+
+When to use: finding definitions, tracing usages, understanding package APIs, discovering methods. Falls back to grep only for non-MoonBit files or cross-language patterns.
+
 ## Quick Commands
 
 ### Setup (after clone)
