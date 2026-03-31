@@ -1,3 +1,4 @@
 import {
   "dowdiness/canopy/framework/core" @core,
+  "moonbitlang/quickcheck" @qc,
 }
