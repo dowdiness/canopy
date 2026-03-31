@@ -11,6 +11,7 @@ release/
 .env
 _build
 *.db
+.wrangler/
 
 .playwright-mcp/
 examples/demo-react/playwright-report/
