@@ -30,7 +30,7 @@ fn wrap_if_needed(
   ctx_prec : Int,
 ) -> @pretty.Layout[@pretty.Ann] {
   if child.prec < ctx_prec {
-    @pretty.parens(child.layout)
+    punc("(") + child.layout + punc(")")
   } else {
     child.layout
   }

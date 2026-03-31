@@ -121,3 +121,19 @@ test "resolve group with suffix fits exactly" {
     content="[CText(\"a\"), CText(\" \"), CText(\"b\"), CText(\"c\")]",
   )
 }
+
+///|
+/// Group considers prefix of suffix before HardLine.
+/// group("a b") + "long" + hardline means suffix prefix = 4, not 0.
+test "resolve group considers suffix before hardline" {
+  let doc : Layout[Unit] = group(text("a") + line() + text("b")) +
+    text("long") +
+    hardline() +
+    text("next")
+  // flat_width(group) = 3, prefix_flat_width of suffix = 4 ("long"),
+  // total = 3 + 4 = 7, width = 6: 7 > 6 → Break
+  inspect(
+    resolve(6, doc),
+    content="[CText(\"a\"), CNewline(0), CText(\"b\"), CText(\"long\"), CNewline(0), CText(\"next\")]",
+  )
+}

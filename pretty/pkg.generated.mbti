@@ -50,7 +50,7 @@ pub(all) struct Ann {
   node_id : @core.NodeId?
 } derive(Eq, Show)
 
-pub enum Cmd[A] {
+pub(all) enum Cmd[A] {
   CText(String)
   CNewline(Int)
   CAnnStart(A)

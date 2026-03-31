@@ -5,12 +5,47 @@ priv enum Mode {
 }
 
 ///|
-pub enum Cmd[A] {
+pub(all) enum Cmd[A] {
   CText(String)
   CNewline(Int)
   CAnnStart(A)
   CAnnEnd(A)
 } derive(Show, Eq)
+
+///|
+/// Flat width of content before the first HardLine.
+/// If no HardLine exists, returns the full flat_width.
+fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
+  match layout {
+    Empty => 0
+    Text(s) => s.length()
+    Line => 1
+    HardLine => 0
+    Nest(_, doc) => prefix_flat_width(doc)
+    Concat(l, r) => {
+      let lw = prefix_flat_width(l)
+      if has_hardline_prefix(l) {
+        lw
+      } else {
+        lw + prefix_flat_width(r)
+      }
+    }
+    Group(doc) => flat_width(doc) // Group flattens if it fits — use full width
+    Annotate(_, doc) => prefix_flat_width(doc)
+  }
+}
+
+///|
+fn[A] has_hardline_prefix(layout : Layout[A]) -> Bool {
+  match layout {
+    Empty | Text(_) | Line => false
+    HardLine => true
+    Nest(_, doc) => has_hardline_prefix(doc)
+    Concat(l, _) => has_hardline_prefix(l)
+    Group(_) => false // Group absorbs its content
+    Annotate(_, doc) => has_hardline_prefix(doc)
+  }
+}
 
 ///|
 fn[A] flat_width(layout : Layout[A]) -> Int {
@@ -69,10 +104,11 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
       Nest(i, doc) => go(indent + i, mode, column, doc, suffix_fw)
       Concat(l, r) => {
         let r_fw = flat_width(r)
-        // Left child's suffix = right child's flat width + outer suffix.
-        // If right child contains HardLine (r_fw < 0), it will break
-        // somewhere — conservatively set suffix to 0 for the left child.
-        let left_suffix = if r_fw >= 0 { r_fw + suffix_fw } else { 0 }
+        let left_suffix = if r_fw >= 0 {
+          r_fw + suffix_fw
+        } else {
+          prefix_flat_width(r) + suffix_fw
+        }
         let col = go(indent, mode, column, l, left_suffix)
         go(indent, mode, col, r, suffix_fw)
       }

@@ -36,6 +36,16 @@ fn escape_json_string(s : String) -> String {
 }
 
 ///|
+
+///|
+fn json_punc(s : String) -> @pretty.Layout[@pretty.Ann] {
+  @pretty.annotate(
+    json_ann(@pretty.SyntaxCategory::Punctuation),
+    @pretty.text(s),
+  )
+}
+
+///|
 pub fn json_to_layout(value : @json.JsonValue) -> @pretty.Layout[@pretty.Ann] {
   match value {
     @json.JsonValue::Null =>
@@ -65,18 +75,18 @@ pub fn json_to_layout(value : @json.JsonValue) -> @pretty.Layout[@pretty.Ann] {
         json_ann(@pretty.SyntaxCategory::StringLit),
         @pretty.text("\"" + escape_json_string(s) + "\""),
       )
-    @json.JsonValue::Array([]) => @pretty.text("[]")
+    @json.JsonValue::Array([]) => json_punc("[]")
     @json.JsonValue::Array(elems) => {
       let items = elems.map(json_to_layout)
-      let sep = @pretty.text(",") + @pretty.line()
+      let sep = json_punc(",") + @pretty.line()
       @pretty.group(
-        @pretty.text("[") +
+        json_punc("[") +
         @pretty.nest(@pretty.softline() + @pretty.separate(sep, items)) +
         @pretty.softline() +
-        @pretty.text("]"),
+        json_punc("]"),
       )
     }
-    @json.JsonValue::Object([]) => @pretty.text("{}")
+    @json.JsonValue::Object([]) => json_punc("{}")
     @json.JsonValue::Object(pairs) => {
       let entries = pairs.map(fn(pair) {
         let (key, val) = pair
@@ -84,16 +94,16 @@ pub fn json_to_layout(value : @json.JsonValue) -> @pretty.Layout[@pretty.Ann] {
           json_ann(@pretty.SyntaxCategory::StringLit),
           @pretty.text("\"" + escape_json_string(key) + "\""),
         ) +
-        @pretty.text(":") +
+        json_punc(":") +
         @pretty.text(" ") +
         json_to_layout(val)
       })
-      let sep = @pretty.text(",") + @pretty.line()
+      let sep = json_punc(",") + @pretty.line()
       @pretty.group(
-        @pretty.text("{") +
+        json_punc("{") +
         @pretty.nest(@pretty.softline() + @pretty.separate(sep, entries)) +
         @pretty.softline() +
-        @pretty.text("}"),
+        json_punc("}"),
       )
     }
     @json.JsonValue::Error(msg) =>
