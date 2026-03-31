@@ -24,7 +24,7 @@ pub fn[A] softline() -> Layout[A] {
 }
 
 ///|
-pub fn[A] nest(layout : Layout[A], indent~ : Int = 2) -> Layout[A] {
+pub fn[A] nest(layout : Layout[A], indent? : Int = 2) -> Layout[A] {
   Nest(indent, layout)
 }
 

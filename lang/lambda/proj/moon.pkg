@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/framework/core" @core,
+  "dowdiness/canopy/pretty" @pretty,
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/lambda/syntax" @syntax,

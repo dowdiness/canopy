@@ -1,5 +1,5 @@
 ///|
-pub enum SyntaxCategory {
+pub(all) enum SyntaxCategory {
   Keyword
   Identifier
   Number

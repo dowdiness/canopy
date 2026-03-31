@@ -1,5 +1,5 @@
 ///|
-pub fn[A] render_string(layout : Layout[A], width~ : Int = 80) -> String {
+pub fn[A] render_string(layout : Layout[A], width? : Int = 80) -> String {
   let buf = StringBuilder::new()
   for cmd in resolve(width, layout) {
     match cmd {
