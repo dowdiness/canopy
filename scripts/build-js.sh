@@ -17,9 +17,9 @@ echo "Building graphviz JavaScript artifacts..."
 )
 
 EXPECTED_ARTIFACTS=(
-    "_build/js/release/build/canopy.js"
-    "_build/js/release/build/canopy.d.ts"
-    "_build/js/release/build/moonbit.d.ts"
+    "_build/js/release/build/ffi/ffi.js"
+    "_build/js/release/build/ffi/ffi.d.ts"
+    "_build/js/release/build/ffi/moonbit.d.ts"
     "graphviz/_build/js/release/build/browser/browser.js"
     "graphviz/_build/js/release/build/browser/browser.d.ts"
 )

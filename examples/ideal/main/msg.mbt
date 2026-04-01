@@ -10,7 +10,7 @@ pub enum Msg {
   Undo
   Redo
   // Tree editing (outline collapse/expand)
-  TreeEdited(@proj.TreeEditOp)
+  TreeEdited(@lambda_edits.TreeEditOp)
   // UI
   DismissPanels
   LoadExample(String)

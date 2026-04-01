@@ -1,6 +1,6 @@
 ///|
 /// Group label for each ActionGroup.
-fn group_label(group : @proj.ActionGroup) -> String {
+fn group_label(group : @lambda_edits.ActionGroup) -> String {
   match group {
     Core => "Core"
     Wrap => "Wrap"
@@ -13,7 +13,7 @@ fn group_label(group : @proj.ActionGroup) -> String {
 /// Render a single action row with mnemonic badge and label.
 fn view_action_item(
   dispatch : @rabbita.Dispatch[Msg],
-  action : @proj.Action,
+  action : @lambda_edits.Action,
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"
   let item_class = if is_danger {
@@ -36,10 +36,10 @@ fn view_action_item(
 /// Render the main action list grouped by Core / Wrap / Binding / Module.
 fn view_action_list(
   dispatch : @rabbita.Dispatch[Msg],
-  actions : Array[@proj.Action],
+  actions : Array[@lambda_edits.Action],
 ) -> @rabbita.Html {
   let items : Array[@rabbita.Html] = []
-  let mut current_group : @proj.ActionGroup? = None
+  let mut current_group : @lambda_edits.ActionGroup? = None
   actions.each(fn(action) {
     let need_header = match current_group {
       None => true
@@ -121,7 +121,7 @@ fn view_name_prompt(
 /// Render submenu choices (e.g., Plus/Minus for change_op, left/right for unwrap).
 fn view_submenu_choices(
   dispatch : @rabbita.Dispatch[Msg],
-  action : @proj.Action,
+  action : @lambda_edits.Action,
   kind : @ast.Term,
 ) -> @rabbita.Html {
   let choices = get_submenu_choices(action.id, kind)

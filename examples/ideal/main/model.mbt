@@ -37,10 +37,10 @@ pub enum SyncStatus {
 ///|
 struct OverlayState {
   visible : Bool
-  actions : Array[@proj.Action]
+  actions : Array[@lambda_edits.Action]
   node_context : NodeActionContext?
-  submenu : @proj.Action?
-  pending_action : @proj.Action?
+  submenu : @lambda_edits.Action?
+  pending_action : @lambda_edits.Action?
   name_value : String
   name_error : String
   anchor_top : Int

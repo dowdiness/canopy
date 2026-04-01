@@ -6,7 +6,7 @@
     "strict": true,
     "types": ["@cloudflare/workers-types"],
     "paths": {
-      "../../../_build/js/release/build/canopy.js": ["../../_build/js/release/build/canopy.d.ts"]
+      "../../../_build/js/release/build/ffi/ffi.js": ["../../_build/js/release/build/ffi/ffi.d.ts"]
     }
   },
   "include": ["src/**/*.ts"]

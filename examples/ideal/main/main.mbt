@@ -13,8 +13,8 @@ fn init_model() -> Model {
   let agent_id = if agent_id == "" { "local" } else { agent_id }
   // Create the editor through the crdt module so it sets the singleton (editor.val).
   // JS (main.ts) will reuse handle=1 instead of creating a second editor.
-  let _handle = @crdt.create_editor_with_undo(agent_id, 500)
-  let editor = @crdt.get_sync_editor().unwrap()
+  let _handle = @ffi.create_editor_with_undo(agent_id, 500)
+  let editor = @ffi.get_sync_editor().unwrap()
   let init_text = "let id = \\x.x\nlet apply = \\f.\\x.f x\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
@@ -186,7 +186,7 @@ fn apply_structural_edit_request(
     _ => return (none, model)
   }
   let nid = @proj.NodeId::from_int(node_id_int)
-  let tree_op : @proj.TreeEditOp = match op {
+  let tree_op : @lambda_edits.TreeEditOp = match op {
     "WrapInLambda" => @lambda_edits.WrapInLambda(node_id=nid, var_name="x")
     "Delete" => @lambda_edits.Delete(node_id=nid)
     _ => return (none, model)
@@ -297,7 +297,7 @@ fn open_action_overlay(
     None => return model
   }
   let proj_ctx = to_proj_context(ctx)
-  let actions = @proj.get_actions_for_node(ctx.kind, proj_ctx)
+  let actions = @lambda_edits.get_actions_for_node(ctx.kind, proj_ctx)
   if actions.is_empty() {
     return model
   }
@@ -324,7 +324,7 @@ fn open_action_overlay(
 /// Returns (Cmd, Model) after execution.
 fn execute_action(
   model : Model,
-  action : @proj.Action,
+  action : @lambda_edits.Action,
   choice : String,
   name : String,
 ) -> (Cmd, Model) {
@@ -370,7 +370,7 @@ fn execute_action(
 ///|
 /// Dispatch an action immediately, open a submenu for choice-based actions,
 /// or open the name prompt for input-requiring actions.
-fn dispatch_or_prompt(model : Model, action : @proj.Action) -> (Cmd, Model) {
+fn dispatch_or_prompt(model : Model, action : @lambda_edits.Action) -> (Cmd, Model) {
   if action.needs_input {
     let overlay = {
       ..model.overlay,

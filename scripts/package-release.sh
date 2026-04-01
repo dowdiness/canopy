@@ -17,9 +17,9 @@ mkdir -p "$RELEASE_DIR"
 
 tar -czf "$RELEASE_DIR/canopy-moonbit-${VERSION}.tar.gz" \
     -C "$PROJECT_ROOT" \
-    _build/js/release/build/canopy.js \
-    _build/js/release/build/canopy.d.ts \
-    _build/js/release/build/moonbit.d.ts \
+    _build/js/release/build/ffi/ffi.js \
+    _build/js/release/build/ffi/ffi.d.ts \
+    _build/js/release/build/ffi/moonbit.d.ts \
     moon.mod.json \
     moon.pkg \
     README.md \

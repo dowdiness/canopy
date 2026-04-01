@@ -48,7 +48,7 @@ export interface MoonBitPluginOptions {
  *     {
  *       name: '@moonbit/crdt',
  *       path: '..',
- *       output: '_build/js/release/build/canopy.js'
+ *       output: '_build/js/release/build/ffi/ffi.js'
  *     },
  *     {
  *       name: '@moonbit/graphviz',

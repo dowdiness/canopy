@@ -22,7 +22,7 @@ fn detect_action_context(
   }
   // Check if this node is a let-binding init expression
   let (is_let_binding, binding_node_id, binding_def_index) = match
-    @proj.find_binding_for_init(nid, flat_proj) {
+    @lambda_edits.find_binding_for_init(nid, flat_proj) {
     Some((bid, idx)) => (true, Some(bid), Some(idx))
     None => (false, None, None)
   }
@@ -46,8 +46,8 @@ fn detect_action_context(
 }
 
 ///|
-/// Convert a NodeActionContext to a @proj.NodeContext for action filtering.
-fn to_proj_context(ctx : NodeActionContext) -> @proj.NodeContext {
+/// Convert a NodeActionContext to a @lambda_edits.NodeContext for action filtering.
+fn to_proj_context(ctx : NodeActionContext) -> @lambda_edits.NodeContext {
   match
     (
       ctx.is_let_binding,
@@ -56,12 +56,12 @@ fn to_proj_context(ctx : NodeActionContext) -> @proj.NodeContext {
       ctx.module_node_id,
     ) {
     (true, Some(bid), Some(idx), Some(mid)) =>
-      @proj.NodeContext::new_binding(
+      @lambda_edits.NodeContext::new_binding(
         binding_node_id=bid,
         binding_def_index=idx,
         module_node_id=mid,
       )
-    _ => @proj.NodeContext::new()
+    _ => @lambda_edits.NodeContext::new()
   }
 }
 
@@ -111,7 +111,7 @@ fn build_tree_edit_op(
   ctx : NodeActionContext,
   choice : String,
   name : String,
-) -> Result[@proj.TreeEditOp?, String] {
+) -> Result[@lambda_edits.TreeEditOp?, String] {
   let node_id = ctx.node_id
   match action_id {
     "delete" => Ok(Some(@lambda_edits.Delete(node_id~)))

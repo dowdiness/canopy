@@ -6,7 +6,7 @@ This document describes how to integrate the MoonBit CRDT editor into a JavaScri
 
 The browser integration uses the generated JavaScript build, not WebAssembly. The `crdt.mbt` file defines the JavaScript FFI exposed through the JS build output.
 
-The canonical browser example lives under `examples/web/`, where the Vite plugin exposes `_build/js/release/build/canopy.js` as the virtual module `@moonbit/crdt`.
+The canonical browser example lives under `examples/web/`, where the Vite plugin exposes `_build/js/release/build/ffi/ffi.js` as the virtual module `@moonbit/crdt`.
 
 ### Loading the JavaScript Module
 

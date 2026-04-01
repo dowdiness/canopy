@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 
 // Check if the MoonBit build output exists
-const moonbitBuildPath = path.resolve(__dirname, '../../_build/js/release/build/canopy.js');
+const moonbitBuildPath = path.resolve(__dirname, '../../_build/js/release/build/ffi/ffi.js');
 const hasMoonbitBuild = fs.existsSync(moonbitBuildPath);
 
 if (!hasMoonbitBuild) {

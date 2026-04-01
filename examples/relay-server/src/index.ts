@@ -13,7 +13,7 @@ export interface Env {
 let relay: any = null;
 async function loadRelay() {
   if (relay) return relay;
-  relay = await import("../../../_build/js/release/build/canopy.js");
+  relay = await import("../../../_build/js/release/build/ffi/ffi.js");
   return relay;
 }
 

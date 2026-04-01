@@ -17,7 +17,7 @@ enum Msg {
   ToggleDiagnostics
   TextInput(String)
   RefreshProjection
-  TreeEdited(@proj.TreeEditOp)
+  TreeEdited(@lambda_edits.TreeEditOp)
 }
 
 ///|
@@ -158,7 +158,7 @@ fn refresh(model : Model) -> Model {
 let deferred_refresh_ms = 16
 
 ///|
-fn is_ui_only_tree_edit(op : @proj.TreeEditOp) -> Bool {
+fn is_ui_only_tree_edit(op : @lambda_edits.TreeEditOp) -> Bool {
   match op {
     @lambda_edits.Select(..)
     | @lambda_edits.SelectRange(..)

@@ -8,7 +8,7 @@ export default defineConfig({
         {
           name: '@moonbit/canopy',
           path: '../..',
-          output: '_build/js/release/build/canopy.js'
+          output: '_build/js/release/build/ffi/ffi.js'
         }
       ]
     }) as PluginOption

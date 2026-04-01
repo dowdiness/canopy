@@ -19,7 +19,7 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@moonbit/crdt": ["../../_build/js/release/build/canopy.js"]
+      "@moonbit/crdt": ["../../_build/js/release/build/ffi/ffi.js"]
     }
   },
   "include": ["src"]
