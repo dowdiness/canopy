@@ -33,7 +33,7 @@ pub enum Msg {
   NamePromptCancel
   LongPressTriggered
   // Protocol-based editor communication (Phase 4)
-  // Replaces TextChangedFromEditor, StructuralEditRequested, NodeSelected globals
+  // Replaces TextChangedFromEditor and NodeSelected (removed)
   EditorTextChanged
   EditorNodeSelected(String)
   EditorStructuralEdit(op~ : String, node_id~ : String)

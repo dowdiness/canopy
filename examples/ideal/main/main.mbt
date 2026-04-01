@@ -3,7 +3,7 @@ using @html {button, div, p, span, text}
 
 ///|
 using @rabbita {type Cmd, type Dispatch, type Html, none}
-// delay removed — outline refreshes immediately on TextChangedFromEditor
+// delay removed — outline refreshes immediately on EditorTextChanged
 
 ///|
 fn init_model() -> Model {
@@ -734,12 +734,11 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, model)
       } else {
         // The edit was already applied by TS calling handle_structural_intent FFI.
-        // Just refresh the model.
         let new_model = refresh({
           ..model,
           next_timestamp: model.next_timestamp + 1,
         })
-        (none, new_model)
+        (graphviz_render_cmd(new_model), new_model)
       }
     }
   }

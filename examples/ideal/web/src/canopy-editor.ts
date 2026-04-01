@@ -231,7 +231,7 @@ export class CanopyEditor extends HTMLElement {
             // Count changes to detect multi-change transactions
             let changeCount = 0;
             update.changes.iterChanges(() => { changeCount++; });
-            if (this.crdt.handle_text_intent && changeCount === 1) {
+            if (changeCount === 1) {
               // Single change: use incremental intent (avoids O(n) diff)
               update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
                 this.crdt!.handle_text_intent(
