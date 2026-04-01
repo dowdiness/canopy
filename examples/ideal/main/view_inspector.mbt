@@ -87,13 +87,14 @@ fn view_node_details(
     inspector_row("Children", children_count(node).to_string()),
     inspector_row("ID", node_id_to_string(node.id)),
   ]
+  let source = model.editor.get_text()
+  let source_len = source.length()
   let range_start = node.text_range.start
   let range_end = node.text_range.end
   // Zero-length ranges come from error recovery or synthetic nodes
   if range_start != range_end {
     items.push(inspector_row("Range", "\{range_start}..\{range_end}"))
-    let source = model.editor.get_text()
-    let clamped_end = range_end.min(source.length())
+    let clamped_end = range_end.min(source_len)
     if clamped_end > range_start {
       let slice = source.substring(start=range_start, end=clamped_end)
       let preview = if slice.length() > 120 {
@@ -106,8 +107,6 @@ fn view_node_details(
   }
   let token_spans = model.editor.get_source_map().get_all_token_spans(node.id)
   if token_spans.length() > 0 {
-    let source = model.editor.get_text()
-    let source_len = source.length()
     for pair in token_spans {
       let role = pair.0
       let span_range = pair.1
