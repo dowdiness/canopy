@@ -83,6 +83,8 @@ pub fn[T] SourceMap::remove_subtree(
 
 ///|
 /// Add entries for a ProjNode subtree to the source map.
+/// Clears any stale token_spans for patched nodes — call
+/// populate_token_spans() afterward to repopulate them.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
 pub fn[T] SourceMap::patch_subtree(
@@ -91,6 +93,7 @@ pub fn[T] SourceMap::patch_subtree(
 ) -> Unit {
   let node_id = NodeId::from_int(node.node_id)
   self.node_to_range[node_id] = Range::new(node.start, node.end)
+  self.token_spans.remove(node_id)
   for child in node.children {
     self.patch_subtree(child)
   }
@@ -170,44 +173,55 @@ pub fn SourceMap::nodes_in_range(
 }
 
 ///|
-/// Update positions after a text deletion
-/// Shifts all positions after the deleted range backward
+/// Shift a range by `delta` using the same deletion semantics as node ranges.
+fn shift_range(
+  r : Range,
+  edit_start : Int,
+  old_end : Int,
+  delta : Int,
+) -> Range {
+  if r.end <= edit_start {
+    r
+  } else if r.start >= old_end {
+    Range::new(r.start - delta, r.end - delta)
+  } else {
+    let new_end = if r.end <= old_end { r.end } else { r.end - delta }
+    Range::new(r.start, new_end)
+  }
+}
+
+///|
+/// Update positions after a text deletion.
+/// Shifts all node ranges and token spans after the deleted range backward.
 pub fn SourceMap::apply_edit(
   self : SourceMap,
   edit_start : Int,
   old_range : Range,
 ) -> Unit {
   let delta = old_range.length()
+  let old_end = old_range.end
 
-  // Update all ranges
+  // Update node ranges
   let updated : Map[NodeId, Range] = {}
   for node_id, node_range in self.node_to_range {
-    let new_range = if node_range.end <= edit_start {
-      // Before edit - unchanged
-      node_range
-    } else if node_range.start >= old_range.end {
-      // After deleted range - shift backward by delta
-      Range::new(node_range.start - delta, node_range.end - delta)
-    } else {
-      // Overlaps with edit - complex case
-      // Adjust positions based on overlap
-      let new_start = node_range.start
-      let new_end = if node_range.end <= old_range.end {
-        node_range.end
-      } else {
-        // End extends past deleted range - shift backward
-        node_range.end - delta
-      }
-      Range::new(new_start, new_end)
-    }
-    updated[node_id] = new_range
+    updated[node_id] = shift_range(node_range, edit_start, old_end, delta)
   }
-
-  // Replace the map
   self.node_to_range.clear()
   for k, v in updated {
     self.node_to_range[k] = v
   }
+
+  // Shift token spans by the same delta
+  for _node_id, roles in self.token_spans {
+    let shifted : Array[(String, Range)] = []
+    for role, span in roles {
+      shifted.push((role, shift_range(span, edit_start, old_end, delta)))
+    }
+    for pair in shifted {
+      roles[pair.0] = pair.1
+    }
+  }
+
   self.rebuild_ranges()
 }
 
