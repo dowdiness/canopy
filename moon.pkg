@@ -8,6 +8,7 @@ import {
   "dowdiness/event-graph-walker/text",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
 }
 
 options(

@@ -1,10 +1,6 @@
 // Protocol-based intent handlers.
-// These provide typed entry points for the EditorProtocol, replacing
-// the global-state bridge pattern (globals + hidden button clicks).
 
 ///|
-/// Apply a text edit intent directly to the editor.
-/// Uses apply_text_edit which records for undo and updates the parser.
 pub fn handle_text_intent(
   handle : Int,
   from : Int,
@@ -19,35 +15,27 @@ pub fn handle_text_intent(
 }
 
 ///|
-/// Undo on the MoonBit editor directly.
-/// Returns true if undo was performed.
 pub fn handle_undo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.undo()
-    None => false
-  }
+  undo_manager_undo(handle)
 }
 
 ///|
-/// Redo on the MoonBit editor directly.
-/// Returns true if redo was performed.
 pub fn handle_redo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.redo()
-    None => false
-  }
+  undo_manager_redo(handle)
 }
 
 ///|
-/// Apply a structural edit intent.
-/// Delegates to apply_tree_edit_json for JSON-based op dispatch.
-/// Returns "ok" on success, or an error message on failure.
 pub fn handle_structural_intent(
   handle : Int,
   op : String,
   node_id_str : String,
   timestamp_ms : Int,
 ) -> String {
-  let op_json = "{\"type\":\"\{op}\",\"node_id\":\{node_id_str}}"
-  apply_tree_edit_json(handle, op_json, timestamp_ms)
+  let m : Map[String, Json] = {}
+  m["type"] = op.to_json()
+  let node_id_int = @string.parse_int(node_id_str) catch {
+    _ => return "error: invalid node_id"
+  }
+  m["node_id"] = node_id_int.to_json()
+  apply_tree_edit_json(handle, Json::object(m).stringify(), timestamp_ms)
 }

@@ -473,12 +473,14 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         _ => (none, model)
       }
     Undo => {
-      // Protocol path: undo directly on MoonBit editor
       let did_undo = model.editor.undo()
       if did_undo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+        let cmd = @rabbita.batch([
+          @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
+          graphviz_render_cmd(new_model),
+        ])
         (cmd, new_model)
       } else {
         (none, model)
@@ -489,7 +491,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if did_redo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+        let cmd = @rabbita.batch([
+          @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
+          graphviz_render_cmd(new_model),
+        ])
         (cmd, new_model)
       } else {
         (none, model)
@@ -586,13 +591,6 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         _ => model.sync_status
       }
       (none, { ..model, sync_status, })
-    }
-    TextChangedFromEditor => {
-      // model.editor IS the crdt singleton — text is already updated by CM6.
-      // Refresh the outline immediately. The projection memo system handles
-      // incremental recomputation efficiently, so debouncing is unnecessary.
-      let new_model = refresh(model)
-      (graphviz_render_cmd(new_model), new_model)
     }
     OpenActionOverlay | LongPressTriggered => {
       let node_id_str = js_take_action_overlay_node()

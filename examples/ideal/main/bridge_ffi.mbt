@@ -8,7 +8,7 @@ extern "js" fn js_get_agent_id() -> String =
 
 ///|
 /// Sync MoonBit editor text to the JS-side CRDT editor, then reconcile PM.
-/// Called after undo/redo/load-example to keep the two editors in sync.
+/// Called after load-example to keep the two editors in sync.
 extern "js" fn js_reconcile_editor_with_text(new_text : String) -> Unit =
   #| function(new_text) {
   #|   var crdt = globalThis.__canopy_crdt;
@@ -21,14 +21,24 @@ extern "js" fn js_reconcile_editor_with_text(new_text : String) -> Unit =
   #|     } else {
   #|       crdt.set_text(handle, new_text);
   #|     }
-  #|     if (el && typeof el.notifyLocalChange === 'function') {
-  #|       el.notifyLocalChange();
-  #|     }
   #|   }
   #|   if (!el) return;
-  #|   // Trigger projNode setter which syncs CM6 in text mode
-  #|   // and reconciles PM in structure mode
   #|   el.projNode = '';
+  #| }
+
+///|
+/// Sync CM6, broadcast to peers, always notify local change.
+/// Used by undo/redo where the CRDT text is already correct.
+extern "js" fn js_sync_and_broadcast(_new_text : String) -> Unit =
+  #| function() {
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (!el) return;
+  #|   if (typeof el.syncAfterExternalChange === 'function') {
+  #|     el.syncAfterExternalChange();
+  #|   }
+  #|   if (typeof el.notifyLocalChange === 'function') {
+  #|     el.notifyLocalChange();
+  #|   }
   #| }
 
 ///|

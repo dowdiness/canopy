@@ -228,8 +228,11 @@ export class CanopyEditor extends HTMLElement {
           CmView.updateListener.of(update => {
             if (this.updating || !update.docChanged || !this.crdt || this.crdtHandle === null) return;
             const ts = Date.now();
-            // Apply each change incrementally via handle_text_intent
-            if (this.crdt.handle_text_intent) {
+            // Count changes to detect multi-change transactions
+            let changeCount = 0;
+            update.changes.iterChanges(() => { changeCount++; });
+            if (this.crdt.handle_text_intent && changeCount === 1) {
+              // Single change: use incremental intent (avoids O(n) diff)
               update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
                 this.crdt!.handle_text_intent(
                   this.crdtHandle!,
@@ -240,7 +243,8 @@ export class CanopyEditor extends HTMLElement {
                 );
               });
             } else {
-              // Fallback for older CRDT modules without handle_text_intent
+              // Multi-change (find-replace, multi-cursor) or fallback:
+              // use set_text_and_record which diffs correctly
               const newText = update.state.doc.toString();
               if (this.crdt.set_text_and_record) {
                 this.crdt.set_text_and_record(this.crdtHandle, newText, ts);

@@ -23,7 +23,6 @@ pub enum Msg {
   // Open action overlay anchored to outline row, node from model.selected_node
   OpenActionOverlayFromOutline
   // Sync
-  TextChangedFromEditor
   SyncStatusChanged(String)
   // Action overlay
   OpenActionOverlay
