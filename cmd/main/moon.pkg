@@ -1,6 +1,9 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/lambda" @parser,
+  "dowdiness/pretty" @pretty,
+  "moonbitlang/core/debug",
 }
 
 options(

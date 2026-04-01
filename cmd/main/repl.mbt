@@ -28,6 +28,8 @@ fn print_help() -> Unit {
   println("  move <pos>        - Move cursor to position")
   println("  show              - Display current text and cursor")
   println("  frontier          - Show current frontier")
+  println("  pretty (p)        - Pretty-print the AST")
+  println("  ast (a)           - Show debug AST representation")
   println("  ops               - Show all operations")
   println("  help              - Show this help message")
   println("  quit              - Exit the REPL")
@@ -56,6 +58,22 @@ fn show_state(state : ReplState) -> Unit {
   }
   println(cursor_line)
   println("Cursor: \{cursor}")
+}
+
+///|
+/// Parse editor text and pass the AST to a callback.
+fn with_parsed_ast(state : ReplState, f : (@parser.Term) -> Unit) -> Unit {
+  let text = state.editor.get_text()
+  if text.length() == 0 {
+    println("(empty)")
+  } else {
+    try {
+      let ast = @parser.parse(text)
+      f(ast)
+    } catch {
+      err => println("Parse error: \{err}")
+    }
+  }
 }
 
 ///|
@@ -88,6 +106,16 @@ fn execute_command(state : ReplState, line : String) -> Bool {
   }
   if command == "show" || command == "s" {
     show_state(state)
+    return true
+  }
+  if command == "pretty" || command == "p" {
+    with_parsed_ast(state, fn(ast) {
+      println(@pretty.pretty_print(ast, width=60))
+    })
+    return true
+  }
+  if command == "ast" || command == "a" {
+    with_parsed_ast(state, fn(ast) { println(@debug.to_string(ast)) })
     return true
   }
   if command == "insert" || command == "i" {
