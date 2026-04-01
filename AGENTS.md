@@ -210,6 +210,21 @@ Before starting medium or large work:
 
 ## MoonBit Conventions
 
+- **Custom constructors for structs:** When defining public structs, declare a custom constructor via `fn new(...)` inside the struct body. This enables `StructName(args)` construction syntax with labelled/optional parameters, validation, and defaults. Prefer this over bare struct literals `{ field: value }`.
+  ```moonbit
+  struct MyStruct {
+    x : Int
+    y : Int
+
+    fn new(x~ : Int, y? : Int) -> MyStruct  // declaration inside struct
+  } derive(Show)
+
+  fn MyStruct::new(x~ : Int, y? : Int = x) -> MyStruct {  // implementation
+    { x, y }
+  }
+
+  let s = MyStruct(x=1)  // usage — like enum constructors
+  ```
 - **Block-style:** Code organized in `///|` separated blocks
 - **Testing:** Use `inspect` for snapshots, `@qc` for properties
 - **Files:** `*_test.mbt` (blackbox), `*_wbtest.mbt` (whitebox), `*_benchmark.mbt`
