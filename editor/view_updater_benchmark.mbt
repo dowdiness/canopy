@@ -1,6 +1,5 @@
-// ViewNode serialization benchmark — Phase 0 spike.
-// Validates that JSON serialization of a realistic ViewNode tree
-// (100 lambda defs, ~1000 nodes) round-trips under 1ms.
+// ViewNode serialization benchmark — validates JSON transport performance.
+// Realistic ViewNode tree (100+ lambda defs) round-trip under 1ms.
 
 ///|
 fn bench_source(let_count : Int) -> String {
@@ -13,12 +12,12 @@ fn bench_source(let_count : Int) -> String {
 }
 
 ///|
-fn bench_setup(let_count : Int) -> ViewNode {
-  let editor = @editor.SyncEditor::new_lambda("bench")
+fn bench_setup(let_count : Int) -> @protocol.ViewNode {
+  let editor = SyncEditor::new_lambda("bench")
   editor.set_text(bench_source(let_count))
   let proj_node = editor.get_proj_node().unwrap()
   let source_map = editor.get_source_map()
-  proj_to_view_node(proj_node, source_map)
+  @protocol.proj_to_view_node(proj_node, source_map)
 }
 
 ///|
@@ -51,5 +50,19 @@ test "viewnode serialization (500 defs)" (b : @bench.T) {
   b.bench(fn() {
     let json = view_node.to_json()
     b.keep(json.stringify())
+  })
+}
+
+///|
+test "compute_view_patches (100 defs, single edit)" (b : @bench.T) {
+  let editor = SyncEditor::new_lambda("bench")
+  editor.set_text(bench_source(100))
+  let state = ViewUpdateState::new()
+  // Initial full tree
+  let _ = compute_view_patches(state, editor)
+  // Benchmark: single character edit + patch computation
+  b.bench(fn() {
+    editor.set_text(bench_source(100))
+    b.keep(compute_view_patches(state, editor))
   })
 }

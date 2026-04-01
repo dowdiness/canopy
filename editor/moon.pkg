@@ -10,6 +10,7 @@ import {
   "dowdiness/seam",
   "dowdiness/pretty" @pretty,
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/framework/protocol" @protocol,
   "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
   "moonbitlang/core/bench",
   "moonbitlang/core/debug",

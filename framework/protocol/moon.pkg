@@ -1,8 +1,5 @@
 import {
   "dowdiness/canopy/framework/core" @core,
   "dowdiness/loom/core" @loomcore,
-  "dowdiness/lambda/ast",
-  "dowdiness/canopy/editor",
-  "moonbitlang/core/bench",
   "moonbitlang/core/json",
 }

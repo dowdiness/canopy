@@ -1,12 +1,39 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy/framework/protocol"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
 pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/framework/core.ProjNode[T], @dowdiness/canopy/framework/core.SourceMap) -> ViewNode
 
 // Errors
 
 // Types and methods
+pub(all) struct Decoration {
+  from : Int
+  to : Int
+  css_class : String
+  data : String?
+  widget : Bool
+
+  fn new(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Decoration
+} derive(Eq, Show)
+pub fn Decoration::new(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Self
+pub impl ToJson for Decoration
+
+pub(all) struct Diagnostic {
+  from : Int
+  to : Int
+  severity : String
+  message : String
+
+  fn new(from~ : Int, to~ : Int, severity~ : String, message~ : String) -> Diagnostic
+} derive(Eq, Show)
+pub fn Diagnostic::new(from~ : Int, to~ : Int, severity~ : String, message~ : String) -> Self
+pub impl ToJson for Diagnostic
+
 pub(all) struct TokenSpan {
   role : String
   start : Int
@@ -16,6 +43,18 @@ pub(all) struct TokenSpan {
 } derive(Eq, Show)
 pub fn TokenSpan::new(role~ : String, start~ : Int, end~ : Int) -> Self
 pub impl ToJson for TokenSpan
+
+pub(all) enum UserIntent {
+  TextEdit(from~ : Int, to~ : Int, insert~ : String)
+  StructuralEdit(node_id~ : @dowdiness/canopy/framework/core.NodeId, op~ : String, params~ : Map[String, String])
+  SelectNode(node_id~ : @dowdiness/canopy/framework/core.NodeId)
+  SetCursor(position~ : Int)
+  Undo
+  Redo
+  CommitEdit(node_id~ : @dowdiness/canopy/framework/core.NodeId, value~ : String)
+} derive(Eq, Show)
+pub impl ToJson for UserIntent
+pub impl @json.FromJson for UserIntent
 
 pub(all) struct ViewNode {
   id : @dowdiness/canopy/framework/core.NodeId
@@ -33,6 +72,20 @@ pub(all) struct ViewNode {
 pub fn ViewNode::new(id~ : @dowdiness/canopy/framework/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self]) -> Self
 pub fn ViewNode::node_count(Self) -> Int
 pub impl ToJson for ViewNode
+
+pub(all) enum ViewPatch {
+  TextChange(from~ : Int, to~ : Int, insert~ : String)
+  ReplaceNode(node_id~ : @dowdiness/canopy/framework/core.NodeId, node~ : ViewNode)
+  InsertChild(parent_id~ : @dowdiness/canopy/framework/core.NodeId, index~ : Int, child~ : ViewNode)
+  RemoveChild(parent_id~ : @dowdiness/canopy/framework/core.NodeId, index~ : Int, child_id~ : @dowdiness/canopy/framework/core.NodeId)
+  UpdateNode(node_id~ : @dowdiness/canopy/framework/core.NodeId, label~ : String, css_class~ : String, text~ : String?)
+  SetDecorations(decorations~ : Array[Decoration])
+  SetDiagnostics(diagnostics~ : Array[Diagnostic])
+  SetSelection(anchor~ : Int, head~ : Int)
+  SelectNode(node_id~ : @dowdiness/canopy/framework/core.NodeId)
+  FullTree(root~ : ViewNode?)
+} derive(Eq, Show)
+pub impl ToJson for ViewPatch
 
 // Type aliases
 
