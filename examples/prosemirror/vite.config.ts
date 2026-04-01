@@ -13,9 +13,25 @@ export default defineConfig({
       ]
     }) as PluginOption
   ],
+  resolve: {
+    // Ensure packages imported by lib/editor-adapter/ (which lives
+    // outside this project's node_modules tree) resolve from here.
+    dedupe: [
+      'prosemirror-commands',
+      'prosemirror-keymap',
+      'prosemirror-model',
+      'prosemirror-state',
+      'prosemirror-transform',
+      'prosemirror-view',
+      '@codemirror/commands',
+      '@codemirror/language',
+      '@codemirror/state',
+      '@codemirror/view',
+    ],
+  },
   server: {
     fs: {
-      // Allow reading MoonBit build output from the monorepo root
+      // Allow reading MoonBit build output and lib/ from the monorepo root
       allow: ['../..']
     }
   },

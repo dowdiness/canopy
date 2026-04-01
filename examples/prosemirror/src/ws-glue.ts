@@ -1,22 +1,24 @@
-// WebSocket glue — ~15 lines of irreducible event wiring.
+// WebSocket glue — irreducible event wiring for binary CRDT sync.
 // All sync logic lives in MoonBit (editor/sync_editor_ws.mbt).
 
-import type { CrdtModule } from "./bridge";
+/** Subset of the MoonBit FFI module needed for WebSocket sync. */
+interface WsCrdtModule {
+  ws_on_open(handle: number, ws: WebSocket): void;
+  ws_on_message(handle: number, data: Uint8Array): void;
+  ws_on_close(handle: number): void;
+  ws_broadcast_edit(handle: number): void;
+  ws_broadcast_cursor(handle: number): void;
+  [key: string]: any;
+}
 
 const RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
 export function connectWebSocket(
   handle: number,
-  crdt: CrdtModule & {
-    ws_on_open(handle: number, ws: WebSocket): void;
-    ws_on_message(handle: number, data: Uint8Array): void;
-    ws_on_close(handle: number): void;
-    ws_broadcast_edit(handle: number): void;
-    ws_broadcast_cursor(handle: number): void;
-  },
+  crdt: WsCrdtModule,
   url: string,
-  syncCrdtToCm: () => void,
+  onRemoteSync: () => void,
 ): { disconnect: () => void; broadcastEdit: () => void } {
   let ws: WebSocket | null = null;
   let reconnectDelay = RECONNECT_DELAY_MS;
@@ -49,8 +51,8 @@ export function connectWebSocket(
         ? new Uint8Array(e.data)
         : new TextEncoder().encode(e.data as string);
       crdt.ws_on_message(handle, data);
-      // After remote ops, sync CRDT text → CM6
-      syncCrdtToCm();
+      // After remote ops, reconcile the editor view
+      onRemoteSync();
     };
 
     ws.onclose = () => {

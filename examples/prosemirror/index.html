@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Canopy — Lambda Calculus Editor</title>
+  <title>Canopy — ProseMirror Structural Editor</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 40px; max-width: 800px; }
     h1 { font-size: 1.5em; margin-bottom: 8px; }
     .subtitle { color: #666; margin-bottom: 16px; font-size: 0.9em; }
-    #editor { border: 1px solid #ccc; border-radius: 4px; }
-    #editor .cm-editor { min-height: 200px; }
+    #editor {
+      border: 1px solid #ccc; border-radius: 4px;
+      padding: 12px; min-height: 200px;
+    }
     .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px; }
     .status.connected { background: #e6ffe6; color: #060; }
     .status.disconnected { background: #fff3e0; color: #930; }
@@ -19,11 +21,27 @@
       font-family: monospace; font-size: 13px; white-space: pre-wrap;
       color: #444; max-height: 300px; overflow-y: auto;
     }
+    /* PMAdapter generic schema styling */
+    .pm-tree-node {
+      display: inline-block;
+      padding: 2px 4px;
+      margin: 1px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+    }
+    .pm-tree-node:hover { border-color: #ddd; }
+    .pm-leaf-node {
+      display: inline;
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+    .ProseMirror { outline: none; }
+    .ProseMirror-selectednode { outline: 2px solid #8250df; }
   </style>
 </head>
 <body>
   <h1>Canopy</h1>
-  <p class="subtitle">Lambda calculus editor with CRDT collaboration</p>
+  <p class="subtitle">ProseMirror structural editor with CRDT collaboration (EditorProtocol)</p>
   <div id="status" class="status disconnected">Disconnected</div>
   <div id="editor"></div>
   <div id="debug"></div>

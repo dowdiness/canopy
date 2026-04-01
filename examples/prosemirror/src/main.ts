@@ -1,93 +1,104 @@
+// Canopy ProseMirror example — structural editor powered by EditorProtocol.
+//
+// Architecture:
+//   MoonBit CRDT ──ViewPatch──→ PMAdapter ──renders──→ ProseMirror
+//   ProseMirror ──UserIntent──→ MoonBit CRDT (via FFI)
+//
+// No local convert.ts, reconciler.ts, bridge.ts, or schema.ts needed.
+// All tree conversion and diffing happens in MoonBit; PMAdapter renders.
+
 import * as crdt from "@moonbit/canopy";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
-import { EditorState, type ChangeSet } from "@codemirror/state";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { bracketMatching } from "@codemirror/language";
+import { PMAdapter } from "../../../lib/editor-adapter";
+import type { ViewPatch, ViewNode, UserIntent } from "../../../lib/editor-adapter";
 import { connectWebSocket } from "./ws-glue";
+import { structuralKeymap } from "./keymap";
 
-// --- CRDT setup ---
-const handle = crdt.create_editor_with_undo("cm-agent", 300);
-crdt.set_text(handle, "let double = λx.x + x\ndouble 5");
+// ── CRDT setup ──────────────────────────────────────────────
 
-// --- Editor state ---
-let updating = false; // guard against feedback loops
-let broadcastEdit: (() => void) | null = null; // set after WebSocket connects
+const agentId = "pm-agent-" + Math.random().toString(36).slice(2, 8);
+const handle = crdt.create_editor_with_undo(agentId, 300);
+crdt.set_text(handle, "let double = \u03BBx.x + x\ndouble 5");
 
-// --- CodeMirror 6 editor ---
-const cmState = EditorState.create({
-  doc: crdt.get_text(handle),
-  extensions: [
-    lineNumbers(),
-    highlightActiveLine(),
-    drawSelection(),
-    bracketMatching(),
-    keymap.of([...defaultKeymap, ...historyKeymap]),
-    // Sync CM6 changes → CRDT (character-level)
-    EditorView.updateListener.of((update) => {
-      if (updating || !update.docChanged) return;
-      applyCmChangesToCrdt(update.changes);
-    }),
-    // Theme
-    EditorView.theme({
-      "&": { fontSize: "16px" },
-      ".cm-content": { fontFamily: "monospace" },
-    }),
-  ],
-});
+// ── PMAdapter setup ─────────────────────────────────────────
 
-const cmView = new EditorView({
-  state: cmState,
-  parent: document.getElementById("editor")!,
-});
+const container = document.getElementById("editor")!;
+const adapter = new PMAdapter(container);
 
-/**
- * Apply CM6 ChangeSet to the CRDT character-by-character.
- */
-function applyCmChangesToCrdt(changes: ChangeSet): void {
+// ── Intent dispatch ─────────────────────────────────────────
+
+function handleIntent(intent: UserIntent): void {
   const ts = Date.now();
-  let posOffset = 0;
 
-  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-    const deleteLen = toA - fromA;
-    // Delete in reverse order to preserve positions
-    for (let i = deleteLen - 1; i >= 0; i--) {
-      crdt.delete_at(handle, fromA + i + posOffset, ts);
+  switch (intent.type) {
+    case "TextEdit": {
+      const deleteLen = intent.to - intent.from;
+      crdt.handle_text_intent(handle, intent.from, deleteLen, intent.insert, ts);
+      break;
     }
-    posOffset -= deleteLen;
-    // Insert character-at-a-time
-    const text = inserted.toString();
-    for (let i = 0; i < text.length; i++) {
-      crdt.insert_at(handle, fromA + posOffset + i, text[i], ts);
-    }
-    posOffset += text.length;
-  });
 
-  updateDebug();
-  // Broadcast to peers after local edits
+    case "StructuralEdit": {
+      crdt.handle_structural_intent(
+        handle,
+        intent.op,
+        String(intent.node_id),
+        ts,
+      );
+      break;
+    }
+
+    case "Undo":
+      crdt.handle_undo(handle);
+      break;
+
+    case "Redo":
+      crdt.handle_redo(handle);
+      break;
+
+    case "SelectNode":
+    case "SetCursor":
+    case "CommitEdit":
+      // Selection/cursor intents — no CRDT mutation needed
+      return;
+  }
+
+  // After any CRDT mutation, compute patches and apply
+  reconcile();
+
+  // Broadcast to peers
   if (broadcastEdit) broadcastEdit();
 }
 
-/**
- * Apply CRDT text to CM6 (for remote sync).
- * Computes a minimal diff to preserve cursor/selection.
- */
-function syncCrdtToCm(): void {
-  const crdtText = crdt.get_text(handle);
-  const cmText = cmView.state.doc.toString();
-  if (crdtText === cmText) return;
+adapter.onIntent(handleIntent);
 
-  updating = true;
-  // Simple strategy: replace entire doc. CM6 handles cursor mapping.
-  cmView.dispatch({
-    changes: { from: 0, to: cmText.length, insert: crdtText },
-  });
-  updating = false;
+// ── Reconciliation ──────────────────────────────────────────
+
+function reconcile(): void {
+  const patchesJson = crdt.compute_view_patches_json(handle);
+  const patches: ViewPatch[] = JSON.parse(patchesJson);
+  if (patches.length > 0) {
+    adapter.applyPatches(patches);
+  }
   updateDebug();
 }
 
-/**
- * Update debug panel with AST info.
- */
+// ── Initial render ──────────────────────────────────────────
+
+const viewTreeJson = crdt.get_view_tree_json(handle);
+const viewTree: ViewNode | null = JSON.parse(viewTreeJson);
+adapter.applyPatches([{ type: "FullTree", root: viewTree }]);
+updateDebug();
+
+// ── Structural keymap ───────────────────────────────────────
+
+// Install the structural keymap plugin on the PM view
+const pmView = adapter.getView();
+const newState = pmView.state.reconfigure({
+  plugins: [...pmView.state.plugins, structuralKeymap(handleIntent)],
+});
+pmView.updateState(newState);
+
+// ── Debug panel ─────────────────────────────────────────────
+
 function updateDebug(): void {
   const debugEl = document.getElementById("debug");
   if (!debugEl) return;
@@ -100,26 +111,33 @@ function updateDebug(): void {
     : pretty;
 }
 
-// Initial debug render
-updateDebug();
+// ── WebSocket sync ──────────────────────────────────────────
 
-// --- WebSocket sync (binary protocol, MoonBit-driven) ---
-const WS_URL = "ws://localhost:8787?room=main&peer_id=" + encodeURIComponent("cm-agent-" + Math.random().toString(36).slice(2, 8));
-const sync = connectWebSocket(handle, crdt as any, WS_URL, syncCrdtToCm);
+let broadcastEdit: (() => void) | null = null;
+
+const WS_URL = "ws://localhost:8787?room=main&peer_id=" + encodeURIComponent(agentId);
+const sync = connectWebSocket(
+  handle,
+  crdt as any,
+  WS_URL,
+  () => {
+    // After remote ops arrive, recompute patches and apply
+    reconcile();
+  },
+);
 broadcastEdit = sync.broadcastEdit;
 
-// --- Undo/Redo via CRDT (not CM6 history) ---
-// Override Ctrl-Z / Ctrl-Shift-Z to use CRDT undo
+// ── Undo/Redo keybindings ───────────────────────────────────
+
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "z") {
     e.preventDefault();
     if (e.shiftKey) {
-      crdt.undo_manager_redo(handle);
+      handleIntent({ type: "Redo" });
     } else {
-      crdt.undo_manager_undo(handle);
+      handleIntent({ type: "Undo" });
     }
-    syncCrdtToCm();
   }
 });
 
-console.log("CodeMirror 6 editor ready. Text:", crdt.get_text(handle));
+console.log("ProseMirror structural editor ready. Text:", crdt.get_text(handle));
