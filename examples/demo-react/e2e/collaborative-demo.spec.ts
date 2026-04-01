@@ -74,8 +74,10 @@ test.describe('Collaborative Demo Mode', () => {
   test('should undo Alice changes', async ({ page }) => {
     const aliceEditor = page.getByPlaceholder("Alice's editor");
 
-    // Type two characters
+    // Type two characters with a delay exceeding the 300ms undo capture timeout
+    // so they become separate undo groups
     await aliceEditor.pressSequentially('H');
+    await page.waitForTimeout(400);
     await aliceEditor.pressSequentially('i');
     await expect(aliceEditor).toHaveValue('Hi');
 
@@ -91,8 +93,10 @@ test.describe('Collaborative Demo Mode', () => {
   test('should redo Alice changes', async ({ page }) => {
     const aliceEditor = page.getByPlaceholder("Alice's editor");
 
-    // Type character by character
+    // Type characters with a delay exceeding the 300ms undo capture timeout
+    // so they become separate undo groups
     await aliceEditor.pressSequentially('A');
+    await page.waitForTimeout(400);
     await aliceEditor.pressSequentially('B');
 
     // Undo
