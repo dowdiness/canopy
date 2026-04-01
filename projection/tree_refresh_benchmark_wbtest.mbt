@@ -23,11 +23,11 @@ fn tree_refresh_bench_setup(
 ) {
   let source_a = tree_refresh_bench_source(let_count, "0")
   let source_b = tree_refresh_bench_source(let_count, "1")
-  let (root_a, _) = parse_to_proj_node(source_a)
+  let (root_a, _) = @lambda_proj.parse_to_proj_node(source_a)
   let sm_a = SourceMap::from_ast(root_a)
   let state = TreeEditorState::from_projection(Some(root_a), sm_a)
-  let (root_b, _) = parse_to_proj_node(source_b)
-  let reconciled = reconcile_ast(root_a, root_b, Ref::new(1000))
+  let (root_b, _) = @lambda_proj.parse_to_proj_node(source_b)
+  let reconciled = @core.reconcile(root_a, root_b, Ref::new(1000))
   let sm_b = SourceMap::from_ast(reconciled)
   (state, root_a, sm_a, reconciled, sm_b)
 }

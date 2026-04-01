@@ -144,7 +144,7 @@ pub fn[T : @proj.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
   source_id : @proj.NodeId,
   target_id : @proj.NodeId,
-  position : @proj.DropPosition,
+  position : @lambda.DropPosition,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
   // Resolve source

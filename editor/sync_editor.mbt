@@ -10,7 +10,7 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]?
+  priv proj_memo : @incr.Memo[@lambda.VersionedFlatProj]?
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
@@ -33,7 +33,7 @@ fn[T] SyncEditor::new(
     @incr.Signal[@seam.SyntaxNode?],
     @loom.ImperativeParser[T],
   ) -> (
-    @incr.Memo[@lambda_flat.VersionedFlatProj],
+    @incr.Memo[@lambda.VersionedFlatProj],
     @incr.Memo[@proj.ProjNode[T]?],
     @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
     @incr.Memo[@proj.SourceMap],

@@ -1,6 +1,9 @@
 // Interactive Tree Editor: Edit operations
 
 ///|
+using @lambda_edits {type TreeEditOp}
+
+///|
 /// Apply a tree edit operation to the editor state
 pub fn[T] TreeEditorState::apply_edit(
   self : TreeEditorState[T],

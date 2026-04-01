@@ -58,7 +58,7 @@ fn require_string(
 ///   {"type": "Select", "node_id": 5}
 pub fn parse_tree_edit_op(
   json : Json,
-) -> Result[@proj.TreeEditOp, TreeEditError] {
+) -> Result[@lambda.TreeEditOp, TreeEditError] {
   let m = match json {
     Json::Object(m) => m
     _ => return Err(TreeEditError::ExpectedJsonObject)
@@ -74,7 +74,7 @@ pub fn parse_tree_edit_op(
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::Delete(node_id~))
+      Ok(@lambda.TreeEditOp::Delete(node_id~))
     }
     "WrapInLambda" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -87,35 +87,35 @@ pub fn parse_tree_edit_op(
         Some(_) =>
           return Err(TreeEditError::FieldMustBeString(field="var_name"))
       }
-      Ok(@proj.TreeEditOp::WrapInLambda(node_id~, var_name~))
+      Ok(@lambda.TreeEditOp::WrapInLambda(node_id~, var_name~))
     }
     "WrapInApp" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::WrapInApp(node_id~))
+      Ok(@lambda.TreeEditOp::WrapInApp(node_id~))
     }
     "Select" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::Select(node_id~))
+      Ok(@lambda.TreeEditOp::Select(node_id~))
     }
     "Collapse" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::Collapse(node_id~))
+      Ok(@lambda.TreeEditOp::Collapse(node_id~))
     }
     "Expand" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::Expand(node_id~))
+      Ok(@lambda.TreeEditOp::Expand(node_id~))
     }
     "Unwrap" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -129,21 +129,21 @@ pub fn parse_tree_edit_op(
         Some(_) =>
           return Err(TreeEditError::FieldMustBeNumber(field="keep_child_index"))
       }
-      Ok(@proj.TreeEditOp::Unwrap(node_id~, keep_child_index~))
+      Ok(@lambda.TreeEditOp::Unwrap(node_id~, keep_child_index~))
     }
     "SwapChildren" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::SwapChildren(node_id~))
+      Ok(@lambda.TreeEditOp::SwapChildren(node_id~))
     }
     "WrapInIf" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::WrapInIf(node_id~))
+      Ok(@lambda.TreeEditOp::WrapInIf(node_id~))
     }
     "WrapInBop" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -154,7 +154,7 @@ pub fn parse_tree_edit_op(
         Ok(bop) => bop
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::WrapInBop(node_id~, op~))
+      Ok(@lambda.TreeEditOp::WrapInBop(node_id~, op~))
     }
     "ChangeOperator" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -165,7 +165,7 @@ pub fn parse_tree_edit_op(
         Ok(bop) => bop
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::ChangeOperator(node_id~, new_op~))
+      Ok(@lambda.TreeEditOp::ChangeOperator(node_id~, new_op~))
     }
     "ExtractToLet" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -176,14 +176,14 @@ pub fn parse_tree_edit_op(
         Ok(s) => s
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::ExtractToLet(node_id~, var_name~))
+      Ok(@lambda.TreeEditOp::ExtractToLet(node_id~, var_name~))
     }
     "InlineDefinition" => {
       let node_id = match require_node_id(m, "node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::InlineDefinition(node_id~))
+      Ok(@lambda.TreeEditOp::InlineDefinition(node_id~))
     }
     "Rename" => {
       let node_id = match require_node_id(m, "node_id") {
@@ -194,49 +194,49 @@ pub fn parse_tree_edit_op(
         Ok(s) => s
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::Rename(node_id~, new_name~))
+      Ok(@lambda.TreeEditOp::Rename(node_id~, new_name~))
     }
     "DeleteBinding" => {
       let binding_node_id = match require_node_id(m, "binding_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::DeleteBinding(binding_node_id~))
+      Ok(@lambda.TreeEditOp::DeleteBinding(binding_node_id~))
     }
     "InlineAllUsages" => {
       let binding_node_id = match require_node_id(m, "binding_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::InlineAllUsages(binding_node_id~))
+      Ok(@lambda.TreeEditOp::InlineAllUsages(binding_node_id~))
     }
     "DuplicateBinding" => {
       let binding_node_id = match require_node_id(m, "binding_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::DuplicateBinding(binding_node_id~))
+      Ok(@lambda.TreeEditOp::DuplicateBinding(binding_node_id~))
     }
     "MoveBindingUp" => {
       let binding_node_id = match require_node_id(m, "binding_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::MoveBindingUp(binding_node_id~))
+      Ok(@lambda.TreeEditOp::MoveBindingUp(binding_node_id~))
     }
     "MoveBindingDown" => {
       let binding_node_id = match require_node_id(m, "binding_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::MoveBindingDown(binding_node_id~))
+      Ok(@lambda.TreeEditOp::MoveBindingDown(binding_node_id~))
     }
     "AddBinding" => {
       let module_node_id = match require_node_id(m, "module_node_id") {
         Ok(id) => id
         Err(e) => return Err(e)
       }
-      Ok(@proj.TreeEditOp::AddBinding(module_node_id~))
+      Ok(@lambda.TreeEditOp::AddBinding(module_node_id~))
     }
     _ => Err(TreeEditError::UnknownOpType(op_type~))
   }

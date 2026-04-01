@@ -3,53 +3,13 @@ package "dowdiness/canopy/projection"
 
 import {
   "dowdiness/canopy/lang/lambda/edits",
-  "dowdiness/canopy/lang/lambda/proj",
-  "dowdiness/lambda/ast",
-  "dowdiness/seam",
   "moonbitlang/core/immut/hashset",
-  "moonbitlang/core/ref",
 }
 
 // Values
-pub fn collect_lam_env(@dowdiness/canopy/core.NodeId, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
-
 pub fn[T] collect_registry(@dowdiness/canopy/core.ProjNode[T], Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]) -> Unit
 
-pub fn compute_text_edit(@edits.TreeEditOp, @edits.EditContext[@ast.Term]) -> Result[(Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint)?, String]
-
-pub fn find_binding_for_init(@dowdiness/canopy/core.NodeId, @proj.FlatProj) -> (@dowdiness/canopy/core.NodeId, Int)?
-
-pub fn find_usages(String, Int, @proj.FlatProj, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]) -> Array[@dowdiness/canopy/core.NodeId]
-
-pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
-
-pub fn get_actions_for_node(@ast.Term, @edits.NodeContext) -> Array[@edits.Action]
-
 pub fn[T : @dowdiness/loom/core.TreeNode] is_leaf_node(T) -> Bool
-
-pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String])
-
-pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
-
-pub fn print_flat_proj(@proj.FlatProj) -> String
-
-pub fn rebuild_kind(@ast.Term, Array[@dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @ast.Term
-
-pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.ProjNode[T], @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[T]
-
-pub fn reconcile_ast(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.ProjNode[@ast.Term], @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
-
-pub fn reconcile_flat_proj(@proj.FlatProj, @proj.FlatProj, @ref.Ref[Int]) -> @proj.FlatProj
-
-pub fn resolve_binder(@dowdiness/canopy/core.NodeId, String, @proj.FlatProj, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> @edits.BindingSite?
-
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
-
-pub fn to_flat_proj(@seam.SyntaxNode, @ref.Ref[Int]) -> @proj.FlatProj
-
-pub fn to_flat_proj_incremental(@seam.SyntaxNode, @seam.SyntaxNode, @proj.FlatProj, @ref.Ref[Int], changed_indices? : @ref.Ref[Array[Int]]) -> @proj.FlatProj
-
-pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 // Errors
 
@@ -92,33 +52,11 @@ pub fn[T] TreeEditorState::new() -> Self[T]
 pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
 
 // Type aliases
-pub using @edits {type Action}
-
-pub using @edits {type ActionGroup}
-
-pub using @edits {type BindingSite}
-
-pub using @edits {type DropPosition}
-
-pub using @edits {type EditContext}
-
-pub type EditResult = Result[(Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint)?, String]
-
-pub using @proj {type FlatProj}
-
-pub using @dowdiness/canopy/core {type FocusHint}
-
-pub using @edits {type NodeContext}
-
 pub using @dowdiness/canopy/core {type NodeId}
 
 pub using @dowdiness/canopy/core {type ProjNode}
 
 pub using @dowdiness/canopy/core {type SourceMap}
-
-pub using @dowdiness/canopy/core {type SpanEdit}
-
-pub using @edits {type TreeEditOp}
 
 pub using @dowdiness/loom/core {trait Renderable}
 

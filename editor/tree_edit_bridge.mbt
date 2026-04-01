@@ -9,7 +9,7 @@
 /// Lambda-specific: constructs EditContext[@ast.Term] for the projection pipeline.
 pub fn SyncEditor::apply_tree_edit(
   self : SyncEditor[@ast.Term],
-  op : @proj.TreeEditOp,
+  op : @lambda.TreeEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
   let old_text = self.get_text()
@@ -20,13 +20,13 @@ pub fn SyncEditor::apply_tree_edit(
     Some(fp) => fp
     None => return Err(TreeEditError::FlatProjUnavailable)
   }
-  let ctx : @proj.EditContext[@ast.Term] = {
+  let ctx : @lambda.EditContext[@ast.Term] = {
     source_text: old_text,
     source_map,
     registry,
     flat_proj,
   }
-  match @proj.compute_text_edit(op, ctx) {
+  match @lambda.compute_text_edit(op, ctx) {
     Ok(Some((edits, focus_hint))) => {
       if edits.is_empty() {
         return Ok(()) // no-op
@@ -48,8 +48,8 @@ pub fn SyncEditor::apply_tree_edit(
         )
       }
       match focus_hint {
-        @proj.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
-        @proj.FocusHint::MoveCursor(position~) =>
+        @lambda.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
+        @lambda.FocusHint::MoveCursor(position~) =>
           // MoveCursor position is in post-edit coordinates — use directly.
           self.move_cursor(position)
       }

@@ -126,7 +126,7 @@ test "move_node moves source before target and adjusts text" {
   }
   let src_id = root.children[1].id() // Int(2)
   let tgt_id = root.children[0].id() // Int(1)
-  let result = editor.move_node(src_id, tgt_id, @proj.DropPosition::Before, 0)
+  let result = editor.move_node(src_id, tgt_id, @lambda.DropPosition::Before, 0)
   inspect(result is Ok(_), content="true")
   // source node no longer at its original span; text has changed
   inspect(editor.get_text() == "1 2", content="false")

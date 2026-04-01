@@ -36,9 +36,7 @@ pub using @lambda_edits {
 }
 
 ///|
-pub using @lambda_flat {
-  type VersionedFlatProj,
-}
+pub using @lambda_flat {type VersionedFlatProj}
 
 ///|
 pub using @lambda_zipper {

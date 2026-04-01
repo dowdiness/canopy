@@ -15,7 +15,7 @@
 /// not the downstream memos. The win grows when heavier downstream
 /// consumers (type checking, rendering) are added.
 pub(all) struct VersionedFlatProj {
-  proj : @proj.FlatProj?
+  proj : @lambda_proj.FlatProj?
   changed_at : @incr.Revision
 }
 

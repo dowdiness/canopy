@@ -1,6 +1,6 @@
 ///|
 test "ProjNode JSON export for simple expression" {
-  let (proj, _) = @projection.parse_to_proj_node("42")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("42")
   inspect(
     proj.to_json().stringify(),
     content=(
@@ -11,7 +11,7 @@ test "ProjNode JSON export for simple expression" {
 
 ///|
 test "ProjNode JSON export for lambda" {
-  let (proj, _) = @projection.parse_to_proj_node("\u{03BB}x.x")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("\u{03BB}x.x")
   inspect(
     proj.to_json().stringify(),
     content=(
@@ -22,7 +22,7 @@ test "ProjNode JSON export for lambda" {
 
 ///|
 test "ProjNode JSON export for application" {
-  let (proj, _) = @projection.parse_to_proj_node("f x")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("f x")
   inspect(
     proj.to_json().stringify(),
     content=(
@@ -33,7 +33,7 @@ test "ProjNode JSON export for application" {
 
 ///|
 test "ProjNode JSON export for binary op" {
-  let (proj, _) = @projection.parse_to_proj_node("1 + 2")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("1 + 2")
   inspect(
     proj.to_json().stringify(),
     content=(
@@ -44,7 +44,7 @@ test "ProjNode JSON export for binary op" {
 
 ///|
 test "ProjNode JSON export for module" {
-  let (proj, _) = @projection.parse_to_proj_node("let x = 1\nx")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("let x = 1\nx")
   inspect(
     proj.to_json().stringify(),
     content=(
@@ -55,7 +55,7 @@ test "ProjNode JSON export for module" {
 
 ///|
 test "SourceMap JSON export" {
-  let (proj, _) = @projection.parse_to_proj_node("1 + 2")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("1 + 2")
   let sm = @projection.SourceMap::from_ast(proj)
   inspect(
     sm.to_json().stringify(),

@@ -1,6 +1,6 @@
 // Projection Memo: Reactive derivation of FlatProj, ProjNode, registry, and source map
 // from SyncEditor's incremental parser-backed signals.
-// @lambda_flat.VersionedFlatProj lives in @lambda_flat (lang/lambda/flat/) — imported here.
+// @lambda.VersionedFlatProj lives in lang/lambda/flat/ — accessed via @lambda facade.
 
 ///|
 /// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
@@ -11,12 +11,12 @@ fn build_lambda_projection_memos(
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   _parser : @loom.ImperativeParser[@ast.Term],
 ) -> (
-  @incr.Memo[@lambda_flat.VersionedFlatProj],
+  @incr.Memo[@lambda.VersionedFlatProj],
   @incr.Memo[@proj.ProjNode[@ast.Term]?],
   @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[@ast.Term]]],
   @incr.Memo[@proj.SourceMap],
 ) {
-  let prev_flat_proj_ref : Ref[@proj.FlatProj?] = Ref::new(None)
+  let prev_flat_proj_ref : Ref[@lambda.FlatProj?] = Ref::new(None)
   let prev_syntax_root_ref : Ref[@seam.SyntaxNode?] = Ref::new(None)
   let next_id_ref : Ref[Int] = Ref::new(0)
   // Change tracking side-channel: set by proj_memo, read by registry and source_map.
@@ -32,15 +32,15 @@ fn build_lambda_projection_memos(
     @incr.Revision::initial(),
   )
 
-  let proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj] = @incr.Memo::new_memo(
+  let proj_memo : @incr.Memo[@lambda.VersionedFlatProj] = @incr.Memo::new_memo(
     rt,
-    fn() -> @lambda_flat.VersionedFlatProj {
+    fn() -> @lambda.VersionedFlatProj {
       if source_text.get() == "" {
         prev_flat_proj_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-        return @lambda_flat.VersionedFlatProj::{
+        return @lambda.VersionedFlatProj::{
           proj: None,
           changed_at: proj_changed_at_ref.val,
         }
@@ -52,7 +52,7 @@ fn build_lambda_projection_memos(
           prev_syntax_root_ref.val = None
           changed_def_indices_ref.val = None
           proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-          return @lambda_flat.VersionedFlatProj::{
+          return @lambda.VersionedFlatProj::{
             proj: None,
             changed_at: proj_changed_at_ref.val,
           }
@@ -62,7 +62,7 @@ fn build_lambda_projection_memos(
       let result = match (prev_flat_proj_ref.val, prev_syntax_root_ref.val) {
         (Some(prev_fp), Some(prev_root)) => {
           let changed = Ref::new(([] : Array[Int]))
-          let result = @proj.to_flat_proj_incremental(
+          let result = @lambda.to_flat_proj_incremental(
             syntax_root,
             prev_root,
             prev_fp,
@@ -100,13 +100,13 @@ fn build_lambda_projection_memos(
         (Some(prev_fp), None) => {
           // No previous syntax root (e.g., after tree edit) — build fresh
           // and reconcile to preserve node IDs
-          let new_fp = @proj.to_flat_proj(syntax_root, counter)
+          let new_fp = @lambda.to_flat_proj(syntax_root, counter)
           changed_def_indices_ref.val = None
-          @proj.reconcile_flat_proj(prev_fp, new_fp, counter)
+          @lambda.reconcile_flat_proj(prev_fp, new_fp, counter)
         }
         _ => {
           changed_def_indices_ref.val = None
-          @proj.to_flat_proj(syntax_root, counter)
+          @lambda.to_flat_proj(syntax_root, counter)
         }
       }
       next_id_ref.val = counter.val
@@ -123,7 +123,7 @@ fn build_lambda_projection_memos(
       if has_changes {
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
       }
-      @lambda_flat.VersionedFlatProj::{
+      @lambda.VersionedFlatProj::{
         proj: Some(result),
         changed_at: proj_changed_at_ref.val,
       }
@@ -297,7 +297,7 @@ fn build_lambda_projection_memos(
               // have shifted offsets that only the SyntaxNode reflects correctly.
               match syntax_tree.get() {
                 Some(syntax_root) =>
-                  @proj.populate_token_spans(prev_sm, syntax_root, root)
+                  @lambda.populate_token_spans(prev_sm, syntax_root, root)
                 None => ()
               }
               prev_sm
@@ -307,7 +307,7 @@ fn build_lambda_projection_memos(
               let new_sm = @proj.SourceMap::from_ast(root)
               match syntax_tree.get() {
                 Some(syntax_root) =>
-                  @proj.populate_token_spans(new_sm, syntax_root, root)
+                  @lambda.populate_token_spans(new_sm, syntax_root, root)
                 None => ()
               }
               new_sm
@@ -344,7 +344,7 @@ fn[T] unregister_subtree(
 }
 
 ///|
-pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @proj.FlatProj? {
+pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @lambda.FlatProj? {
   match self.proj_memo {
     Some(memo) => memo.get().proj
     None => None

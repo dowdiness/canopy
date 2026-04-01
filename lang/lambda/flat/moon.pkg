@@ -1,5 +1,5 @@
 import {
-  "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/incr" @incr,
 }
 
