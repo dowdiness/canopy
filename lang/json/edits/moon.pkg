@@ -1,6 +1,6 @@
 import {
   "dowdiness/canopy/editor" @editor,
-  "dowdiness/canopy/framework/core" @core,
+  "dowdiness/canopy/core" @core,
   "dowdiness/canopy/lang/json/proj" @json_proj,
   "dowdiness/json" @json,
   "dowdiness/loom" @loom,

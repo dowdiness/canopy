@@ -2,7 +2,7 @@
 package "dowdiness/canopy/lang/lambda/edits"
 
 import {
-  "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/lambda/ast",
   "moonbitlang/core/immut/hashset",

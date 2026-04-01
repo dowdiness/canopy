@@ -2,7 +2,7 @@
 package "dowdiness/canopy/lang/lambda/proj"
 
 import {
-  "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/core",
   "dowdiness/lambda/ast",
   "dowdiness/seam",
   "moonbitlang/core/ref",

@@ -2,7 +2,7 @@
 package "dowdiness/canopy/lang/json/proj"
 
 import {
-  "dowdiness/canopy/framework/core",
+  "dowdiness/canopy/core",
   "dowdiness/incr/cells",
   "dowdiness/json",
   "dowdiness/loom/incremental",

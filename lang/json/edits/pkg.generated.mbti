@@ -2,8 +2,8 @@
 package "dowdiness/canopy/lang/json/edits"
 
 import {
+  "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
-  "dowdiness/canopy/framework/core",
   "dowdiness/json",
 }
 

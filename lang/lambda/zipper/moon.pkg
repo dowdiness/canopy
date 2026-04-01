@@ -1,5 +1,5 @@
 import {
-  "dowdiness/canopy/framework/core" @core,
+  "dowdiness/canopy/core" @core,
   "dowdiness/canopy/lang/lambda/edits" @edits,
   "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/immut/hashset" @immut/hashset,

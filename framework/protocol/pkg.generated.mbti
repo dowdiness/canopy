@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/framework/core.ProjNode[T], @dowdiness/canopy/framework/core.SourceMap) -> ViewNode
+pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap) -> ViewNode
 
 // Errors
 
@@ -54,18 +54,18 @@ pub impl ToJson for TokenSpan
 
 pub(all) enum UserIntent {
   TextEdit(from~ : Int, to~ : Int, insert~ : String)
-  StructuralEdit(node_id~ : @dowdiness/canopy/framework/core.NodeId, op~ : String, params~ : Map[String, String])
-  SelectNode(node_id~ : @dowdiness/canopy/framework/core.NodeId)
+  StructuralEdit(node_id~ : @dowdiness/canopy/core.NodeId, op~ : String, params~ : Map[String, String])
+  SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
   SetCursor(position~ : Int)
   Undo
   Redo
-  CommitEdit(node_id~ : @dowdiness/canopy/framework/core.NodeId, value~ : String)
+  CommitEdit(node_id~ : @dowdiness/canopy/core.NodeId, value~ : String)
 } derive(Eq, Show)
 pub impl ToJson for UserIntent
 pub impl @json.FromJson for UserIntent
 
 pub(all) struct ViewNode {
-  id : @dowdiness/canopy/framework/core.NodeId
+  id : @dowdiness/canopy/core.NodeId
   kind_tag : String
   label : String
   text : String?
@@ -75,22 +75,22 @@ pub(all) struct ViewNode {
   css_class : String
   children : Array[ViewNode]
 
-  fn new(id~ : @dowdiness/canopy/framework/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[ViewNode]) -> ViewNode
+  fn new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[ViewNode]) -> ViewNode
 } derive(Eq, Show)
-pub fn ViewNode::new(id~ : @dowdiness/canopy/framework/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self]) -> Self
+pub fn ViewNode::new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self]) -> Self
 pub fn ViewNode::node_count(Self) -> Int
 pub impl ToJson for ViewNode
 
 pub(all) enum ViewPatch {
   TextChange(from~ : Int, to~ : Int, insert~ : String)
-  ReplaceNode(node_id~ : @dowdiness/canopy/framework/core.NodeId, node~ : ViewNode)
-  InsertChild(parent_id~ : @dowdiness/canopy/framework/core.NodeId, index~ : Int, child~ : ViewNode)
-  RemoveChild(parent_id~ : @dowdiness/canopy/framework/core.NodeId, index~ : Int, child_id~ : @dowdiness/canopy/framework/core.NodeId)
-  UpdateNode(node_id~ : @dowdiness/canopy/framework/core.NodeId, label~ : String, css_class~ : String, text~ : String?)
+  ReplaceNode(node_id~ : @dowdiness/canopy/core.NodeId, node~ : ViewNode)
+  InsertChild(parent_id~ : @dowdiness/canopy/core.NodeId, index~ : Int, child~ : ViewNode)
+  RemoveChild(parent_id~ : @dowdiness/canopy/core.NodeId, index~ : Int, child_id~ : @dowdiness/canopy/core.NodeId)
+  UpdateNode(node_id~ : @dowdiness/canopy/core.NodeId, label~ : String, css_class~ : String, text~ : String?)
   SetDecorations(decorations~ : Array[Decoration])
   SetDiagnostics(diagnostics~ : Array[Diagnostic])
   SetSelection(anchor~ : Int, head~ : Int)
-  SelectNode(node_id~ : @dowdiness/canopy/framework/core.NodeId)
+  SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
   FullTree(root~ : ViewNode?)
 } derive(Eq, Show)
 pub impl ToJson for ViewPatch
