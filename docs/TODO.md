@@ -246,10 +246,10 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] Sync connection status — SyncStatus in PEERS panel with colored dot
 - [x] Mobile layout — drawer panels, 44px touch targets, safe areas, scrim, landscape mode
 - [x] CSS design system audit — zero raw values outside `:root`, 45 custom properties
-- [ ] Inspector panel
+- [x] Inspector panel
   Why: the Ideal editor already has partial inspector UI, but the backlog item is still unfinished until outline selection reliably shows the intended node details, including source range.
-  Plan: `docs/plans/2026-03-29-ideal-inspector-panel.md`
-  Exit: outline click reliably populates the inspector with kind/type, source range, and child information.
+  Plan: `docs/plans/2026-04-01-inspector-panel-design.md`
+  Exit: outline click reliably populates the inspector with kind/type, source range, source text preview, token spans, and child information.
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works
 - [ ] Graphviz SVG theming — SVG uses hardcoded `Arial` from submodule; needs `pub(all) struct SvgConfig` to customize
 - [ ] Grammar: interleaved let/expr — `Module` AST supports `ModuleItem` in parser already, but `FlatProj` storage change caused 2x regression from MoonBit enum boxing. Alternative: add helper methods on existing `FlatProj` for interleaved views.
