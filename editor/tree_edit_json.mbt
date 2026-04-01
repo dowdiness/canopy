@@ -1,5 +1,5 @@
 // JSON parser for TreeEditOp — enables structural edits from JavaScript.
-// Used by the apply_tree_edit_json FFI function in crdt.mbt.
+// Used by the apply_tree_edit_json FFI function in canopy.mbt.
 
 ///|
 /// Extract a NodeId from a JSON map at the given key.

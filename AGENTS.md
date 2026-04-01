@@ -93,7 +93,7 @@ git commit -m "chore: update event-graph-walker submodule"
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `dowdiness/canopy` | `./` | Root: JS FFI entry (`crdt.mbt` lambda, `crdt_json.mbt` JSON), exports all public functions to JS |
+| `dowdiness/canopy` | `./` | Root: JS FFI entry (`canopy.mbt` lambda, `canopy_json.mbt` JSON), exports all public functions to JS |
 | `dowdiness/canopy/framework/core` | `framework/core/` | Generic types: NodeId, ProjNode[T], SourceMap, reconcile, helpers |
 | `dowdiness/canopy/editor` | `editor/` | SyncEditor, EphemeralHub, cursor/presence tracking, undo |
 | `dowdiness/canopy/projection` | `projection/` | Re-export facade + TreeEditorState, tree refresh, tree editor ops |
