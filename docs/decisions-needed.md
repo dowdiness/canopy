@@ -20,12 +20,8 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 **Decision needed:** No — plan exists, just needs execution. Remove from decisions-needed when done.
 **Added:** 2026-04-02
 
-### test-abort-cleanup: convert abort() calls in test files to proper assertions
-**Source:** TODO.md §8a / docs/plans/2026-03-29-test-abort-cleanup.md
-**Context:** A plan exists to replace `abort()` calls in test files with proper assertion helpers. Triage found 0 occurrences of `abort()` in loom/ MoonBit files, suggesting this may already be complete — but the TODO item remains unchecked and no archive record was found.
-**Blocks:** Nothing directly — test quality
-**Evidence:** Plan file exists at docs/plans/2026-03-29-test-abort-cleanup.md; grep for abort() in loom/ MoonBit files: 0 occurrences; completion state unverified
-**Added:** 2026-04-02
+### ~~test-abort-cleanup~~ — RESOLVED
+Verified 2026-04-02: zero `abort()` calls in any .mbt file across the entire repo (main module, loom/, graphviz/, event-graph-walker/, order-tree/, rle/, alga/, svg-dsl/). Work is complete. TODO item and plan should be marked done and archived.
 
 ### flat-tiny-node: batch vs amortized threshold for small nodes
 **Source:** TODO.md §3
