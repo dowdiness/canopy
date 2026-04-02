@@ -18,6 +18,8 @@ pub fn adjust_position(Int, Int, Int, Int) -> Int
 
 pub fn compute_edit(String, String) -> @dowdiness/loom/core.Edit
 
+pub fn compute_pretty_patches(ViewUpdateState, SyncEditor[@ast.Term]) -> Array[@protocol.ViewPatch]
+
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
 pub fn decode_message(Bytes) -> SyncMessage?
@@ -289,6 +291,7 @@ pub fn[T] SyncEditor::get_node(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdi
 pub fn[T] SyncEditor::get_node_range(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/loom/core.Range?
 pub fn[T] SyncEditor::get_peer_cursors(Self[T]) -> Map[String, PeerCursor]
 pub fn[T] SyncEditor::get_peer_id(Self[T]) -> String
+pub fn SyncEditor::get_pretty_view(Self[@ast.Term]) -> @protocol.ViewNode
 pub fn[T] SyncEditor::get_proj_node(Self[T]) -> @dowdiness/canopy/core.ProjNode[T]?
 pub fn SyncEditor::get_resolution(Self[@ast.Term]) -> @lambda.Resolution
 pub fn[T] SyncEditor::get_source_map(Self[T]) -> @dowdiness/canopy/core.SourceMap

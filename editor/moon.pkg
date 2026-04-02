@@ -23,6 +23,10 @@ import {
   "moonbitlang/core/json",
 }
 
+import {
+  "moonbitlang/quickcheck" @qc,
+} for "test"
+
 options(
   is_main: false,
   targets: {

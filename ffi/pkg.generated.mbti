@@ -14,6 +14,8 @@ pub fn apply_tree_edit_json(Int, String, Int) -> String
 
 pub fn backspace_and_record(Int, Int) -> Bool
 
+pub fn compute_pretty_patches_json(Int) -> String
+
 pub fn compute_view_patches_json(Int) -> String
 
 pub fn create_editor(String) -> Int
@@ -53,6 +55,8 @@ pub fn get_ast_dot_resolved(Int) -> String
 pub fn get_ast_pretty(Int) -> String
 
 pub fn get_errors_json(Int) -> String
+
+pub fn get_pretty_view_json(Int) -> String
 
 pub fn get_proj_node_json(Int) -> String
 

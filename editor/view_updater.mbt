@@ -73,6 +73,11 @@ fn diff_view_nodes(
     patches.push(@protocol.ViewPatch::ReplaceNode(node_id=curr.id, node=curr))
     return
   }
+  // token_spans changes require ReplaceNode because UpdateNode doesn't carry spans
+  if prev.token_spans != curr.token_spans {
+    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=curr.id, node=curr))
+    return
+  }
   if prev.label != curr.label ||
     prev.css_class != curr.css_class ||
     prev.text != curr.text {

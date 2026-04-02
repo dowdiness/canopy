@@ -75,6 +75,8 @@ options(
         "handle_undo",
         "handle_redo",
         "handle_structural_intent",
+        "get_pretty_view_json",
+        "compute_pretty_patches_json",
       ],
     },
   },

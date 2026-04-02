@@ -168,6 +168,14 @@ export class HTMLAdapter implements EditorAdapter {
   }
 
   private renderNode(node: ViewNode, edgeLabel: string | null, isRoot: boolean): HTMLElement {
+    // Formatted text display (pretty-printer output)
+    if (node.kind_tag === 'formatted-text') {
+      return this.renderFormattedText(node, isRoot);
+    }
+    if (node.text != null) {
+      return this.renderTextLine(node);
+    }
+
     const hasChildren = node.children.length > 0;
     const kindClass = node.kind_tag.toLowerCase();
 
@@ -256,6 +264,42 @@ export class HTMLAdapter implements EditorAdapter {
     container.appendChild(childrenContainer);
 
     return container;
+  }
+
+  private renderFormattedText(node: ViewNode, isRoot: boolean): HTMLElement {
+    const pre = document.createElement('pre');
+    pre.className = isRoot ? 'formatted-text root' : 'formatted-text';
+    pre.setAttribute('data-node-id', String(node.id));
+    for (let i = 0; i < node.children.length; i++) {
+      pre.appendChild(this.renderNode(node.children[i], null, false));
+    }
+    return pre;
+  }
+
+  private renderTextLine(node: ViewNode): HTMLElement {
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.setAttribute('data-node-id', String(node.id));
+    const text = node.text ?? '';
+    const spans = [...node.token_spans].sort((a, b) => a.start - b.start);
+    let pos = 0;
+    for (const span of spans) {
+      // Gap before this span: unstyled text
+      if (span.start > pos) {
+        div.appendChild(document.createTextNode(text.slice(pos, span.start)));
+      }
+      // Styled span
+      const el = document.createElement('span');
+      el.className = span.role;
+      el.textContent = text.slice(span.start, span.end);
+      div.appendChild(el);
+      pos = span.end;
+    }
+    // Trailing unstyled text
+    if (pos < text.length) {
+      div.appendChild(document.createTextNode(text.slice(pos)));
+    }
+    return div;
   }
 
   private renderDiagnostics(diagnostics: Diagnostic[]): void {
