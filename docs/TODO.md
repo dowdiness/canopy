@@ -436,6 +436,30 @@ Post-consolidation app inventory:
 
 ---
 
+## 18. Documentation & Demo Polish
+
+**Impact:** High (first impressions) | **Effort:** Low-High
+
+### Medium effort (no new features needed)
+
+- [ ] **Record a GIF of the current editor** — pretty-printer + syntax highlighting + tree update is already visual. Embed at top of README. Imperfect GIF now is better than perfect GIF later.
+  Exit: README has a GIF that shows the editor experience in under 5 seconds.
+- [ ] **Promote product vision visibility** — add `VISION.md` symlink at repo root pointing to `docs/architecture/product-vision.md`, or expand README "Bigger Picture" section with the cold pitch text.
+  Exit: a visitor who reads only the README encounters the product vision, not just the framework description.
+- [ ] **Unify voice across architecture docs** — README and product-vision speak product language; projectional-bridge and structure-format-research speak academic language. One editing pass to make them consistent.
+  Exit: all architecture docs feel like they were written by the same person for the same audience.
+
+### Requires new features
+
+- [ ] **Live inline evaluation display** — makes the GIF compelling ("→ 10" appearing as you type). See §13 concrete projection candidates.
+  Exit: demo shows evaluation results inline while typing.
+- [ ] **Scope-colored tree view** — makes the structural view visually meaningful. See §13 concrete projection candidates.
+  Exit: demo shows bound/free variables colored in the tree view.
+- [ ] **Deploy updated web demo** — the current live demo URL points to rabbita, not the new web editor with pretty-printer.
+  Exit: live demo link in README shows the current canonical `web/` editor.
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |
