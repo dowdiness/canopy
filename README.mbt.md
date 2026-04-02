@@ -1,90 +1,103 @@
 # Canopy
 
-**An incremental projectional editor with real-time CRDT collaboration, built in [MoonBit](https://www.moonbitlang.com/).**
+**Write. It structures itself.**
 
-Canopy keeps text and syntax trees synchronized. Type in a text editor and watch the AST update instantly. Restructure a node in the tree view and see the source code regenerate. Both directions work, and multiple users can edit the same document concurrently through CRDTs — no central server required.
+<!-- TODO: Replace with a GIF showing: type code → tree updates → scope colors → evaluation result appears inline → second peer edits simultaneously -->
 
-The naming follows an organic metaphor: **loom** weaves structure from text, **seam** joins layers of representation, and the **canopy** emerges above the trees as the surface you interact with.
+Canopy is an editor that understands your program, not just your characters. As you type, it parses incrementally, shows you scope and types, evaluates expressions live, and formats your code — all without leaving the flow. Two people can edit the same document simultaneously, with no server. Edits merge automatically.
 
-[Try the live demo](https://rabbita.koji-ishimoto.workers.dev/) · [Architecture docs](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
+[Try the live demo](https://lambda-editor.koji-ishimoto.workers.dev/) · [Architecture](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
 
-## Why Canopy?
+## Why
 
-Most editors treat source code as flat text and derive structure as an afterthought. Canopy treats text and tree as two synchronized views of the same document.
+Most editors treat source code as flat text. You type characters, and the tool does its best to guess what you meant — syntax highlighting, auto-complete, error squiggles — all reconstructed after the fact from dead text.
 
-**Bidirectional text-tree editing.** The text CRDT is the source of truth. Parsing produces a syntax tree; projection derives structured editor state. Edits can enter from either side — a text change triggers an incremental reparse, and a tree restructuring generates the corresponding text change — keeping both views consistent at all times.
+Canopy treats your program as a living structure. Text and syntax tree are **two synchronized views** of the same document. Type in one, the other updates. Restructure in one, the other follows. The editor doesn't guess what your code means — it knows, because it maintains the meaning incrementally as you type.
 
-**Real-time collaboration through CRDTs.** Canopy uses the [eg-walker](https://arxiv.org/abs/2409.14252) algorithm with FugueMax, a sequence CRDT that preserves user intent under concurrent edits. Peers synchronize directly. There is no operational transform and no conflict resolution layer — the CRDT handles convergence.
+The goal: **close the gap between what you think and what the tool understands.** When the editor holds the same mental model you do — scope, types, values, dependencies — it can show you what matters, when it matters, without you having to search for it.
 
-**Incremental by construction.** The parser framework ([loom](loom/)) achieves subtree reuse through position-independent CST nodes. Editing one character reparses one subtree; the rest is shared from the previous parse. Projection and rendering follow the same principle — only the changed portion of the tree is recomputed.
+## What It Looks Like
 
-**Language-agnostic framework.** Canopy is not hard-coded to one language. The core framework (parsing, projection, reconciliation, editing) is generic. Language support is added by providing a grammar and a projection mapping. The repository currently includes lambda calculus and JSON as working examples.
+The demo language is lambda calculus — small enough to understand fully, rich enough to exercise the full pipeline:
+
+```
+let double = λx. x + x
+let result = double 5
+if result then result else 0
+```
+
+As you type this, Canopy:
+- Parses incrementally (one character change → one subtree reparse)
+- Resolves scope (knows `x` is bound by `λ`, `double` refers to the definition above)
+- Formats with syntax highlighting through the pretty-printer
+- Evaluates `double 5 → 10` and `if result then result else 0 → 10`
+- Synchronizes with any connected peer via CRDT
 
 ## How It Works
 
-Canopy's pipeline has four stages:
+Four stages, each incremental:
 
-1. **Text CRDT** — The document lives in a FugueMax sequence CRDT ([event-graph-walker](event-graph-walker/)). All edits — local keystrokes, remote peer operations, undo/redo — enter here. This is the single source of truth.
+```
+Text CRDT → Incremental Parse → Projection → Rendering
+    ↑                                            │
+    └────── structural edits feed back ──────────┘
+```
 
-2. **Incremental parsing** — When text changes, the parser framework ([loom](loom/)) incrementally reparses only the affected region, producing a concrete syntax tree. Unchanged subtrees are reused from the previous parse.
+1. **Text CRDT** ([event-graph-walker](event-graph-walker/)) — The document lives in a FugueMax sequence CRDT. All edits — keystrokes, remote operations, undo/redo — enter here. Peers sync directly, no central server.
 
-3. **Projection** — The CST is mapped to a projection tree (`ProjNode[T]`) carrying language-specific AST nodes, stable node IDs, and source spans. A reconciliation step preserves node identity across reparses so that UI state (selection, collapse, scroll position) survives edits.
+2. **Incremental parsing** ([loom](loom/)) — Only the affected region is reparsed. Unchanged subtrees are reused from the previous parse through position-independent CST nodes.
 
-4. **Rendering** — The projection tree drives the UI. The protocol layer computes incremental view patches — only the nodes that actually changed are sent to the frontend.
+3. **Projection** — The syntax tree maps to a projection tree with stable node IDs and source spans. Node identity survives reparses, so UI state (selection, scroll) is preserved.
 
-Tree-to-text edits work in reverse: a structural operation (wrap in lambda, delete node, rename binding) computes the corresponding text diff, which feeds back into the text CRDT at stage 1.
+4. **Rendering** — The protocol layer computes incremental view patches. Only changed nodes reach the frontend. Multiple representations — formatted text, tree view, graph visualization — render from the same projection.
 
-## Framework Philosophy
+## The Bigger Picture
 
-Canopy is built around a few design ideas that distinguish it from typical editor projects.
+Canopy is a framework, not just an editor. Define a grammar for your language, implement a few traits, and you get incremental parsing, structural editing, pretty-printing, and CRDT collaboration out of the box.
 
-**Text is ground truth, structure is derived.** Rather than storing an AST and serializing it to text, Canopy stores text in a CRDT and derives structure through parsing. This means the text representation is always well-defined, collaboration operates on a proven CRDT data structure, and the full pipeline from text to tree to view is a deterministic function of the document state.
+But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, structure emerges automatically, and the right information surfaces when you need it.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
 
-**Incremental hylomorphism.** The pipeline from text to rendered view is structured as an unfold (parsing text into trees) followed by a fold (collapsing trees into views). Both halves are incremental — they recompute only what changed. This pattern, described in detail in the [architecture docs](docs/architecture/Incremental-Hylomorphism.md), gives the framework its compositional structure.
+Read more: [Product Vision](docs/architecture/product-vision.md) · [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) · [Multi-Representation System](docs/architecture/multi-representation-system.md)
 
-**Language support is data, not code.** Adding a new language means providing a grammar for loom and a projection mapping. The framework handles incremental parsing, node ID reconciliation, source mapping, undo/redo, and collaboration generically. The lambda calculus and JSON editors share the same core infrastructure.
+## Framework Design
 
-**Principled intermediate representations.** Representations at pipeline boundaries follow an [anamorphism discipline](docs/architecture/anamorphism-discipline.md): they must be complete (no information loss), context-free (fragment identity doesn't depend on position), uniform in error handling, and structurally transparent. These properties make each pipeline stage independently testable and composable.
+**Text is ground truth, structure is derived.** The text CRDT stores the document; everything else is computed. This means collaboration operates on a proven data structure, and the pipeline from text to view is a deterministic function of document state.
 
-## What's in This Repository
+**Language support is data, not code.** Adding a new language means providing a grammar and a projection mapping. The framework handles parsing, reconciliation, undo/redo, and collaboration generically. Lambda calculus and JSON share the same core.
 
-Canopy is a monorepo with reusable libraries extracted as git submodules.
+**Multiple representations from one source.** The [Printable trait family](docs/architecture/multi-representation-system.md) (Show, Debug, Source, Pretty) gives every language four text representations. `Source` guarantees `parse(to_source(x)) == x`. `Pretty` produces width-aware, syntax-annotated formatted output. Adding a new text format = adding a render function, not changing language code.
+
+**Incremental by construction.** Every stage — parsing, projection, rendering — recomputes only what changed. This isn't bolted-on caching; it's the [architectural principle](docs/architecture/Incremental-Hylomorphism.md) the framework is built around.
+
+## Repository Structure
 
 **Core libraries:**
 
-- **[event-graph-walker](event-graph-walker/)** — The CRDT engine. Implements the eg-walker algorithm with FugueMax sequence CRDT and binary-lifting jump pointers for O(log n) ancestor queries. This is the collaboration layer.
-- **[loom](loom/)** — Incremental parser framework. Includes the parser core (`loom/loom/`), a language-agnostic CST library (`loom/seam/`), reactive signals for incremental computation (`loom/incr/`), and a pretty-printer (`loom/pretty/`).
-- **[editor](editor/)** — `SyncEditor`, the main coordination type. Wires together the text CRDT, parser, projection, undo manager, and collaboration protocol. Also provides `EphemeralHub` for cursor and presence tracking.
-- **[projection](projection/)** — Language-agnostic projection layer. `TreeEditorState` manages interactive tree state (selection, collapse, drag). Reconciliation preserves node identity across reparses.
-- **[core](core/)** — Generic types shared across the framework: `ProjNode[T]`, `NodeId`, `SourceMap`, and the reconciliation algorithm.
-- **[protocol](protocol/)** — The `EditorProtocol` integration layer: `ViewPatch`, `ViewNode`, and `UserIntent` for framework-agnostic frontend communication.
+| Library | Purpose |
+|---------|---------|
+| [event-graph-walker](event-graph-walker/) | CRDT engine — eg-walker with FugueMax, O(log n) ancestor queries |
+| [loom](loom/) | Incremental parser framework, CST library, reactive signals, pretty-printer |
+| [editor](editor/) | SyncEditor — wires CRDT, parser, projection, undo, collaboration |
+| [protocol](protocol/) | ViewPatch, ViewNode, UserIntent — framework-agnostic frontend protocol |
+| [core](core/) | ProjNode[T], NodeId, SourceMap, reconciliation |
+| [projection](projection/) | TreeEditorState, interactive tree operations |
 
 **Language packages:**
 
-- **[lang/lambda](lang/lambda/)** — Lambda calculus with arithmetic, conditionals, and let-bindings. The primary test language.
-- **[lang/json](lang/json/)** — JSON editing support.
+| Package | Language |
+|---------|----------|
+| [lang/lambda](lang/lambda/) | Lambda calculus with arithmetic, conditionals, let-bindings |
+| [lang/json](lang/json/) | JSON structural editing |
 
-**Examples (start here):**
+**Examples:**
 
-- **[rabbita](examples/rabbita/)** — The main demo. A tree-first projectional editor built with the [Rabbita](https://github.com/moonbit-community/rabbita) UI framework. This is the best place to see Canopy in action.
-- **[web](examples/web/)** — Text-focused editors for lambda calculus and JSON with syntax highlighting. Shows dual-language support.
-- **[ideal](examples/ideal/)** — Extended version of rabbita with an inspector panel and benchmarks.
-- **[demo-react](examples/demo-react/)** — React 19 integration with undo/redo and collaboration.
-- **[prosemirror](examples/prosemirror/)** — ProseMirror + CodeMirror integration.
-- **[relay-server](examples/relay-server/)** — Cloudflare Workers relay for peer-to-peer CRDT sync across browsers.
-
-## Example Language
-
-The demo language is lambda calculus with arithmetic — small enough to understand fully, rich enough to exercise the full pipeline:
-
-```
-λx.x                  -- identity
-(λf.λx.f x) 5         -- application
-1 + 2 - 3             -- arithmetic
-if x then 1 else 0    -- conditionals
-let double = λx.x + x -- definitions
-double 5
-```
+| Example | Description |
+|---------|-------------|
+| [web](examples/web/) | Canonical demo — lambda + JSON editors with syntax-highlighted pretty-print |
+| [ideal](examples/ideal/) | Full-featured editor with inspector, benchmarks |
+| [prosemirror](examples/prosemirror/) | ProseMirror structural editing integration |
+| [canvas](examples/canvas/) | Infinite canvas (experimental) |
+| [block-editor](examples/block-editor/) | Block-based structural editing |
 
 ## Quick Start
 
@@ -93,33 +106,23 @@ double 5
 ```sh
 git clone --recursive https://github.com/dowdiness/canopy.git
 cd canopy
-moon test
-```
-
-Run the projectional editor locally:
-
-```sh
+moon test                                    # 684+ tests
 moon build --target js
-cd examples/rabbita && npm install && npm run dev
+cd examples/web && npm install && npm run dev  # localhost:5173
 ```
-
-Opens at `localhost:5173`. The [web example](examples/web/) (`npm run dev` from `examples/web/`) provides a text-focused editor at the same port.
 
 ## What to Read Next
 
-**To understand the architecture:**
-- [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the core compositional pattern
-- [Projectional Editing](docs/architecture/PROJECTIONAL_EDITING.md) — the text-tree synchronization model
-- [Anamorphism Discipline](docs/architecture/anamorphism-discipline.md) — design rules for intermediate representations
-- [Module Structure](docs/architecture/modules.md) — how packages relate to each other
+**Vision and architecture:**
+- [Product Vision](docs/architecture/product-vision.md) — the full picture: write, auto-structure, surface
+- [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
+- [Multi-Representation System](docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
+- [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath
 
-**To contribute:**
+**Development:**
 - [Development Workflow](docs/development/workflow.md) — how to make changes, run tests, manage submodules
-- [Conventions](docs/development/conventions.md) — MoonBit coding patterns used in this project
-- [Testing](docs/development/testing.md) — test strategy and how to write tests
-
-**To study performance:**
-- [Performance docs](docs/performance/) — dated benchmark snapshots and optimization notes
+- [Conventions](docs/development/conventions.md) — MoonBit coding patterns
+- [TODO](docs/TODO.md) — active backlog
 
 ## Contributing
 
@@ -129,12 +132,12 @@ moon info && moon fmt        # update interfaces and format
 moon bench --release         # benchmarks (always use --release)
 ```
 
-See the [Development Guide](docs/development/) for submodule management, commit conventions, and the full workflow.
+See the [Development Guide](docs/development/) for details.
 
 ## References
 
-- [Eg-walker: CRDTs for Truly Concurrent Sequence Editing](https://arxiv.org/abs/2409.14252) — the CRDT algorithm Canopy uses
-- [MoonBit](https://www.moonbitlang.com/) — the language Canopy is built in
+- [Eg-walker: CRDTs for Truly Concurrent Sequence Editing](https://arxiv.org/abs/2409.14252) — the CRDT algorithm
+- [MoonBit](https://www.moonbitlang.com/) — the implementation language
 
 ## License
 
