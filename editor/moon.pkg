@@ -15,7 +15,6 @@ import {
   "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
-  "moonbitlang/quickcheck" @qc,
   "moonbitlang/core/buffer",
   "moonbitlang/core/strconv",
   "moonbitlang/core/string",
@@ -23,6 +22,10 @@ import {
   "moonbitlang/core/int",
   "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/quickcheck" @qc,
+} for "test"
 
 options(
   is_main: false,
