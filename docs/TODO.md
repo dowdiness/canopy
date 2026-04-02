@@ -110,9 +110,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] **Scan for other single-field wrapper structs on hot paths**
   Why: any `struct Foo { field : T }` on a hot path pays wrapper + dereference cost on JS. Tuple struct eliminates both.
   Exit: all single-field wrappers on parse/intern/build_tree paths are tuple structs.
-- [ ] **Lexer accumulator → StringView**
-  Why: `read_identifier` in the lexer still builds String via accumulator. Design doc measured 1.3 µs (small), but may matter for JS target or longer documents. Needs a microbenchmark first.
-  Exit: benchmark confirms or rejects the bottleneck before any design work.
+- [ ] **Lexer accumulator cleanup: drop O(n²) string building**
+  Why: `read_identifier` builds identifier text char-by-char via `acc + ch.to_string()` — O(n²) in identifier length, 20 intermediate String allocations for a 20-char name. The accumulated String is immediately discarded (only `.length()` is used for `TokenInfo.len`). After StringView threading, `token_text_at` returns a zero-copy slice directly from the source, bypassing the lexer's accumulated text entirely.
+  Fix: return `(end_pos, end_pos - start_pos)` instead of `(end_pos, accumulated_string)`, or use `input[start:end]` StringView. Not a perf bottleneck (1.3 µs total), but cleaner code that eliminates wasteful allocations.
+  Exit: `read_identifier` no longer allocates intermediate Strings.
 
 ---
 
