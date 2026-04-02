@@ -172,7 +172,7 @@ export class HTMLAdapter implements EditorAdapter {
     if (node.kind_tag === 'formatted-text') {
       return this.renderFormattedText(node, isRoot);
     }
-    if (node.text != null && node.token_spans.length > 0) {
+    if (node.text != null) {
       return this.renderTextLine(node);
     }
 
