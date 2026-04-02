@@ -214,17 +214,13 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 
 ### SourceMap bugs (from GitHub issues)
 
-- [ ] `SourceMap::apply_edit` leaves `token_spans` stale (GitHub #70)
-  Exit: token_spans updated when source ranges shift.
-- [ ] `SourceMap::apply_edit` overlap branch doesn't clamp start positions (GitHub #71)
-  Exit: overlapping edits clamp correctly, no negative or out-of-bounds ranges.
+- [x] `SourceMap::apply_edit` leaves `token_spans` stale (GitHub #70) — ✅ Done. `apply_edit` iterates `token_spans` and calls `shift_range()` on each span.
+- [x] `SourceMap::apply_edit` overlap branch doesn't clamp start positions (GitHub #71) — ✅ Done. `shift_range` clamps `new_start` to `edit_start` in the overlap branch.
 
 ### FlatProj / ProjNode bugs (from GitHub issues)
 
-- [ ] FlatProj ↔ ProjNode round-trip drops binding IDs (GitHub #72)
-  Exit: round-trip preserves all binding IDs.
-- [ ] FlatProj `key_match` should use stable identity, not just name (GitHub #73)
-  Exit: key matching uses stable identity to avoid false positives on name collisions.
+- [x] FlatProj ↔ ProjNode round-trip drops binding IDs (GitHub #72) — ✅ Done. `from_proj_node` preserves original NodeId; `reconcile_flat_proj` carries forward old entry's NodeId on match.
+- [x] FlatProj `key_match` should use stable identity, not just name (GitHub #73) — ✅ Done. `key_match` uses `Eq + Hash` constraint with cursor-based matching; `reconcile_flat_proj` preserves old NodeId.
 
 ---
 
@@ -336,10 +332,9 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] **JSON pretty-printing** — ✅ Done. `json_to_layout` with string escaping in `lang/json/proj/pretty_layout.mbt`.
 - [ ] **Wire into REPL** — Use `render_string` in `cmd/main/` for formatted AST output.
   Exit: REPL displays width-aware formatted expressions.
-- [ ] **Wire into web editor via ViewNode bridge** — `layout_to_view_tree` in `protocol/` converts `Layout[SyntaxCategory]` → per-line ViewNode tree with token_spans. Delivered through ViewPatch → Adapter pipeline. Framework-level: any `T : Pretty` gets formatted display for free.
-  Why: replaces ad-hoc `get_ast_pretty` → `<pre>` with framework-consistent syntax-highlighted display.
+- [x] **Wire into web editor via ViewNode bridge** — ✅ Done (PR #109). `layout_to_view_tree` in `protocol/` converts `Layout[SyntaxCategory]` → per-line ViewNode tree with token_spans. HTMLAdapter renders syntax-highlighted lines. Property tests validate roundtrip and span coverage.
   Architecture: `docs/architecture/multi-representation-system.md`
-  Exit: web editor renders syntax-highlighted, width-aware formatted code through the protocol layer.
+  Design: `docs/plans/2026-04-02-pretty-printer-viewnode-bridge-design.md`
 - [ ] **Structure-format renderer family** — Generalize DOT/JSON/S-expr output as traversal functions over `TreeNode + Debug`, mirroring how text-format renderers consume `Layout[SyntaxCategory]`. Currently `term_to_dot_resolved` is ad-hoc and needs `Resolution` (semantic info beyond Printable).
   Why: the multi-representation system identifies two renderer families (text-format and structure-format). Text-format is well-served by `Layout[A]`; structure-format lacks a common intermediate representation.
   Architecture: `docs/architecture/multi-representation-system.md`
