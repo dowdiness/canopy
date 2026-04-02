@@ -105,10 +105,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 - [x] **StringView threading through parse pipeline** — ✅ Done. `token_text_at` → `ParseEvent::Token` → `Interner` all use `StringView`. Full parse 10-23% faster (long identifiers: 45.81 → 35.35 µs). 7 commits on loom/main.
   Plan: `docs/plans/2026-04-02-stringview-threading-design.md`
-- [x] **Interner tuple struct** — ✅ Done. Single-field wrapper unboxed on JS target (~13% faster). Committed.
-- [ ] **NodeInterner → tuple struct**
-  Why: same single-field named struct pattern as Interner (`seam/node_interner.mbt`). JS unboxing gives ~13% on hot path.
-  Exit: `NodeInterner` is a tuple struct, seam tests pass, JS codegen shows no wrapper.
+- [x] **Interner tuple struct** — ✅ Done. Single-field wrapper unboxed on JS target (~4% faster in controlled benchmark). Committed.
+- [x] **NodeInterner → tuple struct** — ✅ Done. No measurable perf win (single-level HashMap, V8 optimizes away the dereference), but keeps consistency with Interner. Committed.
 - [ ] **Scan for other single-field wrapper structs on hot paths**
   Why: any `struct Foo { field : T }` on a hot path pays wrapper + dereference cost on JS. Tuple struct eliminates both.
   Exit: all single-field wrappers on parse/intern/build_tree paths are tuple structs.
