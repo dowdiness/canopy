@@ -368,15 +368,18 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 - [x] **Phase 2: Direct evaluator** — ✅ Done (PR loom#69). Tree-walking `eval` in `loom/examples/lambda/src/eval/`. 31 tests, all Term variants, fuel-limited divergence. Educational comments.
   Plan: `docs/plans/2026-04-02-lambda-evaluator-phase2-impl.md`
-- [ ] **Phase 0: Egglog API extensions** — Add `Database::scan` and `Database::row_count` to egglog public API.
+- [x] **Phase 0: Egglog API extensions** — ✅ Done (egglog PR #5). Added `Database::scan` and `Database::row_count`. 5 tests.
   Plan: `docs/plans/2026-04-02-lambda-evaluator-design.md` §Phase 0
-  Exit: bridge function can iterate trigger tables and check fact count limits.
 - [ ] **Phase 1: Egglog relational evaluator** — Datalog + Bridge hybrid evaluation with demand-driven rules.
   Plan: `docs/plans/2026-04-02-lambda-evaluator-design.md` §Phase 1
   Exit: egglog example with partial evaluation, composition with typing, 20+ tests.
 - [ ] **Phase 3: Editor integration** — Wire Tier 1 + Tier 2 into incr reactive graph with batch escalation.
   Plan: `docs/plans/2026-04-02-lambda-evaluator-design.md` §Phase 3
   Exit: Memo[EvalResult] per definition, Tier 2 batch escalation for incomplete programs.
+- [ ] **Phase 3b: Incremental egglog–incr unification** — Make egglog Database a persistent incr cell with incremental fact insertion/retraction, instead of rebuilding from scratch each Memo recompute. Currently egglog creates a throwaway `@incr.Runtime` per `Saturate` call — no reactive connection between egglog facts and incr Memos. Requires: persistent Database across revisions, fact retraction, delta-driven escalation from Tier 1 Stuck results.
+  Why: Phase 3 rebuilds the entire egglog Database on every edit. Fine for small programs but blocks the incremental compiler vision at scale.
+  Depends on: Phase 0 + Phase 1 (validates the relational model first).
+  Exit: Tier 2 re-derives only affected `Eval` facts when a single `Term` changes, not full re-seed.
 
 ---
 
