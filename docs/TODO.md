@@ -101,6 +101,21 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   - [x] **Realistic benchmarks** — added benchmarks exercising full grammar (blocks, lambdas, if-then-else, application) for both lambda and JSON. Old trivial `let x = 0` benchmarks were misleading.
   - [ ] **Remaining: flat edits on tiny nodes** — JSON 20-member flat edit is 2x batch. Per-node reuse overhead exceeds parse cost for 3-token members. Grammar-level tradeoff, not a framework bug. Options: (a) accept for tiny structures, (b) batch-reparse fallback when reuse count is zero, (c) amortized threshold that learns from reuse hit rate
 
+### StringView threading follow-ups (2026-04-02)
+
+- [x] **StringView threading through parse pipeline** — ✅ Done. `token_text_at` → `ParseEvent::Token` → `Interner` all use `StringView`. Full parse 10-23% faster (long identifiers: 45.81 → 35.35 µs). 7 commits on loom/main.
+  Plan: `docs/plans/2026-04-02-stringview-threading-design.md`
+- [x] **Interner tuple struct** — ✅ Done. Single-field wrapper unboxed on JS target (~13% faster). Committed.
+- [ ] **NodeInterner → tuple struct**
+  Why: same single-field named struct pattern as Interner (`seam/node_interner.mbt`). JS unboxing gives ~13% on hot path.
+  Exit: `NodeInterner` is a tuple struct, seam tests pass, JS codegen shows no wrapper.
+- [ ] **Scan for other single-field wrapper structs on hot paths**
+  Why: any `struct Foo { field : T }` on a hot path pays wrapper + dereference cost on JS. Tuple struct eliminates both.
+  Exit: all single-field wrappers on parse/intern/build_tree paths are tuple structs.
+- [ ] **Lexer accumulator → StringView**
+  Why: `read_identifier` in the lexer still builds String via accumulator. Design doc measured 1.3 µs (small), but may matter for JS target or longer documents. Needs a microbenchmark first.
+  Exit: benchmark confirms or rejects the bottleneck before any design work.
+
 ---
 
 ## 4. Rabbita Projection Editor Performance
