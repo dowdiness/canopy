@@ -10,6 +10,7 @@ Documentation for the CRDT collaborative editor architecture.
 - **[Anamorphism Discipline](anamorphism-discipline.md)** - Actionable design guide: four properties, boundary audit, anti-patterns
 - **[Multi-Representation System](multi-representation-system.md)** - How the Printable trait family (Show, Debug, Source, Pretty) solves the expression problem for output formats; two families of renderers; ViewMode framework concept
 - **[Vision: The Projectional Bridge](vision-projectional-bridge.md)** - Why Canopy exists: bridging the gap from syntax through semantics and intent to the user's mental model; the unity of computer
+- **[Structure-Format Research](structure-format-research.md)** - PL research survey (Trees That Grow, Cofree, Finally Tagless, MLIR, Attributed Grammars, Ornaments), the semantic model approach, and bottom-up execution strategy with top-down vision
 
 ## Quick Overview
 
