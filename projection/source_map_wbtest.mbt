@@ -91,10 +91,10 @@ test "apply_edit multiple nodes" {
     None => fail("Node A not found")
   }
 
-  // Node B (5-8): overlaps, start unchanged, end shifts backward by 2
+  // Node B (5-8): overlaps deletion 4..6, start inside deletion → clamp to 4
   match source_map.get_range(NodeId::from_int(2)) {
     Some(range) => {
-      inspect(range.start, content="5")
+      inspect(range.start, content="4") // was 5, inside deletion → clamped to edit_start
       inspect(range.end, content="6") // 8 - 2 = 6
     }
     None => fail("Node B not found")

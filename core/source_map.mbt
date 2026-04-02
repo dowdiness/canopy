@@ -185,8 +185,12 @@ fn shift_range(
   } else if r.start >= old_end {
     Range::new(r.start - delta, r.end - delta)
   } else {
-    let new_end = if r.end <= old_end { r.end } else { r.end - delta }
-    Range::new(r.start, new_end)
+    // Overlap: the deleted region intersects this range. Clamp start/end to
+    // the deletion boundary — the deleted portion is removed, and any surviving
+    // suffix past old_end shifts left by delta.
+    let new_start = if r.start < edit_start { r.start } else { edit_start }
+    let new_end = if r.end <= old_end { edit_start } else { r.end - delta }
+    Range::new(new_start, new_end)
   }
 }
 
