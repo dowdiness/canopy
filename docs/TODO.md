@@ -390,6 +390,31 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 ---
 
+## 17. Example App Consolidation
+
+**Impact:** Medium | **Effort:** High
+
+- [ ] **Archive `examples/rabbita/`** — superseded by `examples/ideal/`. Move to `docs/archive/` or remove.
+  Exit: `rabbita/` removed from active tree, no broken references.
+- [ ] **Migrate `demo-react/` E2E + features to `web/`** — add Playwright to `web/`, port `e2e/single-editor.spec.ts` and `e2e/collaborative-demo.spec.ts`, migrate any React-only features.
+  Why: `web/` is the canonical lightweight demo (vanilla JS, shows EditorProtocol directly). `demo-react/` duplicates it in React.
+  Exit: `web/` has Playwright E2E covering lambda + JSON editors; `demo-react/` retired.
+- [ ] **Retire `demo-react/`** — remove after migration complete.
+  Exit: 6 example apps remain, each with distinct purpose.
+
+Post-consolidation app inventory:
+
+| App | Purpose |
+|-----|---------|
+| `web/` | Canonical demo — vanilla JS, lambda + JSON editors |
+| `ideal/` | Flagship full-featured editor (Rabbita) |
+| `prosemirror/` | Reference integration — PMAdapter proof |
+| `canvas/` | Future infinite canvas app |
+| `block-editor/` | Block editor demo (pending Phase 7) |
+| `relay-server/` | Signaling server infrastructure |
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |
