@@ -6,7 +6,7 @@
 
 Canopy is an editor that understands your program, not just your characters. As you type, it parses incrementally, shows you scope and types, evaluates expressions live, and formats your code — all without leaving the flow. Two people can edit the same document simultaneously, with no server. Edits merge automatically.
 
-[Try the live demo](https://lambda-editor.koji-ishimoto.workers.dev/) · [Architecture](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
+[Try the live demo](https://canopy-ideal.pages.dev) · [Architecture](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
 
 ## Why
 
