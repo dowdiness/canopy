@@ -402,6 +402,11 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [ ] **Retire `demo-react/`** — remove after migration complete.
   Exit: 6 example apps remain, each with distinct purpose.
 
+- [ ] **Design E2E test strategy** — decide how to manage Playwright across multiple example apps. Current state: `demo-react/` and `ideal/` each have independent Playwright setups with no shared infrastructure.
+  Why: after consolidation, `web/` and `ideal/` both need E2E. Shared page objects, test helpers, and CI configuration would reduce duplication and make it easier to add E2E to new apps.
+  Considerations: shared Playwright config vs per-app, common assertion helpers for ViewNode/ViewPatch behavior, CI matrix for multiple apps, whether `prosemirror/` and `block-editor/` need E2E.
+  Exit: design doc in `docs/plans/` defining the E2E test architecture.
+
 Post-consolidation app inventory:
 
 | App | Purpose |
