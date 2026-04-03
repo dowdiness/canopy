@@ -34,12 +34,7 @@ pub fn Corpus::add_post(self : Corpus, text : String) -> Int {
     self.doc_freq[term] = df + 1
   })
   // Add post with placeholder vector
-  let post : Post = {
-    id,
-    text,
-    tf,
-    vec: { entries: Map::new(), norm: 0.0 },
-  }
+  let post : Post = { id, text, tf, vec: { entries: Map::new(), norm: 0.0 } }
   self.posts.push(post)
   // Recompute all vectors (IDF changed)
   self.recompute_vectors()
@@ -58,7 +53,7 @@ fn Corpus::recompute_vectors(self : Corpus) -> Unit {
 pub fn Corpus::query_text(
   self : Corpus,
   text : String,
-  top_n~ : Int = 5
+  top_n? : Int = 5,
 ) -> Array[(Int, Double)] {
   if top_n <= 0 {
     return []
@@ -90,7 +85,7 @@ pub fn Corpus::query_text(
 pub fn Corpus::query_similar(
   self : Corpus,
   post_id : Int,
-  top_n~ : Int = 5
+  top_n? : Int = 5,
 ) -> Array[(Int, Double)] {
   if top_n <= 0 {
     return []

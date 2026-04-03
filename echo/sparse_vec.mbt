@@ -10,7 +10,7 @@ struct SparseVec {
 fn to_sparse_vec(
   tf : TermFreq,
   doc_count : Int,
-  doc_freq : Map[String, Int]
+  doc_freq : Map[String, Int],
 ) -> SparseVec {
   if tf.total == 0 {
     return { entries: Map::new(), norm: 0.0 }

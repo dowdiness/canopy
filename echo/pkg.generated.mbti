@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/echo"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Corpus {
+  mut next_id : Int
+  doc_freq : Map[String, Int]
+  posts : Array[Post]
+}
+pub fn Corpus::add_post(Self, String) -> Int
+pub fn Corpus::new() -> Self
+pub fn Corpus::query_similar(Self, Int, top_n? : Int) -> Array[(Int, Double)]
+pub fn Corpus::query_text(Self, String, top_n? : Int) -> Array[(Int, Double)]
+
+type Post
+
+type SparseVec
+
+type TermFreq
+
+// Type aliases
+
+// Traits
+

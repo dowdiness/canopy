@@ -1,3 +1,4 @@
+///|
 test "corpus - add single post" {
   let corpus = Corpus::new()
   let id = corpus.add_post("カレーを作った")
@@ -6,6 +7,7 @@ test "corpus - add single post" {
   inspect(corpus.posts[0].text, content="カレーを作った")
 }
 
+///|
 test "corpus - add multiple posts increments id" {
   let corpus = Corpus::new()
   let id0 = corpus.add_post("hello world")
@@ -15,6 +17,7 @@ test "corpus - add multiple posts increments id" {
   inspect(corpus.posts.length(), content="2")
 }
 
+///|
 test "corpus - add empty post" {
   let corpus = Corpus::new()
   let id = corpus.add_post("")
@@ -23,6 +26,7 @@ test "corpus - add empty post" {
   inspect(corpus.posts[0].vec.norm, content="0")
 }
 
+///|
 test "corpus - vectors recomputed on add" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("abcd")
@@ -34,6 +38,7 @@ test "corpus - vectors recomputed on add" {
   inspect(norm_before != norm_after, content="true")
 }
 
+///|
 test "query_text - finds similar posts" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("カレーを作った")
@@ -46,18 +51,21 @@ test "query_text - finds similar posts" {
   inspect(first_id == 0 || first_id == 2, content="true")
 }
 
+///|
 test "query_text - empty query returns empty" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("hello")
   inspect(corpus.query_text(""), content="[]")
 }
 
+///|
 test "query_text - single char query returns empty" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("hello world")
   inspect(corpus.query_text("h"), content="[]")
 }
 
+///|
 test "query_text - top_n limits results" {
   let corpus = Corpus::new()
   // Use distinct bigrams so TF-IDF is non-zero
@@ -69,12 +77,14 @@ test "query_text - top_n limits results" {
   inspect(results.length(), content="1")
 }
 
+///|
 test "query_text - top_n zero returns empty" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("hello")
   inspect(corpus.query_text("hello", top_n=0), content="[]")
 }
 
+///|
 test "query_similar - basic" {
   let corpus = Corpus::new()
   let _ = corpus.add_post("カレーを作った")
@@ -86,11 +96,13 @@ test "query_similar - basic" {
   inspect(results[0].0, content="0")
 }
 
+///|
 test "query_similar - invalid id returns empty" {
   let corpus = Corpus::new()
   inspect(corpus.query_similar(999), content="[]")
 }
 
+///|
 test "query_similar - excludes self" {
   let corpus = Corpus::new()
   let id = corpus.add_post("hello world")
