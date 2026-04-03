@@ -107,7 +107,11 @@ test "query_similar - excludes self" {
   let corpus = Corpus::new()
   let id = corpus.add_post("hello world")
   let _ = corpus.add_post("hello moon")
+  // Third post ensures shared bigrams ("he","el","ll","lo") get IDF > 0
+  // (with only 2 posts, shared terms have df=N → IDF=ln(1)=0 → zero similarity)
+  let _ = corpus.add_post("completely different")
   let results = corpus.query_similar(id)
+  inspect(results.length() > 0, content="true")
   for result in results {
     inspect(result.0 != id, content="true")
   }

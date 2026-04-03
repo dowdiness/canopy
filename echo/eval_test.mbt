@@ -50,6 +50,7 @@ fn reciprocal_rank(results : Array[(Int, Double)], query_id : Int) -> Double {
 
 ///|
 /// Format a Double to 2 decimal places as a string.
+/// Assumes v >= 0 (metrics like P@K and MRR are in [0,1]).
 fn fmt2(v : Double) -> String {
   let scaled = (v * 100.0 + 0.5).to_int()
   let whole = scaled / 100
