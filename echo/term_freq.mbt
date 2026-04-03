@@ -8,11 +8,7 @@ priv struct TermFreq {
 fn term_freq(tokens : Array[String]) -> TermFreq {
   let counts : Map[String, Int] = Map::new()
   for token in tokens {
-    let n = match counts.get(token) {
-      Some(n) => n
-      None => 0
-    }
-    counts[token] = n + 1
+    counts[token] = counts.get(token).unwrap_or(0) + 1
   }
   { counts, total: tokens.length() }
 }

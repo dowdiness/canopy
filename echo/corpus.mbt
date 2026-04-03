@@ -34,16 +34,12 @@ pub fn Corpus::get_post_text(self : Corpus, post_id : Int) -> String? {
 /// changes for every term in the new post, affecting all existing vectors.
 pub fn Corpus::add_post(self : Corpus, text : String) -> Int {
   let id = self.next_id
-  self.next_id = self.next_id + 1
+  self.next_id += 1
   let tokens = @tokenizer.bigram(text)
   let tf = term_freq(tokens)
-  tf.counts.each(fn(term, _count) {
-    let df = match self.doc_freq.get(term) {
-      Some(n) => n
-      None => 0
-    }
-    self.doc_freq[term] = df + 1
-  })
+  for term, _ in tf.counts {
+    self.doc_freq[term] = self.doc_freq.get(term).unwrap_or(0) + 1
+  }
   let post : Post = { id, text, tf, vec: SparseVec::zero() }
   self.posts.push(post)
   self.recompute_vectors()
