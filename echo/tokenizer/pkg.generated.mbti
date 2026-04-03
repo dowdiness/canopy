@@ -4,6 +4,10 @@ package "dowdiness/canopy/echo/tokenizer"
 // Values
 pub fn bigram(String) -> Array[String]
 
+pub fn blended(String) -> Array[String]
+
+pub fn segment(String) -> Array[String]
+
 // Errors
 
 // Types and methods

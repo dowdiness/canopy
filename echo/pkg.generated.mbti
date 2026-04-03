@@ -11,7 +11,7 @@ pub(all) struct Corpus {
 }
 pub fn Corpus::add_post(Self, String) -> Int
 pub fn Corpus::get_post_text(Self, Int) -> String?
-pub fn Corpus::new() -> Self
+pub fn Corpus::new(tokenize? : (String) -> Array[String]) -> Self
 pub fn Corpus::query_similar(Self, Int, top_n? : Int) -> Array[(Int, Double)]
 pub fn Corpus::query_text(Self, String, top_n? : Int) -> Array[(Int, Double)]
 

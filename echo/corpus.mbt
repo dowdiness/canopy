@@ -8,14 +8,17 @@ struct Post {
 
 ///|
 pub(all) struct Corpus {
+  priv tokenize : (String) -> Array[String]
   priv mut next_id : Int
   priv doc_freq : Map[String, Int]
   priv posts : Array[Post]
 }
 
 ///|
-pub fn Corpus::new() -> Corpus {
-  { next_id: 0, doc_freq: Map::new(), posts: [] }
+pub fn Corpus::new(
+  tokenize? : (String) -> Array[String] = @tokenizer.bigram,
+) -> Corpus {
+  { tokenize, next_id: 0, doc_freq: Map::new(), posts: [] }
 }
 
 ///|
@@ -35,7 +38,7 @@ pub fn Corpus::get_post_text(self : Corpus, post_id : Int) -> String? {
 pub fn Corpus::add_post(self : Corpus, text : String) -> Int {
   let id = self.next_id
   self.next_id += 1
-  let tokens = @tokenizer.bigram(text)
+  let tokens = (self.tokenize)(text)
   let tf = term_freq(tokens)
   for term, _ in tf.counts {
     self.doc_freq[term] = self.doc_freq.get(term).unwrap_or(0) + 1
@@ -65,7 +68,7 @@ pub fn Corpus::query_text(
   if top_n <= 0 {
     return []
   }
-  let tokens = @tokenizer.bigram(text)
+  let tokens = (self.tokenize)(text)
   let tf = term_freq(tokens)
   if tf.total == 0 {
     return []

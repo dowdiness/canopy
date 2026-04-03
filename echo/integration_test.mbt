@@ -6,84 +6,47 @@
 //   Reading/books (20-24), Daily life (25-29)
 
 ///|
+/// 30 fixture posts across 6 clusters. Single source of truth for all evals.
+let fixture_posts : Array[String] = [
+  // Cooking (0-4)
+  "今日の晩ご飯はカレーにした", "カレーのスパイスを新しく買った。クミンとコリアンダー",
+  "週末にパスタを作る予定。トマトソースで", "スパイスカレーのレシピを試した。美味しかった",
+  "鶏肉のカレーを圧力鍋で煮込んだ",
+  // CRDT (5-9)
+   "CRDTの実装でFugueMaxアルゴリズムを使う", "共同編集にはCRDTかOTが必要",
+  "CRDTのmerge操作は可換で結合的でなければならない", "リアルタイム共同編集のレイテンシを改善したい",
+  "eg-walkerアルゴリズムでCRDTの性能が大幅に向上する",
+  // Incremental (10-14)
+   "MoonBitでインクリメンタル計算のライブラリを作っている",
+  "増分計算の論文を読んだ。Salsaの設計が参考になる", "incr libraryにMemoプリミティブを追加した",
+  "インクリメンタルパーサーの再解析範囲を最小化する手法",
+  "Adaptonの論文を読み直した。変更伝播のモデルが面白い",
+  // MoonBit (15-19)
+   "RustのrowanスタイルのGreen TreeをMoonBitに移植したい", "MoonBitのパターンマッチングが使いやすい",
+  "MoonBitのトレイトシステムでShow traitを実装した", "Wasm-GCターゲットでのMoonBitのパフォーマンスを測定",
+  "MoonBitのモジュールシステムとパッケージ管理を調べた",
+  // Reading (20-24)
+   "Design Patternsの本を読み始めた", "SICPの第4章を読み終わった。メタ循環評価器の章",
+  "型システムの入門書としてTaPLがおすすめ", "Crafting Interpretersを読んでいる。Pratt parserの解説がいい",
+  "新しい技術書を3冊まとめ買いした",
+  // Daily life (25-29)
+   "散歩中に近所の猫に会った", "コーヒー豆を新しいのに変えてみた",
+  "天気がいいので公園を散歩した", "今日は早起きしてジョギングに行った",
+  "近所のカフェで新しいコーヒーを飲んだ",
+]
+
+///|
+/// Populates a corpus with the 30 fixture posts.
+fn populate_fixtures(corpus : Corpus) -> Unit {
+  for post in fixture_posts {
+    let _ = corpus.add_post(post)
+  }
+}
+
+///|
 fn make_fixture_corpus() -> Corpus {
   let corpus = Corpus::new()
-  // --- Cooking cluster (0-4) ---
-  let _ = corpus.add_post("今日の晩ご飯はカレーにした") // 0
-  let _ = corpus.add_post(
-    "カレーのスパイスを新しく買った。クミンとコリアンダー",
-  ) // 1
-  let _ = corpus.add_post(
-    "週末にパスタを作る予定。トマトソースで",
-  ) // 2
-  let _ = corpus.add_post(
-    "スパイスカレーのレシピを試した。美味しかった",
-  ) // 3
-  let _ = corpus.add_post("鶏肉のカレーを圧力鍋で煮込んだ") // 4
-  // --- CRDT/collaborative editing cluster (5-9) ---
-  let _ = corpus.add_post("CRDTの実装でFugueMaxアルゴリズムを使う") // 5
-  let _ = corpus.add_post("共同編集にはCRDTかOTが必要") // 6
-  let _ = corpus.add_post(
-    "CRDTのmerge操作は可換で結合的でなければならない",
-  ) // 7
-  let _ = corpus.add_post(
-    "リアルタイム共同編集のレイテンシを改善したい",
-  ) // 8
-  let _ = corpus.add_post(
-    "eg-walkerアルゴリズムでCRDTの性能が大幅に向上する",
-  ) // 9
-  // --- Incremental computation cluster (10-14) ---
-  let _ = corpus.add_post(
-    "MoonBitでインクリメンタル計算のライブラリを作っている",
-  ) // 10
-  let _ = corpus.add_post(
-    "増分計算の論文を読んだ。Salsaの設計が参考になる",
-  ) // 11
-  let _ = corpus.add_post(
-    "incr libraryにMemoプリミティブを追加した",
-  ) // 12
-  let _ = corpus.add_post(
-    "インクリメンタルパーサーの再解析範囲を最小化する手法",
-  ) // 13
-  let _ = corpus.add_post(
-    "Adaptonの論文を読み直した。変更伝播のモデルが面白い",
-  ) // 14
-  // --- MoonBit/PL cluster (15-19) ---
-  let _ = corpus.add_post(
-    "RustのrowanスタイルのGreen TreeをMoonBitに移植したい",
-  ) // 15
-  let _ = corpus.add_post(
-    "MoonBitのパターンマッチングが使いやすい",
-  ) // 16
-  let _ = corpus.add_post(
-    "MoonBitのトレイトシステムでShow traitを実装した",
-  ) // 17
-  let _ = corpus.add_post(
-    "Wasm-GCターゲットでのMoonBitのパフォーマンスを測定",
-  ) // 18
-  let _ = corpus.add_post(
-    "MoonBitのモジュールシステムとパッケージ管理を調べた",
-  ) // 19
-  // --- Reading/books cluster (20-24) ---
-  let _ = corpus.add_post("Design Patternsの本を読み始めた") // 20
-  let _ = corpus.add_post(
-    "SICPの第4章を読み終わった。メタ循環評価器の章",
-  ) // 21
-  let _ = corpus.add_post(
-    "型システムの入門書としてTaPLがおすすめ",
-  ) // 22
-  let _ = corpus.add_post(
-    "Crafting Interpretersを読んでいる。Pratt parserの解説がいい",
-  ) // 23
-  let _ = corpus.add_post("新しい技術書を3冊まとめ買いした") // 24
-  // --- Daily life cluster (25-29) ---
-  let _ = corpus.add_post("散歩中に近所の猫に会った") // 25
-  let _ = corpus.add_post("コーヒー豆を新しいのに変えてみた") // 26
-  let _ = corpus.add_post("天気がいいので公園を散歩した") // 27
-  let _ = corpus.add_post("今日は早起きしてジョギングに行った") // 28
-  let _ = corpus.add_post(
-    "近所のカフェで新しいコーヒーを飲んだ",
-  ) // 29
+  populate_fixtures(corpus)
   corpus
 }
 
@@ -215,6 +178,20 @@ test "integration - single char post has no similarity" {
   let _ = corpus.add_post("カレーを作った")
   let results = corpus.query_similar(id0)
   inspect(results, content="[]")
+}
+
+///|
+fn make_segment_fixture_corpus() -> Corpus {
+  let corpus = Corpus::new(tokenize=@tokenizer.segment)
+  populate_fixtures(corpus)
+  corpus
+}
+
+///|
+fn make_blended_fixture_corpus() -> Corpus {
+  let corpus = Corpus::new(tokenize=@tokenizer.blended)
+  populate_fixtures(corpus)
+  corpus
 }
 
 ///|
