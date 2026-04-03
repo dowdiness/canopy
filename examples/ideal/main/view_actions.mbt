@@ -157,7 +157,7 @@ fn view_action_overlay(
   dispatch : @rabbita.Dispatch[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  if !(model.overlay.visible) {
+  if !model.overlay.visible {
     return @html.text("")
   }
   // Position the overlay panel using inline style from the anchor rect

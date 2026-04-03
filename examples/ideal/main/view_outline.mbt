@@ -33,6 +33,7 @@ fn view_outline_node(
   node : @proj.InteractiveTreeNode[@ast.Term],
   depth : Int,
   selected_node : String?,
+  eval_annotations : Map[@proj.NodeId, Array[@editor.EvalResult]],
 ) -> Html {
   let kind = kind_of(node.label)
   let is_selected = match selected_node {
@@ -61,6 +62,22 @@ fn view_outline_node(
     toggle,
     span(class="tree-label-text", [text(node.label)]),
   ]
+  // Eval annotation badge
+  match eval_annotations.get(node.id) {
+    Some(results) =>
+      for result in results {
+        match result {
+          @editor.EvalResult::Value(s) =>
+            row_items.push(span(class="eval-badge", [text("  \u{2192} " + s)]))
+          @editor.EvalResult::Stuck(s) =>
+            row_items.push(
+              span(class="eval-badge eval-error", [text("  \u{2192} " + s)]),
+            )
+          @editor.EvalResult::Suppressed => ()
+        }
+      }
+    None => ()
+  }
   if node.collapsed {
     let count = match node.children {
       @proj.Elided(n) => n
@@ -78,7 +95,13 @@ fn view_outline_node(
     match node.children {
       @proj.Loaded(children) =>
         children.map(fn(child) {
-          view_outline_node(dispatch, child, depth + 1, selected_node)
+          view_outline_node(
+            dispatch,
+            child,
+            depth + 1,
+            selected_node,
+            eval_annotations,
+          )
         })
       @proj.Elided(n) =>
         [@html.p(class="no-tree-note", "\{n} hidden descendants")]
@@ -91,10 +114,7 @@ fn view_outline_node(
 
 ///|
 /// Compute structural navigation from the current selection.
-fn navigate_outline(
-  model : Model,
-  direction : @zipper.Direction,
-) -> String? {
+fn navigate_outline(model : Model, direction : @zipper.Direction) -> String? {
   let node_id_str = match model.selected_node {
     Some(s) => s
     None => return None
@@ -121,6 +141,36 @@ fn get_selected_node_id(model : Model) -> @proj.NodeId? {
   }
   let n = @strconv.parse_int(s) catch { _ => return None }
   Some(@proj.NodeId::from_int(n))
+}
+
+///|
+/// Build a NodeId → EvalResult map for the outline tree.
+/// Maps eval results to ProjNode children by definition index.
+fn build_outline_eval_annotations(
+  model : Model,
+) -> Map[@proj.NodeId, Array[@editor.EvalResult]] {
+  let annotations : Map[@proj.NodeId, Array[@editor.EvalResult]] = {}
+  let eval_results = model.editor.get_eval_results()
+  if eval_results.is_empty() {
+    return annotations
+  }
+  let proj_node = match model.editor.get_proj_node() {
+    Some(p) => p
+    None => return annotations
+  }
+  let children = proj_node.children
+  for i, result in eval_results {
+    match result {
+      @editor.EvalResult::Suppressed => continue
+      _ =>
+        if i < children.length() {
+          annotations[children[i].id()] = [result]
+        } else {
+          annotations[proj_node.id()] = [result]
+        }
+    }
+  }
+  annotations
 }
 
 ///|
@@ -185,13 +235,23 @@ fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
       _ => @rabbita.none
     }
   }
+  // Build eval annotations map: NodeId → Array[EvalResult]
+  let eval_annotations = build_outline_eval_annotations(model)
   match model.outline_state.tree {
     Some(root) =>
       div(
         class="tree-rows",
         on_keydown=handle_keydown,
         attrs=@html.Attrs::build().tabindex(0),
-        [view_outline_node(dispatch, root, 0, model.selected_node)],
+        [
+          view_outline_node(
+            dispatch,
+            root,
+            0,
+            model.selected_node,
+            eval_annotations,
+          ),
+        ],
       )
     None => @html.p(class="no-tree-note", "No AST available")
   }

@@ -342,6 +342,20 @@ button:focus-visible, .action-btn:focus-visible,
   flex-shrink: 0;
 }
 
+.eval-badge {
+  font-family: var(--canopy-font-mono);
+  font-size: var(--text-label);
+  color: var(--canopy-accent-text);
+  opacity: 0.7;
+  font-style: italic;
+  margin-left: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.eval-badge.eval-error {
+  color: var(--canopy-error);
+}
+
 .no-tree-note {
   font-size: var(--text-small);
   color: var(--canopy-muted);

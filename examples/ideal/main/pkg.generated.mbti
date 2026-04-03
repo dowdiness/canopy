@@ -45,6 +45,14 @@ pub fn get_text(Int) -> String
 
 pub fn get_version_json(Int) -> String
 
+pub fn handle_redo(Int) -> Bool
+
+pub fn handle_structural_intent(Int, String, String, Int, String) -> String
+
+pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
+
+pub fn handle_undo(Int) -> Bool
+
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
 pub fn set_text(Int, String) -> Unit
@@ -67,14 +75,12 @@ pub enum BottomTab {
   OpLog
   CrdtState
   Graphviz
-}
-pub impl Eq for BottomTab
+} derive(Eq)
 
 pub enum EditorMode {
   Text
   Structure
-}
-pub impl Eq for EditorMode
+} derive(Eq)
 
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
@@ -93,7 +99,6 @@ pub enum Msg {
   SetMode(EditorMode)
   TogglePanel(PanelId)
   SelectBottomTab(BottomTab)
-  NodeSelected(String)
   StructuralEditRequested(op~ : String, node_id~ : String)
   Undo
   Redo
@@ -101,7 +106,9 @@ pub enum Msg {
   DismissPanels
   LoadExample(String)
   OutlineNodeClicked(String)
-  TextChangedFromEditor
+  OutlineNavigate(String)
+  OutlineStructuralEdit(@edits.TreeEditOp)
+  OpenActionOverlayFromOutline
   SyncStatusChanged(String)
   OpenActionOverlay
   CloseActionOverlay
@@ -111,6 +118,9 @@ pub enum Msg {
   NamePromptSubmit
   NamePromptCancel
   LongPressTriggered
+  EditorTextChanged
+  EditorNodeSelected(String)
+  EditorStructuralEdit(op~ : String, node_id~ : String)
 }
 
 type NodeActionContext
@@ -121,16 +131,14 @@ pub enum PanelId {
   Outline
   Inspector
   Bottom
-}
-pub impl Eq for PanelId
+} derive(Eq)
 
 pub enum SyncStatus {
   Offline
   Connecting
   Connected
   Error
-}
-pub impl Eq for SyncStatus
+} derive(Eq)
 
 pub struct WorkspaceLayout {
   outline_visible : Bool

@@ -21,7 +21,7 @@ fn render_dot_to_svg(dot : String) -> String {
 /// Create a command that renders the Graphviz SVG into the container.
 /// Must run after the DOM element exists (use as AfterRender or after flush).
 fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
-  if model.bottom_tab != Graphviz || !(model.workspace.bottom_visible) {
+  if model.bottom_tab != Graphviz || !model.workspace.bottom_visible {
     return @rabbita.none
   }
   let dot = model.editor.get_dot_resolved()

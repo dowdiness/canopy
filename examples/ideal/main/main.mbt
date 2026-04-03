@@ -15,7 +15,7 @@ fn init_model() -> Model {
   // JS (main.ts) will reuse handle=1 instead of creating a second editor.
   let _handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
-  let init_text = "let id = \\x.x\nlet apply = \\f.\\x.f x\napply id 42"
+  let init_text = "let id = \\x. x\nlet apply = \\f. \\x. f x\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
     editor.get_proj_node(),
@@ -50,11 +50,19 @@ fn refresh(model : Model) -> Model {
 
 ///|
 let examples : Array[(String, String)] = [
-  ("Identity", "let id = \\x.x\nid 42"),
-  ("Church 2", "let two = \\f.\\x.f (f x)\ntwo"),
-  ("Add", "let add = \\x.\\y.x + y\nadd 1 2"),
-  ("Conditional", "if 1 then 42 else 0"),
-  ("Apply", "let apply = \\f.\\x.f x\napply (\\x.x + 1) 5"),
+  ("Basics", "let double = \\x. x + x\nlet result = double 5\nresult"),
+  (
+    "Composition", "let inc = \\n. n + 1\nlet twice = \\f. \\x. f (f x)\nlet result = twice inc 0\nresult",
+  ),
+  (
+    "Currying", "let add = \\x. \\y. x + y\nlet add5 = add 5\nlet sum = add5 10\nsum",
+  ),
+  (
+    "Conditional", "let choose = \\x. if x then x + 1 else 42\nlet a = choose 0\nlet b = choose 5\na + b",
+  ),
+  (
+    "Pipeline", "let compose = \\f. \\g. \\x. f (g x)\nlet double = \\x. x + x\nlet inc = \\x. x + 1\nlet f = compose inc double\nf 5",
+  ),
 ]
 
 ///|
@@ -287,7 +295,7 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
 fn open_action_overlay(
   model : Model,
   node_id_str : String,
-  rect_json~ : String = js_get_selected_node_rect(),
+  rect_json? : String = js_get_selected_node_rect(),
 ) -> Model {
   if node_id_str == "" {
     return model
@@ -370,7 +378,10 @@ fn execute_action(
 ///|
 /// Dispatch an action immediately, open a submenu for choice-based actions,
 /// or open the name prompt for input-requiring actions.
-fn dispatch_or_prompt(model : Model, action : @lambda_edits.Action) -> (Cmd, Model) {
+fn dispatch_or_prompt(
+  model : Model,
+  action : @lambda_edits.Action,
+) -> (Cmd, Model) {
   if action.needs_input {
     let overlay = {
       ..model.overlay,
@@ -511,7 +522,9 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       let outline_state = match new_selected {
         Some(s) => {
-          let nid_int = @strconv.parse_int(s) catch { _ => return (none, model) }
+          let nid_int = @strconv.parse_int(s) catch {
+            _ => return (none, model)
+          }
           let nid = @proj.NodeId::from_int(nid_int)
           model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
         }
@@ -535,9 +548,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             next_timestamp: model.next_timestamp + 1,
           })
           // Relocate selection to where FocusHint placed the text cursor
-          let (new_selected, outline_state) = match new_model.editor.get_source_map().innermost_node_at(
-            new_model.editor.get_cursor(),
-          ) {
+          let (new_selected, outline_state) = match
+            new_model.editor
+            .get_source_map()
+            .innermost_node_at(new_model.editor.get_cursor()) {
             Some(nid) => {
               let os = new_model.outline_state.apply_edit(
                 @lambda_edits.Select(node_id=nid),
@@ -652,7 +666,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         action_id
         .iter()
         .each(fn(ch) {
-          if !(found_colon) && ch == ':' {
+          if !found_colon && ch == ':' {
             found_colon = true
           } else if found_colon {
             choice = choice + ch.to_string()
@@ -720,11 +734,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     EditorStructuralEdit(op~, node_id~) => {
-      let resolved_op = if op == "" {
-        js_take_structural_edit_op()
-      } else {
-        op
-      }
+      let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
       let resolved_node_id = if node_id == "" {
         js_take_structural_edit_node_id()
       } else {

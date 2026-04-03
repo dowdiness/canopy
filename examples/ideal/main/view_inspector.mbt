@@ -120,9 +120,7 @@ fn view_node_details(
       items.push(
         div(class="token-span-row", [
           span(class="token-span-role", [text(role)]),
-          span(class="token-span-range", [
-            text("\{span_start}..\{span_end}"),
-          ]),
+          span(class="token-span-range", [text("\{span_start}..\{span_end}")]),
           span(class="token-span-text", [text(span_text)]),
         ]),
       )
