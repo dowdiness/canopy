@@ -42,6 +42,44 @@ pub fn SyncEditor::get_view_tree_with_eval(
 }
 
 ///|
+/// Lambda-specific: compute view patches with eval annotations.
+pub fn compute_view_patches_with_eval(
+  state : ViewUpdateState,
+  editor : SyncEditor[@ast.Term],
+) -> Array[@protocol.ViewPatch] {
+  let patches : Array[@protocol.ViewPatch] = []
+  let current = editor.get_view_tree_with_eval()
+  match (state.previous, current) {
+    (None, None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
+    (None, Some(curr)) =>
+      patches.push(@protocol.ViewPatch::FullTree(root=Some(curr)))
+    (Some(_), None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
+    (Some(prev), Some(curr)) => diff_view_nodes(prev, curr, patches)
+  }
+  let errors = editor.get_errors()
+  if errors.length() > 0 {
+    let diagnostics : Array[@protocol.Diagnostic] = []
+    for error in errors {
+      diagnostics.push(
+        @protocol.Diagnostic(
+          from=0,
+          to=0,
+          severity=@protocol.SevError,
+          message=error,
+        ),
+      )
+    }
+    patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
+    state.had_errors = true
+  } else if state.had_errors {
+    patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics=[]))
+    state.had_errors = false
+  }
+  state.previous = current
+  patches
+}
+
+///|
 pub fn[T : @proj.Renderable] compute_view_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],

@@ -24,6 +24,8 @@ pub fn compute_pretty_patches(ViewUpdateState, SyncEditor[@ast.Term]) -> Array[@
 
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
+pub fn compute_view_patches_with_eval(ViewUpdateState, SyncEditor[@ast.Term]) -> Array[@protocol.ViewPatch]
+
 pub fn decode_message(Bytes) -> SyncMessage?
 
 pub fn decode_message_result(Bytes) -> Result[SyncMessage, ProtocolError]

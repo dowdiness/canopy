@@ -12,7 +12,7 @@ let json_view_states : Map[Int, @editor.ViewUpdateState] = Map::new()
 pub fn get_view_tree_json(handle : Int) -> String {
   match editors.get(handle) {
     Some(ed) =>
-      match ed.get_view_tree() {
+      match ed.get_view_tree_with_eval() {
         Some(view_node) => view_node.to_json().stringify()
         None => "null"
       }
@@ -21,7 +21,7 @@ pub fn get_view_tree_json(handle : Int) -> String {
 }
 
 ///|
-/// Compute incremental view patches for a lambda editor.
+/// Compute incremental view patches for a lambda editor (with eval annotations).
 /// Returns a JSON array of ViewPatch objects.
 pub fn compute_view_patches_json(handle : Int) -> String {
   match editors.get(handle) {
@@ -34,7 +34,7 @@ pub fn compute_view_patches_json(handle : Int) -> String {
           s
         }
       }
-      let patches = @editor.compute_view_patches(state, ed)
+      let patches = @editor.compute_view_patches_with_eval(state, ed)
       Json::array(patches.map(fn(p) { p.to_json() })).stringify()
     }
     None => "[]"
