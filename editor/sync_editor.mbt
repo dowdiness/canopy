@@ -14,6 +14,7 @@ pub struct SyncEditor[T] {
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
+  priv mut eval_memo : @incr.Memo[Array[EvalResult]]?
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
   priv peer_id : String
@@ -64,6 +65,7 @@ fn[T] SyncEditor::new(
     cached_proj_node,
     registry_memo,
     source_map_memo,
+    eval_memo: None,
     hub,
     cursor_view,
     peer_id: agent_id,
@@ -80,12 +82,16 @@ pub fn SyncEditor::new_lambda(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> SyncEditor[@ast.Term] {
-  SyncEditor::new(
+  let editor = SyncEditor::new(
     agent_id,
     fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
     build_lambda_projection_memos,
     capture_timeout_ms~,
   )
+  editor.eval_memo = Some(
+    build_eval_memo(editor.parser_rt, editor.syntax_tree, editor.parser),
+  )
+  editor
 }
 
 ///|
@@ -130,6 +136,7 @@ pub fn[T] SyncEditor::new_generic(
     cached_proj_node,
     registry_memo,
     source_map_memo,
+    eval_memo: None,
     hub,
     cursor_view,
     peer_id: agent_id,

@@ -91,3 +91,14 @@ pub fn build_eval_memo(
     label="eval_memo",
   )
 }
+
+///|
+/// Get current eval results for a lambda editor.
+pub fn SyncEditor::get_eval_results(
+  self : SyncEditor[@ast.Term],
+) -> Array[EvalResult] {
+  match self.eval_memo {
+    Some(memo) => memo.get()
+    None => []
+  }
+}

@@ -295,6 +295,7 @@ pub fn SyncEditor::get_ast_pretty(Self[@ast.Term]) -> String
 pub fn[T] SyncEditor::get_cursor(Self[T]) -> Int
 pub fn SyncEditor::get_dot_resolved(Self[@ast.Term]) -> String
 pub fn[T] SyncEditor::get_errors(Self[T]) -> Array[String]
+pub fn SyncEditor::get_eval_results(Self[@ast.Term]) -> Array[EvalResult]
 pub fn[T] SyncEditor::get_flat_proj(Self[T]) -> @proj.FlatProj?
 pub fn[T] SyncEditor::get_hub(Self[T]) -> EphemeralHub
 pub fn[T] SyncEditor::get_node(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/canopy/core.ProjNode[T]?
