@@ -236,6 +236,23 @@ Before starting medium or large work:
 - **Format:** Always `moon info && moon fmt` before committing
 - **Trait impl:** `pub impl Trait for Type with method(self) { ... }` — one method per impl block
 - **Arrow functions:** `() => expr`, `() => { stmts }`. Empty body: `() => ()` not `() => {}`
+- **StringView/ArrayView patterns:** Use `.view()` + array patterns for iteration instead of index loops. Works with `String`, `Array`, `Bytes`. Prefer `loop s.view() { [ch, ..rest] => ...; [] => ... }` over `for i = 0; i < s.length(); i = i + 1 { s[i] }`.
+  ```moonbit
+  // Prefer this:
+  loop text.view(), 0 {
+    [], _ => ()
+    [ch, ..rest], i => {
+      process(ch)
+      continue rest, i + 1
+    }
+  }
+  // Over this:
+  for i = 0; i < text.length(); i = i + 1 {
+    let ch = text[i]
+    process(ch)
+  }
+  ```
+  Also useful for prefix matching: `match s.view() { [.."let", ..rest] => ... }` and palindrome-style middle access: `[a, ..rest, b] => ...`
 
 ## Code Changes
 
