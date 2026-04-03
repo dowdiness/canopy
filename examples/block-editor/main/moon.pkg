@@ -1,6 +1,5 @@
 import {
   "dowdiness/event-graph-walker/container" @container,
-  "dowdiness/event-graph-walker/text" @text,
 }
 
 options(

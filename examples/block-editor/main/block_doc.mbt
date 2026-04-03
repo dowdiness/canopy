@@ -9,19 +9,17 @@ pub let root_block_id : @container.TreeNodeId = @container.root_id
 ///|
 /// A collaborative block document.
 ///
-/// Wraps a `Document` for block hierarchy and a per-block `TextState` map for
-/// text content. Block ordering delegates to the tree CRDT's fractional indexing.
+/// Wraps a `Document` for block hierarchy and per-block text content.
+/// Block ordering delegates to the tree CRDT's fractional indexing.
 pub struct BlockDoc {
   priv tree : @container.Document
-  priv texts : Map[String, @text.TextState]
-  priv replica_id : String
 }
 
 ///|
 pub fn BlockDoc::new(
   replica_id : String,
 ) -> BlockDoc raise @container.DocumentError {
-  { tree: @container.Document::new(replica_id), texts: {}, replica_id }
+  { tree: @container.Document::new(replica_id) }
 }
 
 ///|
@@ -32,7 +30,6 @@ pub fn BlockDoc::create_block(
   parent? : @container.TreeNodeId = root_block_id,
 ) -> @container.TreeNodeId raise @container.DocumentError {
   let id = self.tree.create_node(parent~)
-  self.texts[id_key(id)] = @text.TextState::new(self.replica_id)
   self.apply_block_type(id, block_type)
   id
 }
@@ -45,7 +42,6 @@ pub fn BlockDoc::create_block_after(
   block_type : BlockType,
 ) -> @container.TreeNodeId raise @container.DocumentError {
   let id = self.tree.create_node_after(parent=root_block_id, after=after_id)
-  self.texts[id_key(id)] = @text.TextState::new(self.replica_id)
   self.apply_block_type(id, block_type)
   id
 }
@@ -106,10 +102,7 @@ pub fn BlockDoc::get_text(
   self : BlockDoc,
   id : @container.TreeNodeId,
 ) -> String {
-  match self.texts.get(id_key(id)) {
-    Some(tdoc) => tdoc.text()
-    None => ""
-  }
+  self.tree.get_text(id)
 }
 
 ///|
@@ -119,20 +112,8 @@ pub fn BlockDoc::set_text(
   id : @container.TreeNodeId,
   text : String,
 ) -> Unit {
-  match self.texts.get(id_key(id)) {
-    Some(tdoc) => {
-      let len = tdoc.len()
-      if len > 0 {
-        tdoc.replace_range(@text.Range::from_ints(0, len), text) catch {
-          _ => ()
-        }
-      } else if text != "" {
-        tdoc.insert(@text.Pos::at(0), text) catch {
-          _ => ()
-        }
-      }
-    }
-    None => ()
+  self.tree.replace_text(id, text) catch {
+    _ => ()
   }
 }
 
@@ -144,9 +125,8 @@ pub fn BlockDoc::insert_char(
   pos : Int,
   ch : String,
 ) -> Unit {
-  match self.texts.get(id_key(id)) {
-    Some(tdoc) => tdoc.insert(@text.Pos::at(pos), ch) catch { _ => () }
-    None => ()
+  self.tree.insert_text(id, pos, ch) catch {
+    _ => ()
   }
 }
 
@@ -157,9 +137,8 @@ pub fn BlockDoc::delete_char(
   id : @container.TreeNodeId,
   pos : Int,
 ) -> Unit {
-  match self.texts.get(id_key(id)) {
-    Some(tdoc) => tdoc.delete(@text.Pos::at(pos)) catch { _ => () }
-    None => ()
+  self.tree.delete_text(id, pos) catch {
+    _ => ()
   }
 }
 
