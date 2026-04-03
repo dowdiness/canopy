@@ -67,6 +67,16 @@ pub(all) enum UserIntent {
 pub impl ToJson for UserIntent
 pub impl @json.FromJson for UserIntent
 
+pub(all) struct ViewAnnotation {
+  kind : String
+  label : String
+  severity : String
+
+  fn new(kind~ : String, label~ : String, severity? : String) -> ViewAnnotation
+} derive(Eq, Show)
+pub fn ViewAnnotation::new(kind~ : String, label~ : String, severity? : String) -> Self
+pub impl ToJson for ViewAnnotation
+
 pub(all) struct ViewNode {
   id : @dowdiness/canopy/core.NodeId
   kind_tag : String
@@ -77,10 +87,11 @@ pub(all) struct ViewNode {
   editable : Bool
   css_class : String
   children : Array[ViewNode]
+  annotations : Array[ViewAnnotation]
 
-  fn new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[ViewNode]) -> ViewNode
+  fn new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[ViewNode], annotations? : Array[ViewAnnotation]) -> ViewNode
 } derive(Eq, Show)
-pub fn ViewNode::new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self]) -> Self
+pub fn ViewNode::new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self], annotations? : Array[ViewAnnotation]) -> Self
 pub fn ViewNode::node_count(Self) -> Int
 pub impl ToJson for ViewNode
 

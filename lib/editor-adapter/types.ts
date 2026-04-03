@@ -11,6 +11,7 @@ export type ViewNode = {
   editable: boolean;
   css_class: string;
   children: ViewNode[];
+  annotations: { kind: string; label: string; severity: string }[];
 };
 
 export type Decoration = {

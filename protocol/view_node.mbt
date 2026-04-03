@@ -17,6 +17,33 @@ pub fn TokenSpan::new(role~ : String, start~ : Int, end~ : Int) -> TokenSpan {
 }
 
 ///|
+pub(all) struct ViewAnnotation {
+  kind : String
+  label : String
+  severity : String
+
+  fn new(kind~ : String, label~ : String, severity? : String) -> ViewAnnotation
+} derive(Show, Eq)
+
+///|
+pub fn ViewAnnotation::new(
+  kind~ : String,
+  label~ : String,
+  severity? : String = "info",
+) -> ViewAnnotation {
+  { kind, label, severity }
+}
+
+///|
+pub impl ToJson for ViewAnnotation with to_json(self) {
+  let m : Map[String, Json] = {}
+  m["kind"] = self.kind.to_json()
+  m["label"] = self.label.to_json()
+  m["severity"] = self.severity.to_json()
+  Json::object(m)
+}
+
+///|
 pub(all) struct ViewNode {
   id : @core.NodeId
   kind_tag : String
@@ -27,6 +54,7 @@ pub(all) struct ViewNode {
   editable : Bool
   css_class : String
   children : Array[ViewNode]
+  annotations : Array[ViewAnnotation]
 
   fn new(
     id~ : @core.NodeId,
@@ -38,6 +66,7 @@ pub(all) struct ViewNode {
     editable? : Bool,
     css_class? : String,
     children? : Array[ViewNode],
+    annotations? : Array[ViewAnnotation],
   ) -> ViewNode
 } derive(Show, Eq)
 
@@ -52,6 +81,7 @@ pub fn ViewNode::new(
   editable? : Bool = false,
   css_class? : String = "",
   children? : Array[ViewNode] = [],
+  annotations? : Array[ViewAnnotation] = [],
 ) -> ViewNode {
   {
     id,
@@ -63,6 +93,7 @@ pub fn ViewNode::new(
     editable,
     css_class,
     children,
+    annotations,
   }
 }
 
@@ -92,5 +123,6 @@ pub impl ToJson for ViewNode with to_json(self) {
   m["editable"] = self.editable.to_json()
   m["css_class"] = self.css_class.to_json()
   m["children"] = Json::array(self.children.map(fn(c) { c.to_json() }))
+  m["annotations"] = Json::array(self.annotations.map(fn(a) { a.to_json() }))
   Json::object(m)
 }
