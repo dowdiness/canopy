@@ -117,7 +117,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `HeadingMarker(Int)`, `CodeFenceOpen(Int, String)`, `Text(String)`, `CodeText(String)` still carry payloads. Some are semantic (heading level, info string) not just raw text — needs design thought on how to derive from source.
   Exit: markdown Token is payload-free where possible, semantic info extracted at point-of-use.
 - [ ] **`TokenBuffer::get_view` helper**
-  Why: the `get_text` closure for `ReuseCursor::new` is duplicated across 3 production callsites (factories.mbt, lambda/cst_parser.mbt, json/cst_parser.mbt). Worth extracting when a 4th language is added (loomgen).
+  Why: the `get_text` closure for `ReuseCursor::new` is duplicated across 4 production callsites (factories.mbt, lambda/cst_parser.mbt, json/cst_parser.mbt, markdown/cst_parser.mbt). Worth extracting now that markdown is a 4th consumer.
   Exit: `TokenBuffer::get_view(source, i) -> StringView` replaces inline closures.
 - [x] **Token::to_raw ↔ SyntaxKind::to_raw round-trip test** — ✅ Done. `token_rawkind_test.mbt` in both lambda and json verifies all Token/SyntaxKind pairs match.
 - [ ] **Unify Token and SyntaxKind into single enum (rowan style)**
@@ -314,10 +314,13 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] **JSON projectional editor** — ✅ Done (PR #100). Second language consumer: `lang/json/proj/` + `lang/json/edits/`. Shared SpanEdit/FocusHint in framework/core. SyncEditor::new_generic (no FlatProj). 8 benchmarks.
 - [x] **JSON web editor** — ✅ Done (PR #104). `crdt_json.mbt` FFI exports, `examples/web/json.html` + `json-editor.ts` with structural editing toolbar, tree view, inline key/type input. Vite multi-page build. All 9 JsonEditOp variants supported.
 - [ ] **JSON FlatProj optimization** — 1000-member objects at 28ms exceed 16ms budget. Add incremental per-member derivation when needed.
-- [ ] **loomgen design update** — Update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON. Two real examples now inform the generator.
-- [ ] **Markdown editor** — Third language for the block editor. Depends on loomgen or manual implementation.
-  Plan: `docs/plans/2026-04-01-markdown-parser-design.md`, `docs/plans/2026-04-01-markdown-parser-impl.md`
-  Prereq: lex modes (`docs/plans/2026-04-01-loom-lex-modes-design.md`, `docs/plans/2026-04-01-loom-lex-modes-impl.md`)
+- [ ] **loomgen design update** — Update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON + markdown. Three real examples now inform the generator.
+- [x] **Loom lex modes** — ✅ Done. `ModeLexer[T, M]` with type erasure via `erase_mode_lexer`, convergence-based incremental re-lex. `loom/loom/src/core/mode_lexer.mbt`. All 194 loom tests pass.
+  Plan: `loom/docs/plans/2026-04-01-loom-lex-modes-design.md`, `loom/docs/plans/2026-04-01-loom-lex-modes-impl.md`
+- [x] **Markdown parser (loom)** — ✅ Done. Two-level AST (Block + Inline), 3 lex modes (LineStart, Inline, CodeBlock), error recovery, source fidelity. 28 tests pass. `loom/examples/markdown/`.
+  Plan: `loom/docs/plans/2026-04-01-markdown-parser-design.md`, `loom/docs/plans/2026-04-01-markdown-parser-impl.md`
+- [ ] **Markdown Canopy integration** — Wire `loom/examples/markdown/` into `lang/markdown/` with projection, editor support, and block editor integration.
+  Exit: `lang/markdown/` package with projection + edit ops, block editor renders markdown via ViewNode protocol.
 
 ---
 
