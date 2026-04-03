@@ -73,12 +73,12 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` does not leave peers diverged silently
   Why: recovery semantics should be finalized after the container implementation defines the next sync boundary, not against the current pre-container transport assumptions.
   Plan: `docs/plans/2026-03-29-sync-recovery-followup.md`
-  Blocked by: container Phase 2 (unified oplog with text ops). Phase 1 (tree ops) ✅ Done — `container/` package with `Document` struct, block editor switched.
-  Exit: revisit after container Phase 2; then align retry, buffering, and failure behavior with the new sync boundary.
+  Blocked by: container Phase 3 (unified sync). Phase 1 (tree ops) ✅ Done. Phase 2 (per-block text) ✅ Done. Text ops are local-only — no Op enum or sync serialization yet.
+  Exit: revisit after container Phase 3; then align retry, buffering, and failure behavior with the new sync boundary.
 - [ ] Reject duplicate/invalid relay peer IDs in `RelayRoom`
-  Why: `RelayRoom` still trusts caller uniqueness and membership correctness, but hardening this boundary should wait until the container Phase 2 defines the next sync boundary clearly.
+  Why: `RelayRoom` still trusts caller uniqueness and membership correctness, but hardening this boundary should wait until the container Phase 3 defines the next sync boundary clearly.
   Plan: `docs/plans/2026-03-29-relay-peer-validation.md`
-  Exit: revisit after container Phase 2; then define and test duplicate peer IDs and invalid membership behavior against the new sync boundary.
+  Exit: revisit after container Phase 3; then define and test duplicate peer IDs and invalid membership behavior against the new sync boundary.
 - [x] Fix P2-1: Remote sync pollutes undo history — `UndoManager.set_tracking()` implemented; valtio TS layer suppresses tracking during remote op application (see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Fix P2-2: Position-based undo replays stale positions after concurrent edits — replaced with LV-based UndoManager; tombstone revival restores characters at exact CRDT position regardless of concurrent edits (Phase 1+2 complete, see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Wire `apply_sync` to suppress undo tracking — `SyncEditor::apply_sync` now disables tracking before applying remote ops
@@ -351,10 +351,10 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Why: lowest effort, proves the semantic-data-through-protocol pattern. If Resolution flows through ViewNode cleanly, types and eval results follow the same path.
   Semantic data: Resolution (available now)
   Exit: tree view shows bound variables colored by binder, free variables highlighted as warnings.
-- [ ] **Live inline evaluation** — Show evaluation results next to definitions in the pretty-print view. The evaluator (Phase 2) is done; this connects it to the user's eyes.
-  Why: highest user-visible impact. "See the values" experience (Bret Victor). Closes the syntax→semantics gap directly.
-  Semantic data: eval results (available now via `loom/examples/lambda/src/eval/`)
-  Exit: pretty-print view shows `→ 10` or `→ ‹closure›` next to each evaluated definition.
+- [x] **Live inline evaluation** — ✅ Done (feature/live-inline-eval branch). Pretty-print view shows `→ 10` / `→ ‹closure›` via Layout post-processing. Structural view has `ViewAnnotation` on nodes. Reactive via `@incr.Memo`. 17 tests.
+  Plan: `docs/plans/2026-04-03-live-inline-eval-design.md`, `docs/plans/2026-04-03-live-inline-eval-impl.md`
+- [ ] **Eval error/suppression UX** — Eval annotations show semantic errors (e.g., `→ ‹unbound: x›`) in the structure panel while the Error panel stays empty (Incomplete/ParseError are suppressed as "expected during editing"). This is technically correct but confusing: two panels show contradictory information. Consider surfacing eval-level semantic errors in the Error panel, or adding a visual cue that distinguishes "eval stuck" from "no errors."
+  Exit: users are not confused by one panel showing errors while another shows none.
 - [ ] **Type annotations overlay** — Show inferred types next to bindings and expressions. Egglog typing rules already exist in `loom/egglog/examples/lambda/`.
   Why: types are the canonical "explicit semantics" — they make invisible meaning visible. First projection requiring the egglog semantic model.
   Semantic data: type inference (egglog Phase 1 ✅ Done)
@@ -405,10 +405,8 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] **Phase 0: Rename** — ✅ Done. TreeDoc→TreeState, TreeDocError→TreeError.
 - [x] **Phase 1: Container + tree ops** — ✅ Done. `container/` package with `Document` struct. Block editor switched from `@tree.TreeState` to `@container.Document`. 25 tests.
   Plan: `docs/archive/completed-phases/2026-03-29-container-phase1-tree.md`
-- [ ] **Phase 2: Per-block text (Path A — shared global LVs)** — Add text ops to container Document. Per-block FugueTree uses shared global LVs (same as standalone TextState). No LvTable, no fugue rename, no internal pipeline refactoring. Accepts O(total_ops) sparse overhead per block.
-  Plan: `docs/plans/2026-04-03-container-phase2-text.md` (needs rewrite for Path A)
-  Design: `docs/plans/2026-03-29-container-design.md`
-  Exit: `Document::insert_text/delete_text/get_text` work. Block editor uses Document for both tree and text.
+- [x] **Phase 2: Per-block text (Path A — shared global LVs)** — ✅ Done (PR #112, event-graph-walker PR #18). `TextBlock` wraps per-block `FugueTree[String]` with shared global LVs. `Document::insert_text/delete_text/replace_text/get_text/text_len`. Block editor migrated from `TextState` map to Document text ops. 20 new tests, `next_version()` refactoring. Codex-reviewed.
+  Plan: `docs/plans/2026-04-03-container-phase2-text.md`
 - [ ] **Internal text pipeline refactoring** — Separate Lv (global causal version) from ItemId (per-container Fugue identity) in oplog/, branch/, fugue/. Enables dense per-block storage and clean per-block Branch/merge.
   Why: FugueTree uses sparse arrays indexed by global LV. With shared LV space, per-block arrays are O(total_ops) instead of O(block_size). Branch/MergeContext/DeleteIndex hardcode LV=ItemId.
   Packages: fugue/ (rename Lv→ItemId), oplog/ (decouple storage index from LV), branch/ (accept LvTable, translate at boundaries), delete_index/ (per-block with ItemIds).
