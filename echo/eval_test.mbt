@@ -182,3 +182,65 @@ test "evaluation - TinySegmenter precision@K and MRR report" {
     ),
   )
 }
+
+///|
+test "evaluation - Blended (bigram+segment) precision@K and MRR report" {
+  let corpus = make_blended_fixture_corpus()
+  let cluster_names = [
+    "Cooking    ", "CRDT       ", "Incremental", "MoonBit    ", "Reading    ", "Daily Life ",
+  ]
+  let k = 5
+  let mut total_p_at_k = 0.0
+  let mut total_mrr = 0.0
+  let mut query_count = 0
+  let buf = StringBuilder::new()
+  buf.write_string(
+    "\n=== Echo TF-IDF Evaluation (Blended bigram+segment, 30 posts, 6 clusters) ===\n",
+  )
+  buf.write_string("Cluster      | P@\{k}  | MRR   | Per-post P@\{k}\n")
+  buf.write_string("------------ | ----- | ----- | -------------------------\n")
+  for cluster in 0..<6 {
+    let start = cluster * 5
+    let mut cluster_p = 0.0
+    let mut cluster_mrr = 0.0
+    let mut per_post = ""
+    for i in start..<(start + 5) {
+      let results = corpus.query_similar(i, top_n=k)
+      let p = precision_at_k(results, i, k)
+      let rr = reciprocal_rank(results, i)
+      cluster_p = cluster_p + p
+      cluster_mrr = cluster_mrr + rr
+      total_p_at_k = total_p_at_k + p
+      total_mrr = total_mrr + rr
+      query_count = query_count + 1
+      if per_post.length() > 0 {
+        per_post = per_post + " "
+      }
+      per_post = per_post + fmt2(p)
+    }
+    let avg_p = cluster_p / 5.0
+    let avg_mrr = cluster_mrr / 5.0
+    buf.write_string(
+      "\{cluster_names[cluster]} | \{fmt2(avg_p)} | \{fmt2(avg_mrr)} | \{per_post}\n",
+    )
+  }
+  let overall_p = total_p_at_k / query_count.to_double()
+  let overall_mrr = total_mrr / query_count.to_double()
+  buf.write_string("------------ | ----- | ----- |\n")
+  buf.write_string(
+    "Overall      | \{fmt2(overall_p)} | \{fmt2(overall_mrr)} |\n",
+  )
+  println(buf.to_string())
+  inspect(
+    fmt2(overall_p),
+    content=(
+      #|0.48
+    ),
+  )
+  inspect(
+    fmt2(overall_mrr),
+    content=(
+      #|0.83
+    ),
+  )
+}

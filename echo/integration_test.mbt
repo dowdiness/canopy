@@ -294,6 +294,82 @@ fn make_segment_fixture_corpus() -> Corpus {
 }
 
 ///|
+fn make_blended_fixture_corpus() -> Corpus {
+  let corpus = Corpus::new(tokenize=@tokenizer.blended)
+  let _ = corpus.add_post("今日の晩ご飯はカレーにした")
+  let _ = corpus.add_post(
+    "カレーのスパイスを新しく買った。クミンとコリアンダー",
+  )
+  let _ = corpus.add_post(
+    "週末にパスタを作る予定。トマトソースで",
+  )
+  let _ = corpus.add_post(
+    "スパイスカレーのレシピを試した。美味しかった",
+  )
+  let _ = corpus.add_post("鶏肉のカレーを圧力鍋で煮込んだ")
+  let _ = corpus.add_post("CRDTの実装でFugueMaxアルゴリズムを使う")
+  let _ = corpus.add_post("共同編集にはCRDTかOTが必要")
+  let _ = corpus.add_post(
+    "CRDTのmerge操作は可換で結合的でなければならない",
+  )
+  let _ = corpus.add_post(
+    "リアルタイム共同編集のレイテンシを改善したい",
+  )
+  let _ = corpus.add_post(
+    "eg-walkerアルゴリズムでCRDTの性能が大幅に向上する",
+  )
+  let _ = corpus.add_post(
+    "MoonBitでインクリメンタル計算のライブラリを作っている",
+  )
+  let _ = corpus.add_post(
+    "増分計算の論文を読んだ。Salsaの設計が参考になる",
+  )
+  let _ = corpus.add_post(
+    "incr libraryにMemoプリミティブを追加した",
+  )
+  let _ = corpus.add_post(
+    "インクリメンタルパーサーの再解析範囲を最小化する手法",
+  )
+  let _ = corpus.add_post(
+    "Adaptonの論文を読み直した。変更伝播のモデルが面白い",
+  )
+  let _ = corpus.add_post(
+    "RustのrowanスタイルのGreen TreeをMoonBitに移植したい",
+  )
+  let _ = corpus.add_post(
+    "MoonBitのパターンマッチングが使いやすい",
+  )
+  let _ = corpus.add_post(
+    "MoonBitのトレイトシステムでShow traitを実装した",
+  )
+  let _ = corpus.add_post(
+    "Wasm-GCターゲットでのMoonBitのパフォーマンスを測定",
+  )
+  let _ = corpus.add_post(
+    "MoonBitのモジュールシステムとパッケージ管理を調べた",
+  )
+  let _ = corpus.add_post("Design Patternsの本を読み始めた")
+  let _ = corpus.add_post(
+    "SICPの第4章を読み終わった。メタ循環評価器の章",
+  )
+  let _ = corpus.add_post(
+    "型システムの入門書としてTaPLがおすすめ",
+  )
+  let _ = corpus.add_post(
+    "Crafting Interpretersを読んでいる。Pratt parserの解説がいい",
+  )
+  let _ = corpus.add_post("新しい技術書を3冊まとめ買いした")
+  let _ = corpus.add_post("散歩中に近所の猫に会った")
+  let _ = corpus.add_post("コーヒー豆を新しいのに変えてみた")
+  let _ = corpus.add_post("天気がいいので公園を散歩した")
+  let _ = corpus.add_post("今日は早起きしてジョギングに行った")
+  let _ = corpus.add_post(
+    "近所のカフェで新しいコーヒーを飲んだ",
+  )
+  corpus
+}
+
+///|
 test "integration - snapshot all cluster scores" {
   let corpus = make_fixture_corpus()
   // Snapshot full rankings for representative posts from each cluster

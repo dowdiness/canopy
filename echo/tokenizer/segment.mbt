@@ -1,10 +1,24 @@
-///| Classifies a character into one of 7 types for TinySegmenter.
+///|
+/// Classifies a character into one of 7 types for TinySegmenter.
 /// M (kanji numerals) is matched before H (general kanji) because
 /// their Unicode ranges overlap — the match order is load-bearing.
 fn char_type(c : Char) -> String {
   match c {
-    '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九'
-    | '十' | '百' | '千' | '万' | '億' | '兆' => "M"
+    '一'
+    | '二'
+    | '三'
+    | '四'
+    | '五'
+    | '六'
+    | '七'
+    | '八'
+    | '九'
+    | '十'
+    | '百'
+    | '千'
+    | '万'
+    | '億'
+    | '兆' => "M"
     '一'..='龠' | '々' | '〆' | 'ヵ' | 'ヶ' => "H"
     'ぁ'..='ん' => "I"
     'ァ'..='ヴ' | 'ー' | 'ｱ'..='ﾝ' | 'ﾞ' | 'ｰ' => "K"
@@ -14,12 +28,14 @@ fn char_type(c : Char) -> String {
   }
 }
 
-///| Looks up a feature weight, returning 0 for missing keys.
+///|
+/// Looks up a feature weight, returning 0 for missing keys.
 fn lookup(key : String) -> Int {
   weights.get(key).unwrap_or(0)
 }
 
-///| Computes the boundary score at position i using 42 feature lookups.
+///|
+/// Computes the boundary score at position i using 42 feature lookups.
 /// p1/p2/p3 are previous boundary decisions: "U" (unknown), "B" (boundary), "O" (no boundary).
 fn score_boundary(
   chars : Array[String],
@@ -27,7 +43,7 @@ fn score_boundary(
   i : Int,
   p1 : String,
   p2 : String,
-  p3 : String
+  p3 : String,
 ) -> Int {
   let w1 = chars[i - 3]
   let w2 = chars[i - 2]
@@ -95,7 +111,8 @@ fn score_boundary(
   score
 }
 
-///| TinySegmenter: dictionary-free Japanese word segmenter.
+///|
+/// TinySegmenter: dictionary-free Japanese word segmenter.
 /// Linear classifier at each character boundary using pre-trained weights.
 pub fn segment(text : String) -> Array[String] {
   if text.length() == 0 {

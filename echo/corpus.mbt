@@ -16,7 +16,7 @@ pub(all) struct Corpus {
 
 ///|
 pub fn Corpus::new(
-  tokenize~ : (String) -> Array[String] = @tokenizer.bigram,
+  tokenize? : (String) -> Array[String] = @tokenizer.bigram,
 ) -> Corpus {
   { tokenize, next_id: 0, doc_freq: Map::new(), posts: [] }
 }
