@@ -5,6 +5,7 @@ import {
   "dowdiness/incr" @incr,
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
+  "dowdiness/lambda/eval" @eval,
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
   "dowdiness/seam",

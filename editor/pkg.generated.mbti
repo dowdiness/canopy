@@ -16,6 +16,8 @@ import {
 // Values
 pub fn adjust_position(Int, Int, Int, Int) -> Int
 
+pub fn build_eval_memo(@cells.Runtime, @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> @cells.Memo[Array[EvalResult]]
+
 pub fn compute_edit(String, String) -> @dowdiness/loom/core.Edit
 
 pub fn compute_pretty_patches(ViewUpdateState, SyncEditor[@ast.Term]) -> Array[@protocol.ViewPatch]
@@ -33,6 +35,8 @@ pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
 pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
 
 pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
+
+pub fn eval_term(@ast.Term) -> Array[EvalResult]
 
 pub fn merge_to_edits(String, String) -> Array[@dowdiness/loom/core.Edit]
 
@@ -201,6 +205,12 @@ pub(all) enum EphemeralValue {
   Bytes(Bytes)
   List(Array[EphemeralValue])
   Map(Map[String, EphemeralValue])
+} derive(Eq, Show)
+
+pub(all) enum EvalResult {
+  Value(String)
+  Stuck(String)
+  Suppressed
 } derive(Eq, Show)
 
 pub struct InMemoryRoom {
