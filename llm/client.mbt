@@ -40,5 +40,9 @@ pub async fn edit_text(
     err => raise LlmError(err.to_string())
   }
   let content = extract_gemini_text(response)
-  parse_edit_actions(content)
+  let actions = parse_edit_actions(content)
+  if actions.is_empty() {
+    raise LlmError("No edit actions parsed from Gemini response")
+  }
+  actions
 }

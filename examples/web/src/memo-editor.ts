@@ -1,5 +1,11 @@
 import * as crdt from '@moonbit/crdt';
 
+// MoonBit FFI exports — cast once at module load to avoid per-call `as any`
+const llm = crdt as unknown as {
+  canopy_llm_fix_typos(text: string, apiKey: string): Promise<string>;
+  canopy_llm_edit(text: string, instruction: string, apiKey: string): Promise<string>;
+};
+
 const memoEl = document.getElementById('memo') as HTMLTextAreaElement;
 const apiKeyEl = document.getElementById('api-key') as HTMLInputElement;
 const fixTyposBtn = document.getElementById('fix-typos-btn') as HTMLButtonElement;
@@ -122,6 +128,7 @@ function applyActions(text: string, actions: EditAction[]): { result: string; wa
       }
       lines[idx] = lines[idx].replace(action.old!, action.new ?? '');
     } else if (action.action === 'insert') {
+      // Insert uses line number directly (not -1): "line 3" inserts AFTER line 3
       const insertIdx = action.line ?? 0;
       if (insertIdx < 0 || insertIdx > lines.length) {
         warnings.push(`Insert line ${action.line} out of range`);
@@ -175,7 +182,7 @@ fixTyposBtn.addEventListener('click', async () => {
   const text = getText();
   if (!text) return;
   if (!checkRateLimit()) return;
-  await callLlm(() => (crdt as any).canopy_llm_fix_typos(text, apiKey), text);
+  await callLlm(() => llm.canopy_llm_fix_typos(text, apiKey), text);
 });
 
 editBtn.addEventListener('click', async () => {
@@ -190,7 +197,7 @@ editBtn.addEventListener('click', async () => {
     return;
   }
   if (!checkRateLimit()) return;
-  await callLlm(() => (crdt as any).canopy_llm_edit(text, instruction, apiKey), text);
+  await callLlm(() => llm.canopy_llm_edit(text, instruction, apiKey), text);
 });
 
 acceptBtn.addEventListener('click', () => {

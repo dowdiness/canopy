@@ -18,6 +18,7 @@ pub fn parse_edit_actions(json_str : String) -> Array[EditAction] {
 
 ///|
 fn parse_single_action(obj : Map[String, Json]) -> EditAction? {
+  // Shorthand: {"original": "...", "fixed": "..."} without "action" field
   match (obj.get("original"), obj.get("fixed")) {
     (Some(String(original)), Some(String(fixed))) =>
       return Some(FixTypos(original~, fixed~))
@@ -26,6 +27,8 @@ fn parse_single_action(obj : Map[String, Json]) -> EditAction? {
   guard obj.get("action") is Some(String(action_type)) else { return None }
   match action_type {
     "fix_typos" =>
+      // With explicit "action" field — same extraction, reached only if
+      // the shorthand above didn't match (e.g. has "action" but no "original")
       match (obj.get("original"), obj.get("fixed")) {
         (Some(String(original)), Some(String(fixed))) =>
           Some(FixTypos(original~, fixed~))
