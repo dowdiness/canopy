@@ -1,4 +1,22 @@
 ///|
+/// Parse a non-negative integer from string. Returns -1 on invalid input.
+fn parse_uint(s : String) -> Int {
+  if s.length() == 0 {
+    return -1
+  }
+  for i = 0, acc = 0; i < s.length(); {
+    let c = s[i]
+    if c >= '0' && c <= '9' {
+      continue i + 1, acc * 10 + (c.to_int() - '0'.to_int())
+    } else {
+      break -1
+    }
+  } nobreak {
+    acc
+  }
+}
+
+///|
 fn truncate(text : String, max_len : Int) -> String {
   if text.length() > max_len {
     text[0:max_len].to_string() + "..."
@@ -132,22 +150,8 @@ fn cmd_similar_to(id_str : String) -> Unit {
     println("No posts yet")
     return
   }
-  let mut id = 0
-  let mut valid = true
-  if id_str.length() == 0 {
-    valid = false
-  } else {
-    for i in 0..<id_str.length() {
-      let c = id_str[i]
-      if c >= '0' && c <= '9' {
-        id = id * 10 + (c.to_int() - '0'.to_int())
-      } else {
-        valid = false
-        break
-      }
-    }
-  }
-  if !valid || id >= posts.length() {
+  let id = parse_uint(id_str)
+  if id < 0 || id >= posts.length() {
     println("Post not found: \{id_str}")
     return
   }
