@@ -466,7 +466,7 @@ The eval memo is lambda-specific — it must be built in `SyncEditor::new_lambda
 In `editor/sync_editor.mbt`, add to the struct after `source_map_memo`:
 
 ```moonbit
-  priv eval_memo : @incr.Memo[Array[EvalResult]]?
+  priv mut eval_memo : @incr.Memo[Array[EvalResult]]?
 ```
 
 - [ ] **Step 2: Set `eval_memo: None` in generic `SyncEditor::new`**
@@ -876,40 +876,51 @@ pub fn SyncEditor::get_eval_annotations(
     Some(p) => p
     None => return annotations
   }
+  // For Module: children are defs + body. Map eval results to child NodeIds.
+  // For non-Module: single eval result maps to the root node itself.
   let children = proj_node.children
   for i, result in eval_results {
     match result {
       Suppressed => continue
-      Value(s) =>
-        if i < children.length() {
-          annotations[children[i].id()] = [
-            @protocol.ViewAnnotation(kind="eval", label="\u{2192} " + s),
-          ]
+      Value(s) => {
+        let target_id = if i < children.length() {
+          children[i].id()
+        } else {
+          proj_node.id() // non-Module or body beyond children
         }
-      Stuck(s) =>
-        if i < children.length() {
-          annotations[children[i].id()] = [
-            @protocol.ViewAnnotation(
-              kind="eval",
-              label="\u{2192} " + s,
-              severity="warning",
-            ),
-          ]
+        annotations[target_id] = [
+          @protocol.ViewAnnotation(kind="eval", label="\u{2192} " + s),
+        ]
+      }
+      Stuck(s) => {
+        let target_id = if i < children.length() {
+          children[i].id()
+        } else {
+          proj_node.id()
         }
+        annotations[target_id] = [
+          @protocol.ViewAnnotation(
+            kind="eval",
+            label="\u{2192} " + s,
+            severity="warning",
+          ),
+        ]
+      }
     }
   }
   annotations
 }
 ```
 
-- [ ] **Step 3: Add lambda-specific `get_view_tree_with_eval`**
+- [ ] **Step 3: Override `get_view_tree` for lambda to pass eval annotations**
 
-In `editor/view_updater.mbt`, add a lambda-specific view tree method that passes annotations:
+In `editor/view_updater.mbt`, replace the generic `get_view_tree` with a lambda-specific override that passes annotations. Add a new specialization that shadows the generic one for `@ast.Term`:
 
 ```moonbit
 ///|
 /// Lambda-specific: returns ViewNode tree with eval annotations attached.
-pub fn SyncEditor::get_view_tree_with_eval(
+/// This overrides the generic get_view_tree for SyncEditor[@ast.Term].
+pub fn SyncEditor::get_view_tree(
   self : SyncEditor[@ast.Term],
 ) -> @protocol.ViewNode? {
   match self.get_proj_node() {
@@ -922,6 +933,10 @@ pub fn SyncEditor::get_view_tree_with_eval(
   }
 }
 ```
+
+Note: MoonBit allows a more specific method (for `SyncEditor[@ast.Term]`) to shadow a generic one (for `SyncEditor[T]`). The existing `compute_view_patches` calls `editor.get_view_tree()` — with this override, lambda editors automatically get eval annotations in the structural view pipeline without changing `compute_view_patches`.
+
+If MoonBit does not allow this shadowing, the fallback is to modify `compute_view_patches` to check `self.eval_memo` and call the appropriate code path. Verify with `moon check` and adjust.
 
 - [ ] **Step 4: Add annotation diff check in `diff_view_nodes`**
 
@@ -1007,27 +1022,32 @@ git commit -m "feat(protocol): add structural view annotations with eval results
 
 - [ ] **Step 1: Update HTML adapter to render annotations**
 
-In `lib/editor-adapter/html-adapter.ts`, in the `renderNode` method, after the node element is built and before returning, add annotation rendering. Find the part where `container` is returned (around line 266) and add before the return:
+In `lib/editor-adapter/html-adapter.ts`, annotations must be rendered in **both** the leaf (`wrapper`) and non-leaf (`container`) branches of `renderNode`. Both branches have a `.node-row` with a `.node-tag` element.
+
+Extract a helper function and call it in both branches, after the `row` is built but before appending to the parent:
 
 ```typescript
-    // Render annotations (e.g., eval results)
-    if (node.annotations && node.annotations.length > 0) {
-      const annContainer = document.createElement('span');
-      annContainer.className = 'node-annotations';
-      for (const ann of node.annotations) {
-        const badge = document.createElement('span');
-        badge.className = `annotation-${ann.kind} severity-${ann.severity}`;
-        badge.textContent = ann.label;
-        annContainer.appendChild(badge);
-      }
-      // Insert after the label element
-      const labelEl = container.querySelector(':scope > .node-label');
-      if (labelEl) {
-        labelEl.after(annContainer);
-      } else {
-        container.appendChild(annContainer);
-      }
-    }
+/** Append annotation badges to a node row */
+function renderAnnotations(row: HTMLElement, node: ViewNode): void {
+  if (!node.annotations || node.annotations.length === 0) return;
+  for (const ann of node.annotations) {
+    const badge = document.createElement('span');
+    badge.className = `annotation-${ann.kind} severity-${ann.severity}`;
+    badge.textContent = ann.label;
+    row.appendChild(badge);
+  }
+}
+```
+
+In the **leaf branch** (around line 212, before `wrapper.appendChild(row)`):
+```typescript
+      renderAnnotations(row, node);
+      wrapper.appendChild(row);
+```
+
+In the **non-leaf branch** (around line 250, after `row.appendChild(tagEl)` and before the row is appended):
+```typescript
+      renderAnnotations(row, node);
 ```
 
 - [ ] **Step 2: Add CSS for eval annotations**
@@ -1164,6 +1184,8 @@ moon build --target js && cd examples/web && npx vite build
 
 ## Review Findings Addressed
 
+### Round 1 (Codex review)
+
 | Finding | Resolution |
 |---------|-----------|
 | 1. Task 4 type mismatch | Eval memo built in `SyncEditor::new_lambda`, not generic constructor |
@@ -1172,3 +1194,12 @@ moon build --target js && cd examples/web && npx vite build
 | 4. MoonBit syntax errors | Fixed enum constructors (`@ast.Term::Var`), `SyntaxCategory::EvalAnnotation`, `set_text` for tests |
 | 5. Pretty-print layout duplication | Post-processes canonical Layout via `split_at_hardlines` — no formatting duplication |
 | 6. Design/plan inconsistency | Chose `ReplaceNode` for annotation changes, documented in plan |
+
+### Round 2 (Codex re-review)
+
+| Finding | Resolution |
+|---------|-----------|
+| 1. `eval_memo` field immutable | Changed to `priv mut eval_memo` |
+| 2. `compute_view_patches` uses old path | Lambda-specific `get_view_tree` override shadows the generic version, so `compute_view_patches` gets annotations automatically |
+| 3. `get_eval_annotations` wrong for non-Module | Added fallback: when index >= children.length(), annotate root node |
+| 4. HTML adapter wrong branch + selector | Extracted `renderAnnotations` helper, called in both leaf and non-leaf branches; uses `.node-tag` |
