@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/llm"
+
+// Values
+
+// Errors
+pub suberror LlmError {
+  LlmError(String)
+} derive(Show)
+
+// Types and methods
+pub(all) enum EditAction {
+  Replace(line~ : Int, old~ : String, new~ : String)
+  Insert(line~ : Int, text~ : String)
+  Delete(line~ : Int)
+  FixTypos(original~ : String, fixed~ : String)
+} derive(Eq, Show)
+pub impl ToJson for EditAction
+
+pub(all) struct GeminiConfig {
+  api_key : String
+  model : String
+  temperature : Double
+  max_output_tokens : Int
+
+  fn new(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int) -> GeminiConfig
+} derive(Show)
+pub fn GeminiConfig::new(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int) -> Self
+
+pub(all) struct Message {
+  role : Role
+  content : String
+
+  fn new(role~ : Role, content~ : String) -> Message
+} derive(Eq, Show)
+pub fn Message::new(role~ : Role, content~ : String) -> Self
+
+pub(all) enum Role {
+  System
+  User
+  Assistant
+} derive(Eq, Show)
+
+// Type aliases
+
+// Traits
+
