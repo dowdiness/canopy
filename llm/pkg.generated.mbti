@@ -2,6 +2,9 @@
 package "dowdiness/canopy/llm"
 
 // Values
+pub fn format_edit_user_message(String, String) -> String
+
+pub fn parse_edit_actions(String) -> Array[EditAction]
 
 // Errors
 pub suberror LlmError {
