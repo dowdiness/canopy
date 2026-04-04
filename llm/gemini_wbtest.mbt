@@ -1,10 +1,11 @@
 ///|
-test "build_gemini_url" {
+test "build_gemini_url has no api key" {
   let cfg = GeminiConfig::new(api_key="test-key-123")
   let url = build_gemini_url(cfg)
+  // API key must NOT appear in URL — it goes in x-goog-api-key header
   inspect(
     url,
-    content="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=test-key-123",
+    content="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
   )
 }
 
@@ -14,8 +15,16 @@ test "build_gemini_url with custom model" {
   let url = build_gemini_url(cfg)
   inspect(
     url,
-    content="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=k",
+    content="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
   )
+}
+
+///|
+test "build_gemini_headers contains api key" {
+  let cfg = GeminiConfig::new(api_key="test-key-123")
+  let headers = build_gemini_headers(cfg)
+  assert_true(headers.contains("x-goog-api-key"))
+  assert_true(headers.contains("test-key-123"))
 }
 
 ///|

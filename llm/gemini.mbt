@@ -7,8 +7,18 @@ fn text_part(text : String) -> Json {
 }
 
 ///|
+/// URL without API key — key goes in x-goog-api-key header instead of query
+/// param to avoid leaking into browser history, logs, and referrer headers.
 fn build_gemini_url(config : GeminiConfig) -> String {
-  gemini_base_url + config.model + ":generateContent?key=" + config.api_key
+  gemini_base_url + config.model + ":generateContent"
+}
+
+///|
+fn build_gemini_headers(config : GeminiConfig) -> String {
+  Json::object({
+    "Content-Type": "application/json".to_json(),
+    "x-goog-api-key": config.api_key.to_json(),
+  }).stringify()
 }
 
 ///|
