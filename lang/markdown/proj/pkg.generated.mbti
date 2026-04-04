@@ -11,6 +11,8 @@ import {
 // Values
 pub fn parse_to_proj_node(String) -> (@core.ProjNode[@markdown.Block], Array[String])
 
+pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@markdown.Block]) -> Unit
+
 pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@markdown.Block]
 
 // Errors
