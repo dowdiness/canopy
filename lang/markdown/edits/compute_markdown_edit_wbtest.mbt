@@ -46,10 +46,7 @@ test "change_heading_level: paragraph to h2" {
   let source = "Hello\n"
   let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
   let para_id = proj.children[0].id()
-  let result = apply_edit(
-    source,
-    ChangeHeadingLevel(node_id=para_id, level=2),
-  )
+  let result = apply_edit(source, ChangeHeadingLevel(node_id=para_id, level=2))
   inspect(result.contains("## Hello"), content="true")
 }
 

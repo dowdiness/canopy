@@ -65,8 +65,7 @@ fn compute_change_heading_level(
   }
   // Get block content (text span)
   let content = match source_map.get_token_span(node_id, "text") {
-    Some(text_range) =>
-      source[text_range.start:text_range.end].to_string()
+    Some(text_range) => source[text_range.start:text_range.end].to_string()
     None => {
       // No text span — content is the whole block minus trailing newline
       let block_text = source[range.start:range.end].to_string()
@@ -116,8 +115,7 @@ fn compute_toggle_list_item(
   }
   // Get block content (text span)
   let content = match source_map.get_token_span(node_id, "text") {
-    Some(text_range) =>
-      source[text_range.start:text_range.end].to_string()
+    Some(text_range) => source[text_range.start:text_range.end].to_string()
     None => source[range.start:range.end].to_string()
   }
   // Check if this node is already a list item

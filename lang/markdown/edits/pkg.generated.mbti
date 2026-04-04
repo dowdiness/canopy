@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/markdown/edits"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/markdown",
+}
+
+// Values
+pub fn apply_markdown_edit(@editor.SyncEditor[@markdown.Block], MarkdownEditOp, Int) -> Result[Unit, String]
+
+pub fn compute_markdown_edit(MarkdownEditOp, String, @core.ProjNode[@markdown.Block], @core.SourceMap) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
+
+pub fn new_markdown_editor(String, capture_timeout_ms? : Int) -> @editor.SyncEditor[@markdown.Block]
+
+// Errors
+
+// Types and methods
+pub(all) enum MarkdownEditOp {
+  CommitEdit(node_id~ : @core.NodeId, new_text~ : String)
+  ChangeHeadingLevel(node_id~ : @core.NodeId, level~ : Int)
+  ToggleListItem(node_id~ : @core.NodeId)
+  Delete(node_id~ : @core.NodeId)
+  InsertBlockAfter(node_id~ : @core.NodeId)
+  SplitBlock(node_id~ : @core.NodeId, offset~ : Int)
+  MergeWithPrevious(node_id~ : @core.NodeId)
+} derive(Eq, Show)
+
+// Type aliases
+
+// Traits
+

@@ -1,7 +1,13 @@
 ///| Edit operations for the Markdown block editor.
 
 ///|
-using @core {type NodeId, type ProjNode, type SourceMap, type SpanEdit, type FocusHint}
+using @core {
+  type NodeId,
+  type ProjNode,
+  type SourceMap,
+  type SpanEdit,
+  type FocusHint,
+}
 
 ///|
 pub(all) enum MarkdownEditOp {
