@@ -5,13 +5,12 @@ struct StoredPost {
 } derive(Show, ToJson, FromJson)
 
 ///|
-/// Serialize posts to JSON string.
 fn posts_to_json(posts : Array[StoredPost]) -> String {
   posts.to_json().stringify()
 }
 
 ///|
-/// Deserialize posts from JSON string. Returns empty array on any error.
+/// Returns empty array on any error (missing file, invalid JSON).
 fn posts_from_json(json_str : String) -> Array[StoredPost] {
   if json_str.is_empty() {
     return []
@@ -26,25 +25,28 @@ fn posts_from_json(json_str : String) -> Array[StoredPost] {
 }
 
 ///|
-/// Get the posts file path: ~/.echo/posts.json
 fn get_posts_path() -> String {
   let home = get_home_dir()
   let dir = path_join(home, ".echo")
-  mkdir_p(dir)
+  if !@fs.path_exists(dir) {
+    @fs.create_dir(dir) catch {
+      _ => ()
+    }
+  }
   path_join(dir, "posts.json")
 }
 
 ///|
-/// Load posts from disk.
 fn load_posts() -> Array[StoredPost] {
   let path = get_posts_path()
-  let content = read_file(path)
+  let content = @fs.read_file_to_string(path) catch { _ => "" }
   posts_from_json(content)
 }
 
 ///|
-/// Save posts to disk.
 fn save_posts(posts : Array[StoredPost]) -> Unit {
   let path = get_posts_path()
-  write_file(path, posts_to_json(posts))
+  @fs.write_string_to_file(path, posts_to_json(posts)) catch {
+    _ => println("Error: failed to save posts")
+  }
 }

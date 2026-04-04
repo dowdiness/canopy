@@ -1,13 +1,4 @@
 ///|
-fn print_usage() -> Unit {
-  println("Usage:")
-  println("  echo post <text>       — Post a memo, show similar posts")
-  println("  echo similar <text>    — Find posts similar to text")
-  println("  echo similar-to <id>   — Find posts similar to post #id")
-  println("  echo list              — List all posts")
-}
-
-///|
 fn truncate(text : String, max_len : Int) -> String {
   if text.length() > max_len {
     text[0:max_len].to_string() + "..."
@@ -40,7 +31,6 @@ fn print_results(
     let score = result.1
     let text = if id < posts.length() { posts[id].text } else { "???" }
     let display = truncate(text, 60)
-    // Zero-pad so 0.05 displays as "0.05" not "0.5"
     let score_pct = (score * 100.0 + 0.5).to_int()
     let score_str = if score_pct < 10 {
       "0.0\{score_pct}"
@@ -52,23 +42,60 @@ fn print_results(
 }
 
 ///|
+fn make_cli() -> @argparse.Command {
+  @argparse.Command(
+    "echo",
+    about="Post memos and find related posts via TF-IDF similarity",
+    subcommand_required=true,
+    subcommands=[
+      @argparse.Command("post", about="Post a memo and show similar posts", positionals=[
+        @argparse.PositionArg("text", about="The memo text"),
+      ]),
+      @argparse.Command("similar", about="Find posts similar to text", positionals=[
+        @argparse.PositionArg("text", about="Query text"),
+      ]),
+      @argparse.Command(
+        "similar-to",
+        about="Find posts similar to a stored post",
+        positionals=[@argparse.PositionArg("id", about="Post ID (integer)")],
+      ),
+      @argparse.Command("list", about="List all posts"),
+    ],
+  )
+}
+
+///|
 fn main {
-  let args = get_args()
-  match args {
-    ["post", text, ..] => cmd_post(text)
-    ["similar", text, ..] => cmd_similar(text)
-    ["similar-to", id_str, ..] => cmd_similar_to(id_str)
-    ["list", ..] => cmd_list()
-    _ => print_usage()
+  let cli = make_cli()
+  let matches = cli.parse(argv=@sys.get_cli_args()[1:]) catch {
+    err => {
+      println(err)
+      return
+    }
+  }
+  match matches.subcommand {
+    Some(("post", sub)) =>
+      match sub.values.get("text") {
+        Some([text, ..]) => cmd_post(text)
+        _ => println("Error: text cannot be empty")
+      }
+    Some(("similar", sub)) =>
+      match sub.values.get("text") {
+        Some([text, ..]) => cmd_similar(text)
+        _ => println("Error: text required")
+      }
+    Some(("similar-to", sub)) =>
+      match sub.values.get("id") {
+        Some([id_str, ..]) => cmd_similar_to(id_str)
+        _ => println("Error: id required")
+      }
+    Some(("list", _)) => cmd_list()
+    _ => println(cli.render_help())
   }
 }
 
 ///|
 fn cmd_post(text : String) -> Unit {
-  if text.length() == 0 {
-    println("Error: text cannot be empty")
-    return
-  }
   let posts = load_posts()
   let id = posts.length()
   posts.push({ text, ts: now_iso() })

@@ -2,6 +2,9 @@ import {
   "dowdiness/canopy/echo" @echo,
   "dowdiness/canopy/echo/tokenizer" @tokenizer,
   "moonbitlang/core/json" @json,
+  "moonbitlang/core/argparse" @argparse,
+  "moonbitlang/x/sys" @sys,
+  "moonbitlang/x/fs" @fs,
 }
 
 options(
