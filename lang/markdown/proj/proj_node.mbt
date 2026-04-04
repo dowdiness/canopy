@@ -34,47 +34,21 @@ fn build_proj_tree(
   counter : Ref[Int],
 ) -> @core.ProjNode[@markdown.Block] {
   match block {
-    Document(_) => {
-      let syntax_children = collect_block_children(syntax_node)
-      let block_children = block.children()
-      let len = syntax_children.length().min(block_children.length())
-      let children : Array[@core.ProjNode[@markdown.Block]] = []
-      for i in 0..<len {
-        children.push(
-          build_proj_tree(syntax_children[i], block_children[i], counter),
-        )
-      }
-      @core.ProjNode::new(
-        block,
-        syntax_node.start(),
-        syntax_node.end(),
-        @core.next_proj_node_id(counter),
-        children,
-      )
-    }
-    UnorderedList(_) => {
-      let syntax_children = collect_syntax_children(
+    Document(_) =>
+      build_container(
         syntax_node,
-        @markdown.SyntaxKind::ListItemNode,
-      )
-      let block_children = block.children()
-      let len = syntax_children.length().min(block_children.length())
-      let children : Array[@core.ProjNode[@markdown.Block]] = []
-      for i in 0..<len {
-        children.push(
-          build_proj_tree(syntax_children[i], block_children[i], counter),
-        )
-      }
-      @core.ProjNode::new(
         block,
-        syntax_node.start(),
-        syntax_node.end(),
-        @core.next_proj_node_id(counter),
-        children,
+        collect_block_children(syntax_node),
+        counter,
       )
-    }
+    UnorderedList(_) =>
+      build_container(
+        syntax_node,
+        block,
+        collect_syntax_children(syntax_node, @markdown.SyntaxKind::ListItemNode),
+        counter,
+      )
     _ =>
-      // Leaf blocks: heading, paragraph, list item, code block, error
       @core.ProjNode::new(
         block,
         syntax_node.start(),
@@ -83,6 +57,30 @@ fn build_proj_tree(
         [],
       )
   }
+}
+
+///|
+fn build_container(
+  syntax_node : @seam.SyntaxNode,
+  block : @markdown.Block,
+  syntax_children : Array[@seam.SyntaxNode],
+  counter : Ref[Int],
+) -> @core.ProjNode[@markdown.Block] {
+  let block_children = block.children()
+  let len = syntax_children.length().min(block_children.length())
+  let children : Array[@core.ProjNode[@markdown.Block]] = []
+  for i in 0..<len {
+    children.push(
+      build_proj_tree(syntax_children[i], block_children[i], counter),
+    )
+  }
+  @core.ProjNode::new(
+    block,
+    syntax_node.start(),
+    syntax_node.end(),
+    @core.next_proj_node_id(counter),
+    children,
+  )
 }
 
 ///|
