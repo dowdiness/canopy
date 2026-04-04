@@ -32,7 +32,9 @@ fn print_results(
     let text = if id < posts.length() { posts[id].text } else { "???" }
     let display = truncate(text, 60)
     let score_pct = (score * 100.0 + 0.5).to_int()
-    let score_str = if score_pct < 10 {
+    let score_str = if score_pct >= 100 {
+      "1.00"
+    } else if score_pct < 10 {
       "0.0\{score_pct}"
     } else {
       "0.\{score_pct}"
@@ -99,7 +101,9 @@ fn cmd_post(text : String) -> Unit {
   let posts = load_posts()
   let id = posts.length()
   posts.push({ text, ts: now_iso() })
-  save_posts(posts)
+  if !save_posts(posts) {
+    return
+  }
   println("Added post #\{id}")
   let corpus = build_corpus(posts)
   let results = corpus.query_similar(id, top_n=5)

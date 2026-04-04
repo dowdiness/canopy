@@ -5,7 +5,8 @@ test "StoredPost JSON round-trip" {
     { text: "カレーを作った", ts: "2026-04-04T11:30:00Z" },
   ]
   let json = posts_to_json(posts)
-  let parsed = posts_from_json(json)
+  let (parsed, err) = posts_from_json(json)
+  inspect(err, content="None")
   inspect(parsed.length(), content="2")
   inspect(parsed[0].text, content="CRDTのmerge操作でバグ")
   inspect(parsed[0].ts, content="2026-04-04T10:00:00Z")
@@ -13,16 +14,23 @@ test "StoredPost JSON round-trip" {
 }
 
 ///|
-test "posts_from_json - empty string returns empty" {
-  inspect(posts_from_json(""), content="[]")
+test "posts_from_json - empty string returns empty, no error" {
+  let (posts, err) = posts_from_json("")
+  inspect(posts, content="[]")
+  inspect(err, content="None")
 }
 
 ///|
-test "posts_from_json - invalid JSON returns empty" {
-  inspect(posts_from_json("not json"), content="[]")
+test "posts_from_json - invalid JSON returns error" {
+  let (posts, err) = posts_from_json("not json")
+  inspect(posts, content="[]")
+  // Error should be Some(...) for corrupt data
+  inspect(err is None, content="false")
 }
 
 ///|
 test "posts_from_json - empty array" {
-  inspect(posts_from_json("[]"), content="[]")
+  let (posts, err) = posts_from_json("[]")
+  inspect(posts, content="[]")
+  inspect(err, content="None")
 }
