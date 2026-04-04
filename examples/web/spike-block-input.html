@@ -154,8 +154,13 @@ function onKeydown(e) {
 }
 
 function deactivate() {
+  if (activeBlockId === null) return; // idempotent guard
   activeBlockId = null;
-  if (textarea && textarea.parentNode) textarea.parentNode.removeChild(textarea);
+  blurBound = false;
+  if (textarea) {
+    textarea.onblur = null; // clear stale blur handler
+    if (textarea.parentNode) textarea.parentNode.removeChild(textarea);
+  }
   render();
 }
 

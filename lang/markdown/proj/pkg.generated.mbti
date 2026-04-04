@@ -2,7 +2,6 @@
 package "dowdiness/canopy/lang/markdown/proj"
 
 import {
-  "dowdiness/canopy/core",
   "dowdiness/incr/cells",
   "dowdiness/loom/incremental",
   "dowdiness/markdown",
@@ -11,13 +10,13 @@ import {
 }
 
 // Values
-pub fn build_markdown_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@markdown.Block]) -> (@cells.Memo[@core.ProjNode[@markdown.Block]?], @cells.Memo[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]], @cells.Memo[@core.SourceMap])
+pub fn build_markdown_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@markdown.Block]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
 
-pub fn parse_to_proj_node(String) -> (@core.ProjNode[@markdown.Block], Array[String])
+pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@markdown.Block], Array[String]) raise @dowdiness/loom/core.LexError
 
-pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@markdown.Block]) -> Unit
+pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@markdown.Block]) -> Unit
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@markdown.Block]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@markdown.Block]
 
 // Errors
 

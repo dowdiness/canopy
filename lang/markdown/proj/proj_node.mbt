@@ -4,10 +4,8 @@
 /// Convenience: parse source and project in one call (for tests and REPL).
 pub fn parse_to_proj_node(
   text : String,
-) -> (@core.ProjNode[@markdown.Block], Array[String]) {
-  let (cst, diagnostics) = @markdown.parse_cst(text) catch {
-    _ => abort("parse failed")
-  }
+) -> (@core.ProjNode[@markdown.Block], Array[String]) raise @loomcore.LexError {
+  let (cst, diagnostics) = @markdown.parse_cst(text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(fn(d) { d.message })
   let root = syntax_to_proj_node(syntax_node, Ref::new(0))
