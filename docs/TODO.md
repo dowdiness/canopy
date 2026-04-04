@@ -319,8 +319,9 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Plan: `loom/docs/plans/2026-04-01-loom-lex-modes-design.md`, `loom/docs/plans/2026-04-01-loom-lex-modes-impl.md`
 - [x] **Markdown parser (loom)** — ✅ Done. Two-level AST (Block + Inline), 3 lex modes (LineStart, Inline, CodeBlock), error recovery, source fidelity. 28 tests pass. `loom/examples/markdown/`.
   Plan: `loom/docs/plans/2026-04-01-markdown-parser-design.md`, `loom/docs/plans/2026-04-01-markdown-parser-impl.md`
-- [ ] **Markdown Canopy integration** — Wire `loom/examples/markdown/` into `lang/markdown/` with projection, editor support, and block editor integration.
-  Exit: `lang/markdown/` package with projection + edit ops, block editor renders markdown via ViewNode protocol.
+- [ ] **Markdown Canopy integration** — Wire `loom/examples/markdown/` into `lang/markdown/` with projection, edit ops, and Markdown block editor.
+  Plan: `docs/plans/2026-04-04-markdown-block-editor-design.md`
+  Exit: `lang/markdown/` package with projection + 7 edit ops, `examples/web/markdown.html` with raw/block/preview modes.
 
 ---
 
@@ -371,10 +372,10 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 - [x] Framework-agnostic integration layer to eliminate duplicated TS logic — ✅ Done (Phases 0-6). Protocol types (`ViewPatch`, `ViewNode`, `UserIntent`), ViewUpdater, 3 adapters (HTML, CM6, PM). `examples/web`, `examples/ideal`, `examples/prosemirror`, `examples/demo-react` all migrated.
   Plan: `docs/plans/2026-04-01-editor-protocol-design.md`
-- [ ] BlockAdapter + `examples/block-editor` migration (Phase 7)
-  Why: block-editor has its own parallel FFI surface; migrating to protocol enables Markdown editing with zero new TS code.
-  Plan: `docs/plans/2026-04-01-editor-protocol-design.md` §Phase 7
-  Exit: block-editor uses BlockAdapter with ViewNode tree; autoformat detection moved to MoonBit.
+- [ ] Markdown block editor (Phase 7) — supersedes BlockAdapter migration
+  Why: instead of migrating the property-based block editor to the protocol, build a new Markdown-backed block editor using SyncEditor + loom Markdown parser + projection. Three modes: raw (CM6), block (Canopy-owned thin input layer with Excalidraw-style textarea overlay), preview (semantic HTML). Explicit conversion model (slash commands, not autoformat). 7 edit ops.
+  Plan: `docs/plans/2026-04-04-markdown-block-editor-design.md`
+  Exit: `examples/web/markdown.html` with 3 modes, `lang/markdown/` projection + edit ops, BlockInput + MarkdownPreview adapters.
 
 ---
 
