@@ -4,6 +4,9 @@ import {
   "dowdiness/canopy/lang/markdown/proj" @md_proj,
   "dowdiness/markdown" @markdown,
   "dowdiness/loom" @loom,
+}
+
+import {
   "dowdiness/loom/core" @loomcore,
   "dowdiness/seam" @seam,
-}
+} for "wbtest"
