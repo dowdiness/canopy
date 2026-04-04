@@ -41,19 +41,26 @@ fn set_content_span(
   proj_id : @core.NodeId,
   role : String,
   prefix_kind : @markdown.SyntaxKind?,
+  suffix_kind? : @markdown.SyntaxKind? = None,
 ) -> Unit {
-  // Content starts after the prefix token (if any), otherwise at node start
   let content_start = match prefix_kind {
     Some(kind) =>
       match syntax_node.find_token(kind.to_raw()) {
-        Some(tok) => tok.end() // content starts right after the prefix token
+        Some(tok) => tok.end()
         None => syntax_node.start()
       }
     None => syntax_node.start()
   }
-  // Content ends at node end, trimmed of trailing newlines
-  let mut content_end = syntax_node.end()
-  // Don't include trailing NewlineToken — check if the node has one
+  let mut content_end = match suffix_kind {
+    Some(kind) =>
+      // End before the suffix token (e.g., closing fence)
+      match syntax_node.find_token(kind.to_raw()) {
+        Some(tok) => tok.start()
+        None => syntax_node.end()
+      }
+    None => syntax_node.end()
+  }
+  // Trim trailing newline if it's at the end
   match syntax_node.find_token(@markdown.SyntaxKind::NewlineToken.to_raw()) {
     Some(tok) => if tok.end() == content_end { content_end = tok.start() }
     None => ()
@@ -123,13 +130,14 @@ fn populate_block(
         "fence_open",
         CodeFenceOpenToken,
       )
-      // Full code content between fences
+      // Code content between open and close fences
       set_content_span(
         source_map,
         syntax_node,
         id,
         "code",
         Some(CodeFenceOpenToken),
+        suffix_kind=Some(CodeFenceCloseToken),
       )
       set_token_span(
         source_map,
