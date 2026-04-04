@@ -120,6 +120,12 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: the `get_text` closure for `ReuseCursor::new` is duplicated across 4 production callsites (factories.mbt, lambda/cst_parser.mbt, json/cst_parser.mbt, markdown/cst_parser.mbt). Worth extracting now that markdown is a 4th consumer.
   Exit: `TokenBuffer::get_view(source, i) -> StringView` replaces inline closures.
 - [x] **Token::to_raw ↔ SyntaxKind::to_raw round-trip test** — ✅ Done. `token_rawkind_test.mbt` in both lambda and json verifies all Token/SyntaxKind pairs match.
+- [ ] **`SyntaxNode::find[K : ToRawKind]` generic method**
+  Why: every projection calls `node.find_token(SomeKind.to_raw())` — verbose and error-prone. A generic method on SyntaxNode accepts any `ToRawKind` type directly: `node.find(HeadingMarkerToken)`.
+  Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam. All projection `find_token(...to_raw())` calls migrated.
+- [ ] **`SyntaxNode::tokens()` method**
+  Why: `children()` returns child nodes only. Getting tokens requires `find_token()` (one at a time) or `all_children()` (mixed nodes + tokens). A `tokens()` method returns all direct child tokens in order.
+  Exit: `pub fn SyntaxNode::tokens(self) -> Array[SyntaxToken]` in seam.
 - [ ] **Unify Token and SyntaxKind into single enum (rowan style)**
   Why: Token and SyntaxKind overlap — every Token variant has a corresponding SyntaxKind variant. Two independent to_raw() impls with hardcoded integers can desynchronize. The payload removal (PR #70) made Token pure tags, identical in structure to SyntaxKind's token subset. Merging eliminates the synchronization problem entirely — the lexer produces SyntaxKind directly, no conversion needed.
   Prerequisite: payload-free Token enums (done). Practical trigger: loomgen, which can generate the single enum from a grammar definition.
@@ -476,8 +482,12 @@ Post-consolidation app inventory:
 
 - [ ] **Live inline evaluation display** — makes the GIF compelling ("→ 10" appearing as you type). See §13 concrete projection candidates.
   Exit: demo shows evaluation results inline while typing.
-- [ ] **Scope-colored tree view** — makes the structural view visually meaningful. See §13 concrete projection candidates.
-  Exit: demo shows bound/free variables colored in the tree view.
+- [ ] **Scope-colored compact tree view (Phase 1)** — compact inline layout, full binder coloring, bold defs / regular usages, selection-driven binder↔usage highlighting with dimming.
+  Plan: `docs/plans/2026-04-04-scope-colored-tree-view-design.md`
+  Exit: compact inline view with binder colors, def/use font weight, selection highlights binder + usages.
+- [ ] **Scope-colored tree view — smart tooltip (future)** — small tooltip popup on selection showing scope info (binding site, usage count). Smart positioning to avoid occluding relevant text.
+  Depends on: Phase 1 compact view.
+  Exit: tooltip appears on selection, never hides related nodes.
 - [ ] **Deploy updated web demo** — the current live demo URL points to rabbita, not the new web editor with pretty-printer.
   Exit: live demo link in README shows the current canonical `web/` editor.
 
