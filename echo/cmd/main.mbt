@@ -17,11 +17,20 @@ fn parse_uint(s : String) -> Int {
 }
 
 ///|
+/// Truncate to single line for display. Replaces newlines with spaces.
 fn truncate(text : String, max_len : Int) -> String {
-  if text.length() > max_len {
-    text[0:max_len].to_string() + "..."
+  let mut clean = text
+  if text.contains("\n") || text.contains("\r") {
+    let buf = StringBuilder::new()
+    for ch in text {
+      buf.write_char(if ch == '\n' || ch == '\r' { ' ' } else { ch })
+    }
+    clean = buf.to_string()
+  }
+  if clean.length() > max_len {
+    clean[0:max_len].to_string() + "..."
   } else {
-    text
+    clean
   }
 }
 
