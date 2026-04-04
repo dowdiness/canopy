@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/echo/cmd"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+type StoredPost derive(Show, ToJson, @json.FromJson)
+
+// Type aliases
+
+// Traits
+
