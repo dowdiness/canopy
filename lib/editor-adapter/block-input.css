@@ -2,7 +2,7 @@
 
 .block-editor {
   position: relative;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   line-height: 1.6;
 }
 
@@ -71,12 +71,12 @@
   box-sizing: border-box;
   z-index: 1;
   white-space: pre-wrap;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* --- Text span ---------------------------------------------------------- */
 
 .block-text {
   white-space: pre-wrap;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }

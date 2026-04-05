@@ -126,7 +126,13 @@ export class MarkdownPreview implements EditorAdapter {
 
         case 'UpdateNode': {
           const el = this.container.querySelector(`[data-node-id="${patch.node_id}"]`);
-          if (el) el.textContent = patch.text ?? patch.label;
+          if (el) {
+            // Only set textContent on leaf elements — containers have child elements
+            if (el.children.length === 0) {
+              el.textContent = patch.text ?? patch.label;
+            }
+            if (patch.css_class) el.className = patch.css_class;
+          }
           if (this.currentTree) this.currentTree = updateInTree(this.currentTree, patch.node_id, patch.label, patch.css_class, patch.text ?? undefined);
           break;
         }
