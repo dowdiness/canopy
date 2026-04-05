@@ -83,6 +83,15 @@ function updateInTree(tree: ViewNode, id: number, label: string, cssClass: strin
   return { ...tree, children: tree.children.map(c => updateInTree(c, id, label, cssClass, text)) };
 }
 
+function findInTree(tree: ViewNode, id: number): ViewNode | null {
+  if (tree.id === id) return tree;
+  for (const child of tree.children) {
+    const found = findInTree(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 export class MarkdownPreview implements EditorAdapter {
   private container: HTMLElement;
   private currentTree: ViewNode | null = null;
@@ -125,15 +134,26 @@ export class MarkdownPreview implements EditorAdapter {
         }
 
         case 'UpdateNode': {
+          if (this.currentTree) this.currentTree = updateInTree(this.currentTree, patch.node_id, patch.label, patch.css_class, patch.text ?? undefined);
           const el = this.container.querySelector(`[data-node-id="${patch.node_id}"]`);
           if (el) {
-            // Only set textContent on leaf elements — containers have child elements
+            // Check if the semantic tag needs to change (e.g., h1 → h2 on heading level change)
+            const updatedNode = this.currentTree ? findInTree(this.currentTree, patch.node_id) : null;
+            if (updatedNode) {
+              const requiredTag = semanticTag(updatedNode).tagName;
+              if (el.tagName !== requiredTag) {
+                // Tag changed — re-render the full node
+                const newEl = renderNode(updatedNode);
+                el.parentElement?.replaceChild(newEl, el);
+                break;
+              }
+            }
+            // Tag unchanged — update in place
             if (el.children.length === 0) {
               el.textContent = patch.text ?? patch.label;
             }
             if (patch.css_class) el.className = patch.css_class;
           }
-          if (this.currentTree) this.currentTree = updateInTree(this.currentTree, patch.node_id, patch.label, patch.css_class, patch.text ?? undefined);
           break;
         }
 
