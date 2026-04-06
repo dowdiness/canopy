@@ -1,4 +1,4 @@
-// Whitebox tests for ScopeAnnotation and scope_map utilities.
+// Whitebox tests for scope annotation.
 
 ///|
 test "color_index is stable across calls" {
@@ -44,7 +44,7 @@ test "compute_highlight_set for non-identifier returns empty set" {
 }
 
 ///|
-test "clicking f does not highlight apply var (no module/lambda ID collision)" {
+test "clicking f does not highlight apply var (no module/lambda scope confusion)" {
   let editor = @editor.SyncEditor::new_lambda("test")
   editor.set_text(
     "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
@@ -53,16 +53,46 @@ test "clicking f does not highlight apply var (no module/lambda ID collision)" {
   let proj_root = editor.get_proj_node().unwrap()
   let f_var_id = find_var_node_id(proj_root, "f")
   let apply_var_id = find_var_node_id(proj_root, "apply")
-  // f should resolve to a Lam binder
+  // f should resolve to a binder (λf)
   let f_ann = scope_map.get(f_var_id).unwrap()
   inspect(f_ann.binder_id is None, content="false")
-  // apply should have binder_id=None (module-bound, no link to init node)
+  // apply should also resolve to a binder (module def)
   let apply_ann = scope_map.get(apply_var_id).unwrap()
-  inspect(apply_ann.binder_id is None, content="true")
+  inspect(apply_ann.binder_id is None, content="false")
   // Highlight set for f should NOT contain apply_var_id
-  let hs = compute_highlight_set(f_var_id, scope_map)
-  inspect(hs.contains(f_var_id), content="true")
-  inspect(hs.contains(apply_var_id), content="false")
+  let hs_f = compute_highlight_set(f_var_id, scope_map)
+  inspect(hs_f.contains(f_var_id), content="true")
+  inspect(hs_f.contains(apply_var_id), content="false")
+  // Highlight set for apply should contain apply but NOT f
+  let hs_apply = compute_highlight_set(apply_var_id, scope_map)
+  inspect(hs_apply.contains(apply_var_id), content="true")
+  inspect(hs_apply.contains(f_var_id), content="false")
+}
+
+///|
+test "nested block: inner x does not highlight outer x" {
+  let editor = @editor.SyncEditor::new_lambda("test")
+  editor.set_text(
+    "let x = 0\nlet y = { let x = 1\n  x }\nx",
+  )
+  let scope_map = build_scope_map(editor)
+  let proj_root = editor.get_proj_node().unwrap()
+  // There are two Var("x") nodes — inner (inside block) and outer (body)
+  let x_vars = find_all_var_node_ids(proj_root, "x")
+  // Should have at least 2 Var("x") usages
+  inspect(x_vars.length() >= 2, content="true")
+  // Each x should resolve to a different binder
+  let x0_ann = scope_map.get(x_vars[0])
+  let x1_ann = scope_map.get(x_vars[1])
+  inspect(x0_ann is None, content="false")
+  inspect(x1_ann is None, content="false")
+  // Their binder_ids should be different (inner x → inner def, outer x → outer def)
+  let bid0 = x0_ann.unwrap().binder_id.unwrap()
+  let bid1 = x1_ann.unwrap().binder_id.unwrap()
+  inspect(bid0 == bid1, content="false")
+  // Clicking one x should NOT highlight the other
+  let hs0 = compute_highlight_set(x_vars[0], scope_map)
+  inspect(hs0.contains(x_vars[1]), content="false")
 }
 
 ///|
@@ -81,4 +111,29 @@ fn find_var_node_id(
     }
   }
   @proj.NodeId::from_int(-1)
+}
+
+///|
+fn find_all_var_node_ids(
+  node : @canopy_core.ProjNode[@ast.Term],
+  name : String,
+) -> Array[@proj.NodeId] {
+  let results : Array[@proj.NodeId] = []
+  collect_var_ids(node, name, results)
+  results
+}
+
+///|
+fn collect_var_ids(
+  node : @canopy_core.ProjNode[@ast.Term],
+  name : String,
+  results : Array[@proj.NodeId],
+) -> Unit {
+  match node.kind {
+    Var(n) => if n == name { results.push(node.id()) }
+    _ => ()
+  }
+  for child in node.children {
+    collect_var_ids(child, name, results)
+  }
 }

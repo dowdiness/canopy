@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 
 async function waitForEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await expect(page).toHaveTitle('Canopy Editor');
+  await expect(page).toHaveTitle(/Editor/);
   await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
   await page.waitForFunction(() => {
     const ce = document.querySelector('canopy-editor');
@@ -118,5 +118,27 @@ test.describe('Scope-Colored Binder Highlighting', () => {
       // Navigation worked — verify new node has highlighting
       expect(afterSel[0].classes).toContain('scope-highlighted');
     }
+  });
+
+  test('clicking a module-bound variable highlights its usages', async ({ page }) => {
+    await waitForEditor(page);
+
+    // Click the 'apply' variable (module-level binding usage in final expr)
+    await page
+      .getByLabel('AST outline')
+      .getByText('apply', { exact: true })
+      .first()
+      .click();
+
+    const rows = await getTreeRows(page);
+
+    // The clicked 'apply' should be selected and highlighted
+    const applyRow = rows.find(r => r.text === 'apply');
+    expect(applyRow?.classes).toContain('selected');
+    expect(applyRow?.classes).toContain('scope-highlighted');
+
+    // Lambda-bound vars (f, x) should be dimmed — different scope
+    const fRow = rows.find(r => r.text === 'f');
+    expect(fRow?.classes).toContain('scope-dimmed');
   });
 });
