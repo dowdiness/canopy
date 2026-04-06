@@ -36,6 +36,8 @@ fn init_model() -> Model {
     bottom_tab: Problems,
     sync_status: Connecting,
     overlay: closed_overlay(),
+    scope_map: build_scope_map(editor),
+    highlight_set: @immut/hashset.HashSet::new(),
   }
 }
 
@@ -45,7 +47,17 @@ fn refresh(model : Model) -> Model {
     model.editor.get_proj_node(),
     model.editor.get_source_map(),
   )
-  { ..model, outline_state, }
+  // Build scope_map from current projection
+  let scope_map = build_scope_map(model.editor)
+  // Recompute highlight_set if a node is selected
+  let highlight_set = match model.selected_node {
+    Some(nid_str) => {
+      let n = @string.parse_int(nid_str) catch { _ => 0 }
+      compute_highlight_set(@proj.NodeId::from_int(n), scope_map)
+    }
+    None => @immut/hashset.HashSet::new()
+  }
+  { ..model, outline_state, scope_map, highlight_set }
 }
 
 ///|
@@ -190,7 +202,7 @@ fn apply_structural_edit_request(
   op : String,
   node_id : String,
 ) -> (Cmd, Model) {
-  let node_id_int = @strconv.parse_int(node_id) catch {
+  let node_id_int = @string.parse_int(node_id) catch {
     _ => return (none, model)
   }
   let nid = @proj.NodeId::from_int(node_id_int)
@@ -510,8 +522,15 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (cmd, new_model)
     }
     OutlineNodeClicked(node_id) => {
-      let cmd = @rabbita.effect(fn() { js_set_editor_selected_node(node_id) })
-      (cmd, { ..model, selected_node: Some(node_id) })
+      // Highlight in CM6, then re-focus tree-rows (overrides cmView.focus())
+      let cmd = @rabbita.effect(fn() {
+        js_set_editor_selected_node(node_id)
+        js_focus_tree_rows()
+      })
+      let n = @string.parse_int(node_id) catch { _ => 0 }
+      let nid = @proj.NodeId::from_int(n)
+      let highlight_set = compute_highlight_set(nid, model.scope_map)
+      (cmd, { ..model, selected_node: Some(node_id), highlight_set })
     }
     OutlineNavigate(node_id_str) => {
       // Update selection without touching editor focus — outline keeps keyboard focus
@@ -522,23 +541,39 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       let outline_state = match new_selected {
         Some(s) => {
-          let nid_int = @strconv.parse_int(s) catch {
-            _ => return (none, model)
-          }
+          let nid_int = @string.parse_int(s) catch { _ => return (none, model) }
           let nid = @proj.NodeId::from_int(nid_int)
           model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
         }
         None => model.outline_state
       }
       let cmd = match new_selected {
-        Some(_) =>
-          @rabbita_cmd.raw_effect(
-            fn(_) { js_scroll_outline_to_selected() },
-            kind=@rabbita_cmd.after_render,
-          )
+        Some(s) =>
+          @rabbita.batch([
+            // Use same path as click: set selection in CM6, then re-focus tree
+            @rabbita.effect(fn() {
+              js_set_editor_selected_node(s)
+              js_focus_tree_rows()
+            }),
+            @rabbita_cmd.raw_effect(
+              fn(_) { js_scroll_outline_to_selected() },
+              kind=@rabbita_cmd.after_render,
+            ),
+          ])
         None => none
       }
-      (cmd, { ..model, selected_node: new_selected, outline_state })
+      // Compute highlight_set for binder coloring
+      let highlight_set = match new_selected {
+        Some(s) => {
+          let n = @string.parse_int(s) catch { _ => 0 }
+          compute_highlight_set(@proj.NodeId::from_int(n), model.scope_map)
+        }
+        None => @immut/hashset.HashSet::new()
+      }
+      (
+        cmd,
+        { ..model, selected_node: new_selected, outline_state, highlight_set },
+      )
     }
     OutlineStructuralEdit(tree_op) =>
       match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
@@ -560,9 +595,27 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             }
             None => (None, new_model.outline_state)
           }
+          let highlight_set = match new_selected {
+            Some(s) => {
+              let n = @string.parse_int(s) catch { _ => 0 }
+              compute_highlight_set(
+                @proj.NodeId::from_int(n),
+                new_model.scope_map,
+              )
+            }
+            None => @immut/hashset.HashSet::new()
+          }
           let text = new_model.editor.get_text()
           let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
-          (cmd, { ..new_model, selected_node: new_selected, outline_state })
+          (
+            cmd,
+            {
+              ..new_model,
+              selected_node: new_selected,
+              outline_state,
+              highlight_set,
+            },
+          )
         }
         Err(_) => (none, model)
       }
@@ -630,7 +683,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             None => @ast.Term::Unit
           }
           let choices = get_submenu_choices(sub_action.id, ctx_kind)
-          let idx = @strconv.parse_int(key) catch { _ => -1 }
+          let idx = @string.parse_int(key) catch { _ => -1 }
           let idx = idx - 1 // "1" → 0, "2" → 1, etc.
           if idx >= 0 && idx < choices.length() {
             let (_, value) = choices[idx]
@@ -730,7 +783,15 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if resolved_node_id == "" {
         (none, model)
       } else {
-        (none, { ..model, selected_node: Some(resolved_node_id) })
+        let n = @string.parse_int(resolved_node_id) catch { _ => 0 }
+        let highlight_set = compute_highlight_set(
+          @proj.NodeId::from_int(n),
+          model.scope_map,
+        )
+        (
+          none,
+          { ..model, selected_node: Some(resolved_node_id), highlight_set },
+        )
       }
     }
     EditorStructuralEdit(op~, node_id~) => {

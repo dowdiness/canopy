@@ -69,4 +69,6 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : OverlayState
+  scope_map : Map[@proj.NodeId, ScopeAnnotation]
+  highlight_set : @immut/hashset.HashSet[@proj.NodeId]
 }

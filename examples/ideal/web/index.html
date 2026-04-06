@@ -60,6 +60,34 @@
     @media (prefers-reduced-motion: reduce) {
       .loading-spinner { animation: none; opacity: 0.5; }
     }
+
+    /* Binder palette — 8 hues */
+    :root {
+      --binder-0: #e06c75;
+      --binder-1: #61afef;
+      --binder-2: #c3e88d;
+      --binder-3: #f78c6c;
+      --binder-4: #dcdcaa;
+      --binder-5: #c792ea;
+      --binder-6: #89ddff;
+      --binder-7: #ff5370;
+    }
+    .binder-0 { color: var(--binder-0); }
+    .binder-1 { color: var(--binder-1); }
+    .binder-2 { color: var(--binder-2); }
+    .binder-3 { color: var(--binder-3); }
+    .binder-4 { color: var(--binder-4); }
+    .binder-5 { color: var(--binder-5); }
+    .binder-6 { color: var(--binder-6); }
+    .binder-7 { color: var(--binder-7); }
+
+    /* Definition site weight */
+    .def-site { font-weight: 700; }
+
+    /* Selection states */
+    .scope-highlighted { opacity: 1; }
+    .scope-dimmed { opacity: 0.35; transition: opacity 0.15s ease; }
+
   </style>
 </head>
 <body>

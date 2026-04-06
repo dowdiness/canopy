@@ -2,10 +2,12 @@
 package "dowdiness/ideal-editor/main"
 
 import {
+  "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/projection",
   "dowdiness/lambda/ast",
+  "moonbitlang/core/immut/hashset",
 }
 
 // Values
@@ -93,6 +95,8 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : OverlayState
+  scope_map : Map[@core.NodeId, ScopeAnnotation]
+  highlight_set : @hashset.HashSet[@core.NodeId]
 }
 
 pub enum Msg {
@@ -132,6 +136,8 @@ pub enum PanelId {
   Inspector
   Bottom
 } derive(Eq)
+
+type ScopeAnnotation
 
 pub enum SyncStatus {
   Offline

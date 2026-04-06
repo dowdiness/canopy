@@ -32,16 +32,24 @@ fn view_outline_node(
   dispatch : Dispatch[Msg],
   node : @proj.InteractiveTreeNode[@ast.Term],
   depth : Int,
-  selected_node : String?,
+  model : Model,
   eval_annotations : Map[@proj.NodeId, Array[@editor.EvalResult]],
 ) -> Html {
   let kind = kind_of(node.label)
-  let is_selected = match selected_node {
+  let is_selected = match model.selected_node {
     Some(sel) => sel == node_id_to_string(node.id)
     None => false
   }
   let selected_suffix = if is_selected { " selected" } else { "" }
-  let row_class = "tree-row depth-\{depth} kind-\{kind}\{selected_suffix}"
+  // Scope highlight class (highlighted/dimmed based on binder selection)
+  let hl_suffix = if model.highlight_set.length() == 0 {
+    ""
+  } else if model.highlight_set.contains(node.id) {
+    " scope-highlighted"
+  } else {
+    " scope-dimmed"
+  }
+  let row_class = "tree-row depth-\{depth} kind-\{kind}\{selected_suffix}\{hl_suffix}"
   let is_leaf = match node.children {
     @proj.Loaded(children) => children.is_empty()
     @proj.Elided(_) => false
@@ -57,10 +65,19 @@ fn view_outline_node(
   } else {
     button(class="tree-toggle", on_click=toggle_cmd, [text(toggle_label)])
   }
+  // Binder color class for the label
+  let binder_cls = match model.scope_map.get(node.id) {
+    Some(ann) => {
+      let color = " binder-" + ann.color_index.to_string()
+      let weight = if ann.is_definition { " def-site" } else { "" }
+      color + weight
+    }
+    None => ""
+  }
   let row_items : Array[Html] = [
     div(class="tree-accent", [text("")]),
     toggle,
-    span(class="tree-label-text", [text(node.label)]),
+    span(class="tree-label-text\{binder_cls}", [text(node.label)]),
   ]
   // Eval annotation badge
   match eval_annotations.get(node.id) {
@@ -95,13 +112,7 @@ fn view_outline_node(
     match node.children {
       @proj.Loaded(children) =>
         children.map(fn(child) {
-          view_outline_node(
-            dispatch,
-            child,
-            depth + 1,
-            selected_node,
-            eval_annotations,
-          )
+          view_outline_node(dispatch, child, depth + 1, model, eval_annotations)
         })
       @proj.Elided(n) =>
         [@html.p(class="no-tree-note", "\{n} hidden descendants")]
@@ -119,7 +130,7 @@ fn navigate_outline(model : Model, direction : @zipper.Direction) -> String? {
     Some(s) => s
     None => return None
   }
-  let n = @strconv.parse_int(node_id_str) catch { _ => return None }
+  let n = @string.parse_int(node_id_str) catch { _ => return None }
   let node_id = @proj.NodeId::from_int(n)
   let proj_root = match model.editor.get_proj_node() {
     Some(p) => p
@@ -139,7 +150,7 @@ fn get_selected_node_id(model : Model) -> @proj.NodeId? {
     Some(s) => s
     None => return None
   }
-  let n = @strconv.parse_int(s) catch { _ => return None }
+  let n = @string.parse_int(s) catch { _ => return None }
   Some(@proj.NodeId::from_int(n))
 }
 
@@ -174,8 +185,8 @@ fn build_outline_eval_annotations(
 }
 
 ///|
-/// Render outline tree content with keyboard navigation.
-fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+/// Render outline tree view with keyboard navigation (original tree mode).
+fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
   let handle_keydown = fn(kb : @html.Keyboard) {
     let key = kb.key()
     match key {
@@ -243,16 +254,14 @@ fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
         class="tree-rows",
         on_keydown=handle_keydown,
         attrs=@html.Attrs::build().tabindex(0),
-        [
-          view_outline_node(
-            dispatch,
-            root,
-            0,
-            model.selected_node,
-            eval_annotations,
-          ),
-        ],
+        [view_outline_node(dispatch, root, 0, model, eval_annotations)],
       )
     None => @html.p(class="no-tree-note", "No AST available")
   }
+}
+
+///|
+/// Render outline content.
+fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+  view_outline_tree(dispatch, model)
 }

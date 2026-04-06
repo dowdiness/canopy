@@ -51,6 +51,7 @@ extern "js" fn js_set_editor_mode(mode : String) -> Unit =
 
 ///|
 /// Set the selected node in the Web Component by node ID.
+/// NOTE: This calls cmView.focus() — steals focus from outline panel.
 extern "js" fn js_set_editor_selected_node(node_id : String) -> Unit =
   #| function(node_id) {
   #|   var el = document.querySelector('canopy-editor');
@@ -191,6 +192,15 @@ extern "js" fn js_focus_outline_overlay() -> Unit =
   #| function() {
   #|   var panel = document.querySelector('.action-overlay-panel');
   #|   if (panel) panel.focus();
+  #| }
+
+///|
+/// Focus the tree-rows div so keyboard navigation works after node clicks.
+/// Called after js_set_editor_selected_node to override CM6's cmView.focus().
+extern "js" fn js_focus_tree_rows() -> Unit =
+  #| function() {
+  #|   var el = document.querySelector('.tree-rows');
+  #|   if (el) el.focus();
   #| }
 
 // Note: editor event wiring is done in main.ts wireEditorEvents() — not here.
