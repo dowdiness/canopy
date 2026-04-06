@@ -332,12 +332,18 @@ export class BlockInput implements EditorAdapter {
 
     if (e.key === 'Backspace' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
       e.preventDefault();
-      this.emit({
-        type: 'StructuralEdit',
-        node_id: this.activeBlockId,
-        op: 'merge_with_previous',
-        params: {},
-      });
+      if (ta.value.length === 0) {
+        // Empty block: delete it and move to previous
+        this.emit({
+          type: 'StructuralEdit',
+          node_id: this.activeBlockId,
+          op: 'merge_with_previous',
+          params: {},
+        });
+      } else {
+        // Non-empty block: just move cursor to end of previous block
+        this.moveFocus(-1);
+      }
       return;
     }
 
