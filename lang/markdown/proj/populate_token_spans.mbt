@@ -130,15 +130,38 @@ fn populate_block(
         "fence_open",
         CodeFenceOpenToken,
       )
-      // Code content between open and close fences
-      set_content_span(
-        source_map,
-        syntax_node,
-        id,
-        "code",
-        Some(CodeFenceOpenToken),
-        suffix_kind=Some(CodeFenceCloseToken),
-      )
+      // Code content between fences, excluding the mandatory newlines
+      // after the opening fence and before the closing fence.
+      // set_content_span can't handle this because find_token returns
+      // the first NewlineToken (after fence open), not the last one.
+      let fence_open_end = match
+        syntax_node.find_token(
+          @markdown.SyntaxKind::CodeFenceOpenToken.to_raw(),
+        ) {
+        Some(tok) => tok.end()
+        None => syntax_node.start()
+      }
+      let fence_close_start = match
+        syntax_node.find_token(
+          @markdown.SyntaxKind::CodeFenceCloseToken.to_raw(),
+        ) {
+        Some(tok) => tok.start()
+        None => syntax_node.end()
+      }
+      // Skip newline after opening fence, skip newline before closing fence
+      let code_start = fence_open_end + 1
+      let code_end = if fence_close_start > code_start && fence_close_start > 0 {
+        fence_close_start - 1
+      } else {
+        fence_close_start
+      }
+      if code_start <= code_end {
+        source_map.set_token_span(
+          id,
+          "code",
+          @loomcore.Range::new(code_start, code_end),
+        )
+      }
       set_token_span(
         source_map,
         syntax_node,

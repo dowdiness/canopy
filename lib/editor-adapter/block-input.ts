@@ -197,6 +197,10 @@ export class BlockInput implements EditorAdapter {
   // --- Textarea overlay (Excalidraw pattern) -------------------------------
 
   private activateBlock(blockId: number): void {
+    // Detach blur handler before renderAll — otherwise innerHTML='' removes
+    // the textarea from DOM, triggers blur → deactivate(), resetting state
+    // before positionTextarea() can reattach it.
+    if (this.textarea) this.textarea.onblur = null;
     this.activeBlockId = blockId;
     this.blurBound = false;
     this.renderAll();
