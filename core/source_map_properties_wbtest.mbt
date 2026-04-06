@@ -56,8 +56,7 @@ fn prop_ranges_sorted(expr : TestExpr) -> Bool {
     if prev_range.start > curr_range.start {
       return false
     }
-    if prev_range.start == curr_range.start &&
-      prev_range.end < curr_range.end {
+    if prev_range.start == curr_range.start && prev_range.end < curr_range.end {
       return false
     }
   }

@@ -108,7 +108,6 @@ fn[T] remove_at(arr : Array[T], idx : Int) -> Array[T] {
   result
 }
 
-
 ///|
 /// Check that all elements in an array are unique.
 fn all_unique(arr : Array[Int]) -> Bool {
