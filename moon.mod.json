@@ -39,7 +39,13 @@
   "readme": "README.mbt.md",
   "repository": "https://github.com/dowdiness/canopy",
   "license": "Apache-2.0",
-  "keywords": ["incremental-parsing", "projectional-editing", "crdt", "collaborative-editing", "lambda-calculus"],
+  "keywords": [
+    "incremental-parsing",
+    "projectional-editing",
+    "crdt",
+    "collaborative-editing",
+    "lambda-calculus"
+  ],
   "description": "Canopy — incremental projectional editor with CRDT collaboration, built in MoonBit",
   "preferred-target": "js"
 }

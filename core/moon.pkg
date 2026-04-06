@@ -2,3 +2,9 @@ import {
   "dowdiness/loom/core" @loomcore,
   "moonbitlang/core/cmp",
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
