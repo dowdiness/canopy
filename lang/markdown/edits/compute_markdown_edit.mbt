@@ -303,6 +303,12 @@ fn compute_merge_with_previous(
         None => return Err("previous node not in source map")
       }
   }
+  // Strip ZWSP placeholder (from InsertBlockAfter empty blocks)
+  let clean_text = if curr_text == "\u200B" { "" } else { curr_text }
+  // The delete span covers: previous block's trailing newline, blank-line
+  // separator, current block's prefix + text + trailing newline. Always
+  // append \n to restore the proper \n\n block separator with the next block.
+  let inserted = clean_text + "\n"
   Ok(
     Some(
       (
@@ -310,7 +316,7 @@ fn compute_merge_with_previous(
           SpanEdit::{
             start: prev_text_end,
             delete_len: curr_range.end - prev_text_end,
-            inserted: curr_text,
+            inserted,
           },
         ],
         FocusHint::MoveCursor(position=prev_text_end),
