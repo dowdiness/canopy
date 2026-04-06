@@ -123,8 +123,13 @@ fn diff_view_nodes(
   curr : @protocol.ViewNode,
   patches : Array[@protocol.ViewPatch],
 ) -> Unit {
+  // If node identity changed at this position (e.g., a new block was inserted
+  // shifting siblings), emit ReplaceNode so the frontend gets the correct ID.
+  if prev.id != curr.id {
+    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=prev.id, node=curr))
+    return
+  }
   if prev.kind_tag != curr.kind_tag {
-    // Use prev.id so the receiver can find the node to replace in its tree
     patches.push(@protocol.ViewPatch::ReplaceNode(node_id=prev.id, node=curr))
     return
   }
