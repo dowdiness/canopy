@@ -89,14 +89,7 @@ git commit -m "chore: update event-graph-walker submodule"
 
 ## Adding a New Language
 
-When integrating a new language (like Markdown, JSON, Lambda):
-
-1. **Check if the grammar has a `fold_node`** — look at `Grammar::new(fold_node=...)` in the language's `grammar.mbt`. If it exists, use `@loomcore.CstFold::new(fold_node).fold(syntax_node)` to get the full AST value. Don't hand-build AST values from tokens.
-2. **Reuse existing AST types** — use the language's own AST type (e.g., `@markdown.Block`) as `T` in `ProjNode[T]`. Don't create a custom projection enum. `TreeNode` and `Renderable` impls should already exist in the language's `proj_traits.mbt`.
-3. **Follow the memo builder pattern** — `build_*_projection_memos` returns 3 memos (proj, registry, source_map). Copy from `lang/json/proj/json_memo.mbt`.
-4. **SyncEditor constructor** — `SyncEditor::new_generic(agent_id, parser_factory, memo_builder)`. See `lang/json/edits/sync_editor_json.mbt`.
-
-Note: The JSON editor predates `CstFold` and hand-builds `JsonValue` from tokens. Don't follow that pattern for new languages — use `CstFold` instead.
+See [docs/development/ADDING_A_LANGUAGE.md](docs/development/ADDING_A_LANGUAGE.md) for the full guide (7 steps, with templates and validation checkpoints). Use Markdown as the reference implementation, not Lambda.
 
 ## Package Map
 
