@@ -197,6 +197,44 @@ test.describe('Markdown Block Editor', () => {
     expect(textsAfter).toEqual(textsBefore);
   });
 
+  test('ArrowLeft at start moves to end of previous block', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    const texts = await blockTexts(page);
+    const textarea = page.locator('.block-textarea');
+
+    // Click second block, press ArrowLeft at position 0
+    await page.locator('#block-container .block').nth(1).click();
+    await expect(textarea).toBeVisible();
+    await textarea.press('Home');
+    await textarea.press('ArrowLeft');
+    await page.waitForTimeout(300);
+
+    // Should be in the first block, cursor at end
+    const value = await textarea.inputValue();
+    expect(value).toBe(texts[0]);
+    const pos = await textarea.evaluate(el => (el as HTMLTextAreaElement).selectionStart);
+    expect(pos).toBe(texts[0].length);
+  });
+
+  test('ArrowRight at end moves to start of next block', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    const texts = await blockTexts(page);
+    const textarea = page.locator('.block-textarea');
+
+    // Click first block, press ArrowRight at end
+    await page.locator('#block-container .block').first().click();
+    await expect(textarea).toBeVisible();
+    await textarea.press('End');
+    await textarea.press('ArrowRight');
+    await page.waitForTimeout(300);
+
+    // Should be in the second block, cursor at start
+    const value = await textarea.inputValue();
+    expect(value).toBe(texts[1]);
+    const pos = await textarea.evaluate(el => (el as HTMLTextAreaElement).selectionStart);
+    expect(pos).toBe(0);
+  });
+
   test('code block has no leading/trailing newlines', async ({ page }) => {
     await loadExample(page, 'Code');
 
