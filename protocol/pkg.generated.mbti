@@ -9,7 +9,7 @@ import {
 // Values
 pub fn layout_to_view_tree(@pretty.Layout[@pretty.SyntaxCategory], width? : Int) -> ViewNode
 
-pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, annotations? : Map[@dowdiness/canopy/core.NodeId, Array[ViewAnnotation]]) -> ViewNode
+pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, annotations? : Map[@dowdiness/canopy/core.NodeId, Array[ViewAnnotation]], source_text? : String?) -> ViewNode
 
 // Errors
 

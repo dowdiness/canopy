@@ -8,6 +8,13 @@
 
 /* --- Block base --------------------------------------------------------- */
 
+/* Reset default margins for semantic elements used as blocks */
+.block-editor h1, .block-editor h2, .block-editor h3,
+.block-editor h4, .block-editor h5, .block-editor h6,
+.block-editor p, .block-editor pre {
+  margin: 0;
+}
+
 .block {
   position: relative;
   padding: 4px 8px;
@@ -28,24 +35,32 @@
 
 /* --- Block kinds -------------------------------------------------------- */
 
-.block[data-kind="heading"] {
-  font-size: 1.5em;
+/* Headings: kind_tag is "H1"–"H6" */
+.block[data-kind^="H"] {
   font-weight: 700;
   line-height: 1.3;
 }
 
-.block[data-kind="list_item"] {
+.block[data-kind="H1"] { font-size: 2em; }
+.block[data-kind="H2"] { font-size: 1.5em; font-weight: 600; }
+.block[data-kind="H3"] { font-size: 1.25em; font-weight: 600; }
+.block[data-kind="H4"] { font-size: 1.1em; font-weight: 600; }
+.block[data-kind="H5"],
+.block[data-kind="H6"] { font-size: 1em; font-weight: 600; }
+
+.block[data-kind="ListItem"] {
   padding-left: 24px;
 }
 
-.block[data-kind="list_item"]::before {
+.block[data-kind="ListItem"]::before {
   content: "\2022 ";
   position: absolute;
   left: 8px;
   color: #666;
 }
 
-.block[data-kind="code_block"] {
+/* Code blocks: kind_tag is "Code" or "Code(lang)" */
+.block[data-kind^="Code"] {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.9em;
   background: rgba(130, 80, 223, 0.04);

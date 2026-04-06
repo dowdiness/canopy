@@ -187,10 +187,14 @@ fn compute_insert_block_after(
     None => return Err("node not found in source map")
   }
   let insert_pos = range.end
+  // Insert "\n\u200B\n" to create a visible empty paragraph.
+  // The zero-width space gives the parser a real token to produce a ProjNode,
+  // so BlockInput can render and focus the new block. CommitEdit strips it
+  // on the first keystroke.
   Ok(
     Some(
       (
-        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n" }],
+        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n\u200B\n" }],
         FocusHint::MoveCursor(position=insert_pos + 1),
       ),
     ),

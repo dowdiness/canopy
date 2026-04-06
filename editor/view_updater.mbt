@@ -20,7 +20,8 @@ pub fn[T : @proj.Renderable] SyncEditor::get_view_tree(
   match self.get_proj_node() {
     Some(proj_node) => {
       let source_map = self.get_source_map()
-      Some(@protocol.proj_to_view_node(proj_node, source_map))
+      let source_text = Some(self.get_text())
+      Some(@protocol.proj_to_view_node(proj_node, source_map, source_text~))
     }
     None => None
   }
@@ -123,17 +124,18 @@ fn diff_view_nodes(
   patches : Array[@protocol.ViewPatch],
 ) -> Unit {
   if prev.kind_tag != curr.kind_tag {
-    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=curr.id, node=curr))
+    // Use prev.id so the receiver can find the node to replace in its tree
+    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=prev.id, node=curr))
     return
   }
   // token_spans changes require ReplaceNode because UpdateNode doesn't carry spans
   if prev.token_spans != curr.token_spans {
-    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=curr.id, node=curr))
+    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=prev.id, node=curr))
     return
   }
   // annotation changes require ReplaceNode because UpdateNode doesn't carry annotations
   if prev.annotations != curr.annotations {
-    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=curr.id, node=curr))
+    patches.push(@protocol.ViewPatch::ReplaceNode(node_id=prev.id, node=curr))
     return
   }
   if prev.label != curr.label ||

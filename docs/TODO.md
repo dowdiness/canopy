@@ -397,6 +397,8 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Why: instead of migrating the property-based block editor to the protocol, build a new Markdown-backed block editor using SyncEditor + loom Markdown parser + projection. Three modes: raw (CM6), block (Canopy-owned thin input layer with Excalidraw-style textarea overlay), preview (semantic HTML). Explicit conversion model (slash commands, not autoformat). 7 edit ops.
   Plan: `docs/plans/2026-04-04-markdown-block-editor-design.md`
   Exit: `examples/web/markdown.html` with 3 modes, `lang/markdown/` projection + edit ops, BlockInput + MarkdownPreview adapters.
+- [ ] **ZWSP cleanup for empty blocks** — `InsertBlockAfter` inserts `\u200B` (zero-width space) as placeholder so the parser produces a ProjNode for empty paragraphs. The ZWSP is stripped on keystroke, but unused empty blocks keep it. If raw Markdown is copy-pasted to another tool, invisible ZWSP characters travel with it. Fix by either: (a) teaching the parser to produce empty paragraph nodes for consecutive blank lines, or (b) stripping all ZWSP on save/export.
+  Exit: No `\u200B` in raw Markdown output after save or copy.
 
 ---
 

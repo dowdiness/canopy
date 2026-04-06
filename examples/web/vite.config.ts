@@ -32,6 +32,7 @@ export default defineConfig({
         main: 'index.html',
         json: 'json.html',
         memo: 'memo.html',
+        markdown: 'markdown.html',
       },
     },
   },

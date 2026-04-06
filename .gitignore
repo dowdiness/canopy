@@ -18,6 +18,8 @@ examples/demo-react/playwright-report/
 examples/demo-react/test-results/
 examples/ideal/web/playwright-report/
 examples/ideal/web/test-results/
+examples/web/test-results/
+test-results/
 .grepai/
 .worktrees/
 .claude/

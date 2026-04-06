@@ -94,36 +94,46 @@ export class BlockInput implements EditorAdapter {
     return result;
   }
 
-  private createBlockDiv(node: ViewNode): HTMLDivElement {
-    const div = document.createElement('div');
-    div.className = 'block' + (node.id === this.activeBlockId ? ' active' : '');
-    if (node.css_class) div.className += ' ' + node.css_class;
-    div.dataset.nodeId = String(node.id);
-    div.dataset.kind = node.kind_tag;
-
-    // Accessibility for headings
-    if (node.kind_tag === 'heading') {
-      div.setAttribute('role', 'heading');
-      const level = this.headingLevel(node.css_class);
-      div.setAttribute('aria-level', String(level));
-    }
+  /** Create a semantic block element based on kind_tag. */
+  private createBlockDiv(node: ViewNode): HTMLElement {
+    const el = this.semanticBlockElement(node.kind_tag);
+    el.className = 'block' + (node.id === this.activeBlockId ? ' active' : '');
+    if (node.css_class) el.className += ' ' + node.css_class;
+    el.dataset.nodeId = String(node.id);
+    el.dataset.kind = node.kind_tag;
 
     const textSpan = document.createElement('span');
     textSpan.className = 'block-text';
-    textSpan.textContent = node.text ?? '';
-    div.appendChild(textSpan);
+    // Strip ZWSP placeholder so empty blocks show as truly empty
+    textSpan.textContent = (node.text ?? '').replace(/\u200B/g, '');
+    el.appendChild(textSpan);
 
-    div.addEventListener('click', (e) => {
+    el.addEventListener('click', (e) => {
       e.stopPropagation();
       this.activateBlock(node.id);
     });
 
-    return div;
+    return el;
   }
 
-  private headingLevel(cssClass: string): number {
-    const m = cssClass.match(/heading-(\d)/);
-    return m ? parseInt(m[1], 10) : 1;
+  /** Map kind_tag to the appropriate semantic HTML element. */
+  private semanticBlockElement(kindTag: string): HTMLElement {
+    const hLevel = this.headingLevelFromTag(kindTag);
+    if (hLevel > 0) return document.createElement(`h${hLevel}`);
+    switch (kindTag) {
+      case 'Paragraph': return document.createElement('p');
+      case 'ListItem': return document.createElement('p');
+      default:
+        if (kindTag.startsWith('Code'))
+          return document.createElement('pre');
+        return document.createElement('div');
+    }
+  }
+
+  /** Extract heading level from kind_tag like "H1" → 1, or 0 if not a heading. */
+  private headingLevelFromTag(kindTag: string): number {
+    const m = kindTag.match(/^H(\d)$/);
+    return m ? parseInt(m[1], 10) : 0;
   }
 
   // --- Patch helpers -------------------------------------------------------
@@ -221,7 +231,8 @@ export class BlockInput implements EditorAdapter {
     if (!node || !div) return;
 
     div.appendChild(ta);
-    ta.value = node.text ?? '';
+    // Strip ZWSP placeholder (inserted by InsertBlockAfter for empty blocks)
+    ta.value = (node.text ?? '').replace(/\u200B/g, '');
 
     // Match font from the block div
     const style = getComputedStyle(div);
@@ -270,7 +281,7 @@ export class BlockInput implements EditorAdapter {
     this.emit({
       type: 'CommitEdit',
       node_id: this.activeBlockId,
-      value: ta.value,
+      value: ta.value.replace(/\u200B/g, ''),
     });
 
     // Re-sync text span under the textarea

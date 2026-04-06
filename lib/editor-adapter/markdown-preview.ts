@@ -3,31 +3,34 @@
 import type { EditorAdapter } from './adapter';
 import type { ViewNode, ViewPatch, UserIntent } from './types';
 
-/** Extract heading level from css_class like "heading-2" → 2, default 1 */
-function headingLevel(cssClass: string): number {
-  const m = cssClass.match(/heading-(\d)/);
-  return m ? Math.min(Math.max(Number(m[1]), 1), 6) : 1;
+/** Extract heading level from kind_tag like "H2" → 2, or 0 if not a heading */
+function headingLevel(kindTag: string): number {
+  const m = kindTag.match(/^H(\d)$/);
+  return m ? Math.min(Math.max(Number(m[1]), 1), 6) : 0;
 }
 
 /** Create the appropriate semantic element for a ViewNode based on kind_tag */
 function semanticTag(node: ViewNode): HTMLElement {
+  // Headings: kind_tag is "H1"–"H6"
+  const hLevel = headingLevel(node.kind_tag);
+  if (hLevel > 0) {
+    return document.createElement(`h${hLevel}`);
+  }
   switch (node.kind_tag) {
-    case 'heading':
-      return document.createElement(`h${headingLevel(node.css_class)}`);
-    case 'paragraph':
+    case 'Paragraph':
       return document.createElement('p');
-    case 'unordered_list':
+    case 'List':
       return document.createElement('ul');
-    case 'list_item':
+    case 'ListItem':
       return document.createElement('li');
-    case 'code_block': {
-      const pre = document.createElement('pre');
-      const code = document.createElement('code');
-      pre.appendChild(code);
-      return pre;
-    }
-    case 'document':
     default:
+      // Code blocks: kind_tag is "Code" or "Code(lang)"
+      if (node.kind_tag.startsWith('Code')) {
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        pre.appendChild(code);
+        return pre;
+      }
       return document.createElement('div');
   }
 }
@@ -37,9 +40,9 @@ function renderNode(node: ViewNode): HTMLElement {
   el.setAttribute('data-node-id', String(node.id));
   if (node.css_class) el.className = node.css_class;
 
-  // For code_block, text goes inside the <code> child
-  const textTarget = node.kind_tag === 'code_block'
-    ? el.querySelector('code')!
+  // For code blocks (kind_tag "Code" or "Code(lang)"), text goes inside the <code> child
+  const textTarget = node.kind_tag.startsWith('Code')
+    ? (el.querySelector('code') ?? el)
     : el;
 
   const text = node.text ?? node.label;
