@@ -138,6 +138,65 @@ test.describe('Markdown Block Editor', () => {
     }
   });
 
+  test('multiple Enter presses create blocks with unique IDs', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    await page.locator('#block-container .block').first().click();
+    await page.waitForTimeout(300);
+    const textarea = page.locator('.block-textarea');
+    await textarea.press('End');
+
+    // Create 3 empty blocks
+    for (let i = 0; i < 3; i++) {
+      await textarea.press('Enter');
+      await page.waitForTimeout(300);
+    }
+
+    // All block IDs should be unique
+    const ids = await page.locator('#block-container .block').evaluateAll(
+      els => els.map(el => el.dataset.nodeId),
+    );
+    const unique = new Set(ids).size;
+    expect(unique).toBe(ids.length);
+  });
+
+  test('Backspace on non-empty block moves focus without merging', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    const textsBefore = await blockTexts(page);
+
+    // Click second block, Backspace at start
+    await page.locator('#block-container .block').nth(1).click();
+    await page.waitForTimeout(300);
+    const textarea = page.locator('.block-textarea');
+    await textarea.press('Home');
+    await textarea.press('Backspace');
+    await page.waitForTimeout(300);
+
+    // Blocks unchanged (no merge)
+    const textsAfter = await blockTexts(page);
+    expect(textsAfter).toEqual(textsBefore);
+    // Cursor moved to previous block
+    const value = await textarea.inputValue();
+    expect(value).toBe(textsBefore[0]);
+  });
+
+  test('Backspace on empty block deletes it', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    const textsBefore = await blockTexts(page);
+
+    // Create empty block then delete it
+    await page.locator('#block-container .block').first().click();
+    await page.waitForTimeout(300);
+    await page.locator('.block-textarea').press('End');
+    await page.locator('.block-textarea').press('Enter');
+    await page.waitForTimeout(300);
+    await page.locator('.block-textarea').press('Backspace');
+    await page.waitForTimeout(300);
+
+    // Back to original blocks
+    const textsAfter = await blockTexts(page);
+    expect(textsAfter).toEqual(textsBefore);
+  });
+
   test('code block has no leading/trailing newlines', async ({ page }) => {
     await loadExample(page, 'Code');
 
