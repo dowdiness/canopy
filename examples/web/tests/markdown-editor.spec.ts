@@ -124,6 +124,20 @@ test.describe('Markdown Block Editor', () => {
     expect(rawAfter).not.toContain('null');
   });
 
+  test('clicking different blocks activates each one', async ({ page }) => {
+    await loadExample(page, 'Hello');
+    const texts = await blockTexts(page);
+    const textarea = page.locator('.block-textarea');
+
+    // Click each block in sequence — each should activate the textarea
+    for (let i = 0; i < texts.length; i++) {
+      await page.locator('#block-container .block').nth(i).click();
+      await expect(textarea).toBeVisible();
+      const value = await textarea.inputValue();
+      expect(value).toBe(texts[i]);
+    }
+  });
+
   test('preview produces semantic HTML', async ({ page }) => {
     // Load Code example — has heading, paragraphs, code block, and list
     await loadExample(page, 'Code');
