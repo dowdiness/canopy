@@ -106,7 +106,11 @@ pub fn BlockDoc::get_text(
 }
 
 ///|
-/// Bulk-replace block text (atomic CRDT replace).
+/// Bulk-replace block text via a deterministic delete-then-insert sequence.
+///
+/// This is a convenience helper, not a transaction boundary: peers syncing
+/// mid-sequence may observe intermediate partial states until all generated ops
+/// have arrived and been applied.
 pub fn BlockDoc::set_text(
   self : BlockDoc,
   id : @container.TreeNodeId,
