@@ -34,6 +34,9 @@
     },
     "dowdiness/markdown": {
       "path": "./loom/examples/markdown"
+    },
+    "dowdiness/zipper": {
+      "path": "./lib/zipper"
     }
   },
   "readme": "README.mbt.md",

@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/list" @list,
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"

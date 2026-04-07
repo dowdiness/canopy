@@ -1,0 +1,54 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/zipper"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/list",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct RoseCtx[T] {
+  data : T
+  left : @list.List[RoseNode[T]]
+  right : @list.List[RoseNode[T]]
+  index : Int
+} derive(Eq, @debug.Debug)
+pub impl[T : @debug.Debug] Show for RoseCtx[T]
+
+pub(all) struct RoseNode[T] {
+  data : T
+  children : Array[RoseNode[T]]
+} derive(Eq, @debug.Debug)
+pub fn[T] RoseNode::new(data~ : T, children? : Array[Self[T]]) -> Self[T]
+pub impl[T : @debug.Debug] Show for RoseNode[T]
+
+pub(all) struct RoseZipper[T] {
+  focus : RoseNode[T]
+  path : @list.List[RoseCtx[T]]
+  depth : Int
+} derive(Eq, @debug.Debug)
+pub fn[T] RoseZipper::child_index(Self[T]) -> Int?
+pub fn[T] RoseZipper::depth(Self[T]) -> Int
+pub fn[T] RoseZipper::focus_at(RoseNode[T], Array[Int]) -> Self[T]?
+pub fn[T] RoseZipper::from_root(RoseNode[T]) -> Self[T]
+pub fn[T] RoseZipper::go_down(Self[T], index? : Int) -> Self[T]?
+pub fn[T] RoseZipper::go_left(Self[T]) -> Self[T]?
+pub fn[T] RoseZipper::go_right(Self[T]) -> Self[T]?
+pub fn[T] RoseZipper::go_up(Self[T]) -> Self[T]?
+pub fn[T] RoseZipper::is_leaf(Self[T]) -> Bool
+pub fn[T] RoseZipper::is_root(Self[T]) -> Bool
+pub fn[T] RoseZipper::modify(Self[T], (RoseNode[T]) -> RoseNode[T]) -> Self[T]
+pub fn[T] RoseZipper::num_children(Self[T]) -> Int
+pub fn[T] RoseZipper::replace(Self[T], RoseNode[T]) -> Self[T]
+pub fn[T] RoseZipper::to_path(Self[T]) -> Array[Int]
+pub fn[T] RoseZipper::to_tree(Self[T]) -> RoseNode[T]
+pub impl[T : @debug.Debug] Show for RoseZipper[T]
+
+// Type aliases
+
+// Traits
+
