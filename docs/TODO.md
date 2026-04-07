@@ -513,6 +513,18 @@ Post-consolidation app inventory:
 
 ---
 
+## 20. Generic Zipper Library
+
+**Impact:** Medium | **Effort:** Medium | **Status:** Phase 1 Done
+
+- [x] **Phase 1: Rose tree zipper** — ✅ Done (PR #130). `lib/zipper/` standalone module (`dowdiness/zipper`) with `RoseNode[T]`, `RoseCtx[T]`, `RoseZipper[T]`. 36 tests (33 blackbox + 3 @qc properties), full API in `pkg.generated.mbti`.
+  Plan: `docs/plans/2026-04-07-rose-tree-zipper-impl.md`
+  Design: `docs/superpowers/specs/2026-04-07-rose-tree-zipper-library-design.md`
+- [ ] **Phase 2: Annotation trait** — ScopeProvider, DepthCounter as Self-Closed Algebra traits.
+- [ ] **Phase 3: B-tree zipper** — Refactor OrderTree's `Cursor[T]` to use generic btree zipper.
+
+---
+
 ## Priority Ranking
 
 | # | Proposal | Effort | Impact |
