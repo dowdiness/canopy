@@ -422,3 +422,49 @@ test "import: divider with spaces" {
   inspect(children.length(), content="1")
   inspect(doc.get_type(children[0]), content="Divider")
 }
+
+///|
+test "sync: full message converges two block docs" {
+  let doc_a = BlockDoc::new("alice")
+  let heading = doc_a.create_block(Heading(2))
+  doc_a.set_text(heading, "Shared title")
+  let todo = doc_a.create_block(ListItem(Todo))
+  doc_a.set_text(todo, "ship sync")
+  doc_a.set_checked(todo, true)
+
+  let doc_b = BlockDoc::new("bob")
+  doc_b.apply_remote_sync_message(doc_a.export_sync_message())
+
+  inspect(block_doc_to_markdown(doc_b), content=block_doc_to_markdown(doc_a))
+  let children = doc_b.children(root_block_id)
+  inspect(children.length(), content="2")
+  inspect(doc_b.get_type(children[0]), content="Heading(2)")
+  inspect(doc_b.get_type(children[1]), content="ListItem(Todo)")
+  inspect(doc_b.get_checked(children[1]), content="true")
+}
+
+///|
+test "sync: incremental message sends only missing block history" {
+  let doc_a = BlockDoc::new("alice")
+  let first = doc_a.create_block(Paragraph)
+  doc_a.set_text(first, "first")
+
+  let doc_b = BlockDoc::new("bob")
+  doc_b.apply_remote_sync_message(doc_a.export_sync_message())
+  let vv = doc_b.get_version_vector()
+
+  let second = doc_a.create_block_after(first, Heading(3))
+  doc_a.set_text(second, "later")
+  doc_a.set_type(first, ListItem(Bullet))
+  doc_a.set_text(first, "updated")
+
+  doc_b.apply_remote_sync_message(doc_a.export_sync_message_since(vv))
+
+  inspect(block_doc_to_markdown(doc_b), content=block_doc_to_markdown(doc_a))
+  let children = doc_b.children(root_block_id)
+  inspect(children.length(), content="2")
+  inspect(doc_b.get_type(children[0]), content="ListItem(Bullet)")
+  inspect(doc_b.get_text(children[0]), content="updated")
+  inspect(doc_b.get_type(children[1]), content="Heading(3)")
+  inspect(doc_b.get_text(children[1]), content="later")
+}

@@ -143,6 +143,32 @@ pub fn BlockDoc::delete_char(
 }
 
 ///|
+pub fn BlockDoc::export_sync_message(self : BlockDoc) -> @container.SyncMessage {
+  self.tree.export_sync_message()
+}
+
+///|
+pub fn BlockDoc::export_sync_message_since(
+  self : BlockDoc,
+  vv : @container.VersionVector,
+) -> @container.SyncMessage {
+  self.tree.export_sync_message_since(vv)
+}
+
+///|
+pub fn BlockDoc::apply_remote_sync_message(
+  self : BlockDoc,
+  message : @container.SyncMessage,
+) -> Unit {
+  self.tree.apply_remote_sync_message(message)
+}
+
+///|
+pub fn BlockDoc::get_version_vector(self : BlockDoc) -> @container.VersionVector {
+  self.tree.get_version_vector()
+}
+
+///|
 pub fn BlockDoc::get_checked(
   self : BlockDoc,
   id : @container.TreeNodeId,
