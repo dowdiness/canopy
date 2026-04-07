@@ -188,12 +188,12 @@ Tracked by:
 - [ ] Implement lazy loading for 100k+ operation documents (load causal graph skeleton, hydrate on demand)
 - [ ] Add B-tree indexing for FugueTree (O(n) → O(log n) random-access character lookup)
 - [ ] **Generic zipper libraries** — Extract two reusable zipper libraries from existing code.
-  Why: ProjNode is a rose tree, OrderTree is a B-tree. Both already have generic zippers parameterized by `T` without codegen. Supersedes the `zipper-gen` codegen plan — uniform tree structures (rose tree, B-tree) have fixed derivatives regardless of `T`, so no per-type code generation is needed (McBride 2001). The language-specific Term-level zipper (`lang/lambda/zipper/`) is also superseded — `ProjNode[T]` carries `kind: T` at every node, so edit operations can pattern-match on `focus.kind` without a separate AST zipper.
+  Why: ProjNode is a rose tree, OrderTree is a B-tree. Both have generic zippers parameterized by `T` without codegen. Supersedes the `zipper-gen` codegen plan — uniform tree structures (rose tree, B-tree) have fixed derivatives regardless of `T`, so no per-type code generation is needed (McBride 2001).
   Libraries:
-  - `rose-zipper[T]` — `RoseNode[T] { data: T, children: Array[RoseNode[T]] }`, generic navigation, plug, path indices. Consumer: `ProjNode[T]` (projectional editors, AST tools, DOM-like trees).
+  - `rose-zipper[T]` — ✅ Done (`lib/zipper/`, PR #130). `RoseNode[T]`, `RoseCtx[T]`, `RoseZipper[T]`.
   - `btree-zipper[T]` — `BTreeNode[T] { Leaf(T, Int) | Internal(Array, Array) }`, counted navigation, range operations. Consumer: `OrderTree[T]` (CRDT positioning).
-  ProjNode becomes `RoseNode[(NodeId, T, Int, Int)]` or wraps `RoseNode[T]` — zipper works directly without conversion. Language-specific traits (`ScopeProvider[T]`, edit actions) layer on top.
-  Exit: Two standalone MoonBit packages publishable to mooncakes, existing `lang/lambda/zipper/` and `order-tree/src/walker_types.mbt` refactored to use them.
+  ProjNode navigation uses direct path arithmetic in `core/proj_zipper.mbt` (`navigate_proj`). The old `lang/lambda/zipper/` (Term-level Huet zipper) was removed in PR #133.
+  Exit: `btree-zipper[T]` extracted as standalone package, `order-tree/src/walker_types.mbt` refactored to use it.
 
 ---
 
@@ -285,11 +285,10 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 - [x] **Term enum extensibility** — ✅ Done. (a) `TermSym` Finally Tagless trait + `replay` in loom submodule. (b) Framework extraction complete (Phases 1–4): `framework/core/` has generic types (NodeId, ProjNode, SourceMap, reconcile); `TreeNode`/`Renderable` traits in `loom/core` with impls in `lambda/ast`; lambda-specific code in `lang/lambda/proj/` and `lang/lambda/edits/`; `projection/` is a re-export facade. Acid test: `framework/core/` has zero `@ast` imports. See PRs #60, #62, #66, #69.
 - [ ] **AST transform pipeline** — The `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
-- [ ] **Zipper keyboard integration** — Wire zipper navigation into ideal editor keyboard handling.
-  Plan: `docs/plans/2026-03-29-zipper-keyboard-integration.md`, `docs/plans/2026-03-30-zipper-keyboard-impl.md`
-  Exit: arrow keys navigate the outline tree via zipper in ideal editor.
-- [ ] **Cache Zipper between keystrokes** to avoid double DFS (GitHub #91)
-  Exit: zipper is cached and reused across consecutive keystrokes.
+- [x] **Outline keyboard navigation** — ✅ Done (PRs #132, #133). Arrow keys navigate the outline tree via `core/navigate_proj` (path arithmetic on ProjNode). Old Term-level zipper removed; navigation is now generic over any `ProjNode[T]`.
+  Plan: `docs/archive/2026-03-29-zipper-keyboard-integration.md`, `docs/archive/2026-03-30-zipper-keyboard-impl.md`
+- [ ] **Cache navigation path between keystrokes** to avoid O(n) DFS per keystroke (GitHub #91)
+  Exit: path or zipper is cached in editor state and reused across consecutive keystrokes.
 - [x] **Coordinate arithmetic audit** — ✅ Done. Audited all 9 `MoveCursor` sites across handler files. The two bugs (unwrap cursor, inline_definition cursor) were already fixed in PR #54. Remaining sites are correct: single-edit cases have no shift issues, multi-edit cases have cursor before or at the other edit's position.
 - [x] **Parent lookup index** — ✅ Done. Extracted `find_parent` helper to `text_edit_utils.mbt` with early return. Replaces inline O(n) loop in `compute_delete` that didn't break on match. Reusable by other handlers.
 
@@ -523,6 +522,7 @@ Post-consolidation app inventory:
 - [x] **Phase 1: Rose tree zipper** — ✅ Done (PR #130). `lib/zipper/` standalone module (`dowdiness/zipper`) with `RoseNode[T]`, `RoseCtx[T]`, `RoseZipper[T]`. 36 tests (33 blackbox + 3 @qc properties), full API in `pkg.generated.mbti`.
   Plan: `docs/plans/2026-04-07-rose-tree-zipper-impl.md`
   Design: `docs/superpowers/specs/2026-04-07-rose-tree-zipper-library-design.md`
+- [x] **ProjNode integration** — ✅ Done (PR #133). `core/proj_zipper.mbt` provides `navigate_proj[T]` via path arithmetic on ProjNode (no RoseZipper dependency in core/). Old `lang/lambda/zipper/` (Term-level Huet zipper) removed. 24 whitebox + 7 E2E tests.
 - [ ] **Phase 2: Annotation trait** — ScopeProvider, DepthCounter as Self-Closed Algebra traits.
 - [ ] **Phase 3: B-tree zipper** — Refactor OrderTree's `Cursor[T]` to use generic btree zipper.
 

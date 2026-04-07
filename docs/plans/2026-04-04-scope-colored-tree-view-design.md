@@ -58,12 +58,10 @@ Out:
   are tested and used by edit operations. `resolve_binder` returns
   `LamBinder(lam_id)` (the Lam node's NodeId) or
   `ModuleBinder(binding_node_id, def_index)` (the def's NodeId).
-- **Zipper navigation**: `lang/lambda/zipper/` provides a Term-level Huet
-  zipper with `navigate(cursor, direction, term, proj_root) -> NodeId?`. However,
-  ProjNode[T] is a rose tree with uniform `children: Array[ProjNode[T]]`,
-  which admits a generic zipper without per-language code. The compact view
-  should use a ProjNode-level rose tree zipper instead of the Term-level one.
-  See TODO.md §11 (generic zipper libraries) for the broader plan.
+- **Tree navigation**: `core/proj_zipper.mbt` provides generic ProjNode
+  navigation via `navigate_proj(cursor, direction, proj_root) -> NodeId?`.
+  Uses path arithmetic — O(n) DFS to find path, O(depth) to compute neighbor.
+  The old Term-level Huet zipper (`lang/lambda/zipper/`) was removed in PR #133.
 - **Model state**: `examples/ideal/main/model.mbt` has `selected_node : String?`,
   `outline_state : TreeEditorState[Term]`, and the editor provides
   `get_proj_node()`, `get_source_map()`, and term access.
@@ -141,14 +139,13 @@ types. Hashing by name means the same variable name always gets the same color
 across edits. Trade-off: shadowed names share a color — acceptable because
 shadowing is explicit and visible from position.
 
-### D5: Keyboard navigation via ProjNode rose tree zipper
+### D5: Keyboard navigation via ProjNode path arithmetic
 
-**Decision:** Use a generic rose tree zipper over `ProjNode[T]` for navigation.
-ProjNode has uniform `children: Array[ProjNode[T]]`, so the zipper context is
-a fixed type `(left_siblings, right_siblings, parent_metadata)` — no
-per-language `TermCtx` needed. In Phase 1, this supersedes the Term-level
-zipper for **compact-view navigation only**. The Term-level zipper remains
-in use for edit actions until the broader migration (TODO.md §11).
+**Decision:** Use `core/navigate_proj` for generic ProjNode tree navigation.
+ProjNode has uniform `children: Array[ProjNode[T]]`, so navigation is direct
+path arithmetic (parent = drop last index, child = append 0, siblings = ±1).
+No per-language `TermCtx` needed. The old Term-level Huet zipper was removed
+in PR #133; edit actions use `lang/lambda/edits/` (get_actions_for_node).
 
 - `Left` / `Right` → `go_left` / `go_right` (sibling ProjNodes = inline tokens)
 - `Up` / `Down` → `go_up` / `go_down` (nesting levels = enter/exit blocks)
@@ -495,14 +492,9 @@ These build on Phase 1's foundation:
 - Binder resolution and usage tracking are already implemented and tested in
   `lang/lambda/edits/scope.mbt`. This plan wires them into rendering, not
   reimplements them.
-- Navigation uses a new ProjNode rose tree zipper, not the existing Term-level
-  zipper from `lang/lambda/zipper/`. ProjNode[T] is a rose tree with uniform
-  `children: Array[ProjNode[T]]`, so the zipper context is a fixed generic
-  type — no per-language TermCtx variants needed.
-- **Phase 1 scope for the ProjNode zipper: compact-view navigation only.**
-  The broader claim that ProjNode zipper supersedes the Term-level zipper
-  entirely (including `available_actions`, `PositionRole` — which can
-  pattern-match on `focus.kind : T`) is a future direction, not Phase 1
+- Navigation uses `core/navigate_proj` (path arithmetic on ProjNode[T]).
+  The old Term-level zipper (`lang/lambda/zipper/`) was removed in PR #133.
+  Edit actions use `lang/lambda/edits/get_actions_for_node`.
   work. The existing action system (`NodeActionContext`, `get_actions_for_node`
   in `action_model.mbt`) and Term-level zipper remain untouched in Phase 1.
   Migration of edit actions / position roles to ProjNode zipper is a separate
