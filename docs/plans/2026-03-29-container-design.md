@@ -1,7 +1,7 @@
 # Unified Container for Block Editor
 
 **Date:** 2026-03-29
-**Status:** Design approved
+**Status:** Phases 0-3 landed; Phase 4 pending
 **References:** Loro (global ID space + per-container state), Diamond Types (causal graph separated from content), Yjs (single StructStore), Automerge (per-object OpTree within global OpSet)
 
 ## Problem
@@ -152,10 +152,10 @@ Text (per-block, one char per op):
 - `get_text(id) -> String`
 - `text_len(id) -> Int`
 
-Sync (SyncMessage schema defined in Phase 3):
-- `export_ops(since?: Version) -> SyncMessage`
-- `apply_remote(SyncMessage) raise DocumentError`
-- `version() -> Version`
+Sync:
+- `export_sync_message_since(vv) -> SyncMessage`
+- `apply_remote_sync_message(SyncMessage) raise DocumentError`
+- `get_version_vector() -> VersionVector`
 
 Transactions:
 - `begin_transaction()`
@@ -253,7 +253,7 @@ Each phase delivers a working increment. Refactoring happens inside the phase th
 | **0** | Rename: Document→TextState, TreeDoc→TreeState, TreeDocError→TreeError | Mechanical. Across event-graph-walker + canopy consumers. |
 | **1** | Container + tree ops. Block editor switches to `@container.Document`. | Document struct, shared CausalGraph, Op enum (TreeMove + TreeProperty), DocumentError, `move_node_after`. Lv type alias introduced. |
 | **2** | Per-block text in Container. Block editor drops TextDoc map. | Refactor OpLog, Branch, MergeContext, DeleteIndex to separate Lv from ItemId. LvTable. TextBlock lifecycle. TextInsert/TextDelete ops (one char per op, Fugue-native origins, Lv? for None sentinels). ItemId type alias introduced. |
-| **3** | Unified sync. Two peers converge on a block document. | Fix tree causal parents (currently fabricated from frontier). One export/import protocol. Document-wide VersionVector diff. SyncMessage schema. |
+| **3** | Unified sync. Two peers converge on a block document. | ✅ Landed. Causal-parent-preserving SyncMessage export/import, document-wide VersionVector diff, out-of-order buffering, and BlockDoc integration. |
 | **4** | Document-level undo. Undo spans tree + text. | Transaction boundaries as (agent, start_lv, end_lv) ranges. Translation-aware undo contract. Reverse delegation to TreeOpLog and per-block text undo. |
 
 Phase 2 is the largest — it's the internal text pipeline refactoring. Phases 3 and 4 build on the foundation from 1 and 2.
