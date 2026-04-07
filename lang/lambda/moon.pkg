@@ -3,5 +3,4 @@ import {
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
-  "dowdiness/canopy/lang/lambda/zipper" @lambda_zipper,
 }

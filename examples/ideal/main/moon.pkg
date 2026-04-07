@@ -12,7 +12,6 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/immut/hashset" @immut/hashset,
   "moonbit-community/rabbita/cmd" @rabbita_cmd,
-  "dowdiness/canopy/lang/lambda/zipper" @zipper,
   "antisatori/graphviz/lib/parser" @gv_parser,
   "antisatori/graphviz/lib/layout" @gv_layout,
   "antisatori/graphviz/lib/svg" @gv_svg,
