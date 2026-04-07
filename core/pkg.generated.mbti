@@ -17,6 +17,8 @@ pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
 
 pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
 
+pub fn[T] navigate_proj(NodeId, Direction, ProjNode[T]) -> NodeId?
+
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
 pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
@@ -24,6 +26,13 @@ pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @r
 // Errors
 
 // Types and methods
+pub(all) enum Direction {
+  Up
+  Down
+  Left
+  Right
+} derive(@debug.Debug)
+
 pub(all) enum FocusHint {
   RestoreCursor
   MoveCursor(position~ : Int)

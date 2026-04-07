@@ -36,31 +36,3 @@ pub using @lambda_edits {
 
 ///|
 pub using @lambda_flat {type VersionedFlatProj}
-
-///|
-pub using @lambda_zipper {
-  type Zipper,
-  type Direction,
-  type EditAction,
-  type ActionRecord,
-  type HoleInfo,
-  type HoleRegistry,
-  type PositionRole,
-  type TermCtx,
-  available_actions,
-  depth,
-  find_proj_node_for_focus,
-  focus_at,
-  from_root,
-  go_down,
-  go_left,
-  go_right,
-  go_up,
-  navigate,
-  path_indices_to_node,
-  position_role,
-  to_path_indices,
-  to_root,
-  to_tree_edit_op,
-  zipper_from_node_id,
-}

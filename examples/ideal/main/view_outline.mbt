@@ -125,7 +125,7 @@ fn view_outline_node(
 
 ///|
 /// Compute structural navigation from the current selection.
-fn navigate_outline(model : Model, direction : @zipper.Direction) -> String? {
+fn navigate_outline(model : Model, direction : @canopy_core.Direction) -> String? {
   let node_id_str = match model.selected_node {
     Some(s) => s
     None => return None
@@ -136,8 +136,7 @@ fn navigate_outline(model : Model, direction : @zipper.Direction) -> String? {
     Some(p) => p
     None => return None
   }
-  let term = model.editor.get_ast()
-  match @zipper.navigate(node_id, direction, term, proj_root) {
+  match @canopy_core.navigate_proj(node_id, direction, proj_root) {
     Some(new_id) => Some(node_id_to_string(new_id))
     None => None
   }
@@ -191,22 +190,22 @@ fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
     let key = kb.key()
     match key {
       "ArrowUp" =>
-        match navigate_outline(model, @zipper.Direction::Up) {
+        match navigate_outline(model, @canopy_core.Direction::Up) {
           Some(id) => dispatch(OutlineNavigate(id))
           None => @rabbita.none
         }
       "ArrowDown" =>
-        match navigate_outline(model, @zipper.Direction::Down) {
+        match navigate_outline(model, @canopy_core.Direction::Down) {
           Some(id) => dispatch(OutlineNavigate(id))
           None => @rabbita.none
         }
       "ArrowLeft" =>
-        match navigate_outline(model, @zipper.Direction::Left) {
+        match navigate_outline(model, @canopy_core.Direction::Left) {
           Some(id) => dispatch(OutlineNavigate(id))
           None => @rabbita.none
         }
       "ArrowRight" =>
-        match navigate_outline(model, @zipper.Direction::Right) {
+        match navigate_outline(model, @canopy_core.Direction::Right) {
           Some(id) => dispatch(OutlineNavigate(id))
           None => @rabbita.none
         }
@@ -227,7 +226,7 @@ fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
           Some(nid) =>
             dispatch(
               OutlineStructuralEdit(
-                @zipper.to_tree_edit_op(nid, @zipper.EditAction::Delete),
+                @lambda_edits.TreeEditOp::Delete(node_id=nid),
               ),
             )
           None => @rabbita.none
