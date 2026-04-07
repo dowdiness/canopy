@@ -1,4 +1,9 @@
 ///|
+impl Show for StoredPost with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
 test "StoredPost JSON round-trip" {
   let posts : Array[StoredPost] = [
     { text: "CRDTのmerge操作でバグ", ts: "2026-04-04T10:00:00Z" },
