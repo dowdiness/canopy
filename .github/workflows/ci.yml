@@ -220,6 +220,7 @@ jobs:
 
       - name: Install Playwright system deps
         if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: examples/demo-react
         run: npx playwright install-deps chromium
 
       - name: Update MoonBit dependencies
