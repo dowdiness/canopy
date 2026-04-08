@@ -528,16 +528,21 @@ Post-consolidation app inventory:
 
 ---
 
-## 22. Generic Zipper Library
+## 22. Generic Tree Libraries
 
-**Impact:** Medium | **Effort:** Medium | **Status:** Phase 1 Done
+**Impact:** Medium | **Effort:** Medium | **Status:** Phase 2 Done
 
 - [x] **Phase 1: Rose tree zipper** — ✅ Done (PR #130). `lib/zipper/` standalone module (`dowdiness/zipper`) with `RoseNode[T]`, `RoseCtx[T]`, `RoseZipper[T]`. 36 tests (33 blackbox + 3 @qc properties), full API in `pkg.generated.mbti`.
   Plan: `docs/plans/2026-04-07-rose-tree-zipper-impl.md`
   Design: `docs/superpowers/specs/2026-04-07-rose-tree-zipper-library-design.md`
 - [x] **ProjNode integration** — ✅ Done (PR #133). `core/proj_zipper.mbt` provides `navigate_proj[T]` via path arithmetic on ProjNode (no RoseZipper dependency in core/). Old `lang/lambda/zipper/` (Term-level Huet zipper) removed. 24 whitebox + 7 E2E tests.
-- ~~**Phase 2: Annotation trait**~~ — Dropped. Annotations are a tree-definition concern (stored in nodes at construction), not a zipper concern (accumulated during navigation). MoonBit's Self-based traits can't parameterize over node data type `T`. Depth and path are already built into the zipper. See: Haskell Annotations library, Trees that Grow (Najd & Peyton Jones 2016). A principled tree-with-annotations library is a separate future project.
-- [ ] **Phase 2: B-tree zipper** — Refactor OrderTree's `Cursor[T]` to use generic btree zipper.
+- ~~**Annotation trait**~~ — Dropped. Annotations are a tree-definition concern, not a zipper concern.
+- [x] **Phase 2: Generic B-tree library** — ✅ Done (PR #138). `lib/btree/` standalone module (`dowdiness/btree`). `BTreeNode[T]`, `BTree[T]`, `BTreeElem` super trait over rle's Spanning+Mergeable+Sliceable. High-level API: `mutate_for_insert/delete` with callbacks, `seek`, `view`. 22 whitebox tests. `order-tree` uses `@btree.BTreeElem` bounds.
+  Plan: `docs/plans/2026-04-08-generic-btree-library.md`
+- [ ] **Phase 2b: Full type migration** — order-tree replaces its internal types (OrderNode, Cursor, PathFrame, etc.) with `@btree.*` imports, removing ~1,100 lines of duplicate code.
+- [ ] **Phase 2c: Range delete extraction** — move `walker_range_delete.mbt` to lib/btree (most/all 510 lines). Only `delete_range_needs_merge_rebuild` stays in order-tree.
+- [ ] **Phase 2d: API narrowing** — once order-tree fully migrates, make walker internals (descend, prepare_*, propagate, PathFrame, Cursor) private. Add `from_sorted` bulk constructor. Replace eager `BTree::iter` (materializes to_array) with lazy stack-based traversal using MoonBit's `Iter` yield protocol.
+- [ ] **event-graph-walker integration** — `impl @btree.BTreeElem for VisibleRun` (orphan-rule compliant, goes in egw).
 
 ---
 

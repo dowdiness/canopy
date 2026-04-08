@@ -1,0 +1,130 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/btree"
+
+import {
+  "dowdiness/rle",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[T] copy_path(Array[PathFrame[T]], Int) -> Array[PathFrame[T]]
+
+pub fn[T] cursor_next_leaf(Cursor[T]) -> Cursor[T]?
+
+pub fn[T] descend(BTreeNode[T], Int, Int, (Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit, (Array[Int], Int, Int) -> (Int, Int), Bool) -> Cursor[T]?
+
+pub fn[T] descend_leaf_at(BTreeNode[T], Int, Int) -> LeafCursor[T]?
+
+pub fn[T] descend_leaf_at_end_boundary(BTreeNode[T], Int, Int) -> LeafCursor[T]?
+
+pub fn[T] descend_leftmost(BTreeNode[T], Array[PathFrame[T]]) -> Cursor[T]
+
+pub fn[T] normalize_root_after_delete(BTreeNode[T]) -> BTreeNode[T]?
+
+pub fn[T] prepare_ensure_min(Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit
+
+pub fn[T] prepare_split(Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit
+
+pub fn[T] propagate(Array[PathFrame[T]], Splice[T], Int) -> PropagateResult[T]
+
+pub fn[T] propagate_node_splice(NodeSplice[T], Int) -> PropagateResult[T]
+
+// Errors
+
+// Types and methods
+pub struct BTree[T] {
+  mut root : BTreeNode[T]?
+  min_degree : Int
+  mut size : Int
+} derive(Eq, @debug.Debug)
+pub fn[T] BTree::each(Self[T], (T) -> Unit) -> Unit
+pub fn[T] BTree::find(Self[T], Int) -> FindResult[T]?
+pub fn[T] BTree::get_at(Self[T], Int) -> T?
+pub fn[T] BTree::init_root(Self[T], T, Int) -> Unit
+pub fn[T] BTree::is_empty(Self[T]) -> Bool
+pub fn[T] BTree::iter(Self[T]) -> Iter[T]
+pub fn[T, R] BTree::mutate_for_delete(Self[T], Int, (LeafContext[T]) -> (Splice[T], R)) -> R?
+pub fn[T] BTree::mutate_for_insert(Self[T], Int, (LeafContext[T]) -> Splice[T]) -> Unit
+pub fn[T] BTree::new(min_degree? : Int) -> Self[T]
+pub fn[T] BTree::size(Self[T]) -> Int
+pub fn[T] BTree::span(Self[T]) -> Int
+pub fn[T] BTree::to_array(Self[T]) -> Array[T]
+pub fn[T : BTreeElem] BTree::view(Self[T], start? : Int, end? : Int) -> Array[T]
+
+pub(all) enum BTreeNode[T] {
+  Leaf(elem~ : T, span~ : Int)
+  Internal(children~ : Array[BTreeNode[T]], counts~ : Array[Int], total~ : Int)
+} derive(Eq, @debug.Debug)
+pub fn[T] BTreeNode::each(Self[T], (T) -> Unit) -> Unit
+pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(Self[T], Int, Int, (T) -> Unit) -> Unit
+pub fn[T] BTreeNode::height(Self[T]) -> Int
+pub fn[T] BTreeNode::total(Self[T]) -> Int
+
+pub struct Cursor[T] {
+  path : Array[PathFrame[T]]
+  leaf_elem : T
+  leaf_span : Int
+  offset : Int
+  child_idx : Int
+} derive(@debug.Debug)
+
+pub struct FindResult[T] {
+  elem : T
+  offset : Int
+} derive(Eq, @debug.Debug)
+pub impl[T : @debug.Debug] Show for FindResult[T]
+
+pub struct LeafContext[T] {
+  elem : T
+  span : Int
+  offset : Int
+  children : Array[BTreeNode[T]]
+  child_idx : Int
+} derive(@debug.Debug)
+pub fn[T] LeafContext::from_cursor(Cursor[T]) -> Self[T]
+pub fn[T] LeafContext::left_neighbor(Self[T]) -> T?
+pub fn[T] LeafContext::right_neighbor(Self[T]) -> T?
+
+pub struct LeafCursor[T] {
+  path : Array[PathFrame[T]]
+  elem : T
+  span : Int
+  offset : Int
+} derive(@debug.Debug)
+pub fn[T] LeafCursor::from_cursor(Cursor[T]) -> Self[T]
+
+pub struct NodeSplice[T] {
+  prefix : Array[PathFrame[T]]
+  children : Array[BTreeNode[T]]
+  counts : Array[Int]
+  start_idx : Int
+  end_idx : Int
+  new_children : Array[BTreeNode[T]]
+  original_child_count : Int
+  leaf_delta : Int
+}
+
+pub struct PathFrame[T] {
+  children : Array[BTreeNode[T]]
+  counts : Array[Int]
+  child_idx : Int
+} derive(@debug.Debug)
+
+pub struct PropagateResult[T] {
+  node : BTreeNode[T]
+  overflow : BTreeNode[T]?
+  leaf_delta : Int
+}
+
+pub struct Splice[T] {
+  start_idx : Int
+  end_idx : Int
+  new_leaves : Array[(T, Int)]
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
+pub(open) trait BTreeElem : @rle.Spanning + @rle.Mergeable + @rle.Sliceable {
+}
+
