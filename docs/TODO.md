@@ -108,7 +108,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 ### StringView threading follow-ups (2026-04-02)
 
 - [x] **StringView threading through parse pipeline** — ✅ Done. `token_text_at` → `ParseEvent::Token` → `Interner` all use `StringView`. Full parse 10-23% faster (long identifiers: 45.81 → 35.35 µs). 7 commits on loom/main.
-  Plan: `docs/plans/2026-04-02-stringview-threading-design.md`
+  Plan: (design doc no longer exists — work completed directly)
 - [x] **Interner tuple struct** — ✅ Done. Single-field wrapper unboxed on JS target (~4% faster in controlled benchmark). Committed.
 - [x] **NodeInterner → tuple struct** — ✅ Done. No measurable perf win (single-level HashMap, V8 optimizes away the dereference), but keeps consistency with Interner. Committed.
 - [ ] **Scan for other single-field wrapper structs on hot paths**
@@ -379,7 +379,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Semantic data: Resolution (available now)
   Exit: tree view shows bound variables colored by binder, free variables highlighted as warnings.
 - [x] **Live inline evaluation** — ✅ Done (feature/live-inline-eval branch). Pretty-print view shows `→ 10` / `→ ‹closure›` via Layout post-processing. Structural view has `ViewAnnotation` on nodes. Reactive via `@incr.Memo`. 17 tests.
-  Plan: `docs/plans/2026-04-03-live-inline-eval-design.md`, `docs/plans/2026-04-03-live-inline-eval-impl.md`
+  Plan: `docs/plans/2026-04-03-live-inline-eval-design.md`, `docs/archive/2026-04-03-live-inline-eval-impl.md`
 - [ ] **Eval error/suppression UX** — Eval annotations show semantic errors (e.g., `→ ‹unbound: x›`) in the structure panel while the Error panel stays empty (Incomplete/ParseError are suppressed as "expected during editing"). This is technically correct but confusing: two panels show contradictory information. Consider surfacing eval-level semantic errors in the Error panel, or adding a visual cue that distinguishes "eval stuck" from "no errors."
   Exit: users are not confused by one panel showing errors while another shows none.
 - [ ] **Type annotations overlay** — Show inferred types next to bindings and expressions. Egglog typing rules already exist in `loom/egglog/examples/lambda/`.
@@ -398,10 +398,8 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 - [x] Framework-agnostic integration layer to eliminate duplicated TS logic — ✅ Done (Phases 0-6). Protocol types (`ViewPatch`, `ViewNode`, `UserIntent`), ViewUpdater, 3 adapters (HTML, CM6, PM). `examples/web`, `examples/ideal`, `examples/prosemirror`, `examples/demo-react` all migrated.
   Plan: `docs/plans/2026-04-01-editor-protocol-design.md`
-- [ ] Markdown block editor (Phase 7) — supersedes BlockAdapter migration
-  Why: instead of migrating the property-based block editor to the protocol, build a new Markdown-backed block editor using SyncEditor + loom Markdown parser + projection. Three modes: raw (CM6), block (Canopy-owned thin input layer with Excalidraw-style textarea overlay), preview (semantic HTML). Explicit conversion model (slash commands, not autoformat). 7 edit ops.
+- [x] Markdown block editor (Phase 7) — ✅ Done (PRs #115, #117, #121, #123). Three modes (raw/block/preview), 7 edit ops, BlockInput + MarkdownPreview adapters.
   Plan: `docs/archive/2026-04-04-markdown-block-editor-design.md`
-  Exit: `examples/web/markdown.html` with 3 modes, `lang/markdown/` projection + edit ops, BlockInput + MarkdownPreview adapters.
 - [ ] **ZWSP cleanup for empty blocks** — `InsertBlockAfter` inserts `\u200B` (zero-width space) as placeholder so the parser produces a ProjNode for empty paragraphs. The ZWSP is stripped on keystroke, but unused empty blocks keep it. If raw Markdown is copy-pasted to another tool, invisible ZWSP characters travel with it. Fix by either: (a) teaching the parser to produce empty paragraph nodes for consecutive blank lines, or (b) stripping all ZWSP on save/export.
   Exit: No `\u200B` in raw Markdown output after save or copy.
 
