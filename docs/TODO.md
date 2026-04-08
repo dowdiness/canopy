@@ -537,8 +537,12 @@ Post-consolidation app inventory:
   Design: `docs/superpowers/specs/2026-04-07-rose-tree-zipper-library-design.md`
 - [x] **ProjNode integration** — ✅ Done (PR #133). `core/proj_zipper.mbt` provides `navigate_proj[T]` via path arithmetic on ProjNode (no RoseZipper dependency in core/). Old `lang/lambda/zipper/` (Term-level Huet zipper) removed. 24 whitebox + 7 E2E tests.
 - ~~**Annotation trait**~~ — Dropped. Annotations are a tree-definition concern, not a zipper concern.
-- [x] **Phase 2: Generic B-tree library** — ✅ Done. `lib/btree/` standalone module (`dowdiness/btree`). `BTreeNode[T]`, `BTree[T]`, `BTreeElem` super trait over rle's Spanning+Mergeable+Sliceable. High-level API: `mutate_for_insert/delete` with callbacks, `seek`, `view`. Cursor/balancing internal. 17 whitebox tests. `order-tree` uses `@btree.BTreeElem` bounds.
+- [x] **Phase 2: Generic B-tree library** — ✅ Done (PR #138). `lib/btree/` standalone module (`dowdiness/btree`). `BTreeNode[T]`, `BTree[T]`, `BTreeElem` super trait over rle's Spanning+Mergeable+Sliceable. High-level API: `mutate_for_insert/delete` with callbacks, `seek`, `view`. 22 whitebox tests. `order-tree` uses `@btree.BTreeElem` bounds.
   Plan: `docs/plans/2026-04-08-generic-btree-library.md`
+- [ ] **Phase 2b: Full type migration** — order-tree replaces its internal types (OrderNode, Cursor, PathFrame, etc.) with `@btree.*` imports, removing ~1,100 lines of duplicate code.
+- [ ] **Phase 2c: Range delete extraction** — move `walker_range_delete.mbt` to lib/btree (most/all 510 lines). Only `delete_range_needs_merge_rebuild` stays in order-tree.
+- [ ] **Phase 2d: API narrowing** — once order-tree fully migrates, make walker internals (descend, prepare_*, propagate, PathFrame, Cursor) private. Add `from_sorted` bulk constructor.
+- [ ] **event-graph-walker integration** — `impl @btree.BTreeElem for VisibleRun` (orphan-rule compliant, goes in egw).
 
 ---
 
