@@ -17,6 +17,7 @@ Canopy — incremental projectional editor with CRDT collaboration, built in Moo
 - Blackbox tests cannot construct internal structs — use whitebox tests or expose constructors
 - For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
 - Error handling syntax: use `Unit!Error` or `T!Error` for fallible return types. Error propagation uses `!` suffix on calls, not `raise` keyword. Always verify MoonBit syntax against recent compiler behavior before committing.
+- Be aware of orphan rules, deprecated typealias syntax, pub using semantics, and that string indexing doesn't return Char. Verify MoonBit-specific syntax before committing.
 
 ## MoonBit Code Search
 
@@ -267,6 +268,10 @@ Before starting medium or large work:
   }
   ```
   Also useful for prefix matching: `match s.view() { [.."let", ..rest] => ... }` and palindrome-style middle access: `[a, ..rest, b] => ...`
+
+## Architecture Conventions
+
+- When adding shared content, use symlinks or references to a single source of truth. Never embed copies of shared files — flag the duplication problem first.
 
 ## Code Changes
 
