@@ -48,7 +48,8 @@ pub fn[T] BTree::mutate_for_insert(
   // Empty tree must be initialized via init_root before mutating.
   // Silent no-op would lose the insert with no signal.
   match self.root {
-    None => abort("BTree::mutate_for_insert: tree is empty, use init_root first")
+    None =>
+      abort("BTree::mutate_for_insert: tree is empty, use init_root first")
     Some(root) => {
       let cursor = match
         descend(

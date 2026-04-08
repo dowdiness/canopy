@@ -216,9 +216,7 @@ test "delete on empty returns None" {
 ///|
 test "panic insert on empty tree aborts" {
   let t : BTree[TItem] = BTree::new()
-  t.mutate_for_insert(0, fn(_ctx) {
-    abort("should not reach callback")
-  })
+  t.mutate_for_insert(0, fn(_ctx) { abort("should not reach callback") })
 }
 
 // === Iteration ===
