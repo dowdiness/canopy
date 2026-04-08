@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/crdt/.claude/start-web.sh"],
+      "port": 5173
+    },
+    {
+      "name": "demo-react",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/crdt/.claude/start-demo-react.sh"],
+      "port": 5174
+    },
+    {
+      "name": "rabbita",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/crdt/.claude/start-rabbita.sh"],
+      "port": 5173
+    },
+    {
+      "name": "prosemirror",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/crdt/.claude/start-prosemirror.sh"],
+      "port": 5173
+    },
+    {
+      "name": "ideal-web",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/crdt/.claude/start-ideal-web.sh"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}

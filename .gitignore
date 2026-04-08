@@ -22,6 +22,8 @@ examples/web/test-results/
 test-results/
 .grepai/
 .worktrees/
-.claude/
+.claude/settings.local.json
+.claude/worktrees/
+.claude/projects/
 .codex
 .superpowers/
