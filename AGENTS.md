@@ -284,7 +284,7 @@ Before starting medium or large work:
 - Always check if git is initialized before running git commands
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
-- When merging PRs, always verify CI status is actually passing (not skipped) before proceeding. Never represent CI as green if any checks were skipped or failed.
+- **NEVER merge PRs until CI is fully green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. If any check is `pending`, `fail`, or `skipped`, STOP and report the exact status. Skipped is NOT passing. Do not claim CI is green without verifying.
 - After rebasing or refactoring, verify file paths haven't shifted unexpectedly. Run `git diff --stat` to confirm only intended files changed.
 - When making changes across submodules, always push submodule commits to remote BEFORE pushing the parent repo or creating parent PRs. CI will fail if submodule commits aren't available on remote.
 - Always use PRs for submodule changes — never push directly to main branches of submodules without asking first.
