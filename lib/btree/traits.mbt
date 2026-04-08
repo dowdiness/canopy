@@ -1,2 +1,2 @@
 ///|
-pub trait BTreeElem: @rle.Spanning + @rle.Mergeable + @rle.Sliceable {}
+pub(open) trait BTreeElem: @rle.Spanning + @rle.Mergeable + @rle.Sliceable {}
