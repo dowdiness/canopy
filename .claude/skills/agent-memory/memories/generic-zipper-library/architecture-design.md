@@ -1,80 +1,55 @@
 ---
-summary: "Generic zipper library architecture — three layers (tree shapes, navigation algebra, annotation), concrete types for rose/binary/btree"
+summary: "Generic tree library architecture — rose zipper (immutable, navigation API) vs B-tree (mutable, tree API with cursor internal)"
 created: 2026-04-04
-tags: [zipper, architecture, library-design, rose-tree, btree]
+updated: 2026-04-08
+tags: [zipper, btree, architecture, library-design, rose-tree]
 related: [core/proj_node.mbt, order-tree/src/walker_types.mbt, docs/TODO.md]
 ---
 
-# Generic Zipper Library Architecture
+# Generic Tree Library Architecture
 
-## Three Layers
+## Key Insight: Different Tree Shapes -> Different Abstraction Levels
 
-### Layer 1: Tree Shapes (the functor determines the context)
+The derivative of a type (McBride 2001) gives the context/zipper shape for any tree. But whether
+the **zipper** or the **tree** is the right API depends on the tree's purpose:
 
-Each tree shape is a separate module. The derivative is computed once:
+- **Rose tree** -> zipper is the API. The tree type is trivial (data + children). The interesting
+  part is persistent navigation. Users hold zippers across keystrokes, keep multiple cursors.
+  -> `lib/zipper/` exposes `RoseZipper[T]` (immutable, persistent)
 
-```
-rose:    Node[T] = { data: T, children: Array[Node[T]] }
-         Ctx[T]  = { data: T, left: Array[Node[T]], right: Array[Node[T]] }
+- **B-tree** -> the tree is the API. The interesting part is balanced mutations (split, merge,
+  rebalance) with counted access. Cursors are ephemeral (create, use, discard per operation).
+  -> `lib/btree/` exposes `BTree[T]` (mutable, cursor internal)
 
-binary:  Node[T] = Leaf | Branch(Node[T], T, Node[T])
-         Ctx[T]  = WentLeft(T, Node[T]) | WentRight(Node[T], T)
+A shared "navigation algebra" trait across both is not practical -- the APIs are too different
+(persistent go_up/go_down vs ephemeral descend-and-mutate). The shared concept is theoretical
+(both decompose tree into focus + context), not a code-level interface.
 
-btree:   Node[T] = Leaf(T, Int) | Internal(Array[Node[T]], Array[Int])
-         Ctx[T]  = { children: Array[Node[T]], counts: Array[Int], idx: Int }
-```
+### Why mutable zippers resist generalization
 
-Each provides: `Zipper[T] = { focus: Node[T], path: List[Ctx[T]] }`
-
-### Layer 2: Navigation Algebra (shared interface)
-
-Every zipper supports:
-- go_up, go_down(index), go_left, go_right
-- to_root, focus, depth, child_index
-- Persistent (stored in model, O(1) per move)
-
-### Layer 3: Annotation — DROPPED from zipper library (2026-04-08)
-
-Annotations are a tree-definition concern, not a zipper concern. Annotations should be
-stored in tree nodes at construction time (like ProjNode's node_id, start, end fields),
-not accumulated during navigation. See: Haskell Annotations library (`Ann x f a`),
-Trees that Grow (Najd & Peyton Jones 2016), TS-that-grow (igrep).
-
-MoonBit constraints that make a generic annotation trait impractical:
-- Self-based traits can't parameterize over node data type `T`
-- No type families, indexed access types, or associated types (needed for Trees that Grow)
-- DepthCounter and PathRecorder are already built into RoseZipper
-
-A principled tree-with-annotations library is a separate future project from the zipper.
+Immutable zippers separate navigation from mutation (one universal API: go_up/down/left/right).
+Mutable B-tree cursors entangle them: descent prepares for the specific mutation (proactive
+splitting for insert, proactive rebalancing for delete). Balancing invariants are tree-shape-specific
+(B-tree degree vs AVL height vs RB coloring). This is why a generic "mutable zipper" interface
+doesn't work -- but a generic B-tree library (hiding the cursor) works fine.
 
 ## Consumers in Canopy
 
 - ProjNode[T] = rose tree zipper (different T per language)
-- OrderTree[T] = btree zipper (future Phase 2)
+- OrderTree[T] = generic B-tree (cursor internal, Phase 2)
 - Future languages (JSON, Markdown) = same rose tree zipper, different T
 
 ## Key Design Decisions
 
-- ProjNode should BE a RoseNode (T = (NodeId, Term, Int, Int)) — zipper works directly
-- No per-language zippers needed ��� `focus.kind : T` provides AST access
+- ProjNode should BE a RoseNode (T = (NodeId, Term, Int, Int)) -- zipper works directly
+- No per-language zippers needed -- `focus.kind : T` provides AST access
 - Term-level zipper (lang/lambda/zipper/) superseded for navigation
-- zipper-gen codegen plan superseded — uniform tree shapes have fixed derivatives
+- zipper-gen codegen plan superseded -- uniform tree shapes have fixed derivatives
+- Annotation trait dropped -- tree-definition concern, separate future project
+- B-tree zipper renamed to B-tree library -- cursor is internal, tree is the API
 
-## What NOT to Include
+## Phase Plan
 
-- No codegen — derivative is fixed per tree shape
-- No per-language zippers — annotation layer handles specifics
-- No "zipper-aware" node types — nodes are plain data, zipper wraps them
-
-## Phase 1 (Minimal)
-
-Start with rose only (needed for compact view spec):
-
-```
-rose/
-  node.mbt       -- RoseNode[T], RoseCtx[T], RoseZipper[T]
-  navigate.mbt   -- go_up, go_down, go_left, go_right, to_root
-  annotate.mbt   -- Annotator trait, push/pop wiring
-```
-
-Then btree when OrderTree refactors. Then binary when a consumer appears.
+- Phase 1: Rose tree zipper (`lib/zipper/`) -- Done (PR #130)
+- Phase 2: Generic B-tree library (`lib/btree/`) -- extract from OrderTree
+- Future: Binary tree zipper, finger tree -- when consumers appear
