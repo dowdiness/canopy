@@ -308,6 +308,77 @@ test "node height" {
   inspect(internal.height(), content="1")
 }
 
+// === Multi-level delete & rebalancing ===
+
+///|
+test "delete from multi-level tree triggers rebalancing" {
+  // Build a tree with enough elements to have 2+ levels (min_degree=2, splits at 5)
+  let t = build_tree(Array::makei(10, fn(i) { (i, 1) }))
+  inspect(t.size(), content="10")
+  // Delete several elements from the front — triggers borrow/merge rebalancing
+  for _ in 0..<5 {
+    let deleted = t.mutate_for_delete(0, fn(ctx) {
+      (
+        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        ctx.elem,
+        -1,
+      )
+    })
+    inspect(deleted is Some(_), content="true")
+  }
+  inspect(t.size(), content="5")
+  inspect(t.span(), content="5")
+  // Remaining elements should still be navigable
+  for i in 0..<5 {
+    inspect(t.get_at(i) is Some(_), content="true")
+  }
+}
+
+///|
+test "delete all elements collapses tree to empty" {
+  let t = build_tree(Array::makei(8, fn(i) { (i, 1) }))
+  for _ in 0..<8 {
+    let _ = t.mutate_for_delete(0, fn(ctx) {
+      (
+        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        ctx.elem,
+        -1,
+      )
+    })
+  }
+  inspect(t.is_empty(), content="true")
+  inspect(t.size(), content="0")
+  inspect(t.span(), content="0")
+}
+
+// === Cross-leaf view ===
+
+///|
+test "view spanning multiple leaves" {
+  // 5 elements each with span 2, total span 10
+  let t = build_tree(Array::makei(5, fn(i) { (i, 2) }))
+  inspect(t.span(), content="10")
+  // View [1, 7) — starts mid-first-leaf, ends mid-fourth-leaf
+  let v = t.view(start=1, end=7)
+  // Should get sliced pieces from multiple leaves
+  inspect(v.length() > 1, content="true")
+  // Total span of view elements should be 6
+  let mut total = 0
+  for item in v {
+    total = total + item.span
+  }
+  inspect(total, content="6")
+}
+
+///|
+test "view with boundary clamping" {
+  let t = build_tree([(1, 5)])
+  // Start negative, end beyond span — should clamp
+  let v = t.view(start=-10, end=100)
+  inspect(v.length(), content="1")
+  inspect(v[0].span, content="5")
+}
+
 // === Structural invariants ===
 
 ///|
@@ -316,7 +387,22 @@ test "many inserts preserve structure" {
   inspect(t.size(), content="20")
   inspect(t.span(), content="20")
   for i in 0..<20 {
-    let result = t.get_at(i)
-    inspect(result is Some(_), content="true")
+    inspect(t.get_at(i) is Some(_), content="true")
   }
+}
+
+///|
+test "insert then delete roundtrip" {
+  let t = build_tree(Array::makei(15, fn(i) { (i, 1) }))
+  // Delete all from the back
+  for i in 14>=..0 {
+    let _ = t.mutate_for_delete(i, fn(ctx) {
+      (
+        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        ctx.elem,
+        -1,
+      )
+    })
+  }
+  inspect(t.is_empty(), content="true")
 }

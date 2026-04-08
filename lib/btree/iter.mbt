@@ -22,6 +22,8 @@ pub fn[T] BTree::to_array(self : BTree[T]) -> Array[T] {
 }
 
 ///|
+/// Eager iterator: materializes to_array() first. For streaming traversal
+/// without allocation, use each() or BTreeNode::each_slice_in_range().
 pub fn[T] BTree::iter(self : BTree[T]) -> Iter[T] {
   let arr = self.to_array()
   let mut i = 0

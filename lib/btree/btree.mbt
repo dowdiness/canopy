@@ -39,7 +39,8 @@ pub fn[T] BTree::find(self : BTree[T], pos : Int) -> FindResult[T]? {
 
 ///|
 /// Descend for insert: splits full nodes during descent, uses inclusive slot
-/// finding, allows leaf-end positions. Always succeeds on a non-empty tree.
+/// finding, allows leaf-end positions. Tree must be non-empty (use init_root
+/// first). Aborts if pos is out of [0, span] or tree is empty.
 pub fn[T] BTree::mutate_for_insert(
   self : BTree[T],
   pos : Int,
@@ -78,7 +79,9 @@ pub fn[T] BTree::mutate_for_insert(
 
 ///|
 /// Descend for delete: ensures min children during descent, uses strict slot
-/// finding. Returns the callback's payload R, or None if out of bounds.
+/// finding. Returns the callback's payload R, or None if pos is out of bounds
+/// or tree is empty. The callback must return (splice, payload, leaf_delta)
+/// where leaf_delta is the change in leaf count (typically -1).
 pub fn[T, R] BTree::mutate_for_delete(
   self : BTree[T],
   pos : Int,
