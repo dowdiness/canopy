@@ -1,11 +1,6 @@
-# Claude Code Quick Reference
+# Canopy — Agent Guidance
 
-`AGENTS.md` is the canonical repo-level agent guidance file.
-`CLAUDE.md` is a symlink to `AGENTS.md` for compatibility and should not be
-edited directly. If the symlink is replaced by a regular file, restore
-`CLAUDE.md -> AGENTS.md`.
-
-Canopy — incremental projectional editor with CRDT collaboration, built in MoonBit.
+Incremental projectional editor with CRDT collaboration, built in MoonBit.
 
 ## MoonBit Language Notes
 
@@ -17,7 +12,7 @@ Canopy — incremental projectional editor with CRDT collaboration, built in Moo
 - Blackbox tests cannot construct internal structs — use whitebox tests or expose constructors
 - For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
 - Error handling syntax: use `Unit!Error` or `T!Error` for fallible return types. Error propagation uses `!` suffix on calls, not `raise` keyword. Always verify MoonBit syntax against recent compiler behavior before committing.
-- Be aware of orphan rules, deprecated typealias syntax, pub using semantics, and that string indexing doesn't return Char. Verify MoonBit-specific syntax before committing.
+
 
 ## MoonBit Code Search
 
@@ -121,44 +116,13 @@ Hooks enforce `moon check` after every edit and `moon fmt && moon info` before c
 
 ## MoonBit Conventions
 
-- **Custom constructors for structs:** When defining public structs, declare a custom constructor via `fn new(...)` inside the struct body. This enables `StructName(args)` construction syntax with labelled/optional parameters, validation, and defaults. Prefer this over bare struct literals `{ field: value }`.
-  ```moonbit
-  struct MyStruct {
-    x : Int
-    y : Int
-
-    fn new(x~ : Int, y? : Int) -> MyStruct  // declaration inside struct
-  } derive(Debug)
-
-  fn MyStruct::new(x~ : Int, y? : Int = x) -> MyStruct {  // implementation
-    { x, y }
-  }
-
-  let s = MyStruct(x=1)  // usage — like enum constructors
-  ```
+- **Custom constructors:** Use `fn new(...)` inside struct body for labelled/optional params. See [examples](docs/development/moonbit-conventions-examples.md).
 - **Block-style:** Code organized in `///|` separated blocks
 - **Testing:** Use `inspect` for snapshots, `@qc` for properties
 - **Files:** `*_test.mbt` (blackbox), `*_wbtest.mbt` (whitebox), `*_benchmark.mbt`
-- **Format:** Always `moon info && moon fmt` before committing
 - **Trait impl:** `pub impl Trait for Type with method(self) { ... }` — one method per impl block
 - **Arrow functions:** `() => expr`, `() => { stmts }`. Empty body: `() => ()` not `() => {}`
-- **StringView/ArrayView patterns:** Use `.view()` + array patterns for iteration instead of index loops. Works with `String`, `Array`, `Bytes`. Prefer `loop s.view() { [ch, ..rest] => ...; [] => ... }` over `for i = 0; i < s.length(); i = i + 1 { s[i] }`.
-  ```moonbit
-  // Prefer this:
-  loop text.view(), 0 {
-    [], _ => ()
-    [ch, ..rest], i => {
-      process(ch)
-      continue rest, i + 1
-    }
-  }
-  // Over this:
-  for i = 0; i < text.length(); i = i + 1 {
-    let ch = text[i]
-    process(ch)
-  }
-  ```
-  Also useful for prefix matching: `match s.view() { [.."let", ..rest] => ... }` and palindrome-style middle access: `[a, ..rest, b] => ...`
+- **StringView/ArrayView patterns:** Use `.view()` + array patterns instead of index loops. See [examples](docs/development/moonbit-conventions-examples.md).
 
 ## Architecture Conventions
 
@@ -173,7 +137,6 @@ Hooks enforce `moon check` after every edit and `moon fmt && moon info` before c
 
 ## Git & PR Workflow
 
-- Always check if git is initialized before running git commands
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
 - **NEVER merge PRs until CI is fully green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. If any check is `pending`, `fail`, or `skipped`, STOP and report the exact status. Skipped is NOT passing. Do not claim CI is green without verifying.
