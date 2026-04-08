@@ -35,8 +35,10 @@ fn resolve_selected_node(
   match loaded {
     Some(node) => Some(node)
     None => {
-      let node_id_int = @string.parse_int(target_id) catch { _ => return None }
-      let node_id = @proj.NodeId::from_int(node_id_int)
+      let node_id = match parse_node_id(target_id) {
+        Some(id) => id
+        None => return None
+      }
       match model.editor.get_node(node_id) {
         Some(node) => {
           let itn : @proj.InteractiveTreeNode[@ast.Term] = @proj.InteractiveTreeNode::from_term_node(
@@ -106,7 +108,7 @@ fn view_node_details(
     }
   }
   let token_spans = model.editor.get_source_map().get_all_token_spans(node.id)
-  if token_spans.length() > 0 {
+  if !token_spans.is_empty() {
     for pair in token_spans {
       let role = pair.0
       let span_range = pair.1

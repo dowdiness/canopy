@@ -5,6 +5,7 @@ import {
   "dowdiness/canopy/ffi" @ffi,
   "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/lang/lambda" @lambda,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/strconv",

@@ -3,7 +3,23 @@ using @html {button, div, p, span, text}
 
 ///|
 using @rabbita {type Cmd, type Dispatch, type Html, none}
-// delay removed — outline refreshes immediately on EditorTextChanged
+
+///|
+/// Parse a node ID string into a NodeId, returning None on invalid input.
+fn parse_node_id(s : String) -> @proj.NodeId? {
+  let n = @string.parse_int(s) catch { _ => return None }
+  Some(@proj.NodeId::from_int(n))
+}
+
+///|
+/// Split an action ID on the first ':' into (base_id, choice).
+/// Returns (action_id, "") when there is no colon.
+fn split_action_id(action_id : String) -> (String, String) {
+  match action_id.find(":") {
+    Some(i) => (action_id[0:i].to_string(), action_id[i + 1:].to_string())
+    None => (action_id, "")
+  }
+}
 
 ///|
 fn init_model() -> Model {
@@ -51,10 +67,11 @@ fn refresh(model : Model) -> Model {
   let scope_map = build_scope_map(model.editor)
   // Recompute highlight_set if a node is selected
   let highlight_set = match model.selected_node {
-    Some(nid_str) => {
-      let n = @string.parse_int(nid_str) catch { _ => 0 }
-      compute_highlight_set(@proj.NodeId::from_int(n), scope_map)
-    }
+    Some(nid_str) =>
+      match parse_node_id(nid_str) {
+        Some(nid) => compute_highlight_set(nid, scope_map)
+        None => @immut/hashset.HashSet::new()
+      }
     None => @immut/hashset.HashSet::new()
   }
   { ..model, outline_state, scope_map, highlight_set }
@@ -202,10 +219,10 @@ fn apply_structural_edit_request(
   op : String,
   node_id : String,
 ) -> (Cmd, Model) {
-  let node_id_int = @string.parse_int(node_id) catch {
-    _ => return (none, model)
+  let nid = match parse_node_id(node_id) {
+    Some(id) => id
+    None => return (none, model)
   }
-  let nid = @proj.NodeId::from_int(node_id_int)
   let tree_op : @lambda_edits.TreeEditOp = match op {
     "WrapInLambda" => @lambda_edits.WrapInLambda(node_id=nid, var_name="x")
     "Delete" => @lambda_edits.Delete(node_id=nid)
@@ -275,24 +292,12 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
       let panel_w = 320
       let panel_h = 300
       let clamped_left = if raw_left + panel_w > vw {
-        let a = 8
-        let b = vw - panel_w - 8
-        if a > b {
-          a
-        } else {
-          b
-        }
+        (vw - panel_w - 8).max(8)
       } else {
         raw_left
       }
       let clamped_top = if raw_top + panel_h > vh {
-        let a = 8
-        let b = vh - panel_h - 8
-        if a > b {
-          a
-        } else {
-          b
-        }
+        (vh - panel_h - 8).max(8)
       } else {
         raw_top
       }
@@ -527,9 +532,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         js_set_editor_selected_node(node_id)
         js_focus_tree_rows()
       })
-      let n = @string.parse_int(node_id) catch { _ => 0 }
-      let nid = @proj.NodeId::from_int(n)
-      let highlight_set = compute_highlight_set(nid, model.scope_map)
+      let highlight_set = match parse_node_id(node_id) {
+        Some(nid) => compute_highlight_set(nid, model.scope_map)
+        None => @immut/hashset.HashSet::new()
+      }
       (cmd, { ..model, selected_node: Some(node_id), highlight_set })
     }
     OutlineNavigate(node_id_str) => {
@@ -540,11 +546,12 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(node_id_str)
       }
       let outline_state = match new_selected {
-        Some(s) => {
-          let nid_int = @string.parse_int(s) catch { _ => return (none, model) }
-          let nid = @proj.NodeId::from_int(nid_int)
-          model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
-        }
+        Some(s) =>
+          match parse_node_id(s) {
+            Some(nid) =>
+              model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
+            None => return (none, model)
+          }
         None => model.outline_state
       }
       let cmd = match new_selected {
@@ -562,12 +569,12 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ])
         None => none
       }
-      // Compute highlight_set for binder coloring
       let highlight_set = match new_selected {
-        Some(s) => {
-          let n = @string.parse_int(s) catch { _ => 0 }
-          compute_highlight_set(@proj.NodeId::from_int(n), model.scope_map)
-        }
+        Some(s) =>
+          match parse_node_id(s) {
+            Some(nid) => compute_highlight_set(nid, model.scope_map)
+            None => @immut/hashset.HashSet::new()
+          }
         None => @immut/hashset.HashSet::new()
       }
       (
@@ -596,13 +603,11 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             None => (None, new_model.outline_state)
           }
           let highlight_set = match new_selected {
-            Some(s) => {
-              let n = @string.parse_int(s) catch { _ => 0 }
-              compute_highlight_set(
-                @proj.NodeId::from_int(n),
-                new_model.scope_map,
-              )
-            }
+            Some(s) =>
+              match parse_node_id(s) {
+                Some(nid) => compute_highlight_set(nid, new_model.scope_map)
+                None => @immut/hashset.HashSet::new()
+              }
             None => @immut/hashset.HashSet::new()
           }
           let text = new_model.editor.get_text()
@@ -616,73 +621,6 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               highlight_set,
             },
           )
-        }
-        Err(_) => (none, model)
-      }
-    OpenActionOverlayFromOutline => {
-      let node_id_str = match model.selected_node {
-        Some(s) => s
-        None => return (none, model)
-      }
-      let rect_json = js_get_outline_selected_rect()
-      let new_model = open_action_overlay(model, node_id_str, rect_json~)
-      if new_model.overlay.visible {
-        let focus_cmd = @rabbita_cmd.raw_effect(
-          fn(_) { js_focus_outline_overlay() },
-          kind=@rabbita_cmd.after_render,
-        )
-        (focus_cmd, new_model)
-      } else {
-        (none, new_model)
-      }
-    }
-    OutlineNavigate(node_id_str) => {
-      // Update selection without touching editor focus — outline keeps keyboard focus
-      let new_selected : String? = if node_id_str == "" {
-        None
-      } else {
-        Some(node_id_str)
-      }
-      let outline_state = match new_selected {
-        Some(s) => {
-          let nid_int = @string.parse_int(s) catch { _ => return (none, model) }
-          let nid = @proj.NodeId::from_int(nid_int)
-          model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
-        }
-        None => model.outline_state
-      }
-      let cmd = match new_selected {
-        Some(_) =>
-          @rabbita_cmd.raw_effect(
-            fn(_) { js_scroll_outline_to_selected() },
-            kind=@rabbita_cmd.after_render,
-          )
-        None => none
-      }
-      (cmd, { ..model, selected_node: new_selected, outline_state })
-    }
-    OutlineStructuralEdit(tree_op) =>
-      match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
-        Ok(_) => {
-          let new_model = refresh({
-            ..model,
-            next_timestamp: model.next_timestamp + 1,
-          })
-          // Relocate selection to where FocusHint placed the text cursor
-          let (new_selected, outline_state) = match new_model.editor.get_source_map().innermost_node_at(
-            new_model.editor.get_cursor(),
-          ) {
-            Some(nid) => {
-              let os = new_model.outline_state.apply_edit(
-                @lambda_edits.Select(node_id=nid),
-              )
-              (Some(node_id_to_string(nid)), os)
-            }
-            None => (None, new_model.outline_state)
-          }
-          let text = new_model.editor.get_text()
-          let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
-          (cmd, { ..new_model, selected_node: new_selected, outline_state })
         }
         Err(_) => (none, model)
       }
@@ -762,7 +700,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         None =>
           // If in name prompt mode, let the view handle input
-          if !(model.overlay.pending_action is None) {
+          if model.overlay.pending_action is Some(_) {
             (none, model)
           } else {
             // Match mnemonic: find the action whose mnemonic matches the key
@@ -776,40 +714,18 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           }
       }
     }
-    ActionTapped(action_id) =>
-      // Check for submenu choice format: "action_id:value"
-      if action_id.contains(":") {
-        // Split on first ':'
-        let mut base_id = ""
-        let mut choice = ""
-        let mut found_colon = false
-        action_id
+    ActionTapped(action_id) => {
+      // Submenu choices encode as "base_id:choice_value" for single-tap dispatch
+      let (base_id, choice) = split_action_id(action_id)
+      let matched = model.overlay.actions
         .iter()
-        .each(fn(ch) {
-          if !found_colon && ch == ':' {
-            found_colon = true
-          } else if found_colon {
-            choice = choice + ch.to_string()
-          } else {
-            base_id = base_id + ch.to_string()
-          }
-        })
-        let matched = model.overlay.actions
-          .iter()
-          .find_first(fn(a) { a.id == base_id })
-        match matched {
-          Some(action) => execute_action(model, action, choice, "")
-          None => (none, model)
-        }
-      } else {
-        let matched = model.overlay.actions
-          .iter()
-          .find_first(fn(a) { a.id == action_id })
-        match matched {
-          Some(action) => dispatch_or_prompt(model, action)
-          None => (none, model)
-        }
+        .find_first(fn(a) { a.id == base_id })
+      match (matched, choice) {
+        (Some(action), "") => dispatch_or_prompt(model, action)
+        (Some(action), _) => execute_action(model, action, choice, "")
+        (None, _) => (none, model)
       }
+    }
     NamePromptInput(value) => {
       let overlay = { ..model.overlay, name_value: value, name_error: "" }
       (none, { ..model, overlay, })
@@ -850,11 +766,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if resolved_node_id == "" {
         (none, model)
       } else {
-        let n = @string.parse_int(resolved_node_id) catch { _ => 0 }
-        let highlight_set = compute_highlight_set(
-          @proj.NodeId::from_int(n),
-          model.scope_map,
-        )
+        let highlight_set = match parse_node_id(resolved_node_id) {
+          Some(nid) => compute_highlight_set(nid, model.scope_map)
+          None => @immut/hashset.HashSet::new()
+        }
         (
           none,
           { ..model, selected_node: Some(resolved_node_id), highlight_set },

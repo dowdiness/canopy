@@ -33,7 +33,7 @@ fn view_outline_node(
   node : @proj.InteractiveTreeNode[@ast.Term],
   depth : Int,
   model : Model,
-  eval_annotations : Map[@proj.NodeId, Array[@editor.EvalResult]],
+  eval_annotations : Map[@proj.NodeId, Array[@lambda.EvalResult]],
 ) -> Html {
   let kind = kind_of(node.label)
   let is_selected = match model.selected_node {
@@ -42,7 +42,7 @@ fn view_outline_node(
   }
   let selected_suffix = if is_selected { " selected" } else { "" }
   // Scope highlight class (highlighted/dimmed based on binder selection)
-  let hl_suffix = if model.highlight_set.length() == 0 {
+  let hl_suffix = if model.highlight_set.is_empty() {
     ""
   } else if model.highlight_set.contains(node.id) {
     " scope-highlighted"
@@ -84,13 +84,13 @@ fn view_outline_node(
     Some(results) =>
       for result in results {
         match result {
-          @editor.EvalResult::Value(s) =>
+          @lambda.EvalResult::Value(s) =>
             row_items.push(span(class="eval-badge", [text("  \u{2192} " + s)]))
-          @editor.EvalResult::Stuck(s) =>
+          @lambda.EvalResult::Stuck(s) =>
             row_items.push(
               span(class="eval-badge eval-error", [text("  \u{2192} " + s)]),
             )
-          @editor.EvalResult::Suppressed => ()
+          @lambda.EvalResult::Suppressed => ()
         }
       }
     None => ()
@@ -130,8 +130,10 @@ fn navigate_outline(model : Model, direction : @canopy_core.Direction) -> String
     Some(s) => s
     None => return None
   }
-  let n = @string.parse_int(node_id_str) catch { _ => return None }
-  let node_id = @proj.NodeId::from_int(n)
+  let node_id = match parse_node_id(node_id_str) {
+    Some(id) => id
+    None => return None
+  }
   let proj_root = match model.editor.get_proj_node() {
     Some(p) => p
     None => return None
@@ -149,8 +151,7 @@ fn get_selected_node_id(model : Model) -> @proj.NodeId? {
     Some(s) => s
     None => return None
   }
-  let n = @string.parse_int(s) catch { _ => return None }
-  Some(@proj.NodeId::from_int(n))
+  parse_node_id(s)
 }
 
 ///|
@@ -158,8 +159,8 @@ fn get_selected_node_id(model : Model) -> @proj.NodeId? {
 /// Maps eval results to ProjNode children by definition index.
 fn build_outline_eval_annotations(
   model : Model,
-) -> Map[@proj.NodeId, Array[@editor.EvalResult]] {
-  let annotations : Map[@proj.NodeId, Array[@editor.EvalResult]] = {}
+) -> Map[@proj.NodeId, Array[@lambda.EvalResult]] {
+  let annotations : Map[@proj.NodeId, Array[@lambda.EvalResult]] = {}
   let eval_results = model.editor.get_eval_results()
   if eval_results.is_empty() {
     return annotations
@@ -171,7 +172,7 @@ fn build_outline_eval_annotations(
   let children = proj_node.children
   for i, result in eval_results {
     match result {
-      @editor.EvalResult::Suppressed => continue
+      @lambda.EvalResult::Suppressed => continue
       _ =>
         if i < children.length() {
           annotations[children[i].id()] = [result]

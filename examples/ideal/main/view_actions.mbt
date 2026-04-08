@@ -165,9 +165,9 @@ fn view_action_overlay(
   let left = model.overlay.anchor_left
   let position_style = "top: \{top}px; left: \{left}px;"
   // Determine content: name prompt, submenu, or main action list
-  let content : @rabbita.Html = if !(model.overlay.pending_action is None) {
+  let content : @rabbita.Html = if model.overlay.pending_action is Some(_) {
     view_name_prompt(dispatch, model)
-  } else if !(model.overlay.submenu is None) {
+  } else if model.overlay.submenu is Some(_) {
     match (model.overlay.submenu, model.overlay.node_context) {
       (Some(sub_action), Some(ctx)) =>
         view_submenu_choices(dispatch, sub_action, ctx.kind)

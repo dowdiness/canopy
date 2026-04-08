@@ -10,8 +10,10 @@ fn detect_action_context(
   editor : @editor.SyncEditor[@ast.Term],
   selected_node : String,
 ) -> NodeActionContext? {
-  let node_id_int = @string.parse_int(selected_node) catch { _ => return None }
-  let nid = @proj.NodeId::from_int(node_id_int)
+  let nid = match parse_node_id(selected_node) {
+    Some(id) => id
+    None => return None
+  }
   let node = match editor.get_node(nid) {
     Some(n) => n
     None => return None

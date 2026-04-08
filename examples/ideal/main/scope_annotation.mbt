@@ -37,12 +37,8 @@ struct ScopeAnnotation {
 /// Returns a value in 0..7 (8-hue palette).
 fn binder_color_index(name : String) -> Int {
   let mut h = 0
-  loop name.view() {
-    [] => ()
-    [ch, .. rest] => {
-      h = h * 31 + ch.to_int()
-      continue rest
-    }
+  for ch in name {
+    h = h * 31 + ch.to_int()
   }
   if h < 0 {
     h = -h
