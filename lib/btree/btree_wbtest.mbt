@@ -1190,3 +1190,43 @@ test "BTree::delete_range handles underfull propagation" {
   let result = t.to_array()
   inspect(result.length(), content="10")
 }
+
+// === Lazy BTree::iter ===
+
+///|
+test "BTree::iter yields elements in order lazily" {
+  let t = build_tree([(1, 3), (2, 2), (3, 4)])
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+  }
+  inspect(items.length(), content="3")
+  inspect(items[0], content="{ id: 1, span: 3 }")
+  inspect(items[1], content="{ id: 2, span: 2 }")
+  inspect(items[2], content="{ id: 3, span: 4 }")
+}
+
+///|
+test "BTree::iter on empty tree yields nothing" {
+  let t : BTree[TItem] = BTree::new(min_degree=2)
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+  }
+  inspect(items.length(), content="0")
+}
+
+///|
+test "BTree::iter supports early termination" {
+  let t = build_tree([(1, 1), (2, 1), (3, 1), (4, 1), (5, 1)])
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+    if items.length() == 2 {
+      break
+    }
+  }
+  inspect(items.length(), content="2")
+  inspect(items[0], content="{ id: 1, span: 1 }")
+  inspect(items[1], content="{ id: 2, span: 1 }")
+}
