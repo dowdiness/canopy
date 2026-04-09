@@ -129,10 +129,8 @@ pub fn[T : BTreeElem] BTree::delete_range(
     None => ()
     Some(splice) => {
       let propagated = propagate_node_splice(splice, self.min_degree)
-      self.apply_propagated(propagated, normalize_delete=true)
-      // Post-splice boundary merge: if the deletion created adjacent
-      // mergeable leaves, merge them. Must re-descend from new root
-      // since paths are stale after propagation.
+      // Skip root normalization here — we normalize after boundary merge
+      self.apply_propagated(propagated, normalize_delete=false)
       guard self.root is Some(new_root) else { return }
       let (merged_root, boundary_merged) = normalize_boundary_merge(
         new_root,
