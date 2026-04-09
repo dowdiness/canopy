@@ -248,7 +248,7 @@ fn[T : BTreeElem] absorb_leaf_level_gap_merge(
   if lca.child_height != 0 {
     return (new_children, start_idx, end_idx, false)
   }
-  let mut merged_children = new_children
+  let merged_children = new_children
   let mut merged_start_idx = start_idx
   let mut merged_end_idx = end_idx
   let mut absorbed = false
