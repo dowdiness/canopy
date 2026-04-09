@@ -324,6 +324,34 @@ pub fn[T] descend_leftmost(
 }
 
 ///|
+/// Descend to the rightmost leaf, recording frames in the path.
+/// The returned cursor has offset == span (positioned at end of last leaf).
+pub fn[T] descend_rightmost(
+  node : BTreeNode[T],
+  prefix : Array[PathFrame[T]],
+) -> Cursor[T] {
+  let path = copy_path(prefix, prefix.length())
+  fn step(current : BTreeNode[T]) -> Cursor[T] {
+    match current {
+      Leaf(elem~, span~) => {
+        let child_idx = if path.length() == 0 {
+          0
+        } else {
+          path[path.length() - 1].child_idx
+        }
+        { path, leaf_elem: elem, leaf_span: span, offset: span, child_idx }
+      }
+      Internal(children~, counts~, ..) => {
+        let child_idx = children.length() - 1
+        path.push({ children, counts, child_idx })
+        step(children[child_idx])
+      }
+    }
+  }
+  step(node)
+}
+
+///|
 pub fn[T] cursor_next_leaf(cursor : Cursor[T]) -> Cursor[T]? {
   for depth in (cursor.path.length() - 1)>=..0 {
     let frame = cursor.path[depth]

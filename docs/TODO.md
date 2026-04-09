@@ -541,10 +541,10 @@ Post-consolidation app inventory:
   Plan: `docs/plans/2026-04-08-generic-btree-library.md`
 - [x] **Phase 2b: Full type migration** — ✅ Done (PR #139 + order-tree#5). OrderTree wraps @btree.BTree[T]. insert_at/delete_at delegate via callbacks. -1,304 lines, 5 duplicate files deleted. 79 tests (12 @btree-internal tests moved out).
   Plan: `docs/plans/2026-04-09-btree-type-migration.md`
-- [ ] **Phase 2c: Range delete extraction** — move `walker_range_delete.mbt` to lib/btree (most/all 510 lines). Only `delete_range_needs_merge_rebuild` stays in order-tree.
-  Also: add whitebox tests to lib/btree for `LeafContext::from_cursor`/neighbor access, `descend_leaf_at`/`descend_leaf_at_end_boundary` boundary semantics, ensure-min merge re-find, `propagate_node_splice` ancestor-count/overflow (test debt from Phase 2b cleanup).
+- [x] **Phase 2c: Range delete extraction** — ✅ Done. Moved 20 functions (493 lines) from order-tree to `lib/btree/walker_range_delete.mbt`. Added `descend_rightmost`, `plan_delete_range` to pub API. 15 tests migrated + 7 test-debt tests added (LeafContext, descent boundary, ensure_min, propagate_node_splice). order-tree walker_range_delete.mbt deleted (-584 lines).
+  Plan: `docs/archive/2026-04-09-btree-range-delete-extraction.md`
 - [ ] **Phase 2d: API narrowing** — once order-tree fully migrates, make walker internals (descend, prepare_*, propagate, PathFrame, Cursor) private. Add `from_sorted` bulk constructor. Replace eager `BTree::iter` (materializes to_array) with lazy stack-based traversal using MoonBit's `Iter` yield protocol.
-- [ ] **event-graph-walker integration** — `impl @btree.BTreeElem for VisibleRun` (orphan-rule compliant, goes in egw).
+- [x] **event-graph-walker integration** — ✅ Done (egw PR #23). `impl @btree.BTreeElem for VisibleRun` in `internal/document/visible_run.mbt`.
 
 ---
 

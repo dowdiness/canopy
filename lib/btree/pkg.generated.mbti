@@ -19,7 +19,11 @@ pub fn[T] descend_leaf_at_end_boundary(BTreeNode[T], Int, Int) -> LeafCursor[T]?
 
 pub fn[T] descend_leftmost(BTreeNode[T], Array[PathFrame[T]]) -> Cursor[T]
 
+pub fn[T] descend_rightmost(BTreeNode[T], Array[PathFrame[T]]) -> Cursor[T]
+
 pub fn[T] normalize_root_after_delete(BTreeNode[T]) -> BTreeNode[T]?
+
+pub fn[T : BTreeElem] plan_delete_range(BTreeNode[T], Int, Int, Int) -> NodeSplice[T]?
 
 pub fn[T] prepare_ensure_min(Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit
 
