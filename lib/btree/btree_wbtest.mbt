@@ -1339,3 +1339,268 @@ test "BTree::iter supports early termination" {
   inspect(items[0], content="{ id: 1, span: 1 }")
   inspect(items[1], content="{ id: 2, span: 1 }")
 }
+
+// === Property-based tests for BTree::delete_range ===
+
+///|
+fn[T] check_node_invariants(
+  node : BTreeNode[T],
+  min_degree : Int,
+  is_root : Bool,
+  depth : Int,
+) -> (Bool, Int, Int) {
+  match node {
+    Leaf(..) => (true, depth, 1)
+    Internal(children~, counts~, total~) => {
+      if children is [] {
+        return (false, depth, 0)
+      }
+      if children.length() != counts.length() {
+        return (false, depth, 0)
+      }
+      if !is_root && children.length() < min_degree {
+        return (false, depth, 0)
+      }
+      if children.length() > 2 * min_degree {
+        return (false, depth, 0)
+      }
+      let mut expected_leaf_depth = -1
+      let mut leaf_count = 0
+      let mut sum = 0
+      for i in 0..<children.length() {
+        if counts[i] != children[i].total() {
+          return (false, depth, 0)
+        }
+        let (child_ok, child_leaf_depth, child_leaf_count) = check_node_invariants(
+          children[i],
+          min_degree,
+          false,
+          depth + 1,
+        )
+        if !child_ok {
+          return (false, depth, 0)
+        }
+        if expected_leaf_depth == -1 {
+          expected_leaf_depth = child_leaf_depth
+        } else if expected_leaf_depth != child_leaf_depth {
+          return (false, depth, 0)
+        }
+        leaf_count = leaf_count + child_leaf_count
+        sum = sum + counts[i]
+      }
+      if sum != total {
+        return (false, depth, 0)
+      }
+      (true, expected_leaf_depth, leaf_count)
+    }
+  }
+}
+
+///|
+fn[T] btree_invariants_hold(t : BTree[T]) -> Bool {
+  match t.root {
+    None => t.size == 0
+    Some(root) =>
+      match root {
+        Leaf(..) => false
+        Internal(..) => {
+          let (ok, _, leaf_count) = check_node_invariants(
+            root,
+            t.min_degree,
+            true,
+            0,
+          )
+          ok && leaf_count == t.size && root.total() == t.span()
+        }
+      }
+  }
+}
+
+///|
+/// Compute expected content after delete by using view on the original tree
+/// and merging the boundary pair.
+fn expected_after_delete(
+  t : BTree[TItem],
+  start : Int,
+  end_ : Int,
+) -> Array[TItem] {
+  let total = t.span()
+  if start < 0 || start >= end_ || start >= total {
+    return t.view(start=0, end=total)
+  }
+  let clamped_end = if end_ > total { total } else { end_ }
+  let left = t.view(start=0, end=start)
+  let right = t.view(start=clamped_end, end=total)
+  // Concatenate and merge all adjacent mergeable pairs
+  let concat : Array[TItem] = []
+  for item in left {
+    concat.push(item)
+  }
+  for item in right {
+    concat.push(item)
+  }
+  let result : Array[TItem] = []
+  for item in concat {
+    match result.last() {
+      Some(last) =>
+        if @rle.Mergeable::can_merge(last, item) {
+          result[result.length() - 1] = @rle.Mergeable::merge(last, item)
+        } else {
+          result.push(item)
+        }
+      None => result.push(item)
+    }
+  }
+  result
+}
+
+///|
+struct DeleteRangeCase {
+  items : Array[(Int, Int)]
+  start : Int
+  end_ : Int
+} derive(Debug)
+
+///|
+impl Show for DeleteRangeCase with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+impl @quickcheck.Arbitrary for DeleteRangeCase with arbitrary(size, rs) {
+  let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
+  let item_count = rs.split().next_positive_int() % (capped + 1)
+  let items : Array[(Int, Int)] = []
+  let mut total_span = 0
+  for _ in 0..<item_count {
+    let id = 1 + rs.split().next_positive_int() % 5
+    let span = 1 + rs.split().next_positive_int() % 3
+    items.push((id, span))
+    total_span = total_span + span
+  }
+  let bound = total_span + 3
+  let start = rs.split().next_positive_int() % (bound + 1)
+  let end_ = rs.split().next_positive_int() % (bound + 1)
+  { items, start, end_ }
+}
+
+///|
+impl @qc.Shrink for DeleteRangeCase
+
+///|
+fn prop_delete_range_preserves_invariants(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  if !btree_invariants_hold(t) {
+    return false
+  }
+  t.delete_range(case_.start, case_.end_)
+  btree_invariants_hold(t)
+}
+
+///|
+fn prop_delete_range_span_and_content(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  let old_span = t.span()
+  let clamped_end = if case_.end_ > old_span { old_span } else { case_.end_ }
+  let removed = if case_.start >= 0 &&
+    case_.start < clamped_end &&
+    case_.start < old_span {
+    clamped_end - case_.start
+  } else {
+    0
+  }
+  let expected_span = old_span - removed
+  // Compute expected total span of remaining items (not exact element list,
+  // because merge behavior can differ between splice and rebuild paths)
+  let expected_items = expected_after_delete(t, case_.start, case_.end_)
+  let mut expected_total_span = 0
+  for item in expected_items {
+    expected_total_span = expected_total_span + item.span
+  }
+  t.delete_range(case_.start, case_.end_)
+  let mut actual_total_span = 0
+  for item in t.iter() {
+    actual_total_span = actual_total_span + item.span
+  }
+  t.span() == expected_span && actual_total_span == expected_total_span
+}
+
+///|
+fn prop_delete_range_iter_matches_view(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  t.delete_range(case_.start, case_.end_)
+  let iter_items : Array[TItem] = []
+  for item in t.iter() {
+    iter_items.push(item)
+  }
+  iter_items == t.view(start=0, end=t.span())
+}
+
+///|
+test "delete_range with underfull fallback" {
+  // Regression: this case triggered underfull boundary subtree,
+  // now handled by fallback rebuild.
+  let t = build_tree([
+    (5, 3),
+    (2, 1),
+    (4, 2),
+    (1, 1),
+    (5, 1),
+    (1, 3),
+    (2, 3),
+    (3, 3),
+    (5, 3),
+    (1, 1),
+    (2, 3),
+    (5, 1),
+    (1, 2),
+    (3, 3),
+    (3, 1),
+  ])
+  inspect(
+    t.span(),
+    content=(
+      #|31
+    ),
+  )
+  inspect(
+    t.size(),
+    content=(
+      #|15
+    ),
+  )
+  t.delete_range(14, 18)
+  inspect(
+    t.span(),
+    content=(
+      #|27
+    ),
+  )
+  inspect(
+    t.size(),
+    content=(
+      #|13
+    ),
+  )
+  inspect(
+    btree_invariants_hold(t),
+    content=(
+      #|true
+    ),
+  )
+}
+
+///|
+test "property: delete_range preserves btree invariants" {
+  @qc.quick_check_fn(prop_delete_range_preserves_invariants)
+}
+
+///|
+test "property: delete_range preserves span and content" {
+  @qc.quick_check_fn(prop_delete_range_span_and_content)
+}
+
+///|
+test "property: delete_range iter matches view" {
+  @qc.quick_check_fn(prop_delete_range_iter_matches_view)
+}

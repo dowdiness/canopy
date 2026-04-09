@@ -132,9 +132,9 @@ fn[T : BTreeElem] right_boundary_subtree(
   })
   let suffix = path_suffix_after_target(end_.path, lca.prefix.length())
   // Check ANY frame for right siblings, not just the deepest.
-  let has_siblings = suffix.iter().any(fn(frame) {
-    frame.child_idx + 1 < frame.children.length()
-  })
+  let has_siblings = suffix
+    .iter()
+    .any(fn(frame) { frame.child_idx + 1 < frame.children.length() })
   guard kept_leaf is Some(_) || has_siblings else { return None }
   Some(rebuild_boundary_chain_optional(suffix, kept_leaf, false))
 }
