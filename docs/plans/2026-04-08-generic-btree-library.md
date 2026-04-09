@@ -62,10 +62,10 @@ The central question: how does order-tree plug in RLE-specific leaf logic?
 
 **Chosen approach: Callback-based high-level API + pub types as escape hatch.**
 
-```
+```text
                     lib/btree (generic)
                     ┌──────────────────────────────────────┐
-                    │  BTreeNode[T], BTreeCursor[T]        │
+                    │  BTreeNode[T], Cursor[T]             │
                     │  descend, propagate, split/merge      │
                     │  root lifecycle (empty/wrap/normalize) │
 High-level API ───► │  mutate_at(pos, mode, callback)       │
@@ -107,7 +107,7 @@ consumers lose access to these payloads.
 
 Range delete splits into three layers by where they live:
 
-```
+```text
 lib/btree (no trait bound)     lib/btree (T : BTreeElem)     order-tree
 ─────────────────────────      ─────────────────────────      ──────────────
 descend to start/end           slice boundary elements        delete_range_needs_merge_rebuild
