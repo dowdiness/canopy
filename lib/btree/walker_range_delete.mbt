@@ -480,3 +480,85 @@ pub fn[T : BTreeElem] plan_delete_range(
     _ => None
   }
 }
+
+///|
+/// Post-splice boundary normalization: if the leaves at the splice boundary
+/// are mergeable, merge them and propagate the structural change.
+/// `boundary_pos` is the position where the deleted range started (after deletion,
+/// the left boundary's last leaf ends here and the right boundary's first leaf starts here).
+/// Returns the updated root node.
+fn[T : BTreeElem] normalize_boundary_merge(
+  root : BTreeNode[T],
+  boundary_pos : Int,
+  min_degree : Int,
+) -> BTreeNode[T] {
+  // Nothing to merge at boundaries
+  guard boundary_pos > 0 && boundary_pos < root.total() else { return root }
+  // Descend to the leaf just before the boundary (end-boundary semantics)
+  let left_cursor = descend_leaf_at_end_boundary(root, boundary_pos, min_degree)
+  // Descend to the leaf at the boundary (start semantics)
+  let right_cursor = descend_leaf_at(root, boundary_pos, min_degree)
+  match (left_cursor, right_cursor) {
+    (Some(left), Some(right)) => {
+      // Check if these are different leaves
+      if left.path.length() == right.path.length() &&
+        shared_prefix_length(left.path, right.path) == left.path.length() {
+        // Same leaf — no boundary merge needed
+        return root
+      }
+      // Not at leaf boundaries — can't merge whole leaves
+      guard left.offset == left.span && right.offset == 0 else { return root }
+      // Check if mergeable
+      guard @rle.Mergeable::can_merge(left.elem, right.elem) else {
+        return root
+      }
+      // Merge: delete the right leaf, expand the left leaf to absorb it
+      let merged = @rle.Mergeable::merge(left.elem, right.elem)
+      let merged_span = @rle.Spanning::span(merged)
+      let merged_leaf : BTreeNode[T] = Leaf(elem=merged, span=merged_span)
+      let lca = lowest_common_ancestor_range(left, right)
+      let left_suffix = path_suffix_after_target(
+        left.path,
+        lca.prefix.length(),
+      )
+      let right_suffix = path_suffix_after_target(
+        right.path,
+        lca.prefix.length(),
+      )
+      let merged_subtree = merge_boundary_chain(
+        left_suffix,
+        right_suffix,
+        merged_leaf,
+      )
+      let removed_leaf_count = leaf_count_of_children(
+        lca.children,
+        lca.start_idx,
+        lca.end_idx,
+      )
+      let splice : NodeSplice[T] = {
+        prefix: lca.prefix,
+        children: lca.children,
+        counts: lca.counts,
+        start_idx: lca.start_idx,
+        end_idx: lca.end_idx,
+        new_children: [merged_subtree],
+        original_child_count: lca.children.length(),
+        leaf_delta: merged_subtree.leaf_count() - removed_leaf_count,
+      }
+      let result = propagate_node_splice(splice, min_degree)
+      match result.overflow {
+        None => result.node
+        Some(sibling) => {
+          let left_total = result.node.total()
+          let right_total = sibling.total()
+          Internal(
+            children=[result.node, sibling],
+            counts=[left_total, right_total],
+            total=left_total + right_total,
+          )
+        }
+      }
+    }
+    _ => root
+  }
+}

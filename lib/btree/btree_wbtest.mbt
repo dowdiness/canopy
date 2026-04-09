@@ -1072,3 +1072,55 @@ test "propagate_node_splice repairs underfull node by merging with sibling" {
     _ => abort("expected internal root")
   }
 }
+
+// === Post-splice boundary merge ===
+
+///|
+test "normalize_boundary_merge merges adjacent leaves across subtrees" {
+  // After splice already removed middle, tree is: [[a(3)]] [[a(3)]]
+  let left : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let right : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[left, right],
+    counts=[3, 3],
+    total=6,
+  )
+  let result = normalize_boundary_merge(root, 3, 2)
+  inspect(result.total(), content="6")
+  let items : Array[TItem] = []
+  result.each(fn(item) { items.push(item) })
+  inspect(items.length(), content="1")
+  inspect(items[0], content="{ id: 1, span: 6 }")
+}
+
+///|
+test "normalize_boundary_merge is no-op when boundaries not mergeable" {
+  let left : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let right : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(2, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[left, right],
+    counts=[3, 3],
+    total=6,
+  )
+  let result = normalize_boundary_merge(root, 3, 2)
+  inspect(result.total(), content="6")
+  let items : Array[TItem] = []
+  result.each(fn(item) { items.push(item) })
+  inspect(items.length(), content="2")
+}
