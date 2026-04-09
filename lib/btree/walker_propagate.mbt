@@ -94,8 +94,34 @@ fn[T] maybe_split(
 }
 
 ///|
+/// Repair an underfull node after a range splice. Uses < min_degree threshold
+/// (reactive) unlike ensure_min_children which uses <= min_degree (proactive).
+fn[T] ensure_min_after_splice(
+  children : Array[BTreeNode[T]],
+  counts : Array[Int],
+  idx : Int,
+  min_degree : Int,
+) -> Unit {
+  guard children[idx].is_underfull(min_degree) else { return }
+  if idx > 0 && children[idx - 1].can_lend(min_degree) {
+    borrow_from_left(children, counts, idx)
+    return
+  }
+  if idx + 1 < children.length() && children[idx + 1].can_lend(min_degree) {
+    borrow_from_right(children, counts, idx)
+    return
+  }
+  if idx > 0 {
+    merge_children(children, counts, idx - 1)
+  } else if idx + 1 < children.length() {
+    merge_children(children, counts, idx)
+  }
+}
+
+///|
 /// Walk from a node upward through ancestor frames, updating each parent's
 /// child pointer and inserting any overflow sibling from a split below.
+/// Also repairs underfull nodes (< min_degree children) by borrowing or merging.
 /// Splits again if a parent exceeds capacity.
 fn[T] walk_up_ancestors(
   path : Array[PathFrame[T]],
@@ -116,6 +142,16 @@ fn[T] walk_up_ancestors(
         frame.counts.insert(frame.child_idx + 1, sibling.total())
       }
       _ => ()
+    }
+    // Repair underfull child after splice (< min_degree children)
+    if current_node.is_underfull(min_degree) &&
+      frame.children.length() > 1 {
+      ensure_min_after_splice(
+        frame.children,
+        frame.counts,
+        frame.child_idx,
+        min_degree,
+      )
     }
     let (updated, next_overflow) = maybe_split(
       frame.children,

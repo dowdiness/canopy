@@ -932,3 +932,143 @@ test "propagate_node_splice updates ancestor counts after removal" {
   // Resulting node should have total = 2 + 4 = 6
   inspect(result.node.total(), content="6")
 }
+
+// === Underfull propagation repair ===
+
+///|
+test "propagate_node_splice repairs underfull node by borrowing from right" {
+  // min_degree=2: each internal needs >= 2 children
+  // LCA child has 3 children, we splice out 2 → 1 child (underfull)
+  // Right sibling has 3 children → can lend
+  let lca_child : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(1, 1), span=1),
+      Leaf(elem=make_item(2, 1), span=1),
+      Leaf(elem=make_item(3, 1), span=1),
+    ],
+    counts=[1, 1, 1],
+    total=3,
+  )
+  let right_sibling : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(4, 1), span=1),
+      Leaf(elem=make_item(5, 1), span=1),
+      Leaf(elem=make_item(6, 1), span=1),
+    ],
+    counts=[1, 1, 1],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[lca_child, right_sibling],
+    counts=[3, 3],
+    total=6,
+  )
+  // Splice removes children 0..2 from lca_child, leaving 1 child (underfull)
+  let splice : NodeSplice[TItem] = {
+    prefix: [
+      {
+        children: match root {
+          Internal(children~, ..) => children
+          _ => abort("expected internal")
+        },
+        counts: match root {
+          Internal(counts~, ..) => counts
+          _ => abort("expected internal")
+        },
+        child_idx: 0,
+      },
+    ],
+    children: match lca_child {
+      Internal(children~, ..) => children
+      _ => abort("expected internal")
+    },
+    counts: match lca_child {
+      Internal(counts~, ..) => counts
+      _ => abort("expected internal")
+    },
+    start_idx: 0,
+    end_idx: 2,
+    new_children: [],
+    original_child_count: 3,
+    leaf_delta: -2,
+  }
+  let result = propagate_node_splice(splice, 2)
+  // After repair: underfull node borrowed from right sibling
+  // Total span should be 6 - 2 = 4
+  inspect(result.node.total(), content="4")
+  // Root should still have 2 children (no merge needed at root level)
+  match result.node {
+    Internal(children~, ..) => {
+      inspect(children.length(), content="2")
+      // Each child should have >= 2 children
+      match children[0] {
+        Internal(children=c, ..) => inspect(c.length() >= 2, content="true")
+        _ => abort("expected internal")
+      }
+    }
+    _ => abort("expected internal root")
+  }
+}
+
+///|
+test "propagate_node_splice repairs underfull node by merging with sibling" {
+  // min_degree=2: each internal needs >= 2 children
+  // LCA child has 2 children, we splice out 1 → 1 child (underfull)
+  // Right sibling has exactly 2 children → cannot lend, must merge
+  let lca_child : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(1, 1), span=1),
+      Leaf(elem=make_item(2, 1), span=1),
+    ],
+    counts=[1, 1],
+    total=2,
+  )
+  let right_sibling : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(3, 1), span=1),
+      Leaf(elem=make_item(4, 1), span=1),
+    ],
+    counts=[1, 1],
+    total=2,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[lca_child, right_sibling],
+    counts=[2, 2],
+    total=4,
+  )
+  let splice : NodeSplice[TItem] = {
+    prefix: [
+      {
+        children: match root {
+          Internal(children~, ..) => children
+          _ => abort("expected internal")
+        },
+        counts: match root {
+          Internal(counts~, ..) => counts
+          _ => abort("expected internal")
+        },
+        child_idx: 0,
+      },
+    ],
+    children: match lca_child {
+      Internal(children~, ..) => children
+      _ => abort("expected internal")
+    },
+    counts: match lca_child {
+      Internal(counts~, ..) => counts
+      _ => abort("expected internal")
+    },
+    start_idx: 0,
+    end_idx: 1,
+    new_children: [],
+    original_child_count: 2,
+    leaf_delta: -1,
+  }
+  let result = propagate_node_splice(splice, 2)
+  inspect(result.node.total(), content="3")
+  // After merge: root has 1 child (will be collapsed by normalize)
+  match result.node {
+    Internal(children~, ..) => inspect(children.length(), content="1")
+    _ => abort("expected internal root")
+  }
+}

@@ -163,6 +163,16 @@ fn[T] BTreeNode::needs_rebalance(self : BTreeNode[T], min_degree : Int) -> Bool 
 }
 
 ///|
+/// Check if a node is underfull after a range splice (reactive, < min_degree).
+/// Different from needs_rebalance which uses <= min_degree (proactive, for descent).
+fn[T] BTreeNode::is_underfull(self : BTreeNode[T], min_degree : Int) -> Bool {
+  match self {
+    Leaf(..) => false
+    Internal(children~, ..) => children.length() < min_degree
+  }
+}
+
+///|
 fn[T] BTreeNode::can_lend(self : BTreeNode[T], min_degree : Int) -> Bool {
   match self {
     Leaf(..) => false
