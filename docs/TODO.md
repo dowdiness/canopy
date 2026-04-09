@@ -543,7 +543,9 @@ Post-consolidation app inventory:
   Plan: `docs/plans/2026-04-09-btree-type-migration.md`
 - [x] **Phase 2c: Range delete extraction** — ✅ Done. Moved 20 functions (493 lines) from order-tree to `lib/btree/walker_range_delete.mbt`. Added `descend_rightmost`, `plan_delete_range` to pub API. 15 tests migrated + 7 test-debt tests added (LeafContext, descent boundary, ensure_min, propagate_node_splice). order-tree walker_range_delete.mbt deleted (-584 lines).
   Plan: `docs/archive/2026-04-09-btree-range-delete-extraction.md`
-- [ ] **Phase 2d: API narrowing** — once order-tree fully migrates, make walker internals (descend, prepare_*, propagate, PathFrame, Cursor) private. Add `from_sorted` bulk constructor. Replace eager `BTree::iter` (materializes to_array) with lazy stack-based traversal using MoonBit's `Iter` yield protocol.
+- [x] **Phase 2d: API narrowing** — ✅ Done (PR #141 + order-tree#7). `BTree::delete_range`, lazy cursor-based `iter`, 15 pub fns + 5 types made private. Fixed underfull propagation, boundary merge, boundary subtree sibling preservation. Fallback rebuild for underfull boundary subtrees. 3 property-based tests.
+  Plan: `docs/plans/2026-04-09-btree-api-narrowing.md`
+- [ ] **Phase 2e: Splice promotion** — `rebuild_boundary_chain_optional` can produce underfull boundary subtrees, currently handled by O(n) fallback rebuild. Proper fix: promote the NodeSplice upward until boundary subtrees have enough material for valid B-tree nodes. Also: `from_sorted` bulk constructor (deferred from Phase 2d).
 - [x] **event-graph-walker integration** — ✅ Done (egw PR #23). `impl @btree.BTreeElem for VisibleRun` in `internal/document/visible_run.mbt`.
 
 ---

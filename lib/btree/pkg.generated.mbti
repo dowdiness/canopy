@@ -7,31 +7,6 @@ import {
 }
 
 // Values
-pub fn[T] copy_path(Array[PathFrame[T]], Int) -> Array[PathFrame[T]]
-
-pub fn[T] cursor_next_leaf(Cursor[T]) -> Cursor[T]?
-
-pub fn[T] descend(BTreeNode[T], Int, Int, (Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit, (Array[Int], Int, Int) -> (Int, Int), Bool) -> Cursor[T]?
-
-pub fn[T] descend_leaf_at(BTreeNode[T], Int, Int) -> LeafCursor[T]?
-
-pub fn[T] descend_leaf_at_end_boundary(BTreeNode[T], Int, Int) -> LeafCursor[T]?
-
-pub fn[T] descend_leftmost(BTreeNode[T], Array[PathFrame[T]]) -> Cursor[T]
-
-pub fn[T] descend_rightmost(BTreeNode[T], Array[PathFrame[T]]) -> Cursor[T]
-
-pub fn[T] normalize_root_after_delete(BTreeNode[T]) -> BTreeNode[T]?
-
-pub fn[T : BTreeElem] plan_delete_range(BTreeNode[T], Int, Int, Int) -> NodeSplice[T]?
-
-pub fn[T] prepare_ensure_min(Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit
-
-pub fn[T] prepare_split(Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit
-
-pub fn[T] propagate(Array[PathFrame[T]], Splice[T], Int) -> PropagateResult[T]
-
-pub fn[T] propagate_node_splice(NodeSplice[T], Int) -> PropagateResult[T]
 
 // Errors
 
@@ -41,6 +16,7 @@ pub(all) struct BTree[T] {
   min_degree : Int
   mut size : Int
 } derive(Eq, @debug.Debug)
+pub fn[T : BTreeElem] BTree::delete_range(Self[T], Int, Int) -> Unit
 pub fn[T] BTree::each(Self[T], (T) -> Unit) -> Unit
 pub fn[T] BTree::find(Self[T], Int) -> FindResult[T]?
 pub fn[T] BTree::get_at(Self[T], Int) -> T?
@@ -64,14 +40,6 @@ pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(Self[T], Int, Int, (T) -> U
 pub fn[T] BTreeNode::height(Self[T]) -> Int
 pub fn[T] BTreeNode::total(Self[T]) -> Int
 
-pub(all) struct Cursor[T] {
-  path : Array[PathFrame[T]]
-  leaf_elem : T
-  leaf_span : Int
-  offset : Int
-  child_idx : Int
-} derive(@debug.Debug)
-
 pub(all) struct FindResult[T] {
   elem : T
   offset : Int
@@ -85,40 +53,8 @@ pub(all) struct LeafContext[T] {
   children : Array[BTreeNode[T]]
   child_idx : Int
 } derive(@debug.Debug)
-pub fn[T] LeafContext::from_cursor(Cursor[T]) -> Self[T]
 pub fn[T] LeafContext::left_neighbor(Self[T]) -> T?
 pub fn[T] LeafContext::right_neighbor(Self[T]) -> T?
-
-pub(all) struct LeafCursor[T] {
-  path : Array[PathFrame[T]]
-  elem : T
-  span : Int
-  offset : Int
-} derive(@debug.Debug)
-pub fn[T] LeafCursor::from_cursor(Cursor[T]) -> Self[T]
-
-pub(all) struct NodeSplice[T] {
-  prefix : Array[PathFrame[T]]
-  children : Array[BTreeNode[T]]
-  counts : Array[Int]
-  start_idx : Int
-  end_idx : Int
-  new_children : Array[BTreeNode[T]]
-  original_child_count : Int
-  leaf_delta : Int
-}
-
-pub(all) struct PathFrame[T] {
-  children : Array[BTreeNode[T]]
-  counts : Array[Int]
-  child_idx : Int
-} derive(@debug.Debug)
-
-pub(all) struct PropagateResult[T] {
-  node : BTreeNode[T]
-  overflow : BTreeNode[T]?
-  leaf_delta : Int
-}
 
 pub(all) struct Splice[T] {
   start_idx : Int

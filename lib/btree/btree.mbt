@@ -113,6 +113,131 @@ pub fn[T, R] BTree::mutate_for_delete(
 }
 
 ///|
+/// Delete all elements in the span range [start, end_).
+/// Handles all cases: single-leaf splice, multi-child LCA splice,
+/// underfull node repair, and post-splice boundary merging.
+pub fn[T : BTreeElem] BTree::delete_range(
+  self : BTree[T],
+  start : Int,
+  end_ : Int,
+) -> Unit {
+  guard self.root is Some(root) else { return }
+  let total = root.total()
+  guard start >= 0 && start < end_ && start < total else { return }
+  let clamped_end = if end_ > total { total } else { end_ }
+  match plan_delete_range(root, start, clamped_end, self.min_degree) {
+    None => ()
+    Some(splice) => {
+      // Check if any new_children contain underfull internal descendants.
+      // rebuild_boundary_chain_optional can produce these when the boundary
+      // subtree doesn't have enough material for valid B-tree nodes.
+      // Fall back to O(n) rebuild in that case.
+      if splice_has_underfull_descendants(splice.new_children, self.min_degree) {
+        self.delete_range_rebuild(root, start, clamped_end)
+        return
+      }
+      let propagated = propagate_node_splice(splice, self.min_degree)
+      // Skip root normalization here — we normalize after boundary merge
+      self.apply_propagated(propagated, normalize_delete=false)
+      guard self.root is Some(new_root) else { return }
+      let (merged_root, boundary_merged) = normalize_boundary_merge(
+        new_root,
+        start,
+        self.min_degree,
+      )
+      self.root = normalize_root_after_delete(merged_root)
+      if boundary_merged {
+        self.size = self.size - 1
+      }
+    }
+  }
+}
+
+///|
+/// Check if any node in the array has underfull internal descendants.
+fn[T] splice_has_underfull_descendants(
+  nodes : Array[BTreeNode[T]],
+  min_degree : Int,
+) -> Bool {
+  for node in nodes {
+    if node_has_underfull(node, min_degree, false) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn[T] node_has_underfull(
+  node : BTreeNode[T],
+  min_degree : Int,
+  is_root : Bool,
+) -> Bool {
+  match node {
+    Leaf(..) => false
+    Internal(children~, ..) => {
+      if !is_root && children.length() < min_degree {
+        return true
+      }
+      for child in children {
+        if node_has_underfull(child, min_degree, false) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+/// Fallback: collect surviving leaves and rebuild from scratch.
+fn[T : BTreeElem] BTree::delete_range_rebuild(
+  self : BTree[T],
+  root : BTreeNode[T],
+  start : Int,
+  end_ : Int,
+) -> Unit {
+  let kept : Array[T] = []
+  root.each_slice_in_range(0, start, fn(elem) { kept.push(elem) })
+  root.each_slice_in_range(end_, root.total(), fn(elem) { kept.push(elem) })
+  // Merge adjacent items
+  let merged : Array[T] = []
+  for item in kept {
+    match merged.last() {
+      Some(last) =>
+        if @rle.Mergeable::can_merge(last, item) {
+          merged[merged.length() - 1] = @rle.Mergeable::merge(last, item)
+        } else {
+          merged.push(item)
+        }
+      None => merged.push(item)
+    }
+  }
+  if merged is [] {
+    self.root = None
+    self.size = 0
+    return
+  }
+  // Rebuild tree from merged leaves
+  let first = merged[0]
+  let first_span = @rle.Spanning::span(first)
+  self.init_root(first, first_span)
+  let mut pos = first_span
+  for i in 1..<merged.length() {
+    let elem = merged[i]
+    let span = @rle.Spanning::span(elem)
+    self.mutate_for_insert(pos, fn(ctx) {
+      {
+        start_idx: ctx.child_idx + 1,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(elem, span)],
+      }
+    })
+    pos = pos + span
+  }
+}
+
+///|
 fn[T] BTree::apply_propagated(
   self : BTree[T],
   propagated : PropagateResult[T],
@@ -151,18 +276,23 @@ pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int) -> Unit {
 ///|
 /// A B-tree root with one internal child is a useless extra level —
 /// collapsing it maintains minimal height. A root with zero children
-/// means the tree is empty.
-pub fn[T] normalize_root_after_delete(root : BTreeNode[T]) -> BTreeNode[T]? {
-  match root {
-    Internal(children~, ..) if children.is_empty() => None
-    Internal(children~, ..) if children.length() == 1 =>
-      if children[0] is Internal(..) {
-        Some(children[0])
-      } else {
-        Some(root)
-      }
-    Internal(..) => Some(root)
-    Leaf(..) => abort("normalize_root_after_delete: root should be internal")
+/// means the tree is empty. Iterative: collapses all unary internal
+/// chains (can occur after boundary merge + propagation).
+fn[T] normalize_root_after_delete(root : BTreeNode[T]) -> BTreeNode[T]? {
+  let mut current = root
+  for ;; {
+    match current {
+      Internal(children~, ..) if children is [] => return None
+      Internal(children~, ..) if children is [child] =>
+        if child is Internal(..) {
+          current = child
+          continue
+        } else {
+          return Some(current)
+        }
+      Internal(..) => return Some(current)
+      Leaf(..) => abort("normalize_root_after_delete: root should be internal")
+    }
   }
 }
 

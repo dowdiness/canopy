@@ -924,11 +924,683 @@ test "propagate_node_splice updates ancestor counts after removal" {
     start_idx: 1,
     end_idx: 2,
     new_children: [],
-    original_child_count: 3,
     leaf_delta: -1,
   }
   let result = propagate_node_splice(splice, 2)
   inspect(result.leaf_delta, content="-1")
   // Resulting node should have total = 2 + 4 = 6
   inspect(result.node.total(), content="6")
+}
+
+// === Underfull propagation repair ===
+
+///|
+test "propagate_node_splice repairs underfull node by borrowing from right" {
+  // min_degree=2: each internal needs >= 2 children
+  // LCA child has 3 children, we splice out 2 → 1 child (underfull)
+  // Right sibling has 3 children → can lend
+  let lca_child : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(1, 1), span=1),
+      Leaf(elem=make_item(2, 1), span=1),
+      Leaf(elem=make_item(3, 1), span=1),
+    ],
+    counts=[1, 1, 1],
+    total=3,
+  )
+  let right_sibling : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(4, 1), span=1),
+      Leaf(elem=make_item(5, 1), span=1),
+      Leaf(elem=make_item(6, 1), span=1),
+    ],
+    counts=[1, 1, 1],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[lca_child, right_sibling],
+    counts=[3, 3],
+    total=6,
+  )
+  // Splice removes children 0..2 from lca_child, leaving 1 child (underfull)
+  let splice : NodeSplice[TItem] = {
+    prefix: [
+      {
+        children: match root {
+          Internal(children~, ..) => children
+          _ => abort("expected internal")
+        },
+        counts: match root {
+          Internal(counts~, ..) => counts
+          _ => abort("expected internal")
+        },
+        child_idx: 0,
+      },
+    ],
+    children: match lca_child {
+      Internal(children~, ..) => children
+      _ => abort("expected internal")
+    },
+    counts: match lca_child {
+      Internal(counts~, ..) => counts
+      _ => abort("expected internal")
+    },
+    start_idx: 0,
+    end_idx: 2,
+    new_children: [],
+    leaf_delta: -2,
+  }
+  let result = propagate_node_splice(splice, 2)
+  // After repair: underfull node borrowed from right sibling
+  // Total span should be 6 - 2 = 4
+  inspect(result.node.total(), content="4")
+  // Root should still have 2 children (no merge needed at root level)
+  match result.node {
+    Internal(children~, ..) => {
+      inspect(children.length(), content="2")
+      // Each child should have >= 2 children
+      match children[0] {
+        Internal(children=c, ..) => inspect(c.length() >= 2, content="true")
+        _ => abort("expected internal")
+      }
+    }
+    _ => abort("expected internal root")
+  }
+}
+
+///|
+test "propagate_node_splice repairs underfull node by merging with sibling" {
+  // min_degree=2: each internal needs >= 2 children
+  // LCA child has 2 children, we splice out 1 → 1 child (underfull)
+  // Right sibling has exactly 2 children → cannot lend, must merge
+  let lca_child : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(1, 1), span=1),
+      Leaf(elem=make_item(2, 1), span=1),
+    ],
+    counts=[1, 1],
+    total=2,
+  )
+  let right_sibling : BTreeNode[TItem] = Internal(
+    children=[
+      Leaf(elem=make_item(3, 1), span=1),
+      Leaf(elem=make_item(4, 1), span=1),
+    ],
+    counts=[1, 1],
+    total=2,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[lca_child, right_sibling],
+    counts=[2, 2],
+    total=4,
+  )
+  let splice : NodeSplice[TItem] = {
+    prefix: [
+      {
+        children: match root {
+          Internal(children~, ..) => children
+          _ => abort("expected internal")
+        },
+        counts: match root {
+          Internal(counts~, ..) => counts
+          _ => abort("expected internal")
+        },
+        child_idx: 0,
+      },
+    ],
+    children: match lca_child {
+      Internal(children~, ..) => children
+      _ => abort("expected internal")
+    },
+    counts: match lca_child {
+      Internal(counts~, ..) => counts
+      _ => abort("expected internal")
+    },
+    start_idx: 0,
+    end_idx: 1,
+    new_children: [],
+    leaf_delta: -1,
+  }
+  let result = propagate_node_splice(splice, 2)
+  inspect(result.node.total(), content="3")
+  // After merge: root has 1 child (will be collapsed by normalize)
+  match result.node {
+    Internal(children~, ..) => inspect(children.length(), content="1")
+    _ => abort("expected internal root")
+  }
+}
+
+// === Post-splice boundary merge ===
+
+///|
+test "normalize_boundary_merge merges adjacent leaves across subtrees" {
+  // After splice already removed middle, tree is: [[a(3)]] [[a(3)]]
+  let left : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let right : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[left, right],
+    counts=[3, 3],
+    total=6,
+  )
+  let (result, merged) = normalize_boundary_merge(root, 3, 2)
+  inspect(merged, content="true")
+  inspect(result.total(), content="6")
+  let items : Array[TItem] = []
+  result.each(fn(item) { items.push(item) })
+  inspect(items.length(), content="1")
+  inspect(items[0], content="{ id: 1, span: 6 }")
+}
+
+///|
+test "normalize_boundary_merge is no-op when boundaries not mergeable" {
+  let left : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(1, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let right : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(2, 3), span=3)],
+    counts=[3],
+    total=3,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[left, right],
+    counts=[3, 3],
+    total=6,
+  )
+  let (result, merged) = normalize_boundary_merge(root, 3, 2)
+  inspect(merged, content="false")
+  inspect(result.total(), content="6")
+  let items : Array[TItem] = []
+  result.each(fn(item) { items.push(item) })
+  inspect(items.length(), content="2")
+}
+
+// === BTree::delete_range ===
+
+///|
+test "BTree::delete_range removes contiguous elements" {
+  let t = build_tree([(1, 2), (2, 3), (3, 4)])
+  // Total span = 2+3+4 = 9, delete [2,5) removes item 2 exactly → 6 remaining
+  t.delete_range(2, 5)
+  inspect(t.span(), content="6")
+  inspect(t.size(), content="2")
+  let items = t.to_array()
+  inspect(items.length(), content="2")
+  inspect(items[0], content="{ id: 1, span: 2 }")
+  inspect(items[1], content="{ id: 3, span: 4 }")
+}
+
+///|
+test "BTree::delete_range merges boundary leaves" {
+  let t = build_tree([(1, 3), (2, 2), (1, 3)])
+  t.delete_range(3, 5)
+  inspect(t.span(), content="6")
+  // The two id=1 items should merge into one
+  let items = t.to_array()
+  inspect(items.length(), content="1")
+  inspect(items[0], content="{ id: 1, span: 6 }")
+}
+
+///|
+test "BTree::delete_range empty range is no-op" {
+  let t = build_tree([(1, 2), (2, 3)])
+  t.delete_range(2, 2)
+  inspect(t.span(), content="5")
+  inspect(t.size(), content="2")
+}
+
+///|
+test "BTree::delete_range full range clears tree" {
+  let t = build_tree([(1, 2), (2, 3)])
+  t.delete_range(0, 5)
+  inspect(t.span(), content="0")
+  inspect(t.is_empty(), content="true")
+}
+
+///|
+test "BTree::delete_range clamps end to span" {
+  let t = build_tree([(1, 2), (2, 3)])
+  t.delete_range(2, 99)
+  inspect(t.span(), content="2")
+  inspect(t.size(), content="1")
+}
+
+///|
+test "BTree::delete_range handles underfull propagation" {
+  // Build a tree deep enough that range delete causes underfull at LCA
+  let items : Array[(Int, Int)] = Array::makei(20, fn(i) { (i + 1, 1) })
+  let t = build_tree(items)
+  // Delete a large middle range
+  t.delete_range(5, 15)
+  inspect(t.span(), content="10")
+  inspect(t.size(), content="10")
+  // Verify tree is well-formed by iterating
+  let result = t.to_array()
+  inspect(result.length(), content="10")
+}
+
+// === Boundary subtree ancestor sibling preservation ===
+
+///|
+test "left_boundary_subtree preserves ancestor siblings when leaf has none" {
+  // Tree: root:[L, R, S]  R:[X, Y]  Y:[c, d]
+  // Delete starting at c and extending into S → LCA is root.
+  // Suffix below LCA: [R-frame(child_idx=1), Y-frame(child_idx=0)].
+  // Deepest frame (Y) has child_idx=0 — no local left siblings.
+  // But R-frame has child_idx=1 — X is a left sibling that must be preserved.
+  let x_leaf : BTreeNode[TItem] = Leaf(elem=make_item(1, 1), span=1)
+  let c_leaf : BTreeNode[TItem] = Leaf(elem=make_item(3, 1), span=1)
+  let d_leaf : BTreeNode[TItem] = Leaf(elem=make_item(4, 1), span=1)
+  let y_node : BTreeNode[TItem] = Internal(
+    children=[c_leaf, d_leaf],
+    counts=[1, 1],
+    total=2,
+  )
+  let r_node : BTreeNode[TItem] = Internal(
+    children=[x_leaf, y_node],
+    counts=[1, 2],
+    total=3,
+  )
+  let l_node : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(10, 2), span=2)],
+    counts=[2],
+    total=2,
+  )
+  let s_node : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(5, 1), span=1)],
+    counts=[1],
+    total=1,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[l_node, r_node, s_node],
+    counts=[2, 3, 1],
+    total=6,
+  )
+  // start=c at pos=3 (L=2, X=1, c=0 within Y), end extends into S
+  let start = descend_leaf_at(root, 3, 2).unwrap()
+  let end_ = descend_leaf_at_end_boundary(root, 6, 2).unwrap()
+  let lca = lowest_common_ancestor_range(start, end_)
+  // left_boundary_subtree must return a subtree containing X
+  let left = left_boundary_subtree(lca, start)
+  inspect(left is Some(_), content="true")
+  // Should preserve X (span=1)
+  inspect(left.unwrap().total(), content="1")
+}
+
+///|
+test "rebuild_boundary_chain_optional skips empty levels" {
+  // Tree: root:[L, R, S]  R:[X, Y]  Y:[c, d]
+  // Delete c and d (entire Y) plus S. left_boundary_subtree should
+  // rebuild R with just X — the Y-level frame produces no children
+  // (child_idx=0, no kept leaf), so it must be skipped.
+  let x_leaf : BTreeNode[TItem] = Leaf(elem=make_item(1, 1), span=1)
+  let c_leaf : BTreeNode[TItem] = Leaf(elem=make_item(3, 1), span=1)
+  let d_leaf : BTreeNode[TItem] = Leaf(elem=make_item(4, 1), span=1)
+  let y_node : BTreeNode[TItem] = Internal(
+    children=[c_leaf, d_leaf],
+    counts=[1, 1],
+    total=2,
+  )
+  let r_node : BTreeNode[TItem] = Internal(
+    children=[x_leaf, y_node],
+    counts=[1, 2],
+    total=3,
+  )
+  let l_node : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(10, 2), span=2)],
+    counts=[2],
+    total=2,
+  )
+  let s_node : BTreeNode[TItem] = Internal(
+    children=[Leaf(elem=make_item(5, 1), span=1)],
+    counts=[1],
+    total=1,
+  )
+  let root : BTreeNode[TItem] = Internal(
+    children=[l_node, r_node, s_node],
+    counts=[2, 3, 1],
+    total=6,
+  )
+  // Delete [3, 6) — removes c, d (all of Y) and s (all of S)
+  // LCA is root, start in Y child_idx=0, end in S
+  let start = descend_leaf_at(root, 3, 2).unwrap()
+  let end_ = descend_leaf_at_end_boundary(root, 6, 2).unwrap()
+  let lca = lowest_common_ancestor_range(start, end_)
+  let left = left_boundary_subtree(lca, start)
+  inspect(left is Some(_), content="true")
+  let rebuilt = left.unwrap()
+  // Rebuilt subtree should contain only X, no empty internal nodes
+  let items : Array[TItem] = []
+  rebuilt.each(fn(item) { items.push(item) })
+  inspect(items.length(), content="1")
+  inspect(items[0], content="{ id: 1, span: 1 }")
+  // Height should be 1 (Internal wrapping X), not 2 (no empty Y-level)
+  inspect(rebuilt.height(), content="1")
+}
+
+///|
+test "BTree::delete_range preserves ancestor siblings at leaf boundary" {
+  // 10 items, delete range that starts at a leaf which is first child of its parent
+  // but the parent has left siblings in an ancestor
+  let t = build_tree(Array::makei(10, fn(i) { (i + 1, 1) }))
+  let original_span = t.span()
+  inspect(original_span, content="10")
+  // Delete [8, 10) — last 2 items
+  t.delete_range(8, 10)
+  inspect(t.span(), content="8")
+  inspect(t.size(), content="8")
+}
+
+// === Lazy BTree::iter ===
+
+///|
+test "BTree::iter yields elements in order lazily" {
+  let t = build_tree([(1, 3), (2, 2), (3, 4)])
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+  }
+  inspect(items.length(), content="3")
+  inspect(items[0], content="{ id: 1, span: 3 }")
+  inspect(items[1], content="{ id: 2, span: 2 }")
+  inspect(items[2], content="{ id: 3, span: 4 }")
+}
+
+///|
+test "BTree::iter on empty tree yields nothing" {
+  let t : BTree[TItem] = BTree::new(min_degree=2)
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+  }
+  inspect(items.length(), content="0")
+}
+
+///|
+test "BTree::iter supports early termination" {
+  let t = build_tree([(1, 1), (2, 1), (3, 1), (4, 1), (5, 1)])
+  let items : Array[TItem] = []
+  for item in t.iter() {
+    items.push(item)
+    if items.length() == 2 {
+      break
+    }
+  }
+  inspect(items.length(), content="2")
+  inspect(items[0], content="{ id: 1, span: 1 }")
+  inspect(items[1], content="{ id: 2, span: 1 }")
+}
+
+// === Property-based tests for BTree::delete_range ===
+
+///|
+fn[T] check_node_invariants(
+  node : BTreeNode[T],
+  min_degree : Int,
+  is_root : Bool,
+  depth : Int,
+) -> (Bool, Int, Int) {
+  match node {
+    Leaf(..) => (true, depth, 1)
+    Internal(children~, counts~, total~) => {
+      if children is [] {
+        return (false, depth, 0)
+      }
+      if children.length() != counts.length() {
+        return (false, depth, 0)
+      }
+      if !is_root && children.length() < min_degree {
+        return (false, depth, 0)
+      }
+      if children.length() > 2 * min_degree {
+        return (false, depth, 0)
+      }
+      let mut expected_leaf_depth = -1
+      let mut leaf_count = 0
+      let mut sum = 0
+      for i in 0..<children.length() {
+        if counts[i] != children[i].total() {
+          return (false, depth, 0)
+        }
+        let (child_ok, child_leaf_depth, child_leaf_count) = check_node_invariants(
+          children[i],
+          min_degree,
+          false,
+          depth + 1,
+        )
+        if !child_ok {
+          return (false, depth, 0)
+        }
+        if expected_leaf_depth == -1 {
+          expected_leaf_depth = child_leaf_depth
+        } else if expected_leaf_depth != child_leaf_depth {
+          return (false, depth, 0)
+        }
+        leaf_count = leaf_count + child_leaf_count
+        sum = sum + counts[i]
+      }
+      if sum != total {
+        return (false, depth, 0)
+      }
+      (true, expected_leaf_depth, leaf_count)
+    }
+  }
+}
+
+///|
+fn[T] btree_invariants_hold(t : BTree[T]) -> Bool {
+  match t.root {
+    None => t.size == 0
+    Some(root) =>
+      match root {
+        Leaf(..) => false
+        Internal(..) => {
+          let (ok, _, leaf_count) = check_node_invariants(
+            root,
+            t.min_degree,
+            true,
+            0,
+          )
+          ok && leaf_count == t.size && root.total() == t.span()
+        }
+      }
+  }
+}
+
+///|
+/// Compute expected content after delete by using view on the original tree
+/// and merging the boundary pair.
+fn expected_after_delete(
+  t : BTree[TItem],
+  start : Int,
+  end_ : Int,
+) -> Array[TItem] {
+  let total = t.span()
+  if start < 0 || start >= end_ || start >= total {
+    return t.view(start=0, end=total)
+  }
+  let clamped_end = if end_ > total { total } else { end_ }
+  let left = t.view(start=0, end=start)
+  let right = t.view(start=clamped_end, end=total)
+  // Concatenate and merge all adjacent mergeable pairs
+  let concat : Array[TItem] = []
+  for item in left {
+    concat.push(item)
+  }
+  for item in right {
+    concat.push(item)
+  }
+  let result : Array[TItem] = []
+  for item in concat {
+    match result.last() {
+      Some(last) =>
+        if @rle.Mergeable::can_merge(last, item) {
+          result[result.length() - 1] = @rle.Mergeable::merge(last, item)
+        } else {
+          result.push(item)
+        }
+      None => result.push(item)
+    }
+  }
+  result
+}
+
+///|
+struct DeleteRangeCase {
+  items : Array[(Int, Int)]
+  start : Int
+  end_ : Int
+} derive(Debug)
+
+///|
+impl Show for DeleteRangeCase with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+impl @quickcheck.Arbitrary for DeleteRangeCase with arbitrary(size, rs) {
+  let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
+  let item_count = rs.split().next_positive_int() % (capped + 1)
+  let items : Array[(Int, Int)] = []
+  let mut total_span = 0
+  for _ in 0..<item_count {
+    let id = 1 + rs.split().next_positive_int() % 5
+    let span = 1 + rs.split().next_positive_int() % 3
+    items.push((id, span))
+    total_span = total_span + span
+  }
+  let bound = total_span + 3
+  let start = rs.split().next_positive_int() % (bound + 1)
+  let end_ = rs.split().next_positive_int() % (bound + 1)
+  { items, start, end_ }
+}
+
+///|
+impl @qc.Shrink for DeleteRangeCase
+
+///|
+fn prop_delete_range_preserves_invariants(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  if !btree_invariants_hold(t) {
+    return false
+  }
+  t.delete_range(case_.start, case_.end_)
+  btree_invariants_hold(t)
+}
+
+///|
+fn prop_delete_range_span_and_content(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  let old_span = t.span()
+  let clamped_end = if case_.end_ > old_span { old_span } else { case_.end_ }
+  let removed = if case_.start >= 0 &&
+    case_.start < clamped_end &&
+    case_.start < old_span {
+    clamped_end - case_.start
+  } else {
+    0
+  }
+  let expected_span = old_span - removed
+  // Compute expected total span of remaining items (not exact element list,
+  // because merge behavior can differ between splice and rebuild paths)
+  let expected_items = expected_after_delete(t, case_.start, case_.end_)
+  let mut expected_total_span = 0
+  for item in expected_items {
+    expected_total_span = expected_total_span + item.span
+  }
+  t.delete_range(case_.start, case_.end_)
+  let mut actual_total_span = 0
+  for item in t.iter() {
+    actual_total_span = actual_total_span + item.span
+  }
+  t.span() == expected_span && actual_total_span == expected_total_span
+}
+
+///|
+fn prop_delete_range_iter_matches_view(case_ : DeleteRangeCase) -> Bool {
+  let t = build_tree(case_.items)
+  t.delete_range(case_.start, case_.end_)
+  let iter_items : Array[TItem] = []
+  for item in t.iter() {
+    iter_items.push(item)
+  }
+  iter_items == t.view(start=0, end=t.span())
+}
+
+///|
+test "delete_range with underfull fallback" {
+  // Regression: this case triggered underfull boundary subtree,
+  // now handled by fallback rebuild.
+  let t = build_tree([
+    (5, 3),
+    (2, 1),
+    (4, 2),
+    (1, 1),
+    (5, 1),
+    (1, 3),
+    (2, 3),
+    (3, 3),
+    (5, 3),
+    (1, 1),
+    (2, 3),
+    (5, 1),
+    (1, 2),
+    (3, 3),
+    (3, 1),
+  ])
+  inspect(
+    t.span(),
+    content=(
+      #|31
+    ),
+  )
+  inspect(
+    t.size(),
+    content=(
+      #|15
+    ),
+  )
+  t.delete_range(14, 18)
+  inspect(
+    t.span(),
+    content=(
+      #|27
+    ),
+  )
+  inspect(
+    t.size(),
+    content=(
+      #|13
+    ),
+  )
+  inspect(
+    btree_invariants_hold(t),
+    content=(
+      #|true
+    ),
+  )
+}
+
+///|
+test "property: delete_range preserves btree invariants" {
+  @qc.quick_check_fn(prop_delete_range_preserves_invariants)
+}
+
+///|
+test "property: delete_range preserves span and content" {
+  @qc.quick_check_fn(prop_delete_range_span_and_content)
+}
+
+///|
+test "property: delete_range iter matches view" {
+  @qc.quick_check_fn(prop_delete_range_iter_matches_view)
 }

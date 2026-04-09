@@ -163,6 +163,16 @@ fn[T] BTreeNode::needs_rebalance(self : BTreeNode[T], min_degree : Int) -> Bool 
 }
 
 ///|
+/// Check if a node is underfull after a range splice (reactive, < min_degree).
+/// Different from needs_rebalance which uses <= min_degree (proactive, for descent).
+fn[T] BTreeNode::is_underfull(self : BTreeNode[T], min_degree : Int) -> Bool {
+  match self {
+    Leaf(..) => false
+    Internal(children~, ..) => children.length() < min_degree
+  }
+}
+
+///|
 fn[T] BTreeNode::can_lend(self : BTreeNode[T], min_degree : Int) -> Bool {
   match self {
     Leaf(..) => false
@@ -199,7 +209,7 @@ fn[T] ensure_min_children(
 /// Pre-delete hook: ensure the child we're about to descend into has
 /// > min_degree children, so a subsequent delete won't underflow.
 /// Tries borrow first (cheaper), falls back to merge.
-pub fn[T] prepare_ensure_min(
+fn[T] prepare_ensure_min(
   children : Array[BTreeNode[T]],
   counts : Array[Int],
   idx : Int,
@@ -212,7 +222,7 @@ pub fn[T] prepare_ensure_min(
 /// Pre-insert hook: proactively split full children before descending,
 /// so the insert never needs to backtrack. This is the top-down
 /// B-tree insert strategy (vs bottom-up split-and-propagate).
-pub fn[T] prepare_split(
+fn[T] prepare_split(
   children : Array[BTreeNode[T]],
   counts : Array[Int],
   idx : Int,
@@ -240,7 +250,7 @@ pub fn[T] prepare_split(
 /// 1. Before prepare — to identify which child to prepare
 /// 2. After prepare — because prepare (split/merge) may change indices
 /// This two-pass approach is why the first result's offset is discarded.
-pub fn[T] descend(
+fn[T] descend(
   node : BTreeNode[T],
   pos : Int,
   min_degree : Int,
@@ -287,10 +297,7 @@ pub fn[T] descend(
 }
 
 ///|
-pub fn[T] copy_path(
-  path : Array[PathFrame[T]],
-  keep : Int,
-) -> Array[PathFrame[T]] {
+fn[T] copy_path(path : Array[PathFrame[T]], keep : Int) -> Array[PathFrame[T]] {
   let copied : Array[PathFrame[T]] = Array::new(capacity=keep)
   for i in 0..<keep {
     copied.push(path[i])
@@ -299,7 +306,7 @@ pub fn[T] copy_path(
 }
 
 ///|
-pub fn[T] descend_leftmost(
+fn[T] descend_leftmost(
   node : BTreeNode[T],
   prefix : Array[PathFrame[T]],
 ) -> Cursor[T] {
@@ -326,7 +333,7 @@ pub fn[T] descend_leftmost(
 ///|
 /// Descend to the rightmost leaf, recording frames in the path.
 /// The returned cursor has offset == span (positioned at end of last leaf).
-pub fn[T] descend_rightmost(
+fn[T] descend_rightmost(
   node : BTreeNode[T],
   prefix : Array[PathFrame[T]],
 ) -> Cursor[T] {
@@ -352,7 +359,7 @@ pub fn[T] descend_rightmost(
 }
 
 ///|
-pub fn[T] cursor_next_leaf(cursor : Cursor[T]) -> Cursor[T]? {
+fn[T] cursor_next_leaf(cursor : Cursor[T]) -> Cursor[T]? {
   for depth in (cursor.path.length() - 1)>=..0 {
     let frame = cursor.path[depth]
     let next_idx = frame.child_idx + 1
@@ -370,7 +377,7 @@ pub fn[T] cursor_next_leaf(cursor : Cursor[T]) -> Cursor[T]? {
 }
 
 ///|
-pub fn[T] descend_leaf_at(
+fn[T] descend_leaf_at(
   node : BTreeNode[T],
   pos : Int,
   min_degree : Int,
@@ -382,7 +389,7 @@ pub fn[T] descend_leaf_at(
 }
 
 ///|
-pub fn[T] descend_leaf_at_end_boundary(
+fn[T] descend_leaf_at_end_boundary(
   node : BTreeNode[T],
   end_ : Int,
   min_degree : Int,

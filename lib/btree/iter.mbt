@@ -22,18 +22,22 @@ pub fn[T] BTree::to_array(self : BTree[T]) -> Array[T] {
 }
 
 ///|
-/// Eager iterator: materializes to_array() first. For streaming traversal
-/// without allocation, use each() or BTreeNode::each_slice_in_range().
+/// Lazy iterator: traverses leaves using cursor without allocating an array.
 pub fn[T] BTree::iter(self : BTree[T]) -> Iter[T] {
-  let arr = self.to_array()
-  let mut i = 0
-  Iter::new(fn() {
-    if i < arr.length() {
-      let elem = arr[i]
-      i = i + 1
-      Some(elem)
-    } else {
-      None
+  match self.root {
+    None => Iter::empty()
+    Some(root) => {
+      let mut cursor : Cursor[T]? = Some(descend_leftmost(root, []))
+      Iter::new(fn() {
+        match cursor {
+          None => None
+          Some(cur) => {
+            let elem = cur.leaf_elem
+            cursor = cursor_next_leaf(cur)
+            Some(elem)
+          }
+        }
+      })
     }
-  })
+  }
 }

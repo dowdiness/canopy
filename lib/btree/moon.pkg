@@ -2,3 +2,8 @@ import {
   "dowdiness/rle" @rle,
   "moonbitlang/core/debug" @debug,
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
