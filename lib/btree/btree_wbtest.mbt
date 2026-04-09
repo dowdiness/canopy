@@ -399,3 +399,14 @@ test "insert then delete roundtrip" {
   }
   inspect(t.is_empty(), content="true")
 }
+
+///|
+test "descend_rightmost returns rightmost leaf with end offset" {
+  let t = build_tree([(1, 3), (2, 2), (3, 4)])
+  let root = t.root.unwrap()
+  let cursor = descend_rightmost(root, [])
+  // Should be at the rightmost leaf (id=3, span=4) with offset=span
+  inspect(cursor.leaf_elem, content="{ id: 3, span: 4 }")
+  inspect(cursor.offset, content="4")
+  inspect(cursor.leaf_span, content="4")
+}
