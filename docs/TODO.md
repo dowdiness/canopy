@@ -544,7 +544,7 @@ Post-consolidation app inventory:
 - [ ] **Phase 2c: Range delete extraction** — move `walker_range_delete.mbt` to lib/btree (most/all 510 lines). Only `delete_range_needs_merge_rebuild` stays in order-tree.
   Also: add whitebox tests to lib/btree for `LeafContext::from_cursor`/neighbor access, `descend_leaf_at`/`descend_leaf_at_end_boundary` boundary semantics, ensure-min merge re-find, `propagate_node_splice` ancestor-count/overflow (test debt from Phase 2b cleanup).
 - [ ] **Phase 2d: API narrowing** — once order-tree fully migrates, make walker internals (descend, prepare_*, propagate, PathFrame, Cursor) private. Add `from_sorted` bulk constructor. Replace eager `BTree::iter` (materializes to_array) with lazy stack-based traversal using MoonBit's `Iter` yield protocol.
-- [ ] **event-graph-walker integration** — `impl @btree.BTreeElem for VisibleRun` (orphan-rule compliant, goes in egw).
+- [x] **event-graph-walker integration** — ✅ Done (egw PR #23). `impl @btree.BTreeElem for VisibleRun` in `internal/document/visible_run.mbt`.
 
 ---
 
