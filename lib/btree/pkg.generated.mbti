@@ -32,7 +32,7 @@ pub fn[T] propagate_node_splice(NodeSplice[T], Int) -> PropagateResult[T]
 // Errors
 
 // Types and methods
-pub struct BTree[T] {
+pub(all) struct BTree[T] {
   mut root : BTreeNode[T]?
   min_degree : Int
   mut size : Int
@@ -60,7 +60,7 @@ pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(Self[T], Int, Int, (T) -> U
 pub fn[T] BTreeNode::height(Self[T]) -> Int
 pub fn[T] BTreeNode::total(Self[T]) -> Int
 
-pub struct Cursor[T] {
+pub(all) struct Cursor[T] {
   path : Array[PathFrame[T]]
   leaf_elem : T
   leaf_span : Int
@@ -68,13 +68,13 @@ pub struct Cursor[T] {
   child_idx : Int
 } derive(@debug.Debug)
 
-pub struct FindResult[T] {
+pub(all) struct FindResult[T] {
   elem : T
   offset : Int
 } derive(Eq, @debug.Debug)
 pub impl[T : @debug.Debug] Show for FindResult[T]
 
-pub struct LeafContext[T] {
+pub(all) struct LeafContext[T] {
   elem : T
   span : Int
   offset : Int
@@ -85,7 +85,7 @@ pub fn[T] LeafContext::from_cursor(Cursor[T]) -> Self[T]
 pub fn[T] LeafContext::left_neighbor(Self[T]) -> T?
 pub fn[T] LeafContext::right_neighbor(Self[T]) -> T?
 
-pub struct LeafCursor[T] {
+pub(all) struct LeafCursor[T] {
   path : Array[PathFrame[T]]
   elem : T
   span : Int
@@ -93,7 +93,7 @@ pub struct LeafCursor[T] {
 } derive(@debug.Debug)
 pub fn[T] LeafCursor::from_cursor(Cursor[T]) -> Self[T]
 
-pub struct NodeSplice[T] {
+pub(all) struct NodeSplice[T] {
   prefix : Array[PathFrame[T]]
   children : Array[BTreeNode[T]]
   counts : Array[Int]
@@ -104,19 +104,19 @@ pub struct NodeSplice[T] {
   leaf_delta : Int
 }
 
-pub struct PathFrame[T] {
+pub(all) struct PathFrame[T] {
   children : Array[BTreeNode[T]]
   counts : Array[Int]
   child_idx : Int
 } derive(@debug.Debug)
 
-pub struct PropagateResult[T] {
+pub(all) struct PropagateResult[T] {
   node : BTreeNode[T]
   overflow : BTreeNode[T]?
   leaf_delta : Int
 }
 
-pub struct Splice[T] {
+pub(all) struct Splice[T] {
   start_idx : Int
   end_idx : Int
   new_leaves : Array[(T, Int)]

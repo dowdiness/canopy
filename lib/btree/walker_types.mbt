@@ -4,7 +4,7 @@
 // - propagation is the only phase that rewrites ancestors and handles splits
 
 ///|
-pub struct PathFrame[T] {
+pub(all) struct PathFrame[T] {
   children : Array[BTreeNode[T]]
   counts : Array[Int]
   child_idx : Int
@@ -12,7 +12,7 @@ pub struct PathFrame[T] {
 
 ///|
 /// A cursor pointing at a leaf together with its ancestor path.
-pub struct Cursor[T] {
+pub(all) struct Cursor[T] {
   path : Array[PathFrame[T]]
   leaf_elem : T
   leaf_span : Int
@@ -21,7 +21,7 @@ pub struct Cursor[T] {
 } derive(Debug)
 
 ///|
-pub struct LeafCursor[T] {
+pub(all) struct LeafCursor[T] {
   path : Array[PathFrame[T]]
   elem : T
   span : Int
@@ -41,7 +41,7 @@ priv struct AncestorRange[T] {
 }
 
 ///|
-pub struct NodeSplice[T] {
+pub(all) struct NodeSplice[T] {
   prefix : Array[PathFrame[T]]
   children : Array[BTreeNode[T]]
   counts : Array[Int]
@@ -54,7 +54,7 @@ pub struct NodeSplice[T] {
 
 ///|
 /// Read-only context passed to pure leaf splice computations.
-pub struct LeafContext[T] {
+pub(all) struct LeafContext[T] {
   elem : T
   span : Int
   offset : Int
@@ -63,14 +63,14 @@ pub struct LeafContext[T] {
 } derive(Debug)
 
 ///|
-pub struct Splice[T] {
+pub(all) struct Splice[T] {
   start_idx : Int
   end_idx : Int
   new_leaves : Array[(T, Int)]
 } derive(Debug)
 
 ///|
-pub struct PropagateResult[T] {
+pub(all) struct PropagateResult[T] {
   node : BTreeNode[T]
   overflow : BTreeNode[T]?
   leaf_delta : Int

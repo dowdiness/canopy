@@ -8,14 +8,14 @@ pub(all) enum BTreeNode[T] {
 } derive(Debug, Eq)
 
 ///|
-pub struct BTree[T] {
+pub(all) struct BTree[T] {
   mut root : BTreeNode[T]?
   min_degree : Int
   mut size : Int
 } derive(Debug, Eq)
 
 ///|
-pub struct FindResult[T] {
+pub(all) struct FindResult[T] {
   elem : T
   offset : Int
 } derive(Debug, Eq)
