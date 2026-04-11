@@ -73,6 +73,41 @@ jobs:
       - name: Check and test ${{ matrix.name }}
         run: ./scripts/run-moon-module.sh ci "${{ matrix.path }}"
 
+  prove:
+    name: Formal Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Set up OCaml and opam
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '5.3'
+
+      - name: Install Why3 and Z3
+        run: |
+          opam install why3.1.7.2 z3 --yes
+          eval $(opam env)
+          why3 config detect
+
+      - name: Update MoonBit dependencies
+        working-directory: lib/semantic/proof
+        run: moon update
+
+      - name: Run moon prove
+        working-directory: lib/semantic/proof
+        run: |
+          eval $(opam env)
+          moon prove
+
   benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-latest
@@ -288,6 +323,7 @@ jobs:
     needs:
       - test-main
       - test-submodules
+      - prove
       - format-check
       - build-js
       - web-build
@@ -299,6 +335,7 @@ jobs:
         run: |
           if [[ "${{ needs.test-main.result }}" != "success" ]] || \
              [[ "${{ needs.test-submodules.result }}" != "success" ]] || \
+             [[ "${{ needs.prove.result }}" != "success" ]] || \
              [[ "${{ needs.format-check.result }}" != "success" ]] || \
              [[ "${{ needs.build-js.result }}" != "success" ]] || \
              [[ "${{ needs.web-build.result }}" != "success" ]] || \
