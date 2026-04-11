@@ -196,29 +196,26 @@ fn fill_suppressed(
 ///|
 /// Build a reactive eval memo with incremental caching.
 ///
-/// Caches per-definition results. When only definition N changes,
-/// reuses cached results for definitions 0..N-1 and re-evaluates
-/// from N onward. This satisfies the "re-editing one binding only
-/// re-evaluates dependents" requirement.
+/// Two layers of incrementality:
+/// - **Inner (CachedDef):** prefix-reuse cache. When only definition N changes,
+///   reuses results for definitions 0..N-1 and re-evaluates from N onward.
+/// - **Outer (Memo::new backdating):** when the recomputed Array[EvalResult]
+///   is structurally equal to the previous one, the memo's changed_at timestamp
+///   is preserved, preventing downstream memos (escalation, projection) from
+///   recomputing unnecessarily.
 pub fn build_eval_memo(
   rt : @incr.Runtime,
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   parser : @loom.ImperativeParser[@ast.Term],
 ) -> @incr.Memo[Array[EvalResult]] {
   let cache : Ref[Array[CachedDef]] = Ref::new([])
-  let prev_results : Ref[Array[EvalResult]] = Ref::new([])
-  @incr.Memo::new_no_backdate(
+  @incr.Memo::new(
     rt,
     fn() -> Array[EvalResult] {
       let _ = syntax_tree.get()
       let ast = parser.get_tree().unwrap_or(@ast.Term::Unit)
       let (results, new_cache) = eval_term_cached(ast, cache.val)
-      // If cache unchanged (same reference), reuse previous results array
-      if physical_equal(new_cache, cache.val) && prev_results.val.length() > 0 {
-        return prev_results.val
-      }
       cache.val = new_cache
-      prev_results.val = results
       results
     },
     label="eval_memo",
