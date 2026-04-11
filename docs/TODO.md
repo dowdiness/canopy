@@ -111,9 +111,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Plan: (design doc no longer exists — work completed directly)
 - [x] **Interner tuple struct** — ✅ Done. Single-field wrapper unboxed on JS target (~4% faster in controlled benchmark). Committed.
 - [x] **NodeInterner → tuple struct** — ✅ Done. No measurable perf win (single-level HashMap, V8 optimizes away the dereference), but keeps consistency with Interner. Committed.
-- [ ] **Scan for other single-field wrapper structs on hot paths**
-  Why: any `struct Foo { field : T }` on a hot path pays wrapper + dereference cost on JS. Tuple struct eliminates both.
-  Exit: all single-field wrappers on parse/intern/build_tree paths are tuple structs.
+- ~~**Convert `EventBuffer` to tuple struct**~~ — Dropped. `EventBuffer` is allocated once per parse, not per token. Hot-path methods (`push`, `mark`, `start_at`) operate on the inner Array — wrapper shape doesn't affect cost. `NodeInterner` (higher call frequency) already showed no measurable win. `self.events` is clearer than `self.0` across 10+ methods.
 - [x] **Lexer accumulator cleanup: drop O(n²) string building** — ✅ Done (PR #70). Lambda and JSON lexers return position only, no string accumulation. Tokenize 15-17% faster for identifiers.
 - [x] **Remove `cst_token_matches` from LanguageSpec** — ✅ Done (PR #70). Framework handles token matching internally. Payload-free Token enums. Incremental parsing 8-19% faster.
 - [ ] **Markdown Token payload removal**
@@ -121,19 +119,13 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: markdown Token is payload-free where possible, semantic info extracted at point-of-use.
 - [x] **`TokenBuffer::get_view` helper** — ✅ Done. `TokenBuffer::get_view(self, i) -> StringView` exists in `loom/loom/src/core/token_buffer.mbt`. Production path (`factories.mbt`) already uses `buffer.get_view(i)`. Lambda/JSON `make_reuse_cursor` are test helpers operating on raw arrays, not production duplication.
 - [x] **Token::to_raw ↔ SyntaxKind::to_raw round-trip test** — ✅ Done. `token_rawkind_test.mbt` in both lambda and json verifies all Token/SyntaxKind pairs match.
-- [ ] **`SyntaxNode::find[K : ToRawKind]` generic method**
-  Why: every projection calls `node.find_token(SomeKind.to_raw())` — verbose and error-prone. A generic method on SyntaxNode accepts any `ToRawKind` type directly: `node.find(HeadingMarkerToken)`.
-  Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam. All projection `find_token(...to_raw())` calls migrated.
-- [ ] **`SyntaxNode::tokens()` method**
-  Why: `children()` returns child nodes only. Getting tokens requires `find_token()` (one at a time) or `all_children()` (mixed nodes + tokens). A `tokens()` method returns all direct child tokens in order.
-  Exit: `pub fn SyntaxNode::tokens(self) -> Array[SyntaxToken]` in seam.
-- [ ] **`SyntaxNode::content_range` method**
-  Why: every language projection computes "content range after prefix token" — heading text after `# `, list item text after `- `, code after fence. Each reimplements the same logic (find prefix token end, trim trailing newline, return Range). Markdown's `set_content_span`, lambda's heading span, JSON's member span all do this.
-  Exit: `pub fn SyntaxNode::content_range(self, skip_prefix~ : RawKind?, skip_suffix~ : RawKind?) -> Range` in seam. Languages call `node.content_range(skip_prefix=HeadingMarkerToken.to_raw())`.
+- [ ] **`SyntaxNode::find[K : ToRawKind]` generic method** (low priority)
+  Why: 16 `find_token(...to_raw())` callsites remain, but views pattern + `token_text()` already reduce the ergonomic pain. Nice-to-have polish.
+  Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam.
+- [x] **`SyntaxNode::tokens()` method** — ✅ Done. `seam/syntax_node.mbt:306`. Returns all direct child leaf tokens via `walk_children_flat`.
+- ~~**`SyntaxNode::content_range` method**~~ — Dropped. Actual projection patterns use `all_children()` state machines (markdown) or `token_text()` (JSON), not simple prefix-skipping. `tight_span()` already covers the trivia-exclusion case. Proposed signature doesn't match ground truth.
 - [x] **`SourceMap::set_span_from_token` convenience method** — ✅ Done. `core/source_map.mbt`. Lambda and Markdown migrated.
-- [ ] **Generic parallel tree walk for `populate_token_spans`**
-  Why: every language's `populate_token_spans` walks syntax nodes + proj nodes in parallel with `min(len_a, len_b)` + index loop. Document, UnorderedList (markdown), Object, Array (JSON), Module (lambda) all use the same pattern.
-  Exit: `pub fn core.walk_parallel(syntax_children, proj_children, fn(SyntaxNode, ProjNode[T]))` or similar. Eliminates the collect + min + loop boilerplate.
+- ~~**Generic parallel tree walk for `populate_token_spans`**~~ — Dropped. `build_projection_memos` already captured the main duplication. Remaining `min(len_a, len_b)` pattern only fits markdown (Document, UnorderedList) and JSON Array. JSON Object uses selective filtering; lambda dispatches by expression type. ~10 lines saved across codebase — not worth a new public API.
 - [x] **Generic 3-memo projection builder** — ✅ Done. `core/projection_memo.mbt` provides `build_projection_memos[T]`. JSON and Markdown migrated.
 - [x] **`SourceMap::set_span_from_token` convenience method** — ✅ Done. `core/source_map.mbt`. Lambda and Markdown migrated.
 - [ ] **`lib/range` foundational package**
@@ -456,7 +448,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 - [ ] **Archive `examples/rabbita/`** — superseded by `examples/ideal/`. Move to `docs/archive/` or remove.
   Exit: `rabbita/` removed from active tree, no broken references.
-- [ ] **Migrate `demo-react/` E2E + features to `web/`** — add Playwright to `web/`, port `e2e/single-editor.spec.ts` and `e2e/collaborative-demo.spec.ts`, migrate any React-only features.
+- [ ] **Migrate `demo-react/` E2E + features to `web/`** — ~~add Playwright to `web/`~~ (done, PR #145: 6 lambda + 10 JSON + 12 markdown = 28 tests). Remaining: port `e2e/single-editor.spec.ts` and `e2e/collaborative-demo.spec.ts`, migrate any React-only features.
   Why: `web/` is the canonical lightweight demo (vanilla JS, shows EditorProtocol directly). `demo-react/` duplicates it in React.
   Exit: `web/` has Playwright E2E covering lambda + JSON editors; `demo-react/` retired.
 - [ ] **Retire `demo-react/`** — remove after migration complete.

@@ -50,8 +50,6 @@ test.describe('JSON Editor — Foundation', () => {
 
   test('example buttons populate editor and tree', async ({ page }) => {
     const examples = ['Simple', 'Object', 'Array', 'Nested'];
-    let prevCount = await treeNodeCount(page);
-
     for (const name of examples) {
       await loadExample(page, name);
       const text = await page.locator('#json-input').textContent();
@@ -97,11 +95,9 @@ test.describe('JSON Editor — Ad-hoc', () => {
     // Select array root and add element
     await page.locator('.node-row').first().click();
     await page.locator('#add-element-btn').click();
-    await page.waitForTimeout(300);
 
     // Tree should have more nodes
-    const countAfter = await treeNodeCount(page);
-    expect(countAfter).toBeGreaterThan(countBefore);
+    await expect(page.locator('.node-row')).toHaveCount(countBefore + 1, { timeout: 5000 });
 
     // Text should have changed
     const textAfter = await page.locator('#json-input').textContent();
@@ -121,12 +117,10 @@ test.describe('JSON Editor — Ad-hoc', () => {
     const countBefore = await treeNodeCount(page);
     await page.locator('#toolbar-inline-input').fill('newkey');
     await page.locator('#toolbar-inline-submit').click();
-    await page.waitForTimeout(300);
 
     // Form hides, tree gains a member
     await expect(page.locator('#toolbar-inline-form')).not.toBeVisible();
-    const countAfter = await treeNodeCount(page);
-    expect(countAfter).toBeGreaterThan(countBefore);
+    await expect(page.locator('.node-row')).toHaveCount(countBefore + 1, { timeout: 5000 });
 
     // Open form again, cancel with Escape
     await page.locator('.node-row').first().click();
@@ -136,8 +130,7 @@ test.describe('JSON Editor — Ad-hoc', () => {
     await expect(page.locator('#toolbar-inline-form')).not.toBeVisible();
 
     // Node count unchanged after cancel
-    const countFinal = await treeNodeCount(page);
-    expect(countFinal).toBe(countAfter);
+    await expect(page.locator('.node-row')).toHaveCount(countBefore + 1);
   });
 
   test('parse error lifecycle', async ({ page }) => {
@@ -148,20 +141,17 @@ test.describe('JSON Editor — Ad-hoc', () => {
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Backspace');
     await page.keyboard.type('{bad');
-    await page.waitForTimeout(300);
 
     // Errors should appear
-    const errorCount = await page.locator('#parse-errors .error-item').count();
-    expect(errorCount).toBeGreaterThan(0);
+    await expect(page.locator('#parse-errors .error-item').first()).toBeVisible();
 
     // Fix the input
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Backspace');
     await page.keyboard.type('{"ok": 1}');
-    await page.waitForTimeout(300);
 
     // Errors should clear
-    expect(await page.locator('#parse-errors .error-item').count()).toBe(0);
+    await expect(page.locator('#parse-errors .error-item')).toHaveCount(0);
   });
 
   test('example switching resets state', async ({ page }) => {
@@ -171,7 +161,7 @@ test.describe('JSON Editor — Ad-hoc', () => {
     await page.locator('#add-member-btn').click();
     await page.locator('#toolbar-inline-input').fill('extra');
     await page.locator('#toolbar-inline-submit').click();
-    await page.waitForTimeout(300);
+    await expect(page.locator('#toolbar-inline-form')).not.toBeVisible();
 
     const editedText = await page.locator('#json-input').textContent();
 
