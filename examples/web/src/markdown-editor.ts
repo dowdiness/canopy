@@ -75,7 +75,7 @@ function refresh(): void {
 }
 
 function syncRawFromModel(): void {
-  const text = crdt.markdown_get_text(handle);
+  const text = crdt.markdown_export_text(handle);
   if (rawEditor.value !== text) rawEditor.value = text;
 }
 
