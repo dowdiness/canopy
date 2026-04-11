@@ -3,7 +3,7 @@
 
 ///|
 test "SyncEditor: error recovery - invalid to valid syntax" {
-  let editor = SyncEditor::new_lambda("agent1")
+  let editor = @lambda.new_lambda_editor("agent1").0
 
   // Start with valid syntax
   try! editor.insert("x")
@@ -23,7 +23,7 @@ test "SyncEditor: error recovery - invalid to valid syntax" {
 
 ///|
 test "SyncEditor: error recovery - multiple edits" {
-  let editor = SyncEditor::new_lambda("agent2")
+  let editor = @lambda.new_lambda_editor("agent2").0
 
   // Type: λx.
   try! editor.insert("λx.")
@@ -48,7 +48,7 @@ test "SyncEditor: error recovery - multiple edits" {
 
 ///|
 test "SyncEditor: incremental parser is used" {
-  let editor = SyncEditor::new_lambda("agent3")
+  let editor = @lambda.new_lambda_editor("agent3").0
 
   // Insert some text
   try! editor.insert("λf.λx.f x")

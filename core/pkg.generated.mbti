@@ -33,6 +33,12 @@ pub(all) enum Direction {
   Right
 } derive(@debug.Debug)
 
+pub(all) enum DropPosition {
+  Before
+  After
+  Inside
+} derive(Eq, @debug.Debug)
+
 pub(all) enum FocusHint {
   RestoreCursor
   MoveCursor(position~ : Int)

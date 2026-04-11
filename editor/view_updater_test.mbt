@@ -2,14 +2,14 @@
 
 ///|
 test "get_view_tree returns None for empty editor" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   let tree = editor.get_view_tree()
   assert_true(tree is None)
 }
 
 ///|
 test "get_view_tree returns ViewNode for non-empty editor" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
   let tree = editor.get_view_tree()
   assert_true(tree is Some(_))
@@ -20,7 +20,7 @@ test "get_view_tree returns ViewNode for non-empty editor" {
 
 ///|
 test "initial state produces FullTree patch" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
   let state = @editor.ViewUpdateState::new()
   let patches = @editor.compute_view_patches(state, editor)
@@ -38,7 +38,7 @@ test "initial state produces FullTree patch" {
 
 ///|
 test "unchanged tree produces no tree patches" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
   let state = @editor.ViewUpdateState::new()
   // First call: FullTree
@@ -64,19 +64,22 @@ test "unchanged tree produces no tree patches" {
 
 ///|
 test "single character edit produces UpdateNode for changed leaf" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("1")
   let state = @editor.ViewUpdateState::new()
   let _ = @editor.compute_view_patches(state, editor)
   // Change "1" to "2"
   editor.set_text("2")
   let patches = @editor.compute_view_patches(state, editor)
-  // Should contain an UpdateNode (label changed from "1" to "2")
+  // Should contain an UpdateNode or ReplaceNode reflecting the new value "2".
+  // With language capabilities providing eval annotations, annotation changes
+  // may cause ReplaceNode instead of UpdateNode.
   let has_update = patches
     .iter()
     .any(fn(p) {
       match p {
         @protocol.ViewPatch::UpdateNode(label~, ..) => label == "2"
+        @protocol.ViewPatch::ReplaceNode(node~, ..) => node.label == "2"
         _ => false
       }
     })
@@ -85,7 +88,7 @@ test "single character edit produces UpdateNode for changed leaf" {
 
 ///|
 test "structural edit produces ReplaceNode" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let state = @editor.ViewUpdateState::new()
   let _ = @editor.compute_view_patches(state, editor)
@@ -106,7 +109,7 @@ test "structural edit produces ReplaceNode" {
 
 ///|
 test "diagnostics are emitted for parse errors" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x +")
   let state = @editor.ViewUpdateState::new()
   let patches = @editor.compute_view_patches(state, editor)
@@ -125,7 +128,7 @@ test "diagnostics are emitted for parse errors" {
 
 ///|
 test "diagnostics are cleared when parse succeeds" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x +")
   let state = @editor.ViewUpdateState::new()
   let _ = @editor.compute_view_patches(state, editor)
@@ -147,7 +150,7 @@ test "diagnostics are cleared when parse succeeds" {
 
 ///|
 test "child insertion detected" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nx")
   let state = @editor.ViewUpdateState::new()
   let _ = @editor.compute_view_patches(state, editor)
@@ -169,7 +172,7 @@ test "child insertion detected" {
 
 ///|
 test "child removal detected" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nx")
   let state = @editor.ViewUpdateState::new()
   let _ = @editor.compute_view_patches(state, editor)
@@ -191,7 +194,7 @@ test "child removal detected" {
 
 ///|
 test "proj_to_view_node converts a simple ProjNode tree" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
   let proj_node = editor.get_proj_node().unwrap()
   let source_map = editor.get_source_map()
@@ -207,7 +210,7 @@ test "proj_to_view_node converts a simple ProjNode tree" {
 
 ///|
 test "proj_to_view_node node_count for 10 defs" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   let segments : Array[String] = []
   for i = 0; i < 10; i = i + 1 {
     segments.push("let f\{i} = \\x.x + \{i}")
@@ -225,7 +228,7 @@ test "proj_to_view_node node_count for 10 defs" {
 
 ///|
 test "FullTree emitted when tree appears from empty" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   let state = @editor.ViewUpdateState::new()
   // Empty editor — no tree
   let patches1 = @editor.compute_view_patches(state, editor)

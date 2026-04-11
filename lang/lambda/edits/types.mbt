@@ -22,15 +22,6 @@ using @lambda_proj {
 using @loomcore {trait Renderable}
 
 ///|
-/// Drop position for drag-and-drop operations
-pub(all) enum DropPosition {
-  /// Insert before the target
-  Before
-  /// Insert after the target
-  After
-  /// Insert as a child of the target
-  Inside
-} derive(Debug, Eq)
 
 ///|
-pub using @core {type FocusHint}
+pub using @core {type DropPosition, type FocusHint}

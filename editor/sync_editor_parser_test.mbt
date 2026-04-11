@@ -2,36 +2,36 @@
 
 ///|
 test "parser: initial parse produces AST" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("42")
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast), content="42")
 }
 
 ///|
 test "parser: edit updates AST" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("42")
-  inspect(@ast.print_term(se.get_ast()), content="42")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="42")
   se.set_text("λx.x")
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast), content="(λx. x)")
 }
 
 ///|
 test "parser: empty source clears AST" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("42")
-  inspect(@ast.print_term(se.get_ast()), content="42")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="42")
   se.set_text("")
   // Empty source should yield Unit (the fallback)
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast), content="()")
 }
 
 ///|
 test "parser: parse errors reported" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("λ.x")
   let errors = se.get_errors()
   inspect(errors.is_empty(), content="false")
@@ -39,7 +39,7 @@ test "parser: parse errors reported" {
 
 ///|
 test "parser: valid source has no errors" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("λx.x")
   inspect(se.is_parse_valid(), content="true")
   inspect(se.get_errors().is_empty(), content="true")
@@ -47,36 +47,39 @@ test "parser: valid source has no errors" {
 
 ///|
 test "parser: mark_dirty forces reparse" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("42")
-  let ast1 = se.get_ast()
+  let ast1 = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast1), content="42")
   se.mark_dirty()
-  let ast2 = se.get_ast()
+  let ast2 = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast2), content="42")
 }
 
 ///|
 test "parser: get_ast_pretty contains expression" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("42")
-  let pretty = se.get_ast_pretty()
+  let pretty = @lambda.get_lambda_ast_pretty(se)
   inspect(pretty.contains("42"), content="true")
   inspect(pretty.contains("Expression:"), content="true")
 }
 
 ///|
 test "parser: complex expression parses correctly" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("λf.λx.f x")
-  inspect(@ast.print_term(se.get_ast()), content="(λf. (λx. (f x)))")
+  inspect(
+    @ast.print_term(@lambda.get_lambda_ast(se)),
+    content="(λf. (λx. (f x)))",
+  )
 }
 
 ///|
 test "parser: let binding with body" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("let x = 1\nx + 2")
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(
     @ast.print_term(ast),
     content=(
@@ -88,50 +91,53 @@ test "parser: let binding with body" {
 
 ///|
 test "parser: if-then-else expression" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("if x then 1 else 2")
-  inspect(@ast.print_term(se.get_ast()), content="if x then 1 else 2")
+  inspect(
+    @ast.print_term(@lambda.get_lambda_ast(se)),
+    content="if x then 1 else 2",
+  )
 }
 
 ///|
 test "parser: arithmetic addition" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("1 + 2 + 3")
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast), content="((1 + 2) + 3)")
 }
 
 ///|
 test "parser: empty source has no errors" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("")
   inspect(se.get_errors().is_empty(), content="true")
 }
 
 ///|
 test "parser: resolution tracks bound and free variables" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("λx.x + y")
-  let res = se.get_resolution()
+  let res = @lambda.get_lambda_resolution(se)
   // Verify resolution is populated (bound x, free y)
   inspect(res.vars.length() > 0, content="true")
 }
 
 ///|
 test "parser: successive edits maintain consistency" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("1")
-  inspect(@ast.print_term(se.get_ast()), content="1")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="1")
   se.set_text("1 + 2")
-  inspect(@ast.print_term(se.get_ast()), content="(1 + 2)")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="(1 + 2)")
   se.set_text("1 + 2 + 3")
-  inspect(@ast.print_term(se.get_ast()), content="((1 + 2) + 3)")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="((1 + 2) + 3)")
 }
 
 ///|
 test "sync: export and apply roundtrip" {
-  let a = SyncEditor::new_lambda("agent-a")
-  let b = SyncEditor::new_lambda("agent-b")
+  let a = @lambda.new_lambda_editor("agent-a").0
+  let b = @lambda.new_lambda_editor("agent-b").0
   try! a.insert("h")
   try! a.insert("e")
   try! a.insert("l")
@@ -144,8 +150,8 @@ test "sync: export and apply roundtrip" {
 
 ///|
 test "sync: export_since for incremental sync" {
-  let a = SyncEditor::new_lambda("agent-a")
-  let b = SyncEditor::new_lambda("agent-b")
+  let a = @lambda.new_lambda_editor("agent-a").0
+  let b = @lambda.new_lambda_editor("agent-b").0
   // Initial content
   try! a.insert("x")
   try! b.apply_sync(try! a.export_all())
@@ -164,8 +170,8 @@ test "sync: export_since for incremental sync" {
 
 ///|
 test "sync: bidirectional sync converges" {
-  let a = SyncEditor::new_lambda("agent-a")
-  let b = SyncEditor::new_lambda("agent-b")
+  let a = @lambda.new_lambda_editor("agent-a").0
+  let b = @lambda.new_lambda_editor("agent-b").0
   try! a.insert("a")
   try! b.insert("b")
   // Sync both ways
@@ -177,27 +183,28 @@ test "sync: bidirectional sync converges" {
 
 ///|
 test "sync: AST consistent after sync" {
-  let a = SyncEditor::new_lambda("agent-a")
-  let b = SyncEditor::new_lambda("agent-b")
+  let a = @lambda.new_lambda_editor("agent-a").0
+  let b = @lambda.new_lambda_editor("agent-b").0
   a.set_text("λx.x")
   try! b.apply_sync(try! a.export_all())
   // Both editors should parse to the same AST
   inspect(
-    @ast.print_term(a.get_ast()) == @ast.print_term(b.get_ast()),
+    @ast.print_term(@lambda.get_lambda_ast(a)) ==
+    @ast.print_term(@lambda.get_lambda_ast(b)),
     content="true",
   )
 }
 
 ///|
 test "sync: empty export_all for empty editor" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   let msg = try! se.export_all()
   inspect(msg.op_count() == 0, content="true")
 }
 
 ///|
 test "sync: version advances after insert" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   let v1 = se.get_version()
   try! se.insert("x")
   let v2 = se.get_version()

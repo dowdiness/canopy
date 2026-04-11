@@ -45,7 +45,7 @@ test "compute_highlight_set for non-identifier returns empty set" {
 
 ///|
 test "clicking f does not highlight apply var (no module/lambda scope confusion)" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text(
     "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
   )
@@ -71,7 +71,7 @@ test "clicking f does not highlight apply var (no module/lambda scope confusion)
 
 ///|
 test "nested block: inner x does not highlight outer x" {
-  let editor = @editor.SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text(
     "let x = 0\nlet y = { let x = 1\n  x }\nx",
   )

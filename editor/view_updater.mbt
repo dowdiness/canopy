@@ -21,63 +21,21 @@ pub fn[T : @proj.Renderable] SyncEditor::get_view_tree(
     Some(proj_node) => {
       let source_map = self.get_source_map()
       let source_text = Some(self.get_text())
-      Some(@protocol.proj_to_view_node(proj_node, source_map, source_text~))
-    }
-    None => None
-  }
-}
-
-///|
-/// Lambda-specific: returns ViewNode tree with eval annotations.
-pub fn SyncEditor::get_view_tree_with_eval(
-  self : SyncEditor[@ast.Term],
-) -> @protocol.ViewNode? {
-  match self.get_proj_node() {
-    Some(proj_node) => {
-      let source_map = self.get_source_map()
-      let annotations = self.get_eval_annotations()
-      Some(@protocol.proj_to_view_node(proj_node, source_map, annotations~))
-    }
-    None => None
-  }
-}
-
-///|
-/// Lambda-specific: compute view patches with eval annotations.
-pub fn compute_view_patches_with_eval(
-  state : ViewUpdateState,
-  editor : SyncEditor[@ast.Term],
-) -> Array[@protocol.ViewPatch] {
-  let patches : Array[@protocol.ViewPatch] = []
-  let current = editor.get_view_tree_with_eval()
-  match (state.previous, current) {
-    (None, None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
-    (None, Some(curr)) =>
-      patches.push(@protocol.ViewPatch::FullTree(root=Some(curr)))
-    (Some(_), None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
-    (Some(prev), Some(curr)) => diff_view_nodes(prev, curr, patches)
-  }
-  let errors = editor.get_errors()
-  if errors.length() > 0 {
-    let diagnostics : Array[@protocol.Diagnostic] = []
-    for error in errors {
-      diagnostics.push(
-        @protocol.Diagnostic(
-          from=0,
-          to=0,
-          severity=@protocol.SevError,
-          message=error,
+      let annotations = match self.capabilities.get_annotations {
+        Some(get_ann) => get_ann()
+        None => {}
+      }
+      Some(
+        @protocol.proj_to_view_node(
+          proj_node,
+          source_map,
+          source_text~,
+          annotations~,
         ),
       )
     }
-    patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
-    state.had_errors = true
-  } else if state.had_errors {
-    patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics=[]))
-    state.had_errors = false
+    None => None
   }
-  state.previous = current
-  patches
 }
 
 ///|

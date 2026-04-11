@@ -35,6 +35,18 @@ pub using @lambda_edits {
 }
 
 ///|
+pub using @lambda_companion {
+  type LambdaCompanion,
+  new_lambda_editor,
+  apply_lambda_tree_edit,
+  get_lambda_ast,
+  get_lambda_ast_pretty,
+  get_lambda_resolution,
+  get_lambda_dot_resolved,
+  parse_tree_edit_op,
+}
+
+///|
 pub using @lambda_flat {type VersionedFlatProj, build_lambda_projection_memos}
 
 ///|

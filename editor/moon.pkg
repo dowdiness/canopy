@@ -3,15 +3,12 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/event-graph-walker/undo",
   "dowdiness/incr" @incr,
-  "dowdiness/lambda" @parser,
-  "dowdiness/lambda/ast" @ast,
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
   "dowdiness/seam",
   "dowdiness/pretty" @pretty,
   "dowdiness/canopy/projection" @proj,
   "dowdiness/canopy/protocol" @protocol,
-  "dowdiness/canopy/lang/lambda" @lambda,
   "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
@@ -25,7 +22,16 @@ import {
 
 import {
   "moonbitlang/quickcheck" @qc,
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast" @ast,
+  "dowdiness/canopy/lang/lambda" @lambda,
 } for "test"
+
+import {
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast" @ast,
+  "dowdiness/canopy/lang/lambda" @lambda,
+} for "wbtest"
 
 options(
   is_main: false,
