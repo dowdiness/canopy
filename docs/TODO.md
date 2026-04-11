@@ -177,6 +177,7 @@ Tracked by:
 - [x] **Memo Eq backdating cost** — ✅ Done. `BackdateEq` trait added to `loom/incr`; `Memo::new_memo` (uses `BackdateEq`, O(1) revision stamp) and `Memo::new_no_backdate` constructors added. `editor/projection_memo.mbt`: `proj_memo` uses `new_memo` with `VersionedFlatProj : BackdateEq`; `registry_memo` and `source_map_memo` use `new_no_backdate`. Per-benchmark: ~0.5–1ms savings at 1000 defs — real but modest.
 - [ ] Implement lazy loading for 100k+ operation documents (load causal graph skeleton, hydrate on demand)
 - [ ] Add B-tree indexing for FugueTree (O(n) → O(log n) random-access character lookup)
+- [ ] **Cheaper `FugueTree::lv_to_position`** — Current impl allocates full visible-items array then linearly scans. Replace with tree walk that counts visible items and exits early when target LV found. No allocation, O(n/2) average. ~20 lines in `event-graph-walker/internal/fugue/tree.mbt`. Bottleneck for incremental remote cache updates (each remote insert calls this).
 - [x] **Generic tree libraries** — Extract reusable tree libraries from existing code.
   Why: ProjNode is a rose tree, OrderTree is a B-tree. Both are generic in `T` without codegen (McBride 2001). Supersedes the `zipper-gen` codegen plan.
   Libraries:
