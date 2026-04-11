@@ -551,7 +551,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(s) =>
           match parse_node_id(s) {
             Some(nid) =>
-              model.outline_state.apply_edit(@core.GenericTreeOp::Select(node_id=nid))
+              model.outline_state.apply_edit(@canopy_core.GenericTreeOp::Select(node_id=nid))
             None => return (none, model)
           }
         None => model.outline_state
@@ -598,7 +598,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             .innermost_node_at(new_model.editor.get_cursor()) {
             Some(nid) => {
               let os = new_model.outline_state.apply_edit(
-                @core.GenericTreeOp::Select(node_id=nid),
+                @canopy_core.GenericTreeOp::Select(node_id=nid),
               )
               (Some(node_id_to_string(nid)), os)
             }
