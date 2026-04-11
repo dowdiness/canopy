@@ -86,6 +86,7 @@ options(
         "create_markdown_editor",
         "destroy_markdown_editor",
         "markdown_get_text",
+        "markdown_export_text",
         "markdown_set_text",
         "markdown_compute_view_patches_json",
         "markdown_apply_edit",
