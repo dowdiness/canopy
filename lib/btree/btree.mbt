@@ -127,14 +127,6 @@ pub fn[T : BTreeElem] BTree::delete_range(
   match plan_delete_range(root, start, clamped_end, self.min_degree) {
     None => ()
     Some(splice) => {
-      // Check if any new_children contain underfull internal descendants.
-      // rebuild_boundary_chain_optional can produce these when the boundary
-      // subtree doesn't have enough material for valid B-tree nodes.
-      // Fall back to O(n) rebuild in that case.
-      if splice_has_underfull_descendants(splice.new_children, self.min_degree) {
-        self.delete_range_rebuild(root, start, clamped_end)
-        return
-      }
       let propagated = propagate_node_splice(splice, self.min_degree)
       // Skip root normalization here — we normalize after boundary merge
       self.apply_propagated(propagated, normalize_delete=false)
@@ -150,80 +142,6 @@ pub fn[T : BTreeElem] BTree::delete_range(
       }
     }
   }
-}
-
-///|
-/// Check if any node in the array has underfull internal descendants.
-fn[T] splice_has_underfull_descendants(
-  nodes : Array[BTreeNode[T]],
-  min_degree : Int,
-) -> Bool {
-  for node in nodes {
-    if node_has_underfull(node, min_degree, false) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn[T] node_has_underfull(
-  node : BTreeNode[T],
-  min_degree : Int,
-  is_root : Bool,
-) -> Bool {
-  match node {
-    Leaf(..) => false
-    Internal(children~, ..) => {
-      if !is_root && children.length() < min_degree {
-        return true
-      }
-      for child in children {
-        if node_has_underfull(child, min_degree, false) {
-          return true
-        }
-      }
-      false
-    }
-  }
-}
-
-///|
-/// Fallback: collect surviving leaves and rebuild from scratch.
-fn[T : BTreeElem] BTree::delete_range_rebuild(
-  self : BTree[T],
-  root : BTreeNode[T],
-  start : Int,
-  end_ : Int,
-) -> Unit {
-  let kept : Array[T] = []
-  root.each_slice_in_range(0, start, fn(elem) { kept.push(elem) })
-  root.each_slice_in_range(end_, root.total(), fn(elem) { kept.push(elem) })
-  // Merge adjacent items
-  let merged : Array[T] = []
-  for item in kept {
-    match merged.last() {
-      Some(last) =>
-        if @rle.Mergeable::can_merge(last, item) {
-          merged[merged.length() - 1] = @rle.Mergeable::merge(last, item)
-        } else {
-          merged.push(item)
-        }
-      None => merged.push(item)
-    }
-  }
-  if merged is [] {
-    self.root = None
-    self.size = 0
-    return
-  }
-  // Rebuild tree from merged leaves using O(n) bulk constructor
-  let items : Array[(T, Int)] = merged.map(fn(elem) {
-    (elem, @rle.Spanning::span(elem))
-  })
-  let rebuilt : BTree[T] = BTree::from_sorted(items, min_degree=self.min_degree)
-  self.root = rebuilt.root
-  self.size = rebuilt.size
 }
 
 ///|

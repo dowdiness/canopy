@@ -198,6 +198,8 @@ fn[T] propagate_node_splice(
   splice : NodeSplice[T],
   min_degree : Int,
 ) -> PropagateResult[T] {
+  let insert_count = splice.new_children.length()
+  let insert_start = splice.start_idx
   apply_node_splice(
     splice.children,
     splice.counts,
@@ -205,6 +207,27 @@ fn[T] propagate_node_splice(
     splice.end_idx,
     splice.new_children,
   )
+  // Repair underfull boundary subtree roots at their insertion positions.
+  // Chain repair fixes internal underfull descendants, but the root itself
+  // may still be underfull and needs material from adjacent LCA children.
+  // Only triggers for range-delete boundary subtrees — leaves and valid
+  // internals pass the is_underfull check as no-ops.
+  let mut pos = insert_start
+  for _ in 0..<insert_count {
+    // Loop: one borrow isn't enough for min_degree > 2 when boundary
+    // root is heavily underfull. Keep repairing until valid or merged.
+    while pos < splice.children.length() &&
+      splice.children[pos].is_underfull(min_degree) &&
+      splice.children.length() > 1 {
+      let len_before = splice.children.length()
+      ensure_min_after_splice(splice.children, splice.counts, pos, min_degree)
+      if splice.children.length() < len_before {
+        // Merge removed a sibling — break inner loop, re-check in outer
+        break
+      }
+    }
+    pos += 1
+  }
   let (initial_node, initial_overflow) = maybe_split(
     splice.children,
     splice.counts,

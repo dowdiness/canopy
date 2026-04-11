@@ -111,6 +111,8 @@ pub fn markdown_apply_edit(Int, String, Int, String, Int, Int) -> String
 
 pub fn markdown_compute_view_patches_json(Int) -> String
 
+pub fn markdown_export_text(Int) -> String
+
 pub fn markdown_get_text(Int) -> String
 
 pub fn markdown_set_text(Int, String) -> Unit

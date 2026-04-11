@@ -444,14 +444,28 @@ fn[T : BTreeElem] plan_delete_range(
       }
       let new_children : Array[BTreeNode[T]] = []
       match merged_boundary_subtree(lca, start_leaf, end_leaf) {
-        Some(merged) => new_children.push(merged)
+        Some(merged) => {
+          let target_depth = lca.prefix.length()
+          let left_suffix = path_suffix_after_target(
+            start_leaf.path,
+            target_depth,
+          )
+          let boundary_indices = left_suffix.map(fn(frame) {
+            frame.child_idx
+          })
+          new_children.push(
+            repair_at_boundary(merged, Explicit(boundary_indices), 0, min_degree),
+          )
+        }
         None => {
           match left_boundary_subtree(lca, start_leaf) {
-            Some(left) => new_children.push(left)
+            Some(left) =>
+              new_children.push(repair_at_boundary(left, Left, 0, min_degree))
             None => ()
           }
           match right_boundary_subtree(lca, end_leaf) {
-            Some(right) => new_children.push(right)
+            Some(right) =>
+              new_children.push(repair_at_boundary(right, Right, 0, min_degree))
             None => ()
           }
         }

@@ -108,3 +108,41 @@ test "bench: build via inserts (10000)" (b : @bench.T) {
 test "bench: build via from_sorted (10000)" (b : @bench.T) {
   b.bench(fn() { b.keep(build_via_from_sorted(10000, 10).span()) })
 }
+
+// === delete_range ===
+
+///|
+test "bench: delete_range middle 10% (1000)" (b : @bench.T) {
+  b.bench(fn() {
+    let t = build_via_from_sorted(1000, 10)
+    t.delete_range(450, 550)
+    b.keep(t.span())
+  })
+}
+
+///|
+test "bench: delete_range middle 50% (1000)" (b : @bench.T) {
+  b.bench(fn() {
+    let t = build_via_from_sorted(1000, 10)
+    t.delete_range(250, 750)
+    b.keep(t.span())
+  })
+}
+
+///|
+test "bench: delete_range middle 10% (10000)" (b : @bench.T) {
+  b.bench(fn() {
+    let t = build_via_from_sorted(10000, 10)
+    t.delete_range(4500, 5500)
+    b.keep(t.span())
+  })
+}
+
+///|
+test "bench: delete_range middle 50% (10000)" (b : @bench.T) {
+  b.bench(fn() {
+    let t = build_via_from_sorted(10000, 10)
+    t.delete_range(2500, 7500)
+    b.keep(t.span())
+  })
+}
