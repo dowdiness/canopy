@@ -263,6 +263,9 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 - [x] Split `projection/text_edit.mbt` (1,348 lines) into focused modules — ✅ Done. Split into `text_edit.mbt` (1,064), `text_edit_rename.mbt` (231), `text_edit_utils.mbt` (51)
 - [x] Decompose `text_edit.mbt` into handler chain — ✅ Done (PR #54). 1,064-line match → 96-line router + 8 handler files + `EditMiddleware` trait. Shared helpers extracted (`find_def_index`, `binding_delete_range`). Bug fixes: move-binding scoping, cursor positions, defensive guards.
 - [x] Split `editor/ephemeral_hub.mbt` (19 methods) into focused files — ✅ Done. Split into `ephemeral_hub.mbt` (core), `ephemeral_hub_state.mbt` (typed writes), `ephemeral_hub_readers.mbt` (typed reads)
+- [ ] DRY seam's three `build_tree` variants (`seam/event.mbt`)
+  Why: `build_tree`, `build_tree_interned`, `build_tree_fully_interned` are ~80 lines each of near-identical stack-based tree construction. They differ only in token creation and node wrapping (plain vs interner vs node_interner). Discovered during error handling audit (loom PR #75).
+  Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
 
 ---
 
