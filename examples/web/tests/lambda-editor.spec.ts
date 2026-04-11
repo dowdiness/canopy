@@ -66,4 +66,14 @@ test.describe('Lambda Editor — Foundation', () => {
     expect(await page.locator('#error-output .diag-item').count()).toBe(0);
   });
 
+  test('unbound variable shows eval warning', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('x');
+
+    // "x" is an unbound variable — diagnostics panel should show a warning
+    await expect(page.locator('#error-output .diag-item.diag-warning')).toBeVisible();
+    await expect(page.locator('#error-output')).toContainText('unbound');
+  });
+
 });
