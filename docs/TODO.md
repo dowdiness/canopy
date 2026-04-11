@@ -400,8 +400,8 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Plan: `docs/plans/2026-04-01-editor-protocol-design.md`
 - [x] Markdown block editor (Phase 7) — ✅ Done (PRs #115, #117, #121, #123). Three modes (raw/block/preview), 7 edit ops, BlockInput + MarkdownPreview adapters.
   Plan: `docs/archive/2026-04-04-markdown-block-editor-design.md`
-- [ ] **ZWSP cleanup for empty blocks** — `InsertBlockAfter` inserts `\u200B` (zero-width space) as placeholder so the parser produces a ProjNode for empty paragraphs. The ZWSP is stripped on keystroke, but unused empty blocks keep it. If raw Markdown is copy-pasted to another tool, invisible ZWSP characters travel with it. Fix by either: (a) teaching the parser to produce empty paragraph nodes for consecutive blank lines, or (b) stripping all ZWSP on save/export.
-  Exit: No `\u200B` in raw Markdown output after save or copy.
+- [x] **ZWSP cleanup for empty blocks** — `markdown_export_text()` FFI strips ZWSP at export boundary. `block-input.ts` strips on display/edit/commit. `compute_merge_with_previous` strips on merge. ZWSP remains as internal parser placeholder only. Long-term fix: Container per-block text (§16).
+  Exit: No `\u200B` in exported Markdown text.
 
 ---
 
