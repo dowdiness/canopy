@@ -140,28 +140,6 @@ fn[T : BTreeElem] right_boundary_subtree(
 }
 
 ///|
-fn[T : BTreeElem] merged_boundary_subtree(
-  lca : AncestorRange[T],
-  start : LeafCursor[T],
-  end_ : LeafCursor[T],
-) -> BTreeNode[T]? {
-  match (left_boundary_keep(start), right_boundary_keep(end_)) {
-    (Some(left), Some(right)) => {
-      if !@rle.Mergeable::can_merge(left, right) {
-        return None
-      }
-      let merged = @rle.Mergeable::merge(left, right)
-      let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-      let target_depth = lca.prefix.length()
-      let left_suffix = path_suffix_after_target(start.path, target_depth)
-      let right_suffix = path_suffix_after_target(end_.path, target_depth)
-      Some(merge_boundary_chain(left_suffix, right_suffix, merged_leaf))
-    }
-    _ => None
-  }
-}
-
-///|
 fn[T] BTreeNode::leaf_count(self : BTreeNode[T]) -> Int {
   match self {
     Leaf(..) => 1
@@ -309,6 +287,7 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
   new_children : Array[BTreeNode[T]],
   start_idx : Int,
   end_idx : Int,
+  min_degree : Int,
 ) -> (Array[BTreeNode[T]], Int, Int, Bool) {
   if !(start.offset == 0 &&
     end_.offset == end_.span &&
@@ -324,10 +303,9 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let merged_subtree = merge_boundary_chain(
-    left_edge.path,
-    right_edge.path,
-    merged_leaf,
+  let merged_subtree = fix_merged_chain(
+    merge_boundary_chain(left_edge.path, right_edge.path, merged_leaf),
+    min_degree,
   )
   ([merged_subtree], start_idx - 1, end_idx + 1, true)
 }
@@ -335,6 +313,7 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
 ///|
 fn[T : BTreeElem] promote_empty_child_gap_merge(
   lca : AncestorRange[T],
+  min_degree : Int,
 ) -> NodeSplice[T]? {
   if lca.prefix.length() == 0 ||
     lca.start_idx != 0 ||
@@ -353,10 +332,9 @@ fn[T : BTreeElem] promote_empty_child_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let merged_subtree = merge_boundary_chain(
-    left_edge.path,
-    right_edge.path,
-    merged_leaf,
+  let merged_subtree = fix_merged_chain(
+    merge_boundary_chain(left_edge.path, right_edge.path, merged_leaf),
+    min_degree,
   )
   let new_children : Array[BTreeNode[T]] = [merged_subtree]
   let removed_leaf_count = leaf_count_of_children(
@@ -416,6 +394,7 @@ fn[T : BTreeElem] plan_delete_range(
           new_children,
           lca.start_idx,
           lca.end_idx,
+          min_degree,
         )
         let (normalized_children, normalized_start_idx, normalized_end_idx, _) = absorb_leaf_level_gap_merge(
           lca, start_leaf, end_leaf, normalized_children, normalized_start_idx, normalized_end_idx,
@@ -426,7 +405,7 @@ fn[T : BTreeElem] plan_delete_range(
           normalized_end_idx,
         )
         if normalized_children.length() == 0 {
-          match promote_empty_child_gap_merge(lca) {
+          match promote_empty_child_gap_merge(lca, min_degree) {
             Some(promoted) => return Some(promoted)
             None => ()
           }
@@ -443,32 +422,15 @@ fn[T : BTreeElem] plan_delete_range(
         })
       }
       let new_children : Array[BTreeNode[T]] = []
-      match merged_boundary_subtree(lca, start_leaf, end_leaf) {
-        Some(merged) => {
-          let target_depth = lca.prefix.length()
-          let left_suffix = path_suffix_after_target(
-            start_leaf.path,
-            target_depth,
-          )
-          let boundary_indices = left_suffix.map(fn(frame) {
-            frame.child_idx
-          })
-          new_children.push(
-            repair_at_boundary(merged, Explicit(boundary_indices), 0, min_degree),
-          )
-        }
-        None => {
-          match left_boundary_subtree(lca, start_leaf) {
-            Some(left) =>
-              new_children.push(repair_at_boundary(left, Left, 0, min_degree))
-            None => ()
-          }
-          match right_boundary_subtree(lca, end_leaf) {
-            Some(right) =>
-              new_children.push(repair_at_boundary(right, Right, 0, min_degree))
-            None => ()
-          }
-        }
+      match left_boundary_subtree(lca, start_leaf) {
+        Some(left) =>
+          new_children.push(fix_left_border(left, min_degree))
+        None => ()
+      }
+      match right_boundary_subtree(lca, end_leaf) {
+        Some(right) =>
+          new_children.push(fix_right_border(right, min_degree))
+        None => ()
       }
       let (normalized_children, normalized_start_idx, normalized_end_idx, _) = absorb_subtree_gap_merge(
         lca,
@@ -477,6 +439,7 @@ fn[T : BTreeElem] plan_delete_range(
         new_children,
         lca.start_idx,
         lca.end_idx,
+        min_degree,
       )
       let (normalized_children, normalized_start_idx, normalized_end_idx, _) = absorb_leaf_level_gap_merge(
         lca, start_leaf, end_leaf, normalized_children, normalized_start_idx, normalized_end_idx,
@@ -546,8 +509,9 @@ fn[T : BTreeElem] normalize_boundary_merge(
         right.path,
         lca.prefix.length(),
       )
-      let merged_subtree = merge_boundary_chain(
-        left_suffix, right_suffix, merged_leaf,
+      let merged_subtree = fix_merged_chain(
+        merge_boundary_chain(left_suffix, right_suffix, merged_leaf),
+        min_degree,
       )
       let removed_leaf_count = leaf_count_of_children(
         lca.children,

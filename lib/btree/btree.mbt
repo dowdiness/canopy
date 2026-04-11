@@ -136,7 +136,16 @@ pub fn[T : BTreeElem] BTree::delete_range(
         start,
         self.min_degree,
       )
-      self.root = normalize_root_after_delete(merged_root)
+      // Collapse unary root wrappers, fix underfull descendants, then
+      // collapse again (fix_merged_chain may create new unary roots via merge).
+      let final_root = match normalize_root_after_delete(merged_root) {
+        None => None
+        Some(collapsed) => {
+          let fixed = fix_merged_chain(collapsed, self.min_degree)
+          normalize_root_after_delete(fixed)
+        }
+      }
+      self.root = final_root
       if boundary_merged {
         self.size = self.size - 1
       }
