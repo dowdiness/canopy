@@ -400,6 +400,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] Markdown block editor (Phase 7) — ✅ Done (PRs #115, #117, #121, #123). Three modes (raw/block/preview), 7 edit ops, BlockInput + MarkdownPreview adapters.
   Plan: `docs/archive/2026-04-04-markdown-block-editor-design.md`
 - [x] **ZWSP cleanup for empty blocks** — `markdown_export_text()` FFI strips ZWSP at export boundary. `block-input.ts` strips on display/edit/commit. `compute_merge_with_previous` strips on merge. ZWSP remains as internal parser placeholder only. Long-term fix: Container per-block text (§16).
+  Known edge: fenced code blocks containing only U+200B on a line would match the strip pattern. Eliminated by Container per-block text migration (§16).
   Exit: No `\u200B` in exported Markdown text.
 
 ---
