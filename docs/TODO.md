@@ -454,10 +454,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 - [x] **Migrate `demo-react/` E2E coverage to `web/`** — ✅ Done. PR #145 added 28 Playwright tests to `web/` (6 lambda + 10 JSON + 12 markdown). Single-editor tests already covered; collaborative demo tests are not portable (feature doesn't exist in `web/`).
   `demo-react/` stays — its unique value is the per-agent undo/redo collaborative demo (Alice/Bob dual editor with sync, operation logging). Not a duplicate of `web/`.
 
-- [ ] **Design E2E test strategy** — decide how to manage Playwright across multiple example apps. Current state: `web/`, `demo-react/`, and `ideal/` each have independent Playwright setups with no shared infrastructure.
-  Why: `web/` (28 tests), `demo-react/` (25 tests), and `ideal/` all need E2E. Shared page objects, test helpers, and CI configuration would reduce duplication and make it easier to add E2E to new apps.
-  Considerations: shared Playwright config vs per-app, common assertion helpers for ViewNode/ViewPatch behavior, CI matrix for multiple apps, whether `prosemirror/` and `block-editor/` need E2E.
-  Exit: design doc in `docs/plans/` defining the E2E test architecture.
+- [x] **E2E tests in CI** — ✅ Done. Both `web/` (28 tests) and `demo-react/` (25 tests) run in CI as `web-e2e` and `demo-react-e2e` jobs, gated by `All Checks Passed`. Markdown flaky tests fixed (all `waitForTimeout` replaced with auto-waiting assertions).
 
 App inventory:
 
