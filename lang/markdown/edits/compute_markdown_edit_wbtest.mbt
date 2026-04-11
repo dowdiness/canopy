@@ -201,9 +201,10 @@ test "merge cleans up ZWSP from empty block" {
   let _ = @editor.compute_view_patches(state, ed)
   let proj2 = ed.get_proj_node().unwrap()
   // The new empty block should be at index 1
-  guard proj2.children.length() >= 2 else { // skip if projection didn't produce expected structure
-    return
-  }
+  assert_true(
+    proj2.children.length() >= 2,
+    msg="InsertBlockAfter should produce at least 2 children",
+  )
   let empty_block_id = proj2.children[1].id()
   // Merge the empty block back into previous
   let merge_result = apply_markdown_edit(
