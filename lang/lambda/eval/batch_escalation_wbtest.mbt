@@ -308,6 +308,42 @@ test "escalation: adding closure to int" {
 }
 
 ///|
+test "escalation: hole operand with sub-expression type error" {
+  // let x = ?
+  // let y = x + (5 3)    → x is unresolved hole, RHS has App type error
+  // y
+  //
+  // Codex edge case: egglog demands both Add operands in parallel,
+  // so the RHS App error fires even though LHS is unresolvable.
+  // We surface the type error because (5 3) is definitively wrong
+  // regardless of what x evaluates to — actionable feedback for the user.
+  let ast = @ast.Term::Module(
+    [
+      ("x", @ast.Term::Hole(0)),
+      (
+        "y",
+        @ast.Term::Bop(
+          Plus,
+          @ast.Term::Var("x"),
+          @ast.Term::App(@ast.Term::Int(5), @ast.Term::Int(3)),
+        ),
+      ),
+    ],
+    @ast.Term::Var("y"),
+  )
+  let tier1 = eval_term(ast)
+  let merged = escalate_suppressed(ast, tier1)
+  inspect(merged[0], content="Suppressed") // x = ? (hole)
+  inspect(
+    merged[1],
+    content=(
+      #|Stuck("‹type error: App requires function›")
+    ),
+  ) // y: sub-expression error surfaced
+  inspect(merged[2], content="Suppressed") // body: y is stuck, not propagated
+}
+
+///|
 test "escalation: non-module term unchanged" {
   let ast = @ast.Term::Int(42)
   let tier1 = eval_term(ast)
