@@ -33,6 +33,16 @@ pub fn markdown_get_text(handle : Int) -> String {
 }
 
 ///|
+/// Return markdown text with ZWSP placeholders stripped.
+/// Use for export, clipboard, raw-mode display — not for internal position math.
+pub fn markdown_export_text(handle : Int) -> String {
+  match markdown_editors.get(handle) {
+    Some(ed) => ed.get_text().replace_all(old="\u200B", new="")
+    None => ""
+  }
+}
+
+///|
 pub fn markdown_set_text(handle : Int, text : String) -> Unit {
   match markdown_editors.get(handle) {
     Some(ed) => ed.set_text(text)
