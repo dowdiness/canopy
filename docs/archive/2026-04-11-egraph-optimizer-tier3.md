@@ -1,5 +1,7 @@
 # Tier 3: EGraph Optimizer for Lambda Calculus
 
+**Status:** Complete (egraph#10, loom#78, canopy#158, 2026-04-11)
+
 ## Context
 
 The lambda evaluator has Tiers 1-2 working (PR #150, #151). Tier 3 adds on-demand algebraic simplification via equality saturation. A comprehensive PoC exists in `loom/egraph/lambda_eval_wbtest.mbt` (562 lines) and `lambda_opt_wbtest.mbt` (655 lines) — beta reduction, constant folding, arithmetic identities, capture-avoiding substitution — all passing.
