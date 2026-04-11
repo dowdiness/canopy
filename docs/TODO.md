@@ -501,13 +501,11 @@ App inventory:
 
 ## 20. Editor Framework Decoupling
 
-**Impact:** Medium | **Effort:** Medium | **Status:** Phase 1 Done
+**Impact:** Medium | **Effort:** Medium | **Status:** Phase 2 Done
 
 - [x] **Phase 1: Extract lambda standalone functions** — ✅ Done (PR #135). Moved `build_lambda_projection_memos` to `lang/lambda/flat/`, created `lang/lambda/eval/` package with `EvalResult`, `eval_term`, `build_eval_memo`, annotation helpers. Removed `dowdiness/lambda/eval` from editor imports.
-- [ ] **Phase 2: LanguageCapabilities[T]** — Remove all lambda types from SyncEditor struct. Introduce `LanguageCapabilities[T]` function record (annotation callback + pretty post-process callback). Create `LambdaCompanion` + `new_lambda_editor()` factory in `lang/lambda/edits/`. Update FFI with `LambdaHandle`.
-  Why: SyncEditor struct still has `proj_memo : Memo[VersionedFlatProj]?` and `eval_memo : Memo[Array[EvalResult]]?` — lambda-typed fields that force editor to import lambda packages.
+- [x] **Phase 2: LanguageCapabilities[T]** — ✅ Done (PR #146). `LanguageCapabilities[T]` closure-based callbacks in editor, `LambdaCompanion` + `new_lambda_editor()` factory in `lang/lambda/companion/`. `editor/moon.pkg` has zero lambda imports; `SyncEditor[T]` has zero lambda-typed fields. `DropPosition` moved to `core/types.mbt`. `apply_span_edits()` public API added.
   Plan: `docs/plans/2026-04-07-language-capabilities-design.md`
-  Exit: `editor/moon.pkg` has zero lambda imports; `SyncEditor[T]` struct has zero lambda-typed fields.
 - [ ] **Extract ephemeral subsystem** — Move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Why: Zero dependency on editor concepts. Self-contained collaboration primitive with own binary protocol, encoding, and timeout logic.
   Exit: `editor/` imports ephemeral as a dependency; ephemeral has its own test suite.
