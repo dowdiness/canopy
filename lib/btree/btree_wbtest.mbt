@@ -1537,9 +1537,9 @@ fn prop_delete_range_iter_matches_view(case_ : DeleteRangeCase) -> Bool {
 }
 
 ///|
-test "delete_range with underfull fallback" {
-  // Regression: this case triggered underfull boundary subtree,
-  // now handled by fallback rebuild.
+test "delete_range with underfull boundary chain repair" {
+  // Regression: this case produces underfull boundary subtrees,
+  // repaired by chain repair + insertion-site repair.
   let t = build_tree([
     (5, 3),
     (2, 1),
