@@ -32,8 +32,8 @@ pub(all) suberror TreeEditError {
   UnknownOpType(op_type~ : String)
   FlatProjUnavailable
   UnhandledOperation(detail~ : String)
-  NodeNotInSourceMap(action~ : String, node_id~ : @proj.NodeId)
-  NodeNotInRegistry(action~ : String, node_id~ : @proj.NodeId)
+  NodeNotInSourceMap(action~ : String, node_id~ : @core.NodeId)
+  NodeNotInRegistry(action~ : String, node_id~ : @core.NodeId)
   TextTransformFailed(detail~ : String)
   ProjectionEdit(detail~ : String)
 }

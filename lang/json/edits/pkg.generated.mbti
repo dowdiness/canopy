@@ -3,17 +3,12 @@ package "dowdiness/canopy/lang/json/edits"
 
 import {
   "dowdiness/canopy/core",
-  "dowdiness/canopy/editor",
   "dowdiness/json",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn apply_json_edit(@editor.SyncEditor[@json.JsonValue], JsonEditOp, Int) -> Result[Unit, String]
-
 pub fn compute_json_edit(JsonEditOp, String, @core.ProjNode[@json.JsonValue], @core.SourceMap) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
-
-pub fn new_json_editor(String, capture_timeout_ms? : Int) -> @editor.SyncEditor[@json.JsonValue]
 
 // Errors
 

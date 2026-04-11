@@ -14,7 +14,7 @@ let json_next_handle : Ref[Int] = { val: 10000 }
 pub fn create_json_editor(agent_id : String) -> Int {
   let handle = json_next_handle.val
   json_next_handle.val = handle + 1
-  json_editors[handle] = @json_edits.new_json_editor(agent_id)
+  json_editors[handle] = @json_companion.new_json_editor(agent_id)
   handle
 }
 
@@ -91,7 +91,7 @@ pub fn json_apply_edit(
       }
       match parse_json_edit_op(json) {
         Ok(op) =>
-          match @json_edits.apply_json_edit(ed, op, timestamp_ms) {
+          match @json_companion.apply_json_edit(ed, op, timestamp_ms) {
             Ok(_) => "ok"
             Err(err) => "error: " + err
           }

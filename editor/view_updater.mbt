@@ -14,7 +14,7 @@ pub fn ViewUpdateState::new() -> ViewUpdateState {
 }
 
 ///|
-pub fn[T : @proj.Renderable] SyncEditor::get_view_tree(
+pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
   self : SyncEditor[T],
 ) -> @protocol.ViewNode? {
   match self.get_proj_node() {
@@ -39,7 +39,7 @@ pub fn[T : @proj.Renderable] SyncEditor::get_view_tree(
 }
 
 ///|
-pub fn[T : @proj.Renderable] compute_view_patches(
+pub fn[T : @loom_core.Renderable] compute_view_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],
 ) -> Array[@protocol.ViewPatch] {

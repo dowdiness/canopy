@@ -426,7 +426,7 @@ test "SyncEditor: get_resolution returns bound/free info" {
 }
 
 ///|
-fn count_nodes(node : @proj.ProjNode[@ast.Term]) -> Int {
+fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
   let mut count = 1
   for child in node.children {
     count = count + count_nodes(child)

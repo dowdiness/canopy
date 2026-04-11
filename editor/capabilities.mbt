@@ -6,7 +6,7 @@
 /// Closures capture language-specific state (e.g. eval memos) internally.
 pub struct LanguageCapabilities[T] {
   priv get_annotations : (() -> Map[
-    @proj.NodeId,
+    @core.NodeId,
     Array[@protocol.ViewAnnotation],
   ])?
   priv pretty_post_process : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
@@ -17,7 +17,7 @@ pub struct LanguageCapabilities[T] {
 
 ///|
 pub fn[T] LanguageCapabilities::new(
-  get_annotations? : (() -> Map[@proj.NodeId, Array[@protocol.ViewAnnotation]])? = None,
+  get_annotations? : (() -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]])? = None,
   pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
     @pretty.SyntaxCategory,
   ])? = None,

@@ -49,12 +49,12 @@ struct OverlayState {
 
 ///|
 struct NodeActionContext {
-  node_id : @proj.NodeId
+  node_id : @canopy_core.NodeId
   kind : @ast.Term
   is_let_binding : Bool
-  binding_node_id : @proj.NodeId?
+  binding_node_id : @canopy_core.NodeId?
   binding_def_index : Int?
-  module_node_id : @proj.NodeId?
+  module_node_id : @canopy_core.NodeId?
 }
 
 ///|
@@ -70,6 +70,6 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : OverlayState
-  scope_map : Map[@proj.NodeId, ScopeAnnotation]
-  highlight_set : @immut/hashset.HashSet[@proj.NodeId]
+  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
+  highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
 }

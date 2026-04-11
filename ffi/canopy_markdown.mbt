@@ -14,7 +14,7 @@ let markdown_next_handle : Ref[Int] = { val: 20000 }
 pub fn create_markdown_editor(agent_id : String) -> Int {
   let handle = markdown_next_handle.val
   markdown_next_handle.val = handle + 1
-  markdown_editors[handle] = @md_edits.new_markdown_editor(agent_id)
+  markdown_editors[handle] = @md_companion.new_markdown_editor(agent_id)
   handle
 }
 
@@ -105,7 +105,7 @@ pub fn markdown_apply_edit(
             "message": Json::string("unknown op: " + op_type),
           }).stringify()
       }
-      match @md_edits.apply_markdown_edit(ed, op, timestamp_ms) {
+      match @md_companion.apply_markdown_edit(ed, op, timestamp_ms) {
         Ok(_) => Json::object({ "status": Json::string("ok") }).stringify()
         Err(msg) =>
           Json::object({

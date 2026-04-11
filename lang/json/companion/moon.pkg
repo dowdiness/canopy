@@ -1,0 +1,8 @@
+import {
+  "dowdiness/canopy/editor" @editor,
+  "dowdiness/canopy/lang/json/edits" @json_edits,
+  "dowdiness/canopy/lang/json/proj" @json_proj,
+  "dowdiness/json" @json,
+  "dowdiness/loom" @loom,
+  "moonbitlang/core/bench" @bench,
+}

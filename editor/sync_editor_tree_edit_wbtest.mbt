@@ -48,7 +48,7 @@ test "delete_node returns error for unknown node_id" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let _ = editor.get_proj_node()
-  let bad_id = @proj.NodeId::from_int(99999)
+  let bad_id = @core.NodeId::from_int(99999)
   let result = editor.delete_node(bad_id, 0)
   inspect(result is Err(_), content="true")
 }
@@ -58,7 +58,7 @@ test "commit_edit returns error for unknown node_id" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let _ = editor.get_proj_node()
-  let bad_id = @proj.NodeId::from_int(99999)
+  let bad_id = @core.NodeId::from_int(99999)
   let result = editor.commit_edit(bad_id, "y", 0)
   inspect(result is Err(_), content="true")
 }

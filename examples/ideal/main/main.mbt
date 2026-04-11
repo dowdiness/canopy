@@ -6,9 +6,9 @@ using @rabbita {type Cmd, type Dispatch, type Html, none}
 
 ///|
 /// Parse a node ID string into a NodeId, returning None on invalid input.
-fn parse_node_id(s : String) -> @proj.NodeId? {
+fn parse_node_id(s : String) -> @canopy_core.NodeId? {
   let n = @string.parse_int(s) catch { _ => return None }
-  Some(@proj.NodeId::from_int(n))
+  Some(@canopy_core.NodeId::from_int(n))
 }
 
 ///|
@@ -195,7 +195,7 @@ fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
 /// Check if a tree node has elided children in the outline state.
 fn tree_node_is_elided(
   state : @proj.TreeEditorState[@ast.Term],
-  node_id : @proj.NodeId,
+  node_id : @canopy_core.NodeId,
 ) -> Bool {
   match state.get_loaded_node(node_id) {
     Some(node) =>
@@ -211,7 +211,7 @@ fn tree_node_is_elided(
 /// Check if expanding a node should hydrate its elided subtree.
 /// Hydration is always allowed since the projection is refreshed
 /// immediately on every text change (no stale state possible).
-fn can_hydrate_tree_node(model : Model, node_id : @proj.NodeId) -> Bool {
+fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
   tree_node_is_elided(model.outline_state, node_id)
 }
 

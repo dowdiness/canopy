@@ -26,9 +26,9 @@ pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
 /// Uses T::placeholder(node.kind) so deletion leaves a parseable hole.
 ///
 /// Example: deleting `(f x)` in lambda → leaves `?`
-pub fn[T : @proj.Renderable] SyncEditor::delete_node(
+pub fn[T : @loom_core.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
-  node_id : @proj.NodeId,
+  node_id : @core.NodeId,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
   let range = match self.get_node_range(node_id) {
@@ -45,7 +45,7 @@ pub fn[T : @proj.Renderable] SyncEditor::delete_node(
       )
     Some(n) => n
   }
-  let placeholder = @proj.Renderable::placeholder(node.kind)
+  let placeholder = @loom_core.Renderable::placeholder(node.kind)
   let delete_len = range.end - range.start
   self.apply_text_edit_internal(
     range.start,
@@ -66,7 +66,7 @@ pub fn[T : @proj.Renderable] SyncEditor::delete_node(
 /// Example: committing an inline rename edit.
 pub fn[T] SyncEditor::commit_edit(
   self : SyncEditor[T],
-  node_id : @proj.NodeId,
+  node_id : @core.NodeId,
   new_text : String,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
@@ -100,7 +100,7 @@ pub fn[T] SyncEditor::commit_edit(
 ///   }, timestamp)
 pub fn[T] SyncEditor::apply_text_transform(
   self : SyncEditor[T],
-  node_id : @proj.NodeId,
+  node_id : @core.NodeId,
   compute_replacement : (String, Int, Int) -> Result[String, String],
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
@@ -140,11 +140,11 @@ pub fn[T] SyncEditor::apply_text_transform(
 /// CAUTION: Insert position must be adjusted when source precedes target
 /// in the document (deletion shifts subsequent offsets backward by
 /// `source_len - placeholder_len`). This method handles the adjustment.
-pub fn[T : @proj.Renderable] SyncEditor::move_node(
+pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
-  source_id : @proj.NodeId,
-  target_id : @proj.NodeId,
-  position : @proj.DropPosition,
+  source_id : @core.NodeId,
+  target_id : @core.NodeId,
+  position : @core.DropPosition,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
   // Resolve source
@@ -179,8 +179,8 @@ pub fn[T : @proj.Renderable] SyncEditor::move_node(
       )
     Some(r) => r
   }
-  let src_text = @proj.Renderable::unparse(src_node.kind)
-  let placeholder = @proj.Renderable::placeholder(src_node.kind)
+  let src_text = @loom_core.Renderable::unparse(src_node.kind)
+  let placeholder = @loom_core.Renderable::placeholder(src_node.kind)
   let src_len = src_range.end - src_range.start
   let shift = placeholder.length() - src_len // negative if placeholder is shorter
 

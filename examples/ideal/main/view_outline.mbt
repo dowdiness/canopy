@@ -1,6 +1,6 @@
 ///|
 /// Convert a NodeId to the string representation used by selected_node.
-fn node_id_to_string(id : @proj.NodeId) -> String {
+fn node_id_to_string(id : @canopy_core.NodeId) -> String {
   id.0.to_string()
 }
 
@@ -33,7 +33,7 @@ fn view_outline_node(
   node : @proj.InteractiveTreeNode[@ast.Term],
   depth : Int,
   model : Model,
-  eval_annotations : Map[@proj.NodeId, Array[@lambda.EvalResult]],
+  eval_annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]],
 ) -> Html {
   let kind = kind_of(node.label)
   let is_selected = match model.selected_node {
@@ -146,7 +146,7 @@ fn navigate_outline(model : Model, direction : @canopy_core.Direction) -> String
 
 ///|
 /// Get the NodeId of the currently selected outline node.
-fn get_selected_node_id(model : Model) -> @proj.NodeId? {
+fn get_selected_node_id(model : Model) -> @canopy_core.NodeId? {
   let s = match model.selected_node {
     Some(s) => s
     None => return None
@@ -159,8 +159,8 @@ fn get_selected_node_id(model : Model) -> @proj.NodeId? {
 /// Maps eval results to ProjNode children by definition index.
 fn build_outline_eval_annotations(
   model : Model,
-) -> Map[@proj.NodeId, Array[@lambda.EvalResult]] {
-  let annotations : Map[@proj.NodeId, Array[@lambda.EvalResult]] = {}
+) -> Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] {
+  let annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] = {}
   let eval_results = model.companion.get_eval_results()
   if eval_results.is_empty() {
     return annotations

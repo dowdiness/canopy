@@ -1,6 +1,9 @@
 // End-to-end integration tests for JSON editor pipeline.
 
 ///|
+using @json_edits {type JsonEditOp, type JsonType}
+
+///|
 test "new_json_editor — create and get text" {
   let editor = new_json_editor("test")
   editor.set_text("{\"a\": 1}")
@@ -64,7 +67,11 @@ test "apply WrapInArray" {
   editor.set_text("42")
   match editor.get_proj_node() {
     Some(p) => {
-      let result = apply_json_edit(editor, WrapInArray(node_id=p.id()), 0)
+      let result = apply_json_edit(
+        editor,
+        JsonEditOp::WrapInArray(node_id=p.id()),
+        0,
+      )
       inspect(result is Ok(_), content="true")
       inspect(editor.get_text(), content="[42]")
     }
@@ -80,7 +87,7 @@ test "apply WrapInObject" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        WrapInObject(node_id=p.id(), key="value"),
+        JsonEditOp::WrapInObject(node_id=p.id(), key="value"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -98,7 +105,7 @@ test "apply AddMember to empty object" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        AddMember(object_id=p.id(), key="name"),
+        JsonEditOp::AddMember(object_id=p.id(), key="name"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -118,7 +125,7 @@ test "apply AddMember to non-empty object" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        AddMember(object_id=p.id(), key="b"),
+        JsonEditOp::AddMember(object_id=p.id(), key="b"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -136,7 +143,11 @@ test "apply AddElement to empty array" {
   editor.set_text("[]")
   match editor.get_proj_node() {
     Some(p) => {
-      let result = apply_json_edit(editor, AddElement(array_id=p.id()), 0)
+      let result = apply_json_edit(
+        editor,
+        JsonEditOp::AddElement(array_id=p.id()),
+        0,
+      )
       inspect(result is Ok(_), content="true")
       inspect(editor.get_text(), content="[null]")
     }
@@ -150,7 +161,11 @@ test "apply AddElement to non-empty array" {
   editor.set_text("[1]")
   match editor.get_proj_node() {
     Some(p) => {
-      let result = apply_json_edit(editor, AddElement(array_id=p.id()), 0)
+      let result = apply_json_edit(
+        editor,
+        JsonEditOp::AddElement(array_id=p.id()),
+        0,
+      )
       inspect(result is Ok(_), content="true")
       inspect(editor.get_text(), content="[1, null]")
     }
@@ -166,7 +181,7 @@ test "apply ChangeType" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        ChangeType(node_id=p.id(), new_type=JArray),
+        JsonEditOp::ChangeType(node_id=p.id(), new_type=JsonType::JArray),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -184,7 +199,7 @@ test "apply ChangeType to object" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        ChangeType(node_id=p.id(), new_type=JObject),
+        JsonEditOp::ChangeType(node_id=p.id(), new_type=JsonType::JObject),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -202,7 +217,7 @@ test "apply CommitEdit" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        CommitEdit(node_id=p.id(), new_value="99"),
+        JsonEditOp::CommitEdit(node_id=p.id(), new_value="99"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -229,7 +244,7 @@ test "CommitEdit on value inside object preserves key" {
       let value_node = p.children[0]
       let result = apply_json_edit(
         editor,
-        CommitEdit(node_id=value_node.id(), new_value="99"),
+        JsonEditOp::CommitEdit(node_id=value_node.id(), new_value="99"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -253,7 +268,10 @@ test "ChangeType on value inside object preserves key" {
       let value_node = p.children[0]
       let result = apply_json_edit(
         editor,
-        ChangeType(node_id=value_node.id(), new_type=JArray),
+        JsonEditOp::ChangeType(
+          node_id=value_node.id(),
+          new_type=JsonType::JArray,
+        ),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -277,7 +295,7 @@ test "WrapInArray on value inside object preserves key" {
       let value_node = p.children[0]
       let result = apply_json_edit(
         editor,
-        WrapInArray(node_id=value_node.id()),
+        JsonEditOp::WrapInArray(node_id=value_node.id()),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -301,7 +319,7 @@ test "WrapInObject on value inside object preserves key" {
       let value_node = p.children[0]
       let result = apply_json_edit(
         editor,
-        WrapInObject(node_id=value_node.id(), key="inner"),
+        JsonEditOp::WrapInObject(node_id=value_node.id(), key="inner"),
         0,
       )
       inspect(result is Ok(_), content="true")
@@ -324,7 +342,11 @@ test "Delete member from object with two members" {
     Some(p) => {
       // Delete the first member (value node for "a")
       let value_a = p.children[0]
-      let result = apply_json_edit(editor, Delete(node_id=value_a.id()), 0)
+      let result = apply_json_edit(
+        editor,
+        JsonEditOp::Delete(node_id=value_a.id()),
+        0,
+      )
       inspect(result is Ok(_), content="true")
       inspect(editor.get_text(), content="{\"b\": 2}")
     }
@@ -340,7 +362,11 @@ test "Delete second member from object" {
     Some(p) => {
       // Delete the second member (value node for "b")
       let value_b = p.children[1]
-      let result = apply_json_edit(editor, Delete(node_id=value_b.id()), 0)
+      let result = apply_json_edit(
+        editor,
+        JsonEditOp::Delete(node_id=value_b.id()),
+        0,
+      )
       inspect(result is Ok(_), content="true")
       inspect(editor.get_text(), content="{\"a\": 1}")
     }
@@ -356,7 +382,7 @@ test "RenameKey on object" {
     Some(p) => {
       let result = apply_json_edit(
         editor,
-        RenameKey(object_id=p.id(), key_index=0, new_key="new"),
+        JsonEditOp::RenameKey(object_id=p.id(), key_index=0, new_key="new"),
         0,
       )
       inspect(result is Ok(_), content="true")

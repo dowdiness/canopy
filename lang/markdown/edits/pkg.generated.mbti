@@ -3,17 +3,12 @@ package "dowdiness/canopy/lang/markdown/edits"
 
 import {
   "dowdiness/canopy/core",
-  "dowdiness/canopy/editor",
   "dowdiness/markdown",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn apply_markdown_edit(@editor.SyncEditor[@markdown.Block], MarkdownEditOp, Int) -> Result[Unit, String]
-
 pub fn compute_markdown_edit(MarkdownEditOp, String, @core.ProjNode[@markdown.Block], @core.SourceMap) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
-
-pub fn new_markdown_editor(String, capture_timeout_ms? : Int) -> @editor.SyncEditor[@markdown.Block]
 
 // Errors
 

@@ -26,10 +26,10 @@
 /// Annotation for one node: its binder, whether it's a definition site,
 /// deterministic color, and (for binders) the list of usage NodeIds.
 struct ScopeAnnotation {
-  binder_id : @proj.NodeId?
+  binder_id : @canopy_core.NodeId?
   is_definition : Bool
   color_index : Int
-  usage_ids : Array[@proj.NodeId]
+  usage_ids : Array[@canopy_core.NodeId]
 }
 
 ///|
@@ -50,7 +50,7 @@ fn binder_color_index(name : String) -> Int {
 /// A scope entry: a name bound to a binder NodeId.
 struct ScopeEntry {
   name : String
-  binder_node_id : @proj.NodeId
+  binder_node_id : @canopy_core.NodeId
   binder_name : String
 }
 
@@ -60,8 +60,8 @@ struct ScopeEntry {
 /// defs, lexical scope for Lam params. Handles nested blocks correctly.
 fn build_scope_map(
   editor : @editor.SyncEditor[@ast.Term],
-) -> Map[@proj.NodeId, ScopeAnnotation] {
-  let scope_map : Map[@proj.NodeId, ScopeAnnotation] = {}
+) -> Map[@canopy_core.NodeId, ScopeAnnotation] {
+  let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
   let proj_root = match editor.get_proj_node() {
     Some(r) => r
     None => return scope_map
@@ -82,7 +82,7 @@ fn build_scope_map(
 fn walk_scope(
   node : @canopy_core.ProjNode[@ast.Term],
   scope : Array[ScopeEntry],
-  scope_map : Map[@proj.NodeId, ScopeAnnotation],
+  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation],
 ) -> Unit {
   let node_id = node.id()
   match node.kind {
@@ -136,7 +136,7 @@ fn walk_scope(
           // collision with the init expression's own NodeId (which may
           // be a Lam that has its own lambda-binder annotation).
           let def_name = defs[i].0
-          let def_binder_id = @proj.NodeId::from_int(
+          let def_binder_id = @canopy_core.NodeId::from_int(
             -(child.node_id + 1),
           )
           scope.push({
@@ -173,8 +173,8 @@ fn walk_scope(
 ///|
 /// Second pass: for each Var that points to a binder,
 /// add the Var's NodeId to the binder's usage_ids.
-fn backfill_usages(scope_map : Map[@proj.NodeId, ScopeAnnotation]) -> Unit {
-  let pairs : Array[(@proj.NodeId, @proj.NodeId)] = []
+fn backfill_usages(scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]) -> Unit {
+  let pairs : Array[(@canopy_core.NodeId, @canopy_core.NodeId)] = []
   for node_id, ann in scope_map {
     if !ann.is_definition {
       match ann.binder_id {
@@ -199,9 +199,9 @@ fn backfill_usages(scope_map : Map[@proj.NodeId, ScopeAnnotation]) -> Unit {
 /// Compute the set of NodeIds to highlight when a node is selected.
 /// Returns empty set for non-identifiers (clear highlights).
 fn compute_highlight_set(
-  selected_id : @proj.NodeId,
-  scope_map : Map[@proj.NodeId, ScopeAnnotation],
-) -> @immut/hashset.HashSet[@proj.NodeId] {
+  selected_id : @canopy_core.NodeId,
+  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation],
+) -> @immut/hashset.HashSet[@canopy_core.NodeId] {
   let mut hs = @immut/hashset.HashSet::new()
   match scope_map.get(selected_id) {
     None => hs

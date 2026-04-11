@@ -7,8 +7,6 @@ import {
 }
 
 // Values
-pub fn[T] collect_registry(@dowdiness/canopy/core.ProjNode[T], Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]) -> Unit
-
 pub fn[T : @dowdiness/loom/core.TreeNode] is_leaf_node(T) -> Bool
 
 // Errors
@@ -52,21 +50,6 @@ pub fn[T] TreeEditorState::new() -> Self[T]
 pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
 
 // Type aliases
-pub using @dowdiness/canopy/core {type DropPosition}
-
-pub using @dowdiness/canopy/core {type FocusHint}
-
-pub using @dowdiness/canopy/core {type NodeId}
-
-pub using @dowdiness/canopy/core {type ProjNode}
-
-pub using @dowdiness/canopy/core {type SourceMap}
-
-pub using @dowdiness/canopy/core {type SpanEdit}
-
-pub using @dowdiness/loom/core {trait Renderable}
-
-pub using @dowdiness/loom/core {trait TreeNode}
 
 // Traits
 

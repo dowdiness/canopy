@@ -1,0 +1,7 @@
+import {
+  "dowdiness/canopy/editor" @editor,
+  "dowdiness/canopy/lang/markdown/edits" @md_edits,
+  "dowdiness/canopy/lang/markdown/proj" @md_proj,
+  "dowdiness/markdown" @markdown,
+  "dowdiness/loom" @loom,
+}

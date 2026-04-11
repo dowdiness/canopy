@@ -56,11 +56,12 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
   Returns true if the current text parses without errors.
 
 ### Projectional Editing
-- `apply_tree_edit(op : @proj.TreeEditOp, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
-  Applies a structural tree edit by round-tripping through the text CRDT.
-- `delete_node(node_id : @proj.NodeId, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
-- `commit_edit(node_id : @proj.NodeId, new_text : String, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
-- `move_node(source_id : @proj.NodeId, target_id : @proj.NodeId, position : @proj.DropPosition, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
+- `delete_node(node_id : @core.NodeId, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
+  Deletes a node by round-tripping through the text CRDT.
+- `commit_edit(node_id : @core.NodeId, new_text : String, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
+  Commits an inline text edit on a node.
+- `move_node(source_id : @core.NodeId, target_id : @core.NodeId, position : @core.DropPosition, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
+  Moves a node via drag-and-drop.
 
 ### WebSocket / Wire Protocol
 - `decode_message(data : Bytes) -> SyncMessage?`

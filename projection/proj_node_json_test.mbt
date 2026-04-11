@@ -56,7 +56,7 @@ test "ProjNode JSON export for module" {
 ///|
 test "SourceMap JSON export" {
   let (proj, _) = @lambda_proj.parse_to_proj_node("1 + 2")
-  let sm = @projection.SourceMap::from_ast(proj)
+  let sm = @core.SourceMap::from_ast(proj)
   inspect(
     sm.to_json().stringify(),
     content=(

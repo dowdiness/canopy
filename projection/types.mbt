@@ -1,7 +1,11 @@
-// Re-export types from core for backward compatibility.
+///|
+using @loomcore {type Range, trait TreeNode, trait Renderable}
 
 ///|
-using @loomcore {type Range}
-
-///|
-pub using @core {type NodeId, type SpanEdit, type FocusHint, type DropPosition}
+using @core {
+  type NodeId,
+  type ProjNode,
+  type SourceMap,
+  type DropPosition,
+  collect_registry,
+}

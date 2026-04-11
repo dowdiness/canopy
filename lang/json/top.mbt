@@ -9,10 +9,7 @@ pub using @json_proj {
 }
 
 ///|
-pub using @json_edits {
-  type JsonEditOp,
-  type JsonType,
-  apply_json_edit,
-  compute_json_edit,
-  new_json_editor,
-}
+pub using @json_edits {type JsonEditOp, type JsonType, compute_json_edit}
+
+///|
+pub using @json_companion {apply_json_edit, new_json_editor}

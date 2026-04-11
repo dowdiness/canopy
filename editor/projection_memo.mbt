@@ -2,12 +2,12 @@
 
 ///|
 /// Returns the cached ProjNode (converted from FlatProj once per invalidation).
-pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @proj.ProjNode[T]? {
+pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
   self.cached_proj_node.get()
 }
 
 ///|
-pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @proj.SourceMap {
+pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
   self.source_map_memo.get()
 }
 
@@ -15,7 +15,7 @@ pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @proj.SourceMap {
 /// Returns the full node registry (NodeId → ProjNode).
 pub fn[T] SyncEditor::get_registry(
   self : SyncEditor[T],
-) -> Map[@proj.NodeId, @proj.ProjNode[T]] {
+) -> Map[@core.NodeId, @core.ProjNode[T]] {
   self.registry_memo.get()
 }
 
@@ -28,8 +28,8 @@ pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
 ///|
 pub fn[T] SyncEditor::get_node(
   self : SyncEditor[T],
-  id : @proj.NodeId,
-) -> @proj.ProjNode[T]? {
+  id : @core.NodeId,
+) -> @core.ProjNode[T]? {
   self.registry_memo.get().get(id)
 }
 
@@ -37,14 +37,14 @@ pub fn[T] SyncEditor::get_node(
 pub fn[T] SyncEditor::node_at_position(
   self : SyncEditor[T],
   position : Int,
-) -> @proj.NodeId? {
+) -> @core.NodeId? {
   self.source_map_memo.get().innermost_node_at(position)
 }
 
 ///|
 pub fn[T] SyncEditor::get_node_range(
   self : SyncEditor[T],
-  id : @proj.NodeId,
+  id : @core.NodeId,
 ) -> @loom_core.Range? {
   self.source_map_memo.get().get_range(id)
 }

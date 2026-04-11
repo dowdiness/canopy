@@ -11,7 +11,7 @@ fn setup_bridge(
 }
 
 ///|
-fn get_root_id(editor : SyncEditor[@ast.Term]) -> @proj.NodeId raise {
+fn get_root_id(editor : SyncEditor[@ast.Term]) -> @core.NodeId raise {
   match editor.get_proj_node() {
     Some(node) => node.id()
     None => fail("expected tree root")

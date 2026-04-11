@@ -8,8 +8,8 @@
 /// position shifts. All edits are recorded for undo.
 pub fn[T] SyncEditor::apply_span_edits(
   self : SyncEditor[T],
-  edits : Array[@proj.SpanEdit],
-  focus_hint : @proj.FocusHint,
+  edits : Array[@core.SpanEdit],
+  focus_hint : @core.FocusHint,
   timestamp_ms : Int,
 ) -> Unit {
   if edits.is_empty() {
@@ -29,7 +29,7 @@ pub fn[T] SyncEditor::apply_span_edits(
     )
   }
   match focus_hint {
-    @proj.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
-    @proj.FocusHint::MoveCursor(position~) => self.move_cursor(position)
+    @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
+    @core.FocusHint::MoveCursor(position~) => self.move_cursor(position)
   }
 }

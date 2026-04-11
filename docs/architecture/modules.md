@@ -79,34 +79,22 @@ High-level editor abstractions.
 - Lambda-specific wiring: projection memo builder, tree edit bridge, tree edit JSON
 
 ### `projection/`
-Re-export facade + generic tree editor state.
+Interactive tree editor state and projection UI logic.
 
-- Re-exports types from `framework/core/`, `lang/lambda/proj/`, `lang/lambda/edits/` via `pub using` (backward compat for `@proj.*` references)
 - `TreeEditorState[T]` — interactive tree UI state, refresh/reuse algorithm
-- `TreeNode`/`Renderable` traits re-exported from `dowdiness/loom/core`
+- `InteractiveTreeNode[T]` — decorated tree node for UI rendering
 
-### `lang/lambda/proj/`
-Lambda-specific projection builders.
+### `lang/*/proj/`
+Projection builders — CST-to-ProjNode conversion, token span extraction, memo pipeline setup. One per language (lambda, json, markdown). Depends on core + parser.
 
-- FlatProj, syntax_to_proj_node, to_proj_node, rebuild_kind, parse_to_proj_node
-- populate_token_spans (standalone fn, lambda-specific token span extraction)
+### `lang/*/edits/`
+Pure edit computation — edit op enums and span-edit calculators. No editor dependency; takes source text + ProjNode + SourceMap, returns SpanEdits. One per language.
 
-### `lang/lambda/edits/`
-Lambda-specific structural edit handlers.
-
-- TreeEditOp enum (Select, Delete, WrapInLambda, etc.)
-- 12 text_edit handler files (binding, commit, delete, drop, refactor, rename, structural, wrap)
-- scope analysis, free variables, actions
-- DropPosition, FocusHint enums (defined here, re-exported by projection/)
+### `lang/*/companion/`
+Editor bridge — factory functions and edit application. Depends on editor + edits + proj. Delegates to `SyncEditor::apply_span_edits()` after computing edits. One per language.
 
 ### `lang/lambda/flat/`
-VersionedFlatProj — incr memo wrapper for incremental FlatProj updates.
-
-### `lang/json/proj/`
-JSON projection builders: syntax_to_proj_node, populate_token_spans, memo builder.
-
-### `lang/json/edits/`
-JSON structural edit handlers, bridge to SyncEditor, new_json_editor constructor, benchmarks.
+Incremental FlatProj wrapper — memo-based incremental projection updates for lambda.
 
 ### `cmd/main/`
 Command-line entry points and REPL.
@@ -140,12 +128,16 @@ event-graph-walker (depends on rle + quickcheck)
 crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdiness/loom + dowdiness/text_change via path deps)
   ├── framework/core (depends on loom/core — generic types + traits + SpanEdit + FocusHint)
   ├── lang/lambda/proj (depends on framework/core + lambda + seam)
-  ├── lang/lambda/edits (depends on framework/core + lang/lambda/proj + lambda)
+  ├── lang/lambda/edits (depends on core + lang/lambda/proj + lambda)
+  ├── lang/lambda/companion (depends on core + editor + lang/lambda/edits + lang/lambda/proj + lang/lambda/flat + lang/lambda/eval + incr + lambda + loom + seam)
   ├── lang/lambda/flat (depends on projection + incr)
   ├── lang/json/proj (depends on framework/core + json + loom + seam + incr)
-  ├── lang/json/edits (depends on framework/core + lang/json/proj + json + editor)
-  ├── projection (re-export facade: depends on framework/core + lang/lambda/proj + lang/lambda/edits)
-  └── editor (depends on projection + framework/core + event-graph-walker + loom + incr)
+  ├── lang/json/edits (depends on core + lang/json/proj + json)
+  ├── lang/json/companion (depends on editor + lang/json/edits + lang/json/proj + json + loom)
+  ├── lang/markdown/edits (depends on core + markdown)
+  ├── lang/markdown/companion (depends on editor + lang/markdown/edits + lang/markdown/proj + markdown + loom)
+  ├── projection (interactive tree UI state: depends on core + loom/core)
+  └── editor (depends on core + loom/core + event-graph-walker + loom + incr)
 ```
 
 ## MoonBit Module Configuration

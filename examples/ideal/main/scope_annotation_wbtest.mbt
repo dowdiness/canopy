@@ -12,11 +12,11 @@ test "color_index is stable across calls" {
 
 ///|
 test "compute_highlight_set for variable returns binder + usages" {
-  let scope_map : Map[@proj.NodeId, ScopeAnnotation] = {}
-  let var_id = @proj.NodeId::from_int(10)
-  let binder_id = @proj.NodeId::from_int(1)
-  let usage1 = @proj.NodeId::from_int(10)
-  let usage2 = @proj.NodeId::from_int(20)
+  let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
+  let var_id = @canopy_core.NodeId::from_int(10)
+  let binder_id = @canopy_core.NodeId::from_int(1)
+  let usage1 = @canopy_core.NodeId::from_int(10)
+  let usage2 = @canopy_core.NodeId::from_int(20)
   scope_map[var_id] = {
     binder_id: Some(binder_id),
     is_definition: false,
@@ -37,8 +37,8 @@ test "compute_highlight_set for variable returns binder + usages" {
 
 ///|
 test "compute_highlight_set for non-identifier returns empty set" {
-  let scope_map : Map[@proj.NodeId, ScopeAnnotation] = {}
-  let unknown_id = @proj.NodeId::from_int(99)
+  let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
+  let unknown_id = @canopy_core.NodeId::from_int(99)
   let hs = compute_highlight_set(unknown_id, scope_map)
   inspect(hs.length(), content="0")
 }
@@ -99,26 +99,26 @@ test "nested block: inner x does not highlight outer x" {
 fn find_var_node_id(
   node : @canopy_core.ProjNode[@ast.Term],
   name : String,
-) -> @proj.NodeId {
+) -> @canopy_core.NodeId {
   match node.kind {
     Var(n) => if n == name { return node.id() }
     _ => ()
   }
   for child in node.children {
     let result = find_var_node_id(child, name)
-    if result != @proj.NodeId::from_int(-1) {
+    if result != @canopy_core.NodeId::from_int(-1) {
       return result
     }
   }
-  @proj.NodeId::from_int(-1)
+  @canopy_core.NodeId::from_int(-1)
 }
 
 ///|
 fn find_all_var_node_ids(
   node : @canopy_core.ProjNode[@ast.Term],
   name : String,
-) -> Array[@proj.NodeId] {
-  let results : Array[@proj.NodeId] = []
+) -> Array[@canopy_core.NodeId] {
+  let results : Array[@canopy_core.NodeId] = []
   collect_var_ids(node, name, results)
   results
 }
@@ -127,7 +127,7 @@ fn find_all_var_node_ids(
 fn collect_var_ids(
   node : @canopy_core.ProjNode[@ast.Term],
   name : String,
-  results : Array[@proj.NodeId],
+  results : Array[@canopy_core.NodeId],
 ) -> Unit {
   match node.kind {
     Var(n) => if n == name { results.push(node.id()) }

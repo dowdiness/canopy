@@ -10,9 +10,9 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
-  priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
-  priv source_map_memo : @incr.Memo[@proj.SourceMap]
+  priv cached_proj_node : @incr.Memo[@core.ProjNode[T]?]
+  priv registry_memo : @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]]
+  priv source_map_memo : @incr.Memo[@core.SourceMap]
   priv capabilities : LanguageCapabilities[T]
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
@@ -35,9 +35,9 @@ pub fn[T] SyncEditor::new_generic(
     @incr.Signal[@seam.SyntaxNode?],
     @loom.ImperativeParser[T],
   ) -> (
-    @incr.Memo[@proj.ProjNode[T]?],
-    @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
-    @incr.Memo[@proj.SourceMap],
+    @incr.Memo[@core.ProjNode[T]?],
+    @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]],
+    @incr.Memo[@core.SourceMap],
   ),
   capture_timeout_ms? : Int = 500,
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
