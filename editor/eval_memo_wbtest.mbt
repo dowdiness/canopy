@@ -17,14 +17,14 @@ test "get_eval_annotations: module defs have annotations" {
   let (editor, companion) = @lambda.new_lambda_editor("test-struct-ann")
   editor.set_text("let x = 5\nx")
   let annotations = companion.get_eval_annotations(editor.get_proj_node())
-  inspect(annotations.size() > 0, content="true")
+  inspect(annotations.length() > 0, content="true")
 }
 
 ///|
 test "get_eval_annotations: empty for no text" {
   let (editor, companion) = @lambda.new_lambda_editor("test-struct-ann-empty")
   let annotations = companion.get_eval_annotations(editor.get_proj_node())
-  inspect(annotations.size(), content="0")
+  inspect(annotations.length(), content="0")
 }
 
 ///|

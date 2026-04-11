@@ -28,10 +28,10 @@ import {
 } for "test"
 
 import {
-  "dowdiness/lambda" @parser,
-  "dowdiness/lambda/ast" @ast,
   "dowdiness/canopy/lang/lambda" @lambda,
 } for "wbtest"
+
+warnings = "-29"
 
 options(
   is_main: false,
