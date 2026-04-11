@@ -1,0 +1,68 @@
+// Formal specifications for IntConfidence lattice laws.
+//
+// Proved with:
+//   - MoonBit moon 0.1.20260409 (a87440e 2026-04-09)
+//   - Why3 1.7.2
+//   - Z3 4.13.4
+//
+// The prover can't use == on custom enums, so we express properties
+// via rank/payload/score projections (marked #proof_pure in .mbt)
+// and pattern matching.
+
+// Conflict is the top element (absorbing): if either input is Conflict,
+// result must be Conflict (rank 4).
+predicate conflict_is_top(
+  a : IntConfidence,
+  b : IntConfidence,
+  result : IntConfidence,
+) {
+  (a.rank() == 4 → result.rank() == 4) &&
+  (b.rank() == 4 → result.rank() == 4)
+}
+
+// Unknown is bottom (left identity): if a is Unknown, result has
+// same rank and payload as b.
+predicate unknown_is_bottom_left(
+  a : IntConfidence,
+  b : IntConfidence,
+  result : IntConfidence,
+) {
+  a.rank() == 0 →
+    (result.rank() == b.rank() && result.payload() == b.payload() &&
+      result.score() == b.score())
+}
+
+// Unknown is bottom (right identity): if b is Unknown, result has
+// same rank and payload as a.
+predicate unknown_is_bottom_right(
+  a : IntConfidence,
+  b : IntConfidence,
+  result : IntConfidence,
+) {
+  b.rank() == 0 →
+    (result.rank() == a.rank() && result.payload() == a.payload() &&
+      result.score() == a.score())
+}
+
+// Disagreement yields Conflict: when both inputs carry payloads
+// (rank > 0 and rank < 4) and payloads differ, result is Conflict.
+predicate disagreement_yields_conflict(
+  a : IntConfidence,
+  b : IntConfidence,
+  result : IntConfidence,
+) {
+  (a.rank() > 0 && a.rank() < 4 &&
+   b.rank() > 0 && b.rank() < 4 &&
+   a.payload() != b.payload()) →
+    result.rank() == 4
+}
+
+// Guessed+Guessed with same value: result score is max of input scores.
+predicate guessed_max_score(
+  a : IntConfidence,
+  b : IntConfidence,
+  result : IntConfidence,
+) {
+  (a.rank() == 1 && b.rank() == 1 && a.payload() == b.payload()) →
+    (result.score() >= a.score() && result.score() >= b.score())
+}
