@@ -14,10 +14,6 @@
 // 6. Run Datalog + Bridge loop until fixpoint
 // 7. Merge: Tier 1 Value/Stuck stay; Suppressed replaced by Tier 2 if resolved
 
-///|
-/// Maximum rounds of iterative forward propagation.
-/// A chain of N dependent definitions after a hole needs N rounds.
-const MAX_ESCALATION_ROUNDS = 10
 
 ///|
 /// Internal state tracking per-definition evaluation for escalation.
@@ -166,9 +162,12 @@ fn run_batch_egglog(
       None => ()
     }
   }
-  // Iterative escalation: keep resolving until no progress
+  // Iterative escalation: keep resolving until no progress.
+  // Bound by candidates.length() — each round resolves at least one definition
+  // when progress is made, so a chain of N dependent defs needs at most N rounds.
   let mut unresolved = candidates
-  for round = 0; round < MAX_ESCALATION_ROUNDS; round = round + 1 {
+  let max_rounds = candidates.length()
+  for round = 0; round < max_rounds; round = round + 1 {
     if unresolved.is_empty() {
       break
     }
