@@ -3,7 +3,7 @@
 ///|
 fn tree_editor_test_state(
   source : String,
-) -> (ProjNode[@ast.Term], SourceMap, TreeEditorState[@ast.Term]) {
+) -> (ProjNode[@ast.Term], SourceMap, TreeEditorState[@ast.Term]) raise {
   let (root, _) = @lambda_proj.parse_to_proj_node(source)
   let source_map = SourceMap::from_ast(root)
   (root, source_map, TreeEditorState::from_projection(Some(root), source_map))

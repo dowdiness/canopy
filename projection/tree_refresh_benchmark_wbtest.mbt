@@ -20,7 +20,7 @@ fn tree_refresh_bench_setup(
   SourceMap,
   ProjNode[@ast.Term],
   SourceMap,
-) {
+) raise {
   let source_a = tree_refresh_bench_source(let_count, "0")
   let source_b = tree_refresh_bench_source(let_count, "1")
   let (root_a, _) = @lambda_proj.parse_to_proj_node(source_a)

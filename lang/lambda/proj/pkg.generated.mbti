@@ -2,7 +2,6 @@
 package "dowdiness/canopy/lang/lambda/proj"
 
 import {
-  "dowdiness/canopy/core",
   "dowdiness/lambda/ast",
   "dowdiness/seam",
   "moonbitlang/core/debug",
@@ -10,35 +9,35 @@ import {
 }
 
 // Values
-pub fn parse_to_proj_node(String) -> (@core.ProjNode[@ast.Term], Array[String])
+pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
 
-pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@ast.Term]) -> Unit
+pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
 
 pub fn print_flat_proj(FlatProj) -> String
 
-pub fn rebuild_kind(@ast.Term, Array[@core.ProjNode[@ast.Term]]) -> @ast.Term
+pub fn rebuild_kind(@ast.Term, Array[@dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @ast.Term
 
 pub fn reconcile_flat_proj(FlatProj, FlatProj, @ref.Ref[Int]) -> FlatProj
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 pub fn to_flat_proj(@seam.SyntaxNode, @ref.Ref[Int]) -> FlatProj
 
 pub fn to_flat_proj_incremental(@seam.SyntaxNode, @seam.SyntaxNode, FlatProj, @ref.Ref[Int], changed_indices? : @ref.Ref[Array[Int]]) -> FlatProj
 
-pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
+pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 // Errors
 
 // Types and methods
 pub struct FlatProj {
-  defs : Array[(String, @core.ProjNode[@ast.Term], Int, @core.NodeId)]
-  final_expr : @core.ProjNode[@ast.Term]?
+  defs : Array[(String, @dowdiness/canopy/core.ProjNode[@ast.Term], Int, @dowdiness/canopy/core.NodeId)]
+  final_expr : @dowdiness/canopy/core.ProjNode[@ast.Term]?
 } derive(Eq, @debug.Debug)
 pub fn FlatProj::empty() -> Self
-pub fn FlatProj::from_proj_node(@core.ProjNode[@ast.Term]) -> Self
-pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
-pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @core.ProjNode[@ast.Term]
+pub fn FlatProj::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
+pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 // Type aliases
 

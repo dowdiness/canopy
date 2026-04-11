@@ -3,6 +3,7 @@ import {
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/lambda/syntax" @syntax,
+  "dowdiness/loom/core" @loomcore,
   "dowdiness/seam" @seam,
   "moonbitlang/core/cmp",
 }

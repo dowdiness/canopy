@@ -36,7 +36,7 @@ pub fn get_actions_for_node(@ast.Term, @edits.NodeContext) -> Array[@edits.Actio
 
 pub fn inject_eval_annotations(@pretty.Layout[@pretty.SyntaxCategory], Array[@eval.EvalResult]) -> @pretty.Layout[@pretty.SyntaxCategory]
 
-pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String])
+pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
 

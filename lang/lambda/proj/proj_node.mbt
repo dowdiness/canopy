@@ -294,10 +294,8 @@ pub fn rebuild_kind(
 /// multi-definition files.
 pub fn parse_to_proj_node(
   text : String,
-) -> (ProjNode[@ast.Term], Array[String]) {
-  let (cst, diagnostics) = @parser.parse_cst(text) catch {
-    _ => abort("parse failed")
-  }
+) -> (ProjNode[@ast.Term], Array[String]) raise @loomcore.LexError {
+  let (cst, diagnostics) = @parser.parse_cst(text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(fn(d) { d.message })
   let root = to_proj_node(syntax_node, Ref::new(0))

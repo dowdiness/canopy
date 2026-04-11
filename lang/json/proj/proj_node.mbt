@@ -205,10 +205,8 @@ fn extract_member(
 /// Parse text and return a ProjNode tree with any diagnostic errors.
 pub fn parse_to_proj_node(
   text : String,
-) -> (ProjNode[@json.JsonValue], Array[String]) {
-  let (cst, diagnostics) = @json.parse_cst(text) catch {
-    _ => abort("parse failed")
-  }
+) -> (ProjNode[@json.JsonValue], Array[String]) raise @loomcore.LexError {
+  let (cst, diagnostics) = @json.parse_cst(text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(fn(d) { d.message })
   let root = syntax_to_proj_node(syntax_node, Ref::new(0))
