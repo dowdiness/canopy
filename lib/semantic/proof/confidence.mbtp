@@ -57,12 +57,17 @@ predicate disagreement_yields_conflict(
     result.rank() == 4
 }
 
-// Guessed+Guessed with same value: result score is max of input scores.
+// Guessed+Guessed with same value: result is Guessed with same payload
+// and score == max(a.score(), b.score()). Exact equality rejects bugs
+// that inflate the score (e.g. summing both scores).
 predicate guessed_max_score(
   a : IntConfidence,
   b : IntConfidence,
   result : IntConfidence,
 ) {
   (a.rank() == 1 && b.rank() == 1 && a.payload() == b.payload()) →
-    (result.score() >= a.score() && result.score() >= b.score())
+    (result.rank() == 1 &&
+     result.payload() == a.payload() &&
+     ((a.score() >= b.score() && result.score() == a.score()) ||
+      (b.score() > a.score() && result.score() == b.score())))
 }
