@@ -80,12 +80,17 @@ Runs on every push and pull request to ensure code quality.
    - Installs Node.js dependencies
    - Runs `make build-web`
 
-6. **demo-react-e2e** - Runs the canonical browser E2E suite
+6. **web-e2e** - Runs web Playwright E2E suite (28 tests: lambda, JSON, markdown)
+   - Installs `examples/web` dependencies
+   - Installs Playwright Chromium
+   - Runs `make test-web-e2e`
+
+7. **demo-react-e2e** - Runs demo-react Playwright E2E suite (25 tests: single editor, collaborative)
    - Installs `examples/demo-react` dependencies
    - Installs Playwright Chromium
    - Runs `make test-demo-react-e2e`
 
-7. **benchmark** (on PRs only) - Runs performance tests
+8. **benchmark** (on PRs only) - Runs performance tests
    ```bash
    ./scripts/run-moon-module.sh bench .
    ```
@@ -251,7 +256,8 @@ make fmt           # Format code
 make build         # Build main module
 make build-js      # Build JavaScript target
 make build-web     # Build web application
-make test-demo-react-e2e # Run canonical browser E2E
+make test-web-e2e         # Run web Playwright E2E (lambda, JSON, markdown)
+make test-demo-react-e2e  # Run demo-react Playwright E2E (single, collaborative)
 
 # Development
 make web-dev       # Build JS + start dev server

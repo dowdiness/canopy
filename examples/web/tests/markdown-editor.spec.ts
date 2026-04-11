@@ -107,9 +107,10 @@ test.describe('Markdown Block Editor', () => {
     const originalText = await textarea.inputValue();
 
     // Press Enter at end → inserts new block (raw source grows)
+    const countBefore = await page.locator('#block-container .block').count();
     await textarea.press('End');
     await textarea.press('Enter');
-    await page.waitForTimeout(300);
+    await expect(page.locator('#block-container .block')).toHaveCount(countBefore + 1);
 
     // Verify the raw source changed and is valid Markdown
     await switchMode(page, 'Raw');
@@ -140,15 +141,16 @@ test.describe('Markdown Block Editor', () => {
 
   test('multiple Enter presses create blocks with unique IDs and typing works', async ({ page }) => {
     await loadExample(page, 'Hello');
+    const initialCount = await page.locator('#block-container .block').count();
     await page.locator('#block-container .block').first().click();
-    await page.waitForTimeout(300);
     const textarea = page.locator('.block-textarea');
+    await expect(textarea).toBeVisible();
     await textarea.press('End');
 
-    // Create 3 empty blocks
-    for (let i = 0; i < 3; i++) {
+    // Create 3 empty blocks, waiting for each to appear
+    for (let i = 1; i <= 3; i++) {
       await textarea.press('Enter');
-      await page.waitForTimeout(300);
+      await expect(page.locator('#block-container .block')).toHaveCount(initialCount + i);
     }
 
     // All block IDs should be unique
@@ -159,8 +161,8 @@ test.describe('Markdown Block Editor', () => {
     expect(unique).toBe(ids.length);
 
     // Typing in the last new block should work and round-trip through raw
-    await textarea.type('Typed here');
-    await page.waitForTimeout(300);
+    await expect(textarea).toBeVisible();
+    await textarea.fill('Typed here');
     await switchMode(page, 'Raw');
     const raw = await page.locator('#raw-editor').inputValue();
     expect(raw).toContain('Typed here');
@@ -172,11 +174,12 @@ test.describe('Markdown Block Editor', () => {
 
     // Click second block, Backspace at start
     await page.locator('#block-container .block').nth(1).click();
-    await page.waitForTimeout(300);
     const textarea = page.locator('.block-textarea');
+    await expect(textarea).toBeVisible();
     await textarea.press('Home');
     await textarea.press('Backspace');
-    await page.waitForTimeout(300);
+    // Wait for focus to move — textarea value should become the first block's text
+    await expect(textarea).toHaveValue(textsBefore[0]);
 
     // Blocks unchanged (no merge)
     const textsAfter = await blockTexts(page);
@@ -191,13 +194,14 @@ test.describe('Markdown Block Editor', () => {
     const textsBefore = await blockTexts(page);
 
     // Create empty block then delete it
+    const countBefore = await page.locator('#block-container .block').count();
     await page.locator('#block-container .block').first().click();
-    await page.waitForTimeout(300);
+    await expect(page.locator('.block-textarea')).toBeVisible();
     await page.locator('.block-textarea').press('End');
     await page.locator('.block-textarea').press('Enter');
-    await page.waitForTimeout(300);
+    await expect(page.locator('#block-container .block')).toHaveCount(countBefore + 1);
     await page.locator('.block-textarea').press('Backspace');
-    await page.waitForTimeout(300);
+    await expect(page.locator('#block-container .block')).toHaveCount(countBefore);
 
     // Back to original blocks
     const textsAfter = await blockTexts(page);
@@ -214,11 +218,8 @@ test.describe('Markdown Block Editor', () => {
     await expect(textarea).toBeVisible();
     await textarea.press('Home');
     await textarea.press('ArrowLeft');
-    await page.waitForTimeout(300);
-
-    // Should be in the first block, cursor at end
-    const value = await textarea.inputValue();
-    expect(value).toBe(texts[0]);
+    // Wait for focus to move to previous block
+    await expect(textarea).toHaveValue(texts[0]);
     const pos = await textarea.evaluate(el => (el as HTMLTextAreaElement).selectionStart);
     expect(pos).toBe(texts[0].length);
   });
@@ -233,11 +234,8 @@ test.describe('Markdown Block Editor', () => {
     await expect(textarea).toBeVisible();
     await textarea.press('End');
     await textarea.press('ArrowRight');
-    await page.waitForTimeout(300);
-
-    // Should be in the second block, cursor at start
-    const value = await textarea.inputValue();
-    expect(value).toBe(texts[1]);
+    // Wait for focus to move to next block
+    await expect(textarea).toHaveValue(texts[1]);
     const pos = await textarea.evaluate(el => (el as HTMLTextAreaElement).selectionStart);
     expect(pos).toBe(0);
   });
