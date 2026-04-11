@@ -264,8 +264,7 @@ Known concerns from the `editor/tree_edit_bridge.mbt` roundtrip implementation (
 - [x] Convert `abort()` calls in test files to proper assertions — ✅ Done. Verified 2026-04-02: zero `abort()` in any .mbt file across entire repo. Plan archived.
 - [ ] Parse recovery should produce `Error` nodes, not coerce to `Int(0)`/`Plus` (GitHub #74)
   Exit: malformed expressions produce `Error(...)` nodes in the AST.
-- [ ] `parse_to_proj_node` should return `Result` instead of aborting (GitHub #75)
-  Exit: projection pipeline returns errors instead of calling `abort()`.
+- [x] `parse_to_proj_node` should return `Result` instead of aborting (GitHub #75) — ✅ Done. Lambda and JSON now propagate `LexError` via `raise`, matching Markdown. 807 tests pass.
 - [ ] Tighten `ActionRecord` visibility (GitHub #97)
   Exit: `ActionRecord` fields use appropriate visibility modifiers.
 - [x] Replace singleton JS FFI export state in `crdt.mbt` with a handle → `SyncEditor` map plus explicit destroy/dispose API
