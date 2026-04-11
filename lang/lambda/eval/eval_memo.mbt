@@ -34,65 +34,192 @@ fn render_stuck(reason : @lambda_eval.StuckReason) -> EvalResult {
 }
 
 ///|
+/// Cached state for one definition, preserving the raw Value for env
+/// reconstruction and the Term for change detection.
+priv struct CachedDef {
+  name : String // binder name (or "_body" for body)
+  term : @ast.Term
+  result : EvalResult
+  raw_value : @lambda_eval.Value?
+}
+
+///|
 /// Evaluate a term and return per-definition results.
 /// For Module(defs, body): one result per def + one for body.
 /// For non-Module: one result for the whole expression.
 pub fn eval_term(term : @ast.Term) -> Array[EvalResult] {
-  let results : Array[EvalResult] = []
+  eval_term_cached(term, []).0
+}
+
+///|
+/// Evaluate with incremental caching. Reuses cached results for unchanged
+/// definitions in the prefix. Returns (display_results, new_cache).
+///
+/// Cache invariant: if def i has the same Term and all defs 0..i-1 are
+/// cache hits, then def i's result and raw_value are still valid (because
+/// evaluation is deterministic and env depends only on preceding values).
+fn eval_term_cached(
+  term : @ast.Term,
+  prev_cache : Array[CachedDef],
+) -> (Array[EvalResult], Array[CachedDef]) {
   match term {
-    Module(defs, body) => {
-      let mut env = @lambda_eval.Env::empty()
-      for i, def in defs {
-        let (name, expr) = def
-        try {
-          let v = @lambda_eval.eval(env, expr)
-          results.push(Value(render_value(v)))
-          env = env.extend(name, v)
-        } catch {
-          reason => {
-            results.push(render_stuck(reason))
-            // Stop evaluating — env is incomplete
-            for _ in (i + 1)..<defs.length() {
-              results.push(Suppressed)
-            }
-            results.push(Suppressed) // body
-            return results
-          }
-        }
-      }
-      // Evaluate body
-      try {
-        let v = @lambda_eval.eval(env, body)
-        results.push(Value(render_value(v)))
-      } catch {
-        reason => results.push(render_stuck(reason))
-      }
-    }
-    _ =>
+    Module(defs, body) => eval_module_cached(defs, body, prev_cache)
+    _ => {
+      let results : Array[EvalResult] = []
       try {
         let v = @lambda_eval.eval(@lambda_eval.Env::empty(), term)
         results.push(Value(render_value(v)))
       } catch {
         reason => results.push(render_stuck(reason))
       }
+      (results, [])
+    }
   }
-  results
 }
 
 ///|
-/// Build a reactive eval memo.
-/// Reads `syntax_tree` signal to establish reactive dependency.
+/// Incrementally evaluate a Module with caching.
+fn eval_module_cached(
+  defs : Array[(@ast.VarName, @ast.Term)],
+  body : @ast.Term,
+  prev_cache : Array[CachedDef],
+) -> (Array[EvalResult], Array[CachedDef]) {
+  let results : Array[EvalResult] = []
+  let new_cache : Array[CachedDef] = []
+  let mut env = @lambda_eval.Env::empty()
+  // Cache is usable only if shape matches: same number of defs + body.
+  let cache_valid = prev_cache.length() == defs.length() + 1
+  // Find first changed definition (compare both name AND term)
+  let mut first_changed = 0
+  if cache_valid {
+    first_changed = defs.length()
+    for i, def in defs {
+      let (name, expr) = def
+      if prev_cache[i].name != name || prev_cache[i].term != expr {
+        first_changed = i
+        break
+      }
+    }
+  }
+  // Check body if all defs are unchanged
+  let body_changed = if cache_valid && first_changed == defs.length() {
+    prev_cache[defs.length()].term != body
+  } else {
+    true
+  }
+  // Fast path: nothing changed
+  if cache_valid && first_changed == defs.length() && !body_changed {
+    return (prev_cache.map(fn(c) { c.result }), prev_cache)
+  }
+  // Reuse cached prefix (0..first_changed-1)
+  for i = 0; i < first_changed; i = i + 1 {
+    let cached = prev_cache[i]
+    results.push(cached.result)
+    new_cache.push(cached)
+    match cached.raw_value {
+      Some(v) => env = env.extend(defs[i].0, v)
+      None => {
+        // Stuck in unchanged prefix: env is incomplete.
+        // Everything from here onward is Suppressed regardless of changes.
+        fill_suppressed(results, new_cache, defs, body, i + 1)
+        return (results, new_cache)
+      }
+    }
+  }
+  // Re-evaluate from first_changed onward
+  for i = first_changed; i < defs.length(); i = i + 1 {
+    let (name, expr) = defs[i]
+    try {
+      let v = @lambda_eval.eval(env, expr)
+      let display = Value(render_value(v))
+      results.push(display)
+      new_cache.push({ name, term: expr, result: display, raw_value: Some(v) })
+      env = env.extend(name, v)
+    } catch {
+      reason => {
+        let display = render_stuck(reason)
+        results.push(display)
+        new_cache.push({ name, term: expr, result: display, raw_value: None })
+        fill_suppressed(results, new_cache, defs, body, i + 1)
+        return (results, new_cache)
+      }
+    }
+  }
+  // Evaluate body
+  try {
+    let v = @lambda_eval.eval(env, body)
+    let display = Value(render_value(v))
+    results.push(display)
+    new_cache.push({
+      name: "_body",
+      term: body,
+      result: display,
+      raw_value: Some(v),
+    })
+  } catch {
+    reason => {
+      let display = render_stuck(reason)
+      results.push(display)
+      new_cache.push({
+        name: "_body",
+        term: body,
+        result: display,
+        raw_value: None,
+      })
+    }
+  }
+  (results, new_cache)
+}
+
+///|
+/// Fill remaining definitions and body with Suppressed.
+fn fill_suppressed(
+  results : Array[EvalResult],
+  cache : Array[CachedDef],
+  defs : Array[(@ast.VarName, @ast.Term)],
+  body : @ast.Term,
+  from_index : Int,
+) -> Unit {
+  for i = from_index; i < defs.length(); i = i + 1 {
+    results.push(Suppressed)
+    cache.push({
+      name: defs[i].0,
+      term: defs[i].1,
+      result: Suppressed,
+      raw_value: None,
+    })
+  }
+  results.push(Suppressed)
+  cache.push({ name: "_body", term: body, result: Suppressed, raw_value: None })
+}
+
+///|
+/// Build a reactive eval memo with incremental caching.
+///
+/// Caches per-definition results. When only definition N changes,
+/// reuses cached results for definitions 0..N-1 and re-evaluates
+/// from N onward. This satisfies the "re-editing one binding only
+/// re-evaluates dependents" requirement.
 pub fn build_eval_memo(
   rt : @incr.Runtime,
   syntax_tree : @incr.Signal[@seam.SyntaxNode?],
   parser : @loom.ImperativeParser[@ast.Term],
 ) -> @incr.Memo[Array[EvalResult]] {
+  let cache : Ref[Array[CachedDef]] = Ref::new([])
+  let prev_results : Ref[Array[EvalResult]] = Ref::new([])
   @incr.Memo::new_no_backdate(
     rt,
     fn() -> Array[EvalResult] {
       let _ = syntax_tree.get()
       let ast = parser.get_tree().unwrap_or(@ast.Term::Unit)
-      eval_term(ast)
+      let (results, new_cache) = eval_term_cached(ast, cache.val)
+      // If cache unchanged (same reference), reuse previous results array
+      if physical_equal(new_cache, cache.val) && prev_results.val.length() > 0 {
+        return prev_results.val
+      }
+      cache.val = new_cache
+      prev_results.val = results
+      results
     },
     label="eval_memo",
   )

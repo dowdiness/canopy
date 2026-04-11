@@ -7,7 +7,9 @@
 /// The FFI layer stores this alongside the editor.
 pub struct LambdaCompanion {
   priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]
-  priv eval_memo : @incr.Memo[Array[@lambda_eval.EvalResult]]
+  // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
+  // Falls back to Tier 1 results when no definitions are Suppressed.
+  priv escalation_memo : @incr.Memo[Array[@lambda_eval.EvalResult]]
 }
 
 ///|
@@ -21,7 +23,8 @@ pub fn LambdaCompanion::get_flat_proj(
 pub fn LambdaCompanion::get_eval_results(
   self : LambdaCompanion,
 ) -> Array[@lambda_eval.EvalResult] {
-  self.eval_memo.get()
+  // Return escalated results (Tier 1 + Tier 2 merge)
+  self.escalation_memo.get()
 }
 
 ///|
@@ -95,6 +98,9 @@ pub fn new_lambda_editor(
   let eval_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?] = Ref::new(
     None,
   )
+  let escalation_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?] = Ref::new(
+    None,
+  )
   let cached_proj_node_ref : Ref[@incr.Memo[@core.ProjNode[@ast.Term]?]?] = Ref::new(
     None,
   )
@@ -109,26 +115,34 @@ pub fn new_lambda_editor(
       cached_proj_node_ref.val = Some(cached_proj_node)
       let eval_memo = @lambda_eval.build_eval_memo(rt, syntax_tree, parser)
       eval_memo_ref.val = Some(eval_memo)
+      // Escalation memo: merges Tier 1 + Tier 2 for incomplete programs
+      let escalation_memo = @lambda_eval.build_escalation_memo(
+        rt, eval_memo, syntax_tree, parser,
+      )
+      escalation_memo_ref.val = Some(escalation_memo)
       (cached_proj_node, registry_memo, source_map_memo)
     },
     capture_timeout_ms~,
-    capabilities=build_lambda_capabilities(cached_proj_node_ref, eval_memo_ref),
+    capabilities=build_lambda_capabilities(
+      cached_proj_node_ref, escalation_memo_ref,
+    ),
   )
   let companion : LambdaCompanion = {
     proj_memo: proj_memo_ref.val.unwrap(),
-    eval_memo: eval_memo_ref.val.unwrap(),
+    escalation_memo: escalation_memo_ref.val.unwrap(),
   }
   (editor, companion)
 }
 
 ///|
+/// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Memo[@core.ProjNode[@ast.Term]?]?],
-  eval_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?],
+  escalation_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
-      let eval_results = match eval_memo_ref.val {
+      let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.get()
         None => return {}
       }
@@ -139,7 +153,7 @@ fn build_lambda_capabilities(
       build_eval_annotations(eval_results, proj_node)
     }),
     pretty_post_process=Some(fn(layout) {
-      let eval_results = match eval_memo_ref.val {
+      let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.get()
         None => return layout
       }

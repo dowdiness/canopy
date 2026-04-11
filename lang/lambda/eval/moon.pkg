@@ -1,4 +1,6 @@
 import {
+  "dowdiness/egglog/examples/lambda-eval" @egglog_eval,
+  "dowdiness/egglog/src" @egglog,
   "dowdiness/incr" @incr,
   "dowdiness/lambda/ast" @ast,
   "dowdiness/lambda/eval" @lambda_eval,

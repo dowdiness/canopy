@@ -37,6 +37,9 @@
     },
     "dowdiness/zipper": {
       "path": "./lib/zipper"
+    },
+    "dowdiness/egglog": {
+      "path": "./loom/egglog"
     }
   },
   "readme": "README.mbt.md",
