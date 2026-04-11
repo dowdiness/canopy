@@ -230,7 +230,7 @@ The existing codebase has:
 | TreeEditorState | ✅ Complete | `projection/tree_editor.mbt` (immutable UI state, structural indexes, subtree reuse) |
 | TreeUIState | ✅ Complete | `projection/tree_editor.mbt` (private refresh-time helper) |
 | TreeEditorState::refresh | ✅ Complete | `projection/tree_editor.mbt` (rebuild + stale ID pruning) |
-| Rabbita example integration | ✅ Complete | `examples/rabbita/main/main.mbt` |
+| Rabbita example integration | ✅ Complete | (archived — superseded by `examples/ideal/`) |
 | ProjectedEditor | ❌ Not started | Integration facade (Phase 3.5) |
 | Bidirectional Sync | 🔶 Partial | — |
 | CstNode | ✅ Complete | `loom/seam/` |
@@ -646,14 +646,14 @@ enum ValidationLevel {
 **Prerequisites**: Phase 2 must be complete first. ✅
 
 **Status**: The MoonBit tree editor core is implemented and integrated in the
-`examples/rabbita` app. A generic reusable web tree widget / projection manager
-layer is still pending.
+`examples/ideal` app (originally prototyped in `examples/rabbita/`, now archived).
+A generic reusable web tree widget / projection manager layer is still pending.
 
 **Files created/modified**:
 - ✅ `projection/tree_editor.mbt` — TreeEditorState with immutable UI state
 - ✅ `projection/tree_editor_wbtest.mbt` — White-box coverage for reuse, elision, hydration, and guard paths
 - ✅ `editor/tree_edit_bridge.mbt` — Tree edit bridge through `SyncEditor`
-- ✅ `examples/rabbita/main/main.mbt` — Active Rabbita integration example
+- ✅ `examples/ideal/` — Full-featured editor (supersedes rabbita)
 - ❌ `crdt/src/crdt.mbt` — Extended FFI for generic tree operations
 - ❌ `examples/web/src/tree-editor.ts` — Unified tree editor component
 - ❌ `examples/web/src/tree-renderer.ts` — SVG/Canvas tree rendering

@@ -29,16 +29,6 @@ jobs:
             npm-dir: examples/web
             deploy-dir: examples/web/dist
 
-          - name: rabbita
-            project-name: canopy-rabbita
-            type: pages
-            moon-update: |
-              moon update
-              cd examples/rabbita && moon update
-            moon-build: moon build --target js --release
-            npm-dir: examples/rabbita
-            deploy-dir: examples/rabbita/dist
-
           - name: ideal
             project-name: canopy-ideal
             type: pages

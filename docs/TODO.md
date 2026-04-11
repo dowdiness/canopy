@@ -446,7 +446,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 **Impact:** Medium | **Effort:** High
 
-- [ ] **Archive `examples/rabbita/`** — superseded by `examples/ideal/`. Move to `docs/archive/` or remove.
+- [x] **Archive `examples/rabbita/`** — ✅ Done. Removed from active tree, Cloudflare deploy config removed, doc references updated to point to `examples/ideal/`.
   Exit: `rabbita/` removed from active tree, no broken references.
 - [ ] **Migrate `demo-react/` E2E + features to `web/`** — ~~add Playwright to `web/`~~ (done, PR #145: 6 lambda + 10 JSON + 12 markdown = 28 tests). Remaining: port `e2e/single-editor.spec.ts` and `e2e/collaborative-demo.spec.ts`, migrate any React-only features.
   Why: `web/` is the canonical lightweight demo (vanilla JS, shows EditorProtocol directly). `demo-react/` duplicates it in React.

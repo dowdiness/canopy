@@ -78,8 +78,7 @@ Detailed documentation for each module:
 - [Block Editor 1d](plans/2026-03-28-block-editor-1d-web.md) — JS bridge + web shell
 - [AST Zipper Design](plans/2026-03-28-ast-zipper-design.md) — Structural cursor + typed holes
 - [BFT Adapter](plans/2026-03-19-bft-adapter-design.md) — Byzantine Fault Tolerance (deferred)
-- [Ideal Editor](plans/2026-03-19-ideal-editor-impl.md) — Rabbita host + Web Component unified editor
-- [Rabbita Web Component Interop](plans/2026-03-20-rabbita-web-component-interop-design.md) — Export Rabbita cells as custom elements
+- [Ideal Editor](plans/2026-03-19-ideal-editor-impl.md) — Full-featured editor with inspector, benchmarks
 
 ## Archive
 
