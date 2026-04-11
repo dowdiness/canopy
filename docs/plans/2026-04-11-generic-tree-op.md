@@ -17,7 +17,7 @@ Of TreeEditOp's 27 variants, projection meaningfully handles only 11 generic one
 
 ### New type in core/
 
-```
+```moonbit
 pub enum GenericTreeOp {
   // Selection
   Select(node_id~ : NodeId)
@@ -52,7 +52,7 @@ Design notes:
 
 Revised:
 
-```
+```moonbit
 pub enum GenericTreeOp {
   Select(node_id~ : NodeId)
   SelectRange(start~ : NodeId, end~ : NodeId)
@@ -75,7 +75,7 @@ pub enum GenericTreeOp {
 
 Add a function that maps TreeEditOp → GenericTreeOp:
 
-```
+```moonbit
 pub fn TreeEditOp::to_generic(self : TreeEditOp) -> GenericTreeOp
 ```
 

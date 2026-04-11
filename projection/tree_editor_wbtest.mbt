@@ -432,6 +432,7 @@ test "StructuralEditKeepSelected keeps node selected and clears editing" {
   inspect(updated.selection.length(), content="1")
   inspect(updated.selection[0] == root_id, content="true")
   inspect(updated.editing_node, content="None")
+  inspect(updated.edit_value, content="")
 }
 
 ///|
