@@ -1,13 +1,12 @@
 // Interactive Tree Editor: Edit operations
 
 ///|
-using @lambda_edits {type TreeEditOp}
-
-///|
-/// Apply a tree edit operation to the editor state
+/// Apply a generic tree edit operation to the editor state.
+/// Language packages map their domain-specific ops via to_generic()
+/// before calling this method.
 pub fn[T] TreeEditorState::apply_edit(
   self : TreeEditorState[T],
-  edit : TreeEditOp,
+  edit : @core.GenericTreeOp,
 ) -> TreeEditorState[T] {
   match edit {
     Select(node_id~) => apply_selection_edit(self, [node_id])
@@ -90,22 +89,13 @@ pub fn[T] TreeEditorState::apply_edit(
         collapsed_nodes,
       }
     }
-    WrapInLambda(node_id~, var_name~) => {
-      // UI state: keep the wrapped node selected
+    StructuralEditKeepSelected(node_id~) =>
+      // Keep the target node selected, clear editing state.
+      // Used for wrap-style ops where the wrapped node stays focused.
+      { ..self, selection: [node_id], editing_node: None, edit_value: "" }
+    InsertChild(parent~, ..) =>
       // Structural change is handled by SyncEditor::apply_tree_edit + refresh
-      let _ = var_name
-      { ..self, selection: [node_id] }
-    }
-    WrapInApp(node_id~) =>
-      // UI state: keep the wrapped node selected
-      // Structural change is handled by SyncEditor::apply_tree_edit + refresh
-      { ..self, selection: [node_id] }
-    InsertChild(parent~, index~, kind~) => {
-      // UI state: select the parent node
-      // Structural change is handled by SyncEditor::apply_tree_edit + refresh
-      let _ = (index, kind)
       { ..self, selection: [parent] }
-    }
     StartDrag(node_id~) =>
       // Clear any stale drop state when starting a new drag
       {
@@ -195,24 +185,9 @@ pub fn[T] TreeEditorState::apply_edit(
           }
         None => self
       }
-    // Structural ops that use node_id — clear editing state
-    Unwrap(node_id~, ..)
-    | SwapChildren(node_id~)
-    | WrapInIf(node_id~)
-    | WrapInBop(node_id~, ..)
-    | ChangeOperator(node_id~, ..)
-    | ExtractToLet(node_id~, ..)
-    | InlineDefinition(node_id~)
-    | Rename(node_id~, ..) => {
-      let _ = node_id
+    StructuralEdit(..) =>
+      // Generic structural op: clear editing state.
+      // The actual text-level change is handled by the language's edit bridge.
       { ..self, editing_node: None, edit_value: "" }
-    }
-    // Binding-level ops — clear editing state
-    DeleteBinding(..)
-    | InlineAllUsages(..)
-    | DuplicateBinding(..)
-    | MoveBindingUp(..)
-    | MoveBindingDown(..)
-    | AddBinding(..) => { ..self, editing_node: None, edit_value: "" }
   }
 }

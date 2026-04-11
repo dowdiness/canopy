@@ -45,6 +45,24 @@ pub(all) enum FocusHint {
 } derive(Eq, @debug.Debug)
 pub impl Show for FocusHint
 
+pub(all) enum GenericTreeOp {
+  Select(node_id~ : NodeId)
+  SelectRange(start~ : NodeId, end~ : NodeId)
+  StartEdit(node_id~ : NodeId)
+  CommitEdit(node_id~ : NodeId, new_value~ : String)
+  CancelEdit
+  Delete(node_id~ : NodeId)
+  StructuralEdit(node_id~ : NodeId)
+  StructuralEditKeepSelected(node_id~ : NodeId)
+  InsertChild(parent~ : NodeId, index~ : Int)
+  StartDrag(node_id~ : NodeId)
+  DragOver(target~ : NodeId, position~ : DropPosition)
+  Drop(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
+  Collapse(node_id~ : NodeId)
+  Expand(node_id~ : NodeId)
+} derive(@debug.Debug)
+pub impl Show for GenericTreeOp
+
 pub struct NodeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn NodeId::from_int(Int) -> Self
 #deprecated

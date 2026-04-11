@@ -200,6 +200,7 @@ Tracked by:
 - [x] Add E2E browser tests with Playwright — `examples/demo-react` now has Playwright coverage
 - [x] Run existing Playwright E2E in CI and pick a canonical browser app under test (`examples/demo-react`)
 - [x] Add error path tests — malformed sync messages, corrupted operation logs, network interruptions — ✅ Done. `editor/error_path_wbtest.mbt` (20 tests: wire protocol, ws_on_message, apply_sync, export), `relay/error_path_wbtest.mbt` (9 tests: duplicate peers, non-existent peers, empty rooms)
+- [ ] **E2E tests for outline tree panel** — `examples/ideal` outline tree operations (select, collapse, expand, drag-and-drop) have no E2E coverage. Unit tests in `projection/tree_editor_wbtest.mbt` (67 tests) cover the logic, but no browser-level verification exists for the Rabbita-based outline UI.
 
 ---
 

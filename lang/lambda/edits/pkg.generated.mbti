@@ -93,6 +93,7 @@ pub(all) enum TreeEditOp {
   InlineAllUsages(binding_node_id~ : @core.NodeId)
   Rename(node_id~ : @core.NodeId, new_name~ : String)
 } derive(@debug.Debug)
+pub fn TreeEditOp::to_generic(Self) -> @core.GenericTreeOp
 pub impl Show for TreeEditOp
 
 // Type aliases

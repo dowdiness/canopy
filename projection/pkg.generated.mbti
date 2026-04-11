@@ -2,7 +2,6 @@
 package "dowdiness/canopy/projection"
 
 import {
-  "dowdiness/canopy/lang/lambda/edits",
   "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset",
 }
@@ -44,7 +43,7 @@ pub struct TreeEditorState[T] {
   collapsed_nodes : @hashset.HashSet[@dowdiness/canopy/core.NodeId]
   // private fields
 }
-pub fn[T] TreeEditorState::apply_edit(Self[T], @edits.TreeEditOp) -> Self[T]
+pub fn[T] TreeEditorState::apply_edit(Self[T], @dowdiness/canopy/core.GenericTreeOp) -> Self[T]
 pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::expand_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
 pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::from_projection(@dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
 pub fn[T] TreeEditorState::get_loaded_node(Self[T], @dowdiness/canopy/core.NodeId) -> InteractiveTreeNode[T]?

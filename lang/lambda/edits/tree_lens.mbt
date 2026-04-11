@@ -58,6 +58,43 @@ pub impl Show for TreeEditOp with output(self, logger) {
 }
 
 ///|
+/// Map a language-specific TreeEditOp to the generic op type
+/// that projection/TreeEditorState understands.
+pub fn TreeEditOp::to_generic(self : TreeEditOp) -> @core.GenericTreeOp {
+  match self {
+    Select(node_id~) => Select(node_id~)
+    SelectRange(start~, end~) => SelectRange(start~, end~)
+    StartEdit(node_id~) => StartEdit(node_id~)
+    CommitEdit(node_id~, new_value~) => CommitEdit(node_id~, new_value~)
+    CancelEdit => CancelEdit
+    Delete(node_id~) => Delete(node_id~)
+    WrapInLambda(node_id~, ..) => StructuralEditKeepSelected(node_id~)
+    WrapInApp(node_id~) => StructuralEditKeepSelected(node_id~)
+    InsertChild(parent~, index~, ..) => InsertChild(parent~, index~)
+    StartDrag(node_id~) => StartDrag(node_id~)
+    DragOver(target~, position~) => DragOver(target~, position~)
+    Drop(source~, target~, position~) => Drop(source~, target~, position~)
+    Collapse(node_id~) => Collapse(node_id~)
+    Expand(node_id~) => Expand(node_id~)
+    Unwrap(node_id~, ..)
+    | SwapChildren(node_id~)
+    | WrapInIf(node_id~)
+    | WrapInBop(node_id~, ..)
+    | ChangeOperator(node_id~, ..)
+    | ExtractToLet(node_id~, ..)
+    | InlineDefinition(node_id~)
+    | Rename(node_id~, ..) => StructuralEdit(node_id~)
+    DeleteBinding(binding_node_id~) => StructuralEdit(node_id=binding_node_id)
+    InlineAllUsages(binding_node_id~) => StructuralEdit(node_id=binding_node_id)
+    DuplicateBinding(binding_node_id~) =>
+      StructuralEdit(node_id=binding_node_id)
+    MoveBindingUp(binding_node_id~) => StructuralEdit(node_id=binding_node_id)
+    MoveBindingDown(binding_node_id~) => StructuralEdit(node_id=binding_node_id)
+    AddBinding(module_node_id~) => StructuralEdit(node_id=module_node_id)
+  }
+}
+
+///|
 fn[T : Renderable] placeholder_text_for_kind(kind : T) -> String {
   T::placeholder(kind)
 }

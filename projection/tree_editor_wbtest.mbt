@@ -425,12 +425,14 @@ test "DragOver allows elided descendant as drop target (lazy parent map)" {
 }
 
 ///|
-test "WrapInLambda keeps wrapped node selected" {
+test "StructuralEditKeepSelected keeps node selected and clears editing" {
   let (_, _, state) = tree_editor_test_state("x")
   let root_id = tree_editor_test_ids(state.tree)[0]
-  let updated = state.apply_edit(WrapInLambda(node_id=root_id, var_name="y"))
+  let updated = state.apply_edit(StructuralEditKeepSelected(node_id=root_id))
   inspect(updated.selection.length(), content="1")
   inspect(updated.selection[0] == root_id, content="true")
+  inspect(updated.editing_node, content="None")
+  inspect(updated.edit_value, content="")
 }
 
 ///|

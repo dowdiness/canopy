@@ -478,14 +478,14 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               model.editor.get_source_map(),
             )
           } else {
-            model.outline_state.apply_edit(op)
+            model.outline_state.apply_edit(op.to_generic())
           }
           return (none, { ..model, outline_state, })
         }
         @lambda_edits.Collapse(..)
         | @lambda_edits.Select(..)
         | @lambda_edits.SelectRange(..) => {
-          let outline_state = model.outline_state.apply_edit(op)
+          let outline_state = model.outline_state.apply_edit(op.to_generic())
           return (none, { ..model, outline_state, })
         }
         _ => (none, model)
@@ -551,7 +551,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(s) =>
           match parse_node_id(s) {
             Some(nid) =>
-              model.outline_state.apply_edit(@lambda_edits.Select(node_id=nid))
+              model.outline_state.apply_edit(@core.GenericTreeOp::Select(node_id=nid))
             None => return (none, model)
           }
         None => model.outline_state
@@ -598,7 +598,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             .innermost_node_at(new_model.editor.get_cursor()) {
             Some(nid) => {
               let os = new_model.outline_state.apply_edit(
-                @lambda_edits.Select(node_id=nid),
+                @core.GenericTreeOp::Select(node_id=nid),
               )
               (Some(node_id_to_string(nid)), os)
             }

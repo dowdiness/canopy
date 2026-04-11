@@ -1,6 +1,5 @@
 import {
   "dowdiness/canopy/core" @core,
-  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/loom/core" @loomcore,
   "moonbitlang/core/bench" @bench,
   "moonbitlang/core/cmp",
