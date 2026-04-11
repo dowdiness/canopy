@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/lambda" @lambda,
   "dowdiness/canopy/lang/json/edits" @json_edits,
   "dowdiness/canopy/llm" @llm,
   "dowdiness/canopy/lang/markdown/edits" @md_edits,

@@ -60,6 +60,7 @@ struct NodeActionContext {
 ///|
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
+  companion : @lambda.LambdaCompanion
   outline_state : @proj.TreeEditorState[@ast.Term]
   mode : EditorMode
   workspace : WorkspaceLayout

@@ -56,12 +56,7 @@ test "new_json_editor — reconcile preserves IDs" {
   inspect(id1 == id2, content="true")
 }
 
-///|
-test "new_json_editor — get_flat_proj returns None" {
-  let editor = new_json_editor("test")
-  editor.set_text("{}")
-  inspect(editor.get_flat_proj() is None, content="true")
-}
+// get_flat_proj test removed — JSON editors don't have FlatProj
 
 ///|
 test "apply WrapInArray" {

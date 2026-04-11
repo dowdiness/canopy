@@ -4,6 +4,7 @@ package "dowdiness/canopy/ffi"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/json/edits",
+  "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/lambda/ast",
   "moonbitlang/async/js_async",
 }
@@ -64,6 +65,8 @@ pub fn get_ast_dot_resolved(Int) -> String
 pub fn get_ast_pretty(Int) -> String
 
 pub fn get_errors_json(Int) -> String
+
+pub fn get_lambda_companion() -> @companion.LambdaCompanion?
 
 pub fn get_pretty_view_json(Int) -> String
 

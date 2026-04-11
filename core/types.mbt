@@ -46,3 +46,14 @@ pub(all) enum FocusHint {
 pub impl Show for FocusHint with output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+/// Drop position for drag-and-drop and move operations.
+pub(all) enum DropPosition {
+  /// Insert before the target
+  Before
+  /// Insert after the target
+  After
+  /// Insert as a child of the target
+  Inside
+} derive(Debug, Eq)

@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/companion"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/lambda/edits",
+  "dowdiness/canopy/lang/lambda/eval",
+  "dowdiness/canopy/lang/lambda/proj",
+  "dowdiness/canopy/protocol",
+  "dowdiness/lambda",
+  "dowdiness/lambda/ast",
+}
+
+// Values
+pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Unit, @editor.TreeEditError]
+
+pub fn get_lambda_ast(@editor.SyncEditor[@ast.Term]) -> @ast.Term
+
+pub fn get_lambda_ast_pretty(@editor.SyncEditor[@ast.Term]) -> String
+
+pub fn get_lambda_dot_resolved(@editor.SyncEditor[@ast.Term]) -> String
+
+pub fn get_lambda_resolution(@editor.SyncEditor[@ast.Term]) -> @lambda.Resolution
+
+pub fn new_lambda_editor(String, capture_timeout_ms? : Int) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion)
+
+pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
+
+// Errors
+
+// Types and methods
+pub struct LambdaCompanion {
+  // private fields
+}
+pub fn LambdaCompanion::get_eval_annotations(Self, @core.ProjNode[@ast.Term]?) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
+pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
+pub fn LambdaCompanion::get_flat_proj(Self) -> @proj.FlatProj?
+
+// Type aliases
+
+// Traits
+

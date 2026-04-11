@@ -9,7 +9,7 @@ pub fn[T] SyncEditor::insert(self : SyncEditor[T], text : String) -> Unit raise 
   self.apply_local_text_change(
     old_source,
     self.doc.text(),
-    Some(@parser.Edit::insert(insert_start, text.length())),
+    Some(@loom_core.Edit::insert(insert_start, text.length())),
   )
 }
 
@@ -23,7 +23,7 @@ pub fn[T] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
       self.apply_local_text_change(
         old_source,
         self.doc.text(),
-        Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
+        Some(@loom_core.Edit::delete(self.cursor, self.cursor + 1)),
       )
       true
     }
@@ -45,7 +45,7 @@ pub fn[T] SyncEditor::backspace(self : SyncEditor[T]) -> Bool {
         self.apply_local_text_change(
           old_source,
           self.doc.text(),
-          Some(@parser.Edit::delete(self.cursor, self.cursor + 1)),
+          Some(@loom_core.Edit::delete(self.cursor, self.cursor + 1)),
         )
         true
       }
@@ -138,7 +138,7 @@ pub fn[T] SyncEditor::apply_text_edit_internal(
   self.apply_local_text_change(
     old_source,
     self.doc.text(),
-    Some(@parser.Edit::new(safe_start, safe_delete_len, inserted.length())),
+    Some(@loom_core.Edit::new(safe_start, safe_delete_len, inserted.length())),
   )
 }
 

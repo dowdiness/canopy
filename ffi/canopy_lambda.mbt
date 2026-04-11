@@ -3,7 +3,13 @@
 // Handle-based editor registry (supports multiple concurrent editors)
 
 ///|
-let editors : Map[Int, @editor.SyncEditor[@ast.Term]] = Map::new()
+priv struct LambdaHandle {
+  editor : @editor.SyncEditor[@ast.Term]
+  companion : @lambda.LambdaCompanion
+}
+
+///|
+let lambda_handles : Map[Int, LambdaHandle] = Map::new()
 
 ///|
 let next_handle : Ref[Int] = { val: 1 }
@@ -15,7 +21,24 @@ let last_created_handle : Ref[Int?] = { val: None }
 /// Get the most recently created editor for legacy MoonBit consumers.
 pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
   match last_created_handle.val {
-    Some(handle) => editors.get(handle)
+    Some(handle) =>
+      match lambda_handles.get(handle) {
+        Some(h) => Some(h.editor)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+/// Get the companion for the most recently created lambda editor.
+pub fn get_lambda_companion() -> @lambda.LambdaCompanion? {
+  match last_created_handle.val {
+    Some(handle) =>
+      match lambda_handles.get(handle) {
+        Some(h) => Some(h.companion)
+        None => None
+      }
     None => None
   }
 }
@@ -26,7 +49,8 @@ pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
 pub fn create_editor(agent_id : String) -> Int {
   let handle = next_handle.val
   next_handle.val = handle + 1
-  editors[handle] = @editor.SyncEditor::new_lambda(agent_id)
+  let (editor, companion) = @lambda.new_lambda_editor(agent_id)
+  lambda_handles[handle] = { editor, companion }
   last_created_handle.val = Some(handle)
   handle
 }
@@ -34,7 +58,7 @@ pub fn create_editor(agent_id : String) -> Int {
 ///|
 /// Destroy an editor instance and free its resources.
 pub fn destroy_editor(handle : Int) -> Unit {
-  editors.remove(handle)
+  lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
@@ -45,8 +69,8 @@ pub fn destroy_editor(handle : Int) -> Unit {
 ///|
 /// Get current text content
 pub fn get_text(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_text()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.get_text()
     None => ""
   }
 }
@@ -54,8 +78,8 @@ pub fn get_text(handle : Int) -> String {
 ///|
 /// Set text content directly (replaces entire document)
 pub fn set_text(handle : Int, new_text : String) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.set_text(new_text)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.set_text(new_text)
     None => ()
   }
 }
@@ -63,8 +87,8 @@ pub fn set_text(handle : Int, new_text : String) -> Unit {
 ///|
 /// Get AST as DOT format with name resolution coloring
 pub fn get_ast_dot_resolved(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_dot_resolved()
+  match lambda_handles.get(handle) {
+    Some(h) => @lambda.get_lambda_dot_resolved(h.editor)
     None => "digraph { }"
   }
 }
@@ -72,8 +96,8 @@ pub fn get_ast_dot_resolved(handle : Int) -> String {
 ///|
 /// Get AST as pretty-printed string (expression + debug tree)
 pub fn get_ast_pretty(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_ast_pretty()
+  match lambda_handles.get(handle) {
+    Some(h) => @lambda.get_lambda_ast_pretty(h.editor)
     None => ""
   }
 }
@@ -81,8 +105,8 @@ pub fn get_ast_pretty(handle : Int) -> String {
 ///|
 /// Get parse errors as JSON array
 pub fn get_errors_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_errors().to_json().stringify()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.get_errors().to_json().stringify()
     None => "[]"
   }
 }
@@ -90,9 +114,9 @@ pub fn get_errors_json(handle : Int) -> String {
 ///|
 /// Export all operations as a SyncMessage JSON string.
 pub fn export_all_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
-      ed.export_all().to_json_string() catch {
+  match lambda_handles.get(handle) {
+    Some(h) =>
+      h.editor.export_all().to_json_string() catch {
         _ => "{\"ops\":[],\"heads\":[]}"
       }
     None => "{\"ops\":[],\"heads\":[]}"
@@ -102,11 +126,11 @@ pub fn export_all_json(handle : Int) -> String {
 ///|
 /// Export operations since a peer's version as a SyncMessage JSON string.
 pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
+  match lambda_handles.get(handle) {
+    Some(h) =>
       try {
         let ver = @text.Version::from_json_string(peer_version_json)
-        ed.export_since(ver).to_json_string()
+        h.editor.export_since(ver).to_json_string()
       } catch {
         _ => "{\"ops\":[],\"heads\":[]}"
       }
@@ -117,11 +141,11 @@ pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
 ///|
 /// Apply a SyncMessage received from a peer.
 pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
+  match lambda_handles.get(handle) {
+    Some(h) =>
       try {
         let msg = @text.SyncMessage::from_json_string(sync_json)
-        ed.apply_sync(msg)
+        h.editor.apply_sync(msg)
         "ok"
       } catch {
         err => "{\"error\":\"\{err}\"}"
@@ -133,8 +157,8 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 ///|
 /// Get the current version as a JSON string.
 pub fn get_version_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_version().to_json_string()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.get_version().to_json_string()
     None => "\"\""
   }
 }
@@ -150,10 +174,11 @@ pub fn create_editor_with_undo(
 ) -> Int {
   let handle = next_handle.val
   next_handle.val = handle + 1
-  editors[handle] = @editor.SyncEditor::new_lambda(
+  let (editor, companion) = @lambda.new_lambda_editor(
     agent_id,
     capture_timeout_ms~,
   )
+  lambda_handles[handle] = { editor, companion }
   last_created_handle.val = Some(handle)
   handle
 }
@@ -165,8 +190,8 @@ pub fn insert_and_record(
   text : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => try! ed.insert_and_record(text, timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => try! h.editor.insert_and_record(text, timestamp_ms)
     None => ()
   }
 }
@@ -174,8 +199,8 @@ pub fn insert_and_record(
 ///|
 /// Delete character at cursor (forward delete) and record for undo
 pub fn delete_and_record(handle : Int, timestamp_ms : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.delete_and_record(timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.delete_and_record(timestamp_ms)
     None => false
   }
 }
@@ -183,8 +208,8 @@ pub fn delete_and_record(handle : Int, timestamp_ms : Int) -> Bool {
 ///|
 /// Delete character before cursor (backspace) and record for undo
 pub fn backspace_and_record(handle : Int, timestamp_ms : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.backspace_and_record(timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.backspace_and_record(timestamp_ms)
     None => false
   }
 }
@@ -198,8 +223,8 @@ pub fn insert_at(
   text : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.insert_at(position, text, timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.insert_at(position, text, timestamp_ms)
     None => ()
   }
 }
@@ -209,8 +234,8 @@ pub fn insert_at(
 /// Records the operation for undo. Returns false if position is out of bounds.
 /// Used by ProseMirror bridge.
 pub fn delete_at(handle : Int, position : Int, timestamp_ms : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.delete_at(position, timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.delete_at(position, timestamp_ms)
     None => false
   }
 }
@@ -222,8 +247,8 @@ pub fn set_text_and_record(
   new_text : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.set_text_and_record(new_text, timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.set_text_and_record(new_text, timestamp_ms)
     None => ()
   }
 }
@@ -231,8 +256,8 @@ pub fn set_text_and_record(
 ///|
 /// Undo the last operation group.
 pub fn undo_manager_undo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.undo()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.undo()
     None => false
   }
 }
@@ -240,8 +265,8 @@ pub fn undo_manager_undo(handle : Int) -> Bool {
 ///|
 /// Redo the last undone operation group.
 pub fn undo_manager_redo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.redo()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.redo()
     None => false
   }
 }
@@ -250,9 +275,9 @@ pub fn undo_manager_redo(handle : Int) -> Bool {
 /// Undo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if undo stack is empty.
 pub fn undo_and_export_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
-      match ed.undo_and_export() {
+  match lambda_handles.get(handle) {
+    Some(h) =>
+      match h.editor.undo_and_export() {
         Some(msg) => msg.to_json_string()
         None => ""
       }
@@ -264,9 +289,9 @@ pub fn undo_and_export_json(handle : Int) -> String {
 /// Redo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if redo stack is empty.
 pub fn redo_and_export_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
-      match ed.redo_and_export() {
+  match lambda_handles.get(handle) {
+    Some(h) =>
+      match h.editor.redo_and_export() {
         Some(msg) => msg.to_json_string()
         None => ""
       }
@@ -277,8 +302,8 @@ pub fn redo_and_export_json(handle : Int) -> String {
 ///|
 /// Check if undo is possible
 pub fn undo_manager_can_undo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.can_undo()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.can_undo()
     None => false
   }
 }
@@ -286,8 +311,8 @@ pub fn undo_manager_can_undo(handle : Int) -> Bool {
 ///|
 /// Check if redo is possible
 pub fn undo_manager_can_redo(handle : Int) -> Bool {
-  match editors.get(handle) {
-    Some(ed) => ed.can_redo()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.can_redo()
     None => false
   }
 }
@@ -295,8 +320,8 @@ pub fn undo_manager_can_redo(handle : Int) -> Bool {
 ///|
 /// Enable or disable undo tracking
 pub fn undo_manager_set_tracking(handle : Int, enabled : Bool) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.set_tracking(enabled)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.set_tracking(enabled)
     None => ()
   }
 }
@@ -304,8 +329,8 @@ pub fn undo_manager_set_tracking(handle : Int, enabled : Bool) -> Unit {
 ///|
 /// Clear both undo and redo stacks
 pub fn undo_manager_clear(handle : Int) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.clear_undo()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.clear_undo()
     None => ()
   }
 }
@@ -316,9 +341,9 @@ pub fn undo_manager_clear(handle : Int) -> Unit {
 /// Get the ProjNode tree as JSON string.
 /// Returns "null" if no projection is available.
 pub fn get_proj_node_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) =>
-      match ed.get_proj_node() {
+  match lambda_handles.get(handle) {
+    Some(h) =>
+      match h.editor.get_proj_node() {
         Some(proj) => proj.to_json().stringify()
         None => "null"
       }
@@ -330,8 +355,8 @@ pub fn get_proj_node_json(handle : Int) -> String {
 /// Get the SourceMap as JSON string.
 /// Returns an array of {node_id, start, end} entries.
 pub fn get_source_map_json(handle : Int) -> String {
-  match editors.get(handle) {
-    Some(ed) => ed.get_source_map().to_json().stringify()
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.get_source_map().to_json().stringify()
     None => "[]"
   }
 }
@@ -344,14 +369,21 @@ pub fn apply_tree_edit_json(
   op_json : String,
   timestamp_ms : Int,
 ) -> String {
-  match editors.get(handle) {
-    Some(ed) => {
+  match lambda_handles.get(handle) {
+    Some(h) => {
       let json = @json.parse(op_json) catch {
         _ => return "error: invalid JSON"
       }
-      match @editor.parse_tree_edit_op(json) {
+      let op = try? @lambda.parse_tree_edit_op(json)
+      match op {
         Ok(op) =>
-          match ed.apply_tree_edit(op, timestamp_ms) {
+          match
+            @lambda.apply_lambda_tree_edit(
+              h.editor,
+              h.companion,
+              op,
+              timestamp_ms,
+            ) {
             Ok(_) => "ok"
             Err(err) => "error: " + err.message()
           }
@@ -372,8 +404,8 @@ pub fn handle_text_intent(
   insert : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match editors.get(handle) {
-    Some(ed) => ed.apply_text_edit(from, deleted_len, insert, timestamp_ms)
+  match lambda_handles.get(handle) {
+    Some(h) => h.editor.apply_text_edit(from, deleted_len, insert, timestamp_ms)
     None => ()
   }
 }

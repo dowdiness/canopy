@@ -24,7 +24,7 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
   if model.bottom_tab != Graphviz || !model.workspace.bottom_visible {
     return @rabbita.none
   }
-  let dot = model.editor.get_dot_resolved()
+  let dot = @lambda.get_lambda_dot_resolved(model.editor)
   let svg = render_dot_to_svg(dot)
   // AfterRender ensures the container div exists in the DOM before setting innerHTML.
   @rabbita_cmd.raw_effect(

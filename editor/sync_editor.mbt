@@ -10,11 +10,10 @@ pub struct SyncEditor[T] {
   priv source_text : @incr.Signal[String]
   priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
   priv mut cursor : Int
-  priv proj_memo : @incr.Memo[@lambda.VersionedFlatProj]?
   priv cached_proj_node : @incr.Memo[@proj.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]]
   priv source_map_memo : @incr.Memo[@proj.SourceMap]
-  priv mut eval_memo : @incr.Memo[Array[@lambda.EvalResult]]?
+  priv capabilities : LanguageCapabilities[T]
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
   priv peer_id : String
@@ -25,77 +24,7 @@ pub struct SyncEditor[T] {
 }
 
 ///|
-fn[T] SyncEditor::new(
-  agent_id : String,
-  make_parser : (String) -> @loom.ImperativeParser[T],
-  build_memos : (
-    @incr.Runtime,
-    @incr.Signal[String],
-    @incr.Signal[@seam.SyntaxNode?],
-    @loom.ImperativeParser[T],
-  ) -> (
-    @incr.Memo[@lambda.VersionedFlatProj],
-    @incr.Memo[@proj.ProjNode[T]?],
-    @incr.Memo[Map[@proj.NodeId, @proj.ProjNode[T]]],
-    @incr.Memo[@proj.SourceMap],
-  ),
-  capture_timeout_ms? : Int = 500,
-) -> SyncEditor[T] {
-  let parser = make_parser("")
-  let parser_rt = @incr.Runtime::new()
-  let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
-  let syntax_tree = @incr.Signal::new(
-    parser_rt,
-    None,
-    label="editor_syntax_tree",
-  )
-  let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = build_memos(
-    parser_rt, source_text, syntax_tree, parser,
-  )
-  let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
-  {
-    doc: @text.TextState::new(agent_id),
-    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
-    parser,
-    parser_rt,
-    source_text,
-    syntax_tree,
-    cursor: 0,
-    proj_memo: Some(proj_memo),
-    cached_proj_node,
-    registry_memo,
-    source_map_memo,
-    eval_memo: None,
-    hub,
-    cursor_view,
-    peer_id: agent_id,
-    ws: None,
-    recovery: None,
-    recovery_epoch: 0,
-    projection_dirty: false,
-  }
-}
-
-///|
-/// Convenience constructor for lambda calculus — creates a SyncEditor[@ast.Term].
-pub fn SyncEditor::new_lambda(
-  agent_id : String,
-  capture_timeout_ms? : Int = 500,
-) -> SyncEditor[@ast.Term] {
-  let editor = SyncEditor::new(
-    agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
-    @lambda.build_lambda_projection_memos,
-    capture_timeout_ms~,
-  )
-  editor.eval_memo = Some(
-    @lambda.build_eval_memo(editor.parser_rt, editor.syntax_tree, editor.parser),
-  )
-  editor
-}
-
-///|
-/// Generic constructor for languages without FlatProj.
+/// Generic constructor for all languages.
 /// The build_memos callback returns 3 memos (ProjNode, registry, SourceMap).
 pub fn[T] SyncEditor::new_generic(
   agent_id : String,
@@ -111,6 +40,7 @@ pub fn[T] SyncEditor::new_generic(
     @incr.Memo[@proj.SourceMap],
   ),
   capture_timeout_ms? : Int = 500,
+  capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
 ) -> SyncEditor[T] {
   let parser = make_parser("")
   let parser_rt = @incr.Runtime::new()
@@ -132,11 +62,10 @@ pub fn[T] SyncEditor::new_generic(
     source_text,
     syntax_tree,
     cursor: 0,
-    proj_memo: None,
     cached_proj_node,
     registry_memo,
     source_map_memo,
-    eval_memo: None,
+    capabilities,
     hub,
     cursor_view,
     peer_id: agent_id,

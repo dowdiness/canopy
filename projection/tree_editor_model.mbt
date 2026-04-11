@@ -1,9 +1,6 @@
 // Interactive Tree Editor: Data types, rendering model, and editor state
 
 ///|
-using @lambda_edits {type DropPosition}
-
-///|
 /// Rendered children for an interactive node.
 pub enum InteractiveChildren[T] {
   Loaded(Array[InteractiveTreeNode[T]])

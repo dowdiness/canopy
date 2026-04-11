@@ -1,13 +1,4 @@
 // Projection accessor methods for SyncEditor.
-// The lambda-specific memo builder lives in lang/lambda/flat/projection_memo.mbt.
-
-///|
-pub fn[T] SyncEditor::get_flat_proj(self : SyncEditor[T]) -> @lambda.FlatProj? {
-  match self.proj_memo {
-    Some(memo) => memo.get().proj
-    None => None
-  }
-}
 
 ///|
 /// Returns the cached ProjNode (converted from FlatProj once per invalidation).
@@ -18,6 +9,20 @@ pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @proj.ProjNode[T]? 
 ///|
 pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @proj.SourceMap {
   self.source_map_memo.get()
+}
+
+///|
+/// Returns the full node registry (NodeId → ProjNode).
+pub fn[T] SyncEditor::get_registry(
+  self : SyncEditor[T],
+) -> Map[@proj.NodeId, @proj.ProjNode[T]] {
+  self.registry_memo.get()
+}
+
+///|
+/// Returns the parsed AST tree (language-specific type T).
+pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
+  self.parser.get_tree()
 }
 
 ///|

@@ -161,7 +161,7 @@ fn build_outline_eval_annotations(
   model : Model,
 ) -> Map[@proj.NodeId, Array[@lambda.EvalResult]] {
   let annotations : Map[@proj.NodeId, Array[@lambda.EvalResult]] = {}
-  let eval_results = model.editor.get_eval_results()
+  let eval_results = model.companion.get_eval_results()
   if eval_results.is_empty() {
     return annotations
   }

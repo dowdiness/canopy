@@ -8,6 +8,7 @@
 /// checks if it's a let-binding init, and finds the enclosing Module node.
 fn detect_action_context(
   editor : @editor.SyncEditor[@ast.Term],
+  companion : @lambda.LambdaCompanion,
   selected_node : String,
 ) -> NodeActionContext? {
   let nid = match parse_node_id(selected_node) {
@@ -18,7 +19,7 @@ fn detect_action_context(
     Some(n) => n
     None => return None
   }
-  let flat_proj = match editor.get_flat_proj() {
+  let flat_proj = match companion.get_flat_proj() {
     Some(fp) => fp
     None => return None
   }

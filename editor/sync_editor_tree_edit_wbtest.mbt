@@ -3,7 +3,7 @@
 
 ///|
 test "delete_node replaces span with placeholder" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("(λx. x)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -15,7 +15,7 @@ test "delete_node replaces span with placeholder" {
 
 ///|
 test "commit_edit replaces span with new text" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -28,7 +28,7 @@ test "commit_edit replaces span with new text" {
 
 ///|
 test "apply_text_transform wraps node in lambda" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -45,7 +45,7 @@ test "apply_text_transform wraps node in lambda" {
 
 ///|
 test "delete_node returns error for unknown node_id" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let _ = editor.get_proj_node()
   let bad_id = @proj.NodeId::from_int(99999)
@@ -55,7 +55,7 @@ test "delete_node returns error for unknown node_id" {
 
 ///|
 test "commit_edit returns error for unknown node_id" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   let _ = editor.get_proj_node()
   let bad_id = @proj.NodeId::from_int(99999)
@@ -65,14 +65,14 @@ test "commit_edit returns error for unknown node_id" {
 
 ///|
 test "is_dirty set after set_text" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   inspect(editor.is_dirty(), content="true")
 }
 
 ///|
 test "is_dirty set after insert/backspace" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   // Consume initial dirty from construction
   editor.refresh()
   inspect(editor.is_dirty(), content="false")
@@ -91,7 +91,7 @@ test "is_dirty set after insert/backspace" {
 
 ///|
 test "refresh clears dirty flag and further edits are accepted" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
   inspect(editor.is_dirty(), content="true")
   editor.refresh()
@@ -114,7 +114,7 @@ test "move_node moves source before target and adjusts text" {
   // Move Int(2) Before Int(1):
   //   step 1: replace [2:3] with placeholder("0") → "1 0"
   //   step 2: insert unparse("2") + " " at 0 → "2 1 0"
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("1 2")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")

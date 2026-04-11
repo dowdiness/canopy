@@ -4,7 +4,7 @@
 test "Web scenario: error persistence bug" {
   // Simulate web editor usage
   let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None }
-  editor_ref.val = Some(@editor.SyncEditor::new_lambda("web-user"))
+  editor_ref.val = Some(@lambda.new_lambda_editor("web-user").0)
 
   // Type "x"
   match editor_ref.val {

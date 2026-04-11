@@ -20,7 +20,7 @@ fn[T] SyncEditor::sync_parser_after_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
-  known_edit : @parser.Edit?,
+  known_edit : @loom_core.Edit?,
 ) -> Unit {
   if old_source == new_source {
     return
@@ -43,7 +43,7 @@ fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
-  known_edit : @parser.Edit?,
+  known_edit : @loom_core.Edit?,
 ) -> Unit {
   if old_source == new_source {
     return
@@ -73,8 +73,8 @@ fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
 fn resolve_applied_edit(
   old_source : String,
   new_source : String,
-  known_edit : @parser.Edit?,
-) -> @parser.Edit? {
+  known_edit : @loom_core.Edit?,
+) -> @loom_core.Edit? {
   match known_edit {
     None => None
     Some(edit) => {
@@ -95,7 +95,7 @@ fn[T] SyncEditor::apply_local_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
-  known_edit : @parser.Edit?,
+  known_edit : @loom_core.Edit?,
 ) -> Unit {
   let applied_edit = resolve_applied_edit(old_source, new_source, known_edit)
   self.adjust_peer_cursors_after_text_change(
@@ -114,51 +114,8 @@ fn[T] SyncEditor::force_parser_reset(self : SyncEditor[T]) -> @seam.SyntaxNode? 
 }
 
 ///|
-fn[T] SyncEditor::current_syntax_tree(
-  self : SyncEditor[T],
-) -> @seam.SyntaxNode? {
-  match self.syntax_tree.get() {
-    Some(tree) => Some(tree)
-    None => self.force_parser_reset()
-  }
-}
-
-///|
 pub fn[T] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
   let _ = self.force_parser_reset()
-}
-
-///|
-/// Lambda-specific: returns the parsed @ast.Term.
-pub fn SyncEditor::get_ast(self : SyncEditor[@ast.Term]) -> @ast.Term {
-  // Ensure parser has run, then get the Term directly
-  let _ = self.current_syntax_tree()
-  self.parser.get_tree().unwrap_or(@ast.Term::Unit)
-}
-
-///|
-/// Lambda-specific: returns pretty-printed AST.
-pub fn SyncEditor::get_ast_pretty(self : SyncEditor[@ast.Term]) -> String {
-  let ast = self.get_ast()
-  let formatted = @pretty.pretty_print(ast, width=60)
-  "Expression: " + formatted + "\n\nAST:\n" + @debug.to_string(ast)
-}
-
-///|
-/// Lambda-specific: returns name resolution info.
-pub fn SyncEditor::get_resolution(
-  self : SyncEditor[@ast.Term],
-) -> @parser.Resolution {
-  let (_, res) = @parser.resolve(self.get_ast())
-  res
-}
-
-///|
-/// Lambda-specific: returns Graphviz DOT with resolution.
-pub fn SyncEditor::get_dot_resolved(self : SyncEditor[@ast.Term]) -> String {
-  let ast = self.get_ast()
-  let (resolved_ast, res) = @parser.resolve(ast)
-  @parser.term_to_dot_resolved(resolved_ast, res)
 }
 
 ///|

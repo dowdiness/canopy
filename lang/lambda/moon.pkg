@@ -4,4 +4,5 @@ import {
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
+  "dowdiness/canopy/lang/lambda/companion" @lambda_companion,
 }

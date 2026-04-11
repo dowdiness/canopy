@@ -31,6 +31,7 @@ fn init_model() -> Model {
   // JS (main.ts) will reuse handle=1 instead of creating a second editor.
   let _handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
+  let companion = @ffi.get_lambda_companion().unwrap()
   let init_text = "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
@@ -39,6 +40,7 @@ fn init_model() -> Model {
   )
   {
     editor,
+    companion,
     outline_state,
     mode: Text,
     workspace: {
@@ -228,7 +230,7 @@ fn apply_structural_edit_request(
     "Delete" => @lambda_edits.Delete(node_id=nid)
     _ => return (none, model)
   }
-  match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
+  match @lambda.apply_lambda_tree_edit(model.editor, model.companion,tree_op, model.next_timestamp) {
     Ok(_) => {
       let new_model = refresh({
         ..model,
@@ -317,7 +319,7 @@ fn open_action_overlay(
   if node_id_str == "" {
     return model
   }
-  let ctx = match detect_action_context(model.editor, node_id_str) {
+  let ctx = match detect_action_context(model.editor, model.companion, node_id_str) {
     Some(c) => c
     None => return model
   }
@@ -359,7 +361,7 @@ fn execute_action(
   }
   match build_tree_edit_op(action.id, ctx, choice, name) {
     Ok(Some(op)) =>
-      match model.editor.apply_tree_edit(op, model.next_timestamp) {
+      match @lambda.apply_lambda_tree_edit(model.editor, model.companion,op, model.next_timestamp) {
         Ok(_) => {
           js_set_overlay_open(false)
           let cmd = @rabbita.effect(fn() { js_reconcile_after_tree_edit() })
@@ -583,7 +585,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     OutlineStructuralEdit(tree_op) =>
-      match model.editor.apply_tree_edit(tree_op, model.next_timestamp) {
+      match @lambda.apply_lambda_tree_edit(model.editor, model.companion,tree_op, model.next_timestamp) {
         Ok(_) => {
           let new_model = refresh({
             ..model,

@@ -3,9 +3,13 @@
 
 ///|
 /// Compute a parser Edit from the difference between old and new text.
-pub fn compute_edit(old_text : String, new_text : String) -> @parser.Edit {
+pub fn compute_edit(old_text : String, new_text : String) -> @loom_core.Edit {
   let change = @text_change.compute_text_change(old_text, new_text)
-  @parser.Edit::new(change.start, change.delete_len, change.inserted.length())
+  @loom_core.Edit::new(
+    change.start,
+    change.delete_len,
+    change.inserted.length(),
+  )
 }
 
 ///|

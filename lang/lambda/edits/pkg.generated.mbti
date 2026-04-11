@@ -47,12 +47,6 @@ pub(all) enum BindingSite {
   ModuleBinder(binding_node_id~ : @core.NodeId, def_index~ : Int)
 } derive(Eq, @debug.Debug)
 
-pub(all) enum DropPosition {
-  Before
-  After
-  Inside
-} derive(Eq, @debug.Debug)
-
 pub(all) struct EditContext[T] {
   source_text : String
   source_map : @core.SourceMap
@@ -80,8 +74,8 @@ pub(all) enum TreeEditOp {
   WrapInApp(node_id~ : @core.NodeId)
   InsertChild(parent~ : @core.NodeId, index~ : Int, kind~ : @ast.Term)
   StartDrag(node_id~ : @core.NodeId)
-  DragOver(target~ : @core.NodeId, position~ : DropPosition)
-  Drop(source~ : @core.NodeId, target~ : @core.NodeId, position~ : DropPosition)
+  DragOver(target~ : @core.NodeId, position~ : @core.DropPosition)
+  Drop(source~ : @core.NodeId, target~ : @core.NodeId, position~ : @core.DropPosition)
   Collapse(node_id~ : @core.NodeId)
   Expand(node_id~ : @core.NodeId)
   Unwrap(node_id~ : @core.NodeId, keep_child_index~ : Int)
@@ -102,6 +96,8 @@ pub(all) enum TreeEditOp {
 pub impl Show for TreeEditOp
 
 // Type aliases
+pub using @core {type DropPosition}
+
 pub type EditResult = Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
 
 pub using @core {type FocusHint}

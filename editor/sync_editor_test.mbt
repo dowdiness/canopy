@@ -16,25 +16,25 @@ fn insert_each_and_record(
 
 ///|
 test "SyncEditor: create and insert text" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! se.insert("x")
   inspect(se.get_text(), content="x")
-  let ast = se.get_ast()
+  let ast = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast), content="x")
 }
 
 ///|
 test "SyncEditor: sequential inserts update AST" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! se.insert("x")
-  inspect(@ast.print_term(se.get_ast()), content="x")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="x")
   try! insert_each(se, " + 1")
-  inspect(@ast.print_term(se.get_ast()), content="(x + 1)")
+  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="(x + 1)")
 }
 
 ///|
 test "SyncEditor: delete updates AST" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each(se, "123")
   inspect(se.get_text(), content="123")
   let deleted = se.backspace()
@@ -44,15 +44,15 @@ test "SyncEditor: delete updates AST" {
 
 ///|
 test "SyncEditor: parse error handling" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each(se, "λ.")
-  let _ast = se.get_ast()
+  let _ast = @lambda.get_lambda_ast(se)
   inspect(se.is_parse_valid(), content="false")
 }
 
 ///|
 test "SyncEditor: cursor tracking" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   inspect(se.get_cursor(), content="0")
   try! insert_each(se, "abc")
   inspect(se.get_cursor(), content="3")
@@ -62,8 +62,8 @@ test "SyncEditor: cursor tracking" {
 
 ///|
 test "SyncEditor: concurrent edits converge" {
-  let se1 = SyncEditor::new_lambda("agent1")
-  let se2 = SyncEditor::new_lambda("agent2")
+  let se1 = @lambda.new_lambda_editor("agent1").0
+  let se2 = @lambda.new_lambda_editor("agent2").0
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text(), content="x")
@@ -76,15 +76,16 @@ test "SyncEditor: concurrent edits converge" {
   let text2 = se2.get_text()
   inspect(text1 == text2, content="true")
   inspect(
-    @ast.print_term(se1.get_ast()) == @ast.print_term(se2.get_ast()),
+    @ast.print_term(@lambda.get_lambda_ast(se1)) ==
+    @ast.print_term(@lambda.get_lambda_ast(se2)),
     content="true",
   )
 }
 
 ///|
 test "SyncEditor: collaborative lambda editing" {
-  let se1 = SyncEditor::new_lambda("agent1")
-  let se2 = SyncEditor::new_lambda("agent2")
+  let se1 = @lambda.new_lambda_editor("agent1").0
+  let se2 = @lambda.new_lambda_editor("agent2").0
   try! insert_each(se1, "λx.")
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text(), content="λx.")
@@ -95,20 +96,21 @@ test "SyncEditor: collaborative lambda editing" {
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text() == se2.get_text(), content="true")
   inspect(
-    @ast.print_term(se1.get_ast()) == @ast.print_term(se2.get_ast()),
+    @ast.print_term(@lambda.get_lambda_ast(se1)) ==
+    @ast.print_term(@lambda.get_lambda_ast(se2)),
     content="true",
   )
 }
 
 ///|
 test "SyncEditor: incremental parsing vs full reparse" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each(se, "λf.λx.if f x then x + 1 else x - 1")
-  let _ast1 = se.get_ast()
+  let _ast1 = @lambda.get_lambda_ast(se)
   se.move_cursor(34)
   let _deleted = se.backspace()
   try! se.insert("2")
-  let ast2 = se.get_ast()
+  let ast2 = @lambda.get_lambda_ast(se)
   inspect(
     @ast.print_term(ast2),
     content="(λf. (λx. if (f x) then (x + 1) else (x - 2)))",
@@ -117,14 +119,14 @@ test "SyncEditor: incremental parsing vs full reparse" {
 
 ///|
 test "SyncEditor: empty document" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   inspect(se.get_text(), content="")
-  let _ast = se.get_ast()
+  let _ast = @lambda.get_lambda_ast(se)
 }
 
 ///|
 test "SyncEditor: backspace at start returns false" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each(se, "abc")
   se.move_cursor(0)
   inspect(se.backspace(), content="false")
@@ -133,7 +135,7 @@ test "SyncEditor: backspace at start returns false" {
 
 ///|
 test "SyncEditor: delete at end returns false" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each(se, "abc")
   se.move_cursor(3)
   inspect(se.delete(), content="false")
@@ -142,7 +144,7 @@ test "SyncEditor: delete at end returns false" {
 
 ///|
 test "SyncEditor: export_all produces non-empty message" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! se.insert("x")
   let msg = try! se.export_all()
   inspect(msg.op_count() > 0, content="true")
@@ -150,23 +152,23 @@ test "SyncEditor: export_all produces non-empty message" {
 
 ///|
 test "SyncEditor: lazy AST evaluation" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! se.insert("x")
-  let _ast1 = se.get_ast()
-  let ast2 = se.get_ast()
+  let _ast1 = @lambda.get_lambda_ast(se)
+  let ast2 = @lambda.get_lambda_ast(se)
   inspect(@ast.print_term(ast2), content="x")
 }
 
 ///|
 test "SyncEditor: merge invalidates AST cache" {
-  let se1 = SyncEditor::new_lambda("agent1")
-  let se2 = SyncEditor::new_lambda("agent2")
+  let se1 = @lambda.new_lambda_editor("agent1").0
+  let se2 = @lambda.new_lambda_editor("agent2").0
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
-  let _ast1 = se1.get_ast()
+  let _ast1 = @lambda.get_lambda_ast(se1)
   try! se2.insert("y")
   try! se1.apply_sync(try! se2.export_all())
-  let _ast2 = se1.get_ast()
+  let _ast2 = @lambda.get_lambda_ast(se1)
   inspect(
     se1.get_text(),
     content=(
@@ -177,7 +179,7 @@ test "SyncEditor: merge invalidates AST cache" {
 
 ///|
 test "SyncEditor: insert_and_record + undo roundtrip" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each_and_record(se, "hello", 1000)
   inspect(se.get_text(), content="hello")
   inspect(se.can_undo(), content="true")
@@ -197,7 +199,7 @@ test "SyncEditor: insert_and_record + undo roundtrip" {
 
 ///|
 test "SyncEditor: backspace_and_record + undo" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each_and_record(se, "abc", 1000)
   let deleted = se.backspace_and_record(2000)
   inspect(deleted, content="true")
@@ -212,7 +214,7 @@ test "SyncEditor: backspace_and_record + undo" {
 
 ///|
 test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("abc")
   se.move_cursor(0)
   se.apply_text_edit(1, 1, "XYZ", 1000)
@@ -222,7 +224,7 @@ test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
 
 ///|
 test "SyncEditor: apply_text_edit records undo" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each_and_record(se, "abc", 1000)
   se.apply_text_edit(1, 1, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZc")
@@ -233,7 +235,7 @@ test "SyncEditor: apply_text_edit records undo" {
 
 ///|
 test "SyncEditor: apply_text_edit records multi-character range undo" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! insert_each_and_record(se, "abcdef", 1000)
   se.apply_text_edit(1, 3, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZef")
@@ -244,17 +246,20 @@ test "SyncEditor: apply_text_edit records multi-character range undo" {
 
 ///|
 test "SyncEditor: apply_text_edit reuses parser structure on local edit" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   se.set_text("λf.λx.f x")
-  ignore(se.get_ast())
+  ignore(@lambda.get_lambda_ast(se))
   se.apply_text_edit(8, 1, "y", 1000)
   inspect(se.get_text(), content="λf.λx.f y")
-  inspect(@ast.print_term(se.get_ast()), content="(λf. (λx. (f y)))")
+  inspect(
+    @ast.print_term(@lambda.get_lambda_ast(se)),
+    content="(λf. (λx. (f y)))",
+  )
 }
 
 ///|
 test "SyncEditor: clear_undo empties stacks" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   try! se.insert_and_record("x", 1000)
   inspect(se.can_undo(), content="true")
   se.clear_undo()
@@ -267,8 +272,8 @@ test "SyncEditor: clear_undo empties stacks" {
 
 ///|
 test "SyncEditor: non-numeric agent IDs encode and delete presence" {
-  let alice = SyncEditor::new_lambda("web-user")
-  let bob = SyncEditor::new_lambda("local-user")
+  let alice = @lambda.new_lambda_editor("web-user").0
+  let bob = @lambda.new_lambda_editor("local-user").0
   alice.set_text("abcd")
   alice.move_cursor(2)
   alice.set_local_presence("Alice", "#ff0000")
@@ -286,8 +291,8 @@ test "SyncEditor: non-numeric agent IDs encode and delete presence" {
 
 ///|
 test "SyncEditor: local edits and undo keep peer cursors in sync" {
-  let local_editor = SyncEditor::new_lambda("local-user")
-  let remote = SyncEditor::new_lambda("remote-user")
+  let local_editor = @lambda.new_lambda_editor("local-user").0
+  let remote = @lambda.new_lambda_editor("remote-user").0
   local_editor.set_text("abcd")
   try! remote.apply_sync(try! local_editor.export_all())
   remote.move_cursor(3)
@@ -323,8 +328,8 @@ test "SyncEditor: local edits and undo keep peer cursors in sync" {
 
 ///|
 test "SyncEditor: remote sync tracks actual merged text positions" {
-  let viewer = SyncEditor::new_lambda("viewer")
-  let remote = SyncEditor::new_lambda("peer-b")
+  let viewer = @lambda.new_lambda_editor("viewer").0
+  let remote = @lambda.new_lambda_editor("peer-b").0
   viewer.set_text("abcd")
   try! remote.apply_sync(try! viewer.export_all())
   remote.move_cursor(1)
@@ -352,8 +357,8 @@ test "SyncEditor: remote sync tracks actual merged text positions" {
 
 ///|
 test "SyncEditor: apply_sync does not pollute undo stack" {
-  let se1 = SyncEditor::new_lambda("alice", capture_timeout_ms=500)
-  let se2 = SyncEditor::new_lambda("bob", capture_timeout_ms=500)
+  let se1 = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
+  let se2 = @lambda.new_lambda_editor("bob", capture_timeout_ms=500).0
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)
@@ -367,7 +372,7 @@ test "SyncEditor: apply_sync does not pollute undo stack" {
 
 ///|
 test "SyncEditor: undo returns sync message for peer broadcast" {
-  let se = SyncEditor::new_lambda("alice", capture_timeout_ms=500)
+  let se = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
 
   // Type some text
   try! se.insert_and_record("hello", 1000)
@@ -385,8 +390,8 @@ test "SyncEditor: undo returns sync message for peer broadcast" {
 
 ///|
 test "SyncEditor: undo sync ops can be applied to peer" {
-  let se1 = SyncEditor::new_lambda("alice", capture_timeout_ms=500)
-  let se2 = SyncEditor::new_lambda("bob", capture_timeout_ms=500)
+  let se1 = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
+  let se2 = @lambda.new_lambda_editor("bob", capture_timeout_ms=500).0
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)
@@ -411,10 +416,10 @@ test "SyncEditor: undo sync ops can be applied to peer" {
 
 ///|
 test "SyncEditor: get_resolution returns bound/free info" {
-  let se = SyncEditor::new_lambda("agent1")
+  let se = @lambda.new_lambda_editor("agent1").0
   // λx. (x + y) — x is bound, y is free
   try! insert_each(se, "\\x. x + y")
-  let res = se.get_resolution()
+  let res = @lambda.get_lambda_resolution(se)
   // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
   inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   inspect(res.vars.get(3), content="Some(Free)")
@@ -431,7 +436,7 @@ fn count_nodes(node : @proj.ProjNode[@ast.Term]) -> Int {
 
 ///|
 test "incremental patch: registry node count stable after tail edit" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nlet z = 0\nz")
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())
@@ -454,7 +459,7 @@ test "incremental patch: registry node count stable after tail edit" {
 
 ///|
 test "incremental patch: source_map position queries work after edit" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   ignore(editor.get_source_map()) // warm up
   // Edit: y=2 → y=3
@@ -471,7 +476,7 @@ test "incremental patch: source_map position queries work after edit" {
 
 ///|
 test "incremental patch: get_node returns correct node after edit" {
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   let proj = editor.get_proj_node().unwrap()
   // Get node ID of x's init (Int(1)) — first child of Module
@@ -493,7 +498,7 @@ test "incremental patch: get_node returns correct node after edit" {
 test "incremental patch: expression-only document edit works" {
   // Expression-only: no defs, ProjNode is NOT a Module.
   // Patch path must fall back to full rebuild.
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("42")
   let sm1 = editor.get_source_map()
   inspect(sm1.innermost_node_at(0) is Some(_), content="true")
@@ -510,7 +515,7 @@ test "incremental patch: expression-only document edit works" {
 ///|
 test "incremental patch: final_expr removal triggers full rebuild" {
   // Remove final expression: "let x = 1\nx" → "let x = 1\n"
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nx")
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())
@@ -528,7 +533,7 @@ test "incremental patch: no-final-expr module keeps body node registered" {
   // Module with no trailing expression: "let x = 1\n"
   // to_proj_node_with_prev_module_id synthesizes a Unit body each time.
   // The patch path must update the body even when only defs change.
-  let editor = SyncEditor::new_lambda("test")
+  let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 0\nlet y = 2\n")
   let proj1 = editor.get_proj_node().unwrap()
   // Body is the last child (synthesized Unit)
