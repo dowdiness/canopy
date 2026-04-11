@@ -29,6 +29,7 @@ const handle = crdt.create_markdown_editor(agentId);
 let activeMode: Mode = 'block';
 let activeNodeId: number | null = null;
 let rawSyncScheduled = false;
+let rawDirty = false;
 
 // ---------------------------------------------------------------------------
 // DOM helpers
@@ -164,6 +165,7 @@ blockInput.onIntent((intent: UserIntent) => {
 // ---------------------------------------------------------------------------
 
 rawEditor.addEventListener('input', () => {
+  rawDirty = true;
   if (rawSyncScheduled) return;
   rawSyncScheduled = true;
   requestAnimationFrame(() => {
@@ -180,10 +182,13 @@ rawEditor.addEventListener('input', () => {
 function setMode(mode: Mode): void {
   if (mode === activeMode) return;
 
-  // Sync from current mode before switching
-  if (activeMode === 'raw') {
+  // Sync from current mode before switching — only if user edited in raw mode.
+  // If they just viewed raw mode without editing, don't write back the
+  // ZWSP-stripped display text (which would destroy empty block placeholders).
+  if (activeMode === 'raw' && rawDirty) {
     crdt.markdown_set_text(handle, rawEditor.value);
     refresh();
+    rawDirty = false;
   }
 
   activeMode = mode;
@@ -197,6 +202,7 @@ function setMode(mode: Mode): void {
   // Sync to new mode
   if (mode === 'raw') {
     syncRawFromModel();
+    rawDirty = false;
     rawEditor.focus();
   }
 
