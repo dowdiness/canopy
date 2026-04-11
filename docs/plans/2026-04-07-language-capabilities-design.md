@@ -1,6 +1,14 @@
 # Genericize SyncEditor: LanguageCapabilities[T]
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Status:** Complete (PR #146). Implementation diverges from spec — see notes below.
+
+### Implementation divergences from spec
+
+1. **Package location:** Spec places `LambdaCompanion`, `new_lambda_editor()`, `apply_lambda_tree_edit()`, `parse_tree_edit_op()`, and AST helpers in `lang/lambda/edits/`. Implementation uses a separate `lang/lambda/companion/` package to break a circular dependency: `projection → lambda_edits → editor → projection`. The `lambda_edits` package cannot import `editor` because `projection` (which `editor` imports) already imports `lambda_edits`.
+2. **LanguageCapabilities fields:** Spec uses `pub` fields. Implementation uses `priv` fields with `new()` and `default()` constructors, plus a phantom `T?` field to satisfy the unused type variable warning under `-w @a`.
+3. **`get_annotations` closure:** Spec proposes the closure takes `ProjNode[T]?` as argument. Implementation captures `cached_proj_node_ref` (a `Ref[Memo[...]]`) and reads the memo directly — no argument needed. The closure signature is `() -> Map[NodeId, Array[ViewAnnotation]]`.
+
+---
 
 **Goal:** Remove all lambda-specific types and imports from the `editor/` package by introducing a `LanguageCapabilities[T]` function record that carries language-specific behavior via closures.
 
