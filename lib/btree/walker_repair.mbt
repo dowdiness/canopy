@@ -55,9 +55,12 @@ fn[T] repair_at_boundary(
         Right => 0
         Explicit(indices) => {
           let idx = indices[depth]
-          // Defensive clamp — shouldn't trigger since merges happen inside
-          // the boundary child, not at its parent's level.
-          if idx >= children.length() { children.length() - 1 } else { idx }
+          guard idx < children.length() else {
+            abort(
+              "repair_at_boundary: boundary index out of range (\{idx} >= \{children.length()})",
+            )
+          }
+          idx
         }
       }
       // Shallow-copy only the adjacent siblings that borrow/merge might touch.

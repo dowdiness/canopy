@@ -1,6 +1,6 @@
 ///|
 priv struct BItem {
-  value_ : Int
+  value : Int
 }
 
 ///|
@@ -29,7 +29,7 @@ impl @rle.Sliceable for BItem with slice(self, start~ : Int, end~ : Int) -> Resu
   @rle.RleError,
 ] {
   if start == 0 && end == 1 {
-    Ok(self)
+    Ok({ value: self.value })
   } else {
     Err(@rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex))
   }
@@ -40,7 +40,7 @@ impl BTreeElem for BItem
 
 ///|
 fn bi(v : Int) -> BItem {
-  { value_: v }
+  { value: v }
 }
 
 ///|

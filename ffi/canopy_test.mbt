@@ -64,12 +64,14 @@ test "get_diagnostics_json: unbound variable produces warning" {
   let eval_results = companion.get_eval_results()
   inspect(eval_results.length() > 0, content="true")
   // Check that Stuck result exists
-  let has_stuck = eval_results.iter().any(fn(r) {
-    match r {
-      @lambda.EvalResult::Stuck(_) => true
-      _ => false
-    }
-  })
+  let has_stuck = eval_results
+    .iter()
+    .any(fn(r) {
+      match r {
+        @lambda.EvalResult::Stuck(_) => true
+        _ => false
+      }
+    })
   inspect(has_stuck, content="true")
 }
 
