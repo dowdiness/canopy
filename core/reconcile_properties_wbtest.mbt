@@ -353,9 +353,7 @@ test "property: reused ID count correct after child deletion" {
 /// Given different old and new trees, reconcile(old, new) then
 /// reconcile(result1, new_copy) should produce the same IDs —
 /// a second pass on the same new tree shouldn't change anything.
-fn prop_reconcile_idempotent_on_diff_trees(
-  pair : (TestExpr, TestExpr)
-) -> Bool {
+fn prop_reconcile_idempotent_on_diff_trees(pair : (TestExpr, TestExpr)) -> Bool {
   let (old_expr, new_expr) = pair
   // Build old tree with counter range 0+
   let old_node = to_proj_node(old_expr, Ref::new(0))
