@@ -89,7 +89,7 @@ jobs:
 
       - name: Cache opam switch
         id: opam-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.opam
           key: opam-why3-1.7.2-z3-${{ runner.os }}-${{ runner.arch }}
@@ -257,7 +257,7 @@ jobs:
         run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -310,7 +310,7 @@ jobs:
         run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
