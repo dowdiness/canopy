@@ -99,10 +99,11 @@ export class StructureCompoundView implements NodeView {
     this.dom.appendChild(this.contentDOM);
 
     // Drag-and-drop handlers
-    const nodeId = node.attrs.node_id as number;
+    const nid = node.attrs.nodeId as number;
 
     this.dom.addEventListener("dragstart", (e) => {
-      e.dataTransfer!.setData("application/x-canopy-node", String(nodeId));
+      e.stopPropagation(); // prevent ancestor compound views from overwriting
+      e.dataTransfer!.setData("application/x-canopy-node", String(nid));
       e.dataTransfer!.effectAllowed = "move";
       this.dom.classList.add("dragging");
     });
@@ -113,6 +114,7 @@ export class StructureCompoundView implements NodeView {
 
     this.dom.addEventListener("dragover", (e) => {
       e.preventDefault();
+      e.stopPropagation(); // prevent ancestor drop-target highlights
       e.dataTransfer!.dropEffect = "move";
       this.dom.classList.add("drop-target");
     });
@@ -126,14 +128,15 @@ export class StructureCompoundView implements NodeView {
       e.stopPropagation();
       this.dom.classList.remove("drop-target");
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
-      if (!sourceId || sourceId === String(nodeId)) return;
+      if (!sourceId || sourceId === String(nid)) return;
 
       this.dom.dispatchEvent(new CustomEvent("structural-edit-request", {
         bubbles: true,
+        composed: true, // cross shadow DOM boundary
         detail: {
           type: "Drop",
           source: Number(sourceId),
-          target: nodeId,
+          target: nid,
           position: "After",
         },
       }));

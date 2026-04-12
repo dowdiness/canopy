@@ -114,18 +114,6 @@ export class CrdtBridge {
     this.afterLocalEdit();
   }
 
-  /** Apply a drag-and-drop edit via the CRDT TreeEditOp bridge */
-  handleDropEdit(source: number, target: number, position: string): void {
-    const opJson = JSON.stringify({ type: "Drop", source, target, position });
-    const ts = Date.now();
-    const result = this.crdt.apply_tree_edit_json(this.handle, opJson, ts);
-    if (result !== "ok") {
-      console.error("Drop edit failed:", result);
-      return;
-    }
-    this.afterLocalEdit();
-  }
-
   /** Apply remote CRDT ops and reconcile PM state */
   applyRemote(syncJson: string): string {
     const result = this.crdt.apply_sync_json(this.handle, syncJson);

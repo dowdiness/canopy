@@ -56,8 +56,8 @@ fn require_drop_position(
     Some(Json::String("Before")) => @core.DropPosition::Before
     Some(Json::String("After")) => @core.DropPosition::After
     Some(Json::String("Inside")) => @core.DropPosition::Inside
-    Some(Json::String(s)) =>
-      raise @editor.TreeEditError::UnknownOpType(op_type=s)
+    Some(Json::String(_)) =>
+      raise @editor.TreeEditError::FieldMustBeString(field=key)
     None => raise @editor.TreeEditError::MissingField(field=key)
     Some(_) => raise @editor.TreeEditError::FieldMustBeString(field=key)
   }
