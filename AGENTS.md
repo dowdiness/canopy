@@ -100,6 +100,22 @@ Hooks enforce `moon check` after every edit and `moon fmt && moon info` before c
 - **Cross-package struct construction:** MoonBit's `pub struct` fields are read-only from outside the defining package. To construct or mutate fields cross-package, the struct must be `pub(all)` or have a named constructor. Verify this before planning any cross-package type migration.
 - **Test ownership:** Each package tests its own logic only. Trust imported libraries' correctness by interface contract. When migrating code between packages, delete tests that now test the wrong module — track upstream test debt in the imported package's backlog.
 
+## Model Routing
+
+Route tasks based on judgment complexity, not importance.
+
+| Task type | Model | Mechanism |
+|-----------|-------|-----------|
+| Architecture, novel design, debugging wrong approaches | Opus | Direct (default) |
+| Implementation (50+ lines, clear spec) | Sonnet | `Agent(model: "sonnet")` |
+| Code review (pre-merge) | Sonnet | `/parallel-review` or `Agent(subagent_type: "code-reviewer")` |
+| Mechanical (renames, formatting, rote migration) | Haiku | `Agent(model: "haiku")` |
+| Under 50 lines, 1-3 files | Current model | No delegation — implement inline |
+
+**Delegation requires clear scope.** If you can't list the exact files to modify, research first. Vague delegation wastes the agent's time exploring.
+
+**Use `/delegate` skill** before composing Agent prompts for non-trivial delegation. It provides the handoff format and task-type templates.
+
 ## Git & PR Workflow
 
 - After rebase operations, verify files are in the correct directories
