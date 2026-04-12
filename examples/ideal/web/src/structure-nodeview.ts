@@ -59,7 +59,10 @@ export class StructureCompoundView implements NodeView {
   contentDOM: HTMLElement;
   private node: PmNode;
 
+  private view: PmView;
+
   constructor(node: PmNode, _view: PmView, _getPos: () => number | undefined) {
+    this.view = _view;
     this.node = node;
     const typeName = node.type.name;
     this.dom = document.createElement("div");
@@ -97,6 +100,53 @@ export class StructureCompoundView implements NodeView {
     this.contentDOM = document.createElement("div");
     this.contentDOM.className = "structure-children";
     this.dom.appendChild(this.contentDOM);
+
+    // Drag-and-drop handlers — read this.node.attrs.nodeId at event time
+    // so the ID stays current after update() swaps in a new PM node.
+
+    this.dom.addEventListener("dragstart", (e) => {
+      if (!this.view.editable) { e.preventDefault(); return; }
+      e.stopPropagation(); // prevent ancestor compound views from overwriting
+      e.dataTransfer!.setData("application/x-canopy-node", String(this.node.attrs.nodeId));
+      e.dataTransfer!.effectAllowed = "move";
+      this.dom.classList.add("dragging");
+    });
+
+    this.dom.addEventListener("dragend", () => {
+      this.dom.classList.remove("dragging");
+    });
+
+    this.dom.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // prevent ancestor drop-target highlights
+      e.dataTransfer!.dropEffect = "move";
+      this.dom.classList.add("drop-target");
+    });
+
+    this.dom.addEventListener("dragleave", () => {
+      this.dom.classList.remove("drop-target");
+    });
+
+    this.dom.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dom.classList.remove("drop-target");
+      if (!this.view.editable) return;
+      const nid = this.node.attrs.nodeId as number;
+      const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
+      if (!sourceId || sourceId === String(nid)) return;
+
+      this.dom.dispatchEvent(new CustomEvent("structural-edit-request", {
+        bubbles: true,
+        composed: true, // cross shadow DOM boundary
+        detail: {
+          type: "Drop",
+          source: Number(sourceId),
+          target: nid,
+          position: "After",
+        },
+      }));
+    });
   }
 
   update(node: PmNode): boolean {

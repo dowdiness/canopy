@@ -586,6 +586,13 @@ const SHADOW_STYLES = `
     font-size: 13px;
     color: var(--canopy-fg, #e4e4f0);
   }
+  .structure-block.drop-target {
+    outline: 2px solid var(--canopy-accent, #8250df);
+    outline-offset: -2px;
+  }
+  .structure-block.dragging {
+    opacity: 0.4;
+  }
 
   /* Peer cursor decorations (CM6 text mode) */
   .peer-cursor-widget {

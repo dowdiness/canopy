@@ -150,12 +150,28 @@ function wireEditorEvents(el: CanopyEditor) {
     clickTrigger('canopy-editor-node-selected');
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.STRUCTURAL_EDIT_REQUEST, ((event: Event) => {
-    const { op, nodeId } = (event as CustomEvent<StructuralEditDetail>).detail ?? {};
-    if (!op || !nodeId || !canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
+    const detail = (event as CustomEvent).detail ?? {};
+    if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
     const crdt = canopyGlobal.__canopy_crdt;
     const handle = canopyGlobal.__canopy_crdt_handle;
-    // Apply structural edit via protocol FFI
-    const result = crdt.handle_structural_intent(handle, op, nodeId, Date.now(), "");
+
+    let result: string;
+    if (detail.type === "Drop") {
+      // Drag-and-drop: source/target/position payload → apply_tree_edit_json
+      const opJson = JSON.stringify({
+        type: "Drop",
+        source: detail.source,
+        target: detail.target,
+        position: detail.position,
+      });
+      result = crdt.apply_tree_edit_json(handle, opJson, Date.now());
+    } else {
+      // Standard structural edit: op/nodeId → handle_structural_intent
+      const { op, nodeId } = detail as StructuralEditDetail;
+      if (!op || !nodeId) return;
+      result = crdt.handle_structural_intent(handle, op, nodeId, Date.now(), "");
+    }
+
     if (result !== "ok") {
       console.error("[protocol] structural edit failed:", result);
       return;
@@ -164,6 +180,8 @@ function wireEditorEvents(el: CanopyEditor) {
     el.syncAfterExternalChange();
     el.notifyLocalChange();
     // Trigger Rabbita refresh
+    const op = detail.op ?? detail.type;
+    const nodeId = detail.nodeId ?? String(detail.target ?? "");
     canopyGlobal.__canopy_pending_structural_edit = { op, nodeId };
     clickTrigger('canopy-editor-structural-edit');
   }) as EventListener, { signal });

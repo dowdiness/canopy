@@ -47,6 +47,23 @@ fn require_bop(
 }
 
 ///|
+/// Extract a DropPosition from a JSON map at the given key.
+fn require_drop_position(
+  m : Map[String, Json],
+  key : String,
+) -> @core.DropPosition raise @editor.TreeEditError {
+  match m.get(key) {
+    Some(Json::String("Before")) => @core.DropPosition::Before
+    Some(Json::String("After")) => @core.DropPosition::After
+    Some(Json::String("Inside")) => @core.DropPosition::Inside
+    Some(Json::String(_)) =>
+      raise @editor.TreeEditError::FieldMustBeString(field=key)
+    None => raise @editor.TreeEditError::MissingField(field=key)
+    Some(_) => raise @editor.TreeEditError::FieldMustBeString(field=key)
+  }
+}
+
+///|
 /// Extract a required string from a JSON map at the given key.
 fn require_string(
   m : Map[String, Json],
@@ -185,6 +202,21 @@ pub fn parse_tree_edit_op(
       let node_id = require_node_id(m, "node_id")
       let new_value = require_string(m, "new_value")
       TreeEditOp::CommitEdit(node_id~, new_value~)
+    }
+    "StartDrag" => {
+      let node_id = require_node_id(m, "node_id")
+      TreeEditOp::StartDrag(node_id~)
+    }
+    "DragOver" => {
+      let target = require_node_id(m, "target")
+      let position = require_drop_position(m, "position")
+      TreeEditOp::DragOver(target~, position~)
+    }
+    "Drop" => {
+      let source = require_node_id(m, "source")
+      let target = require_node_id(m, "target")
+      let position = require_drop_position(m, "position")
+      TreeEditOp::Drop(source~, target~, position~)
     }
     _ => raise @editor.TreeEditError::UnknownOpType(op_type~)
   }
