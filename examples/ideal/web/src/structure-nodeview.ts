@@ -59,7 +59,10 @@ export class StructureCompoundView implements NodeView {
   contentDOM: HTMLElement;
   private node: PmNode;
 
+  private view: PmView;
+
   constructor(node: PmNode, _view: PmView, _getPos: () => number | undefined) {
+    this.view = _view;
     this.node = node;
     const typeName = node.type.name;
     this.dom = document.createElement("div");
@@ -102,6 +105,7 @@ export class StructureCompoundView implements NodeView {
     // so the ID stays current after update() swaps in a new PM node.
 
     this.dom.addEventListener("dragstart", (e) => {
+      if (!this.view.editable) { e.preventDefault(); return; }
       e.stopPropagation(); // prevent ancestor compound views from overwriting
       e.dataTransfer!.setData("application/x-canopy-node", String(this.node.attrs.nodeId));
       e.dataTransfer!.effectAllowed = "move";
@@ -127,6 +131,7 @@ export class StructureCompoundView implements NodeView {
       e.preventDefault();
       e.stopPropagation();
       this.dom.classList.remove("drop-target");
+      if (!this.view.editable) return;
       const nid = this.node.attrs.nodeId as number;
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
       if (!sourceId || sourceId === String(nid)) return;
