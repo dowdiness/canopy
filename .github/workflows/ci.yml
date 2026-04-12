@@ -95,16 +95,14 @@ jobs:
           key: opam-why3-1.7.2-z3-${{ runner.os }}-${{ runner.arch }}
 
       - name: Install opam
-        if: steps.opam-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq opam
-          opam init --disable-sandboxing --yes
-          eval $(opam env)
 
-      - name: Install Why3 and Z3
+      - name: Initialize opam and install Why3/Z3
         if: steps.opam-cache.outputs.cache-hit != 'true'
         run: |
+          opam init --disable-sandboxing --yes
           eval $(opam env)
           opam install why3.1.7.2 z3 --yes
 
