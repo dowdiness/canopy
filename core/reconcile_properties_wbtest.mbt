@@ -669,3 +669,105 @@ fn collect_leftmost_path_ids(node : ProjNode[TestExpr]) -> Array[Int] {
   }
   result
 }
+
+///|
+/// Property 14: No new-tree ID leakage.
+/// Result IDs come from {old IDs} ∪ {counter range} only — never
+/// from the new tree's temporary IDs.
+fn prop_no_new_tree_id_leakage(pair : (TestExpr, TestExpr)) -> Bool {
+  let (old_expr, new_expr) = pair
+  let old_node = to_proj_node(old_expr, Ref::new(0))
+  // New tree IDs in range 500-999
+  let new_node = to_proj_node(new_expr, Ref::new(500))
+  let counter_start = 1000
+  let result = reconcile(old_node, new_node, Ref::new(counter_start))
+  // Build sets of old and new IDs
+  let old_id_set : Map[Int, Bool] = {}
+  for id in collect_ids(old_node) {
+    old_id_set[id] = true
+  }
+  let new_id_set : Map[Int, Bool] = {}
+  for id in collect_ids(new_node) {
+    new_id_set[id] = true
+  }
+  // Every result ID must be from old tree OR from counter range (>= 1000).
+  // It must NOT be a new-tree-only ID (in new_id_set but not old_id_set
+  // and not in counter range).
+  for id in collect_ids(result) {
+    if new_id_set.contains(id) && !old_id_set.contains(id) && id < counter_start {
+      return false
+    }
+  }
+  true
+}
+
+///|
+test "property: no new-tree ID leakage" {
+  @qc.quick_check_fn(prop_no_new_tree_id_leakage)
+}
+
+///|
+/// Collect all (start, end) spans from a ProjNode tree (pre-order).
+fn collect_spans(node : ProjNode[TestExpr]) -> Array[(Int, Int)] {
+  let result : Array[(Int, Int)] = []
+  collect_spans_rec(node, result)
+  result
+}
+
+///|
+fn collect_spans_rec(
+  node : ProjNode[TestExpr],
+  acc : Array[(Int, Int)],
+) -> Unit {
+  acc.push((node.start, node.end))
+  for child in node.children {
+    collect_spans_rec(child, acc)
+  }
+}
+
+///|
+/// Convert TestExpr to ProjNode with synthetic spans: each node gets
+/// (start=offset, end=offset+1), incrementing in pre-order.
+fn to_proj_node_with_spans(
+  expr : TestExpr,
+  counter : Ref[Int],
+  span_offset : Ref[Int],
+) -> ProjNode[TestExpr] {
+  let my_span = span_offset.val
+  span_offset.val = span_offset.val + 1
+  let children : Array[ProjNode[TestExpr]] = match expr {
+    Leaf(_) => []
+    Branch(_, cs) =>
+      cs.map(fn(c) { to_proj_node_with_spans(c, counter, span_offset) })
+  }
+  let id = next_proj_node_id(counter)
+  ProjNode::new(expr, my_span, my_span + 1, id, children)
+}
+
+///|
+/// Property 15: Result uses new tree's start/end positions.
+/// Old and new trees from the same expr get different span offsets
+/// (0-based vs 100-based). Result should match new tree's spans.
+fn prop_result_uses_new_spans(expr : TestExpr) -> Bool {
+  // Old tree: spans from 0+
+  let old_node = to_proj_node_with_spans(expr, Ref::new(0), Ref::new(0))
+  // New tree: spans from 100+ (different positions)
+  let new_node = to_proj_node_with_spans(expr, Ref::new(500), Ref::new(100))
+  let result = reconcile(old_node, new_node, Ref::new(1000))
+  let result_spans = collect_spans(result)
+  let new_spans = collect_spans(new_node)
+  if result_spans.length() != new_spans.length() {
+    return false
+  }
+  for i = 0; i < result_spans.length(); i = i + 1 {
+    if result_spans[i] != new_spans[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+test "property: result uses new tree spans" {
+  @qc.quick_check_fn(prop_result_uses_new_spans)
+}
