@@ -347,3 +347,77 @@ fn prop_reused_id_count_after_delete(expr : TestExpr) -> Bool {
 test "property: reused ID count correct after child deletion" {
   @qc.quick_check_fn(prop_reused_id_count_after_delete)
 }
+
+///|
+/// Property 7: Reconcile is idempotent on different trees.
+/// Given different old and new trees, reconcile(old, new) then
+/// reconcile(result1, new_copy) should produce the same IDs —
+/// a second pass on the same new tree shouldn't change anything.
+fn prop_reconcile_idempotent_on_diff_trees(
+  pair : (TestExpr, TestExpr)
+) -> Bool {
+  let (old_expr, new_expr) = pair
+  // Build old tree with counter range 0+
+  let old_node = to_proj_node(old_expr, Ref::new(0))
+  // Build first new tree with counter range 500+
+  let new_node1 = to_proj_node(new_expr, Ref::new(500))
+  // First reconcile with fresh IDs from 1000+
+  let result1 = reconcile(old_node, new_node1, Ref::new(1000))
+  // Build second copy of new tree with counter range 600+
+  let new_node2 = to_proj_node(new_expr, Ref::new(600))
+  // Second reconcile with fresh IDs from 2000+
+  let result2 = reconcile(result1, new_node2, Ref::new(2000))
+  // IDs should match positionally
+  let ids1 = collect_ids(result1)
+  let ids2 = collect_ids(result2)
+  if ids1.length() != ids2.length() {
+    return false
+  }
+  for i = 0; i < ids1.length(); i = i + 1 {
+    if ids1[i] != ids2[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+test "property: reconcile idempotent on different trees" {
+  @qc.quick_check_fn(prop_reconcile_idempotent_on_diff_trees)
+}
+
+///|
+/// Property 8: Triple reconcile is stable — no drift after multiple passes.
+/// Runs reconcile three times: old→new, result1→new, result2→new.
+/// result2 and result3 should have identical IDs, catching any drift
+/// that only manifests after multiple passes.
+fn prop_reconcile_triple_idempotent(pair : (TestExpr, TestExpr)) -> Bool {
+  let (old_expr, new_expr) = pair
+  // Build old tree with counter range 0+
+  let old_node = to_proj_node(old_expr, Ref::new(0))
+  // Build three copies of new tree with different counter ranges
+  let new_node1 = to_proj_node(new_expr, Ref::new(500))
+  let new_node2 = to_proj_node(new_expr, Ref::new(600))
+  let new_node3 = to_proj_node(new_expr, Ref::new(700))
+  // Three rounds of reconcile with well-separated counter ranges
+  let result1 = reconcile(old_node, new_node1, Ref::new(1000))
+  let result2 = reconcile(result1, new_node2, Ref::new(2000))
+  let result3 = reconcile(result2, new_node3, Ref::new(3000))
+  // result2 and result3 should have identical IDs
+  let ids2 = collect_ids(result2)
+  let ids3 = collect_ids(result3)
+  if ids2.length() != ids3.length() {
+    return false
+  }
+  for i = 0; i < ids2.length(); i = i + 1 {
+    if ids2[i] != ids3[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+test "property: triple reconcile is stable" {
+  @qc.quick_check_fn(prop_reconcile_triple_idempotent)
+}
