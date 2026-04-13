@@ -332,6 +332,12 @@ button:focus-visible, .action-btn:focus-visible,
 .tree-row.depth-6 { padding-left: 104px; }
 .tree-row.depth-7 { padding-left: 120px; }
 
+/* Outline drag-and-drop */
+.tree-row.outline-dragging { opacity: 0.4; }
+.tree-row.outline-drop-before { border-top: 2px solid var(--canopy-accent); }
+.tree-row.outline-drop-after { border-bottom: 2px solid var(--canopy-accent); }
+.tree-row.outline-drop-inside { outline: 2px solid var(--canopy-accent); outline-offset: -2px; }
+
 .collapsed-badge {
   font-size: var(--text-label);
   color: var(--canopy-text-dim);

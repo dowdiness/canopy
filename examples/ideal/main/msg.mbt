@@ -32,6 +32,12 @@ pub enum Msg {
   NamePromptSubmit
   NamePromptCancel
   LongPressTriggered
+  // Outline drag-and-drop
+  OutlineDragStart(@canopy_core.NodeId)
+  OutlineDragOver(@canopy_core.NodeId, @canopy_core.DropPosition)
+  OutlineDragLeave
+  OutlineDrop(@canopy_core.NodeId, @canopy_core.DropPosition)
+  OutlineDragEnd
   // Protocol-based editor communication (Phase 4)
   // Replaces TextChangedFromEditor and NodeSelected (removed)
   EditorTextChanged

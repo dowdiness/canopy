@@ -72,9 +72,7 @@ test "clicking f does not highlight apply var (no module/lambda scope confusion)
 ///|
 test "nested block: inner x does not highlight outer x" {
   let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text(
-    "let x = 0\nlet y = { let x = 1\n  x }\nx",
-  )
+  editor.set_text("let x = 0\nlet y = { let x = 1\n  x }\nx")
   let scope_map = build_scope_map(editor)
   let proj_root = editor.get_proj_node().unwrap()
   // There are two Var("x") nodes — inner (inside block) and outer (body)

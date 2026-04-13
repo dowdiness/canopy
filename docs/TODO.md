@@ -324,7 +324,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
 
 ### Follow-ups: Correctness
 
-- [ ] **Position detection (Before/After/Inside)**
+- [x] **Position detection (Before/After/Inside)**
   Why: v1 hardcodes `"After"`. Users need to control where the node lands.
   Exit: mouse Y within target bounding box determines Before/After/Inside; visual indicator shows landing position.
 
@@ -332,17 +332,17 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Why: text-based splice creates parse errors (e.g. `let id =` with empty RHS after moving the lambda out). Drop should operate at AST level.
   Exit: dropping a node produces a syntactically valid result or rejects with an error.
 
-- [ ] **Unit tests for drag-drop JSON parser and legality**
+- [x] **Unit tests for drag-drop JSON parser and legality**
   Why: no test coverage for `StartDrag`/`DragOver`/`Drop` parsing or self-drop/descendant-drop guards.
-  Exit: tests in `tree_edit_json_test.mbt` and `text_edit_drop_test.mbt` cover valid payloads, missing fields, bad position strings, self-drop, and descendant-drop.
+  Exit: tests in `tree_edit_json_test.mbt` and `text_edit_wbtest.mbt` cover valid payloads, missing fields, bad position strings, self-drop, and descendant-drop.
 
 ### Follow-ups: UX
 
-- [ ] **Drop indicator line**
+- [x] **Drop indicator line**
   Why: highlighting the whole target block doesn't communicate where the node will land.
   Exit: a visible line appears between nodes during dragover showing the insertion point.
 
-- [ ] **Restrict drag initiation to grip handle**
+- [x] **Restrict drag initiation to grip handle**
   Why: entire block is draggable, which can interfere with text selection or child interactions.
   Exit: only the grip handle (≡) initiates drag; clicking elsewhere in the block does not start a drag.
 

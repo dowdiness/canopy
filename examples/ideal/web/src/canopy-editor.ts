@@ -586,7 +586,13 @@ const SHADOW_STYLES = `
     font-size: 13px;
     color: var(--canopy-fg, #e4e4f0);
   }
-  .structure-block.drop-target {
+  .structure-block.drop-before {
+    border-top: 2px solid var(--canopy-accent, #8250df);
+  }
+  .structure-block.drop-after {
+    border-bottom: 2px solid var(--canopy-accent, #8250df);
+  }
+  .structure-block.drop-inside {
     outline: 2px solid var(--canopy-accent, #8250df);
     outline-offset: -2px;
   }

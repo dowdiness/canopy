@@ -1213,3 +1213,78 @@ test "compute_text_edit: AddBinding rejects non-Module target" {
   )
   inspect(result is Err(_), content="true")
 }
+
+///|
+test "compute_text_edit: Drop self-drop returns error" {
+  let text = "42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let id = proj.id()
+  let result = compute_text_edit(
+    Drop(source=id, target=id, position=After),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result, content="Err(\"Cannot drop onto self\")")
+}
+
+///|
+test "compute_text_edit: Drop descendant-drop returns error" {
+  // "x + 1" parses as Bop(Var(x), Int(1))
+  // Dropping the root Bop onto its child Var(x) is a descendant-drop
+  let text = "x + 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let child = proj.children[0] // Var(x), inside the Bop
+  let result = compute_text_edit(
+    Drop(source=proj.id(), target=child.id(), position=After),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result, content="Err(\"Cannot drop into own descendant\")")
+}
+
+///|
+test "compute_text_edit: Drop with Before position inserts at target start" {
+  let text = "x + 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  // source = Int(1) at children[1], target = Var(x) at children[0]
+  let source_node = proj.children[1]
+  let target_node = proj.children[0]
+  let result = compute_text_edit(
+    Drop(source=source_node.id(), target=target_node.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      inspect(edits.length(), content="2")
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #| 1x +
+        ),
+      )
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop with unknown target returns error" {
+  let text = "42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = FlatProj::from_proj_node(proj)
+  let result = compute_text_edit(
+    Drop(source=proj.id(), target=NodeId::from_int(9999), position=After),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}

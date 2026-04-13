@@ -133,3 +133,199 @@ test "move_node moves source before target and adjusts text" {
   // dirty flag set after move
   inspect(editor.is_dirty(), content="true")
 }
+
+///|
+test "move_node exchange (Inside) swaps two expressions" {
+  // "1 2" parses as App(Int(1), Int(2))
+  let editor = @lambda.new_lambda_editor("test").0
+  editor.set_text("1 2")
+  let root = match editor.get_proj_node() {
+    None => fail("no proj node")
+    Some(n) => n
+  }
+  let child0 = root.children[0] // Int(1)
+  let child1 = root.children[1] // Int(2)
+  // Debug: check ranges
+  let sm = editor.get_source_map()
+  let r0 = sm.get_range(child0.id())
+  let r1 = sm.get_range(child1.id())
+  inspect(
+    r0,
+    content=(
+      #|Some({ start: 0, end: 1 })
+    ),
+  )
+  inspect(
+    r1,
+    content=(
+      #|Some({ start: 1, end: 3 })
+    ),
+  )
+  let result = editor.move_node(
+    child0.id(),
+    child1.id(),
+    @lambda.DropPosition::Inside,
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  inspect(editor.get_text(), content="2 1")
+}
+
+///|
+test "move_node exchange swaps two let-definitions" {
+  let editor = @lambda.new_lambda_editor("test").0
+  editor.set_text("let x = 1\nlet y = 2\nx")
+  let root = match editor.get_proj_node() {
+    None => fail("no proj node")
+    Some(n) => n
+  }
+  // Module has children: LetDef(x=1), LetDef(y=2), Var(x)
+  // Exchange the two let-defs as whole units
+  let let_x = root.children[0] // let x = 1
+  let let_y = root.children[1] // let y = 2
+  let result = editor.move_node(
+    let_x.id(),
+    let_y.id(),
+    @lambda.DropPosition::Inside,
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|let x = 2
+      #|let y = 1
+      #|x
+    ),
+  )
+}
+
+///|
+test "move_node exchange: variable and number in application" {
+  // "f 42" = App(Var("f"), Int(42))
+  let editor = @lambda.new_lambda_editor("test").0
+  editor.set_text("f 42")
+  let root = match editor.get_proj_node() {
+    None => fail("no proj node")
+    Some(n) => n
+  }
+  let var_f = root.children[0] // Var("f")
+  let int_42 = root.children[1] // Int(42)
+  // Debug: check ranges and spans
+  let sm = editor.get_source_map()
+  let r0 = sm.get_range(var_f.id())
+  let r1 = sm.get_range(int_42.id())
+  inspect(
+    r0,
+    content=(
+      #|Some({ start: 0, end: 1 })
+    ),
+  )
+  inspect(
+    r1,
+    content=(
+      #|Some({ start: 1, end: 4 })
+    ),
+  )
+  let result = editor.move_node(
+    var_f.id(),
+    int_42.id(),
+    @lambda.DropPosition::Inside,
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  inspect(editor.get_text(), content="42 f")
+}
+
+///|
+test "move_node exchange: number and lambda body" {
+  // "\x. 42" = Lam("x", Int(42))
+  let editor = @lambda.new_lambda_editor("test").0
+  editor.set_text("(\\x. 42) 1")
+  let root = match editor.get_proj_node() {
+    None => fail("no proj node")
+    Some(n) => n
+  }
+  let lam = root.children[0] // Lam
+  let int_1 = root.children[1] // Int(1)
+  // Debug: check ranges
+  let sm = editor.get_source_map()
+  let r0 = sm.get_range(lam.id())
+  let r1 = sm.get_range(int_1.id())
+  inspect(
+    r0,
+    content=(
+      #|Some({ start: 0, end: 8 })
+    ),
+  )
+  inspect(
+    r1,
+    content=(
+      #|Some({ start: 8, end: 10 })
+    ),
+  )
+  let result = editor.move_node(
+    lam.id(),
+    int_1.id(),
+    @lambda.DropPosition::Inside,
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|1 (\x. 42)
+    ),
+  )
+}
+
+///|
+test "move_node exchange: int with var in real editor text" {
+  // Mimics the default editor text
+  let editor = @lambda.new_lambda_editor("test").0
+  editor.set_text(
+    "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
+  )
+  let root = match editor.get_proj_node() {
+    None => fail("no proj node")
+    Some(n) => n
+  }
+  // root is Module with 3 children: let id, let apply, "apply id 42"
+  let app_expr = root.children[2] // "apply id 42" = App(App(Var("apply"), Var("id")), Int(42))
+  // app_expr.children[0] = App(Var("apply"), Var("id"))
+  // app_expr.children[1] = Int(42)
+  let inner_app = app_expr.children[0] // App(apply, id)
+  let int_42 = app_expr.children[1] // Int(42)
+  // inner_app.children[1] = Var("id")
+  let var_id = inner_app.children[1] // Var("id")
+  // Show ranges
+  let sm = editor.get_source_map()
+  inspect(
+    sm.get_range(var_id.id()),
+    content=(
+      #|Some({ start: 52, end: 55 })
+    ),
+  )
+  inspect(
+    sm.get_range(int_42.id()),
+    content=(
+      #|Some({ start: 55, end: 58 })
+    ),
+  )
+  // Exchange id <-> 42
+  let result = editor.move_node(
+    var_id.id(),
+    int_42.id(),
+    @lambda.DropPosition::Inside,
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|let id = \x. { x }
+      #|let apply = \f. \x. { f x }
+      #|apply 42 id
+    ),
+  )
+}

@@ -147,6 +147,10 @@ pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
   position : @core.DropPosition,
   timestamp_ms : Int,
 ) -> Result[Unit, TreeEditError] {
+  // Legality: self-drop
+  guard source_id != target_id else {
+    return Err(TreeEditError::ProjectionEdit(detail="Cannot drop onto self"))
+  }
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
     None =>
@@ -179,43 +183,71 @@ pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
       )
     Some(r) => r
   }
-  let src_text = @loom_core.Renderable::unparse(src_node.kind)
-  let placeholder = @loom_core.Renderable::placeholder(src_node.kind)
-  let src_len = src_range.end - src_range.start
-  let shift = placeholder.length() - src_len // negative if placeholder is shorter
-
-  // Step 1: delete source span (replace with placeholder)
-  self.apply_text_edit_internal(
-    src_range.start,
-    src_len,
-    placeholder,
-    timestamp_ms,
-    true,
-    false,
-  )
-
-  // Step 2: compute insert position, adjusting for source deletion if source < target
-  let tgt_insert = match position {
-    Before => tgt_range.start
-    After => tgt_range.end
-    Inside => tgt_range.end // insert after opening — language-specific; best effort
+  // Legality: descendant-drop (target inside source)
+  guard !(tgt_range.start >= src_range.start && tgt_range.end <= src_range.end) else {
+    return Err(
+      TreeEditError::ProjectionEdit(detail="Cannot drop into own descendant"),
+    )
   }
-  let adjusted_insert = if src_range.start < tgt_insert {
-    tgt_insert + shift
-  } else {
-    tgt_insert
+  let doc_text = self.get_text()
+  let edits : Array[@core.SpanEdit] = match position {
+    // Inside = exchange: swap the expression content, preserving leading whitespace
+    Inside => {
+      // Also reject source-inside-target for exchange
+      guard !(src_range.start >= tgt_range.start &&
+        src_range.end <= tgt_range.end) else {
+        return Err(
+          TreeEditError::ProjectionEdit(
+            detail="Cannot drop into own descendant",
+          ),
+        )
+      }
+      // Strip leading whitespace from each span to find the expression-only range.
+      // Source map ranges include leading separators; we keep those in place.
+      fn skip_ws(text : String, start : Int, end : Int) -> Int {
+        let mut i = start
+        while i < end {
+          match text[i] {
+            ' ' | '\t' | '\n' | '\r' => i = i + 1
+            _ => break
+          }
+        }
+        i
+      }
+      let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
+      let tgt_expr_start = skip_ws(doc_text, tgt_range.start, tgt_range.end)
+      let src_expr = doc_text[src_expr_start:src_range.end].to_string()
+      let tgt_expr = doc_text[tgt_expr_start:tgt_range.end].to_string()
+      [
+        {
+          start: src_expr_start,
+          delete_len: src_range.end - src_expr_start,
+          inserted: tgt_expr,
+        },
+        {
+          start: tgt_expr_start,
+          delete_len: tgt_range.end - tgt_expr_start,
+          inserted: src_expr,
+        },
+      ]
+    }
+    // Before/After = move: remove source and insert at target position
+    Before | After => {
+      let src_text = @loom_core.Renderable::unparse(src_node.kind)
+      let tgt_insert = match position {
+        Before => tgt_range.start
+        _ => tgt_range.end
+      }
+      [
+        {
+          start: src_range.start,
+          delete_len: src_range.end - src_range.start,
+          inserted: "",
+        },
+        { start: tgt_insert, delete_len: 0, inserted: src_text + " " },
+      ]
+    }
   }
-
-  // Step 3: insert src_text + separator at adjusted position
-  // Separator is a space — language-specific grammars may need wrapping.
-  // Use apply_text_transform with a custom closure for precise control.
-  self.apply_text_edit_internal(
-    adjusted_insert,
-    0,
-    src_text + " ",
-    timestamp_ms,
-    true,
-    false,
-  )
+  self.apply_span_edits(edits, @core.FocusHint::RestoreCursor, timestamp_ms)
   Ok(())
 }

@@ -72,4 +72,8 @@ pub struct Model {
   overlay : OverlayState
   scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
+  // Outline drag-and-drop state
+  drag_source : @canopy_core.NodeId?
+  drop_target_id : @canopy_core.NodeId?
+  drop_position : @canopy_core.DropPosition?
 }

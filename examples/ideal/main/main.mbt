@@ -56,6 +56,9 @@ fn init_model() -> Model {
     overlay: closed_overlay(),
     scope_map: build_scope_map(editor),
     highlight_set: @immut/hashset.HashSet::new(),
+    drag_source: None,
+    drop_target_id: None,
+    drop_position: None,
   }
 }
 
@@ -230,7 +233,13 @@ fn apply_structural_edit_request(
     "Delete" => @lambda_edits.Delete(node_id=nid)
     _ => return (none, model)
   }
-  match @lambda.apply_lambda_tree_edit(model.editor, model.companion,tree_op, model.next_timestamp) {
+  match
+    @lambda.apply_lambda_tree_edit(
+      model.editor,
+      model.companion,
+      tree_op,
+      model.next_timestamp,
+    ) {
     Ok(_) => {
       let new_model = refresh({
         ..model,
@@ -319,7 +328,8 @@ fn open_action_overlay(
   if node_id_str == "" {
     return model
   }
-  let ctx = match detect_action_context(model.editor, model.companion, node_id_str) {
+  let ctx = match
+    detect_action_context(model.editor, model.companion, node_id_str) {
     Some(c) => c
     None => return model
   }
@@ -361,7 +371,13 @@ fn execute_action(
   }
   match build_tree_edit_op(action.id, ctx, choice, name) {
     Ok(Some(op)) =>
-      match @lambda.apply_lambda_tree_edit(model.editor, model.companion,op, model.next_timestamp) {
+      match
+        @lambda.apply_lambda_tree_edit(
+          model.editor,
+          model.companion,
+          op,
+          model.next_timestamp,
+        ) {
         Ok(_) => {
           js_set_overlay_open(false)
           let cmd = @rabbita.effect(fn() { js_reconcile_after_tree_edit() })
@@ -551,7 +567,9 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(s) =>
           match parse_node_id(s) {
             Some(nid) =>
-              model.outline_state.apply_edit(@canopy_core.GenericTreeOp::Select(node_id=nid))
+              model.outline_state.apply_edit(
+                @canopy_core.GenericTreeOp::Select(node_id=nid),
+              )
             None => return (none, model)
           }
         None => model.outline_state
@@ -585,7 +603,13 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     OutlineStructuralEdit(tree_op) =>
-      match @lambda.apply_lambda_tree_edit(model.editor, model.companion,tree_op, model.next_timestamp) {
+      match
+        @lambda.apply_lambda_tree_edit(
+          model.editor,
+          model.companion,
+          tree_op,
+          model.next_timestamp,
+        ) {
         Ok(_) => {
           let new_model = refresh({
             ..model,
@@ -751,6 +775,68 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     NamePromptCancel => {
       js_set_overlay_open(false)
       (none, { ..model, overlay: closed_overlay() })
+    }
+    // ── Outline drag-and-drop ──────
+    OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
+    OutlineDragOver(target_id, position) =>
+      (
+        none,
+        {
+          ..model,
+          drop_target_id: Some(target_id),
+          drop_position: Some(position),
+        },
+      )
+    OutlineDragLeave =>
+      (none, { ..model, drop_target_id: None, drop_position: None })
+    OutlineDragEnd =>
+      (
+        none,
+        {
+          ..model,
+          drag_source: None,
+          drop_target_id: None,
+          drop_position: None,
+        },
+      )
+    OutlineDrop(target_id, position) => {
+      let source = model.drag_source
+      let model = {
+        ..model,
+        drag_source: None,
+        drop_target_id: None,
+        drop_position: None,
+      }
+      match source {
+        None => (none, model)
+        Some(source_id) => {
+          let tree_op = @lambda_edits.TreeEditOp::Drop(
+            source=source_id,
+            target=target_id,
+            position~,
+          )
+          match
+            @lambda.apply_lambda_tree_edit(
+              model.editor,
+              model.companion,
+              tree_op,
+              model.next_timestamp,
+            ) {
+            Ok(_) => {
+              let new_model = refresh({
+                ..model,
+                next_timestamp: model.next_timestamp + 1,
+              })
+              let text = new_model.editor.get_text()
+              let cmd = @rabbita.effect(fn() {
+                js_reconcile_editor_with_text(text)
+              })
+              (cmd, new_model)
+            }
+            Err(_) => (none, model)
+          }
+        }
+      }
     }
     // ── Protocol-based editor communication (Phase 4) ──────
     EditorTextChanged => {

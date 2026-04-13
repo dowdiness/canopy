@@ -233,3 +233,93 @@ test "parse_tree_edit_op: AddBinding missing module_node_id" {
   guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
   inspect(msg.message(), content="missing module_node_id field")
 }
+
+///|
+test "parse_tree_edit_op: StartDrag" {
+  let json = @json.parse("{\"type\": \"StartDrag\", \"node_id\": 10}")
+  guard (try? @lambda.parse_tree_edit_op(json)) is Ok(op)
+  inspect(op, content="StartDrag(node_id=NodeId(10))")
+}
+
+///|
+test "parse_tree_edit_op: StartDrag missing node_id" {
+  let json = @json.parse("{\"type\": \"StartDrag\"}")
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="missing node_id field")
+}
+
+///|
+test "parse_tree_edit_op: DragOver" {
+  let json = @json.parse(
+    "{\"type\": \"DragOver\", \"target\": 3, \"position\": \"Before\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Ok(op)
+  inspect(op, content="DragOver(target=NodeId(3), position=Before)")
+}
+
+///|
+test "parse_tree_edit_op: DragOver missing position" {
+  let json = @json.parse("{\"type\": \"DragOver\", \"target\": 3}")
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="missing position field")
+}
+
+///|
+test "parse_tree_edit_op: Drop" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"source\": 1, \"target\": 5, \"position\": \"After\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Ok(op)
+  inspect(
+    op,
+    content="Drop(source=NodeId(1), target=NodeId(5), position=After)",
+  )
+}
+
+///|
+test "parse_tree_edit_op: Drop with Inside position" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"source\": 2, \"target\": 7, \"position\": \"Inside\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Ok(op)
+  inspect(
+    op,
+    content="Drop(source=NodeId(2), target=NodeId(7), position=Inside)",
+  )
+}
+
+///|
+test "parse_tree_edit_op: Drop missing source" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"target\": 5, \"position\": \"After\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="missing source field")
+}
+
+///|
+test "parse_tree_edit_op: Drop missing target" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"source\": 1, \"position\": \"After\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="missing target field")
+}
+
+///|
+test "parse_tree_edit_op: Drop bad position string" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"source\": 1, \"target\": 5, \"position\": \"Left\"}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="position must be a string")
+}
+
+///|
+test "parse_tree_edit_op: Drop position not a string" {
+  let json = @json.parse(
+    "{\"type\": \"Drop\", \"source\": 1, \"target\": 5, \"position\": 42}",
+  )
+  guard (try? @lambda.parse_tree_edit_op(json)) is Err(msg)
+  inspect(msg.message(), content="position must be a string")
+}

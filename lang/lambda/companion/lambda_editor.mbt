@@ -170,6 +170,13 @@ pub fn apply_lambda_tree_edit(
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, @editor.TreeEditError] {
+  // Drop uses SyncEditor::move_node which handles placeholders and separators
+  // correctly, instead of the naive text splice in compute_drop.
+  match op {
+    @lambda_edits.TreeEditOp::Drop(source~, target~, position~) =>
+      return editor.move_node(source, target, position, timestamp_ms)
+    _ => ()
+  }
   let source_map = editor.get_source_map()
   let registry = editor.get_registry()
   let flat_proj = match companion.get_flat_proj() {

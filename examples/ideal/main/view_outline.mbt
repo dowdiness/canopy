@@ -26,8 +26,40 @@ fn kind_of(label : String) -> String {
   }
 }
 
+// NOTE: Position detection (Before/After/Inside) based on mouse-Y is not yet
+// implemented for the outline panel. Rabbita's @html.DragEvent is package-private,
+// so we can't pass it to extern "js" for bounding-rect computation.
+// TODO: Add position detection once Rabbita exports DragEvent or @dom is added as dep.
+
 ///|
-/// Render a single outline tree node with collapse/expand and selection.
+/// Initialize drag data on a dragstart event via JS global capture.
+/// Called from on_dragstart to ensure dataTransfer is populated (required by browsers).
+extern "js" fn js_init_drag(node_id : Int) -> Unit =
+  #|(id) => {
+  #|  window.__canopy_outline_drag_source = id;
+  #|}
+
+///|
+/// Inject a dragstart listener on the outline container that sets dataTransfer.
+/// Must be called once at page load. Rabbita's on_dragstart can't set dataTransfer
+/// because the DragEvent type is package-private, so we use a capturing listener.
+extern "js" fn js_install_outline_drag_capture() -> Unit =
+  #|() => {
+  #|  if (window.__canopy_outline_drag_installed) return;
+  #|  window.__canopy_outline_drag_installed = true;
+  #|  document.addEventListener("dragstart", (e) => {
+  #|    const row = e.target.closest && e.target.closest(".tree-row[draggable]");
+  #|    if (!row) return;
+  #|    const id = window.__canopy_outline_drag_source;
+  #|    if (id != null) {
+  #|      e.dataTransfer.setData("application/x-canopy-node", String(id));
+  #|      e.dataTransfer.effectAllowed = "move";
+  #|    }
+  #|  }, true);
+  #|}
+
+///|
+/// Render a single outline tree node with collapse/expand, selection, and drag-and-drop.
 fn view_outline_node(
   dispatch : Dispatch[Msg],
   node : @proj.InteractiveTreeNode[@ast.Term],
@@ -49,7 +81,23 @@ fn view_outline_node(
   } else {
     " scope-dimmed"
   }
-  let row_class = "tree-row depth-\{depth} kind-\{kind}\{selected_suffix}\{hl_suffix}"
+  // Drag state classes
+  let drag_suffix = if model.drag_source == Some(node.id) {
+    " outline-dragging"
+  } else {
+    ""
+  }
+  let drop_suffix = if model.drop_target_id == Some(node.id) {
+    match model.drop_position {
+      Some(@canopy_core.DropPosition::Before) => " outline-drop-before"
+      Some(@canopy_core.DropPosition::After) => " outline-drop-after"
+      Some(@canopy_core.DropPosition::Inside) => " outline-drop-inside"
+      None => ""
+    }
+  } else {
+    ""
+  }
+  let row_class = "tree-row depth-\{depth} kind-\{kind}\{selected_suffix}\{hl_suffix}\{drag_suffix}\{drop_suffix}"
   let is_leaf = match node.children {
     @proj.Loaded(children) => children.is_empty()
     @proj.Elided(_) => false
@@ -105,7 +153,33 @@ fn view_outline_node(
     }
   }
   let select_cmd = dispatch(OutlineNodeClicked(node_id_to_string(node.id)))
-  let row = div(class=row_class, on_click=select_cmd, row_items)
+  // Drag-and-drop event handlers
+  let node_id = node.id
+  let drag_attrs = @html.Attrs::build()
+    .draggable("true")
+    .on_dragstart(fn(e) {
+      e.stop_propagation()
+      js_init_drag(node_id.0)
+      dispatch(OutlineDragStart(node_id))
+    })
+    .on_dragover(fn(e) {
+      e.prevent_default()
+      e.stop_propagation()
+      dispatch(OutlineDragOver(node_id, @canopy_core.DropPosition::Inside))
+    })
+    .on_dragleave(fn(_e) { dispatch(OutlineDragLeave) })
+    .on_drop(fn(e) {
+      e.prevent_default()
+      e.stop_propagation()
+      dispatch(OutlineDrop(node_id, @canopy_core.DropPosition::Inside))
+    })
+    .on_dragend(fn(_e) { dispatch(OutlineDragEnd) })
+  let row = div(
+    class=row_class,
+    on_click=select_cmd,
+    attrs=drag_attrs,
+    row_items,
+  )
   let child_views : Array[Html] = if node.collapsed {
     []
   } else {
@@ -125,7 +199,10 @@ fn view_outline_node(
 
 ///|
 /// Compute structural navigation from the current selection.
-fn navigate_outline(model : Model, direction : @canopy_core.Direction) -> String? {
+fn navigate_outline(
+  model : Model,
+  direction : @canopy_core.Direction,
+) -> String? {
   let node_id_str = match model.selected_node {
     Some(s) => s
     None => return None
@@ -263,5 +340,6 @@ fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
 ///|
 /// Render outline content.
 fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+  js_install_outline_drag_capture()
   view_outline_tree(dispatch, model)
 }

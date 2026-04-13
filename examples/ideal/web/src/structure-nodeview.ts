@@ -49,6 +49,27 @@ function getLeafText(node: PmNode): string {
   }
 }
 
+/** Compute drop position from mouse Y relative to target element. */
+function computeDropPosition(e: DragEvent, el: HTMLElement): "Before" | "After" | "Inside" {
+  const rect = el.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const ratio = y / rect.height;
+  if (ratio < 0.25) return "Before";
+  if (ratio > 0.75) return "After";
+  return "Inside";
+}
+
+const DROP_CLASSES = ["drop-before", "drop-after", "drop-inside"] as const;
+
+function clearDropClasses(el: HTMLElement) {
+  el.classList.remove(...DROP_CLASSES);
+}
+
+function setDropClass(el: HTMLElement, position: "Before" | "After" | "Inside") {
+  clearDropClasses(el);
+  el.classList.add(`drop-${position.toLowerCase()}`);
+}
+
 /**
  * StructureCompoundView renders compound AST nodes (module, let_def, lambda,
  * application, binary_op, if_expr) as bordered, draggable blocks with a header
@@ -67,7 +88,6 @@ export class StructureCompoundView implements NodeView {
     const typeName = node.type.name;
     this.dom = document.createElement("div");
     this.dom.className = `structure-block structure-${typeName}`;
-    this.dom.draggable = true;
     this.dom.style.borderColor = kindColors[typeName] || "var(--canopy-border)";
 
     // Header row: grip + badge + label
@@ -78,6 +98,13 @@ export class StructureCompoundView implements NodeView {
     grip.className = "structure-grip";
     grip.textContent = "\u2261"; // ≡
     header.appendChild(grip);
+
+    // Grip-only drag: enable draggable only while grip is held
+    grip.addEventListener("mousedown", () => {
+      this.dom.draggable = true;
+      const reset = () => { this.dom.draggable = false; document.removeEventListener("mouseup", reset); };
+      document.addEventListener("mouseup", reset, { once: true });
+    });
 
     const badge = document.createElement("span");
     badge.className = "structure-badge";
@@ -114,23 +141,33 @@ export class StructureCompoundView implements NodeView {
 
     this.dom.addEventListener("dragend", () => {
       this.dom.classList.remove("dragging");
+      this.dom.draggable = false;
     });
 
+    // Drop on header = exchange (Inside); drop on block edges = Before/After.
+    // Children have their own handlers, so the block handler only fires on
+    // the header or the block border — both should be exchange targets.
     this.dom.addEventListener("dragover", (e) => {
       e.preventDefault();
-      e.stopPropagation(); // prevent ancestor drop-target highlights
+      e.stopPropagation();
       e.dataTransfer!.dropEffect = "move";
-      this.dom.classList.add("drop-target");
+      // If the hover is within the header area, always show "Inside" (exchange)
+      const headerRect = header.getBoundingClientRect();
+      const inHeader = e.clientY <= headerRect.bottom;
+      setDropClass(this.dom, inHeader ? "Inside" : computeDropPosition(e, this.dom));
     });
 
     this.dom.addEventListener("dragleave", () => {
-      this.dom.classList.remove("drop-target");
+      clearDropClasses(this.dom);
     });
 
     this.dom.addEventListener("drop", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.dom.classList.remove("drop-target");
+      const headerRect = header.getBoundingClientRect();
+      const inHeader = e.clientY <= headerRect.bottom;
+      const position = inHeader ? "Inside" : computeDropPosition(e, this.dom);
+      clearDropClasses(this.dom);
       if (!this.view.editable) return;
       const nid = this.node.attrs.nodeId as number;
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
@@ -143,7 +180,7 @@ export class StructureCompoundView implements NodeView {
           type: "Drop",
           source: Number(sourceId),
           target: nid,
-          position: "After",
+          position,
         },
       }));
     });
@@ -177,9 +214,11 @@ export class StructureCompoundView implements NodeView {
  */
 export class StructureLeafView implements NodeView {
   dom: HTMLElement;
+  private node: PmNode;
   private nodeType: string;
 
   constructor(node: PmNode) {
+    this.node = node;
     this.nodeType = node.type.name;
     const typeName = node.type.name;
     this.dom = document.createElement("div");
@@ -196,12 +235,46 @@ export class StructureLeafView implements NodeView {
     value.className = "structure-value";
     value.textContent = getLeafText(node);
     this.dom.appendChild(value);
+
+    // Drop target handlers — leaf nodes accept drops for exchange
+    this.dom.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer!.dropEffect = "move";
+      setDropClass(this.dom, computeDropPosition(e, this.dom));
+    });
+
+    this.dom.addEventListener("dragleave", () => {
+      clearDropClasses(this.dom);
+    });
+
+    this.dom.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const position = computeDropPosition(e, this.dom);
+      clearDropClasses(this.dom);
+      const nid = this.node.attrs.nodeId as number;
+      const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
+      if (!sourceId || sourceId === String(nid)) return;
+
+      this.dom.dispatchEvent(new CustomEvent("structural-edit-request", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          type: "Drop",
+          source: Number(sourceId),
+          target: nid,
+          position,
+        },
+      }));
+    });
   }
 
   update(node: PmNode): boolean {
     if (node.type.name !== this.nodeType) return false;
     const valueEl = this.dom.querySelector(".structure-value");
     if (valueEl) valueEl.textContent = getLeafText(node);
+    this.node = node;
     return true;
   }
 

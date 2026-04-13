@@ -114,7 +114,11 @@ fn walk_scope(
         usage_ids: [],
       }
       // Push param onto scope and walk children
-      scope.push({ name: param_name, binder_node_id: node_id, binder_name: param_name })
+      scope.push({
+        name: param_name,
+        binder_node_id: node_id,
+        binder_name: param_name,
+      })
       for child in node.children {
         walk_scope(child, scope, scope_map)
       }
@@ -173,7 +177,9 @@ fn walk_scope(
 ///|
 /// Second pass: for each Var that points to a binder,
 /// add the Var's NodeId to the binder's usage_ids.
-fn backfill_usages(scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]) -> Unit {
+fn backfill_usages(
+  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation],
+) -> Unit {
   let pairs : Array[(@canopy_core.NodeId, @canopy_core.NodeId)] = []
   for node_id, ann in scope_map {
     if !ann.is_definition {
