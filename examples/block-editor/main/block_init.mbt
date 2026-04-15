@@ -58,8 +58,11 @@ pub fn get_render_state(handle : Int) -> String {
   match docs.get(handle) {
     Some(doc) => {
       let buf = StringBuilder::new()
-      buf.write_string("{\"blocks\":[")
       let children = doc.children(root_block_id)
+      let parent_key = @container.tree_node_id_key(root_block_id)
+      buf.write_string("{\"block_count\":")
+      buf.write_string(children.length().to_string())
+      buf.write_string(",\"blocks\":[")
       for i in 0..<children.length() {
         if i > 0 {
           buf.write_string(",")
@@ -70,7 +73,6 @@ pub fn get_render_state(handle : Int) -> String {
         write_json_escaped(buf, @container.tree_node_id_key(id))
         buf.write_string("\",\"block_type\":\"")
         write_json_escaped(buf, block_type_name(bt))
-        // Extract level/list_style directly from BlockType — no Map allocation
         buf.write_string("\",\"level\":\"")
         match bt {
           Heading(n) => write_json_escaped(buf, n.to_string())
@@ -85,14 +87,18 @@ pub fn get_render_state(handle : Int) -> String {
         }
         buf.write_string("\",\"checked\":")
         buf.write_string(if doc.get_checked(id) { "true" } else { "false" })
-        buf.write_string(",\"text\":\"")
+        buf.write_string(",\"index\":")
+        buf.write_string(i.to_string())
+        buf.write_string(",\"parent_id\":\"")
+        write_json_escaped(buf, parent_key)
+        buf.write_string("\",\"text\":\"")
         write_json_escaped(buf, doc.get_text(id))
         buf.write_string("\"}")
       }
       buf.write_string("]}")
       buf.to_string()
     }
-    None => "{\"blocks\":[]}"
+    None => "{\"block_count\":0,\"blocks\":[]}"
   }
 }
 
@@ -209,6 +215,33 @@ pub fn editor_set_block_type(
       doc.set_type(parse_block_id(id_str), bt)
     }
     None => ()
+  }
+}
+
+///|
+/// Move a block relative to a reference block.
+///
+/// `position_str` is one of "Before", "After", "Inside".
+pub fn editor_move_block(
+  handle : Int,
+  id_str : String,
+  ref_id_str : String,
+  position_str : String,
+) -> Bool {
+  match docs.get(handle) {
+    Some(doc) => {
+      let position : @canopy_core.DropPosition = match position_str {
+        "Before" => Before
+        "After" => After
+        "Inside" => Inside
+        _ => return false
+      }
+      let id = parse_block_id(id_str)
+      let ref_id = parse_block_id(ref_id_str)
+      doc.move_block(id, ref_id, position) catch { _ => return false }
+      true
+    }
+    None => false
   }
 }
 

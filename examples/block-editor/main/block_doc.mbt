@@ -56,13 +56,34 @@ pub fn BlockDoc::delete_block(
 }
 
 ///|
-/// Move a block to a new parent.
+/// Move a block relative to a reference sibling.
+///
+/// - `Before`: insert before `ref_id` under the same parent
+/// - `After`: insert after `ref_id` under the same parent
+/// - `Inside`: move as last child of `ref_id`
 pub fn BlockDoc::move_block(
   self : BlockDoc,
   id : @container.TreeNodeId,
-  new_parent~ : @container.TreeNodeId,
+  ref_id : @container.TreeNodeId,
+  position : @canopy_core.DropPosition,
 ) -> Unit raise @container.DocumentError {
-  self.tree.move_node(target=id, new_parent~)
+  // Before/After assume a flat block list (all blocks are root children).
+  // Inside reparents into ref_id for future nesting support.
+  match position {
+    Before =>
+      self.tree.move_node_before(
+        target=id,
+        parent=root_block_id,
+        before=ref_id,
+      )
+    After =>
+      self.tree.move_node_after(
+        target=id,
+        parent=root_block_id,
+        after=ref_id,
+      )
+    Inside => self.tree.move_node(target=id, new_parent=ref_id)
+  }
 }
 
 ///|

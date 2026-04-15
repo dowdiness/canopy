@@ -77,7 +77,9 @@ test "write_json_escaped: control characters" {
 test "destroy_editor removes handle" {
   let h = create_editor("alice")
   destroy_editor(h)
-  inspect(get_render_state(h), content="{\"blocks\":[]}")
+  inspect(get_render_state(h), content=(
+    #|{"block_count":0,"blocks":[]}
+  ))
 }
 
 ///|

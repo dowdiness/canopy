@@ -457,6 +457,89 @@ test "import: star bullet list" {
   inspect(doc.get_text(children[0]), content="star item")
 }
 
+// ── Move block tests ─────────────────────────────────────────────────────
+
+///|
+test "move_block After: move first block after second" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  doc.set_text(a, "A")
+  let b = doc.create_block(Paragraph)
+  doc.set_text(b, "B")
+  let c = doc.create_block(Paragraph)
+  doc.set_text(c, "C")
+  // Move A to after B => order should be B, A, C
+  doc.move_block(a, b, @canopy_core.DropPosition::After)
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="3")
+  inspect(@container.tree_node_id_eq(children[0], b), content="true")
+  inspect(@container.tree_node_id_eq(children[1], a), content="true")
+  inspect(@container.tree_node_id_eq(children[2], c), content="true")
+}
+
+///|
+test "move_block Before: move last block before first" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  doc.set_text(a, "A")
+  let b = doc.create_block(Paragraph)
+  doc.set_text(b, "B")
+  let c = doc.create_block(Paragraph)
+  doc.set_text(c, "C")
+  // Move C before A => order should be C, A, B
+  doc.move_block(c, a, @canopy_core.DropPosition::Before)
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="3")
+  inspect(@container.tree_node_id_eq(children[0], c), content="true")
+  inspect(@container.tree_node_id_eq(children[1], a), content="true")
+  inspect(@container.tree_node_id_eq(children[2], b), content="true")
+}
+
+///|
+test "move_block Before: move to before middle" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  let b = doc.create_block(Paragraph)
+  let c = doc.create_block(Paragraph)
+  // Move C before B => order should be A, C, B
+  doc.move_block(c, b, @canopy_core.DropPosition::Before)
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="3")
+  inspect(@container.tree_node_id_eq(children[0], a), content="true")
+  inspect(@container.tree_node_id_eq(children[1], c), content="true")
+  inspect(@container.tree_node_id_eq(children[2], b), content="true")
+}
+
+///|
+test "move_block After: move to after last" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  let b = doc.create_block(Paragraph)
+  let c = doc.create_block(Paragraph)
+  // Move A to after C => order should be B, C, A
+  doc.move_block(a, c, @canopy_core.DropPosition::After)
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="3")
+  inspect(@container.tree_node_id_eq(children[0], b), content="true")
+  inspect(@container.tree_node_id_eq(children[1], c), content="true")
+  inspect(@container.tree_node_id_eq(children[2], a), content="true")
+}
+
+///|
+test "move_block preserves text after reorder" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  doc.set_text(a, "alpha")
+  let b = doc.create_block(Paragraph)
+  doc.set_text(b, "beta")
+  doc.move_block(b, a, @canopy_core.DropPosition::Before)
+  inspect(doc.get_text(a), content="alpha")
+  inspect(doc.get_text(b), content="beta")
+  let children = doc.children(root_block_id)
+  inspect(@container.tree_node_id_eq(children[0], b), content="true")
+  inspect(@container.tree_node_id_eq(children[1], a), content="true")
+}
+
 // TODO: sync tests require container-level sync API (SyncMessage, VersionVector)
 // that includes text CRDT state. Re-add when export_sync_message / apply_remote_sync_message
 // are implemented in dowdiness/event-graph-walker/container.
