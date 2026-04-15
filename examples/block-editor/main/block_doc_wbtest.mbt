@@ -540,6 +540,45 @@ test "move_block preserves text after reorder" {
   inspect(@container.tree_node_id_eq(children[1], a), content="true")
 }
 
+// ── Legality tests ───────────────────────────────────────────────────
+
+///|
+test "move_block: self-drop is a silent no-op" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  let b = doc.create_block(Paragraph)
+  // Move A relative to itself — should silently return, order unchanged
+  doc.move_block(a, a, @canopy_core.DropPosition::Before)
+  doc.move_block(a, a, @canopy_core.DropPosition::After)
+  let children = doc.children(root_block_id)
+  inspect(children.length(), content="2")
+  inspect(@container.tree_node_id_eq(children[0], a), content="true")
+  inspect(@container.tree_node_id_eq(children[1], b), content="true")
+}
+
+///|
+test "panic move_block: cannot move root block" {
+  let doc = BlockDoc::new("alice")
+  let a = doc.create_block(Paragraph)
+  doc.move_block(root_block_id, a, @canopy_core.DropPosition::After)
+}
+
+///|
+test "move_block: descendant-drop rejected by CRDT cycle detection" {
+  let doc = BlockDoc::new("alice")
+  let parent = doc.create_block(Paragraph)
+  let child = doc.create_block(Paragraph, parent=parent)
+  // Moving parent Inside child would create a cycle — CRDT layer rejects
+  let mut caught_cycle = false
+  try {
+    doc.move_block(parent, child, @canopy_core.DropPosition::Inside)
+  } catch {
+    @container.DocumentError::CycleDetected => caught_cycle = true
+    _ => ()
+  }
+  inspect(caught_cycle, content="true")
+}
+
 // TODO: sync tests require container-level sync API (SyncMessage, VersionVector)
 // that includes text CRDT state. Re-add when export_sync_message / apply_remote_sync_message
 // are implemented in dowdiness/event-graph-walker/container.
