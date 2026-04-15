@@ -6,6 +6,7 @@
 /// Holds lambda-specific memos alongside a generic SyncEditor.
 /// The FFI layer stores this alongside the editor.
 pub struct LambdaCompanion {
+  priv rt : @incr.Runtime
   priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]
   // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
   // Falls back to Tier 1 results when no definitions are Suppressed.
@@ -16,7 +17,7 @@ pub struct LambdaCompanion {
 pub fn LambdaCompanion::get_flat_proj(
   self : LambdaCompanion,
 ) -> @lambda_proj.FlatProj? {
-  self.proj_memo.get().proj
+  self.rt.read(self.proj_memo).proj
 }
 
 ///|
@@ -24,7 +25,7 @@ pub fn LambdaCompanion::get_eval_results(
   self : LambdaCompanion,
 ) -> Array[@lambda_eval.EvalResult] {
   // Return escalated results (Tier 1 + Tier 2 merge)
-  self.escalation_memo.get()
+  self.rt.read(self.escalation_memo)
 }
 
 ///|
@@ -90,8 +91,9 @@ pub fn new_lambda_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
-  // Ref side-channels to capture memos from build_memos callback.
+  // Ref side-channels to capture memos and runtime from build_memos callback.
   // Safe: new_generic calls build_memos during construction, before returning.
+  let rt_ref : Ref[@incr.Runtime?] = Ref::new(None)
   let proj_memo_ref : Ref[@incr.Memo[@lambda_flat.VersionedFlatProj]?] = Ref::new(
     None,
   )
@@ -108,6 +110,7 @@ pub fn new_lambda_editor(
     agent_id,
     fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
     fn(rt, source_text, syntax_tree, parser) {
+      rt_ref.val = Some(rt)
       let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = @lambda_flat.build_lambda_projection_memos(
         rt, source_text, syntax_tree, parser,
       )
@@ -124,10 +127,11 @@ pub fn new_lambda_editor(
     },
     capture_timeout_ms~,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, escalation_memo_ref,
+      rt_ref, cached_proj_node_ref, escalation_memo_ref,
     ),
   )
   let companion : LambdaCompanion = {
+    rt: rt_ref.val.unwrap(),
     proj_memo: proj_memo_ref.val.unwrap(),
     escalation_memo: escalation_memo_ref.val.unwrap(),
   }
@@ -137,24 +141,33 @@ pub fn new_lambda_editor(
 ///|
 /// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
+  rt_ref : Ref[@incr.Runtime?],
   cached_proj_node_ref : Ref[@incr.Memo[@core.ProjNode[@ast.Term]?]?],
   escalation_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
+      let rt = match rt_ref.val {
+        Some(rt) => rt
+        None => return {}
+      }
       let eval_results = match escalation_memo_ref.val {
-        Some(memo) => memo.get()
+        Some(memo) => rt.read(memo)
         None => return {}
       }
       let proj_node = match cached_proj_node_ref.val {
-        Some(memo) => memo.get()
+        Some(memo) => rt.read(memo)
         None => None
       }
       build_eval_annotations(eval_results, proj_node)
     }),
     pretty_post_process=Some(fn(layout) {
+      let rt = match rt_ref.val {
+        Some(rt) => rt
+        None => return layout
+      }
       let eval_results = match escalation_memo_ref.val {
-        Some(memo) => memo.get()
+        Some(memo) => rt.read(memo)
         None => return layout
       }
       @lambda_eval.inject_eval_annotations(layout, eval_results)

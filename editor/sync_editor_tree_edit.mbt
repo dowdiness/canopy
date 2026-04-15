@@ -18,7 +18,7 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 /// inside a getter.
 pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
   self.projection_dirty = false
-  let _ = self.cached_proj_node.get()
+  let _ = self.parser_rt.read(self.cached_proj_node)
 }
 
 ///|
@@ -132,14 +132,18 @@ pub fn[T] SyncEditor::apply_text_transform(
 }
 
 ///|
-/// Move a node to a new position in the tree by:
-///   1. Unparsing the source node via T::unparse
-///   2. Deleting the source span (replace with placeholder)
-///   3. Inserting the unparsed text adjacent to the target span
+/// Move a node to a new position in the tree.
+///
+/// Inside (exchange): swaps the expression content of source and target,
+/// preserving leading whitespace/separators.
+///
+/// Before/After: replaces the source expression with its placeholder
+/// (keeping the syntax valid) and inserts the source text at the target.
 ///
 /// CAUTION: Insert position must be adjusted when source precedes target
 /// in the document (deletion shifts subsequent offsets backward by
-/// `source_len - placeholder_len`). This method handles the adjustment.
+/// `source_len - placeholder_len`). apply_span_edits handles this via
+/// reverse-order application.
 pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
   source_id : @core.NodeId,
@@ -190,6 +194,18 @@ pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
     )
   }
   let doc_text = self.get_text()
+  // Strip leading whitespace from a span to find the expression-only start.
+  // Source map ranges include leading separators; we keep those in place.
+  fn skip_ws(text : String, start : Int, end : Int) -> Int {
+    let mut i = start
+    while i < end {
+      match text[i] {
+        ' ' | '\t' | '\n' | '\r' => i = i + 1
+        _ => break
+      }
+    }
+    i
+  }
   let edits : Array[@core.SpanEdit] = match position {
     // Inside = exchange: swap the expression content, preserving leading whitespace
     Inside => {
@@ -201,18 +217,6 @@ pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
             detail="Cannot drop into own descendant",
           ),
         )
-      }
-      // Strip leading whitespace from each span to find the expression-only range.
-      // Source map ranges include leading separators; we keep those in place.
-      fn skip_ws(text : String, start : Int, end : Int) -> Int {
-        let mut i = start
-        while i < end {
-          match text[i] {
-            ' ' | '\t' | '\n' | '\r' => i = i + 1
-            _ => break
-          }
-        }
-        i
       }
       let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
       let tgt_expr_start = skip_ws(doc_text, tgt_range.start, tgt_range.end)
@@ -231,20 +235,24 @@ pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
         },
       ]
     }
-    // Before/After = move: remove source and insert at target position
+    // Before/After = move: replace source with placeholder, insert at target
     Before | After => {
-      let src_text = @loom_core.Renderable::unparse(src_node.kind)
+      // Extract expression text from source map (whitespace-aware, like Exchange)
+      let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
+      let src_expr = doc_text[src_expr_start:src_range.end].to_string()
+      // Replace source expression with placeholder (keeps leading whitespace)
+      let placeholder = @loom_core.Renderable::placeholder(src_node.kind)
       let tgt_insert = match position {
         Before => tgt_range.start
         _ => tgt_range.end
       }
       [
         {
-          start: src_range.start,
-          delete_len: src_range.end - src_range.start,
-          inserted: "",
+          start: src_expr_start,
+          delete_len: src_range.end - src_expr_start,
+          inserted: placeholder,
         },
-        { start: tgt_insert, delete_len: 0, inserted: src_text + " " },
+        { start: tgt_insert, delete_len: 0, inserted: src_expr + " " },
       ]
     }
   }
