@@ -352,9 +352,8 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3)
   Exit: `block-editor` exposes positioned block moves plus structural render metadata.
 
-- [ ] **Shared move contract documentation**
-  Why: both editors should use the same `source`/`target`/`position` payload shape.
-  Exit: documented contract in `docs/` covering payload shape, supported positions per editor, and legality rules.
+- [x] **Shared move contract documentation**
+  Done: `docs/development/move-contract.md` — payload shape, position semantics, legality rules, backend execution, drag lifecycle, new-editor checklist.
 
 - [ ] **Convergence tests for concurrent drag-drop**
   Why: concurrent relocations across CRDT peers need convergence guarantees.
