@@ -2,10 +2,14 @@
 
 ## Status
 
-Blocked.
+Done (PR #188, 2026-04-17). Unblocked once container Phase 3 (unified sync) landed via egw#21.
 
-Blocked on:
-- container implementation / next sync mechanism
+Shipped:
+- `on_connect` returns `Bool`; rejects empty and duplicate peer IDs.
+- `on_message` drops frames from non-member senders.
+- `on_disconnect` is a no-op for non-members (prevents ghost `PeerLeft` from spuriously clearing ephemeral state in `editor/sync_editor_ws`).
+- CF Worker closes rejected duplicates with application close code 4001.
+- 5 new `*_wbtest.mbt` tests; `.mbti` diff limited to the two intended return-type changes.
 
 ## Why
 
@@ -54,9 +58,9 @@ Out:
 
 ## Acceptance Criteria
 
-- [ ] Duplicate peer IDs are rejected or ignored by defined, tested behavior.
-- [ ] Invalid disconnects and invalid sender message cases have defined behavior.
-- [ ] Relay tests cover the new validation rules.
+- [x] Duplicate peer IDs are rejected or ignored by defined, tested behavior.
+- [x] Invalid disconnects and invalid sender message cases have defined behavior.
+- [x] Relay tests cover the new validation rules.
 
 ## Validation
 

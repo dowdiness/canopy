@@ -74,14 +74,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Plan: `docs/plans/2026-03-29-websocket-client-integration.md`
   Exit: one canonical client flow is implemented, documented, and validated.
 - [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` does not leave peers diverged silently
-  Why: recovery semantics should be finalized after the container implementation defines the next sync boundary, not against the current pre-container transport assumptions.
+  Why: now unblocked — container Phase 3 (unified sync) shipped via egw#21, so retry/buffering/failure semantics can be aligned against the Document-level sync boundary.
   Plan: `docs/plans/2026-03-29-sync-recovery-followup.md`
-  Blocked by: container Phase 3 (unified sync). Phase 1 (tree ops) ✅ Done. Phase 2 (per-block text) ✅ Done. Text ops are local-only — no Op enum or sync serialization yet.
-  Exit: revisit after container Phase 3; then align retry, buffering, and failure behavior with the new sync boundary.
-- [ ] Reject duplicate/invalid relay peer IDs in `RelayRoom`
-  Why: `RelayRoom` still trusts caller uniqueness and membership correctness, but hardening this boundary should wait until the container Phase 3 defines the next sync boundary clearly.
-  Plan: `docs/plans/2026-03-29-relay-peer-validation.md`
-  Exit: revisit after container Phase 3; then define and test duplicate peer IDs and invalid membership behavior against the new sync boundary.
+  Exit: malformed/incompatible ops trigger defined recovery (retry, buffering, or surfaced failure) against the Document sync boundary rather than silent divergence.
+- [x] Reject duplicate/invalid relay peer IDs in `RelayRoom` — ✅ Done (PR #188). `on_connect` returns `Bool`, rejects empty and duplicate IDs. `on_message` drops non-member senders. `on_disconnect` no-ops for non-members (prevents ghost `PeerLeft` from clearing ephemeral state). CF Worker closes rejected duplicates with application code 4001. Archive plan: `docs/archive/2026-03-29-relay-peer-validation.md`.
 - [x] Fix P2-1: Remote sync pollutes undo history — `UndoManager.set_tracking()` implemented; valtio TS layer suppresses tracking during remote op application (see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Fix P2-2: Position-based undo replays stale positions after concurrent edits — replaced with LV-based UndoManager; tombstone revival restores characters at exact CRDT position regardless of concurrent edits (Phase 1+2 complete, see `event-graph-walker/docs/UNDO_MANAGER_DESIGN.md`)
 - [x] Wire `apply_sync` to suppress undo tracking — `SyncEditor::apply_sync` now disables tracking before applying remote ops
@@ -468,7 +464,7 @@ From SuperOOP analysis and handler chain refactor (PR #54):
   Plan: `docs/archive/completed-phases/2026-04-06-container-text-sync-refactor.md`
 - [x] **Phase 3: Unified sync** — ✅ Done (PR #134, event-graph-walker PR #21). Two peers converge on a block document with document-level sync export/import, causal-parent preservation, out-of-order buffering, incremental diff export, and BlockDoc integration.
   Design: `docs/plans/2026-03-29-container-design.md` §Phase 3
-- [ ] **Phase 4: Document-level undo** — Undo spans tree + text. Transaction boundaries.
+- [x] **Phase 4: Document-level undo** — ✅ Done (canopy PR #187, egw PR #28, 2026-04-17). Model I undo/redo + transactions on Document; undo groups span tree + text edits.
   Design: `docs/plans/2026-03-29-container-design.md` §Phase 4
 
 ---
