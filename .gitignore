@@ -12,6 +12,7 @@ release/
 _build
 *.db
 .wrangler/
+.vite/
 
 .playwright-mcp/
 examples/demo-react/playwright-report/
