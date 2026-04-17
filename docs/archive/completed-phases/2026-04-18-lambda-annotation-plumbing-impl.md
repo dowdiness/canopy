@@ -1,5 +1,7 @@
 # Lambda Type-Annotation Plumbing — Implementation Plan
 
+**Status:** Complete — shipped via loom#84, loom#85, canopy#191 (2026-04-18). Codex review caught two additional correctness holes (empty blocks, missing LetDef names) that were folded into loom#85.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Thread `: Type` annotations from the lambda CST through to `TypedTerm`, so `\x : Int. x` and the five web presets typecheck clean.

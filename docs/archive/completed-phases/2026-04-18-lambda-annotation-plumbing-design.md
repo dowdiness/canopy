@@ -1,7 +1,6 @@
 # Lambda Type-Annotation Plumbing (CST → TypedTerm)
 
-**Status:** Design — ready for implementation plan
-**Related TODO:** `docs/TODO.md` §23
+**Status:** Complete — shipped via loom#84, loom#85, canopy#191 (2026-04-18)
 **Predecessor PR:** #186 (shipped inline type diagnostics with empty annotation pipeline)
 
 ## Why
