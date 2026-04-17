@@ -106,4 +106,18 @@ test.describe('Lambda Editor — Foundation', () => {
     expect(await page.locator('#error-output .diag-item').count()).toBe(0);
   });
 
+  test('parse errors suppress type diagnostics', async ({ page }) => {
+    // A bare backslash is a malformed lambda — the parser expects a variable
+    // name and body after it, so the input fails to parse. Because the AST is
+    // incomplete, get_diagnostics_json only emits parse errors and skips the
+    // type-checker entirely (the suppression guard in canopy_lambda.mbt:170).
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('\\');
+
+    await expect(page.locator('#error-output .diag-item.diag-error').first()).toBeVisible();
+    await expect(page.locator('#error-output')).not.toContainText('missing type annotation');
+    await expect(page.locator('#error-output')).not.toContainText('unbound variable');
+  });
+
 });
