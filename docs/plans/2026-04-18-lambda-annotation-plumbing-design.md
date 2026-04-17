@@ -51,11 +51,12 @@ Out:
 
 1. Extend typecheck package to depend on `dowdiness/seam`.
 2. Implement `convert_from_cst(SyntaxNode) -> TypedTerm`:
-   - Recursive walker parallel to `syntax_node_to_term` in `loom/examples/lambda/src/term_convert.mbt`.
-   - Reuse existing `*View::cast` helpers (`LambdaExprView`, `LetDefView`, `ParamListView`, etc.) to traverse the CST.
+   - Recursive walker parallel to `syntax_node_to_term` in `loom/examples/lambda/src/term_convert.mbt`, using the same left-to-right `node.children()` traversal strategy so diagnostic order matches `infer(Module)` expectations.
+   - **Do not use `LambdaExprView::body()`** — it returns `nth_child(0)`, which is the `TypeAnnot` node when an annotation is present, not the body. Walk `LambdaExpr` children explicitly: optional `TypeAnnot` comes first among interior nodes, then the body node.
+   - **Do not use `LetDefView::params()`** — it returns bare names and loses per-parameter annotation pairing. Traverse the `ParamList` node's children directly, building `(name, annot?)` pairs by pairing each `IdentToken` with an optionally-following `TypeAnnot` child.
    - For `LambdaExpr`: extract optional `@syntax.TypeAnnot` child (wraps `ColonToken` + type node), build `Type` via `type_of_node` on the type child, emit `Lam(param, annot_opt, body)`.
-   - For `LetDef` with `ParamList`: right-fold parameters into nested `Lam` nodes, each carrying its own optional annotation.
-   - Unknown / ErrorNode → `TypedTerm::Error("...")`.
+   - For `LetDef` with `ParamList`: right-fold parameter `(name, annot?)` pairs into nested `Lam` nodes.
+   - Unknown / `ErrorNode` → `TypedTerm::Error("...")` with a descriptive message. Missing-ident lambda, empty param list, or partially-recovered `LetDef` all produce `TypedTerm::Error`.
 3. Implement private `type_of_node(SyntaxNode) -> Type`:
    - `@syntax.TypeInt` → `TInt`; `@syntax.TypeUnit` → `TUnit`.
    - `@syntax.TypeArrow` with two type children → `TArrow(type_of_node(lhs), type_of_node(rhs))`.
@@ -68,6 +69,7 @@ Out:
    - Let-def with param list: `let f(x : Int, y : Int) = x + y` clean.
    - Malformed annotation: `\x : . x` → one `malformed type annotation` diagnostic.
    - Unannotated lambda in let-binding: `let f = \x. x` still emits `missing type annotation` (regression guard).
+   - **Error recovery**: `\` (missing ident) → `TypedTerm::Error`; `let f(,) = 1` (empty param) → `TypedTerm::Error`; multi-def input where one def is broken (`let a = 1 let b = let c = 3 c`) — confirms left-to-right def order is preserved across the broken def.
 5. `moon info && moon fmt`; confirm `.mbti` changes are intentional. Open loom PR, Codex review, merge.
 
 **Canopy side (PR against `main`, depends on loom merge):**
@@ -82,7 +84,7 @@ Out:
    - Conditional: `let choose = \x : Int. if x then { x + 1 } else { 42 } let a = choose 0 let b = choose 5 a + b`
    - Pipeline: `let compose = \f : Int -> Int. \g : Int -> Int. \x : Int. { f (g x) } let double = \x : Int. { x + x } let inc = \x : Int. { x + 1 } let f = compose inc double f 5`
 10. `examples/web/tests/lambda-editor.spec.ts`:
-    - Strengthen `example input parses successfully` → assert `#error-output` shows `No errors`.
+    - Strengthen `example input parses successfully` → iterate all five presets (`Basics`, `Composition`, `Currying`, `Conditional`, `Pipeline`) and assert each shows `No errors`.
     - Add `annotated lambda typechecks clean` (`\x : Int. x`).
     - Keep `unannotated lambda produces typecheck error` with literal `\x. x`.
 11. Run `moon test`, `moon build --target js`, `npx playwright test lambda-editor.spec.ts`. Open canopy PR, Codex review, merge.
@@ -105,7 +107,7 @@ Beyond the unit and E2E tests listed above, the key regression guards:
 ## Non-Goals
 
 - Teaching `infer` to propagate types across let-definitions (`let f = \x. x + 1; f 5` → infer f from usage). That's a separate follow-up (TODO §23 item 2) and would require a fixpoint pass or unification vars.
-- Deleting `@typecheck.convert(Term)`. Leave it for now — loom tests use it. Deprecation + removal is a follow-up.
+- Deleting `@typecheck.convert(Term)`. Leave it as the legacy AST path — loom tests exercise it directly from `Term`. Deprecation + removal is a follow-up, not a requirement here.
 - Structured `def_name` in the diagnostic JSON (TODO §23 item 3). Orthogonal.
 
 ## Workflow
