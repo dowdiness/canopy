@@ -55,7 +55,7 @@ export class RelayRoom implements DurableObject {
       this.roomId,
       peerId,
       (data: Uint8Array) => {
-        if (server.readyState === 1) {
+        if (server.readyState === WebSocket.OPEN) {
           server.send(data);
         }
       },

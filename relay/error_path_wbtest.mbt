@@ -11,20 +11,10 @@ fn make_err_recorder() -> ((Bytes) -> Unit, Array[Bytes]) {
 }
 
 ///|
-/// Test helper: connect and assert success.
-fn err_connect_ok(
-  room : RelayRoom,
-  peer_id : String,
-  send_fn : (Bytes) -> Unit,
-) -> Unit raise {
-  inspect(room.on_connect(peer_id, send_fn), content="true")
-}
-
-///|
 test "on_disconnect: non-existent peer does not panic" {
   let room = RelayRoom::new()
   let (send_a, _) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
+  connect_ok(room, "alice", send_a)
   // Disconnect a peer that was never connected
   room.on_disconnect("nonexistent")
   // Alice should still be in the room
@@ -43,8 +33,8 @@ test "on_disconnect: double disconnect does not panic" {
   let room = RelayRoom::new()
   let (send_a, _) = make_err_recorder()
   let (send_b, _) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
-  err_connect_ok(room, "bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   room.on_disconnect("bob")
   inspect(room.peer_count(), content="1")
   // Disconnect bob again — should not panic
@@ -56,7 +46,7 @@ test "on_disconnect: double disconnect does not panic" {
 test "on_disconnect: non-member does not broadcast PeerLeft" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
+  connect_ok(room, "alice", send_a)
   msgs_a.clear()
   // Disconnecting a peer that was never registered is a no-op — no
   // ghost PeerLeft reaches alice (prevents spurious ephemeral-state
@@ -66,7 +56,7 @@ test "on_disconnect: non-member does not broadcast PeerLeft" {
   inspect(room.peer_count(), content="1")
   // Same property holds for a second disconnect after a real removal.
   let (send_b, msgs_b) = make_err_recorder()
-  err_connect_ok(room, "bob", send_b)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   room.on_disconnect("bob")
@@ -82,7 +72,7 @@ test "on_disconnect: non-member does not broadcast PeerLeft" {
 test "on_message: non-member sender is dropped" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
+  connect_ok(room, "alice", send_a)
   msgs_a.clear()
   // Message from a peer that never called on_connect — must not be relayed.
   room.on_message("ghost", b"\x01\x02\x03")
@@ -101,8 +91,8 @@ test "on_message: empty data is forwarded" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_err_recorder()
   let (send_b, msgs_b) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
-  err_connect_ok(room, "bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   room.on_message("alice", Bytes::new(0))
@@ -122,8 +112,13 @@ test "on_connect: duplicate peer_id is rejected" {
   inspect(room.peer_count(), content="1")
   // No PeerJoined broadcast on rejection.
   inspect(msgs_a1.length(), content="0")
-  // The rejected send_fn never becomes a delivery target.
-  room.on_message("alice", b"\x01\x02\x03")
+  // A subsequent join proves the original send_fn is still the delivery
+  // target and the rejected send_fn never became one: bob's PeerJoined
+  // reaches send_a1 but not send_a2. (Broadcasting via alice as sender
+  // cannot distinguish the two, because broadcast excludes by peer_id.)
+  let (send_b, _) = make_err_recorder()
+  connect_ok(room, "bob", send_b)
+  inspect(msgs_a1.length(), content="1")
   inspect(msgs_a2.length(), content="0")
 }
 
@@ -153,9 +148,9 @@ test "peer_count: after all peers disconnect" {
   let (send_a, _) = make_err_recorder()
   let (send_b, _) = make_err_recorder()
   let (send_c, _) = make_err_recorder()
-  err_connect_ok(room, "alice", send_a)
-  err_connect_ok(room, "bob", send_b)
-  err_connect_ok(room, "charlie", send_c)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
+  connect_ok(room, "charlie", send_c)
   room.on_disconnect("alice")
   room.on_disconnect("bob")
   room.on_disconnect("charlie")
