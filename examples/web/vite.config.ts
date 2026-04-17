@@ -19,6 +19,11 @@ export default defineConfig({
           output: '_build/js/release/build/ffi/json/json.js'
         },
         {
+          name: '@moonbit/crdt-markdown',
+          path: '../..',
+          output: '_build/js/release/build/ffi/markdown/markdown.js'
+        },
+        {
           name: '@moonbit/graphviz',
           path: '../../graphviz',
           output: '_build/js/release/build/browser/browser.js'
@@ -55,6 +60,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['*.wasm', '@moonbit/crdt', '@moonbit/crdt-json', '@moonbit/graphviz']
+    exclude: ['*.wasm', '@moonbit/crdt', '@moonbit/crdt-json', '@moonbit/crdt-markdown', '@moonbit/graphviz']
   }
 });

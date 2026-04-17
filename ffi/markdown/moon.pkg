@@ -1,0 +1,23 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/markdown/edits" @md_edits,
+  "dowdiness/canopy/lang/markdown/companion" @md_companion,
+  "dowdiness/markdown" @md,
+}
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "create_markdown_editor",
+        "destroy_markdown_editor",
+        "markdown_get_text",
+        "markdown_export_text",
+        "markdown_set_text",
+        "markdown_compute_view_patches_json",
+        "markdown_apply_edit",
+      ],
+    },
+  },
+)

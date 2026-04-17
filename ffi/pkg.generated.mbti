@@ -27,15 +27,11 @@ pub fn create_editor(String) -> Int
 
 pub fn create_editor_with_undo(String, Int) -> Int
 
-pub fn create_markdown_editor(String) -> Int
-
 pub fn delete_and_record(Int, Int) -> Bool
 
 pub fn delete_at(Int, Int, Int) -> Bool
 
 pub fn destroy_editor(Int) -> Unit
-
-pub fn destroy_markdown_editor(Int) -> Unit
 
 pub fn ephemeral_apply(Int, Bytes) -> Unit
 
@@ -90,16 +86,6 @@ pub fn handle_undo(Int) -> Bool
 pub fn insert_and_record(Int, String, Int) -> Unit
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
-
-pub fn markdown_apply_edit(Int, String, Int, String, Int, Int) -> String
-
-pub fn markdown_compute_view_patches_json(Int) -> String
-
-pub fn markdown_export_text(Int) -> String
-
-pub fn markdown_get_text(Int) -> String
-
-pub fn markdown_set_text(Int, String) -> Unit
 
 pub fn redo_and_export_json(Int) -> String
 

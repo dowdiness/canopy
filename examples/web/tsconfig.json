@@ -14,6 +14,8 @@
       "@moonbit/crdt/moonbit": ["../../_build/js/release/build/ffi/moonbit.d.ts"],
       "@moonbit/crdt-json": ["../../_build/js/release/build/ffi/json/json.d.ts"],
       "@moonbit/crdt-json/moonbit": ["../../_build/js/release/build/ffi/json/moonbit.d.ts"],
+      "@moonbit/crdt-markdown": ["../../_build/js/release/build/ffi/markdown/markdown.d.ts"],
+      "@moonbit/crdt-markdown/moonbit": ["../../_build/js/release/build/ffi/markdown/moonbit.d.ts"],
       "@moonbit/graphviz": ["../../graphviz/_build/js/release/build/browser/browser.d.ts"]
     }
   },
