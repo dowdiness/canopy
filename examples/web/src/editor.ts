@@ -49,15 +49,22 @@ export function createEditor(agentId: string) {
       astOutputEl.textContent = `Pretty-print error: ${e}`;
     }
 
-    // Diagnostics (parse errors + eval warnings)
-    const diags: { level: string; message: string }[] = JSON.parse(
+    // Diagnostics (parse errors + eval warnings). `def_name` is present
+    // on type errors inside a named binding so we can render a badge
+    // instead of string-prefixing the message.
+    const diags: { level: string; message: string; def_name?: string }[] = JSON.parse(
       crdt.get_diagnostics_json(handle),
     );
     if (diags.length === 0) {
       errorEl.innerHTML = '<li>No errors</li>';
     } else {
       errorEl.innerHTML = diags
-        .map(d => `<li class="diag-item diag-${d.level}">${escapeHTML(d.message)}</li>`)
+        .map(d => {
+          const badge = d.def_name
+            ? `<span class="diag-def-badge">${escapeHTML(d.def_name)}</span> `
+            : '';
+          return `<li class="diag-item diag-${d.level}">${badge}${escapeHTML(d.message)}</li>`;
+        })
         .join('');
     }
   }

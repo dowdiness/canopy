@@ -120,6 +120,21 @@ test.describe('Lambda Editor — Foundation', () => {
     expect(await page.locator('#error-output .diag-item').count()).toBe(0);
   });
 
+  test('type error inside a named binding shows def badge', async ({ page }) => {
+    // `let f = y\nf` — `y` is unbound inside def `f`. FFI emits the
+    // diagnostic with `def_name: "f"`, which the UI renders as a
+    // `.diag-def-badge` span instead of a `[f]` string prefix.
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('let f = y\nf');
+
+    const badge = page.locator('#error-output .diag-item .diag-def-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('f');
+    // The old `[f] ` string prefix must not appear in the message.
+    await expect(page.locator('#error-output')).not.toContainText('[f]');
+  });
+
   test('parse errors suppress type diagnostics', async ({ page }) => {
     // A bare backslash is a malformed lambda — the parser expects a variable
     // name and body after it, so the input fails to parse. Because the AST is

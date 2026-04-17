@@ -157,7 +157,10 @@ pub fn get_errors_json(handle : Int) -> String {
 
 ///|
 /// Get all diagnostics (parse errors + type errors + eval warnings) as JSON array.
-/// Each entry: {"level": "error"|"warning", "message": "..."}
+/// Each entry: `{"level": "error"|"warning", "message": "...", "def_name"?: "..."}`.
+/// `def_name` is present only on type-check diagnostics that originate inside a
+/// named binding (e.g. `let f = y` → `def_name: "f"`); consumers should group,
+/// filter, or badge by this field rather than parsing the message string.
 pub fn get_diagnostics_json(handle : Int) -> String {
   match lambda_handles.get(handle) {
     Some(h) => {
@@ -178,11 +181,11 @@ pub fn get_diagnostics_json(handle : Int) -> String {
         for diag in result.all_diagnostics {
           let m : Map[String, Json] = {}
           m["level"] = "error".to_json()
-          let prefix = match diag.def_name {
-            Some(name) => "[\{name}] "
-            None => ""
+          m["message"] = diag.message.to_json()
+          match diag.def_name {
+            Some(name) => m["def_name"] = name.to_json()
+            None => ()
           }
-          m["message"] = (prefix + diag.message).to_json()
           diags.push(Json::object(m))
         }
       }

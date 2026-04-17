@@ -86,3 +86,29 @@ test "get_diagnostics_json FFI: unbound variable" {
   inspect(json.contains("unbound"), content="true")
   destroy_editor(handle)
 }
+
+///|
+test "get_diagnostics_json FFI: def_name populated for errors inside a named binding" {
+  // `let f = y\nf` — `y` is unbound inside the body of def `f`.
+  // The typecheck diagnostic should carry `def_name: "f"` so the
+  // web UI can render it as a badge.
+  let handle = create_editor("test-def-name")
+  set_text(handle, "let f = y\nf")
+  let json = get_diagnostics_json(handle)
+  inspect(json.contains("\"def_name\":\"f\""), content="true")
+  // And the message itself should no longer carry the `[f] ` prefix.
+  inspect(json.contains("[f]"), content="false")
+  destroy_editor(handle)
+}
+
+///|
+test "get_diagnostics_json FFI: def_name omitted for top-level errors" {
+  // `x + 1` — unbound `x` at the module top level; no named-binding
+  // context, so `def_name` should be absent from the JSON entirely.
+  let handle = create_editor("test-no-def-name")
+  set_text(handle, "x + 1")
+  let json = get_diagnostics_json(handle)
+  inspect(json.contains("unbound"), content="true")
+  inspect(json.contains("def_name"), content="false")
+  destroy_editor(handle)
+}
