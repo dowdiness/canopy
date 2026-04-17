@@ -48,12 +48,23 @@ export class RelayRoom implements DurableObject {
     const [client, server] = [pair[0], pair[1]];
     server.accept();
 
-    // Pass a send callback to MoonBit — relay manages sessions + broadcast
-    relay.relay_on_connect(this.roomId, peerId, (data: Uint8Array) => {
-      if (server.readyState === 1) {
-        server.send(data);
-      }
-    });
+    // Pass a send callback to MoonBit — relay manages sessions + broadcast.
+    // relay_on_connect returns false if the peer_id is empty or already in
+    // the room; close the duplicate transport rather than leaving a zombie.
+    const accepted = relay.relay_on_connect(
+      this.roomId,
+      peerId,
+      (data: Uint8Array) => {
+        if (server.readyState === 1) {
+          server.send(data);
+        }
+      },
+    );
+    if (!accepted) {
+      // 4000–4999 are application-defined WebSocket close codes.
+      server.close(4001, "duplicate or invalid peer_id");
+      return new Response(null, { status: 101, webSocket: client });
+    }
 
     server.addEventListener("message", (e) => {
       const data = e.data instanceof ArrayBuffer

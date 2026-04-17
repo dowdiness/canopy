@@ -126,7 +126,7 @@ pub fn parse_json_edit_op(Json) -> Result[@edits.JsonEditOp, String]
 
 pub fn redo_and_export_json(Int) -> String
 
-pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Unit
+pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
 
 pub fn relay_on_disconnect(String, String) -> Unit
 

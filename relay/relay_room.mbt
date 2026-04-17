@@ -5,9 +5,10 @@ struct RelayPeer {
 }
 
 ///|
-/// Room of connected peers. Peer IDs are trusted (assigned by the server-side
-/// TypeScript glue, e.g. crypto.randomUUID() in CF Worker). No duplicate-ID
-/// or membership validation — callers must ensure IDs are unique.
+/// Room of connected peers. Peer IDs are assigned by the server-side glue
+/// (e.g. `crypto.randomUUID()` in the CF Worker), but `RelayRoom` enforces
+/// membership validity itself: duplicate or empty peer IDs are rejected at
+/// `on_connect`, and messages from non-members are dropped by `on_message`.
 pub struct RelayRoom {
   priv mut peers : Array[RelayPeer]
 }
@@ -18,14 +19,35 @@ pub fn RelayRoom::new() -> RelayRoom {
 }
 
 ///|
+/// Register a peer. Returns `true` if accepted, `false` if rejected.
+/// Rejected when the peer_id is empty or already present in the room.
+/// On rejection the room is unchanged and no PeerJoined is broadcast —
+/// callers (FFI glue) should close the duplicate transport.
 pub fn RelayRoom::on_connect(
   self : RelayRoom,
   peer_id : String,
   send_fn : (Bytes) -> Unit,
-) -> Unit {
+) -> Bool {
+  if peer_id == "" {
+    return false
+  }
+  if self.has_peer(peer_id) {
+    return false
+  }
   let join_msg = encode_peer_joined(peer_id)
   self.broadcast(peer_id, join_msg)
   self.peers.push({ peer_id, send_fn })
+  true
+}
+
+///|
+fn RelayRoom::has_peer(self : RelayRoom, peer_id : String) -> Bool {
+  for peer in self.peers {
+    if peer.peer_id == peer_id {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -50,6 +72,11 @@ pub fn RelayRoom::on_message(
   sender : String,
   data : Bytes,
 ) -> Unit {
+  // Drop messages from senders that are not members of the room —
+  // defense-in-depth against ghost IDs that never completed on_connect.
+  if !self.has_peer(sender) {
+    return
+  }
   // Safety: short or non-v2 frames broadcast unchanged
   if data.length() < 3 || data[0] != version {
     self.broadcast(sender, data)

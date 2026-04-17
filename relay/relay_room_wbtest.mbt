@@ -6,10 +6,21 @@ fn make_recorder() -> ((Bytes) -> Unit, Array[Bytes]) {
 }
 
 ///|
+/// Test helper: connect and assert success. Tests fail loudly if
+/// validation ever rejects a call that was expected to succeed.
+fn connect_ok(
+  room : RelayRoom,
+  peer_id : String,
+  send_fn : (Bytes) -> Unit,
+) -> Unit raise {
+  inspect(room.on_connect(peer_id, send_fn), content="true")
+}
+
+///|
 test "on_connect first peer receives no broadcast" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
-  room.on_connect("alice", send_a)
+  connect_ok(room, "alice", send_a)
   inspect(room.peer_count(), content="1")
   inspect(msgs_a.length(), content="0")
 }
@@ -19,8 +30,8 @@ test "on_connect broadcasts PeerJoined to existing peers" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, _msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   inspect(room.peer_count(), content="2")
   // Alice should have received PeerJoined("bob")
   inspect(msgs_a.length(), content="1")
@@ -34,9 +45,9 @@ test "on_message broadcasts to all except sender" {
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
   let (send_c, msgs_c) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
-  room.on_connect("charlie", send_c)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
+  connect_ok(room, "charlie", send_c)
   // Clear join notifications
   msgs_a.clear()
   msgs_b.clear()
@@ -57,8 +68,8 @@ test "on_disconnect removes peer and broadcasts PeerLeft" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   // Clear join notifications
   msgs_a.clear()
   msgs_b.clear()
@@ -77,8 +88,8 @@ test "sender does not receive own broadcast" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   room.on_message("bob", b"\xFF")
@@ -92,8 +103,8 @@ test "send_to: delivers to correct peer" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   room.send_to("bob", b"\x42")
@@ -106,7 +117,7 @@ test "send_to: delivers to correct peer" {
 test "send_to: unknown peer is silent no-op" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
-  room.on_connect("alice", send_a)
+  connect_ok(room, "alice", send_a)
   msgs_a.clear()
   room.send_to("nobody", b"\x42")
   inspect(room.peer_count(), content="1")
@@ -119,8 +130,8 @@ test "on_message: wraps CrdtOps as RelayedCrdtOps" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   // Alice sends CrdtOps: [v2=0x02][type=0x01][flags=0x00][payload]
@@ -137,8 +148,8 @@ test "on_message: short frames broadcast unchanged" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   room.on_message("alice", b"\x01")
@@ -152,8 +163,8 @@ test "on_message: unknown type broadcasts unchanged" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   // Unknown type 0xFF
@@ -169,9 +180,9 @@ test "on_message: SyncRequest routes to target peer" {
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
   let (send_c, msgs_c) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
-  room.on_connect("charlie", send_c)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
+  connect_ok(room, "charlie", send_c)
   msgs_a.clear()
   msgs_b.clear()
   msgs_c.clear()
@@ -202,8 +213,8 @@ test "on_message: SyncResponse routes to target peer" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   // Build SyncResponse targeting "alice": [0x02][0x04][0x00][uvarint len]["alice" bytes][payload]
@@ -231,8 +242,8 @@ test "on_message: SyncRequest to unknown target is dropped" {
   let room = RelayRoom::new()
   let (send_a, msgs_a) = make_recorder()
   let (send_b, msgs_b) = make_recorder()
-  room.on_connect("alice", send_a)
-  room.on_connect("bob", send_b)
+  connect_ok(room, "alice", send_a)
+  connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
   // Build SyncRequest targeting "nobody"
@@ -256,13 +267,13 @@ test "peer_count tracks sessions correctly" {
   let room = RelayRoom::new()
   inspect(room.peer_count(), content="0")
   let (send_a, _) = make_recorder()
-  room.on_connect("alice", send_a)
+  connect_ok(room, "alice", send_a)
   inspect(room.peer_count(), content="1")
   let (send_b, _) = make_recorder()
-  room.on_connect("bob", send_b)
+  connect_ok(room, "bob", send_b)
   inspect(room.peer_count(), content="2")
   let (send_c, _) = make_recorder()
-  room.on_connect("charlie", send_c)
+  connect_ok(room, "charlie", send_c)
   inspect(room.peer_count(), content="3")
   room.on_disconnect("bob")
   inspect(room.peer_count(), content="2")

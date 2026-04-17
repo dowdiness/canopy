@@ -60,11 +60,14 @@ fn get_or_create_room(room_id : String) -> @relay.RelayRoom {
 }
 
 ///|
+/// Register a peer in the given room. Returns `true` on success, `false` if
+/// the peer_id is empty or already connected — the caller (TS glue) should
+/// close the duplicate transport.
 pub fn relay_on_connect(
   room_id : String,
   peer_id : String,
   send_fn : (Bytes) -> Unit,
-) -> Unit {
+) -> Bool {
   get_or_create_room(room_id).on_connect(peer_id, send_fn)
 }
 

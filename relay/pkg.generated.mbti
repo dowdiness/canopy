@@ -15,7 +15,7 @@ pub struct RelayRoom {
   // private fields
 }
 pub fn RelayRoom::new() -> Self
-pub fn RelayRoom::on_connect(Self, String, (Bytes) -> Unit) -> Unit
+pub fn RelayRoom::on_connect(Self, String, (Bytes) -> Unit) -> Bool
 pub fn RelayRoom::on_disconnect(Self, String) -> Unit
 pub fn RelayRoom::on_message(Self, String, Bytes) -> Unit
 pub fn RelayRoom::peer_count(Self) -> Int
