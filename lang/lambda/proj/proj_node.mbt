@@ -60,8 +60,12 @@ pub fn syntax_to_proj_node(
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
   if @parser.IntLiteralView::cast(node) is Some(v) {
+    let kind : @ast.Term = match v.value() {
+      Some(n) => Int(n)
+      None => Error("invalid integer literal")
+    }
     ProjNode::new(
-      Int(v.value().unwrap_or(0)),
+      kind,
       node.start(),
       node.end(),
       @core.next_proj_node_id(counter),
@@ -109,13 +113,30 @@ pub fn syntax_to_proj_node(
       syntax_to_proj_node(operands[0], counter)
     } else {
       // Fold n-ary syntax (`a + b + c`) into binary Term shape.
+      // The parser emits operator+operand pairs, so `ops` and trailing
+      // operands stay balanced; the Error branch guards malformed or
+      // hand-built CSTs, not normal parser output. Check before recursing
+      // so we neither re-overwrite Error nor traverse unreachable operands.
       let mut result = syntax_to_proj_node(operands[0], counter)
+      let mut missing_at : Int? = None
       for i = 1; i < operands.length(); i = i + 1 {
-        let op = if i - 1 < ops.length() { ops[i - 1] } else { @ast.Bop::Plus }
+        if i - 1 >= ops.length() {
+          missing_at = Some(operands[i].start())
+          break
+        }
         let rhs = syntax_to_proj_node(operands[i], counter)
-        result = bop_node(op, result, rhs, counter)
+        result = bop_node(ops[i - 1], result, rhs, counter)
       }
-      result
+      match missing_at {
+        Some(end) =>
+          error_node_with_span(
+            "missing binary operator",
+            result.start,
+            end,
+            counter,
+          )
+        None => result
+      }
     }
   } else if @parser.IfExprView::cast(node) is Some(v) {
     let cond = match v.condition() {
