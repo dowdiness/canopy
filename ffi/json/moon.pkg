@@ -1,0 +1,27 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/json/edits" @json_edits,
+  "dowdiness/canopy/lang/json/companion" @json_companion,
+  "dowdiness/json" @djson,
+  "moonbitlang/core/json" @core_json,
+}
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "create_json_editor",
+        "destroy_json_editor",
+        "json_get_text",
+        "json_set_text",
+        "json_get_errors",
+        "json_get_proj_node_json",
+        "json_get_source_map_json",
+        "json_apply_edit",
+        "json_get_view_tree_json",
+        "json_compute_view_patches_json",
+      ],
+    },
+  },
+)

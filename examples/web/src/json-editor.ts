@@ -1,4 +1,4 @@
-import * as crdt from '@moonbit/crdt';
+import * as crdt from '@moonbit/crdt-json';
 import { HTMLAdapter } from '../../../lib/editor-adapter/html-adapter';
 import type { ViewPatch, ViewNode } from '../../../lib/editor-adapter/types';
 

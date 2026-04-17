@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/ffi/json"
+
+import {
+  "dowdiness/canopy/lang/json/edits",
+}
+
+// Values
+pub fn create_json_editor(String) -> Int
+
+pub fn destroy_json_editor(Int) -> Unit
+
+pub fn json_apply_edit(Int, String, Int) -> String
+
+pub fn json_compute_view_patches_json(Int) -> String
+
+pub fn json_get_errors(Int) -> String
+
+pub fn json_get_proj_node_json(Int) -> String
+
+pub fn json_get_source_map_json(Int) -> String
+
+pub fn json_get_text(Int) -> String
+
+pub fn json_get_view_tree_json(Int) -> String
+
+pub fn json_set_text(Int, String) -> Unit
+
+pub fn parse_json_edit_op(Json) -> Result[@edits.JsonEditOp, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
