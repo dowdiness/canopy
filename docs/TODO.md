@@ -59,9 +59,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Point Loom CI/local helpers at the actual module root (`loom/loom`) and make the shared module runner reject non-module paths
 - [x] Keep benchmark base-branch comparison self-contained after the second checkout instead of assuming helper scripts exist on the base ref
 - [x] Fix local `fmt-check` to use `moon fmt --check` instead of mutating the worktree and diffing git state
-- [ ] Reduce CRDT JS bundle size (currently 553 kB, gzip 121 kB, exceeds 500 kB threshold)
+- [ ] Reduce CRDT JS bundle size (currently 648 kB as of 2026-04-18; exceeds 500 kB threshold)
   Why: large bundle impacts initial page load for web editors.
-  Exit: CRDT bundle under 500 kB ungzipped.
+  Plan: `docs/plans/2026-04-18-crdt-bundle-split.md` (split `ffi/` into per-entry `ffi/{lambda,json,markdown}/` packages)
+  Exit: CRDT bundle under 500 kB ungzipped for json.html and markdown.html; lambda floor (~515 kB) tracked as follow-up per plan §7.
 
 ---
 
