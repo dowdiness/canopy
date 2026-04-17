@@ -45,8 +45,10 @@ test "destroy_editor: unknown handle is a safe no-op" {
 test "destroy_editor: create → destroy → recreate leaves exactly one entry" {
   clear_lambda_handles()
   let h1 = create_editor("agent-a")
-  let h2 = create_editor("agent-b")
   destroy_editor(h1)
+  // Recreate after teardown — this is the isolation case that a bug
+  // in destroy's cleanup (e.g. stale next_handle, leftover scope) could break.
+  let h2 = create_editor("agent-b")
   inspect(lambda_handles.contains(h1), content="false")
   inspect(lambda_handles.contains(h2), content="true")
   inspect(lambda_handles.length(), content="1")
