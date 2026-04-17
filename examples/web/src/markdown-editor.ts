@@ -1,6 +1,6 @@
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
-import * as crdt from '@moonbit/crdt';
+import * as crdt from '@moonbit/crdt-markdown';
 import { BlockInput } from '../../../lib/editor-adapter/block-input';
 import { MarkdownPreview } from '../../../lib/editor-adapter/markdown-preview';
 import '../../../lib/editor-adapter/block-input.css';
