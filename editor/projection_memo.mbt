@@ -24,9 +24,11 @@ pub fn[T] SyncEditor::get_registry(
 
 ///|
 /// Returns the parsed AST tree (language-specific type T).
-/// Always `Some(_)` — the Parser primes its AST cell in the constructor.
-/// The `?` is kept to leave room for future lex-failure propagation
-/// without churning every caller.
+/// Always `Some(_)` — the Parser primes its AST cell in the constructor
+/// and lex failures propagate as a language-specific sentinel (e.g.
+/// `Term::Error("lex error: …")` for lambda via `on_lex_error`), not as
+/// `None`. The `?` is kept so this API doesn't need to churn if we
+/// later separate "never parsed" from "parse failed".
 pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
   Some(self.parser.runtime().read(self.parser.ast()))
 }
