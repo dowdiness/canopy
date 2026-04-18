@@ -1,24 +1,17 @@
 // Whitebox tests for SyncStatus state machine and watchdog behaviour.
 
 ///|
-fn make_empty_msg() -> @text.SyncMessage raise {
-  @text.SyncMessage::from_json_string("{\"runs\":[],\"heads\":[]}")
-}
-
-///|
 /// Test helper: construct an empty SyncMessage or fail the current test.
 /// Parse errors here would only indicate a broken fixture, never a bug
 /// under test, so we surface them as test failures instead of making
 /// every caller repeat the `catch { _ => { fail(..); return } }` dance.
 fn empty_msg_or_fail() -> @text.SyncMessage raise {
-  make_empty_msg() catch {
+  @text.SyncMessage::from_json_string("{\"runs\":[],\"heads\":[]}") catch {
     _ => fail("failed to construct empty SyncMessage fixture")
   }
 }
 
-// ============================================================================
 // SyncStatus Show
-// ============================================================================
 
 ///|
 test "SyncStatus: Show impl" {
@@ -44,9 +37,7 @@ test "SyncStatus: Show impl" {
   )
 }
 
-// ============================================================================
 // Initial status and ws_on_open / ws_on_close transitions
-// ============================================================================
 
 ///|
 test "SyncStatus: initial status is Disconnected" {
@@ -71,9 +62,7 @@ test "SyncStatus: ws_on_close transitions to Disconnected" {
   inspect(editor.get_sync_status(), content="Disconnected")
 }
 
-// ============================================================================
 // on_status_change callback fires on transitions, not on no-ops
-// ============================================================================
 
 ///|
 test "SyncStatus: callback fires on transition" {
@@ -120,9 +109,7 @@ test "SyncStatus: removing callback disables notifications" {
   inspect(fired.length(), content="1") // no new firing
 }
 
-// ============================================================================
 // PeerLeft during recovery → Error(TargetLeft)
-// ============================================================================
 
 ///|
 test "SyncStatus: PeerLeft during recovery → Error(TargetLeft)" {
@@ -164,9 +151,7 @@ test "SyncStatus: PeerLeft for different peer does not change status" {
   )
 }
 
-// ============================================================================
 // Watchdog: stale request_id is ignored
-// ============================================================================
 
 ///|
 test "SyncStatus: stale watchdog ignored" {
@@ -245,9 +230,7 @@ test "SyncStatus: watchdog when no recovery does nothing" {
   inspect(editor.get_sync_status(), content="Idle")
 }
 
-// ============================================================================
 // Watchdog: triggers retry and advances status
-// ============================================================================
 
 ///|
 test "SyncStatus: watchdog fire triggers retry" {
@@ -274,9 +257,7 @@ test "SyncStatus: watchdog fire triggers retry" {
   )
 }
 
-// ============================================================================
 // Watchdog: exhaustion surfaces Error(Exhausted)
-// ============================================================================
 
 ///|
 test "SyncStatus: watchdog exhaustion → Error(Exhausted)" {
@@ -312,9 +293,7 @@ test "SyncStatus: watchdog exhaustion → Error(Exhausted)" {
   )
 }
 
-// ============================================================================
 // Error → Idle: auto-clear on successful apply_sync
-// ============================================================================
 
 ///|
 test "SyncStatus: Error → Idle on successful apply_sync" {
@@ -390,9 +369,7 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
   )
 }
 
-// ============================================================================
 // Watchdog scheduler: recorded call with request_id
-// ============================================================================
 
 ///|
 test "SyncStatus: watchdog scheduler receives request_id and timeout on send" {

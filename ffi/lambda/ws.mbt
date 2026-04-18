@@ -62,8 +62,6 @@ pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
   match lambda_handles.get(handle) {
     Some(h) => {
       h.editor.set_watchdog_timeout(timeout_ms)
-      // timeout is passed per-call by the editor so set_watchdog_timeout
-      // takes effect on the next send.
       h.editor.set_watchdog_scheduler(
         Some(fn(request_id, ms) { js_schedule_watchdog(handle, request_id, ms) }),
       )
