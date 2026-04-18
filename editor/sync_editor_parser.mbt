@@ -1,41 +1,34 @@
 // Parser-facing SyncEditor methods.
 
 ///|
-fn[T] SyncEditor::set_parser_signals(
-  self : SyncEditor[T],
-  source : String,
-  syntax? : @seam.SyntaxNode? = None,
-) -> Unit {
-  self.parser_rt.batch(fn() {
-    self.source_text.set(source)
-    self.syntax_tree.set(syntax)
-  })
-  // All text-changing paths (insert, backspace, apply_text_edit_internal,
-  // undo/redo via mark_dirty, remote sync) converge here.
+/// Flag that the projection registry / source map / proj node may be stale.
+/// All text-changing paths (insert, backspace, apply_text_edit_internal,
+/// undo/redo via mark_dirty, remote sync) converge here after the parser
+/// has been updated — the Parser itself batches its own signal updates
+/// internally via Runtime::batch.
+fn[T] SyncEditor::mark_projection_dirty(self : SyncEditor[T]) -> Unit {
   self.projection_dirty = true
 }
 
 ///|
-fn[T] SyncEditor::sync_parser_after_text_change(
+fn[T : Eq] SyncEditor::sync_parser_after_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @loom_core.Edit?,
 ) -> Unit {
-  if old_source == new_source {
-    return
-  }
+  // Short-circuits mark_projection_dirty; Parser does its own identity check.
+  guard old_source != new_source else { return }
   if new_source == "" {
-    let _ = self.parser.reset(new_source)
-    self.set_parser_signals(new_source)
-    return
+    self.parser.set_source(new_source)
+  } else {
+    let edit = match known_edit {
+      Some(edit) => edit
+      None => compute_edit(old_source, new_source)
+    }
+    self.parser.apply_edit(edit, new_source)
   }
-  let edit = match known_edit {
-    Some(edit) => edit
-    None => compute_edit(old_source, new_source)
-  }
-  let _ = self.parser.edit(edit, new_source)
-  self.set_parser_signals(new_source, syntax=self.parser.get_syntax_tree())
+  self.mark_projection_dirty()
 }
 
 ///|
@@ -91,7 +84,7 @@ fn resolve_applied_edit(
 }
 
 ///|
-fn[T] SyncEditor::apply_local_text_change(
+fn[T : Eq] SyncEditor::apply_local_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
@@ -105,16 +98,17 @@ fn[T] SyncEditor::apply_local_text_change(
 }
 
 ///|
-fn[T] SyncEditor::force_parser_reset(self : SyncEditor[T]) -> @seam.SyntaxNode? {
+fn[T : Eq] SyncEditor::force_parser_reset(
+  self : SyncEditor[T],
+) -> @seam.SyntaxNode? {
   let source = self.doc.text()
-  let _ = self.parser.reset(source)
-  let syntax = self.parser.get_syntax_tree()
-  self.set_parser_signals(source, syntax~)
-  syntax
+  self.parser.set_source(source)
+  self.mark_projection_dirty()
+  self.parser.runtime().read(self.parser.syntax_tree())
 }
 
 ///|
-pub fn[T] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
+pub fn[T : Eq] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
   let _ = self.force_parser_reset()
 }
 
@@ -123,10 +117,27 @@ pub fn[T] SyncEditor::get_errors(self : SyncEditor[T]) -> Array[String] {
   if self.doc.text() == "" {
     return []
   }
-  self.parser.diagnostics()
+  self.parser.runtime().read(self.parser.diagnostics())
 }
 
 ///|
 pub fn[T] SyncEditor::is_parse_valid(self : SyncEditor[T]) -> Bool {
   self.get_errors().is_empty()
+}
+
+///|
+/// The reactive runtime owned by the parser. Exposed so downstream
+/// consumers (e.g. the FFI typecheck bundle) can join the same graph
+/// and react to edits without a second parse of the editor's text.
+pub fn[T] SyncEditor::parser_runtime(self : SyncEditor[T]) -> @incr.Runtime {
+  self.parser.runtime()
+}
+
+///|
+/// Reactive view of the parser's CST. `None` after a lex error;
+/// `Some(tree)` otherwise. Tracked when `.get()` inside a memo closure.
+pub fn[T] SyncEditor::parser_syntax_tree(
+  self : SyncEditor[T],
+) -> @incr.Memo[@seam.SyntaxNode?] {
+  self.parser.syntax_tree()
 }

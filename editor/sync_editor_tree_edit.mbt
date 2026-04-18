@@ -18,7 +18,7 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 /// inside a getter.
 pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
   self.projection_dirty = false
-  let _ = self.parser_rt.read(self.cached_proj_node)
+  let _ = self.parser.runtime().read(self.cached_proj_node)
 }
 
 ///|
@@ -26,7 +26,7 @@ pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
 /// Uses T::placeholder(node.kind) so deletion leaves a parseable hole.
 ///
 /// Example: deleting `(f x)` in lambda → leaves `?`
-pub fn[T : @loom_core.Renderable] SyncEditor::delete_node(
+pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   timestamp_ms : Int,
@@ -64,7 +64,7 @@ pub fn[T : @loom_core.Renderable] SyncEditor::delete_node(
 /// providing syntactically valid replacement text.
 ///
 /// Example: committing an inline rename edit.
-pub fn[T] SyncEditor::commit_edit(
+pub fn[T : Eq] SyncEditor::commit_edit(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   new_text : String,
@@ -98,7 +98,7 @@ pub fn[T] SyncEditor::commit_edit(
 ///   editor.apply_text_transform(node_id, fn(src, s, e) {
 ///     Ok("(λx. " + src[s:e].to_string() + ")")
 ///   }, timestamp)
-pub fn[T] SyncEditor::apply_text_transform(
+pub fn[T : Eq] SyncEditor::apply_text_transform(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   compute_replacement : (String, Int, Int) -> Result[String, String],
@@ -144,7 +144,7 @@ pub fn[T] SyncEditor::apply_text_transform(
 /// in the document (deletion shifts subsequent offsets backward by
 /// `source_len - placeholder_len`). apply_span_edits handles this via
 /// reverse-order application.
-pub fn[T : @loom_core.Renderable] SyncEditor::move_node(
+pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
   source_id : @core.NodeId,
   target_id : @core.NodeId,

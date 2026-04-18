@@ -4,13 +4,13 @@ package "dowdiness/canopy/lang/json/proj"
 import {
   "dowdiness/incr/cells",
   "dowdiness/json",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/ref",
 }
 
 // Values
-pub fn build_json_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_json_projection_memos(@pipeline.Parser[@json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
 
 pub fn key_role(Int) -> String
 

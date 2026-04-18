@@ -7,12 +7,11 @@ import {
   "dowdiness/incr/cells",
   "dowdiness/incr/types",
   "dowdiness/lambda/ast",
-  "dowdiness/loom/incremental",
-  "dowdiness/seam",
+  "dowdiness/loom/pipeline",
 }
 
 // Values
-pub fn build_lambda_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> (@cells.Memo[VersionedFlatProj], @cells.Memo[@core.ProjNode[@ast.Term]?], @cells.Memo[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Memo[@core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Memo[VersionedFlatProj], @cells.Memo[@core.ProjNode[@ast.Term]?], @cells.Memo[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Memo[@core.SourceMap])
 
 // Errors
 

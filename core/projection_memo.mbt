@@ -4,7 +4,7 @@ using @loomcore {trait TreeNode}
 ///|
 pub fn[T : TreeNode] build_projection_memos(
   rt : @incr.Runtime,
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
+  syntax_tree : @incr.Memo[@seam.SyntaxNode?],
   syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
   label? : String = "generic",

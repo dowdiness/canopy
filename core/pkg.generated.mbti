@@ -11,7 +11,7 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode] build_projection_memos(@cells.Runtime, @cells.Signal[@seam.SyntaxNode?], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, label? : String) -> (@cells.Memo[ProjNode[T]?], @cells.Memo[Map[NodeId, ProjNode[T]]], @cells.Memo[SourceMap])
+pub fn[T : @dowdiness/loom/core.TreeNode] build_projection_memos(@cells.Runtime, @cells.Memo[@seam.SyntaxNode?], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, label? : String) -> (@cells.Memo[ProjNode[T]?], @cells.Memo[Map[NodeId, ProjNode[T]]], @cells.Memo[SourceMap])
 
 pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
 

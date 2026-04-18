@@ -6,7 +6,7 @@
 /// Apply a list of SpanEdits through the text CRDT, then adjust the cursor
 /// per the FocusHint. Edits are applied in reverse document order to avoid
 /// position shifts. All edits are recorded for undo.
-pub fn[T] SyncEditor::apply_span_edits(
+pub fn[T : Eq] SyncEditor::apply_span_edits(
   self : SyncEditor[T],
   edits : Array[@core.SpanEdit],
   focus_hint : @core.FocusHint,

@@ -30,22 +30,18 @@ priv struct DefState {
 /// returns Tier 1 results directly (fast path). Otherwise, runs
 /// batch egglog evaluation for suppressed definitions.
 pub fn build_escalation_memo(
-  rt : @incr.Runtime,
+  parser : @loom.Parser[@ast.Term],
   eval_memo : @incr.Memo[Array[EvalResult]],
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  parser : @loom.ImperativeParser[@ast.Term],
 ) -> @incr.Memo[Array[EvalResult]] {
   @incr.Memo::new_no_backdate(
-    rt,
+    parser.runtime(),
     fn() -> Array[EvalResult] {
       let tier1_results = eval_memo.get()
       // Fast path: no suppressed results → no escalation needed
       guard tier1_results.iter().any(fn(r) { r == Suppressed }) else {
         return tier1_results
       }
-      // Need syntax_tree dependency for reactive tracking
-      let _ = syntax_tree.get()
-      let ast = parser.get_tree().unwrap_or(@ast.Term::Unit)
+      let ast = parser.ast().get()
       escalate_suppressed(ast, tier1_results)
     },
     label="escalation_memo",

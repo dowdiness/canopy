@@ -9,7 +9,7 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
-pub fn[T] SyncEditor::apply_sync(
+pub fn[T : Eq] SyncEditor::apply_sync(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
 ) -> Unit raise {

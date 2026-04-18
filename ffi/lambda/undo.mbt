@@ -17,7 +17,10 @@ pub fn create_editor_with_undo(
   lambda_handles[handle] = {
     editor,
     companion,
-    typecheck: new_typecheck_bundle(),
+    typecheck: new_typecheck_bundle(
+      editor.parser_runtime(),
+      editor.parser_syntax_tree(),
+    ),
   }
   last_created_handle.val = Some(handle)
   handle

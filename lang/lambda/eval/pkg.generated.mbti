@@ -5,16 +5,15 @@ import {
   "dowdiness/egglog/src",
   "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/pretty",
-  "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn build_escalation_memo(@cells.Runtime, @cells.Memo[Array[EvalResult]], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> @cells.Memo[Array[EvalResult]]
+pub fn build_escalation_memo(@pipeline.Parser[@ast.Term], @cells.Memo[Array[EvalResult]]) -> @cells.Memo[Array[EvalResult]]
 
-pub fn build_eval_memo(@cells.Runtime, @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> @cells.Memo[Array[EvalResult]]
+pub fn build_eval_memo(@pipeline.Parser[@ast.Term]) -> @cells.Memo[Array[EvalResult]]
 
 pub fn eval_annotation_layout(EvalResult) -> @pretty.Layout[@pretty.SyntaxCategory]?
 

@@ -204,16 +204,13 @@ fn fill_suppressed(
 ///   is preserved, preventing downstream memos (escalation, projection) from
 ///   recomputing unnecessarily.
 pub fn build_eval_memo(
-  rt : @incr.Runtime,
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  parser : @loom.ImperativeParser[@ast.Term],
+  parser : @loom.Parser[@ast.Term],
 ) -> @incr.Memo[Array[EvalResult]] {
   let cache : Ref[Array[CachedDef]] = Ref::new([])
   @incr.Memo::new(
-    rt,
+    parser.runtime(),
     fn() -> Array[EvalResult] {
-      let _ = syntax_tree.get()
-      let ast = parser.get_tree().unwrap_or(@ast.Term::Unit)
+      let ast = parser.ast().get()
       let (results, new_cache) = eval_term_cached(ast, cache.val)
       cache.val = new_cache
       results

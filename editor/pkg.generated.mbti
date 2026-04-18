@@ -5,7 +5,7 @@ import {
   "dowdiness/canopy/protocol",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
@@ -271,22 +271,22 @@ pub struct SyncEditor[T] {
   // private fields
 }
 pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
-pub fn[T] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int) -> Unit
-pub fn[T] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
-pub fn[T] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
-pub fn[T] SyncEditor::apply_text_edit_internal(Self[T], Int, Int, String, Int, Bool, Bool) -> Unit
-pub fn[T] SyncEditor::apply_text_transform(Self[T], @dowdiness/canopy/core.NodeId, (String, Int, Int) -> Result[String, String], Int) -> Result[Unit, TreeEditError]
-pub fn[T] SyncEditor::backspace(Self[T]) -> Bool
-pub fn[T] SyncEditor::backspace_and_record(Self[T], Int) -> Bool
+pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int) -> Unit
+pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
+pub fn[T : Eq] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
+pub fn[T : Eq] SyncEditor::apply_text_edit_internal(Self[T], Int, Int, String, Int, Bool, Bool) -> Unit
+pub fn[T : Eq] SyncEditor::apply_text_transform(Self[T], @dowdiness/canopy/core.NodeId, (String, Int, Int) -> Result[String, String], Int) -> Result[Unit, TreeEditError]
+pub fn[T : Eq] SyncEditor::backspace(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::backspace_and_record(Self[T], Int) -> Bool
 pub fn[T] SyncEditor::can_redo(Self[T]) -> Bool
 pub fn[T] SyncEditor::can_undo(Self[T]) -> Bool
 pub fn[T] SyncEditor::clear_undo(Self[T]) -> Unit
-pub fn[T] SyncEditor::commit_edit(Self[T], @dowdiness/canopy/core.NodeId, String, Int) -> Result[Unit, TreeEditError]
-pub fn[T] SyncEditor::delete(Self[T]) -> Bool
-pub fn[T] SyncEditor::delete_and_record(Self[T], Int) -> Bool
-pub fn[T] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
+pub fn[T : Eq] SyncEditor::commit_edit(Self[T], @dowdiness/canopy/core.NodeId, String, Int) -> Result[Unit, TreeEditError]
+pub fn[T : Eq] SyncEditor::delete(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::delete_and_record(Self[T], Int) -> Bool
+pub fn[T : Eq] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
 pub fn[T] SyncEditor::delete_local_presence(Self[T]) -> Unit
-pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/core.NodeId, Int) -> Result[Unit, TreeEditError]
+pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/core.NodeId, Int) -> Result[Unit, TreeEditError]
 pub fn[T] SyncEditor::encode_ephemeral_all(Self[T]) -> Bytes
 pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
 pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise
@@ -306,35 +306,37 @@ pub fn[T] SyncEditor::get_text(Self[T]) -> String
 pub fn[T] SyncEditor::get_tree(Self[T]) -> T?
 pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
 pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::get_view_tree(Self[T]) -> @protocol.ViewNode?
-pub fn[T] SyncEditor::insert(Self[T], String) -> Unit raise
-pub fn[T] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
-pub fn[T] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
+pub fn[T : Eq] SyncEditor::insert(Self[T], String) -> Unit raise
+pub fn[T : Eq] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
+pub fn[T : Eq] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
 pub fn[T] SyncEditor::is_dirty(Self[T]) -> Bool
 pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
-pub fn[T] SyncEditor::mark_dirty(Self[T]) -> Unit
+pub fn[T : Eq] SyncEditor::mark_dirty(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
-pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Unit, TreeEditError]
-pub fn[T] SyncEditor::new_generic(String, (String) -> @incremental.ImperativeParser[T], (@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[T]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[T]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Memo[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, capabilities? : LanguageCapabilities[T]) -> Self[T]
+pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Unit, TreeEditError]
+pub fn[T] SyncEditor::new_generic(String, (String) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[T]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Memo[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, capabilities? : LanguageCapabilities[T]) -> Self[T]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
-pub fn[T] SyncEditor::redo(Self[T]) -> Bool
-pub fn[T] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T] SyncEditor::parser_runtime(Self[T]) -> @cells.Runtime
+pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Memo[@seam.SyntaxNode?]
+pub fn[T : Eq] SyncEditor::redo(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
 pub fn[T] SyncEditor::refresh(Self[T]) -> Unit
 pub fn[T] SyncEditor::remove_ephemeral_outdated(Self[T]) -> Unit
 pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (Int, Int)?) -> Unit
 pub fn[T] SyncEditor::set_on_status_change(Self[T], ((SyncStatus) -> Unit)?) -> Unit
-pub fn[T] SyncEditor::set_text(Self[T], String) -> Unit
-pub fn[T] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
+pub fn[T : Eq] SyncEditor::set_text(Self[T], String) -> Unit
+pub fn[T : Eq] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
 pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
 pub fn[T] SyncEditor::set_watchdog_scheduler(Self[T], ((Int, Int) -> Unit)?) -> Unit
 pub fn[T] SyncEditor::set_watchdog_timeout(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> EphemeralSubscription
-pub fn[T] SyncEditor::undo(Self[T]) -> Bool
-pub fn[T] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T : Eq] SyncEditor::undo(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
 pub fn[T] SyncEditor::ws_broadcast_cursor(Self[T]) -> Unit
 pub fn[T] SyncEditor::ws_broadcast_edit(Self[T]) -> Unit
 pub fn[T] SyncEditor::ws_on_close(Self[T]) -> Unit
-pub fn[T] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
+pub fn[T : Eq] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
 pub fn[T] SyncEditor::ws_on_open(Self[T], JsWebSocket) -> Unit
 pub fn[T] SyncEditor::ws_send(Self[T], Bytes) -> Unit
 
