@@ -28,19 +28,10 @@ pub enum SyncErrorReason {
 
 ///|
 pub impl Show for SyncStatus with output(self, logger) {
-  match self {
-    Disconnected => logger.write_string("Disconnected")
-    Idle => logger.write_string("Idle")
-    Recovering(peer_id~, attempt~) =>
-      logger.write_string("Recovering(\{peer_id}, \{attempt})")
-    Error(reason~) => logger.write_string("Error(\{reason})")
-  }
+  logger.write_string(@debug.to_string(self))
 }
 
 ///|
 pub impl Show for SyncErrorReason with output(self, logger) {
-  match self {
-    Exhausted(peer_id~) => logger.write_string("Exhausted(\{peer_id})")
-    TargetLeft(peer_id~) => logger.write_string("TargetLeft(\{peer_id})")
-  }
+  logger.write_string(@debug.to_string(self))
 }

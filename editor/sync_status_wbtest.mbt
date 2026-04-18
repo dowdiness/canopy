@@ -5,6 +5,17 @@ fn make_empty_msg() -> @text.SyncMessage raise {
   @text.SyncMessage::from_json_string("{\"runs\":[],\"heads\":[]}")
 }
 
+///|
+/// Test helper: construct an empty SyncMessage or fail the current test.
+/// Parse errors here would only indicate a broken fixture, never a bug
+/// under test, so we surface them as test failures instead of making
+/// every caller repeat the `catch { _ => { fail(..); return } }` dance.
+fn empty_msg_or_fail() -> @text.SyncMessage raise {
+  make_empty_msg() catch {
+    _ => fail("failed to construct empty SyncMessage fixture")
+  }
+}
+
 // ============================================================================
 // SyncStatus Show
 // ============================================================================
@@ -15,15 +26,21 @@ test "SyncStatus: Show impl" {
   inspect(SyncStatus::Idle, content="Idle")
   inspect(
     SyncStatus::Recovering(peer_id="alice", attempt=2),
-    content="Recovering(alice, 2)",
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
   )
   inspect(
     SyncStatus::Error(reason=SyncErrorReason::Exhausted(peer_id="bob")),
-    content="Error(Exhausted(bob))",
+    content=(
+      #|Error(reason=Exhausted(peer_id="bob"))
+    ),
   )
   inspect(
     SyncStatus::Error(reason=SyncErrorReason::TargetLeft(peer_id="carol")),
-    content="Error(TargetLeft(carol))",
+    content=(
+      #|Error(reason=TargetLeft(peer_id="carol"))
+    ),
   )
 }
 
@@ -112,19 +129,19 @@ test "SyncStatus: PeerLeft during recovery → Error(TargetLeft)" {
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   editor.set_status(Recovering(peer_id="alice", attempt=1))
   let wire = encode_message(PeerLeft("alice"))
   editor.ws_on_message(wire)
   inspect(editor.recovery is None, content="true")
-  inspect(editor.get_sync_status(), content="Error(TargetLeft(alice))")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Error(reason=TargetLeft(peer_id="alice"))
+    ),
+  )
 }
 
 ///|
@@ -132,19 +149,19 @@ test "SyncStatus: PeerLeft for different peer does not change status" {
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   editor.set_status(Recovering(peer_id="alice", attempt=1))
   let wire = encode_message(PeerLeft("charlie"))
   editor.ws_on_message(wire)
   inspect(editor.recovery is Some(_), content="true")
-  inspect(editor.get_sync_status(), content="Recovering(alice, 1)")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=1)
+    ),
+  )
 }
 
 // ============================================================================
@@ -156,19 +173,19 @@ test "SyncStatus: stale watchdog ignored" {
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   editor.recovery_epoch = 5
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 5))
   editor.set_status(Recovering(peer_id="alice", attempt=1))
   // Fire watchdog with stale request_id 3 (current epoch is 5)
   editor.on_watchdog_fire(3)
   // Status and recovery state should be unchanged
-  inspect(editor.get_sync_status(), content="Recovering(alice, 1)")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=1)
+    ),
+  )
   inspect(editor.recovery is Some(_), content="true")
   inspect(editor.recovery.unwrap().retries, content="0")
 }
@@ -182,12 +199,7 @@ test "SyncStatus: watchdog for prior epoch is ignored after response-driven retr
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   // Disable scheduler — we're driving watchdog fires manually.
   editor.set_watchdog_scheduler(None)
   editor.recovery_epoch = 1
@@ -204,13 +216,23 @@ test "SyncStatus: watchdog for prior epoch is ignored after response-driven retr
   inspect(editor.recovery_epoch, content="2")
   let after_response = editor.recovery.unwrap()
   inspect(after_response.retries, content="1")
-  inspect(editor.get_sync_status(), content="Recovering(alice, 2)")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  )
   // Now the old watchdog for id=1 fires — must be a no-op.
   editor.on_watchdog_fire(1)
   let after_stale = editor.recovery.unwrap()
   inspect(after_stale.retries, content="1") // unchanged
   inspect(editor.recovery_epoch, content="2") // unchanged
-  inspect(editor.get_sync_status(), content="Recovering(alice, 2)") // unchanged
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  ) // unchanged
 }
 
 ///|
@@ -232,12 +254,7 @@ test "SyncStatus: watchdog fire triggers retry" {
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   editor.set_status(Recovering(peer_id="alice", attempt=1))
@@ -249,7 +266,12 @@ test "SyncStatus: watchdog fire triggers retry" {
   let recovery = editor.recovery.unwrap()
   inspect(recovery.retries, content="1")
   // Status should show attempt 2
-  inspect(editor.get_sync_status(), content="Recovering(alice, 2)")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  )
 }
 
 // ============================================================================
@@ -261,12 +283,7 @@ test "SyncStatus: watchdog exhaustion → Error(Exhausted)" {
   let editor = @lambda.new_lambda_editor("bob").0
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   // Disable scheduler to prevent infinite re-arms during test
   editor.set_watchdog_scheduler(None)
   editor.recovery_epoch = 1
@@ -283,7 +300,12 @@ test "SyncStatus: watchdog exhaustion → Error(Exhausted)" {
   inspect(editor.recovery is Some(_), content="true")
   editor.on_watchdog_fire(editor.recovery_epoch) // retries = 3 → exhausted, clears
   inspect(editor.recovery is None, content="true")
-  inspect(editor.get_sync_status(), content="Error(Exhausted(alice))")
+  inspect(
+    editor.get_sync_status(),
+    content=(
+      #|Error(reason=Exhausted(peer_id="alice"))
+    ),
+  )
 }
 
 // ============================================================================
@@ -300,7 +322,12 @@ test "SyncStatus: Error → Idle on successful apply_sync" {
   editor_b.set_status(
     SyncStatus::Error(reason=SyncErrorReason::Exhausted(peer_id="carol")),
   )
-  inspect(editor_b.get_sync_status(), content="Error(Exhausted(carol))")
+  inspect(
+    editor_b.get_sync_status(),
+    content=(
+      #|Error(reason=Exhausted(peer_id="carol"))
+    ),
+  )
   // Alice writes something and bob applies it successfully
   editor_a.set_text("hello from alice")
   let crdt_msg = editor_a.export_all() catch {
@@ -355,7 +382,12 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
   inspect(raised_missing_dep, content="true")
   // Error must persist — the catch branch in apply_sync must not hit the
   // auto-clear tail.
-  inspect(editor_b.get_sync_status(), content="Error(Exhausted(alice))")
+  inspect(
+    editor_b.get_sync_status(),
+    content=(
+      #|Error(reason=Exhausted(peer_id="alice"))
+    ),
+  )
 }
 
 // ============================================================================
@@ -372,12 +404,7 @@ test "SyncStatus: watchdog scheduler receives request_id and timeout on send" {
     Some(fn(req_id, ms) { scheduled.push((req_id, ms)) }),
   )
   editor.set_watchdog_timeout(1234) // non-default so we can assert plumbing
-  let empty_msg = make_empty_msg() catch {
-    _ => {
-      fail("parse failed")
-      return
-    }
-  }
+  let empty_msg = empty_msg_or_fail()
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("bob", empty_msg, 1))
   // handle_recovery_retry bumps recovery_epoch to 2 before sending.
