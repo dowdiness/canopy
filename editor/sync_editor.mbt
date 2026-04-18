@@ -2,6 +2,10 @@
 // Parsing stays edit-aware via ImperativeParser; projection views are memo-derived.
 
 ///|
+/// Default watchdog timeout in milliseconds.
+const DEFAULT_WATCHDOG_MS : Int = 5000
+
+///|
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
@@ -21,6 +25,10 @@ pub struct SyncEditor[T] {
   priv mut recovery : RecoveryContext?
   priv mut recovery_epoch : Int
   priv mut projection_dirty : Bool
+  priv mut status : SyncStatus
+  priv mut on_status_change : ((SyncStatus) -> Unit)?
+  priv mut watchdog_scheduler : ((Int, Int) -> Unit)?
+  priv mut watchdog_timeout_ms : Int
 }
 
 ///|
@@ -73,6 +81,10 @@ pub fn[T] SyncEditor::new_generic(
     recovery: None,
     recovery_epoch: 0,
     projection_dirty: false,
+    status: SyncStatus::Disconnected,
+    on_status_change: None,
+    watchdog_scheduler: None,
+    watchdog_timeout_ms: DEFAULT_WATCHDOG_MS,
   }
 }
 
@@ -212,4 +224,75 @@ pub fn[T] SyncEditor::subscribe_ephemeral_local(
   callback : (Bytes) -> Bool,
 ) -> EphemeralSubscription {
   self.hub.get_store(Cursor).subscribe_local_updates(callback)
+}
+
+// --- SyncStatus API ---
+
+///|
+/// Get the current sync status.
+pub fn[T] SyncEditor::get_sync_status(self : SyncEditor[T]) -> SyncStatus {
+  self.status
+}
+
+///|
+/// Register a callback that fires on every distinct status transition.
+/// Setting again replaces the previous callback. Pass `None` to disable.
+pub fn[T] SyncEditor::set_on_status_change(
+  self : SyncEditor[T],
+  callback : ((SyncStatus) -> Unit)?,
+) -> Unit {
+  self.on_status_change = callback
+}
+
+///|
+/// Register a watchdog scheduler. The editor calls
+/// `scheduler(request_id, timeout_ms)` after each SyncRequest send.
+/// `timeout_ms` is the current value of `watchdog_timeout_ms` at send time,
+/// so calling `set_watchdog_timeout` takes effect on the next send.
+/// The scheduler should fire `on_watchdog_fire(request_id)` after
+/// `timeout_ms` milliseconds. Setting again replaces the previous scheduler.
+/// Pass `None` to disable.
+pub fn[T] SyncEditor::set_watchdog_scheduler(
+  self : SyncEditor[T],
+  scheduler : ((Int, Int) -> Unit)?,
+) -> Unit {
+  self.watchdog_scheduler = scheduler
+}
+
+///|
+/// Set the watchdog timeout in milliseconds. Default is 5000ms.
+pub fn[T] SyncEditor::set_watchdog_timeout(
+  self : SyncEditor[T],
+  ms : Int,
+) -> Unit {
+  self.watchdog_timeout_ms = ms
+}
+
+///|
+/// Called by the FFI layer when the watchdog timer fires.
+/// The `request_id` is compared against the current recovery epoch to
+/// detect and discard stale firings (e.g. response already arrived).
+pub fn[T] SyncEditor::on_watchdog_fire(
+  self : SyncEditor[T],
+  request_id : Int,
+) -> Unit {
+  guard self.recovery is Some(ctx) else { return }
+  guard ctx.matches_request_id(request_id.to_string()) else { return }
+  self.handle_recovery_retry()
+}
+
+///|
+/// Internal: transition to a new status, emitting callback only on change.
+fn[T] SyncEditor::set_status(
+  self : SyncEditor[T],
+  new_status : SyncStatus,
+) -> Unit {
+  if self.status == new_status {
+    return
+  }
+  self.status = new_status
+  match self.on_status_change {
+    Some(cb) => cb(new_status)
+    None => ()
+  }
 }

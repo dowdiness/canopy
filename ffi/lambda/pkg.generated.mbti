@@ -117,11 +117,17 @@ pub fn ws_broadcast_cursor(Int) -> Unit
 
 pub fn ws_broadcast_edit(Int) -> Unit
 
+pub fn ws_enable_watchdog(Int, Int) -> Unit
+
 pub fn ws_on_close(Int) -> Unit
 
 pub fn ws_on_message(Int, Bytes) -> Unit
 
 pub fn ws_on_open(Int, @editor.JsWebSocket) -> Unit
+
+pub fn ws_on_watchdog_fire(Int, Int) -> Unit
+
+pub fn ws_set_status_callback(Int) -> Unit
 
 // Errors
 

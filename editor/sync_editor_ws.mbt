@@ -70,6 +70,7 @@ pub fn[T] SyncEditor::ws_on_open(
   ws : JsWebSocket,
 ) -> Unit {
   self.ws = Some(ws)
+  self.set_status(Idle)
 }
 
 ///|
@@ -113,8 +114,9 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
       match self.recovery {
         Some(ctx) =>
           if ctx.peer_id == peer_id {
+            let target = ctx.peer_id
             self.recovery = None
-            // TODO: set SyncStatus::Error
+            self.set_status(Error(reason=TargetLeft(peer_id=target)))
           }
         None => ()
       }
@@ -208,12 +210,23 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
                 new_ctx.buffer_message(deferred[j])
               }
               self.recovery = Some(new_ctx)
+              // The original recovery has completed — emit Idle first so
+              // the fresh Recovering(..,1) is a visible transition even
+              // when the peer_id/attempt payload is the same as before.
+              self.set_status(Idle)
+              self.set_status(
+                Recovering(peer_id=ctx.peer_id, attempt=new_ctx.retries + 1),
+              )
               self.send_sync_request(ctx.peer_id, self.recovery_epoch)
               break // Retryable — entered new recovery, stop draining
             }
             continue // Non-retryable, skip and try next
           }
         }
+      }
+      // Only transition to Idle if we didn't re-enter recovery during drain
+      if self.recovery is None {
+        self.set_status(Idle)
       }
     }
     RelayedCrdtOps(sender~, payload~) => {
@@ -244,6 +257,7 @@ pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit 
 pub fn[T] SyncEditor::ws_on_close(self : SyncEditor[T]) -> Unit {
   self.ws = None
   self.recovery = None
+  self.set_status(Disconnected)
 }
 
 ///|
@@ -298,6 +312,7 @@ fn[T] SyncEditor::enter_recovery(
   self.recovery_epoch += 1
   let request_id = self.recovery_epoch
   self.recovery = Some(RecoveryContext::new(peer_id, failed_msg, request_id))
+  self.set_status(Recovering(peer_id~, attempt=1))
   self.send_sync_request(peer_id, request_id)
 }
 
@@ -316,6 +331,12 @@ fn[T] SyncEditor::send_sync_request(
     version_json~,
   )
   self.ws_send(wire)
+  // Arm the watchdog for this request; timeout is read fresh so
+  // set_watchdog_timeout takes effect on subsequent sends.
+  match self.watchdog_scheduler {
+    Some(scheduler) => scheduler(request_id, self.watchdog_timeout_ms)
+    None => ()
+  }
 }
 
 ///|
@@ -328,12 +349,20 @@ fn[T] SyncEditor::handle_recovery_retry(self : SyncEditor[T]) -> Unit {
     None => return
   }
   if ctx.is_exhausted() {
-    // Give up — clear recovery, TODO: set SyncStatus::Error
+    // Give up — clear recovery and surface the error
+    let peer_id = ctx.peer_id
     self.recovery = None
+    self.set_status(Error(reason=Exhausted(peer_id~)))
     return
   }
-  // Send retry request, then advance for next attempt
+  // Advance ctx + status BEFORE the wire send so any re-entrant
+  // on_watchdog_fire triggered by side-effects of send_sync_request
+  // sees the matching request_id. Actual JS setTimeout delivery is
+  // async so the real concern is test-driven synchronous re-entry,
+  // not production network I/O — but the ordering is still the
+  // correct invariant.
   self.recovery_epoch += 1
-  self.send_sync_request(ctx.peer_id, self.recovery_epoch)
   ctx.advance_retry(self.recovery_epoch)
+  self.set_status(Recovering(peer_id=ctx.peer_id, attempt=ctx.retries + 1))
+  self.send_sync_request(ctx.peer_id, self.recovery_epoch)
 }

@@ -5,8 +5,11 @@
 let max_deferred : Int = 32
 
 ///|
-/// Maximum number of retry attempts before giving up.
-let max_retries : Int = 3
+/// Maximum number of retries AFTER the initial SyncRequest before giving up.
+/// With this set to 3, total wire sends per recovery attempt are 1 + 3 = 4
+/// (one original request + three retries). Surfaces Error(Exhausted) after
+/// the fourth handle_recovery_retry invocation.
+let max_retries_after_initial : Int = 3
 
 ///|
 /// Per-peer recovery state. Tracks the failed message, retry count,
@@ -40,7 +43,7 @@ fn RecoveryContext::advance_retry(
 
 ///|
 fn RecoveryContext::is_exhausted(self : RecoveryContext) -> Bool {
-  self.retries >= max_retries
+  self.retries >= max_retries_after_initial
 }
 
 ///|

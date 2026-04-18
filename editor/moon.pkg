@@ -41,6 +41,8 @@ options(
     "error_path_wbtest.mbt": [ "not", "js" ],
     "recovery_wbtest.mbt": [ "not", "js" ],
     "sync_editor_ws_wbtest.mbt": [ "not", "js" ],
+    "test_ws_helper_js_wbtest.mbt": [ "js" ],
+    "test_ws_helper_native_wbtest.mbt": [ "not", "js" ],
     "websocket_js.mbt": [ "js" ],
     "websocket_native.mbt": [ "not", "js" ],
   },

@@ -3,7 +3,7 @@
 ///|
 test "ws_on_close: clears ws reference" {
   let editor = @lambda.new_lambda_editor("alice").0
-  let ws = JsWebSocket(0)
+  let ws = make_test_ws()
   editor.ws_on_open(ws)
   inspect(editor.ws is None, content="false")
   editor.ws_on_close()

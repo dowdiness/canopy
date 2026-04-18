@@ -31,6 +31,12 @@ pub fn[T] SyncEditor::apply_sync(
   self.adjust_cursor()
   self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
   self.sync_parser_after_text_change(old_source, new_source, None)
+  // Clear a prior Error status once any sync applies — another peer
+  // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
+  match self.status {
+    Error(_) => self.set_status(Idle)
+    _ => ()
+  }
 }
 
 ///|

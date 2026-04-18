@@ -301,6 +301,7 @@ pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(Self[T]) -> @protocol.Vie
 pub fn[T] SyncEditor::get_proj_node(Self[T]) -> @dowdiness/canopy/core.ProjNode[T]?
 pub fn[T] SyncEditor::get_registry(Self[T]) -> Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]
 pub fn[T] SyncEditor::get_source_map(Self[T]) -> @dowdiness/canopy/core.SourceMap
+pub fn[T] SyncEditor::get_sync_status(Self[T]) -> SyncStatus
 pub fn[T] SyncEditor::get_text(Self[T]) -> String
 pub fn[T] SyncEditor::get_tree(Self[T]) -> T?
 pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
@@ -315,14 +316,18 @@ pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
 pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Unit, TreeEditError]
 pub fn[T] SyncEditor::new_generic(String, (String) -> @incremental.ImperativeParser[T], (@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[T]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[T]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Memo[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, capabilities? : LanguageCapabilities[T]) -> Self[T]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
+pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::redo(Self[T]) -> Bool
 pub fn[T] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
 pub fn[T] SyncEditor::refresh(Self[T]) -> Unit
 pub fn[T] SyncEditor::remove_ephemeral_outdated(Self[T]) -> Unit
 pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (Int, Int)?) -> Unit
+pub fn[T] SyncEditor::set_on_status_change(Self[T], ((SyncStatus) -> Unit)?) -> Unit
 pub fn[T] SyncEditor::set_text(Self[T], String) -> Unit
 pub fn[T] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
 pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
+pub fn[T] SyncEditor::set_watchdog_scheduler(Self[T], ((Int, Int) -> Unit)?) -> Unit
+pub fn[T] SyncEditor::set_watchdog_timeout(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> EphemeralSubscription
 pub fn[T] SyncEditor::undo(Self[T]) -> Bool
 pub fn[T] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
@@ -332,6 +337,12 @@ pub fn[T] SyncEditor::ws_on_close(Self[T]) -> Unit
 pub fn[T] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
 pub fn[T] SyncEditor::ws_on_open(Self[T], JsWebSocket) -> Unit
 pub fn[T] SyncEditor::ws_send(Self[T], Bytes) -> Unit
+
+pub enum SyncErrorReason {
+  Exhausted(peer_id~ : String)
+  TargetLeft(peer_id~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for SyncErrorReason
 
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
@@ -343,6 +354,14 @@ pub(all) enum SyncMessage {
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
 } derive(Eq, @debug.Debug)
 pub impl Show for SyncMessage
+
+pub enum SyncStatus {
+  Disconnected
+  Idle
+  Recovering(peer_id~ : String, attempt~ : Int)
+  Error(reason~ : SyncErrorReason)
+} derive(Eq, @debug.Debug)
+pub impl Show for SyncStatus
 
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
