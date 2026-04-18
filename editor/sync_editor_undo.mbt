@@ -1,7 +1,7 @@
 // Undo integration for SyncEditor.
 
 ///|
-pub fn[T] SyncEditor::insert_and_record(
+pub fn[T : Eq] SyncEditor::insert_and_record(
   self : SyncEditor[T],
   text : String,
   timestamp_ms : Int,
@@ -23,7 +23,7 @@ pub fn[T] SyncEditor::insert_and_record(
 }
 
 ///|
-pub fn[T] SyncEditor::delete_and_record(
+pub fn[T : Eq] SyncEditor::delete_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
 ) -> Bool {
@@ -46,7 +46,7 @@ pub fn[T] SyncEditor::delete_and_record(
 }
 
 ///|
-pub fn[T] SyncEditor::backspace_and_record(
+pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
 ) -> Bool {
@@ -75,7 +75,7 @@ pub fn[T] SyncEditor::backspace_and_record(
 }
 
 ///|
-pub fn[T] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
   let old_source = self.doc.text()
   try {
     self.undo.undo(self.doc)
@@ -90,7 +90,7 @@ pub fn[T] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
 }
 
 ///|
-pub fn[T] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
   let old_source = self.doc.text()
   try {
     self.undo.redo(self.doc)
@@ -107,7 +107,7 @@ pub fn[T] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
 ///|
 /// Undo and return a SyncMessage containing the inverse ops for peer broadcast.
 /// Returns None if undo stack is empty or undo fails.
-pub fn[T] SyncEditor::undo_and_export(
+pub fn[T : Eq] SyncEditor::undo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? {
   let ver_before = self.doc.version()
@@ -133,7 +133,7 @@ pub fn[T] SyncEditor::undo_and_export(
 ///|
 /// Redo and return a SyncMessage containing the ops for peer broadcast.
 /// Returns None if redo stack is empty or redo fails.
-pub fn[T] SyncEditor::redo_and_export(
+pub fn[T : Eq] SyncEditor::redo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? {
   let ver_before = self.doc.version()

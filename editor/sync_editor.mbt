@@ -1,5 +1,5 @@
-// SyncEditor: Unified facade composing TextState + UndoManager + incremental parser.
-// Parsing stays edit-aware via ImperativeParser; projection views are memo-derived.
+// SyncEditor: TextState + UndoManager + reactive Parser.
+// Projection views subscribe to the parser's reactive memos.
 
 ///|
 /// Default watchdog timeout in milliseconds.
@@ -9,10 +9,7 @@ const DEFAULT_WATCHDOG_MS : Int = 5000
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
-  priv parser : @loom.ImperativeParser[T]
-  priv parser_rt : @incr.Runtime
-  priv source_text : @incr.Signal[String]
-  priv syntax_tree : @incr.Signal[@seam.SyntaxNode?]
+  priv parser : @loom.Parser[T]
   priv mut cursor : Int
   priv cached_proj_node : @incr.Memo[@core.ProjNode[T]?]
   priv registry_memo : @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]]
@@ -33,16 +30,13 @@ pub struct SyncEditor[T] {
 
 ///|
 /// Generic constructor for all languages.
-/// The build_memos callback returns 3 memos (ProjNode, registry, SourceMap).
+/// `make_parser` builds a `@loom.Parser[T]` from an initial source string.
+/// `build_memos` receives the parser handle and returns the 3 projection memos
+/// (ProjNode, registry, SourceMap) it wants SyncEditor to own.
 pub fn[T] SyncEditor::new_generic(
   agent_id : String,
-  make_parser : (String) -> @loom.ImperativeParser[T],
-  build_memos : (
-    @incr.Runtime,
-    @incr.Signal[String],
-    @incr.Signal[@seam.SyntaxNode?],
-    @loom.ImperativeParser[T],
-  ) -> (
+  make_parser : (String) -> @loom.Parser[T],
+  build_memos : (@loom.Parser[T]) -> (
     @incr.Memo[@core.ProjNode[T]?],
     @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Memo[@core.SourceMap],
@@ -51,24 +45,12 @@ pub fn[T] SyncEditor::new_generic(
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
 ) -> SyncEditor[T] {
   let parser = make_parser("")
-  let parser_rt = @incr.Runtime::new()
-  let source_text = @incr.Signal::new(parser_rt, "", label="editor_source_text")
-  let syntax_tree = @incr.Signal::new(
-    parser_rt,
-    None,
-    label="editor_syntax_tree",
-  )
-  let (cached_proj_node, registry_memo, source_map_memo) = build_memos(
-    parser_rt, source_text, syntax_tree, parser,
-  )
+  let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
     doc: @text.TextState::new(agent_id),
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
     parser,
-    parser_rt,
-    source_text,
-    syntax_tree,
     cursor: 0,
     cached_proj_node,
     registry_memo,

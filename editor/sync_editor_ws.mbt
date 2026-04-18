@@ -74,7 +74,10 @@ pub fn[T] SyncEditor::ws_on_open(
 }
 
 ///|
-pub fn[T] SyncEditor::ws_on_message(self : SyncEditor[T], data : Bytes) -> Unit {
+pub fn[T : Eq] SyncEditor::ws_on_message(
+  self : SyncEditor[T],
+  data : Bytes,
+) -> Unit {
   let msg = match decode_message_result(data) {
     Ok(m) => m
     Err(_) => return

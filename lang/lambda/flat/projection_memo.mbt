@@ -7,16 +7,16 @@
 /// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
 /// and produces ProjNode[@ast.Term] memos for the SyncEditor constructor.
 pub fn build_lambda_projection_memos(
-  rt : @incr.Runtime,
-  source_text : @incr.Signal[String],
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  _parser : @loom.ImperativeParser[@ast.Term],
+  parser : @loom.Parser[@ast.Term],
 ) -> (
   @incr.Memo[VersionedFlatProj],
   @incr.Memo[@core.ProjNode[@ast.Term]?],
   @incr.Memo[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
   @incr.Memo[@core.SourceMap],
 ) {
+  let rt = parser.runtime()
+  let source_text = parser.source()
+  let syntax_tree = parser.syntax_tree()
   let prev_flat_proj_ref : Ref[@lambda_proj.FlatProj?] = Ref::new(None)
   let prev_syntax_root_ref : Ref[@seam.SyntaxNode?] = Ref::new(None)
   let next_id_ref : Ref[Int] = Ref::new(0)

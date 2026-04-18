@@ -9,7 +9,7 @@ pub fn new_json_editor(
 ) -> @editor.SyncEditor[@json.JsonValue] {
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @json.json_grammar) },
+    fn(s) { @loom.new_parser(s, @json.json_grammar) },
     @json_proj.build_json_projection_memos,
     capture_timeout_ms~,
   )

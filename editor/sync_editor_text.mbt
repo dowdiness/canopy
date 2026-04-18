@@ -1,7 +1,10 @@
 // Text and cursor operations for SyncEditor.
 
 ///|
-pub fn[T] SyncEditor::insert(self : SyncEditor[T], text : String) -> Unit raise {
+pub fn[T : Eq] SyncEditor::insert(
+  self : SyncEditor[T],
+  text : String,
+) -> Unit raise {
   let old_source = self.doc.text()
   let insert_start = self.cursor
   self.doc.insert(@text.Pos::at(self.cursor), text)
@@ -14,7 +17,7 @@ pub fn[T] SyncEditor::insert(self : SyncEditor[T], text : String) -> Unit raise 
 }
 
 ///|
-pub fn[T] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
   let old_source = self.doc.text()
   try self.doc.delete(@text.Pos::at(self.cursor)) catch {
     _ => false
@@ -31,7 +34,7 @@ pub fn[T] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
 }
 
 ///|
-pub fn[T] SyncEditor::backspace(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::backspace(self : SyncEditor[T]) -> Bool {
   if self.cursor > 0 {
     let old_source = self.doc.text()
     self.cursor = self.cursor - 1
@@ -99,7 +102,7 @@ fn[T] SyncEditor::apply_replace_span(
 }
 
 ///|
-pub fn[T] SyncEditor::apply_text_edit_internal(
+pub fn[T : Eq] SyncEditor::apply_text_edit_internal(
   self : SyncEditor[T],
   start : Int,
   deleted_len : Int,
@@ -143,7 +146,7 @@ pub fn[T] SyncEditor::apply_text_edit_internal(
 }
 
 ///|
-pub fn[T] SyncEditor::apply_text_edit(
+pub fn[T : Eq] SyncEditor::apply_text_edit(
   self : SyncEditor[T],
   start : Int,
   deleted_len : Int,
@@ -168,7 +171,10 @@ pub fn[T] SyncEditor::apply_text_edit(
 /// `insert` / `insert_and_record` methods which create proper interleaving
 /// points. See `resolve_applied_edit` in `sync_editor_parser.mbt` for how
 /// the cursor adjustment layer compensates for this divergence.
-pub fn[T] SyncEditor::set_text(self : SyncEditor[T], new_text : String) -> Unit {
+pub fn[T : Eq] SyncEditor::set_text(
+  self : SyncEditor[T],
+  new_text : String,
+) -> Unit {
   let old_text = self.doc.text()
   if old_text == new_text {
     return
@@ -187,7 +193,7 @@ pub fn[T] SyncEditor::set_text(self : SyncEditor[T], new_text : String) -> Unit 
 ///|
 /// Insert text at a specific position without moving the cursor.
 /// Records the operation for undo. Used by ProseMirror bridge.
-pub fn[T] SyncEditor::insert_at(
+pub fn[T : Eq] SyncEditor::insert_at(
   self : SyncEditor[T],
   position : Int,
   text : String,
@@ -204,7 +210,7 @@ pub fn[T] SyncEditor::insert_at(
 /// Delete the character at a specific position without moving the cursor.
 /// Records the operation for undo. Returns false if position is out of bounds.
 /// Used by ProseMirror bridge.
-pub fn[T] SyncEditor::delete_at(
+pub fn[T : Eq] SyncEditor::delete_at(
   self : SyncEditor[T],
   position : Int,
   timestamp_ms : Int,
@@ -218,7 +224,7 @@ pub fn[T] SyncEditor::delete_at(
 }
 
 ///|
-pub fn[T] SyncEditor::set_text_and_record(
+pub fn[T : Eq] SyncEditor::set_text_and_record(
   self : SyncEditor[T],
   new_text : String,
   timestamp_ms : Int,

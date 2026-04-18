@@ -7,6 +7,5 @@ import {
   "dowdiness/lambda/eval" @lambda_eval,
   "dowdiness/loom" @loom,
   "dowdiness/pretty" @pretty,
-  "dowdiness/seam" @seam,
   "moonbitlang/core/debug",
 }

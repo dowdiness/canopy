@@ -3,14 +3,14 @@ package "dowdiness/canopy/lang/markdown/proj"
 
 import {
   "dowdiness/incr/cells",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/markdown",
   "dowdiness/seam",
   "moonbitlang/core/ref",
 }
 
 // Values
-pub fn build_markdown_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@markdown.Block]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
 
 pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@markdown.Block], Array[String]) raise @dowdiness/loom/core.LexError
 

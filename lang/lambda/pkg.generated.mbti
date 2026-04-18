@@ -10,7 +10,7 @@ import {
   "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/immut/hashset",
@@ -20,9 +20,9 @@ import {
 // Values
 pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Unit, @editor.TreeEditError]
 
-pub fn build_eval_memo(@cells.Runtime, @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> @cells.Memo[Array[@eval.EvalResult]]
+pub fn build_eval_memo(@pipeline.Parser[@ast.Term]) -> @cells.Memo[Array[@eval.EvalResult]]
 
-pub fn build_lambda_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@ast.Term]) -> (@cells.Memo[@flat.VersionedFlatProj], @cells.Memo[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Memo[@flat.VersionedFlatProj], @cells.Memo[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
 
 pub fn collect_lam_env(@dowdiness/canopy/core.NodeId, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @hashset.HashSet[String]
 

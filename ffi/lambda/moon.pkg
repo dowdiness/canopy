@@ -4,7 +4,6 @@ import {
   "dowdiness/canopy/llm" @llm,
   "dowdiness/canopy/relay",
   "dowdiness/lambda/ast" @ast,
-  "dowdiness/lambda" @lambda_lang,
   "dowdiness/lambda/typecheck" @typecheck,
   "dowdiness/seam" @seam,
   "dowdiness/incr/cells" @cells,

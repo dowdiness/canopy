@@ -5,7 +5,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/json/edits",
   "dowdiness/incr/cells",
-  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/ref",
 }
@@ -13,7 +13,7 @@ import {
 // Values
 pub fn apply_json_edit(@editor.SyncEditor[@dowdiness/json.JsonValue], @edits.JsonEditOp, Int) -> Result[Unit, String]
 
-pub fn build_json_projection_memos(@cells.Runtime, @cells.Signal[String], @cells.Signal[@seam.SyntaxNode?], @incremental.ImperativeParser[@dowdiness/json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_json_projection_memos(@pipeline.Parser[@dowdiness/json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
 
 pub fn compute_json_edit(@edits.JsonEditOp, String, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue], @dowdiness/canopy/core.SourceMap) -> Result[(Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint)?, String]
 

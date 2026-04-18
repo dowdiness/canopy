@@ -10,38 +10,31 @@ priv struct LambdaHandle {
 }
 
 ///|
-/// Standalone runtime that drives the typecheck pipeline incrementally
-/// off the editor's text. Kept separate from the editor's runtime because
-/// LambdaCompanion does not expose its runtime to FFI.
+/// Typecheck pipeline memos; `scope` disposal only — the underlying
+/// `Runtime` is owned by the editor's `Parser`.
 priv struct TypecheckBundle {
-  rt : @cells.Runtime
   scope : @cells.Scope
-  text_signal : @cells.Signal[String]
   output : @cells.Memo[@typecheck.ModuleTypeResult]
 }
 
 ///|
-fn new_typecheck_bundle() -> TypecheckBundle {
-  let rt = @cells.Runtime::new()
+fn new_typecheck_bundle(
+  rt : @cells.Runtime,
+  syntax_tree : @cells.Memo[@seam.SyntaxNode?],
+) -> TypecheckBundle {
   let scope = @cells.Scope::new(rt)
-  let text_signal = scope.signal("", label="lambda-typecheck-text")
   let typed_term_memo : @cells.Memo[@typecheck.TypedTerm] = scope.memo(
     fn() {
-      let text = text_signal.get()
-      // parse_cst preserves `: Type` annotations on the CST. Parse
-      // diagnostics (lex errors, recoverable syntax errors) are surfaced
-      // separately via editor.get_errors() — get_diagnostics_json() only
-      // reads this memo when parse errors are empty, so we drop the
-      // diagnostics array here.
-      let (cst, _) = @lambda_lang.parse_cst(text) catch {
-        _ => return @typecheck.TypedTerm::Error("parse")
+      // `None` = lex error; must stay non-aborting so later edits recover.
+      match syntax_tree.get() {
+        Some(syntax) => @typecheck.convert_from_cst(syntax)
+        None => @typecheck.TypedTerm::Error("parse")
       }
-      @typecheck.convert_from_cst(@seam.SyntaxNode::from_cst(cst))
     },
     label="lambda-typed-term",
   )
   let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)
-  { rt, scope, text_signal, output }
+  { scope, output }
 }
 
 ///|
@@ -89,7 +82,10 @@ pub fn create_editor(agent_id : String) -> Int {
   lambda_handles[handle] = {
     editor,
     companion,
-    typecheck: new_typecheck_bundle(),
+    typecheck: new_typecheck_bundle(
+      editor.parser_runtime(),
+      editor.parser_syntax_tree(),
+    ),
   }
   last_created_handle.val = Some(handle)
   handle

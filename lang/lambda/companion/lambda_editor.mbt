@@ -91,13 +91,11 @@ pub fn new_lambda_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
-  // Ref side-channels to capture memos and runtime from build_memos callback.
-  // Safe: new_generic calls build_memos during construction, before returning.
+  // Ref side-channels let the build_memos callback publish extra memos
+  // (beyond the 3-tuple SyncEditor expects) and the runtime back out to
+  // the enclosing scope for companion construction + capabilities wiring.
   let rt_ref : Ref[@incr.Runtime?] = Ref::new(None)
   let proj_memo_ref : Ref[@incr.Memo[@lambda_flat.VersionedFlatProj]?] = Ref::new(
-    None,
-  )
-  let eval_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?] = Ref::new(
     None,
   )
   let escalation_memo_ref : Ref[@incr.Memo[Array[@lambda_eval.EvalResult]]?] = Ref::new(
@@ -108,19 +106,18 @@ pub fn new_lambda_editor(
   )
   let editor = @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @parser.lambda_grammar) },
-    fn(rt, source_text, syntax_tree, parser) {
-      rt_ref.val = Some(rt)
+    fn(s) { @loom.new_parser(s, @parser.lambda_grammar) },
+    fn(parser) {
+      rt_ref.val = Some(parser.runtime())
       let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = @lambda_flat.build_lambda_projection_memos(
-        rt, source_text, syntax_tree, parser,
+        parser,
       )
       proj_memo_ref.val = Some(proj_memo)
       cached_proj_node_ref.val = Some(cached_proj_node)
-      let eval_memo = @lambda_eval.build_eval_memo(rt, syntax_tree, parser)
-      eval_memo_ref.val = Some(eval_memo)
+      let eval_memo = @lambda_eval.build_eval_memo(parser)
       // Escalation memo: merges Tier 1 + Tier 2 for incomplete programs
       let escalation_memo = @lambda_eval.build_escalation_memo(
-        rt, eval_memo, syntax_tree, parser,
+        parser, eval_memo,
       )
       escalation_memo_ref.val = Some(escalation_memo)
       (cached_proj_node, registry_memo, source_map_memo)

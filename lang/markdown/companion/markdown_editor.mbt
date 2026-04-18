@@ -7,7 +7,7 @@ pub fn new_markdown_editor(
 ) -> @editor.SyncEditor[@markdown.Block] {
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @markdown.markdown_grammar) },
+    fn(s) { @loom.new_parser(s, @markdown.markdown_grammar) },
     @md_proj.build_markdown_projection_memos,
     capture_timeout_ms~,
   )
