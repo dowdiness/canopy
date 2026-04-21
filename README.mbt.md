@@ -51,6 +51,18 @@ Text CRDT → Incremental Parse → Projection → Rendering
 
 4. **Rendering** — The protocol layer computes incremental view patches. Only changed nodes reach the frontend. Multiple representations — formatted text, tree view, graph visualization — render from the same projection.
 
+## Quick Start
+
+**Prerequisites:** [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/)
+
+```sh
+git clone --recursive https://github.com/dowdiness/canopy.git
+cd canopy
+moon test                                    # run the test suite
+moon build --target js
+cd examples/web && npm install && npm run dev  # localhost:5173
+```
+
 ## The Bigger Picture
 
 Canopy is a framework, not just an editor. Define a grammar for your language, implement a few traits, and you get incremental parsing, structural editing, pretty-printing, and CRDT collaboration out of the box.
@@ -99,25 +111,21 @@ Read more: [Product Vision](docs/architecture/product-vision.md) · [The Project
 | [canvas](examples/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
 | [block-editor](examples/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
 
-## Quick Start
-
-**Prerequisites:** [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/)
-
-```sh
-git clone --recursive https://github.com/dowdiness/canopy.git
-cd canopy
-moon test                                    # 684+ tests
-moon build --target js
-cd examples/web && npm install && npm run dev  # localhost:5173
-```
-
 ## What to Read Next
+
+Start with the **[Documentation Index](docs/README.md)** — it organizes the rest
+of the docs into a learning path, API/reference, and contributor material. The
+highlights:
 
 **Vision and architecture:**
 - [Product Vision](docs/architecture/product-vision.md) — the full picture: write, auto-structure, surface
 - [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
 - [Multi-Representation System](docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
 - [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath
+
+**API / integration:**
+- [API Reference](docs/development/API_REFERENCE.md) — high-level MoonBit API
+- [JS Integration Guide](docs/development/JS_INTEGRATION.md) — using the editor from JavaScript
 
 **Development:**
 - [Development Workflow](docs/development/workflow.md) — how to make changes, run tests, manage submodules

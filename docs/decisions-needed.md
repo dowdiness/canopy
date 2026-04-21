@@ -23,14 +23,14 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 **Added:** 2026-03-31
 
 ### structure-mode: PM block editor completion state
-**Source:** TODO.md §10
+**Source:** TODO.md §9
 **Context:** "Test and polish PM block editor, verify lazy-loading." Bridge FFI and model files exist in examples/ideal but completion state is unclear.
 **Blocks:** Block editor UX polish
 **Evidence:** bridge_ffi.mbt and model.mbt exist, but insufficient evidence to judge done vs in-progress
 **Added:** 2026-03-31
 
 ### flatproj-interleaved: storage strategy for let/expr interleaving
-**Source:** TODO.md §10
+**Source:** TODO.md §9
 **Context:** ModuleItem FlatProj storage change caused 2x regression. Alternative approach (helper methods on existing FlatProj) is noted but not started. Needs decision on whether to pursue fix or accept regression.
 **Blocks:** Grammar: interleaved let/expr support
 **Evidence:** No plan file, no implementation, alternative approach documented but not started

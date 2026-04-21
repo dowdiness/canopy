@@ -1,118 +1,154 @@
 # Documentation Index
 
-Documentation for Canopy — an incremental projectional editor with CRDT collaboration.
+Documentation for **Canopy** — an incremental projectional editor with CRDT
+collaboration, built in MoonBit.
 
-## Agent Entry Point
+If this is your first time here, read the pages in order: **Start Here →
+Learning Path → API / Reference**. Contributor, deep-design, and historical
+material is grouped at the bottom and is not required reading.
 
-`AGENTS.md` is the canonical repo-level agent guidance file.
-`CLAUDE.md` is a compatibility symlink to `AGENTS.md` and should not be edited
-directly.
+---
 
-## Quick Start
+## Start Here
 
-- **[CLAUDE.md](../CLAUDE.md)** - Quick reference for Claude Code
-- **[README.md](../README.md)** - Project overview
+- **[Project README](../README.md)** — what Canopy is, what it looks like, and
+  the Quick Start (clone, `moon test`, run the web demo).
+- **[Live demo](https://canopy-ideal.pages.dev)** — try the editor in your
+  browser before diving into internals.
+- **[日本語版紹介 (Japanese introduction)](japanese-introduction.md)** —
+  product overview in Japanese.
 
-## Grand Design
+## Learning Path
 
-The long-range vision for combining eg-walker CRDT + loom incremental parser
-into a collaborative projectional editor.
+Read in order to build a mental model of the system.
 
-- **[Grand Design](design/GRAND_DESIGN.md)** — Vision, principles, and implementation order
-  - [01 — Edit Bridge](design/01-edit-bridge.md) — CRDT ops → loom `Edit` without string diffing
-  - [02 — Reactive Pipeline](design/02-reactive-pipeline.md) — Replace manual dirty-flags with `Signal`/`Memo`
-  - [03 — Unified Editor](design/03-unified-editor.md) — Single `SyncEditor` facade
-  - [04 — Ephemeral Store](design/04-ephemeral-store.md) — Peer cursors and presence
-  - [05 — Tree Edit Roundtrip](design/05-tree-edit-roundtrip.md) — Structural AST edits via text CRDT
-  - [Design Concerns](design/design-concerns.md) — Future considerations and open problems
+1. **[Product Vision](architecture/product-vision.md)** — what Canopy is trying
+   to be: write, auto-structure, surface.
+2. **[The Projectional Bridge](architecture/vision-projectional-bridge.md)** —
+   why: syntax → semantics → intent → mental model.
+3. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
+   high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
+4. **[Module Structure](architecture/modules.md)** — how the monorepo and
+   submodules map onto that pipeline.
+5. **[Projectional Editing](architecture/PROJECTIONAL_EDITING.md)** — what
+   projectional editing means in Canopy specifically.
+6. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
+   the compositional engine underneath.
+7. **[Multi-Representation System](architecture/multi-representation-system.md)**
+   — the `Printable` trait family (Show, Debug, Source, Pretty).
 
-## Architecture
+Further architecture notes live in [docs/architecture/](architecture/).
 
-Understand the system design and CRDT implementation.
+## API / Reference
 
-- [System Architecture](architecture/ARCHITECTURE_DIAGRAM.md) - High-level data flow diagram
-- [Module Structure](architecture/modules.md) - Monorepo organization with git submodules
-- [Projectional Editing](architecture/PROJECTIONAL_EDITING.md) - Projectional editing architecture
+For users calling Canopy from MoonBit or JavaScript.
 
-## Decisions
+- **[API Reference](development/API_REFERENCE.md)** — high-level MoonBit API
+  overview (`SyncEditor`, `ProjNode`, etc.).
+- **[JS Integration Guide](development/JS_INTEGRATION.md)** — using the editor
+  from JavaScript / the web.
+- **[Tree Editing Manual](development/TREE_EDIT_MANUAL.md)** — structural
+  projectional editing reference.
+- **[Adding a Language](development/ADDING_A_LANGUAGE.md)** — integrate a new
+  language into the framework (uses Markdown as the reference implementation).
 
-Architectural Decision Records (ADRs) for significant design choices.
+Per-module READMEs:
 
-- [Framework Genericity Contract](decisions/2026-03-29-framework-genericity-contract.md) — TestExpr proof: why framework/core/ must stay language-agnostic
+- [event-graph-walker](../event-graph-walker/README.md) — CRDT engine.
+- [loom](../loom/README.md) — incremental parser framework.
 
-## Development
+---
 
-Guides for contributing and developing.
+## Contributor / Development
 
-- [API Reference](development/API_REFERENCE.md) - High-level MoonBit API overview
-- [JS Integration Guide](development/JS_INTEGRATION.md) - How to use the editor from JavaScript/Web
-- [Task Tracking](development/task-tracking.md) - Agent-friendly rules for TODOs, plans, and issues
-- [Tree Editing Manual](development/TREE_EDIT_MANUAL.md) - Structural projectional editing reference
-- [Monorepo & Submodules](development/monorepo.md) - Git submodule setup, daily cheat sheet, and workflows
-- [Workflow](development/workflow.md) - Development process and common commands
-- [Conventions](development/conventions.md) - MoonBit coding standards
-- [Paying Technical Debt](development/technical-debt.md) - Where debt should be fixed and how to retire old paths
-- [Testing](development/testing.md) - Testing guide and best practices
+Only needed if you are modifying Canopy itself.
 
-## Performance
+- **[Workflow](development/workflow.md)** — development process and common commands.
+- **[Conventions](development/conventions.md)** — MoonBit coding standards.
+- **[Testing](development/testing.md)** — testing guide and best practices.
+- **[Monorepo & Submodules](development/monorepo.md)** — git submodule setup and
+  daily cheat sheet.
+- **[Task Tracking](development/task-tracking.md)** — rules for TODOs, plans,
+  and issues.
+- **[Technical Debt](development/technical-debt.md)** — where debt should be
+  fixed and how to retire old paths.
+- **[Formal Verification](development/formal-verification.md)** — Why3 / z3
+  proof workflow.
+- **[Documentation Doctrine](development/documentation-doctrine.md)** — how docs
+  in this repo are written and maintained.
 
-Benchmarking and optimization documentation.
+**Backlog and active work:**
 
-- [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md) - Benchmark methodology
-- [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md) - Performance analysis
-- [Performance Results](performance/PERFORMANCE_RESULTS.md) - Benchmark results
+- [TODO](TODO.md) — active backlog index.
+- [docs/plans/](plans/) — executable plans (use
+  [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
 
-## Module Documentation
+**Performance:**
 
-Detailed documentation for each module:
+- [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
+- [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
+- [Performance Results](performance/PERFORMANCE_RESULTS.md)
 
-- **[event-graph-walker](../event-graph-walker/README.md)** - Core CRDT library
-- **[loom](../loom/README.md)** - Incremental parser framework
+**Infrastructure:**
 
-## Active Plans
+- [CI/CD](CI_CD.md)
 
-- [Plan Template](plans/TEMPLATE.md) — Canonical template for executable task plans
-- [Block Editor Design](plans/2026-03-28-block-editor-design.md) — Block-based document editor vision
-- [Block Editor 1b](plans/2026-03-28-block-editor-1b-document.md) — BlockDoc CRUD
-- [Block Editor 1c](plans/2026-03-28-block-editor-1c-markdown.md) — Markdown import/export
-- [Block Editor 1d](plans/2026-03-28-block-editor-1d-web.md) — JS bridge + web shell
-- [AST Zipper Design](plans/2026-03-28-ast-zipper-design.md) — Structural cursor + typed holes
-- [BFT Adapter](plans/2026-03-19-bft-adapter-design.md) — Byzantine Fault Tolerance (deferred)
-- [Ideal Editor](plans/2026-03-19-ideal-editor-impl.md) — Full-featured editor with inspector, benchmarks
+## Deep Design (Grand Design)
 
-## Archive
+Long-range design explorations. Treat as **direction, not implemented
+behavior** — check the code before relying on any specific detail.
 
-Historical documentation, completed plans, and investigations.
+- **[Grand Design](design/GRAND_DESIGN.md)** — vision, principles, and
+  implementation order.
+  - [01 — Edit Bridge](design/01-edit-bridge.md)
+  - [02 — Reactive Pipeline](design/02-reactive-pipeline.md)
+  - [03 — Unified Editor](design/03-unified-editor.md)
+  - [04 — Ephemeral Store](design/04-ephemeral-store.md)
+  - [05 — Tree Edit Roundtrip](design/05-tree-edit-roundtrip.md)
+- [Design Concerns](design/design-concerns.md) — open problems and future
+  considerations.
+- [Decisions Needed](decisions-needed.md) — open architectural questions.
 
-### Completed Plans (2026-04)
+**Architectural Decision Records (ADRs):**
 
-- [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md) — Thread `: Type` annotations from CST to TypedTerm via `convert_from_cst`
-- [Lambda Annotation Plumbing — Impl](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-impl.md) — Shipped via loom#84, loom#85, canopy#191
+- [Framework Genericity Contract](decisions/2026-03-29-framework-genericity-contract.md)
+  — why `framework/` and `core/` must stay language-agnostic.
 
-### Completed Plans (2026-03)
+## Historical / Archive
 
-- [Framework Extraction Design](archive/2026-03-18-framework-extraction-design.md) — Generic `ProjNode[T]` + `TreeNode`/`Renderable` traits
-- [Framework Extraction Impl](archive/2026-03-28-framework-extraction-impl.md) — Phases 1–4 implementation
-- [Framework Extraction Phase 4](archive/2026-03-28-framework-extraction-phase4.md) — Traits to loom, lambda code to lang/lambda/
-- [JSON Editor Design](archive/2026-03-29-json-projectional-editor-design.md) — Second language consumer of framework/core
-- [JSON Editor Impl](archive/2026-03-29-json-projectional-editor-impl.md) — 9-task implementation plan (Complete)
-- [Memo-Derived ProjNode Design](archive/2026-03-10-memo-derived-projnode-design.md) — CanonicalModel retired, memo-derived projections on SyncEditor
-- [Rabbita Projection Editor Performance Plan](archive/2026-03-11-rabbita-projection-editor-performance-plan.md) — Edit-based APIs, incremental parser, UI/structural split
-- [Tree Editor Subtree Reuse Design](archive/2026-03-11-tree-editor-subtree-reuse-design.md) — InteractiveChildren Loaded/Elided, structural indexes
-- [Rabbita Perf Harness Redesign](archive/2026-03-11-rabbita-perf-harness-redesign.md) — BenchmarkMeasurement, phase timing, timeout-aware results
-- [Projection Incremental Updates (FlatProj)](archive/2026-03-15-projection-incremental-updates.md) — FlatProj replaces nested Let spine
-- [RLE Library Integration](archive/2026-03-15-rle-library-integration.md) — 4-phase RLE compression plan (all phases complete)
-- [Text-Delta Tree Edit](archive/2026-03-18-projectional-edit-text-delta-plan.md) — SpanEdit via source map
-- [Two-Layer Architecture](archive/completed-phases/2026-03-28-two-layer-architecture-design.md) — TermSym Finally Tagless (Complete)
-- [MovableTree CRDT](archive/completed-phases/2026-03-28-movable-tree-crdt-impl.md) — Kleppmann's move algorithm (Complete)
+> Do not treat files in this section as current guidance. They record decisions
+> and plans that have since shipped, been superseded, or been abandoned. Read
+> only when you need historical context.
 
-### Earlier Archive
+- [docs/archive/](archive/) — completed plans and superseded designs.
+- [Investigation Index](archive/INVESTIGATION_INDEX.md) — earlier investigations.
+- [Branch Variance Investigations](archive/investigations/branch-variance/) —
+  historical perf investigations.
 
-- [Investigation Index](archive/INVESTIGATION_INDEX.md)
-- [Branch Variance Investigations](archive/investigations/branch-variance/)
+Recently completed (for quick reference):
+
+- [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md)
+- [Lambda Annotation Plumbing — Impl](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-impl.md)
+- [Framework Extraction — Design](archive/2026-03-18-framework-extraction-design.md)
+  · [Impl](archive/2026-03-28-framework-extraction-impl.md)
+  · [Phase 4](archive/2026-03-28-framework-extraction-phase4.md)
+- [JSON Editor — Design](archive/2026-03-29-json-projectional-editor-design.md)
+  · [Impl](archive/2026-03-29-json-projectional-editor-impl.md)
+- [Block Editor 1b/1c/1d](archive/2026-03-28-block-editor-1b-document.md)
+  · [Markdown](archive/2026-03-28-block-editor-1c-markdown.md)
+  · [Web](archive/2026-03-28-block-editor-1d-web.md)
+- [AST Zipper — Design](archive/2026-03-28-ast-zipper-design.md)
+- [Ideal Editor — Impl](archive/completed-phases/2026-03-19-ideal-editor-impl.md)
 
 ## External Resources
 
-- [eg-walker paper](https://arxiv.org/abs/2409.14252)
-- [MoonBit documentation](https://docs.moonbitlang.com)
-- [FugueMax CRDT](https://arxiv.org/abs/2305.00583)
+- [eg-walker paper](https://arxiv.org/abs/2409.14252) — the CRDT algorithm.
+- [FugueMax CRDT](https://arxiv.org/abs/2305.00583) — the sequence CRDT underneath.
+- [MoonBit documentation](https://docs.moonbitlang.com).
+
+---
+
+## For AI Agents
+
+`AGENTS.md` at the repo root is the canonical agent guidance file. `CLAUDE.md`
+is a compatibility symlink and should not be edited directly.

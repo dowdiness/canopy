@@ -1,6 +1,12 @@
 # CI/CD Setup Status
 
-This document summarizes the current CI/CD infrastructure for the Canopy project and the follow-up cleanup completed after the 2026-03-21 automation audit.
+> **Historical audit snapshot (2026-03-21).** For the living CI/CD guide, see
+> **[docs/CI_CD.md](docs/CI_CD.md)**. This file is preserved as a record of
+> what the 2026-03-21 automation audit produced and what follow-up cleanup
+> landed immediately afterward; newer infrastructure changes are not tracked
+> here.
+
+This document summarizes the CI/CD infrastructure for the Canopy project as of the 2026-03-21 automation audit, and the follow-up cleanup completed immediately afterward.
 
 ## What's Been Implemented
 
