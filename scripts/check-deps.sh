@@ -143,7 +143,13 @@ for mmj in iter_files("moon.mod.json"):
     cat = module_category.get(name, "other")
     if cat != "submodule":
         continue
-    for dep_name in (data.get("deps") or {}).keys():
+    for dep_name, spec in (data.get("deps") or {}).items():
+        # Rule E is about path-deps only; registry deps (string value, or
+        # dict without "path" key) are not targeted by this rule even if the
+        # name would match. If we ever want to forbid registry-deps on canopy
+        # too, add rule F.
+        if not (isinstance(spec, dict) and "path" in spec):
+            continue
         if is_canopy(dep_name):
             violations.append(f"[E] submodule mod {name} has path-dep → {dep_name}")
 
