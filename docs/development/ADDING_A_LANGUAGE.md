@@ -490,9 +490,11 @@ create/destroy/get_text/set_text/apply_edit exports. Use a handle range
 that doesn't collide with existing languages (Lambda: 0-9999, JSON: 10000+,
 Markdown: 20000+). Add the import to `ffi/moon.pkg`.
 
-**TypeScript adapter** (`adapters/editor-adapter/` or `examples/web/src/`):
-Import the FFI functions, wire to your UI. See `examples/web/src/markdown-editor.ts`
-for the pattern.
+**TypeScript adapter** (`@canopy/editor-adapter` package at `adapters/editor-adapter/`,
+or `examples/web/src/`): Import the FFI functions, wire to your UI. Consumer projects
+depend on the adapter via `"@canopy/editor-adapter": "file:../../adapters/editor-adapter"`
+and import submodules like `import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter'`.
+See `examples/web/src/markdown-editor.ts` for the full pattern.
 
 ---
 

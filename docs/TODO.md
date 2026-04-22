@@ -42,7 +42,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: wasm build runs in CI and is documented as supported.
 
 - [ ] Add `npx tsc --noEmit` CI job for `examples/{web,prosemirror,demo-react}`.
-  Why: today no CI job runs `tsc --noEmit` on the examples, so TS regressions in `adapters/editor-adapter/` or example sources go unnoticed (see the Stage 5 move / `@moonbit/canopy` rename, which left 28 errors on main before #211 fixed them).
+  Why: no CI job currently type-checks the examples, so regressions in the `@canopy/editor-adapter` package or example sources go unnoticed until a human runs tsc locally (cf. the 28 errors that silently accumulated between the Stage 5 adapter move and PR #211).
   Exit: a CI job runs `tsc --noEmit` per example and blocks merge on failure.
 
 - [ ] Reduce CRDT JS bundle size for `index.html` / `memo.html` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
