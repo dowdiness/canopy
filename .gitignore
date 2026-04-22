@@ -29,3 +29,4 @@ test-results/
 .claude/scheduled_tasks.lock
 .codex
 .superpowers/
+.agents/
