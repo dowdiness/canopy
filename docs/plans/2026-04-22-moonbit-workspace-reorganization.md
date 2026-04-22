@@ -178,6 +178,25 @@ See "Stage 0 findings" section above for details.
 
 Stages 2, 3 (non-workspace parts), and 5 do **not** depend on `moon.work` and are kept in this PR.
 
+**Follow-up PR execution checklist:**
+
+1. Recreate `moon.work` with `./`, `./lib/text-change`, `./lib/zipper`, `./lib/btree` (4 members).
+2. Run `moon work sync` — expect version-pinning diffs in `moon.mod.json` + `lib/btree/moon.mod.json` (same as before; keep them).
+3. Update build-artifact path `_build/js/release/build/ffi/...` → `_build/js/release/build/dowdiness/canopy/ffi/...` in:
+   - `scripts/build-js.sh` (4 artifact paths)
+   - `scripts/package-release.sh`
+   - `.github/workflows/ci.yml` → `build-js` job's `upload-artifact` path list (lambda.js/d.ts, json.js/d.ts, markdown.js/d.ts, moonbit.d.ts triples)
+   - `examples/web/vite-plugin-moonbit.ts`, `examples/web/vite.config.ts`, `examples/web/tsconfig.json`
+   - `examples/demo-react/vite.config.ts`, `examples/demo-react/vitest.config.ts`, `examples/demo-react/tsconfig.json`
+   - `examples/prosemirror/vite.config.ts`, `examples/prosemirror/tsconfig.json`
+   - `examples/relay-server/src/index.ts` (runtime dynamic import), `examples/relay-server/tsconfig.json`
+   - `docs/development/JS_INTEGRATION.md` (doc example)
+4. `npm ci` + `npx tsc --noEmit` in `examples/web` and `examples/prosemirror` to verify TS paths resolve BEFORE pushing.
+5. Run `make build-js`, `make build-web`, `make test-web-e2e`, `make test-demo-react-e2e` locally.
+6. `moon check`, `moon test`, `moon fmt` from workspace root — expect test count ~1029.
+7. Update `AGENTS.md` to describe workspace commands (reinstate the workspace-members block that was reverted in the `defer moon.work` commit).
+8. Push, verify all CI jobs that consume the artifact path pass.
+
 ### Stage 2 — write and enforce the dependency rules (done 2026-04-22)
 
 - ✅ Wrote `scripts/check-deps.sh` (scope-aware, exits non-zero on violations).

@@ -41,6 +41,12 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: current supported targets are native and JS only.
   Exit: wasm build runs in CI and is documented as supported.
 
+- [ ] Adopt `moon.work` (Stage 1 of workspace reorg, deferred from PR #210).
+  Why: one-shot `moon test` / `moon check` / `moon info` from repo root would cover canopy + `lib/{btree,text-change,zipper}`; `moon work sync` catches version drift.
+  Blocker: making `.` a workspace member namespaces JS build artifacts (`_build/js/release/build/ffi/*` → `_build/js/release/build/dowdiness/canopy/ffi/*`), breaking ~14 hard-coded consumers (Vite configs, tsconfigs, `scripts/build-js.sh`, `package-release.sh`, CI upload paths, `examples/relay-server/src/index.ts`).
+  Plan: `docs/plans/2026-04-22-moonbit-workspace-reorganization.md` §Stage 1 (needs a revised plan for the path migration).
+  Exit: `moon.work` landed, root-level `moon` commands cover workspace members, all web/e2e/build CI jobs green.
+
 - [ ] Reduce CRDT JS bundle size for `index.html` / `memo.html` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
   Why: large bundle impacts initial page load for web editors.
   Plan: `docs/plans/2026-04-18-crdt-bundle-split.md`
