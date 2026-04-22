@@ -180,11 +180,14 @@ See "Stage 0 findings" section above for details.
 - Verify `moon check`, `moon test`, `moon info`, `moon fmt` at the root pass.
 - No changes to submodules, examples, or other lib/* members.
 
-### Stage 2 — write (not yet enforce) the dependency rules
+### Stage 2 — write and enforce the dependency rules (done 2026-04-22)
 
-- Add `scripts/check-deps.sh` with scope-aware parsing.
-- Run it in "report mode" for one cycle; fix any accidental violations (likely: an `lib/*` module sneaking in a `canopy/*` import).
-- Then wire into CI as a hard check.
+- ✅ Wrote `scripts/check-deps.sh` (scope-aware, exits non-zero on violations).
+- ✅ Rules enforced: [A] lib→canopy, [B] lib→example, [C] submodule→canopy, [D] submodule→example, [E] submodule module-level path-dep into canopy.
+- ✅ Report-mode cycle was implicit: Stage 0 already confirmed all five rules hold. No fixes needed.
+- ✅ Self-test: synthetic violation (lib/text-change import of canopy/core) correctly produced `[A]` violation and exit 1.
+- ✅ Wired into CI as `dep-check` job; added to `all-checks-passed` gate.
+- Skipped: cycle detection among known couplings (drift tracking) — future enhancement; dep-graph.txt serves as current baseline.
 
 ### Stage 3 — decide on `lib/btree`, `lib/semantic`, examples
 

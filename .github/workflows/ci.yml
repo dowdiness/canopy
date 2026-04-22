@@ -12,6 +12,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dep-check:
+    name: Dependency Rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run check-deps
+        run: ./scripts/check-deps.sh
+
   test-main:
     name: Test Main Module
     runs-on: ubuntu-latest
@@ -340,6 +352,7 @@ jobs:
     name: All Checks Passed
     runs-on: ubuntu-latest
     needs:
+      - dep-check
       - test-main
       - test-submodules
       - prove
@@ -352,7 +365,8 @@ jobs:
     steps:
       - name: Check all job statuses
         run: |
-          if [[ "${{ needs.test-main.result }}" != "success" ]] || \
+          if [[ "${{ needs.dep-check.result }}" != "success" ]] || \
+             [[ "${{ needs.test-main.result }}" != "success" ]] || \
              [[ "${{ needs.test-submodules.result }}" != "success" ]] || \
              [[ "${{ needs.prove.result }}" != "success" ]] || \
              [[ "${{ needs.format-check.result }}" != "success" ]] || \
