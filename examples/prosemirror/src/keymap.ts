@@ -1,6 +1,6 @@
 import { keymap } from "prosemirror-keymap";
 import { NodeSelection } from "prosemirror-state";
-import type { UserIntent } from "../../../adapters/editor-adapter";
+import type { UserIntent } from "@canopy/editor-adapter";
 
 /**
  * ProseMirror keymap plugin for structural operations on AST nodes.

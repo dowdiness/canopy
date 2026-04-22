@@ -14,8 +14,10 @@ export default defineConfig({
     }) as PluginOption
   ],
   resolve: {
-    // Ensure packages imported by adapters/editor-adapter/ (which lives
-    // outside this project's node_modules tree) resolve from here.
+    // @canopy/editor-adapter is symlinked into node_modules; vite realpaths
+    // through the symlink, so dedupe is still needed to pin prosemirror/*
+    // and @codemirror/* to this project's copies rather than the adapter's
+    // (nonexistent) node_modules.
     dedupe: [
       'prosemirror-commands',
       'prosemirror-keymap',

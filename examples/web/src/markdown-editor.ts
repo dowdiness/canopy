@@ -1,10 +1,10 @@
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
 import * as crdt from '@moonbit/crdt-markdown';
-import { BlockInput } from '../../../adapters/editor-adapter/block-input';
-import { MarkdownPreview } from '../../../adapters/editor-adapter/markdown-preview';
-import '../../../adapters/editor-adapter/block-input.css';
-import type { ViewPatch, UserIntent } from '../../../adapters/editor-adapter/types';
+import { BlockInput } from '@canopy/editor-adapter/block-input';
+import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
+import '@canopy/editor-adapter/block-input.css';
+import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
 
 // ---------------------------------------------------------------------------
 // Constants

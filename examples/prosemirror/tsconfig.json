@@ -7,21 +7,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "baseUrl": ".",
+    "preserveSymlinks": true,
     "paths": {
-      "@moonbit/canopy": ["../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.d.ts"],
-      "prosemirror-view": ["node_modules/prosemirror-view"],
-      "prosemirror-state": ["node_modules/prosemirror-state"],
-      "prosemirror-model": ["node_modules/prosemirror-model"],
-      "prosemirror-transform": ["node_modules/prosemirror-transform"],
-      "prosemirror-keymap": ["node_modules/prosemirror-keymap"],
-      "prosemirror-commands": ["node_modules/prosemirror-commands"],
-      "@codemirror/state": ["node_modules/@codemirror/state"],
-      "@codemirror/view": ["node_modules/@codemirror/view"],
-      "@codemirror/language": ["node_modules/@codemirror/language"],
-      "@codemirror/commands": ["node_modules/@codemirror/commands"]
+      "@moonbit/canopy": ["../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.d.ts"]
     }
   },
-  "include": ["src", "../../adapters/editor-adapter"],
+  "include": ["src"],
   "exclude": ["node_modules", "../../_build"]
 }

@@ -10,6 +10,7 @@
     "signaling": "node signaling-server.js"
   },
   "dependencies": {
+    "@canopy/editor-adapter": "file:../../adapters/editor-adapter",
     "ws": "^8.20.0"
   },
   "devDependencies": {

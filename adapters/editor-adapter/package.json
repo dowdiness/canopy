@@ -1,0 +1,43 @@
+{
+  "name": "@canopy/editor-adapter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
+  "exports": {
+    ".": "./index.ts",
+    "./adapter": "./adapter.ts",
+    "./types": "./types.ts",
+    "./html-adapter": "./html-adapter.ts",
+    "./cm6-adapter": "./cm6-adapter.ts",
+    "./pm-adapter": "./pm-adapter.ts",
+    "./markdown-preview": "./markdown-preview.ts",
+    "./block-input": "./block-input.ts",
+    "./block-input.css": "./block-input.css",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@codemirror/commands": "^6.10.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.0",
+    "prosemirror-commands": "^1.6.0",
+    "prosemirror-keymap": "^1.2.0",
+    "prosemirror-model": "^1.24.0",
+    "prosemirror-state": "^1.4.0",
+    "prosemirror-transform": "^1.10.0",
+    "prosemirror-view": "^1.37.0"
+  },
+  "peerDependenciesMeta": {
+    "@codemirror/commands": { "optional": true },
+    "@codemirror/language": { "optional": true },
+    "@codemirror/state": { "optional": true },
+    "@codemirror/view": { "optional": true },
+    "prosemirror-commands": { "optional": true },
+    "prosemirror-keymap": { "optional": true },
+    "prosemirror-model": { "optional": true },
+    "prosemirror-state": { "optional": true },
+    "prosemirror-transform": { "optional": true },
+    "prosemirror-view": { "optional": true }
+  }
+}

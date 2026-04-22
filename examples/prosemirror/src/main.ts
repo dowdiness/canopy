@@ -2,8 +2,8 @@
 
 import * as crdt from "@moonbit/canopy";
 import { EditorState as PmState } from "prosemirror-state";
-import { PMAdapter } from "../../../adapters/editor-adapter";
-import type { ViewPatch, ViewNode, UserIntent } from "../../../adapters/editor-adapter";
+import { PMAdapter } from "@canopy/editor-adapter";
+import type { ViewPatch, ViewNode, UserIntent } from "@canopy/editor-adapter";
 import { connectWebSocket } from "./ws-glue";
 import { structuralKeymap } from "./keymap";
 
