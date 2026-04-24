@@ -94,6 +94,13 @@ Read more: [Product Vision](docs/architecture/product-vision.md) · [The Project
 | [core](core/) | ProjNode[T], NodeId, SourceMap, reconciliation |
 | [projection](projection/) | TreeEditorState, interactive tree operations |
 
+**Standalone libraries (published on [mooncakes.io](https://mooncakes.io)):**
+
+| Library | Purpose | Package |
+|---------|---------|---------|
+| [lib/btree](lib/btree/) | Counted B+ tree with O(log n) position-indexed access | [`dowdiness/btree`](https://mooncakes.io/docs/dowdiness/btree) |
+| [rle](rle/) | Run-length encoded sequence with O(log n) lookup | [`dowdiness/rle`](https://mooncakes.io/docs/dowdiness/rle) |
+
 **Language packages:**
 
 | Package | Language |
