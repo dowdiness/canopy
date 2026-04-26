@@ -1,6 +1,6 @@
 # Lambda Typecheck Pipeline Evolution
 
-**Status:** 0/6 shipped
+**Status:** 1/6 shipped (1a only; 1b open)
 
 ## Why
 
@@ -66,9 +66,33 @@ After ranges, **typed wire** is cheap once data is structured. Then **TypecheckI
 
 ### 1. Plumb source ranges into type diagnostics
 
-Add `range : @range.Range` (or equivalent) to `TypeDiagnostic`. Source the range from the `SyntaxNode` that produced the offending `TypedTerm` — the information already exists at `convert_from_cst` time but is dropped. Update the diagnostic JSON wire format to include `{start, end}`. Update web UI to keep current behavior unchanged (range optional in JS for backward compatibility during rollout).
+The naive framing ("just thread positions through") collides with reality: `TypedTerm` has no positions (it's `Var(String) | Lam(String, Type?, TypedTerm) | App(TypedTerm, TypedTerm) | …`). The CST has positions; `convert_from_cst` drops them. `infer` runs after convert, so `DiagCtx` can't see CST positions without help. Three design options surfaced:
 
-**Exit:** every type diagnostic carries a non-`None` source range; web UI clicks the pane entry → editor scrolls to and selects the range.
+- **A. `Located<T>` envelope around `TypedTerm`.** Cleanest semantics; ranges first-class on the typed AST. Invasive — every match site rewrites.
+- **B. Side-table `Map[NodeId, Range]` keyed by `id : Int` on `TypedTerm`.** Needs a new field on every `TypedTerm` variant. Less invasive than A but still touches every constructor.
+- **C. Thread the *enclosing def's* range through `DiagCtx`.** Convert tags each `DefEntry` with its CST range, infer reads it from context on `emit`. Only ~80 lines, single package. Sub-expression precision lost — diagnostics point at the def, not the subterm.
+
+**Decision:** ship C now, plan A later. C unblocks click-to-locate-by-def (already what the existing `def_name` UI implies), and most diagnostics are def-shaped anyway (`unbound variable`, `missing annotation`, `duplicate def`). A is the long-term ideal — preserves sub-expression precision needed for inline squigglies and precise hover errors. When A lands, C's `current_def_range` becomes redundant and is removed.
+
+Split into two commits:
+
+**1a. Structural wedge.** Reuse the existing `@core.Range` from `loom/loom/src/core/range.mbt` (mature API: `contains`, `overlaps`, `merge`, `length`, `Eq`, `Hash`, `Compare`, `Show`). Add `range : @core.Range?` to `TypeDiagnostic`. Add `dowdiness/loom/core @core` to `typecheck/moon.pkg`. Update the 4 construction sites to pass `range: None`. **Do not** introduce a fourth local Range — `@core.Range`, `@text.Range` (egw), and the implicit positions in seam are already 3 too many; the `lib/range` unification (canopy TODO §3) will lift this; depending on `@core` from typecheck is the honest reflection of where Range lives today. **Exit:** `TypeDiagnostic.range` field exists end-to-end; `moon check && moon test` green; web UI unaffected (still ignores the field).
+
+**1b. Populate def-level ranges.** Extend `DefEntry` with `range : Range`. Update `cst_convert` to capture the def's `SyntaxNode` range. Add `current_def_range : Range?` to `DiagCtx`, set per-def in the typecheck pipeline. Update `emit` to read from context.
+
+**Codex-flagged pitfalls (do not skip):**
+- **Duplicate-definition diagnostics bypass `emit()`.** They're synthesized inline in `typecheck.mbt`'s `rebuild_chain` (line ~235). `DiagCtx` threading alone won't populate their range — handle them separately by tagging with the offending def's range at the construction site.
+- **Nested `Module` nodes reuse the parent `ctx`.** In `infer_impl` (line ~160), block-local `let`s inside a top-level def will inherit the *outer* def's range. Either tighten `current_def_range` on every `Module` recursion (preferred) or document that 1b's granularity is "outermost enclosing def" with nested-def precision deferred to 1c.
+
+**Exit:** every type diagnostic raised inside a named def carries that def's range; duplicate-def diagnostics carry the offending def's range; web UI click on a diag entry scrolls editor to the def.
+
+**Step exit (1 overall):** click-to-locate works at def granularity in the lambda editor. Sub-expression precision is tracked as a separate plan (option A: `Located<T>` envelope) and not in scope here.
+
+### 1c (future, separate plan). `Located<T>` envelope on `TypedTerm`
+
+Wrap every `TypedTerm` recursion site in a `Located[TypedTerm]` carrying a source range. Threading is invasive but the result is principled: ranges are properties of the typed AST, not a side-channel. Inline squigglies and per-subterm hover errors require this. Open as a fresh plan when step 4 (subscription) and step 5 (per-def memos) are done — the cost-benefit shifts once the surrounding pipeline is mature.
+
+**Codex-flagged design risk:** if the wrapper makes range part of `TypedTerm` structural `Eq`, harmless source-position shifts (e.g. an edit earlier in the file shifts every later byte by +1) will invalidate every downstream memo even when term *structure* is unchanged. Fix by either (a) deriving a custom `Eq` that ignores the range, (b) using a `Located<T>` whose `Eq` impl delegates only to `T`, or (c) keeping ranges in a side-table keyed by node identity rather than embedded in the term. Decide before invasive threading begins.
 
 ### 2. Lift diagnostic wire format to a typed protocol
 
@@ -102,7 +126,8 @@ Move the attachment abstraction from `loom/examples/lambda/src/typed_parser.mbt`
 
 ## Acceptance Criteria
 
-- [ ] Step 1: type diagnostics carry source ranges; web UI click-to-locate works.
+- [x] Step 1a: `TypeDiagnostic.range : @core.Range?` field exists; all construction sites updated; `moon check && moon test` green in loom (556 tests). Shipped as loom PR #99, merged 2026-04-26 (`36745f8`).
+- [ ] Step 1b: every type diagnostic inside a named def carries that def's range; web UI click-to-locate works at def granularity.
 - [ ] Step 2: typed diagnostic protocol with generated bindings; no JSON-string round-trip.
 - [ ] Step 3: hover shows types in lambda editor; FFI exposes `query_type_at_offset`.
 - [ ] Step 4: diagnostic pane updates are subscription-driven; no rAF polling for unchanged data.
