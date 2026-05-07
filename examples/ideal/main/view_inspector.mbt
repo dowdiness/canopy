@@ -98,9 +98,9 @@ fn view_node_details(
     items.push(inspector_row("Range", "\{range_start}..\{range_end}"))
     let clamped_end = range_end.min(source_len)
     if clamped_end > range_start {
-      let slice = source[range_start:clamped_end].to_string()
+      let slice = source[range_start:clamped_end].to_owned()
       let preview = if slice.length() > 120 {
-        slice[0:120].to_string() + "\u{2026}"
+        slice[0:120].to_owned() + "\u{2026}"
       } else {
         slice
       }
@@ -115,7 +115,7 @@ fn view_node_details(
       let span_start = span_range.start
       let span_end = span_range.end.min(source_len)
       let span_text = if span_end > span_start {
-        "\"" + source[span_start:span_end].to_string() + "\""
+        "\"" + source[span_start:span_end].to_owned() + "\""
       } else {
         ""
       }

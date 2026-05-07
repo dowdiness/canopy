@@ -39,8 +39,7 @@ fn compute_duplicate_binding(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  // Extract binding text and create copy with _copy suffix on name
-  let binding_text = source_text[let_start:binding_end].to_string()
+  // Create copy with _copy suffix on name
   let new_name = def.0 + "_copy"
   let init_text = @ast.print_term(def.1.kind)
   let new_binding = "let " + new_name + " = " + init_text
@@ -51,7 +50,6 @@ fn compute_duplicate_binding(
   } else {
     binding_end
   }
-  let _ = binding_text
   let insert_text = if insert_pos == binding_end {
     // No trailing newline — add one before the new binding
     "\n" + new_binding
@@ -110,10 +108,10 @@ fn compute_move_binding_up(
     Err(e) => return Err(e)
   }
   // Swap the two binding lines by replacing the combined range
-  let prev_text = source_text[prev_start:prev_end].to_string()
-  let cur_text = source_text[cur_start:cur_end].to_string()
+  let prev_text = source_text[prev_start:prev_end].to_owned()
+  let cur_text = source_text[cur_start:cur_end].to_owned()
   // The separator between bindings (typically "\n")
-  let separator = source_text[prev_end:cur_start].to_string()
+  let separator = source_text[prev_end:cur_start].to_owned()
   let swapped = cur_text + separator + prev_text
   Ok(
     Some(
@@ -173,9 +171,9 @@ fn compute_move_binding_down(
     Err(e) => return Err(e)
   }
   // Swap the two binding lines by replacing the combined range
-  let cur_text = source_text[cur_start:cur_end].to_string()
-  let next_text = source_text[next_start:next_end].to_string()
-  let separator = source_text[cur_end:next_start].to_string()
+  let cur_text = source_text[cur_start:cur_end].to_owned()
+  let next_text = source_text[next_start:next_end].to_owned()
+  let separator = source_text[cur_end:next_start].to_owned()
   let swapped = next_text + separator + cur_text
   Ok(
     Some(

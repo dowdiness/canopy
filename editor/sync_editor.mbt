@@ -26,6 +26,11 @@ pub struct SyncEditor[T] {
   priv mut on_status_change : ((SyncStatus) -> Unit)?
   priv mut watchdog_scheduler : ((Int, Int) -> Unit)?
   priv mut watchdog_timeout_ms : Int
+  // Process-local construction identity. Two `SyncEditor` instances
+  // constructed separately have different identities; the same instance
+  // always returns the same value. Used as a cache key in history-view
+  // memoization (see `editor/sync_editor_history.mbt`).
+  priv identity : Int
 }
 
 ///|
@@ -67,6 +72,7 @@ pub fn[T] SyncEditor::new_generic(
     on_status_change: None,
     watchdog_scheduler: None,
     watchdog_timeout_ms: DEFAULT_WATCHDOG_MS,
+    identity: next_editor_identity(),
   }
 }
 

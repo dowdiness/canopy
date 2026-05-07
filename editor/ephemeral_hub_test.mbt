@@ -2,7 +2,7 @@
 test "hub: set and get edit mode" {
   let hub = EphemeralHub::new("alice")
   hub.set_edit_mode("node-1")
-  inspect(
+  @debug.debug_inspect(
     hub.get_edit_mode("alice"),
     content=(
       #|Some({ node_id: "node-1" })
@@ -15,7 +15,7 @@ test "hub: clear edit mode" {
   let hub = EphemeralHub::new("alice")
   hub.set_edit_mode("node-1")
   hub.clear_edit_mode()
-  inspect(hub.get_edit_mode("alice"), content="None")
+  @debug.debug_inspect(hub.get_edit_mode("alice"), content="None")
 }
 
 ///|
@@ -25,7 +25,7 @@ test "hub: set and get cursor" {
   match hub.get_cursor("alice") {
     Some((pos, sel)) => {
       inspect(pos, content="42")
-      inspect(sel, content="Some((10, 20))")
+      @debug.debug_inspect(sel, content="Some((10, 20))")
     }
     None => fail("expected cursor")
   }
@@ -47,9 +47,9 @@ test "hub: on_peer_leave clears all namespaces" {
   hub.set_edit_mode("node-1")
   hub.set_presence("Alice", "#ff0000", Active)
   hub.on_peer_leave("alice")
-  inspect(hub.get_edit_mode("alice"), content="None")
+  @debug.debug_inspect(hub.get_edit_mode("alice"), content="None")
   inspect(hub.get_online_peers().length(), content="0")
-  inspect(hub.get_cursor("alice"), content="None")
+  @debug.debug_inspect(hub.get_cursor("alice"), content="None")
 }
 
 ///|
@@ -60,7 +60,7 @@ test "hub: encode_all and apply_all roundtrip" {
   let bytes = hub_a.encode_all()
   let hub_b = EphemeralHub::new("bob")
   hub_b.apply_all(bytes)
-  inspect(
+  @debug.debug_inspect(
     hub_b.get_edit_mode("alice"),
     content=(
       #|Some({ node_id: "node-5" })
@@ -75,7 +75,7 @@ test "hub: per-namespace encode/apply" {
   let bytes = hub_a.encode(EditMode)
   let hub_b = EphemeralHub::new("bob")
   hub_b.apply(EditMode, bytes)
-  inspect(
+  @debug.debug_inspect(
     hub_b.get_edit_mode("alice"),
     content=(
       #|Some({ node_id: "node-3" })

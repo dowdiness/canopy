@@ -36,7 +36,7 @@ test "apply_text_transform wraps node in lambda" {
   }
   let result = editor.apply_text_transform(
     root.id(),
-    fn(src, s, e) { Ok("(λy. " + src[s:e].to_string() + ")") },
+    fn(src, s, e) { Ok("(λy. " + src[s:e].to_owned() + ")") },
     0,
   )
   inspect(result is Ok(_), content="true")
@@ -149,13 +149,13 @@ test "move_node exchange (Inside) swaps two expressions" {
   let sm = editor.get_source_map()
   let r0 = sm.get_range(child0.id())
   let r1 = sm.get_range(child1.id())
-  inspect(
+  @debug.debug_inspect(
     r0,
     content=(
       #|Some({ start: 0, end: 1 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     r1,
     content=(
       #|Some({ start: 1, end: 3 })
@@ -215,13 +215,13 @@ test "move_node exchange: variable and number in application" {
   let sm = editor.get_source_map()
   let r0 = sm.get_range(var_f.id())
   let r1 = sm.get_range(int_42.id())
-  inspect(
+  @debug.debug_inspect(
     r0,
     content=(
       #|Some({ start: 0, end: 1 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     r1,
     content=(
       #|Some({ start: 1, end: 4 })
@@ -252,13 +252,13 @@ test "move_node exchange: number and lambda body" {
   let sm = editor.get_source_map()
   let r0 = sm.get_range(lam.id())
   let r1 = sm.get_range(int_1.id())
-  inspect(
+  @debug.debug_inspect(
     r0,
     content=(
       #|Some({ start: 0, end: 8 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     r1,
     content=(
       #|Some({ start: 8, end: 10 })
@@ -300,13 +300,13 @@ test "move_node exchange: int with var in real editor text" {
   let var_id = inner_app.children[1] // Var("id")
   // Show ranges
   let sm = editor.get_source_map()
-  inspect(
+  @debug.debug_inspect(
     sm.get_range(var_id.id()),
     content=(
       #|Some({ start: 52, end: 55 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     sm.get_range(int_42.id()),
     content=(
       #|Some({ start: 55, end: 58 })

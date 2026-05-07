@@ -47,23 +47,23 @@ test "reader: empty buffer raises" {
 
 ///|
 test "peer ID: numeric preserved" {
-  inspect(parse_peer_id("123"), content="Some(123)")
-  inspect(parse_peer_id("0"), content="Some(0)")
-  inspect(parse_peer_id("999999999"), content="Some(999999999)")
+  @debug.debug_inspect(parse_peer_id("123"), content="Some(123)")
+  @debug.debug_inspect(parse_peer_id("0"), content="Some(0)")
+  @debug.debug_inspect(parse_peer_id("999999999"), content="Some(999999999)")
 }
 
 ///|
 test "peer ID: leading zero rejected" {
   // "01" has a leading zero with length > 1, so it should be rejected
-  inspect(parse_peer_id("01"), content="None")
-  inspect(parse_peer_id("007"), content="None")
+  @debug.debug_inspect(parse_peer_id("01"), content="None")
+  @debug.debug_inspect(parse_peer_id("007"), content="None")
 }
 
 ///|
 test "peer ID: empty and non-numeric rejected" {
-  inspect(parse_peer_id(""), content="None")
-  inspect(parse_peer_id("abc"), content="None")
-  inspect(parse_peer_id("12a"), content="None")
+  @debug.debug_inspect(parse_peer_id(""), content="None")
+  @debug.debug_inspect(parse_peer_id("abc"), content="None")
+  @debug.debug_inspect(parse_peer_id("12a"), content="None")
 }
 
 ///|
@@ -206,8 +206,8 @@ test "encode_entries/decode_entries roundtrip" {
   inspect(decoded[0].0, content="1")
   inspect(decoded[1].0, content="2")
   // Values are preserved
-  inspect(decoded[0].1.value, content="Some(I64(42))")
-  inspect(decoded[1].1.value, content="Some(String(\"hello\"))")
+  @debug.debug_inspect(decoded[0].1.value, content="Some(I64(42))")
+  @debug.debug_inspect(decoded[1].1.value, content="Some(String(\"hello\"))")
   // Clocks are preserved
   inspect(decoded[0].1.clock, content="3")
   inspect(decoded[1].1.clock, content="5")
@@ -230,7 +230,7 @@ test "encode_entries/decode_entries: None value becomes Null" {
   let decoded = try! decode_entries(bytes)
   inspect(decoded.length(), content="1")
   // Null round-trips back to None via decode_entries
-  inspect(decoded[0].1.value, content="None")
+  @debug.debug_inspect(decoded[0].1.value, content="None")
 }
 
 ///|

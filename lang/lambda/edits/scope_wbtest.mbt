@@ -97,5 +97,5 @@ test "find_binding_for_init: returns None for non-init node" {
   let fp = FlatProj::from_proj_node(proj)
   // Body node is not an init expression
   let body = proj.children[proj.children.length() - 1]
-  inspect(find_binding_for_init(body.id(), fp), content="None")
+  inspect(find_binding_for_init(body.id(), fp) is None, content="true")
 }

@@ -8,7 +8,7 @@ test "round-trip: new_markdown_editor + apply_markdown_edit" {
   let ed = new_markdown_editor("test")
   ed.set_text("# Hello\n\nWorld\n")
   // Force a reparse/projection cycle
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   // Apply heading level change
   let proj = ed.get_proj_node().unwrap()
@@ -26,7 +26,7 @@ test "round-trip: new_markdown_editor + apply_markdown_edit" {
 test "split_block: middle of paragraph" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello World\n")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   let proj = ed.get_proj_node().unwrap()
   let para_id = proj.children[0].id()
@@ -46,7 +46,7 @@ test "split_block: middle of paragraph" {
 test "split_block: offset 0 inserts before" {
   let ed = new_markdown_editor("test")
   ed.set_text("# Title\n")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   let proj = ed.get_proj_node().unwrap()
   let heading_id = proj.children[0].id()
@@ -64,7 +64,7 @@ test "split_block: offset 0 inserts before" {
 test "split_block: end of block inserts after" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello\n")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   let proj = ed.get_proj_node().unwrap()
   let para_id = proj.children[0].id()
@@ -82,7 +82,7 @@ test "insert_block_after: ZWSP present in raw text, absent in export" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello\n")
   // Force projection cycle
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   let proj = ed.get_proj_node().unwrap()
   let para_id = proj.children[0].id()
@@ -113,7 +113,7 @@ test "export preserves legitimate ZWSP in user content" {
 test "merge cleans up ZWSP from empty block" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello\n")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
   // Insert an empty block after "Hello"
   let proj = ed.get_proj_node().unwrap()

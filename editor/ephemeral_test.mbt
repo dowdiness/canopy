@@ -2,8 +2,8 @@
 test "set and get" {
   let store = @editor.EphemeralStore::new(60000UL)
   store.set("1", @editor.EphemeralValue::I64(42L))
-  inspect(store.get("1"), content="Some(I64(42))")
-  inspect(store.get("2"), content="None")
+  @debug.debug_inspect(store.get("1"), content="Some(I64(42))")
+  @debug.debug_inspect(store.get("2"), content="None")
 }
 
 ///|
@@ -11,7 +11,7 @@ test "delete removes value" {
   let store = @editor.EphemeralStore::new(60000UL)
   store.set("1", @editor.EphemeralValue::I64(42L))
   store.delete("1")
-  inspect(store.get("1"), content="None")
+  @debug.debug_inspect(store.get("1"), content="None")
 }
 
 ///|
@@ -22,7 +22,7 @@ test "get_all_states excludes deleted" {
   store.delete("1")
   let states = store.get_all_states()
   inspect(states.length(), content="1")
-  inspect(states.get("2"), content="Some(I64(2))")
+  @debug.debug_inspect(states.get("2"), content="Some(I64(2))")
 }
 
 ///|
@@ -39,7 +39,7 @@ test "set Null acts as delete" {
   let store = @editor.EphemeralStore::new(60000UL)
   store.set("1", @editor.EphemeralValue::I64(42L))
   store.set("1", @editor.EphemeralValue::Null)
-  inspect(store.get("1"), content="None")
+  @debug.debug_inspect(store.get("1"), content="None")
 }
 
 ///|
@@ -117,12 +117,12 @@ test "encode/decode roundtrip all value types" {
   let bytes = store.encode_all()
   let store2 = @editor.EphemeralStore::new(60000UL)
   store2.apply(bytes)
-  inspect(store2.get("1"), content="Some(Bool(true))")
-  inspect(store2.get("2"), content="Some(I64(-999))")
-  inspect(store2.get("3"), content="Some(F64(3.14))")
-  inspect(store2.get("4"), content="Some(String(\"hello\"))")
-  inspect(store2.get("5"), content="Some(List([I64(1), I64(2)]))")
-  inspect(
+  @debug.debug_inspect(store2.get("1"), content="Some(Bool(true))")
+  @debug.debug_inspect(store2.get("2"), content="Some(I64(-999))")
+  @debug.debug_inspect(store2.get("3"), content="Some(F64(3.14))")
+  @debug.debug_inspect(store2.get("4"), content="Some(String(\"hello\"))")
+  @debug.debug_inspect(store2.get("5"), content="Some(List([I64(1), I64(2)]))")
+  @debug.debug_inspect(
     store2.get("6"),
     content=(
       #|Some(Bytes(<Bytes: [0x01, 0x02, 0x03]>))
@@ -181,7 +181,7 @@ test "peer IDs must be canonical decimal strings" {
   }
   store.set("0", @editor.EphemeralValue::I64(7L))
   inspect(rejected, content="[true, true, true]")
-  inspect(store.get("0"), content="Some(I64(7))")
+  @debug.debug_inspect(store.get("0"), content="Some(I64(7))")
 }
 
 ///|
@@ -198,7 +198,7 @@ test "subscribe_local_updates receives bytes and can apply to another store" {
   // Verify the bytes can be applied to another store
   let store2 = @editor.EphemeralStore::new(60000UL)
   store2.apply(received_bytes.val)
-  inspect(store2.get("123"), content="Some(I64(42))")
+  @debug.debug_inspect(store2.get("123"), content="Some(I64(42))")
 }
 
 ///|

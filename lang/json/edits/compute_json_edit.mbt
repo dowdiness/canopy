@@ -320,7 +320,7 @@ fn compute_wrap_in_array(
     Some(r) => r
     None => return Err("node not found in source map")
   }
-  let existing = source[range.start:range.end].to_string()
+  let existing = source[range.start:range.end].to_owned()
   let wrapped = "[" + existing + "]"
   let edit = SpanEdit::{
     start: range.start,
@@ -348,7 +348,7 @@ fn compute_wrap_in_object(
     None => return Err("node not found in source map")
   }
   let escaped = json_escape_key(key)
-  let existing = source[range.start:range.end].to_string()
+  let existing = source[range.start:range.end].to_owned()
   let wrapped = "{\"" + escaped + "\": " + existing + "}"
   let edit = SpanEdit::{
     start: range.start,
@@ -396,7 +396,7 @@ fn compute_unwrap(
     None => return Err("child node not found in source map")
   }
   // Extract the child's text and replace the whole container
-  let child_text = source[child_range.start:child_range.end].to_string()
+  let child_text = source[child_range.start:child_range.end].to_owned()
   let edit = SpanEdit::{
     start: range.start,
     delete_len: range.end - range.start,

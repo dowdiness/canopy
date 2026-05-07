@@ -69,15 +69,15 @@ fn compute_change_heading_level(
     None => return Err("node not found in source map")
   }
   let content = match source_map.get_token_span(node_id, "text") {
-    Some(text_range) => source[text_range.start:text_range.end].to_string()
+    Some(text_range) => source[text_range.start:text_range.end].to_owned()
     None => {
       // No text span — content is the whole block minus trailing newline
-      let block_text = source[range.start:range.end].to_string()
+      let block_text = source[range.start:range.end].to_owned()
       let mut end = block_text.length()
       if end > 0 && block_text[end - 1] == '\n' {
         end = end - 1
       }
-      block_text[:end].to_string()
+      block_text[:end].to_owned()
     }
   }
   let clamped = level.max(0).min(6)
@@ -118,8 +118,8 @@ fn compute_toggle_list_item(
     None => return Err("node not found in source map")
   }
   let content = match source_map.get_token_span(node_id, "text") {
-    Some(text_range) => source[text_range.start:text_range.end].to_string()
-    None => source[range.start:range.end].to_string()
+    Some(text_range) => source[text_range.start:text_range.end].to_owned()
+    None => source[range.start:range.end].to_owned()
   }
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
     Some(node) => node.kind is @markdown.ListItem(_)
@@ -248,10 +248,10 @@ fn compute_split_block(
   }
   let separator = if is_list_item { "\n- " } else { "\n\n" }
   // Delete from split point to end of block, then insert separator + rest
-  let rest = source[split_pos:range.end].to_string()
+  let rest = source[split_pos:range.end].to_owned()
   // Trim trailing newline from rest if present
   let trimmed_rest = if rest.length() > 0 && rest[rest.length() - 1] == '\n' {
-    rest[:rest.length() - 1].to_string()
+    rest[:rest.length() - 1].to_owned()
   } else {
     rest
   }
@@ -295,7 +295,7 @@ fn compute_merge_with_previous(
     None => return Err("current node not in source map")
   }
   let curr_text = match source_map.get_token_span(node_id, "text") {
-    Some(r) => source[r.start:r.end].to_string()
+    Some(r) => source[r.start:r.end].to_owned()
     None => ""
   }
   // End of previous block's text content — merge point

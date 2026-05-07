@@ -101,44 +101,44 @@ test "init_root creates single-element tree" {
 ///|
 test "get_at on single element" {
   let t = build_tree([(1, 3)])
-  inspect(
+  @debug.debug_inspect(
     t.get_at(0),
     content=(
       #|Some({ id: 1, span: 3 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     t.get_at(1),
     content=(
       #|Some({ id: 1, span: 3 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     t.get_at(2),
     content=(
       #|Some({ id: 1, span: 3 })
     ),
   )
-  inspect(t.get_at(3), content="None")
-  inspect(t.get_at(-1), content="None")
+  inspect(t.get_at(3) is None, content="true")
+  inspect(t.get_at(-1) is None, content="true")
 }
 
 ///|
 test "find returns offset within element" {
   let t = build_tree([(1, 5)])
-  inspect(
+  @debug.debug_inspect(
     t.find(0),
     content=(
       #|Some({ elem: { id: 1, span: 5 }, offset: 0 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     t.find(3),
     content=(
       #|Some({ elem: { id: 1, span: 5 }, offset: 3 })
     ),
   )
-  inspect(t.find(5), content="None")
+  inspect(t.find(5) is None, content="true")
 }
 
 // === Insert ===
@@ -148,19 +148,19 @@ test "insert multiple elements" {
   let t = build_tree([(1, 3), (2, 2), (3, 4)])
   inspect(t.size(), content="3")
   inspect(t.span(), content="9")
-  inspect(
+  @debug.debug_inspect(
     t.get_at(0),
     content=(
       #|Some({ id: 1, span: 3 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     t.get_at(3),
     content=(
       #|Some({ id: 2, span: 2 })
     ),
   )
-  inspect(
+  @debug.debug_inspect(
     t.get_at(5),
     content=(
       #|Some({ id: 3, span: 4 })
@@ -191,7 +191,7 @@ test "delete single element empties tree" {
       ctx.elem,
     )
   })
-  inspect(
+  @debug.debug_inspect(
     deleted,
     content=(
       #|Some({ id: 1, span: 3 })
@@ -206,7 +206,7 @@ test "delete on empty returns None" {
   let result : Unit? = t.mutate_for_delete(0, fn(_ctx) {
     abort("should not be called")
   })
-  inspect(result, content="None")
+  inspect(result is None, content="true")
 }
 
 ///|
@@ -817,8 +817,8 @@ test "LeafContext neighbors return adjacent siblings" {
   // Middle leaf at position 3
   let cursor = descend(root, 3, 2, prepare_noop, find_slot, false).unwrap()
   let ctx = LeafContext::from_cursor(cursor)
-  inspect(ctx.left_neighbor(), content="Some({ id: 1, span: 3 })")
-  inspect(ctx.right_neighbor(), content="Some({ id: 3, span: 4 })")
+  @debug.debug_inspect(ctx.left_neighbor(), content="Some({ id: 1, span: 3 })")
+  @debug.debug_inspect(ctx.right_neighbor(), content="Some({ id: 3, span: 4 })")
 }
 
 ///|
@@ -835,11 +835,17 @@ test "LeafContext boundary neighbors are None" {
   let left_cursor = descend(root, 0, 2, prepare_noop, find_slot, false).unwrap()
   let left_ctx = LeafContext::from_cursor(left_cursor)
   inspect(left_ctx.left_neighbor() is None, content="true")
-  inspect(left_ctx.right_neighbor(), content="Some({ id: 2, span: 2 })")
+  @debug.debug_inspect(
+    left_ctx.right_neighbor(),
+    content="Some({ id: 2, span: 2 })",
+  )
   // Last leaf — no right neighbor
   let right_cursor = descend(root, 3, 2, prepare_noop, find_slot, false).unwrap()
   let right_ctx = LeafContext::from_cursor(right_cursor)
-  inspect(right_ctx.left_neighbor(), content="Some({ id: 1, span: 3 })")
+  @debug.debug_inspect(
+    right_ctx.left_neighbor(),
+    content="Some({ id: 1, span: 3 })",
+  )
   inspect(right_ctx.right_neighbor() is None, content="true")
 }
 
@@ -1961,7 +1967,7 @@ test "from_sorted single element" {
   inspect(t.is_empty(), content="false")
   inspect(t.size(), content="1")
   inspect(t.span(), content="5")
-  inspect(t.get_at(0), content="Some({ id: 1, span: 5 })")
+  @debug.debug_inspect(t.get_at(0), content="Some({ id: 1, span: 5 })")
   inspect(btree_invariants_hold(t), content="true")
 }
 

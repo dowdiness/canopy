@@ -56,12 +56,10 @@ pub impl Show for Role with output(self, logger) {
 pub(all) struct Message {
   role : Role
   content : String
-
-  fn new(role~ : Role, content~ : String) -> Message
 } derive(Debug, Eq)
 
 ///|
-pub fn Message::new(role~ : Role, content~ : String) -> Message {
+pub fn Message::Message(role~ : Role, content~ : String) -> Message {
   { role, content }
 }
 
@@ -71,17 +69,10 @@ pub(all) struct GeminiConfig {
   model : String
   temperature : Double
   max_output_tokens : Int
-
-  fn new(
-    api_key~ : String,
-    model? : String,
-    temperature? : Double,
-    max_output_tokens? : Int,
-  ) -> GeminiConfig
 } derive(Debug)
 
 ///|
-pub fn GeminiConfig::new(
+pub fn GeminiConfig::GeminiConfig(
   api_key~ : String,
   model? : String = "gemini-2.5-flash",
   temperature? : Double = 0.2,

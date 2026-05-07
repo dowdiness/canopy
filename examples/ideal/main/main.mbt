@@ -16,7 +16,7 @@ fn parse_node_id(s : String) -> @canopy_core.NodeId? {
 /// Returns (action_id, "") when there is no colon.
 fn split_action_id(action_id : String) -> (String, String) {
   match action_id.find(":") {
-    Some(i) => (action_id[0:i].to_string(), action_id[i + 1:].to_string())
+    Some(i) => (action_id[0:i].to_owned(), action_id[i + 1:].to_owned())
     None => (action_id, "")
   }
 }
@@ -757,7 +757,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, overlay, })
     }
     NamePromptSubmit => {
-      let name = model.overlay.name_value.trim().to_string()
+      let name = model.overlay.name_value.trim().to_owned()
       if name == "" {
         let overlay = {
           ..model.overlay,

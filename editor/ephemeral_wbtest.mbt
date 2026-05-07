@@ -72,7 +72,7 @@ test "LWW: higher clock wins" {
   buf.write_byte(b'\x03')
   write_ivarint(buf, 99L)
   store.apply(buf.to_bytes())
-  inspect(store.get("1"), content="Some(I64(99))")
+  @debug.debug_inspect(store.get("1"), content="Some(I64(99))")
 }
 
 ///|
@@ -88,7 +88,7 @@ test "LWW: lower clock is discarded" {
   buf.write_byte(b'\x03')
   write_ivarint(buf, 99L)
   store.apply(buf.to_bytes())
-  inspect(store.get("1"), content="Some(I64(3))")
+  @debug.debug_inspect(store.get("1"), content="Some(I64(3))")
 }
 
 ///|
@@ -99,8 +99,8 @@ test "remove_outdated_at removes expired entries" {
   set_updated_at(store, "1", 0UL)
   set_updated_at(store, "2", 1500UL)
   store.remove_outdated_at(2000UL)
-  inspect(store.get("1"), content="None")
-  inspect(store.get("2"), content="Some(I64(99))")
+  @debug.debug_inspect(store.get("1"), content="None")
+  @debug.debug_inspect(store.get("2"), content="Some(I64(99))")
 }
 
 ///|
@@ -144,7 +144,7 @@ test "timeout_ms=0 disables expiry" {
   store.set("1", EphemeralValue::I64(42L))
   set_updated_at(store, "1", 0UL)
   store.remove_outdated_at(999999999UL)
-  inspect(store.get("1"), content="Some(I64(42))")
+  @debug.debug_inspect(store.get("1"), content="Some(I64(42))")
 }
 
 ///|
@@ -153,7 +153,7 @@ test "remove_outdated_at expires old entries with explicit clock" {
   store.set("1", EphemeralValue::I64(42L))
   set_updated_at(store, "1", 1UL)
   store.remove_outdated_at(100UL)
-  inspect(store.get("1"), content="None")
+  @debug.debug_inspect(store.get("1"), content="None")
 }
 
 ///|
@@ -175,8 +175,8 @@ test "encode_entries and apply roundtrip" {
   ])
   let store2 = EphemeralStore::new(1000UL)
   store2.apply(bytes)
-  inspect(store2.get("1"), content="Some(I64(42))")
-  inspect(store2.get("2"), content="Some(I64(99))")
+  @debug.debug_inspect(store2.get("1"), content="Some(I64(42))")
+  @debug.debug_inspect(store2.get("2"), content="Some(I64(99))")
 }
 
 ///|
@@ -197,7 +197,7 @@ test "encode_entries keeps non-numeric keys by hashing them" {
   ])
   let decoded = decode_entries(bytes)
   inspect(decoded.length(), content="1")
-  inspect(decoded[0].1.value, content="Some(I64(42))")
+  @debug.debug_inspect(decoded[0].1.value, content="Some(I64(42))")
   let peer = parse_peer_id(decoded[0].0).unwrap()
   inspect((peer & hashed_peer_mask) != 0UL, content="true")
 }

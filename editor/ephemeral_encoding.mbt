@@ -24,7 +24,7 @@ fn Reader::read_bytes(self : Reader, n : Int) -> Bytes raise EphemeralError {
   if self.pos + n > self.data.length() {
     raise EphemeralError::UnexpectedEndOfInput
   }
-  let out = self.data.view(start=self.pos, end=self.pos + n).to_bytes()
+  let out = self.data.view(start=self.pos, end=self.pos + n).to_owned()
   self.pos += n
   out
 }

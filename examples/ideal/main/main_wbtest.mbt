@@ -42,6 +42,6 @@ test "parse_node_id valid" {
 
 ///|
 test "parse_node_id invalid returns None" {
-  inspect(parse_node_id("abc"), content="None")
-  inspect(parse_node_id(""), content="None")
+  inspect(parse_node_id("abc") is None, content="true")
+  inspect(parse_node_id("") is None, content="true")
 }

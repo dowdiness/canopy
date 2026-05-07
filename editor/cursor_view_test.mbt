@@ -57,13 +57,13 @@ test "PeerCursorView: set and get cursor" {
   inspect(cursor.adjusted_cursor, content="10")
   inspect(cursor.display_name, content="Alice")
   inspect(cursor.color, content="#ff0000")
-  inspect(cursor.selection, content="None")
+  @debug.debug_inspect(cursor.selection, content="None")
 }
 
 ///|
 test "PeerCursorView: get_cursor returns None for unknown peer" {
   let view = @editor.PeerCursorView::new()
-  inspect(view.get_cursor("unknown"), content="None")
+  @debug.debug_inspect(view.get_cursor("unknown"), content="None")
 }
 
 ///|
@@ -104,7 +104,7 @@ test "PeerCursorView: remove peer" {
   let view = @editor.PeerCursorView::new()
   view.set_cursor("peer1", 10, "Alice", "#ff0000")
   view.remove("peer1")
-  inspect(view.get_cursor("peer1"), content="None")
+  @debug.debug_inspect(view.get_cursor("peer1"), content="None")
 }
 
 ///|
@@ -122,11 +122,11 @@ test "PeerCursorView: selection adjustment on edit" {
   // Set cursor with a selection spanning positions 5..10
   view.set_cursor("peer1", 5, "Alice", "#ff0000", selection=Some((5, 10)))
   let c = view.get_cursor("peer1").unwrap()
-  inspect(c.selection, content="Some((5, 10))")
+  @debug.debug_inspect(c.selection, content="Some((5, 10))")
   // Insert 3 chars at position 2 (before selection) — both ends shift by +3
   view.adjust_for_edit(2, 0, 3)
   let c2 = view.get_cursor("peer1").unwrap()
-  inspect(c2.selection, content="Some((8, 13))")
+  @debug.debug_inspect(c2.selection, content="Some((8, 13))")
   inspect(c2.adjusted_cursor, content="8")
 }
 
@@ -147,7 +147,7 @@ test "PeerCursorView: apply_raw_update extracts cursor from Map" {
   inspect(c.raw_cursor, content="7")
   inspect(c.display_name, content="Bob")
   inspect(c.color, content="#00ff00")
-  inspect(c.selection, content="Some((3, 10))")
+  @debug.debug_inspect(c.selection, content="Some((3, 10))")
 }
 
 ///|
@@ -160,17 +160,17 @@ test "PeerCursorView: apply_raw_update honors logical peer_id and remove uses wi
     "color": @editor.EphemeralValue::String("#00ff00"),
   })
   view.apply_raw_update("123", value)
-  inspect(view.get_cursor("123"), content="None")
+  @debug.debug_inspect(view.get_cursor("123"), content="None")
   inspect(view.get_cursor("web-user").unwrap().display_name, content="Bob")
   view.remove("123")
-  inspect(view.get_cursor("web-user"), content="None")
+  @debug.debug_inspect(view.get_cursor("web-user"), content="None")
 }
 
 ///|
 test "PeerCursorView: apply_raw_update ignores non-Map values" {
   let view = @editor.PeerCursorView::new()
   view.apply_raw_update("peer1", @editor.EphemeralValue::I64(42L))
-  inspect(view.get_cursor("peer1"), content="None")
+  @debug.debug_inspect(view.get_cursor("peer1"), content="None")
 }
 
 ///|
@@ -195,7 +195,7 @@ test "PeerCursorView: from_store skips local peer" {
   // Build view excluding local peer "1"
   let view = @editor.PeerCursorView::from_store(store, "1")
   // Local peer "1" should be excluded
-  inspect(view.get_cursor("1"), content="None")
+  @debug.debug_inspect(view.get_cursor("1"), content="None")
   // Remote peer "2" should be included
   let c = view.get_cursor("2").unwrap()
   inspect(c.raw_cursor, content="10")

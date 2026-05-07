@@ -42,8 +42,8 @@ fn compute_text_edits(
   if old_mid_len == 0 && new_mid_len == 0 {
     return []
   }
-  let old_mid = old_chars[prefix_len:old_len - suffix_len].to_array()
-  let new_mid = new_chars[prefix_len:new_len - suffix_len].to_array()
+  let old_mid = old_chars[prefix_len:old_len - suffix_len].to_owned()
+  let new_mid = new_chars[prefix_len:new_len - suffix_len].to_owned()
   let steps = compute_diff_steps(old_mid, new_mid)
   diff_steps_to_edits(steps, prefix_len)
 }

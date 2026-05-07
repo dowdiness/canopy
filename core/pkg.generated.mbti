@@ -65,8 +65,6 @@ pub impl Show for GenericTreeOp
 
 pub struct NodeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn NodeId::from_int(Int) -> Self
-#deprecated
-pub fn NodeId::inner(Self) -> Int
 pub impl Show for NodeId
 pub impl ToJson for NodeId
 

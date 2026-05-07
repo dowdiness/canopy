@@ -28,7 +28,7 @@ fn truncate(text : String, max_len : Int) -> String {
     clean = buf.to_string()
   }
   if clean.length() > max_len {
-    clean[0:max_len].to_string() + "..."
+    clean[0:max_len].to_owned() + "..."
   } else {
     clean
   }

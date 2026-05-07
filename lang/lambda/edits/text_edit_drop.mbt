@@ -21,7 +21,7 @@ fn compute_drop(
     target_range.end <= source_range.end) else {
     return Err("Cannot drop into own descendant")
   }
-  let source_slice = source_text[source_range.start:source_range.end].to_string()
+  let source_slice = source_text[source_range.start:source_range.end].to_owned()
   let insert_pos = match position {
     Before => target_range.start
     After => target_range.end

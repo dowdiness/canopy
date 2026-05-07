@@ -3,6 +3,7 @@ package "dowdiness/canopy/editor"
 
 import {
   "dowdiness/canopy/protocol",
+  "dowdiness/event-graph-walker/history",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/loom/pipeline",
@@ -280,6 +281,7 @@ pub fn[T : Eq] SyncEditor::backspace(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::backspace_and_record(Self[T], Int) -> Bool
 pub fn[T] SyncEditor::can_redo(Self[T]) -> Bool
 pub fn[T] SyncEditor::can_undo(Self[T]) -> Bool
+pub fn[T] SyncEditor::causal_snapshot(Self[T]) -> @history.CausalSnapshot
 pub fn[T] SyncEditor::clear_undo(Self[T]) -> Unit
 pub fn[T : Eq] SyncEditor::commit_edit(Self[T], @dowdiness/canopy/core.NodeId, String, Int) -> Result[Unit, TreeEditError]
 pub fn[T : Eq] SyncEditor::delete(Self[T]) -> Bool
@@ -306,6 +308,7 @@ pub fn[T] SyncEditor::get_text(Self[T]) -> String
 pub fn[T] SyncEditor::get_tree(Self[T]) -> T?
 pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
 pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::get_view_tree(Self[T]) -> @protocol.ViewNode?
+pub fn[T] SyncEditor::identity(Self[T]) -> Int
 pub fn[T : Eq] SyncEditor::insert(Self[T], String) -> Unit raise
 pub fn[T : Eq] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
 pub fn[T : Eq] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
@@ -368,10 +371,8 @@ pub impl Show for SyncStatus
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
   mut had_errors : Bool
-
-  fn new() -> ViewUpdateState
 } derive(@debug.Debug)
-pub fn ViewUpdateState::new() -> Self
+pub fn ViewUpdateState::ViewUpdateState() -> Self
 
 // Type aliases
 

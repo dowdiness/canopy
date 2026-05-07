@@ -52,7 +52,7 @@ test "InteractiveTreeNode from AstNode" {
     root,
     @core.SourceMap::from_ast(root),
   )
-  inspect(tree.label[:1].to_string(), content="λ")
+  inspect(tree.label[:1].to_owned(), content="λ")
 }
 
 ///|

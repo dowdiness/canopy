@@ -78,7 +78,7 @@ fn read_relay_string(data : Bytes, offset : Int) -> (String, Int)? {
       if pos + len > data.length() {
         return None
       }
-      let bytes = data.view(start=pos, end=pos + len).to_bytes()
+      let bytes = data.view(start=pos, end=pos + len).to_owned()
       Some((bytes.to_unchecked_string(), pos + len))
     }
   }
@@ -104,7 +104,7 @@ fn wrap_with_sender(
   buf.write_bytes(sender_bytes)
   if payload_offset < data.length() {
     buf.write_bytes(
-      data.view(start=payload_offset, end=data.length()).to_bytes(),
+      data.view(start=payload_offset, end=data.length()).to_owned(),
     )
   }
   buf.to_bytes()

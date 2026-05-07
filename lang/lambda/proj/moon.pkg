@@ -8,4 +8,8 @@ import {
   "moonbitlang/core/cmp",
 }
 
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
+
 warnings = "-2-6-35"

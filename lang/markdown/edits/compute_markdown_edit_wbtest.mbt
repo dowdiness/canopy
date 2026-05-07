@@ -18,8 +18,8 @@ fn apply_edit(
       sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
       let mut result = source
       for edit in sorted {
-        let before = result[:edit.start].to_string()
-        let after = result[edit.start + edit.delete_len:].to_string()
+        let before = result[:edit.start].to_owned()
+        let after = result[edit.start + edit.delete_len:].to_owned()
         result = before + edit.inserted + after
       }
       result

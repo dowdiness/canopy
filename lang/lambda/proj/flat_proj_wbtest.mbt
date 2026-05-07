@@ -9,7 +9,7 @@ test "to_flat_proj: single expression" {
   let syntax = parse_syntax("42")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="0")
-  inspect(
+  @debug.debug_inspect(
     fp.final_expr.map(fn(n) { n.kind.to_string() }),
     content="Some(\"Int(42)\")",
   )
@@ -22,7 +22,7 @@ test "to_flat_proj: single let def + expression" {
   inspect(fp.defs.length(), content="1")
   inspect(fp.defs[0].0, content="x")
   inspect(fp.defs[0].1.kind, content="Int(1)")
-  inspect(
+  @debug.debug_inspect(
     fp.final_expr.map(fn(n) { n.kind.to_string() }),
     content="Some(\"Var(\\\"x\\\")\")",
   )
@@ -42,7 +42,7 @@ test "to_flat_proj: no final expression defaults to None" {
   let syntax = parse_syntax("let x = 1\n")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="1")
-  inspect(fp.final_expr, content="None")
+  inspect(fp.final_expr is None, content="true")
 }
 
 ///|
@@ -50,7 +50,7 @@ test "to_flat_proj: empty document" {
   let syntax = parse_syntax("")
   let fp = to_flat_proj(syntax, Ref::new(0))
   inspect(fp.defs.length(), content="0")
-  inspect(fp.final_expr, content="None")
+  inspect(fp.final_expr is None, content="true")
 }
 
 ///|

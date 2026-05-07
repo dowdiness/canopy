@@ -175,7 +175,7 @@ test "pointer_up clears panning state" {
   let state = make_test_state()
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0)
-  inspect(s1.interaction.panning, content="None")
+  inspect(s1.interaction.panning is None, content="true")
   inspect(s1.interaction.pointer_down, content="false")
 }
 
@@ -184,7 +184,7 @@ test "pointer_up clears dragging state" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId(1), 0.0, 0.0)
   let s1 = update_pointer_up(s0, 1)
-  inspect(s1.interaction.dragging, content="None")
+  inspect(s1.interaction.dragging is None, content="true")
   inspect(s1.interaction.pointer_down, content="false")
 }
 
@@ -194,7 +194,7 @@ test "pointer_up on node without movement selects it" {
   // pointerdown on node 1, no movement → did_move stays false
   let s0 = update_node_drag_start(state, NodeId(1), 100.0, 100.0)
   let s1 = update_pointer_up(s0, 1)
-  inspect(s1.interaction.selected, content="Some(NodeId(1))")
+  @debug.debug_inspect(s1.interaction.selected, content="Some(NodeId(1))")
 }
 
 ///|
@@ -207,7 +207,7 @@ test "pointer_up after drag movement does not change selection" {
   let s1 = update_node_drag_move(s0, 200.0, 200.0) // sets did_move = true
   let s2 = update_pointer_up(s1, 1)
   // Selection unchanged because movement occurred (it was a drag, not a click)
-  inspect(s2.interaction.selected, content="Some(NodeId(2))")
+  @debug.debug_inspect(s2.interaction.selected, content="Some(NodeId(2))")
 }
 
 ///|
@@ -218,7 +218,7 @@ test "pointer_up on background deselects" {
   }
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0)
-  inspect(s1.interaction.selected, content="None")
+  inspect(s1.interaction.selected is None, content="true")
 }
 
 ///|
@@ -230,7 +230,7 @@ test "pointer_up after pan movement preserves selection" {
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pan_move(s0, 40.0, 20.0)
   let s2 = update_pointer_up(s1, 0)
-  inspect(s2.interaction.selected, content="Some(NodeId(1))")
+  @debug.debug_inspect(s2.interaction.selected, content="Some(NodeId(1))")
 }
 
 ///|

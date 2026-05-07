@@ -220,8 +220,8 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
       }
       let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
       let tgt_expr_start = skip_ws(doc_text, tgt_range.start, tgt_range.end)
-      let src_expr = doc_text[src_expr_start:src_range.end].to_string()
-      let tgt_expr = doc_text[tgt_expr_start:tgt_range.end].to_string()
+      let src_expr = doc_text[src_expr_start:src_range.end].to_owned()
+      let tgt_expr = doc_text[tgt_expr_start:tgt_range.end].to_owned()
       [
         {
           start: src_expr_start,
@@ -239,7 +239,7 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
     Before | After => {
       // Extract expression text from source map (whitespace-aware, like Exchange)
       let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
-      let src_expr = doc_text[src_expr_start:src_range.end].to_string()
+      let src_expr = doc_text[src_expr_start:src_range.end].to_owned()
       // Replace source expression with placeholder (keeps leading whitespace)
       let placeholder = @loom_core.Renderable::placeholder(src_node.kind)
       let tgt_insert = match position {

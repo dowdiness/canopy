@@ -21,7 +21,7 @@ pub fn compute_pretty_patches_json(handle : Int) -> String {
       let state = match pretty_view_states.get(handle) {
         Some(s) => s
         None => {
-          let s = @editor.ViewUpdateState::new()
+          let s = @editor.ViewUpdateState::ViewUpdateState()
           pretty_view_states[handle] = s
           s
         }

@@ -48,7 +48,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
       if neg {
         counter = -counter
       }
-      @container.tree_node_id_new(agent.to_string(), counter)
+      @container.tree_node_id_new(agent.to_owned(), counter)
     }
   }
 }
@@ -132,7 +132,7 @@ fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
       Some(esc) => {
         // Flush the unescaped run before writing the escape sequence
         if run_start < i {
-          buf.write_string(s[run_start:i].to_string())
+          buf.write_string(s[run_start:i].to_owned())
         }
         buf.write_string(esc)
         run_start = i + 1
@@ -142,7 +142,7 @@ fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
   }
   // Flush any remaining unescaped tail
   if run_start < s.length() {
-    buf.write_string(s[run_start:].to_string())
+    buf.write_string(s[run_start:].to_owned())
   }
 }
 

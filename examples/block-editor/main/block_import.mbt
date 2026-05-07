@@ -24,7 +24,7 @@ pub fn block_doc_from_markdown(
     let line = lines[i]
     if line.has_prefix("```") {
       flush_paragraph(doc, para_buf)
-      let lang = line[3:].to_string()
+      let lang = line[3:].to_owned()
       let code_buf = StringBuilder::new()
       i = i + 1
       let mut first = true
@@ -57,7 +57,7 @@ pub fn block_doc_from_markdown(
     let heading_level = count_heading_hashes(line)
     if heading_level > 0 && heading_level <= 6 {
       flush_paragraph(doc, para_buf)
-      let text = line[heading_level + 1:].to_string()
+      let text = line[heading_level + 1:].to_owned()
       let id = doc.create_block(Heading(heading_level))
       doc.set_text(id, text)
       i = i + 1
@@ -69,7 +69,7 @@ pub fn block_doc_from_markdown(
       line.has_prefix("- [X] ") {
       flush_paragraph(doc, para_buf)
       let checked = !line.has_prefix("- [ ] ")
-      let text = line[6:].to_string()
+      let text = line[6:].to_owned()
       let id = doc.create_block(ListItem(Todo))
       doc.set_text(id, text)
       if checked {
@@ -80,7 +80,7 @@ pub fn block_doc_from_markdown(
     }
     if line.has_prefix("- ") || line.has_prefix("* ") {
       flush_paragraph(doc, para_buf)
-      let text = line[2:].to_string()
+      let text = line[2:].to_owned()
       let id = doc.create_block(ListItem(Bullet))
       doc.set_text(id, text)
       i = i + 1
@@ -89,7 +89,7 @@ pub fn block_doc_from_markdown(
     let num_prefix = count_numbered_prefix(line)
     if num_prefix > 0 {
       flush_paragraph(doc, para_buf)
-      let text = line[num_prefix:].to_string()
+      let text = line[num_prefix:].to_owned()
       let id = doc.create_block(ListItem(Numbered))
       doc.set_text(id, text)
       i = i + 1
@@ -97,7 +97,7 @@ pub fn block_doc_from_markdown(
     }
     if line.has_prefix("> ") {
       flush_paragraph(doc, para_buf)
-      let text = line[2:].to_string()
+      let text = line[2:].to_owned()
       let id = doc.create_block(Quote)
       doc.set_text(id, text)
       i = i + 1
@@ -134,7 +134,7 @@ fn split_lines(s : String) -> Array[String] {
   let mut i = 0
   while i < s.length() {
     if s[i] == '\r' {
-      lines.push(s[start:i].to_string())
+      lines.push(s[start:i].to_owned())
       if i + 1 < s.length() && s[i + 1] == '\n' {
         i = i + 2
       } else {
@@ -142,7 +142,7 @@ fn split_lines(s : String) -> Array[String] {
       }
       start = i
     } else if s[i] == '\n' {
-      lines.push(s[start:i].to_string())
+      lines.push(s[start:i].to_owned())
       i = i + 1
       start = i
     } else {
@@ -150,7 +150,7 @@ fn split_lines(s : String) -> Array[String] {
     }
   }
   if start < s.length() {
-    lines.push(s[start:].to_string())
+    lines.push(s[start:].to_owned())
   }
   lines
 }

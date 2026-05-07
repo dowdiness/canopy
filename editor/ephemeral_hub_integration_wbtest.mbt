@@ -44,7 +44,7 @@ test "integration: encode_all catches up new peer" {
   // New peer joins and receives full state
   let hub_c = EphemeralHub::new("carol")
   hub_c.apply_all(full_state)
-  inspect(
+  @debug.debug_inspect(
     hub_c.get_edit_mode("alice"),
     content=(
       #|Some({ node_id: "node-42" })

@@ -87,7 +87,7 @@ fn execute_command(state : ReplState, line : String) -> Bool {
   // Split command and arguments - convert iterator to array
   let parts : Array[String] = []
   for part in trimmed.split(" ") {
-    let s = part.to_string()
+    let s = part.to_owned()
     if s.length() > 0 {
       parts.push(s)
     }

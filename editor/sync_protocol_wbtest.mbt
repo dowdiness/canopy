@@ -43,7 +43,7 @@ test "encode/decode SyncRequest roundtrip" {
 ///|
 test "encode/decode PeerJoined roundtrip" {
   let msg = PeerJoined("alice")
-  inspect(
+  @debug.debug_inspect(
     decode_message(encode_message(msg)),
     content="Some(PeerJoined(\"alice\"))",
   )
@@ -52,7 +52,7 @@ test "encode/decode PeerJoined roundtrip" {
 ///|
 test "encode/decode PeerLeft roundtrip" {
   let msg = PeerLeft("bob")
-  inspect(
+  @debug.debug_inspect(
     decode_message(encode_message(msg)),
     content="Some(PeerLeft(\"bob\"))",
   )
@@ -65,7 +65,7 @@ test "decode rejects wrong version" {
   buf.write_byte(b'\x01')
   buf.write_byte(b'\x00')
   buf.write_byte(b'\x00')
-  inspect(decode_message(buf.to_bytes()), content="None")
+  @debug.debug_inspect(decode_message(buf.to_bytes()), content="None")
 }
 
 ///|
@@ -80,7 +80,7 @@ test "decode rejects too short" {
   let buf = @buffer.new()
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x01')
-  inspect(decode_message(buf.to_bytes()), content="None")
+  @debug.debug_inspect(decode_message(buf.to_bytes()), content="None")
 }
 
 ///|
