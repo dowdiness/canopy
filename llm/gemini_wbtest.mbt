@@ -1,6 +1,6 @@
 ///|
 test "build_gemini_url has no api key" {
-  let cfg = GeminiConfig::new(api_key="test-key-123")
+  let cfg = GeminiConfig::GeminiConfig(api_key="test-key-123")
   let url = build_gemini_url(cfg)
   // API key must NOT appear in URL — it goes in x-goog-api-key header
   inspect(
@@ -11,7 +11,7 @@ test "build_gemini_url has no api key" {
 
 ///|
 test "build_gemini_url with custom model" {
-  let cfg = GeminiConfig::new(api_key="k", model="gemini-2.0-flash")
+  let cfg = GeminiConfig::GeminiConfig(api_key="k", model="gemini-2.0-flash")
   let url = build_gemini_url(cfg)
   inspect(
     url,
@@ -21,7 +21,7 @@ test "build_gemini_url with custom model" {
 
 ///|
 test "build_gemini_headers contains api key" {
-  let cfg = GeminiConfig::new(api_key="test-key-123")
+  let cfg = GeminiConfig::GeminiConfig(api_key="test-key-123")
   let headers = build_gemini_headers(cfg)
   assert_true(headers.contains("x-goog-api-key"))
   assert_true(headers.contains("test-key-123"))
@@ -29,7 +29,7 @@ test "build_gemini_headers contains api key" {
 
 ///|
 test "build_gemini_body contains system instruction" {
-  let cfg = GeminiConfig::new(api_key="k")
+  let cfg = GeminiConfig::GeminiConfig(api_key="k")
   let body = build_gemini_body(
     cfg,
     system_prompt="You are helpful.",
@@ -48,7 +48,7 @@ test "build_gemini_body contains system instruction" {
 
 ///|
 test "build_gemini_body contains user text" {
-  let cfg = GeminiConfig::new(api_key="k")
+  let cfg = GeminiConfig::GeminiConfig(api_key="k")
   let body = build_gemini_body(cfg, system_prompt="sys", user_text="Fix this")
   let json = @json.parse(body) catch { _ => fail("expected valid JSON") }
   guard json is Object(obj) else { fail("expected object") }
@@ -66,7 +66,7 @@ test "build_gemini_body contains user text" {
 
 ///|
 test "build_gemini_body has JSON response mime type" {
-  let cfg = GeminiConfig::new(api_key="k")
+  let cfg = GeminiConfig::GeminiConfig(api_key="k")
   let body = build_gemini_body(cfg, system_prompt="sys", user_text="test")
   let json = @json.parse(body) catch { _ => fail("expected valid JSON") }
   guard json is Object(obj) else { fail("expected object") }

@@ -21,10 +21,8 @@ pub(all) struct Decoration {
   css_class : String
   data : String?
   widget : Bool
-
-  fn new(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Decoration
 } derive(Eq, @debug.Debug)
-pub fn Decoration::new(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Self
+pub fn Decoration::Decoration(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Self
 pub impl ToJson for Decoration
 
 pub(all) struct Diagnostic {
@@ -32,10 +30,8 @@ pub(all) struct Diagnostic {
   to : Int
   severity : Severity
   message : String
-
-  fn new(from~ : Int, to~ : Int, severity~ : Severity, message~ : String) -> Diagnostic
 } derive(Eq, @debug.Debug)
-pub fn Diagnostic::new(from~ : Int, to~ : Int, severity~ : Severity, message~ : String) -> Self
+pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String) -> Self
 pub impl ToJson for Diagnostic
 
 pub(all) enum Severity {
@@ -50,10 +46,8 @@ pub(all) struct TokenSpan {
   role : String
   start : Int
   end : Int
-
-  fn new(role~ : String, start~ : Int, end~ : Int) -> TokenSpan
 } derive(Eq, @debug.Debug)
-pub fn TokenSpan::new(role~ : String, start~ : Int, end~ : Int) -> Self
+pub fn TokenSpan::TokenSpan(role~ : String, start~ : Int, end~ : Int) -> Self
 pub impl ToJson for TokenSpan
 
 pub(all) enum UserIntent {
@@ -73,10 +67,8 @@ pub(all) struct ViewAnnotation {
   kind : String
   label : String
   severity : String
-
-  fn new(kind~ : String, label~ : String, severity? : String) -> ViewAnnotation
 } derive(Eq, @debug.Debug)
-pub fn ViewAnnotation::new(kind~ : String, label~ : String, severity? : String) -> Self
+pub fn ViewAnnotation::ViewAnnotation(kind~ : String, label~ : String, severity? : String) -> Self
 pub impl ToJson for ViewAnnotation
 
 pub(all) struct ViewNode {
@@ -90,10 +82,8 @@ pub(all) struct ViewNode {
   css_class : String
   children : Array[ViewNode]
   annotations : Array[ViewAnnotation]
-
-  fn new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[ViewNode], annotations? : Array[ViewAnnotation]) -> ViewNode
 } derive(Eq, @debug.Debug)
-pub fn ViewNode::new(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self], annotations? : Array[ViewAnnotation]) -> Self
+pub fn ViewNode::ViewNode(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self], annotations? : Array[ViewAnnotation]) -> Self
 pub fn ViewNode::node_count(Self) -> Int
 pub impl ToJson for ViewNode
 

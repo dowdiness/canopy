@@ -7,12 +7,14 @@ pub(all) struct TokenSpan {
   role : String
   start : Int
   end : Int
-
-  fn new(role~ : String, start~ : Int, end~ : Int) -> TokenSpan
 } derive(Debug, Eq)
 
 ///|
-pub fn TokenSpan::new(role~ : String, start~ : Int, end~ : Int) -> TokenSpan {
+pub fn TokenSpan::TokenSpan(
+  role~ : String,
+  start~ : Int,
+  end~ : Int,
+) -> TokenSpan {
   { role, start, end }
 }
 
@@ -21,12 +23,10 @@ pub(all) struct ViewAnnotation {
   kind : String
   label : String
   severity : String
-
-  fn new(kind~ : String, label~ : String, severity? : String) -> ViewAnnotation
 } derive(Debug, Eq)
 
 ///|
-pub fn ViewAnnotation::new(
+pub fn ViewAnnotation::ViewAnnotation(
   kind~ : String,
   label~ : String,
   severity? : String = "info",
@@ -55,23 +55,10 @@ pub(all) struct ViewNode {
   css_class : String
   children : Array[ViewNode]
   annotations : Array[ViewAnnotation]
-
-  fn new(
-    id~ : @core.NodeId,
-    kind_tag~ : String,
-    label~ : String,
-    text? : String,
-    text_range~ : (Int, Int),
-    token_spans? : Array[TokenSpan],
-    editable? : Bool,
-    css_class? : String,
-    children? : Array[ViewNode],
-    annotations? : Array[ViewAnnotation],
-  ) -> ViewNode
 } derive(Debug, Eq)
 
 ///|
-pub fn ViewNode::new(
+pub fn ViewNode::ViewNode(
   id~ : @core.NodeId,
   kind_tag~ : String,
   label~ : String,

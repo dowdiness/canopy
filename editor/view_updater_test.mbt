@@ -22,7 +22,7 @@ test "get_view_tree returns ViewNode for non-empty editor" {
 test "initial state produces FullTree patch" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
   // Should contain FullTree since previous is None
   let has_full_tree = patches
@@ -40,7 +40,7 @@ test "initial state produces FullTree patch" {
 test "unchanged tree produces no tree patches" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("\\x.x")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   // First call: FullTree
   let _ = @editor.compute_view_patches(state, editor)
   // Second call without changes: no tree patches (only diagnostics)
@@ -66,7 +66,7 @@ test "unchanged tree produces no tree patches" {
 test "single character edit produces UpdateNode or ReplaceNode for changed leaf" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("1")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Change "1" to "2"
   editor.set_text("2")
@@ -90,7 +90,7 @@ test "single character edit produces UpdateNode or ReplaceNode for changed leaf"
 test "structural edit produces ReplaceNode" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Change from Var to Lam — structural change
   editor.set_text("\\x.x")
@@ -111,7 +111,7 @@ test "structural edit produces ReplaceNode" {
 test "diagnostics are emitted for parse errors" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x +")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
   // Should contain SetDiagnostics with errors
   let has_diagnostics = patches
@@ -130,7 +130,7 @@ test "diagnostics are emitted for parse errors" {
 test "diagnostics are cleared when parse succeeds" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("x +")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Fix the parse error
   editor.set_text("x + 1")
@@ -152,7 +152,7 @@ test "diagnostics are cleared when parse succeeds" {
 test "child insertion detected" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nx")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Add another definition
   editor.set_text("let x = 1\nlet y = 2\nx")
@@ -174,7 +174,7 @@ test "child insertion detected" {
 test "child removal detected" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nx")
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Remove one definition
   editor.set_text("let x = 1\nx")
@@ -229,7 +229,7 @@ test "proj_to_view_node node_count for 10 defs" {
 ///|
 test "FullTree emitted when tree appears from empty" {
   let editor = @lambda.new_lambda_editor("test").0
-  let state = @editor.ViewUpdateState::new()
+  let state = @editor.ViewUpdateState::ViewUpdateState()
   // Empty editor — no tree
   let patches1 = @editor.compute_view_patches(state, editor)
   let full_tree_none = patches1

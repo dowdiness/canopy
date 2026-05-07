@@ -373,7 +373,6 @@ pub struct ViewUpdateState {
   mut had_errors : Bool
 } derive(@debug.Debug)
 pub fn ViewUpdateState::ViewUpdateState() -> Self
-pub fn ViewUpdateState::new() -> Self
 
 // Type aliases
 

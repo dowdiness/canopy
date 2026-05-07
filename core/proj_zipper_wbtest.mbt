@@ -28,31 +28,31 @@ fn test_tree() -> ProjNode[Int] {
 ///|
 test "find_path_to: root" {
   let tree = test_tree()
-  inspect(find_path_to(tree, NodeId(0)), content="Some([])")
+  @debug.debug_inspect(find_path_to(tree, NodeId(0)), content="Some([])")
 }
 
 ///|
 test "find_path_to: first child" {
   let tree = test_tree()
-  inspect(find_path_to(tree, NodeId(1)), content="Some([0])")
+  @debug.debug_inspect(find_path_to(tree, NodeId(1)), content="Some([0])")
 }
 
 ///|
 test "find_path_to: second child" {
   let tree = test_tree()
-  inspect(find_path_to(tree, NodeId(2)), content="Some([1])")
+  @debug.debug_inspect(find_path_to(tree, NodeId(2)), content="Some([1])")
 }
 
 ///|
 test "find_path_to: grandchild" {
   let tree = test_tree()
-  inspect(find_path_to(tree, NodeId(4)), content="Some([0, 1])")
+  @debug.debug_inspect(find_path_to(tree, NodeId(4)), content="Some([0, 1])")
 }
 
 ///|
 test "find_path_to: not found" {
   let tree = test_tree()
-  inspect(find_path_to(tree, NodeId(99)), content="None")
+  inspect(find_path_to(tree, NodeId(99)) is None, content="true")
 }
 
 // --- navigate_proj: Up ---
@@ -60,25 +60,34 @@ test "find_path_to: not found" {
 ///|
 test "navigate Up from root returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(0), Up, tree), content="None")
+  inspect(navigate_proj(NodeId(0), Up, tree) is None, content="true")
 }
 
 ///|
 test "navigate Up from child returns parent" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(1), Up, tree), content="Some(NodeId(0))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(1), Up, tree),
+    content="Some(NodeId(0))",
+  )
 }
 
 ///|
 test "navigate Up from grandchild returns parent" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(4), Up, tree), content="Some(NodeId(1))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(4), Up, tree),
+    content="Some(NodeId(1))",
+  )
 }
 
 ///|
 test "navigate Up from deep node" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(5), Up, tree), content="Some(NodeId(2))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(5), Up, tree),
+    content="Some(NodeId(2))",
+  )
 }
 
 // --- navigate_proj: Down ---
@@ -86,25 +95,31 @@ test "navigate Up from deep node" {
 ///|
 test "navigate Down from root goes to first child" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(0), Down, tree), content="Some(NodeId(1))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(0), Down, tree),
+    content="Some(NodeId(1))",
+  )
 }
 
 ///|
 test "navigate Down from internal node" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(2), Down, tree), content="Some(NodeId(5))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(2), Down, tree),
+    content="Some(NodeId(5))",
+  )
 }
 
 ///|
 test "navigate Down from leaf returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(3), Down, tree), content="None")
+  inspect(navigate_proj(NodeId(3), Down, tree) is None, content="true")
 }
 
 ///|
 test "navigate Down from leaf (right subtree)" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(5), Down, tree), content="None")
+  inspect(navigate_proj(NodeId(5), Down, tree) is None, content="true")
 }
 
 // --- navigate_proj: Left ---
@@ -112,25 +127,31 @@ test "navigate Down from leaf (right subtree)" {
 ///|
 test "navigate Left from first sibling returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(1), Left, tree), content="None")
+  inspect(navigate_proj(NodeId(1), Left, tree) is None, content="true")
 }
 
 ///|
 test "navigate Left from second sibling returns first" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(2), Left, tree), content="Some(NodeId(1))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(2), Left, tree),
+    content="Some(NodeId(1))",
+  )
 }
 
 ///|
 test "navigate Left among grandchildren" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(4), Left, tree), content="Some(NodeId(3))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(4), Left, tree),
+    content="Some(NodeId(3))",
+  )
 }
 
 ///|
 test "navigate Left from root returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(0), Left, tree), content="None")
+  inspect(navigate_proj(NodeId(0), Left, tree) is None, content="true")
 }
 
 // --- navigate_proj: Right ---
@@ -138,25 +159,31 @@ test "navigate Left from root returns None" {
 ///|
 test "navigate Right from first sibling returns second" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(1), Right, tree), content="Some(NodeId(2))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(1), Right, tree),
+    content="Some(NodeId(2))",
+  )
 }
 
 ///|
 test "navigate Right from last sibling returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(2), Right, tree), content="None")
+  inspect(navigate_proj(NodeId(2), Right, tree) is None, content="true")
 }
 
 ///|
 test "navigate Right among grandchildren" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(3), Right, tree), content="Some(NodeId(4))")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(3), Right, tree),
+    content="Some(NodeId(4))",
+  )
 }
 
 ///|
 test "navigate Right from root returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(0), Right, tree), content="None")
+  inspect(navigate_proj(NodeId(0), Right, tree) is None, content="true")
 }
 
 // --- navigate_proj: missing cursor ---
@@ -164,7 +191,7 @@ test "navigate Right from root returns None" {
 ///|
 test "navigate with unknown cursor returns None" {
   let tree = test_tree()
-  inspect(navigate_proj(NodeId(99), Down, tree), content="None")
+  inspect(navigate_proj(NodeId(99), Down, tree) is None, content="true")
 }
 
 // --- navigate_proj: single-node tree ---
@@ -172,10 +199,10 @@ test "navigate with unknown cursor returns None" {
 ///|
 test "single node: all directions return None" {
   let tree = make_node(0, [])
-  inspect(navigate_proj(NodeId(0), Up, tree), content="None")
-  inspect(navigate_proj(NodeId(0), Down, tree), content="None")
-  inspect(navigate_proj(NodeId(0), Left, tree), content="None")
-  inspect(navigate_proj(NodeId(0), Right, tree), content="None")
+  inspect(navigate_proj(NodeId(0), Up, tree) is None, content="true")
+  inspect(navigate_proj(NodeId(0), Down, tree) is None, content="true")
+  inspect(navigate_proj(NodeId(0), Left, tree) is None, content="true")
+  inspect(navigate_proj(NodeId(0), Right, tree) is None, content="true")
 }
 
 // --- navigate_proj: wide tree (many siblings) ---
@@ -188,10 +215,22 @@ test "wide tree: navigate Left/Right across 4 siblings" {
     make_node(3, []),
     make_node(4, []),
   ])
-  inspect(navigate_proj(NodeId(1), Right, tree), content="Some(NodeId(2))")
-  inspect(navigate_proj(NodeId(2), Right, tree), content="Some(NodeId(3))")
-  inspect(navigate_proj(NodeId(3), Right, tree), content="Some(NodeId(4))")
-  inspect(navigate_proj(NodeId(4), Right, tree), content="None")
-  inspect(navigate_proj(NodeId(4), Left, tree), content="Some(NodeId(3))")
-  inspect(navigate_proj(NodeId(1), Left, tree), content="None")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(1), Right, tree),
+    content="Some(NodeId(2))",
+  )
+  @debug.debug_inspect(
+    navigate_proj(NodeId(2), Right, tree),
+    content="Some(NodeId(3))",
+  )
+  @debug.debug_inspect(
+    navigate_proj(NodeId(3), Right, tree),
+    content="Some(NodeId(4))",
+  )
+  inspect(navigate_proj(NodeId(4), Right, tree) is None, content="true")
+  @debug.debug_inspect(
+    navigate_proj(NodeId(4), Left, tree),
+    content="Some(NodeId(3))",
+  )
+  inspect(navigate_proj(NodeId(1), Left, tree) is None, content="true")
 }

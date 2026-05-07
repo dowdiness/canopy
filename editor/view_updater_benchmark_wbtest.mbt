@@ -57,7 +57,7 @@ test "viewnode serialization (500 defs)" (b : @bench.T) {
 test "compute_view_patches (100 defs, single edit)" (b : @bench.T) {
   let editor = @lambda.new_lambda_editor("bench").0
   editor.set_text(bench_source(100))
-  let state = ViewUpdateState::new()
+  let state = ViewUpdateState::ViewUpdateState()
   // Initial full tree
   let _ = compute_view_patches(state, editor)
   // Benchmark: single character edit + patch computation

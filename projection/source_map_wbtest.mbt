@@ -190,6 +190,6 @@ test "SourceMap::remove_subtree then patch_subtree replaces entries" {
   sm.rebuild_ranges()
   inspect(sm.node_count(), content="3")
 
-  inspect(sm.get_range(NodeId::from_int(5)), content="None")
+  @debug.debug_inspect(sm.get_range(NodeId::from_int(5)), content="None")
   inspect(sm.get_range(NodeId::from_int(7)) is Some(_), content="true")
 }

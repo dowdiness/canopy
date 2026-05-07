@@ -4,12 +4,10 @@
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
   mut had_errors : Bool
-
-  fn new() -> ViewUpdateState
 } derive(Debug)
 
 ///|
-pub fn ViewUpdateState::new() -> ViewUpdateState {
+pub fn ViewUpdateState::ViewUpdateState() -> ViewUpdateState {
   { previous: None, had_errors: false }
 }
 

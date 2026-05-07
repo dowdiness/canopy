@@ -11,7 +11,7 @@ import {
   "dowdiness/pretty" @pretty,
   "dowdiness/canopy/protocol" @protocol,
   "moonbitlang/core/bench",
-  "moonbitlang/core/debug",
+  "moonbitlang/core/debug" @debug,
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/buffer",
   "moonbitlang/core/strconv",

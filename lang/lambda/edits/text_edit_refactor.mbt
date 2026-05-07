@@ -88,8 +88,8 @@ fn compute_extract_to_let(
           }
         None => source_text.length()
       }
-      let prefix = source_text[body_start:range.start].to_string()
-      let suffix = source_text[range.end:body_end].to_string()
+      let prefix = source_text[body_start:range.start].to_owned()
+      let suffix = source_text[range.end:body_end].to_owned()
       let new_body_text = let_text + prefix + var_name + suffix
       Ok(
         Some(

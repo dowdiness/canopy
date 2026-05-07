@@ -48,21 +48,21 @@ test "go_down with index" {
 ///|
 test "go_down boundary: leaf returns None" {
   let z = RoseZipper::from_root(RoseNode::new(data=1))
-  inspect(z.go_down(), content="None")
+  inspect(z.go_down() is None, content="true")
 }
 
 ///|
 test "go_down boundary: negative index returns None" {
   let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
   let z = RoseZipper::from_root(tree)
-  inspect(z.go_down(index=-1), content="None")
+  inspect(z.go_down(index=-1) is None, content="true")
 }
 
 ///|
 test "go_down boundary: out of bounds returns None" {
   let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
   let z = RoseZipper::from_root(tree)
-  inspect(z.go_down(index=5), content="None")
+  inspect(z.go_down(index=5) is None, content="true")
 }
 
 ///|
@@ -80,7 +80,7 @@ test "go_up from child returns parent" {
 ///|
 test "go_up at root returns None" {
   let z = RoseZipper::from_root(RoseNode::new(data=42))
-  inspect(z.go_up(), content="None")
+  inspect(z.go_up() is None, content="true")
 }
 
 ///|
@@ -108,7 +108,7 @@ test "go_right traverses siblings" {
   inspect(z2.focus.data, content="2")
   let z3 = z2.go_right().unwrap()
   inspect(z3.focus.data, content="3")
-  inspect(z3.go_right(), content="None")
+  inspect(z3.go_right() is None, content="true")
 }
 
 ///|
@@ -124,7 +124,7 @@ test "go_left traverses siblings backward" {
   inspect(z2.focus.data, content="2")
   let z3 = z2.go_left().unwrap()
   inspect(z3.focus.data, content="1")
-  inspect(z3.go_left(), content="None")
+  inspect(z3.go_left() is None, content="true")
 }
 
 ///|
@@ -134,15 +134,15 @@ test "go_left at first child returns None" {
     RoseNode::new(data=2),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap()
-  inspect(z.go_left(), content="None")
+  inspect(z.go_left() is None, content="true")
 }
 
 ///|
 test "go_left and go_right at root return None" {
   let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
   let z = RoseZipper::from_root(tree)
-  inspect(z.go_left(), content="None")
-  inspect(z.go_right(), content="None")
+  inspect(z.go_left() is None, content="true")
+  inspect(z.go_right() is None, content="true")
 }
 
 ///|
@@ -270,13 +270,13 @@ test "child_index tracks position among siblings" {
     RoseNode::new(data=3),
   ])
   let z = RoseZipper::from_root(tree)
-  inspect(z.child_index(), content="None")
+  inspect(z.child_index() is None, content="true")
   let z1 = z.go_down().unwrap()
-  inspect(z1.child_index(), content="Some(0)")
+  @debug.debug_inspect(z1.child_index(), content="Some(0)")
   let z2 = z1.go_right().unwrap()
-  inspect(z2.child_index(), content="Some(1)")
+  @debug.debug_inspect(z2.child_index(), content="Some(1)")
   let z3 = z2.go_right().unwrap()
-  inspect(z3.child_index(), content="Some(2)")
+  @debug.debug_inspect(z3.child_index(), content="Some(2)")
 }
 
 ///|
@@ -351,9 +351,9 @@ test "focus_at with empty path stays at root" {
 ///|
 test "focus_at returns None on invalid path" {
   let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
-  inspect(RoseZipper::focus_at(tree, [0, 5]), content="None")
-  inspect(RoseZipper::focus_at(tree, [3]), content="None")
-  inspect(RoseZipper::focus_at(tree, [-1]), content="None")
+  inspect(RoseZipper::focus_at(tree, [0, 5]) is None, content="true")
+  inspect(RoseZipper::focus_at(tree, [3]) is None, content="true")
+  inspect(RoseZipper::focus_at(tree, [-1]) is None, content="true")
 }
 
 ///|
@@ -393,8 +393,8 @@ test "persistence: old zipper unchanged after navigation" {
   let z2 = z1.go_right().unwrap()
   // z1 unchanged
   inspect(z1.focus.data, content="1")
-  inspect(z1.child_index(), content="Some(0)")
+  @debug.debug_inspect(z1.child_index(), content="Some(0)")
   // z2 at sibling
   inspect(z2.focus.data, content="2")
-  inspect(z2.child_index(), content="Some(1)")
+  @debug.debug_inspect(z2.child_index(), content="Some(1)")
 }

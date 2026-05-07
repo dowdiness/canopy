@@ -45,9 +45,9 @@ fn apply_edits(text : String, edits : Array[SpanEdit]) -> String {
   sorted.sort_by((a, b) => b.start.compare(a.start))
   let mut result = text
   for edit in sorted {
-    result = result[:edit.start].to_string() +
+    result = result[:edit.start].to_owned() +
       edit.inserted +
-      result[edit.start + edit.delete_len:].to_string()
+      result[edit.start + edit.delete_len:].to_owned()
   }
   result
 }
@@ -120,7 +120,7 @@ test "compute_text_edit: no-op ops return empty array" {
     Select(node_id=NodeId::from_int(0)),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  inspect(result, content="Ok(Some(([], RestoreCursor)))")
+  @debug.debug_inspect(result, content="Ok(Some(([], RestoreCursor)))")
 }
 
 ///|
@@ -1122,7 +1122,7 @@ test "compute_text_edit: middleware rejects missing node for structural ops" {
     Delete(node_id=fake_id),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  inspect(result, content="Err(\"Node not found: NodeId(99999)\")")
+  @debug.debug_inspect(result, content="Err(\"Node not found: NodeId(99999)\")")
 }
 
 ///|
@@ -1140,7 +1140,7 @@ test "compute_text_edit: MoveBindingUp allows valid swap where prev uses cur" {
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="let y = 0\nlet x = y\nx")
     }
-    _ => fail("expected Some edits, got: " + result.to_string())
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
 }
 
@@ -1159,7 +1159,7 @@ test "compute_text_edit: MoveBindingDown allows valid swap where cur uses next" 
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="let y = 0\nlet x = y\nx")
     }
-    _ => fail("expected Some edits, got: " + result.to_string())
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
 }
 
@@ -1226,7 +1226,7 @@ test "compute_text_edit: Drop self-drop returns error" {
     Drop(source=id, target=id, position=After),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  inspect(result, content="Err(\"Cannot drop onto self\")")
+  @debug.debug_inspect(result, content="Err(\"Cannot drop onto self\")")
 }
 
 ///|
@@ -1243,7 +1243,10 @@ test "compute_text_edit: Drop descendant-drop returns error" {
     Drop(source=proj.id(), target=child.id(), position=After),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  inspect(result, content="Err(\"Cannot drop into own descendant\")")
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot drop into own descendant\")",
+  )
 }
 
 ///|

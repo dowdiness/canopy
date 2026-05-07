@@ -29,7 +29,7 @@ pub fn compute_text_change(old_text : String, new_text : String) -> TextChange {
   }
 
   let delete_len = old_len - prefix - suffix
-  let inserted = new_text[prefix:new_len - suffix].to_string()
+  let inserted = new_text[prefix:new_len - suffix].to_owned()
   { start: prefix, delete_len, inserted }
 }
 

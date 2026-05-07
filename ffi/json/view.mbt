@@ -26,7 +26,7 @@ pub fn json_compute_view_patches_json(handle : Int) -> String {
       let state = match json_view_states.get(handle) {
         Some(s) => s
         None => {
-          let s = @editor.ViewUpdateState::new()
+          let s = @editor.ViewUpdateState::ViewUpdateState()
           json_view_states[handle] = s
           s
         }

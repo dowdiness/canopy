@@ -4,7 +4,7 @@ test "layout_to_view_tree: single line, no annotations" {
   let view = layout_to_view_tree(layout)
   assert_eq(view.kind_tag, "formatted-text")
   assert_eq(view.children.length(), 1)
-  assert_eq(view.children[0].text, Some("hello world"))
+  @debug.assert_eq(view.children[0].text, Some("hello world"))
   assert_eq(view.children[0].token_spans.length(), 0)
 }
 
@@ -17,7 +17,7 @@ test "layout_to_view_tree: single line with annotation" {
   let view = layout_to_view_tree(layout)
   assert_eq(view.children.length(), 1)
   let line = view.children[0]
-  assert_eq(line.text, Some("let"))
+  @debug.assert_eq(line.text, Some("let"))
   assert_eq(line.token_spans.length(), 1)
   assert_eq(line.token_spans[0].role, "keyword")
   assert_eq(line.token_spans[0].start, 0)
@@ -39,11 +39,11 @@ test "layout_to_view_tree: multi-line with nest" {
   let view = layout_to_view_tree(layout)
   assert_eq(view.children.length(), 2)
   let line0 = view.children[0]
-  assert_eq(line0.text, Some("let"))
+  @debug.assert_eq(line0.text, Some("let"))
   assert_eq(line0.token_spans.length(), 1)
   assert_eq(line0.token_spans[0].role, "keyword")
   let line1 = view.children[1]
-  assert_eq(line1.text, Some("  x"))
+  @debug.assert_eq(line1.text, Some("  x"))
   assert_eq(line1.token_spans.length(), 1)
   assert_eq(line1.token_spans[0].role, "identifier")
   assert_eq(line1.token_spans[0].start, 2)
@@ -60,13 +60,13 @@ test "layout_to_view_tree: annotation spanning line break" {
   let view = layout_to_view_tree(layout)
   assert_eq(view.children.length(), 2)
   let line0 = view.children[0]
-  assert_eq(line0.text, Some("if"))
+  @debug.assert_eq(line0.text, Some("if"))
   assert_eq(line0.token_spans.length(), 1)
   assert_eq(line0.token_spans[0].role, "keyword")
   assert_eq(line0.token_spans[0].start, 0)
   assert_eq(line0.token_spans[0].end, 2)
   let line1 = view.children[1]
-  assert_eq(line1.text, Some("then"))
+  @debug.assert_eq(line1.text, Some("then"))
   assert_eq(line1.token_spans.length(), 1)
   assert_eq(line1.token_spans[0].role, "keyword")
   assert_eq(line1.token_spans[0].start, 0)
@@ -91,7 +91,7 @@ test "layout_to_view_tree: mixed annotated and unannotated text" {
   let view = layout_to_view_tree(layout)
   assert_eq(view.children.length(), 1)
   let line = view.children[0]
-  assert_eq(line.text, Some("let x = 42"))
+  @debug.assert_eq(line.text, Some("let x = 42"))
   assert_eq(line.token_spans.length(), 3)
   assert_eq(line.token_spans[0].role, "keyword")
   assert_eq(line.token_spans[0].start, 0)
@@ -134,9 +134,9 @@ test "layout_to_view_tree: group flattening (narrow width)" {
   )
   let wide = layout_to_view_tree(layout, width=80)
   assert_eq(wide.children.length(), 1)
-  assert_eq(wide.children[0].text, Some("a b"))
+  @debug.assert_eq(wide.children[0].text, Some("a b"))
   let narrow = layout_to_view_tree(layout, width=1)
   assert_eq(narrow.children.length(), 2)
-  assert_eq(narrow.children[0].text, Some("a"))
-  assert_eq(narrow.children[1].text, Some("b"))
+  @debug.assert_eq(narrow.children[0].text, Some("a"))
+  @debug.assert_eq(narrow.children[1].text, Some("b"))
 }

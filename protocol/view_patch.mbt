@@ -7,18 +7,10 @@ pub(all) struct Decoration {
   css_class : String
   data : String?
   widget : Bool
-
-  fn new(
-    from~ : Int,
-    to~ : Int,
-    css_class~ : String,
-    data? : String,
-    widget? : Bool,
-  ) -> Decoration
 } derive(Debug, Eq)
 
 ///|
-pub fn Decoration::new(
+pub fn Decoration::Decoration(
   from~ : Int,
   to~ : Int,
   css_class~ : String,
@@ -52,17 +44,10 @@ pub(all) struct Diagnostic {
   to : Int
   severity : Severity
   message : String
-
-  fn new(
-    from~ : Int,
-    to~ : Int,
-    severity~ : Severity,
-    message~ : String,
-  ) -> Diagnostic
 } derive(Debug, Eq)
 
 ///|
-pub fn Diagnostic::new(
+pub fn Diagnostic::Diagnostic(
   from~ : Int,
   to~ : Int,
   severity~ : Severity,

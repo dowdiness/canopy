@@ -31,10 +31,10 @@ pub fn[T : @loomcore.Renderable] proj_to_view_node(
       match source_map.token_spans.get(node_id) {
         Some(roles) =>
           match roles.get("text") {
-            Some(range) => Some(src[range.start:range.end].to_string())
+            Some(range) => Some(src[range.start:range.end].to_owned())
             None =>
               match roles.get("code") {
-                Some(range) => Some(src[range.start:range.end].to_string())
+                Some(range) => Some(src[range.start:range.end].to_owned())
                 None => None
               }
           }

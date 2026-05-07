@@ -421,8 +421,8 @@ test "SyncEditor: get_resolution returns bound/free info" {
   try! insert_each(se, "\\x. x + y")
   let res = @lambda.get_lambda_resolution(se)
   // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
-  inspect(res.vars.get(2), content="Some(Bound(depth=1))")
-  inspect(res.vars.get(3), content="Some(Free)")
+  @debug.debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")
+  @debug.debug_inspect(res.vars.get(3), content="Some(Free)")
 }
 
 ///|

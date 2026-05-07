@@ -431,7 +431,7 @@ test "StructuralEditKeepSelected keeps node selected and clears editing" {
   let updated = state.apply_edit(StructuralEditKeepSelected(node_id=root_id))
   inspect(updated.selection.length(), content="1")
   inspect(updated.selection[0] == root_id, content="true")
-  inspect(updated.editing_node, content="None")
+  @debug.debug_inspect(updated.editing_node, content="None")
   inspect(updated.edit_value, content="")
 }
 

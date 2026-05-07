@@ -2,6 +2,6 @@ import {
   "dowdiness/canopy/core" @core,
   "dowdiness/loom/core" @loomcore,
   "dowdiness/pretty" @pretty,
-  "moonbitlang/core/debug",
+  "moonbitlang/core/debug" @debug,
   "moonbitlang/core/json",
 }
