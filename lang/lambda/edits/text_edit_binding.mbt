@@ -39,8 +39,7 @@ fn compute_duplicate_binding(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  // Extract binding text and create copy with _copy suffix on name
-  let binding_text = source_text[let_start:binding_end].to_owned()
+  // Create copy with _copy suffix on name
   let new_name = def.0 + "_copy"
   let init_text = @ast.print_term(def.1.kind)
   let new_binding = "let " + new_name + " = " + init_text
@@ -51,7 +50,6 @@ fn compute_duplicate_binding(
   } else {
     binding_end
   }
-  let _ = binding_text
   let insert_text = if insert_pos == binding_end {
     // No trailing newline — add one before the new binding
     "\n" + new_binding
