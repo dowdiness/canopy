@@ -554,7 +554,8 @@ These would halt execution and require checking back:
 ## Commit message format
 
 Per the task brief:
-```
+
+```text
 refactor(<package>): merge <old_files> into <new_file>
 
 <one-sentence rationale>
