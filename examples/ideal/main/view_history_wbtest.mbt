@@ -268,3 +268,28 @@ test "escape_dot_string normalizes newlines and escapes specials" {
   )
   inspect(escape_dot_string("a\nb\rc"), content="a b c")
 }
+
+///|
+test "collect_history_data reserves index 0 for local agent past 8 collaborators" {
+  // 9 distinct non-local agents (a01..a09) collide with index 0 under a
+  // naïve `idx % 8` wrap; the 1..7 wrap rule keeps index 0 reserved.
+  let (local, _) = @lambda.new_lambda_editor("local")
+  local.insert_at(0, "a", 0)
+  let mut pos = 1
+  for i in 1..<=9 {
+    let agent = "a0" + i.to_string()
+    let (peer, _) = @lambda.new_lambda_editor(agent)
+    peer.apply_sync(local.export_all())
+    peer.insert_at(pos, "x", 0)
+    local.apply_sync(peer.export_all())
+    pos += 1
+  }
+  let data = collect_history_data(local.causal_snapshot(), "local")
+  inspect(data.agent_color.get("local"), content="Some(0)")
+  // Every non-local agent maps into 1..7 — never 0.
+  for i in 1..<=9 {
+    let agent = "a0" + i.to_string()
+    let c = data.agent_color.get(agent).unwrap()
+    inspect(c >= 1 && c <= 7, content="true")
+  }
+}

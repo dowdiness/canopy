@@ -104,9 +104,12 @@ fn collect_history_data(
   others.sort()
   let agent_color : Map[String, Int] = {}
   agent_color[local_agent] = 0
-  let mut idx = 1
+  // Non-local agents wrap through 1..7 so index 0 stays reserved for the
+  // local agent — a naïve `idx % 8` would silently recycle the local
+  // color at 8+ collaborators and break the primary identity cue.
+  let mut idx = 0
   for a in others {
-    agent_color[a] = idx % 8
+    agent_color[a] = idx % 7 + 1
     idx += 1
   }
   { frontier, agent_color }
