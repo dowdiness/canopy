@@ -723,7 +723,7 @@ canopy-editor {
   flex-wrap: wrap;
   gap: var(--space-md);
   padding: var(--space-xs) var(--space-md);
-  font-size: 11px;
+  font-size: var(--text-label);
   color: var(--canopy-muted);
   border-bottom: 1px solid var(--canopy-border);
   flex-shrink: 0;
@@ -745,7 +745,7 @@ canopy-editor {
 
 .history-legend-frontier {
   width: 10px;
-  height: 8px;
+  height: 10px;
   border-radius: 2px;
   border: 2px solid;
   background: transparent;

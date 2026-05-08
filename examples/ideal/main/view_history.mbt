@@ -374,7 +374,9 @@ pub fn legend_html(
 ) -> String {
   let data = collect_history_data(snap, local_agent)
   let buf = StringBuilder::new()
-  buf.write_string("<div class=\"history-legend\">")
+  buf.write_string(
+    "<div class=\"history-legend\" role=\"list\" aria-label=\"Causal history color legend\">",
+  )
   // Local agent first — anchor for "this color is you."
   match data.agent_color.get(local_agent) {
     Some(idx) => append_legend_chip(buf, palette_color(idx), "You")
@@ -394,7 +396,7 @@ pub fn legend_html(
   }
   // Frontier swatch — amber border, no fill — mirrors the SVG's stroke.
   buf.write_string(
-    "<span class=\"history-legend-item\"><span class=\"history-legend-frontier\" style=\"border-color:",
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-frontier\" style=\"border-color:",
   )
   buf.write_string(FRONTIER_STROKE)
   buf.write_string("\"></span>now</span>")
@@ -409,7 +411,7 @@ fn append_legend_chip(
   label : String,
 ) -> Unit {
   buf.write_string(
-    "<span class=\"history-legend-item\"><span class=\"history-legend-dot\" style=\"background:",
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-dot\" style=\"background:",
   )
   buf.write_string(fill)
   buf.write_string("\"></span>")
