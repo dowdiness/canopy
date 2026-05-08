@@ -1,4 +1,85 @@
 ///|
+/// Render-cache for the bottom-panel SVG tabs. The view-update loop
+/// re-issues `bottom_render_cmd` on every Model change; without a cache,
+/// every keystroke would re-walk the snapshot, re-emit DOT, re-parse,
+/// re-layout, and re-render the SVG — work proportional to N ops and
+/// dominated by Sugiyama layout (O(V·E)).
+///
+/// Cache keys on `(editor_identity, op_count, frontier_hash)`. Identity
+/// distinguishes separately-constructed `SyncEditor`s in the same process
+/// — the existing flow has one editor per page, but keying on identity
+/// closes the stale-hit path if a future flow swaps editors. Snapshot is
+/// a live alias over egw's Document, so key extraction is O(|frontier|).
+/// `html` is cached too, so a tab switch that remounts the container
+/// still gets innerHTML written cheaply on the next render — only the
+/// heavy pipeline is skipped.
+///
+/// Module-local mutable state is acceptable here: the cmd is the only
+/// writer, the update loop sequences calls, and after_render writes are
+/// synchronous.
+priv struct RenderCache {
+  mut identity : Int
+  mut op_count : Int
+  mut frontier_hash : Int
+  mut html : String
+  mut valid : Bool
+}
+
+///|
+let history_cache : RenderCache = {
+  identity: -1,
+  op_count: 0,
+  frontier_hash: 0,
+  html: "",
+  valid: false,
+}
+
+///|
+let graphviz_cache : RenderCache = {
+  identity: -1,
+  op_count: 0,
+  frontier_hash: 0,
+  html: "",
+  valid: false,
+}
+
+///|
+/// Snapshot identity hash for cache lookup. Frontier is small (1-3 LVs in
+/// practice); the multiply-by-31 fold collides only on adversarial inputs
+/// that callers don't construct.
+fn render_cache_key(
+  identity : Int,
+  snap : @history.CausalSnapshot,
+) -> (Int, Int, Int) {
+  let mut h = 0
+  for lv in snap.frontier() {
+    h = h * 31 + lv
+  }
+  (identity, snap.op_count(), h)
+}
+
+///|
+fn cache_hit(cache : RenderCache, key : (Int, Int, Int)) -> Bool {
+  cache.valid &&
+  cache.identity == key.0 &&
+  cache.op_count == key.1 &&
+  cache.frontier_hash == key.2
+}
+
+///|
+fn cache_store(
+  cache : RenderCache,
+  key : (Int, Int, Int),
+  html : String,
+) -> Unit {
+  cache.identity = key.0
+  cache.op_count = key.1
+  cache.frontier_hash = key.2
+  cache.html = html
+  cache.valid = true
+}
+
+///|
 /// Render a DOT string to SVG using the MoonBit graphviz pipeline.
 ///
 /// `LayoutConfig::compact()` produces 50×28 user-unit nodes; the
@@ -39,11 +120,26 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
   if model.bottom_tab != Graphviz || !model.workspace.bottom_visible {
     return @rabbita.none
   }
-  let dot = @lambda.get_lambda_dot_resolved(model.editor)
-  let svg = render_dot_to_svg(dot)
+  let snap = model.editor.causal_snapshot()
+  let key = render_cache_key(model.editor.identity(), snap)
+  // Cache the wrapped HTML, not the bare SVG — the role="img" wrapper is
+  // a constant cost we want to pay once. Mirrors the History tab so screen
+  // readers see the same shape on either panel.
+  let html = if cache_hit(graphviz_cache, key) {
+    graphviz_cache.html
+  } else {
+    let dot = @lambda.get_lambda_dot_resolved(model.editor)
+    let svg = render_dot_to_svg(dot)
+    let wrapped = "<div role=\"img\" aria-label=\"Resolved lambda expression graph\">" +
+      svg +
+      "</div>"
+    cache_store(graphviz_cache, key, wrapped)
+    wrapped
+  }
   // AfterRender ensures the container div exists in the DOM before setting innerHTML.
+  // We always write — cache hit only skips the upstream resolve+layout cost.
   @rabbita_cmd.raw_effect(
-    fn(_) { js_set_inner_html("canopy-graphviz-container", svg) },
+    fn(_) { js_set_inner_html("canopy-graphviz-container", html) },
     kind=@rabbita_cmd.after_render,
   )
 }
@@ -58,15 +154,29 @@ fn history_render_cmd(model : Model) -> @rabbita.Cmd {
   }
   let snap = model.editor.causal_snapshot()
   let me = model.editor.get_peer_id()
-  let html = match render_history(snap, me) {
-    Empty => "<span class=\"history-empty\">No edits yet.</span>"
-    TooLarge(n) =>
-      "<span class=\"history-empty\">\{n} operations — too many to display.</span>"
-    Dot(dot) =>
-      legend_html(snap, me) +
-      "<div class=\"history-graph\">" +
-      render_dot_to_svg(dot) +
-      "</div>"
+  let key = render_cache_key(model.editor.identity(), snap)
+  let html = if cache_hit(history_cache, key) {
+    history_cache.html
+  } else {
+    let h = match render_history(snap, me) {
+      Empty =>
+        "<span class=\"history-empty\">No history yet. Edits will appear here as you type.</span>"
+      TooLarge(n) =>
+        "<span class=\"history-empty\">Too many edits to render (\{n}). This view shows histories up to \{MAX_OPS} ops.</span>"
+      Dot(dot) => {
+        // Screen-reader label for the SVG. Legend stays outside the
+        // role="img" subtree so its agent decoder remains list-readable.
+        let svg_label = "Causal history graph: \{snap.op_count()} edits"
+        legend_html(snap, me) +
+        "<div class=\"history-graph\" role=\"img\" aria-label=\"" +
+        escape_html_string(svg_label) +
+        "\">" +
+        render_dot_to_svg(dot) +
+        "</div>"
+      }
+    }
+    cache_store(history_cache, key, h)
+    h
   }
   @rabbita_cmd.raw_effect(
     fn(_) { js_set_inner_html("canopy-history-container", html) },
@@ -82,6 +192,50 @@ fn bottom_render_cmd(model : Model) -> @rabbita.Cmd {
 }
 
 ///|
+/// Focus the active tab's button after the next render. Roving tabindex
+/// makes inactive tabs unreachable via Tab; without this, arrow-key
+/// navigation would leave focus stranded on the previous (now
+/// `tabindex="-1"`) button. Click-driven switches are no-ops because the
+/// browser already focuses the clicked button.
+fn bottom_tab_focus_cmd(tab : BottomTab) -> @rabbita.Cmd {
+  let id = bottom_tab_button_id(tab)
+  @rabbita_cmd.raw_effect(
+    fn(_) { js_focus_element(id) },
+    kind=@rabbita_cmd.after_render,
+  )
+}
+
+///|
+/// Stable slug per tab — used for both the tab button id and the tabpanel
+/// id, so `aria-controls` ↔ `aria-labelledby` round-trips cleanly.
+fn bottom_tab_slug(tab : BottomTab) -> String {
+  match tab {
+    Problems => "problems"
+    OpLog => "oplog"
+    History => "history"
+    CrdtState => "crdt"
+    Graphviz => "graphviz"
+  }
+}
+
+///|
+fn bottom_tab_button_id(tab : BottomTab) -> String {
+  "canopy-bottom-tab-" + bottom_tab_slug(tab)
+}
+
+///|
+/// Panel container id. History and Graphviz keep their existing
+/// `canopy-{name}-container` ids because the render cmds write innerHTML
+/// to those exact element ids; the others get a uniform slug.
+fn bottom_tab_panel_id(tab : BottomTab) -> String {
+  match tab {
+    History => "canopy-history-container"
+    Graphviz => "canopy-graphviz-container"
+    _ => "canopy-bottom-panel-" + bottom_tab_slug(tab)
+  }
+}
+
+///|
 fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
   let tabs : Array[(BottomTab, String)] = [
     (Problems, "Problems"),
@@ -90,27 +244,93 @@ fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
     (CrdtState, "CRDT State"),
     (Graphviz, "Graphviz"),
   ]
+  // Build buttons with WAI-ARIA tabs keyboard support: arrow keys
+  // navigate, Home/End jump to ends, and roving tabindex keeps the focus
+  // budget at one (active tab is tabindex=0; others are -1, so the page
+  // Tab key skips over inactive tabs).
+  let n = tabs.length()
+  let first_tab = tabs[0].0
+  let last_tab = tabs[n - 1].0
+  let buttons : Array[Html] = []
+  for i in 0..<n {
+    let (tab, label) = tabs[i]
+    let prev_tab = tabs[(i + n - 1) % n].0
+    let next_tab = tabs[(i + 1) % n].0
+    let active = model.bottom_tab == tab
+    let class_name = if active { "tab active" } else { "tab" }
+    // `aria-controls` is set only on the active tab — the other panels
+    // aren't mounted (`view_bottom_content` matches on `bottom_tab` and
+    // returns one), so cross-referencing missing IDs would mislead AT.
+    // The `aria-labelledby` on the active panel still ties it back to
+    // its tab button.
+    let mut attrs = @html.Attrs::build()
+      .id(bottom_tab_button_id(tab))
+      .role("tab")
+      .aria_selected(if active { "true" } else { "false" })
+      .tabindex(if active { 0 } else { -1 })
+      .on_keydown(fn(ev) {
+        // Horizontal tablist: APG reserves ArrowUp/Down for normal scroll;
+        // only ArrowLeft/Right + Home/End move between tabs. Cancel the
+        // browser default for handled keys — Home/End and arrow keys
+        // otherwise scroll the page or scroll containers, so without
+        // prevent_default the viewport jumps while focus moves between
+        // tabs.
+        let target_tab = match ev.key() {
+          "ArrowLeft" => Some(prev_tab)
+          "ArrowRight" => Some(next_tab)
+          "Home" => Some(first_tab)
+          "End" => Some(last_tab)
+          _ => None
+        }
+        match target_tab {
+          Some(t) => {
+            ev.prevent_default()
+            dispatch(SelectBottomTab(t))
+          }
+          None => @rabbita.none
+        }
+      })
+    if active {
+      attrs = attrs.aria_controls(bottom_tab_panel_id(tab))
+    }
+    buttons.push(
+      @html.button(
+        class=class_name,
+        on_click=dispatch(SelectBottomTab(tab)),
+        attrs~,
+        [@html.text(label)],
+      ),
+    )
+  }
   @html.div(
     class="bottom-tabs",
-    tabs.map(fn(pair) {
-      let (tab, label) = pair
-      let class_name = if model.bottom_tab == tab {
-        "tab active"
-      } else {
-        "tab"
-      }
-      @html.button(class=class_name, on_click=dispatch(SelectBottomTab(tab)), [
-        @html.text(label),
-      ])
-    }),
+    attrs=@html.Attrs::build()
+      .role("tablist")
+      .aria_label("Bottom panel sections"),
+    buttons,
   )
+}
+
+///|
+/// Build the standard tabpanel attrs for a bottom-panel container — id,
+/// role, aria-labelledby pointing back at the tab button, and
+/// `tabindex="0"` so Tab from the tablist enters the panel even when no
+/// descendant is focusable (Problems / OpLog / CRDT State / SVG-only
+/// History/Graphviz). APG: a tabpanel with no focusable content must be
+/// in the tab sequence itself.
+fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
+  @html.Attrs::build()
+  .id(bottom_tab_panel_id(tab))
+  .role("tabpanel")
+  .aria_labelledby(bottom_tab_button_id(tab))
+  .tabindex(0)
 }
 
 ///|
 fn view_problems(model : Model) -> Html {
   let errors = model.editor.get_errors()
   if errors.is_empty() {
-    @html.div(class="bottom-content", [
+    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Problems), [
       @html.span(class="no-problems", [@html.text("No problems found")]),
     ])
   } else {
@@ -119,7 +339,11 @@ fn view_problems(model : Model) -> Html {
         @html.span(class="problem-text", [@html.text(err)]),
       ])
     })
-    @html.div(class="bottom-content problems-list", items)
+    @html.div(
+      class="bottom-content problems-list",
+      attrs=bottom_panel_attrs(Problems),
+      items,
+    )
   }
 }
 
@@ -128,38 +352,44 @@ fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
     OpLog =>
-      @html.div(class="bottom-content", [
-        @html.span(class="no-problems", [@html.text("No operations recorded")]),
+      @html.div(class="bottom-content", attrs=bottom_panel_attrs(OpLog), [
+        @html.span(class="no-problems", [@html.text("Op log coming soon")]),
       ])
     CrdtState =>
-      @html.div(class="bottom-content crdt-state", [
-        @html.div(class="state-row", [
-          @html.span(class="state-label", [@html.text("Agent")]),
-          @html.span(class="state-value", [@html.text("local")]),
-        ]),
-        @html.div(class="state-row", [
-          @html.span(class="state-label", [@html.text("Timestamp")]),
-          @html.span(class="state-value", [
-            @html.text(model.next_timestamp.to_string()),
+      @html.div(
+        class="bottom-content crdt-state",
+        attrs=bottom_panel_attrs(CrdtState),
+        [
+          @html.div(class="state-row", [
+            @html.span(class="state-label", [@html.text("Agent")]),
+            @html.span(class="state-value", [
+              @html.text(model.editor.get_peer_id()),
+            ]),
           ]),
-        ]),
-        @html.div(class="state-row", [
-          @html.span(class="state-label", [@html.text("Text length")]),
-          @html.span(class="state-value", [
-            @html.text(model.editor.get_text().length().to_string()),
+          @html.div(class="state-row", [
+            @html.span(class="state-label", [@html.text("Timestamp")]),
+            @html.span(class="state-value", [
+              @html.text(model.next_timestamp.to_string()),
+            ]),
           ]),
-        ]),
-      ])
+          @html.div(class="state-row", [
+            @html.span(class="state-label", [@html.text("Text length")]),
+            @html.span(class="state-value", [
+              @html.text(model.editor.get_text().length().to_string()),
+            ]),
+          ]),
+        ],
+      )
     History =>
       @html.div(
         class="bottom-content history-content",
-        attrs=@html.Attrs::build().id("canopy-history-container"),
+        attrs=bottom_panel_attrs(History),
         [@html.text("")],
       )
     Graphviz =>
       @html.div(
         class="bottom-content graphviz-content",
-        attrs=@html.Attrs::build().id("canopy-graphviz-container"),
+        attrs=bottom_panel_attrs(Graphviz),
         [@html.text("")],
       )
   }

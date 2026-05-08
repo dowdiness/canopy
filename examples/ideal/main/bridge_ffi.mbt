@@ -105,6 +105,16 @@ extern "js" fn js_set_inner_html(element_id : String, html : String) -> Unit =
   #| }
 
 ///|
+/// Move keyboard focus to an element by ID. Used by the bottom tab strip
+/// to follow roving tabindex after arrow-key navigation. Silently no-ops
+/// if the element isn't in the DOM.
+extern "js" fn js_focus_element(element_id : String) -> Unit =
+  #| function(id) {
+  #|   var el = document.getElementById(id);
+  #|   if (el && typeof el.focus === 'function') el.focus();
+  #| }
+
+///|
 /// Consume the pending action overlay node ID set by JS.
 extern "js" fn js_take_action_overlay_node() -> String =
   #| function() {

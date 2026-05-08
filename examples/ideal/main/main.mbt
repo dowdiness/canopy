@@ -481,7 +481,11 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     SelectBottomTab(tab) => {
       let new_model = { ..model, bottom_tab: tab }
-      (bottom_render_cmd(new_model), new_model)
+      let cmd = @rabbita.batch([
+        bottom_render_cmd(new_model),
+        bottom_tab_focus_cmd(tab),
+      ])
+      (cmd, new_model)
     }
     StructuralEditRequested(op~, node_id~) => {
       let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
