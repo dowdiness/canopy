@@ -459,7 +459,20 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Inspector => { ..ws, inspector_visible: !ws.inspector_visible }
         Bottom => { ..ws, bottom_visible: !ws.bottom_visible }
       }
-      (none, { ..model, workspace, })
+      let new_model = { ..model, workspace, }
+      // Reopening the bottom panel must refresh the active tab's container,
+      // since per-tab cmds bail out while hidden — without this, edits made
+      // while collapsed leave a stale SVG when the panel comes back.
+      let cmd = match panel {
+        Bottom =>
+          if workspace.bottom_visible {
+            bottom_render_cmd(new_model)
+          } else {
+            none
+          }
+        _ => none
+      }
+      (cmd, new_model)
     }
     DismissPanels => {
       let ws = model.workspace
