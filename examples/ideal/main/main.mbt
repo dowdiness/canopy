@@ -468,7 +468,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     SelectBottomTab(tab) => {
       let new_model = { ..model, bottom_tab: tab }
-      (graphviz_render_cmd(new_model), new_model)
+      (bottom_render_cmd(new_model), new_model)
     }
     StructuralEditRequested(op~, node_id~) => {
       let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
@@ -513,7 +513,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         let text = new_model.editor.get_text()
         let cmd = @rabbita.batch([
           @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
-          graphviz_render_cmd(new_model),
+          bottom_render_cmd(new_model),
         ])
         (cmd, new_model)
       } else {
@@ -527,7 +527,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         let text = new_model.editor.get_text()
         let cmd = @rabbita.batch([
           @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
-          graphviz_render_cmd(new_model),
+          bottom_render_cmd(new_model),
         ])
         (cmd, new_model)
       } else {
@@ -540,7 +540,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let text = new_model.editor.get_text()
       let cmd = @rabbita.batch([
         @rabbita.effect(fn() { js_reconcile_editor_with_text(text) }),
-        graphviz_render_cmd(new_model),
+        bottom_render_cmd(new_model),
       ])
       (cmd, new_model)
     }
@@ -843,7 +843,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       // Text was already applied by TS calling handle_text_intent FFI.
       // Just refresh the outline.
       let new_model = refresh(model)
-      (graphviz_render_cmd(new_model), new_model)
+      (bottom_render_cmd(new_model), new_model)
     }
     EditorNodeSelected(node_id) => {
       let resolved_node_id = if node_id == "" {
@@ -879,7 +879,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           next_timestamp: model.next_timestamp + 1,
         })
-        (graphviz_render_cmd(new_model), new_model)
+        (bottom_render_cmd(new_model), new_model)
       }
     }
   }

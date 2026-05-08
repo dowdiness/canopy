@@ -8,6 +8,7 @@ pub enum EditorMode {
 pub enum BottomTab {
   Problems
   OpLog
+  History
   CrdtState
   Graphviz
 } derive(Eq)
