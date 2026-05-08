@@ -94,7 +94,18 @@ modern default) tsc fails:
 **Suggested fix:** add `override` to all three. moondsp applied this in
 the vendor copy.
 
-## P4 — `private: true` blocks vendoring → install path until publish
+## P4 — `private: true` blocks vendoring → install path until publish (resolved)
+
+**Resolved:** the publish-prep commit (`eb4e10b`, on `main` since alpha.0)
+already dropped `private: true`, bumped to `0.1.0-alpha.0`, and added the
+license / repository / homepage / bugs / keywords / files allowlist. The
+`0.1.0-alpha.x` tag carries the pre-stable signal. `file:../canopy/adapters/editor-adapter`
+deps now work for sibling-checkout consumers; `npm publish` remains the
+follow-on step if/when the package goes registry-public.
+
+**Original report below for context.**
+
+
 
 **File:** `package.json`
 
@@ -129,7 +140,8 @@ Without one of these, "two consumers on CI" can't actually be wired up.
 - [x] P1 — implement `SetDiagnostics` in `CM6Adapter`
 - [x] P2 — `import type` fix for `DecorationSet` + `ViewUpdate`
 - [x] P3 — `override` modifier on `PeerCursorWidget` methods
-- [ ] P4 — decide: publish or drop `private: true`
+- [x] P4 — `private: true` dropped (publish-prep commit `eb4e10b`)
 
-Only P4 (the publish decision) remains. moondsp's vendor copy can drop
-its local TypeScript deltas the moment alpha.1 lands.
+All four punch-list items are resolved on `main`. moondsp's vendor copy
+can be dropped in favor of a `file:` dep (or, once the package is
+registry-published, an `npm` dep).
