@@ -34,10 +34,38 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
 }
 
 ///|
+/// Render the causal-graph history view as SVG into the History tab's
+/// container. Mirrors `graphviz_render_cmd` — guarded on tab + visibility.
+fn history_render_cmd(model : Model) -> @rabbita.Cmd {
+  if model.bottom_tab != History || !model.workspace.bottom_visible {
+    return @rabbita.none
+  }
+  let snap = model.editor.causal_snapshot()
+  let svg = match render_history(snap, model.editor.get_peer_id()) {
+    Empty => "<span class=\"no-problems\">No operations recorded yet</span>"
+    TooLarge(n) =>
+      "<span class=\"no-problems\">Graph too large — \{n} ops; collapsing UI deferred to Phase 2</span>"
+    Dot(dot) => render_dot_to_svg(dot)
+  }
+  @rabbita_cmd.raw_effect(
+    fn(_) { js_set_inner_html("canopy-history-container", svg) },
+    kind=@rabbita_cmd.after_render,
+  )
+}
+
+///|
+/// Run the appropriate bottom-panel render command for the active tab.
+/// Each per-tab cmd self-guards on tab + visibility, so this just batches.
+fn bottom_render_cmd(model : Model) -> @rabbita.Cmd {
+  @rabbita.batch([graphviz_render_cmd(model), history_render_cmd(model)])
+}
+
+///|
 fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
   let tabs : Array[(BottomTab, String)] = [
     (Problems, "Problems"),
     (OpLog, "Op Log"),
+    (History, "History"),
     (CrdtState, "CRDT State"),
     (Graphviz, "Graphviz"),
   ]
@@ -101,6 +129,12 @@ fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
           ]),
         ]),
       ])
+    History =>
+      @html.div(
+        class="bottom-content history-content",
+        attrs=@html.Attrs::build().id("canopy-history-container"),
+        [@html.text("")],
+      )
     Graphviz =>
       @html.div(
         class="bottom-content graphviz-content",

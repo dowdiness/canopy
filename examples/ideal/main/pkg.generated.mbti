@@ -79,6 +79,7 @@ pub fn undo_manager_undo(Int) -> Bool
 pub enum BottomTab {
   Problems
   OpLog
+  History
   CrdtState
   Graphviz
 } derive(Eq)

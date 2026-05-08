@@ -689,6 +689,21 @@ canopy-editor {
   height: auto;
 }
 
+/* ── Causal History ─────────────────────────────────────── */
+
+.history-content {
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+.history-content svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ── Panel scrim (mobile only — hidden on desktop) ─────── */
 
 .panel-scrim {
