@@ -255,6 +255,11 @@ fn palette_color(idx : Int) -> String {
 
 ///|
 /// Frontier stroke color — must contrast with every fill.
+///
+/// Used inside DOT, which Graphviz parses as a literal: CSS custom
+/// properties are unreachable from the layout pipeline, so the value
+/// has to live here as a string. Mirrored in `editor.css` as
+/// `--canopy-frontier`; keep the two in sync by hand.
 const FRONTIER_STROKE : String = "#ffcb6b"
 
 ///|
@@ -413,11 +418,11 @@ pub fn legend_html(
     )
   }
   // Frontier swatch — amber border, no fill — mirrors the SVG's stroke.
+  // Border color comes from `--canopy-frontier` in editor.css; the swatch
+  // is purely decorative so the chip stays free of inline style.
   buf.write_string(
-    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-frontier\" style=\"border-color:",
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-frontier\" aria-hidden=\"true\"></span>now</span>",
   )
-  buf.write_string(FRONTIER_STROKE)
-  buf.write_string("\"></span>now</span>")
   buf.write_string("</div>")
   buf.to_string()
 }
@@ -428,8 +433,11 @@ fn append_legend_chip(
   fill : String,
   label : String,
 ) -> Unit {
+  // The colored dot is decorative — it duplicates information that's
+  // already in the SVG fill, and color alone never conveys meaning to
+  // assistive tech. The text label beside it carries the agent identity.
   buf.write_string(
-    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-dot\" style=\"background:",
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-dot\" aria-hidden=\"true\" style=\"background:",
   )
   buf.write_string(fill)
   buf.write_string("\"></span>")

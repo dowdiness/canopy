@@ -33,6 +33,10 @@
   --canopy-error-text: #ef4444;
   --canopy-success: #34d058;
   --canopy-peer-blue: #58a6ff;
+  --canopy-frontier: #ffcb6b;        /* Causal-history "now" stroke. Mirrored
+                                        in MoonBit as FRONTIER_STROKE — DOT
+                                        can't read CSS vars, so the literal
+                                        must stay in sync. */
   --canopy-shadow-heavy: rgba(0, 0, 0, 0.5);
 
   /* ── Derived (hover/interaction overlays) ────────────── */
@@ -747,7 +751,7 @@ canopy-editor {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  border: 2px solid;
+  border: 2px solid var(--canopy-frontier);
   background: transparent;
   flex-shrink: 0;
 }
