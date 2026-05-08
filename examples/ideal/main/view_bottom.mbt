@@ -270,13 +270,24 @@ fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
       .tabindex(if active { 0 } else { -1 })
       .on_keydown(fn(ev) {
         // Horizontal tablist: APG reserves ArrowUp/Down for normal scroll;
-        // only ArrowLeft/Right + Home/End move between tabs.
-        match ev.key() {
-          "ArrowLeft" => dispatch(SelectBottomTab(prev_tab))
-          "ArrowRight" => dispatch(SelectBottomTab(next_tab))
-          "Home" => dispatch(SelectBottomTab(first_tab))
-          "End" => dispatch(SelectBottomTab(last_tab))
-          _ => @rabbita.none
+        // only ArrowLeft/Right + Home/End move between tabs. Cancel the
+        // browser default for handled keys — Home/End and arrow keys
+        // otherwise scroll the page or scroll containers, so without
+        // prevent_default the viewport jumps while focus moves between
+        // tabs.
+        let target_tab = match ev.key() {
+          "ArrowLeft" => Some(prev_tab)
+          "ArrowRight" => Some(next_tab)
+          "Home" => Some(first_tab)
+          "End" => Some(last_tab)
+          _ => None
+        }
+        match target_tab {
+          Some(t) => {
+            ev.prevent_default()
+            dispatch(SelectBottomTab(t))
+          }
+          None => @rabbita.none
         }
       })
     if active {
