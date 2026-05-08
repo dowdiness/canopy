@@ -10,7 +10,7 @@ import {
 } from "@codemirror/view";
 import { StateField, StateEffect, RangeSetBuilder } from "@codemirror/state";
 import type { EditorAdapter } from './adapter';
-import type { ViewPatch, UserIntent, Decoration } from './types';
+import type { ViewPatch, UserIntent, Decoration, Diagnostic } from './types';
 
 // ── Decoration state ────────────────────────────────────────
 
@@ -148,6 +148,77 @@ const decorationPlugin = ViewPlugin.fromClass(
   },
 );
 
+// ── Diagnostic state ────────────────────────────────────────
+
+const setDiagnostics = StateEffect.define<Diagnostic[]>();
+
+function buildDiagnosticSet(
+  diagnostics: Diagnostic[],
+  docLength: number,
+): DecorationSet {
+  const sorted = diagnostics
+    .map((d) => {
+      const from = Math.min(Math.max(0, d.from), docLength);
+      const to = Math.min(Math.max(from, d.to), docLength);
+      return { ...d, from, to };
+    })
+    .filter((d) => d.from < d.to)
+    .sort((a, b) => a.from - b.from || a.to - b.to);
+
+  const builder = new RangeSetBuilder<CmDecoration>();
+  for (const d of sorted) {
+    builder.add(
+      d.from,
+      d.to,
+      CmDecoration.mark({
+        class: `cm-diagnostic cm-diagnostic-${d.severity}`,
+        // Native browser tooltip — no extra @codemirror/lint dep.
+        // Consumers can override by replacing this StateField.
+        attributes: { title: d.message, "data-severity": d.severity },
+      }),
+    );
+  }
+  return builder.finish();
+}
+
+const diagnosticField = StateField.define<Diagnostic[]>({
+  create() {
+    return [];
+  },
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setDiagnostics)) {
+        return effect.value;
+      }
+    }
+    return value;
+  },
+});
+
+const diagnosticPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      const diags = view.state.field(diagnosticField);
+      this.decorations = buildDiagnosticSet(diags, view.state.doc.length);
+    }
+
+    update(update: ViewUpdate) {
+      const oldDiags = update.startState.field(diagnosticField);
+      const newDiags = update.state.field(diagnosticField);
+      if (oldDiags !== newDiags) {
+        this.decorations = buildDiagnosticSet(newDiags, update.state.doc.length);
+      } else if (update.docChanged) {
+        this.decorations = this.decorations.map(update.changes);
+      }
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);
+
 // ── CM6Adapter ──────────────────────────────────────────────
 
 export class CM6Adapter implements EditorAdapter {
@@ -162,8 +233,13 @@ export class CM6Adapter implements EditorAdapter {
   /**
    * CM6 extensions required for this adapter. Include in EditorView extensions.
    */
-  static extensions(): [typeof decorationField, typeof decorationPlugin] {
-    return [decorationField, decorationPlugin];
+  static extensions(): [
+    typeof decorationField,
+    typeof decorationPlugin,
+    typeof diagnosticField,
+    typeof diagnosticPlugin,
+  ] {
+    return [decorationField, decorationPlugin, diagnosticField, diagnosticPlugin];
   }
 
   /**
@@ -238,8 +314,14 @@ export class CM6Adapter implements EditorAdapter {
         break;
       }
 
+      case "SetDiagnostics": {
+        this.view.dispatch({
+          effects: setDiagnostics.of(patch.diagnostics),
+        });
+        break;
+      }
+
       case "SelectNode":
-      case "SetDiagnostics":
         break;
 
       case "FullTree":
