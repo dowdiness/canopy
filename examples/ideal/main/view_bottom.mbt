@@ -1,5 +1,20 @@
 ///|
 /// Render a DOT string to SVG using the MoonBit graphviz pipeline.
+///
+/// `LayoutConfig::compact()` produces 50×28 user-unit nodes; the
+/// upstream `SvgConfig::dark_theme()` ships `font_size: 14`, which at
+/// the default Arial metric (~0.55 em advance) needs >50 units for
+/// labels of ~7 chars. The History tab's `"You (57 ops)"` and
+/// `"Peer-9d49#7"` overflow visually. Halve the font (14 → 9) so
+/// 12-character labels fit inside the rect at the panel's downscaled
+/// size. Both tabs share this renderer; the Graphviz tab has shorter
+/// labels and only benefits from the change.
+let bottom_tab_svg_config : @gv_svg.SvgConfig = {
+  ..@gv_svg.SvgConfig::dark_theme(),
+  font_size: 9.0,
+}
+
+///|
 fn render_dot_to_svg(dot : String) -> String {
   if dot == "" || dot == "digraph { }" {
     return "<span class=\"no-problems\">No graph data</span>"
@@ -10,7 +25,7 @@ fn render_dot_to_svg(dot : String) -> String {
         graph,
         @gv_layout.LayoutConfig::compact(),
       )
-      @gv_svg.render_svg_with_config(layout, @gv_svg.SvgConfig::dark_theme())
+      @gv_svg.render_svg_with_config(layout, bottom_tab_svg_config)
     }
     Err(e) =>
       "<span class=\"problem-text\">Parse error at \{e.position}: \{e.message}</span>"
