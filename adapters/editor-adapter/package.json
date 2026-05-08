@@ -1,9 +1,33 @@
 {
   "name": "@canopy/editor-adapter",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "type": "module",
   "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dowdiness/canopy.git",
+    "directory": "adapters/editor-adapter"
+  },
+  "homepage": "https://github.com/dowdiness/canopy/tree/main/adapters/editor-adapter#readme",
+  "bugs": {
+    "url": "https://github.com/dowdiness/canopy/issues"
+  },
+  "keywords": [
+    "canopy",
+    "editor",
+    "codemirror",
+    "prosemirror",
+    "viewpatch",
+    "structural-editor"
+  ],
+  "files": [
+    "*.ts",
+    "*.css",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": "./index.ts",
     "./adapter": "./adapter.ts",
