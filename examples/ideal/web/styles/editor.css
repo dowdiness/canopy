@@ -967,7 +967,10 @@ canopy-editor {
   }
 
   .bottom-content {
-    max-height: 40vh;
+    /* Override the token, not max-height directly, so .graphviz/.history
+     * SVGs (which derive their cap from this token) scale with the
+     * mobile-expanded panel instead of staying clamped to 160px. */
+    --bottom-content-max-height: 40vh;
   }
 
   /* ── Tree: reduce indentation, cap at depth 5 ──────────── */
@@ -1052,7 +1055,7 @@ canopy-editor {
   }
 
   .bottom-panel { max-height: 30vh; }
-  .bottom-content { max-height: 25vh; }
+  .bottom-content { --bottom-content-max-height: 25vh; }
 }
 
 /* ── Scrollbar ──────────────────────────────────────────── */
