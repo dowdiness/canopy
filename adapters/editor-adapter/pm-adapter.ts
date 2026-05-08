@@ -5,8 +5,10 @@
 // The PM view is non-editable — all mutations come through applyPatches.
 
 import { EditorView as PmView } from "prosemirror-view";
-import { EditorState as PmState, Transaction, Selection, NodeSelection } from "prosemirror-state";
-import { Schema, Node as PmNode, NodeSpec } from "prosemirror-model";
+import { EditorState as PmState, Selection, NodeSelection } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
+import { Schema } from "prosemirror-model";
+import type { Node as PmNode, NodeSpec } from "prosemirror-model";
 import type { EditorAdapter } from './adapter';
 import type { ViewPatch, ViewNode, UserIntent } from './types';
 
