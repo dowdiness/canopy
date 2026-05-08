@@ -73,6 +73,9 @@
   --space-xl: 24px;
   --space-2xl: 32px;
 
+  /* ── Bottom panel ──────────────────────────────────────── */
+  --bottom-content-max-height: 160px;
+
   /* ── Radii ─────────────────────────────────────────────── */
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -632,7 +635,7 @@ canopy-editor {
 .bottom-content {
   padding: var(--space-md) var(--space-lg);
   overflow-y: auto;
-  max-height: 160px;
+  max-height: var(--bottom-content-max-height);
   font-size: var(--text-small);
   line-height: var(--leading-normal);
 }
@@ -674,34 +677,103 @@ canopy-editor {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Graphviz ───────────────────────────────────────────── */
+/* ── Graphviz tab ───────────────────────────────────────── */
 
+/*
+ * The SVG produced by `@gv_svg.render_svg_with_config` carries a viewBox
+ * but no intrinsic width/height. Without an explicit max-height the SVG
+ * inflates to (container_width × viewBox_aspect), which for narrow graphs
+ * (e.g. a 3-node chain at viewBox 90×146) produces a 2000+px tall SVG
+ * inside a 160px panel. Constrain on both axes so the SVG fits the panel
+ * by default while preserving aspect ratio.
+ */
 .graphviz-content {
   overflow: auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: var(--space-md);
 }
 
 .graphviz-content svg {
   max-width: 100%;
+  max-height: calc(var(--bottom-content-max-height) - var(--space-md) * 2);
+  width: auto;
   height: auto;
 }
 
-/* ── Causal History ─────────────────────────────────────── */
+/* ── Causal History tab ─────────────────────────────────── */
 
+/*
+ * Vertical layout: legend strip on top (decoder for the agent palette and
+ * the "now" frontier highlight), SVG below in a centered, overflow-aware
+ * region. Same SVG sizing strategy as the Graphviz tab, scoped to the
+ * graph row so the legend isn't squeezed out.
+ */
 .history-content {
-  overflow: auto;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-label);
+  color: var(--canopy-muted);
+  border-bottom: 1px solid var(--canopy-border);
+  flex-shrink: 0;
+}
+
+.history-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.history-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.history-legend-frontier {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.history-graph {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  overflow: auto;
   padding: var(--space-md);
 }
 
-.history-content svg {
+.history-graph svg {
   max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
+}
+
+.history-empty {
+  display: block;
+  padding: var(--space-md);
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
 }
 
 /* ── Panel scrim (mobile only — hidden on desktop) ─────── */
@@ -895,7 +967,10 @@ canopy-editor {
   }
 
   .bottom-content {
-    max-height: 40vh;
+    /* Override the token, not max-height directly, so .graphviz/.history
+     * SVGs (which derive their cap from this token) scale with the
+     * mobile-expanded panel instead of staying clamped to 160px. */
+    --bottom-content-max-height: 40vh;
   }
 
   /* ── Tree: reduce indentation, cap at depth 5 ──────────── */
@@ -980,7 +1055,7 @@ canopy-editor {
   }
 
   .bottom-panel { max-height: 30vh; }
-  .bottom-content { max-height: 25vh; }
+  .bottom-content { --bottom-content-max-height: 25vh; }
 }
 
 /* ── Scrollbar ──────────────────────────────────────────── */

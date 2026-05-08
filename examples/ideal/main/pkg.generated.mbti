@@ -59,6 +59,8 @@ pub fn handle_undo(Int) -> Bool
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
+pub fn legend_html(@history.CausalSnapshot, String) -> String
+
 pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
 
 pub fn set_text(Int, String) -> Unit

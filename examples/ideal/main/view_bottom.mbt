@@ -1,5 +1,20 @@
 ///|
 /// Render a DOT string to SVG using the MoonBit graphviz pipeline.
+///
+/// `LayoutConfig::compact()` produces 50×28 user-unit nodes; the
+/// upstream `SvgConfig::dark_theme()` ships `font_size: 14`, which at
+/// the default Arial metric (~0.55 em advance) needs >50 units for
+/// labels of ~7 chars. The History tab's `"You (57 ops)"` and
+/// `"Peer-9d49#7"` overflow visually. Halve the font (14 → 9) so
+/// 12-character labels fit inside the rect at the panel's downscaled
+/// size. Both tabs share this renderer; the Graphviz tab has shorter
+/// labels and only benefits from the change.
+let bottom_tab_svg_config : @gv_svg.SvgConfig = {
+  ..@gv_svg.SvgConfig::dark_theme(),
+  font_size: 9.0,
+}
+
+///|
 fn render_dot_to_svg(dot : String) -> String {
   if dot == "" || dot == "digraph { }" {
     return "<span class=\"no-problems\">No graph data</span>"
@@ -10,7 +25,7 @@ fn render_dot_to_svg(dot : String) -> String {
         graph,
         @gv_layout.LayoutConfig::compact(),
       )
-      @gv_svg.render_svg_with_config(layout, @gv_svg.SvgConfig::dark_theme())
+      @gv_svg.render_svg_with_config(layout, bottom_tab_svg_config)
     }
     Err(e) =>
       "<span class=\"problem-text\">Parse error at \{e.position}: \{e.message}</span>"
@@ -34,21 +49,27 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
 }
 
 ///|
-/// Render the causal-graph history view as SVG into the History tab's
-/// container. Mirrors `graphviz_render_cmd` — guarded on tab + visibility.
+/// Render the causal-graph history view (legend + SVG) into the History
+/// tab's container. Mirrors `graphviz_render_cmd` — guarded on tab and
+/// visibility.
 fn history_render_cmd(model : Model) -> @rabbita.Cmd {
   if model.bottom_tab != History || !model.workspace.bottom_visible {
     return @rabbita.none
   }
   let snap = model.editor.causal_snapshot()
-  let svg = match render_history(snap, model.editor.get_peer_id()) {
-    Empty => "<span class=\"no-problems\">No operations recorded yet</span>"
+  let me = model.editor.get_peer_id()
+  let html = match render_history(snap, me) {
+    Empty => "<span class=\"history-empty\">No edits yet.</span>"
     TooLarge(n) =>
-      "<span class=\"no-problems\">Graph too large — \{n} ops; collapsing UI deferred to Phase 2</span>"
-    Dot(dot) => render_dot_to_svg(dot)
+      "<span class=\"history-empty\">\{n} operations — too many to display.</span>"
+    Dot(dot) =>
+      legend_html(snap, me) +
+      "<div class=\"history-graph\">" +
+      render_dot_to_svg(dot) +
+      "</div>"
   }
   @rabbita_cmd.raw_effect(
-    fn(_) { js_set_inner_html("canopy-history-container", svg) },
+    fn(_) { js_set_inner_html("canopy-history-container", html) },
     kind=@rabbita_cmd.after_render,
   )
 }

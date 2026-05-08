@@ -41,7 +41,7 @@ test "render_history single op" {
       #|  rankdir=TB;
       #|  node [style=filled, shape=box, fontname="JetBrains Mono"];
       #|  { rank=source; n0; }
-      #|  n0 [label="local#0", fillcolor="#82aaff", color="#ffcb6b", penwidth=2.5];
+      #|  n0 [label="You#0", fillcolor="#82aaff", color="#ffcb6b", penwidth=2.5];
       #|}
       #|
     ),
@@ -109,8 +109,8 @@ test "render_history 10-op chain extended by 1 — chain compressed, frontier si
   inspect(node_count, content="2")
   // Chain label includes "(10 ops)".
   inspect(dot.contains("(10 ops)"), content="true")
-  // Frontier singleton "local#10".
-  inspect(dot.contains("local#10"), content="true")
+  // Frontier singleton — the local agent's tip renders as "You#10".
+  inspect(dot.contains("You#10"), content="true")
   // Exactly one frontier-stroked node (the tip).
   let frontier_marks = dot.split("penwidth=2.5").collect().length() - 1
   inspect(frontier_marks, content="1")
@@ -140,7 +140,7 @@ test "render_history 10-op chain terminating at frontier — 9 compressed + 1 si
   }
   inspect(node_count, content="2")
   inspect(dot.contains("(9 ops)"), content="true")
-  inspect(dot.contains("local#9"), content="true")
+  inspect(dot.contains("You#9"), content="true")
 }
 
 ///|
@@ -231,20 +231,30 @@ test "render_history graph too large refuses to render" {
 }
 
 ///|
-test "render_history escapes adversarial agent IDs and round-trips" {
-  // Agent name with backslash, quote, and brace — DOT parser would choke
-  // without escaping.
-  let weird = "agent\"with\\{braces}"
-  let editor = build_linear(weird, 1)
-  let dot = match render_history(editor.causal_snapshot(), weird) {
+test "render_history produces parseable DOT for adversarial agent IDs" {
+  // The local agent always renders as "You", but `display_name` for a
+  // remote agent uses the trailing 4 chars of its ID — which can be
+  // anything, including DOT-special chars. This test wires a remote
+  // peer whose suffix contains backslash + double-quote and asserts
+  // the emitted DOT round-trips through `@gv_parser.parse_dot`.
+  let me = "me"
+  let weird = "evil-\\\"x"
+  let (alice, _) = @lambda.new_lambda_editor(me)
+  alice.insert_at(0, "a", 0)
+  let (bob, _) = @lambda.new_lambda_editor(weird)
+  bob.apply_sync(alice.export_all())
+  bob.insert_at(1, "b", 0)
+  alice.apply_sync(bob.export_all())
+  let dot = match render_history(alice.causal_snapshot(), me) {
     Dot(s) => s
     _ => {
       fail("expected Dot")
       return
     }
   }
-  // Backslash and quote escaped in the label.
-  inspect(dot.contains("agent\\\"with\\\\{braces}"), content="true")
+  // Local agent renders as "You"; remote peer's suffix-derived label
+  // must be DOT-escaped so the parser doesn't choke.
+  inspect(dot.contains("You#0"), content="true")
   match @gv_parser.parse_dot(dot) {
     Ok(_) => ()
     Err(e) => fail("DOT parse failed: \{e.message}")

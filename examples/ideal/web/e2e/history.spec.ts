@@ -40,6 +40,11 @@ test.describe('Causal History tab', () => {
     const container = page.locator('#canopy-history-container');
     await expect(container).toBeVisible();
     await expect(container.locator('svg')).toBeVisible({ timeout: 10000 });
+    // Legend decoder: "You" chip for the local agent + "now" frontier
+    // chip. Without these, color encoding is unreadable.
+    const legend = container.locator('.history-legend');
+    await expect(legend).toContainText('You');
+    await expect(legend).toContainText('now');
   });
 
   test('refreshes after reopening the bottom panel post-edit', async ({

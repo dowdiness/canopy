@@ -64,7 +64,7 @@ pub fn render_history(
   }
   let data = collect_history_data(snap, local_agent)
   let comp = chain_compress(data, snap)
-  Dot(emit_dot_string(comp, snap, data))
+  Dot(emit_dot_string(comp, snap, data, local_agent))
 }
 
 ///|
@@ -268,6 +268,7 @@ fn emit_dot_string(
   comp : CompressedData,
   snap : @history.CausalSnapshot,
   data : HistoryData,
+  local_agent : String,
 ) -> String {
   let buf = StringBuilder::new()
   buf.write_string("digraph {\n")
@@ -295,7 +296,12 @@ fn emit_dot_string(
 
   // Nodes.
   for i in 0..<comp.nodes.length() {
-    let (label, agent, is_frontier) = node_attrs(comp.nodes[i], snap, data)
+    let (label, agent, is_frontier) = node_attrs(
+      comp.nodes[i],
+      snap,
+      data,
+      local_agent,
+    )
     let color_idx = data.agent_color.get(agent).unwrap_or(0)
     let fill = palette_color(color_idx)
     buf.write_string("  n")
@@ -335,24 +341,147 @@ fn node_attrs(
   node : CompressedNode,
   snap : @history.CausalSnapshot,
   data : HistoryData,
+  local_agent : String,
 ) -> (String, String, Bool) {
   match node {
     Single(lv) => {
       let entry = snap.entry(lv).unwrap()
       let agent = entry.agent()
-      let label = escape_dot_string(agent) + "#" + entry.seq().to_string()
+      let label = escape_dot_string(display_name(agent, local_agent)) +
+        "#" +
+        entry.seq().to_string()
       (label, agent, data.frontier.contains(lv))
     }
     Chain(lvs) => {
       let head = snap.entry(lvs[0]).unwrap()
       let agent = head.agent()
-      let label = escape_dot_string(agent) +
+      let label = escape_dot_string(display_name(agent, local_agent)) +
         " (" +
         lvs.length().to_string() +
         " ops)"
       (label, agent, false)
     }
   }
+}
+
+///|
+/// Build the HTML for the agent-color legend strip rendered above the SVG.
+///
+/// The legend gives users a decoder for the visualization:
+/// - "You" with the local agent's fill color (palette index 0).
+/// - "Peer-XXXX" for each remote agent, in palette-index order so the
+///   reading flow matches the strip's left-to-right color sequence.
+/// - A frontier swatch labeled "now" so the amber-stroked nodes are
+///   immediately readable as "current tips" rather than decoration.
+///
+/// Agent IDs are user-controlled in the protocol, so HTML-escape every
+/// interpolated string. No legend is emitted when the snapshot has no
+/// agents (caller should already have routed to `Empty`).
+pub fn legend_html(
+  snap : @history.CausalSnapshot,
+  local_agent : String,
+) -> String {
+  let data = collect_history_data(snap, local_agent)
+  let buf = StringBuilder::new()
+  buf.write_string(
+    "<div class=\"history-legend\" role=\"list\" aria-label=\"Causal history color legend\">",
+  )
+  // Local agent first — anchor for "this color is you."
+  match data.agent_color.get(local_agent) {
+    Some(idx) =>
+      append_legend_chip(
+        buf,
+        palette_color(idx),
+        display_name(local_agent, local_agent),
+      )
+    None => ()
+  }
+  // Remote agents in palette-index order so the strip reads left-to-right
+  // as palette[1], palette[2], … — matching what the user sees in the SVG.
+  let others : Array[(Int, String)] = []
+  for agent, idx in data.agent_color {
+    if agent != local_agent {
+      others.push((idx, agent))
+    }
+  }
+  others.sort_by(fn(a, b) { a.0 - b.0 })
+  for pair in others {
+    append_legend_chip(
+      buf,
+      palette_color(pair.0),
+      display_name(pair.1, local_agent),
+    )
+  }
+  // Frontier swatch — amber border, no fill — mirrors the SVG's stroke.
+  buf.write_string(
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-frontier\" style=\"border-color:",
+  )
+  buf.write_string(FRONTIER_STROKE)
+  buf.write_string("\"></span>now</span>")
+  buf.write_string("</div>")
+  buf.to_string()
+}
+
+///|
+fn append_legend_chip(
+  buf : StringBuilder,
+  fill : String,
+  label : String,
+) -> Unit {
+  buf.write_string(
+    "<span class=\"history-legend-item\" role=\"listitem\"><span class=\"history-legend-dot\" style=\"background:",
+  )
+  buf.write_string(fill)
+  buf.write_string("\"></span>")
+  buf.write_string(escape_html_string(label))
+  buf.write_string("</span>")
+}
+
+///|
+/// Single source of truth for agent identity in user-facing labels.
+/// The local agent is always "You"; remote agents get a short
+/// "Peer-XXXX" name derived from the trailing 4 chars of their agent
+/// ID (production IDs look like `ideal-{timestamp}-{random8}` — the
+/// prefix is shared across the session so the suffix is the
+/// discriminator). For short or non-standard IDs, the full string is
+/// kept verbatim.
+///
+/// Used by both `legend_html` (decoder strip) and `node_attrs` (SVG
+/// labels) so a single agent reads with the same name in both
+/// surfaces — without this, the legend would say "You" while the
+/// graph showed `ideal-mqr4kx0a-9d49…`, and users would have to
+/// manually correlate the two.
+fn display_name(agent : String, local_agent : String) -> String {
+  if agent == local_agent {
+    "You"
+  } else {
+    let n = agent.length()
+    if n <= 8 {
+      agent
+    } else {
+      "Peer-" + agent[n - 4:n].to_owned()
+    }
+  }
+}
+
+///|
+/// HTML-escape a user-supplied identifier for safe interpolation into
+/// `innerHTML`. Quote escaping covers attribute-value contexts; the
+/// callers above never put user strings inside attribute values, but
+/// keeping it complete avoids a footgun if the legend grows tooltips.
+fn escape_html_string(s : String) -> String {
+  let buf = StringBuilder::new()
+  for ch in s {
+    match ch {
+      '<' => buf.write_string("&lt;")
+      '>' => buf.write_string("&gt;")
+      '&' => buf.write_string("&amp;")
+      '"' => buf.write_string("&quot;")
+      '\'' => buf.write_string("&#39;")
+      _ => buf.write_char(ch)
+    }
+  }
+  buf.to_string()
 }
 
 ///|
