@@ -5,37 +5,40 @@
 /// re-layout, and re-render the SVG — work proportional to N ops and
 /// dominated by Sugiyama layout (O(V·E)).
 ///
-/// Cache keys on `(op_count, frontier_hash, agent)`. The snapshot is a
-/// live alias over egw's Document, so cache key extraction is O(|frontier|).
-/// `html` is cached too, so a tab switch that remounts the container still
-/// gets innerHTML written cheaply on the next render — only the heavy
-/// pipeline is skipped.
+/// Cache keys on `(editor_identity, op_count, frontier_hash)`. Identity
+/// distinguishes separately-constructed `SyncEditor`s in the same process
+/// — the existing flow has one editor per page, but keying on identity
+/// closes the stale-hit path if a future flow swaps editors. Snapshot is
+/// a live alias over egw's Document, so key extraction is O(|frontier|).
+/// `html` is cached too, so a tab switch that remounts the container
+/// still gets innerHTML written cheaply on the next render — only the
+/// heavy pipeline is skipped.
 ///
 /// Module-local mutable state is acceptable here: the cmd is the only
 /// writer, the update loop sequences calls, and after_render writes are
 /// synchronous.
 priv struct RenderCache {
+  mut identity : Int
   mut op_count : Int
   mut frontier_hash : Int
-  mut agent : String
   mut html : String
   mut valid : Bool
 }
 
 ///|
 let history_cache : RenderCache = {
+  identity: -1,
   op_count: 0,
   frontier_hash: 0,
-  agent: "",
   html: "",
   valid: false,
 }
 
 ///|
 let graphviz_cache : RenderCache = {
+  identity: -1,
   op_count: 0,
   frontier_hash: 0,
-  agent: "",
   html: "",
   valid: false,
 }
@@ -45,33 +48,33 @@ let graphviz_cache : RenderCache = {
 /// practice); the multiply-by-31 fold collides only on adversarial inputs
 /// that callers don't construct.
 fn render_cache_key(
+  identity : Int,
   snap : @history.CausalSnapshot,
-  agent : String,
-) -> (Int, Int, String) {
+) -> (Int, Int, Int) {
   let mut h = 0
   for lv in snap.frontier() {
     h = h * 31 + lv
   }
-  (snap.op_count(), h, agent)
+  (identity, snap.op_count(), h)
 }
 
 ///|
-fn cache_hit(cache : RenderCache, key : (Int, Int, String)) -> Bool {
+fn cache_hit(cache : RenderCache, key : (Int, Int, Int)) -> Bool {
   cache.valid &&
-  cache.op_count == key.0 &&
-  cache.frontier_hash == key.1 &&
-  cache.agent == key.2
+  cache.identity == key.0 &&
+  cache.op_count == key.1 &&
+  cache.frontier_hash == key.2
 }
 
 ///|
 fn cache_store(
   cache : RenderCache,
-  key : (Int, Int, String),
+  key : (Int, Int, Int),
   html : String,
 ) -> Unit {
-  cache.op_count = key.0
-  cache.frontier_hash = key.1
-  cache.agent = key.2
+  cache.identity = key.0
+  cache.op_count = key.1
+  cache.frontier_hash = key.2
   cache.html = html
   cache.valid = true
 }
@@ -118,7 +121,7 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
     return @rabbita.none
   }
   let snap = model.editor.causal_snapshot()
-  let key = render_cache_key(snap, model.editor.get_peer_id())
+  let key = render_cache_key(model.editor.identity(), snap)
   // Cache the wrapped HTML, not the bare SVG — the role="img" wrapper is
   // a constant cost we want to pay once. Mirrors the History tab so screen
   // readers see the same shape on either panel.
@@ -151,7 +154,7 @@ fn history_render_cmd(model : Model) -> @rabbita.Cmd {
   }
   let snap = model.editor.causal_snapshot()
   let me = model.editor.get_peer_id()
-  let key = render_cache_key(snap, me)
+  let key = render_cache_key(model.editor.identity(), snap)
   let html = if cache_hit(history_cache, key) {
     history_cache.html
   } else {
@@ -255,21 +258,30 @@ fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
     let next_tab = tabs[(i + 1) % n].0
     let active = model.bottom_tab == tab
     let class_name = if active { "tab active" } else { "tab" }
-    let attrs = @html.Attrs::build()
+    // `aria-controls` is set only on the active tab — the other panels
+    // aren't mounted (`view_bottom_content` matches on `bottom_tab` and
+    // returns one), so cross-referencing missing IDs would mislead AT.
+    // The `aria-labelledby` on the active panel still ties it back to
+    // its tab button.
+    let mut attrs = @html.Attrs::build()
       .id(bottom_tab_button_id(tab))
       .role("tab")
       .aria_selected(if active { "true" } else { "false" })
-      .aria_controls(bottom_tab_panel_id(tab))
       .tabindex(if active { 0 } else { -1 })
       .on_keydown(fn(ev) {
+        // Horizontal tablist: APG reserves ArrowUp/Down for normal scroll;
+        // only ArrowLeft/Right + Home/End move between tabs.
         match ev.key() {
-          "ArrowLeft" | "ArrowUp" => dispatch(SelectBottomTab(prev_tab))
-          "ArrowRight" | "ArrowDown" => dispatch(SelectBottomTab(next_tab))
+          "ArrowLeft" => dispatch(SelectBottomTab(prev_tab))
+          "ArrowRight" => dispatch(SelectBottomTab(next_tab))
           "Home" => dispatch(SelectBottomTab(first_tab))
           "End" => dispatch(SelectBottomTab(last_tab))
           _ => @rabbita.none
         }
       })
+    if active {
+      attrs = attrs.aria_controls(bottom_tab_panel_id(tab))
+    }
     buttons.push(
       @html.button(
         class=class_name,
@@ -290,12 +302,17 @@ fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
 
 ///|
 /// Build the standard tabpanel attrs for a bottom-panel container — id,
-/// role, and aria-labelledby pointing back at the tab button.
+/// role, aria-labelledby pointing back at the tab button, and
+/// `tabindex="0"` so Tab from the tablist enters the panel even when no
+/// descendant is focusable (Problems / OpLog / CRDT State / SVG-only
+/// History/Graphviz). APG: a tabpanel with no focusable content must be
+/// in the tab sequence itself.
 fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
   @html.Attrs::build()
   .id(bottom_tab_panel_id(tab))
   .role("tabpanel")
   .aria_labelledby(bottom_tab_button_id(tab))
+  .tabindex(0)
 }
 
 ///|
