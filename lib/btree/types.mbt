@@ -15,6 +15,9 @@ pub(all) struct BTree[T] {
 } derive(Debug, Eq)
 
 ///|
+pub(open) trait BTreeElem: @rle.Spanning + @rle.Mergeable + @rle.Sliceable {}
+
+///|
 pub(all) struct FindResult[T] {
   elem : T
   offset : Int

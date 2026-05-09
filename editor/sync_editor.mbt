@@ -284,3 +284,234 @@ fn[T] SyncEditor::set_status(
     None => ()
   }
 }
+
+// ── Projection accessors ─────────────────────────────────────────────────
+
+///|
+/// Returns the cached ProjNode (converted from FlatProj once per invalidation).
+/// Safe to call both inside and outside tracked context.
+pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
+  self.parser.runtime().read(self.cached_proj_node)
+}
+
+///|
+/// Safe to call both inside and outside tracked context.
+pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
+  self.parser.runtime().read(self.source_map_memo)
+}
+
+///|
+/// Returns the full node registry (NodeId → ProjNode).
+/// Safe to call both inside and outside tracked context.
+pub fn[T] SyncEditor::get_registry(
+  self : SyncEditor[T],
+) -> Map[@core.NodeId, @core.ProjNode[T]] {
+  self.parser.runtime().read(self.registry_memo)
+}
+
+///|
+/// Returns the parsed AST tree (language-specific type T).
+/// Always `Some(_)` — the Parser primes its AST cell in the constructor
+/// and lex failures propagate as a language-specific sentinel (e.g.
+/// `Term::Error("lex error: …")` for lambda via `on_lex_error`), not as
+/// `None`. The `?` is kept so this API doesn't need to churn if we
+/// later separate "never parsed" from "parse failed".
+pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
+  Some(self.parser.runtime().read(self.parser.ast()))
+}
+
+///|
+pub fn[T] SyncEditor::get_node(
+  self : SyncEditor[T],
+  id : @core.NodeId,
+) -> @core.ProjNode[T]? {
+  self.parser.runtime().read(self.registry_memo).get(id)
+}
+
+///|
+pub fn[T] SyncEditor::node_at_position(
+  self : SyncEditor[T],
+  position : Int,
+) -> @core.NodeId? {
+  self.parser.runtime().read(self.source_map_memo).innermost_node_at(position)
+}
+
+///|
+pub fn[T] SyncEditor::get_node_range(
+  self : SyncEditor[T],
+  id : @core.NodeId,
+) -> @loom_core.Range? {
+  self.parser.runtime().read(self.source_map_memo).get_range(id)
+}
+
+// ── Span-edit application ────────────────────────────────────────────────
+
+///|
+/// Apply a list of SpanEdits through the text CRDT, then adjust the cursor
+/// per the FocusHint. Edits are applied in reverse document order to avoid
+/// position shifts. All edits are recorded for undo.
+pub fn[T : Eq] SyncEditor::apply_span_edits(
+  self : SyncEditor[T],
+  edits : Array[@core.SpanEdit],
+  focus_hint : @core.FocusHint,
+  timestamp_ms : Int,
+) -> Unit {
+  if edits.is_empty() {
+    return
+  }
+  let old_cursor = self.get_cursor()
+  let sorted = edits.copy()
+  sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
+  for edit in sorted {
+    self.apply_text_edit_internal(
+      edit.start,
+      edit.delete_len,
+      edit.inserted,
+      timestamp_ms,
+      true, // record_undo — grouped by capture timeout
+      false, // move_cursor_to_edit_end
+    )
+  }
+  match focus_hint {
+    @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
+    @core.FocusHint::MoveCursor(position~) => self.move_cursor(position)
+  }
+}
+
+// ── Sync / export ────────────────────────────────────────────────────────
+
+///|
+fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
+  let text_len = self.doc.len()
+  if self.cursor > text_len {
+    self.cursor = text_len
+  }
+}
+
+///|
+pub fn[T : Eq] SyncEditor::apply_sync(
+  self : SyncEditor[T],
+  msg : @text.SyncMessage,
+) -> Unit raise {
+  let old_source = self.doc.text()
+  self.undo.set_tracking(false)
+  self.doc.sync().apply(msg) catch {
+    e => {
+      self.undo.set_tracking(true)
+      // Reconcile derived state in case apply partially mutated the doc
+      let new_source = self.doc.text()
+      self.adjust_cursor()
+      self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+      self.sync_parser_after_text_change(old_source, new_source, None)
+      raise e
+    }
+  }
+  self.undo.set_tracking(true)
+  let new_source = self.doc.text()
+  self.adjust_cursor()
+  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+  self.sync_parser_after_text_change(old_source, new_source, None)
+  // Clear a prior Error status once any sync applies — another peer
+  // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
+  match self.status {
+    Error(_) => self.set_status(Idle)
+    _ => ()
+  }
+}
+
+///|
+pub fn[T] SyncEditor::get_version(self : SyncEditor[T]) -> @text.Version {
+  self.doc.version()
+}
+
+///|
+pub fn[T] SyncEditor::export_all(
+  self : SyncEditor[T],
+) -> @text.SyncMessage raise {
+  self.doc.sync().export_all()
+}
+
+///|
+pub fn[T] SyncEditor::export_since(
+  self : SyncEditor[T],
+  peer_version : @text.Version,
+) -> @text.SyncMessage raise {
+  self.doc.sync().export_since(peer_version)
+}
+
+// ── Pretty-print integration ─────────────────────────────────────────────
+
+///|
+/// Returns the pretty-printed ViewNode tree.
+/// If capabilities.pretty_post_process is set, it post-processes the layout
+/// (e.g. to inject eval annotations).
+pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(
+  self : SyncEditor[T],
+) -> @protocol.ViewNode {
+  let tree = match self.get_tree() {
+    Some(t) => t
+    None => return @protocol.layout_to_view_tree(@pretty.text(""), width=80)
+  }
+  let layout = @pretty.Pretty::to_layout(tree)
+  let final_layout = match self.capabilities.pretty_post_process {
+    Some(post) => post(layout)
+    None => layout
+  }
+  @protocol.layout_to_view_tree(final_layout, width=80)
+}
+
+///|
+/// Compute incremental pretty-view patches.
+/// Uses a separate ViewUpdateState from the structural view.
+pub fn[T : @pretty.Pretty] compute_pretty_patches(
+  state : ViewUpdateState,
+  editor : SyncEditor[T],
+) -> Array[@protocol.ViewPatch] {
+  let patches : Array[@protocol.ViewPatch] = []
+  let current = editor.get_pretty_view()
+  match state.previous {
+    None => patches.push(@protocol.ViewPatch::FullTree(root=Some(current)))
+    Some(prev) => diff_view_nodes(prev, current, patches)
+  }
+  state.previous = Some(current)
+  patches
+}
+
+// ── History / construction identity ──────────────────────────────────────
+
+///|
+/// Process-local counter for `SyncEditor` construction identities. Single
+/// counter shared across all `T`. Single-threaded under the MoonBit
+/// web/native runtime; if multi-thread editor construction is ever added,
+/// this must be made atomic.
+let editor_identity_counter : Ref[Int] = { val: 0 }
+
+///|
+/// Allocate the next construction identity. Called once per
+/// `SyncEditor::new_generic`.
+fn next_editor_identity() -> Int {
+  let id = editor_identity_counter.val
+  editor_identity_counter.val = id + 1
+  id
+}
+
+///|
+/// Read-only view of the document's causal DAG. The returned snapshot is a
+/// live alias over the underlying egw `Document` — it reflects subsequent
+/// edits made through this `SyncEditor`. See `@history.CausalSnapshot` for
+/// the available accessors.
+pub fn[T] SyncEditor::causal_snapshot(
+  self : SyncEditor[T],
+) -> @history.CausalSnapshot {
+  self.doc.causal_snapshot()
+}
+
+///|
+/// Process-local construction identity for this `SyncEditor`. Stable for
+/// the lifetime of the instance; distinct across separately-constructed
+/// instances. Suitable as part of a cache key for derived views (e.g.
+/// `(editor.identity(), snapshot.op_count())` for an append-only history
+/// memo).
+pub fn[T] SyncEditor::identity(self : SyncEditor[T]) -> Int {
+  self.identity
+}

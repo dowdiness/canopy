@@ -304,3 +304,16 @@ pub fn inject_eval_annotations(
   }
   @pretty.separate(@pretty.hardline(), annotated)
 }
+
+///|
+/// Optimize a term via equality saturation (Tier 3 algebraic optimization).
+/// Returns the simplified form if it differs from the input,
+/// or None if the optimizer produces the same expression.
+pub fn optimize_term(term : @ast.Term) -> @ast.Term? {
+  let result = @lambda_opt.optimize(term)
+  if result == term {
+    None
+  } else {
+    Some(result)
+  }
+}
