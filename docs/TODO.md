@@ -129,6 +129,18 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `build_tree`, `build_tree_interned`, `build_tree_fully_interned` are ~80 lines each of near-identical stack-based tree construction, differing only in token creation and node wrapping. Discovered during error handling audit (loom PR #75).
   Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
 
+- [ ] Remove or narrow unused `optimize_term` in `lang/lambda/eval/eval_memo.mbt`.
+  Why: `moon ide find-references` shows only the definition site — flagged during 2026-05-09 cohesion audit (Q4, PR #236). Currently `pub`. Either delete the function or downgrade visibility to `priv` if a downstream consumer turns up that I missed.
+  Exit: function is deleted, or visibility narrowed; `moon test` and `moon info` clean.
+
+- [ ] Fix `markdown_export_text` blind ZWSP `replace_all` (`ffi/markdown/markdown_ffi.mbt:42–47`).
+  Why: blind string replace `\n​\n` → `\n\n` corrupts legitimate user lines that contain only U+200B between newlines (typed/pasted into a code block, e.g.). Pre-existing from #196; flagged by CodeRabbit on PR #236 and skipped there as out-of-scope for the cohesion audit.
+  Exit: `markdown_export_text` walks block nodes via `ed.get_proj_node()` and drops only paragraph/block nodes whose text content is exactly the ZWSP sentinel; serialize the survivors back to text. Regression test from a document with a legitimately-ZWSP-only line passes.
+
+- [ ] Narrow `merge_to_edits` visibility in `editor/sync_editor_parser.mbt`.
+  Why: Codex confirmed during 2026-05-09 cohesion audit (Q2, PR #236) that the only callers are `sync_editor_parser.mbt` itself and `edit_bridge_test.mbt`. Currently `pub`. Note: blackbox `*_test.mbt` files compile in a separate package, so simply dropping `pub` may not work — verify before changing.
+  Exit: visibility downgraded as far as MoonBit blackbox-test rules allow; `moon test` still passes.
+
 ---
 
 ## 8. Handler Chain Follow-ups
