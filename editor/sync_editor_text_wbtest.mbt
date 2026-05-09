@@ -103,3 +103,95 @@ test "insert_at with multi-char text" {
   inspect(editor.get_text(), content="abc")
   inspect(editor.get_cursor(), content="0")
 }
+
+// ─── Non-ASCII safety probes (issue #216) ────────────────────────────────
+//
+// Surveys the editor's behavior on non-ASCII inputs so the bugs documented
+// in issue #216 are visible and so the test suite goes red the moment any
+// of the underlying layers is fixed. The tests split along the actual
+// failure modes observed today:
+//
+//   1. BMP-only inputs (combining marks): the editor runs without aborting
+//      but produces wrong output (deletes only the combining mark, not the
+//      grapheme). Pinned with `inspect`. When moji-based fixes land, these
+//      assertions need to be updated to the grapheme-correct values.
+//
+//   2. Surrogate-pair inputs (emoji, ZWJ family, flag): the CRDT layer
+//      (event-graph-walker) currently *aborts* via `String::sub` when an
+//      insert lands on a UTF-16 code-unit boundary mid-surrogate. Marked
+//      with the `panic ` test prefix, which expects abort. When the CRDT
+//      issue (eg-walker, related to #216) is fixed, these tests will start
+//      failing because the abort no longer fires — at which point they
+//      should be rewritten as inspect-style tests against the new
+//      post-fix surface behavior.
+
+///|
+/// BMP single-code-unit char (Japanese Hiragana). Sanity baseline.
+test "insert: BMP single-code-unit char advances cursor by 1 (baseline)" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.insert("あ") catch {
+    _ => ()
+  }
+  inspect(editor.get_text(), content="あ")
+  inspect(editor.get_cursor(), content="1")
+}
+
+///|
+/// #216: backspace after a combining acute accent (NFD form of "é")
+/// currently deletes only the combining mark, leaving the bare "e".
+/// The user pressed backspace expecting the whole grapheme to go.
+/// Post-fix (moji): text="", cursor=0.
+test "#216 xfail: backspace removes only combining mark, not grapheme" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.insert("e") catch {
+    _ => ()
+  }
+  editor.insert("\u{0301}") catch {
+    _ => ()
+  } // COMBINING ACUTE
+  let _ = editor.backspace()
+  inspect(editor.get_text(), content="e")
+  inspect(editor.get_cursor(), content="1")
+}
+
+///|
+/// #216: insert of a surrogate-pair emoji currently aborts in the CRDT
+/// (`String::sub` mid-surrogate). The whole call stack — `SyncEditor::insert`
+/// → `TextState::insert` → `Document::insert` → `String::sub` — panics, not
+/// just the editor layer. Tracked separately as the eg-walker CRDT issue
+/// referenced from #216.
+test "panic #216: insert non-BMP emoji aborts in CRDT" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.insert("😀") catch {
+    _ => ()
+  }
+}
+
+///|
+/// #216: same abort path triggered through a ZWJ family. Each insert of a
+/// single non-BMP component goes through the same `Document::insert` path.
+test "panic #216: insert ZWJ family member aborts in CRDT" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.insert("👨") catch {
+    _ => ()
+  }
+}
+
+///|
+/// #216: regional indicator (flag half) is also non-BMP — same crash path.
+test "panic #216: insert regional indicator aborts in CRDT" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.insert("🇯") catch {
+    _ => ()
+  }
+}
+
+///|
+/// #216: `set_text` of a string containing a surrogate pair routes through
+/// the same CRDT insert and aborts. This is the path used by the
+/// ProseMirror bridge, so external text coming in over the bridge can
+/// crash the editor.
+test "panic #216: set_text with non-BMP content aborts" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.set_text("😀")
+}
