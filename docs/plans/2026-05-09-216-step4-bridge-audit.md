@@ -6,76 +6,87 @@ grapheme-aware fixes (Step 2 of #216).
 **Scope:** confirm where the editor's UTF-16 code-unit ↔ grapheme-cluster
 conversion needs to live for each external bridge. The original framing in
 [#216] singles out "the ProseMirror bridge"; in practice canopy now has
-**three** position-bearing bridges plus a non-bridge structural path, and they
-do not all share the same unit.
+**multiple** position-bearing bridges and **two distinct routes** into the
+editor (bulk splice vs. per-character). The recommendation is narrower than
+"one seam to rule them all" — it covers the bulk-splice route and lists the
+remaining position-bearing surfaces explicitly.
 
 [#216]: https://github.com/dowdiness/canopy/issues/216
 
 ## TL;DR
 
-- **Two bridges already use UTF-16 code-unit offsets end-to-end** and are the
-  only places that need a grapheme-aware conversion shim once **moji** lands:
-  CM6Adapter (used by the lambda editor) and BlockInput's `split_block`
-  intent (used by the markdown block editor).
-- **PMAdapter does not need a position-unit shim.** Its PM doc is
-  non-editable; all `TextEdit`/`TextChange` patches are no-ops in the PM
-  branch. PM positions that *do* cross the bridge (`SetCursor.position`,
-  `SetSelection.{anchor,head}`) are PM-tree positions, not character offsets,
-  and don't reach the CRDT.
-- The conversion can sit at a **single editor-side seam** —
-  `SyncEditor::apply_text_edit_internal` (and its `set_text` /
-  `compute_text_change` companion) — rather than per-bridge in TypeScript.
-  Per-bridge adapters add no value for the lambda editor and the markdown
-  block editor; PMAdapter does not need an adapter at all.
-- The `UserIntent.SetCursor.position` field and `ViewPatch.SetSelection.{anchor,head}`
-  are **type-promiscuous today**: same `number` shape carries CM-doc
-  code-unit offsets, PM-tree positions, and (potentially) markdown-block
-  text-span offsets. Tightening these is a separate naming exercise; it does
-  not block the moji work.
+- For **bulk-splice text edits** from `CM6Adapter` and the markdown
+  `BlockInput`, the conversion belongs at a single editor-side seam:
+  `editor/sync_editor_text.mbt::apply_text_edit_internal` (and its
+  `set_text`/`compute_text_change` companion). Per-bridge JS shims add no
+  value for these two bridges.
+- The new `adapters/editor-adapter/pm-adapter.ts` does not need a
+  position-unit shim. Its PM doc is non-editable; `TextChange` is a no-op
+  in its `applyPatch`; PM-tree positions never reach the CRDT.
+- The **older ProseMirror bridge** at `examples/ideal/web/src/bridge.ts`
+  *does* call `insert_at`/`delete_at` char-by-char, *does* read the source
+  map on the JS side via `get_source_map_json`, and is therefore **not
+  served by the bulk-splice seam**. It needs its own grapheme story —
+  either retire the per-char loop in favor of `handle_text_intent`, or add
+  matching grapheme handling at the `insert_at`/`delete_at` FFI.
+- Position-bearing surfaces the seam does *not* cover (each needs its own
+  decision once moji lands):
+  - per-character `SyncEditor::insert` / `delete` / `backspace` and the
+    `_and_record` family — bypass `apply_text_edit_internal`
+  - `move_cursor(position : Int)` — cursor-only API, no text change
+  - `undo` / `redo` — replay CRDT ops directly on the doc
+  - remote sync (`apply_sync`) — applies peer ops via the CRDT
+- The "infeasibility" framing in earlier drafts is too strong:
+  per-bridge JS-side conversion is *available* (the ideal bridge already
+  does it via `get_source_map_json`), just **not preferred** for new
+  bridges because it forces every bridge to take a moji binding.
 
 ## Bridge inventory
 
-| Bridge | File | Editable text source | Position unit on the wire |
-|---|---|---|---|
-| CM6Adapter | `adapters/editor-adapter/cm6-adapter.ts` | CodeMirror 6 doc | UTF-16 code units (CM6 native) |
-| BlockInput | `adapters/editor-adapter/block-input.ts` | `<textarea>` overlay | UTF-16 code units (`HTMLTextAreaElement.selectionStart`) |
-| PMAdapter | `adapters/editor-adapter/pm-adapter.ts` | none — PM doc is non-editable | PM-tree positions; not character offsets |
-| MarkdownPreview | `adapters/editor-adapter/markdown-preview.ts` | none — render only | n/a |
-| HTMLAdapter | `adapters/editor-adapter/html-adapter.ts` | n/a in current setup | n/a |
+| Bridge | File | User text input source | Position unit on the wire | Reaches CRDT? |
+|---|---|---|---|---|
+| CM6Adapter | `adapters/editor-adapter/cm6-adapter.ts` | CodeMirror 6 doc | UTF-16 code units (CM6 native) | yes — via `handle_text_intent` |
+| BlockInput | `adapters/editor-adapter/block-input.ts` | `<textarea>` overlay | UTF-16 code units (`HTMLTextAreaElement.selectionStart`) | yes — via `compute_split_block` (text-span offset) |
+| Older ideal bridge | `examples/ideal/web/src/bridge.ts` | CM6 NodeViews per leaf | UTF-16 code units, **plus JS-side `get_source_map_json`** | yes — via `insert_at`/`delete_at` char-by-char |
+| PMAdapter (new) | `adapters/editor-adapter/pm-adapter.ts` | PM doc is `editable: () => false` | PM-tree positions only (`SelectNode`/`SetCursor`) | no — `SetCursor` dropped in `examples/prosemirror/src/main.ts:63` |
+| HTMLAdapter | `adapters/editor-adapter/html-adapter.ts` | none — click → `SelectNode` only | n/a (no text positions) | partial — only `SelectNode` |
+| MarkdownPreview | `adapters/editor-adapter/markdown-preview.ts` | render-only, emits no intents | n/a | no |
 
-The two text-bearing bridges (CM6 and BlockInput) already speak the same
-unit as the canopy editor (`String.length()` = UTF-16 code units in
-MoonBit's host string). The mismatch is not *between* JS and MoonBit —
-it's between **code-unit** addressing and the **grapheme-cluster**
-addressing the editor will eventually need to expose at its public boundary.
+The two text-bearing intent producers wired into the new `editor-adapter`
+package (CM6 and BlockInput) speak the same unit as the canopy editor
+(`String.length()` = UTF-16 code units). The ideal bridge is older, lives
+under `examples/ideal/web/`, and uses a different FFI route.
 
 ## Path-by-path trace
 
-### Path A — CM6Adapter (lambda editor, today's hot path)
+### Path A — CM6Adapter (lambda editor, primary text path)
 
 ```
 CM6 EditorView.update
   → update.changes.iterChanges(fromA, toA, _, _, inserted)        [code units, CM6]
-  → CM6Adapter.intentCallback({ type: "TextEdit", from, to, insert })
+  → cm6-adapter.ts:248-271 emits TextEdit{ from, to, insert }
   → main.ts handleIntent → crdt.handle_text_intent(handle, from, to-from, insert, ts)
-  → ffi/lambda/intent.mbt:63 handle_text_intent
-  → editor/sync_editor_text.mbt:149 SyncEditor::apply_text_edit
+  → ffi/lambda/intent.mbt:63  handle_text_intent
+  → editor/sync_editor_text.mbt:149  SyncEditor::apply_text_edit
   → apply_text_edit_internal — clamps `start` / `deleted_len` against
                                 doc.len() (eg-walker visible_count, item-space)
   → @text.Pos / @text.Range — addresses item-space slots in eg-walker
 ```
 
-**Sharp edge.** `apply_text_edit_internal` clamps a code-unit `start` against
-an item-space `doc.len()`. After eg-walker [#31][egw31] / canopy [#240][canopy240]
-each visible item is one codepoint, so the two lengths coincide for ASCII
-and for BMP-non-combining text, and diverge once a non-BMP codepoint enters
-the document — code units count it as 2, item-space as 1.
+**Sharp edge.** `apply_text_edit_internal` clamps a code-unit `start`
+against an item-space `doc.len()`. After eg-walker [#31][egw31] / canopy
+[#240][canopy240] each visible item is one codepoint, so the two lengths
+coincide for ASCII and BMP-non-combining text and diverge once a non-BMP
+codepoint enters the document — code units count it as 2, item-space as 1.
 
-The `SetSelection` patch path (`view.dispatch({ selection: { anchor, head } })`
-in `cm6-adapter.ts:309`) carries positions back to CM6. These come from the
-canopy side and are dispatched into CM6 as code-unit offsets. If MoonBit
-ever emits an item-space offset here, the selection lands on the wrong
-character for non-ASCII docs.
+`SetSelection` (outbound to CM6) is *not currently emitted by MoonBit* —
+`compute_view_patches` in `editor/view_updater.mbt:40` produces only
+`FullTree`, `ReplaceNode`, `InsertChild`, `RemoveChild`, `UpdateNode`, and
+`SetDiagnostics`. The `SetSelection` dispatch path in
+`cm6-adapter.ts:309` is *forward-looking* infrastructure, not a live
+mismatch. When MoonBit eventually emits `SetSelection`, it will need to
+emit code-unit offsets (not item-space) — same conversion shape applies
+in reverse at the same seam.
 
 [egw31]: https://github.com/dowdiness/event-graph-walker/issues/31
 [canopy240]: https://github.com/dowdiness/canopy/pull/240
@@ -85,67 +96,115 @@ character for non-ASCII docs.
 ```
 HTMLTextAreaElement
   → onKeydown('Enter' mid-text)
-  → emit StructuralEdit { op: 'split_block', params: { offset: String(selectionStart) } }
-  → main.ts handleStructuralIntent → crdt.handle_structural_intent(...)
+  → emit StructuralEdit{ op: 'split_block', params: { offset: String(selectionStart) } }
+  → main.ts → crdt.handle_structural_intent(...)
   → ffi/markdown/markdown_ffi.mbt → apply_markdown_tree_edit_json
-  → lang/markdown/edits/compute_markdown_edit.mbt:211 compute_split_block
-       offset is treated as a code-unit offset *inside the text span*:
+  → lang/markdown/edits/compute_markdown_edit.mbt:211  compute_split_block
+       offset is a code-unit offset *inside the source-mapped text span*:
          split_pos = text_range.start + offset
          delete_len = range.end - split_pos
          FocusHint::MoveCursor(position = split_pos + separator.length())
 ```
 
-**Sharp edge.** `selectionStart` from a `<textarea>` is UTF-16 code units in
-JS. `text_range.start/end` from the source map are derived from MoonBit
-`String` indices, also UTF-16 code units. The two sides agree, so this path
-is internally consistent — but neither side is grapheme-aware. A user
-splitting a block "after the emoji" who lands `selectionStart` on the low
-surrogate produces a malformed `inserted` payload.
+**Sharp edge.** `selectionStart` and `text_range.start/end` are both
+UTF-16 code units, so the path is internally consistent for ASCII; for
+non-ASCII inputs neither side is grapheme-aware. A user splitting a block
+"after the emoji" who lands `selectionStart` on the low surrogate produces
+a malformed `inserted` payload.
 
-`CommitEdit { value }` (full-string replace) carries no positions and is
+`CommitEdit{ value }` (full-string replace) carries no positions and is
 unaffected.
 
-### Path C — PMAdapter (structural, non-editable)
+### Path C — PMAdapter (new structural, non-editable)
 
 ```
-PMAdapter view editable: false
-  → applyPatch("TextChange") => break;        // explicit no-op
+PMAdapter view editable: false                                  [pm-adapter.ts:152]
+  → applyPatch("TextChange") => break;                          [pm-adapter.ts:236]
+  → applyPatch("SetSelection") => break;                        [pm-adapter.ts:238]
   → dispatchTransaction selectionSet branch
-       sel.anchor                              [PM-tree position, NOT a character offset]
-  → emit SetCursor { position: sel.anchor }
-  → main.ts handleIntent for SetCursor:        return; (drops it)
+       sel.anchor                                               [PM-tree position]
+  → emit SelectNode | SetCursor{ position: sel.anchor }         [pm-adapter.ts:167-178]
+  → examples/prosemirror/src/main.ts:63 — SetCursor returns; (dropped)
 ```
 
-**No sharp edge today.** PM positions never reach the CRDT in the structural
-editor. `SetCursor` is dropped at the lambda main.ts handler, and
-`TextChange` patches are no-ops in the PMAdapter applyPatch switch.
+**No sharp edge today.** PM-tree positions never reach the CRDT in this
+adapter. If a future revision makes the PM doc editable (or routes
+PM-side selections back into the CRDT), `sel.anchor` would have to be
+converted from PM-tree position → underlying text offset → grapheme
+offset. That is a separate PM-tree → text mapping problem; **out of
+scope for #216 Step 4 unless PM is made editable.**
 
-If a future revision makes the PM doc editable (or routes PM-side selections
-back into the CRDT), `sel.anchor` would have to be converted from PM-tree
-position → underlying text offset → grapheme offset. That conversion is not
-"a code-unit ↔ grapheme shim"; it is a separate PM-tree → text mapping
-problem. **Out of scope for #216 Step 4 unless PM is made editable.**
+### Path D — older ideal bridge (ProseMirror with NodeViews + per-char FFI)
 
-### Path D — set_text initialization & ProseMirror-bridge `insert_at` / `delete_at`
+```
+CM6 NodeView leaf change
+  → bridge.ts:67 handleLeafEdit(nodeId, changes)
+  → bridge.ts:54 getSourceMap() ← crdt.get_source_map_json(handle)
+  → basePos = entry.start                                        [code units, source map]
+  → bridge.ts:143 applyCharChanges(basePos, ts, changes)
+       for each change.from..change.to (code units in the leaf's local frame):
+         crdt.delete_at(handle, basePos + change.from + i + offset, ts)
+         crdt.insert_at(handle, basePos + change.from + offset + i, change.insert[i], ts)
+  → ffi/lambda/intent.mbt:6  insert_at  → SyncEditor::insert_at  → apply_text_edit_internal
+  → ffi/lambda/intent.mbt:22 delete_at  → SyncEditor::delete_at  → apply_text_edit_internal
+```
 
-`ffi/lambda/intent.mbt:6,22` exposes `insert_at(handle, position, text, ts)`
-and `delete_at(handle, position, ts)` "for the ProseMirror bridge." No JS
-bridge currently calls these (PMAdapter doesn't, the lambda main.ts uses
-`handle_text_intent` instead). They are dormant code-unit-offset entry
-points; same shim plan as Path A applies if revived.
+**This bridge does call into `apply_text_edit_internal`** (via `insert_at`
+/ `delete_at`), so the seam recommendation does apply — but the input
+positions are computed *in JS* using a JS-side copy of the source map
+plus per-character iteration over `change.insert`. Two issues:
 
-`crdt.set_text(handle, ...)` at startup goes through
-`SyncEditor::set_text` → `text_diff::compute_text_change` → code-unit
-splice — already documented in PR #241 (`Position Units` section).
+1. The JS-side iteration assumes `change.insert.length` is the right
+   loop bound; for non-BMP input that count is in code units, so each
+   iteration's `change.insert[i]` may be a lone surrogate, sent to
+   `insert_at` directly. This is not fixed by a MoonBit-side seam alone —
+   the JS loop has to switch to grapheme iteration on `change.insert`.
+2. `basePos + change.from + i` is an arithmetic position composed of
+   code-unit offsets. Once the editor flips its public boundary to
+   grapheme offsets, the JS arithmetic stops being valid even if the seam
+   converts at the FFI edge — the *base* and *delta* must agree on units.
 
-## Conversion-point recommendation
+So the ideal bridge **does** need bridge-specific revisions. Easiest path:
+move it onto the same `handle_text_intent` route as CM6Adapter, dropping
+the per-char loop entirely.
 
-**Single editor-side seam, not per-bridge adapters.**
+### Path E — non-bridge text-mutating routes (out of scope but listed for completeness)
 
-Once moji lands, the canonical conversion site is
-`editor/sync_editor_text.mbt::apply_text_edit_internal` — every text-mutating
-path funnels through it (see comment at `sync_editor_text.mbt:131`). The
-conversion shape:
+These are not bridge concerns; they are positions arising inside MoonBit.
+The bulk-splice seam does **not** funnel them.
+
+| Route | Entry | Bypasses `apply_text_edit_internal`? |
+|---|---|---|
+| Per-char cursor edits | `SyncEditor::insert` / `delete` / `backspace` (`editor/sync_editor_text.mbt:4`) | Yes — go directly to `self.doc.insert/delete` and update `self.cursor` by `text.length()` |
+| Undo-recorded per-char edits | `insert_and_record` / `delete_and_record` / `backspace_and_record` (FFI in `ffi/lambda/undo.mbt:37,46,55`) | Yes — same per-char path |
+| Undo / redo | `SyncEditor::undo` / `redo` (`editor/sync_editor_undo.mbt:78`) | Yes — replay CRDT ops via `self.undo.undo(self.doc)` |
+| Remote sync | `apply_sync` (in `editor/sync_editor.mbt:392`) | Yes — applies peer ops directly on the CRDT |
+| Tree-edit-derived span edits | `apply_tree_edit_json` → tree edit helpers (`editor/sync_editor_tree_edit.mbt:50`, `editor/sync_editor.mbt:353`) | No — these *do* funnel through `apply_text_edit_internal` |
+
+For the non-funnel routes:
+
+- **Per-char cursor edits / `_and_record`**: the position is the *current
+  cursor*, not a parameter. If the cursor is kept on a grapheme boundary
+  (Step 2's `move_cursor` clamping + insert clamping in #216's "Direction
+  of the fix"), the per-char path produces grapheme-aligned writes
+  automatically. No dedicated seam needed; the cursor invariant carries it.
+- **Undo / redo**: the recorded ops were already grapheme-aligned at
+  record-time (assuming the cursor invariant above). Replay re-applies
+  the same offsets. No dedicated seam.
+- **Remote sync**: peer ops are CRDT-internal positions (item-space),
+  validated by eg-walker [#31][egw31] / canopy [#240][canopy240] at
+  receive time. Grapheme alignment is a *local-input* concern, not a
+  remote-op concern.
+
+So the seam recommendation covers the *bridge-originated* text splices;
+the per-char and undo paths are covered transitively by enforcing the
+cursor invariant Step 2 already calls for.
+
+## Conversion-point recommendation (revised)
+
+**Bulk-splice text edits from CM6Adapter and BlockInput → single editor-side
+seam at `apply_text_edit_internal` (and its `set_text` / `compute_text_change`
+companion).**
 
 ```
 apply_text_edit_internal(start_cu : Int, deleted_len_cu : Int, inserted : String, ...)
@@ -156,67 +215,88 @@ apply_text_edit_internal(start_cu : Int, deleted_len_cu : Int, inserted : String
   → forward to @text.Range / @text.Pos
 ```
 
-The `inserted` string still goes to eg-walker as-is (eg-walker [#31][egw31]
-/ canopy [#240][canopy240] now splits to per-codepoint atomic Ops and
-rejects mid-surrogate inputs at that layer with a typed `TextError`).
+**Why this is the right level for these two bridges:**
 
-**Why a single seam beats per-bridge:**
+1. CM6's `iterChanges` emits offsets in the CM6 doc which mirrors
+   `doc.text()` 1:1; the JS side has no privileged knowledge that the
+   editor doesn't.
+2. BlockInput's `selectionStart` is an offset into the active block's
+   *text span*. The MoonBit source map owns the spans natively, while the
+   JS side does not currently receive them via the BlockInput path. JS
+   *could* read them via `get_source_map_json` (the ideal bridge does),
+   but exposing that to BlockInput just to convert offsets is heavier than
+   doing it once on the MoonBit side.
+3. Concentrating the conversion in MoonBit means one moji binding rather
+   than one per bridge.
 
-1. CM6's `iterChanges` emits offsets in the *CM6 doc*, which mirrors
-   `doc.text()` 1:1 — so the JS side has no privileged knowledge to do the
-   conversion that the editor doesn't have.
-2. BlockInput's `selectionStart` is an offset into the *active block's text
-   span*. The editor side already has that text span in its source map; the
-   JS side does not. Conversion *cannot* happen on the JS side without
-   shipping the source map across the wire.
-3. PMAdapter does not generate text positions, so there is nothing to convert.
-4. Concentrating the conversion in MoonBit lets the editor library carry
-   one canonical implementation; per-bridge adapters would each need their
-   own moji binding.
+**What this recommendation does NOT solve** (each is a separate decision
+when moji lands; explicitly out of scope for the seam):
 
-**What lives on the JS side:** nothing position-related changes. JS continues
-to send code-unit offsets (because that is what the host editors natively
-expose) and the editor seam normalises them. The eventual `GraphemeOffset`
-opaque type (name reserved per #241) is a *MoonBit-internal* type; the
-JSON wire format keeps `Int`.
+- The ideal bridge's per-char loop in `examples/ideal/web/src/bridge.ts:143-164`.
+  Recommended action: migrate to `handle_text_intent` so it joins the seam.
+- `SyncEditor::move_cursor(position : Int)` and the cursor invariant at
+  insert / backspace in `editor/sync_editor_text.mbt:62,11,40` — these
+  are the *cursor*, not the seam. They need their own grapheme clamp,
+  per #216's "Direction of the fix."
+- Outbound `ViewPatch::SetSelection.{anchor,head}` — not currently
+  emitted by `compute_view_patches`; if/when added, the same seam (in
+  the emit direction) applies.
+- `UserIntent.SetCursor.position` is type-promiscuous: the same `number`
+  carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets
+  (CM6Adapter). Naming-cleanup, not unit-conversion; tracked separately.
 
 ## Open follow-ups (not blocking moji work)
 
 These do not gate Step 2; they are smaller cleanups that fall out of the audit.
 
-1. **`ViewPatch.SetSelection.{anchor,head}`** is dispatched into CM6 as a
-   code-unit offset. Once the editor's public surface flips to grapheme
-   offsets, the Patch emitter must convert *back* before crossing the wire.
-   Add this to the same seam that handles inputs.
-2. **`UserIntent.SetCursor.position`** is type-promiscuous — same `number`
-   carries PM-tree positions (PMAdapter), CM-doc code-unit offsets
-   (CM6Adapter), and is not currently handled at the lambda editor. When PM
-   becomes editable or CM gains structural awareness, give these distinct
-   intent variants instead of overloading one field.
-3. **`ffi/lambda/intent.mbt::insert_at` / `delete_at`** are documented "for
-   the ProseMirror bridge" but no current JS code calls them. Either wire
-   them in (when PM is editable) or remove the comment to avoid implying
-   active use. Track in #216 only if PM is in scope.
-4. **`compute_split_block` offset semantics** (`lang/markdown/edits/compute_markdown_edit.mbt:211`)
+1. **Migrate the older ideal bridge** off the per-char `insert_at` /
+   `delete_at` loop and onto `handle_text_intent`, so it joins the
+   bulk-splice seam. Otherwise it needs a parallel grapheme story.
+2. **`compute_split_block` offset semantics** (`lang/markdown/edits/compute_markdown_edit.mbt:211`)
    should gain a brief docstring noting the offset is a code-unit offset
    inside the text span — same caveat as `SyncEditor::move_cursor`.
+3. **`UserIntent.SetCursor.position`** type-promiscuity (PM-tree vs CM-doc).
+   Naming cleanup, not unit conversion.
+4. **`ffi/lambda/intent.mbt::insert_at` / `delete_at`** are documented "for
+   the ProseMirror bridge" — this is accurate (the ideal bridge uses them);
+   no action needed, only worth noting for context.
 
 ## What this changes about #216 Step 2
 
-- **Step 2 stays single-target:** the editor seam, not per-bridge JS code.
-- **No new TypeScript work** falls out of the bridge audit.
+- **Step 2 stays single-target for the bulk-splice seam** at
+  `apply_text_edit_internal` + `set_text`. Cursor clamping at insert /
+  backspace and at `move_cursor` is part of the same Step 2 work in
+  MoonBit — no separate JS work needed for the new `editor-adapter`
+  package.
+- **The older ideal bridge needs a separate decision** before Step 2 ships:
+  migrate it onto `handle_text_intent`, or accept that it carries its own
+  per-char grapheme handling on the JS side. Migration is the simpler
+  outcome.
+- **PMAdapter is a no-op for #216 unless the PM doc becomes editable**,
+  which is a separate question.
 - The original Checklist item *"Audit ProseMirror bridge position
   conversion"* can be marked done with this audit as evidence; no separate
-  PR-bridge adapter is required.
+  PR-bridge adapter is required for the new PMAdapter.
 
 ## References
 
 - `adapters/editor-adapter/cm6-adapter.ts:248-271` — CM6 update listener emits `TextEdit` with code-unit `fromA`/`toA`.
-- `adapters/editor-adapter/cm6-adapter.ts:309` — `SetSelection` patch dispatch.
-- `adapters/editor-adapter/block-input.ts:313-329` — textarea `selectionStart` → `split_block` offset param.
+- `adapters/editor-adapter/cm6-adapter.ts:309` — `SetSelection` patch dispatch (forward-looking; not currently emitted from MoonBit).
+- `adapters/editor-adapter/block-input.ts:311-329` — textarea `selectionStart` → `split_block` offset param.
 - `adapters/editor-adapter/pm-adapter.ts:152` — `editable: () => false`.
-- `adapters/editor-adapter/pm-adapter.ts:236-241` — `TextChange` no-op in PM applyPatch.
-- `editor/sync_editor_text.mbt:105-146` — `apply_text_edit_internal` clamping.
+- `adapters/editor-adapter/pm-adapter.ts:236-241` — `TextChange` / `SetSelection` no-op in PM applyPatch.
+- `adapters/editor-adapter/html-adapter.ts:166,340` — `TextChange`/`SetSelection` no-op; emits `SelectNode` on click.
+- `examples/ideal/web/src/bridge.ts:54,67,143-164` — older ideal bridge, JS-side source map + per-char `insert_at`/`delete_at`.
+- `examples/prosemirror/src/main.ts:63` — `SetCursor` is dropped at the lambda main.ts handler.
+- `editor/view_updater.mbt:40` — `compute_view_patches` does not emit `SetSelection` today.
+- `editor/sync_editor_text.mbt:4` — per-char `insert`/`delete`/`backspace` (bypass the seam).
+- `editor/sync_editor_text.mbt:62` — `move_cursor` (cursor-only API).
+- `editor/sync_editor_text.mbt:105-146` — `apply_text_edit_internal` clamping (the seam).
+- `editor/sync_editor_text.mbt:174` — `set_text` → `compute_text_change` → seam.
+- `editor/sync_editor_undo.mbt:78` — `undo` replays via `self.undo.undo(self.doc)`, bypasses the seam.
+- `editor/sync_editor.mbt:353,392` — span-edit funnel that *does* use the seam; remote sync that does not.
 - `lang/markdown/edits/compute_markdown_edit.mbt:211-273` — `compute_split_block` offset use.
-- `ffi/lambda/intent.mbt:6,22,63` — FFI receivers.
+- `ffi/lambda/intent.mbt:6,22,63` — FFI receivers (`insert_at`, `delete_at`, `handle_text_intent`).
+- `ffi/lambda/undo.mbt:37,46,55` — `_and_record` per-char family.
+- `lib/text-change/text_change.mbt:13` — `compute_text_change` uses code-unit indexing.
 - canopy [#241](https://github.com/dowdiness/canopy/pull/241) — Step 3 docs (Position Units section).
