@@ -275,6 +275,7 @@ pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
 pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int) -> Unit
 pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
 pub fn[T : Eq] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
+pub fn[T : Eq] SyncEditor::apply_text_edit_exact(Self[T], Int, Int, String, Int) -> Bool
 pub fn[T : Eq] SyncEditor::apply_text_edit_internal(Self[T], Int, Int, String, Int, Bool, Bool) -> Unit
 pub fn[T : Eq] SyncEditor::apply_text_transform(Self[T], @dowdiness/canopy/core.NodeId, (String, Int, Int) -> Result[String, String], Int) -> Result[Unit, TreeEditError]
 pub fn[T : Eq] SyncEditor::backspace(Self[T]) -> Bool
@@ -316,6 +317,10 @@ pub fn[T] SyncEditor::is_dirty(Self[T]) -> Bool
 pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::mark_dirty(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
+pub fn[T] SyncEditor::move_cursor_left_grapheme(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_left_word(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_right_grapheme(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Unit, TreeEditError]
 pub fn[T] SyncEditor::new_generic(String, (String) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[T]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Memo[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, capabilities? : LanguageCapabilities[T]) -> Self[T]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?

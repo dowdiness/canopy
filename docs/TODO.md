@@ -262,34 +262,46 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 ## 16. Unicode Text Correctness
 
 GitHub issue: [#216](https://github.com/dowdiness/canopy/issues/216).
-Steps 1, 3, 4 shipped (#239, #241, #242). Step 2 items below are blocked
-on **moji** (in-progress MoonBit UAX #29 library, planned at
-`lib/moji/`, tracked in [#250](https://github.com/dowdiness/canopy/issues/250)).
-The #242 audit (`docs/plans/2026-05-09-216-step4-bridge-audit.md`)
-localises the conversion seam; the
-[moji API spec](plans/2026-05-10-moji-api-spec.md) derives the minimum
-API surface canopy needs and details per-call-site usage. The longer
-[derivation doc](plans/2026-05-10-moji-api-derivation.md) carries the
-full audit trail.
+Steps 1, 3, 4 shipped (#239, #241, #242). **Step 2 shipped** in
+[#251](https://github.com/dowdiness/canopy/pull/251) — the moji
+library (`lib/moji/`, [#250](https://github.com/dowdiness/canopy/issues/250))
+landed Phases 1-3 (UCD 15.1: 1187/1187 GraphemeBreakTest +
+1826/1826 WordBreakTest pass) and was wired into the editor's diff
+layer + cursor invariant + arrow-key API + FFI variants.
+The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
+"implemented in #251."
 
 - [x] Migrate `examples/ideal/web/src/bridge.ts` per-char `insert_at`/`delete_at` loop onto `handle_text_intent`.
   Shipped: bridge now calls `handle_text_intent_checked` (Bool-returning FFI added in `ffi/lambda/intent.mbt`) once per CM6 change with cumulative-delta bookkeeping; partial-batch + drift-detection semantics preserved from the prior `applyCharChanges` loop.
 
-- [ ] (moji-blocked) Enforce the **cursor-on-boundary invariant** across `SyncEditor` — `move_cursor`, `insert`, `delete`, `backspace`, `_and_record` family, and both branches of `apply_text_edit_internal`. Plan: spec §0.5 + §1.1–§1.4. Includes the existing `backspace`-grapheme-boundary item (`editor/sync_editor_text.mbt:37`) and post-insert clamp (`editor/sync_editor_text.mbt:11`).
+- [x] Enforce the **cursor-on-boundary invariant** across `SyncEditor` — `move_cursor`, `insert`, `delete`, `backspace`, `_and_record` family, and both branches of `apply_text_edit_internal`.
+  Shipped (#251): all per-character methods use spec §1.2-§1.4 strict-step formulas (`prev_grapheme_boundary(cursor - 1)` / `next_grapheme_boundary(cursor + 1)`); `apply_text_edit_internal` cursor-stays branch post-snaps with `next` per spec §0.5; `_and_record` mutations got the same treatment in `editor/sync_editor_undo.mbt`.
 
-- [ ] (moji-blocked) **Unconditional cursor post-snap** in both `apply_text_edit_internal` branches (cursor-to-edit-end and cursor-stays). Cluster-fusing inserts (RIs, ZWJ, virama, VS-16) shift downstream boundaries even when the splice itself was boundary-aligned in the old text. Plan: spec §0.5 cluster-fusing inserts.
+- [x] **Unconditional cursor post-snap** in both `apply_text_edit_internal` branches (cursor-to-edit-end and cursor-stays). Cluster-fusing inserts (RIs, ZWJ, virama, VS-16) shift downstream boundaries even when the splice itself was boundary-aligned in the old text.
+  Shipped (#251): private `SplicePolicy` enum gates Snap vs Exact paths; both branches post-snap unconditionally per spec §0.5. BMP cluster-fusing test pinned in `editor/sync_editor_text_wbtest.mbt`; non-BMP RI/ZWJ-profession fixtures stubbed pending the CRDT abort fix.
 
-- [ ] (moji-blocked) Make `text_diff::find_common_prefix` / `find_common_suffix_after_prefix` grapheme-safe (`editor/text_diff.mbt:166`). Fix lives in `lib/text-change/text_change.mbt::compute_text_change` so canopy + valtio + loom (all path-dep on the leaf) get the fix in one move. Plan: spec §1.7 + §1.9.
+- [x] Make `text_diff::find_common_prefix` / `find_common_suffix_after_prefix` grapheme-safe (`editor/text_diff.mbt`). Fix lives in `lib/text-change/text_change.mbt::compute_text_change` so canopy + valtio + loom (all path-dep on the leaf) get the fix in one move.
+  Shipped (#251): both walks now use `@moji.grapheme_boundaries`. 3 `#216 xfail/panic` tests in `editor/text_diff_test.mbt` flipped to passing inspect assertions.
 
-- [ ] (moji-blocked) Add `move_cursor_left_grapheme` / `_right_grapheme` (and word variants per UAX #29) on `SyncEditor`. Plan: spec §1.6. Word-navigation policy (whitespace-skipping, punctuation handling) is a separate concern layered on raw UAX boundaries.
+- [x] Add `move_cursor_left_grapheme` / `_right_grapheme` (and word variants per UAX #29) on `SyncEditor`.
+  Shipped (#251): four new methods in `editor/sync_editor_text.mbt` per spec §1.6, exported in `editor/pkg.generated.mbti`. Word-navigation policy (whitespace-skipping, punctuation handling) is a separate concern layered on raw UAX boundaries — not yet implemented.
 
-- [ ] (moji-blocked) **§1.1 splice policy split** in `apply_text_edit_internal` — pure insertion (`deleted_len == 0`) snaps `start` to a single boundary; replacement/deletion expands both endpoints. Naive expansive-rule-for-all destroys content on mid-cluster pure inserts. Plan: spec §1.1.
+- [x] **§1.1 splice policy split** in `apply_text_edit_internal` — pure insertion (`deleted_len == 0`) snaps `start` to a single boundary; replacement/deletion expands both endpoints.
+  Shipped (#251): `apply_text_edit_with_policy` branches on `SnapToGrapheme` policy — pure-insert snaps `start` with `prev` only; replace/delete snaps `start` with `prev` AND `end` with `next`.
 
-- [ ] (moji-blocked) **FFI variant naming**: document `handle_text_intent_checked` as "exact splice" (rejects non-boundary) and `handle_text_intent` as "snap splice" (applies §1.1 policy) in their doc-comments. Prevents future callers from picking the wrong variant from a batched context. Plan: spec §1.11.
+- [x] **FFI variant naming**: document `handle_text_intent_checked` as "exact splice" (rejects non-boundary) and `handle_text_intent` as "snap splice" (applies §1.1 policy) in their doc-comments.
+  Shipped (#251): `handle_text_intent_checked` now routes to a new `apply_text_edit_exact` (returns `Bool`, rejects non-boundary endpoints) per spec §1.11. Doc-comments updated.
 
-- [ ] (canopy-side, integration-time) Decide cursor unit-storage (UTF-16 vs item-space vs grapheme-ordinal). Recommended UTF-16 (smallest blast radius). Drives whether §1.2–§1.4 analyses need redoing under a different unit. Plan: spec §6.1.
+- [x] (canopy-side, integration-time) Decide cursor unit-storage (UTF-16 vs item-space vs grapheme-ordinal).
+  Resolved (#251): chose UTF-16 (smallest blast radius). UTF-16 ↔ item-space conversion (`utf16_offset_to_item_pos`) lives at the editor boundary per spec §0.
 
 - [x] Add a one-line docstring to `lang/markdown/edits/compute_markdown_edit.mbt:211 compute_split_block` noting `offset` is a code-unit offset inside the text span.
+
+- [ ] **Restore non-BMP §4.3 cluster-fusing-cursor tests** once the CRDT-layer `String::sub` abort is fixed (the four `panic #216` tests in `editor/sync_editor_text_wbtest.mbt`). Recipe inline in the test file: `"🇯🇵🇺🇸"` + `apply_text_edit(4, 0, "🇮")` → cursor 8 post-snap; `"👩💻"` cursor=2 + `insert_at(2, "\u{200D}")` → cursor 0 or 5 post-snap.
+  Status: blocked on the event-graph-walker `String::sub` mid-surrogate abort, which is a separate fix.
+
+- [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; document so the cost isn't a future surprise (already done in `lib/moji/grapheme.mbt` doc-comments). File a tuning issue when a hot-path actually needs it.
+  Status: not blocking; cosmetic perf debt.
 
 - [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.
   Status: not blocked on moji.

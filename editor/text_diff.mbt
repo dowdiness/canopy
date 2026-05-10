@@ -162,18 +162,37 @@ fn diff_steps_to_edits(
 }
 
 ///|
+fn cluster_equal(
+  s1 : String,
+  s1_start : Int,
+  s1_end : Int,
+  s2 : String,
+  s2_start : Int,
+  s2_end : Int,
+) -> Bool {
+  s1[s1_start:s1_end].to_owned() == s2[s2_start:s2_end].to_owned()
+}
+
+///|
 /// Find the length of the longest common prefix between two strings
 fn find_common_prefix(s1 : String, s2 : String) -> Int {
-  let mut i = 0
-  let min_len = if s1.length() < s2.length() {
-    s1.length()
-  } else {
-    s2.length()
+  let s1_boundaries = @moji.grapheme_boundaries(s1)
+  let s2_boundaries = @moji.grapheme_boundaries(s2)
+  let mut idx = 0
+  let mut prefix = 0
+  while idx + 1 < s1_boundaries.length() && idx + 1 < s2_boundaries.length() {
+    let s1_start = s1_boundaries[idx]
+    let s1_end = s1_boundaries[idx + 1]
+    let s2_start = s2_boundaries[idx]
+    let s2_end = s2_boundaries[idx + 1]
+    if cluster_equal(s1, s1_start, s1_end, s2, s2_start, s2_end) {
+      prefix = s1_end
+      idx = idx + 1
+    } else {
+      break
+    }
   }
-  while i < min_len && s1[i] == s2[i] {
-    i = i + 1
-  }
-  i
+  prefix
 }
 
 ///|
@@ -187,16 +206,31 @@ fn find_common_suffix_after_prefix(
   s1_len : Int,
   s2_len : Int,
 ) -> Int {
-  let mut i = 0
-  let s1_remaining = s1_len - s1_start
-  let s2_remaining = s2_len - s2_start
-  let min_remaining = if s1_remaining < s2_remaining {
-    s1_remaining
-  } else {
-    s2_remaining
+  let s1_boundaries = @moji.grapheme_boundaries(s1)
+  let s2_boundaries = @moji.grapheme_boundaries(s2)
+  let mut s1_idx = s1_boundaries.length() - 1
+  let mut s2_idx = s2_boundaries.length() - 1
+  let mut suffix_len = 0
+  while s1_idx > 0 && s2_idx > 0 {
+    let s1_cluster_start = s1_boundaries[s1_idx - 1]
+    let s1_cluster_end = s1_boundaries[s1_idx]
+    let s2_cluster_start = s2_boundaries[s2_idx - 1]
+    let s2_cluster_end = s2_boundaries[s2_idx]
+    if s1_cluster_end > s1_len ||
+      s2_cluster_end > s2_len ||
+      s1_cluster_start < s1_start ||
+      s2_cluster_start < s2_start {
+      break
+    }
+    if cluster_equal(
+        s1, s1_cluster_start, s1_cluster_end, s2, s2_cluster_start, s2_cluster_end,
+      ) {
+      suffix_len += s1_cluster_end - s1_cluster_start
+      s1_idx = s1_idx - 1
+      s2_idx = s2_idx - 1
+    } else {
+      break
+    }
   }
-  while i < min_remaining && s1[s1_len - 1 - i] == s2[s2_len - 1 - i] {
-    i = i + 1
-  }
-  i
+  suffix_len
 }

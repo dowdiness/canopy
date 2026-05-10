@@ -210,11 +210,9 @@ fn compute_insert_block_after(
 /// Split block at cursor offset within the text span.
 ///
 /// `offset` is a UTF-16 code-unit offset inside the block's text span
-/// (i.e. relative to `text_range.start`, not the document root). Same
-/// unit caveat as `SyncEditor::move_cursor`: pre-moji this is not
-/// grapheme-aware, so callers should clamp to a grapheme boundary
-/// before passing — see `docs/plans/2026-05-09-216-step4-bridge-audit.md`
-/// Path B.
+/// (i.e. relative to `text_range.start`, not the document root). The
+/// offset is snapped forward to a grapheme boundary within the block text
+/// before computing the split point.
 fn compute_split_block(
   source : String,
   proj : ProjNode[@markdown.Block],
@@ -230,8 +228,10 @@ fn compute_split_block(
     Some(r) => r
     None => return Err("node not found")
   }
+  let text_slice = source[text_range.start:text_range.end].to_owned()
+  let split_offset = @moji.next_grapheme_boundary(text_slice, offset)
   // Split at offset 0 → insert empty paragraph before this block
-  if offset <= 0 {
+  if split_offset <= 0 {
     let insert_pos = range.start
     return Ok(
       Some(
@@ -244,11 +244,11 @@ fn compute_split_block(
   }
   // Split at end -> insert empty paragraph after
   let text_len = text_range.end - text_range.start
-  if offset >= text_len {
+  if split_offset >= text_len {
     return compute_insert_block_after(source_map, node_id)
   }
   // Split point in source coordinates
-  let split_pos = text_range.start + offset
+  let split_pos = text_range.start + split_offset
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
     Some(node) => node.kind is @markdown.ListItem(_)
     None => false

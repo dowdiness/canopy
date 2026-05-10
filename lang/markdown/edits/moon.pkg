@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/core" @core,
   "dowdiness/markdown" @markdown,
+  "dowdiness/moji" @moji,
 }
 
 import {

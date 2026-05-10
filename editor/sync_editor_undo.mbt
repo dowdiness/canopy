@@ -7,14 +7,19 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
   timestamp_ms : Int,
 ) -> Unit raise {
   let old_source = self.doc.text()
+  self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
   let insert_start = self.cursor
+  let item_start = utf16_offset_to_item_pos(old_source, insert_start)
   self.doc.insert_and_record(
-    @text.Pos::at(self.cursor),
+    @text.Pos::at(item_start),
     text,
     self.undo,
     timestamp_ms~,
   )
-  self.cursor = self.cursor + text.length()
+  self.cursor = @moji.next_grapheme_boundary(
+    self.doc.text(),
+    insert_start + text.length(),
+  )
   self.apply_local_text_change(
     old_source,
     self.doc.text(),
@@ -28,16 +33,34 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
   timestamp_ms : Int,
 ) -> Bool {
   let old_source = self.doc.text()
+  if !@moji.is_grapheme_boundary(old_source, self.cursor) {
+    self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
+  }
+  if self.cursor >= old_source.length() {
+    return false
+  }
+  let delete_start = self.cursor
+  let right = @moji.next_grapheme_boundary(old_source, self.cursor + 1)
+  if right == delete_start {
+    return false
+  }
+  let item_start = utf16_offset_to_item_pos(old_source, delete_start)
+  let item_end = utf16_offset_to_item_pos(old_source, right)
   try {
-    self.doc.delete_and_record(
-      @text.Pos::at(self.cursor),
+    self.doc.delete_range_and_record(
+      @text.Range::from_ints(item_start, item_end),
       self.undo,
       timestamp_ms~,
     )
+    let new_text = self.doc.text()
+    self.cursor = @moji.next_grapheme_boundary(
+      new_text,
+      clamp_utf16_offset(new_text, self.cursor),
+    )
     self.apply_local_text_change(
       old_source,
-      self.doc.text(),
-      Some(@loom_core.Edit::delete(self.cursor, self.cursor + 1)),
+      new_text,
+      Some(@loom_core.Edit::delete(delete_start, right)),
     )
     true
   } catch {
@@ -50,20 +73,26 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
 ) -> Bool {
+  let old_source = self.doc.text()
+  if !@moji.is_grapheme_boundary(old_source, self.cursor) {
+    self.cursor = @moji.next_grapheme_boundary(old_source, self.cursor)
+  }
   if self.cursor > 0 {
-    let old_source = self.doc.text()
-    let new_pos = self.cursor - 1
+    let delete_end = self.cursor
+    let left = @moji.prev_grapheme_boundary(old_source, self.cursor - 1)
+    let item_start = utf16_offset_to_item_pos(old_source, left)
+    let item_end = utf16_offset_to_item_pos(old_source, delete_end)
     try {
-      self.doc.delete_and_record(
-        @text.Pos::at(new_pos),
+      self.doc.delete_range_and_record(
+        @text.Range::from_ints(item_start, item_end),
         self.undo,
         timestamp_ms~,
       )
-      self.cursor = new_pos
+      self.cursor = left
       self.apply_local_text_change(
         old_source,
         self.doc.text(),
-        Some(@loom_core.Edit::delete(new_pos, new_pos + 1)),
+        Some(@loom_core.Edit::delete(left, delete_end)),
       )
       true
     } catch {

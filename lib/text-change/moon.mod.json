@@ -1,6 +1,12 @@
 {
   "name": "dowdiness/text_change",
   "version": "0.1.0",
+  "deps": {
+    "dowdiness/moji": {
+      "path": "../moji",
+      "version": "0.1.0"
+    }
+  },
   "repository": "https://github.com/dowdiness/canopy",
   "license": "Apache-2.0",
   "keywords": ["text", "diff", "moonbit"],

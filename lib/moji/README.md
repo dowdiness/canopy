@@ -1,0 +1,105 @@
+# moji
+
+UAX #29 grapheme-cluster and word-boundary segmentation for [MoonBit](https://www.moonbitlang.com/), targeting **Unicode 15.1**.
+
+`moji` provides the minimum API surface canopy's editor needs to make
+UTF-16 text positions grapheme-aware. Positions are UTF-16 code units
+throughout — matching MoonBit `String[Int]` indexing and CodeMirror 6's
+wire convention.
+
+[#250]: https://github.com/dowdiness/canopy/issues/250
+[spec]: https://github.com/dowdiness/canopy/blob/main/docs/plans/2026-05-10-moji-api-spec.md
+
+## Status
+
+Phases 1-3 complete. Tracked under canopy issue [#250]; spec at
+[`docs/plans/2026-05-10-moji-api-spec.md`][spec].
+
+- **1187/1187** Unicode 15.1 `GraphemeBreakTest.txt` cases pass
+- **1826/1826** Unicode 15.1 `WordBreakTest.txt` cases pass
+- **41** inline §4.1 / §4.2 spec fixtures
+- **43** total tests in the package
+
+## Public API
+
+```moonbit
+// Grapheme cluster boundaries
+pub fn prev_grapheme_boundary(text : String, pos : Int) -> Int  // at-or-before
+pub fn next_grapheme_boundary(text : String, pos : Int) -> Int  // at-or-after
+pub fn is_grapheme_boundary(text : String, pos : Int) -> Bool
+pub fn grapheme_clusters(text : String) -> Iter[(Int, Int)]
+pub fn grapheme_boundaries(text : String) -> Array[Int]
+
+// Word boundaries
+pub fn prev_word_boundary(text : String, pos : Int) -> Int
+pub fn next_word_boundary(text : String, pos : Int) -> Int
+pub fn word_boundaries(text : String) -> Array[Int]
+
+// Property lookups (also public; useful for debugging segmentation)
+pub fn gcb_of(cp : Int) -> GCB
+pub fn wb_of(cp : Int) -> WB
+pub fn is_extended_pictographic(cp : Int) -> Bool
+pub fn incb_of(cp : Int) -> InCB
+```
+
+## Offset-tolerance contract
+
+All `pos` arguments are UTF-16 code-unit offsets. Functions accept any
+`Int`, including positions inside surrogate pairs and inside multi-
+codepoint clusters. Out-of-range positions clamp to `[0, text.length()]`.
+Functions never abort.
+
+For `pos` strictly inside a cluster (mid-surrogate or mid-multi-codepoint
+cluster):
+
+- `next_grapheme_boundary` returns the cluster end.
+- `prev_grapheme_boundary` returns the cluster start.
+- `is_grapheme_boundary` returns `false`.
+
+For `pos` exactly on a boundary, both `next` and `prev` return `pos`
+unchanged.
+
+## Performance characteristics
+
+The current implementation prioritises correctness and code clarity over
+peak throughput. Concrete characteristics callers should know:
+
+- **`grapheme_boundaries(text)` and `word_boundaries(text)` are O(n)**
+  — one forward walk over the codepoints with a constant-bounded state
+  machine.
+- **Point queries (`prev_/next_/is_*_boundary`) are O(n) per call** —
+  they internally call `grapheme_boundaries(text)` (or its word
+  counterpart) and scan the result. A tight loop calling
+  `next_grapheme_boundary` `n` times over the same string therefore
+  costs O(n²); for a long document, materialise `grapheme_boundaries`
+  once and binary-search instead.
+- **Per-codepoint property lookup is O(log m)** where `m` is the size
+  of the largest property table (~400 ranges). Each `gcb_of` may
+  consult up to 13 tables before falling through to `Other`. ASCII
+  inputs are dominated by the first three lookups (CR / LF / Control).
+
+These costs are acceptable for canopy's editor call sites (short
+strings, single-shot queries on user mutation). They would not be
+acceptable for streaming a multi-MB document one boundary at a time —
+in that scenario, materialise the boundary array once.
+
+## Out of scope
+
+Normalization, bidi, casing, display width, line/sentence boundaries,
+script detection, collation, well-formedness validation, JS bindings,
+CRDT position conversion (UTF-16 ↔ item-space is the caller's
+responsibility — see [spec §0][spec]).
+
+## Re-generating tables and tests
+
+Property tables and the conformance test cases are generated from
+vendored UCD 15.1 files under `testdata/`. To bump the Unicode version
+or refresh after editing the generators:
+
+```bash
+cd lib/moji
+python3 scripts/gen_property_tables.py     # → property_tables.mbt
+python3 scripts/gen_break_test_cases.py    # → graphemebreaktest_cases_wbtest.mbt
+                                           # + wordbreaktest_cases_wbtest.mbt
+moon test --package dowdiness/moji         # 43 tests
+```

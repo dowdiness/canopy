@@ -60,6 +60,9 @@ pub fn apply_tree_edit_json(
 }
 
 ///|
+/// Snap-splice variant: endpoints are expanded to enclosing grapheme
+/// boundaries per §1.1. For exact-splice semantics that reject non-boundary
+/// endpoints, use `handle_text_intent_checked`.
 pub fn handle_text_intent(
   handle : Int,
   from : Int,
@@ -74,11 +77,11 @@ pub fn handle_text_intent(
 }
 
 ///|
-/// Bounds-checked variant of `handle_text_intent`. Returns `false` when the
-/// requested splice would have been silently clamped by
-/// `apply_text_edit_internal` — i.e. when the caller's view of the document
-/// has drifted from the CRDT's. The CRDT is left untouched in that case so
-/// the caller can resync without broadcasting garbage to peers.
+/// Exact-splice variant: returns `false` if the splice endpoints are not
+/// grapheme boundaries OR are out of bounds. Doc unchanged on rejection. Used
+/// by the JS bridge (`bridge.ts::applySpliceChanges`) to maintain its own
+/// posOffset bookkeeping; silently snapping inside the seam would cause the
+/// bookkeeping to drift.
 pub fn handle_text_intent_checked(
   handle : Int,
   from : Int,
@@ -87,17 +90,8 @@ pub fn handle_text_intent_checked(
   timestamp_ms : Int,
 ) -> Bool {
   match lambda_handles.get(handle) {
-    Some(h) => {
-      let text_len = h.editor.get_text().length()
-      if from < 0 ||
-        deleted_len < 0 ||
-        from > text_len ||
-        from + deleted_len > text_len {
-        return false
-      }
-      h.editor.apply_text_edit(from, deleted_len, insert, timestamp_ms)
-      true
-    }
+    Some(h) =>
+      h.editor.apply_text_edit_exact(from, deleted_len, insert, timestamp_ms)
     None => false
   }
 }

@@ -1,3 +1,7 @@
+import {
+  "dowdiness/moji" @moji,
+}
+
 options(
   is_main: false,
 )

@@ -91,6 +91,15 @@ test "insert_block_after: adds newline" {
 }
 
 ///|
+test "split_block: mid-cluster offset snaps to next grapheme boundary" {
+  let source = "e\u{0301}x\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let para_id = proj.children[0].id()
+  let result = apply_edit(source, SplitBlock(node_id=para_id, offset=1))
+  inspect(result, content="é\n\nx\n")
+}
+
+///|
 test "merge_with_previous: first block is no-op" {
   let source = "Hello\n"
   let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
