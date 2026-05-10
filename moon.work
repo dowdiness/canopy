@@ -3,4 +3,5 @@ members = [
   "./lib/text-change",
   "./lib/zipper",
   "./lib/btree",
+  "./lib/moji",
 ]

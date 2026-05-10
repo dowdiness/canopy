@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/moji"
+
+// Values
+pub fn decode_codepoint_at(String, Int) -> (Int, Int)
+
+pub fn gcb_of(Int) -> GCB
+
+pub fn grapheme_boundaries(String) -> Array[Int]
+
+pub fn grapheme_clusters(String) -> Iter[(Int, Int)]
+
+pub fn incb_of(Int) -> InCB
+
+pub fn is_extended_pictographic(Int) -> Bool
+
+pub fn is_grapheme_boundary(String, Int) -> Bool
+
+pub fn is_trailing_surrogate_at(String, Int) -> Bool
+
+pub fn next_grapheme_boundary(String, Int) -> Int
+
+pub fn next_word_boundary(String, Int) -> Int
+
+pub fn prev_grapheme_boundary(String, Int) -> Int
+
+pub fn prev_word_boundary(String, Int) -> Int
+
+pub fn wb_of(Int) -> WB
+
+pub fn word_boundaries(String) -> Array[Int]
+
+// Errors
+
+// Types and methods
+pub enum GCB {
+  Other
+  CR
+  LF
+  Control
+  Extend
+  ZWJ
+  RI
+  Prepend
+  SpacingMark
+  L
+  V
+  T
+  LV
+  LVT
+} derive(Eq)
+
+pub enum InCB {
+  IcbNone
+  IcbConsonant
+  IcbExtend
+  IcbLinker
+} derive(Eq)
+
+pub enum WB {
+  WbOther
+  WbCR
+  WbLF
+  WbNewline
+  WbExtend
+  WbZWJ
+  WbFormat
+  WbRI
+  WbKatakana
+  WbHebrewLetter
+  WbALetter
+  WbSingleQuote
+  WbDoubleQuote
+  WbMidNumLet
+  WbMidLetter
+  WbMidNum
+  WbNumeric
+  WbExtendNumLet
+  WbWSegSpace
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+
