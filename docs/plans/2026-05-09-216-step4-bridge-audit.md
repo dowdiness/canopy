@@ -144,6 +144,12 @@ scope for #216 Step 4 unless PM is made editable.**
 
 ### Path D — older ideal bridge (ProseMirror with NodeViews + per-char FFI)
 
+> **Post-#246 update:** the bridge has since been migrated to bulk-splice
+> via `handle_text_intent_checked` (PR #246). The trace below describes
+> the *pre-#246* state that this audit recommended changing — preserved
+> as the historical motivation for the migration. For the current call
+> shape, see `examples/ideal/web/src/bridge.ts::applySpliceChanges`.
+
 ```
 CM6 NodeView leaf change
   → bridge.ts:67 handleLeafEdit(nodeId, changes)
@@ -257,17 +263,24 @@ when moji lands; explicitly out of scope for the seam):
 
 These do not gate Step 2; they are smaller cleanups that fall out of the audit.
 
-1. **Migrate the older ideal bridge** off the per-char `insert_at` /
+1. ~~**Migrate the older ideal bridge** off the per-char `insert_at` /
    `delete_at` loop and onto `handle_text_intent`, so it joins the
-   bulk-splice seam. Otherwise it needs a parallel grapheme story.
-2. **`compute_split_block` offset semantics** (`lang/markdown/edits/compute_markdown_edit.mbt:211`)
+   bulk-splice seam. Otherwise it needs a parallel grapheme story.~~
+   **Shipped: PR #246.** Bridge now calls `handle_text_intent_checked`
+   (Bool-returning FFI variant) once per CM6 change with cumulative-
+   delta bookkeeping. Drift detection preserved.
+2. ~~**`compute_split_block` offset semantics** (`lang/markdown/edits/compute_markdown_edit.mbt:211`)
    should gain a brief docstring noting the offset is a code-unit offset
-   inside the text span — same caveat as `SyncEditor::move_cursor`.
+   inside the text span — same caveat as `SyncEditor::move_cursor`.~~
+   **Shipped: PR #248.**
 3. **`UserIntent.SetCursor.position`** type-promiscuity (PM-tree vs CM-doc).
    Naming cleanup, not unit conversion.
 4. **`ffi/lambda/intent.mbt::insert_at` / `delete_at`** are documented "for
-   the ProseMirror bridge" — this is accurate (the ideal bridge uses them);
-   no action needed, only worth noting for context.
+   the ProseMirror bridge" — post-#246 the ideal bridge no longer calls
+   them in its hot path, but the FFI surface is retained for whitebox
+   tests under `examples/ideal/main/view_history_wbtest.mbt`. Doc
+   strings remain as-is; the "ProseMirror bridge" framing is now stale
+   but not actively misleading.
 
 ## What this changes about #216 Step 2
 
