@@ -220,6 +220,48 @@ test "apply_text_edit pure insert snaps mid-cluster to previous boundary" {
 }
 
 ///|
+test "apply_text_edit_exact rejects mid-cluster start" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.set_text("e\u{0301}")
+  editor.move_cursor(0)
+  let accepted = editor.apply_text_edit_exact(1, 0, "X", 0)
+  inspect(accepted, content="false")
+  inspect(editor.get_text(), content="é")
+  inspect(editor.get_cursor(), content="0")
+}
+
+///|
+test "apply_text_edit_exact accepts on-boundary splice" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.set_text("e\u{0301}")
+  let accepted = editor.apply_text_edit_exact(2, 0, "X", 0)
+  inspect(accepted, content="true")
+  inspect(editor.get_text(), content="éX")
+  inspect(
+    @moji.is_grapheme_boundary(editor.get_text(), editor.get_cursor()),
+    content="true",
+  )
+}
+
+///|
+test "insert_at preserves cursor when BMP splice fuses cluster" {
+  let editor = @lambda.new_lambda_editor("test-agent").0
+  editor.set_text("a")
+  editor.move_cursor(0)
+  editor.insert_at(1, "\u{0301}", 0)
+  inspect(editor.get_text(), content="á")
+  inspect(editor.get_cursor(), content="0")
+}
+
+// §4.3 third table rows 1-2 — RI re-pairing and ZWJ profession join — are
+// not yet exercisable: loading the required non-BMP text into the editor
+// hits the CRDT-layer `String::sub` mid-surrogate abort tracked by the 4
+// `panic #216` tests above. Restore these once that abort is fixed:
+//
+//   - "🇯🇵🇺🇸" + apply_text_edit(4, 0, "🇮") → cursor 8 post-snap
+//   - "👩💻" with cursor=2, insert_at(2, "\u{200D}") → cursor 0 or 5 post-snap
+
+///|
 /// #216: insert of a surrogate-pair emoji currently aborts in the CRDT
 /// (`String::sub` mid-surrogate). The whole call stack — `SyncEditor::insert`
 /// → `TextState::insert` → `Document::insert` → `String::sub` — panics, not

@@ -199,6 +199,11 @@ pub fn grapheme_clusters(text : String) -> Iter[(Int, Int)] {
 /// Semantically: when `pos` is a boundary, returns `pos`. When `pos` is
 /// strictly inside a cluster (mid-codepoint or mid-multi-codepoint
 /// cluster), returns the cluster's end.
+///
+/// **Cost: O(n).** Each call rebuilds the full boundary array via
+/// `grapheme_boundaries(text)`. A tight loop calling this `n` times over
+/// the same string is therefore O(n²) — for hot paths over long strings,
+/// materialise `grapheme_boundaries(text)` once and binary-search instead.
 pub fn next_grapheme_boundary(text : String, pos : Int) -> Int {
   let len = text.length()
   if pos <= 0 {
@@ -222,7 +227,8 @@ pub fn next_grapheme_boundary(text : String, pos : Int) -> Int {
 ///
 /// Returns `0` if `pos <= 0`. Returns `text.length()` if
 /// `pos >= text.length()`. Same offset-tolerance contract as
-/// `next_grapheme_boundary`.
+/// `next_grapheme_boundary`. Same O(n) per-call cost — see the note on
+/// `next_grapheme_boundary` for the materialise-once escape hatch.
 pub fn prev_grapheme_boundary(text : String, pos : Int) -> Int {
   let len = text.length()
   if pos <= 0 {
