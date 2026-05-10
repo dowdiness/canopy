@@ -284,6 +284,9 @@ conversion seam and lists follow-ups not blocked on moji.
 - [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.
   Status: not blocked on moji.
 
+- [ ] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics. Today: if splice K in a multi-change batch fails the `handle_text_intent_checked` bounds check, splices 0..K-1 stay applied to the CRDT but skip the immediate `afterLocalEdit()` broadcast — they ride the next successful edit's `export_since_json` delta. Pre-existing behavior preserved by #246, flagged by Codex on that PR. Options: (a) call `afterLocalEdit()` if anything was applied, broadcasting the valid prefix immediately; (b) make batches atomic with a snapshot/rollback API; (c) leave as-is and document. Prefer (a) — minimal change, removes the cross-replica gap.
+  Status: not blocked on moji.
+
 ---
 
 ## 17. Lambda Type System
