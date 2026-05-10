@@ -1,8 +1,6 @@
 # moji API derivation — what canopy needs from a MoonBit UAX #29 library
 
-**Status:** spec only (v5). No code, no implementation. Drives moji's
-external API surface from the canopy call sites that are blocked on
-it.
+**Status:** spec only (v5) — kept unedited as the audit-trail record. The library and integration shipped in [#251](https://github.com/dowdiness/canopy/pull/251); the clean-cut spec at [`2026-05-10-moji-api-spec.md`](2026-05-10-moji-api-spec.md) is annotated with implementation status. Per-item shipped notes live in `docs/TODO.md` §16.
 
 **Audience:** moji author. Secondary: canopy maintainers planning #216
 Step 2 once moji is available.

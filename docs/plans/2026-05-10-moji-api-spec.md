@@ -1,6 +1,8 @@
 # moji API specification — what canopy needs from a MoonBit UAX #29 library
 
-**Status:** specification, ready for external review.
+**Status:** implemented in [#251](https://github.com/dowdiness/canopy/pull/251) — the moji library lives at `lib/moji/` and is wired into the editor's diff layer, cursor invariant, arrow-key API, and FFI variants per the per-call-site analysis below. Conformance: 1187/1187 GraphemeBreakTest + 1826/1826 WordBreakTest cases pass against Unicode 15.1.
+
+The spec is preserved unedited as the design record; see TODO.md §16 for the per-item shipped notes and remaining follow-ups (notably: §4.3 non-BMP cluster-fusing-cursor fixtures stubbed pending the CRDT `String::sub` abort fix).
 
 **Audience:** moji author. Secondary: canopy maintainers integrating
 moji once it lands.
