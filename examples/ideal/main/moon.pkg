@@ -50,6 +50,7 @@ options(
         "ephemeral_get_peer_cursors_json",
         "ephemeral_remove_outdated",
         "handle_text_intent",
+        "handle_text_intent_checked",
         "handle_undo",
         "handle_redo",
         "handle_structural_intent",

@@ -163,6 +163,22 @@ pub fn handle_text_intent(
 }
 
 ///|
+/// Bounds-checked variant of `handle_text_intent`. Returns false when the
+/// requested splice would have been silently clamped by the editor seam,
+/// leaving the CRDT untouched so the caller can resync without
+/// broadcasting a clamped delta to peers. Used by the structural-mode
+/// bridge in `examples/ideal/web/src/bridge.ts`.
+pub fn handle_text_intent_checked(
+  handle : Int,
+  from : Int,
+  deleted_len : Int,
+  insert : String,
+  timestamp_ms : Int,
+) -> Bool {
+  @ffi.handle_text_intent_checked(handle, from, deleted_len, insert, timestamp_ms)
+}
+
+///|
 /// Undo on the MoonBit editor directly and return whether it succeeded.
 pub fn handle_undo(handle : Int) -> Bool {
   @ffi.handle_undo(handle)
