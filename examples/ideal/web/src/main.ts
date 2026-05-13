@@ -28,6 +28,7 @@ type CanopyGlobal = typeof globalThis & {
 const canopyGlobal = globalThis as CanopyGlobal;
 const AGENT_ID_STORAGE_KEY = 'canopy-ideal-agent-id';
 const STORAGE_KEY_PREFIX = 'canopy-doc-';
+const SKIP_SYNC = import.meta.env.VITE_CANOPY_SKIP_SYNC === '1';
 let crdtPromise: Promise<CrdtModule> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let activeSyncClient: SyncClient | null = null;
@@ -327,7 +328,9 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   // Text already set by MoonBit's init_model — don't overwrite.
   el.mount(handle, crdt);
   wireEditorEvents(el);
-  startSync(el, handle, crdt, roomId);
+  if (!SKIP_SYNC) {
+    startSync(el, handle, crdt, roomId);
+  }
 
   // Periodically remove outdated ephemeral entries (every 10s)
   if (ephemeralCleanupTimer !== null) {

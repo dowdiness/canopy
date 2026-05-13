@@ -15,6 +15,10 @@ real `examples/ideal/web` app and measures the local text-mode input path:
 5. The ideal model refreshes projection/outline state.
 6. The benchmark waits two animation frames to include browser paint scheduling.
 
+The perf run disables WebSocket sync startup with `VITE_CANOPY_SKIP_SYNC=1`.
+This keeps the measurement focused on local editor/projection response rather
+than offline collaboration reconnect work.
+
 ## Results
 
 | Scenario | Source size | Samples | Text-change p50 | Text-change p95 | Paint p50 | Paint p95 | Paint max |
@@ -97,4 +101,3 @@ Likely useful changes:
    active tab when open.
 4. Move the ideal editor toward incremental view patches instead of broad model
    refreshes for every text edit.
-

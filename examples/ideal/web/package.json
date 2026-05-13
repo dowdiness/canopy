@@ -7,7 +7,7 @@
     "server": "tsx server/ws-server.ts",
     "prebuild:moonbit": "cd .. && moon build --target js",
     "test": "playwright test",
-    "test:perf": "CANOPY_SKIP_RELAY_SERVER=1 playwright test e2e/editor-response.perf.spec.ts --reporter=line",
+    "test:perf": "CANOPY_SKIP_RELAY_SERVER=1 VITE_CANOPY_SKIP_SYNC=1 playwright test e2e/editor-response.perf.spec.ts --reporter=line",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
   },
