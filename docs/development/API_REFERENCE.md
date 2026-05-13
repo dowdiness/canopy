@@ -115,7 +115,6 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
 > grapheme boundaries. The public unit remains a UTF-16 code-unit offset,
 > not a grapheme ordinal.
 
-[issue-216]: https://github.com/dowdiness/canopy/issues/216
 [canopy251]: https://github.com/dowdiness/canopy/pull/251
 
 Three position units appear in the text-editing surface:
@@ -125,9 +124,6 @@ Three position units appear in the text-editing surface:
 | Editor cursor and splice APIs (`SyncEditor::*`) | UTF-16 code-unit offset, snapped to a UAX #29 grapheme boundary | Non-BMP code points still occupy 2 code units; combining marks occupy 1 code unit but are not exposed as cursor stops inside a cluster. |
 | Text diff (`@editor.text_diff`, `dowdiness/text_change`) | UTF-16 code-unit offsets aligned to grapheme boundaries | The minimal splice fields still use code-unit lengths, but prefix/suffix comparison walks full grapheme clusters. |
 | eg-walker text facade (`@text.Pos`, `TextState::len` via `visible_count()`) | Item-space offset | One slot per atomic content `Op`. The editor converts UTF-16 offsets to item-space before calling `@text.Pos` / `@text.Range`. |
-
-[egw31]: https://github.com/dowdiness/event-graph-walker/issues/31
-[canopy240]: https://github.com/dowdiness/canopy/pull/240
 
 No `GraphemeOffset` opaque type exists today. Keep treating public editor
 positions as UTF-16 code-unit offsets that are expected to lie on grapheme
@@ -146,8 +142,6 @@ the follow-up parser/undo fixes for #216:
 Callers should still treat public editor positions as UTF-16 code-unit offsets
 and prefer editor APIs that snap or validate grapheme boundaries instead of
 constructing offsets arithmetically across non-ASCII text.
-
-[canopy239]: https://github.com/dowdiness/canopy/pull/239
 
 ## EphemeralStore (`@editor.EphemeralStore`)
 
