@@ -96,43 +96,9 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 4. Rabbita Projection Editor Performance
 
-- [ ] Add phase timings for the real browser editor response benchmark.
-  Why: the 2026-05-13 browser benchmark moved the performance discussion from
-  microbenchmarks to measured editor response. Current large-text results are
-  interactive but not comfortably under frame budget: text-change p95 21.3 ms,
-  paint p95 39.0 ms, paint max 67.8 ms. Before optimizing, split the path into
-  `handle_text_intent`, `text-changed` → `EditorTextChanged`, `refresh(model)`,
-  `TreeEditorState::refresh`, `build_scope_map`, highlight recomputation, and
-  bottom-panel commands.
-  Exit: `make benchmark-ideal-editor-response` prints per-phase p50/p95/max,
-  and the results are recorded under `docs/performance/`.
-
-- [ ] Benchmark and optimize `refresh(model)` for real lambda editor documents.
-  Why: the likely smoothness bottleneck is over-refreshing projection/UI state
-  per keystroke, not event-graph-walker. `refresh(model)` currently forces
-  projection/source-map reads, refreshes `TreeEditorState`, rebuilds
-  `scope_map`, and recomputes highlights on every `EditorTextChanged`.
-  Exit: release benchmarks cover 100-def and 500-def ideal refresh, with
-  separate measurements for `TreeEditorState::refresh` and `build_scope_map`;
-  large-document text-change p95 is under 8-10 ms or there is a documented
-  blocker explaining the remaining cost.
-
-- [ ] Defer or incrementally update `scope_map` during text typing.
-  Why: `build_scope_map(editor)` walks the whole projected tree and backfills
-  usages on every refresh. That is valuable for scope coloring, but it should
-  not necessarily block the primary typing response path.
-  Exit: typing updates text/projection immediately while scope annotations are
-  skipped, lazily recomputed, debounced to animation frames, or updated
-  incrementally; scope-coloring tests and browser response benchmarks stay
-  green.
-
-- [ ] Batch projection/outline refresh to animation frames.
-  Why: `SyncEditor::refresh()` already exists as an eager projection boundary,
-  and its documentation calls out batching edits before forcing projection.
-  Text mode should keep the text path immediate and run outline/projection work
-  at most once per frame.
-  Exit: consecutive text edits coalesce into one projection refresh per frame,
-  with no stale visible outline after the scheduled frame completes.
+- [ ] Split and optimize the `handle_text_intent` browser edit path.
+  Why: the 2026-05-14 real browser phase benchmark shows the large edit path is dominated by `handleTextIntent` (`p95` 14.7 ms on a 7,284-char example). Rabbita `refreshTotal` is only `p95` 1.6 ms, `TreeEditorState::refresh` is `p95` 0.4 ms, and `buildScopeMap` is `p95` 0.2 ms, so projection refresh is not the first bottleneck.
+  Exit: browser-level phase timings split `handle_text_intent` into edit translation, sync-editor mutation, and state publication, and the large-edit text-change `p95` is comfortably below the single-frame compute budget.
 
 - [ ] Remove redundant render-time tree scans (e.g. sidebar selection lookup from the full rendered tree).
   Why: low priority — full frame is <1 ms, but the scans are still wasted work.

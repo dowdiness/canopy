@@ -3,6 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 type ResponseSample = {
   inputToTextChangeMs: number;
   inputToPaintMs: number;
+  phases: Record<string, number>;
 };
 
 type Stats = {
@@ -18,6 +19,7 @@ type ResponseSummary = {
   samples: number;
   textChange: Stats;
   paint: Stats;
+  phases: Record<string, Stats>;
 };
 
 const WARMUP_KEYSTROKES = 5;
@@ -87,6 +89,7 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
 
     let start = 0;
     const timeout = window.setTimeout(() => {
+      (window as any).__canopy_perf_current = null;
       cleanup();
       reject(new Error('Timed out waiting for text-changed after text input'));
     }, 5000);
@@ -98,16 +101,21 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
       const textChangedAt = performance.now();
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          const perf = (window as any).__canopy_perf_current;
+          const phases = { ...(perf?.spans ?? {}) };
+          (window as any).__canopy_perf_current = null;
           cleanup();
           resolve({
             inputToTextChangeMs: textChangedAt - start,
             inputToPaintMs: performance.now() - start,
+            phases,
           });
         });
       });
     };
 
     el.addEventListener('text-changed', onTextChanged, { once: true });
+    (window as any).__canopy_perf_current = { spans: {} };
     start = performance.now();
     const inserted = document.execCommand('insertText', false, insertText);
     if (!inserted) {
@@ -141,12 +149,23 @@ function roundStats(s: Stats): Stats {
 }
 
 function summarize(scenario: string, sourceChars: number, samples: ResponseSample[]): ResponseSummary {
+  const phaseNames = new Set<string>();
+  for (const sample of samples) {
+    for (const phase of Object.keys(sample.phases)) {
+      phaseNames.add(phase);
+    }
+  }
+  const phases: Record<string, Stats> = {};
+  for (const phase of [...phaseNames].sort()) {
+    phases[phase] = roundStats(stats(samples.map((sample) => sample.phases[phase] ?? 0)));
+  }
   return {
     scenario,
     sourceChars,
     samples: samples.length,
     textChange: roundStats(stats(samples.map((sample) => sample.inputToTextChangeMs))),
     paint: roundStats(stats(samples.map((sample) => sample.inputToPaintMs))),
+    phases,
   };
 }
 
@@ -177,6 +196,12 @@ test.describe('realistic editor response benchmark', () => {
 
     for (const summary of summaries) {
       console.log(`[editor-response] ${JSON.stringify(summary)}`);
+      console.log(`[editor-response-phase] ${JSON.stringify({
+        scenario: summary.scenario,
+        sourceChars: summary.sourceChars,
+        samples: summary.samples,
+        phases: summary.phases,
+      })}`);
       expect(summary.paint.p95, `${summary.scenario} p95 paint latency`).toBeLessThan(P95_PAINT_BUDGET_MS);
       expect(summary.paint.max, `${summary.scenario} max paint latency`).toBeLessThan(MAX_PAINT_BUDGET_MS);
     }

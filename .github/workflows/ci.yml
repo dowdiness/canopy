@@ -42,16 +42,18 @@ jobs:
         run: moon version --all
 
       - name: Update dependencies
-        run: make update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Check code
-        run: make check
+        run: |
+          bash ./scripts/check-agent-doc-links.sh
+          ./scripts/run-moon-module.sh check .
 
       - name: Run tests
-        run: make test
+        run: ./scripts/run-moon-module.sh test .
 
       - name: Build
-        run: make build
+        run: moon build --release
 
   test-submodules:
     name: Test Submodules
@@ -179,7 +181,7 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Update dependencies
-        run: make update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Run main module benchmarks
         run: moon bench --release
@@ -205,7 +207,9 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Check formatting
-        run: make fmt-check
+        run: |
+          bash ./scripts/check-agent-doc-links.sh
+          ./scripts/run-moon-module.sh fmt-check .
 
   build-js:
     name: Build JavaScript Target
@@ -222,10 +226,10 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Update dependencies
-        run: make update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Build JavaScript artifacts
-        run: make build-js
+        run: ./scripts/build-js.sh
 
       - name: Upload JS artifacts
         uses: actions/upload-artifact@v7
@@ -267,10 +271,10 @@ jobs:
           cache-dependency-path: examples/web/package-lock.json
 
       - name: Update MoonBit dependencies
-        run: make update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Build web
-        run: make build-web
+        run: ./scripts/build-web.sh
 
   web-e2e:
     name: Web E2E
@@ -301,12 +305,7 @@ jobs:
         run: npm ci
 
       - name: Update MoonBit dependencies
-        run: |
-          moon update
-          cd event-graph-walker && moon update
-          cd ../loom/loom && moon update
-          cd ../../svg-dsl && moon update
-          cd ../graphviz && moon update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Run web Playwright suite
         run: ./scripts/test-web-e2e.sh
@@ -340,12 +339,7 @@ jobs:
         run: npm ci
 
       - name: Update MoonBit dependencies
-        run: |
-          moon update
-          cd event-graph-walker && moon update
-          cd ../loom/loom && moon update
-          cd ../../svg-dsl && moon update
-          cd ../graphviz && moon update
+        run: ./scripts/update-moon-deps.sh
 
       - name: Run demo-react Playwright suite
         run: ./scripts/test-demo-react-e2e.sh

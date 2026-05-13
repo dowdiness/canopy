@@ -175,7 +175,9 @@ pub fn handle_text_intent_checked(
   insert : String,
   timestamp_ms : Int,
 ) -> Bool {
-  @ffi.handle_text_intent_checked(handle, from, deleted_len, insert, timestamp_ms)
+  @ffi.handle_text_intent_checked(
+    handle, from, deleted_len, insert, timestamp_ms,
+  )
 }
 
 ///|

@@ -66,20 +66,41 @@ The most plausible costs to measure first are:
 4. `bottom_render_cmd(new_model)`, especially when bottom panels are hidden or
    inactive.
 
+## Phase Timing Results
+
+Follow-up browser benchmark on 2026-05-14 split the large text edit result into
+measured phases. The command was still `make benchmark-ideal-editor-response`.
+
+| Large edit phase | p50 | p95 | max | Notes |
+|---|---:|---:|---:|---|
+| `handleTextIntent` | 12.6 ms | 14.7 ms | 14.8 ms | Dominant cost; wraps the Web Component text edit path through `handle_text_intent`. |
+| `dispatchTextChanged` | 1.2 ms | 1.8 ms | 3.0 ms | Includes listener dispatch after the editor state update. |
+| `textChangedToRabbitaTrigger` | 1.1 ms | 1.7 ms | 2.9 ms | Browser event bridge from `text-changed` to the Rabbita trigger. |
+| `editorTextChangedTotal` | 1.0 ms | 1.6 ms | 2.9 ms | Rabbita `EditorTextChanged` handler. |
+| `refreshTotal` | 1.0 ms | 1.6 ms | 2.9 ms | Full ideal model refresh. |
+| `getProjNode` | 0.4 ms | 0.6 ms | 0.7 ms | Projection memo forcing after the edit. |
+| `getSourceMap` | 0.3 ms | 0.4 ms | 2.1 ms | Usually small, with one local max spike. |
+| `treeEditorRefresh` | 0.3 ms | 0.4 ms | 0.4 ms | Tree editor state refresh. |
+| `buildScopeMap` | 0.1 ms | 0.2 ms | 0.3 ms | Not the current bottleneck. |
+| `bottomRenderCmd` | 0.0 ms | 0.1 ms | 0.1 ms | Not material in this benchmark. |
+
+This changes the optimization priority. The measured browser path is dominated
+by `handle_text_intent`, while the Rabbita projection refresh work is around
+1-2 ms at the current large-document scale. The scope-map and tree-refresh
+hypotheses were useful to test, but they are not where this benchmark spends
+most of its time.
+
 ## Next Measurement Work
 
-Add phase timings around the real browser benchmark before optimizing:
+Add deeper phase timings or focused release benchmarks for the
+`handle_text_intent` path before changing projection refresh:
 
-- `handle_text_intent` duration in `canopy-editor.ts`.
-- Time from `text-changed` dispatch to Rabbita `EditorTextChanged`.
-- `refresh(model)` total time.
-- Sub-timings inside `refresh(model)`:
-  - `get_proj_node`
-  - `get_source_map`
-  - `TreeEditorState::refresh`
-  - `build_scope_map`
-  - `compute_highlight_set`
-  - `bottom_render_cmd`
+- Split `handle_text_intent` into CodeMirror update handling, edit translation,
+  CRDT/sync-editor mutation, and post-edit state publication.
+- Add a focused browser benchmark that records per-keystroke p95 for repeated
+  edits in the same large document, not just isolated sampled edits.
+- Keep the existing projection phase timers as regression guards, because they
+  prove refresh/scope work is not currently the dominant browser-level cost.
 
 Then add release MoonBit benchmarks for:
 
@@ -89,15 +110,18 @@ Then add release MoonBit benchmarks for:
 
 ## Optimization Candidates
 
-Do not start by optimizing event-graph-walker. Current browser results point at
-over-refreshing projection/UI state per keystroke.
+Do not start by optimizing event-graph-walker or the projection refresh path.
+Current browser phase timings point first at the text-intent/edit-application
+path.
 
 Likely useful changes:
 
-1. Skip or defer `scope_map` rebuilding unless outline/scope UI needs it.
-2. Batch projection refresh to animation frames so text updates immediately and
-   outline/projection work runs at most once per frame.
-3. Avoid bottom-panel render work when panels are closed, and update only the
-   active tab when open.
-4. Move the ideal editor toward incremental view patches instead of broad model
-   refreshes for every text edit.
+1. Split and optimize `handle_text_intent`, especially edit translation and
+   sync-editor mutation after a single-character CodeMirror input.
+2. Check whether the Web Component publishes or normalizes more editor state
+   than the browser needs synchronously for each keystroke.
+3. Keep scope-map, tree-refresh, and bottom-panel work measured, but treat them
+   as secondary until the text-intent p95 is below the smooth target.
+4. If projection work grows with larger examples, batch projection refresh to
+   animation frames so text updates immediately and outline/projection work runs
+   at most once per frame.

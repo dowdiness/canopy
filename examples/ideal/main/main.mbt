@@ -64,13 +64,22 @@ fn init_model() -> Model {
 
 ///|
 fn refresh(model : Model) -> Model {
-  let outline_state = model.outline_state.refresh(
-    model.editor.get_proj_node(),
-    model.editor.get_source_map(),
-  )
+  js_perf_begin("refreshTotal")
+  js_perf_begin("getProjNode")
+  let proj_node = model.editor.get_proj_node()
+  js_perf_end("getProjNode")
+  js_perf_begin("getSourceMap")
+  let source_map = model.editor.get_source_map()
+  js_perf_end("getSourceMap")
+  js_perf_begin("treeEditorRefresh")
+  let outline_state = model.outline_state.refresh(proj_node, source_map)
+  js_perf_end("treeEditorRefresh")
   // Build scope_map from current projection
+  js_perf_begin("buildScopeMap")
   let scope_map = build_scope_map(model.editor)
+  js_perf_end("buildScopeMap")
   // Recompute highlight_set if a node is selected
+  js_perf_begin("computeHighlightSet")
   let highlight_set = match model.selected_node {
     Some(nid_str) =>
       match parse_node_id(nid_str) {
@@ -79,6 +88,8 @@ fn refresh(model : Model) -> Model {
       }
     None => @immut/hashset.new()
   }
+  js_perf_end("computeHighlightSet")
+  js_perf_end("refreshTotal")
   { ..model, outline_state, scope_map, highlight_set }
 }
 
@@ -859,8 +870,13 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     EditorTextChanged => {
       // Text was already applied by TS calling handle_text_intent FFI.
       // Just refresh the outline.
+      js_perf_begin("editorTextChangedTotal")
       let new_model = refresh(model)
-      (bottom_render_cmd(new_model), new_model)
+      js_perf_begin("bottomRenderCmd")
+      let cmd = bottom_render_cmd(new_model)
+      js_perf_end("bottomRenderCmd")
+      js_perf_end("editorTextChangedTotal")
+      (cmd, new_model)
     }
     EditorNodeSelected(node_id) => {
       let resolved_node_id = if node_id == "" {

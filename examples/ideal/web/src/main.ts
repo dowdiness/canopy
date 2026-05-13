@@ -123,6 +123,17 @@ function clickTrigger(id: string) {
   if (btn) btn.click();
 }
 
+function recordPerfSpan<T>(name: string, fn: () => T): T {
+  const perf = (globalThis as any).__canopy_perf_current;
+  if (!perf?.spans) return fn();
+  const start = performance.now();
+  try {
+    return fn();
+  } finally {
+    perf.spans[name] = (perf.spans[name] ?? 0) + performance.now() - start;
+  }
+}
+
 function wireEditorEvents(el: CanopyEditor) {
   // Abort previous listeners if called again (prevents accumulation)
   if (editorEventsController) editorEventsController.abort();
@@ -132,7 +143,9 @@ function wireEditorEvents(el: CanopyEditor) {
   el.addEventListener(CanopyEvents.TEXT_CHANGE, () => {
     // Text was already applied by canopy-editor.ts via handle_text_intent FFI.
     // Trigger Rabbita outline refresh via the protocol-based trigger.
-    clickTrigger('canopy-editor-text-changed');
+    recordPerfSpan("textChangedToRabbitaTrigger", () => {
+      clickTrigger('canopy-editor-text-changed');
+    });
     // Debounced save to localStorage
     if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
       const roomId = location.hash.slice(1);

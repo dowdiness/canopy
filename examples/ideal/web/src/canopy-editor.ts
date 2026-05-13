@@ -21,6 +21,17 @@ const lambdaHighlightStyle = HighlightStyle.define([
   { tag: t.punctuation, color: "#787896" },                    // --canopy-text-dim (.)
 ]);
 
+function recordPerfSpan<T>(name: string, fn: () => T): T {
+  const perf = (globalThis as any).__canopy_perf_current;
+  if (!perf?.spans) return fn();
+  const start = performance.now();
+  try {
+    return fn();
+  } finally {
+    perf.spans[name] = (perf.spans[name] ?? 0) + performance.now() - start;
+  }
+}
+
 type StructureModeSession = {
   applyRemote(syncJson: string): string;
   destroy(): void;
@@ -231,32 +242,36 @@ export class CanopyEditor extends HTMLElement {
             // Count changes to detect multi-change transactions
             let changeCount = 0;
             update.changes.iterChanges(() => { changeCount++; });
-            if (changeCount === 1) {
-              // Single change: use incremental intent (avoids O(n) diff)
-              update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-                this.crdt!.handle_text_intent(
-                  this.crdtHandle!,
-                  fromA,
-                  toA - fromA,
-                  inserted.toString(),
-                  ts,
-                );
-              });
-            } else {
-              // Multi-change (find-replace, multi-cursor) or fallback:
-              // use set_text_and_record which diffs correctly
-              const newText = update.state.doc.toString();
-              if (this.crdt.set_text_and_record) {
-                this.crdt.set_text_and_record(this.crdtHandle, newText, ts);
+            recordPerfSpan("handleTextIntent", () => {
+              if (changeCount === 1) {
+                // Single change: use incremental intent (avoids O(n) diff)
+                update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+                  this.crdt!.handle_text_intent(
+                    this.crdtHandle!,
+                    fromA,
+                    toA - fromA,
+                    inserted.toString(),
+                    ts,
+                  );
+                });
               } else {
-                this.crdt.set_text(this.crdtHandle, newText);
+                // Multi-change (find-replace, multi-cursor) or fallback:
+                // use set_text_and_record which diffs correctly
+                const newText = update.state.doc.toString();
+                if (this.crdt.set_text_and_record) {
+                  this.crdt.set_text_and_record(this.crdtHandle, newText, ts);
+                } else {
+                  this.crdt.set_text(this.crdtHandle, newText);
+                }
               }
-            }
+            });
             // Notify peers + Rabbita
-            this.notifyLocalChange();
-            this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {
-              bubbles: true, composed: true,
-            }));
+            recordPerfSpan("notifyLocalChange", () => this.notifyLocalChange());
+            recordPerfSpan("dispatchTextChanged", () => {
+              this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {
+                bubbles: true, composed: true,
+              }));
+            });
           }),
           // Broadcast cursor position on selection changes (debounced)
           CmView.updateListener.of(update => {

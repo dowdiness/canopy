@@ -213,4 +213,26 @@ extern "js" fn js_focus_tree_rows() -> Unit =
   #|   if (el) el.focus();
   #| }
 
+///|
+/// Start a named browser perf span for the current benchmark sample.
+extern "js" fn js_perf_begin(name : String) -> Unit =
+  #| function(name) {
+  #|   var perf = globalThis.__canopy_perf_current;
+  #|   if (!perf || !perf.spans) return;
+  #|   if (!perf._starts) perf._starts = {};
+  #|   perf._starts[name] = performance.now();
+  #| }
+
+///|
+/// End a named browser perf span for the current benchmark sample.
+extern "js" fn js_perf_end(name : String) -> Unit =
+  #| function(name) {
+  #|   var perf = globalThis.__canopy_perf_current;
+  #|   if (!perf || !perf.spans || !perf._starts) return;
+  #|   var start = perf._starts[name];
+  #|   if (typeof start !== 'number') return;
+  #|   perf.spans[name] = (perf.spans[name] || 0) + performance.now() - start;
+  #|   delete perf._starts[name];
+  #| }
+
 // Note: editor event wiring is done in main.ts wireEditorEvents() — not here.
