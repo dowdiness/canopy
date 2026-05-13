@@ -29,9 +29,7 @@ pub fn build_lambda_projection_memos(
   // access pattern), the delta in changed_def_indices_ref doesn't match their
   // prev state, so they must fall back to full rebuild.
   let proj_revision_ref : Ref[Int] = Ref(0)
-  let proj_changed_at_ref : Ref[@incr.Revision] = Ref(
-    @incr.Revision::initial(),
-  )
+  let proj_changed_at_ref : Ref[@incr.Revision] = Ref(@incr.Revision::initial())
 
   let proj_memo : @incr.Memo[VersionedFlatProj] = @incr.Memo::new_memo(
     rt,

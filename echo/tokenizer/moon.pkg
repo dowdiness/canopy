@@ -1,7 +1,7 @@
-options(
-  is_main: false,
-)
-
 import {
   "moonbitlang/core/debug",
 } for "wbtest"
+
+options(
+  is_main: false,
+)

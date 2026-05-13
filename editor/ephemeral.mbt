@@ -97,7 +97,13 @@ pub struct EphemeralStore {
 
 ///|
 pub fn EphemeralStore::new(timeout_ms : UInt64) -> EphemeralStore {
-  { timeout_ms, next_sub_id: 1, states: Map::default(), local_subs: [], subs: [] }
+  {
+    timeout_ms,
+    next_sub_id: 1,
+    states: Map::default(),
+    local_subs: [],
+    subs: [],
+  }
 }
 
 ///|

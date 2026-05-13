@@ -55,7 +55,7 @@ fn init_model() -> Model {
     sync_status: Connecting,
     overlay: closed_overlay(),
     scope_map: build_scope_map(editor),
-    highlight_set: @immut/hashset.HashSet::default(),
+    highlight_set: @immut/hashset.new(),
     drag_source: None,
     drop_target_id: None,
     drop_position: None,
@@ -75,9 +75,9 @@ fn refresh(model : Model) -> Model {
     Some(nid_str) =>
       match parse_node_id(nid_str) {
         Some(nid) => compute_highlight_set(nid, scope_map)
-        None => @immut/hashset.HashSet::default()
+        None => @immut/hashset.new()
       }
-    None => @immut/hashset.HashSet::default()
+    None => @immut/hashset.new()
   }
   { ..model, outline_state, scope_map, highlight_set }
 }
@@ -569,7 +569,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       })
       let highlight_set = match parse_node_id(node_id) {
         Some(nid) => compute_highlight_set(nid, model.scope_map)
-        None => @immut/hashset.HashSet::default()
+        None => @immut/hashset.new()
       }
       (cmd, { ..model, selected_node: Some(node_id), highlight_set })
     }
@@ -610,9 +610,9 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(s) =>
           match parse_node_id(s) {
             Some(nid) => compute_highlight_set(nid, model.scope_map)
-            None => @immut/hashset.HashSet::default()
+            None => @immut/hashset.new()
           }
-        None => @immut/hashset.HashSet::default()
+        None => @immut/hashset.new()
       }
       (
         cmd,
@@ -649,9 +649,9 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             Some(s) =>
               match parse_node_id(s) {
                 Some(nid) => compute_highlight_set(nid, new_model.scope_map)
-                None => @immut/hashset.HashSet::default()
+                None => @immut/hashset.new()
               }
-            None => @immut/hashset.HashSet::default()
+            None => @immut/hashset.new()
           }
           let text = new_model.editor.get_text()
           let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
@@ -873,7 +873,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         let highlight_set = match parse_node_id(resolved_node_id) {
           Some(nid) => compute_highlight_set(nid, model.scope_map)
-          None => @immut/hashset.HashSet::default()
+          None => @immut/hashset.new()
         }
         (
           none,

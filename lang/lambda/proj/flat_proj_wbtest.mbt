@@ -132,10 +132,7 @@ test "print_flat_proj: single let + expression" {
 
 ///|
 test "print_flat_proj: multiple lets" {
-  let fp = to_flat_proj(
-    parse_syntax("let x = 1\nlet y = 2\nx + y"),
-    Ref(0),
-  )
+  let fp = to_flat_proj(parse_syntax("let x = 1\nlet y = 2\nx + y"), Ref(0))
   inspect(print_flat_proj(fp), content="let x = 1\nlet y = 2\n(x + y)")
 }
 
@@ -165,10 +162,7 @@ test "FlatProj::to_proj_node: single expression" {
 
 ///|
 test "FlatProj::to_proj_node: let defs reconstruct Module" {
-  let fp = to_flat_proj(
-    parse_syntax("let x = 1\nlet y = 2\nx + y"),
-    Ref(0),
-  )
+  let fp = to_flat_proj(parse_syntax("let x = 1\nlet y = 2\nx + y"), Ref(0))
   let proj = fp.to_proj_node(Ref(100))
   inspect(
     proj.kind,

@@ -208,7 +208,7 @@ fn compute_highlight_set(
   selected_id : @canopy_core.NodeId,
   scope_map : Map[@canopy_core.NodeId, ScopeAnnotation],
 ) -> @immut/hashset.HashSet[@canopy_core.NodeId] {
-  let mut hs = @immut/hashset.HashSet::default()
+  let mut hs = @immut/hashset.new()
   match scope_map.get(selected_id) {
     None => hs
     Some(ann) => {
