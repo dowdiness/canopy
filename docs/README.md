@@ -85,6 +85,7 @@ Only needed if you are modifying Canopy itself.
 
 **Performance:**
 
+- [Real Browser Editor Response Baseline](performance/2026-05-13-real-browser-editor-response.md)
 - [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
 - [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
 - [Performance Results](performance/PERFORMANCE_RESULTS.md)

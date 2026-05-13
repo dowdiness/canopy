@@ -1,5 +1,24 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const webServer = [
+  {
+    command: 'npm run prebuild:moonbit && npx vite --port 5190 --strictPort',
+    url: 'http://localhost:5190',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
+  ...(
+    process.env.CANOPY_SKIP_RELAY_SERVER
+      ? []
+      : [{
+          command: 'npm run server',
+          port: 8787,
+          reuseExistingServer: !process.env.CI,
+          timeout: 15000,
+        }]
+  ),
+];
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -17,18 +36,5 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: [
-    {
-      command: 'npm run prebuild:moonbit && npx vite --port 5190 --strictPort',
-      url: 'http://localhost:5190',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-    },
-    {
-      command: 'npm run server',
-      port: 8787,
-      reuseExistingServer: !process.env.CI,
-      timeout: 15000,
-    },
-  ],
+  webServer,
 });
