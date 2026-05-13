@@ -301,10 +301,15 @@ jobs:
         run: npm ci
 
       - name: Update MoonBit dependencies
-        run: make update
+        run: |
+          moon update
+          cd event-graph-walker && moon update
+          cd ../loom/loom && moon update
+          cd ../../svg-dsl && moon update
+          cd ../graphviz && moon update
 
       - name: Run web Playwright suite
-        run: make test-web-e2e
+        run: ./scripts/test-web-e2e.sh
 
   demo-react-e2e:
     name: Demo React E2E
@@ -335,10 +340,15 @@ jobs:
         run: npm ci
 
       - name: Update MoonBit dependencies
-        run: make update
+        run: |
+          moon update
+          cd event-graph-walker && moon update
+          cd ../loom/loom && moon update
+          cd ../../svg-dsl && moon update
+          cd ../graphviz && moon update
 
       - name: Run demo-react Playwright suite
-        run: make test-demo-react-e2e
+        run: ./scripts/test-demo-react-e2e.sh
 
   all-checks-passed:
     name: All Checks Passed
