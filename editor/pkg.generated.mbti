@@ -326,7 +326,7 @@ pub fn[T] SyncEditor::new_generic(String, (String) -> @pipeline.Parser[T], (@pip
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_runtime(Self[T]) -> @cells.Runtime
-pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Memo[@seam.SyntaxNode?]
+pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Memo[@seam.SyntaxNode]
 pub fn[T : Eq] SyncEditor::redo(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
 pub fn[T] SyncEditor::refresh(Self[T]) -> Unit

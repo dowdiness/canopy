@@ -20,17 +20,11 @@ priv struct TypecheckBundle {
 ///|
 fn new_typecheck_bundle(
   rt : @cells.Runtime,
-  syntax_tree : @cells.Memo[@seam.SyntaxNode?],
+  syntax_tree : @cells.Memo[@seam.SyntaxNode],
 ) -> TypecheckBundle {
   let scope = @cells.Scope::new(rt)
   let typed_term_memo : @cells.Memo[@typecheck.TypedTerm] = scope.memo(
-    fn() {
-      // `None` = lex error; must stay non-aborting so later edits recover.
-      match syntax_tree.get() {
-        Some(syntax) => @typecheck.convert_from_cst(syntax)
-        None => @typecheck.TypedTerm::Error("parse")
-      }
-    },
+    fn() { @typecheck.convert_from_cst(syntax_tree.get()) },
     label="lambda-typed-term",
   )
   let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)

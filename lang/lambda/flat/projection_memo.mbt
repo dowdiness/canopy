@@ -44,19 +44,7 @@ pub fn build_lambda_projection_memos(
           changed_at: proj_changed_at_ref.val,
         }
       }
-      let syntax_root = match syntax_tree.get() {
-        Some(root) => root
-        None => {
-          prev_flat_proj_ref.val = None
-          prev_syntax_root_ref.val = None
-          changed_def_indices_ref.val = None
-          proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-          return VersionedFlatProj::{
-            proj: None,
-            changed_at: proj_changed_at_ref.val,
-          }
-        }
-      }
+      let syntax_root = syntax_tree.get()
       let counter = Ref(next_id_ref.val)
       let result = match (prev_flat_proj_ref.val, prev_syntax_root_ref.val) {
         (Some(prev_fp), Some(prev_root)) => {
@@ -294,21 +282,17 @@ pub fn build_lambda_projection_memos(
               // Always repopulate ALL token spans from the SyntaxNode tree.
               // CstNode interning is position-independent, so reused defs may
               // have shifted offsets that only the SyntaxNode reflects correctly.
-              match syntax_tree.get() {
-                Some(syntax_root) =>
-                  @lambda_proj.populate_token_spans(prev_sm, syntax_root, root)
-                None => ()
-              }
+              @lambda_proj.populate_token_spans(
+                prev_sm,
+                syntax_tree.get(),
+                root,
+              )
               prev_sm
             }
             _ => {
               // Full rebuild
               let new_sm = @core.SourceMap::from_ast(root)
-              match syntax_tree.get() {
-                Some(syntax_root) =>
-                  @lambda_proj.populate_token_spans(new_sm, syntax_root, root)
-                None => ()
-              }
+              @lambda_proj.populate_token_spans(new_sm, syntax_tree.get(), root)
               new_sm
             }
           }
