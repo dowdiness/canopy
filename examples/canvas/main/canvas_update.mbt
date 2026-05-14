@@ -143,39 +143,45 @@ fn update_connect_move(
 }
 
 ///|
+fn edge_exists(edges : Array[Edge], source : NodeId, target : NodeId) -> Bool {
+  edges.iter().any(fn(e) { e.source == source && e.target == target })
+}
+
+///|
+fn can_commit_edge(state : CanvasState, source : NodeId, target : NodeId) -> Bool {
+  source != target &&
+  find_node(state.nodes, source) is Some(_) &&
+  find_node(state.nodes, target) is Some(_) &&
+  !edge_exists(state.edges, source, target)
+}
+
+///|
+fn append_edge(state : CanvasState, source : NodeId, target : NodeId) -> CanvasState {
+  let edge : Edge = {
+    id: EdgeId(state.next_edge_id),
+    source,
+    target,
+  }
+  let edges = state.edges.copy()
+  edges.push(edge)
+  {
+    ..state,
+    edges,
+    next_edge_id: state.next_edge_id + 1,
+  }
+}
+
+///|
 /// Commit an in-flight connection if released over a different node, otherwise drop it.
 /// Duplicate edges (same source and target) are not added.
 fn update_connect_end(state : CanvasState, target : NodeId?) -> CanvasState {
   match state.interaction.connecting {
     None => state
     Some(conn) => {
-      let mut new_state = state
-      match target {
-        Some(t) if t != conn.from_node => {
-          match (find_node(state.nodes, conn.from_node), find_node(state.nodes, t)) {
-            (Some(_), Some(_)) => {
-              let already = state.edges
-                .iter()
-                .any(fn(e) { e.source == conn.from_node && e.target == t })
-              if !already {
-                let edge : Edge = {
-                  id: EdgeId(state.next_edge_id),
-                  source: conn.from_node,
-                  target: t,
-                }
-                let new_edges = state.edges.copy()
-                new_edges.push(edge)
-                new_state = {
-                  ..state,
-                  edges: new_edges,
-                  next_edge_id: state.next_edge_id + 1,
-                }
-              }
-            }
-            _ => ()
-          }
-        }
-        _ => ()
+      let new_state = match target {
+        Some(t) if can_commit_edge(state, conn.from_node, t) =>
+          append_edge(state, conn.from_node, t)
+        _ => state
       }
       let new_interaction : InteractionState = {
         ..new_state.interaction,
