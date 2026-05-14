@@ -22,6 +22,19 @@ pub fn pointer_down(
 }
 
 ///|
+/// Pointer-down on an output handle: start an edge-creation gesture.
+pub fn pointer_down_handle(
+  handle : Int,
+  node_id : Int,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let state = _registry[handle]
+  let (wx, wy) = screen_to_world(state.viewport, sx, sy)
+  _registry[handle] = update_connect_start(state, NodeId(node_id), wx, wy)
+}
+
+///|
 /// Handle pointer-move in canvas-local screen coordinates.
 /// Routes to the active gesture (pan or drag) internally.
 pub fn pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
@@ -51,13 +64,31 @@ struct NodeJson {
 } derive(ToJson)
 
 ///|
+struct EdgeJson {
+  id : Int
+  source : Int
+  target : Int
+} derive(ToJson)
+
+///|
+/// Serialized in-flight connection. `from` is the source node id;
+/// `cursor_x`/`cursor_y` are world coordinates of the pointer.
+struct ConnectingJson {
+  from : Int
+  cursor_x : Double
+  cursor_y : Double
+} derive(ToJson)
+
+///|
 /// Serializable render snapshot sent to TypeScript each RAF frame.
-/// `selected` is absent (key omitted) when no node is selected — MoonBit derive(ToJson) omits None keys.
+/// `selected`/`connecting` are absent (key omitted) when not active — MoonBit derive(ToJson) omits None keys.
 /// TypeScript: use `rs.selected != null` (loose equality) not `rs.selected !== null`.
 struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
+  edges : Array[EdgeJson]
   selected : Int?
+  connecting : ConnectingJson?
 } derive(ToJson)
 
 ///|
@@ -67,10 +98,29 @@ pub fn get_render_state(handle : Int) -> String {
     None => None
     Some(NodeId(id)) => Some(id)
   }
+  let connecting : ConnectingJson? = match state.interaction.connecting {
+    None => None
+    Some(c) => {
+      let NodeId(from) = c.from_node
+      Some({ from, cursor_x: c.cursor_x, cursor_y: c.cursor_y })
+    }
+  }
   let nodes = state.nodes.map(fn(n) {
     let NodeId(id) = n.id
     ({ id, x: n.x, y: n.y, w: n.w, h: n.h, kind: n.kind } : NodeJson)
   })
-  let rs : RenderStateJson = { viewport: state.viewport, nodes, selected }
+  let edges = state.edges.map(fn(e) {
+    let EdgeId(id) = e.id
+    let NodeId(s) = e.source
+    let NodeId(t) = e.target
+    ({ id, source: s, target: t } : EdgeJson)
+  })
+  let rs : RenderStateJson = {
+    viewport: state.viewport,
+    nodes,
+    edges,
+    selected,
+    connecting,
+  }
   rs.to_json().stringify()
 }

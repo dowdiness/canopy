@@ -20,9 +20,12 @@ fn make_test_state() -> CanvasState {
         kind: NodeKind::Text("hello"),
       },
     ],
+    edges: [],
+    next_edge_id: 1,
     interaction: {
       dragging: None,
       panning: None,
+      connecting: None,
       selected: None,
       pointer_down: false,
       did_move: false,
@@ -234,6 +237,69 @@ test "pointer_up after pan movement preserves selection" {
 }
 
 ///|
+test "connect_start records source node and cursor world position" {
+  let state = make_test_state()
+  let s = update_connect_start(state, NodeId(1), 250.0, 80.0)
+  guard s.interaction.connecting is Some(c)
+  assert_eq(c.from_node, NodeId(1))
+  inspect(c.cursor_x, content="250")
+  inspect(c.cursor_y, content="80")
+  assert_true(s.interaction.pointer_down)
+}
+
+///|
+test "connect_move updates cursor world position" {
+  let state = make_test_state()
+  let s0 = update_connect_start(state, NodeId(1), 0.0, 0.0)
+  let s1 = update_connect_move(s0, 333.0, 444.0)
+  guard s1.interaction.connecting is Some(c)
+  inspect(c.cursor_x, content="333")
+  inspect(c.cursor_y, content="444")
+  assert_true(s1.interaction.did_move)
+}
+
+///|
+test "connect_end commits an edge when target differs from source" {
+  let state = make_test_state()
+  let s0 = update_connect_start(state, NodeId(1), 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId(2)))
+  assert_eq(s1.edges.length(), 1)
+  assert_eq(s1.edges[0].source, NodeId(1))
+  assert_eq(s1.edges[0].target, NodeId(2))
+  assert_true(s1.interaction.connecting is None)
+}
+
+///|
+test "connect_end does not create a self-loop" {
+  let state = make_test_state()
+  let s0 = update_connect_start(state, NodeId(1), 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId(1)))
+  assert_eq(s1.edges.length(), 0)
+  assert_true(s1.interaction.connecting is None)
+}
+
+///|
+test "connect_end on background cancels the gesture" {
+  let state = make_test_state()
+  let s0 = update_connect_start(state, NodeId(1), 0.0, 0.0)
+  let s1 = update_connect_end(s0, None)
+  assert_eq(s1.edges.length(), 0)
+  assert_true(s1.interaction.connecting is None)
+}
+
+///|
+test "connect_end deduplicates existing edges" {
+  let state : CanvasState = {
+    ..make_test_state(),
+    edges: [{ id: EdgeId(1), source: NodeId(1), target: NodeId(2) }],
+    next_edge_id: 2,
+  }
+  let s0 = update_connect_start(state, NodeId(1), 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId(2)))
+  assert_eq(s1.edges.length(), 1)
+}
+
+///|
 test "get_render_state returns correct JSON shape" {
   // create_canvas returns handle 0 on first call in test process
   let handle = create_canvas()
@@ -242,7 +308,7 @@ test "get_render_state returns correct JSON shape" {
   inspect(
     json_str,
     content=(
-      #|{"viewport":{"x":520,"y":300,"scale":1},"nodes":[{"id":1,"x":-320,"y":-160,"w":200,"h":120,"kind":["Shape","#8250df"]},{"id":2,"x":-60,"y":-160,"w":200,"h":120,"kind":["Shape","#c792ea"]},{"id":3,"x":200,"y":-160,"w":200,"h":120,"kind":["Shape","#82aaff"]},{"id":4,"x":-320,"y":20,"w":200,"h":60,"kind":["Text","Canopy Canvas"]},{"id":5,"x":-60,"y":20,"w":200,"h":60,"kind":["Text","Pan · Zoom · Drag"]},{"id":6,"x":200,"y":20,"w":200,"h":60,"kind":["Text","∞"]}]}
+      #|{"viewport":{"x":520,"y":300,"scale":1},"nodes":[{"id":1,"x":-320,"y":-160,"w":200,"h":120,"kind":["Shape","#8250df"]},{"id":2,"x":-60,"y":-160,"w":200,"h":120,"kind":["Shape","#c792ea"]},{"id":3,"x":200,"y":-160,"w":200,"h":120,"kind":["Shape","#82aaff"]},{"id":4,"x":-320,"y":20,"w":200,"h":60,"kind":["Text","Canopy Canvas"]},{"id":5,"x":-60,"y":20,"w":200,"h":60,"kind":["Text","Pan · Zoom · Drag"]},{"id":6,"x":200,"y":20,"w":200,"h":60,"kind":["Text","∞"]}],"edges":[{"id":1,"source":1,"target":4},{"id":2,"source":2,"target":5},{"id":3,"source":3,"target":6}]}
     ),
   )
 }

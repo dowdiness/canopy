@@ -1,12 +1,18 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy-canvas/main"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn create_canvas() -> Int
 
 pub fn get_render_state(Int) -> String
 
 pub fn pointer_down(Int, Int, Double, Double) -> Unit
+
+pub fn pointer_down_handle(Int, Int, Double, Double) -> Unit
 
 pub fn pointer_move(Int, Double, Double) -> Unit
 
@@ -24,74 +30,88 @@ pub(all) struct CanvasNode {
   w : Double
   h : Double
   kind : NodeKind
-}
-pub impl Eq for CanvasNode
+} derive(Eq, @debug.Debug)
 pub impl Show for CanvasNode
 
 pub(all) struct CanvasState {
   viewport : Viewport
   nodes : Array[CanvasNode]
+  edges : Array[Edge]
+  next_edge_id : Int
   interaction : InteractionState
-}
+} derive(@debug.Debug)
 pub impl Default for CanvasState
 pub impl Show for CanvasState
+
+pub(all) struct ConnectState {
+  from_node : NodeId
+  cursor_x : Double
+  cursor_y : Double
+} derive(Eq, @debug.Debug)
+pub impl Show for ConnectState
+
+type ConnectingJson derive(ToJson)
 
 pub(all) struct DragState {
   node_id : NodeId
   offset_x : Double
   offset_y : Double
-}
-pub impl Eq for DragState
+} derive(Eq, @debug.Debug)
 pub impl Show for DragState
+
+pub(all) struct Edge {
+  id : EdgeId
+  source : NodeId
+  target : NodeId
+} derive(Eq, ToJson, @debug.Debug)
+pub impl Show for Edge
+
+pub struct EdgeId(Int) derive(Eq, ToJson, @debug.Debug)
+#deprecated
+pub fn EdgeId::inner(Self) -> Int
+pub impl Show for EdgeId
+
+type EdgeJson derive(ToJson)
 
 pub(all) struct InteractionState {
   dragging : DragState?
   panning : PanState?
+  connecting : ConnectState?
   selected : NodeId?
   pointer_down : Bool
   did_move : Bool
-}
-pub impl Eq for InteractionState
+} derive(Eq, @debug.Debug)
 pub impl Show for InteractionState
 
-pub struct NodeId(Int)
+pub struct NodeId(Int) derive(Eq, ToJson, @debug.Debug)
 #deprecated
 pub fn NodeId::inner(Self) -> Int
-pub impl Eq for NodeId
 pub impl Show for NodeId
-pub impl ToJson for NodeId
 
-type NodeJson
-pub impl ToJson for NodeJson
+type NodeJson derive(ToJson)
 
 pub enum NodeKind {
   Shape(String)
   Text(String)
-}
-pub impl Eq for NodeKind
+} derive(Eq, ToJson, @debug.Debug)
 pub impl Show for NodeKind
-pub impl ToJson for NodeKind
 
 pub(all) struct PanState {
   start_screen_x : Double
   start_screen_y : Double
   start_pan_x : Double
   start_pan_y : Double
-}
-pub impl Eq for PanState
+} derive(Eq, @debug.Debug)
 pub impl Show for PanState
 
-type RenderStateJson
-pub impl ToJson for RenderStateJson
+type RenderStateJson derive(ToJson)
 
 pub(all) struct Viewport {
   x : Double
   y : Double
   scale : Double
-}
-pub impl Eq for Viewport
+} derive(Eq, ToJson, @debug.Debug)
 pub impl Show for Viewport
-pub impl ToJson for Viewport
 
 // Type aliases
 

@@ -10,6 +10,7 @@ options(
       "exports": [
         "create_canvas",
         "pointer_down",
+        "pointer_down_handle",
         "pointer_move",
         "pointer_up",
         "zoom",

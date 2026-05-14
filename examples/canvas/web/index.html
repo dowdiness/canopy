@@ -24,14 +24,26 @@
       /* transform set by JS */
     }
 
-    /* Future hybrid: Canvas 2D overlay for selection handles, arrows */
-    #overlay {
+    /* SVG edge layer — sits beneath nodes, transformed alongside #world. */
+    #edges {
       position: absolute;
       top: 0; left: 0;
-      width: 100%;
-      height: 100%;
+      overflow: visible;
       pointer-events: none;
-      display: none; /* enable when drawOverlay is implemented */
+      transform-origin: 0 0;
+    }
+    #edges path.edge {
+      fill: none;
+      stroke: #8250df;
+      stroke-width: 2;
+      opacity: 0.85;
+    }
+    #edges path.edge-pending {
+      fill: none;
+      stroke: #c792ea;
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
+      opacity: 0.9;
     }
 
     .canvas-node {
@@ -54,12 +66,28 @@
       background: rgba(130, 160, 255, 0.08);
       border: 1px solid rgba(130, 160, 255, 0.2);
     }
+
+    .handle {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #1a1a2e;
+      border: 2px solid #8250df;
+      transform: translate(-50%, -50%);
+      cursor: crosshair;
+      pointer-events: auto;
+    }
+    .handle.input  { left: 0; }
+    .handle.output { left: 100%; }
+    .handle:hover  { background: #8250df; }
   </style>
 </head>
 <body>
   <div id="canvas-root">
+    <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="world"></div>
-    <canvas id="overlay"></canvas>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
