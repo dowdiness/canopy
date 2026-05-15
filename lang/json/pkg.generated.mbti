@@ -1,38 +1,13 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy/lang/json"
 
-import {
-  "dowdiness/canopy/editor",
-  "dowdiness/canopy/lang/json/edits",
-  "dowdiness/incr/cells",
-  "dowdiness/loom/pipeline",
-  "dowdiness/seam",
-  "moonbitlang/core/ref",
-}
-
 // Values
-pub fn apply_json_edit(@editor.SyncEditor[@dowdiness/json.JsonValue], @edits.JsonEditOp, Int) -> Result[Unit, String]
-
-pub fn build_json_projection_memos(@pipeline.Parser[@dowdiness/json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
-
-pub fn compute_json_edit(@edits.JsonEditOp, String, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue], @dowdiness/canopy/core.SourceMap) -> Result[(Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint)?, String]
-
-pub fn new_json_editor(String, capture_timeout_ms? : Int) -> @editor.SyncEditor[@dowdiness/json.JsonValue]
-
-pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue], Array[String]) raise @dowdiness/loom/core.LexError
-
-pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]) -> Unit
-
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@dowdiness/json.JsonValue]
 
 // Errors
 
 // Types and methods
 
 // Type aliases
-pub using @edits {type JsonEditOp}
-
-pub using @edits {type JsonType}
 
 // Traits
 

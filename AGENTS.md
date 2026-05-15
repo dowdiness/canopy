@@ -15,8 +15,9 @@ git submodule update --init --recursive
 
 ### Test & Build
 ```bash
-# Workspace-root commands cover canopy + lib/text-change + lib/zipper + lib/btree (`moon.work` members)
-moon test                           # All workspace members (~1029 tests)
+# Workspace-root commands cover the canopy module + lib/text-change + lib/zipper +
+# lib/btree + lib/moji (the five `moon.work` members).
+moon test                           # All workspace members
 moon check                          # Lint across workspace
 moon info && moon fmt               # Format & update interfaces
 
@@ -25,19 +26,25 @@ cd event-graph-walker && moon test  # CRDT library tests
 cd loom/loom && moon test           # Parser framework tests
 cd loom/seam && moon test           # CST library tests
 cd loom/examples/lambda && moon test # Lambda parser tests
+cd loom/examples/json && moon test
+cd loom/examples/markdown && moon test
 cd lib/semantic && moon test        # Semantic annotation tests (not a workspace member)
 cd examples/ideal && moon test      # Ideal editor example (PR-gated in CI)
 cd examples/block-editor && moon test
 cd examples/canvas && moon test
 ```
 
+The canonical CI fan-out is described in `.github/workflows/ci.yml`. Use that
+file as the source of truth if this list drifts.
+
 JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. Vite configs, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
 
 ### Web Development
 ```bash
 cd examples/web && npm run dev      # Dev server (localhost:5173)
-# Lambda editor: http://localhost:5173/
-# JSON editor:   http://localhost:5173/json.html
+# Lambda editor:   http://localhost:5173/
+# JSON editor:     http://localhost:5173/json.html
+# Markdown editor: http://localhost:5173/markdown.html
 moon build --target js              # Build for web
 ```
 

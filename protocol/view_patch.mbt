@@ -1,6 +1,14 @@
 // ViewPatch: Incremental patches for the editor protocol.
 
 ///|
+/// Visual decoration applied to a half-open text range `[from, to)` in the
+/// editor's source view.
+///
+/// `css_class` is the CSS class the frontend should attach to the range;
+/// `widget` indicates that the decoration replaces the range with an inline
+/// widget rather than overlaying its character cells. `data` is an opaque
+/// string the frontend may use to discriminate between decorations of the
+/// same class (e.g. a kind tag for a hover popover).
 pub(all) struct Decoration {
   from : Int
   to : Int
@@ -21,6 +29,8 @@ pub fn Decoration::Decoration(
 }
 
 ///|
+/// Severity level for a `Diagnostic`. Serialised as the lowercase strings
+/// `"error" | "warning" | "info" | "hint"` for frontend consumers.
 pub(all) enum Severity {
   SevError
   SevWarning
@@ -39,6 +49,8 @@ pub impl ToJson for Severity with to_json(self) {
 }
 
 ///|
+/// A diagnostic message associated with a half-open text range `[from, to)`.
+/// Used to surface compiler/linter findings to the editor frontend.
 pub(all) struct Diagnostic {
   from : Int
   to : Int
@@ -57,6 +69,13 @@ pub fn Diagnostic::Diagnostic(
 }
 
 ///|
+/// Incremental patches emitted by the editor and applied by the frontend.
+///
+/// A patch describes one change to the editor's view. Patches are JSON
+/// serialisable; the canonical mapping is defined by `ToJson for ViewPatch`
+/// below and consumed by `adapters/editor-adapter` on the TypeScript side.
+/// Frontends must treat unknown variants as no-ops so the protocol can be
+/// extended without a breaking change.
 pub(all) enum ViewPatch {
   TextChange(from~ : Int, to~ : Int, insert~ : String)
   ReplaceNode(node_id~ : @core.NodeId, node~ : ViewNode)

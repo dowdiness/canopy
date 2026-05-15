@@ -1,38 +1,15 @@
 // Lambda language facade — unified entry point for lambda editor types.
+//
+// Only re-exports symbols that are actually consumed today (by editor/,
+// ffi/lambda/, and examples/ideal). The previous version re-exported the full
+// surface of the proj/edits/eval/flat/companion subpackages, but most of
+// those re-exports had no callers — they were vestiges of an earlier wiring.
+// Removed re-exports can be re-added when a new consumer needs them.
+// Consumers that already import a subpackage directly do not need an
+// aggregator re-export.
 
 ///|
-pub using @lambda_proj {
-  type FlatProj,
-  syntax_to_proj_node,
-  to_proj_node,
-  parse_to_proj_node,
-  rebuild_kind,
-  to_flat_proj,
-  to_flat_proj_incremental,
-  reconcile_flat_proj,
-  print_flat_proj,
-  populate_token_spans,
-}
-
-///|
-pub using @lambda_edits {
-  type TreeEditOp,
-  type EditContext,
-  type EditResult,
-  type FocusHint,
-  type DropPosition,
-  type ActionGroup,
-  type Action,
-  type NodeContext,
-  type BindingSite,
-  compute_text_edit,
-  get_actions_for_node,
-  resolve_binder,
-  find_usages,
-  find_binding_for_init,
-  collect_lam_env,
-  free_vars,
-}
+pub using @lambda_edits {type TreeEditOp, type DropPosition}
 
 ///|
 pub using @lambda_companion {
@@ -47,12 +24,4 @@ pub using @lambda_companion {
 }
 
 ///|
-pub using @lambda_flat {type VersionedFlatProj, build_lambda_projection_memos}
-
-///|
-pub using @lambda_eval {
-  type EvalResult,
-  eval_term,
-  build_eval_memo,
-  inject_eval_annotations,
-}
+pub using @lambda_eval {type EvalResult}

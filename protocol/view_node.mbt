@@ -3,6 +3,9 @@
 // suitable for JSON transport to the UI layer.
 
 ///|
+/// A coloured / labelled slice of a node's text. `role` is a CSS-class-style
+/// tag (e.g. "keyword", "string", "identifier") and `start`/`end` index into
+/// the document text in the same units as `ViewNode.text_range`.
 pub(all) struct TokenSpan {
   role : String
   start : Int
@@ -44,6 +47,20 @@ pub impl ToJson for ViewAnnotation with to_json(self) {
 }
 
 ///|
+/// Language-agnostic view of one projection node, JSON-serialised for the
+/// frontend.
+///
+/// `ViewNode` flattens a `core.ProjNode[T]` plus its slice of the source map
+/// into a uniform representation:
+///
+/// - `id` is the stable `NodeId` used to address the node in patches and
+///   intents; it survives reparses.
+/// - `kind_tag` is the AST variant name (lowercase, used by the frontend as a
+///   discriminator).
+/// - `label` is the short human-readable name shown in tree views.
+/// - `text` is the rendered source for this subtree, when applicable.
+/// - `text_range` is the half-open `[start, end)` range in the source
+///   document the node occupies; consistent with `TokenSpan` offsets.
 pub(all) struct ViewNode {
   id : @core.NodeId
   kind_tag : String
