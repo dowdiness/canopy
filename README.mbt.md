@@ -53,15 +53,28 @@ Text CRDT → Incremental Parse → Projection → Rendering
 
 ## Quick Start
 
-**Prerequisites:** [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/)
+**Prerequisites:** [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/).
 
 ```sh
 git clone --recursive https://github.com/dowdiness/canopy.git
 cd canopy
-moon test                                    # run the test suite
-moon build --target js
-cd examples/web && npm install && npm run dev  # localhost:5173
+
+# Workspace-root tests (canopy + lib/text-change, lib/zipper, lib/btree, lib/moji).
+# Submodules (event-graph-walker, loom, etc.) and example modules have their own
+# test suites; see docs/development/monorepo.md for the full fan-out.
+moon test
+
+# Build the JS FFI artifacts the web demo expects.
+make build-js
+
+# Run the web demo at http://localhost:5173 (lambda editor by default; JSON at
+# /json.html, Markdown at /markdown.html).
+cd examples/web && npm install && npm run dev
 ```
+
+The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
+**native** (CLI, tests). WebAssembly is not a supported build target — see
+`docs/TODO.md`.
 
 ## The Bigger Picture
 
@@ -83,40 +96,74 @@ Read more: [Product Vision](docs/architecture/product-vision.md) · [The Project
 
 ## Repository Structure
 
-**Core libraries:**
+The canopy MoonBit module is at the repository root. Its package layout, plus
+in-tree libraries and submodules, is summarised below. See
+[docs/architecture.md](docs/architecture.md) for the responsibility map.
+
+**Canopy module — internal packages:**
+
+| Package | Role |
+|---------|------|
+| [core/](core/) | `NodeId`, `ProjNode[T]`, `SourceMap`, tree-edit primitives |
+| [editor/](editor/) | `SyncEditor` — wires CRDT, parser, projection, undo, ephemeral cursors |
+| [protocol/](protocol/) | `ViewPatch`, `ViewNode`, `UserIntent` — wire format for the frontend |
+| [projection/](projection/) | `TreeEditorState`, interactive tree operations |
+| [relay/](relay/) | Byte-buffer relay primitive used by the editor's collaboration path |
+| [ffi/](ffi/) | JS FFI surfaces: `ffi/lambda`, `ffi/json`, `ffi/markdown` |
+| [lang/lambda/](lang/lambda/) | Lambda calculus — `proj`, `edits`, `eval`, `flat`, `companion` |
+| [lang/json/](lang/json/) | JSON projectional editor — `proj`, `edits`, `companion` |
+| [lang/markdown/](lang/markdown/) | Markdown projectional editor — `proj`, `edits`, `companion` |
+| [llm/](llm/) | Optional LLM client (JS target only); consumed by `ffi/lambda` |
+| [cmd/main/](cmd/main/) | Native CLI entry point |
+| [echo/](echo/) | Tokenisation engine used by the echo similarity experiment |
+
+The FFI stability surface is intentionally narrow: JS frontends should consume
+the editor through [`adapters/editor-adapter`](adapters/editor-adapter/) where
+practical.
+
+**Workspace members** (built by `moon test` at the repo root, per `moon.work`):
+
+`./` (canopy), `./lib/text-change`, `./lib/zipper`, `./lib/btree`, `./lib/moji`.
+
+`./lib/semantic` is also in-tree but is not a workspace member; run its tests
+separately.
 
 | Library | Purpose |
 |---------|---------|
-| [event-graph-walker](event-graph-walker/) | CRDT engine — eg-walker with FugueMax, O(log n) ancestor queries |
-| [loom](loom/) | Incremental parser framework, CST library, reactive signals, pretty-printer |
-| [editor](editor/) | SyncEditor — wires CRDT, parser, projection, undo, collaboration |
-| [protocol](protocol/) | ViewPatch, ViewNode, UserIntent — framework-agnostic frontend protocol |
-| [core](core/) | ProjNode[T], NodeId, SourceMap, reconciliation |
-| [projection](projection/) | TreeEditorState, interactive tree operations |
+| [lib/btree/](lib/btree/) | Counted B+ tree with O(log n) position-indexed access |
+| [lib/moji/](lib/moji/) | Unicode UAX #29 grapheme- and word-boundary segmentation |
+| [lib/zipper/](lib/zipper/) | Rose-tree zipper |
+| [lib/text-change/](lib/text-change/) | Text-mutation primitives |
+| [lib/semantic/](lib/semantic/) | `Confidence[T]` lattice for merging multi-source annotations |
 
-**Standalone libraries (published on [mooncakes.io](https://mooncakes.io)):**
+**Git submodules** (separately owned repositories):
 
-| Library | Purpose | Package |
-|---------|---------|---------|
-| [lib/btree](lib/btree/) | Counted B+ tree with O(log n) position-indexed access | [`dowdiness/btree`](https://mooncakes.io/docs/dowdiness/btree) |
-| [rle](rle/) | Run-length encoded sequence with O(log n) lookup | [`dowdiness/rle`](https://mooncakes.io/docs/dowdiness/rle) |
-
-**Language packages:**
-
-| Package | Language |
-|---------|----------|
-| [lang/lambda](lang/lambda/) | Lambda calculus with arithmetic, conditionals, let-bindings |
-| [lang/json](lang/json/) | JSON structural editing |
+| Path | Repository | Role |
+|------|------------|------|
+| [event-graph-walker/](event-graph-walker/) | `dowdiness/event-graph-walker` | CRDT engine (eg-walker + FugueMax) |
+| [loom/](loom/) | `dowdiness/loom` | Incremental parser framework, CST library, reactive signals, pretty-printer |
+| [rle/](rle/) | `dowdiness/rle` | Run-length encoded sequence |
+| [order-tree/](order-tree/) | `dowdiness/order-tree` | Counted/order-statistic tree |
+| [graphviz/](graphviz/) | `dowdiness/graphviz` | Graphviz renderer (used in the inspector) |
+| [svg-dsl/](svg-dsl/) | `dowdiness/svg-dsl` | SVG DSL |
+| [valtio/](valtio/) | `dowdiness/valtio` | JS state management glue |
+| [alga/](alga/) | `dowdiness/alga` | Graph algebra |
 
 **Examples:**
 
-| Example | Description | Live Demo |
+| Example | Description | Live demo |
 |---------|-------------|-----------|
-| [web](examples/web/) | Canonical demo — lambda + JSON editors with syntax-highlighted pretty-print | [canopy-lambda-editor.pages.dev](https://canopy-lambda-editor.pages.dev) |
-| [ideal](examples/ideal/) | Full-featured editor with inspector, benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
-| [prosemirror](examples/prosemirror/) | ProseMirror structural editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
-| [canvas](examples/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
-| [block-editor](examples/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
+| [examples/web/](examples/web/) | Vite frontend hosting the lambda, JSON, and Markdown editors | [canopy-lambda-editor.pages.dev](https://canopy-lambda-editor.pages.dev) |
+| [examples/ideal/](examples/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
+| [examples/prosemirror/](examples/prosemirror/) | ProseMirror structural-editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
+| [examples/canvas/](examples/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
+| [examples/block-editor/](examples/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
+| [examples/demo-react/](examples/demo-react/) | Minimal React integration | [canopy-demo-react.pages.dev](https://canopy-demo-react.pages.dev) |
+| [examples/relay-server/](examples/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
+
+A few additional unlisted directories (`examples/rabbita/`, the `memo.html` and
+`spike-block-input.html` pages under `examples/web/`) are work-in-progress
+spikes; treat them as unstable.
 
 ## What to Read Next
 

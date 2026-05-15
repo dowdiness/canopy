@@ -26,16 +26,22 @@ Read in order to build a mental model of the system.
    to be: write, auto-structure, surface.
 2. **[The Projectional Bridge](architecture/vision-projectional-bridge.md)** —
    why: syntax → semantics → intent → mental model.
-3. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
+3. **[Architecture Overview](architecture.md)** — single-page summary of the
+   pipeline, package responsibilities, key invariants, and extension points.
+4. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
    high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
-4. **[Module Structure](architecture/modules.md)** — how the monorepo and
+5. **[Module Structure](architecture/modules.md)** — how the monorepo and
    submodules map onto that pipeline.
-5. **[Projectional Editing](architecture/PROJECTIONAL_EDITING.md)** — what
-   projectional editing means in Canopy specifically.
 6. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
    the compositional engine underneath.
 7. **[Multi-Representation System](architecture/multi-representation-system.md)**
    — the `Printable` trait family (Show, Debug, Source, Pretty).
+
+> The earlier "Projectional Editing" deep-dive has been archived to
+> [`archive/PROJECTIONAL_EDITING.md`](archive/PROJECTIONAL_EDITING.md). It is
+> retained for historical context only and is known to disagree with the
+> current code in several places. Use the architecture overview above
+> instead.
 
 Further architecture notes live in [docs/architecture/](architecture/).
 

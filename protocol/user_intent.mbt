@@ -1,6 +1,13 @@
 // UserIntent: Actions from the UI layer to the editor.
 
 ///|
+/// One user-originated action delivered from the frontend to the editor.
+///
+/// `UserIntent` is the inbound counterpart to [`ViewPatch`](view_patch.mbt):
+/// the frontend sends intents (typing, selection, undo/redo, structural ops)
+/// and the editor responds with patches. The JSON encoding is consumed by
+/// `adapters/editor-adapter` on the TypeScript side; new variants must be
+/// added in both places.
 pub(all) enum UserIntent {
   TextEdit(from~ : Int, to~ : Int, insert~ : String)
   StructuralEdit(

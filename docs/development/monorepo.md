@@ -1,261 +1,219 @@
 # Monorepo & Git Submodule Guide
 
-This project was restructured from a single `til` repository into a monorepo with git submodules. This guide explains the setup, daily workflows, and common pitfalls.
+Canopy is a monorepo that pulls in eight independent libraries via git
+submodules. The MoonBit module at the repo root (`dowdiness/canopy`) depends on
+several of those submodules through path dependencies in `moon.mod.json`.
 
-## Background
-
-Previously, all code lived in a single `dowdiness/til` repository. The restructuring extracted reusable libraries into independent repositories and links them back via git submodules:
+## Layout
 
 ```
-crdt/                           ← monorepo (dowdiness/canopy)
-├── event-graph-walker/         ← submodule (dowdiness/event-graph-walker)
-├── loom/                       ← submodule (dowdiness/loom)
-├── svg-dsl/                    ← submodule (dowdiness/svg-dsl)
-├── graphviz/                   ← submodule (dowdiness/graphviz)
-├── valtio/                     ← submodule (dowdiness/valtio)
-├── editor/                     ← monorepo package
-├── projection/                 ← monorepo package
-├── cmd/                        ← monorepo package
-├── examples/web/               ← monorepo (web frontend)
-└── examples/demo-react/        ← monorepo (React demo)
+canopy/                          dowdiness/canopy (root MoonBit module)
+├── core/  editor/  protocol/    monorepo packages (see docs/architecture.md)
+├── projection/  relay/  ffi/
+├── lang/{lambda,json,markdown}/
+├── llm/  echo/  cmd/main/       monorepo packages
+├── lib/btree/                   workspace member, in-tree library
+├── lib/moji/                    workspace member, in-tree library
+├── lib/zipper/                  workspace member, in-tree library
+├── lib/text-change/             workspace member, in-tree library
+├── lib/semantic/                in-tree library (NOT a workspace member)
+├── adapters/editor-adapter/     in-tree TypeScript adapter package
+├── examples/                    in-tree example apps (web, ideal, …)
+│
+├── event-graph-walker/          submodule (CRDT engine)
+├── loom/                        submodule (parser framework, seam, incr, …)
+├── rle/                         submodule
+├── order-tree/                  submodule
+├── graphviz/                    submodule
+├── svg-dsl/                     submodule
+├── valtio/                      submodule
+└── alga/                        submodule
 ```
 
-The root MoonBit module (`dowdiness/canopy`) depends on submodules via path dependencies in `moon.mod.json`:
+## Workspace members
 
-```json
-{
-  "deps": {
-    "dowdiness/event-graph-walker": { "path": "./event-graph-walker" },
-    "dowdiness/lambda": { "path": "./loom/examples/lambda" },
-    "dowdiness/loom": { "path": "./loom/loom" }
-  }
-}
+`moon.work` lists the modules that root commands operate on:
+
+```
+.                  (the canopy module)
+./lib/text-change
+./lib/zipper
+./lib/btree
+./lib/moji
 ```
 
-## Initial Setup
+`moon test`, `moon check`, `moon fmt`, etc. at the repo root run against all
+five. Everything else (submodules, `lib/semantic`, `examples/*`) is a separate
+MoonBit module and needs its own `moon` invocation.
 
-Clone with `--recursive` to fetch all submodules:
+## Path dependencies
 
-```bash
+The root `moon.mod.json` references 14 path-based dependencies. The current
+list is in `moon.mod.json`; below is a summary of where each lives:
+
+| Dependency | Path |
+|------------|------|
+| `dowdiness/event-graph-walker` | `./event-graph-walker` (submodule) |
+| `dowdiness/loom` | `./loom/loom` (submodule) |
+| `dowdiness/seam` | `./loom/seam` (submodule) |
+| `dowdiness/incr` | `./loom/incr` (submodule) |
+| `dowdiness/pretty` | `./loom/pretty` (submodule) |
+| `dowdiness/egglog` | `./loom/egglog` (submodule) |
+| `dowdiness/egraph` | `./loom/egraph` (submodule) |
+| `dowdiness/lambda` | `./loom/examples/lambda` (submodule example module) |
+| `dowdiness/json` | `./loom/examples/json` (submodule example module) |
+| `dowdiness/markdown` | `./loom/examples/markdown` (submodule example module) |
+| `dowdiness/order-tree` | `./order-tree` (submodule) |
+| `dowdiness/text_change` | `./lib/text-change` (in-tree workspace member) |
+| `dowdiness/zipper` | `./lib/zipper` (in-tree workspace member) |
+| `dowdiness/moji` | `./lib/moji` (in-tree workspace member) |
+
+`svg-dsl`, `graphviz`, `valtio`, and `alga` submodules are *not* root path
+dependencies — they are consumed by frontends or by other submodules.
+
+## Setup
+
+```sh
 git clone --recursive https://github.com/dowdiness/canopy.git
 ```
 
-If you already cloned without `--recursive`:
+If the clone already exists without submodules:
 
-```bash
+```sh
 git submodule update --init --recursive
 ```
 
-## Daily Cheat Sheet
+## Daily workflow
 
-### Edit a submodule
+### Working on a monorepo package
 
-```bash
-cd event-graph-walker
-git checkout main            # or your feature branch
+No submodule awareness required:
 
-# make changes
+```sh
 moon check
 moon test
+```
 
+### Editing a submodule
+
+Each submodule is its own repository. Changes inside a submodule are committed
+to *that* repo; the parent repo records the new submodule commit hash. You
+always make two commits.
+
+```sh
+cd event-graph-walker
+git checkout main                  # avoid editing on detached HEAD
+# … edit, moon check, moon test …
 git add -A
-git commit -m "feat: ..."
-git push origin main
+git commit -m "feat: …"
+git push origin main               # always via PR if the submodule has one
 
 cd ..
-git add event-graph-walker
+git add event-graph-walker          # records the new commit pointer
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
-### Sync after pulling the monorepo
+Always push the submodule's commit to its remote **before** pushing the parent
+or opening a parent PR. CI clones with `submodules: recursive`, so a parent
+commit referencing a submodule SHA that is not yet on `origin` will fail.
 
-```bash
+### Pulling
+
+```sh
 git pull
 git submodule update --init --recursive
 ```
 
-### Advance a submodule to latest upstream
+To pull the latest submodule tips even when the parent has not advanced its
+pointers:
 
-```bash
-git submodule update --remote event-graph-walker
-
-# then test what depends on it
-cd event-graph-walker && moon test && cd ..
-moon test
-
-git add event-graph-walker
-git commit -m "chore: update event-graph-walker submodule"
-```
-
-### Inspect submodule changes
-
-```bash
-git status                   # monorepo root: pointer changes only
-cd event-graph-walker
-git status                   # submodule: actual file changes
-```
-
-### Daily rule
-
-- Always make two commits: one inside the submodule, one in the root repo.
-- If you change `event-graph-walker`, run its tests and root `moon test`.
-- If you change `loom`, run `cd loom/loom && moon test` and any affected root tests.
-
-## Daily Workflow
-
-### Working on monorepo packages (editor/, projection/, cmd/, examples/web/)
-
-No submodule awareness needed. Work as normal:
-
-```bash
-# edit files in editor/, projection/, etc.
-moon check
-moon test
-```
-
-### Working inside a submodule (e.g. event-graph-walker/)
-
-Each submodule is its own git repository. Changes inside a submodule are committed to that submodule's repo, not to the parent monorepo.
-
-```bash
-cd event-graph-walker
-
-# make changes
-moon check
-moon test
-
-# commit inside the submodule
-git add -A
-git commit -m "feat: add new feature"
-git push origin main
-
-# go back to monorepo root
-cd ..
-
-# the monorepo now sees the submodule pointer has changed
-git status
-# modified:   event-graph-walker (new commits)
-
-# update the monorepo to point to the new submodule commit
-git add event-graph-walker
-git commit -m "chore: update event-graph-walker submodule"
-```
-
-**Key point:** You always make two commits — one inside the submodule, one in the monorepo to update the pointer.
-
-### Pulling latest changes
-
-```bash
-# pull monorepo changes
-git pull
-
-# update submodules to match what the monorepo expects
-git submodule update --init --recursive
-```
-
-To pull the latest from all submodule remotes (even if the monorepo hasn't updated its pointers yet):
-
-```bash
+```sh
 git submodule update --remote
 ```
 
-### Running tests across the monorepo
+### Running tests across the tree
 
-Each MoonBit module has its own test suite. Run them separately:
+Workspace root:
 
-```bash
-# root module (crdt)
+```sh
 moon test
-
-# submodule: event-graph-walker
-cd event-graph-walker && moon test && cd ..
-
-# submodule: loom (parser framework + lambda example)
-cd loom/loom && moon test && cd ../..
-cd loom/examples/lambda && moon test && cd ../..
 ```
 
-## Submodule Reference
+Each submodule:
 
-| Directory | Repository | Role | Has MoonBit module? |
-|---|---|---|---|
-| `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | Core CRDT library | Yes |
-| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | Incremental parser framework | Yes |
-| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | SVG DSL | Yes |
-| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | Graphviz renderer | Yes |
-| `valtio/` | [dowdiness/valtio](https://github.com/dowdiness/valtio) | Valtio state management | Yes |
-
-Only `event-graph-walker`, `dowdiness/lambda`, and `dowdiness/loom` are path dependencies of the root MoonBit module. The others (`svg-dsl`, `graphviz`, `valtio`) are independent modules used by the web frontend.
-
-## Common Pitfalls
-
-### Detached HEAD inside a submodule
-
-When you `git submodule update`, the submodule is checked out at a specific commit (detached HEAD). If you want to make changes:
-
-```bash
-cd event-graph-walker
-git checkout main     # switch to a branch first
-# now make changes and commit
+```sh
+cd event-graph-walker && moon test
+cd loom/loom          && moon test
+cd loom/seam          && moon test
+cd loom/incr          && moon test
+cd loom/pretty        && moon test
+cd loom/egglog        && moon test
+cd loom/egraph        && moon test
+cd loom/examples/lambda   && moon test
+cd loom/examples/json     && moon test
+cd loom/examples/markdown && moon test
+cd svg-dsl   && moon test
+cd graphviz  && moon test
+cd rle       && moon test
+cd order-tree && moon test
+cd alga      && moon test
 ```
 
-### Forgetting to update the submodule pointer
+Non-workspace in-tree modules:
 
-If you commit and push changes inside a submodule but forget to update the monorepo pointer, other collaborators will still see the old version. Always remember the second commit:
-
-```bash
-cd ..
-git add event-graph-walker
-git commit -m "chore: update event-graph-walker submodule"
+```sh
+cd lib/semantic       && moon test
+cd lib/semantic/proof && moon prove   # needs Why3 + z3
+cd examples/ideal        && moon test
+cd examples/block-editor && moon test
+cd examples/canvas       && moon test
 ```
 
-### Stale submodule after pulling
+The canonical fan-out (subset of the above) is in `.github/workflows/ci.yml`.
 
-If `moon check` fails with missing package errors after `git pull`, your submodules are likely out of date:
+## Submodule reference
 
-```bash
-git submodule update --init --recursive
-```
+| Path | Repository | Role |
+|------|------------|------|
+| `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | CRDT engine |
+| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | Parser framework, CST library, reactive signals, pretty-printer, egglog/egraph, example languages |
+| `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | Run-length encoded sequence |
+| `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | Counted/order-statistic tree |
+| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | Graphviz renderer for the inspector |
+| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | SVG DSL |
+| `valtio/` | [dowdiness/valtio](https://github.com/dowdiness/valtio) | JS state management glue |
+| `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | Graph algebra |
 
-### Editing the wrong copy
+## Why submodules
 
-Each submodule directory is its own git repo. Running `git status` from the monorepo root will show submodule changes as a single line like `modified: event-graph-walker (new commits)`. To see the actual file changes, `cd` into the submodule and run `git status` there.
+1. **Reusability** — `event-graph-walker`, `loom`, and `rle` are usable from
+   other MoonBit projects without pulling in the editor.
+2. **Independent versioning** — each library releases on its own cadence.
+3. **Focused testing** — each library owns its CI and benchmarks.
+4. **Clear ownership boundaries** — debt routing (below) is enforced by the
+   physical repository layout.
 
-## Dependency Graph
+## Common pitfalls
 
-```
-svg-dsl (independent)
-   ↑
-graphviz (depends on svg-dsl)
+- **Detached HEAD inside a submodule.** `git submodule update` checks out a
+  specific commit. Run `git checkout main` (or a feature branch) before
+  editing.
+- **Forgetting the second commit.** Pushing the submodule but not the parent
+  pointer leaves collaborators seeing the old version.
+- **Stale submodule after `git pull`.** If `moon check` fails with missing
+  packages, run `git submodule update --init --recursive`.
+- **`git status` from the root only shows pointer changes.** Use
+  `cd <submodule> && git status` to see file-level changes.
 
-valtio (independent)
+## Debt routing
 
-event-graph-walker (independent)
+When a problem appears in a root package, do not assume the fix belongs there.
 
-loom (independent: loom/seam/incr/lambda)
-
-crdt (root module)
- ├── depends on event-graph-walker (path dep)
- ├── depends on dowdiness/lambda (path dep)
- └── depends on dowdiness/loom (path dep)
-```
-
-## Why Submodules?
-
-1. **Reusability** — `event-graph-walker` and `loom` can be used by other MoonBit projects without pulling the entire editor
-2. **Independent versioning** — Each library is versioned and released on its own schedule
-3. **Focused testing** — Each library has its own test suite and CI
-4. **Clear boundaries** — Dependencies are explicit in `moon.mod.json`
-5. **Separate issue tracking** — Bugs in the CRDT library are tracked in its own repository
-
-## Debt Routing
-
-When a problem appears in the root `crdt` module, do not assume the fix belongs
-there.
-
-- Missing text-edit primitives belong in `event-graph-walker/`
-- Parser/edit semantics belong in `loom/`
-- Root-module helpers should only exist when multiple root packages need them
-- Standalone submodules should not grow dependencies upward on `crdt/`
+- Missing text-edit primitives belong in `event-graph-walker/`.
+- Parser or edit-semantics belong in `loom/`.
+- Pretty-printer changes belong in `loom/pretty/`.
+- Run-length encoding belongs in `rle/`.
+- Root-module helpers exist only when multiple root packages need them.
+- Submodules never grow upward dependencies on the root.
 
 See [Paying Technical Debt](technical-debt.md) for the full strategy.

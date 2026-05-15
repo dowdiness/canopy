@@ -1,4 +1,12 @@
-# Projectional Editing Architecture Plan
+# Projectional Editing Architecture Plan (archived)
+
+> **Archived 2026-05-15.** This document was moved from
+> `docs/architecture/PROJECTIONAL_EDITING.md` because parts of its concrete
+> design (the `CanonicalModel` struct, `apply_edit_to_proj` API, and §2.3 CST
+> struct definitions) no longer match the code. The theoretical Part 1
+> remains useful but should be read as background, not as a specification of
+> the live system. For current architecture, see
+> [`docs/architecture.md`](../architecture.md).
 
 ## Executive Summary
 
