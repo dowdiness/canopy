@@ -16,6 +16,7 @@ Runs comprehensive checks on every push and PR via shared `make` and `scripts/` 
 - **Build JS** - Builds `canopy.js`/`canopy.d.ts` plus Graphviz browser artifacts
 - **Build Web Example** - Builds `examples/web` through `make build-web`
 - **Demo React E2E** - Runs the canonical Playwright browser suite through `make test-demo-react-e2e`
+- **Canvas E2E** - Runs the canvas Playwright suite through `make test-canvas-e2e`
 - **Benchmark** - Runs benchmarks on PRs (optional)
 
 **Status Badge:**
@@ -111,6 +112,9 @@ make build-web
 
 # Run the canonical browser E2E suite
 make test-demo-react-e2e
+
+# Run the canvas browser E2E suite
+make test-canvas-e2e
 
 # Install pre-commit hooks
 make install-hooks

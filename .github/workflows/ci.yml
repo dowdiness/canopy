@@ -344,6 +344,37 @@ jobs:
       - name: Run demo-react Playwright suite
         run: ./scripts/test-demo-react-e2e.sh
 
+  canvas-e2e:
+    name: Canvas E2E
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: examples/canvas/web/package-lock.json
+
+      - name: Install canvas web dependencies
+        working-directory: examples/canvas/web
+        run: npm ci
+
+      - name: Run canvas Playwright suite
+        run: ./scripts/test-canvas-e2e.sh
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -358,6 +389,7 @@ jobs:
       - web-build
       - web-e2e
       - demo-react-e2e
+      - canvas-e2e
     if: always()
     steps:
       - name: Check all job statuses
@@ -371,7 +403,8 @@ jobs:
              [[ "${{ needs.build-js.result }}" != "success" ]] || \
              [[ "${{ needs.web-build.result }}" != "success" ]] || \
              [[ "${{ needs.web-e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.demo-react-e2e.result }}" != "success" ]]; then
+             [[ "${{ needs.demo-react-e2e.result }}" != "success" ]] || \
+             [[ "${{ needs.canvas-e2e.result }}" != "success" ]]; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

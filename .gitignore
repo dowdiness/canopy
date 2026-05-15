@@ -17,6 +17,8 @@ _build
 .playwright-mcp/
 examples/demo-react/playwright-report/
 examples/demo-react/test-results/
+examples/canvas/web/playwright-report/
+examples/canvas/web/test-results/
 examples/ideal/web/playwright-report/
 examples/ideal/web/test-results/
 examples/web/test-results/

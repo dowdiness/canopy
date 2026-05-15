@@ -171,6 +171,15 @@ Whitebox tests cover:
 - duplicate source/target edges are rejected
 - render JSON includes seeded demo edges
 
+Playwright smoke coverage in `examples/canvas/web/e2e/canvas-handles.spec.ts`
+drives the actual browser UI and verifies:
+
+- output-handle drag shows a pending SVG edge
+- background release cancels without adding an edge
+- valid handle-to-handle release creates an edge
+- duplicate and self-edge gestures are rejected
+- input-handle drag is inert and does not pan the viewport
+
 Validation run for the implementation:
 
 ```bash
@@ -179,16 +188,18 @@ moon check --deny-warn --warn-list @a
 moon test
 cd examples/canvas/web && npm run build
 cd examples/canvas/web && npm exec tsc -- --noEmit
+make test-canvas-e2e
 git diff --cached --check
 markdownlint-cli2 docs/README.md docs/archive/completed-phases/2026-05-14-canvas-handles-edges.md
 ```
 
-All passed on 2026-05-14. `npm install` in `examples/canvas/web` reported three
-moderate npm audit warnings, but produced no tracked changes.
+Initial implementation validation passed on 2026-05-14. The Playwright smoke
+follow-up was added on 2026-05-15 and validated with `make test-canvas-e2e`.
+`npm install` in `examples/canvas/web` reported three moderate npm audit
+warnings, but produced no tracked changes.
 
 ## Follow-Ups
 
-- Browser interaction smoke test with Playwright or agent-browser.
 - Edge deletion and selection.
 - Node add/delete UI and edge cleanup for removed nodes.
 - Persist canvas graph state.

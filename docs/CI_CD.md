@@ -90,7 +90,12 @@ Runs on every push and pull request to ensure code quality.
    - Installs Playwright Chromium
    - Runs `make test-demo-react-e2e`
 
-8. **benchmark** (on PRs only) - Runs performance tests
+8. **canvas-e2e** - Runs canvas Playwright E2E suite (handles and edges)
+   - Installs `examples/canvas/web` dependencies
+   - Installs Playwright Chromium
+   - Runs `make test-canvas-e2e`
+
+9. **benchmark** (on PRs only) - Runs performance tests
    ```bash
    ./scripts/run-moon-module.sh bench .
    ```
@@ -257,6 +262,7 @@ make build         # Build main module
 make build-js      # Build JavaScript target
 make build-web     # Build web application
 make test-web-e2e         # Run web Playwright E2E (lambda, JSON, markdown)
+make test-canvas-e2e      # Run canvas Playwright E2E (handles, edges)
 make test-demo-react-e2e  # Run demo-react Playwright E2E (single, collaborative)
 
 # Development
