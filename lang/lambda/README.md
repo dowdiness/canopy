@@ -1,6 +1,6 @@
 # lang/lambda
 
-Thin facade for the lambda-calculus editor language. Re-exports the handful of types and functions that consumers (`editor/` tests and `ffi/lambda/`) actually call through this path, sourced from the five subpackages `proj`, `edits`, `eval`, `flat`, `companion`.
+Thin facade for the lambda-calculus editor language. Re-exports the handful of types and functions that consumers (`editor/` tests and `ffi/lambda/`) actually call through this path, sourced from the three currently-imported subpackages `edits`, `eval`, and `companion`. The other lambda subpackages (`proj`, `flat`) are not re-exported here — consumers that need them import the subpackage directly.
 
 The facade was originally much larger; in 2026-05 it was trimmed to the symbols with live callers. Consumers that need more reach into the subpackages directly (see `examples/ideal/main/moon.pkg`).
 

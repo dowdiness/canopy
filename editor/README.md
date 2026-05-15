@@ -2,7 +2,7 @@
 
 Language-agnostic CRDT editor engine that combines text storage, undo/redo, reactive parsing, ephemeral presence, WebSocket sync, and view-update diffing into a single `SyncEditor[T]` host.
 
-`SyncEditor[T]` is parameterized on the language's AST type `T`. Language packages (`lang/lambda`, `lang/json`, `lang/markdown`) construct one via `SyncEditor::new_generic`, passing a parser factory and memo builder. The FFI packages then wrap the result and export concrete functions to JavaScript.
+`SyncEditor[T]` is parameterized on the language's AST type `T`. Each language's `companion` subpackage (`lang/lambda/companion`, `lang/json/companion`, `lang/markdown/companion`) constructs one via `SyncEditor::new_generic`, passing a parser factory and memo builder. The FFI packages then wrap the result and export concrete functions to JavaScript.
 
 ## Public API
 
@@ -17,8 +17,8 @@ Language-agnostic CRDT editor engine that combines text storage, undo/redo, reac
 ## Consumers
 
 - `ffi/lambda`, `ffi/json`, `ffi/markdown` — each wraps a `SyncEditor` behind an integer handle and exports JS-callable functions
-- `lang/lambda`, `lang/json` — aggregator packages that re-export `new_lambda_editor` / `new_json_editor`, both of which call `SyncEditor::new_generic`
-- `lang/*/companion` — implement the `LanguageCapabilities` hooks
+- `lang/*/companion` — construct `SyncEditor` instances via `new_*_editor` and implement the `LanguageCapabilities` hooks
+- `lang/lambda` — facade that re-exports `new_lambda_editor` and other companion entry points (the `json`/`markdown` facades currently re-export nothing; consumers reach into the subpackages directly)
 - `cmd/main` — the native CLI demo uses the lower-level `Editor` type (not `SyncEditor`)
 
 ## Dependencies

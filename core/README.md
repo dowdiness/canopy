@@ -22,7 +22,7 @@ Imported by almost every package in the module: `editor`, `protocol`, `projectio
 ## Dependencies
 
 - `dowdiness/incr` (reactive cells / `Memo`)
-- `dowdiness/loom/core` (`TreeNode`, `Range`, `SyntaxNode`)
+- `dowdiness/loom/core` (`TreeNode`, `Range`)
 - `dowdiness/seam` (`SyntaxNode` concrete type)
 
 ## Stability

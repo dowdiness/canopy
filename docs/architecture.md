@@ -19,10 +19,13 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
    (submodule [`event-graph-walker`](../event-graph-walker/)).
 2. The incremental parser
    (submodule [`loom`](../loom/)) reparses only affected regions.
-3. The [`projection/`](../projection/) layer maps the parse tree to projection
-   nodes with stable identity.
-4. The [`protocol/`](../protocol/) layer computes patches the frontend can
-   apply.
+3. Each language's `lang/<lang>/proj/` builders map the parse tree to
+   `ProjNode` trees with stable identity (the shared primitives come from
+   [`core/`](../core/); [`projection/`](../projection/) layers interactive
+   tree-editor state on top).
+4. [`editor/`](../editor/) computes incremental `ViewPatch` sequences from the
+   `ProjNode` tree; [`protocol/`](../protocol/) defines the wire types and
+   converts `ProjNode → ViewNode` before serialization.
 5. Structural edits go back through the CRDT as text edits, closing the loop.
 
 ## Package responsibility map (canopy module)

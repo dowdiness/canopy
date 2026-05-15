@@ -20,7 +20,8 @@ All symbols in this package are flat free functions exported via the link block.
 
 ## Consumers
 
-No other MoonBit package imports `ffi/lambda`. It is the terminal layer consumed by the TypeScript/Vite web bundle at `examples/web/`.
+- `examples/web/` — TypeScript/Vite web bundle; the primary consumer, calls every JS export
+- `examples/ideal/main/` — separate MoonBit module that imports this package as `@ffi` to construct and recover the singleton editor handle
 
 ## Dependencies
 

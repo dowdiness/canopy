@@ -157,6 +157,7 @@ cd graphviz  && moon test
 cd rle       && moon test
 cd order-tree && moon test
 cd alga      && moon test
+cd valtio    && moon test
 ```
 
 Non-workspace in-tree modules:
