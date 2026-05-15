@@ -188,12 +188,15 @@ moon check --deny-warn --warn-list @a
 moon test
 cd examples/canvas/web && npm run build
 cd examples/canvas/web && npm exec tsc -- --noEmit
+make test-canvas-e2e
 git diff --cached --check
 markdownlint-cli2 docs/README.md docs/archive/completed-phases/2026-05-14-canvas-handles-edges.md
 ```
 
-All passed on 2026-05-14. `npm install` in `examples/canvas/web` reported three
-moderate npm audit warnings, but produced no tracked changes.
+Initial implementation validation passed on 2026-05-14. The Playwright smoke
+follow-up was added on 2026-05-15 and validated with `make test-canvas-e2e`.
+`npm install` in `examples/canvas/web` reported three moderate npm audit
+warnings, but produced no tracked changes.
 
 ## Follow-Ups
 

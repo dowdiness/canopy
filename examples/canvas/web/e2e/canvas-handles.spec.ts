@@ -32,6 +32,17 @@ async function center(locator: Locator, label: string): Promise<Point> {
   };
 }
 
+async function canvasBackgroundPoint(page: Page): Promise<Point> {
+  const box = await page.locator('#canvas-root').boundingBox();
+  if (!box) {
+    throw new Error('canvas root is not visible');
+  }
+  return {
+    x: box.x + 20,
+    y: box.y + 20,
+  };
+}
+
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
   const start = await center(from, 'source handle');
   const end = await center(to, 'target handle');
@@ -69,9 +80,10 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   const source = outputHandle(page, 1);
 
   const cancelStart = await center(source, 'node 1 output handle');
+  const cancelTarget = await canvasBackgroundPoint(page);
   await page.mouse.move(cancelStart.x, cancelStart.y);
   await page.mouse.down();
-  await page.mouse.move(430, 250, { steps: 4 });
+  await page.mouse.move(cancelTarget.x, cancelTarget.y, { steps: 4 });
   await expect(pendingEdgePaths(page)).toHaveCount(1);
   await page.mouse.up();
   await expect(pendingEdgePaths(page)).toHaveCount(0);
