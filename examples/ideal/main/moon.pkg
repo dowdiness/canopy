@@ -8,6 +8,7 @@ import {
   "dowdiness/canopy/projection" @proj,
   "dowdiness/canopy/lang/lambda" @lambda,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/lambda/ast" @ast,
   "moonbitlang/core/strconv",
   "moonbitlang/core/string",

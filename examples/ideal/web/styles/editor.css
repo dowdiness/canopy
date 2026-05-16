@@ -297,7 +297,6 @@ button:focus-visible, .action-btn:focus-visible,
 }
 
 .tree-row.kind-lambda .tree-accent { background: var(--canopy-keyword); }
-.tree-row.kind-let .tree-accent { background: var(--canopy-identifier); }
 .tree-row.kind-module .tree-accent { background: var(--canopy-accent); }
 .tree-row.kind-app .tree-accent { background: var(--canopy-text-dim); }
 .tree-row.kind-int .tree-accent { background: var(--canopy-number); }
@@ -305,6 +304,9 @@ button:focus-visible, .action-btn:focus-visible,
 .tree-row.kind-if .tree-accent { background: var(--canopy-keyword); }
 .tree-row.kind-binop .tree-accent { background: var(--canopy-operator); }
 .tree-row.kind-error .tree-accent { background: var(--canopy-error); }
+.tree-row.kind-unit .tree-accent { background: var(--canopy-text-dim); }
+.tree-row.kind-unbound .tree-accent { background: var(--canopy-error); }
+.tree-row.kind-hole .tree-accent { background: var(--canopy-text-dim); }
 
 .tree-toggle {
   font-size: var(--text-label);

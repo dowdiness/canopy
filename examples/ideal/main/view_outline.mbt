@@ -4,28 +4,6 @@ fn node_id_to_string(id : @canopy_core.NodeId) -> String {
   id.0.to_string()
 }
 
-///|
-/// Determine a CSS kind class from a tree node label.
-fn kind_of(label : String) -> String {
-  if label.has_prefix("\u{03BB}") {
-    "lambda"
-  } else if label == "App" {
-    "app"
-  } else if label.has_prefix("let ") {
-    "let"
-  } else if label == "if" {
-    "if"
-  } else if label == "()" {
-    "unit"
-  } else if label.has_prefix("Error:") {
-    "error"
-  } else if label == "Plus" || label == "Minus" {
-    "binop"
-  } else {
-    "term"
-  }
-}
-
 // NOTE: Position detection (Before/After/Inside) based on mouse-Y is not yet
 // implemented for the outline panel. Rabbita's @html.DragEvent is package-private,
 // so we can't pass it to extern "js" for bounding-rect computation.
@@ -67,7 +45,7 @@ fn view_outline_node(
   model : Model,
   eval_annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]],
 ) -> Html {
-  let kind = kind_of(node.label)
+  let kind = @lambda_proj.term_css_class(node.kind)
   let is_selected = match model.selected_node {
     Some(sel) => sel == node_id_to_string(node.id)
     None => false
