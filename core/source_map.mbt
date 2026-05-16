@@ -123,6 +123,11 @@ fn SourceMap::node_to_range_at_position(
 ///|
 /// Find all nodes that contain a given position
 /// Returns nodes from outermost to innermost (parent to child)
+///
+/// Contract NOT YET ENFORCED — implementation returns `Map.keys().to_array()`
+/// which does not guarantee any particular order. Fix as part of click-path
+/// wiring (docs/TODO.md §9 "Wire SourceMap query API into editor click-path"):
+/// sort by `(range.end - range.start)` descending and add a property test.
 pub fn SourceMap::nodes_at_position(
   self : SourceMap,
   position : Int,
@@ -230,7 +235,12 @@ pub fn SourceMap::apply_edit(
 }
 
 ///|
-/// Clear and rebuild from a new AST.
+/// Recovery / debug API: full SourceMap regeneration from a fresh projection tree.
+/// Property-tested in `source_map_properties_wbtest.mbt`. No production consumer
+/// today; intended for stale-map diagnostics or replay/resync flows if those
+/// surface. Not bundled into the click-path wiring TODO (docs/TODO.md §9) since
+/// no UI consumer is currently committed.
+///
 /// Note: this clears token_spans. Call populate_token_spans() afterward
 /// if token-level spans are needed.
 pub fn[T] SourceMap::rebuild(self : SourceMap, root : ProjNode[T]) -> Unit {

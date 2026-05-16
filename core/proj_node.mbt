@@ -13,6 +13,11 @@ pub struct ProjNode[T] {
 } derive(Debug, Eq)
 
 ///|
+/// Stub Show — currently a Debug dump. To be replaced with a short structural
+/// label like "#<node_id> <kind> [<start>..<end>]" once the inspector consumes it.
+/// See docs/TODO.md §15 "Route inspector kind-labels through Show" (Inspector
+/// traceability workstream) — tree-row rendering in view_outline.mbt will call
+/// node.to_string() through this impl.
 pub impl[T : Debug] Show for ProjNode[T] with output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

@@ -30,6 +30,10 @@ pub(all) struct SpanEdit {
 } derive(Debug, Eq)
 
 ///|
+/// Stub Show — currently a Debug dump. To be replaced with a compact patch
+/// label like "@<pos> -<delete_len> +«<inserted>»" for the Patch panel.
+/// See docs/TODO.md §9 "Inspector — Intent + Patch panels" and §15 Show
+/// unification (Inspector traceability workstream).
 pub impl Show for SpanEdit with output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
@@ -88,6 +92,10 @@ pub(all) enum GenericTreeOp {
 } derive(Debug)
 
 ///|
+/// Stub Show — currently a Debug dump. To be replaced with a verb-first label
+/// like "Drop(#11→#12 After)" for the Intent panel. See docs/TODO.md §9
+/// "Inspector — Intent + Patch panels" and §15 Show unification (Inspector
+/// traceability workstream).
 pub impl Show for GenericTreeOp with output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

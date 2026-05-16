@@ -168,6 +168,21 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `Module` AST supports `ModuleItem` in parser already, but `FlatProj` storage change caused 2× regression from MoonBit enum boxing.
   Alternative: add helper methods on existing `FlatProj` for interleaved views. Decision pending in `docs/decisions-needed.md`.
 
+- [ ] Inspector — Intent + Patch panels. *Part of Inspector traceability workstream.*
+  Why: existing inspector shows the State layer (ProjNode tree, via `view_outline` + `view_inspector`) and the CRDT-op layer (Lamport-version causal graph, via `view_history`). The layers between them — user actions (`GenericTreeOp`) and text patches (`SpanEdit`) — are invisible. These are exactly what's needed for debugging "why did this edit produce that text," teaching the projection→patch translation when bringing up a new language, and reproducing collaborative bugs from clean traces. Should consume §15's `Show`-unification work when both are implemented (TODO 2 can ship first with ad-hoc rendering, but that deepens the debt §15 removes).
+  Exit:
+  - Intent panel: scrollable log of recent `GenericTreeOp`s, each row uses `op.to_string()` (verb-first label like `"Drop(#11→#12 After)"`).
+  - Patch panel: scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp`, each row uses `edit.to_string()` (e.g. `"@25 -3 +«add 3 5»"`).
+  - Both panels live in `view_bottom.mbt` (new tab) or a new view file alongside outline/inspector/history.
+
+- [ ] Wire `SourceMap` query API into editor click-path + fix ordering contract. *Part of Inspector traceability workstream.*
+  Why: `core/source_map.mbt::SourceMap::nodes_at_position` and `SourceMap::nodes_in_range` are property-tested (`core/source_map_properties_wbtest.mbt`) but unconsumed by production code. Click-path in `examples/ideal/main/view_editor.mbt` reimplements similar text-position→node logic inline. Additionally, `nodes_at_position` documents "outermost to innermost" ordering but returns `Map.keys().to_array()` — ordering is not guaranteed, latent contract bug if any consumer ever depends on nesting order.
+  Exit:
+  - `SourceMap::nodes_at_position` returns guaranteed outermost→innermost order (sort by `(end - start)` descending) with a property test pinning the contract.
+  - Click-path in `view_editor.mbt` consumes `nodes_at_position`.
+  - Selection-extend command consumes `nodes_in_range`.
+  - `SourceMap::rebuild` annotated as recovery API (see comment in source); not bundled into this TODO's exit since no UI consumer is currently committed.
+
 ---
 
 ## 10. Editor Drag-and-Drop Follow-ups
@@ -252,6 +267,14 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 ---
 
 ## 15. Editor Framework Decoupling
+
+- [ ] Route inspector kind-labels through `Show`. *Part of Inspector traceability workstream.*
+  Why: `examples/ideal/main/view_outline.mbt::kind_of()` and `view_inspector.mbt` each implement their own kind→label classifier, hardcoding lambda-specific syntax ("λ" prefix, "App", "let", "if") in framework views. Adding a new language requires editing per-view classifiers. Existing `Show` impls on `core/proj_node.mbt::ProjNode[T]`, `core/types.mbt::GenericTreeOp`, and `core/types.mbt::SpanEdit` are stubs delegating to `@debug.to_string` (verbose dump, not a short label) with no consumers.
+  Exit:
+  - Tree-row labels in `view_outline` use `node.to_string()` — consumes real `Show for ProjNode[T]` producing e.g. `"#9 App [25..47]"`.
+  - Kind chips in `view_inspector` use `node.kind.to_string()` — consumes existing `Show for Term`/`JsonValue` (already real, no stubs) producing e.g. `"App"`.
+  - `view_outline::kind_of()` and any duplicate per-view classifier deleted.
+  - Adding a new language touches only the language's `Show for Kind` impl, not framework views.
 
 - [ ] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Why: zero dependency on editor concepts. Self-contained collaboration primitive with own binary protocol, encoding, and timeout logic.
