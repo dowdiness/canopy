@@ -225,6 +225,11 @@ pub fn[T] TreeEditorState::get_loaded_node(
 
 ///|
 /// Check if a node ID is valid in the current tree state.
+///
+/// Introduced for drop-target validation (commit 81eee74, 2026-03-22:
+/// "add TreeEditorState::has_node for drop target validation"). The
+/// drop-target wiring is still pending — see `project_drag_drop_followups`
+/// memory and the §10 Editor Drag-and-Drop Follow-ups TODOs.
 pub fn[T] TreeEditorState::has_node(
   self : TreeEditorState[T],
   node_id : NodeId,
