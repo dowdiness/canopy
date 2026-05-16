@@ -153,10 +153,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: Codex confirmed during 2026-05-09 cohesion audit (Q2, PR #236) that the only callers are `sync_editor_parser.mbt` itself and `edit_bridge_test.mbt`. Currently `pub`. Note: blackbox `*_test.mbt` files compile in a separate package, so simply dropping `pub` may not work — verify before changing.
   Exit: visibility downgraded as far as MoonBit blackbox-test rules allow; `moon test` still passes.
 
-- [ ] Consolidate the markdown ZWSP empty-paragraph sentinel into a three-layer split: moji owns the codepoint + Unicode predicate, `lang/markdown/` owns the role name, the TS adapter imports the value from the MoonBit FFI JS bundle.
+- [ ] Consolidate the markdown ZWSP empty-paragraph sentinel into a three-layer split: moji owns the codepoint + Unicode predicate, the new canopy package `lang/markdown/sentinel/` owns the role name, the TS adapter receives the value through a `BlockInput` option wired by the consuming example from the MoonBit FFI JS bundle.
   Why: the U+200B sentinel literal is hardcoded six times across MoonBit and TypeScript with no shared definition. moji already owns Unicode-property work but lacks the `Default_Ignorable_Code_Point` predicate and the named codepoint constant the sentinel role should alias.
   Plan: `docs/plans/2026-05-16-moji-zwsp-consolidation.md`
-  Exit: `git grep '​' -- '*.mbt' '*.ts' '*.tsx'` returns only `lib/moji/codepoints.mbt` and annotated test fixtures; moji exports `ZERO_WIDTH_SPACE` + `is_default_ignorable_code_point`; `lang/markdown/sentinel.mbt` aliases the moji constant; `adapters/editor-adapter/sentinels.ts` sources the value from the markdown FFI bundle.
+  Exit: moji exports `ZERO_WIDTH_SPACE` + `is_default_ignorable_code_point`; new canopy package `lang/markdown/sentinel/` exports `EMPTY_PARAGRAPH_SENTINEL` aliasing the moji constant; `ffi/markdown/` exports `markdown_empty_paragraph_sentinel` accessor; `adapters/editor-adapter` exposes a `BlockInput.stripParagraphSentinels` option wired via `examples/web/src/markdown-sentinels.ts`. Plan §Step 6 audit greps (all three U+200B spellings) pass.
 
 ---
 
