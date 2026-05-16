@@ -81,6 +81,16 @@ pub fn is_extended_pictographic(cp : Int) -> Bool {
 }
 
 ///|
+/// True iff the codepoint has the `Default_Ignorable_Code_Point` derived
+/// core property — codepoints a renderer should normally not display,
+/// such as ZWSP (U+200B), ZWNJ (U+200C), LRM (U+200E), BOM (U+FEFF),
+/// variation selectors, and language tags. Source: UCD 15.1
+/// `DerivedCoreProperties.txt`.
+pub fn is_default_ignorable_code_point(cp : Int) -> Bool {
+  in_range_table(table_default_ignorable_code_point, cp)
+}
+
+///|
 /// `Indic_Conjunct_Break` derived property (Unicode 15.1+).
 pub fn incb_of(cp : Int) -> InCB {
   if in_range_table(table_incb_consonant, cp) {

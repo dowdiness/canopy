@@ -2,6 +2,8 @@
 package "dowdiness/moji"
 
 // Values
+pub const ZERO_WIDTH_SPACE : String = "​"
+
 pub fn decode_codepoint_at(String, Int) -> (Int, Int)
 
 pub fn gcb_of(Int) -> GCB
@@ -11,6 +13,8 @@ pub fn grapheme_boundaries(String) -> Array[Int]
 pub fn grapheme_clusters(String) -> Iter[(Int, Int)]
 
 pub fn incb_of(Int) -> InCB
+
+pub fn is_default_ignorable_code_point(Int) -> Bool
 
 pub fn is_extended_pictographic(Int) -> Bool
 

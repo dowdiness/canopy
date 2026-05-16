@@ -40,8 +40,42 @@ pub fn word_boundaries(text : String) -> Array[Int]
 pub fn gcb_of(cp : Int) -> GCB
 pub fn wb_of(cp : Int) -> WB
 pub fn is_extended_pictographic(cp : Int) -> Bool
+pub fn is_default_ignorable_code_point(cp : Int) -> Bool
 pub fn incb_of(cp : Int) -> InCB
+
+// Named codepoint constants — see § "Named codepoint constants" below
+pub const ZERO_WIDTH_SPACE : String  // U+200B
 ```
+
+## Named codepoint constants
+
+moji ships a named `pub const` for a specific Unicode codepoint only when
+at least one of the following holds:
+
+1. **External role.** A current non-moji consumer in the canopy workspace
+   needs that exact scalar by role or name (not by property class). The
+   consumer's call site is named in the constant's docstring.
+2. **Public-API canonical value.** moji's own public API contract
+   exposes that scalar as a canonical value — for example, as the
+   documented return value of a function, or as the conventional
+   sentinel for a result.
+
+Appearing in moji's *internal* tests, conformance fixtures, or
+property-predicate test inputs does **not** qualify. The rule defends
+against opportunistic growth: every named codepoint constant is API
+surface that consumers may end up depending on by name, so each new
+entry needs a concrete justification.
+
+Adding a constant outside these criteria requires opening an issue first.
+
+Currently shipped:
+
+- `ZERO_WIDTH_SPACE` — U+200B. Justification: canopy's markdown editor
+  consumes this scalar by role as its empty-paragraph sentinel. Today
+  the literal is hardcoded across `lang/markdown/edits/` and
+  `lang/markdown/companion/`; a follow-up canopy package
+  `lang/markdown/sentinel/` will alias this constant and route all
+  consumers through it.
 
 ## Offset-tolerance contract
 
