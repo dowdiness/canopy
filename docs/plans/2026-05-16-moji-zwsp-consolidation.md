@@ -3,7 +3,7 @@
 ## Why
 
 The empty-paragraph sentinel codepoint U+200B (ZWSP) is hardcoded as a string
-literal in six places across the language boundary, with no shared definition:
+literal in six places, with no shared definition:
 
 - MoonBit, insert: `lang/markdown/edits/compute_markdown_edit.mbt:202`
 - MoonBit, strip-on-merge: `lang/markdown/edits/compute_markdown_edit.mbt:319`
@@ -13,17 +13,25 @@ literal in six places across the language boundary, with no shared definition:
 Two consequences:
 
 1. Any change to the sentinel codepoint (or its rules — e.g. "also treat a
-   ZWNJ-only paragraph as empty") requires editing six sites in two
-   languages, with no compiler help. Drift between MoonBit and TypeScript is
-   silent.
+   ZWNJ-only paragraph as empty") requires editing six sites with no compiler
+   help.
 2. The Unicode-property test ("is this string a visually-empty placeholder?")
    is duplicated rather than living in `lib/moji/`, even though moji is
    canopy's general Unicode library and already ships UCD-derived property
    tables.
 
-The narrower goal is one named constant + one named predicate. The wider goal
-is to honor moji's role: Unicode-property questions live in moji, feature
-packages consume them.
+The three-layer end state honors design principle 6 ("a framework's
+generality is determined by what it excludes"):
+
+- **moji** owns Unicode-general facts: the named codepoint constant
+  `ZERO_WIDTH_SPACE` and the property predicate
+  `is_default_ignorable_code_point`.
+- **canopy `lang/markdown/`** owns the editor-policy role:
+  `EMPTY_PARAGRAPH_SENTINEL` (a one-line alias of the moji constant) and
+  `is_empty_paragraph_text` (the sentinel-detection predicate).
+- **TypeScript** is not a parallel definition — `adapters/editor-adapter`
+  imports the value from the MoonBit FFI JS bundle so there is a single
+  source of truth across the build graph.
 
 ## Scope
 
@@ -32,17 +40,25 @@ In:
   `Default_Ignorable_Code_Point`.
 - `lib/moji/property_tables.mbt` — regenerated table data.
 - `lib/moji/property.mbt` — new public predicate.
+- `lib/moji/codepoints.mbt` (new) — named codepoint constants surface,
+  starting with `ZERO_WIDTH_SPACE`.
+- `lib/moji/README.md` — document the inclusion rule for named codepoint
+  constants (see Step 1b).
 - `lib/moji/pkg.generated.mbti` — regenerated interface.
-- `lang/markdown/companion/markdown_companion.mbt` — call the shared constant + predicate.
+- `lang/markdown/sentinel.mbt` (new) — canopy-side role-name layer:
+  `EMPTY_PARAGRAPH_SENTINEL` aliasing the moji constant, plus
+  `is_empty_paragraph_text`.
+- `lang/markdown/companion/markdown_companion.mbt` — consume the shared
+  constant + predicate.
 - `lang/markdown/edits/compute_markdown_edit.mbt` — same.
-- A new MoonBit module (location TBD in Step 2) that owns the canopy-side
-  sentinel constant and the `is_empty_paragraph_text` predicate.
-- `adapters/editor-adapter/` — a new TS constants module so the TS sites
-  import the literal from one place.
+- `ffi/markdown/markdown_ffi.mbt` — export a JS-visible accessor (or
+  re-export the constant) so TS imports the MoonBit-side value.
+- `adapters/editor-adapter/block-input.ts` — replace the three regex
+  literals with an import from the markdown FFI bundle.
 
 Out:
 - Generalizing the sentinel rule to "default-ignorable-only paragraph"
-  (recommended deferred — keep exact ZWSP match for now, add a TODO/comment
+  (recommended deferred — keep exact ZWSP match for now, add a doc-comment
   pointing at the moji predicate). See Risks.
 - JSON5 lexer codepoints (U+200C, U+2028/9, U+FEFF) — those live in vendored
   `.mooncakes` and are out of scope.
@@ -51,6 +67,9 @@ Out:
 - Test-fixture ZWSP literals in `integration_wbtest.mbt` — leave as-is; tests
   describing the sentinel behavior should keep the literal so the test reads
   as a behavioral assertion.
+- Backfilling other named codepoint constants (ZWNJ, BOM, CGJ, …) beyond
+  ZWSP. The inclusion rule we document in Step 1b governs future
+  additions; do not add speculative constants in this plan.
 
 ## Current State
 
@@ -67,33 +86,53 @@ Out:
   `property.mbt`. The table-generator pattern already handles "extract one
   named property from `DerivedCoreProperties.txt` and emit a `Bool` lookup."
   See the `incb_consonant` / `extended_pictographic` precedents.
+- moji currently exposes property *enums* and *predicates* but no named
+  codepoint *constants*. This plan introduces that category; the inclusion
+  rule (Step 1b) prevents it from growing opportunistically.
 - On the canopy side, `markdown_companion.mbt::is_zwsp_sentinel` is the
   authoritative sentinel-detection function and is itself called from
   `collect_zwsp_ranges`. Other MoonBit sites are smaller inline checks.
 - The TS sites are all `.replace(/​/g, '')` regex strips. They do not
   care about full Unicode-property semantics; they care about one specific
   codepoint.
+- `ffi/markdown/markdown_ffi.mbt` already exports JS-visible functions
+  (`markdown_export_text`, `markdown_apply_edit`, …) that
+  `adapters/editor-adapter` consumes from
+  `_build/js/release/build/dowdiness/canopy/ffi/markdown/...`. Adding one
+  more exported symbol for the sentinel value follows the existing pattern;
+  no new build wiring required.
 
 ## Desired State
 
-- moji exposes `is_default_ignorable_code_point(cp : Int) -> Bool` with UCD
-  15.1 coverage and a unit test against a representative sample (CGJ,
-  ZWSP, ZWNJ, language tags).
-- One MoonBit module owns `EMPTY_PARAGRAPH_SENTINEL : String` (the literal
-  ZWSP) and `is_empty_paragraph_text(s : String) -> Bool` (exact match for
-  now; doc-comment notes the moji predicate is available if the rule needs
-  to broaden).
+- moji exposes:
+  - `pub const ZERO_WIDTH_SPACE : String` (the U+200B literal).
+  - `pub fn is_default_ignorable_code_point(cp : Int) -> Bool` with UCD
+    15.1 coverage and a unit test against a representative sample (CGJ,
+    ZWSP, ZWNJ, BOM, language tags).
+  - A documented inclusion rule in `lib/moji/README.md` governing which
+    codepoints earn a named constant.
+- `lang/markdown/sentinel.mbt` owns:
+  - `pub const EMPTY_PARAGRAPH_SENTINEL : String = @moji.ZERO_WIDTH_SPACE`.
+  - `pub fn is_empty_paragraph_text(s : String) -> Bool` (exact match for
+    now; doc-comment notes the moji predicate is available if the rule
+    needs to broaden).
 - Every MoonBit call site that inserts, detects, or strips the sentinel
   goes through one of those two names.
-- One TypeScript module exports `EMPTY_PARAGRAPH_SENTINEL` as a string
-  constant and `isEmptyParagraphText(s : string) : boolean`. Every TS site
-  imports from there.
-- `git grep '\\u200B'` and `git grep '\\u{200B}'` return only the two
-  constants and the test fixtures.
+- `ffi/markdown/markdown_ffi.mbt` exports the sentinel value to JS (either
+  via `pub const` if moji's JS backend exposes consts as bindings, or via
+  a `pub fn empty_paragraph_sentinel() -> String` accessor — verify in
+  Step 5).
+- `adapters/editor-adapter/sentinels.ts` imports the value from the
+  markdown FFI bundle and exposes
+  `EMPTY_PARAGRAPH_SENTINEL` / `isEmptyParagraphText` / `stripParagraphSentinels`
+  to the TS sites. No TS-side literal `​` outside this module.
+- `git grep '\\u200B' -- '*.mbt' '*.ts' '*.tsx'` returns only the moji
+  constant definition, the test fixtures, and (if used) the accessor
+  doc-comment.
 
 ## Steps
 
-### Step 1 — moji `Default_Ignorable_Code_Point` predicate
+### Step 1a — moji `Default_Ignorable_Code_Point` predicate
 
 Add the property to moji's generator and public API.
 
@@ -108,73 +147,144 @@ Add the property to moji's generator and public API.
    (U+034F CGJ, U+200B ZWSP, U+200C ZWNJ, U+200E LRM, U+FEFF BOM,
    U+E0001 LANGUAGE TAG) return `true`, and that ASCII/CJK letters return
    `false`.
-5. `cd lib/moji && moon test && moon info && moon fmt`.
-6. Diff `lib/moji/pkg.generated.mbti` — verify only one new `pub fn` line.
 
-### Step 2 — Pick the home for the canopy-side sentinel
+### Step 1b — moji named codepoint constants surface + inclusion rule
 
-Decision required. Two candidates:
+Introduce the new "named codepoint constants" API category, with the
+narrowest possible footprint and a documented rule for future growth.
 
-- **A.** New file `lang/markdown/sentinel.mbt` in the existing
-  `lang/markdown/` package (where the grammar lives).
-- **B.** New file in `lang/markdown/companion/` (where editor-facing helpers
-  live; would join `markdown_companion.mbt`).
+1. Add `lib/moji/codepoints.mbt` containing:
+   ```moonbit
+   /// U+200B ZERO WIDTH SPACE. The canonical example used by
+   /// `is_default_ignorable_code_point` and the markdown editor's
+   /// empty-paragraph sentinel role (see `lang/markdown/sentinel.mbt`).
+   pub const ZERO_WIDTH_SPACE : String = "\u{200B}"
+   ```
+2. Update `lib/moji/README.md` with a short subsection — proposed title
+   "Named codepoint constants" — stating the inclusion rule:
 
-Constraints to check:
-- The `compute_markdown_edit.mbt` site lives under `lang/markdown/edits/`,
-  which today imports `@markdown` (option A) and not the companion. If the
-  constant lives in companion, `edits/` would gain a dependency on
-  companion — verify this does not create a cycle with the projection ↔
-  edits cycle already documented in
-  `feedback_projection_lambda_cycle` memory.
-- The same constant + predicate may eventually be useful to non-companion
-  consumers (DOM diffing, serialization). Argues mildly for option A.
+   > moji ships a named `pub const` for a codepoint only when at least
+   > one of the following holds:
+   >
+   > 1. The codepoint is referenced by name in moji's own code, docs, or
+   >    tests (e.g. as the canonical example of a property).
+   > 2. The codepoint has an established role in a UAX/UTS spec that
+   >    moji implements, AND that role is referenced from outside moji
+   >    by name rather than by property class.
+   >
+   > Adding a constant outside these criteria is out of scope. Open an
+   > issue first.
 
-Recommendation: **option A** unless dependency-direction analysis surfaces
-a reason against. Confirm during execution.
+   Today `ZERO_WIDTH_SPACE` qualifies under rule 1 (it's the documented
+   example in `is_default_ignorable_code_point`'s docstring and tests).
+3. Verify the JS backend exposes `pub const String` as a JS binding by
+   building the FFI bundle that will import it (Step 5). If the const is
+   not directly importable, add `pub fn zero_width_space() -> String { ZERO_WIDTH_SPACE }`
+   so downstream FFI can re-export. Decide on naming in Step 5.
 
-### Step 3 — Add the MoonBit sentinel module
+### Step 1c — Validate moji changes
 
-In the chosen file (per Step 2):
+```bash
+cd lib/moji && moon test && moon info && moon fmt
+```
+
+Diff `lib/moji/pkg.generated.mbti` — verify the new surface is exactly
+one `pub const` and one `pub fn` (plus an optional accessor `pub fn` if
+Step 1b Item 3 needed one).
+
+### Step 2 — Add `lang/markdown/sentinel.mbt`
+
+Place the canopy-side role-name layer in the existing `lang/markdown/`
+package (where the grammar lives). Two reasons:
+
+- Both `lang/markdown/companion/` and `lang/markdown/edits/` already
+  depend on `@markdown`. No new edge in the package graph.
+- A companion-located constant would force `edits/` to import companion,
+  which conflicts with the direction recorded in
+  `feedback_projection_lambda_cycle`.
+
+Content:
 
 ```moonbit
-/// U+200B Zero-Width Space, used as a visible-but-invisible placeholder
-/// for empty paragraphs inside the editor's text buffer.
-pub const EMPTY_PARAGRAPH_SENTINEL : String = "\u{200B}"
+/// Role-name layer for the empty-paragraph sentinel codepoint.
+///
+/// The literal codepoint identity lives in `@moji.ZERO_WIDTH_SPACE`.
+/// This module names the editor-policy role: "the codepoint we insert
+/// to keep an empty paragraph visible and editable."
+
+pub const EMPTY_PARAGRAPH_SENTINEL : String = @moji.ZERO_WIDTH_SPACE
 
 /// True when the entire string is exactly the sentinel codepoint.
 ///
-/// Intentionally narrow today: legitimate user text containing ZWSP plus
-/// other characters returns false. If the rule needs to broaden to "any
-/// default-ignorable-only paragraph" (e.g. after a paste of ZWNJ or BOM),
-/// switch to iterating codepoints and consulting
+/// Intentionally narrow today: legitimate user text containing the
+/// sentinel character alongside other content returns false. To broaden
+/// the rule to "any default-ignorable-only paragraph" (catching paste of
+/// ZWNJ, BOM, etc.), iterate codepoints and consult
 /// `@moji.is_default_ignorable_code_point`.
 pub fn is_empty_paragraph_text(s : String) -> Bool {
   s == EMPTY_PARAGRAPH_SENTINEL
 }
 ```
 
-Plus a `_wbtest.mbt` covering: exact match → true; empty string → false;
-two ZWSPs → false; ZWSP + "a" → false.
+Add a `_wbtest.mbt` covering: exact match → true; empty string → false;
+two sentinels → false; sentinel + "a" → false. Update `lang/markdown/moon.pkg`
+to import `@moji`.
 
-### Step 4 — Migrate MoonBit call sites
+### Step 3 — Migrate MoonBit call sites
 
 - `lang/markdown/companion/markdown_companion.mbt:81`:
-  `Text(s) => s == "​"` → `Text(s) => @<sentinel>.is_empty_paragraph_text(s)`.
+  `Text(s) => s == "​"` →
+  `Text(s) => @markdown.is_empty_paragraph_text(s)`.
 - `lang/markdown/edits/compute_markdown_edit.mbt:202`:
   the `"\n​\n"` insert literal becomes
-  `"\n" + @<sentinel>.EMPTY_PARAGRAPH_SENTINEL + "\n"`.
+  `"\n" + @markdown.EMPTY_PARAGRAPH_SENTINEL + "\n"`.
 - `lang/markdown/edits/compute_markdown_edit.mbt:319`:
-  `curr_text == "​"` → `@<sentinel>.is_empty_paragraph_text(curr_text)`.
-- Update each affected `moon.pkg` for the new import.
+  `curr_text == "​"` →
+  `@markdown.is_empty_paragraph_text(curr_text)`.
+- Update each affected `moon.pkg` import set if `@markdown` is not
+  already imported (companion + edits both import the grammar package
+  today — verify).
 - `moon check && moon test && moon info && moon fmt`.
 
-### Step 5 — TypeScript counterpart
+### Step 4 — Export the sentinel value through the markdown FFI
+
+Add a JS-visible accessor in `ffi/markdown/markdown_ffi.mbt`. Prefer the
+simplest form the JS backend supports:
+
+```moonbit
+/// JS-side accessor for the empty-paragraph sentinel. Returns the same
+/// value as the MoonBit const `@markdown.EMPTY_PARAGRAPH_SENTINEL`;
+/// exposed as a function so TS imports a single source of truth from
+/// the build artifact rather than hardcoding the literal.
+pub fn markdown_empty_paragraph_sentinel() -> String {
+  @markdown.EMPTY_PARAGRAPH_SENTINEL
+}
+```
+
+If experimentation in Step 1b Item 3 confirmed that `pub const String`
+is directly importable from the JS bundle, prefer re-exporting the
+const over adding an accessor function. The plan's acceptance criterion
+is "single source", not "function vs const".
+
+Build the JS bundle so the symbol is reachable:
+
+```bash
+moon build --target js
+```
+
+Confirm the symbol appears in
+`_build/js/release/build/dowdiness/canopy/ffi/markdown/...` exports.
+
+### Step 5 — TypeScript adapter
 
 1. Add `adapters/editor-adapter/sentinels.ts`:
    ```ts
-   /** U+200B ZWSP — see lang/markdown/sentinel.mbt. */
-   export const EMPTY_PARAGRAPH_SENTINEL = "​"
+   import { markdown_empty_paragraph_sentinel } from "<ffi import path>"
+
+   /** U+200B ZWSP — sourced from the MoonBit markdown FFI bundle.
+    *  Definition: lang/markdown/sentinel.mbt / lib/moji/codepoints.mbt. */
+   export const EMPTY_PARAGRAPH_SENTINEL: string =
+     markdown_empty_paragraph_sentinel()
 
    export function isEmptyParagraphText(s: string): boolean {
      return s === EMPTY_PARAGRAPH_SENTINEL
@@ -185,17 +295,21 @@ two ZWSPs → false; ZWSP + "a" → false.
      return s.split(EMPTY_PARAGRAPH_SENTINEL).join("")
    }
    ```
+   Resolve the FFI import path against the existing imports in
+   `block-input.ts` — it already pulls from the same bundle.
 2. Refactor the three `block-input.ts` regex strips to call
    `stripParagraphSentinels(...)`.
-3. `cd examples/web && npx tsc --noEmit` (or whichever example imports the
-   adapter — confirm via the same path the §1 TODO entry expects to add to
-   CI).
+3. `cd examples/web && npx tsc --noEmit` (or whichever example imports
+   the adapter — confirm via the same path the §1 TODO entry expects to
+   add to CI).
 
 ### Step 6 — Audit pass
 
 - `git grep '\\u200B' -- '*.mbt' '*.ts' '*.tsx'` returns only:
-  - the two constant definitions (one MoonBit, one TS)
+  - `lib/moji/codepoints.mbt` (the canonical definition)
   - test fixtures explicitly asserting sentinel behavior
+  - moji's tests for `is_default_ignorable_code_point` (asserting the
+    codepoint as a representative input)
 - Add a one-line comment near each test fixture: "literal ZWSP is the
   asserted invariant — do not refactor to the constant."
 - Re-run `moon test` for every workspace member + each example listed in
@@ -203,55 +317,71 @@ two ZWSPs → false; ZWSP + "a" → false.
 
 ## Acceptance Criteria
 
+- [ ] `ZERO_WIDTH_SPACE` exported from moji (`lib/moji/codepoints.mbt`).
 - [ ] `is_default_ignorable_code_point(cp) -> Bool` exported from moji,
       covered by a UCD-15.1 unit test.
+- [ ] `lib/moji/README.md` documents the named-codepoint inclusion rule.
 - [ ] `EMPTY_PARAGRAPH_SENTINEL` and `is_empty_paragraph_text` exported
-      from a single MoonBit module under `lang/markdown/`.
+      from `lang/markdown/sentinel.mbt`; the const aliases
+      `@moji.ZERO_WIDTH_SPACE`.
 - [ ] All three MoonBit non-test ZWSP sites consume the constant/predicate;
-      no inline `"\u{200B}"` literals remain outside the constant and tests.
-- [ ] `adapters/editor-adapter/sentinels.ts` defines and exports the
-      constant + helpers; all three TS sites consume it.
+      no inline `"\u{200B}"` literals remain outside `codepoints.mbt`
+      and annotated test fixtures.
+- [ ] `ffi/markdown/markdown_ffi.mbt` exposes the sentinel value to JS
+      (re-exported const if directly importable, else a `pub fn` accessor).
+- [ ] `adapters/editor-adapter/sentinels.ts` imports the value from the
+      markdown FFI bundle and re-exports
+      `EMPTY_PARAGRAPH_SENTINEL` / `isEmptyParagraphText` / `stripParagraphSentinels`;
+      all three TS regex sites consume it.
 - [ ] `moon test` passes for the workspace and every CI fan-out target.
+- [ ] `moon build --target js` builds; the new FFI symbol is reachable
+      from the bundle path `adapters/editor-adapter` already imports.
 - [ ] `npx tsc --noEmit` passes for the affected examples.
-- [ ] `git grep '\\u200B' -- '*.mbt' '*.ts' '*.tsx'` shows only the two
-      constants and annotated test fixtures.
+- [ ] `git grep '\\u200B' -- '*.mbt' '*.ts' '*.tsx'` shows only the moji
+      const definition and annotated test fixtures.
 
 ## Validation
 
 ```bash
 # moji
 cd lib/moji && moon test && moon info && moon fmt && cd -
-# canopy module
+# canopy module (covers lang/markdown/, lang/markdown/companion/,
+# lang/markdown/edits/, ffi/markdown/, …)
 moon check && moon test && moon info && moon fmt
-# markdown companion + edits (already covered by workspace test, but
-# double-check the integration suite that previously asserted ZWSP behavior)
-cd lang/markdown/companion && moon test && cd -
+# JS bundle build — confirms the FFI export is reachable
+moon build --target js
 # TypeScript
 cd examples/web && npx tsc --noEmit && cd -
-# Final audit
+# Final audit — only allowed hits are moji's codepoints.mbt and test fixtures
 git grep -n '\\u200B' -- '*.mbt' '*.ts' '*.tsx'
 ```
 
 ## Risks
 
-- **Cycle risk in Step 2/3.** If the sentinel module ends up in companion,
-  `edits/` may need to import companion — check the existing edits ↔
-  projection ↔ companion direction documented in
-  `feedback_projection_lambda_cycle`. Mitigation: option A places the
-  constant in the grammar package, which both `edits/` and `companion/`
-  already depend on.
+- **moji JS-backend const exposure.** The plan assumes `pub const String`
+  in moji surfaces through the FFI bundle to TS. If MoonBit's JS backend
+  does not emit a direct binding for top-level consts (or if module-path
+  resolution gets in the way), Step 1b Item 3 fallback to a `pub fn`
+  accessor is the mitigation. Verify on a throwaway branch before
+  committing to one form in Step 4. (No correctness risk either way;
+  this is a "one extra function call" tradeoff.)
 - **Generalization scope creep.** The current sentinel rule is exact-match
   ZWSP. Broadening to "default-ignorable-only paragraph" would catch user
-  pastes of ZWNJ/BOM but might also classify legitimate edge content as
-  empty (e.g. a paragraph containing only a BiDi control followed by real
-  text — but that's only one paragraph element, so it'd be classified as
-  empty too). Defer this decision; keep exact match and a doc-comment
-  hook into moji.
-- **TypeScript constant duplication.** MoonBit and TS now both define the
-  same literal. A future codegen step could derive the TS constant from
-  the MoonBit one (e.g. via `moon info` + a small script), but that's a
-  separate plan. Mitigation today: doc-comment in each file points at the
-  other.
+  pastes of ZWNJ/BOM but might also misclassify edge content. Defer this
+  decision; keep exact match and a doc-comment hook into moji.
+- **Inclusion rule erosion.** Once moji ships `ZERO_WIDTH_SPACE`, future
+  contributors may add `ZERO_WIDTH_JOINER`, `BOM`, `CGJ`, etc.
+  opportunistically. The rule in `lib/moji/README.md` is the line of
+  defense; reviewers should reject additions that don't cite the rule.
+  If the rule needs to evolve (e.g. once a second consumer wants ZWJ
+  as a constant), that's a separate API decision worth its own plan.
+- **Build-order fragility.** TS now imports a value computed by the
+  MoonBit JS build. If `moon build --target js` is not run before
+  `npx tsc --noEmit` in a fresh checkout, the import will fail with
+  a module-not-found error. Mitigation: `examples/web` already depends
+  on the FFI bundle being built (existing imports of
+  `markdown_apply_edit` etc.), so adding one more imported symbol
+  does not change the build prerequisites. Confirm during execution.
 - **Performance.** `is_default_ignorable_code_point` adds one ~31-range
   binary-search table to moji's public surface. Memory cost is negligible
   (~250 bytes). Lookup is O(log n) like every other moji predicate.
