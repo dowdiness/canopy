@@ -3,6 +3,7 @@ import {
   "dowdiness/canopy/core" @core,
   "dowdiness/canopy/lang/markdown/edits" @md_edits,
   "dowdiness/canopy/lang/markdown/companion" @md_companion,
+  "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/markdown" @md,
 }
 
@@ -17,6 +18,7 @@ options(
         "markdown_set_text",
         "markdown_compute_view_patches_json",
         "markdown_apply_edit",
+        "markdown_empty_paragraph_sentinel",
       ],
     },
   },

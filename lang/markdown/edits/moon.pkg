@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/markdown" @markdown,
   "dowdiness/moji" @moji,
 }

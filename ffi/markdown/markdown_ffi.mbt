@@ -56,6 +56,16 @@ pub fn markdown_set_text(handle : Int, text : String) -> Unit {
   }
 }
 
+///|
+/// JS-side accessor for the empty-paragraph sentinel codepoint. Returns the
+/// same value as `@md_sentinel.EMPTY_PARAGRAPH_SENTINEL` (which itself
+/// aliases `@moji.ZERO_WIDTH_SPACE`). Exposed as a function so TS consumers
+/// import a single source of truth from the build artifact rather than
+/// hardcoding the literal.
+pub fn markdown_empty_paragraph_sentinel() -> String {
+  @md_sentinel.EMPTY_PARAGRAPH_SENTINEL
+}
+
 // ── Structural edits ─────────────────────────────────────────────────────
 
 ///|

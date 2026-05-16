@@ -6,6 +6,24 @@ import type { EditorAdapter } from './adapter';
 import type { ViewNode, ViewPatch, UserIntent } from './types';
 
 // ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+export interface BlockInputOptions {
+  /**
+   * Strip empty-paragraph sentinel codepoints from display/commit text.
+   *
+   * Consumers should pass a function sourced from the MoonBit FFI (e.g.,
+   * `markdown_empty_paragraph_sentinel`) so the sentinel definition lives
+   * in one place across the build graph. If omitted, falls back to a
+   * permissive U+200B strip for backwards compatibility — keep this in
+   * sync with `@moji.ZERO_WIDTH_SPACE` if the sentinel codepoint ever
+   * changes.
+   */
+  stripParagraphSentinels?: (s: string) => string;
+}
+
+// ---------------------------------------------------------------------------
 // BlockInput
 // ---------------------------------------------------------------------------
 
@@ -17,9 +35,16 @@ export class BlockInput implements EditorAdapter {
   private blurBound = false;
   private composing = false;
   private intentCb: ((intent: UserIntent) => void) | null = null;
+  private stripParagraphSentinels: (s: string) => string;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, opts: BlockInputOptions = {}) {
     this.container = container;
+    // Literal U+200B fallback when no FFI-sourced strip function is wired.
+    // Do NOT refactor to a shared constant — keeping this codepoint inline
+    // is the documented backwards-compat path; the canonical source is
+    // `markdown_empty_paragraph_sentinel()` exported by `ffi/markdown/`.
+    this.stripParagraphSentinels =
+      opts.stripParagraphSentinels ?? ((s) => s.replace(/​/g, ''));
     this.container.classList.add('block-editor');
     this.onContainerClick = this.onContainerClick.bind(this);
     this.container.addEventListener('click', this.onContainerClick);
@@ -104,8 +129,8 @@ export class BlockInput implements EditorAdapter {
 
     const textSpan = document.createElement('span');
     textSpan.className = 'block-text';
-    // Strip ZWSP placeholder so empty blocks show as truly empty
-    textSpan.textContent = (node.text ?? '').replace(/\u200B/g, '');
+    // Strip empty-paragraph sentinel so empty blocks show as truly empty
+    textSpan.textContent = this.stripParagraphSentinels(node.text ?? '');
     el.appendChild(textSpan);
 
     el.addEventListener('click', (e) => {
@@ -235,8 +260,8 @@ export class BlockInput implements EditorAdapter {
     if (!node || !div) return;
 
     div.appendChild(ta);
-    // Strip ZWSP placeholder (inserted by InsertBlockAfter for empty blocks)
-    ta.value = (node.text ?? '').replace(/\u200B/g, '');
+    // Strip empty-paragraph sentinel (inserted by InsertBlockAfter for empty blocks)
+    ta.value = this.stripParagraphSentinels(node.text ?? '');
 
     // Match font from the block div
     const style = getComputedStyle(div);
@@ -285,7 +310,7 @@ export class BlockInput implements EditorAdapter {
     this.emit({
       type: 'CommitEdit',
       node_id: this.activeBlockId,
-      value: ta.value.replace(/\u200B/g, ''),
+      value: this.stripParagraphSentinels(ta.value),
     });
 
     // Re-sync text span under the textarea

@@ -187,19 +187,26 @@ fn compute_insert_block_after(
     None => return Err("node not found in source map")
   }
   let insert_pos = range.end
-  // Insert "\n\u200B\n" to create a visible empty paragraph.
+  // Insert "\n<sentinel>\n" to create a visible empty paragraph.
   // The zero-width space gives the parser a real token to produce a ProjNode,
-  // so BlockInput can render and focus the new block. ZWSP is stripped at:
+  // so BlockInput can render and focus the new block. The sentinel is stripped at:
   //   - markdown_export_text() (FFI export boundary — raw mode)
-  //   - block-input.ts (TS display/edit/commit — 3 sites)
+  //   - BlockInput.stripParagraphSentinels (TS display/edit/commit, sourced
+  //     from this FFI's markdown_empty_paragraph_sentinel accessor)
   //   - compute_merge_with_previous (on block merge)
-  // Known minor gap: MarkdownPreview renders node.text as-is (ZWSP invisible
+  // Known minor gap: MarkdownPreview renders node.text as-is (sentinel invisible
   // in HTML, but could leak on copy-paste from preview).
   // Long-term fix: migrate to Container per-block text (empty block = empty text).
   Ok(
     Some(
       (
-        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n\u200B\n" }],
+        [
+          SpanEdit::{
+            start: insert_pos,
+            delete_len: 0,
+            inserted: "\n" + @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n",
+          },
+        ],
         FocusHint::MoveCursor(position=insert_pos + 1),
       ),
     ),
@@ -315,8 +322,12 @@ fn compute_merge_with_previous(
         None => return Err("previous node not in source map")
       }
   }
-  // Strip ZWSP placeholder (from InsertBlockAfter empty blocks)
-  let clean_text = if curr_text == "\u200B" { "" } else { curr_text }
+  // Strip empty-paragraph sentinel placeholder (from InsertBlockAfter)
+  let clean_text = if @md_sentinel.is_empty_paragraph_text(curr_text) {
+    ""
+  } else {
+    curr_text
+  }
   // The delete span covers: previous block's trailing newline, blank-line
   // separator, current block's prefix + text + trailing newline. Always
   // append \n to restore the proper \n\n block separator with the next block.

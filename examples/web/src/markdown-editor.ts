@@ -5,6 +5,7 @@ import { BlockInput } from '@canopy/editor-adapter/block-input';
 import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
 import '@canopy/editor-adapter/block-input.css';
 import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
+import { stripParagraphSentinels } from './markdown-sentinels';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,7 +62,7 @@ const modeTabs = document.querySelectorAll<HTMLButtonElement>('.mode-tab');
 // Adapters
 // ---------------------------------------------------------------------------
 
-const blockInput = new BlockInput(blockContainer);
+const blockInput = new BlockInput(blockContainer, { stripParagraphSentinels });
 const preview = new MarkdownPreview(previewContainer);
 
 // ---------------------------------------------------------------------------

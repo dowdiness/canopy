@@ -78,7 +78,7 @@ fn is_zwsp_sentinel(block : @markdown.Block) -> Bool {
     Paragraph(inlines) =>
       inlines.length() == 1 &&
       (match inlines[0] {
-        Text(s) => s == "\u200B"
+        Text(s) => @md_sentinel.is_empty_paragraph_text(s)
         _ => false
       })
     _ => false
