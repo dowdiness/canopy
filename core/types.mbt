@@ -155,8 +155,7 @@ pub(all) enum GenericTreeOp {
 pub impl Show for GenericTreeOp with output(self, logger) {
   let label = match self {
     Select(node_id~) => "Select(\{node_id.short()})"
-    SelectRange(start~, end~) =>
-      "SelectRange(\{start.short()}..\{end.short()})"
+    SelectRange(start~, end~) => "SelectRange(\{start.short()}..\{end.short()})"
     StartEdit(node_id~) => "StartEdit(\{node_id.short()})"
     CommitEdit(node_id~, new_value~) =>
       "CommitEdit(\{node_id.short()} «\{escape_for_show(new_value)}»)"
@@ -165,8 +164,7 @@ pub impl Show for GenericTreeOp with output(self, logger) {
     StructuralEdit(node_id~) => "StructuralEdit(\{node_id.short()})"
     StructuralEditKeepSelected(node_id~) =>
       "StructuralEditKeepSelected(\{node_id.short()})"
-    InsertChild(parent~, index~) =>
-      "InsertChild(\{parent.short()}, \{index})"
+    InsertChild(parent~, index~) => "InsertChild(\{parent.short()}, \{index})"
     StartDrag(node_id~) => "StartDrag(\{node_id.short()})"
     DragOver(target~, position~) =>
       "DragOver(\{target.short()}, \{drop_position_label(position)})"
