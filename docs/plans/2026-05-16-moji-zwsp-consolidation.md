@@ -93,12 +93,19 @@ Out:
   `property.mbt`.
 - `DerivedCoreProperties.txt` is already loaded for InCB. Unicode 15.1
   ships **27** `Default_Ignorable_Code_Point` ranges in that file. InCB
-  is parsed by a one-off block in the generator that reads the *second*
-  property column; the DCP `Default_Ignorable_Code_Point` rows use the
-  *first* property column, so the generator needs a separate
+  is parsed by a one-off manual block in the generator (not via
+  `parse_property_file`) because `InCB` has three sub-values
+  (`Consonant` / `Extend` / `Linker`) keyed off the *second* property
+  column after filtering the first column to `InCB`, and the helper
+  only returns a single property dimension per call.
+  `Default_Ignorable_Code_Point` is a single-value property — the row
+  format is `<range> ; Default_Ignorable_Code_Point` with no
+  sub-value — so a clean
   `parse_property_file(dcp_path, {"Default_Ignorable_Code_Point"}, prop_index=0)`
-  pass — not a reuse of the InCB parse path. See Step 1a Item 1 for the
-  concrete change.
+  call works without modification. See Step 1a Item 1 for the concrete
+  change. Verified: the helper signature
+  `parse_property_file(path, accepted_props, prop_index=0)` is already
+  in the generator (`lib/moji/scripts/gen_property_tables.py:27`).
 - Adding a new predicate is one entry in `table_specs` + one `pub fn` in
   `property.mbt`. The table-generator pattern already handles "extract one
   named property and emit a `Bool` lookup." See the `incb_consonant` /
@@ -171,12 +178,15 @@ Out:
 Add the property to moji's generator and public API.
 
 1. Edit `lib/moji/scripts/gen_property_tables.py`:
-   - Add a new parse pass:
-     `parse_property_file(dcp_path, {"Default_Ignorable_Code_Point"}, prop_index=0)`.
-     Do **not** try to reuse the InCB parse path — InCB reads property
-     column 2; `Default_Ignorable_Code_Point` lives in column 1, so the
-     generator needs a separate call.
-   - Emit a `table_default_ignorable_code_point` spec.
+   - Add a new parse pass beside the existing four
+     (`gcb`, `wb`, `emoji`, `incb`):
+     `dcp = parse_property_file(dcp_path, {"Default_Ignorable_Code_Point"}, prop_index=0)`.
+     Do **not** reuse the InCB manual block — that block exists because
+     InCB has three sub-values keyed off column 2 after filtering
+     column 1 = "InCB". `Default_Ignorable_Code_Point` is a flat
+     single-value property and the standard helper handles it.
+   - Append a `table_default_ignorable_code_point` entry to the
+     `table_specs` list around line 162 of the generator.
 2. Run `python3 lib/moji/scripts/gen_property_tables.py` to regenerate
    `property_tables.mbt`. Sanity-check the emitted table has 27 ranges
    (Unicode 15.1 count).
@@ -338,7 +348,12 @@ that owns its build config; the adapter receives the strip function as
 an option.
 
 1. **In `adapters/editor-adapter/block-input.ts`:**
-   - Add an option to `BlockInput`:
+   - Today the class declares
+     `constructor(container: HTMLElement)`. Extend it to
+     `constructor(container: HTMLElement, opts: BlockInputOptions = {})`.
+     The defaulted second argument keeps all existing callers
+     (`new BlockInput(container)`) compiling unchanged.
+   - Add the options interface:
      ```ts
      export interface BlockInputOptions {
        /** If provided, used to strip empty-paragraph sentinel codepoints
@@ -348,10 +363,16 @@ an option.
        stripParagraphSentinels?: (s: string) => string
      }
      ```
-   - Default the option to `(s) => s.replace(/​/g, '')` so existing
-     callers continue to work unchanged.
-   - Replace the three inline `.replace(/​/g, '')` sites with
-     `this.opts.stripParagraphSentinels(...)`.
+   - Store the resolved strip function (with the fallback applied) on
+     `this`:
+     ```ts
+     private stripParagraphSentinels: (s: string) => string
+     // ... in the constructor:
+     this.stripParagraphSentinels =
+       opts.stripParagraphSentinels ?? ((s) => s.replace(/​/g, ''))
+     ```
+   - Replace the three inline `.replace(/​/g, '')` sites (lines
+     108, 239, 288) with `this.stripParagraphSentinels(...)`.
 2. **Add `examples/web/src/markdown-sentinels.ts`:**
    ```ts
    import { markdown_empty_paragraph_sentinel } from "@moonbit/crdt-markdown"
