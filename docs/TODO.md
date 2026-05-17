@@ -284,13 +284,19 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 15. Editor Framework Decoupling
 
-- [ ] Route inspector kind-labels through `Show`. *Part of Inspector traceability workstream.*
+- [x] Route inspector kind-labels through `Show`. *Part of Inspector traceability workstream.* Shipped 2026-05-17 (PRs #277, #278).
   Why: `examples/ideal/main/view_outline.mbt::kind_of()` and `view_inspector.mbt` each implement their own kind→label classifier, hardcoding lambda-specific syntax ("λ" prefix, "App", "let", "if") in framework views. Adding a new language requires editing per-view classifiers. Existing `Show` impls on `core/proj_node.mbt::ProjNode[T]`, `core/types.mbt::GenericTreeOp`, and `core/types.mbt::SpanEdit` are stubs delegating to `@debug.to_string` (verbose dump, not a short label) with no consumers.
-  Exit:
+  Exit (as originally drafted):
   - Tree-row labels in `view_outline` use `node.to_string()` — consumes real `Show for ProjNode[T]` producing e.g. `"#9 App [25..47]"`.
   - Kind chips in `view_inspector` use `node.kind.to_string()` — consumes existing `Show for Term`/`JsonValue` (already real, no stubs) producing e.g. `"App"`.
   - `view_outline::kind_of()` and any duplicate per-view classifier deleted.
   - Adding a new language touches only the language's `Show for Kind` impl, not framework views.
+
+  As shipped (see `docs/plans/2026-05-16-show-unification.md` for the trace):
+  - Real `Show` impls landed for `SpanEdit`/`GenericTreeOp`/`ProjNode[T]`/`InteractiveTreeNode[T]` (PR #277), but `view_outline` tree-row body keeps `node.label` — the `"#9 App [25..47]"` form is debug output for inspectors/logs, not the navigation tree.
+  - Inspector chip uses `@loomcore.Renderable::kind_tag(node.kind)` (typed kind tag) rather than `node.kind.to_string()` (PR #278); same end-state for the kind→label classifier collapse, different mechanism.
+  - `view_outline::kind_of()` deleted; CSS class derives from `term_css_class(node.kind)` in `lang/lambda/proj/`.
+  - Adding a new language requires a `Renderable` impl (already required) plus an optional language-specific `term_css_class` for accent colors — framework views unchanged.
 
 - [ ] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Why: zero dependency on editor concepts. Self-contained collaboration primitive with own binary protocol, encoding, and timeout logic.

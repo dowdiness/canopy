@@ -7,6 +7,24 @@ Patch + Collab panels (TODO §9) by making `ProjNode`/`GenericTreeOp`/`SpanEdit`
 debug-friendly and routing the inspector chip through the existing
 `Renderable::kind_tag` instead of a label-string parser.
 
+## Status — Task 1 shipped 2026-05-17 (PRs #277, #278)
+
+- PR #277 — `feat(core,projection): real Show on editor-infrastructure
+  types`. Real `Show` impls landed for `SpanEdit`, `GenericTreeOp`,
+  `ProjNode[T : Renderable]`, and `InteractiveTreeNode[T : Renderable]`
+  with the escape helper and inspect-test coverage from Steps 1–5 below.
+- PR #278 — `feat(ideal,lang/lambda/proj): route inspector kind chip
+  through Renderable`. `term_css_class` plus the `view_outline` /
+  `view_inspector` migration and CSS additions from Steps 6–13 below.
+- TODO §15 item 1 is checked. The remaining inspector-workstream
+  deliverables (Intent + Patch panels, SourceMap wiring, Collab panel)
+  are unblocked and tracked in [[project_inspector_traceability_workstream]].
+- Tasks 2 (`pretty_unparse` free function) and 3 (`Canonical` companion
+  trait) are still open; see "Sequencing context" below.
+
+The trace below describes the plan as written before implementation and
+is retained as the design record.
+
 ## Sequencing context
 
 Aligned on the invasiveness ladder:
