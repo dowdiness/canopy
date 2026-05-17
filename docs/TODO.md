@@ -168,12 +168,23 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `Module` AST supports `ModuleItem` in parser already, but `FlatProj` storage change caused 2× regression from MoonBit enum boxing.
   Alternative: add helper methods on existing `FlatProj` for interleaved views. Decision pending in `docs/decisions-needed.md`.
 
-- [ ] Inspector — Intent + Patch panels. *Part of Inspector traceability workstream.*
-  Why: existing inspector shows the State layer (ProjNode tree, via `view_outline` + `view_inspector`) and the CRDT-op layer (Lamport-version causal graph, via `view_history`). The layers between them — user actions (`GenericTreeOp`) and text patches (`SpanEdit`) — are invisible. These are exactly what's needed for debugging "why did this edit produce that text," teaching the projection→patch translation when bringing up a new language, and reproducing collaborative bugs from clean traces. Should consume §15's `Show`-unification work when both are implemented (TODO 2 can ship first with ad-hoc rendering, but that deepens the debt §15 removes).
+- [x] Inspector — Intent panel. *Part of Inspector traceability workstream.* Shipped in PR #293 (2026-05-17).
+  Op Log tab in `view_bottom.mbt` renders `Model.intent_log : Array[String]` (cap 50), pushed from all four structural-edit dispatch sites after `apply_lambda_tree_edit` succeeds. Two row formats coexist:
+  - `TreeEditOp.to_generic().to_string()` for direct-apply paths (`apply_structural_edit_request`, `execute_action`, `OutlineStructuralEdit`)
+  - `"{op}(node={id})"` ad-hoc label for the TS-applied `EditorStructuralEdit` path (the typed `TreeEditOp` is already consumed by `handle_structural_intent` FFI before MoonBit sees the message; reconstruction would duplicate the op-string→TreeEditOp dispatch from `apply_structural_edit_request`).
+
+- [ ] Inspector — Patch panel. *Part of Inspector traceability workstream.*
+  Why: same motivation as the Intent panel — the layer between user action and CRDT op is currently invisible. The Patch panel surfaces `SpanEdit`s with back-reference to the producing `GenericTreeOp`.
   Exit:
-  - Intent panel: scrollable log of recent `GenericTreeOp`s, each row uses `op.to_string()` (verb-first label like `"Drop(#11→#12 After)"`).
-  - Patch panel: scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp`, each row uses `edit.to_string()` (e.g. `"@25 -3 +«add 3 5»"`).
-  - Both panels live in `view_bottom.mbt` (new tab) or a new view file alongside outline/inspector/history.
+  - Scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp`, each row uses `edit.to_string()` (e.g. `"@25 -3 +«add 3 5»"`).
+  - Lives in `view_bottom.mbt` as a new tab (sits alongside the shipped Op Log / Intent panel).
+
+- [ ] Inspector — unify Op Log label format across direct-apply and FFI paths.
+  Why: PR #293 left two row shapes in `Model.intent_log` (`TreeEditOp.to_generic().to_string()` vs `"{op}(node={id})"`). Minor UX inconsistency; distinguishable but not ideal once the panel becomes a debugging surface.
+  Exit: rebuild a `TreeEditOp` in the `EditorStructuralEdit` arm using `apply_structural_edit_request`'s op-string dispatch (extract the `"WrapInLambda" | "Delete" | ...` match into a helper), then route through `push_intent`. `push_intent_label` can stay for cases where rebuilding is genuinely impossible.
+
+- [ ] Inspector — guard `view_op_log` allocation when bottom panel collapsed.
+  Why: PR #293 gated the heavy DOT/SVG pipeline (`render_history_html` / `render_graphviz_html`) on `model.workspace.bottom_visible`, but `view_op_log` still allocates up to 50 Html nodes per render even while the panel is hidden via CSS. Sub-millisecond today; revisit if MAX_INTENT_LOG grows past ~500 or if profiling shows hot.
 
 - [ ] Inspector — Collaboration panel. *Part of Inspector traceability workstream.*
   Why: in a collaborative projectional editor, the connected-peers list, sync status, ephemeral broadcasts (drag state, presence updates), and sync errors are invisible from the main editor surface. Debugging "peer A and peer B disagree on text," "why didn't my drag preview show," or "sync stalled" requires a panel surfacing the collab-layer state. Stub `Show` impls already exist on the relevant types (`PeerCursor`, `PeerPresence`, `PresenceStatus`, `SyncStatus`, `SyncMessage`, `SyncErrorReason`, `DragState`, `EditModeState`, `EphemeralNamespace`, `EphemeralValue`, `EphemeralEventTrigger`) but currently delegate to `@debug.to_string` (verbose dump, not user-facing labels).
