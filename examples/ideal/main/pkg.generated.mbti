@@ -55,6 +55,8 @@ pub fn handle_structural_intent(Int, String, String, Int, String) -> String
 
 pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
 
+pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool
+
 pub fn handle_undo(Int) -> Bool
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
@@ -120,6 +122,7 @@ pub struct Model {
   drag_source : @core.NodeId?
   drop_target_id : @core.NodeId?
   drop_position : @core.DropPosition?
+  intent_log : Array[String]
 }
 
 pub enum Msg {

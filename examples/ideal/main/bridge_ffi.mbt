@@ -97,14 +97,6 @@ extern "js" fn js_take_sync_status() -> String =
   #| }
 
 ///|
-/// Set innerHTML of an element by ID. Used for Graphviz SVG rendering.
-extern "js" fn js_set_inner_html(element_id : String, html : String) -> Unit =
-  #| function(id, html) {
-  #|   var el = document.getElementById(id);
-  #|   if (el) el.innerHTML = html;
-  #| }
-
-///|
 /// Move keyboard focus to an element by ID. Used by the bottom tab strip
 /// to follow roving tabindex after arrow-key navigation. Silently no-ops
 /// if the element isn't in the DOM.
