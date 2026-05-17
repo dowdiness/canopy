@@ -683,6 +683,38 @@ canopy-editor {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Op log tab (Intent panel — §9.2 inspector traceability) ─ */
+
+.op-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.op-log-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  align-items: baseline;
+}
+
+.op-log-index {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.op-log-intent {
+  font-size: var(--text-small);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
 /* ── Graphviz tab ───────────────────────────────────────── */
 
 /*

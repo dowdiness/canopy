@@ -59,6 +59,18 @@ fn init_model() -> Model {
     drag_source: None,
     drop_target_id: None,
     drop_position: None,
+    intent_log: [],
+  }
+}
+
+///|
+const MAX_INTENT_LOG = 50
+
+///|
+fn push_intent(model : Model, op : @lambda_edits.TreeEditOp) -> Unit {
+  model.intent_log.push(op.to_generic().to_string())
+  while model.intent_log.length() > MAX_INTENT_LOG {
+    model.intent_log.remove(0) |> ignore
   }
 }
 
@@ -244,6 +256,7 @@ fn apply_structural_edit_request(
     "Delete" => @lambda_edits.Delete(node_id=nid)
     _ => return (none, model)
   }
+  push_intent(model, tree_op)
   match
     @lambda.apply_lambda_tree_edit(
       model.editor,
@@ -471,19 +484,10 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Bottom => { ..ws, bottom_visible: !ws.bottom_visible }
       }
       let new_model = { ..model, workspace, }
-      // Reopening the bottom panel must refresh the active tab's container,
-      // since per-tab cmds bail out while hidden — without this, edits made
-      // while collapsed leave a stale SVG when the panel comes back.
-      let cmd = match panel {
-        Bottom =>
-          if workspace.bottom_visible {
-            bottom_render_cmd(new_model)
-          } else {
-            none
-          }
-        _ => none
-      }
-      (cmd, new_model)
+      // Bottom-panel HTML is now mounted through rabbita's vdom (see
+      // `view_bottom_content`), so opening/closing the panel re-renders
+      // it from scratch — no separate refresh command needed.
+      (none, new_model)
     }
     DismissPanels => {
       let ws = model.workspace
@@ -492,11 +496,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     SelectBottomTab(tab) => {
       let new_model = { ..model, bottom_tab: tab }
-      let cmd = @rabbita.batch([
-        bottom_render_cmd(new_model),
-        bottom_tab_focus_cmd(tab),
-      ])
-      (cmd, new_model)
+      (bottom_tab_focus_cmd(tab), new_model)
     }
     StructuralEditRequested(op~, node_id~) => {
       let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
@@ -539,10 +539,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if did_undo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.batch([
-          @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
-          bottom_render_cmd(new_model),
-        ])
+        let cmd = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
         (cmd, new_model)
       } else {
         (none, model)
@@ -553,10 +550,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if did_redo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.batch([
-          @rabbita.effect(fn() { js_sync_and_broadcast(text) }),
-          bottom_render_cmd(new_model),
-        ])
+        let cmd = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
         (cmd, new_model)
       } else {
         (none, model)
@@ -566,10 +560,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       model.editor.set_text(example_text)
       let new_model = refresh(model)
       let text = new_model.editor.get_text()
-      let cmd = @rabbita.batch([
-        @rabbita.effect(fn() { js_reconcile_editor_with_text(text) }),
-        bottom_render_cmd(new_model),
-      ])
+      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
       (cmd, new_model)
     }
     OutlineNodeClicked(node_id) => {
@@ -630,7 +621,8 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         { ..model, selected_node: new_selected, outline_state, highlight_set },
       )
     }
-    OutlineStructuralEdit(tree_op) =>
+    OutlineStructuralEdit(tree_op) => {
+      push_intent(model, tree_op)
       match
         @lambda.apply_lambda_tree_edit(
           model.editor,
@@ -678,6 +670,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         Err(_) => (none, model)
       }
+    }
     OpenActionOverlayFromOutline => {
       let node_id_str = match model.selected_node {
         Some(s) => s
@@ -843,6 +836,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             target=target_id,
             position~,
           )
+          push_intent(model, tree_op)
           match
             @lambda.apply_lambda_tree_edit(
               model.editor,
@@ -872,11 +866,8 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       // Just refresh the outline.
       js_perf_begin("editorTextChangedTotal")
       let new_model = refresh(model)
-      js_perf_begin("bottomRenderCmd")
-      let cmd = bottom_render_cmd(new_model)
-      js_perf_end("bottomRenderCmd")
       js_perf_end("editorTextChangedTotal")
-      (cmd, new_model)
+      (none, new_model)
     }
     EditorNodeSelected(node_id) => {
       let resolved_node_id = if node_id == "" {
@@ -912,7 +903,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           next_timestamp: model.next_timestamp + 1,
         })
-        (bottom_render_cmd(new_model), new_model)
+        (none, new_model)
       }
     }
   }

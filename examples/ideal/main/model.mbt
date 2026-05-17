@@ -77,4 +77,7 @@ pub struct Model {
   drag_source : @canopy_core.NodeId?
   drop_target_id : @canopy_core.NodeId?
   drop_position : @canopy_core.DropPosition?
+  // Inspector traceability: rolling log of structural intents (most recent last).
+  // Mutated in place; capped to MAX_INTENT_LOG entries to keep render cheap.
+  intent_log : Array[String]
 }

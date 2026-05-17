@@ -1,9 +1,9 @@
 ///|
-/// Render-cache for the bottom-panel SVG tabs. The view-update loop
-/// re-issues `bottom_render_cmd` on every Model change; without a cache,
-/// every keystroke would re-walk the snapshot, re-emit DOT, re-parse,
-/// re-layout, and re-render the SVG — work proportional to N ops and
-/// dominated by Sugiyama layout (O(V·E)).
+/// Render-cache for the bottom-panel SVG tabs. The view function runs
+/// on every Model change; without a cache, every keystroke would
+/// re-walk the snapshot, re-emit DOT, re-parse, re-layout, and re-render
+/// the SVG — work proportional to N ops and dominated by Sugiyama
+/// layout (O(V·E)).
 ///
 /// Cache keys on `(editor_identity, op_count, frontier_hash)`. Identity
 /// distinguishes separately-constructed `SyncEditor`s in the same process
@@ -114,18 +114,18 @@ fn render_dot_to_svg(dot : String) -> String {
 }
 
 ///|
-/// Create a command that renders the Graphviz SVG into the container.
-/// Must run after the DOM element exists (use as AfterRender or after flush).
-fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
-  if model.bottom_tab != Graphviz || !model.workspace.bottom_visible {
-    return @rabbita.none
-  }
+/// Render the Graphviz tab's HTML (cached). Consumed by
+/// `view_bottom_content` via `Attrs::inner_html` so the raw SVG lives
+/// inside rabbita's vdom rather than being painted in via a side-effect.
+/// Mounting through vdom is what keeps tab-switching consistent: when
+/// the user moves to another tab, rabbita's diff sees the panel element
+/// transition from `<section>` (SVG panels) to `<div>` (everything
+/// else), removes the old subtree wholesale, and rebuilds — so stale
+/// SVG can't leak past the diff and block sibling click handlers.
+fn render_graphviz_html(model : Model) -> String {
   let snap = model.editor.causal_snapshot()
   let key = render_cache_key(model.editor.identity(), snap)
-  // Cache the wrapped HTML, not the bare SVG — the role="img" wrapper is
-  // a constant cost we want to pay once. Mirrors the History tab so screen
-  // readers see the same shape on either panel.
-  let html = if cache_hit(graphviz_cache, key) {
+  if cache_hit(graphviz_cache, key) {
     graphviz_cache.html
   } else {
     let dot = @lambda.get_lambda_dot_resolved(model.editor)
@@ -136,26 +136,16 @@ fn graphviz_render_cmd(model : Model) -> @rabbita.Cmd {
     cache_store(graphviz_cache, key, wrapped)
     wrapped
   }
-  // AfterRender ensures the container div exists in the DOM before setting innerHTML.
-  // We always write — cache hit only skips the upstream resolve+layout cost.
-  @rabbita_cmd.raw_effect(
-    fn(_) { js_set_inner_html("canopy-graphviz-container", html) },
-    kind=@rabbita_cmd.after_render,
-  )
 }
 
 ///|
-/// Render the causal-graph history view (legend + SVG) into the History
-/// tab's container. Mirrors `graphviz_render_cmd` — guarded on tab and
-/// visibility.
-fn history_render_cmd(model : Model) -> @rabbita.Cmd {
-  if model.bottom_tab != History || !model.workspace.bottom_visible {
-    return @rabbita.none
-  }
+/// Render the causal-graph History tab's HTML (legend + SVG, cached).
+/// See `render_graphviz_html` for the vdom-mount rationale.
+fn render_history_html(model : Model) -> String {
   let snap = model.editor.causal_snapshot()
   let me = model.editor.get_peer_id()
   let key = render_cache_key(model.editor.identity(), snap)
-  let html = if cache_hit(history_cache, key) {
+  if cache_hit(history_cache, key) {
     history_cache.html
   } else {
     let h = match render_history(snap, me) {
@@ -178,17 +168,6 @@ fn history_render_cmd(model : Model) -> @rabbita.Cmd {
     cache_store(history_cache, key, h)
     h
   }
-  @rabbita_cmd.raw_effect(
-    fn(_) { js_set_inner_html("canopy-history-container", html) },
-    kind=@rabbita_cmd.after_render,
-  )
-}
-
-///|
-/// Run the appropriate bottom-panel render command for the active tab.
-/// Each per-tab cmd self-guards on tab + visibility, so this just batches.
-fn bottom_render_cmd(model : Model) -> @rabbita.Cmd {
-  @rabbita.batch([graphviz_render_cmd(model), history_render_cmd(model)])
 }
 
 ///|
@@ -327,6 +306,70 @@ fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
 }
 
 ///|
+/// Render the History panel — wraps the cached HTML via `inner_html`.
+/// `<section>` (instead of `<div>`) is intentional: when the user
+/// switches to a non-SVG tab (Problems/OpLog/CrdtState — all `<div>`),
+/// the tag mismatch makes rabbita's diff issue a full remove + insert
+/// rather than patching in place. In-place patching would leave the
+/// raw SVG sitting under the new tab's children, because rabbita's
+/// `remove_property("innerHTML")` is a `delete element.innerHTML` which
+/// is a no-op for prototype accessors.
+/// The `inner_html` call is XSS-vulnerable in general; the input here
+/// is built from our own SVG renderer + `escape_html_string` for the
+/// aria-label, never user-supplied text.
+#warnings("-alert_xss_vulnerable")
+fn view_history_panel(model : Model) -> Html {
+  @html.section(
+    class="bottom-content history-content",
+    attrs=bottom_panel_attrs(History).inner_html(render_history_html(model)),
+    ([] : Array[Html]),
+  )
+}
+
+///|
+/// Render the Graphviz panel. See `view_history_panel` for why this is
+/// a `<section>` with `inner_html` rather than a `<div>` with vdom
+/// children.
+#warnings("-alert_xss_vulnerable")
+fn view_graphviz_panel(model : Model) -> Html {
+  @html.section(
+    class="bottom-content graphviz-content",
+    attrs=bottom_panel_attrs(Graphviz).inner_html(render_graphviz_html(model)),
+    ([] : Array[Html]),
+  )
+}
+
+///|
+fn view_op_log(model : Model) -> Html {
+  let log = model.intent_log
+  if log.is_empty() {
+    @html.div(class="bottom-content", attrs=bottom_panel_attrs(OpLog), [
+      @html.span(class="no-problems", [
+        @html.text("No structural edits yet — try the action overlay or drag."),
+      ]),
+    ])
+  } else {
+    // Most recent first; index labels reflect ordinal across the visible window.
+    let n = log.length()
+    let items : Array[Html] = Array::new(capacity=n)
+    for i in 0..<n {
+      let label = log[n - 1 - i]
+      items.push(
+        @html.div(class="op-log-row", [
+          @html.span(class="op-log-index", [@html.text("\{n - i}.")]),
+          @html.span(class="op-log-intent", [@html.text(label)]),
+        ]),
+      )
+    }
+    @html.div(
+      class="bottom-content op-log",
+      attrs=bottom_panel_attrs(OpLog),
+      items,
+    )
+  }
+}
+
+///|
 fn view_problems(model : Model) -> Html {
   let errors = model.editor.get_errors()
   if errors.is_empty() {
@@ -351,10 +394,7 @@ fn view_problems(model : Model) -> Html {
 fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
-    OpLog =>
-      @html.div(class="bottom-content", attrs=bottom_panel_attrs(OpLog), [
-        @html.span(class="no-problems", [@html.text("Op log coming soon")]),
-      ])
+    OpLog => view_op_log(model)
     CrdtState =>
       @html.div(
         class="bottom-content crdt-state",
@@ -380,18 +420,8 @@ fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
           ]),
         ],
       )
-    History =>
-      @html.div(
-        class="bottom-content history-content",
-        attrs=bottom_panel_attrs(History),
-        [@html.text("")],
-      )
-    Graphviz =>
-      @html.div(
-        class="bottom-content graphviz-content",
-        attrs=bottom_panel_attrs(Graphviz),
-        [@html.text("")],
-      )
+    History => view_history_panel(model)
+    Graphviz => view_graphviz_panel(model)
   }
   @html.fragment([view_bottom_tabs(dispatch, model), content])
 }

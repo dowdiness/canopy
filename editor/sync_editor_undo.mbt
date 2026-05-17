@@ -107,7 +107,9 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
 pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
   let old_source = self.doc.text()
   try {
-    self.undo.undo(self.doc)
+    if !self.undo.undo(self.doc) {
+      return false
+    }
     let new_source = self.doc.text()
     self.adjust_cursor()
     self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
@@ -122,7 +124,9 @@ pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
 pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
   let old_source = self.doc.text()
   try {
-    self.undo.redo(self.doc)
+    if !self.undo.redo(self.doc) {
+      return false
+    }
     let new_source = self.doc.text()
     self.adjust_cursor()
     self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
@@ -142,12 +146,15 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
   let success = try {
-    self.undo.undo(self.doc)
-    let new_source = self.doc.text()
-    self.adjust_cursor()
-    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-    self.mark_dirty()
-    true
+    if !self.undo.undo(self.doc) {
+      false
+    } else {
+      let new_source = self.doc.text()
+      self.adjust_cursor()
+      self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+      self.mark_dirty()
+      true
+    }
   } catch {
     _ => false
   }
@@ -168,12 +175,15 @@ pub fn[T : Eq] SyncEditor::redo_and_export(
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
   let success = try {
-    self.undo.redo(self.doc)
-    let new_source = self.doc.text()
-    self.adjust_cursor()
-    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-    self.mark_dirty()
-    true
+    if !self.undo.redo(self.doc) {
+      false
+    } else {
+      let new_source = self.doc.text()
+      self.adjust_cursor()
+      self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+      self.mark_dirty()
+      true
+    }
   } catch {
     _ => false
   }
