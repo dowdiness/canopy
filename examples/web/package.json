@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@canopy/editor-adapter": "file:../../adapters/editor-adapter",
-    "ws": "^8.20.0"
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
