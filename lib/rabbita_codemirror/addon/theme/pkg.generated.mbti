@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita_codemirror/addon/theme"
+
+import {
+  "dowdiness/rabbita_codemirror/js",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Theme(@js.Extension)
+pub fn Theme::to_extension(Self) -> @js.Extension
+
+// Type aliases
+
+// Traits
+

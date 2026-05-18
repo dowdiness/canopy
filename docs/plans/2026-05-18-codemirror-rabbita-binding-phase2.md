@@ -616,6 +616,46 @@ across workspace-root and `examples/ideal`.
 
 ## Revision history
 
+**rev 3.5 (2026-05-19)** — Post-P2.2 ship (PR #297). Codex implemented
+the spec verbatim; three notable deviations + one pre-PR cleanup landed
+versus rev 3.4's handoff doc:
+(a) `lib/rabbita_codemirror/moon.pkg` carries `supported_targets = "js"`
+**in addition to** the `options(targets: { "*": [ "js" ] })` the handoff
+specified — required because `moonbit-community/rabbita/cmd` declares
+`supported_targets`, and MoonBit raises a package-target warning unless
+the consumer matches the form. Per-fn `#cfg(target="js")` annotations
+remain canonical for binding code; `supported_targets` is package-level
+belt-and-suspenders to silence the compatibility warning.
+(b) The MoonBit formatter rewrote `addon/{theme,keymap}` `to_extension`
+from free-function form (`fn to_extension(self : T)`) to qualified
+method form (`fn T::to_extension(self : T)`). Semantically identical
+callable surface (`theme.to_extension()` either way); the `.mbti`
+records the method form. No follow-up needed — Codex's pre-PR review
+confirmed the qualified form is the idiomatic post-deprecation shape.
+(c) `priv suberror CmListen` uses a positional `String` as its first
+field rather than the named `id : String` in the handoff doc — Codex's
+implementer flagged this as a MoonBit constraint on suberror payloads.
+The Codex reviewer pass corrected the framing: the canonical
+`rabbita/rabbita/websocket/listen.mbt` *also* uses a positional first
+field, so the original handoff's `id : String` was the deviation, not
+Codex's implementation. Future bindings should mirror the websocket
+positional-first form. The pattern still matches by position in
+`cm_sub_loader` and `update_tagger`.
+**Cleanup before PR:** removed two stale `#warnings("-deprecated_syntax")`
+annotations Codex left on `addon/{theme,keymap}/*.mbt`'s
+`to_extension` — Codex's review pass diagnosed them as referring to the
+*old* free-function `fn to_extension(self : T)` form that the formatter
+had already replaced, so the suppressions were no-ops. Removed; build
+still clean.
+**Other findings from Codex review (all PASS):** the double-dispose
+path on `update_disposable` after a sub-unload + later `unmount` is
+safe (the JS disposable closures guard with a `disposed` flag in
+`js/codemirror.mbt:283-290`); the listen-before-mount race recovers on
+the next re-render because the loader returns `None` and Rabbita re-fires
+on the next `diff_subs` pass; and the `Local` argument to
+`@sub.custom_sub` is the correct per-instance semantics for a binding
+that owns per-editor state.
+
 **rev 3.4 (2026-05-18)** — Pre-P2.2 dispatch, addon sequencing. The
 prior plan sequenced P2.2 (main API) → P2.3 (all five addon subpackages),
 but P2.2's `mount` and `set_theme`/`set_keymap` signatures already

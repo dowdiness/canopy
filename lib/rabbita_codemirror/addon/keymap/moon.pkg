@@ -1,0 +1,7 @@
+import {
+  "dowdiness/rabbita_codemirror/js" @js_ffi,
+}
+
+options(
+  targets: { "*": [ "js" ] },
+)

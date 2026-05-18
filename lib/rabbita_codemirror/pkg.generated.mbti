@@ -1,11 +1,45 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/rabbita_codemirror"
 
+import {
+  "dowdiness/rabbita_codemirror/addon/keymap",
+  "dowdiness/rabbita_codemirror/addon/theme",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/sub",
+}
+
 // Values
+pub fn insert(String, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool]) -> @sub.Sub
+
+pub fn mount(String, String, init_doc? : String, source? : String, initial_theme? : @theme.Theme?, initial_readonly? : Bool, initial_keymap? : @keymap.Keymap?, initial_line_numbers? : Bool, initial_line_wrapping? : Bool, on_mounted? : @cmd.Cmd, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn replace(String, Int, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_doc(String, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_keymap(String, @keymap.Keymap, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_line_numbers(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_line_wrapping(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_readonly(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_selection(String, SelRange, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_theme(String, @theme.Theme, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn unmount(String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
 // Errors
 
 // Types and methods
+pub struct SelRange {
+  from : Int
+  to : Int
+}
 
 // Type aliases
 
