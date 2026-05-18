@@ -161,10 +161,12 @@ bugs.
 **Status: DONE.** Vendored via submodule fork at `dowdiness/rabbita`,
 branch `patch/diff-subs-update-tagger`, SHA `1cf3dab`.
 `examples/ideal/moon.mod.json` switched to path dep. Workspace-root
-`moon test` 979/979 and `examples/ideal` 23/23 green. wbtest written;
-execution deferred to P2.2 (where the binding's own integration test
-exercises the same path end-to-end via `@sub.custom_sub` + a re-rendered
-tagger).
+`moon test` 979/979 and `examples/ideal` 23/23 green. The patch ships
+with its own whitebox test (`rabbita/tea_wbtest.mbt`) verifying
+`diff_subs` calls `update_tagger` on preserved keys. End-to-end
+verification at the binding level happens in P2.4's browser smoke
+(swap-tagger step) since the binding cannot replicate the framework
+test (see rev 3.3 in revision history).
 
 ### P2.1 — FFI layer (`lib/rabbita_codemirror/js/`)
 
@@ -215,10 +217,26 @@ tagger).
 **Owner.** Codex implements; Claude reviews newtype completeness and
 synchronous-applying invariant.
 
-### P2.2 — Public API + internal registry + sub loader (`lib/rabbita_codemirror/`)
+### P2.2 — Public API + internal registry + sub loader (`lib/rabbita_codemirror/`) + typed-addon scaffolds
 
-**Scope.** The public function-based API. Mirror websocket binding's
-shape exactly. Pure MoonBit, no `extern "js"`.
+**Scope.** The public function-based API plus the typed-extension
+scaffolds for the two addons that appear in the public API: `theme`
+and `keymap`. Mirror websocket binding's shape exactly. Pure MoonBit
+in `lib/rabbita_codemirror/` itself (no `extern "js"`); the typed
+addons live in `lib/rabbita_codemirror/addon/theme/` and
+`lib/rabbita_codemirror/addon/keymap/`, each importing only `js/`.
+
+**Why typed addons here, not deferred to P2.3.** `mount`'s public
+signature references `@theme.Theme` and `@keymap.Keymap`. Defining
+those types in P2.2 keeps the API contract concrete from the first
+public release rather than going through a stub→real type change.
+P2.3 expands the addons by adding factory constructors (`Theme::dark()`,
+etc.) and adds the typed Bool addons (`readonly`, `line_numbers`,
+`line_wrapping`) if they end up needing typed plug-in surfaces beyond
+the inline Bool params on `mount`/`set_*`. The scaffold-now-factories-
+later split keeps each PR's review scope small (P2.2 is the registry
++ sub loader; the addon code in P2.2 is only 5-10 lines per addon and
+trivially correctness-checked alongside its consumer).
 
 **Deliverables.**
 
@@ -286,6 +304,25 @@ pub fn listen(
 ) -> @sub.Sub
 ```
 
+**Addon scaffolds (in `lib/rabbita_codemirror/addon/theme/` and
+`lib/rabbita_codemirror/addon/keymap/`):**
+
+```moonbit
+// addon/theme/theme.mbt
+pub struct Theme(@js_ffi.Extension)
+pub fn to_extension(self : Theme) -> @js_ffi.Extension { self.0 }
+// No factories here — added in P2.3.
+
+// addon/keymap/keymap.mbt
+pub struct Keymap(@js_ffi.Extension)
+pub fn to_extension(self : Keymap) -> @js_ffi.Extension { self.0 }
+```
+
+Construction in P2.2 happens externally: consumers (and the P2.4 demo)
+build a `Theme` by wrapping an `@js_ffi.Extension` they got from
+`@js_ffi.raw_extension(value)`. P2.3 adds `Theme::dark()`,
+`Theme::light()`, `Theme::custom(...)`, and similar for `Keymap`.
+
 **Invariants.**
 - `editors` is mutable (one of two acceptable mutable-state cases in the
   skill: array literals in view, and binding-internal registries).
@@ -298,46 +335,82 @@ pub fn listen(
   line at the structural level: `let mut doc_tagger = doc`, capturing
   closures, `update_tagger` rebinding all three taggers. **Requires P2.0
   patch (done).**
+- Addon scaffolds import **only** `lib/rabbita_codemirror/js/` —
+  not `@cmd`, not `@sub`, not the main package. Each addon `.mbti`
+  shows exactly: the newtype, `to_extension`, and no `Compartment`
+  reference.
 
 **Verification.**
 - Workspace `moon check` + `moon test` clean.
-- Integration test in `lib/rabbita_codemirror/`: simulate a re-render with
-  a swapped tagger; assert new tagger receives events. This is the
-  practical verification of P2.0's patch — if this passes, both P2.0 and
-  the listen-loader work.
+- Grep-level structural mirror of `rabbita/rabbita/websocket/listen.mbt`:
+  - `grep -c 'priv suberror' lib/rabbita_codemirror/codemirror.mbt` → 1
+  - `grep -c '@sub.custom_sub' lib/rabbita_codemirror/codemirror.mbt` → 1
+  - `grep -n 'let mut.*_tagger' lib/rabbita_codemirror/codemirror.mbt` → 3 lines (doc/selection/focus)
+  - `grep -n 'update_tagger' lib/rabbita_codemirror/codemirror.mbt` → at least one occurrence inside `cm_sub_loader`
+  - `grep -rn 'Compartment\|@cmd\|@sub' lib/rabbita_codemirror/addon/` → empty (addons only import `js/`)
+- Claude code-reviews `cm_sub_loader` line-by-line against
+  `rabbita/rabbita/websocket/listen.mbt` to confirm the rebind shape
+  matches.
+- **End-to-end verification of `update_tagger` deferred to P2.4** (see
+  §P2.4 smoke step "swap tagger across re-render").
+
+Why no integration test at this layer: an in-package test would have to
+either (a) call `diff_subs` directly — but `diff_subs` is package-private
+to `moonbit-community/rabbita` and not exposed via `@sub`, or
+(b) call `cm_sub_loader` directly — but the loader body invokes
+`js_add_update_listener` which requires a real `CmView` and DOM. The
+P2.0 patch's own whitebox test (`rabbita/tea_wbtest.mbt`) already
+verifies the `diff_subs` mechanism at the framework level; this
+binding's job is to mirror the canonical pattern, and the mirror is
+verified by structural grep + code review + browser smoke (§P2.4).
 
 **Owner.** Codex implements; Claude reviews tagger rebind closure
 semantics specifically.
 
-### P2.3 — Addon payload types (`lib/rabbita_codemirror/addon/*`)
+### P2.3 — Addon factories + typed extensions (`lib/rabbita_codemirror/addon/*`)
 
-**Scope.** Five addons. Each is its own subpackage. Each imports only
-`js/`. Each exports its typed payload type + `to_extension` + (for the
-Compartment plumbing) `to_compartment_extension(compartment)` that
-returns `compartment.of(extension)` for mount-time wrapping.
+**Scope.** Build on the scaffolds landed in P2.2:
 
-**Deliverables per addon.**
+1. Add factory constructors to the existing `addon/theme/` and
+   `addon/keymap/` subpackages (`Theme::dark()`, `Theme::light()`,
+   `Theme::custom(...)`, plus keymap equivalents).
+2. **Re-evaluate** whether the three Bool-toggle addons (`readonly`,
+   `line_numbers`, `line_wrapping`) need their own typed subpackages.
+   Default position: **no** — they're consumed as `Bool` params in the
+   main package's `mount`/`set_*` signatures, and the main package's
+   implementation constructs the appropriate `@js_ffi.Extension`
+   internally. Add subpackages only if a typed-extension surface is
+   needed (e.g. composing with other addons, language-package plug-in
+   that wants to override the default keymap behavior).
+
+This is the Codex finding: the original "five addons, all symmetric"
+framing overstated symmetry. Theme/keymap are typed extension wrappers
+(part of the core public contract — every nontrivial editor sets them).
+The other three are flag-shaped. Codex's framing: see `rev 3.4` history.
+
+**Deliverables.**
 
 ```moonbit
-// addon/theme/
-pub struct Theme(@js_ffi.Extension)
+// addon/theme/theme.mbt — augmented from P2.2 scaffold
 pub fn dark() -> Theme
 pub fn light() -> Theme
-pub fn custom(...) -> Theme
-pub fn to_extension(Theme) -> @js_ffi.Extension
+pub fn custom(extension : @js_ffi.Extension) -> Theme
+// to_extension already shipped in P2.2
+
+// addon/keymap/keymap.mbt — augmented from P2.2 scaffold
+pub fn default_keymap() -> Keymap
+pub fn vim() -> Keymap   // if reachable via the CM6 ecosystem
+pub fn from_raw(extension : @js_ffi.Extension) -> Keymap
 ```
 
-Similar for `readonly`, `keymap`, `line_numbers`, `line_wrapping`. The
-root package P2.2 wires each addon into a Compartment slot at mount time.
-
-**Q5 plug-in.** Language packages (Lambda, Markdown, JSON) will plug in
-via the FFI's `raw_extension(@js.Value)` — they construct a CM6
-language extension on the JS side and wrap it. No addon required for
-plug-in to work; addons are only needed when reconfiguration is needed.
+**Q5 plug-in.** Language packages (Lambda, Markdown, JSON) plug in via
+the FFI's `raw_extension(@js.Value)` — they construct a CM6 language
+extension on the JS side and wrap it. No addon required for plug-in;
+addons are only needed when reconfiguration via Compartment is needed.
 
 **Verification.** Per-addon `.mbti` grep: `Compartment` absent. Each
-addon's `.mbti` shows exactly the payload type + `to_extension` and
-maybe one or two factory constructors.
+addon's `.mbti` shows the payload type + `to_extension` (shipped P2.2)
++ the new factory constructors.
 
 **Owner.** Codex implements; Claude reviews `.mbti` purity.
 
@@ -351,10 +424,14 @@ maybe one or two factory constructors.
   - `set_doc` button
   - `set_readonly` toggle (proves Compartment-backed reconfigure)
   - readout updated via `listen(... doc=emit(DocChanged))`
+  - "swap tagger" button: toggles between `DocChangedA(String)` and
+    `DocChangedB(String)` as the variant the listen sub emits — the
+    sub key stays constant so rabbita's `diff_subs` rebinds via
+    `update_tagger` rather than re-installing the sub
   - `unmount` button + verification that the editor's DOM is gone
 - `package.json`, `index.html`, Vite config under
   `examples/codemirror_demo/web/`.
-- README enumerating the five behaviors the spec verification asks for.
+- README enumerating the six behaviors the spec verification asks for.
 
 **Verification.**
 - `moon build --target js --release` clean.
@@ -364,6 +441,12 @@ maybe one or two factory constructors.
   3. "Set doc" button calls `set_doc` and CM6 contents reset.
   4. "Toggle readonly" flips in place — cursor preserved, no remount.
   5. "Unmount" removes the editor; rerunning "Mount" recreates it.
+  6. **Swap tagger across re-render** (verifies P2.0 + binding
+     end-to-end). Demo exposes a "swap tagger" button that toggles which
+     of two `DocChanged` variants the `listen` subscription dispatches.
+     After clicking: type → readout shows the *new* variant's payload,
+     not the old one. If this fails, either P2.0's patch regressed or
+     the binding's `update_tagger` rebind is broken.
 - Microbenchmark (deferred to P2.5 but scaffold in this PR): tracks
   per-keystroke `DocChanged → emit` latency, vs today's direct
   `handle_text_intent` call in `examples/ideal`.
@@ -507,7 +590,7 @@ output.
 |---|---|
 | Echo loop via stale TEA state | JS-side ref-cell, synchronous around `view.dispatch`. |
 | Binding/CRDT divergence | Resolved by construction: no binding-side doc. |
-| Tagger staleness | P2.0 patch (done); end-to-end verified by P2.2 integration test. |
+| Tagger staleness | P2.0 patch (done), framework-verified by `rabbita/tea_wbtest.mbt`; binding-level structural mirror checked at P2.2; end-to-end checked at P2.4 swap-tagger smoke step. |
 | Compartment leakage | Per-addon `.mbti` grep at P2.3 merge. |
 | Typing latency regression | Microbench in P2.4/P2.5. p50 budget >5ms triggers animation-frame batching in the loader. |
 | Multi-editor id collision in `editors` map | `mount(id, ...)` replaces on collision (matches websocket binding behavior). |
@@ -520,9 +603,9 @@ output.
 |---|---|---|---|
 | #0 | P2.0 (done) + plan docs + lib skeleton | n/a (committed locally) | submodule pointer, vendoring boundary |
 | #1 | P2.1 FFI layer | grep `js/` has no Rabbita imports | synchronous applying invariant, listener installer shape |
-| #2 | P2.2 public API + sub loader + integration test | grep no `extern "js"` outside `js/`; `priv suberror` count = 1; `@sub.custom_sub` count = 1 | tagger rebind closure correctness, `set_doc` no-op invariant |
-| #3 | P2.3 addons | per-addon `.mbti` no `Compartment` | addon isolation |
-| #4 | P2.4 minimal example | five-behavior checklist | demo correctness, manual smoke |
+| #2 | P2.2 public API + sub loader + theme/keymap scaffolds | grep no `extern "js"` outside `js/`; `priv suberror` count = 1; `@sub.custom_sub` count = 1; `let mut.*_tagger` count = 3; `Compartment`/`@cmd`/`@sub` absent under `addon/` | tagger rebind closure correctness vs websocket reference, `set_doc` no-op invariant, mount-replace semantics, addon `.mbti` purity |
+| #3 | P2.3 addon factories + Bool addon decision | per-addon `.mbti` no `Compartment`; factory constructors land on theme/keymap | addon isolation, Bool-toggle subpackage necessity |
+| #4 | P2.4 minimal example | six-behavior checklist (incl. swap-tagger) | demo correctness, manual smoke, P2.0 + binding end-to-end |
 | #5 | P2.5 ideal migration (behind flag) | E2E parity, microbenchmark | no perf regression, flag default = off |
 | #6 | flag flip + P2.6 cleanup | full §P2.6 verification | spec verification block green |
 
@@ -532,6 +615,43 @@ across workspace-root and `examples/ideal`.
 ---
 
 ## Revision history
+
+**rev 3.4 (2026-05-18)** — Pre-P2.2 dispatch, addon sequencing. The
+prior plan sequenced P2.2 (main API) → P2.3 (all five addon subpackages),
+but P2.2's `mount` and `set_theme`/`set_keymap` signatures already
+reference `@theme.Theme` / `@keymap.Keymap` — types defined in
+not-yet-created subpackages. Three options surfaced: (a) reorder
+P2.3-first, (b) bundle scaffolds in P2.2, (c) drop typed params from
+P2.2 and add them additively in P2.3. Codex (high-effort design
+opinion) favored **(b)**, flagging an under-weighted consideration:
+making the main package import `addon/theme` and `addon/keymap`
+elevates those addons to *core public contract*, not optional add-ons
+— this is fine for theme/keymap (every nontrivial editor sets them),
+which justifies their early inclusion. Adopted (b): P2.2 bundles the
+type-only scaffolds (`Theme(@js_ffi.Extension)` + `to_extension`, same
+for `Keymap`); P2.3 adds factory constructors (`Theme::dark()`, etc.)
+and re-evaluates whether `readonly`/`line_numbers`/`line_wrapping`
+need typed subpackages at all (default: no — they're consumed as
+`Bool` on `mount`/`set_*` signatures; subpackages added only if a
+typed-extension surface emerges as needed for plug-in composition).
+
+**rev 3.3 (2026-05-18)** — Pre-P2.2 dispatch. Removed the
+"integration test in `lib/rabbita_codemirror/`" line from §P2.2
+verification after a reachability audit of `rabbita/rabbita/sub/`:
+(a) `diff_subs` is package-private to `moonbit-community/rabbita` and
+not exported via `@sub`, so the test pattern from the P2.0 patch's own
+`rabbita/tea_wbtest.mbt` cannot be replicated downstream; (b) calling
+`cm_sub_loader` directly hits `js_add_update_listener` which requires
+a real `CmView` and DOM, so even whitebox-internal-to-binding is
+infeasible without deviating from the canonical websocket-binding
+shape. Replaced the integration test with structural grep + manual
+code-review-against-websocket-reference. End-to-end verification of
+`update_tagger` now lives in §P2.4's manual smoke as a sixth step
+("swap tagger across re-render"): if the new tagger fires after a
+sub-key-preserving payload swap, P2.0 + binding both work in browser.
+The P2.0 patch's own whitebox test already verifies `diff_subs`'s
+mechanism at the framework level — the binding doesn't need to
+re-verify it.
 
 **rev 3.2 (2026-05-18)** — Post-P2.1 PR feedback. Acted on two of Codex's
 review comments on #296 by reworking the loader / view-creation FFI:
