@@ -137,9 +137,13 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: the stale `feature/container-phase3-blockdoc-sync` branch only bumped the `rle` submodule pointer to v0.2.1. The actual consumer modules still pin `dowdiness/rle` 0.2.0, and rle 0.2.1 deprecates `Rle::new()` / `PrefixSums::new()`.
   Exit: `lib/btree`, `event-graph-walker`, and `order-tree` resolve the intended `dowdiness/rle` version, downstream code uses custom constructors such as `Rle()` / `PrefixSums()`, and CI passes.
 
-- [ ] Extend the aggregator-trim audit from `lang/{lambda,json}` (PR #265) to the rest of the canopy module.
-  Why: `moon ide analyze` flagged ~55 truly-unused `pub` fns across `core/`, `protocol/`, `projection/`, and `editor/` — the same drift pattern PR #265 fixed for the language facades. Higher caller-miss risk than #265 because these packages have many more dependents.
-  Exit: each candidate verified via cross-grep over `examples/{ideal,canvas,block-editor}/`, `ffi/*/moon.pkg`, and every in-repo importer (the example subprojects are separate `moon.mod.json` modules and are NOT visible to workspace-scoped `moon ide`). Either trimmed with rationale in commit message, or kept with a note explaining why it must remain public. `moon test` + every per-module test in `.github/workflows/ci.yml` still pass.
+- [x] Extend the aggregator-trim audit from `lang/{lambda,json}` (PR #265) to the rest of the canopy module.
+  Shipped across four PRs (2026-05-16):
+  - PR #272 (`core/`): 3 Show stubs + 3 SourceMap query methods kept with TODO refs; ordering contract bug on `nodes_at_position` flagged.
+  - PR #273 (`projection/` + `protocol/`): single 5-line annotation on `TreeEditorState::has_node`; ~22 flags resolved to workspace blind-spot (examples/ideal) or JSON/FFI cross-boundary readers.
+  - PR #274 (`editor/`): one visibility narrow (`apply_text_edit_internal`); 11 collab Show stubs annotated for the new Collaboration panel; §14 "Canopy library API audit" TODO added recording the aspirational-library framing decision.
+  - PR #275 (`relay/`, server-side, internal-tool framing): one visibility narrow (`RelayRoom::send_to`); 2 wire encoders kept per README's documented Public API; stale doc comment about `crdt_relay.mbt FFI` corrected.
+  Net across 4 PRs: 0 deletions, 2 visibility narrows, ~9 annotation comments, 5 new TODOs (Inspector traceability workstream + library API audit). Methodology recorded in [[feedback-section7-audit-methodology]].
 
 - [ ] DRY seam's three `build_tree` variants (`seam/event.mbt`).
   Why: `build_tree`, `build_tree_interned`, `build_tree_fully_interned` are ~80 lines each of near-identical stack-based tree construction, differing only in token creation and node wrapping. Discovered during error handling audit (loom PR #75).
