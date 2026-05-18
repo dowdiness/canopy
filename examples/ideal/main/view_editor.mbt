@@ -3,7 +3,7 @@ using @html {node}
 
 ///|
 fn hidden_trigger(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   msg : Msg,
   id : String,
 ) -> @rabbita.Html {
@@ -20,7 +20,7 @@ fn hidden_trigger(
 
 ///|
 fn view_editor(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   _model : Model,
 ) -> @rabbita.Html {
   let attrs = @html.Attrs::build().id("canopy-editor")

@@ -178,7 +178,7 @@ fn render_history_html(model : Model) -> String {
 /// browser already focuses the clicked button.
 fn bottom_tab_focus_cmd(tab : BottomTab) -> @rabbita.Cmd {
   let id = bottom_tab_button_id(tab)
-  @rabbita_cmd.raw_effect(
+  @rabbita_cmd.custom_cmd(
     fn(_) { js_focus_element(id) },
     kind=@rabbita_cmd.after_render,
   )
@@ -215,7 +215,7 @@ fn bottom_tab_panel_id(tab : BottomTab) -> String {
 }
 
 ///|
-fn view_bottom_tabs(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
   let tabs : Array[(BottomTab, String)] = [
     (Problems, "Problems"),
     (OpLog, "Op Log"),
@@ -407,7 +407,7 @@ fn view_problems(model : Model) -> Html {
 }
 
 ///|
-fn view_bottom_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
     OpLog => view_op_log(model)

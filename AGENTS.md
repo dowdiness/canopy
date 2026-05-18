@@ -79,6 +79,27 @@ git add event-graph-walker
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
+## Rabbita Conventions
+
+Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita`
+with the `diff_subs` `update_tagger` patch applied — see
+`docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0).
+
+When designing, implementing, or reviewing code that uses `@sub`,
+`@cmd`, `@html`, `@dom`, `@http`, `custom_sub`, `suberror`, or that
+authors / modifies a rabbita binding (`lib/rabbita_codemirror`, future
+libraries): **the files under `rabbita/doc/*` and
+`rabbita/rabbita/*/{README.mbt.md,design.md}` are authoritative.** Read
+them before designing. Cite the specific paths you used.
+
+If rabbita docs disagree with older `docs/plans/*.md` or with a spec
+the user pasted, the rabbita docs win — revise the plan, not the
+implementation.
+
+The `.claude/skills/rabbita` skill auto-invokes on rabbita-related
+prompts and contains the doc reading checklist + inline idiom rules +
+canonical binding patterns. Invoke manually with `/rabbita` if needed.
+
 ## Adding a New Language
 
 See [docs/development/ADDING_A_LANGUAGE.md](docs/development/ADDING_A_LANGUAGE.md) for the full guide (7 steps, with templates and validation checkpoints). Use Markdown as the reference implementation, not Lambda.

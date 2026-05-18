@@ -39,7 +39,7 @@ extern "js" fn js_install_outline_drag_capture() -> Unit =
 ///|
 /// Render a single outline tree node with collapse/expand, selection, and drag-and-drop.
 fn view_outline_node(
-  dispatch : Dispatch[Msg],
+  dispatch : Emit[Msg],
   node : @proj.InteractiveTreeNode[@ast.Term],
   depth : Int,
   model : Model,
@@ -241,7 +241,7 @@ fn build_outline_eval_annotations(
 
 ///|
 /// Render outline tree view with keyboard navigation (original tree mode).
-fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
   let handle_keydown = fn(kb : @html.Keyboard) {
     let key = kb.key()
     match key {
@@ -317,7 +317,7 @@ fn view_outline_tree(dispatch : Dispatch[Msg], model : Model) -> Html {
 
 ///|
 /// Render outline content.
-fn view_outline_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_outline_content(dispatch : Emit[Msg], model : Model) -> Html {
   js_install_outline_drag_capture()
   view_outline_tree(dispatch, model)
 }

@@ -132,7 +132,7 @@ fn view_node_details(
 
 ///|
 /// Render the actions section of the inspector.
-fn view_actions(dispatch : Dispatch[Msg], node_id_str : String) -> Html {
+fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
   div(class="panel-section", [
     span(class="panel-label", [text("ACTIONS")]),
     div(class="inspector-actions", [
@@ -178,7 +178,7 @@ fn view_crdt_info(model : Model) -> Html {
 
 ///|
 /// Render inspector content (without wrapper — wrapper is in view()).
-fn view_inspector_content(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html {
   let node_section : Html = match model.selected_node {
     Some(sel_id) => {
       let found = resolve_selected_node(model, sel_id)

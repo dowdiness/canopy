@@ -4,4 +4,5 @@ members = [
   "./lib/zipper",
   "./lib/btree",
   "./lib/moji",
+  "./lib/rabbita_codemirror",
 ]

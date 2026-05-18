@@ -1,0 +1,21 @@
+{
+  "name": "dowdiness/rabbita_codemirror",
+  "version": "0.0.1",
+  "deps": {
+    "moonbit-community/rabbita": {
+      "path": "../../rabbita/rabbita"
+    }
+  },
+  "repository": "https://github.com/dowdiness/canopy",
+  "readme": "README.md",
+  "license": "Apache-2.0",
+  "keywords": [
+    "rabbita",
+    "codemirror",
+    "binding",
+    "moonbit",
+    "tea"
+  ],
+  "description": "CodeMirror 6 binding for Rabbita, modeled on rabbita_xterm.",
+  "preferred-target": "js"
+}

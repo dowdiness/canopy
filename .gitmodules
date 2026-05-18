@@ -22,3 +22,6 @@
 [submodule "alga"]
 	path = alga
 	url = https://github.com/dowdiness/alga.git
+[submodule "rabbita"]
+	path = rabbita
+	url = https://github.com/dowdiness/rabbita.git

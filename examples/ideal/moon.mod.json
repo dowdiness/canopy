@@ -2,7 +2,9 @@
   "name": "dowdiness/ideal-editor",
   "version": "0.1.0",
   "deps": {
-    "moonbit-community/rabbita": "0.11.5",
+    "moonbit-community/rabbita": {
+      "path": "../../rabbita/rabbita"
+    },
     "dowdiness/canopy": {
       "path": "../.."
     },
