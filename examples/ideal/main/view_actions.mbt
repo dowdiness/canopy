@@ -12,7 +12,7 @@ fn group_label(group : @lambda_edits.ActionGroup) -> String {
 ///|
 /// Render a single action row with mnemonic badge and label.
 fn view_action_item(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   action : @lambda_edits.Action,
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"
@@ -35,7 +35,7 @@ fn view_action_item(
 ///|
 /// Render the main action list grouped by Core / Wrap / Binding / Module.
 fn view_action_list(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   actions : Array[@lambda_edits.Action],
 ) -> @rabbita.Html {
   let items : Array[@rabbita.Html] = []
@@ -66,7 +66,7 @@ fn view_action_list(
 ///|
 /// Render the name prompt input.
 fn view_name_prompt(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
   let prompt_label = match model.overlay.pending_action {
@@ -120,7 +120,7 @@ fn view_name_prompt(
 ///|
 /// Render submenu choices (e.g., Plus/Minus for change_op, left/right for unwrap).
 fn view_submenu_choices(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   action : @lambda_edits.Action,
   kind : @ast.Term,
 ) -> @rabbita.Html {
@@ -154,7 +154,7 @@ fn view_submenu_choices(
 /// Render the action overlay: scrim + positioned panel.
 /// Returns nothing if the overlay is not visible.
 fn view_action_overlay(
-  dispatch : @rabbita.Dispatch[Msg],
+  dispatch : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
   if !model.overlay.visible {

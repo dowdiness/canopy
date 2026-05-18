@@ -2,7 +2,7 @@
 using @html {button, div, p, span, text}
 
 ///|
-using @rabbita {type Cmd, type Dispatch, type Html, none}
+using @rabbita {type Cmd, type Emit, type Html, none}
 
 ///|
 /// Parse a node ID string into a NodeId, returning None on invalid input.
@@ -132,7 +132,7 @@ let examples : Array[(String, String)] = [
 ]
 
 ///|
-fn view_toolbar(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
   let example_buttons : Array[Html] = examples.map(fn(pair) {
     let (label, code) = pair
     button(
@@ -476,7 +476,7 @@ fn dispatch_or_prompt(
 }
 
 ///|
-fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => {
       let mode_str : String = match mode {
@@ -611,7 +611,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               js_set_editor_selected_node(s)
               js_focus_tree_rows()
             }),
-            @rabbita_cmd.raw_effect(
+            @rabbita_cmd.custom_cmd(
               fn(_) { js_scroll_outline_to_selected() },
               kind=@rabbita_cmd.after_render,
             ),
@@ -689,7 +689,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let rect_json = js_get_outline_selected_rect()
       let new_model = open_action_overlay(model, node_id_str, rect_json~)
       if new_model.overlay.visible {
-        let focus_cmd = @rabbita_cmd.raw_effect(
+        let focus_cmd = @rabbita_cmd.custom_cmd(
           fn(_) { js_focus_outline_overlay() },
           kind=@rabbita_cmd.after_render,
         )
@@ -714,7 +714,7 @@ fn update(_dispatch : Dispatch[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let new_model = open_action_overlay(model, node_id_str)
       if new_model.overlay.visible {
         // Focus the overlay panel after Rabbita renders it
-        let focus_cmd = @rabbita_cmd.raw_effect(
+        let focus_cmd = @rabbita_cmd.custom_cmd(
           fn(_) { js_focus_overlay_panel() },
           kind=@rabbita_cmd.after_render,
         )
@@ -937,7 +937,7 @@ fn view_peer_status(model : Model) -> Html {
 }
 
 ///|
-fn view(dispatch : Dispatch[Msg], model : Model) -> Html {
+fn view(dispatch : Emit[Msg], model : Model) -> Html {
   // Always render panels — toggle visibility via CSS class
   // so CSS transitions work for both enter and exit.
   let outline_class = if model.workspace.outline_visible {
