@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "example/codemirror_demo/main"
+
+// Values
+
+// Errors
+
+// Types and methods
+type Model
+
+type Msg
+
+// Type aliases
+
+// Traits
+

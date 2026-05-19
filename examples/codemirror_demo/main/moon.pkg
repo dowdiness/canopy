@@ -1,0 +1,15 @@
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd" @cmd,
+  "moonbit-community/rabbita/sub" @sub,
+  "moonbit-community/rabbita/html" @html,
+  "dowdiness/rabbita_codemirror" @cm,
+  "dowdiness/rabbita_codemirror/addon/theme" @theme,
+  "dowdiness/rabbita_codemirror/js" @js_ffi,
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+)

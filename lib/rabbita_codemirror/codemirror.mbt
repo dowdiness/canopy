@@ -322,7 +322,7 @@ pub fn mount(
   id : String,
   host_id : String,
   init_doc? : String = "",
-  source? : String = "https://esm.sh/codemirror@6",
+  source? : String = "https://esm.sh",
   initial_theme? : @theme.Theme? = None,
   initial_readonly? : Bool = false,
   initial_keymap? : @keymap.Keymap? = None,

@@ -1,0 +1,18 @@
+{
+  "name": "example/codemirror_demo",
+  "version": "0.1.0",
+  "deps": {
+    "moonbit-community/rabbita": {
+      "path": "../../rabbita/rabbita"
+    },
+    "dowdiness/rabbita_codemirror": {
+      "path": "../../lib/rabbita_codemirror"
+    }
+  },
+  "readme": "README.md",
+  "repository": "https://github.com/dowdiness/canopy",
+  "license": "Apache-2.0",
+  "keywords": [],
+  "description": "Minimal Rabbita \u2194 CodeMirror 6 binding demo",
+  "preferred-target": "js"
+}

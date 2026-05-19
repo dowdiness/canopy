@@ -54,16 +54,25 @@ pub fn raw_extension(value : @js_value.Value) -> Extension {
 }
 
 ///|
-/// Dynamically import the CodeMirror 6 ES module from `source`. The
-/// returned Promise resolves to the CM6 namespace object; wrap it with
-/// `cm_module_of` to get a `CmModule` handle and thread that to view /
-/// compartment ops.
+/// Dynamically load the CodeMirror 6 sub-packages from `source` (a CDN
+/// base URL) and merge them into a single namespace. The returned
+/// Promise resolves to that merged namespace object; wrap it with
+/// `cm_module_of` to get a `CmModule` handle.
+///
+/// `source` is a base URL — the loader appends `@codemirror/state@6`,
+/// `@codemirror/view@6`, and `@codemirror/commands@6` to it. The
+/// `https://esm.sh/codemirror@6` metapackage exports only a `default`
+/// (the `basicSetup` bundle); it does NOT re-export `Compartment`,
+/// `EditorView`, `EditorState`, or `StateEffect`, which the binding's
+/// FFI needs. Loading the granular sub-packages and merging keeps the
+/// `CmModule` API a single `cm.X`-shaped object the FFI bodies can
+/// access uniformly.
 ///
 /// Module loads are memoized per `source` so concurrent calls during
 /// startup share a single import. Rejected imports are evicted from the
 /// cache so a transient CDN failure does not poison every later call.
 pub extern "js" fn load_codemirror(
-  source? : String = "https://esm.sh/codemirror@6",
+  source? : String = "https://esm.sh",
 ) -> @js_value.Promise =
   #| async (source) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
@@ -72,10 +81,17 @@ pub extern "js" fn load_codemirror(
   #|     applying: new WeakMap(),
   #|   });
   #|   if (!slot.modules.has(source)) {
-  #|     const p = import(/* @vite-ignore */ source).catch(err => {
-  #|       slot.modules.delete(source);
-  #|       throw err;
-  #|     });
+  #|     const base = source.endsWith('/') ? source : source + '/';
+  #|     const p = Promise.all([
+  #|       import(/* @vite-ignore */ base + '@codemirror/state@6'),
+  #|       import(/* @vite-ignore */ base + '@codemirror/view@6'),
+  #|       import(/* @vite-ignore */ base + '@codemirror/commands@6'),
+  #|     ])
+  #|       .then(([state, view, commands]) => ({ ...state, ...view, ...commands }))
+  #|       .catch(err => {
+  #|         slot.modules.delete(source);
+  #|         throw err;
+  #|       });
   #|     slot.modules.set(source, p);
   #|   }
   #|   return await slot.modules.get(source);

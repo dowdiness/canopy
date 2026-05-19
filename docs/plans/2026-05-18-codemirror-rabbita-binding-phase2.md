@@ -616,6 +616,105 @@ across workspace-root and `examples/ideal`.
 
 ## Revision history
 
+**rev 3.8 (2026-05-19)** — Post-P2.4 demo + P2.1.5 FFI fix. Codex
+implemented `examples/codemirror_demo/` per the handoff
+(`2026-05-19-codemirror-rabbita-binding-phase2-p24-codex-handoff.md`),
+all six §P2.4 behaviors verified end-to-end including the
+load-bearing swap-tagger step. Three Codex implementation
+deviations + one Codex-review nit + one **P2.1.5 FFI bug**
+surfaced by the live smoke (the whole purpose of P2.4 as the
+binding's first end-to-end consumer).
+
+**Codex implementation deviations (all justified):**
+(a) `Model.read_only` instead of `readonly` — `readonly` is a
+MoonBit reserved token and won't parse as a field name.
+(b) `@cm.mount(model.cm_id, "cm-demo-host", ...)` with positional
+`host_id` — the frozen `pkg.generated.mbti` declares
+`pub fn mount(String, String, ...)` (two positional `String`
+args, no `host_id~` label). The handoff doc's labelled-call
+example was wrong; Codex's positional form matches the actual
+binding signature.
+(c) `cell_with_emit(...)..with_init(mount_cmd(emit, initial_model)).mount("app")`
+with `#warnings("-alert_unstable")` instead of websocket's
+`cell(...).mount("app")`. Reason: the demo auto-mounts the
+editor at boot (§P2.4 behavior #1), which needs a `Cmd`
+referencing `emit`, which only `cell_with_emit` exposes
+ergonomically. Matches the `with_init` pattern in
+`rabbita/examples/shiki_editor/main/client.mbt` (the canonical
+editor-binding analog per the rabbita-skill table).
+
+**Codex-review nit (fixed before browser smoke):**
+The original `mount_cmd` did not pass `initial_readonly`, so
+after toggling readonly → unmount → remount, the editor came
+back editable while `model.read_only` was still `true`. Added
+`initial_readonly=model.read_only,` to the `@cm.mount` call site
+in `mount_cmd` so remount preserves readonly state.
+
+**P2.1.5 FFI namespace-synthesis fix (bundled in this PR).**
+Browser smoke's behavior #1 failed with `pageerror:
+cm.Compartment is not a constructor`. Root cause:
+`https://esm.sh/codemirror@6` (the binding's previous default
+`source~`) is the CM6 *metapackage*, which re-exports only
+`default` (the `basicSetup` bundle); it does NOT re-export
+`Compartment`, `EditorView`, `EditorState`, `StateEffect`. The
+FFI bodies in `lib/rabbita_codemirror/js/codemirror.mbt`
+reference `cm.Compartment` (line 194), `cm.EditorView`,
+`cm.EditorState` (lines 97, 99, 280), `cm.StateEffect` (line
+280). The bug had never surfaced because the binding's first
+end-to-end consumer is P2.4 (`examples/ideal` still owns CM6
+directly via `canopy-editor.ts`; that migration is P2.5).
+**Fix:** `load_codemirror` now `Promise.all`-loads
+`@codemirror/state@6`, `@codemirror/view@6`,
+`@codemirror/commands@6` from the `source~` base URL and merges
+their namespaces with `{ ...state, ...view, ...commands }`. The
+`source~` semantics change from "CM6 metapackage URL" to "CDN
+base URL"; default flips from `"https://esm.sh/codemirror@6"`
+to `"https://esm.sh"` on both `mount`'s default and
+`load_codemirror`'s default. `CmModule`'s public API stays
+identical — consumers see the same merged-namespace shape via
+`cm.X` access in any future binding extensions (e.g. when the
+deferred ecosystem factories `dark`/`vim`/`default_keymap` get
+implemented, they can now reach `cm.EditorView.theme(...)` and
+`cm.keymap.of(cm.defaultKeymap)` synchronously — though those
+factories remain deferred until a forcing function demands
+them; `Theme::custom(empty)` carried this demo end-to-end as
+the rev-3.7 default position predicted).
+
+**§P2.1 update.** Plan §P2.1's `load_codemirror` signature line
+(default `"https://esm.sh/codemirror@6"`) is historical — the
+actual shipped (post-P2.1.5) default is `"https://esm.sh"` and
+the body is multi-load + merge. Future P2-doc readers should
+treat §P2.1 as the original spec and this rev 3.8 entry as the
+authoritative current state.
+
+**Swap-tagger smoke result.** PASS. Pre-swap typing → readout
+`"A: ... beforeswap"`. After clicking "Swap tagger" and typing
+` afterswap`, readout flipped to `"B: ... beforeswap afterswap"`.
+End-to-end confirms (a) P2.0's `diff_subs` patch correctly
+preserves same-keyed subs across renders, (b) the binding's
+`cm_sub_loader` `update_tagger` closure (codemirror.mbt:306–311)
+correctly rebinds the doc tagger. The triage branches the
+handoff anticipated (P2.0 regression vs binding closure bug)
+were both ruled out by the green smoke.
+
+**Demo footprint.** 12 files added under
+`examples/codemirror_demo/` (10 source + `dist/` and
+`node_modules/` gitignored). One CI matrix entry added to
+`.github/workflows/ci.yml`. Workspace tests stay at 1155
+passed / 0 failed; demo `moon test` is 0/0 by design (no tests
+defined — runtime smoke is the only validation).
+
+**Deferred work for P2.5.** Migrate `examples/ideal` behind
+`VITE_CANOPY_USE_CM_BINDING=1` per plan §P2.5. The
+multi-load-now-works property may unblock the deferred
+ecosystem factories (`dark`/`vim`/`default_keymap`) at low
+cost since `cm.EditorView` and `cm.keymap.of` are now reachable
+from within `addon/` packages via `@js_ffi.raw_extension` — but
+the actual forcing function (whether the ideal editor needs
+them post-migration) doesn't yet exist. Default position from
+rev 3.7 stands: stay deferred until P2.5 surfaces concrete
+need.
+
 **rev 3.7 (2026-05-19)** — Post-P2.3 ship (PR #299, squash SHA
 `2b0dd11`). Codex implemented the rev-3.6 narrowed scope verbatim:
 `Theme::custom(extension : @js_ffi.Extension) -> Theme` and
