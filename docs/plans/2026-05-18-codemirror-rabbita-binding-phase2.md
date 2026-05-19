@@ -616,6 +616,51 @@ across workspace-root and `examples/ideal`.
 
 ## Revision history
 
+**rev 3.7 (2026-05-19)** — Post-P2.3 ship (PR #299, squash SHA
+`2b0dd11`). Codex implemented the rev-3.6 narrowed scope verbatim:
+`Theme::custom(extension : @js_ffi.Extension) -> Theme` and
+`Keymap::from_raw(extension : @js_ffi.Extension) -> Keymap`, both
+`#cfg(target="js")`, both formatter-canonicalized into the qualified
+method shape (matching the P2.2 precedent in rev 3.5). No API-shape
+deviation versus the handoff doc. Three implementation-session notes
+worth recording:
+(a) **Doc-comment scrub for the grep invariant.** The handoff's
+`Theme::custom` doc-comment example referenced the consumer
+constructing via `@js_ffi.raw_extension(@js_value.Value)` — that
+literal `@js_value` token would have tripped the hard grep invariant
+that scans for `@js_value\|@cmd\|@sub\|@html\|Compartment` under
+`lib/rabbita_codemirror/addon/`. Codex restated as "the consumer …
+after they've loaded the CodeMirror module" — accurate but less
+specific. The Codex review session noted this as a correct-for-now
+trade-off; a future docs cleanup could narrow the grep to
+code/imports (excluding doc comments) and restore the more precise
+wording.
+(b) **Stale scaffold-comment refresh.** Codex updated the obsolete
+P2.2-era top-of-file prose ("factory constructors `dark()`,
+`light()`, `custom(...)` land in P2.3") on both addon files to
+reflect that ecosystem factories are deferred. Not called for in
+the handoff; Codex acted on initiative — appropriate.
+(c) **Stale `#warnings("-unused_constructor")` removal.** Codex
+review caught that the P2.2-era warning suppressions on the `Theme`
+and `Keymap` structs are now stale because the new factory bodies
+invoke the positional constructors. Removed before opening the PR.
+Parallel to the rev-3.5 cleanup of stale `#warnings("-deprecated_syntax")`
+on the same files.
+Minor handoff-doc bug for future use: the §"Verification" grep
+example `grep -nE '...' lib/rabbita_codemirror/addon/` is missing
+`-r`, so GNU grep complains "Is a directory." Codex ran the intended
+source-only form (`addon/*/*.mbt`) and reported the substituted
+command. Update if reused for P2.4+.
+**Deferred factories status.** `Theme::dark` / `Theme::light` /
+`Keymap::default_keymap` / `Keymap::vim` remain unimplemented. Either
+a P2.3.5 mini-PR unfreezing the FFI narrowly (`theme_dark(cm) ->
+Extension` helpers) OR bundling into P2.4 demo design (let the demo
+surface concrete evidence about which factories the swap-tagger
+smoke step actually needs). Default position: let P2.4 drive — if
+`Theme::custom(@js_ffi.js_extension_combine([]))` carries the demo
+end-to-end, the deferred factories stay deferred until P2.5 migration
+of `examples/ideal` proves they're needed.
+
 **rev 3.6 (2026-05-19)** — Pre-P2.3 dispatch. Narrowing the original
 §P2.3 deliverables list from six factories (`dark`, `light`, `custom`,
 `default_keymap`, `vim`, `from_raw`) to two (`Theme::custom`,
