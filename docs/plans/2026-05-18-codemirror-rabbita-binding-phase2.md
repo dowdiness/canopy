@@ -616,6 +616,9 @@ across workspace-root and `examples/ideal`.
 
 ## Revision history
 
+**rev 3.10 (2026-05-19)** — Tightened `load_codemirror` source docs to
+match query-free string-concat imports, and closed TODO §18.
+
 **rev 3.9 (2026-05-19)** — Listener compartment persistence fix. The
 update listener now reconfigures a mount-created `CmEntry` slot instead
 of appendConfig-appending fresh compartments on listen toggles.
