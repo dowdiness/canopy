@@ -68,6 +68,16 @@ pub fn raw_extension(value : @js_value.Value) -> Extension {
 /// `CmModule` API a single `cm.X`-shaped object the FFI bodies can
 /// access uniformly.
 ///
+/// **Multi-version hazard (future):** When language or theme packages
+/// are added beyond state/view/commands, each may bring its own
+/// transitive `@codemirror/state`, and the resulting "multiple
+/// instances of @codemirror/state" runtime error is one of CM6's
+/// classic foot-guns. Mitigation when that happens is to pin
+/// resolutions via the CDN's exact-version/deps query (e.g.
+/// `https://esm.sh/?deps=@codemirror/state@6`). Pre-1.0 the bare
+/// base URL is sufficient since the three currently-loaded packages
+/// agree.
+///
 /// Module loads are memoized per `source` so concurrent calls during
 /// startup share a single import. Rejected imports are evicted from the
 /// cache so a transient CDN failure does not poison every later call.
