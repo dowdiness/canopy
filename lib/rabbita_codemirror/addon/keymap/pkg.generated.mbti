@@ -11,6 +11,7 @@ import {
 
 // Types and methods
 pub struct Keymap(@js.Extension)
+pub fn Keymap::from_raw(@js.Extension) -> Self
 pub fn Keymap::to_extension(Self) -> @js.Extension
 
 // Type aliases

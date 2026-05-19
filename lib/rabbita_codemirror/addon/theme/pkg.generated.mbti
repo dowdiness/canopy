@@ -11,6 +11,7 @@ import {
 
 // Types and methods
 pub struct Theme(@js.Extension)
+pub fn Theme::custom(@js.Extension) -> Self
 pub fn Theme::to_extension(Self) -> @js.Extension
 
 // Type aliases
