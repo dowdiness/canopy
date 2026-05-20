@@ -20,6 +20,8 @@ type StructuralEditDetail = {
   nodeId?: string;
 };
 
+type CmExtensionFactory = (cm: Record<string, any>) => any | any[];
+
 type CanopyGlobal = typeof globalThis & {
   __canopy_crdt?: CrdtModule;
   __canopy_crdt_handle?: number;
@@ -35,8 +37,8 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_agent_color?: string;
   __canopy_broadcast_ephemeral?: () => void;
   __canopy_codemirror?: Record<string, any>;
-  __canopy_create_cm_peer_cursor_extension?: (cm: Record<string, any>) => any[];
-  __canopy_create_lambda_cm_extensions?: (cm: Record<string, any>) => any[];
+  __canopy_create_cm_peer_cursor_extension?: CmExtensionFactory;
+  __canopy_create_lambda_cm_extensions?: CmExtensionFactory;
   __canopy_update_cm_peer_cursors?: () => void;
 };
 

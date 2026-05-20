@@ -100,18 +100,17 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd {
 
 ///|
 fn select_text_node_cmd(model : Model, node_id : String) -> Cmd {
-  let nid = match parse_node_id(node_id) {
-    Some(nid) => nid
-    None => return none
-  }
-  match model.editor.get_source_map().get_range(nid) {
-    Some(range) =>
-      @cm.set_selection(
-        model.cm_id,
-        @cm.SelRange::new(range.start, range.end),
-        scroll_into_view=true,
-      )
+  match parse_node_id(node_id) {
     None => none
+    Some(nid) => match model.editor.get_source_map().get_range(nid) {
+      None => none
+      Some(range) =>
+        @cm.set_selection(
+          model.cm_id,
+          @cm.SelRange::new(range.start, range.end),
+          scroll_into_view=true,
+        )
+    }
   }
 }
 

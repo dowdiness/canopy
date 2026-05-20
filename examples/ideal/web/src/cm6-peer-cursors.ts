@@ -18,15 +18,13 @@ export interface PeerCursor {
 
 type CmNamespace = Record<string, any>;
 
-let activeView: any = null;
-let activeSetPeerCursors: any = null;
+const activeViews = new Map<any, any>();
 
 // -- Extension Factory ------------------------------------------------------
 
 export function peerCursors(cm: CmNamespace): any[] {
   const {
     Decoration,
-    EditorView,
     RangeSetBuilder,
     StateEffect,
     StateField,
@@ -35,7 +33,6 @@ export function peerCursors(cm: CmNamespace): any[] {
   } = cm;
 
   const setPeerCursors = StateEffect.define<PeerCursor[]>();
-  activeSetPeerCursors = setPeerCursors;
 
   const peerCursorField = StateField.define<PeerCursor[]>({
     create() {
@@ -150,14 +147,13 @@ export function peerCursors(cm: CmNamespace): any[] {
     class {
       decorations: any;
 
-      constructor(view: any) {
-        activeView = view;
+      constructor(readonly view: any) {
+        activeViews.set(view, setPeerCursors);
         const cursors = view.state.field(peerCursorField);
         this.decorations = buildDecorations(cursors, view.state.doc.length);
       }
 
       update(update: any) {
-        activeView = update.view;
         const oldCursors = update.startState.field(peerCursorField);
         const newCursors = update.state.field(peerCursorField);
         if (oldCursors !== newCursors || update.docChanged) {
@@ -167,28 +163,34 @@ export function peerCursors(cm: CmNamespace): any[] {
           );
         }
       }
+
+      destroy() {
+        activeViews.delete(this.view);
+      }
     },
     {
       decorations: (plugin: any) => plugin.decorations,
     },
   );
 
-  const rememberView = EditorView.updateListener.of((update: any) => {
-    activeView = update.view;
-  });
-
-  return [peerCursorField, peerCursorPlugin, rememberView];
+  return [peerCursorField, peerCursorPlugin];
 }
 
 // -- Runtime Updates --------------------------------------------------------
 
 export function updatePeerCursorsFromJson(json: string): void {
-  if (!activeView || !activeSetPeerCursors) return;
+  if (activeViews.size === 0) return;
   try {
     const cursors: PeerCursor[] = JSON.parse(json);
-    activeView.dispatch({
-      effects: activeSetPeerCursors.of(cursors),
-    });
+    for (const [view, setPeerCursors] of activeViews.entries()) {
+      try {
+        view.dispatch({
+          effects: setPeerCursors.of(cursors),
+        });
+      } catch {
+        activeViews.delete(view);
+      }
+    }
   } catch {
     // Malformed JSON or a stale view; ignore cursor decorations.
   }

@@ -12,12 +12,16 @@ extern "js" fn js_get_agent_id() -> String =
 extern "js" fn js_make_ideal_cm_extension_raw(
   cm : @js_value.Value,
 ) -> @js_value.Value =
-  #| function(cm) {
-  #|   const click = (id) => {
-  #|     const btn = document.getElementById(id);
-  #|     if (btn && typeof btn.click === 'function') btn.click();
-  #|   };
-  #|   const theme = cm.EditorView.theme({
+#| function(cm) {
+#|   const click = (id) => {
+#|     const btn = document.getElementById(id);
+#|     if (btn && typeof btn.click === 'function') btn.click();
+#|   };
+#|   const normalizeExtensions = (factory) => {
+#|     const provided = typeof factory === 'function' ? factory(cm) : [];
+#|     return Array.isArray(provided) ? provided : [provided];
+#|   };
+#|   const theme = cm.EditorView.theme({
   #|     "&": {
   #|       backgroundColor: "transparent",
   #|       color: "var(--canopy-fg, #e4e4f0)",
@@ -103,14 +107,14 @@ extern "js" fn js_make_ideal_cm_extension_raw(
   #|     },
   #|     ...defaultKeymap,
   #|   ]);
-  #|   const languageFactory = globalThis.__canopy_create_lambda_cm_extensions;
-  #|   const language = typeof languageFactory === 'function' ? languageFactory(cm) : [];
-  #|   const languageExtensions = Array.isArray(language) ? language : [language];
-  #|   const peerFactory = globalThis.__canopy_create_cm_peer_cursor_extension;
-  #|   const peers = typeof peerFactory === 'function' ? peerFactory(cm) : [];
-  #|   const peerExtensions = Array.isArray(peers) ? peers : [peers];
-  #|   return [theme, ...languageExtensions, keymap, ...peerExtensions];
-  #| }
+#|   const languageExtensions = normalizeExtensions(
+#|     globalThis.__canopy_create_lambda_cm_extensions,
+#|   );
+#|   const peerExtensions = normalizeExtensions(
+#|     globalThis.__canopy_create_cm_peer_cursor_extension,
+#|   );
+#|   return [theme, ...languageExtensions, keymap, ...peerExtensions];
+#| }
 
 ///|
 #warnings("-unused_error_type")
@@ -135,16 +139,28 @@ extern "js" fn js_after_local_text_edit() -> Unit =
 /// Broadcast local text-mode cursor/selection state from the binding.
 extern "js" fn js_after_cm_selection_changed(from : Int, to : Int) -> Unit =
   #| function(from, to) {
-  #|   var crdt = globalThis.__canopy_crdt;
-  #|   var handle = globalThis.__canopy_crdt_handle;
-  #|   var name = globalThis.__canopy_agent_name || "You";
-  #|   var color = globalThis.__canopy_agent_color || "#8250df";
-  #|   if (crdt && handle != null && typeof crdt.ephemeral_set_presence_with_selection === 'function') {
-  #|     crdt.ephemeral_set_presence_with_selection(handle, name, color, from, to);
+  #|   const state = globalThis.__canopy_pending_cm_selection ?? {};
+  #|   state.from = from;
+  #|   state.to = to;
+  #|   if (state.timer != null) {
+  #|     globalThis.__canopy_pending_cm_selection = state;
+  #|     return;
   #|   }
-  #|   if (typeof globalThis.__canopy_broadcast_ephemeral === 'function') {
-  #|     globalThis.__canopy_broadcast_ephemeral();
-  #|   }
+  #|   state.timer = setTimeout(() => {
+  #|     state.timer = null;
+  #|     globalThis.__canopy_pending_cm_selection = state;
+  #|     var crdt = globalThis.__canopy_crdt;
+  #|     var handle = globalThis.__canopy_crdt_handle;
+  #|     var name = globalThis.__canopy_agent_name || "You";
+  #|     var color = globalThis.__canopy_agent_color || "#8250df";
+  #|     if (crdt && handle != null && typeof crdt.ephemeral_set_presence_with_selection === 'function') {
+  #|       crdt.ephemeral_set_presence_with_selection(handle, name, color, state.from, state.to);
+  #|     }
+  #|     if (typeof globalThis.__canopy_broadcast_ephemeral === 'function') {
+  #|       globalThis.__canopy_broadcast_ephemeral();
+  #|     }
+  #|   }, 50);
+  #|   globalThis.__canopy_pending_cm_selection = state;
   #| }
 
 ///|
