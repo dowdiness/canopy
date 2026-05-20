@@ -1,0 +1,88 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/visualizer"
+
+import {
+  "dowdiness/graphviz/lib/svg",
+  "dowdiness/incr/cells",
+  "dowdiness/incr/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum IncrMemoEventPhase {
+  IncrEntering
+  IncrCompleted
+  IncrAborted
+}
+
+pub struct IncrMemoEventRecord {
+  cell_id : @types.CellId
+  phase : IncrMemoEventPhase
+  started_revision : @types.Revision
+  elapsed_ns : Int64?
+  verified_at : @types.Revision?
+  changed_at : @types.Revision?
+  backdated : Bool
+}
+
+pub struct IncrMemoEventTap {
+  // private fields
+}
+pub fn IncrMemoEventTap::attach(@cells.Runtime) -> Self raise Failure
+pub fn IncrMemoEventTap::detach(Self) -> Unit
+pub fn IncrMemoEventTap::drain_events(Self) -> Array[IncrMemoEventRecord]
+pub fn IncrMemoEventTap::snapshot(Self) -> IncrSnapshot
+
+pub struct IncrSnapshot {
+  nodes : Array[IncrSnapshotNode]
+  edges : Array[IncrSnapshotEdge]
+  events : Array[IncrMemoEventRecord]
+}
+pub fn IncrSnapshot::to_visual_graph(Self) -> VisualGraph
+
+pub struct IncrSnapshotEdge {
+  from : @types.CellId
+  to : @types.CellId
+}
+
+pub struct IncrSnapshotNode {
+  id : @types.CellId
+  label : String?
+  changed_at : @types.Revision
+  verified_at : @types.Revision
+}
+
+pub struct VisualEdge {
+  // private fields
+}
+pub fn VisualEdge::VisualEdge(String, String, label? : String) -> Self
+
+pub struct VisualGraph {
+  // private fields
+}
+pub fn VisualGraph::VisualGraph(id? : String) -> Self
+pub fn VisualGraph::add_edge(Self, VisualEdge) -> Unit
+pub fn VisualGraph::add_node(Self, VisualNode) -> Unit
+pub fn VisualGraph::to_dot(Self) -> String
+pub fn VisualGraph::to_svg(Self) -> String
+pub fn VisualGraph::to_svg_with_config(Self, @svg.SvgConfig) -> String
+
+pub struct VisualNode {
+  // private fields
+}
+pub fn VisualNode::VisualNode(String, label? : String, detail? : String, status? : VisualNodeStatus) -> Self
+
+pub(all) enum VisualNodeStatus {
+  Neutral
+  Active
+  Changed
+  Failed
+}
+
+// Type aliases
+
+// Traits
+

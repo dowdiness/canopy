@@ -1,0 +1,28 @@
+{
+  "name": "dowdiness/visualizer",
+  "version": "0.1.0",
+  "deps": {
+    "dowdiness/incr": {
+      "path": "../../loom/incr"
+    },
+    "dowdiness/graphviz": {
+      "path": "../../graphviz"
+    },
+    "dowdiness/svg-dsl": {
+      "path": "../../svg-dsl"
+    },
+    "dowdiness/alga": {
+      "path": "../../alga"
+    }
+  },
+  "readme": "README.md",
+  "repository": "https://github.com/dowdiness/canopy",
+  "license": "Apache-2.0",
+  "keywords": [
+    "visualization",
+    "incremental",
+    "graphviz",
+    "svg"
+  ],
+  "description": "Shared graph visualization adapters for Canopy consumers."
+}

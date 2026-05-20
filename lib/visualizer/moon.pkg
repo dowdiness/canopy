@@ -1,0 +1,6 @@
+import {
+  "dowdiness/graphviz/lib/parser" @dot,
+  "dowdiness/graphviz/lib/layout" @layout,
+  "dowdiness/graphviz/lib/svg" @graph_svg,
+  "dowdiness/incr" @incr,
+}
