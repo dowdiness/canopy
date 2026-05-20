@@ -162,6 +162,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works.
   Note: completion state is unclear; decision pending in `docs/decisions-needed.md`.
 
+- [ ] Add safe imperative boundary helpers for Rabbita DOM interop.
+  Why: Rabbita has no React-style ref API; current widget and browser-API escape hatches use ad-hoc `after_render` commands, stable ids, and hidden trigger clicks. A tiny helper layer would keep DOM access lifecycle-safe without storing raw elements in app state.
+  Exit: shared helpers cover common id-based `after_render` actions such as focus, click, scroll, and typed custom-event subscriptions; ideal-editor bridges use them where practical.
+
 - [ ] Graphviz SVG theming — SVG uses hardcoded `Arial` from submodule; needs `pub(all) struct SvgConfig` to customize.
 
 - [ ] Grammar: interleaved let/expr.

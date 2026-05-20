@@ -18,7 +18,7 @@ test.describe('Ideal Editor - Seed', () => {
 
   test('should load example and show AST', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     await page.getByRole('button', { name: 'Structure' }).click();
     // Outline should show the AST
     await expect(page.getByLabel('AST outline')).toBeVisible();

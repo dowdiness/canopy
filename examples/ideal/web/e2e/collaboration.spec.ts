@@ -7,21 +7,24 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 /** Wait for the editor to fully load in a page. */
-async function waitForEditor(page: Page) {
-  await page.goto('/');
+async function waitForEditor(page: Page, room?: string) {
+  await page.goto(room ? `/#${room}` : '/');
   await expect(page).toHaveTitle('Canopy Editor');
   await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
   await page.waitForFunction(() => {
-    const ce = document.querySelector('canopy-editor');
-    return ce?.shadowRoot?.querySelector('.cm-editor') !== null;
+    return document.querySelector('#canopy-text-editor .cm-editor') !== null;
   }, { timeout: 15000 });
+}
+
+function testRoom(label: string): string {
+  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  return `e2e-${slug}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 /** Focus the CM6 editor and type text. */
 async function typeInEditor(page: Page, text: string) {
   await page.evaluate(() => {
-    const ce = document.querySelector('canopy-editor');
-    const cm = ce?.shadowRoot?.querySelector('.cm-content') as HTMLElement;
+    const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
     cm?.focus();
   });
   await page.keyboard.type(text, { delay: 30 });
@@ -30,8 +33,7 @@ async function typeInEditor(page: Page, text: string) {
 /** Get the text content from the CM6 editor. */
 async function getEditorText(page: Page): Promise<string> {
   return page.evaluate(() => {
-    const ce = document.querySelector('canopy-editor');
-    const cm = ce?.shadowRoot?.querySelector('.cm-content');
+    const cm = document.querySelector('#canopy-text-editor .cm-content');
     return cm?.textContent ?? '';
   });
 }
@@ -44,9 +46,7 @@ async function getSyncStatus(page: Page): Promise<string> {
 /** Check if peer cursor decorations are present in the CM6 editor. */
 async function hasPeerCursors(page: Page): Promise<boolean> {
   return page.evaluate(() => {
-    const ce = document.querySelector('canopy-editor');
-    if (!ce?.shadowRoot) return false;
-    const cursors = ce.shadowRoot.querySelectorAll('.peer-cursor-widget');
+    const cursors = document.querySelectorAll('#canopy-text-editor .peer-cursor-widget');
     return cursors.length > 0;
   });
 }
@@ -54,9 +54,7 @@ async function hasPeerCursors(page: Page): Promise<boolean> {
 /** Get the count of peer cursor widgets. */
 async function getPeerCursorCount(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const ce = document.querySelector('canopy-editor');
-    if (!ce?.shadowRoot) return 0;
-    return ce.shadowRoot.querySelectorAll('.peer-cursor-widget').length;
+    return document.querySelectorAll('#canopy-text-editor .peer-cursor-widget').length;
   });
 }
 
@@ -64,7 +62,7 @@ async function getPeerCursorCount(page: Page): Promise<number> {
 
 test.describe('Collaboration - Offline', () => {
   test('no peer cursors without collaboration', async ({ page }) => {
-    await waitForEditor(page);
+    await waitForEditor(page, testRoom('offline'));
     expect(await hasPeerCursors(page)).toBe(false);
   });
 });
@@ -77,9 +75,10 @@ test.describe('Collaboration - Two Peers', () => {
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    const room = testRoom('connect');
 
     try {
-      await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
+      await Promise.all([waitForEditor(pageA, room), waitForEditor(pageB, room)]);
 
       // Wait for both to connect to the relay
       await Promise.all([
@@ -108,9 +107,10 @@ test.describe('Collaboration - Two Peers', () => {
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    const room = testRoom('text-sync');
 
     try {
-      await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
+      await Promise.all([waitForEditor(pageA, room), waitForEditor(pageB, room)]);
 
       // Wait for connection
       await expect.poll(async () => {
@@ -119,7 +119,7 @@ test.describe('Collaboration - Two Peers', () => {
       }, { timeout: 10000 }).toBeTruthy();
 
       // Peer A loads an example
-      await pageA.getByRole('button', { name: 'Identity' }).click();
+      await pageA.getByRole('button', { name: 'Basics' }).click();
       await expect.poll(async () => {
         return (await getEditorText(pageA)).length > 0;
       }, { timeout: 5000 }).toBeTruthy();
@@ -143,9 +143,10 @@ test.describe('Collaboration - Two Peers', () => {
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    const room = testRoom('peer-cursors');
 
     try {
-      await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
+      await Promise.all([waitForEditor(pageA, room), waitForEditor(pageB, room)]);
 
       // Wait for connection
       await expect.poll(async () => {
@@ -155,10 +156,10 @@ test.describe('Collaboration - Two Peers', () => {
 
       // Peer A clicks in the editor to set cursor position
       await pageA.evaluate(() => {
-        const ce = document.querySelector('canopy-editor');
-        const cm = ce?.shadowRoot?.querySelector('.cm-content') as HTMLElement;
+        const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
         cm?.focus();
       });
+      await pageA.keyboard.press('Home');
       await pageA.keyboard.press('End');
 
       // Peer B should see peer A's cursor
@@ -176,9 +177,10 @@ test.describe('Collaboration - Two Peers', () => {
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    const room = testRoom('outline-sync');
 
     try {
-      await Promise.all([waitForEditor(pageA), waitForEditor(pageB)]);
+      await Promise.all([waitForEditor(pageA, room), waitForEditor(pageB, room)]);
 
       // Wait for connection
       await expect.poll(async () => {
@@ -186,13 +188,13 @@ test.describe('Collaboration - Two Peers', () => {
         return s.includes('connected');
       }, { timeout: 10000 }).toBeTruthy();
 
-      // Peer A loads Add example
-      await pageA.getByRole('button', { name: 'Add' }).click();
+      // Peer A loads the currying example
+      await pageA.getByRole('button', { name: 'Currying' }).click();
 
-      // Peer A's outline should show module [add]
+      // Peer A's outline should show the loaded module bindings
       await expect.poll(async () => {
         const text = await pageA.getByLabel('AST outline').innerText();
-        return text.includes('module [add]');
+        return text.includes('module [add, add5, sum]');
       }, { timeout: 5000 }).toBeTruthy();
 
       // Peer B should eventually sync and show the same

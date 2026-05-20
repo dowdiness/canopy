@@ -7,8 +7,7 @@ async function waitForEditor(page: import('@playwright/test').Page) {
   await expect(page).toHaveTitle(/Editor/);
   await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
   await page.waitForFunction(() => {
-    const ce = document.querySelector('canopy-editor');
-    return ce?.shadowRoot?.querySelector('.cm-editor') !== null;
+    return document.querySelector('#canopy-text-editor .cm-editor') !== null;
   }, { timeout: 10000 });
 }
 
@@ -20,6 +19,13 @@ async function getTreeRows(page: import('@playwright/test').Page) {
       classes: r.className,
     }))
   );
+}
+
+async function waitForSelectedRows(page: import('@playwright/test').Page) {
+  return await expect.poll(async () => {
+    const rows = await getTreeRows(page);
+    return rows.filter(r => r.classes.includes('selected'));
+  }).toHaveLength(1);
 }
 
 /** Get the class name of a tree label span by its visible text. */
@@ -66,6 +72,7 @@ test.describe('Scope-Colored Binder Highlighting', () => {
       .first()
       .click();
 
+    await waitForSelectedRows(page);
     const rows = await getTreeRows(page);
 
     // The clicked node should be selected and highlighted
@@ -93,9 +100,9 @@ test.describe('Scope-Colored Binder Highlighting', () => {
       .click();
 
     // Verify λf is selected
+    await waitForSelectedRows(page);
     const beforeRows = await getTreeRows(page);
     const beforeSel = beforeRows.filter(r => r.classes.includes('selected'));
-    expect(beforeSel.length).toBe(1);
     expect(beforeSel[0].text).toContain('λf');
 
     // Focus tree-rows and press ArrowDown
@@ -105,9 +112,9 @@ test.describe('Scope-Colored Binder Highlighting', () => {
     await page.keyboard.press('ArrowDown');
 
     // Check if selection moved (ArrowDown from λf goes to its first child λx)
+    await waitForSelectedRows(page);
     const afterRows = await getTreeRows(page);
     const afterSel = afterRows.filter(r => r.classes.includes('selected'));
-    expect(afterSel.length).toBe(1);
 
     // If keyboard nav works, selection moved away from λf.
     // If it didn't work (focus lost to CM6), selection stays on λf.
@@ -130,6 +137,7 @@ test.describe('Scope-Colored Binder Highlighting', () => {
       .first()
       .click();
 
+    await waitForSelectedRows(page);
     const rows = await getTreeRows(page);
 
     // The clicked 'apply' should be selected and highlighted

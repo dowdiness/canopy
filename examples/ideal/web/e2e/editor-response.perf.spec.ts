@@ -32,8 +32,10 @@ async function waitForEditor(page: Page) {
   await expect(page).toHaveTitle('Canopy Editor');
   await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
   await page.waitForFunction(() => {
-    const el = document.querySelector('canopy-editor') as any;
-    return Boolean(el?.shadowRoot?.querySelector('.cm-editor') && (window as any).__canopy_crdt);
+    return Boolean(
+      document.querySelector('#canopy-text-editor .cm-editor') &&
+      (window as any).__canopy_crdt,
+    );
   }, { timeout: 10000 });
 }
 
@@ -49,55 +51,50 @@ function lambdaSource(definitions: number): string {
 async function seedEditor(page: Page, source: string) {
   await page.evaluate((text) => {
     const global = window as any;
-    const el = document.querySelector('canopy-editor') as any;
     const crdt = global.__canopy_crdt;
     const handle = global.__canopy_crdt_handle;
-    if (!el || !crdt || handle == null) {
+    if (!crdt || handle == null) {
       throw new Error('Canopy editor is not mounted');
     }
 
     crdt.set_text(handle, text);
-    el.syncAfterExternalChange();
-    document.getElementById('canopy-editor-text-changed')?.click();
-
-    const view = el.cmView;
-    view.dispatch({
-      selection: { anchor: view.state.doc.length },
-      scrollIntoView: true,
-    });
-    view.focus();
+    document.getElementById('canopy-external-crdt-changed-trigger')?.click();
   }, source);
 
   await page.waitForFunction((text) => {
-    const el = document.querySelector('canopy-editor') as any;
-    const view = el?.cmView;
-    return view?.state.doc.toString() === text;
+    const content = document.querySelector('#canopy-text-editor .cm-content');
+    return (content?.textContent ?? '').includes(String(text).split('\n')[0]);
   }, source);
+  await page.evaluate(() => {
+    const content = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
+    content?.focus();
+  });
+  await page.keyboard.press('Control+End');
 }
 
 async function measureTextInput(page: Page, text: string): Promise<ResponseSample> {
   return page.evaluate((insertText) => new Promise<ResponseSample>((resolve, reject) => {
-    const el = document.querySelector('canopy-editor') as any;
-    const cmContent = el?.shadowRoot?.querySelector('.cm-content') as HTMLElement | null;
-    const view = el?.cmView;
-    if (!el || !cmContent || !view) {
+    const global = window as any;
+    const cmContent = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
+    const crdt = global.__canopy_crdt;
+    const handle = global.__canopy_crdt_handle;
+    if (!cmContent || !crdt || handle == null) {
       reject(new Error('CodeMirror content is not mounted'));
       return;
     }
     cmContent.focus();
-    view.focus();
+    const before = crdt.get_text(handle);
 
     let start = 0;
     const timeout = window.setTimeout(() => {
       (window as any).__canopy_perf_current = null;
       cleanup();
-      reject(new Error('Timed out waiting for text-changed after text input'));
+      reject(new Error('Timed out waiting for CRDT text after text input'));
     }, 5000);
     const cleanup = () => {
       window.clearTimeout(timeout);
-      el.removeEventListener('text-changed', onTextChanged);
     };
-    const onTextChanged = () => {
+    const complete = () => {
       const textChangedAt = performance.now();
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -113,18 +110,23 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
         });
       });
     };
+    const poll = () => {
+      if (crdt.get_text(handle) !== before) {
+        complete();
+      } else {
+        requestAnimationFrame(poll);
+      }
+    };
 
-    el.addEventListener('text-changed', onTextChanged, { once: true });
     (window as any).__canopy_perf_current = { spans: {} };
     start = performance.now();
     const inserted = document.execCommand('insertText', false, insertText);
     if (!inserted) {
-      const pos = view.state.selection.main.head;
-      view.dispatch({
-        changes: { from: pos, to: pos, insert: insertText },
-        selection: { anchor: pos + insertText.length },
-      });
+      cleanup();
+      reject(new Error('insertText command failed'));
+      return;
     }
+    requestAnimationFrame(poll);
   }), text);
 }
 

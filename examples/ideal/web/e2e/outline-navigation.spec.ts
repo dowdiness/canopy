@@ -5,7 +5,7 @@ test.describe('Outline keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveTitle('Canopy Editor');
-    // Load the "Basics" example (has id, apply — good tree structure)
+    // Load the "Basics" example (small tree with multiple let bindings)
     await page.getByRole('button', { name: 'Basics' }).click();
     // Wait for outline to render
     await expect(page.getByLabel('AST outline')).toBeVisible();

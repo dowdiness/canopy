@@ -39,11 +39,10 @@ pub enum Msg {
   OutlineDragLeave
   OutlineDrop(@canopy_core.NodeId, @canopy_core.DropPosition)
   OutlineDragEnd
-  // Protocol-based editor communication (Phase 4)
-  // Replaces TextChangedFromEditor and NodeSelected (removed)
-  EditorTextChanged
-  EditorNodeSelected(String)
-  EditorStructuralEdit(op~ : String, node_id~ : String)
+  // Structure-mode Web Component communication.
+  StructureNodeSelected(String)
+  StructureStructuralEdit(op~ : String, node_id~ : String)
+  ExternalCrdtChanged
   CmMounted
   CmDocChanged(String)
   CmSelectionChanged(@cm.SelRange)
