@@ -18,6 +18,6 @@ test.describe('Canopy Editor', () => {
     await expect(page.getByLabel('Code editor')).toBeVisible();
 
     // Example buttons load different lambda calculus programs
-    // Available: Identity, Church 2, Add, Conditional, Apply
+    // Available: Basics, Composition, Currying, Conditional, Pipeline
   });
 });

@@ -30,6 +30,18 @@ async function getEditorText(page: Page): Promise<string> {
   });
 }
 
+/** Read the visible CodeMirror document text. */
+async function getCodeMirrorText(page: Page): Promise<string> {
+  return await page.evaluate(() => {
+    const content = document.querySelector('#canopy-text-editor .cm-content');
+    return (content as HTMLElement | null)?.innerText ?? content?.textContent ?? '';
+  });
+}
+
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 /** Count structure blocks of a given type inside the shadow DOM. */
 async function countNodes(page: Page, type: string): Promise<number> {
   return await page.evaluate(
@@ -122,7 +134,7 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
 
   test.beforeEach(async ({ page }) => {
     await setupStructureMode(page);
-    // Load the "Basics" example: "let id = \x. { x }\nlet apply = ..."
+    // Load the "Basics" example: "let double = \x. { x + x } ..."
     await page.getByRole('button', { name: 'Basics' }).click();
     await page.waitForTimeout(500);
   });
@@ -159,6 +171,19 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(textAfter).not.toEqual(textBefore);
     const letCount = (textAfter.match(/let /g) || []).length;
     expect(letCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('drop syncs CM6 before returning to Text mode', async ({ page }) => {
+    await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'Inside');
+
+    const crdtText = await getEditorText(page);
+    await page.getByRole('button', { name: 'Text' }).click();
+    await page.waitForFunction(() => {
+      return document.querySelector('#canopy-text-editor .cm-content') !== null;
+    });
+
+    const cmText = await getCodeMirrorText(page);
+    expect(normalizeText(cmText)).toEqual(normalizeText(crdtText));
   });
 
   test('Before drop produces valid syntax with placeholder', async ({ page }) => {

@@ -111,7 +111,6 @@ pub struct Model {
   companion : @companion.LambdaCompanion
   outline_state : @projection.TreeEditorState[@ast.Term]
   cm_id : String
-  use_cm_binding : Bool
   mounted : Bool
   mode : EditorMode
   workspace : WorkspaceLayout
@@ -157,9 +156,9 @@ pub enum Msg {
   OutlineDragLeave
   OutlineDrop(@core.NodeId, @core.DropPosition)
   OutlineDragEnd
-  EditorTextChanged
-  EditorNodeSelected(String)
-  EditorStructuralEdit(op~ : String, node_id~ : String)
+  StructureNodeSelected(String)
+  StructureStructuralEdit(op~ : String, node_id~ : String)
+  ExternalCrdtChanged
   CmMounted
   CmDocChanged(String)
   CmSelectionChanged(@rabbita_codemirror.SelRange)

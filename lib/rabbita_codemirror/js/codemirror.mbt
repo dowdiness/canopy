@@ -54,13 +54,18 @@ pub fn raw_extension(value : @js_value.Value) -> Extension {
 }
 
 ///|
-/// Dynamically load the CodeMirror 6 sub-packages from `source` (a CDN
-/// base URL) and merge them into a single namespace. The returned
+/// Dynamically load a CodeMirror 6 namespace from `source`. The returned
 /// Promise resolves to that merged namespace object; wrap it with
 /// `cm_module_of` to get a `CmModule` handle.
 ///
-/// `source` is a base URL — the loader appends `@codemirror/state@6`,
-/// `@codemirror/view@6`, and `@codemirror/commands@6` to it. The
+/// For bundled/offline apps, pass `source="global:<name>"` after setting
+/// `globalThis[<name>]` to an object containing the CodeMirror state, view,
+/// and commands exports.
+///
+/// Otherwise, `source` is a CDN base URL — the loader appends
+/// `@codemirror/state@6`, `@codemirror/view@6`, and
+/// `@codemirror/commands@6` to it.
+///
 /// `https://esm.sh/codemirror@6` metapackage exports only a `default`
 /// (the `basicSetup` bundle); it does NOT re-export `Compartment`,
 /// `EditorView`, `EditorState`, or `StateEffect`, which the binding's
@@ -93,17 +98,27 @@ pub extern "js" fn load_codemirror(
   #|     applying: new WeakMap(),
   #|   });
   #|   if (!slot.modules.has(source)) {
-  #|     const base = source.endsWith('/') ? source : source + '/';
-  #|     const p = Promise.all([
-  #|       import(/* @vite-ignore */ base + '@codemirror/state@6'),
-  #|       import(/* @vite-ignore */ base + '@codemirror/view@6'),
-  #|       import(/* @vite-ignore */ base + '@codemirror/commands@6'),
-  #|     ])
-  #|       .then(([state, view, commands]) => ({ ...state, ...view, ...commands }))
-  #|       .catch(err => {
-  #|         slot.modules.delete(source);
-  #|         throw err;
-  #|       });
+  #|     const load = source.startsWith('global:')
+  #|       ? Promise.resolve().then(() => {
+  #|           const name = source.slice('global:'.length);
+  #|           const value = globalThis[name];
+  #|           if (!value || typeof value !== 'object') {
+  #|             throw new Error(`CodeMirror global source not found: ${source}`);
+  #|           }
+  #|           return value;
+  #|         })
+  #|       : (() => {
+  #|           const base = source.endsWith('/') ? source : source + '/';
+  #|           return Promise.all([
+  #|             import(/* @vite-ignore */ base + '@codemirror/state@6'),
+  #|             import(/* @vite-ignore */ base + '@codemirror/view@6'),
+  #|             import(/* @vite-ignore */ base + '@codemirror/commands@6'),
+  #|           ]).then(([state, view, commands]) => ({ ...state, ...view, ...commands }));
+  #|         })();
+  #|     const p = load.catch(err => {
+  #|       slot.modules.delete(source);
+  #|       throw err;
+  #|     });
   #|     slot.modules.set(source, p);
   #|   }
   #|   return await slot.modules.get(source);
@@ -178,6 +193,56 @@ extern "js" fn js_dispatch_raw(
 ///|
 pub fn js_dispatch(view : CmView, spec : TransactionSpec) -> Unit {
   js_dispatch_raw(view.0, spec.0)
+}
+
+///|
+extern "js" fn js_replace_doc_minimal_raw(
+  view : @js_value.Value,
+  doc : String,
+) -> Unit =
+  #| (view, nextDoc) => {
+  #|   const current = view.state.doc.toString();
+  #|   if (current === nextDoc) return;
+  #|
+  #|   let from = 0;
+  #|   const maxPrefix = Math.min(current.length, nextDoc.length);
+  #|   while (from < maxPrefix && current.charCodeAt(from) === nextDoc.charCodeAt(from)) {
+  #|     from++;
+  #|   }
+  #|
+  #|   let suffix = 0;
+  #|   const maxSuffix = Math.min(current.length - from, nextDoc.length - from);
+  #|   while (
+  #|     suffix < maxSuffix &&
+  #|     current.charCodeAt(current.length - suffix - 1) ===
+  #|       nextDoc.charCodeAt(nextDoc.length - suffix - 1)
+  #|   ) {
+  #|     suffix++;
+  #|   }
+  #|
+  #|   const to = current.length - suffix;
+  #|   const insert = nextDoc.slice(from, nextDoc.length - suffix);
+  #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
+  #|   const slot = globalThis[key] ?? (globalThis[key] = {
+  #|     modules: new Map(),
+  #|     applying: new WeakMap(),
+  #|   });
+  #|   let cell = slot.applying.get(view);
+  #|   if (!cell) {
+  #|     cell = { value: false };
+  #|     slot.applying.set(view, cell);
+  #|   }
+  #|   cell.value = true;
+  #|   try {
+  #|     view.dispatch({ changes: { from, to, insert } });
+  #|   } finally {
+  #|     cell.value = false;
+  #|   }
+  #| }
+
+///|
+pub fn js_replace_doc_minimal(view : CmView, doc : String) -> Unit {
+  js_replace_doc_minimal_raw(view.0, doc)
 }
 
 ///|

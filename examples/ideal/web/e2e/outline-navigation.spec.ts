@@ -5,7 +5,7 @@ test.describe('Outline keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveTitle('Canopy Editor');
-    // Load the "Basics" example (has id, apply — good tree structure)
+    // Load the "Basics" example (small tree with multiple let bindings)
     await page.getByRole('button', { name: 'Basics' }).click();
     // Wait for outline to render
     await expect(page.getByLabel('AST outline')).toBeVisible();
@@ -84,5 +84,32 @@ test.describe('Outline keyboard navigation', () => {
 
     await page.keyboard.press('ArrowUp');
     await expect(selectedLabel(page)).toHaveText(original!);
+  });
+
+  test('click scrolls selected text into view', async ({ page }) => {
+    const source = Array.from({ length: 120 }, (_, i) => `let v${i} = ${i}`).join('\n');
+    await page.evaluate((text) => {
+      const g = globalThis as any;
+      g.__canopy_crdt.set_text(g.__canopy_crdt_handle, text);
+      document.getElementById('canopy-external-crdt-changed-trigger')?.click();
+    }, source);
+    const targetNode = page.getByLabel('AST outline')
+      .locator('.tree-label-text', { hasText: /^119$/ })
+      .first();
+    await expect(targetNode).toHaveText('119');
+
+    await page.evaluate(() => {
+      const scroller = document.querySelector('#canopy-text-editor .cm-scroller') as HTMLElement | null;
+      if (scroller) scroller.scrollTop = 0;
+    });
+
+    await targetNode.click();
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const scroller = document.querySelector('#canopy-text-editor .cm-scroller') as HTMLElement | null;
+        return scroller?.scrollTop ?? 0;
+      });
+    }, { timeout: 5000 }).toBeGreaterThan(0);
   });
 });

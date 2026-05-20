@@ -18,6 +18,8 @@ pub fn js_dispatch(CmView, TransactionSpec) -> Unit
 
 pub fn js_extension_combine(Array[Extension]) -> Extension
 
+pub fn js_replace_doc_minimal(CmView, String) -> Unit
+
 pub fn js_state_doc(CmView) -> String
 
 pub fn js_state_selection_main(CmView) -> @moonbit-community/rabbita/js.Value

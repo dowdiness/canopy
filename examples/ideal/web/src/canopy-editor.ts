@@ -1,40 +1,5 @@
-import { EditorView as CmView, keymap as cmKeymap, lineNumbers } from "@codemirror/view";
-import { EditorState as CmState } from "@codemirror/state";
-import { defaultKeymap } from "@codemirror/commands";
-import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
-import { tags as t } from "@lezer/highlight";
-import { lambda } from "./lang/lambda-language";
 import { CanopyEvents } from "./events";
 import type { CrdtModule } from './types';
-import { peerCursors, updatePeerCursors } from "./cm6-peer-cursors";
-import type { PeerCursor } from "./cm6-peer-cursors";
-
-function isCmBindingActive(): boolean {
-  return (globalThis as any).__canopy_use_cm_binding === true;
-}
-
-/** Syntax highlighting colors matching the Canopy design tokens */
-const lambdaHighlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: "#c792ea" },                        // --canopy-keyword
-  { tag: t.definition(t.variableName), color: "#e4e4f0", fontWeight: "600" }, // definition name (bold fg)
-  { tag: t.variableName, color: "#82aaff" },                   // --canopy-identifier
-  { tag: t.number, color: "#f78c6c" },                         // --canopy-number
-  { tag: t.arithmeticOperator, color: "#ff5370" },             // --canopy-operator
-  { tag: t.definitionOperator, color: "#787896" },             // --canopy-text-dim (=)
-  { tag: t.paren, color: "#787896" },                          // --canopy-text-dim
-  { tag: t.punctuation, color: "#787896" },                    // --canopy-text-dim (.)
-]);
-
-function recordPerfSpan<T>(name: string, fn: () => T): T {
-  const perf = (globalThis as any).__canopy_perf_current;
-  if (!perf?.spans) return fn();
-  const start = performance.now();
-  try {
-    return fn();
-  } finally {
-    perf.spans[name] = (perf.spans[name] ?? 0) + performance.now() - start;
-  }
-}
 
 type StructureModeSession = {
   applyRemote(syncJson: string): string;
@@ -58,8 +23,6 @@ type StructureModeModule = {
 export class CanopyEditor extends HTMLElement {
   private shadow: ShadowRoot;
   private editorContainer: HTMLDivElement;
-  // Text Mode: single CM6 editor showing raw source text
-  private cmView: CmView | null = null;
   // Structure Mode: lazily loaded PM editor showing AST as blocks
   private structureSession: StructureModeSession | null = null;
   private structureRuntimePromise: Promise<StructureModeModule> | null = null;
@@ -69,10 +32,6 @@ export class CanopyEditor extends HTMLElement {
   private mountAbortController: AbortController | null = null;
   private broadcastFn: (() => void) | null = null;
   private pendingSelectedNode: string | null = null;
-  private updating = false;
-  private cursorBroadcastTimer: ReturnType<typeof setTimeout> | null = null;
-  private agentName: string = "";
-  private agentColor: string = "";
 
   static get observedAttributes() {
     return ['mode', 'readonly'];
@@ -94,15 +53,10 @@ export class CanopyEditor extends HTMLElement {
   connectedCallback() {}
 
   disconnectedCallback() {
-    if (this.cursorBroadcastTimer !== null) {
-      clearTimeout(this.cursorBroadcastTimer);
-      this.cursorBroadcastTimer = null;
-    }
     if (this.mountAbortController) {
       this.mountAbortController.abort();
       this.mountAbortController = null;
     }
-    this.destroyCm();
     this.destroyPm();
   }
 
@@ -115,12 +69,6 @@ export class CanopyEditor extends HTMLElement {
       if (this.structureSession) {
         this.structureSession.setReadonly(ro);
       }
-      if (this.cmView && !isCmBindingActive()) {
-        // Remount CM6 to apply readonly (no hot reconfigure API for editable)
-        this.destroyCm();
-        this.editorContainer.innerHTML = '';
-        this.mountTextMode();
-      }
     }
   }
 
@@ -128,7 +76,6 @@ export class CanopyEditor extends HTMLElement {
     if (this.mountAbortController) this.mountAbortController.abort();
     this.mountAbortController = new AbortController();
 
-    this.destroyCm();
     this.destroyPm();
 
     this.crdtHandle = crdtHandle;
@@ -151,186 +98,16 @@ export class CanopyEditor extends HTMLElement {
         }));
         return;
       }
-      this.syncCmFromCrdt();
-      this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {
+      this.dispatchEvent(new CustomEvent(CanopyEvents.EXTERNAL_CRDT_CHANGE, {
         bubbles: true, composed: true,
       }));
     }) as EventListener, { signal });
 
-    if (this.mode === 'text') {
-      this.mountTextMode();
-    } else {
+    if (this.mode === 'structure') {
       void this.mountStructureMode();
+    } else {
+      this.editorContainer.innerHTML = '';
     }
-  }
-
-  // ── Text Mode: single CM6 showing raw source text ──────
-
-  private mountTextMode(): void {
-    if (isCmBindingActive()) return;
-    this.destroyPm();
-    if (this.cmView) return; // already mounted
-
-    const text = this.crdt!.get_text(this.crdtHandle!);
-
-    this.cmView = new CmView({
-      state: CmState.create({
-        doc: text,
-        extensions: [
-          CmView.theme({
-            "&": {
-              backgroundColor: "transparent",
-              color: "var(--canopy-fg, #e4e4f0)",
-              fontFamily: "var(--canopy-font-mono, 'Iosevka', monospace)",
-              fontSize: "18px",
-              height: "100%",
-            },
-            ".cm-scroller": {
-              overflow: "auto",
-              height: "100%",
-            },
-            ".cm-content": {
-              caretColor: "var(--canopy-fg, #e4e4f0)",
-              padding: "16px",
-              minHeight: "100%",
-            },
-            "&.cm-focused": {
-              outline: "none",
-            },
-            ".cm-cursor": {
-              borderLeftColor: "var(--canopy-fg, #e4e4f0)",
-            },
-            ".cm-gutters": {
-              backgroundColor: "transparent",
-              color: "var(--canopy-muted, #8888a8)",
-              border: "none",
-            },
-            ".cm-activeLineGutter": {
-              backgroundColor: "transparent",
-              color: "var(--canopy-fg, #e4e4f0)",
-            },
-            ".cm-activeLine": {
-              backgroundColor: "rgba(255,255,255,0.03)",
-            },
-          }),
-          cmKeymap.of([
-            // Keep undo/redo on the CRDT timeline instead of CM local history.
-            {
-              key: "Mod-z",
-              run: () => {
-                this.dispatchEvent(new CustomEvent(CanopyEvents.REQUEST_UNDO, {
-                  bubbles: true, composed: true,
-                }));
-                return true;
-              },
-            },
-            {
-              key: "Mod-Shift-z",
-              run: () => {
-                this.dispatchEvent(new CustomEvent(CanopyEvents.REQUEST_REDO, {
-                  bubbles: true, composed: true,
-                }));
-                return true;
-              },
-            },
-            ...defaultKeymap,
-          ]),
-          CmView.lineWrapping,
-          lineNumbers(),
-          lambda(),
-          syntaxHighlighting(lambdaHighlightStyle),
-          ...peerCursors(),
-          // Forward text changes to CRDT via protocol
-          CmView.updateListener.of(update => {
-            if (this.updating || !update.docChanged || !this.crdt || this.crdtHandle === null) return;
-            const ts = Date.now();
-            // Count changes to detect multi-change transactions
-            let changeCount = 0;
-            update.changes.iterChanges(() => { changeCount++; });
-            recordPerfSpan("handleTextIntent", () => {
-              if (changeCount === 1) {
-                // Single change: use incremental intent (avoids O(n) diff)
-                update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-                  this.crdt!.handle_text_intent(
-                    this.crdtHandle!,
-                    fromA,
-                    toA - fromA,
-                    inserted.toString(),
-                    ts,
-                  );
-                });
-              } else {
-                // Multi-change (find-replace, multi-cursor) or fallback:
-                // use set_text_and_record which diffs correctly
-                const newText = update.state.doc.toString();
-                if (this.crdt.set_text_and_record) {
-                  this.crdt.set_text_and_record(this.crdtHandle, newText, ts);
-                } else {
-                  this.crdt.set_text(this.crdtHandle, newText);
-                }
-              }
-            });
-            // Notify peers + Rabbita
-            recordPerfSpan("notifyLocalChange", () => this.notifyLocalChange());
-            recordPerfSpan("dispatchTextChanged", () => {
-              this.dispatchEvent(new CustomEvent(CanopyEvents.TEXT_CHANGE, {
-                bubbles: true, composed: true,
-              }));
-            });
-          }),
-          // Broadcast cursor position on selection changes (debounced)
-          CmView.updateListener.of(update => {
-            if (update.selectionSet || update.docChanged) {
-              this.broadcastCursorDebounced();
-            }
-          }),
-        ],
-      }),
-      parent: this.editorContainer,
-      root: this.shadow,
-    });
-  }
-
-  private destroyCm(): void {
-    if (this.cmView) {
-      this.cmView.destroy();
-      this.cmView = null;
-    }
-  }
-
-  /**
-   * Sync CM6 content from CRDT (after external/remote changes).
-   *
-   * Computes a minimal diff so CM6's cursor mapping preserves the local
-   * cursor position and selection. Only the changed region is replaced,
-   * not the entire document.
-   */
-  private syncCmFromCrdt(): void {
-    if (!this.cmView || !this.crdt || this.crdtHandle === null) return;
-    this.updating = true;
-    const newText = this.crdt.get_text(this.crdtHandle);
-    const oldText = this.cmView.state.doc.toString();
-    if (newText !== oldText) {
-      // Find the common prefix and suffix to minimize the replaced range.
-      // CM6 automatically maps cursor/selection through minimal changes.
-      const minLen = Math.min(oldText.length, newText.length);
-      let prefixLen = 0;
-      while (prefixLen < minLen && oldText[prefixLen] === newText[prefixLen]) {
-        prefixLen++;
-      }
-      let suffixLen = 0;
-      while (
-        suffixLen < minLen - prefixLen &&
-        oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
-      ) {
-        suffixLen++;
-      }
-      const from = prefixLen;
-      const to = oldText.length - suffixLen;
-      const insert = newText.slice(prefixLen, newText.length - suffixLen);
-      this.cmView.dispatch({ changes: { from, to, insert } });
-    }
-    this.updating = false;
   }
 
   // ── Structure Mode: PM with block NodeViews ────────────
@@ -353,7 +130,6 @@ export class CanopyEditor extends HTMLElement {
   }
 
   private async mountStructureMode(): Promise<void> {
-    this.destroyCm();
     if (this.structureSession || !this.crdt || this.crdtHandle === null) return;
 
     const loadVersion = ++this.structureLoadVersion;
@@ -402,9 +178,7 @@ export class CanopyEditor extends HTMLElement {
     if (m === 'text') {
       this.destroyPm();
       this.editorContainer.innerHTML = '';
-      this.mountTextMode();
     } else {
-      this.destroyCm();
       this.editorContainer.innerHTML = '';
       await this.mountStructureMode();
     }
@@ -413,42 +187,23 @@ export class CanopyEditor extends HTMLElement {
   // ── Properties (Rabbita → editor) ──────────────────────
 
   set projNode(_json: string) {
-    if (this.mode === 'text') {
-      this.syncCmFromCrdt();
-    } else if (this.structureSession) {
+    if (this.structureSession) {
       this.structureSession.reconcile();
     }
   }
 
   set sourceMap(_json: string) { /* bridge reads on demand */ }
 
-  set peers(_json: string) {
-    this.updatePeerCursorsFromCrdt();
-  }
+  set peers(_json: string) { /* text-mode peer cursors are binding-owned */ }
   set errors(_json: string) { /* TODO: CM6 lint decorations */ }
   set evalResults(_json: string) { /* TODO: CM6 eval ghost decorations */ }
 
   set selectedNode(id: string | null) {
     this.pendingSelectedNode = id;
-    if (!id || !this.crdt || this.crdtHandle === null) return;
-    if (this.cmView) {
-      // Text mode: find node's span in source map and select it in CM6
-      try {
-        const smJson = JSON.parse(this.crdt.get_source_map_json(this.crdtHandle));
-        const entry = smJson.find((r: any) => String(r.node_id) === id);
-        if (entry) {
-          const from = entry.start;
-          const to = entry.end;
-          this.cmView.dispatch({
-            selection: { anchor: from, head: to },
-            scrollIntoView: true,
-          });
-          this.cmView.focus();
-        }
-      } catch { /* source map parse failure — ignore */ }
-    } else if (this.structureSession) {
+    if (this.structureSession) {
       this.structureSession.setSelectedNode(id);
     }
+    if (!id || !this.crdt || this.crdtHandle === null) return;
   }
 
   get mode(): 'text' | 'structure' {
@@ -474,54 +229,15 @@ export class CanopyEditor extends HTMLElement {
   }
 
   setAgentIdentity(name: string, color: string): void {
-    this.agentName = name;
-    this.agentColor = color;
+    void name;
+    void color;
   }
 
   /** Sync CM6 content from CRDT after an external change (undo, redo, structural edit). */
   syncAfterExternalChange(): void {
-    if (this.mode === 'text') {
-      this.syncCmFromCrdt();
-    } else if (this.structureSession) {
+    if (this.structureSession) {
       this.structureSession.reconcile();
     }
-  }
-
-  updatePeerCursorsFromCrdt(): void {
-    if (!this.cmView || !this.crdt || this.crdtHandle === null) return;
-    const json = this.crdt.ephemeral_get_peer_cursors_json(this.crdtHandle);
-    try {
-      const cursors: PeerCursor[] = JSON.parse(json);
-      updatePeerCursors(this.cmView, cursors);
-    } catch {
-      // Malformed JSON — ignore
-    }
-  }
-
-  private broadcastCursorDebounced(): void {
-    if (this.cursorBroadcastTimer !== null) return;
-    this.cursorBroadcastTimer = setTimeout(() => {
-      this.cursorBroadcastTimer = null;
-      this.broadcastCursorNow();
-    }, 50);
-  }
-
-  private broadcastCursorNow(): void {
-    if (!this.crdt || this.crdtHandle === null || !this.cmView) return;
-    if (!this.agentName) return;
-    const sel = this.cmView.state.selection.main;
-    this.crdt.ephemeral_set_presence_with_selection(
-      this.crdtHandle,
-      this.agentName,
-      this.agentColor,
-      sel.from,
-      sel.to,
-    );
-    // Broadcast ephemeral data to peers
-    this.dispatchEvent(new CustomEvent('ephemeral-local-update', {
-      bubbles: true,
-      composed: true,
-    }));
   }
 }
 

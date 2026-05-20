@@ -1,5 +1,6 @@
 export const CanopyEvents = {
   TEXT_CHANGE: 'text-changed',
+  EXTERNAL_CRDT_CHANGE: 'external-crdt-changed',
   NODE_SELECTED: 'node-selected',
   STRUCTURAL_EDIT_REQUEST: 'structural-edit-request',
   CURSOR_MOVE: 'cursor-move',

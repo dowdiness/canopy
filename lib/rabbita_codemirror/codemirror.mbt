@@ -205,12 +205,18 @@ fn change_spec(from : Int, to : Int?, text : String) -> @js_ffi.TransactionSpec 
 
 ///|
 #cfg(target="js")
-fn selection_spec(range : SelRange) -> @js_ffi.TransactionSpec {
+fn selection_spec(
+  range : SelRange,
+  scroll_into_view : Bool,
+) -> @js_ffi.TransactionSpec {
   let selection = @js_value.Object::new()
   selection["anchor"] = range.from
   selection["head"] = range.to
   let spec = @js_value.Object::new()
   spec["selection"] = selection.to_value()
+  if scroll_into_view {
+    spec["scrollIntoView"] = true
+  }
   transaction_spec(spec.to_value())
 }
 
@@ -439,8 +445,8 @@ pub fn unmount(id : String, failed? : @cmd.Emit[String]) -> @cmd.Cmd {
 }
 
 ///|
-/// Replace the full document, skipping echo dispatches when the document is
-/// already current.
+/// Replace the document with a minimal single-range change, skipping echo
+/// dispatches when the document is already current.
 #cfg(target="js")
 pub fn set_doc(
   id : String,
@@ -451,10 +457,7 @@ pub fn set_doc(
     with_entry(id, failed, scheduler, entry => {
       let current = @js_ffi.js_state_doc(entry.view)
       if doc != current {
-        @js_ffi.js_dispatch(
-          entry.view,
-          change_spec(0, Some(current.length()), doc),
-        )
+        @js_ffi.js_replace_doc_minimal(entry.view, doc)
       }
     })
   })
@@ -499,11 +502,12 @@ pub fn replace(
 pub fn set_selection(
   id : String,
   range : SelRange,
+  scroll_into_view? : Bool = false,
   failed? : @cmd.Emit[String],
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
     with_entry(id, failed, scheduler, entry => {
-      @js_ffi.js_dispatch(entry.view, selection_spec(range))
+      @js_ffi.js_dispatch(entry.view, selection_spec(range, scroll_into_view))
     })
   })
 }

@@ -64,7 +64,6 @@ pub struct Model {
   companion : @lambda.LambdaCompanion
   outline_state : @proj.TreeEditorState[@ast.Term]
   cm_id : String
-  use_cm_binding : Bool
   mounted : Bool
   mode : EditorMode
   workspace : WorkspaceLayout

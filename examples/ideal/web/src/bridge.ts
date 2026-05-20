@@ -1,4 +1,5 @@
 import { EditorView as PmView } from "prosemirror-view";
+import { canopyEditTimestampMs } from "./edit-clock";
 import { reconcile } from "./reconciler";
 import type { CrdtModule, ProjNodeJson } from "./types";
 
@@ -72,7 +73,7 @@ export class CrdtBridge {
       this.scheduleReconcile();
       return;
     }
-    if (!this.applySpliceChanges(entry.start, Date.now(), changes)) {
+    if (!this.applySpliceChanges(entry.start, canopyEditTimestampMs(), changes)) {
       // CM6/CRDT drift — abort the batch to avoid broadcasting a clamped edit.
       this.scheduleReconcile();
       return;
@@ -89,7 +90,7 @@ export class CrdtBridge {
       this.scheduleReconcile();
       return;
     }
-    if (!this.applySpliceChanges(entry.token_spans[tokenRole].start, Date.now(), changes)) {
+    if (!this.applySpliceChanges(entry.token_spans[tokenRole].start, canopyEditTimestampMs(), changes)) {
       this.scheduleReconcile();
       return;
     }
@@ -99,7 +100,7 @@ export class CrdtBridge {
   /** Apply a structural edit (delete, wrap, etc.) via the CRDT TreeEditOp bridge */
   handleStructuralEdit(opType: string, nodeId: number, extra?: Record<string, unknown>): void {
     const opJson = JSON.stringify({ type: opType, node_id: nodeId, ...extra });
-    const ts = Date.now();
+    const ts = canopyEditTimestampMs();
     const result = this.crdt.apply_tree_edit_json(this.handle, opJson, ts);
     if (result !== "ok") {
       console.error("Structural edit failed:", result);

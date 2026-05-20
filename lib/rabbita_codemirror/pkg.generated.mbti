@@ -29,7 +29,7 @@ pub fn set_line_wrapping(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
 pub fn set_readonly(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
-pub fn set_selection(String, SelRange, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+pub fn set_selection(String, SelRange, scroll_into_view? : Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
 pub fn set_theme(String, @theme.Theme, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 

@@ -1,6 +1,14 @@
 import './canopy-editor';
+import * as cmCommands from '@codemirror/commands';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import * as cmState from '@codemirror/state';
+import * as cmView from '@codemirror/view';
+import { tags as t } from '@lezer/highlight';
 import type { CanopyEditor } from './canopy-editor';
+import { peerCursors, updatePeerCursorsFromJson } from './cm6-peer-cursors';
+import { canopyEditTimestampMs } from './edit-clock';
 import { CanopyEvents } from './events';
+import { lambda } from './lang/lambda-language';
 import { SyncClient } from './sync';
 import type { CrdtModule } from './types';
 
@@ -13,6 +21,8 @@ type StructuralEditDetail = {
   nodeId?: string;
 };
 
+type CmExtensionFactory = (cm: Record<string, any>) => any | any[];
+
 type CanopyGlobal = typeof globalThis & {
   __canopy_crdt?: CrdtModule;
   __canopy_crdt_handle?: number;
@@ -24,13 +34,19 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_overlay_open?: boolean;
   __canopy_pending_action_key?: string | null;
   __canopy_trigger_autosave?: () => void;
+  __canopy_agent_name?: string;
+  __canopy_agent_color?: string;
+  __canopy_broadcast_ephemeral?: () => void;
+  __canopy_codemirror?: Record<string, any>;
+  __canopy_create_cm_peer_cursor_extension?: CmExtensionFactory;
+  __canopy_create_lambda_cm_extensions?: CmExtensionFactory;
+  __canopy_update_cm_peer_cursors?: () => void;
 };
 
 const canopyGlobal = globalThis as CanopyGlobal;
 const AGENT_ID_STORAGE_KEY = 'canopy-ideal-agent-id';
 const STORAGE_KEY_PREFIX = 'canopy-doc-';
 const SKIP_SYNC = import.meta.env.VITE_CANOPY_SKIP_SYNC === '1';
-const USE_CM_BINDING = import.meta.env.VITE_CANOPY_USE_CM_BINDING === '1';
 let crdtPromise: Promise<CrdtModule> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let activeSyncClient: SyncClient | null = null;
@@ -38,12 +54,28 @@ let editorEventsController: AbortController | null = null;
 let beforeUnloadRegistered = false;
 let ephemeralCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
+const lambdaHighlightStyle = HighlightStyle.define([
+  { tag: t.keyword, color: '#c792ea' },
+  { tag: t.definition(t.variableName), color: '#e4e4f0', fontWeight: '600' },
+  { tag: t.variableName, color: '#82aaff' },
+  { tag: t.number, color: '#f78c6c' },
+  { tag: t.arithmeticOperator, color: '#ff5370' },
+  { tag: t.punctuation, color: '#ff5370' },
+  { tag: t.paren, color: '#b8b8d0' },
+  { tag: t.definitionOperator, color: '#ff5370' },
+]);
+
 function loadCrdtModule(): Promise<CrdtModule> {
   if (!crdtPromise) {
     // Set agent ID globally BEFORE importing the MoonBit module.
     // MoonBit's init_model reads this to create the CRDT editor with a unique agent.
     canopyGlobal.__canopy_agent_id = getSessionAgentId();
-    (globalThis as any).__canopy_use_cm_binding = USE_CM_BINDING;
+    canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
+    canopyGlobal.__canopy_create_lambda_cm_extensions = () => [
+      lambda(),
+      syntaxHighlighting(lambdaHighlightStyle),
+    ];
+    canopyGlobal.__canopy_create_cm_peer_cursor_extension = peerCursors;
     // Loading the MoonBit module also runs Rabbita's main(), which renders <canopy-editor>.
     crdtPromise = import('@moonbit/ideal-editor') as Promise<CrdtModule>;
   }
@@ -117,6 +149,14 @@ function triggerAutosave() {
   }
 }
 
+function updateCmPeerCursors() {
+  if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
+  const json = canopyGlobal.__canopy_crdt.ephemeral_get_peer_cursors_json(
+    canopyGlobal.__canopy_crdt_handle,
+  );
+  updatePeerCursorsFromJson(json);
+}
+
 /** Generate a deterministic color from agent ID (hash -> HSL with fixed S/L). */
 function agentColor(agentId: string): string {
   let hash = 0;
@@ -156,19 +196,16 @@ function wireEditorEvents(el: CanopyEditor) {
   editorEventsController = new AbortController();
   const { signal } = editorEventsController;
 
-  el.addEventListener(CanopyEvents.TEXT_CHANGE, () => {
-    // Text was already applied by canopy-editor.ts via handle_text_intent FFI
-    // or by remote sync. Trigger Rabbita outline refresh via the protocol trigger.
-    recordPerfSpan("textChangedToRabbitaTrigger", () => {
-      clickTrigger('canopy-editor-text-changed');
+  el.addEventListener(CanopyEvents.EXTERNAL_CRDT_CHANGE, () => {
+    recordPerfSpan("externalCrdtChangedToRabbitaTrigger", () => {
+      clickTrigger('canopy-external-crdt-changed-trigger');
     });
-    // Debounced save to localStorage
-    (canopyGlobal.__canopy_trigger_autosave ?? triggerAutosave)();
+    triggerAutosave();
   }, { signal });
   el.addEventListener(CanopyEvents.NODE_SELECTED, ((event: Event) => {
     const { nodeId } = (event as CustomEvent<NodeSelectedDetail>).detail ?? {};
     canopyGlobal.__canopy_pending_node_selection = nodeId ?? null;
-    clickTrigger('canopy-editor-node-selected');
+    clickTrigger('canopy-structure-node-selected-trigger');
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.STRUCTURAL_EDIT_REQUEST, ((event: Event) => {
     const detail = (event as CustomEvent).detail ?? {};
@@ -185,12 +222,12 @@ function wireEditorEvents(el: CanopyEditor) {
         target: detail.target,
         position: detail.position,
       });
-      result = crdt.apply_tree_edit_json(handle, opJson, Date.now());
+      result = crdt.apply_tree_edit_json(handle, opJson, canopyEditTimestampMs());
     } else {
       // Standard structural edit: op/nodeId → handle_structural_intent
       const { op, nodeId } = detail as StructuralEditDetail;
       if (!op || !nodeId) return;
-      result = crdt.handle_structural_intent(handle, op, nodeId, Date.now(), "");
+      result = crdt.handle_structural_intent(handle, op, nodeId, canopyEditTimestampMs(), "");
     }
 
     if (result !== "ok") {
@@ -204,7 +241,8 @@ function wireEditorEvents(el: CanopyEditor) {
     const op = detail.op ?? detail.type;
     const nodeId = detail.nodeId ?? String(detail.target ?? "");
     canopyGlobal.__canopy_pending_structural_edit = { op, nodeId };
-    clickTrigger('canopy-editor-structural-edit');
+    triggerAutosave();
+    clickTrigger('canopy-structure-structural-edit-trigger');
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.REQUEST_UNDO, () => {
     if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
@@ -214,7 +252,8 @@ function wireEditorEvents(el: CanopyEditor) {
     if (didUndo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
-      clickTrigger('canopy-editor-text-changed');
+      triggerAutosave();
+      clickTrigger('canopy-external-crdt-changed-trigger');
     }
   }, { signal });
   el.addEventListener(CanopyEvents.REQUEST_REDO, () => {
@@ -225,7 +264,8 @@ function wireEditorEvents(el: CanopyEditor) {
     if (didRedo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
-      clickTrigger('canopy-editor-text-changed');
+      triggerAutosave();
+      clickTrigger('canopy-external-crdt-changed-trigger');
     }
   }, { signal });
   el.addEventListener(CanopyEvents.ACTION_OVERLAY_OPEN, ((event: Event) => {
@@ -248,9 +288,9 @@ function wireEditorEvents(el: CanopyEditor) {
     }
   }) as EventListener, { signal });
 
-  // When remote ephemeral data arrives, update CM6 peer cursor decorations
+  // When remote ephemeral data arrives, update text-mode peer cursor decorations.
   el.addEventListener('sync-cursors-updated', () => {
-    el.updatePeerCursorsFromCrdt();
+    updateCmPeerCursors();
   }, { signal });
 
   // When local cursor changes, broadcast ephemeral data to peers
@@ -321,13 +361,20 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   canopyGlobal.__canopy_pending_node_selection = null;
   canopyGlobal.__canopy_pending_structural_edit = null;
   canopyGlobal.__canopy_trigger_autosave = triggerAutosave;
+  let restoredState = false;
 
   // Restore from localStorage if available
   try {
     const savedState = localStorage.getItem(STORAGE_KEY_PREFIX + roomId);
     if (savedState) {
       try {
-        crdt.apply_sync_json(handle, savedState);
+        const result = crdt.apply_sync_json(handle, savedState);
+        if (result === 'ok') {
+          restoredState = true;
+        } else {
+          console.warn('Failed to restore from localStorage, removing corrupted entry:', result);
+          try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
+        }
       } catch (e) {
         console.warn('Failed to restore from localStorage, removing corrupted entry:', e);
         try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
@@ -341,6 +388,10 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   const agentId = getSessionAgentId();
   const name = agentDisplayName(agentId);
   const color = agentColor(agentId);
+  canopyGlobal.__canopy_agent_name = name;
+  canopyGlobal.__canopy_agent_color = color;
+  canopyGlobal.__canopy_broadcast_ephemeral = () => activeSyncClient?.broadcastEphemeral();
+  canopyGlobal.__canopy_update_cm_peer_cursors = updateCmPeerCursors;
   el.setAgentIdentity(name, color);
 
   // Announce presence to ephemeral hub
@@ -349,6 +400,9 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   // Text already set by MoonBit's init_model — don't overwrite.
   el.mount(handle, crdt);
   wireEditorEvents(el);
+  if (restoredState) {
+    clickTrigger('canopy-external-crdt-changed-trigger');
+  }
   if (!SKIP_SYNC) {
     startSync(el, handle, crdt, roomId);
   }
@@ -359,7 +413,7 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   }
   ephemeralCleanupTimer = setInterval(() => {
     crdt.ephemeral_remove_outdated(handle);
-    el.updatePeerCursorsFromCrdt();
+    updateCmPeerCursors();
   }, 10_000);
 }
 

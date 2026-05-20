@@ -17,12 +17,29 @@ const PING_INTERVAL_MS = 30_000;
 
 // Try to load SQLite store; fall back to in-memory if not available.
 let store: OpStore | null = null;
-try {
-  const { createStore } = await import("./store");
-  store = createStore();
-  console.log("[Server] SQLite persistence enabled");
-} catch {
-  console.log("[Server] SQLite not available, using in-memory storage");
+function isStoreImportUnavailable(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") return true;
+  return error instanceof Error && /better-sqlite3|\.\/store/.test(error.message);
+}
+
+async function initializeStore(): Promise<void> {
+  let createStore: (typeof import("./store"))["createStore"];
+  try {
+    ({ createStore } = await import("./store"));
+  } catch (error) {
+    if (!isStoreImportUnavailable(error)) throw error;
+    console.log("[Server] SQLite store module not available, using in-memory storage", error);
+    return;
+  }
+
+  try {
+    store = createStore();
+    console.log("[Server] SQLite persistence enabled");
+  } catch (error) {
+    console.error("[Server] SQLite persistence failed during startup", error);
+    throw error;
+  }
 }
 
 interface Room {
@@ -62,22 +79,28 @@ function clearOps(roomId: string, room: Room): void {
   else room.ops = [];
 }
 
-const wss = new WebSocketServer({ port: PORT, maxPayload: MAX_PAYLOAD });
-console.log(`[Server] Canopy WebSocket relay running on ws://localhost:${PORT}`);
+let wss: WebSocketServer | null = null;
+let pingInterval: ReturnType<typeof setInterval> | null = null;
 
 // Server-side ping: detect dead connections.
 const aliveClients = new WeakSet<WebSocket>();
-const pingInterval = setInterval(() => {
-  for (const ws of wss.clients) {
-    if (!aliveClients.has(ws)) { ws.terminate(); continue; }
-    aliveClients.delete(ws);
-    ws.ping();
-  }
-}, PING_INTERVAL_MS);
+function startServer(): void {
+  wss = new WebSocketServer({ port: PORT, maxPayload: MAX_PAYLOAD });
+  console.log(`[Server] Canopy WebSocket relay running on ws://localhost:${PORT}`);
 
-wss.on("close", () => clearInterval(pingInterval));
+  pingInterval = setInterval(() => {
+    for (const ws of wss!.clients) {
+      if (!aliveClients.has(ws)) { ws.terminate(); continue; }
+      aliveClients.delete(ws);
+      ws.ping();
+    }
+  }, PING_INTERVAL_MS);
 
-wss.on("connection", (ws) => {
+  wss.on("close", () => {
+    if (pingInterval) clearInterval(pingInterval);
+  });
+
+  wss.on("connection", (ws) => {
   let currentRoom: Room | null = null;
   let currentRoomId: string | null = null;
 
@@ -188,12 +211,19 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("error", (err) => console.error("[Error] WebSocket error:", err));
-});
+  });
+}
 
 // Graceful shutdown
 function shutdown() {
   console.log("[Server] Shutting down...");
-  clearInterval(pingInterval);
+  if (pingInterval) clearInterval(pingInterval);
+  if (!wss) {
+    store?.close();
+    console.log("[Server] Stopped.");
+    process.exit(0);
+    return;
+  }
   for (const ws of wss.clients) ws.close(1001, "Server shutting down");
   wss.close(() => {
     store?.close();
@@ -204,3 +234,8 @@ function shutdown() {
 }
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+
+initializeStore().then(startServer).catch((err) => {
+  console.error("[Server] Failed to start:", err);
+  process.exit(1);
+});

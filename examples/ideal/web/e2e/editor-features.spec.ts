@@ -3,14 +3,20 @@ import { test, expect } from '@playwright/test';
 // ── Helpers ──────────────────────────────────────────────────
 
 /** Wait for the Rabbita app to mount and the editor to be ready. */
-async function waitForEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
+async function waitForEditor(
+  page: import('@playwright/test').Page,
+  path = '/',
+) {
+  await page.goto(path);
+  await waitForEditorReady(page);
+}
+
+async function waitForEditorReady(page: import('@playwright/test').Page) {
   await expect(page).toHaveTitle('Canopy Editor');
   await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
-  // Wait for CM6 to mount inside the shadow DOM
+  // Wait for the binding-owned CM6 editor to mount.
   await page.waitForFunction(() => {
-    const ce = document.querySelector('canopy-editor');
-    return ce?.shadowRoot?.querySelector('.cm-editor') !== null;
+    return document.querySelector('#canopy-text-editor .cm-editor') !== null;
   }, { timeout: 10000 });
 }
 
@@ -19,12 +25,10 @@ async function getOutlineText(page: import('@playwright/test').Page) {
   return page.getByLabel('AST outline').innerText();
 }
 
-/** Type text into the CM6 editor via the shadow DOM. */
+/** Type text into the binding-owned CM6 editor. */
 async function typeInEditor(page: import('@playwright/test').Page, text: string) {
-  // Focus the CM6 content area inside shadow DOM
   await page.evaluate(() => {
-    const ce = document.querySelector('canopy-editor');
-    const cm = ce?.shadowRoot?.querySelector('.cm-content') as HTMLElement;
+    const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
     cm?.focus();
   });
   await page.keyboard.type(text, { delay: 20 });
@@ -33,27 +37,27 @@ async function typeInEditor(page: import('@playwright/test').Page, text: string)
 // ── Example Buttons ──────────────────────────────────────────
 
 test.describe('Example Buttons', () => {
-  test('Identity example updates outline', async ({ page }) => {
+  test('Basics example updates outline', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     const text = await getOutlineText(page);
-    expect(text).toContain('module [id]');
+    expect(text).toContain('module [double, result]');
     expect(text).toContain('λx');
   });
 
-  test('Add example updates outline', async ({ page }) => {
+  test('Currying example updates outline', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Currying' }).click();
     const text = await getOutlineText(page);
-    expect(text).toContain('module [add]');
+    expect(text).toContain('module [add, add5, sum]');
     expect(text).toContain('Plus');
   });
 
-  test('Church 2 example updates outline', async ({ page }) => {
+  test('Composition example updates outline', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Church 2' }).click();
+    await page.getByRole('button', { name: 'Composition' }).click();
     const text = await getOutlineText(page);
-    expect(text).toContain('module [two]');
+    expect(text).toContain('module [inc, twice, result]');
   });
 
   test('Conditional example shows if node', async ({ page }) => {
@@ -63,24 +67,24 @@ test.describe('Example Buttons', () => {
     expect(text).toContain('if');
   });
 
-  test('Apply example updates outline', async ({ page }) => {
+  test('Pipeline example updates outline', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await page.getByRole('button', { name: 'Pipeline' }).click();
     const text = await getOutlineText(page);
-    expect(text).toContain('module [apply]');
+    expect(text).toContain('module [compose, double, inc, f]');
   });
 
   test('switching examples updates CRDT state', async ({ page }) => {
     await waitForEditor(page);
     // Open bottom panel and switch to CRDT State tab
     await page.getByRole('button', { name: 'Panels' }).click();
-    await page.getByRole('button', { name: 'CRDT State' }).click();
+    await page.getByRole('tab', { name: 'CRDT State' }).click();
 
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     await page.waitForTimeout(200);
     const len1 = await page.locator('.state-value').last().innerText();
 
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await page.getByRole('button', { name: 'Pipeline' }).click();
     await page.waitForTimeout(200);
     const len2 = await page.locator('.state-value').last().innerText();
     expect(Number(len1)).not.toEqual(Number(len2));
@@ -94,8 +98,7 @@ test.describe('Outline Refresh', () => {
     await waitForEditor(page);
     // Select all and replace with new content
     await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      const cm = ce?.shadowRoot?.querySelector('.cm-content') as HTMLElement;
+      const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
       cm?.focus();
     });
     await page.keyboard.press('Control+a');
@@ -108,42 +111,120 @@ test.describe('Outline Refresh', () => {
 
   test('outline updates when switching examples rapidly', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Currying' }).click();
     await page.getByRole('button', { name: 'Conditional' }).click();
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     // Wait for the last refresh to complete
     await page.waitForTimeout(500);
     const text = await getOutlineText(page);
-    expect(text).toContain('module [id]');
+    expect(text).toContain('module [double, result]');
   });
 });
 
-// ── Syntax Highlighting ──────────────────────────────────────
+// ── Persistence ──────────────────────────────────────────────
 
-test.describe('Syntax Highlighting', () => {
-  test('CM6 renders syntax tokens with color', async ({ page }) => {
-    await waitForEditor(page);
-    // Check that the CM6 editor has syntax-highlighted spans (tok- or ͼ classes)
-    const hasHighlighting = await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      if (!ce?.shadowRoot) return false;
-      const editor = ce.shadowRoot.querySelector('.cm-editor');
-      if (!editor) return false;
-      // CM6 uses either tok- classes or ͼ-prefixed classes for highlighting
-      const spans = editor.querySelectorAll('.cm-line span');
-      return spans.length > 1; // Multiple spans = tokens are split = highlighting active
+test.describe('Persistence', () => {
+  test('restores saved CRDT state into CM6 after reload', async ({ page }) => {
+    const room = `restore-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await waitForEditor(page, `/#${room}`);
+
+    await page.getByRole('button', { name: 'Currying' }).click();
+    await page.waitForFunction(() => {
+      return document.querySelector('#canopy-text-editor .cm-content')?.textContent?.includes('add5') ?? false;
     });
-    expect(hasHighlighting).toBe(true);
+
+    await page.evaluate(() => {
+      const g = globalThis as any;
+      const roomId = location.hash.slice(1);
+      localStorage.setItem(
+        `canopy-doc-${roomId}`,
+        g.__canopy_crdt.export_all_json(g.__canopy_crdt_handle),
+      );
+    });
+
+    await page.reload();
+    await waitForEditorReady(page);
+    await page.waitForFunction(() => {
+      const text = document.querySelector('#canopy-text-editor .cm-content')?.textContent ?? '';
+      return text.includes('add5') && !text.includes('apply id 42');
+    });
+  });
+});
+
+// ── CodeMirror Rendering ─────────────────────────────────────
+
+test.describe('CodeMirror Rendering', () => {
+  test('CM6 mounts without CDN access', async ({ page }) => {
+    await page.route('https://esm.sh/**', (route) => route.abort());
+    await waitForEditor(page);
+    await expect(page.locator('#canopy-text-editor .cm-editor')).toBeVisible();
+  });
+
+  test('CM6 renders source lines', async ({ page }) => {
+    await waitForEditor(page);
+    const hasSource = await page.evaluate(() => {
+      const editor = document.querySelector('#canopy-text-editor .cm-editor');
+      return (editor?.textContent ?? '').includes('let');
+    });
+    expect(hasSource).toBe(true);
   });
 
   test('line numbers are visible', async ({ page }) => {
     await waitForEditor(page);
     const hasLineNumbers = await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      const gutters = ce?.shadowRoot?.querySelectorAll('.cm-gutterElement');
+      const gutters = document.querySelectorAll('#canopy-text-editor .cm-gutterElement');
       return (gutters?.length ?? 0) > 0;
     });
     expect(hasLineNumbers).toBe(true);
+  });
+
+  test('CM6 renders lambda syntax highlighting', async ({ page }) => {
+    await waitForEditor(page);
+    const hasKeywordHighlight = await page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll('#canopy-text-editor .cm-line span'));
+      return spans.some((span) => {
+        return span.textContent === 'let'
+          && getComputedStyle(span as HTMLElement).color === 'rgb(199, 146, 234)';
+      });
+    });
+    expect(hasKeywordHighlight).toBe(true);
+  });
+});
+
+// ── External Sync ────────────────────────────────────────────
+
+test.describe('External Sync', () => {
+  test('preserves local cursor when CRDT text is refreshed', async ({ page }) => {
+    await waitForEditor(page);
+    await page.getByRole('button', { name: 'Basics' }).click();
+    await page.waitForFunction(() => {
+      return document.querySelector('#canopy-text-editor .cm-content')?.textContent?.includes('double') ?? false;
+    });
+
+    await page.evaluate(() => {
+      const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
+      cm?.focus();
+    });
+    await page.keyboard.press('Control+End');
+
+    await page.evaluate(() => {
+      const g = globalThis as any;
+      const handle = g.__canopy_crdt_handle;
+      const text = g.__canopy_crdt.get_text(handle);
+      g.__canopy_crdt.set_text(handle, `let remote = 0\n${text}`);
+      document.getElementById('canopy-external-crdt-changed-trigger')?.click();
+    });
+    await page.waitForFunction(() => {
+      return document.querySelector('#canopy-text-editor .cm-content')?.textContent?.includes('remote') ?? false;
+    });
+
+    await page.keyboard.type('z');
+    const text = await page.evaluate(() => {
+      const g = globalThis as any;
+      return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) as string;
+    });
+    expect(text.startsWith('let remote = 0\n')).toBe(true);
+    expect(text.endsWith('z')).toBe(true);
   });
 });
 
@@ -190,8 +271,8 @@ test.describe('Panel Toggles', () => {
     // Toggle on — bottom tabs should appear
     await panelsBtn.click();
     await expect(panelsBtn).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: 'Problems' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Graphviz' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Problems' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Graphviz' })).toBeVisible();
 
     // Toggle off
     await panelsBtn.click();
@@ -208,18 +289,18 @@ test.describe('Bottom Panel Tabs', () => {
   });
 
   test('Problems tab shows no problems for valid input', async ({ page }) => {
-    await page.getByRole('button', { name: 'Problems' }).click();
+    await page.getByRole('tab', { name: 'Problems' }).click();
     await expect(page.locator('.no-problems')).toContainText('No problems');
   });
 
   test('CRDT State tab shows agent and text length', async ({ page }) => {
-    await page.getByRole('button', { name: 'CRDT State' }).click();
+    await page.getByRole('tab', { name: 'CRDT State' }).click();
     await expect(page.locator('.state-label').first()).toContainText('Agent');
     await expect(page.locator('.state-label').nth(2)).toContainText('Text length');
   });
 
   test('Graphviz tab renders SVG diagram', async ({ page }) => {
-    await page.getByRole('button', { name: 'Graphviz' }).click();
+    await page.getByRole('tab', { name: 'Graphviz' }).click();
     // Wait for after_render SVG injection
     await page.waitForTimeout(500);
     const hasSvg = await page.locator('#canopy-graphviz-container svg').count();
@@ -227,10 +308,10 @@ test.describe('Bottom Panel Tabs', () => {
   });
 
   test('Graphviz SVG updates when switching examples', async ({ page }) => {
-    await page.getByRole('button', { name: 'Graphviz' }).click();
+    await page.getByRole('tab', { name: 'Graphviz' }).click();
     await page.waitForTimeout(500);
 
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Currying' }).click();
     await page.waitForTimeout(500);
     const svgText1 = await page.locator('#canopy-graphviz-container').innerText();
 
@@ -280,13 +361,12 @@ test.describe('Undo / Redo', () => {
 
   test('undo reverts typed text', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     await page.waitForTimeout(200);
 
     // Type something in the editor
     await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      const cm = ce?.shadowRoot?.querySelector('.cm-content') as HTMLElement;
+      const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
       cm?.focus();
     });
     await page.keyboard.press('End');
@@ -332,8 +412,7 @@ test.describe('Mode Switch', () => {
     await page.getByRole('button', { name: 'Text' }).click();
     // CM6 should be present
     const hasCm = await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      return ce?.shadowRoot?.querySelector('.cm-editor') !== null;
+      return document.querySelector('#canopy-text-editor .cm-editor') !== null;
     });
     expect(hasCm).toBe(true);
   });
@@ -348,11 +427,11 @@ test.describe('Error Free', () => {
 
     await waitForEditor(page);
     // Exercise features
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole('button', { name: 'Currying' }).click();
     await page.getByRole('button', { name: 'Conditional' }).click();
-    await page.getByRole('button', { name: 'Identity' }).click();
+    await page.getByRole('button', { name: 'Basics' }).click();
     await page.getByRole('button', { name: 'Panels' }).click();
-    await page.getByRole('button', { name: 'Graphviz' }).click();
+    await page.getByRole('tab', { name: 'Graphviz' }).click();
     await page.waitForTimeout(500);
 
     // Filter out WebSocket connection errors (expected without relay server)
