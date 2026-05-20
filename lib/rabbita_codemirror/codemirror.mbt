@@ -19,6 +19,13 @@ pub struct SelRange {
 }
 
 ///|
+/// Create a primary CodeMirror selection range from document offsets.
+#cfg(target="js")
+pub fn SelRange::new(from : Int, to : Int) -> SelRange {
+  { from, to }
+}
+
+///|
 #cfg(target="js")
 priv struct CmEntry {
   view : @js_ffi.CmView
@@ -27,6 +34,7 @@ priv struct CmEntry {
   keymap_comp : @js_ffi.Compartment
   line_numbers_comp : @js_ffi.Compartment
   line_wrapping_comp : @js_ffi.Compartment
+  extension_comp : @js_ffi.Compartment
   listener_comp : @js_ffi.Compartment
   update_disposable : @js_ffi.Disposable
 }
@@ -234,12 +242,14 @@ fn build_initial_extension(
   keymap_comp : @js_ffi.Compartment,
   line_numbers_comp : @js_ffi.Compartment,
   line_wrapping_comp : @js_ffi.Compartment,
+  extension_comp : @js_ffi.Compartment,
   listener_comp : @js_ffi.Compartment,
   initial_theme : @theme.Theme?,
   initial_readonly : Bool,
   initial_keymap : @keymap.Keymap?,
   initial_line_numbers : Bool,
   initial_line_wrapping : Bool,
+  initial_extension : @js_ffi.Extension,
 ) -> @js_ffi.Extension {
   @js_ffi.js_extension_combine([
     @js_ffi.js_compartment_of(theme_comp, theme_extension(initial_theme)),
@@ -256,6 +266,7 @@ fn build_initial_extension(
       line_wrapping_comp,
       line_wrapping_extension(cm_value, initial_line_wrapping),
     ),
+    @js_ffi.js_compartment_of(extension_comp, initial_extension),
     @js_ffi.js_compartment_of(listener_comp, empty_extension()),
   ])
 }
@@ -324,6 +335,10 @@ fn cm_sub_loader(
 
 ///|
 /// Mount or replace a named CodeMirror editor.
+///
+/// `initial_extension` is called with the same loaded CodeMirror module used
+/// to create the view, so consumers can build custom extensions without mixing
+/// incompatible `@codemirror/state` instances.
 #cfg(target="js")
 pub fn mount(
   id : String,
@@ -337,6 +352,7 @@ pub fn mount(
   initial_line_wrapping? : Bool = false,
   on_mounted? : @cmd.Cmd,
   failed? : @cmd.Emit[String],
+  initial_extension? : ((@js_value.Value) -> @js_ffi.Extension raise)? = None,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
     @js_value.async_run(() => {
@@ -353,6 +369,21 @@ pub fn mount(
       guard loaded is Some(value) else { return }
       let cm = @js_ffi.cm_module_of(value)
       let cm_value = module_value(cm)
+      let custom_extension = match initial_extension {
+        Some(make_extension) =>
+          Some(make_extension(cm_value)) catch {
+            e => {
+              report_failure(
+                scheduler,
+                failed,
+                "codemirror extension factory failed: \{e.to_string()}",
+              )
+              None
+            }
+          }
+        None => Some(empty_extension())
+      }
+      guard custom_extension is Some(custom_extension) else { return }
 
       if editors.get(id) is Some(old_entry) {
         dispose_entry(old_entry)
@@ -364,11 +395,12 @@ pub fn mount(
       let keymap_comp = @js_ffi.js_compartment_new(cm)
       let line_numbers_comp = @js_ffi.js_compartment_new(cm)
       let line_wrapping_comp = @js_ffi.js_compartment_new(cm)
+      let extension_comp = @js_ffi.js_compartment_new(cm)
       let listener_comp = @js_ffi.js_compartment_new(cm)
       let extension = build_initial_extension(
         cm_value, theme_comp, readonly_comp, keymap_comp, line_numbers_comp, line_wrapping_comp,
-        listener_comp, initial_theme, initial_readonly, initial_keymap, initial_line_numbers,
-        initial_line_wrapping,
+        extension_comp, listener_comp, initial_theme, initial_readonly, initial_keymap,
+        initial_line_numbers, initial_line_wrapping, custom_extension,
       )
       let view = @js_ffi.js_create_view(cm, host_id, init_doc, extension)
       let update_disposable = no_op_update_listener(view, listener_comp)
@@ -379,6 +411,7 @@ pub fn mount(
         keymap_comp,
         line_numbers_comp,
         line_wrapping_comp,
+        extension_comp,
         listener_comp,
         update_disposable,
       }
@@ -471,6 +504,35 @@ pub fn set_selection(
   @cmd.custom_cmd(kind=Immediately, scheduler => {
     with_entry(id, failed, scheduler, entry => {
       @js_ffi.js_dispatch(entry.view, selection_spec(range))
+    })
+  })
+}
+
+///|
+/// Reconfigure the generic extension compartment.
+///
+/// The factory receives the editor's CodeMirror module and should return an
+/// extension built from that module.
+#cfg(target="js")
+pub fn set_extension(
+  id : String,
+  make_extension : (@js_value.Value) -> @js_ffi.Extension raise,
+  failed? : @cmd.Emit[String],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=Immediately, scheduler => {
+    with_entry(id, failed, scheduler, entry => {
+      let extension = Some(make_extension(module_value_of_view(entry.view))) catch {
+        e => {
+          report_failure(
+            scheduler,
+            failed,
+            "codemirror extension factory failed: \{e.to_string()}",
+          )
+          None
+        }
+      }
+      guard extension is Some(extension) else { return }
+      reconfigure(entry.view, entry.extension_comp, extension)
     })
   })
 }
