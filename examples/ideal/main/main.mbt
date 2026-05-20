@@ -978,7 +978,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     CmMounted => (none, { ..model, mounted: true })
     CmDocChanged(text) => {
       // Binding listen sends the full document; use the recording variant so undo keeps working.
-      set_text_and_record(1, text, model.next_timestamp)
+      model.editor.set_text_and_record(text, model.next_timestamp)
       let new_model = refresh({
         ..model,
         next_timestamp: model.next_timestamp + 1,
