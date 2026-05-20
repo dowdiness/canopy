@@ -349,7 +349,7 @@ fn apply_structural_edit_request(
       model.editor,
       model.companion,
       tree_op,
-      model.next_timestamp,
+      js_now_ms(),
     ) {
     Ok(_) => {
       push_intent(model, tree_op)
@@ -488,7 +488,7 @@ fn execute_action(
           model.editor,
           model.companion,
           op,
-          model.next_timestamp,
+          js_now_ms(),
         ) {
         Ok(_) => {
           push_intent(model, op)
@@ -647,7 +647,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     LoadExample(example_text) => {
-      model.editor.set_text_and_record(example_text, model.next_timestamp)
+      model.editor.set_text_and_record(example_text, js_now_ms())
       let new_model = refresh({
         ..model,
         next_timestamp: model.next_timestamp + 1,
@@ -713,7 +713,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           model.editor,
           model.companion,
           tree_op,
-          model.next_timestamp,
+          js_now_ms(),
         ) {
         Ok(_) => {
           push_intent(model, tree_op)
@@ -927,7 +927,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               model.editor,
               model.companion,
               tree_op,
-              model.next_timestamp,
+              js_now_ms(),
             ) {
             Ok(_) => {
               let new_model = refresh({

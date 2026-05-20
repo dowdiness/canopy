@@ -7,7 +7,7 @@ extern "js" fn js_get_agent_id() -> String =
   #| }
 
 ///|
-/// Current wall-clock time in milliseconds for CRDT undo grouping.
+/// Current session-relative time in milliseconds for CRDT undo grouping.
 extern "js" fn js_now_ms() -> Int =
   #| function() {
   #|   const key = "__canopy_session_start_ms";

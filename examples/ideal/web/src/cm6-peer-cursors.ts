@@ -19,6 +19,43 @@ export interface PeerCursor {
 type CmNamespace = Record<string, any>;
 
 const activeViews = new Map<any, any>();
+const DEFAULT_PEER_COLOR = "#8250df";
+
+function sanitizeColor(value: unknown): string {
+  if (typeof value === "string" && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
+    return value;
+  }
+  return DEFAULT_PEER_COLOR;
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function sanitizePeerCursor(value: unknown): PeerCursor | null {
+  if (!value || typeof value !== "object") return null;
+  const peer = value as Record<string, unknown>;
+  if (typeof peer.peer_id !== "string" || !finiteNumber(peer.cursor)) return null;
+  let selection: [number, number] | null = null;
+  if (peer.selection !== null && peer.selection !== undefined) {
+    if (
+      !Array.isArray(peer.selection) ||
+      peer.selection.length !== 2 ||
+      !finiteNumber(peer.selection[0]) ||
+      !finiteNumber(peer.selection[1])
+    ) {
+      return null;
+    }
+    selection = [peer.selection[0], peer.selection[1]];
+  }
+  return {
+    peer_id: peer.peer_id,
+    cursor: peer.cursor,
+    name: typeof peer.name === "string" ? peer.name : "Peer",
+    color: sanitizeColor(peer.color),
+    selection,
+  };
+}
 
 // -- Extension Factory ------------------------------------------------------
 
@@ -87,12 +124,13 @@ export function peerCursors(cm: CmNamespace): any[] {
     const marks: { from: number; to: number; deco: any }[] = [];
 
     for (const peer of cursors) {
+      const color = sanitizeColor(peer.color);
       const cursorPos = Math.min(Math.max(0, peer.cursor), docLength);
 
       widgets.push({
         pos: cursorPos,
         deco: Decoration.widget({
-          widget: new PeerCursorWidget(peer.name, peer.color),
+          widget: new PeerCursorWidget(peer.name, color),
           side: 1,
         }),
       });
@@ -108,7 +146,7 @@ export function peerCursors(cm: CmNamespace): any[] {
             to,
             deco: Decoration.mark({
               class: "peer-selection",
-              attributes: { style: `--color: ${peer.color}` },
+              attributes: { style: `--color: ${color}` },
             }),
           });
         }
@@ -181,7 +219,13 @@ export function peerCursors(cm: CmNamespace): any[] {
 export function updatePeerCursorsFromJson(json: string): void {
   if (activeViews.size === 0) return;
   try {
-    const cursors: PeerCursor[] = JSON.parse(json);
+    const parsed: unknown = JSON.parse(json);
+    const cursors = Array.isArray(parsed)
+      ? parsed.flatMap((value) => {
+        const cursor = sanitizePeerCursor(value);
+        return cursor ? [cursor] : [];
+      })
+      : [];
     for (const [view, setPeerCursors] of activeViews.entries()) {
       try {
         view.dispatch({

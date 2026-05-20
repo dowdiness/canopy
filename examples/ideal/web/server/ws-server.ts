@@ -17,13 +17,28 @@ const PING_INTERVAL_MS = 30_000;
 
 // Try to load SQLite store; fall back to in-memory if not available.
 let store: OpStore | null = null;
+function isStoreImportUnavailable(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") return true;
+  return error instanceof Error && /better-sqlite3|\.\/store/.test(error.message);
+}
+
 async function initializeStore(): Promise<void> {
+  let createStore: (typeof import("./store"))["createStore"];
   try {
-    const { createStore } = await import("./store");
+    ({ createStore } = await import("./store"));
+  } catch (error) {
+    if (!isStoreImportUnavailable(error)) throw error;
+    console.log("[Server] SQLite store module not available, using in-memory storage", error);
+    return;
+  }
+
+  try {
     store = createStore();
     console.log("[Server] SQLite persistence enabled");
-  } catch {
-    console.log("[Server] SQLite not available, using in-memory storage");
+  } catch (error) {
+    console.error("[Server] SQLite persistence failed during startup", error);
+    throw error;
   }
 }
 

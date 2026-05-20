@@ -6,6 +6,7 @@ import * as cmView from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import type { CanopyEditor } from './canopy-editor';
 import { peerCursors, updatePeerCursorsFromJson } from './cm6-peer-cursors';
+import { canopyEditTimestampMs } from './edit-clock';
 import { CanopyEvents } from './events';
 import { lambda } from './lang/lambda-language';
 import { SyncClient } from './sync';
@@ -221,12 +222,12 @@ function wireEditorEvents(el: CanopyEditor) {
         target: detail.target,
         position: detail.position,
       });
-      result = crdt.apply_tree_edit_json(handle, opJson, Date.now());
+      result = crdt.apply_tree_edit_json(handle, opJson, canopyEditTimestampMs());
     } else {
       // Standard structural edit: op/nodeId → handle_structural_intent
       const { op, nodeId } = detail as StructuralEditDetail;
       if (!op || !nodeId) return;
-      result = crdt.handle_structural_intent(handle, op, nodeId, Date.now(), "");
+      result = crdt.handle_structural_intent(handle, op, nodeId, canopyEditTimestampMs(), "");
     }
 
     if (result !== "ok") {

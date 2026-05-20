@@ -88,15 +88,24 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
     const before = crdt.get_text(handle);
 
     let start = 0;
+    let cancelled = false;
+    let pollRafId: number | null = null;
     const timeout = window.setTimeout(() => {
+      cancelled = true;
       (window as any).__canopy_perf_current = null;
       cleanup();
       reject(new Error('Timed out waiting for CRDT text after text input'));
     }, 5000);
     const cleanup = () => {
       window.clearTimeout(timeout);
+      if (pollRafId !== null) {
+        window.cancelAnimationFrame(pollRafId);
+        pollRafId = null;
+      }
     };
     const complete = () => {
+      if (cancelled) return;
+      cancelled = true;
       const textChangedAt = performance.now();
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -113,10 +122,11 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
       });
     };
     const poll = () => {
+      if (cancelled) return;
       if (crdt.get_text(handle) !== before) {
         complete();
       } else {
-        requestAnimationFrame(poll);
+        pollRafId = requestAnimationFrame(poll);
       }
     };
 
@@ -124,6 +134,7 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
     start = performance.now();
     const inserted = document.execCommand('insertText', false, insertText);
     if (!inserted) {
+      cancelled = true;
       cleanup();
       reject(new Error('insertText command failed'));
       return;

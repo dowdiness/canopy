@@ -200,10 +200,10 @@ export class CanopyEditor extends HTMLElement {
 
   set selectedNode(id: string | null) {
     this.pendingSelectedNode = id;
-    if (!id || !this.crdt || this.crdtHandle === null) return;
     if (this.structureSession) {
       this.structureSession.setSelectedNode(id);
     }
+    if (!id || !this.crdt || this.crdtHandle === null) return;
   }
 
   get mode(): 'text' | 'structure' {
