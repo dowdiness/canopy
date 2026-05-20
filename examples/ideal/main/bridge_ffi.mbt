@@ -7,6 +7,13 @@ extern "js" fn js_get_agent_id() -> String =
   #| }
 
 ///|
+/// Read whether the CodeMirror rabbita binding should own text mode.
+extern "js" fn js_use_cm_binding() -> Bool =
+  #| function() {
+  #|   return globalThis.__canopy_use_cm_binding === true;
+  #| }
+
+///|
 /// Sync MoonBit editor text to the JS-side CRDT editor, then reconcile PM.
 /// Called after load-example to keep the two editors in sync.
 extern "js" fn js_reconcile_editor_with_text(new_text : String) -> Unit =
@@ -38,6 +45,19 @@ extern "js" fn js_sync_and_broadcast(_new_text : String) -> Unit =
   #|   }
   #|   if (typeof el.notifyLocalChange === 'function') {
   #|     el.notifyLocalChange();
+  #|   }
+  #| }
+
+///|
+/// Broadcast and autosave after a local edit handled by the CM binding.
+extern "js" fn js_after_binding_local_edit(text : String) -> Unit =
+  #| function(text) {
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (el && typeof el.notifyLocalChange === 'function') {
+  #|     el.notifyLocalChange();
+  #|   }
+  #|   if (typeof globalThis.__canopy_trigger_autosave === 'function') {
+  #|     globalThis.__canopy_trigger_autosave();
   #|   }
   #| }
 

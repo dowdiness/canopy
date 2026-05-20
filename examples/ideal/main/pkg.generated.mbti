@@ -9,6 +9,7 @@ import {
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
+  "dowdiness/rabbita_codemirror",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -109,6 +110,9 @@ pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
   companion : @companion.LambdaCompanion
   outline_state : @projection.TreeEditorState[@ast.Term]
+  cm_id : String
+  use_cm_binding : Bool
+  mounted : Bool
   mode : EditorMode
   workspace : WorkspaceLayout
   selected_node : String?
@@ -156,6 +160,10 @@ pub enum Msg {
   EditorTextChanged
   EditorNodeSelected(String)
   EditorStructuralEdit(op~ : String, node_id~ : String)
+  CmMounted
+  CmDocChanged(String)
+  CmSelectionChanged(@rabbita_codemirror.SelRange)
+  CmFocusChanged(Bool)
 }
 
 type NodeActionContext

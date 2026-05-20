@@ -5,6 +5,9 @@
     "moonbit-community/rabbita": {
       "path": "../../rabbita/rabbita"
     },
+    "dowdiness/rabbita_codemirror": {
+      "path": "../../lib/rabbita_codemirror"
+    },
     "dowdiness/canopy": {
       "path": "../.."
     },

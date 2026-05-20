@@ -5,6 +5,9 @@ using @html {button, div, p, span, text}
 using @rabbita {type Cmd, type Emit, type Html, none}
 
 ///|
+using @sub {type Sub}
+
+///|
 /// Parse a node ID string into a NodeId, returning None on invalid input.
 fn parse_node_id(s : String) -> @canopy_core.NodeId? {
   let n = @string.parse_int(s) catch { _ => return None }
@@ -27,6 +30,7 @@ fn init_model() -> Model {
   // Falls back to "local" if JS hasn't set it (e.g. test environment).
   let agent_id = js_get_agent_id()
   let agent_id = if agent_id == "" { "local" } else { agent_id }
+  let use_cm_binding = js_use_cm_binding()
   // Create the editor through the crdt module so it sets the singleton (editor.val).
   // JS (main.ts) will reuse handle=1 instead of creating a second editor.
   let _handle = @ffi.create_editor_with_undo(agent_id, 500)
@@ -42,6 +46,9 @@ fn init_model() -> Model {
     editor,
     companion,
     outline_state,
+    cm_id: "canopy-text-editor",
+    use_cm_binding,
+    mounted: false,
     mode: Text,
     workspace: {
       outline_visible: true,
@@ -61,6 +68,43 @@ fn init_model() -> Model {
     drop_position: None,
     intent_log: [],
   }
+}
+
+///|
+fn cm_mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
+  @cm.mount(
+    model.cm_id,
+    "canopy-text-editor",
+    init_doc=model.editor.get_text(),
+    on_mounted=emit(CmMounted),
+    failed=emit.map(message => {
+      ignore(message)
+      SyncStatusChanged("")
+    }),
+  )
+}
+
+///|
+fn sync_editor_after_text_change(
+  model : Model,
+  text : String,
+  legacy : Cmd,
+) -> Cmd {
+  if model.use_cm_binding {
+    @rabbita.batch([legacy, @cm.set_doc(model.cm_id, text)])
+  } else {
+    legacy
+  }
+}
+
+///|
+fn subscriptions(emit : Emit[Msg], model : Model) -> Sub {
+  guard model.use_cm_binding && model.mounted else { return @sub.none }
+  @cm.listen(
+    model.cm_id,
+    doc=emit.map(text => CmDocChanged(text)),
+    selection=emit.map(range => CmSelectionChanged(range)),
+  )
 }
 
 ///|
@@ -279,7 +323,8 @@ fn apply_structural_edit_request(
         next_timestamp: model.next_timestamp + 1,
       })
       let text = new_model.editor.get_text()
-      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+      let legacy = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+      let cmd = sync_editor_after_text_change(new_model, text, legacy)
       (cmd, new_model)
     }
     Err(_) => (none, model)
@@ -414,12 +459,14 @@ fn execute_action(
         Ok(_) => {
           push_intent(model, op)
           js_set_overlay_open(false)
-          let cmd = @rabbita.effect(fn() { js_reconcile_after_tree_edit() })
           let new_model = refresh({
             ..model,
             next_timestamp: model.next_timestamp + 1,
             overlay: closed_overlay(),
           })
+          let text = new_model.editor.get_text()
+          let legacy = @rabbita.effect(fn() { js_reconcile_after_tree_edit() })
+          let cmd = sync_editor_after_text_change(new_model, text, legacy)
           (cmd, new_model)
         }
         Err(err) => {
@@ -549,7 +596,8 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if did_undo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
+        let legacy = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
+        let cmd = sync_editor_after_text_change(new_model, text, legacy)
         (cmd, new_model)
       } else {
         (none, model)
@@ -560,7 +608,8 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if did_redo {
         let new_model = refresh(model)
         let text = new_model.editor.get_text()
-        let cmd = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
+        let legacy = @rabbita.effect(fn() { js_sync_and_broadcast(text) })
+        let cmd = sync_editor_after_text_change(new_model, text, legacy)
         (cmd, new_model)
       } else {
         (none, model)
@@ -570,7 +619,8 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       model.editor.set_text(example_text)
       let new_model = refresh(model)
       let text = new_model.editor.get_text()
-      let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+      let legacy = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+      let cmd = sync_editor_after_text_change(new_model, text, legacy)
       (cmd, new_model)
     }
     OutlineNodeClicked(node_id) => {
@@ -631,7 +681,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         { ..model, selected_node: new_selected, outline_state, highlight_set },
       )
     }
-    OutlineStructuralEdit(tree_op) => {
+    OutlineStructuralEdit(tree_op) =>
       match
         @lambda.apply_lambda_tree_edit(
           model.editor,
@@ -667,7 +717,10 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             None => @immut/hashset.new()
           }
           let text = new_model.editor.get_text()
-          let cmd = @rabbita.effect(fn() { js_reconcile_editor_with_text(text) })
+          let legacy = @rabbita.effect(fn() {
+            js_reconcile_editor_with_text(text)
+          })
+          let cmd = sync_editor_after_text_change(new_model, text, legacy)
           (
             cmd,
             {
@@ -680,7 +733,6 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         Err(_) => (none, model)
       }
-    }
     OpenActionOverlayFromOutline => {
       let node_id_str = match model.selected_node {
         Some(s) => s
@@ -860,9 +912,10 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
                 next_timestamp: model.next_timestamp + 1,
               })
               let text = new_model.editor.get_text()
-              let cmd = @rabbita.effect(fn() {
+              let legacy = @rabbita.effect(fn() {
                 js_reconcile_editor_with_text(text)
               })
+              let cmd = sync_editor_after_text_change(new_model, text, legacy)
               (cmd, new_model)
             }
             Err(_) => (none, model)
@@ -877,7 +930,12 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       js_perf_begin("editorTextChangedTotal")
       let new_model = refresh(model)
       js_perf_end("editorTextChangedTotal")
-      (none, new_model)
+      let cmd = if model.use_cm_binding {
+        @cm.set_doc(model.cm_id, new_model.editor.get_text())
+      } else {
+        none
+      }
+      (cmd, new_model)
     }
     EditorNodeSelected(node_id) => {
       let resolved_node_id = if node_id == "" {
@@ -917,6 +975,31 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, new_model)
       }
     }
+    CmMounted => (none, { ..model, mounted: true })
+    CmDocChanged(text) => {
+      // Binding listen sends the full document; use the recording variant so undo keeps working.
+      set_text_and_record(1, text, model.next_timestamp)
+      let new_model = refresh({
+        ..model,
+        next_timestamp: model.next_timestamp + 1,
+      })
+      let actual_text = new_model.editor.get_text()
+      let sync_cmd = if actual_text != text {
+        @cm.set_doc(model.cm_id, actual_text)
+      } else {
+        none
+      }
+      let cmd = @rabbita.batch([
+        sync_cmd,
+        @rabbita.effect(fn() { js_after_binding_local_edit(actual_text) }),
+      ])
+      (cmd, new_model)
+    }
+    CmSelectionChanged(_range) =>
+      // PR 1 keeps peer-cursor broadcasting on the existing TS path; selection
+      // handling moves to the binding in PR 2+.
+      (none, model)
+    CmFocusChanged(_) => (none, model)
   }
 }
 
@@ -996,7 +1079,19 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
 }
 
 ///|
+#warnings("-alert_unstable")
 fn main {
-  let app = @rabbita.cell(model=init_model(), update~, view~)
-  @rabbita.new(app).mount("app")
+  let initial_model = init_model()
+  let (emit, app) = @rabbita.cell_with_emit(
+    model=initial_model,
+    update~,
+    view~,
+    subscriptions~,
+  )
+  let app = @rabbita.new(app)
+  if initial_model.use_cm_binding {
+    app..with_init(cm_mount_cmd(emit, initial_model)).mount("app")
+  } else {
+    app.mount("app")
+  }
 }

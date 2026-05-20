@@ -1,6 +1,8 @@
 import {
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub" @sub,
+  "dowdiness/rabbita_codemirror" @cm,
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,
   "dowdiness/canopy/editor" @editor,
@@ -19,6 +21,8 @@ import {
   "dowdiness/graphviz/lib/layout" @gv_layout,
   "dowdiness/graphviz/lib/svg" @gv_svg,
 }
+
+supported_targets = "js"
 
 options(
   "is-main": true,

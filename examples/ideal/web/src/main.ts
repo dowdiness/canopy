@@ -23,12 +23,14 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_pending_action_overlay_node?: string | null;
   __canopy_overlay_open?: boolean;
   __canopy_pending_action_key?: string | null;
+  __canopy_trigger_autosave?: () => void;
 };
 
 const canopyGlobal = globalThis as CanopyGlobal;
 const AGENT_ID_STORAGE_KEY = 'canopy-ideal-agent-id';
 const STORAGE_KEY_PREFIX = 'canopy-doc-';
 const SKIP_SYNC = import.meta.env.VITE_CANOPY_SKIP_SYNC === '1';
+const USE_CM_BINDING = import.meta.env.VITE_CANOPY_USE_CM_BINDING === '1';
 let crdtPromise: Promise<CrdtModule> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let activeSyncClient: SyncClient | null = null;
@@ -41,6 +43,7 @@ function loadCrdtModule(): Promise<CrdtModule> {
     // Set agent ID globally BEFORE importing the MoonBit module.
     // MoonBit's init_model reads this to create the CRDT editor with a unique agent.
     canopyGlobal.__canopy_agent_id = getSessionAgentId();
+    (globalThis as any).__canopy_use_cm_binding = USE_CM_BINDING;
     // Loading the MoonBit module also runs Rabbita's main(), which renders <canopy-editor>.
     crdtPromise = import('@moonbit/ideal-editor') as Promise<CrdtModule>;
   }
@@ -101,6 +104,19 @@ function saveNow(handle: number, roomId: string, crdt: CrdtModule) {
   }
 }
 
+function triggerAutosave() {
+  if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
+    const roomId = location.hash.slice(1);
+    if (roomId) {
+      saveToLocalStorage(
+        canopyGlobal.__canopy_crdt_handle,
+        roomId,
+        canopyGlobal.__canopy_crdt,
+      );
+    }
+  }
+}
+
 /** Generate a deterministic color from agent ID (hash -> HSL with fixed S/L). */
 function agentColor(agentId: string): string {
   let hash = 0;
@@ -141,22 +157,13 @@ function wireEditorEvents(el: CanopyEditor) {
   const { signal } = editorEventsController;
 
   el.addEventListener(CanopyEvents.TEXT_CHANGE, () => {
-    // Text was already applied by canopy-editor.ts via handle_text_intent FFI.
-    // Trigger Rabbita outline refresh via the protocol-based trigger.
+    // Text was already applied by canopy-editor.ts via handle_text_intent FFI
+    // or by remote sync. Trigger Rabbita outline refresh via the protocol trigger.
     recordPerfSpan("textChangedToRabbitaTrigger", () => {
       clickTrigger('canopy-editor-text-changed');
     });
     // Debounced save to localStorage
-    if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
-      const roomId = location.hash.slice(1);
-      if (roomId) {
-        saveToLocalStorage(
-          canopyGlobal.__canopy_crdt_handle,
-          roomId,
-          canopyGlobal.__canopy_crdt,
-        );
-      }
-    }
+    (canopyGlobal.__canopy_trigger_autosave ?? triggerAutosave)();
   }, { signal });
   el.addEventListener(CanopyEvents.NODE_SELECTED, ((event: Event) => {
     const { nodeId } = (event as CustomEvent<NodeSelectedDetail>).detail ?? {};
@@ -313,6 +320,7 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   canopyGlobal.__canopy_crdt_handle = handle;
   canopyGlobal.__canopy_pending_node_selection = null;
   canopyGlobal.__canopy_pending_structural_edit = null;
+  canopyGlobal.__canopy_trigger_autosave = triggerAutosave;
 
   // Restore from localStorage if available
   try {
