@@ -45,3 +45,30 @@ test "parse_node_id invalid returns None" {
   inspect(parse_node_id("abc") is None, content="true")
   inspect(parse_node_id("") is None, content="true")
 }
+
+///|
+test "event_detail_node_id extracts nodeId from object detail" {
+  inspect(event_detail_node_id("{\"nodeId\":\"42\"}"), content="42")
+}
+
+///|
+test "event_detail_node_id accepts string detail fallback" {
+  inspect(event_detail_node_id("42"), content="42")
+}
+
+///|
+test "event_detail_node_id rejects unrelated detail" {
+  inspect(event_detail_node_id("{\"other\":\"42\"}"), content="")
+}
+
+///|
+test "event target selector is centralized" {
+  inspect(EditorHost.selector(), content="#canopy-editor")
+}
+
+///|
+test "event names are centralized" {
+  inspect(ActionOverlayOpen.event_type(), content="action-overlay-open")
+  inspect(ActionKey.event_type(), content="action-key")
+  inspect(LongPress.event_type(), content="long-press")
+}

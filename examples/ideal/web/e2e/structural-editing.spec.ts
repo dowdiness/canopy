@@ -149,7 +149,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expect(page.locator('.name-prompt-container')).toBeVisible({
       timeout: 5000,
     });
-    await expect(page.locator('.name-prompt-label')).toContainText('Rename');
+    await expect(page.locator('.name-prompt-label')).toContainText('New name');
   });
 
   test('empty name shows error on Rename', async ({ page }) => {
@@ -165,7 +165,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     });
     await page.locator('.name-prompt-input').focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('.name-prompt-error')).toContainText('empty');
+    await expect(page.locator('.name-prompt-error')).toContainText('Enter a name to continue');
   });
 
   test('Escape cancels name prompt', async ({ page }) => {

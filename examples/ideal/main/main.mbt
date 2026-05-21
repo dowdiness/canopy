@@ -135,12 +135,35 @@ fn select_editor_node_cmd(model : Model, node_id : String) -> Cmd {
 
 ///|
 fn subscriptions(emit : Emit[Msg], model : Model) -> Sub {
-  guard model.mounted else { return @sub.none }
-  @cm.listen(
-    model.cm_id,
-    doc=emit.map(text => CmDocChanged(text)),
-    selection=emit.map(range => CmSelectionChanged(range)),
-  )
+  let editor_events = editor_dom_event_subscriptions(emit)
+  let cm_events = if model.mounted {
+    @cm.listen(
+      model.cm_id,
+      doc=emit.map(text => CmDocChanged(text)),
+      selection=emit.map(range => CmSelectionChanged(range)),
+    )
+  } else {
+    @sub.none
+  }
+  @sub.batch([editor_events, cm_events])
+}
+
+///|
+fn open_action_overlay_from_event(
+  model : Model,
+  node_id_str : String,
+) -> (Cmd, Model) {
+  let new_model = open_action_overlay(model, node_id_str)
+  if new_model.overlay.visible {
+    // Focus the overlay panel after Rabbita renders it
+    let focus_cmd = @rabbita_cmd.custom_cmd(
+      fn(_) { js_focus_overlay_panel() },
+      kind=@rabbita_cmd.after_render,
+    )
+    (focus_cmd, new_model)
+  } else {
+    (none, new_model)
+  }
 }
 
 ///|
@@ -778,26 +801,14 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       (none, { ..model, sync_status, })
     }
-    OpenActionOverlay | LongPressTriggered => {
-      let node_id_str = js_take_action_overlay_node()
-      let new_model = open_action_overlay(model, node_id_str)
-      if new_model.overlay.visible {
-        // Focus the overlay panel after Rabbita renders it
-        let focus_cmd = @rabbita_cmd.custom_cmd(
-          fn(_) { js_focus_overlay_panel() },
-          kind=@rabbita_cmd.after_render,
-        )
-        (focus_cmd, new_model)
-      } else {
-        (none, new_model)
-      }
-    }
+    OpenActionOverlayForNode(node_id_str)
+    | LongPressTriggeredForNode(node_id_str) =>
+      open_action_overlay_from_event(model, node_id_str)
     CloseActionOverlay => {
       js_set_overlay_open(false)
       (none, { ..model, overlay: closed_overlay() })
     }
-    ActionKeyPressed(key_arg) => {
-      let key = if key_arg != "" { key_arg } else { js_take_action_key() }
+    ActionKeyPressed(key) => {
       if key == "" {
         return (none, model)
       }

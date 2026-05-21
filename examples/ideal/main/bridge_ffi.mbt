@@ -231,24 +231,6 @@ extern "js" fn js_take_sync_status() -> String =
   #| }
 
 ///|
-/// Consume the pending action overlay node ID set by JS.
-extern "js" fn js_take_action_overlay_node() -> String =
-  #| function() {
-  #|   var v = globalThis.__canopy_pending_action_overlay_node;
-  #|   globalThis.__canopy_pending_action_overlay_node = null;
-  #|   return v || '';
-  #| }
-
-///|
-/// Consume the pending action key pressed set by JS.
-extern "js" fn js_take_action_key() -> String =
-  #| function() {
-  #|   var v = globalThis.__canopy_pending_action_key;
-  #|   globalThis.__canopy_pending_action_key = null;
-  #|   return v || '';
-  #| }
-
-///|
 /// Tell JS whether the action overlay is currently open.
 extern "js" fn js_set_overlay_open(open : Bool) -> Unit =
   #| function(open) {

@@ -30,9 +30,7 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_pending_node_selection?: string | null;
   __canopy_pending_structural_edit?: StructuralEditDetail | null;
   __canopy_pending_sync_status?: string | null;
-  __canopy_pending_action_overlay_node?: string | null;
   __canopy_overlay_open?: boolean;
-  __canopy_pending_action_key?: string | null;
   __canopy_trigger_autosave?: () => void;
   __canopy_agent_name?: string;
   __canopy_agent_color?: string;
@@ -268,18 +266,6 @@ function wireEditorEvents(el: CanopyEditor) {
       clickTrigger('canopy-external-crdt-changed-trigger');
     }
   }, { signal });
-  el.addEventListener(CanopyEvents.ACTION_OVERLAY_OPEN, ((event: Event) => {
-    const { nodeId } = (event as CustomEvent).detail ?? {};
-    canopyGlobal.__canopy_pending_action_overlay_node = nodeId ?? null;
-    clickTrigger('canopy-action-overlay-trigger');
-  }) as EventListener, { signal });
-
-  el.addEventListener(CanopyEvents.LONG_PRESS, ((event: Event) => {
-    const { nodeId } = (event as CustomEvent).detail ?? {};
-    canopyGlobal.__canopy_pending_action_overlay_node = nodeId ?? null;
-    clickTrigger('canopy-long-press-trigger');
-  }) as EventListener, { signal });
-
   el.addEventListener('sync-status', ((event: Event) => {
     const { status } = (event as CustomEvent<{ status: string }>).detail ?? {};
     if (status) {
