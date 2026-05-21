@@ -12,13 +12,13 @@ import { lambda } from './lang/lambda-language';
 import { SyncClient } from './sync';
 import type { CrdtModule } from './types';
 
-type NodeSelectedDetail = {
-  nodeId?: string;
-};
-
 type StructuralEditDetail = {
   op?: string;
   nodeId?: string;
+  position?: string;
+  source?: string | number;
+  target?: string | number;
+  type?: string;
 };
 
 type ExternalCrdtChangedDetail = {
@@ -31,8 +31,6 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_crdt?: CrdtModule;
   __canopy_crdt_handle?: number;
   __canopy_agent_id?: string;
-  __canopy_pending_node_selection?: string | null;
-  __canopy_pending_structural_edit?: StructuralEditDetail | null;
   __canopy_overlay_open?: boolean;
   __canopy_trigger_autosave?: () => void;
   __canopy_agent_name?: string;
@@ -175,14 +173,19 @@ function agentDisplayName(agentId: string): string {
   return `Peer-${suffix}`;
 }
 
-function clickTrigger(id: string) {
-  const btn = document.getElementById(id) as HTMLButtonElement | null;
-  if (btn) btn.click();
-}
-
 function dispatchExternalCrdtChanged(el: CanopyEditor, detail?: ExternalCrdtChangedDetail) {
   el.dispatchEvent(new CustomEvent(CanopyEvents.EXTERNAL_CRDT_CHANGE, {
     detail,
+    bubbles: true,
+    composed: true,
+  }));
+}
+
+function dispatchStructuralEditApplied(el: CanopyEditor, detail: StructuralEditDetail) {
+  const op = detail.op ?? detail.type ?? "";
+  const nodeId = detail.nodeId ?? String(detail.target ?? "");
+  el.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_APPLIED, {
+    detail: { op, nodeId },
     bubbles: true,
     composed: true,
   }));
@@ -200,13 +203,8 @@ function wireEditorEvents(el: CanopyEditor) {
       triggerAutosave();
     }
   }) as EventListener, { signal });
-  el.addEventListener(CanopyEvents.NODE_SELECTED, ((event: Event) => {
-    const { nodeId } = (event as CustomEvent<NodeSelectedDetail>).detail ?? {};
-    canopyGlobal.__canopy_pending_node_selection = nodeId ?? null;
-    clickTrigger('canopy-structure-node-selected-trigger');
-  }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.STRUCTURAL_EDIT_REQUEST, ((event: Event) => {
-    const detail = (event as CustomEvent).detail ?? {};
+    const detail = (event as CustomEvent<StructuralEditDetail>).detail ?? {};
     if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
     const crdt = canopyGlobal.__canopy_crdt;
     const handle = canopyGlobal.__canopy_crdt_handle;
@@ -236,11 +234,8 @@ function wireEditorEvents(el: CanopyEditor) {
     el.syncAfterExternalChange();
     el.notifyLocalChange();
     // Trigger Rabbita refresh
-    const op = detail.op ?? detail.type;
-    const nodeId = detail.nodeId ?? String(detail.target ?? "");
-    canopyGlobal.__canopy_pending_structural_edit = { op, nodeId };
     triggerAutosave();
-    clickTrigger('canopy-structure-structural-edit-trigger');
+    dispatchStructuralEditApplied(el, detail);
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.REQUEST_UNDO, () => {
     if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
@@ -335,8 +330,6 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   const handle = 1;
   const roomId = getRoomId();
   canopyGlobal.__canopy_crdt_handle = handle;
-  canopyGlobal.__canopy_pending_node_selection = null;
-  canopyGlobal.__canopy_pending_structural_edit = null;
   canopyGlobal.__canopy_trigger_autosave = triggerAutosave;
   let restoredState = false;
 

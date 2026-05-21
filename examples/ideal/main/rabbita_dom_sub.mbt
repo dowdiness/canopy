@@ -9,6 +9,8 @@ priv enum EventName {
   ActionKey
   ExternalCrdtChange
   LongPress
+  NodeSelected
+  StructuralEditApplied
   SyncStatus
 }
 
@@ -33,6 +35,8 @@ fn EventName::event_type(self : EventName) -> String {
     ActionKey => "action-key"
     ExternalCrdtChange => "external-crdt-changed"
     LongPress => "long-press"
+    NodeSelected => "node-selected"
+    StructuralEditApplied => "structural-edit-applied"
     SyncStatus => "sync-status"
   }
 }
@@ -44,6 +48,8 @@ fn EventName::key(self : EventName) -> String {
     ActionKey => "action-key"
     ExternalCrdtChange => "external-crdt-changed"
     LongPress => "long-press"
+    NodeSelected => "node-selected"
+    StructuralEditApplied => "structural-edit-applied"
     SyncStatus => "sync-status"
   }
 }
@@ -149,6 +155,19 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     ),
     custom_event_sub(
       EditorHost,
+      NodeSelected,
+      emit.map(detail => StructureNodeSelected(event_detail_node_id(detail))),
+    ),
+    custom_event_sub(
+      EditorHost,
+      StructuralEditApplied,
+      emit.map(detail => {
+        let (op, node_id) = event_detail_structural_edit(detail)
+        StructureStructuralEdit(op~, node_id~)
+      }),
+    ),
+    custom_event_sub(
+      EditorHost,
       SyncStatus,
       emit.map(detail => SyncStatusChanged(event_detail_status(detail))),
     ),
@@ -186,5 +205,27 @@ fn event_detail_status(detail : String) -> String {
       }
     Json::String(status) => status
     _ => detail
+  }
+}
+
+///|
+fn event_detail_structural_edit(detail : String) -> (String, String) {
+  if detail == "" {
+    return ("", "")
+  }
+  let json = @json.parse(detail) catch { _ => return ("", "") }
+  match json {
+    Json::Object(m) => {
+      let op = match m.get("op") {
+        Some(Json::String(value)) => value
+        _ => ""
+      }
+      let node_id = match m.get("nodeId") {
+        Some(Json::String(value)) => value
+        _ => ""
+      }
+      (op, node_id)
+    }
+    _ => ("", "")
   }
 }

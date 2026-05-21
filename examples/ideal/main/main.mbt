@@ -612,19 +612,12 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let new_model = { ..model, bottom_tab: tab }
       (bottom_tab_focus_cmd(tab), new_model)
     }
-    StructuralEditRequested(op~, node_id~) => {
-      let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
-      let resolved_node_id = if node_id == "" {
-        js_take_structural_edit_node_id()
-      } else {
-        node_id
-      }
-      if resolved_op == "" || resolved_node_id == "" {
+    StructuralEditRequested(op~, node_id~) =>
+      if op == "" || node_id == "" {
         (none, model)
       } else {
-        apply_structural_edit_request(model, resolved_op, resolved_node_id)
+        apply_structural_edit_request(model, op, node_id)
       }
-    }
     TreeEdited(op) =>
       match op {
         @lambda_edits.Expand(node_id~) => {
@@ -948,44 +941,28 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     // ── Structure-mode Web Component communication ──────
-    StructureNodeSelected(node_id) => {
-      let resolved_node_id = if node_id == "" {
-        js_take_selected_node_id()
-      } else {
-        node_id
-      }
-      if resolved_node_id == "" {
+    StructureNodeSelected(node_id) =>
+      if node_id == "" {
         (none, model)
       } else {
-        let highlight_set = match parse_node_id(resolved_node_id) {
+        let highlight_set = match parse_node_id(node_id) {
           Some(nid) => compute_highlight_set(nid, model.scope_map)
           None => @immut/hashset.new()
         }
-        (
-          none,
-          { ..model, selected_node: Some(resolved_node_id), highlight_set },
-        )
+        (none, { ..model, selected_node: Some(node_id), highlight_set })
       }
-    }
-    StructureStructuralEdit(op~, node_id~) => {
-      let resolved_op = if op == "" { js_take_structural_edit_op() } else { op }
-      let resolved_node_id = if node_id == "" {
-        js_take_structural_edit_node_id()
-      } else {
-        node_id
-      }
-      if resolved_op == "" || resolved_node_id == "" {
+    StructureStructuralEdit(op~, node_id~) =>
+      if op == "" || node_id == "" {
         (none, model)
       } else {
         // The edit was already applied by TS calling handle_structural_intent FFI.
-        push_intent_label(model, "\{resolved_op}(node=\{resolved_node_id})")
+        push_intent_label(model, "\{op}(node=\{node_id})")
         let new_model = refresh({
           ..model,
           next_timestamp: model.next_timestamp + 1,
         })
         (sync_after_external_crdt_change(new_model), new_model)
       }
-    }
     ExternalCrdtChanged => {
       let new_model = refresh(model)
       (sync_after_external_crdt_change(new_model), new_model)

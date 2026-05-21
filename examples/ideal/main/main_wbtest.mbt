@@ -80,6 +80,29 @@ test "event_detail_status rejects unrelated detail" {
 }
 
 ///|
+test "event_detail_structural_edit extracts op and nodeId" {
+  let (op, node_id) = event_detail_structural_edit(
+    "{\"op\":\"Drop\",\"nodeId\":\"7\"}",
+  )
+  inspect(op, content="Drop")
+  inspect(node_id, content="7")
+}
+
+///|
+test "event_detail_structural_edit rejects incomplete detail" {
+  let (op, node_id) = event_detail_structural_edit("{\"op\":\"Drop\"}")
+  inspect(op, content="Drop")
+  inspect(node_id, content="")
+}
+
+///|
+test "event_detail_structural_edit rejects non-object detail" {
+  let (op, node_id) = event_detail_structural_edit("Drop")
+  inspect(op, content="")
+  inspect(node_id, content="")
+}
+
+///|
 test "event target selector is centralized" {
   inspect(EditorHost.selector(), content="#canopy-editor")
 }
@@ -90,6 +113,8 @@ test "event names are centralized" {
   inspect(ActionKey.event_type(), content="action-key")
   inspect(ExternalCrdtChange.event_type(), content="external-crdt-changed")
   inspect(LongPress.event_type(), content="long-press")
+  inspect(NodeSelected.event_type(), content="node-selected")
+  inspect(StructuralEditApplied.event_type(), content="structural-edit-applied")
   inspect(SyncStatus.event_type(), content="sync-status")
 }
 

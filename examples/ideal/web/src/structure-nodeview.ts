@@ -1,5 +1,6 @@
 import { EditorView as PmView, NodeView } from "prosemirror-view";
 import { Node as PmNode } from "prosemirror-model";
+import { CanopyEvents } from "./events";
 
 // Kind tag to display badge
 const kindBadges: Record<string, string> = {
@@ -173,7 +174,7 @@ export class StructureCompoundView implements NodeView {
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
       if (!sourceId || sourceId === String(nid)) return;
 
-      this.dom.dispatchEvent(new CustomEvent("structural-edit-request", {
+      this.dom.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
         bubbles: true,
         composed: true, // cross shadow DOM boundary
         detail: {
@@ -257,7 +258,7 @@ export class StructureLeafView implements NodeView {
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
       if (!sourceId || sourceId === String(nid)) return;
 
-      this.dom.dispatchEvent(new CustomEvent("structural-edit-request", {
+      this.dom.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
         bubbles: true,
         composed: true,
         detail: {

@@ -193,35 +193,6 @@ extern "js" fn js_set_editor_selected_node(node_id : String) -> Unit =
   #| }
 
 ///|
-/// Consume the last node selected from the Web Component.
-extern "js" fn js_take_selected_node_id() -> String =
-  #| function() {
-  #|   var nodeId = globalThis.__canopy_pending_node_selection;
-  #|   globalThis.__canopy_pending_node_selection = null;
-  #|   return typeof nodeId === 'string' ? nodeId : '';
-  #| }
-
-///|
-/// Consume the pending structural edit op forwarded from the Web Component.
-/// Clears the global to prevent stale reads.
-extern "js" fn js_take_structural_edit_op() -> String =
-  #| function() {
-  #|   var pending = globalThis.__canopy_pending_structural_edit;
-  #|   if (!pending) return '';
-  #|   return typeof pending.op === 'string' ? pending.op : '';
-  #| }
-
-///|
-/// Consume the pending structural edit node ID and clear the global.
-extern "js" fn js_take_structural_edit_node_id() -> String =
-  #| function() {
-  #|   var pending = globalThis.__canopy_pending_structural_edit;
-  #|   globalThis.__canopy_pending_structural_edit = null;
-  #|   if (!pending) return '';
-  #|   return typeof pending.nodeId === 'string' ? pending.nodeId : '';
-  #| }
-
-///|
 /// Tell JS whether the action overlay is currently open.
 extern "js" fn js_set_overlay_open(open : Bool) -> Unit =
   #| function(open) {

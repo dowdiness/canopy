@@ -38,20 +38,10 @@ fn view_editor(dispatch : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   div(class="editor-wrapper", attrs=main_attrs, [
     div(attrs=text_attrs, nothing),
     node("canopy-editor", host_attrs, [@html.text("")]),
-    // Hidden buttons clicked by JS for undo/redo and structure paths not yet
-    // moved to DOM custom-event subscriptions.
+    // Hidden buttons clicked by JS for undo/redo paths not yet moved to DOM
+    // custom-event subscriptions.
     // aria-hidden + tabindex=-1 keeps them out of a11y flow.
     hidden_trigger(dispatch, Undo, "canopy-editor-undo-trigger"),
     hidden_trigger(dispatch, Redo, "canopy-editor-redo-trigger"),
-    hidden_trigger(
-      dispatch,
-      StructureNodeSelected(""),
-      "canopy-structure-node-selected-trigger",
-    ),
-    hidden_trigger(
-      dispatch,
-      StructureStructuralEdit(op="", node_id=""),
-      "canopy-structure-structural-edit-trigger",
-    ),
   ])
 }
