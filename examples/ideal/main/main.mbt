@@ -102,20 +102,21 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd {
 fn select_text_node_cmd(model : Model, node_id : String) -> Cmd {
   match parse_node_id(node_id) {
     None => none
-    Some(nid) => match model.editor.get_source_map().get_range(nid) {
-      None => none
-      Some(range) =>
-        @rabbita.batch([
-          @cm.set_selection(
-            model.cm_id,
-            @cm.SelRange::new(range.start, range.end),
-            scroll_into_view=true,
-          ),
-          @rabbita.effect(fn() {
-            js_after_cm_selection_changed(range.start, range.end)
-          }),
-        ])
-    }
+    Some(nid) =>
+      match model.editor.get_source_map().get_range(nid) {
+        None => none
+        Some(range) =>
+          @rabbita.batch([
+            @cm.set_selection(
+              model.cm_id,
+              @cm.SelRange::new(range.start, range.end),
+              scroll_into_view=true,
+            ),
+            @rabbita.effect(fn() {
+              js_after_cm_selection_changed(range.start, range.end)
+            }),
+          ])
+      }
   }
 }
 

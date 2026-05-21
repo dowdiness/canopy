@@ -24,16 +24,16 @@ extern "js" fn js_now_ms() -> Int =
 extern "js" fn js_make_ideal_cm_extension_raw(
   cm : @js_value.Value,
 ) -> @js_value.Value =
-#| function(cm) {
-#|   const click = (id) => {
-#|     const btn = document.getElementById(id);
-#|     if (btn && typeof btn.click === 'function') btn.click();
-#|   };
-#|   const normalizeExtensions = (factory) => {
-#|     const provided = typeof factory === 'function' ? factory(cm) : [];
-#|     return Array.isArray(provided) ? provided : [provided];
-#|   };
-#|   const theme = cm.EditorView.theme({
+  #| function(cm) {
+  #|   const click = (id) => {
+  #|     const btn = document.getElementById(id);
+  #|     if (btn && typeof btn.click === 'function') btn.click();
+  #|   };
+  #|   const normalizeExtensions = (factory) => {
+  #|     const provided = typeof factory === 'function' ? factory(cm) : [];
+  #|     return Array.isArray(provided) ? provided : [provided];
+  #|   };
+  #|   const theme = cm.EditorView.theme({
   #|     "&": {
   #|       backgroundColor: "transparent",
   #|       color: "var(--canopy-fg, #e4e4f0)",
@@ -119,14 +119,14 @@ extern "js" fn js_make_ideal_cm_extension_raw(
   #|     },
   #|     ...defaultKeymap,
   #|   ]);
-#|   const languageExtensions = normalizeExtensions(
-#|     globalThis.__canopy_create_lambda_cm_extensions,
-#|   );
-#|   const peerExtensions = normalizeExtensions(
-#|     globalThis.__canopy_create_cm_peer_cursor_extension,
-#|   );
-#|   return [theme, ...languageExtensions, keymap, ...peerExtensions];
-#| }
+  #|   const languageExtensions = normalizeExtensions(
+  #|     globalThis.__canopy_create_lambda_cm_extensions,
+  #|   );
+  #|   const peerExtensions = normalizeExtensions(
+  #|     globalThis.__canopy_create_cm_peer_cursor_extension,
+  #|   );
+  #|   return [theme, ...languageExtensions, keymap, ...peerExtensions];
+  #| }
 
 ///|
 #warnings("-unused_error_type")
