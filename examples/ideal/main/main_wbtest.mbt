@@ -72,3 +72,15 @@ test "event names are centralized" {
   inspect(ActionKey.event_type(), content="action-key")
   inspect(LongPress.event_type(), content="long-press")
 }
+
+///|
+test "dom event subscription error message includes context" {
+  inspect(
+    dom_event_subscription_error_message(
+      EditorHost,
+      ActionKey,
+      "document is unavailable",
+    ),
+    content="[canopy] failed to install DOM event subscription target=editor-host event=action-key: document is unavailable",
+  )
+}

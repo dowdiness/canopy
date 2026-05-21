@@ -85,15 +85,38 @@ fn dom_event_sub_loader(
               current_tagger = new_tagger
             },
           })
-        // TODO(ideal): Add a small JS console logger FFI and include
-        // target.key(), event_name.key(), and error.message() here so failed
-        // subscription installs are visible during editor startup.
-        Err(_) => None
+        Err(error) => {
+          js_warn_dom_event_subscription_error(
+            dom_event_subscription_error_message(
+              target,
+              event_name,
+              error.message(),
+            ),
+          )
+          None
+        }
       }
     }
     _ => None
   }
 }
+
+///|
+fn dom_event_subscription_error_message(
+  target : EventTarget,
+  event_name : EventName,
+  detail : String,
+) -> String {
+  "[canopy] failed to install DOM event subscription target=\{target.key()} event=\{event_name.key()}: \{detail}"
+}
+
+///|
+extern "js" fn js_warn_dom_event_subscription_error(message : String) -> Unit =
+  #| (message) => {
+  #|   if (typeof console !== "undefined" && typeof console.warn === "function") {
+  #|     console.warn(message);
+  #|   }
+  #| }
 
 ///|
 fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
