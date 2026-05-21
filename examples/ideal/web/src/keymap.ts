@@ -82,13 +82,11 @@ export function actionKeyForwardPlugin(host: HTMLElement) {
           event.preventDefault();
           return true;
         }
-        g.__canopy_pending_action_key = event.key;
-        const btn = document.getElementById('canopy-action-key-trigger');
-        if (btn) {
-          btn.click();
-        } else {
-          console.warn('[canopy] action-key trigger button not found for key:', event.key);
-        }
+        host.dispatchEvent(new CustomEvent(CanopyEvents.ACTION_KEY, {
+          detail: event.key,
+          bubbles: true,
+          composed: true,
+        }));
         event.preventDefault();
         return true;
       },

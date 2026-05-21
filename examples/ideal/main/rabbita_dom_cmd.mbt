@@ -6,13 +6,7 @@ fn dom_after_render_result(
   },
 ) -> @rabbita.Cmd {
   @rabbita_cmd.custom_cmd(
-    fn(scheduler) {
-      try {
-        action()
-      } catch {
-        error => scheduler.add(on_error(error))
-      }
-    },
+    fn(scheduler) { action() catch { error => scheduler.add(on_error(error)) } },
     kind=@rabbita_cmd.after_render,
   )
 }

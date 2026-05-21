@@ -143,14 +143,14 @@ pub enum Msg {
   OutlineStructuralEdit(@edits.TreeEditOp)
   OpenActionOverlayFromOutline
   SyncStatusChanged(String)
-  OpenActionOverlay
+  OpenActionOverlayForNode(String)
   CloseActionOverlay
   ActionKeyPressed(String)
   ActionTapped(String)
   NamePromptInput(String)
   NamePromptSubmit
   NamePromptCancel
-  LongPressTriggered
+  LongPressTriggeredForNode(String)
   OutlineDragStart(@core.NodeId)
   OutlineDragOver(@core.NodeId, @core.DropPosition)
   OutlineDragLeave
