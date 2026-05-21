@@ -688,10 +688,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(s) =>
           @rabbita.batch([
             select_editor_node_cmd(model, s),
-            @rabbita_cmd.custom_cmd(
-              fn(_) { js_scroll_outline_to_selected() },
-              kind=@rabbita_cmd.after_render,
-            ),
+            scroll_selector_after_render(".outline-panel .tree-row.selected"),
           ])
         None => none
       }
@@ -765,11 +762,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let rect_json = js_get_outline_selected_rect()
       let new_model = open_action_overlay(model, node_id_str, rect_json~)
       if new_model.overlay.visible {
-        let focus_cmd = @rabbita_cmd.custom_cmd(
-          fn(_) { js_focus_outline_overlay() },
-          kind=@rabbita_cmd.after_render,
-        )
-        (focus_cmd, new_model)
+        (focus_selector_after_render(".action-overlay-panel"), new_model)
       } else {
         (none, new_model)
       }

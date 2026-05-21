@@ -231,16 +231,6 @@ extern "js" fn js_take_sync_status() -> String =
   #| }
 
 ///|
-/// Move keyboard focus to an element by ID. Used by the bottom tab strip
-/// to follow roving tabindex after arrow-key navigation. Silently no-ops
-/// if the element isn't in the DOM.
-extern "js" fn js_focus_element(element_id : String) -> Unit =
-  #| function(id) {
-  #|   var el = document.getElementById(id);
-  #|   if (el && typeof el.focus === 'function') el.focus();
-  #| }
-
-///|
 /// Consume the pending action overlay node ID set by JS.
 extern "js" fn js_take_action_overlay_node() -> String =
   #| function() {
@@ -303,23 +293,6 @@ extern "js" fn js_get_outline_selected_rect() -> String =
   #|   if (!sel) return '{}';
   #|   var r = sel.getBoundingClientRect();
   #|   return JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), bottom: Math.round(r.bottom), right: Math.round(r.right) });
-  #| }
-
-///|
-/// Scroll the selected outline row into view.
-extern "js" fn js_scroll_outline_to_selected() -> Unit =
-  #| function() {
-  #|   var sel = document.querySelector('.outline-panel .tree-row.selected');
-  #|   if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  #| }
-
-///|
-/// Focus the action overlay panel in the page DOM (not shadow DOM).
-/// Used when overlay is opened from outline keyboard context.
-extern "js" fn js_focus_outline_overlay() -> Unit =
-  #| function() {
-  #|   var panel = document.querySelector('.action-overlay-panel');
-  #|   if (panel) panel.focus();
   #| }
 
 ///|

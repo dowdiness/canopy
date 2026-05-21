@@ -177,11 +177,7 @@ fn render_history_html(model : Model) -> String {
 /// `tabindex="-1"`) button. Click-driven switches are no-ops because the
 /// browser already focuses the clicked button.
 fn bottom_tab_focus_cmd(tab : BottomTab) -> @rabbita.Cmd {
-  let id = bottom_tab_button_id(tab)
-  @rabbita_cmd.custom_cmd(
-    fn(_) { js_focus_element(id) },
-    kind=@rabbita_cmd.after_render,
-  )
+  focus_id_after_render(bottom_tab_button_id(tab))
 }
 
 ///|

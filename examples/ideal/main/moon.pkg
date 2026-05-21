@@ -5,6 +5,7 @@ import {
   "moonbit-community/rabbita/js" @js_value,
   "dowdiness/rabbita_codemirror" @cm,
   "dowdiness/rabbita_codemirror/js" @cm_js,
+  "dowdiness/dom_boundary" @dom_boundary,
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,
   "dowdiness/canopy/editor" @editor,

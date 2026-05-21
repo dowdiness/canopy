@@ -8,6 +8,9 @@
     "dowdiness/rabbita_codemirror": {
       "path": "../../lib/rabbita_codemirror"
     },
+    "dowdiness/dom_boundary": {
+      "path": "../../lib/dom-boundary"
+    },
     "dowdiness/canopy": {
       "path": "../.."
     },
