@@ -21,6 +21,10 @@ type StructuralEditDetail = {
   nodeId?: string;
 };
 
+type ExternalCrdtChangedDetail = {
+  autosave?: boolean;
+};
+
 type CmExtensionFactory = (cm: Record<string, any>) => any | any[];
 
 type CanopyGlobal = typeof globalThis & {
@@ -29,7 +33,6 @@ type CanopyGlobal = typeof globalThis & {
   __canopy_agent_id?: string;
   __canopy_pending_node_selection?: string | null;
   __canopy_pending_structural_edit?: StructuralEditDetail | null;
-  __canopy_pending_sync_status?: string | null;
   __canopy_overlay_open?: boolean;
   __canopy_trigger_autosave?: () => void;
   __canopy_agent_name?: string;
@@ -177,15 +180,12 @@ function clickTrigger(id: string) {
   if (btn) btn.click();
 }
 
-function recordPerfSpan<T>(name: string, fn: () => T): T {
-  const perf = (globalThis as any).__canopy_perf_current;
-  if (!perf?.spans) return fn();
-  const start = performance.now();
-  try {
-    return fn();
-  } finally {
-    perf.spans[name] = (perf.spans[name] ?? 0) + performance.now() - start;
-  }
+function dispatchExternalCrdtChanged(el: CanopyEditor, detail?: ExternalCrdtChangedDetail) {
+  el.dispatchEvent(new CustomEvent(CanopyEvents.EXTERNAL_CRDT_CHANGE, {
+    detail,
+    bubbles: true,
+    composed: true,
+  }));
 }
 
 function wireEditorEvents(el: CanopyEditor) {
@@ -194,12 +194,12 @@ function wireEditorEvents(el: CanopyEditor) {
   editorEventsController = new AbortController();
   const { signal } = editorEventsController;
 
-  el.addEventListener(CanopyEvents.EXTERNAL_CRDT_CHANGE, () => {
-    recordPerfSpan("externalCrdtChangedToRabbitaTrigger", () => {
-      clickTrigger('canopy-external-crdt-changed-trigger');
-    });
-    triggerAutosave();
-  }, { signal });
+  el.addEventListener(CanopyEvents.EXTERNAL_CRDT_CHANGE, ((event: Event) => {
+    const detail = (event as CustomEvent<ExternalCrdtChangedDetail>).detail;
+    if (detail?.autosave !== false) {
+      triggerAutosave();
+    }
+  }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.NODE_SELECTED, ((event: Event) => {
     const { nodeId } = (event as CustomEvent<NodeSelectedDetail>).detail ?? {};
     canopyGlobal.__canopy_pending_node_selection = nodeId ?? null;
@@ -250,8 +250,7 @@ function wireEditorEvents(el: CanopyEditor) {
     if (didUndo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
-      triggerAutosave();
-      clickTrigger('canopy-external-crdt-changed-trigger');
+      dispatchExternalCrdtChanged(el);
     }
   }, { signal });
   el.addEventListener(CanopyEvents.REQUEST_REDO, () => {
@@ -262,17 +261,9 @@ function wireEditorEvents(el: CanopyEditor) {
     if (didRedo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
-      triggerAutosave();
-      clickTrigger('canopy-external-crdt-changed-trigger');
+      dispatchExternalCrdtChanged(el);
     }
   }, { signal });
-  el.addEventListener('sync-status', ((event: Event) => {
-    const { status } = (event as CustomEvent<{ status: string }>).detail ?? {};
-    if (status) {
-      canopyGlobal.__canopy_pending_sync_status = status;
-      clickTrigger('canopy-sync-status-trigger');
-    }
-  }) as EventListener, { signal });
 
   // When remote ephemeral data arrives, update text-mode peer cursor decorations.
   el.addEventListener('sync-cursors-updated', () => {
@@ -387,7 +378,7 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   el.mount(handle, crdt);
   wireEditorEvents(el);
   if (restoredState) {
-    clickTrigger('canopy-external-crdt-changed-trigger');
+    dispatchExternalCrdtChanged(el, { autosave: false });
   }
   if (!SKIP_SYNC) {
     startSync(el, handle, crdt, roomId);

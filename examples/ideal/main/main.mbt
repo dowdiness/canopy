@@ -79,7 +79,7 @@ fn cm_mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
     on_mounted=emit(CmMounted),
     failed=emit.map(message => {
       ignore(message)
-      SyncStatusChanged("")
+      SyncStatusChanged("error")
     }),
     initial_extension=Some(js_make_ideal_cm_extension),
   )
@@ -791,8 +791,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     SyncStatusChanged(status) => {
-      let resolved = if status == "" { js_take_sync_status() } else { status }
-      let sync_status : SyncStatus = match resolved {
+      let sync_status : SyncStatus = match status {
         "connected" => Connected
         "connecting" => Connecting
         "disconnected" => Offline

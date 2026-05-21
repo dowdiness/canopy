@@ -7,7 +7,9 @@ priv enum EventTarget {
 priv enum EventName {
   ActionOverlayOpen
   ActionKey
+  ExternalCrdtChange
   LongPress
+  SyncStatus
 }
 
 ///|
@@ -29,7 +31,9 @@ fn EventName::event_type(self : EventName) -> String {
   match self {
     ActionOverlayOpen => "action-overlay-open"
     ActionKey => "action-key"
+    ExternalCrdtChange => "external-crdt-changed"
     LongPress => "long-press"
+    SyncStatus => "sync-status"
   }
 }
 
@@ -38,7 +42,9 @@ fn EventName::key(self : EventName) -> String {
   match self {
     ActionOverlayOpen => "action-overlay-open"
     ActionKey => "action-key"
+    ExternalCrdtChange => "external-crdt-changed"
     LongPress => "long-press"
+    SyncStatus => "sync-status"
   }
 }
 
@@ -133,8 +139,18 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     ),
     custom_event_sub(
       EditorHost,
+      ExternalCrdtChange,
+      emit.map(_ => ExternalCrdtChanged),
+    ),
+    custom_event_sub(
+      EditorHost,
       LongPress,
       emit.map(detail => LongPressTriggeredForNode(event_detail_node_id(detail))),
+    ),
+    custom_event_sub(
+      EditorHost,
+      SyncStatus,
+      emit.map(detail => SyncStatusChanged(event_detail_status(detail))),
     ),
   ])
 }
@@ -152,6 +168,23 @@ fn event_detail_node_id(detail : String) -> String {
         _ => ""
       }
     Json::String(node_id) => node_id
+    _ => detail
+  }
+}
+
+///|
+fn event_detail_status(detail : String) -> String {
+  if detail == "" {
+    return ""
+  }
+  let json = @json.parse(detail) catch { _ => return detail }
+  match json {
+    Json::Object(m) =>
+      match m.get("status") {
+        Some(Json::String(status)) => status
+        _ => ""
+      }
+    Json::String(status) => status
     _ => detail
   }
 }

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dispatchExternalCrdtChanged } from './support/dom-events';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -212,8 +213,8 @@ test.describe('External Sync', () => {
       const handle = g.__canopy_crdt_handle;
       const text = g.__canopy_crdt.get_text(handle);
       g.__canopy_crdt.set_text(handle, `let remote = 0\n${text}`);
-      document.getElementById('canopy-external-crdt-changed-trigger')?.click();
     });
+    await dispatchExternalCrdtChanged(page);
     await page.waitForFunction(() => {
       return document.querySelector('#canopy-text-editor .cm-content')?.textContent?.includes('remote') ?? false;
     });

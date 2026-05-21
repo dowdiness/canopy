@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { dispatchExternalCrdtChanged } from './support/dom-events';
 
 type ResponseSample = {
   inputToTextChangeMs: number;
@@ -58,8 +59,8 @@ async function seedEditor(page: Page, source: string) {
     }
 
     crdt.set_text(handle, text);
-    document.getElementById('canopy-external-crdt-changed-trigger')?.click();
   }, source);
+  await dispatchExternalCrdtChanged(page);
 
   await page.waitForFunction((text) => {
     const content = document.querySelector('#canopy-text-editor .cm-content');

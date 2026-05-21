@@ -222,15 +222,6 @@ extern "js" fn js_take_structural_edit_node_id() -> String =
   #| }
 
 ///|
-/// Read and consume the pending sync status set by JS.
-extern "js" fn js_take_sync_status() -> String =
-  #| function() {
-  #|   var s = globalThis.__canopy_pending_sync_status;
-  #|   globalThis.__canopy_pending_sync_status = null;
-  #|   return typeof s === 'string' ? s : '';
-  #| }
-
-///|
 /// Tell JS whether the action overlay is currently open.
 extern "js" fn js_set_overlay_open(open : Bool) -> Unit =
   #| function(open) {

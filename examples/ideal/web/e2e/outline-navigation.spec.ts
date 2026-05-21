@@ -1,5 +1,6 @@
 // E2E test: outline tree keyboard navigation using navigate_proj.
 import { test, expect } from '@playwright/test';
+import { dispatchExternalCrdtChanged } from './support/dom-events';
 
 test.describe('Outline keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
@@ -91,8 +92,8 @@ test.describe('Outline keyboard navigation', () => {
     await page.evaluate((text) => {
       const g = globalThis as any;
       g.__canopy_crdt.set_text(g.__canopy_crdt_handle, text);
-      document.getElementById('canopy-external-crdt-changed-trigger')?.click();
     }, source);
+    await dispatchExternalCrdtChanged(page);
     const targetNode = page.getByLabel('AST outline')
       .locator('.tree-label-text', { hasText: /^119$/ })
       .first();

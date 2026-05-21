@@ -62,6 +62,24 @@ test "event_detail_node_id rejects unrelated detail" {
 }
 
 ///|
+test "event_detail_status extracts status from object detail" {
+  inspect(
+    event_detail_status("{\"status\":\"connected\"}"),
+    content="connected",
+  )
+}
+
+///|
+test "event_detail_status accepts string detail fallback" {
+  inspect(event_detail_status("error"), content="error")
+}
+
+///|
+test "event_detail_status rejects unrelated detail" {
+  inspect(event_detail_status("{\"other\":\"connected\"}"), content="")
+}
+
+///|
 test "event target selector is centralized" {
   inspect(EditorHost.selector(), content="#canopy-editor")
 }
@@ -70,7 +88,9 @@ test "event target selector is centralized" {
 test "event names are centralized" {
   inspect(ActionOverlayOpen.event_type(), content="action-overlay-open")
   inspect(ActionKey.event_type(), content="action-key")
+  inspect(ExternalCrdtChange.event_type(), content="external-crdt-changed")
   inspect(LongPress.event_type(), content="long-press")
+  inspect(SyncStatus.event_type(), content="sync-status")
 }
 
 ///|
