@@ -331,7 +331,9 @@ test.describe('Sync Status', () => {
     await waitForEditor(page);
     // Full E2E starts the relay server; focused/local runs may skip it.
     const peersText = await page.locator('.peer-item').innerText();
-    expect(peersText).toMatch(/Connecting|Offline|connected/i);
+    expect(peersText).toMatch(
+      /^(?:You \(connected\)|Connecting\u2026|Offline \u2014 reconnecting\u2026)$/,
+    );
   });
 
   test('peer dot is visible', async ({ page }) => {
