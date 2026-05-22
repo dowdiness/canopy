@@ -16,8 +16,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
       "@moonbit/crdt": ["../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"]
     }

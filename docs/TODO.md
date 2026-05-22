@@ -41,9 +41,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: current supported targets are native and JS only.
   Exit: wasm build runs in CI and is documented as supported.
 
-- [ ] Add `npx tsc --noEmit` CI job for `examples/{web,prosemirror,demo-react}`.
-  Why: no CI job currently type-checks the examples, so regressions in the `@canopy/editor-adapter` package or example sources go unnoticed until a human runs tsc locally (cf. the 28 errors that silently accumulated between the Stage 5 adapter move and PR #211).
-  Exit: a CI job runs `tsc --noEmit` per example and blocks merge on failure.
+- [x] Add `npx tsc --noEmit` CI job for `examples/{web,prosemirror,demo-react}`.
+  Shipped: `typecheck-ts-examples` matrix job in `.github/workflows/ci.yml`; builds MoonBit JS artifacts, installs deps, runs `npx tsc --noEmit` per example, gated by `all-checks-passed`. Drift it caught on the way in: `examples/demo-react/tsconfig.json` had a deprecated `"baseUrl": "."` (TS 6.0 TS5101 deprecation; redundant under `moduleResolution: "bundler"` since `paths` already resolves relative to the tsconfig); dropped in the same change.
 
 - [ ] Reduce CRDT JS bundle size for `index.html` / `memo.html` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
   Why: large bundle impacts initial page load for web editors.
