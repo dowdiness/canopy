@@ -25,6 +25,9 @@
     },
     "dowdiness/event-graph-walker": {
       "path": "../../event-graph-walker"
+    },
+    "dowdiness/visualizer": {
+      "path": "../../lib/visualizer"
     }
   },
   "source": ".",

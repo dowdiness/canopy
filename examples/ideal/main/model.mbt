@@ -11,6 +11,7 @@ pub enum BottomTab {
   History
   CrdtState
   Graphviz
+  IncrGraph
 } derive(Eq)
 
 ///|
@@ -82,4 +83,8 @@ pub struct Model {
   // Inspector traceability: rolling log of structural intents (most recent last).
   // Mutated in place; capped to MAX_INTENT_LOG entries to keep render cheap.
   intent_log : Array[String]
+  // Model-owned tap on the parser's incr Runtime. Created once at init so it
+  // observes memo events across the whole session, not per render. Reads via
+  // `snapshot()` for the IncrGraph bottom-panel tab.
+  incr_tap : @visualizer.IncrMemoEventTap
 }

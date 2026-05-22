@@ -44,6 +44,15 @@ let graphviz_cache : RenderCache = {
 }
 
 ///|
+let incr_graph_cache : RenderCache = {
+  identity: -1,
+  op_count: 0,
+  frontier_hash: 0,
+  html: "",
+  valid: false,
+}
+
+///|
 /// Snapshot identity hash for cache lookup. Frontier is small (1-3 LVs in
 /// practice); the multiply-by-31 fold collides only on adversarial inputs
 /// that callers don't construct.
@@ -139,6 +148,37 @@ fn render_graphviz_html(model : Model) -> String {
 }
 
 ///|
+/// Render the IncrGraph tab's HTML (cached). Keyed on the same triple as
+/// the Graphviz tab: the incr dependency graph only changes when text
+/// edits advance `op_count`, so cache hits skip the snapshot copy + DOT
+/// pipeline. On cache miss we also `drain_events()` on the tap — the
+/// snapshot we just took already captured a copy of the events for
+/// status coloring, so draining bounds `tap.events` growth to one
+/// inter-text-edit gap.
+fn render_incr_graph_html(model : Model) -> String {
+  let snap = model.editor.causal_snapshot()
+  let key = render_cache_key(model.editor.identity(), snap)
+  if cache_hit(incr_graph_cache, key) {
+    incr_graph_cache.html
+  } else {
+    let snapshot = model.incr_tap.snapshot()
+    let _ = model.incr_tap.drain_events()
+    let html = if snapshot.nodes.is_empty() {
+      "<span class=\"no-problems\">No incr cells observed yet</span>"
+    } else {
+      let svg = snapshot
+        .to_visual_graph()
+        .to_svg_with_config(bottom_tab_svg_config)
+      "<div role=\"img\" aria-label=\"Incr runtime dependency graph\">" +
+      svg +
+      "</div>"
+    }
+    cache_store(incr_graph_cache, key, html)
+    html
+  }
+}
+
+///|
 /// Render the causal-graph History tab's HTML (legend + SVG, cached).
 /// See `render_graphviz_html` for the vdom-mount rationale.
 fn render_history_html(model : Model) -> String {
@@ -190,6 +230,7 @@ fn bottom_tab_slug(tab : BottomTab) -> String {
     History => "history"
     CrdtState => "crdt"
     Graphviz => "graphviz"
+    IncrGraph => "incr"
   }
 }
 
@@ -206,6 +247,7 @@ fn bottom_tab_panel_id(tab : BottomTab) -> String {
   match tab {
     History => "canopy-history-container"
     Graphviz => "canopy-graphviz-container"
+    IncrGraph => "canopy-incr-container"
     _ => "canopy-bottom-panel-" + bottom_tab_slug(tab)
   }
 }
@@ -218,6 +260,7 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
     (History, "History"),
     (CrdtState, "CRDT State"),
     (Graphviz, "Graphviz"),
+    (IncrGraph, "Incr Graph"),
   ]
   // Build buttons with WAI-ARIA tabs keyboard support: arrow keys
   // navigate, Home/End jump to ends, and roving tabindex keeps the focus
@@ -350,6 +393,23 @@ fn view_graphviz_panel(model : Model) -> Html {
 }
 
 ///|
+/// Render the IncrGraph panel. See `view_history_panel` for the
+/// `<section>` + `inner_html` rationale and the `bottom_visible` gate.
+#warnings("-alert_xss_vulnerable")
+fn view_incr_graph_panel(model : Model) -> Html {
+  let html = if model.workspace.bottom_visible {
+    render_incr_graph_html(model)
+  } else {
+    ""
+  }
+  @html.section(
+    class="bottom-content incr-graph-content",
+    attrs=bottom_panel_attrs(IncrGraph).inner_html(html),
+    ([] : Array[Html]),
+  )
+}
+
+///|
 fn view_op_log(model : Model) -> Html {
   let log = model.intent_log
   if log.is_empty() {
@@ -434,6 +494,7 @@ fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
       )
     History => view_history_panel(model)
     Graphviz => view_graphviz_panel(model)
+    IncrGraph => view_incr_graph_panel(model)
   }
   @html.fragment([view_bottom_tabs(dispatch, model), content])
 }

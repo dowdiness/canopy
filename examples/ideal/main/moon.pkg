@@ -23,6 +23,7 @@ import {
   "dowdiness/graphviz/lib/parser" @gv_parser,
   "dowdiness/graphviz/lib/layout" @gv_layout,
   "dowdiness/graphviz/lib/svg" @gv_svg,
+  "dowdiness/visualizer" @visualizer,
 }
 
 supported_targets = "js"

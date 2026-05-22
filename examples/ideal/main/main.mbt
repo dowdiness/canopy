@@ -25,7 +25,7 @@ fn split_action_id(action_id : String) -> (String, String) {
 }
 
 ///|
-fn init_model() -> Model {
+fn init_model() -> Model raise {
   // Read agent ID set by JS (main.ts) before module import.
   // Falls back to "local" if JS hasn't set it (e.g. test environment).
   let agent_id = js_get_agent_id()
@@ -35,6 +35,10 @@ fn init_model() -> Model {
   let _handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
   let companion = @ffi.get_lambda_companion().unwrap()
+  // Attach the memo-event tap before any cell reads so initial-parse recomputes
+  // are visible to the IncrGraph panel. `attach` only fails if incr's listener
+  // slot is already claimed by an external caller — fatal here, propagate.
+  let incr_tap = @visualizer.IncrMemoEventTap::attach(editor.parser_runtime())
   let init_text = "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
@@ -65,6 +69,7 @@ fn init_model() -> Model {
     drop_target_id: None,
     drop_position: None,
     intent_log: [],
+    incr_tap,
   }
 }
 
@@ -1076,7 +1081,10 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
 ///|
 #warnings("-alert_unstable")
 fn main {
-  let initial_model = init_model()
+  // init_model attaches the incr memo-event tap, which raises if incr's
+  // listener slot is already claimed. fn main can't propagate, so collapse
+  // the error to an abort at the boundary.
+  let initial_model = try! init_model()
   let (emit, app) = @rabbita.cell_with_emit(
     model=initial_model,
     update~,

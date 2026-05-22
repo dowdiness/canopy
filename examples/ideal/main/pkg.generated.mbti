@@ -10,6 +10,7 @@ import {
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita_codemirror",
+  "dowdiness/visualizer",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -87,6 +88,7 @@ pub enum BottomTab {
   History
   CrdtState
   Graphviz
+  IncrGraph
 } derive(Eq)
 
 type CompressedData
@@ -126,6 +128,7 @@ pub struct Model {
   drop_target_id : @core.NodeId?
   drop_position : @core.DropPosition?
   intent_log : Array[String]
+  incr_tap : @visualizer.IncrMemoEventTap
 }
 
 pub enum Msg {

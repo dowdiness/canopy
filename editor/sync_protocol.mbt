@@ -58,7 +58,7 @@ fn message_type_byte(msg : SyncMessage) -> Byte {
 
 ///|
 pub fn encode_message(msg : SyncMessage) -> Bytes {
-  let buf = @buffer.new()
+  let buf = Buffer()
   buf.write_byte(protocol_version)
   buf.write_byte(message_type_byte(msg))
   buf.write_byte(b'\x00') // flags: no BFT
@@ -86,7 +86,7 @@ pub fn encode_message(msg : SyncMessage) -> Bytes {
 
 ///|
 pub fn encode_relayed_crdt_ops(sender : String, payload : Bytes) -> Bytes {
-  let buf = @buffer.new()
+  let buf = Buffer()
   buf.write_byte(protocol_version)
   buf.write_byte(msg_relayed_crdt_ops)
   buf.write_byte(b'\x00')
@@ -103,7 +103,7 @@ fn encode_peer_addressed(
   request_id : String,
   content : String,
 ) -> Bytes {
-  let buf = @buffer.new()
+  let buf = Buffer()
   buf.write_byte(protocol_version)
   buf.write_byte(type_byte)
   buf.write_byte(b'\x00')
