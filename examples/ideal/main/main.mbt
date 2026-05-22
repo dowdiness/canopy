@@ -421,11 +421,14 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 }
 
 ///|
-/// Map a standard structural-edit op string (sent from Inspector buttons
-/// and Web Component `STRUCTURAL_EDIT_REQUEST` dispatches) to a typed
-/// `TreeEditOp`. Returns `None` for ops outside the standard set —
-/// notably `"Drop"`, whose `source`/`position` payload is not recoverable
-/// from `(op, node_id)` alone.
+/// Map a standard structural-edit op string to a typed `TreeEditOp`. Used
+/// on both the direct-apply path (`apply_structural_edit_request`, from
+/// Inspector / Web Component `STRUCTURAL_EDIT_REQUEST`) and the FFI-applied
+/// path (`StructureStructuralEdit`, from `STRUCTURAL_EDIT_APPLIED`) so the
+/// Op Log row shape matches in both. Must stay in sync with the dispatch
+/// sites in `view_inspector.mbt` and `web/src/keymap.ts`. Returns `None`
+/// for ops outside the standard set — notably `"Drop"`, whose `source` /
+/// `position` payload is not recoverable from `(op, node_id)` alone.
 fn structural_edit_op_to_tree_edit(
   op : String,
   node_id : @canopy_core.NodeId,
@@ -448,7 +451,7 @@ fn apply_structural_edit_request(
     None => return (none, model)
   }
   let tree_op = match structural_edit_op_to_tree_edit(op, nid) {
-    Some(op) => op
+    Some(tree_op) => tree_op
     None => return (none, model)
   }
   match
