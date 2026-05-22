@@ -268,39 +268,30 @@ test "B1pp: mixed-variant divergence — NodeId mapping diverges across replicas
   try! editor_b.apply_sync(try! editor_a.export_all())
   // Text converges
   inspect(editor_a.get_text() == editor_b.get_text(), content="true")
-  // Compare NodeId→JsonValue mappings
+  // Compare NodeId→JsonValue mappings.
+  //
+  // Verdict: count_kind_mismatches > 0 — the same logical NodeId carries
+  // different JsonValue variants between A and B. Earlier revisions also
+  // inspect()-asserted the full sorted `(NodeId.0, kind)` dumps for both
+  // replicas; Codex review on PR #326 flagged that as brittle (exact
+  // NodeId integers + LCS tie-breaking are implementation-defined per
+  // `core/reconcile_properties_wbtest.mbt:323-327`). Both dump
+  // assertions were dropped on `<follow-up commit>`.
+  //
+  // For provenance: when this test was first authored on 2026-05-22
+  // (commit 24a8a6e), the observed dumps were:
+  //   A: [(0,"Number(1)"), (1,"Array([Number(1), String(\"abc\"), Bool(true)])"),
+  //       (5,"String(\"abc\")"), (10,"Bool(true)")]
+  //   B: [(0,"Number(1)"), (1,"Array([Number(1), String(\"abc\"), Bool(true)])"),
+  //       (5,"Bool(true)"),   (10,"String(\"abc\")")]
+  // — NodeIds 5 and 10 swapped between String and Bool. That observation
+  // is the original Q2 evidence; it is recorded here as a comment so the
+  // historical finding stays readable, without locking the probe to
+  // implementation-defined NodeId integers.
   let reg_a = editor_a.get_registry()
   let reg_b = editor_b.get_registry()
   let ids_a : Array[@core.NodeId] = reg_a.keys().to_array()
-  let ids_b : Array[@core.NodeId] = reg_b.keys().to_array()
-  ids_a.sort_by(fn(a, b) { @core.NodeId::compare(a, b) })
-  ids_b.sort_by(fn(a, b) { @core.NodeId::compare(a, b) })
-  let dump_a = ids_a.map(fn(id) {
-    (id.0, @debug.to_string(reg_a.get(id).unwrap().kind))
-  })
-  let dump_b = ids_b.map(fn(id) {
-    (id.0, @debug.to_string(reg_b.get(id).unwrap().kind))
-  })
-  let expected_a =
-    #|[
-    #|  (0, "Number(1)"),
-    #|  (1, "Array([Number(1), String(\"abc\"), Bool(true)])"),
-    #|  (5, "String(\"abc\")"),
-    #|  (10, "Bool(true)"),
-    #|]
-  let expected_b =
-    #|[
-    #|  (0, "Number(1)"),
-    #|  (1, "Array([Number(1), String(\"abc\"), Bool(true)])"),
-    #|  (5, "Bool(true)"),
-    #|  (10, "String(\"abc\")"),
-    #|]
-  inspect(@debug.to_string(dump_a), content=expected_a)
-  inspect(@debug.to_string(dump_b), content=expected_b)
   inspect(editor_a.get_text(), content="[1,\"abc\",true]")
-  // Positive assertion of the divergence: across all shared NodeIds,
-  // count how many carry DIFFERENT JsonValues between A and B.
-  // Snapshot above showed NodeIds 5 and 10 are SWAPPED (String<->Bool).
   let kind_mismatches = ids_a
     .iter()
     .filter(fn(id) {
@@ -332,24 +323,42 @@ test "B2: multi-session convergence — text matches after B→A sync" {
 }
 
 ///|
-// ── Part C — Shape-agnosticism: DocumentId string shape is irrelevant ──
+// ── Part C — agent_id string opacity (Q3 stand-in) ──
+//
+// Scope (Codex review on PR #326): there is NO DocumentId field today —
+// `new_json_editor(agent_id: String)` only takes the agent_id string
+// (`lang/json/companion/json_companion.mbt:8-14`). These tests exercise
+// that string parameter with three candidate DocumentId shapes embedded
+// in the agent_id (UUID, sha256:, file://) and show the CRDT/transport/
+// presence layers treat the value opaquely.
+//
+// What they DO establish: the editor's existing code paths impose no
+// shape constraint on their string identifier. When a real DocumentId
+// is added in §P0b (either as a separate axis or embedded in agent_id),
+// these layers will accept any stable string.
+//
+// What they do NOT establish: that a separate DocumentId field
+// round-trips through serialization, persistence, or any future
+// workspace API. The decision doc Q3 verdict is explicitly bounded to
+// the agent_id layer; persistence/durability is Phase-2 work.
 
 ///|
-/// C_uuid: UUID-shaped DocumentId is accepted by new_json_editor without error.
-/// The existing code path does not inspect the string's shape.
-test "C_uuid: UUID-shaped DocumentId is shape-agnostic" {
+/// C_uuid: UUID embedded in `agent_id` is accepted by new_json_editor
+/// without error. The existing code path does not inspect the string's
+/// shape.
+test "C_uuid: UUID-shaped agent_id string is opaque to the editor" {
   let uuid_doc_id = "550e8400-e29b-41d4-a716-446655440000"
   let editor = @json_companion.new_json_editor("replica_" + uuid_doc_id)
   try! editor.insert("[1]")
   inspect(editor.get_text(), content="[1]")
-  // Bytes round-trip: string survives serialization
+  // Bytes round-trip: the embedded shape survives string operations
   let b = @debug.to_string(uuid_doc_id)
   inspect(b.contains("550e8400"), content="true")
 }
 
 ///|
-/// C_hash: Content-hash-shaped DocumentId is shape-agnostic.
-test "C_hash: content-hash-shaped DocumentId is shape-agnostic" {
+/// C_hash: Content-hash-shaped agent_id string is opaque to the editor.
+test "C_hash: hash-shaped agent_id string is opaque to the editor" {
   let hash_doc_id = "sha256:abc123"
   let editor = @json_companion.new_json_editor("replica_" + hash_doc_id)
   try! editor.insert("[2]")
@@ -359,8 +368,8 @@ test "C_hash: content-hash-shaped DocumentId is shape-agnostic" {
 }
 
 ///|
-/// C_path: File-path-shaped DocumentId is shape-agnostic.
-test "C_path: path-shaped DocumentId is shape-agnostic" {
+/// C_path: File-path-shaped agent_id string is opaque to the editor.
+test "C_path: path-shaped agent_id string is opaque to the editor" {
   let path_doc_id = "file:///workspace/doc.json"
   let editor = @json_companion.new_json_editor("replica_" + path_doc_id)
   try! editor.insert("[3]")

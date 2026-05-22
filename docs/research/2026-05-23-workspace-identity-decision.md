@@ -53,19 +53,19 @@ These cases can produce additional failure modes (e.g. divergence of structural 
 
 ### Q3 — What shape should DocumentId take?
 
-**Answer: String; shape is irrelevant to current code paths.**
+**Answer (scoped): At the editor layer, any stable string is accepted. Persistence shape is Phase-2 work.**
 
 Evidence from Part C assertions:
 
-| Assertion | Doc ID shape tested | Result |
-|-----------|--------------------|-|
+| Assertion | String embedded in agent_id | Result |
+|-----------|------------------------------|--------|
 | C_uuid | `550e8400-e29b-41d4-a716-446655440000` | Accepted, text roundtrips correctly |
 | C_hash | `sha256:abc123` | Accepted |
 | C_path | `file:///workspace/doc.json` | Accepted |
 
-The CRDT, transport, and presence layers treat `agent_id` as an opaque string. No current code path inspects the shape of the string. The workspace implementation can choose any stable string scheme — UUID, content hash, or path-derived — and the editor layer will accept it.
+**Scope (Codex review on PR #326):** Part C does NOT exercise a separate DocumentId field — `new_json_editor(agent_id : String)` accepts only an `agent_id`. The tests show the CRDT, transport, and presence layers treat their string identifier opaquely. That establishes one lower bound — when a real DocumentId is added in §P0b (either as a separate axis or embedded in agent_id), these layers will impose no shape constraint. It does NOT establish anything about serialization, persistence, or workspace-API round-trips, which the workspace design hasn't ranged on yet.
 
-**Recommendation:** Use a simple scheme for now (e.g. `"<doc_path>:<replica_uuid>"`) and avoid over-engineering until the workspace concept is stable.
+**Recommendation:** Use a simple scheme for now (e.g. `"<doc_path>:<replica_uuid>"`) and avoid over-engineering until the workspace concept is stable. Revisit when the persistence shape is chosen in Phase 2.
 
 ---
 
@@ -75,7 +75,7 @@ The CRDT, transport, and presence layers treat `agent_id` as an opaque string. N
 |----------|---------|------------|
 | Q1: Separation required? | Yes — three independent failure modes | High (A1/A2/A3 all pass) |
 | Q2: Two axes enough? | **No.** Three failure shapes confirmed: B1''-swap on mixed-variant, C2-swap on nested same-variant (at base-inherited NodeIds), C4-swap on object-member mixed variant, C3-key-asymmetry on delete+modify. Refined recommendation: option (c) scope-reduction is now the principled near-term path; option (a) Grove-level identity remains the principled long-term path. See §"Q2 follow-through" below. | High (B1' null + B1'' positive + gate #4: 4 additional cases) |
-| Q3: DocumentId shape? | Opaque string; any stable scheme works at the editor layer. (Persistence shape choice deferred to Phase 2.) | Medium (C×3 in-memory pass; serialization not exercised) |
+| Q3: DocumentId shape? | At the agent_id layer (the only string identifier today): any stable scheme works. Real DocumentId shape, persistence, and workspace-API round-trip deferred to Phase 2. | Medium-bounded (C×3 prove agent_id string opacity in-memory; nothing exercised against a real DocumentId field, which doesn't exist yet) |
 
 ---
 
@@ -90,9 +90,9 @@ The CRDT, transport, and presence layers treat `agent_id` as an opaque string. N
 | B1' | `same-variant divergence — NodeId→kind mapping is stable` | PASS (null finding) | No kind mismatch after divergent number inserts; reconcile is deterministically right-biased |
 | B1'' | `mixed-variant divergence — NodeId mapping diverges across replicas` | PASS (positive divergence) | `kind_mismatches = 2`. NodeIds 5 and 10 swap variants between A and B (A: 5=String, 10=Bool; B: 5=Bool, 10=String) |
 | B2 | `multi-session convergence — text matches after B→A sync` | PASS | Standard Fugue convergence works with distinct replica IDs |
-| C_uuid | `UUID-shaped DocumentId is shape-agnostic` | PASS | UUID string accepted without error |
-| C_hash | `content-hash-shaped DocumentId is shape-agnostic` | PASS | Hash string accepted without error |
-| C_path | `path-shaped DocumentId is shape-agnostic` | PASS | Path string accepted without error |
+| C_uuid | `UUID-shaped agent_id string is opaque to the editor` | PASS | UUID string accepted via `new_json_editor(agent_id)`; editor code paths impose no shape constraint. Does NOT exercise a separate DocumentId field (none exists today). |
+| C_hash | `hash-shaped agent_id string is opaque to the editor` | PASS | Hash string accepted without error |
+| C_path | `path-shaped agent_id string is opaque to the editor` | PASS | Path string accepted without error |
 
 ---
 
@@ -104,7 +104,7 @@ The CRDT, transport, and presence layers treat `agent_id` as an opaque string. N
 
 **B1'' (mixed-variant, positive divergence).** When each replica's old tree contains a DIFFERENT variant at the divergent position, LCS preserves each replica's old NodeId at the structural position that matches its OWN local variant — leaving the same logical post-merge node with a *different* NodeId on each replica. Concrete observation for `A.insert(",\"abc\"")` + `B.insert(",true")` from base `[1]`, converging to `[1,"abc",true]`:
 
-```
+```text
 A's registry: 0 → Number(1), 1 → Array, 5 → String("abc"), 10 → Bool(true)
 B's registry: 0 → Number(1), 1 → Array, 5 → Bool(true),    10 → String("abc")
                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

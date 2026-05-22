@@ -31,7 +31,7 @@ Each subsection that draws an inference labels it explicitly.
 
 **Fact** (`docs/architecture.md:13–16`, `docs/architecture/ARCHITECTURE_DIAGRAM.md`):
 
-```
+```text
 Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► Frontend
    ▲                                                                 │
    └────────────── structural edits feed back ───────────────────────┘
@@ -192,7 +192,7 @@ The dependency graph must:
 
 ### 3.2 Node types
 
-```
+```text
 DepNode :=
   | SpecNode(doc_id, node_id)           // a node in a spec document
   | CodeNode(doc_id, node_id)           // a node in a code document
@@ -279,7 +279,7 @@ Given those facts, the revised persistence story has one clean tier and two hone
 
 ### 3.6 Update propagation model
 
-```
+```text
 spec.cached_proj_node ──┐
                         ├──► DepGraph.edges_from[k]  ──►  DepGraph.impact[k]  ──►  companion.get_impact_annotations
 code.cached_proj_node ──┤    (MemoMap per source NodeIdQ)   (MemoMap per source                  │
@@ -364,7 +364,7 @@ For the prototype, ship a single rendering view per editor and call it done.
 
 **Fact** (`llm/pkg.generated.mbti`, `llm/client.mbt`, `ffi/lambda/llm.mbt`):
 
-```
+```moonbit
 pub async fn edit_text(GeminiConfig, String, String) -> Array[EditAction] raise LlmError
 pub async fn fix_typos(GeminiConfig, String) -> Array[EditAction] raise LlmError
 ```
@@ -418,7 +418,7 @@ The current types describe textual edits over a line-numbered buffer. They canno
 
 **Fact** (`event-graph-walker/internal/core/operation.mbt:18`): Every `Op` carries `agent: String`. **Interpretation:** Use a structured agent string for AI-originated ops:
 
-```
+```text
 agent = "llm:<model>:<request-id>"   e.g. "llm:gemini-2.5-flash:r-abc123"
 ```
 
@@ -456,7 +456,7 @@ This is convention-only; no schema change. Downstream tooling can filter CRDT hi
 
 ### 6.3 Files to add (new)
 
-```
+```text
 lang/markdown/edits/markdown_edit_op.mbt          (extend: AddAnchor / RemoveAnchor)
 lang/markdown/proj/proj_node.mbt                  (extend: detect [ref:...] inline)
 workspace/                                        (NEW top-level package)
