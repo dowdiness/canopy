@@ -1,0 +1,7 @@
+import {
+  "dowdiness/canopy/editor" @editor,
+  "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/json/companion" @json_companion,
+  "dowdiness/json",
+  "moonbitlang/core/debug" @debug,
+} for "wbtest"
