@@ -380,8 +380,8 @@ pub fn ViewUpdateState::ViewUpdateState() -> Self
 
 // Traits
 pub(open) trait SyncTransport {
-  fn send(Self, Bytes) -> Unit
-  fn on_receive(Self, (Bytes) -> Unit) -> Unit
-  fn close(Self) -> Unit
+  send(Self, Bytes) -> Unit
+  on_receive(Self, (Bytes) -> Unit) -> Unit
+  close(Self) -> Unit
 }
 

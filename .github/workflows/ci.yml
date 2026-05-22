@@ -34,9 +34,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Verify MoonBit installation
         run: moon version --all
@@ -77,9 +75,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Verify MoonBit installation
         run: moon version --all
@@ -109,9 +105,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Verify MoonBit installation
         run: moon version --all
@@ -129,9 +123,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Cache opam switch
         id: opam-cache
@@ -178,9 +170,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Update dependencies
         run: ./scripts/update-moon-deps.sh
@@ -204,9 +194,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Check formatting
         run: |
@@ -223,9 +211,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Update dependencies
         run: ./scripts/update-moon-deps.sh
@@ -271,9 +257,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -306,9 +290,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -336,9 +318,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -370,9 +350,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -404,9 +382,7 @@ jobs:
           submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

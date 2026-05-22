@@ -18,8 +18,8 @@ test "two editors sync via relay" {
   // Alice exports CRDT state and sends through relay
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
   // Alice sends through relay — relay broadcasts to bob
   room.on_message("alice", wire_msg)
@@ -37,8 +37,8 @@ test "late joiner catches up via CrdtOps frame" {
   let editor_b = @lang_lambda.new_lambda_editor("bob").0
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
   // Bob receives the full state
   editor_b.ws_on_message(wire_msg)
@@ -88,8 +88,8 @@ test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
   editor_a.set_text("hello v2")
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
   // Relay wraps as RelayedCrdtOps and broadcasts
   room.on_message("alice", wire_msg)
@@ -141,8 +141,8 @@ test "v2 relay: three peers sync via RelayedCrdtOps" {
   editor_a.set_text("abc")
   let msg_a = try! editor_a.export_all()
   let json_a = msg_a.to_json_string()
-  let buf_a = Buffer()
-  buf_a.write_string_utf16le(json_a)
+  let buf_a = @buffer.new()
+  buf_a.write_string(json_a)
   room.on_message(
     "alice",
     @editor.encode_message(@editor.CrdtOps(buf_a.to_bytes())),

@@ -80,8 +80,8 @@ fn read_ivarint(reader : Reader) -> Int64 raise EphemeralError {
 
 ///|
 fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
-  let tmp = Buffer()
-  tmp.write_string_utf16le(s)
+  let tmp = @buffer.new()
+  tmp.write_string(s)
   let bytes = tmp.to_bytes()
   write_uvarint(buf, bytes.length().to_uint64())
   buf.write_bytes(bytes)
@@ -91,10 +91,10 @@ fn write_string(buf : @buffer.Buffer, s : String) -> Unit {
 fn read_string(reader : Reader) -> String raise EphemeralError {
   let len = safe_uvarint_to_int(read_uvarint(reader))
   let bytes = reader.read_bytes(len)
-  // Wire data is UTF-16LE (MoonBit's native String byte layout), matching
-  // what write_string emits via write_string_utf16le. to_unchecked_string
-  // copies the bytes back into a String without validation. Callers should
-  // treat decoded strings as untrusted display data, not executable content.
+  // Wire data originates from our own write_string (valid UTF-8), but
+  // to_unchecked_string is used because MoonBit Bytes has no checked
+  // UTF-8-to-String conversion in the public API. Callers should treat
+  // decoded strings as untrusted display data, not executable content.
   bytes.to_unchecked_string()
 }
 
@@ -279,8 +279,8 @@ fn to_wire_peer_id(key : String) -> String {
 
 ///|
 fn stable_peer_hash(key : String) -> UInt64 {
-  let buf = Buffer()
-  buf.write_string_utf16le(key)
+  let buf = @buffer.new()
+  buf.write_string(key)
   let bytes = buf.to_bytes()
   let mut hash = 14695981039346656037UL
   for i = 0; i < bytes.length(); i = i + 1 {
@@ -305,7 +305,7 @@ fn encode_entries(entries : Array[(String, EphemeralRecord)]) -> Bytes {
   if filtered.length() == 0 {
     return Bytes::new(0)
   }
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_uvarint(buf, filtered.length().to_uint64())
   for entry in filtered {
     let (peer, clock, value) = entry

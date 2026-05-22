@@ -1,6 +1,6 @@
 ///|
 test "uvarint roundtrip: boundary values" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_uvarint(buf, 0UL) // zero
   write_uvarint(buf, 127UL) // max single-byte
   write_uvarint(buf, 128UL) // first two-byte
@@ -18,7 +18,7 @@ test "uvarint roundtrip: boundary values" {
 
 ///|
 test "ivarint roundtrip: signed boundaries" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_ivarint(buf, 0L)
   write_ivarint(buf, 1L)
   write_ivarint(buf, -1L)
@@ -82,7 +82,7 @@ test "peer ID: non-numeric hashed deterministically" {
 ///|
 test "ephemeral value roundtrip: all variants" {
   fn roundtrip(value : EphemeralValue) -> EphemeralValue raise {
-    let buf = Buffer()
+    let buf = @buffer.new()
     write_ephemeral_value(buf, value)
     let reader = Reader::new(buf.to_bytes())
     read_ephemeral_value(reader)
@@ -102,7 +102,7 @@ test "ephemeral value roundtrip: all variants" {
   )
   inspect(try! roundtrip(EphemeralValue::String("")), content="String(\"\")")
   // Bytes
-  let bytes_buf = Buffer()
+  let bytes_buf = @buffer.new()
   bytes_buf.write_byte(b'\x01')
   bytes_buf.write_byte(b'\x02')
   let bytes_val = try! roundtrip(EphemeralValue::Bytes(bytes_buf.to_bytes()))
@@ -149,7 +149,7 @@ test "ephemeral value roundtrip: nested structures" {
     "count": EphemeralValue::I64(2L),
   }
   let value = EphemeralValue::Map(outer_map)
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_ephemeral_value(buf, value)
   let reader = Reader::new(buf.to_bytes())
   let decoded = try! read_ephemeral_value(reader)
@@ -177,7 +177,7 @@ test "ephemeral value roundtrip: nested structures" {
 
 ///|
 test "ephemeral value roundtrip: empty containers" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_ephemeral_value(buf, EphemeralValue::List([]))
   let empty_map : Map[String, EphemeralValue] = {}
   write_ephemeral_value(buf, EphemeralValue::Map(empty_map))
@@ -236,7 +236,7 @@ test "encode_entries/decode_entries: None value becomes Null" {
 ///|
 test "f64 roundtrip: special values" {
   fn roundtrip_f64(v : Double) -> Double raise {
-    let buf = Buffer()
+    let buf = @buffer.new()
     write_f64_le(buf, v)
     let reader = Reader::new(buf.to_bytes())
     read_f64_le(reader)
@@ -262,7 +262,7 @@ test "f64 roundtrip: special values" {
 
 ///|
 test "string roundtrip: edge cases" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_string(buf, "") // empty
   write_string(buf, " ") // single space
   write_string(buf, "\n\t\r") // whitespace chars
@@ -274,7 +274,7 @@ test "string roundtrip: edge cases" {
 
 ///|
 test "len_bytes roundtrip" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_len_bytes(buf, Bytes::new(0)) // empty bytes
   let three = Bytes::new(3)
   write_len_bytes(buf, three)

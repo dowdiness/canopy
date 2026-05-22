@@ -114,8 +114,8 @@ test "ws_on_message: wrong protocol version ignored" {
 ///|
 test "ws_on_message: CrdtOps with invalid JSON does not panic" {
   let editor = @lambda.new_lambda_editor("alice").0
-  let buf = Buffer()
-  buf.write_string_utf16le("this is not valid json {{{")
+  let buf = @buffer.new()
+  buf.write_string("this is not valid json {{{")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   // Editor should remain unchanged
@@ -125,8 +125,8 @@ test "ws_on_message: CrdtOps with invalid JSON does not panic" {
 ///|
 test "ws_on_message: CrdtOps with wrong JSON schema does not panic" {
   let editor = @lambda.new_lambda_editor("alice").0
-  let buf = Buffer()
-  buf.write_string_utf16le("{\"wrong\": \"schema\"}")
+  let buf = @buffer.new()
+  buf.write_string("{\"wrong\": \"schema\"}")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
@@ -135,8 +135,8 @@ test "ws_on_message: CrdtOps with wrong JSON schema does not panic" {
 ///|
 test "ws_on_message: CrdtOps with empty JSON object does not panic" {
   let editor = @lambda.new_lambda_editor("alice").0
-  let buf = Buffer()
-  buf.write_string_utf16le("{}")
+  let buf = @buffer.new()
+  buf.write_string("{}")
   let wire = encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
@@ -171,13 +171,13 @@ test "ws_on_message: malformed message after valid sync preserves text" {
     }
   }
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   editor_b.ws_on_message(encode_message(CrdtOps(buf.to_bytes())))
   inspect(editor_b.get_text(), content="hello")
   // Now send malformed message — bob's text should be preserved
-  let bad_buf = Buffer()
-  bad_buf.write_string_utf16le("not json")
+  let bad_buf = @buffer.new()
+  bad_buf.write_string("not json")
   editor_b.ws_on_message(encode_message(CrdtOps(bad_buf.to_bytes())))
   inspect(editor_b.get_text(), content="hello")
 }

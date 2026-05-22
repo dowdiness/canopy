@@ -1,7 +1,7 @@
 ///|
 fn str_to_bytes(s : String) -> Bytes {
-  let buf = Buffer()
-  buf.write_string_utf16le(s)
+  let buf = @buffer.new()
+  buf.write_string(s)
   buf.to_bytes()
 }
 
@@ -60,7 +60,7 @@ test "encode/decode PeerLeft roundtrip" {
 
 ///|
 test "decode rejects wrong version" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(b'\xFF') // bad version
   buf.write_byte(b'\x01')
   buf.write_byte(b'\x00')
@@ -77,7 +77,7 @@ test "decode_message_result reports wrong version" {
 
 ///|
 test "decode rejects too short" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x01')
   @debug.debug_inspect(decode_message(buf.to_bytes()), content="None")

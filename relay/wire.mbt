@@ -35,13 +35,13 @@ fn write_relay_uvarint(buf : @buffer.Buffer, value : Int) -> Unit {
 /// Wire format: [version][msg_room_control][flags][sub_type][uvarint_len][peer_id_bytes]
 /// Note: peer_id_bytes uses MoonBit's internal string encoding (not UTF-8).
 fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(version)
   buf.write_byte(msg_room_control)
   buf.write_byte(flags_none)
   buf.write_byte(sub_type)
-  let tmp = Buffer()
-  tmp.write_string_utf16le(peer_id)
+  let tmp = @buffer.new()
+  tmp.write_string(peer_id)
   let peer_bytes = tmp.to_bytes()
   write_relay_uvarint(buf, peer_bytes.length())
   buf.write_bytes(peer_bytes)
@@ -93,12 +93,12 @@ fn wrap_with_sender(
   data : Bytes,
   payload_offset : Int,
 ) -> Bytes {
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(version)
   buf.write_byte(new_type)
   buf.write_byte(flags_none)
-  let tmp = Buffer()
-  tmp.write_string_utf16le(sender)
+  let tmp = @buffer.new()
+  tmp.write_string(sender)
   let sender_bytes = tmp.to_bytes()
   write_relay_uvarint(buf, sender_bytes.length())
   buf.write_bytes(sender_bytes)

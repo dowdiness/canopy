@@ -1,0 +1,16 @@
+name: 'Set up MoonBit'
+description: >-
+  Install MoonBit pinned to a known-good version. Workaround for
+  https://github.com/moonbitlang/moon/issues/1716 — remove this composite
+  and restore the upstream installer once that issue is resolved.
+
+runs:
+  using: composite
+  steps:
+    - name: Install MoonBit (pinned)
+      uses: hustcer/setup-moonbit@v1.21
+      with:
+        version: "0.9.2+bbe2b338f"
+        core-version: "0.9.2+bbe2b338f"
+      env:
+        GITHUB_TOKEN: ${{ github.token }}

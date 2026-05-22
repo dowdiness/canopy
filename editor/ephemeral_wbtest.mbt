@@ -17,7 +17,7 @@ fn set_updated_at(
 
 ///|
 test "uvarint roundtrip" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_uvarint(buf, 0UL)
   write_uvarint(buf, 1UL)
   write_uvarint(buf, 127UL)
@@ -35,7 +35,7 @@ test "uvarint roundtrip" {
 
 ///|
 test "ivarint roundtrip" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_ivarint(buf, 0L)
   write_ivarint(buf, 1L)
   write_ivarint(buf, -1L)
@@ -51,7 +51,7 @@ test "ivarint roundtrip" {
 
 ///|
 test "string roundtrip" {
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_string(buf, "hello")
   write_string(buf, "")
   write_string(buf, "日本語")
@@ -65,7 +65,7 @@ test "string roundtrip" {
 test "LWW: higher clock wins" {
   let store = EphemeralStore::new(60000UL)
   store.set("1", EphemeralValue::I64(10L))
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_uvarint(buf, 1UL)
   write_uvarint(buf, 1UL)
   write_ivarint(buf, 5L)
@@ -81,7 +81,7 @@ test "LWW: lower clock is discarded" {
   store.set("1", EphemeralValue::I64(1L))
   store.set("1", EphemeralValue::I64(2L))
   store.set("1", EphemeralValue::I64(3L))
-  let buf = Buffer()
+  let buf = @buffer.new()
   write_uvarint(buf, 1UL)
   write_uvarint(buf, 1UL)
   write_ivarint(buf, 2L)

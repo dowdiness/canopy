@@ -49,8 +49,8 @@ test "ws_on_message: CrdtOps applies remote edits" {
     }
   }
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   let wire = encode_message(CrdtOps(buf.to_bytes()))
   // Bob receives the message
   editor_b.ws_on_message(wire)
@@ -84,8 +84,8 @@ test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
     }
   }
   let json_str = crdt_msg.to_json_string()
-  let buf = Buffer()
-  buf.write_string_utf16le(json_str)
+  let buf = @buffer.new()
+  buf.write_string(json_str)
   let wire = encode_relayed_crdt_ops("alice", buf.to_bytes())
   editor_b.ws_on_message(wire)
   inspect(editor_b.get_text(), content="hello")
@@ -106,8 +106,8 @@ test "ws_on_message: RelayedCrdtOps buffers during recovery" {
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   // Send RelayedCrdtOps from "alice" — should be buffered, not applied
-  let buf = Buffer()
-  buf.write_string_utf16le("{\"runs\":[],\"heads\":[]}")
+  let buf = @buffer.new()
+  buf.write_string("{\"runs\":[],\"heads\":[]}")
   let wire = encode_relayed_crdt_ops("alice", buf.to_bytes())
   editor.ws_on_message(wire)
   // Message should be buffered
@@ -128,7 +128,7 @@ test "ws_on_message: SyncResponse with stale request_id is ignored" {
   editor.recovery_epoch = 5
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 5))
   // Send SyncResponse with wrong request_id "3" (current is "5")
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(b'\x02') // v2
   buf.write_byte(b'\x04') // SyncResponse
   buf.write_byte(b'\x00')
@@ -155,7 +155,7 @@ test "ws_on_message: SyncResponse with empty delta increments retries" {
   editor.recovery_epoch = 1
   editor.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   // Send SyncResponse with matching request_id but empty delta
-  let buf = Buffer()
+  let buf = @buffer.new()
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x04')
   buf.write_byte(b'\x00')
