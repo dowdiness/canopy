@@ -150,7 +150,7 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   target_id : @core.NodeId,
   position : @core.DropPosition,
   timestamp_ms : Int,
-) -> Result[Unit, TreeEditError] {
+) -> Result[Array[@core.SpanEdit], TreeEditError] {
   // Legality: self-drop
   guard source_id != target_id else {
     return Err(TreeEditError::ProjectionEdit(detail="Cannot drop onto self"))
@@ -257,5 +257,5 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
     }
   }
   self.apply_span_edits(edits, @core.FocusHint::RestoreCursor, timestamp_ms)
-  Ok(())
+  Ok(edits)
 }

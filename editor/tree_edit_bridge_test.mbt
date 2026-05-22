@@ -68,6 +68,14 @@ test "apply_tree_edit - WrapInLambda" {
   )
   inspect(result is Ok(_), content="true")
   inspect(editor.get_text(), content="(λx. 42)")
+  // Trace contract: structural edits return the SpanEdits applied to the
+  // CRDT so the Inspector Patch panel can show them. A regression to
+  // `Ok([])` would silently empty the panel while text-outcome tests pass.
+  let edit_count = match result {
+    Ok(edits) => edits.length()
+    Err(_) => -1
+  }
+  inspect(edit_count > 0, content="true")
 }
 
 ///|

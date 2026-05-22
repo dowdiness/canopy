@@ -8,11 +8,22 @@ pub enum EditorMode {
 pub enum BottomTab {
   Problems
   OpLog
+  Patch
   History
   CrdtState
   Graphviz
   IncrGraph
 } derive(Eq)
+
+///|
+/// One row group in the Patch panel: a structural intent (op label, same
+/// shape as the Op Log entry) paired with the `SpanEdit`s that the editor
+/// produced for it. Empty `edits` is legal — pure navigation ops like
+/// `Select` resolve to zero text changes.
+pub(all) struct PatchEntry {
+  op_label : String
+  edits : Array[@canopy_core.SpanEdit]
+}
 
 ///|
 pub enum PanelId {
@@ -83,6 +94,13 @@ pub struct Model {
   // Inspector traceability: rolling log of structural intents (most recent last).
   // Mutated in place; capped to MAX_INTENT_LOG entries to keep render cheap.
   intent_log : Array[String]
+  // Inspector traceability: rolling log of (op, SpanEdits) pairs, most recent
+  // last. Capped to MAX_PATCH_LOG. Populated by the direct-apply dispatch
+  // sites that route through `apply_lambda_tree_edit`; the
+  // `StructureStructuralEdit` FFI path (main.mbt::update) cannot contribute —
+  // the typed payload is consumed by `handle_structural_intent` FFI before
+  // MoonBit sees the message, so no `SpanEdit` array is available to record.
+  patch_log : Array[PatchEntry]
   // Model-owned tap on the parser's incr Runtime. Created once at init so it
   // observes memo events across the whole session, not per render. Reads via
   // `snapshot()` for the IncrGraph bottom-panel tab.

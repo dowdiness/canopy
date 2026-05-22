@@ -85,6 +85,7 @@ pub fn undo_manager_undo(Int) -> Bool
 pub enum BottomTab {
   Problems
   OpLog
+  Patch
   History
   CrdtState
   Graphviz
@@ -128,6 +129,7 @@ pub struct Model {
   drop_target_id : @core.NodeId?
   drop_position : @core.DropPosition?
   intent_log : Array[String]
+  patch_log : Array[PatchEntry]
   incr_tap : @visualizer.IncrMemoEventTap
 }
 
@@ -177,6 +179,11 @@ pub enum PanelId {
   Inspector
   Bottom
 } derive(Eq)
+
+pub(all) struct PatchEntry {
+  op_label : String
+  edits : Array[@core.SpanEdit]
+}
 
 type ScopeAnnotation
 
