@@ -1,8 +1,8 @@
 import {
   "dowdiness/canopy/editor",
-  "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/core",
   "dowdiness/canopy/projection" @proj,
-  "dowdiness/canopy/protocol" @protocol,
+  "dowdiness/canopy/protocol",
   "dowdiness/canopy/relay",
 }
 

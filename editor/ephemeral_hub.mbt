@@ -94,7 +94,7 @@ pub fn EphemeralHub::encode_all(self : EphemeralHub) -> Bytes {
       entries.push((ns, data))
     }
   }
-  let buf = @buffer.new()
+  let buf = Buffer()
   write_uvarint(buf, entries.length().to_uint64())
   for entry in entries {
     let (ns, data) = entry

@@ -59,7 +59,7 @@ test "encode_peer_joined encodes peer_id bytes" {
 
 ///|
 test "write_relay_uvarint encodes small values in one byte" {
-  let buf = @buffer.new()
+  let buf = Buffer()
   write_relay_uvarint(buf, 5)
   let bytes = buf.to_bytes()
   inspect(bytes.length(), content="1")
@@ -68,7 +68,7 @@ test "write_relay_uvarint encodes small values in one byte" {
 
 ///|
 test "write_relay_uvarint encodes 128 in two bytes" {
-  let buf = @buffer.new()
+  let buf = Buffer()
   write_relay_uvarint(buf, 128)
   let bytes = buf.to_bytes()
   inspect(bytes.length(), content="2")

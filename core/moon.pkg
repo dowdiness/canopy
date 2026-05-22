@@ -1,13 +1,13 @@
 import {
-  "dowdiness/incr" @incr,
+  "dowdiness/incr",
   "dowdiness/loom/core" @loomcore,
-  "dowdiness/seam" @seam,
+  "dowdiness/seam",
   "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
 }
 
 import {
   "moonbitlang/core/quickcheck",
-  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"
