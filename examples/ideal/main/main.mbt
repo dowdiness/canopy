@@ -69,6 +69,7 @@ fn init_model() -> Model raise {
     drop_target_id: None,
     drop_position: None,
     intent_log: [],
+    patch_log: [],
     incr_tap,
   }
 }
@@ -175,6 +176,15 @@ fn open_action_overlay_from_event(
 const MAX_INTENT_LOG = 50
 
 ///|
+const MAX_PATCH_LOG = 50
+
+///|
+/// Per-SpanEdit cap on the retained `inserted` text. The full text is still
+/// applied to the CRDT; only the patch_log copy is truncated to keep
+/// patch_log memory proportional to MAX_PATCH_LOG, not to user paste size.
+const MAX_PATCH_INSERTED_CHARS = 200
+
+///|
 fn push_intent(model : Model, op : @lambda_edits.TreeEditOp) -> Unit {
   push_intent_label(model, op.to_generic().to_string())
 }
@@ -188,6 +198,57 @@ fn push_intent_label(model : Model, label : String) -> Unit {
   model.intent_log.push(label)
   while model.intent_log.length() > MAX_INTENT_LOG {
     model.intent_log.remove(0) |> ignore
+  }
+}
+
+///|
+/// Record an applied (op, SpanEdits) pair for the Patch panel. The op label
+/// mirrors the Op Log entry shape (`TreeEditOp.to_generic().to_string()`),
+/// so a Patch row reads as a back-reference to the producing Op Log entry.
+/// Skipped if `edits` is empty — those rows would be visually noisy and
+/// duplicate the corresponding Op Log entry without adding patch detail.
+///
+/// Each retained `SpanEdit` is decoupled from the editor-owned array:
+/// (a) the outer array is rebuilt, so post-apply mutation upstream can't
+/// corrupt logged rows; (b) `inserted` is capped at
+/// `MAX_PATCH_INSERTED_CHARS` so a 1MB paste doesn't anchor 1MB in the log.
+fn push_patch(
+  model : Model,
+  op : @lambda_edits.TreeEditOp,
+  edits : Array[@canopy_core.SpanEdit],
+) -> Unit {
+  if edits.is_empty() {
+    return
+  }
+  let snapshot : Array[@canopy_core.SpanEdit] = edits.map(fn(e) {
+    // Truncate by iterating codepoints, not UTF-16 code units. Slicing
+    // `e.inserted[:N]` would abort uncatchably if index N landed mid
+    // surrogate pair (e.g. user pastes 199 BMP code units then an emoji).
+    // `String::length` is the cheap upper-bound check; the loop produces a
+    // codepoint-bounded copy when truncation is warranted.
+    let inserted = if e.inserted.length() > MAX_PATCH_INSERTED_CHARS {
+      let buf = StringBuilder::new(size_hint=MAX_PATCH_INSERTED_CHARS)
+      let mut count = 0
+      for ch in e.inserted {
+        if count >= MAX_PATCH_INSERTED_CHARS {
+          break
+        }
+        buf.write_char(ch)
+        count = count + 1
+      }
+      buf.write_char('…')
+      buf.to_string()
+    } else {
+      e.inserted
+    }
+    { start: e.start, delete_len: e.delete_len, inserted }
+  })
+  model.patch_log.push({
+    op_label: op.to_generic().to_string(),
+    edits: snapshot,
+  })
+  while model.patch_log.length() > MAX_PATCH_LOG {
+    model.patch_log.remove(0) |> ignore
   }
 }
 
@@ -380,8 +441,9 @@ fn apply_structural_edit_request(
       tree_op,
       js_now_ms(),
     ) {
-    Ok(_) => {
+    Ok(edits) => {
       push_intent(model, tree_op)
+      push_patch(model, tree_op, edits)
       let new_model = refresh({
         ..model,
         next_timestamp: model.next_timestamp + 1,
@@ -519,8 +581,9 @@ fn execute_action(
           op,
           js_now_ms(),
         ) {
-        Ok(_) => {
+        Ok(edits) => {
           push_intent(model, op)
+          push_patch(model, op, edits)
           js_set_overlay_open(false)
           let new_model = refresh({
             ..model,
@@ -734,8 +797,9 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tree_op,
           js_now_ms(),
         ) {
-        Ok(_) => {
+        Ok(edits) => {
           push_intent(model, tree_op)
+          push_patch(model, tree_op, edits)
           let new_model = refresh({
             ..model,
             next_timestamp: model.next_timestamp + 1,
@@ -923,7 +987,6 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             target=target_id,
             position~,
           )
-          push_intent(model, tree_op)
           match
             @lambda.apply_lambda_tree_edit(
               model.editor,
@@ -931,7 +994,9 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               tree_op,
               js_now_ms(),
             ) {
-            Ok(_) => {
+            Ok(edits) => {
+              push_intent(model, tree_op)
+              push_patch(model, tree_op, edits)
               let new_model = refresh({
                 ..model,
                 next_timestamp: model.next_timestamp + 1,

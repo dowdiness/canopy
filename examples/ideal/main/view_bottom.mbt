@@ -227,6 +227,7 @@ fn bottom_tab_slug(tab : BottomTab) -> String {
   match tab {
     Problems => "problems"
     OpLog => "oplog"
+    Patch => "patch"
     History => "history"
     CrdtState => "crdt"
     Graphviz => "graphviz"
@@ -257,6 +258,7 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
   let tabs : Array[(BottomTab, String)] = [
     (Problems, "Problems"),
     (OpLog, "Op Log"),
+    (Patch, "Patch"),
     (History, "History"),
     (CrdtState, "CRDT State"),
     (Graphviz, "Graphviz"),
@@ -442,6 +444,52 @@ fn view_op_log(model : Model) -> Html {
 }
 
 ///|
+/// Render the Patch panel — paired (op label, SpanEdits) rows.
+/// Mirrors `view_op_log` shape: most-recent first, capped to MAX_PATCH_LOG.
+/// Each entry surfaces the producing `GenericTreeOp` label as a header row
+/// so the user can cross-reference the matching Op Log entry, then each
+/// `SpanEdit` renders via its `Show` impl (`@<start> -<delete_len> +«…»`).
+fn view_patch_log(model : Model) -> Html {
+  let log = model.patch_log
+  if log.is_empty() {
+    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
+      @html.span(class="no-problems", [
+        @html.text(
+          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
+        ),
+      ]),
+    ])
+  } else {
+    let n = log.length()
+    let items : Array[Html] = Array::new(capacity=n)
+    for i in 0..<n {
+      let entry = log[n - 1 - i]
+      let edit_rows : Array[Html] = entry.edits.map(fn(edit) {
+        @html.div(class="patch-log-edit", [
+          @html.span(class="patch-log-edit-text", [
+            @html.text(edit.to_string()),
+          ]),
+        ])
+      })
+      items.push(
+        @html.div(class="patch-log-row", [
+          @html.div(class="patch-log-header", [
+            @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
+            @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
+          ]),
+          @html.div(class="patch-log-edits", edit_rows),
+        ]),
+      )
+    }
+    @html.div(
+      class="bottom-content patch-log",
+      attrs=bottom_panel_attrs(Patch),
+      items,
+    )
+  }
+}
+
+///|
 fn view_problems(model : Model) -> Html {
   let errors = model.editor.get_errors()
   if errors.is_empty() {
@@ -467,6 +515,7 @@ fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
     OpLog => view_op_log(model)
+    Patch => view_patch_log(model)
     CrdtState =>
       @html.div(
         class="bottom-content crdt-state",

@@ -722,6 +722,60 @@ canopy-editor {
   word-break: break-all;
 }
 
+/* ── Patch log tab (§9.2 inspector traceability) ────────── */
+
+.patch-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.patch-log-row {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs) 0;
+  border-left: 2px solid var(--canopy-border);
+  padding-left: var(--space-sm);
+}
+
+.patch-log-header {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.patch-log-index {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.patch-log-op {
+  font-size: var(--text-small);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+.patch-log-edits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 40px;
+  padding-top: 2px;
+}
+
+.patch-log-edit {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  word-break: break-all;
+}
+
 /* ── Graphviz tab ───────────────────────────────────────── */
 
 /*

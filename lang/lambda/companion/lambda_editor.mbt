@@ -174,12 +174,16 @@ fn build_lambda_capabilities(
 
 ///|
 /// Apply a lambda tree edit through the text CRDT.
+///
+/// Returns the array of `SpanEdit`s that were applied to the underlying
+/// text CRDT, so callers can record a patch-level trace alongside the
+/// originating `TreeEditOp` (see the Inspector Patch panel).
 pub fn apply_lambda_tree_edit(
   editor : @editor.SyncEditor[@ast.Term],
   companion : LambdaCompanion,
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, @editor.TreeEditError] {
+) -> Result[Array[@core.SpanEdit], @editor.TreeEditError] {
   // Drop uses SyncEditor::move_node which handles placeholders and separators
   // correctly, instead of the naive text splice in compute_drop.
   match op {
@@ -202,10 +206,10 @@ pub fn apply_lambda_tree_edit(
   match @lambda_edits.compute_text_edit(op, ctx) {
     Ok(Some((edits, focus_hint))) => {
       if edits.is_empty() {
-        return Ok(())
+        return Ok(edits)
       }
       editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-      Ok(())
+      Ok(edits)
     }
     Ok(None) =>
       Err(@editor.TreeEditError::UnhandledOperation(detail=op.to_string()))

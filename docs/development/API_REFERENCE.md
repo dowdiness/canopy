@@ -86,8 +86,10 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
   Deletes a node by round-tripping through the text CRDT.
 - `commit_edit(node_id : @core.NodeId, new_text : String, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
   Commits an inline text edit on a node.
-- `move_node(source_id : @core.NodeId, target_id : @core.NodeId, position : @core.DropPosition, timestamp_ms : Int) -> Result[Unit, TreeEditError]`
-  Moves a node via drag-and-drop.
+- `move_node(source_id : @core.NodeId, target_id : @core.NodeId, position : @core.DropPosition, timestamp_ms : Int) -> Result[Array[@core.SpanEdit], TreeEditError]`
+  Moves a node via drag-and-drop. On success, returns the `SpanEdit`s applied
+  to the underlying text CRDT so callers can record a patch-level trace
+  alongside the originating intent.
 
 ### WebSocket / Wire Protocol
 - `decode_message(data : Bytes) -> SyncMessage?`
