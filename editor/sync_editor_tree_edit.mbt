@@ -18,7 +18,7 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 /// inside a getter.
 pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
   self.projection_dirty = false
-  let _ = self.parser.runtime().read(self.cached_proj_node)
+  let _ = self.cached_proj_node.read_or_abort()
 }
 
 ///|

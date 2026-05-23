@@ -127,9 +127,9 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
 pub fn build_markdown_projection_memos(
   parser : @loom.Parser[@markdown.Block],
 ) -> (
-  @incr.Memo[@core.ProjNode[@markdown.Block]?],
-  @incr.Memo[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
-  @incr.Memo[@core.SourceMap],
+  @incr.Derived[@core.ProjNode[@markdown.Block]?],
+  @incr.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
+  @incr.Derived[@core.SourceMap],
 ) {
   @core.build_projection_memos(
     parser.runtime(),

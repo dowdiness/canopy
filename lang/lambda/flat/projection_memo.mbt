@@ -10,9 +10,9 @@ pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
 ) -> (
   @incr.Memo[VersionedFlatProj],
-  @incr.Memo[@core.ProjNode[@ast.Term]?],
-  @incr.Memo[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
-  @incr.Memo[@core.SourceMap],
+  @incr.Derived[@core.ProjNode[@ast.Term]?],
+  @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
+  @incr.Derived[@core.SourceMap],
 ) {
   let rt = parser.runtime()
   let source_text = parser.source()
@@ -34,7 +34,7 @@ pub fn build_lambda_projection_memos(
   let proj_memo : @incr.Memo[VersionedFlatProj] = @incr.Memo::new_memo(
     rt,
     fn() -> VersionedFlatProj {
-      if source_text.get() == "" {
+      if source_text.get_or_abort() == "" {
         prev_flat_proj_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
@@ -44,7 +44,7 @@ pub fn build_lambda_projection_memos(
           changed_at: proj_changed_at_ref.val,
         }
       }
-      let syntax_root = syntax_tree.get()
+      let syntax_root = syntax_tree.get_or_abort()
       let counter = Ref(next_id_ref.val)
       let result = match (prev_flat_proj_ref.val, prev_syntax_root_ref.val) {
         (Some(prev_fp), Some(prev_root)) => {
@@ -123,7 +123,7 @@ pub fn build_lambda_projection_memos(
   // prev_module_id_ref holds the Module node_id from the most recent successful
   // conversion, so stable Module IDs survive incremental rebuilds.
   let prev_module_id_ref : Ref[Int?] = Ref(None)
-  let cached_proj_node : @incr.Memo[@core.ProjNode[@ast.Term]?] = @incr.Memo::new_no_backdate(
+  let cached_proj_node : @incr.Derived[@core.ProjNode[@ast.Term]?] = @incr.Derived::Derived(
     rt,
     fn() -> @core.ProjNode[@ast.Term]? {
       match proj_memo.get().proj {
@@ -156,10 +156,12 @@ pub fn build_lambda_projection_memos(
   )
   let registry_last_revision_ref : Ref[Int] = Ref(0)
 
-  let registry_memo : @incr.Memo[Map[@core.NodeId, @core.ProjNode[@ast.Term]]] = @incr.Memo::new_no_backdate(
+  let registry_memo : @incr.Derived[
+    Map[@core.NodeId, @core.ProjNode[@ast.Term]],
+  ] = @incr.Derived::Derived(
     rt,
     fn() -> Map[@core.NodeId, @core.ProjNode[@ast.Term]] {
-      match cached_proj_node.get() {
+      match cached_proj_node.get_or_abort() {
         Some(root) => {
           // Detect revision skew: if this memo skipped revisions (wasn't
           // accessed on intermediate edits), the delta in changed_def_indices_ref
@@ -233,10 +235,10 @@ pub fn build_lambda_projection_memos(
   )
   let source_map_last_revision_ref : Ref[Int] = Ref(0)
 
-  let source_map_memo : @incr.Memo[@core.SourceMap] = @incr.Memo::new_no_backdate(
+  let source_map_memo : @incr.Derived[@core.SourceMap] = @incr.Derived::Derived(
     rt,
     fn() -> @core.SourceMap {
-      match cached_proj_node.get() {
+      match cached_proj_node.get_or_abort() {
         Some(root) => {
           let current_rev = proj_revision_ref.val
           let skipped = current_rev != source_map_last_revision_ref.val + 1
@@ -284,7 +286,7 @@ pub fn build_lambda_projection_memos(
               // have shifted offsets that only the SyntaxNode reflects correctly.
               @lambda_proj.populate_token_spans(
                 prev_sm,
-                syntax_tree.get(),
+                syntax_tree.get_or_abort(),
                 root,
               )
               prev_sm
@@ -292,7 +294,11 @@ pub fn build_lambda_projection_memos(
             _ => {
               // Full rebuild
               let new_sm = @core.SourceMap::from_ast(root)
-              @lambda_proj.populate_token_spans(new_sm, syntax_tree.get(), root)
+              @lambda_proj.populate_token_spans(
+                new_sm,
+                syntax_tree.get_or_abort(),
+                root,
+              )
               new_sm
             }
           }

@@ -201,9 +201,9 @@ test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
 // (kernel/gc.mbt:63-87). This is the "self-rooting" property workspace
 // surfaces would rely on.
 //
-// Codex recommended `parser.source().get().length()` over
-// `cached_proj_node` for minimum noise (finding (c)). The cross Memo
-// here reads both source().get().length()s.
+// Codex recommended `parser.source().get_or_abort().length()` over
+// `cached_proj_node` for minimum noise (finding (c)). The cross Derived
+// here reads both source().get_or_abort().length()s.
 // ============================================================
 
 ///|
@@ -213,12 +213,13 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
   let id_b : @incr.CellId = parser_b.source().id()
-  let cross : @incr.Memo[Int] = @incr.Memo::new(shared_rt, fn() {
-    parser_a.source().get().length() + parser_b.source().get().length()
+  let cross : @incr.Derived[Int] = @incr.Derived::Derived(shared_rt, fn() {
+    parser_a.source().get_or_abort().length() +
+    parser_b.source().get_or_abort().length()
   })
-  // Force first computation via rt.read (outside-the-graph read) so
+  // Force first computation via read_or_abort (outside-the-graph read) so
   // cross's dependency list is populated before observe/gc.
-  let initial : Int = shared_rt.read(cross)
+  let initial : Int = cross.read_or_abort()
   inspect(initial, content="6")
   let id_cross : @incr.CellId = cross.id()
   let cross_observer = cross.observe()
@@ -231,7 +232,7 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   inspect(shared_rt.cell_info(id_b) is Some(_), content="true")
   // Live cross can still be read after gc.
   parser_a.set_source("[11]")
-  inspect(shared_rt.read(cross), content="7")
+  inspect(cross.read_or_abort(), content="7")
   cross_observer.dispose()
 }
 
@@ -245,10 +246,11 @@ test "P0a gate #1 §C control — unrooted cross-Memo + inputs all collected" {
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
   let id_b : @incr.CellId = parser_b.source().id()
-  let cross : @incr.Memo[Int] = @incr.Memo::new(shared_rt, fn() {
-    parser_a.source().get().length() + parser_b.source().get().length()
+  let cross : @incr.Derived[Int] = @incr.Derived::Derived(shared_rt, fn() {
+    parser_a.source().get_or_abort().length() +
+    parser_b.source().get_or_abort().length()
   })
-  let _ = shared_rt.read(cross)
+  let _ = cross.read_or_abort()
   let id_cross : @incr.CellId = cross.id()
   shared_rt.gc()
   shared_rt.gc()

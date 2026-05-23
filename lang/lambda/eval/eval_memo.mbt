@@ -205,12 +205,12 @@ fn fill_suppressed(
 ///   recomputing unnecessarily.
 pub fn build_eval_memo(
   parser : @loom.Parser[@ast.Term],
-) -> @incr.Memo[Array[EvalResult]] {
+) -> @incr.Derived[Array[EvalResult]] {
   let cache : Ref[Array[CachedDef]] = Ref([])
-  @incr.Memo::new(
+  @incr.Derived::Derived(
     parser.runtime(),
     fn() -> Array[EvalResult] {
-      let ast = parser.ast().get()
+      let ast = parser.ast().get_or_abort()
       let (results, new_cache) = eval_term_cached(ast, cache.val)
       cache.val = new_cache
       results

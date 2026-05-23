@@ -20,11 +20,11 @@ priv struct TypecheckBundle {
 ///|
 fn new_typecheck_bundle(
   rt : @cells.Runtime,
-  syntax_tree : @cells.Memo[@seam.SyntaxNode],
+  syntax_tree : @cells.Derived[@seam.SyntaxNode],
 ) -> TypecheckBundle {
   let scope = @cells.Scope::new(rt)
   let typed_term_memo : @cells.Memo[@typecheck.TypedTerm] = scope.memo(
-    fn() { @typecheck.convert_from_cst(syntax_tree.get()) },
+    fn() { @typecheck.convert_from_cst(syntax_tree.get_or_abort()) },
     label="lambda-typed-term",
   )
   let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)

@@ -108,7 +108,7 @@ pub fn[T] SyncEditor::get_errors(self : SyncEditor[T]) -> Array[String] {
   if self.doc.text() == "" {
     return []
   }
-  self.parser.runtime().read(self.parser.diagnostics()).format()
+  self.parser.diagnostics().read_or_abort().format()
 }
 
 ///|
@@ -125,11 +125,11 @@ pub fn[T] SyncEditor::parser_runtime(self : SyncEditor[T]) -> @incr.Runtime {
 }
 
 ///|
-/// Reactive view of the parser's recovered CST. Tracked when `.get()` inside
-/// a memo closure.
+/// Reactive view of the parser's recovered CST. Tracked when `.get_or_abort()`
+/// inside a memo closure.
 pub fn[T] SyncEditor::parser_syntax_tree(
   self : SyncEditor[T],
-) -> @incr.Memo[@seam.SyntaxNode] {
+) -> @incr.Derived[@seam.SyntaxNode] {
   self.parser.syntax_tree()
 }
 

@@ -2,24 +2,24 @@
 using @loomcore {trait TreeNode}
 
 ///|
-pub fn[T : TreeNode] build_projection_memos(
+pub fn[T : TreeNode + Eq] build_projection_memos(
   rt : @incr.Runtime,
-  syntax_tree : @incr.Memo[@seam.SyntaxNode],
+  syntax_tree : @incr.Derived[@seam.SyntaxNode],
   syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
   label? : String = "generic",
 ) -> (
-  @incr.Memo[ProjNode[T]?],
-  @incr.Memo[Map[NodeId, ProjNode[T]]],
-  @incr.Memo[SourceMap],
+  @incr.Derived[ProjNode[T]?],
+  @incr.Derived[Map[NodeId, ProjNode[T]]],
+  @incr.Derived[SourceMap],
 ) {
   let prev_proj_ref : Ref[ProjNode[T]?] = Ref(None)
   let counter : Ref[Int] = Ref(0)
 
-  let proj_memo : @incr.Memo[ProjNode[T]?] = @incr.Memo::new_no_backdate(
+  let proj_memo : @incr.Derived[ProjNode[T]?] = @incr.Derived::Derived(
     rt,
     fn() -> ProjNode[T]? {
-      let syntax_root = syntax_tree.get()
+      let syntax_root = syntax_tree.get_or_abort()
       let new_proj = syntax_to_proj(syntax_root, counter)
       let result = match prev_proj_ref.val {
         Some(old) => reconcile(old, new_proj, counter)
@@ -31,11 +31,11 @@ pub fn[T : TreeNode] build_projection_memos(
     label=label + "_proj",
   )
 
-  let registry_memo : @incr.Memo[Map[NodeId, ProjNode[T]]] = @incr.Memo::new_no_backdate(
+  let registry_memo : @incr.Derived[Map[NodeId, ProjNode[T]]] = @incr.Derived::Derived(
     rt,
     fn() -> Map[NodeId, ProjNode[T]] {
       let reg : Map[NodeId, ProjNode[T]] = {}
-      match proj_memo.get() {
+      match proj_memo.get_or_abort() {
         Some(root) => collect_registry(root, reg)
         None => ()
       }
@@ -44,12 +44,12 @@ pub fn[T : TreeNode] build_projection_memos(
     label=label + "_registry",
   )
 
-  let source_map_memo : @incr.Memo[SourceMap] = @incr.Memo::new_no_backdate(
+  let source_map_memo : @incr.Derived[SourceMap] = @incr.Derived::Derived(
     rt,
     fn() -> SourceMap {
-      match proj_memo.get() {
+      match proj_memo.get_or_abort() {
         Some(root) => {
-          let syntax_root = syntax_tree.get()
+          let syntax_root = syntax_tree.get_or_abort()
           let sm = SourceMap::from_ast(root)
           populate_spans(sm, syntax_root, root)
           sm

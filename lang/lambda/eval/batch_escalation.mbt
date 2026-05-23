@@ -31,17 +31,17 @@ priv struct DefState {
 /// batch egglog evaluation for suppressed definitions.
 pub fn build_escalation_memo(
   parser : @loom.Parser[@ast.Term],
-  eval_memo : @incr.Memo[Array[EvalResult]],
-) -> @incr.Memo[Array[EvalResult]] {
-  @incr.Memo::new_no_backdate(
+  eval_memo : @incr.Derived[Array[EvalResult]],
+) -> @incr.Derived[Array[EvalResult]] {
+  @incr.Derived::Derived(
     parser.runtime(),
     fn() -> Array[EvalResult] {
-      let tier1_results = eval_memo.get()
+      let tier1_results = eval_memo.get_or_abort()
       // Fast path: no suppressed results → no escalation needed
       guard tier1_results.iter().any(fn(r) { r == Suppressed }) else {
         return tier1_results
       }
-      let ast = parser.ast().get()
+      let ast = parser.ast().get_or_abort()
       escalate_suppressed(ast, tier1_results)
     },
     label="escalation_memo",

@@ -219,9 +219,9 @@ pub fn parse_to_proj_node(
 pub fn build_json_projection_memos(
   parser : @loom.Parser[@json.JsonValue],
 ) -> (
-  @incr.Memo[ProjNode[@json.JsonValue]?],
-  @incr.Memo[Map[NodeId, ProjNode[@json.JsonValue]]],
-  @incr.Memo[SourceMap],
+  @incr.Derived[ProjNode[@json.JsonValue]?],
+  @incr.Derived[Map[NodeId, ProjNode[@json.JsonValue]]],
+  @incr.Derived[SourceMap],
 ) {
   @core.build_projection_memos(
     parser.runtime(),

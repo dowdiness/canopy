@@ -11,9 +11,9 @@ pub struct SyncEditor[T] {
   priv undo : @undo.UndoManager
   priv parser : @loom.Parser[T]
   priv mut cursor : Int
-  priv cached_proj_node : @incr.Memo[@core.ProjNode[T]?]
-  priv registry_memo : @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]]
-  priv source_map_memo : @incr.Memo[@core.SourceMap]
+  priv cached_proj_node : @incr.Derived[@core.ProjNode[T]?]
+  priv registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]]
+  priv source_map_memo : @incr.Derived[@core.SourceMap]
   priv capabilities : LanguageCapabilities[T]
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
@@ -42,9 +42,9 @@ pub fn[T] SyncEditor::new_generic(
   agent_id : String,
   make_parser : (String) -> @loom.Parser[T],
   build_memos : (@loom.Parser[T]) -> (
-    @incr.Memo[@core.ProjNode[T]?],
-    @incr.Memo[Map[@core.NodeId, @core.ProjNode[T]]],
-    @incr.Memo[@core.SourceMap],
+    @incr.Derived[@core.ProjNode[T]?],
+    @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
+    @incr.Derived[@core.SourceMap],
   ),
   capture_timeout_ms? : Int = 500,
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
@@ -291,13 +291,13 @@ fn[T] SyncEditor::set_status(
 /// Returns the cached ProjNode (converted from FlatProj once per invalidation).
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
-  self.parser.runtime().read(self.cached_proj_node)
+  self.cached_proj_node.read_or_abort()
 }
 
 ///|
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
-  self.parser.runtime().read(self.source_map_memo)
+  self.source_map_memo.read_or_abort()
 }
 
 ///|
@@ -306,7 +306,7 @@ pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
 pub fn[T] SyncEditor::get_registry(
   self : SyncEditor[T],
 ) -> Map[@core.NodeId, @core.ProjNode[T]] {
-  self.parser.runtime().read(self.registry_memo)
+  self.registry_memo.read_or_abort()
 }
 
 ///|
@@ -316,7 +316,7 @@ pub fn[T] SyncEditor::get_registry(
 /// not as `None`. The `?` is kept so this API doesn't need to churn if we later
 /// separate "never parsed" from "parse failed".
 pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
-  Some(self.parser.runtime().read(self.parser.ast()))
+  Some(self.parser.ast().read_or_abort())
 }
 
 ///|
@@ -324,7 +324,7 @@ pub fn[T] SyncEditor::get_node(
   self : SyncEditor[T],
   id : @core.NodeId,
 ) -> @core.ProjNode[T]? {
-  self.parser.runtime().read(self.registry_memo).get(id)
+  self.registry_memo.read_or_abort().get(id)
 }
 
 ///|
@@ -337,7 +337,7 @@ pub fn[T] SyncEditor::node_at_position(
   self : SyncEditor[T],
   position : Int,
 ) -> @core.NodeId? {
-  self.parser.runtime().read(self.source_map_memo).innermost_node_at(position)
+  self.source_map_memo.read_or_abort().innermost_node_at(position)
 }
 
 ///|
@@ -345,7 +345,7 @@ pub fn[T] SyncEditor::get_node_range(
   self : SyncEditor[T],
   id : @core.NodeId,
 ) -> @loom_core.Range? {
-  self.parser.runtime().read(self.source_map_memo).get_range(id)
+  self.source_map_memo.read_or_abort().get_range(id)
 }
 
 // ── Span-edit application ────────────────────────────────────────────────
