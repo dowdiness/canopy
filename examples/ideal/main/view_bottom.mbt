@@ -485,9 +485,7 @@ fn view_patch_log(model : Model) -> Html {
       let entry = log[n - 1 - i]
       let edit_rows : Array[Html] = entry.edits.map(fn(edit) {
         @html.div(class="patch-log-edit", [
-          @html.span(class="patch-log-edit-text", [
-            @html.text(edit.to_string()),
-          ]),
+          @html.span(class="patch-log-edit-text", [@html.text(edit.to_string())]),
         ])
       })
       items.push(

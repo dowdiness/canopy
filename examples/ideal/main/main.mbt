@@ -190,10 +190,11 @@ fn push_intent(model : Model, op : @lambda_edits.TreeEditOp) -> Unit {
 }
 
 ///|
-/// Record a structural intent that arrived as `(op_string, node_id)` from
-/// the TS side. The lambda-typed payload has already been consumed by
-/// `handle_structural_intent` FFI by the time we get here, so we record
-/// the raw label rather than rebuilding the op.
+/// Fallback for structural intents arriving via the FFI path when the op
+/// cannot be rebuilt as a typed `TreeEditOp` from `(op, node_id)` alone —
+/// e.g. `"Drop"`, whose `source`/`position` payload is not recoverable.
+/// Ops in `structural_edit_op_to_tree_edit`'s domain go through
+/// `push_intent` instead so the Op Log row shape matches direct-apply paths.
 fn push_intent_label(model : Model, label : String) -> Unit {
   model.intent_log.push(label)
   while model.intent_log.length() > MAX_INTENT_LOG {
@@ -420,6 +421,26 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 }
 
 ///|
+/// Map a standard structural-edit op string to a typed `TreeEditOp`. Used
+/// on both the direct-apply path (`apply_structural_edit_request`, from
+/// Inspector / Web Component `STRUCTURAL_EDIT_REQUEST`) and the FFI-applied
+/// path (`StructureStructuralEdit`, from `STRUCTURAL_EDIT_APPLIED`) so the
+/// Op Log row shape matches in both. Must stay in sync with the dispatch
+/// sites in `view_inspector.mbt` and `web/src/keymap.ts`. Returns `None`
+/// for ops outside the standard set — notably `"Drop"`, whose `source` /
+/// `position` payload is not recoverable from `(op, node_id)` alone.
+fn structural_edit_op_to_tree_edit(
+  op : String,
+  node_id : @canopy_core.NodeId,
+) -> @lambda_edits.TreeEditOp? {
+  match op {
+    "WrapInLambda" => Some(@lambda_edits.WrapInLambda(node_id~, var_name="x"))
+    "Delete" => Some(@lambda_edits.Delete(node_id~))
+    _ => None
+  }
+}
+
+///|
 fn apply_structural_edit_request(
   model : Model,
   op : String,
@@ -429,10 +450,9 @@ fn apply_structural_edit_request(
     Some(id) => id
     None => return (none, model)
   }
-  let tree_op : @lambda_edits.TreeEditOp = match op {
-    "WrapInLambda" => @lambda_edits.WrapInLambda(node_id=nid, var_name="x")
-    "Delete" => @lambda_edits.Delete(node_id=nid)
-    _ => return (none, model)
+  let tree_op = match structural_edit_op_to_tree_edit(op, nid) {
+    Some(tree_op) => tree_op
+    None => return (none, model)
   }
   match
     @lambda.apply_lambda_tree_edit(
@@ -1026,7 +1046,17 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, model)
       } else {
         // The edit was already applied by TS calling handle_structural_intent FFI.
-        push_intent_label(model, "\{op}(node=\{node_id})")
+        // For ops the helper can rebuild (`WrapInLambda`, `Delete`), route
+        // through `push_intent` so the Op Log row shape matches direct-apply
+        // paths. Fall back to a raw label for ops whose payload can't be
+        // reconstructed from `(op, node_id)` (e.g. `"Drop"`).
+        let rebuilt = parse_node_id(node_id).bind(nid => {
+          structural_edit_op_to_tree_edit(op, nid)
+        })
+        match rebuilt {
+          Some(tree_op) => push_intent(model, tree_op)
+          None => push_intent_label(model, "\{op}(node=\{node_id})")
+        }
         let new_model = refresh({
           ..model,
           next_timestamp: model.next_timestamp + 1,
