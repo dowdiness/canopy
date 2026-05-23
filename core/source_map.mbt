@@ -134,8 +134,8 @@ pub fn SourceMap::nodes_at_position(
   for id, range in self.node_to_range_at_position(position) {
     pairs.push((id, range))
   }
-  pairs.sort_by(fn(a, b) { b.1.length().compare(a.1.length()) })
-  pairs.map(fn(p) { p.0 })
+  pairs.sort_by((a, b) => b.1.length().compare(a.1.length()))
+  pairs.map(p => p.0)
 }
 
 ///|
