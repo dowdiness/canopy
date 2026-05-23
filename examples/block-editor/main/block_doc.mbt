@@ -72,25 +72,15 @@ pub fn BlockDoc::move_block(
     return
   }
   if @container.tree_node_id_eq(id, root_block_id) {
-    raise @container.DocumentError::Internal(
-      detail="cannot move root block",
-    )
+    raise @container.DocumentError::Internal(detail="cannot move root block")
   }
   // Before/After assume a flat block list (all blocks are root children).
   // Inside reparents into ref_id for future nesting support.
   match position {
     Before =>
-      self.tree.move_node_before(
-        target=id,
-        parent=root_block_id,
-        before=ref_id,
-      )
+      self.tree.move_node_before(target=id, parent=root_block_id, before=ref_id)
     After =>
-      self.tree.move_node_after(
-        target=id,
-        parent=root_block_id,
-        after=ref_id,
-      )
+      self.tree.move_node_after(target=id, parent=root_block_id, after=ref_id)
     Inside => self.tree.move_node(target=id, new_parent=ref_id)
   }
 }

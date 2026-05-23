@@ -567,12 +567,10 @@ test "panic move_block: cannot move root block" {
 test "move_block: descendant-drop rejected by CRDT cycle detection" {
   let doc = BlockDoc::new("alice")
   let parent = doc.create_block(Paragraph)
-  let child = doc.create_block(Paragraph, parent=parent)
+  let child = doc.create_block(Paragraph, parent~)
   // Moving parent Inside child would create a cycle — CRDT layer rejects
   let mut caught_cycle = false
-  try {
-    doc.move_block(parent, child, @canopy_core.DropPosition::Inside)
-  } catch {
+  doc.move_block(parent, child, @canopy_core.DropPosition::Inside) catch {
     @container.DocumentError::CycleDetected => caught_cycle = true
     _ => ()
   }
