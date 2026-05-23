@@ -156,7 +156,9 @@ pub fn build_lambda_projection_memos(
   )
   let registry_last_revision_ref : Ref[Int] = Ref(0)
 
-  let registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]] = @incr.Derived::Derived(
+  let registry_memo : @incr.Derived[
+    Map[@core.NodeId, @core.ProjNode[@ast.Term]],
+  ] = @incr.Derived::Derived(
     rt,
     fn() -> Map[@core.NodeId, @core.ProjNode[@ast.Term]] {
       match cached_proj_node.get_or_abort() {
@@ -292,7 +294,11 @@ pub fn build_lambda_projection_memos(
             _ => {
               // Full rebuild
               let new_sm = @core.SourceMap::from_ast(root)
-              @lambda_proj.populate_token_spans(new_sm, syntax_tree.get_or_abort(), root)
+              @lambda_proj.populate_token_spans(
+                new_sm,
+                syntax_tree.get_or_abort(),
+                root,
+              )
               new_sm
             }
           }
