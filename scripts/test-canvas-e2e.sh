@@ -27,6 +27,7 @@ fi
 # emits wasm-gc artifacts (moon picks the workspace's wasm-gc target over
 # canvas's `preferred-target: js`), so vite can't find _build/js/.../main.js.
 # MOON_WORK=off scopes moon to the canvas package only, restoring the JS path.
+# Tracked as #335; remove once moon honors per-member preferred-target.
 export MOON_WORK=off
 
 CI="${CI:-1}" npx playwright test "$@"
