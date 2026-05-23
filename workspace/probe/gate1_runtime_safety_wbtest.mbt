@@ -202,8 +202,8 @@ test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
 // surfaces would rely on.
 //
 // Codex recommended `parser.source().get_or_abort().length()` over
-// `cached_proj_node` for minimum noise (finding (c)). The cross Memo
-// here reads both source().get().length()s.
+// `cached_proj_node` for minimum noise (finding (c)). The cross Derived
+// here reads both source().get_or_abort().length()s.
 // ============================================================
 
 ///|
@@ -216,7 +216,7 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   let cross : @incr.Derived[Int] = @incr.Derived::Derived(shared_rt, fn() {
     parser_a.source().get_or_abort().length() + parser_b.source().get_or_abort().length()
   })
-  // Force first computation via rt.read (outside-the-graph read) so
+  // Force first computation via read_or_abort (outside-the-graph read) so
   // cross's dependency list is populated before observe/gc.
   let initial : Int = cross.read_or_abort()
   inspect(initial, content="6")

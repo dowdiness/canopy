@@ -98,9 +98,8 @@ pub fn new_lambda_editor(
   capture_timeout_ms? : Int = 500,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
   // Ref side-channels let the build_memos callback publish extra memos
-  // (beyond the 3-tuple SyncEditor expects) and the runtime back out to
-  // the enclosing scope for companion construction + capabilities wiring.
-  let rt_ref : Ref[@incr.Runtime?] = Ref(None)
+  // (beyond the 3-tuple SyncEditor expects) back out to the enclosing
+  // scope for companion construction + capabilities wiring.
   let proj_memo_ref : Ref[@incr.Memo[@lambda_flat.VersionedFlatProj]?] = Ref(
     None,
   )
@@ -114,7 +113,6 @@ pub fn new_lambda_editor(
     agent_id,
     fn(s) { @loom.new_parser(s, @parser.lambda_grammar) },
     fn(parser) {
-      rt_ref.val = Some(parser.runtime())
       let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = @lambda_flat.build_lambda_projection_memos(
         parser,
       )
@@ -130,7 +128,7 @@ pub fn new_lambda_editor(
     },
     capture_timeout_ms~,
     capabilities=build_lambda_capabilities(
-      rt_ref, cached_proj_node_ref, escalation_memo_ref,
+      cached_proj_node_ref, escalation_memo_ref,
     ),
   )
   let companion : LambdaCompanion = {
@@ -143,13 +141,11 @@ pub fn new_lambda_editor(
 ///|
 /// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
-  rt_ref : Ref[@incr.Runtime?],
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
-      let _ = rt_ref
       let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.read_or_abort()
         None => return {}
@@ -161,7 +157,6 @@ fn build_lambda_capabilities(
       build_eval_annotations(eval_results, proj_node)
     }),
     pretty_post_process=Some(fn(layout) {
-      let _ = rt_ref
       let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.read_or_abort()
         None => return layout
