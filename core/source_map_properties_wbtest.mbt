@@ -236,7 +236,7 @@ fn prop_nodes_at_position_outermost_first(expr : TestExpr) -> Bool {
   let offset = Ref(0)
   let root = to_proj_node_with_ranges(expr, counter, offset)
   let sm = SourceMap::from_ast(root)
-  guard let Some(root_range) = sm.get_range(root.id()) else { return true }
+  guard sm.get_range(root.id()) is Some(root_range) else { return true }
   let positions = [
     root_range.start,
     (root_range.start + root_range.end) / 2,
@@ -245,8 +245,8 @@ fn prop_nodes_at_position_outermost_first(expr : TestExpr) -> Bool {
   for pos in positions {
     let ids = sm.nodes_at_position(pos)
     for i in 1..<ids.length() {
-      guard let Some(prev) = sm.get_range(ids[i - 1]) else { return false }
-      guard let Some(curr) = sm.get_range(ids[i]) else { return false }
+      guard sm.get_range(ids[i - 1]) is Some(prev) else { return false }
+      guard sm.get_range(ids[i]) is Some(curr) else { return false }
       if prev.start > curr.start || prev.end < curr.end {
         return false
       }

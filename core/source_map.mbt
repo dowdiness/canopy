@@ -126,6 +126,11 @@ fn SourceMap::node_to_range_at_position(
 /// (largest range) first, innermost (smallest range) last. Agrees with
 /// `innermost_node_at`'s `minimum_by_length` semantics: the last element is
 /// the innermost node.
+///
+/// Among nodes of equal range length, relative order is unspecified.
+/// Strict containment of consecutive ranges (parent encloses child) further
+/// relies on the input being a tree of non-overlapping sibling ranges — the
+/// invariant satisfied by `SourceMap::from_ast`.
 pub fn SourceMap::nodes_at_position(
   self : SourceMap,
   position : Int,
