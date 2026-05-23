@@ -53,6 +53,10 @@ jobs:
           moon version --all
           echo "NEW_MOON_MOD=${NEW_MOON_MOD:-<unset>}"
 
+      - name: moon update (refresh registry cache + submodule deps)
+        run: ./scripts/update-moon-deps.sh
+        continue-on-error: true
+
       - name: moon check
         run: moon check
         continue-on-error: true
