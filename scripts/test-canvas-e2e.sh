@@ -22,4 +22,11 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
+# Disable workspace mode for the JS build that vite-plugin-moonbit kicks off.
+# When examples/canvas is a moon.work member, `moon build --target js` only
+# emits wasm-gc artifacts (moon picks the workspace's wasm-gc target over
+# canvas's `preferred-target: js`), so vite can't find _build/js/.../main.js.
+# MOON_WORK=off scopes moon to the canvas package only, restoring the JS path.
+export MOON_WORK=off
+
 CI="${CI:-1}" npx playwright test "$@"
