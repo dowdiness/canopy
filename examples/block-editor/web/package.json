@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "prebuild": "npm run prebuild:moonbit",
-    "prebuild:moonbit": "cd .. && moon build --target js --release"
+    "prebuild:moonbit": "cd .. && MOON_WORK=off moon build --target js --release"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

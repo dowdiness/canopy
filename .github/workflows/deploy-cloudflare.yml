@@ -32,8 +32,12 @@ jobs:
           - name: ideal
             project-name: canopy-ideal
             type: pages
-            moon-update: cd examples/ideal && moon update
-            moon-build: cd examples/ideal && moon build --target js --release
+            # MOON_WORK=off: examples/ideal is a moon.work member, so workspace
+            # mode forces wasm-gc and skips the JS bundle vite expects. Same
+            # treatment as scripts/test-canvas-e2e.sh + benchmark.yml. Tracked
+            # as #335; remove once moon honors per-member preferred-target.
+            moon-update: cd examples/ideal && MOON_WORK=off moon update
+            moon-build: cd examples/ideal && MOON_WORK=off moon build --target js --release
             npm-dir: examples/ideal/web
             deploy-dir: examples/ideal/web/dist
 
@@ -56,16 +60,18 @@ jobs:
           - name: block-editor
             project-name: canopy-block-editor
             type: pages
-            moon-update: cd examples/block-editor && moon update
-            moon-build: cd examples/block-editor && moon build --target js --release
+            # MOON_WORK=off: see ideal entry above (#335).
+            moon-update: cd examples/block-editor && MOON_WORK=off moon update
+            moon-build: cd examples/block-editor && MOON_WORK=off moon build --target js --release
             npm-dir: examples/block-editor/web
             deploy-dir: examples/block-editor/web/dist
 
           - name: canvas
             project-name: canopy-canvas
             type: pages
-            moon-update: cd examples/canvas && moon update
-            moon-build: cd examples/canvas && moon build --target js --release
+            # MOON_WORK=off: see ideal entry above (#335).
+            moon-update: cd examples/canvas && MOON_WORK=off moon update
+            moon-build: cd examples/canvas && MOON_WORK=off moon build --target js --release
             npm-dir: examples/canvas/web
             deploy-dir: examples/canvas/web/dist
 
