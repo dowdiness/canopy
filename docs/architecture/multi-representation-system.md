@@ -1,11 +1,12 @@
-# Multi-Representation System
+# Multi-representation system
 
 How the `Printable` trait family solves the expression problem for output
-formats, and why most new formats are renderers, not traits.
+formats, and why most new formats can be added as renderers rather than
+new traits.
 
 *For contributors adding new output formats or languages to Canopy.*
 
-## The Four Core Representations
+## The four core representations
 
 Every language in Canopy implements four text-output traits, bundled as
 `Printable`:
@@ -56,7 +57,7 @@ stream from `resolve()`). Structure-format renderers walk the tree structure.
 Both families extend independently of each other and independently of the
 number of languages.
 
-## The Expression Problem, Solved
+## The expression problem, solved
 
 ```
 Adding new languages:   implement Printable + Renderable
@@ -79,7 +80,7 @@ TermSym (language algebra)
 
 TermSym defines the language; render functions define the output formats.
 
-## When New Traits Are Needed
+## When new traits are needed
 
 Most output formats do **not** need a new trait. A new `render_*` function
 over `Layout[SyntaxCategory]` is sufficient for any text-format variant.
@@ -92,7 +93,8 @@ beyond what `Printable` captures:
 - **Graphable** — output needs custom edges beyond parent-child (e.g. scope
   arrows in DOT, which is why `term_to_dot_resolved` takes a `Resolution`)
 
-These are semantic extensions, not format extensions.
+These are semantic extensions of the model rather than additional output
+formats.
 
 ## Framework Integration: ViewMode
 
@@ -108,7 +110,7 @@ The protocol layer can dispatch between representation families via a
 
 All four modes produce ViewNode trees that flow through the same
 ViewPatch → Adapter pipeline. Any language implementing `Printable +
-Renderable` gets all four views for free.
+Renderable` gets all four views with no per-language wiring.
 
 Modes can be mixed at different granularities: one mode per panel, or even
 per node (e.g. structure view for the tree sidebar, formatted view for the

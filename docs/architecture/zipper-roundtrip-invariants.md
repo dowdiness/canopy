@@ -1,6 +1,6 @@
 # Zipper as Transient Lens
 
-## The Design Choice: State vs. Computation
+## The design choice: state vs computation
 
 A Zipper describes a position in a tree as a focus plus a path of one-hole contexts from root to that focus. There are two ways to use this in an editor:
 
@@ -12,7 +12,7 @@ Canopy uses the second approach. The cursor is a node identity (stable across re
 
 ---
 
-## Why Node Identity Is Primary
+## Why node identity is primary
 
 Node identities survive text reparses automatically. Reconciliation matches old and new trees by constructor equality and preserves identities for matching nodes. This means:
 
@@ -24,7 +24,7 @@ The only case requiring special handling: structural edits that change the const
 
 ---
 
-## Cursor Relocation After Structural Edits
+## Cursor relocation after structural edits
 
 When a structural edit changes the cursor's constructor, the relocation strategy uses two tiers:
 
@@ -32,11 +32,11 @@ When a structural edit changes the cursor's constructor, the relocation strategy
 
 **Slow path:** follow the text cursor. The existing text-edit handlers already encode cursor-after-edit intent — after wrapping in an if-expression, the text cursor moves to the condition hole so the user can immediately type. The tree cursor follows the text cursor via the source map's inverse lookup, ensuring both cursors agree.
 
-This is simpler and more correct than path-index replay because each text-edit handler already knows where the cursor should land after its specific operation.
+This approach is simpler and more accurate than path-index replay because each text-edit handler already knows where the cursor should land after its specific operation.
 
 ---
 
-## Why Hole Support Matters
+## Why hole support matters
 
 Structural edits modify text that the parser must re-consume. If the modified text triggers error recovery, the reparsed tree can have unexpected shape — different constructors, different nesting, different child counts.
 
@@ -46,7 +46,7 @@ Structural edits modify text that the parser must re-consume. If the modified te
 - Wrapping inserts parenthesized structure around existing text — valid by construction
 - Unwrapping extracts exact source text from a child span — valid because it was valid before
 
-Without Hole support, deletion could produce text the parser can't handle, and the reparsed tree would diverge from what the edit intended. With it, the text-edit handlers' FocusHint values land on the expected node — because that node actually exists in the reparsed tree.
+Without Hole support, deletion could produce text the parser can't handle, and the reparsed tree would diverge from what the edit intended. With it, the text-edit handlers' FocusHint values land on the expected node — because that node exists in the reparsed tree.
 
 This invariant also benefits Zipper construction: when building a transient Zipper from a NodeId via path indices, the tree structure matches the projection tree, so path replay succeeds. The ancestor-walk fallback in `focus_at` covers the remaining edge cases (error recovery during user-typed leaf edits, concurrent remote edits).
 
@@ -62,7 +62,7 @@ The projection tree that links AST nodes to source spans is structurally isomorp
 
 This isomorphism means the bridge between Zipper positions and node identities is always correct: navigate the Zipper, look up the corresponding projection node by child index, extract its identity. The isomorphism holds because the projection builder constructs a mirror-image tree — one projection node per AST node, children in the same order.
 
-**Precondition:** the bridge must use the current projection tree (after the memo chain evaluates), not a stale one from before the text edit.
+**Precondition:** the bridge must use the current projection tree (after the memo chain evaluates) rather than a stale one from before the text edit.
 
 ---
 
@@ -72,13 +72,13 @@ When structural edits create placeholder holes, each hole needs stable identity 
 
 **Ephemeral layer.** Holes carry a local integer that exists only between creation and the next reparse. This integer does not survive the text roundtrip — the parser assigns the same value to all holes.
 
-**Stable layer.** After reconciliation, hole metadata is keyed by node identity, not the ephemeral integer. Reconciliation matches any hole with any hole (constructor equality ignores the integer), preserving node identity for holes in the same structural position.
+**Stable layer.** After reconciliation, hole metadata is keyed by node identity rather than the ephemeral integer. Reconciliation matches any hole with any hole (constructor equality ignores the integer), preserving node identity for holes in the same structural position.
 
 This two-layer design means hole metadata survives the text roundtrip even though the hole's internal integer doesn't.
 
 ---
 
-## Multiple Cursors and Remote Presence
+## Multiple cursors and remote presence
 
 Because the cursor is a node identity (one integer), scaling to multiple cursors is straightforward:
 
@@ -89,7 +89,7 @@ A persistent Zipper would make both of these expensive — each cursor would car
 
 ---
 
-## The Structural Identity Problem
+## The structural identity problem
 
 There is a deeper architectural question: how should an editor maintain identity for AST nodes across structural transformations?
 

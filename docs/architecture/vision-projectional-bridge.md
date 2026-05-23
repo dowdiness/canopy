@@ -1,13 +1,15 @@
-# Vision: The Projectional Bridge
+# Vision: the projectional bridge
 
 Why Canopy exists and what projectional editing is for.
 
 ## The Gap
 
-You write `let double = λx. x + x`. You know what it means — a
-function that doubles its input. But the editor sees 23 characters.
-It has no idea what `double` is, where `x` is bound, or what
-`double 5` evaluates to. You hold the meaning; the tool holds text.
+You write `let double = λx. x + x`. You know what it means: a
+function that doubles its input.
+
+But the editor sees 23 characters. It has no idea what `double` is,
+where `x` is bound, or what `double 5` evaluates to. You hold the
+meaning; the tool holds text.
 
 Every time you refactor, debug, or explain code, you are translating
 between your understanding and the tool's flat character buffer. This
@@ -16,7 +18,7 @@ translation is the tax you pay for using a text editor.
 The gap is wider than it appears. Users have something in mind when
 they write — not always a concrete plan, but a wish, a thirst to
 alleviate a pain. They are good at judging bad products but terrible
-at articulating what they actually want in explicit words or images.
+at articulating what they want in explicit words or images.
 
 Syntax-level editing forces this intention down through multiple
 abstraction layers before it reaches the machine:
@@ -82,15 +84,18 @@ intent.
 
 ### The structure-format question
 
-The structure-format IR problem is not "how to annotate trees." It is
-"how to represent program meaning explicitly enough that projections
-can render from it at multiple levels of abstraction." The answer
-emerges from building the semantic model (egglog + incr reactive
-graph), not from designing a tree annotation mechanism.
+The structure-format IR problem is not "how to annotate trees."
+
+The real question is how to represent program meaning explicitly
+enough that projections can render from it at multiple levels of
+abstraction. Building the semantic model (egglog + incr reactive
+graph) gets us there; designing a tree annotation mechanism does not.
 
 ### Editing is bidirectional
 
 Every representation that helps users **see** should also help them
-**act**. A type-annotated view should accept type-level edits. A
-scope-colored view should accept scope-level restructuring. The
-projectional bridge works in both directions.
+**act**.
+
+A type-annotated view should accept type-level edits. A scope-colored
+view should accept scope-level restructuring. The projectional bridge
+works in both directions.

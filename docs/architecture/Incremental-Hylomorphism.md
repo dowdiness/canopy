@@ -1,4 +1,4 @@
-# AST as Source of Truth: The Incremental Hylomorphism Pipeline
+# AST as source of truth: the incremental hylomorphism pipeline
 
 ## Overview
 
@@ -10,7 +10,7 @@ This principle provides a foundation for understanding parsers, incremental comp
 
 ---
 
-## 1. Fundamental Concepts: Construction and Destruction of Structure
+## 1. Fundamental concepts: construction and destruction of structure
 
 ### Catamorphism (Destruction / Fold)
 
@@ -64,11 +64,11 @@ The intermediate structure μF is theoretically eliminable (deforestation), but 
 | Impact of local changes | Tends to remain local | Can cause global structural changes |
 | Polymorphism | One axis (output target) | Two axes (input source x target type) |
 
-This asymmetry has practical consequences for both sides. Catamorphisms are simple enough that a general abstraction strategy (Finally Tagless / Church encoding) works uniformly. Anamorphisms require a different discipline — the intermediate structure must be carefully designed so that the knowledge split between producer and consumer does not become a leaky abstraction. These two strategies are developed in sections 2 and 3.
+This asymmetry has practical consequences for both sides. Catamorphisms are simple enough that a general abstraction strategy (Finally Tagless / Church encoding) works uniformly. Anamorphisms require a different discipline — the intermediate structure must be carefully designed so that the knowledge split between producer and consumer does not become a leaky abstraction. Sections 2 and 3 develop these two strategies.
 
 ---
 
-## 2. Coalgebra Locality: The Anamorphism Design Principle
+## 2. Coalgebra locality: the anamorphism design principle
 
 The coalgebra `S → F S` unfolds structure one layer at a time. Each layer is a local construction decision: "I saw these tokens, I grouped them into a node of this kind." The resulting structure is a record of all such decisions.
 
@@ -92,14 +92,14 @@ A good anamorphism abstraction produces structure that satisfies four properties
 
 **Transparent structure.** The representation's shape is its meaning. No hidden invariants, no internal state that consumers must understand. This addresses the two-axis polymorphism problem: any consumer can interpret the structure by inspecting its public form, without coupling to the producer's construction logic.
 
-These properties are developed into actionable design guidelines in [Anamorphism Discipline Guide](./anamorphism-discipline.md).
+The [Anamorphism Discipline Guide](./anamorphism-discipline.md) turns each property into actionable design guidelines.
 
 ### Example: CstNode
 
 The CST in this project satisfies all four properties:
 
 - **Complete**: every byte of source is represented, including whitespace, comments, and error tokens.
-- **Context-free**: nodes store relative widths, not absolute positions. The same subtree object can appear at different locations without internal modification.
+- **Context-free**: nodes store relative widths rather than absolute positions. The same subtree object can appear at different locations without internal modification.
 - **Uniform errors**: `ErrorNode` is a `CstNode` with a different kind. The parser always produces a tree.
 - **Transparent**: `{ kind, children, width }`. Shape is meaning.
 
@@ -107,7 +107,7 @@ Absolute positions are computed lazily by `SyntaxNode`, a wrapper that accumulat
 
 ---
 
-## 3. Finally Tagless: The Catamorphism Abstraction
+## 3. Finally tagless: the catamorphism abstraction
 
 Where anamorphisms need carefully designed concrete structure, catamorphisms benefit from the opposite: abstracting away the structure entirely.
 
@@ -141,13 +141,13 @@ Each interpreter (evaluator, pretty-printer, compiler) provides a different impl
 
 Finally Tagless produces opaque functions — `∀r. ExprSym r => r` cannot be inspected, compared, or partially reused. This is acceptable for catamorphisms because the fold consumes the structure once and produces a flat value.
 
-For anamorphisms, the intermediate structure must be inspected for incremental reuse (the ReuseCursor's four-condition protocol), compared for change detection, and partially shared across time. Opacity is a liability here, not an asset.
+For anamorphisms, the intermediate structure must be inspected for incremental reuse (the ReuseCursor's four-condition protocol), compared for change detection, and partially shared across time. Opacity is a liability here rather than an asset.
 
 This is the fundamental reason the two sides of the hylomorphism need different abstraction strategies: catamorphisms benefit from hiding structure (Church encoding), while anamorphisms require exposing it (coalgebra locality).
 
 ---
 
-## 4. The Boundary Pattern: Hylomorphisms at Every System Boundary
+## 4. The boundary pattern: hylomorphisms at every system boundary
 
 ```
 External Representation_1 <-(ana)-> Internal Representation <-(cata)-> External Representation_2
@@ -172,7 +172,7 @@ parse   AST   lowering      MIR   codegen        ...
 
 ---
 
-## 5. The Full Pipeline: loom + incr + CRDT
+## 5. The full pipeline: loom + incr + CRDT
 
 ### Pipeline Diagram
 
@@ -248,7 +248,7 @@ This is the same concept as incremental maintenance of materialized views. The C
 
 ---
 
-## 6. Technical Challenges at Each Boundary
+## 6. Technical challenges at each boundary
 
 ### Boundary ①: CRDT → Document State
 
@@ -256,7 +256,7 @@ This is the same concept as incremental maintenance of materialized views. The C
 
 **Non-deterministic arrival order.** In CRDTs, the order of operation arrival is not guaranteed. How concurrent edits from multiple users are ordered depends on FugueMax's ordering decisions, and the result can affect tokenization.
 
-**The completeness gap.** The CRDT knows which position was affected by each operation, but this information is discarded when the document state is materialized as a flat string. The consumer must rediscover it via text diffing — an instance of the "Retrospective Diff" anti-pattern (see [Anamorphism Discipline Guide](./anamorphism-discipline.md)).
+**The completeness gap.** A CRDT knows which position was affected by each operation, but this information is discarded when the document state is materialized as a flat string. Consumers must rediscover it via text diffing — an instance of the "Retrospective Diff" anti-pattern (see [Anamorphism Discipline Guide](./anamorphism-discipline.md)).
 
 ### Boundary ②: Document State → CST
 
@@ -318,13 +318,13 @@ CstNode ──→ SyntaxNode ──→ View ──→ Term
                               (from kinds)
 ```
 
-Each step derives new presentations from data already in the CstNode — no external information enters the chain. This monotonic flow is what makes the abstraction non-leaky. A leaky abstraction hides information that consumers eventually need, forcing them to reach behind the boundary. Here, the concrete layer hides nothing (it is complete and transparent), and each abstract layer projects from what it receives. No consumer needs to reach backwards.
+Each step derives new presentations from data already in the CstNode — no external information enters the chain. The monotonic flow is what keeps the abstraction non-leaky. A leaky abstraction hides information that consumers eventually need, forcing them to reach behind the boundary. Here, the concrete layer hides nothing (it is complete and transparent), and each abstract layer projects from what it receives. No consumer needs to reach backwards.
 
-The concrete layer is not an implementation detail hidden behind the abstract layer — it is a first-class artifact that the system depends on for incremental reuse. The abstract layer is a convenience for typed access, not a replacement for the concrete layer.
+The concrete layer is not an implementation detail hidden behind the abstract layer — it is a first-class artifact that the system depends on for incremental reuse. The abstract layer offers a convenience for typed access; it does not replace the concrete layer.
 
 ---
 
-## 8. Limits of Recursion Schemes
+## 8. Limits of recursion schemes
 
 ### What They Capture
 
@@ -334,8 +334,8 @@ The concrete layer is not an implementation detail hidden behind the abstract la
 
 ### What They Do Not Capture
 
-- **Bidirectional information flow:** type inference with unification requires constraint solving, not simple folds
-- **Integration of causally ordered operations:** CRDT operation integration requires causal graph traversal, not simple folds
+- **Bidirectional information flow:** type inference with unification requires constraint solving rather than simple folds
+- **Integration of causally ordered operations:** CRDT operation integration requires causal graph traversal rather than simple folds
 - **Reuse across time:** incremental computation can be framed as memoized hylomorphisms, but the decision of what to reuse and what to invalidate lies outside the recursion scheme framework
 
 ---

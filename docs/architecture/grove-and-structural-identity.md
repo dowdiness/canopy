@@ -38,7 +38,7 @@ The multi-graph may contain conflicts: multiple edges at one position (local con
 
 ---
 
-## Why This Matters for Canopy
+## Why this matters for Canopy
 
 ### The identity problem
 
@@ -84,11 +84,11 @@ This borrows Grove's key insight — edits carry identity information that blind
 
 Replace or supplement the text CRDT with a graph-based structural CRDT (Grove's 2P-Set model or equivalent). Structural edits become native graph patches with permanent vertex identity. Text editing either goes through a text-to-graph bridge or operates on a separate text CRDT for leaf content.
 
-This is the point where Grove's architecture applies directly. It enables collaborative structural editing, explicit conflict representation, and type-aware conflict resolution.
+Grove's architecture applies directly at this level: it enables collaborative structural editing, explicit conflict representation, and type-aware conflict resolution.
 
 ---
 
-## When to Move Along This Path
+## When to move along this path
 
 Level 0 is sufficient when:
 - Structural editing is single-user (Zipper is a local UI affordance)
@@ -97,7 +97,7 @@ Level 0 is sufficient when:
 
 Level 1 becomes valuable when:
 - Structural edits frequently cause identity loss that disrupts UX (expanded/collapsed state, selection, undo)
-- Edit-aware reconciliation is a localized change (hint parameter, not an architectural shift)
+- Edit-aware reconciliation can be made as a localized change (a hint parameter, with no architectural shift required)
 
 Level 2 becomes necessary when:
 - Multiple users need to perform concurrent structural edits with meaningful merge

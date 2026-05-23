@@ -13,7 +13,7 @@ multi-file support, new languages).
 1. **Dependency Structure** — Are dependencies local, hierarchical, or global?
 2. **Change Propagation Shape** — Does a small change remain localized or cascade?
 3. **Avalanche Risk** — Can small changes force large recomputation?
-4. **Incrementality Effectiveness** — Does incremental computation actually reduce work?
+4. **Incrementality Effectiveness** — Does incremental computation reduce work in practice?
 5. **Language/Problem Constraints** — Does the domain require global dependency tracking?
 6. **Decomposability** — Can the system be split into independent units?
 7. **Query Necessity** — Is query-based architecture required, or just convenient?
@@ -28,8 +28,9 @@ multi-file support, new languages).
 
 ## Structural Findings (2026-04-06)
 
-These describe architectural properties of the system, not performance numbers.
-They remain valid as long as the pipeline topology is unchanged.
+These describe architectural properties of the system rather than
+performance numbers, and they remain valid as long as the pipeline
+topology is unchanged.
 
 ### Pipeline Topology
 
@@ -49,7 +50,7 @@ Edits route back through text CRDT only.
 
 ### Change Detection vs Change Propagation
 
-The dominant cost per keystroke is **change detection**, not change propagation.
+The dominant cost per keystroke is **change detection** rather than change propagation.
 `to_flat_proj_incremental` scans all N definitions checking `physical_equal()`
 on CstNode pointers, even though typically only 1 def changed. The incremental
 parsing and projection that follow are efficient — but discovering *which* defs
@@ -62,17 +63,17 @@ byte range doesn't overlap).
 ### Side-Channel Between Memos
 
 `changed_def_indices_ref` is a mutable `Ref[Array[Int]?]` shared between
-`proj_memo` (writer) and `registry_memo`/`source_map_memo` (readers). This
-bypasses the reactive dependency graph. It is defended by revision-skew
-detection and full-rebuild fallback.
+`proj_memo` (writer) and `registry_memo` / `source_map_memo` (readers),
+bypassing the reactive dependency graph. Revision-skew detection and a
+full-rebuild fallback defend it.
 
-The side-channel exists for performance — but benchmarks show source_map
+The side-channel exists for performance, but benchmarks show source_map
 overhead is small (18% of pipeline at 1000 defs, negligible at 320). The
-coupling is a design smell whose cost is cognitive, not runtime.
+coupling is a design smell whose cost is cognitive rather than runtime.
 
-**Options if cleaning up:** (a) Return changed indices as part of proj_memo's
-return value. (b) Promote to a Signal. (c) Encode semantics as a sum type
-(`enum DefChange { Full; Patch(Array[Int]); None }`).
+**Options if cleaning up:** (a) return changed indices as part of
+`proj_memo`'s return value; (b) promote to a Signal; (c) encode semantics
+as a sum type (`enum DefChange { Full; Patch(Array[Int]); None }`).
 
 ### Branching for Future Features
 
@@ -93,13 +94,13 @@ and `lang/lambda/eval/eval_memo.mbt`; generic memo helpers are in `core/projecti
 ### Platform & Responsiveness
 
 incr compiles to all MoonBit backends (JS, WASM, native) with no
-platform-specific FFI. All backends are currently single-threaded.
+platform-specific FFI. All backends are currently single-threaded, and
 Canopy's preferred target is JS.
 
-The JS host uses `requestAnimationFrame` batching. At 320 defs, the full
-pipeline is ~2 ms (well within 16 ms frame budget). At 1000 defs, ~8.5 ms
-(tight but workable). No Web Workers currently; the JSON-message FFI protocol
-is Worker-compatible if needed.
+The JS host uses `requestAnimationFrame` batching. At 320 defs the full
+pipeline takes ~2 ms (well within the 16 ms frame budget); at 1000 defs
+~8.5 ms (tight but workable). No Web Workers are wired up today, though
+the JSON-message FFI protocol is Worker-compatible if needed.
 
 ### Strengths to Protect
 

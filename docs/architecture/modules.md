@@ -39,7 +39,7 @@ CRDT document model (general-purpose text document).
 
 **See:** [event-graph-walker/README.md](../../event-graph-walker/README.md) for detailed documentation.
 
-## `loom/` Module (Lambda Calculus Parser + Framework)
+## `loom/` module (lambda calculus parser + framework)
 
 Monorepo containing the incremental parser framework and lambda calculus example.
 The `crdt` module depends on `dowdiness/lambda` (`loom/examples/lambda/`) and `dowdiness/loom` (`loom/loom/`).
@@ -51,7 +51,7 @@ The `crdt` module depends on `dowdiness/lambda` (`loom/examples/lambda/`) and `d
 
 **See:** [loom/README.md](../../loom/README.md) for detailed documentation.
 
-## `crdt/` Module (Canopy — Projectional Editor Application)
+## `crdt/` module (Canopy — projectional editor application)
 
 Application layer that uses event-graph-walker and parser as path dependencies.
 
@@ -69,7 +69,7 @@ Generic projectional editing primitives, independent of any language.
 
 - NodeId, ProjNode[T], SourceMap, reconcile, assign_fresh_ids, get_node_in_tree
 - ToJson for ProjNode and SourceMap
-- Zero dependencies on `@ast` or `@lambda` — the acid test for framework genericity
+- Zero dependencies on `@ast` or `@lambda` — the load-bearing check for framework genericity
 - Uses `TreeNode`/`Renderable` traits from `dowdiness/loom/core`
 
 ### `editor/`

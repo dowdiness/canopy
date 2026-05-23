@@ -2,7 +2,7 @@
 
 This document records the analysis from 2026-04-08 exploring the tree-decoration problem — whether MoonBit can support extensible AST infrastructure analogous to Haskell's Trees that Grow — and what practical strategy Canopy adopts instead.
 
-## The Problem: Decorating Trees with Phase-Specific Data
+## The problem: decorating trees with phase-specific data
 
 Compilers and editors process ASTs through multiple phases, each adding information:
 
@@ -15,7 +15,7 @@ The challenge: how do you define the tree type *once* but allow different phases
 
 This is the **Tree-Decoration Problem** (Najd & Peyton Jones 2017).
 
-## Three Known Solutions (and why they don't work in MoonBit)
+## Three known solutions (and why they don't work in MoonBit)
 
 ### 1. Trees that Grow (Haskell — type families)
 
@@ -74,11 +74,11 @@ type Literal<Extend extends ExtendExpression> = {
 
 **Why this can't work in MoonBit:** No indexed access types, no intersection types, no structural subtyping.
 
-### What All Three Share
+### What all three share
 
-All three compute `extension_type = f(phase, constructor)` at the type level. MoonBit lacks all three mechanisms. This is a fundamental limitation, not a gap that clever encoding can bridge.
+All three compute `extension_type = f(phase, constructor)` at the type level. MoonBit lacks all three mechanisms — a fundamental limitation rather than a gap that clever encoding can bridge.
 
-## What the Type System Constraint Actually Means
+## What the type system constraint really means
 
 Three specific things MoonBit cannot express:
 
@@ -90,7 +90,7 @@ Three specific things MoonBit cannot express:
 
 These constraints exist in MoonBit's current type system (as of 2026-04). MoonBit is actively evolving — type families or associated types could be added in the future. But as of now, no amount of refactoring or code generation adds type-level phase/constructor indexing.
 
-## Why This May Not Matter for Canopy
+## Why this may not matter for Canopy
 
 Canopy's actual annotation inventory:
 
@@ -108,7 +108,7 @@ None of Canopy's current annotations are per-constructor. They're either "all no
 
 If Canopy later adds a type checker (type annotations per expression node) or a linter (warnings per specific construct), the pattern remains `Map[NodeId, T]` with `Option` lookups. The runtime cost of `None` for nodes without annotations is negligible. Revisit if evidence shows otherwise.
 
-## The Expression Problem Framing
+## The expression problem framing
 
 The tree-decoration problem is one face of the **expression problem** — extensibility in two dimensions:
 
@@ -117,7 +117,7 @@ The tree-decoration problem is one face of the **expression problem** — extens
 
 Tagless final solves the "new operations" direction. TTG/Annotations solve the "new data" direction. MoonBit can do the first but not the second at the type level.
 
-## Canopy's Practical Strategy
+## Canopy's practical strategy
 
 ### Layer 1: Tagless Final Algebra (Lambda only — recommended pattern)
 
@@ -146,7 +146,7 @@ pub(open) trait TermSym {
 - `replay : fn[T : TermSym](Term) -> T` is the fold (concrete Term to any interpretation)
 - `pub(open)` allows downstream packages to add new interpretations
 
-**Current scope:** Only Lambda has this pattern. JSON and Markdown define their ASTs as plain enums without a `Sym` trait. The tagless final pattern is the *recommended* approach for new languages, not yet the universal one. Codegen (Layer 4) would make it the default by generating the `Sym` trait from any enum definition.
+**Current scope:** Only Lambda has this pattern. JSON and Markdown define their ASTs as plain enums without a `Sym` trait. Tagless final is the *recommended* approach for new languages; it is not yet universal across the codebase. Codegen (Layer 4) would make it the default by generating the `Sym` trait from any enum definition.
 
 This handles **extensible operations** — the "new operations" direction of the expression problem. Adding an evaluator, type checker, or linter means implementing `TermSym` for a new type.
 
@@ -164,9 +164,9 @@ Each map is typed — you can't accidentally put a `Range` where an `EvalResult`
 
 ### Layer 3: Incremental Memos (computation scheduling)
 
-`@incr.Memo` handles **when** to recompute annotations, not what they contain. Each memo declares dependencies and recomputes only when inputs change. The projection memo uses `changed_def_indices_ref` to patch only changed subtrees, achieving O(changed) recomputation.
+`@incr.Memo` handles **when** to recompute annotations rather than what they contain. Each memo declares dependencies and recomputes only when inputs change. The projection memo uses `changed_def_indices_ref` to patch only changed subtrees, achieving O(changed) recomputation.
 
-This is orthogonal to annotation structure — it's an optimization, not an architecture.
+This is orthogonal to annotation structure — an optimisation layer rather than an architectural one.
 
 ### Layer 4: Code Generation (planned — boilerplate reduction)
 
@@ -192,7 +192,7 @@ All seven are mechanical functions of the enum definition, written by hand and k
 
 **Prerequisite refactoring:** Consolidate all structural knowledge about Term's recursive shape into `sym.mbt` — move `rebuild_kind` from `lang/lambda/proj/proj_node.mbt` into loom's `sym.mbt` as `rebuild_from`, add `children_of` next to `replay`. This makes `sym.mbt` the single file that codegen would replace, and eliminates the cross-repo sync problem for mechanical code.
 
-## What This Strategy Does and Does Not Solve
+## What this strategy does and does not solve
 
 ### Solved (practical problems)
 
@@ -208,9 +208,9 @@ All seven are mechanical functions of the enum definition, written by hand and k
 - **Annotation presence guarantees** — still `map.get(id) -> Option`
 - **Per-constructor extensions** — still same annotation type for all constructors
 
-These remain unsolved because MoonBit's type system cannot express them. They are acknowledged limitations, not problems requiring a solution at Canopy's current scale.
+These remain unsolved because MoonBit's type system cannot express them. They are acknowledged limitations rather than problems requiring a solution at Canopy's current scale.
 
-## Phased Execution Plan
+## Phased execution plan
 
 1. **Now — Refactor:** Consolidate `sym.mbt` as single source of structural truth. Move `rebuild_kind` next to `replay` and `children_of`. Split `proj_traits.mbt` into mechanical (future codegen target) and semantic (always hand-written).
 

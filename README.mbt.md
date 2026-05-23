@@ -4,7 +4,7 @@
 
 ![Demo: type code, see evaluation results update live](docs/demo.gif)
 
-Canopy is an editor that understands your program, not just your characters. As you type, it parses incrementally, shows you scope and types, evaluates expressions live, and formats your code — all without leaving the flow. Two people can edit the same document simultaneously, with no server. Edits merge automatically.
+Canopy reads your code as a live structure rather than flat text. As you type, it reparses incrementally, tracks scope and types, evaluates expressions, and formats the result — without breaking your flow. Two people can edit the same document at once with no server, and edits merge automatically.
 
 [Try the live demo](https://canopy-ideal.pages.dev) · [Architecture](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
 
@@ -16,7 +16,7 @@ Canopy treats your program as a living structure. Text and syntax tree are **two
 
 The goal: **close the gap between what you think and what the tool understands.** When the editor holds the same mental model you do — scope, types, values, dependencies — it can show you what matters, when it matters, without you having to search for it.
 
-## What It Looks Like
+## What it looks like
 
 The demo language is lambda calculus — small enough to understand fully, rich enough to exercise the full pipeline:
 
@@ -53,7 +53,7 @@ Text CRDT → Incremental Parse → Projection → Rendering
 
 ## Quick Start
 
-**Prerequisites:** [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/).
+Requires [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/).
 
 ```sh
 git clone --recursive https://github.com/dowdiness/canopy.git
@@ -78,7 +78,7 @@ The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
 
 ## The Bigger Picture
 
-Canopy is a framework, not just an editor. Define a grammar for your language, implement a few traits, and you get incremental parsing, structural editing, pretty-printing, and CRDT collaboration out of the box.
+Canopy is a framework as much as an editor. Define a grammar for your language, implement a few traits, and you get incremental parsing, structural editing, pretty-printing, and CRDT collaboration out of the box.
 
 But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, structure emerges automatically, and the right information surfaces when you need it.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
 
@@ -88,9 +88,9 @@ Read more: [Product Vision](docs/architecture/product-vision.md) · [The Project
 
 **Text is ground truth, structure is derived.** The text CRDT stores the document; everything else is computed. This means collaboration operates on a proven data structure, and the pipeline from text to view is a deterministic function of document state.
 
-**Language support is data, not code.** Adding a new language means providing a grammar and a projection mapping. The framework handles parsing, reconciliation, undo/redo, and collaboration generically. Lambda calculus and JSON share the same core.
+**Language support is declarative.** Adding a new language means providing a grammar and a projection mapping; the framework handles parsing, reconciliation, undo/redo, and collaboration generically. Lambda calculus and JSON share the same core.
 
-**Multiple representations from one source.** The [Printable trait family](docs/architecture/multi-representation-system.md) (Show, Debug, Source, Pretty) gives every language four text representations. `Source` guarantees `parse(to_source(x)) == x`. `Pretty` produces width-aware, syntax-annotated formatted output. Adding a new text format = adding a render function, not changing language code.
+**Multiple representations from one source.** The [Printable trait family](docs/architecture/multi-representation-system.md) (Show, Debug, Source, Pretty) gives every language four text representations. `Source` guarantees `parse(to_source(x)) == x`. `Pretty` produces width-aware, syntax-annotated output. Adding a new text format means writing one render function; the language definition stays untouched.
 
 **Incremental by construction.** Every stage — parsing, projection, rendering — recomputes only what changed. This isn't bolted-on caching; it's the [architectural principle](docs/architecture/Incremental-Hylomorphism.md) the framework is built around.
 

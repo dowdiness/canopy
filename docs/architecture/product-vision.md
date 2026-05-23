@@ -1,4 +1,4 @@
-# Product Vision: Write, Structure, Surface
+# Product vision: write, structure, surface
 
 The full product vision for Canopy — beyond the code editor, toward a
 personal knowledge environment where writing is the only action, structure
@@ -21,8 +21,10 @@ structure — no title, no categories, no format. You write and send.
 To preserve this simplicity while achieving composability, non-text
 inputs must be as effortless as text. Writing text, pasting a URL,
 dropping an image, inserting code, attaching a file — all are the same
-single action: **posting**. There is one input field at all times. The
-system determines content type automatically.
+single action: **posting**.
+
+There is one input field at all times, and the system determines
+content type automatically.
 
 There are no concepts like "new document" or "new task." There is only
 **post**.
@@ -50,7 +52,7 @@ The system identifies meta-level patterns: "posts of this type appear
 every Monday," "no updates on this project for three weeks," "these
 two topics frequently appear together."
 
-## Output: Returning the Right Information
+## Output: returning the right information
 
 Three models, depending on when and how information returns.
 
@@ -64,8 +66,8 @@ passive recall: "this is where you left off last time."
 
 Users write questions into the same input field: "What was the title of
 that book?" or "What was the conclusion of last month's project?" The
-system constructs answers from past posts. A personal search engine
-based on meaning, not keywords.
+system constructs answers from past posts — a personal search engine
+that ranks by meaning rather than keywords.
 
 ### Model C: Return Proactively
 
@@ -74,16 +76,17 @@ but no conclusion reached," or "These two notes might be related."
 Unlike social media notifications, these continue and support the
 user's own thinking.
 
-## Key Design Difference: Writing to Yourself
+## Key design difference: writing to yourself
 
 Twitter is for writing to others. This system is for **writing to
 yourself**.
 
 The timeline need not be chronological. In personal notes, the most
 recent item is not always the most important — the most **relevant**
-item at the current moment deserves priority. Default view: ordered by
-relevance to present context. Chronological order is one possible
-filter.
+item at the current moment deserves priority.
+
+The default view orders posts by relevance to the present context, and
+chronological order becomes one filter among many.
 
 Instead of likes or retweets, there is **resurfacing**. When a past
 post is revisited, its importance increases, and related posts rise
@@ -100,12 +103,12 @@ structuring.
 > text, code, links, images. The system parses, links, clusters, and
 > surfaces what you need, when you need it.
 >
-> Think of it as a second brain that actually thinks with you. It
+> Think of it as a second brain that thinks alongside you. It
 > remembers what you wrote, finds connections you missed, and brings
 > back the right context while you're writing — not after you search
 > for it.
 >
-> Works across devices. No server. Your thoughts sync peer-to-peer.
+> Works across devices with no server — your thoughts sync peer-to-peer.
 
 ## From Here to There
 

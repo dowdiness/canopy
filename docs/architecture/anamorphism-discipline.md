@@ -6,9 +6,9 @@ Companion to [Incremental Hylomorphism](./Incremental-Hylomorphism.md) (theory).
 
 ---
 
-## 1. The Four Properties
+## 1. The four properties
 
-These properties apply at boundaries where the intermediate structure will be incrementally reused or where partial results must be consumed by downstream stages. At one-shot or terminal boundaries (batch compiler, final display output), they are guidelines, not requirements.
+These properties apply at boundaries where the intermediate structure will be incrementally reused or where partial results must be consumed by downstream stages. At one-shot or terminal boundaries (batch compiler, final display output), they degrade to guidelines.
 
 > **Scope note.** These are engineering design principles motivated by the requirements of incremental reuse — not formal laws derived from coalgebra theory. See [Incremental Hylomorphism §2](./Incremental-Hylomorphism.md) for the theoretical context.
 
@@ -38,7 +38,7 @@ Malformed input produces the same kind of structure as well-formed input.
 
 **Violation signal:** A separate error channel (exceptions, `Result` where `Err` means "no structure produced", `Option` where `None` means "parse failed") as the only path, with no recovery alternative that produces partial structure.
 
-A strict/raising convenience wrapper alongside a structure-preserving recovery path is acceptable. The discipline requires that the recovery path exists, not that it is the only path.
+A strict/raising convenience wrapper alongside a structure-preserving recovery path is acceptable. The discipline requires that a recovery path exists; it does not demand the recovery path be the only path.
 
 ### Transparent Structure
 
@@ -196,7 +196,7 @@ Success and failure produce different types, forcing every consumer to handle tw
 
 **Cost:** Error-tolerant operations (display partial AST, offer completions at error site) become impossible. Every consumer must handle the error branch even when it could work with partial structure.
 
-**Prevention:** Make error a variant of the output type, not a separate channel. The construction always produces the output type; errors are values within the structure. A strict/raising wrapper for convenience is acceptable as long as the recovery path also exists.
+**Prevention:** Make error a variant of the output type rather than a separate channel. The construction always produces the output type; errors are values within the structure. A strict/raising wrapper for convenience is acceptable as long as the recovery path also exists.
 
 ### The Construction Protocol (transparency violation)
 
@@ -204,13 +204,13 @@ The structure requires methods to be called in a specific order, or has invarian
 
 **Example:** "You must call `finalize()` after building the tree" or "children must be sorted by kind" documented in a comment.
 
-**Cost:** Every new consumer must understand how the structure was built in order to use it correctly. The producer's construction logic leaks into the consumer.
+**Cost:** Every new consumer must understand how the structure was built to use it correctly. The producer's construction logic leaks into the consumer.
 
 **Prevention:** Make the structure self-describing. If an invariant matters, enforce it in the type (sorted collection type, builder pattern that returns the final type only on completion). If a consumer can misuse the structure by reading its public fields naively, the structure is not transparent.
 
 ---
 
-## 4. Design Decision Guide
+## 4. Design decision guide
 
 When designing a new boundary or evaluating a proposed intermediate representation:
 
@@ -221,7 +221,7 @@ What constructs the structure? What folds or interprets it? Are there multiple c
 Can every consumer be written using only this structure? If a consumer needs to access the original input or a sibling boundary's output, the structure is missing information. Add it.
 
 **Step 3 — Assess reuse requirements.**
-Will this structure be incrementally reused (updated when input changes partially)? If yes, fragments must be context-free — no absolute positions, no parent pointers, no global indices. If the boundary is batch (one-shot), context-freedom is a guideline, not a requirement.
+Will this structure be incrementally reused (updated when input changes partially)? If yes, fragments must be context-free — no absolute positions, no parent pointers, no global indices. At a batch (one-shot) boundary, context-freedom relaxes to a guideline.
 
 **Step 4 — Design the failure mode.**
 What happens when input is malformed? If the answer is "return an error and no structure," redesign. The construction should always produce the output type, with errors represented as values within the structure. This ensures downstream consumers always receive something to work with.
