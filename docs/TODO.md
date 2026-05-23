@@ -180,9 +180,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Inspector — Patch panel. *Part of Inspector traceability workstream.* Shipped in PR #323 (2026-05-22, commit `0c093ac`).
   Scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp` (each row uses `edit.to_string()`), rendered by `view_patch_log` in `view_bottom.mbt`.
 
-- [ ] Inspector — unify Op Log label format across direct-apply and FFI paths.
-  Why: PR #293 left two row shapes in `Model.intent_log` (`TreeEditOp.to_generic().to_string()` vs `"{op}(node={id})"`). Minor UX inconsistency; distinguishable but not ideal once the panel becomes a debugging surface.
-  Exit: rebuild a `TreeEditOp` in the `EditorStructuralEdit` arm using `apply_structural_edit_request`'s op-string dispatch (extract the `"WrapInLambda" | "Delete" | ...` match into a helper), then route through `push_intent`. `push_intent_label` can stay for cases where rebuilding is genuinely impossible.
+- [x] Inspector — unify Op Log label format across direct-apply and FFI paths. *Part of Inspector traceability workstream.* Shipped in PR #327 (2026-05-23, commit `336b29b`).
+  Extracted `structural_edit_op_to_tree_edit` helper (handles `WrapInLambda` / `Delete`); reused in both `apply_structural_edit_request` and the `StructureStructuralEdit` FFI arm so the latter rebuilds a typed `TreeEditOp` and routes through `push_intent`. `push_intent_label` remains as fallback for ops whose payload isn't recoverable from `(op, node_id)` alone (currently only `"Drop"`). Two unit tests in `main_wbtest.mbt` pin the unified shape (`StructuralEditKeepSelected(#42)` / `Delete(#42)`).
 
 - [x] Inspector — guard `view_op_log` / `view_patch_log` allocation when bottom panel collapsed. Shipped in PR #324 (2026-05-23).
   PR #293 gated the heavy DOT/SVG pipeline (`render_history_html` / `render_graphviz_html`) on `model.workspace.bottom_visible`, but `view_op_log` (up to 50 row nodes) and the new `view_patch_log` from PR #323 (header + N `SpanEdit` rows per entry, capped at MAX_PATCH_LOG=50) still allocated on every render while the panel was hidden via CSS. Both now early-return an empty `<div>` with the appropriate `bottom_panel_attrs(tab)` when the panel is collapsed.
