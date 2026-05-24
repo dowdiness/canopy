@@ -1,6 +1,6 @@
 // useProtocolEditor — React hook for protocol-based CRDT editor.
 //
-// Replaces useEgWalker (Valtio proxy pattern) with direct MoonBit CRDT calls.
+// Wraps direct MoonBit CRDT calls in React state.
 // State is managed via React's useState; re-renders are triggered by
 // explicit setState calls after each mutation.
 //

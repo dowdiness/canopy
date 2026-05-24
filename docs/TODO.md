@@ -320,7 +320,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 GitHub issue: [#216](https://github.com/dowdiness/canopy/issues/216).
 Steps 1, 3, 4 shipped (#239, #241, #242). **Step 2 shipped** in
 [#251](https://github.com/dowdiness/canopy/pull/251) — the moji
-library (`lib/moji/`, [#250](https://github.com/dowdiness/canopy/issues/250))
+library (`loom/moji/`, [#250](https://github.com/dowdiness/canopy/issues/250))
 landed Phases 1-3 (UCD 15.1: 1187/1187 GraphemeBreakTest +
 1826/1826 WordBreakTest pass) and was wired into the editor's diff
 layer + cursor invariant + arrow-key API + FFI variants.
@@ -336,7 +336,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [x] **Unconditional cursor post-snap** in both `apply_text_edit_internal` branches (cursor-to-edit-end and cursor-stays). Cluster-fusing inserts (RIs, ZWJ, virama, VS-16) shift downstream boundaries even when the splice itself was boundary-aligned in the old text.
   Shipped (#251 + follow-up): private `SplicePolicy` enum gates Snap vs Exact paths; both branches post-snap unconditionally per spec §0.5. BMP and non-BMP cluster-fusing tests are pinned in `editor/sync_editor_text_wbtest.mbt`.
 
-- [x] Make `text_diff::find_common_prefix` / `find_common_suffix_after_prefix` grapheme-safe (`editor/text_diff.mbt`). Fix lives in `lib/text-change/text_change.mbt::compute_text_change` so canopy + valtio + loom (all path-dep on the leaf) get the fix in one move.
+- [x] Make `text_diff::find_common_prefix` / `find_common_suffix_after_prefix` grapheme-safe (`editor/text_diff.mbt`). Fix lives in `loom/text-change/text_change.mbt::compute_text_change` so canopy + loom both path-dep on the same leaf.
   Shipped (#251): both walks now use `@moji.grapheme_boundaries`. 3 `#216 xfail/panic` tests in `editor/text_diff_test.mbt` flipped to passing inspect assertions.
 
 - [x] Add `move_cursor_left_grapheme` / `_right_grapheme` (and word variants per UAX #29) on `SyncEditor`.
@@ -362,7 +362,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] **Word-navigation policy on top of moji's raw UAX boundaries.** moji exposes spec-correct UAX #29 word boundaries (every transition between word/whitespace/punctuation). Editor word-navigation typically wants different semantics — skip whitespace, treat punctuation as part of the word in some contexts, optionally split camelCase/snake_case. Plan: define the policy as a wrapper around `move_cursor_left_word` / `_right_word` in `editor/sync_editor_text.mbt`. Spec §6.3 deliberately deferred this; pick a default policy (Sublime/VS Code-style is a reasonable starting point) and ship behind a config flag if needed.
   Status: not blocked; standalone canopy-side work.
 
-- [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; documented in `lib/moji/grapheme.mbt` and `lib/moji/README.md`. Concrete fixes when a hot-path actually needs them: ASCII fast path in `gcb_of` (only CR/LF/Control populate `< 0x80`), drop `ch.to_string().length()` allocation in `utf16_offset_to_item_pos` (use `if ch.to_int() >= 0x10000 { 2 } else { 1 }`), and a materialise-once boundary cache for hot callers.
+- [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; documented in `loom/moji/grapheme.mbt` and `loom/moji/README.md`. Concrete fixes when a hot-path actually needs them: ASCII fast path in `gcb_of` (only CR/LF/Control populate `< 0x80`), drop `ch.to_string().length()` allocation in `utf16_offset_to_item_pos` (use `if ch.to_int() >= 0x10000 { 2 } else { 1 }`), and a materialise-once boundary cache for hot callers.
   Status: not blocking; cosmetic perf debt.
 
 - [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.

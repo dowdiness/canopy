@@ -10,7 +10,7 @@ import {
 }
 
 // Values
-pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
 
 pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@markdown.Block], Array[String]) raise @dowdiness/loom/core.LexError
 

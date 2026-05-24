@@ -10,7 +10,7 @@ import {
 }
 
 // Values
-pub fn build_json_projection_memos(@pipeline.Parser[@json.JsonValue]) -> (@cells.Memo[@dowdiness/canopy/core.ProjNode[@json.JsonValue]?], @cells.Memo[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@json.JsonValue]]], @cells.Memo[@dowdiness/canopy/core.SourceMap])
+pub fn build_json_projection_memos(@pipeline.Parser[@json.JsonValue]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@json.JsonValue]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@json.JsonValue]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
 
 pub fn key_role(Int) -> String
 

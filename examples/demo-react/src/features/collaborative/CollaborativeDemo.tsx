@@ -1,6 +1,6 @@
 // CollaborativeDemo — orchestrates the per-agent undo/redo demo.
 //
-// Uses protocol-based CRDT editors instead of Valtio proxies.
+// Uses protocol-based CRDT editors.
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import {

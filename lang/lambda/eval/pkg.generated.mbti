@@ -11,9 +11,9 @@ import {
 }
 
 // Values
-pub fn build_escalation_memo(@pipeline.Parser[@ast.Term], @cells.Memo[Array[EvalResult]]) -> @cells.Memo[Array[EvalResult]]
+pub fn build_escalation_memo(@pipeline.Parser[@ast.Term], @cells.Derived[Array[EvalResult]]) -> @cells.Derived[Array[EvalResult]]
 
-pub fn build_eval_memo(@pipeline.Parser[@ast.Term]) -> @cells.Memo[Array[EvalResult]]
+pub fn build_eval_memo(@pipeline.Parser[@ast.Term]) -> @cells.Derived[Array[EvalResult]]
 
 pub fn eval_annotation_layout(EvalResult) -> @pretty.Layout[@pretty.SyntaxCategory]?
 

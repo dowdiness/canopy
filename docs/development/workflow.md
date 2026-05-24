@@ -57,11 +57,10 @@ See `event-graph-walker/README.md` for the full package map.
 **Application layer (crdt module):**
 - `editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
 - `editor/text_diff.mbt` - Text diffing utilities
-- `lib/text-change/` - Shared leaf contiguous text-change module
+- `loom/text-change/` - Shared leaf contiguous text-change module
 
-The shared `lib/text-change/` module is monorepo-local for now. Standalone
-packaging for submodules that consume it is a follow-up after the API shape
-stops moving.
+The shared `text-change` module now lives in the `loom` submodule so parser
+and editor packages resolve the same leaf dependency.
 
 When adding features, consult:
 - [event-graph-walker/README.md](../../event-graph-walker/README.md)

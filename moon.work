@@ -1,9 +1,7 @@
 members = [
   ".",
-  "./lib/text-change",
   "./lib/zipper",
   "./lib/btree",
-  "./lib/moji",
   "./lib/rabbita_codemirror",
   "./lib/dom-boundary",
   "./lib/visualizer",
