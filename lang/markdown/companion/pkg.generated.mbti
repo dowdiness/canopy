@@ -4,6 +4,7 @@ package "dowdiness/canopy/lang/markdown/companion"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/markdown/edits",
+  "dowdiness/incr/cells",
   "dowdiness/markdown",
 }
 
@@ -12,7 +13,7 @@ pub fn apply_markdown_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownE
 
 pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
 
-pub fn new_markdown_editor(String, capture_timeout_ms? : Int) -> @editor.SyncEditor[@markdown.Block]
+pub fn new_markdown_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block]
 
 // Errors
 

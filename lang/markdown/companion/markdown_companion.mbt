@@ -7,12 +7,14 @@
 pub fn new_markdown_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] {
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_parser(s, @markdown.markdown_grammar) },
+    fn(s, rt) { @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt) },
     @md_proj.build_markdown_projection_memos,
     capture_timeout_ms~,
+    parent_runtime?,
   )
 }
 

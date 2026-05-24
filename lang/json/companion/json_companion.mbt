@@ -8,12 +8,14 @@
 pub fn new_json_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@json.JsonValue] {
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_parser(s, @json.json_grammar) },
+    fn(s, rt) { @loom.new_parser(s, @json.json_grammar, runtime?=rt) },
     @json_proj.build_json_projection_memos,
     capture_timeout_ms~,
+    parent_runtime?,
   )
 }
 

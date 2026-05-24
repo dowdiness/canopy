@@ -107,6 +107,7 @@ fn build_eval_annotations(
 pub fn new_lambda_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
   // Ref side-channels let the build_memos callback publish extra memos
   // (beyond the 3-tuple SyncEditor expects) back out to the enclosing
@@ -122,7 +123,7 @@ pub fn new_lambda_editor(
   )
   let editor = @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s) { @loom.new_parser(s, @parser.lambda_grammar) },
+    fn(s, rt) { @loom.new_parser(s, @parser.lambda_grammar, runtime?=rt) },
     fn(parser) {
       let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = @lambda_flat.build_lambda_projection_memos(
         parser,
@@ -138,6 +139,7 @@ pub fn new_lambda_editor(
       (cached_proj_node, registry_memo, source_map_memo)
     },
     capture_timeout_ms~,
+    parent_runtime?,
     capabilities=build_lambda_capabilities(
       cached_proj_node_ref, escalation_memo_ref,
     ),

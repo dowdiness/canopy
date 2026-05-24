@@ -2,6 +2,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/json/edits" @json_edits,
   "dowdiness/canopy/lang/json/proj" @json_proj,
+  "dowdiness/incr",
   "dowdiness/json",
   "dowdiness/loom",
   "moonbitlang/core/bench",

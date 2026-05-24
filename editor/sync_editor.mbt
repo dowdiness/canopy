@@ -40,16 +40,17 @@ pub struct SyncEditor[T] {
 /// (ProjNode, registry, SourceMap) it wants SyncEditor to own.
 pub fn[T] SyncEditor::new_generic(
   agent_id : String,
-  make_parser : (String) -> @loom.Parser[T],
+  make_parser : (String, @incr.Runtime?) -> @loom.Parser[T],
   build_memos : (@loom.Parser[T]) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],
   ),
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
 ) -> SyncEditor[T] {
-  let parser = make_parser("")
+  let parser = make_parser("", parent_runtime)
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
