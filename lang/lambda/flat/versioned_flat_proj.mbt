@@ -1,22 +1,27 @@
-// VersionedFlatProj: wraps FlatProj? with a revision stamp for BackdateEq.
+// VersionedFlatProj: wraps FlatProj? with a revision stamp.
 // Lives in lang/lambda/flat/ because it is lambda-specific (holds FlatProj).
 // Extracted from editor/projection_memo.mbt to separate framework from language code.
 
 ///|
-/// Wraps FlatProj? with a revision stamp for O(1) BackdateEq.
-/// changed_at only advances when the FlatProj content actually changes.
-/// Sequential keystrokes with no AST change leave changed_at stable,
-/// causing proj_memo to backdate and skipping cached_proj_node,
-/// registry_memo, and source_map_memo recomputation entirely.
+/// Wraps FlatProj? with a revision stamp. `changed_at` only advances when
+/// the FlatProj content actually changes (proven in projection_memo.mbt
+/// where `has_changes` gates `proj_changed_at_ref.val.next()` at
+/// line 110-112). Custom `Eq` compares only `changed_at`, giving O(1)
+/// equality semantics matched to the backdating discipline used by
+/// `@incr.Derived` (memo.mbt:485 / facade.mbt:145).
 ///
-/// Measured: whitespace-only keystrokes (trivia edits) are ~5–10% faster
-/// than content-changing keystrokes at 1000 defs. The remaining cost is
-/// dominated by the incremental parse + O(N) to_flat_proj_incremental scan,
-/// not the downstream memos. The win grows when heavier downstream
-/// consumers (type checking, rendering) are added.
+/// During §P0b Phase 1 the `Memo[VersionedFlatProj]` path in
+/// projection_memo.mbt still requires `BackdateEq`/`HasChangedAt`; both
+/// impls live alongside `Eq` until PR2.4 migrates that memo to
+/// `Derived[VersionedFlatProj]` and removes the legacy impls.
 pub(all) struct VersionedFlatProj {
   proj : @lambda_proj.FlatProj?
   changed_at : @incr.Revision
+}
+
+///|
+pub impl Eq for VersionedFlatProj with equal(self, other) {
+  self.changed_at == other.changed_at
 }
 
 ///|

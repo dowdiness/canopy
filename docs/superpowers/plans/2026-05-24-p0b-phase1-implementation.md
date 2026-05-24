@@ -391,6 +391,8 @@ Before moving to PR2 the following must hold:
 
 Rationale: spec §5.1 — Codex Q E confirmed no external consumers call `HasChangedAt`/`BackdateEq` on this type, and the `changed_at` invariant proved in Q A (`flat_proj.mbt:79, 102` + `projection_memo.mbt:78`) is the basis for the custom `Eq`. Spec §5.1 Codex Q C verified `Derived[T : Eq]` invokes the custom `op_equal` for backdating at `memo.mbt:485`/`facade.mbt:145`.
 
+> **Spec-gap correction (logged 2026-05-25):** original plan said this task removes `pub impl @incr.HasChangedAt`/`@incr.BackdateEq`. That would leave `projection_memo.mbt:34` (which still constructs `@incr.Memo[VersionedFlatProj]`) without the `T : BackdateEq` constraint that `Memo::new_memo` requires (verified at `loom/incr/cells/derived.mbt:131`). The package would not compile until PR2.4 swapped the memo to `Derived`. To keep every commit type-checking (per CLAUDE.md "every-commit-type-checks" invariant), PR2.1 now ADDS `Eq` alongside the existing `BackdateEq`/`HasChangedAt`; PR2.4 removes the legacy impls in the same bundle that finalizes `Memo → Derived` in `projection_memo.mbt`. Also corrected: MoonBit's `Eq` trait method is `equal`, not `op_equal` (verified at `~/.moon/lib/core/builtin/traits.mbt:18`).
+
 - [ ] **Step 1: Add a failing whitebox property test**
 
   Create `lang/lambda/flat/versioned_flat_proj_wbtest.mbt`:
@@ -403,22 +405,24 @@ Rationale: spec §5.1 — Codex Q E confirmed no external consumers call `HasCha
     // Two values with different `proj` payloads but identical changed_at are equal.
     let a = VersionedFlatProj::{ proj: None, changed_at: r0 }
     let b = VersionedFlatProj::{ proj: None, changed_at: r0 }
-    assert_eq(a, b)
+    assert_true(a == b)
     let c = VersionedFlatProj::{ proj: None, changed_at: r1 }
     assert_true(a != c)
   }
   ```
+
+  Note: `assert_eq` would also require `Show`, which `VersionedFlatProj` does not derive (its `proj` field is `@lambda_proj.FlatProj?`, which does not derive `Show`). `assert_true(a == b)` exercises `Eq` directly without dragging in a `Show` requirement.
 
 - [ ] **Step 2: Run the test to confirm it fails**
 
   ```
   moon test -p dowdiness/canopy/lang/lambda/flat -f versioned_flat_proj_wbtest.mbt
   ```
-  Expected: FAIL with a missing-impl-of-`Eq` error or `assert_eq` failure.
+  Expected: FAIL with `does not implement trait Eq: no impl is defined` at the `a == b` and `a != c` sites.
 
-- [ ] **Step 3: Replace impl block in `versioned_flat_proj.mbt`**
+- [ ] **Step 3: Add the new `Eq` impl in `versioned_flat_proj.mbt`**
 
-  Rewrite the file to:
+  Insert a new `pub impl Eq` block between the struct and the existing `HasChangedAt` block. **Leave the existing `HasChangedAt` and `BackdateEq` impls in place** — they stay until PR2.4 swaps the upstream `Memo` to `Derived`. Update the doc comment to record the transitional coexistence:
 
   ```moonbit
   // VersionedFlatProj: wraps FlatProj? with a revision stamp.
@@ -430,19 +434,31 @@ Rationale: spec §5.1 — Codex Q E confirmed no external consumers call `HasCha
   /// the FlatProj content actually changes (proven in projection_memo.mbt
   /// where `has_changes` gates `proj_changed_at_ref.val.next()` at
   /// line 110-112). Custom `Eq` compares only `changed_at`, giving O(1)
-  /// backdating equivalent to the previous BackdateEq impl.
+  /// equality semantics matched to the backdating discipline used by
+  /// `@incr.Derived` (memo.mbt:485 / facade.mbt:145).
+  ///
+  /// During §P0b Phase 1 the `Memo[VersionedFlatProj]` path in
+  /// projection_memo.mbt still requires `BackdateEq`/`HasChangedAt`; both
+  /// impls live alongside `Eq` until PR2.4 migrates that memo to
+  /// `Derived[VersionedFlatProj]` and removes the legacy impls.
   pub(all) struct VersionedFlatProj {
     proj : @lambda_proj.FlatProj?
     changed_at : @incr.Revision
   }
 
   ///|
-  pub impl Eq for VersionedFlatProj with op_equal(self, other) {
+  pub impl Eq for VersionedFlatProj with equal(self, other) {
     self.changed_at == other.changed_at
   }
-  ```
 
-  Removed: `pub impl @incr.HasChangedAt` and `pub impl @incr.BackdateEq` lines 23–28.
+  ///|
+  pub impl @incr.HasChangedAt for VersionedFlatProj with fn changed_at(self) -> @incr.Revision {
+    self.changed_at
+  }
+
+  ///|
+  pub impl @incr.BackdateEq for VersionedFlatProj
+  ```
 
 - [ ] **Step 4: Re-run the test, expect PASS**
 
@@ -455,14 +471,16 @@ Rationale: spec §5.1 — Codex Q E confirmed no external consumers call `HasCha
   ```
   moon test -p dowdiness/canopy/lang/lambda/flat
   ```
-  Expected: green.
+  Expected: green — the package still type-checks because `BackdateEq`/`HasChangedAt` impls remain.
 
 - [ ] **Step 6: Commit**
 
   ```
   git add lang/lambda/flat/versioned_flat_proj.mbt lang/lambda/flat/versioned_flat_proj_wbtest.mbt
-  git commit -m "refactor(lang/lambda/flat): replace BackdateEq with custom Eq on VersionedFlatProj"
+  git commit -m "refactor(lang/lambda/flat): add custom Eq alongside BackdateEq on VersionedFlatProj"
   ```
+
+  The commit message reflects the corrected scope — `BackdateEq` removal moves to PR2.4.
 
 ### Task PR2.2 — Migrate `proj_memo` Memo → Derived
 
@@ -599,10 +617,19 @@ Rationale: spec §5.1 — Codex Q E confirmed no external consumers call `HasCha
   ```
   Expected: green. The Lambda editor stack has zero `Memo[T]` cells remaining (spec §4 invariant).
 
-- [ ] **Step 5: Bundled commit for PR2.2 + PR2.3 + PR2.4**
+- [ ] **Step 5: Remove legacy `BackdateEq`/`HasChangedAt` impls on `VersionedFlatProj`**
+
+  Per the PR2.1 spec-gap correction, the legacy impls stayed in PR2.1 to keep `Memo[VersionedFlatProj]::new_memo`'s `T : BackdateEq` constraint satisfied. Now that PR2.2 has swapped that to `Derived[VersionedFlatProj]` (which only needs `Eq`), the impls are dead weight and must be removed for spec §4 ("Lambda editor stack is Memo-free") to hold cleanly.
+
+  Edit `lang/lambda/flat/versioned_flat_proj.mbt`:
+  - Delete `pub impl @incr.HasChangedAt for VersionedFlatProj with fn changed_at(self) ...` (3 lines).
+  - Delete `pub impl @incr.BackdateEq for VersionedFlatProj` (1 line).
+  - Update the doc comment: remove the "During §P0b Phase 1 ... PR2.4 migrates that memo" paragraph; replace with a one-line note that `Eq` is the sole equality impl (matches `@incr.Derived[T : Eq]`).
+
+- [ ] **Step 6: Bundled commit for PR2.2 + PR2.3 + PR2.4**
 
   ```
-  git add lang/lambda/flat/projection_memo.mbt lang/lambda/companion/lambda_editor.mbt ffi/lambda/lifecycle.mbt lang/lambda/flat/pkg.generated.mbti lang/lambda/companion/pkg.generated.mbti ffi/lambda/pkg.generated.mbti
+  git add lang/lambda/flat/versioned_flat_proj.mbt lang/lambda/flat/projection_memo.mbt lang/lambda/companion/lambda_editor.mbt ffi/lambda/lifecycle.mbt lang/lambda/flat/pkg.generated.mbti lang/lambda/companion/pkg.generated.mbti ffi/lambda/pkg.generated.mbti
   git commit -m "refactor(lambda): Memo→Derived sweep across projection + companion + FFI typecheck"
   ```
 
