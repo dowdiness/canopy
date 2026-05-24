@@ -31,6 +31,15 @@ pub fn LambdaCompanion::escalation_memo(
 }
 
 ///|
+/// Returns the current FlatProj, or `None` when the source is empty.
+///
+/// Abort semantics: `Derived::read_or_abort` panics only if the underlying
+/// cell has been disposed or participates in a reactive cycle. The Phase 1
+/// projection memo is a linear data flow (source_text → syntax_tree →
+/// flat_proj), so a cycle would indicate a structural bug; disposal can
+/// only happen after the owning editor has been destroyed. Callers that
+/// hold a live `LambdaCompanion` are therefore safe to treat the `None`
+/// branch as "empty source" rather than "graceful failure."
 pub fn LambdaCompanion::get_flat_proj(
   self : LambdaCompanion,
 ) -> @lambda_proj.FlatProj? {
