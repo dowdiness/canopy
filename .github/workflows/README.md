@@ -92,7 +92,6 @@ The `.github/dependabot.yml` file configures automatic dependency updates:
 - **GitHub Actions** - Weekly updates to workflow actions
 - **NPM (web)** - Weekly updates to web frontend dependencies
 - **NPM (examples/demo-react)** - Weekly updates to demo dependencies
-- **NPM (valtio)** - Weekly updates to valtio submodule dependencies
 
 Dependabot will create PRs for dependency updates, which will be tested by the CI workflow.
 

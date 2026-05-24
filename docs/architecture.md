@@ -50,12 +50,11 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 | Package | Role |
 |---------|------|
 | [`lib/btree/`](../lib/btree/) | Counted B+ tree, O(log n) position lookup |
-| [`lib/moji/`](../lib/moji/) | UAX #29 grapheme- and word-boundary segmentation |
 | [`lib/zipper/`](../lib/zipper/) | Rose-tree zipper |
-| [`lib/text-change/`](../lib/text-change/) | Text-mutation primitives |
+| [`lib/semantic/`](../lib/semantic/) | `Confidence[T]` lattice for merging multi-source annotations |
 
-[`lib/semantic/`](../lib/semantic/) (with `lib/semantic/proof/`) is in-tree but
-*not* a workspace member; it must be tested and proved separately.
+[`lib/semantic/proof/`](../lib/semantic/proof/) is a proof-enabled module and
+must be proved separately with Why3 and z3.
 
 ### Submodules
 
@@ -69,7 +68,6 @@ Submodules are independent repositories pulled in via path dependencies. See
 | `rle/` | Run-length encoded sequence |
 | `order-tree/` | Counted tree |
 | `graphviz/`, `svg-dsl/` | Visualisation in the inspector |
-| `valtio/` | JS state management glue |
 | `alga/` | Graph algebra |
 
 ## Key types and invariants

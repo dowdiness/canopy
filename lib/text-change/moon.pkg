@@ -1,7 +1,0 @@
-import {
-  "dowdiness/moji",
-}
-
-options(
-  is_main: false,
-)

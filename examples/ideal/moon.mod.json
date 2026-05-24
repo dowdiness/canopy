@@ -19,7 +19,7 @@
       "version": "0.1.0"
     },
     "dowdiness/text_change": {
-      "path": "../../lib/text-change",
+      "path": "../../loom/text-change",
       "version": "0.1.0"
     },
     "dowdiness/graphviz": {

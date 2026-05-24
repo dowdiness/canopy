@@ -67,8 +67,6 @@ pub(all) struct Edge {
 pub impl Show for Edge
 
 pub struct EdgeId(Int) derive(Eq, ToJson, @debug.Debug)
-#deprecated
-pub fn EdgeId::inner(Self) -> Int
 pub impl Show for EdgeId
 
 type EdgeJson derive(ToJson)
@@ -84,8 +82,6 @@ pub(all) struct InteractionState {
 pub impl Show for InteractionState
 
 pub struct NodeId(Int) derive(Eq, ToJson, @debug.Debug)
-#deprecated
-pub fn NodeId::inner(Self) -> Int
 pub impl Show for NodeId
 
 type NodeJson derive(ToJson)

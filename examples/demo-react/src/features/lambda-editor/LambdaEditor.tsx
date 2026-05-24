@@ -1,7 +1,6 @@
 // LambdaEditor Component
 //
 // A React component that uses the MoonBit CRDT via the EditorProtocol.
-// Replaces the Valtio proxy pattern with direct CRDT calls.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useProtocolEditor, Toolbar, StatusBar } from '../editor';

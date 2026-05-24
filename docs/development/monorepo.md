@@ -13,10 +13,8 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── lang/{lambda,json,markdown}/
 ├── llm/  echo/  cmd/main/       monorepo packages
 ├── lib/btree/                   workspace member, in-tree library
-├── lib/moji/                    workspace member, in-tree library
 ├── lib/zipper/                  workspace member, in-tree library
-├── lib/text-change/             workspace member, in-tree library
-├── lib/semantic/                in-tree library (NOT a workspace member)
+├── lib/semantic/                workspace member, in-tree library
 ├── adapters/editor-adapter/     in-tree TypeScript adapter package
 ├── examples/                    in-tree example apps (web, ideal, …)
 │
@@ -26,8 +24,8 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── order-tree/                  submodule
 ├── graphviz/                    submodule
 ├── svg-dsl/                     submodule
-├── valtio/                      submodule
-└── alga/                        submodule
+├── alga/                        submodule
+└── rabbita/                     submodule
 ```
 
 ## Workspace members
@@ -36,19 +34,25 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 
 ```
 .                  (the canopy module)
-./lib/text-change
 ./lib/zipper
 ./lib/btree
-./lib/moji
+./lib/rabbita_codemirror
+./lib/dom-boundary
+./lib/visualizer
+./lib/semantic
+./examples/ideal
+./examples/block-editor
+./examples/canvas
+./examples/codemirror_demo
 ```
 
 `moon test`, `moon check`, `moon fmt`, etc. at the repo root run against all
-five. Everything else (submodules, `lib/semantic`, `examples/*`) is a separate
-MoonBit module and needs its own `moon` invocation.
+listed members. Everything else (submodules and non-member examples) is a
+separate MoonBit module and needs its own `moon` invocation.
 
 ## Path dependencies
 
-The root `moon.mod.json` references 14 path-based dependencies. The current
+The root `moon.mod.json` references 13 path-based dependencies. The current
 list is in `moon.mod.json`; below is a summary of where each lives:
 
 | Dependency | Path |
@@ -56,7 +60,7 @@ list is in `moon.mod.json`; below is a summary of where each lives:
 | `dowdiness/event-graph-walker` | `./event-graph-walker` (submodule) |
 | `dowdiness/loom` | `./loom/loom` (submodule) |
 | `dowdiness/seam` | `./loom/seam` (submodule) |
-| `dowdiness/incr` | `./loom/incr` (submodule) |
+| `dowdiness/incr` | `0.5.2` (registry) |
 | `dowdiness/pretty` | `./loom/pretty` (submodule) |
 | `dowdiness/egglog` | `./loom/egglog` (submodule) |
 | `dowdiness/egraph` | `./loom/egraph` (submodule) |
@@ -64,11 +68,11 @@ list is in `moon.mod.json`; below is a summary of where each lives:
 | `dowdiness/json` | `./loom/examples/json` (submodule example module) |
 | `dowdiness/markdown` | `./loom/examples/markdown` (submodule example module) |
 | `dowdiness/order-tree` | `./order-tree` (submodule) |
-| `dowdiness/text_change` | `./lib/text-change` (in-tree workspace member) |
+| `dowdiness/text_change` | `./loom/text-change` (loom submodule member) |
 | `dowdiness/zipper` | `./lib/zipper` (in-tree workspace member) |
-| `dowdiness/moji` | `./lib/moji` (in-tree workspace member) |
+| `dowdiness/moji` | `./loom/moji` (loom submodule member) |
 
-`svg-dsl`, `graphviz`, `valtio`, and `alga` submodules are *not* root path
+`svg-dsl`, `graphviz`, `rabbita`, and `alga` submodules are *not* root path
 dependencies — they are consumed by frontends or by other submodules.
 
 ## Setup
@@ -146,6 +150,8 @@ cd event-graph-walker && moon test
 cd loom/loom          && moon test
 cd loom/seam          && moon test
 cd loom/incr          && moon test
+cd loom/text-change   && moon test
+cd loom/moji          && moon test
 cd loom/pretty        && moon test
 cd loom/egglog        && moon test
 cd loom/egraph        && moon test
@@ -157,17 +163,12 @@ cd graphviz  && moon test
 cd rle       && moon test
 cd order-tree && moon test
 cd alga      && moon test
-cd valtio    && moon test
 ```
 
-Non-workspace in-tree modules:
+Proof modules:
 
 ```sh
-cd lib/semantic       && moon test
 cd lib/semantic/proof && moon prove   # needs Why3 + z3
-cd examples/ideal        && moon test
-cd examples/block-editor && moon test
-cd examples/canvas       && moon test
 ```
 
 The canonical fan-out (subset of the above) is in `.github/workflows/ci.yml`.
@@ -182,8 +183,8 @@ The canonical fan-out (subset of the above) is in `.github/workflows/ci.yml`.
 | `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | Counted/order-statistic tree |
 | `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | Graphviz renderer for the inspector |
 | `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | SVG DSL |
-| `valtio/` | [dowdiness/valtio](https://github.com/dowdiness/valtio) | JS state management glue |
 | `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | Graph algebra |
+| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | Elm-style UI runtime and bindings |
 
 ## Why submodules
 

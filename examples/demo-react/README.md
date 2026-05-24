@@ -1,14 +1,14 @@
-# Lambda CRDT Editor - React + Valtio Demo
+# Lambda CRDT Editor - React Demo
 
-A demonstration of integrating React with the MoonBit Valtio FFI module (`valtio-egwalker`).
+A demonstration of integrating React with Canopy's MoonBit EditorProtocol FFI.
 
-Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo. Depends on the [valtio](../../valtio/) and [event-graph-walker](../../event-graph-walker/) submodules.
+Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo. Depends on the root MoonBit JS build and the [event-graph-walker](../../event-graph-walker/) submodule.
 
 ## Features
 
 - **React 19** - Modern React with hooks
-- **Valtio** - Proxy-based state management with `useSnapshot`
-- **valtio-egwalker** - MoonBit Valtio FFI integration
+- **EditorProtocol** - Handle-based API exposed by Canopy's MoonBit FFI
+- **eg-walker** - CRDT-backed text state with undo/redo and sync export
 - **TypeScript** - Full type safety
 - **Vite** - Fast development server
 
@@ -18,7 +18,7 @@ Make sure you cloned the monorepo with submodules:
 
 ```bash
 git clone --recursive https://github.com/dowdiness/canopy.git
-cd crdt/examples/demo-react
+cd canopy/examples/demo-react
 npm install
 npm run dev
 ```
@@ -30,102 +30,72 @@ Open http://localhost:5174 in your browser.
 ```
 examples/demo-react/
 ├── src/
-│   ├── main.tsx           # Entry point
-│   ├── App.tsx            # Root component
-│   ├── styles.css         # Global styles
-│   └── components/
-│       ├── LambdaEditor.tsx      # Main editor using valtio-egwalker
-│       ├── Toolbar.tsx           # Undo/redo toolbar
-│       ├── StatusBar.tsx         # Status display
-│       └── CollaborativeDemo.tsx # Two-editor demo
+│   ├── main.tsx                 # Entry point
+│   ├── App.tsx                  # Root component
+│   ├── styles.css               # Global styles
+│   ├── features/editor/         # Typed wrapper around the MoonBit FFI
+│   ├── features/lambda-editor/  # Single-editor UI
+│   └── features/collaborative/  # Two-editor demo
 ├── index.html
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
 ```
 
-## Using valtio-egwalker
+## Using the MoonBit FFI
 
-This demo uses the MoonBit Valtio FFI module directly:
+The demo imports a typed wrapper around the generated MoonBit JS module:
 
 ```typescript
-import { createEgWalkerProxy, type TextState } from 'valtio-egwalker/stub';
-import { useSnapshot } from 'valtio';
+import { EditorHandle, getCrdtModule } from './features/editor/crdt-api';
 
-// Create CRDT-backed proxy
-const egwalker = createEgWalkerProxy<TextState>({
-  agentId: 'user-123',
-  undoManager: true,
-});
+const editor = new EditorHandle(getCrdtModule(), 'user-123');
 
-// In React component:
-function Editor() {
-  // Read from snapshot (reactive)
-  const snap = useSnapshot(egwalker.proxy, { sync: true });
-
-  return (
-    <textarea
-      value={snap.text}
-      onChange={(e) => {
-        // Mutate proxy directly
-        egwalker.proxy.text = e.target.value;
-      }}
-    />
-  );
-}
+editor.setTextAndRecord('(\\x. x) y');
+const text = editor.getText();
 ```
 
 ### Key Patterns
 
-1. **Read from snapshot, mutate proxy**
+1. **Keep React state at the UI boundary**
    ```typescript
-   const snap = useSnapshot(egwalker.proxy);
-   // Read: snap.text
-   // Write: egwalker.proxy.text = newValue
+   const [text, setText] = useState(editor.getText());
+   editor.setTextAndRecord(nextText);
+   setText(editor.getText());
    ```
 
-2. **Use `{ sync: true }` for controlled inputs**
-   ```typescript
-   const snap = useSnapshot(egwalker.proxy, { sync: true });
-   ```
-
-3. **Cleanup on unmount**
+2. **Cleanup handles on unmount**
    ```typescript
    useEffect(() => {
-     return () => egwalker.dispose();
-   }, [egwalker]);
+     return () => editor.destroy();
+   }, [editor]);
    ```
 
-4. **Undo/Redo**
+3. **Undo/Redo**
    ```typescript
-   egwalker.undo();
-   egwalker.redo();
+   editor.undo();
+   editor.redo();
    ```
 
-## Stub vs Production
+## Stub vs MoonBit Build
 
-### Development (Stub)
-```typescript
-import { createEgWalkerProxy } from 'valtio-egwalker/stub';
-```
-Uses a JavaScript mock implementation - no MoonBit build required.
+`vite.config.ts` resolves `@moonbit/crdt` to the generated JS artifact when it
+exists. If the MoonBit build has not run yet, it falls back to the in-memory
+stub module under `src/features/editor/`.
 
-### Production (MoonBit)
-```typescript
-import { createEgWalkerProxy } from 'valtio-egwalker';
-```
-Requires building MoonBit: `cd ../../valtio && moon build --target js`
+Run `npm run build:all` to build MoonBit first and then bundle the React app.
 
 ## Vite Configuration
 
-The demo uses path aliases to resolve the valtio-egwalker module from the monorepo:
+The demo uses a path alias to resolve the generated MoonBit module:
 
 ```typescript
 // vite.config.ts
 resolve: {
   alias: {
-    'valtio-egwalker/stub': path.resolve(__dirname, '../../valtio/src/egwalker_api_stub.ts'),
-    'valtio-egwalker': path.resolve(__dirname, '../../valtio/src/egwalker_api.ts'),
+    '@moonbit/crdt': hasMoonbitBuild
+      ? moonbitBuildPath
+      : path.resolve(__dirname, 'src/features/editor/crdt-stub-module.ts'),
   },
 },
 ```

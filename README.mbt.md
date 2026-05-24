@@ -59,7 +59,7 @@ Requires [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://
 git clone --recursive https://github.com/dowdiness/canopy.git
 cd canopy
 
-# Workspace-root tests (canopy + lib/text-change, lib/zipper, lib/btree, lib/moji).
+# Workspace-root tests (canopy + in-tree workspace members).
 # Submodules (event-graph-walker, loom, etc.) and example modules have their own
 # test suites; see docs/development/monorepo.md for the full fan-out.
 moon test
@@ -123,17 +123,14 @@ practical.
 
 **Workspace members** (built by `moon test` at the repo root, per `moon.work`):
 
-`./` (canopy), `./lib/text-change`, `./lib/zipper`, `./lib/btree`, `./lib/moji`.
-
-`./lib/semantic` is also in-tree but is not a workspace member; run its tests
-separately.
+`./` (canopy), `./lib/zipper`, `./lib/btree`, `./lib/rabbita_codemirror`,
+`./lib/dom-boundary`, `./lib/visualizer`, `./lib/semantic`, and selected
+examples.
 
 | Library | Purpose |
 |---------|---------|
 | [lib/btree/](lib/btree/) | Counted B+ tree with O(log n) position-indexed access |
-| [lib/moji/](lib/moji/) | Unicode UAX #29 grapheme- and word-boundary segmentation |
 | [lib/zipper/](lib/zipper/) | Rose-tree zipper |
-| [lib/text-change/](lib/text-change/) | Text-mutation primitives |
 | [lib/semantic/](lib/semantic/) | `Confidence[T]` lattice for merging multi-source annotations |
 
 **Git submodules** (separately owned repositories):
@@ -141,12 +138,11 @@ separately.
 | Path | Repository | Role |
 |------|------------|------|
 | [event-graph-walker/](event-graph-walker/) | `dowdiness/event-graph-walker` | CRDT engine (eg-walker + FugueMax) |
-| [loom/](loom/) | `dowdiness/loom` | Incremental parser framework, CST library, reactive signals, pretty-printer |
+| [loom/](loom/) | `dowdiness/loom` | Incremental parser framework, CST library, reactive signals, pretty-printer, text-change and Unicode segmentation utilities |
 | [rle/](rle/) | `dowdiness/rle` | Run-length encoded sequence |
 | [order-tree/](order-tree/) | `dowdiness/order-tree` | Counted/order-statistic tree |
 | [graphviz/](graphviz/) | `dowdiness/graphviz` | Graphviz renderer (used in the inspector) |
 | [svg-dsl/](svg-dsl/) | `dowdiness/svg-dsl` | SVG DSL |
-| [valtio/](valtio/) | `dowdiness/valtio` | JS state management glue |
 | [alga/](alga/) | `dowdiness/alga` | Graph algebra |
 
 **Examples:**

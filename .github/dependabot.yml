@@ -36,13 +36,3 @@ updates:
     labels:
       - "dependencies"
       - "npm"
-
-  # Valtio submodule dependencies (if it has package.json)
-  - package-ecosystem: "npm"
-    directory: "/valtio"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "submodule"

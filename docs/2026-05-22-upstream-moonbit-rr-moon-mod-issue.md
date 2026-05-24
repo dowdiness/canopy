@@ -41,7 +41,8 @@ moon.mod only supports versioned registry dependencies in `import`, found `dowdi
 
 A versioned form (`"dowdiness/loom@0.1.0"`) only resolves if the target is also listed in `moon.work` `members`. The migration tool doesn't promote path-deps into `moon.work`. I also tried inline-table forms on `import {}` (`{ path = "..." }`, `path "..."`) and the lexer rejected all of them.
 
-**Cross-repo path-deps have no fix.** My `loom/loom/moon.mod.json` reaches into canopy's `lib/` from inside a git submodule:
+**Cross-repo path-deps have no fix.** Before loom#149, `loom/loom/moon.mod.json`
+reached into canopy's `lib/` from inside a git submodule:
 
 ```json
 "dowdiness/text_change": { "path": "../../lib/text-change" }

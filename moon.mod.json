@@ -10,11 +10,11 @@
       "version": "0.3.0"
     },
     "dowdiness/text_change": {
-      "path": "./lib/text-change",
+      "path": "./loom/text-change",
       "version": "0.1.0"
     },
     "dowdiness/moji": {
-      "path": "./lib/moji",
+      "path": "./loom/moji",
       "version": "0.1.0"
     },
     "dowdiness/incr": "0.5.2",

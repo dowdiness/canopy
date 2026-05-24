@@ -1,6 +1,6 @@
 // EditorPanel — a single agent's editor within the collaborative demo.
 //
-// Uses the protocol-based CRDT editor instead of Valtio proxy.
+// Uses the protocol-based CRDT editor.
 // Local sync: reads/writes shared text store.
 // WebSocket sync: uses CRDT export/apply for real sync (when available).
 

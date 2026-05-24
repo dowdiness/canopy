@@ -1,10 +1,10 @@
 // Empty-paragraph sentinel wiring for the markdown editor.
 //
 // Sources the sentinel codepoint from the MoonBit FFI bundle so this file
-// and `lang/markdown/sentinel/` + `lib/moji/codepoints.mbt` agree by
+// and `lang/markdown/sentinel/` + `loom/moji/codepoints.mbt` agree by
 // construction. The build graph routes:
 //
-//   lib/moji/codepoints.mbt           (canonical const: ZERO_WIDTH_SPACE)
+//   loom/moji/codepoints.mbt          (canonical const: ZERO_WIDTH_SPACE)
 //     → lang/markdown/sentinel/       (role-name layer: EMPTY_PARAGRAPH_SENTINEL)
 //       → ffi/markdown/markdown_ffi   (JS export: markdown_empty_paragraph_sentinel)
 //         → @moonbit/crdt-markdown    (Vite virtual module)
