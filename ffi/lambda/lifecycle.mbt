@@ -45,7 +45,7 @@ fn new_typecheck_bundle(
   // over empty input; if downstream stages ever become fallible here,
   // create_editor aborts instead of the FFI consumer receiving an empty
   // diagnostics result.
-  let _ = observer.get()
+  let _prime = observer.get()
   { scope, observer }
 }
 
