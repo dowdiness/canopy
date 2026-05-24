@@ -10,11 +10,17 @@ priv struct LambdaHandle {
 }
 
 ///|
-/// Typecheck pipeline memos; `scope` disposal only — the underlying
+/// Typecheck pipeline cells; `scope` disposal only — the underlying
 /// `Runtime` is owned by the editor's `Parser`.
+///
+/// `observer` is both the read path and the GC anchor: Scope membership
+/// alone does not register the underlying Derived's cell as a `gc_root`,
+/// so without a persistent Observer the entire typecheck cone would be
+/// eligible for sweep on any future `Runtime::gc()`. Mirrors loom-side
+/// `TypecheckAttachment` in `examples/lambda/src/typed_parser.mbt`.
 priv struct TypecheckBundle {
   scope : @cells.Scope
-  output : @cells.Memo[@typecheck.ModuleTypeResult]
+  observer : @cells.Observer[@typecheck.ModuleTypeResult]
 }
 
 ///|
@@ -28,7 +34,19 @@ fn new_typecheck_bundle(
     label="lambda-typed-term",
   )
   let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)
-  { scope, output }
+  let observer = scope.add_observer(output.observe())
+  // Prime the closure so `gc_dependencies` is populated before any gc cycle
+  // could run — Observer alone is insufficient until the Memo has computed
+  // once (see `feedback-incr-gc-anchor-needs-priming`).
+  //
+  // Side effect: this makes `create_editor` the failure boundary for any
+  // typecheck panic, not `get_diagnostics_json`. Currently benign because a
+  // freshly-created editor has an empty document and the pipeline is total
+  // over empty input; if downstream stages ever become fallible here,
+  // create_editor aborts instead of the FFI consumer receiving an empty
+  // diagnostics result.
+  let _ = observer.get()
+  { scope, observer }
 }
 
 ///|

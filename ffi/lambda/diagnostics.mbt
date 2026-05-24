@@ -48,12 +48,7 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       // the AST is incomplete and type errors would just be noise on top of
       // the parse error.
       if parse_errors.is_empty() {
-        // typecheck.output is built by loom-lambda's `build_typecheck_pipeline`
-        // which still returns @incr.Memo. Use a one-shot Observer until that
-        // function is migrated to publish @incr.Derived.
-        let obs = h.typecheck.output.observe()
-        let result = obs.get()
-        obs.dispose()
+        let result = h.typecheck.observer.get()
         for diag in result.all_diagnostics {
           let m : Map[String, Json] = {}
           m["level"] = "error".to_json()
