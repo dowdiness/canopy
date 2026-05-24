@@ -29,7 +29,7 @@ fn new_typecheck_bundle(
   syntax_tree : @cells.Derived[@seam.SyntaxNode],
 ) -> TypecheckBundle {
   let scope = @cells.Scope::new(rt)
-  let typed_term_memo : @cells.Memo[@typecheck.TypedTerm] = scope.memo(
+  let typed_term_memo : @cells.Derived[@typecheck.TypedTerm] = scope.derived(
     fn() { @typecheck.convert_from_cst(syntax_tree.get_or_abort()) },
     label="lambda-typed-term",
   )

@@ -9,7 +9,7 @@
 pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
 ) -> (
-  @incr.Memo[VersionedFlatProj],
+  @incr.Derived[VersionedFlatProj],
   @incr.Derived[@core.ProjNode[@ast.Term]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
   @incr.Derived[@core.SourceMap],
@@ -31,7 +31,7 @@ pub fn build_lambda_projection_memos(
   let proj_revision_ref : Ref[Int] = Ref(0)
   let proj_changed_at_ref : Ref[@incr.Revision] = Ref(@incr.Revision::initial())
 
-  let proj_memo : @incr.Memo[VersionedFlatProj] = @incr.Memo::new_memo(
+  let proj_memo : @incr.Derived[VersionedFlatProj] = @incr.Derived::Derived(
     rt,
     fn() -> VersionedFlatProj {
       if source_text.get_or_abort() == "" {
@@ -126,7 +126,7 @@ pub fn build_lambda_projection_memos(
   let cached_proj_node : @incr.Derived[@core.ProjNode[@ast.Term]?] = @incr.Derived::Derived(
     rt,
     fn() -> @core.ProjNode[@ast.Term]? {
-      match proj_memo.get().proj {
+      match proj_memo.get_or_abort().proj {
         Some(fp) => {
           let counter = Ref(next_id_ref.val)
           let proj = fp.to_proj_node_with_prev_module_id(

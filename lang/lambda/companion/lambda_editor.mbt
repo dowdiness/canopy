@@ -6,11 +6,7 @@
 /// Holds lambda-specific memos alongside a generic SyncEditor.
 /// The FFI layer stores this alongside the editor.
 pub struct LambdaCompanion {
-  // proj_memo stays @incr.Memo[VersionedFlatProj] because VersionedFlatProj
-  // uses BackdateEq (O(1) revision comparison) and the target facade Derived
-  // exposes only standard Eq backdating, which would trigger full structural
-  // equality on FlatProj on every recompute.
-  priv proj_memo : @incr.Memo[@lambda_flat.VersionedFlatProj]
+  priv proj_memo : @incr.Derived[@lambda_flat.VersionedFlatProj]
   // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
@@ -20,10 +16,7 @@ pub struct LambdaCompanion {
 pub fn LambdaCompanion::get_flat_proj(
   self : LambdaCompanion,
 ) -> @lambda_proj.FlatProj? {
-  let obs = self.proj_memo.observe()
-  let v = obs.get().proj
-  obs.dispose()
-  v
+  self.proj_memo.read_or_abort().proj
 }
 
 ///|
@@ -100,7 +93,7 @@ pub fn new_lambda_editor(
   // Ref side-channels let the build_memos callback publish extra memos
   // (beyond the 3-tuple SyncEditor expects) back out to the enclosing
   // scope for companion construction + capabilities wiring.
-  let proj_memo_ref : Ref[@incr.Memo[@lambda_flat.VersionedFlatProj]?] = Ref(
+  let proj_memo_ref : Ref[@incr.Derived[@lambda_flat.VersionedFlatProj]?] = Ref(
     None,
   )
   let escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?] = Ref(

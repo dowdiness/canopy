@@ -7,27 +7,13 @@
 /// the FlatProj content actually changes (proven in projection_memo.mbt
 /// where `has_changes` gates `proj_changed_at_ref.val.next()` at
 /// line 110-112). Custom `Eq` compares only `changed_at`, giving O(1)
-/// equality semantics matched to the backdating discipline used by
-/// `@incr.Derived` (memo.mbt:485 / facade.mbt:145).
-///
-/// During §P0b Phase 1 the `Memo[VersionedFlatProj]` path in
-/// projection_memo.mbt still requires `BackdateEq`/`HasChangedAt`; both
-/// impls live alongside `Eq` until PR2.4 migrates that memo to
-/// `Derived[VersionedFlatProj]` and removes the legacy impls.
+/// equality semantics matched to `@incr.Derived[T : Eq]`.
 pub(all) struct VersionedFlatProj {
   proj : @lambda_proj.FlatProj?
   changed_at : @incr.Revision
 }
 
 ///|
-pub impl Eq for VersionedFlatProj with equal(self, other) {
+pub impl Eq for VersionedFlatProj with fn equal(self, other) {
   self.changed_at == other.changed_at
 }
-
-///|
-pub impl @incr.HasChangedAt for VersionedFlatProj with fn changed_at(self) -> @incr.Revision {
-  self.changed_at
-}
-
-///|
-pub impl @incr.BackdateEq for VersionedFlatProj
