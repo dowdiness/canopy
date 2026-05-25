@@ -34,6 +34,21 @@ pub fn CognitionStore::set_input(
   self.bump_revision(key)
   self.dirty.remove(key)
   let _ = self.dirty_dependents(key)
+  self.after_input_set(key)
+}
+
+///|
+fn CognitionStore::after_input_set(
+  self : CognitionStore,
+  key : CognitionKey,
+) -> Unit {
+  match key {
+    FileText(path) if self.values.contains(RepoSummary) => {
+      self.mark_dirty(FileSummary(path))
+      self.mark_dirty(RepoSummary)
+    }
+    _ => ()
+  }
 }
 
 ///|
