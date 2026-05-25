@@ -154,3 +154,83 @@ test "spec §12 #4: read_protected rejects cells from a different editor" {
   destroy_editor(handle_a)
   destroy_editor(handle_b)
 }
+
+///|
+/// Phase 1b workstream 1: `get_diagnostics_json` routes every protected-cell
+/// read (parser_diagnostics, typecheck_output, escalation_memo) through the
+/// coordinator. Each test below exercises one entry point — typecheck path
+/// and parse-error path — and asserts the post-destroy collapse to `"[]"`.
+test "workstream 1: get_diagnostics_json collapses to [] after coordinator destroy (typecheck path)" {
+  reset_coordinator_for_phase1_tests()
+  let handle = create_editor("diag_coord_typecheck_agent")
+  // `let x = y` parses cleanly but binds an unbound name, exercising the
+  // typecheck branch (parse_errors.is_empty() == true).
+  set_text(handle, "let x = y\n")
+  let alive_json = get_diagnostics_json(handle)
+  // Structural assertion — not just "non-empty". Proves the typecheck path
+  // produced a diagnostic with the expected unbound-name message AND that
+  // def_name routing is intact. Either substring missing means the
+  // migrated typecheck read is producing something different from the
+  // pre-migration baseline.
+  if not(alive_json.contains("unbound variable: y")) {
+    fail(
+      "expected typecheck diagnostic for unbound `y` on alive editor, got \{alive_json}",
+    )
+  }
+  if not(alive_json.contains("\"def_name\":\"x\"")) {
+    fail("expected def_name=\"x\" on alive editor, got \{alive_json}")
+  }
+  let h = lambda_handles.get(handle).unwrap()
+  let id = h.editor_id
+  match coordinator.destroy_editor(id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  match lambda_handles.get(handle) {
+    Some(_) => ()
+    None =>
+      fail(
+        "expected lambda_handles to retain handle after direct coordinator destroy",
+      )
+  }
+  // Post-destroy must collapse to "[]" via the Err arm of read_protected.
+  assert_eq(get_diagnostics_json(handle), "[]")
+  h.typecheck.scope.dispose()
+  lambda_handles.remove(handle)
+  view_states.remove(handle)
+  pretty_view_states.remove(handle)
+  if last_created_handle.val == Some(handle) {
+    last_created_handle.val = None
+  }
+}
+
+///|
+/// Companion to the typecheck-path test: parse-error sources go through
+/// `parser_diagnostics`, the first protected cell read. Without that cell
+/// also routing through the coordinator, a destroyed editor with stale
+/// parse errors would leak them to the accessor before the typecheck/eval
+/// guards fire.
+test "workstream 1: get_diagnostics_json collapses to [] after coordinator destroy (parse-error path)" {
+  reset_coordinator_for_phase1_tests()
+  let handle = create_editor("diag_coord_parse_agent")
+  // Trailing operator with no RHS — guaranteed parse error.
+  set_text(handle, "let x = 1 +\n")
+  let alive_json = get_diagnostics_json(handle)
+  if not(alive_json.contains("\"level\":\"error\"")) {
+    fail("expected parse-error diagnostic on alive editor, got \{alive_json}")
+  }
+  let h = lambda_handles.get(handle).unwrap()
+  let id = h.editor_id
+  match coordinator.destroy_editor(id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(get_diagnostics_json(handle), "[]")
+  h.typecheck.scope.dispose()
+  lambda_handles.remove(handle)
+  view_states.remove(handle)
+  pretty_view_states.remove(handle)
+  if last_created_handle.val == Some(handle) {
+    last_created_handle.val = None
+  }
+}

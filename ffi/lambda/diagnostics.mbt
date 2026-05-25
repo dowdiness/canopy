@@ -36,31 +36,61 @@ pub fn get_errors_json(handle : Int) -> String {
 pub fn get_diagnostics_json(handle : Int) -> String {
   match lambda_handles.get(handle) {
     Some(h) => {
+      // Read every protected cell this accessor depends on up front; any
+      // Err collapses the whole accessor to "[]". Partial diagnostics from a
+      // coordinator-destroyed editor would be worse than empty, and
+      // CellNotInProtectedSurface / CycleDetected are structural defects we
+      // do not want to render as authoritative output.
+      let parse_diag_set = match
+        coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
+        Ok(d) => d
+        Err(report) => {
+          println("get_diagnostics_json parser read: \{report}")
+          return "[]"
+        }
+      }
+      let parse_errors = parse_diag_set.format()
+      // Typecheck only meaningful if parsing succeeded; otherwise the AST
+      // is incomplete and type errors would just be noise on top of the
+      // parse error.
+      let typecheck_diags = if parse_errors.is_empty() {
+        match
+          coordinator.read_protected(h.editor_id, h.cells.typecheck_output) {
+          Ok(result) => result.all_diagnostics
+          Err(report) => {
+            println("get_diagnostics_json typecheck read: \{report}")
+            return "[]"
+          }
+        }
+      } else {
+        []
+      }
+      let eval_results = match
+        coordinator.read_protected(h.editor_id, h.cells.escalation_memo) {
+        Ok(r) => r
+        Err(report) => {
+          println("get_diagnostics_json eval read: \{report}")
+          return "[]"
+        }
+      }
       let diags : Array[Json] = []
-      let parse_errors = h.editor.get_errors()
       for msg in parse_errors {
         let m : Map[String, Json] = {}
         m["level"] = "error".to_json()
         m["message"] = msg.to_json()
         diags.push(Json::object(m))
       }
-      // Type diagnostics — only meaningful if parsing succeeded; otherwise
-      // the AST is incomplete and type errors would just be noise on top of
-      // the parse error.
-      if parse_errors.is_empty() {
-        let result = h.typecheck.output.read_or_abort()
-        for diag in result.all_diagnostics {
-          let m : Map[String, Json] = {}
-          m["level"] = "error".to_json()
-          m["message"] = diag.message.to_json()
-          match diag.def_name {
-            Some(name) => m["def_name"] = name.to_json()
-            None => ()
-          }
-          diags.push(Json::object(m))
+      for diag in typecheck_diags {
+        let m : Map[String, Json] = {}
+        m["level"] = "error".to_json()
+        m["message"] = diag.message.to_json()
+        match diag.def_name {
+          Some(name) => m["def_name"] = name.to_json()
+          None => ()
         }
+        diags.push(Json::object(m))
       }
-      for result in h.companion.get_eval_results() {
+      for result in eval_results {
         match result {
           @lang_lambda.EvalResult::Stuck(s) => {
             let m : Map[String, Json] = {}

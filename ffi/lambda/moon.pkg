@@ -19,10 +19,11 @@ import {
   "moonbitlang/core/string",
 }
 
-// `cells` field of LambdaHandle is read only by whitebox tests
-// (`lifecycle_phase1_wbtest.mbt` exercises `coordinator.read_protected(id,
-// h.cells.<cell>)`). Phase 1b will surface those reads in production FFI
-// accessors; until then suppress the source-only unused-field check.
+// `cells` field of LambdaHandle is read in production by `get_diagnostics_json`
+// (typecheck_output + escalation_memo, via Phase 1b workstream 1) and by
+// whitebox tests (`lifecycle_phase1_wbtest.mbt`) for the remaining 8 cells.
+// Until additional Phase 1b workstreams migrate the other production accessors,
+// per-field unused warnings still fire on the rest of `LambdaProtectedCells`.
 
 warnings = "-7"
 
