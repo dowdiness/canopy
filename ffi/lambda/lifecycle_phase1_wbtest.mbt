@@ -172,12 +172,12 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   // def_name routing is intact. Either substring missing means the
   // migrated typecheck read is producing something different from the
   // pre-migration baseline.
-  if not(alive_json.contains("unbound variable: y")) {
+  if !alive_json.contains("unbound variable: y") {
     fail(
       "expected typecheck diagnostic for unbound `y` on alive editor, got \{alive_json}",
     )
   }
-  if not(alive_json.contains("\"def_name\":\"x\"")) {
+  if !alive_json.contains("\"def_name\":\"x\"") {
     fail("expected def_name=\"x\" on alive editor, got \{alive_json}")
   }
   let h = lambda_handles.get(handle).unwrap()
@@ -216,7 +216,7 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   // Trailing operator with no RHS — guaranteed parse error.
   set_text(handle, "let x = 1 +\n")
   let alive_json = get_diagnostics_json(handle)
-  if not(alive_json.contains("\"level\":\"error\"")) {
+  if !alive_json.contains("\"level\":\"error\"") {
     fail("expected parse-error diagnostic on alive editor, got \{alive_json}")
   }
   let h = lambda_handles.get(handle).unwrap()
