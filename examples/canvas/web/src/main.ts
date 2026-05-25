@@ -63,6 +63,8 @@ let handle = -1;
 let rafPending = false;
 let lastState: RenderState | null = null;
 
+const isMacLike = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
 const world      = document.getElementById('world') as HTMLDivElement;
 const edgesSvg   = document.getElementById('edges') as unknown as SVGSVGElement;
@@ -357,7 +359,10 @@ let pointerDownNodeId = 0;
 let pointerUpAdditive = false;
 
 root.addEventListener('pointerdown', (e: PointerEvent) => {
-  if (e.button !== 0) return;
+  // macOS Ctrl+click is a secondary-click gesture but still reports button 0.
+  // Let the contextmenu handler own it without breaking Ctrl-additive
+  // selection on non-Mac platforms.
+  if (e.button !== 0 || (isMacLike && e.ctrlKey)) return;
   if (activePointerId !== -1) return;
   hideContextMenu();
   root.setPointerCapture(e.pointerId);

@@ -71,6 +71,12 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
     }
   });
 
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    });
+  });
   await page.goto('/');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(3);
@@ -78,6 +84,16 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   expect(runtimeErrors).toEqual([]);
 
   const source = outputHandle(page, 1);
+
+  const ctrlClickStart = await center(source, 'node 1 output handle');
+  await page.keyboard.down('Control');
+  await page.mouse.move(ctrlClickStart.x, ctrlClickStart.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.keyboard.up('Control');
+  await expect(pendingEdgePaths(page)).toHaveCount(0);
+  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   const cancelStart = await center(source, 'node 1 output handle');
   const cancelTarget = await canvasBackgroundPoint(page);
