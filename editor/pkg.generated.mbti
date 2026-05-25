@@ -381,6 +381,8 @@ pub struct ViewUpdateState {
   mut had_errors : Bool
 } derive(@debug.Debug)
 pub fn ViewUpdateState::ViewUpdateState() -> Self
+pub fn ViewUpdateState::set_had_errors(Self, Bool) -> Unit
+pub fn ViewUpdateState::set_previous(Self, @protocol.ViewNode?) -> Unit
 
 // Type aliases
 
