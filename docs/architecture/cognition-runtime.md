@@ -54,7 +54,6 @@ summaries are not recomputed when another file changes.
 
 ## Future artifact shapes
 
-Future cognition keys may include `SymbolSummary`, `DecisionLog`,
-`AgentMemory`, `BranchMemory`, and `StaleMemory`. Those should build on the
-same graph discipline: explicit inputs, explicit dependencies, revisions, and
-selective invalidation before any expensive AI work is introduced.
+Future cognition artifacts should build on the same graph discipline: explicit
+inputs, explicit dependencies, revisions, and selective invalidation before any
+expensive AI work is introduced.
