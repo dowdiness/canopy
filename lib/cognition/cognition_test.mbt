@@ -72,12 +72,13 @@ test "new FileSummary invalidates existing repo context" {
   let _ = store.compute(QueryContext("what changed?"))
 
   store.set_input(FileText("b.mbt"), Text("two"))
-  store.mark_dirty(FileSummary("b.mbt"))
   let recomputed = store.recompute_dirty()
 
   inspect(recomputed.contains(FileSummary("b.mbt")), content="true")
   inspect(recomputed.contains(RepoSummary), content="true")
   inspect(recomputed.contains(QueryContext("what changed?")), content="true")
+  let deps = store.dependencies_of(RepoSummary)
+  assert_true(deps.contains(FileSummary("b.mbt")))
 }
 
 ///|
