@@ -156,16 +156,17 @@ test "spec §12 #4: read_protected rejects cells from a different editor" {
 }
 
 ///|
-/// Phase 1b workstream 1: `get_diagnostics_json` routes every protected-cell
-/// read (parser_diagnostics, typecheck_output, escalation_memo) through the
-/// coordinator. Each test below exercises one entry point — typecheck path
-/// and parse-error path — and asserts the post-destroy collapse to `"[]"`.
-/// Empty-source guard regression check. Pre-migration,
+/// Phase 1b workstream 1 suite: `get_diagnostics_json` routes every
+/// protected-cell read (parser_diagnostics, typecheck_output,
+/// escalation_memo) through the coordinator. The three tests below cover
+/// empty-source, typecheck-path, and parse-error-path entry points.
+///
+/// Empty-source guard regression check: pre-migration,
 /// `h.editor.get_errors()` short-circuited to `[]` on empty doc text
 /// (editor/sync_editor_parser.mbt:108) before reading the parser
-/// diagnostics — empirically the parser produces spurious diagnostics
-/// on `""` source that must be suppressed. The migration must preserve
-/// that semantic at the FFI boundary; calling `parser_diagnostics.format()`
+/// diagnostics — empirically the parser produces spurious diagnostics on
+/// `""` source that must be suppressed. The migration preserves that
+/// semantic at the FFI boundary; calling `parser_diagnostics.format()`
 /// unconditionally would surface those spurious errors.
 test "workstream 1: get_diagnostics_json returns [] for empty source" {
   reset_coordinator_for_phase1_tests()
