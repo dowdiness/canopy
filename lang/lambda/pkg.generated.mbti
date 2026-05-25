@@ -7,6 +7,7 @@ import {
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/lang/lambda/eval",
+  "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
 }
 
@@ -21,7 +22,7 @@ pub fn get_lambda_dot_resolved(@editor.SyncEditor[@ast.Term]) -> String
 
 pub fn get_lambda_resolution(@editor.SyncEditor[@ast.Term]) -> @dowdiness/lambda.Resolution
 
-pub fn new_lambda_editor(String, capture_timeout_ms? : Int) -> (@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion)
+pub fn new_lambda_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion)
 
 pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
 

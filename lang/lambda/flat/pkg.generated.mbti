@@ -11,7 +11,7 @@ import {
 }
 
 // Values
-pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Memo[VersionedFlatProj], @cells.Derived[@core.ProjNode[@ast.Term]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Derived[@core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Derived[VersionedFlatProj], @cells.Derived[@core.ProjNode[@ast.Term]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Derived[@core.SourceMap])
 
 // Errors
 

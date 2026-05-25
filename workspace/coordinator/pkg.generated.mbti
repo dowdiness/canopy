@@ -1,0 +1,68 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/workspace/coordinator"
+
+import {
+  "dowdiness/incr/cells",
+  "dowdiness/incr/types",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum AbortKind {
+  EditorDestroyed
+  DestroyWhileDependedUpon
+  CellNotInProtectedSurface
+  CycleDetected
+  ProtectedCellDisposed
+} derive(Eq, @debug.Debug)
+pub impl Show for AbortKind
+
+pub(all) struct AbortReport {
+  kind : AbortKind
+  editor_id : EditorId
+  agent_id : String
+  cell_id : @types.CellId?
+  cell_label : String?
+  domain_tag : String?
+} derive(@debug.Debug)
+pub impl Show for AbortReport
+
+pub struct Coordinator {
+  // private fields
+}
+pub fn Coordinator::destroy_editor(Self, EditorId) -> Result[Unit, AbortReport]
+pub fn Coordinator::new() -> Self
+pub fn[T] Coordinator::read_protected(Self, EditorId, ProtectedCell[T]) -> Result[T, AbortReport]
+pub fn Coordinator::register_dep(Self, @types.CellId, EditorId, @types.CellId) -> Unit
+pub fn Coordinator::register_editor(Self, String, Array[ProtectedRead]) -> EditorId
+pub fn Coordinator::runtime(Self) -> @cells.Runtime
+pub fn Coordinator::unregister_dep(Self, @types.CellId, EditorId, @types.CellId) -> Unit
+
+pub(all) struct EditorId(Int) derive(Eq, Hash, @debug.Debug)
+pub impl Show for EditorId
+
+pub struct ProtectedCell[T] {
+  cell_id : @types.CellId
+  label : String
+  read : () -> Result[T, @types.CycleError]
+  is_disposed : () -> Bool
+  dispose : () -> Unit
+}
+pub fn[T] ProtectedCell::erase(Self[T]) -> ProtectedRead
+pub fn[T] ProtectedCell::from_derived(String, @cells.Derived[T]) -> Self[T]
+
+pub struct ProtectedRead {
+  cell_id : @types.CellId
+  label : String
+  is_disposed : () -> Bool
+  dispose : () -> Unit
+}
+
+// Type aliases
+
+// Traits
+

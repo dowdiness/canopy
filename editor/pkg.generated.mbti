@@ -326,6 +326,7 @@ pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T]
 pub fn[T] SyncEditor::parser_diagnostics(Self[T]) -> @cells.Derived[@dowdiness/loom/core.DiagnosticSet]
 pub fn[T] SyncEditor::parser_runtime(Self[T]) -> @cells.Runtime
+pub fn[T] SyncEditor::parser_source(Self[T]) -> @cells.Derived[String]
 pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Derived[@seam.SyntaxNode]
 pub fn[T : Eq] SyncEditor::redo(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
