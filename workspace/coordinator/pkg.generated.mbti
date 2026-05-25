@@ -52,6 +52,7 @@ pub struct ProtectedCell[T] {
   is_disposed : () -> Bool
   dispose : () -> Unit
 }
+pub fn[T] ProtectedCell::cell_id(Self[T]) -> @types.CellId
 pub fn[T] ProtectedCell::erase(Self[T]) -> ProtectedRead
 pub fn[T] ProtectedCell::from_derived(String, @cells.Derived[T]) -> Self[T]
 

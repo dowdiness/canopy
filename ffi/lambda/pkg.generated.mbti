@@ -4,7 +4,12 @@ package "dowdiness/canopy/ffi/lambda"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/lang/lambda/eval",
+  "dowdiness/canopy/lang/lambda/flat",
+  "dowdiness/canopy/workspace/coordinator",
   "dowdiness/lambda/ast",
+  "dowdiness/lambda/typecheck",
+  "dowdiness/seam",
   "moonbitlang/async/js_async",
 }
 
@@ -134,6 +139,19 @@ pub fn ws_set_status_callback(Int) -> Unit
 // Errors
 
 // Types and methods
+pub struct LambdaProtectedCells {
+  parser_syntax_tree : @coordinator.ProtectedCell[@seam.SyntaxNode]
+  parser_ast : @coordinator.ProtectedCell[@ast.Term]
+  parser_source : @coordinator.ProtectedCell[String]
+  parser_diagnostics : @coordinator.ProtectedCell[@dowdiness/loom/core.DiagnosticSet]
+  cached_proj_node : @coordinator.ProtectedCell[@dowdiness/canopy/core.ProjNode[@ast.Term]?]
+  registry_memo : @coordinator.ProtectedCell[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]]
+  source_map_memo : @coordinator.ProtectedCell[@dowdiness/canopy/core.SourceMap]
+  proj_memo : @coordinator.ProtectedCell[@flat.VersionedFlatProj]
+  escalation_memo : @coordinator.ProtectedCell[Array[@eval.EvalResult]]
+  typecheck_output : @coordinator.ProtectedCell[@typecheck.ModuleTypeResult]
+}
+pub fn LambdaProtectedCells::to_protected_reads(Self) -> Array[@coordinator.ProtectedRead]
 
 // Type aliases
 

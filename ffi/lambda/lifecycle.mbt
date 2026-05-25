@@ -1,26 +1,28 @@
-// Lambda editor FFI — lifecycle, text I/O, handle registry
-
-// Handle-based editor registry (supports multiple concurrent editors)
+// Lambda editor FFI — lifecycle, text I/O, handle registry.
+//
+// All editor construction funnels through `assemble_lambda_handle` so the
+// FFI ctors (`create_editor`, `create_editor_with_undo`) share one
+// `@incr.Runtime`, one atomic registration boundary, and one destroy
+// gateway. See docs/superpowers/specs/2026-05-24-p0b-phase1-skeleton-design.md
+// §8 and docs/superpowers/plans/2026-05-24-p0b-phase1-implementation.md §PR4.
 
 ///|
 priv struct LambdaHandle {
   editor : @editor.SyncEditor[@ast.Term]
   companion : @lang_lambda.LambdaCompanion
   typecheck : TypecheckBundle
+  editor_id : @workspace.EditorId
+  cells : LambdaProtectedCells
 }
 
 ///|
-/// Typecheck pipeline cells; `scope` disposal only — the underlying
-/// `Runtime` is owned by the editor's `Parser`.
-///
-/// `observer` is both the read path and the GC anchor: Scope membership
-/// alone does not register the underlying Derived's cell as a `gc_root`,
-/// so without a persistent Observer the entire typecheck cone would be
-/// eligible for sweep on any future `Runtime::gc()`. Mirrors loom-side
-/// `TypecheckAttachment` in `examples/lambda/src/typed_parser.mbt`.
+/// Typecheck pipeline cells. `scope` disposal handles owned per-def cells;
+/// rooting of `output` is the caller's responsibility — under §P0b Phase 1,
+/// `LambdaProtectedCells` constructs the `Watch` via
+/// `ProtectedCell::from_derived` (`protected_cells.mbt` `typecheck_output`).
 priv struct TypecheckBundle {
   scope : @cells.Scope
-  observer : @cells.Observer[@typecheck.ModuleTypeResult]
+  output : @cells.Derived[@typecheck.ModuleTypeResult]
 }
 
 ///|
@@ -34,29 +36,56 @@ fn new_typecheck_bundle(
     label="lambda-typed-term",
   )
   let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)
-  let observer = scope.add_observer(output.observe())
-  // Prime the closure so `gc_dependencies` is populated before any gc cycle
-  // could run — Observer alone is insufficient until the Memo has computed
-  // once (see `feedback-incr-gc-anchor-needs-priming`).
-  //
-  // Side effect: this makes `create_editor` the failure boundary for any
-  // typecheck panic, not `get_diagnostics_json`. Currently benign because a
-  // freshly-created editor has an empty document and the pipeline is total
-  // over empty input; if downstream stages ever become fallible here,
-  // create_editor aborts instead of the FFI consumer receiving an empty
-  // diagnostics result.
-  let _prime = observer.get()
-  { scope, observer }
+  { scope, output }
 }
+
+///|
+/// Process-global coordinator. Claimed once. Every FFI ctor goes through
+/// `assemble_lambda_handle`, which uses this instance so all editors share
+/// the same `@incr.Runtime` and the same atomic registration boundary.
+let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 
 ///|
 let lambda_handles : Map[Int, LambdaHandle] = Map::default()
 
 ///|
-let next_handle : Ref[Int] = { val: 1 }
+let last_created_handle : Ref[Int?] = { val: None }
 
 ///|
-let last_created_handle : Ref[Int?] = { val: None }
+/// Build a Lambda editor + companion + typecheck bundle on the shared
+/// runtime, then atomically register them with the coordinator. Returns
+/// the freshly-allocated `EditorId`. Aborting at any step leaves
+/// `lambda_handles` untouched (atomic-boundary observation, spec §8.3).
+fn assemble_lambda_handle(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+) -> @workspace.EditorId {
+  let (editor, companion) = @lang_lambda.new_lambda_editor(
+    agent_id,
+    capture_timeout_ms~,
+    parent_runtime=coordinator.runtime(),
+  )
+  let typecheck = new_typecheck_bundle(
+    editor.parser_runtime(),
+    editor.parser_syntax_tree(),
+  )
+  let cells = LambdaProtectedCells::LambdaProtectedCells(
+    editor, companion, typecheck,
+  )
+  let editor_id = coordinator.register_editor(
+    agent_id,
+    cells.to_protected_reads(),
+  )
+  lambda_handles[editor_id.0] = {
+    editor,
+    companion,
+    typecheck,
+    editor_id,
+    cells,
+  }
+  last_created_handle.val = Some(editor_id.0)
+  editor_id
+}
 
 ///|
 /// Get the most recently created editor for legacy MoonBit consumers.
@@ -85,37 +114,43 @@ pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
 }
 
 ///|
-/// Create a new SyncEditor instance.
-/// Returns a unique handle for this editor.
+/// Create a new SyncEditor instance. Returns a unique handle.
 pub fn create_editor(agent_id : String) -> Int {
-  let handle = next_handle.val
-  next_handle.val = handle + 1
-  let (editor, companion) = @lang_lambda.new_lambda_editor(agent_id)
-  lambda_handles[handle] = {
-    editor,
-    companion,
-    typecheck: new_typecheck_bundle(
-      editor.parser_runtime(),
-      editor.parser_syntax_tree(),
-    ),
-  }
-  last_created_handle.val = Some(handle)
-  handle
+  assemble_lambda_handle(agent_id).0
 }
 
 ///|
-/// Destroy an editor instance and free its resources.
+/// Destroy an editor instance and free its resources. The coordinator
+/// gateway refuses if workspace deps still reference the editor; in that
+/// case the FFI-side bookkeeping (lambda_handles entry, typecheck scope)
+/// is intentionally left intact so reads of cached state remain valid.
 pub fn destroy_editor(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
-    Some(h) => h.typecheck.scope.dispose()
-    None => ()
+  let h = match lambda_handles.get(handle) {
+    Some(v) => v
+    None => return
   }
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => {
+      // Phase 1: log + skip teardown so dep references remain valid.
+      // Phase 2 surfaces this to JS via a dedicated FFI error channel.
+      println("destroy_editor refused: \{report}")
+      return
+    }
+  }
+  // Remove FFI-side bookkeeping BEFORE disposing the typecheck scope. If
+  // scope.dispose ever raises (e.g., loom-side cleanup defect), the
+  // externally-visible state still reflects reality: the handle is gone,
+  // subsequent FFI calls on it return the empty/default fallback path. A
+  // leaked scope is observable only via incr-level inspection; a leaked
+  // lambda_handles entry would be observable as a phantom editor.
   lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
   }
+  h.typecheck.scope.dispose()
 }
 
 ///|

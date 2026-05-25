@@ -48,7 +48,7 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       // the AST is incomplete and type errors would just be noise on top of
       // the parse error.
       if parse_errors.is_empty() {
-        let result = h.typecheck.observer.get()
+        let result = h.typecheck.output.read_or_abort()
         for diag in result.all_diagnostics {
           let m : Map[String, Json] = {}
           m["level"] = "error".to_json()

@@ -1,10 +1,15 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda" @lang_lambda,
+  "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
+  "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/llm",
   "dowdiness/canopy/relay",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/workspace/coordinator" @workspace,
   "dowdiness/lambda/ast",
   "dowdiness/lambda/typecheck",
+  "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "dowdiness/incr/cells",
   "dowdiness/event-graph-walker/text",
@@ -13,6 +18,13 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
+
+// `cells` field of LambdaHandle is read only by whitebox tests
+// (`lifecycle_phase1_wbtest.mbt` exercises `coordinator.read_protected(id,
+// h.cells.<cell>)`). Phase 1b will surface those reads in production FFI
+// accessors; until then suppress the source-only unused-field check.
+
+warnings = "-7"
 
 options(
   link: {

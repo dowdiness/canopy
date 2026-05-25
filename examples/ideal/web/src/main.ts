@@ -325,9 +325,12 @@ function mountWhenReady(crdt: CrdtModule) {
 }
 
 function doMount(el: CanopyEditor, crdt: CrdtModule) {
-  // Reuse the editor MoonBit already created in init_model (handle = 1).
-  // Don't call create_editor_with_undo again — that would overwrite the singleton.
-  const handle = 1;
+  // Reuse the editor MoonBit already created in init_model. Under
+  // §P0b Phase 1 the coordinator-allocated EditorId starts at 0, so
+  // the first (and only) editor opened by init_model has handle 0.
+  // Don't call create_editor_with_undo again — that would overwrite
+  // the singleton.
+  const handle = 0;
   const roomId = getRoomId();
   canopyGlobal.__canopy_crdt_handle = handle;
   canopyGlobal.__canopy_trigger_autosave = triggerAutosave;

@@ -31,7 +31,8 @@ fn init_model() -> Model raise {
   let agent_id = js_get_agent_id()
   let agent_id = if agent_id == "" { "local" } else { agent_id }
   // Create the editor through the crdt module so it sets the singleton (editor.val).
-  // JS (main.ts) will reuse handle=1 instead of creating a second editor.
+  // JS (main.ts) reuses this handle instead of creating a second editor.
+  // Under §P0b Phase 1 the coordinator allocates EditorIds from 0.
   let _handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
   let companion = @ffi.get_lambda_companion().unwrap()

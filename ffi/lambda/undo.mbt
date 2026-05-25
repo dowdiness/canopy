@@ -8,22 +8,7 @@ pub fn create_editor_with_undo(
   agent_id : String,
   capture_timeout_ms : Int,
 ) -> Int {
-  let handle = next_handle.val
-  next_handle.val = handle + 1
-  let (editor, companion) = @lang_lambda.new_lambda_editor(
-    agent_id,
-    capture_timeout_ms~,
-  )
-  lambda_handles[handle] = {
-    editor,
-    companion,
-    typecheck: new_typecheck_bundle(
-      editor.parser_runtime(),
-      editor.parser_syntax_tree(),
-    ),
-  }
-  last_created_handle.val = Some(handle)
-  handle
+  assemble_lambda_handle(agent_id, capture_timeout_ms~).0
 }
 
 ///|

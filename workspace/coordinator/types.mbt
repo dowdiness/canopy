@@ -108,6 +108,14 @@ pub fn[T] ProtectedCell::from_derived(
 }
 
 ///|
+/// The cell's underlying `@incr.CellId`. Exposed for cross-package call
+/// sites that need to feed this id back into the coordinator (e.g.,
+/// `register_dep` from an FFI integration test).
+pub fn[T] ProtectedCell::cell_id(self : ProtectedCell[T]) -> @incr.CellId {
+  self.cell_id
+}
+
+///|
 /// Erase the typed read closure, producing a registration-ready record.
 pub fn[T] ProtectedCell::erase(self : ProtectedCell[T]) -> ProtectedRead {
   let c = self
