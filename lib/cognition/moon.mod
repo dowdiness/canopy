@@ -2,6 +2,10 @@ name = "dowdiness/cognition"
 
 version = "0.1.0"
 
+import {
+  "dowdiness/incr@0.6.0",
+}
+
 repository = "https://github.com/dowdiness/canopy"
 
 license = "Apache-2.0"

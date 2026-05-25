@@ -19,10 +19,13 @@ pub(all) enum CognitionKey {
 } derive(Compare, Eq, Hash, @debug.Debug)
 pub fn CognitionKey::label(Self) -> String
 
+type CognitionReactive
+
 pub(all) struct CognitionStore {
   // private fields
 }
 pub fn CognitionStore::compute(Self, CognitionKey) -> CognitionValue?
+pub fn CognitionStore::current_revision(Self) -> Revision
 pub fn CognitionStore::dependencies_of(Self, CognitionKey) -> Array[CognitionKey]
 pub fn CognitionStore::dependency_edges(Self) -> Array[Dependency]
 pub fn CognitionStore::dependents_of(Self, CognitionKey) -> Array[CognitionKey]

@@ -8,6 +8,25 @@ test "FileSummary depends on FileText" {
 }
 
 ///|
+test "revision clock is incr backed" {
+  let store = CognitionStore::new()
+  inspect(store.current_revision().to_int(), content="0")
+  store.set_input(FileText("a.mbt"), Text("hello"))
+  inspect(store.current_revision().to_int(), content="1")
+}
+
+///|
+test "dependency edge snapshot is incr backed" {
+  let store = CognitionStore::new()
+  store.set_input(FileText("a.mbt"), Text("hello"))
+  let _ = store.compute(FileSummary("a.mbt"))
+  let edges = store.dependency_edges()
+  assert_true(
+    edges.contains({ from: FileSummary("a.mbt"), input: FileText("a.mbt") }),
+  )
+}
+
+///|
 test "changing one FileText marks its FileSummary dirty" {
   let store = CognitionStore::new()
   store.set_input(FileText("a.mbt"), Text("hello"))

@@ -19,9 +19,10 @@ recomputation uses deterministic mock functions.
 The runtime is intentionally small and separate from the editor pipeline. It
 stores named workspace inputs and derived cognition artifacts, records the
 revision assigned to each stored artifact, and maintains both dependency and
-reverse-dependency edges. Reverse edges make invalidation cheap: when an input
-changes, all transitive dependents can be marked dirty without scanning every
-artifact.
+reverse-dependency edges. Store-wide revision and dependency-edge snapshots are
+backed by the existing `dowdiness/incr` runtime instead of a second incremental
+engine. Reverse edges make invalidation cheap: when an input changes, all
+transitive dependents can be marked dirty without scanning every artifact.
 
 The current implementation lives in `lib/cognition`; its generated package
 interface is the source of truth for concrete API names.

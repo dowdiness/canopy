@@ -7,19 +7,20 @@ pub(all) struct CognitionStore {
   priv reverse_dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv dirty : Map[CognitionKey, Bool]
   priv recompute_counts : Map[CognitionKey, Int]
-  priv mut next_revision : Int
+  priv reactive : CognitionReactive
 }
 
 ///|
 pub fn CognitionStore::new() -> CognitionStore {
+  let dependencies : Map[CognitionKey, Array[CognitionKey]] = Map::default()
   {
     values: Map::default(),
     revisions: Map::default(),
-    dependencies: Map::default(),
+    dependencies,
     reverse_dependencies: Map::default(),
     dirty: Map::default(),
     recompute_counts: Map::default(),
-    next_revision: 0,
+    reactive: CognitionReactive::CognitionReactive(dependencies),
   }
 }
 
@@ -96,21 +97,12 @@ pub fn CognitionStore::dependents_of(
 pub fn CognitionStore::dependency_edges(
   self : CognitionStore,
 ) -> Array[Dependency] {
-  let edges : Array[Dependency] = []
-  for from, inputs in self.dependencies {
-    for input in inputs {
-      edges.push({ from, input })
-    }
-  }
-  edges.sort_by(fn(a, b) {
-    let by_from = a.from.compare(b.from)
-    if by_from != 0 {
-      by_from
-    } else {
-      a.input.compare(b.input)
-    }
-  })
-  edges
+  self.reactive.dependency_edges()
+}
+
+///|
+pub fn CognitionStore::current_revision(self : CognitionStore) -> Revision {
+  self.reactive.current_revision()
 }
 
 ///|
@@ -195,8 +187,8 @@ fn CognitionStore::bump_revision(
   self : CognitionStore,
   key : CognitionKey,
 ) -> Unit {
-  self.next_revision += 1
-  self.revisions[key] = Revision(self.next_revision)
+  let revision = self.reactive.bump_revision()
+  self.revisions[key] = revision
 }
 
 ///|
@@ -278,6 +270,7 @@ fn CognitionStore::set_dependencies(
     }
     self.reverse_dependencies[input] = dependents
   }
+  self.reactive.bump_dependency_revision()
 }
 
 ///|
