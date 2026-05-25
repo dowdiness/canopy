@@ -10,7 +10,12 @@
 // See docs/superpowers/specs/2026-05-24-p0b-phase1-skeleton-design.md §8.1.
 
 ///|
-pub struct LambdaProtectedCells {
+/// Internal FFI assembly bundle. `priv` so the protected-surface shape
+/// stays an implementation detail — Phase 1b production accessors live
+/// in this same package and reach the fields directly. If a future
+/// cross-package consumer (e.g., a separate workspace introspection
+/// crate) needs the bundle, promote to `pub` then.
+priv struct LambdaProtectedCells {
   parser_syntax_tree : @workspace.ProtectedCell[@seam.SyntaxNode]
   parser_ast : @workspace.ProtectedCell[@ast.Term]
   parser_source : @workspace.ProtectedCell[String]
@@ -78,7 +83,7 @@ fn LambdaProtectedCells::LambdaProtectedCells(
 ///|
 /// Erase every typed cell to a registration-ready `ProtectedRead`. Order
 /// is stable; downstream consumers must not depend on order.
-pub fn LambdaProtectedCells::to_protected_reads(
+fn LambdaProtectedCells::to_protected_reads(
   self : LambdaProtectedCells,
 ) -> Array[@workspace.ProtectedRead] {
   [
