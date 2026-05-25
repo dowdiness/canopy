@@ -160,6 +160,22 @@ test "spec §12 #4: read_protected rejects cells from a different editor" {
 /// read (parser_diagnostics, typecheck_output, escalation_memo) through the
 /// coordinator. Each test below exercises one entry point — typecheck path
 /// and parse-error path — and asserts the post-destroy collapse to `"[]"`.
+/// Empty-source guard regression check. Pre-migration,
+/// `h.editor.get_errors()` short-circuited to `[]` on empty doc text
+/// (editor/sync_editor_parser.mbt:108) before reading the parser
+/// diagnostics — empirically the parser produces spurious diagnostics
+/// on `""` source that must be suppressed. The migration must preserve
+/// that semantic at the FFI boundary; calling `parser_diagnostics.format()`
+/// unconditionally would surface those spurious errors.
+test "workstream 1: get_diagnostics_json returns [] for empty source" {
+  reset_coordinator_for_phase1_tests()
+  let handle = create_editor("diag_empty_agent")
+  // `create_editor` produces an editor with empty source — no `set_text`.
+  assert_eq(get_diagnostics_json(handle), "[]")
+  destroy_editor(handle)
+}
+
+///|
 test "workstream 1: get_diagnostics_json collapses to [] after coordinator destroy (typecheck path)" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("diag_coord_typecheck_agent")

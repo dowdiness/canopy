@@ -41,15 +41,25 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       // coordinator-destroyed editor would be worse than empty, and
       // CellNotInProtectedSurface / CycleDetected are structural defects we
       // do not want to render as authoritative output.
-      let parse_diag_set = match
-        coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
-        Ok(d) => d
-        Err(report) => {
-          println("get_diagnostics_json parser read: \{report}")
-          return "[]"
+      //
+      // Empty-source guard: mirrors the suppression that lived in
+      // `SyncEditor::get_errors` (editor/sync_editor_parser.mbt:108-110)
+      // before this migration replaced that call. Reading
+      // `parser_diagnostics.format()` directly on an empty doc could
+      // surface spurious parser output that consumers (JS panel rendering)
+      // were never previously exposed to.
+      let parse_errors : Array[String] = if h.editor.get_text() == "" {
+        []
+      } else {
+        match
+          coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
+          Ok(d) => d.format()
+          Err(report) => {
+            println("get_diagnostics_json parser read: \{report}")
+            return "[]"
+          }
         }
       }
-      let parse_errors = parse_diag_set.format()
       // Typecheck only meaningful if parsing succeeded; otherwise the AST
       // is incomplete and type errors would just be noise on top of the
       // parse error.
