@@ -32,6 +32,9 @@ the files inside `docs/architecture/`.
 - **[Incremental Evaluation](incremental-evaluation.md)** — framework for
   evaluating the query-based incremental architecture; 15 criteria and when to
   re-evaluate.
+- **[Cognition Runtime](cognition-runtime.md)** — minimal incremental graph for
+  AI coding context artifacts: dependencies, revisions, dirty propagation, and
+  selective recomputation.
 
 ## Vision
 

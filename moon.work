@@ -6,6 +6,7 @@ members = [
   "./lib/dom-boundary",
   "./lib/visualizer",
   "./lib/semantic",
+  "./lib/cognition",
   "./examples/ideal",
   "./examples/block-editor",
   "./examples/canvas",

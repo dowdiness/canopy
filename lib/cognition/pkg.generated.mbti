@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/cognition"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn demo_trace() -> Array[String]
+
+// Errors
+
+// Types and methods
+pub(all) enum CognitionKey {
+  FileText(String)
+  FileSummary(String)
+  RepoSummary
+  QueryContext(String)
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn CognitionKey::label(Self) -> String
+
+type CognitionReactive
+
+pub(all) struct CognitionStore {
+  // private fields
+}
+pub fn CognitionStore::compute(Self, CognitionKey) -> CognitionValue?
+pub fn CognitionStore::current_revision(Self) -> Revision
+pub fn CognitionStore::dependencies_of(Self, CognitionKey) -> Array[CognitionKey]
+pub fn CognitionStore::dependency_edges(Self) -> Array[Dependency]
+pub fn CognitionStore::dependents_of(Self, CognitionKey) -> Array[CognitionKey]
+pub fn CognitionStore::dirty_dependents(Self, CognitionKey) -> Array[CognitionKey]
+pub fn CognitionStore::dirty_keys(Self) -> Array[CognitionKey]
+pub fn CognitionStore::get_revision(Self, CognitionKey) -> Revision?
+pub fn CognitionStore::get_value(Self, CognitionKey) -> CognitionValue?
+pub fn CognitionStore::is_dirty(Self, CognitionKey) -> Bool
+pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
+pub fn CognitionStore::new() -> Self
+pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
+pub fn CognitionStore::recompute_dirty(Self) -> Array[CognitionKey]
+pub fn CognitionStore::set_input(Self, CognitionKey, CognitionValue) -> Bool
+
+pub(all) enum CognitionValue {
+  Text(String)
+  Summary(String)
+  ContextBundle(Array[String])
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Dependency {
+  from : CognitionKey
+  input : CognitionKey
+} derive(Eq, @debug.Debug)
+
+pub struct Revision(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn Revision::to_int(Self) -> Int
+
+// Type aliases
+
+// Traits
