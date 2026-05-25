@@ -109,3 +109,77 @@ test "spec §12 #4 (json): read_protected rejects cells from a different editor"
   destroy_json_editor(handle_a)
   destroy_json_editor(handle_b)
 }
+
+///|
+/// Phase 1b workstream 2 — `json_get_errors` migration regressions. Each
+/// test corresponds to one behavioral risk called out in spec §7.2.
+///
+/// Empty-doc guard: pre-migration, `SyncEditor::get_errors` short-circuited
+/// to `[]` on empty source (editor/sync_editor_parser.mbt:108-110) before
+/// reading parser diagnostics — the parser produces spurious diagnostics
+/// on "" source that must be suppressed. The migration must preserve that
+/// semantic at the FFI boundary; calling `parser_diagnostics.format()`
+/// unconditionally would surface those spurious errors.
+test "workstream 2 (json): json_get_errors returns [] for empty source" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_diag_empty_agent")
+  // `create_json_editor` produces an editor with empty source — no set_text.
+  assert_eq(json_get_errors(handle), "[]")
+  destroy_json_editor(handle)
+}
+
+///|
+/// Parse-error path: malformed JSON input produces a non-empty array of
+/// diagnostic strings via the migrated `coordinator.read_protected(parser_
+/// diagnostics).format()` chain. Output must still be a valid JSON array
+/// (consumers parse it).
+test "workstream 2 (json): json_get_errors returns non-empty array for parse error" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_diag_parse_agent")
+  // Unclosed object — guaranteed parse error.
+  json_set_text(handle, "{ invalid")
+  let out = json_get_errors(handle)
+  // Must be a JSON array (starts with `[`, ends with `]`).
+  if !out.has_prefix("[") || !out.has_suffix("]") {
+    fail("expected JSON array shape, got \{out}")
+  }
+  // Must be non-empty (not "[]").
+  if out == "[]" {
+    fail("expected non-empty diagnostics for parse-error input, got []")
+  }
+  destroy_json_editor(handle)
+}
+
+///|
+/// Post-destroy path: after `coordinator.destroy_editor`, the accessor must
+/// collapse to "[]" via the Err arm of `read_protected`. Pre-migration the
+/// accessor read `ed.get_errors()` directly (bypassing the coordinator), so
+/// a destroyed editor would have produced stale diagnostics from the
+/// Derived cell rather than failing closed. This test pins the new
+/// behavior.
+test "workstream 2 (json): json_get_errors collapses to [] after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_diag_destroy_agent")
+  json_set_text(handle, "{ invalid")
+  let alive = json_get_errors(handle)
+  if alive == "[]" {
+    fail("expected non-empty diagnostics pre-destroy, got []")
+  }
+  let h = json_handles.get(handle).unwrap()
+  let id = h.editor_id
+  match coordinator.destroy_editor(id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  // FFI bookkeeping retained — coordinator side is destroyed.
+  match json_handles.get(handle) {
+    Some(_) => ()
+    None =>
+      fail(
+        "expected json_handles to retain handle after direct coordinator destroy",
+      )
+  }
+  assert_eq(json_get_errors(handle), "[]")
+  json_handles.remove(handle)
+  json_view_states.remove(handle)
+}
