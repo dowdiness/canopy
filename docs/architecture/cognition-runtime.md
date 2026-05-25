@@ -31,9 +31,10 @@ interface is the source of truth for concrete API names.
 The first mock graph has three layers: file text, file-level summaries, and
 repo/query context. File-level summaries read one file input. Repo context reads
 all known file summaries. Query context reads repo context. When a new file
-input appears after repo context already exists, the runtime dirties the
-corresponding file-level summary and repo context so repo context can adopt the
-new dependency on the next recomputation.
+input appears after repo context already exists, or after query context has
+observed repo context, the runtime dirties the corresponding file-level summary
+and repo context so repo context can adopt the new dependency on the next
+recomputation.
 
 When an input changes, the store marks transitive dependents dirty. Recomputing
 dirty artifacts proceeds only when their dependencies are clean, so unrelated

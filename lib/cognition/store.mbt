@@ -43,12 +43,18 @@ fn CognitionStore::after_input_set(
   key : CognitionKey,
 ) -> Unit {
   match key {
-    FileText(path) if self.values.contains(RepoSummary) => {
+    FileText(path) if self.repo_context_is_observed() => {
       self.mark_dirty(FileSummary(path))
       self.mark_dirty(RepoSummary)
     }
     _ => ()
   }
+}
+
+///|
+fn CognitionStore::repo_context_is_observed(self : CognitionStore) -> Bool {
+  self.values.contains(RepoSummary) ||
+  self.reverse_dependencies.contains(RepoSummary)
 }
 
 ///|
@@ -205,8 +211,8 @@ fn CognitionStore::collect_dirty_dependents(
         if !self.dirty.contains(dependent) {
           self.dirty[dependent] = true
           changed.push(dependent)
+          self.collect_dirty_dependents(dependent, changed)
         }
-        self.collect_dirty_dependents(dependent, changed)
       }
     None => ()
   }

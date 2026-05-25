@@ -82,6 +82,37 @@ test "new FileSummary invalidates existing repo context" {
 }
 
 ///|
+test "new FileText invalidates query context before RepoSummary exists" {
+  let store = CognitionStore::new()
+  let _ = store.compute(QueryContext("what changed?"))
+
+  store.set_input(FileText("a.mbt"), Text("one"))
+  let recomputed = store.recompute_dirty()
+
+  inspect(recomputed.contains(FileSummary("a.mbt")), content="true")
+  inspect(recomputed.contains(RepoSummary), content="true")
+  inspect(recomputed.contains(QueryContext("what changed?")), content="true")
+  let deps = store.dependencies_of(RepoSummary)
+  assert_true(deps.contains(FileSummary("a.mbt")))
+}
+
+///|
+test "dirty traversal skips already dirty subtrees" {
+  let store = CognitionStore::new()
+  store.set_input(FileText("a.mbt"), Text("one"))
+  let _ = store.compute(FileSummary("a.mbt"))
+  let _ = store.compute(RepoSummary)
+  let _ = store.compute(QueryContext("what changed?"))
+
+  store.mark_dirty(RepoSummary)
+  let changed = store.dirty_dependents(FileSummary("a.mbt"))
+
+  inspect(changed.contains(RepoSummary), content="false")
+  inspect(changed.contains(QueryContext("what changed?")), content="false")
+  inspect(store.is_dirty(QueryContext("what changed?")), content="true")
+}
+
+///|
 test "returned ContextBundle cannot mutate stored value" {
   let store = CognitionStore::new()
   store.set_input(FileText("a.mbt"), Text("hello"))
