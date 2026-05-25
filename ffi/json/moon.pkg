@@ -3,9 +3,20 @@ import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/json/edits" @json_edits,
   "dowdiness/canopy/lang/json/companion" @json_companion,
+  "dowdiness/canopy/workspace/coordinator" @workspace,
   "dowdiness/json" @djson,
+  "dowdiness/loom/core" @loom,
+  "dowdiness/seam",
   "moonbitlang/core/json" @core_json,
 }
+
+// `cells` field of JsonHandle is read in production by `json_get_errors`
+// (parser_diagnostics, via Phase 1b workstream 2) and by whitebox tests
+// (`lifecycle_phase1_wbtest.mbt`) for the remaining 6 cells. Until additional
+// Phase 1b workstreams migrate the other production accessors, per-field
+// unused warnings still fire on the rest of `JsonProtectedCells`.
+
+warnings = "-7"
 
 options(
   link: {

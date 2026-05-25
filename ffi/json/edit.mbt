@@ -8,14 +8,14 @@ pub fn json_apply_edit(
   op_json : String,
   timestamp_ms : Int,
 ) -> String {
-  match json_editors.get(handle) {
-    Some(ed) => {
+  match json_handles.get(handle) {
+    Some(h) => {
       let json = @core_json.parse(op_json) catch {
         _ => return "error: invalid JSON"
       }
       match parse_json_edit_op(json) {
         Ok(op) =>
-          match @json_companion.apply_json_edit(ed, op, timestamp_ms) {
+          match @json_companion.apply_json_edit(h.editor, op, timestamp_ms) {
             Ok(_) => "ok"
             Err(err) => "error: " + err
           }

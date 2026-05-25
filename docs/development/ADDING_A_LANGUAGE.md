@@ -486,9 +486,12 @@ initial snapshots, then review them.
 When you're ready to use the language in the browser, add:
 
 **FFI entry point** (`ffi/canopy_<name>.mbt`): Handle-based API with
-create/destroy/get_text/set_text/apply_edit exports. Use a handle range
-that doesn't collide with existing languages (Lambda: 0-9999, JSON: 10000+,
-Markdown: 20000+). Add the import to `ffi/moon.pkg`.
+create/destroy/get_text/set_text/apply_edit exports. Allocate handles
+through the per-language `@workspace.Coordinator` (handles are
+coordinator-local `EditorId` integers starting at 0); cross-bundle
+collisions are prevented architecturally because each language ships in
+its own JS bundle with its own coordinator instance. Add the import to
+`ffi/moon.pkg`.
 
 **TypeScript adapter** (`@canopy/editor-adapter` package at `adapters/editor-adapter/`,
 or `examples/web/src/`): Import the FFI functions, wire to your UI. Consumer projects
