@@ -39,7 +39,14 @@ after query context has observed repo context, the runtime dirties the
 corresponding file-level summary and repo context so repo context can adopt the
 new dependency on the next recomputation. Removing a file unregisters it,
 removes its file text and summary artifacts, and dirties repo/query context so
-the next recomputation excludes the deleted file.
+the next recomputation excludes the deleted file. Dependency edges that mention
+that deleted path are dropped at removal time even though dirty derived values
+are not refreshed until recomputation. Paths are keyed by the caller's
+exact string for this milestone; for example, `foo.mbt` and `./foo.mbt` are
+distinct workspace identities until a separate workspace-root canonicalization
+policy exists. Model rename and move operations as removing the old path and
+adding the new path with the same contents rather than as identity-preserving
+moves.
 
 When an input changes, the store marks transitive dependents dirty. Recomputing
 dirty artifacts proceeds only when their dependencies are clean, so unrelated

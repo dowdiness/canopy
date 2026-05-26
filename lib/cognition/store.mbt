@@ -254,6 +254,37 @@ fn CognitionStore::remove_artifact_state(
   self.dirty.remove(key)
   self.recompute_counts.remove(key)
   self.remove_dependency_record(key)
+  self.remove_incoming_references(key)
+}
+
+///|
+fn CognitionStore::remove_incoming_references(
+  self : CognitionStore,
+  key : CognitionKey,
+) -> Unit {
+  let affected : Array[CognitionKey] = []
+  for from, inputs in self.dependencies {
+    if inputs.contains(key) {
+      affected.push(from)
+    }
+  }
+  let mut changed = false
+  for from in affected {
+    match self.dependencies.get(from) {
+      Some(inputs) => {
+        self.dependencies[from] = inputs.filter(fn(input) { input != key })
+        changed = true
+      }
+      None => ()
+    }
+  }
+  if self.reverse_dependencies.contains(key) {
+    self.reverse_dependencies.remove(key)
+    changed = true
+  }
+  if changed {
+    self.reactive.bump_dependency_revision()
+  }
 }
 
 ///|

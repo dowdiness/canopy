@@ -75,6 +75,80 @@ test "remove_file unregisters file and recomputes repo without deleted summary" 
 }
 
 ///|
+test "remove_file cleans deleted file dependency graph after recompute" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+  let _ = store.set_input(FileText("b.mbt"), Text("two"))
+  let _ = store.compute(QueryContext("what changed?"))
+
+  inspect(store.remove_file("a.mbt"), content="true")
+  inspect(store.known_files().join(","), content="b.mbt")
+  inspect(store.get_value(FileText("a.mbt")) is None, content="true")
+  inspect(store.get_value(FileSummary("a.mbt")) is None, content="true")
+  inspect(store.is_dirty(RepoSummary), content="true")
+  inspect(store.is_dirty(QueryContext("what changed?")), content="true")
+  inspect(
+    dependency_edges_mention_path(store.dependency_edges(), "a.mbt"),
+    content="false",
+  )
+  inspect(store.dependents_of(FileText("a.mbt")).length(), content="0")
+  inspect(store.dependents_of(FileSummary("a.mbt")).length(), content="0")
+
+  let _ = store.recompute_dirty()
+  inspect(
+    dependency_edges_mention_path(store.dependency_edges(), "a.mbt"),
+    content="false",
+  )
+  inspect(store.dependents_of(FileText("a.mbt")).length(), content="0")
+  inspect(store.dependents_of(FileSummary("a.mbt")).length(), content="0")
+  let repo_deps = store.dependencies_of(RepoSummary)
+  inspect(repo_deps.contains(FileSummary("a.mbt")), content="false")
+  inspect(repo_deps.contains(FileSummary("b.mbt")), content="true")
+}
+
+///|
+test "caller path strings are distinct workspace identities" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("foo.mbt"), Text("one"))
+  let _ = store.set_input(FileText("./foo.mbt"), Text("two"))
+
+  inspect(store.known_files().join(","), content="foo.mbt,./foo.mbt")
+
+  let _ = store.compute(RepoSummary)
+  let deps = store.dependencies_of(RepoSummary)
+  inspect(deps.contains(FileSummary("./foo.mbt")), content="true")
+  inspect(deps.contains(FileSummary("foo.mbt")), content="true")
+
+  inspect(store.remove_file("./foo.mbt"), content="true")
+  inspect(store.known_files().join(","), content="foo.mbt")
+  inspect(store.get_value(FileText("foo.mbt")) is Some(_), content="true")
+}
+
+///|
+fn dependency_edges_mention_path(
+  edges : Array[Dependency],
+  path : String,
+) -> Bool {
+  for edge in edges {
+    if cognition_key_mentions_path(edge.from, path) ||
+      cognition_key_mentions_path(edge.input, path) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cognition_key_mentions_path(key : CognitionKey, path : String) -> Bool {
+  match key {
+    FileText(candidate) => candidate == path
+    FileSummary(candidate) => candidate == path
+    RepoSummary => false
+    QueryContext(_) => false
+  }
+}
+
+///|
 test "changing one FileText marks its FileSummary dirty" {
   let store = CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
