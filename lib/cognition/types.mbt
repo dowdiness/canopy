@@ -40,6 +40,13 @@ pub(all) struct ContextItem {
 } derive(Debug, Eq)
 
 ///|
+/// Deterministic policy for ranking and explaining context candidates.
+pub(all) struct ContextRanker {
+  score_summary : (String, CognitionKey) -> Int
+  reason_summary : (String, CognitionKey) -> String
+}
+
+///|
 /// Options for deterministic context packing.
 pub(all) struct ContextPackOptions {
   max_items : Int

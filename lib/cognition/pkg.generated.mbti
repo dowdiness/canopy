@@ -47,6 +47,7 @@ pub fn CognitionStore::known_files(Self) -> Array[String]
 pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
 pub fn CognitionStore::new() -> Self
 pub fn CognitionStore::new_with_provider(CognitionProvider) -> Self
+pub fn CognitionStore::new_with_provider_and_ranker(CognitionProvider, ContextRanker) -> Self
 pub fn CognitionStore::pack_context(Self, String, Int) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_budget(Self, String, Int, Int) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_options(Self, String, ContextPackOptions) -> Array[ContextItem]
@@ -75,6 +76,12 @@ pub(all) struct ContextPackOptions {
   truncate_items : Bool
 } derive(Eq, @debug.Debug)
 pub fn ContextPackOptions::new(max_items~ : Int, max_chars? : Int, truncate_items? : Bool) -> Self
+
+pub(all) struct ContextRanker {
+  score_summary : (String, CognitionKey) -> Int
+  reason_summary : (String, CognitionKey) -> String
+}
+pub fn ContextRanker::path_match() -> Self
 
 pub(all) struct Dependency {
   from : CognitionKey

@@ -9,6 +9,7 @@ pub(all) struct CognitionStore {
   priv dirty : Map[CognitionKey, Bool]
   priv recompute_counts : Map[CognitionKey, Int]
   priv provider : CognitionProvider
+  priv ranker : ContextRanker
   priv reactive : CognitionReactive
 }
 
@@ -22,6 +23,18 @@ pub fn CognitionStore::new() -> CognitionStore {
 pub fn CognitionStore::new_with_provider(
   provider : CognitionProvider,
 ) -> CognitionStore {
+  CognitionStore::new_with_provider_and_ranker(
+    provider,
+    ContextRanker::path_match(),
+  )
+}
+
+///|
+/// Create a cognition store with deterministic summary and ranking policies.
+pub fn CognitionStore::new_with_provider_and_ranker(
+  provider : CognitionProvider,
+  ranker : ContextRanker,
+) -> CognitionStore {
   let dependencies : Map[CognitionKey, Array[CognitionKey]] = Map::default()
   {
     values: Map::default(),
@@ -32,6 +45,7 @@ pub fn CognitionStore::new_with_provider(
     dirty: Map::default(),
     recompute_counts: Map::default(),
     provider,
+    ranker,
     reactive: CognitionReactive::CognitionReactive(dependencies),
   }
 }
@@ -642,7 +656,7 @@ fn CognitionStore::build_context_candidates(
     self.push_context_item(
       items,
       summary_key,
-      reason=context_reason_for_summary(query, summary_key),
+      reason=(self.ranker.reason_summary)(query, summary_key),
     )
   }
 }
@@ -776,8 +790,8 @@ fn CognitionStore::selected_file_summary_keys(
 ) -> Array[CognitionKey] {
   let keys = self.known_file_summary_keys()
   keys.sort_by(fn(a, b) {
-    let score_a = context_score_for_summary(query, a)
-    let score_b = context_score_for_summary(query, b)
+    let score_a = (self.ranker.score_summary)(query, a)
+    let score_b = (self.ranker.score_summary)(query, b)
     if score_a != score_b {
       score_b.compare(score_a)
     } else {
@@ -799,78 +813,6 @@ fn CognitionStore::known_file_summary_keys(
     }
   }
   keys
-}
-
-///|
-fn context_score_for_summary(query : String, key : CognitionKey) -> Int {
-  match key {
-    FileSummary(path) => context_score_for_path(query, path)
-    _ => 0
-  }
-}
-
-///|
-fn context_reason_for_summary(query : String, key : CognitionKey) -> String {
-  match key {
-    FileSummary(path) => context_reason_for_path(query, path)
-    _ => "workspace artifact"
-  }
-}
-
-///|
-fn context_score_for_path(query : String, path : String) -> Int {
-  let filename = file_name_from_path(path)
-  let stem = file_stem_from_name(filename)
-  if query_contains_non_empty(query, path) {
-    100
-  } else if query_contains_non_empty(query, filename) {
-    80
-  } else if query_contains_name(query, stem) {
-    60
-  } else {
-    0
-  }
-}
-
-///|
-fn context_reason_for_path(query : String, path : String) -> String {
-  let filename = file_name_from_path(path)
-  let stem = file_stem_from_name(filename)
-  if query_contains_non_empty(query, path) {
-    "path matched query: \{path}"
-  } else if query_contains_non_empty(query, filename) {
-    "filename matched query: \{filename}"
-  } else if query_contains_name(query, stem) {
-    "name matched query: \{stem}"
-  } else {
-    "workspace file summary"
-  }
-}
-
-///|
-fn query_contains_non_empty(query : String, needle : String) -> Bool {
-  needle.length() > 0 && query.contains(needle)
-}
-
-///|
-fn query_contains_name(query : String, name : String) -> Bool {
-  name.length() > 1 && query.contains(name)
-}
-
-///|
-fn file_name_from_path(path : String) -> String {
-  match path.rev_split_once("/") {
-    Some((_, name)) => name.to_owned()
-    None => path
-  }
-}
-
-///|
-fn file_stem_from_name(filename : String) -> String {
-  match filename.rev_split_once(".") {
-    Some((stem, _)) => stem.to_owned()
-    None => filename
-  }
 }
 
 ///|

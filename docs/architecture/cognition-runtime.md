@@ -61,11 +61,13 @@ item count or cumulative payload character budget. Tests can explain why a
 context item was included without invoking a model, keeping AI-facing context
 inspectable before any real model provider is introduced.
 
-Summary generation is routed through a deterministic provider seam. The default
-provider preserves the mock summary strings, while tests and future integrations
-can inject alternate synchronous providers without changing graph ownership or
-dependency tracking. Providers produce values only; `CognitionStore` remains the
-source of truth for revisions, dirty state, dependencies, and artifact lifetime.
+Summary generation and context ranking are routed through deterministic policy
+seams. The default provider preserves the mock summary strings, and the default
+ranker preserves query/path matching. Tests and future integrations can inject
+alternate synchronous providers or rankers without changing graph ownership or
+dependency tracking. Policies produce values and scores only; `CognitionStore`
+remains the source of truth for revisions, dirty state, dependencies, and
+artifact lifetime.
 
 ## Non-goals for this milestone
 
