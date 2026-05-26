@@ -8,11 +8,20 @@ pub(all) struct CognitionStore {
   priv reverse_dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv dirty : Map[CognitionKey, Bool]
   priv recompute_counts : Map[CognitionKey, Int]
+  priv provider : CognitionProvider
   priv reactive : CognitionReactive
 }
 
 ///|
 pub fn CognitionStore::new() -> CognitionStore {
+  CognitionStore::new_with_provider(CognitionProvider::mock())
+}
+
+///|
+/// Create a cognition store with a deterministic summary provider.
+pub fn CognitionStore::new_with_provider(
+  provider : CognitionProvider,
+) -> CognitionStore {
   let dependencies : Map[CognitionKey, Array[CognitionKey]] = Map::default()
   {
     values: Map::default(),
@@ -22,6 +31,7 @@ pub fn CognitionStore::new() -> CognitionStore {
     reverse_dependencies: Map::default(),
     dirty: Map::default(),
     recompute_counts: Map::default(),
+    provider,
     reactive: CognitionReactive::CognitionReactive(dependencies),
   }
 }
@@ -485,7 +495,7 @@ fn CognitionStore::recompute_file_summary(
   }
   self.store_recomputed(
     FileSummary(path),
-    Summary(mock_file_summary(path, text)),
+    Summary((self.provider.file_summary)(path, text)),
     [input],
   )
 }
@@ -501,12 +511,11 @@ fn CognitionStore::recompute_repo_summary(self : CognitionStore) -> Unit {
       _ => ()
     }
   }
-  let summary = if items.length() == 0 {
-    "repo summary: <empty>"
-  } else {
-    "repo summary:\n" + items.join("\n")
-  }
-  self.store_recomputed(RepoSummary, Summary(summary), summary_keys)
+  self.store_recomputed(
+    RepoSummary,
+    Summary((self.provider.repo_summary)(items.copy())),
+    summary_keys,
+  )
 }
 
 ///|
@@ -798,21 +807,4 @@ fn CognitionValue::copy_value(self : CognitionValue) -> CognitionValue {
     ContextBundle(items) => ContextBundle(items.copy())
     ContextItems(items) => ContextItems(items.copy())
   }
-}
-
-///|
-fn mock_file_summary(path : String, text : String) -> String {
-  let line_count = if text == "" { 0 } else { count_lines(text) }
-  "\{path}: \{line_count} lines, \{text.length()} chars"
-}
-
-///|
-fn count_lines(text : String) -> Int {
-  let mut lines = 1
-  for ch in text {
-    if ch == '\n' {
-      lines += 1
-    }
-  }
-  lines
 }

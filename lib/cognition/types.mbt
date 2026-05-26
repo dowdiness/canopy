@@ -10,6 +10,13 @@ pub(all) enum CognitionKey {
 } derive(Debug, Eq, Hash, Compare)
 
 ///|
+/// Deterministic provider for deriving cognition summaries.
+pub(all) struct CognitionProvider {
+  file_summary : (String, String) -> String
+  repo_summary : (Array[String]) -> String
+}
+
+///|
 /// Stored value for a cognition artifact.
 pub(all) enum CognitionValue {
   Text(String)

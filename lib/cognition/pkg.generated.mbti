@@ -21,6 +21,12 @@ pub(all) enum CognitionKey {
 } derive(Compare, Eq, Hash, @debug.Debug)
 pub fn CognitionKey::label(Self) -> String
 
+pub(all) struct CognitionProvider {
+  file_summary : (String, String) -> String
+  repo_summary : (Array[String]) -> String
+}
+pub fn CognitionProvider::mock() -> Self
+
 type CognitionReactive
 
 pub(all) struct CognitionStore {
@@ -39,6 +45,7 @@ pub fn CognitionStore::is_dirty(Self, CognitionKey) -> Bool
 pub fn CognitionStore::known_files(Self) -> Array[String]
 pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
 pub fn CognitionStore::new() -> Self
+pub fn CognitionStore::new_with_provider(CognitionProvider) -> Self
 pub fn CognitionStore::pack_context(Self, String, Int) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_budget(Self, String, Int, Int) -> Array[ContextItem]
 pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
