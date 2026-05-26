@@ -2,6 +2,7 @@
 /// Mutable store for cognition values, revisions, dependencies, and dirtiness.
 pub(all) struct CognitionStore {
   priv values : Map[CognitionKey, CognitionValue]
+  priv workspace_files : Map[String, Bool]
   priv revisions : Map[CognitionKey, Revision]
   priv dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv reverse_dependencies : Map[CognitionKey, Array[CognitionKey]]
@@ -15,6 +16,7 @@ pub fn CognitionStore::new() -> CognitionStore {
   let dependencies : Map[CognitionKey, Array[CognitionKey]] = Map::default()
   {
     values: Map::default(),
+    workspace_files: Map::default(),
     revisions: Map::default(),
     dependencies,
     reverse_dependencies: Map::default(),
@@ -41,11 +43,47 @@ pub fn CognitionStore::set_input(
 }
 
 ///|
+/// Return the active workspace file paths known to the cognition store.
+pub fn CognitionStore::known_files(self : CognitionStore) -> Array[String] {
+  let paths = self.workspace_files.keys().to_array()
+  paths.sort_by(fn(a, b) { a.compare(b) })
+  paths
+}
+
+///|
+/// Remove one workspace file input and dirty derived artifacts that referenced it.
+pub fn CognitionStore::remove_file(
+  self : CognitionStore,
+  path : String,
+) -> Bool {
+  if !self.workspace_files.contains(path) {
+    false
+  } else {
+    let text_key = FileText(path)
+    let summary_key = FileSummary(path)
+    self.workspace_files.remove(path)
+    if self.repo_context_is_observed() {
+      self.mark_dirty(RepoSummary)
+    }
+    let _ = self.dirty_dependents(summary_key)
+    let _ = self.dirty_dependents(text_key)
+    self.remove_artifact_state(text_key)
+    self.remove_artifact_state(summary_key)
+    let _ = self.reactive.bump_revision()
+    true
+  }
+}
+
+///|
 fn CognitionStore::store_input(
   self : CognitionStore,
   key : CognitionKey,
   value : CognitionValue,
 ) -> Unit {
+  match key {
+    FileText(path) => self.workspace_files[path] = true
+    _ => ()
+  }
   self.values[key] = value.copy_value()
   self.bump_revision(key)
   self.dirty.remove(key)
@@ -204,6 +242,45 @@ fn CognitionStore::bump_revision(
 ) -> Unit {
   let revision = self.reactive.bump_revision()
   self.revisions[key] = revision
+}
+
+///|
+fn CognitionStore::remove_artifact_state(
+  self : CognitionStore,
+  key : CognitionKey,
+) -> Unit {
+  self.values.remove(key)
+  self.revisions.remove(key)
+  self.dirty.remove(key)
+  self.recompute_counts.remove(key)
+  self.remove_dependency_record(key)
+}
+
+///|
+fn CognitionStore::remove_dependency_record(
+  self : CognitionStore,
+  key : CognitionKey,
+) -> Unit {
+  match self.dependencies.get(key) {
+    Some(old_inputs) => {
+      for input in old_inputs {
+        match self.reverse_dependencies.get(input) {
+          Some(dependents) => {
+            let remaining = dependents.filter(fn(k) { k != key })
+            if remaining.length() == 0 {
+              self.reverse_dependencies.remove(input)
+            } else {
+              self.reverse_dependencies[input] = remaining
+            }
+          }
+          None => ()
+        }
+      }
+      self.dependencies.remove(key)
+      self.reactive.bump_dependency_revision()
+    }
+    None => ()
+  }
 }
 
 ///|
@@ -389,17 +466,11 @@ fn CognitionStore::recompute_query_context(
 fn CognitionStore::ensure_file_summaries_for_known_texts(
   self : CognitionStore,
 ) -> Unit {
-  for key, _ in self.values {
-    match key {
-      FileText(path) => {
-        let summary_key = FileSummary(path)
-        if !self.values.contains(summary_key) ||
-          self.dirty.contains(summary_key) {
-          self.recompute_file_summary(path)
-          self.dirty.remove(summary_key)
-        }
-      }
-      _ => ()
+  for path in self.known_files() {
+    let summary_key = FileSummary(path)
+    if !self.values.contains(summary_key) || self.dirty.contains(summary_key) {
+      self.recompute_file_summary(path)
+      self.dirty.remove(summary_key)
     }
   }
 }
@@ -409,13 +480,12 @@ fn CognitionStore::known_file_summary_keys(
   self : CognitionStore,
 ) -> Array[CognitionKey] {
   let keys : Array[CognitionKey] = []
-  for key, _ in self.values {
-    match key {
-      FileSummary(_) => keys.push(key)
-      _ => ()
+  for path in self.known_files() {
+    let summary_key = FileSummary(path)
+    if self.values.contains(summary_key) {
+      keys.push(summary_key)
     }
   }
-  keys.sort_by(fn(a, b) { a.compare(b) })
   keys
 }
 

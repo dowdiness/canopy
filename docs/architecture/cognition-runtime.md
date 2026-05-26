@@ -30,13 +30,16 @@ interface is the source of truth for concrete API names.
 ## Mock recomputation rules
 
 The first mock graph has three layers: file text, file-level summaries, and
-repo/query context. File-level summaries read one file input. Repo context reads
-all known file summaries and seeds missing summaries from known file inputs on
-its first build. Query context reads repo context and materializes repo context
-when needed. When a new file input appears after repo context already exists, or
+repo/query context. File-level summaries read one file input. A workspace file
+registry tracks active file inputs. Repo context reads summaries for active
+files and seeds missing summaries from registered file inputs on its first
+build. Query context reads repo context and materializes repo context when
+needed. When a new file input appears after repo context already exists, or
 after query context has observed repo context, the runtime dirties the
 corresponding file-level summary and repo context so repo context can adopt the
-new dependency on the next recomputation.
+new dependency on the next recomputation. Removing a file unregisters it,
+removes its file text and summary artifacts, and dirties repo/query context so
+the next recomputation excludes the deleted file.
 
 When an input changes, the store marks transitive dependents dirty. Recomputing
 dirty artifacts proceeds only when their dependencies are clean, so unrelated

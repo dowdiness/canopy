@@ -36,6 +36,45 @@ test "set_input only accepts FileText Text pairs" {
 }
 
 ///|
+test "known_files tracks FileText inputs in sorted order" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("b.mbt"), Text("two"))
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+
+  inspect(store.known_files().join(","), content="a.mbt,b.mbt")
+}
+
+///|
+test "remove_file unregisters file and recomputes repo without deleted summary" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+  let _ = store.set_input(FileText("b.mbt"), Text("two"))
+  let _ = store.compute(QueryContext("what changed?"))
+
+  inspect(store.remove_file("missing.mbt"), content="false")
+  inspect(store.remove_file("a.mbt"), content="true")
+  inspect(store.known_files().join(","), content="b.mbt")
+  inspect(store.get_value(FileText("a.mbt")) is None, content="true")
+  inspect(store.get_value(FileSummary("a.mbt")) is None, content="true")
+  inspect(store.is_dirty(RepoSummary), content="true")
+  inspect(store.is_dirty(QueryContext("what changed?")), content="true")
+
+  let recomputed = store.recompute_dirty()
+  inspect(recomputed.contains(RepoSummary), content="true")
+  inspect(recomputed.contains(QueryContext("what changed?")), content="true")
+  let deps = store.dependencies_of(RepoSummary)
+  inspect(deps.contains(FileSummary("a.mbt")), content="false")
+  inspect(deps.contains(FileSummary("b.mbt")), content="true")
+  match store.get_value(RepoSummary) {
+    Some(Summary(summary)) => {
+      inspect(summary.contains("a.mbt"), content="false")
+      inspect(summary.contains("b.mbt"), content="true")
+    }
+    _ => fail("expected repo summary")
+  }
+}
+
+///|
 test "changing one FileText marks its FileSummary dirty" {
   let store = CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))

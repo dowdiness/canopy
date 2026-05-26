@@ -34,10 +34,12 @@ pub fn CognitionStore::dirty_keys(Self) -> Array[CognitionKey]
 pub fn CognitionStore::get_revision(Self, CognitionKey) -> Revision?
 pub fn CognitionStore::get_value(Self, CognitionKey) -> CognitionValue?
 pub fn CognitionStore::is_dirty(Self, CognitionKey) -> Bool
+pub fn CognitionStore::known_files(Self) -> Array[String]
 pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
 pub fn CognitionStore::new() -> Self
 pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
 pub fn CognitionStore::recompute_dirty(Self) -> Array[CognitionKey]
+pub fn CognitionStore::remove_file(Self, String) -> Bool
 pub fn CognitionStore::set_input(Self, CognitionKey, CognitionValue) -> Bool
 
 pub(all) enum CognitionValue {
