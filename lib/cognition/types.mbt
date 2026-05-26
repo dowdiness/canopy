@@ -10,7 +10,11 @@ pub(all) enum CognitionKey {
 } derive(Debug, Eq, Hash, Compare)
 
 ///|
-/// Deterministic provider for deriving cognition summaries.
+/// Deterministic, synchronous provider for deriving cognition summaries.
+///
+/// Providers produce values only. They must not own or mutate graph state; the
+/// store remains responsible for copying values, revisions, dependencies, dirty
+/// state, and artifact lifetime.
 pub(all) struct CognitionProvider {
   file_summary : (String, String) -> String
   repo_summary : (Array[String]) -> String
