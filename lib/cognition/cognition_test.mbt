@@ -328,6 +328,44 @@ test "pack_context_with_options truncates oversized selected items when enabled"
 }
 
 ///|
+test "pack_context_with_stats reports selected skipped and payload counts" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
+  let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
+
+  let (items, stats) = store.pack_context_with_stats(
+    "explain beta",
+    ContextPackOptions::new(max_items=2),
+  )
+
+  inspect(items.length(), content="2")
+  inspect(stats.selected_items, content="2")
+  inspect(stats.skipped_items, content="1")
+  inspect(stats.truncated_items, content="0")
+  inspect(
+    stats.payload_chars == items[0].payload.length() + items[1].payload.length(),
+    content="true",
+  )
+}
+
+///|
+test "pack_context_with_stats reports truncation" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
+
+  let (items, stats) = store.pack_context_with_stats(
+    "explain beta",
+    ContextPackOptions::new(max_items=3, max_chars=10, truncate_items=true),
+  )
+
+  inspect(items.length(), content="1")
+  inspect(stats.selected_items, content="1")
+  inspect(stats.skipped_items, content="1")
+  inspect(stats.truncated_items, content="1")
+  inspect(stats.payload_chars, content="10")
+}
+
+///|
 test "pack_context_with_budget with non-positive char budget returns no items but stays live" {
   let store = CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))

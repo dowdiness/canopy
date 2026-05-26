@@ -246,6 +246,20 @@ pub fn CognitionStore::pack_context_with_options(
 }
 
 ///|
+/// Build context and return deterministic selection telemetry.
+pub fn CognitionStore::pack_context_with_stats(
+  self : CognitionStore,
+  query : String,
+  options : ContextPackOptions,
+) -> (Array[ContextItem], ContextPackStats) {
+  let items = self.pack_context_with_options(query, options)
+  let candidates : Array[ContextItem] = []
+  let inputs : Array[CognitionKey] = [RepoSummary]
+  self.build_context_candidates(query, candidates, inputs)
+  (items, context_pack_stats(candidates.length(), items))
+}
+
+///|
 fn context_key_for_options(
   query : String,
   options : ContextPackOptions,
@@ -767,6 +781,27 @@ fn truncate_context_item(item : ContextItem, max_chars : Int) -> ContextItem {
     source_revision: item.source_revision,
     payload: item.payload[:max_chars].to_owned(),
     reason: item.reason + "; truncated",
+  }
+}
+
+///|
+fn context_pack_stats(
+  candidate_count : Int,
+  items : Array[ContextItem],
+) -> ContextPackStats {
+  let mut payload_chars = 0
+  let mut truncated_items = 0
+  for item in items {
+    payload_chars += item.payload.length()
+    if item.reason.contains("; truncated") {
+      truncated_items += 1
+    }
+  }
+  {
+    selected_items: items.length(),
+    skipped_items: candidate_count - items.length(),
+    truncated_items,
+    payload_chars,
   }
 }
 

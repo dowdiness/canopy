@@ -55,6 +55,15 @@ pub(all) struct ContextPackOptions {
 } derive(Debug, Eq)
 
 ///|
+/// Deterministic telemetry for one context packing operation.
+pub(all) struct ContextPackStats {
+  selected_items : Int
+  skipped_items : Int
+  truncated_items : Int
+  payload_chars : Int
+} derive(Debug, Eq)
+
+///|
 /// Create context packing options.
 pub fn ContextPackOptions::new(
   max_items~ : Int,
