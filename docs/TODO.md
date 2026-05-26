@@ -392,7 +392,8 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 - [ ] Draft real provider-boundary design before adding LLM/network calls.
   Why: PR #359 shipped deterministic synchronous provider/ranker seams and provenance-packed context; real provider integration needs explicit async, cancellation, error, and lifetime semantics before code changes.
-  Exit: a canonical plan/design specifies provider call placement (graph artifact vs external effect), async shape, cancellation behavior, typed errors/retries, deterministic test doubles, and validation boundaries. No real network/LLM code lands in this step.
+  Plan: `docs/plans/2026-05-26-cognition-provider-boundary-design.md`
+  Exit: the plan specifies provider call placement (graph artifact vs external effect), async shape, cancellation behavior, typed errors/retries, deterministic test doubles, and validation boundaries. No real network/LLM code lands in this step.
 
 ## Shipped history
 
