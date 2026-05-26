@@ -390,10 +390,9 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 19. Cognition Runtime
 
-- [ ] Tighten cognition runtime dependency cleanup before moving artifacts into `@incr`.
-  Why: PR #355/#357 made the minimal runtime useful enough that stale-edge cleanup and graph invariant tests are the next risk; dynamic `@incr` artifact cells would add lifecycle complexity before those invariants are pinned.
-  Plan: `docs/plans/2026-05-26-cognition-runtime-recompute-strategy.md`
-  Exit: explicit file removal and dependency replacement have tests proving no deleted-path dependency edges remain after cleanup/recompute, with existing cognition behavior unchanged.
+- [ ] Draft real provider-boundary design before adding LLM/network calls.
+  Why: PR #359 shipped deterministic synchronous provider/ranker seams and provenance-packed context; real provider integration needs explicit async, cancellation, error, and lifetime semantics before code changes.
+  Exit: a canonical plan/design specifies provider call placement (graph artifact vs external effect), async shape, cancellation behavior, typed errors/retries, deterministic test doubles, and validation boundaries. No real network/LLM code lands in this step.
 
 ## Shipped history
 

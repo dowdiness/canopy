@@ -1,5 +1,11 @@
 # Cognition Runtime Recompute Strategy Follow-up
 
+> **Archived 2026-05-26.** This dependency-cleanup follow-up shipped in
+> PR #358 (`4c5e0bb`): deleted-file dependency edges are cleaned, graph
+> invariants are tested, caller-string path identity is pinned, and rename/move
+> semantics are documented as delete+add. It is no longer an active
+> `docs/TODO.md` item.
+
 ## Why
 
 PR #355 added the minimal cognition runtime; PR #357 added workspace file
