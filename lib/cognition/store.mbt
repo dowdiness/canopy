@@ -1,4 +1,10 @@
 ///|
+priv struct ContextPackSelection {
+  items : Array[ContextItem]
+  stats : ContextPackStats
+}
+
+///|
 /// Mutable store for cognition values, revisions, dependencies, and dirtiness.
 pub(all) struct CognitionStore {
   priv values : Map[CognitionKey, CognitionValue]
@@ -252,11 +258,12 @@ pub fn CognitionStore::pack_context_with_stats(
   query : String,
   options : ContextPackOptions,
 ) -> (Array[ContextItem], ContextPackStats) {
-  let items = self.pack_context_with_options(query, options)
+  let _ = self.compute(context_key_for_options(query, options))
   let candidates : Array[ContextItem] = []
   let inputs : Array[CognitionKey] = [RepoSummary]
   self.build_context_candidates(query, candidates, inputs)
-  (items, context_pack_stats(candidates.length(), items))
+  let selection = select_context_items(candidates, options)
+  (selection.items, selection.stats)
 }
 
 ///|
@@ -600,7 +607,9 @@ fn CognitionStore::recompute_packed_context(
   self.build_context_candidates(query, items, inputs)
   self.store_recomputed(
     PackedContext(query, max_items),
-    ContextItems(take_context_items(items, max_items)),
+    ContextItems(
+      select_context_items(items, ContextPackOptions::new(max_items~)).items,
+    ),
     inputs,
   )
 }
@@ -618,10 +627,10 @@ fn CognitionStore::recompute_budgeted_context(
   self.store_recomputed(
     BudgetedContext(query, max_items, max_chars),
     ContextItems(
-      take_context_items_with_options(
+      select_context_items(
         items,
         ContextPackOptions::new(max_items~, max_chars~),
-      ),
+      ).items,
     ),
     inputs,
   )
@@ -640,10 +649,10 @@ fn CognitionStore::recompute_truncated_context(
   self.store_recomputed(
     TruncatedContext(query, max_items, max_chars),
     ContextItems(
-      take_context_items_with_options(
+      select_context_items(
         items,
         ContextPackOptions::new(max_items~, max_chars~, truncate_items=true),
-      ),
+      ).items,
     ),
     inputs,
   )
@@ -716,7 +725,22 @@ fn CognitionStore::push_context_item(
 }
 
 ///|
-fn take_context_items(
+fn select_context_items(
+  candidates : Array[ContextItem],
+  options : ContextPackOptions,
+) -> ContextPackSelection {
+  match options.max_chars {
+    Some(max_chars) =>
+      select_context_items_with_char_budget(candidates, options, max_chars)
+    None => {
+      let items = select_context_items_by_count(candidates, options.max_items)
+      { items, stats: context_pack_stats(candidates.length(), items, 0) }
+    }
+  }
+}
+
+///|
+fn select_context_items_by_count(
   items : Array[ContextItem],
   max_items : Int,
 ) -> Array[ContextItem] {
@@ -734,28 +758,17 @@ fn take_context_items(
 }
 
 ///|
-fn take_context_items_with_options(
-  items : Array[ContextItem],
-  options : ContextPackOptions,
-) -> Array[ContextItem] {
-  match options.max_chars {
-    Some(max_chars) =>
-      take_context_items_with_budget_options(items, options, max_chars)
-    None => take_context_items(items, options.max_items)
-  }
-}
-
-///|
-fn take_context_items_with_budget_options(
+fn select_context_items_with_char_budget(
   items : Array[ContextItem],
   options : ContextPackOptions,
   max_chars : Int,
-) -> Array[ContextItem] {
+) -> ContextPackSelection {
   if options.max_items <= 0 || max_chars <= 0 {
-    []
+    { items: [], stats: context_pack_stats(items.length(), [], 0) }
   } else {
     let selected : Array[ContextItem] = []
     let mut used_chars = 0
+    let mut truncated_items = 0
     for item in items {
       if selected.length() >= options.max_items {
         break
@@ -765,12 +778,16 @@ fn take_context_items_with_budget_options(
       if item_chars <= remaining_chars {
         selected.push(item)
         used_chars += item_chars
-      } else if options.truncate_items {
+      } else if options.truncate_items && remaining_chars > 0 {
         selected.push(truncate_context_item(item, remaining_chars))
+        truncated_items += 1
         break
       }
     }
-    selected
+    {
+      items: selected,
+      stats: context_pack_stats(items.length(), selected, truncated_items),
+    }
   }
 }
 
@@ -779,23 +796,36 @@ fn truncate_context_item(item : ContextItem, max_chars : Int) -> ContextItem {
   {
     source: item.source,
     source_revision: item.source_revision,
-    payload: item.payload[:max_chars].to_owned(),
+    payload: safe_prefix_by_code_units(item.payload, max_chars),
     reason: item.reason + "; truncated",
   }
+}
+
+///|
+fn safe_prefix_by_code_units(text : String, max_units : Int) -> String {
+  let chunks : Array[String] = []
+  let mut used_units = 0
+  for ch in text {
+    let chunk = "\{ch}"
+    let next_units = used_units + chunk.length()
+    if next_units > max_units {
+      break
+    }
+    chunks.push(chunk)
+    used_units = next_units
+  }
+  chunks.join("")
 }
 
 ///|
 fn context_pack_stats(
   candidate_count : Int,
   items : Array[ContextItem],
+  truncated_items : Int,
 ) -> ContextPackStats {
   let mut payload_chars = 0
-  let mut truncated_items = 0
   for item in items {
     payload_chars += item.payload.length()
-    if item.reason.contains("; truncated") {
-      truncated_items += 1
-    }
   }
   {
     selected_items: items.length(),
