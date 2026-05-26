@@ -10,6 +10,7 @@ pub struct LambdaCompanion {
   // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
+  priv analysis : @parser.LambdaAnalysis
 }
 
 ///|
@@ -28,6 +29,23 @@ pub fn LambdaCompanion::escalation_memo(
   self : LambdaCompanion,
 ) -> @incr.Derived[Array[@lambda_eval.EvalResult]] {
   self.escalation_memo
+}
+
+///|
+/// Reactive view of the lambda analysis typecheck result for FFI protected cells.
+pub fn LambdaCompanion::typecheck_output(
+  self : LambdaCompanion,
+) -> @incr.Derived[@typecheck.ModuleTypeResult] {
+  self.analysis.typecheck.result
+}
+
+///|
+/// Dispose only the analysis attachment rooted on the editor parser.
+/// FFI lifecycle calls this after protected watches are disposed.
+pub fn LambdaCompanion::dispose_analysis_attachment(
+  self : LambdaCompanion,
+) -> Unit {
+  self.analysis.dispose()
 }
 
 ///|
@@ -127,6 +145,7 @@ pub fn new_lambda_editor(
   let escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?] = Ref(
     None,
   )
+  let analysis_ref : Ref[@parser.LambdaAnalysis?] = Ref(None)
   let cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?] = Ref(
     None,
   )
@@ -139,6 +158,7 @@ pub fn new_lambda_editor(
       )
       proj_memo_ref.val = Some(proj_memo)
       cached_proj_node_ref.val = Some(cached_proj_node)
+      analysis_ref.val = Some(@parser.attach_lambda_analysis(parser))
       let eval_memo = @lambda_eval.build_eval_memo(parser)
       // Escalation memo: merges Tier 1 + Tier 2 for incomplete programs
       let escalation_memo = @lambda_eval.build_escalation_memo(
@@ -156,6 +176,7 @@ pub fn new_lambda_editor(
   let companion : LambdaCompanion = {
     proj_memo: proj_memo_ref.val.unwrap(),
     escalation_memo: escalation_memo_ref.val.unwrap(),
+    analysis: analysis_ref.val.unwrap(),
   }
   (editor, companion)
 }

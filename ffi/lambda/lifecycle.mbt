@@ -10,33 +10,8 @@
 priv struct LambdaHandle {
   editor : @editor.SyncEditor[@ast.Term]
   companion : @lang_lambda.LambdaCompanion
-  typecheck : TypecheckBundle
   editor_id : @workspace.EditorId
   cells : LambdaProtectedCells
-}
-
-///|
-/// Typecheck pipeline cells. `scope` disposal handles owned per-def cells;
-/// rooting of `output` is the caller's responsibility — under §P0b Phase 1,
-/// `LambdaProtectedCells` constructs the `Watch` via
-/// `ProtectedCell::from_derived` (`protected_cells.mbt` `typecheck_output`).
-priv struct TypecheckBundle {
-  scope : @cells.Scope
-  output : @cells.Derived[@typecheck.ModuleTypeResult]
-}
-
-///|
-fn new_typecheck_bundle(
-  rt : @cells.Runtime,
-  syntax_tree : @cells.Derived[@seam.SyntaxNode],
-) -> TypecheckBundle {
-  let scope = @cells.Scope::new(rt)
-  let typed_term_memo : @cells.Derived[@typecheck.TypedTerm] = scope.derived(
-    fn() { @typecheck.convert_from_cst(syntax_tree.get_or_abort()) },
-    label="lambda-typed-term",
-  )
-  let output = @typecheck.build_typecheck_pipeline(rt, scope, typed_term_memo)
-  { scope, output }
 }
 
 ///|
@@ -52,8 +27,8 @@ let lambda_handles : Map[Int, LambdaHandle] = Map::default()
 let last_created_handle : Ref[Int?] = { val: None }
 
 ///|
-/// Build a Lambda editor + companion + typecheck bundle on the shared
-/// runtime, then atomically register them with the coordinator. Returns
+/// Build a Lambda editor + companion on the shared runtime, then
+/// atomically register them with the coordinator. Returns
 /// the freshly-allocated `EditorId`. Aborting at any step leaves
 /// `lambda_handles` untouched (atomic-boundary observation, spec §8.3).
 fn assemble_lambda_handle(
@@ -65,24 +40,12 @@ fn assemble_lambda_handle(
     capture_timeout_ms~,
     parent_runtime=coordinator.runtime(),
   )
-  let typecheck = new_typecheck_bundle(
-    editor.parser_runtime(),
-    editor.parser_syntax_tree(),
-  )
-  let cells = LambdaProtectedCells::LambdaProtectedCells(
-    editor, companion, typecheck,
-  )
+  let cells = LambdaProtectedCells::LambdaProtectedCells(editor, companion)
   let editor_id = coordinator.register_editor(
     agent_id,
     cells.to_protected_reads(),
   )
-  lambda_handles[editor_id.0] = {
-    editor,
-    companion,
-    typecheck,
-    editor_id,
-    cells,
-  }
+  lambda_handles[editor_id.0] = { editor, companion, editor_id, cells }
   last_created_handle.val = Some(editor_id.0)
   editor_id
 }
@@ -122,8 +85,8 @@ pub fn create_editor(agent_id : String) -> Int {
 ///|
 /// Destroy an editor instance and free its resources. The coordinator
 /// gateway refuses if workspace deps still reference the editor; in that
-/// case the FFI-side bookkeeping (lambda_handles entry, typecheck scope)
-/// is intentionally left intact so reads of cached state remain valid.
+/// case the FFI-side bookkeeping and analysis attachment are intentionally
+/// left intact so reads of cached state remain valid.
 pub fn destroy_editor(handle : Int) -> Unit {
   let h = match lambda_handles.get(handle) {
     Some(v) => v
@@ -138,19 +101,19 @@ pub fn destroy_editor(handle : Int) -> Unit {
       return
     }
   }
-  // Remove FFI-side bookkeeping BEFORE disposing the typecheck scope. If
-  // scope.dispose ever raises (e.g., loom-side cleanup defect), the
-  // externally-visible state still reflects reality: the handle is gone,
-  // subsequent FFI calls on it return the empty/default fallback path. A
-  // leaked scope is observable only via incr-level inspection; a leaked
-  // lambda_handles entry would be observable as a phantom editor.
+  // Remove FFI-side bookkeeping BEFORE disposing the analysis attachment. If
+  // dispose ever raises (e.g., loom-side cleanup defect), the externally-visible
+  // state still reflects reality: the handle is gone, subsequent FFI calls on it
+  // return the empty/default fallback path. A leaked attachment is observable
+  // only via incr-level inspection; a leaked lambda_handles entry would be
+  // observable as a phantom editor.
   lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
   }
-  h.typecheck.scope.dispose()
+  h.companion.dispose_analysis_attachment()
 }
 
 ///|

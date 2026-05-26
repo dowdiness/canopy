@@ -3,8 +3,8 @@
 //
 // Each field wraps an editor or companion `Derived[T]` in a long-lived
 // `Watch` (the GC root) via `ProtectedCell::from_derived`. The bundle is
-// constructed from a freshly-built editor + companion + typecheck bundle
-// inside `assemble_lambda_handle` (lifecycle.mbt) and erased to
+// constructed from a freshly-built editor + companion inside
+// `assemble_lambda_handle` (lifecycle.mbt) and erased to
 // `Array[ProtectedRead]` for registration with the coordinator.
 //
 // See docs/superpowers/specs/2026-05-24-p0b-phase1-skeleton-design.md §8.1.
@@ -34,7 +34,6 @@ priv struct LambdaProtectedCells {
 fn LambdaProtectedCells::LambdaProtectedCells(
   editor : @editor.SyncEditor[@ast.Term],
   companion : @lang_lambda.LambdaCompanion,
-  typecheck : TypecheckBundle,
 ) -> LambdaProtectedCells {
   {
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
@@ -75,7 +74,7 @@ fn LambdaProtectedCells::LambdaProtectedCells(
     ),
     typecheck_output: @workspace.ProtectedCell::from_derived(
       "typecheck_pipeline",
-      typecheck.output,
+      companion.typecheck_output(),
     ),
   }
 }

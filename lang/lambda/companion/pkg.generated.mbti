@@ -12,6 +12,7 @@ import {
   "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
+  "dowdiness/lambda/typecheck",
 }
 
 // Values
@@ -35,11 +36,13 @@ pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
 pub struct LambdaCompanion {
   // private fields
 }
+pub fn LambdaCompanion::dispose_analysis_attachment(Self) -> Unit
 pub fn LambdaCompanion::escalation_memo(Self) -> @cells.Derived[Array[@eval.EvalResult]]
 pub fn LambdaCompanion::get_eval_annotations(Self, @core.ProjNode[@ast.Term]?) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
 pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
 pub fn LambdaCompanion::get_flat_proj(Self) -> @proj.FlatProj?
 pub fn LambdaCompanion::proj_memo(Self) -> @cells.Derived[@flat.VersionedFlatProj]
+pub fn LambdaCompanion::typecheck_output(Self) -> @cells.Derived[@typecheck.ModuleTypeResult]
 
 // Type aliases
 

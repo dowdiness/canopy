@@ -107,12 +107,12 @@ test "spec §12 #2: destroy refused while depended-upon; succeeds after unregist
     Ok(_) => ()
     Err(report) => fail("expected Ok after unregister_dep, got \{report}")
   }
-  // We bypassed the FFI `destroy_editor` wrapper, so the typecheck scope
+  // We bypassed the FFI `destroy_editor` wrapper, so the analysis attachment
   // and FFI bookkeeping are still in place. Drain them so subsequent
   // tests don't trip over the lingering handle. We cannot route through
   // `destroy_editor(handle)` again because the coordinator has already
   // marked the registration alive=false.
-  h.typecheck.scope.dispose()
+  h.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)
@@ -212,7 +212,7 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   }
   // Post-destroy must collapse to "[]" via the Err arm of read_protected.
   assert_eq(get_diagnostics_json(handle), "[]")
-  h.typecheck.scope.dispose()
+  h.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)
@@ -243,7 +243,7 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
     Err(report) => fail("coordinator destroy: \{report}")
   }
   assert_eq(get_diagnostics_json(handle), "[]")
-  h.typecheck.scope.dispose()
+  h.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle)
   view_states.remove(handle)
   pretty_view_states.remove(handle)

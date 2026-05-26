@@ -11,7 +11,6 @@ import {
   "dowdiness/lambda/typecheck",
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
-  "dowdiness/incr/cells",
   "dowdiness/event-graph-walker/text",
   "moonbitlang/async/js_async",
   "moonbitlang/core/buffer",

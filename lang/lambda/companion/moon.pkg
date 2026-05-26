@@ -9,6 +9,7 @@ import {
   "dowdiness/incr",
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast",
+  "dowdiness/lambda/typecheck",
   "dowdiness/loom",
   "dowdiness/pretty",
   "dowdiness/seam",
