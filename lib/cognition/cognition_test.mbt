@@ -145,7 +145,83 @@ fn cognition_key_mentions_path(key : CognitionKey, path : String) -> Bool {
     FileSummary(candidate) => candidate == path
     RepoSummary => false
     QueryContext(_) => false
+    PackedContext(_, _) => false
   }
+}
+
+///|
+test "pack_context returns provenance-bearing budgeted items" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("b.mbt"), Text("two"))
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+
+  let items = store.pack_context("what changed?", 2)
+
+  inspect(items.length(), content="2")
+  inspect(items[0].source == RepoSummary, content="true")
+  inspect(items[0].source_revision.to_int() > 0, content="true")
+  inspect(items[0].payload.contains("repo summary"), content="true")
+  inspect(
+    items[0].reason,
+    content="workspace overview for query: what changed?",
+  )
+  inspect(items[1].source == FileSummary("a.mbt"), content="true")
+  inspect(items[1].payload.contains("a.mbt"), content="true")
+  inspect(
+    items[1].reason,
+    content="file summary selected for query: what changed?",
+  )
+}
+
+///|
+test "pack_context records graph dependencies and invalidates on edits" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+  let _ = store.set_input(FileText("b.mbt"), Text("two"))
+  let _ = store.pack_context("what changed?", 2)
+  let key = CognitionKey::PackedContext("what changed?", 2)
+  let deps = store.dependencies_of(key)
+
+  inspect(deps.contains(RepoSummary), content="true")
+  inspect(deps.contains(FileSummary("a.mbt")), content="true")
+  inspect(deps.contains(FileSummary("b.mbt")), content="true")
+
+  let _ = store.set_input(FileText("a.mbt"), Text("one changed"))
+  inspect(store.is_dirty(key), content="true")
+  let recomputed = store.recompute_dirty()
+  inspect(recomputed.contains(key), content="true")
+}
+
+///|
+test "pack_context returns immutable item arrays" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+
+  let items = store.pack_context("what changed?", 1)
+  items.push({
+    source: FileText("external.mbt"),
+    source_revision: items[0].source_revision,
+    payload: "external mutation",
+    reason: "external",
+  })
+
+  let fresh = store.pack_context("what changed?", 1)
+  inspect(fresh.length(), content="1")
+  inspect(fresh[0].payload.contains("external mutation"), content="false")
+}
+
+///|
+test "pack_context with non-positive budget returns no items but stays live" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("a.mbt"), Text("one"))
+
+  inspect(store.pack_context("what changed?", 0).length(), content="0")
+  inspect(
+    store
+    .dependencies_of(CognitionKey::PackedContext("what changed?", 0))
+    .contains(RepoSummary),
+    content="true",
+  )
 }
 
 ///|

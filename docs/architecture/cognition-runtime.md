@@ -52,6 +52,12 @@ When an input changes, the store marks transitive dependents dirty. Recomputing
 dirty artifacts proceeds only when their dependencies are clean, so unrelated
 summaries are not recomputed when another file changes.
 
+Budgeted packed context is modeled as another derived artifact. It depends on
+repo context plus the selected file-summary candidates, stores
+provenance-bearing `ContextItem` values, and keeps each item's source key,
+source revision, payload, and inclusion reason. This keeps AI-facing context
+inspectable before any real model provider is introduced.
+
 ## Non-goals for this milestone
 
 - No real LLM calls.

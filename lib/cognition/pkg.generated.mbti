@@ -16,6 +16,7 @@ pub(all) enum CognitionKey {
   FileSummary(String)
   RepoSummary
   QueryContext(String)
+  PackedContext(String, Int)
 } derive(Compare, Eq, Hash, @debug.Debug)
 pub fn CognitionKey::label(Self) -> String
 
@@ -37,6 +38,7 @@ pub fn CognitionStore::is_dirty(Self, CognitionKey) -> Bool
 pub fn CognitionStore::known_files(Self) -> Array[String]
 pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
 pub fn CognitionStore::new() -> Self
+pub fn CognitionStore::pack_context(Self, String, Int) -> Array[ContextItem]
 pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
 pub fn CognitionStore::recompute_dirty(Self) -> Array[CognitionKey]
 pub fn CognitionStore::remove_file(Self, String) -> Bool
@@ -46,6 +48,14 @@ pub(all) enum CognitionValue {
   Text(String)
   Summary(String)
   ContextBundle(Array[String])
+  ContextItems(Array[ContextItem])
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ContextItem {
+  source : CognitionKey
+  source_revision : Revision
+  payload : String
+  reason : String
 } derive(Eq, @debug.Debug)
 
 pub(all) struct Dependency {

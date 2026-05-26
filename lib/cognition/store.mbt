@@ -182,6 +182,21 @@ pub fn CognitionStore::recompute_count(
 }
 
 ///|
+/// Build a provenance-bearing, budgeted context bundle for `query`.
+pub fn CognitionStore::pack_context(
+  self : CognitionStore,
+  query : String,
+  max_items : Int,
+) -> Array[ContextItem] {
+  let key = PackedContext(query, max_items)
+  let _ = self.compute(key)
+  match self.get_value(key) {
+    Some(ContextItems(items)) => items
+    _ => []
+  }
+}
+
+///|
 /// Mark one artifact and all of its dependents dirty.
 pub fn CognitionStore::mark_dirty(
   self : CognitionStore,
@@ -406,6 +421,8 @@ fn CognitionStore::recompute_one(
     FileSummary(path) => self.recompute_file_summary(path)
     RepoSummary => self.recompute_repo_summary()
     QueryContext(query) => self.recompute_query_context(query)
+    PackedContext(query, max_items) =>
+      self.recompute_packed_context(query, max_items)
   }
 }
 
@@ -494,6 +511,96 @@ fn CognitionStore::recompute_query_context(
 }
 
 ///|
+fn CognitionStore::recompute_packed_context(
+  self : CognitionStore,
+  query : String,
+  max_items : Int,
+) -> Unit {
+  if !self.values.contains(RepoSummary) || self.dirty.contains(RepoSummary) {
+    self.recompute_repo_summary()
+    self.dirty.remove(RepoSummary)
+  }
+  let items : Array[ContextItem] = []
+  let inputs : Array[CognitionKey] = [RepoSummary]
+  self.push_context_item(
+    items,
+    RepoSummary,
+    reason="workspace overview for query: \{query}",
+  )
+  for summary_key in self.known_file_summary_keys() {
+    inputs.push(summary_key)
+    self.push_context_item(
+      items,
+      summary_key,
+      reason="file summary selected for query: \{query}",
+    )
+  }
+  self.store_recomputed(
+    PackedContext(query, max_items),
+    ContextItems(take_context_items(items, max_items)),
+    inputs,
+  )
+}
+
+///|
+fn CognitionStore::push_context_item(
+  self : CognitionStore,
+  items : Array[ContextItem],
+  source : CognitionKey,
+  reason~ : String,
+) -> Unit {
+  match self.values.get(source) {
+    Some(Summary(payload)) =>
+      items.push({
+        source,
+        source_revision: self.revisions.get(source).unwrap_or(Revision(0)),
+        payload,
+        reason,
+      })
+    Some(Text(payload)) =>
+      items.push({
+        source,
+        source_revision: self.revisions.get(source).unwrap_or(Revision(0)),
+        payload,
+        reason,
+      })
+    Some(ContextBundle(lines)) =>
+      items.push({
+        source,
+        source_revision: self.revisions.get(source).unwrap_or(Revision(0)),
+        payload: lines.join("\n"),
+        reason,
+      })
+    Some(ContextItems(context_items)) =>
+      items.push({
+        source,
+        source_revision: self.revisions.get(source).unwrap_or(Revision(0)),
+        payload: context_items.map(fn(item) { item.payload }).join("\n"),
+        reason,
+      })
+    None => ()
+  }
+}
+
+///|
+fn take_context_items(
+  items : Array[ContextItem],
+  max_items : Int,
+) -> Array[ContextItem] {
+  if max_items <= 0 {
+    []
+  } else if items.length() <= max_items {
+    items.copy()
+  } else {
+    let selected : Array[ContextItem] = []
+    for i in 0..<max_items {
+      selected.push(items[i])
+    }
+    selected
+  }
+}
+
+///|
 fn CognitionStore::ensure_file_summaries_for_known_texts(
   self : CognitionStore,
 ) -> Unit {
@@ -526,6 +633,7 @@ fn CognitionValue::copy_value(self : CognitionValue) -> CognitionValue {
     Text(value) => Text(value)
     Summary(value) => Summary(value)
     ContextBundle(items) => ContextBundle(items.copy())
+    ContextItems(items) => ContextItems(items.copy())
   }
 }
 

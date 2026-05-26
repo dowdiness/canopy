@@ -5,6 +5,7 @@ pub(all) enum CognitionKey {
   FileSummary(String)
   RepoSummary
   QueryContext(String)
+  PackedContext(String, Int)
 } derive(Debug, Eq, Hash, Compare)
 
 ///|
@@ -13,6 +14,16 @@ pub(all) enum CognitionValue {
   Text(String)
   Summary(String)
   ContextBundle(Array[String])
+  ContextItems(Array[ContextItem])
+} derive(Debug, Eq)
+
+///|
+/// One provenance-bearing item selected for an AI context bundle.
+pub(all) struct ContextItem {
+  source : CognitionKey
+  source_revision : Revision
+  payload : String
+  reason : String
 } derive(Debug, Eq)
 
 ///|
@@ -39,5 +50,6 @@ pub fn CognitionKey::label(self : CognitionKey) -> String {
     FileSummary(path) => "FileSummary(\{path})"
     RepoSummary => "RepoSummary"
     QueryContext(query) => "QueryContext(\{query})"
+    PackedContext(query, max_items) => "PackedContext(\{query}, \{max_items})"
   }
 }
