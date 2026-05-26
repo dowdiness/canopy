@@ -388,6 +388,13 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Contract: `docs/research/2026-05-23-observer-discipline-contract.md`.
   Next: open a fresh brainstorm session using the grounding doc as substrate. Pick an atomic-boundary candidate (§5) before sketching coordinator API.
 
+## 19. Cognition Runtime
+
+- [ ] Tighten cognition runtime dependency cleanup before moving artifacts into `@incr`.
+  Why: PR #355/#357 made the minimal runtime useful enough that stale-edge cleanup and graph invariant tests are the next risk; dynamic `@incr` artifact cells would add lifecycle complexity before those invariants are pinned.
+  Plan: `docs/plans/2026-05-26-cognition-runtime-recompute-strategy.md`
+  Exit: explicit file removal and dependency replacement have tests proving no deleted-path dependency edges remain after cleanup/recompute, with existing cognition behavior unchanged.
+
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in
