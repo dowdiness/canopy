@@ -3,12 +3,13 @@
 ///|
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
+  mut previous_decorations : Array[@protocol.Decoration]?
   mut had_errors : Bool
 } derive(Debug)
 
 ///|
 pub fn ViewUpdateState::ViewUpdateState() -> ViewUpdateState {
-  { previous: None, had_errors: false }
+  { previous: None, previous_decorations: None, had_errors: false }
 }
 
 ///|
@@ -59,6 +60,10 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
 ) -> Array[@protocol.ViewPatch] {
   let patches : Array[@protocol.ViewPatch] = []
   let current = editor.get_view_tree()
+  let current_decorations = match editor.capabilities.get_decorations {
+    Some(get_decos) => get_decos()
+    None => []
+  }
   match (state.previous, current) {
     (None, None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
     (None, Some(curr)) =>
@@ -66,6 +71,17 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
     (Some(_), None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
     (Some(prev), Some(curr)) => diff_view_nodes(prev, curr, patches)
   }
+  match state.previous_decorations {
+    Some(prev) if prev == current_decorations => ()
+    _ =>
+      if !current_decorations.is_empty() ||
+        state.previous_decorations is Some(_) {
+        patches.push(
+          @protocol.ViewPatch::SetDecorations(decorations=current_decorations),
+        )
+      }
+  }
+  state.previous_decorations = Some(current_decorations)
   let errors = editor.get_errors()
   if errors.length() > 0 {
     let diagnostics : Array[@protocol.Diagnostic] = []

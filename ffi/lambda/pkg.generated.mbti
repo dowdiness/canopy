@@ -65,6 +65,8 @@ pub fn get_pretty_view_json(Int) -> String
 
 pub fn get_proj_node_json(Int) -> String
 
+pub fn get_semantic_projection_json(Int) -> String
+
 pub fn get_source_map_json(Int) -> String
 
 pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]?
@@ -96,6 +98,8 @@ pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
 pub fn relay_on_disconnect(String, String) -> Unit
 
 pub fn relay_on_message(String, String, Bytes) -> Unit
+
+pub fn rename_semantic_node(Int, Int, String, Int) -> String
 
 pub fn set_text(Int, String) -> Unit
 

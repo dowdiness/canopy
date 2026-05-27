@@ -130,6 +130,22 @@ fn build_eval_annotations(
 }
 
 ///|
+fn append_annotation_map(
+  target : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  extra : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+) -> Unit {
+  for node_id, anns in extra {
+    match target.get(node_id) {
+      Some(existing) =>
+        for ann in anns {
+          existing.push(ann)
+        }
+      None => target[node_id] = anns.copy()
+    }
+  }
+}
+
+///|
 /// Create a lambda editor with its companion.
 pub fn new_lambda_editor(
   agent_id : String,
@@ -149,6 +165,7 @@ pub fn new_lambda_editor(
   let cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?] = Ref(
     None,
   )
+  let source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?] = Ref(None)
   let editor = @editor.SyncEditor::new_generic(
     agent_id,
     fn(s, rt) { @loom.new_parser(s, @parser.lambda_grammar, runtime?=rt) },
@@ -158,6 +175,7 @@ pub fn new_lambda_editor(
       )
       proj_memo_ref.val = Some(proj_memo)
       cached_proj_node_ref.val = Some(cached_proj_node)
+      source_map_memo_ref.val = Some(source_map_memo)
       analysis_ref.val = Some(@parser.attach_lambda_analysis(parser))
       let eval_memo = @lambda_eval.build_eval_memo(parser)
       // Escalation memo: merges Tier 1 + Tier 2 for incomplete programs
@@ -170,7 +188,7 @@ pub fn new_lambda_editor(
     capture_timeout_ms~,
     parent_runtime?,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, escalation_memo_ref,
+      cached_proj_node_ref, source_map_memo_ref, proj_memo_ref, escalation_memo_ref,
     ),
   )
   let companion : LambdaCompanion = {
@@ -182,22 +200,62 @@ pub fn new_lambda_editor(
 }
 
 ///|
+fn lambda_flat_proj_for_capabilities(
+  proj_memo_ref : Ref[@incr.Derived[@lambda_flat.VersionedFlatProj]?],
+) -> @lambda_proj.FlatProj? {
+  match proj_memo_ref.val {
+    Some(memo) => memo.read_or_abort().proj
+    None => None
+  }
+}
+
+///|
 /// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
+  source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
+  proj_memo_ref : Ref[@incr.Derived[@lambda_flat.VersionedFlatProj]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
       let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.read_or_abort()
-        None => return {}
+        None => []
       }
       let proj_node = match cached_proj_node_ref.val {
         Some(memo) => memo.read_or_abort()
         None => None
       }
-      build_eval_annotations(eval_results, proj_node)
+      let annotations = build_eval_annotations(eval_results, proj_node)
+      match (proj_node, source_map_memo_ref.val) {
+        (Some(root), Some(source_map_memo)) =>
+          append_annotation_map(
+            annotations,
+            @lambda_semantic.build_semantic_projection_with_flat_proj(
+              root,
+              source_map_memo.read_or_abort(),
+              lambda_flat_proj_for_capabilities(proj_memo_ref),
+            ).annotations,
+          )
+        _ => ()
+      }
+      annotations
+    }),
+    get_decorations=Some(fn() {
+      match (cached_proj_node_ref.val, source_map_memo_ref.val) {
+        (Some(proj_memo), Some(source_map_memo)) =>
+          match proj_memo.read_or_abort() {
+            Some(root) =>
+              @lambda_semantic.build_semantic_projection_with_flat_proj(
+                root,
+                source_map_memo.read_or_abort(),
+                lambda_flat_proj_for_capabilities(proj_memo_ref),
+              ).decorations
+            None => []
+          }
+        _ => []
+      }
     }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {

@@ -224,7 +224,7 @@ pub struct LanguageCapabilities[T] {
   // private fields
 }
 pub fn[T] LanguageCapabilities::default() -> Self[T]
-pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
+pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
 
 pub(all) struct PeerCursor {
   mut raw_cursor : Int
@@ -378,6 +378,7 @@ pub impl Show for SyncStatus
 
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
+  mut previous_decorations : Array[@protocol.Decoration]?
   mut had_errors : Bool
 } derive(@debug.Debug)
 pub fn ViewUpdateState::ViewUpdateState() -> Self
