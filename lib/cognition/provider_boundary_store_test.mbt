@@ -118,6 +118,70 @@ test "provider request re-planning resets failed status to pending" {
 }
 
 ///|
+test "provider request re-planning preserves terminal status" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
+  let target = CognitionKey::FileSummary("src/a.mbt")
+  let request = store.plan_provider_request(
+    target~,
+    options=provider_boundary_options_for_test(),
+  )
+  let success_status = store.complete_provider_request(
+    provider_boundary_completion_for_test(
+      request,
+      ProviderResult::Succeeded(Summary("provider summary")),
+    ),
+  )
+  inspect(
+    success_status.status() == ProviderRequestStatus::Succeeded,
+    content="true",
+  )
+
+  let success_repeat = store.plan_provider_request(
+    target~,
+    options=provider_boundary_options_for_test(),
+  )
+  inspect(success_repeat.id() == request.id(), content="true")
+  match store.get_provider_status(request.id()) {
+    Some(status) =>
+      inspect(
+        status.status() == ProviderRequestStatus::Succeeded,
+        content="true",
+      )
+    None => fail("expected provider status")
+  }
+
+  let auth_request = store.plan_provider_request(
+    target=RepoSummary,
+    options=provider_boundary_options_for_test(),
+  )
+  let auth_status = store.complete_provider_request(
+    provider_boundary_completion_for_test(
+      auth_request,
+      ProviderResult::Failed(ProviderError::Auth),
+    ),
+  )
+  inspect(
+    auth_status.status() == ProviderRequestStatus::Failed(ProviderError::Auth),
+    content="true",
+  )
+
+  let auth_repeat = store.plan_provider_request(
+    target=RepoSummary,
+    options=provider_boundary_options_for_test(),
+  )
+  inspect(auth_repeat.id() == auth_request.id(), content="true")
+  match store.get_provider_status(auth_request.id()) {
+    Some(status) =>
+      inspect(
+        status.status() == ProviderRequestStatus::Failed(ProviderError::Auth),
+        content="true",
+      )
+    None => fail("expected provider status")
+  }
+}
+
+///|
 test "provider request planning does not recompute dirty file summary target" {
   let file_calls = Ref(0)
   let provider : CognitionProvider = {

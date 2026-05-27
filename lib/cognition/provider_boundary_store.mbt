@@ -19,7 +19,12 @@ pub fn CognitionStore::plan_provider_request(
   )
   match self.provider_requests.get(request_id) {
     Some(request) => {
-      self.provider_statuses[request_id] = ProviderRequestStatus::Pending
+      let current_status = self.provider_statuses
+        .get(request_id)
+        .unwrap_or(ProviderRequestStatus::Planned)
+      if provider_status_should_replan(current_status) {
+        self.provider_statuses[request_id] = ProviderRequestStatus::Pending
+      }
       request
     }
     None => {
@@ -36,6 +41,19 @@ pub fn CognitionStore::plan_provider_request(
       self.provider_statuses[request_id] = ProviderRequestStatus::Pending
       request
     }
+  }
+}
+
+///|
+fn provider_status_should_replan(status : ProviderRequestStatus) -> Bool {
+  match status {
+    ProviderRequestStatus::Planned | ProviderRequestStatus::Pending => true
+    ProviderRequestStatus::Failed(error) =>
+      match error.retry_classification() {
+        ProviderRetryClassification::RetryableLater(_) => true
+        _ => false
+      }
+    ProviderRequestStatus::Succeeded => false
   }
 }
 
