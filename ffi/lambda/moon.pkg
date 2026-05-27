@@ -19,6 +19,11 @@ import {
   "moonbitlang/core/string",
 }
 
+import {
+  "dowdiness/incr",
+  "moonbitlang/core/debug",
+} for "wbtest"
+
 // `cells` field of LambdaHandle is read in production by `get_diagnostics_json`
 // (parser_diagnostics + typecheck_output + escalation_memo, via Phase 1b
 // workstream 1) and by whitebox tests (`lifecycle_phase1_wbtest.mbt`) for the
