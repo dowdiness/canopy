@@ -9,6 +9,20 @@ import {
 pub fn demo_trace() -> Array[String]
 
 // Errors
+pub(all) suberror ProviderError {
+  Cancelled
+  Timeout
+  RateLimited(retry_after_ms~ : Int?)
+  Auth
+  UnsupportedModel(model_id~ : String)
+  Network(message~ : String)
+  InvalidRequest(message~ : String)
+  ProviderRejected(message~ : String)
+  Decode(message~ : String)
+  BudgetExceeded
+  StaleCompletion
+} derive(Eq, @debug.Debug)
+pub fn ProviderError::retry_classification(Self) -> ProviderRetryClassification
 
 // Types and methods
 pub(all) enum CognitionKey {
@@ -95,6 +109,93 @@ pub(all) struct Dependency {
   from : CognitionKey
   input : CognitionKey
 } derive(Eq, @debug.Debug)
+
+pub struct ProviderDependencyFingerprint(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn ProviderDependencyFingerprint::new(String) -> Self
+pub fn ProviderDependencyFingerprint::to_string(Self) -> String
+
+pub(all) struct ProviderOptionProvenance {
+  task_kind : String
+  provider_id : String
+  model_id : String
+  option_identity : RedactedOptionIdentity
+} derive(Eq, @debug.Debug)
+pub fn ProviderOptionProvenance::new(task_kind~ : String, provider_id~ : String, model_id~ : String, option_identity~ : RedactedOptionIdentity) -> Self
+
+pub struct ProviderRequestDescriptor {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ProviderRequestDescriptor::context(Self) -> Array[ContextItem]
+pub fn ProviderRequestDescriptor::dependencies(Self) -> Array[CognitionKey]
+pub fn ProviderRequestDescriptor::dependency_fingerprint(Self) -> ProviderDependencyFingerprint
+pub fn ProviderRequestDescriptor::id(Self) -> ProviderRequestId
+pub fn ProviderRequestDescriptor::new(id~ : ProviderRequestId, target~ : CognitionKey, options~ : ProviderOptionProvenance, context~ : Array[ContextItem], source_revisions~ : Array[ProviderSourceSnapshot], dependencies~ : Array[CognitionKey], dependency_fingerprint~ : ProviderDependencyFingerprint) -> Self
+pub fn ProviderRequestDescriptor::options(Self) -> ProviderOptionProvenance
+pub fn ProviderRequestDescriptor::source_revisions(Self) -> Array[ProviderSourceSnapshot]
+pub fn ProviderRequestDescriptor::target(Self) -> CognitionKey
+
+pub struct ProviderRequestId(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn ProviderRequestId::new(String) -> Self
+pub fn ProviderRequestId::to_string(Self) -> String
+
+pub(all) enum ProviderRequestStatus {
+  Planned
+  Pending
+  Succeeded
+  Failed(ProviderError)
+} derive(Eq, @debug.Debug)
+pub fn ProviderRequestStatus::classification(Self) -> ProviderStatusClassification
+
+pub(all) enum ProviderResult {
+  Succeeded(CognitionValue)
+  Failed(ProviderError)
+} derive(Eq, @debug.Debug)
+
+pub struct ProviderResultDescriptor {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ProviderResultDescriptor::dependency_fingerprint(Self) -> ProviderDependencyFingerprint
+pub fn ProviderResultDescriptor::new(request_id~ : ProviderRequestId, target~ : CognitionKey, options~ : ProviderOptionProvenance, source_revisions~ : Array[ProviderSourceSnapshot], dependency_fingerprint~ : ProviderDependencyFingerprint, result~ : ProviderResult) -> Self
+pub fn ProviderResultDescriptor::options(Self) -> ProviderOptionProvenance
+pub fn ProviderResultDescriptor::request_id(Self) -> ProviderRequestId
+pub fn ProviderResultDescriptor::result(Self) -> ProviderResult
+pub fn ProviderResultDescriptor::source_revisions(Self) -> Array[ProviderSourceSnapshot]
+pub fn ProviderResultDescriptor::status(Self) -> ProviderRequestStatus
+pub fn ProviderResultDescriptor::target(Self) -> CognitionKey
+
+pub(all) enum ProviderRetryClassification {
+  RetryableLater(retry_after_ms~ : Int?)
+  TerminalUntilConfigurationChanges
+  TerminalForRequest
+  CallerInitiated
+  GraphConsistency
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProviderSourceSnapshot {
+  key : CognitionKey
+  revision : Revision
+} derive(Eq, @debug.Debug)
+pub fn ProviderSourceSnapshot::new(key~ : CognitionKey, revision~ : Revision) -> Self
+
+pub(all) enum ProviderStatusClassification {
+  NotStarted
+  InFlight
+  Succeeded
+  Failed(ProviderRetryClassification)
+} derive(Eq, @debug.Debug)
+
+pub struct ProviderStatusDescriptor {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ProviderStatusDescriptor::classification(Self) -> ProviderStatusClassification
+pub fn ProviderStatusDescriptor::new(request_id~ : ProviderRequestId, target~ : CognitionKey, status~ : ProviderRequestStatus) -> Self
+pub fn ProviderStatusDescriptor::request_id(Self) -> ProviderRequestId
+pub fn ProviderStatusDescriptor::status(Self) -> ProviderRequestStatus
+pub fn ProviderStatusDescriptor::target(Self) -> CognitionKey
+
+pub struct RedactedOptionIdentity(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn RedactedOptionIdentity::new(String) -> Self
+pub fn RedactedOptionIdentity::to_string(Self) -> String
 
 pub struct Revision(Int) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn Revision::to_int(Self) -> Int
