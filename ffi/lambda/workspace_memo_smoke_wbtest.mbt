@@ -62,12 +62,18 @@ test "smoke 5.1: sanity sum equals known value across two editors" {
     h_b.cells.parser_source.cell_id(),
   )
   w.dispose()
-  let _ = coordinator.destroy_editor(h_a.editor_id)
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_a: \{r}")
+  }
   h_a.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_a)
   view_states.remove(handle_a)
   pretty_view_states.remove(handle_a)
-  let _ = coordinator.destroy_editor(h_b.editor_id)
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_b: \{r}")
+  }
   h_b.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_b)
   view_states.remove(handle_b)
@@ -131,12 +137,18 @@ test "smoke 5.2: mutation in editor A invalidates workspace memo and recomputes"
     h_b.cells.parser_source.cell_id(),
   )
   w.dispose()
-  let _ = coordinator.destroy_editor(h_a.editor_id)
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_a: \{r}")
+  }
   h_a.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_a)
   view_states.remove(handle_a)
   pretty_view_states.remove(handle_a)
-  let _ = coordinator.destroy_editor(h_b.editor_id)
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_b: \{r}")
+  }
   h_b.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_b)
   view_states.remove(handle_b)
@@ -196,6 +208,14 @@ test "smoke 5.3: destroy_editor refused while workspace memo dep is live" {
   // Editor A must still be alive — re-read the memo and assert the sum is unchanged.
   assert_eq(w.read().unwrap(), pre_sum)
 
+  // Stronger aliveness: mutate editor A AFTER the refused destroy and assert
+  // the memo recomputes from the new source. This is what "still alive" must
+  // mean operationally — accepting writes and propagating invalidation. A
+  // bare value-equality reread alone would also pass if the editor were
+  // half-dead (e.g., reads served from a frozen cache).
+  h_a.editor.set_text("hello-after-refused-destroy")
+  assert_eq(w.read().unwrap(), 27 + 5)
+
   // Teardown per spec §3.7.
   coordinator.unregister_dep(
     sum_d.id(),
@@ -208,12 +228,18 @@ test "smoke 5.3: destroy_editor refused while workspace memo dep is live" {
     h_b.cells.parser_source.cell_id(),
   )
   w.dispose()
-  let _ = coordinator.destroy_editor(h_a.editor_id)
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_a: \{r}")
+  }
   h_a.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_a)
   view_states.remove(handle_a)
   pretty_view_states.remove(handle_a)
-  let _ = coordinator.destroy_editor(h_b.editor_id)
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("teardown destroy h_b: \{r}")
+  }
   h_b.companion.dispose_analysis_attachment()
   lambda_handles.remove(handle_b)
   view_states.remove(handle_b)
