@@ -24,6 +24,7 @@ pub fn CognitionStore::plan_provider_request(
         .unwrap_or(ProviderRequestStatus::Planned)
       if provider_status_should_replan(current_status) {
         self.provider_statuses[request_id] = ProviderRequestStatus::Pending
+        self.provider_results.remove(request_id)
       }
       request
     }

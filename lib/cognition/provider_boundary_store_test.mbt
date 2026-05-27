@@ -125,6 +125,14 @@ test "provider request re-planning resets failed status to pending" {
     failed.status() == ProviderRequestStatus::Failed(ProviderError::Timeout),
     content="true",
   )
+  match store.get_provider_result(request.id()) {
+    Some(result) =>
+      inspect(
+        result.status() == ProviderRequestStatus::Failed(ProviderError::Timeout),
+        content="true",
+      )
+    None => fail("expected failed completion record")
+  }
 
   let repeated = store.plan_provider_request(
     target~,
@@ -136,6 +144,7 @@ test "provider request re-planning resets failed status to pending" {
       inspect(status.status() == ProviderRequestStatus::Pending, content="true")
     None => fail("expected provider status")
   }
+  inspect(store.get_provider_result(request.id()) is None, content="true")
 
   let retry_status = store.complete_provider_request(
     provider_boundary_completion_for_test(
