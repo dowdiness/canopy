@@ -171,13 +171,17 @@ pub fn get_version_json(handle : Int) -> String {
 
 ///|
 /// Get the ProjNode tree as JSON string.
-/// Returns "null" if no projection is available.
+/// Returns "null" if no projection is available or the protected read fails.
 pub fn get_proj_node_json(handle : Int) -> String {
   match lambda_handles.get(handle) {
     Some(h) =>
-      match h.editor.get_proj_node() {
-        Some(proj) => proj.to_json().stringify()
-        None => "null"
+      match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(Some(proj)) => proj.to_json().stringify()
+        Ok(None) => "null"
+        Err(report) => {
+          println("get_proj_node_json: \{report}")
+          "null"
+        }
       }
     None => "null"
   }
@@ -185,10 +189,18 @@ pub fn get_proj_node_json(handle : Int) -> String {
 
 ///|
 /// Get the SourceMap as JSON string.
-/// Returns an array of {node_id, start, end} entries.
+/// Returns an array of {node_id, start, end} entries, or "[]" if the
+/// protected read fails.
 pub fn get_source_map_json(handle : Int) -> String {
   match lambda_handles.get(handle) {
-    Some(h) => h.editor.get_source_map().to_json().stringify()
+    Some(h) =>
+      match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(sm) => sm.to_json().stringify()
+        Err(report) => {
+          println("get_source_map_json: \{report}")
+          "[]"
+        }
+      }
     None => "[]"
   }
 }
