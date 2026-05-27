@@ -157,6 +157,11 @@ fn CognitionStore::provider_completion_rejection(
 ) -> ProviderError? {
   if completion.target() != request.target() {
     Some(ProviderError::InvalidRequest(message="target mismatch"))
+  } else if !provider_result_matches_target(
+      completion.target(),
+      completion.result(),
+    ) {
+    Some(ProviderError::InvalidRequest(message="result value type mismatch"))
   } else if completion.options() != request.options() {
     Some(ProviderError::StaleCompletion)
   } else if completion.source_revisions() != request.source_revisions() {
@@ -219,6 +224,27 @@ fn CognitionStore::reject_provider_completion(
   self.provider_results[request_id] = result
   self.provider_statuses[request_id] = status
   ProviderStatusDescriptor::new(request_id~, target=request.target(), status~)
+}
+
+///|
+fn provider_result_matches_target(
+  target : CognitionKey,
+  result : ProviderResult,
+) -> Bool {
+  match result {
+    ProviderResult::Failed(_) => true
+    ProviderResult::Succeeded(value) =>
+      match (target, value) {
+        (FileText(_), Text(_)) => true
+        (FileSummary(_), Summary(_)) => true
+        (RepoSummary, Summary(_)) => true
+        (QueryContext(_), ContextBundle(_)) => true
+        (PackedContext(_, _), ContextItems(_)) => true
+        (BudgetedContext(_, _, _), ContextItems(_)) => true
+        (TruncatedContext(_, _, _), ContextItems(_)) => true
+        _ => false
+      }
+  }
 }
 
 ///|

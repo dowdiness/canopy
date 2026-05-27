@@ -109,6 +109,35 @@ test "provider completion accepts matching success and stores artifact" {
 }
 
 ///|
+test "provider completion rejects value type that does not match target" {
+  let store = CognitionStore::new()
+  let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
+  let _ = store.compute(FileSummary("src/a.mbt"))
+  let target = CognitionKey::FileSummary("src/a.mbt")
+  let before = provider_boundary_summary_for_test(store, target)
+  let request = store.plan_provider_request(
+    target~,
+    options=provider_boundary_options_for_test(),
+  )
+
+  let status = store.complete_provider_request(
+    provider_boundary_completion_for_test(
+      request,
+      ProviderResult::Succeeded(Text("not a summary")),
+    ),
+  )
+
+  inspect(
+    status.status() ==
+    ProviderRequestStatus::Failed(
+      ProviderError::InvalidRequest(message="result value type mismatch"),
+    ),
+    content="true",
+  )
+  inspect(provider_boundary_summary_for_test(store, target), content=before)
+}
+
+///|
 test "provider cancellation preserves last clean artifact and blocks completion" {
   let store = CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
