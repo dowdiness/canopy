@@ -9,7 +9,6 @@ pub fn CognitionStore::plan_provider_request(
   target~ : CognitionKey,
   options~ : ProviderOptionProvenance,
 ) -> ProviderRequestDescriptor {
-  let _ = self.compute_if_missing_or_dirty(target)
   let dependencies = self.provider_dependencies_for_target(target)
   let source_revisions = self.provider_source_snapshots_for(dependencies)
   let dependency_fingerprint = provider_dependency_fingerprint_for_snapshots(
@@ -185,8 +184,6 @@ fn CognitionStore::provider_completion_rejection(
   } else if completion.dependency_fingerprint() !=
     request.dependency_fingerprint() {
     Some(ProviderError::StaleCompletion)
-  } else if self.dirty.contains(request.target()) {
-    Some(ProviderError::StaleCompletion)
   } else if !self.provider_source_snapshots_are_current(
       request.source_revisions(),
     ) {
@@ -330,12 +327,62 @@ fn CognitionStore::provider_dependencies_for_target(
   self : CognitionStore,
   target : CognitionKey,
 ) -> Array[CognitionKey] {
-  let dependencies = self.dependencies.get(target).unwrap_or([])
-  if dependencies.length() == 0 && self.revisions.contains(target) {
-    [target]
-  } else {
-    normalize_provider_dependencies(dependencies)
+  match self.dependencies.get(target) {
+    Some(dependencies) if dependencies.length() > 0 &&
+      !self.dirty.contains(target) =>
+      normalize_provider_dependencies(dependencies)
+    _ => self.provider_default_dependencies_for_target(target)
   }
+}
+
+///|
+fn CognitionStore::provider_default_dependencies_for_target(
+  self : CognitionStore,
+  target : CognitionKey,
+) -> Array[CognitionKey] {
+  match target {
+    FileText(_) => if self.revisions.contains(target) { [target] } else { [] }
+    FileSummary(path) => [FileText(path)]
+    RepoSummary => self.provider_file_text_dependencies()
+    QueryContext(_) => self.provider_repo_context_dependencies()
+    PackedContext(query, _) => self.provider_context_dependencies(query)
+    BudgetedContext(query, _, _) => self.provider_context_dependencies(query)
+    TruncatedContext(query, _, _) => self.provider_context_dependencies(query)
+  }
+}
+
+///|
+fn CognitionStore::provider_file_text_dependencies(
+  self : CognitionStore,
+) -> Array[CognitionKey] {
+  let dependencies : Array[CognitionKey] = []
+  for path in self.known_files() {
+    dependencies.push(FileText(path))
+  }
+  dependencies
+}
+
+///|
+fn CognitionStore::provider_repo_context_dependencies(
+  self : CognitionStore,
+) -> Array[CognitionKey] {
+  let dependencies : Array[CognitionKey] = [RepoSummary]
+  for file_text in self.provider_file_text_dependencies() {
+    dependencies.push(file_text)
+  }
+  normalize_provider_dependencies(dependencies)
+}
+
+///|
+fn CognitionStore::provider_context_dependencies(
+  self : CognitionStore,
+  query : String,
+) -> Array[CognitionKey] {
+  let dependencies = self.provider_repo_context_dependencies()
+  for summary_key in self.selected_file_summary_keys(query) {
+    dependencies.push(summary_key)
+  }
+  normalize_provider_dependencies(dependencies)
 }
 
 ///|

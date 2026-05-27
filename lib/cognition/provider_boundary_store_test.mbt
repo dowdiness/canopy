@@ -118,6 +118,58 @@ test "provider request re-planning resets failed status to pending" {
 }
 
 ///|
+test "provider request planning does not recompute dirty file summary target" {
+  let file_calls = Ref(0)
+  let provider : CognitionProvider = {
+    file_summary: fn(path, text) {
+      file_calls.val += 1
+      "sync \{path}: \{text.length()}"
+    },
+    repo_summary: fn(items) { "repo: " + items.join(",") },
+  }
+  let store = CognitionStore::new_with_provider(provider)
+  let target = CognitionKey::FileSummary("src/a.mbt")
+  let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
+  let _ = store.compute(target)
+  inspect(file_calls.val, content="1")
+  inspect(
+    provider_boundary_summary_for_test(store, target),
+    content="sync src/a.mbt: 5",
+  )
+
+  let _ = store.set_input(FileText("src/a.mbt"), Text("alpha changed"))
+  inspect(store.is_dirty(target), content="true")
+  let request = store.plan_provider_request(
+    target~,
+    options=provider_boundary_options_for_test(),
+  )
+
+  inspect(file_calls.val, content="1")
+  inspect(store.is_dirty(target), content="true")
+  inspect(
+    request.dependencies().contains(FileText("src/a.mbt")),
+    content="true",
+  )
+  inspect(
+    provider_boundary_summary_for_test(store, target),
+    content="sync src/a.mbt: 5",
+  )
+
+  let status = store.complete_provider_request(
+    provider_boundary_completion_for_test(
+      request,
+      ProviderResult::Succeeded(Summary("external summary")),
+    ),
+  )
+  inspect(status.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(store.is_dirty(target), content="false")
+  inspect(
+    provider_boundary_summary_for_test(store, target),
+    content="external summary",
+  )
+}
+
+///|
 test "provider completion accepts matching success and stores artifact" {
   let store = CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
