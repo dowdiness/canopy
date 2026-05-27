@@ -47,6 +47,8 @@ type CognitionReactive
 pub(all) struct CognitionStore {
   // private fields
 }
+pub fn CognitionStore::cancel_provider_request(Self, ProviderRequestId) -> ProviderStatusDescriptor?
+pub fn CognitionStore::complete_provider_request(Self, ProviderResultDescriptor) -> ProviderStatusDescriptor
 pub fn CognitionStore::compute(Self, CognitionKey) -> CognitionValue?
 pub fn CognitionStore::current_revision(Self) -> Revision
 pub fn CognitionStore::dependencies_of(Self, CognitionKey) -> Array[CognitionKey]
@@ -54,6 +56,9 @@ pub fn CognitionStore::dependency_edges(Self) -> Array[Dependency]
 pub fn CognitionStore::dependents_of(Self, CognitionKey) -> Array[CognitionKey]
 pub fn CognitionStore::dirty_dependents(Self, CognitionKey) -> Array[CognitionKey]
 pub fn CognitionStore::dirty_keys(Self) -> Array[CognitionKey]
+pub fn CognitionStore::get_provider_request(Self, ProviderRequestId) -> ProviderRequestDescriptor?
+pub fn CognitionStore::get_provider_result(Self, ProviderRequestId) -> ProviderResultDescriptor?
+pub fn CognitionStore::get_provider_status(Self, ProviderRequestId) -> ProviderStatusDescriptor?
 pub fn CognitionStore::get_revision(Self, CognitionKey) -> Revision?
 pub fn CognitionStore::get_value(Self, CognitionKey) -> CognitionValue?
 pub fn CognitionStore::is_dirty(Self, CognitionKey) -> Bool
@@ -66,6 +71,7 @@ pub fn CognitionStore::pack_context(Self, String, Int) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_budget(Self, String, Int, Int) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_options(Self, String, ContextPackOptions) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_stats(Self, String, ContextPackOptions) -> (Array[ContextItem], ContextPackStats)
+pub fn CognitionStore::plan_provider_request(Self, target~ : CognitionKey, options~ : ProviderOptionProvenance) -> ProviderRequestDescriptor
 pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
 pub fn CognitionStore::recompute_dirty(Self) -> Array[CognitionKey]
 pub fn CognitionStore::remove_file(Self, String) -> Bool

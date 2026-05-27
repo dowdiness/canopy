@@ -13,6 +13,9 @@ pub(all) struct CognitionStore {
   priv reverse_dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv dirty : Map[CognitionKey, Bool]
   priv recompute_counts : Map[CognitionKey, Int]
+  priv provider_requests : Map[ProviderRequestId, ProviderRequestDescriptor]
+  priv provider_statuses : Map[ProviderRequestId, ProviderRequestStatus]
+  priv provider_results : Map[ProviderRequestId, ProviderResultDescriptor]
   priv provider : CognitionProvider
   priv ranker : ContextRanker
   priv reactive : CognitionReactive
@@ -49,6 +52,9 @@ pub fn CognitionStore::new_with_provider_and_ranker(
     reverse_dependencies: Map::default(),
     dirty: Map::default(),
     recompute_counts: Map::default(),
+    provider_requests: Map::default(),
+    provider_statuses: Map::default(),
+    provider_results: Map::default(),
     provider,
     ranker,
     reactive: CognitionReactive::CognitionReactive(dependencies),
