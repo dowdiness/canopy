@@ -41,6 +41,7 @@ options(
         "get_errors_json",
         "get_diagnostics_json",
         "get_semantic_projection_json",
+        "rename_semantic_node",
         "export_all_json",
         "export_since_json",
         "apply_sync_json",

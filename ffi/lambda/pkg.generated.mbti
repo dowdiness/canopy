@@ -99,6 +99,8 @@ pub fn relay_on_disconnect(String, String) -> Unit
 
 pub fn relay_on_message(String, String, Bytes) -> Unit
 
+pub fn rename_semantic_node(Int, Int, String, Int) -> String
+
 pub fn set_text(Int, String) -> Unit
 
 pub fn set_text_and_record(Int, String, Int) -> Unit
