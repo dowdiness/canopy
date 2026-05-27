@@ -230,6 +230,20 @@ fn build_lambda_capabilities(
       }
       annotations
     }),
+    get_decorations=Some(fn() {
+      match (cached_proj_node_ref.val, source_map_memo_ref.val) {
+        (Some(proj_memo), Some(source_map_memo)) =>
+          match proj_memo.read_or_abort() {
+            Some(root) =>
+              @lambda_semantic.build_semantic_projection(
+                root,
+                source_map_memo.read_or_abort(),
+              ).decorations
+            None => []
+          }
+        _ => []
+      }
+    }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {
         Some(memo) => memo.read_or_abort()

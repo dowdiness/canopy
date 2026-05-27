@@ -254,3 +254,35 @@ test "FullTree emitted when tree appears from empty" {
     })
   assert_true(full_tree_some)
 }
+
+///|
+test "semantic decorations are emitted and stable" {
+  let editor = @lambda.new_lambda_editor("test-semantic-decorations").0
+  editor.set_text("λx. x")
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let patches = @editor.compute_view_patches(state, editor)
+  let has_semantic_decoration = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::SetDecorations(decorations~) =>
+          decorations
+          .iter()
+          .any(fn(d) {
+            d.css_class == "semantic-binder" || d.css_class == "semantic-bound"
+          })
+        _ => false
+      }
+    })
+  assert_true(has_semantic_decoration)
+  let unchanged = @editor.compute_view_patches(state, editor)
+  let repeats_decorations = unchanged
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::SetDecorations(_) => true
+        _ => false
+      }
+    })
+  inspect(repeats_decorations, content="false")
+}
