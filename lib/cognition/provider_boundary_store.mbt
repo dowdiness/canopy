@@ -33,7 +33,7 @@ pub fn CognitionStore::plan_provider_request(
         id=request_id,
         target~,
         options~,
-        context=self.provider_context_for_target(target),
+        context=self.provider_context_for_target(target, dependencies),
         source_revisions~,
         dependencies~,
         dependency_fingerprint~,
@@ -306,39 +306,29 @@ fn CognitionStore::store_provider_value(
 fn CognitionStore::provider_context_for_target(
   self : CognitionStore,
   target : CognitionKey,
+  dependencies : Array[CognitionKey],
 ) -> Array[ContextItem] {
-  let revision = self.revisions.get(target).unwrap_or(Revision(0))
   match self.values.get(target) {
     Some(ContextItems(items)) => items.copy()
-    Some(ContextBundle(lines)) =>
-      [
-        {
-          source: target,
-          source_revision: revision,
-          payload: lines.join("\n"),
-          reason: "planned provider target",
-        },
-      ]
-    Some(Summary(payload)) =>
-      [
-        {
-          source: target,
-          source_revision: revision,
-          payload,
-          reason: "planned provider target",
-        },
-      ]
-    Some(Text(payload)) =>
-      [
-        {
-          source: target,
-          source_revision: revision,
-          payload,
-          reason: "planned provider target",
-        },
-      ]
-    None => []
+    _ => self.provider_context_for_dependencies(target, dependencies)
   }
+}
+
+///|
+fn CognitionStore::provider_context_for_dependencies(
+  self : CognitionStore,
+  target : CognitionKey,
+  dependencies : Array[CognitionKey],
+) -> Array[ContextItem] {
+  let items : Array[ContextItem] = []
+  for dependency in normalize_provider_dependencies(dependencies) {
+    self.push_context_item(
+      items,
+      dependency,
+      reason="planned provider input for " + target.label(),
+    )
+  }
+  items
 }
 
 ///|

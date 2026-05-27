@@ -70,6 +70,62 @@ test "provider request planning records pending descriptor and reuses clean id" 
 }
 
 ///|
+test "provider request planning populates context from planned inputs" {
+  let file_calls = Ref(0)
+  let repo_calls = Ref(0)
+  let provider : CognitionProvider = {
+    file_summary: fn(path, text) {
+      file_calls.val += 1
+      "sync \{path}: \{text.length()}"
+    },
+    repo_summary: fn(items) {
+      repo_calls.val += 1
+      "repo: " + items.join(",")
+    },
+  }
+  let store = CognitionStore::new_with_provider(provider)
+  let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
+  let _ = store.set_input(FileText("src/b.mbt"), Text("beta"))
+  let target = CognitionKey::PackedContext("alpha", 2)
+
+  let request = store.plan_provider_request(
+    target~,
+    options=provider_boundary_options_for_test(),
+  )
+
+  inspect(file_calls.val, content="0")
+  inspect(repo_calls.val, content="0")
+  inspect(store.get_value(target) is None, content="true")
+  inspect(
+    request.dependencies().contains(FileText("src/a.mbt")),
+    content="true",
+  )
+  inspect(
+    request.dependencies().contains(FileText("src/b.mbt")),
+    content="true",
+  )
+  inspect(request.context().length(), content="2")
+  inspect(
+    request
+    .context()
+    .iter()
+    .any(fn(item) {
+      item.source == FileText("src/a.mbt") && item.payload == "alpha"
+    }),
+    content="true",
+  )
+  inspect(
+    request
+    .context()
+    .iter()
+    .any(fn(item) {
+      item.source == FileText("src/b.mbt") && item.payload == "beta"
+    }),
+    content="true",
+  )
+}
+
+///|
 test "provider request ids are collision-safe for embedded separators" {
   let store = CognitionStore::new()
   let first_options = ProviderOptionProvenance::new(
