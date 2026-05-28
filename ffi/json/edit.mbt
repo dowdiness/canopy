@@ -14,11 +14,28 @@ pub fn json_apply_edit(
         _ => return "error: invalid JSON"
       }
       match parse_json_edit_op(json) {
-        Ok(op) =>
+        Ok(op) => {
+          let _ = match
+            coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+            Ok(v) => v
+            Err(report) => {
+              println("json_apply_edit proj read: \{report}")
+              return "error: editor unavailable"
+            }
+          }
+          let _ = match
+            coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+            Ok(v) => v
+            Err(report) => {
+              println("json_apply_edit source_map read: \{report}")
+              return "error: editor unavailable"
+            }
+          }
           match @json_companion.apply_json_edit(h.editor, op, timestamp_ms) {
             Ok(_) => "ok"
             Err(err) => "error: " + err
           }
+        }
         Err(err) => "error: " + err
       }
     }

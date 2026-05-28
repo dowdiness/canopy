@@ -191,9 +191,9 @@ test "workstream 2 (json): json_get_errors collapses to [] after coordinator des
 }
 
 ///|
-/// Phase 1b JSON followup: remaining exported read accessors route their
-/// protected-cell reads through the coordinator before delegating to the
-/// existing editor implementation.
+/// Phase 1b JSON followup: remaining exported accessors route their
+/// projection/source-map protected-cell reads through the coordinator before
+/// delegating to the existing editor implementation.
 test "workstream 3 (json): json_get_proj_node_json collapses to null after coordinator destroy" {
   reset_json_coordinator_for_phase1_tests()
   let handle = create_json_editor("json_proj_destroy_agent")
@@ -262,5 +262,30 @@ test "workstream 3 (json): json_compute_view_patches_json collapses to [] after 
     Err(report) => fail("coordinator destroy: \{report}")
   }
   assert_eq(json_compute_view_patches_json(handle), "[]")
+  drain_json_handle_after_direct_coordinator_destroy(handle)
+}
+
+///|
+test "workstream 3 (json): json_apply_edit rejects after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_apply_destroy_agent")
+  json_set_text(handle, "{\"a\": 1}")
+  let h = json_handles.get(handle).unwrap()
+  let node_id = match h.editor.get_proj_node() {
+    Some(root) =>
+      match root.id().to_json() {
+        Json::Number(n, ..) => n.to_int()
+        _ => fail("expected numeric node id")
+      }
+    None => fail("expected projection")
+  }
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  let op_json = "{\"op\":\"CommitEdit\",\"node_id\":" +
+    node_id.to_string() +
+    ",\"new_value\":\"2\"}"
+  assert_eq(json_apply_edit(handle, op_json, 0), "error: editor unavailable")
   drain_json_handle_after_direct_coordinator_destroy(handle)
 }

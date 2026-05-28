@@ -10,11 +10,10 @@ import {
   "moonbitlang/core/json" @core_json,
 }
 
-// `cells` field of JsonHandle is read in production by `json_get_errors`
-// (parser_diagnostics, via Phase 1b workstream 2) and by whitebox tests
-// (`lifecycle_phase1_wbtest.mbt`) for the remaining 6 cells. Until additional
-// Phase 1b workstreams migrate the other production accessors, per-field
-// unused warnings still fire on the rest of `JsonProtectedCells`.
+// `cells` field of JsonHandle is read in production by Phase 1b accessors
+// (`json_get_errors`, read/view accessors, and `json_apply_edit`) and by
+// whitebox tests (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell
+// coverage.
 
 warnings = "-7"
 
