@@ -194,6 +194,31 @@ test "workstream 3: get_semantic_projection_json collapses to empty after coordi
 }
 
 ///|
+test "workstream 3: rename_semantic_node rejects after coordinator destroy" {
+  reset_coordinator_for_phase1_tests()
+  let handle = create_editor("semantic_rename_coord_destroy_agent")
+  set_text(handle, "λx. x")
+  let h = lambda_handles.get(handle).unwrap()
+  let body_id = match h.editor.get_proj_node() {
+    Some(root) =>
+      match root.children[0].id().to_json() {
+        Json::Number(n, ..) => n.to_int()
+        _ => fail("expected numeric node id")
+      }
+    None => fail("expected projection")
+  }
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  inspect(
+    rename_semantic_node(handle, body_id, "y", 0),
+    content="error: editor unavailable",
+  )
+  drain_lambda_handle_after_direct_coordinator_destroy(handle, h)
+}
+
+///|
 test "workstream 3: get_pretty_view_json collapses to null after coordinator destroy" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("pretty_view_coord_destroy_agent")
