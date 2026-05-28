@@ -13,11 +13,11 @@ import {
 }
 
 // `cells` field of MarkdownHandle is read in production by
-// `markdown_compute_view_patches_json` (parser_diagnostics + cached_proj_node
-// + source_map_memo, via Phase 1b workstream 2) and by whitebox tests
-// (`lifecycle_phase1_wbtest.mbt`) for the remaining 4 cells. Until additional
-// Phase 1b workstreams migrate the other production accessors, per-field
-// unused warnings still fire on the rest of `MarkdownProtectedCells`.
+// `markdown_compute_view_patches_json`, `markdown_export_text`, and
+// `markdown_apply_edit` (parser_diagnostics + cached_proj_node +
+// source_map_memo) and by whitebox tests (`lifecycle_phase1_wbtest.mbt`) for
+// the remaining 4 cells. Per-field unused warnings still fire on the rest of
+// `MarkdownProtectedCells`.
 
 warnings = "-7"
 

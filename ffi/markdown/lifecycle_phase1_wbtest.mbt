@@ -28,6 +28,12 @@ fn reset_markdown_coordinator_for_phase1_tests() -> Unit {
 }
 
 ///|
+fn drain_markdown_handle_after_direct_coordinator_destroy(handle : Int) -> Unit {
+  markdown_handles.remove(handle)
+  markdown_view_states.remove(handle)
+}
+
+///|
 test "spec §12 #1 (md): each protected cell reads through read_protected" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_test_agent_one")
@@ -215,4 +221,43 @@ test "workstream 2 (md): compute_view_patches collapses to [] after coordinator 
   assert_eq(markdown_compute_view_patches_json(handle), "[]")
   markdown_handles.remove(handle)
   markdown_view_states.remove(handle)
+}
+
+///|
+/// Phase 1b Markdown followup: exported operations that consult projection /
+/// source-map state guard those protected reads through the coordinator before
+/// delegating to the existing companion implementation.
+test "workstream 3 (md): markdown_export_text collapses to empty after coordinator destroy" {
+  reset_markdown_coordinator_for_phase1_tests()
+  let handle = create_markdown_editor("md_export_destroy_agent")
+  markdown_set_text(handle, "# Pre-destroy\n")
+  let alive = markdown_export_text(handle)
+  if alive == "" {
+    fail("expected exported markdown before coordinator destroy")
+  }
+  let h = markdown_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(markdown_export_text(handle), "")
+  drain_markdown_handle_after_direct_coordinator_destroy(handle)
+}
+
+///|
+test "workstream 3 (md): markdown_apply_edit rejects after coordinator destroy" {
+  reset_markdown_coordinator_for_phase1_tests()
+  let handle = create_markdown_editor("md_apply_destroy_agent")
+  markdown_set_text(handle, "# Pre-destroy\n")
+  let h = markdown_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  let out = markdown_apply_edit(handle, "commit_edit", 0, "after", 0, 1)
+  if !out.contains("\"status\":\"error\"") ||
+    !out.contains("\"message\":\"editor unavailable\"") {
+    fail("expected editor-unavailable error after destroy, got \{out}")
+  }
+  drain_markdown_handle_after_direct_coordinator_destroy(handle)
 }

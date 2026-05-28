@@ -88,7 +88,25 @@ pub fn markdown_get_text(handle : Int) -> String {
 /// paragraphs with mixed text) untouched.
 pub fn markdown_export_text(handle : Int) -> String {
   match markdown_handles.get(handle) {
-    Some(h) => @md_companion.export_markdown_text(h.editor)
+    Some(h) => {
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(v) => v
+        Err(report) => {
+          println("markdown_export_text proj read: \{report}")
+          return ""
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(v) => v
+        Err(report) => {
+          println("markdown_export_text source_map read: \{report}")
+          return ""
+        }
+      }
+      @md_companion.export_markdown_text(h.editor)
+    }
     None => ""
   }
 }
@@ -147,6 +165,28 @@ pub fn markdown_apply_edit(
             "status": Json::string("error"),
             "message": Json::string("unknown op: " + op_type),
           }).stringify()
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(v) => v
+        Err(report) => {
+          println("markdown_apply_edit proj read: \{report}")
+          return Json::object({
+            "status": Json::string("error"),
+            "message": Json::string("editor unavailable"),
+          }).stringify()
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(v) => v
+        Err(report) => {
+          println("markdown_apply_edit source_map read: \{report}")
+          return Json::object({
+            "status": Json::string("error"),
+            "message": Json::string("editor unavailable"),
+          }).stringify()
+        }
       }
       match @md_companion.apply_markdown_edit(h.editor, op, timestamp_ms) {
         Ok(_) => Json::object({ "status": Json::string("ok") }).stringify()
