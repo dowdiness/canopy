@@ -162,3 +162,75 @@ test "wmh A3: clean teardown — destroy succeeds after dispose" {
     last_created_handle.val = None
   }
 }
+
+///|
+test "wmh B1: bad-cell rejection + atomicity" {
+  reset_coordinator_for_phase1_tests()
+  let handle_a = create_editor("wmh_b1_a")
+  let handle_b = create_editor("wmh_b1_b")
+  let h_a = lambda_handles.get(handle_a).unwrap()
+  let h_b = lambda_handles.get(handle_b).unwrap()
+  let bad : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
+  match coordinator.register_workspace_memo(bad, [
+    (h_a.editor_id, h_b.cells.parser_source.cell_id()),
+  ]) {
+    Ok(_) => fail("B1 expected CellNotInProtectedSurface, got Ok")
+    Err(report) =>
+      assert_eq(report.kind, @workspace.CellNotInProtectedSurface)
+  }
+  // Atomicity: nothing was registered, so destroy must succeed immediately.
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("B1 atomicity: destroy h_a should be Ok (no leaked dep), got \{r}")
+  }
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("B1 destroy h_b: \{r}")
+  }
+  h_a.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_a)
+  view_states.remove(handle_a)
+  pretty_view_states.remove(handle_a)
+  h_b.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_b)
+  view_states.remove(handle_b)
+  pretty_view_states.remove(handle_b)
+  if last_created_handle.val == Some(handle_b) {
+    last_created_handle.val = None
+  }
+}
+
+///|
+test "wmh B2: dead-editor rejection" {
+  reset_coordinator_for_phase1_tests()
+  let handle_a = create_editor("wmh_b2_a")
+  let handle_b = create_editor("wmh_b2_b")
+  let h_a = lambda_handles.get(handle_a).unwrap()
+  let h_b = lambda_handles.get(handle_b).unwrap()
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("B2 setup: destroy h_a should be Ok, got \{r}")
+  }
+  let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
+  match coordinator.register_workspace_memo(m, [
+    (h_a.editor_id, h_a.cells.parser_source.cell_id()),
+  ]) {
+    Ok(_) => fail("B2 expected EditorDestroyed, got Ok")
+    Err(report) => assert_eq(report.kind, @workspace.EditorDestroyed)
+  }
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("B2 destroy h_b: \{r}")
+  }
+  h_a.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_a)
+  view_states.remove(handle_a)
+  pretty_view_states.remove(handle_a)
+  h_b.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_b)
+  view_states.remove(handle_b)
+  pretty_view_states.remove(handle_b)
+  if last_created_handle.val == Some(handle_b) {
+    last_created_handle.val = None
+  }
+}
