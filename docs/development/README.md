@@ -14,6 +14,9 @@ files inside `docs/development/`.
   editing reference.
 - **[Adding a Language](ADDING_A_LANGUAGE.md)** — integrate a new language into
   the framework (uses Markdown as the reference implementation).
+- **[FFI Coordinator Accessors](ffi-coordinator-accessors.md)** — why exported
+  FFI accessors must route protected editor-state reads through
+  `Coordinator::read_protected`.
 
 ## Day-to-day contributor workflow
 

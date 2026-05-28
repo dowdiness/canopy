@@ -145,6 +145,12 @@ pub fn Coordinator::destroy_editor(
 
 ///|
 /// Validates editor liveness + cell membership + watch liveness, then reads.
+/// This is the required gate for exported FFI accessors that consult protected
+/// editor state. Direct editor reads are only appropriate where the editor owns
+/// the lifecycle invariant or in whitebox tests that intentionally inspect
+/// internals; boundary code should use this method and collapse `Err` into that
+/// API's existing fail-closed response.
+///
 /// Cycles propagate to `AbortKind::CycleDetected` with `domain_tag` carrying
 /// `CycleError::format_path()`.
 pub fn[T] Coordinator::read_protected(
