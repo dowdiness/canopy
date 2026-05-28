@@ -20,6 +20,12 @@ fn reset_json_coordinator_for_phase1_tests() -> Unit {
 }
 
 ///|
+fn drain_json_handle_after_direct_coordinator_destroy(handle : Int) -> Unit {
+  json_handles.remove(handle)
+  json_view_states.remove(handle)
+}
+
+///|
 test "spec §12 #1 (json): each protected cell reads through read_protected" {
   reset_json_coordinator_for_phase1_tests()
   let handle = create_json_editor("json_test_agent_one")
@@ -182,4 +188,79 @@ test "workstream 2 (json): json_get_errors collapses to [] after coordinator des
   assert_eq(json_get_errors(handle), "[]")
   json_handles.remove(handle)
   json_view_states.remove(handle)
+}
+
+///|
+/// Phase 1b JSON followup: remaining exported read accessors route their
+/// protected-cell reads through the coordinator before delegating to the
+/// existing editor implementation.
+test "workstream 3 (json): json_get_proj_node_json collapses to null after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_proj_destroy_agent")
+  json_set_text(handle, "{\"a\": 1}")
+  let alive = json_get_proj_node_json(handle)
+  if alive == "null" {
+    fail("expected live projection JSON before coordinator destroy")
+  }
+  let h = json_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(json_get_proj_node_json(handle), "null")
+  drain_json_handle_after_direct_coordinator_destroy(handle)
+}
+
+///|
+test "workstream 3 (json): json_get_source_map_json collapses to [] after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_source_map_destroy_agent")
+  json_set_text(handle, "{\"a\": 1}")
+  let alive = json_get_source_map_json(handle)
+  if alive == "[]" {
+    fail("expected live source map JSON before coordinator destroy")
+  }
+  let h = json_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(json_get_source_map_json(handle), "[]")
+  drain_json_handle_after_direct_coordinator_destroy(handle)
+}
+
+///|
+test "workstream 3 (json): json_get_view_tree_json collapses to null after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_view_tree_destroy_agent")
+  json_set_text(handle, "{\"a\": 1}")
+  let alive = json_get_view_tree_json(handle)
+  if alive == "null" {
+    fail("expected live view tree JSON before coordinator destroy")
+  }
+  let h = json_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(json_get_view_tree_json(handle), "null")
+  drain_json_handle_after_direct_coordinator_destroy(handle)
+}
+
+///|
+test "workstream 3 (json): json_compute_view_patches_json collapses to [] after coordinator destroy" {
+  reset_json_coordinator_for_phase1_tests()
+  let handle = create_json_editor("json_view_patches_destroy_agent")
+  json_set_text(handle, "{\"a\": 1}")
+  let alive = json_compute_view_patches_json(handle)
+  if alive == "[]" {
+    fail("expected live view patch JSON before coordinator destroy")
+  }
+  let h = json_handles.get(handle).unwrap()
+  match coordinator.destroy_editor(h.editor_id) {
+    Ok(_) => ()
+    Err(report) => fail("coordinator destroy: \{report}")
+  }
+  assert_eq(json_compute_view_patches_json(handle), "[]")
+  drain_json_handle_after_direct_coordinator_destroy(handle)
 }

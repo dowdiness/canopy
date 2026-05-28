@@ -120,13 +120,17 @@ pub fn json_get_errors(handle : Int) -> String {
 
 ///|
 /// Get the ProjNode tree as JSON string.
-/// Returns "null" if no projection is available.
+/// Returns "null" if no projection is available or the protected read fails.
 pub fn json_get_proj_node_json(handle : Int) -> String {
   match json_handles.get(handle) {
     Some(h) =>
-      match h.editor.get_proj_node() {
-        Some(proj) => proj.to_json().stringify()
-        None => "null"
+      match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(Some(proj)) => proj.to_json().stringify()
+        Ok(None) => "null"
+        Err(report) => {
+          println("json_get_proj_node_json proj read: \{report}")
+          "null"
+        }
       }
     None => "null"
   }
@@ -134,10 +138,18 @@ pub fn json_get_proj_node_json(handle : Int) -> String {
 
 ///|
 /// Get the SourceMap as JSON string.
-/// Returns an array of {node_id, start, end} entries.
+/// Returns an array of {node_id, start, end} entries, or "[]" if the
+/// protected read fails.
 pub fn json_get_source_map_json(handle : Int) -> String {
   match json_handles.get(handle) {
-    Some(h) => h.editor.get_source_map().to_json().stringify()
+    Some(h) =>
+      match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(sm) => sm.to_json().stringify()
+        Err(report) => {
+          println("json_get_source_map_json source_map read: \{report}")
+          "[]"
+        }
+      }
     None => "[]"
   }
 }
@@ -146,26 +158,82 @@ pub fn json_get_source_map_json(handle : Int) -> String {
 
 ///|
 /// Get the ViewNode tree as JSON for a JSON editor.
-/// Returns "null" if no projection is available.
+/// Returns "null" if no projection is available or any protected read fails.
 pub fn json_get_view_tree_json(handle : Int) -> String {
   match json_handles.get(handle) {
-    Some(h) =>
+    Some(h) => {
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_get_view_tree_json proj read: \{report}")
+          return "null"
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_get_view_tree_json source_map read: \{report}")
+          return "null"
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.parser_source) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_get_view_tree_json source read: \{report}")
+          return "null"
+        }
+      }
       match h.editor.get_view_tree() {
         Some(view_node) => view_node.to_json().stringify()
         None => "null"
       }
+    }
     None => "null"
   }
 }
 
 ///|
 /// Compute incremental view patches for a JSON editor.
-/// Returns a JSON array of ViewPatch objects. NOT migrated to
-/// `coordinator.read_protected` in WS2 — see spec §9 followup table; will
-/// land in WS3+ alongside the rest of the unmigrated JSON accessors.
+/// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
+/// fails.
 pub fn json_compute_view_patches_json(handle : Int) -> String {
   match json_handles.get(handle) {
     Some(h) => {
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_compute_view_patches_json proj read: \{report}")
+          return "[]"
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_compute_view_patches_json source_map read: \{report}")
+          return "[]"
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.parser_source) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_compute_view_patches_json source read: \{report}")
+          return "[]"
+        }
+      }
+      let _ = match
+        coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
+        Ok(v) => v
+        Err(report) => {
+          println("json_compute_view_patches_json diagnostics read: \{report}")
+          return "[]"
+        }
+      }
       let state = match json_view_states.get(handle) {
         Some(s) => s
         None => {
