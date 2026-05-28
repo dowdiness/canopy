@@ -78,14 +78,33 @@ pub fn rename_semantic_node(
   match lambda_handles.get(handle) {
     Some(h) => {
       let id = @core.NodeId::from_int(node_id)
-      let root = match h.editor.get_proj_node() {
-        Some(root) => root
-        None => return "error: no projection"
+      let root = match
+        coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
+        Ok(Some(root)) => root
+        Ok(None) => return "error: no projection"
+        Err(report) => {
+          println("rename_semantic_node proj read: \{report}")
+          return "error: editor unavailable"
+        }
+      }
+      let source_map = match
+        coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
+        Ok(sm) => sm
+        Err(report) => {
+          println("rename_semantic_node source_map read: \{report}")
+          return "error: editor unavailable"
+        }
+      }
+      let flat_proj = match
+        coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
+        Ok(v) => v.proj
+        Err(report) => {
+          println("rename_semantic_node flat-proj read: \{report}")
+          return "error: editor unavailable"
+        }
       }
       let projection = @lambda_semantic.build_semantic_projection_with_flat_proj(
-        root,
-        h.editor.get_source_map(),
-        h.companion.get_flat_proj(),
+        root, source_map, flat_proj,
       )
       if !semantic_node_allows_rename(projection, id) {
         return "error: node is not a semantic binder or reference"

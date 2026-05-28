@@ -24,12 +24,10 @@ import {
   "moonbitlang/core/debug",
 } for "wbtest"
 
-// `cells` field of LambdaHandle is read in production by `get_diagnostics_json`
-// (parser_diagnostics + typecheck_output + escalation_memo, via Phase 1b
-// workstream 1) and by whitebox tests (`lifecycle_phase1_wbtest.mbt`) for the
-// remaining 7 cells. Until additional Phase 1b workstreams migrate the other
-// production accessors, per-field unused warnings still fire on the rest of
-// `LambdaProtectedCells`.
+// `cells` field of LambdaHandle is read in production by Phase 1b accessors
+// (`get_diagnostics_json`, view/pretty/semantic projection accessors, and
+// `rename_semantic_node`) and by whitebox tests
+// (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell coverage.
 
 warnings = "-7"
 
