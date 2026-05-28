@@ -325,3 +325,56 @@ test "wmh C: destroy refusal under live handle" {
     last_created_handle.val = None
   }
 }
+
+///|
+test "wmh D: idempotent dispose — second dispose is a safe no-op" {
+  reset_coordinator_for_phase1_tests()
+  let handle_a = create_editor("wmh_d_a")
+  let handle_b = create_editor("wmh_d_b")
+  let h_a = lambda_handles.get(handle_a).unwrap()
+  let h_b = lambda_handles.get(handle_b).unwrap()
+  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+    let sa = match
+      coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
+      Ok(s) => s
+      Err(r) => abort("wmh D read h_a: \{r}")
+    }
+    let sb = match
+      coordinator.read_protected(h_b.editor_id, h_b.cells.parser_source) {
+      Ok(s) => s
+      Err(r) => abort("wmh D read h_b: \{r}")
+    }
+    sa.length() + sb.length()
+  })
+  let handle = match coordinator.register_workspace_memo(sum_d, [
+    (h_a.editor_id, h_a.cells.parser_source.cell_id()),
+    (h_b.editor_id, h_b.cells.parser_source.cell_id()),
+  ]) {
+    Ok(h) => h
+    Err(r) => fail("register_workspace_memo: \{r}")
+  }
+  h_a.editor.set_text("x")
+  h_b.editor.set_text("yz")
+  let _ = handle.read().unwrap()
+  handle.dispose()
+  handle.dispose() // second dispose must be a safe no-op
+  match coordinator.destroy_editor(h_a.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("D destroy h_a after double dispose: \{r}")
+  }
+  match coordinator.destroy_editor(h_b.editor_id) {
+    Ok(_) => ()
+    Err(r) => fail("D destroy h_b: \{r}")
+  }
+  h_a.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_a)
+  view_states.remove(handle_a)
+  pretty_view_states.remove(handle_a)
+  h_b.companion.dispose_analysis_attachment()
+  lambda_handles.remove(handle_b)
+  view_states.remove(handle_b)
+  pretty_view_states.remove(handle_b)
+  if last_created_handle.val == Some(handle_b) {
+    last_created_handle.val = None
+  }
+}
