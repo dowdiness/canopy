@@ -128,3 +128,39 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   await expect(pendingEdgePaths(page)).toHaveCount(0);
   expect(runtimeErrors).toEqual([]);
 });
+
+test('input handles preview compatibility during a connection drag', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  // Node 2 (HTTP request) emits a single JSON output. Start a drag from it and
+  // hold it open so input handles render their compatibility preview.
+  const source = outputHandle(page, 2);
+  const start = await center(source, 'node 2 output handle');
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 40, start.y + 40, { steps: 6 });
+  await expect(pendingEdgePaths(page)).toHaveCount(1);
+
+  // JSON output → JSON input (Loop "items") is compatible.
+  await expect(inputHandle(page, 5)).toHaveClass(/(?:^|\s)compatible-target(?:\s|$)/);
+  // JSON output → Flow input (Parallel "in") is incompatible.
+  await expect(inputHandle(page, 6)).toHaveClass(/(?:^|\s)incompatible-target(?:\s|$)/);
+  // The source node's own input is a self-loop and must read incompatible.
+  await expect(inputHandle(page, 2)).toHaveClass(/(?:^|\s)incompatible-target(?:\s|$)/);
+
+  await page.mouse.up();
+
+  // Once the drag ends, the preview classes are cleared.
+  await expect(inputHandle(page, 5)).not.toHaveClass(/compatible-target/);
+  await expect(inputHandle(page, 6)).not.toHaveClass(/incompatible-target/);
+  expect(runtimeErrors).toEqual([]);
+});
