@@ -39,40 +39,24 @@ pub fn[T] TreeEditorState::apply_edit(
       // Remove all subtree nodes from selection
       let selection = self.selection.filter(fn(id) { !subtree_ids.contains(id) })
       // Clear editing if editing any node in subtree
-      let (editing_node, edit_value) = match self.editing_node {
-        Some(edit_id) =>
-          if subtree_ids.contains(edit_id) {
-            (None, "")
-          } else {
-            (self.editing_node, self.edit_value)
-          }
-        None => (None, self.edit_value)
+      let editing_node = self.editing_node.filter(fn(id) {
+        !subtree_ids.contains(id)
+      })
+      let edit_value = if editing_node is None && self.editing_node is Some(_) {
+        ""
+      } else {
+        self.edit_value
       }
       // Remove all subtree nodes from collapsed set (immutable)
       let mut collapsed_nodes = self.collapsed_nodes
       for id in subtree_ids {
         collapsed_nodes = collapsed_nodes.remove(id)
       }
-      // Clear dragging if dragging a node in subtree
-      let dragging = match self.dragging {
-        Some(drag_id) =>
-          if subtree_ids.contains(drag_id) {
-            None
-          } else {
-            self.dragging
-          }
-        None => None
-      }
-      // Clear drop_target if targeting a node in subtree
-      let drop_target = match self.drop_target {
-        Some(target_id) =>
-          if subtree_ids.contains(target_id) {
-            None
-          } else {
-            self.drop_target
-          }
-        None => None
-      }
+      // Clear dragging / drop_target if they point into the deleted subtree
+      let dragging = self.dragging.filter(fn(id) { !subtree_ids.contains(id) })
+      let drop_target = self.drop_target.filter(fn(id) {
+        !subtree_ids.contains(id)
+      })
       let drop_position = if drop_target is None {
         None
       } else {

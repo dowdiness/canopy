@@ -282,38 +282,20 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::refresh(
       let selection = self.selection.filter(fn(id) {
         new_loaded_nodes.get(id) is Some(_)
       })
-      let editing_node = match self.editing_node {
-        Some(id) =>
-          if new_loaded_nodes.get(id) is Some(_) {
-            Some(id)
-          } else {
-            None
-          }
-        None => None
-      }
+      let editing_node = self.editing_node.filter(fn(id) {
+        new_loaded_nodes.get(id) is Some(_)
+      })
       let edit_value = if editing_node is None && self.editing_node is Some(_) {
         ""
       } else {
         self.edit_value
       }
-      let dragging = match self.dragging {
-        Some(id) =>
-          if new_loaded_nodes.get(id) is Some(_) {
-            Some(id)
-          } else {
-            None
-          }
-        None => None
-      }
-      let drop_target = match self.drop_target {
-        Some(id) =>
-          if new_loaded_nodes.get(id) is Some(_) {
-            Some(id)
-          } else {
-            None
-          }
-        None => None
-      }
+      let dragging = self.dragging.filter(fn(id) {
+        new_loaded_nodes.get(id) is Some(_)
+      })
+      let drop_target = self.drop_target.filter(fn(id) {
+        new_loaded_nodes.get(id) is Some(_)
+      })
       let drop_position = if drop_target is None {
         None
       } else {
