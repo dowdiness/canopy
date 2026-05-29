@@ -133,10 +133,9 @@ pub fn SourceMap::nodes_at_position(
   self : SourceMap,
   position : Int,
 ) -> Array[NodeId] {
-  let pairs : Array[(NodeId, Range)] = []
-  for id, range in self.node_to_range_at_position(position) {
-    pairs.push((id, range))
-  }
+  let pairs : Array[(NodeId, Range)] = [
+    for id, range in self.node_to_range_at_position(position) => (id, range)
+  ]
   pairs.sort_by((a, b) => b.1.length().compare(a.1.length()))
   pairs.map(p => p.0)
 }
@@ -227,10 +226,11 @@ pub fn SourceMap::apply_edit(
 
   // Shift token spans by the same delta
   for _node_id, roles in self.token_spans {
-    let shifted : Array[(String, Range)] = []
-    for role, span in roles {
-      shifted.push((role, shift_range(span, edit_start, old_end, delta)))
-    }
+    let shifted : Array[(String, Range)] = [
+      for role, span in roles => {
+        (role, shift_range(span, edit_start, old_end, delta))
+      }
+    ]
     for pair in shifted {
       roles[pair.0] = pair.1
     }
@@ -325,10 +325,9 @@ pub fn SourceMap::get_all_token_spans(
 ) -> Array[(String, Range)] {
   match self.token_spans.get(node_id) {
     Some(roles) => {
-      let pairs : Array[(String, Range)] = []
-      for role, range in roles {
-        pairs.push((role, range))
-      }
+      let pairs : Array[(String, Range)] = [
+        for role, range in roles => (role, range)
+      ]
       pairs.sort_by_key(p => p.1.start)
       pairs
     }

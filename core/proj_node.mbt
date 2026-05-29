@@ -91,10 +91,9 @@ pub fn[T] assign_fresh_ids(
   node : ProjNode[T],
   counter : Ref[Int],
 ) -> ProjNode[T] {
-  let new_children : Array[ProjNode[T]] = []
-  for child in node.children {
-    new_children.push(assign_fresh_ids(child, counter))
-  }
+  let new_children : Array[ProjNode[T]] = [
+    for child in node.children => assign_fresh_ids(child, counter)
+  ]
   let new_id = next_proj_node_id(counter)
   ProjNode::new(node.kind, node.start, node.end, new_id, new_children)
 }

@@ -64,15 +64,13 @@ fn[T : TreeNode] reconcile_children(
     }
   }
 
-  let result : Array[ProjNode[T]] = []
-  for j in 0..<new_len {
-    if new_matched[j] >= 0 {
-      result.push(
-        reconcile(old_children[new_matched[j]], new_children[j], counter),
-      )
-    } else {
-      result.push(assign_fresh_ids(new_children[j], counter))
+  [
+    for j in 0..<new_len => {
+      if new_matched[j] >= 0 {
+        reconcile(old_children[new_matched[j]], new_children[j], counter)
+      } else {
+        assign_fresh_ids(new_children[j], counter)
+      }
     }
-  }
-  result
+  ]
 }
