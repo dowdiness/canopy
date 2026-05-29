@@ -21,18 +21,18 @@ test "ws_send: does nothing when disconnected" {
 ///|
 test "ws_on_message: PeerLeft removes peer from hub" {
   let editor = @lambda.new_lambda_editor("alice").0
-  // Set some presence for "bob" in the hub
-  let bob_wire = @ephemeral.to_wire_peer_id("bob")
-  editor.hub.get_store(Cursor).set(bob_wire, EphemeralValue::I64(42L)) catch {
-    _ => ()
-  }
-  // Verify bob is present
-  inspect(editor.hub.get_store(Cursor).get(bob_wire) is None, content="false")
+  // Inject remote cursor presence for "bob" the way it arrives over the wire:
+  // encode it from bob's own hub and apply to alice's editor hub.
+  let bob_hub = EphemeralHub::new("bob")
+  bob_hub.set_cursor(42)
+  editor.hub.apply(Cursor, bob_hub.encode(Cursor))
+  // Verify bob is present (peer-id-keyed query — no wire-key math needed)
+  inspect(editor.hub.get_cursor("bob") is None, content="false")
   // Simulate PeerLeft message
   let wire = encode_message(PeerLeft("bob"))
   editor.ws_on_message(wire)
   // Bob should be removed
-  inspect(editor.hub.get_store(Cursor).get(bob_wire) is None, content="true")
+  inspect(editor.hub.get_cursor("bob") is None, content="true")
 }
 
 ///|

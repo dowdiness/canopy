@@ -17,8 +17,6 @@ pub fn namespace_to_byte(EphemeralNamespace) -> Byte
 
 pub fn read_string(Reader) -> String raise EphemeralError
 
-pub fn to_wire_peer_id(String) -> String
-
 pub fn write_string(@buffer.Buffer, String) -> Unit
 
 // Errors

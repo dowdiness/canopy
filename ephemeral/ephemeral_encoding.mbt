@@ -273,7 +273,7 @@ fn wire_peer_id(key : String) -> UInt64 {
 ///|
 /// Presence wire format still encodes peer IDs as uvarints. Preserve existing
 /// numeric IDs and map arbitrary agent IDs into a reserved high-bit range.
-pub fn to_wire_peer_id(key : String) -> String {
+fn to_wire_peer_id(key : String) -> String {
   wire_peer_id(key).to_string()
 }
 
