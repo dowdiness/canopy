@@ -92,7 +92,7 @@ pub fn[T : Eq] SyncEditor::ws_on_message(
     EphemeralUpdate(ns, payload) => self.hub.apply(ns, payload)
     PeerJoined(_peer_id) => {
       // Send full ephemeral state for catch-up
-      for ns in all_namespaces {
+      for ns in all_namespaces() {
         let ns_data = self.hub.encode(ns)
         if ns_data.length() > 0 {
           self.ws_send(encode_message(EphemeralUpdate(ns, ns_data)))

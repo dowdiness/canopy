@@ -22,7 +22,7 @@ test "ws_send: does nothing when disconnected" {
 test "ws_on_message: PeerLeft removes peer from hub" {
   let editor = @lambda.new_lambda_editor("alice").0
   // Set some presence for "bob" in the hub
-  let bob_wire = to_wire_peer_id("bob")
+  let bob_wire = @ephemeral.to_wire_peer_id("bob")
   editor.hub.get_store(Cursor).set(bob_wire, EphemeralValue::I64(42L)) catch {
     _ => ()
   }

@@ -1,56 +1,56 @@
 ///|
 test "adjust_position: cursor before edit is unchanged" {
   // Cursor at 3, edit starts at 5 — cursor is unaffected
-  inspect(@editor.adjust_position(3, 5, 2, 4), content="3")
+  inspect(@ephemeral.adjust_position(3, 5, 2, 4), content="3")
 }
 
 ///|
 test "adjust_position: cursor at edit_start is unchanged" {
   // Cursor at 5, edit starts at 5 — cursor is at boundary, stays
-  inspect(@editor.adjust_position(5, 5, 2, 4), content="5")
+  inspect(@ephemeral.adjust_position(5, 5, 2, 4), content="5")
 }
 
 ///|
 test "adjust_position: cursor inside deleted range snaps to edit_start + new_len" {
   // Cursor at 6, edit starts at 5, old_len=3 (range 5..8), new_len=1
   // Cursor is inside deleted range -> snaps to 5+1=6
-  inspect(@editor.adjust_position(6, 5, 3, 1), content="6")
+  inspect(@ephemeral.adjust_position(6, 5, 3, 1), content="6")
   // Cursor at 7, same edit -> also snaps to 6
-  inspect(@editor.adjust_position(7, 5, 3, 1), content="6")
+  inspect(@ephemeral.adjust_position(7, 5, 3, 1), content="6")
 }
 
 ///|
 test "adjust_position: cursor at end of deleted range snaps" {
   // Cursor at 8 (= edit_start 5 + old_len 3), snaps to 5+1=6
-  inspect(@editor.adjust_position(8, 5, 3, 1), content="6")
+  inspect(@ephemeral.adjust_position(8, 5, 3, 1), content="6")
 }
 
 ///|
 test "adjust_position: cursor after edit shifts by delta" {
   // Cursor at 10, edit starts at 5, old_len=2, new_len=4 (delta=+2)
   // Result: 10 - 2 + 4 = 12
-  inspect(@editor.adjust_position(10, 5, 2, 4), content="12")
+  inspect(@ephemeral.adjust_position(10, 5, 2, 4), content="12")
 }
 
 ///|
 test "adjust_position: pure insert (old_len=0)" {
   // Insert 3 chars at position 5, cursor at 7 -> 7+3=10
-  inspect(@editor.adjust_position(7, 5, 0, 3), content="10")
+  inspect(@ephemeral.adjust_position(7, 5, 0, 3), content="10")
   // Cursor at 5 (at edit_start) -> unchanged (pos <= edit_start)
-  inspect(@editor.adjust_position(5, 5, 0, 3), content="5")
+  inspect(@ephemeral.adjust_position(5, 5, 0, 3), content="5")
 }
 
 ///|
 test "adjust_position: pure delete (new_len=0)" {
   // Delete 3 chars at position 5, cursor at 10 -> 10-3=7
-  inspect(@editor.adjust_position(10, 5, 3, 0), content="7")
+  inspect(@ephemeral.adjust_position(10, 5, 3, 0), content="7")
   // Cursor inside deleted range (at 6) -> snaps to 5+0=5
-  inspect(@editor.adjust_position(6, 5, 3, 0), content="5")
+  inspect(@ephemeral.adjust_position(6, 5, 3, 0), content="5")
 }
 
 ///|
 test "PeerCursorView: set and get cursor" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   view.set_cursor("peer1", 10, "Alice", "#ff0000")
   let cursor = view.get_cursor("peer1").unwrap()
   inspect(cursor.raw_cursor, content="10")
@@ -62,13 +62,13 @@ test "PeerCursorView: set and get cursor" {
 
 ///|
 test "PeerCursorView: get_cursor returns None for unknown peer" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   @debug.debug_inspect(view.get_cursor("unknown"), content="None")
 }
 
 ///|
 test "PeerCursorView: adjust_for_edit shifts all cursors" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   view.set_cursor("peer1", 3, "Alice", "#ff0000")
   view.set_cursor("peer2", 10, "Bob", "#00ff00")
   // Insert 2 chars at position 5 (old_len=0, new_len=2)
@@ -86,7 +86,7 @@ test "PeerCursorView: adjust_for_edit shifts all cursors" {
 
 ///|
 test "PeerCursorView: set_cursor resets adjusted_cursor" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   view.set_cursor("peer1", 10, "Alice", "#ff0000")
   // Adjust for an insert
   view.adjust_for_edit(5, 0, 3)
@@ -101,7 +101,7 @@ test "PeerCursorView: set_cursor resets adjusted_cursor" {
 
 ///|
 test "PeerCursorView: remove peer" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   view.set_cursor("peer1", 10, "Alice", "#ff0000")
   view.remove("peer1")
   @debug.debug_inspect(view.get_cursor("peer1"), content="None")
@@ -109,7 +109,7 @@ test "PeerCursorView: remove peer" {
 
 ///|
 test "PeerCursorView: all_cursors returns all entries" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   view.set_cursor("peer1", 5, "Alice", "#ff0000")
   view.set_cursor("peer2", 15, "Bob", "#00ff00")
   let all = view.all_cursors()
@@ -118,7 +118,7 @@ test "PeerCursorView: all_cursors returns all entries" {
 
 ///|
 test "PeerCursorView: selection adjustment on edit" {
-  let view = @editor.PeerCursorView::new()
+  let view = @ephemeral.PeerCursorView::new()
   // Set cursor with a selection spanning positions 5..10
   view.set_cursor("peer1", 5, "Alice", "#ff0000", selection=Some((5, 10)))
   let c = view.get_cursor("peer1").unwrap()
@@ -132,14 +132,14 @@ test "PeerCursorView: selection adjustment on edit" {
 
 ///|
 test "PeerCursorView: apply_raw_update extracts cursor from Map" {
-  let view = @editor.PeerCursorView::new()
-  let value = @editor.EphemeralValue::Map({
-    "cursor": @editor.EphemeralValue::I64(7L),
-    "name": @editor.EphemeralValue::String("Bob"),
-    "color": @editor.EphemeralValue::String("#00ff00"),
-    "selection": @editor.EphemeralValue::List([
-      @editor.EphemeralValue::I64(3L),
-      @editor.EphemeralValue::I64(10L),
+  let view = @ephemeral.PeerCursorView::new()
+  let value = @ephemeral.EphemeralValue::Map({
+    "cursor": @ephemeral.EphemeralValue::I64(7L),
+    "name": @ephemeral.EphemeralValue::String("Bob"),
+    "color": @ephemeral.EphemeralValue::String("#00ff00"),
+    "selection": @ephemeral.EphemeralValue::List([
+      @ephemeral.EphemeralValue::I64(3L),
+      @ephemeral.EphemeralValue::I64(10L),
     ]),
   })
   view.apply_raw_update("peer1", value)
@@ -152,12 +152,12 @@ test "PeerCursorView: apply_raw_update extracts cursor from Map" {
 
 ///|
 test "PeerCursorView: apply_raw_update honors logical peer_id and remove uses wire key" {
-  let view = @editor.PeerCursorView::new()
-  let value = @editor.EphemeralValue::Map({
-    "peer_id": @editor.EphemeralValue::String("web-user"),
-    "cursor": @editor.EphemeralValue::I64(7L),
-    "name": @editor.EphemeralValue::String("Bob"),
-    "color": @editor.EphemeralValue::String("#00ff00"),
+  let view = @ephemeral.PeerCursorView::new()
+  let value = @ephemeral.EphemeralValue::Map({
+    "peer_id": @ephemeral.EphemeralValue::String("web-user"),
+    "cursor": @ephemeral.EphemeralValue::I64(7L),
+    "name": @ephemeral.EphemeralValue::String("Bob"),
+    "color": @ephemeral.EphemeralValue::String("#00ff00"),
   })
   view.apply_raw_update("123", value)
   @debug.debug_inspect(view.get_cursor("123"), content="None")
@@ -168,32 +168,32 @@ test "PeerCursorView: apply_raw_update honors logical peer_id and remove uses wi
 
 ///|
 test "PeerCursorView: apply_raw_update ignores non-Map values" {
-  let view = @editor.PeerCursorView::new()
-  view.apply_raw_update("peer1", @editor.EphemeralValue::I64(42L))
+  let view = @ephemeral.PeerCursorView::new()
+  view.apply_raw_update("peer1", @ephemeral.EphemeralValue::I64(42L))
   @debug.debug_inspect(view.get_cursor("peer1"), content="None")
 }
 
 ///|
 test "PeerCursorView: from_store skips local peer" {
-  let store = @editor.EphemeralStore::new(60000UL)
+  let store = @ephemeral.EphemeralStore::new(60000UL)
   store.set(
     "1",
-    @editor.EphemeralValue::Map({
-      "cursor": @editor.EphemeralValue::I64(5L),
-      "name": @editor.EphemeralValue::String("Alice"),
-      "color": @editor.EphemeralValue::String("#ff0000"),
+    @ephemeral.EphemeralValue::Map({
+      "cursor": @ephemeral.EphemeralValue::I64(5L),
+      "name": @ephemeral.EphemeralValue::String("Alice"),
+      "color": @ephemeral.EphemeralValue::String("#ff0000"),
     }),
   )
   store.set(
     "2",
-    @editor.EphemeralValue::Map({
-      "cursor": @editor.EphemeralValue::I64(10L),
-      "name": @editor.EphemeralValue::String("Bob"),
-      "color": @editor.EphemeralValue::String("#00ff00"),
+    @ephemeral.EphemeralValue::Map({
+      "cursor": @ephemeral.EphemeralValue::I64(10L),
+      "name": @ephemeral.EphemeralValue::String("Bob"),
+      "color": @ephemeral.EphemeralValue::String("#00ff00"),
     }),
   )
   // Build view excluding local peer "1"
-  let view = @editor.PeerCursorView::from_store(store, "1")
+  let view = @ephemeral.PeerCursorView::from_store(store, "1")
   // Local peer "1" should be excluded
   @debug.debug_inspect(view.get_cursor("1"), content="None")
   // Remote peer "2" should be included

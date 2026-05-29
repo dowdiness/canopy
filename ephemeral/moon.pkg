@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
+  "moonbitlang/core/int",
+  "moonbitlang/core/builtin",
+}
+
+warnings = "-7-29"
+
+options(
+  is_main: false,
+  targets: {
+    "ephemeral_time_js.mbt": [ "js" ],
+    "ephemeral_time_native.mbt": [ "not", "js" ],
+  },
+)

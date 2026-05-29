@@ -1,11 +1,11 @@
 ///|
-priv struct Reader {
+pub struct Reader {
   data : Bytes
   mut pos : Int
 }
 
 ///|
-fn Reader::new(data : Bytes) -> Reader {
+pub fn Reader::new(data : Bytes) -> Reader {
   { data, pos: 0 }
 }
 
@@ -79,7 +79,7 @@ fn read_ivarint(reader : Reader) -> Int64 raise EphemeralError {
 }
 
 ///|
-fn write_string(buf : Buffer, s : String) -> Unit {
+pub fn write_string(buf : Buffer, s : String) -> Unit {
   let tmp = Buffer()
   tmp.write_string_utf16le(s.view())
   let bytes = tmp.to_bytes()
@@ -88,7 +88,7 @@ fn write_string(buf : Buffer, s : String) -> Unit {
 }
 
 ///|
-fn read_string(reader : Reader) -> String raise EphemeralError {
+pub fn read_string(reader : Reader) -> String raise EphemeralError {
   let len = safe_uvarint_to_int(read_uvarint(reader))
   let bytes = reader.read_bytes(len)
   // Wire data is written via Buffer.write_string_utf16le (matching MoonBit's
@@ -273,7 +273,7 @@ fn wire_peer_id(key : String) -> UInt64 {
 ///|
 /// Presence wire format still encodes peer IDs as uvarints. Preserve existing
 /// numeric IDs and map arbitrary agent IDs into a reserved high-bit range.
-fn to_wire_peer_id(key : String) -> String {
+pub fn to_wire_peer_id(key : String) -> String {
   wire_peer_id(key).to_string()
 }
 

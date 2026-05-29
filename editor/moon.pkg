@@ -7,6 +7,7 @@ import {
   "dowdiness/incr",
   "dowdiness/loom",
   "dowdiness/canopy/core",
+  "dowdiness/canopy/ephemeral",
   "dowdiness/loom/core" @loom_core,
   "dowdiness/seam",
   "dowdiness/pretty",
@@ -38,8 +39,6 @@ warnings = "-7-29"
 options(
   is_main: false,
   targets: {
-    "ephemeral_time_js.mbt": [ "js" ],
-    "ephemeral_time_native.mbt": [ "not", "js" ],
     "error_path_wbtest.mbt": [ "not", "js" ],
     "recovery_wbtest.mbt": [ "not", "js" ],
     "sync_editor_ws_wbtest.mbt": [ "not", "js" ],

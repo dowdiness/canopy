@@ -1,0 +1,194 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/ephemeral"
+
+import {
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn adjust_position(Int, Int, Int, Int) -> Int
+
+pub fn all_namespaces() -> Array[EphemeralNamespace]
+
+pub fn namespace_from_byte(Byte) -> EphemeralNamespace?
+
+pub fn namespace_to_byte(EphemeralNamespace) -> Byte
+
+pub fn read_string(Reader) -> String raise EphemeralError
+
+pub fn to_wire_peer_id(String) -> String
+
+pub fn write_string(@buffer.Buffer, String) -> Unit
+
+// Errors
+pub(all) suberror EphemeralError {
+  UnexpectedEndOfInput
+  VarintTooLong
+  VarintValueTooLarge
+  InvalidBoolValue
+  InvalidValueTag
+  InvalidPeerKey(key~ : String)
+}
+pub fn EphemeralError::message(Self) -> String
+
+// Types and methods
+pub(all) enum DragPosition {
+  Before
+  After
+  Inside
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DragState {
+  source_id : String
+  target : (String, DragPosition)?
+} derive(Eq, @debug.Debug)
+pub fn DragState::from_ephemeral(EphemeralValue) -> Self?
+pub fn DragState::to_ephemeral(Self) -> EphemeralValue
+pub impl Show for DragState
+
+pub(all) struct EditModeState {
+  node_id : String
+} derive(Eq, @debug.Debug)
+pub fn EditModeState::from_ephemeral(EphemeralValue) -> Self?
+pub fn EditModeState::to_ephemeral(Self) -> EphemeralValue
+pub impl Show for EditModeState
+
+pub(all) enum EphemeralEventTrigger {
+  Local
+  Import
+  Timeout
+} derive(Eq, @debug.Debug)
+pub impl Show for EphemeralEventTrigger
+
+pub struct EphemeralHub {
+  local_peer_id : String
+  wire_peer_id : String
+  stores : Map[EphemeralNamespace, EphemeralStore]
+}
+pub fn EphemeralHub::apply(Self, EphemeralNamespace, Bytes) -> Unit
+pub fn EphemeralHub::apply_all(Self, Bytes) -> Unit
+pub fn EphemeralHub::clear_drag(Self) -> Unit
+pub fn EphemeralHub::clear_edit_mode(Self) -> Unit
+pub fn EphemeralHub::encode(Self, EphemeralNamespace) -> Bytes
+pub fn EphemeralHub::encode_all(Self) -> Bytes
+pub fn EphemeralHub::get_all_editing(Self) -> Map[String, EditModeState]
+pub fn EphemeralHub::get_cursor(Self, String) -> (Int, (Int, Int)?)?
+pub fn EphemeralHub::get_edit_mode(Self, String) -> EditModeState?
+pub fn EphemeralHub::get_online_peers(Self) -> Array[PeerPresence]
+pub fn EphemeralHub::get_presence(Self, String) -> PeerPresence?
+pub fn EphemeralHub::get_store(Self, EphemeralNamespace) -> EphemeralStore
+pub fn EphemeralHub::new(String) -> Self
+pub fn EphemeralHub::on_peer_leave(Self, String) -> Unit
+pub fn EphemeralHub::remove_outdated(Self) -> Unit
+pub fn EphemeralHub::set_cursor(Self, Int, selection? : (Int, Int)?) -> Unit
+pub fn EphemeralHub::set_drag(Self, String, target? : (String, DragPosition)?) -> Unit
+pub fn EphemeralHub::set_edit_mode(Self, String) -> Unit
+pub fn EphemeralHub::set_presence(Self, String, String, PresenceStatus) -> Unit
+
+type EphemeralLocalEntry
+
+pub(all) enum EphemeralNamespace {
+  Cursor
+  EditMode
+  Drag
+  Presence
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub impl Show for EphemeralNamespace
+
+type EphemeralRecord
+
+pub struct EphemeralStore {
+  // private fields
+}
+pub fn EphemeralStore::apply(Self, Bytes) -> Unit raise EphemeralError
+pub fn EphemeralStore::delete(Self, String) -> Unit raise EphemeralError
+pub fn EphemeralStore::encode(Self, String) -> Bytes
+pub fn EphemeralStore::encode_all(Self) -> Bytes
+pub fn EphemeralStore::get(Self, String) -> EphemeralValue?
+pub fn EphemeralStore::get_all_states(Self) -> Map[String, EphemeralValue]
+pub fn EphemeralStore::keys(Self) -> Array[String]
+pub fn EphemeralStore::new(UInt64) -> Self
+pub fn EphemeralStore::remove_outdated(Self) -> Unit
+pub fn EphemeralStore::set(Self, String, EphemeralValue) -> Unit raise EphemeralError
+pub fn EphemeralStore::subscribe(Self, (EphemeralStoreEvent) -> Bool) -> EphemeralSubscription
+pub fn EphemeralStore::subscribe_local_updates(Self, (Bytes) -> Bool) -> EphemeralSubscription
+
+pub(all) struct EphemeralStoreEvent {
+  by : EphemeralEventTrigger
+  added : Array[String]
+  updated : Array[String]
+  removed : Array[String]
+} derive(@debug.Debug)
+pub fn EphemeralStoreEvent::added(Self) -> Array[String]
+pub fn EphemeralStoreEvent::by(Self) -> EphemeralEventTrigger
+pub fn EphemeralStoreEvent::removed(Self) -> Array[String]
+pub fn EphemeralStoreEvent::updated(Self) -> Array[String]
+
+type EphemeralSubscriberEntry
+
+pub struct EphemeralSubscription {
+  // private fields
+}
+pub fn EphemeralSubscription::unsubscribe(Self) -> Unit
+
+pub(all) enum EphemeralValue {
+  Null
+  Bool(Bool)
+  I64(Int64)
+  F64(Double)
+  String(String)
+  Bytes(Bytes)
+  List(Array[EphemeralValue])
+  Map(Map[String, EphemeralValue])
+} derive(Eq, @debug.Debug)
+pub impl Show for EphemeralValue
+
+pub(all) struct PeerCursor {
+  mut raw_cursor : Int
+  mut adjusted_cursor : Int
+  mut display_name : String
+  mut color : String
+  mut selection : (Int, Int)?
+} derive(@debug.Debug)
+pub impl Show for PeerCursor
+
+pub struct PeerCursorView {
+  cursors : Map[String, PeerCursor]
+  wire_keys : Map[String, String]
+}
+pub fn PeerCursorView::adjust_for_edit(Self, Int, Int, Int) -> Unit
+pub fn PeerCursorView::all_cursors(Self) -> Map[String, PeerCursor]
+pub fn PeerCursorView::apply_raw_update(Self, String, EphemeralValue) -> Unit
+pub fn PeerCursorView::from_store(EphemeralStore, String) -> Self
+pub fn PeerCursorView::get_cursor(Self, String) -> PeerCursor?
+pub fn PeerCursorView::new() -> Self
+pub fn PeerCursorView::remove(Self, String) -> Unit
+pub fn PeerCursorView::set_cursor(Self, String, Int, String, String, selection? : (Int, Int)?) -> Unit
+
+pub(all) struct PeerPresence {
+  peer_id : String
+  display_name : String
+  color : String
+  status : PresenceStatus
+} derive(Eq, @debug.Debug)
+pub fn PeerPresence::from_ephemeral(EphemeralValue) -> Self?
+pub fn PeerPresence::to_ephemeral(Self) -> EphemeralValue
+pub impl Show for PeerPresence
+
+pub(all) enum PresenceStatus {
+  Active
+  Idle
+} derive(Eq, @debug.Debug)
+pub impl Show for PresenceStatus
+
+pub struct Reader {
+  data : Bytes
+  mut pos : Int
+}
+pub fn Reader::new(Bytes) -> Self
+
+// Type aliases
+
+// Traits
+

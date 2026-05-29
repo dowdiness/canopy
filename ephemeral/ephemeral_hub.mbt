@@ -22,7 +22,7 @@ fn default_timeout(ns : EphemeralNamespace) -> UInt64 {
 }
 
 ///|
-fn namespace_to_byte(ns : EphemeralNamespace) -> Byte {
+pub fn namespace_to_byte(ns : EphemeralNamespace) -> Byte {
   match ns {
     Cursor => b'\x01'
     EditMode => b'\x02'
@@ -32,7 +32,7 @@ fn namespace_to_byte(ns : EphemeralNamespace) -> Byte {
 }
 
 ///|
-fn namespace_from_byte(b : Byte) -> EphemeralNamespace? {
+pub fn namespace_from_byte(b : Byte) -> EphemeralNamespace? {
   match b {
     b'\x01' => Some(Cursor)
     b'\x02' => Some(EditMode)
@@ -43,12 +43,9 @@ fn namespace_from_byte(b : Byte) -> EphemeralNamespace? {
 }
 
 ///|
-let all_namespaces : Array[EphemeralNamespace] = [
-  Cursor,
-  EditMode,
-  Drag,
-  Presence,
-]
+pub fn all_namespaces() -> Array[EphemeralNamespace] {
+  [Cursor, EditMode, Drag, Presence]
+}
 
 ///|
 pub struct EphemeralHub {
@@ -60,7 +57,7 @@ pub struct EphemeralHub {
 ///|
 pub fn EphemeralHub::new(local_peer_id : String) -> EphemeralHub {
   let stores : Map[EphemeralNamespace, EphemeralStore] = {}
-  for ns in all_namespaces {
+  for ns in all_namespaces() {
     stores[ns] = EphemeralStore::new(default_timeout(ns))
   }
   let wire_peer_id = to_wire_peer_id(local_peer_id)
@@ -88,7 +85,7 @@ pub fn EphemeralHub::encode(
 ///|
 pub fn EphemeralHub::encode_all(self : EphemeralHub) -> Bytes {
   let entries : Array[(EphemeralNamespace, Bytes)] = []
-  for ns in all_namespaces {
+  for ns in all_namespaces() {
     let data = self.stores[ns].encode_all()
     if data.length() > 0 {
       entries.push((ns, data))
@@ -133,7 +130,7 @@ pub fn EphemeralHub::apply_all(self : EphemeralHub, data : Bytes) -> Unit {
 
 ///|
 pub fn EphemeralHub::remove_outdated(self : EphemeralHub) -> Unit {
-  for ns in all_namespaces {
+  for ns in all_namespaces() {
     self.stores[ns].remove_outdated()
   }
 }
@@ -144,7 +141,7 @@ pub fn EphemeralHub::on_peer_leave(
   peer_id : String,
 ) -> Unit {
   let wire_id = to_wire_peer_id(peer_id)
-  for ns in all_namespaces {
+  for ns in all_namespaces() {
     self.stores[ns].delete(wire_id) catch {
       _ => ()
     }

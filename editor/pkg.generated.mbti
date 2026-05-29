@@ -2,6 +2,7 @@
 package "dowdiness/canopy/editor"
 
 import {
+  "dowdiness/canopy/ephemeral",
   "dowdiness/canopy/protocol",
   "dowdiness/event-graph-walker/history",
   "dowdiness/event-graph-walker/text",
@@ -34,16 +35,6 @@ pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~
 pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
 
 // Errors
-pub(all) suberror EphemeralError {
-  UnexpectedEndOfInput
-  VarintTooLong
-  VarintValueTooLarge
-  InvalidBoolValue
-  InvalidValueTag
-  InvalidPeerKey(key~ : String)
-}
-pub fn EphemeralError::message(Self) -> String
-
 pub(all) suberror ProtocolError {
   MessageTooShort(length~ : Int)
   UnsupportedVersion(version~ : Byte)
@@ -75,27 +66,6 @@ pub(all) suberror TreeEditError {
 pub fn TreeEditError::message(Self) -> String
 
 // Types and methods
-pub(all) enum DragPosition {
-  Before
-  After
-  Inside
-} derive(Eq, @debug.Debug)
-
-pub(all) struct DragState {
-  source_id : String
-  target : (String, DragPosition)?
-} derive(Eq, @debug.Debug)
-pub fn DragState::from_ephemeral(EphemeralValue) -> Self?
-pub fn DragState::to_ephemeral(Self) -> EphemeralValue
-pub impl Show for DragState
-
-pub(all) struct EditModeState {
-  node_id : String
-} derive(Eq, @debug.Debug)
-pub fn EditModeState::from_ephemeral(EphemeralValue) -> Self?
-pub fn EditModeState::to_ephemeral(Self) -> EphemeralValue
-pub impl Show for EditModeState
-
 pub struct Editor {
   doc : @text.TextState
   mut cursor : Int
@@ -112,96 +82,6 @@ pub fn Editor::insert(Self, String) -> Unit raise
 pub fn Editor::insert_at(Self, Int, String) -> Unit raise
 pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self
-
-pub(all) enum EphemeralEventTrigger {
-  Local
-  Import
-  Timeout
-} derive(Eq, @debug.Debug)
-pub impl Show for EphemeralEventTrigger
-
-pub struct EphemeralHub {
-  local_peer_id : String
-  wire_peer_id : String
-  stores : Map[EphemeralNamespace, EphemeralStore]
-}
-pub fn EphemeralHub::apply(Self, EphemeralNamespace, Bytes) -> Unit
-pub fn EphemeralHub::apply_all(Self, Bytes) -> Unit
-pub fn EphemeralHub::clear_drag(Self) -> Unit
-pub fn EphemeralHub::clear_edit_mode(Self) -> Unit
-pub fn EphemeralHub::encode(Self, EphemeralNamespace) -> Bytes
-pub fn EphemeralHub::encode_all(Self) -> Bytes
-pub fn EphemeralHub::get_all_editing(Self) -> Map[String, EditModeState]
-pub fn EphemeralHub::get_cursor(Self, String) -> (Int, (Int, Int)?)?
-pub fn EphemeralHub::get_edit_mode(Self, String) -> EditModeState?
-pub fn EphemeralHub::get_online_peers(Self) -> Array[PeerPresence]
-pub fn EphemeralHub::get_presence(Self, String) -> PeerPresence?
-pub fn EphemeralHub::get_store(Self, EphemeralNamespace) -> EphemeralStore
-pub fn EphemeralHub::new(String) -> Self
-pub fn EphemeralHub::on_peer_leave(Self, String) -> Unit
-pub fn EphemeralHub::remove_outdated(Self) -> Unit
-pub fn EphemeralHub::set_cursor(Self, Int, selection? : (Int, Int)?) -> Unit
-pub fn EphemeralHub::set_drag(Self, String, target? : (String, DragPosition)?) -> Unit
-pub fn EphemeralHub::set_edit_mode(Self, String) -> Unit
-pub fn EphemeralHub::set_presence(Self, String, String, PresenceStatus) -> Unit
-
-type EphemeralLocalEntry
-
-pub(all) enum EphemeralNamespace {
-  Cursor
-  EditMode
-  Drag
-  Presence
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub impl Show for EphemeralNamespace
-
-type EphemeralRecord
-
-pub struct EphemeralStore {
-  // private fields
-}
-pub fn EphemeralStore::apply(Self, Bytes) -> Unit raise EphemeralError
-pub fn EphemeralStore::delete(Self, String) -> Unit raise EphemeralError
-pub fn EphemeralStore::encode(Self, String) -> Bytes
-pub fn EphemeralStore::encode_all(Self) -> Bytes
-pub fn EphemeralStore::get(Self, String) -> EphemeralValue?
-pub fn EphemeralStore::get_all_states(Self) -> Map[String, EphemeralValue]
-pub fn EphemeralStore::keys(Self) -> Array[String]
-pub fn EphemeralStore::new(UInt64) -> Self
-pub fn EphemeralStore::remove_outdated(Self) -> Unit
-pub fn EphemeralStore::set(Self, String, EphemeralValue) -> Unit raise EphemeralError
-pub fn EphemeralStore::subscribe(Self, (EphemeralStoreEvent) -> Bool) -> EphemeralSubscription
-pub fn EphemeralStore::subscribe_local_updates(Self, (Bytes) -> Bool) -> EphemeralSubscription
-
-pub(all) struct EphemeralStoreEvent {
-  by : EphemeralEventTrigger
-  added : Array[String]
-  updated : Array[String]
-  removed : Array[String]
-} derive(@debug.Debug)
-pub fn EphemeralStoreEvent::added(Self) -> Array[String]
-pub fn EphemeralStoreEvent::by(Self) -> EphemeralEventTrigger
-pub fn EphemeralStoreEvent::removed(Self) -> Array[String]
-pub fn EphemeralStoreEvent::updated(Self) -> Array[String]
-
-type EphemeralSubscriberEntry
-
-pub struct EphemeralSubscription {
-  // private fields
-}
-pub fn EphemeralSubscription::unsubscribe(Self) -> Unit
-
-pub(all) enum EphemeralValue {
-  Null
-  Bool(Bool)
-  I64(Int64)
-  F64(Double)
-  String(String)
-  Bytes(Bytes)
-  List(Array[EphemeralValue])
-  Map(Map[String, EphemeralValue])
-} derive(Eq, @debug.Debug)
-pub impl Show for EphemeralValue
 
 pub struct InMemoryRoom {
   peers : Map[String, Array[(Bytes) -> Unit]]
@@ -225,44 +105,6 @@ pub struct LanguageCapabilities[T] {
 }
 pub fn[T] LanguageCapabilities::default() -> Self[T]
 pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
-
-pub(all) struct PeerCursor {
-  mut raw_cursor : Int
-  mut adjusted_cursor : Int
-  mut display_name : String
-  mut color : String
-  mut selection : (Int, Int)?
-} derive(@debug.Debug)
-pub impl Show for PeerCursor
-
-pub struct PeerCursorView {
-  cursors : Map[String, PeerCursor]
-  wire_keys : Map[String, String]
-}
-pub fn PeerCursorView::adjust_for_edit(Self, Int, Int, Int) -> Unit
-pub fn PeerCursorView::all_cursors(Self) -> Map[String, PeerCursor]
-pub fn PeerCursorView::apply_raw_update(Self, String, EphemeralValue) -> Unit
-pub fn PeerCursorView::from_store(EphemeralStore, String) -> Self
-pub fn PeerCursorView::get_cursor(Self, String) -> PeerCursor?
-pub fn PeerCursorView::new() -> Self
-pub fn PeerCursorView::remove(Self, String) -> Unit
-pub fn PeerCursorView::set_cursor(Self, String, Int, String, String, selection? : (Int, Int)?) -> Unit
-
-pub(all) struct PeerPresence {
-  peer_id : String
-  display_name : String
-  color : String
-  status : PresenceStatus
-} derive(Eq, @debug.Debug)
-pub fn PeerPresence::from_ephemeral(EphemeralValue) -> Self?
-pub fn PeerPresence::to_ephemeral(Self) -> EphemeralValue
-pub impl Show for PeerPresence
-
-pub(all) enum PresenceStatus {
-  Active
-  Idle
-} derive(Eq, @debug.Debug)
-pub impl Show for PresenceStatus
 
 type RecoveryContext
 
@@ -293,10 +135,10 @@ pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
 pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise
 pub fn[T] SyncEditor::get_cursor(Self[T]) -> Int
 pub fn[T] SyncEditor::get_errors(Self[T]) -> Array[String]
-pub fn[T] SyncEditor::get_hub(Self[T]) -> EphemeralHub
+pub fn[T] SyncEditor::get_hub(Self[T]) -> @ephemeral.EphemeralHub
 pub fn[T] SyncEditor::get_node(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/canopy/core.ProjNode[T]?
 pub fn[T] SyncEditor::get_node_range(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/loom/core.Range?
-pub fn[T] SyncEditor::get_peer_cursors(Self[T]) -> Map[String, PeerCursor]
+pub fn[T] SyncEditor::get_peer_cursors(Self[T]) -> Map[String, @ephemeral.PeerCursor]
 pub fn[T] SyncEditor::get_peer_id(Self[T]) -> String
 pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(Self[T]) -> @protocol.ViewNode
 pub fn[T] SyncEditor::get_proj_node(Self[T]) -> @dowdiness/canopy/core.ProjNode[T]?
@@ -341,7 +183,7 @@ pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
 pub fn[T] SyncEditor::set_watchdog_scheduler(Self[T], ((Int, Int) -> Unit)?) -> Unit
 pub fn[T] SyncEditor::set_watchdog_timeout(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::source_map_memo(Self[T]) -> @cells.Derived[@dowdiness/canopy/core.SourceMap]
-pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> EphemeralSubscription
+pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> @ephemeral.EphemeralSubscription
 pub fn[T : Eq] SyncEditor::undo(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
 pub fn[T] SyncEditor::ws_broadcast_cursor(Self[T]) -> Unit
@@ -359,7 +201,7 @@ pub impl Show for SyncErrorReason
 
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
-  EphemeralUpdate(EphemeralNamespace, Bytes)
+  EphemeralUpdate(@ephemeral.EphemeralNamespace, Bytes)
   SyncRequest(Bytes)
   SyncResponse(Bytes)
   PeerJoined(String)
@@ -386,6 +228,35 @@ pub fn ViewUpdateState::set_had_errors(Self, Bool) -> Unit
 pub fn ViewUpdateState::set_previous(Self, @protocol.ViewNode?) -> Unit
 
 // Type aliases
+pub using @ephemeral {type DragPosition}
+
+pub using @ephemeral {type DragState}
+
+pub using @ephemeral {type EditModeState}
+
+pub using @ephemeral {type EphemeralError}
+
+pub using @ephemeral {type EphemeralEventTrigger}
+
+pub using @ephemeral {type EphemeralHub}
+
+pub using @ephemeral {type EphemeralNamespace}
+
+pub using @ephemeral {type EphemeralStore}
+
+pub using @ephemeral {type EphemeralStoreEvent}
+
+pub using @ephemeral {type EphemeralSubscription}
+
+pub using @ephemeral {type EphemeralValue}
+
+pub using @ephemeral {type PeerCursor}
+
+pub using @ephemeral {type PeerCursorView}
+
+pub using @ephemeral {type PeerPresence}
+
+pub using @ephemeral {type PresenceStatus}
 
 // Traits
 pub(open) trait SyncTransport {
