@@ -186,26 +186,28 @@ test "on_message: SyncRequest routes to target peer" {
   msgs_a.clear()
   msgs_b.clear()
   msgs_c.clear()
-  // Build SyncRequest targeting "bob": [0x02][0x03][0x00][uvarint len]["bob" bytes][payload]
+  // Build SyncRequest targeting "bob": [0x02][0x03][0x00][write_string("bob")][payload]
   let buf = Buffer()
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x03')
   buf.write_byte(b'\x00')
-  let tmp = Buffer()
-  tmp.write_string_utf16le("bob".view())
-  let target_bytes = tmp.to_bytes()
-  write_relay_uvarint(buf, target_bytes.length())
-  buf.write_bytes(target_bytes)
+  write_string(buf, "bob")
   buf.write_byte(b'\xAA') // payload
   room.on_message("alice", buf.to_bytes())
   // Only bob should receive it, not alice or charlie
   inspect(msgs_a.length(), content="0")
   inspect(msgs_b.length(), content="1")
   inspect(msgs_c.length(), content="0")
-  // The forwarded message should have sender="alice" replacing target="bob"
+  // Full forwarded frame: target "bob" is replaced by sender "alice" and the
+  // 0xAA payload after the target survives. Pinning the whole frame exercises
+  // read_relay_string's `after_target` offset end-to-end — an off-by-one there
+  // would keep/drop the target or payload and is caught here.
+  // [0x02][0x03][0x00][write_string("alice")][0xAA]
   let received = msgs_b[0]
-  inspect(received[0] == b'\x02', content="true") // version
-  inspect(received[1] == b'\x03', content="true") // type preserved
+  inspect(
+    received == b"\x02\x03\x00\x0a\x61\x00\x6c\x00\x69\x00\x63\x00\x65\x00\xaa",
+    content="true",
+  )
 }
 
 ///|
@@ -217,24 +219,24 @@ test "on_message: SyncResponse routes to target peer" {
   connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
-  // Build SyncResponse targeting "alice": [0x02][0x04][0x00][uvarint len]["alice" bytes][payload]
+  // Build SyncResponse targeting "alice": [0x02][0x04][0x00][write_string("alice")][payload]
   let buf = Buffer()
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x04')
   buf.write_byte(b'\x00')
-  let tmp = Buffer()
-  tmp.write_string_utf16le("alice".view())
-  let target_bytes = tmp.to_bytes()
-  write_relay_uvarint(buf, target_bytes.length())
-  buf.write_bytes(target_bytes)
+  write_string(buf, "alice")
   buf.write_byte(b'\xBB') // payload
   room.on_message("bob", buf.to_bytes())
   // Only alice should receive it
   inspect(msgs_a.length(), content="1")
   inspect(msgs_b.length(), content="0")
+  // Full forwarded frame: target "alice" replaced by sender "bob", 0xBB payload
+  // preserved. [0x02][0x04][0x00][write_string("bob")][0xBB]
   let received = msgs_a[0]
-  inspect(received[0] == b'\x02', content="true") // version
-  inspect(received[1] == b'\x04', content="true") // type preserved
+  inspect(
+    received == b"\x02\x04\x00\x06\x62\x00\x6f\x00\x62\x00\xbb",
+    content="true",
+  )
 }
 
 ///|
@@ -251,11 +253,7 @@ test "on_message: SyncRequest to unknown target is dropped" {
   buf.write_byte(b'\x02')
   buf.write_byte(b'\x03')
   buf.write_byte(b'\x00')
-  let tmp = Buffer()
-  tmp.write_string_utf16le("nobody".view())
-  let target_bytes = tmp.to_bytes()
-  write_relay_uvarint(buf, target_bytes.length())
-  buf.write_bytes(target_bytes)
+  write_string(buf, "nobody")
   room.on_message("alice", buf.to_bytes())
   // Nobody should receive anything
   inspect(msgs_a.length(), content="0")

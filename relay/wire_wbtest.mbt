@@ -58,24 +58,8 @@ test "encode_peer_joined encodes peer_id bytes" {
 }
 
 ///|
-test "write_relay_uvarint encodes small values in one byte" {
-  let buf = Buffer()
-  write_relay_uvarint(buf, 5)
-  let bytes = buf.to_bytes()
-  inspect(bytes.length(), content="1")
-  inspect(bytes[0], content="b'\\x05'")
-}
-
-///|
-test "write_relay_uvarint encodes 128 in two bytes" {
-  let buf = Buffer()
-  write_relay_uvarint(buf, 128)
-  let bytes = buf.to_bytes()
-  inspect(bytes.length(), content="2")
-  // 128 = 0x80 => first byte: (0x00 | 0x80) = 0x80, second byte: 0x01
-  inspect(bytes[0], content="b'\\x80'")
-  inspect(bytes[1], content="b'\\x01'")
-}
+// Note: uvarint byte-layout tests (small one-byte values, two-byte 128) now
+// live in lib/byte-codec, which owns the varint codec relay delegates to.
 
 ///|
 test "encode_peer_joined with empty peer_id" {

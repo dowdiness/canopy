@@ -19,15 +19,10 @@ let sub_join : Byte = b'\x01'
 let sub_leave : Byte = b'\x02'
 
 ///|
-/// Encode an unsigned variable-length integer into the buffer.
-fn write_relay_uvarint(buf : Buffer, value : Int) -> Unit {
-  let mut v = value
-  while v >= 0x80 {
-    buf.write_byte(((v & 0x7F) | 0x80).to_byte())
-    v = v >> 7
-  }
-  buf.write_byte(v.to_byte())
-}
+/// LEB128 varints + length-prefixed UTF-16LE strings come from the shared
+/// `lib/byte-codec` package. relay keeps only its own framing here; the
+/// generic codec lives in one place (see docs/plans/2026-05-29-byte-codec-package-design.md).
+using @byte_codec {type Reader, read_string, write_string}
 
 ///|
 /// Encode a peer control message with the given sub-type and peer ID.
@@ -40,48 +35,24 @@ fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
   buf.write_byte(msg_room_control)
   buf.write_byte(flags_none)
   buf.write_byte(sub_type)
-  let tmp = Buffer()
-  tmp.write_string_utf16le(peer_id.view())
-  let peer_bytes = tmp.to_bytes()
-  write_relay_uvarint(buf, peer_bytes.length())
-  buf.write_bytes(peer_bytes)
+  write_string(buf, peer_id)
   buf.to_bytes()
 }
 
 ///|
-/// Read a uvarint from a byte slice starting at offset. Returns (value, new_offset).
-fn read_relay_uvarint(data : Bytes, offset : Int) -> (Int, Int)? {
-  let mut result = 0
-  let mut shift = 0
-  let mut pos = offset
-  for i = 0; i < 10; i = i + 1 {
-    if pos >= data.length() {
-      return None
-    }
-    let b = data[pos].to_int()
-    pos += 1
-    result = result | ((b & 0x7F) << shift)
-    if (b & 0x80) == 0 {
-      return Some((result, pos))
-    }
-    shift += 7
-  }
-  None
-}
-
-///|
-/// Read a length-prefixed string from data at offset. Returns (string, new_offset).
+/// Read a length-prefixed string from `data` starting at `offset`. Returns
+/// `(string, new_offset)`, or `None` if the frame is truncated or malformed.
+///
+/// Adapts `byte-codec`'s raising `Reader` to relay's `Option`-returning
+/// boundary: the byte stream is sliced from `offset` so the cursor starts at
+/// the length prefix, and any `CodecError` (EOF, oversized length) maps to a
+/// dropped frame.
 fn read_relay_string(data : Bytes, offset : Int) -> (String, Int)? {
-  match read_relay_uvarint(data, offset) {
-    None => None
-    Some((len, pos)) => {
-      if pos + len > data.length() {
-        return None
-      }
-      let bytes = data.view(start=pos, end=pos + len).to_owned()
-      Some((bytes.to_unchecked_string(), pos + len))
-    }
-  }
+  let reader = Reader::new(
+    data.view(start=offset, end=data.length()).to_owned(),
+  )
+  let s = read_string(reader) catch { _ => return None }
+  Some((s, offset + reader.pos))
 }
 
 ///|
@@ -97,11 +68,7 @@ fn wrap_with_sender(
   buf.write_byte(version)
   buf.write_byte(new_type)
   buf.write_byte(flags_none)
-  let tmp = Buffer()
-  tmp.write_string_utf16le(sender.view())
-  let sender_bytes = tmp.to_bytes()
-  write_relay_uvarint(buf, sender_bytes.length())
-  buf.write_bytes(sender_bytes)
+  write_string(buf, sender)
   if payload_offset < data.length() {
     buf.write_bytes(
       data.view(start=payload_offset, end=data.length()).to_owned(),
