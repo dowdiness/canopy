@@ -111,7 +111,43 @@ function portTitle(port: PortDef): string {
   return `${port.label}: ${portTypeName(port.port_type)}`;
 }
 
-function renderPortHandles(div: HTMLDivElement, node: NodeData): void {
+// ─── Connection compatibility (display only) ───────────────────────────────────
+// Mirrors MoonBit `can_commit_edge` so input handles can preview which targets a
+// drag could land on. This is purely cosmetic — MoonBit validation stays the
+// authoritative commit/reject check on pointerup.
+
+/** Context for the in-flight connection, resolved once per render. */
+type ConnectCtx = {
+  fromNode: number;
+  fromPort: string;
+  sourceType: string | null;
+  edges: EdgeData[];
+};
+
+/** Mirror of MoonBit `port_type_compatible`. */
+function portTypesCompatible(source: string, target: string): boolean {
+  return source === target || source === 'Any' || target === 'Any';
+}
+
+/**
+ * Whether dragging from the active source onto this input handle would be
+ * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, type check).
+ */
+function inputHandleCompatible(ctx: ConnectCtx, targetNode: number, targetPort: PortDef): boolean {
+  if (ctx.sourceType == null) return false;
+  if (ctx.fromNode === targetNode) return false; // self-loop
+  const duplicate = ctx.edges.some(
+    (e) =>
+      e.source === ctx.fromNode &&
+      e.source_port === ctx.fromPort &&
+      e.target === targetNode &&
+      e.target_port === targetPort.id,
+  );
+  if (duplicate) return false;
+  return portTypesCompatible(ctx.sourceType, portTypeName(targetPort.port_type));
+}
+
+function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: ConnectCtx | null): void {
   div.querySelectorAll(':scope > .handle').forEach((handle) => handle.remove());
   const addHandles = (side: 'input' | 'output', ports: PortDef[]) => {
     ports.forEach((port, index) => {
@@ -124,6 +160,11 @@ function renderPortHandles(div: HTMLDivElement, node: NodeData): void {
       handle.style.top = `${((index + 1) * 100) / (ports.length + 1)}%`;
       handle.title = `${side === 'input' ? 'Input' : 'Output'} ${portTitle(port)}`;
       handle.setAttribute('aria-label', `${node.title} ${side} ${portTitle(port)}`);
+      if (connectCtx && side === 'input') {
+        handle.classList.add(
+          inputHandleCompatible(connectCtx, node.id, port) ? 'compatible-target' : 'incompatible-target',
+        );
+      }
       div.appendChild(handle);
     });
   };
@@ -156,6 +197,21 @@ function render(): void {
   const invalidNodeIds = new Set(
     state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as number),
   );
+
+  // Resolve the in-flight connection's source port type once, so each input
+  // handle can preview compatibility while the drag is live.
+  let connectCtx: ConnectCtx | null = null;
+  if (state.connecting) {
+    const from = state.connecting;
+    const srcNode = state.nodes.find((n) => n.id === from.from);
+    const srcPort = srcNode?.outputs.find((p) => p.id === from.from_port);
+    connectCtx = {
+      fromNode: from.from,
+      fromPort: from.from_port,
+      sourceType: srcPort ? portTypeName(srcPort.port_type) : null,
+      edges: state.edges,
+    };
+  }
 
   for (const node of state.nodes) {
     seenNodes.add(node.id);
@@ -197,7 +253,7 @@ function render(): void {
     const ports = div.querySelector('.ports') as HTMLDivElement;
     title.textContent = node.title;
     subtitle.textContent = node.subtitle;
-    renderPortHandles(div, node);
+    renderPortHandles(div, node, connectCtx);
     ports.replaceChildren(
       ...[...node.inputs.map((p) => ['in', p] as const), ...node.outputs.map((p) => ['out', p] as const)]
         .map(([direction, port]) => {

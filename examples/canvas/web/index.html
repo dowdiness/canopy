@@ -345,6 +345,18 @@
     }
     .handle.disabled { opacity: 0.24; cursor: not-allowed; }
 
+    /* Connection-drag compatibility preview (display only; MoonBit
+       can_commit_edge stays authoritative). */
+    .handle.compatible-target {
+      background: var(--success);
+      border-color: oklch(86% 0.07 130);
+      box-shadow: 0 0 0 6px oklch(75% 0.09 130 / 0.2);
+    }
+    .handle.incompatible-target {
+      opacity: 0.22;
+      cursor: not-allowed;
+    }
+
     #context-menu {
       position: fixed;
       z-index: 10;
