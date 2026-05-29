@@ -110,9 +110,7 @@ fn SourceMap::node_to_range_at_position(
   self : SourceMap,
   position : Int,
 ) -> Map[NodeId, Range] {
-  self.ranges
-  .iter()
-  .fold(init=Map::default(), fn(acc, item) {
+  self.ranges.fold(init=Map::default(), fn(acc, item) {
     if item.0.contains(position) {
       acc.set(item.1, item.0)
     }
@@ -177,12 +175,14 @@ pub fn SourceMap::nodes_in_range(
 ) -> Array[NodeId] {
   self.node_to_range
   .iter()
-  .fold(init=[], fn(acc, item) {
+  .filter_map(item => {
     if range.start < item.1.end && range.end > item.1.start {
-      acc.push(item.0)
+      Some(item.0)
+    } else {
+      None
     }
-    acc
   })
+  .collect()
 }
 
 ///|
@@ -218,14 +218,11 @@ pub fn SourceMap::apply_edit(
   let delta = old_range.length()
   let old_end = old_range.end
 
-  // Update node ranges
-  let updated : Map[NodeId, Range] = {}
-  for node_id, node_range in self.node_to_range {
-    updated[node_id] = shift_range(node_range, edit_start, old_end, delta)
-  }
-  self.node_to_range.clear()
-  for k, v in updated {
-    self.node_to_range[k] = v
+  // Update node ranges. Snapshot the entries first so we don't mutate the
+  // map mid-iteration; the key set is unchanged, only the values shift.
+  let entries = self.node_to_range.iter().collect()
+  for pair in entries {
+    self.node_to_range[pair.0] = shift_range(pair.1, edit_start, old_end, delta)
   }
 
   // Shift token spans by the same delta
@@ -332,7 +329,7 @@ pub fn SourceMap::get_all_token_spans(
       for role, range in roles {
         pairs.push((role, range))
       }
-      pairs.sort_by(fn(a, b) { a.1.start.compare(b.1.start) })
+      pairs.sort_by_key(p => p.1.start)
       pairs
     }
     None => []

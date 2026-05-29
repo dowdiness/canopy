@@ -33,14 +33,10 @@ fn[T : TreeNode] reconcile_children(
 ) -> Array[ProjNode[T]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
-  let dp : Array[Array[Int]] = []
-  for i = 0; i <= old_len; i = i + 1 {
-    let row : Array[Int] = []
-    for j = 0; j <= new_len; j = j + 1 {
-      row.push(0)
-    }
-    dp.push(row)
-  }
+  // Each row must be a fresh array — use makei (called per row), not
+  // Array::make(.., Array::make(..)) which would share one inner array
+  // reference across all rows and corrupt the DP.
+  let dp = Array::makei(old_len + 1, _ => Array::make(new_len + 1, 0))
   for i = 1; i <= old_len; i = i + 1 {
     for j = 1; j <= new_len; j = j + 1 {
       if T::same_kind(old_children[i - 1].kind, new_children[j - 1].kind) {
@@ -51,14 +47,8 @@ fn[T : TreeNode] reconcile_children(
     }
   }
 
-  let old_matched : Array[Int] = []
-  let new_matched : Array[Int] = []
-  for i = 0; i < old_len; i = i + 1 {
-    old_matched.push(-1)
-  }
-  for j = 0; j < new_len; j = j + 1 {
-    new_matched.push(-1)
-  }
+  let old_matched = Array::make(old_len, -1)
+  let new_matched = Array::make(new_len, -1)
   let mut i = old_len
   let mut j = new_len
   while i > 0 && j > 0 {
@@ -75,7 +65,7 @@ fn[T : TreeNode] reconcile_children(
   }
 
   let result : Array[ProjNode[T]] = []
-  for j = 0; j < new_len; j = j + 1 {
+  for j in 0..<new_len {
     if new_matched[j] >= 0 {
       result.push(
         reconcile(old_children[new_matched[j]], new_children[j], counter),
