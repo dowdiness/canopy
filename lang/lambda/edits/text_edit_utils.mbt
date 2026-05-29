@@ -74,7 +74,7 @@ fn find_parent(
 ) -> (NodeId, ProjNode[@ast.Term], Int)? {
   for pid, pnode in registry {
     for i, child in pnode.children {
-      if NodeId::from_int(child.node_id) == node_id {
+      if child.id() == node_id {
         return Some((pid, pnode, i))
       }
     }
@@ -91,9 +91,8 @@ fn get_binding_text_range(
   def : (String, ProjNode[@ast.Term], Int, NodeId),
 ) -> Result[(Int, Int), String] {
   let init_node = def.1
-  let init_range = match source_map.get_range(init_node.id()) {
-    Some(r) => r
-    None => return Err("Init node not in source map")
+  guard source_map.get_range(init_node.id()) is Some(init_range) else {
+    return Err("Init node not in source map")
   }
   let let_start = find_let_start(source_text, init_range.start)
   Ok((let_start, init_range.end))

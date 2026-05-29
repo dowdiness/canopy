@@ -151,7 +151,7 @@ fn[T : Renderable] from_term_node_impl(
   source_map : SourceMap,
   ui_state : TreeUIState,
 ) -> InteractiveTreeNode[T] {
-  let node_id = NodeId::from_int(node.node_id)
+  let node_id = node.id()
   let text_range = match source_map.get_range(node_id) {
     Some(range) => range
     None => Range::new(node.start, node.end)

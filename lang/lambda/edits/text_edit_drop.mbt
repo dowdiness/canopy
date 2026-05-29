@@ -8,13 +8,11 @@ fn compute_drop(
   // Legality: self-drop
   guard source != target else { return Err("Cannot drop onto self") }
   let { source_text, source_map, .. } = ctx
-  let source_range = match source_map.get_range(source) {
-    Some(r) => r
-    None => return Err("Source node not found")
+  guard source_map.get_range(source) is Some(source_range) else {
+    return Err("Source node not found")
   }
-  let target_range = match source_map.get_range(target) {
-    Some(r) => r
-    None => return Err("Target node not found")
+  guard source_map.get_range(target) is Some(target_range) else {
+    return Err("Target node not found")
   }
   // Legality: descendant-drop (target is inside source)
   guard !(target_range.start >= source_range.start &&

@@ -198,18 +198,17 @@ fn compute_add_binding(
 ) -> EditResult {
   let { registry, flat_proj, .. } = ctx
   // Validate target is a Module node before delegating
-  match registry.get(module_node_id) {
-    None => Err("Module not found: " + module_node_id.to_string())
-    Some(node) =>
-      match node.kind {
-        @ast.Term::Module(_, _) =>
-          compute_insert_child(
-            ctx,
-            module_node_id,
-            flat_proj.defs.length(),
-            @ast.Term::Int(0),
-          )
-        _ => Err("AddBinding target is not a Module node")
-      }
+  guard registry.get(module_node_id) is Some(node) else {
+    return Err("Module not found: " + module_node_id.to_string())
+  }
+  match node.kind {
+    @ast.Term::Module(_, _) =>
+      compute_insert_child(
+        ctx,
+        module_node_id,
+        flat_proj.defs.length(),
+        @ast.Term::Int(0),
+      )
+    _ => Err("AddBinding target is not a Module node")
   }
 }

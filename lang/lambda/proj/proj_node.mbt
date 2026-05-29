@@ -5,6 +5,23 @@
 using @core {type ProjNode, type NodeId}
 
 ///|
+/// Construct a childless ProjNode for a lambda leaf term, spanning `node`
+/// and taking a fresh id from `counter`.
+fn lambda_leaf_node(
+  kind : @ast.Term,
+  node : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  ProjNode::new(
+    kind,
+    node.start(),
+    node.end(),
+    @core.next_proj_node_id(counter),
+    [],
+  )
+}
+
+///|
 fn error_node_with_span(
   message : String,
   start : Int,
@@ -20,7 +37,7 @@ fn error_node_for_syntax(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  error_node_with_span(message, node.start(), node.end(), counter)
+  lambda_leaf_node(Error(message), node, counter)
 }
 
 ///|
@@ -64,21 +81,9 @@ pub fn syntax_to_proj_node(
       Some(n) => Int(n)
       None => Error("invalid integer literal")
     }
-    ProjNode::new(
-      kind,
-      node.start(),
-      node.end(),
-      @core.next_proj_node_id(counter),
-      [],
-    )
+    lambda_leaf_node(kind, node, counter)
   } else if @parser.VarRefView::cast(node) is Some(v) {
-    ProjNode::new(
-      Var(v.name()),
-      node.start(),
-      node.end(),
-      @core.next_proj_node_id(counter),
-      [],
-    )
+    lambda_leaf_node(Var(v.name()), node, counter)
   } else if @parser.LambdaExprView::cast(node) is Some(v) {
     let body = match v.body() {
       Some(b) => syntax_to_proj_node(b, counter)
@@ -228,13 +233,7 @@ pub fn syntax_to_proj_node(
       )
     }
   } else if @syntax.SyntaxKind::from_raw(node.kind()) == @syntax.HoleLiteral {
-    ProjNode::new(
-      Hole(0),
-      node.start(),
-      node.end(),
-      @core.next_proj_node_id(counter),
-      [],
-    )
+    lambda_leaf_node(Hole(0), node, counter)
   } else {
     error_node_for_syntax(
       "unknown node kind: " + node.kind().to_string(),

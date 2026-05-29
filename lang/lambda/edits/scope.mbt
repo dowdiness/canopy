@@ -21,20 +21,18 @@ pub fn resolve_binder(
     return lam_binder
   }
   // Check Module defs — find which def/body contains this var
-  let var_pos = match source_map.get_range(var_node_id) {
-    Some(r) => r.start
-    None => return None
+  guard source_map.get_range(var_node_id) is Some(var_range) else {
+    return None
   }
+  let var_pos = var_range.start
   // Find which def index (or body) this var is in
   let mut containing_def_index = flat_proj.defs.length() // body sentinel
   for i, def in flat_proj.defs {
-    match source_map.get_range(def.1.id()) {
-      Some(r) =>
-        if var_pos >= r.start && var_pos < r.end {
-          containing_def_index = i
-          break
-        }
-      None => ()
+    if source_map.get_range(def.1.id()) is Some(r) &&
+      var_pos >= r.start &&
+      var_pos < r.end {
+      containing_def_index = i
+      break
     }
   }
   // Walk backwards from containing_def_index to find matching def
@@ -63,7 +61,7 @@ fn find_enclosing_lam_binder(
 ) -> BindingSite? {
   for pid, pnode in registry {
     for child in pnode.children {
-      if NodeId::from_int(child.node_id) == node_id {
+      if child.id() == node_id {
         match pnode.kind {
           @ast.Term::Lam(param, _) =>
             if param == name {
@@ -100,11 +98,8 @@ pub fn find_usages(
     collect_var_usages(def.1, var_name, results)
   }
   // Check body only if not shadowed
-  if !shadowed {
-    match flat_proj.final_expr {
-      Some(body) => collect_var_usages(body, var_name, results)
-      None => ()
-    }
+  if !shadowed && flat_proj.final_expr is Some(body) {
+    collect_var_usages(body, var_name, results)
   }
   results
 }
@@ -157,10 +152,9 @@ pub fn collect_lam_env(
   fn walk_up(nid : NodeId) {
     for pid, pnode in registry {
       for child in pnode.children {
-        if NodeId::from_int(child.node_id) == nid {
-          match pnode.kind {
-            @ast.Term::Lam(param, _) => env = env.add(param)
-            _ => ()
+        if child.id() == nid {
+          if pnode.kind is @ast.Term::Lam(param, _) {
+            env = env.add(param)
           }
           walk_up(pid)
           return

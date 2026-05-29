@@ -272,12 +272,7 @@ pub fn FlatProj::from_proj_node(root : ProjNode[@ast.Term]) -> FlatProj {
         if i < root.children.length() - 1 {
           let init_child = root.children[i]
           defs.push(
-            (
-              term_defs[i].0,
-              init_child,
-              init_child.start,
-              NodeId::from_int(init_child.node_id),
-            ),
+            (term_defs[i].0, init_child, init_child.start, init_child.id()),
           )
         }
       }

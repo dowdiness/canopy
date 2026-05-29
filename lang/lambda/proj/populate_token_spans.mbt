@@ -49,14 +49,12 @@ fn collect_token_spans_source_file(
               @syntax.IdentToken.to_raw(),
             )
             // Recurse into the init expression
-            match v.init() {
-              Some(init_syn) =>
-                collect_token_spans_expr(
-                  source_map,
-                  init_syn,
-                  proj_root.children[def_idx],
-                )
-              None => ()
+            if v.init() is Some(init_syn) {
+              collect_token_spans_expr(
+                source_map,
+                init_syn,
+                proj_root.children[def_idx],
+              )
             }
           }
           def_idx = def_idx + 1
@@ -105,12 +103,8 @@ fn collect_token_spans_expr(
       @syntax.IdentToken.to_raw(),
     )
     // Recurse into body
-    match v.body() {
-      Some(body_syn) =>
-        if proj_node.children.length() > 0 {
-          collect_token_spans_expr(source_map, body_syn, proj_node.children[0])
-        }
-      None => ()
+    if v.body() is Some(body_syn) && proj_node.children.length() > 0 {
+      collect_token_spans_expr(source_map, body_syn, proj_node.children[0])
     }
   } else if @parser.AppExprView::cast(syntax_node) is Some(v) {
     // AppExpr is flattened: syntax has [func, arg1, arg2, ...]
@@ -201,32 +195,19 @@ fn collect_token_spans_expr(
       }
     }
   } else if @parser.IfExprView::cast(syntax_node) is Some(v) {
-    match v.condition() {
-      Some(cond) =>
-        if proj_node.children.length() > 0 {
-          collect_token_spans_expr(source_map, cond, proj_node.children[0])
-        }
-      None => ()
+    if v.condition() is Some(cond) && proj_node.children.length() > 0 {
+      collect_token_spans_expr(source_map, cond, proj_node.children[0])
     }
-    match v.then_branch() {
-      Some(then_) =>
-        if proj_node.children.length() > 1 {
-          collect_token_spans_expr(source_map, then_, proj_node.children[1])
-        }
-      None => ()
+    if v.then_branch() is Some(then_) && proj_node.children.length() > 1 {
+      collect_token_spans_expr(source_map, then_, proj_node.children[1])
     }
-    match v.else_branch() {
-      Some(else_) =>
-        if proj_node.children.length() > 2 {
-          collect_token_spans_expr(source_map, else_, proj_node.children[2])
-        }
-      None => ()
+    if v.else_branch() is Some(else_) && proj_node.children.length() > 2 {
+      collect_token_spans_expr(source_map, else_, proj_node.children[2])
     }
   } else if @parser.ParenExprView::cast(syntax_node) is Some(v) {
     // ParenExpr unwraps: ProjNode reuses inner's node_id and children
-    match v.inner() {
-      Some(inner) => collect_token_spans_expr(source_map, inner, proj_node)
-      None => ()
+    if v.inner() is Some(inner) {
+      collect_token_spans_expr(source_map, inner, proj_node)
     }
   }
   // IntLiteral, VarRef: leaf nodes, no token spans to extract

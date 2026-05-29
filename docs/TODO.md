@@ -144,6 +144,22 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `build_tree`, `build_tree_interned`, `build_tree_fully_interned` are ~80 lines each of near-identical stack-based tree construction, differing only in token creation and node wrapping. Discovered during error handling audit (loom PR #75).
   Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
 
+- [ ] Hoist ProjNode id-allocation boilerplate into `@core` (`core/proj_node.mbt`). (finding B from PR #383)
+  Why: every `ProjNode::new(...)` call across `lang/lambda/proj` and `lang/json/proj` threads `@core.next_proj_node_id(counter)` into the id argument, and the per-language `lambda_leaf_node` / `json_leaf_node` helpers (PR #382/#383) are identical up to the value type `T`. `@core` already depends on `@seam`, so it can host the shared form.
+  Exit: `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` (plus a fresh-id branch ctor); both per-language leaf helpers are deleted and branch builders drop the explicit `next_proj_node_id` arg. Non-node-span sites (Unit fallback, Module span, ParenExpr id-reuse) keep raw `ProjNode::new`. `.mbti` change limited to the new `@core` exports; all tests pass.
+
+- [ ] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
+  Why: nearly every `compute_*` handler opens with the same pair of guards keyed on one `node_id` — `registry.get(id)` then `source_map.get_range(id)`, both erroring "Node not found" — made visible by the PR #383 guard sweep. `EditContext` already holds both maps.
+  Exit: `EditContext::resolve(self, node_id) -> Result[(ProjNode[T], Range), String]` (or `require_node` / `require_range`); the ~10 handler prologues collapse to one call; behavior and error messages preserved.
+
+- [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383)
+  Why: the `match x { Ok(v) => v; Err(e) => return Err(e) }` passthroughs left in PR #383 exist only because MoonBit has no `?`-propagation for plain `Result`. A raising error model would auto-propagate them away and let the Some/None guards sit on raising accessors. Larger design call — touches `EditResult` and error-type design; see the `moonbit-error-handling` skill.
+  Exit: decision recorded (adopt or keep `Result`) with rationale; if adopted, passthroughs removed and `EditResult` retyped.
+
+- [ ] Uniform syntax→projection dispatch + parallel-walk helper (loom `@seam` / `lang/*/proj`). (finding E from PR #383)
+  Why: `syntax_to_proj_node` dispatches via a typed `View::cast(node) is Some(v)` ladder, but two arms (`BlockExpr`, `HoleLiteral`) fall back to raw `SyntaxKind::from_raw(...) == ...` because no typed View exists; separately, `populate_token_spans` hand-rolls fragile `proj_chain` index arithmetic to align flat CST App/Binary spans with the nested ProjNode tree.
+  Exit: typed Views cover all dispatched kinds (uniform `is Some` ladder); a loom-level "zip syntax children with projection children" utility absorbs the manual chain navigation. Tracked upstream in loom.
+
 ---
 
 ## 8. Handler Chain Follow-ups

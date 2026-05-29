@@ -28,19 +28,16 @@ fn rename_lam_param(
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let source_map = ctx.source_map
   // Guard: check if new_name is free in the lambda body — renaming would capture it
-  match lam_node.kind {
-    @ast.Term::Lam(_, body) => {
-      let bound : @immut/hashset.HashSet[String] = @immut/hashset.new().add(
-        old_name,
+  if lam_node.kind is @ast.Term::Lam(_, body) {
+    let bound : @immut/hashset.HashSet[String] = @immut/hashset.new().add(
+      old_name,
+    )
+    let body_fv = free_vars(body, bound)
+    if body_fv.contains(new_name) {
+      return Err(
+        "Cannot rename: would capture free variable '" + new_name + "'",
       )
-      let body_fv = free_vars(body, bound)
-      if body_fv.contains(new_name) {
-        return Err(
-          "Cannot rename: would capture free variable '" + new_name + "'",
-        )
-      }
     }
-    _ => ()
   }
   let edits : Array[SpanEdit] = []
   // Get param token span
@@ -83,9 +80,8 @@ fn rename_lam_param(
   // Add edits for each var, collecting ranges first
   let var_ranges : Array[(Int, Int)] = []
   for vid in var_ids {
-    match source_map.get_range(vid) {
-      Some(r) => var_ranges.push((r.start, r.end))
-      None => ()
+    if source_map.get_range(vid) is Some(r) {
+      var_ranges.push((r.start, r.end))
     }
   }
   // Sort descending by position for reverse-order application
@@ -106,16 +102,15 @@ fn rename_from_var(
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let binder = match
-    resolve_binder(
+  guard resolve_binder(
       var_node_id,
       old_name,
       ctx.flat_proj,
       ctx.registry,
       ctx.source_map,
-    ) {
-    Some(b) => b
-    None => return Err("No binding found for variable: " + old_name)
+    )
+    is Some(binder) else {
+    return Err("No binding found for variable: " + old_name)
   }
   match binder {
     LamBinder(lam_id~) =>
@@ -220,9 +215,8 @@ fn rename_module_binding(
   }
   let usage_ranges : Array[(Int, Int)] = []
   for uid in usage_ids {
-    match source_map.get_range(uid) {
-      Some(r) => usage_ranges.push((r.start, r.end))
-      None => ()
+    if source_map.get_range(uid) is Some(r) {
+      usage_ranges.push((r.start, r.end))
     }
   }
   // Sort descending by position

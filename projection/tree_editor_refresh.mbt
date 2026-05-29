@@ -63,7 +63,7 @@ fn[T : TreeNode + Renderable] can_skip_subtree(
         return false
       }
       for i, child in proj_node.children {
-        if NodeId::from_int(child.node_id) != prev_children[i].id {
+        if child.id() != prev_children[i].id {
           return false
         }
         if !can_skip_subtree(child, prev_children[i], source_map, ui_state) {
@@ -115,7 +115,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
   previous_nodes : Map[NodeId, InteractiveTreeNode[T]],
   new_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
 ) -> RefreshedInteractiveNode[T] {
-  let node_id = NodeId::from_int(node.node_id)
+  let node_id = node.id()
   let text_range = match source_map.get_range(node_id) {
     Some(range) => range
     None => Range::new(node.start, node.end)

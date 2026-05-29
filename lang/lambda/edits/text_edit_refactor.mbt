@@ -5,26 +5,22 @@ fn compute_extract_to_let(
   var_name : String,
 ) -> EditResult {
   let { source_text, source_map, registry, flat_proj } = ctx
-  let node = match registry.get(node_id) {
-    Some(n) => n
-    None => return Err("Node not found")
+  guard registry.get(node_id) is Some(node) else {
+    return Err("Node not found")
   }
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("Range not found")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("Range not found")
   }
   // Free-var validation: check for lambda-captured variables
   let mut module_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   // Find which def contains this node (or if it's in the body)
   let mut in_def_index : Int = flat_proj.defs.length() // body sentinel
   for i, def in flat_proj.defs {
-    match source_map.get_range(def.1.id()) {
-      Some(r) =>
-        if range.start >= r.start && range.end <= r.end {
-          in_def_index = i
-          break
-        }
-      None => ()
+    if source_map.get_range(def.1.id()) is Some(r) &&
+      range.start >= r.start &&
+      range.end <= r.end {
+      in_def_index = i
+      break
     }
   }
   // Add def names in scope at the extraction site
@@ -134,23 +130,19 @@ fn compute_inline_definition(
   node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, registry, flat_proj } = ctx
-  let node = match registry.get(node_id) {
-    Some(n) => n
-    None => return Err("Node not found: " + node_id.to_string())
+  guard registry.get(node_id) is Some(node) else {
+    return Err("Node not found: " + node_id.to_string())
   }
-  let var_name = match node.kind {
-    @ast.Term::Var(name) => name
-    _ => return Err("InlineDefinition requires a Var node")
+  guard node.kind is @ast.Term::Var(var_name) else {
+    return Err("InlineDefinition requires a Var node")
   }
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("Var not in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("Var not in source map")
   }
   // Resolve the binding
-  let binder = match
-    resolve_binder(node_id, var_name, flat_proj, registry, source_map) {
-    Some(b) => b
-    None => return Err("No binding found for variable: " + var_name)
+  guard resolve_binder(node_id, var_name, flat_proj, registry, source_map)
+    is Some(binder) else {
+    return Err("No binding found for variable: " + var_name)
   }
   match binder {
     LamBinder(..) =>
@@ -275,9 +267,8 @@ fn compute_inline_all_usages(
   // Collect usage ranges, sorted by position (descending)
   let usage_ranges : Array[(Int, Int)] = []
   for uid in usage_ids {
-    match source_map.get_range(uid) {
-      Some(r) => usage_ranges.push((r.start, r.end))
-      None => ()
+    if source_map.get_range(uid) is Some(r) {
+      usage_ranges.push((r.start, r.end))
     }
   }
   usage_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })

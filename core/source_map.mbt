@@ -73,7 +73,7 @@ pub fn[T] SourceMap::remove_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  let node_id = NodeId::from_int(node.node_id)
+  let node_id = node.id()
   self.node_to_range.remove(node_id)
   self.token_spans.remove(node_id)
   for child in node.children {
@@ -91,7 +91,7 @@ pub fn[T] SourceMap::patch_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  let node_id = NodeId::from_int(node.node_id)
+  let node_id = node.id()
   self.node_to_range[node_id] = Range::new(node.start, node.end)
   self.token_spans.remove(node_id)
   for child in node.children {
