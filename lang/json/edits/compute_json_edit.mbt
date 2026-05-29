@@ -102,11 +102,12 @@ fn compute_delete(
   let (range_start, range_end) = match
     find_parent_member_span(proj, source_map, node_id) {
     Some(span) => span
-    None =>
-      match source_map.get_range(node_id) {
-        Some(r) => (r.start, r.end)
-        None => return Err("node not found in source map")
+    None => {
+      guard source_map.get_range(node_id) is Some(r) else {
+        return Err("node not found in source map")
       }
+      (r.start, r.end)
+    }
   }
   // Find parent to handle comma cleanup
   let (delete_start, delete_end) = find_delete_range_with_comma(
@@ -132,18 +133,17 @@ fn find_parent_member_span(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> (Int, Int)? {
-  match find_parent_object(proj, node_id) {
-    Some((parent_id, child_index)) =>
-      match
-        source_map.get_token_span(
-          parent_id,
-          @json_proj.member_role(child_index),
-        ) {
-        Some(r) => Some((r.start, r.end))
-        None => None
-      }
-    None => None
+  guard find_parent_object(proj, node_id) is Some((parent_id, child_index)) else {
+    return None
   }
+  guard source_map.get_token_span(
+      parent_id,
+      @json_proj.member_role(child_index),
+    )
+    is Some(r) else {
+    return None
+  }
+  Some((r.start, r.end))
 }
 
 ///|
@@ -162,9 +162,8 @@ fn find_parent_object(
   }
   // Recurse into all children
   for child in root.children {
-    match find_parent_object(child, target_id) {
-      Some(found) => return Some(found)
-      None => continue
+    if find_parent_object(child, target_id) is Some(found) {
+      return Some(found)
     }
   }
   None
@@ -184,20 +183,20 @@ fn find_delete_range_with_comma(
   // Try consuming trailing comma + whitespace
   let mut trail = end
   while trail < len && is_ws_code(source[trail]) {
-    trail = trail + 1
+    trail += 1
   }
   if trail < len && source[trail] == comma_code {
-    trail = trail + 1
+    trail += 1
     // Also skip whitespace after the comma
     while trail < len && is_ws_code(source[trail]) {
-      trail = trail + 1
+      trail += 1
     }
     return (start, trail)
   }
   // No trailing comma — try consuming leading comma + whitespace
   let mut lead = start - 1
   while lead >= 0 && is_ws_code(source[lead]) {
-    lead = lead - 1
+    lead -= 1
   }
   if lead >= 0 && source[lead] == comma_code {
     // Include the comma and whitespace before the node
@@ -234,9 +233,8 @@ fn compute_add_member(
   object_id : NodeId,
   key : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(object_id) {
-    Some(r) => r
-    None => return Err("object node not found in source map")
+  guard source_map.get_range(object_id) is Some(range) else {
+    return Err("object node not found in source map")
   }
   // Find the closing brace position
   let close_brace = range.end - 1
@@ -265,12 +263,10 @@ fn compute_add_member(
 ///|
 /// Check if there is any non-whitespace content between two positions.
 fn has_content_between(source : String, start : Int, end : Int) -> Bool {
-  let mut i = start
-  while i < end {
+  for i in start..<end {
     if !is_ws_code(source[i]) {
       return true
     }
-    i = i + 1
   }
   false
 }
@@ -284,9 +280,8 @@ fn compute_add_element(
   source_map : SourceMap,
   array_id : NodeId,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(array_id) {
-    Some(r) => r
-    None => return Err("array node not found in source map")
+  guard source_map.get_range(array_id) is Some(range) else {
+    return Err("array node not found in source map")
   }
   let close_bracket = range.end - 1
   if close_bracket < 0 ||
@@ -316,9 +311,8 @@ fn compute_wrap_in_array(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("node not found in source map")
   }
   let existing = source[range.start:range.end].to_owned()
   let wrapped = "[" + existing + "]"
@@ -343,9 +337,8 @@ fn compute_wrap_in_object(
   node_id : NodeId,
   key : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("node not found in source map")
   }
   let escaped = json_escape_key(key)
   let existing = source[range.start:range.end].to_owned()
@@ -370,19 +363,12 @@ fn compute_unwrap(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("node not found in source map")
   }
   // Find the node in the projection tree to check it has exactly one child
-  let node = match
-    @core.get_node_in_tree(
-      // We need a way to find the node — use source_map to validate
-      // and then work with text directly
-      _proj, node_id,
-    ) {
-    Some(n) => n
-    None => return Err("node not found in projection tree")
+  guard @core.get_node_in_tree(_proj, node_id) is Some(node) else {
+    return Err("node not found in projection tree")
   }
   if node.children.length() != 1 {
     return Err(
@@ -391,9 +377,8 @@ fn compute_unwrap(
     )
   }
   let child = node.children[0]
-  let child_range = match source_map.get_range(child.id()) {
-    Some(r) => r
-    None => return Err("child node not found in source map")
+  guard source_map.get_range(child.id()) is Some(child_range) else {
+    return Err("child node not found in source map")
   }
   // Extract the child's text and replace the whole container
   let child_text = source[child_range.start:child_range.end].to_owned()
@@ -419,9 +404,8 @@ fn compute_change_type(
   node_id : NodeId,
   new_type : JsonType,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("node not found in source map")
   }
   let placeholder = match new_type {
     JNull => "null"
@@ -456,9 +440,8 @@ fn compute_rename_key(
   new_key : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let role = @json_proj.key_role(key_index)
-  let key_range = match source_map.get_token_span(object_id, role) {
-    Some(r) => r
-    None => return Err("key span not found for " + role)
+  guard source_map.get_token_span(object_id, role) is Some(key_range) else {
+    return Err("key span not found for " + role)
   }
   let escaped = json_escape_key(new_key)
   let new_text = "\"" + escaped + "\""
@@ -484,9 +467,8 @@ fn compute_commit_edit(
   node_id : NodeId,
   new_value : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let range = match source_map.get_range(node_id) {
-    Some(r) => r
-    None => return Err("node not found in source map")
+  guard source_map.get_range(node_id) is Some(range) else {
+    return Err("node not found in source map")
   }
   let edit = SpanEdit::{
     start: range.start,
