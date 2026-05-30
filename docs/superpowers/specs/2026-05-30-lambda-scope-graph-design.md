@@ -42,6 +42,29 @@ A small MoonBit reference implementation of the 2015 theory exists
 its own AST `LmProgram`. We use it only as a **correctness oracle** in
 differential tests.
 
+### Framing: what v1 actually is, and what it is not
+
+**v1 is a NodeId-keyed binding index, not a scope-graph engine.** The lambda
+language has no imports, no type-dependent resolution, and is a single
+compilation unit. Under those conditions almost all of scope-graph theory's
+machinery degenerates: there are no `I` (import) edges, no `critical edges` /
+Statix scheduling, no file-incremental boundary, and the only path regex that
+ever applies is `P*` (walk the parent chain). What remains — a parent chain plus
+a sequential-module cutoff — is **structurally a symbol table**.
+
+The concrete v1 wins (kill the O(N²) parent scan, identity-based `references()`,
+reserved negative-observation fields) come from making the binding facts an
+**explicit, NodeId-keyed, queryable index**, NOT from scope-graph theory per se.
+We adopt the Scope/Decl/Ref *vocabulary and data shape* deliberately, as the
+minimum-cost stepping stone toward two reserved futures (incremental rebuild;
+loom generalization). That bet on future value is **explicitly provisional**:
+its payoff is re-evaluated after v1 ships and the migrated consumers are
+measured (see §Alternatives and §"Reserved extension points"). If the futures do
+not materialize, what we are left with is a clean symbol table that cost the same
+to build — so the downside is bounded. This framing is a direct response to an
+independent design review that (correctly) flagged the original "scope graph"
+framing as larger than the problem warrants.
+
 ## Non-goals (v1)
 
 - **Incremental rebuild.** v1 rebuilds the whole graph each time, but correctly.
