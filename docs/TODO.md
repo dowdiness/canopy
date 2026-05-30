@@ -413,40 +413,34 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 20. Scope-Graph FlatProj Fidelity
 
-- [ ] Cross-pipeline resolution-equivalence property test (`@qc`).
-  Why: every `@scope` unit test and the `scope_equivalence_wbtest` oracle build
-  the `FlatProj` via `from_proj_node`, but the live editor builds it via
-  `to_flat_proj` → `to_proj_node_with_prev_module_id` → `collect_registry` →
-  `from_ast` (`lang/lambda/flat/projection_memo.mbt`). The two paths assign
-  module binder ids differently (init-node id vs synthetic `defs[i].3`), so the
-  hand-verified equivalence proof is certified on the `from_proj_node` path
-  only. Resolution does not read `node_id`, so it *should* transfer — but that
-  transfer is currently untested.
-  Plan: generate valid lambda source strings; for each, build the scope graph
-  through BOTH pipelines (a pure production-path driver reusing
-  `to_flat_proj`/`to_proj_node_with_prev_module_id`, bypassing the `@incr`
-  layer); match references by source range; assert equal normalized resolution
-  (`(tag, def_index)` for module, structural Lam position for lambda). Layer the
-  chosen module-`node_id` invariant on as a one-line property in the same
-  harness. Medium-band (generator + two-pipeline driver + range-matched
-  normalizer); its own PR. Pin the production-path `node_id` invariant for BOTH
-  kinds in the same harness: module defs (synthetic id, NOT in the registry —
-  the gap recorded by the #398/#399 contract test) AND lambda params (the real
-  `Lam` node, IN the registry — currently unpinned on the production path; the
-  `to_flat_proj` fixture only asserts the module case).
-  Exit: thousands of generated cases agree on resolution across both pipelines;
-  edge set covered (empty/Unit body, error nodes, nested blocks, shadowing
-  chains). NOT a formal-verification target — the invariant spans the parser +
-  mutable Maps + a global id counter, outside any `moon prove` boundary; FV is
-  viable only for pure resolution kernels (e.g. `containing_def_index` bounds,
-  `resolve` cutoff exclusivity), which are a complement, not the answer.
-  Context: surfaced reviewing PR #398. The module-`node_id` divergence (a
-  synthetic id occupying no registry node, contradicting the `Decl` "occupies"
-  invariant) is recorded by the `to_flat_proj` contract test in
-  `lang/lambda/edits/scope_equivalence_wbtest.mbt` and the `Decl` doc note in
-  `lang/lambda/scope/graph.mbt`; reconcile it here, or when a consumer first
-  reads a module `node_id` as output (e.g. go-to-definition) — whichever lands
-  first.
+- [x] Cross-pipeline resolution-equivalence property test (`@qc`).
+  Shipped: #401 (`lang/lambda/edits/scope_cross_pipeline_pbt_wbtest.mbt`),
+  trimmed to 300 cases in #402. Generates lambda source, builds the scope graph
+  through both `FlatProj` pipelines (`from_proj_node` test path vs `to_flat_proj`
+  production path), matches references by source range, and asserts equal
+  normalized resolution; pins the production-path `node_id` invariant for both
+  decl kinds. The property is near-tautological (resolution ignores `node_id`),
+  so it is a regression guard, not a correctness oracle — the latter stays in
+  `scope_equivalence_wbtest.mbt`.
+
+- [ ] Reconcile the module-binder `node_id` divergence (driven by go-to-definition).
+  Why: the PBT above *pins* the gap; it does not close it. The module-binder
+  `node_id` is synthetic on the production path (occupies no real node,
+  contradicting the `Decl` "occupies a projection node" invariant in
+  `lang/lambda/scope/graph.mbt`), and three incompatible synthetic-id schemes
+  now exist (`to_flat_proj`, `from_proj_node`, and the negative id in
+  `examples/ideal/main/scope_annotation.mbt`, which bypasses `@scope` and
+  re-implements resolution). This blocks go-to-definition and duplicates the
+  resolver.
+  Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed
+  design, recommends Option D: an on-demand `@scope` binder-location accessor
+  over the already-populated SourceMap let-name token spans — no loom PR, no
+  `FlatProj` change). Driven by building go-to-definition.
+  Exit: go-to-definition lands on the binder name uniformly for module + lambda
+  bindings; `references` migrated off `Decl.node_id`; the #399 fixture + PBT
+  `node_id` invariants rewritten to affirm the binder-location contract; an
+  incremental↔full differential resolution test added for the `@incr` path the
+  PBT excludes.
 
 ## Shipped history
 
