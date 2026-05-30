@@ -100,7 +100,10 @@ test "equivalence: declaration() matches resolve_binder across all binding rules
     content="true",
   ) // earlier can't see later (free)
   inspect(agree("λx. λx. x", root => find_var(root, "x")), content="true") // nested lam shadow
-  inspect(agree("let x = 0\nλx. x", root => find_var(root, "x")), content="true") // lam param shadows same-name module def
+  inspect(
+    agree("let x = 0\nλx. x", root => find_var(root, "x")),
+    content="true",
+  ) // lam param shadows same-name module def
   inspect(
     agree("let x = 1\nlet x = x\nx", root => find_var(root, "x")),
     content="true",
