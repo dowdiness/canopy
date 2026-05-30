@@ -58,13 +58,10 @@ fn root_node(
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
 ) -> @core.ProjNode[@ast.Term] {
   let parents = build_parent_map(registry)
-  let mut root : @core.ProjNode[@ast.Term]? = None
-  for id, node in registry {
-    if parents.get(id) is None {
-      root = Some(node)
-    }
-  }
-  root.unwrap()
+  registry
+  .values()
+  .find_first(fn(node) { parents.get(node.id()) is None })
+  .unwrap()
 }
 
 ///|
@@ -132,15 +129,14 @@ fn containing_def_index(
     return flat_proj.defs.length()
   }
   let pos = r.start
-  for i, def in flat_proj.defs {
+  flat_proj.defs
+  .search_by(fn(def) {
     let (_n, init, _s, _id) = def
-    if source_map.get_range(init.id()) is Some(dr) &&
-      pos >= dr.start &&
-      pos < dr.end {
-      return i
-    }
-  }
-  flat_proj.defs.length()
+    source_map.get_range(init.id()) is Some(dr) &&
+    pos >= dr.start &&
+    pos < dr.end
+  })
+  .unwrap_or(flat_proj.defs.length())
 }
 
 ///|

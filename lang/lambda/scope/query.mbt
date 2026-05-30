@@ -1,18 +1,14 @@
 ///|
 /// The declaration a reference resolves to, or None if unresolved (free).
 pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
-  for r in g.refs {
-    if r.node_id == ref_node {
-      return match r.resolution.decl {
-        Some(did) => {
-          let DeclId(di) = did
-          Some(g.decls[di])
-        }
-        None => None
-      }
-    }
-  }
-  None
+  g.refs
+  .iter()
+  .find_first(fn(r) { r.node_id == ref_node })
+  .bind(fn(r) { r.resolution.decl })
+  .map(fn(did) {
+    let DeclId(di) = did
+    g.decls[di]
+  })
 }
 
 ///|
@@ -23,14 +19,11 @@ pub fn references(
   g : ScopeGraph,
   decl_node : @core.NodeId,
 ) -> Array[@core.NodeId] {
-  let mut target : DeclId? = None
-  for d in g.decls {
-    if d.node_id == decl_node {
-      target = Some(d.id)
-      break
-    }
+  guard g.decls.iter().find_first(fn(d) { d.node_id == decl_node })
+    is Some(target) else {
+    return []
   }
-  guard target is Some(tid) else { return [] }
+  let tid = target.id
   [
     for r in g.refs if r.resolution.decl is Some(rid) && rid == tid => r.node_id
   ]
@@ -46,20 +39,13 @@ pub fn enclosing_env(
   g : ScopeGraph,
   node : @core.NodeId,
 ) -> @immut/hashset.HashSet[String] {
-  let mut start : ScopeId? = None
-  for r in g.refs {
-    if r.node_id == node {
-      start = Some(r.scope)
-      break
-    }
-  }
-  if start is None {
-    for d in g.decls {
-      if d.node_id == node {
-        start = Some(d.scope)
-        break
-      }
-    }
+  let start = match g.refs.iter().find_first(fn(r) { r.node_id == node }) {
+    Some(r) => Some(r.scope)
+    None =>
+      g.decls
+      .iter()
+      .find_first(fn(d) { d.node_id == node })
+      .map(fn(d) { d.scope })
   }
   let mut env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let mut cur = start
