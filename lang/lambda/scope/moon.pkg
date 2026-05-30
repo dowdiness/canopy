@@ -1,0 +1,8 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/immut/hashset" @immut/hashset,
+}
+
+warnings = "-2-6-29"
