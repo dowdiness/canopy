@@ -183,12 +183,16 @@ one module scope.
   resolves to (replaces `resolve_binder`).
 - `references(decl_node: NodeId) -> Array[NodeId]` — **identity-based**: returns
   refs whose `resolution.decl` points at this decl, NOT a name match. (Codex Q2:
-  a name-based `find_usages` over-renames when shadowing is present.)
+  a name-based `find_usages` over-renames when shadowing is present.) *(Reserved
+  API surface; consumer migration — `find_usages` callers — deferred per
+  §Non-goals.)*
 - `enclosing_env(node: NodeId) -> @immut/hashset.HashSet[String]` — bound names
   in scope at a node (replaces `collect_lam_env`). **Set semantics** (Codex
   finding 6): the current `collect_lam_env` returns a `HashSet[String]` and its
   consumer (`text_edit_refactor.mbt` capture check) needs membership, not order;
-  the query mirrors that to avoid an impedance mismatch.
+  the query mirrors that to avoid an impedance mismatch. *(Reserved API surface;
+  consumer migration deferred per §Non-goals. Of the three query methods, only
+  `declaration()` is wired to a consumer in v1.)*
 
 **Token-span lookup is via the Module node, not the binding NodeId (Codex
 finding 2).** Module binding name spans are stored on the *Module* ProjNode under
@@ -215,19 +219,46 @@ edit → projection rebuild (existing) → FlatProj + registry + SourceMap (exis
      → query (declaration / references / enclosing_env) ← consumers
 ```
 
-**v1 full-rebuild cost (review point).** `build()` runs three full passes over
-the projection on *every* rebuild, and a projectional editor rebuilds on every
-edit. This is the accepted non-incremental cost. The §Framing "downside is
-bounded" argument is about *code* (worst case = a symbol table), and that bound
-does NOT extend to *runtime* — so it must be stated separately here: v1's runtime
-cost is O(N) per edit in the projection size N (three linear passes; the Pass-1
-parent map makes per-node parent lookup O(1), removing today's O(N²)). For the
-program sizes a single lambda module reaches today this is expected to be
-negligible, but **it is not yet measured**. The metric that would flip the
-non-incremental decision is therefore made explicit in §Reserved: rebuild
-latency at the p95 edit. Until that metric is measured and shown to exceed an
-interactive budget, incrementality stays reserved (cf. the project rule: measure
-the bottleneck before optimizing).
+**v1 full-rebuild cost (review point).** `build()` runs over the projection on
+*every* rebuild, and a projectional editor rebuilds on every edit. This is the
+accepted non-incremental cost. The §Framing "downside is bounded" argument is
+about *code* (worst case = a symbol table), and that bound does NOT extend to
+*runtime* — so it must be stated separately here.
+
+Per-pass cost (be precise, since a decision is gated on it):
+
+- **Pass 1** (build `NodeId -> parent` map): O(N), one walk of the projection of
+  size N.
+- **Pass 2** (scopes + decls): O(N), one walk emitting a scope/decl per relevant
+  node.
+- **Pass 3** (resolve refs): **O(R · d)**, NOT O(N) — each of R refs walks the
+  parent chain upward; the parent *lookup* is O(1) (Pass-1 map) but the *walk
+  length* is the nesting depth d. This still strictly improves on today's
+  `find_enclosing_lam_binder`, which is O(N · d) per ref because it re-scans the
+  whole registry at each step (`scope.mbt:62`); the Pass-1 map turns the
+  per-step O(N) into O(1). The v1 win is "kill the per-step O(N) rescan," NOT
+  "make resolution linear."
+- **Worst case and why it is not reachable.** Pathologically left-nested lambdas
+  (`\a.\b.\c. ...`) make d ≈ N, so Pass 3 degenerates to O(N²) — the very shape
+  v1 set out to kill. The original O(N²) sin was also "only pathological," so
+  this must be argued, not waved: realistic lambda programs keep d (lexical
+  lambda-nesting plus the single module level) small and roughly constant
+  relative to N — N grows by adding *defs and terms* (breadth), not by deepening
+  nesting hundreds deep. So in practice Pass 3 is ≈ O(R) ≈ O(N). If a real
+  program ever drives d large, that surfaces as rebuild latency, which is exactly
+  the trigger-metric condition below — and the response is the reserved
+  incremental path, not a v1 change.
+
+**Not yet measured for this layer, but the budget is known.** The project's
+established interactive budget is the **16 ms frame (60 fps)**; the existing
+keystroke pipeline sits at ~2.3 ms / 15% of budget at 80 defs
+(`docs/performance/2026-03-21-full-pipeline-benchmarks.md`). The scope build must
+fit *within* that same 16 ms keystroke budget alongside parse + projection + tree
+refresh. The metric that flips the non-incremental decision is made explicit in
+§Reserved: **scope-build's contribution to p95 keystroke latency against the
+16 ms frame budget**. Until measured and shown to threaten that budget,
+incrementality stays reserved (cf. the project rule: measure the bottleneck
+before optimizing).
 
 ## Error handling
 
@@ -424,11 +455,16 @@ breaking change):
      replacement of lattice values. Coarse-grained is enough; fine-grained is a
      structure-dependent optimization to reach for only if measurement demands
      it. This shape also keeps the cycle trap below easy to avoid.
-   - **Trigger metric:** pursue incrementality when measured rebuild latency at
-     the p95 edit exceeds the interactive budget on a realistic program (see
-     §"v1 full-rebuild cost"). Until then the O(N)-per-edit full rebuild is
-     accepted; the field reservations (`visited_scopes`, agnostic core) keep the
-     pivot cheap when the metric demands it.
+   - **Trigger metric:** pursue incrementality when the scope-build's
+     contribution to **p95 keystroke latency threatens the project's 16 ms frame
+     (60 fps) budget** on a realistic program — the same budget the existing
+     pipeline is measured against
+     (`docs/performance/2026-03-21-full-pipeline-benchmarks.md`; today ~2.3 ms /
+     15% at 80 defs). Two things can drive it there: program size N (Pass 1/2 are
+     O(N)) or pathological lambda-nesting depth d (Pass 3 is O(R·d); see §"v1
+     full-rebuild cost"). Until the measurement shows the budget threatened, the
+     full rebuild is accepted; the field reservations (`visited_scopes`, agnostic
+     core) keep the pivot cheap when the metric demands it.
    - **Cycle trap (Codex Q5):** if later layered on canopy's `loom/incr` Datalog
      substrate (`Relation` + `MemoMap`), a transitive-closure `MemoMap` compute
      fn MUST walk the base parent/def edges directly (iterative BFS or Datalog
