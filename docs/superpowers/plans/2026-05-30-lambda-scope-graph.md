@@ -4,9 +4,9 @@
 
 **Goal:** Build a NodeId-keyed binding index for the lambda language in a new `lang/lambda/scope/` package, consolidating duplicated name-resolution logic, and migrate `rename`'s binder-resolution onto it with proven equivalence.
 
-**Architecture:** A single batch-built `ScopeGraph` (Scope/Decl/Ref keyed by `core.NodeId`) constructed in three passes from `FlatProj` + registry + `SourceMap`. v1 is non-incremental but correct. The `Resolution` record reserves negative-observation fields (`decl: DeclId?`, `visited_scopes`) for a future incremental layer. Only `declaration()` is wired to a consumer (`rename`) in v1; `references()` / `enclosing_env()` are reserved API surface.
+**Architecture:** A single batch-built `ScopeGraph` (Scope/Decl/Ref keyed by `@core.NodeId`) constructed in three passes from `FlatProj` + registry + `SourceMap`. v1 is non-incremental but correct. The `Resolution` record reserves negative-observation fields (`decl: DeclId?`, `visited_scopes`) for a future incremental layer. Only `declaration()` is wired to a consumer (`rename`) in v1; `references()` / `enclosing_env()` are reserved API surface.
 
-**Tech Stack:** MoonBit; `dowdiness/canopy/core` (NodeId, ProjNode, SourceMap, collect_registry), `dowdiness/canopy/lang/lambda/proj` (FlatProj, parse_to_proj_node), `dowdiness/lambda/ast` (Term). Tests: `inspect` snapshots + whitebox `*_wbtest.mbt`.
+**Tech Stack:** MoonBit; `dowdiness/canopy/core` (NodeId, ProjNode, SourceMap, collect_registry), `dowdiness/canopy/lang/lambda/proj` (FlatProj, parse_to_proj_node — default alias `@proj`), `dowdiness/lambda/ast` (Term, alias `@ast`). Tests: `inspect` on **scalar projections** + whitebox `*_wbtest.mbt`.
 
 **Design spec:** `docs/superpowers/specs/2026-05-30-lambda-scope-graph-design.md` — read it before starting; this plan implements it.
 
@@ -14,46 +14,85 @@
 
 ## Verified facts (read these before starting — they fix common wrong guesses)
 
-These were confirmed by reading the code. Do NOT substitute your own guesses:
+Confirmed by reading the code. Do NOT substitute your own guesses, and do NOT
+trust the *old* assumptions some of these correct:
 
-- **AST type:** `@ast.Term` from package `dowdiness/lambda/ast`. Variants:
-  `Int(Int)`, `Var(VarName)`, `Lam(VarName, Term)`, `App(Term, Term)`,
-  `Bop(Bop, Term, Term)`, `If(Term, Term, Term)`,
+- **AST type:** `@ast.Term` from package `dowdiness/lambda/ast` (default alias
+  `@ast`). Variants: `Int(Int)`, `Var(VarName)`, `Lam(VarName, Term)`,
+  `App(Term, Term)`, `Bop(Bop, Term, Term)`, `If(Term, Term, Term)`,
   `Module(Array[(VarName, Term)], Term)`, `Unit`, `Unbound(VarName)`,
-  `Error(String)`, `Hole(Int)`. (`VarName = String`.) Source:
+  `Error(String)`, `Hole(Int)`. (`VarName = String`.) Always match with the
+  type-qualified form `@ast.Term::Var(x)`. Source:
   `loom/examples/lambda/src/ast/ast.mbt:18`.
-- **NodeId:** `pub struct NodeId(Int)` in `dowdiness/canopy/core`; construct via
-  `@core.NodeId::from_int(n)` or pattern `NodeId(n)`. Source: `core/types.mbt:6`.
+- **NodeId:** `pub struct NodeId(Int)` in `@core` (`derive(Debug, Eq, Hash,
+  Compare)`); construct via `@core.NodeId::from_int(n)` or pattern
+  `@core.NodeId(n)`. Source: `core/types.mbt:6`.
 - **ProjNode:** `@core.ProjNode[T]` with `.id() -> NodeId`, `.children`,
   `.kind`, `.start`, `.end`; construct via
   `@core.ProjNode::new(kind, start, end, node_id, children)`. Source:
   `core/proj_node.mbt:7,32`.
 - **Registry walk:** `@core.collect_registry(node, reg)` fills
-  `reg : Map[NodeId, ProjNode[T]]` by walking the tree. Source:
+  `reg : Map[@core.NodeId, @core.ProjNode[T]]` by walking the tree. Source:
   `core/proj_node.mbt:58`.
+- **SourceMap:** lives in `@core`. The accessor is
+  `@core.SourceMap::get_range(node_id) -> @core.Range?` with `.start` / `.end`
+  fields (`core/source_map.mbt:104`). Construct in tests via
+  `@core.SourceMap::from_ast(proj)` — `from_ast` is a `SourceMap` method, so it
+  is `@core.`, NOT `@proj.` (it appears *unqualified* in
+  `lang/lambda/edits/scope_wbtest.mbt:21` only because that package pulls it in
+  via `using`).
 - **FlatProj:** `pub struct FlatProj { defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)]; final_expr : ProjNode[@ast.Term]? }`
-  — the def tuple is `(name, init, start, binding_id)`. Source:
-  `lang/lambda/proj/flat_proj.mbt:5`.
-- **Construction in tests:**
-  `@lambda_proj.parse_to_proj_node(text) -> (ProjNode[@ast.Term], Ref[Int])`,
-  `@lambda_proj.FlatProj::from_proj_node(proj)`,
-  `@lambda_proj.SourceMap::from_ast(proj)`. Source: `lang/lambda/proj/proj_node.mbt:175,180,251`.
-  Copy the exact call forms + import aliases from
-  `lang/lambda/edits/scope_wbtest.mbt:1-44`.
+  — the def tuple is `(name, init, start, binding_id)`. In `@proj`. Source:
+  `lang/lambda/proj/flat_proj.mbt:5`. Construct via
+  `@proj.FlatProj::from_proj_node(proj)`. **Important id-shape note:**
+  `from_proj_node` sets a def's binding id (`.3`) to the **init child's** id
+  (`flat_proj.mbt:281`), whereas the live editor path (`to_flat_proj`) allocates
+  a *separate* binding id (`flat_proj.mbt:29`). Both the scope graph and
+  `resolve_binder` read `flat_proj.defs[i].3`, so they stay consistent on
+  whatever FlatProj is passed — but tests built with `from_proj_node` exercise
+  the init-child id-shape, while the live path is exercised by Task 8 Step 5's
+  integration tests.
+- **Module ProjNode child layout:** def inits are the Module node's leading
+  children `[0 .. n-1]`; the body is the **last** child
+  (`flat_proj.mbt:251-252,278-285`; the working test
+  `scope_wbtest.mbt:38` reads the body as
+  `proj.children[proj.children.length() - 1]`). A pure expression (no defs)
+  produces NO Module wrapper — `from_proj_node` returns the bare expr.
+- **parse_to_proj_node:** `@proj.parse_to_proj_node(text) -> (ProjNode[@ast.Term], Ref[Int])`.
+  Source: `lang/lambda/proj/proj_node.mbt:315`. The lambda surface syntax uses
+  the **`λ`** character (U+03BB), as in `scope_wbtest.mbt:18` (`"λx. x"`).
 - **Existing binder API (the v1 migration target):**
   `pub fn resolve_binder(var_node_id, var_name, flat_proj, registry, source_map) -> BindingSite?`
-  where `pub(all) enum BindingSite { LamBinder(lam_id~ : NodeId); ModuleBinder(binding_node_id~ : NodeId, def_index~ : Int) }`.
-  Source: `lang/lambda/edits/scope.mbt:3,11`.
+  where `pub(all) enum BindingSite { LamBinder(lam_id~ : NodeId); ModuleBinder(binding_node_id~ : NodeId, def_index~ : Int) } derive(Debug, Eq)`.
+  Its algorithm (mirror it exactly): (1) walk up the registry tree for an
+  enclosing `Lam` binding the name → `LamBinder(lam_id = enclosing-Lam-NodeId)`;
+  (2) else find which def-init range (or body) the var sits in via
+  `source_map.get_range`, then walk def indices **backward** from there, first
+  name match → `ModuleBinder(binding_node_id = flat_proj.defs[i].3, def_index = i)`;
+  (3) else `None`. Source: `lang/lambda/edits/scope.mbt:11-62`.
 - **The one consumer to migrate:** `rename_from_var` in
-  `lang/lambda/edits/text_edit_rename.mbt:99`, which calls `resolve_binder` at
-  line 105 through an `EditContext[T]` bundle:
+  `lang/lambda/edits/text_edit_rename.mbt:99`, calling `resolve_binder` at line
+  105 through an `EditContext[T]` bundle:
   `pub(all) struct EditContext[T] { registry; flat_proj; source_map; language; on_structural_edit }`
-  (source `lang/lambda/edits/text_edit.mbt:32`). It dispatches:
-  `LamBinder(lam_id~) -> rename_lam_param(ctx, lam_id, lam_node, old, new)`,
-  `ModuleBinder(binding_node_id~, def_index~) -> rename_module_binding(ctx, module_id, def_index, old, new)`.
+  (`lang/lambda/edits/text_edit.mbt:7`). It dispatches `LamBinder(lam_id~) ->
+  rename_lam_param(...)`, `ModuleBinder(binding_node_id~, def_index~) ->
+  rename_module_binding(...)`.
+- **`collect_lam_env` semantics:** `lang/lambda/edits/scope.mbt:147` collects
+  **only enclosing Lam parameter names** — it does NOT include module defs. The
+  reserved `enclosing_env` query (Task 6) returns the *full* lexical environment
+  (lam params AND module defs), so it is a **superset**, not a drop-in
+  replacement. Do not claim equivalence.
+- **derive / inspect convention:** this repo uses `derive(Debug, Eq)` (see
+  `BindingSite`), NOT `derive(Show)` (deprecated on container-bearing types).
+  Tests therefore `inspect` only **scalar projections** — bools, ints, strings
+  — never whole structs/enums/Options. Mirror `scope_wbtest.mbt` (it inspects
+  `lam_id == proj.id()` and `def_index`, never the `BindingSite` value).
 - **Workspace:** `moon.work` members do NOT list `lang/*`; the root member `.`
-  already covers `lang/lambda/scope`. **Do NOT edit `moon.work`.** Source:
-  `moon.work`.
+  already covers `lang/lambda/scope`. **Do NOT edit `moon.work`.**
+- **moon.pkg format:** moon.pkg files are **JSON** (`{"import": [...],
+  "warning-list": "..."}`); see `lang/lambda/edits/moon.pkg`. Plain-string
+  imports use the default alias (last path segment, or enough segments to
+  disambiguate — e.g. `moonbitlang/core/immut/hashset` → `@immut/hashset`).
 - **New package module path:** `dowdiness/canopy/lang/lambda/scope`; consumers
   alias it `@scope`.
 
@@ -61,14 +100,14 @@ These were confirmed by reading the code. Do NOT substitute your own guesses:
 
 ## File structure
 
-- `lang/lambda/scope/moon.pkg` — package config (imports core, proj, ast).
+- `lang/lambda/scope/moon.pkg` — JSON package config (imports core, proj, ast, immut/hashset).
 - `lang/lambda/scope/graph.mbt` — data model: `ScopeGraph`, `Scope`, `Decl`, `Ref`, `Resolution`, `DeclKind`, `ScopeId`/`DeclId`/`RefId`. Language-agnostic except `DeclKind`.
 - `lang/lambda/scope/builder.mbt` — `build(...)`: Pass 1 (parent map), Pass 2 (scopes + decls), Pass 3 (resolve refs).
 - `lang/lambda/scope/query.mbt` — `declaration()`, `references()`, `enclosing_env()`.
 - `lang/lambda/scope/graph_wbtest.mbt` — Layer 1 hand tests + test helpers.
 - `lang/lambda/scope/oracle_wbtest.mbt` — Layer 2 caimeox differential oracle (last task; non-blocking).
-- `lang/lambda/edits/scope_equivalence_wbtest.mbt` — Layer 3 equivalence test (lives in `edits` because the production import goes edits→scope; see Task 8).
-- `lang/lambda/edits/text_edit_rename.mbt:105` + `lang/lambda/edits/moon.pkg` — migrate the `rename_from_var` binder lookup to `@scope`.
+- `lang/lambda/edits/scope_equivalence_wbtest.mbt` — Layer 3 equivalence test (lives in `edits` because the production import goes edits→scope).
+- `lang/lambda/edits/text_edit_rename.mbt:99-139` + `lang/lambda/edits/moon.pkg` — migrate the `rename_from_var` binder lookup to `@scope`.
 
 ---
 
@@ -80,50 +119,53 @@ These were confirmed by reading the code. Do NOT substitute your own guesses:
 
 - [ ] **Step 1: Create the package config**
 
-Create `lang/lambda/scope/moon.pkg`:
+Create `lang/lambda/scope/moon.pkg` (JSON; default aliases give `@core`,
+`@proj`, `@ast`, `@immut/hashset`):
 
-```
-import {
-  "dowdiness/canopy/core",
-  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
-  "dowdiness/lambda/ast",
-  "moonbitlang/core/immut/hashset" @immut/hashset,
+```json
+{
+  "import": [
+    "dowdiness/canopy/core",
+    "dowdiness/canopy/lang/lambda/proj",
+    "dowdiness/lambda/ast",
+    "moonbitlang/core/immut/hashset"
+  ],
+  "warning-list": "-2-6-29"
 }
 ```
-
-Note: `dowdiness/lambda/ast` with no explicit alias binds to `@ast` (default
-alias = last path segment), matching how `lang/lambda/edits` uses it.
 
 - [ ] **Step 2: (No moon.work change.)**
 
 Confirm `moon.work` already covers the new package via the root `.` member — do
 NOT add an entry. Verify with: `grep -n 'lang/lambda' moon.work` → expect no
-output (none listed; root covers them).
+output.
 
 - [ ] **Step 3: Write the data model**
 
-Create `lang/lambda/scope/graph.mbt`:
+Create `lang/lambda/scope/graph.mbt`. Newtypes are `Int`-based so `derive` is
+unproblematic; the larger records use `derive(Debug, Eq)` per repo convention
+(no `Show`).
 
 ```moonbit
 ///|
 /// Graph-local compact indices. NOT persistent identity — `@core.NodeId`
 /// carries persistent identity; these index into the graph's own arrays.
-pub(all) struct ScopeId(Int) derive(Eq, Hash, Compare, Show)
+pub(all) struct ScopeId(Int) derive(Debug, Eq, Hash, Compare)
 
 ///|
-pub(all) struct DeclId(Int) derive(Eq, Hash, Compare, Show)
+pub(all) struct DeclId(Int) derive(Debug, Eq, Hash, Compare)
 
 ///|
-pub(all) struct RefId(Int) derive(Eq, Hash, Compare, Show)
+pub(all) struct RefId(Int) derive(Debug, Eq, Hash, Compare)
 
 ///|
-/// The kind of binding site a declaration represents. This is the one
-/// lambda-specific type in graph.mbt (see design spec). A future loom
-/// lift makes `Decl` generic over this (`Decl[K]`).
+/// The kind of binding site a declaration represents. The one lambda-specific
+/// type here (see design spec). A future loom lift makes `Decl` generic over
+/// this (`Decl[K]`).
 pub(all) enum DeclKind {
   LamParam(lam_id~ : @core.NodeId)
   ModuleDef(def_index~ : Int)
-} derive(Eq, Show)
+} derive(Debug, Eq)
 
 ///|
 /// A lexical scope. `parent` is the enclosing scope (None for the root).
@@ -132,7 +174,7 @@ pub(all) struct Scope {
   parent : ScopeId?
   decl_ids : Array[DeclId]
   ref_ids : Array[RefId]
-} derive(Show)
+} derive(Debug)
 
 ///|
 /// A declaration (binding site), keyed by the projection NodeId it occupies.
@@ -142,7 +184,7 @@ pub(all) struct Decl {
   name : String
   scope : ScopeId
   kind : DeclKind
-} derive(Show)
+} derive(Debug, Eq)
 
 ///|
 /// A reference (use site), keyed by NodeId, with its resolution result.
@@ -152,18 +194,18 @@ pub(all) struct Ref {
   name : String
   scope : ScopeId
   resolution : Resolution
-} derive(Show)
+} derive(Debug)
 
 ///|
 /// Resolution outcome for a reference.
 /// `decl: None` is a NEGATIVE OBSERVATION (unresolved / free).
 /// `visited_scopes` records scopes checked and found NOT to contain the
-/// name — populated in v1 as a by-product of the resolution walk, read
-/// only by a future incremental layer (see design spec).
+/// name — populated in v1 as a by-product of the resolution walk, read only
+/// by a future incremental layer (see design spec).
 pub(all) struct Resolution {
   decl : DeclId?
   visited_scopes : Array[ScopeId]
-} derive(Show)
+} derive(Debug)
 
 ///|
 /// The binding index for one lambda module.
@@ -171,15 +213,14 @@ pub(all) struct ScopeGraph {
   scopes : Array[Scope]
   decls : Array[Decl]
   refs : Array[Ref]
-} derive(Show)
+} derive(Debug)
 ```
 
 - [ ] **Step 4: Verify it compiles**
 
 Run: `moon check -p dowdiness/canopy/lang/lambda/scope`
-Expected: no errors. If `@immut/hashset` is reported unused, that is fine for now
-(it is used in Task 6); suppress with `warnings = "-2-6-29"` in `moon.pkg` matching
-the `edits` package, OR leave the import out until Task 6 and add it there.
+Expected: no errors. `@immut/hashset` is used in Task 6; the `-2-6-29`
+warning-list suppresses the interim unused-import warning.
 
 - [ ] **Step 5: Commit**
 
@@ -196,27 +237,30 @@ git commit -m "feat(scope): scaffold lang/lambda/scope package + data model"
 - Create: `lang/lambda/scope/builder.mbt`
 - Create: `lang/lambda/scope/graph_wbtest.mbt`
 
+> **Test-assertion rule (applies to every test in this plan):** `inspect` only
+> scalar projections (bool / int / string). Never `inspect` a struct, enum, or
+> Option whole — the types derive `Debug`, not `Show`. To check an enum variant,
+> use `x is Variant(_)` (a bool) or destructure with `guard ... is Variant(f~)`
+> then inspect `f`. To check a newtype, destructure: `let ScopeId(n) = s`.
+
 - [ ] **Step 1: Write the test helpers + first failing test**
 
-Create `lang/lambda/scope/graph_wbtest.mbt`. The construction trio mirrors
-`lang/lambda/edits/scope_wbtest.mbt` exactly — read that file (lines 1-44) and
-copy the call forms.
+Create `lang/lambda/scope/graph_wbtest.mbt`:
 
 ```moonbit
 ///|
-/// Build (proj, flat_proj, registry, source_map) from source — mirrors the
-/// construction in lang/lambda/edits/scope_wbtest.mbt.
+/// Build (proj, flat_proj, registry, source_map) from source.
 fn build_fixture(
   text : String,
 ) -> (
   @core.ProjNode[@ast.Term],
-  @lambda_proj.FlatProj,
+  @proj.FlatProj,
   Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   @core.SourceMap,
 ) {
-  let (proj, _counter) = @lambda_proj.parse_to_proj_node(text)
-  let flat_proj = @lambda_proj.FlatProj::from_proj_node(proj)
-  let source_map = @lambda_proj.SourceMap::from_ast(proj)
+  let (proj, _counter) = @proj.parse_to_proj_node(text)
+  let flat_proj = @proj.FlatProj::from_proj_node(proj)
+  let source_map = @core.SourceMap::from_ast(proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(proj, registry)
   (proj, flat_proj, registry, source_map)
@@ -260,8 +304,10 @@ test "build_parent_map: child maps to parent" {
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(root, registry)
   let parents = build_parent_map(registry)
-  inspect(parents.get(@core.NodeId::from_int(1)), content="Some(NodeId(0))")
-  inspect(parents.get(@core.NodeId::from_int(0)), content="None")
+  inspect(parents.get(@core.NodeId::from_int(1)) is Some(_), content="true")
+  guard parents.get(@core.NodeId::from_int(1)) is Some(p)
+  inspect(p == @core.NodeId::from_int(0), content="true")
+  inspect(parents.get(@core.NodeId::from_int(0)) is None, content="true")
 }
 ```
 
@@ -295,9 +341,7 @@ pub fn build_parent_map(
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/scope -f graph_wbtest.mbt`
-Expected: PASS. If the `Show` of `Option[NodeId]` differs from
-`Some(NodeId(0))`, run with `--update` and confirm the captured value is the
-NodeId(0)/None shape before accepting.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -316,8 +360,8 @@ git commit -m "feat(scope): test helpers + Pass 1 NodeId->parent map"
 
 Pass 2 creates: one root module scope; one `ModuleDef` decl per `FlatProj.defs`
 entry (in the root scope); one child scope + `LamParam` decl per `Lam` node
-(walking the projection tree from the root). It records, per node, which scope it
-lexically sits in, so Pass 3 can find a ref's starting scope.
+(walking the projection tree). It records, per node, which scope it lexically
+sits in, so Pass 3 can find a ref's starting scope.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -331,9 +375,12 @@ test "build: module defs become ModuleDef decls in root scope" {
   )
   let g = build(flat_proj, registry, source_map)
   inspect(g.decls.length(), content="2")
-  inspect(g.decls[0].kind, content="ModuleDef(def_index=0)")
-  inspect(g.decls[1].kind, content="ModuleDef(def_index=1)")
-  inspect(g.decls[0].scope, content="ScopeId(0)")
+  guard g.decls[0].kind is ModuleDef(def_index=d0)
+  inspect(d0, content="0")
+  guard g.decls[1].kind is ModuleDef(def_index=d1)
+  inspect(d1, content="1")
+  let ScopeId(s0) = g.decls[0].scope
+  inspect(s0, content="0")
 }
 ```
 
@@ -403,7 +450,7 @@ fn root_node(
 /// LamParam scope per Lam node. Records node→scope membership.
 fn Builder::pass2(
   self : Builder,
-  flat_proj : @lambda_proj.FlatProj,
+  flat_proj : @proj.FlatProj,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
 ) -> Unit {
   let root_scope = self.add_scope(None)
@@ -436,7 +483,7 @@ fn Builder::pass2(
 ///|
 /// Build the scope graph (Pass 2 only for now; Pass 3 added next task).
 pub fn build(
-  flat_proj : @lambda_proj.FlatProj,
+  flat_proj : @proj.FlatProj,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
@@ -450,9 +497,7 @@ pub fn build(
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/scope -f graph_wbtest.mbt`
-Expected: PASS. If `Show` of `DeclKind`/`ScopeId` differs in spacing, `--update`
-and confirm the diff matches the intended `ModuleDef(def_index=0)` /
-`ScopeId(0)` shapes before accepting.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -474,23 +519,12 @@ Pass 3 walks every `Var`/`Unbound` node, emits a `Ref`, and resolves it: from th
 node's scope, walk parents upward; in each scope, match a `Decl` by name, with a
 **sequential-module cutoff** — a `ModuleDef` decl is visible to a ref only if its
 `def_index` is strictly less than the def index the ref sits in (body refs see
-all defs). Visited scopes lacking the name are recorded (negative observation).
-
-**Before writing the test, verify the Module child layout.** Read
-`lang/lambda/proj/proj_node.mbt:175-260` (the `parse_to_proj_node` /
-`from_proj_node` / Module construction) to confirm: (a) whether a def's init is a
-direct child of the Module ProjNode and at what index, and (b) whether the body
-is the last child. The existing `scope_wbtest.mbt:38` uses
-`proj.children[proj.children.length() - 1]` for the body, so the body-is-last-
-child assumption is already established in the codebase. Use the same access
-pattern; if a def-init finder is needed, derive its position the same way the
-existing tests do.
+all defs). This mirrors `resolve_binder`'s backward walk exactly (Verified facts).
+Visited scopes lacking the name are recorded (negative observation).
 
 - [ ] **Step 1: Write the failing tests (core binding rules)**
 
-Add to `lang/lambda/scope/graph_wbtest.mbt`. (`find_var_in_body` and
-`find_var_in_def_init` use the verified child layout; if Step's verification
-shows a different layout, adjust these two helpers accordingly.)
+Add to `lang/lambda/scope/graph_wbtest.mbt`:
 
 ```moonbit
 ///|
@@ -522,11 +556,11 @@ fn find_var_in_def_init(
 
 ///|
 test "resolve: lambda param" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("\\x. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("λx. x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
-  inspect(decl.kind, content="LamParam(lam_id=NodeId(0))")
+  inspect(decl.kind is LamParam(_), content="true")
 }
 
 ///|
@@ -534,7 +568,7 @@ test "resolve: self-reference is unbound" {
   let (proj, flat_proj, registry, source_map) = build_fixture("let x = x\nx")
   let g = build(flat_proj, registry, source_map)
   let init_var = find_var_in_def_init(proj, 0, "x")
-  inspect(declaration(g, init_var), content="None")
+  inspect(declaration(g, init_var) is None, content="true")
 }
 
 ///|
@@ -545,14 +579,10 @@ test "resolve: second def init binds to first def" {
   let g = build(flat_proj, registry, source_map)
   let init_var = find_var_in_def_init(proj, 1, "x")
   guard declaration(g, init_var) is Some(decl)
-  inspect(decl.kind, content="ModuleDef(def_index=0)")
+  guard decl.kind is ModuleDef(def_index~)
+  inspect(def_index, content="0")
 }
 ```
-
-Note: `LamParam(lam_id=NodeId(0))` assumes the root Lam has node_id 0. If the
-real parser assigns a different id, `--update` and confirm the captured id is the
-Lam node's id (cross-check via `find` on the projection); the equivalence test in
-Task 8 is the authoritative identity check.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -580,9 +610,10 @@ fn Builder::add_ref(
 
 ///|
 /// Which flat-def index a node sits within, by source position; returns the
-/// def count (body sentinel) when the node is in the module body.
+/// def count (body sentinel) when the node is in the module body. Mirrors
+/// resolve_binder's def-range containment (scope.mbt:30-39).
 fn containing_def_index(
-  flat_proj : @lambda_proj.FlatProj,
+  flat_proj : @proj.FlatProj,
   source_map : @core.SourceMap,
   node_id : @core.NodeId,
 ) -> Int {
@@ -641,7 +672,7 @@ fn Builder::resolve(
 /// Pass 3: emit a Ref for each Var/Unbound node and resolve it.
 fn Builder::pass3(
   self : Builder,
-  flat_proj : @lambda_proj.FlatProj,
+  flat_proj : @proj.FlatProj,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> Unit {
@@ -664,7 +695,7 @@ Replace the body of `build`:
 
 ```moonbit
 pub fn build(
-  flat_proj : @lambda_proj.FlatProj,
+  flat_proj : @proj.FlatProj,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
@@ -701,11 +732,10 @@ pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/scope -f graph_wbtest.mbt`
-Expected: PASS for all three. If a `Show` snapshot differs, `--update` and verify
-the captured value matches the intended `None` / `ModuleDef(def_index=0)` shape
-(the lambda id is checked authoritatively in Task 8) before accepting. If the
-`self-reference is unbound` test FAILS (the init x resolves to def 0), the cutoff
-logic is wrong — fix `containing_def_index` / `resolve`, do NOT weaken the test.
+Expected: PASS for all three. If `resolve: self-reference is unbound` FAILS (the
+init x resolves to def 0), the cutoff logic is wrong — fix
+`containing_def_index` / `resolve`, do NOT weaken the test (the values are
+hand-derived per the design spec Layer 1).
 
 - [ ] **Step 6: Commit**
 
@@ -728,17 +758,11 @@ Add to `lang/lambda/scope/graph_wbtest.mbt`:
 ```moonbit
 ///|
 test "resolve: innermost lambda shadowing" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("\\x. \\x. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("λx. λx. x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
-  inspect(
-    (match decl.kind {
-      LamParam(_) => true
-      _ => false
-    }),
-    content="true",
-  )
+  inspect(decl.kind is LamParam(_), content="true")
 }
 
 ///|
@@ -749,7 +773,8 @@ test "resolve: body binds to latest def" {
   let g = build(flat_proj, registry, source_map)
   let body_var = find_var_in_body(proj, "x")
   guard declaration(g, body_var) is Some(decl)
-  inspect(decl.kind, content="ModuleDef(def_index=1)")
+  guard decl.kind is ModuleDef(def_index~)
+  inspect(def_index, content="1")
 }
 
 ///|
@@ -759,7 +784,7 @@ test "resolve: earlier def cannot see later def" {
   )
   let g = build(flat_proj, registry, source_map)
   let init_var = find_var_in_def_init(proj, 0, "b")
-  inspect(declaration(g, init_var), content="None")
+  inspect(declaration(g, init_var) is None, content="true")
 }
 ```
 
@@ -767,8 +792,7 @@ test "resolve: earlier def cannot see later def" {
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/scope -f graph_wbtest.mbt`
 Expected: PASS (Pass 3 should already handle them). If any FAIL, fix
-`Builder::resolve` / `containing_def_index` — do NOT weaken a test; the values
-are hand-derived and authoritative (design spec Layer 1).
+`Builder::resolve` / `containing_def_index` — do NOT weaken a test.
 
 - [ ] **Step 3: Commit**
 
@@ -783,7 +807,6 @@ git commit -m "test(scope): Layer 1 hand-derived binding edge cases"
 
 **Files:**
 - Modify: `lang/lambda/scope/query.mbt`
-- Modify: `lang/lambda/scope/moon.pkg` (ensure `@immut/hashset` imported)
 - Test: `lang/lambda/scope/graph_wbtest.mbt`
 
 - [ ] **Step 1: Write the failing tests**
@@ -805,7 +828,7 @@ test "references: identity-based, shadowing-aware" {
 
 ///|
 test "enclosing_env: lambda params in scope" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("\\x. \\y. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("λx. λy. x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   let env = enclosing_env(g, var_node)
@@ -850,8 +873,10 @@ pub fn references(
 }
 
 ///|
-/// The set of names bound in scopes enclosing `node`. Set semantics
-/// (membership, not order). Replaces collect_lam_env.
+/// The set of names bound in scopes enclosing `node` — the FULL lexical
+/// environment (lambda params AND module defs). This is a SUPERSET of the
+/// existing `collect_lam_env` (which returns only lambda params); it is NOT a
+/// drop-in replacement. Set semantics (membership, not order).
 /// Reserved API surface; consumer migration deferred (see design spec).
 pub fn enclosing_env(
   g : ScopeGraph,
@@ -887,9 +912,6 @@ pub fn enclosing_env(
 }
 ```
 
-Ensure `"moonbitlang/core/immut/hashset" @immut/hashset` is in
-`lang/lambda/scope/moon.pkg` (added in Task 1).
-
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/scope -f graph_wbtest.mbt`
@@ -898,7 +920,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lang/lambda/scope/query.mbt lang/lambda/scope/moon.pkg lang/lambda/scope/graph_wbtest.mbt
+git add lang/lambda/scope/query.mbt lang/lambda/scope/graph_wbtest.mbt
 git commit -m "feat(scope): reserved query API references() + enclosing_env()"
 ```
 
@@ -939,30 +961,36 @@ git commit -m "chore(scope): generate .mbti + format"
 **Files:**
 - Create: `lang/lambda/edits/scope_equivalence_wbtest.mbt`
 - Modify: `lang/lambda/edits/moon.pkg` (add scope import)
-- Modify: `lang/lambda/edits/text_edit_rename.mbt:105-139` (`rename_from_var`)
+- Modify: `lang/lambda/edits/text_edit_rename.mbt:99-139` (`rename_from_var`)
 
-The equivalence test lives in the `edits` package because the production import
-will be edits→scope; putting the test here lets it call both `@scope` and the
-local `resolve_binder` without a cycle.
+The equivalence test lives in the `edits` package: the production import will be
+edits→scope, and `edits` already brings `resolve_binder`, `FlatProj`,
+`SourceMap`, `parse_to_proj_node`, `NodeId` into bare scope (via `using`) and
+provides the `scope_test_registry` helper (`scope_wbtest.mbt:2`). Reuse those.
 
 - [ ] **Step 1: Add the scope import to edits**
 
-In `lang/lambda/edits/moon.pkg`, add `"dowdiness/canopy/lang/lambda/scope" @scope`
-to the `import` block.
+In `lang/lambda/edits/moon.pkg` (JSON), add
+`"dowdiness/canopy/lang/lambda/scope"` to the `"import"` array. (Default alias
+`@scope`.)
 
 Run: `moon check -p dowdiness/canopy/lang/lambda/edits`
-Expected: no errors (import resolves; nothing uses it yet).
+Expected: no errors (import resolves; nothing uses it yet — `-2-6-29`
+suppresses the unused-import warning).
 
-- [ ] **Step 2: Write the equivalence test FIRST (old resolve_binder still live)**
+- [ ] **Step 2: Write the table-driven equivalence test FIRST (old resolve_binder still live)**
 
-Create `lang/lambda/edits/scope_equivalence_wbtest.mbt`. It mirrors the
-construction in `scope_wbtest.mbt` (same package, so `resolve_binder`,
-`FlatProj`, `SourceMap`, `parse_to_proj_node` are in scope without `@scope`).
+Create `lang/lambda/edits/scope_equivalence_wbtest.mbt`. It covers EVERY Layer-1
+binding rule, so the migration in Step 4 is proven safe across self-refs, later
+defs, shadowing, and free refs (not just the two happy paths). Bare names
+(`parse_to_proj_node`, `FlatProj`, `SourceMap`, `NodeId`, `scope_test_registry`,
+`BindingSite`, `resolve_binder`) resolve in the `edits` package; only the new
+package is qualified `@scope`.
 
 ```moonbit
 ///|
-/// Normalize a scope-graph Decl and an edits BindingSite to a comparable shape.
-/// (tag, node_id, def_index) — def_index is -1 for lambda params.
+/// Normalize a scope-graph Decl to (tag, node_id, def_index); def_index = -1
+/// for lambda params.
 fn norm_decl(decl : @scope.Decl) -> (String, NodeId, Int) {
   match decl.kind {
     @scope.LamParam(lam_id~) => ("lam", lam_id, -1)
@@ -971,6 +999,7 @@ fn norm_decl(decl : @scope.Decl) -> (String, NodeId, Int) {
 }
 
 ///|
+/// Normalize an edits BindingSite to the same shape.
 fn norm_binder(b : BindingSite) -> (String, NodeId, Int) {
   match b {
     LamBinder(lam_id~) => ("lam", lam_id, -1)
@@ -980,67 +1009,93 @@ fn norm_binder(b : BindingSite) -> (String, NodeId, Int) {
 }
 
 ///|
-fn eq_fixture(text : String) -> (
-  @core.ProjNode[@ast.Term],
-  FlatProj,
-  Map[NodeId, ProjNode[@ast.Term]],
-  SourceMap,
-) {
+/// One equivalence check: declaration() must agree with resolve_binder on the
+/// chosen Var node. Returns true if both sides normalize to the same value
+/// (including both-None).
+fn agree(text : String, locate : (@core.ProjNode[@ast.Term]) -> NodeId) -> Bool {
   let (proj, _c) = parse_to_proj_node(text)
   let fp = FlatProj::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
-  let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
-  @core.collect_registry(proj, registry)
-  (proj, fp, registry, sm)
-}
-
-///|
-test "equivalence: declaration matches resolve_binder (lambda param)" {
-  let (proj, fp, registry, sm) = eq_fixture("\\x. x")
+  let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, sm)
-  // the Var "x" is the body of the Lam
-  let var_node = proj.children[0]
-  let new_site = match @scope.declaration(g, var_node.id()) {
+  let var_id = locate(proj)
+  let new_site = match @scope.declaration(g, var_id) {
     Some(d) => Some(norm_decl(d))
     None => None
   }
-  let old_site = match resolve_binder(var_node.id(), "x", fp, registry, sm) {
+  let old_site = match resolve_binder(var_id, var_name_of(proj, var_id), fp, registry, sm) {
     Some(b) => Some(norm_binder(b))
     None => None
   }
-  inspect(new_site == old_site, content="true")
+  new_site == old_site
 }
 
 ///|
-test "equivalence: declaration matches resolve_binder (module def)" {
-  let (proj, fp, registry, sm) = eq_fixture("let x = 0\nx")
-  let g = @scope.build(fp, registry, sm)
-  let body = proj.children[proj.children.length() - 1]
-  let new_site = match @scope.declaration(g, body.id()) {
-    Some(d) => Some(norm_decl(d))
-    None => None
+/// Look up the Var name at a NodeId (resolve_binder needs the name string).
+fn var_name_of(root : @core.ProjNode[@ast.Term], id : NodeId) -> String {
+  let mut out = ""
+  fn walk(n : @core.ProjNode[@ast.Term]) -> Unit {
+    if n.id() == id {
+      match n.kind {
+        @ast.Term::Var(x) => out = x
+        @ast.Term::Unbound(x) => out = x
+        _ => ()
+      }
+    }
+    for c in n.children {
+      walk(c)
+    }
   }
-  let old_site = match resolve_binder(body.id(), "x", fp, registry, sm) {
-    Some(b) => Some(norm_binder(b))
-    None => None
+
+  walk(root)
+  out
+}
+
+///|
+/// Find first Var named `name` (helper for locators).
+fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
+  let mut found : NodeId? = None
+  fn walk(n : @core.ProjNode[@ast.Term]) -> Unit {
+    if found is Some(_) {
+      return
+    }
+    if n.kind is @ast.Term::Var(x) && x == name {
+      found = Some(n.id())
+    }
+    for c in n.children {
+      walk(c)
+    }
   }
-  inspect(new_site == old_site, content="true")
+
+  walk(root)
+  found.unwrap()
+}
+
+///|
+test "equivalence: declaration() matches resolve_binder across all binding rules" {
+  // (description, source, locator)
+  inspect(agree("λx. x", root => root.children[0]), content="true") // lam param
+  inspect(agree("let x = 0\nx", root => find_var(root, "x")), content="true") // module body
+  inspect(agree("let x = x\nx", root => find_var(root, "x")), content="true") // self-ref (first x is init → unbound)
+  inspect(agree("let x = 1\nlet x = 2\nx", root => find_var(root, "x")), content="true") // shadowing / latest
+  inspect(agree("let a = b\nlet b = 1\na", root => find_var(root, "b")), content="true") // earlier can't see later (free)
+  inspect(agree("λx. λx. x", root => find_var(root, "x")), content="true") // nested lam shadow
 }
 ```
 
-Note: `norm_binder`/`norm_decl` map both shapes to `(tag, NodeId, Int)`. For a
-module def the old `ModuleBinder.binding_node_id` and the new `Decl.node_id`
-should be the SAME FlatProj binding NodeId (both come from `flat_proj.defs[i].3`).
-If the equivalence test fails on the module case because the two NodeIds differ,
-that is a real finding — STOP and report which NodeId each side uses before
-changing either (design spec: where Layer 1 and resolve_binder disagree, file the
-bug; do not paper over).
+Note: `agree` builds FlatProj via `from_proj_node` (init-child id-shape).
+Production uses the live `to_flat_proj` id-shape, but both `@scope.build` and
+`resolve_binder` read `flat_proj.defs[i].3`, so equivalence holds on either; the
+live path is additionally exercised by Step 5's `text_edit_rename` integration
+tests. If the module case ever disagrees because the two NodeIds differ, that is
+a real finding — STOP and report which NodeId each side uses (design spec: file
+the bug; do not paper over).
 
 - [ ] **Step 3: Run the equivalence test (old behavior, new graph)**
 
 Run: `moon test -p dowdiness/canopy/lang/lambda/edits -f scope_equivalence_wbtest.mbt`
-Expected: PASS for both. If FAIL, investigate against Layer 1 before changing
-code.
+Expected: PASS. If any case FAILS, investigate against Layer 1 before changing
+production code.
 
 - [ ] **Step 4: Migrate the consumer**
 
@@ -1084,15 +1139,22 @@ fn rename_from_var(
 }
 ```
 
-Do NOT delete `resolve_binder` — `text_edit_refactor.mbt:143` and
-`scope_wbtest.mbt` still use it, and the equivalence test depends on it (design
-spec Non-goals: only `rename_from_var`'s binder lookup migrates in v1).
+If the bare `@scope.LamParam(..)` / `@scope.ModuleDef(..)` patterns fail to
+compile (MoonBit cross-package enum-constructor matching), add
+`"dowdiness/canopy/lang/lambda/scope"` already imported, then `using @scope {
+type DeclKind }` to `edits/moon.pkg` and match `DeclKind::LamParam(..)` /
+`DeclKind::ModuleDef(..)`. Verify the original line range — read
+`text_edit_rename.mbt:99-139` before replacing.
+
+Do NOT delete `resolve_binder` — `text_edit_refactor.mbt` and `scope_wbtest.mbt`
+still use it, and the equivalence test depends on it (design spec Non-goals: only
+`rename_from_var`'s binder lookup migrates in v1).
 
 - [ ] **Step 5: Run the full edits + scope suites**
 
 Run: `moon check && moon test -p dowdiness/canopy/lang/lambda/edits && moon test -p dowdiness/canopy/lang/lambda/scope`
 Expected: all existing `text_edit*` / `scope_wbtest` tests still PASS (behavior
-preserved), plus the equivalence tests pass.
+preserved — these exercise the live `ctx` path), plus the equivalence tests pass.
 
 - [ ] **Step 6: Commit**
 
@@ -1208,7 +1270,7 @@ exists (`grep -n 'pub fn resolve_binder' lang/lambda/edits/scope.mbt`).
 
 In the PR description, state: `declaration()` reproduces the existing
 `BindingSite` contract; reused `@core.NodeId`, `@core.ProjNode`,
-`@core.SourceMap`, `@lambda_proj.FlatProj` (no duplicate types introduced).
+`@core.SourceMap`, `@proj.FlatProj` (no duplicate types introduced).
 
 - [ ] **Step 4: Open the PR**
 
@@ -1218,13 +1280,14 @@ gh pr create --title "feat(scope): NodeId-keyed binding index for lambda (v1, re
 Implements docs/superpowers/specs/2026-05-30-lambda-scope-graph-design.md.
 
 v1: non-incremental NodeId-keyed binding index (scope/graph.mbt + builder + query).
-rename_from_var binder lookup migrated to @scope.declaration() with equivalence
-tests proving behavior preservation. references()/enclosing_env() are reserved
-API surface (no v1 consumer). Layer 2 caimeox oracle per Task 9 status.
+rename_from_var binder lookup migrated to @scope.declaration() with table-driven
+equivalence tests proving behavior preservation across all binding rules.
+references()/enclosing_env() are reserved API surface (no v1 consumer).
+Layer 2 caimeox oracle per Task 9 status.
 
 ## Reuse check
 declaration() reproduces the existing BindingSite contract; reused @core.NodeId,
-@core.ProjNode, @core.SourceMap, @lambda_proj.FlatProj — no duplicate types.
+@core.ProjNode, @core.SourceMap, @proj.FlatProj — no duplicate types.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 BODY
@@ -1233,13 +1296,14 @@ BODY
 
 ---
 
-## Self-review notes (carried from spec coverage check)
+## Self-review notes (spec coverage)
 
 - **Spec §Architecture (3 files):** Tasks 1/3/4/6 (graph, builder, query). ✓
-- **Spec §"Sequential-scope encoding" (cutoff):** Task 4 + Task 5. ✓
+- **Spec §"Sequential-scope encoding" (cutoff):** Task 4 + Task 5; mirrors `resolve_binder` (Verified facts). ✓
 - **Spec §"DeclKind" (BindingSite reconstruction):** Task 1 data model + Task 8 `norm_decl`. ✓
 - **Spec §"Var vs Unbound":** Task 4 Pass 3 emits Ref for both. ✓
 - **Spec §"visited_scopes by-product":** Task 4 `Builder::resolve` records visited. ✓
-- **Spec §Testing Layer 1/2/3:** Tasks 5 / 9 / 8. ✓
-- **Spec §Non-goals (only rename, only declaration):** Task 8 migrates one call; references/enclosing_env reserved (Task 6). ✓
-- **Spec §"acyclic by construction":** relied on in Task 2 `build_parent_map` doc; no runtime cycle guard is implemented in v1 because the tree-derived parent map cannot cycle — if a defensive `fail()` guard is wanted, add it in `root_node`/Pass 2, but it is optional for v1 correctness.
+- **Spec §Testing Layer 1/2/3:** Tasks 5 / 9 / 8 (Layer 3 now table-driven over all rules). ✓
+- **Spec §Non-goals (only rename, only declaration):** Task 8 migrates one call; references/enclosing_env reserved (Task 6), enclosing_env documented as superset of collect_lam_env (not replacement). ✓
+- **Spec §"acyclic by construction":** relied on in Task 2 `build_parent_map` doc; no runtime cycle guard in v1 because the tree-derived parent map cannot cycle.
+- **Codex review (2026-05-30) findings folded:** from_ast→`@core` (C1); `derive(Debug,Eq)`+scalar-inspect idiom (C2); table-driven equivalence (C3); enclosing_env superset comment (C4); id-shape note (C5); plus moon.pkg JSON format + `@proj` default alias.
