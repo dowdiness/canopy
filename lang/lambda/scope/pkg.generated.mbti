@@ -12,8 +12,6 @@ import {
 // Values
 pub fn build(@proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]], @core.SourceMap) -> ScopeGraph
 
-pub fn build_parent_map(Map[@core.NodeId, @core.ProjNode[@ast.Term]]) -> Map[@core.NodeId, @core.NodeId]
-
 pub fn declaration(ScopeGraph, @core.NodeId) -> Decl?
 
 pub fn enclosing_env(ScopeGraph, @core.NodeId) -> @hashset.HashSet[String]

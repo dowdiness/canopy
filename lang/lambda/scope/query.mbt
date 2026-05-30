@@ -31,13 +31,9 @@ pub fn references(
     }
   }
   guard target is Some(tid) else { return [] }
-  let out : Array[@core.NodeId] = []
-  for r in g.refs {
-    if r.resolution.decl is Some(rid) && rid == tid {
-      out.push(r.node_id)
-    }
-  }
-  out
+  [
+    for r in g.refs if r.resolution.decl is Some(rid) && rid == tid => r.node_id
+  ]
 }
 
 ///|
