@@ -87,7 +87,7 @@ framing as larger than the problem warrants.
 
 New package `lang/lambda/scope/`, split into three files by responsibility:
 
-### `graph.mbt` — data model (language-agnostic core)
+### `graph.mbt` — data model (language-agnostic core, one lambda-specific seam)
 
 ```
 ScopeGraph { scopes: Array[Scope], decls: Array[Decl], refs: Array[Ref] }
@@ -106,6 +106,18 @@ cannot reproduce `ModuleBinder.def_index` or distinguish the two binder kinds, s
 `DeclKind` records `LamParam(lam_id)` / `ModuleDef(def_index)`. The migrated
 `declaration()` maps `Decl{kind, node_id} -> BindingSite` losslessly.
 
+**`DeclKind` is the one lambda-specific type in `graph.mbt` (review point).**
+`Scope` / `Decl` / `Ref` / `Resolution` are language-agnostic, but `DeclKind`'s
+variants (`LamParam` / `ModuleDef`) are lambda-specific, so strictly the file is
+*almost* agnostic. This is a deliberate v1 simplification (single language → a
+concrete enum is simpler than premature generics). It has one consequence for the
+loom-generalization reserve (§Reserved 2): lifting `graph.mbt` into loom is NOT a
+pure move — `Decl` must be made generic over its kind (`Decl[K]`, with `K`
+supplied per language) at that point. v1 keeps `K` concrete as `DeclKind`. The
+cost of that later generalization is small (one type parameter threaded through
+`graph.mbt`), and noting it now keeps the reserve honest rather than implying a
+clean cut-and-paste.
+
 Everything is keyed by `core.NodeId` (stable across edits) rather than the
 position-dependent `Int` indices that caimeox uses. `ScopeId`/`DeclId`/`RefId`
 are internal compact indices into the graph's own arrays (graph-local, not
@@ -113,10 +125,24 @@ persistent identity — `NodeId` carries persistent identity).
 
 `Resolution.decl: None` is a **negative observation** (an unresolved /
 free reference). `visited_scopes` records the scopes that were checked and found
-NOT to contain the name during resolution. Both are populated in v1 (the
-resolution walk produces them as a by-product) but only `decl` is read by v1
-queries. They exist so that incrementality (which depends on negative
-observations) can later be layered on without a breaking change to `Resolution`.
+NOT to contain the name during resolution. Both are populated in v1 but only
+`decl` is read by v1 queries. They exist so that incrementality (which depends on
+negative observations) can later be layered on without a breaking change to
+`Resolution`.
+
+**Is populating `visited_scopes` in v1 actually free? (review point)** §7 says
+reserve the *place* (the field), not necessarily do the *work* of filling it. We
+populate it in v1 anyway, justified as a genuine by-product: resolution already
+walks the scope chain upward (via the Pass-1 parent map) to find a binding, so
+`visited_scopes` is just an `Array[ScopeId]` (`ScopeId` = `Int`) that records the
+scopes that walk *already visits* — **zero extra traversal, only the allocation**.
+The cost is one small array per ref per full rebuild. If profiling later shows
+this allocation is hot on large programs, the reserved fallback is to leave
+`visited_scopes` empty in v1 and populate it lazily when the incremental layer
+first needs it — the field stays, only the fill moves. (v1 chooses eager fill so
+the differential/equivalence tests can assert the negative observations are
+correct from day one, rather than discovering fill bugs when incrementality is
+built.)
 
 ### `builder.mbt` — lambda-specific construction
 
@@ -189,6 +215,20 @@ edit → projection rebuild (existing) → FlatProj + registry + SourceMap (exis
      → query (declaration / references / enclosing_env) ← consumers
 ```
 
+**v1 full-rebuild cost (review point).** `build()` runs three full passes over
+the projection on *every* rebuild, and a projectional editor rebuilds on every
+edit. This is the accepted non-incremental cost. The §Framing "downside is
+bounded" argument is about *code* (worst case = a symbol table), and that bound
+does NOT extend to *runtime* — so it must be stated separately here: v1's runtime
+cost is O(N) per edit in the projection size N (three linear passes; the Pass-1
+parent map makes per-node parent lookup O(1), removing today's O(N²)). For the
+program sizes a single lambda module reaches today this is expected to be
+negligible, but **it is not yet measured**. The metric that would flip the
+non-incremental decision is therefore made explicit in §Reserved: rebuild
+latency at the p95 edit. Until that metric is measured and shown to exceed an
+interactive budget, incrementality stays reserved (cf. the project rule: measure
+the bottleneck before optimizing).
+
 ## Error handling
 
 - The builder ALWAYS returns a graph, even on partial / broken ASTs. A
@@ -204,11 +244,19 @@ edit → projection rebuild (existing) → FlatProj + registry + SourceMap (exis
   the graph models both uniformly and each consumer filters as it needs.)
 - **`Error` / `Hole` nodes** carry no name and produce neither a `Decl` nor a
   `Ref`; they are inert in the graph.
-- The only invariant violation is a **parent-chain cycle**. The builder asserts
-  the parent DAG is acyclic at construction (Codex Q5). This is structurally
-  impossible for tree-nested Lam/Module, so it is a defect guard via `fail()`
-  (not caught — catching would risk silently-wrong results; cf. memory
-  `feedback_no_safe_recovery_abort_ok`).
+- The only invariant violation is a **parent-chain cycle**. This cannot arise
+  from a mid-edit / broken AST, because the `NodeId -> parent` map (Pass 1) is
+  derived by `core.collect_registry` walking the `ProjNode` tree
+  (`core/proj_node.mbt:58`): each node appears in exactly one parent's `children`
+  array, so the parent map is **acyclic by construction**, independent of edit
+  state — a broken AST yields a broken *tree*, never a cyclic graph. The builder
+  still asserts acyclicity via `fail()` (Codex Q5), but this is a genuine
+  **defect guard** (a violation means `collect_registry` or the tree itself is
+  bugged), NOT a runtime error path — so it does not contradict the never-raise
+  contract above, which governs *unresolved names* (those become
+  `Resolution{decl: None}`, not failures). `fail()` rather than catch because a
+  cyclic parent map signals a corrupted invariant where catching would risk
+  silently-wrong results (cf. memory `feedback_no_safe_recovery_abort_ok`).
 
 ## Testing strategy (three layers)
 
@@ -241,6 +289,12 @@ compare via a NodeId side-table`.
   (Layer 3) win, and the caimeox fixture is removed from the differential set**
   (documented, not silently dropped — cf. "no silent caps"). caimeox earns trust
   on the agreed subset; it does not override Canopy's own binding contract.
+- **Agreement is necessary, not sufficient (review point).** Layer 2 catches the
+  case where the new builder disagrees with an independent oracle. It does NOT
+  catch the case where caimeox and the new builder *agree* but both diverge from
+  the intended semantics — there, Layer 1's hand-derived expectations are the
+  backstop, by design. So Layer 2 passing is evidence, not proof; Layer 1 is the
+  authority on what "correct" means.
 - This is the operational form of design principle §6 ("make the discovered
   structure predict").
 
@@ -252,6 +306,18 @@ current `resolve_binder()` return the SAME `BindingSite` across all fixtures.
 - **Non-circularity (memory `feedback_drift_detector_non_circular`):** keep the
   old `resolve_binder` live and run BOTH during the test, comparing outputs.
   Delete the old implementation only after migration is proven, in the same PR.
+- **Layer 3 preserves current behavior, bugs included — correctness is Layer 1's
+  job (review point).** Problem #2 in §Motivation notes the ~5 binding sites can
+  currently disagree, which means `resolve_binder` may carry latent bugs. Layer 3
+  deliberately pins *equivalence to current `resolve_binder`*, so it proves the
+  migration is **behavior-preserving** — including reproducing any existing bug.
+  This is intentional sequencing: a behavior-preserving migration is verifiable
+  on its own, and fixing a binding bug is a *separate, later* step (where Layer 1
+  is extended with the corrected expectation and the fix lands as its own change,
+  not smuggled into the migration). Layer 1 (hand-derived) is the authority on
+  correctness; Layer 3 is only the migration-safety net. Where Layer 1 and
+  current `resolve_binder` disagree, that disagreement is a *found bug* to file,
+  not a Layer 3 failure to paper over.
 
 This is the pass condition for the "structure + 1 consumer" PoC.
 
@@ -358,6 +424,11 @@ breaking change):
      replacement of lattice values. Coarse-grained is enough; fine-grained is a
      structure-dependent optimization to reach for only if measurement demands
      it. This shape also keeps the cycle trap below easy to avoid.
+   - **Trigger metric:** pursue incrementality when measured rebuild latency at
+     the p95 edit exceeds the interactive budget on a realistic program (see
+     §"v1 full-rebuild cost"). Until then the O(N)-per-edit full rebuild is
+     accepted; the field reservations (`visited_scopes`, agnostic core) keep the
+     pivot cheap when the metric demands it.
    - **Cycle trap (Codex Q5):** if later layered on canopy's `loom/incr` Datalog
      substrate (`Relation` + `MemoMap`), a transitive-closure `MemoMap` compute
      fn MUST walk the base parent/def edges directly (iterative BFS or Datalog
@@ -365,7 +436,11 @@ breaking change):
      memo cycle the runtime aborts (cf. memory `project_incr_impact_bfs_cycle_trap`).
 2. **loom generalization:** the language-agnostic `graph.mbt` core can be lifted
    into a loom sibling package; per-language builders supply rules. v1 keeps the
-   core in its own file to make this a move, not a rewrite.
+   core in its own file to make this *mostly* a move. The one non-move is
+   `DeclKind`: it is lambda-specific, so the lift makes `Decl` generic over its
+   kind (`Decl[K]`) and each language supplies its own kind enum (see the
+   `graph.mbt` §"DeclKind is the one lambda-specific type" note). A small,
+   bounded generalization — not a rewrite.
 
 ## Open questions
 
