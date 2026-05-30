@@ -429,7 +429,11 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   (`(tag, def_index)` for module, structural Lam position for lambda). Layer the
   chosen module-`node_id` invariant on as a one-line property in the same
   harness. Medium-band (generator + two-pipeline driver + range-matched
-  normalizer); its own PR.
+  normalizer); its own PR. Pin the production-path `node_id` invariant for BOTH
+  kinds in the same harness: module defs (synthetic id, NOT in the registry —
+  the gap recorded by the #398/#399 contract test) AND lambda params (the real
+  `Lam` node, IN the registry — currently unpinned on the production path; the
+  `to_flat_proj` fixture only asserts the module case).
   Exit: thousands of generated cases agree on resolution across both pipelines;
   edge set covered (empty/Unit body, error nodes, nested blocks, shadowing
   chains). NOT a formal-verification target — the invariant spans the parser +
