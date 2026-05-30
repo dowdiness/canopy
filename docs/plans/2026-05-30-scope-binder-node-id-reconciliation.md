@@ -1,6 +1,6 @@
 # Scope-graph binder identity reconciliation, driven by go-to-definition
 
-**Status:** Design — for review (no code yet). Needs a Codex design pass before implementation.
+**Status:** Design — Codex-reviewed 2026-05-30 (verdict: SOUND-WITH-CHANGES; revisions folded in). Ready for implementation-doc breakdown.
 **Date:** 2026-05-30
 **Supersedes the open work in:** docs/TODO.md §20 ("reconcile [the node_id divergence] here, or when a consumer first reads a module `node_id` as output").
 
@@ -53,7 +53,7 @@ The cross-pipeline PBT already proved the relevant fact: **source ranges are the
 
 **What is a module binder's identity, and how does a consumer locate it?**
 
-Three candidate answers, evaluated against five criteria: restores a coherent locate-the-binder contract; lets go-to-definition jump to the **name** (not the value); lets `scope_annotation.mbt` collapse onto `@scope`; survives incremental edits with stable identity; blast radius.
+Four candidate answers (A–D), evaluated against: restores a coherent locate-the-binder contract; lets go-to-definition jump to the **name** (not the value); lets `scope_annotation.mbt` collapse onto `@scope`; survives incremental edits with stable identity; blast radius. **Recommended: Option D.**
 
 ### Option A — Reuse the init node id everywhere
 
@@ -75,25 +75,43 @@ Insert a dedicated binder node (carrying the name token's span) into the Module 
 - Blast radius: **large.** It changes the Module child layout (`children = [init₀…initₙ, body]`), which is assumed by `from_proj_node`, `to_proj_node`/`to_proj_node_with_prev_module_id`, `scope_annotation.walk_scope`, the cross-pipeline PBT's `def_init_ranges`, `find_binding_for_init`, and likely SourceMap/outline rendering. Every "first N children are inits" site breaks.
 - **Verdict: viable but heavy.** Justified only if a future need makes the binder a structural citizen (e.g. drag-drop a binding, structural rename UI). Record as the eventual endpoint, not the first step.
 
-### Option C — `Decl` carries the binder's source range (recommended)
+### Option C — `Decl` carries a materialised binder source-range field
 
-Add the binder's **source range** to the scope graph's `Decl` (the name token's span for module defs; the `λx` / `Lam` head span for lambda params). Consumers (go-to-def, highlighting) use the range to locate/move the cursor; `node_id` is demoted to an internal dedup detail (or removed from the public contract).
+Add a binder **source range** field to the scope graph's `Decl` (name-token span for module defs; `λx`/`Lam` span for lambda params). Consumers use the range to locate the cursor; `node_id` is demoted to an internal detail.
 
-- Locate contract: replaces the *proxy* invariant ("occupies a node") with the *real* one ("carries the binder's source range"). Go-to-def jumps to the name. Rename targets the name span.
-- `scope_annotation` collapse: yes — it can key its highlight map on binder ranges (binders have distinct spans) and call `@scope`, deleting `walk_scope` and the negative-id hack.
-- Incremental: ranges shift with edits but track the source; the binder’s *identity for dedup* can stay the existing reconciled id while the *range* is recomputed. No new tree-shape stability problem.
-- Blast radius: **medium.** No Module child-layout change, so `from_proj_node`/`def_init_ranges`/`to_proj_node` keep working structurally. The change is: `Decl` gains a range field; the builder must obtain the binder range; the parser must expose the name token's span (see feasibility gate §4).
-- **Verdict: recommended.** Smallest change that gives consumers what they actually need (a locatable binder), retires the §20 framing by fixing the *right* invariant, and converges the pipelines on the coordinate the PBT already validated (ranges).
+- Locate contract: replaces the *proxy* invariant ("occupies a node") with the *real* one ("carries the binder's source range"). Go-to-def jumps to the name; rename targets the name span.
+- `scope_annotation` collapse: see §5 caveat — not as direct as first assumed (outline rows are keyed by `NodeId`).
+- Incremental: see §8 Q3 — store the binder's *identity* (preserved id / `DeclId`), recompute the *range* each parse; ranges legitimately shift with edits ("current-source location," not a stable range).
+- Blast radius: **medium.** No Module child-layout change. But it requires `Decl` to gain a field AND the range to be threaded from the parse into `builder`. Codex review found the threading is **unnecessary** — see Option D.
+- **Verdict: viable, but D is cheaper.** Keep C only if a stored range field on `Decl` is later wanted for ergonomics.
 
-> Design note (principle §2, question binary framings): the original framing was "make `node_id` a real node (B) vs. leave it synthetic (status quo)." Option C widens the frame: the consumer never needed a *node*, it needed a *location*. C is the design neither original option contained.
+### Option D — On-demand binder location via the existing `SourceMap` token spans (recommended)
+
+Codex design review (2026-05-30) surfaced that the binder ranges **already exist**: `lang/lambda/proj/populate_token_spans.mbt` already records each `let`-name token span on the Module node via `SourceMap::set_span_from_token` (a test asserts `let x` → `4..5`, `projection/source_map_token_spans_wbtest.mbt:63`). So instead of materialising a range onto `Decl` or threading it through `FlatProj`, expose a **binder-location accessor** on `@scope` that resolves on demand through `SourceMap::get_token_span` (`core/source_map.mbt:309`):
+
+- lambda binder → the `Lam` node's range (already a real node);
+- module binder → `(module_node_id, "name:<def_index>")` looked up in the SourceMap token spans.
+
+- Locate contract: same real invariant as C (a source location per binder), with **zero new storage**.
+- Feasibility gate (§4): **already satisfied** — the spans are populated today; no loom PR, no `LetDefView::name_range()` needed (though that method is trivially implementable from seam if a cleaner API is wanted — see §4).
+- `FlatProj`: **unchanged** — no tuple churn, so the binding-handle consumers of `defs[i].3` (§6) are untouched.
+- Blast radius: **small–medium.** Add the accessor + migrate `references` off `node_id` (§6); `Decl.node_id` can stay as-is internally or be deprecated later.
+- **Verdict: recommended.** Cheapest path that gives consumers a locatable binder, reuses already-maintained machinery, and avoids both the tree-shape change (B) and the `FlatProj`/loom changes (C).
+
+> Design note (principle §2, question binary framings): the original framing was "make `node_id` a real node (B) vs. leave it synthetic (status quo)." Both C and D widen the frame — the consumer never needed a *node*, it needed a *location*. D goes further: it observes the location is *already recorded* in the SourceMap, so the fix is an accessor, not new data. This is the design neither original option contained.
 
 ---
 
-## 4. Feasibility gate — parser must expose the binder name's span
+## 4. Feasibility gate — RESOLVED (the binder span already exists)
 
-Both B and C require the binder's source range. Today `LetDefView` (`loom/examples/lambda/src/views.mbt:413`) exposes the name *text* via `token_text(IdentToken)` and the whole-LetDef `start()`, but **no span for the name token**. So a prerequisite, small, parser-side addition is required: a way to get the `IdentToken`'s range (e.g. a `LetDefView::name_range()` that locates the first `IdentToken` element and returns its seam token span, the same span data `SourceMap.populate_token_spans` already consumes).
+Codex design review confirmed the gate is **already satisfied**, which is what makes Option D cheap:
 
-This lives in the loom submodule (`dowdiness/lambda`). Per the submodule workflow it is its own PR, merged and pointer-bumped before the canopy-side change. **This gate must be confirmed feasible before committing to B or C** — if seam does not retain the name token's span through the CST→Syntax facade, the design changes.
+- Seam retains absolute UTF-16 offsets through the CST → `SyntaxNode` facade; `SyntaxToken` exposes `start()`/`end()` and `SyntaxNode::find_token` returns positioned tokens (`loom/seam/syntax_node.mbt:15,20,404`). `LetDefView::token_text` is just a text-only wrapper over the same path (`:438`), so `LetDefView::name_range()` is trivially implementable **with no new seam capability** — but D doesn't even need it.
+- The decisive fact: lambda projection **already records each `let`-name token span** on the Module node via `SourceMap::set_span_from_token` (`lang/lambda/proj/populate_token_spans.mbt:35,45`), and a test asserts `let x` produces span `4..5` (`projection/source_map_token_spans_wbtest.mbt:63`). The location Option D needs is already maintained on every parse.
+
+Consequence: **no loom PR, no `LetDefView::name_range()` prerequisite, no pointer bump.** (A `name_range()` helper remains an optional ergonomic cleanup, not a blocker.) This removes the original sequencing step 1.
+
+One thing to confirm during implementation: tests that build a `SourceMap` via plain `SourceMap::from_ast` *without* calling `populate_token_spans` would not have the let-name spans — the builder/accessor must either require populated spans or be robust to their absence.
 
 ---
 
@@ -104,22 +122,22 @@ Build go-to-definition as the thin end-to-end consumer that *forces* the fix and
 1. Editor receives a "go to definition" request at a cursor position.
 2. Map position → reference `NodeId` (existing SourceMap `innermost_node_at` / `nodes_at_position`).
 3. `@scope.declaration(graph, ref_id)` → `Decl`.
-4. Read the binder range off the `Decl` (Option C) and move the cursor / select it.
+4. Resolve the binder **location** via the Option-D accessor (lambda → `Lam` range; module → SourceMap token span for `name:<def_index>`) and move the cursor / select it.
 
-The same `Decl`-range primitive then lets `scope_annotation.mbt` delete `walk_scope` + `backfill_usages` + the negative-id scheme and rebuild its highlight set from `@scope.declaration` + `@scope.references`, keying on binder ranges. That deletion is the leverage: one resolver instead of two, one binder-identity scheme instead of three.
+**`scope_annotation` cleanup is a *second* step, not free (Codex correction).** The current outline highlight model is `HashSet[NodeId]` and colours rows by `model.scope_map.get(node.id())` (`examples/ideal/main/view_outline.mbt:55,95`). A range/location-based module binder cannot light up an outline *row* without one of: keeping a stable per-binder id as the row key (so the highlight map stays `NodeId`-keyed while *navigation* uses the range), mapping ranges back to rendered rows, or changing the UI model. So go-to-definition is the clean forcing consumer; collapsing `scope_annotation` onto `@scope` follows as a distinct step with an explicit UI-representation decision. The leverage (one resolver, one binder scheme) still lands — just in two moves, not one.
 
 ---
 
-## 6. Blast radius (Option C)
+## 6. Blast radius (Option D, recommended)
 
-- **`lang/lambda/scope/graph.mbt`** — `Decl` gains a binder-range field; the "occupies a node" doc note is rewritten to "carries the binder's source range." `node_id` either stays as an internal key or is dropped from the public `Decl`.
-- **`lang/lambda/scope/builder.mbt`** — `add_decl` must supply the binder range (module: from the new parser name-span threaded through `FlatProj`; lambda: from the `Lam` node range it already has). `containing_def_index`/`resolve` unaffected (they don't read it).
-- **`lang/lambda/proj/flat_proj.mbt`** — `FlatProj.defs` tuple likely carries the binder range alongside (or instead of) the synthetic id; `to_flat_proj`, `from_proj_node`, `reconcile_flat_proj` updated. **Verify cross-package construction** (`pub(all)` / named constructor) before changing the tuple shape.
-- **`examples/ideal/main/scope_annotation.mbt`** — `walk_scope`/`backfill_usages` deleted; rebuilt on `@scope`. Net code *removed*.
-- **Tests that pin the gap** — the #399 module-`node_id`-is-synthetic fixture and the cross-pipeline PBT's `assert_production_node_id_invariants` flip or retire: their `is None` assertion is *designed* to fail when the gap closes (that failure is the intended signal). Update them to assert the new contract (binder range present and pipeline-equal) rather than the old gap.
-- **Rename/refactor** (`text_edit_rename.mbt`, `text_edit_refactor.mbt`) — can be simplified to use the binder range directly, but that simplification is optional and can follow.
+- **`lang/lambda/scope/` (graph.mbt / query.mbt / builder.mbt)** — add a binder-location accessor (e.g. `binder_span(g, decl, source_map) -> Range?`). Resolution itself is untouched: `resolve` matches only `decl.name` + `decl.kind` and `pass3` resolves references from registry node ids, not binder ids (`builder.mbt:146,163,192`). The "occupies a node" doc note in `graph.mbt` is rewritten to "a binder's location is its source span, recovered via `SourceMap` token spans."
+- **`references(g, decl_node)` MUST migrate off `node_id` (Codex finding).** Today it searches decls by `d.node_id` (`query.mbt:18`) — the one real consumer of `Decl.node_id` as a key. Re-key it on `DeclId` (or a stable binder key) before/with demoting `node_id`, or it silently preserves the broken "binder is a NodeId" contract.
+- **`FlatProj`: UNCHANGED under D.** No tuple change → the binding-*handle* consumers of `defs[i].3` stay intact: `find_binding_for_init` (`lang/lambda/edits/scope.mbt:54`), binding-edit lookup (`text_edit_utils.mbt:39`), action plumbing (`examples/ideal/main/action_model.mbt:27`), binding ops (`text_edit_binding.mbt:2`). (If a future need forces Option C instead, introduce a named `FlatDef` struct rather than growing/replacing the 4-tuple — the 4th element is a *binding handle*, not just scope dedup, so it must be *added to*, never *replaced*.)
+- **`examples/ideal/main/scope_annotation.mbt`** — collapses onto `@scope` as the *second* step, with the UI-model decision from §5. Net code removed once landed.
+- **Tests that pin the gap** — the #399 module-`node_id`-is-synthetic fixture and the cross-pipeline PBT's `assert_production_node_id_invariants` are *designed* to fail when the gap closes (the failure is the intended signal). Rewrite them to affirm the new contract (binder span present and pipeline-equal) rather than the old gap — don't just delete the coverage.
+- **Rename/refactor** (`text_edit_rename.mbt`, `text_edit_refactor.mbt`) — unchanged; optionally simplified later to use the binder span.
 
-`from_proj_node`'s and the PBT's "first N children are inits" assumption is **preserved** under C (no tree-shape change) — a key reason to prefer C over B.
+`from_proj_node`'s and the PBT's "first N children are inits" assumption is **preserved** under D (no tree-shape change), and verified against the layout: `to_proj_node_with_prev_module_id` emits `[init₀…initₙ, body]` (`flat_proj.mbt:251`), `from_proj_node` reads it back (`:277`), `populate_token_spans` documents the same (`populate_token_spans.mbt:27`). Option B would break all of these.
 
 ---
 
@@ -131,24 +149,26 @@ The same `Decl`-range primitive then lets `scope_annotation.mbt` delete `walk_sc
 
 ---
 
-## 8. Open questions for Codex design review
+## 8. Open questions (status after Codex review 2026-05-30)
 
-1. **Feasibility gate (§4):** does seam retain the `IdentToken` span through the `SyntaxNode` facade so `LetDefView::name_range()` is implementable? If not, the binder range must come from elsewhere — where?
-2. **Option C vs B:** is demoting `node_id` to "internal/derived" acceptable, or does any current/near-term consumer (structural editing, CRDT identity, the inspector traceability workstream) actually need the binder to be a first-class `ProjNode` (forcing B)? Specifically: does CRDT/projection identity ever key on a binder node id?
-3. **`FlatProj` tuple change:** add the range as a 5th tuple element, or replace the synthetic `NodeId`? What does `reconcile_flat_proj` need so the binder's *dedup identity* stays stable across edits while its *range* is recomputed?
-4. **Range source for lambda binders:** use the whole `Lam` node range (status quo proxy) or specifically the `λx` head / param-name span, for symmetry with the module name-span? Does go-to-def want to land on `λ` or on `x`?
-5. **Retiring the gap tests:** confirm the #399 fixture + PBT `node_id` invariants should be *rewritten* to affirm the new contract rather than deleted, so the regression coverage survives the reconciliation.
+1. **Feasibility gate — RESOLVED.** The binder spans already exist in the SourceMap; no loom work needed (§4).
+2. **Option D vs B — RESOLVED for now: D.** Codex found no current consumer that needs the module binder to be a first-class `ProjNode`; resolution and `pass3` don't key on it, and the only `Decl.node_id`-as-key use is `references` (which migrates to `DeclId`). Revisit B only if structural editing *of* a binder is later required.
+3. **Binder dedup identity vs range (Q3, refined).** Frame the binder's stored identity as the preserved id / `DeclId`, and treat the range as a recomputed **"current-source location,"** not a stable value — ranges legitimately shift with edits (correct for navigation). Note an existing limitation Option D does *not* fix: `reconcile_flat_proj` matches defs by **name** (`flat_proj.mbt:178`), so renaming a binder allocates a fresh id. If stable identity across rename is later needed, that's separate work.
+4. **Lambda binder span target (still open):** does go-to-def/highlight want to land on the whole `Lam`, the `λ` head, or the param-name token? Pick for symmetry with the module name-span and for the nicest cursor behaviour.
+5. **`references` migration (new, from Codex):** confirm the target key for `references` after `node_id` is demoted — `DeclId` vs a binder-span key — and that no other caller relies on the `NodeId`-keyed form.
+6. **Gap-test rewrite:** confirm the #399 fixture + PBT `node_id` invariants are *rewritten* to affirm the new contract, not deleted, so regression coverage survives.
 
 ---
 
-## 9. Sequencing (once design is validated)
+## 9. Sequencing (Option D; design validated)
 
-1. Confirm §4 feasibility gate in loom; land `LetDefView::name_range()` (loom PR + pointer bump).
-2. Canopy: thread the binder range through `FlatProj` → `builder` → `Decl` (Option C).
-3. Build go-to-definition as the driving consumer; add its behavioral tests.
-4. Collapse `scope_annotation.mbt` onto `@scope`; delete `walk_scope` + negative-id scheme.
-5. Rewrite the #399 fixture + PBT `node_id` invariants to affirm the binder-range contract.
-6. Add the incremental ↔ full differential resolution test.
-7. Mark docs/TODO.md §20 resolved; archive this plan per the docs protocol.
+No loom PR — the feasibility gate is already satisfied (§4).
 
-Each of 2–6 is independently reviewable; 3 and 4 are the visible payoff.
+1. Add the `@scope` binder-location accessor (lambda → `Lam` range; module → SourceMap token span for `name:<def_index>`), backed by the already-populated let-name spans. Migrate `references` off `Decl.node_id` to `DeclId` in the same change.
+2. Build go-to-definition as the driving consumer; add its behavioral tests (§7.1). **This is the visible payoff and the forcing function.**
+3. Add the incremental ↔ full differential resolution test (§7.2) — the genuinely-missing coverage for the `@incr` path.
+4. Rewrite the #399 fixture + cross-pipeline PBT `node_id` invariants to affirm the binder-location contract (§6).
+5. Collapse `scope_annotation.mbt` onto `@scope` — *after* deciding the outline-highlight UI representation (§5). Net code removed.
+6. Mark docs/TODO.md §20 resolved; archive this plan per the docs protocol.
+
+Steps 1–4 are independently reviewable and self-contained; step 5 carries the UI decision and can trail.
