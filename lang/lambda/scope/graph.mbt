@@ -28,7 +28,19 @@ pub(all) struct Scope {
 } derive(Debug)
 
 ///|
-/// A declaration (binding site), keyed by the projection NodeId it occupies.
+/// A declaration (binding site). `node_id` identifies the binder, but its
+/// relationship to the projection tree differs by kind, and the module case is
+/// a KNOWN divergence to reconcile (not a settled contract):
+/// - lambda param: `node_id` IS the `Lam` projection node it occupies.
+/// - module def: `node_id` is the FlatProj binder id (`defs[i].3`). On the
+///   production `to_flat_proj` path this is a SYNTHETIC id occupying no registry
+///   node — so it does NOT satisfy "the projection NodeId it occupies" the way
+///   the lambda case does. Consumers needing a tree node for a module binder
+///   must currently map through `def_index`, not `node_id`.
+/// This gap (recorded by the `to_flat_proj` contract test in `lang/lambda/edits`)
+/// should be revisited the first time a consumer reads a module `node_id` as an
+/// output (e.g. go-to-definition); making module binder ids real tree nodes is
+/// the path that restores the uniform invariant.
 pub(all) struct Decl {
   id : DeclId
   node_id : @core.NodeId
