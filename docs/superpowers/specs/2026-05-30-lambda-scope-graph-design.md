@@ -232,6 +232,71 @@ current `resolve_binder()` return the SAME `BindingSite` across all fixtures.
 
 This is the pass condition for the "structure + 1 consumer" PoC.
 
+## Alternatives considered
+
+An independent design review pressed the question: *the lambda language is single,
+lexical-scope-centric, with no imports or type-dependent resolution — does it
+warrant scope-graph vocabulary at all, or would a plain symbol table / Datalog
+encoding be a better fit?* The three candidates, and why this design picks the
+binding-index shape:
+
+### Alt 1 — Classic symbol table + visitor resolution
+
+Fold the CST with a catamorphism, threading an environment; resolve names against
+the live environment. This is the lowest-ceremony option and is what
+`semantic_projection.mbt` already does ad-hoc today.
+
+- **Pro:** smallest code; no new data model; familiar.
+- **Con:** does not by itself give an *identity-keyed, queryable* index. The two
+  v1 wins — O(1) parent lookup (kills the O(N²) scan) and identity-based
+  `references()` — require materializing decl/ref facts keyed by `NodeId`
+  anyway. A symbol table that materializes those facts *is* the proposed index
+  under a different name; one that does not, leaves problem #2 (no single source
+  of truth) unsolved. So "plain symbol table" either converges on this design or
+  fails the requirements.
+
+### Alt 2 — Datalog encoding on loom's fixpoint substrate
+
+Express binding as Datalog rules (`decl(scope, name, node)`, `parent(s, s')`,
+`resolves(ref, decl)`) and run them on `loom/incr`'s `Relation` + fixpoint
+(cf. Pacak, Erdweg, Szabó, *A Systematic Approach to Deriving Incremental Type
+Checkers*, OOPSLA 2020, which compiles type rules to Datalog; and rust-analyzer's
+Salsa + `DefMap` as the non-scope-graph incremental baseline).
+
+- **Pro:** incrementality comes from the substrate; directly reuses an asset
+  canopy already has; strong precedent for incremental name resolution.
+- **Con:** wrong altitude for v1. v1 is explicitly *non-incremental* (the user
+  chose "verify-first: lock correctness before incrementality"). Introducing the
+  Datalog substrate now couples the correctness milestone to the fixpoint
+  engine and the memo-cycle hazard (Codex Q5) before there is a passing
+  correctness baseline to protect. Datalog is the natural **substrate for the
+  reserved incremental future**, not for the v1 correctness layer. Deferring it
+  keeps v1 debuggable as a plain batch computation.
+
+### Alt 3 — NodeId-keyed binding index with scope-graph vocabulary (chosen)
+
+The materialized Scope/Decl/Ref index described above.
+
+- **Pro:** delivers both v1 wins; the Scope/Decl/Ref *shape* is the minimum-cost
+  stepping stone to the two reserved futures (incremental via query-confirmation;
+  loom generalization), because the negative-observation fields and the
+  language-agnostic core file are already in place; admits a batch correctness
+  oracle (caimeox) sharing the same conceptual model.
+- **Con:** carries vocabulary (`Scope`, `ScopeId`, regex-able resolution) whose
+  full power lambda never exercises in v1 — accepted deliberately as the reserved
+  bet, with the §Framing escape hatch that the worst case is "a clean symbol
+  table that cost the same."
+
+**Decision.** Alt 3. The implementation cost over Alt 1 is marginal (parent chain
++ cutoff is the same code volume whether or not it is framed as a graph), and the
+reserved affordances (negative observations, agnostic core) are nearly free when
+built in now versus a breaking change later (design principle §7). Alt 2 is
+adopted *later*, as the incremental substrate, not as the v1 correctness layer.
+The provisional nature of the future bet is recorded in §Framing: re-evaluate
+after v1 ships and consumers are measured; name resolution is reported at 35–40%
+of type-checker runtime (Zwaan, *Specializing Scope Graph Resolution Queries*,
+SLE 2022), so the incremental payoff — if pursued — is material.
+
 ## Reserved extension points (NOT built in v1)
 
 Per design principle §7 (reserving an extension point costs far less than a later
@@ -266,3 +331,9 @@ None blocking. Migration order for the remaining consumers
   Graphs to Derive Incremental Type-Checkers.* OOPSLA 2022.
   <https://aronzwaan.github.io/assets/oopsla22.pdf>
 - `caimeox/scope_graph` (MoonBit reference impl of the 2015 theory) — oracle only.
+- Pacak, Erdweg, Szabó. *A Systematic Approach to Deriving Incremental Type
+  Checkers.* OOPSLA 2020. (Datalog encoding — Alt 2 lineage.)
+- Zwaan. *Specializing Scope Graph Resolution Queries.* SLE 2022. (Name
+  resolution = 35–40% of type-checker runtime.)
+- rust-analyzer (Salsa + `DefMap` + `ItemTree`) — non-scope-graph incremental
+  baseline cited in §Alternatives.
