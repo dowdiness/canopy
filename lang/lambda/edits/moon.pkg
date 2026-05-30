@@ -11,4 +11,10 @@ import {
   "moonbitlang/core/immut/hashset" @immut/hashset,
 }
 
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
+
 warnings = "-2-6-29"
