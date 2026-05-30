@@ -74,3 +74,59 @@ test "build_parent_map: child maps to parent" {
   inspect(p == @core.NodeId::from_int(0), content="true")
   inspect(parents.get(@core.NodeId::from_int(0)) is None, content="true")
 }
+
+///|
+/// Find the Var with `name` in the module body (the final/last child).
+fn find_var_in_body(
+  root : @core.ProjNode[@ast.Term],
+  name : String,
+) -> @core.NodeId {
+  match root.kind {
+    @ast.Term::Module(_, _) =>
+      find_var_node(root.children[root.children.length() - 1], name)
+    _ => find_var_node(root, name)
+  }
+}
+
+///|
+/// Find the Var with `name` inside the init expression of flat def `idx`.
+/// def inits are the Module's leading children (before the body).
+fn find_var_in_def_init(
+  root : @core.ProjNode[@ast.Term],
+  idx : Int,
+  name : String,
+) -> @core.NodeId {
+  match root.kind {
+    @ast.Term::Module(_, _) => find_var_node(root.children[idx], name)
+    _ => find_var_node(root, name)
+  }
+}
+
+///|
+test "resolve: lambda param" {
+  let (proj, flat_proj, registry, source_map) = build_fixture("λx. x")
+  let g = build(flat_proj, registry, source_map)
+  let var_node = find_var_node(proj, "x")
+  guard declaration(g, var_node) is Some(decl)
+  inspect(decl.kind is LamParam(_), content="true")
+}
+
+///|
+test "resolve: self-reference is unbound" {
+  let (proj, flat_proj, registry, source_map) = build_fixture("let x = x\nx")
+  let g = build(flat_proj, registry, source_map)
+  let init_var = find_var_in_def_init(proj, 0, "x")
+  inspect(declaration(g, init_var) is None, content="true")
+}
+
+///|
+test "resolve: second def init binds to first def" {
+  let (proj, flat_proj, registry, source_map) = build_fixture(
+    "let x = 1\nlet x = x\nx",
+  )
+  let g = build(flat_proj, registry, source_map)
+  let init_var = find_var_in_def_init(proj, 1, "x")
+  guard declaration(g, init_var) is Some(decl)
+  guard decl.kind is ModuleDef(def_index~)
+  inspect(def_index, content="0")
+}
