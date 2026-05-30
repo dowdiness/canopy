@@ -287,7 +287,10 @@ Checkers*, OOPSLA 2020, which compiles type rules to Datalog; and rust-analyzer'
 Salsa + `DefMap` as the non-scope-graph incremental baseline).
 
 - **Pro:** incrementality comes from the substrate; directly reuses an asset
-  canopy already has; strong precedent for incremental name resolution.
+  canopy already has (`loom/incr` ships `Relation` + `Runtime::new_rule` +
+  `fixpoint` + `MemoMap` — both the demand-driven memo layer AND a Datalog layer
+  coexist by design; cf. memory `project_incr_datalog_substrate`); strong
+  precedent for incremental name resolution.
 - **Con:** wrong altitude for v1. v1 is explicitly *non-incremental* (the user
   chose "verify-first: lock correctness before incrementality"). Introducing the
   Datalog substrate now couples the correctness milestone to the fixpoint
@@ -295,6 +298,17 @@ Salsa + `DefMap` as the non-scope-graph incremental baseline).
   correctness baseline to protect. Datalog is the natural **substrate for the
   reserved incremental future**, not for the v1 correctness layer. Deferring it
   keeps v1 debuggable as a plain batch computation.
+- **Subtlety to remember when this future is pursued:** a fixpoint engine is not
+  the same as incremental maintenance. Semi-naive evaluation speeds up computing
+  a fixpoint *from scratch*; incremental view maintenance (DRed / DRedL) updates
+  a result *when inputs change*. Having `fixpoint` does NOT by itself give
+  edit-incremental resolution. There is also an impedance question between the
+  two incremental models — the memo layer is demand-driven / pull / top-down
+  (Salsa-style verifying traces), while the Datalog layer is bottom-up / push.
+  These do not conflict in v1 (it uses neither incrementally), and `incr` already
+  reconciles them; the intended shape when we do go incremental is the
+  coarse-grained one in §Reserved (memo outside, fixpoint inside, unit
+  granularity), NOT a hand-rolled fusion of both.
 
 ### Alt 3 — NodeId-keyed binding index with scope-graph vocabulary (chosen)
 
@@ -333,6 +347,17 @@ breaking change):
      currently a SINGLE compilation unit.
    What remains is query-confirmation over negative observations, which is why
    `Resolution` already carries `decl: DeclId?` + `visited_scopes` in v1.
+   - **Start at unit granularity, not fine-grained.** When incrementality is
+     built, begin with the coarse shape: the `incr` memo decides whether a
+     file/module unit must be recomputed, and the resolution runs as a batch
+     fixpoint *inside* that unit. Avoid jumping straight to within-unit
+     fine-grained incremental (e.g. function-body-level DRedL). Reason: Zwaan
+     et al.'s query-confirmation stayed at compilation-unit granularity because
+     that was already sound and practical, whereas fine-grained DRedL is a
+     higher-cost solution that depends on the special structure of incremental
+     replacement of lattice values. Coarse-grained is enough; fine-grained is a
+     structure-dependent optimization to reach for only if measurement demands
+     it. This shape also keeps the cycle trap below easy to avoid.
    - **Cycle trap (Codex Q5):** if later layered on canopy's `loom/incr` Datalog
      substrate (`Relation` + `MemoMap`), a transitive-closure `MemoMap` compute
      fn MUST walk the base parent/def edges directly (iterative BFS or Datalog
