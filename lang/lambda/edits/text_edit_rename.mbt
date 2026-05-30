@@ -95,6 +95,9 @@ fn rename_lam_param(
 }
 
 ///|
+using @scope { type DeclKind }
+
+///|
 /// Rename a variable by resolving its binder and renaming at the definition site + all usages.
 fn rename_from_var(
   ctx : EditContext[@ast.Term],
@@ -102,25 +105,18 @@ fn rename_from_var(
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  guard resolve_binder(
-      var_node_id,
-      old_name,
-      ctx.flat_proj,
-      ctx.registry,
-      ctx.source_map,
-    )
-    is Some(binder) else {
+  let g = @scope.build(ctx.flat_proj, ctx.registry, ctx.source_map)
+  guard @scope.declaration(g, var_node_id) is Some(decl) else {
     return Err("No binding found for variable: " + old_name)
   }
-  match binder {
-    LamBinder(lam_id~) =>
+  match decl.kind {
+    DeclKind::LamParam(lam_id~) =>
       match ctx.registry.get(lam_id) {
         Some(lam_node) =>
           rename_lam_param(ctx, lam_id, lam_node, old_name, new_name)
         None => Err("Lambda node not found in registry")
       }
-    ModuleBinder(binding_node_id~, def_index~) => {
-      let _ = binding_node_id
+    DeclKind::ModuleDef(def_index~) => {
       // Find the Module node in the registry
       let mut module_id : NodeId? = None
       for pid, pnode in ctx.registry {
