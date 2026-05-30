@@ -8,7 +8,7 @@
 //       - Module defs: sequential scope (each def visible to subsequent defs + body)
 //       - Lam params: lexical scope (visible in the body)
 //       - Nested blocks: handled naturally by the scope stack
-//     No dependency on FlatProj or resolve_binder.
+//     No dependency on FlatProj or the edits-package binder lookup.
 //
 //   compute_highlight_set(selected_id, scope_map) → HashSet[NodeId]
 //     Given a clicked/navigated node, returns the set of NodeIds to highlight:

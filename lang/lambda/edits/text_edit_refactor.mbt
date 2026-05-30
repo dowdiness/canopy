@@ -140,14 +140,14 @@ fn compute_inline_definition(
     return Err("Var not in source map")
   }
   // Resolve the binding
-  guard resolve_binder(node_id, var_name, flat_proj, registry, source_map)
-    is Some(binder) else {
+  let g = @scope.build(flat_proj, registry, source_map)
+  guard @scope.declaration(g, node_id) is Some(decl) else {
     return Err("No binding found for variable: " + var_name)
   }
-  match binder {
-    LamBinder(..) =>
+  match decl.kind {
+    DeclKind::LamParam(..) =>
       return Err("Cannot inline lambda-bound variable: " + var_name)
-    ModuleBinder(def_index~, ..) => {
+    DeclKind::ModuleDef(def_index~) => {
       let def = flat_proj.defs[def_index]
       let init_text = @ast.print_term(def.1.kind)
       // Check for capture: would any free var in init be captured by a lambda at the usage site?

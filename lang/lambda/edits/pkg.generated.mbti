@@ -22,8 +22,6 @@ pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 
-pub fn resolve_binder(@core.NodeId, String, @proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]], @core.SourceMap) -> BindingSite?
-
 // Errors
 
 // Types and methods
@@ -40,11 +38,6 @@ pub(all) enum ActionGroup {
   Wrap
   Binding
   Module
-} derive(Eq, @debug.Debug)
-
-pub(all) enum BindingSite {
-  LamBinder(lam_id~ : @core.NodeId)
-  ModuleBinder(binding_node_id~ : @core.NodeId, def_index~ : Int)
 } derive(Eq, @debug.Debug)
 
 pub(all) struct EditContext[T] {

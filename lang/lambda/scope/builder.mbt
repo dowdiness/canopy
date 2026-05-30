@@ -118,8 +118,8 @@ fn Builder::add_ref(
 
 ///|
 /// Which flat-def index a node sits within, by source position; returns the
-/// def count (body sentinel) when the node is in the module body. Mirrors
-/// resolve_binder's def-range containment (scope.mbt:30-39).
+/// def count (body sentinel) when the node is in the module body. This is now
+/// the sole implementation of def-range containment for the lambda language.
 fn containing_def_index(
   flat_proj : @lambda_proj.FlatProj,
   source_map : @core.SourceMap,
