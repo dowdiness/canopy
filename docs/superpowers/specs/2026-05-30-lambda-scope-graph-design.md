@@ -46,9 +46,15 @@ differential tests.
 
 - **Incremental rebuild.** v1 rebuilds the whole graph each time, but correctly.
   Incrementality is a reserved extension point, not v1 work.
-- **Migrating all consumers.** v1 rewires exactly ONE consumer (`rename`'s
-  `resolve_binder`) and proves equivalence. `free_vars`,
-  `semantic_projection`, and `actions` migrate in later PRs.
+- **Migrating all consumers.** v1 rewires exactly ONE call: `rename`'s use of
+  `resolve_binder` → `declaration()`, proven equivalent. **rename's OTHER
+  dependencies stay on the old logic in v1** (Codex finding 3): its capture
+  checks via `free_vars`, its usage-edit enumeration via `find_usages`, and its
+  in-scope-name collection via `collect_lam_env` are NOT migrated in v1. Only
+  the binder-resolution step is swapped. `free_vars` / `find_usages` /
+  `collect_lam_env` / `semantic_projection` / `actions` migrate in later PRs.
+  This keeps the v1 equivalence test (Layer 3) scoped to a single, checkable
+  behavioral substitution.
 - **loom generalization.** The language-agnostic core lives in its own file so a
   future loom sibling package can lift it, but v1 does not extract it.
 - **Touching the loom submodule.** canopy `lang/lambda` already shares loom's
@@ -63,10 +69,19 @@ New package `lang/lambda/scope/`, split into three files by responsibility:
 ```
 ScopeGraph { scopes: Array[Scope], decls: Array[Decl], refs: Array[Ref] }
 Scope { id: ScopeId, parent: ScopeId?, decl_ids: Array[DeclId], ref_ids: Array[RefId] }
-Decl  { node_id: NodeId, name: String, scope: ScopeId }
+Decl  { node_id: NodeId, name: String, scope: ScopeId, kind: DeclKind }
 Ref   { node_id: NodeId, name: String, scope: ScopeId, resolution: Resolution }
 Resolution { decl: DeclId?, visited_scopes: Array[ScopeId] }
+DeclKind { LamParam(lam_id: NodeId) | ModuleDef(def_index: Int) }
 ```
+
+**`DeclKind` (Codex finding 1).** `Decl` must carry enough to reconstruct the
+current `BindingSite` returned by `resolve_binder`
+(`lang/lambda/edits/scope.mbt:3`): `LamBinder(lam_id)` and
+`ModuleBinder(binding_node_id, def_index)`. A bare `{ node_id, name, scope }`
+cannot reproduce `ModuleBinder.def_index` or distinguish the two binder kinds, so
+`DeclKind` records `LamParam(lam_id)` / `ModuleDef(def_index)`. The migrated
+`declaration()` maps `Decl{kind, node_id} -> BindingSite` losslessly.
 
 Everything is keyed by `core.NodeId` (stable across edits) rather than the
 position-dependent `Int` indices that caimeox uses. `ScopeId`/`DeclId`/`RefId`
@@ -120,8 +135,21 @@ one module scope.
 - `references(decl_node: NodeId) -> Array[NodeId]` — **identity-based**: returns
   refs whose `resolution.decl` points at this decl, NOT a name match. (Codex Q2:
   a name-based `find_usages` over-renames when shadowing is present.)
-- `enclosing_env(node: NodeId) -> Array[String]` — bound names in scope at a
-  node (replaces `collect_lam_env`).
+- `enclosing_env(node: NodeId) -> @immut/hashset.HashSet[String]` — bound names
+  in scope at a node (replaces `collect_lam_env`). **Set semantics** (Codex
+  finding 6): the current `collect_lam_env` returns a `HashSet[String]` and its
+  consumer (`text_edit_refactor.mbt` capture check) needs membership, not order;
+  the query mirrors that to avoid an impedance mismatch.
+
+**Token-span lookup is via the Module node, not the binding NodeId (Codex
+finding 2).** Module binding name spans are stored on the *Module* ProjNode under
+the role `"name:<def_index>"` (`lang/lambda/proj/populate_token_spans.mbt`,
+consumed by `lang/lambda/edits/text_edit_rename.mbt`), NOT on the FlatProj
+binding `NodeId` that `Decl.node_id` holds. Any go-to-definition / rename built
+on `declaration()` must therefore resolve a `ModuleDef` decl's edit span as
+`source_map.get_token_span(module_node_id, "name:" + def_index)`, using
+`DeclKind::ModuleDef(def_index)`. The graph stores `def_index` precisely so this
+lookup remains possible; the spec does NOT change where spans live.
 
 Dependency direction: `scope` depends on `core` (NodeId/SourceMap/ProjNode) and
 `lang/lambda/proj` (FlatProj/Term). `edits` / `semantic` / `rename` will depend
@@ -140,10 +168,19 @@ edit → projection rebuild (existing) → FlatProj + registry + SourceMap (exis
 
 ## Error handling
 
-- The builder ALWAYS returns a graph, even on partial / broken ASTs
-  (`Error` / `Hole` / `Unbound` nodes). A projectional editor is mid-edit
-  constantly, so resolution never `raise`s on unresolved names — they become
-  `Resolution{ decl: None, .. }` (a normal negative observation).
+- The builder ALWAYS returns a graph, even on partial / broken ASTs. A
+  projectional editor is mid-edit constantly, so resolution never `raise`s on
+  unresolved names.
+- **`Var` vs `Unbound` (Codex finding 4).** `Var(name)` and `Unbound(name)` are
+  BOTH emitted as a `Ref`, and an unresolvable one gets
+  `Resolution{ decl: None, .. }` (a normal negative observation). This is
+  deliberate: `semantic_projection` already treats `Unbound` as reference-like
+  for its free-variable diagnostics (`semantic_projection.mbt:67`), so excluding
+  it would drop a diagnostic the migrated consumer must keep. (`free_vars`
+  ignores `Unbound`; that asymmetry is a free_vars concern, not a graph concern —
+  the graph models both uniformly and each consumer filters as it needs.)
+- **`Error` / `Hole` nodes** carry no name and produce neither a `Decl` nor a
+  `Ref`; they are inert in the graph.
 - The only invariant violation is a **parent-chain cycle**. The builder asserts
   the parent DAG is acyclic at construction (Codex Q5). This is structurally
   impossible for tree-nested Lam/Module, so it is a defect guard via `fail()`
@@ -173,6 +210,14 @@ compare via a NodeId side-table`.
   `Error` / `Unbound` and has extra `Fix` / imports. Compare only the shared
   subset (Var / Lam / App / Module / let-equivalent); excluded constructs are
   covered by Layer 1.
+- **Adjudication rule (Codex finding 5):** caimeox is an oracle, NOT the spec of
+  record. The sequential-module semantics are defined by Canopy's cutoff-index
+  rule (§"Sequential-scope encoding") and by Layer 1's hand-derived expectations.
+  caimeox encodes `let` via `seqb` child-scope chaining; if that disagrees with
+  the cutoff encoding on some edge case, **Layer 1 + current-Canopy equivalence
+  (Layer 3) win, and the caimeox fixture is removed from the differential set**
+  (documented, not silently dropped — cf. "no silent caps"). caimeox earns trust
+  on the agreed subset; it does not override Canopy's own binding contract.
 - This is the operational form of design principle §6 ("make the discovered
   structure predict").
 
