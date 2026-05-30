@@ -411,6 +411,39 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-05-26-cognition-provider-boundary-design.md`
   Exit: a provider-client plan names the backend, driver clock/scheduling model, credential boundary, retry/redaction policy, and host integration surface. No real network/LLM code lands without that plan.
 
+## 20. Scope-Graph FlatProj Fidelity
+
+- [ ] Cross-pipeline resolution-equivalence property test (`@qc`).
+  Why: every `@scope` unit test and the `scope_equivalence_wbtest` oracle build
+  the `FlatProj` via `from_proj_node`, but the live editor builds it via
+  `to_flat_proj` → `to_proj_node_with_prev_module_id` → `collect_registry` →
+  `from_ast` (`lang/lambda/flat/projection_memo.mbt`). The two paths assign
+  module binder ids differently (init-node id vs synthetic `defs[i].3`), so the
+  hand-verified equivalence proof is certified on the `from_proj_node` path
+  only. Resolution does not read `node_id`, so it *should* transfer — but that
+  transfer is currently untested.
+  Plan: generate valid lambda source strings; for each, build the scope graph
+  through BOTH pipelines (a pure production-path driver reusing
+  `to_flat_proj`/`to_proj_node_with_prev_module_id`, bypassing the `@incr`
+  layer); match references by source range; assert equal normalized resolution
+  (`(tag, def_index)` for module, structural Lam position for lambda). Layer the
+  chosen module-`node_id` invariant on as a one-line property in the same
+  harness. Medium-band (generator + two-pipeline driver + range-matched
+  normalizer); its own PR.
+  Exit: thousands of generated cases agree on resolution across both pipelines;
+  edge set covered (empty/Unit body, error nodes, nested blocks, shadowing
+  chains). NOT a formal-verification target — the invariant spans the parser +
+  mutable Maps + a global id counter, outside any `moon prove` boundary; FV is
+  viable only for pure resolution kernels (e.g. `containing_def_index` bounds,
+  `resolve` cutoff exclusivity), which are a complement, not the answer.
+  Context: surfaced reviewing PR #398. The module-`node_id` divergence (a
+  synthetic id occupying no registry node, contradicting the `Decl` "occupies"
+  invariant) is recorded by the `to_flat_proj` contract test in
+  `lang/lambda/edits/scope_equivalence_wbtest.mbt` and the `Decl` doc note in
+  `lang/lambda/scope/graph.mbt`; reconcile it here, or when a consumer first
+  reads a module `node_id` as output (e.g. go-to-definition) — whichever lands
+  first.
+
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in
