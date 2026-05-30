@@ -95,7 +95,7 @@ fn rename_lam_param(
 }
 
 ///|
-using @scope { type DeclKind }
+using @scope {type DeclKind}
 
 ///|
 /// Rename a variable by resolving its binder and renaming at the definition site + all usages.

@@ -22,7 +22,10 @@ fn norm_binder(b : BindingSite) -> (String, NodeId, Int) {
 /// One equivalence check: declaration() must agree with resolve_binder on the
 /// chosen Var node. Returns true if both sides normalize to the same value
 /// (including both-None).
-fn agree(text : String, locate : (@core.ProjNode[@ast.Term]) -> NodeId) -> Bool raise {
+fn agree(
+  text : String,
+  locate : (@core.ProjNode[@ast.Term]) -> NodeId,
+) -> Bool raise {
   let (proj, _errs) = parse_to_proj_node(text)
   let fp = FlatProj::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
@@ -33,7 +36,8 @@ fn agree(text : String, locate : (@core.ProjNode[@ast.Term]) -> NodeId) -> Bool 
     Some(d) => Some(norm_decl(d))
     None => None
   }
-  let old_site = match resolve_binder(var_id, var_name_of(proj, var_id), fp, registry, sm) {
+  let old_site = match
+    resolve_binder(var_id, var_name_of(proj, var_id), fp, registry, sm) {
     Some(b) => Some(norm_binder(b))
     None => None
   }
@@ -87,7 +91,13 @@ test "equivalence: declaration() matches resolve_binder across all binding rules
   inspect(agree("λx. x", root => root.children[0].id()), content="true") // lam param
   inspect(agree("let x = 0\nx", root => find_var(root, "x")), content="true") // module body
   inspect(agree("let x = x\nx", root => find_var(root, "x")), content="true") // self-ref (first x is init → unbound)
-  inspect(agree("let x = 1\nlet x = 2\nx", root => find_var(root, "x")), content="true") // shadowing / latest
-  inspect(agree("let a = b\nlet b = 1\na", root => find_var(root, "b")), content="true") // earlier can't see later (free)
+  inspect(
+    agree("let x = 1\nlet x = 2\nx", root => find_var(root, "x")),
+    content="true",
+  ) // shadowing / latest
+  inspect(
+    agree("let a = b\nlet b = 1\na", root => find_var(root, "b")),
+    content="true",
+  ) // earlier can't see later (free)
   inspect(agree("λx. λx. x", root => find_var(root, "x")), content="true") // nested lam shadow
 }
