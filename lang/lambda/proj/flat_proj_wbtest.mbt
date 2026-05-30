@@ -321,9 +321,9 @@ test "FlatProj::to_proj_node: Module node_id seeded None still allocates fresh" 
 
 ///|
 test "to_flat_proj_incremental: changed_indices records non-reused defs" {
-  // NodeInterner deduplicates by structure: unchanged def x=1 gets the same
-  // interned CstNode even across independent parses, so physical_equal = true.
-  // Only the changed def (y=3 vs y=2) fails physical_equal → index 1 recorded.
+  // CstNode equality is structural: unchanged def x=1 at the same start offset
+  // compares equal even when source-span token rebasing rebuilds CST nodes.
+  // Only the changed def (y=3 vs y=2) fails equality → index 1 recorded.
   let counter = Ref(0)
   let old_root = parse_syntax("let x = 1\nlet y = 2\nx")
   let old_fp = to_flat_proj(old_root, counter)
@@ -343,11 +343,32 @@ test "to_flat_proj_incremental: changed_indices records non-reused defs" {
 }
 
 ///|
+test "to_flat_proj_incremental: shifted unchanged children are rebuilt" {
+  let counter = Ref(0)
+  let old_root = parse_syntax("let a = 0\nlet x = 1\nx")
+  let old_fp = to_flat_proj(old_root, counter)
+  let new_root = parse_syntax("let aa = 0\nlet x = 1\nx")
+  let changed = Ref(([] : Array[Int]))
+  let result = to_flat_proj_incremental(
+    new_root,
+    old_root,
+    old_fp,
+    counter,
+    changed_indices=changed,
+  )
+  ignore(result)
+  // The second def and final expression are structurally unchanged, but their
+  // source offsets shifted after the first def grew; reusing old ProjNodes would
+  // preserve stale source-map positions.
+  debug_inspect(changed.val, content="[0, 1, -1]")
+}
+
+///|
 test "to_flat_proj_incremental: same root means zero changed" {
   let counter = Ref(0)
   let root = parse_syntax("let x = 1\nlet y = 2\nx")
   let fp = to_flat_proj(root, counter)
-  // Same SyntaxNode — physical_equal succeeds for all children
+  // Same SyntaxNode — structural equality succeeds for all children
   let changed = Ref(([] : Array[Int]))
   let result = to_flat_proj_incremental(
     root,

@@ -38,12 +38,15 @@ pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
 ///|
 /// Build a FlatProj incrementally by comparing old and new CST children.
 ///
-/// For each child pair, compares underlying CstNodes. If unchanged
-/// (physical_equal via NodeInterner), reuses the old FlatProj entry
-/// directly — skipping both syntax_to_proj_node and reconcile.
-/// Only changed children are rebuilt and reconciled.
+/// For each child pair, compares start offset plus underlying CstNodes
+/// structurally. If unchanged, reuses the old FlatProj entry directly —
+/// skipping both syntax_to_proj_node and reconcile. Only changed children are
+/// rebuilt and reconciled.
 ///
-/// Cost: O(n) CstNode pointer comparisons + O(changed_subtree) rebuilds.
+/// Source-span CSTs no longer guarantee canonical physical identity across
+/// parses, so equality must use the stable structural CstNode contract.
+///
+/// Cost: O(n) CstNode equality checks + O(changed_subtree) rebuilds.
 pub fn to_flat_proj_incremental(
   new_root : @seam.SyntaxNode,
   old_root : @seam.SyntaxNode,
@@ -63,9 +66,10 @@ pub fn to_flat_proj_incremental(
     }
   }
   // Parallel scan: compare new LetDefs against old LetDefs by index.
-  // physical_equal checks pointer identity (same interned CstNode object).
-  // When content and position are both unchanged, the parser returns
-  // the exact same object, making physical_equal true.
+  // CstNode equality is structural and source-span independent, so unchanged
+  // definitions are recognized even when the parser rebuilt current-source
+  // token spans instead of returning the exact same heap object. The start
+  // check keeps reused ProjNode/source-map positions valid after shifts.
   let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
   let mut final_proj : ProjNode[@ast.Term]? = None
   let mut old_def_idx = 0
@@ -76,8 +80,9 @@ pub fn to_flat_proj_incremental(
       if old_def_idx < old_let_children.length() &&
         old_def_idx < old_fp.defs.length() {
         let old_child = old_let_children[old_def_idx]
-        if physical_equal(new_child.cst_node(), old_child.cst_node()) {
-          // Same pointer — safe to reuse old entry with same positions
+        if new_child.start() == old_child.start() &&
+          new_child.cst_node() == old_child.cst_node() {
+          // Same start and structure — safe to reuse old entry with same positions
           let old_entry = old_fp.defs[old_def_idx]
           defs.push((old_entry.0, old_entry.1, old_entry.2, old_entry.3))
           reused = true
@@ -99,7 +104,8 @@ pub fn to_flat_proj_incremental(
       }
     } else if final_proj is None {
       match old_final_child {
-        Some(old_fc) if physical_equal(new_child.cst_node(), old_fc.cst_node()) =>
+        Some(old_fc) if new_child.start() == old_fc.start() &&
+          new_child.cst_node() == old_fc.cst_node() =>
           final_proj = old_fp.final_expr
         _ => {
           any_changed = true
