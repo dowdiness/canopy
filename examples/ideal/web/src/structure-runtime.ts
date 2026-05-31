@@ -24,8 +24,23 @@ export type StructureModeSession = {
   setSelectedNode(id: string | null): void;
 };
 
-function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
-  const projJsonStr = crdt.get_proj_node_json(crdtHandle);
+/**
+ * Build the initial Structure-mode document from a ProjNode JSON string.
+ *
+ * When the projection is unavailable (`"null"` — e.g. a transient
+ * protected-read failure while switching into Structure mode) or conversion
+ * throws, fall back to a schema-valid placeholder.
+ *
+ * The placeholder MUST satisfy the editor schema: `doc` content is
+ * `module | term` and `module` content is `let_def* term`, so an empty
+ * `module` is invalid — it threw `RangeError: Invalid content for node
+ * module: <>` (#428) and aborted the whole mount. A bare `unit` term is the
+ * minimal valid empty document; the RAF / `set projNode` reconcile loop
+ * replaces it as soon as a real projection arrives.
+ *
+ * Exported for regression testing of the fallback path.
+ */
+export function buildStructureDoc(projJsonStr: string): PmNode {
   if (projJsonStr && projJsonStr !== "null") {
     try {
       return projNodeToDoc(JSON.parse(projJsonStr));
@@ -33,9 +48,11 @@ function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
       console.error("[canopy-editor] Failed to build PM doc:", error);
     }
   }
-  return editorSchema.node("doc", null, [
-    editorSchema.node("module", { nodeId: 0 }),
-  ]);
+  return editorSchema.node("doc", null, [editorSchema.node("unit")]);
+}
+
+function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
+  return buildStructureDoc(crdt.get_proj_node_json(crdtHandle));
 }
 
 function createStructureNodeViews() {
