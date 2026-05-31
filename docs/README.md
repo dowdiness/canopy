@@ -32,9 +32,11 @@ Read in order to build a mental model of the system.
    high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
 5. **[Module Structure](architecture/modules.md)** — how the monorepo and
    submodules map onto that pipeline.
-6. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
+6. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
+   boundaries, reuse-first APIs, and the current extension priority order.
+7. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
    the compositional engine underneath.
-7. **[Multi-Representation System](architecture/multi-representation-system.md)**
+8. **[Multi-Representation System](architecture/multi-representation-system.md)**
    — the `Printable` trait family (Show, Debug, Source, Pretty).
 
 > The earlier "Projectional Editing" deep-dive has been archived to

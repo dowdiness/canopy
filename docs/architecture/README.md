@@ -10,6 +10,9 @@ the files inside `docs/architecture/`.
   flow: Text CRDT → Incremental Parse → Projection → Rendering.
 - **[Module Structure](modules.md)** — how the monorepo and git submodules map
   onto that pipeline.
+- **[Responsibility Map and Extension Priorities](responsibility-map.md)** —
+  ownership boundaries, reuse-first APIs, and the follow-up issue sequence for
+  new language, semantic, collaboration, and MoonDsp work.
 - **[Projectional Editing](PROJECTIONAL_EDITING.md)** — what projectional
   editing means in Canopy specifically.
 - **[Edit Action Progression](edit-action-progression.md)** — how edits flow
