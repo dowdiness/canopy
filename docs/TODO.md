@@ -423,24 +423,27 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   so it is a regression guard, not a correctness oracle — the latter stays in
   `scope_equivalence_wbtest.mbt`.
 
-- [ ] Reconcile the module-binder `node_id` divergence (driven by go-to-definition).
+- [~] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
   Why: the PBT above *pins* the gap; it does not close it. The module-binder
   `node_id` is synthetic on the production path (occupies no real node,
   contradicting the `Decl` "occupies a projection node" invariant in
   `lang/lambda/scope/graph.mbt`), and three incompatible synthetic-id schemes
-  now exist (`to_flat_proj`, `from_proj_node`, and the negative id in
+  existed (`to_flat_proj`, `from_proj_node`, and the negative id in
   `examples/ideal/main/scope_annotation.mbt`, which bypasses `@scope` and
-  re-implements resolution). This blocks go-to-definition and duplicates the
-  resolver.
-  Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed
-  design, recommends Option D: an on-demand `@scope` binder-location accessor
-  over the already-populated SourceMap let-name token spans — no loom PR, no
-  `FlatProj` change). Driven by building go-to-definition.
-  Exit: go-to-definition lands on the binder name uniformly for module + lambda
-  bindings; `references` migrated off `Decl.node_id`; the #399 fixture + PBT
-  `node_id` invariants rewritten to affirm the binder-location contract; an
-  incremental↔full differential resolution test added for the `@incr` path the
-  PBT excludes.
+  re-implements resolution).
+  Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
+  Option D: an on-demand `@scope` binder-location accessor over the
+  already-populated SourceMap token spans — no loom PR, no `FlatProj` change;
+  `node_id` stays synthetic but is no longer the locator).
+  Shipped (plan steps 1, 2, 4): `@scope.binder_span` + `@scope.go_to_definition`
+  accessors (`lang/lambda/scope/query.mbt`); `references` migrated off
+  `Decl.node_id` to `DeclId`; §7.1 go-to-def behavioral tests
+  (`go_to_definition_wbtest.mbt`); the #399 fixture + cross-pipeline PBT
+  `node_id` invariants rewritten to affirm the binder-location contract
+  (locatable + pipeline-independent).
+  Remaining: (step 3) an incremental↔full differential resolution test for the
+  `@incr` path the PBT excludes; (step 5) collapse `scope_annotation.mbt` onto
+  `@scope` once the outline-highlight UI representation is decided (§5).
 
 ## Shipped history
 

@@ -36,12 +36,27 @@ fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
 fn graph_of(
   text : String,
 ) -> (@core.ProjNode[@ast.Term], FlatProj, @scope.ScopeGraph) raise {
-  let (proj, _errs) = parse_to_proj_node(text)
+  let (proj, fp, g, _sm) = graph_and_sm_of(text)
+  (proj, fp, g)
+}
+
+///|
+/// Like `graph_of`, but also populates token spans and returns the `SourceMap`,
+/// so callers can exercise `@scope.binder_span` (the Option-D binder-location
+/// accessor). Builds the proj from the SyntaxNode so `populate_token_spans` has
+/// a syntax tree to walk.
+fn graph_and_sm_of(
+  text : String,
+) -> (@core.ProjNode[@ast.Term], FlatProj, @scope.ScopeGraph, SourceMap) raise {
+  let (cst, _errs) = @parser.parse_cst(text)
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let proj = to_proj_node(syntax, Ref(0))
   let fp = FlatProj::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
+  populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, sm)
-  (proj, fp, g)
+  (proj, fp, g, sm)
 }
 
 // The following tests certify that `@scope.declaration` resolves each lambda
@@ -177,6 +192,7 @@ fn production_graph_of(
   @core.ProjNode[@ast.Term],
   Map[NodeId, ProjNode[@ast.Term]],
   @scope.ScopeGraph,
+  SourceMap,
 ) raise {
   let (cst, _diags) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -188,25 +204,27 @@ fn production_graph_of(
   // does; the synthetic binder ids are not placed into this tree.
   let proj = fp.to_proj_node(counter)
   let sm = SourceMap::from_ast(proj)
+  // Token spans are stored on the reconstructed Module/Lam nodes (by index +
+  // role), so `binder_span` works on the production path too — its locator is
+  // the source span, not the synthetic binder id.
+  populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, sm)
-  (proj, registry, g)
+  (proj, registry, g, sm)
 }
 
 ///|
-/// KNOWN-GAP record — NOT a desired contract. Through the production
-/// `to_flat_proj` pipeline, a module def's `Decl.node_id` is a synthetic
-/// FlatProj binder id that occupies no registry node — so it does NOT satisfy
-/// the "occupies a projection node" property that the lambda-param case does.
-/// The `Decl` doc in `lang/lambda/scope/graph.mbt` records this as a known
-/// divergence to reconcile; this test pins it so it is not silently
-/// load-bearing. When a consumer first needs a module binder to land on a real
-/// tree node (e.g. go-to-definition) and the fix makes binder ids real nodes,
-/// this `is None` assertion will flip to `is Some(_)` — and that failure is the
-/// INTENDED signal that the invariant was restored, not a regression. See also
-/// the deferred cross-pipeline PBT (docs/TODO.md §20).
-test "module Decl.node_id is a synthetic non-registry id on the production path (known gap vs graph.mbt invariant)" {
-  let (proj, registry, g) = production_graph_of("let x = 0\nx")
+/// Option-D binder-location contract on the PRODUCTION path (docs/TODO.md §20,
+/// resolved). Through `to_flat_proj` a module def's `Decl.node_id` is a
+/// synthetic FlatProj binder id occupying no registry node — but locating the
+/// binder no longer depends on `node_id`: `@scope.binder_span` resolves it via
+/// the module node's `"name:<def_index>"` token span. This SUPERSEDES the former
+/// "known gap" pin (which expected `node_id` to become a real node); Option D
+/// instead sidesteps `node_id` entirely, so its syntheticness is now an internal
+/// detail and is deliberately no longer asserted. The companion assertion that
+/// this location is pipeline-independent lives in the cross-pipeline PBT.
+test "production path: module binder located via binder_span (Option D, supersedes §20 gap)" {
+  let (proj, registry, g, sm) = production_graph_of("let x = 0\nx")
   let ref_id = find_var(proj, "x") // body Var x
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -214,6 +232,10 @@ test "module Decl.node_id is a synthetic non-registry id on the production path 
   let (tag, binder, def_index) = norm_decl(d)
   inspect(tag, content="module")
   inspect(def_index, content="0")
-  // The divergence: the resolved module binder id is NOT a node in the registry.
+  // `node_id` is NOT the locator — it remains a synthetic non-registry id …
   inspect(registry.get(binder) is None, content="true")
+  // … yet the binder is locatable: "let x = 0" → name token "x" at 4..5.
+  guard @scope.binder_span(g, d, sm) is Some(r)
+  inspect(r.start, content="4")
+  inspect(r.end, content="5")
 }
