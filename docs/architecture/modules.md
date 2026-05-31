@@ -4,13 +4,19 @@ The codebase is organized as a **monorepo with git submodules**:
 
 ## Git Submodules (Standalone Libraries)
 
+`.gitmodules` is authoritative for which submodules exist; this table adds the
+GitHub repo and MoonBit-module mapping on top of that list.
+
 | Submodule | GitHub Repo | MoonBit Module |
 |---|---|---|
 | `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | `dowdiness/event-graph-walker` |
-| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | `dowdiness/loom`, `dowdiness/seam`, `dowdiness/incr`, `dowdiness/text_change`, `dowdiness/moji`, `dowdiness/lambda` |
-| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | `antisatori/svg-dsl` |
-| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | `antisatori/graphviz` |
+| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | `dowdiness/loom`, `dowdiness/seam`, `dowdiness/incr`, `dowdiness/text_change`, `dowdiness/moji`, `dowdiness/pretty`, `dowdiness/lambda` (loom is itself a nested monorepo — see the `loom/` section below) |
+| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | `dowdiness/svg-dsl` |
+| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | `dowdiness/graphviz` |
 | `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | `dowdiness/rle` |
+| `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | `dowdiness/order-tree` (backs event-graph-walker) |
+| `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | `dowdiness/alga` (backs event-graph-walker) |
+| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | vendored community UI library — not a root `moon.mod.json` dependency |
 
 ## `event-graph-walker/` Module (Core CRDT Library)
 
@@ -48,7 +54,13 @@ The `crdt` module depends on `dowdiness/lambda` (`loom/examples/lambda/`) and `d
 - `loom/incr/` — `dowdiness/incr`: reactive signals (`Signal`, `Memo`)
 - `loom/text-change/` — `dowdiness/text_change`: pure contiguous text-change utilities
 - `loom/moji/` — `dowdiness/moji`: UAX #29 grapheme and word-boundary segmentation
+- `loom/pretty/` — `dowdiness/pretty`: Wadler-Lindig pretty-printer
 - `loom/examples/lambda/` — `dowdiness/lambda`: lambda calculus tokenizer, grammar, AST, benchmarks
+
+The above are the packages the `crdt` root consumes. `loom` is itself a nested
+monorepo (its own `loom/.gitmodules` declares `incr`/`egraph`/`egglog`/`event-graph-walker`,
+and `loom/examples/` adds `json`/`markdown`); `loom/`'s own `moon.mod.json` and
+`.gitmodules` are authoritative for its full package set.
 
 **See:** [loom/README.md](../../loom/README.md) for detailed documentation.
 
@@ -136,19 +148,26 @@ crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdin
 
 ## MoonBit Module Configuration
 
-The root `moon.mod.json` declares path dependencies on the submodules:
+The root [`moon.mod.json`](../../moon.mod.json) is the **authoritative** list of
+`dowdiness/*` dependencies — do not re-curate the full set here, or it re-drifts
+(this section previously listed 5 of 15 deps and went stale).
+
+Two declaration shapes appear there:
 
 ```json
 {
   "deps": {
-    "dowdiness/event-graph-walker": { "path": "./event-graph-walker" },
-    "dowdiness/text_change": { "path": "./loom/text-change" },
-    "dowdiness/moji": { "path": "./loom/moji" },
-    "dowdiness/lambda": { "path": "./loom/examples/lambda" },
-    "dowdiness/loom": { "path": "./loom/loom" }
+    // path dep — resolves to an in-repo submodule directory
+    "dowdiness/loom": { "path": "./loom/loom" },
+    // registry dep — pinned to a published mooncakes version
+    "dowdiness/incr": "0.5.2"
   }
 }
 ```
+
+Most `dowdiness/*` deps are path deps into the submodules above; `incr` is the
+notable exception, consumed as a registry version. For the complete, current
+list, read `moon.mod.json` directly.
 
 ## Run Tests
 
