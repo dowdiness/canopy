@@ -150,7 +150,14 @@ fn compute_inline_definition(
       let init_text = @ast.print_term(def.1.kind)
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.1.kind, @immut/hashset.new())
-      if free_names_captured_at_node(g, node_id, init_fv) {
+      if free_names_would_rebind_at_node(
+          g,
+          flat_proj,
+          source_map,
+          def.1,
+          node_id,
+          init_fv,
+        ) {
         return Err(
           "Cannot inline: would capture variables bound by enclosing lambda",
         )
@@ -251,7 +258,14 @@ fn compute_inline_all_usages(
   // Check for capture: would any free var in init be captured by an enclosing scope at any reference site?
   let init_fv = free_vars(def.1.kind, @immut/hashset.new())
   for rid in ref_ids {
-    if free_names_captured_at_node(g, rid, init_fv) {
+    if free_names_would_rebind_at_node(
+        g,
+        flat_proj,
+        source_map,
+        def.1,
+        rid,
+        init_fv,
+      ) {
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )

@@ -1170,8 +1170,26 @@ test "compute_text_edit: InlineDefinition rejects capture" {
 }
 
 ///|
-test "compute_text_edit: InlineDefinition rejects module-def enclosing env capture" {
+test "compute_text_edit: InlineDefinition allows same module-def reference" {
   let text = "let y = 1\nlet x = y\nx"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 1\ny")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition rejects later module-def shadow capture" {
+  let text = "let y = 1\nlet x = y\nlet y = 2\nx"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
@@ -1200,8 +1218,25 @@ test "compute_text_edit: InlineAllUsages rejects capture" {
 }
 
 ///|
-test "compute_text_edit: InlineAllUsages rejects module-def enclosing env capture" {
+test "compute_text_edit: InlineAllUsages allows same module-def reference" {
   let text = "let y = 1\nlet x = y\nx"
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=fp.defs[1].3),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = 1\ny")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineAllUsages rejects later module-def shadow capture" {
+  let text = "let y = 1\nlet x = y\nlet y = 2\nx"
   let (_, sm, registry, fp) = parse_with_token_spans(text)
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=fp.defs[1].3),

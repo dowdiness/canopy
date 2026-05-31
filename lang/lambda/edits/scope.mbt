@@ -50,18 +50,6 @@ fn name_captured_at_node(
 }
 
 ///|
-fn free_names_captured_at_node(
-  g : @scope.ScopeGraph,
-  node_id : NodeId,
-  free_names : @immut/hashset.HashSet[String],
-) -> Bool {
-  let env = @scope.enclosing_env(g, node_id)
-  let mut captured = false
-  free_names.each(fn(v) { if env.contains(v) { captured = true } })
-  captured
-}
-
-///|
 fn free_names_captured_at_use_sites(
   g : @scope.ScopeGraph,
   node : ProjNode[@ast.Term],
@@ -76,6 +64,101 @@ fn free_names_captured_at_use_sites(
     }
   })
   captured
+}
+
+///|
+fn def_cutoff_at_node(
+  flat_proj : FlatProj,
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> Int {
+  guard source_map.get_range(node_id) is Some(r) else {
+    return flat_proj.defs.length()
+  }
+  flat_proj.defs
+  .search_by(fn(def) {
+    source_map.get_range(def.1.id()) is Some(dr) &&
+    r.start >= dr.start &&
+    r.start < dr.end
+  })
+  .unwrap_or(flat_proj.defs.length())
+}
+
+///|
+fn scope_id_for_node(
+  g : @scope.ScopeGraph,
+  node_id : NodeId,
+) -> @scope.ScopeId? {
+  match g.refs.iter().find_first(fn(r) { r.node_id == node_id }) {
+    Some(r) => Some(r.scope)
+    None =>
+      g.decls
+      .iter()
+      .find_first(fn(d) { d.node_id == node_id })
+      .map(fn(d) { d.scope })
+  }
+}
+
+///|
+fn declaration_id_for_name_at_node(
+  g : @scope.ScopeGraph,
+  flat_proj : FlatProj,
+  source_map : SourceMap,
+  node_id : NodeId,
+  name : String,
+) -> @scope.DeclId? {
+  guard scope_id_for_node(g, node_id) is Some(start_scope) else { return None }
+  let cutoff = def_cutoff_at_node(flat_proj, source_map, node_id)
+  let mut cur : @scope.ScopeId? = Some(start_scope)
+  while cur is Some(sid) {
+    let @scope.ScopeId(si) = sid
+    let scope = g.scopes[si]
+    let mut hit : @scope.DeclId? = None
+    for did in scope.decl_ids {
+      let @scope.DeclId(di) = did
+      let decl = g.decls[di]
+      if decl.name == name {
+        match decl.kind {
+          @scope.DeclKind::ModuleDef(def_index~) =>
+            if def_index < cutoff {
+              hit = Some(did)
+            }
+          @scope.DeclKind::LamParam(_) => hit = Some(did)
+        }
+      }
+    }
+    if hit is Some(_) {
+      return hit
+    }
+    cur = scope.parent
+  }
+  None
+}
+
+///|
+fn free_names_would_rebind_at_node(
+  g : @scope.ScopeGraph,
+  flat_proj : FlatProj,
+  source_map : SourceMap,
+  source_node : ProjNode[@ast.Term],
+  target_node_id : NodeId,
+  free_names : @immut/hashset.HashSet[String],
+) -> Bool {
+  let mut rebound = false
+  free_names.each(fn(v) {
+    let var_ids : Array[NodeId] = []
+    collect_var_usages(source_node, v, var_ids)
+    let target_decl = declaration_id_for_name_at_node(
+      g, flat_proj, source_map, target_node_id, v,
+    )
+    for vid in var_ids {
+      let source_decl = @scope.declaration(g, vid).map(fn(d) { d.id })
+      if source_decl != target_decl {
+        rebound = true
+      }
+    }
+  })
+  rebound
 }
 
 ///|
