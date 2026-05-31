@@ -99,7 +99,8 @@ fn analyze_module(
       binder_id,
       @protocol.ViewAnnotation(kind="semantic-binder", label="let " + name),
     )
-    match source_map.get_token_span(node.id(), "name:" + i.to_string()) {
+    match
+      source_map.get_token_span(node.id(), @lambda_proj.module_name_role(i)) {
       Some(range) =>
         add_decoration(
           projection,
@@ -151,7 +152,7 @@ fn analyze_lambda(
     node.id(),
     @protocol.ViewAnnotation(kind="semantic-binder", label="λ" + param),
   )
-  match source_map.get_token_span(node.id(), "param") {
+  match source_map.get_token_span(node.id(), @lambda_proj.PARAM_ROLE) {
     Some(range) =>
       add_decoration(
         projection,

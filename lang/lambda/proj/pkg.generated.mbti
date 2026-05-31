@@ -9,6 +9,10 @@ import {
 }
 
 // Values
+pub const PARAM_ROLE : String = "param"
+
+pub fn module_name_role(Int) -> String
+
 pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit

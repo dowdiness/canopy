@@ -41,7 +41,7 @@ fn rename_lam_param(
   }
   let edits : Array[SpanEdit] = []
   // Get param token span
-  match source_map.get_token_span(lam_id, "param") {
+  match source_map.get_token_span(lam_id, @lambda_proj.PARAM_ROLE) {
     Some(param_range) =>
       edits.push({
         start: param_range.start,
@@ -196,7 +196,7 @@ fn rename_module_binding(
   }
   let edits : Array[SpanEdit] = []
   // Get the name token span
-  let role = "name:" + def_index.to_string()
+  let role = @lambda_proj.module_name_role(def_index)
   match source_map.get_token_span(module_id, role) {
     Some(name_range) =>
       edits.push({

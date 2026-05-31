@@ -28,19 +28,16 @@ pub(all) struct Scope {
 } derive(Debug)
 
 ///|
-/// A declaration (binding site). `node_id` identifies the binder, but its
-/// relationship to the projection tree differs by kind, and the module case is
-/// a KNOWN divergence to reconcile (not a settled contract):
-/// - lambda param: `node_id` IS the `Lam` projection node it occupies.
-/// - module def: `node_id` is the FlatProj binder id (`defs[i].3`). On the
-///   production `to_flat_proj` path this is a SYNTHETIC id occupying no registry
-///   node — so it does NOT satisfy "the projection NodeId it occupies" the way
-///   the lambda case does. Consumers needing a tree node for a module binder
-///   must currently map through `def_index`, not `node_id`.
-/// This gap (recorded by the `to_flat_proj` contract test in `lang/lambda/edits`)
-/// should be revisited the first time a consumer reads a module `node_id` as an
-/// output (e.g. go-to-definition); making module binder ids real tree nodes is
-/// the path that restores the uniform invariant.
+/// A declaration (binding site). A binder's LOCATION is its source span,
+/// recovered uniformly via `binder_span` (which reads `SourceMap` token spans),
+/// not via `node_id`:
+/// - lambda param: the `"param"` token span on the `Lam` node (`kind`'s `lam_id`).
+/// - module def: the `"name:<def_index>"` token span on the module node
+///   (`ScopeGraph::module_node_id`).
+/// `node_id` is retained only as an internal dedup/identity handle. It is NOT a
+/// reliable tree-node pointer for module defs (on the production `to_flat_proj`
+/// path it is a synthetic id occupying no registry node), so consumers needing
+/// to locate a binder MUST use `binder_span`, never `node_id`.
 pub(all) struct Decl {
   id : DeclId
   node_id : @core.NodeId
@@ -72,8 +69,13 @@ pub(all) struct Resolution {
 
 ///|
 /// The binding index for one lambda module.
+/// `module_node_id` is the root projection node that owns the module-def name
+/// token spans (`"name:<def_index>"` in the `SourceMap`); `binder_span` reads
+/// them through it. For a bare-expression program (no defs) it is the root
+/// expression node and the name-span path is never exercised.
 pub(all) struct ScopeGraph {
   scopes : Array[Scope]
   decls : Array[Decl]
   refs : Array[Ref]
+  module_node_id : @core.NodeId
 } derive(Debug)

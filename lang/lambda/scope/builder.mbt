@@ -70,7 +70,7 @@ fn root_node(
 fn Builder::pass2(
   self : Builder,
   flat_proj : @lambda_proj.FlatProj,
-  registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
+  root : @core.ProjNode[@ast.Term],
 ) -> Unit {
   let root_scope = self.add_scope(None)
   for i, def in flat_proj.defs {
@@ -99,7 +99,7 @@ fn Builder::pass2(
     }
   }
 
-  walk(root_node(registry), root_scope)
+  walk(root, root_scope)
 }
 
 ///|
@@ -211,7 +211,8 @@ pub fn build(
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
   let b = Builder::new()
-  b.pass2(flat_proj, registry)
+  let root = root_node(registry)
+  b.pass2(flat_proj, root)
   b.pass3(flat_proj, registry, source_map)
-  { scopes: b.scopes, decls: b.decls, refs: b.refs }
+  { scopes: b.scopes, decls: b.decls, refs: b.refs, module_node_id: root.id() }
 }

@@ -4,14 +4,23 @@
 // Two pipelines build a `FlatProj` from the same source, then a scope graph
 // resolves each Var reference to a declaration. The pipelines assign a module
 // def's binder id (`defs[i].3`) differently:
-//   - TEST path (`graph_of` / `from_proj_node`): reuses the init node's id (a
-//     real node present in the reconstructed tree);
+//   - TEST path (`graph_and_sm_of` / `from_proj_node`): reuses the init node's
+//     id (a real node present in the reconstructed tree);
 //   - PRODUCTION path (`production_graph_of` / `to_flat_proj`): allocates a
 //     SYNTHETIC binder id occupying no registry node.
 // Resolution never reads `node_id` (`Builder::resolve` matches name + def_index
 // < cutoff), so the hand-verified equivalence proof in
 // `scope_equivalence_wbtest.mbt` SHOULD transfer to production — this PBT pins
 // that transfer generatively, across many sources.
+//
+// It also pins the Option-D binder-location contract (docs/TODO.md §20): each
+// resolved declaration is LOCATABLE via `@scope.binder_span`, and that location
+// is pipeline-INDEPENDENT — both pipelines derive the binder span from the same
+// syntax token offsets, so the accessor agrees even though the internal binder
+// `node_id` values diverge. This SUPERSEDES the former gap pin (which asserted
+// the module binder `node_id` was synthetic / not in the registry); Option D
+// locates binders by source span, not `node_id`, so that syntheticness is now
+// an internal detail rather than a gap awaiting a fix.
 //
 // HOW IT STAYS NON-CIRCULAR (see memory: feedback_drift_detector_non_circular)
 // The two pipelines differ exactly in their node-id *values*; node ids are
@@ -145,36 +154,6 @@ fn normalize_decl(
 }
 
 ///|
-/// Pin the production-path `node_id` invariant for BOTH declaration kinds
-/// (docs/TODO.md §20). On the `to_flat_proj` path a module binder id is
-/// synthetic and occupies NO registry node (the #398/#399 known gap), while a
-/// lambda binder is a real `Lam` node and IS in the registry. The module half
-/// flipping to `Some(_)` is the INTENDED signal that the gap was reconciled.
-fn assert_production_node_id_invariants(
-  decl : @scope.Decl?,
-  registry : Map[NodeId, ProjNode[@ast.Term]],
-) -> Unit raise {
-  match decl {
-    None => ()
-    Some(d) =>
-      match d.kind {
-        ModuleDef(_) =>
-          if registry.get(d.node_id) is Some(_) {
-            fail(
-              "production: module binder node_id is IN the registry — the synthetic-id gap was closed; update §20 + #399 contract test",
-            )
-          }
-        LamParam(lam_id~) =>
-          if registry.get(lam_id) is None {
-            fail(
-              "production: LamParam binder NOT in registry — expected a real Lam node",
-            )
-          }
-      }
-  }
-}
-
-///|
 /// Drive both pipelines on one source string and assert resolution agreement.
 /// `expect_clean` asserts zero parser diagnostics (the generated/well-formed
 /// property); error-recovery fixtures pass `expect_clean=false` since both
@@ -186,12 +165,12 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
       fail("expected clean parse but got \{diags.length()} diagnostic(s)")
     }
   }
-  // Pipeline 1: test path (from_proj_node).
-  let (proj1, _fp1, g1) = graph_of(text)
+  // Pipeline 1: test path (from_proj_node), with token spans for binder_span.
+  let (proj1, _fp1, g1, sm1) = graph_and_sm_of(text)
   let reg1 = scope_test_registry(proj1)
   let ranges1 = def_init_ranges(proj1)
-  // Pipeline 2: production path (to_flat_proj).
-  let (proj2, reg2, g2) = production_graph_of(text)
+  // Pipeline 2: production path (to_flat_proj), with token spans.
+  let (proj2, reg2, g2, sm2) = production_graph_of(text)
   let ranges2 = def_init_ranges(proj2)
   assert_lam_ranges_unique(reg1)
   assert_lam_ranges_unique(reg2)
@@ -207,7 +186,28 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
     guard n1 == n2 else {
       fail("resolution disagrees for Var \{key}: test=\{n1} production=\{n2}")
     }
-    assert_production_node_id_invariants(d2, reg2)
+    // Option D, two DISTINCT affirmations (don't conflate):
+    // (1) locatability (`is Some`) — the production module binder, whose
+    //     internal `node_id` is synthetic, is now reachable at all via
+    //     binder_span; this is what supersedes the old node_id-in-registry pin.
+    // (2) `bs1 == bs2` — the two INDEPENDENTLY-reconstructed trees map this
+    //     binder to the SAME source location. Both spans derive from the same
+    //     parse, so equality mainly guards against a def-order/count drift
+    //     between the pipelines (it does NOT, on its own, exercise the node_id
+    //     divergence — a bad binder key yields None, caught by (1)).
+    if (d1, d2) is (Some(dd1), Some(dd2)) {
+      let bs1 = @scope.binder_span(g1, dd1, sm1)
+      let bs2 = @scope.binder_span(g2, dd2, sm2)
+      guard bs2 is Some(_) else {
+        fail("production: binder not locatable via binder_span for \{key}")
+      }
+      guard bs1 is Some(_) else {
+        fail("test pipeline: binder not locatable via binder_span for \{key}")
+      }
+      guard bs1 == bs2 else {
+        fail("binder location disagrees across pipelines for Var \{key}")
+      }
+    }
   }
 }
 

@@ -168,8 +168,8 @@ test "references: identity-based, shadowing-aware" {
     "let x = 1\nlet x = 2\nx",
   )
   let g = build(flat_proj, registry, source_map)
-  let def1 = g.decls[1].node_id
-  let def0 = g.decls[0].node_id
+  let def1 = g.decls[1].id
+  let def0 = g.decls[0].id
   inspect(references(g, def1).length() >= 1, content="true")
   inspect(references(g, def0).length(), content="0")
 }

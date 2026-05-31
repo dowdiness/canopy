@@ -2,7 +2,6 @@
 package "dowdiness/canopy/lang/lambda/scope"
 
 import {
-  "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
@@ -10,20 +9,24 @@ import {
 }
 
 // Values
-pub fn build(@proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]], @core.SourceMap) -> ScopeGraph
+pub fn binder_span(ScopeGraph, Decl, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
 
-pub fn declaration(ScopeGraph, @core.NodeId) -> Decl?
+pub fn build(@proj.FlatProj, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
 
-pub fn enclosing_env(ScopeGraph, @core.NodeId) -> @hashset.HashSet[String]
+pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
 
-pub fn references(ScopeGraph, @core.NodeId) -> Array[@core.NodeId]
+pub fn enclosing_env(ScopeGraph, @dowdiness/canopy/core.NodeId) -> @hashset.HashSet[String]
+
+pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @dowdiness/loom/core.Range?
+
+pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
 // Errors
 
 // Types and methods
 pub(all) struct Decl {
   id : DeclId
-  node_id : @core.NodeId
+  node_id : @dowdiness/canopy/core.NodeId
   name : String
   scope : ScopeId
   kind : DeclKind
@@ -32,13 +35,13 @@ pub(all) struct Decl {
 pub(all) struct DeclId(Int) derive(Compare, Eq, Hash, @debug.Debug)
 
 pub(all) enum DeclKind {
-  LamParam(lam_id~ : @core.NodeId)
+  LamParam(lam_id~ : @dowdiness/canopy/core.NodeId)
   ModuleDef(def_index~ : Int)
 } derive(Eq, @debug.Debug)
 
 pub(all) struct Ref {
   id : RefId
-  node_id : @core.NodeId
+  node_id : @dowdiness/canopy/core.NodeId
   name : String
   scope : ScopeId
   resolution : Resolution
@@ -62,6 +65,7 @@ pub(all) struct ScopeGraph {
   scopes : Array[Scope]
   decls : Array[Decl]
   refs : Array[Ref]
+  module_node_id : @dowdiness/canopy/core.NodeId
 } derive(@debug.Debug)
 
 pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)

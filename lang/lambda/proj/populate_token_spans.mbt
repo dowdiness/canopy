@@ -41,7 +41,7 @@ fn collect_token_spans_source_file(
             // owns the defs array. So we store the name span on the Module
             // node with a role like "name:0", "name:1", etc.
             // Use index-based key for stability across renames
-            let role = "name:" + def_idx.to_string()
+            let role = module_name_role(def_idx)
             source_map.set_span_from_token(
               proj_root.id(),
               role,
@@ -98,7 +98,7 @@ fn collect_token_spans_expr(
     // Extract param token span
     source_map.set_span_from_token(
       proj_node.id(),
-      "param",
+      PARAM_ROLE,
       syntax_node,
       @syntax.IdentToken.to_raw(),
     )
