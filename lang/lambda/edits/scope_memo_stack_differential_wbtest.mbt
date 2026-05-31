@@ -192,18 +192,41 @@ fn assert_level_b_agrees(
 
 ///|
 /// Drive a non-empty edit sequence through the memo stack, asserting agreement
-/// after every step (reading BOTH memos each step). Covers structural edits whose
-/// def-count / final-expr changes force the memo's full-rebuild fallback, so the
-/// `_ => full rebuild` arm is exercised alongside the patch arm.
-fn lb_run_sequence(sources : Array[String]) -> Unit raise {
+/// after every step (reading BOTH memos each step), and RETURN a per-step
+/// patch/rebuild drive-log so the caller can `inspect` it.
+///
+/// Non-vacuity (feedback_differential_test_non_vacuity_every_path): a full-vs-full
+/// agreement test passes even if the memo silently regressed to always-patch or
+/// always-rebuild. These structural sequences exist to exercise the `_ => full
+/// rebuild` arm, but agreement alone never proves which arm fired. The drive-log
+/// records, per step, whether each memo kept object identity (`P` = the in-place
+/// patch branch ran) or allocated fresh (`R` = full rebuild) — classification by
+/// the same `physical_equal` identity the explicit patch/skew tests use.
+/// Snapshotting it pins the arm actually taken at every step, so a regression that
+/// flips a patch to a rebuild (or vice versa) changes the snapshot and fails the
+/// test. Reads stay in lockstep (both memos every step), so no accidental revision
+/// skew creeps in and the only rebuilds recorded are structural
+/// (changed_def_indices = None).
+fn lb_run_sequence(sources : Array[String]) -> String raise {
   guard sources.length() >= 1 else { fail("lb_run_sequence needs >=1 source") }
   let stack = LevelBStack(sources[0])
   assert_level_b_agrees(stack, sources[0], "init:\{sources[0]}")
+  let mut log = ""
   for i in 1..<sources.length() {
+    // Both memos are up-to-date here (the previous step read both), so these reads
+    // return cached values and keep the two revisions in lockstep.
+    let reg_before = stack.registry_memo.read_or_abort()
+    let sm_before = stack.source_map_memo.read_or_abort()
     stack.apply(sources[i - 1], sources[i])
+    let reg_after = stack.registry_memo.read_or_abort()
+    let sm_after = stack.source_map_memo.read_or_abort()
+    let r = if physical_equal(reg_before, reg_after) { "P" } else { "R" }
+    let s = if physical_equal(sm_before, sm_after) { "P" } else { "R" }
+    log = log + "reg\{r}/sm\{s} "
     assert_level_b_agrees(stack, sources[i], "edit\{i}:\{sources[i]}")
   }
   stack.dispose()
+  log
 }
 
 // ---------------------------------------------------------------------------
@@ -313,29 +336,49 @@ test "level-B: def-init patch chain keeps registry+source_map identity every ste
 }
 
 // ---------------------------------------------------------------------------
-// Structural sequences — insert/delete defs and earlier-def growth that shifts
-// later defs. These change def count / offsets, so the memo's full-rebuild
-// fallback (the `_ =>` arm) drives most steps; agreement is asserted throughout.
+// Structural sequences — def insert/delete (a def-count change drives the
+// full-rebuild `_ =>` arm) plus earlier-def growth and a binder rename (def count
+// unchanged, so the in-place patch arm fires even though offsets shift). The
+// per-step drive-log snapshot in each test records the arm actually taken (R vs
+// P), so the patch/rebuild mix is pinned by observation, not assumed — a
+// regression that flips an arm changes the snapshot.
 // ---------------------------------------------------------------------------
 
 ///|
 test "level-B: insert and delete defs agree through the memo stack" {
-  lb_run_sequence([
-    "let x = 0\nx", "let x = 0\nlet y = 1\nx", "let x = 0\nlet y = 1\nlet z = 2\n(x z)",
-    "let x = 0\nlet z = 2\n(x z)", "let z = 2\nz",
-  ])
+  // Drive-log snapshot pins which memo arm fired each step (P=patch, R=rebuild);
+  // def-count changes force the structural full-rebuild arm this sequence targets.
+  inspect(
+    lb_run_sequence([
+      "let x = 0\nx", "let x = 0\nlet y = 1\nx", "let x = 0\nlet y = 1\nlet z = 2\n(x z)",
+      "let x = 0\nlet z = 2\n(x z)", "let z = 2\nz",
+    ]),
+    content=(
+      #|regR/smR regR/smR regR/smR regR/smR 
+    ),
+  )
 }
 
 ///|
 test "level-B: growing an earlier def shifts later defs (memo stack agrees)" {
-  lb_run_sequence([
-    "let a = 0\nlet b = 1\n(a + b)", "let a = (0 + 0)\nlet b = 1\n(a + b)", "let a = ((0 + 0) + 0)\nlet b = 1\n(a + b)",
-  ])
+  inspect(
+    lb_run_sequence([
+      "let a = 0\nlet b = 1\n(a + b)", "let a = (0 + 0)\nlet b = 1\n(a + b)", "let a = ((0 + 0) + 0)\nlet b = 1\n(a + b)",
+    ]),
+    content=(
+      #|regP/smP regP/smP 
+    ),
+  )
 }
 
 ///|
 test "level-B: rename a binder flips shadowing through the memo stack" {
-  lb_run_sequence([
-    "let x = 1\nlet x = 2\nx", "let x = 1\nlet w = 2\nx", "let x = 1\nlet x = 2\nx",
-  ])
+  inspect(
+    lb_run_sequence([
+      "let x = 1\nlet x = 2\nx", "let x = 1\nlet w = 2\nx", "let x = 1\nlet x = 2\nx",
+    ]),
+    content=(
+      #|regP/smP regP/smP 
+    ),
+  )
 }
