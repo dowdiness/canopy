@@ -16,8 +16,6 @@ pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@c
 
 pub fn find_binding_for_init(@core.NodeId, @proj.FlatProj) -> (@core.NodeId, Int)?
 
-pub fn find_usages(String, Int, @proj.FlatProj, Map[@core.NodeId, @core.ProjNode[@ast.Term]]) -> Array[@core.NodeId]
-
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]

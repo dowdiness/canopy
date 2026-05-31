@@ -878,6 +878,25 @@ test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
 }
 
 ///|
+test "compute_text_edit: InlineAllUsages first duplicate preserves shadowed body" {
+  let text = "let x = 0\nlet x = x\nx"
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=fp.defs[0].3),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      // The init Var range includes its leading space, matching existing inline
+      // whitespace behavior; the assertion pins the resolved-reference set.
+      inspect(new_text, content="let x =0\nx")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
   let text = "λx. x"
   let (proj, _) = parse_to_proj_node(text)
@@ -987,6 +1006,25 @@ test "compute_text_edit: Rename module binding via Var" {
       inspect(new_text, content="let y = 42\ny")
     }
     _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename first duplicate module binding preserves shadowed body" {
+  let text = "let x = 0\nlet x = x\nx"
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let result = compute_text_edit(
+    Rename(node_id=fp.defs[0].3, new_name="y"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      // The init Var range includes its leading space; the body x must remain
+      // shadowed by the second def and therefore unchanged.
+      inspect(new_text, content="let y = 0\nlet x =y\nx")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
 }
 

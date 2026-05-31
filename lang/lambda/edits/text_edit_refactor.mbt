@@ -164,9 +164,12 @@ fn compute_inline_definition(
           "Cannot inline: would capture variables bound by enclosing lambda",
         )
       }
-      // Check if this is the sole usage
-      let usages = find_usages(var_name, def_index + 1, flat_proj, registry)
-      if usages.length() <= 1 {
+      // Check if this is the sole resolved reference.
+      let refs = match module_def_references(g, def_index) {
+        Ok(ids) => ids
+        Err(e) => return Err(e)
+      }
+      if refs.length() <= 1 {
         // Sole usage — inline and delete the binding
         let (let_start, binding_end) = match
           get_binding_text_range(source_text, source_map, def) {
@@ -248,32 +251,36 @@ fn compute_inline_all_usages(
   let def = flat_proj.defs[def_index]
   let var_name = def.0
   let init_text = @ast.print_term(def.1.kind)
-  // Find all usages
-  let usage_ids = find_usages(var_name, def_index + 1, flat_proj, registry)
-  // Check for capture: would any free var in init be captured by a lambda at any usage site?
+  // Find all references resolved to this binding.
+  let g = @scope.build(flat_proj, registry, source_map)
+  let ref_ids = match module_def_references(g, def_index) {
+    Ok(ids) => ids
+    Err(e) => return Err(e)
+  }
+  // Check for capture: would any free var in init be captured by a lambda at any reference site?
   let init_fv = free_vars(def.1.kind, @immut/hashset.new())
-  for uid in usage_ids {
-    let usage_lam_env = collect_lam_env(uid, registry)
+  for rid in ref_ids {
+    let ref_lam_env = collect_lam_env(rid, registry)
     let mut would_capture = false
-    init_fv.each(fn(v) { if usage_lam_env.contains(v) { would_capture = true } })
+    init_fv.each(fn(v) { if ref_lam_env.contains(v) { would_capture = true } })
     if would_capture {
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )
     }
   }
-  // Build replacement edits for all usages (reverse document order)
+  // Build replacement edits for all references (reverse document order)
   let edits : Array[SpanEdit] = []
-  // Collect usage ranges, sorted by position (descending)
-  let usage_ranges : Array[(Int, Int)] = []
-  for uid in usage_ids {
-    if source_map.get_range(uid) is Some(r) {
-      usage_ranges.push((r.start, r.end))
+  // Collect reference ranges, sorted by position (descending)
+  let ref_ranges : Array[(Int, Int)] = []
+  for rid in ref_ids {
+    if source_map.get_range(rid) is Some(r) {
+      ref_ranges.push((r.start, r.end))
     }
   }
-  usage_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
-  for ur in usage_ranges {
-    edits.push({ start: ur.0, delete_len: ur.1 - ur.0, inserted: init_text })
+  ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+  for rr in ref_ranges {
+    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: init_text })
   }
   // Delete the binding
   let (let_start, binding_end) = match

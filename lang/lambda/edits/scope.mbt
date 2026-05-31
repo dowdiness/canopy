@@ -1,28 +1,21 @@
 ///|
-/// Find all Var nodes referencing the given name from scope_start_index onward
-/// in the Module defs + body, respecting shadowing.
-pub fn find_usages(
-  var_name : String,
-  scope_start_index : Int,
-  flat_proj : FlatProj,
-  registry : Map[NodeId, ProjNode[@ast.Term]],
-) -> Array[NodeId] {
-  let results : Array[NodeId] = []
-  let mut shadowed = false
-  for i = scope_start_index; i < flat_proj.defs.length(); i = i + 1 {
-    let def = flat_proj.defs[i]
-    // If this def shadows the name, stop
-    if def.0 == var_name && i > scope_start_index {
-      shadowed = true
-      break
+/// Identity-based references to a module definition, delegated to the canonical
+/// scope graph query. The old name-based usage scan could over-match a later
+/// shadowing definition's body; this helper first locates the graph-local
+/// `DeclId` for the requested module def, then asks `@scope.references` for only
+/// refs resolved to that declaration.
+fn module_def_references(
+  g : @scope.ScopeGraph,
+  def_index : Int,
+) -> Result[Array[NodeId], String] {
+  for decl in g.decls {
+    match decl.kind {
+      @scope.DeclKind::ModuleDef(def_index=i) if i == def_index =>
+        return Ok(@scope.references(g, decl.id))
+      _ => ()
     }
-    collect_var_usages(def.1, var_name, results)
   }
-  // Check body only if not shadowed
-  if !shadowed && flat_proj.final_expr is Some(body) {
-    collect_var_usages(body, var_name, results)
-  }
-  results
+  Err("No scope declaration for module def index " + def_index.to_string())
 }
 
 ///|

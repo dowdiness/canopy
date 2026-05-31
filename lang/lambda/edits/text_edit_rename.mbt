@@ -181,12 +181,16 @@ fn rename_module_binding(
       )
     }
   }
-  // Find all usages
-  let usage_ids = find_usages(old_name, def_index + 1, flat_proj, registry)
-  // Guard: check if new_name would be captured by an enclosing lambda at any usage site
-  for usage_id in usage_ids {
-    let usage_lam_env = collect_lam_env(usage_id, registry)
-    if usage_lam_env.contains(new_name) {
+  // Find all references resolved to this binding.
+  let g = @scope.build(flat_proj, registry, source_map)
+  let ref_ids = match module_def_references(g, def_index) {
+    Ok(ids) => ids
+    Err(e) => return Err(e)
+  }
+  // Guard: check if new_name would be captured by an enclosing lambda at any reference site
+  for ref_id in ref_ids {
+    let ref_lam_env = collect_lam_env(ref_id, registry)
+    if ref_lam_env.contains(new_name) {
       return Err(
         "Cannot rename: '" +
         new_name +
@@ -209,16 +213,16 @@ fn rename_module_binding(
         "No token span for binding name at def index " + def_index.to_string(),
       )
   }
-  let usage_ranges : Array[(Int, Int)] = []
-  for uid in usage_ids {
-    if source_map.get_range(uid) is Some(r) {
-      usage_ranges.push((r.start, r.end))
+  let ref_ranges : Array[(Int, Int)] = []
+  for rid in ref_ids {
+    if source_map.get_range(rid) is Some(r) {
+      ref_ranges.push((r.start, r.end))
     }
   }
   // Sort descending by position
-  usage_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
-  for ur in usage_ranges {
-    edits.push({ start: ur.0, delete_len: ur.1 - ur.0, inserted: new_name })
+  ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+  for rr in ref_ranges {
+    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: new_name })
   }
   // Sort all edits descending
   edits.sort_by(fn(a, b) { b.start.compare(a.start) })

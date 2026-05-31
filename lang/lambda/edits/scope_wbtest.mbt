@@ -14,34 +14,51 @@ fn scope_test_registry(
 }
 
 ///|
-test "find_usages: finds Var references in Module body" {
+test "module_def_references: finds Var references in Module body" {
   let text = "let x = 0\nx + x"
   let (proj, _) = parse_to_proj_node(text)
   let fp = FlatProj::from_proj_node(proj)
+  let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
-  let usages = find_usages("x", 0, fp, registry)
-  inspect(usages.length(), content="2")
+  let g = @scope.build(fp, registry, source_map)
+  match module_def_references(g, 0) {
+    Ok(refs) => inspect(refs.length(), content="2")
+    Err(e) => fail(e)
+  }
 }
 
 ///|
-test "find_usages: respects shadowing by inner Lam" {
+test "module_def_references: respects shadowing by inner Lam" {
   let text = "let x = 0\nλx. x"
   let (proj, _) = parse_to_proj_node(text)
   let fp = FlatProj::from_proj_node(proj)
+  let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
-  let usages = find_usages("x", 0, fp, registry)
-  inspect(usages.length(), content="0")
+  let g = @scope.build(fp, registry, source_map)
+  match module_def_references(g, 0) {
+    Ok(refs) => inspect(refs.length(), content="0")
+    Err(e) => fail(e)
+  }
 }
 
 ///|
-test "find_usages: shadowed by later def suppresses body" {
-  let text = "let x = 0\nlet x = 1\nx"
+test "module_def_references: later duplicate shadows body only" {
+  let text = "let x = 0\nlet x = x\nx"
   let (proj, _) = parse_to_proj_node(text)
   let fp = FlatProj::from_proj_node(proj)
+  let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
-  // Starting from def 0, def 1 shadows "x" — body should not be searched for def 0's usages
-  let usages = find_usages("x", 0, fp, registry)
-  inspect(usages.length(), content="0")
+  let g = @scope.build(fp, registry, source_map)
+  match (module_def_references(g, 0), module_def_references(g, 1)) {
+    (Ok(first_refs), Ok(second_refs)) => {
+      // The first def is referenced by the second def's init; the body resolves
+      // to the second def. This is the identity-based case the old name scan
+      // could not distinguish when callers started at def_index + 1.
+      inspect(first_refs.length(), content="1")
+      inspect(second_refs.length(), content="1")
+    }
+    (Err(e), _) | (_, Err(e)) => fail(e)
+  }
 }
 
 ///|
