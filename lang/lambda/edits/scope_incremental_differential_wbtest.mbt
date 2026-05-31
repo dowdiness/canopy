@@ -101,47 +101,28 @@ fn assert_incr_matches_full(
     syntax,
     full_counter.val,
   )
-  assert_lam_ranges_unique(reg_i)
-  assert_lam_ranges_unique(reg_f)
-  // Same Var-ref set (range+name). A reused subtree carrying a stale position
-  // would shift a Var's "start:end:name" key and surface here.
-  let refs_i = collect_var_refs(reg_i)
-  let refs_f = collect_var_refs(reg_f)
-  assert_same_var_refs(refs_i, refs_f)
   let ranges_i = def_init_ranges(proj_i)
   let ranges_f = def_init_ranges(proj_f)
-  for key, id_i in refs_i {
-    let id_f = refs_f.get(key).unwrap()
-    let d_i = @scope.declaration(g_i, id_i)
-    let d_f = @scope.declaration(g_f, id_f)
-    let n_i = normalize_decl(d_i, reg_i, ranges_i)
-    let n_f = normalize_decl(d_f, reg_f, ranges_f)
-    guard n_i == n_f else {
-      fail(
-        "[\{context}] resolution disagrees for Var \{key}: incr=\{n_i} full=\{n_f}",
-      )
-    }
-    // Binder location (Option D) must also agree under incremental rebuild.
-    if (d_i, d_f) is (Some(dd_i), Some(dd_f)) {
-      let bs_i = @scope.binder_span(g_i, dd_i, sm_i)
-      let bs_f = @scope.binder_span(g_f, dd_f, sm_f)
-      guard bs_f is Some(_) else {
-        fail(
-          "[\{context}] full: binder not locatable via binder_span for \{key}",
-        )
-      }
-      guard bs_i is Some(_) else {
-        fail(
-          "[\{context}] incr: binder not locatable via binder_span for \{key}",
-        )
-      }
-      guard bs_i == bs_f else {
-        fail(
-          "[\{context}] binder span disagrees across incr/full for Var \{key}",
-        )
-      }
-    }
-  }
+  assert_resolution_agrees(
+    ResolutionSide(
+      graph=g_i,
+      registry=reg_i,
+      source_map=sm_i,
+      ranges=ranges_i,
+      value_label="incr",
+      binder_label="incr",
+    ),
+    ResolutionSide(
+      graph=g_f,
+      registry=reg_f,
+      source_map=sm_f,
+      ranges=ranges_f,
+      value_label="full",
+      binder_label="full",
+    ),
+    context_prefix="[\{context}] ",
+    binder_span_disagreement="binder span disagrees across incr/full",
+  )
 }
 
 ///|

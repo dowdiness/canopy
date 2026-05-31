@@ -154,6 +154,80 @@ fn normalize_decl(
 }
 
 ///|
+/// One side of a resolution-agreement comparison. Bundling the graph, registry,
+/// source map, and normalized-declaration ranges prevents accidental argument
+/// reordering at the three call sites while keeping the helper whitebox-local.
+struct ResolutionSide {
+  graph : @scope.ScopeGraph
+  registry : Map[NodeId, ProjNode[@ast.Term]]
+  source_map : SourceMap
+  ranges : Array[String]
+  value_label : String
+  binder_label : String
+}
+
+///|
+fn ResolutionSide::ResolutionSide(
+  graph~ : @scope.ScopeGraph,
+  registry~ : Map[NodeId, ProjNode[@ast.Term]],
+  source_map~ : SourceMap,
+  ranges~ : Array[String],
+  value_label~ : String,
+  binder_label~ : String,
+) -> ResolutionSide {
+  { graph, registry, source_map, ranges, value_label, binder_label }
+}
+
+///|
+/// Assert two independently-built scope graphs resolve every Var reference to
+/// the same pipeline-independent declaration key, and that resolved binders are
+/// locatable at the same source span. The binder-span half keeps Option D's two
+/// distinct affirmations together: locatability (`is Some`) and equality of the
+/// located spans. Caller-supplied labels preserve each differential's existing
+/// failure text while centralizing the shared assertion conditions.
+fn assert_resolution_agrees(
+  left : ResolutionSide,
+  right : ResolutionSide,
+  context_prefix~ : String,
+  binder_span_disagreement~ : String,
+) -> Unit raise {
+  assert_lam_ranges_unique(left.registry)
+  assert_lam_ranges_unique(right.registry)
+  let refs_left = collect_var_refs(left.registry)
+  let refs_right = collect_var_refs(right.registry)
+  assert_same_var_refs(refs_left, refs_right)
+  for key, id_left in refs_left {
+    let id_right = refs_right.get(key).unwrap()
+    let d_left = @scope.declaration(left.graph, id_left)
+    let d_right = @scope.declaration(right.graph, id_right)
+    let n_left = normalize_decl(d_left, left.registry, left.ranges)
+    let n_right = normalize_decl(d_right, right.registry, right.ranges)
+    guard n_left == n_right else {
+      fail(
+        "\{context_prefix}resolution disagrees for Var \{key}: \{left.value_label}=\{n_left} \{right.value_label}=\{n_right}",
+      )
+    }
+    if (d_left, d_right) is (Some(dd_left), Some(dd_right)) {
+      let bs_left = @scope.binder_span(left.graph, dd_left, left.source_map)
+      let bs_right = @scope.binder_span(right.graph, dd_right, right.source_map)
+      guard bs_right is Some(_) else {
+        fail(
+          "\{context_prefix}\{right.binder_label}: binder not locatable via binder_span for \{key}",
+        )
+      }
+      guard bs_left is Some(_) else {
+        fail(
+          "\{context_prefix}\{left.binder_label}: binder not locatable via binder_span for \{key}",
+        )
+      }
+      guard bs_left == bs_right else {
+        fail("\{context_prefix}\{binder_span_disagreement} for Var \{key}")
+      }
+    }
+  }
+}
+
+///|
 /// Drive both pipelines on one source string and assert resolution agreement.
 /// `expect_clean` asserts zero parser diagnostics (the generated/well-formed
 /// property); error-recovery fixtures pass `expect_clean=false` since both
@@ -172,43 +246,26 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
   // Pipeline 2: production path (to_flat_proj), with token spans.
   let (proj2, reg2, g2, sm2) = production_graph_of(text)
   let ranges2 = def_init_ranges(proj2)
-  assert_lam_ranges_unique(reg1)
-  assert_lam_ranges_unique(reg2)
-  let refs1 = collect_var_refs(reg1)
-  let refs2 = collect_var_refs(reg2)
-  assert_same_var_refs(refs1, refs2)
-  for key, id1 in refs1 {
-    let id2 = refs2.get(key).unwrap()
-    let d1 = @scope.declaration(g1, id1)
-    let d2 = @scope.declaration(g2, id2)
-    let n1 = normalize_decl(d1, reg1, ranges1)
-    let n2 = normalize_decl(d2, reg2, ranges2)
-    guard n1 == n2 else {
-      fail("resolution disagrees for Var \{key}: test=\{n1} production=\{n2}")
-    }
-    // Option D, two DISTINCT affirmations (don't conflate):
-    // (1) locatability (`is Some`) — the production module binder, whose
-    //     internal `node_id` is synthetic, is now reachable at all via
-    //     binder_span; this is what supersedes the old node_id-in-registry pin.
-    // (2) `bs1 == bs2` — the two INDEPENDENTLY-reconstructed trees map this
-    //     binder to the SAME source location. Both spans derive from the same
-    //     parse, so equality mainly guards against a def-order/count drift
-    //     between the pipelines (it does NOT, on its own, exercise the node_id
-    //     divergence — a bad binder key yields None, caught by (1)).
-    if (d1, d2) is (Some(dd1), Some(dd2)) {
-      let bs1 = @scope.binder_span(g1, dd1, sm1)
-      let bs2 = @scope.binder_span(g2, dd2, sm2)
-      guard bs2 is Some(_) else {
-        fail("production: binder not locatable via binder_span for \{key}")
-      }
-      guard bs1 is Some(_) else {
-        fail("test pipeline: binder not locatable via binder_span for \{key}")
-      }
-      guard bs1 == bs2 else {
-        fail("binder location disagrees across pipelines for Var \{key}")
-      }
-    }
-  }
+  assert_resolution_agrees(
+    ResolutionSide(
+      graph=g1,
+      registry=reg1,
+      source_map=sm1,
+      ranges=ranges1,
+      value_label="test",
+      binder_label="test pipeline",
+    ),
+    ResolutionSide(
+      graph=g2,
+      registry=reg2,
+      source_map=sm2,
+      ranges=ranges2,
+      value_label="production",
+      binder_label="production",
+    ),
+    context_prefix="",
+    binder_span_disagreement="binder location disagrees across pipelines",
+  )
 }
 
 // ---------------------------------------------------------------------------
