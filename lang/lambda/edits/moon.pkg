@@ -15,6 +15,9 @@ import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
+  "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
+  "dowdiness/incr",
+  "dowdiness/loom",
 } for "wbtest"
 
 warnings = "-2-6-29"
