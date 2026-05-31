@@ -64,7 +64,7 @@ fn init_model() -> Model raise {
     bottom_tab: Problems,
     sync_status: Connecting,
     overlay: closed_overlay(),
-    scope_map: build_scope_map(editor),
+    scope_map: build_scope_map(editor, companion),
     highlight_set: @immut/hashset.new(),
     drag_source: None,
     drop_target_id: None,
@@ -268,7 +268,7 @@ fn refresh(model : Model) -> Model {
   js_perf_end("treeEditorRefresh")
   // Build scope_map from current projection
   js_perf_begin("buildScopeMap")
-  let scope_map = build_scope_map(model.editor)
+  let scope_map = build_scope_map(model.editor, model.companion)
   js_perf_end("buildScopeMap")
   // Recompute highlight_set if a node is selected
   js_perf_begin("computeHighlightSet")

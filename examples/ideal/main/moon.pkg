@@ -14,6 +14,7 @@ import {
   "dowdiness/canopy/lang/lambda",
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/lambda/ast",
   "moonbitlang/core/strconv",
   "moonbitlang/core/string",

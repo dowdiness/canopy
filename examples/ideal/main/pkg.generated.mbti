@@ -187,8 +187,6 @@ pub(all) struct PatchEntry {
 
 type ScopeAnnotation
 
-type ScopeEntry
-
 pub enum SyncStatus {
   Offline
   Connecting

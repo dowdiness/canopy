@@ -45,11 +45,11 @@ test "compute_highlight_set for non-identifier returns empty set" {
 
 ///|
 test "clicking f does not highlight apply var (no module/lambda scope confusion)" {
-  let editor = @lambda.new_lambda_editor("test").0
+  let (editor, companion) = @lambda.new_lambda_editor("test")
   editor.set_text(
     "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
   )
-  let scope_map = build_scope_map(editor)
+  let scope_map = build_scope_map(editor, companion)
   let proj_root = editor.get_proj_node().unwrap()
   let f_var_id = find_var_node_id(proj_root, "f")
   let apply_var_id = find_var_node_id(proj_root, "apply")
@@ -71,9 +71,9 @@ test "clicking f does not highlight apply var (no module/lambda scope confusion)
 
 ///|
 test "nested block: inner x does not highlight outer x" {
-  let editor = @lambda.new_lambda_editor("test").0
+  let (editor, companion) = @lambda.new_lambda_editor("test")
   editor.set_text("let x = 0\nlet y = { let x = 1\n  x }\nx")
-  let scope_map = build_scope_map(editor)
+  let scope_map = build_scope_map(editor, companion)
   let proj_root = editor.get_proj_node().unwrap()
   // There are two Var("x") nodes — inner (inside block) and outer (body)
   let x_vars = find_all_var_node_ids(proj_root, "x")
@@ -91,6 +91,59 @@ test "nested block: inner x does not highlight outer x" {
   // Clicking one x should NOT highlight the other
   let hs0 = compute_highlight_set(x_vars[0], scope_map)
   inspect(hs0.contains(x_vars[1]), content="false")
+  let hs1 = compute_highlight_set(x_vars[1], scope_map)
+  inspect(hs1.contains(x_vars[0]), content="false")
+}
+
+///|
+test "nested block: inner module can reference enclosing block binder" {
+  let (editor, companion) = @lambda.new_lambda_editor("test")
+  editor.set_text("let x = 0\nlet y = { let x = 1\n  { let z = x\n    z } }\nx")
+  let scope_map = build_scope_map(editor, companion)
+  let proj_root = editor.get_proj_node().unwrap()
+  let x_vars = find_all_var_node_ids(proj_root, "x")
+  inspect(x_vars.length() >= 2, content="true")
+  let inner_x_ann = scope_map.get(x_vars[0]).unwrap()
+  let outer_x_ann = scope_map.get(x_vars[x_vars.length() - 1]).unwrap()
+  inspect(inner_x_ann.binder_id == outer_x_ann.binder_id, content="false")
+  let hs_inner = compute_highlight_set(x_vars[0], scope_map)
+  inspect(hs_inner.contains(x_vars[x_vars.length() - 1]), content="false")
+  let hs_outer = compute_highlight_set(x_vars[x_vars.length() - 1], scope_map)
+  inspect(hs_outer.contains(x_vars[0]), content="false")
+}
+
+///|
+test "scope_map keys module references by canonical @scope declaration" {
+  let (editor, companion) = @lambda.new_lambda_editor("test")
+  editor.set_text("let x = 0\nlet f = \\x. { x }\nx")
+  let scope_map = build_scope_map(editor, companion)
+  let proj_root = editor.get_proj_node().unwrap()
+  let x_vars = find_all_var_node_ids(proj_root, "x")
+  let inner_x_id = x_vars[0]
+  let module_x_id = x_vars[x_vars.length() - 1]
+  let graph = @scope.build(
+    companion.get_flat_proj().unwrap(),
+    editor.get_registry(),
+    editor.get_source_map(),
+  )
+  let module_decl = @scope.declaration(graph, module_x_id).unwrap()
+  let inner_decl = @scope.declaration(graph, inner_x_id).unwrap()
+  inspect(module_decl.id == inner_decl.id, content="false")
+  let is_module_decl = match module_decl.kind {
+    @scope.DeclKind::ModuleDef(def_index=_) => true
+    _ => false
+  }
+  inspect(is_module_decl, content="true")
+  let module_binder_key = scope_binder_ui_key(graph, module_decl)
+  let ann = scope_map.get(module_x_id).unwrap()
+  inspect(ann.binder_id == Some(module_binder_key), content="true")
+  let binder_ann = scope_map.get(module_binder_key).unwrap()
+  inspect(
+    binder_ann.usage_ids == @scope.references(graph, module_decl.id),
+    content="true",
+  )
+  let hs_inner = compute_highlight_set(inner_x_id, scope_map)
+  inspect(hs_inner.contains(module_x_id), content="false")
 }
 
 ///|

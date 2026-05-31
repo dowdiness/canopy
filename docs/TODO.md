@@ -435,15 +435,18 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Option D: an on-demand `@scope` binder-location accessor over the
   already-populated SourceMap token spans — no loom PR, no `FlatProj` change;
   `node_id` stays synthetic but is no longer the locator).
-  Shipped (plan steps 1, 2, 4): `@scope.binder_span` + `@scope.go_to_definition`
+  Shipped (plan steps 1–5): `@scope.binder_span` + `@scope.go_to_definition`
   accessors (`lang/lambda/scope/query.mbt`); `references` migrated off
   `Decl.node_id` to `DeclId`; §7.1 go-to-def behavioral tests
-  (`go_to_definition_wbtest.mbt`); the #399 fixture + cross-pipeline PBT
-  `node_id` invariants rewritten to affirm the binder-location contract
-  (locatable + pipeline-independent).
-  Remaining: (step 3) an incremental↔full differential resolution test for the
-  `@incr` path the PBT excludes; (step 5) collapse `scope_annotation.mbt` onto
-  `@scope` once the outline-highlight UI representation is decided (§5).
+  (`go_to_definition_wbtest.mbt`); incremental/full scope differential tests
+  (`scope_incremental_differential_wbtest.mbt`,
+  `scope_memo_stack_differential_wbtest.mbt`); the #399 fixture +
+  cross-pipeline PBT `node_id` invariants rewritten to affirm the
+  binder-location contract (locatable + pipeline-independent); and Ideal
+  outline scope annotation collapsed onto @scope with the NodeId-keyed UI model
+  retained via stable module-binder UI keys.
+  Remaining: gated query-indexing is the only open scope follow-up here; the
+  binder-location plan itself is complete.
 
 ## Shipped history
 
