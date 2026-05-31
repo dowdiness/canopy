@@ -100,15 +100,17 @@ fn scope_id_for_node(
 }
 
 ///|
-fn declaration_id_for_name_at_node(
+fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
+  g.scopes.iter().find_first(fn(s) { s.parent is None }).map(fn(s) { s.id })
+}
+
+///|
+fn declaration_id_for_name_from_scope(
   g : @scope.ScopeGraph,
-  flat_proj : FlatProj,
-  source_map : SourceMap,
-  node_id : NodeId,
+  start_scope : @scope.ScopeId,
+  cutoff : Int,
   name : String,
 ) -> @scope.DeclId? {
-  guard scope_id_for_node(g, node_id) is Some(start_scope) else { return None }
-  let cutoff = def_cutoff_at_node(flat_proj, source_map, node_id)
   let mut cur : @scope.ScopeId? = Some(start_scope)
   while cur is Some(sid) {
     let @scope.ScopeId(si) = sid
@@ -136,6 +138,38 @@ fn declaration_id_for_name_at_node(
 }
 
 ///|
+fn declaration_id_for_name_at_node(
+  g : @scope.ScopeGraph,
+  flat_proj : FlatProj,
+  source_map : SourceMap,
+  node_id : NodeId,
+  name : String,
+) -> @scope.DeclId? {
+  guard scope_id_for_node(g, node_id) is Some(start_scope) else { return None }
+  declaration_id_for_name_from_scope(
+    g,
+    start_scope,
+    def_cutoff_at_node(flat_proj, source_map, node_id),
+    name,
+  )
+}
+
+///|
+fn declaration_id_for_name_at_module_end(
+  g : @scope.ScopeGraph,
+  flat_proj : FlatProj,
+  name : String,
+) -> @scope.DeclId? {
+  guard root_scope_id(g) is Some(root_scope) else { return None }
+  declaration_id_for_name_from_scope(
+    g,
+    root_scope,
+    flat_proj.defs.length(),
+    name,
+  )
+}
+
+///|
 fn free_names_would_rebind_at_node(
   g : @scope.ScopeGraph,
   flat_proj : FlatProj,
@@ -146,19 +180,45 @@ fn free_names_would_rebind_at_node(
 ) -> Bool {
   let mut rebound = false
   free_names.each(fn(v) {
-    let var_ids : Array[NodeId] = []
-    collect_var_usages(source_node, v, var_ids)
     let target_decl = declaration_id_for_name_at_node(
       g, flat_proj, source_map, target_node_id, v,
     )
-    for vid in var_ids {
-      let source_decl = @scope.declaration(g, vid).map(fn(d) { d.id })
-      if source_decl != target_decl {
-        rebound = true
-      }
+    if free_name_would_rebind_to(g, source_node, v, target_decl) {
+      rebound = true
     }
   })
   rebound
+}
+
+///|
+fn free_names_would_rebind_at_module_end(
+  g : @scope.ScopeGraph,
+  flat_proj : FlatProj,
+  source_node : ProjNode[@ast.Term],
+  free_names : @immut/hashset.HashSet[String],
+) -> Bool {
+  let mut rebound = false
+  free_names.each(fn(v) {
+    let target_decl = declaration_id_for_name_at_module_end(g, flat_proj, v)
+    if free_name_would_rebind_to(g, source_node, v, target_decl) {
+      rebound = true
+    }
+  })
+  rebound
+}
+
+///|
+fn free_name_would_rebind_to(
+  g : @scope.ScopeGraph,
+  source_node : ProjNode[@ast.Term],
+  name : String,
+  target_decl : @scope.DeclId?,
+) -> Bool {
+  let var_ids : Array[NodeId] = []
+  collect_var_usages(source_node, name, var_ids)
+  var_ids.any(fn(vid) {
+    @scope.declaration(g, vid).map(fn(d) { d.id }) != target_decl
+  })
 }
 
 ///|

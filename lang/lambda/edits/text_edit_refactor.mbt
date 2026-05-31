@@ -11,31 +11,14 @@ fn compute_extract_to_let(
   guard source_map.get_range(node_id) is Some(range) else {
     return Err("Range not found")
   }
-  // Free-var validation: check for variables captured by enclosing scopes.
-  let mut module_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
-  // Find which def contains this node (or if it's in the body)
-  let mut in_def_index : Int = flat_proj.defs.length() // body sentinel
-  for i, def in flat_proj.defs {
-    if source_map.get_range(def.1.id()) is Some(r) &&
-      range.start >= r.start &&
-      range.end <= r.end {
-      in_def_index = i
-      break
-    }
-  }
-  // Add def names in scope at the extraction site
-  let scope_limit = if in_def_index < flat_proj.defs.length() {
-    in_def_index
-  } else {
-    flat_proj.defs.length()
-  }
-  for i = 0; i < scope_limit; i = i + 1 {
-    module_env = module_env.add(flat_proj.defs[i].0)
-  }
-  // Check for variables captured by enclosing scope at their use sites.
   let g = @scope.build(flat_proj, registry, source_map)
-  let fv = free_vars(node.kind, module_env)
-  if free_names_captured_at_use_sites(g, node, fv) {
+  let fv = free_vars(node.kind, @immut/hashset.new())
+  let would_capture = if flat_proj.defs.is_empty() {
+    free_names_captured_at_use_sites(g, node, fv)
+  } else {
+    free_names_would_rebind_at_module_end(g, flat_proj, node, fv)
+  }
+  if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
   }
   // Build edits

@@ -775,6 +775,21 @@ test "compute_text_edit: ExtractToLet rejects module-def enclosing env capture" 
 }
 
 ///|
+test "compute_text_edit: ExtractToLet rejects later module-def shadow capture" {
+  let text = "let y = 1\nlet x = y\nlet y = 2\n0"
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let init_y = fp.defs[1].1
+  let result = compute_text_edit(
+    ExtractToLet(node_id=init_y.id(), var_name="z"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot extract: expression captures lambda-bound variables\")",
+  )
+}
+
+///|
 test "compute_text_edit: ExtractToLet bare expression" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)
