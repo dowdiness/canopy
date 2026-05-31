@@ -166,12 +166,8 @@ fn assert_binder_locatable(
   g : @scope.ScopeGraph,
   source_map : SourceMap,
 ) -> Unit raise {
-  match decl {
-    None => ()
-    Some(d) =>
-      if @scope.binder_span(g, d, source_map) is None {
-        fail("production: binder not locatable via binder_span for '\{d.name}'")
-      }
+  if decl is Some(d) && @scope.binder_span(g, d, source_map) is None {
+    fail("production: binder not locatable via binder_span for '\{d.name}'")
   }
 }
 
@@ -214,18 +210,15 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
     // internal binder `node_id` VALUES diverge. This is the cross-pipeline
     // affirmation that the accessor bridges the (still-present) id divergence.
     assert_binder_locatable(d2, g2, sm2)
-    match (d1, d2) {
-      (Some(dd1), Some(dd2)) => {
-        let bs1 = @scope.binder_span(g1, dd1, sm1)
-        let bs2 = @scope.binder_span(g2, dd2, sm2)
-        guard bs1 is Some(_) else {
-          fail("test pipeline: binder not locatable via binder_span for \{key}")
-        }
-        guard bs1 == bs2 else {
-          fail("binder location disagrees across pipelines for Var \{key}")
-        }
+    if (d1, d2) is (Some(dd1), Some(dd2)) {
+      let bs1 = @scope.binder_span(g1, dd1, sm1)
+      let bs2 = @scope.binder_span(g2, dd2, sm2)
+      guard bs1 is Some(_) else {
+        fail("test pipeline: binder not locatable via binder_span for \{key}")
       }
-      _ => ()
+      guard bs1 == bs2 else {
+        fail("binder location disagrees across pipelines for Var \{key}")
+      }
     }
   }
 }
