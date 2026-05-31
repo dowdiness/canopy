@@ -62,6 +62,9 @@ For users calling Canopy from MoonBit or JavaScript.
 - **[Audio DSL Reactive Foundation](development/audio-dsl-reactive-foundation.md)**
   — requirements and benchmark baselines for a Canopy-hosted audio DSL that
   lowers into MoonDsp through `incr`.
+- **[GUI Layer Integration](development/gui-layer-integration.md)** —
+  existing UI surfaces, node-graph adapter direction, operation modeling, and
+  performance notes for synchronized source/structure editing.
 
 Per-module READMEs:
 
