@@ -74,34 +74,41 @@ Before opening code, answer "where should this feature live?" in order:
 | `dowdiness/incr` | Incremental runtime and lifecycle primitives | `Input`, `Derived`, `DerivedMap`, `ReachableDerived`, `Watch` | Canopy-specific semantic data shapes |
 | `dowdiness/moondsp` | Pattern engine, DSP graph, `CompiledTemplate`, scheduler, voice pool | Authoring docs and stable domain IDs | Canopy view protocol or editor shell |
 
-## Supporting Libraries (submodules)
+## Supporting Libraries and Submodule Boundaries
 
-All 8 libraries below are implemented and wired into Canopy. Sources: canopy root
-`moon.mod.json` (group A); `event-graph-walker`'s deps (group B); and
-visualization/example modules plus `graphviz`'s own deps (group C).
+The git submodules (repository boundaries, per `.gitmodules`) are:
+`event-graph-walker`, `loom`, `svg-dsl`, `graphviz`, `rle`, `order-tree`,
+`alga`, and `rabbita`. `event-graph-walker` and `loom`/`seam` are covered in the
+Responsibility Boundaries table above. **`loom` is itself a submodule** that
+contains `seam`, `incr`, `text-change`, `moji`, `pretty`, and `lambda` as
+packages — update those through the `loom` submodule, not separate repositories.
 
-**Group A — Direct dependencies** (core editor build; in canopy root `moon.mod.json`):
+The libraries below are all implemented and wired into Canopy. The "Repository"
+column is the actual update boundary; "Integration" is where Canopy consumes it.
 
-| Library | Responsibility | Integration layer |
-|---|---|---|
-| `text-change` (`dowdiness/text_change`) | Pure contiguous text-change utilities | shared across `editor`, `lang/*` |
-| `moji` (`dowdiness/moji`) | UAX #29 grapheme-cluster and word-boundary segmentation, UTF-16 indexed | `editor`, `lang/*` |
-| `pretty` (`dowdiness/pretty`) | Wadler-Lindig pretty-printer, generic `Layout[A]` + annotation support | `lang/*`, formatting passes |
-| `order-tree` (`dowdiness/order-tree`) | Order-statistic B-tree, O(log n) position-indexed operations | `event-graph-walker`, `core` |
+**Group A — Direct dependencies** (in canopy root `moon.mod.json`):
+
+| Library | Responsibility | Repository | Integration |
+|---|---|---|---|
+| `text-change` (`dowdiness/text_change`) | Pure contiguous text-change utilities | package in `loom` submodule | `editor`, `lang/*` |
+| `moji` (`dowdiness/moji`) | UAX #29 grapheme-cluster and word-boundary segmentation, UTF-16 indexed | package in `loom` submodule | `editor`, `lang/*` |
+| `pretty` (`dowdiness/pretty`) | Wadler-Lindig pretty-printer, generic `Layout[A]` + annotation support | package in `loom` submodule | `lang/*`, formatting passes |
+| `order-tree` (`dowdiness/order-tree`) | Order-statistic B-tree, O(log n) position-indexed operations | standalone submodule | root dep; backs `event-graph-walker` |
 
 **Group B — CRDT internals** (pulled in via `event-graph-walker`):
 
-| Library | Responsibility | Integration layer |
-|---|---|---|
-| `rle` (`dowdiness/rle`) | Generic run-length-encoded sequence, O(log n) position lookup | backs `event-graph-walker`, `order-tree`, btree |
-| `alga` (`dowdiness/alga`) | Algebraic graphs — directed graph trait + algorithms | `event-graph-walker`, graphviz, visualizer |
+| Library | Responsibility | Repository | Integration |
+|---|---|---|---|
+| `rle` (`dowdiness/rle`) | Generic run-length-encoded sequence, O(log n) position lookup | standalone submodule | backs `event-graph-walker`, `order-tree`, btree |
+| `alga` (`dowdiness/alga`) | Algebraic graphs — directed graph trait + algorithms | standalone submodule | `event-graph-walker`, `graphviz`, visualizer |
 
-**Group C — Visualization tooling** (not on the core editor runtime path):
+**Group C — Visualization / UI tooling** (not on the core editor runtime path):
 
-| Library | Responsibility | Integration layer |
-|---|---|---|
-| `graphviz` (`dowdiness/graphviz`) | DOT parser + layout engine + SVG renderer | loom viz, `lib/visualizer`, `examples/ideal`; depends on `svg-dsl` |
-| `svg-dsl` (`dowdiness/svg-dsl`) | Programmatic SVG generation DSL | base layer under `graphviz` |
+| Library | Responsibility | Repository | Integration |
+|---|---|---|---|
+| `graphviz` (`dowdiness/graphviz`) | DOT parser + layout engine + SVG renderer | standalone submodule | loom viz, `lib/visualizer`, `examples/ideal`; depends on `svg-dsl` |
+| `svg-dsl` (`dowdiness/svg-dsl`) | Programmatic SVG generation DSL | standalone submodule | base layer under `graphviz` |
+| `rabbita` (`moonbit-community/rabbita`) | Functional Web UI framework (TEA) for MoonBit; submodule also holds `warren` | standalone submodule (vendored community lib) | `lib/rabbita_codemirror` adapter + `examples/*` |
 
 ## Priority Issues
 
