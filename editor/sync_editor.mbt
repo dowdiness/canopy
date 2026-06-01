@@ -283,7 +283,7 @@ fn[T] SyncEditor::set_status(
 // ── Projection accessors ─────────────────────────────────────────────────
 
 ///|
-/// Returns the cached ProjNode (converted from FlatProj once per invalidation).
+/// Returns the cached ProjNode (converted from ModuleProjection once per invalidation).
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
   self.cached_proj_node.read_or_abort()

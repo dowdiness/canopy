@@ -128,6 +128,9 @@ behavior** — check the code before relying on any specific detail.
 
 - [Framework Genericity Contract](decisions/2026-03-29-framework-genericity-contract.md)
   — why `framework/` and `core/` must stay language-agnostic.
+- [Identity and Reuse Mechanisms](decisions/2026-06-01-identity-and-reuse-mechanisms.md)
+  — the three distinct parse/projection identity mechanisms, the #396 source-span
+  tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
 
 ## Historical / Archive
 

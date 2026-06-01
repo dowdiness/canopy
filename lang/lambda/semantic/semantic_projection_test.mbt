@@ -13,15 +13,15 @@ fn parse_fixture(
 ///|
 fn parse_flat_fixture(
   text : String,
-) -> (@core.ProjNode[@ast.Term], @core.SourceMap, @lambda_proj.FlatProj) raise {
+) -> (@core.ProjNode[@ast.Term], @core.SourceMap, @lambda_proj.ModuleProjection) raise {
   let (cst, _) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
-  let flat_proj = @lambda_proj.to_flat_proj(syntax, counter)
-  let root = flat_proj.to_proj_node(counter)
+  let module_projection = @lambda_proj.to_module_projection(syntax, counter)
+  let root = module_projection.to_proj_node(counter)
   let source_map = @core.SourceMap::from_ast(root)
   @lambda_proj.populate_token_spans(source_map, syntax, root)
-  (root, source_map, flat_proj)
+  (root, source_map, module_projection)
 }
 
 ///|
@@ -67,16 +67,16 @@ test "semantic projection reports free variable" {
 
 ///|
 test "semantic projection respects sequential module bindings" {
-  let (root, source_map, flat_proj) = parse_flat_fixture(
+  let (root, source_map, module_projection) = parse_flat_fixture(
     "let x = 1\nlet y = x\nx + y",
   )
-  let projection = build_semantic_projection_with_flat_proj(
+  let projection = build_semantic_projection_with_module_projection(
     root,
     source_map,
-    Some(flat_proj),
+    Some(module_projection),
   )
-  assert_true(has_annotation(projection, flat_proj.defs[0].3, "let x"))
-  assert_true(has_annotation(projection, flat_proj.defs[1].3, "let y"))
+  assert_true(has_annotation(projection, module_projection.defs[0].3, "let x"))
+  assert_true(has_annotation(projection, module_projection.defs[1].3, "let y"))
   assert_false(has_annotation(projection, root.id(), "let x"))
   assert_false(has_annotation(projection, root.id(), "let y"))
   inspect(projection.diagnostics.length(), content="0")

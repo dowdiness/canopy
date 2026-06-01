@@ -12,7 +12,7 @@ import {
 // Values
 pub fn build_semantic_projection(@core.ProjNode[@ast.Term], @core.SourceMap) -> SemanticProjection
 
-pub fn build_semantic_projection_with_flat_proj(@core.ProjNode[@ast.Term], @core.SourceMap, @proj.FlatProj?) -> SemanticProjection
+pub fn build_semantic_projection_with_module_projection(@core.ProjNode[@ast.Term], @core.SourceMap, @proj.ModuleProjection?) -> SemanticProjection
 
 // Errors
 

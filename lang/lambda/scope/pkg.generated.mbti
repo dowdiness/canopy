@@ -11,7 +11,7 @@ import {
 // Values
 pub fn binder_span(ScopeGraph, Decl, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
 
-pub fn build(@proj.FlatProj, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
+pub fn build(@proj.ModuleProjection, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
 
 pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
 

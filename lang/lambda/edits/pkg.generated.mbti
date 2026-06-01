@@ -12,7 +12,7 @@ import {
 // Values
 pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
 
-pub fn find_binding_for_init(@core.NodeId, @proj.FlatProj) -> (@core.NodeId, Int)?
+pub fn find_binding_for_init(@core.NodeId, @proj.ModuleProjection) -> (@core.NodeId, Int)?
 
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
@@ -40,7 +40,7 @@ pub(all) struct EditContext[T] {
   source_text : String
   source_map : @core.SourceMap
   registry : Map[@core.NodeId, @core.ProjNode[T]]
-  flat_proj : @proj.FlatProj
+  module_projection : @proj.ModuleProjection
 }
 
 pub(all) struct NodeContext {

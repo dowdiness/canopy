@@ -30,12 +30,12 @@ fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
 
 ///|
 /// Build a scope graph for a source string and return the parsed root, its
-/// flat projection, and the graph. (The FlatProj is the structural source of
+/// flat projection, and the graph. (The ModuleProjection is the structural source of
 /// truth for module binder identities — it is built independently of the
 /// `declaration` query under test.)
 fn graph_of(
   text : String,
-) -> (@core.ProjNode[@ast.Term], FlatProj, @scope.ScopeGraph) raise {
+) -> (@core.ProjNode[@ast.Term], ModuleProjection, @scope.ScopeGraph) raise {
   let (proj, fp, g, _sm) = graph_and_sm_of(text)
   (proj, fp, g)
 }
@@ -47,11 +47,11 @@ fn graph_of(
 /// a syntax tree to walk.
 fn graph_and_sm_of(
   text : String,
-) -> (@core.ProjNode[@ast.Term], FlatProj, @scope.ScopeGraph, SourceMap) raise {
+) -> (@core.ProjNode[@ast.Term], ModuleProjection, @scope.ScopeGraph, SourceMap) raise {
   let (cst, _errs) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = to_proj_node(syntax, Ref(0))
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
@@ -69,12 +69,12 @@ fn graph_and_sm_of(
 //
 // Binder-identity asymmetry: for LAMBDA cases the resolved `decl.node_id` is
 // checked against the Lam node located STRUCTURALLY in the tree (`proj.id()` /
-// `proj.children[..]`), independent of the FlatProj — a genuine non-circular
+// `proj.children[..]`), independent of the ModuleProjection — a genuine non-circular
 // check (case 6 distinguishes inner vs outer). For MODULE cases identity is
-// carried by `def_index` alone: these fixtures build the FlatProj via
+// carried by `def_index` alone: these fixtures build the ModuleProjection via
 // `from_proj_node`, where `decl.node_id == fp.defs[def_index].3` holds by
 // construction, so re-asserting it would be tautological. The PRODUCTION-path
-// meaning of a module binder id is pinned separately by the `to_flat_proj`
+// meaning of a module binder id is pinned separately by the `to_module_projection`
 // contract test at the bottom of this file.
 
 ///|
@@ -180,7 +180,7 @@ test "declaration() resolves a later def's init to an earlier same-name def" {
 }
 
 ///|
-/// Build a scope graph through the PRODUCTION FlatProj pipeline — `to_flat_proj`
+/// Build a scope graph through the PRODUCTION ModuleProjection pipeline — `to_module_projection`
 /// (the live editor's path) rather than `from_proj_node` (used by `graph_of`
 /// above). Both paths now assign module binder ids to real LetDef nodes; this
 /// fixture exercises the production path that starts from flat entries and then
@@ -196,9 +196,9 @@ fn production_graph_of(
   let (cst, _diags) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
-  // Production FlatProj: module binder ids (defs[i].3) are real LetDef node ids,
+  // Production ModuleProjection: module binder ids (defs[i].3) are real LetDef node ids,
   // distinct from their init expression ids.
-  let fp = @lambda_proj.to_flat_proj(syntax, counter)
+  let fp = @lambda_proj.to_module_projection(syntax, counter)
   // Reconstruct the Module ProjNode exactly as the live `cached_proj_node` memo
   // does; binding ids become first-class LetDef nodes in this tree.
   let proj = fp.to_proj_node(counter)
@@ -214,7 +214,7 @@ fn production_graph_of(
 
 ///|
 /// Option-D binder-location contract on the PRODUCTION path (docs/TODO.md §20,
-/// resolved). Through `to_flat_proj` a module def's `Decl.node_id` is now the
+/// resolved). Through `to_module_projection` a module def's `Decl.node_id` is now the
 /// real LetDef node id, but locating the binder still goes through
 /// `@scope.binder_span`: it resolves the LetDef node's `"name"` token span
 /// (with the module `"name:<def_index>"` fallback during migration), not the

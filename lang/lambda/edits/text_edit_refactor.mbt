@@ -4,19 +4,19 @@ fn compute_extract_to_let(
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
-  let { source_text, source_map, registry, flat_proj } = ctx
+  let { source_text, source_map, registry, module_projection } = ctx
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found")
   }
   guard source_map.get_range(node_id) is Some(range) else {
     return Err("Range not found")
   }
-  let g = @scope.build(flat_proj, registry, source_map)
+  let g = @scope.build(module_projection, registry, source_map)
   let fv = free_vars(node.kind, @immut/hashset.new())
-  let would_capture = if flat_proj.defs.is_empty() {
+  let would_capture = if module_projection.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
-    free_names_would_rebind_at_module_end(g, flat_proj, node, fv)
+    free_names_would_rebind_at_module_end(g, module_projection, node, fv)
   }
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
@@ -24,7 +24,8 @@ fn compute_extract_to_let(
   // Build edits
   let expr_text = @ast.print_term(node.kind)
   let let_text = "let " + var_name + " = " + expr_text + "\n"
-  if flat_proj.defs.is_empty() && flat_proj.final_expr is Some(_) {
+  if module_projection.defs.is_empty() &&
+    module_projection.final_expr is Some(_) {
     // No module — wrap: replace expression with "let name = expr\nname"
     let new_text = let_text + var_name
     Ok(
@@ -43,7 +44,7 @@ fn compute_extract_to_let(
     )
   } else {
     // Has Module — insert let before body, replace expr with var_name
-    let body_start = match flat_proj.final_expr {
+    let body_start = match module_projection.final_expr {
       Some(body) =>
         match source_map.get_range(body.id()) {
           Some(r) => r.start
@@ -57,7 +58,7 @@ fn compute_extract_to_let(
       // Node is in the body — produce a single edit:
       // Replace body text from body_start to end with:
       //   "let var = expr\n" + (prefix before node) + var_name + (suffix after node)
-      let body_end = match flat_proj.final_expr {
+      let body_end = match module_projection.final_expr {
         Some(body) =>
           match source_map.get_range(body.id()) {
             Some(r) => r.end
@@ -110,7 +111,7 @@ fn compute_inline_definition(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, registry, flat_proj } = ctx
+  let { source_text, source_map, registry, module_projection } = ctx
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
   }
@@ -121,7 +122,7 @@ fn compute_inline_definition(
     return Err("Var not in source map")
   }
   // Resolve the binding
-  let g = @scope.build(flat_proj, registry, source_map)
+  let g = @scope.build(module_projection, registry, source_map)
   guard @scope.declaration(g, node_id) is Some(decl) else {
     return Err("No binding found for variable: " + var_name)
   }
@@ -129,13 +130,13 @@ fn compute_inline_definition(
     DeclKind::LamParam(..) =>
       return Err("Cannot inline lambda-bound variable: " + var_name)
     DeclKind::ModuleDef(def_index~) => {
-      let def = flat_proj.defs[def_index]
+      let def = module_projection.defs[def_index]
       let init_text = @ast.print_term(def.1.kind)
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.1.kind, @immut/hashset.new())
       if free_names_would_rebind_at_node(
           g,
-          flat_proj,
+          module_projection,
           source_map,
           def.1,
           node_id,
@@ -224,16 +225,16 @@ fn compute_inline_all_usages(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, registry, flat_proj } = ctx
-  let def_index = match find_def_index(flat_proj, binding_node_id) {
+  let { source_text, source_map, registry, module_projection } = ctx
+  let def_index = match find_def_index(module_projection, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
-  let def = flat_proj.defs[def_index]
+  let def = module_projection.defs[def_index]
   let var_name = def.0
   let init_text = @ast.print_term(def.1.kind)
   // Find all references resolved to this binding.
-  let g = @scope.build(flat_proj, registry, source_map)
+  let g = @scope.build(module_projection, registry, source_map)
   let ref_ids = match module_def_references(g, def_index) {
     Ok(ids) => ids
     Err(e) => return Err(e)
@@ -243,7 +244,7 @@ fn compute_inline_all_usages(
   for rid in ref_ids {
     if free_names_would_rebind_at_node(
         g,
-        flat_proj,
+        module_projection,
         source_map,
         def.1,
         rid,

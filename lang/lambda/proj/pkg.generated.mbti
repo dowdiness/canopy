@@ -19,11 +19,11 @@ pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term]
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
 
-pub fn print_flat_proj(FlatProj) -> String
+pub fn print_module_projection(ModuleProjection) -> String
 
 pub fn rebuild_kind(@ast.Term, Array[@dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @ast.Term
 
-pub fn reconcile_flat_proj(FlatProj, FlatProj, @ref.Ref[Int]) -> FlatProj
+pub fn reconcile_module_projection(ModuleProjection, ModuleProjection, @ref.Ref[Int]) -> ModuleProjection
 
 pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
@@ -31,23 +31,23 @@ pub fn term_css_class(@ast.Term) -> String
 
 pub fn term_kind_tag(@ast.Term) -> String
 
-pub fn to_flat_proj(@seam.SyntaxNode, @ref.Ref[Int]) -> FlatProj
+pub fn to_module_projection(@seam.SyntaxNode, @ref.Ref[Int]) -> ModuleProjection
 
-pub fn to_flat_proj_incremental(@seam.SyntaxNode, @seam.SyntaxNode, FlatProj, @ref.Ref[Int], changed_indices? : @ref.Ref[Array[Int]]) -> FlatProj
+pub fn to_module_projection_incremental(@seam.SyntaxNode, @seam.SyntaxNode, ModuleProjection, @ref.Ref[Int], changed_indices? : @ref.Ref[Array[Int]]) -> ModuleProjection
 
 pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 // Errors
 
 // Types and methods
-pub struct FlatProj {
+pub struct ModuleProjection {
   defs : Array[(String, @dowdiness/canopy/core.ProjNode[@ast.Term], Int, @dowdiness/canopy/core.NodeId)]
   final_expr : @dowdiness/canopy/core.ProjNode[@ast.Term]?
 } derive(Eq, @debug.Debug)
-pub fn FlatProj::empty() -> Self
-pub fn FlatProj::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
-pub fn FlatProj::to_proj_node(Self, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
-pub fn FlatProj::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+pub fn ModuleProjection::empty() -> Self
+pub fn ModuleProjection::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
+pub fn ModuleProjection::to_proj_node(Self, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+pub fn ModuleProjection::to_proj_node_with_prev_module_id(Self, @ref.Ref[Int], Int?) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
 
 // Type aliases
 

@@ -1,15 +1,15 @@
 // Lambda projection memo builder.
-// Reactive derivation of FlatProj, ProjNode, registry, and source map
+// Reactive derivation of ModuleProjection, ProjNode, registry, and source map
 // from incremental parser-backed signals.
 // Moved from editor/projection_memo.mbt to separate language code from framework.
 
 ///|
-/// Lambda-specific memo builder — wraps the lambda-specific FlatProj pipeline
+/// Lambda-specific memo builder — wraps the lambda-specific ModuleProjection pipeline
 /// and produces ProjNode[@ast.Term] memos for the SyncEditor constructor.
 pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
 ) -> (
-  @incr.Derived[VersionedFlatProj],
+  @incr.Derived[VersionedModuleProjection],
   @incr.Derived[@core.ProjNode[@ast.Term]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
   @incr.Derived[@core.SourceMap],
@@ -17,7 +17,9 @@ pub fn build_lambda_projection_memos(
   let rt = parser.runtime()
   let source_text = parser.source()
   let syntax_tree = parser.syntax_tree()
-  let prev_flat_proj_ref : Ref[@lambda_proj.FlatProj?] = Ref(None)
+  let prev_module_projection_ref : Ref[@lambda_proj.ModuleProjection?] = Ref(
+    None,
+  )
   let prev_syntax_root_ref : Ref[@seam.SyntaxNode?] = Ref(None)
   let next_id_ref : Ref[Int] = Ref(0)
   // Change tracking side-channel: set by proj_memo, read by registry and source_map.
@@ -31,25 +33,26 @@ pub fn build_lambda_projection_memos(
   let proj_revision_ref : Ref[Int] = Ref(0)
   let proj_changed_at_ref : Ref[@incr.Revision] = Ref(@incr.Revision::initial())
 
-  let proj_memo : @incr.Derived[VersionedFlatProj] = @incr.Derived::Derived(
+  let proj_memo : @incr.Derived[VersionedModuleProjection] = @incr.Derived::Derived(
     rt,
-    fn() -> VersionedFlatProj {
+    fn() -> VersionedModuleProjection {
       if source_text.get_or_abort() == "" {
-        prev_flat_proj_ref.val = None
+        prev_module_projection_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
-        return VersionedFlatProj::{
+        return VersionedModuleProjection::{
           proj: None,
           changed_at: proj_changed_at_ref.val,
         }
       }
       let syntax_root = syntax_tree.get_or_abort()
       let counter = Ref(next_id_ref.val)
-      let result = match (prev_flat_proj_ref.val, prev_syntax_root_ref.val) {
+      let result = match
+        (prev_module_projection_ref.val, prev_syntax_root_ref.val) {
         (Some(prev_fp), Some(prev_root)) => {
           let changed = Ref(([] : Array[Int]))
-          let result = @lambda_proj.to_flat_proj_incremental(
+          let result = @lambda_proj.to_module_projection_incremental(
             syntax_root,
             prev_root,
             prev_fp,
@@ -87,17 +90,17 @@ pub fn build_lambda_projection_memos(
         (Some(prev_fp), None) => {
           // No previous syntax root (e.g., after tree edit) — build fresh
           // and reconcile to preserve node IDs
-          let new_fp = @lambda_proj.to_flat_proj(syntax_root, counter)
+          let new_fp = @lambda_proj.to_module_projection(syntax_root, counter)
           changed_def_indices_ref.val = None
-          @lambda_proj.reconcile_flat_proj(prev_fp, new_fp, counter)
+          @lambda_proj.reconcile_module_projection(prev_fp, new_fp, counter)
         }
         _ => {
           changed_def_indices_ref.val = None
-          @lambda_proj.to_flat_proj(syntax_root, counter)
+          @lambda_proj.to_module_projection(syntax_root, counter)
         }
       }
       next_id_ref.val = counter.val
-      prev_flat_proj_ref.val = Some(result)
+      prev_module_projection_ref.val = Some(result)
       prev_syntax_root_ref.val = Some(syntax_root)
       proj_revision_ref.val = proj_revision_ref.val + 1
       // Advance changed_at only when content actually changed.
@@ -110,7 +113,7 @@ pub fn build_lambda_projection_memos(
       if has_changes {
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
       }
-      VersionedFlatProj::{
+      VersionedModuleProjection::{
         proj: Some(result),
         changed_at: proj_changed_at_ref.val,
       }
@@ -118,7 +121,7 @@ pub fn build_lambda_projection_memos(
     label="proj_flat",
   )
 
-  // Single conversion FlatProj -> ProjNode, shared by registry + source_map + get_proj_node.
+  // Single conversion ModuleProjection -> ProjNode, shared by registry + source_map + get_proj_node.
   // Counter write-back ensures Unit fallback IDs don't collide with future IDs.
   // prev_module_id_ref holds the Module node_id from the most recent successful
   // conversion, so stable Module IDs survive incremental rebuilds.

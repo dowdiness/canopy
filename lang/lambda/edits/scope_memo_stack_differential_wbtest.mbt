@@ -3,7 +3,7 @@
 //
 // WHAT THIS PINS (and how it differs from the Level-A differential)
 // The Level-A differential (`scope_incremental_differential_wbtest.mbt`) calls
-// `to_flat_proj_incremental` DIRECTLY and rebuilds a FRESH SourceMap/registry
+// `to_module_projection_incremental` DIRECTLY and rebuilds a FRESH SourceMap/registry
 // (`from_ast`) each step — it never drives the production `@incr` memo stack.
 // This file drives the actual `build_lambda_projection_memos` cells off a live
 // `@loom.Parser`, applies an edit SEQUENCE via `parser.apply_edit`, reads the
@@ -48,7 +48,7 @@
 /// Watch eager, that test's `physical_equal == false` assertion would fail).
 struct LevelBStack {
   parser : @loom.Parser[@ast.Term]
-  proj_memo : @incr.Derived[@lambda_flat.VersionedFlatProj]
+  proj_memo : @incr.Derived[@lambda_flat.VersionedModuleProjection]
   cached_proj_node : @incr.Derived[@core.ProjNode[@ast.Term]?]
   registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]]
   source_map_memo : @incr.Derived[@core.SourceMap]
@@ -226,7 +226,7 @@ test "level-B: resolution-visible def-init edit patches registry+source_map in p
   let sm0 = stack.source_map_memo.read_or_abort()
   assert_level_b_agrees(stack, s0, "init")
   // Edit def 1's init `2` -> `x` (one code unit, same length). def count (2) and
-  // final_expr (`x`) are unchanged, so `to_flat_proj_incremental` reports
+  // final_expr (`x`) are unchanged, so `to_module_projection_incremental` reports
   // changed_def_indices = Some([1]) (def-init changes push the def index — pinned
   // by the Level-A non-vacuity test) and BOTH downstream memos take the IN-PLACE
   // patch branch. The new init `x` is a Var binding to def 0, so the differential

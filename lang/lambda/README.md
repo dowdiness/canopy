@@ -36,4 +36,4 @@ Experimental — the lambda language is the reference implementation for new edi
 
 ## Notes
 
-There is no top-level logic in this package. Earlier revisions included a `reconcile_ast.mbt` file re-exporting `@core.reconcile`, which had no callers and was removed. The reference for incremental projection over the lambda AST lives in `lang/lambda/flat` (`VersionedFlatProj`, `build_lambda_projection_memos`); import that subpackage directly if needed.
+There is no top-level logic in this package. Earlier revisions included a `reconcile_ast.mbt` file re-exporting `@core.reconcile`, which had no callers and was removed. The reference for incremental projection over the lambda AST lives in `lang/lambda/flat` (`VersionedModuleProjection`, `build_lambda_projection_memos`); import that subpackage directly if needed.

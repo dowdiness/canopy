@@ -122,7 +122,7 @@ test "scope_map keys module references by real LetDef declaration" {
   let inner_x_id = x_vars[0]
   let module_x_id = x_vars[x_vars.length() - 1]
   let graph = @scope.build(
-    companion.get_flat_proj().unwrap(),
+    companion.get_module_projection().unwrap(),
     editor.get_registry(),
     editor.get_source_map(),
   )

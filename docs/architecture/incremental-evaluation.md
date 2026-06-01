@@ -37,7 +37,7 @@ topology is unchanged.
 The projection pipeline is a **linear chain of 4 reactive memos**:
 
 ```
-syntax_tree Signal → proj_memo (FlatProj)
+syntax_tree Signal → proj_memo (ModuleProjection)
                    → cached_proj_node (ProjNode[T])
                    → registry_memo (Map[NodeId, ProjNode])
                    → source_map_memo (SourceMap)
@@ -51,7 +51,7 @@ Edits route back through text CRDT only.
 ### Change Detection vs Change Propagation
 
 The dominant cost per keystroke is **change detection** rather than change propagation.
-`to_flat_proj_incremental` scans all N definitions checking `physical_equal()`
+`to_module_projection_incremental` scans all N definitions checking `physical_equal()`
 on CstNode pointers, even though typically only 1 def changed. The incremental
 parsing and projection that follow are efficient — but discovering *which* defs
 changed requires a linear scan.

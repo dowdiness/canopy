@@ -105,7 +105,7 @@ fn rename_from_var(
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let g = @scope.build(ctx.flat_proj, ctx.registry, ctx.source_map)
+  let g = @scope.build(ctx.module_projection, ctx.registry, ctx.source_map)
   guard @scope.declaration(g, var_node_id) is Some(decl) else {
     return Err("No binding found for variable: " + old_name)
   }
@@ -141,11 +141,11 @@ fn rename_binding_by_id(
   binding_node_id : NodeId,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let def_index = match find_def_index(ctx.flat_proj, binding_node_id) {
+  let def_index = match find_def_index(ctx.module_projection, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
-  let old_name = ctx.flat_proj.defs[def_index].0
+  let old_name = ctx.module_projection.defs[def_index].0
   // Find Module node
   let mut module_id : NodeId? = None
   for pid, pnode in ctx.registry {
@@ -169,9 +169,9 @@ fn rename_module_binding(
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let { source_map, registry, flat_proj, .. } = ctx
+  let { source_map, registry, module_projection, .. } = ctx
   // Guard: check if another binding already uses new_name
-  for i, def in flat_proj.defs {
+  for i, def in module_projection.defs {
     if i != def_index && def.0 == new_name {
       return Err(
         "Cannot rename: binding '" +
@@ -182,7 +182,7 @@ fn rename_module_binding(
     }
   }
   // Find all references resolved to this binding.
-  let g = @scope.build(flat_proj, registry, source_map)
+  let g = @scope.build(module_projection, registry, source_map)
   let ref_ids = match module_def_references(g, def_index) {
     Ok(ids) => ids
     Err(e) => return Err(e)
@@ -200,7 +200,7 @@ fn rename_module_binding(
   let edits : Array[SpanEdit] = []
   // Get the binder-name token span. Prefer the first-class LetDef node; keep
   // the module-level `name:<i>` lookup as a migration fallback for older maps.
-  let binding_node_id = flat_proj.defs[def_index].3
+  let binding_node_id = module_projection.defs[def_index].3
   let name_range = match
     source_map.get_token_span(binding_node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
     Some(r) => Some(r)

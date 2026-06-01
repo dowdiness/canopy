@@ -69,11 +69,11 @@ fn root_node(
 /// LamParam scope per Lam node. Records node→scope membership.
 fn Builder::pass2(
   self : Builder,
-  flat_proj : @lambda_proj.FlatProj,
+  module_projection : @lambda_proj.ModuleProjection,
   root : @core.ProjNode[@ast.Term],
 ) -> Unit {
   let root_scope = self.add_scope(None)
-  for i, def in flat_proj.defs {
+  for i, def in module_projection.defs {
     let (name, _init, _start, binder_id) = def
     let _ = self.add_decl(root_scope, binder_id, name, ModuleDef(def_index=i))
   }
@@ -121,22 +121,22 @@ fn Builder::add_ref(
 /// def count (body sentinel) when the node is in the module body. This is now
 /// the sole implementation of def-range containment for the lambda language.
 fn containing_def_index(
-  flat_proj : @lambda_proj.FlatProj,
+  module_projection : @lambda_proj.ModuleProjection,
   source_map : @core.SourceMap,
   node_id : @core.NodeId,
 ) -> Int {
   guard source_map.get_range(node_id) is Some(r) else {
-    return flat_proj.defs.length()
+    return module_projection.defs.length()
   }
   let pos = r.start
-  flat_proj.defs
+  module_projection.defs
   .search_by(fn(def) {
     let (_n, init, _s, _id) = def
     source_map.get_range(init.id()) is Some(dr) &&
     pos >= dr.start &&
     pos < dr.end
   })
-  .unwrap_or(flat_proj.defs.length())
+  .unwrap_or(module_projection.defs.length())
 }
 
 ///|
@@ -185,7 +185,7 @@ fn Builder::resolve(
 /// correct — silently defaulting to the root scope would mis-resolve it.
 fn Builder::pass3(
   self : Builder,
-  flat_proj : @lambda_proj.FlatProj,
+  module_projection : @lambda_proj.ModuleProjection,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> Unit {
@@ -197,7 +197,7 @@ fn Builder::pass3(
     }
     guard name is Some(n) else { continue }
     let scope = self.node_scope.get(node.id()).unwrap()
-    let cutoff = containing_def_index(flat_proj, source_map, node.id())
+    let cutoff = containing_def_index(module_projection, source_map, node.id())
     let resolution = self.resolve(n, scope, cutoff)
     self.add_ref(scope, node.id(), n, resolution)
   }
@@ -206,13 +206,13 @@ fn Builder::pass3(
 ///|
 /// Build the scope graph (Pass 2 then Pass 3).
 pub fn build(
-  flat_proj : @lambda_proj.FlatProj,
+  module_projection : @lambda_proj.ModuleProjection,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
   let b = Builder::new()
   let root = root_node(registry)
-  b.pass2(flat_proj, root)
-  b.pass3(flat_proj, registry, source_map)
+  b.pass2(module_projection, root)
+  b.pass3(module_projection, registry, source_map)
   { scopes: b.scopes, decls: b.decls, refs: b.refs, module_node_id: root.id() }
 }

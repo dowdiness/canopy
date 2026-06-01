@@ -7,7 +7,7 @@
 // may still be microseconds. This isolates the actual cost.
 //
 // IMPORTANT scope note: the lambda Module path does NOT reach this code on the
-// wide def list. `reconcile_flat_proj` routes the def list through `key_match`
+// wide def list. `reconcile_module_projection` routes the def list through `key_match`
 // (hash-based, O(N)) and only calls `@core.reconcile` per individual init
 // subtree (narrow). The wide-sibling LCS is reached when `@core.reconcile`
 // runs on a parent that itself has many direct children — e.g. a Module node

@@ -47,7 +47,7 @@ pub fn get_semantic_projection_json(handle : Int) -> String {
           return empty_semantic_projection_json()
         }
       }
-      let flat_proj = match
+      let module_projection = match
         coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
         Ok(v) => v.proj
         Err(report) => {
@@ -55,8 +55,8 @@ pub fn get_semantic_projection_json(handle : Int) -> String {
           return empty_semantic_projection_json()
         }
       }
-      @lambda_semantic.build_semantic_projection_with_flat_proj(
-        root, source_map, flat_proj,
+      @lambda_semantic.build_semantic_projection_with_module_projection(
+        root, source_map, module_projection,
       )
       .to_json()
       .stringify()
@@ -95,7 +95,7 @@ pub fn rename_semantic_node(
           return "error: editor unavailable"
         }
       }
-      let flat_proj = match
+      let module_projection = match
         coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
         Ok(v) => v.proj
         Err(report) => {
@@ -103,8 +103,8 @@ pub fn rename_semantic_node(
           return "error: editor unavailable"
         }
       }
-      let projection = @lambda_semantic.build_semantic_projection_with_flat_proj(
-        root, source_map, flat_proj,
+      let projection = @lambda_semantic.build_semantic_projection_with_module_projection(
+        root, source_map, module_projection,
       )
       if !semantic_node_allows_rename(projection, id) {
         return "error: node is not a semantic binder or reference"

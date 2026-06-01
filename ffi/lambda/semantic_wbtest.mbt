@@ -38,9 +38,9 @@ test "rename_semantic_node renames let binder through flat binding id" {
   set_text(handle, "let x = 1\nx")
   let binding_id = match lambda_handles.get(handle) {
     Some(h) =>
-      match h.companion.get_flat_proj() {
-        Some(flat_proj) =>
-          match flat_proj.defs[0].3.to_json() {
+      match h.companion.get_module_projection() {
+        Some(module_projection) =>
+          match module_projection.defs[0].3.to_json() {
             Json::Number(n, ..) => n.to_int()
             _ => fail("expected numeric binding node id")
           }

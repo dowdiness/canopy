@@ -1,5 +1,12 @@
 # BAND 2b — Canopy hot-path scaling cliffs: reproduce-or-reject (2026-06-01)
 
+> **Naming note (2026-06-02):** after this measurement, `FlatProj` →
+> `ModuleProjection`, `to_flat_proj_incremental` → `to_module_projection_incremental`,
+> and `flat_proj.mbt`/`flat_proj_incremental_benchmark_wbtest.mbt` →
+> `module_projection*.mbt`. The symbol/file names below (and the embedded JS
+> harness) are preserved as the **state at measurement time**; current names live
+> in [ADR 2026-06-01 — Identity and Reuse Mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md).
+
 ## Purpose
 
 Evidence gate for canopy #443. The MoonDsp+Canopy vision report §7.6 claimed two
@@ -274,6 +281,14 @@ only if real Canopy documents reach ~320+ defs — e.g. a generated/imported-doc
 feature, a large-program demo, or telemetry showing user docs at that scale. The
 evidence (benches + JS harness recipe above) is preserved so the fix can be designed
 immediately if that day comes; only the *scale precondition* is missing today.
+
+**Not a refactor — second, independent reason to leave it parked.** Even at scale,
+lever 1 is an *optimization with a design tradeoff*, not a clarity refactor: it
+re-introduces position-independent interned identity that #396 deliberately dropped
+for source-span CSTs, and adds a fourth identity concept rather than unifying the
+three that exist. The full responsibility map of the parse/projection identity
+mechanisms and the #396 tension are recorded in
+[ADR 2026-06-01 — Identity and Reuse Mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md).
 
 ## Artifacts
 

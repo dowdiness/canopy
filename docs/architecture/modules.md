@@ -105,7 +105,7 @@ Pure edit computation — edit op enums and span-edit calculators. No editor dep
 Editor bridge — factory functions and edit application. Depends on editor + edits + proj. Delegates to `SyncEditor::apply_span_edits()` after computing edits. One per language.
 
 ### `lang/lambda/flat/`
-Incremental FlatProj wrapper — memo-based incremental projection updates for lambda.
+Incremental ModuleProjection wrapper — memo-based incremental projection updates for lambda.
 
 ### `cmd/main/`
 Command-line entry points and REPL.

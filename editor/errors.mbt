@@ -8,7 +8,7 @@ pub(all) suberror TreeEditError {
   FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
-  FlatProjUnavailable
+  ModuleProjectionUnavailable
   UnhandledOperation(detail~ : String)
   NodeNotInSourceMap(action~ : String, node_id~ : @core.NodeId)
   NodeNotInRegistry(action~ : String, node_id~ : @core.NodeId)
@@ -25,7 +25,7 @@ pub fn TreeEditError::message(self : TreeEditError) -> String {
     FieldMustBeNumber(field~) => "\{field} must be a number"
     UnknownBop(name~) => "unknown bop: \{name}"
     UnknownOpType(op_type~) => "unknown op type: \{op_type}"
-    FlatProjUnavailable => "No FlatProj available"
+    ModuleProjectionUnavailable => "No ModuleProjection available"
     UnhandledOperation(detail~) => "Unhandled tree edit op: \{detail}"
     NodeNotInSourceMap(action~, node_id~) =>
       "\{action}: node \{node_id} not in source map"

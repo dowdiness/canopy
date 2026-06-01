@@ -18,7 +18,7 @@
 //     binder key + all its usages. Uniform for both lambda and module bindings.
 //
 // Data flow:
-//   FlatProj + registry + SourceMap → @scope.build → @scope.references
+//   ModuleProjection + registry + SourceMap → @scope.build → @scope.references
 //     → scope_map → view_outline_node → compute_highlight_set
 //   Nested block Modules are overlaid by building @scope graphs for each nested
 //   Module subtree; the overlay still consumes @scope.references by DeclId and
@@ -98,7 +98,7 @@ fn add_module_scope_annotations(
     return
   }
   let graph = @scope.build(
-    @lambda_proj.FlatProj::from_proj_node(node),
+    @lambda_proj.ModuleProjection::from_proj_node(node),
     registry,
     source_map,
   )
@@ -159,13 +159,15 @@ fn build_scope_map(
 ) -> Map[@canopy_core.NodeId, ScopeAnnotation] {
   let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
   guard editor.get_proj_node() is Some(proj_root) else { return scope_map }
-  guard companion.get_flat_proj() is Some(flat_proj) else { return scope_map }
+  guard companion.get_module_projection() is Some(module_projection) else {
+    return scope_map
+  }
   let registry = editor.get_registry()
   if registry.is_empty() {
     return scope_map
   }
   let source_map = editor.get_source_map()
-  let graph = @scope.build(flat_proj, registry, source_map)
+  let graph = @scope.build(module_projection, registry, source_map)
   add_scope_graph_annotations(scope_map, graph)
   add_nested_module_scope_annotations(proj_root, source_map, scope_map)
   rebuild_usage_lists(scope_map)

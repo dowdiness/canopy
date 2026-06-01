@@ -17,7 +17,7 @@ fn scope_test_registry(
 test "module_def_references: finds Var references in Module body" {
   let text = "let x = 0\nx + x"
   let (proj, _) = parse_to_proj_node(text)
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, source_map)
@@ -31,7 +31,7 @@ test "module_def_references: finds Var references in Module body" {
 test "module_def_references: respects shadowing by inner Lam" {
   let text = "let x = 0\nλx. x"
   let (proj, _) = parse_to_proj_node(text)
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, source_map)
@@ -45,7 +45,7 @@ test "module_def_references: respects shadowing by inner Lam" {
 test "module_def_references: later duplicate shadows body only" {
   let text = "let x = 0\nlet x = x\nx"
   let (proj, _) = parse_to_proj_node(text)
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, source_map)
@@ -65,7 +65,7 @@ test "module_def_references: later duplicate shadows body only" {
 test "find_binding_for_init: maps init ProjNode to binding NodeId" {
   let text = "let x = 0\nlet y = 1\nx + y"
   let (proj, _) = parse_to_proj_node(text)
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   // First def's init is the LetDef node's child.
   let init_id = proj.children[0].children[0].id()
   match find_binding_for_init(init_id, fp) {
@@ -88,7 +88,7 @@ test "find_binding_for_init: maps init ProjNode to binding NodeId" {
 test "find_binding_for_init: returns None for non-init node" {
   let text = "let x = 0\nx"
   let (proj, _) = parse_to_proj_node(text)
-  let fp = FlatProj::from_proj_node(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
   // Body node is not an init expression
   let body = proj.children[proj.children.length() - 1]
   inspect(find_binding_for_init(body.id(), fp) is None, content="true")
