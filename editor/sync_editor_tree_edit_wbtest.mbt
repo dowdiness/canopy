@@ -172,7 +172,7 @@ test "move_node exchange (Inside) swaps two expressions" {
 }
 
 ///|
-test "move_node exchange swaps two let-definitions" {
+test "move_node exchange moves whole let-definitions" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nx")
   let root = match editor.get_proj_node() {
@@ -193,8 +193,8 @@ test "move_node exchange swaps two let-definitions" {
   inspect(
     editor.get_text(),
     content=(
-      #|let x = 2
-      #|let y = 1
+      #|let y = 2
+      #|let x = 1
       #|x
     ),
   )

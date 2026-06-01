@@ -115,6 +115,22 @@ test "actions for App node" {
 }
 
 ///|
+test "actions for LetDef node" {
+  let ctx = NodeContext::new()
+  let actions = get_actions_for_node(
+    @ast.Term::LetDef("x", @ast.Term::Int(1)),
+    ctx,
+  )
+  let ids = actions.map(fn(a) { a.id })
+  inspect(ids.contains("binding_rename"), content="true")
+  inspect(ids.contains("binding_duplicate"), content="true")
+  inspect(ids.contains("binding_delete"), content="true")
+  inspect(ids.contains("binding_inline_all"), content="true")
+  inspect(ids.contains("binding_move_up"), content="true")
+  inspect(ids.contains("binding_move_down"), content="true")
+}
+
+///|
 test "actions for Module node" {
   let ctx = NodeContext::new()
   let actions = get_actions_for_node(

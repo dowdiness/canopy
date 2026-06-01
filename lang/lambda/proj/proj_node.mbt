@@ -57,7 +57,7 @@ fn bop_node(
 ///|
 priv struct ProjectedLetDef {
   name : @ast.VarName
-  init : ProjNode[@ast.Term]
+  node : ProjNode[@ast.Term]
   start : Int
 }
 
@@ -77,7 +77,14 @@ fn project_let_def(
     None =>
       error_node_for_syntax("missing let binding value", def_node, counter)
   }
-  { name: def.name(), init, start: def_node.start() }
+  let node = ProjNode::branch(
+    @ast.Term::LetDef(def.name(), init.kind),
+    def_node.start(),
+    def_node.end(),
+    [init],
+    counter,
+  )
+  { name: def.name(), node, start: def_node.start() }
 }
 
 ///|
@@ -88,10 +95,13 @@ fn module_node_from_defs(
   end : Int,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  let children : Array[ProjNode[@ast.Term]] = defs.map(fn(d) { d.init })
+  let children : Array[ProjNode[@ast.Term]] = defs.map(fn(d) { d.node })
   children.push(body)
   let term_defs : Array[(@ast.VarName, @ast.Term)] = defs.map(fn(d) {
-    (d.name, d.init.kind)
+    match d.node.kind {
+      @ast.Term::LetDef(_, init) => (d.name, init)
+      _ => (d.name, Error("malformed LetDef"))
+    }
   })
   ProjNode::branch(Module(term_defs, body.kind), start, end, children, counter)
 }
@@ -237,10 +247,9 @@ pub fn syntax_to_proj_node(
 
 ///|
 /// Convert a SourceFile SyntaxNode (LetDef* Expression?) to a ProjNode tree.
-/// Collects LetDef children into a flat Module(defs, body) ProjNode,
-/// mirroring `syntax_node_to_term` but preserving spans and IDs.
-///
-/// LetDef children are collected into a single Module node with flat children.
+/// Collects LetDef children into a Module(defs, body) ProjNode whose children
+/// are first-class LetDef rows followed by the body expression, mirroring
+/// `syntax_node_to_term` while preserving spans and IDs.
 pub fn to_proj_node(
   root : @seam.SyntaxNode,
   counter : Ref[Int],

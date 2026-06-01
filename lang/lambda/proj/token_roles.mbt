@@ -9,7 +9,13 @@
 pub const PARAM_ROLE : String = "param"
 
 ///|
+/// Role key for a `LetDef` node's binder name token.
+pub const LET_DEF_NAME_ROLE : String = "name"
+
+///|
 /// Role key for module def `def_index`'s name token (stored on the Module node).
+/// Compatibility fallback while callers migrate to `LET_DEF_NAME_ROLE` on the
+/// first-class LetDef node.
 pub fn module_name_role(def_index : Int) -> String {
   "name:" + def_index.to_string()
 }

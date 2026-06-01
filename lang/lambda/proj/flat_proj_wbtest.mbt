@@ -170,6 +170,10 @@ test "FlatProj::to_proj_node: let defs reconstruct Module" {
       #|Module([("x", Int(1)), ("y", Int(2))], Bop(Plus, Var("x"), Var("y")))
     ),
   )
+  inspect(proj.children.length(), content="3")
+  inspect(proj.children[0].kind, content="LetDef(\"x\", Int(1))")
+  inspect(proj.children[0].id() == fp.defs[0].3, content="true")
+  inspect(proj.children[0].children[0].kind, content="Int(1)")
 }
 
 ///|
@@ -188,6 +192,8 @@ test "FlatProj::from_proj_node: extracts Module defs" {
   inspect(fp.defs.length(), content="2")
   inspect(fp.defs[0].0, content="x")
   inspect(fp.defs[1].0, content="y")
+  inspect(fp.defs[0].1.kind, content="Int(1)")
+  inspect(fp.defs[0].3 == proj.children[0].id(), content="true")
 }
 
 ///|

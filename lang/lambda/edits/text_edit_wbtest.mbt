@@ -295,6 +295,58 @@ test "compute_text_edit: Drop produces two edits" {
 }
 
 ///|
+test "compute_text_edit: Drop LetDef Inside moves the whole binding row after target" {
+  let text = "let x = 1\nlet y = 2\nx"
+  let (proj, source_map, registry, fp) = parse_with_token_spans(text)
+  let source = proj.children[0]
+  let target = proj.children[1]
+  let result = compute_text_edit(
+    Drop(source=source.id(), target=target.id(), position=Inside),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #|let y = 2
+          #|let x = 1
+          #|x
+        ),
+      )
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop LetDef Before moves the whole binding row before target" {
+  let text = "let x = 1\nlet y = 2\nx"
+  let (proj, source_map, registry, fp) = parse_with_token_spans(text)
+  let source = proj.children[1]
+  let target = proj.children[0]
+  let result = compute_text_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #|let y = 2
+          #|let x = 1
+          #|x
+        ),
+      )
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: Drop with unknown source returns error" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)

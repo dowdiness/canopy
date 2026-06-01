@@ -15,9 +15,9 @@ pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
 /// All reference NodeIds whose resolution points at the declaration `decl`.
 /// Identity-based (keyed on `DeclId`, NOT a name match), so shadowing is
 /// respected. Keying on `DeclId` rather than `Decl.node_id` is deliberate:
-/// a module def's `node_id` is a synthetic, non-tree handle (see `Decl`), so a
-/// `NodeId`-keyed lookup silently preserved that broken contract. `DeclId` is
-/// the stable graph-local identity (`declaration(..).id` yields it).
+/// references resolve to declarations, not to whichever structural node id a
+/// declaration currently uses. `DeclId` is the stable graph-local identity
+/// (`declaration(..).id` yields it).
 pub fn references(g : ScopeGraph, decl : DeclId) -> Array[@core.NodeId] {
   [
     for r in g.refs if r.resolution.decl is Some(rid) && rid == decl => {
@@ -32,7 +32,8 @@ pub fn references(g : ScopeGraph, decl : DeclId) -> Array[@core.NodeId] {
 /// `populate_token_spans`). This is the uniform "where is this binder?" primitive
 /// for go-to-definition, binder highlighting, and rename:
 /// - lambda param: the `"param"` token span on the `Lam` node;
-/// - module def: the `"name:<def_index>"` token span on `module_node_id`.
+/// - module def: the `"name"` token span on the `LetDef` node, with the
+///   module-level `"name:<def_index>"` span as a migration fallback.
 /// Failure is always `None`, never a wrong location.
 pub fn binder_span(
   g : ScopeGraph,
@@ -43,10 +44,15 @@ pub fn binder_span(
     LamParam(lam_id~) =>
       source_map.get_token_span(lam_id, @lambda_proj.PARAM_ROLE)
     ModuleDef(def_index~) =>
-      source_map.get_token_span(
-        g.module_node_id,
-        @lambda_proj.module_name_role(def_index),
-      )
+      match
+        source_map.get_token_span(decl.node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
+        Some(range) => Some(range)
+        None =>
+          source_map.get_token_span(
+            g.module_node_id,
+            @lambda_proj.module_name_role(def_index),
+          )
+      }
   }
 }
 

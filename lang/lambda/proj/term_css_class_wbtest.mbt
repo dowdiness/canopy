@@ -1,4 +1,4 @@
-// Enumerate all 11 Term variants — pins the return strings. CSS-selector
+// Enumerate all 12 Term variants — pins the return strings. CSS-selector
 // coverage in editor.css is a manually maintained contract (not test-enforced).
 // See docs/plans/2026-05-16-show-unification.md (Task 1, PR 2).
 
@@ -49,6 +49,14 @@ test "term_css_class — If" {
 }
 
 ///|
+test "term_css_class — LetDef" {
+  inspect(
+    term_css_class(@ast.Term::LetDef("x", @ast.Term::Int(1))),
+    content="let-def",
+  )
+}
+
+///|
 test "term_css_class — Module" {
   inspect(
     term_css_class(@ast.Term::Module([], @ast.Term::Unit)),
@@ -90,6 +98,10 @@ test "term_kind_tag — forwards Renderable::kind_tag verbatim" {
   inspect(
     term_kind_tag(@ast.Term::App(@ast.Term::Var("f"), @ast.Term::Var("x"))),
     content="App",
+  )
+  inspect(
+    term_kind_tag(@ast.Term::LetDef("x", @ast.Term::Int(1))),
+    content="LetDef",
   )
   inspect(term_kind_tag(@ast.Term::Unit), content="Unit")
 }

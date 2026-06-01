@@ -1,6 +1,12 @@
 import { defineConfig, type PluginOption } from 'vite';
 import { moonbitPlugin } from '../../web/vite-plugin-moonbit';
 
+// Workspace builds emit namespaced artifacts at the repo root; MOON_WORK=off
+// builds the standalone ideal module under examples/ideal/_build.
+const idealEditorOutput = process.env.MOON_WORK === 'off'
+  ? '_build/js/release/build/main/main.js'
+  : '../../_build/js/release/build/dowdiness/ideal-editor/main/main.js';
+
 export default defineConfig({
   plugins: [
     moonbitPlugin({
@@ -10,7 +16,7 @@ export default defineConfig({
           // No separate @moonbit/canopy needed (saves 7.6MB load).
           name: '@moonbit/ideal-editor',
           path: '..',
-          output: '_build/js/release/build/main/main.js'
+          output: idealEditorOutput
         }
       ]
     }) as PluginOption

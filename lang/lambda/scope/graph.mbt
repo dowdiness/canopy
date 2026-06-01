@@ -30,14 +30,14 @@ pub(all) struct Scope {
 ///|
 /// A declaration (binding site). A binder's LOCATION is its source span,
 /// recovered uniformly via `binder_span` (which reads `SourceMap` token spans),
-/// not via `node_id`:
+/// not by interpreting `node_id` as a source range:
 /// - lambda param: the `"param"` token span on the `Lam` node (`kind`'s `lam_id`).
-/// - module def: the `"name:<def_index>"` token span on the module node
-///   (`ScopeGraph::module_node_id`).
-/// `node_id` is retained only as an internal dedup/identity handle. It is NOT a
-/// reliable tree-node pointer for module defs (on the production `to_flat_proj`
-/// path it is a synthetic id occupying no registry node), so consumers needing
-/// to locate a binder MUST use `binder_span`, never `node_id`.
+/// - module def: the `"name"` token span on the first-class `LetDef` node,
+///   with the module node's `"name:<def_index>"` span retained as a migration
+///   fallback.
+/// `node_id` is the declaration's structural identity; for module definitions it
+/// now points at the real `LetDef` projection node. Consumers needing to locate
+/// a binder should still use `binder_span`, never the full node range.
 pub(all) struct Decl {
   id : DeclId
   node_id : @core.NodeId
@@ -69,10 +69,11 @@ pub(all) struct Resolution {
 
 ///|
 /// The binding index for one lambda module.
-/// `module_node_id` is the root projection node that owns the module-def name
-/// token spans (`"name:<def_index>"` in the `SourceMap`); `binder_span` reads
-/// them through it. For a bare-expression program (no defs) it is the root
-/// expression node and the name-span path is never exercised.
+/// `module_node_id` is the root projection node that owns compatibility
+/// module-def name token spans (`"name:<def_index>"` in the `SourceMap`). The
+/// canonical module-def binder span lives on each `LetDef` node. For a
+/// bare-expression program (no defs), this is the root expression node and the
+/// name-span path is never exercised.
 pub(all) struct ScopeGraph {
   scopes : Array[Scope]
   decls : Array[Decl]

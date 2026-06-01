@@ -2,12 +2,12 @@
 //
 // WHAT THIS PINS
 // Two pipelines build a `FlatProj` from the same source, then a scope graph
-// resolves each Var reference to a declaration. The pipelines assign a module
-// def's binder id (`defs[i].3`) differently:
-//   - TEST path (`graph_and_sm_of` / `from_proj_node`): reuses the init node's
-//     id (a real node present in the reconstructed tree);
-//   - PRODUCTION path (`production_graph_of` / `to_flat_proj`): allocates a
-//     SYNTHETIC binder id occupying no registry node.
+// resolves each Var reference to a declaration. Both pipelines assign a module
+// def's binder id (`defs[i].3`) to a real LetDef node:
+//   - TEST path (`graph_and_sm_of` / `from_proj_node`): extracts the id from the
+//     parsed LetDef child;
+//   - PRODUCTION path (`production_graph_of` / `to_flat_proj`): stores the id in
+//     FlatProj and reconstructs the LetDef child from it.
 // Resolution never reads `node_id` (`Builder::resolve` matches name + def_index
 // < cutoff), so the hand-verified equivalence proof in
 // `scope_equivalence_wbtest.mbt` SHOULD transfer to production — this PBT pins
@@ -16,14 +16,14 @@
 // It also pins the Option-D binder-location contract (docs/TODO.md §20): each
 // resolved declaration is LOCATABLE via `@scope.binder_span`, and that location
 // is pipeline-INDEPENDENT — both pipelines derive the binder span from the same
-// syntax token offsets, so the accessor agrees even though the internal binder
-// `node_id` values diverge. This SUPERSEDES the former gap pin (which asserted
-// the module binder `node_id` was synthetic / not in the registry); Option D
-// locates binders by source span, not `node_id`, so that syntheticness is now
-// an internal detail rather than a gap awaiting a fix.
+// syntax token offsets, so the accessor agrees even if internal binder node ids
+// are allocated through different paths. This SUPERSEDES the former gap pin
+// (which asserted the module binder `node_id` was synthetic / not in the
+// registry); #127 makes that id a real LetDef node while Option D remains the
+// source-location path.
 //
 // HOW IT STAYS NON-CIRCULAR (see memory: feedback_drift_detector_non_circular)
-// The two pipelines differ exactly in their node-id *values*; node ids are
+// The two pipelines may differ in their node-id *values*; node ids are
 // therefore never compared raw. Each resolution is reduced to a
 // pipeline-INDEPENDENT key built from semantic identity (module: def_index;
 // lambda: the binding Lam node's SOURCE RANGE — identical across pipelines
