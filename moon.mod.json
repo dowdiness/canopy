@@ -21,7 +21,7 @@
       "path": "./loom/moji",
       "version": "0.1.0"
     },
-    "dowdiness/incr": "0.5.2",
+    "dowdiness/incr": "0.7.1",
     "dowdiness/lambda": {
       "path": "./loom/examples/lambda",
       "version": "0.1.0"
