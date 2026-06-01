@@ -239,6 +239,42 @@ but the deep-compare-avoidance must be designed against the collision-safety
 invariant. **This remains an evidence gate; any such fix is a separate, greenlit
 issue.**
 
+## Document-size gate → #449 PARKED (2026-06-01)
+
+The fix's payoff is **entirely gated on real document size**: the cliff only bites
+above ~500 defs, and the JS-target keystroke is sub-millisecond well below that
+(tail @80 = 64.7 µs, @320 = 515 µs — both inside a 16 ms frame; only @1000 reaches
+3.97 ms). So before designing lever-1, the prerequisite question is: **do real
+Canopy documents ever approach that scale?**
+
+A repo-wide survey of every realistic lambda/JSON document (default editor seeds,
+web example snippets, fixtures, demo source — explicitly excluding the synthetic
+`bench_source`-style 1000-def stress generators) found:
+
+| Kind | Largest real document | Size |
+|------|-----------------------|------|
+| Lambda | web "pipeline" example snippet; default seed (`examples/ideal/main/main.mbt:43`) is 2 | **4** top-level `let` defs |
+| JSON | `rabbita/doc/menu.json`; default seed (`examples/web/src/json-editor.ts:7`) is 1 key | **7** top-level elements |
+
+There are **no** `.lambda`/`.lam` fixture files in the repo; the high `let`-count
+files are `.mbt` test sources (MoonBit's own local bindings, not editor documents).
+**Nothing real approaches even 20 defs, let alone 320/500.** At 4 defs the structural
+compare costs single-digit microseconds — three orders of magnitude under the frame
+budget.
+
+**Decision: PARK #449. Do NOT implement.** The optimization is correct in the
+abstract (the cliff reproduces on JS, mechanism confirmed) but optimizes a regime
+no real document occupies — a 250×+ gap between the largest real doc (4 defs) and
+the cliff onset (~500 defs). Implementing now would add interning/revision-stamp
+complexity to the hot path for zero realized benefit, violating the
+microbenchmark-first / reproduce-the-bottleneck rule at the *document-scale* level.
+
+**Un-park trigger (unchanged from the existing >500-def trigger):** revisit #449
+only if real Canopy documents reach ~320+ defs — e.g. a generated/imported-document
+feature, a large-program demo, or telemetry showing user docs at that scale. The
+evidence (benches + JS harness recipe above) is preserved so the fix can be designed
+immediately if that day comes; only the *scale precondition* is missing today.
+
 ## Artifacts
 
 - `projection/flat_proj_incremental_benchmark_wbtest.mbt` (12 benches + 3 controls)
