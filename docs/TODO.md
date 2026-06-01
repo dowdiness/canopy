@@ -216,6 +216,15 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 10. Editor Drag-and-Drop Follow-ups
 
+- [ ] First-class LetDef ProjNodes for binding-level structural edits (#127).
+  Why: Structure mode already renders PM `let_def` rows and supports drag/drop
+  over them, but the ProjNode tree has no binding node; row IDs are borrowed
+  from init expressions and binding actions use FlatProj-only synthetic handles.
+  Plan: `docs/plans/2026-06-01-letdef-projnode-structural-edit.md`
+  Exit: Module children include real LetDef nodes; binding drag/drop/actions use
+  registry-backed LetDef IDs; `@scope.binder_span` / `go_to_definition` remain
+  the source-location path.
+
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
   Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder.
   Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3)
