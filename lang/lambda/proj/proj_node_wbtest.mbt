@@ -8,6 +8,10 @@ test "syntax_to_proj_node: block expression with def and body" {
       #|Module([("x", Int(1))], Var("x"))
     ),
   )
+  inspect(proj.children.length(), content="2")
+  inspect(proj.children[0].kind, content="LetDef(\"x\", Int(1))")
+  inspect(proj.children[0].children.length(), content="1")
+  inspect(proj.children[0].children[0].kind, content="Int(1)")
 }
 
 ///|

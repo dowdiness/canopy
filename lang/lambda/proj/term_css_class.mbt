@@ -5,7 +5,7 @@
 ///|
 /// Map a `Term` to its CSS class fragment for the outline
 /// `.tree-row.kind-<X>` selectors in `examples/ideal/web/styles/editor.css`.
-/// One-to-one with the 11 variants; lower-cased for consistency with the
+/// One-to-one with the 12 variants; lower-cased for consistency with the
 /// existing CSS taxonomy (`kind-lambda`, `kind-binop`, etc.).
 ///
 /// **Drift between this function and the CSS is not test-enforced** —
@@ -20,6 +20,7 @@ pub fn term_css_class(t : @ast.Term) -> String {
     App(_, _) => "app"
     Bop(_, _, _) => "binop"
     If(_, _, _) => "if"
+    @ast.Term::LetDef(_, _) => "let-def"
     Module(_, _) => "module"
     Unit => "unit"
     Unbound(_) => "unbound"

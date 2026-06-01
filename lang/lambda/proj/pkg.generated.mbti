@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub const LET_DEF_NAME_ROLE : String = "name"
+
 pub const PARAM_ROLE : String = "param"
 
 pub fn module_name_role(Int) -> String

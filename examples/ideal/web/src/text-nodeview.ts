@@ -106,8 +106,8 @@ export class LetDefView implements NodeView {
 
   constructor(
     node: PmNode,
-    private pmView: PmView,
-    private getPos: () => number | undefined,
+    _pmView: PmView,
+    _getPos: () => number | undefined,
     private bridge: CrdtBridge | null,
     private shadowRoot?: ShadowRoot,
   ) {
@@ -130,11 +130,7 @@ export class LetDefView implements NodeView {
       parent: nameWrap,
       root: this.shadowRoot,
       onEdit: this.bridge
-        ? (changes) => {
-            const ctx = this.resolveContext();
-            if (!ctx) return;
-            this.bridge!.handleTokenEdit(ctx.moduleNodeId, "name:" + ctx.defIndex, changes);
-          }
+        ? (changes) => this.bridge!.handleTokenEdit(this.node.attrs.nodeId, "name", changes)
         : undefined,
       isUpdating: () => this.updating,
     });
@@ -150,19 +146,6 @@ export class LetDefView implements NodeView {
     this.contentDOM = document.createElement("span");
     this.contentDOM.className = "pm-let-init";
     this.dom.appendChild(this.contentDOM);
-  }
-
-  /** Resolve this let_def's position to get the parent module nodeId and def index in a single pass */
-  private resolveContext(): { moduleNodeId: number; defIndex: number } | null {
-    const pos = this.getPos();
-    if (pos == null) return null;
-    const resolved = this.pmView.state.doc.resolve(pos);
-    const parent = resolved.parent;
-    if (!parent || parent.type.name !== "module") return null;
-    return {
-      moduleNodeId: parent.attrs.nodeId,
-      defIndex: resolved.index(resolved.depth),
-    };
   }
 
   update(node: PmNode): boolean {

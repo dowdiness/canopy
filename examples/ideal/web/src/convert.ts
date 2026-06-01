@@ -20,6 +20,7 @@ export function attrsForKind(
     case "App": return { nodeId: proj.node_id };
     case "Bop": return { op: proj.kind[1], nodeId: proj.node_id };
     case "If": return { nodeId: proj.node_id };
+    case "LetDef": return { name: proj.kind[1], nodeId: proj.node_id };
     case "Module": return { nodeId: proj.node_id };
   }
 }
@@ -98,32 +99,27 @@ export function projNodeToPmNode(proj: ProjNodeJson): PmNode {
         [condPm, thenPm, elsePm],
       );
     }
+    case "LetDef": {
+      if (proj.children.length < 1) {
+        return editorSchema.node("error_node", { message: "malformed LetDef: missing init", nodeId: proj.node_id });
+      }
+      const initPm = projNodeToPmNode(proj.children[0]);
+      return editorSchema.node(
+        "let_def",
+        {
+          name: proj.kind[1],
+          nodeId: proj.node_id,
+        },
+        [initPm],
+      );
+    }
     case "Module": {
       if (proj.children.length < 1) {
         return editorSchema.node("error_node", { message: "malformed Module: missing body", nodeId: proj.node_id });
       }
       // Module kind: ["Module", [["name0", term0], ["name1", term1]], body_term]
-      // ProjNode children: [init0, init1, ..., body]
-      const defs: [string, any][] = proj.kind[1];
-      const children: PmNode[] = [];
-      for (let i = 0; i < proj.children.length - 1; i++) {
-        const name = i < defs.length ? defs[i][0] : "_";
-        const initPm = projNodeToPmNode(proj.children[i]);
-        children.push(
-          editorSchema.node(
-            "let_def",
-            {
-              name,
-              nodeId: proj.children[i].node_id,
-            },
-            [initPm],
-          ),
-        );
-      }
-      const bodyPm = projNodeToPmNode(
-        proj.children[proj.children.length - 1],
-      );
-      children.push(bodyPm);
+      // ProjNode children: [LetDef0, LetDef1, ..., body]
+      const children = proj.children.map(projNodeToPmNode);
       return editorSchema.node(
         "module",
         {

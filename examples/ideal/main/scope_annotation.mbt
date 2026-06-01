@@ -8,11 +8,10 @@
 //     DeclId, so shadowing is handled by declaration identity rather than
 //     name-only membership.
 //
-//   UI representation decision (scope-binder-node-id plan step 5): keep the
-//     existing NodeId-keyed outline highlight model. Lambda binders use their
-//     real Lam node id; module binders use stable UI-only synthetic keys because
-//     module binder names still have source ranges, not outline rows.
-//     Source/binding resolution still comes from @scope.
+//   UI representation decision (#127): keep the existing NodeId-keyed outline
+//     highlight model. Lambda binders use their Lam node id; module binders use
+//     their real first-class LetDef node id. Source/binding resolution still
+//     comes from @scope.
 //
 //   compute_highlight_set(selected_id, scope_map) → HashSet[NodeId]
 //     Given a clicked/navigated node, returns the set of NodeIds to highlight:
@@ -50,30 +49,12 @@ fn binder_color_index(name : String) -> Int {
 }
 
 ///|
-/// UI-only key for a module binder in the NodeId-keyed outline highlight map.
-/// This is deliberately separate from @scope's source-location contract:
-/// bindings are resolved by DeclId/@scope.references; this key only lets the
-/// existing highlight data structure represent a binder that has no ProjNode.
-fn module_binder_ui_key(
-  module_node_id : @canopy_core.NodeId,
-  def_index : Int,
-) -> @canopy_core.NodeId {
-  let sum = module_node_id.0 + def_index
-  let pair = sum * (sum + 1) / 2 + def_index
-  @canopy_core.NodeId::from_int(-(pair + 1))
-}
-
-///|
 /// Convert a @scope declaration to the NodeId-compatible UI key used by the
-/// outline highlight map.
-fn scope_binder_ui_key(
-  graph : @scope.ScopeGraph,
-  decl : @scope.Decl,
-) -> @canopy_core.NodeId {
+/// outline highlight map. Module declarations now point at real LetDef nodes.
+fn scope_binder_ui_key(decl : @scope.Decl) -> @canopy_core.NodeId {
   match decl.kind {
     @scope.DeclKind::LamParam(lam_id~) => lam_id
-    @scope.DeclKind::ModuleDef(def_index~) =>
-      module_binder_ui_key(graph.module_node_id, def_index)
+    @scope.DeclKind::ModuleDef(_) => decl.node_id
   }
 }
 
@@ -84,7 +65,7 @@ fn add_scope_graph_annotations(
   graph : @scope.ScopeGraph,
 ) -> Unit {
   for decl in graph.decls {
-    let binder_id = scope_binder_ui_key(graph, decl)
+    let binder_id = scope_binder_ui_key(decl)
     let color_index = binder_color_index(decl.name)
     let usage_ids = @scope.references(graph, decl.id)
     scope_map[binder_id] = {

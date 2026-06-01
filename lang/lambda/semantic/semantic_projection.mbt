@@ -66,6 +66,10 @@ fn analyze_node(
       analyze_lambda(node, source_map, param, env, projection)
     @ast.Term::Var(name) | @ast.Term::Unbound(name) =>
       analyze_var(node, source_map, name, env, projection)
+    @ast.Term::LetDef(_, _) =>
+      for child in node.children {
+        analyze_node(child, source_map, env, projection, None)
+      }
     @ast.Term::App(_, _) | @ast.Term::Bop(_, _, _) =>
       for child in node.children {
         analyze_node(child, source_map, env, projection, None)
@@ -93,14 +97,23 @@ fn analyze_module(
   let scoped = env.copy()
   for i, def in defs {
     let name = def.0
-    let binder_id = module_binding_node_id(flat_proj, i).unwrap_or(node.id())
+    let binder_id = if i < node.children.length() {
+      node.children[i].id()
+    } else {
+      module_binding_node_id(flat_proj, i).unwrap_or(node.id())
+    }
     add_annotation(
       projection,
       binder_id,
       @protocol.ViewAnnotation(kind="semantic-binder", label="let " + name),
     )
-    match
-      source_map.get_token_span(node.id(), @lambda_proj.module_name_role(i)) {
+    let binder_span = match
+      source_map.get_token_span(binder_id, @lambda_proj.LET_DEF_NAME_ROLE) {
+      Some(range) => Some(range)
+      None =>
+        source_map.get_token_span(node.id(), @lambda_proj.module_name_role(i))
+    }
+    match binder_span {
       Some(range) =>
         add_decoration(
           projection,

@@ -3,7 +3,7 @@
 
 ///|
 pub struct FlatProj {
-  defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] // (name, init, start, id)
+  defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] // (name, init, start, LetDef id)
   final_expr : ProjNode[@ast.Term]?
 } derive(Debug, Eq)
 
@@ -15,19 +15,21 @@ pub fn FlatProj::empty() -> FlatProj {
 ///|
 /// Build a FlatProj from a SourceFile SyntaxNode.
 /// Iterates LetDef children and collects them as flat array entries.
-/// Each init subtree is built via syntax_to_proj_node (unchanged).
+/// Each entry stores the init subtree plus the real LetDef node id.
 pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
   let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
   let mut final_proj : ProjNode[@ast.Term]? = None
   for child in root.children() {
     if @parser.LetDefView::cast(child) is Some(v) {
-      let init = match v.init() {
-        Some(n) => syntax_to_proj_node(n, counter)
-        None =>
-          error_node_for_syntax("missing let binding value", child, counter)
-      }
-      let id = NodeId::from_int(@core.next_proj_node_id(counter))
-      defs.push((v.name(), init, child.start(), id))
+      let projected = project_let_def(v, counter)
+      defs.push(
+        (
+          projected.name,
+          projected.node.children[0],
+          child.start(),
+          projected.node.id(),
+        ),
+      )
     } else if final_proj is None {
       final_proj = Some(syntax_to_proj_node(child, counter))
     }
@@ -92,15 +94,15 @@ pub fn to_flat_proj_incremental(
       if !reused {
         any_changed = true
         changed_indices.val.push(defs.length())
-        let init = match v.init() {
-          Some(n) => syntax_to_proj_node(n, counter)
-          None =>
-            error_node_for_syntax(
-              "missing let binding value", new_child, counter,
-            )
-        }
-        let id = NodeId::from_int(@core.next_proj_node_id(counter))
-        defs.push((v.name(), init, new_child.start(), id))
+        let projected = project_let_def(v, counter)
+        defs.push(
+          (
+            projected.name,
+            projected.node.children[0],
+            new_child.start(),
+            projected.node.id(),
+          ),
+        )
       }
     } else if final_proj is None {
       match old_final_child {
@@ -248,7 +250,12 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
   if self.defs.is_empty() {
     return body
   }
-  let children : Array[ProjNode[@ast.Term]] = self.defs.map(d => d.1)
+  let children : Array[ProjNode[@ast.Term]] = self.defs.map(d => {
+    let NodeId(binding_id) = d.3
+    ProjNode::new(@ast.Term::LetDef(d.0, d.1.kind), d.2, d.1.end, binding_id, [
+      d.1,
+    ])
+  })
   children.push(body)
   let term_defs : Array[(@ast.VarName, @ast.Term)] = self.defs.map(d => {
     (d.0, d.1.kind)
@@ -269,17 +276,29 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
 
 ///|
 /// Extract a FlatProj from a Module ProjNode.
-/// Reads def entries from Module children and extracts the body.
+/// Reads LetDef children and extracts their init child. Legacy init-only
+/// children are accepted as a compatibility fallback.
 pub fn FlatProj::from_proj_node(root : ProjNode[@ast.Term]) -> FlatProj {
   match root.kind {
     Module(term_defs, _) => {
       let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
       for i = 0; i < term_defs.length(); i = i + 1 {
         if i < root.children.length() - 1 {
-          let init_child = root.children[i]
-          defs.push(
-            (term_defs[i].0, init_child, init_child.start, init_child.id()),
-          )
+          let def_child = root.children[i]
+          match def_child.kind {
+            @ast.Term::LetDef(_, _) if def_child.children.length() > 0 => {
+              let init_child = def_child.children[0]
+              defs.push(
+                (term_defs[i].0, init_child, def_child.start, def_child.id()),
+              )
+            }
+            _ => {
+              let init_child = def_child
+              defs.push(
+                (term_defs[i].0, init_child, init_child.start, init_child.id()),
+              )
+            }
+          }
         }
       }
       let body_child = root.children[root.children.length() - 1]

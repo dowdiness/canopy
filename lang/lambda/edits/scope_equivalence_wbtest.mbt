@@ -182,10 +182,9 @@ test "declaration() resolves a later def's init to an earlier same-name def" {
 ///|
 /// Build a scope graph through the PRODUCTION FlatProj pipeline — `to_flat_proj`
 /// (the live editor's path) rather than `from_proj_node` (used by `graph_of`
-/// above). The two paths assign module binder ids differently: `from_proj_node`
-/// reuses the init node's id, whereas `to_flat_proj` allocates a synthetic
-/// binder id (`defs[i].3`) that is threaded into NO node of the reconstructed
-/// tree. This fixture exists solely to exercise that production path.
+/// above). Both paths now assign module binder ids to real LetDef nodes; this
+/// fixture exercises the production path that starts from flat entries and then
+/// reconstructs those LetDef nodes.
 fn production_graph_of(
   text : String,
 ) -> (
@@ -197,16 +196,16 @@ fn production_graph_of(
   let (cst, _diags) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
-  // Production FlatProj: module binder ids (defs[i].3) are freshly allocated,
-  // distinct from any init node id.
+  // Production FlatProj: module binder ids (defs[i].3) are real LetDef node ids,
+  // distinct from their init expression ids.
   let fp = @lambda_proj.to_flat_proj(syntax, counter)
   // Reconstruct the Module ProjNode exactly as the live `cached_proj_node` memo
-  // does; the synthetic binder ids are not placed into this tree.
+  // does; binding ids become first-class LetDef nodes in this tree.
   let proj = fp.to_proj_node(counter)
   let sm = SourceMap::from_ast(proj)
-  // Token spans are stored on the reconstructed Module/Lam nodes (by index +
-  // role), so `binder_span` works on the production path too — its locator is
-  // the source span, not the synthetic binder id.
+  // Token spans are stored on the reconstructed LetDef/Module/Lam nodes, so
+  // `binder_span` works on the production path too — its locator is the binder
+  // token span, not the full LetDef node range.
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(fp, registry, sm)
@@ -215,14 +214,12 @@ fn production_graph_of(
 
 ///|
 /// Option-D binder-location contract on the PRODUCTION path (docs/TODO.md §20,
-/// resolved). Through `to_flat_proj` a module def's `Decl.node_id` is a
-/// synthetic FlatProj binder id occupying no registry node — but locating the
-/// binder no longer depends on `node_id`: `@scope.binder_span` resolves it via
-/// the module node's `"name:<def_index>"` token span. This SUPERSEDES the former
-/// "known gap" pin (which expected `node_id` to become a real node); Option D
-/// instead sidesteps `node_id` entirely, so its syntheticness is now an internal
-/// detail and is deliberately no longer asserted. The companion assertion that
-/// this location is pipeline-independent lives in the cross-pipeline PBT.
+/// resolved). Through `to_flat_proj` a module def's `Decl.node_id` is now the
+/// real LetDef node id, but locating the binder still goes through
+/// `@scope.binder_span`: it resolves the LetDef node's `"name"` token span
+/// (with the module `"name:<def_index>"` fallback during migration), not the
+/// full node range. The companion assertion that this location is
+/// pipeline-independent lives in the cross-pipeline PBT.
 test "production path: module binder located via binder_span (Option D, supersedes §20 gap)" {
   let (proj, registry, g, sm) = production_graph_of("let x = 0\nx")
   let ref_id = find_var(proj, "x") // body Var x
@@ -232,9 +229,9 @@ test "production path: module binder located via binder_span (Option D, supersed
   let (tag, binder, def_index) = norm_decl(d)
   inspect(tag, content="module")
   inspect(def_index, content="0")
-  // `node_id` is NOT the locator — it remains a synthetic non-registry id …
-  inspect(registry.get(binder) is None, content="true")
-  // … yet the binder is locatable: "let x = 0" → name token "x" at 4..5.
+  // `node_id` is structural identity and now points at the LetDef row.
+  inspect(registry.get(binder) is Some(_), content="true")
+  // The locator remains the binder token: "let x = 0" → name token "x" at 4..5.
   guard @scope.binder_span(g, d, sm) is Some(r)
   inspect(r.start, content="4")
   inspect(r.end, content="5")

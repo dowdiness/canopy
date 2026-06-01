@@ -21,6 +21,10 @@ pub fn seed_term(db : @egglog.Database, term : @ast.Term) -> @egglog.Value {
     Bop(Minus, a, b) => db.call("Minus", [seed_term(db, a), seed_term(db, b)])
     If(c, t, e) =>
       db.call("If", [seed_term(db, c), seed_term(db, t), seed_term(db, e)])
+    LetDef(name, _) =>
+      db.call("ErrorNode", [
+        @egglog.StrVal("standalone let definition: \{name}"),
+      ])
     Module(defs, body) => {
       // Right-fold into nested Let: last def wraps body, first def is outermost
       let mut result = seed_term(db, body)

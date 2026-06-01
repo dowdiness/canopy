@@ -13,12 +13,13 @@ export type TermKindTag =
   | "App"
   | "Bop"
   | "If"
+  | "LetDef"
   | "Module"
   | "Unit"
   | "Unbound"
   | "Error";
 
-const VALID_TAGS = new Set<string>(["Int", "Var", "Lam", "App", "Bop", "If", "Module", "Unit", "Unbound", "Error"]);
+const VALID_TAGS = new Set<string>(["Int", "Var", "Lam", "App", "Bop", "If", "LetDef", "Module", "Unit", "Unbound", "Error"]);
 
 export function getKindTag(kind: any[]): TermKindTag {
   if (!Array.isArray(kind) || kind.length === 0) {

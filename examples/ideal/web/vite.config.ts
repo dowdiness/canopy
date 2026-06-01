@@ -10,7 +10,7 @@ export default defineConfig({
           // No separate @moonbit/canopy needed (saves 7.6MB load).
           name: '@moonbit/ideal-editor',
           path: '..',
-          output: '_build/js/release/build/main/main.js'
+          output: '../../_build/js/release/build/dowdiness/ideal-editor/main/main.js'
         }
       ]
     }) as PluginOption

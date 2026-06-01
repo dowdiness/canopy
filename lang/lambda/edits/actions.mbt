@@ -95,6 +95,10 @@ pub fn get_actions_for_node(
   context : NodeContext,
 ) -> Array[Action] {
   let actions : Array[Action] = []
+  let is_let_def_node = match kind {
+    @ast.Term::LetDef(_, _) => true
+    _ => false
+  }
   match kind {
     @ast.Term::Int(_) => {
       actions.push(extract_to_let)
@@ -154,6 +158,14 @@ pub fn get_actions_for_node(
       actions.push(wrap_app)
       actions.push(delete)
     }
+    @ast.Term::LetDef(_, _) => {
+      actions.push(binding_rename)
+      actions.push(binding_duplicate)
+      actions.push(binding_move_up)
+      actions.push(binding_move_down)
+      actions.push(binding_inline_all)
+      actions.push(binding_delete)
+    }
     @ast.Term::Module(_, _) => actions.push(add_binding)
     @ast.Term::Unit => {
       actions.push(wrap_lambda)
@@ -173,8 +185,8 @@ pub fn get_actions_for_node(
       actions.push(wrap_app)
     }
   }
-  // Add binding-level actions when the node is in a let-binding context
-  if context.is_let_binding {
+  // Add binding-level actions when an init child is in a let-binding context.
+  if context.is_let_binding && !is_let_def_node {
     actions.push(binding_rename)
     actions.push(binding_duplicate)
     actions.push(binding_move_up)

@@ -5,7 +5,7 @@
 ///|
 /// Detect the action context for a selected node.
 /// Parses the node ID string, looks up the node in the editor's projection,
-/// checks if it's a let-binding init, and finds the enclosing Module node.
+/// checks if it's a let-binding row/init, and finds the enclosing Module node.
 fn detect_action_context(
   editor : @editor.SyncEditor[@ast.Term],
   companion : @lambda.LambdaCompanion,
@@ -23,7 +23,7 @@ fn detect_action_context(
     Some(fp) => fp
     None => return None
   }
-  // Check if this node is a let-binding init expression
+  // Check if this node is a let-binding row or init expression.
   let (is_let_binding, binding_node_id, binding_def_index) = match
     @lambda_edits.find_binding_for_init(nid, flat_proj) {
     Some((bid, idx)) => (true, Some(bid), Some(idx))

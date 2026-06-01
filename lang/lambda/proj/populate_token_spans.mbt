@@ -24,7 +24,7 @@ fn collect_token_spans_source_file(
   syntax_root : @seam.SyntaxNode,
   proj_root : ProjNode[@ast.Term],
 ) -> Unit {
-  // For a Module ProjNode, children are: [init_0, init_1, ..., body]
+  // For a Module ProjNode, children are: [LetDef_0, LetDef_1, ..., body]
   // The syntax_root has LetDef children and optionally a final expression child.
   match proj_root.kind {
     Module(defs, _) => {
@@ -34,41 +34,28 @@ fn collect_token_spans_source_file(
       for syn_child in syntax_children {
         if @parser.LetDefView::cast(syn_child) is Some(v) {
           if def_idx < defs.length() && def_idx < proj_root.children.length() {
-            // The ProjNode child at def_idx is the init expression, but
-            // the LetDef's name token belongs to the LetDef itself.
-            // We need a NodeId for the LetDef. In the current FlatProj model,
-            // LetDef nodes don't have their own ProjNode — the Module node
-            // owns the defs array. So we store the name span on the Module
-            // node with a role like "name:0", "name:1", etc.
-            // Use index-based key for stability across renames
-            let role = module_name_role(def_idx)
-            source_map.set_span_from_token(
-              proj_root.id(),
-              role,
-              syn_child,
-              @syntax.IdentToken.to_raw(),
+            collect_token_spans_let_def(
+              source_map,
+              proj_root,
+              def_idx,
+              v,
+              proj_root.children[def_idx],
             )
-            // Recurse into the init expression
-            if v.init() is Some(init_syn) {
-              collect_token_spans_expr(
-                source_map,
-                init_syn,
-                proj_root.children[def_idx],
-              )
-            }
           }
           def_idx = def_idx + 1
         } else if !expr_seen {
           expr_seen = true
-          // This is the final expression — last child of Module ProjNode
-          let body_idx = proj_root.children.length() - 1
-          if body_idx >= 0 {
-            collect_token_spans_expr(
-              source_map,
-              syn_child,
-              proj_root.children[body_idx],
-            )
+          // This is the final expression. If no source-file LetDefs were
+          // consumed, a Module ProjNode here came from the expression itself
+          // (for example a block `{ let x = ... }`), so walk the root Module.
+          // Otherwise the final expression is the last child of the top-level
+          // Module ProjNode.
+          let body_proj = if def_idx == 0 {
+            proj_root
+          } else {
+            proj_root.children[proj_root.children.length() - 1]
           }
+          collect_token_spans_expr(source_map, syn_child, body_proj)
         }
       }
     }
@@ -83,6 +70,35 @@ fn collect_token_spans_source_file(
         }
       }
     }
+  }
+}
+
+///|
+/// Record the binder-name token span for one LetDef row and recurse into its
+/// initializer. The canonical span lives on the LetDef node; the module-level
+/// `name:<i>` span remains as a migration fallback for older callers.
+fn collect_token_spans_let_def(
+  source_map : SourceMap,
+  module_node : ProjNode[@ast.Term],
+  def_index : Int,
+  def_view : @parser.LetDefView,
+  let_def_node : ProjNode[@ast.Term],
+) -> Unit {
+  let def_syn = def_view.syntax_node()
+  source_map.set_span_from_token(
+    let_def_node.id(),
+    LET_DEF_NAME_ROLE,
+    def_syn,
+    @syntax.IdentToken.to_raw(),
+  )
+  source_map.set_span_from_token(
+    module_node.id(),
+    module_name_role(def_index),
+    def_syn,
+    @syntax.IdentToken.to_raw(),
+  )
+  if def_view.init() is Some(init_syn) && let_def_node.children.length() > 0 {
+    collect_token_spans_expr(source_map, init_syn, let_def_node.children[0])
   }
 }
 
@@ -193,6 +209,38 @@ fn collect_token_spans_expr(
     // ParenExpr unwraps: ProjNode reuses inner's node_id and children
     if v.inner() is Some(inner) {
       collect_token_spans_expr(source_map, inner, proj_node)
+    }
+  } else if @parser.BlockExprView::cast(syntax_node) is Some(v) {
+    match proj_node.kind {
+      Module(defs, _) => {
+        let mut def_idx = 0
+        for def_view in v.defs() {
+          if def_idx < defs.length() && def_idx < proj_node.children.length() {
+            collect_token_spans_let_def(
+              source_map,
+              proj_node,
+              def_idx,
+              def_view,
+              proj_node.children[def_idx],
+            )
+          }
+          def_idx = def_idx + 1
+        }
+        if v.body() is Some(body_syn) {
+          let body_idx = proj_node.children.length() - 1
+          if body_idx >= 0 {
+            collect_token_spans_expr(
+              source_map,
+              body_syn,
+              proj_node.children[body_idx],
+            )
+          }
+        }
+      }
+      _ =>
+        if v.body() is Some(body_syn) {
+          collect_token_spans_expr(source_map, body_syn, proj_node)
+        }
     }
   }
   // IntLiteral, VarRef: leaf nodes, no token spans to extract

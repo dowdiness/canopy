@@ -113,7 +113,7 @@ test "nested block: inner module can reference enclosing block binder" {
 }
 
 ///|
-test "scope_map keys module references by canonical @scope declaration" {
+test "scope_map keys module references by real LetDef declaration" {
   let (editor, companion) = @lambda.new_lambda_editor("test")
   editor.set_text("let x = 0\nlet f = \\x. { x }\nx")
   let scope_map = build_scope_map(editor, companion)
@@ -134,7 +134,13 @@ test "scope_map keys module references by canonical @scope declaration" {
     _ => false
   }
   inspect(is_module_decl, content="true")
-  let module_binder_key = scope_binder_ui_key(graph, module_decl)
+  let module_binder_key = scope_binder_ui_key(module_decl)
+  let binder_node = editor.get_registry().get(module_binder_key).unwrap()
+  let is_let_def = match binder_node.kind {
+    @ast.Term::LetDef(_, _) => true
+    _ => false
+  }
+  inspect(is_let_def, content="true")
   let ann = scope_map.get(module_x_id).unwrap()
   inspect(ann.binder_id == Some(module_binder_key), content="true")
   let binder_ann = scope_map.get(module_binder_key).unwrap()

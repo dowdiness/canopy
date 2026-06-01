@@ -35,8 +35,8 @@ test "go_to_definition: module def — body var jumps to the name token" {
 test "go_to_definition: shadowed module def — later def wins (production id path)" {
   // "let x = 1\nlet x = 2\nx" — name:0 "x" at 4..5, name:1 "x" at 14..15.
   // The body var (pos 20) resolves to def_index=1, so the binder span must be
-  // 14..15, NOT 4..5. This exercises the module-def binder whose production
-  // FlatProj id was synthetic — the case Option D fixes.
+  // 14..15, NOT 4..5. This exercises the module-def binder through the
+  // production FlatProj/LetDef id path while Option D supplies the token span.
   let (g, sm) = build_fixture_with_spans("let x = 1\nlet x = 2\nx")
   guard go_to_definition(g, sm, 20) is Some(r)
   inspect(r.start, content="14")

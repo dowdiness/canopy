@@ -3,6 +3,7 @@
 // no orphaned separators) by checking the resulting editor text.
 
 import { test, expect, type Page } from '@playwright/test';
+import { dispatchExternalCrdtChanged } from './support/dom-events';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +41,28 @@ async function getCodeMirrorText(page: Page): Promise<string> {
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
+}
+
+async function setEditorText(page: Page, text: string) {
+  await page.evaluate((source) => {
+    const g = globalThis as any;
+    g.__canopy_crdt.set_text(g.__canopy_crdt_handle, source);
+  }, text);
+  await dispatchExternalCrdtChanged(page);
+  // Re-enter Structure mode so the structure PM view is rebuilt from the new
+  // CRDT text; external text updates are primarily consumed by Text mode.
+  await page.getByRole('button', { name: 'Text' }).click();
+  await page.waitForFunction(() => {
+    return document.querySelector('#canopy-text-editor .cm-content') !== null;
+  });
+  await page.getByRole('button', { name: 'Structure' }).click();
+  await page.waitForFunction(() => {
+    const ce = document.querySelector('canopy-editor');
+    const labels = Array.from(
+      ce?.shadowRoot?.querySelectorAll('.structure-let_def > .structure-header .structure-label') ?? [],
+    ).map((el) => el.textContent);
+    return labels[0] === 'x' && labels[1] === 'y';
+  });
 }
 
 /** Count structure blocks of a given type inside the shadow DOM. */
@@ -162,15 +185,13 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(text.length).toBeGreaterThan(10);
   });
 
-  test('exchange (Inside) swaps two let-definitions', async ({ page }) => {
-    const textBefore = await getEditorText(page);
+  test('exchange (Inside) moves whole let-definitions', async ({ page }) => {
+    await setEditorText(page, 'let x = 1\nlet y = 2\nx');
 
     await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'Inside');
 
     const textAfter = await getEditorText(page);
-    expect(textAfter).not.toEqual(textBefore);
-    const letCount = (textAfter.match(/let /g) || []).length;
-    expect(letCount).toBeGreaterThanOrEqual(2);
+    expect(textAfter).toEqual('let y = 2\nlet x = 1\nx');
   });
 
   test('drop syncs CM6 before returning to Text mode', async ({ page }) => {

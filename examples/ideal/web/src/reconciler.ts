@@ -17,6 +17,7 @@ const kindToPmType: Record<TermKindTag, string> = {
   App: "application",
   Bop: "binary_op",
   If: "if_expr",
+  LetDef: "let_def",
   Module: "module",
 };
 
@@ -98,23 +99,17 @@ function diffNode(
     return;
   }
 
-  // 2. Handle Module specially (has synthesized let_def wrappers)
-  if (tag === "Module") {
-    diffModule(tr, pmNode, proj, pmPos);
-    return;
-  }
-
-  // 3. Check attributes
+  // 2. Check attributes
   const newAttrs = attrsForKind(proj, tag);
   if (!attrsEqual(pmNode.attrs as Record<string, unknown>, newAttrs)) {
     const mappedPos = tr.mapping.map(pmPos);
     tr.setNodeMarkup(mappedPos, null, newAttrs);
   }
 
-  // 4. For atom nodes (leaves), we're done — attrs carry all the data
+  // 3. For atom nodes (leaves), we're done — attrs carry all the data
   if (pmNode.isAtom) return;
 
-  // 5. For compound nodes, recurse into children
+  // 4. For compound nodes, recurse into children
   diffChildren(tr, pmNode, proj, pmPos);
 }
 
@@ -134,10 +129,10 @@ function replaceSubtree(
 }
 
 /**
- * Diff the children of a non-Module compound node.
+ * Diff the children of a compound node.
  *
- * For lambda, application, binary_op, if_expr: the PM children correspond
- * 1:1 with the ProjNode children.
+ * For module, let_def, lambda, application, binary_op, if_expr: the PM
+ * children correspond 1:1 with the ProjNode children.
  */
 function diffChildren(
   tr: Transaction,
@@ -146,113 +141,22 @@ function diffChildren(
   pmPos: number,
 ): void {
   const projChildren = proj.children;
-  let childIndex = 0;
 
-  // Walk PM children and match to ProjNode children by index
-  pmNode.forEach((child, offset) => {
-    if (childIndex < projChildren.length) {
-      // pmPos + 1 skips the parent's open tag
-      // offset is the offset from the start of the parent's content
-      const childPmPos = pmPos + 1 + offset;
-      diffNode(tr, child, projChildren[childIndex], childPmPos);
-    }
-    childIndex++;
-  });
-
-  // If child count changed (shouldn't happen for non-Module fixed-arity nodes,
-  // but handle defensively), do a full subtree replace
-  if (childIndex !== projChildren.length) {
-    replaceSubtree(tr, pmNode, proj, pmPos);
-  }
-}
-
-/**
- * Diff a Module node, handling the let_def wrapper asymmetry.
- *
- * ProjNode Module: children = [init0, init1, ..., body]
- * PM module:       children = [let_def(init0), let_def(init1), ..., body_term]
- *
- * The let_def nodes are synthesized during conversion. We need to:
- * - Match let_defs by position
- * - Check let_def attrs (name) and recurse into their single child (the init term)
- * - Match the body term (last child in both)
- */
-function diffModule(
-  tr: Transaction,
-  pmNode: PmNode,
-  proj: ProjNodeJson,
-  pmPos: number,
-): void {
-  // Check module-level attributes
-  const newModuleAttrs = attrsForKind(proj, "Module");
-  if (
-    !attrsEqual(pmNode.attrs as Record<string, unknown>, newModuleAttrs)
-  ) {
-    const mappedPos = tr.mapping.map(pmPos);
-    tr.setNodeMarkup(mappedPos, null, newModuleAttrs);
-  }
-
-  const defs: [string, any][] = proj.kind[1];
-  const projChildren = proj.children;
-  const numDefs = projChildren.length - 1; // all except last (body)
-  const bodyProj = projChildren[projChildren.length - 1];
-
-  // Collect PM children in a single pass
-  const pmChildren: { node: PmNode; offset: number }[] = [];
-  pmNode.forEach((child, offset) => {
-    pmChildren.push({ node: child, offset });
-  });
-
-  // If structural mismatch in child count, replace entire module
-  // PM should have numDefs let_defs + 1 body = numDefs + 1 = projChildren.length
-  if (pmChildren.length !== projChildren.length) {
+  // If child count changed, do a full subtree replace before emitting child
+  // edits; mixing child edits with a later parent replace can create needless
+  // mapping churn.
+  if (pmNode.childCount !== projChildren.length) {
     replaceSubtree(tr, pmNode, proj, pmPos);
     return;
   }
 
-  for (let childIndex = 0; childIndex < pmChildren.length; childIndex++) {
-    const { node: pmChild, offset } = pmChildren[childIndex];
+  let childIndex = 0;
+  // Walk PM children and match to ProjNode children by index.
+  pmNode.forEach((child, offset) => {
+    // pmPos + 1 skips the parent's open tag
+    // offset is the offset from the start of the parent's content
     const childPmPos = pmPos + 1 + offset;
-
-    if (childIndex < numDefs) {
-      // This PM child should be a let_def wrapping projChildren[childIndex]
-      if (pmChild.type.name !== "let_def") {
-        // Type mismatch — replace entire module and stop
-        replaceSubtree(tr, pmNode, proj, pmPos);
-        return;
-      }
-
-      // Check let_def attrs
-      const defName = childIndex < defs.length ? defs[childIndex][0] : "_";
-      const expectedLetDefAttrs = {
-        name: defName,
-        nodeId: projChildren[childIndex].node_id,
-      };
-      if (
-        !attrsEqual(
-          pmChild.attrs as Record<string, unknown>,
-          expectedLetDefAttrs,
-        )
-      ) {
-        const mappedPos = tr.mapping.map(childPmPos);
-        tr.setNodeMarkup(mappedPos, null, expectedLetDefAttrs);
-      }
-
-      // Recurse into the let_def's single child (the init term)
-      const initProj = projChildren[childIndex];
-      if (pmChild.childCount === 1) {
-        const initPm = pmChild.firstChild!;
-        const initPmPos = childPmPos + 1;
-        diffNode(tr, initPm, initProj, initPmPos);
-      } else {
-        const newInitPm = projNodeToPmNode(initProj);
-        const from = tr.mapping.map(childPmPos + 1);
-        const to = tr.mapping.map(childPmPos + 1 + pmChild.content.size);
-        tr.replaceWith(from, to, newInitPm);
-      }
-    } else {
-      // Last child: the body term (not wrapped in let_def)
-      diffNode(tr, pmChild, bodyProj, childPmPos);
-    }
-  }
+    diffNode(tr, child, projChildren[childIndex], childPmPos);
+    childIndex++;
+  });
 }

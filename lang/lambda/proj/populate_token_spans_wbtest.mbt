@@ -26,6 +26,52 @@ fn expect_param_span(
 }
 
 ///|
+test "populate_token_spans: LetDef name span lives on LetDef node" {
+  let text = "let x = 1\nx"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let let_def = proj.children[0]
+  guard source_map.get_token_span(let_def.id(), LET_DEF_NAME_ROLE) is Some(span) else {
+    fail("missing LetDef name span")
+  }
+  inspect(span.start, content="4")
+  inspect(span.end, content="5")
+  guard source_map.get_token_span(proj.id(), module_name_role(0)) is Some(_) else {
+    fail("missing module-level compatibility name span")
+  }
+}
+
+///|
+test "populate_token_spans: nested block LetDef name span lives on LetDef node" {
+  let text = "let x = { let y = 1\n  y }\nx"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let block_module = proj.children[0].children[0]
+  let nested_let_def = block_module.children[0]
+  guard source_map.get_token_span(nested_let_def.id(), LET_DEF_NAME_ROLE)
+    is Some(span) else {
+    fail("missing nested LetDef name span")
+  }
+  inspect(span.start, content="14")
+  inspect(span.end, content="15")
+  guard source_map.get_token_span(block_module.id(), module_name_role(0))
+    is Some(_) else {
+    fail("missing nested module-level compatibility name span")
+  }
+}
+
+///|
+test "populate_token_spans: root block LetDef name span lives on LetDef node" {
+  let text = "{ let y = 1\n  y }"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let nested_let_def = proj.children[0]
+  guard source_map.get_token_span(nested_let_def.id(), LET_DEF_NAME_ROLE)
+    is Some(span) else {
+    fail("missing root block LetDef name span")
+  }
+  inspect(span.start, content="6")
+  inspect(span.end, content="7")
+}
+
+///|
 test "populate_token_spans: application left spine reaches every lambda arg" {
   let text = "(\u{03BB}x. x) (\u{03BB}y. y) (\u{03BB}z. z)"
   let (proj, source_map) = parse_proj_with_token_spans(text)

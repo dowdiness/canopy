@@ -479,8 +479,8 @@ test "incremental patch: get_node returns correct node after edit" {
   let editor = @lambda.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   let proj = editor.get_proj_node().unwrap()
-  // Get node ID of x's init (Int(1)) — first child of Module
-  let x_init_id = proj.children[0].id()
+  // Get node ID of x's init (Int(1)) — child of the first LetDef
+  let x_init_id = proj.children[0].children[0].id()
   // Edit y's init: 2 → 3
   let text = editor.get_text()
   let pos = text.length() - 3

@@ -198,13 +198,23 @@ fn rename_module_binding(
     }
   }
   let edits : Array[SpanEdit] = []
-  // Get the name token span
-  let role = @lambda_proj.module_name_role(def_index)
-  match source_map.get_token_span(module_id, role) {
-    Some(name_range) =>
+  // Get the binder-name token span. Prefer the first-class LetDef node; keep
+  // the module-level `name:<i>` lookup as a migration fallback for older maps.
+  let binding_node_id = flat_proj.defs[def_index].3
+  let name_range = match
+    source_map.get_token_span(binding_node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
+    Some(r) => Some(r)
+    None =>
+      source_map.get_token_span(
+        module_id,
+        @lambda_proj.module_name_role(def_index),
+      )
+  }
+  match name_range {
+    Some(range) =>
       edits.push({
-        start: name_range.start,
-        delete_len: name_range.end - name_range.start,
+        start: range.start,
+        delete_len: range.end - range.start,
         inserted: new_name,
       })
     None =>

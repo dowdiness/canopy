@@ -48,7 +48,7 @@ test "ProjNode JSON export for module" {
   inspect(
     proj.to_json().stringify(),
     content=(
-      #|{"node_id":2,"kind":["Module",[["x",["Int",1]]],["Var","x"]],"children":[{"node_id":0,"kind":["Int",1],"children":[],"start":7,"end":9},{"node_id":1,"kind":["Var","x"],"children":[],"start":10,"end":11}],"start":0,"end":11}
+      #|{"node_id":3,"kind":["Module",[["x",["Int",1]]],["Var","x"]],"children":[{"node_id":1,"kind":["LetDef","x",["Int",1]],"children":[{"node_id":0,"kind":["Int",1],"children":[],"start":7,"end":9}],"start":0,"end":9},{"node_id":2,"kind":["Var","x"],"children":[],"start":10,"end":11}],"start":0,"end":11}
     ),
   )
 }
