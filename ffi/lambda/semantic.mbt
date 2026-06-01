@@ -51,7 +51,9 @@ pub fn get_semantic_projection_json(handle : Int) -> String {
         coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
         Ok(v) => v.proj
         Err(report) => {
-          println("get_semantic_projection_json flat-proj read: \{report}")
+          println(
+            "get_semantic_projection_json module_projection read: \{report}",
+          )
           return empty_semantic_projection_json()
         }
       }
@@ -99,7 +101,7 @@ pub fn rename_semantic_node(
         coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
         Ok(v) => v.proj
         Err(report) => {
-          println("rename_semantic_node flat-proj read: \{report}")
+          println("rename_semantic_node module_projection read: \{report}")
           return "error: editor unavailable"
         }
       }

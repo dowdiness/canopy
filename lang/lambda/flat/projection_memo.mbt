@@ -32,6 +32,10 @@ pub fn build_lambda_projection_memos(
   // prev state, so they must fall back to full rebuild.
   let proj_revision_ref : Ref[Int] = Ref(0)
   let proj_changed_at_ref : Ref[@incr.Revision] = Ref(@incr.Revision::initial())
+  // prev_module_id_ref holds the Module node_id from the most recent successful
+  // conversion, so stable Module IDs survive incremental rebuilds. Declared here
+  // (before proj_memo) so the empty-source path can clear it on a full delete.
+  let prev_module_id_ref : Ref[Int?] = Ref(None)
 
   let proj_memo : @incr.Derived[VersionedModuleProjection] = @incr.Derived::Derived(
     rt,
@@ -40,6 +44,9 @@ pub fn build_lambda_projection_memos(
         prev_module_projection_ref.val = None
         prev_syntax_root_ref.val = None
         changed_def_indices_ref.val = None
+        // Full delete: drop the cached Module id so the next non-empty rebuild
+        // allocates a fresh root id instead of leaking stale identity downstream.
+        prev_module_id_ref.val = None
         proj_changed_at_ref.val = proj_changed_at_ref.val.next()
         return VersionedModuleProjection::{
           proj: None,
@@ -123,9 +130,7 @@ pub fn build_lambda_projection_memos(
 
   // Single conversion ModuleProjection -> ProjNode, shared by registry + source_map + get_proj_node.
   // Counter write-back ensures Unit fallback IDs don't collide with future IDs.
-  // prev_module_id_ref holds the Module node_id from the most recent successful
-  // conversion, so stable Module IDs survive incremental rebuilds.
-  let prev_module_id_ref : Ref[Int?] = Ref(None)
+  // (prev_module_id_ref is declared above proj_memo so the empty-source path can clear it.)
   let cached_proj_node : @incr.Derived[@core.ProjNode[@ast.Term]?] = @incr.Derived::Derived(
     rt,
     fn() -> @core.ProjNode[@ast.Term]? {
