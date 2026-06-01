@@ -183,8 +183,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Graphviz SVG theming — SVG uses hardcoded `Arial` from submodule; needs `pub(all) struct SvgConfig` to customize.
 
 - [ ] Grammar: interleaved let/expr.
-  Why: `Module` AST supports `ModuleItem` in parser already, but `FlatProj` storage change caused 2× regression from MoonBit enum boxing.
-  Alternative: add helper methods on existing `FlatProj` for interleaved views. Decision pending in `docs/decisions-needed.md`.
+  Why: `Module` AST supports `ModuleItem` in parser already, but `ModuleProjection` storage change caused 2× regression from MoonBit enum boxing.
+  Alternative: add helper methods on existing `ModuleProjection` for interleaved views. Decision pending in `docs/decisions-needed.md`.
 
 - [x] Inspector — Intent panel. *Part of Inspector traceability workstream.* Shipped in PR #293 (2026-05-17).
   Op Log tab in `view_bottom.mbt` renders `Model.intent_log : Array[String]` (cap 50), pushed from all four structural-edit dispatch sites after `apply_lambda_tree_edit` succeeds. Two row formats coexist:
@@ -219,7 +219,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] First-class LetDef ProjNodes for binding-level structural edits (#127).
   Why: Structure mode already renders PM `let_def` rows and supports drag/drop
   over them, but the ProjNode tree has no binding node; row IDs are borrowed
-  from init expressions and binding actions use FlatProj-only synthetic handles.
+  from init expressions and binding actions use ModuleProjection-only synthetic handles.
   Plan: `docs/plans/2026-06-01-letdef-projnode-structural-edit.md`
   Exit: Module children include real LetDef nodes; binding drag/drop/actions use
   registry-backed LetDef IDs; `@scope.binder_span` / `go_to_definition` remain
@@ -238,7 +238,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 11. Multi-Language Support
 
-- [ ] JSON FlatProj optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
+- [ ] JSON ModuleProjection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
 
 - [ ] loomgen design update.
   Why: update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON + markdown. Three real examples now inform the generator.
@@ -418,12 +418,12 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-05-26-cognition-provider-boundary-design.md`
   Exit: a provider-client plan names the backend, driver clock/scheduling model, credential boundary, retry/redaction policy, and host integration surface. No real network/LLM code lands without that plan.
 
-## 20. Scope-Graph FlatProj Fidelity
+## 20. Scope-Graph ModuleProjection Fidelity
 
 - [x] Cross-pipeline resolution-equivalence property test (`@qc`).
   Shipped: #401 (`lang/lambda/edits/scope_cross_pipeline_pbt_wbtest.mbt`),
   trimmed to 300 cases in #402. Generates lambda source, builds the scope graph
-  through both `FlatProj` pipelines (`from_proj_node` test path vs `to_flat_proj`
+  through both `ModuleProjection` pipelines (`from_proj_node` test path vs `to_module_projection`
   production path), matches references by source range, and asserts equal
   normalized resolution; pins the production-path `node_id` invariant for both
   decl kinds. The property is near-tautological (resolution ignores `node_id`),
@@ -435,12 +435,12 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   `node_id` is synthetic on the production path (occupies no real node,
   contradicting the `Decl` "occupies a projection node" invariant in
   `lang/lambda/scope/graph.mbt`), and three incompatible synthetic-id schemes
-  existed (`to_flat_proj`, `from_proj_node`, and the negative id in
+  existed (`to_module_projection`, `from_proj_node`, and the negative id in
   `examples/ideal/main/scope_annotation.mbt`, which bypasses `@scope` and
   re-implements resolution).
   Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
   Option D: an on-demand `@scope` binder-location accessor over the
-  already-populated SourceMap token spans — no loom PR, no `FlatProj` change;
+  already-populated SourceMap token spans — no loom PR, no `ModuleProjection` change;
   `node_id` stays synthetic but is no longer the locator).
   Shipped (plan steps 1–5): `@scope.binder_span` + `@scope.go_to_definition`
   accessors (`lang/lambda/scope/query.mbt`); `references` migrated off

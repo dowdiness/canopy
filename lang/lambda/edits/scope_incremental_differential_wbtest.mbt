@@ -1,17 +1,17 @@
 // Incremental ↔ full differential resolution test (docs/TODO.md §20, plan step 3).
 //
 // WHAT THIS PINS
-// Drives the INCREMENTAL FlatProj path — `to_flat_proj_incremental` (which reuses
-// unchanged def subtrees + `reconcile_flat_proj` to preserve binder ids) — across
+// Drives the INCREMENTAL ModuleProjection path — `to_module_projection_incremental` (which reuses
+// unchanged def subtrees + `reconcile_module_projection` to preserve binder ids) — across
 // an EDIT SEQUENCE, and asserts that a scope graph built from the incrementally
-// reconciled `FlatProj` resolves every Var reference IDENTICALLY to one built from
-// a fresh FULL `to_flat_proj` of the same final source — after every edit. The
+// reconciled `ModuleProjection` resolves every Var reference IDENTICALLY to one built from
+// a fresh FULL `to_module_projection` of the same final source — after every edit. The
 // cross-pipeline PBT (`scope_cross_pipeline_pbt_wbtest.mbt`) compares two FULL
 // rebuilds and EXPLICITLY excludes this incremental path; this file fills that gap.
 //
 // WHY THIS CATCHES REAL BUGS (the staleness class)
-// `to_flat_proj_incremental` reuses an old def's `ProjNode` subtree verbatim when
-// its start offset AND structural `CstNode` are unchanged (flat_proj.mbt:83-89).
+// `to_module_projection_incremental` reuses an old def's `ProjNode` subtree verbatim when
+// its start offset AND structural `CstNode` are unchanged (module_projection.mbt:83-89).
 // A reused subtree carries the OLD parse's node positions. We rebuild a fresh
 // `SourceMap` (`from_ast` records each node's start/end) and registry from the
 // incrementally reconstructed tree, then compare against the full rebuild via the
@@ -24,16 +24,16 @@
 // NON-VACUITY (guards against a full-vs-full tautology)
 // Fresh re-parses produce structurally-equal-but-distinct `CstNode`s for unchanged
 // defs, so reuse fires through structural `CstNode` Eq exactly as in production
-// (flat_proj_wbtest.mbt:322-343 proves this). The dedicated single-edit test below
+// (module_projection_wbtest.mbt:322-343 proves this). The dedicated single-edit test below
 // asserts `changed.val == [1]`: the non-reuse branch is the ONLY thing that pushes
-// an index (flat_proj.mbt:92), so an empty slot for def 0 proves it was REUSED on
+// an index (module_projection.mbt:92), so an empty slot for def 0 proves it was REUSED on
 // the very step being differentialed. (Asserting `defs[0].3` id-stability would NOT
-// prove reuse — `reconcile_flat_proj` preserves matched binder ids by NAME
-// regardless of whether the subtree was reused, flat_proj.mbt:189.)
+// prove reuse — `reconcile_module_projection` preserves matched binder ids by NAME
+// regardless of whether the subtree was reused, module_projection.mbt:189.)
 //
 // SCOPE / NON-GOALS
-// This is a FlatProj-level differential. It threads prev-SyntaxNode + prev-FlatProj
-// manually and calls `to_flat_proj_incremental` directly — it does NOT drive the
+// This is a ModuleProjection-level differential. It threads prev-SyntaxNode + prev-ModuleProjection
+// manually and calls `to_module_projection_incremental` directly — it does NOT drive the
 // `@incr` memo stack (`build_lambda_projection_memos`), whose registry/source-map
 // incremental PATCH paths (changed_def_indices side-channel, revision-skew
 // fallback, two-phase remove/add) are a separate concern. It also cannot catch a
@@ -43,7 +43,7 @@
 ///|
 /// Fresh full parse of a source string into a positioned SyntaxNode. Two
 /// independent parses of the same text yield structurally-equal (Eq) `CstNode`s,
-/// so feeding successive parses to `to_flat_proj_incremental` exercises its reuse
+/// so feeding successive parses to `to_module_projection_incremental` exercises its reuse
 /// branch faithfully — the same input distribution the production memo sees.
 fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
   let (cst, _diags) = @parser.parse_cst(text)
@@ -51,17 +51,17 @@ fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
 }
 
 ///|
-/// Reconstruct a scope graph from a prebuilt `FlatProj` + the source's SyntaxNode,
+/// Reconstruct a scope graph from a prebuilt `ModuleProjection` + the source's SyntaxNode,
 /// exactly as the production reconstruct flow does (`production_graph_of`):
 /// `fp.to_proj_node` → `SourceMap::from_ast` → `populate_token_spans` → registry →
 /// `@scope.build`. `base_id` MUST be the high-water mark of the counter that built
-/// `fp` (its `.val` after `to_flat_proj`/`to_flat_proj_incremental`); `to_proj_node`
-/// allocates the Module node id FROM this counter (flat_proj.mbt:257), so seeding
+/// `fp` (its `.val` after `to_module_projection`/`to_module_projection_incremental`); `to_proj_node`
+/// allocates the Module node id FROM this counter (module_projection.mbt:257), so seeding
 /// it past every id already present in `fp` is required — a fresh `Ref(0)` would
 /// alias the Module id onto an existing init-subtree node id and corrupt the
 /// node-id-keyed registry / SourceMap.
 fn build_graph_from_fp(
-  fp : FlatProj,
+  fp : ModuleProjection,
   syntax : @seam.SyntaxNode,
   base_id : Int,
 ) -> (
@@ -80,13 +80,13 @@ fn build_graph_from_fp(
 }
 
 ///|
-/// Assert the scope graph from an incremental `FlatProj` resolves identically to
-/// one from a fresh full `to_flat_proj` of the same `syntax`. Reuses the
+/// Assert the scope graph from an incremental `ModuleProjection` resolves identically to
+/// one from a fresh full `to_module_projection` of the same `syntax`. Reuses the
 /// cross-pipeline PBT's pipeline-INDEPENDENT comparison leaves (`collect_var_refs`,
 /// `assert_same_var_refs`, `assert_lam_ranges_unique`, `def_init_ranges`,
 /// `normalize_decl`), so node-id values are never compared raw.
 fn assert_incr_matches_full(
-  incr_fp : FlatProj,
+  incr_fp : ModuleProjection,
   incr_base_id : Int,
   syntax : @seam.SyntaxNode,
   context : String,
@@ -95,7 +95,7 @@ fn assert_incr_matches_full(
     incr_fp, syntax, incr_base_id,
   )
   let full_counter = Ref(0)
-  let full_fp = @lambda_proj.to_flat_proj(syntax, full_counter)
+  let full_fp = @lambda_proj.to_module_projection(syntax, full_counter)
   let (proj_f, reg_f, g_f, sm_f) = build_graph_from_fp(
     full_fp,
     syntax,
@@ -127,7 +127,7 @@ fn assert_incr_matches_full(
 
 ///|
 /// Drive an edit sequence: parse `sources[0]` fully, then for each subsequent
-/// source re-parse fresh, reconcile via `to_flat_proj_incremental` against the
+/// source re-parse fresh, reconcile via `to_module_projection_incremental` against the
 /// previous tree+proj, and assert the differential AFTER EVERY edit. The counter
 /// is threaded persistently across the whole sequence (as the production memo's
 /// `next_id_ref` is), so binder ids accumulate rather than reset.
@@ -137,7 +137,7 @@ fn run_diff_sequence(sources : Array[String]) -> Unit raise {
   }
   let counter = Ref(0)
   let mut prev_syntax = parse_syntax(sources[0])
-  let mut prev_fp = @lambda_proj.to_flat_proj(prev_syntax, counter)
+  let mut prev_fp = @lambda_proj.to_module_projection(prev_syntax, counter)
   assert_incr_matches_full(
     prev_fp,
     counter.val,
@@ -147,7 +147,7 @@ fn run_diff_sequence(sources : Array[String]) -> Unit raise {
   for i in 1..<sources.length() {
     let new_syntax = parse_syntax(sources[i])
     let changed = Ref(([] : Array[Int]))
-    let incr_fp = @lambda_proj.to_flat_proj_incremental(
+    let incr_fp = @lambda_proj.to_module_projection_incremental(
       new_syntax,
       prev_syntax,
       prev_fp,
@@ -173,10 +173,10 @@ fn run_diff_sequence(sources : Array[String]) -> Unit raise {
 test "incr-diff: editing one def reuses the others (non-vacuity) and agrees" {
   let counter = Ref(0)
   let s0 = parse_syntax("let x = 1\nlet y = 2\nx")
-  let fp0 = @lambda_proj.to_flat_proj(s0, counter)
+  let fp0 = @lambda_proj.to_module_projection(s0, counter)
   let s1 = parse_syntax("let x = 1\nlet y = 3\nx")
   let changed = Ref(([] : Array[Int]))
-  let fp1 = @lambda_proj.to_flat_proj_incremental(
+  let fp1 = @lambda_proj.to_module_projection_incremental(
     s1,
     s0,
     fp0,
@@ -244,7 +244,7 @@ test "incr-diff: body-only edits preserve def reuse" {
 ///|
 test "incr-diff: growing an earlier def shifts later defs" {
   // `a`'s init grows, shifting `b` and the body to later offsets. The shifted
-  // defs are NOT reused (start changed, flat_proj.mbt:83) and are rebuilt with
+  // defs are NOT reused (start changed, module_projection.mbt:83) and are rebuilt with
   // fresh positions; the differential confirms full agreement after the shift.
   run_diff_sequence([
     "let a = 0\nlet b = 1\n(a + b)", "let a = (0 + 0)\nlet b = 1\n(a + b)", "let a = ((0 + 0) + 0)\nlet b = 1\n(a + b)",
@@ -357,7 +357,7 @@ test "incr-diff: deterministic fuzz — incr resolution == full after each edit"
     let (cst0, _d0) = @parser.parse_cst(source) catch { _ => continue }
     let mut prev_syntax = @seam.SyntaxNode::from_cst(cst0)
     let counter = Ref(0)
-    let mut prev_fp = @lambda_proj.to_flat_proj(prev_syntax, counter)
+    let mut prev_fp = @lambda_proj.to_module_projection(prev_syntax, counter)
     for edit_i in 0..<8 {
       let (new_source, next_seed) = idiff_apply_edit(source, seed)
       let (cst, diags) = @parser.parse_cst(new_source) catch {
@@ -369,7 +369,7 @@ test "incr-diff: deterministic fuzz — incr resolution == full after each edit"
       }
       let new_syntax = @seam.SyntaxNode::from_cst(cst)
       let changed = Ref(([] : Array[Int]))
-      let incr_fp = @lambda_proj.to_flat_proj_incremental(
+      let incr_fp = @lambda_proj.to_module_projection_incremental(
         new_syntax,
         prev_syntax,
         prev_fp,

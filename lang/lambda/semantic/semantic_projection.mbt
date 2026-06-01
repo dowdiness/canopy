@@ -37,17 +37,17 @@ pub fn build_semantic_projection(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
 ) -> SemanticProjection {
-  build_semantic_projection_with_flat_proj(root, source_map, None)
+  build_semantic_projection_with_module_projection(root, source_map, None)
 }
 
 ///|
-pub fn build_semantic_projection_with_flat_proj(
+pub fn build_semantic_projection_with_module_projection(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
-  flat_proj : @lambda_proj.FlatProj?,
+  module_projection : @lambda_proj.ModuleProjection?,
 ) -> SemanticProjection {
   let projection = SemanticProjection::empty()
-  analyze_node(root, source_map, [], projection, flat_proj)
+  analyze_node(root, source_map, [], projection, module_projection)
   projection
 }
 
@@ -57,11 +57,11 @@ fn analyze_node(
   source_map : @core.SourceMap,
   env : Array[String],
   projection : SemanticProjection,
-  flat_proj : @lambda_proj.FlatProj?,
+  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   match node.kind {
     @ast.Term::Module(defs, _) =>
-      analyze_module(node, source_map, defs, env, projection, flat_proj)
+      analyze_module(node, source_map, defs, env, projection, module_projection)
     @ast.Term::Lam(param, _) =>
       analyze_lambda(node, source_map, param, env, projection)
     @ast.Term::Var(name) | @ast.Term::Unbound(name) =>
@@ -92,7 +92,7 @@ fn analyze_module(
   defs : Array[(@ast.VarName, @ast.Term)],
   env : Array[String],
   projection : SemanticProjection,
-  flat_proj : @lambda_proj.FlatProj?,
+  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   let scoped = env.copy()
   for i, def in defs {
@@ -100,7 +100,7 @@ fn analyze_module(
     let binder_id = if i < node.children.length() {
       node.children[i].id()
     } else {
-      module_binding_node_id(flat_proj, i).unwrap_or(node.id())
+      module_binding_node_id(module_projection, i).unwrap_or(node.id())
     }
     add_annotation(
       projection,
@@ -143,10 +143,10 @@ fn analyze_module(
 
 ///|
 fn module_binding_node_id(
-  flat_proj : @lambda_proj.FlatProj?,
+  module_projection : @lambda_proj.ModuleProjection?,
   def_index : Int,
 ) -> @core.NodeId? {
-  match flat_proj {
+  match module_projection {
     Some(fp) if def_index < fp.defs.length() => Some(fp.defs[def_index].3)
     _ => None
   }

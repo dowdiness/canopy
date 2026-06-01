@@ -8,7 +8,7 @@ pub(all) struct EditContext[T] {
   source_text : String
   source_map : SourceMap
   registry : Map[NodeId, ProjNode[T]]
-  flat_proj : FlatProj
+  module_projection : ModuleProjection
 }
 
 ///|

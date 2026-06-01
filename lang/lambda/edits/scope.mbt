@@ -68,20 +68,20 @@ fn free_names_captured_at_use_sites(
 
 ///|
 fn def_cutoff_at_node(
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Int {
   guard source_map.get_range(node_id) is Some(r) else {
-    return flat_proj.defs.length()
+    return module_projection.defs.length()
   }
-  flat_proj.defs
+  module_projection.defs
   .search_by(fn(def) {
     source_map.get_range(def.1.id()) is Some(dr) &&
     r.start >= dr.start &&
     r.start < dr.end
   })
-  .unwrap_or(flat_proj.defs.length())
+  .unwrap_or(module_projection.defs.length())
 }
 
 ///|
@@ -140,7 +140,7 @@ fn declaration_id_for_name_from_scope(
 ///|
 fn declaration_id_for_name_at_node(
   g : @scope.ScopeGraph,
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   source_map : SourceMap,
   node_id : NodeId,
   name : String,
@@ -149,7 +149,7 @@ fn declaration_id_for_name_at_node(
   declaration_id_for_name_from_scope(
     g,
     start_scope,
-    def_cutoff_at_node(flat_proj, source_map, node_id),
+    def_cutoff_at_node(module_projection, source_map, node_id),
     name,
   )
 }
@@ -157,14 +157,14 @@ fn declaration_id_for_name_at_node(
 ///|
 fn declaration_id_for_name_at_module_end(
   g : @scope.ScopeGraph,
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   name : String,
 ) -> @scope.DeclId? {
   guard root_scope_id(g) is Some(root_scope) else { return None }
   declaration_id_for_name_from_scope(
     g,
     root_scope,
-    flat_proj.defs.length(),
+    module_projection.defs.length(),
     name,
   )
 }
@@ -172,7 +172,7 @@ fn declaration_id_for_name_at_module_end(
 ///|
 fn free_names_would_rebind_at_node(
   g : @scope.ScopeGraph,
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   source_map : SourceMap,
   source_node : ProjNode[@ast.Term],
   target_node_id : NodeId,
@@ -181,7 +181,7 @@ fn free_names_would_rebind_at_node(
   let mut rebound = false
   free_names.each(fn(v) {
     let target_decl = declaration_id_for_name_at_node(
-      g, flat_proj, source_map, target_node_id, v,
+      g, module_projection, source_map, target_node_id, v,
     )
     if free_name_would_rebind_to(g, source_node, v, target_decl) {
       rebound = true
@@ -193,13 +193,15 @@ fn free_names_would_rebind_at_node(
 ///|
 fn free_names_would_rebind_at_module_end(
   g : @scope.ScopeGraph,
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   source_node : ProjNode[@ast.Term],
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
   let mut rebound = false
   free_names.each(fn(v) {
-    let target_decl = declaration_id_for_name_at_module_end(g, flat_proj, v)
+    let target_decl = declaration_id_for_name_at_module_end(
+      g, module_projection, v,
+    )
     if free_name_would_rebind_to(g, source_node, v, target_decl) {
       rebound = true
     }
@@ -222,14 +224,14 @@ fn free_name_would_rebind_to(
 }
 
 ///|
-/// Look up the FlatProj binding NodeId for a given init expression or LetDef NodeId.
+/// Look up the ModuleProjection binding NodeId for a given init expression or LetDef NodeId.
 /// Init-expression callers are mapped to the parent LetDef id; direct LetDef
 /// callers return the binding id unchanged.
 pub fn find_binding_for_init(
   init_node_id : NodeId,
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
 ) -> (NodeId, Int)? {
-  for i, def in flat_proj.defs {
+  for i, def in module_projection.defs {
     if def.3 == init_node_id || def.1.id() == init_node_id {
       return Some((def.3, i))
     }

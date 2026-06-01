@@ -162,7 +162,7 @@ pub fn parse_to_proj_node(
 
 ///|
 /// Memo builder for JSON projection pipeline.
-/// Returns 3 memos (no FlatProj) for SyncEditor::new_generic.
+/// Returns 3 memos (no ModuleProjection) for SyncEditor::new_generic.
 pub fn build_json_projection_memos(
   parser : @loom.Parser[@json.JsonValue],
 ) -> (

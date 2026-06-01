@@ -25,7 +25,7 @@ priv struct LambdaProtectedCells {
     Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   ]
   source_map_memo : @workspace.ProtectedCell[@core.SourceMap]
-  proj_memo : @workspace.ProtectedCell[@lambda_flat.VersionedFlatProj]
+  proj_memo : @workspace.ProtectedCell[@lambda_flat.VersionedModuleProjection]
   escalation_memo : @workspace.ProtectedCell[Array[@lambda_eval.EvalResult]]
   typecheck_output : @workspace.ProtectedCell[@typecheck.ModuleTypeResult]
 }

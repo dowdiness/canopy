@@ -2,10 +2,7 @@
   "name": "dowdiness/visualizer",
   "version": "0.1.0",
   "deps": {
-    "dowdiness/incr": {
-      "path": "../../loom/incr",
-      "version": "0.5.2"
-    },
+    "dowdiness/incr": "0.7.1",
     "dowdiness/graphviz": {
       "path": "../../graphviz",
       "version": "0.1.0"

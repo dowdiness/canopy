@@ -3,7 +3,7 @@ name = "dowdiness/cognition"
 version = "0.1.0"
 
 import {
-  "dowdiness/incr@0.6.0",
+  "dowdiness/incr@0.7.1",
 }
 
 repository = "https://github.com/dowdiness/canopy"

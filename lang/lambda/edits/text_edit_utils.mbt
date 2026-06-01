@@ -35,12 +35,12 @@ fn find_let_start(source_text : String, from : Int) -> Int {
 }
 
 ///|
-/// Find a module binding's index in flat_proj.defs by its NodeId.
+/// Find a module binding's index in module_projection.defs by its NodeId.
 fn find_def_index(
-  flat_proj : FlatProj,
+  module_projection : ModuleProjection,
   binding_node_id : NodeId,
 ) -> Result[Int, String] {
-  for i, def in flat_proj.defs {
+  for i, def in module_projection.defs {
     if def.3 == binding_node_id {
       return Ok(i)
     }

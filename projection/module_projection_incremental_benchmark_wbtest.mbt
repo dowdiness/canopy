@@ -1,4 +1,4 @@
-// Isolated microbenchmark for `@lambda_proj.to_flat_proj_incremental`
+// Isolated microbenchmark for `@lambda_proj.to_module_projection_incremental`
 // change-detection scan (BAND 2b evidence gate, canopy #443).
 //
 // Why this exists: the 2026-04-06 pipeline-decomposition doc ESTIMATED this
@@ -7,7 +7,7 @@
 //   (a) it was derived by subtraction ("Estimated cost"), never measured in
 //       isolation; and
 //   (b) it described an O(N) scan checking `physical_equal()` on CstNode
-//       pointers — that algorithm no longer exists. flat_proj.mbt:83-84 now
+//       pointers — that algorithm no longer exists. module_projection.mbt:83-84 now
 //       compares `new_child.start() == old_child.start()` plus *structural*
 //       `cst_node() == cst_node()` equality.
 // This file reproduces-or-rejects the cliff by isolating the current scan.
@@ -36,15 +36,15 @@ fn fp_parse_syntax(text : String) -> @seam.SyntaxNode raise {
 // caller can flip exactly one same-width literal without shifting any offsets.
 
 ///|
-/// Build (new_root, old_root, old_fp) for a scenario. `old_fp` is the FlatProj
+/// Build (new_root, old_root, old_fp) for a scenario. `old_fp` is the ModuleProjection
 /// of the old tree (the state carried between keystrokes); the bench then runs
 /// only the incremental scan against it.
 fn fp_incr_setup(
   old_src : String,
   new_src : String,
-) -> (@seam.SyntaxNode, @seam.SyntaxNode, @lambda_proj.FlatProj) raise {
+) -> (@seam.SyntaxNode, @seam.SyntaxNode, @lambda_proj.ModuleProjection) raise {
   let old_root = fp_parse_syntax(old_src)
-  let old_fp = @lambda_proj.to_flat_proj(old_root, Ref(0))
+  let old_fp = @lambda_proj.to_module_projection(old_root, Ref(0))
   let new_root = fp_parse_syntax(new_src)
   (new_root, old_root, old_fp)
 }
@@ -60,7 +60,7 @@ test "control: unchanged scenario reuses all defs (zero changed)" {
     tree_refresh_bench_source(80, "0"),
   )
   let changed = Ref(([] : Array[Int]))
-  let _ = @lambda_proj.to_flat_proj_incremental(
+  let _ = @lambda_proj.to_module_projection_incremental(
     new_root,
     old_root,
     old_fp,
@@ -77,7 +77,7 @@ test "control: tail scenario rebuilds exactly one def" {
     tree_refresh_bench_source(80, "1"),
   )
   let changed = Ref(([] : Array[Int]))
-  let _ = @lambda_proj.to_flat_proj_incremental(
+  let _ = @lambda_proj.to_module_projection_incremental(
     new_root,
     old_root,
     old_fp,
@@ -93,7 +93,7 @@ test "control: shifted scenario blocks reuse for every entry" {
   let base = tree_refresh_bench_source(80, "0")
   let (new_root, old_root, old_fp) = fp_incr_setup(base, " " + base)
   let changed = Ref(([] : Array[Int]))
-  let _ = @lambda_proj.to_flat_proj_incremental(
+  let _ = @lambda_proj.to_module_projection_incremental(
     new_root,
     old_root,
     old_fp,
@@ -107,8 +107,8 @@ test "control: shifted scenario blocks reuse for every entry" {
 // --- Bench runner: setup ONCE (outside the timed loop), measure only the scan ---
 
 ///|
-/// Parse old/new sources and build the carried-over old FlatProj once, then
-/// time only `to_flat_proj_incremental`. Keeping setup out of the `b.bench`
+/// Parse old/new sources and build the carried-over old ModuleProjection once, then
+/// time only `to_module_projection_incremental`. Keeping setup out of the `b.bench`
 /// closure is the invariant that makes these numbers a scan measurement.
 fn bench_fp_incr(
   b : @bench.T,
@@ -117,7 +117,7 @@ fn bench_fp_incr(
 ) -> Unit raise {
   let (new_root, old_root, old_fp) = fp_incr_setup(old_src, new_src)
   b.bench(() => {
-    let r = @lambda_proj.to_flat_proj_incremental(
+    let r = @lambda_proj.to_module_projection_incremental(
       new_root,
       old_root,
       old_fp,

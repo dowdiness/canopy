@@ -1,22 +1,25 @@
-// Lambda-specific FlatProj: flat representation of Module with per-def tracking.
-// Moved from projection/flat_proj.mbt to separate language code from framework.
+// Lambda-specific ModuleProjection: flat representation of Module with per-def tracking.
+// Moved from projection/module_projection.mbt to separate language code from framework.
 
 ///|
-pub struct FlatProj {
+pub struct ModuleProjection {
   defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] // (name, init, start, LetDef id)
   final_expr : ProjNode[@ast.Term]?
 } derive(Debug, Eq)
 
 ///|
-pub fn FlatProj::empty() -> FlatProj {
+pub fn ModuleProjection::empty() -> ModuleProjection {
   { defs: [], final_expr: None }
 }
 
 ///|
-/// Build a FlatProj from a SourceFile SyntaxNode.
+/// Build a ModuleProjection from a SourceFile SyntaxNode.
 /// Iterates LetDef children and collects them as flat array entries.
 /// Each entry stores the init subtree plus the real LetDef node id.
-pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
+pub fn to_module_projection(
+  root : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ModuleProjection {
   let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
   let mut final_proj : ProjNode[@ast.Term]? = None
   for child in root.children() {
@@ -38,10 +41,10 @@ pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
 }
 
 ///|
-/// Build a FlatProj incrementally by comparing old and new CST children.
+/// Build a ModuleProjection incrementally by comparing old and new CST children.
 ///
 /// For each child pair, compares start offset plus underlying CstNodes
-/// structurally. If unchanged, reuses the old FlatProj entry directly —
+/// structurally. If unchanged, reuses the old ModuleProjection entry directly —
 /// skipping both syntax_to_proj_node and reconcile. Only changed children are
 /// rebuilt and reconciled.
 ///
@@ -49,13 +52,13 @@ pub fn to_flat_proj(root : @seam.SyntaxNode, counter : Ref[Int]) -> FlatProj {
 /// parses, so equality must use the stable structural CstNode contract.
 ///
 /// Cost: O(n) CstNode equality checks + O(changed_subtree) rebuilds.
-pub fn to_flat_proj_incremental(
+pub fn to_module_projection_incremental(
   new_root : @seam.SyntaxNode,
   old_root : @seam.SyntaxNode,
-  old_fp : FlatProj,
+  old_fp : ModuleProjection,
   counter : Ref[Int],
   changed_indices? : Ref[Array[Int]] = Ref([]),
-) -> FlatProj {
+) -> ModuleProjection {
   // Extract LetDef children from old and new roots
   let new_children = new_root.children()
   let old_let_children : Array[@seam.SyntaxNode] = []
@@ -121,9 +124,9 @@ pub fn to_flat_proj_incremental(
   if old_fp.defs.length() != defs.length() {
     any_changed = true
   }
-  let new_fp : FlatProj = { defs, final_expr: final_proj }
+  let new_fp : ModuleProjection = { defs, final_expr: final_proj }
   if any_changed {
-    reconcile_flat_proj(old_fp, new_fp, counter)
+    reconcile_module_projection(old_fp, new_fp, counter)
   } else {
     new_fp
   }
@@ -168,13 +171,13 @@ fn[K : Eq + Hash] key_match(
 }
 
 ///|
-/// Reconcile two FlatProjs, preserving node IDs where entries match.
+/// Reconcile two ModuleProjections, preserving node IDs where entries match.
 /// O(n) hash-based matching on def names; reconciles init subtrees individually.
-pub fn reconcile_flat_proj(
-  old_fp : FlatProj,
-  new_fp : FlatProj,
+pub fn reconcile_module_projection(
+  old_fp : ModuleProjection,
+  new_fp : ModuleProjection,
   counter : Ref[Int],
-) -> FlatProj {
+) -> ModuleProjection {
   let old_defs = old_fp.defs
   let new_defs = new_fp.defs
   let old_names = old_defs.map(d => d.0)
@@ -212,25 +215,25 @@ pub fn reconcile_flat_proj(
 }
 
 ///|
-/// Reconstruct a Module ProjNode from FlatProj.
+/// Reconstruct a Module ProjNode from ModuleProjection.
 /// Uses stored NodeIds for the Module node. Counter only used for Unit fallback.
-pub fn FlatProj::to_proj_node(
-  self : FlatProj,
+pub fn ModuleProjection::to_proj_node(
+  self : ModuleProjection,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
   self.to_proj_node_with_prev_module_id(counter, None)
 }
 
 ///|
-/// Reconstruct a Module ProjNode from FlatProj, optionally reusing a previous
+/// Reconstruct a Module ProjNode from ModuleProjection, optionally reusing a previous
 /// Module node_id for stability across rebuilds.
 ///
 /// When `prev_module_id` is `Some(id)`, the Module node reuses that id instead
 /// of allocating a fresh one from the counter. This ensures the root Module
 /// node_id is stable across incremental rebuilds when the content hasn't
 /// changed structurally — which is required for ProseMirror document identity.
-pub fn FlatProj::to_proj_node_with_prev_module_id(
-  self : FlatProj,
+pub fn ModuleProjection::to_proj_node_with_prev_module_id(
+  self : ModuleProjection,
   counter : Ref[Int],
   prev_module_id : Int?,
 ) -> ProjNode[@ast.Term] {
@@ -275,10 +278,12 @@ pub fn FlatProj::to_proj_node_with_prev_module_id(
 }
 
 ///|
-/// Extract a FlatProj from a Module ProjNode.
+/// Extract a ModuleProjection from a Module ProjNode.
 /// Reads LetDef children and extracts their init child. Legacy init-only
 /// children are accepted as a compatibility fallback.
-pub fn FlatProj::from_proj_node(root : ProjNode[@ast.Term]) -> FlatProj {
+pub fn ModuleProjection::from_proj_node(
+  root : ProjNode[@ast.Term],
+) -> ModuleProjection {
   match root.kind {
     Module(term_defs, _) => {
       let defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] = []
@@ -314,8 +319,8 @@ pub fn FlatProj::from_proj_node(root : ProjNode[@ast.Term]) -> FlatProj {
 }
 
 ///|
-/// Print a FlatProj to text. Equivalent to @ast.print_term on the nested spine.
-pub fn print_flat_proj(fp : FlatProj) -> String {
+/// Print a ModuleProjection to text. Equivalent to @ast.print_term on the nested spine.
+pub fn print_module_projection(fp : ModuleProjection) -> String {
   let parts : Array[String] = []
   for def in fp.defs {
     let (name, init, _, _) = def

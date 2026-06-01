@@ -4,7 +4,7 @@
 
 ///|
 /// Create a new SyncEditor for JSON documents.
-/// Uses the generic 3-memo pipeline (no FlatProj).
+/// Uses the generic 3-memo pipeline (no ModuleProjection).
 pub fn new_json_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,

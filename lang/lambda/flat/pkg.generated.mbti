@@ -11,16 +11,16 @@ import {
 }
 
 // Values
-pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Derived[VersionedFlatProj], @cells.Derived[@core.ProjNode[@ast.Term]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Derived[@core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Derived[VersionedModuleProjection], @cells.Derived[@core.ProjNode[@ast.Term]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Derived[@core.SourceMap])
 
 // Errors
 
 // Types and methods
-pub(all) struct VersionedFlatProj {
-  proj : @proj.FlatProj?
+pub(all) struct VersionedModuleProjection {
+  proj : @proj.ModuleProjection?
   changed_at : @types.Revision
 }
-pub impl Eq for VersionedFlatProj
+pub impl Eq for VersionedModuleProjection
 
 // Type aliases
 

@@ -7,7 +7,7 @@ internals.
 **Primary example:** Markdown (uses CstFold, 3-memo pattern, clean structure).
 
 > **Don't follow the Lambda pattern.** Lambda predates CstFold, uses a 4-memo
-> FlatProj pipeline, and hand-builds AST values from view casts. It's the
+> ModuleProjection pipeline, and hand-builds AST values from view casts. It's the
 > oldest language integration and carries historical complexity. Use Markdown
 > as your reference; consult JSON where patterns differ.
 

@@ -31,7 +31,7 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 
 ### flatproj-interleaved: storage strategy for let/expr interleaving
 **Source:** TODO.md §9
-**Context:** ModuleItem FlatProj storage change caused 2x regression. Alternative approach (helper methods on existing FlatProj) is noted but not started. Needs decision on whether to pursue fix or accept regression.
+**Context:** ModuleItem ModuleProjection storage change caused 2x regression. Alternative approach (helper methods on existing ModuleProjection) is noted but not started. Needs decision on whether to pursue fix or accept regression.
 **Blocks:** Grammar: interleaved let/expr support
 **Evidence:** No plan file, no implementation, alternative approach documented but not started
 **Added:** 2026-03-31

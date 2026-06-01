@@ -1,13 +1,13 @@
 // Cross-pipeline resolution-equivalence property test (docs/TODO.md §20).
 //
 // WHAT THIS PINS
-// Two pipelines build a `FlatProj` from the same source, then a scope graph
+// Two pipelines build a `ModuleProjection` from the same source, then a scope graph
 // resolves each Var reference to a declaration. Both pipelines assign a module
 // def's binder id (`defs[i].3`) to a real LetDef node:
 //   - TEST path (`graph_and_sm_of` / `from_proj_node`): extracts the id from the
 //     parsed LetDef child;
-//   - PRODUCTION path (`production_graph_of` / `to_flat_proj`): stores the id in
-//     FlatProj and reconstructs the LetDef child from it.
+//   - PRODUCTION path (`production_graph_of` / `to_module_projection`): stores the id in
+//     ModuleProjection and reconstructs the LetDef child from it.
 // Resolution never reads `node_id` (`Builder::resolve` matches name + def_index
 // < cutoff), so the hand-verified equivalence proof in
 // `scope_equivalence_wbtest.mbt` SHOULD transfer to production — this PBT pins
@@ -34,7 +34,7 @@
 //
 // SCOPE / NON-GOALS
 // This is a pure test-path-vs-production-path equivalence over a single parse.
-// It does NOT exercise `to_flat_proj_incremental` or the `@incr` memo layer —
+// It does NOT exercise `to_module_projection_incremental` or the `@incr` memo layer —
 // the live editor's incremental rebuild path is a separate concern. It also
 // cannot catch a bug shared by both pipelines inside `@scope.build`; the frozen
 // hand-derived oracle in `scope_equivalence_wbtest.mbt` covers that blind spot
@@ -243,7 +243,7 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
   let (proj1, _fp1, g1, sm1) = graph_and_sm_of(text)
   let reg1 = scope_test_registry(proj1)
   let ranges1 = def_init_ranges(proj1)
-  // Pipeline 2: production path (to_flat_proj), with token spans.
+  // Pipeline 2: production path (to_module_projection), with token spans.
   let (proj2, reg2, g2, sm2) = production_graph_of(text)
   let ranges2 = def_init_ranges(proj2)
   assert_resolution_agrees(
@@ -404,13 +404,13 @@ test "cross-pipeline: fixed sanity case agrees" {
 
 ///|
 /// Generated well-formed sources must resolve identically across both
-/// `FlatProj` construction pipelines (docs/TODO.md §20). The cross-pipeline
+/// `ModuleProjection` construction pipelines (docs/TODO.md §20). The cross-pipeline
 /// property is near-tautological (resolution ignores `node_id`; both pipelines
 /// build defs from the same syntax in the same order), so a few hundred cases
 /// give the same confidence as thousands — `max_success` is sized for CI cost,
 /// not coverage. The edge-set fixtures above carry the structurally tricky
 /// cases that random generation is unlikely to hit.
-test "property: resolution agrees across both FlatProj pipelines" {
+test "property: resolution agrees across both ModuleProjection pipelines" {
   @qc.quick_check_fn_error(
     fn(gs : GenSource) -> Unit raise { check_agreement(@ast.print_term(gs.0)) },
     max_success=300,
