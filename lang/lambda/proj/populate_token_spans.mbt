@@ -87,6 +87,59 @@ fn collect_token_spans_source_file(
 }
 
 ///|
+/// Walk flat CST children against a left-nested ProjNode spine.
+/// AppExpr and BinaryExpr are flat in the CST but left-folded in the
+/// projection tree: the first syntax node and first rest node live in the
+/// innermost projection node, then each remaining syntax node maps to the
+/// right child while walking back up the left spine. Keep this iterative so
+/// long flat expressions do not add O(n) call-stack depth.
+fn collect_token_spans_left_spine(
+  source_map : SourceMap,
+  first_syntax : @seam.SyntaxNode,
+  rest_syntax : ArrayView[@seam.SyntaxNode],
+  proj_node : ProjNode[@ast.Term],
+) -> Unit {
+  match rest_syntax {
+    [] => collect_token_spans_expr(source_map, first_syntax, proj_node)
+    _ => {
+      let mut current_proj = proj_node
+      let proj_chain : Array[ProjNode[@ast.Term]] = []
+      proj_chain.push(current_proj)
+      for _ in 0..<(rest_syntax.length() - 1) {
+        if current_proj.children.length() >= 1 {
+          current_proj = current_proj.children[0]
+          proj_chain.push(current_proj)
+        }
+      }
+      let innermost = proj_chain[proj_chain.length() - 1]
+      if innermost.children.length() >= 2 {
+        collect_token_spans_expr(
+          source_map,
+          first_syntax,
+          innermost.children[0],
+        )
+        collect_token_spans_expr(
+          source_map,
+          rest_syntax[0],
+          innermost.children[1],
+        )
+      }
+      for i = proj_chain.length() - 2; i >= 0; i = i - 1 {
+        let parent = proj_chain[i]
+        let rest_idx = proj_chain.length() - 1 - i
+        if rest_idx < rest_syntax.length() && parent.children.length() >= 2 {
+          collect_token_spans_expr(
+            source_map,
+            rest_syntax[rest_idx],
+            parent.children[1],
+          )
+        }
+      }
+    }
+  }
+}
+
+///|
 /// Walk an expression-level syntax node alongside its ProjNode counterpart.
 /// Extracts token spans for lambda params and recurses into children.
 fn collect_token_spans_expr(
@@ -109,90 +162,22 @@ fn collect_token_spans_expr(
   } else if @parser.AppExprView::cast(syntax_node) is Some(v) {
     // AppExpr is flattened: syntax has [func, arg1, arg2, ...]
     // ProjNode is nested: App(App(func, arg1), arg2)
-    // We need to walk the nested ProjNode tree matching the flat syntax.
     match v.func() {
-      Some(func_syn) => {
-        let args = v.args()
-        if args.length() == 0 {
-          // Single func, no args — just recurse
-          collect_token_spans_expr(source_map, func_syn, proj_node)
-        } else {
-          // Navigate to the innermost App (leftmost) which contains func
-          let mut current_proj = proj_node
-          // Walk down left children to find the innermost
-          let depth = args.length()
-          let proj_chain : Array[ProjNode[@ast.Term]] = []
-          proj_chain.push(current_proj)
-          for i = 0; i < depth - 1; i = i + 1 {
-            if current_proj.children.length() >= 1 {
-              current_proj = current_proj.children[0]
-              proj_chain.push(current_proj)
-            }
-          }
-          // Now proj_chain[-1] is the innermost App(func, arg1)
-          let innermost = proj_chain[proj_chain.length() - 1]
-          if innermost.children.length() >= 2 {
-            collect_token_spans_expr(
-              source_map,
-              func_syn,
-              innermost.children[0],
-            )
-            collect_token_spans_expr(source_map, args[0], innermost.children[1])
-          }
-          // Walk back up: proj_chain[i]'s right child = args[chain_len - 1 - i]
-          for i = proj_chain.length() - 2; i >= 0; i = i - 1 {
-            let parent = proj_chain[i]
-            let arg_idx = proj_chain.length() - 1 - i
-            if arg_idx < args.length() && parent.children.length() >= 2 {
-              collect_token_spans_expr(
-                source_map,
-                args[arg_idx],
-                parent.children[1],
-              )
-            }
-          }
-        }
-      }
+      Some(func_syn) =>
+        collect_token_spans_left_spine(
+          source_map,
+          func_syn,
+          v.args(),
+          proj_node,
+        )
       None => ()
     }
   } else if @parser.BinaryExprView::cast(syntax_node) is Some(v) {
-    // BinaryExpr operands are flat in CST, nested in ProjNode
-    let operands = v.operands()
-    if operands.length() <= 1 {
-      if operands.length() == 1 {
-        collect_token_spans_expr(source_map, operands[0], proj_node)
-      }
-    } else {
-      // Navigate nested Bop tree: Bop(Bop(a, b), c) for a + b + c
-      let mut current_proj = proj_node
-      let depth = operands.length() - 1
-      let proj_chain : Array[ProjNode[@ast.Term]] = []
-      proj_chain.push(current_proj)
-      for i = 0; i < depth - 1; i = i + 1 {
-        if current_proj.children.length() >= 1 {
-          current_proj = current_proj.children[0]
-          proj_chain.push(current_proj)
-        }
-      }
-      // Innermost: Bop(operands[0], operands[1])
-      let innermost = proj_chain[proj_chain.length() - 1]
-      if innermost.children.length() >= 2 {
-        collect_token_spans_expr(source_map, operands[0], innermost.children[0])
-        collect_token_spans_expr(source_map, operands[1], innermost.children[1])
-      }
-      // BinaryExpr innermost eats operands[0] and operands[1],
-      // so back-walk starts from operands[2]: op_idx = chain.length() - i
-      for i = proj_chain.length() - 2; i >= 0; i = i - 1 {
-        let parent = proj_chain[i]
-        let op_idx = proj_chain.length() - i
-        if op_idx < operands.length() && parent.children.length() >= 2 {
-          collect_token_spans_expr(
-            source_map,
-            operands[op_idx],
-            parent.children[1],
-          )
-        }
-      }
+    // BinaryExpr operands are flat in CST, nested in ProjNode.
+    match v.operands() {
+      [] => ()
+      [first, .. rest] =>
+        collect_token_spans_left_spine(source_map, first, rest, proj_node)
     }
   } else if @parser.IfExprView::cast(syntax_node) is Some(v) {
     if v.condition() is Some(cond) && proj_node.children.length() > 0 {
