@@ -40,6 +40,32 @@ pub fn[T] ProjNode::new(
 }
 
 ///|
+/// Construct a childless ProjNode spanning a syntax node, assigning a fresh id.
+/// Projection builders should prefer this for syntax leaves instead of pairing
+/// `next_proj_node_id` with `ProjNode::new` at each call site.
+pub fn[T] ProjNode::leaf(
+  kind : T,
+  node : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode[T] {
+  ProjNode::new(kind, node.start(), node.end(), next_proj_node_id(counter), [])
+}
+
+///|
+/// Construct a ProjNode with explicit span and children, assigning a fresh id.
+/// Use this for projection branches whose identity is fresh for this build;
+/// keep `ProjNode::new` when preserving or reusing a known node id.
+pub fn[T] ProjNode::branch(
+  kind : T,
+  start : Int,
+  end : Int,
+  children : Array[ProjNode[T]],
+  counter : Ref[Int],
+) -> ProjNode[T] {
+  ProjNode::new(kind, start, end, next_proj_node_id(counter), children)
+}
+
+///|
 pub fn[T] ProjNode::id(self : ProjNode[T]) -> NodeId {
   NodeId(self.node_id)
 }
@@ -94,8 +120,7 @@ pub fn[T] assign_fresh_ids(
   let new_children : Array[ProjNode[T]] = [
     for child in node.children => assign_fresh_ids(child, counter)
   ]
-  let new_id = next_proj_node_id(counter)
-  ProjNode::new(node.kind, node.start, node.end, new_id, new_children)
+  ProjNode::branch(node.kind, node.start, node.end, new_children, counter)
 }
 
 ///|

@@ -5,23 +5,6 @@
 using @core {type ProjNode, type NodeId}
 
 ///|
-/// Construct a childless ProjNode for a JSON leaf value, spanning `node`
-/// and taking a fresh id from `counter`.
-fn json_leaf_node(
-  value : @json.JsonValue,
-  node : @seam.SyntaxNode,
-  counter : Ref[Int],
-) -> ProjNode[@json.JsonValue] {
-  ProjNode::new(
-    value,
-    node.start(),
-    node.end(),
-    @core.next_proj_node_id(counter),
-    [],
-  )
-}
-
-///|
 /// Convert a SyntaxNode to a ProjNode[JsonValue].
 /// Handles RootNode by unwrapping to the single child value.
 pub fn syntax_to_proj_node(
@@ -32,7 +15,7 @@ pub fn syntax_to_proj_node(
     RootNode =>
       match node.nth_child(0) {
         Some(child) => syntax_to_proj_node(child, counter)
-        None => json_leaf_node(Error("empty document"), node, counter)
+        None => ProjNode::leaf(Error("empty document"), node, counter)
       }
     ObjectNode => build_object_node(node, counter)
     ArrayNode => build_array_node(node, counter)
@@ -43,31 +26,31 @@ pub fn syntax_to_proj_node(
       } else {
         @json.JsonValue::Error("malformed string")
       }
-      json_leaf_node(value, node, counter)
+      ProjNode::leaf(value, node, counter)
     }
     NumberValue => {
       let text = node.token_text(@json.NumberToken.to_raw())
       let n = @string.parse_double(text) catch {
         _ =>
-          return json_leaf_node(
+          return ProjNode::leaf(
             @json.JsonValue::Error("invalid number: " + text),
             node,
             counter,
           )
       }
-      json_leaf_node(@json.JsonValue::Number(n), node, counter)
+      ProjNode::leaf(@json.JsonValue::Number(n), node, counter)
     }
     BoolValue => {
       let value = @json.JsonValue::Bool(
         node.find_token(@json.TrueKeyword.to_raw()) is Some(_),
       )
-      json_leaf_node(value, node, counter)
+      ProjNode::leaf(value, node, counter)
     }
-    NullValue => json_leaf_node(@json.JsonValue::Null, node, counter)
+    NullValue => ProjNode::leaf(@json.JsonValue::Null, node, counter)
     ErrorNode =>
-      json_leaf_node(@json.JsonValue::Error("parse error"), node, counter)
+      ProjNode::leaf(@json.JsonValue::Error("parse error"), node, counter)
     _ =>
-      json_leaf_node(
+      ProjNode::leaf(
         @json.JsonValue::Error(
           "unknown node: " + @json.SyntaxKind::from_raw(node.kind()).to_string(),
         ),
@@ -93,23 +76,23 @@ fn build_object_node(
       // Use value span for the child ProjNode (not member span).
       // The full member span (key + colon + value) is stored separately
       // as a "member:N" token span on the Object for delete operations.
-      let member_proj = ProjNode::new(
+      let member_proj = ProjNode::branch(
         value_proj.kind,
         value_proj.start,
         value_proj.end,
-        @core.next_proj_node_id(counter),
         value_proj.children,
+        counter,
       )
       children.push(member_proj)
       members.push((key, value_proj.kind))
     }
   }
-  ProjNode::new(
+  ProjNode::branch(
     @json.JsonValue::Object(members),
     node.start(),
     node.end(),
-    @core.next_proj_node_id(counter),
     children,
+    counter,
   )
 }
 
@@ -126,12 +109,12 @@ fn build_array_node(
     children.push(child_proj)
     elements.push(child_proj.kind)
   }
-  ProjNode::new(
+  ProjNode::branch(
     @json.JsonValue::Array(elements),
     node.start(),
     node.end(),
-    @core.next_proj_node_id(counter),
     children,
+    counter,
   )
 }
 
@@ -156,7 +139,7 @@ fn extract_member(
   let value_proj = match member_node.nth_child(0) {
     Some(v) => syntax_to_proj_node(v, counter)
     None =>
-      json_leaf_node(
+      ProjNode::leaf(
         @json.JsonValue::Error("missing member value"),
         member_node,
         counter,

@@ -48,14 +48,7 @@ fn build_proj_tree(
         collect_syntax_children(syntax_node, @markdown.SyntaxKind::ListItemNode),
         counter,
       )
-    _ =>
-      @core.ProjNode::new(
-        block,
-        syntax_node.start(),
-        syntax_node.end(),
-        @core.next_proj_node_id(counter),
-        [],
-      )
+    _ => @core.ProjNode::leaf(block, syntax_node, counter)
   }
 }
 
@@ -74,12 +67,12 @@ fn build_container(
       build_proj_tree(syntax_children[i], block_children[i], counter),
     )
   }
-  @core.ProjNode::new(
+  @core.ProjNode::branch(
     block,
     syntax_node.start(),
     syntax_node.end(),
-    @core.next_proj_node_id(counter),
     children,
+    counter,
   )
 }
 

@@ -15,8 +15,10 @@ Refresh with: `NEW_MOON_MOD=0 moon ide outline <pkg>` or `NEW_MOON_MOD=0 moon id
 |-----|----------|-------|
 | `NodeId` | `core/` | Opaque wrapper over `Int`. Use this, do not invent integers for nodes. |
 | `NodeId::from_int` | `core/` | Construct from raw int (avoid unless crossing FFI boundary). |
-| `next_proj_node_id(counter)` | `core/` | Monotonic counter for fresh `ProjNode` IDs. |
+| `next_proj_node_id(counter)` | `core/` | Monotonic counter for fresh `ProjNode` IDs. Prefer the constructors below in projection builders. |
 | `ProjNode[T]` | `core/` | Generic projection node carrying value `T`. |
+| `ProjNode::leaf(kind, syntax_node, counter)` | `core/` | Fresh childless projection node spanning a `SyntaxNode`. Preferred for CST leaf projections. |
+| `ProjNode::branch(kind, start, end, children, counter)` | `core/` | Fresh projection node with explicit span and children. Use `ProjNode::new` only when preserving/reusing a known ID. |
 
 **Do not:** Create parallel `id: Int` fields or ad-hoc node numbering.
 

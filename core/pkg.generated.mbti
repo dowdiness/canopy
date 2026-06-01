@@ -75,7 +75,9 @@ pub struct ProjNode[T] {
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
+pub fn[T] ProjNode::branch(T, Int, Int, Array[Self[T]], @ref.Ref[Int]) -> Self[T]
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
+pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int]) -> Self[T]
 pub fn[T] ProjNode::new(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
 pub impl[T : @dowdiness/loom/core.Renderable] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]

@@ -86,6 +86,40 @@ test "ProjNode[TestExpr] — construction and field access" {
 }
 
 ///|
+test "ProjNode::leaf allocates a fresh id from syntax span" {
+  let syntax_node = @seam.SyntaxNode::from_cst(
+    @seam.CstNode::new(@seam.RawKind(1), [
+      @seam.CstElement::Token(
+        @seam.CstToken::CstToken(@seam.RawKind(2), "text"),
+      ),
+    ]),
+  )
+  let counter = Ref(7)
+  let leaf = ProjNode::leaf(Leaf("x"), syntax_node, counter)
+  inspect(leaf.node_id, content="7")
+  inspect(counter.val, content="8")
+  inspect(leaf.start, content="0")
+  inspect(leaf.end, content="4")
+  inspect(leaf.children.length(), content="0")
+}
+
+///|
+test "ProjNode::branch allocates a fresh id" {
+  let counter = Ref(7)
+  let child = ProjNode::new(Leaf("x"), 0, 1, 0, [])
+  let branch = ProjNode::branch(
+    Branch("root", [Leaf("x")]),
+    0,
+    5,
+    [child],
+    counter,
+  )
+  inspect(branch.node_id, content="7")
+  inspect(counter.val, content="8")
+  inspect(branch.children.length(), content="1")
+}
+
+///|
 test "ProjNode Show — depth-1 only, uses Renderable::kind_tag" {
   let leaf = ProjNode::new(Leaf("x"), 0, 1, 0, [])
   inspect(leaf, content="#0 Leaf [0..1]")

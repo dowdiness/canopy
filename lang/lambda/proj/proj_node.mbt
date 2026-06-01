@@ -5,23 +5,6 @@
 using @core {type ProjNode, type NodeId}
 
 ///|
-/// Construct a childless ProjNode for a lambda leaf term, spanning `node`
-/// and taking a fresh id from `counter`.
-fn lambda_leaf_node(
-  kind : @ast.Term,
-  node : @seam.SyntaxNode,
-  counter : Ref[Int],
-) -> ProjNode[@ast.Term] {
-  ProjNode::new(
-    kind,
-    node.start(),
-    node.end(),
-    @core.next_proj_node_id(counter),
-    [],
-  )
-}
-
-///|
 fn error_node_with_span(
   message : String,
   start : Int,
@@ -37,7 +20,7 @@ fn error_node_for_syntax(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  lambda_leaf_node(Error(message), node, counter)
+  ProjNode::leaf(Error(message), node, counter)
 }
 
 ///|
@@ -46,12 +29,12 @@ fn app_node(
   right : ProjNode[@ast.Term],
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  ProjNode::new(
+  ProjNode::branch(
     App(left.kind, right.kind),
     @cmp.minimum(left.start, right.start),
     @cmp.maximum(left.end, right.end),
-    @core.next_proj_node_id(counter),
     [left, right],
+    counter,
   )
 }
 
@@ -62,12 +45,12 @@ fn bop_node(
   right : ProjNode[@ast.Term],
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  ProjNode::new(
+  ProjNode::branch(
     Bop(op, left.kind, right.kind),
     @cmp.minimum(left.start, right.start),
     @cmp.maximum(left.end, right.end),
-    @core.next_proj_node_id(counter),
     [left, right],
+    counter,
   )
 }
 
@@ -81,20 +64,20 @@ pub fn syntax_to_proj_node(
       Some(n) => Int(n)
       None => Error("invalid integer literal")
     }
-    lambda_leaf_node(kind, node, counter)
+    ProjNode::leaf(kind, node, counter)
   } else if @parser.VarRefView::cast(node) is Some(v) {
-    lambda_leaf_node(Var(v.name()), node, counter)
+    ProjNode::leaf(Var(v.name()), node, counter)
   } else if @parser.LambdaExprView::cast(node) is Some(v) {
     let body = match v.body() {
       Some(b) => syntax_to_proj_node(b, counter)
       None => error_node_for_syntax("missing lambda body", node, counter)
     }
-    ProjNode::new(
+    ProjNode::branch(
       Lam(v.param(), body.kind),
       node.start(),
       node.end(),
-      @core.next_proj_node_id(counter),
       [body],
+      counter,
     )
   } else if @parser.AppExprView::cast(node) is Some(v) {
     match v.func() {
@@ -156,12 +139,12 @@ pub fn syntax_to_proj_node(
       Some(n) => syntax_to_proj_node(n, counter)
       None => error_node_for_syntax("missing else branch", node, counter)
     }
-    ProjNode::new(
+    ProjNode::branch(
       If(cond.kind, then_.kind, else_.kind),
       node.start(),
       node.end(),
-      @core.next_proj_node_id(counter),
       [cond, then_, else_],
+      counter,
     )
   } else if @parser.ParenExprView::cast(node) is Some(v) {
     match v.inner() {
@@ -215,12 +198,12 @@ pub fn syntax_to_proj_node(
       let term_defs : Array[(@ast.VarName, @ast.Term)] = defs.map(fn(d) {
         (d.0, d.1.kind)
       })
-      ProjNode::new(
+      ProjNode::branch(
         Module(term_defs, result.kind),
         node.start(),
         node.end(),
-        @core.next_proj_node_id(counter),
         children,
+        counter,
       )
     } else {
       // Single expression block: unwrap like ParenExpr
@@ -233,7 +216,7 @@ pub fn syntax_to_proj_node(
       )
     }
   } else if @syntax.SyntaxKind::from_raw(node.kind()) == @syntax.HoleLiteral {
-    lambda_leaf_node(Hole(0), node, counter)
+    ProjNode::leaf(Hole(0), node, counter)
   } else {
     error_node_for_syntax(
       "unknown node kind: " + node.kind().to_string(),
@@ -284,12 +267,12 @@ pub fn to_proj_node(
     let term_defs : Array[(@ast.VarName, @ast.Term)] = defs.map(fn(d) {
       (d.0, d.1.kind)
     })
-    result = ProjNode::new(
+    result = ProjNode::branch(
       Module(term_defs, result.kind),
       defs[0].2,
       result.end,
-      @core.next_proj_node_id(counter),
       children,
+      counter,
     )
   }
   result
