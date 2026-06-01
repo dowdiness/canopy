@@ -38,7 +38,9 @@ Refresh with: `NEW_MOON_MOD=0 moon ide outline <pkg>` or `NEW_MOON_MOD=0 moon id
 | `SourceMap::nodes_in_range(range)` | `core/` | All nodes overlapping a range. |
 | `SourceMap::apply_edit(edit)` | `core/` | Update ranges after a text edit. Call this, don't rebuild. |
 | `SourceMap::rebuild_ranges()` | `core/` | Full rebuild (expensive — prefer `apply_edit`). |
-| `SourceMap::set_token_span` / `get_token_span` | `core/` | Token-level spans. |
+| `SourceMap::set_token_span` | `core/` | Use for computed token-level ranges. |
+| `SourceMap::set_span_from_token` | `core/` | Preferred direct-token registration helper: finds a direct visible token on a `SyntaxNode` and records its range. |
+| `SourceMap::get_token_span` | `core/` | Read a recorded token-level span by role. |
 
 **Do not:** Store `(start, end)` integers separately when `SourceMap` already tracks them.
 

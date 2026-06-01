@@ -58,24 +58,20 @@ fn collect_token_spans(
         if @json.SyntaxKind::from_raw(member_syn.kind()) == @json.MemberNode &&
           proj_idx < proj_node.children.length() {
           let child_proj = proj_node.children[proj_idx]
+          let object_id = proj_node.id()
           // Record the full member span on the Object node
           source_map.set_token_span(
-            proj_node.id(),
+            object_id,
             member_role(proj_idx),
             @loomcore.Range::new(member_syn.start(), member_syn.end()),
           )
-          // Find the StringToken key and record its span on the Object node
-          for elem in member_syn.all_children() {
-            if elem is @seam.SyntaxElement::Token(t) &&
-              t.kind() == @json.StringToken.to_raw() {
-              source_map.set_token_span(
-                proj_node.id(),
-                key_role(proj_idx),
-                @loomcore.Range::new(t.start(), t.end()),
-              )
-              break
-            }
-          }
+          // Record the direct StringToken key span on the Object node
+          source_map.set_span_from_token(
+            object_id,
+            key_role(proj_idx),
+            member_syn,
+            @json.StringToken.to_raw(),
+          )
           // Recurse into the value (first node child of MemberNode).
           // The ProjNode child may itself have children (nested object/array).
           if member_syn.nth_child(0) is Some(value_syn) {
