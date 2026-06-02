@@ -17,7 +17,8 @@ git submodule update --init --recursive
 # bundle vite expects unless MOON_WORK=off is set. See #335.
 echo "→ MoonBit dependencies..."
 cd "$IDEAL_ROOT"
-MOON_WORK=off moon update
+# Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+MOON_WORK=off "$REPO_ROOT/scripts/moon-update.sh"
 
 echo "→ MoonBit build (release JS)..."
 MOON_WORK=off moon build --target js --release

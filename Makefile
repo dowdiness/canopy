@@ -67,12 +67,16 @@ install-hooks: ## Install git pre-commit hooks
 
 ci: check-all test-all ## Run all CI checks locally
 
+# Route `moon update` through the retry wrapper for the transient mooncakes CDN
+# 403 (issue #467). $(CURDIR) is absolute, so it survives the `cd` into submodules.
+MOON_UPDATE := $(CURDIR)/scripts/moon-update.sh
+
 update: ## Update MoonBit dependencies
-	moon update
-	cd event-graph-walker && moon update
-	cd loom/loom && moon update
-	cd svg-dsl && moon update
-	cd graphviz && moon update
+	$(MOON_UPDATE)
+	cd event-graph-walker && $(MOON_UPDATE)
+	cd loom/loom && $(MOON_UPDATE)
+	cd svg-dsl && $(MOON_UPDATE)
+	cd graphviz && $(MOON_UPDATE)
 
 bench: ## Run benchmarks
 	moon bench --release
