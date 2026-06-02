@@ -1,6 +1,12 @@
 {
   "name": "dowdiness/canopy-canvas",
   "version": "0.1.0",
+  "deps": {
+    "dowdiness/graph-dsl": {
+      "path": "../../loom/examples/graph-dsl",
+      "version": "0.1.0"
+    }
+  },
   "source": ".",
   "preferred-target": "js"
 }

@@ -3,6 +3,10 @@ import {
   "moonbitlang/core/debug",
 }
 
+import {
+  "dowdiness/graph-dsl" @graph_dsl,
+} for "wbtest"
+
 options(
   "is-main": true,
   link: {
