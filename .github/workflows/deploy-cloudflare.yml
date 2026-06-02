@@ -20,9 +20,10 @@ jobs:
           - name: web
             project-name: canopy-lambda-editor
             type: pages
+            # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
             moon-update: |
-              moon update
-              cd graphviz && moon update
+              "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+              cd graphviz && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             moon-build: |
               moon build --target js --release
               cd graphviz && moon build --target js --release
@@ -36,7 +37,7 @@ jobs:
             # mode forces wasm-gc and skips the JS bundle vite expects. Same
             # treatment as scripts/test-canvas-e2e.sh + benchmark.yml. Tracked
             # as #335; remove once moon honors per-member preferred-target.
-            moon-update: cd examples/ideal && MOON_WORK=off moon update
+            moon-update: cd examples/ideal && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             moon-build: cd examples/ideal && MOON_WORK=off moon build --target js --release
             npm-dir: examples/ideal/web
             deploy-dir: examples/ideal/web/dist
@@ -44,7 +45,7 @@ jobs:
           - name: prosemirror
             project-name: canopy-prosemirror
             type: pages
-            moon-update: moon update
+            moon-update: '"$GITHUB_WORKSPACE/scripts/moon-update.sh"'
             moon-build: moon build --target js --release
             npm-dir: examples/prosemirror
             deploy-dir: examples/prosemirror/dist
@@ -52,7 +53,7 @@ jobs:
           - name: demo-react
             project-name: canopy-demo-react
             type: pages
-            moon-update: moon update
+            moon-update: '"$GITHUB_WORKSPACE/scripts/moon-update.sh"'
             moon-build: moon build --target js --release
             npm-dir: examples/demo-react
             deploy-dir: examples/demo-react/dist
@@ -61,7 +62,7 @@ jobs:
             project-name: canopy-block-editor
             type: pages
             # MOON_WORK=off: see ideal entry above (#335).
-            moon-update: cd examples/block-editor && MOON_WORK=off moon update
+            moon-update: cd examples/block-editor && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             moon-build: cd examples/block-editor && MOON_WORK=off moon build --target js --release
             npm-dir: examples/block-editor/web
             deploy-dir: examples/block-editor/web/dist
@@ -70,7 +71,7 @@ jobs:
             project-name: canopy-canvas
             type: pages
             # MOON_WORK=off: see ideal entry above (#335).
-            moon-update: cd examples/canvas && MOON_WORK=off moon update
+            moon-update: cd examples/canvas && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             moon-build: cd examples/canvas && MOON_WORK=off moon build --target js --release
             npm-dir: examples/canvas/web
             deploy-dir: examples/canvas/web/dist
@@ -78,7 +79,7 @@ jobs:
           - name: relay-server
             project-name: canopy-relay
             type: workers
-            moon-update: moon update
+            moon-update: '"$GITHUB_WORKSPACE/scripts/moon-update.sh"'
             moon-build: moon build --target js --release
             npm-dir: examples/relay-server
             deploy-dir: ""
