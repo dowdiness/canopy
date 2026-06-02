@@ -158,30 +158,62 @@ fn snapshot_node_label(node : IncrSnapshotNode) -> String {
 }
 
 ///|
-fn snapshot_node_detail(node : IncrSnapshotNode) -> String {
-  "changed " +
-  node.changed_at.value.to_string() +
-  ", verified " +
-  node.verified_at.value.to_string()
+/// Render a captured recompute duration with an ASCII unit chosen by magnitude
+/// (ns / us / ms). Truncating division drops sub-unit digits; the unit switch
+/// is the point — an `ms` node stands out against `us` neighbors as a hotspot.
+fn format_elapsed_ns(ns : Int64) -> String {
+  if ns < 1000L {
+    ns.to_string() + "ns"
+  } else if ns < 1_000_000L {
+    (ns / 1000L).to_string() + "us"
+  } else {
+    (ns / 1_000_000L).to_string() + "ms"
+  }
 }
 
 ///|
-fn status_for_cell(
+fn snapshot_node_detail(node : IncrSnapshotNode, elapsed_ns : Int64?) -> String {
+  let base = "changed " +
+    node.changed_at.value.to_string() +
+    ", verified " +
+    node.verified_at.value.to_string()
+  // Only recomputed cells carry a timing; pure dependency nodes that never
+  // fired an event omit it rather than show a misleading zero.
+  match elapsed_ns {
+    Some(ns) => base + ", " + format_elapsed_ns(ns)
+    None => base
+  }
+}
+
+///|
+/// Most recent event retained for `id`, if any.
+///
+/// The tap retains at most one record per cell (keep-last-per-cell), so this
+/// single scan returns that cell's only record — both its status and its
+/// latest `elapsed_ns` come from the one lookup.
+fn event_for_cell(
   events : Array[IncrMemoEventRecord],
   id : @incr.CellId,
-) -> VisualNodeStatus {
-  // The tap retains at most one record per cell (keep-last-per-cell), so the
-  // first match is the only match — return it directly.
+) -> IncrMemoEventRecord? {
   for event in events {
     if event.cell_id == id {
-      return match event.phase {
+      return Some(event)
+    }
+  }
+  None
+}
+
+///|
+fn record_status(record : IncrMemoEventRecord?) -> VisualNodeStatus {
+  match record {
+    Some(event) =>
+      match event.phase {
         IncrEntering => Active
         IncrCompleted => if event.backdated { Neutral } else { Changed }
         IncrAborted => Failed
       }
-    }
+    None => Neutral
   }
-  Neutral
 }
 
 ///|
@@ -249,12 +281,17 @@ pub fn IncrMemoEventTap::snapshot(self : IncrMemoEventTap) -> IncrSnapshot {
 pub fn IncrSnapshot::to_visual_graph(self : IncrSnapshot) -> VisualGraph {
   let graph = VisualGraph(id="incr")
   for node in self.nodes {
+    let record = event_for_cell(self.events, node.id)
+    let elapsed_ns = match record {
+      Some(event) => event.elapsed_ns
+      None => None
+    }
     graph.add_node(
       VisualNode(
         visual_cell_id(node.id),
         label=snapshot_node_label(node),
-        detail=snapshot_node_detail(node),
-        status=status_for_cell(self.events, node.id),
+        detail=snapshot_node_detail(node, elapsed_ns),
+        status=record_status(record),
       ),
     )
   }
