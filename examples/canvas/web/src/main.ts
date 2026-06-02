@@ -9,7 +9,11 @@ import {
 } from './graph-adapter';
 
 export { GraphAdapter } from './graph-adapter';
-export type { GraphOperation, RenderState } from './graph-adapter';
+export type {
+  GraphOperation,
+  RenderState,
+  SourceGraphOperationResult,
+} from './graph-adapter';
 
 type LibraryItem = {
   key: string;

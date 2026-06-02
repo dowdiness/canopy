@@ -20,7 +20,34 @@ export type CanvasModule = {
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
+  create_source_graph?: (source: string) => number;
+  destroy_source_graph?: (h: number) => void;
+  get_source_graph_source?: (h: number) => string;
+  set_source_graph_source?: (h: number, source: string) => void;
+  get_source_graph_render_state?: (h: number) => string;
+  get_source_graph_action_log?: (h: number) => string;
+  apply_source_graph_operation?: (h: number, operationJson: string) => string;
 };
+
+type SourceCanvasModule = CanvasModule & {
+  create_source_graph: (source: string) => number;
+  destroy_source_graph: (h: number) => void;
+  get_source_graph_source: (h: number) => string;
+  set_source_graph_source: (h: number, source: string) => void;
+  get_source_graph_render_state: (h: number) => string;
+  get_source_graph_action_log: (h: number) => string;
+  apply_source_graph_operation: (h: number, operationJson: string) => string;
+};
+
+const SOURCE_METHODS = [
+  'create_source_graph',
+  'destroy_source_graph',
+  'get_source_graph_source',
+  'set_source_graph_source',
+  'get_source_graph_render_state',
+  'get_source_graph_action_log',
+  'apply_source_graph_operation',
+] as const;
 
 export type Tagged = string | [string, ...unknown[]];
 export type NodeKind = ['Workflow', Tagged];
@@ -96,13 +123,47 @@ export type GraphOperation =
 
 export type GraphOperationCallback = (operation: GraphOperation) => void;
 
+export type SourceGraphOperationResult = {
+  applied: boolean;
+  source: string;
+  diagnostics: string[];
+  action_count: number;
+  message?: string;
+};
+
+type AdapterMode = 'canvas' | 'source';
+
+function requireSourceModule(mb: CanvasModule): SourceCanvasModule {
+  const missing = SOURCE_METHODS.filter((name) => typeof mb[name] !== 'function');
+  if (missing.length > 0) {
+    throw new Error(`Canvas module is missing source graph exports: ${missing.join(', ')}`);
+  }
+  return mb as SourceCanvasModule;
+}
+
+function sourceNodePayload(binding: string, constructorName: string): NodeData {
+  return {
+    id: 0,
+    x: 0,
+    y: 0,
+    w: 250,
+    h: 138,
+    kind: ['Workflow', ['Custom', constructorName]],
+    title: binding,
+    subtitle: constructorName,
+    inputs: [],
+    outputs: [],
+    configured: true,
+  };
+}
+
 /**
  * Lifecycle boundary for the canvas graph surface.
  *
- * The current prototype remains MoonBit-state-backed: DOM rendering still pulls
- * `RenderState` snapshots from the MoonBit canvas model. This adapter is the
- * public TypeScript seam that later source-backed graph panes can reuse for
- * lifecycle, operation notification, and teardown without depending on globals.
+ * `create()` keeps the original MoonBit-canvas state as the backing store.
+ * `createSourceBacked()` keeps graph-dsl source text canonical: operations are
+ * sent to MoonBit as `GraphOperation` JSON, lowered through Loom GraphDoc source
+ * maps, and rendered from the reparsed source/last-good GraphDoc.
  */
 export class GraphAdapter {
   private operationCallback: GraphOperationCallback | null = null;
@@ -112,21 +173,34 @@ export class GraphAdapter {
   private constructor(
     private readonly mb: CanvasModule,
     private readonly handle: number,
+    private readonly mode: AdapterMode,
   ) {
     this.lastActionCount = this.readActionLog().length;
   }
 
   static create(mb: CanvasModule): GraphAdapter {
-    return new GraphAdapter(mb, mb.create_canvas());
+    return new GraphAdapter(mb, mb.create_canvas(), 'canvas');
+  }
+
+  static createSourceBacked(mb: CanvasModule, source: string): GraphAdapter {
+    const sourceMb = requireSourceModule(mb);
+    return new GraphAdapter(mb, sourceMb.create_source_graph(source), 'source');
   }
 
   get handleId(): number {
     return this.handle;
   }
 
+  get isSourceBacked(): boolean {
+    return this.mode === 'source';
+  }
+
   renderState(): RenderState {
     this.assertLive();
-    const state = JSON.parse(this.mb.get_render_state(this.handle)) as RenderState;
+    const json = this.isSourceBacked
+      ? this.sourceModule().get_source_graph_render_state(this.handle)
+      : this.mb.get_render_state(this.handle);
+    const state = JSON.parse(json) as RenderState;
     this.emitOperationsThrough(state.action_count);
     return state;
   }
@@ -142,8 +216,54 @@ export class GraphAdapter {
     this.lastActionCount = this.readActionLog().length;
   }
 
-  pointerDown(nodeId: number, sx: number, sy: number): void {
+  source(): string {
     this.assertLive();
+    return this.sourceModule().get_source_graph_source(this.handle);
+  }
+
+  setSource(source: string): void {
+    this.assertLive();
+    this.sourceModule().set_source_graph_source(this.handle, source);
+    this.lastActionCount = this.readActionLog().length;
+  }
+
+  applyOperation(operation: GraphOperation): SourceGraphOperationResult {
+    this.assertLive();
+    const result = JSON.parse(
+      this.sourceModule().apply_source_graph_operation(
+        this.handle,
+        JSON.stringify(operation),
+      ),
+    ) as SourceGraphOperationResult;
+    this.emitLatestOperations();
+    return result;
+  }
+
+  insertNode(binding: string, constructorName: string): SourceGraphOperationResult {
+    return this.applyOperation({
+      version: 1,
+      type: 'AddNode',
+      node: sourceNodePayload(binding, constructorName),
+    });
+  }
+
+  connectPorts(
+    sourceNodeId: number,
+    targetNodeId: number,
+    targetPortId = 'input',
+  ): SourceGraphOperationResult {
+    return this.applyOperation({
+      version: 1,
+      type: 'ConnectPorts',
+      source: sourceNodeId,
+      source_port: 'out',
+      target: targetNodeId,
+      target_port: targetPortId,
+    });
+  }
+
+  pointerDown(nodeId: number, sx: number, sy: number): void {
+    this.assertCanvasBacked('pointerDown');
     this.mb.pointer_down(this.handle, nodeId, sx, sy);
   }
 
@@ -153,17 +273,17 @@ export class GraphAdapter {
     sx: number,
     sy: number,
   ): void {
-    this.assertLive();
+    this.assertCanvasBacked('pointerDownHandle');
     this.mb.pointer_down_handle(this.handle, nodeId, portId, sx, sy);
   }
 
   pointerMove(sx: number, sy: number): void {
-    this.assertLive();
+    this.assertCanvasBacked('pointerMove');
     this.mb.pointer_move(this.handle, sx, sy);
   }
 
   pointerUp(nodeId: number, targetPortId: string, additive: boolean): void {
-    this.assertLive();
+    this.assertCanvasBacked('pointerUp');
     this.mb.pointer_up(this.handle, nodeId, targetPortId, additive);
     this.emitLatestOperations();
   }
@@ -174,24 +294,37 @@ export class GraphAdapter {
   }
 
   zoom(delta: number, cx: number, cy: number): void {
-    this.assertLive();
+    this.assertCanvasBacked('zoom');
     this.mb.zoom(this.handle, delta, cx, cy);
     this.emitLatestOperations();
   }
 
   addNode(kindKey: string, sx: number, sy: number): void {
-    this.assertLive();
+    this.assertCanvasBacked('addNode');
     this.mb.add_node(this.handle, kindKey, sx, sy);
     this.emitLatestOperations();
   }
 
   destroy(): void {
+    if (!this.destroyed && this.isSourceBacked) {
+      this.sourceModule().destroy_source_graph(this.handle);
+    }
     this.operationCallback = null;
     this.destroyed = true;
   }
 
   private readActionLog(): GraphOperation[] {
-    return JSON.parse(this.mb.get_action_log(this.handle)) as GraphOperation[];
+    const json = this.isSourceBacked
+      ? this.sourceModule().get_source_graph_action_log(this.handle)
+      : this.mb.get_action_log(this.handle);
+    return JSON.parse(json) as GraphOperation[];
+  }
+
+  private sourceModule(): SourceCanvasModule {
+    if (!this.isSourceBacked) {
+      throw new Error('GraphAdapter is not source-backed');
+    }
+    return this.mb as SourceCanvasModule;
   }
 
   private emitLatestOperations(): void {
@@ -215,6 +348,13 @@ export class GraphAdapter {
   private assertLive(): void {
     if (this.destroyed) {
       throw new Error('GraphAdapter has been destroyed');
+    }
+  }
+
+  private assertCanvasBacked(method: string): void {
+    this.assertLive();
+    if (this.isSourceBacked) {
+      throw new Error(`${method} is only available for canvas-backed graphs`);
     }
   }
 }

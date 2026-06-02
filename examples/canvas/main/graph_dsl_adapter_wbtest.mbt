@@ -1,7 +1,4 @@
 ///|
-using @graph_model {empty_interaction, port}
-
-///|
 const GRAPH_DSL_SAMPLE = "osc = sine(freq: 440Hz, wave: \"saw\") -> audio\nfilter = lowpass(input: osc, cutoff: 1200Hz, mode: warm)"
 
 ///|
@@ -44,6 +41,22 @@ fn ok_lowered(
 }
 
 ///|
+fn operation_result_applied(json_text : String) -> Bool {
+  let json = @json.parse(json_text) catch {
+    _ => abort("expected operation result JSON")
+  }
+  match json {
+    Json::Object(fields) =>
+      match fields.get("applied") {
+        Some(Json::True) => true
+        Some(Json::False) => false
+        _ => abort("expected operation result applied flag")
+      }
+    _ => abort("expected operation result object")
+  }
+}
+
+///|
 fn graph_node_id(doc : @graph_dsl.GraphDoc, binding : String) -> String {
   match doc.find_node(binding) {
     Some(node) => node.id()
@@ -52,75 +65,13 @@ fn graph_node_id(doc : @graph_dsl.GraphDoc, binding : String) -> String {
 }
 
 ///|
-fn canvas_id_for_binding(doc : @graph_dsl.GraphDoc, binding : String) -> NodeId {
-  for i, node in doc.nodes() {
-    if node.binding() == binding {
-      return NodeId(i + 1)
-    }
-  }
-  abort("missing graph binding: " + binding)
-}
-
-///|
-fn graph_input_reference(param : @graph_dsl.GraphParam) -> String? {
-  for token in param.value_tokens() {
-    if token.role() == @graph_dsl.InputReference {
-      return Some(token.text())
-    }
-  }
-  None
-}
-
-///|
-fn canvas_node_from_graph_node(
-  index : Int,
-  graph_node : @graph_dsl.GraphNode,
-) -> CanvasNode {
-  {
-    id: NodeId(index + 1),
-    x: index.to_double() * 300.0,
-    y: 0.0,
-    w: 250.0,
-    h: 138.0,
-    kind: Workflow(Custom(graph_node.constructor_name())),
-    title: graph_node.binding(),
-    subtitle: graph_node.constructor_name(),
-    inputs: [port("input", "input", Any)],
-    outputs: [port("out", "out", Any)],
-    configured: true,
-  }
-}
-
-///|
-fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
-  let nodes : Array[CanvasNode] = []
-  for i, graph_node in doc.nodes() {
-    nodes.push(canvas_node_from_graph_node(i, graph_node))
-  }
-  let edges : Array[Edge] = []
-  for target_index, graph_node in doc.nodes() {
-    for param in graph_node.params() {
-      match graph_input_reference(param) {
-        None => ()
-        Some(source_binding) =>
-          edges.push({
-            id: EdgeId(edges.length() + 1),
-            source: canvas_id_for_binding(doc, source_binding),
-            source_port: "out",
-            target: NodeId(target_index + 1),
-            target_port: param.name(),
-          })
-      }
-    }
-  }
-  {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
-    nodes,
-    edges,
-    next_node_id: nodes.length() + 1,
-    next_edge_id: edges.length() + 1,
-    interaction: empty_interaction(),
-    action_log: [],
+fn required_canvas_id_for_binding(
+  doc : @graph_dsl.GraphDoc,
+  binding : String,
+) -> NodeId {
+  match canvas_id_for_binding(doc, binding) {
+    Some(id) => id
+    None => abort("missing graph binding: " + binding)
   }
 }
 
@@ -190,8 +141,14 @@ test "ConnectPorts and AddNode lower through source and reparse to canvas graph"
   let connected_canvas = canvas_from_graph_doc(connected)
   match connected_canvas.edges {
     [edge] => {
-      @debug.assert_eq(edge.source, canvas_id_for_binding(connected, "osc"))
-      @debug.assert_eq(edge.target, canvas_id_for_binding(connected, "meter"))
+      @debug.assert_eq(
+        edge.source,
+        required_canvas_id_for_binding(connected, "osc"),
+      )
+      @debug.assert_eq(
+        edge.target,
+        required_canvas_id_for_binding(connected, "meter"),
+      )
     }
     _ => abort("expected exactly one canvas edge")
   }
@@ -214,6 +171,87 @@ test "ConnectPorts and AddNode lower through source and reparse to canvas graph"
     }
     _ => abort("expected three canvas nodes after AddNode")
   }
+}
+
+///|
+test "source-backed handle lowers GraphOperation through graph-dsl source" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let connect = GraphOperation(
+    ConnectPorts(NodeId(1), "out", NodeId(2), "input"),
+  )
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, connect.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)",
+  )
+  let added : CanvasNode = {
+    id: NodeId(3),
+    x: 0.0,
+    y: 0.0,
+    w: 250.0,
+    h: 138.0,
+    kind: Workflow(Custom("plate")),
+    title: "reverb",
+    subtitle: "plate",
+    inputs: [],
+    outputs: [],
+    configured: true,
+  }
+  let insert = GraphOperation(AddNode(added))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, insert.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()",
+  )
+  inspect(get_source_graph_action_log(handle) == "[]", content="false")
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed handle rejects local graph operations without mutating source" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  let viewport : Viewport = { x: 12.0, y: 24.0, scale: 2.0 }
+  let local_operation = GraphOperation(SetViewport(viewport))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(
+        handle,
+        local_operation.to_json().stringify(),
+      ),
+    ),
+    content="false",
+  )
+  inspect(get_source_graph_source(handle), content=source)
+  inspect(get_source_graph_action_log(handle), content="[]")
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed handle rejects graph operations while source is invalid" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  set_source_graph_source(handle, "osc = sine(freq: )")
+  let connect = GraphOperation(
+    ConnectPorts(NodeId(1), "out", NodeId(2), "input"),
+  )
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, connect.to_json().stringify()),
+    ),
+    content="false",
+  )
+  inspect(get_source_graph_source(handle), content="osc = sine(freq: )")
+  destroy_source_graph(handle)
 }
 
 ///|
