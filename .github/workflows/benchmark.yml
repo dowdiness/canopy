@@ -193,15 +193,18 @@ jobs:
           # at _build/js/release/build/main/main.js is never produced. Same
           # treatment as scripts/test-canvas-e2e.sh. Tracked as #335.
           MOON_WORK: off
-          # CI-only p95 paint budget (#458). The 100 ms local default
-          # (editor-response.perf.spec.ts:28) is too tight for shared runners:
-          # PR #453's build-inert diff flaked at 128-136 ms p95 from runner
-          # timing variance alone (attempt-2 re-run of the identical diff passed
-          # < 100 ms). 175 clears the observed flake ceiling (~29% headroom over
-          # 136) while staying below 2x the healthy < 100 ms baseline, so a
-          # genuine ~2x regression still trips the gate (positive-control
-          # verified). The tight local default is preserved. Single-run p95 is
-          # inherently noisy on shared infra; a robust median/trimmed-mean metric
-          # (#458 levers 2-3) is the durable follow-up.
-          EDITOR_RESPONSE_P95_BUDGET_MS: 175
+          # CI-only paint budget for the 10% trimmed-mean gate (#460, the durable
+          # fix for the single-run-p95 flakiness #458/#459 papered over with a 175
+          # ms p95 budget). The trimmed mean drops the 1-2 transient slow paints
+          # per run that made p95 noisy, so the gate tracks the runner's central
+          # latency. 130 is derived from the observed CI distribution (12 runs):
+          # worst central tendency ~95-97 ms plus ~3.5 sigma of the ~9.6 ms
+          # between-run baseline drift. It is a calibrated empirical ceiling (n=12,
+          # not a strong statistical bound) — meaningfully tighter than the old 175
+          # (catches a ~+37% regression on the ~95 ms CI baseline vs ~+119% before)
+          # while leaving ~35% headroom over the worst clean run. The 100 ms local
+          # default in the spec is preserved. Positive control: re-run with
+          # EDITOR_RESPONSE_INJECT_PAINT_MS set (e.g. 80) to confirm the gate still
+          # FAILS on a uniform ~2x paint regression.
+          EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS: 130
         run: npm run test:perf
