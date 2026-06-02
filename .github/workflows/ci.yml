@@ -24,6 +24,9 @@ jobs:
       - name: Run check-deps
         run: ./scripts/check-deps.sh
 
+      - name: Check moon update is retry-wrapped
+        run: ./scripts/check-moon-update-wrapped.sh
+
   test-main:
     name: Test Main Module
     runs-on: ubuntu-latest

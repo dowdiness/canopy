@@ -11,7 +11,8 @@ cd "$PROJECT_ROOT"
 
 (
     cd examples/canvas
-    moon update
+    # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+    "$SCRIPT_DIR/moon-update.sh"
 )
 
 echo "Running canvas Playwright E2E..."

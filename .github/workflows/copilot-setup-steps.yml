@@ -37,5 +37,6 @@ jobs:
       - name: Update MoonBit dependencies
         run: |
             moon version --all
-            moon update
+            # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+            "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             

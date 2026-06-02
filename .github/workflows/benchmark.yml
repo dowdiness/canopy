@@ -48,7 +48,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if moon update && moon bench --release > base_bench.txt 2>&1; then
+          if "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release > base_bench.txt 2>&1; then
             cat base_bench.txt
           else
             echo "(base branch benchmark failed — may not compile)" > base_bench.txt
@@ -60,7 +60,7 @@ jobs:
         run: |
           if (
             cd event-graph-walker
-            moon update
+            "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             moon bench --release
           ) > base_egw_bench.txt 2>&1; then
             cat base_egw_bench.txt
