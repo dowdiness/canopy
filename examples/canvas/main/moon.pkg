@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
+  "dowdiness/canopy-canvas/graph_model",
 }
 
 import {

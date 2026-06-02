@@ -154,127 +154,6 @@ fn update_connect_move(
 }
 
 ///|
-fn edge_exists(
-  edges : Array[Edge],
-  source : NodeId,
-  source_port : String,
-  target : NodeId,
-  target_port : String,
-) -> Bool {
-  edges
-  .iter()
-  .any(fn(e) {
-    e.source == source &&
-    e.source_port == source_port &&
-    e.target == target &&
-    e.target_port == target_port
-  })
-}
-
-///|
-fn port_type_compatible(source : PortType, target : PortType) -> Bool {
-  source == target || source == Any || target == Any
-}
-
-///|
-fn port_type_by_id(ports : Array[PortDef], id : String) -> PortType? {
-  for port in ports {
-    if port.id == id {
-      return Some(port.port_type)
-    }
-  }
-  None
-}
-
-///|
-fn can_commit_edge(
-  state : CanvasState,
-  source : NodeId,
-  source_port : String,
-  target : NodeId,
-  target_port : String,
-) -> Bool {
-  if source == target ||
-    edge_exists(state.edges, source, source_port, target, target_port) {
-    false
-  } else {
-    match (find_node(state.nodes, source), find_node(state.nodes, target)) {
-      (Some(source_node), Some(target_node)) =>
-        match
-          (
-            port_type_by_id(source_node.outputs, source_port),
-            port_type_by_id(target_node.inputs, target_port),
-          ) {
-          (Some(source_type), Some(target_type)) =>
-            port_type_compatible(source_type, target_type)
-          _ => false
-        }
-      _ => false
-    }
-  }
-}
-
-///|
-fn append_edge(
-  state : CanvasState,
-  source : NodeId,
-  source_port : String,
-  target : NodeId,
-  target_port : String,
-) -> CanvasState {
-  let edge : Edge = {
-    id: EdgeId(state.next_edge_id),
-    source,
-    source_port,
-    target,
-    target_port,
-  }
-  let edges = state.edges.copy()
-  edges.push(edge)
-  { ..state, edges, next_edge_id: state.next_edge_id + 1 }
-}
-
-///|
-fn append_history(state : CanvasState, action : WorkflowAction) -> CanvasState {
-  let action_log = state.action_log.copy()
-  action_log.push(action)
-  { ..state, action_log, }
-}
-
-///|
-fn apply_action(state : CanvasState, action : WorkflowAction) -> CanvasState {
-  match action {
-    AddNode(node) => {
-      let nodes = state.nodes.copy()
-      nodes.push(node)
-      { ..state, nodes, next_node_id: state.next_node_id + 1 }
-    }
-    MoveNodes(positions) => {
-      let nodes = state.nodes.map(fn(node) {
-        match find_position(positions, node.id) {
-          None => node
-          Some(pos) => { ..node, x: pos.x, y: pos.y }
-        }
-      })
-      { ..state, nodes, }
-    }
-    ConnectPorts(source, source_port, target, target_port) =>
-      if can_commit_edge(state, source, source_port, target, target_port) {
-        append_edge(state, source, source_port, target, target_port)
-      } else {
-        state
-      }
-    SelectNodes(nodes) => set_selection(state, nodes)
-    SetViewport(viewport) => { ..state, viewport, }
-  }
-}
-
-///|
-fn record_action(state : CanvasState, action : WorkflowAction) -> CanvasState {
-  append_history(apply_action(state, action), action)
-}
-
-///|
 fn workflow_add_node(
   state : CanvasState,
   kind_key : String,
@@ -353,26 +232,6 @@ fn update_pointer_move(
 }
 
 ///|
-fn find_node(nodes : Array[CanvasNode], id : NodeId) -> CanvasNode? {
-  for node in nodes {
-    if node.id == id {
-      return Some(node)
-    }
-  }
-  None
-}
-
-///|
-fn find_position(positions : Array[NodePosition], id : NodeId) -> NodePosition? {
-  for pos in positions {
-    if pos.node_id == id {
-      return Some(pos)
-    }
-  }
-  None
-}
-
-///|
 fn find_drag_origin(origins : Array[DragOrigin], id : NodeId) -> DragOrigin? {
   for origin in origins {
     if origin.node_id == id {
@@ -380,11 +239,6 @@ fn find_drag_origin(origins : Array[DragOrigin], id : NodeId) -> DragOrigin? {
     }
   }
   None
-}
-
-///|
-fn node_id_in_array(nodes : Array[NodeId], id : NodeId) -> Bool {
-  nodes.iter().any(fn(n) { n == id })
 }
 
 ///|
@@ -473,17 +327,6 @@ fn final_drag_positions(
     }
   }
   positions
-}
-
-///|
-fn set_selection(state : CanvasState, nodes : Array[NodeId]) -> CanvasState {
-  let selected = if nodes.length() == 0 { None } else { Some(nodes[0]) }
-  let new_interaction : InteractionState = {
-    ..state.interaction,
-    selected,
-    selected_nodes: nodes,
-  }
-  { ..state, interaction: new_interaction }
 }
 
 ///|

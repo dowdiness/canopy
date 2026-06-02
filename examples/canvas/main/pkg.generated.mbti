@@ -2,7 +2,7 @@
 package "dowdiness/canopy-canvas/main"
 
 import {
-  "moonbitlang/core/debug",
+  "dowdiness/canopy-canvas/graph_model",
 }
 
 // Values
@@ -27,155 +27,52 @@ pub fn zoom(Int, Double, Double, Double) -> Unit
 // Errors
 
 // Types and methods
-pub(all) struct CanvasNode {
-  id : NodeId
-  x : Double
-  y : Double
-  w : Double
-  h : Double
-  kind : NodeKind
-  title : String
-  subtitle : String
-  inputs : Array[PortDef]
-  outputs : Array[PortDef]
-  configured : Bool
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for CanvasNode
-
-pub(all) struct CanvasState {
-  viewport : Viewport
-  nodes : Array[CanvasNode]
-  edges : Array[Edge]
-  next_node_id : Int
-  next_edge_id : Int
-  interaction : InteractionState
-  action_log : Array[WorkflowAction]
-} derive(@debug.Debug)
-pub impl Default for CanvasState
-pub impl Show for CanvasState
-
-pub(all) struct ConnectState {
-  from_node : NodeId
-  from_port : String
-  cursor_x : Double
-  cursor_y : Double
-} derive(Eq, @debug.Debug)
-pub impl Show for ConnectState
-
 type ConnectingJson derive(ToJson)
-
-pub(all) struct DragOrigin {
-  node_id : NodeId
-  offset_x : Double
-  offset_y : Double
-} derive(Eq, @debug.Debug)
-pub impl Show for DragOrigin
-
-pub(all) struct DragState {
-  node_id : NodeId
-  origins : Array[DragOrigin]
-} derive(Eq, @debug.Debug)
-pub impl Show for DragState
-
-pub(all) struct Edge {
-  id : EdgeId
-  source : NodeId
-  source_port : String
-  target : NodeId
-  target_port : String
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for Edge
-
-pub struct EdgeId(Int) derive(Eq, ToJson, @debug.Debug)
-pub impl Show for EdgeId
 
 type EdgeJson derive(ToJson)
 
-pub(all) struct InteractionState {
-  dragging : DragState?
-  panning : PanState?
-  connecting : ConnectState?
-  selected : NodeId?
-  selected_nodes : Array[NodeId]
-  pointer_down : Bool
-  did_move : Bool
-} derive(Eq, @debug.Debug)
-pub impl Show for InteractionState
-
-pub struct NodeId(Int) derive(Eq, ToJson, @debug.Debug)
-pub impl Show for NodeId
-
 type NodeJson derive(ToJson)
-
-pub enum NodeKind {
-  Workflow(WorkflowNodeKind)
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for NodeKind
-
-pub(all) struct NodePosition {
-  node_id : NodeId
-  x : Double
-  y : Double
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for NodePosition
-
-pub(all) struct PanState {
-  start_screen_x : Double
-  start_screen_y : Double
-  start_pan_x : Double
-  start_pan_y : Double
-} derive(Eq, @debug.Debug)
-pub impl Show for PanState
-
-pub(all) struct PortDef {
-  id : String
-  label : String
-  port_type : PortType
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for PortDef
-
-pub enum PortType {
-  Flow
-  Text
-  Number
-  Boolean
-  Json
-  Any
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for PortType
 
 type RenderStateJson derive(ToJson)
 
 type ValidationJson derive(ToJson)
 
-pub(all) struct Viewport {
-  x : Double
-  y : Double
-  scale : Double
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for Viewport
-
-pub enum WorkflowAction {
-  AddNode(CanvasNode)
-  MoveNodes(Array[NodePosition])
-  ConnectPorts(NodeId, String, NodeId, String)
-  SelectNodes(Array[NodeId])
-  SetViewport(Viewport)
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for WorkflowAction
-
-pub enum WorkflowNodeKind {
-  TimerTrigger
-  HttpRequest
-  DataFormatter
-  ConditionalBranch
-  Loop
-  Parallel
-  Custom(String)
-} derive(Eq, ToJson, @debug.Debug)
-pub impl Show for WorkflowNodeKind
-
 // Type aliases
+pub using @graph_model {type CanvasNode}
+
+pub using @graph_model {type CanvasState}
+
+pub using @graph_model {type ConnectState}
+
+pub using @graph_model {type DragOrigin}
+
+pub using @graph_model {type DragState}
+
+pub using @graph_model {type Edge}
+
+pub using @graph_model {type EdgeId}
+
+pub using @graph_model {type GraphOperation}
+
+pub using @graph_model {type InteractionState}
+
+pub using @graph_model {type NodeId}
+
+pub using @graph_model {type NodeKind}
+
+pub using @graph_model {type NodePosition}
+
+pub using @graph_model {type PanState}
+
+pub using @graph_model {type PortDef}
+
+pub using @graph_model {type PortType}
+
+pub using @graph_model {type Viewport}
+
+pub using @graph_model {type WorkflowAction}
+
+pub using @graph_model {type WorkflowNodeKind}
 
 // Traits
 

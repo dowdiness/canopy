@@ -10,7 +10,7 @@ fn make_test_state() -> CanvasState {
     edges: [],
     next_node_id: 4,
     next_edge_id: 1,
-    interaction: empty_interaction(),
+    interaction: @graph_model.empty_interaction(),
     action_log: [],
   }
 }
@@ -63,8 +63,8 @@ test "zoom changes scale and records a serializable action" {
   let s = update_zoom(state, -1.0, 500.0, 400.0)
   assert_true(s.viewport.scale > 1.0)
   assert_eq(s.action_log.length(), 1)
-  match s.action_log[0] {
-    SetViewport(viewport) => assert_eq(viewport, s.viewport)
+  match s.action_log[0].action() {
+    WorkflowAction::SetViewport(viewport) => assert_eq(viewport, s.viewport)
     _ => fail("expected SetViewport action")
   }
 }
@@ -111,7 +111,10 @@ test "node_drag_start records offsets for the dragged node" {
 
 ///|
 test "node_drag_start includes all selected nodes for multi-drag" {
-  let state = set_selection(make_test_state(), [NodeId(1), NodeId(2)])
+  let state = @graph_model.set_selection(make_test_state(), [
+    NodeId(1),
+    NodeId(2),
+  ])
   let s = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
   assert_eq(d.origins.length(), 2)
@@ -143,8 +146,8 @@ test "pointer_up records a MoveNodes action after drag" {
   let s1 = update_node_drag_move(s0, 200.0, 300.0)
   let s2 = update_pointer_up(s1, 1, "", false)
   assert_eq(s2.action_log.length(), 1)
-  match s2.action_log[0] {
-    MoveNodes(positions) => {
+  match s2.action_log[0].action() {
+    WorkflowAction::MoveNodes(positions) => {
       assert_eq(positions.length(), 1)
       inspect(positions[0].x, content="190")
       inspect(positions[0].y, content="280")
@@ -164,7 +167,7 @@ test "pointer_up on node without movement selects it" {
 
 ///|
 test "additive click toggles multi-selection" {
-  let state = set_selection(make_test_state(), [NodeId(1)])
+  let state = @graph_model.set_selection(make_test_state(), [NodeId(1)])
   let s0 = update_node_drag_start(state, NodeId(2), 420.0, 100.0)
   let s1 = update_pointer_up(s0, 2, "", true)
   @debug.assert_eq(s1.interaction.selected_nodes, [NodeId(1), NodeId(2)])
@@ -175,7 +178,7 @@ test "additive click toggles multi-selection" {
 
 ///|
 test "pointer_up on background deselects" {
-  let state = set_selection(make_test_state(), [NodeId(1)])
+  let state = @graph_model.set_selection(make_test_state(), [NodeId(1)])
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0, "", false)
   inspect(s1.interaction.selected is None, content="true")
@@ -282,8 +285,8 @@ test "workflow_add_node creates typed custom nodes through serializable action" 
   assert_eq(s.next_node_id, 5)
   assert_eq(s.action_log.length(), 1)
   inspect(s.nodes[3].title, content="Custom step")
-  match s.action_log[0] {
-    AddNode(node) => assert_eq(node.id, NodeId(4))
+  match s.action_log[0].action() {
+    WorkflowAction::AddNode(node) => assert_eq(node.id, NodeId(4))
     _ => fail("expected AddNode action")
   }
 }
