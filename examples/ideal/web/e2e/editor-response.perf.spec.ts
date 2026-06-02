@@ -24,6 +24,23 @@ type ResponseSummary = {
   phases: Record<string, Stats>;
 };
 
+// Read a numeric env override, falling back to `fallback` when unset/empty. A
+// malformed value (non-finite, e.g. "80ms" or a stray space) is a
+// misconfiguration: fail fast with a clear message rather than silently
+// coercing to NaN, which would disable the positive-control injection
+// (NaN > 0 is false) or produce a confusing toBeLessThan(NaN) failure.
+function numericEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new Error(`${name} must be a finite number, got ${JSON.stringify(raw)}`);
+  }
+  return value;
+}
+
 const WARMUP_KEYSTROKES = 5;
 // 40 measured keystrokes so a 10% symmetric trim drops 4 samples per end and
 // averages the central 32. The bump from 30 firms up the central estimate; it
@@ -40,21 +57,19 @@ const TRIM_FRACTION = 0.1;
 // noisy tail (#460). Local default 100 ms is unchanged from the old local p95
 // default — the local trimmed mean is ~80 ms with ~1 ms spread, so 100 stays
 // tight without flaking. CI overrides this via benchmark.yml.
-const TRIMMED_MEAN_PAINT_BUDGET_MS = Number(
-  process.env.EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS ?? 100,
-);
+const TRIMMED_MEAN_PAINT_BUDGET_MS = numericEnv('EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS', 100);
 // Coarse catastrophe backstop on the single worst paint. Worst observed CI max
 // is ~133 ms, so 250 never flakes; it only trips on a severe single-paint blowup.
 // Intentionally loose — tightening it would reintroduce the single-sample
 // flakiness the trimmed-mean gate exists to remove.
-const MAX_PAINT_BUDGET_MS = Number(process.env.EDITOR_RESPONSE_MAX_BUDGET_MS ?? 250);
+const MAX_PAINT_BUDGET_MS = numericEnv('EDITOR_RESPONSE_MAX_BUDGET_MS', 250);
 // Positive-control harness (#460 / carried from #459). When set, a synchronous
 // busy-wait of this many ms is injected into the MEASURED paint region of every
 // keystroke (see measureTextInput), simulating a uniform paint regression. A
 // regression shifts all samples equally, so the trim does not remove it and the
 // trimmed mean rises by ~this value. Default 0 = off. Validate the detector with
 // e.g. EDITOR_RESPONSE_INJECT_PAINT_MS=80 (a ~2x local regression) -> gate FAILS.
-const INJECT_PAINT_MS = Number(process.env.EDITOR_RESPONSE_INJECT_PAINT_MS ?? 0);
+const INJECT_PAINT_MS = numericEnv('EDITOR_RESPONSE_INJECT_PAINT_MS', 0);
 
 async function waitForEditor(page: Page) {
   await page.goto(`/#perf-${Date.now()}`);
@@ -251,6 +266,11 @@ async function runScenario(page: Page, scenario: string, definitions: number): P
 
 test.describe('realistic editor response benchmark', () => {
   test('text-mode typing updates CRDT, projection, and browser paint within budget', async ({ page }) => {
+    // ~90 measureTextInput calls (warmup + measured, both scenarios), plus the
+    // optional positive-control busy-wait, can approach Playwright's 30s default
+    // on a slow runner or under an injected regression. Give headroom so a real
+    // slowdown surfaces as a trimmed-mean assertion failure, not a timeout kill.
+    test.setTimeout(60_000);
     await waitForEditor(page);
 
     const summaries = [
@@ -266,6 +286,9 @@ test.describe('realistic editor response benchmark', () => {
         samples: summary.samples,
         phases: summary.phases,
       })}`);
+      // Gated metrics: trimmedMean (primary, noise-robust) and max (catastrophe
+      // backstop). p50/p95/mean are computed and logged for observability only —
+      // do not assert on them without an empirical per-metric baseline.
       expect(
         summary.paint.trimmedMean,
         `${summary.scenario} trimmed-mean paint latency`,
