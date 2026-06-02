@@ -20,7 +20,7 @@ pub struct RecomputeRecord {
 
 ///|
 /// Snapshot node enriched from `Runtime::cell_info`.
-pub struct IncrSnapshotNode {
+pub struct RecomputeSnapshotNode {
   id : @incr.CellId
   label : String?
   changed_at : @incr.Revision
@@ -29,16 +29,16 @@ pub struct IncrSnapshotNode {
 
 ///|
 /// Snapshot edge from dependency to dependent cell.
-pub struct IncrSnapshotEdge {
+pub struct RecomputeSnapshotEdge {
   from : @incr.CellId
   to : @incr.CellId
 }
 
 ///|
 /// Point-in-time graph and event snapshot for an `incr` runtime.
-pub struct IncrSnapshot {
-  nodes : Array[IncrSnapshotNode]
-  edges : Array[IncrSnapshotEdge]
+pub struct RecomputeSnapshot {
+  nodes : Array[RecomputeSnapshotNode]
+  edges : Array[RecomputeSnapshotEdge]
   events : Array[RecomputeRecord]
 }
 
@@ -147,7 +147,7 @@ fn visual_cell_id(id : @incr.CellId) -> String {
 }
 
 ///|
-fn snapshot_node_label(node : IncrSnapshotNode) -> String {
+fn snapshot_node_label(node : RecomputeSnapshotNode) -> String {
   match node.label {
     Some(label) => label
     None => "cell " + node.id.id.to_string()
@@ -169,7 +169,10 @@ fn format_elapsed_ns(ns : Int64) -> String {
 }
 
 ///|
-fn snapshot_node_detail(node : IncrSnapshotNode, elapsed_ns : Int64?) -> String {
+fn snapshot_node_detail(
+  node : RecomputeSnapshotNode,
+  elapsed_ns : Int64?,
+) -> String {
   let base = "changed " +
     node.changed_at.value.to_string() +
     ", verified " +
@@ -253,10 +256,10 @@ pub fn RecomputeTap::drain_events(
 
 ///|
 /// Capture the current known dependency graph plus buffered event history.
-pub fn RecomputeTap::snapshot(self : RecomputeTap) -> IncrSnapshot {
+pub fn RecomputeTap::snapshot(self : RecomputeTap) -> RecomputeSnapshot {
   let ids = snapshot_ids(self)
-  let nodes : Array[IncrSnapshotNode] = []
-  let edges : Array[IncrSnapshotEdge] = []
+  let nodes : Array[RecomputeSnapshotNode] = []
+  let edges : Array[RecomputeSnapshotEdge] = []
   for id in ids {
     match self.rt.cell_info(id) {
       Some(info) => {
@@ -278,7 +281,9 @@ pub fn RecomputeTap::snapshot(self : RecomputeTap) -> IncrSnapshot {
 
 ///|
 /// Convert an `incr` runtime snapshot to the renderer-neutral visual graph.
-pub fn IncrSnapshot::to_visual_graph(self : IncrSnapshot) -> VisualGraph {
+pub fn RecomputeSnapshot::to_visual_graph(
+  self : RecomputeSnapshot,
+) -> VisualGraph {
   let graph = VisualGraph(id="incr")
   for node in self.nodes {
     let record = event_for_cell(self.events, node.id)
