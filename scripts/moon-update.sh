@@ -21,15 +21,18 @@
 set -uo pipefail
 
 MAX_ATTEMPTS="${MOON_UPDATE_MAX_ATTEMPTS:-3}"
+# BASE_DELAY=0 is a deliberate test affordance — the regression suite sets
+# MOON_UPDATE_RETRY_DELAY=0 to exercise the retry path without real sleeps. The
+# 5s default is what production CI uses; don't set 0 in a real workflow.
 BASE_DELAY="${MOON_UPDATE_RETRY_DELAY:-5}"
 
 # Fail fast on a misconfigured tunable rather than letting a nonnumeric value
 # make the bounded-attempt comparison error out and loop until the CI job times
-# out.
-case "$MAX_ATTEMPTS" in '' | *[!0-9]*) MAX_ATTEMPTS=bad ;; esac
-case "$BASE_DELAY" in *[!0-9]*) BASE_DELAY=bad ;; esac
-if [ "$MAX_ATTEMPTS" = bad ] || [ "$MAX_ATTEMPTS" -lt 1 ] || [ "$BASE_DELAY" = bad ]; then
-  echo "moon-update: MOON_UPDATE_MAX_ATTEMPTS (>=1) and MOON_UPDATE_RETRY_DELAY must be non-negative integers." >&2
+# out. MAX_ATTEMPTS must be a positive integer; BASE_DELAY a non-negative one.
+if ! [[ "$MAX_ATTEMPTS" =~ ^[0-9]+$ ]] ||
+  [ "$MAX_ATTEMPTS" -lt 1 ] ||
+  ! [[ "$BASE_DELAY" =~ ^[0-9]+$ ]]; then
+  echo "moon-update: MOON_UPDATE_MAX_ATTEMPTS (>=1) and MOON_UPDATE_RETRY_DELAY (>=0) must be integers." >&2
   exit 2
 fi
 
@@ -41,30 +44,30 @@ fi
 # stdout+stderr.
 TRANSIENT_RE='403 forbidden|429 too many requests|server error|connection (reset|refused|timed out)|could not resolve host|temporary failure in name resolution|network is unreachable|error sending request|operation timed out'
 
+# One tempfile for the whole run; `tee` truncates it each attempt. The trap
+# removes it on every exit path, including a signal kill mid-loop.
+log="$(mktemp)"
+trap 'rm -f "$log"' EXIT
+
 attempt=1
 while :; do
-  log="$(mktemp)"
   moon update "$@" 2>&1 | tee "$log"
   status="${PIPESTATUS[0]}"
 
   if [ "$status" -eq 0 ]; then
-    rm -f "$log"
     exit 0
   fi
 
   if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
     echo "moon-update: failed after ${attempt} attempt(s) (exit ${status}); giving up." >&2
-    rm -f "$log"
     exit "$status"
   fi
 
   if ! grep -qiE "$TRANSIENT_RE" "$log"; then
     echo "moon-update: failure (exit ${status}) is not the transient CDN/network signature; not retrying." >&2
-    rm -f "$log"
     exit "$status"
   fi
 
-  rm -f "$log"
   delay=$(( BASE_DELAY * attempt ))
   echo "moon-update: transient CDN/network failure (exit ${status}); attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}s..." >&2
   sleep "$delay"
