@@ -36,17 +36,32 @@ fn fp_parse_syntax(text : String) -> @seam.SyntaxNode raise {
 // caller can flip exactly one same-width literal without shifting any offsets.
 
 ///|
-/// Build (new_root, old_root, old_fp) for a scenario. `old_fp` is the ModuleProjection
-/// of the old tree (the state carried between keystrokes); the bench then runs
-/// only the incremental scan against it.
+/// Build (new_root, old_root, old_fp, next_id) for a scenario. `old_fp` is the
+/// ModuleProjection of the old tree (the state carried between keystrokes); the
+/// bench then runs only the incremental scan against it. `next_id` is the
+/// id-source high-water mark left after building `old_fp` — production threads
+/// ONE counter forward (projection_memo.mbt:57,109: the prev build's
+/// `counter.val` becomes the next call's start), so the incremental call must
+/// resume from `next_id`, not a fixed constant that may not exceed the ids
+/// already allocated inside `old_fp` for larger fixtures.
+///
+/// Production advances that same counter a second time per edit, during the
+/// downstream proj_node materialization (projection_memo.mbt:139,144), so its
+/// real start id sits a little higher than `next_id` here. This bench isolates
+/// `to_module_projection_incremental` and never runs that materialization, so
+/// the only id invariant that matters is "resume above every id in `old_fp`" —
+/// which `counter.val` satisfies exactly. The absolute start value affects only
+/// which integers rebuilt nodes receive, not the scan cost or change detection
+/// (the positive controls below pin the latter independently of `next_id`).
 fn fp_incr_setup(
   old_src : String,
   new_src : String,
-) -> (@seam.SyntaxNode, @seam.SyntaxNode, @lambda_proj.ModuleProjection) raise {
+) -> (@seam.SyntaxNode, @seam.SyntaxNode, @lambda_proj.ModuleProjection, Int) raise {
   let old_root = fp_parse_syntax(old_src)
-  let old_fp = @lambda_proj.to_module_projection(old_root, Ref(0))
+  let counter = Ref(0)
+  let old_fp = @lambda_proj.to_module_projection(old_root, counter)
   let new_root = fp_parse_syntax(new_src)
-  (new_root, old_root, old_fp)
+  (new_root, old_root, old_fp, counter.val)
 }
 
 // --- Positive controls: confirm each scenario exercises the intended path ---
@@ -55,7 +70,7 @@ fn fp_incr_setup(
 
 ///|
 test "control: unchanged scenario reuses all defs (zero changed)" {
-  let (new_root, old_root, old_fp) = fp_incr_setup(
+  let (new_root, old_root, old_fp, next_id) = fp_incr_setup(
     tree_refresh_bench_source(80, "0"),
     tree_refresh_bench_source(80, "0"),
   )
@@ -64,7 +79,7 @@ test "control: unchanged scenario reuses all defs (zero changed)" {
     new_root,
     old_root,
     old_fp,
-    Ref(1000),
+    Ref(next_id),
     changed_indices=changed,
   )
   inspect(changed.val.length(), content="0")
@@ -72,7 +87,7 @@ test "control: unchanged scenario reuses all defs (zero changed)" {
 
 ///|
 test "control: tail scenario rebuilds exactly one def" {
-  let (new_root, old_root, old_fp) = fp_incr_setup(
+  let (new_root, old_root, old_fp, next_id) = fp_incr_setup(
     tree_refresh_bench_source(80, "0"),
     tree_refresh_bench_source(80, "1"),
   )
@@ -81,7 +96,7 @@ test "control: tail scenario rebuilds exactly one def" {
     new_root,
     old_root,
     old_fp,
-    Ref(1000),
+    Ref(next_id),
     changed_indices=changed,
   )
   // Only the last def (index 79) differs; the trailing expr keeps its offset.
@@ -91,13 +106,13 @@ test "control: tail scenario rebuilds exactly one def" {
 ///|
 test "control: shifted scenario blocks reuse for every entry" {
   let base = tree_refresh_bench_source(80, "0")
-  let (new_root, old_root, old_fp) = fp_incr_setup(base, " " + base)
+  let (new_root, old_root, old_fp, next_id) = fp_incr_setup(base, " " + base)
   let changed = Ref(([] : Array[Int]))
   let _ = @lambda_proj.to_module_projection_incremental(
     new_root,
     old_root,
     old_fp,
-    Ref(1000),
+    Ref(next_id),
     changed_indices=changed,
   )
   // 80 defs + final expr, all offset-shifted → none reused.
@@ -115,13 +130,13 @@ fn bench_fp_incr(
   old_src : String,
   new_src : String,
 ) -> Unit raise {
-  let (new_root, old_root, old_fp) = fp_incr_setup(old_src, new_src)
+  let (new_root, old_root, old_fp, next_id) = fp_incr_setup(old_src, new_src)
   b.bench(() => {
     let r = @lambda_proj.to_module_projection_incremental(
       new_root,
       old_root,
       old_fp,
-      Ref(1000),
+      Ref(next_id),
     )
     b.keep(r)
   })
