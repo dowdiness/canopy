@@ -118,7 +118,7 @@ async function seedEditor(page: Page, source: string) {
   await page.keyboard.press('Control+End');
 }
 
-async function measureTextInput(page: Page, text: string): Promise<ResponseSample> {
+async function measureTextInput(page: Page, text: string, injectMs: number = INJECT_PAINT_MS): Promise<ResponseSample> {
   return page.evaluate(({ insertText, injectPaintMs }) => new Promise<ResponseSample>((resolve, reject) => {
     const global = window as any;
     const cmContent = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
@@ -194,7 +194,7 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
       return;
     }
     requestAnimationFrame(poll);
-  }), { insertText: text, injectPaintMs: INJECT_PAINT_MS });
+  }), { insertText: text, injectPaintMs: injectMs });
 }
 
 function mean(values: number[]): number {
@@ -295,5 +295,61 @@ test.describe('realistic editor response benchmark', () => {
       ).toBeLessThan(TRIMMED_MEAN_PAINT_BUDGET_MS);
       expect(summary.paint.max, `${summary.scenario} max paint latency`).toBeLessThan(MAX_PAINT_BUDGET_MS);
     }
+  });
+
+  // Self-validating positive control. The trimmed-mean gate above is only a
+  // meaningful regression detector if an injected slowdown actually lands in
+  // the measured paint window. This test proves that on every run: it measures
+  // the same scenario clean vs. with CONTROL_INJECT_MS of injected paint work
+  // and asserts (a) the paint trimmed mean rises by ~CONTROL_INJECT_MS AND
+  // (b) text-change latency does NOT — which is only true if the injection sits
+  // in the paint region the gate measures. If a future refactor moves the
+  // injection out of that window or breaks the measurement, the delta collapses
+  // to ~0 and this test fails for the right reason (non-circular: it never
+  // asserts against a value derived from the path it is validating).
+  test('positive control: injected paint work raises measured paint latency, not text-change', async ({ page }) => {
+    test.setTimeout(60_000);
+    await waitForEditor(page);
+
+    const CONTROL_INJECT_MS = 80;
+    const CONTROL_SAMPLES = 12;
+
+    await seedEditor(page, lambdaSource(100));
+    for (let i = 0; i < WARMUP_KEYSTROKES; i += 1) {
+      await measureTextInput(page, 'a', 0);
+    }
+
+    const collect = async (injectMs: number): Promise<ResponseSample[]> => {
+      const out: ResponseSample[] = [];
+      for (let i = 0; i < CONTROL_SAMPLES; i += 1) {
+        out.push(await measureTextInput(page, 'a', injectMs));
+      }
+      return out;
+    };
+
+    const clean = await collect(0);
+    const injected = await collect(CONTROL_INJECT_MS);
+
+    const trimmed = (samples: ResponseSample[], select: (s: ResponseSample) => number) =>
+      stats(samples.map(select)).trimmedMean;
+    const paintDelta = trimmed(injected, (s) => s.inputToPaintMs) - trimmed(clean, (s) => s.inputToPaintMs);
+    const textDelta = trimmed(injected, (s) => s.inputToTextChangeMs) - trimmed(clean, (s) => s.inputToTextChangeMs);
+
+    console.log(`[editor-response-control] ${JSON.stringify({
+      injectMs: CONTROL_INJECT_MS,
+      paintDelta: Number(paintDelta.toFixed(2)),
+      textDelta: Number(textDelta.toFixed(2)),
+    })}`);
+
+    // Injection must show up in the measured paint latency (~CONTROL_INJECT_MS).
+    expect(
+      paintDelta,
+      'injected paint work must raise measured paint latency (detector lands in the measured window)',
+    ).toBeGreaterThan(CONTROL_INJECT_MS * 0.7);
+    // …and must NOT inflate text-change latency, proving it is paint-only.
+    expect(
+      Math.abs(textDelta),
+      'injection must not affect text-change latency (it targets the paint window only)',
+    ).toBeLessThan(CONTROL_INJECT_MS * 0.3);
   });
 });
