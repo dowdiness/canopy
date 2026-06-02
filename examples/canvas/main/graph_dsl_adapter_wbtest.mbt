@@ -1,4 +1,7 @@
 ///|
+using @graph_model {empty_interaction, port}
+
+///|
 const GRAPH_DSL_SAMPLE = "osc = sine(freq: 440Hz, wave: \"saw\") -> audio\nfilter = lowpass(input: osc, cutoff: 1200Hz, mode: warm)"
 
 ///|

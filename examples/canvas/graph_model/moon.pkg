@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+} for "test"

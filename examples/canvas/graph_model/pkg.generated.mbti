@@ -1,0 +1,201 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-canvas/graph_model"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub const GRAPH_OPERATION_VERSION : Int = 1
+
+pub fn apply_action(CanvasState, WorkflowAction) -> CanvasState
+
+pub fn apply_operation(CanvasState, GraphOperation) -> CanvasState
+
+pub fn can_commit_edge(CanvasState, NodeId, String, NodeId, String) -> Bool
+
+pub fn empty_interaction() -> InteractionState
+
+pub fn find_node(Array[CanvasNode], NodeId) -> CanvasNode?
+
+pub fn find_position(Array[NodePosition], NodeId) -> NodePosition?
+
+pub fn make_workflow_node(NodeId, WorkflowNodeKind, Double, Double) -> CanvasNode
+
+pub fn node_id_in_array(Array[NodeId], NodeId) -> Bool
+
+pub fn port(String, String, PortType) -> PortDef
+
+pub fn port_type_by_id(Array[PortDef], String) -> PortType?
+
+pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
+
+pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
+
+pub fn set_selection(CanvasState, Array[NodeId]) -> CanvasState
+
+pub fn workflow_node_kind_from_key(String) -> WorkflowNodeKind
+
+// Errors
+
+// Types and methods
+pub(all) struct CanvasNode {
+  id : NodeId
+  x : Double
+  y : Double
+  w : Double
+  h : Double
+  kind : NodeKind
+  title : String
+  subtitle : String
+  inputs : Array[PortDef]
+  outputs : Array[PortDef]
+  configured : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for CanvasNode
+
+pub(all) struct CanvasState {
+  viewport : Viewport
+  nodes : Array[CanvasNode]
+  edges : Array[Edge]
+  next_node_id : Int
+  next_edge_id : Int
+  interaction : InteractionState
+  action_log : Array[GraphOperation]
+} derive(@debug.Debug)
+pub impl Default for CanvasState
+pub impl Show for CanvasState
+
+pub(all) struct ConnectState {
+  from_node : NodeId
+  from_port : String
+  cursor_x : Double
+  cursor_y : Double
+} derive(Eq, @debug.Debug)
+pub impl Show for ConnectState
+
+pub(all) struct DragOrigin {
+  node_id : NodeId
+  offset_x : Double
+  offset_y : Double
+} derive(Eq, @debug.Debug)
+pub impl Show for DragOrigin
+
+pub(all) struct DragState {
+  node_id : NodeId
+  origins : Array[DragOrigin]
+} derive(Eq, @debug.Debug)
+pub impl Show for DragState
+
+pub(all) struct Edge {
+  id : EdgeId
+  source : NodeId
+  source_port : String
+  target : NodeId
+  target_port : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for Edge
+
+pub(all) struct EdgeId(Int) derive(Eq, @debug.Debug)
+pub fn EdgeId::from_int(Int) -> Self
+pub fn EdgeId::to_int(Self) -> Int
+pub impl Show for EdgeId
+pub impl ToJson for EdgeId
+pub impl @json.FromJson for EdgeId
+
+pub struct GraphOperation {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GraphOperation::GraphOperation(WorkflowAction) -> Self
+pub fn GraphOperation::action(Self) -> WorkflowAction
+pub fn GraphOperation::version(Self) -> Int
+pub impl Show for GraphOperation
+pub impl ToJson for GraphOperation
+pub impl @json.FromJson for GraphOperation
+
+pub(all) struct InteractionState {
+  dragging : DragState?
+  panning : PanState?
+  connecting : ConnectState?
+  selected : NodeId?
+  selected_nodes : Array[NodeId]
+  pointer_down : Bool
+  did_move : Bool
+} derive(Eq, @debug.Debug)
+pub impl Show for InteractionState
+
+pub(all) struct NodeId(Int) derive(Eq, @debug.Debug)
+pub fn NodeId::from_int(Int) -> Self
+pub fn NodeId::to_int(Self) -> Int
+pub impl Show for NodeId
+pub impl ToJson for NodeId
+pub impl @json.FromJson for NodeId
+
+pub(all) enum NodeKind {
+  Workflow(WorkflowNodeKind)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for NodeKind
+
+pub(all) struct NodePosition {
+  node_id : NodeId
+  x : Double
+  y : Double
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for NodePosition
+
+pub(all) struct PanState {
+  start_screen_x : Double
+  start_screen_y : Double
+  start_pan_x : Double
+  start_pan_y : Double
+} derive(Eq, @debug.Debug)
+pub impl Show for PanState
+
+pub(all) struct PortDef {
+  id : String
+  label : String
+  port_type : PortType
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for PortDef
+
+pub(all) enum PortType {
+  Flow
+  Text
+  Number
+  Boolean
+  Json
+  Any
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for PortType
+
+pub(all) struct Viewport {
+  x : Double
+  y : Double
+  scale : Double
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for Viewport
+
+pub(all) enum WorkflowAction {
+  AddNode(CanvasNode)
+  MoveNodes(Array[NodePosition])
+  ConnectPorts(NodeId, String, NodeId, String)
+  SelectNodes(Array[NodeId])
+  SetViewport(Viewport)
+} derive(Eq, ToJson, @debug.Debug)
+pub impl Show for WorkflowAction
+
+pub(all) enum WorkflowNodeKind {
+  TimerTrigger
+  HttpRequest
+  DataFormatter
+  ConditionalBranch
+  Loop
+  Parallel
+  Custom(String)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for WorkflowNodeKind
+
+// Type aliases
+
+// Traits
