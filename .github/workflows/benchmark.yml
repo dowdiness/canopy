@@ -183,7 +183,9 @@ jobs:
 
       - name: Update MoonBit dependencies
         working-directory: examples/ideal
-        run: moon update
+        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+        run: |
+          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run realistic editor response benchmark
         working-directory: examples/ideal/web

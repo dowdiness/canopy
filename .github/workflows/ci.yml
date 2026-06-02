@@ -151,7 +151,9 @@ jobs:
 
       - name: Update MoonBit dependencies
         working-directory: lib/semantic/proof
-        run: moon update
+        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+        run: |
+          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run moon prove
         working-directory: lib/semantic/proof
@@ -181,7 +183,7 @@ jobs:
       - name: Run event-graph-walker benchmarks
         working-directory: event-graph-walker
         run: |
-          moon update
+          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
           moon bench --release
 
   format-check:

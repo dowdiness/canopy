@@ -33,12 +33,13 @@ case "$ACTION" in
         moon fmt --check
         ;;
     ci)
-        moon update
+        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+        "$SCRIPT_DIR/moon-update.sh"
         moon check "${DENY_WARN_FLAGS[@]}"
         moon test --release
         ;;
     bench)
-        moon update
+        "$SCRIPT_DIR/moon-update.sh"
         moon bench --release
         ;;
     *)
