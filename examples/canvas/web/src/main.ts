@@ -1,44 +1,15 @@
-type CanvasModule = {
-  create_canvas: () => number;
-  pointer_down:        (h: number, nodeId: number, sx: number, sy: number) => void;
-  pointer_down_handle: (h: number, nodeId: number, portId: string, sx: number, sy: number) => void;
-  pointer_move:        (h: number, sx: number, sy: number) => void;
-  pointer_up:          (h: number, nodeId: number, targetPortId: string, additive: boolean) => void;
-  zoom:                (h: number, delta: number, cx: number, cy: number) => void;
-  add_node:            (h: number, kindKey: string, sx: number, sy: number) => void;
-  get_render_state:    (h: number) => string;
-  get_action_log:      (h: number) => string;
-};
+import {
+  GraphAdapter,
+  type CanvasModule,
+  type EdgeData,
+  type NodeData,
+  type PortDef,
+  type RenderState,
+  type Tagged,
+} from './graph-adapter';
 
-type Tagged = string | [string, ...unknown[]];
-type NodeKind = ['Workflow', Tagged];
-type PortDef = { id: string; label: string; port_type: Tagged };
-type NodeData = {
-  id: number;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  kind: NodeKind;
-  title: string;
-  subtitle: string;
-  inputs: PortDef[];
-  outputs: PortDef[];
-  configured: boolean;
-};
-type EdgeData = { id: number; source: number; source_port: string; target: number; target_port: string };
-type Connecting = { from: number; from_port: string; cursor_x: number; cursor_y: number };
-type ValidationMessage = { severity: 'error' | 'warning'; message: string; node_id?: number };
-type RenderState = {
-  viewport: { x: number; y: number; scale: number };
-  nodes: NodeData[];
-  edges: EdgeData[];
-  selected?: number;
-  selected_nodes: number[];
-  connecting?: Connecting;
-  validation: ValidationMessage[];
-  action_count: number;
-};
+export { GraphAdapter } from './graph-adapter';
+export type { GraphOperation, RenderState } from './graph-adapter';
 
 type LibraryItem = {
   key: string;
@@ -58,8 +29,7 @@ const LIBRARY: LibraryItem[] = [
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-let mb: CanvasModule;
-let handle = -1;
+let adapter: GraphAdapter;
 let rafPending = false;
 let lastState: RenderState | null = null;
 
@@ -182,7 +152,7 @@ function scheduleRender(): void {
 
 function render(): void {
   rafPending = false;
-  const state: RenderState = JSON.parse(mb.get_render_state(handle));
+  const state = adapter.renderState();
   lastState = state;
 
   const { x, y, scale } = state.viewport;
@@ -372,7 +342,7 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 }
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
-  mb.add_node(handle, kindKey, point[0], point[1]);
+  adapter.addNode(kindKey, point[0], point[1]);
   hideContextMenu();
   scheduleRender();
 }
@@ -431,7 +401,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     case 'handle':
       // Only output handles initiate a connection in the prototype.
       if (hit.side === 'output') {
-        mb.pointer_down_handle(handle, hit.nodeId, hit.portId, sx, sy);
+        adapter.pointerDownHandle(hit.nodeId, hit.portId, sx, sy);
         pointerDownNodeId = 0; // pointerup uses hover target, not down target
       } else {
         // Input handle clicks are inert for now; do not start background pan.
@@ -440,11 +410,11 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       break;
     case 'node':
       pointerDownNodeId = hit.nodeId;
-      mb.pointer_down(handle, hit.nodeId, sx, sy);
+      adapter.pointerDown(hit.nodeId, sx, sy);
       break;
     case 'background':
       pointerDownNodeId = 0;
-      mb.pointer_down(handle, 0, sx, sy);
+      adapter.pointerDown(0, sx, sy);
       root.classList.add('panning');
       break;
   }
@@ -454,7 +424,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
 root.addEventListener('pointermove', (e: PointerEvent) => {
   if (e.pointerId !== activePointerId) return;
   const [sx, sy] = localCoords(e);
-  mb.pointer_move(handle, sx, sy);
+  adapter.pointerMove(sx, sy);
   scheduleRender();
 });
 
@@ -469,7 +439,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
     hit.kind === 'handle' ? hit.nodeId :
     pointerDownNodeId;
   const targetPortId = hit.kind === 'handle' && hit.side === 'input' ? hit.portId : '';
-  mb.pointer_up(handle, upNodeId, targetPortId, pointerUpAdditive);
+  adapter.pointerUp(upNodeId, targetPortId, pointerUpAdditive);
   activePointerId = -1;
   pointerDownNodeId = 0;
   pointerUpAdditive = false;
@@ -479,7 +449,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
 
 root.addEventListener('pointercancel', (e: PointerEvent) => {
   if (e.pointerId !== activePointerId) return;
-  mb.pointer_up(handle, 0, '', false);
+  adapter.pointerUp(0, '', false);
   activePointerId = -1;
   pointerDownNodeId = 0;
   pointerUpAdditive = false;
@@ -490,7 +460,7 @@ root.addEventListener('pointercancel', (e: PointerEvent) => {
 root.addEventListener('wheel', (e: WheelEvent) => {
   e.preventDefault();
   const [cx, cy] = localCoords(e);
-  mb.zoom(handle, e.deltaY, cx, cy);
+  adapter.zoom(e.deltaY, cx, cy);
   scheduleRender();
 }, { passive: false });
 
@@ -507,7 +477,7 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu();
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
     e.preventDefault();
-    console.table(JSON.parse(mb.get_action_log(handle)));
+    console.table(adapter.actionLog());
   }
 });
 
@@ -521,8 +491,7 @@ search.addEventListener('input', () => renderLibrary(search.value));
 
 async function init(): Promise<void> {
   const mod = await import('@moonbit/canopy-canvas') as CanvasModule;
-  mb = mod;
-  handle = mb.create_canvas();
+  adapter = GraphAdapter.create(mod);
   renderLibrary();
   render();
 }
