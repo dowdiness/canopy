@@ -9,11 +9,23 @@ import {
 // Values
 pub fn add_node(Int, String, Double, Double) -> Unit
 
+pub fn apply_source_graph_operation(Int, String) -> String
+
 pub fn create_canvas() -> Int
+
+pub fn create_source_graph(String) -> Int
+
+pub fn destroy_source_graph(Int) -> Unit
 
 pub fn get_action_log(Int) -> String
 
 pub fn get_render_state(Int) -> String
+
+pub fn get_source_graph_action_log(Int) -> String
+
+pub fn get_source_graph_render_state(Int) -> String
+
+pub fn get_source_graph_source(Int) -> String
 
 pub fn hover_node(Int, Int) -> Unit
 
@@ -24,6 +36,8 @@ pub fn pointer_down_handle(Int, Int, String, Double, Double) -> Unit
 pub fn pointer_move(Int, Double, Double) -> Unit
 
 pub fn pointer_up(Int, Int, String, Bool) -> Unit
+
+pub fn set_source_graph_source(Int, String) -> Unit
 
 pub fn zoom(Int, Double, Double, Double) -> Unit
 
@@ -56,6 +70,10 @@ type NormalizedCanvas derive(Eq)
 type RenderStateJson derive(Eq, ToJson)
 
 type SelectionState derive(Eq, @debug.Debug)
+
+type SourceBackedGraph
+
+type SourceGraphOperationResultJson derive(ToJson)
 
 type ValidatedCanvas derive(Eq)
 

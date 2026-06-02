@@ -241,6 +241,37 @@ fn validate_workflow(state : CanvasState) -> Array[ValidationJson] {
 }
 
 ///|
+fn render_state_json(
+  state : CanvasState,
+  validation : Array[ValidationJson],
+) -> RenderStateJson {
+  let selected : Int? = match state.interaction.selected {
+    None => None
+    Some(id) => Some(node_id_to_int(id))
+  }
+  let selected_nodes = state.interaction.selected_nodes.map(node_id_to_int)
+  {
+    viewport: state.viewport,
+    nodes: state.nodes.map(node_to_json),
+    edges: state.edges.map(edge_to_json),
+    selected,
+    selected_nodes,
+    connecting: connecting_to_json(state.interaction.connecting),
+    validation,
+    action_count: state.action_log.length(),
+    inspector: None,
+  }
+}
+
+///|
+fn render_state_string(
+  state : CanvasState,
+  validation : Array[ValidationJson],
+) -> String {
+  render_state_json(state, validation).to_json().stringify()
+}
+
+///|
 pub fn get_render_state(handle : Int) -> String {
   _registry[handle].render_state().to_json().stringify()
 }
