@@ -208,37 +208,20 @@ fn update_connect_end(
 }
 
 ///|
-/// Dispatch a pointer-move event to the active gesture.
-/// Accepts screen coordinates; converts to world coords internally for dragging.
-fn update_pointer_move(
-  state : CanvasState,
-  sx : Double,
-  sy : Double,
-) -> CanvasState {
-  match state.interaction.connecting {
-    Some(_) => {
-      let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-      update_connect_move(state, wx, wy)
-    }
-    None =>
-      match state.interaction.dragging {
-        Some(_) => {
-          let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-          update_node_drag_move(state, wx, wy)
-        }
-        None => update_pan_move(state, sx, sy)
-      }
+fn drag_preview_from_move(
+  drag : DragState,
+  world_x : Double,
+  world_y : Double,
+) -> DragPreview {
+  let positions : Array[NodePosition] = []
+  for origin in drag.origins {
+    positions.push({
+      node_id: origin.node_id,
+      x: world_x + origin.offset_x,
+      y: world_y + origin.offset_y,
+    })
   }
-}
-
-///|
-fn find_drag_origin(origins : Array[DragOrigin], id : NodeId) -> DragOrigin? {
-  for origin in origins {
-    if origin.node_id == id {
-      return Some(origin)
-    }
-  }
-  None
+  { positions, }
 }
 
 ///|
@@ -281,35 +264,6 @@ fn update_node_drag_start(
         did_move: false,
       }
       { ..state, interaction: new_interaction }
-    }
-  }
-}
-
-///|
-fn update_node_drag_move(
-  state : CanvasState,
-  world_x : Double,
-  world_y : Double,
-) -> CanvasState {
-  match state.interaction.dragging {
-    None => state
-    Some(drag) => {
-      let new_nodes = state.nodes.map(fn(node) {
-        match find_drag_origin(drag.origins, node.id) {
-          None => node
-          Some(origin) =>
-            {
-              ..node,
-              x: world_x + origin.offset_x,
-              y: world_y + origin.offset_y,
-            }
-        }
-      })
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        did_move: true,
-      }
-      { ..state, nodes: new_nodes, interaction: new_interaction }
     }
   }
 }

@@ -2,6 +2,7 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
   "dowdiness/canopy-canvas/graph_model",
+  "dowdiness/incr",
 }
 
 import {
@@ -18,6 +19,7 @@ options(
         "pointer_down_handle",
         "pointer_move",
         "pointer_up",
+        "hover_node",
         "zoom",
         "add_node",
         "get_render_state",

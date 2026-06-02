@@ -5,7 +5,8 @@
     "dowdiness/graph-dsl": {
       "path": "../../loom/examples/graph-dsl",
       "version": "0.1.0"
-    }
+    },
+    "dowdiness/incr": "0.7.1"
   },
   "source": ".",
   "preferred-target": "js"

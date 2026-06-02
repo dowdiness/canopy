@@ -1,10 +1,10 @@
 ///|
 /// Global handle registry. Index = handle (Int returned by create_canvas).
-let _registry : Array[CanvasState] = []
+let _registry : Array[CanvasRuntime] = []
 
 ///|
 pub fn create_canvas() -> Int {
-  _registry.push(CanvasState::default())
+  _registry.push(CanvasRuntime::CanvasRuntime())
   _registry.length() - 1
 }
 
@@ -18,7 +18,7 @@ pub fn pointer_down(
   sy : Double,
 ) -> Unit {
   let id : NodeId? = if node_id <= 0 { None } else { Some(NodeId(node_id)) }
-  _registry[handle] = update_pointer_down(_registry[handle], id, sx, sy)
+  _registry[handle].pointer_down(id, sx, sy)
 }
 
 ///|
@@ -30,27 +30,19 @@ pub fn pointer_down_handle(
   sx : Double,
   sy : Double,
 ) -> Unit {
-  let state = _registry[handle]
-  let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-  _registry[handle] = update_connect_start(
-    state,
-    NodeId(node_id),
-    port_id,
-    wx,
-    wy,
-  )
+  _registry[handle].pointer_down_handle(NodeId(node_id), port_id, sx, sy)
 }
 
 ///|
 /// Handle pointer-move in canvas-local screen coordinates.
 /// Routes to the active gesture (pan, drag, or connect) internally.
 pub fn pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
-  _registry[handle] = update_pointer_move(_registry[handle], sx, sy)
+  _registry[handle].pointer_move(sx, sy)
 }
 
 ///|
 pub fn zoom(handle : Int, delta : Double, cx : Double, cy : Double) -> Unit {
-  _registry[handle] = update_zoom(_registry[handle], delta, cx, cy)
+  _registry[handle].zoom(delta, cx, cy)
 }
 
 ///|
@@ -60,12 +52,12 @@ pub fn pointer_up(
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
-  _registry[handle] = update_pointer_up(
-    _registry[handle],
-    node_id,
-    target_port_id,
-    additive,
-  )
+  _registry[handle].pointer_up(node_id, target_port_id, additive)
+}
+
+///|
+pub fn hover_node(handle : Int, node_id : Int) -> Unit {
+  _registry[handle].hover_node(node_id)
 }
 
 ///|
@@ -78,9 +70,7 @@ pub fn add_node(
   sx : Double,
   sy : Double,
 ) -> Unit {
-  let state = _registry[handle]
-  let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-  _registry[handle] = workflow_add_node(state, kind_key, wx, wy)
+  _registry[handle].add_node(kind_key, sx, sy)
 }
 
 ///|
@@ -98,7 +88,7 @@ struct NodeJson {
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
-} derive(ToJson)
+} derive(Eq, ToJson)
 
 ///|
 struct EdgeJson {
@@ -107,7 +97,7 @@ struct EdgeJson {
   source_port : String
   target : Int
   target_port : String
-} derive(ToJson)
+} derive(Eq, ToJson)
 
 ///|
 /// Serialized in-flight connection. `from` is the source node id;
@@ -117,19 +107,30 @@ struct ConnectingJson {
   from_port : String
   cursor_x : Double
   cursor_y : Double
-} derive(ToJson)
+} derive(Eq, ToJson)
 
 ///|
 struct ValidationJson {
   severity : String
   message : String
   node_id : Int?
-} derive(ToJson)
+} derive(Eq, ToJson)
+
+///|
+struct InspectorNodeJson {
+  id : Int
+  title : String
+  subtitle : String
+  configured : Bool
+  input_count : Int
+  output_count : Int
+  source : String
+} derive(Eq, ToJson)
 
 ///|
 /// Serializable render snapshot sent to TypeScript each RAF frame.
-/// `selected`/`connecting` are absent (key omitted) when not active — MoonBit derive(ToJson) omits None keys.
-/// TypeScript: use `rs.selected != null` (loose equality) not `rs.selected !== null`.
+/// `selected`/`connecting`/`inspector` are absent (key omitted) when not active
+/// — MoonBit derive(ToJson) omits None keys. TypeScript: use `!= null` checks.
 struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
@@ -139,12 +140,45 @@ struct RenderStateJson {
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
   action_count : Int
-} derive(ToJson)
+  inspector : InspectorNodeJson?
+} derive(Eq, ToJson)
 
 ///|
 fn node_id_to_int(id : NodeId) -> Int {
   let NodeId(n) = id
   n
+}
+
+///|
+fn node_to_json(n : CanvasNode) -> NodeJson {
+  let NodeId(id) = n.id
+  {
+    id,
+    x: n.x,
+    y: n.y,
+    w: n.w,
+    h: n.h,
+    kind: n.kind,
+    title: n.title,
+    subtitle: n.subtitle,
+    inputs: n.inputs,
+    outputs: n.outputs,
+    configured: n.configured,
+  }
+}
+
+///|
+fn edge_to_json(e : Edge) -> EdgeJson {
+  let EdgeId(id) = e.id
+  let NodeId(s) = e.source
+  let NodeId(t) = e.target
+  {
+    id,
+    source: s,
+    source_port: e.source_port,
+    target: t,
+    target_port: e.target_port,
+  }
 }
 
 ///|
@@ -184,87 +218,34 @@ fn append_node_validation(
 }
 
 ///|
-fn validate_workflow(state : CanvasState) -> Array[ValidationJson] {
+fn validate_workflow_document(
+  document : CanvasDocument,
+) -> Array[ValidationJson] {
   let messages : Array[ValidationJson] = []
-  if state.nodes.length() == 0 {
+  if document.nodes.length() == 0 {
     messages.push({
       severity: "error",
       message: "Add at least one workflow node.",
       node_id: None,
     })
   }
-  for node in state.nodes {
-    append_node_validation(messages, node, state.edges)
+  for node in document.nodes {
+    append_node_validation(messages, node, document.edges)
   }
   messages
 }
 
 ///|
+fn validate_workflow(state : CanvasState) -> Array[ValidationJson] {
+  validate_workflow_document(canvas_document_from_state(state))
+}
+
+///|
 pub fn get_render_state(handle : Int) -> String {
-  let state = _registry[handle]
-  let selected : Int? = match state.interaction.selected {
-    None => None
-    Some(id) => Some(node_id_to_int(id))
-  }
-  let selected_nodes = state.interaction.selected_nodes.map(fn(id) {
-    node_id_to_int(id)
-  })
-  let connecting : ConnectingJson? = match state.interaction.connecting {
-    None => None
-    Some(c) => {
-      let NodeId(from) = c.from_node
-      Some({
-        from,
-        from_port: c.from_port,
-        cursor_x: c.cursor_x,
-        cursor_y: c.cursor_y,
-      })
-    }
-  }
-  let nodes = state.nodes.map(fn(n) {
-    let NodeId(id) = n.id
-    (
-      {
-        id,
-        x: n.x,
-        y: n.y,
-        w: n.w,
-        h: n.h,
-        kind: n.kind,
-        title: n.title,
-        subtitle: n.subtitle,
-        inputs: n.inputs,
-        outputs: n.outputs,
-        configured: n.configured,
-      } : NodeJson)
-  })
-  let edges = state.edges.map(fn(e) {
-    let EdgeId(id) = e.id
-    let NodeId(s) = e.source
-    let NodeId(t) = e.target
-    (
-      {
-        id,
-        source: s,
-        source_port: e.source_port,
-        target: t,
-        target_port: e.target_port,
-      } : EdgeJson)
-  })
-  let rs : RenderStateJson = {
-    viewport: state.viewport,
-    nodes,
-    edges,
-    selected,
-    selected_nodes,
-    connecting,
-    validation: validate_workflow(state),
-    action_count: state.action_log.length(),
-  }
-  rs.to_json().stringify()
+  _registry[handle].render_state().to_json().stringify()
 }
 
 ///|
 pub fn get_action_log(handle : Int) -> String {
-  _registry[handle].action_log.to_json().stringify()
+  _registry[handle].action_log_json()
 }
