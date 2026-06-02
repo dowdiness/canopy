@@ -57,6 +57,16 @@ fn operation_result_applied(json_text : String) -> Bool {
 }
 
 ///|
+fn ok_operation_log(json_text : String) -> Array[GraphOperation] {
+  let json = @json.parse(json_text) catch {
+    _ => abort("expected operation log JSON")
+  }
+  @json.from_json(json) catch {
+    _ => abort("expected GraphOperation array")
+  }
+}
+
+///|
 fn graph_node_id(doc : @graph_dsl.GraphDoc, binding : String) -> String {
   match doc.find_node(binding) {
     Some(node) => node.id()
@@ -213,7 +223,15 @@ test "source-backed handle lowers GraphOperation through graph-dsl source" {
     get_source_graph_source(handle),
     content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()",
   )
-  inspect(get_source_graph_action_log(handle) == "[]", content="false")
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [_, added] =>
+      match added.action() {
+        AddNode(node) => @debug.assert_eq(node.id, NodeId(3))
+        _ => abort("expected AddNode action")
+      }
+    _ => abort("expected two source-backed operations")
+  }
   destroy_source_graph(handle)
 }
 

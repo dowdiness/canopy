@@ -292,7 +292,7 @@ fn lower_source_operation(
 fn SourceBackedGraph::apply_lowered_edit(
   self : SourceBackedGraph,
   edit : @graph_dsl.LoweredGraphEdit,
-) -> Result[Unit, String] {
+) -> Result[@graph_dsl.GraphDoc, String] {
   let old_source = self.source
   let new_source = edit.new_source()
   match edit.incremental_edit() {
@@ -302,12 +302,27 @@ fn SourceBackedGraph::apply_lowered_edit(
   }
   self.source = new_source
   match self.attachment.current_result() {
-    Ok(_) => Ok(())
+    Ok(doc) => Ok(doc)
     Err(message) => {
       self.source = old_source
       self.attachment.set_source(old_source)
       Err(message)
     }
+  }
+}
+
+///|
+fn realized_source_operation(
+  doc : @graph_dsl.GraphDoc,
+  operation : GraphOperation,
+) -> GraphOperation {
+  match operation.action() {
+    AddNode(node) =>
+      match canvas_id_for_binding(doc, node.title) {
+        Some(id) => GraphOperation(AddNode({ ..node, id, }))
+        None => operation
+      }
+    _ => operation
   }
 }
 
@@ -413,8 +428,8 @@ pub fn apply_source_graph_operation(
       return source_graph_result_for_graph(graph, false, Some(message))
   }
   match graph.apply_lowered_edit(lowered) {
-    Ok(_) => {
-      graph.append_operation(operation)
+    Ok(doc) => {
+      graph.append_operation(realized_source_operation(doc, operation))
       source_graph_result_for_graph(graph, true, None)
     }
     Err(message) => source_graph_result_for_graph(graph, false, Some(message))
