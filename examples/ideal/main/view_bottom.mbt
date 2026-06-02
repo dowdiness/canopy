@@ -148,6 +148,51 @@ fn render_graphviz_html(model : Model) -> String {
 }
 
 ///|
+/// Static color key for the IncrGraph tab. Unlike the History legend
+/// (whose chips are per-agent and data-driven), the incr status palette is
+/// fixed: the four `VisualNodeStatus` values map to fixed colors. Each
+/// swatch sources its colors from `@visualizer.VisualNodeStatus::fill` /
+/// `::stroke` — the same accessors the SVG renderer uses — so the key can't
+/// drift from the rendered nodes.
+///
+/// Labels follow the status semantics in the visualizer event adapter
+/// (`incr_tap.mbt` `record_status`): `Active` = a cell currently
+/// recomputing, `Changed` = recompute produced a new value, `Failed` = the
+/// recompute aborted, `Neutral` = resting (no recent event, or a recompute
+/// that re-derived the prior value).
+///
+/// Emitted as a sibling of the `role="img"` SVG div (not inside it) so the
+/// decoder stays list-readable for assistive tech, mirroring `legend_html`.
+fn incr_legend_html() -> String {
+  let entries : Array[(@visualizer.VisualNodeStatus, String)] = [
+    (Neutral, "Idle"),
+    (Active, "Recomputing"),
+    (Changed, "Changed"),
+    (Failed, "Failed"),
+  ]
+  let buf = StringBuilder::new()
+  buf.write_string(
+    "<div class=\"incr-legend\" role=\"list\" aria-label=\"Incr graph status color legend\">",
+  )
+  for entry in entries {
+    let (status, label) = entry
+    // Swatch is decorative (aria-hidden) — it duplicates the SVG fill; the
+    // text label carries the meaning for assistive tech.
+    buf.write_string(
+      "<span class=\"incr-legend-item\" role=\"listitem\"><span class=\"incr-legend-swatch\" aria-hidden=\"true\" style=\"background:",
+    )
+    buf.write_string(status.fill())
+    buf.write_string(";border-color:")
+    buf.write_string(status.stroke())
+    buf.write_string("\"></span>")
+    buf.write_string(label)
+    buf.write_string("</span>")
+  }
+  buf.write_string("</div>")
+  buf.to_string()
+}
+
+///|
 /// Render the IncrGraph tab's HTML (cached). Keyed on the same triple as
 /// the Graphviz tab: the incr dependency graph only changes when text
 /// edits advance `op_count`, so cache hits skip the snapshot copy + DOT
@@ -169,7 +214,8 @@ fn render_incr_graph_html(model : Model) -> String {
       let svg = snapshot
         .to_visual_graph()
         .to_svg_with_config(bottom_tab_svg_config)
-      "<div role=\"img\" aria-label=\"Incr runtime dependency graph\">" +
+      incr_legend_html() +
+      "<div class=\"incr-graph\" role=\"img\" aria-label=\"Incr runtime dependency graph\">" +
       svg +
       "</div>"
     }
