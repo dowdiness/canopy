@@ -47,7 +47,11 @@ pub struct IncrSnapshot {
 pub struct IncrMemoEventTap {
   priv rt : @incr.Runtime
   priv active : Ref[Bool]
-  priv mut events : Array[IncrMemoEventRecord]
+  // Keep-last-per-cell status buffer: bounded by the number of distinct cells
+  // that fired events since the last drain, not by the total event count.
+  // Status coloring only needs each cell's most recent event, so retaining
+  // the latest per cell loses nothing while bounding memory.
+  priv events : @hashmap.HashMap[@incr.CellId, IncrMemoEventRecord]
   priv cells : Array[@incr.CellId]
 }
 
@@ -66,17 +70,6 @@ fn remember_cell(ids : Array[@incr.CellId], id : @incr.CellId) -> Unit {
   if !contains_cell_id(ids, id) {
     ids.push(id)
   }
-}
-
-///|
-fn copy_events(
-  events : Array[IncrMemoEventRecord],
-) -> Array[IncrMemoEventRecord] {
-  let out : Array[IncrMemoEventRecord] = []
-  for event in events {
-    out.push(event)
-  }
-  out
 }
 
 ///|
@@ -123,7 +116,7 @@ fn IncrMemoEventTap::record(
   guard self.active.val else { return }
   let record = event_from_memo_event(evt)
   remember_cell(self.cells, record.cell_id)
-  self.events.push(record)
+  self.events.set(record.cell_id, record)
 }
 
 ///|
@@ -177,17 +170,18 @@ fn status_for_cell(
   events : Array[IncrMemoEventRecord],
   id : @incr.CellId,
 ) -> VisualNodeStatus {
-  let mut status = Neutral
+  // The tap retains at most one record per cell (keep-last-per-cell), so the
+  // first match is the only match — return it directly.
   for event in events {
     if event.cell_id == id {
-      status = match event.phase {
+      return match event.phase {
         IncrEntering => Active
         IncrCompleted => if event.backdated { Neutral } else { Changed }
         IncrAborted => Failed
       }
     }
   }
-  status
+  Neutral
 }
 
 ///|
@@ -198,7 +192,7 @@ fn status_for_cell(
 pub fn IncrMemoEventTap::attach(
   rt : @incr.Runtime,
 ) -> IncrMemoEventTap raise Failure {
-  let tap = { rt, active: Ref(true), events: [], cells: [] }
+  let tap = { rt, active: Ref(true), events: @hashmap.HashMap([]), cells: [] }
   rt.on_memo_event(evt => tap.record(evt))
   tap
 }
@@ -214,12 +208,14 @@ pub fn IncrMemoEventTap::detach(self : IncrMemoEventTap) -> Unit {
 }
 
 ///|
-/// Drain captured events in arrival order.
+/// Drain the retained events — the most recent record per cell since the last
+/// drain — and clear the buffer. Order is unspecified (keyed by cell, not
+/// arrival); callers that only need per-cell status are unaffected.
 pub fn IncrMemoEventTap::drain_events(
   self : IncrMemoEventTap,
 ) -> Array[IncrMemoEventRecord] {
-  let drained = copy_events(self.events)
-  self.events = []
+  let drained = self.events.values().to_array()
+  self.events.clear()
   drained
 }
 
@@ -245,7 +241,7 @@ pub fn IncrMemoEventTap::snapshot(self : IncrMemoEventTap) -> IncrSnapshot {
       None => ()
     }
   }
-  { nodes, edges, events: copy_events(self.events) }
+  { nodes, edges, events: self.events.values().to_array() }
 }
 
 ///|

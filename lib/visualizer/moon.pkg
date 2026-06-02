@@ -3,4 +3,5 @@ import {
   "dowdiness/graphviz/lib/layout",
   "dowdiness/graphviz/lib/svg" @graph_svg,
   "dowdiness/incr",
+  "moonbitlang/core/hashmap",
 }
