@@ -12,6 +12,7 @@ type Stats = {
   p95: number;
   max: number;
   mean: number;
+  trimmedMean: number;
 };
 
 type ResponseSummary = {
@@ -24,9 +25,36 @@ type ResponseSummary = {
 };
 
 const WARMUP_KEYSTROKES = 5;
-const MEASURED_KEYSTROKES = 30;
-const P95_PAINT_BUDGET_MS = Number(process.env.EDITOR_RESPONSE_P95_BUDGET_MS ?? 100);
+// 40 measured keystrokes so a 10% symmetric trim drops 4 samples per end and
+// averages the central 32. The bump from 30 firms up the central estimate; it
+// does NOT reduce the dominant between-run baseline drift (see #460 analysis).
+const MEASURED_KEYSTROKES = 40;
+// Drop the top and bottom TRIM_FRACTION of samples before averaging. This makes
+// the gate reject the 1-2 transient slow paints per run (GC / CPU-steal on
+// shared CI runners) that inflated the old single-run p95 metric, while
+// preserving systematic latency shifts — a real regression slows every paint, so
+// it survives the trim. See stats().
+const TRIM_FRACTION = 0.1;
+// Primary gate: 10% trimmed mean of paint latency. Replaces the old single-run
+// p95, which was the 2nd-highest of 30 samples and therefore dominated by the
+// noisy tail (#460). Local default 100 ms is unchanged from the old local p95
+// default — the local trimmed mean is ~80 ms with ~1 ms spread, so 100 stays
+// tight without flaking. CI overrides this via benchmark.yml.
+const TRIMMED_MEAN_PAINT_BUDGET_MS = Number(
+  process.env.EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS ?? 100,
+);
+// Coarse catastrophe backstop on the single worst paint. Worst observed CI max
+// is ~133 ms, so 250 never flakes; it only trips on a severe single-paint blowup.
+// Intentionally loose — tightening it would reintroduce the single-sample
+// flakiness the trimmed-mean gate exists to remove.
 const MAX_PAINT_BUDGET_MS = Number(process.env.EDITOR_RESPONSE_MAX_BUDGET_MS ?? 250);
+// Positive-control harness (#460 / carried from #459). When set, a synchronous
+// busy-wait of this many ms is injected into the MEASURED paint region of every
+// keystroke (see measureTextInput), simulating a uniform paint regression. A
+// regression shifts all samples equally, so the trim does not remove it and the
+// trimmed mean rises by ~this value. Default 0 = off. Validate the detector with
+// e.g. EDITOR_RESPONSE_INJECT_PAINT_MS=80 (a ~2x local regression) -> gate FAILS.
+const INJECT_PAINT_MS = Number(process.env.EDITOR_RESPONSE_INJECT_PAINT_MS ?? 0);
 
 async function waitForEditor(page: Page) {
   await page.goto(`/#perf-${Date.now()}`);
@@ -76,7 +104,7 @@ async function seedEditor(page: Page, source: string) {
 }
 
 async function measureTextInput(page: Page, text: string): Promise<ResponseSample> {
-  return page.evaluate((insertText) => new Promise<ResponseSample>((resolve, reject) => {
+  return page.evaluate(({ insertText, injectPaintMs }) => new Promise<ResponseSample>((resolve, reject) => {
     const global = window as any;
     const cmContent = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
     const crdt = global.__canopy_crdt;
@@ -110,6 +138,16 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
       const textChangedAt = performance.now();
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          // Positive-control injection: a synchronous busy-wait in the measured
+          // paint window simulates a uniform paint regression. Placed after
+          // textChangedAt so it affects only inputToPaintMs, not the text-change
+          // latency. No-op when injectPaintMs is 0 (the default).
+          if (injectPaintMs > 0) {
+            const spinUntil = performance.now() + injectPaintMs;
+            while (performance.now() < spinUntil) {
+              // busy-wait
+            }
+          }
           const perf = (window as any).__canopy_perf_current;
           const phases = { ...(perf?.spans ?? {}) };
           (window as any).__canopy_perf_current = null;
@@ -141,17 +179,26 @@ async function measureTextInput(page: Page, text: string): Promise<ResponseSampl
       return;
     }
     requestAnimationFrame(poll);
-  }), text);
+  }), { insertText: text, injectPaintMs: INJECT_PAINT_MS });
+}
+
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function stats(values: number[]): Stats {
   const sorted = [...values].sort((a, b) => a - b);
   const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1))];
+  // Symmetric trim: drop the lowest and highest `drop` samples, average the
+  // rest. `drop` is clamped so at least one sample always survives.
+  const drop = Math.min(Math.floor(sorted.length * TRIM_FRACTION), Math.floor((sorted.length - 1) / 2));
+  const trimmed = sorted.slice(drop, sorted.length - drop);
   return {
     p50: at(0.50),
     p95: at(0.95),
     max: sorted[sorted.length - 1],
-    mean: values.reduce((sum, value) => sum + value, 0) / values.length,
+    mean: mean(values),
+    trimmedMean: mean(trimmed),
   };
 }
 
@@ -161,6 +208,7 @@ function roundStats(s: Stats): Stats {
     p95: Number(s.p95.toFixed(2)),
     max: Number(s.max.toFixed(2)),
     mean: Number(s.mean.toFixed(2)),
+    trimmedMean: Number(s.trimmedMean.toFixed(2)),
   };
 }
 
@@ -218,7 +266,10 @@ test.describe('realistic editor response benchmark', () => {
         samples: summary.samples,
         phases: summary.phases,
       })}`);
-      expect(summary.paint.p95, `${summary.scenario} p95 paint latency`).toBeLessThan(P95_PAINT_BUDGET_MS);
+      expect(
+        summary.paint.trimmedMean,
+        `${summary.scenario} trimmed-mean paint latency`,
+      ).toBeLessThan(TRIMMED_MEAN_PAINT_BUDGET_MS);
       expect(summary.paint.max, `${summary.scenario} max paint latency`).toBeLessThan(MAX_PAINT_BUDGET_MS);
     }
   });
