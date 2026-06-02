@@ -37,9 +37,9 @@ test "to_visual_graph surfaces latest elapsed_ns on the recomputed cell only" {
     changed_at: rev3,
     verified_at: rev3,
   }
-  let event : IncrMemoEventRecord = {
+  let event : RecomputeRecord = {
     cell_id: timed_cell,
-    phase: IncrCompleted,
+    phase: RecomputePhase::Completed,
     started_revision: rev3,
     elapsed_ns: Some(5000L),
     verified_at: Some(rev4),

@@ -39,7 +39,7 @@ fn init_model() -> Model raise {
   // Attach the memo-event tap before any cell reads so initial-parse recomputes
   // are visible to the IncrGraph panel. `attach` only fails if incr's listener
   // slot is already claimed by an external caller — fatal here, propagate.
-  let incr_tap = @visualizer.IncrMemoEventTap::attach(editor.parser_runtime())
+  let incr_tap = @visualizer.RecomputeTap::attach(editor.parser_runtime())
   let init_text = "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(

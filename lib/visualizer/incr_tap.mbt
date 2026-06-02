@@ -1,16 +1,16 @@
 ///|
 /// Phase of a public `incr` memo recompute event.
-pub(all) enum IncrMemoEventPhase {
-  IncrEntering
-  IncrCompleted
-  IncrAborted
+pub(all) enum RecomputePhase {
+  Entering
+  Completed
+  Aborted
 }
 
 ///|
-/// Compact memo-event record captured by `IncrMemoEventTap`.
-pub struct IncrMemoEventRecord {
+/// Compact memo-event record captured by `RecomputeTap`.
+pub struct RecomputeRecord {
   cell_id : @incr.CellId
-  phase : IncrMemoEventPhase
+  phase : RecomputePhase
   started_revision : @incr.Revision
   elapsed_ns : Int64?
   verified_at : @incr.Revision?
@@ -39,19 +39,19 @@ pub struct IncrSnapshotEdge {
 pub struct IncrSnapshot {
   nodes : Array[IncrSnapshotNode]
   edges : Array[IncrSnapshotEdge]
-  events : Array[IncrMemoEventRecord]
+  events : Array[RecomputeRecord]
 }
 
 ///|
 /// Driver-owned tap that records public `incr` memo events for visualization.
-pub struct IncrMemoEventTap {
+pub struct RecomputeTap {
   priv rt : @incr.Runtime
   priv active : Ref[Bool]
   // Keep-last-per-cell status buffer: bounded by the number of distinct cells
   // that fired events since the last drain, not by the total event count.
   // Status coloring only needs each cell's most recent event, so retaining
   // the latest per cell loses nothing while bounding memory.
-  priv events : @hashmap.HashMap[@incr.CellId, IncrMemoEventRecord]
+  priv events : @hashmap.HashMap[@incr.CellId, RecomputeRecord]
   priv cells : Array[@incr.CellId]
 }
 
@@ -73,12 +73,12 @@ fn remember_cell(ids : Array[@incr.CellId], id : @incr.CellId) -> Unit {
 }
 
 ///|
-fn event_from_memo_event(evt : @incr.MemoEvent) -> IncrMemoEventRecord {
+fn event_from_memo_event(evt : @incr.MemoEvent) -> RecomputeRecord {
   match evt {
     EnteringCompute(e) =>
       {
         cell_id: e.cell_id,
-        phase: IncrEntering,
+        phase: RecomputePhase::Entering,
         started_revision: e.started_revision,
         elapsed_ns: None,
         verified_at: None,
@@ -88,7 +88,7 @@ fn event_from_memo_event(evt : @incr.MemoEvent) -> IncrMemoEventRecord {
     Completed(e) =>
       {
         cell_id: e.cell_id,
-        phase: IncrCompleted,
+        phase: RecomputePhase::Completed,
         started_revision: e.started_revision,
         elapsed_ns: Some(e.elapsed_ns),
         verified_at: Some(e.verified_at),
@@ -98,7 +98,7 @@ fn event_from_memo_event(evt : @incr.MemoEvent) -> IncrMemoEventRecord {
     Aborted(e) =>
       {
         cell_id: e.cell_id,
-        phase: IncrAborted,
+        phase: RecomputePhase::Aborted,
         started_revision: e.started_revision,
         elapsed_ns: Some(e.elapsed_ns),
         verified_at: None,
@@ -109,10 +109,7 @@ fn event_from_memo_event(evt : @incr.MemoEvent) -> IncrMemoEventRecord {
 }
 
 ///|
-fn IncrMemoEventTap::record(
-  self : IncrMemoEventTap,
-  evt : @incr.MemoEvent,
-) -> Unit {
+fn RecomputeTap::record(self : RecomputeTap, evt : @incr.MemoEvent) -> Unit {
   guard self.active.val else { return }
   let record = event_from_memo_event(evt)
   remember_cell(self.cells, record.cell_id)
@@ -120,7 +117,7 @@ fn IncrMemoEventTap::record(
 }
 
 ///|
-fn snapshot_ids(tap : IncrMemoEventTap) -> Array[@incr.CellId] {
+fn snapshot_ids(tap : RecomputeTap) -> Array[@incr.CellId] {
   let ids : Array[@incr.CellId] = []
   for id in tap.cells {
     remember_cell(ids, id)
@@ -192,9 +189,9 @@ fn snapshot_node_detail(node : IncrSnapshotNode, elapsed_ns : Int64?) -> String 
 /// single scan returns that cell's only record — both its status and its
 /// latest `elapsed_ns` come from the one lookup.
 fn event_for_cell(
-  events : Array[IncrMemoEventRecord],
+  events : Array[RecomputeRecord],
   id : @incr.CellId,
-) -> IncrMemoEventRecord? {
+) -> RecomputeRecord? {
   for event in events {
     if event.cell_id == id {
       return Some(event)
@@ -204,13 +201,18 @@ fn event_for_cell(
 }
 
 ///|
-fn record_status(record : IncrMemoEventRecord?) -> VisualNodeStatus {
+fn record_status(record : RecomputeRecord?) -> VisualNodeStatus {
   match record {
     Some(event) =>
       match event.phase {
-        IncrEntering => Active
-        IncrCompleted => if event.backdated { Neutral } else { Changed }
-        IncrAborted => Failed
+        RecomputePhase::Entering => Active
+        RecomputePhase::Completed =>
+          if event.backdated {
+            Neutral
+          } else {
+            Changed
+          }
+        RecomputePhase::Aborted => Failed
       }
     None => Neutral
   }
@@ -221,9 +223,7 @@ fn record_status(record : IncrMemoEventRecord?) -> VisualNodeStatus {
 ///
 /// `incr` allows one memo-event listener per runtime, so attaching replaces
 /// any previous listener owned by the same runtime.
-pub fn IncrMemoEventTap::attach(
-  rt : @incr.Runtime,
-) -> IncrMemoEventTap raise Failure {
+pub fn RecomputeTap::attach(rt : @incr.Runtime) -> RecomputeTap raise Failure {
   let tap = { rt, active: Ref(true), events: @hashmap.HashMap([]), cells: [] }
   rt.on_memo_event(evt => tap.record(evt))
   tap
@@ -235,7 +235,7 @@ pub fn IncrMemoEventTap::attach(
 /// `incr` exposes replacement and clearing for the runtime listener, but not
 /// listener identity. Deactivating this tap's closure keeps stale handles from
 /// clearing a newer tap that replaced them.
-pub fn IncrMemoEventTap::detach(self : IncrMemoEventTap) -> Unit {
+pub fn RecomputeTap::detach(self : RecomputeTap) -> Unit {
   self.active.val = false
 }
 
@@ -243,9 +243,9 @@ pub fn IncrMemoEventTap::detach(self : IncrMemoEventTap) -> Unit {
 /// Drain the retained events — the most recent record per cell since the last
 /// drain — and clear the buffer. Order is unspecified (keyed by cell, not
 /// arrival); callers that only need per-cell status are unaffected.
-pub fn IncrMemoEventTap::drain_events(
-  self : IncrMemoEventTap,
-) -> Array[IncrMemoEventRecord] {
+pub fn RecomputeTap::drain_events(
+  self : RecomputeTap,
+) -> Array[RecomputeRecord] {
   let drained = self.events.values().to_array()
   self.events.clear()
   drained
@@ -253,7 +253,7 @@ pub fn IncrMemoEventTap::drain_events(
 
 ///|
 /// Capture the current known dependency graph plus buffered event history.
-pub fn IncrMemoEventTap::snapshot(self : IncrMemoEventTap) -> IncrSnapshot {
+pub fn RecomputeTap::snapshot(self : RecomputeTap) -> IncrSnapshot {
   let ids = snapshot_ids(self)
   let nodes : Array[IncrSnapshotNode] = []
   let edges : Array[IncrSnapshotEdge] = []

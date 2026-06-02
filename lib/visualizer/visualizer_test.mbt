@@ -26,7 +26,7 @@ test "incr_memo_event_tap_snapshots_runtime_graph" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
-  let tap = @visualizer.IncrMemoEventTap::attach(rt)
+  let tap = @visualizer.RecomputeTap::attach(rt)
   inspect(memo.read_or_abort(), content="2")
   let snapshot = tap.snapshot()
   // Keep-last-per-cell: the memo's EnteringCompute + Completed collapse to a
@@ -44,8 +44,8 @@ test "incr_memo_event_tap_stale_detach_does_not_clear_newer_tap" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
-  let older = @visualizer.IncrMemoEventTap::attach(rt)
-  let newer = @visualizer.IncrMemoEventTap::attach(rt)
+  let older = @visualizer.RecomputeTap::attach(rt)
+  let newer = @visualizer.RecomputeTap::attach(rt)
   inspect(memo.read_or_abort(), content="2")
   inspect(older.drain_events().length(), content="0")
   // One recomputed cell → one retained record (keep-last-per-cell).
@@ -65,7 +65,7 @@ test "incr_memo_event_tap_buffer_is_bounded_per_cell" {
   let rt = @incr.Runtime()
   let sig = @incr.Signal(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
-  let tap = @visualizer.IncrMemoEventTap::attach(rt)
+  let tap = @visualizer.RecomputeTap::attach(rt)
   // Drive several recomputes of the SAME memo without draining: each recompute
   // emits EnteringCompute + Completed, so the unbounded log would hold 6 events.
   inspect(memo.read_or_abort(), content="2")
