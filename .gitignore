@@ -11,6 +11,8 @@ release/
 .env
 _build
 *.db
+*.db-shm
+*.db-wal
 .wrangler/
 .vite/
 

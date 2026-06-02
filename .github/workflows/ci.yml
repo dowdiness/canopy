@@ -342,6 +342,35 @@ jobs:
       - name: Run web Playwright suite
         run: ./scripts/test-web-e2e.sh
 
+  ideal-web-e2e:
+    name: Ideal Web E2E
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: examples/ideal/web/package-lock.json
+
+      - name: Install Ideal editor web dependencies
+        working-directory: examples/ideal/web
+        run: npm ci
+
+      - name: Run Ideal editor Playwright suite
+        run: ./scripts/test-ideal-web-e2e.sh
+
   demo-react-e2e:
     name: Demo React E2E
     runs-on: ubuntu-latest
@@ -417,6 +446,7 @@ jobs:
       - typecheck-ts-examples
       - web-build
       - web-e2e
+      - ideal-web-e2e
       - demo-react-e2e
       - canvas-e2e
     if: always()
@@ -433,6 +463,7 @@ jobs:
              [[ "${{ needs.typecheck-ts-examples.result }}" != "success" ]] || \
              [[ "${{ needs.web-build.result }}" != "success" ]] || \
              [[ "${{ needs.web-e2e.result }}" != "success" ]] || \
+             [[ "${{ needs.ideal-web-e2e.result }}" != "success" ]] || \
              [[ "${{ needs.demo-react-e2e.result }}" != "success" ]] || \
              [[ "${{ needs.canvas-e2e.result }}" != "success" ]]; then
             echo "❌ One or more required checks failed"
