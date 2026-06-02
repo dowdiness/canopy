@@ -1,0 +1,60 @@
+///|
+/// `format_elapsed_ns` selects an ASCII unit (ns/us/ms) by magnitude so the
+/// unit switch itself reads as a hotspot cue. Wall-clock timing is
+/// non-deterministic, so the formatting logic is pinned here with fixed
+/// inputs rather than through a live tap.
+test "format_elapsed_ns_picks_unit_by_magnitude" {
+  inspect(format_elapsed_ns(0L), content="0ns")
+  inspect(format_elapsed_ns(500L), content="500ns")
+  // 1000ns is the ns→us boundary; truncating division drops sub-us digits.
+  inspect(format_elapsed_ns(1000L), content="1us")
+  inspect(format_elapsed_ns(1500L), content="1us")
+  inspect(format_elapsed_ns(999_999L), content="999us")
+  // 1_000_000ns is the us→ms boundary.
+  inspect(format_elapsed_ns(1_000_000L), content="1ms")
+  inspect(format_elapsed_ns(2_500_000L), content="2ms")
+}
+
+///|
+/// End-to-end wiring with a controlled `elapsed_ns`: the recomputed cell's
+/// duration reaches its node detail, while a node with no event record shows
+/// no timing. Constructed directly (not via a live tap) so the formatted value
+/// is deterministic — wall-clock timing can't be asserted from a real run.
+test "to_visual_graph surfaces latest elapsed_ns on the recomputed cell only" {
+  let timed_cell : @incr.CellId = { id: 1, runtime_id: 0 }
+  let untimed_cell : @incr.CellId = { id: 2, runtime_id: 0 }
+  let rev3 : @incr.Revision = { value: 3 }
+  let rev4 : @incr.Revision = { value: 4 }
+  let timed_node : IncrSnapshotNode = {
+    id: timed_cell,
+    label: Some("sum"),
+    changed_at: rev4,
+    verified_at: rev4,
+  }
+  let untimed_node : IncrSnapshotNode = {
+    id: untimed_cell,
+    label: Some("input"),
+    changed_at: rev3,
+    verified_at: rev3,
+  }
+  let event : IncrMemoEventRecord = {
+    cell_id: timed_cell,
+    phase: IncrCompleted,
+    started_revision: rev3,
+    elapsed_ns: Some(5000L),
+    verified_at: Some(rev4),
+    changed_at: Some(rev4),
+    backdated: false,
+  }
+  let snapshot : IncrSnapshot = {
+    nodes: [timed_node, untimed_node],
+    edges: [],
+    events: [event],
+  }
+  let dot = snapshot.to_visual_graph().to_dot()
+  // Timed cell: detail carries the formatted duration (5000ns → "5us").
+  inspect(dot.contains("verified 4, 5us"), content="true")
+  // Untimed cell: bare detail, no appended ", <unit>" timing segment.
+  inspect(dot.contains("changed 3, verified 3"), content="true")
+  inspect(dot.contains("verified 3, "), content="false")
+}
