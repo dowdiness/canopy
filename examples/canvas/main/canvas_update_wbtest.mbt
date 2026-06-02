@@ -128,22 +128,28 @@ test "node_drag_start is no-op for unknown node id" {
 }
 
 ///|
-test "node_drag_move updates node position" {
-  let state = make_test_state()
-  let s0 = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
-  let s1 = update_node_drag_move(s0, 200.0, 300.0)
-  let node = s1.nodes[0]
-  assert_eq(node.id, NodeId(1))
-  inspect(node.x, content="190")
-  inspect(node.y, content="280")
-  assert_true(s1.interaction.did_move)
-}
-
-///|
 test "pointer_up records a MoveNodes action after drag" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
-  let s1 = update_node_drag_move(s0, 200.0, 300.0)
+  let preview = drag_preview_from_move(
+    match s0.interaction.dragging {
+      Some(drag) => drag
+      None => fail("expected active drag")
+    },
+    200.0,
+    300.0,
+  )
+  let moved_nodes = s0.nodes.map(fn(node) {
+    match find_position(preview.positions, node.id) {
+      None => node
+      Some(pos) => { ..node, x: pos.x, y: pos.y }
+    }
+  })
+  let s1 = {
+    ..s0,
+    nodes: moved_nodes,
+    interaction: { ..s0.interaction, did_move: true },
+  }
   let s2 = update_pointer_up(s1, 1, "", false)
   assert_eq(s2.action_log.length(), 1)
   match s2.action_log[0].action() {
@@ -334,4 +340,62 @@ test "get_render_state exposes workflow JSON shape" {
   assert_true(json_str.contains("Timer trigger"))
   assert_true(json_str.contains("\"source_port\""))
   assert_true(json_str.contains("\"validation\""))
+}
+
+///|
+test "runtime live drag updates preview before one durable MoveNodes commit" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
+  let before = runtime.document.peek()
+  runtime.pointer_down(Some(NodeId(1)), -510.0, -180.0)
+  runtime.pointer_move(-400.0, -100.0)
+
+  let during = runtime.document.peek()
+  inspect(during.nodes[0].x, content="-520")
+  inspect(during.nodes[0].y, content="-190")
+  assert_eq(runtime.actions.peek().length(), 0)
+
+  let preview = runtime.render_state().nodes[0]
+  inspect(preview.x, content="-410")
+  inspect(preview.y, content="-110")
+  assert_eq(before.nodes[0].x, during.nodes[0].x)
+
+  runtime.pointer_up(1, "", false)
+  let after = runtime.document.peek()
+  inspect(after.nodes[0].x, content="-410")
+  inspect(after.nodes[0].y, content="-110")
+  assert_eq(runtime.actions.peek().length(), 1)
+  match runtime.actions.peek()[0].action() {
+    MoveNodes(positions) => {
+      assert_eq(positions.length(), 1)
+      inspect(positions[0].x, content="-410")
+      inspect(positions[0].y, content="-110")
+    }
+    _ => fail("expected MoveNodes action")
+  }
+}
+
+///|
+test "runtime sparse inspector follows hover until a node is selected" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
+  runtime.hover_node(1)
+  match runtime.render_state().inspector {
+    Some(node) => {
+      inspect(node.source, content="hovered")
+      inspect(node.title, content="Timer trigger")
+    }
+    None => fail("expected hovered inspector")
+  }
+
+  runtime.pointer_down(Some(NodeId(2)), -190.0, -190.0)
+  runtime.pointer_up(2, "", false)
+  runtime.hover_node(1)
+  match runtime.render_state().inspector {
+    Some(node) => {
+      inspect(node.source, content="selected")
+      inspect(node.title, content="HTTP request")
+    }
+    None => fail("expected selected inspector")
+  }
 }

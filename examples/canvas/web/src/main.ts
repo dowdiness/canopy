@@ -41,6 +41,7 @@ const edgesSvg   = document.getElementById('edges') as unknown as SVGSVGElement;
 const search     = document.getElementById('node-search') as HTMLInputElement;
 const libraryEl  = document.getElementById('node-library') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
+const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
 const contextMenu = document.getElementById('context-menu') as HTMLDivElement;
 const nodeDivs = new Map<number, HTMLDivElement>();
@@ -282,6 +283,7 @@ function render(): void {
   }
 
   renderValidation(state);
+  renderInspector(state);
 }
 
 function renderValidation(state: RenderState): void {
@@ -304,6 +306,39 @@ function renderValidation(state: RenderState): void {
     }
     validation.appendChild(item);
   }
+}
+
+function renderInspector(state: RenderState): void {
+  inspectorNode.replaceChildren();
+  if (!state.inspector) {
+    const empty = document.createElement('div');
+    empty.className = 'inspector-empty';
+    empty.textContent = 'Select or hover a node to inspect its sparse derived details.';
+    inspectorNode.appendChild(empty);
+    return;
+  }
+
+  const item = state.inspector;
+  const status = item.configured ? 'Configured' : 'Needs config';
+  const source = item.source === 'selected' ? 'Selected node' : 'Hovered node';
+
+  const eyebrow = document.createElement('div');
+  eyebrow.className = 'inspector-eyebrow';
+  eyebrow.textContent = source;
+  const title = document.createElement('div');
+  title.className = 'inspector-title';
+  title.textContent = item.title;
+  const subtitle = document.createElement('div');
+  subtitle.className = 'inspector-subtitle';
+  subtitle.textContent = item.subtitle;
+  const meta = document.createElement('div');
+  meta.className = 'inspector-meta';
+  const statusSpan = document.createElement('span');
+  statusSpan.textContent = status;
+  const portsSpan = document.createElement('span');
+  portsSpan.textContent = `${item.input_count} in · ${item.output_count} out`;
+  meta.replaceChildren(statusSpan, portsSpan);
+  inspectorNode.replaceChildren(eyebrow, title, subtitle, meta);
 }
 
 function focusNode(nodeId: number): void {
@@ -345,6 +380,14 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   adapter.addNode(kindKey, point[0], point[1]);
   hideContextMenu();
   scheduleRender();
+}
+
+function hoverNodeId(hit: HitTarget): number {
+  return hit.kind === 'background' ? 0 : hit.nodeId;
+}
+
+function updateHover(hit: HitTarget): void {
+  adapter.hoverNode(hoverNodeId(hit));
 }
 
 function hideContextMenu(): void {
@@ -422,9 +465,18 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
 });
 
 root.addEventListener('pointermove', (e: PointerEvent) => {
-  if (e.pointerId !== activePointerId) return;
+  updateHover(hitFromTarget(e.target));
+  if (e.pointerId !== activePointerId) {
+    scheduleRender();
+    return;
+  }
   const [sx, sy] = localCoords(e);
   adapter.pointerMove(sx, sy);
+  scheduleRender();
+});
+
+root.addEventListener('pointerleave', () => {
+  updateHover({ kind: 'background' });
   scheduleRender();
 });
 

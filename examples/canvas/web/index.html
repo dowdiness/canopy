@@ -179,20 +179,52 @@
       width: 310px;
       padding: var(--space-lg);
     }
-    #validation-list {
+    #validation-list,
+    #inspector-node {
       display: grid;
       gap: 6px;
       max-height: 30vh;
       overflow: auto;
     }
+    #inspector-node {
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--line);
+    }
     .validation-item,
-    .validation-ok {
+    .validation-ok,
+    .inspector-empty {
       border-radius: 10px;
       padding: 9px 10px;
       font-size: 12.5px;
       line-height: 1.38;
       background: oklch(28% 0.024 276 / 0.72);
       border: 1px solid var(--line);
+    }
+    .inspector-empty { color: var(--text-faint); }
+    .inspector-eyebrow {
+      color: var(--accent);
+      font-size: 10.5px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+    .inspector-title {
+      font-size: 16px;
+      font-weight: 620;
+      letter-spacing: -0.012em;
+    }
+    .inspector-subtitle {
+      color: var(--text-muted);
+      font-size: 12.5px;
+      line-height: 1.38;
+    }
+    .inspector-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-sm);
+      color: var(--text-faint);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      font-size: 10.5px;
     }
     .validation-item.warning {
       color: oklch(83% 0.07 54);
@@ -465,9 +497,10 @@
 
     <aside class="panel inspector-panel" aria-label="Validation and activity">
       <div class="panel-title">
-        <h2>Validation</h2>
+        <h2>Inspector</h2>
         <span id="action-stat">0 actions logged</span>
       </div>
+      <div id="inspector-node"></div>
       <div id="validation-list"></div>
       <p class="hint" style="margin-top: 12px;">Press ⌘/Ctrl-L to inspect the serialized action log.</p>
     </aside>

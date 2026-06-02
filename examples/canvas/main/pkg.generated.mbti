@@ -3,6 +3,7 @@ package "dowdiness/canopy-canvas/main"
 
 import {
   "dowdiness/canopy-canvas/graph_model",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -13,6 +14,8 @@ pub fn create_canvas() -> Int
 pub fn get_action_log(Int) -> String
 
 pub fn get_render_state(Int) -> String
+
+pub fn hover_node(Int, Int) -> Unit
 
 pub fn pointer_down(Int, Int, Double, Double) -> Unit
 
@@ -27,15 +30,36 @@ pub fn zoom(Int, Double, Double, Double) -> Unit
 // Errors
 
 // Types and methods
-type ConnectingJson derive(ToJson)
+type CanvasDocument derive(Eq, @debug.Debug)
 
-type EdgeJson derive(ToJson)
+type CanvasFullRenderJson derive(Eq)
 
-type NodeJson derive(ToJson)
+type CanvasRuntime
 
-type RenderStateJson derive(ToJson)
+type ConnectingJson derive(Eq, ToJson)
 
-type ValidationJson derive(ToJson)
+pub(all) struct DragPreview {
+  positions : Array[@graph_model.NodePosition]
+} derive(Eq, @debug.Debug)
+pub impl Show for DragPreview
+
+type EdgeJson derive(Eq, ToJson)
+
+type InspectorNodeJson derive(Eq, ToJson)
+
+type LoweredCanvas derive(Eq)
+
+type NodeJson derive(Eq, ToJson)
+
+type NormalizedCanvas derive(Eq)
+
+type RenderStateJson derive(Eq, ToJson)
+
+type SelectionState derive(Eq, @debug.Debug)
+
+type ValidatedCanvas derive(Eq)
+
+type ValidationJson derive(Eq, ToJson)
 
 // Type aliases
 pub using @graph_model {type CanvasNode}

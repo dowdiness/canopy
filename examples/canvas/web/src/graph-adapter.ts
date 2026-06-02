@@ -15,6 +15,7 @@ export type CanvasModule = {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  hover_node: (h: number, nodeId: number) => void;
   zoom: (h: number, delta: number, cx: number, cy: number) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   get_render_state: (h: number) => string;
@@ -56,6 +57,15 @@ export type ValidationMessage = {
   node_id?: number;
 };
 export type ViewportData = { x: number; y: number; scale: number };
+export type InspectorNode = {
+  id: number;
+  title: string;
+  subtitle: string;
+  configured: boolean;
+  input_count: number;
+  output_count: number;
+  source: 'selected' | 'hovered' | string;
+};
 export type RenderState = {
   viewport: ViewportData;
   nodes: NodeData[];
@@ -65,6 +75,7 @@ export type RenderState = {
   connecting?: Connecting;
   validation: ValidationMessage[];
   action_count: number;
+  inspector?: InspectorNode;
 };
 
 export type NodePositionData = { node_id: number; x: number; y: number };
@@ -155,6 +166,11 @@ export class GraphAdapter {
     this.assertLive();
     this.mb.pointer_up(this.handle, nodeId, targetPortId, additive);
     this.emitLatestOperations();
+  }
+
+  hoverNode(nodeId: number): void {
+    this.assertLive();
+    this.mb.hover_node(this.handle, nodeId);
   }
 
   zoom(delta: number, cx: number, cy: number): void {
