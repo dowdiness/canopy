@@ -14,8 +14,12 @@ fn node_id(id : String) -> @dot.NodeId {
 }
 
 ///|
-fn node_color(status : VisualNodeStatus) -> String {
-  match status {
+/// Stroke (border) color for a node in this status. This is the canonical
+/// status→color mapping; consumers that draw their own status key (e.g. the
+/// Ideal IncrGraph legend) call this so the swatches can't drift from the
+/// rendered nodes.
+pub fn VisualNodeStatus::stroke(self : VisualNodeStatus) -> String {
+  match self {
     Neutral => "#3b4252"
     Active => "#5e81ac"
     Changed => "#a3be8c"
@@ -24,8 +28,10 @@ fn node_color(status : VisualNodeStatus) -> String {
 }
 
 ///|
-fn node_fill(status : VisualNodeStatus) -> String {
-  match status {
+/// Fill color for a node in this status. Paired with `stroke`; see that
+/// method for the source-of-truth rationale.
+pub fn VisualNodeStatus::fill(self : VisualNodeStatus) -> String {
+  match self {
     Neutral => "#eceff4"
     Active => "#d8dee9"
     Changed => "#e5f1dc"
@@ -49,9 +55,9 @@ fn node_statement(node : VisualNode) -> @dot.Statement {
     Some(
       attrs([
         attr("label", node_label(node)),
-        attr("color", node_color(node.status)),
+        attr("color", node.status.stroke()),
         attr("fontcolor", "#1f2933"),
-        attr("fillcolor", node_fill(node.status)),
+        attr("fillcolor", node.status.fill()),
       ]),
     ),
   )

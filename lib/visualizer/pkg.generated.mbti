@@ -81,6 +81,8 @@ pub(all) enum VisualNodeStatus {
   Changed
   Failed
 }
+pub fn VisualNodeStatus::fill(Self) -> String
+pub fn VisualNodeStatus::stroke(Self) -> String
 
 // Type aliases
 

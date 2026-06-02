@@ -875,6 +875,79 @@ canopy-editor {
   color: var(--canopy-muted);
 }
 
+/* ── Incr Graph tab ─────────────────────────────────────── */
+
+/*
+ * Same vertical layout as the History tab: a fixed status-color legend
+ * strip on top (decoder for the VisualNodeStatus palette), the dependency
+ * SVG below in a centered, overflow-aware region.
+ */
+.incr-graph-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Empty-state message ("No incr cells observed yet") — the container drops
+ * its padding for the legend layout, so restore it for the bare span. The
+ * shared `.no-problems` color is success-green (right for the Problems tab,
+ * wrong for this neutral-info message); override to muted for parity with
+ * the History tab's `.history-empty`. */
+.incr-graph-content .no-problems {
+  padding: var(--space-md);
+  color: var(--canopy-muted);
+}
+
+.incr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-label);
+  color: var(--canopy-muted);
+  border-bottom: 1px solid var(--canopy-border);
+  flex-shrink: 0;
+}
+
+.incr-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+/*
+ * Swatch mirrors an actual graph node: a rounded rect filled with the
+ * status fill color and bordered with its stroke color. Both colors arrive
+ * via inline style, sourced from @visualizer.VisualNodeStatus::fill/::stroke.
+ */
+.incr-legend-swatch {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1.5px solid;
+  flex-shrink: 0;
+}
+
+.incr-graph {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--space-md);
+}
+
+.incr-graph svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
 /* ── Panel scrim (mobile only — hidden on desktop) ─────── */
 
 .panel-scrim {
