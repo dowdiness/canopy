@@ -193,4 +193,15 @@ jobs:
           # at _build/js/release/build/main/main.js is never produced. Same
           # treatment as scripts/test-canvas-e2e.sh. Tracked as #335.
           MOON_WORK: off
+          # CI-only p95 paint budget (#458). The 100 ms local default
+          # (editor-response.perf.spec.ts:28) is too tight for shared runners:
+          # PR #453's build-inert diff flaked at 128-136 ms p95 from runner
+          # timing variance alone (attempt-2 re-run of the identical diff passed
+          # < 100 ms). 175 clears the observed flake ceiling (~29% headroom over
+          # 136) while staying below 2x the healthy < 100 ms baseline, so a
+          # genuine ~2x regression still trips the gate (positive-control
+          # verified). The tight local default is preserved. Single-run p95 is
+          # inherently noisy on shared infra; a robust median/trimmed-mean metric
+          # (#458 levers 2-3) is the durable follow-up.
+          EDITOR_RESPONSE_P95_BUDGET_MS: 175
         run: npm run test:perf
