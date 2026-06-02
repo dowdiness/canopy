@@ -25,13 +25,13 @@ test "to_visual_graph surfaces latest elapsed_ns on the recomputed cell only" {
   let untimed_cell : @incr.CellId = { id: 2, runtime_id: 0 }
   let rev3 : @incr.Revision = { value: 3 }
   let rev4 : @incr.Revision = { value: 4 }
-  let timed_node : IncrSnapshotNode = {
+  let timed_node : RecomputeSnapshotNode = {
     id: timed_cell,
     label: Some("sum"),
     changed_at: rev4,
     verified_at: rev4,
   }
-  let untimed_node : IncrSnapshotNode = {
+  let untimed_node : RecomputeSnapshotNode = {
     id: untimed_cell,
     label: Some("input"),
     changed_at: rev3,
@@ -46,7 +46,7 @@ test "to_visual_graph surfaces latest elapsed_ns on the recomputed cell only" {
     changed_at: Some(rev4),
     backdated: false,
   }
-  let snapshot : IncrSnapshot = {
+  let snapshot : RecomputeSnapshot = {
     nodes: [timed_node, untimed_node],
     edges: [],
     events: [event],

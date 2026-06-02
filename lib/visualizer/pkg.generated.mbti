@@ -12,25 +12,6 @@ import {
 // Errors
 
 // Types and methods
-pub struct IncrSnapshot {
-  nodes : Array[IncrSnapshotNode]
-  edges : Array[IncrSnapshotEdge]
-  events : Array[RecomputeRecord]
-}
-pub fn IncrSnapshot::to_visual_graph(Self) -> VisualGraph
-
-pub struct IncrSnapshotEdge {
-  from : @types.CellId
-  to : @types.CellId
-}
-
-pub struct IncrSnapshotNode {
-  id : @types.CellId
-  label : String?
-  changed_at : @types.Revision
-  verified_at : @types.Revision
-}
-
 pub(all) enum RecomputePhase {
   Entering
   Completed
@@ -47,13 +28,32 @@ pub struct RecomputeRecord {
   backdated : Bool
 }
 
+pub struct RecomputeSnapshot {
+  nodes : Array[RecomputeSnapshotNode]
+  edges : Array[RecomputeSnapshotEdge]
+  events : Array[RecomputeRecord]
+}
+pub fn RecomputeSnapshot::to_visual_graph(Self) -> VisualGraph
+
+pub struct RecomputeSnapshotEdge {
+  from : @types.CellId
+  to : @types.CellId
+}
+
+pub struct RecomputeSnapshotNode {
+  id : @types.CellId
+  label : String?
+  changed_at : @types.Revision
+  verified_at : @types.Revision
+}
+
 pub struct RecomputeTap {
   // private fields
 }
 pub fn RecomputeTap::attach(@cells.Runtime) -> Self raise Failure
 pub fn RecomputeTap::detach(Self) -> Unit
 pub fn RecomputeTap::drain_events(Self) -> Array[RecomputeRecord]
-pub fn RecomputeTap::snapshot(Self) -> IncrSnapshot
+pub fn RecomputeTap::snapshot(Self) -> RecomputeSnapshot
 
 pub struct VisualEdge {
   // private fields
