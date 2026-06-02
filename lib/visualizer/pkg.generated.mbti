@@ -12,34 +12,10 @@ import {
 // Errors
 
 // Types and methods
-pub(all) enum IncrMemoEventPhase {
-  IncrEntering
-  IncrCompleted
-  IncrAborted
-}
-
-pub struct IncrMemoEventRecord {
-  cell_id : @types.CellId
-  phase : IncrMemoEventPhase
-  started_revision : @types.Revision
-  elapsed_ns : Int64?
-  verified_at : @types.Revision?
-  changed_at : @types.Revision?
-  backdated : Bool
-}
-
-pub struct IncrMemoEventTap {
-  // private fields
-}
-pub fn IncrMemoEventTap::attach(@cells.Runtime) -> Self raise Failure
-pub fn IncrMemoEventTap::detach(Self) -> Unit
-pub fn IncrMemoEventTap::drain_events(Self) -> Array[IncrMemoEventRecord]
-pub fn IncrMemoEventTap::snapshot(Self) -> IncrSnapshot
-
 pub struct IncrSnapshot {
   nodes : Array[IncrSnapshotNode]
   edges : Array[IncrSnapshotEdge]
-  events : Array[IncrMemoEventRecord]
+  events : Array[RecomputeRecord]
 }
 pub fn IncrSnapshot::to_visual_graph(Self) -> VisualGraph
 
@@ -54,6 +30,30 @@ pub struct IncrSnapshotNode {
   changed_at : @types.Revision
   verified_at : @types.Revision
 }
+
+pub(all) enum RecomputePhase {
+  Entering
+  Completed
+  Aborted
+}
+
+pub struct RecomputeRecord {
+  cell_id : @types.CellId
+  phase : RecomputePhase
+  started_revision : @types.Revision
+  elapsed_ns : Int64?
+  verified_at : @types.Revision?
+  changed_at : @types.Revision?
+  backdated : Bool
+}
+
+pub struct RecomputeTap {
+  // private fields
+}
+pub fn RecomputeTap::attach(@cells.Runtime) -> Self raise Failure
+pub fn RecomputeTap::detach(Self) -> Unit
+pub fn RecomputeTap::drain_events(Self) -> Array[RecomputeRecord]
+pub fn RecomputeTap::snapshot(Self) -> IncrSnapshot
 
 pub struct VisualEdge {
   // private fields

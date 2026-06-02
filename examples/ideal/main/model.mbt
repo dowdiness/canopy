@@ -104,5 +104,5 @@ pub struct Model {
   // Model-owned tap on the parser's incr Runtime. Created once at init so it
   // observes memo events across the whole session, not per render. Reads via
   // `snapshot()` for the IncrGraph bottom-panel tab.
-  incr_tap : @visualizer.IncrMemoEventTap
+  incr_tap : @visualizer.RecomputeTap
 }

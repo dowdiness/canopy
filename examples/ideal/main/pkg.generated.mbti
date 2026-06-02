@@ -130,7 +130,7 @@ pub struct Model {
   drop_position : @core.DropPosition?
   intent_log : Array[String]
   patch_log : Array[PatchEntry]
-  incr_tap : @visualizer.IncrMemoEventTap
+  incr_tap : @visualizer.RecomputeTap
 }
 
 pub enum Msg {

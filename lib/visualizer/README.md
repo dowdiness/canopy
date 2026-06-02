@@ -8,7 +8,7 @@ renderer-neutral graph model, then render with the local `dowdiness/graphviz`
 layout and SVG renderer. The Graphviz SVG renderer is backed by the local
 `dowdiness/svg-dsl` module.
 
-The first adapter is `IncrMemoEventTap`, which listens to
+The first adapter is `RecomputeTap`, which listens to
 `Runtime::on_memo_event`, records compact memo recompute events, enriches known
 cells through `Runtime::cell_info`, and renders the dependency graph. The tap
 does not publish events back into the same runtime. `detach()` deactivates the
