@@ -73,7 +73,7 @@ fn remember_cell(ids : Array[@incr.CellId], id : @incr.CellId) -> Unit {
 }
 
 ///|
-fn event_from_memo_event(evt : @incr.MemoEvent) -> RecomputeRecord {
+fn event_from_memo_event(evt : @incr.DerivedEvent) -> RecomputeRecord {
   match evt {
     EnteringCompute(e) =>
       {
@@ -109,7 +109,7 @@ fn event_from_memo_event(evt : @incr.MemoEvent) -> RecomputeRecord {
 }
 
 ///|
-fn RecomputeTap::record(self : RecomputeTap, evt : @incr.MemoEvent) -> Unit {
+fn RecomputeTap::record(self : RecomputeTap, evt : @incr.DerivedEvent) -> Unit {
   guard self.active.val else { return }
   let record = event_from_memo_event(evt)
   remember_cell(self.cells, record.cell_id)
@@ -228,7 +228,7 @@ fn record_status(record : RecomputeRecord?) -> VisualNodeStatus {
 /// any previous listener owned by the same runtime.
 pub fn RecomputeTap::attach(rt : @incr.Runtime) -> RecomputeTap raise Failure {
   let tap = { rt, active: Ref(true), events: @hashmap.HashMap([]), cells: [] }
-  rt.on_memo_event(evt => tap.record(evt))
+  rt.on_derived_event(evt => tap.record(evt))
   tap
 }
 
