@@ -438,6 +438,26 @@ test "source-backed DisconnectPorts removes a trailing input reference" {
 }
 
 ///|
+test "source-backed DisconnectPorts consumes a valid trailing comma" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc,)"
+  let handle = create_source_graph(source)
+  let disconnect = GraphOperation(
+    DisconnectPorts(NodeId(1), "out", NodeId(2), "input"),
+  )
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, disconnect.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nmeter = scope()",
+  )
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed unique insert chooses a fresh graph-dsl binding" {
   let handle = create_source_graph("reverb = plate()")
   inspect(
