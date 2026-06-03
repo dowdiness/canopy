@@ -1646,6 +1646,12 @@ fn push_delete_range_shrinks(
     if start != 0 || end_ != total {
       results.push({ items, start: 0, end_: total })
     }
+    if start != total || end_ != total {
+      results.push({ items, start: total, end_: total })
+    }
+    if start != total - 1 || end_ != total {
+      results.push({ items, start: total - 1, end_: total })
+    }
     let mid = total / 2
     if start != mid || end_ != mid {
       results.push({ items, start: mid, end_: mid })
@@ -1665,6 +1671,9 @@ fn push_delete_range_shrinks(
   }
   if end_ > total && end_ != total + 1 {
     results.push({ items, start, end_: total + 1 })
+  }
+  if start > end_ {
+    results.push({ items, start: end_, end_: start })
   }
   for next_start in @qc.Shrink::shrink(start) {
     results.push({ items, start: next_start, end_ })
