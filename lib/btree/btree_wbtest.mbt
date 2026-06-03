@@ -2274,7 +2274,40 @@ impl @quickcheck.Arbitrary for FromSortedCase with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for FromSortedCase
+fn push_from_sorted_case_shrinks(
+  results : Array[FromSortedCase],
+  items : Array[(Int, Int)],
+  min_degree : Int,
+) -> Unit {
+  if min_degree != 2 {
+    results.push({ items, min_degree: 2 })
+  }
+  if min_degree != 3 {
+    results.push({ items, min_degree: 3 })
+  }
+  if min_degree != 4 {
+    results.push({ items, min_degree: 4 })
+  }
+  if min_degree != 5 {
+    results.push({ items, min_degree: 5 })
+  }
+  for next_min_degree in @qc.Shrink::shrink(min_degree) {
+    if next_min_degree < 2 || next_min_degree > 5 {
+      results.push({ items, min_degree: next_min_degree })
+    }
+  }
+}
+
+///|
+impl @qc.Shrink for FromSortedCase with fn shrink(case_) {
+  let results : Array[FromSortedCase] = []
+  push_from_sorted_case_shrinks(results, case_.items, case_.min_degree)
+  for items in shrink_generated_items(case_.items) {
+    results.push({ items, min_degree: case_.min_degree })
+    push_from_sorted_case_shrinks(results, items, case_.min_degree)
+  }
+  results.iter()
+}
 
 ///|
 fn prop_from_sorted_invariants(case_ : FromSortedCase) -> Bool {
