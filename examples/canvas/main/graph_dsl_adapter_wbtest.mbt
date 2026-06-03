@@ -57,6 +57,40 @@ fn operation_result_applied(json_text : String) -> Bool {
 }
 
 ///|
+fn operation_result_message(json_text : String) -> String? {
+  let json = @json.parse(json_text) catch {
+    _ => abort("expected operation result JSON")
+  }
+  match json {
+    Json::Object(fields) =>
+      match fields.get("message") {
+        Some(Json::String(message)) => Some(message)
+        None => None
+        _ => abort("expected operation result message string")
+      }
+    _ => abort("expected operation result object")
+  }
+}
+
+///|
+fn render_selected_nodes(json_text : String) -> Array[Int] {
+  let json = @json.parse(json_text) catch {
+    _ => abort("expected render state JSON")
+  }
+  match json {
+    Json::Object(fields) =>
+      match fields.get("selected_nodes") {
+        Some(value) =>
+          @json.from_json(value) catch {
+            _ => abort("expected selected_nodes array")
+          }
+        None => abort("expected selected_nodes field")
+      }
+    _ => abort("expected render state object")
+  }
+}
+
+///|
 fn ok_operation_log(json_text : String) -> Array[GraphOperation] {
   let json = @json.parse(json_text) catch {
     _ => abort("expected operation log JSON")
@@ -232,6 +266,120 @@ test "source-backed handle lowers GraphOperation through graph-dsl source" {
       }
     _ => abort("expected two source-backed operations")
   }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DeleteNodes removes a safe binding line" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()"
+  let handle = create_source_graph(source)
+  let delete = GraphOperation(DeleteNodes([NodeId(2)]))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, delete.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nreverb = plate()",
+  )
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [deleted] =>
+      match deleted.action() {
+        DeleteNodes(nodes) => @debug.assert_eq(nodes, [NodeId(2)])
+        _ => abort("expected DeleteNodes action")
+      }
+    _ => abort("expected one source-backed delete operation")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DeleteNodes rejects survivor references" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)"
+  let handle = create_source_graph(source)
+  let delete = GraphOperation(DeleteNodes([NodeId(1)]))
+  let result = apply_source_graph_operation(
+    handle,
+    delete.to_json().stringify(),
+  )
+  inspect(operation_result_applied(result), content="false")
+  match operation_result_message(result) {
+    Some(message) =>
+      inspect(message.contains("still references"), content="true")
+    None => abort("expected DeleteNodes rejection message")
+  }
+  inspect(get_source_graph_source(handle), content=source)
+  inspect(get_source_graph_action_log(handle), content="[]")
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DeleteNodes allows deleting a referenced subgraph together" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)"
+  let handle = create_source_graph(source)
+  let delete = GraphOperation(DeleteNodes([NodeId(1), NodeId(2)]))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, delete.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(get_source_graph_source(handle), content="")
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DeleteNodes clears transient selection after rewrite" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 2, 0.0, 0.0)
+  source_graph_pointer_up(handle, 2, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
+  let delete = GraphOperation(DeleteNodes([NodeId(2)]))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, delete.to_json().stringify()),
+    ),
+    content="true",
+  )
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DeleteNodes remaps selected survivor by binding" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()\nreverb = plate()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 3, 0.0, 0.0)
+  source_graph_pointer_up(handle, 3, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [3],
+  )
+  let delete = GraphOperation(DeleteNodes([NodeId(2)]))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, delete.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nreverb = plate()",
+  )
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
   destroy_source_graph(handle)
 }
 

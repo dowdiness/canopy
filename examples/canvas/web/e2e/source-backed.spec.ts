@@ -94,6 +94,61 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   expect(runtimeErrors).toEqual([]);
 });
 
+test('source-backed selected node deletion lowers into canonical source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+
+  const meter = page.locator('.canvas-node[data-node-id="2"]');
+  await meter.click();
+  await expect(meter).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await page.keyboard.press('Delete');
+
+  await expect(page.locator('#source-editor')).toHaveValue('osc = sine(freq: 440Hz)');
+  await expect(page.locator('.canvas-node')).toHaveCount(1);
+  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed deletion rejects unsafe survivor references', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await page.locator('#source-connect').click();
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
+  );
+
+  const osc = page.locator('.canvas-node[data-node-id="1"]');
+  await osc.click();
+  await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await page.keyboard.press('Delete');
+
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
+  );
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+  await expect(page.locator('#source-status')).toContainText('Source delete rejected:');
+  await expect(page.locator('#source-status')).toContainText('still references deleted binding');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed deletion ignores source editor focus', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await page.locator('.canvas-node[data-node-id="2"]').click();
+  await page.locator('#source-editor').focus();
+  await page.keyboard.press('Backspace');
+
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 for (const invalidSource of INVALID_SOURCE_CASES) {
   test(`source-backed apply reports ${invalidSource.name} source as invalid`, async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);

@@ -129,6 +129,51 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   expect(runtimeErrors).toEqual([]);
 });
 
+test('selected canvas nodes delete with incident edges from the keyboard', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(edgePaths(page)).toHaveCount(3);
+
+  const node = page.locator('.canvas-node[data-node-id="2"]');
+  await node.click();
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.canvas-node')).toHaveCount(5);
+  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
+  await expect(edgePaths(page)).toHaveCount(1);
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('keyboard deletion ignores text-input focus', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await page.locator('.canvas-node[data-node-id="2"]').click();
+  await page.locator('#node-search').focus();
+  await page.keyboard.press('Backspace');
+
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('input handles preview compatibility during a connection drag', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));

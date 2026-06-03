@@ -329,11 +329,11 @@ fn source_graph_current_doc(
 fn lower_source_operation(
   doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
-) -> Result[@graph_dsl.LoweredGraphEdit, String] {
+) -> Result[SourceOperationEdit, String] {
   match operation.action() {
     AddNode(node) =>
       match doc.lower_insert_node_binding(node.title, node.subtitle) {
-        Some(edit) => Ok(edit)
+        Some(edit) => Ok(ExactLoweredEdit(edit))
         None =>
           Err(
             "cannot lower AddNode for binding '" +
@@ -360,10 +360,11 @@ fn lower_source_operation(
       }
       match
         doc.lower_add_connection(target_node.binding(), source_node.binding()) {
-        Some(edit) => Ok(edit)
+        Some(edit) => Ok(ExactLoweredEdit(edit))
         None => Err("cannot lower ConnectPorts into source")
       }
     }
+    DeleteNodes(nodes) => lower_delete_nodes(doc, nodes)
     MoveNodes(_) =>
       Err("MoveNodes is local layout state; source lowering is not defined")
     SelectNodes(_) =>
@@ -376,16 +377,25 @@ fn lower_source_operation(
 }
 
 ///|
-fn SourceBackedGraph::apply_lowered_edit(
+fn SourceBackedGraph::apply_source_edit(
   self : SourceBackedGraph,
-  edit : @graph_dsl.LoweredGraphEdit,
+  edit : SourceOperationEdit,
 ) -> Result[@graph_dsl.GraphDoc, String] {
   let old_source = self.source
-  let new_source = edit.new_source()
-  match edit.incremental_edit() {
-    Some(incremental_edit) =>
-      self.attachment.apply_edit(incremental_edit, new_source)
-    None => self.attachment.set_source(new_source)
+  let new_source = match edit {
+    ExactLoweredEdit(edit) => {
+      let new_source = edit.new_source()
+      match edit.incremental_edit() {
+        Some(incremental_edit) =>
+          self.attachment.apply_edit(incremental_edit, new_source)
+        None => self.attachment.set_source(new_source)
+      }
+      new_source
+    }
+    WholeSourceReplacement(new_source) => {
+      self.attachment.set_source(new_source)
+      new_source
+    }
   }
   self.source = new_source
   match self.attachment.current_result() {
@@ -419,6 +429,79 @@ fn SourceBackedGraph::append_operation(
   operation : GraphOperation,
 ) -> Unit {
   self.action_log.push(operation)
+}
+
+///|
+fn source_delete_surviving_selection_bindings(
+  doc : @graph_dsl.GraphDoc,
+  interaction : InteractionState,
+  deleted : Array[NodeId],
+) -> Array[String] {
+  let bindings : Array[String] = []
+  for node_id in interaction.selected_nodes {
+    if !@graph_model.node_id_in_array(deleted, node_id) {
+      match graph_node_for_canvas_id(doc, node_id) {
+        Some(node) => append_unique_string(bindings, node.binding())
+        None => ()
+      }
+    }
+  }
+  bindings
+}
+
+///|
+fn source_selection_from_bindings(
+  doc : @graph_dsl.GraphDoc,
+  bindings : Array[String],
+) -> Array[NodeId] {
+  let nodes : Array[NodeId] = []
+  for binding in bindings {
+    match canvas_id_for_binding(doc, binding) {
+      Some(id) => nodes.push(id)
+      None => ()
+    }
+  }
+  nodes
+}
+
+///|
+fn SourceBackedGraph::remap_deleted_interaction(
+  self : SourceBackedGraph,
+  doc : @graph_dsl.GraphDoc,
+  survivor_bindings : Array[String],
+) -> Unit {
+  let selected_nodes = source_selection_from_bindings(doc, survivor_bindings)
+  let selected = if selected_nodes.length() == 0 {
+    None
+  } else {
+    Some(selected_nodes[0])
+  }
+  self.drag_preview = idle_drag_preview()
+  self.interaction = {
+    dragging: None,
+    panning: None,
+    connecting: None,
+    selected,
+    selected_nodes,
+    pointer_down: false,
+    did_move: false,
+  }
+}
+
+///|
+fn SourceBackedGraph::sync_local_operation_state(
+  self : SourceBackedGraph,
+  doc : @graph_dsl.GraphDoc,
+  operation : GraphOperation,
+  survivor_selection_bindings : Array[String],
+) -> Unit {
+  match operation.action() {
+    DeleteNodes(_) => {
+      self.remap_deleted_interaction(doc, survivor_selection_bindings)
+      self.sync_layout_from_state(source_graph_base_canvas_state(self))
+    }
+    _ => ()
+  }
 }
 
 ///|
@@ -815,13 +898,25 @@ pub fn apply_source_graph_operation(
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
+  let survivor_selection_bindings = match operation.action() {
+    DeleteNodes(deleted) =>
+      source_delete_surviving_selection_bindings(
+        doc,
+        graph.interaction,
+        deleted,
+      )
+    _ => []
+  }
   let lowered = match lower_source_operation(doc, operation) {
     Ok(edit) => edit
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
-  match graph.apply_lowered_edit(lowered) {
+  match graph.apply_source_edit(lowered) {
     Ok(doc) => {
+      graph.sync_local_operation_state(
+        doc, operation, survivor_selection_bindings,
+      )
       graph.append_operation(realized_source_operation(doc, operation))
       source_graph_result_for_graph(graph, true, None)
     }

@@ -180,6 +180,7 @@ pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
   MoveNodes(Array[NodePosition])
   ConnectPorts(NodeId, String, NodeId, String)
+  DeleteNodes(Array[NodeId])
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
 } derive(Eq, ToJson, @debug.Debug)

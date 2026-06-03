@@ -59,6 +59,21 @@ test "GraphOperation round-trips through JSON" {
 }
 
 ///|
+test "DeleteNodes serializes node ids" {
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::DeleteNodes([node_id(1), node_id(2)]),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":1,\"type\":\"DeleteNodes\",\"nodes\":[1,2]}",
+  )
+  let decoded : @graph_model.GraphOperation = @json.from_json(
+    operation.to_json(),
+  )
+  @debug.assert_eq(decoded, operation)
+}
+
+///|
 test "operation log round-trips and replays into canvas graph state" {
   let added = @graph_model.make_workflow_node(
     node_id(3),
@@ -83,17 +98,44 @@ test "operation log round-trips and replays into canvas graph state" {
         "in",
       ),
     ),
+    @graph_model.GraphOperation::GraphOperation(
+      @graph_model.WorkflowAction::DeleteNodes([node_id(2)]),
+    ),
   ]
   let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
     operations.to_json(),
   )
   @debug.assert_eq(decoded, operations)
   let replayed = @graph_model.replay_operations(replay_base_state(), decoded)
-  assert_eq(replayed.nodes.length(), 3)
-  assert_eq(replayed.edges.length(), 1)
-  assert_eq(replayed.edges[0].source, node_id(1))
-  assert_eq(replayed.edges[0].target, node_id(2))
-  assert_eq(replayed.nodes[2].x, 800.0)
-  assert_eq(replayed.nodes[2].y, 140.0)
-  assert_eq(replayed.action_log.length(), 3)
+  assert_eq(replayed.nodes.length(), 2)
+  assert_eq(replayed.edges.length(), 0)
+  assert_eq(replayed.nodes[1].id, node_id(3))
+  assert_eq(replayed.nodes[1].x, 800.0)
+  assert_eq(replayed.nodes[1].y, 140.0)
+  assert_eq(replayed.action_log.length(), 4)
+}
+
+///|
+test "DeleteNodes removes incident edges and deleted selection" {
+  let selected = @graph_model.set_selection(replay_base_state(), [
+    node_id(1),
+    node_id(2),
+  ])
+  let connected = @graph_model.record_action(
+    selected,
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(1),
+      "tick",
+      node_id(2),
+      "in",
+    ),
+  )
+  let deleted = @graph_model.record_action(
+    connected,
+    @graph_model.WorkflowAction::DeleteNodes([node_id(1)]),
+  )
+  assert_eq(deleted.nodes.length(), 1)
+  assert_eq(deleted.edges.length(), 0)
+  @debug.assert_eq(deleted.interaction.selected_nodes, [node_id(2)])
+  @debug.debug_inspect(deleted.interaction.selected, content="Some(NodeId(2))")
 }

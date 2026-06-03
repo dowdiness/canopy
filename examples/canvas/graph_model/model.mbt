@@ -182,6 +182,7 @@ pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
   MoveNodes(Array[NodePosition])
   ConnectPorts(NodeId, String, NodeId, String)
+  DeleteNodes(Array[NodeId])
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
 } derive(Debug, Eq, ToJson)
@@ -290,6 +291,10 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
       fields["target"] = target.to_json()
       fields["target_port"] = target_port.to_json()
     }
+    DeleteNodes(nodes) => {
+      fields["type"] = "DeleteNodes".to_json()
+      fields["nodes"] = nodes.to_json()
+    }
     SelectNodes(nodes) => {
       fields["type"] = "SelectNodes".to_json()
       fields["nodes"] = nodes.to_json()
@@ -348,6 +353,12 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
         fields, path, "target_port", "ConnectPorts",
       )
       WorkflowAction::ConnectPorts(source, source_port, target, target_port)
+    }
+    "DeleteNodes" => {
+      let nodes : Array[NodeId] = @json.from_json(
+        require_json_field(fields, path, "nodes", "DeleteNodes"),
+      )
+      WorkflowAction::DeleteNodes(nodes)
     }
     "SelectNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
@@ -728,6 +739,45 @@ fn append_edge(
 }
 
 ///|
+fn edge_incident_to_nodes(edge : Edge, nodes : Array[NodeId]) -> Bool {
+  node_id_in_array(nodes, edge.source) || node_id_in_array(nodes, edge.target)
+}
+
+///|
+fn delete_nodes_from_state(
+  state : CanvasState,
+  deleted : Array[NodeId],
+) -> CanvasState {
+  if deleted.length() == 0 {
+    return state
+  }
+  let nodes = state.nodes.filter(fn(node) {
+    !node_id_in_array(deleted, node.id)
+  })
+  let edges = state.edges.filter(fn(edge) {
+    !edge_incident_to_nodes(edge, deleted)
+  })
+  let selected_nodes = state.interaction.selected_nodes.filter(fn(node) {
+    !node_id_in_array(deleted, node)
+  })
+  let selected = if selected_nodes.length() == 0 {
+    None
+  } else {
+    Some(selected_nodes[0])
+  }
+  let interaction : InteractionState = {
+    dragging: None,
+    panning: None,
+    connecting: None,
+    selected,
+    selected_nodes,
+    pointer_down: false,
+    did_move: false,
+  }
+  { ..state, nodes, edges, interaction }
+}
+
+///|
 pub fn set_selection(state : CanvasState, nodes : Array[NodeId]) -> CanvasState {
   let selected = if nodes.length() == 0 { None } else { Some(nodes[0]) }
   let new_interaction : InteractionState = {
@@ -764,6 +814,7 @@ pub fn apply_action(
       } else {
         state
       }
+    DeleteNodes(nodes) => delete_nodes_from_state(state, nodes)
     SelectNodes(nodes) => set_selection(state, nodes)
     SetViewport(viewport) => { ..state, viewport, }
   }
