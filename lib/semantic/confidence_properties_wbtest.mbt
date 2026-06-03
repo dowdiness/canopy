@@ -40,11 +40,6 @@ struct Pair {
 } derive(Debug)
 
 ///|
-impl Show for Pair with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 impl @quickcheck.Arbitrary for Pair with fn arbitrary(size, rs) {
   {
     a: @quickcheck.Arbitrary::arbitrary(size, rs.split()),
@@ -62,11 +57,6 @@ struct Triple {
   b : Confidence[Role]
   c : Confidence[Role]
 } derive(Debug)
-
-///|
-impl Show for Triple with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
 
 ///|
 impl @quickcheck.Arbitrary for Triple with fn arbitrary(size, rs) {
