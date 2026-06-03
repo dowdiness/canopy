@@ -70,6 +70,8 @@
     #edges {
       position: absolute;
       top: 0; left: 0;
+      width: 100%;
+      height: 100%;
       overflow: visible;
       pointer-events: none;
       transform-origin: 0 0;
@@ -78,6 +80,15 @@
       fill: none;
       stroke: oklch(62% 0.095 292 / 0.78);
       stroke-width: 2;
+      pointer-events: stroke;
+      cursor: pointer;
+      transition: stroke 120ms ease, stroke-width 120ms ease, filter 120ms ease;
+    }
+    #edges path.edge:hover,
+    #edges path.edge.selected {
+      stroke: oklch(76% 0.15 292 / 0.96);
+      stroke-width: 4;
+      filter: drop-shadow(0 0 8px oklch(63% 0.12 292 / 0.42));
     }
     #edges path.edge-pending {
       fill: none;

@@ -384,6 +384,60 @@ test "source-backed DeleteNodes remaps selected survivor by binding" {
 }
 
 ///|
+test "source-backed DisconnectPorts removes only the target input reference" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc, gain: 2)\ntap = scope(input: osc)"
+  let handle = create_source_graph(source)
+  let disconnect = GraphOperation(
+    DisconnectPorts(NodeId(1), "out", NodeId(2), "input"),
+  )
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, disconnect.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nmeter = scope(gain: 2)\ntap = scope(input: osc)",
+  )
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [disconnected] =>
+      match disconnected.action() {
+        DisconnectPorts(source, source_port, target, target_port) => {
+          @debug.assert_eq(source, NodeId(1))
+          inspect(source_port, content="out")
+          @debug.assert_eq(target, NodeId(2))
+          inspect(target_port, content="input")
+        }
+        _ => abort("expected DisconnectPorts action")
+      }
+    _ => abort("expected one source-backed disconnect operation")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed DisconnectPorts removes a trailing input reference" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(gain: 2, input: osc)"
+  let handle = create_source_graph(source)
+  let disconnect = GraphOperation(
+    DisconnectPorts(NodeId(1), "out", NodeId(2), "input"),
+  )
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, disconnect.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 440Hz)\nmeter = scope(gain: 2)",
+  )
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed unique insert chooses a fresh graph-dsl binding" {
   let handle = create_source_graph("reverb = plate()")
   inspect(

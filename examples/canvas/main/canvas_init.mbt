@@ -91,6 +91,22 @@ pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
 }
 
 ///|
+pub fn disconnect_ports(
+  handle : Int,
+  source : Int,
+  source_port : String,
+  target : Int,
+  target_port : String,
+) -> Unit {
+  _registry[handle].disconnect_ports(
+    NodeId(source),
+    source_port,
+    NodeId(target),
+    target_port,
+  )
+}
+
+///|
 /// Serializable node snapshot. Uses plain Int for `id` to avoid
 /// the NodeId newtype wrapper appearing in JSON output.
 struct NodeJson {

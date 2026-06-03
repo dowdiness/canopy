@@ -20,6 +20,8 @@ pub fn delete_nodes(Int, String) -> Unit
 
 pub fn destroy_source_graph(Int) -> Unit
 
+pub fn disconnect_ports(Int, Int, String, Int, String) -> Unit
+
 pub fn get_action_log(Int) -> String
 
 pub fn get_render_state(Int) -> String

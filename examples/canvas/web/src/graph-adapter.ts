@@ -19,6 +19,13 @@ export type CanvasModule = {
   zoom: (h: number, delta: number, cx: number, cy: number) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
+  disconnect_ports: (
+    h: number,
+    source: number,
+    sourcePort: string,
+    target: number,
+    targetPort: string,
+  ) => void;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
@@ -152,6 +159,14 @@ export type GraphOperation =
   | {
       version: number;
       type: 'ConnectPorts';
+      source: number;
+      source_port: string;
+      target: number;
+      target_port: string;
+    }
+  | {
+      version: number;
+      type: 'DisconnectPorts';
       source: number;
       source_port: string;
       target: number;
@@ -331,6 +346,43 @@ export class GraphAdapter {
       return this.applyOperation(operation);
     }
     this.mb.delete_nodes(this.handle, JSON.stringify(uniqueNodeIds));
+    this.emitLatestOperations();
+    return null;
+  }
+
+  disconnectPorts(
+    sourceNodeId: number,
+    sourcePortId: string,
+    targetNodeId: number,
+    targetPortId: string,
+  ): SourceGraphOperationResult | null {
+    this.assertLive();
+    if (
+      !Number.isFinite(sourceNodeId) ||
+      !Number.isFinite(targetNodeId) ||
+      sourcePortId.length === 0 ||
+      targetPortId.length === 0
+    ) {
+      return null;
+    }
+    const operation: GraphOperation = {
+      version: 1,
+      type: 'DisconnectPorts',
+      source: sourceNodeId,
+      source_port: sourcePortId,
+      target: targetNodeId,
+      target_port: targetPortId,
+    };
+    if (this.isSourceBacked) {
+      return this.applyOperation(operation);
+    }
+    this.mb.disconnect_ports(
+      this.handle,
+      sourceNodeId,
+      sourcePortId,
+      targetNodeId,
+      targetPortId,
+    );
     this.emitLatestOperations();
     return null;
   }

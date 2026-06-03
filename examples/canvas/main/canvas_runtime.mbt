@@ -491,6 +491,22 @@ fn CanvasRuntime::delete_nodes(
 }
 
 ///|
+fn CanvasRuntime::disconnect_ports(
+  self : CanvasRuntime,
+  source : NodeId,
+  source_port : String,
+  target : NodeId,
+  target_port : String,
+) -> Unit {
+  self.sync_document_action_state(
+    record_action(
+      self.state_peek(),
+      DisconnectPorts(source, source_port, target, target_port),
+    ),
+  )
+}
+
+///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
   render_state_from_parts(
     self.render_watch.read_or_abort(),

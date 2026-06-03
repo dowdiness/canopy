@@ -365,6 +365,8 @@ fn lower_source_operation(
       }
     }
     DeleteNodes(nodes) => lower_delete_nodes(doc, nodes)
+    DisconnectPorts(source, source_port, target, target_port) =>
+      lower_disconnect_ports(doc, source, source_port, target, target_port)
     MoveNodes(_) =>
       Err("MoveNodes is local layout state; source lowering is not defined")
     SelectNodes(_) =>

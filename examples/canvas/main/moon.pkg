@@ -25,6 +25,7 @@ options(
         "zoom",
         "add_node",
         "delete_nodes",
+        "disconnect_ports",
         "get_render_state",
         "get_action_log",
         "create_source_graph",

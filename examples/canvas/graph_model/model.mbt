@@ -182,6 +182,7 @@ pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
   MoveNodes(Array[NodePosition])
   ConnectPorts(NodeId, String, NodeId, String)
+  DisconnectPorts(NodeId, String, NodeId, String)
   DeleteNodes(Array[NodeId])
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
@@ -291,6 +292,13 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
       fields["target"] = target.to_json()
       fields["target_port"] = target_port.to_json()
     }
+    DisconnectPorts(source, source_port, target, target_port) => {
+      fields["type"] = "DisconnectPorts".to_json()
+      fields["source"] = source.to_json()
+      fields["source_port"] = source_port.to_json()
+      fields["target"] = target.to_json()
+      fields["target_port"] = target_port.to_json()
+    }
     DeleteNodes(nodes) => {
       fields["type"] = "DeleteNodes".to_json()
       fields["nodes"] = nodes.to_json()
@@ -353,6 +361,21 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
         fields, path, "target_port", "ConnectPorts",
       )
       WorkflowAction::ConnectPorts(source, source_port, target, target_port)
+    }
+    "DisconnectPorts" => {
+      let source = NodeId(
+        json_number_field(fields, path, "source", "DisconnectPorts"),
+      )
+      let source_port = json_string_field(
+        fields, path, "source_port", "DisconnectPorts",
+      )
+      let target = NodeId(
+        json_number_field(fields, path, "target", "DisconnectPorts"),
+      )
+      let target_port = json_string_field(
+        fields, path, "target_port", "DisconnectPorts",
+      )
+      WorkflowAction::DisconnectPorts(source, source_port, target, target_port)
     }
     "DeleteNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
@@ -744,6 +767,34 @@ fn edge_incident_to_nodes(edge : Edge, nodes : Array[NodeId]) -> Bool {
 }
 
 ///|
+fn edge_matches_ports(
+  edge : Edge,
+  source : NodeId,
+  source_port : String,
+  target : NodeId,
+  target_port : String,
+) -> Bool {
+  edge.source == source &&
+  edge.source_port == source_port &&
+  edge.target == target &&
+  edge.target_port == target_port
+}
+
+///|
+fn disconnect_ports_from_state(
+  state : CanvasState,
+  source : NodeId,
+  source_port : String,
+  target : NodeId,
+  target_port : String,
+) -> CanvasState {
+  let edges = state.edges.filter(fn(edge) {
+    !edge_matches_ports(edge, source, source_port, target, target_port)
+  })
+  { ..state, edges, }
+}
+
+///|
 fn delete_nodes_from_state(
   state : CanvasState,
   deleted : Array[NodeId],
@@ -814,6 +865,10 @@ pub fn apply_action(
       } else {
         state
       }
+    DisconnectPorts(source, source_port, target, target_port) =>
+      disconnect_ports_from_state(
+        state, source, source_port, target, target_port,
+      )
     DeleteNodes(nodes) => delete_nodes_from_state(state, nodes)
     SelectNodes(nodes) => set_selection(state, nodes)
     SetViewport(viewport) => { ..state, viewport, }
