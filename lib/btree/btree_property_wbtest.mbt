@@ -296,7 +296,73 @@ impl @quickcheck.Arbitrary for QueryCase with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for QueryCase
+fn push_query_case_shrinks(
+  results : Array[QueryCase],
+  items : Array[(Int, Int)],
+  start : Int,
+  end_ : Int,
+  pos : Int,
+) -> Unit {
+  let total = generated_items_span(items)
+  if start != 0 || end_ != 0 || pos != 0 {
+    results.push({ items, start: 0, end_: 0, pos: 0 })
+  }
+  if total > 0 {
+    if start != 0 || end_ != total || pos != 0 {
+      results.push({ items, start: 0, end_: total, pos: 0 })
+    }
+    if start != 0 || end_ != total || pos != total - 1 {
+      results.push({ items, start: 0, end_: total, pos: total - 1 })
+    }
+    if start != 0 || end_ != total || pos != total {
+      results.push({ items, start: 0, end_: total, pos: total })
+    }
+  }
+  if start < 0 && start != -1 {
+    results.push({ items, start: -1, end_, pos })
+  }
+  if end_ < 0 && end_ != -1 {
+    results.push({ items, start, end_: -1, pos })
+  }
+  if pos < 0 && pos != -1 {
+    results.push({ items, start, end_, pos: -1 })
+  }
+  if start > total && start != total + 1 {
+    results.push({ items, start: total + 1, end_, pos })
+  }
+  if end_ > total && end_ != total + 1 {
+    results.push({ items, start, end_: total + 1, pos })
+  }
+  if pos > total && pos != total + 1 {
+    results.push({ items, start, end_, pos: total + 1 })
+  }
+  for next_start in @qc.Shrink::shrink(start) {
+    results.push({ items, start: next_start, end_, pos })
+  }
+  for next_end in @qc.Shrink::shrink(end_) {
+    results.push({ items, start, end_: next_end, pos })
+  }
+  for next_pos in @qc.Shrink::shrink(pos) {
+    results.push({ items, start, end_, pos: next_pos })
+  }
+}
+
+///|
+impl @qc.Shrink for QueryCase with fn shrink(case_) {
+  let results : Array[QueryCase] = []
+  push_query_case_shrinks(
+    results,
+    case_.items,
+    case_.start,
+    case_.end_,
+    case_.pos,
+  )
+  for items in shrink_generated_items(case_.items) {
+    results.push({ items, start: case_.start, end_: case_.end_, pos: case_.pos })
+    push_query_case_shrinks(results, items, case_.start, case_.end_, case_.pos)
+  }
+  results.iter()
+}
 
 ///|
 fn prop_view_find_get_at_matches_model(case_ : QueryCase) -> Bool {
@@ -367,6 +433,93 @@ impl @quickcheck.Arbitrary for ModelOp with fn arbitrary(size, rs) {
 }
 
 ///|
+impl @qc.Shrink for ModelOp with fn shrink(op) {
+  let results : Array[ModelOp] = []
+  match op {
+    Append(id, span) => {
+      if id > 1 {
+        results.push(Append(1, span))
+      }
+      if span > 1 {
+        results.push(Append(id, 1))
+      }
+    }
+    Insert(pos, id, span) => {
+      if pos != 0 {
+        results.push(Insert(0, id, span))
+      }
+      if pos < 0 && pos != -1 {
+        results.push(Insert(-1, id, span))
+      }
+      if id > 1 {
+        results.push(Insert(pos, 1, span))
+      }
+      if span > 1 {
+        results.push(Insert(pos, id, 1))
+      }
+      for next_pos in @qc.Shrink::shrink(pos) {
+        results.push(Insert(next_pos, id, span))
+      }
+    }
+    DeleteAt(pos) => {
+      if pos != 0 {
+        results.push(DeleteAt(0))
+      }
+      if pos < 0 && pos != -1 {
+        results.push(DeleteAt(-1))
+      }
+      for next_pos in @qc.Shrink::shrink(pos) {
+        results.push(DeleteAt(next_pos))
+      }
+    }
+    DeleteRange(start, end_) => {
+      if start != 0 || end_ != 0 {
+        results.push(DeleteRange(0, 0))
+      }
+      if start < 0 && start != -1 {
+        results.push(DeleteRange(-1, end_))
+      }
+      if end_ < 0 && end_ != -1 {
+        results.push(DeleteRange(start, -1))
+      }
+      if start != end_ {
+        results.push(DeleteRange(start, start))
+      }
+      for next_start in @qc.Shrink::shrink(start) {
+        results.push(DeleteRange(next_start, end_))
+      }
+      for next_end in @qc.Shrink::shrink(end_) {
+        results.push(DeleteRange(start, next_end))
+      }
+    }
+    Query(pos, start, end_) => {
+      if pos != 0 || start != 0 || end_ != 0 {
+        results.push(Query(0, 0, 0))
+      }
+      if pos < 0 && pos != -1 {
+        results.push(Query(-1, start, end_))
+      }
+      if start < 0 && start != -1 {
+        results.push(Query(pos, -1, end_))
+      }
+      if end_ < 0 && end_ != -1 {
+        results.push(Query(pos, start, -1))
+      }
+      for next_pos in @qc.Shrink::shrink(pos) {
+        results.push(Query(next_pos, start, end_))
+      }
+      for next_start in @qc.Shrink::shrink(start) {
+        results.push(Query(pos, next_start, end_))
+      }
+      for next_end in @qc.Shrink::shrink(end_) {
+        results.push(Query(pos, start, next_end))
+      }
+    }
+  }
+  results.iter()
+}
+
+///|
 impl @quickcheck.Arbitrary for OpSequenceCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
   let op_count = rs.split().next_positive_int() % (capped + 1)
@@ -385,7 +538,60 @@ impl @quickcheck.Arbitrary for OpSequenceCase with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for OpSequenceCase
+fn push_min_degree_shrinks(
+  results : Array[OpSequenceCase],
+  ops : Array[ModelOp],
+  min_degree : Int,
+) -> Unit {
+  if min_degree == DEFAULT_MIN_DEGREE {
+    results.push({ ops, min_degree: 5 })
+    results.push({ ops, min_degree: 3 })
+    results.push({ ops, min_degree: 2 })
+  } else if min_degree > 3 {
+    results.push({ ops, min_degree: 3 })
+    results.push({ ops, min_degree: 2 })
+  } else if min_degree > 2 {
+    results.push({ ops, min_degree: 2 })
+  }
+}
+
+///|
+impl @qc.Shrink for OpSequenceCase with fn shrink(case_) {
+  let results : Array[OpSequenceCase] = []
+  let len = case_.ops.length()
+  if len > 0 {
+    results.push({ ops: case_.ops[:0].to_owned(), min_degree: case_.min_degree })
+    let half = len / 2
+    if half > 0 {
+      results.push({
+        ops: case_.ops[:half].to_owned(),
+        min_degree: case_.min_degree,
+      })
+    }
+    if len > 1 {
+      results.push({
+        ops: case_.ops[:len - 1].to_owned(),
+        min_degree: case_.min_degree,
+      })
+      for i in 0..<len {
+        results.push({
+          ops: array_without_at(case_.ops, i),
+          min_degree: case_.min_degree,
+        })
+      }
+    }
+    for i in 0..<len {
+      for op in @qc.Shrink::shrink(case_.ops[i]) {
+        results.push({
+          ops: array_replaced_at(case_.ops, i, op),
+          min_degree: case_.min_degree,
+        })
+      }
+    }
+  }
+  push_min_degree_shrinks(results, case_.ops, case_.min_degree)
+  results.iter()
+}
 
 ///|
 fn apply_model_op(
