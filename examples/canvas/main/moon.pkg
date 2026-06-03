@@ -4,7 +4,12 @@ import {
   "dowdiness/canopy-canvas/graph_model",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
 }
+
+supported_targets = "js"
 
 options(
   "is-main": true,
@@ -28,6 +33,13 @@ options(
         "get_source_graph_render_state",
         "get_source_graph_action_log",
         "apply_source_graph_operation",
+        "sample_graph_dsl_source",
+        "mount_source_demo",
+        "source_graph_insert_unique",
+        "source_graph_pointer_down",
+        "source_graph_pointer_move",
+        "source_graph_pointer_up",
+        "source_graph_zoom",
       ],
     },
   },

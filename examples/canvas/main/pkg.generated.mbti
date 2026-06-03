@@ -4,6 +4,7 @@ package "dowdiness/canopy-canvas/main"
 import {
   "dowdiness/canopy-canvas/graph_model",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -29,6 +30,8 @@ pub fn get_source_graph_source(Int) -> String
 
 pub fn hover_node(Int, Int) -> Unit
 
+pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
+
 pub fn pointer_down(Int, Int, Double, Double) -> Unit
 
 pub fn pointer_down_handle(Int, Int, String, Double, Double) -> Unit
@@ -37,7 +40,19 @@ pub fn pointer_move(Int, Double, Double) -> Unit
 
 pub fn pointer_up(Int, Int, String, Bool) -> Unit
 
+pub fn sample_graph_dsl_source() -> String
+
 pub fn set_source_graph_source(Int, String) -> Unit
+
+pub fn source_graph_insert_unique(Int, String, String) -> String
+
+pub fn source_graph_pointer_down(Int, Int, Double, Double) -> Unit
+
+pub fn source_graph_pointer_move(Int, Double, Double) -> Unit
+
+pub fn source_graph_pointer_up(Int, Int, String, Bool) -> Unit
+
+pub fn source_graph_zoom(Int, Double, Double, Double) -> Unit
 
 pub fn zoom(Int, Double, Double, Double) -> Unit
 
@@ -73,7 +88,13 @@ type SelectionState derive(Eq, @debug.Debug)
 
 type SourceBackedGraph
 
-type SourceGraphOperationResultJson derive(ToJson)
+type SourceDemoModel
+
+type SourceDemoMsg
+
+type SourceGraphOperationResultJson derive(ToJson, @json.FromJson)
+
+type SourceNodePosition
 
 type ValidatedCanvas derive(Eq)
 

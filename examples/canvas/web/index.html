@@ -101,6 +101,12 @@
       width: 280px;
       padding: var(--space-lg);
     }
+    .source-panel {
+      top: 20px;
+      left: 328px;
+      width: min(520px, calc(100vw - 660px));
+      padding: var(--space-lg);
+    }
     .panel-title {
       display: flex;
       align-items: baseline;
@@ -145,6 +151,71 @@
       overflow: auto;
       padding-right: 2px;
     }
+    .mode-toggle {
+      box-sizing: border-box;
+      display: block;
+      width: 100%;
+      margin-top: var(--space-md);
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--accent-soft);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12.5px;
+      text-align: left;
+      text-decoration: none;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .mode-toggle:hover,
+    .mode-toggle:focus-visible {
+      background: oklch(63% 0.12 292 / 0.24);
+      border-color: var(--line-strong);
+      outline: none;
+    }
+    .source-editor {
+      width: 100%;
+      min-height: 148px;
+      resize: vertical;
+      padding: 10px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: oklch(15% 0.018 276 / 0.94);
+      color: var(--text);
+      outline: none;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .source-editor:focus {
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .source-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: var(--space-md);
+    }
+    .source-actions button {
+      padding: 7px 9px;
+      border-radius: 9px;
+      border: 1px solid var(--line);
+      background: oklch(28% 0.022 276 / 0.86);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .source-actions button:hover,
+    .source-actions button:focus-visible {
+      background: var(--surface-soft);
+      border-color: var(--line-strong);
+      outline: none;
+    }
+    .source-status[data-tone="success"] { color: var(--success); }
+    .source-status[data-tone="error"] { color: oklch(82% 0.08 18); }
     .library-item,
     .validation-item,
     #context-menu button {
@@ -418,6 +489,11 @@
         width: 248px;
         padding: 14px;
       }
+      .source-panel {
+        left: 272px;
+        width: min(480px, calc(100vw - 590px));
+        padding: 14px;
+      }
       .inspector-panel {
         right: 12px;
         bottom: 12px;
@@ -430,11 +506,13 @@
 
     @media (max-width: 1100px) {
       .library-panel,
+      .source-panel,
       .inspector-panel {
         overflow: hidden;
         transition: transform 180ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease;
       }
       .library-panel > *,
+      .source-panel > *,
       .inspector-panel > * {
         transition: opacity 120ms ease;
       }
@@ -442,6 +520,7 @@
         transform: translateX(calc(-100% + 46px));
       }
       .library-panel::after,
+      .source-panel::after,
       .inspector-panel::before {
         position: absolute;
         top: 50%;
@@ -457,6 +536,14 @@
         content: "Nodes";
         right: 14px;
       }
+      .source-panel {
+        transform: translateY(calc(-100% + 46px));
+      }
+      .source-panel::after {
+        content: "Source";
+        right: 50%;
+        transform: translate(50%, -50%) rotate(90deg);
+      }
       .inspector-panel {
         transform: translateX(calc(100% - 46px));
       }
@@ -465,6 +552,7 @@
         left: 14px;
       }
       .library-panel:not(:hover):not(:focus-within) > *,
+      .source-panel:not(:hover):not(:focus-within) > *,
       .inspector-panel:not(:hover):not(:focus-within) > * {
         opacity: 0;
         pointer-events: none;
@@ -474,6 +562,18 @@
       .inspector-panel:hover,
       .inspector-panel:focus-within {
         transform: translateX(0);
+      }
+      .source-panel:hover,
+      .source-panel:focus-within {
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .source-panel {
+        left: 58px;
+        right: 58px;
+        width: auto;
       }
     }
   </style>
@@ -487,8 +587,11 @@
       </div>
       <input id="node-search" type="search" placeholder="Search nodes…" aria-label="Search node library" />
       <div id="node-library"></div>
+      <div id="source-mode-root"></div>
       <p class="hint" style="margin-top: 12px;">Right-click to insert. Shift-click to multi-select.</p>
     </aside>
+
+    <div id="source-panel-root"></div>
 
     <section id="canvas-root" aria-label="Workflow canvas">
       <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>

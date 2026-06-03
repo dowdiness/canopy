@@ -1,10 +1,24 @@
 ///|
+fn default_source_graph_viewport() -> Viewport {
+  { x: 360.0, y: 330.0, scale: 1.0 }
+}
+
+///|
+struct SourceNodePosition {
+  binding : String
+  x : Double
+  y : Double
+}
+
+///|
 struct SourceBackedGraph {
   attachment : @graph_dsl.GraphAttachment
   mut source : String
-  viewport : Viewport
-  interaction : InteractionState
-  action_log : Array[GraphOperation]
+  mut viewport : Viewport
+  mut interaction : InteractionState
+  mut drag_preview : DragPreview
+  mut layout : Array[SourceNodePosition]
+  mut action_log : Array[GraphOperation]
 }
 
 ///|
@@ -12,8 +26,10 @@ fn SourceBackedGraph::SourceBackedGraph(source : String) -> SourceBackedGraph {
   {
     attachment: @graph_dsl.GraphAttachment::GraphAttachment(source),
     source,
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
+    drag_preview: idle_drag_preview(),
+    layout: [],
     action_log: [],
   }
 }
@@ -38,7 +54,7 @@ fn source_graph_by_handle(handle : Int) -> SourceBackedGraph? {
 ///|
 fn empty_source_canvas_state() -> CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: default_source_graph_viewport(),
     nodes: [],
     edges: [],
     next_node_id: 1,
@@ -107,6 +123,42 @@ fn canvas_node_from_graph_node(
 }
 
 ///|
+fn source_layout_for_binding(
+  layout : Array[SourceNodePosition],
+  binding : String,
+) -> SourceNodePosition? {
+  for position in layout {
+    if position.binding == binding {
+      return Some(position)
+    }
+  }
+  None
+}
+
+///|
+fn canvas_node_with_source_layout(
+  node : CanvasNode,
+  layout : Array[SourceNodePosition],
+) -> CanvasNode {
+  match source_layout_for_binding(layout, node.title) {
+    Some(position) => { ..node, x: position.x, y: position.y }
+    None => node
+  }
+}
+
+///|
+fn canvas_state_with_source_layout(
+  state : CanvasState,
+  layout : Array[SourceNodePosition],
+) -> CanvasState {
+  let nodes : Array[CanvasNode] = []
+  for node in state.nodes {
+    nodes.push(canvas_node_with_source_layout(node, layout))
+  }
+  { ..state, nodes, }
+}
+
+///|
 fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
   let nodes : Array[CanvasNode] = []
   for i, graph_node in doc.nodes() {
@@ -154,10 +206,13 @@ fn source_graph_doc_for_render(
 }
 
 ///|
-fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
+fn source_graph_base_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   match source_graph_doc_for_render(graph) {
     Some(doc) => {
-      let state = canvas_from_graph_doc(doc)
+      let state = canvas_state_with_source_layout(
+        canvas_from_graph_doc(doc),
+        graph.layout,
+      )
       {
         ..state,
         viewport: graph.viewport,
@@ -166,6 +221,16 @@ fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
       }
     }
     None => { ..empty_source_canvas_state(), viewport: graph.viewport }
+  }
+}
+
+///|
+fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
+  let state = source_graph_base_canvas_state(graph)
+  match graph.interaction.dragging {
+    Some(_) if graph.interaction.did_move =>
+      state_with_preview_nodes(state, graph.drag_preview)
+    _ => state
   }
 }
 
@@ -185,7 +250,18 @@ struct SourceGraphOperationResultJson {
   diagnostics : Array[String]
   action_count : Int
   message : String?
-} derive(ToJson)
+} derive(ToJson, FromJson)
+
+///|
+fn source_graph_operation_result_json(
+  applied : Bool,
+  source : String,
+  diagnostics : Array[String],
+  action_count : Int,
+  message : String?,
+) -> SourceGraphOperationResultJson {
+  { applied, source, diagnostics, action_count, message }
+}
 
 ///|
 fn source_graph_operation_result(
@@ -195,11 +271,26 @@ fn source_graph_operation_result(
   action_count : Int,
   message : String?,
 ) -> String {
-  (
-    { applied, source, diagnostics, action_count, message } :
-    SourceGraphOperationResultJson)
+  source_graph_operation_result_json(
+    applied, source, diagnostics, action_count, message,
+  )
   .to_json()
   .stringify()
+}
+
+///|
+fn source_graph_result_json_for_graph(
+  graph : SourceBackedGraph,
+  applied : Bool,
+  message : String?,
+) -> SourceGraphOperationResultJson {
+  source_graph_operation_result_json(
+    applied,
+    graph.source,
+    graph.attachment.diagnostics(),
+    graph.action_log.length(),
+    message,
+  )
 }
 
 ///|
@@ -208,13 +299,9 @@ fn source_graph_result_for_graph(
   applied : Bool,
   message : String?,
 ) -> String {
-  source_graph_operation_result(
-    applied,
-    graph.source,
-    graph.attachment.diagnostics(),
-    graph.action_log.length(),
-    message,
-  )
+  source_graph_result_json_for_graph(graph, applied, message)
+  .to_json()
+  .stringify()
 }
 
 ///|
@@ -335,6 +422,237 @@ fn SourceBackedGraph::append_operation(
 }
 
 ///|
+fn SourceBackedGraph::sync_layout_from_state(
+  self : SourceBackedGraph,
+  state : CanvasState,
+) -> Unit {
+  let layout : Array[SourceNodePosition] = []
+  for node in state.nodes {
+    layout.push({ binding: node.title, x: node.x, y: node.y })
+  }
+  self.layout = layout
+}
+
+///|
+fn SourceBackedGraph::pointer_down(
+  self : SourceBackedGraph,
+  node_id : Int,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let target : NodeId? = if node_id <= 0 { None } else { Some(NodeId(node_id)) }
+  let state = update_pointer_down(
+    source_graph_base_canvas_state(self),
+    target,
+    sx,
+    sy,
+  )
+  self.drag_preview = idle_drag_preview()
+  self.interaction = state.interaction
+}
+
+///|
+fn SourceBackedGraph::pointer_move(
+  self : SourceBackedGraph,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let state = source_graph_base_canvas_state(self)
+  match state.interaction.connecting {
+    Some(_) => {
+      let (wx, wy) = screen_to_world(state.viewport, sx, sy)
+      self.interaction = update_connect_move(state, wx, wy).interaction
+    }
+    None =>
+      match state.interaction.dragging {
+        Some(drag) => {
+          let (wx, wy) = screen_to_world(state.viewport, sx, sy)
+          let new_interaction : InteractionState = {
+            ..state.interaction,
+            did_move: true,
+          }
+          self.drag_preview = drag_preview_from_move(drag, wx, wy)
+          self.interaction = new_interaction
+        }
+        None =>
+          match state.interaction.panning {
+            Some(_) => {
+              let next = update_pan_move(state, sx, sy)
+              self.viewport = next.viewport
+              self.interaction = next.interaction
+            }
+            None => ()
+          }
+      }
+  }
+}
+
+///|
+fn SourceBackedGraph::pointer_up(
+  self : SourceBackedGraph,
+  node_id : Int,
+  target_port_id : String,
+  additive : Bool,
+) -> Unit {
+  let state = source_graph_base_canvas_state(self)
+  let commit_state = match state.interaction.dragging {
+    Some(_) if state.interaction.did_move =>
+      state_with_preview_nodes(state, self.drag_preview)
+    _ => state
+  }
+  let next = update_pointer_up(commit_state, node_id, target_port_id, additive)
+  self.sync_layout_from_state(next)
+  self.viewport = next.viewport
+  self.drag_preview = idle_drag_preview()
+  self.interaction = next.interaction
+  self.action_log = next.action_log.copy()
+}
+
+///|
+fn SourceBackedGraph::zoom(
+  self : SourceBackedGraph,
+  delta : Double,
+  cx : Double,
+  cy : Double,
+) -> Unit {
+  let next = update_zoom(source_graph_base_canvas_state(self), delta, cx, cy)
+  self.viewport = next.viewport
+  self.action_log = next.action_log.copy()
+}
+
+///|
+fn source_graph_node_payload(
+  binding : String,
+  constructor_name : String,
+) -> CanvasNode {
+  {
+    id: NodeId(0),
+    x: 0.0,
+    y: 0.0,
+    w: 250.0,
+    h: 138.0,
+    kind: Workflow(Custom(constructor_name)),
+    title: binding,
+    subtitle: constructor_name,
+    inputs: [],
+    outputs: [],
+    configured: true,
+  }
+}
+
+///|
+fn next_source_binding(doc : @graph_dsl.GraphDoc, base : String) -> String {
+  if doc.find_node(base) is None {
+    return base
+  }
+  for suffix = 2 {
+    let candidate = base + suffix.to_string()
+    if doc.find_node(candidate) is None {
+      break candidate
+    }
+    continue suffix + 1
+  }
+}
+
+///|
+fn source_graph_insert_unique_result(
+  handle : Int,
+  binding_base : String,
+  constructor_name : String,
+) -> SourceGraphOperationResultJson {
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None =>
+      return source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph handle not found"],
+        0,
+        Some("source graph handle not found"),
+      )
+  }
+  let doc = match source_graph_current_doc(graph) {
+    Ok(doc) => doc
+    Err(message) =>
+      return source_graph_result_json_for_graph(graph, false, Some(message))
+  }
+  let binding = next_source_binding(doc, binding_base)
+  let operation = GraphOperation(
+    AddNode(source_graph_node_payload(binding, constructor_name)),
+  )
+  let result_json = apply_source_graph_operation(
+    handle,
+    operation.to_json().stringify(),
+  )
+  let json = @json.parse(result_json) catch {
+    _ =>
+      return source_graph_result_json_for_graph(
+        graph,
+        false,
+        Some("source graph operation result JSON parse failed"),
+      )
+  }
+  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
+    _ =>
+      return source_graph_result_json_for_graph(
+        graph,
+        false,
+        Some("source graph operation result JSON decode failed"),
+      )
+  }
+  result
+}
+
+///|
+fn source_graph_connect_sample_result(
+  handle : Int,
+) -> SourceGraphOperationResultJson {
+  let result_json = apply_source_graph_operation(
+    handle,
+    GraphOperation(ConnectPorts(NodeId(1), "out", NodeId(2), "input"))
+    .to_json()
+    .stringify(),
+  )
+  let json = @json.parse(result_json) catch {
+    _ =>
+      return source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph operation result JSON parse failed"],
+        0,
+        Some("source graph operation result JSON parse failed"),
+      )
+  }
+  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
+    _ =>
+      return source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph operation result JSON decode failed"],
+        0,
+        Some("source graph operation result JSON decode failed"),
+      )
+  }
+  result
+}
+
+///|
+pub fn source_graph_insert_unique(
+  handle : Int,
+  binding_base : String,
+  constructor_name : String,
+) -> String {
+  source_graph_insert_unique_result(handle, binding_base, constructor_name)
+  .to_json()
+  .stringify()
+}
+
+///|
+pub fn sample_graph_dsl_source() -> String {
+  "osc = sine(freq: 440Hz)\nmeter = scope()"
+}
+
+///|
 pub fn create_source_graph(source : String) -> Int {
   _source_registry.push(Some(SourceBackedGraph(source)))
   _source_registry.length() - 1
@@ -366,6 +684,57 @@ pub fn set_source_graph_source(handle : Int, source : String) -> Unit {
       graph.source = source
       graph.attachment.set_source(source)
     }
+    None => ()
+  }
+}
+
+///|
+pub fn source_graph_pointer_down(
+  handle : Int,
+  node_id : Int,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.pointer_down(node_id, sx, sy)
+    None => ()
+  }
+}
+
+///|
+pub fn source_graph_pointer_move(
+  handle : Int,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.pointer_move(sx, sy)
+    None => ()
+  }
+}
+
+///|
+pub fn source_graph_pointer_up(
+  handle : Int,
+  node_id : Int,
+  target_port_id : String,
+  additive : Bool,
+) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.pointer_up(node_id, target_port_id, additive)
+    None => ()
+  }
+}
+
+///|
+pub fn source_graph_zoom(
+  handle : Int,
+  delta : Double,
+  cx : Double,
+  cy : Double,
+) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.zoom(delta, cx, cy)
     None => ()
   }
 }

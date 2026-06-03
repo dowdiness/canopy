@@ -27,6 +27,22 @@ export type CanvasModule = {
   get_source_graph_render_state?: (h: number) => string;
   get_source_graph_action_log?: (h: number) => string;
   apply_source_graph_operation?: (h: number, operationJson: string) => string;
+  source_graph_insert_unique?: (
+    h: number,
+    bindingBase: string,
+    constructorName: string,
+  ) => string;
+  source_graph_pointer_down?: (h: number, nodeId: number, sx: number, sy: number) => void;
+  source_graph_pointer_move?: (h: number, sx: number, sy: number) => void;
+  source_graph_pointer_up?: (
+    h: number,
+    nodeId: number,
+    targetPortId: string,
+    additive: boolean,
+  ) => void;
+  source_graph_zoom?: (h: number, delta: number, cx: number, cy: number) => void;
+  sample_graph_dsl_source?: () => string;
+  mount_source_demo?: (h: number, enabled: boolean, onChange: () => void) => void;
 };
 
 type SourceCanvasModule = CanvasModule & {
@@ -37,6 +53,20 @@ type SourceCanvasModule = CanvasModule & {
   get_source_graph_render_state: (h: number) => string;
   get_source_graph_action_log: (h: number) => string;
   apply_source_graph_operation: (h: number, operationJson: string) => string;
+  source_graph_insert_unique: (
+    h: number,
+    bindingBase: string,
+    constructorName: string,
+  ) => string;
+  source_graph_pointer_down: (h: number, nodeId: number, sx: number, sy: number) => void;
+  source_graph_pointer_move: (h: number, sx: number, sy: number) => void;
+  source_graph_pointer_up: (
+    h: number,
+    nodeId: number,
+    targetPortId: string,
+    additive: boolean,
+  ) => void;
+  source_graph_zoom: (h: number, delta: number, cx: number, cy: number) => void;
 };
 
 const SOURCE_METHODS = [
@@ -47,6 +77,11 @@ const SOURCE_METHODS = [
   'get_source_graph_render_state',
   'get_source_graph_action_log',
   'apply_source_graph_operation',
+  'source_graph_insert_unique',
+  'source_graph_pointer_down',
+  'source_graph_pointer_move',
+  'source_graph_pointer_up',
+  'source_graph_zoom',
 ] as const;
 
 export type Tagged = string | [string, ...unknown[]];
@@ -247,6 +282,19 @@ export class GraphAdapter {
     });
   }
 
+  insertUniqueNode(bindingBase: string, constructorName: string): SourceGraphOperationResult {
+    this.assertLive();
+    const result = JSON.parse(
+      this.sourceModule().source_graph_insert_unique(
+        this.handle,
+        bindingBase,
+        constructorName,
+      ),
+    ) as SourceGraphOperationResult;
+    this.emitLatestOperations();
+    return result;
+  }
+
   connectPorts(
     sourceNodeId: number,
     targetNodeId: number,
@@ -263,8 +311,12 @@ export class GraphAdapter {
   }
 
   pointerDown(nodeId: number, sx: number, sy: number): void {
-    this.assertCanvasBacked('pointerDown');
-    this.mb.pointer_down(this.handle, nodeId, sx, sy);
+    this.assertLive();
+    if (this.isSourceBacked) {
+      this.sourceModule().source_graph_pointer_down(this.handle, nodeId, sx, sy);
+    } else {
+      this.mb.pointer_down(this.handle, nodeId, sx, sy);
+    }
   }
 
   pointerDownHandle(
@@ -278,24 +330,41 @@ export class GraphAdapter {
   }
 
   pointerMove(sx: number, sy: number): void {
-    this.assertCanvasBacked('pointerMove');
-    this.mb.pointer_move(this.handle, sx, sy);
+    this.assertLive();
+    if (this.isSourceBacked) {
+      this.sourceModule().source_graph_pointer_move(this.handle, sx, sy);
+    } else {
+      this.mb.pointer_move(this.handle, sx, sy);
+    }
   }
 
   pointerUp(nodeId: number, targetPortId: string, additive: boolean): void {
-    this.assertCanvasBacked('pointerUp');
-    this.mb.pointer_up(this.handle, nodeId, targetPortId, additive);
+    this.assertLive();
+    if (this.isSourceBacked) {
+      this.sourceModule().source_graph_pointer_up(
+        this.handle,
+        nodeId,
+        targetPortId,
+        additive,
+      );
+    } else {
+      this.mb.pointer_up(this.handle, nodeId, targetPortId, additive);
+    }
     this.emitLatestOperations();
   }
 
   hoverNode(nodeId: number): void {
-    this.assertLive();
+    this.assertCanvasBacked('hoverNode');
     this.mb.hover_node(this.handle, nodeId);
   }
 
   zoom(delta: number, cx: number, cy: number): void {
-    this.assertCanvasBacked('zoom');
-    this.mb.zoom(this.handle, delta, cx, cy);
+    this.assertLive();
+    if (this.isSourceBacked) {
+      this.sourceModule().source_graph_zoom(this.handle, delta, cx, cy);
+    } else {
+      this.mb.zoom(this.handle, delta, cx, cy);
+    }
     this.emitLatestOperations();
   }
 

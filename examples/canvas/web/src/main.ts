@@ -1,6 +1,7 @@
 import {
   GraphAdapter,
   type CanvasModule,
+  type Connecting,
   type EdgeData,
   type NodeData,
   type PortDef,
@@ -19,6 +20,11 @@ type LibraryItem = {
   key: string;
   label: string;
   description: string;
+};
+
+type SourceDemoModule = CanvasModule & {
+  sample_graph_dsl_source: () => string;
+  mount_source_demo: (h: number, enabled: boolean, onChange: () => void) => void;
 };
 
 const LIBRARY: LibraryItem[] = [
@@ -52,6 +58,8 @@ const nodeDivs = new Map<number, HTMLDivElement>();
 const edgePaths = new Map<number, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
+let sourcePointerId = -1;
+let sourceConnecting: Connecting | null = null;
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
 
@@ -76,6 +84,15 @@ function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
 function localCoords(e: MouseEvent): [number, number] {
   const rect = root.getBoundingClientRect();
   return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+function screenToWorld(point: [number, number], state: RenderState): [number, number] {
+  const { x, y, scale } = state.viewport;
+  return [(point[0] - x) / scale, (point[1] - y) / scale];
+}
+
+function eventWorldCoords(e: MouseEvent): [number, number] {
+  return screenToWorld(localCoords(e), lastState ?? adapter.renderState());
 }
 
 function portTypeName(portType: Tagged): string {
@@ -176,8 +193,9 @@ function render(): void {
   // Resolve the in-flight connection's source port type once, so each input
   // handle can preview compatibility while the drag is live.
   let connectCtx: ConnectCtx | null = null;
-  if (state.connecting) {
-    const from = state.connecting;
+  const connecting = state.connecting ?? sourceConnecting ?? undefined;
+  if (connecting) {
+    const from = connecting;
     const srcNode = state.nodes.find((n) => n.id === from.from);
     const srcPort = srcNode?.outputs.find((p) => p.id === from.from_port);
     connectCtx = {
@@ -220,7 +238,7 @@ function render(): void {
     div.classList.toggle('selected', selected.has(node.id));
     div.classList.toggle('invalid', invalidNodeIds.has(node.id));
     div.classList.toggle('unconfigured', !node.configured);
-    div.classList.toggle('connecting-source', state.connecting?.from === node.id);
+    div.classList.toggle('connecting-source', connecting?.from === node.id);
     div.title = `${node.title}\n${node.subtitle}`;
 
     const title = div.querySelector('.node-title') as HTMLDivElement;
@@ -268,12 +286,12 @@ function render(): void {
   }
 
   // In-flight connection ─────────────────────────────────────────────────────
-  if (state.connecting) {
-    const src = nodesById.get(state.connecting.from);
+  if (connecting) {
+    const src = nodesById.get(connecting.from);
     if (src) {
-      const [sx, sy] = outputAnchor(src, state.connecting.from_port);
-      const tx = state.connecting.cursor_x;
-      const ty = state.connecting.cursor_y;
+      const [sx, sy] = outputAnchor(src, connecting.from_port);
+      const tx = connecting.cursor_x;
+      const ty = connecting.cursor_y;
       if (!pendingPath) {
         pendingPath = document.createElementNS(SVG_NS, 'path');
         pendingPath.setAttribute('class', 'edge-pending');
@@ -381,6 +399,12 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 }
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
+  if (adapter.isSourceBacked) {
+    adapter.insertUniqueNode(kindKey, kindKey);
+    hideContextMenu();
+    scheduleRender();
+    return;
+  }
   adapter.addNode(kindKey, point[0], point[1]);
   hideContextMenu();
   scheduleRender();
@@ -391,7 +415,50 @@ function hoverNodeId(hit: HitTarget): number {
 }
 
 function updateHover(hit: HitTarget): void {
+  if (adapter.isSourceBacked) return;
   adapter.hoverNode(hoverNodeId(hit));
+}
+
+function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
+  if (hit.kind !== 'handle' || hit.side !== 'output') return;
+  hideContextMenu();
+  root.setPointerCapture(e.pointerId);
+  sourcePointerId = e.pointerId;
+  const [cursor_x, cursor_y] = eventWorldCoords(e);
+  sourceConnecting = {
+    from: hit.nodeId,
+    from_port: hit.portId,
+    cursor_x,
+    cursor_y,
+  };
+  scheduleRender();
+}
+
+function moveSourceConnection(e: PointerEvent): void {
+  if (e.pointerId !== sourcePointerId || !sourceConnecting) return;
+  const [cursor_x, cursor_y] = eventWorldCoords(e);
+  sourceConnecting = { ...sourceConnecting, cursor_x, cursor_y };
+  scheduleRender();
+}
+
+function finishSourceConnection(e: PointerEvent): void {
+  if (e.pointerId !== sourcePointerId) return;
+  const connecting = sourceConnecting;
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const hit = hitFromTarget(under);
+  sourcePointerId = -1;
+  sourceConnecting = null;
+  if (connecting && hit.kind === 'handle' && hit.side === 'input') {
+    adapter.connectPorts(connecting.from, hit.nodeId, hit.portId);
+  }
+  scheduleRender();
+}
+
+function cancelSourceConnection(e: PointerEvent): void {
+  if (e.pointerId !== sourcePointerId) return;
+  sourcePointerId = -1;
+  sourceConnecting = null;
+  scheduleRender();
 }
 
 function hideContextMenu(): void {
@@ -432,6 +499,25 @@ let pointerDownNodeId = 0;
 let pointerUpAdditive = false;
 
 root.addEventListener('pointerdown', (e: PointerEvent) => {
+  if (adapter.isSourceBacked) {
+    if (e.button !== 0) return;
+    const hit = hitFromTarget(e.target);
+    if (hit.kind === 'handle') {
+      startSourceConnection(e, hit);
+      return;
+    }
+    if (activePointerId !== -1) return;
+    hideContextMenu();
+    root.setPointerCapture(e.pointerId);
+    activePointerId = e.pointerId;
+    pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
+    const [sx, sy] = localCoords(e);
+    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : 0;
+    adapter.pointerDown(pointerDownNodeId, sx, sy);
+    if (hit.kind === 'background') root.classList.add('panning');
+    scheduleRender();
+    return;
+  }
   // macOS Ctrl+click is a secondary-click gesture but still reports button 0.
   // Let the contextmenu handler own it without breaking Ctrl-additive
   // selection on non-Mac platforms.
@@ -469,6 +555,20 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
 });
 
 root.addEventListener('pointermove', (e: PointerEvent) => {
+  if (adapter.isSourceBacked) {
+    if (e.pointerId === sourcePointerId) {
+      moveSourceConnection(e);
+      return;
+    }
+    if (e.pointerId !== activePointerId) {
+      scheduleRender();
+      return;
+    }
+    const [sx, sy] = localCoords(e);
+    adapter.pointerMove(sx, sy);
+    scheduleRender();
+    return;
+  }
   updateHover(hitFromTarget(e.target));
   if (e.pointerId !== activePointerId) {
     scheduleRender();
@@ -480,11 +580,32 @@ root.addEventListener('pointermove', (e: PointerEvent) => {
 });
 
 root.addEventListener('pointerleave', () => {
+  if (adapter.isSourceBacked) return;
   updateHover({ kind: 'background' });
   scheduleRender();
 });
 
 root.addEventListener('pointerup', (e: PointerEvent) => {
+  if (adapter.isSourceBacked) {
+    if (e.pointerId === sourcePointerId) {
+      finishSourceConnection(e);
+      return;
+    }
+    if (e.pointerId !== activePointerId) return;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const hit = hitFromTarget(under);
+    const upNodeId =
+      hit.kind === 'node'   ? hit.nodeId :
+      hit.kind === 'handle' ? hit.nodeId :
+      pointerDownNodeId;
+    adapter.pointerUp(upNodeId, '', pointerUpAdditive);
+    activePointerId = -1;
+    pointerDownNodeId = 0;
+    pointerUpAdditive = false;
+    root.classList.remove('panning');
+    scheduleRender();
+    return;
+  }
   if (e.pointerId !== activePointerId) return;
   // setPointerCapture redirects later events to the capturer, so e.target is
   // unreliable for hit-testing on release. Use elementFromPoint instead.
@@ -504,6 +625,20 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
 });
 
 root.addEventListener('pointercancel', (e: PointerEvent) => {
+  if (adapter.isSourceBacked) {
+    if (e.pointerId === sourcePointerId) {
+      cancelSourceConnection(e);
+      return;
+    }
+    if (e.pointerId !== activePointerId) return;
+    adapter.pointerUp(0, '', false);
+    activePointerId = -1;
+    pointerDownNodeId = 0;
+    pointerUpAdditive = false;
+    root.classList.remove('panning');
+    scheduleRender();
+    return;
+  }
   if (e.pointerId !== activePointerId) return;
   adapter.pointerUp(0, '', false);
   activePointerId = -1;
@@ -545,9 +680,28 @@ search.addEventListener('input', () => renderLibrary(search.value));
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
+function sourceDemoRequested(searchParams = window.location.search): boolean {
+  return new URLSearchParams(searchParams).get('source') === '1';
+}
+
+function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
+  if (typeof mb.sample_graph_dsl_source !== 'function') {
+    throw new Error('Canvas module is missing source demo export: sample_graph_dsl_source');
+  }
+  if (typeof mb.mount_source_demo !== 'function') {
+    throw new Error('Canvas module is missing source demo export: mount_source_demo');
+  }
+  return mb as SourceDemoModule;
+}
+
 async function init(): Promise<void> {
   const mod = await import('@moonbit/canopy-canvas') as CanvasModule;
-  adapter = GraphAdapter.create(mod);
+  const sourceDemoModule = requireSourceDemoModule(mod);
+  const sourceMode = sourceDemoRequested();
+  adapter = sourceMode
+    ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
+    : GraphAdapter.create(mod);
+  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, scheduleRender);
   renderLibrary();
   render();
 }

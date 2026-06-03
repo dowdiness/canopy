@@ -6,7 +6,11 @@
       "path": "../../loom/examples/graph-dsl",
       "version": "0.1.0"
     },
-    "dowdiness/incr": "0.7.1"
+    "dowdiness/incr": "0.7.1",
+    "moonbit-community/rabbita": {
+      "path": "../../rabbita/rabbita",
+      "version": "0.12.2"
+    }
   },
   "source": ".",
   "preferred-target": "js"
