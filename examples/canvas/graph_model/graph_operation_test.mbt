@@ -74,6 +74,26 @@ test "DeleteNodes serializes node ids" {
 }
 
 ///|
+test "DisconnectPorts serializes endpoint ports" {
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::DisconnectPorts(
+      node_id(1),
+      "tick",
+      node_id(2),
+      "in",
+    ),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":1,\"type\":\"DisconnectPorts\",\"source\":1,\"source_port\":\"tick\",\"target\":2,\"target_port\":\"in\"}",
+  )
+  let decoded : @graph_model.GraphOperation = @json.from_json(
+    operation.to_json(),
+  )
+  @debug.assert_eq(decoded, operation)
+}
+
+///|
 test "operation log round-trips and replays into canvas graph state" {
   let added = @graph_model.make_workflow_node(
     node_id(3),
@@ -138,4 +158,45 @@ test "DeleteNodes removes incident edges and deleted selection" {
   assert_eq(deleted.edges.length(), 0)
   @debug.assert_eq(deleted.interaction.selected_nodes, [node_id(2)])
   @debug.debug_inspect(deleted.interaction.selected, content="Some(NodeId(2))")
+}
+
+///|
+test "DisconnectPorts removes only the matching edge" {
+  let connected_once = @graph_model.record_action(
+    replay_base_state(),
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(1),
+      "tick",
+      node_id(2),
+      "in",
+    ),
+  )
+  let with_unrelated : @graph_model.CanvasState = {
+    ..connected_once,
+    edges: [
+      ..connected_once.edges,
+      {
+        id: @graph_model.EdgeId::from_int(2),
+        source: node_id(2),
+        source_port: "json",
+        target: node_id(1),
+        target_port: "tick",
+      },
+    ],
+    next_edge_id: 3,
+  }
+  let disconnected = @graph_model.record_action(
+    with_unrelated,
+    @graph_model.WorkflowAction::DisconnectPorts(
+      node_id(1),
+      "tick",
+      node_id(2),
+      "in",
+    ),
+  )
+  assert_eq(disconnected.nodes.length(), 2)
+  assert_eq(disconnected.edges.length(), 1)
+  @debug.assert_eq(disconnected.edges[0].source, node_id(2))
+  @debug.assert_eq(disconnected.edges[0].target, node_id(1))
+  assert_eq(disconnected.action_log.length(), 2)
 }

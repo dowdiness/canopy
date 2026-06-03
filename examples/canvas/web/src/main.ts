@@ -62,6 +62,9 @@ let contextPoint: [number, number] = [0, 0];
 let sourcePointerId = -1;
 let sourceConnecting: Connecting | null = null;
 
+type EdgeSelection = Pick<EdgeData, 'source' | 'source_port' | 'target' | 'target_port'>;
+let selectedEdge: EdgeSelection | null = null;
+
 // ─── Geometry ────────────────────────────────────────────────────────────────
 
 function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number {
@@ -102,6 +105,34 @@ function portTypeName(portType: Tagged): string {
 
 function portTitle(port: PortDef): string {
   return `${port.label}: ${portTypeName(port.port_type)}`;
+}
+
+function edgeSelectionFromEdge(edge: EdgeData): EdgeSelection {
+  return {
+    source: edge.source,
+    source_port: edge.source_port,
+    target: edge.target,
+    target_port: edge.target_port,
+  };
+}
+
+function edgeMatchesSelection(edge: EdgeData, selection: EdgeSelection): boolean {
+  return edge.source === selection.source &&
+    edge.source_port === selection.source_port &&
+    edge.target === selection.target &&
+    edge.target_port === selection.target_port;
+}
+
+function edgeTitle(edge: EdgeData): string {
+  return `${edge.source}.${edge.source_port} → ${edge.target}.${edge.target_port}`;
+}
+
+function selectEdge(edge: EdgeData): void {
+  selectedEdge = edgeSelectionFromEdge(edge);
+}
+
+function clearSelectedEdge(): void {
+  selectedEdge = null;
 }
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
@@ -176,6 +207,10 @@ function scheduleRender(): void {
 function render(): void {
   rafPending = false;
   const state = adapter.renderState();
+  const edgeSelection = selectedEdge;
+  if (edgeSelection && !state.edges.some((edge) => edgeMatchesSelection(edge, edgeSelection))) {
+    selectedEdge = null;
+  }
   lastState = state;
 
   const { x, y, scale } = state.viewport;
@@ -281,6 +316,10 @@ function render(): void {
     }
     path.setAttribute('d', bezierPath(sx, sy, tx, ty));
     path.setAttribute('data-edge-id', String(edge.id));
+    path.classList.toggle('selected', selectedEdge != null && edgeMatchesSelection(edge, selectedEdge));
+    path.setAttribute('role', 'button');
+    path.setAttribute('tabindex', '0');
+    path.setAttribute('aria-label', `Disconnect ${edgeTitle(edge)}`);
   }
   for (const [id, path] of edgePaths) {
     if (!seenEdges.has(id)) { path.remove(); edgePaths.delete(id); }
@@ -378,21 +417,29 @@ function focusNode(nodeId: number): void {
 type HitTarget =
   | { kind: 'background' }
   | { kind: 'node'; nodeId: number }
+  | { kind: 'edge'; edge: EdgeData }
   | { kind: 'handle'; nodeId: number; side: 'input' | 'output'; portId: string };
 
 function hitFromTarget(target: EventTarget | null): HitTarget {
-  let el = target as HTMLElement | null;
+  let el = target instanceof Element ? target : null;
   while (el && el !== root) {
-    if (el.dataset?.handle && el.dataset?.nodeId && el.dataset?.portId) {
+    const element = el as HTMLElement | SVGElement;
+    if (element.dataset?.edgeId) {
+      const edgeId = parseInt(element.dataset.edgeId);
+      const state = lastState ?? adapter.renderState();
+      const edge = state.edges.find((candidate) => candidate.id === edgeId);
+      if (edge) return { kind: 'edge', edge };
+    }
+    if (element.dataset?.handle && element.dataset?.nodeId && element.dataset?.portId) {
       return {
         kind: 'handle',
-        nodeId: parseInt(el.dataset.nodeId),
-        side: el.dataset.handle as 'input' | 'output',
-        portId: el.dataset.portId,
+        nodeId: parseInt(element.dataset.nodeId),
+        side: element.dataset.handle as 'input' | 'output',
+        portId: element.dataset.portId,
       };
     }
-    if (el.dataset?.nodeId && el.classList.contains('canvas-node')) {
-      return { kind: 'node', nodeId: parseInt(el.dataset.nodeId) };
+    if (element.dataset?.nodeId && element.classList.contains('canvas-node')) {
+      return { kind: 'node', nodeId: parseInt(element.dataset.nodeId) };
     }
     el = el.parentElement;
   }
@@ -400,6 +447,7 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 }
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
+  clearSelectedEdge();
   if (adapter.isSourceBacked) {
     adapter.insertUniqueNode(kindKey, kindKey);
     hideContextMenu();
@@ -412,7 +460,7 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
 }
 
 function hoverNodeId(hit: HitTarget): number {
-  return hit.kind === 'background' ? 0 : hit.nodeId;
+  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : 0;
 }
 
 function updateHover(hit: HitTarget): void {
@@ -422,6 +470,7 @@ function updateHover(hit: HitTarget): void {
 
 function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
   if (hit.kind !== 'handle' || hit.side !== 'output') return;
+  clearSelectedEdge();
   hideContextMenu();
   root.setPointerCapture(e.pointerId);
   sourcePointerId = e.pointerId;
@@ -493,6 +542,40 @@ function syncSourceEditorFromResult(result: SourceGraphOperationResult): void {
   if (editor) editor.value = result.source;
 }
 
+function disconnectEdge(edge: EdgeData): boolean {
+  const result = adapter.disconnectPorts(
+    edge.source,
+    edge.source_port,
+    edge.target,
+    edge.target_port,
+  );
+  if (result) {
+    syncSourceEditorFromResult(result);
+    updateSourceOperationStatus(
+      result,
+      'Disconnected selected edge through graph-dsl source.',
+      'Source disconnect rejected',
+    );
+  }
+  clearSelectedEdge();
+  hideContextMenu();
+  scheduleRender();
+  return true;
+}
+
+function deleteSelectedEdge(): boolean {
+  const edgeSelection = selectedEdge;
+  if (!edgeSelection) return false;
+  const state = lastState ?? adapter.renderState();
+  const edge = state.edges.find((candidate) => edgeMatchesSelection(candidate, edgeSelection));
+  if (!edge) {
+    clearSelectedEdge();
+    scheduleRender();
+    return true;
+  }
+  return disconnectEdge(edge);
+}
+
 function deleteSelectedNodes(): boolean {
   const state = lastState ?? adapter.renderState();
   const selectedNodes = state.selected_nodes ?? [];
@@ -506,6 +589,7 @@ function deleteSelectedNodes(): boolean {
       'Source delete rejected',
     );
   }
+  clearSelectedEdge();
   hideContextMenu();
   scheduleRender();
   return true;
@@ -530,6 +614,16 @@ function renderLibrary(filter = ''): void {
   }
 }
 
+function renderEdgeContextMenu(edge: EdgeData): void {
+  contextMenu.replaceChildren();
+  const disconnect = document.createElement('button');
+  disconnect.type = 'button';
+  disconnect.textContent = 'Disconnect edge';
+  disconnect.title = edgeTitle(edge);
+  disconnect.addEventListener('click', () => disconnectEdge(edge));
+  contextMenu.appendChild(disconnect);
+}
+
 function renderContextMenu(): void {
   contextMenu.replaceChildren();
   for (const item of LIBRARY) {
@@ -552,11 +646,18 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   if (adapter.isSourceBacked) {
     if (e.button !== 0) return;
     const hit = hitFromTarget(e.target);
+    if (hit.kind === 'edge') {
+      hideContextMenu();
+      selectEdge(hit.edge);
+      scheduleRender();
+      return;
+    }
     if (hit.kind === 'handle') {
       startSourceConnection(e, hit);
       return;
     }
     if (activePointerId !== -1) return;
+    clearSelectedEdge();
     hideContextMenu();
     root.setPointerCapture(e.pointerId);
     activePointerId = e.pointerId;
@@ -574,11 +675,17 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   if (e.button !== 0 || (isMacLike && e.ctrlKey)) return;
   if (activePointerId !== -1) return;
   hideContextMenu();
+  const hit = hitFromTarget(e.target);
+  if (hit.kind === 'edge') {
+    selectEdge(hit.edge);
+    scheduleRender();
+    return;
+  }
+  clearSelectedEdge();
   root.setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;
   pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
   const [sx, sy] = localCoords(e);
-  const hit = hitFromTarget(e.target);
 
   switch (hit.kind) {
     case 'handle':
@@ -707,11 +814,19 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
-  contextPoint = localCoords(e);
-  renderContextMenu();
+  const hit = hitFromTarget(e.target);
+  if (hit.kind === 'edge') {
+    selectEdge(hit.edge);
+    renderEdgeContextMenu(hit.edge);
+  } else {
+    clearSelectedEdge();
+    contextPoint = localCoords(e);
+    renderContextMenu();
+  }
   contextMenu.style.left = `${e.clientX}px`;
   contextMenu.style.top = `${e.clientY}px`;
   contextMenu.hidden = false;
+  scheduleRender();
 });
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -723,6 +838,10 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     !e.altKey &&
     !editableKeyboardTarget(e.target)
   ) {
+    if (selectedEdge) {
+      if (deleteSelectedEdge()) e.preventDefault();
+      return;
+    }
     if (deleteSelectedNodes()) e.preventDefault();
     return;
   }

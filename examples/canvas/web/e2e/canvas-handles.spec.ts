@@ -32,6 +32,24 @@ async function center(locator: Locator, label: string): Promise<Point> {
   };
 }
 
+async function edgeMidpoint(edge: Locator): Promise<Point> {
+  return edge.evaluate((path) => {
+    const svgPath = path as SVGPathElement;
+    const point = svgPath.getPointAtLength(svgPath.getTotalLength() / 2);
+    const matrix = svgPath.getScreenCTM();
+    if (!matrix) throw new Error('edge path has no screen transform');
+    return {
+      x: point.x * matrix.a + point.y * matrix.c + matrix.e,
+      y: point.x * matrix.b + point.y * matrix.d + matrix.f,
+    };
+  });
+}
+
+async function clickEdge(page: Page, index: number, button: 'left' | 'right' = 'left'): Promise<void> {
+  const point = await edgeMidpoint(edgePaths(page).nth(index));
+  await page.mouse.click(point.x, point.y, { button });
+}
+
 async function canvasBackgroundPoint(page: Page): Promise<Point> {
   const box = await page.locator('#canvas-root').boundingBox();
   if (!box) {
@@ -151,6 +169,50 @@ test('selected canvas nodes delete with incident edges from the keyboard', async
   await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
   await expect(edgePaths(page)).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('selected canvas edge deletes with keyboard without removing nodes', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(edgePaths(page)).toHaveCount(3);
+
+  await clickEdge(page, 1);
+  await expect(edgePaths(page).nth(1)).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await page.keyboard.press('Delete');
+
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(edgePaths(page)).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('canvas edge context menu disconnects the edge', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(edgePaths(page)).toHaveCount(3);
+
+  await clickEdge(page, 0, 'right');
+  await page.getByRole('button', { name: 'Disconnect edge' }).click();
+
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(edgePaths(page)).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
 

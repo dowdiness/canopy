@@ -20,6 +20,10 @@ function outputHandle(page: Page, nodeId: number): Locator {
   return page.locator(`.handle.output[data-node-id="${nodeId}"]`);
 }
 
+function edgePaths(page: Page): Locator {
+  return page.locator('#edges path.edge');
+}
+
 async function center(locator: Locator, label: string): Promise<Point> {
   const box = await locator.boundingBox();
   if (!box) {
@@ -37,6 +41,24 @@ async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 8 });
+}
+
+async function edgeMidpoint(edge: Locator): Promise<Point> {
+  return edge.evaluate((path) => {
+    const svgPath = path as SVGPathElement;
+    const point = svgPath.getPointAtLength(svgPath.getTotalLength() / 2);
+    const matrix = svgPath.getScreenCTM();
+    if (!matrix) throw new Error('edge path has no screen transform');
+    return {
+      x: point.x * matrix.a + point.y * matrix.c + matrix.e,
+      y: point.x * matrix.b + point.y * matrix.d + matrix.f,
+    };
+  });
+}
+
+async function clickEdge(page: Page, index: number): Promise<void> {
+  const point = await edgeMidpoint(edgePaths(page).nth(index));
+  await page.mouse.click(point.x, point.y);
 }
 
 async function dragBy(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
@@ -91,6 +113,35 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   );
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed selected edge deletion lowers into canonical source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+
+  await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+  await page.mouse.up();
+  await expect(edgePaths(page)).toHaveCount(1);
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
+  );
+
+  await clickEdge(page, 0);
+  await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await page.keyboard.press('Backspace');
+
+  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(edgePaths(page)).toHaveCount(0);
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toContainText(
+    'Disconnected selected edge through graph-dsl source.',
+  );
   expect(runtimeErrors).toEqual([]);
 });
 
