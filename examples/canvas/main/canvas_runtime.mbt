@@ -483,6 +483,14 @@ fn CanvasRuntime::add_node(
 }
 
 ///|
+fn CanvasRuntime::delete_nodes(
+  self : CanvasRuntime,
+  nodes : Array[NodeId],
+) -> Unit {
+  self.sync_commit_state(record_action(self.state_peek(), DeleteNodes(nodes)))
+}
+
+///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
   render_state_from_parts(
     self.render_watch.read_or_abort(),

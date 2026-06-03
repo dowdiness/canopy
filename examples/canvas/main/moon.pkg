@@ -24,6 +24,7 @@ options(
         "hover_node",
         "zoom",
         "add_node",
+        "delete_nodes",
         "get_render_state",
         "get_action_log",
         "create_source_graph",

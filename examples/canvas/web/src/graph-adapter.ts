@@ -18,6 +18,7 @@ export type CanvasModule = {
   hover_node: (h: number, nodeId: number) => void;
   zoom: (h: number, delta: number, cx: number, cy: number) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
+  delete_nodes: (h: number, nodeIdsJson: string) => void;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
@@ -156,6 +157,7 @@ export type GraphOperation =
       target: number;
       target_port: string;
     }
+  | { version: number; type: 'DeleteNodes'; nodes: number[] }
   | { version: number; type: 'SelectNodes'; nodes: number[] }
   | { version: number; type: 'SetViewport'; viewport: ViewportData };
 
@@ -314,6 +316,23 @@ export class GraphAdapter {
       target: targetNodeId,
       target_port: targetPortId,
     });
+  }
+
+  deleteNodes(nodeIds: number[]): SourceGraphOperationResult | null {
+    this.assertLive();
+    const uniqueNodeIds = [...new Set(nodeIds)].filter((id) => Number.isFinite(id));
+    if (uniqueNodeIds.length === 0) return null;
+    const operation: GraphOperation = {
+      version: 1,
+      type: 'DeleteNodes',
+      nodes: uniqueNodeIds,
+    };
+    if (this.isSourceBacked) {
+      return this.applyOperation(operation);
+    }
+    this.mb.delete_nodes(this.handle, JSON.stringify(uniqueNodeIds));
+    this.emitLatestOperations();
+    return null;
   }
 
   pointerDown(nodeId: number, sx: number, sy: number): void {

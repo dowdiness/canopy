@@ -16,6 +16,8 @@ pub fn create_canvas() -> Int
 
 pub fn create_source_graph(String) -> Int
 
+pub fn delete_nodes(Int, String) -> Unit
+
 pub fn destroy_source_graph(Int) -> Unit
 
 pub fn get_action_log(Int) -> String

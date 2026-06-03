@@ -74,6 +74,23 @@ pub fn add_node(
 }
 
 ///|
+fn decode_node_ids(json_text : String) -> Array[NodeId] {
+  let json = @json.parse(json_text) catch { _ => return [] }
+  @json.from_json(json) catch {
+    _ => []
+  }
+}
+
+///|
+pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
+  let node_ids = decode_node_ids(node_ids_json)
+  if node_ids.length() == 0 {
+    return
+  }
+  _registry[handle].delete_nodes(node_ids)
+}
+
+///|
 /// Serializable node snapshot. Uses plain Int for `id` to avoid
 /// the NodeId newtype wrapper appearing in JSON output.
 struct NodeJson {

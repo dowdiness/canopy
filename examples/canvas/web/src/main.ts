@@ -6,6 +6,7 @@ import {
   type NodeData,
   type PortDef,
   type RenderState,
+  type SourceGraphOperationResult,
   type Tagged,
 } from './graph-adapter';
 
@@ -461,6 +462,55 @@ function cancelSourceConnection(e: PointerEvent): void {
   scheduleRender();
 }
 
+function editableKeyboardTarget(target: EventTarget | null): boolean {
+  const element = target instanceof HTMLElement ? target : null;
+  if (!element) return false;
+  if (element.isContentEditable) return true;
+  const editable = element.closest('input, textarea, select, [contenteditable="true"]');
+  return editable != null;
+}
+
+function sourceOperationDetail(result: SourceGraphOperationResult): string {
+  return result.message ?? (result.diagnostics.length > 0 ? result.diagnostics.join('; ') : 'operation was rejected');
+}
+
+function updateSourceOperationStatus(
+  result: SourceGraphOperationResult,
+  successMessage: string,
+  failurePrefix: string,
+): void {
+  const status = document.getElementById('source-status');
+  if (!status) return;
+  status.setAttribute('data-tone', result.applied ? 'success' : 'error');
+  status.textContent = result.applied
+    ? successMessage
+    : `${failurePrefix}: ${sourceOperationDetail(result)}`;
+}
+
+function syncSourceEditorFromResult(result: SourceGraphOperationResult): void {
+  if (!result.applied) return;
+  const editor = document.getElementById('source-editor') as HTMLTextAreaElement | null;
+  if (editor) editor.value = result.source;
+}
+
+function deleteSelectedNodes(): boolean {
+  const state = lastState ?? adapter.renderState();
+  const selectedNodes = state.selected_nodes ?? [];
+  if (selectedNodes.length === 0) return false;
+  const result = adapter.deleteNodes(selectedNodes);
+  if (result) {
+    syncSourceEditorFromResult(result);
+    updateSourceOperationStatus(
+      result,
+      'Deleted selected nodes through graph-dsl source.',
+      'Source delete rejected',
+    );
+  }
+  hideContextMenu();
+  scheduleRender();
+  return true;
+}
+
 function hideContextMenu(): void {
   contextMenu.hidden = true;
 }
@@ -666,6 +716,16 @@ root.addEventListener('contextmenu', (e: MouseEvent) => {
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape') hideContextMenu();
+  if (
+    (e.key === 'Delete' || e.key === 'Backspace') &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    !editableKeyboardTarget(e.target)
+  ) {
+    if (deleteSelectedNodes()) e.preventDefault();
+    return;
+  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
     e.preventDefault();
     console.table(adapter.actionLog());
