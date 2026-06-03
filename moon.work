@@ -4,6 +4,7 @@ members = [
   "./lib/zipper",
   "./lib/btree",
   "./lib/rabbita_codemirror",
+  "./lib/resizable",
   "./lib/dom-boundary",
   "./lib/visualizer",
   "./lib/semantic",
@@ -12,4 +13,5 @@ members = [
   "./examples/block-editor",
   "./examples/canvas",
   "./examples/codemirror_demo",
+  "./examples/resizable",
 ]

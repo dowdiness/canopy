@@ -1,0 +1,16 @@
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/common",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+} for "test"
+
+warnings = "-unused_package"
+
+supported_targets = "js+native"
