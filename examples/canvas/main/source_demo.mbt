@@ -75,6 +75,7 @@ fn source_demo_notify(model : SourceDemoModel) -> Cmd {
 fn source_demo_status_from_result(
   result : SourceGraphOperationResultJson,
   success_message : String,
+  failure_prefix : String,
 ) -> (String, String) {
   if result.applied {
     (success_message, "success")
@@ -88,7 +89,7 @@ fn source_demo_status_from_result(
           result.diagnostics.join("; ")
         }
     }
-    ("Source operation rejected: " + detail, "error")
+    (failure_prefix + ": " + detail, "error")
   }
 }
 
@@ -102,22 +103,22 @@ fn source_demo_update(
     EditorChanged(source) =>
       (@rabbita.none, { ..model, editor: source, dirty: true })
     ApplySource => {
-      set_source_graph_source(model.handle, model.editor)
+      let result = set_source_graph_source_checked(model.handle, model.editor)
+      let success_message = "Source applied; render state is reparsed from Loom GraphDoc."
+      let failure_prefix = "Current source is invalid; canvas is rendering last-good graph"
+      let (status, tone) = source_demo_status_from_result(
+        result, success_message, failure_prefix,
+      )
       (
         source_demo_notify(model),
-        {
-          ..model,
-          editor: get_source_graph_source(model.handle),
-          dirty: false,
-          status: "Source applied; render state is reparsed from Loom GraphDoc.",
-          tone: "success",
-        },
+        { ..model, editor: result.source, dirty: false, status, tone },
       )
     }
     ConnectSample => {
       let result = source_graph_connect_sample_result(model.handle)
+      let success_message = "Connected meter.input to osc.out through graph-dsl source."
       let (status, tone) = source_demo_status_from_result(
-        result, "Connected meter.input to osc.out through graph-dsl source.",
+        result, success_message, "Source operation rejected",
       )
       (
         source_demo_notify(model),
@@ -130,8 +131,9 @@ fn source_demo_update(
         "reverb",
         "plate",
       )
+      let success_message = "Inserted reverb = plate() from canonical source."
       let (status, tone) = source_demo_status_from_result(
-        result, "Inserted reverb = plate() from canonical source.",
+        result, success_message, "Source operation rejected",
       )
       (
         source_demo_notify(model),
