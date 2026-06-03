@@ -311,6 +311,12 @@ fn push_query_case_shrinks(
     if start != 0 || end_ != total || pos != 0 {
       results.push({ items, start: 0, end_: total, pos: 0 })
     }
+    if start != 0 || end_ != total || pos != total + 1 {
+      results.push({ items, start: 0, end_: total, pos: total + 1 })
+    }
+    if start != total - 1 || end_ != total || pos != total {
+      results.push({ items, start: total - 1, end_: total, pos: total })
+    }
     if start != 0 || end_ != total || pos != total - 1 {
       results.push({ items, start: 0, end_: total, pos: total - 1 })
     }
@@ -335,6 +341,9 @@ fn push_query_case_shrinks(
   }
   if pos > total && pos != total + 1 {
     results.push({ items, start, end_, pos: total + 1 })
+  }
+  if start > end_ {
+    results.push({ items, start: end_, end_: start, pos })
   }
   for next_start in @qc.Shrink::shrink(start) {
     results.push({ items, start: next_start, end_, pos })
@@ -567,6 +576,13 @@ impl @qc.Shrink for OpSequenceCase with fn shrink(case_) {
         ops: case_.ops[:half].to_owned(),
         min_degree: case_.min_degree,
       })
+      let suffix_start = len - half
+      if suffix_start != 0 && suffix_start != half {
+        results.push({
+          ops: case_.ops[suffix_start:len].to_owned(),
+          min_degree: case_.min_degree,
+        })
+      }
     }
     if len > 1 {
       results.push({
