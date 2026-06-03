@@ -30,6 +30,7 @@ options(
         "destroy_source_graph",
         "get_source_graph_source",
         "set_source_graph_source",
+        "set_source_graph_source_result",
         "get_source_graph_render_state",
         "get_source_graph_action_log",
         "apply_source_graph_operation",

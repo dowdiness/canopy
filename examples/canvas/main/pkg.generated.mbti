@@ -44,6 +44,8 @@ pub fn sample_graph_dsl_source() -> String
 
 pub fn set_source_graph_source(Int, String) -> Unit
 
+pub fn set_source_graph_source_result(Int, String) -> String
+
 pub fn source_graph_insert_unique(Int, String, String) -> String
 
 pub fn source_graph_pointer_down(Int, Int, Double, Double) -> Unit

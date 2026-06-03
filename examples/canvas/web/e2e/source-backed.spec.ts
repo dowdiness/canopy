@@ -2,6 +2,11 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 
 const SAMPLE_SOURCE = 'osc = sine(freq: 440Hz)\nmeter = scope()';
 
+const INVALID_SOURCE_CASES = [
+  { name: 'parser-blocked', source: 'osc = sine(freq: )' },
+  { name: 'projection-blocked', source: 'osc = sine(input: missing)' },
+] as const;
+
 type Point = {
   x: number;
   y: number;
@@ -88,6 +93,31 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
+
+for (const invalidSource of INVALID_SOURCE_CASES) {
+  test(`source-backed apply reports ${invalidSource.name} source as invalid`, async ({ page }) => {
+    const runtimeErrors = collectRuntimeErrors(page);
+
+    await page.goto('/?source=1');
+    await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+    await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+    await page.locator('#source-editor').fill(invalidSource.source);
+    await page.locator('#source-apply').click();
+
+    await expect(page.locator('#source-editor')).toHaveValue(invalidSource.source);
+    await expect(page.locator('.canvas-node')).toHaveCount(2);
+    await expect(page.locator('#edges path.edge')).toHaveCount(0);
+    await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+    await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+    await expect(page.locator('#source-status')).toContainText(
+      'Current source is invalid; canvas is rendering last-good graph: current source is not graph-valid:',
+    );
+    await expect(page.locator('#validation-list .validation-item.error').first()).toBeVisible();
+
+    expect(runtimeErrors).toEqual([]);
+  });
+}
 
 test('source-backed mode mutates canonical source and render state together', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);

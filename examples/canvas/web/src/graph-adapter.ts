@@ -24,6 +24,7 @@ export type CanvasModule = {
   destroy_source_graph?: (h: number) => void;
   get_source_graph_source?: (h: number) => string;
   set_source_graph_source?: (h: number, source: string) => void;
+  set_source_graph_source_result?: (h: number, source: string) => string;
   get_source_graph_render_state?: (h: number) => string;
   get_source_graph_action_log?: (h: number) => string;
   apply_source_graph_operation?: (h: number, operationJson: string) => string;
@@ -50,6 +51,7 @@ type SourceCanvasModule = CanvasModule & {
   destroy_source_graph: (h: number) => void;
   get_source_graph_source: (h: number) => string;
   set_source_graph_source: (h: number, source: string) => void;
+  set_source_graph_source_result: (h: number, source: string) => string;
   get_source_graph_render_state: (h: number) => string;
   get_source_graph_action_log: (h: number) => string;
   apply_source_graph_operation: (h: number, operationJson: string) => string;
@@ -74,6 +76,7 @@ const SOURCE_METHODS = [
   'destroy_source_graph',
   'get_source_graph_source',
   'set_source_graph_source',
+  'set_source_graph_source_result',
   'get_source_graph_render_state',
   'get_source_graph_action_log',
   'apply_source_graph_operation',
@@ -256,10 +259,13 @@ export class GraphAdapter {
     return this.sourceModule().get_source_graph_source(this.handle);
   }
 
-  setSource(source: string): void {
+  setSource(source: string): SourceGraphOperationResult {
     this.assertLive();
-    this.sourceModule().set_source_graph_source(this.handle, source);
+    const result = JSON.parse(
+      this.sourceModule().set_source_graph_source_result(this.handle, source),
+    ) as SourceGraphOperationResult;
     this.lastActionCount = this.readActionLog().length;
+    return result;
   }
 
   applyOperation(operation: GraphOperation): SourceGraphOperationResult {

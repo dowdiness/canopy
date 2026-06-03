@@ -678,14 +678,38 @@ pub fn get_source_graph_source(handle : Int) -> String {
 }
 
 ///|
-pub fn set_source_graph_source(handle : Int, source : String) -> Unit {
-  match source_graph_by_handle(handle) {
-    Some(graph) => {
-      graph.source = source
-      graph.attachment.set_source(source)
-    }
-    None => ()
+fn set_source_graph_source_checked(
+  handle : Int,
+  source : String,
+) -> SourceGraphOperationResultJson {
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None =>
+      return source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph handle not found"],
+        0,
+        Some("source graph handle not found"),
+      )
   }
+  graph.source = source
+  graph.attachment.set_source(source)
+  match source_graph_current_doc(graph) {
+    Ok(_) => source_graph_result_json_for_graph(graph, true, None)
+    Err(message) =>
+      source_graph_result_json_for_graph(graph, false, Some(message))
+  }
+}
+
+///|
+pub fn set_source_graph_source(handle : Int, source : String) -> Unit {
+  ignore(set_source_graph_source_checked(handle, source))
+}
+
+///|
+pub fn set_source_graph_source_result(handle : Int, source : String) -> String {
+  set_source_graph_source_checked(handle, source).to_json().stringify()
 }
 
 ///|

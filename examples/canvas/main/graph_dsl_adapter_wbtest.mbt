@@ -284,6 +284,32 @@ test "source-backed handle rejects local graph operations without mutating sourc
 }
 
 ///|
+test "source-backed handle reports invalid source apply status" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  inspect(
+    operation_result_applied(
+      set_source_graph_source_result(handle, "osc = sine(freq: )"),
+    ),
+    content="false",
+  )
+  inspect(get_source_graph_source(handle), content="osc = sine(freq: )")
+  inspect(
+    operation_result_applied(
+      set_source_graph_source_result(handle, "osc = sine(input: missing)"),
+    ),
+    content="false",
+  )
+  inspect(get_source_graph_source(handle), content="osc = sine(input: missing)")
+  inspect(
+    operation_result_applied(set_source_graph_source_result(handle, source)),
+    content="true",
+  )
+  inspect(get_source_graph_source(handle), content=source)
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed handle rejects graph operations while source is invalid" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
   set_source_graph_source(handle, "osc = sine(freq: )")
