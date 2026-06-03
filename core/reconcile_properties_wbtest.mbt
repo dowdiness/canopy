@@ -20,11 +20,6 @@ struct TestExprPair {
 } derive(Debug)
 
 ///|
-impl Show for TestExprPair with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 impl @quickcheck.Arbitrary for TestExprPair with fn arbitrary(size, rs) {
   let depth = if size < 1 { 1 } else if size > 4 { 4 } else { size }
   {

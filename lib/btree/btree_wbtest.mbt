@@ -1504,14 +1504,45 @@ struct DeleteRangeCase {
 } derive(Debug)
 
 ///|
-impl Show for DeleteRangeCase with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
+fn signed_bounded(rs : @splitmix.RandomState, bound : Int) -> Int {
+  guard bound > 0 else { return 0 }
+  rs.next_positive_int() % (2 * bound + 1) - bound
+}
+
+///|
+fn generated_delete_item_count(capped : Int, rs : @splitmix.RandomState) -> Int {
+  let random_count = rs.split().next_positive_int() % (capped + 1)
+  match rs.split().next_positive_int() % 7 {
+    0 => 0
+    1 => 1
+    2 => 4
+    3 => 5
+    4 => 21
+    _ => random_count
+  }
+}
+
+///|
+fn generated_delete_range(
+  total_span : Int,
+  rs : @splitmix.RandomState,
+) -> (Int, Int) {
+  let bound = total_span + 3
+  match rs.split().next_positive_int() % 8 {
+    0 => (0, 0)
+    1 => (0, total_span)
+    2 => (-1, total_span + 1)
+    3 => (total_span, total_span + 3)
+    4 => (total_span / 2, total_span / 2)
+    5 => (0, total_span / 2)
+    _ => (signed_bounded(rs.split(), bound), signed_bounded(rs.split(), bound))
+  }
 }
 
 ///|
 impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
-  let item_count = rs.split().next_positive_int() % (capped + 1)
+  let item_count = generated_delete_item_count(capped, rs.split())
   let items : Array[(Int, Int)] = []
   let mut total_span = 0
   for _ in 0..<item_count {
@@ -1520,10 +1551,8 @@ impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
     items.push((id, span))
     total_span = total_span + span
   }
-  let bound = total_span + 3
-  let start = rs.split().next_positive_int() % (bound + 1)
-  let end_ = rs.split().next_positive_int() % (bound + 1)
-  { items, start, end_ }
+  let range = generated_delete_range(total_span, rs.split())
+  { items, start: range.0, end_: range.1 }
 }
 
 ///|
@@ -2102,11 +2131,6 @@ struct FromSortedCase {
   items : Array[(Int, Int)]
   min_degree : Int
 } derive(Debug)
-
-///|
-impl Show for FromSortedCase with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
 
 ///|
 impl @quickcheck.Arbitrary for FromSortedCase with fn arbitrary(size, rs) {

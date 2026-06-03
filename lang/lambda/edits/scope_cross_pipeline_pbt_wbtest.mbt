@@ -339,14 +339,8 @@ fn gen_source(rs : @splitmix.RandomState, depth : Int) -> @ast.Term {
 }
 
 ///|
-/// Newtype wrapper so quickcheck can generate source strings via an AST. `Show`
-/// renders the source text, so a counterexample prints the offending program.
-struct GenSource(@ast.Term)
-
-///|
-impl Show for GenSource with fn output(self, logger) {
-  logger.write_string(@ast.print_term(self.0))
-}
+/// Newtype wrapper so quickcheck can generate source strings via an AST.
+struct GenSource(@ast.Term) derive(Debug)
 
 ///|
 impl @quickcheck.Arbitrary for GenSource with fn arbitrary(size, rs) {
