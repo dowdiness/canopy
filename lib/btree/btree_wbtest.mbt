@@ -2292,7 +2292,9 @@ fn push_from_sorted_case_shrinks(
     results.push({ items, min_degree: 5 })
   }
   for next_min_degree in @qc.Shrink::shrink(min_degree) {
-    results.push({ items, min_degree: next_min_degree })
+    if next_min_degree < 2 || next_min_degree > 5 {
+      results.push({ items, min_degree: next_min_degree })
+    }
   }
 }
 
