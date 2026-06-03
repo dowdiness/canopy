@@ -21,8 +21,8 @@ test "format_elapsed_ns_picks_unit_by_magnitude" {
 /// no timing. Constructed directly (not via a live tap) so the formatted value
 /// is deterministic — wall-clock timing can't be asserted from a real run.
 test "to_visual_graph surfaces latest elapsed_ns on the recomputed cell only" {
-  let timed_cell : @incr.CellId = { id: 1, runtime_id: 0 }
-  let untimed_cell : @incr.CellId = { id: 2, runtime_id: 0 }
+  let timed_cell : @incr.CellId = { id: 1, runtime_id: @incr.RuntimeId(0) }
+  let untimed_cell : @incr.CellId = { id: 2, runtime_id: @incr.RuntimeId(0) }
   let rev3 : @incr.Revision = { value: 3 }
   let rev4 : @incr.Revision = { value: 4 }
   let timed_node : RecomputeSnapshotNode = {
