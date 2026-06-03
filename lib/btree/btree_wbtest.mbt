@@ -1540,6 +1540,82 @@ fn generated_delete_range(
 }
 
 ///|
+fn generated_items_span(items : Array[(Int, Int)]) -> Int {
+  items.fold(init=0, fn(acc, item) { acc + item.1 })
+}
+
+///|
+fn[T] array_without_at(items : Array[T], index : Int) -> Array[T] {
+  Array::makei(items.length() - 1, fn(i) {
+    if i < index {
+      items[i]
+    } else {
+      items[i + 1]
+    }
+  })
+}
+
+///|
+fn[T] array_replaced_at(items : Array[T], index : Int, item : T) -> Array[T] {
+  Array::makei(items.length(), fn(i) {
+    if i == index {
+      item
+    } else {
+      items[i]
+    }
+  })
+}
+
+///|
+fn push_generated_items_prefix(
+  results : Array[Array[(Int, Int)]],
+  items : Array[(Int, Int)],
+  target_len : Int,
+) -> Unit {
+  if target_len > 0 && target_len < items.length() {
+    results.push(items[:target_len].to_owned())
+  }
+}
+
+///|
+fn shrink_generated_items(items : Array[(Int, Int)]) -> Iter[Array[(Int, Int)]] {
+  let results : Array[Array[(Int, Int)]] = []
+  let len = items.length()
+  guard len > 0 else { return results.iter() }
+  results.push(items[:0].to_owned())
+  push_generated_items_prefix(results, items, 1)
+  push_generated_items_prefix(results, items, 4)
+  push_generated_items_prefix(results, items, 5)
+  push_generated_items_prefix(results, items, 21)
+  if len > 1 {
+    let half = len / 2
+    push_generated_items_prefix(results, items, half)
+    results.push(items[:len - 1].to_owned())
+    for i in 0..<len {
+      results.push(array_without_at(items, i))
+    }
+  }
+  for i in 0..<len {
+    let (id, span) = items[i]
+    if id > 1 {
+      results.push(array_replaced_at(items, i, (1, span)))
+      let half_id = id / 2
+      if half_id > 1 {
+        results.push(array_replaced_at(items, i, (half_id, span)))
+      }
+    }
+    if span > 1 {
+      results.push(array_replaced_at(items, i, (id, 1)))
+      let half_span = span / 2
+      if half_span > 1 {
+        results.push(array_replaced_at(items, i, (id, half_span)))
+      }
+    }
+  }
+  results.iter()
+}
+
+///|
 impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
   let item_count = generated_delete_item_count(capped, rs.split())
@@ -1556,7 +1632,58 @@ impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for DeleteRangeCase
+fn push_delete_range_shrinks(
+  results : Array[DeleteRangeCase],
+  items : Array[(Int, Int)],
+  start : Int,
+  end_ : Int,
+) -> Unit {
+  let total = generated_items_span(items)
+  if start != 0 || end_ != 0 {
+    results.push({ items, start: 0, end_: 0 })
+  }
+  if total > 0 {
+    if start != 0 || end_ != total {
+      results.push({ items, start: 0, end_: total })
+    }
+    let mid = total / 2
+    if start != mid || end_ != mid {
+      results.push({ items, start: mid, end_: mid })
+    }
+    if start != 0 || end_ != mid {
+      results.push({ items, start: 0, end_: mid })
+    }
+  }
+  if start < 0 && start != -1 {
+    results.push({ items, start: -1, end_ })
+  }
+  if end_ < 0 && end_ != -1 {
+    results.push({ items, start, end_: -1 })
+  }
+  if start > total && start != total + 1 {
+    results.push({ items, start: total + 1, end_ })
+  }
+  if end_ > total && end_ != total + 1 {
+    results.push({ items, start, end_: total + 1 })
+  }
+  for next_start in @qc.Shrink::shrink(start) {
+    results.push({ items, start: next_start, end_ })
+  }
+  for next_end in @qc.Shrink::shrink(end_) {
+    results.push({ items, start, end_: next_end })
+  }
+}
+
+///|
+impl @qc.Shrink for DeleteRangeCase with fn shrink(case_) {
+  let results : Array[DeleteRangeCase] = []
+  push_delete_range_shrinks(results, case_.items, case_.start, case_.end_)
+  for items in shrink_generated_items(case_.items) {
+    results.push({ items, start: case_.start, end_: case_.end_ })
+    push_delete_range_shrinks(results, items, case_.start, case_.end_)
+  }
+  results.iter()
+}
 
 ///|
 fn prop_delete_range_preserves_invariants(case_ : DeleteRangeCase) -> Bool {
