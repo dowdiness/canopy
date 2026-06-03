@@ -236,6 +236,34 @@ test "source-backed handle lowers GraphOperation through graph-dsl source" {
 }
 
 ///|
+test "source-backed unique insert chooses a fresh graph-dsl binding" {
+  let handle = create_source_graph("reverb = plate()")
+  inspect(
+    operation_result_applied(
+      source_graph_insert_unique(handle, "reverb", "plate"),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="reverb = plate()\nreverb2 = plate()",
+  )
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [added] =>
+      match added.action() {
+        AddNode(node) => {
+          inspect(node.title, content="reverb2")
+          @debug.assert_eq(node.id, NodeId(2))
+        }
+        _ => abort("expected AddNode action")
+      }
+    _ => abort("expected one source-backed unique insert operation")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed handle rejects local graph operations without mutating source" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
   let handle = create_source_graph(source)
