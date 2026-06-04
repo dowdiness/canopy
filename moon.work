@@ -14,4 +14,5 @@ members = [
   "./examples/canvas",
   "./examples/codemirror_demo",
   "./examples/resizable",
+  "./examples/disclosure",
 ]
