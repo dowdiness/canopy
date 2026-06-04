@@ -2,8 +2,13 @@
 
 **Status:** findings (source-verified) + design
 **Date:** 2026-06-04
-**Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `8381bef`)
+**Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `8381bef`, also tagged `canopy-headless-ui-experiment-2026-06-04` on the fork)
 **PoC:** `examples/disclosure/` (browser-verified, see §4)
+
+**PR scope / done definition:** record the feasibility findings and land the
+Disclosure PoC as an experiment. Do **not** extract a reusable `lib/disclosure`,
+commit to an animation attribute contract, or adopt rabbita 0.12.3
+workspace-wide in this PR; those are separate follow-up decisions.
 
 ## Conclusion
 
@@ -102,8 +107,9 @@ sections mount with correct initial state; `aria-controls` == panel `id`;
 independent toggle on click; `Enter` toggles focused trigger (native button a11y).
 Visual: on-brand, chevron rotates, panel shows/hides.
 
-Validated learning: `hidden` attr gives correct a11y collapse but is instant — open
-question is animation (CSS grid-rows / `data-state`), deferred.
+Validated learning: `hidden` attr gives correct a11y collapse but is instant.
+This experiment does **not** reserve a public `data-state` contract; decide that
+when P1 polish or P2 extraction makes animation part of the primitive contract.
 
 ## 5. rabbita 0.12.3 adoption status
 
@@ -120,10 +126,12 @@ question is animation (CSS grid-rows / `data-state`), deferred.
   use the path) — bump to `0.12.3` for accuracy when adopting.
 
 This experiment PR points the `rabbita` gitlink at `8381bef`, which is published
-on the configured fork remote as `dowdiness/rabbita:update-0.12.3-patched` so
-fresh clones can resolve the submodule commit. The same branch is under review
-as `dowdiness/rabbita#1`; it is not merged to the fork's main branch, so keep
-that distinction when deciding whether to adopt 0.12.3 broadly.
+on the configured fork remote as `dowdiness/rabbita:update-0.12.3-patched` and
+also pinned by the separate fork tag `canopy-headless-ui-experiment-2026-06-04`,
+so fresh clones can resolve the submodule commit even if the review branch later
+moves. The same branch is under review as `dowdiness/rabbita#1`; it is not merged
+to the fork's main branch, so keep that distinction when deciding whether to
+adopt 0.12.3 broadly.
 
 Remaining to actually adopt 0.12.3 workspace-wide in canopy (out of scope for
 this experiment): merge/review the rabbita patch branch, bump the 6 version
