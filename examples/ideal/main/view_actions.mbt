@@ -87,7 +87,7 @@ fn view_name_prompt(
       [@html.text(model.overlay.name_error)],
     )
   } else {
-    @html.text("")
+    @html.nothing
   }
   let on_keydown_handler = fn(kb : @html.Keyboard) {
     let key = kb.key()
@@ -110,7 +110,6 @@ fn view_name_prompt(
         autofocus=true,
         on_input=fn(value) { dispatch(NamePromptInput(value)) },
         attrs=@html.Attrs::build().aria_label(prompt_label),
-        [@html.text("")],
       ),
     ]),
     error_el,
@@ -158,7 +157,7 @@ fn view_action_overlay(
   model : Model,
 ) -> @rabbita.Html {
   if !model.overlay.visible {
-    return @html.text("")
+    return @html.nothing
   }
   // Position the overlay panel using inline style from the anchor rect
   let top = model.overlay.anchor_top
@@ -189,7 +188,7 @@ fn view_action_overlay(
         }
       },
       attrs=@html.Attrs::build().aria_hidden("true").tabindex(-1),
-      [@html.text("")],
+      @html.nothing,
     ),
     // Overlay panel — receives focus on open via after_render in main.mbt
     @html.div(
