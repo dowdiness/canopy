@@ -356,10 +356,16 @@ fn push_query_case_shrinks(
   }
 }
 
+///|
 fn query_case_abs(value : Int) -> Int {
-  if value < 0 { -value } else { value }
+  if value < 0 {
+    -value
+  } else {
+    value
+  }
 }
 
+///|
 fn QueryCase::is_minimal_witness(self : QueryCase) -> Bool {
   self.start == 0 &&
   self.end_ == 0 &&
@@ -369,6 +375,7 @@ fn QueryCase::is_minimal_witness(self : QueryCase) -> Bool {
   self.items[0].1 == 1
 }
 
+///|
 fn QueryCase::shrink_score(self : QueryCase) -> Int {
   let len = self.items.length()
   if len == 0 {
@@ -378,12 +385,18 @@ fn QueryCase::shrink_score(self : QueryCase) -> Int {
   for item in self.items {
     item_score = item_score + query_case_abs(item.0) + item.1
   }
-  len * 1_000 + item_score + query_case_abs(self.start) + query_case_abs(self.end_) +
-    query_case_abs(self.pos)
+  len * 1_000 +
+  item_score +
+  query_case_abs(self.start) +
+  query_case_abs(self.end_) +
+  query_case_abs(self.pos)
 }
 
+///|
 fn QueryCase::to_stable_witness(self : QueryCase) -> QueryCase {
-  fn shrink_query_case_to_stable_witness_inner(current : QueryCase) -> QueryCase {
+  fn shrink_query_case_to_stable_witness_inner(
+    current : QueryCase,
+  ) -> QueryCase {
     let current_score = current.shrink_score()
     let mut next_case : QueryCase? = None
     let mut next_score = current_score
@@ -718,28 +731,17 @@ test "property: operation sequences match array model" {
   @qc.quick_check_fn(prop_operation_sequence_matches_model)
 }
 
+///|
 test "regression: QueryCase shrinker reaches stable minimal witness" {
   let seed : QueryCase = {
-    items: [
-      (8, 7),
-      (7, 5),
-      (6, 3),
-      (5, 6),
-      (4, 4),
-      (3, 2),
-    ],
+    items: [(8, 7), (7, 5), (6, 3), (5, 6), (4, 4), (3, 2)],
     start: 27,
     end_: 34,
     pos: 99,
   }
   let shrunk_once = seed.to_stable_witness()
   let shrunk_twice = shrunk_once.to_stable_witness()
-  let expected : QueryCase = {
-    items: [(1, 1)],
-    start: 0,
-    end_: 0,
-    pos: 0,
-  }
+  let expected : QueryCase = { items: [(1, 1)], start: 0, end_: 0, pos: 0 }
   inspect(shrunk_once.items.length(), content="1")
   inspect(shrunk_once.start, content="0")
   inspect(shrunk_once.end_, content="0")
