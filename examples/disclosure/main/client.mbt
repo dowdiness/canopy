@@ -5,6 +5,8 @@
 // its own elements via `attrs=...` and supplies all classes locally. This
 // mirrors `examples/resizable` / `lib/resizable`, which is canopy's existing
 // instance of the same pattern (Zag `connect()` / Radix prop-spreading).
+// This PoC keeps the behavior layer package-private; P2 extraction would be the
+// point where these helpers become a library API.
 
 ///|
 using @html {div, button, h1, p}
@@ -21,6 +23,7 @@ struct DisclosureModel {
 }
 
 ///|
+/// Create disclosure state for a panel whose `content_id` is unique on the page.
 fn DisclosureModel::new(
   content_id~ : String,
   open? : Bool = false,
@@ -34,31 +37,22 @@ fn DisclosureModel::toggle(self : DisclosureModel) -> DisclosureModel {
 }
 
 ///|
-fn DisclosureModel::trigger_id(self : DisclosureModel) -> String {
-  self.content_id + "-trigger"
-}
-
-///|
 /// Trigger attributes: ARIA state + click wiring. No classes, no styling.
 fn DisclosureModel::trigger_attrs(
   self : DisclosureModel,
   on_toggle : Cmd,
 ) -> @html.Attrs {
   @html.Attrs::build()
-  .id(self.trigger_id())
   .aria_expanded(if self.open { "true" } else { "false" })
   .aria_controls(self.content_id)
   .on_click(_evt => on_toggle)
 }
 
 ///|
-/// Content-region attributes: identity + collapsed state.
+/// Content attributes: identity + collapsed state. No landmark role; this PoC is
+/// a stack of independent Disclosure widgets, not an Accordion.
 fn DisclosureModel::content_attrs(self : DisclosureModel) -> @html.Attrs {
-  @html.Attrs::build()
-  .id(self.content_id)
-  .role("region")
-  .aria_labelledby(self.trigger_id())
-  .hidden(!self.open)
+  @html.Attrs::build().id(self.content_id).hidden(!self.open)
 }
 
 // ── Consumer app ────────────────────────────────────────────────────────────

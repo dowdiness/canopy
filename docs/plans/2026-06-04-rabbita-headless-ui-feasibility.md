@@ -81,18 +81,18 @@ in the type system.
 `examples/disclosure/` (registered in `moon.work`). Headless logic inline in
 `main/client.mbt`: `DisclosureModel` + `trigger_attrs`/`content_attrs` returning
 `@html.Attrs`; consumer `Section` records pair copy with behavior state; view maps
-sections onto native `<button>`/`<div>`; panels use `role="region"` with
-`aria-labelledby` pointing at stable trigger IDs; chevron is driven **purely by
-`aria-expanded`** in CSS (no extra markup). A small MoonBit test pins the TEA
-`Toggle` update behavior.
+sections onto native `<button>`/`<div>`; `content_id` is the stable panel id
+referenced by `aria-controls`; chevron is driven **purely by `aria-expanded`** in
+CSS (no extra markup). The example is intentionally a stack of independent
+Disclosure widgets, not an Accordion, so panels are not exposed as `region`
+landmarks. A small MoonBit test pins the TEA `Toggle` update behavior.
 
 Browser-verified headless (warren `dev`/`build` core-dump in this WSL2 env — broken
 even on the known-good `examples/resizable`; bypassed via `moon build --target js`
 + static server + Playwright chromium). **10/10 assertions, 0 console errors:**
 sections mount with correct initial state; `aria-controls` == panel `id`;
-`aria-labelledby` == trigger `id`; `role="region"` present; independent toggle
-on click; `Enter` toggles focused trigger (native button a11y). Visual: on-brand,
-chevron rotates, panel shows/hides.
+independent toggle on click; `Enter` toggles focused trigger (native button a11y).
+Visual: on-brand, chevron rotates, panel shows/hides.
 
 Validated learning: `hidden` attr gives correct a11y collapse but is instant — open
 question is animation (CSS grid-rows / `data-state`), deferred.
