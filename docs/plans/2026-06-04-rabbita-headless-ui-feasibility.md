@@ -21,6 +21,8 @@ Disclosure. Radix's `asChild` (React `cloneElement`) cannot be reproduced at the
 type level (MoonBit traits: no type params / associated types / HKT), but its
 *intent* — spread a behavior's attrs onto a consumer-chosen element — is fully
 served by returning `@html.Attrs` and applying it via the element's `attrs?` param.
+This is better understood as a prop-getter / render-prop-style lineage than as a
+MoonBit clone of `asChild`.
 
 ## 1. Why
 
@@ -55,17 +57,23 @@ Key design decisions, each grounded in a verified fact:
 1. **`Attrs::build()` chaining is the rabbita-native `getTriggerProps()`** — typed,
    ergonomic: `.aria_expanded(..).aria_controls(..).on_click(..)` (fact b). A
    primitive returns `@html.Attrs`; the consumer spreads it via `attrs=...` and
-   owns all classes. This is the `asChild` substitute (fact e rules out cloneElement).
+   owns all classes. This prop-getter shape serves the useful part of `asChild`
+   without cloneElement (fact e rules out `Html.map`-style wrapping).
 2. **Message lift = `Emit::map` / emit closures**, not `Html::map` (fact e). The
    doc's "selection 1" (Elm-style `Html.map`) is dead; "selection 3" (emit closure
    composition) is first-class. Nested components use `@rabbita.cell` + `Cell::view()`.
 3. **`simple_cell` (Model-only `update`) fits side-effect-free primitives**; full
    `cell` (`(Cmd, Model)` update + `subscriptions`) is for primitives with effects
    (`rabbita:16,35`).
-4. **Native `<dialog>` carries Dialog's hard parts.** rabbita's `@dialog` package is
-   a thin binding over `HTMLDialogElement` (`dialog:9-13`, `dom:301-312`,
-   `html:67`); focus-trap / Esc / light-dismiss are browser-native. The feared
-   "Zag effects → custom subs" work mostly disappears.
+4. **Native `<dialog>` carries some Dialog hard parts, but not all.** rabbita's
+   `@dialog` package is a thin binding over `HTMLDialogElement.show_modal()` /
+   `close()` / `request_close()` (`rabbita/rabbita/dialog/dialog.mbt`,
+   `dom:302-307`, `html:67`). That binding evidence proves the native dialog
+   surface exists; it does **not** prove every expected dialog behavior is free.
+   Modal inertness / focus trapping and Escape close should be validated in P3;
+   light-dismiss is not assumed free and likely needs `closedby="any"` where
+   supported or explicit click handling. So the feared "Zag effects → custom
+   subs" work shrinks, but light-dismiss and focus-return details remain open.
 5. **Splitter/drag** is the one real `custom_sub` case: `on_mouse_move` exists at
    document level (fact d) but document `mouseup` does not — mirror the canonical
    `rabbita/rabbita/websocket/listen.mbt` SubLoader (or an overlay with
@@ -128,9 +136,11 @@ pins, and fix the loom example sites.
 - **P2 — Extract `lib/disclosure`** (`dowdiness/rabbita-disclosure`), mirroring
   `lib/resizable/src/resizable`: `Model`, `Msg`, `update`, `*_attrs`, `new`.
   Cell-ize only when composing stateful instances.
-- **P3 — Dialog primitive** on native `<dialog>`: validate the "focus-trap/Esc is
-  free" claim; settle controlled vs uncontrolled (config record: consumer `open` +
-  `on_open_change`, or self-held in a `cell`).
+- **P3 — Dialog primitive** on native `<dialog>`: validate modal inertness,
+  focus-trap, Escape close, focus return, and light-dismiss behavior in current
+  browsers. Do not assume backdrop click is free; decide between `closedby="any"`
+  (where supported) and explicit click handling. Settle controlled vs uncontrolled
+  (config record: consumer `open` + `on_open_change`, or self-held in a `cell`).
 - **P4 — Splitter primitive**: reuse `lib/resizable`'s document-`mouseup`
   `custom_sub` pattern; confirm it generalizes.
 - **P5 — Design-system layer**: Tailwind `@utility` presets + CSS-var theme +
