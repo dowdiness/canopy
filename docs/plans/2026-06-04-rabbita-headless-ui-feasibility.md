@@ -4,6 +4,7 @@
 **Date:** 2026-06-04
 **Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `8381bef`, also tagged `canopy-headless-ui-experiment-2026-06-04` on the fork)
 **PoC:** `examples/disclosure/` (browser-verified, see §4)
+**Follow-up:** P3 native Dialog spike recorded in §5 (docs-only; no `lib/dialog` extraction)
 
 **PR scope / done definition:** record the feasibility findings and land the
 Disclosure PoC as an experiment. Do **not** extract a reusable `lib/disclosure`,
@@ -111,7 +112,47 @@ Validated learning: `hidden` attr gives correct a11y collapse but is instant.
 This experiment does **not** reserve a public `data-state` contract; decide that
 when P1 polish or P2 extraction makes animation part of the primitive contract.
 
-## 5. rabbita 0.12.3 adoption status
+## 5. P3 result — native Dialog spike
+
+A narrow throwaway spike (not landed as an example or library) was run after PR
+#501 merged, starting from `origin/main` at `7f0888d` with the `rabbita`
+submodule at `8381bef`. The harness rendered one native `<dialog>` and used
+Playwright/Chromium to drive focus, Tab, Escape, page-control clicks, backdrop
+clicks, and a `closedby="any"` injection. Injection was necessary because the
+pinned Rabbita public API cannot emit `closedby`: `Attrs::attribute` is internal
+and there is no `Attrs::closedby` / `dialog(closedby?)` yet.
+
+Findings:
+
+- `@dialog.show("dialog-spike", modal=true)` is Rabbita's command wrapper over
+  native `showModal()`. In Chromium it opened a real modal top-layer dialog;
+  the autofocus input was focused. Tab did not reach page controls (observed
+  sequence: `dialog-input -> dialog-close -> BODY -> dialog-input`). Clicking a
+  page button behind the modal kept the page-click counter at `0` and did not
+  focus that page button.
+- Escape emitted Rabbita `on_cancel`. Rabbita's `push_cancel` calls
+  `prevent_default()`, so a dialog with `on_cancel` does not close automatically;
+  the app must decide whether to close. The spike returned
+  `@dialog.close(..., return_value="cancelled")` from `update`, then received
+  `on_close` with the same return value.
+- Chromium returned focus to the trigger (`#open-modal`) after Escape, explicit
+  close-button close, and `closedby="any"` backdrop close.
+- Backdrop click is `closedby`-dependent. Without `closedby`, backdrop click kept
+  the dialog open and focused the dialog. With `closedby="any"`, Chromium
+  light-dismissed and emitted `cancel` followed by `close` through the spike's
+  explicit cancel-close path.
+- If Rabbita gains `closedby` support, scope it as an attribute emission API
+  only. MDN marks `HTMLDialogElement.closedBy` as non-Baseline, so consumers
+  still need a fallback or an explicit browser-support decision; Rabbita should
+  not claim a light-dismiss polyfill.
+
+Implication: a future Dialog primitive can lean on native `showModal()` for the
+Chromium modal/top-layer/inert/focus-return behavior observed here, but the
+primitive must own cancel-close policy and must choose between limited-support
+`closedby` and explicit backdrop handling for light-dismiss. Do not extract
+`lib/dialog` until a real Canopy consumer exists.
+
+## 6. rabbita 0.12.3 adoption status
 
 `moon check` (full workspace) is **green** against 0.12.3 + patch after a single fix:
 
@@ -137,24 +178,24 @@ Remaining to actually adopt 0.12.3 workspace-wide in canopy (out of scope for
 this experiment): merge/review the rabbita patch branch, bump the 6 version
 pins, and fix the loom example sites.
 
-## 6. Roadmap (phased; prose, not paste-ready)
+## 7. Roadmap (phased; prose, not paste-ready)
 
 - **P1 — Polish Disclosure**: expand/collapse animation via CSS `data-state` +
   grid-rows; keep `aria-expanded`/`hidden` as the source of truth.
 - **P2 — Extract `lib/disclosure`** (`dowdiness/rabbita-disclosure`), mirroring
   `lib/resizable/src/resizable`: `Model`, `Msg`, `update`, `*_attrs`, `new`.
   Cell-ize only when composing stateful instances.
-- **P3 — Dialog primitive** on native `<dialog>`: validate modal inertness,
-  focus-trap, Escape close, focus return, and light-dismiss behavior in current
-  browsers. Do not assume backdrop click is free; decide between `closedby="any"`
-  (where supported) and explicit click handling. Settle controlled vs uncontrolled
-  (config record: consumer `open` + `on_open_change`, or self-held in a `cell`).
+- **P3 — Dialog primitive** on native `<dialog>`: spike complete (§5). Before
+  extracting anything, wait for a real consumer and decide cancel-close policy,
+  controlled vs uncontrolled shape (consumer `open` + `on_open_change`, or
+  self-held in a `cell`), and light-dismiss strategy (`closedby="any"` where
+  supported vs explicit backdrop handling).
 - **P4 — Splitter primitive**: reuse `lib/resizable`'s document-`mouseup`
   `custom_sub` pattern; confirm it generalizes.
 - **P5 — Design-system layer**: Tailwind `@utility` presets + CSS-var theme +
   `enum Variant → to_class()`. No variant logic in types.
 
-## 7. Caveats
+## 8. Caveats
 
 - All PoC artifacts under `/tmp/disc-preview/` are ephemeral (moon-built JS + host
   page); regenerate with `cd examples/disclosure && moon build --target js`.
