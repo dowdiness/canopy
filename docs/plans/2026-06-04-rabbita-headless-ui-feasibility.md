@@ -2,7 +2,7 @@
 
 **Status:** findings (source-verified) + design
 **Date:** 2026-06-04
-**Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `f6361f2`)
+**Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `8381bef`)
 **PoC:** `examples/disclosure/` (browser-verified, see §4)
 
 ## Conclusion
@@ -109,7 +109,7 @@ question is animation (CSS grid-rows / `data-state`), deferred.
 - The `"version": "0.12.2"` pins in 6 `moon.mod.json` files are advisory (path-deps
   use the path) — bump to `0.12.3` for accuracy when adopting.
 
-This experiment PR points the `rabbita` gitlink at `f6361f2`, which is published
+This experiment PR points the `rabbita` gitlink at `8381bef`, which is published
 on the configured fork remote as `dowdiness/rabbita:update-0.12.3-patched` so
 fresh clones can resolve the submodule commit. The same branch is under review
 as `dowdiness/rabbita#1`; it is not merged to the fork's main branch, so keep
