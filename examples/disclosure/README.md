@@ -5,6 +5,8 @@ rabbita 0.12.3, mirroring `examples/resizable`.
 
 - `DisclosureModel` (in `main/client.mbt`) owns state (`open`) and emits ARIA
   via `trigger_attrs` / `content_attrs` returning `@html.Attrs` — no styling.
+  Each trigger receives a stable `id`; each `role="region"` panel points back
+  with `aria-labelledby`.
 - Section copy and behavior state are paired in `Section` records; the view maps
   sections instead of indexing fixed positions.
 - The consumer `view` spreads those attrs onto `<button>` / `<div>` via
@@ -29,3 +31,4 @@ bundle with a host page containing `<div id="app"></div>`.
   `aria-expanded`, no extra markup).
 - Tab to a header and press Enter/Space: it toggles (native `<button>`).
 - The middle section starts expanded.
+- Each panel's `aria-labelledby` references its trigger's `id`.

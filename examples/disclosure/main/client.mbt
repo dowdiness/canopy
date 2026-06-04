@@ -34,12 +34,18 @@ fn DisclosureModel::toggle(self : DisclosureModel) -> DisclosureModel {
 }
 
 ///|
+fn DisclosureModel::trigger_id(self : DisclosureModel) -> String {
+  self.content_id + "-trigger"
+}
+
+///|
 /// Trigger attributes: ARIA state + click wiring. No classes, no styling.
 fn DisclosureModel::trigger_attrs(
   self : DisclosureModel,
   on_toggle : Cmd,
 ) -> @html.Attrs {
   @html.Attrs::build()
+  .id(self.trigger_id())
   .aria_expanded(if self.open { "true" } else { "false" })
   .aria_controls(self.content_id)
   .on_click(_evt => on_toggle)
@@ -48,7 +54,11 @@ fn DisclosureModel::trigger_attrs(
 ///|
 /// Content-region attributes: identity + collapsed state.
 fn DisclosureModel::content_attrs(self : DisclosureModel) -> @html.Attrs {
-  @html.Attrs::build().id(self.content_id).role("region").hidden(!self.open)
+  @html.Attrs::build()
+  .id(self.content_id)
+  .role("region")
+  .aria_labelledby(self.trigger_id())
+  .hidden(!self.open)
 }
 
 // ── Consumer app ────────────────────────────────────────────────────────────
