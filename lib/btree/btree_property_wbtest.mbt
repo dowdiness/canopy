@@ -272,7 +272,7 @@ struct QueryCase {
   start : Int
   end_ : Int
   pos : Int
-} derive(Debug)
+} derive(Debug, Eq)
 
 ///|
 impl @quickcheck.Arbitrary for QueryCase with fn arbitrary(size, rs) {
@@ -354,6 +354,68 @@ fn push_query_case_shrinks(
   for next_pos in @qc.Shrink::shrink(pos) {
     results.push({ items, start, end_, pos: next_pos })
   }
+}
+
+///|
+fn query_case_abs(value : Int) -> Int {
+  if value < 0 {
+    -value
+  } else {
+    value
+  }
+}
+
+///|
+fn QueryCase::is_minimal_witness(self : QueryCase) -> Bool {
+  self.start == 0 &&
+  self.end_ == 0 &&
+  self.pos == 0 &&
+  self.items.length() == 1 &&
+  self.items[0].0 == 1 &&
+  self.items[0].1 == 1
+}
+
+///|
+fn QueryCase::shrink_score(self : QueryCase) -> Int {
+  let len = self.items.length()
+  if len == 0 {
+    return 1_000_000
+  }
+  let mut item_score = 0
+  for item in self.items {
+    item_score = item_score + query_case_abs(item.0) + item.1
+  }
+  len * 1_000 +
+  item_score +
+  query_case_abs(self.start) +
+  query_case_abs(self.end_) +
+  query_case_abs(self.pos)
+}
+
+///|
+fn QueryCase::to_stable_witness(self : QueryCase) -> QueryCase {
+  fn shrink_query_case_to_stable_witness_inner(
+    current : QueryCase,
+  ) -> QueryCase {
+    let current_score = current.shrink_score()
+    let mut next_case : QueryCase? = None
+    let mut next_score = current_score
+    for candidate in QueryCase::shrink(current) {
+      if candidate.is_minimal_witness() {
+        return candidate
+      }
+      let score = candidate.shrink_score()
+      if score < next_score {
+        next_case = Some(candidate)
+        next_score = score
+      }
+    }
+    match next_case {
+      Some(next) => shrink_query_case_to_stable_witness_inner(next)
+      None => current
+    }
+  }
+  shrink_query_case_to_stable_witness_inner(self)
 }
 
 ///|
@@ -667,6 +729,29 @@ test "property: from_sorted exact content matches array model" {
 ///|
 test "property: operation sequences match array model" {
   @qc.quick_check_fn(prop_operation_sequence_matches_model)
+}
+
+///|
+test "regression: QueryCase shrinker reaches stable minimal witness" {
+  let seed : QueryCase = {
+    items: [(8, 7), (7, 5), (6, 3), (5, 6), (4, 4), (3, 2)],
+    start: 27,
+    end_: 34,
+    pos: 99,
+  }
+  let shrunk_once = seed.to_stable_witness()
+  let shrunk_twice = shrunk_once.to_stable_witness()
+  let expected : QueryCase = { items: [(1, 1)], start: 0, end_: 0, pos: 0 }
+  inspect(shrunk_once.items.length(), content="1")
+  inspect(shrunk_once.start, content="0")
+  inspect(shrunk_once.end_, content="0")
+  inspect(shrunk_once.pos, content="0")
+  inspect(shrunk_once.items[0].0, content="1")
+  inspect(shrunk_once.items[0].1, content="1")
+  inspect(shrunk_once.shrink_score(), content="1002")
+  inspect(shrunk_once.is_minimal_witness(), content="true")
+  inspect(shrunk_once == expected, content="true")
+  inspect(shrunk_once == shrunk_twice, content="true")
 }
 
 ///|
