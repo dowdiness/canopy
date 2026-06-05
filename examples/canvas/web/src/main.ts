@@ -25,6 +25,8 @@ type LibraryItem = {
 
 type ContextMenuItem = LibraryItem;
 
+type Point = { x: number; y: number };
+
 type SourceDemoModule = CanvasModule & {
   sample_graph_dsl_source: () => string;
   mount_source_demo: (h: number, enabled: boolean, onChange: () => void) => void;
