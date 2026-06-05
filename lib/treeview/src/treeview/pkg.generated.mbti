@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita-treeview/treeview"
+
+import {
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn command_for_key(String) -> TreeCommand?
+
+pub fn expanded_value(Expansion) -> String?
+
+// Errors
+
+// Types and methods
+pub(all) enum Expansion {
+  Leaf
+  Collapsed
+  Expanded
+} derive(Eq, @debug.Debug)
+
+pub struct Model {
+  // private fields
+}
+pub fn Model::new(id~ : String) -> Self
+pub fn Model::tree_attrs(Self, label~ : String, active_node_key? : String) -> @html.Attrs
+pub fn Model::treeitem_attrs(Self, node_key~ : String, level~ : Int, selected~ : Bool, expansion~ : Expansion) -> @html.Attrs
+
+pub(all) enum TreeCommand {
+  NavUp
+  NavDown
+  NavLeft
+  NavRight
+  Activate
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+
