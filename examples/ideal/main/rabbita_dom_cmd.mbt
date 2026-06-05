@@ -12,16 +12,6 @@ fn dom_after_render_result(
 }
 
 ///|
-fn focus_id_after_render(
-  id : String,
-  on_error? : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
-    @rabbita.none
-  },
-) -> @rabbita.Cmd {
-  dom_after_render_result(() => @dom_boundary.focus_id(id), on_error~)
-}
-
-///|
 fn focus_selector_after_render(
   selector : String,
   on_error? : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {

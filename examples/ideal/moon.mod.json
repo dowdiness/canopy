@@ -14,6 +14,10 @@
       "path": "../../lib/menu",
       "version": "0.1.0"
     },
+    "dowdiness/rabbita-tabs": {
+      "path": "../../lib/tabs",
+      "version": "0.1.0"
+    },
     "dowdiness/dom_boundary": {
       "path": "../../lib/dom-boundary",
       "version": "0.1.0"
