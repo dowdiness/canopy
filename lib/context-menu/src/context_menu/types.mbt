@@ -12,6 +12,48 @@ pub fn Point::Point(x~ : Float, y~ : Float) -> Point {
 }
 
 ///|
+/// How the default positioning command handles viewport collision.
+pub(all) enum CollisionStrategy {
+  NoCollisionHandling
+  ClampToViewport
+} derive(Eq)
+
+///|
+/// Positioning options for `Model::position_cmd`.
+pub struct Positioning {
+  priv offset_x : Float
+  priv offset_y : Float
+  priv viewport_margin : Float
+  priv collision : CollisionStrategy
+} derive(Eq)
+
+///|
+/// Create positioning options for a context-menu panel.
+pub fn Positioning::Positioning(
+  offset_x? : Float = 0.0F,
+  offset_y? : Float = 0.0F,
+  viewport_margin? : Float = 8.0F,
+  collision? : CollisionStrategy = ClampToViewport,
+) -> Positioning {
+  { offset_x, offset_y, viewport_margin, collision }
+}
+
+///|
+/// Default positioning: no visual offset and viewport clamping with 8px margin.
+pub fn Positioning::default() -> Positioning {
+  Positioning()
+}
+
+///|
+#cfg(target="js")
+fn CollisionStrategy::code(self : CollisionStrategy) -> Int {
+  match self {
+    NoCollisionHandling => 0
+    ClampToViewport => 1
+  }
+}
+
+///|
 /// Headless context-menu behavior state.
 ///
 /// The consumer owns item data, rendering, and action execution. This model

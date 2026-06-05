@@ -73,6 +73,14 @@ async function openBackgroundContextMenu(page: Page): Promise<void> {
   await page.mouse.click(box.x + box.width - 48, box.y + 48, { button: 'right' });
 }
 
+async function openBottomRightContextMenu(page: Page): Promise<void> {
+  const box = await page.locator('#canvas-root').boundingBox();
+  if (!box) {
+    throw new Error('canvas root is not visible');
+  }
+  await page.mouse.click(box.x + box.width - 4, box.y + box.height - 4, { button: 'right' });
+}
+
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
   const start = await center(from, 'source handle');
   const end = await center(to, 'target handle');
@@ -277,6 +285,21 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await searchInput.click();
   await expect(menu).toBeHidden();
   await expect(searchInput).toBeFocused();
+
+  await openBottomRightContextMenu(page);
+  await expect(page.locator('#context-menu [role="menu"]')).toBeVisible();
+  await expect.poll(async () => {
+    const box = await page.locator('#context-menu [role="menu"]').boundingBox();
+    const viewport = page.viewportSize();
+    if (!box || !viewport) return false;
+    return box.x >= 0 &&
+      box.y >= 0 &&
+      box.x + box.width <= viewport.width &&
+      box.y + box.height <= viewport.height;
+  }).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(canvasRoot).toBeFocused();
 
   await openBackgroundContextMenu(page);
   await expect(items.nth(0)).toBeFocused();

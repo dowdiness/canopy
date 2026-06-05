@@ -27,3 +27,30 @@ test "close focus id is preserved across open and close" {
     fail("expected close focus id to survive close")
   }
 }
+
+///|
+test "positioning defaults clamp to viewport" {
+  let positioning = Positioning::default()
+  inspect(positioning.offset_x, content="0")
+  inspect(positioning.offset_y, content="0")
+  inspect(positioning.viewport_margin, content="8")
+  guard positioning.collision is ClampToViewport else {
+    fail("expected default positioning to clamp to viewport")
+  }
+}
+
+///|
+test "positioning constructor preserves offsets and collision strategy" {
+  let positioning = Positioning(
+    offset_x=4.5F,
+    offset_y=6.25F,
+    viewport_margin=12.0F,
+    collision=NoCollisionHandling,
+  )
+  inspect(positioning.offset_x, content="4.5")
+  inspect(positioning.offset_y, content="6.25")
+  inspect(positioning.viewport_margin, content="12")
+  guard positioning.collision is NoCollisionHandling else {
+    fail("expected explicit collision strategy")
+  }
+}
