@@ -1,0 +1,10 @@
+import {
+  "dowdiness/rabbita-menu/menu",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+}
+
+warnings = "-unused_package"
+
+supported_targets = "js+native"

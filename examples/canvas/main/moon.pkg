@@ -5,7 +5,7 @@ import {
   "dowdiness/canopy-canvas/graph_model",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
-  "dowdiness/rabbita-menu/menu",
+  "dowdiness/rabbita-context-menu/context_menu",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
