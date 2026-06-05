@@ -29,6 +29,7 @@ pub fn Model::anchor(Self) -> Point?
 pub fn Model::close(Self) -> Self
 pub fn Model::close_focus_cmd(Self) -> @cmd.Cmd
 pub fn Model::focus_cmd(Self) -> @cmd.Cmd
+pub fn Model::focus_cmd_within(Self, root_id~ : String) -> @cmd.Cmd
 pub fn Model::is_open(Self) -> Bool
 pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::new(id~ : String) -> Self
