@@ -7,6 +7,10 @@
       "version": "0.1.0"
     },
     "dowdiness/incr": "0.8.0",
+    "dowdiness/rabbita-menu": {
+      "path": "../../lib/menu",
+      "version": "0.1.0"
+    },
     "moonbit-community/rabbita": {
       "path": "../../rabbita/rabbita",
       "version": "0.12.4"
