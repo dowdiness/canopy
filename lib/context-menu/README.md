@@ -59,9 +59,13 @@ then return `@rabbita.batch([model.context_menu.position_cmd(), model.context_me
 Handle `Activate(index)`, `Close`, `Dismiss(reason)`, and `Key(key)` in the
 consumer. For navigation messages, call `Model::update`; when
 `Msg::requests_focus()` is true, return `Model::focus_cmd()` after updating the
-model. If the context menu is rendered under a scoped container or open shadow
-root, use `Model::focus_cmd_within(root_id=...)` instead so item focus is looked
-up through the same scoped menu strategy as `lib/menu`.
+model.
+
+`Model::focus_cmd_within(root_id=...)` only scopes active-item focus through the
+same lookup strategy as `lib/menu`. It does not make the full context-menu flow
+shadow-root-ready: `position_cmd()` and `subscriptions()` still resolve the panel
+from `document.getElementById(self.id)`, so context-menu panels should remain
+document-visible until scoped positioning and dismissal APIs exist.
 
 Return `model.context_menu.subscriptions(...)` from the owning cell's
 subscriptions callback to install reusable dismissal behavior while the menu is
