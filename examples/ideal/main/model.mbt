@@ -37,6 +37,7 @@ pub struct WorkspaceLayout {
   outline_visible : Bool
   inspector_visible : Bool
   bottom_visible : Bool
+  outline_resize : @resizable.Model
 }
 
 ///|

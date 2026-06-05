@@ -8,6 +8,7 @@ import {
   "dowdiness/rabbita-menu/menu",
   "dowdiness/rabbita-tabs/tabs",
   "dowdiness/rabbita-treeview/treeview",
+  "dowdiness/rabbita-resizable/resizable",
   "dowdiness/dom_boundary",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,

@@ -10,6 +10,7 @@ import {
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-menu/menu",
+  "dowdiness/rabbita-resizable/resizable",
   "dowdiness/rabbita_codemirror",
   "dowdiness/visualizer",
   "moonbitlang/core/immut/hashset",
@@ -137,6 +138,7 @@ pub struct Model {
 pub enum Msg {
   SetMode(EditorMode)
   TogglePanel(PanelId)
+  OutlineResize(@resizable.Msg)
   SelectBottomTab(BottomTab)
   StructuralEditRequested(op~ : String, node_id~ : String)
   Undo
@@ -201,6 +203,7 @@ pub struct WorkspaceLayout {
   outline_visible : Bool
   inspector_visible : Bool
   bottom_visible : Bool
+  outline_resize : @resizable.Model
 }
 
 // Type aliases
