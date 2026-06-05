@@ -41,10 +41,16 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
 }
 ```
 
-Render the active tabpanel with `Model::panel_attrs(index, panel_id=...)`, passing
-the same consumer-owned panel id used for `aria-controls`. After updating the
-selected tab in the consumer model, return `Model::focus_cmd()` so roving tabindex
-moves actual DOM focus once Rabbita patches the view.
+Render the active tabpanel with `Model::panel_attrs(index, panel_id=...)`. After
+updating the selected tab in the consumer model, return `Model::focus_cmd()` so
+roving tabindex moves actual DOM focus once Rabbita patches the view.
+
+**Invariant — the consumer owns panel ids and must pass the same `panel_id` for a
+given tab to both `tab_attrs` and `panel_attrs`.** `tab_attrs` emits
+`aria-controls=panel_id` on the selected tab and `panel_attrs` emits that id as
+the panel's `id`; the library can't enforce that they agree, so a mismatch
+silently breaks the tab↔panel ARIA relationship with no compile error. (Tab
+*button* ids are owned by the library, so `aria-labelledby` always round-trips.)
 
 ## Verified Rabbita APIs
 

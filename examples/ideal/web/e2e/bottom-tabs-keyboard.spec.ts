@@ -67,6 +67,11 @@ test.describe('Bottom Panel Tabs — keyboard navigation', () => {
     await expect(problems).toBeFocused();
   });
 
+  // This covers that vertical arrows don't move selection/focus. That they also
+  // don't suppress page scroll (no over-eager preventDefault) is guaranteed
+  // structurally — nav_target returns None for these keys, so the keydown handler
+  // never calls prevent_default — and is asserted at the unit level by the
+  // "nav_target ignores vertical arrows" test in lib/tabs/src/tabs/tabs_wbtest.mbt.
   test('ArrowUp / ArrowDown do not change the selected tab', async ({ page }) => {
     const problems = page.getByRole('tab', { name: 'Problems' });
 

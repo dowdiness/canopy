@@ -272,10 +272,17 @@ let bottom_tab_defs : Array[(BottomTab, String)] = [
 ]
 
 ///|
-/// Ordinal of a tab within `bottom_tab_defs`. The fallback `0` is unreachable —
-/// every `BottomTab` variant appears in the list.
+/// Ordinal of a tab within `bottom_tab_defs`. Deriving the index from the defs
+/// list (rather than a hard-coded `match`) keeps tab *order* single-sourced, so
+/// reordering the tablist can't desync the index. A `BottomTab` absent from the
+/// list is a defect, not a fallback case: aliasing it to `0` would silently give
+/// it the Problems tab's id / focus / `SelectBottomTab` target, so we abort
+/// loudly instead. Unreachable today — every variant is listed.
 fn bottom_tab_index(tab : BottomTab) -> Int {
-  bottom_tab_defs.search_by(pair => pair.0 == tab).unwrap_or(0)
+  match bottom_tab_defs.search_by(pair => pair.0 == tab) {
+    Some(index) => index
+    None => abort("BottomTab variant missing from bottom_tab_defs")
+  }
 }
 
 ///|
@@ -343,6 +350,10 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
     buttons.push(
       @html.button(
         class=class_name,
+        // `dispatch` receives the *target* index, which for keyboard nav differs
+        // from this button's `i` (e.g. ArrowRight on tab `i` fires `i + 1`). Re-
+        // index `bottom_tab_defs[j]` — do NOT close over the loop's `tab`, or
+        // every arrow key would select the focused tab and break navigation.
         attrs=behavior.tab_attrs(i, panel_id=bottom_tab_panel_id(tab), dispatch=j => {
           dispatch(SelectBottomTab(bottom_tab_defs[j].0))
         }),
@@ -365,6 +376,9 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
 /// History/Graphviz). APG: a tabpanel with no focusable content must be
 /// in the tab sequence itself.
 fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
+  // `panel_attrs` reads only the behavior's id prefix and the explicit index, so
+  // the Model's `selected` is irrelevant here — `bottom_panel_attrs` is called
+  // for whichever panel renders, not necessarily the selected one.
   bottom_tabs_behavior(tab).panel_attrs(
     bottom_tab_index(tab),
     panel_id=bottom_tab_panel_id(tab),
