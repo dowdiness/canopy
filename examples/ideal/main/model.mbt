@@ -56,7 +56,9 @@ enum OverlayMode {
   Closed
   MainMenu
   Submenu(@lambda_edits.Action)
-  NamePrompt(@lambda_edits.Action)
+  // `value` is the text typed into the name prompt — genuinely prompt-local,
+  // so it lives in the variant rather than as a flat OverlayState field.
+  NamePrompt(@lambda_edits.Action, value~ : String)
 }
 
 ///|
@@ -64,8 +66,10 @@ struct OverlayState {
   mode : OverlayMode
   actions : Array[@lambda_edits.Action]
   node_context : NodeActionContext?
-  name_value : String
-  name_error : String
+  // The most recent failure to act. Overlay-wide, not prompt-specific: an
+  // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
+  // so the error is rendered in the panel for any open mode (view_actions.mbt).
+  error : String
   anchor_top : Int
   anchor_left : Int
   menu : @menu.Model

@@ -491,10 +491,10 @@ const SHADOW_STYLES = `
   .name-prompt-input:focus {
     border-color: var(--canopy-focus-ring, #a070ef);
   }
-  .name-prompt-error {
+  .action-overlay-error {
     font-size: var(--text-label, 0.6875rem);
     color: var(--canopy-error-text, #ef4444);
-    margin-top: 4px;
+    padding: var(--space-sm, 0.5rem) var(--space-lg, 1rem);
   }
 
   /* Mobile: bottom sheet instead of positioned popover */

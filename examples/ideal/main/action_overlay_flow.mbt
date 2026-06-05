@@ -5,9 +5,8 @@ fn show_name_prompt(
 ) -> (Cmd, Model) {
   let overlay = {
     ..model.overlay,
-    mode: NamePrompt(action),
-    name_value: "",
-    name_error: "",
+    mode: NamePrompt(action, value=""),
+    error: "",
     menu: model.overlay.menu.reset(item_count=0),
   }
   (focus_selector_after_render(".name-prompt-input"), { ..model, overlay, })
@@ -38,6 +37,9 @@ fn open_submenu(
   let overlay = {
     ..model.overlay,
     mode: Submenu(action),
+    // Navigating into a submenu is a fresh attempt — clear any stale error so
+    // it doesn't linger across the now-visible (all-mode) error surface.
+    error: "",
     menu: model.overlay.menu.reset(item_count~),
   }
   (overlay.menu.focus_cmd(), { ..model, overlay, })
@@ -48,6 +50,8 @@ fn reset_main_menu(model : Model) -> Model {
   let overlay = {
     ..model.overlay,
     mode: MainMenu,
+    // Returning to the main menu is a fresh attempt — clear any stale error.
+    error: "",
     menu: model.overlay.menu.reset(item_count=model.overlay.actions.length()),
   }
   { ..model, overlay, }

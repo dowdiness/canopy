@@ -10,7 +10,7 @@ fn handle_action_text_key(model : Model, key : String) -> (Cmd, Model) {
       }
     }
     // In name prompt mode, let the view handle input.
-    NamePrompt(_) => (none, model)
+    NamePrompt(_, ..) => (none, model)
     MainMenu => {
       // Match mnemonic: find the action whose mnemonic matches the key.
       let matched = model.overlay.actions
@@ -71,5 +71,36 @@ fn handle_action_key(model : Model, key : String) -> (Cmd, Model) {
   match model.overlay.menu.keydown_msg(key) {
     Some(menu_msg) => handle_action_menu_msg(model, menu_msg)
     None => (none, model)
+  }
+}
+
+///|
+fn handle_name_prompt_input(model : Model, value : String) -> (Cmd, Model) {
+  match model.overlay.mode {
+    NamePrompt(action, ..) => {
+      let overlay = {
+        ..model.overlay,
+        mode: NamePrompt(action, value~),
+        error: "",
+      }
+      (none, { ..model, overlay, })
+    }
+    _ => (none, model)
+  }
+}
+
+///|
+fn handle_name_prompt_submit(model : Model) -> (Cmd, Model) {
+  match model.overlay.mode {
+    NamePrompt(action, value~) => {
+      let name = value.trim().to_owned()
+      if name == "" {
+        let overlay = { ..model.overlay, error: "Enter a name to continue" }
+        (none, { ..model, overlay, })
+      } else {
+        execute_action(model, action, "", name)
+      }
+    }
+    _ => (none, model)
   }
 }

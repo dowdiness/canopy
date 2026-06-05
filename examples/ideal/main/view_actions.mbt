@@ -66,30 +66,25 @@ fn view_action_list(
 }
 
 ///|
+fn name_prompt_label(action : @lambda_edits.Action) -> String {
+  match action.id {
+    "rename" | "binding_rename" => "New name"
+    "extract_to_let" => "Variable name"
+    "wrap_lambda" => "Parameter name"
+    "add_binding" => "Binding name"
+    _ => action.label
+  }
+}
+
+///|
 /// Render the name prompt input.
 fn view_name_prompt(
   dispatch : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  let prompt_label = match model.overlay.mode {
-    NamePrompt(action) =>
-      match action.id {
-        "rename" | "binding_rename" => "New name"
-        "extract_to_let" => "Variable name"
-        "wrap_lambda" => "Parameter name"
-        "add_binding" => "Binding name"
-        _ => action.label
-      }
-    _ => "Enter name"
-  }
-  let error_el : @rabbita.Html = if model.overlay.name_error != "" {
-    @html.div(
-      class="name-prompt-error",
-      attrs=@html.Attrs::build().role("alert").aria_live("polite"),
-      [@html.text(model.overlay.name_error)],
-    )
-  } else {
-    @html.nothing
+  let (prompt_label, name_value) = match model.overlay.mode {
+    NamePrompt(action, value~) => (name_prompt_label(action), value)
+    _ => ("Enter name", "")
   }
   let on_keydown_handler = fn(kb : @html.Keyboard) {
     let key = kb.key()
@@ -108,13 +103,12 @@ fn view_name_prompt(
         input_type=@html.InputType::Text,
         class="name-prompt-input",
         placeholder="name\u{2026}",
-        value=model.overlay.name_value,
+        value=name_value,
         autofocus=true,
         on_input=fn(value) { dispatch(NamePromptInput(value)) },
         attrs=@html.Attrs::build().aria_label(prompt_label),
       ),
     ]),
-    error_el,
   ])
 }
 
@@ -152,6 +146,21 @@ fn view_submenu_choices(
 }
 
 ///|
+/// Render an overlay-wide error. Actions can fail from any open overlay mode
+/// (MainMenu, Submenu, or NamePrompt), so errors live at the panel top.
+fn view_action_overlay_error(message : String) -> @rabbita.Html {
+  if message == "" {
+    @html.nothing
+  } else {
+    @html.div(
+      class="action-overlay-error",
+      attrs=@html.Attrs::build().role("alert").aria_live("polite"),
+      [@html.text(message)],
+    )
+  }
+}
+
+///|
 /// Render the action overlay: scrim + positioned panel.
 /// Returns nothing if the overlay is not visible.
 fn view_action_overlay(
@@ -167,7 +176,7 @@ fn view_action_overlay(
   let position_style = "top: \{top}px; left: \{left}px;"
   // Determine content: name prompt, submenu, or main action list
   let content : @rabbita.Html = match model.overlay.mode {
-    NamePrompt(_) => view_name_prompt(dispatch, model)
+    NamePrompt(_, ..) => view_name_prompt(dispatch, model)
     Submenu(sub_action) =>
       match model.overlay.node_context {
         Some(ctx) =>
@@ -197,7 +206,7 @@ fn view_action_overlay(
         .panel_attrs(msg => dispatch(ActionMenu(msg)))
         .aria_label("Structural editing actions")
         .style_attr(position_style),
-      [content],
+      [view_action_overlay_error(model.overlay.error), content],
     ),
   ])
 }
