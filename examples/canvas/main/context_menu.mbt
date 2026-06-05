@@ -290,7 +290,7 @@ fn context_menu_sub_loader(
 #cfg(target="js")
 fn context_menu_subscriptions(
   emit : @rabbita.Emit[CanvasContextMenuMsg],
-  _model : CanvasContextMenuModel,
+  model : CanvasContextMenuModel,
 ) -> @sub.Sub {
   @sub.batch([
     @sub.custom_sub(
@@ -305,6 +305,7 @@ fn context_menu_subscriptions(
       CanvasContextMenuSub::HideEvent(emit),
       context_menu_sub_loader,
     ),
+    model.context_menu.subscriptions(emit.map(msg => ContextMenu(msg))),
   ])
 }
 

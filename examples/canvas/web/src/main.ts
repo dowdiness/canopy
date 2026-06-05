@@ -851,7 +851,6 @@ root.addEventListener('contextmenu', (e: MouseEvent) => {
 });
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.key === 'Escape') hideContextMenu();
   if (
     (e.key === 'Delete' || e.key === 'Backspace') &&
     !e.metaKey &&
@@ -870,10 +869,6 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     e.preventDefault();
     console.table(adapter.actionLog());
   }
-});
-
-document.addEventListener('pointerdown', (e: PointerEvent) => {
-  if (!contextMenu.contains(e.target as Node)) hideContextMenu();
 });
 
 search.addEventListener('input', () => renderLibrary(search.value));
