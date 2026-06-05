@@ -59,12 +59,17 @@ test.describe('Outline keyboard navigation', () => {
 
   test('ArrowLeft navigates to previous sibling', async ({ page }) => {
     await selectAndFocus(page, /^module/);
+    const root = await selectedLabel(page).textContent();
+
     await page.keyboard.press('ArrowDown');
+    await expect(selectedLabel(page)).not.toHaveText(root!);
+    const firstChild = await selectedLabel(page).textContent();
+
     await page.keyboard.press('ArrowRight');
-    const secondChild = await selectedLabel(page).textContent();
+    await expect(selectedLabel(page)).not.toHaveText(firstChild!);
 
     await page.keyboard.press('ArrowLeft');
-    await expect(selectedLabel(page)).not.toHaveText(secondChild!);
+    await expect(selectedLabel(page)).toHaveText(firstChild!);
   });
 
   test('ArrowUp from root does nothing', async ({ page }) => {
