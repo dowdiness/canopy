@@ -1,13 +1,13 @@
 ///|
 /// Viewport/client-space anchor for an open context menu.
 pub(all) struct Point {
-  x : Int
-  y : Int
+  x : Float
+  y : Float
 } derive(Eq)
 
 ///|
 /// Create a context-menu anchor point from client coordinates.
-pub fn Point::Point(x~ : Int, y~ : Int) -> Point {
+pub fn Point::Point(x~ : Float, y~ : Float) -> Point {
   { x, y }
 }
 

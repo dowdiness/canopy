@@ -25,8 +25,8 @@ priv struct CanvasContextMenuItem {
 
 ///|
 priv struct CanvasContextMenuPayload {
-  x : Int
-  y : Int
+  x : Float
+  y : Float
   items : Array[CanvasContextMenuItem]
 } derive(@json.FromJson)
 

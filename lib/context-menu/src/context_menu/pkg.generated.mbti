@@ -38,10 +38,10 @@ pub(all) enum Msg {
 pub fn Msg::requests_focus(Self) -> Bool
 
 pub(all) struct Point {
-  x : Int
-  y : Int
+  x : Float
+  y : Float
 } derive(Eq)
-pub fn Point::Point(x~ : Int, y~ : Int) -> Self
+pub fn Point::Point(x~ : Float, y~ : Float) -> Self
 
 // Type aliases
 

@@ -1,5 +1,5 @@
 ///|
-fn px(value : Int) -> String {
+fn px(value : Float) -> String {
   value.to_string() + "px"
 }
 
@@ -30,7 +30,12 @@ pub fn Model::trigger_attrs(
   .base_trigger_attrs()
   .on_contextmenu(event => {
     event.prevent_default()
-    on_open(Point(x=event.get_client_x(), y=event.get_client_y()))
+    on_open(
+      Point(
+        x=Float::from_int(event.get_client_x()),
+        y=Float::from_int(event.get_client_y()),
+      ),
+    )
   })
 }
 

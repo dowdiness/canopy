@@ -6,10 +6,17 @@ test "context menu opens, exposes anchor, and closes" {
     fail("closed context menu should not expose an anchor")
   }
 
-  let model = model.open(anchor=@context_menu.Point(x=12, y=34), item_count=3)
+  let model = model.open(
+    anchor=@context_menu.Point(x=12.5F, y=34.25F),
+    item_count=3,
+  )
   inspect(model.is_open(), content="true")
-  guard model.anchor() is Some({ x: 12, y: 34 }) else {
-    fail("open context menu should expose the supplied anchor")
+  match model.anchor() {
+    Some(point) => {
+      inspect(point.x, content="12.5")
+      inspect(point.y, content="34.25")
+    }
+    None => fail("open context menu should expose the supplied anchor")
   }
 
   let model = model.update(@context_menu.Close)
@@ -22,7 +29,7 @@ test "context menu opens, exposes anchor, and closes" {
 ///|
 test "activation closes while navigation requests focus" {
   let model = @context_menu.Model::new(id="test-menu").open(
-    anchor=@context_menu.Point(x=1, y=2),
+    anchor=@context_menu.Point(x=1.0F, y=2.0F),
     item_count=2,
   )
   inspect(@context_menu.FocusNext.requests_focus(), content="true")
