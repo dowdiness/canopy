@@ -1,10 +1,14 @@
 import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
   "dowdiness/canopy-canvas/graph_model",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
+  "dowdiness/rabbita-menu/menu",
   "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
 }
@@ -38,6 +42,7 @@ options(
         "apply_source_graph_operation",
         "sample_graph_dsl_source",
         "mount_source_demo",
+        "mount_canvas_context_menu",
         "source_graph_insert_unique",
         "source_graph_pointer_down",
         "source_graph_pointer_move",

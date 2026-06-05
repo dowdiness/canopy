@@ -23,9 +23,12 @@ type LibraryItem = {
   description: string;
 };
 
+type ContextMenuItem = LibraryItem;
+
 type SourceDemoModule = CanvasModule & {
   sample_graph_dsl_source: () => string;
   mount_source_demo: (h: number, enabled: boolean, onChange: () => void) => void;
+  mount_canvas_context_menu: (onSelect: (key: string) => void, onClose: () => void) => void;
 };
 
 const LIBRARY: LibraryItem[] = [
@@ -39,6 +42,9 @@ const LIBRARY: LibraryItem[] = [
 ];
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const CONTEXT_MENU_SHOW_EVENT = 'canopy-canvas-context-menu-show';
+const CONTEXT_MENU_HIDE_EVENT = 'canopy-canvas-context-menu-hide';
+const EDGE_CONTEXT_MENU_KEY = 'disconnect-edge';
 
 let adapter: GraphAdapter;
 let rafPending = false;
@@ -59,6 +65,7 @@ const nodeDivs = new Map<number, HTMLDivElement>();
 const edgePaths = new Map<number, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
+let contextEdge: EdgeData | null = null;
 let sourcePointerId = -1;
 let sourceConnecting: Connecting | null = null;
 
@@ -595,8 +602,24 @@ function deleteSelectedNodes(): boolean {
   return true;
 }
 
-function hideContextMenu(): void {
+function hideContextMenuElement(): void {
   contextMenu.hidden = true;
+  contextEdge = null;
+}
+
+function hideContextMenu(): void {
+  const wasOpen = !contextMenu.hidden;
+  hideContextMenuElement();
+  if (wasOpen) {
+    contextMenu.dispatchEvent(new CustomEvent(CONTEXT_MENU_HIDE_EVENT));
+  }
+}
+
+function showContextMenu(items: ContextMenuItem[]): void {
+  contextMenu.hidden = false;
+  contextMenu.dispatchEvent(new CustomEvent(CONTEXT_MENU_SHOW_EVENT, {
+    detail: JSON.stringify({ items }),
+  }));
 }
 
 function renderLibrary(filter = ''): void {
@@ -615,25 +638,23 @@ function renderLibrary(filter = ''): void {
 }
 
 function renderEdgeContextMenu(edge: EdgeData): void {
-  contextMenu.replaceChildren();
-  const disconnect = document.createElement('button');
-  disconnect.type = 'button';
-  disconnect.textContent = 'Disconnect edge';
-  disconnect.title = edgeTitle(edge);
-  disconnect.addEventListener('click', () => disconnectEdge(edge));
-  contextMenu.appendChild(disconnect);
+  contextEdge = edge;
+  showContextMenu([
+    { key: EDGE_CONTEXT_MENU_KEY, label: 'Disconnect edge', description: edgeTitle(edge) },
+  ]);
 }
 
 function renderContextMenu(): void {
-  contextMenu.replaceChildren();
-  for (const item of LIBRARY) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = item.label;
-    button.title = item.description;
-    button.addEventListener('click', () => addNodeAt(item.key, contextPoint));
-    contextMenu.appendChild(button);
+  contextEdge = null;
+  showContextMenu(LIBRARY);
+}
+
+function handleContextMenuSelect(key: string): void {
+  if (key === EDGE_CONTEXT_MENU_KEY) {
+    if (contextEdge) disconnectEdge(contextEdge);
+    return;
   }
+  addNodeAt(key, contextPoint);
 }
 
 // ─── Event wiring ─────────────────────────────────────────────────────────────
@@ -815,6 +836,8 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
   const hit = hitFromTarget(e.target);
+  contextMenu.style.left = `${e.clientX}px`;
+  contextMenu.style.top = `${e.clientY}px`;
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     renderEdgeContextMenu(hit.edge);
@@ -823,9 +846,6 @@ root.addEventListener('contextmenu', (e: MouseEvent) => {
     contextPoint = localCoords(e);
     renderContextMenu();
   }
-  contextMenu.style.left = `${e.clientX}px`;
-  contextMenu.style.top = `${e.clientY}px`;
-  contextMenu.hidden = false;
   scheduleRender();
 });
 
@@ -870,6 +890,9 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   if (typeof mb.mount_source_demo !== 'function') {
     throw new Error('Canvas module is missing source demo export: mount_source_demo');
   }
+  if (typeof mb.mount_canvas_context_menu !== 'function') {
+    throw new Error('Canvas module is missing context menu export: mount_canvas_context_menu');
+  }
   return mb as SourceDemoModule;
 }
 
@@ -880,6 +903,7 @@ async function init(): Promise<void> {
   adapter = sourceMode
     ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
+  sourceDemoModule.mount_canvas_context_menu(handleContextMenuSelect, hideContextMenuElement);
   sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, scheduleRender);
   renderLibrary();
   render();

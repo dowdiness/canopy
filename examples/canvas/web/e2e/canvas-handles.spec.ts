@@ -13,6 +13,10 @@ function pendingEdgePaths(page: Page): Locator {
   return page.locator('#edges path.edge-pending');
 }
 
+function contextMenuItems(page: Page): Locator {
+  return page.locator('#context-menu [role="menuitem"]');
+}
+
 function inputHandle(page: Page, nodeId: number): Locator {
   return page.locator(`.handle.input[data-node-id="${nodeId}"]`);
 }
@@ -59,6 +63,14 @@ async function canvasBackgroundPoint(page: Page): Promise<Point> {
     x: box.x + 20,
     y: box.y + 20,
   };
+}
+
+async function openBackgroundContextMenu(page: Page): Promise<void> {
+  const box = await page.locator('#canvas-root').boundingBox();
+  if (!box) {
+    throw new Error('canvas root is not visible');
+  }
+  await page.mouse.click(box.x + box.width - 48, box.y + 48, { button: 'right' });
 }
 
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
@@ -208,11 +220,65 @@ test('canvas edge context menu disconnects the edge', async ({ page }) => {
   await expect(edgePaths(page)).toHaveCount(3);
 
   await clickEdge(page, 0, 'right');
-  await page.getByRole('button', { name: 'Disconnect edge' }).click();
+  await page.getByRole('menuitem', { name: 'Disconnect edge' }).click();
 
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(2);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('canvas context menu supports headless keyboard navigation and dismissal', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  const menu = page.locator('#context-menu');
+  const items = contextMenuItems(page);
+
+  await openBackgroundContextMenu(page);
+  await expect(menu).toBeVisible();
+  await expect(items).toHaveCount(7);
+  await expect(items.nth(0)).toHaveAttribute('data-active', 'true');
+  await expect(items.nth(0)).toBeFocused();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(items.nth(1)).toHaveAttribute('data-active', 'true');
+  await expect(items.nth(1)).toBeFocused();
+
+  await page.keyboard.press('End');
+  await expect(items.nth(6)).toHaveAttribute('data-active', 'true');
+  await expect(items.nth(6)).toBeFocused();
+
+  await page.keyboard.press('Home');
+  await expect(items.nth(0)).toHaveAttribute('data-active', 'true');
+  await expect(items.nth(0)).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await openBackgroundContextMenu(page);
+  await expect(items.nth(0)).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(items.nth(1)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.canvas-node')).toHaveCount(7);
+  await expect(menu).toBeHidden();
+
+  await openBackgroundContextMenu(page);
+  await expect(items.nth(0)).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(items.nth(1)).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.canvas-node')).toHaveCount(8);
+  await expect(menu).toBeHidden();
   expect(runtimeErrors).toEqual([]);
 });
 

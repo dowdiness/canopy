@@ -34,6 +34,8 @@ pub fn get_source_graph_source(Int) -> String
 
 pub fn hover_node(Int, Int) -> Unit
 
+pub fn mount_canvas_context_menu((String) -> Unit, () -> Unit) -> Unit
+
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
 
 pub fn pointer_down(Int, Int, Double, Double) -> Unit
