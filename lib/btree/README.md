@@ -21,7 +21,7 @@ Internal(counts=[5, 3, 4], total=12)
 
 Navigation uses the `counts` array as a cumulative index. To find position 6: `counts[0]=5` (skip), `6-5=1` into child 1 → `Leaf(b)` at offset 1.
 
-Elements implement `BTreeElem` (requires `Spanning` + `Mergeable` + `Sliceable` from `dowdiness/rle`). Adjacent leaves with the same identity merge automatically — this is RLE compression at the tree level.
+Elements implement `BTreeElem` (requires `Spanning` + `Mergeable` + `Sliceable` from `dowdiness/rle`) for slice-aware range operations. `delete_range` merges newly adjacent boundary leaves when their elements are mergeable; insertion callbacks and `from_sorted` callers remain responsible for any broader canonicalization policy.
 
 ## Quick Start
 
@@ -32,13 +32,16 @@ struct TextRun {
   len : Int
 }
 
-// Implement BTreeElem traits (Spanning, Mergeable, Sliceable)
-impl @rle.Spanning for TextRun with span(self) { self.len }
-impl @rle.Mergeable for TextRun with can_merge(a, b) { true }
-impl @rle.Mergeable for TextRun with merge(a, b) {
+// Implement BTreeElem traits (HasLength, Spanning, Mergeable, Sliceable)
+impl @rle.HasLength for TextRun with fn length(self) -> Int { self.len }
+impl @rle.Spanning for TextRun with fn span(self) -> Int { self.len }
+impl @rle.Mergeable for TextRun with fn can_merge(a : TextRun, b : TextRun) -> Bool {
+  true
+}
+impl @rle.Mergeable for TextRun with fn merge(a : TextRun, b : TextRun) -> TextRun {
   { text: a.text + b.text, len: a.len + b.len }
 }
-// ... plus Sliceable, HasLength
+// ... plus Sliceable
 impl @btree.BTreeElem for TextRun
 
 // Use the tree
@@ -55,7 +58,8 @@ tree.init_root({ text: "hello", len: 5 }, 5)
 | `find(pos)` | Element + offset within element | O(log n) |
 | `mutate_for_insert(pos, callback)` | Insert via leaf splice callback | O(log n) |
 | `mutate_for_delete(pos, callback)` | Delete via leaf splice callback | O(log n) |
-| `delete_range(start, end)` | Delete span range [start, end) | O(log n)* |
+| `delete_range(start, end)` | Delete span range [start, end), with boundary repair/merge | O(log n) path planning/splice; O(n) current worst-case repair* |
+| `from_sorted(items, min_degree?)` | Bulk-build from sorted `(elem, span)` pairs | O(n) |
 | `view(start?, end?)` | Slice elements in range | O(k + log n) |
 | `iter()` | Lazy cursor-based iterator | O(n) total |
 | `each(f)` | Visit all elements | O(n) |
@@ -63,7 +67,7 @@ tree.init_root({ text: "hello", len: 5 }, 5)
 | `span()` | Total span (cached) | O(1) |
 | `size()` | Number of leaves | O(1) |
 
-*Falls back to O(n) rebuild when boundary subtrees are underfull.
+*Current worst-case repair can visit every child in the repaired subtree after range deletion.
 
 ## Relationship to Other Libraries
 
@@ -87,10 +91,11 @@ This is a **counted B+ tree**, also known as an order-statistic tree:
 
 - **B+ tree**: data only in leaves, internal nodes are navigational
 - **Counted**: `counts` array replaces keys — navigation by span position, not key comparison
-- **RLE-aware**: adjacent mergeable leaves auto-compress
+- **RLE-aware where requested**: slice-aware range operations can merge newly adjacent boundary leaves
 
-The tree maintains these invariants:
+The tree maintains these structural invariants:
 - All leaves at the same depth
 - Internal nodes have between `min_degree` and `2 * min_degree` children (root excepted)
 - `counts[i] == children[i].total()` and `total == sum(counts)`
-- No adjacent mergeable leaves (RLE invariant)
+
+Canonical no-adjacent-mergeable-leaf policy is enforced by higher-level callers (for example `order-tree`) or by insertion/bulk-build callbacks that choose to pre-merge input.
