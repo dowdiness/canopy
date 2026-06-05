@@ -68,16 +68,13 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
       }
       let panel_w = 320
       let panel_h = 300
-      let clamped_left = if raw_left + panel_w > vw {
-        (vw - panel_w - 8).max(8)
-      } else {
-        raw_left
-      }
-      let clamped_top = if raw_top + panel_h > vh {
-        (vh - panel_h - 8).max(8)
-      } else {
-        raw_top
-      }
+      // Clamp to [8, viewport - panel - 8] on both ends so a node scrolled
+      // above/left of the viewport (negative rect) doesn't push the overlay
+      // off-screen, while still preventing right/bottom overflow.
+      let max_left = (vw - panel_w - 8).max(8)
+      let max_top = (vh - panel_h - 8).max(8)
+      let clamped_left = raw_left.max(8).min(max_left)
+      let clamped_top = raw_top.max(8).min(max_top)
       (clamped_top, clamped_left)
     }
     _ => (raw_top, raw_left)
