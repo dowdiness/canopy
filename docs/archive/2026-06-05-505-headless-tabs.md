@@ -1,6 +1,6 @@
 # #505 — Migrate Ideal bottom tabs to a reusable headless Tabs behavior
 
-**Status:** execution spec · **Date:** 2026-06-05 · **Issue:** #505
+**Status:** completed in PR #517 · **Date:** 2026-06-05 · **Issue:** #505
 **Precedent:** `lib/menu` (the already-merged headless primitive; mirror it).
 **Design owner:** Opus · **Plan authoring:** Codex ("Opus orchestrates, Codex plans").
 
