@@ -157,7 +157,8 @@ primitive must own cancel-close policy and must choose between limited-support
 ## 6. rabbita 0.12.4 patched adoption status
 
 `moon check` (full workspace) is **green** against 0.12.4 + patch. The single
-0.12.3 compatibility fix remains sufficient:
+compatibility fix introduced during the 0.12.3 upgrade remains sufficient for
+0.12.4:
 
 - **One breaking call site** from upstream PR #117 (void elements lose `children`):
   `examples/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
