@@ -55,10 +55,11 @@ fn subscriptions(emit : @rabbita.Emit[Msg], model : Model) -> @sub.Sub {
 ```
 
 Open with `model.context_menu.open(anchor=point, item_count=items.length())`,
-then return `model.context_menu.focus_cmd()`. Handle `Activate(index)`, `Close`,
-and `Key(key)` in the consumer. For navigation messages, call
-`Model::update`; when `Msg::requests_focus()` is true, return
-`Model::focus_cmd()` after updating the model.
+then return `@rabbita.batch([model.context_menu.position_cmd(), model.context_menu.focus_cmd()])`.
+Handle `Activate(index)`, `Close`, `Dismiss(reason)`, and `Key(key)` in the
+consumer. For navigation messages, call `Model::update`; when
+`Msg::requests_focus()` is true, return `Model::focus_cmd()` after updating the
+model.
 
 Return `model.context_menu.subscriptions(...)` from the owning cell's
 subscriptions callback to install reusable dismissal behavior while the menu is
@@ -74,8 +75,14 @@ outside dismissal deliberately does not request close-focus restoration, so a
 click into another control can keep focus there.
 
 `Point` is in viewport/client coordinates, including fractional browser
-coordinates when available. `panel_attrs` uses those coordinates for fixed
-`left`/`top` anchoring.
+coordinates when available. `panel_attrs` uses those coordinates for initial
+fixed `left`/`top` anchoring. `Model::position_cmd(positioning?)` can then
+measure the rendered panel after render and apply `Positioning` options:
+
+- `offset_x` / `offset_y` add a visual offset from the anchor.
+- `viewport_margin` controls the minimum gap from viewport edges.
+- `collision=ClampToViewport` keeps the measured panel visible; use
+  `NoCollisionHandling` to keep raw anchor positioning.
 
 ## Verified Rabbita APIs
 

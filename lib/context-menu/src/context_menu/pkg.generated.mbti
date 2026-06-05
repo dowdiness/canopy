@@ -12,6 +12,11 @@ import {
 // Errors
 
 // Types and methods
+pub(all) enum CollisionStrategy {
+  NoCollisionHandling
+  ClampToViewport
+} derive(Eq)
+
 pub(all) enum DismissReason {
   PointerOutside
   EscapeKey
@@ -29,6 +34,7 @@ pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::new(id~ : String) -> Self
 pub fn Model::open(Self, anchor~ : Point, item_count~ : Int) -> Self
 pub fn Model::panel_attrs(Self, (Msg) -> @cmd.Cmd) -> @html.Attrs
+pub fn Model::position_cmd(Self, positioning? : Positioning) -> @cmd.Cmd
 pub fn Model::subscriptions(Self, @cmd.Emit[Msg]) -> @sub.Sub
 pub fn Model::trigger_attrs(Self, (Point) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::update(Self, Msg) -> Self
@@ -54,6 +60,13 @@ pub(all) struct Point {
 } derive(Eq)
 pub fn Point::Point(x~ : Float, y~ : Float) -> Self
 
+pub struct Positioning {
+  // private fields
+} derive(Eq)
+pub fn Positioning::Positioning(offset_x? : Float, offset_y? : Float, viewport_margin? : Float, collision? : CollisionStrategy) -> Self
+pub fn Positioning::default() -> Self
+
 // Type aliases
 
 // Traits
+

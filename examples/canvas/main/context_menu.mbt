@@ -71,8 +71,9 @@ fn context_menu_model(
 ) -> CanvasContextMenuModel {
   {
     items: [],
-    context_menu: @context_menu.Model::new(id=context_menu_panel_id)
-      .with_close_focus_id(canvas_root_id),
+    context_menu: @context_menu.Model::new(id=context_menu_panel_id).with_close_focus_id(
+      canvas_root_id,
+    ),
     on_select,
     on_close,
   }
@@ -144,7 +145,13 @@ fn context_menu_update(
       match decode_context_menu_payload(json_text) {
         Some(payload) => {
           let model = model.with_payload(payload)
-          (model.context_menu.focus_cmd(), model)
+          (
+            @rabbita.batch([
+              model.context_menu.position_cmd(),
+              model.context_menu.focus_cmd(),
+            ]),
+            model,
+          )
         }
         None => (@rabbita.none, model.closed())
       }

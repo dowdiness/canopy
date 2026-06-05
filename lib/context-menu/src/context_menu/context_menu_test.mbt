@@ -44,6 +44,24 @@ test "activation closes while navigation requests focus" {
 }
 
 ///|
+test "positioning defaults and custom strategies are public values" {
+  let default_positioning = @context_menu.Positioning::default()
+  guard default_positioning == @context_menu.Positioning() else {
+    fail("expected default positioning to match the default constructor")
+  }
+
+  let custom_positioning = @context_menu.Positioning(
+    offset_x=4.5F,
+    offset_y=6.25F,
+    viewport_margin=12.0F,
+    collision=@context_menu.NoCollisionHandling,
+  )
+  guard custom_positioning != default_positioning else {
+    fail("expected custom positioning options to differ from defaults")
+  }
+}
+
+///|
 test "activation and keyboard close paths request focus restore" {
   let model = @context_menu.Model::new(id="test-menu").open(
     anchor=@context_menu.Point(x=1.0F, y=2.0F),
