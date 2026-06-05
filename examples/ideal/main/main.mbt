@@ -43,11 +43,7 @@ fn init_model() -> Model raise {
     cm_id: "canopy-text-editor",
     mounted: false,
     mode: Text,
-    workspace: {
-      outline_visible: true,
-      inspector_visible: true,
-      bottom_visible: false,
-    },
+    workspace: initial_workspace_layout(),
     selected_node: None,
     diagnostics_open: false,
     next_timestamp: 1,
@@ -142,7 +138,10 @@ fn subscriptions(emit : Emit[Msg], model : Model) -> Sub {
   } else {
     @sub.none
   }
-  @sub.batch([editor_events, cm_events])
+  let outline_resize = model.workspace.outline_resize.subscriptions(msg => {
+    emit(OutlineResize(msg))
+  })
+  @sub.batch([editor_events, cm_events, outline_resize])
 }
 
 ///|
@@ -472,6 +471,10 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       // `view_bottom_content`), so opening/closing the panel re-renders
       // it from scratch — no separate refresh command needed.
       (none, new_model)
+    }
+    OutlineResize(resize_msg) => {
+      let workspace = model.workspace.update_outline_resize(resize_msg)
+      (none, { ..model, workspace, })
     }
     DismissPanels => {
       let ws = model.workspace
@@ -843,6 +846,33 @@ fn view_peer_status(model : Model) -> Html {
 }
 
 ///|
+fn outline_panel_attrs(workspace : WorkspaceLayout) -> @html.Attrs {
+  let attrs = @html.Attrs::build()
+    .role("navigation")
+    .aria_label("AST outline")
+    .style("--outline-panel-width", workspace.outline_width_px())
+  if workspace.outline_resize.is_resizing() {
+    attrs.style("user-select", "none")
+  } else {
+    attrs
+  }
+}
+
+///|
+fn view_outline_resize_handle(
+  dispatch : Emit[Msg],
+  workspace : WorkspaceLayout,
+) -> Html {
+  div(
+    class="panel-resize-handle outline-resize-handle",
+    attrs=workspace.outline_resize.handle_attrs(@resizable.Edge::East, msg => {
+      dispatch(OutlineResize(msg))
+    }),
+    [text("")],
+  )
+}
+
+///|
 fn view(dispatch : Emit[Msg], model : Model) -> Html {
   // Always render panels — toggle visibility via CSS class
   // so CSS transitions work for both enter and exit.
@@ -861,9 +891,7 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
   } else {
     "bottom-panel panel-hidden"
   }
-  let outline_attrs = @html.Attrs::build()
-    .role("navigation")
-    .aria_label("AST outline")
+  let outline_attrs = outline_panel_attrs(model.workspace)
   let inspector_attrs = @html.Attrs::build()
     .role("complementary")
     .aria_label("Node inspector")
@@ -890,6 +918,7 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
           span(class="panel-label", [text("PEERS")]),
           view_peer_status(model),
         ]),
+        view_outline_resize_handle(dispatch, model.workspace),
       ]),
       view_editor(dispatch, model),
       div(class=inspector_class, attrs=inspector_attrs, [

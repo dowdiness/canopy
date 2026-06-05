@@ -216,10 +216,11 @@ button:focus-visible, .action-btn:focus-visible,
 /* ── Outline Panel ──────────────────────────────────────── */
 
 .outline-panel {
-  width: 220px;
+  width: var(--outline-panel-width, 220px);
+  position: relative;
   background: var(--canopy-panel-bg);
   border-right: 1px solid var(--canopy-border);
-  overflow-y: auto;
+  overflow: hidden;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -248,11 +249,56 @@ button:focus-visible, .action-btn:focus-visible,
   margin-top: auto;
 }
 
+.panel-resize-handle {
+  position: absolute;
+  z-index: 2;
+  background: transparent;
+  border: 0;
+}
+
+.outline-resize-handle {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+}
+
+.panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out-quart),
+              background var(--duration-fast) var(--ease-out-quart),
+              box-shadow var(--duration-fast) var(--ease-out-quart);
+}
+
+.outline-resize-handle::after {
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: var(--canopy-border);
+}
+
+.panel-resize-handle:hover::after,
+.panel-resize-handle:focus-visible::after {
+  opacity: 1;
+  background: var(--canopy-accent);
+  box-shadow: 0 0 12px rgba(130, 80, 223, 0.45);
+}
+
+.panel-resize-handle:focus-visible {
+  outline: 2px solid var(--canopy-focus-ring);
+  outline-offset: -2px;
+}
+
 /* ── Tree ───────────────────────────────────────────────── */
 
 .tree-rows {
   padding: 0 var(--space-sm);
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .tree-item {
@@ -1017,7 +1063,7 @@ canopy-editor {
 
 /* Tablet: compact panels */
 @media (max-width: 1024px) {
-  .outline-panel { width: 180px; }
+  .outline-panel { width: var(--outline-panel-width, 180px); }
   .inspector-panel { width: 200px; }
 }
 
@@ -1063,6 +1109,8 @@ canopy-editor {
 
   /* Hide spacers on mobile — let flex-gap handle spacing */
   .toolbar-spacer { flex: 0 0 var(--space-xs); }
+
+  .panel-resize-handle { display: none; }
 
   /* ── Panel drawers: slide from edges ───────────────────── */
 

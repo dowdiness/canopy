@@ -4,6 +4,7 @@ pub enum Msg {
   // Mode & layout
   SetMode(EditorMode)
   TogglePanel(PanelId)
+  OutlineResize(@resizable.Msg)
   SelectBottomTab(BottomTab)
   // From Web Component events (inspector panel dispatch)
   StructuralEditRequested(op~ : String, node_id~ : String)
