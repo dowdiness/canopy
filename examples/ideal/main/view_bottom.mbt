@@ -257,18 +257,59 @@ fn render_history_html(model : Model) -> String {
 }
 
 ///|
-/// Focus the active tab's button after the next render. Roving tabindex
-/// makes inactive tabs unreachable via Tab; without this, arrow-key
-/// navigation would leave focus stranded on the previous (now
-/// `tabindex="-1"`) button. Click-driven switches are no-ops because the
-/// browser already focuses the clicked button.
-fn bottom_tab_focus_cmd(tab : BottomTab) -> @rabbita.Cmd {
-  focus_id_after_render(bottom_tab_button_id(tab))
+/// Canonical bottom-tab order: the single source of truth for tab ordering,
+/// labels, the tab ↔ index mapping, and the tab count. The headless `@tabs`
+/// behavior is parameterized by index, so this list — not the behavior — owns
+/// which `BottomTab` each tablist position is.
+let bottom_tab_defs : Array[(BottomTab, String)] = [
+  (Problems, "Problems"),
+  (OpLog, "Op Log"),
+  (Patch, "Patch"),
+  (History, "History"),
+  (CrdtState, "CRDT State"),
+  (Graphviz, "Graphviz"),
+  (IncrGraph, "Incr Graph"),
+]
+
+///|
+/// Ordinal of a tab within `bottom_tab_defs`. Deriving the index from the defs
+/// list (rather than a hard-coded `match`) keeps tab *order* single-sourced, so
+/// reordering the tablist can't desync the index. A `BottomTab` absent from the
+/// list is a defect, not a fallback case: aliasing it to `0` would silently give
+/// it the Problems tab's id / focus / `SelectBottomTab` target, so we abort
+/// loudly instead. Unreachable today — every variant is listed.
+fn bottom_tab_index(tab : BottomTab) -> Int {
+  match bottom_tab_defs.search_by(pair => pair.0 == tab) {
+    Some(index) => index
+    None => abort("BottomTab variant missing from bottom_tab_defs")
+  }
 }
 
 ///|
-/// Stable slug per tab — used for both the tab button id and the tabpanel
-/// id, so `aria-controls` ↔ `aria-labelledby` round-trips cleanly.
+/// Headless tablist behavior for the bottom panel, with `selected` taken from
+/// the durable `model.bottom_tab`. Rebuilt per use: selection lives in the
+/// model, not in the behavior (no second source of truth).
+fn bottom_tabs_behavior(selected : BottomTab) -> @tabs.Model {
+  @tabs.Model::new(
+    id="canopy-bottom-tabs",
+    tab_count=bottom_tab_defs.length(),
+    selected=bottom_tab_index(selected),
+  )
+}
+
+///|
+/// Focus the selected tab's button after the next render. Roving tabindex makes
+/// inactive tabs unreachable via Tab; without this, arrow-key navigation would
+/// leave focus stranded on the previous (now `tabindex="-1"`) button.
+/// Click-driven switches are no-ops because the browser already focuses the
+/// clicked button.
+fn bottom_tab_focus_cmd(tab : BottomTab) -> @rabbita.Cmd {
+  bottom_tabs_behavior(tab).focus_cmd()
+}
+
+///|
+/// Stable slug per tab — used for the tabpanel container id (see
+/// `bottom_tab_panel_id`).
 fn bottom_tab_slug(tab : BottomTab) -> String {
   match tab {
     Problems => "problems"
@@ -279,11 +320,6 @@ fn bottom_tab_slug(tab : BottomTab) -> String {
     Graphviz => "graphviz"
     IncrGraph => "incr"
   }
-}
-
-///|
-fn bottom_tab_button_id(tab : BottomTab) -> String {
-  "canopy-bottom-tab-" + bottom_tab_slug(tab)
 }
 
 ///|
@@ -301,78 +337,33 @@ fn bottom_tab_panel_id(tab : BottomTab) -> String {
 
 ///|
 fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
-  let tabs : Array[(BottomTab, String)] = [
-    (Problems, "Problems"),
-    (OpLog, "Op Log"),
-    (Patch, "Patch"),
-    (History, "History"),
-    (CrdtState, "CRDT State"),
-    (Graphviz, "Graphviz"),
-    (IncrGraph, "Incr Graph"),
-  ]
-  // Build buttons with WAI-ARIA tabs keyboard support: arrow keys
-  // navigate, Home/End jump to ends, and roving tabindex keeps the focus
-  // budget at one (active tab is tabindex=0; others are -1, so the page
-  // Tab key skips over inactive tabs).
-  let n = tabs.length()
-  let first_tab = tabs[0].0
-  let last_tab = tabs[n - 1].0
+  // The headless `@tabs` behavior owns the WAI-ARIA tablist keyboard model
+  // (ArrowLeft/Right wrap, Home/End jump), roving tabindex, `aria-selected`,
+  // and `aria-controls` (set only on the selected tab, since the other panels
+  // aren't mounted). This consumer owns the tab data, panel ids, the
+  // `tab`/`tab active` classes, and the index → `BottomTab` mapping.
+  let behavior = bottom_tabs_behavior(model.bottom_tab)
   let buttons : Array[Html] = []
-  for i in 0..<n {
-    let (tab, label) = tabs[i]
-    let prev_tab = tabs[(i + n - 1) % n].0
-    let next_tab = tabs[(i + 1) % n].0
-    let active = model.bottom_tab == tab
-    let class_name = if active { "tab active" } else { "tab" }
-    // `aria-controls` is set only on the active tab — the other panels
-    // aren't mounted (`view_bottom_content` matches on `bottom_tab` and
-    // returns one), so cross-referencing missing IDs would mislead AT.
-    // The `aria-labelledby` on the active panel still ties it back to
-    // its tab button.
-    let mut attrs = @html.Attrs::build()
-      .id(bottom_tab_button_id(tab))
-      .role("tab")
-      .aria_selected(if active { "true" } else { "false" })
-      .tabindex(if active { 0 } else { -1 })
-      .on_keydown(fn(ev) {
-        // Horizontal tablist: APG reserves ArrowUp/Down for normal scroll;
-        // only ArrowLeft/Right + Home/End move between tabs. Cancel the
-        // browser default for handled keys — Home/End and arrow keys
-        // otherwise scroll the page or scroll containers, so without
-        // prevent_default the viewport jumps while focus moves between
-        // tabs.
-        let target_tab = match ev.key() {
-          "ArrowLeft" => Some(prev_tab)
-          "ArrowRight" => Some(next_tab)
-          "Home" => Some(first_tab)
-          "End" => Some(last_tab)
-          _ => None
-        }
-        match target_tab {
-          Some(t) => {
-            ev.prevent_default()
-            dispatch(SelectBottomTab(t))
-          }
-          None => @rabbita.none
-        }
-      })
-    if active {
-      attrs = attrs.aria_controls(bottom_tab_panel_id(tab))
-    }
+  for i in 0..<bottom_tab_defs.length() {
+    let (tab, label) = bottom_tab_defs[i]
+    let class_name = if model.bottom_tab == tab { "tab active" } else { "tab" }
     buttons.push(
       @html.button(
         class=class_name,
-        on_click=dispatch(SelectBottomTab(tab)),
-        attrs~,
+        // `dispatch` receives the *target* index, which for keyboard nav differs
+        // from this button's `i` (e.g. ArrowRight on tab `i` fires `i + 1`). Re-
+        // index `bottom_tab_defs[j]` — do NOT close over the loop's `tab`, or
+        // every arrow key would select the focused tab and break navigation.
+        attrs=behavior.tab_attrs(i, panel_id=bottom_tab_panel_id(tab), dispatch=j => {
+          dispatch(SelectBottomTab(bottom_tab_defs[j].0))
+        }),
         [@html.text(label)],
       ),
     )
   }
   @html.div(
     class="bottom-tabs",
-    attrs=@html.Attrs::build()
-      .role("tablist")
-      .aria_label("Bottom panel sections"),
+    attrs=@tabs.tablist_attrs(label="Bottom panel sections"),
     buttons,
   )
 }
@@ -385,11 +376,13 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
 /// History/Graphviz). APG: a tabpanel with no focusable content must be
 /// in the tab sequence itself.
 fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
-  @html.Attrs::build()
-  .id(bottom_tab_panel_id(tab))
-  .role("tabpanel")
-  .aria_labelledby(bottom_tab_button_id(tab))
-  .tabindex(0)
+  // `panel_attrs` reads only the behavior's id prefix and the explicit index, so
+  // the Model's `selected` is irrelevant here — `bottom_panel_attrs` is called
+  // for whichever panel renders, not necessarily the selected one.
+  bottom_tabs_behavior(tab).panel_attrs(
+    bottom_tab_index(tab),
+    panel_id=bottom_tab_panel_id(tab),
+  )
 }
 
 ///|
