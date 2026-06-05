@@ -201,3 +201,11 @@ pub fn Msg::requests_close_focus(self : Msg) -> Bool {
 pub fn Model::focus_cmd(self : Model) -> @rabbita.Cmd {
   self.menu.focus_cmd()
 }
+
+///|
+/// Focus the active menu item within a scoped root after the current render flush.
+/// This only scopes item focus; positioning and dismissal still expect a
+/// document-visible panel id.
+pub fn Model::focus_cmd_within(self : Model, root_id~ : String) -> @rabbita.Cmd {
+  self.menu.focus_cmd_within(root_id~)
+}

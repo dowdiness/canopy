@@ -76,3 +76,108 @@ test "text keys are ignored for empty menus" {
   inspect(model.keydown_msg("r") is None, content="true")
   inspect(model.keydown_msg("Enter") is None, content="true")
 }
+
+///|
+#cfg(target="js")
+struct FocusCmdTestScheduler {
+  mut after_render_count : Int
+  hooks : @cmd.Hooks
+}
+
+///|
+#cfg(target="js")
+fn FocusCmdTestScheduler::new() -> FocusCmdTestScheduler {
+  { after_render_count: 0, hooks: { url_request: None, url_changed: None } }
+}
+
+///|
+#cfg(target="js")
+impl @cmd.Scheduler for FocusCmdTestScheduler with fn run_effect(self, kind, f) {
+  match kind {
+    Immediately => f(self)
+    AfterRender => {
+      self.after_render_count = self.after_render_count + 1
+      f(self)
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+impl @cmd.Scheduler for FocusCmdTestScheduler with fn queue_message(
+  self,
+  _id,
+  _send_message,
+) {
+  ignore(self)
+}
+
+///|
+#cfg(target="js")
+impl @cmd.Scheduler for FocusCmdTestScheduler with fn drain_message(self) {
+  ignore(self)
+}
+
+///|
+#cfg(target="js")
+impl @cmd.Scheduler for FocusCmdTestScheduler with fn hooks(self) {
+  self.hooks
+}
+
+///|
+#cfg(target="js")
+extern "js" fn install_shadow_focus_fixture(
+  root_id : String,
+  item_id : String,
+) -> Unit =
+  #| (rootId, itemId) => {
+  #|   globalThis.__menuFocusLog = [];
+  #|   const shadowItem = {
+  #|     id: itemId,
+  #|     children: [],
+  #|     focus() { globalThis.__menuFocusLog.push("shadow:" + this.id); },
+  #|   };
+  #|   const documentItem = {
+  #|     id: itemId,
+  #|     children: [],
+  #|     focus() { globalThis.__menuFocusLog.push("document:" + this.id); },
+  #|   };
+  #|   const shadowRoot = {
+  #|     children: [shadowItem],
+  #|     getElementById(id) { return id === itemId ? shadowItem : null; },
+  #|   };
+  #|   const host = { id: rootId, children: [], shadowRoot };
+  #|   globalThis.document = {
+  #|     getElementById(id) {
+  #|       if (id === rootId) return host;
+  #|       if (id === itemId) return documentItem;
+  #|       return null;
+  #|     },
+  #|   };
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn focus_log() -> String =
+  #| () => (globalThis.__menuFocusLog || []).join(",")
+
+///|
+#cfg(target="js")
+extern "js" fn clear_focus_fixture() -> Unit =
+  #| () => {
+  #|   delete globalThis.document;
+  #|   delete globalThis.__menuFocusLog;
+  #| }
+
+///|
+#cfg(target="js")
+test "focus_cmd_within searches a shadow host before document duplicates" {
+  let model = Model::new(id="menu", item_count=2).update(FocusNext)
+  install_shadow_focus_fixture("menu-host", "menu-item-1")
+  let scheduler = FocusCmdTestScheduler::new()
+  scheduler.add(model.focus_cmd_within(root_id="menu-host"))
+  let log = focus_log()
+  clear_focus_fixture()
+  inspect(scheduler.after_render_count, content="1")
+  inspect(log, content="shadow:menu-item-1")
+}

@@ -61,6 +61,12 @@ consumer. For navigation messages, call `Model::update`; when
 `Msg::requests_focus()` is true, return `Model::focus_cmd()` after updating the
 model.
 
+`Model::focus_cmd_within(root_id=...)` only scopes active-item focus through the
+same lookup strategy as `lib/menu`. It does not make the full context-menu flow
+shadow-root-ready: `position_cmd()` and `subscriptions()` still resolve the panel
+from `document.getElementById(self.id)`, so context-menu panels should remain
+document-visible until scoped positioning and dismissal APIs exist.
+
 Return `model.context_menu.subscriptions(...)` from the owning cell's
 subscriptions callback to install reusable dismissal behavior while the menu is
 open. The subscription emits `Dismiss(PointerOutside)` for outside pointer

@@ -16,6 +16,7 @@ pub struct Model {
   // private fields
 }
 pub fn Model::focus_cmd(Self) -> @cmd.Cmd
+pub fn Model::focus_cmd_within(Self, root_id~ : String) -> @cmd.Cmd
 pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::keydown_msg(Self, String) -> Msg?
 pub fn Model::new(id~ : String, item_count~ : Int) -> Self
