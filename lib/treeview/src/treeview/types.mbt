@@ -19,7 +19,7 @@ pub(all) enum TreeCommand {
   NavLeft
   NavRight
   Activate
-} derive(Eq, Debug)
+}
 
 ///|
 /// Decode a `keydown` key string into the tree command it should trigger, or
@@ -47,12 +47,13 @@ pub(all) enum Expansion {
   Leaf
   Collapsed
   Expanded
-} derive(Eq, Debug)
+}
 
 ///|
 /// The `aria-expanded` value for an expansion state, or `None` when the
-/// attribute must be omitted (leaves).
-pub fn expanded_value(expansion : Expansion) -> String? {
+/// attribute must be omitted (leaves). Internal: consumers pass an `Expansion`
+/// to `treeitem_attrs`, which maps it; the string contract is the package's.
+fn expanded_value(expansion : Expansion) -> String? {
   match expansion {
     Leaf => None
     Collapsed => Some("false")

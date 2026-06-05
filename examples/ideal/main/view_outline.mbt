@@ -29,14 +29,8 @@ fn outline_row_rendered(
     return false
   }
   match node.children {
-    @proj.Loaded(children) => {
-      for child in children {
-        if outline_row_rendered(child, key) {
-          return true
-        }
-      }
-      false
-    }
+    @proj.Loaded(children) =>
+      children.iter().any(child => outline_row_rendered(child, key))
     @proj.Elided(_) => false
   }
 }
@@ -196,11 +190,11 @@ fn view_outline_node(
   // `Elided` children mean the subtree exists but isn't materialized, so it is
   // expandable, not a leaf.
   let expansion : @treeview.Expansion = if is_leaf {
-    @treeview.Leaf
+    Leaf
   } else if node.collapsed {
-    @treeview.Collapsed
+    Collapsed
   } else {
-    @treeview.Expanded
+    Expanded
   }
   // Drag-and-drop event handlers chain onto the treeitem ARIA attrs. Selection,
   // click, and drag stay app-owned; the behavior contributes ARIA only.
@@ -339,11 +333,11 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
   let handle_keydown = fn(kb : @html.Keyboard) {
     let key = kb.key()
     match @treeview.command_for_key(key) {
-      Some(@treeview.NavUp) => navigate(@canopy_core.Direction::Up)
-      Some(@treeview.NavDown) => navigate(@canopy_core.Direction::Down)
-      Some(@treeview.NavLeft) => navigate(@canopy_core.Direction::Left)
-      Some(@treeview.NavRight) => navigate(@canopy_core.Direction::Right)
-      Some(@treeview.Activate) =>
+      Some(NavUp) => navigate(@canopy_core.Direction::Up)
+      Some(NavDown) => navigate(@canopy_core.Direction::Down)
+      Some(NavLeft) => navigate(@canopy_core.Direction::Left)
+      Some(NavRight) => navigate(@canopy_core.Direction::Right)
+      Some(Activate) =>
         match get_selected_node_id(model) {
           Some(nid) => {
             let op = if model.outline_state.collapsed_nodes.contains(nid) {
