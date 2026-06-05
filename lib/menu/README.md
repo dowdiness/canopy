@@ -37,6 +37,18 @@ navigation messages with `Model::update`; when `Msg::requests_focus()` is true,
 return `Model::focus_cmd()` after the model is updated so roving tabindex moves
 actual DOM focus after Rabbita patches the view.
 
+## Focus scope
+
+`Model::focus_cmd()` uses Rabbita's after-render command hook and focuses the
+active item with document-level `getElementById`. Use it for normal light-DOM
+menus whose generated item ids are document-unique.
+
+For menus rendered inside a scoped container or an open shadow root, use
+`Model::focus_cmd_within(root_id=...)` instead. `root_id` is resolved from the
+document; if that element has `shadowRoot`, lookup happens inside the shadow
+root, otherwise lookup happens under the root element. Closed shadow roots or
+roots that cannot be found by document id need a consumer-owned custom command.
+
 ## Verified Rabbita APIs
 
 Implementation was checked against the vendored Rabbita source, especially:
