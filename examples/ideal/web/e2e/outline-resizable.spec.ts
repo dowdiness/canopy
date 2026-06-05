@@ -17,6 +17,13 @@ async function outlineWidth(page: Page) {
 }
 
 test.describe('Outline panel resizable behavior', () => {
+  test('uses the compact default width on tablet before resizing', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 720 });
+    await waitForEditor(page);
+
+    await expect.poll(() => outlineWidth(page)).toBe(180);
+  });
+
   test('mouse drag widens the real outline panel', async ({ page }) => {
     await waitForEditor(page);
     const handle = page.getByRole('separator', { name: 'Resize width' });

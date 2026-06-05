@@ -1,6 +1,8 @@
 ///|
 fn initial_outline_resize() -> @resizable.Model {
-  @resizable.Model::new(w=220, h=1, constraints={
+  let (viewport_width, _) = viewport_size()
+  let outline_width = if viewport_width <= 1024 { 180 } else { 220 }
+  @resizable.Model::new(w=outline_width, h=1, constraints={
     min_w: 160,
     max_w: 360,
     min_h: 1,
