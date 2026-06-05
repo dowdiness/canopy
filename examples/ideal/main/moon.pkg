@@ -7,6 +7,7 @@ import {
   "dowdiness/rabbita_codemirror/js" @cm_js,
   "dowdiness/rabbita-menu/menu",
   "dowdiness/rabbita-tabs/tabs",
+  "dowdiness/rabbita-treeview/treeview",
   "dowdiness/dom_boundary",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,

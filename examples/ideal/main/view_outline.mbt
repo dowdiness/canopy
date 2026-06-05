@@ -4,6 +4,58 @@ fn node_id_to_string(id : @canopy_core.NodeId) -> String {
   id.0.to_string()
 }
 
+///|
+/// Headless `@treeview` behavior for the outline. The id prefix is the single
+/// source of the treeitem DOM-id scheme, so the container's
+/// `aria-activedescendant` and each row's `id` round-trip. Rebuilt per use —
+/// the behavior is stateless; selection/expansion live in `model`.
+fn outline_tree_model() -> @treeview.Model {
+  @treeview.Model::new(id="canopy-outline")
+}
+
+///|
+/// Whether the row for `key` is currently rendered, i.e. reachable from the
+/// outline root without descending through a collapsed node. Mirrors exactly
+/// what `view_outline_node` emits (collapsed subtrees render no children), so the
+/// caller never points `aria-activedescendant` at a non-rendered id.
+fn outline_row_rendered(
+  node : @proj.InteractiveTreeNode[@ast.Term],
+  key : String,
+) -> Bool {
+  if node_id_to_string(node.id) == key {
+    return true
+  }
+  if node.collapsed {
+    return false
+  }
+  match node.children {
+    @proj.Loaded(children) =>
+      children.iter().any(child => outline_row_rendered(child, key))
+    @proj.Elided(_) => false
+  }
+}
+
+///|
+/// The selected node's key, but only when its row is actually rendered. Drives
+/// `aria-activedescendant`: a selection that has scrolled out of the rendered
+/// tree (e.g. an ancestor collapsed, or a re-projection dropped the node) yields
+/// `None` rather than an active descendant that resolves to nothing.
+fn outline_active_node_key(model : Model) -> String? {
+  let sel = match model.selected_node {
+    Some(s) => s
+    None => return None
+  }
+  let root = match model.outline_state.tree {
+    Some(r) => r
+    None => return None
+  }
+  if outline_row_rendered(root, sel) {
+    Some(sel)
+  } else {
+    None
+  }
+}
+
 // NOTE: Position detection (Before/After/Inside) based on mouse-Y is not yet
 // implemented for the outline panel. Rabbita's @html.DragEvent is package-private,
 // so we can't pass it to extern "js" for bounding-rect computation.
@@ -130,10 +182,30 @@ fn view_outline_node(
       row_items.push(span(class="collapsed-badge", [text(count.to_string())]))
     }
   }
-  let select_cmd = dispatch(OutlineNodeClicked(node_id_to_string(node.id)))
-  // Drag-and-drop event handlers
+  let node_key = node_id_to_string(node.id)
+  let select_cmd = dispatch(OutlineNodeClicked(node_key))
+  // WAI-ARIA treeitem state (role / id / level / selected / expanded) from the
+  // headless `@treeview` behavior. `aria-level` is 1-based per the APG, so we
+  // pass `depth + 1`. A `Loaded`-but-empty node is a leaf (no `aria-expanded`);
+  // `Elided` children mean the subtree exists but isn't materialized, so it is
+  // expandable, not a leaf.
+  let expansion : @treeview.Expansion = if is_leaf {
+    Leaf
+  } else if node.collapsed {
+    Collapsed
+  } else {
+    Expanded
+  }
+  // Drag-and-drop event handlers chain onto the treeitem ARIA attrs. Selection,
+  // click, and drag stay app-owned; the behavior contributes ARIA only.
   let node_id = node.id
-  let drag_attrs = @html.Attrs::build()
+  let row_attrs = outline_tree_model()
+    .treeitem_attrs(
+      node_key~,
+      level=depth + 1,
+      selected=is_selected,
+      expansion~,
+    )
     .draggable("true")
     .on_dragstart(fn(e) {
       e.stop_propagation()
@@ -155,7 +227,7 @@ fn view_outline_node(
   let row = div(
     class=row_class,
     on_click=select_cmd,
-    attrs=drag_attrs,
+    attrs=row_attrs,
     row_items,
   )
   let child_views : Array[Html] = if node.collapsed {
@@ -242,30 +314,30 @@ fn build_outline_eval_annotations(
 ///|
 /// Render outline tree view with keyboard navigation (original tree mode).
 fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
+  let navigate = fn(direction : @canopy_core.Direction) {
+    match navigate_outline(model, direction) {
+      Some(id) => dispatch(OutlineNavigate(id))
+      None => @rabbita.none
+    }
+  }
+  // The headless `@treeview` behavior owns the tree keyboard vocabulary. The
+  // four directional commands map onto domain `navigate_proj`; Activate (Enter)
+  // toggles collapse/expand. Keys the behavior does not claim — Delete/Backspace
+  // (structural edit), "." (action overlay), Escape — fall through unchanged.
+  //
+  // Compatibility mode: arrows drive *domain* navigation (parent/child/sibling
+  // via `navigate_proj`), NOT the WAI-ARIA APG expand/collapse-on-arrow model.
+  // The locked outline E2E asserts these navigate_proj semantics; `@treeview`
+  // keeps its `TreeCommand`s direction-named precisely so this consumer can
+  // assign that meaning. See `lib/treeview` for the rationale.
   let handle_keydown = fn(kb : @html.Keyboard) {
     let key = kb.key()
-    match key {
-      "ArrowUp" =>
-        match navigate_outline(model, @canopy_core.Direction::Up) {
-          Some(id) => dispatch(OutlineNavigate(id))
-          None => @rabbita.none
-        }
-      "ArrowDown" =>
-        match navigate_outline(model, @canopy_core.Direction::Down) {
-          Some(id) => dispatch(OutlineNavigate(id))
-          None => @rabbita.none
-        }
-      "ArrowLeft" =>
-        match navigate_outline(model, @canopy_core.Direction::Left) {
-          Some(id) => dispatch(OutlineNavigate(id))
-          None => @rabbita.none
-        }
-      "ArrowRight" =>
-        match navigate_outline(model, @canopy_core.Direction::Right) {
-          Some(id) => dispatch(OutlineNavigate(id))
-          None => @rabbita.none
-        }
-      "Enter" =>
+    match @treeview.command_for_key(key) {
+      Some(NavUp) => navigate(@canopy_core.Direction::Up)
+      Some(NavDown) => navigate(@canopy_core.Direction::Down)
+      Some(NavLeft) => navigate(@canopy_core.Direction::Left)
+      Some(NavRight) => navigate(@canopy_core.Direction::Right)
+      Some(Activate) =>
         match get_selected_node_id(model) {
           Some(nid) => {
             let op = if model.outline_state.collapsed_nodes.contains(nid) {
@@ -277,28 +349,31 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
           }
           None => @rabbita.none
         }
-      "Delete" | "Backspace" =>
-        match get_selected_node_id(model) {
-          Some(nid) =>
-            dispatch(
-              OutlineStructuralEdit(
-                @lambda_edits.TreeEditOp::Delete(node_id=nid),
-              ),
-            )
-          None => @rabbita.none
+      None =>
+        match key {
+          "Delete" | "Backspace" =>
+            match get_selected_node_id(model) {
+              Some(nid) =>
+                dispatch(
+                  OutlineStructuralEdit(
+                    @lambda_edits.TreeEditOp::Delete(node_id=nid),
+                  ),
+                )
+              None => @rabbita.none
+            }
+          "." =>
+            match model.selected_node {
+              Some(_) => dispatch(OpenActionOverlayFromOutline)
+              None => @rabbita.none
+            }
+          "Escape" =>
+            if model.overlay.visible {
+              dispatch(CloseActionOverlay)
+            } else {
+              dispatch(OutlineNavigate(""))
+            }
+          _ => @rabbita.none
         }
-      "." =>
-        match model.selected_node {
-          Some(_) => dispatch(OpenActionOverlayFromOutline)
-          None => @rabbita.none
-        }
-      "Escape" =>
-        if model.overlay.visible {
-          dispatch(CloseActionOverlay)
-        } else {
-          dispatch(OutlineNavigate(""))
-        }
-      _ => @rabbita.none
     }
   }
   // Build eval annotations map: NodeId → Array[EvalResult]
@@ -308,7 +383,15 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
       div(
         class="tree-rows",
         on_keydown=handle_keydown,
-        attrs=@html.Attrs::build().tabindex(0),
+        // `role="tree"` + roving-free active-descendant: focus stays on this
+        // container (tabindex=0) and the selected row is tracked by id, matching
+        // the pre-existing container-focus model the E2E relies on. The label is
+        // deliberately distinct from the ancestor "AST outline" region so
+        // accessibility-name lookups stay unambiguous.
+        attrs=outline_tree_model().tree_attrs(
+          label="Outline tree",
+          active_node_key?=outline_active_node_key(model),
+        ),
         [view_outline_node(dispatch, root, 0, model, eval_annotations)],
       )
     None => @html.p(class="no-tree-note", "No AST available")

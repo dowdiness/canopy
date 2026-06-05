@@ -8,6 +8,7 @@ members = [
   "./lib/menu",
   "./lib/context-menu",
   "./lib/tabs",
+  "./lib/treeview",
   "./lib/dom-boundary",
   "./lib/visualizer",
   "./lib/semantic",
