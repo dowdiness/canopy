@@ -49,6 +49,10 @@ and `Key(key)` in the consumer. For navigation messages, call
 `Model::update`; when `Msg::requests_focus()` is true, return
 `Model::focus_cmd()` after updating the model.
 
+`Point` is in viewport/client coordinates, including fractional browser
+coordinates when available. `panel_attrs` uses those coordinates for fixed
+`left`/`top` anchoring.
+
 ## Verified Rabbita APIs
 
 Implementation was checked against the vendored Rabbita source, especially:

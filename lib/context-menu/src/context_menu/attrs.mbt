@@ -22,6 +22,23 @@ fn Model::base_trigger_attrs(self : Model) -> @html.Attrs {
 
 ///|
 #cfg(target="js")
+extern "js" fn mouse_event_client_x(event : @dom.MouseEvent) -> Double = "(event) => event.clientX"
+
+///|
+#cfg(target="js")
+extern "js" fn mouse_event_client_y(event : @dom.MouseEvent) -> Double = "(event) => event.clientY"
+
+///|
+#cfg(target="js")
+fn Point::from_mouse_event(event : @dom.MouseEvent) -> Point {
+  Point(
+    x=Float::from_double(mouse_event_client_x(event)),
+    y=Float::from_double(mouse_event_client_y(event)),
+  )
+}
+
+///|
+#cfg(target="js")
 pub fn Model::trigger_attrs(
   self : Model,
   on_open : (Point) -> @rabbita.Cmd,
@@ -30,12 +47,7 @@ pub fn Model::trigger_attrs(
   .base_trigger_attrs()
   .on_contextmenu(event => {
     event.prevent_default()
-    on_open(
-      Point(
-        x=Float::from_int(event.get_client_x()),
-        y=Float::from_int(event.get_client_y()),
-      ),
-    )
+    on_open(Point::from_mouse_event(event))
   })
 }
 
