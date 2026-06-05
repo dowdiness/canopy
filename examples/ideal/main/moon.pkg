@@ -9,6 +9,7 @@ import {
   "dowdiness/rabbita-tabs/tabs",
   "dowdiness/rabbita-treeview/treeview",
   "dowdiness/rabbita-resizable/resizable",
+  "dowdiness/rabbita-status/status",
   "dowdiness/dom_boundary",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,

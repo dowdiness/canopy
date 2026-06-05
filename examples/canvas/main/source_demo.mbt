@@ -33,7 +33,7 @@ struct SourceDemoModel {
   editor : String
   dirty : Bool
   status : String
-  tone : String
+  status_tone : @status.Tone
   on_change : () -> Unit
 }
 
@@ -76,9 +76,9 @@ fn source_demo_status_from_result(
   result : SourceGraphOperationResultJson,
   success_message : String,
   failure_prefix : String,
-) -> (String, String) {
+) -> (String, @status.Tone) {
   if result.applied {
-    (success_message, "success")
+    (success_message, @status.Success)
   } else {
     let detail = match result.message {
       Some(message) => message
@@ -89,7 +89,7 @@ fn source_demo_status_from_result(
           result.diagnostics.join("; ")
         }
     }
-    (failure_prefix + ": " + detail, "error")
+    (failure_prefix + ": " + detail, @status.Error)
   }
 }
 
@@ -106,23 +106,23 @@ fn source_demo_update(
       let result = set_source_graph_source_checked(model.handle, model.editor)
       let success_message = "Source applied; render state is reparsed from Loom GraphDoc."
       let failure_prefix = "Current source is invalid; canvas is rendering last-good graph"
-      let (status, tone) = source_demo_status_from_result(
+      let (status, status_tone) = source_demo_status_from_result(
         result, success_message, failure_prefix,
       )
       (
         source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, tone },
+        { ..model, editor: result.source, dirty: false, status, status_tone },
       )
     }
     ConnectSample => {
       let result = source_graph_connect_sample_result(model.handle)
       let success_message = "Connected meter.input to osc.out through graph-dsl source."
-      let (status, tone) = source_demo_status_from_result(
+      let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
       (
         source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, tone },
+        { ..model, editor: result.source, dirty: false, status, status_tone },
       )
     }
     InsertReverb => {
@@ -132,12 +132,12 @@ fn source_demo_update(
         "plate",
       )
       let success_message = "Inserted reverb = plate() from canonical source."
-      let (status, tone) = source_demo_status_from_result(
+      let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
       (
         source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, tone },
+        { ..model, editor: result.source, dirty: false, status, status_tone },
       )
     }
     SyncFromGraph => {
@@ -154,7 +154,7 @@ fn source_demo_update(
             ..model,
             editor: source,
             status: "Source synchronized from graph-dsl backing store.",
-            tone: "success",
+            status_tone: @status.Success,
           },
         )
       }
@@ -168,11 +168,6 @@ fn source_demo_subscriptions(
   _model : SourceDemoModel,
 ) -> @sub.Sub {
   @sub.every(250, emit(SyncFromGraph))
-}
-
-///|
-fn source_status_attrs(tone : String) -> @html.Attrs {
-  @html.Attrs::build().data_set("tone", tone)
 }
 
 ///|
@@ -222,7 +217,7 @@ fn source_demo_view(
       p(
         id="source-status",
         class="hint source-status",
-        attrs=source_status_attrs(model.tone),
+        attrs=model.status_tone.attrs(),
         style=["margin-top: 12px"],
         [text(model.status)],
       ),
@@ -246,7 +241,7 @@ pub fn mount_source_demo(
     editor: get_source_graph_source(handle),
     dirty: false,
     status: "Source mode active: operations lower into graph-dsl text.",
-    tone: "success",
+    status_tone: @status.Info,
     on_change,
   }
   @rabbita.new(

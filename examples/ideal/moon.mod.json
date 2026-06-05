@@ -26,6 +26,10 @@
       "path": "../../lib/resizable",
       "version": "0.1.0"
     },
+    "dowdiness/rabbita-status": {
+      "path": "../../lib/status",
+      "version": "0.1.0"
+    },
     "dowdiness/dom_boundary": {
       "path": "../../lib/dom-boundary",
       "version": "0.1.0"
