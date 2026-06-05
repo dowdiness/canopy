@@ -48,12 +48,22 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
+/// The overlay's mode: exactly one of four states. Replaces the former
+/// implicit `(visible, submenu, pending_action)` encoding so that illegal
+/// combinations — a closed overlay with a pending action, or a submenu and a
+/// name prompt active at once — are unrepresentable.
+enum OverlayMode {
+  Closed
+  MainMenu
+  Submenu(@lambda_edits.Action)
+  NamePrompt(@lambda_edits.Action)
+}
+
+///|
 struct OverlayState {
-  visible : Bool
+  mode : OverlayMode
   actions : Array[@lambda_edits.Action]
   node_context : NodeActionContext?
-  submenu : @lambda_edits.Action?
-  pending_action : @lambda_edits.Action?
   name_value : String
   name_error : String
   anchor_top : Int

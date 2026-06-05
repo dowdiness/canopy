@@ -648,7 +648,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       let rect_json = js_get_outline_selected_rect()
       let new_model = open_action_overlay(model, node_id_str, rect_json~)
-      if new_model.overlay.visible {
+      if new_model.overlay.is_open() {
         (new_model.overlay.menu.focus_cmd(), new_model)
       } else {
         (none, new_model)
@@ -690,9 +690,9 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       let overlay = { ..model.overlay, name_value: name }
       let model = { ..model, overlay, }
-      match model.overlay.pending_action {
-        Some(action) => execute_action(model, action, "", name)
-        None => (none, model)
+      match model.overlay.mode {
+        NamePrompt(action) => execute_action(model, action, "", name)
+        _ => (none, model)
       }
     }
     NamePromptCancel => close_action_overlay(model)
