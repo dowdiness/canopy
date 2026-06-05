@@ -138,6 +138,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Upstream Rabbita native-dialog `closedby` attribute support.
   Shipped upstream in Rabbita PR #118 and release `rabbita-v0.12.4`, then adopted by Canopy through the patched fork gitlink above. Scope remains intentionally narrow: `Attrs::closedby` and `dialog(closedby?)` emit the limited-support attribute only; they do not polyfill light-dismiss behavior or guarantee non-Baseline browser support.
 
+- [ ] Upstream Rabbita fractional `MouseEvent` coordinates.
+  Why: browser `MouseEvent.clientX/clientY` are JS numbers, but Rabbita currently exposes `get_client_x()` / `get_client_y()` as `Int`, forcing Canopy's context-menu primitive to use a private raw-JS workaround to preserve fractional anchors.
+  Plan: upstream Rabbita issue/PR; decide with maintainers whether the canonical accessors can be corrected to `Double` directly or need a compatibility migration path.
+  Exit: Rabbita exposes fractional client coordinates through its public `MouseEvent` API; Canopy removes the private `lib/context-menu` JS accessors and consumes the upstream API.
+
 - [ ] Report/fix Warren dangling-symlink discovery failure.
   Why: `warren build` can abort while walking Canopy's workspace root when it hits a dangling symlink such as `loom/target -> _build` before `loom/_build` exists: `OSError(@fs.kind(): ".../loom/target": No such file or directory)`. This is not yet proven WSL2-specific; current evidence points to discovery calling `@fs.kind(path)` without first checking `@fs.exists(path)`.
   Plan: upstream issue `moonbit-community/rabbita#119` is open; follow with a narrow PR containing a minimal workspace repro and a discovery-walk guard for missing/dangling paths.
