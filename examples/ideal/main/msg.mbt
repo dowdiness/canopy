@@ -27,8 +27,8 @@ pub enum Msg {
   // Action overlay
   OpenActionOverlayForNode(String)
   CloseActionOverlay
+  ActionMenu(@menu.Msg)
   ActionKeyPressed(String)
-  ActionTapped(String)
   NamePromptInput(String)
   NamePromptSubmit
   NamePromptCancel

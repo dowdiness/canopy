@@ -9,6 +9,7 @@ import {
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
+  "dowdiness/rabbita-menu/menu",
   "dowdiness/rabbita_codemirror",
   "dowdiness/visualizer",
   "moonbitlang/core/immut/hashset",
@@ -150,8 +151,8 @@ pub enum Msg {
   SyncStatusChanged(String)
   OpenActionOverlayForNode(String)
   CloseActionOverlay
+  ActionMenu(@menu.Msg)
   ActionKeyPressed(String)
-  ActionTapped(String)
   NamePromptInput(String)
   NamePromptSubmit
   NamePromptCancel

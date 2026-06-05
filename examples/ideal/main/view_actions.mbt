@@ -13,6 +13,8 @@ fn group_label(group : @lambda_edits.ActionGroup) -> String {
 /// Render a single action row with mnemonic badge and label.
 fn view_action_item(
   dispatch : @rabbita.Emit[Msg],
+  menu : @menu.Model,
+  index : Int,
   action : @lambda_edits.Action,
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"
@@ -23,8 +25,7 @@ fn view_action_item(
   }
   @html.div(
     class=item_class,
-    on_click=dispatch(ActionTapped(action.id)),
-    attrs=@html.Attrs::build().role("menuitem").tabindex(0),
+    attrs=menu.item_attrs(index, msg => dispatch(ActionMenu(msg))),
     [
       @html.span(class="action-mnemonic", [@html.text(action.mnemonic)]),
       @html.span(class="action-label-text", [@html.text(action.label)]),
@@ -36,11 +37,12 @@ fn view_action_item(
 /// Render the main action list grouped by Core / Wrap / Binding / Module.
 fn view_action_list(
   dispatch : @rabbita.Emit[Msg],
+  menu : @menu.Model,
   actions : Array[@lambda_edits.Action],
 ) -> @rabbita.Html {
   let items : Array[@rabbita.Html] = []
   let mut current_group : @lambda_edits.ActionGroup? = None
-  actions.each(fn(action) {
+  for index, action in actions {
     let need_header = match current_group {
       None => true
       Some(g) => g != action.group
@@ -58,8 +60,8 @@ fn view_action_list(
         )
       }
     }
-    items.push(view_action_item(dispatch, action))
-  })
+    items.push(view_action_item(dispatch, menu, index, action))
+  }
   @html.div(class="action-overlay-list", items)
 }
 
@@ -120,6 +122,7 @@ fn view_name_prompt(
 /// Render submenu choices (e.g., Plus/Minus for change_op, left/right for unwrap).
 fn view_submenu_choices(
   dispatch : @rabbita.Emit[Msg],
+  menu : @menu.Model,
   action : @lambda_edits.Action,
   kind : @ast.Term,
 ) -> @rabbita.Html {
@@ -133,12 +136,11 @@ fn view_submenu_choices(
     ),
   )
   for i, choice in choices {
-    let (label, value) = choice
+    let (label, _) = choice
     items.push(
       @html.div(
         class="action-overlay-item",
-        on_click=dispatch(ActionTapped(action.id + ":" + value)),
-        attrs=@html.Attrs::build().role("menuitem").tabindex(0),
+        attrs=menu.item_attrs(i, msg => dispatch(ActionMenu(msg))),
         [
           @html.span(class="action-mnemonic", [@html.text((i + 1).to_string())]),
           @html.span(class="action-label-text", [@html.text(label)]),
@@ -169,47 +171,25 @@ fn view_action_overlay(
   } else if model.overlay.submenu is Some(_) {
     match (model.overlay.submenu, model.overlay.node_context) {
       (Some(sub_action), Some(ctx)) =>
-        view_submenu_choices(dispatch, sub_action, ctx.kind)
-      _ => view_action_list(dispatch, model.overlay.actions)
+        view_submenu_choices(dispatch, model.overlay.menu, sub_action, ctx.kind)
+      _ => view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
     }
   } else {
-    view_action_list(dispatch, model.overlay.actions)
+    view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
   }
   @html.fragment([
-    // Scrim: click-catching backdrop, also handles Escape via keydown
+    // Scrim: click-catching backdrop
     @html.div(
       class="action-overlay-scrim",
-      on_click=dispatch(CloseActionOverlay),
-      on_keydown=fn(kb : @html.Keyboard) {
-        if kb.key() == "Escape" {
-          dispatch(CloseActionOverlay)
-        } else {
-          @rabbita.none
-        }
-      },
-      attrs=@html.Attrs::build().aria_hidden("true").tabindex(-1),
+      attrs=@menu.scrim_attrs(dispatch(CloseActionOverlay)),
       @html.nothing,
     ),
-    // Overlay panel — receives focus on open via after_render in main.mbt
+    // Overlay panel — roving focus moves to the active menu item after render.
     @html.div(
       class="action-overlay-panel",
-      on_keydown=fn(kb : @html.Keyboard) {
-        let key = kb.key()
-        if key == "Escape" {
-          dispatch(CloseActionOverlay)
-        } else if key.length() == 1 {
-          // Only forward single-char keys (mnemonics & digit choices).
-          // Ignore navigation keys (ArrowUp, Tab, Enter, etc.) that would
-          // incorrectly close submenus.
-          dispatch(ActionKeyPressed(key))
-        } else {
-          @rabbita.none
-        }
-      },
-      attrs=@html.Attrs::build()
-        .role("menu")
+      attrs=model.overlay.menu
+        .panel_attrs(msg => dispatch(ActionMenu(msg)))
         .aria_label("Structural editing actions")
-        .tabindex(-1)
         .style_attr(position_style),
       [content],
     ),
