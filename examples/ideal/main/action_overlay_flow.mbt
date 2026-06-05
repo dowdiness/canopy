@@ -5,7 +5,7 @@ fn show_name_prompt(
 ) -> (Cmd, Model) {
   let overlay = {
     ..model.overlay,
-    pending_action: Some(action),
+    mode: NamePrompt(action),
     name_value: "",
     name_error: "",
     menu: model.overlay.menu.reset(item_count=0),
@@ -37,7 +37,7 @@ fn open_submenu(
 ) -> (Cmd, Model) {
   let overlay = {
     ..model.overlay,
-    submenu: Some(action),
+    mode: Submenu(action),
     menu: model.overlay.menu.reset(item_count~),
   }
   (overlay.menu.focus_cmd(), { ..model, overlay, })
@@ -47,7 +47,7 @@ fn open_submenu(
 fn reset_main_menu(model : Model) -> Model {
   let overlay = {
     ..model.overlay,
-    submenu: None,
+    mode: MainMenu,
     menu: model.overlay.menu.reset(item_count=model.overlay.actions.length()),
   }
   { ..model, overlay, }

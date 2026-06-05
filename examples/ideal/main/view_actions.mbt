@@ -71,8 +71,8 @@ fn view_name_prompt(
   dispatch : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  let prompt_label = match model.overlay.pending_action {
-    Some(action) =>
+  let prompt_label = match model.overlay.mode {
+    NamePrompt(action) =>
       match action.id {
         "rename" | "binding_rename" => "New name"
         "extract_to_let" => "Variable name"
@@ -80,7 +80,7 @@ fn view_name_prompt(
         "add_binding" => "Binding name"
         _ => action.label
       }
-    None => "Enter name"
+    _ => "Enter name"
   }
   let error_el : @rabbita.Html = if model.overlay.name_error != "" {
     @html.div(
@@ -158,7 +158,7 @@ fn view_action_overlay(
   dispatch : @rabbita.Emit[Msg],
   model : Model,
 ) -> @rabbita.Html {
-  if !model.overlay.visible {
+  if !model.overlay.is_open() {
     return @html.nothing
   }
   // Position the overlay panel using inline style from the anchor rect
@@ -166,16 +166,22 @@ fn view_action_overlay(
   let left = model.overlay.anchor_left
   let position_style = "top: \{top}px; left: \{left}px;"
   // Determine content: name prompt, submenu, or main action list
-  let content : @rabbita.Html = if model.overlay.pending_action is Some(_) {
-    view_name_prompt(dispatch, model)
-  } else if model.overlay.submenu is Some(_) {
-    match (model.overlay.submenu, model.overlay.node_context) {
-      (Some(sub_action), Some(ctx)) =>
-        view_submenu_choices(dispatch, model.overlay.menu, sub_action, ctx.kind)
-      _ => view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
-    }
-  } else {
-    view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
+  let content : @rabbita.Html = match model.overlay.mode {
+    NamePrompt(_) => view_name_prompt(dispatch, model)
+    Submenu(sub_action) =>
+      match model.overlay.node_context {
+        Some(ctx) =>
+          view_submenu_choices(
+            dispatch,
+            model.overlay.menu,
+            sub_action,
+            ctx.kind,
+          )
+        None =>
+          view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
+      }
+    MainMenu | Closed =>
+      view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
   }
   @html.fragment([
     // Scrim: click-catching backdrop

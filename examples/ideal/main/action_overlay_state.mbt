@@ -1,10 +1,19 @@
 ///|
+/// True when the overlay is showing any of its open modes.
+fn OverlayState::is_open(self : OverlayState) -> Bool {
+  match self.mode {
+    Closed => false
+    MainMenu | Submenu(_) | NamePrompt(_) => true
+  }
+}
+
+///|
 fn open_action_overlay_from_event(
   model : Model,
   node_id_str : String,
 ) -> (Cmd, Model) {
   let new_model = open_action_overlay(model, node_id_str)
-  if new_model.overlay.visible {
+  if new_model.overlay.is_open() {
     (new_model.overlay.menu.focus_cmd(), new_model)
   } else {
     (none, new_model)
@@ -14,11 +23,9 @@ fn open_action_overlay_from_event(
 ///|
 fn closed_overlay() -> OverlayState {
   {
-    visible: false,
+    mode: Closed,
     actions: [],
     node_context: None,
-    submenu: None,
-    pending_action: None,
     name_value: "",
     name_error: "",
     anchor_top: 0,
@@ -102,11 +109,9 @@ fn open_action_overlay(
   {
     ..model,
     overlay: {
-      visible: true,
+      mode: MainMenu,
       actions,
       node_context: Some(ctx),
-      submenu: None,
-      pending_action: None,
       name_value: "",
       name_error: "",
       anchor_top,

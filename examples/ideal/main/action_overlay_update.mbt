@@ -1,7 +1,7 @@
 ///|
 fn handle_action_text_key(model : Model, key : String) -> (Cmd, Model) {
-  match model.overlay.submenu {
-    Some(sub_action) => {
+  match model.overlay.mode {
+    Submenu(sub_action) => {
       let idx = @string.parse_int(key) catch { _ => -1 }
       let idx = idx - 1 // "1" → 0, "2" → 1, etc.
       match execute_submenu_choice(model, sub_action, idx) {
@@ -9,20 +9,19 @@ fn handle_action_text_key(model : Model, key : String) -> (Cmd, Model) {
         None => close_submenu(model)
       }
     }
-    None =>
-      // If in name prompt mode, let the view handle input.
-      if model.overlay.pending_action is Some(_) {
-        (none, model)
-      } else {
-        // Match mnemonic: find the action whose mnemonic matches the key.
-        let matched = model.overlay.actions
-          .iter()
-          .find_first(fn(a) { a.mnemonic == key })
-        match matched {
-          Some(action) => dispatch_or_prompt(model, action)
-          None => (none, model)
-        }
+    // In name prompt mode, let the view handle input.
+    NamePrompt(_) => (none, model)
+    MainMenu => {
+      // Match mnemonic: find the action whose mnemonic matches the key.
+      let matched = model.overlay.actions
+        .iter()
+        .find_first(fn(a) { a.mnemonic == key })
+      match matched {
+        Some(action) => dispatch_or_prompt(model, action)
+        None => (none, model)
       }
+    }
+    Closed => (none, model)
   }
 }
 
@@ -44,13 +43,13 @@ fn handle_navigation_menu_msg(
 fn handle_action_menu_msg(model : Model, menu_msg : @menu.Msg) -> (Cmd, Model) {
   match menu_msg {
     @menu.Activate(index) =>
-      match model.overlay.submenu {
-        Some(sub_action) =>
+      match model.overlay.mode {
+        Submenu(sub_action) =>
           match execute_submenu_choice(model, sub_action, index) {
             Some(result) => result
             None => (none, model)
           }
-        None =>
+        _ =>
           if index >= 0 && index < model.overlay.actions.length() {
             dispatch_or_prompt(model, model.overlay.actions[index])
           } else {
