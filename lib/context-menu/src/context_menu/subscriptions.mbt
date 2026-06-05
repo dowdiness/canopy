@@ -41,12 +41,12 @@ fn dismissable_layer_loader(
       let target = @dom.document().as_event_target()
       let pointer_listener : @dom.Listener = event => {
         if !event_target_is_inside_element_id(id, event) {
-          scheduler.add((tagger.val)(Close))
+          scheduler.add((tagger.val)(Dismiss(PointerOutside)))
         }
       }
       let key_listener : @dom.Listener = event => {
         if event_is_undismissed_escape(id, event) {
-          scheduler.add((tagger.val)(Close))
+          scheduler.add((tagger.val)(Dismiss(EscapeKey)))
         }
       }
       target.add_event_listener("pointerdown", pointer_listener)
@@ -80,9 +80,10 @@ fn dismissable_layer_sub(id : String, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 ///|
 /// Subscribe to document-level dismissal behavior while the context menu is open.
 ///
-/// The subscription emits `Close` for outside pointer presses and for `Escape`
-/// when focus is outside the menu panel. `Escape` pressed inside the panel is
-/// handled by `panel_attrs`, which also prevents the default key action.
+/// The subscription emits `Dismiss(PointerOutside)` for outside pointer presses
+/// and `Dismiss(EscapeKey)` for `Escape` when focus is outside the menu panel.
+/// `Escape` pressed inside the panel is handled by `panel_attrs`, which also
+/// prevents the default key action.
 #cfg(target="js")
 pub fn Model::subscriptions(
   self : Model,

@@ -21,10 +21,18 @@ pub struct Model {
   priv id : String
   priv menu : @menu.Model
   priv anchor : Point?
+  priv close_focus_id : String?
 }
 
 ///|
-/// Context-menu behavior messages emitted by panel and item attrs.
+/// Why a document-level dismissable-layer subscription requested close.
+pub(all) enum DismissReason {
+  PointerOutside
+  EscapeKey
+}
+
+///|
+/// Context-menu behavior messages emitted by panel, item attrs, and subscriptions.
 pub(all) enum Msg {
   FocusNext
   FocusPrevious
@@ -33,6 +41,7 @@ pub(all) enum Msg {
   FocusItem(Int)
   Activate(Int)
   Close
+  Dismiss(DismissReason)
   Key(String)
 }
 
@@ -59,7 +68,7 @@ fn Msg::to_menu_msg(self : Msg) -> @menu.Msg {
     FocusLast => @menu.FocusLast
     FocusItem(index) => @menu.FocusItem(index)
     Activate(index) => @menu.Activate(index)
-    Close => @menu.Close
+    Close | Dismiss(_) => @menu.Close
     Key(key) => @menu.Key(key)
   }
 }
@@ -67,7 +76,18 @@ fn Msg::to_menu_msg(self : Msg) -> @menu.Msg {
 ///|
 /// Create a closed context-menu model for a stable panel id.
 pub fn Model::new(id~ : String) -> Model {
-  { id, menu: @menu.Model::new(id~, item_count=0), anchor: None }
+  {
+    id,
+    menu: @menu.Model::new(id~, item_count=0),
+    anchor: None,
+    close_focus_id: None,
+  }
+}
+
+///|
+/// Return focus to `id` for close paths where the consumer requests it.
+pub fn Model::with_close_focus_id(self : Model, id : String) -> Model {
+  { ..self, close_focus_id: Some(id) }
 }
 
 ///|
@@ -97,12 +117,12 @@ pub fn Model::close(self : Model) -> Model {
 ///|
 /// Apply one context-menu behavior message.
 ///
-/// Navigation messages update roving focus. `Activate` and `Close` close the
-/// context menu; consumers should still inspect those messages to perform
-/// domain actions or notify their host shell.
+/// Navigation messages update roving focus. `Activate`, `Close`, and `Dismiss`
+/// close the context menu; consumers should still inspect those messages to
+/// perform domain actions or notify their host shell.
 pub fn Model::update(self : Model, msg : Msg) -> Model {
   match msg {
-    Activate(_) | Close => self.close()
+    Activate(_) | Close | Dismiss(_) => self.close()
     Key(_) => self
     FocusNext | FocusPrevious | FocusFirst | FocusLast | FocusItem(_) =>
       { ..self, menu: self.menu.update(msg.to_menu_msg()) }
@@ -112,7 +132,26 @@ pub fn Model::update(self : Model, msg : Msg) -> Model {
 ///|
 /// Whether handling this message should be followed by `Model::focus_cmd()`.
 pub fn Msg::requests_focus(self : Msg) -> Bool {
-  self.to_menu_msg().requests_focus()
+  match self {
+    FocusNext | FocusPrevious | FocusFirst | FocusLast => true
+    FocusItem(_) | Activate(_) | Close | Dismiss(_) | Key(_) => false
+  }
+}
+
+///|
+/// Whether handling this menu-closing message should restore focus to the
+/// configured close-focus origin.
+pub fn Msg::requests_close_focus(self : Msg) -> Bool {
+  match self {
+    Activate(_) | Close | Dismiss(EscapeKey) => true
+    FocusNext
+    | FocusPrevious
+    | FocusFirst
+    | FocusLast
+    | FocusItem(_)
+    | Dismiss(PointerOutside)
+    | Key(_) => false
+  }
 }
 
 ///|

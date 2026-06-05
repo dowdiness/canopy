@@ -42,3 +42,32 @@ test "activation closes while navigation requests focus" {
   let activated = navigated.update(@context_menu.Activate(1))
   inspect(activated.is_open(), content="false")
 }
+
+///|
+test "activation and keyboard close paths request focus restore" {
+  let model = @context_menu.Model::new(id="test-menu").open(
+    anchor=@context_menu.Point(x=1.0F, y=2.0F),
+    item_count=2,
+  )
+
+  inspect(@context_menu.Activate(0).requests_close_focus(), content="true")
+  inspect(@context_menu.Close.requests_close_focus(), content="true")
+  inspect(
+    @context_menu.Dismiss(@context_menu.EscapeKey).requests_close_focus(),
+    content="true",
+  )
+  inspect(
+    @context_menu.Dismiss(@context_menu.PointerOutside).requests_close_focus(),
+    content="false",
+  )
+
+  inspect(model.update(@context_menu.Activate(0)).is_open(), content="false")
+  inspect(
+    model.update(@context_menu.Dismiss(@context_menu.EscapeKey)).is_open(),
+    content="false",
+  )
+  inspect(
+    model.update(@context_menu.Dismiss(@context_menu.PointerOutside)).is_open(),
+    content="false",
+  )
+}

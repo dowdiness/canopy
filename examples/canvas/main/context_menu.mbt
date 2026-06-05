@@ -8,6 +8,9 @@
 let context_menu_root_id : String = "context-menu"
 
 ///|
+let canvas_root_id : String = "canvas-root"
+
+///|
 let context_menu_panel_id : String = "canvas-context-menu-panel"
 
 ///|
@@ -68,7 +71,8 @@ fn context_menu_model(
 ) -> CanvasContextMenuModel {
   {
     items: [],
-    context_menu: @context_menu.Model::new(id=context_menu_panel_id),
+    context_menu: @context_menu.Model::new(id=context_menu_panel_id)
+      .with_close_focus_id(canvas_root_id),
     on_select,
     on_close,
   }
@@ -151,12 +155,24 @@ fn context_menu_update(
           match model.items.get(index) {
             Some(item) => {
               let cmd = context_menu_select_cmd(model, item.key)
+              let cmd = if context_menu_msg.requests_close_focus() {
+                @rabbita.batch([cmd, model.context_menu.close_focus_cmd()])
+              } else {
+                cmd
+              }
               (cmd, model.with_context_menu_msg(context_menu_msg))
             }
             None => (@rabbita.none, model)
           }
-        @context_menu.Close => {
-          let cmd = context_menu_close_cmd(model)
+        @context_menu.Close | @context_menu.Dismiss(_) => {
+          let cmd = if context_menu_msg.requests_close_focus() {
+            @rabbita.batch([
+              context_menu_close_cmd(model),
+              model.context_menu.close_focus_cmd(),
+            ])
+          } else {
+            context_menu_close_cmd(model)
+          }
           (cmd, model.with_context_menu_msg(context_menu_msg))
         }
         @context_menu.Key(_) => {

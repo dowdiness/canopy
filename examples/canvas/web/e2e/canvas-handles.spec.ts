@@ -241,6 +241,8 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await expect(page.locator('.canvas-node')).toHaveCount(6);
 
   const menu = page.locator('#context-menu');
+  const canvasRoot = page.locator('#canvas-root');
+  const searchInput = page.locator('#node-search');
   const items = contextMenuItems(page);
 
   await openBackgroundContextMenu(page);
@@ -263,15 +265,18 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
 
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
+  await expect(canvasRoot).toBeFocused();
 
   await openBackgroundContextMenu(page);
-  await page.locator('#node-search').focus();
+  await searchInput.focus();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
+  await expect(canvasRoot).toBeFocused();
 
   await openBackgroundContextMenu(page);
-  await page.locator('#node-search').click();
+  await searchInput.click();
   await expect(menu).toBeHidden();
+  await expect(searchInput).toBeFocused();
 
   await openBackgroundContextMenu(page);
   await expect(items.nth(0)).toBeFocused();
@@ -280,6 +285,7 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await page.keyboard.press('Enter');
   await expect(page.locator('.canvas-node')).toHaveCount(7);
   await expect(menu).toBeHidden();
+  await expect(canvasRoot).toBeFocused();
 
   await openBackgroundContextMenu(page);
   await expect(items.nth(0)).toBeFocused();
@@ -288,6 +294,7 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await page.keyboard.press('Space');
   await expect(page.locator('.canvas-node')).toHaveCount(8);
   await expect(menu).toBeHidden();
+  await expect(canvasRoot).toBeFocused();
   expect(runtimeErrors).toEqual([]);
 });
 
