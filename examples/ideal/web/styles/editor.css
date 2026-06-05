@@ -1312,7 +1312,8 @@ canopy-editor {
   transition: background var(--duration-fast) var(--ease-out-quart);
 }
 
-.action-overlay-item:hover {
+.action-overlay-item:hover,
+.action-overlay-item[data-active="true"] {
   background: rgba(130, 80, 223, 0.15);
 }
 
@@ -1320,7 +1321,8 @@ canopy-editor {
   color: var(--canopy-error-text);
 }
 
-.action-overlay-item.danger:hover {
+.action-overlay-item.danger:hover,
+.action-overlay-item.danger[data-active="true"] {
   background: var(--canopy-error-bg);
 }
 

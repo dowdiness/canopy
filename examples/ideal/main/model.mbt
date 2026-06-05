@@ -58,6 +58,7 @@ struct OverlayState {
   name_error : String
   anchor_top : Int
   anchor_left : Int
+  menu : @menu.Model
 }
 
 ///|

@@ -47,6 +47,42 @@ async function selectNodeInEditor(
   await page.waitForTimeout(300);
 }
 
+async function openVarActionOverlay(page: import('@playwright/test').Page) {
+  await setupStructureMode(page);
+  await selectNodeInEditor(page, 'var', 0);
+  await page.keyboard.press('Space');
+  await expect(page.locator('.action-overlay-panel')).toBeVisible({
+    timeout: 5000,
+  });
+}
+
+async function expectActiveActionItem(
+  page: import('@playwright/test').Page,
+  index: number,
+) {
+  const items = page.locator('.action-overlay-item');
+  await expect(items.nth(index)).toHaveAttribute('data-active', 'true');
+  await expect(
+    page.locator('.action-overlay-item[data-active="true"]'),
+  ).toHaveCount(1);
+}
+
+async function focusActionByLabel(
+  page: import('@playwright/test').Page,
+  label: string,
+) {
+  const items = page.locator('.action-overlay-item');
+  const labels = (await items.locator('.action-label-text').allTextContents()).map(
+    (text) => text.trim(),
+  );
+  const index = labels.findIndex((text) => text === label);
+  expect(index).toBeGreaterThanOrEqual(0);
+  for (let i = 0; i < index; i += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expectActiveActionItem(page, index);
+}
+
 test.describe('Structural Editing - Seed', () => {
   test('loads in Structure mode', async ({ page }) => {
     await setupStructureMode(page);
@@ -103,6 +139,43 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expect(
       overlay.locator('.action-overlay-item').filter({ hasText: 'Delete' }),
     ).toBeVisible();
+  });
+
+  test('Arrow keys, Home, and End move active menu item', async ({ page }) => {
+    await openVarActionOverlay(page);
+    const items = page.locator('.action-overlay-item');
+    const count = await items.count();
+    expect(count).toBeGreaterThan(1);
+
+    await expectActiveActionItem(page, 0);
+    await page.keyboard.press('ArrowDown');
+    await expectActiveActionItem(page, 1);
+    await page.keyboard.press('ArrowUp');
+    await expectActiveActionItem(page, 0);
+    await page.keyboard.press('End');
+    await expectActiveActionItem(page, count - 1);
+    await page.keyboard.press('Home');
+    await expectActiveActionItem(page, 0);
+  });
+
+  test('Enter activates focused menu item', async ({ page }) => {
+    await openVarActionOverlay(page);
+    await focusActionByLabel(page, 'Rename');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.name-prompt-container')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator('.name-prompt-label')).toContainText('New name');
+  });
+
+  test('Space activates focused menu item', async ({ page }) => {
+    await openVarActionOverlay(page);
+    await focusActionByLabel(page, 'Rename');
+    await page.keyboard.press('Space');
+    await expect(page.locator('.name-prompt-container')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator('.name-prompt-label')).toContainText('New name');
   });
 
   test('Escape dismisses overlay', async ({ page }) => {

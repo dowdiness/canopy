@@ -15,16 +15,6 @@ fn parse_node_id(s : String) -> @canopy_core.NodeId? {
 }
 
 ///|
-/// Split an action ID on the first ':' into (base_id, choice).
-/// Returns (action_id, "") when there is no colon.
-fn split_action_id(action_id : String) -> (String, String) {
-  match action_id.find(":") {
-    Some(i) => (action_id[0:i].to_owned(), action_id[i + 1:].to_owned())
-    None => (action_id, "")
-  }
-}
-
-///|
 fn init_model() -> Model raise {
   // Read agent ID set by JS (main.ts) before module import.
   // Falls back to "local" if JS hasn't set it (e.g. test environment).
@@ -162,12 +152,7 @@ fn open_action_overlay_from_event(
 ) -> (Cmd, Model) {
   let new_model = open_action_overlay(model, node_id_str)
   if new_model.overlay.visible {
-    // Focus the overlay panel after Rabbita renders it
-    let focus_cmd = @rabbita_cmd.custom_cmd(
-      fn(_) { js_focus_overlay_panel() },
-      kind=@rabbita_cmd.after_render,
-    )
-    (focus_cmd, new_model)
+    (new_model.overlay.menu.focus_cmd(), new_model)
   } else {
     (none, new_model)
   }
@@ -489,6 +474,7 @@ fn closed_overlay() -> OverlayState {
     name_error: "",
     anchor_top: 0,
     anchor_left: 0,
+    menu: @menu.Model::new(id="ideal-action-overlay-menu", item_count=0),
   }
 }
 
@@ -576,8 +562,70 @@ fn open_action_overlay(
       name_error: "",
       anchor_top,
       anchor_left,
+      menu: model.overlay.menu.reset(item_count=actions.length()),
     },
   }
+}
+
+///|
+fn close_action_overlay(model : Model) -> (Cmd, Model) {
+  js_set_overlay_open(false)
+  (none, { ..model, overlay: closed_overlay() })
+}
+
+///|
+fn show_name_prompt(
+  model : Model,
+  action : @lambda_edits.Action,
+) -> (Cmd, Model) {
+  let overlay = {
+    ..model.overlay,
+    pending_action: Some(action),
+    name_value: "",
+    name_error: "",
+    menu: model.overlay.menu.reset(item_count=0),
+  }
+  (focus_selector_after_render(".name-prompt-input"), { ..model, overlay, })
+}
+
+///|
+fn overlay_context_kind(model : Model) -> @ast.Term {
+  match model.overlay.node_context {
+    Some(ctx) => ctx.kind
+    None => @ast.Term::Unit
+  }
+}
+
+///|
+fn submenu_choices(
+  model : Model,
+  action : @lambda_edits.Action,
+) -> Array[(String, String)] {
+  get_submenu_choices(action.id, overlay_context_kind(model))
+}
+
+///|
+fn open_submenu(
+  model : Model,
+  action : @lambda_edits.Action,
+  item_count : Int,
+) -> (Cmd, Model) {
+  let overlay = {
+    ..model.overlay,
+    submenu: Some(action),
+    menu: model.overlay.menu.reset(item_count~),
+  }
+  (overlay.menu.focus_cmd(), { ..model, overlay, })
+}
+
+///|
+fn reset_main_menu(model : Model) -> Model {
+  let overlay = {
+    ..model.overlay,
+    submenu: None,
+    menu: model.overlay.menu.reset(item_count=model.overlay.actions.length()),
+  }
+  { ..model, overlay, }
 }
 
 ///|
@@ -620,16 +668,7 @@ fn execute_action(
           (none, { ..model, overlay, })
         }
       }
-    Ok(None) => {
-      // Action needs a name prompt
-      let overlay = {
-        ..model.overlay,
-        pending_action: Some(action),
-        name_value: "",
-        name_error: "",
-      }
-      (none, { ..model, overlay, })
-    }
+    Ok(None) => show_name_prompt(model, action)
     Err(msg) => {
       let overlay = { ..model.overlay, name_error: msg }
       (none, { ..model, overlay, })
@@ -645,26 +684,111 @@ fn dispatch_or_prompt(
   action : @lambda_edits.Action,
 ) -> (Cmd, Model) {
   if action.needs_input {
-    let overlay = {
-      ..model.overlay,
-      pending_action: Some(action),
-      name_value: "",
-      name_error: "",
-    }
-    (none, { ..model, overlay, })
+    show_name_prompt(model, action)
   } else {
-    // Check if this action needs a choice submenu
-    let ctx_kind = match model.overlay.node_context {
-      Some(ctx) => ctx.kind
-      None => @ast.Term::Unit
+    let choices = submenu_choices(model, action)
+    match choices {
+      [] => execute_action(model, action, "", "")
+      _ => open_submenu(model, action, choices.length())
     }
-    let choices = get_submenu_choices(action.id, ctx_kind)
-    if choices.length() > 0 {
-      let overlay = { ..model.overlay, submenu: Some(action) }
-      (none, { ..model, overlay, })
-    } else {
-      execute_action(model, action, "", "")
+  }
+}
+
+///|
+fn execute_submenu_choice(
+  model : Model,
+  action : @lambda_edits.Action,
+  index : Int,
+) -> (Cmd, Model)? {
+  let choices = submenu_choices(model, action)
+  if index >= 0 && index < choices.length() {
+    let (_, value) = choices[index]
+    Some(execute_action(model, action, value, ""))
+  } else {
+    None
+  }
+}
+
+///|
+fn close_submenu(model : Model) -> (Cmd, Model) {
+  let model = reset_main_menu(model)
+  (model.overlay.menu.focus_cmd(), model)
+}
+
+///|
+fn handle_action_text_key(model : Model, key : String) -> (Cmd, Model) {
+  match model.overlay.submenu {
+    Some(sub_action) => {
+      let idx = @string.parse_int(key) catch { _ => -1 }
+      let idx = idx - 1 // "1" → 0, "2" → 1, etc.
+      match execute_submenu_choice(model, sub_action, idx) {
+        Some(result) => result
+        None => close_submenu(model)
+      }
     }
+    None =>
+      // If in name prompt mode, let the view handle input.
+      if model.overlay.pending_action is Some(_) {
+        (none, model)
+      } else {
+        // Match mnemonic: find the action whose mnemonic matches the key.
+        let matched = model.overlay.actions
+          .iter()
+          .find_first(fn(a) { a.mnemonic == key })
+        match matched {
+          Some(action) => dispatch_or_prompt(model, action)
+          None => (none, model)
+        }
+      }
+  }
+}
+
+///|
+fn handle_navigation_menu_msg(
+  model : Model,
+  menu_msg : @menu.Msg,
+) -> (Cmd, Model) {
+  let overlay = { ..model.overlay, menu: model.overlay.menu.update(menu_msg) }
+  let model = { ..model, overlay, }
+  if menu_msg.requests_focus() {
+    (model.overlay.menu.focus_cmd(), model)
+  } else {
+    (none, model)
+  }
+}
+
+///|
+fn handle_action_menu_msg(model : Model, menu_msg : @menu.Msg) -> (Cmd, Model) {
+  match menu_msg {
+    @menu.Activate(index) =>
+      match model.overlay.submenu {
+        Some(sub_action) =>
+          match execute_submenu_choice(model, sub_action, index) {
+            Some(result) => result
+            None => (none, model)
+          }
+        None =>
+          if index >= 0 && index < model.overlay.actions.length() {
+            dispatch_or_prompt(model, model.overlay.actions[index])
+          } else {
+            (none, model)
+          }
+      }
+    @menu.Close => close_action_overlay(model)
+    @menu.Key(key) => handle_action_text_key(model, key)
+    @menu.FocusNext
+    | @menu.FocusPrevious
+    | @menu.FocusFirst
+    | @menu.FocusLast
+    | @menu.FocusItem(_) => handle_navigation_menu_msg(model, menu_msg)
+  }
+}
+
+///|
+fn handle_action_key(model : Model, key : String) -> (Cmd, Model) {
+  match model.overlay.menu.keydown_msg(key) {
+    Some(menu_msg) => handle_action_menu_msg(model, menu_msg)
+    None => (none, model)
   }
 }
 
@@ -868,7 +992,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let rect_json = js_get_outline_selected_rect()
       let new_model = open_action_overlay(model, node_id_str, rect_json~)
       if new_model.overlay.visible {
-        (focus_selector_after_render(".action-overlay-panel"), new_model)
+        (new_model.overlay.menu.focus_cmd(), new_model)
       } else {
         (none, new_model)
       }
@@ -886,65 +1010,14 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     OpenActionOverlayForNode(node_id_str)
     | LongPressTriggeredForNode(node_id_str) =>
       open_action_overlay_from_event(model, node_id_str)
-    CloseActionOverlay => {
-      js_set_overlay_open(false)
-      (none, { ..model, overlay: closed_overlay() })
-    }
-    ActionKeyPressed(key) => {
+    CloseActionOverlay => close_action_overlay(model)
+    ActionMenu(menu_msg) => handle_action_menu_msg(model, menu_msg)
+    ActionKeyPressed(key) =>
       if key == "" {
-        return (none, model)
+        (none, model)
+      } else {
+        handle_action_key(model, key)
       }
-      // Escape always closes
-      if key == "Escape" {
-        js_set_overlay_open(false)
-        return (none, { ..model, overlay: closed_overlay() })
-      }
-      // If in submenu mode, match numeric keys to choices
-      match model.overlay.submenu {
-        Some(sub_action) => {
-          let ctx_kind = match model.overlay.node_context {
-            Some(ctx) => ctx.kind
-            None => @ast.Term::Unit
-          }
-          let choices = get_submenu_choices(sub_action.id, ctx_kind)
-          let idx = @string.parse_int(key) catch { _ => -1 }
-          let idx = idx - 1 // "1" → 0, "2" → 1, etc.
-          if idx >= 0 && idx < choices.length() {
-            let (_, value) = choices[idx]
-            execute_action(model, sub_action, value, "")
-          } else {
-            // Invalid key — close submenu
-            (none, { ..model, overlay: { ..model.overlay, submenu: None } })
-          }
-        }
-        None =>
-          // If in name prompt mode, let the view handle input
-          if model.overlay.pending_action is Some(_) {
-            (none, model)
-          } else {
-            // Match mnemonic: find the action whose mnemonic matches the key
-            let matched = model.overlay.actions
-              .iter()
-              .find_first(fn(a) { a.mnemonic == key })
-            match matched {
-              Some(action) => dispatch_or_prompt(model, action)
-              None => (none, model)
-            }
-          }
-      }
-    }
-    ActionTapped(action_id) => {
-      // Submenu choices encode as "base_id:choice_value" for single-tap dispatch
-      let (base_id, choice) = split_action_id(action_id)
-      let matched = model.overlay.actions
-        .iter()
-        .find_first(fn(a) { a.id == base_id })
-      match (matched, choice) {
-        (Some(action), "") => dispatch_or_prompt(model, action)
-        (Some(action), _) => execute_action(model, action, choice, "")
-        (None, _) => (none, model)
-      }
-    }
     NamePromptInput(value) => {
       let overlay = { ..model.overlay, name_value: value, name_error: "" }
       (none, { ..model, overlay, })
@@ -965,10 +1038,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         None => (none, model)
       }
     }
-    NamePromptCancel => {
-      js_set_overlay_open(false)
-      (none, { ..model, overlay: closed_overlay() })
-    }
+    NamePromptCancel => close_action_overlay(model)
     // ── Outline drag-and-drop ──────
     OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
     OutlineDragOver(target_id, position) =>

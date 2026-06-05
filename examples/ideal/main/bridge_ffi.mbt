@@ -219,17 +219,6 @@ extern "js" fn js_get_selected_node_rect() -> String =
   #| }
 
 ///|
-/// Focus the action overlay panel element.
-/// Called after render when the overlay becomes visible.
-extern "js" fn js_focus_overlay_panel() -> Unit =
-  #| function() {
-  #|   var el = document.querySelector('canopy-editor');
-  #|   if (!el || !el.shadowRoot) return;
-  #|   var panel = el.shadowRoot.querySelector('.action-overlay-panel');
-  #|   if (panel) panel.focus();
-  #| }
-
-///|
 /// Get viewport dimensions as JSON for overlay position clamping.
 extern "js" fn js_get_viewport_size() -> String =
   #| function() {

@@ -5,6 +5,7 @@ members = [
   "./lib/btree",
   "./lib/rabbita_codemirror",
   "./lib/resizable",
+  "./lib/menu",
   "./lib/dom-boundary",
   "./lib/visualizer",
   "./lib/semantic",

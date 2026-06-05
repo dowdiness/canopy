@@ -10,6 +10,10 @@
       "path": "../../lib/rabbita_codemirror",
       "version": "0.0.1"
     },
+    "dowdiness/rabbita-menu": {
+      "path": "../../lib/menu",
+      "version": "0.1.0"
+    },
     "dowdiness/dom_boundary": {
       "path": "../../lib/dom-boundary",
       "version": "0.1.0"

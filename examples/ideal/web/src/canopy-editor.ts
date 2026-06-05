@@ -419,7 +419,8 @@ const SHADOW_STYLES = `
     outline: none;
   }
   .action-overlay-item:hover,
-  .action-overlay-item:focus-visible {
+  .action-overlay-item:focus-visible,
+  .action-overlay-item[data-active="true"] {
     background: var(--canopy-accent-hover, rgba(130, 80, 223, 0.12));
   }
   .action-overlay-item:focus-visible {
@@ -430,7 +431,8 @@ const SHADOW_STYLES = `
     color: var(--canopy-error-text, #ef4444);
   }
   .action-overlay-item.danger:hover,
-  .action-overlay-item.danger:focus-visible {
+  .action-overlay-item.danger:focus-visible,
+  .action-overlay-item.danger[data-active="true"] {
     background: var(--canopy-error-bg, rgba(207, 34, 46, 0.1));
   }
   .action-overlay-item.danger .action-mnemonic {
