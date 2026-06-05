@@ -9,7 +9,7 @@
     "dowdiness/incr": "0.8.0",
     "moonbit-community/rabbita": {
       "path": "../../rabbita/rabbita",
-      "version": "0.12.2"
+      "version": "0.12.4"
     }
   },
   "source": ".",

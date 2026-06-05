@@ -4,7 +4,7 @@
   "deps": {
     "moonbit-community/rabbita": {
       "path": "../../rabbita/rabbita",
-      "version": "0.12.2"
+      "version": "0.12.4"
     },
     "dowdiness/rabbita_codemirror": {
       "path": "../../lib/rabbita_codemirror",

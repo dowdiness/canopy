@@ -1,7 +1,7 @@
 # Disclosure example
 
 Smallest working PoC of the **headless behavior + local styling** pattern on
-rabbita 0.12.3, mirroring `examples/resizable`.
+rabbita 0.12.4, mirroring `examples/resizable`.
 
 - `DisclosureModel` (in `main/client.mbt`) owns state (`open`) and emits ARIA
   via `trigger_attrs` / `content_attrs` returning `@html.Attrs` — no styling.

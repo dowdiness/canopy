@@ -132,19 +132,15 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 7. Code Cleanup
 
-- [ ] Resolve the forked Rabbita patch provenance/adoption path.
-  Why: Canopy currently pins the `rabbita` submodule to the forked 0.12.3 patch commit/tag used by the headless-UI experiment. The important patch is the `diff_subs` `update_tagger` behavior needed by canonical `custom_sub` bindings; the fork PR is provenance, not workspace-wide adoption by itself.
-  Plan: `docs/plans/2026-06-04-rabbita-headless-ui-feasibility.md` and `docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0.
-  Exit: either the patch lands upstream and Canopy updates to an upstream Rabbita release, or the maintained fork/tag policy is documented and the submodule pointer/version pins are updated deliberately; unrelated `closedby` and Warren fixes stay separate.
+- [x] Resolve the forked Rabbita patch provenance/adoption path.
+  Shipped 2026-06-05: Canopy now points `rabbita` at `5f828eb` on `dowdiness/rabbita:update-0.12.4-patched`, pinned by tag `canopy-rabbita-v0.12.4-patched-2026-06-05`. This adopts upstream `rabbita-v0.12.4` plus Canopy's fork-only `diff_subs/update_tagger` patch, and the in-repo Rabbita path-dep pins now say `0.12.4`. If the patch lands upstream later, repoint to the upstream release; Warren remains separate.
 
-- [ ] Upstream Rabbita native-dialog `closedby` attribute support.
-  Why: the P3 dialog spike found `@dialog.show(... modal=true)` already calls native `showModal()`, but backdrop light-dismiss in Chromium depends on emitting `closedby="any"`; Rabbita currently has no public `closedby` attr. MDN marks the `HTMLDialogElement.closedBy` property as non-Baseline, so scope this as an attribute emission API only — no behavior guarantee or polyfill.
-  Plan: Rabbita issue/PR (not opened yet); local prototype is in the rabbita submodule branch `codex/dialog-closedby-attr` with `Attrs::closedby`, `dialog(closedby?)`, docs, and html-package tests.
-  Exit: upstream Rabbita either accepts a limited-support `closedby` attribute API and Canopy updates the submodule, or records a decision to keep explicit backdrop handling in Canopy instead.
+- [x] Upstream Rabbita native-dialog `closedby` attribute support.
+  Shipped upstream in Rabbita PR #118 and release `rabbita-v0.12.4`, then adopted by Canopy through the patched fork gitlink above. Scope remains intentionally narrow: `Attrs::closedby` and `dialog(closedby?)` emit the limited-support attribute only; they do not polyfill light-dismiss behavior or guarantee non-Baseline browser support.
 
 - [ ] Report/fix Warren dangling-symlink discovery failure.
   Why: `warren build` can abort while walking Canopy's workspace root when it hits a dangling symlink such as `loom/target -> _build` before `loom/_build` exists: `OSError(@fs.kind(): ".../loom/target": No such file or directory)`. This is not yet proven WSL2-specific; current evidence points to discovery calling `@fs.kind(path)` without first checking `@fs.exists(path)`.
-  Plan: Rabbita/Warren issue or narrow PR (not opened yet) with a minimal workspace repro and a discovery-walk guard for missing/dangling paths.
+  Plan: upstream issue `moonbit-community/rabbita#119` is open; follow with a narrow PR containing a minimal workspace repro and a discovery-walk guard for missing/dangling paths.
   Exit: Warren skips dangling/missing paths during package discovery; the repro passes; Canopy examples no longer need the static-server workaround for this failure mode.
 
 - [ ] Upgrade `rle` consumers to `dowdiness/rle` 0.2.1 and constructor-style APIs.

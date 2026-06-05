@@ -159,7 +159,7 @@ fn section_view(emit : Emit[Msg], index : Int, section : Section) -> Html {
 fn view(emit : Emit[Msg], model : Model) -> Html {
   div(class="page", [
     div(class="hero", [
-      p(class="eyebrow", "Headless UI · rabbita 0.12.3"),
+      p(class="eyebrow", "Headless UI · rabbita 0.12.4"),
       h1("Disclosure"),
       p(
         class="subtitle",
