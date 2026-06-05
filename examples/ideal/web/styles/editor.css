@@ -1389,10 +1389,10 @@ canopy-editor {
   color: var(--canopy-text-dim);
 }
 
-.name-prompt-error {
+.action-overlay-error {
   font-size: var(--text-label);
   color: var(--canopy-error-text);
-  padding-top: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
 }
 
 /* ── Overlay mobile adjustments ────────────────────────── */

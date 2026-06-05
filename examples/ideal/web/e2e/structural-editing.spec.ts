@@ -238,7 +238,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     });
     await page.locator('.name-prompt-input').focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('.name-prompt-error')).toContainText('Enter a name to continue');
+    await expect(page.locator('.action-overlay-error')).toContainText('Enter a name to continue');
   });
 
   test('Escape cancels name prompt', async ({ page }) => {

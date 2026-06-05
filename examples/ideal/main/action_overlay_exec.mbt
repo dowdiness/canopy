@@ -34,13 +34,13 @@ fn execute_action(
           (cmd, new_model)
         }
         Err(err) => {
-          let overlay = { ..model.overlay, name_error: err.message() }
+          let overlay = { ..model.overlay, error: err.message() }
           (none, { ..model, overlay, })
         }
       }
     Ok(None) => show_name_prompt(model, action)
     Err(msg) => {
-      let overlay = { ..model.overlay, name_error: msg }
+      let overlay = { ..model.overlay, error: msg }
       (none, { ..model, overlay, })
     }
   }

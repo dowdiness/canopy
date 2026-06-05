@@ -3,7 +3,7 @@
 fn OverlayState::is_open(self : OverlayState) -> Bool {
   match self.mode {
     Closed => false
-    MainMenu | Submenu(_) | NamePrompt(_) => true
+    MainMenu | Submenu(_) | NamePrompt(_, ..) => true
   }
 }
 
@@ -26,8 +26,7 @@ fn closed_overlay() -> OverlayState {
     mode: Closed,
     actions: [],
     node_context: None,
-    name_value: "",
-    name_error: "",
+    error: "",
     anchor_top: 0,
     anchor_left: 0,
     menu: @menu.Model::new(id="ideal-action-overlay-menu", item_count=0),
@@ -119,8 +118,7 @@ fn open_action_overlay(
       mode: MainMenu,
       actions,
       node_context: Some(ctx),
-      name_value: "",
-      name_error: "",
+      error: "",
       anchor_top,
       anchor_left,
       menu: model.overlay.menu.reset(item_count=actions.length()),

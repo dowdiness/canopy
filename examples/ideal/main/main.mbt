@@ -675,26 +675,8 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         handle_action_key(model, key)
       }
-    NamePromptInput(value) => {
-      let overlay = { ..model.overlay, name_value: value, name_error: "" }
-      (none, { ..model, overlay, })
-    }
-    NamePromptSubmit => {
-      let name = model.overlay.name_value.trim().to_owned()
-      if name == "" {
-        let overlay = {
-          ..model.overlay,
-          name_error: "Enter a name to continue",
-        }
-        return (none, { ..model, overlay, })
-      }
-      let overlay = { ..model.overlay, name_value: name }
-      let model = { ..model, overlay, }
-      match model.overlay.mode {
-        NamePrompt(action) => execute_action(model, action, "", name)
-        _ => (none, model)
-      }
-    }
+    NamePromptInput(value) => handle_name_prompt_input(model, value)
+    NamePromptSubmit => handle_name_prompt_submit(model)
     NamePromptCancel => close_action_overlay(model)
     // ── Outline drag-and-drop ──────
     OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
