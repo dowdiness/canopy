@@ -474,21 +474,27 @@
     #context-menu {
       position: fixed;
       z-index: 10;
+      width: 1px;
+      height: 1px;
+      overflow: visible;
+    }
+    #context-menu[hidden] { display: none; }
+    #context-menu [role="menu"] {
       width: 210px;
       padding: 6px;
       border-radius: 12px;
       background: oklch(21% 0.019 276 / 0.98);
       border: 1px solid var(--line);
       box-shadow: 0 16px 48px oklch(8% 0.012 276 / 0.34);
+      box-sizing: border-box;
     }
-    #context-menu[hidden] { display: none; }
-    #context-menu button {
+    #context-menu [role="menu"] button {
       padding: 8px 9px;
       border-radius: 8px;
       background: transparent;
     }
-    #context-menu button:hover,
-    #context-menu button:focus-visible {
+    #context-menu [role="menu"] button:hover,
+    #context-menu [role="menu"] button:focus-visible {
       background: var(--surface-soft);
       outline: none;
     }

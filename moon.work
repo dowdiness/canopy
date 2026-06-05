@@ -6,6 +6,7 @@ members = [
   "./lib/rabbita_codemirror",
   "./lib/resizable",
   "./lib/menu",
+  "./lib/context-menu",
   "./lib/dom-boundary",
   "./lib/visualizer",
   "./lib/semantic",

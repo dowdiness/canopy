@@ -1,8 +1,8 @@
 // Canvas context-menu Rabbita island.
 //
 // TypeScript still owns graph hit-testing and source-backed action execution;
-// this cell owns the menu surface, roving focus, keyboard handling, and ARIA
-// attrs through `dowdiness/rabbita-menu/menu`.
+// this cell owns the menu surface by composing Canvas item data with
+// `dowdiness/rabbita-context-menu/context_menu`.
 
 ///|
 let context_menu_root_id : String = "context-menu"
@@ -25,14 +25,22 @@ priv struct CanvasContextMenuItem {
 
 ///|
 priv struct CanvasContextMenuPayload {
+  x : Int
+  y : Int
   items : Array[CanvasContextMenuItem]
 } derive(@json.FromJson)
 
 ///|
+fn CanvasContextMenuPayload::anchor(
+  self : CanvasContextMenuPayload,
+) -> @context_menu.Point {
+  @context_menu.Point(x=self.x, y=self.y)
+}
+
+///|
 priv struct CanvasContextMenuModel {
-  visible : Bool
   items : Array[CanvasContextMenuItem]
-  menu : @menu.Model
+  context_menu : @context_menu.Model
   on_select : (String) -> Unit
   on_close : () -> Unit
 }
@@ -41,7 +49,7 @@ priv struct CanvasContextMenuModel {
 priv enum CanvasContextMenuMsg {
   Show(String)
   Hide
-  Menu(@menu.Msg)
+  ContextMenu(@context_menu.Msg)
 }
 
 ///|
@@ -59,24 +67,25 @@ fn context_menu_model(
   on_close : () -> Unit,
 ) -> CanvasContextMenuModel {
   {
-    visible: false,
     items: [],
-    menu: @menu.Model::new(id=context_menu_panel_id, item_count=0),
+    context_menu: @context_menu.Model::new(id=context_menu_panel_id),
     on_select,
     on_close,
   }
 }
 
 ///|
-fn CanvasContextMenuModel::with_items(
+fn CanvasContextMenuModel::with_payload(
   self : CanvasContextMenuModel,
-  items : Array[CanvasContextMenuItem],
+  payload : CanvasContextMenuPayload,
 ) -> CanvasContextMenuModel {
   {
     ..self,
-    visible: true,
-    items,
-    menu: self.menu.reset(item_count=items.length()),
+    items: payload.items,
+    context_menu: self.context_menu.open(
+      anchor=payload.anchor(),
+      item_count=payload.items.length(),
+    ),
   }
 }
 
@@ -84,7 +93,24 @@ fn CanvasContextMenuModel::with_items(
 fn CanvasContextMenuModel::closed(
   self : CanvasContextMenuModel,
 ) -> CanvasContextMenuModel {
-  { ..self, visible: false, items: [], menu: self.menu.reset(item_count=0) }
+  { ..self, items: [], context_menu: self.context_menu.close() }
+}
+
+///|
+fn CanvasContextMenuModel::with_context_menu_msg(
+  self : CanvasContextMenuModel,
+  msg : @context_menu.Msg,
+) -> CanvasContextMenuModel {
+  let context_menu = self.context_menu.update(msg)
+  {
+    ..self,
+    context_menu,
+    items: if context_menu.is_open() {
+      self.items
+    } else {
+      []
+    },
+  }
 }
 
 ///|
@@ -113,32 +139,38 @@ fn context_menu_update(
     Show(json_text) =>
       match decode_context_menu_payload(json_text) {
         Some(payload) => {
-          let model = model.with_items(payload.items)
-          (model.menu.focus_cmd(), model)
+          let model = model.with_payload(payload)
+          (model.context_menu.focus_cmd(), model)
         }
         None => (@rabbita.none, model.closed())
       }
     Hide => (@rabbita.none, model.closed())
-    Menu(menu_msg) =>
-      match menu_msg {
-        @menu.Activate(index) =>
+    ContextMenu(context_menu_msg) =>
+      match context_menu_msg {
+        @context_menu.Activate(index) =>
           match model.items.get(index) {
             Some(item) => {
               let cmd = context_menu_select_cmd(model, item.key)
-              (cmd, model.closed())
+              (cmd, model.with_context_menu_msg(context_menu_msg))
             }
             None => (@rabbita.none, model)
           }
-        @menu.Close => (context_menu_close_cmd(model), model.closed())
-        @menu.Key(_) => (@rabbita.none, model)
-        @menu.FocusNext
-        | @menu.FocusPrevious
-        | @menu.FocusFirst
-        | @menu.FocusLast
-        | @menu.FocusItem(_) => {
-          let model = { ..model, menu: model.menu.update(menu_msg) }
-          let cmd = if menu_msg.requests_focus() {
-            model.menu.focus_cmd()
+        @context_menu.Close => {
+          let cmd = context_menu_close_cmd(model)
+          (cmd, model.with_context_menu_msg(context_menu_msg))
+        }
+        @context_menu.Key(_) => {
+          let model = model.with_context_menu_msg(context_menu_msg)
+          (@rabbita.none, model)
+        }
+        @context_menu.FocusNext
+        | @context_menu.FocusPrevious
+        | @context_menu.FocusFirst
+        | @context_menu.FocusLast
+        | @context_menu.FocusItem(_) => {
+          let model = model.with_context_menu_msg(context_menu_msg)
+          let cmd = if context_menu_msg.requests_focus() {
+            model.context_menu.focus_cmd()
           } else {
             @rabbita.none
           }
@@ -151,14 +183,14 @@ fn context_menu_update(
 ///|
 fn context_menu_item_view(
   emit : @rabbita.Emit[CanvasContextMenuMsg],
-  menu : @menu.Model,
+  context_menu : @context_menu.Model,
   index : Int,
   item : CanvasContextMenuItem,
 ) -> @rabbita.Html {
   @html.button(
     type_="button",
     title=item.description,
-    attrs=menu.item_attrs(index, msg => emit(Menu(msg))),
+    attrs=context_menu.item_attrs(index, msg => emit(ContextMenu(msg))),
     [@html.text(item.label)],
   )
 }
@@ -168,16 +200,16 @@ fn context_menu_view(
   emit : @rabbita.Emit[CanvasContextMenuMsg],
   model : CanvasContextMenuModel,
 ) -> @rabbita.Html {
-  if !model.visible {
+  if !model.context_menu.is_open() {
     return @html.nothing
   }
   let items : Array[@rabbita.Html] = []
   for index, item in model.items {
-    items.push(context_menu_item_view(emit, model.menu, index, item))
+    items.push(context_menu_item_view(emit, model.context_menu, index, item))
   }
   @html.div(
-    attrs=model.menu
-      .panel_attrs(msg => emit(Menu(msg)))
+    attrs=model.context_menu
+      .panel_attrs(msg => emit(ContextMenu(msg)))
       .aria_label("Canvas context menu"),
     items,
   )

@@ -615,10 +615,10 @@ function hideContextMenu(): void {
   }
 }
 
-function showContextMenu(items: ContextMenuItem[]): void {
+function showContextMenu(anchor: Point, items: ContextMenuItem[]): void {
   contextMenu.hidden = false;
   contextMenu.dispatchEvent(new CustomEvent(CONTEXT_MENU_SHOW_EVENT, {
-    detail: JSON.stringify({ items }),
+    detail: JSON.stringify({ x: anchor.x, y: anchor.y, items }),
   }));
 }
 
@@ -637,16 +637,16 @@ function renderLibrary(filter = ''): void {
   }
 }
 
-function renderEdgeContextMenu(edge: EdgeData): void {
+function renderEdgeContextMenu(edge: EdgeData, anchor: Point): void {
   contextEdge = edge;
-  showContextMenu([
+  showContextMenu(anchor, [
     { key: EDGE_CONTEXT_MENU_KEY, label: 'Disconnect edge', description: edgeTitle(edge) },
   ]);
 }
 
-function renderContextMenu(): void {
+function renderContextMenu(anchor: Point): void {
   contextEdge = null;
-  showContextMenu(LIBRARY);
+  showContextMenu(anchor, LIBRARY);
 }
 
 function handleContextMenuSelect(key: string): void {
@@ -836,15 +836,14 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
   const hit = hitFromTarget(e.target);
-  contextMenu.style.left = `${e.clientX}px`;
-  contextMenu.style.top = `${e.clientY}px`;
+  const anchor = { x: e.clientX, y: e.clientY };
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
-    renderEdgeContextMenu(hit.edge);
+    renderEdgeContextMenu(hit.edge, anchor);
   } else {
     clearSelectedEdge();
     contextPoint = localCoords(e);
-    renderContextMenu();
+    renderContextMenu(anchor);
   }
   scheduleRender();
 });

@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita-context-menu/context_menu"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Model {
+  // private fields
+}
+pub fn Model::anchor(Self) -> Point?
+pub fn Model::close(Self) -> Self
+pub fn Model::focus_cmd(Self) -> @cmd.Cmd
+pub fn Model::is_open(Self) -> Bool
+pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
+pub fn Model::new(id~ : String) -> Self
+pub fn Model::open(Self, anchor~ : Point, item_count~ : Int) -> Self
+pub fn Model::panel_attrs(Self, (Msg) -> @cmd.Cmd) -> @html.Attrs
+pub fn Model::trigger_attrs(Self, (Point) -> @cmd.Cmd) -> @html.Attrs
+pub fn Model::update(Self, Msg) -> Self
+
+pub(all) enum Msg {
+  FocusNext
+  FocusPrevious
+  FocusFirst
+  FocusLast
+  FocusItem(Int)
+  Activate(Int)
+  Close
+  Key(String)
+}
+pub fn Msg::requests_focus(Self) -> Bool
+
+pub(all) struct Point {
+  x : Int
+  y : Int
+} derive(Eq)
+pub fn Point::Point(x~ : Int, y~ : Int) -> Self
+
+// Type aliases
+
+// Traits
