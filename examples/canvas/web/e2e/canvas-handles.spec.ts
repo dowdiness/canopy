@@ -265,6 +265,15 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await expect(menu).toBeHidden();
 
   await openBackgroundContextMenu(page);
+  await page.locator('#node-search').focus();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await openBackgroundContextMenu(page);
+  await page.locator('#node-search').click();
+  await expect(menu).toBeHidden();
+
+  await openBackgroundContextMenu(page);
   await expect(items.nth(0)).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(items.nth(1)).toBeFocused();
