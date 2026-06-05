@@ -12,6 +12,13 @@ struct Model {
   context_menu : @context_menu.Model
 }
 
+fn new_model() -> Model {
+  {
+    context_menu: @context_menu.Model::new(id="actions-menu")
+      .with_close_focus_id("menu-origin"),
+  }
+}
+
 enum Msg {
   OpenMenu(@context_menu.Point)
   ContextMenu(@context_menu.Msg)
@@ -55,9 +62,16 @@ and `Key(key)` in the consumer. For navigation messages, call
 
 Return `model.context_menu.subscriptions(...)` from the owning cell's
 subscriptions callback to install reusable dismissal behavior while the menu is
-open. The subscription emits `Close` for outside pointer presses and for Escape
-when focus is outside the menu panel; Escape inside the panel is handled by
-`panel_attrs`.
+open. The subscription emits `Dismiss(PointerOutside)` for outside pointer
+presses and `Dismiss(EscapeKey)` for Escape when focus is outside the menu panel;
+Escape inside the panel is handled by `panel_attrs` as `Close`.
+
+Call `model.context_menu.with_close_focus_id(...)` when a close path should be
+able to restore focus to a stable origin. After handling `Activate`, `Close`, or
+a dismissal message, use `Msg::requests_close_focus()` to decide whether to batch
+`model.context_menu.close_focus_cmd()` with the consumer's close effects. Pointer
+outside dismissal deliberately does not request close-focus restoration, so a
+click into another control can keep focus there.
 
 `Point` is in viewport/client coordinates, including fractional browser
 coordinates when available. `panel_attrs` uses those coordinates for fixed
@@ -67,6 +81,7 @@ coordinates when available. `panel_attrs` uses those coordinates for fixed
 
 Implementation was checked against the vendored Rabbita source, especially:
 
+- `rabbita/rabbita/internal/runtime/README.mbt.md`
 - `rabbita/rabbita/html/README.mbt.md`
 - `rabbita/rabbita/html/attrs_event.mbt`
 - `rabbita/rabbita/dom/mouse_event.mbt`

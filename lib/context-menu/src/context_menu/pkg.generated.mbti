@@ -12,11 +12,17 @@ import {
 // Errors
 
 // Types and methods
+pub(all) enum DismissReason {
+  PointerOutside
+  EscapeKey
+}
+
 pub struct Model {
   // private fields
 }
 pub fn Model::anchor(Self) -> Point?
 pub fn Model::close(Self) -> Self
+pub fn Model::close_focus_cmd(Self) -> @cmd.Cmd
 pub fn Model::focus_cmd(Self) -> @cmd.Cmd
 pub fn Model::is_open(Self) -> Bool
 pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
@@ -26,6 +32,7 @@ pub fn Model::panel_attrs(Self, (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::subscriptions(Self, @cmd.Emit[Msg]) -> @sub.Sub
 pub fn Model::trigger_attrs(Self, (Point) -> @cmd.Cmd) -> @html.Attrs
 pub fn Model::update(Self, Msg) -> Self
+pub fn Model::with_close_focus_id(Self, String) -> Self
 
 pub(all) enum Msg {
   FocusNext
@@ -35,8 +42,10 @@ pub(all) enum Msg {
   FocusItem(Int)
   Activate(Int)
   Close
+  Dismiss(DismissReason)
   Key(String)
 }
+pub fn Msg::requests_close_focus(Self) -> Bool
 pub fn Msg::requests_focus(Self) -> Bool
 
 pub(all) struct Point {
