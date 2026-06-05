@@ -836,7 +836,7 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
   const hit = hitFromTarget(e.target);
-  const anchor = { x: e.clientX, y: e.clientY };
+  const anchor = { x: Math.round(e.clientX), y: Math.round(e.clientY) };
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     renderEdgeContextMenu(hit.edge, anchor);
