@@ -2,14 +2,15 @@
 
 **Status:** findings (source-verified) + design
 **Date:** 2026-06-04
-**Verified against:** vendored `rabbita/` submodule at **0.12.3** (upstream `moonbit-community/rabbita` main `e3865b2` + canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.3-patched` at `8381bef`, also tagged `canopy-headless-ui-experiment-2026-06-04` on the fork)
+**Verified against:** vendored `rabbita/` submodule at **0.12.4 + Canopy patch** (upstream tag `rabbita-v0.12.4` / commit `2dba2dc`, including `closedby` PR #118, plus canopy's `diff_subs/update_tagger` patch, published on `dowdiness/rabbita:update-0.12.4-patched` at `5f828eb`, also tagged `canopy-rabbita-v0.12.4-patched-2026-06-05` on the fork)
 **PoC:** `examples/disclosure/` (browser-verified, see §4)
 **Follow-up:** P3 native Dialog spike recorded in §5 (docs-only; no `lib/dialog` extraction)
 
-**PR scope / done definition:** record the feasibility findings and land the
-Disclosure PoC as an experiment. Do **not** extract a reusable `lib/disclosure`,
-commit to an animation attribute contract, or adopt rabbita 0.12.3
-workspace-wide in this PR; those are separate follow-up decisions.
+**Original PR scope / done definition:** record the feasibility findings and land
+the Disclosure PoC as an experiment. Do **not** extract a reusable
+`lib/disclosure` or commit to an animation attribute contract. The follow-up
+workspace adoption now points Canopy at the patched Rabbita 0.12.4 fork commit
+listed above.
 
 ## Conclusion
 
@@ -118,9 +119,10 @@ A narrow throwaway spike (not landed as an example or library) was run after PR
 #501 merged, starting from `origin/main` at `7f0888d` with the `rabbita`
 submodule at `8381bef`. The harness rendered one native `<dialog>` and used
 Playwright/Chromium to drive focus, Tab, Escape, page-control clicks, backdrop
-clicks, and a `closedby="any"` injection. Injection was necessary because the
-pinned Rabbita public API cannot emit `closedby`: `Attrs::attribute` is internal
-and there is no `Attrs::closedby` / `dialog(closedby?)` yet.
+clicks, and a `closedby="any"` injection. Injection was necessary for that spike
+because the then-pinned Rabbita API could not emit `closedby`. Rabbita 0.12.4 now
+exposes `Attrs::closedby` and `dialog(closedby?)`, so a rerun should use
+`@html.dialog(closedby="any", ...)` instead of DOM injection.
 
 Findings:
 
@@ -141,10 +143,10 @@ Findings:
   the dialog open and focused the dialog. With `closedby="any"`, Chromium
   light-dismissed and emitted `cancel` followed by `close` through the spike's
   explicit cancel-close path.
-- If Rabbita gains `closedby` support, scope it as an attribute emission API
-  only. MDN marks `HTMLDialogElement.closedBy` as non-Baseline, so consumers
-  still need a fallback or an explicit browser-support decision; Rabbita should
-  not claim a light-dismiss polyfill.
+- Rabbita 0.12.4's `closedby` support is an attribute emission API only. MDN
+  marks `HTMLDialogElement.closedBy` as non-Baseline, so consumers still need a
+  fallback or an explicit browser-support decision; Rabbita does not claim a
+  light-dismiss polyfill.
 
 Implication: a future Dialog primitive can lean on native `showModal()` for the
 Chromium modal/top-layer/inert/focus-return behavior observed here, but the
@@ -152,31 +154,27 @@ primitive must own cancel-close policy and must choose between limited-support
 `closedby` and explicit backdrop handling for light-dismiss. Do not extract
 `lib/dialog` until a real Canopy consumer exists.
 
-## 6. rabbita 0.12.3 adoption status
+## 6. rabbita 0.12.4 patched adoption status
 
-`moon check` (full workspace) is **green** against 0.12.3 + patch after a single fix:
+`moon check` (full workspace) is **green** against 0.12.4 + patch. The single
+0.12.3 compatibility fix remains sufficient:
 
 - **One breaking call site** from upstream PR #117 (void elements lose `children`):
   `examples/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
   positional child from `@html.input(...)`. (Two more in
   `loom/incr/examples/typed_spreadsheet_rabbita_demo/view.mbt` — loom submodule,
   not a canopy workspace member; only matters if loom's examples are built.)
-- `moon.mod` migration (0.12.3) resolves fine through path-deps; no canopy file
+- `moon.mod` migration resolves fine through path-deps; no canopy file
   auto-migrated.
-- The `"version": "0.12.2"` pins in 6 `moon.mod.json` files are advisory (path-deps
-  use the path) — bump to `0.12.3` for accuracy when adopting.
+- Canopy's Rabbita path-dep pins now say `"version": "0.12.4"` for accuracy.
 
-This experiment PR points the `rabbita` gitlink at `8381bef`, which is published
-on the configured fork remote as `dowdiness/rabbita:update-0.12.3-patched` and
-also pinned by the separate fork tag `canopy-headless-ui-experiment-2026-06-04`,
-so fresh clones can resolve the submodule commit even if the review branch later
-moves. The same branch is under review as `dowdiness/rabbita#1`; it is not merged
-to the fork's main branch, so keep that distinction when deciding whether to
-adopt 0.12.3 broadly.
-
-Remaining to actually adopt 0.12.3 workspace-wide in canopy (out of scope for
-this experiment): merge/review the rabbita patch branch, bump the 6 version
-pins, and fix the loom example sites.
+Canopy now points the `rabbita` gitlink at `5f828eb`, published on the configured
+fork remote as `dowdiness/rabbita:update-0.12.4-patched` and pinned by the
+separate fork tag `canopy-rabbita-v0.12.4-patched-2026-06-05`, so fresh clones
+can resolve the submodule commit even if the review branch later moves. This is
+a maintained-fork adoption, not an upstream-only release adoption: the
+`diff_subs/update_tagger` patch remains fork-only unless it later lands in
+`moonbit-community/rabbita`.
 
 ## 7. Roadmap (phased; prose, not paste-ready)
 
@@ -188,8 +186,8 @@ pins, and fix the loom example sites.
 - **P3 — Dialog primitive** on native `<dialog>`: spike complete (§5). Before
   extracting anything, wait for a real consumer and decide cancel-close policy,
   controlled vs uncontrolled shape (consumer `open` + `on_open_change`, or
-  self-held in a `cell`), and light-dismiss strategy (`closedby="any"` where
-  supported vs explicit backdrop handling).
+  self-held in a `cell`), and light-dismiss strategy (`@html.dialog(closedby="any", ...)`
+  where supported vs explicit backdrop handling).
 - **P4 — Splitter primitive**: reuse `lib/resizable`'s document-`mouseup`
   `custom_sub` pattern; confirm it generalizes.
 - **P5 — Design-system layer**: Tailwind `@utility` presets + CSS-var theme +
