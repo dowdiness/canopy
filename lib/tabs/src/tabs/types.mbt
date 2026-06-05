@@ -24,12 +24,8 @@ fn normalized_count(tab_count : Int) -> Int {
 fn clamp_selected(selected : Int, tab_count : Int) -> Int {
   if tab_count <= 0 {
     0
-  } else if selected < 0 {
-    0
-  } else if selected >= tab_count {
-    tab_count - 1
   } else {
-    selected
+    selected.max(0).min(tab_count - 1)
   }
 }
 
@@ -48,8 +44,10 @@ pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Model {
 }
 
 ///|
-/// The stable DOM id for the tab button at `index`.
-pub fn Model::tab_button_id(self : Model, index : Int) -> String {
+/// The stable DOM id for the tab button at `index`. Internal: the behavior owns
+/// the button-id scheme, so `tab_attrs`/`panel_attrs`/`focus_cmd` stay
+/// internally consistent (matches `lib/menu`'s private `item_id`).
+fn Model::tab_button_id(self : Model, index : Int) -> String {
   self.id + "-tab-" + index.to_string()
 }
 

@@ -275,12 +275,7 @@ let bottom_tab_defs : Array[(BottomTab, String)] = [
 /// Ordinal of a tab within `bottom_tab_defs`. The fallback `0` is unreachable —
 /// every `BottomTab` variant appears in the list.
 fn bottom_tab_index(tab : BottomTab) -> Int {
-  for i in 0..<bottom_tab_defs.length() {
-    if bottom_tab_defs[i].0 == tab {
-      return i
-    }
-  }
-  0
+  bottom_tab_defs.search_by(pair => pair.0 == tab).unwrap_or(0)
 }
 
 ///|
