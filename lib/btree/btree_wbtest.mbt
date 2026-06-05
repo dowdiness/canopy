@@ -1867,7 +1867,7 @@ fn[T] debug_tree(node : BTreeNode[T], depth : Int) -> String {
 }
 
 ///|
-test "debug: counterexample 25 items" {
+test "regression: delete_range repairs 25-item underfull boundary chain" {
   let t = build_tree([
     (3, 3),
     (3, 1),
@@ -1953,7 +1953,7 @@ test "debug: counterexample 25 items" {
 }
 
 ///|
-test "debug: counterexample 32 items" {
+test "regression: delete_range repairs suffix-spanning underfull chain" {
   let t = build_tree([
     (2, 1),
     (4, 2),
@@ -2030,7 +2030,7 @@ test "debug: counterexample 32 items" {
 }
 
 ///|
-test "inline: exact property test case" {
+test "regression: delete_range preserves exact counterexample shape" {
   let items : Array[(Int, Int)] = [
     (2, 1),
     (4, 2),
