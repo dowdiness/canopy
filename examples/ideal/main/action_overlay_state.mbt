@@ -35,6 +35,29 @@ fn closed_overlay() -> OverlayState {
 }
 
 ///|
+/// Current viewport size in pixels, falling back to conservative defaults
+/// (1024x768) if the browser value can't be read.
+fn viewport_size() -> (Int, Int) {
+  let json = @json.parse(js_get_viewport_size()) catch {
+    _ => return (1024, 768)
+  }
+  match json {
+    Json::Object(m) => {
+      let vw = match m.get("width") {
+        Some(Json::Number(n, ..)) => n.to_int()
+        _ => 1024
+      }
+      let vh = match m.get("height") {
+        Some(Json::Number(n, ..)) => n.to_int()
+        _ => 768
+      }
+      (vw, vh)
+    }
+    _ => (1024, 768)
+  }
+}
+
+///|
 /// Parse the bounding rect JSON from js_get_selected_node_rect into (top, left).
 fn parse_anchor_rect(json_str : String) -> (Int, Int) {
   let json = @json.parse(json_str) catch { _ => return (0, 0) }
@@ -52,33 +75,20 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
     }
     _ => (0, 0)
   }
-  // Clamp to viewport so the overlay doesn't extend offscreen.
-  // Estimated panel size: 320px wide, 300px tall (conservative).
-  let viewport_json = js_get_viewport_size()
-  let vp = @json.parse(viewport_json) catch { _ => return (raw_top, raw_left) }
-  match vp {
-    Json::Object(m) => {
-      let vw = match m.get("width") {
-        Some(Json::Number(n, ..)) => n.to_int()
-        _ => 1024
-      }
-      let vh = match m.get("height") {
-        Some(Json::Number(n, ..)) => n.to_int()
-        _ => 768
-      }
-      let panel_w = 320
-      let panel_h = 300
-      // Clamp to [8, viewport - panel - 8] on both ends so a node scrolled
-      // above/left of the viewport (negative rect) doesn't push the overlay
-      // off-screen, while still preventing right/bottom overflow.
-      let max_left = (vw - panel_w - 8).max(8)
-      let max_top = (vh - panel_h - 8).max(8)
-      let clamped_left = raw_left.max(8).min(max_left)
-      let clamped_top = raw_top.max(8).min(max_top)
-      (clamped_top, clamped_left)
-    }
-    _ => (raw_top, raw_left)
-  }
+  // Viewport size (conservative defaults if it can't be read), so the clamp
+  // below always runs and never leaves the overlay off-screen.
+  let (vw, vh) = viewport_size()
+  // Clamp to [8, viewport - panel - 8] on both ends so a node scrolled
+  // above/left of the viewport (negative rect) doesn't push the overlay
+  // off-screen, while still preventing right/bottom overflow. Estimated panel
+  // size: 320px wide, 300px tall (conservative).
+  let panel_w = 320
+  let panel_h = 300
+  let max_left = (vw - panel_w - 8).max(8)
+  let max_top = (vh - panel_h - 8).max(8)
+  let clamped_left = raw_left.max(8).min(max_left)
+  let clamped_top = raw_top.max(8).min(max_top)
+  (clamped_top, clamped_left)
 }
 
 ///|
