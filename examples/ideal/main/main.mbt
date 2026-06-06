@@ -844,7 +844,7 @@ fn view_outline_resize_handle(
   workspace : WorkspaceLayout,
 ) -> Html {
   div(
-    class="panel-resize-handle outline-resize-handle",
+    class=outline_resize_handle_class,
     attrs=workspace.outline_resize.handle_attrs(@resizable.Edge::East, msg => {
       dispatch(OutlineResize(msg))
     }),

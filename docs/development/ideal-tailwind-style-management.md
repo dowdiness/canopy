@@ -45,7 +45,9 @@ migrated spacing, color, border, or layout declarations:
 ```
 
 Do not leave broad unlayered rules such as `* { padding: 0; }` next to migrated
-Tailwind spacing utilities like `px-canopy-lg` or `mr-canopy-sm`.
+Tailwind spacing utilities like `px-canopy-lg` or `mr-canopy-sm`. Keep global
+focus-ring defaults in `@layer base` as well so slice-owned `focus-visible:*`
+utilities can override outline geometry when needed.
 
 ## Class Recipe Rules
 
