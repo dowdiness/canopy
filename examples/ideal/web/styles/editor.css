@@ -5,6 +5,7 @@
 @source "../../main/view_actions_classes.mbt";
 @source "../../main/view_toolbar_classes.mbt";
 @source "../../main/view_bottom_classes.mbt";
+@source "../../main/view_panel_classes.mbt";
 @source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
@@ -233,24 +234,8 @@ button:focus-visible, .action-btn:focus-visible,
               width 0ms var(--duration-normal);
 }
 
-.panel-header {
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
-}
-
-.panel-label {
-  font-size: var(--text-label);
-  font-weight: var(--weight-semibold);
-  color: var(--canopy-text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: var(--leading-tight);
-}
-
-.panel-section {
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--canopy-border);
-  margin-top: auto;
-}
+/* Panel header/label/section chrome is Tailwind-owned via
+   examples/ideal/main/view_panel_classes.mbt. */
 
 .panel-resize-handle {
   position: absolute;
@@ -536,23 +521,8 @@ canopy-editor {
               width 0ms var(--duration-normal);
 }
 
-.inspector-section {
-  padding: var(--space-lg);
-}
-
-.inspector-section + .inspector-section {
-  border-top: 1px solid var(--canopy-border);
-}
-
-.inspector-label {
-  font-size: var(--text-label);
-  font-weight: var(--weight-semibold);
-  color: var(--canopy-text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: var(--leading-tight);
-  margin-bottom: var(--space-md);
-}
+/* Inspector section/label chrome is Tailwind-owned via
+   examples/ideal/main/view_panel_classes.mbt. */
 
 .inspector-row {
   display: flex;
@@ -1145,11 +1115,7 @@ canopy-editor {
     font-size: var(--text-small);
   }
 
-  /* ── Peer section at bottom of outline ──────────────────── */
-
-  .panel-section {
-    padding: var(--space-md) var(--space-lg);
-  }
+  /* Panel section chrome is Tailwind-owned via main/view_panel_classes.mbt. */
 }
 
 /* Small phones: further compact */
