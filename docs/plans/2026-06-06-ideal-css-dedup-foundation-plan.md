@@ -104,3 +104,54 @@
 
 ## Execution-risk note (human-judgment checkpoint)
 The single highest-risk step is the **surface classification in Step 1** (which class renders in light DOM vs the shadow root). Misclassification silently regresses styling. Do **not** fully mechanize this: grep gives provenance, but the light-vs-shadow rendering surface of each class requires reading the view/nodeview that emits it. Treat the 3-bucket output as a reviewed artifact before any deletion in Step 4.
+
+## Runtime findings (2026-06-06, during execution) — corrections
+
+A Playwright probe in structure mode returned
+`{"inLight":true,"inShadow":false,"rootKind":"document(light)"}` for
+`.action-overlay-panel`. This **inverts** the pre-execution assumption:
+
+- The action overlay / name prompt render in the **light DOM** (the Rabbita
+  view tree; `view_editor.mbt` renders `<canopy-editor>` with empty children,
+  so the overlay is a light-DOM sibling, not shadow content). Their live
+  stylesheet is `editor.css`.
+- Therefore the overlay block in the old `SHADOW_STYLES` string was **dead**.
+  De-dup was achieved by deleting it (with the whole const); `editor.css` was
+  left **untouched**. **Step 4 (dead-light removal) is moot** — there was no
+  dead light-DOM CSS to remove.
+- `editor-shadow.css` contains only the genuinely shadow-rendered rules:
+  `:host`, `#editor-root`, `.ProseMirror`, `.structure-*`, `.drop-*`,
+  `.peer-cursor-*`, `.peer-selection`.
+
+**Implication for Step 5 (spike):** the ~117 `.mbt` class sites are **light
+DOM**, so Tailwind on them is normal (no shadow problem). The shadow-delivery
+question is decoupled and already answered generically by the adopted-sheet
+foundation (any CSS, incl. Tailwind-generated, adopts into the shadow the same
+way — proven by the new computed-style test). The only load-bearing spike
+unknown that remains is **(a): can Tailwind v4 scan `.mbt` class strings?**
+The shadow-component spike target (`.structure-block`) is TS-rendered
+(`structure-runtime`), not `.mbt`, so it does not test the scan question.
+
+**Status:** Steps 1–4 (foundation) DONE + verified (commit on
+`ideal-css-dedup-foundation`). Step 5 spike re-scoped to question (a).
+
+## Spike results (2026-06-06) — Step 5 gate: PASS
+
+- **(a) Can Tailwind v4 scan `.mbt` class strings?** PROVEN YES. With
+  `@import "tailwindcss" source(none); @source "../main";`, the Tailwind v4.3.0
+  CLI emitted `.bg-red-500` after a sentinel utility was added to one `.mbt`
+  view; reverting the sentinel removed it from the output (negative control →
+  non-vacuous). `.mbt` is non-binary text, so v4's `@source` heuristic scans it
+  and the regex extractor finds class tokens regardless of MoonBit syntax. No
+  `_build` JS fallback needed. (All spike assets — devDeps, spike CSS, sentinel
+  — were reverted; nothing shipped.)
+- **(b) Can Tailwind utilities reach the shadow root?** Generic — any CSS,
+  including Tailwind-generated, adopts into the shadow via the foundation's
+  `adoptedStyleSheets` path (proven by the new computed-style e2e). Moot for the
+  overlay specifically, which renders in light DOM.
+
+**Conclusion:** A Tailwind v4 migration of the Ideal editor is FEASIBLE. The
+remaining gate is the *payoff vs. ~117-site churn* judgment (Step 3), which is a
+product decision — NOT a technical blocker. The foundation (Steps 1–4) already
+delivered the stated goals (duplication killed, shadow CSS in a real file,
+tokens intact), so the broader migration is an optional enhancement.
