@@ -7,6 +7,7 @@
 @source "../../main/view_bottom_classes.mbt";
 @source "../../main/view_panel_classes.mbt";
 @source "../../main/view_inspector_classes.mbt";
+@source "../../main/view_outline_classes.mbt";
 @source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
@@ -26,6 +27,7 @@
   --color-canopy-accent-hover: var(--canopy-accent-hover);
   --color-canopy-accent-text: var(--canopy-accent-text);
   --color-canopy-accent-border: var(--canopy-accent-border);
+  --color-canopy-focus-ring: var(--canopy-focus-ring);
   --color-canopy-identifier: var(--canopy-identifier);
   --color-canopy-error-text: var(--canopy-error-text);
   --color-canopy-error-bg: var(--canopy-error-bg);
@@ -178,16 +180,18 @@ body {
 
 /* ── Focus ──────────────────────────────────────────────── */
 
-:focus-visible {
-  outline: 2px solid var(--canopy-focus-ring);
-  outline-offset: 2px;
-}
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--canopy-focus-ring);
+    outline-offset: 2px;
+  }
 
-button:focus-visible, .action-btn:focus-visible,
-.tab:focus-visible, .tree-toggle:focus-visible {
-  outline: 2px solid var(--canopy-focus-ring);
-  outline-offset: 1px;
-  border-radius: var(--radius-sm);
+  button:focus-visible, .action-btn:focus-visible,
+  .tab:focus-visible, .tree-toggle:focus-visible {
+    outline: 2px solid var(--canopy-focus-ring);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+  }
 }
 
 /* ── App Shell ──────────────────────────────────────────── */
@@ -237,50 +241,8 @@ button:focus-visible, .action-btn:focus-visible,
 }
 
 /* Panel header/label/section chrome is Tailwind-owned via
-   examples/ideal/main/view_panel_classes.mbt. */
-
-.panel-resize-handle {
-  position: absolute;
-  z-index: 2;
-  background: transparent;
-  border: 0;
-}
-
-.outline-resize-handle {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 8px;
-}
-
-.panel-resize-handle::after {
-  content: "";
-  position: absolute;
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--ease-out-quart),
-              background var(--duration-fast) var(--ease-out-quart),
-              box-shadow var(--duration-fast) var(--ease-out-quart);
-}
-
-.outline-resize-handle::after {
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 1px;
-  background: var(--canopy-border);
-}
-
-.panel-resize-handle:hover::after,
-.panel-resize-handle:focus-visible::after {
-  opacity: 1;
-  background: var(--canopy-accent);
-  box-shadow: 0 0 12px rgba(130, 80, 223, 0.45);
-}
-
-.panel-resize-handle:focus-visible {
-  outline: 2px solid var(--canopy-focus-ring);
-  outline-offset: -2px;
-}
+   examples/ideal/main/view_panel_classes.mbt. Resize-handle chrome is
+   Tailwind-owned via examples/ideal/main/view_outline_classes.mbt. */
 
 /* ── Tree ───────────────────────────────────────────────── */
 
@@ -940,7 +902,7 @@ canopy-editor {
 
   /* Bottom-tab touch target rules moved to Tailwind-owned recipes. */
 
-  .panel-resize-handle { display: none; }
+  /* Resize-handle mobile visibility moved to Tailwind-owned recipes. */
 
   /* ── Panel drawers: slide from edges ───────────────────── */
 
