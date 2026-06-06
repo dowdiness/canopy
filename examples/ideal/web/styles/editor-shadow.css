@@ -1,0 +1,136 @@
+/*
+ * Shadow-DOM styles for the <canopy-editor> web component.
+ *
+ * Single source of truth for everything that renders INSIDE the editor's
+ * shadow root: the host/container, the ProseMirror structure-mode surface,
+ * and CodeMirror peer-cursor decorations. Delivered via adoptedStyleSheets
+ * (see canopy-editor.ts), with a <style> fallback for engines without
+ * constructable stylesheet support.
+ *
+ * Design tokens (--canopy-*, --space-*, --text-*) are NOT defined here: they
+ * live in editor.css on :root and inherit across the shadow boundary (custom
+ * properties pierce shadow roots). The inline var() fallbacks below are belt-
+ * and-suspenders defaults.
+ *
+ * The action overlay / name prompt render in the LIGHT DOM (the Rabbita view
+ * tree, not the shadow root) and are styled by editor.css — deliberately NOT
+ * duplicated here. Verified at runtime 2026-06-06.
+ */
+
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: var(--canopy-font-mono, 'Iosevka', monospace);
+  background: var(--canopy-bg, #161625);
+  color: var(--canopy-fg, #e4e4f0);
+}
+
+#editor-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ProseMirror base (structure mode) */
+.ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-family: var(--canopy-font-mono, 'Iosevka', monospace);
+  font-size: var(--text-code, 1.125rem);
+  line-height: 1.6;
+  outline: none;
+  min-height: 200px;
+}
+
+/* Structure mode blocks */
+.structure-block {
+  border: 1px solid var(--canopy-border, #28283e);
+  border-radius: 6px;
+  margin: 4px 0;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.structure-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.structure-grip {
+  color: var(--canopy-muted, #8888a8);
+  cursor: grab;
+  font-size: 0.6875rem;
+}
+.structure-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.structure-label {
+  font-family: var(--canopy-font-mono, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--canopy-fg, #e4e4f0);
+}
+.structure-children {
+  margin-left: 20px;
+  margin-top: 6px;
+}
+.structure-leaf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+.structure-value {
+  font-family: var(--canopy-font-mono, monospace);
+  font-size: 13px;
+  color: var(--canopy-fg, #e4e4f0);
+}
+.structure-block.drop-before {
+  border-top: 2px solid var(--canopy-accent, #8250df);
+}
+.structure-block.drop-after {
+  border-bottom: 2px solid var(--canopy-accent, #8250df);
+}
+.structure-block.drop-inside {
+  outline: 2px solid var(--canopy-accent, #8250df);
+  outline-offset: -2px;
+}
+.structure-block.dragging {
+  opacity: 0.4;
+}
+
+/* Peer cursor decorations (CM6 text mode) */
+.peer-cursor-widget {
+  position: relative;
+  display: inline;
+  border-left: 2px solid var(--color);
+  margin-left: -1px;
+  pointer-events: none;
+}
+.peer-cursor-label {
+  position: absolute;
+  bottom: 100%;
+  left: -1px;
+  background: var(--color);
+  color: #fff;
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  padding: 1px 4px;
+  border-radius: 2px 2px 2px 0;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.peer-selection {
+  background-color: var(--color);
+  opacity: 0.2;
+}

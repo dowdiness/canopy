@@ -256,3 +256,22 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expect(page.locator('.action-overlay-panel')).not.toBeVisible();
   });
 });
+
+test.describe('Shadow stylesheet delivery', () => {
+  // Guards the de-dup foundation: shadow-root styles are now a single source
+  // (styles/editor-shadow.css) adopted via adoptedStyleSheets, not a duplicated
+  // SHADOW_STYLES string. `.structure-block`'s border exists ONLY in
+  // editor-shadow.css (absent from the light-DOM editor.css), so a non-zero
+  // computed border proves the adopted stylesheet reached the shadow root.
+  // The prior suite asserted text/existence, not computed style — that gap is
+  // how the light/shadow CSS duplication hid.
+  test('adopted shadow CSS styles structure blocks', async ({ page }) => {
+    await setupStructureMode(page);
+    const borderTopWidth = await page.evaluate(() => {
+      const ce = document.querySelector('canopy-editor');
+      const block = ce?.shadowRoot?.querySelector('.structure-block');
+      return block ? getComputedStyle(block).borderTopWidth : null;
+    });
+    expect(borderTopWidth).toBe('1px');
+  });
+});
