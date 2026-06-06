@@ -79,7 +79,7 @@ fn view_node_details(
 ) -> Html {
   let kind_tag = @lambda_proj.term_kind_tag(node.kind)
   let items : Array[Html] = [
-    span(class="panel-label", [text("NODE")]),
+    span(class=inspector_label_class(), [text("NODE")]),
     div(class="inspector-row", [
       span(class="inspector-key", [text("Kind")]),
       span(class="inspector-value", [text(kind_tag)]),
@@ -127,14 +127,14 @@ fn view_node_details(
       )
     }
   }
-  div(class="panel-section", items)
+  div(class=inspector_section_class(), items)
 }
 
 ///|
 /// Render the actions section of the inspector.
 fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
-  div(class="panel-section", [
-    span(class="panel-label", [text("ACTIONS")]),
+  div(class=inspector_section_class(), [
+    span(class=inspector_label_class(), [text("ACTIONS")]),
     div(class="inspector-actions", [
       button(
         class=@ui.action_button_class(),
@@ -157,8 +157,8 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
 ///|
 /// Render the CRDT info section of the inspector.
 fn view_crdt_info(model : Model) -> Html {
-  div(class="panel-section", [
-    span(class="panel-label", [text("CRDT")]),
+  div(class=inspector_section_class(), [
+    span(class=inspector_label_class(), [text("CRDT")]),
     div(class="inspector-row", [
       span(class="inspector-key", [text("Agent")]),
       span(class="inspector-value", [text("local")]),
@@ -200,7 +200,9 @@ fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html {
       ])
   }
   @html.fragment([
-    div(class="panel-header", [span(class="panel-label", [text("INSPECTOR")])]),
+    div(class=panel_header_class(), [
+      span(class=inspector_label_class(), [text("INSPECTOR")]),
+    ]),
     node_section,
     view_crdt_info(model),
   ])
