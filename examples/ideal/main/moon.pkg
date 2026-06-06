@@ -30,6 +30,7 @@ import {
   "dowdiness/graphviz/lib/layout" @gv_layout,
   "dowdiness/graphviz/lib/svg" @gv_svg,
   "dowdiness/visualizer",
+  "dowdiness/ideal-editor/main/ui",
 }
 
 supported_targets = "js"

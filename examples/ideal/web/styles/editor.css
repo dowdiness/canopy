@@ -3,6 +3,8 @@
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 /* Keep source detection as narrow as the migrated slice; expand per slice. */
 @source "../../main/view_actions_classes.mbt";
+@source "../../main/view_toolbar_classes.mbt";
+@source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
 
@@ -18,8 +20,12 @@
   --color-canopy-muted: var(--canopy-muted);
   --color-canopy-dim: var(--canopy-text-dim);
   --color-canopy-accent: var(--canopy-accent);
+  --color-canopy-accent-hover: var(--canopy-accent-hover);
+  --color-canopy-accent-text: var(--canopy-accent-text);
+  --color-canopy-accent-border: var(--canopy-accent-border);
   --color-canopy-error-text: var(--canopy-error-text);
   --color-canopy-error-bg: var(--canopy-error-bg);
+  --color-canopy-error-border: var(--canopy-error-border);
 
   --font-canopy-ui: var(--canopy-font-ui);
   --font-canopy-mono: var(--canopy-font-mono);
@@ -135,7 +141,9 @@
   --duration-slow: 400ms;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+@layer base {
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+}
 
 body {
   background: var(--canopy-bg);
@@ -196,57 +204,8 @@ button:focus-visible, .action-btn:focus-visible,
 
 /* ── Toolbar ────────────────────────────────────────────── */
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-lg);
-  height: 48px;
-  background: var(--canopy-header-bg);
-  border-bottom: 1px solid var(--canopy-border);
-  box-shadow: 0 1px 0 var(--canopy-glow);
-  gap: var(--space-sm);
-  flex-shrink: 0;
-}
-
-.toolbar-title {
-  font-size: var(--text-body);
-  font-weight: var(--weight-medium);
-  color: var(--canopy-text-secondary);
-  letter-spacing: -0.01em;
-  margin-right: var(--space-sm);
-}
-
-.toolbar-spacer { flex: 1; }
-
-.toolbar-btn, .tab, .panel-toggle, .example-btn {
-  font-family: var(--canopy-font-ui);
-  font-size: var(--text-caption);
-  font-weight: var(--weight-medium);
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  background: transparent;
-  color: var(--canopy-text-dim);
-  transition: background var(--duration-fast) var(--ease-out-quart),
-              color var(--duration-fast) var(--ease-out-quart);
-  min-height: 32px;
-}
-
-.tab.active {
-  background: var(--canopy-accent);
-  color: var(--canopy-fg-inverse);
-}
-
-.toolbar-btn:hover, .tab:hover, .panel-toggle:hover, .example-btn:hover {
-  background: var(--canopy-surface);
-  color: var(--canopy-text-secondary);
-}
-
-.panel-toggle.active {
-  background: var(--canopy-surface);
-  color: var(--canopy-fg);
-}
+/* Toolbar shell/button chrome is Tailwind-owned via
+   examples/ideal/main/view_toolbar_classes.mbt and main/ui/button.mbt. */
 
 /* ── Workspace ──────────────────────────────────────────── */
 
@@ -625,37 +584,7 @@ canopy-editor {
   gap: var(--space-xs);
 }
 
-.action-btn {
-  font-family: var(--canopy-font-ui);
-  font-size: var(--text-small);
-  font-weight: var(--weight-medium);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--canopy-surface);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  color: var(--canopy-text-secondary);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--duration-fast) var(--ease-out-quart),
-              border-color var(--duration-fast) var(--ease-out-quart),
-              color var(--duration-fast) var(--ease-out-quart);
-}
-
-.action-btn:hover {
-  background: var(--canopy-accent-hover);
-  border-color: var(--canopy-accent-border);
-  color: var(--canopy-accent-text);
-}
-
-.action-btn.danger {
-  color: var(--canopy-error-text);
-}
-
-.action-btn.danger:hover {
-  background: var(--canopy-error-bg);
-  border-color: var(--canopy-error-border);
-  color: var(--canopy-error-text);
-}
+/* Inspector action button chrome is Tailwind-owned by main/ui/button.mbt. */
 
 .source-preview {
   background: var(--canopy-surface);
@@ -723,9 +652,27 @@ canopy-editor {
 
 /* Bottom tabs use underline accent, not fill — lighter than toolbar tabs */
 .bottom-tabs .tab {
-  border-radius: 0;
+  font-family: var(--canopy-font-ui);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  padding: var(--space-sm) var(--space-md);
+  border: none;
   border-bottom: 2px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--canopy-text-dim);
+  transition: background var(--duration-fast) var(--ease-out-quart),
+              color var(--duration-fast) var(--ease-out-quart);
+  min-height: 32px;
   padding-bottom: calc(var(--space-sm) - 2px);
+}
+
+@media (hover: hover) {
+  .bottom-tabs .tab:hover {
+    background: var(--canopy-surface);
+    color: var(--canopy-text-secondary);
+  }
 }
 
 .bottom-tabs .tab.active {
@@ -1120,27 +1067,14 @@ canopy-editor {
 
   /* ── Toolbar: compact, scrollable, safe-area aware ─────── */
 
-  .toolbar {
-    padding-left: max(var(--space-sm), env(safe-area-inset-left));
-    padding-right: max(var(--space-sm), env(safe-area-inset-right));
-    gap: var(--space-xs);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* hide scrollbar on Firefox */
-  }
-
-  .toolbar::-webkit-scrollbar { display: none; }
-
-  .toolbar-title { font-size: var(--text-small); }
-
-  /* Hide example buttons — use the examples via menu on mobile */
-  .example-btn { display: none; }
+  /* Toolbar compact/scrollable rules moved to Tailwind-owned recipes. */
 
   /* Touch targets: 44px minimum per WCAG 2.5.8 */
-  .toolbar-btn, .tab, .panel-toggle {
+  .bottom-tabs .tab {
     min-height: 44px;
     min-width: 44px;
     padding: var(--space-md) var(--space-md);
+    padding-bottom: calc(var(--space-md) - 2px);
   }
 
   /* Drop the desktop's fixed 36px height on the bottom tab strip so its
@@ -1149,9 +1083,6 @@ canopy-editor {
     height: auto;
     min-height: 44px;
   }
-
-  /* Hide spacers on mobile — let flex-gap handle spacing */
-  .toolbar-spacer { flex: 0 0 var(--space-xs); }
 
   .panel-resize-handle { display: none; }
 
@@ -1275,8 +1206,6 @@ canopy-editor {
 
 /* Small phones: further compact */
 @media (max-width: 480px) {
-  .toolbar-title { display: none; }
-
   .outline-panel,
   .inspector-panel {
     width: 100vw;
@@ -1294,22 +1223,10 @@ canopy-editor {
 /* Touch device: suppress hover flicker */
 @media (hover: none) {
   .tree-row:hover { background: transparent; }
-  .toolbar-btn:hover, .tab:hover,
-  .panel-toggle:hover, .example-btn:hover {
-    background: transparent;
-    color: var(--canopy-text-dim);
-  }
-  .tab.active:hover { background: var(--canopy-accent); color: var(--canopy-fg-inverse); }
-  .panel-toggle.active:hover {
-    background: var(--canopy-surface);
-    color: var(--canopy-fg);
-  }
 }
 
 /* Landscape mobile: reduce toolbar + bottom panel height */
 @media (max-width: 768px) and (orientation: landscape) {
-  .toolbar { height: 40px; }
-
   .outline-panel,
   .inspector-panel {
     top: calc(40px + env(safe-area-inset-top, 0px));

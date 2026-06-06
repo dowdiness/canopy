@@ -278,16 +278,16 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
   let example_buttons : Array[Html] = examples.map(fn(pair) {
     let (label, code) = pair
     button(
-      class="toolbar-btn example-btn",
+      class=@ui.toolbar_example_button_class(),
       on_click=dispatch(LoadExample(code)),
       [text(label)],
     )
   })
   let toolbar_items : Array[Html] = [
-    span(class="toolbar-title", [text("Canopy Editor")]),
-    div(class="toolbar-spacer", [text("")]),
+    span(class=toolbar_title_class, [text("Canopy Editor")]),
+    div(class=toolbar_spacer_class, [text("")]),
     button(
-      class=if model.mode == Text { "tab active" } else { "tab" },
+      class=@ui.toolbar_tab_class(model.mode == Text),
       on_click=dispatch(SetMode(Text)),
       attrs=@html.Attrs::build().aria_pressed(
         if model.mode == Text {
@@ -299,7 +299,7 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       [text("Text")],
     ),
     button(
-      class=if model.mode == Structure { "tab active" } else { "tab" },
+      class=@ui.toolbar_tab_class(model.mode == Structure),
       on_click=dispatch(SetMode(Structure)),
       attrs=@html.Attrs::build().aria_pressed(
         if model.mode == Structure {
@@ -310,16 +310,16 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       ),
       [text("Structure")],
     ),
-    div(class="toolbar-spacer", [text("")]),
-    button(class="toolbar-btn", on_click=dispatch(Undo), [text("Undo")]),
-    button(class="toolbar-btn", on_click=dispatch(Redo), [text("Redo")]),
-    div(class="toolbar-spacer", [text("")]),
+    div(class=toolbar_spacer_class, [text("")]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(Undo), [
+      text("Undo"),
+    ]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(Redo), [
+      text("Redo"),
+    ]),
+    div(class=toolbar_spacer_class, [text("")]),
     button(
-      class=if model.workspace.outline_visible {
-        "panel-toggle active"
-      } else {
-        "panel-toggle"
-      },
+      class=@ui.toolbar_panel_toggle_class(model.workspace.outline_visible),
       on_click=dispatch(TogglePanel(Outline)),
       attrs=@html.Attrs::build().aria_pressed(
         if model.workspace.outline_visible {
@@ -331,11 +331,7 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       [text("Outline")],
     ),
     button(
-      class=if model.workspace.inspector_visible {
-        "panel-toggle active"
-      } else {
-        "panel-toggle"
-      },
+      class=@ui.toolbar_panel_toggle_class(model.workspace.inspector_visible),
       on_click=dispatch(TogglePanel(Inspector)),
       attrs=@html.Attrs::build().aria_pressed(
         if model.workspace.inspector_visible {
@@ -347,11 +343,7 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       [text("Inspector")],
     ),
     button(
-      class=if model.workspace.bottom_visible {
-        "panel-toggle active"
-      } else {
-        "panel-toggle"
-      },
+      class=@ui.toolbar_panel_toggle_class(model.workspace.bottom_visible),
       on_click=dispatch(TogglePanel(Bottom)),
       attrs=@html.Attrs::build().aria_pressed(
         if model.workspace.bottom_visible {
@@ -362,10 +354,10 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       ),
       [text("Panels")],
     ),
-    div(class="toolbar-spacer", [text("")]),
+    div(class=toolbar_spacer_class, [text("")]),
   ]
   example_buttons.each(fn(b) { toolbar_items.push(b) })
-  div(class="toolbar", toolbar_items)
+  div(class=toolbar_class, toolbar_items)
 }
 
 ///|

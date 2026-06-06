@@ -137,14 +137,14 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
     span(class="panel-label", [text("ACTIONS")]),
     div(class="inspector-actions", [
       button(
-        class="action-btn",
+        class=@ui.action_button_class(),
         on_click=dispatch(
           StructuralEditRequested(op="WrapInLambda", node_id=node_id_str),
         ),
         [text("Wrap in \u{03BB}")],
       ),
       button(
-        class="action-btn danger",
+        class=@ui.action_button_danger_class(),
         on_click=dispatch(
           StructuralEditRequested(op="Delete", node_id=node_id_str),
         ),
