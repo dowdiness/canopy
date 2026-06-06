@@ -340,16 +340,15 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
   // The headless `@tabs` behavior owns the WAI-ARIA tablist keyboard model
   // (ArrowLeft/Right wrap, Home/End jump), roving tabindex, `aria-selected`,
   // and `aria-controls` (set only on the selected tab, since the other panels
-  // aren't mounted). This consumer owns the tab data, panel ids, the
-  // `tab`/`tab active` classes, and the index → `BottomTab` mapping.
+  // aren't mounted). This consumer owns the tab data, panel ids, selected-state
+  // recipe choice, and the index → `BottomTab` mapping.
   let behavior = bottom_tabs_behavior(model.bottom_tab)
   let buttons : Array[Html] = []
-  for i in 0..<bottom_tab_defs.length() {
-    let (tab, label) = bottom_tab_defs[i]
-    let class_name = if model.bottom_tab == tab { "tab active" } else { "tab" }
+  for i, pair in bottom_tab_defs {
+    let (tab, label) = pair
     buttons.push(
       @html.button(
-        class=class_name,
+        class=@ui.bottom_tab_class(model.bottom_tab == tab),
         // `dispatch` receives the *target* index, which for keyboard nav differs
         // from this button's `i` (e.g. ArrowRight on tab `i` fires `i + 1`). Re-
         // index `bottom_tab_defs[j]` — do NOT close over the loop's `tab`, or
@@ -362,7 +361,7 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
     )
   }
   @html.div(
-    class="bottom-tabs",
+    class=bottom_tabs_class,
     attrs=@tabs.tablist_attrs(label="Bottom panel sections"),
     buttons,
   )

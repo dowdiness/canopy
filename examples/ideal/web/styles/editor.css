@@ -4,6 +4,7 @@
 /* Keep source detection as narrow as the migrated slice; expand per slice. */
 @source "../../main/view_actions_classes.mbt";
 @source "../../main/view_toolbar_classes.mbt";
+@source "../../main/view_bottom_classes.mbt";
 @source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
@@ -641,46 +642,6 @@ canopy-editor {
               grid-template-rows var(--duration-normal) var(--ease-out-quart);
 }
 
-.bottom-tabs {
-  display: flex;
-  padding: 0 var(--space-md);
-  gap: var(--space-xs);
-  height: 36px;
-  align-items: center;
-  border-bottom: 1px solid var(--canopy-border);
-}
-
-/* Bottom tabs use underline accent, not fill — lighter than toolbar tabs */
-.bottom-tabs .tab {
-  font-family: var(--canopy-font-ui);
-  font-size: var(--text-caption);
-  font-weight: var(--weight-medium);
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  cursor: pointer;
-  background: transparent;
-  color: var(--canopy-text-dim);
-  transition: background var(--duration-fast) var(--ease-out-quart),
-              color var(--duration-fast) var(--ease-out-quart);
-  min-height: 32px;
-  padding-bottom: calc(var(--space-sm) - 2px);
-}
-
-@media (hover: hover) {
-  .bottom-tabs .tab:hover {
-    background: var(--canopy-surface);
-    color: var(--canopy-text-secondary);
-  }
-}
-
-.bottom-tabs .tab.active {
-  background: transparent;
-  color: var(--canopy-accent-text);
-  border-bottom-color: var(--canopy-accent);
-}
-
 .bottom-content {
   padding: var(--space-md) var(--space-lg);
   overflow-y: auto;
@@ -1069,20 +1030,7 @@ canopy-editor {
 
   /* Toolbar compact/scrollable rules moved to Tailwind-owned recipes. */
 
-  /* Touch targets: 44px minimum per WCAG 2.5.8 */
-  .bottom-tabs .tab {
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-md) var(--space-md);
-    padding-bottom: calc(var(--space-md) - 2px);
-  }
-
-  /* Drop the desktop's fixed 36px height on the bottom tab strip so its
-     children's 44px touch targets aren't clipped by an undersized parent. */
-  .bottom-tabs {
-    height: auto;
-    min-height: 44px;
-  }
+  /* Bottom-tab touch target rules moved to Tailwind-owned recipes. */
 
   .panel-resize-handle { display: none; }
 

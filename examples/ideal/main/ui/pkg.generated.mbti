@@ -6,6 +6,8 @@ pub fn action_button_class() -> String
 
 pub fn action_button_danger_class() -> String
 
+pub fn bottom_tab_class(Bool) -> String
+
 pub fn toolbar_button_class() -> String
 
 pub fn toolbar_example_button_class() -> String
