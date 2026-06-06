@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita-status/status"
+
+import {
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Tone {
+  Info
+  Success
+  Error
+} derive(Eq)
+pub fn Tone::attrs(Self) -> @html.Attrs
+
+// Type aliases
+
+// Traits
+

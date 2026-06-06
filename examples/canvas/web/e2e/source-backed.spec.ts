@@ -215,8 +215,12 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
     await expect(page.locator('.canvas-node')).toHaveCount(2);
     await expect(page.locator('#edges path.edge')).toHaveCount(0);
     await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
-    await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
-    await expect(page.locator('#source-status')).toContainText(
+    const status = page.locator('#source-status');
+    await expect(status).toHaveAttribute('role', 'status');
+    await expect(status).toHaveAttribute('aria-live', 'polite');
+    await expect(status).toHaveAttribute('aria-atomic', 'true');
+    await expect(status).toHaveAttribute('data-tone', 'error');
+    await expect(status).toContainText(
       'Current source is invalid; canvas is rendering last-good graph: current source is not graph-valid:',
     );
     await expect(page.locator('#validation-list .validation-item.error').first()).toBeVisible();
@@ -257,7 +261,12 @@ test('source-backed mode mutates canonical source and render state together', as
   await page.locator('#source-apply').click();
   await expect(page.locator('.canvas-node')).toHaveCount(4);
   await expect(page.locator('#edges path.edge')).toHaveCount(2);
-  await expect(page.locator('#source-status')).toHaveText(
+  const status = page.locator('#source-status');
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toHaveAttribute('aria-live', 'polite');
+  await expect(status).toHaveAttribute('aria-atomic', 'true');
+  await expect(status).toHaveAttribute('data-tone', 'success');
+  await expect(status).toHaveText(
     'Source applied; render state is reparsed from Loom GraphDoc.',
   );
 

@@ -6,6 +6,7 @@ import {
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
   "dowdiness/rabbita-context-menu/context_menu",
+  "dowdiness/rabbita-status/status",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
