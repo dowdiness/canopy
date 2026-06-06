@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-# Run `moon update` with bounded retries for the transient mooncakes CloudFront
-# CDN flake (issue #467): the CDN intermittently returns HTTP 403 for
-# symbols.zip during registry/symbol resolution. Identical re-runs always clear
-# it, so a small in-job retry auto-recovers without a manual "re-run failed
-# jobs".
+# Run `moon update` with bounded retries for transient mooncakes registry/CDN
+# flakes (issue #467): the CDN intermittently returns HTTP 403 for symbols.zip,
+# and registry-index clones sometimes fail with exit 128. Identical re-runs
+# clear these cases, so a small in-job retry auto-recovers without a manual
+# "re-run failed jobs".
 #
-# Discipline: only the known-transient CDN/network signature is retried. Any
-# other failure (a real toolchain or dependency error) exits immediately with
-# the original status, so a genuine break is never masked by retries.
+# Discipline: only known-transient registry/CDN/network signatures are retried.
+# Any other failure (a real toolchain or dependency error) exits immediately
+# with the original status, so a genuine break is never masked by retries.
 #
 # Runs `moon update` in the current working directory; callers cd into the
 # target module first (the registry it updates is global). Extra args are
@@ -37,12 +37,12 @@ if ! [[ "$MAX_ATTEMPTS" =~ ^[0-9]+$ ]] ||
 fi
 
 # Signatures that are unambiguously transient infrastructure noise, never a code
-# or dependency-spec error. Keyed on transient HTTP status semantics (the issue
-# #467 403, plus 429 / 5xx) and network-layer failures — deliberately NOT the
-# generic "client error" (which also covers a deterministic 404 missing package
-# or 401) nor a bare "symbols.zip". Matched case-insensitively against combined
-# stdout+stderr.
-TRANSIENT_RE='403 forbidden|429 too many requests|server error|connection (reset|refused|timed out)|could not resolve host|temporary failure in name resolution|network is unreachable|error sending request|operation timed out'
+# or dependency-spec error. Keyed on registry-index clone failures, transient
+# HTTP status semantics (the issue #467 403, plus 429 / 5xx), and network-layer
+# failures — deliberately NOT the generic "client error" (which also covers a
+# deterministic 404 missing package or 401) nor a bare "symbols.zip". Matched
+# case-insensitively against combined stdout+stderr.
+TRANSIENT_RE='failed to clone registry index|403 forbidden|429 too many requests|server error|connection (reset|refused|timed out)|could not resolve host|temporary failure in name resolution|network is unreachable|error sending request|operation timed out'
 
 # One tempfile for the whole run; `tee` truncates it each attempt. The trap
 # removes it on every exit path, including a signal kill mid-loop.
@@ -69,7 +69,7 @@ while :; do
   fi
 
   delay=$(( BASE_DELAY * attempt ))
-  echo "moon-update: transient CDN/network failure (exit ${status}); attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}s..." >&2
+  echo "moon-update: transient registry/CDN/network failure (exit ${status}); attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}s..." >&2
   sleep "$delay"
   attempt=$(( attempt + 1 ))
 done

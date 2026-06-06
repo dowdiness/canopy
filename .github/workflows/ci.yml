@@ -27,6 +27,9 @@ jobs:
       - name: Check moon update is retry-wrapped
         run: ./scripts/check-moon-update-wrapped.sh
 
+      - name: Test moon update retry wrapper
+        run: ./scripts/test-moon-update-wrapper.sh
+
   test-main:
     name: Test Main Module
     runs-on: ubuntu-latest
