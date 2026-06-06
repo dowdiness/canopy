@@ -23,13 +23,21 @@ jobs:
       - name: Run PR benchmarks
         run: |
           echo "Running benchmarks on PR branch..."
-          ./scripts/run-moon-module.sh bench . > pr_bench.txt 2>&1
-          cat pr_bench.txt
+          if ./scripts/run-moon-module.sh bench . > pr_bench.txt 2>&1; then
+            cat pr_bench.txt
+          else
+            cat pr_bench.txt
+            exit 1
+          fi
 
       - name: Run submodule benchmarks (event-graph-walker)
         run: |
-          ./scripts/run-moon-module.sh bench event-graph-walker > pr_egw_bench.txt 2>&1
-          cat pr_egw_bench.txt
+          if ./scripts/run-moon-module.sh bench event-graph-walker > pr_egw_bench.txt 2>&1; then
+            cat pr_egw_bench.txt
+          else
+            cat pr_egw_bench.txt
+            exit 1
+          fi
 
       - name: Store PR results
         run: |
@@ -72,41 +80,43 @@ jobs:
       - name: Compare results
         id: compare
         run: |
-          echo "## Benchmark Comparison Report" > comparison.md
-          echo "" >> comparison.md
-          echo "Comparing PR branch against \`${{ github.base_ref }}\`" >> comparison.md
-          echo "" >> comparison.md
+          {
+            echo "## Benchmark Comparison Report"
+            echo ""
+            echo "Comparing PR branch against \`${{ github.base_ref }}\`"
+            echo ""
 
-          echo "### Main Module Benchmarks" >> comparison.md
-          echo "" >> comparison.md
-          echo "**Base branch:**" >> comparison.md
-          echo '```' >> comparison.md
-          cat base_bench.txt >> comparison.md
-          echo '```' >> comparison.md
-          echo "" >> comparison.md
+            echo "### Main Module Benchmarks"
+            echo ""
+            echo "**Base branch:**"
+            echo '```'
+            cat base_bench.txt
+            echo '```'
+            echo ""
 
-          echo "**PR branch:**" >> comparison.md
-          echo '```' >> comparison.md
-          cat benchmark-results/pr_bench.txt >> comparison.md
-          echo '```' >> comparison.md
-          echo "" >> comparison.md
+            echo "**PR branch:**"
+            echo '```'
+            cat benchmark-results/pr_bench.txt
+            echo '```'
+            echo ""
 
-          echo "### event-graph-walker Benchmarks" >> comparison.md
-          echo "" >> comparison.md
-          echo "**Base branch:**" >> comparison.md
-          echo '```' >> comparison.md
-          cat base_egw_bench.txt >> comparison.md
-          echo '```' >> comparison.md
-          echo "" >> comparison.md
+            echo "### event-graph-walker Benchmarks"
+            echo ""
+            echo "**Base branch:**"
+            echo '```'
+            cat base_egw_bench.txt
+            echo '```'
+            echo ""
 
-          echo "**PR branch:**" >> comparison.md
-          echo '```' >> comparison.md
-          cat benchmark-results/pr_egw_bench.txt >> comparison.md
-          echo '```' >> comparison.md
-          echo "" >> comparison.md
+            echo "**PR branch:**"
+            echo '```'
+            cat benchmark-results/pr_egw_bench.txt
+            echo '```'
+            echo ""
 
-          echo "---" >> comparison.md
-          echo "*Benchmarks run with \`--release\` flag*" >> comparison.md
+            echo "---"
+            echo "*Benchmarks run with \`--release\` flag*"
+          } > comparison.md
 
       - name: Post comment to PR
         uses: actions/github-script@v9
