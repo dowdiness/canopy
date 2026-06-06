@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main/ui"
+
+// Values
+pub fn action_button_class() -> String
+
+pub fn action_button_danger_class() -> String
+
+pub fn toolbar_button_class() -> String
+
+pub fn toolbar_example_button_class() -> String
+
+pub fn toolbar_panel_toggle_class(Bool) -> String
+
+pub fn toolbar_tab_class(Bool) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
