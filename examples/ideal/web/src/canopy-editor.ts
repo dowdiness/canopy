@@ -65,9 +65,17 @@ export class CanopyEditor extends HTMLElement {
     this.shadow = this.attachShadow({ mode: 'open' });
 
     const sheet = getShadowSheet();
+    let adopted = false;
     if (sheet && 'adoptedStyleSheets' in this.shadow) {
-      this.shadow.adoptedStyleSheets = [...this.shadow.adoptedStyleSheets, sheet];
-    } else {
+      try {
+        this.shadow.adoptedStyleSheets = [...this.shadow.adoptedStyleSheets, sheet];
+        adopted = true;
+      } catch {
+        // If assignment is present but rejected, keep the editor styled via
+        // the same inline CSS string rather than failing custom-element setup.
+      }
+    }
+    if (!adopted) {
       const style = document.createElement('style');
       style.textContent = shadowStyles;
       this.shadow.appendChild(style);

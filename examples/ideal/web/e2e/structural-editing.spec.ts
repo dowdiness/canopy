@@ -267,11 +267,15 @@ test.describe('Shadow stylesheet delivery', () => {
   // how the light/shadow CSS duplication hid.
   test('adopted shadow CSS styles structure blocks', async ({ page }) => {
     await setupStructureMode(page);
-    const borderTopWidth = await page.evaluate(() => {
-      const ce = document.querySelector('canopy-editor');
-      const block = ce?.shadowRoot?.querySelector('.structure-block');
-      return block ? getComputedStyle(block).borderTopWidth : null;
+    const result = await page.evaluate(() => {
+      const shadow = document.querySelector('canopy-editor')?.shadowRoot;
+      const block = shadow?.querySelector('.structure-block');
+      return {
+        adoptedStyleSheets: shadow?.adoptedStyleSheets.length ?? null,
+        borderTopWidth: block ? getComputedStyle(block).borderTopWidth : null,
+      };
     });
-    expect(borderTopWidth).toBe('1px');
+    expect(result.adoptedStyleSheets).toBeGreaterThan(0);
+    expect(result.borderTopWidth).toBe('1px');
   });
 });
