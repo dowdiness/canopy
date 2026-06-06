@@ -19,16 +19,16 @@ fn view_action_item(
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"
   let item_class = if is_danger {
-    "action-overlay-item danger"
+    action_overlay_item_danger_class
   } else {
-    "action-overlay-item"
+    action_overlay_item_class
   }
   @html.div(
     class=item_class,
     attrs=menu.item_attrs(index, msg => dispatch(ActionMenu(msg))),
     [
-      @html.span(class="action-mnemonic", [@html.text(action.mnemonic)]),
-      @html.span(class="action-label-text", [@html.text(action.label)]),
+      @html.span(class=action_mnemonic_class, [@html.text(action.mnemonic)]),
+      @html.span(class=action_label_text_class, [@html.text(action.label)]),
     ],
   )
 }
@@ -53,7 +53,7 @@ fn view_action_list(
       if action.group != Core {
         items.push(
           @html.div(
-            class="action-group-label",
+            class=action_group_label_class,
             attrs=@html.Attrs::build().role("separator"),
             [@html.text(group_label(action.group))],
           ),
@@ -62,7 +62,7 @@ fn view_action_list(
     }
     items.push(view_action_item(dispatch, menu, index, action))
   }
-  @html.div(class="action-overlay-list", items)
+  @html.div(class=action_overlay_list_class, items)
 }
 
 ///|
@@ -96,19 +96,23 @@ fn view_name_prompt(
       @rabbita.none
     }
   }
-  @html.div(class="name-prompt-container", [
-    @html.div(class="name-prompt-label", [@html.text(prompt_label)]),
-    @html.div(class="name-prompt-input-row", on_keydown=on_keydown_handler, [
-      @html.input(
-        input_type=@html.InputType::Text,
-        class="name-prompt-input",
-        placeholder="name\u{2026}",
-        value=name_value,
-        autofocus=true,
-        on_input=fn(value) { dispatch(NamePromptInput(value)) },
-        attrs=@html.Attrs::build().aria_label(prompt_label),
-      ),
-    ]),
+  @html.div(class=name_prompt_container_class, [
+    @html.div(class=name_prompt_label_class, [@html.text(prompt_label)]),
+    @html.div(
+      class=name_prompt_input_row_class,
+      on_keydown=on_keydown_handler,
+      [
+        @html.input(
+          input_type=@html.InputType::Text,
+          class=name_prompt_input_class,
+          placeholder="name\u{2026}",
+          value=name_value,
+          autofocus=true,
+          on_input=fn(value) { dispatch(NamePromptInput(value)) },
+          attrs=@html.Attrs::build().aria_label(prompt_label),
+        ),
+      ],
+    ),
   ])
 }
 
@@ -124,7 +128,7 @@ fn view_submenu_choices(
   let items : Array[@rabbita.Html] = []
   items.push(
     @html.div(
-      class="action-group-label",
+      class=action_group_label_class,
       attrs=@html.Attrs::build().role("separator"),
       [@html.text(action.label)],
     ),
@@ -133,16 +137,18 @@ fn view_submenu_choices(
     let (label, _) = choice
     items.push(
       @html.div(
-        class="action-overlay-item",
+        class=action_overlay_item_class,
         attrs=menu.item_attrs(i, msg => dispatch(ActionMenu(msg))),
         [
-          @html.span(class="action-mnemonic", [@html.text((i + 1).to_string())]),
-          @html.span(class="action-label-text", [@html.text(label)]),
+          @html.span(class=action_mnemonic_class, [
+            @html.text((i + 1).to_string()),
+          ]),
+          @html.span(class=action_label_text_class, [@html.text(label)]),
         ],
       ),
     )
   }
-  @html.div(class="action-overlay-list", items)
+  @html.div(class=action_overlay_list_class, items)
 }
 
 ///|
@@ -153,7 +159,7 @@ fn view_action_overlay_error(message : String) -> @rabbita.Html {
     @html.nothing
   } else {
     @html.div(
-      class="action-overlay-error",
+      class=action_overlay_error_class,
       attrs=@html.Attrs::build().role("alert").aria_live("polite"),
       [@html.text(message)],
     )
@@ -195,13 +201,13 @@ fn view_action_overlay(
   @html.fragment([
     // Scrim: click-catching backdrop
     @html.div(
-      class="action-overlay-scrim",
+      class=action_overlay_scrim_class,
       attrs=@menu.scrim_attrs(dispatch(CloseActionOverlay)),
       @html.nothing,
     ),
     // Overlay panel — roving focus moves to the active menu item after render.
     @html.div(
-      class="action-overlay-panel",
+      class=action_overlay_panel_class,
       attrs=model.overlay.menu
         .panel_attrs(msg => dispatch(ActionMenu(msg)))
         .aria_label("Structural editing actions")

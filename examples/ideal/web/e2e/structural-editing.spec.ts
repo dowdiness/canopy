@@ -141,6 +141,54 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     ).toBeVisible();
   });
 
+  test('Tailwind-owned overlay styles are applied', async ({ page }) => {
+    await openVarActionOverlay(page);
+
+    const overlayStyles = await page.evaluate(() => {
+      const panel = document.querySelector('.action-overlay-panel');
+      const scrim = document.querySelector('.action-overlay-scrim');
+      const activeItem = document.querySelector('.action-overlay-item[data-active="true"]');
+      if (!panel || !scrim || !activeItem) return null;
+      const panelStyle = getComputedStyle(panel);
+      const scrimStyle = getComputedStyle(scrim);
+      const activeStyle = getComputedStyle(activeItem);
+      return {
+        panelBackground: panelStyle.backgroundColor,
+        panelBorder: panelStyle.borderTopColor,
+        panelMinWidth: panelStyle.minWidth,
+        panelZIndex: panelStyle.zIndex,
+        scrimBackground: scrimStyle.backgroundColor,
+        activeBackground: activeStyle.backgroundColor,
+      };
+    });
+
+    expect(overlayStyles).not.toBeNull();
+    expect(overlayStyles?.panelBackground).toBe('rgb(26, 26, 44)');
+    expect(overlayStyles?.panelBorder).toBe('rgb(130, 80, 223)');
+    expect(overlayStyles?.panelMinWidth).toBe('200px');
+    expect(overlayStyles?.panelZIndex).toBe('51');
+    expect(overlayStyles?.scrimBackground).toBe('rgba(0, 0, 0, 0.3)');
+    expect(overlayStyles?.activeBackground).toBe('rgba(130, 80, 223, 0.15)');
+
+    await focusActionByLabel(page, 'Rename');
+    await page.keyboard.press('Enter');
+    const input = page.locator('.name-prompt-input');
+    await expect(input).toBeVisible({ timeout: 5000 });
+    await input.focus();
+    const inputStyles = await input.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return {
+        background: style.backgroundColor,
+        border: style.borderTopColor,
+        boxShadow: style.boxShadow,
+      };
+    });
+    expect(inputStyles.background).toBe('rgb(34, 34, 56)');
+    expect(inputStyles.border).not.toBe('rgb(40, 40, 62)');
+    expect(inputStyles.boxShadow).not.toBe('none');
+    expect(inputStyles.boxShadow).toContain('0px 0px 0px 2px');
+  });
+
   test('Arrow keys, Home, and End move active menu item', async ({ page }) => {
     await openVarActionOverlay(page);
     const items = page.locator('.action-overlay-item');

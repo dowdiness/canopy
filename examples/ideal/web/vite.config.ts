@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type PluginOption } from 'vite';
 import { moonbitPlugin } from '../../web/vite-plugin-moonbit';
 
@@ -9,6 +10,7 @@ const idealEditorOutput = process.env.MOON_WORK === 'off'
 
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     moonbitPlugin({
       modules: [
         {
