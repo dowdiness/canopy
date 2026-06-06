@@ -1,10 +1,10 @@
 # Ideal editor CSS: de-dup foundation + Tailwind feasibility spike
 
 **Date:** 2026-06-06
-**Status:** Design (validated by Codex, `sound-with-caveats`, corrections folded in)
+**Status:** Foundation shipped in PR #532; Tailwind migration deferred pending product/payoff decision
 **Scope:** `examples/ideal/` only. The other four apps (`demo-react`, `codemirror_demo`, `resizable`, `disclosure`) are untouched.
 
-This is a design document: it states *what* to build and *why*. The step-ordered *how* lives in the separate implementation plan (authored by Codex, per "Opus orchestrates, Codex plans").
+This is a design document: it states *what* to build and *why*. The step-ordered *how* lives in the archived implementation plan (`docs/archive/2026-06-06-ideal-css-dedup-foundation-plan.md`).
 
 ## Problem
 
@@ -30,6 +30,12 @@ The minimal fix is therefore: **author the shadow rules once, deliver that one s
 
 This yields a **foundation-first, spike-gated** approach rather than a committed migration.
 
+## Post-merge correction (PR #532)
+
+Runtime verification corrected one important assumption in the original spike shape: the action overlay and name prompt render in the **light DOM**, not inside `<canopy-editor>`'s shadow root. Their live rules are therefore the existing `editor.css` rules. The duplicate overlay block inside `SHADOW_STYLES` was dead shadow CSS and was deleted with the rest of the template literal; no light-DOM CSS was removed.
+
+The shipped foundation still follows the design's core direction: `editor-shadow.css` is now the single source for shadow-owned rules, delivered via a shared constructable stylesheet with `<style>` fallback. The Tailwind spike also passed the remaining technical question: Tailwind v4 can scan `.mbt` class strings via `@source "../main"`. A broader Tailwind migration is feasible but deferred as a product/payoff decision.
+
 ## Direction (chosen): C — foundation-first, spike-gated
 
 ### Step 1 — De-dup foundation (ships the duplication fix immediately)
@@ -50,14 +56,12 @@ This yields a **foundation-first, spike-gated** approach rather than a committed
 
 ### Step 2 — Tailwind v4 feasibility spike (one component, throwaway)
 
-A cheap experiment on the **action overlay only**, reusing Step 1's adopted-sheet transport. It must answer two yes/no questions:
+The original cheap experiment targeted the **action overlay** because its classes are generated in `.mbt` (`view_actions.mbt`). After PR #532, the technical questions separate cleanly:
 
-- **Scan:** Can Tailwind v4 extract a class string from `.mbt` source via an `@source` glob over `examples/ideal/**/*.mbt`? (The overlay classes are generated in `view_actions.mbt`, so the scanner premise is real. Fallback: scan the generated JS under `_build/`.)
-- **Deliver:** Can the generated utilities — including the preflight/`@layer base` reset and a `:host` rule — land *inside* the `canopy-editor` shadow root via the adopted sheet and visually render?
+- **Scan:** Can Tailwind v4 extract class strings from `.mbt` source via an `@source` glob over `examples/ideal/**/*.mbt`? Yes — the throwaway spike proved `@source "../main"` picks up `.mbt` class tokens, with a negative control.
+- **Deliver:** Can generated CSS land inside the `canopy-editor` shadow root? Yes in the generic sense — PR #532 proves the adopted-stylesheet transport with a computed-style assertion on shadow-rendered `.structure-block`. The overlay itself is light DOM, so it does not need shadow delivery.
 
-**Verification:** Playwright CLI (WSL2 — no browser MCP), asserting *computed style* on the overlay element inside the shadow root, not merely text presence.
-
-**Decision gate (explicit):** the spike passes only if **both** scan and deliver succeed **and** the result visually matches. On pass → evaluate Step 3 scope. On fail → stop; Step 1 has already delivered the duplication fix, so no work is wasted.
+**Decision gate (explicit):** a full Tailwind migration should proceed only if the maintainability/token-enforcement payoff justifies the large `class="…"` rewrite. The foundation already delivered the duplication fix, so migration remains optional.
 
 ### Step 3 — Broad Tailwind migration (deferred, undesigned)
 
@@ -66,7 +70,7 @@ Not designed here. Gated on the spike passing **and** the maintainability/enforc
 ## Testing
 
 - Existing Ideal Playwright e2e suite must stay green through Step 1 (relocation should be behavior-neutral).
-- **New computed-style assertion** on a shadow-rendered overlay element. The prior e2e asserted *text*, not *style* — that gap is precisely how the duplication hid. This assertion closes it and guards the de-dup.
+- **New computed-style assertion** on a shadow-rendered `.structure-block`. The prior e2e asserted *text*, not *style* — that gap is precisely how the duplication hid. This assertion closes it and guards the de-dup.
 
 ## Non-goals / scope fence
 
@@ -78,3 +82,4 @@ Not designed here. Gated on the spike passing **and** the maintainability/enforc
 ## Validation record
 
 - Codex design review (2026-06-06): verdict `sound-with-caveats`. Core framing (custom-props cross the boundary, class rules do not, `adoptedStyleSheets` is the de-dup transport Tailwind also needs) confirmed correct. Corrections folded in: (1) `SHADOW_STYLES` is `canopy-editor.ts`-only — verified; (2) shadow set is not a clean subset of `editor.css` — `structure-*`/`drop-*`/peer-cursor are shadow-only, so the audit must move the full shadow set, not just overlaps; (3) `adoptedStyleSheets` needs a `<style>` fallback.
+- PR #532 shipped the foundation and corrected the overlay ownership assumption: overlay/name-prompt are light DOM; shadow ownership is `:host`, `#editor-root`, `.ProseMirror`, `.structure-*`, and peer-cursor decorations.
