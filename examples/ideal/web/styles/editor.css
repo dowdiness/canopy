@@ -6,6 +6,7 @@
 @source "../../main/view_toolbar_classes.mbt";
 @source "../../main/view_bottom_classes.mbt";
 @source "../../main/view_panel_classes.mbt";
+@source "../../main/view_inspector_classes.mbt";
 @source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
@@ -25,6 +26,7 @@
   --color-canopy-accent-hover: var(--canopy-accent-hover);
   --color-canopy-accent-text: var(--canopy-accent-text);
   --color-canopy-accent-border: var(--canopy-accent-border);
+  --color-canopy-identifier: var(--canopy-identifier);
   --color-canopy-error-text: var(--canopy-error-text);
   --color-canopy-error-bg: var(--canopy-error-bg);
   --color-canopy-error-border: var(--canopy-error-border);
@@ -523,31 +525,8 @@ canopy-editor {
 
 /* Inspector section/label chrome is Tailwind-owned via
    examples/ideal/main/view_panel_classes.mbt. */
-
-.inspector-row {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
-  line-height: var(--leading-normal);
-}
-
-.inspector-key {
-  font-size: var(--text-small);
-  font-weight: var(--weight-regular);
-  color: var(--canopy-muted);
-  width: 76px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.inspector-value {
-  font-size: var(--text-small);
-  font-weight: var(--weight-regular);
-  color: var(--canopy-fg);
-  font-family: var(--canopy-font-mono);
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
+/* Inspector row/source/token detail chrome is Tailwind-owned via
+   examples/ideal/main/view_inspector_classes.mbt. */
 
 .inspector-actions {
   display: flex;
@@ -556,47 +535,6 @@ canopy-editor {
 }
 
 /* Inspector action button chrome is Tailwind-owned by main/ui/button.mbt. */
-
-.source-preview {
-  background: var(--canopy-surface);
-  border-radius: var(--radius-sm);
-  padding: var(--space-sm) var(--space-md);
-  margin-top: var(--space-sm);
-  font-family: var(--canopy-font-mono);
-  font-size: var(--text-caption);
-  line-height: var(--leading-normal);
-  color: var(--canopy-fg);
-  white-space: pre;
-  overflow-x: auto;
-  max-height: 4.5em;
-  overflow-y: auto;
-}
-
-.token-span-row {
-  display: flex;
-  gap: var(--space-sm);
-  padding: 2px 0;
-  line-height: var(--leading-normal);
-  font-family: var(--canopy-font-mono);
-  font-size: var(--text-caption);
-}
-
-.token-span-role {
-  color: var(--canopy-muted);
-  min-width: 52px;
-  flex-shrink: 0;
-}
-
-.token-span-range {
-  color: var(--canopy-text-dim);
-  min-width: 44px;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.token-span-text {
-  color: var(--canopy-identifier);
-}
 
 /* ── Bottom Panel ───────────────────────────────────────── */
 

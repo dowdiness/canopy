@@ -65,9 +65,9 @@ fn children_count(node : @proj.InteractiveTreeNode[@ast.Term]) -> Int {
 ///|
 /// Key-value row for the inspector panel.
 fn inspector_row(key : String, value : String) -> Html {
-  div(class="inspector-row", [
-    span(class="inspector-key", [text(key)]),
-    span(class="inspector-value", [text(value)]),
+  div(class=inspector_row_class, [
+    span(class=inspector_key_class, [text(key)]),
+    span(class=inspector_value_class, [text(value)]),
   ])
 }
 
@@ -80,10 +80,7 @@ fn view_node_details(
   let kind_tag = @lambda_proj.term_kind_tag(node.kind)
   let items : Array[Html] = [
     span(class=inspector_label_class(), [text("NODE")]),
-    div(class="inspector-row", [
-      span(class="inspector-key", [text("Kind")]),
-      span(class="inspector-value", [text(kind_tag)]),
-    ]),
+    inspector_row("Kind", kind_tag),
     inspector_row("Label", node.label),
     inspector_row("Children", children_count(node).to_string()),
     inspector_row("ID", node_id_to_string(node.id)),
@@ -103,7 +100,7 @@ fn view_node_details(
       } else {
         slice
       }
-      items.push(div(class="source-preview", [text(preview)]))
+      items.push(div(class=source_preview_class, [text(preview)]))
     }
   }
   let token_spans = model.editor.get_source_map().get_all_token_spans(node.id)
@@ -119,10 +116,12 @@ fn view_node_details(
         ""
       }
       items.push(
-        div(class="token-span-row", [
-          span(class="token-span-role", [text(role)]),
-          span(class="token-span-range", [text("\{span_start}..\{span_end}")]),
-          span(class="token-span-text", [text(span_text)]),
+        div(class=token_span_row_class, [
+          span(class=token_span_role_class, [text(role)]),
+          span(class=token_span_range_class, [
+            text("\{span_start}..\{span_end}"),
+          ]),
+          span(class=token_span_text_class, [text(span_text)]),
         ]),
       )
     }
@@ -159,20 +158,9 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
 fn view_crdt_info(model : Model) -> Html {
   div(class=inspector_section_class(), [
     span(class=inspector_label_class(), [text("CRDT")]),
-    div(class="inspector-row", [
-      span(class="inspector-key", [text("Agent")]),
-      span(class="inspector-value", [text("local")]),
-    ]),
-    div(class="inspector-row", [
-      span(class="inspector-key", [text("Timestamp")]),
-      span(class="inspector-value", [text(model.next_timestamp.to_string())]),
-    ]),
-    div(class="inspector-row", [
-      span(class="inspector-key", [text("Text length")]),
-      span(class="inspector-value", [
-        text(model.editor.get_text().length().to_string()),
-      ]),
-    ]),
+    inspector_row("Agent", "local"),
+    inspector_row("Timestamp", model.next_timestamp.to_string()),
+    inspector_row("Text length", model.editor.get_text().length().to_string()),
   ])
 }
 
