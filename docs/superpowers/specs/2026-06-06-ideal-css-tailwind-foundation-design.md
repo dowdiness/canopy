@@ -1,7 +1,7 @@
 # Ideal editor CSS: de-dup foundation + Tailwind feasibility spike
 
 **Date:** 2026-06-06
-**Status:** Foundation shipped in PR #532; Tailwind migration deferred pending product/payoff decision
+**Status:** Foundation shipped in PR #532; Tailwind migration approved for incremental execution (see `docs/plans/2026-06-06-ideal-tailwind-v4-migration.md`)
 **Scope:** `examples/ideal/` only. The other four apps (`demo-react`, `codemirror_demo`, `resizable`, `disclosure`) are untouched.
 
 This is a design document: it states *what* to build and *why*. The step-ordered *how* lives in the archived implementation plan (`docs/archive/2026-06-06-ideal-css-dedup-foundation-plan.md`).
@@ -34,7 +34,7 @@ This yields a **foundation-first, spike-gated** approach rather than a committed
 
 Runtime verification corrected one important assumption in the original spike shape: the action overlay and name prompt render in the **light DOM**, not inside `<canopy-editor>`'s shadow root. Their live rules are therefore the existing `editor.css` rules. The duplicate overlay block inside `SHADOW_STYLES` was dead shadow CSS and was deleted with the rest of the template literal; no light-DOM CSS was removed.
 
-The shipped foundation still follows the design's core direction: `editor-shadow.css` is now the single source for shadow-owned rules, delivered via a shared constructable stylesheet with `<style>` fallback. The Tailwind spike also passed the remaining technical question: Tailwind v4 can scan `.mbt` class strings via `@source "../main"`. A broader Tailwind migration is feasible but deferred as a product/payoff decision.
+The shipped foundation still follows the design's core direction: `editor-shadow.css` is now the single source for shadow-owned rules, delivered via a shared constructable stylesheet with `<style>` fallback. The Tailwind spike also passed the remaining technical question: Tailwind v4 can scan `.mbt` class strings via `@source "../main"`. The product decision is now to migrate incrementally for design-system maintainability; the first execution slice is tracked in `docs/plans/2026-06-06-ideal-tailwind-v4-migration.md`.
 
 ## Direction (chosen): C — foundation-first, spike-gated
 
@@ -63,9 +63,9 @@ The original cheap experiment targeted the **action overlay** because its classe
 
 **Decision gate (explicit):** a full Tailwind migration should proceed only if the maintainability/token-enforcement payoff justifies the large `class="…"` rewrite. The foundation already delivered the duplication fix, so migration remains optional.
 
-### Step 3 — Broad Tailwind migration (deferred, undesigned)
+### Step 3 — Tailwind migration (approved as incremental follow-up)
 
-Not designed here. Gated on the spike passing **and** the maintainability/enforcement payoff justifying the ~117-site `class="…"` rewrite. If pursued: **Ideal first, never all five apps at once.** Step 1 deliberately splits along the light-tokens / shadow-shell boundary, which gives the spike a stable path **without** locking in any Tailwind-specific file layout.
+The broad migration is not part of PR #532, but is now approved as an incremental Ideal-only follow-up. The first slice deliberately starts with the light-DOM action overlay/name prompt and preserves semantic class selectors while Tailwind takes ownership of migrated declarations. See `docs/plans/2026-06-06-ideal-tailwind-v4-migration.md` for validation and rollback criteria.
 
 ## Testing
 

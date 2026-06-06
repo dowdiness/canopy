@@ -188,10 +188,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 9. Ideal Editor
 
-- [ ] Evaluate Tailwind v4 migration for Ideal after CSS de-dup foundation.
-  Why: PR #532 proved Tailwind v4 can scan `.mbt` class strings and that shadow CSS delivery is solved, but a migration still implies broad class-site churn.
-  Plan: GitHub issue #533
-  Exit: either record a no-migration decision with rationale, or add a concrete narrow-slice migration plan with validation and rollback criteria.
+- [ ] Migrate Ideal to Tailwind v4 incrementally.
+  Why: PR #532 proved Tailwind v4 can scan `.mbt` class strings and that shadow CSS delivery is solved; product decision is to adopt Tailwind for design-system maintainability while avoiding broad all-at-once churn.
+  Plan: docs/plans/2026-06-06-ideal-tailwind-v4-migration.md; GitHub issue #533
+  Exit: first narrow slice ships with Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, validation green, and rollback criteria documented.
 
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works.
   Note: completion state is unclear; decision pending in `docs/decisions-needed.md`.
