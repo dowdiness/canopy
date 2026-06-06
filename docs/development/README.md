@@ -25,6 +25,8 @@ files inside `docs/development/`.
 - **[MoonBit Conventions — Examples](moonbit-conventions-examples.md)** —
   concrete patterns referenced from `AGENTS.md`.
 - **[Testing](testing.md)** — testing guide and best practices.
+- **[Ideal Tailwind Style Management](ideal-tailwind-style-management.md)** —
+  Tailwind v4 recipe conventions for the Ideal editor.
 - **[Monorepo & Submodules](monorepo.md)** — git submodule setup and daily
   cheat sheet.
 

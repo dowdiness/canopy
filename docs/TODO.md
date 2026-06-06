@@ -190,8 +190,9 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 - [ ] Migrate Ideal to Tailwind v4 incrementally.
   Why: PR #532 proved Tailwind v4 can scan `.mbt` class strings and that shadow CSS delivery is solved; product decision is to adopt Tailwind for design-system maintainability while avoiding broad all-at-once churn.
-  Plan: docs/plans/2026-06-06-ideal-tailwind-v4-migration.md; GitHub issue #533
-  Exit: first narrow slice ships with Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, validation green, and rollback criteria documented.
+  Plan: docs/plans/2026-06-06-ideal-tailwind-v4-migration.md; style rules: docs/development/ideal-tailwind-style-management.md; GitHub issue #533
+  Status: first slice shipped in PR #534 — Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, semantic hooks preserved, validation green, and rollback criteria documented.
+  Next exit: Ideal-local UI recipe layer proves one additional light-DOM slice (for example toolbar/action-button chrome) without `@apply`, broad source scanning, or duplicate CSS ownership.
 
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works.
   Note: completion state is unclear; decision pending in `docs/decisions-needed.md`.
