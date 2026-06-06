@@ -13,6 +13,10 @@ shadow-CSS de-dup fix. PR #532 already solved shadow stylesheet duplication via
 
 GitHub issue: <https://github.com/dowdiness/canopy/issues/533>
 
+Status: PR #534 shipped the first light-DOM slice (action overlay/name prompt).
+Future slices must follow the Ideal Tailwind style-management conventions in
+[docs/development/ideal-tailwind-style-management.md](../development/ideal-tailwind-style-management.md).
+
 ## Scope
 
 In:
@@ -36,34 +40,37 @@ Out:
 
 ## Current State
 
-- `examples/ideal/web/styles/editor.css` is the live light-DOM stylesheet.
+- `examples/ideal/web/styles/editor.css` is the live light-DOM stylesheet and
+  now contains the Tailwind v4 entry, token bridge, and explicit `@source` list.
 - `examples/ideal/web/styles/editor-shadow.css` is the live shadow stylesheet and
   is adopted into `<canopy-editor>` shadow roots.
 - The action overlay and name prompt are light DOM, not shadow DOM.
-- `examples/ideal/web` has no Tailwind dependency today.
-- The archived PR #532 spike proved Tailwind v4.3.0 can scan `.mbt` source with
-  `@source "../main"`; no `_build` JS fallback was needed.
+- PR #534 installed Tailwind v4.3.0 under `examples/ideal/web` only and migrated
+  the action overlay/name-prompt declarations to static `.mbt` utility bundles.
+- Tailwind source detection is deliberately narrow today:
+  `@source "../../main/view_actions_classes.mbt"`; no broad `main/**/*.mbt` scan
+  is enabled yet.
 - There are roughly 150 `class=` surfaces in `examples/ideal/main/**/*.mbt`, so
-  a broad all-at-once utility rewrite is unnecessary risk.
+  a broad all-at-once utility rewrite remains unnecessary risk.
 
 ## Desired State
 
 Tailwind v4 is adopted for Ideal only, with a narrow first slice that proves the
 pipeline and the maintainability model without destabilizing the editor.
 
-Observable end state for the first PR:
+The first PR is complete. Continuing desired state for later slices:
 
-- Tailwind v4 runs in the Ideal web Vite build.
-- Tailwind scans `examples/ideal/main/**/*.mbt` intentionally, not accidentally.
-- Core Canopy design tokens are represented in Tailwind's theme layer while
+- Tailwind v4 remains scoped to the Ideal web Vite build.
+- Tailwind scans migrated `.mbt` sources intentionally, not accidentally.
+- Core Canopy design tokens stay represented in Tailwind's theme layer while
   preserving the existing CSS custom properties used by shadow CSS and runtime
   integrations.
-- The action overlay/name-prompt slice is Tailwind-owned.
+- Each migrated slice is Tailwind-owned and removes duplicate legacy CSS
+  declarations.
 - Existing semantic class names remain as stable selectors/test hooks
   (`.action-overlay-panel`, `.action-overlay-item`, `.name-prompt-input`, etc.).
-- Legacy CSS for the migrated overlay/name-prompt properties is removed or
-  reduced to compatibility-only rules; there must not be two live sources of
-  truth for the same migrated declarations.
+- Reusable style choices move toward an Ideal-local recipe layer, not toward
+  shadcn React components, Radix by default, `@apply`, or broad source scanning.
 
 ## Design Choices
 
@@ -107,10 +114,12 @@ regression.
 
 ### 4. One migrated owner per declaration
 
-For every overlay/name-prompt declaration moved to Tailwind utilities, delete the
-same declaration from the legacy overlay block. If a declaration must remain in
-CSS because it is too awkward as a utility (for example a custom keyframe), move
-it into the Tailwind entry as a named utility/component and document why.
+For every migrated declaration moved to Tailwind utilities, delete the same
+legacy declaration from CSS. If a declaration must remain in CSS because it is
+not meaningfully expressible as a utility (for example a custom keyframe), keep
+that CSS as the explicit owner and document why. Do **not** use Tailwind
+`@apply`; repeated utility groups should become MoonBit constants or theme
+tokens instead.
 
 ## Steps
 
@@ -169,7 +178,9 @@ it into the Tailwind entry as a named utility/component and document why.
      the built CSS by more than about 10 KiB uncompressed.
 
 7. **Prepare later slices only after the first PR is green**
-   - Toolbar/app shell.
+   - Establish the Ideal-local UI recipe layer (`examples/ideal/main/ui/*`) as
+     described in `docs/development/ideal-tailwind-style-management.md`.
+   - Toolbar/app shell or action-button chrome.
    - Outline panel and tree rows.
    - Inspector panel.
    - Bottom tabs/log panels.
@@ -179,16 +190,16 @@ it into the Tailwind entry as a named utility/component and document why.
 
 ## Acceptance Criteria
 
-- [ ] Tailwind v4 is installed only in `examples/ideal/web`.
-- [ ] The Ideal Vite build generates Tailwind utilities from `.mbt` source.
-- [ ] Tailwind theme tokens bridge to the existing Canopy CSS custom properties.
-- [ ] The action overlay/name-prompt visual declarations are Tailwind-owned.
-- [ ] Existing semantic class selectors used by tests remain valid.
-- [ ] `editor.css` no longer contains duplicate live declarations for the
+- [x] Tailwind v4 is installed only in `examples/ideal/web`.
+- [x] The Ideal Vite build generates Tailwind utilities from `.mbt` source.
+- [x] Tailwind theme tokens bridge to the existing Canopy CSS custom properties.
+- [x] The action overlay/name-prompt visual declarations are Tailwind-owned.
+- [x] Existing semantic class selectors used by tests remain valid.
+- [x] `editor.css` no longer contains duplicate live declarations for the
       migrated overlay/name-prompt properties.
-- [ ] `leaf-editor.ts`, `text-nodeview.ts`, `cm-inline.ts`, and `loom` are
+- [x] `leaf-editor.ts`, `text-nodeview.ts`, `cm-inline.ts`, and `loom` are
       untouched.
-- [ ] Issue #533 can be updated to say migration is approved and first slice is
+- [x] Issue #533 can be updated to say migration is approved and first slice is
       planned/implemented.
 
 ## Validation
