@@ -28,7 +28,24 @@ Vite build.
 
 A migrated visual declaration has exactly one live owner. When a declaration
 moves to Tailwind utilities, delete the equivalent legacy CSS rule in the same
-slice.
+slice. Ownership includes cascade-layer ownership: Tailwind utility classes must
+not be shadowed by later unlayered CSS rules for the same declaration.
+
+## Cascade Layer Rules
+
+Tailwind utilities are imported into `@layer utilities`, so unlayered custom CSS
+can override migrated utility classes even with lower selector specificity. Keep
+global resets and base primitives in `@layer base` when Tailwind utilities own
+migrated spacing, color, border, or layout declarations:
+
+```css
+@layer base {
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+}
+```
+
+Do not leave broad unlayered rules such as `* { padding: 0; }` next to migrated
+Tailwind spacing utilities like `px-canopy-lg` or `mr-canopy-sm`.
 
 ## Class Recipe Rules
 
@@ -53,15 +70,18 @@ slice.
 
 A small Ideal UI recipe should expose typed class helpers, and only add view
 helpers when doing so reduces repeated Rabbita markup without owning behavior.
+Keep variant enums private unless callers genuinely need to choose among them;
+public helpers should usually describe semantic intent, not implementation
+variants.
 
 ```moonbit
-enum ButtonTone {
+priv enum ButtonTone {
   Accent
   Ghost
   Danger
 }
 
-enum ButtonSize {
+priv enum ButtonSize {
   Small
   Medium
 }
@@ -83,13 +103,27 @@ fn button_size_class(size : ButtonSize) -> String {
   }
 }
 
-fn button_class(tone : ButtonTone, size : ButtonSize) -> String {
-  button_base_class + " " + button_tone_class(tone) + " " + button_size_class(size)
+fn button_recipe(hook : String, tone : ButtonTone, size : ButtonSize) -> String {
+  hook +
+  " " +
+  button_base_class +
+  " " +
+  button_tone_class(tone) +
+  " " +
+  button_size_class(size)
+}
+
+pub fn toolbar_button_class() -> String {
+  button_recipe("toolbar-btn", Ghost, Small)
+}
+
+pub fn action_button_danger_class() -> String {
+  button_recipe("action-btn danger", Danger, Medium)
 }
 ```
 
-Keep the semantic hook (`ideal-button` above) stable even if the utility bundle
-changes.
+Keep semantic hooks (`toolbar-btn`, `action-btn danger`, `ideal-button` above)
+stable even if the utility bundle changes.
 
 ## Tailwind Source Rules
 
@@ -117,9 +151,11 @@ Each migrated slice needs both behavior and style coverage:
 
 ## Next Slice Guidance
 
-Prefer one more light-DOM slice before touching shadow-owned structure styles.
-A good next target is the Ideal toolbar / action button chrome because it tests
-shared button or panel recipes without involving shadow stylesheet delivery.
+Prefer light-DOM slices before touching shadow-owned structure styles. The
+action overlay/name prompt and toolbar/action-button chrome have already proven
+narrow Tailwind scanning plus Ideal-local recipes. A good next target should
+reuse those recipes or reveal one concrete missing primitive (for example an
+input, panel, or menu-row recipe) without broad scanning.
 
 Defer:
 
