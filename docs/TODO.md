@@ -191,8 +191,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Migrate Ideal to Tailwind v4 incrementally.
   Why: PR #532 proved Tailwind v4 can scan `.mbt` class strings and that shadow CSS delivery is solved; product decision is to adopt Tailwind for design-system maintainability while avoiding broad all-at-once churn.
   Plan: docs/plans/2026-06-06-ideal-tailwind-v4-migration.md; style rules: docs/development/ideal-tailwind-style-management.md; GitHub issue #533
-  Status: first slice shipped in PR #534 — Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, semantic hooks preserved, validation green, and rollback criteria documented. Second slice shipped in PR #539 — Ideal-local button recipes migrated toolbar/action-button chrome with explicit source scanning and computed-style coverage.
-  Next exit: reuse the Ideal-local recipe layer on one more light-DOM slice, extracting a minimal CVA-inspired helper only if repetition warrants, while still deferring shadow-owned structure styles and broad Tailwind scanning.
+  Status: first slice shipped in PR #534 — Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, semantic hooks preserved, validation green, and rollback criteria documented. Second slice shipped in PR #539 — Ideal-local button recipes migrated toolbar/action-button chrome with explicit source scanning and computed-style coverage. Third slice shipped in PR #541 — bottom tab strip chrome now uses the Ideal-local button recipe layer plus a narrow bottom-strip class bundle; legacy `.bottom-tabs` declarations were removed and computed-style coverage includes desktop, hover, and mobile touch targets.
+  Next exit: migrate one more light-DOM chrome slice that either reuses the Ideal-local recipe layer or proves one concrete missing primitive (for example panel section chrome, a menu row, or an input), while still deferring bottom-panel content/history/incr raw HTML fragments, shadow-owned structure styles, and broad Tailwind scanning.
 
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works.
   Note: completion state is unclear; decision pending in `docs/decisions-needed.md`.
