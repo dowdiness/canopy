@@ -370,7 +370,7 @@ export class GraphAdapter {
   renameNode(nodeId: number, name: string): SourceGraphOperationResult | null {
     this.assertLive();
     const nextName = name.trim();
-    if (!this.isSourceBacked || !Number.isFinite(nodeId) || nextName.length === 0) {
+    if (!this.isSourceBacked || !Number.isInteger(nodeId) || nodeId <= 0 || nextName.length === 0) {
       return null;
     }
     return this.applyOperation({
@@ -391,7 +391,8 @@ export class GraphAdapter {
     const nextValue = value.trim();
     if (
       !this.isSourceBacked ||
-      !Number.isFinite(nodeId) ||
+      !Number.isInteger(nodeId) ||
+      nodeId <= 0 ||
       nextParameter.length === 0 ||
       nextValue.length === 0
     ) {
