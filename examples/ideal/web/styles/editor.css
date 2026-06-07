@@ -8,6 +8,7 @@
 @source "../../main/view_panel_classes.mbt";
 @source "../../main/view_inspector_classes.mbt";
 @source "../../main/view_outline_classes.mbt";
+@source "../../main/view_peer_empty_state_classes.mbt";
 @source "../../main/ui/button.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
@@ -29,6 +30,9 @@
   --color-canopy-accent-border: var(--canopy-accent-border);
   --color-canopy-focus-ring: var(--canopy-focus-ring);
   --color-canopy-identifier: var(--canopy-identifier);
+  --color-canopy-number: var(--canopy-number);
+  --color-canopy-string: var(--canopy-string);
+  --color-canopy-operator: var(--canopy-operator);
   --color-canopy-error-text: var(--canopy-error-text);
   --color-canopy-error-bg: var(--canopy-error-bg);
   --color-canopy-error-border: var(--canopy-error-border);
@@ -369,52 +373,10 @@ body {
   color: var(--canopy-error);
 }
 
-.no-tree-note {
-  font-size: var(--text-small);
-  color: var(--canopy-muted);
-  padding: var(--space-lg);
-}
+/* No-tree note and peer chrome are Tailwind-owned via
+   examples/ideal/main/view_peer_empty_state_classes.mbt. */
 
 /* ── Peers ──────────────────────────────────────────────── */
-
-.peer-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--text-small);
-  color: var(--canopy-text-secondary);
-  padding: var(--space-xs) 0;
-}
-
-.peer-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.peer-dot.connected {
-  background: var(--canopy-string);
-  box-shadow: 0 0 6px var(--canopy-string);
-  animation: pulse-connected 2s ease-in-out infinite;
-}
-
-.peer-dot.connecting {
-  background: var(--canopy-number);
-  box-shadow: 0 0 4px var(--canopy-number);
-  animation: pulse-connecting 1s ease-in-out infinite;
-}
-
-.peer-dot.offline {
-  background: var(--canopy-muted);
-  box-shadow: none;
-  opacity: 0.6;
-}
-
-.peer-dot.error {
-  background: var(--canopy-operator);
-  box-shadow: 0 0 6px var(--canopy-operator);
-}
 
 @keyframes pulse-connected {
   0%, 100% { opacity: 1; }
@@ -428,15 +390,8 @@ body {
 
 /* ── Empty States ──────────────────────────────────────── */
 
-.empty-state {
-  padding: var(--space-lg);
-}
-
-.empty-state-text {
-  font-size: var(--text-small);
-  color: var(--canopy-text-dim);
-  line-height: var(--leading-relaxed);
-}
+/* Empty-state chrome is Tailwind-owned via
+   examples/ideal/main/view_peer_empty_state_classes.mbt. */
 
 /* ── Editor ─────────────────────────────────────────────── */
 

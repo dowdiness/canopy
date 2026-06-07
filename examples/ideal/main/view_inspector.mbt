@@ -176,13 +176,13 @@ fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html {
             view_node_details(node, model),
             view_actions(dispatch, sel_id),
           ])
-        None => p(class="no-tree-note", "No matching node")
+        None => p(class=no_tree_note_class, "No matching node")
       }
     }
     None =>
-      div(class="empty-state", [
+      div(class=empty_state_class, [
         p(
-          class="empty-state-text",
+          class=empty_state_text_class,
           "Click a node in the outline or editor to inspect it",
         ),
       ])
