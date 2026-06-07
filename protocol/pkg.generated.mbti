@@ -54,7 +54,8 @@ pub(all) enum UserIntent {
   TextEdit(from~ : Int, to~ : Int, insert~ : String)
   StructuralEdit(node_id~ : @dowdiness/canopy/core.NodeId, op~ : String, params~ : Map[String, String])
   SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
-  SetCursor(position~ : Int)
+  SetPmCursor(pm_tree_position~ : Int)
+  SetDocCursor(doc_code_unit_offset~ : Int)
   Undo
   Redo
   CommitEdit(node_id~ : @dowdiness/canopy/core.NodeId, value~ : String)

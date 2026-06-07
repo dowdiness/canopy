@@ -61,7 +61,8 @@ function handleIntent(intent: UserIntent): void {
     }
 
     case "SelectNode":
-    case "SetCursor":
+    case "SetPmCursor":
+    case "SetDocCursor":
     case "CommitEdit":
       return;
   }

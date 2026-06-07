@@ -263,8 +263,8 @@ export class CM6Adapter implements EditorAdapter {
       if (update.selectionSet && !update.docChanged) {
         const sel = update.state.selection.main;
         this.intentCallback({
-          type: "SetCursor",
-          position: sel.anchor,
+          type: "SetDocCursor",
+          doc_code_unit_offset: sel.anchor,
         });
       }
     });

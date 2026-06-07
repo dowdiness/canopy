@@ -97,7 +97,7 @@ The MoonBit-side custom `ToJson` impls in `framework/protocol/` are the source o
 
 **Custom decorations.** Send `{ type: "SetDecorations", decorations: [...] }` with a `css_class` namespaced to your project (e.g. `moondsp-pattern-cursor`). Style it in your host CSS. Use the `widget` flag for inline DOM widgets.
 
-**Selection and cursor.** `SetSelection` and `SelectNode` patches drive editor focus. `SetCursor` and `SelectNode` intents come back from the user.
+**Selection and cursor.** `SetSelection` and `SelectNode` patches drive editor focus. `SetPmCursor` (ProseMirror tree positions), `SetDocCursor` (document code-unit offsets), and `SelectNode` intents come back from the user.
 
 ## Versioning
 
