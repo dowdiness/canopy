@@ -7,6 +7,7 @@ members = [
   "./lib/resizable",
   "./lib/menu",
   "./lib/context-menu",
+  "./lib/canvas-graph",
   "./lib/status",
   "./lib/tabs",
   "./lib/treeview",

@@ -2,7 +2,7 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
   "moonbitlang/core/ref",
-  "dowdiness/canopy-canvas/graph_model",
+  "dowdiness/canopy-canvas-graph/graph_model",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
   "dowdiness/rabbita-context-menu/context_menu",

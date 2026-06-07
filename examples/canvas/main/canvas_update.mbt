@@ -154,6 +154,25 @@ fn update_connect_move(
 }
 
 ///|
+fn workflow_node_kind_from_key(key : String) -> WorkflowNodeKind {
+  if key == "timer" {
+    TimerTrigger
+  } else if key == "http" {
+    HttpRequest
+  } else if key == "formatter" {
+    DataFormatter
+  } else if key == "condition" {
+    ConditionalBranch
+  } else if key == "loop" {
+    Loop
+  } else if key == "parallel" {
+    Parallel
+  } else {
+    Custom("Custom step")
+  }
+}
+
+///|
 fn workflow_add_node(
   state : CanvasState,
   kind_key : String,
@@ -226,7 +245,7 @@ fn drag_preview_from_move(
 
 ///|
 fn drag_ids_for_node(state : CanvasState, node_id : NodeId) -> Array[NodeId] {
-  if node_id_in_array(state.interaction.selected_nodes, node_id) {
+  if state.interaction.selected_nodes.iter().any(fn(id) { id == node_id }) {
     state.interaction.selected_nodes.copy()
   } else {
     [node_id]
@@ -285,7 +304,7 @@ fn final_drag_positions(
 
 ///|
 fn toggle_selection(nodes : Array[NodeId], id : NodeId) -> Array[NodeId] {
-  if node_id_in_array(nodes, id) {
+  if nodes.iter().any(fn(n) { n == id }) {
     nodes.filter(fn(n) { n != id })
   } else {
     let next = nodes.copy()

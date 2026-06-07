@@ -137,10 +137,10 @@ test "operation log round-trips and replays into canvas graph state" {
 
 ///|
 test "DeleteNodes removes incident edges and deleted selection" {
-  let selected = @graph_model.set_selection(replay_base_state(), [
-    node_id(1),
-    node_id(2),
-  ])
+  let selected = @graph_model.apply_action(
+    replay_base_state(),
+    @graph_model.WorkflowAction::SelectNodes([node_id(1), node_id(2)]),
+  )
   let connected = @graph_model.record_action(
     selected,
     @graph_model.WorkflowAction::ConnectPorts(
