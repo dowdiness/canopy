@@ -94,6 +94,38 @@ test "DisconnectPorts serializes endpoint ports" {
 }
 
 ///|
+test "source-backed edit actions serialize node and parameter payloads" {
+  let rename = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::RenameNode(node_id(1), "oscillator"),
+  )
+  inspect(
+    rename.to_json().stringify(),
+    content="{\"version\":1,\"type\":\"RenameNode\",\"node_id\":1,\"name\":\"oscillator\"}",
+  )
+  let set_param = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::SetNodeParam(node_id(1), "freq", "880"),
+  )
+  inspect(
+    set_param.to_json().stringify(),
+    content="{\"version\":1,\"type\":\"SetNodeParam\",\"node_id\":1,\"parameter\":\"freq\",\"value\":\"880\"}",
+  )
+  let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
+    [rename.to_json(), set_param.to_json()].to_json(),
+  )
+  @debug.assert_eq(decoded, [rename, set_param])
+}
+
+///|
+test "RenameNode updates the canvas node title" {
+  let renamed = @graph_model.apply_action(
+    replay_base_state(),
+    @graph_model.WorkflowAction::RenameNode(node_id(1), "Daily trigger"),
+  )
+  inspect(renamed.nodes[0].title, content="Daily trigger")
+  inspect(renamed.nodes[1].title, content="HTTP request")
+}
+
+///|
 test "operation log round-trips and replays into canvas graph state" {
   let added = @graph_model.make_workflow_node(
     node_id(3),

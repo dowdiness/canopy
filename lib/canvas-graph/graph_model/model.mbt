@@ -184,6 +184,8 @@ pub(all) enum WorkflowAction {
   ConnectPorts(NodeId, String, NodeId, String)
   DisconnectPorts(NodeId, String, NodeId, String)
   DeleteNodes(Array[NodeId])
+  RenameNode(NodeId, String)
+  SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
 } derive(Debug, Eq, ToJson)
@@ -303,6 +305,17 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
       fields["type"] = "DeleteNodes".to_json()
       fields["nodes"] = nodes.to_json()
     }
+    RenameNode(node_id, name) => {
+      fields["type"] = "RenameNode".to_json()
+      fields["node_id"] = node_id.to_json()
+      fields["name"] = name.to_json()
+    }
+    SetNodeParam(node_id, parameter, value) => {
+      fields["type"] = "SetNodeParam".to_json()
+      fields["node_id"] = node_id.to_json()
+      fields["parameter"] = parameter.to_json()
+      fields["value"] = value.to_json()
+    }
     SelectNodes(nodes) => {
       fields["type"] = "SelectNodes".to_json()
       fields["nodes"] = nodes.to_json()
@@ -382,6 +395,23 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
         require_json_field(fields, path, "nodes", "DeleteNodes"),
       )
       WorkflowAction::DeleteNodes(nodes)
+    }
+    "RenameNode" => {
+      let node_id = NodeId(
+        json_number_field(fields, path, "node_id", "RenameNode"),
+      )
+      let name = json_string_field(fields, path, "name", "RenameNode")
+      WorkflowAction::RenameNode(node_id, name)
+    }
+    "SetNodeParam" => {
+      let node_id = NodeId(
+        json_number_field(fields, path, "node_id", "SetNodeParam"),
+      )
+      let parameter = json_string_field(
+        fields, path, "parameter", "SetNodeParam",
+      )
+      let value = json_string_field(fields, path, "value", "SetNodeParam")
+      WorkflowAction::SetNodeParam(node_id, parameter, value)
     }
     "SelectNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
@@ -851,6 +881,17 @@ pub fn apply_action(
         state, source, source_port, target, target_port,
       )
     DeleteNodes(nodes) => delete_nodes_from_state(state, nodes)
+    RenameNode(node_id, name) => {
+      let nodes = state.nodes.map(fn(node) {
+        if node.id == node_id {
+          { ..node, title: name }
+        } else {
+          node
+        }
+      })
+      { ..state, nodes, }
+    }
+    SetNodeParam(_, _, _) => state
     SelectNodes(nodes) => set_selection(state, nodes)
     SetViewport(viewport) => { ..state, viewport, }
   }

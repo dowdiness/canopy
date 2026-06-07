@@ -103,6 +103,70 @@ fn graph_node_for_canvas_id(
 }
 
 ///|
+fn graph_param_value_kind_text(kind : @graph_dsl.GraphValueKind) -> String {
+  match kind {
+    @graph_dsl.Numeric => "numeric"
+    @graph_dsl.StringValue => "string"
+    @graph_dsl.EnumValue => "enum"
+    @graph_dsl.InputRef => "input-ref"
+  }
+}
+
+///|
+fn graph_param_token_text(
+  param : @graph_dsl.GraphParam,
+  role : @graph_dsl.GraphTokenRole,
+) -> String? {
+  let tokens = param.value_tokens()
+  match tokens.search_by(fn(token) { token.role() == role }) {
+    Some(index) => Some(tokens[index].text())
+    None => None
+  }
+}
+
+///|
+fn graph_param_value_text(param : @graph_dsl.GraphParam) -> String {
+  let role = match param.value_kind() {
+    @graph_dsl.Numeric => @graph_dsl.NumericParameter
+    @graph_dsl.StringValue => @graph_dsl.StringField
+    @graph_dsl.EnumValue => @graph_dsl.EnumField
+    @graph_dsl.InputRef => @graph_dsl.InputReference
+  }
+  match graph_param_token_text(param, role) {
+    Some(text) => text
+    None => ""
+  }
+}
+
+///|
+fn graph_param_json(param : @graph_dsl.GraphParam) -> NodeParamJson {
+  let value_kind = param.value_kind()
+  {
+    name: param.name(),
+    value_kind: graph_param_value_kind_text(value_kind),
+    value: graph_param_value_text(param),
+    unit: graph_param_token_text(param, @graph_dsl.Unit),
+    editable: match value_kind {
+      @graph_dsl.Numeric => true
+      _ => false
+    },
+  }
+}
+
+///|
+fn source_node_to_json(
+  doc : @graph_dsl.GraphDoc,
+  node : CanvasNode,
+) -> NodeJson {
+  let base = node_to_json(node)
+  match graph_node_for_canvas_id(doc, node.id) {
+    Some(graph_node) =>
+      { ..base, params: graph_node.params().map(graph_param_json) }
+    None => base
+  }
+}
+
+///|
 fn canvas_node_from_graph_node(
   index : Int,
   graph_node : @graph_dsl.GraphNode,
@@ -326,6 +390,53 @@ fn source_graph_current_doc(
 }
 
 ///|
+fn lower_rename_node(
+  doc : @graph_dsl.GraphDoc,
+  node_id : NodeId,
+  new_name : String,
+) -> Result[SourceOperationEdit, String] {
+  let node = match graph_node_for_canvas_id(doc, node_id) {
+    Some(node) => node
+    None => return Err("cannot lower RenameNode: missing node")
+  }
+  match doc.lower_rename_node_binding(node.binding(), new_name) {
+    Some(edit) => Ok(ExactLoweredEdit(edit))
+    None =>
+      Err(
+        "cannot lower RenameNode for binding '" +
+        node.binding() +
+        "' to '" +
+        new_name +
+        "'",
+      )
+  }
+}
+
+///|
+fn lower_set_node_param(
+  doc : @graph_dsl.GraphDoc,
+  node_id : NodeId,
+  parameter : String,
+  value : String,
+) -> Result[SourceOperationEdit, String] {
+  let node = match graph_node_for_canvas_id(doc, node_id) {
+    Some(node) => node
+    None => return Err("cannot lower SetNodeParam: missing node")
+  }
+  match doc.lower_set_numeric(node.binding(), parameter, value) {
+    Some(edit) => Ok(ExactLoweredEdit(edit))
+    None =>
+      Err(
+        "cannot lower SetNodeParam for binding '" +
+        node.binding() +
+        "' parameter '" +
+        parameter +
+        "'",
+      )
+  }
+}
+
+///|
 fn lower_source_operation(
   doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
@@ -365,6 +476,9 @@ fn lower_source_operation(
       }
     }
     DeleteNodes(nodes) => lower_delete_nodes(doc, nodes)
+    RenameNode(node_id, new_name) => lower_rename_node(doc, node_id, new_name)
+    SetNodeParam(node_id, parameter, value) =>
+      lower_set_node_param(doc, node_id, parameter, value)
     DisconnectPorts(source, source_port, target, target_port) =>
       lower_disconnect_ports(doc, source, source_port, target, target_port)
     MoveNodes(_) =>
@@ -491,17 +605,38 @@ fn SourceBackedGraph::remap_deleted_interaction(
 }
 
 ///|
+fn SourceBackedGraph::rename_layout_binding(
+  self : SourceBackedGraph,
+  old_binding : String,
+  new_binding : String,
+) -> Unit {
+  self.layout = self.layout.map(fn(position) {
+    if position.binding == old_binding {
+      { ..position, binding: new_binding }
+    } else {
+      position
+    }
+  })
+}
+
+///|
 fn SourceBackedGraph::sync_local_operation_state(
   self : SourceBackedGraph,
-  doc : @graph_dsl.GraphDoc,
+  old_doc : @graph_dsl.GraphDoc,
+  new_doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
   survivor_selection_bindings : Array[String],
 ) -> Unit {
   match operation.action() {
     DeleteNodes(_) => {
-      self.remap_deleted_interaction(doc, survivor_selection_bindings)
+      self.remap_deleted_interaction(new_doc, survivor_selection_bindings)
       self.sync_layout_from_state(source_graph_base_canvas_state(self))
     }
+    RenameNode(node_id, new_binding) =>
+      match graph_node_for_canvas_id(old_doc, node_id) {
+        Some(node) => self.rename_layout_binding(node.binding(), new_binding)
+        None => ()
+      }
     _ => ()
   }
 }
@@ -849,11 +984,30 @@ pub fn source_graph_zoom(
 }
 
 ///|
+fn source_render_state_string(
+  graph : SourceBackedGraph,
+  state : CanvasState,
+  validation : Array[ValidationJson],
+) -> String {
+  let rendered = render_state_json(state, validation)
+  match source_graph_doc_for_render(graph) {
+    Some(doc) =>
+      {
+        ..rendered,
+        nodes: state.nodes.map(fn(node) { source_node_to_json(doc, node) }),
+      }
+      .to_json()
+      .stringify()
+    None => rendered.to_json().stringify()
+  }
+}
+
+///|
 pub fn get_source_graph_render_state(handle : Int) -> String {
   match source_graph_by_handle(handle) {
     Some(graph) => {
       let state = source_graph_canvas_state(graph)
-      render_state_string(state, source_graph_validation(graph))
+      source_render_state_string(graph, state, source_graph_validation(graph))
     }
     None =>
       render_state_string(empty_source_canvas_state(), [
@@ -915,11 +1069,11 @@ pub fn apply_source_graph_operation(
       return source_graph_result_for_graph(graph, false, Some(message))
   }
   match graph.apply_source_edit(lowered) {
-    Ok(doc) => {
+    Ok(new_doc) => {
       graph.sync_local_operation_state(
-        doc, operation, survivor_selection_bindings,
+        doc, new_doc, operation, survivor_selection_bindings,
       )
-      graph.append_operation(realized_source_operation(doc, operation))
+      graph.append_operation(realized_source_operation(new_doc, operation))
       source_graph_result_for_graph(graph, true, None)
     }
     Err(message) => source_graph_result_for_graph(graph, false, Some(message))

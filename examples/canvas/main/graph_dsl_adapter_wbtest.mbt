@@ -270,6 +270,112 @@ test "source-backed handle lowers GraphOperation through graph-dsl source" {
 }
 
 ///|
+test "source-backed RenameNode updates binding and references" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)"
+  let handle = create_source_graph(source)
+  let rename = GraphOperation(RenameNode(NodeId(1), "lfo"))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, rename.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)",
+  )
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [renamed] =>
+      match renamed.action() {
+        RenameNode(node_id, name) => {
+          @debug.assert_eq(node_id, NodeId(1))
+          inspect(name, content="lfo")
+        }
+        _ => abort("expected RenameNode action")
+      }
+    _ => abort("expected one source-backed rename operation")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed RenameNode preserves layout keyed by binding" {
+  let source = "osc = sine(freq: 440Hz)"
+  let handle = create_source_graph(source)
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.layout = [{ binding: "osc", x: 42.0, y: 24.0 }]
+    None => abort("expected source graph handle")
+  }
+  let rename = GraphOperation(RenameNode(NodeId(1), "lfo"))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, rename.to_json().stringify()),
+    ),
+    content="true",
+  )
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      match graph.layout {
+        [position] => {
+          inspect(position.binding, content="lfo")
+          inspect(position.x, content="42")
+          inspect(position.y, content="24")
+        }
+        _ => abort("expected one layout position")
+      }
+    None => abort("expected source graph handle")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed SetNodeParam edits a numeric parameter token" {
+  let source = "osc = sine(freq: 440Hz, wave: \"saw\")\nmeter = scope()"
+  let handle = create_source_graph(source)
+  let set_param = GraphOperation(SetNodeParam(NodeId(1), "freq", "880"))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, set_param.to_json().stringify()),
+    ),
+    content="true",
+  )
+  inspect(
+    get_source_graph_source(handle),
+    content="osc = sine(freq: 880Hz, wave: \"saw\")\nmeter = scope()",
+  )
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  match operations {
+    [edited] =>
+      match edited.action() {
+        SetNodeParam(node_id, parameter, value) => {
+          @debug.assert_eq(node_id, NodeId(1))
+          inspect(parameter, content="freq")
+          inspect(value, content="880")
+        }
+        _ => abort("expected SetNodeParam action")
+      }
+    _ => abort("expected one source-backed parameter operation")
+  }
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed SetNodeParam rejects non-numeric source text" {
+  let source = "osc = sine(freq: 440Hz)"
+  let handle = create_source_graph(source)
+  let set_param = GraphOperation(SetNodeParam(NodeId(1), "freq", "880Hz"))
+  let result = apply_source_graph_operation(
+    handle,
+    set_param.to_json().stringify(),
+  )
+  inspect(operation_result_applied(result), content="false")
+  inspect(get_source_graph_source(handle), content=source)
+  inspect(get_source_graph_action_log(handle), content="[]")
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed DeleteNodes removes a safe binding line" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()"
   let handle = create_source_graph(source)

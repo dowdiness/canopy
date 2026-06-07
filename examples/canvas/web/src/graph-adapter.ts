@@ -99,6 +99,13 @@ const SOURCE_METHODS = [
 export type Tagged = string | [string, ...unknown[]];
 export type NodeKind = ['Workflow', Tagged];
 export type PortDef = { id: string; label: string; port_type: Tagged };
+export type NodeParamData = {
+  name: string;
+  value_kind: string;
+  value: string;
+  unit?: string;
+  editable: boolean;
+};
 export type NodeData = {
   id: number;
   x: number;
@@ -111,6 +118,7 @@ export type NodeData = {
   inputs: PortDef[];
   outputs: PortDef[];
   configured: boolean;
+  params?: NodeParamData[];
 };
 export type EdgeData = {
   id: number;
@@ -174,6 +182,14 @@ export type GraphOperation =
       target_port: string;
     }
   | { version: number; type: 'DeleteNodes'; nodes: number[] }
+  | { version: number; type: 'RenameNode'; node_id: number; name: string }
+  | {
+      version: number;
+      type: 'SetNodeParam';
+      node_id: number;
+      parameter: string;
+      value: string;
+    }
   | { version: number; type: 'SelectNodes'; nodes: number[] }
   | { version: number; type: 'SetViewport'; viewport: ViewportData };
 
@@ -349,6 +365,45 @@ export class GraphAdapter {
     this.mb.delete_nodes(this.handle, JSON.stringify(uniqueNodeIds));
     this.emitLatestOperations();
     return null;
+  }
+
+  renameNode(nodeId: number, name: string): SourceGraphOperationResult | null {
+    this.assertLive();
+    const nextName = name.trim();
+    if (!this.isSourceBacked || !Number.isFinite(nodeId) || nextName.length === 0) {
+      return null;
+    }
+    return this.applyOperation({
+      version: 1,
+      type: 'RenameNode',
+      node_id: nodeId,
+      name: nextName,
+    });
+  }
+
+  setNodeParam(
+    nodeId: number,
+    parameter: string,
+    value: string,
+  ): SourceGraphOperationResult | null {
+    this.assertLive();
+    const nextParameter = parameter.trim();
+    const nextValue = value.trim();
+    if (
+      !this.isSourceBacked ||
+      !Number.isFinite(nodeId) ||
+      nextParameter.length === 0 ||
+      nextValue.length === 0
+    ) {
+      return null;
+    }
+    return this.applyOperation({
+      version: 1,
+      type: 'SetNodeParam',
+      node_id: nodeId,
+      parameter: nextParameter,
+      value: nextValue,
+    });
   }
 
   disconnectPorts(
