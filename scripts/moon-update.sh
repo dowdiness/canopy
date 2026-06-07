@@ -58,13 +58,13 @@ while :; do
     exit 0
   fi
 
-  if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
-    echo "moon-update: failed after ${attempt} attempt(s) (exit ${status}); giving up." >&2
+  if ! grep -qiE "$TRANSIENT_RE" "$log"; then
+    echo "moon-update: failure (exit ${status}) is not the transient CDN/network signature; not retrying." >&2
     exit "$status"
   fi
 
-  if ! grep -qiE "$TRANSIENT_RE" "$log"; then
-    echo "moon-update: failure (exit ${status}) is not the transient CDN/network signature; not retrying." >&2
+  if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+    echo "moon-update: setup/network failure persisted after ${attempt} attempt(s) (exit ${status}); giving up." >&2
     exit "$status"
   fi
 

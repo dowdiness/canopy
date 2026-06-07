@@ -1,7 +1,7 @@
 # ViewNode JSON Serialization — Phase 0 Spike
 
 Date: 2026-04-01
-Context: EditorProtocol design validation (`docs/plans/2026-04-01-editor-protocol-design.md`)
+Context: EditorProtocol design validation (`docs/archive/completed-phases/2026-04-01-editor-protocol-design.md`)
 
 ## Question
 
