@@ -4,6 +4,7 @@ import {
   type Connecting,
   type EdgeData,
   type NodeData,
+  type NodeParamData,
   type PortDef,
   type RenderState,
   type SourceGraphOperationResult,
@@ -379,9 +380,156 @@ function renderValidation(state: RenderState): void {
   }
 }
 
+function commitSourceRename(nodeId: number, currentName: string, nextName: string): void {
+  const trimmed = nextName.trim();
+  if (trimmed === currentName || trimmed.length === 0) return;
+  const result = adapter.renameNode(nodeId, trimmed);
+  if (!result) return;
+  syncSourceEditorFromResult(result);
+  updateSourceOperationStatus(
+    result,
+    'Renamed node binding through graph-dsl source.',
+    'Source rename rejected',
+  );
+  clearSelectedEdge();
+  scheduleRender();
+}
+
+function commitSourceParam(
+  nodeId: number,
+  param: NodeParamData,
+  nextValue: string,
+): void {
+  const trimmed = nextValue.trim();
+  if (trimmed === param.value || trimmed.length === 0) return;
+  const result = adapter.setNodeParam(nodeId, param.name, trimmed);
+  if (!result) return;
+  syncSourceEditorFromResult(result);
+  updateSourceOperationStatus(
+    result,
+    `Updated ${param.name} through graph-dsl source.`,
+    'Source parameter edit rejected',
+  );
+  clearSelectedEdge();
+  scheduleRender();
+}
+
+function bindCommitOnChange(
+  input: HTMLInputElement,
+  originalValue: string,
+  commit: (value: string) => void,
+): void {
+  let committed = false;
+  const commitOnce = () => {
+    if (committed) return;
+    committed = true;
+    commit(input.value);
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitOnce();
+      input.blur();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      committed = true;
+      input.value = originalValue;
+      input.blur();
+    }
+  });
+  input.addEventListener('change', commitOnce);
+}
+
+function safeParamInputId(paramName: string): string {
+  return `node-param-${paramName.replace(/[^a-z0-9_-]/gi, '-')}`;
+}
+
+function renderSourceNodeEditor(node: NodeData): HTMLDivElement {
+  const editor = document.createElement('div');
+  editor.className = 'inspector-source-editor';
+
+  const bindingLabel = document.createElement('label');
+  bindingLabel.className = 'inspector-field';
+  bindingLabel.htmlFor = 'node-rename-input';
+  const bindingText = document.createElement('span');
+  bindingText.textContent = 'Binding';
+  const bindingInput = document.createElement('input');
+  bindingInput.id = 'node-rename-input';
+  bindingInput.type = 'text';
+  bindingInput.value = node.title;
+  bindingInput.autocomplete = 'off';
+  bindingInput.spellcheck = false;
+  bindingInput.setAttribute('aria-label', 'Node binding');
+  bindCommitOnChange(bindingInput, node.title, (value) => {
+    commitSourceRename(node.id, node.title, value);
+  });
+  bindingLabel.replaceChildren(bindingText, bindingInput);
+  editor.appendChild(bindingLabel);
+
+  const params = node.params ?? [];
+  if (params.length === 0) return editor;
+
+  const paramList = document.createElement('div');
+  paramList.className = 'inspector-param-list';
+  for (const param of params) {
+    const row = document.createElement('label');
+    row.className = `inspector-field param ${param.editable ? 'editable' : 'readonly'}`;
+    const id = safeParamInputId(param.name);
+    row.htmlFor = id;
+    const name = document.createElement('span');
+    name.textContent = param.name;
+    if (param.editable) {
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.value = param.value;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.setAttribute('aria-label', `Parameter ${param.name}`);
+      bindCommitOnChange(input, param.value, (value) => {
+        commitSourceParam(node.id, param, value);
+      });
+      if (param.unit) {
+        const unit = document.createElement('span');
+        unit.className = 'param-unit';
+        unit.textContent = param.unit;
+        row.replaceChildren(name, input, unit);
+      } else {
+        row.replaceChildren(name, input);
+      }
+    } else {
+      const value = document.createElement('span');
+      value.className = 'param-readonly-value';
+      value.textContent = param.unit ? `${param.value}${param.unit}` : param.value;
+      row.replaceChildren(name, value);
+    }
+    paramList.appendChild(row);
+  }
+  editor.appendChild(paramList);
+  return editor;
+}
+
 function renderInspector(state: RenderState): void {
   inspectorNode.replaceChildren();
-  if (!state.inspector) {
+  const selectedNodeId = state.selected ?? state.selected_nodes?.[0];
+  const selectedNode = selectedNodeId != null
+    ? state.nodes.find((candidate) => candidate.id === selectedNodeId)
+    : undefined;
+  const inspector = state.inspector ?? (
+    adapter.isSourceBacked && selectedNode
+      ? {
+          id: selectedNode.id,
+          title: selectedNode.title,
+          subtitle: selectedNode.subtitle,
+          configured: selectedNode.configured,
+          input_count: selectedNode.inputs.length,
+          output_count: selectedNode.outputs.length,
+          source: 'selected',
+        }
+      : undefined
+  );
+  if (!inspector) {
     const empty = document.createElement('div');
     empty.className = 'inspector-empty';
     empty.textContent = 'Select or hover a node to inspect its sparse derived details.';
@@ -389,7 +537,7 @@ function renderInspector(state: RenderState): void {
     return;
   }
 
-  const item = state.inspector;
+  const item = inspector;
   const status = item.configured ? 'Configured' : 'Needs config';
   const source = item.source === 'selected' ? 'Selected node' : 'Hovered node';
 
@@ -409,7 +557,13 @@ function renderInspector(state: RenderState): void {
   const portsSpan = document.createElement('span');
   portsSpan.textContent = `${item.input_count} in · ${item.output_count} out`;
   meta.replaceChildren(statusSpan, portsSpan);
-  inspectorNode.replaceChildren(eyebrow, title, subtitle, meta);
+
+  const children: HTMLElement[] = [eyebrow, title, subtitle, meta];
+  if (adapter.isSourceBacked && item.source === 'selected') {
+    const node = state.nodes.find((candidate) => candidate.id === item.id);
+    if (node) children.push(renderSourceNodeEditor(node));
+  }
+  inspectorNode.replaceChildren(...children);
 }
 
 function focusNode(nodeId: number): void {

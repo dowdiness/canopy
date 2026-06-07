@@ -116,6 +116,63 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   expect(runtimeErrors).toEqual([]);
 });
 
+async function selectSourceNode(page: Page, nodeId: number): Promise<void> {
+  const node = page.locator(`.canvas-node[data-node-id="${nodeId}"]`);
+  await node.click();
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+}
+
+test('source-backed inspector rename lowers to canonical source and references', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await page.locator('#source-connect').click();
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
+  );
+
+  await selectSourceNode(page, 1);
+  const renameInput = page.locator('#node-rename-input');
+  await expect(renameInput).toHaveValue('osc');
+  await renameInput.fill('lfo');
+  await renameInput.press('Enter');
+
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)',
+  );
+  await expect(page.locator('.canvas-node[data-node-id="1"] .node-title')).toHaveText('lfo');
+  await expect(page.locator('#edges path.edge')).toHaveCount(1);
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toContainText(
+    'Renamed node binding through graph-dsl source.',
+  );
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed inspector numeric parameter edit lowers to canonical source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+
+  await selectSourceNode(page, 1);
+  const freqInput = page.locator('#node-param-freq');
+  await expect(freqInput).toHaveValue('440');
+  await freqInput.fill('880');
+  await freqInput.press('Enter');
+
+  await expect(page.locator('#source-editor')).toHaveValue(
+    'osc = sine(freq: 880Hz)\nmeter = scope()',
+  );
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toContainText(
+    'Updated freq through graph-dsl source.',
+  );
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed selected edge deletion lowers into canonical source', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 

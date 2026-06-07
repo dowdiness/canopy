@@ -107,6 +107,15 @@ pub fn disconnect_ports(
 }
 
 ///|
+struct NodeParamJson {
+  name : String
+  value_kind : String
+  value : String
+  unit : String?
+  editable : Bool
+} derive(Eq, ToJson)
+
+///|
 /// Serializable node snapshot. Uses plain Int for `id` to avoid
 /// the NodeId newtype wrapper appearing in JSON output.
 struct NodeJson {
@@ -121,6 +130,7 @@ struct NodeJson {
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
+  params : Array[NodeParamJson]
 } derive(Eq, ToJson)
 
 ///|
@@ -197,6 +207,7 @@ fn node_to_json(n : CanvasNode) -> NodeJson {
     inputs: n.inputs,
     outputs: n.outputs,
     configured: n.configured,
+    params: [],
   }
 }
 

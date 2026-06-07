@@ -88,6 +88,8 @@ type LoweredCanvas derive(Eq)
 
 type NodeJson derive(Eq, ToJson)
 
+type NodeParamJson derive(Eq, ToJson)
+
 type NormalizedCanvas derive(Eq)
 
 type RenderStateJson derive(Eq, ToJson)
