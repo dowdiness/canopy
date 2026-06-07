@@ -26,9 +26,49 @@ This package is the stable contract between the MoonBit engine and the TypeScrip
 - `dowdiness/pretty` — `Layout`, `SyntaxCategory`
 - `moonbitlang/core/json` — `ToJson` / `FromJson` derivations
 
+## Position and Offset Units
+
+Protocol positions are plain JSON numbers. Read each number in its declared
+unit:
+
+- **UTF-16 document code-unit offset** — an offset in source text. This matches
+  CodeMirror, JS `String.length`, and `SyncEditor` cursor APIs.
+- **ProseMirror tree position** — an offset in the ProseMirror document tree.
+  It is not a source-text offset.
+
+PR #555 replaced `UserIntent.SetCursor(position)` with separate cursor intents
+so these units stay separate.
+
+| Field | Direction | Unit | Meaning |
+|---|---|---|---|
+| `ViewPatch.TextChange.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open edit range. |
+| `TextEdit.from` / `.to` | JS → MoonBit | UTF-16 document code-unit offset | Half-open edit range. |
+| `ViewPatch.SetSelection.anchor` / `.head` | MoonBit → JS | UTF-16 document code-unit offset | Text selection endpoints. |
+| `Decoration.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open source range for marks or widgets. |
+| `Diagnostic.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open source range for annotations. |
+| `SetPmCursor.pm_tree_position` | JS → MoonBit | ProseMirror tree position | Cursor in the PM tree. Convert before using text APIs. |
+| `SetDocCursor.doc_code_unit_offset` | JS → MoonBit | UTF-16 document code-unit offset | Cursor in source text. |
+
+Editor code may snap UTF-16 offsets to grapheme boundaries before it converts
+them to eg-walker item-space. See [Position Units](../docs/development/API_REFERENCE.md#position-units).
+
 ## Stability
 
 Stable wire format / public surface — changes here break the TypeScript frontend and require coordinated updates to the JS consumer side.
+
+### Stable Wire-Format Change Checklist
+
+Before changing stable `ViewPatch`, `UserIntent`, `Decoration`, or
+`Diagnostic` JSON shapes:
+
+- Add a changelog entry for the changed field or variant.
+- Add a migration note if consumers must change code. Include the reason for
+  the break; for unit changes, cite PR #555-style context.
+- For any MoonBit protocol change, run `moon info` and review
+  `protocol/pkg.generated.mbti` for unintended API diffs.
+- Update `adapters/editor-adapter/types.ts`, adapter emit/apply paths, and
+  serialization or round-trip tests in the same change.
+- Build Canopy demos and known external consumers before release.
 
 ## Notes
 

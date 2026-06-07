@@ -1,5 +1,5 @@
 // TypeScript type definitions mirroring MoonBit editor protocol types.
-// These match the JSON wire format produced by framework/protocol/ custom ToJson impls.
+// These match the JSON wire format produced by protocol/ custom ToJson impls.
 
 export type ViewNode = {
   id: number;

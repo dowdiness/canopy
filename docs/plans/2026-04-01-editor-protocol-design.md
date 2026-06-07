@@ -26,10 +26,10 @@ variants (each needs its own conversion + reconciliation TS code).
 ## Scope
 
 In:
-- `framework/protocol/` — new package for protocol types (`ViewPatch`,
-  `ViewNode`, `UserIntent`). Separate from `framework/core/` to keep
-  rendering concerns (`css_class`, `editable`, `widget`) out of the
-  structural primitive layer (`NodeId`, `ProjNode`, `SourceMap`).
+- `protocol/` — package for protocol types (`ViewPatch`, `ViewNode`,
+  `UserIntent`). Separate from `core/` to keep rendering concerns
+  (`css_class`, `editable`, `widget`) out of the structural primitive layer
+  (`NodeId`, `ProjNode`, `SourceMap`).
 - `editor/` — new `ViewUpdater` component on `SyncEditor`
 - `examples/web/` — first migration target (simplest, validates types)
 - `examples/ideal/` — migrate from global-state bridge to protocol
@@ -128,14 +128,14 @@ trait Renderable { kind_tag(Self) -> String; label(Self) -> String; placeholder(
 
 ## Protocol Types
 
-All protocol types live in `framework/protocol/`, separate from the
-structural primitives in `framework/core/`. This keeps rendering concerns
-(`css_class`, `editable`, `widget`) out of the core layer.
+All protocol types live in `protocol/`, separate from the structural
+primitives in `core/`. This keeps rendering concerns (`css_class`,
+`editable`, `widget`) out of the core layer.
 
 ### ViewNode — language-agnostic node representation
 
 ```moonbit
-/// framework/protocol/view_node.mbt
+/// protocol/view_node.mbt
 pub(all) struct ViewNode {
   id : NodeId
   kind_tag : String       // from Renderable::kind_tag — "lam", "app", "json_object"
@@ -184,7 +184,7 @@ views use `InteractiveTreeNode` directly; foreign widgets receive
 ### ViewPatch — what changed
 
 ```moonbit
-/// framework/protocol/view_patch.mbt
+/// protocol/view_patch.mbt
 pub enum ViewPatch {
   // Text view (CM6)
   TextChange(from~ : Int, to~ : Int, insert~ : String)
@@ -245,7 +245,7 @@ preserving CM6 inline editor focus.
 ### UserIntent — what the user wants
 
 ```moonbit
-/// framework/protocol/user_intent.mbt
+/// protocol/user_intent.mbt
 pub enum UserIntent {
   // Text editing (from CM6 or contentEditable)
   TextEdit(from~ : Int, to~ : Int, insert~ : String)
@@ -253,9 +253,10 @@ pub enum UserIntent {
   // Structural editing (from PM or outline)
   StructuralEdit(node_id~ : NodeId, op~ : String, params~ : Map[String, String])
 
-  // Selection
+  // Selection / cursor
   SelectNode(node_id~ : NodeId)
-  SetCursor(position~ : Int)
+  SetPmCursor(pm_tree_position~ : Int)
+  SetDocCursor(doc_code_unit_offset~ : Int)
 
   // Undo/redo
   Undo
@@ -460,7 +461,8 @@ type UserIntent =
   | { type: "TextEdit"; from: number; to: number; insert: string }
   | { type: "StructuralEdit"; node_id: number; op: string; params: Record<string, string> }
   | { type: "SelectNode"; node_id: number }
-  | { type: "SetCursor"; position: number }
+  | { type: "SetPmCursor"; pm_tree_position: number }
+  | { type: "SetDocCursor"; doc_code_unit_offset: number }
   | { type: "Undo" }
   | { type: "Redo" }
   | { type: "CommitEdit"; node_id: number; value: string };
@@ -618,9 +620,9 @@ Deprecation timeline:
 2. If > 1ms: design the optimized FFI layer before Phase 1 instead of
    deferring it. If < 1ms: proceed with JSON as initial transport.
 
-### Phase 1: Protocol types + ViewUpdater (framework/protocol + editor)
+### Phase 1: Protocol types + ViewUpdater (`protocol/` + `editor/`)
 
-3. Create `framework/protocol/` package with `moon.pkg.json`
+3. Create `protocol/` package with `moon.pkg.json`
 4. Add `ViewNode`, `TokenSpan`, `ViewPatch`, `Decoration`, `Diagnostic`,
    `UserIntent` types with `fn new(...)` constructors
 5. Add custom `to_json`/`from_json` impls producing object-based JSON
@@ -628,8 +630,8 @@ Deprecation timeline:
 6. Add `proj_to_view_node` helper (ProjNode[T] + SourceMap → ViewNode),
    including Module/let_def wrapper synthesis for Lambda
 7. Add `SyncEditor::compute_view_patches` and `get_view_tree`
-8. Unit tests in `framework/protocol/` (round-trip serialization) and
-   `editor/` (patch computation for insert, delete, wrap, undo edits)
+8. Unit tests in `protocol/` (round-trip serialization) and `editor/`
+   (patch computation for insert, delete, wrap, undo edits)
 
 ### Phase 2: TS adapter library + examples/web migration
 
@@ -704,8 +706,8 @@ Break into independently testable sub-steps:
 
 ## Acceptance Criteria
 
-- [ ] `framework/protocol/` has ViewNode, ViewPatch, UserIntent types
-      with custom object-based `to_json`/`from_json`
+- [ ] `protocol/` has ViewNode, ViewPatch, UserIntent types with custom
+      object-based `to_json`/`from_json`
 - [ ] Phase 0 benchmark confirms JSON round-trip < 1ms at 100-def scale
 - [ ] `SyncEditor::compute_view_patches` returns correct patches for:
   - [ ] Single character insert/delete
