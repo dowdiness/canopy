@@ -8,7 +8,7 @@ This package is the stable contract between the MoonBit engine and the TypeScrip
 
 - `ViewNode` — tree node sent to the frontend; carries `id`, `kind_tag`, `label`, `text`, `text_range`, `token_spans`, and `children`
 - `ViewPatch` — incremental update: `TextChange`, `ReplaceNode`, `InsertChild`, `RemoveChild`, `UpdateNode`, `SetDecorations`, `SetDiagnostics`, `SetSelection`, `SelectNode`, `FullTree`
-- `UserIntent` — frontend-originated action: `TextEdit`, `StructuralEdit`, `SelectNode`, `SetCursor`, `Undo`, `Redo`, `CommitEdit`
+- `UserIntent` — frontend-originated action: `TextEdit`, `StructuralEdit`, `SelectNode`, `SetPmCursor`, `SetDocCursor`, `Undo`, `Redo`, `CommitEdit`
 - `Decoration` / `Diagnostic` / `Severity` — CodeMirror decoration and lint annotations
 - `proj_to_view_node` — converts a `ProjNode[T]` + `SourceMap` into a `ViewNode`
 - `layout_to_view_tree` — converts a pretty-printer `Layout` into a `ViewNode` tree

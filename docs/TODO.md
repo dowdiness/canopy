@@ -412,8 +412,8 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; documented in `loom/moji/grapheme.mbt` and `loom/moji/README.md`. Concrete fixes when a hot-path actually needs them: ASCII fast path in `gcb_of` (only CR/LF/Control populate `< 0x80`), drop `ch.to_string().length()` allocation in `utf16_offset_to_item_pos` (use `if ch.to_int() >= 0x10000 { 2 } else { 1 }`), and a materialise-once boundary cache for hot callers.
   Status: not blocking; cosmetic perf debt.
 
-- [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.
-  Status: not blocked on moji.
+- [x] Disambiguate cursor intent offsets — replaced generic `UserIntent.SetCursor.position` with `SetPmCursor(pm_tree_position)` and `SetDocCursor(doc_code_unit_offset)`. Naming cleanup only; no unit conversion.
+  Status: completed 2026-06-07.
 
 - [x] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics.
   Shipped 2026-06-07: implemented option (a). If splice K in a multi-change batch fails `handle_text_intent_checked` after splices 0..K-1 were applied, the bridge now calls `afterLocalEdit()` before reconciling so peers receive the valid prefix immediately. Playwright coverage in `examples/ideal/web/e2e/bridge-partial-batch.spec.ts` pins both prefix-broadcast and first-splice-failure/no-broadcast behavior.
