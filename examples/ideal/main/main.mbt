@@ -805,22 +805,18 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
 
 ///|
 fn view_peer_status(model : Model) -> Html {
-  let (dot_class, label, tone) : (String, String, @status.Tone) = match
-    model.sync_status {
-    Connected => ("peer-dot connected", "You (connected)", @status.Success)
-    Connecting => ("peer-dot connecting", "Connecting\u{2026}", @status.Info)
-    Offline =>
-      (
-        "peer-dot offline",
-        "Offline \u{2014} reconnecting\u{2026}",
-        @status.Info,
-      )
-    Error => ("peer-dot error", "Connection error", @status.Error)
+  let (label, tone) : (String, @status.Tone) = match model.sync_status {
+    Connected => ("You (connected)", @status.Success)
+    Connecting => ("Connecting\u{2026}", @status.Info)
+    Offline => ("Offline \u{2014} reconnecting\u{2026}", @status.Info)
+    Error => ("Connection error", @status.Error)
   }
-  div(class="peer-item", attrs=tone.attrs(), [
-    div(class=dot_class, attrs=@html.Attrs::build().aria_hidden("true"), [
-      text(""),
-    ]),
+  div(class=peer_item_class, attrs=tone.attrs(), [
+    div(
+      class=peer_dot_class(model.sync_status),
+      attrs=@html.Attrs::build().aria_hidden("true"),
+      [text("")],
+    ),
     span(class="peer-label", [text(label)]),
   ])
 }

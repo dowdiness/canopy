@@ -239,7 +239,7 @@ fn view_outline_node(
           view_outline_node(dispatch, child, depth + 1, model, eval_annotations)
         })
       @proj.Elided(n) =>
-        [@html.p(class="no-tree-note", "\{n} hidden descendants")]
+        [@html.p(class=no_tree_note_class, "\{n} hidden descendants")]
     }
   }
   let all : Array[Html] = [row]
@@ -394,7 +394,7 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
         ),
         [view_outline_node(dispatch, root, 0, model, eval_annotations)],
       )
-    None => @html.p(class="no-tree-note", "No AST available")
+    None => @html.p(class=no_tree_note_class, "No AST available")
   }
 }
 
