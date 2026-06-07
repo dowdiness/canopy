@@ -1,5 +1,12 @@
 # EditorProtocol — Framework-Agnostic Integration Layer
 
+**Status:** Completed and archived. The current protocol source of truth is
+[`protocol/README.md`](../../protocol/README.md), the MoonBit implementation in
+[`protocol/`](../../protocol/), and the TypeScript mirror in
+[`adapters/editor-adapter/types.ts`](../../adapters/editor-adapter/types.ts).
+This plan is historical and may describe implementation details as they existed
+when the protocol layer was designed.
+
 ## Why
 
 The examples/ apps duplicate heavy TypeScript logic that MoonBit already knows

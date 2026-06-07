@@ -36,7 +36,7 @@ unit:
 - **ProseMirror tree position** — an offset in the ProseMirror document tree.
   It is not a source-text offset.
 
-PR #555 replaced `UserIntent.SetCursor(position)` with separate cursor intents
+PR #555 replaced the old generic cursor intent with separate cursor intents
 so these units stay separate.
 
 | Field | Direction | Unit | Meaning |

@@ -39,6 +39,16 @@ LOG
     fi
     echo "fake moon: update succeeded"
     ;;
+  registry-clone-always-transient)
+    cat >&2 <<'LOG'
+Error: update failed
+
+Caused by:
+    0: failed to clone registry index
+    1: non-zero exit code: exit status: 128
+LOG
+    exit 255
+    ;;
   deterministic-missing-package)
     cat >&2 <<'LOG'
 Error: update failed
@@ -87,6 +97,19 @@ assert_eq "$(cat "$transient_attempts")" "2" "transient registry clone should re
 grep -q "transient registry/CDN/network failure" "$transient_output" || {
   echo "error: transient retry message missing" >&2
   cat "$transient_output" >&2
+  exit 1
+}
+
+exhausted_attempts="$tmp_dir/exhausted-attempts"
+exhausted_output="$tmp_dir/exhausted-output.log"
+if run_wrapper registry-clone-always-transient "$exhausted_attempts" "$exhausted_output"; then
+  echo "error: exhausted transient registry clone unexpectedly succeeded" >&2
+  exit 1
+fi
+assert_eq "$(cat "$exhausted_attempts")" "3" "transient registry clone should stop at max attempts"
+grep -q "setup/network failure persisted" "$exhausted_output" || {
+  echo "error: exhausted transient failure did not report setup/network failure" >&2
+  cat "$exhausted_output" >&2
   exit 1
 }
 
