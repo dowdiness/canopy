@@ -441,7 +441,7 @@ fn source_delete_surviving_selection_bindings(
 ) -> Array[String] {
   let bindings : Array[String] = []
   for node_id in interaction.selected_nodes {
-    if !@graph_model.node_id_in_array(deleted, node_id) {
+    if !deleted.iter().any(fn(deleted_id) { deleted_id == node_id }) {
       match graph_node_for_canvas_id(doc, node_id) {
         Some(node) => append_unique_string(bindings, node.binding())
         None => ()

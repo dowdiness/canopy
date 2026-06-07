@@ -1,5 +1,5 @@
 ///|
-pub const GRAPH_OPERATION_VERSION : Int = 1
+const GRAPH_OPERATION_VERSION : Int = 1
 
 ///|
 /// Integer ID for graph nodes in the canvas model.
@@ -621,25 +621,6 @@ pub fn make_workflow_node(
 }
 
 ///|
-pub fn workflow_node_kind_from_key(key : String) -> WorkflowNodeKind {
-  if key == "timer" {
-    TimerTrigger
-  } else if key == "http" {
-    HttpRequest
-  } else if key == "formatter" {
-    DataFormatter
-  } else if key == "condition" {
-    ConditionalBranch
-  } else if key == "loop" {
-    Loop
-  } else if key == "parallel" {
-    Parallel
-  } else {
-    Custom("Custom step")
-  }
-}
-
-///|
 pub fn empty_interaction() -> InteractionState {
   {
     dragging: None,
@@ -676,7 +657,7 @@ pub fn find_position(
 }
 
 ///|
-pub fn node_id_in_array(nodes : Array[NodeId], id : NodeId) -> Bool {
+fn node_id_in_array(nodes : Array[NodeId], id : NodeId) -> Bool {
   nodes.iter().any(fn(n) { n == id })
 }
 
@@ -829,7 +810,7 @@ fn delete_nodes_from_state(
 }
 
 ///|
-pub fn set_selection(state : CanvasState, nodes : Array[NodeId]) -> CanvasState {
+fn set_selection(state : CanvasState, nodes : Array[NodeId]) -> CanvasState {
   let selected = if nodes.length() == 0 { None } else { Some(nodes[0]) }
   let new_interaction : InteractionState = {
     ..state.interaction,

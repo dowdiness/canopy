@@ -2,7 +2,7 @@
 package "dowdiness/canopy-canvas/main"
 
 import {
-  "dowdiness/canopy-canvas/graph_model",
+  "dowdiness/canopy-canvas-graph/graph_model",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }

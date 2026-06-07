@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/canopy-canvas/graph_model"
+package "dowdiness/canopy-canvas-graph/graph_model"
 
 import {
   "moonbitlang/core/debug",
@@ -7,8 +7,6 @@ import {
 }
 
 // Values
-pub const GRAPH_OPERATION_VERSION : Int = 1
-
 pub fn apply_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn apply_operation(CanvasState, GraphOperation) -> CanvasState
@@ -23,8 +21,6 @@ pub fn find_position(Array[NodePosition], NodeId) -> NodePosition?
 
 pub fn make_workflow_node(NodeId, WorkflowNodeKind, Double, Double) -> CanvasNode
 
-pub fn node_id_in_array(Array[NodeId], NodeId) -> Bool
-
 pub fn port(String, String, PortType) -> PortDef
 
 pub fn port_type_by_id(Array[PortDef], String) -> PortType?
@@ -32,10 +28,6 @@ pub fn port_type_by_id(Array[PortDef], String) -> PortType?
 pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
-
-pub fn set_selection(CanvasState, Array[NodeId]) -> CanvasState
-
-pub fn workflow_node_kind_from_key(String) -> WorkflowNodeKind
 
 // Errors
 

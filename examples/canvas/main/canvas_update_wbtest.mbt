@@ -111,10 +111,10 @@ test "node_drag_start records offsets for the dragged node" {
 
 ///|
 test "node_drag_start includes all selected nodes for multi-drag" {
-  let state = @graph_model.set_selection(make_test_state(), [
-    NodeId(1),
-    NodeId(2),
-  ])
+  let state = @graph_model.apply_action(
+    make_test_state(),
+    SelectNodes([NodeId(1), NodeId(2)]),
+  )
   let s = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
   assert_eq(d.origins.length(), 2)
@@ -173,7 +173,10 @@ test "pointer_up on node without movement selects it" {
 
 ///|
 test "additive click toggles multi-selection" {
-  let state = @graph_model.set_selection(make_test_state(), [NodeId(1)])
+  let state = @graph_model.apply_action(
+    make_test_state(),
+    SelectNodes([NodeId(1)]),
+  )
   let s0 = update_node_drag_start(state, NodeId(2), 420.0, 100.0)
   let s1 = update_pointer_up(s0, 2, "", true)
   @debug.assert_eq(s1.interaction.selected_nodes, [NodeId(1), NodeId(2)])
@@ -184,7 +187,10 @@ test "additive click toggles multi-selection" {
 
 ///|
 test "pointer_up on background deselects" {
-  let state = @graph_model.set_selection(make_test_state(), [NodeId(1)])
+  let state = @graph_model.apply_action(
+    make_test_state(),
+    SelectNodes([NodeId(1)]),
+  )
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, 0, "", false)
   inspect(s1.interaction.selected is None, content="true")

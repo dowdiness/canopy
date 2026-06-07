@@ -6,6 +6,10 @@
       "path": "../../loom/examples/graph-dsl",
       "version": "0.1.0"
     },
+    "dowdiness/canopy-canvas-graph": {
+      "path": "../../lib/canvas-graph",
+      "version": "0.1.0"
+    },
     "dowdiness/incr": "0.8.0",
     "dowdiness/rabbita-context-menu": {
       "path": "../../lib/context-menu",
