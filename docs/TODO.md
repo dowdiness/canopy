@@ -415,8 +415,8 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.
   Status: not blocked on moji.
 
-- [ ] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics. Today: if splice K in a multi-change batch fails the `handle_text_intent_checked` bounds check, splices 0..K-1 stay applied to the CRDT but skip the immediate `afterLocalEdit()` broadcast — they ride the next successful edit's `export_since_json` delta. Pre-existing behavior preserved by #246, flagged by Codex on that PR. Options: (a) call `afterLocalEdit()` if anything was applied, broadcasting the valid prefix immediately; (b) make batches atomic with a snapshot/rollback API; (c) leave as-is and document. Prefer (a) — minimal change, removes the cross-replica gap.
-  Status: not blocked on moji.
+- [x] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics.
+  Shipped 2026-06-07: implemented option (a). If splice K in a multi-change batch fails `handle_text_intent_checked` after splices 0..K-1 were applied, the bridge now calls `afterLocalEdit()` before reconciling so peers receive the valid prefix immediately. Playwright coverage in `examples/ideal/web/e2e/bridge-partial-batch.spec.ts` pins both prefix-broadcast and first-splice-failure/no-broadcast behavior.
 
 ---
 
