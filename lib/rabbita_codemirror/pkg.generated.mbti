@@ -6,12 +6,13 @@ import {
   "dowdiness/rabbita_codemirror/addon/theme",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/sub",
+  "moonbitlang/core/debug",
 }
 
 // Values
 pub fn insert(String, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
-pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool]) -> @sub.Sub
+pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool], on_change? : @cmd.Emit[Array[ChangeDelta]]) -> @sub.Sub
 
 pub fn mount(String, String, init_doc? : String, source? : String, initial_theme? : @theme.Theme?, initial_readonly? : Bool, initial_keymap? : @keymap.Keymap?, initial_line_numbers? : Bool, initial_line_wrapping? : Bool, on_mounted? : @cmd.Cmd, failed? : @cmd.Emit[String], initial_extension? : ((@moonbit-community/rabbita/js.Value) -> @dowdiness/rabbita_codemirror/js.Extension raise)?) -> @cmd.Cmd
 
@@ -38,6 +39,13 @@ pub fn unmount(String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 // Errors
 
 // Types and methods
+pub struct ChangeDelta {
+  from : Int
+  to : Int
+  insert : String
+} derive(Eq, @debug.Debug)
+pub fn ChangeDelta::new(Int, Int, String) -> Self
+
 pub struct SelRange {
   from : Int
   to : Int

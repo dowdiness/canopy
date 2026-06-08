@@ -342,8 +342,9 @@ extern "js" fn js_add_update_listener_raw(
   on_doc : (@js_value.Value) -> Unit,
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
+  on_changes : (@js_value.Value) -> Unit,
 ) -> () -> Unit =
-  #| (view, compartment, onDoc, onSelection, onFocusChange) => {
+  #| (view, compartment, onDoc, onSelection, onFocusChange, onChanges) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
   #|   const slot = globalThis[key];
   #|   const cm = view._cmModule;
@@ -354,6 +355,13 @@ extern "js" fn js_add_update_listener_raw(
   #|   const listener = cm.EditorView.updateListener.of(update => {
   #|     if (update.docChanged && !isApplying()) {
   #|       onDoc(update.state.doc.toString());
+  #|     }
+  #|     if (update.docChanged && !isApplying()) {
+  #|       const deltas = [];
+  #|       update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+  #|         deltas.push({ from: fromA, to: toA, insert: inserted.toString() });
+  #|       });
+  #|       onChanges(deltas);
   #|     }
   #|     if ((update.selectionSet || update.docChanged) && !isApplying()) {
   #|       const sel = update.state.selection.main;
@@ -404,6 +412,7 @@ pub fn js_add_update_listener(
   on_doc : (@js_value.Value) -> Unit,
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
+  on_changes : (@js_value.Value) -> Unit,
 ) -> Disposable {
   Disposable(
     js_add_update_listener_raw(
@@ -412,6 +421,7 @@ pub fn js_add_update_listener(
       on_doc,
       on_selection,
       on_focus_change,
+      on_changes,
     ),
   )
 }

@@ -26,6 +26,31 @@ pub fn SelRange::new(from : Int, to : Int) -> SelRange {
 }
 
 ///|
+/// A single replaced range within one CodeMirror transaction, expressed in
+/// the coordinates of the document *before* the transaction was applied.
+///
+/// This mirrors the `(fromA, toA, inserted)` triple CodeMirror's
+/// `ChangeSet.iterChanges` yields: `[from, to)` is the replaced span in the
+/// pre-transaction document (UTF-16 code units) and `insert` is the
+/// replacement text. Deletions carry an empty `insert`; pure insertions carry
+/// `from == to`.
+///
+/// The type is deliberately CodeMirror-agnostic of any downstream edit model:
+/// consumers translate an ordered `Array[ChangeDelta]` into whatever
+/// sequential edit representation their document store expects.
+pub struct ChangeDelta {
+  from : Int
+  to : Int
+  insert : String
+} derive(Eq, Debug)
+
+///|
+/// Construct a `ChangeDelta` from a pre-transaction span and its replacement.
+pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
+  { from, to, insert }
+}
+
+///|
 #cfg(target="js")
 priv struct CmEntry {
   view : @js_ffi.CmView
@@ -49,7 +74,8 @@ priv suberror CmSubscription {
     String,
     doc~ : @cmd.Emit[String]?,
     selection~ : @cmd.Emit[SelRange]?,
-    focus~ : @cmd.Emit[Bool]?
+    focus~ : @cmd.Emit[Bool]?,
+    changes~ : @cmd.Emit[Array[ChangeDelta]]?
   )
 }
 
@@ -164,7 +190,9 @@ fn no_op_update_listener(
   view : @js_ffi.CmView,
   compartment : @js_ffi.Compartment,
 ) -> @js_ffi.Disposable {
-  @js_ffi.js_add_update_listener(view, compartment, _ => (), _ => (), _ => ())
+  @js_ffi.js_add_update_listener(view, compartment, _ => (), _ => (), _ => (), _ => {
+    ()
+  })
 }
 
 ///|
@@ -227,6 +255,21 @@ fn selection_from_value(value : @js_value.Value) -> SelRange {
 }
 
 ///|
+/// Decode the JS `[{ from, to, insert }, ...]` array produced by the update
+/// listener's `iterChanges` walk into an ordered `Array[ChangeDelta]`.
+#cfg(target="js")
+fn change_deltas_from_value(value : @js_value.Value) -> Array[ChangeDelta] {
+  let items : Array[@js_value.Value] = value.cast()
+  items.map(fn(item) {
+    ChangeDelta::new(
+      item.get_with_string("from"),
+      item.get_with_string("to"),
+      item.get_with_string("insert"),
+    )
+  })
+}
+
+///|
 #cfg(target="js")
 fn reconfigure(
   view : @js_ffi.CmView,
@@ -284,8 +327,9 @@ fn build_listen_key(
   has_doc : Bool,
   has_selection : Bool,
   has_focus : Bool,
+  has_changes : Bool,
 ) -> String {
-  "codemirror.listen(id=\{id},doc=\{has_doc},selection=\{has_selection},focus=\{has_focus})"
+  "codemirror.listen(id=\{id},doc=\{has_doc},selection=\{has_selection},focus=\{has_focus},changes=\{has_changes})"
 }
 
 ///|
@@ -295,12 +339,13 @@ fn cm_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CmListen(id, doc~, selection~, focus~) => {
+    CmListen(id, doc~, selection~, focus~, changes~) => {
       guard editors.get(id) is Some(entry) else { return None }
 
       let mut doc_tagger = doc
       let mut selection_tagger = selection
       let mut focus_tagger = focus
+      let mut changes_tagger = changes
 
       fn on_doc(value : @js_value.Value) {
         guard doc_tagger is Some(msg) else { return }
@@ -314,6 +359,10 @@ fn cm_sub_loader(
         guard focus_tagger is Some(msg) else { return }
         scheduler.add(msg(value.cast()))
       }
+      fn on_changes(value : @js_value.Value) {
+        guard changes_tagger is Some(msg) else { return }
+        scheduler.add(msg(change_deltas_from_value(value)))
+      }
 
       entry.update_disposable.dispose()
       let disposable = @js_ffi.js_add_update_listener(
@@ -322,16 +371,20 @@ fn cm_sub_loader(
         on_doc,
         on_selection,
         on_focus,
+        on_changes,
       )
       editors[id] = { ..entry, update_disposable: disposable }
 
       Some({
         unload: fn(_) { disposable.dispose() },
         update_tagger: fn(payload) {
-          guard payload is CmListen(_, doc~, selection~, focus~) else { return }
+          guard payload is CmListen(_, doc~, selection~, focus~, changes~) else {
+            return
+          }
           doc_tagger = doc
           selection_tagger = selection
           focus_tagger = focus
+          changes_tagger = changes
         },
       })
     }
@@ -629,24 +682,32 @@ pub fn set_line_wrapping(
 }
 
 ///|
-/// Subscribe to CodeMirror document, selection, and focus changes.
+/// Subscribe to CodeMirror document, selection, focus, and per-change changes.
+///
+/// `on_change` is additive: it delivers every replaced range of a transaction
+/// as an ordered `Array[ChangeDelta]` in pre-transaction coordinates, leaving
+/// the existing whole-document `doc` callback untouched. A consumer that only
+/// wants the post-change text keeps using `doc`; one that needs to replay the
+/// transaction as discrete edits subscribes to `on_change`.
 #cfg(target="js")
 pub fn listen(
   id : String,
   doc? : @cmd.Emit[String],
   selection? : @cmd.Emit[SelRange],
   focus? : @cmd.Emit[Bool],
+  on_change? : @cmd.Emit[Array[ChangeDelta]],
 ) -> @sub.Sub {
   let has_doc = doc is Some(_)
   let has_selection = selection is Some(_)
   let has_focus = focus is Some(_)
+  let has_changes = on_change is Some(_)
 
-  guard has_doc || has_selection || has_focus else { @sub.none }
-  let key = build_listen_key(id, has_doc, has_selection, has_focus)
+  guard has_doc || has_selection || has_focus || has_changes else { @sub.none }
+  let key = build_listen_key(id, has_doc, has_selection, has_focus, has_changes)
   @sub.custom_sub(
     key,
     Local,
-    CmListen(id, doc~, selection~, focus~),
+    CmListen(id, doc~, selection~, focus~, changes=on_change),
     cm_sub_loader,
   )
 }
