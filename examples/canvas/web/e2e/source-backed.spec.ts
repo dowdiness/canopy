@@ -24,6 +24,29 @@ function edgePaths(page: Page): Locator {
   return page.locator('#edges path.edge');
 }
 
+// The source panel renders a CodeMirror editor (contenteditable), not a
+// textarea. Read its document by joining the rendered `.cm-line` divs with
+// newlines, normalizing the NBSPs CodeMirror uses for runs of spaces.
+async function cmText(page: Page): Promise<string> {
+  const lines = await page.locator('#source-editor-cm .cm-line').allTextContents();
+  return lines.map((line) => line.replace(/ /g, ' ')).join('\n');
+}
+
+// CodeMirror updates asynchronously (mount, set_doc echo, the 250ms graph
+// poll), so poll the document rather than reading it once.
+async function expectSource(page: Page, expected: string): Promise<void> {
+  await expect.poll(() => cmText(page)).toBe(expected);
+}
+
+// Replace the whole CodeMirror document, the way a user select-all + paste
+// would: the resulting transaction flows through `listen(on_change=...)` and
+// lowers into graph-dsl source.
+async function setSource(page: Page, text: string): Promise<void> {
+  await page.locator('#source-editor-cm .cm-content').click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.insertText(text);
+}
+
 async function center(locator: Locator, label: string): Promise<Point> {
   const box = await locator.boundingBox();
   if (!box) {
@@ -84,7 +107,7 @@ test('source-backed node drag updates local layout without mutating source', asy
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
   const node = page.locator('.canvas-node[data-node-id="1"]');
   const before = await center(node, 'source-backed node');
@@ -93,7 +116,7 @@ test('source-backed node drag updates local layout without mutating source', asy
 
   expect(after.x - before.x).toBeGreaterThan(60);
   expect(after.y - before.y).toBeGreaterThan(20);
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
@@ -102,15 +125,13 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
   await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
@@ -127,9 +148,7 @@ test('source-backed inspector rename lowers to canonical source and references',
 
   await page.goto('/?source=1');
   await page.locator('#source-connect').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
   await selectSourceNode(page, 1);
   const renameInput = page.locator('#node-rename-input');
@@ -137,9 +156,7 @@ test('source-backed inspector rename lowers to canonical source and references',
   await renameInput.fill('lfo');
   await renameInput.press('Enter');
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)',
-  );
+  await expectSource(page, 'lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)');
   await expect(page.locator('.canvas-node[data-node-id="1"] .node-title')).toHaveText('lfo');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
@@ -154,7 +171,7 @@ test('source-backed inspector numeric parameter edit lowers to canonical source'
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
   await selectSourceNode(page, 1);
   const freqInput = page.locator('#node-param-freq');
@@ -162,9 +179,7 @@ test('source-backed inspector numeric parameter edit lowers to canonical source'
   await freqInput.fill('880');
   await freqInput.press('Enter');
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 880Hz)\nmeter = scope()',
-  );
+  await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
   await expect(page.locator('#source-status')).toContainText(
     'Updated freq through graph-dsl source.',
@@ -177,21 +192,19 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
   await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
   await expect(edgePaths(page)).toHaveCount(1);
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
   await clickEdge(page, 0);
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Backspace');
 
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(edgePaths(page)).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
@@ -206,14 +219,14 @@ test('source-backed selected node deletion lowers into canonical source', async 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
   const meter = page.locator('.canvas-node[data-node-id="2"]');
   await meter.click();
   await expect(meter).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
 
-  await expect(page.locator('#source-editor')).toHaveValue('osc = sine(freq: 440Hz)');
+  await expectSource(page, 'osc = sine(freq: 440Hz)');
   await expect(page.locator('.canvas-node')).toHaveCount(1);
   await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
@@ -225,18 +238,14 @@ test('source-backed deletion rejects unsafe survivor references', async ({ page 
 
   await page.goto('/?source=1');
   await page.locator('#source-connect').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
   const osc = page.locator('.canvas-node[data-node-id="1"]');
   await osc.click();
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
   await expect(page.locator('#source-status')).toContainText('Source delete rejected:');
@@ -249,7 +258,7 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
 
   await page.goto('/?source=1');
   await page.locator('.canvas-node[data-node-id="2"]').click();
-  await page.locator('#source-editor').focus();
+  await page.locator('#source-editor-cm .cm-content').focus();
   await page.keyboard.press('Backspace');
 
   await expect(page.locator('.canvas-node')).toHaveCount(2);
@@ -262,13 +271,13 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
     const runtimeErrors = collectRuntimeErrors(page);
 
     await page.goto('/?source=1');
-    await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+    await expectSource(page, SAMPLE_SOURCE);
     await expect(page.locator('.canvas-node')).toHaveCount(2);
 
-    await page.locator('#source-editor').fill(invalidSource.source);
+    await setSource(page, invalidSource.source);
     await page.locator('#source-apply').click();
 
-    await expect(page.locator('#source-editor')).toHaveValue(invalidSource.source);
+    await expectSource(page, invalidSource.source);
     await expect(page.locator('.canvas-node')).toHaveCount(2);
     await expect(page.locator('#edges path.edge')).toHaveCount(0);
     await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
@@ -293,26 +302,26 @@ test('source-backed mode mutates canonical source and render state together', as
 
   await expect(page.locator('#source-panel')).toBeVisible();
   await expect(page.locator('#source-mode-toggle')).toHaveText('Return to canvas runtime');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#edges path.edge')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   await page.locator('#source-connect').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
 
   await page.locator('#source-insert').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
+  await expectSource(
+    page,
     'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()',
   );
   await expect(page.locator('.canvas-node')).toHaveCount(3);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
 
-  await page.locator('#source-editor').fill(
+  await setSource(
+    page,
     'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()\ntap = scope(input: reverb)',
   );
   await page.locator('#source-apply').click();

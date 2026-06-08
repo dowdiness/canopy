@@ -2,7 +2,7 @@
 using @rabbita {type Cmd, type Emit, type Html}
 
 ///|
-using @html {a, aside, button, div, h2, nothing, p, span, textarea, text}
+using @html {a, aside, button, div, h2, nothing, p, span, text}
 
 ///|
 #cfg(target="js")
@@ -31,27 +31,38 @@ fn js_source_mode_url(enabled : Bool) -> String {
 struct SourceDemoModel {
   handle : Int
   editor : String
+  // `dirty` is true while the CodeMirror buffer diverges from the graph's
+  // canonical source — i.e. the user has typed edits that have not (or could
+  // not) be lowered. It gates `SyncFromGraph` so the periodic graph→editor
+  // push never clobbers in-progress (possibly transiently-invalid) typing.
   dirty : Bool
+  mounted : Bool
   status : String
   status_tone : @status.Tone
   on_change : () -> Unit
 }
 
 ///|
-/// Element id of the source-panel CodeMirror editor. The editor itself is
-/// mounted as a separate piece of work; `source_demo_subscriptions` already
-/// listens for its per-change deltas so the lowering path is exercised end to
-/// end the moment a view is attached to this id.
+/// Element id of the source-panel CodeMirror editor. It serves as both the
+/// host DOM element id (the `view` renders an empty `div` with this id) and the
+/// binding's logical editor id, so `mount` and `listen` address the same view.
 const SOURCE_CM_EDITOR_ID = "source-editor-cm"
 
 ///|
 enum SourceDemoMsg {
-  EditorChanged(String)
+  // Full post-change CodeMirror document; tracks the editor's text so `Apply`
+  // and `SyncFromGraph` reason against what the user actually sees, even when
+  // a change was rolled back by the graph.
+  EditorSynced(String)
+  // Ordered per-change deltas of one CodeMirror transaction; lowered into the
+  // graph-dsl source through `apply_edit`.
   SourceChanged(Array[@codemirror.ChangeDelta])
   ApplySource
   ConnectSample
   InsertReverb
   SyncFromGraph
+  Mounted
+  MountFailed(String)
 }
 
 ///|
@@ -80,6 +91,25 @@ fn source_demo_notify(model : SourceDemoModel) -> Cmd {
 }
 
 ///|
+/// Mount the source-panel CodeMirror editor into the `SOURCE_CM_EDITOR_ID`
+/// host and report readiness through `Mounted`. The per-change `listen`
+/// subscription only attaches once `mounted` is true, because the binding's
+/// sub loader is a no-op until the editor exists in its registry.
+fn mount_source_cm_cmd(
+  emit : Emit[SourceDemoMsg],
+  model : SourceDemoModel,
+) -> Cmd {
+  @codemirror.mount(
+    SOURCE_CM_EDITOR_ID,
+    SOURCE_CM_EDITOR_ID,
+    init_doc=model.editor,
+    source="global:__canopy_codemirror",
+    on_mounted=emit(Mounted),
+    failed=emit.map(message => MountFailed(message)),
+  )
+}
+
+///|
 fn source_demo_status_from_result(
   result : SourceGraphOperationResultJson,
   success_message : String,
@@ -102,14 +132,38 @@ fn source_demo_status_from_result(
 }
 
 ///|
+/// Fold a graph-side operation result (Connect / Insert / Apply) into the next
+/// command and model. On success the canonical `result.source` is pushed back
+/// into CodeMirror via `set_doc` (echo-suppressed, skip-equal) and the editor
+/// is marked clean; on rejection the editor keeps the user's text and stays
+/// dirty so the canvas continues rendering the last-good graph.
+fn source_demo_result_step(
+  model : SourceDemoModel,
+  result : SourceGraphOperationResultJson,
+  status : String,
+  status_tone : @status.Tone,
+) -> (Cmd, SourceDemoModel) {
+  if result.applied {
+    (
+      @rabbita.batch([
+        source_demo_notify(model),
+        @codemirror.set_doc(SOURCE_CM_EDITOR_ID, result.source),
+      ]),
+      { ..model, editor: result.source, dirty: false, status, status_tone },
+    )
+  } else {
+    (source_demo_notify(model), { ..model, dirty: true, status, status_tone })
+  }
+}
+
+///|
 fn source_demo_update(
   _emit : Emit[SourceDemoMsg],
   msg : SourceDemoMsg,
   model : SourceDemoModel,
 ) -> (Cmd, SourceDemoModel) {
   match msg {
-    EditorChanged(source) =>
-      (@rabbita.none, { ..model, editor: source, dirty: true })
+    EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
     SourceChanged(changes) => {
       let result = apply_source_graph_codemirror_changes(model.handle, changes)
       let success_message = "Editor changes lowered into graph-dsl source."
@@ -117,9 +171,13 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, failure_prefix,
       )
+      // The edit originates in CodeMirror, which already holds the user's text,
+      // so never push it back here (a transiently-invalid keystroke rolled back
+      // to last-good would otherwise revert in-progress typing). `EditorSynced`
+      // keeps `editor` current; we only record validity through `dirty`.
       (
         source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, status_tone },
+        { ..model, dirty: !result.applied, status, status_tone },
       )
     }
     ApplySource => {
@@ -129,10 +187,7 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, failure_prefix,
       )
-      (
-        source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, status_tone },
-      )
+      source_demo_result_step(model, result, status, status_tone)
     }
     ConnectSample => {
       let result = source_graph_connect_sample_result(model.handle)
@@ -140,10 +195,7 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
-      (
-        source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, status_tone },
-      )
+      source_demo_result_step(model, result, status, status_tone)
     }
     InsertReverb => {
       let result = source_graph_insert_unique_result(
@@ -155,12 +207,11 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
-      (
-        source_demo_notify(model),
-        { ..model, editor: result.source, dirty: false, status, status_tone },
-      )
+      source_demo_result_step(model, result, status, status_tone)
     }
     SyncFromGraph => {
+      // Keep out of the way while the editor holds unapplied edits, so the
+      // periodic poll never overwrites in-progress typing.
       if model.dirty {
         return (@rabbita.none, model)
       }
@@ -169,7 +220,7 @@ fn source_demo_update(
         (@rabbita.none, model)
       } else {
         (
-          @rabbita.none,
+          @codemirror.set_doc(SOURCE_CM_EDITOR_ID, source),
           {
             ..model,
             editor: source,
@@ -179,26 +230,35 @@ fn source_demo_update(
         )
       }
     }
+    Mounted => (@rabbita.none, { ..model, mounted: true })
+    MountFailed(message) =>
+      (
+        @rabbita.none,
+        {
+          ..model,
+          mounted: false,
+          status: "CodeMirror failed to mount: " + message,
+          status_tone: @status.Error,
+        },
+      )
   }
 }
 
 ///|
 fn source_demo_subscriptions(
   emit : Emit[SourceDemoMsg],
-  _model : SourceDemoModel,
+  model : SourceDemoModel,
 ) -> @sub.Sub {
-  @sub.batch([
-    @sub.every(250, emit(SyncFromGraph)),
+  let cm_listen = if model.mounted {
     @codemirror.listen(
       SOURCE_CM_EDITOR_ID,
+      doc=emit.map(source => EditorSynced(source)),
       on_change=emit.map(changes => SourceChanged(changes)),
-    ),
-  ])
-}
-
-///|
-fn source_textarea_attrs() -> @html.Attrs {
-  @html.Attrs::build().spellcheck(false).aria_label("Graph DSL source")
+    )
+  } else {
+    @sub.none
+  }
+  @sub.batch([@sub.every(250, emit(SyncFromGraph)), cm_listen])
 }
 
 ///|
@@ -212,12 +272,11 @@ fn source_demo_view(
     attrs=@html.Attrs::build().aria_label("Graph DSL source"),
     [
       div(class="panel-title", [h2("Graph source"), span("Canonical DSL")]),
-      textarea(
-        id="source-editor",
-        class="source-editor",
-        value=model.editor,
-        on_input=emit.map(source => EditorChanged(source)),
-        attrs=source_textarea_attrs(),
+      // CodeMirror mounts into this host imperatively; the `nothing` child
+      // keeps rabbita's vdom from reconciling (and clearing) the editor DOM.
+      div(
+        id=SOURCE_CM_EDITOR_ID,
+        class="source-editor source-editor-cm",
         nothing,
       ),
       div(class="source-actions", [
@@ -252,6 +311,7 @@ fn source_demo_view(
 }
 
 ///|
+#warnings("-alert_unstable")
 #cfg(target="js")
 pub fn mount_source_demo(
   handle : Int,
@@ -266,16 +326,18 @@ pub fn mount_source_demo(
     handle,
     editor: get_source_graph_source(handle),
     dirty: false,
+    mounted: false,
     status: "Source mode active: operations lower into graph-dsl text.",
     status_tone: @status.Info,
     on_change,
   }
-  @rabbita.new(
-    @rabbita.cell(
-      model~,
-      update=source_demo_update,
-      view=source_demo_view,
-      subscriptions=source_demo_subscriptions,
-    ),
-  ).mount("source-panel-root")
+  let (emit, cell) = @rabbita.cell_with_emit(
+    model~,
+    update=source_demo_update,
+    view=source_demo_view,
+    subscriptions=source_demo_subscriptions,
+  )
+  @rabbita.new(cell)
+  ..with_init(mount_source_cm_cmd(emit, model))
+  .mount("source-panel-root")
 }

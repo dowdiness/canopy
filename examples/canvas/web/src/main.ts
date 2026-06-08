@@ -1,3 +1,6 @@
+import * as cmCommands from '@codemirror/commands';
+import * as cmState from '@codemirror/state';
+import * as cmView from '@codemirror/view';
 import {
   GraphAdapter,
   type CanvasModule,
@@ -385,7 +388,6 @@ function commitSourceRename(nodeId: number, currentName: string, nextName: strin
   if (trimmed === currentName || trimmed.length === 0) return;
   const result = adapter.renameNode(nodeId, trimmed);
   if (!result) return;
-  syncSourceEditorFromResult(result);
   updateSourceOperationStatus(
     result,
     'Renamed node binding through graph-dsl source.',
@@ -404,7 +406,6 @@ function commitSourceParam(
   if (trimmed === param.value || trimmed.length === 0) return;
   const result = adapter.setNodeParam(nodeId, param.name, trimmed);
   if (!result) return;
-  syncSourceEditorFromResult(result);
   updateSourceOperationStatus(
     result,
     `Updated ${param.name} through graph-dsl source.`,
@@ -699,12 +700,6 @@ function updateSourceOperationStatus(
     : `${failurePrefix}: ${sourceOperationDetail(result)}`;
 }
 
-function syncSourceEditorFromResult(result: SourceGraphOperationResult): void {
-  if (!result.applied) return;
-  const editor = document.getElementById('source-editor') as HTMLTextAreaElement | null;
-  if (editor) editor.value = result.source;
-}
-
 function disconnectEdge(edge: EdgeData): boolean {
   const result = adapter.disconnectPorts(
     edge.source,
@@ -713,7 +708,6 @@ function disconnectEdge(edge: EdgeData): boolean {
     edge.target_port,
   );
   if (result) {
-    syncSourceEditorFromResult(result);
     updateSourceOperationStatus(
       result,
       'Disconnected selected edge through graph-dsl source.',
@@ -745,7 +739,6 @@ function deleteSelectedNodes(): boolean {
   if (selectedNodes.length === 0) return false;
   const result = adapter.deleteNodes(selectedNodes);
   if (result) {
-    syncSourceEditorFromResult(result);
     updateSourceOperationStatus(
       result,
       'Deleted selected nodes through graph-dsl source.',
@@ -1046,7 +1039,15 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   return mb as SourceDemoModule;
 }
 
+// The source-panel CodeMirror editor loads via `mount(source="global:…")`,
+// so bundle the CM6 namespace and publish it before the MoonBit module mounts.
+// This keeps the editor deterministic and offline (no esm.sh fetch at runtime).
+const canopyGlobal = globalThis as typeof globalThis & {
+  __canopy_codemirror?: Record<string, unknown>;
+};
+
 async function init(): Promise<void> {
+  canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
   const mod = await import('@moonbit/canopy-canvas') as CanvasModule;
   const sourceDemoModule = requireSourceDemoModule(mod);
   const sourceMode = sourceDemoRequested();
