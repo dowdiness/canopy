@@ -548,10 +548,10 @@ fn SourceBackedGraph::append_operation(
 }
 
 ///|
-fn source_delete_surviving_selection_bindings(
+fn source_selected_node_bindings(
   doc : @graph_dsl.GraphDoc,
   interaction : InteractionState,
-  deleted : Array[NodeId],
+  deleted? : Array[NodeId] = [],
 ) -> Array[String] {
   let bindings : Array[String] = []
   for node_id in interaction.selected_nodes {
@@ -914,8 +914,7 @@ fn set_source_graph_source_checked(
       )
   }
   let selection_bindings = match source_graph_doc_for_render(graph) {
-    Some(doc) =>
-      source_delete_surviving_selection_bindings(doc, graph.interaction, [])
+    Some(doc) => source_selected_node_bindings(doc, graph.interaction)
     None => []
   }
   graph.source = source
@@ -1064,11 +1063,7 @@ pub fn apply_source_graph_operation(
   }
   let survivor_selection_bindings = match operation.action() {
     DeleteNodes(deleted) =>
-      source_delete_surviving_selection_bindings(
-        doc,
-        graph.interaction,
-        deleted,
-      )
+      source_selected_node_bindings(doc, graph.interaction, deleted~)
     _ => []
   }
   let lowered = match lower_source_operation(doc, operation) {

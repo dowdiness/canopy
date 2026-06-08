@@ -526,6 +526,9 @@ test "source-backed source edit clears selection when binding is removed" {
 }
 
 ///|
+/// Guards the invalid-source branch of `set_source_graph_source_checked`:
+/// selection must NOT be remapped when reparse fails, because render falls
+/// back to the last-good doc whose order still matches the stored numeric ids.
 test "source-backed source edit keeps selection while source is invalid" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
   let handle = create_source_graph(source)
@@ -535,6 +538,72 @@ test "source-backed source edit keeps selection while source is invalid" {
   @debug.assert_eq(
     render_selected_nodes(get_source_graph_render_state(handle)),
     [2],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed source edit preserves index-0 survivor when later binding removed" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 1, 0.0, 0.0)
+  source_graph_pointer_up(handle, 1, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [1],
+  )
+  set_source_graph_source(handle, "osc = sine(freq: 440Hz)")
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [1],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed source reorder that drops the selected node clears selection" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()\nreverb = plate()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 2, 0.0, 0.0)
+  source_graph_pointer_up(handle, 2, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
+  // Reorder the survivors and drop the selected binding (meter) in one edit.
+  set_source_graph_source(handle, "reverb = plate()\nosc = sine(freq: 440Hz)")
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed source reorder preserves multi-selection order by binding" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()\nreverb = plate()"
+  let handle = create_source_graph(source)
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      // Select osc (1) then reverb (3); capture order follows selected_nodes.
+      graph.interaction = {
+        dragging: None,
+        panning: None,
+        connecting: None,
+        selected: Some(NodeId(1)),
+        selected_nodes: [NodeId(1), NodeId(3)],
+        pointer_down: false,
+        did_move: false,
+      }
+    None => abort("expected source graph handle")
+  }
+  set_source_graph_source(
+    handle, "reverb = plate()\nmeter = scope()\nosc = sine(freq: 440Hz)",
+  )
+  // reverb=1, osc=3 now; selection keeps capture order [osc, reverb] -> [3, 1].
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [3, 1],
   )
   destroy_source_graph(handle)
 }
