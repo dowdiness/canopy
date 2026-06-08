@@ -257,10 +257,26 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Select a canvas node so a missing focus guard WOULD delete it. The keydown
+  // bubbles to the document handler even from CodeMirror (CM6 does not
+  // stopPropagation by default), so `editableKeyboardTarget` is the only thing
+  // between this Backspace and `deleteSelectedNodes`.
   await page.locator('.canvas-node[data-node-id="2"]').click();
+  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveClass(
+    /(?:^|\s)selected(?:\s|$)/,
+  );
+
+  // Put the cursor at the end of the document so Backspace is a real editor
+  // edit (deleting the trailing `)`), not a no-op at offset 0.
   await page.locator('#source-editor-cm .cm-content').focus();
+  await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.press('Backspace');
 
+  // The keystroke edited the source editor ...
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(');
+  // ... and did NOT delete the selected canvas node (the focus guard held).
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);

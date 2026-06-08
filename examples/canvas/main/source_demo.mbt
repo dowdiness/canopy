@@ -274,11 +274,13 @@ fn source_demo_update(
     }
     Mounted => (@rabbita.none, { ..model, mounted: true })
     MountFailed(message) =>
+      // `mounted` stays at its prior value (false): mount fires once via
+      // `with_init`, so a failure can only arrive while `mounted` is still
+      // false. No need to set it here.
       (
         @rabbita.none,
         {
           ..model,
-          mounted: false,
           status: "CodeMirror failed to mount: " + message,
           status_tone: @status.Error,
         },
@@ -291,16 +293,19 @@ fn source_demo_subscriptions(
   emit : Emit[SourceDemoMsg],
   model : SourceDemoModel,
 ) -> @sub.Sub {
-  let cm_listen = if model.mounted {
+  // Both subscriptions need the editor to exist: `listen` is a no-op until the
+  // view is registered, and the graph -> editor poll has nothing to sync into
+  // (and would `set_doc` a not-yet-mounted editor). Gate the whole batch on
+  // `mounted` so neither runs before the editor mounts.
+  guard model.mounted else { return @sub.none }
+  @sub.batch([
+    @sub.every(250, emit(SyncFromGraph)),
     @codemirror.listen(
       SOURCE_CM_EDITOR_ID,
       doc=emit.map(source => EditorSynced(source)),
       on_change=emit.map(changes => SourceChanged(changes)),
-    )
-  } else {
-    @sub.none
-  }
-  @sub.batch([@sub.every(250, emit(SyncFromGraph)), cm_listen])
+    ),
+  ])
 }
 
 ///|
