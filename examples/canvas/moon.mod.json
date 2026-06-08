@@ -10,6 +10,14 @@
       "path": "../../lib/canvas-graph",
       "version": "0.1.0"
     },
+    "dowdiness/loom": {
+      "path": "../../loom/loom",
+      "version": "0.1.0"
+    },
+    "dowdiness/rabbita_codemirror": {
+      "path": "../../lib/rabbita_codemirror",
+      "version": "0.0.1"
+    },
     "dowdiness/incr": "0.8.0",
     "dowdiness/rabbita-context-menu": {
       "path": "../../lib/context-menu",

@@ -38,8 +38,16 @@ struct SourceDemoModel {
 }
 
 ///|
+/// Element id of the source-panel CodeMirror editor. The editor itself is
+/// mounted as a separate piece of work; `source_demo_subscriptions` already
+/// listens for its per-change deltas so the lowering path is exercised end to
+/// end the moment a view is attached to this id.
+const SOURCE_CM_EDITOR_ID = "source-editor-cm"
+
+///|
 enum SourceDemoMsg {
   EditorChanged(String)
+  SourceChanged(Array[@codemirror.ChangeDelta])
   ApplySource
   ConnectSample
   InsertReverb
@@ -102,6 +110,18 @@ fn source_demo_update(
   match msg {
     EditorChanged(source) =>
       (@rabbita.none, { ..model, editor: source, dirty: true })
+    SourceChanged(changes) => {
+      let result = apply_source_graph_codemirror_changes(model.handle, changes)
+      let success_message = "Editor changes lowered into graph-dsl source."
+      let failure_prefix = "Editor change rejected; canvas is rendering last-good graph"
+      let (status, status_tone) = source_demo_status_from_result(
+        result, success_message, failure_prefix,
+      )
+      (
+        source_demo_notify(model),
+        { ..model, editor: result.source, dirty: false, status, status_tone },
+      )
+    }
     ApplySource => {
       let result = set_source_graph_source_checked(model.handle, model.editor)
       let success_message = "Source applied; render state is reparsed from Loom GraphDoc."
@@ -167,7 +187,13 @@ fn source_demo_subscriptions(
   emit : Emit[SourceDemoMsg],
   _model : SourceDemoModel,
 ) -> @sub.Sub {
-  @sub.every(250, emit(SyncFromGraph))
+  @sub.batch([
+    @sub.every(250, emit(SyncFromGraph)),
+    @codemirror.listen(
+      SOURCE_CM_EDITOR_ID,
+      on_change=emit.map(changes => SourceChanged(changes)),
+    ),
+  ])
 }
 
 ///|

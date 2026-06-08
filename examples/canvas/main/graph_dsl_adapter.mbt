@@ -525,6 +525,63 @@ fn SourceBackedGraph::apply_source_edit(
 }
 
 ///|
+/// Apply one CodeMirror transaction — delivered as an ordered batch of
+/// pre-transaction `ChangeDelta`s — to the source-backed graph as a sequence
+/// of loom edits.
+///
+/// `changes_to_edits` rebases each change onto the document the previous one
+/// produced, so the attachment's incremental reparse sees the same per-edit
+/// stream a user typing into the editor would generate, rather than one
+/// whole-document replacement. If the batch leaves the source not graph-valid
+/// it is rolled back to the pre-batch source, matching `apply_source_edit`.
+fn SourceBackedGraph::apply_codemirror_changes(
+  self : SourceBackedGraph,
+  changes : Array[@codemirror.ChangeDelta],
+) -> SourceGraphOperationResultJson {
+  let old_source = self.source
+  let selection_bindings = match source_graph_doc_for_render(self) {
+    Some(doc) => source_selected_node_bindings(doc, self.interaction)
+    None => []
+  }
+  for edit, new_source in Iter2(changes_to_edits(self.source, changes).iter()) {
+    self.attachment.apply_edit(edit, new_source)
+    self.source = new_source
+  }
+  match source_graph_current_doc(self) {
+    Ok(doc) => {
+      self.remap_selection_to_bindings(doc, selection_bindings)
+      source_graph_result_json_for_graph(self, true, None)
+    }
+    Err(message) => {
+      self.source = old_source
+      self.attachment.set_source(old_source)
+      source_graph_result_json_for_graph(self, false, Some(message))
+    }
+  }
+}
+
+///|
+/// Handle-addressed entry point for applying a CodeMirror transaction to a
+/// registered source-backed graph. The source CodeMirror editor's
+/// `listen(on_change=...)` subscription forwards its `ChangeDelta` batch here.
+fn apply_source_graph_codemirror_changes(
+  handle : Int,
+  changes : Array[@codemirror.ChangeDelta],
+) -> SourceGraphOperationResultJson {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.apply_codemirror_changes(changes)
+    None =>
+      source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph handle not found"],
+        0,
+        Some("source graph handle not found"),
+      )
+  }
+}
+
+///|
 fn realized_source_operation(
   doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,

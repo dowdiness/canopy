@@ -5,6 +5,8 @@ import {
   "dowdiness/canopy-canvas-graph/graph_model",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
+  "dowdiness/loom/core",
+  "dowdiness/rabbita_codemirror" @codemirror,
   "dowdiness/rabbita-context-menu/context_menu",
   "dowdiness/rabbita-status/status",
   "moonbit-community/rabbita",
