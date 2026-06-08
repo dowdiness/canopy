@@ -532,13 +532,21 @@ fn SourceBackedGraph::apply_source_edit(
 /// `changes_to_edits` rebases each change onto the document the previous one
 /// produced, so the attachment's incremental reparse sees the same per-edit
 /// stream a user typing into the editor would generate, rather than one
-/// whole-document replacement. If the batch leaves the source not graph-valid
-/// it is rolled back to the pre-batch source, matching `apply_source_edit`.
+/// whole-document replacement.
+///
+/// The editor is the source of truth for text: `self.source` always tracks the
+/// editor's buffer (`expected_doc`, the editor's authoritative post-transaction
+/// text), and the rendered graph is derived — `current_result()` when valid,
+/// else `last_good()` (see `source_graph_doc_for_render`). We therefore do NOT
+/// roll back when a batch leaves the source not graph-valid: the attachment
+/// keeps the invalid `current_source` and its identity tracker realigns node
+/// identity across the failed intermediate parses, so the next valid keystroke
+/// recovers incrementally with stable identity (no whole-source churn).
 fn SourceBackedGraph::apply_codemirror_changes(
   self : SourceBackedGraph,
   changes : Array[@codemirror.ChangeDelta],
+  expected_doc : String,
 ) -> SourceGraphOperationResultJson {
-  let old_source = self.source
   let selection_bindings = match source_graph_doc_for_render(self) {
     Some(doc) => source_selected_node_bindings(doc, self.interaction)
     None => []
@@ -547,16 +555,23 @@ fn SourceBackedGraph::apply_codemirror_changes(
     self.attachment.apply_edit(edit, new_source)
     self.source = new_source
   }
+  // Stale-editor guard: the deltas are expressed against the editor's
+  // pre-transaction buffer. If the incremental result does not equal the
+  // editor's authoritative post-transaction text, `self.source` had diverged
+  // from the editor (an out-of-band TS-side graph mutation moved the source out
+  // from under a stale editor). Reparse the editor's text so the keystroke wins
+  // over the racing mutation, rather than splicing onto a mismatched base.
+  if self.source != expected_doc {
+    self.attachment.set_source(expected_doc)
+    self.source = expected_doc
+  }
   match source_graph_current_doc(self) {
     Ok(doc) => {
       self.remap_selection_to_bindings(doc, selection_bindings)
       source_graph_result_json_for_graph(self, true, None)
     }
-    Err(message) => {
-      self.source = old_source
-      self.attachment.set_source(old_source)
+    Err(message) =>
       source_graph_result_json_for_graph(self, false, Some(message))
-    }
   }
 }
 
@@ -567,9 +582,10 @@ fn SourceBackedGraph::apply_codemirror_changes(
 fn apply_source_graph_codemirror_changes(
   handle : Int,
   changes : Array[@codemirror.ChangeDelta],
+  expected_doc : String,
 ) -> SourceGraphOperationResultJson {
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.apply_codemirror_changes(changes)
+    Some(graph) => graph.apply_codemirror_changes(changes, expected_doc)
     None =>
       source_graph_operation_result_json(
         false,

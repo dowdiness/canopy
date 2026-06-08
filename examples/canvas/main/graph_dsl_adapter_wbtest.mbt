@@ -774,6 +774,74 @@ test "source-backed handle rejects graph operations while source is invalid" {
 }
 
 ///|
+/// Option (b) invariant: editor-originated CodeMirror edits are NOT rolled back
+/// on parse failure, so `source` tracks the editor through transiently-invalid
+/// states and the next valid keystroke recovers incrementally — preserving node
+/// identity, the property a whole-source reparse would churn.
+test "source-backed CodeMirror edit recovers from invalid state preserving node identity" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None => abort("expected source graph handle")
+  }
+  let before = ok_current_graph_doc(graph.attachment.current_result())
+  let osc_id = graph_node_id(before, "osc")
+  let meter_id = graph_node_id(before, "meter")
+
+  // Delete `440Hz`, leaving the source transiently invalid. No rollback: the
+  // source follows the editor while the canvas keeps rendering last-good.
+  let invalid_doc = "osc = sine(freq: )\nmeter = scope()"
+  let reject = graph.apply_codemirror_changes(
+    [@codemirror.ChangeDelta::new(17, 22, "")],
+    invalid_doc,
+  )
+  inspect(reject.applied, content="false")
+  @debug.assert_eq(graph.source, invalid_doc)
+  @debug.assert_eq(
+    graph_node_id(ok_last_good(graph.attachment.last_good()), "osc"),
+    osc_id,
+  )
+
+  // Type a new valid value. Recovery lowers incrementally against the (invalid)
+  // editor text, so node identity is stable end to end.
+  let valid_doc = "osc = sine(freq: 220Hz)\nmeter = scope()"
+  let accept = graph.apply_codemirror_changes(
+    [@codemirror.ChangeDelta::new(17, 17, "220Hz")],
+    valid_doc,
+  )
+  inspect(accept.applied, content="true")
+  @debug.assert_eq(graph.source, valid_doc)
+  let after = ok_current_graph_doc(graph.attachment.current_result())
+  @debug.assert_eq(graph_node_id(after, "osc"), osc_id)
+  @debug.assert_eq(graph_node_id(after, "meter"), meter_id)
+  destroy_source_graph(handle)
+}
+
+///|
+/// Option (b) stale-editor guard: when `source` has diverged from the editor
+/// (an out-of-band graph mutation moved it), the incremental result no longer
+/// equals the editor's authoritative buffer, so the adapter reparses that
+/// buffer (editor-wins) instead of splicing the deltas onto a mismatched base.
+test "source-backed CodeMirror edit reparses editor text when source diverged" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None => abort("expected source graph handle")
+  }
+  // The editor's authoritative buffer (e.g. after a reorder) does not match
+  // what the delta produces from the current `source`, modelling a stale base.
+  let editor_doc = "meter = scope()\nosc = sine(freq: 440Hz)"
+  let result = graph.apply_codemirror_changes(
+    [@codemirror.ChangeDelta::new(0, 0, "x")],
+    editor_doc,
+  )
+  // No corruption: source equals the editor's text exactly, reparsed valid.
+  inspect(result.applied, content="true")
+  @debug.assert_eq(graph.source, editor_doc)
+  destroy_source_graph(handle)
+}
+
+///|
 test "invalid source keeps last-good canvas graph available" {
   let attachment = @graph_dsl.GraphAttachment::GraphAttachment(GRAPH_DSL_SAMPLE)
   let good = ok_current_graph_doc(attachment.current_result())

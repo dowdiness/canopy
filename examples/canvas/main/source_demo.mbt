@@ -31,10 +31,10 @@ fn js_source_mode_url(enabled : Bool) -> String {
 struct SourceDemoModel {
   handle : Int
   editor : String
-  // `dirty` is true while the CodeMirror buffer diverges from the graph's
-  // canonical source — i.e. the user has typed edits that have not (or could
-  // not) be lowered. It gates `SyncFromGraph` so the periodic graph→editor
-  // push never clobbers in-progress (possibly transiently-invalid) typing.
+  // `dirty` is true while the editor's current text is not graph-valid. The
+  // source always tracks the editor buffer (see `apply_codemirror_changes`), so
+  // `dirty` is purely a status/validity signal; it also gates `SyncFromGraph`
+  // as a guard against pushing an out-of-band source over invalid typing.
   dirty : Bool
   mounted : Bool
   status : String
@@ -135,13 +135,21 @@ fn source_demo_status_from_result(
 /// Fold a graph-side operation result (Connect / Insert / Apply) into the next
 /// command and model. On success the canonical `result.source` is pushed back
 /// into CodeMirror via `set_doc` (echo-suppressed, skip-equal) and the editor
-/// is marked clean; on rejection the editor keeps the user's text and stays
-/// dirty so the canvas continues rendering the last-good graph.
+/// is marked clean.
+///
+/// `dirty_on_reject` is the dirty flag to set when the operation is rejected.
+/// `dirty` means "the editor's current text is not graph-valid". A rejected
+/// Apply leaves the editor holding the invalid source it tried to apply, so it
+/// passes `true`. Connect / Insert never touch the editor (and can be rejected
+/// for an already-invalid current source, before any rollback), so they must
+/// PRESERVE the prior `dirty` by passing `model.dirty` — not force it `false`,
+/// which would wrongly clear dirtiness the editor still has.
 fn source_demo_result_step(
   model : SourceDemoModel,
   result : SourceGraphOperationResultJson,
   status : String,
   status_tone : @status.Tone,
+  dirty_on_reject~ : Bool,
 ) -> (Cmd, SourceDemoModel) {
   if result.applied {
     (
@@ -152,7 +160,10 @@ fn source_demo_result_step(
       { ..model, editor: result.source, dirty: false, status, status_tone },
     )
   } else {
-    (source_demo_notify(model), { ..model, dirty: true, status, status_tone })
+    (
+      source_demo_notify(model),
+      { ..model, dirty: dirty_on_reject, status, status_tone },
+    )
   }
 }
 
@@ -165,29 +176,25 @@ fn source_demo_update(
   match msg {
     EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
     SourceChanged(changes) => {
-      // Incremental lowering rebases each CodeMirror delta onto the graph's
-      // current source, which only matches the editor while they agree. Once
-      // `dirty` (a prior edit was rejected and rolled back to last-good), the
-      // deltas are expressed against the diverged editor buffer, so replaying
-      // them onto last-good would splice into the wrong coordinates and corrupt
-      // the source. While dirty, recover by reparsing the whole buffer instead
-      // (`EditorSynced`, delivered before this message, has `editor` current);
-      // identity-preserving incremental lowering resumes once the editor and
-      // graph are back in sync.
-      let result = if model.dirty {
-        set_source_graph_source_checked(model.handle, model.editor)
-      } else {
-        apply_source_graph_codemirror_changes(model.handle, changes)
-      }
+      // The editor is the source of truth for text. Lower the change
+      // incrementally, passing the editor's post-change buffer (`model.editor`,
+      // set by the preceding `EditorSynced`) as the authoritative target: the
+      // adapter keeps its source equal to the editor and reconciles editor-wins
+      // if an out-of-band graph mutation diverged them, so a transiently-invalid
+      // edit recovers incrementally with stable node identity (no whole-source
+      // churn). We never `set_doc` here — CodeMirror already holds the text; the
+      // canvas keeps rendering the last-good graph while the source is invalid,
+      // and `dirty` only records that validity.
+      let result = apply_source_graph_codemirror_changes(
+        model.handle,
+        changes,
+        model.editor,
+      )
       let success_message = "Editor changes lowered into graph-dsl source."
       let failure_prefix = "Editor change rejected; canvas is rendering last-good graph"
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, failure_prefix,
       )
-      // The edit originates in CodeMirror, which already holds the user's text,
-      // so never push it back here (a transiently-invalid keystroke rolled back
-      // to last-good would otherwise revert in-progress typing). `EditorSynced`
-      // keeps `editor` current; we only record validity through `dirty`.
       (
         source_demo_notify(model),
         { ..model, dirty: !result.applied, status, status_tone },
@@ -200,7 +207,15 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, failure_prefix,
       )
-      source_demo_result_step(model, result, status, status_tone)
+      // Apply lowers the editor's own text, so a rejection leaves the editor
+      // holding invalid source → dirty.
+      source_demo_result_step(
+        model,
+        result,
+        status,
+        status_tone,
+        dirty_on_reject=true,
+      )
     }
     ConnectSample => {
       let result = source_graph_connect_sample_result(model.handle)
@@ -208,7 +223,14 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
-      source_demo_result_step(model, result, status, status_tone)
+      // A rejected connect never edits the editor, so its validity is unchanged.
+      source_demo_result_step(
+        model,
+        result,
+        status,
+        status_tone,
+        dirty_on_reject=model.dirty,
+      )
     }
     InsertReverb => {
       let result = source_graph_insert_unique_result(
@@ -220,7 +242,14 @@ fn source_demo_update(
       let (status, status_tone) = source_demo_status_from_result(
         result, success_message, "Source operation rejected",
       )
-      source_demo_result_step(model, result, status, status_tone)
+      // A rejected insert never edits the editor, so its validity is unchanged.
+      source_demo_result_step(
+        model,
+        result,
+        status,
+        status_tone,
+        dirty_on_reject=model.dirty,
+      )
     }
     SyncFromGraph => {
       // Keep out of the way while the editor holds unapplied edits, so the
