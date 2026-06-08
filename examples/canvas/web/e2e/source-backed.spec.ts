@@ -295,6 +295,55 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
   });
 }
 
+test('source-backed editor recovers from a transiently-invalid edit without corrupting incremental deltas', async ({
+  page,
+}) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Delete `440Hz` with an incremental edit, leaving the buffer transiently
+  // invalid (`osc = sine(freq: )`). The graph rolls back to last-good and the
+  // editor diverges (dirty) — the precondition for the rebase corruption.
+  const content = page.locator('#source-editor-cm .cm-content');
+  await content.click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  for (let i = 0; i < 'osc = sine(freq: '.length; i++) {
+    await page.keyboard.press('ArrowRight');
+  }
+  for (let i = 0; i < '440Hz'.length; i++) {
+    await page.keyboard.press('Shift+ArrowRight');
+  }
+  await page.keyboard.press('Delete');
+  await expectSource(page, 'osc = sine(freq: )\nmeter = scope()');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Type a different valid value at the cursor. With the buffer dirty, each
+  // keystroke's delta is expressed against the editor text, not the graph's
+  // rolled-back last-good source; replaying incrementally would splice into
+  // the wrong coordinates (e.g. `220Hz440Hz`). It must recover and re-apply to
+  // the graph as exactly the typed text.
+  await page.keyboard.type('220Hz');
+
+  // The CodeMirror buffer transiently shows the typed text either way, so the
+  // graph source is the real observable. Let the 250ms graph→editor poll run a
+  // couple of cycles: when the graph and editor disagree (only possible if the
+  // graph was corrupted) the poll pushes the canonical source back into the
+  // buffer. With the rebase fixed the graph holds exactly `220Hz`, the poll is
+  // a no-op, and the buffer stays put; without the fix the deltas replay
+  // against the rolled-back last-good source and the poll surfaces the
+  // corrupted `220Hz440Hz` here.
+  await page.waitForTimeout(600);
+  expect(await cmText(page)).toBe('osc = sine(freq: 220Hz)\nmeter = scope()');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed mode mutates canonical source and render state together', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 

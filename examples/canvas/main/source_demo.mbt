@@ -165,7 +165,20 @@ fn source_demo_update(
   match msg {
     EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
     SourceChanged(changes) => {
-      let result = apply_source_graph_codemirror_changes(model.handle, changes)
+      // Incremental lowering rebases each CodeMirror delta onto the graph's
+      // current source, which only matches the editor while they agree. Once
+      // `dirty` (a prior edit was rejected and rolled back to last-good), the
+      // deltas are expressed against the diverged editor buffer, so replaying
+      // them onto last-good would splice into the wrong coordinates and corrupt
+      // the source. While dirty, recover by reparsing the whole buffer instead
+      // (`EditorSynced`, delivered before this message, has `editor` current);
+      // identity-preserving incremental lowering resumes once the editor and
+      // graph are back in sync.
+      let result = if model.dirty {
+        set_source_graph_source_checked(model.handle, model.editor)
+      } else {
+        apply_source_graph_codemirror_changes(model.handle, changes)
+      }
       let success_message = "Editor changes lowered into graph-dsl source."
       let failure_prefix = "Editor change rejected; canvas is rendering last-good graph"
       let (status, status_tone) = source_demo_status_from_result(
