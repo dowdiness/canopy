@@ -490,6 +490,56 @@ test "source-backed DeleteNodes remaps selected survivor by binding" {
 }
 
 ///|
+test "source-backed source reorder preserves selection by binding" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 2, 0.0, 0.0)
+  source_graph_pointer_up(handle, 2, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
+  set_source_graph_source(handle, "meter = scope()\nosc = sine(freq: 440Hz)")
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [1],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed source edit clears selection when binding is removed" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 2, 0.0, 0.0)
+  source_graph_pointer_up(handle, 2, "", false)
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
+  set_source_graph_source(handle, "osc = sine(freq: 440Hz)")
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed source edit keeps selection while source is invalid" {
+  let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
+  let handle = create_source_graph(source)
+  source_graph_pointer_down(handle, 2, 0.0, 0.0)
+  source_graph_pointer_up(handle, 2, "", false)
+  set_source_graph_source(handle, "osc = sine(freq: )")
+  @debug.assert_eq(
+    render_selected_nodes(get_source_graph_render_state(handle)),
+    [2],
+  )
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed DisconnectPorts removes only the target input reference" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc, gain: 2)\ntap = scope(input: osc)"
   let handle = create_source_graph(source)
