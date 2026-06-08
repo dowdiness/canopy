@@ -23,20 +23,12 @@ function sourceNode(page: Page, binding: string): Locator {
     .filter({ has: page.locator('.node-title', { hasText: new RegExp(`^${binding}$`) }) });
 }
 
-async function sourceNodeId(page: Page, binding: string): Promise<string> {
-  const id = await sourceNode(page, binding).getAttribute('data-node-id');
-  if (id === null) {
-    throw new Error(`no source-backed node bound as "${binding}"`);
-  }
-  return id;
+function inputHandle(page: Page, binding: string): Locator {
+  return sourceNode(page, binding).locator('.handle.input');
 }
 
-async function inputHandle(page: Page, binding: string): Promise<Locator> {
-  return page.locator(`.handle.input[data-node-id="${await sourceNodeId(page, binding)}"]`);
-}
-
-async function outputHandle(page: Page, binding: string): Promise<Locator> {
-  return page.locator(`.handle.output[data-node-id="${await sourceNodeId(page, binding)}"]`);
+function outputHandle(page: Page, binding: string): Locator {
+  return sourceNode(page, binding).locator('.handle.output');
 }
 
 function edgePaths(page: Page): Locator {
@@ -146,7 +138,7 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, await outputHandle(page, 'osc'), await inputHandle(page, 'meter'));
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
 
@@ -216,7 +208,7 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, await outputHandle(page, 'osc'), await inputHandle(page, 'meter'));
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
   await expect(edgePaths(page)).toHaveCount(1);
