@@ -548,10 +548,10 @@ fn SourceBackedGraph::append_operation(
 }
 
 ///|
-fn source_delete_surviving_selection_bindings(
+fn source_selected_node_bindings(
   doc : @graph_dsl.GraphDoc,
   interaction : InteractionState,
-  deleted : Array[NodeId],
+  deleted? : Array[NodeId] = [],
 ) -> Array[String] {
   let bindings : Array[String] = []
   for node_id in interaction.selected_nodes {
@@ -581,12 +581,12 @@ fn source_selection_from_bindings(
 }
 
 ///|
-fn SourceBackedGraph::remap_deleted_interaction(
+fn SourceBackedGraph::remap_selection_to_bindings(
   self : SourceBackedGraph,
   doc : @graph_dsl.GraphDoc,
-  survivor_bindings : Array[String],
+  bindings : Array[String],
 ) -> Unit {
-  let selected_nodes = source_selection_from_bindings(doc, survivor_bindings)
+  let selected_nodes = source_selection_from_bindings(doc, bindings)
   let selected = if selected_nodes.length() == 0 {
     None
   } else {
@@ -629,7 +629,7 @@ fn SourceBackedGraph::sync_local_operation_state(
 ) -> Unit {
   match operation.action() {
     DeleteNodes(_) => {
-      self.remap_deleted_interaction(new_doc, survivor_selection_bindings)
+      self.remap_selection_to_bindings(new_doc, survivor_selection_bindings)
       self.sync_layout_from_state(source_graph_base_canvas_state(self))
     }
     RenameNode(node_id, new_binding) =>
@@ -913,10 +913,17 @@ fn set_source_graph_source_checked(
         Some("source graph handle not found"),
       )
   }
+  let selection_bindings = match source_graph_doc_for_render(graph) {
+    Some(doc) => source_selected_node_bindings(doc, graph.interaction)
+    None => []
+  }
   graph.source = source
   graph.attachment.set_source(source)
   match source_graph_current_doc(graph) {
-    Ok(_) => source_graph_result_json_for_graph(graph, true, None)
+    Ok(doc) => {
+      graph.remap_selection_to_bindings(doc, selection_bindings)
+      source_graph_result_json_for_graph(graph, true, None)
+    }
     Err(message) =>
       source_graph_result_json_for_graph(graph, false, Some(message))
   }
@@ -1056,11 +1063,7 @@ pub fn apply_source_graph_operation(
   }
   let survivor_selection_bindings = match operation.action() {
     DeleteNodes(deleted) =>
-      source_delete_surviving_selection_bindings(
-        doc,
-        graph.interaction,
-        deleted,
-      )
+      source_selected_node_bindings(doc, graph.interaction, deleted~)
     _ => []
   }
   let lowered = match lower_source_operation(doc, operation) {
