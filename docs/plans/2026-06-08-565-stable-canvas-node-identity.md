@@ -115,3 +115,66 @@ Additional structural checks:
 1. Should the string-ID migration include an explicit one-time wire version marker for persisted handles from older numeric IDs?  
 2. Should the delta path in Canvas be switched atomically across the whole source-edit surface or behind a feature flag until all dependent adapters are migrated?  
 3. For `GraphAttachment::apply_edit`, should retries/reconciliation tolerate JS listener dropouts by falling back to `set_source` and accepting one-time churn windows?
+
+## PR2 execution addendum (validated 2026-06-09)
+
+Empirical re-validation (whitebox probe on `GraphAttachment`, since removed) refined
+the design and answered the open questions. Token format is
+`"node#<occurrence>:<binding>"` (e.g. `node#0:osc`), and the tracker realigns ids by
+content on every reparse — including whole-source `set_source`. Measured:
+
+| Path | Survivor/target token |
+|---|---|
+| `set_source` delete of a *different* binding line | **STABLE** (`node#0:reverb` unchanged) |
+| `apply_edit` (delta) delete of a different binding line | **STABLE** |
+| `set_source` *reorder* (swap two bindings) | **CHURNS** (`node#0:osc` → `node#1:osc`) |
+
+Consequences for PR2:
+
+- **No delete-to-delta conversion.** Survivor tokens are stable under the existing
+  whole-source delete path, so `source_delete_lowering` may keep emitting
+  `WholeSourceReplacement`. Selection over a survivor stays valid with **no remap**.
+- **Layer 3 (retire the binding-recovery shim) is correct for delete + param-edit +
+  editor-driven reorder.** A CM6 reorder is a delta delete+insert pair (stable per the
+  empirical table), so editor reorders preserve identity without remap.
+- **`set_source` becomes reset/init-only.** The one residual churn case is an atomic
+  `set_source` reorder — now a programmatic-reset path, not a user gesture. The old
+  `graph_dsl_adapter_wbtest.mbt` "reorder via `set_source` preserves selection by binding"
+  cases (currently asserting positional remap) are rewritten: editor-delta reorders assert
+  identity preservation; any remaining `set_source` reorder asserts the residual
+  (selection cleared/dropped on churn), not remap.
+- **Rename** changes the token (binding is embedded), so a rename-local continuation hook
+  rewrites live `interaction` selection old-token → new-token (replacing today's
+  `rename_layout_binding`, which stays for binding-keyed layout). `action_log` keeps the
+  old token as a historical record — it is display-only (TS `JSON.parse`s it, never
+  replays it against the tracker), so no rewrite there.
+- **EdgeId** is derived from the 4-tuple `(source_token, source_port, target_token,
+  target_port)` (source_port included so multi-output nodes don't collide). No allocator,
+  no `next_edge_id`. Derived ids are consistent within a render; on rename an endpoint
+  token change re-derives the edge id for one render cycle (acceptable; disconnect
+  hit-tests within the current render).
+- **`next_node_id : Int`** is kept only as the hand-built (non-source) canvas mint counter
+  (`NodeId(next_node_id.to_string())`); source-backed and hand-built ids never share a
+  `CanvasState`, so no collision.
+- **Open Q1: no wire-version marker.** No persisted numeric-id JSON exists (no
+  `localStorage`; `action_log` is in-memory per session). Test fixtures migrate to strings.
+- **Lookup:** loom gains `GraphDoc::find_node_by_id(String)` (landed in a loom PR; canopy
+  loom pin bumped). `graph_node_for_canvas_id` resolves via it instead of `nodes[raw-1]`.
+- **Layer 3 mechanism = prune-by-token-existence, not pure deletion.** The binding-capture/
+  replay helpers (`source_selected_node_bindings`, `source_selection_from_bindings`,
+  `remap_selection_to_bindings`, and the `set_source`/`apply_codemirror_changes`/delete
+  capture blocks) are deleted and replaced by a single `prune_selection_to_doc(doc)`:
+  after every reparse, filter `interaction.selected_nodes` to tokens that still resolve via
+  `doc.find_node_by_id`, recompute `selected` as the first survivor (else `None`), reset the
+  drag preview. This is token-existence filtering, not binding re-resolution: survivors keep
+  their stable tokens (so selection persists with no mapping), deleted/churned tokens drop
+  out naturally. `realized_source_operation` is *kept* (it stamps the logged `AddNode` with
+  the new node's real token via `canvas_id_for_binding`) — it is log realization, not
+  selection recovery, so it is out of the shim's scope.
+- **FFI node-id params become `String`.** All pointer/hover entry points
+  (`source_graph_pointer_down/up`, hand-built `pointer_down`, `canvas_init` handlers) take a
+  `String` node id; the `node_id <= 0` "none" sentinel becomes the empty string `""`.
+- **Rename selection hook:** in `sync_local_operation_state`'s `RenameNode` arm, in addition
+  to `rename_layout_binding` (binding-keyed layout, kept), rewrite any occurrence of the
+  renamed node's *old* token in `interaction.selected`/`selected_nodes` to its *new* token
+  (old token from `old_doc` by binding; new token from `new_doc.find_node(new_binding).id()`).

@@ -180,7 +180,7 @@ fn workflow_add_node(
   world_y : Double,
 ) -> CanvasState {
   let node = make_workflow_node(
-    NodeId(state.next_node_id),
+    NodeId(state.next_node_id.to_string()),
     workflow_node_kind_from_key(kind_key),
     world_x,
     world_y,
@@ -331,19 +331,19 @@ fn selection_after_click(
 }
 
 ///|
-/// Handle pointer release. `node_id_int` is the canvas node id under the pointer,
-/// or 0 if released over the background.
+/// Handle pointer release. `node_id` is the canvas node id under the pointer,
+/// or "" if released over the background.
 /// A "click" = pointer_down was true AND no movement occurred → select the node.
 fn update_pointer_up(
   state : CanvasState,
-  node_id_int : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> CanvasState {
-  let hovered : NodeId? = if node_id_int <= 0 {
+  let hovered : NodeId? = if node_id == "" {
     None
   } else {
-    Some(NodeId(node_id_int))
+    Some(NodeId(node_id))
   }
   // If a connection gesture is in flight, commit/cancel it and exit.
   match state.interaction.connecting {

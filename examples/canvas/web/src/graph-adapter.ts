@@ -1,9 +1,9 @@
 export type CanvasModule = {
   create_canvas: () => number;
-  pointer_down: (h: number, nodeId: number, sx: number, sy: number) => void;
+  pointer_down: (h: number, nodeId: string, sx: number, sy: number) => void;
   pointer_down_handle: (
     h: number,
-    nodeId: number,
+    nodeId: string,
     portId: string,
     sx: number,
     sy: number,
@@ -11,19 +11,19 @@ export type CanvasModule = {
   pointer_move: (h: number, sx: number, sy: number) => void;
   pointer_up: (
     h: number,
-    nodeId: number,
+    nodeId: string,
     targetPortId: string,
     additive: boolean,
   ) => void;
-  hover_node: (h: number, nodeId: number) => void;
+  hover_node: (h: number, nodeId: string) => void;
   zoom: (h: number, delta: number, cx: number, cy: number) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   disconnect_ports: (
     h: number,
-    source: number,
+    source: string,
     sourcePort: string,
-    target: number,
+    target: string,
     targetPort: string,
   ) => void;
   get_render_state: (h: number) => string;
@@ -41,11 +41,11 @@ export type CanvasModule = {
     bindingBase: string,
     constructorName: string,
   ) => string;
-  source_graph_pointer_down?: (h: number, nodeId: number, sx: number, sy: number) => void;
+  source_graph_pointer_down?: (h: number, nodeId: string, sx: number, sy: number) => void;
   source_graph_pointer_move?: (h: number, sx: number, sy: number) => void;
   source_graph_pointer_up?: (
     h: number,
-    nodeId: number,
+    nodeId: string,
     targetPortId: string,
     additive: boolean,
   ) => void;
@@ -69,11 +69,11 @@ type SourceCanvasModule = CanvasModule & {
     bindingBase: string,
     constructorName: string,
   ) => string;
-  source_graph_pointer_down: (h: number, nodeId: number, sx: number, sy: number) => void;
+  source_graph_pointer_down: (h: number, nodeId: string, sx: number, sy: number) => void;
   source_graph_pointer_move: (h: number, sx: number, sy: number) => void;
   source_graph_pointer_up: (
     h: number,
-    nodeId: number,
+    nodeId: string,
     targetPortId: string,
     additive: boolean,
   ) => void;
@@ -107,7 +107,7 @@ export type NodeParamData = {
   editable: boolean;
 };
 export type NodeData = {
-  id: number;
+  id: string;
   x: number;
   y: number;
   w: number;
@@ -121,14 +121,14 @@ export type NodeData = {
   params?: NodeParamData[];
 };
 export type EdgeData = {
-  id: number;
-  source: number;
+  id: string;
+  source: string;
   source_port: string;
-  target: number;
+  target: string;
   target_port: string;
 };
 export type Connecting = {
-  from: number;
+  from: string;
   from_port: string;
   cursor_x: number;
   cursor_y: number;
@@ -136,11 +136,11 @@ export type Connecting = {
 export type ValidationMessage = {
   severity: 'error' | 'warning';
   message: string;
-  node_id?: number;
+  node_id?: string;
 };
 export type ViewportData = { x: number; y: number; scale: number };
 export type InspectorNode = {
-  id: number;
+  id: string;
   title: string;
   subtitle: string;
   configured: boolean;
@@ -152,15 +152,15 @@ export type RenderState = {
   viewport: ViewportData;
   nodes: NodeData[];
   edges: EdgeData[];
-  selected?: number;
-  selected_nodes: number[];
+  selected?: string;
+  selected_nodes: string[];
   connecting?: Connecting;
   validation: ValidationMessage[];
   action_count: number;
   inspector?: InspectorNode;
 };
 
-export type NodePositionData = { node_id: number; x: number; y: number };
+export type NodePositionData = { node_id: string; x: number; y: number };
 
 export type GraphOperation =
   | { version: number; type: 'AddNode'; node: NodeData }
@@ -168,29 +168,29 @@ export type GraphOperation =
   | {
       version: number;
       type: 'ConnectPorts';
-      source: number;
+      source: string;
       source_port: string;
-      target: number;
+      target: string;
       target_port: string;
     }
   | {
       version: number;
       type: 'DisconnectPorts';
-      source: number;
+      source: string;
       source_port: string;
-      target: number;
+      target: string;
       target_port: string;
     }
-  | { version: number; type: 'DeleteNodes'; nodes: number[] }
-  | { version: number; type: 'RenameNode'; node_id: number; name: string }
+  | { version: number; type: 'DeleteNodes'; nodes: string[] }
+  | { version: number; type: 'RenameNode'; node_id: string; name: string }
   | {
       version: number;
       type: 'SetNodeParam';
-      node_id: number;
+      node_id: string;
       parameter: string;
       value: string;
     }
-  | { version: number; type: 'SelectNodes'; nodes: number[] }
+  | { version: number; type: 'SelectNodes'; nodes: string[] }
   | { version: number; type: 'SetViewport'; viewport: ViewportData };
 
 export type GraphOperationCallback = (operation: GraphOperation) => void;
@@ -215,7 +215,7 @@ function requireSourceModule(mb: CanvasModule): SourceCanvasModule {
 
 function sourceNodePayload(binding: string, constructorName: string): NodeData {
   return {
-    id: 0,
+    id: '',
     x: 0,
     y: 0,
     w: 250,
@@ -336,8 +336,8 @@ export class GraphAdapter {
   }
 
   connectPorts(
-    sourceNodeId: number,
-    targetNodeId: number,
+    sourceNodeId: string,
+    targetNodeId: string,
     targetPortId = 'input',
   ): SourceGraphOperationResult {
     return this.applyOperation({
@@ -350,9 +350,9 @@ export class GraphAdapter {
     });
   }
 
-  deleteNodes(nodeIds: number[]): SourceGraphOperationResult | null {
+  deleteNodes(nodeIds: string[]): SourceGraphOperationResult | null {
     this.assertLive();
-    const uniqueNodeIds = [...new Set(nodeIds)].filter((id) => Number.isFinite(id));
+    const uniqueNodeIds = [...new Set(nodeIds)].filter((id) => id.length > 0);
     if (uniqueNodeIds.length === 0) return null;
     const operation: GraphOperation = {
       version: 1,
@@ -367,10 +367,10 @@ export class GraphAdapter {
     return null;
   }
 
-  renameNode(nodeId: number, name: string): SourceGraphOperationResult | null {
+  renameNode(nodeId: string, name: string): SourceGraphOperationResult | null {
     this.assertLive();
     const nextName = name.trim();
-    if (!this.isSourceBacked || !Number.isInteger(nodeId) || nodeId <= 0 || nextName.length === 0) {
+    if (!this.isSourceBacked || nodeId.length === 0 || nextName.length === 0) {
       return null;
     }
     return this.applyOperation({
@@ -382,7 +382,7 @@ export class GraphAdapter {
   }
 
   setNodeParam(
-    nodeId: number,
+    nodeId: string,
     parameter: string,
     value: string,
   ): SourceGraphOperationResult | null {
@@ -391,8 +391,7 @@ export class GraphAdapter {
     const nextValue = value.trim();
     if (
       !this.isSourceBacked ||
-      !Number.isInteger(nodeId) ||
-      nodeId <= 0 ||
+      nodeId.length === 0 ||
       nextParameter.length === 0 ||
       nextValue.length === 0
     ) {
@@ -408,15 +407,15 @@ export class GraphAdapter {
   }
 
   disconnectPorts(
-    sourceNodeId: number,
+    sourceNodeId: string,
     sourcePortId: string,
-    targetNodeId: number,
+    targetNodeId: string,
     targetPortId: string,
   ): SourceGraphOperationResult | null {
     this.assertLive();
     if (
-      !Number.isFinite(sourceNodeId) ||
-      !Number.isFinite(targetNodeId) ||
+      sourceNodeId.length === 0 ||
+      targetNodeId.length === 0 ||
       sourcePortId.length === 0 ||
       targetPortId.length === 0
     ) {
@@ -444,7 +443,7 @@ export class GraphAdapter {
     return null;
   }
 
-  pointerDown(nodeId: number, sx: number, sy: number): void {
+  pointerDown(nodeId: string, sx: number, sy: number): void {
     this.assertLive();
     if (this.isSourceBacked) {
       this.sourceModule().source_graph_pointer_down(this.handle, nodeId, sx, sy);
@@ -454,7 +453,7 @@ export class GraphAdapter {
   }
 
   pointerDownHandle(
-    nodeId: number,
+    nodeId: string,
     portId: string,
     sx: number,
     sy: number,
@@ -472,7 +471,7 @@ export class GraphAdapter {
     }
   }
 
-  pointerUp(nodeId: number, targetPortId: string, additive: boolean): void {
+  pointerUp(nodeId: string, targetPortId: string, additive: boolean): void {
     this.assertLive();
     if (this.isSourceBacked) {
       this.sourceModule().source_graph_pointer_up(
@@ -487,7 +486,7 @@ export class GraphAdapter {
     this.emitLatestOperations();
   }
 
-  hoverNode(nodeId: number): void {
+  hoverNode(nodeId: string): void {
     this.assertCanvasBacked('hoverNode');
     this.mb.hover_node(this.handle, nodeId);
   }

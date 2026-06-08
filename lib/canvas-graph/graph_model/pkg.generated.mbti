@@ -52,7 +52,6 @@ pub(all) struct CanvasState {
   nodes : Array[CanvasNode]
   edges : Array[Edge]
   next_node_id : Int
-  next_edge_id : Int
   interaction : InteractionState
   action_log : Array[GraphOperation]
 } derive(@debug.Debug)
@@ -89,9 +88,9 @@ pub(all) struct Edge {
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for Edge
 
-pub(all) struct EdgeId(Int) derive(Eq, @debug.Debug)
-pub fn EdgeId::from_int(Int) -> Self
-pub fn EdgeId::to_int(Self) -> Int
+pub(all) struct EdgeId(String) derive(Eq, @debug.Debug)
+pub fn EdgeId::from_edge(NodeId, String, NodeId, String) -> Self
+pub fn EdgeId::to_string(Self) -> String
 pub impl Show for EdgeId
 pub impl ToJson for EdgeId
 pub impl @json.FromJson for EdgeId
@@ -117,9 +116,8 @@ pub(all) struct InteractionState {
 } derive(Eq, @debug.Debug)
 pub impl Show for InteractionState
 
-pub(all) struct NodeId(Int) derive(Eq, @debug.Debug)
-pub fn NodeId::from_int(Int) -> Self
-pub fn NodeId::to_int(Self) -> Int
+pub(all) struct NodeId(String) derive(Eq, @debug.Debug)
+pub fn NodeId::to_string(Self) -> String
 pub impl Show for NodeId
 pub impl ToJson for NodeId
 pub impl @json.FromJson for NodeId

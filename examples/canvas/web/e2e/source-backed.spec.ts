@@ -12,12 +12,31 @@ type Point = {
   y: number;
 };
 
-function inputHandle(page: Page, nodeId: number): Locator {
-  return page.locator(`.handle.input[data-node-id="${nodeId}"]`);
+// Source-backed nodes are identified by the Loom projection token
+// (`node#<n>:<binding>`), exposed in the DOM as `data-node-id`. Tests locate a
+// node by its user-facing binding (the `.node-title`) and resolve the token on
+// demand, so they neither hardcode the internal token format nor break when a
+// rename re-mints the token.
+function sourceNode(page: Page, binding: string): Locator {
+  return page
+    .locator('.canvas-node')
+    .filter({ has: page.locator('.node-title', { hasText: new RegExp(`^${binding}$`) }) });
 }
 
-function outputHandle(page: Page, nodeId: number): Locator {
-  return page.locator(`.handle.output[data-node-id="${nodeId}"]`);
+async function sourceNodeId(page: Page, binding: string): Promise<string> {
+  const id = await sourceNode(page, binding).getAttribute('data-node-id');
+  if (id === null) {
+    throw new Error(`no source-backed node bound as "${binding}"`);
+  }
+  return id;
+}
+
+async function inputHandle(page: Page, binding: string): Promise<Locator> {
+  return page.locator(`.handle.input[data-node-id="${await sourceNodeId(page, binding)}"]`);
+}
+
+async function outputHandle(page: Page, binding: string): Promise<Locator> {
+  return page.locator(`.handle.output[data-node-id="${await sourceNodeId(page, binding)}"]`);
 }
 
 function edgePaths(page: Page): Locator {
@@ -109,7 +128,7 @@ test('source-backed node drag updates local layout without mutating source', asy
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  const node = page.locator('.canvas-node[data-node-id="1"]');
+  const node = sourceNode(page, 'osc');
   const before = await center(node, 'source-backed node');
   await dragBy(page, node.locator('.node-title'), 82, 36);
   const after = await center(node, 'dragged source-backed node');
@@ -127,7 +146,7 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
+  await dragBetween(page, await outputHandle(page, 'osc'), await inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
 
@@ -137,8 +156,8 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   expect(runtimeErrors).toEqual([]);
 });
 
-async function selectSourceNode(page: Page, nodeId: number): Promise<void> {
-  const node = page.locator(`.canvas-node[data-node-id="${nodeId}"]`);
+async function selectSourceNode(page: Page, binding: string): Promise<void> {
+  const node = sourceNode(page, binding);
   await node.click();
   await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 }
@@ -150,14 +169,17 @@ test('source-backed inspector rename lowers to canonical source and references',
   await page.locator('#source-connect').click();
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
-  await selectSourceNode(page, 1);
+  await selectSourceNode(page, 'osc');
   const renameInput = page.locator('#node-rename-input');
   await expect(renameInput).toHaveValue('osc');
   await renameInput.fill('lfo');
   await renameInput.press('Enter');
 
   await expectSource(page, 'lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)');
-  await expect(page.locator('.canvas-node[data-node-id="1"] .node-title')).toHaveText('lfo');
+  // The rename re-mints the node's token, so the old binding is gone and the new
+  // one is present — the node is now identified as `lfo`.
+  await expect(sourceNode(page, 'osc')).toHaveCount(0);
+  await expect(sourceNode(page, 'lfo')).toHaveCount(1);
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
   await expect(page.locator('#source-status')).toContainText(
@@ -173,7 +195,7 @@ test('source-backed inspector numeric parameter edit lowers to canonical source'
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await selectSourceNode(page, 1);
+  await selectSourceNode(page, 'osc');
   const freqInput = page.locator('#node-param-freq');
   await expect(freqInput).toHaveValue('440');
   await freqInput.fill('880');
@@ -194,7 +216,7 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
+  await dragBetween(page, await outputHandle(page, 'osc'), await inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
   await expect(edgePaths(page)).toHaveCount(1);
@@ -221,14 +243,14 @@ test('source-backed selected node deletion lowers into canonical source', async 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  const meter = page.locator('.canvas-node[data-node-id="2"]');
+  const meter = sourceNode(page, 'meter');
   await meter.click();
   await expect(meter).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
 
   await expectSource(page, 'osc = sine(freq: 440Hz)');
   await expect(page.locator('.canvas-node')).toHaveCount(1);
-  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
+  await expect(sourceNode(page, 'meter')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
@@ -240,7 +262,7 @@ test('source-backed deletion rejects unsafe survivor references', async ({ page 
   await page.locator('#source-connect').click();
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
-  const osc = page.locator('.canvas-node[data-node-id="1"]');
+  const osc = sourceNode(page, 'osc');
   await osc.click();
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
@@ -263,10 +285,8 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   // bubbles to the document handler even from CodeMirror (CM6 does not
   // stopPropagation by default), so `editableKeyboardTarget` is the only thing
   // between this Backspace and `deleteSelectedNodes`.
-  await page.locator('.canvas-node[data-node-id="2"]').click();
-  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveClass(
-    /(?:^|\s)selected(?:\s|$)/,
-  );
+  await sourceNode(page, 'meter').click();
+  await expect(sourceNode(page, 'meter')).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 
   // Put the cursor at the end of the document so Backspace is a real editor
   // edit (deleting the trailing `)`), not a no-op at offset 0.

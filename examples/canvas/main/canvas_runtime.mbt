@@ -27,8 +27,8 @@ struct CanvasFullRenderJson {
   viewport : Viewport
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
-  selected : Int?
-  selected_nodes : Array[Int]
+  selected : String?
+  selected_nodes : Array[String]
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
   action_count : Int
@@ -41,7 +41,6 @@ fn validate_canvas_document(document : CanvasDocument) -> ValidatedCanvas {
       nodes: document.nodes.copy(),
       edges: document.edges.copy(),
       next_node_id: document.next_node_id,
-      next_edge_id: document.next_edge_id,
     },
     validation: validate_workflow(
       canvas_state_from_parts(
@@ -61,7 +60,6 @@ fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
       nodes: validated.document.nodes.copy(),
       edges: validated.document.edges.copy(),
       next_node_id: validated.document.next_node_id,
-      next_edge_id: validated.document.next_edge_id,
     },
     validation: validated.validation.copy(),
   }
@@ -77,7 +75,10 @@ fn lower_canvas(normalized : NormalizedCanvas) -> LoweredCanvas {
 }
 
 ///|
-fn preview_position_for(preview : DragPreview, node_id : Int) -> NodePosition? {
+fn preview_position_for(
+  preview : DragPreview,
+  node_id : String,
+) -> NodePosition? {
   find_position(preview.positions, NodeId(node_id))
 }
 
@@ -94,7 +95,7 @@ fn canvas_node_with_preview(
   node : CanvasNode,
   preview : DragPreview,
 ) -> CanvasNode {
-  match preview_position_for(preview, node_id_to_int(node.id)) {
+  match preview_position_for(preview, node_id_to_string(node.id)) {
     None => node
     Some(pos) => { ..node, x: pos.x, y: pos.y }
   }
@@ -136,11 +137,11 @@ fn render_full_canvas(
   interaction : InteractionState,
   action_count : Int,
 ) -> CanvasFullRenderJson {
-  let selected : Int? = match selection.selected {
+  let selected : String? = match selection.selected {
     None => None
-    Some(id) => Some(node_id_to_int(id))
+    Some(id) => Some(node_id_to_string(id))
   }
-  let selected_nodes = selection.selected_nodes.map(node_id_to_int)
+  let selected_nodes = selection.selected_nodes.map(node_id_to_string)
   {
     viewport,
     nodes: lowered.nodes.map(fn(node) {
@@ -158,7 +159,7 @@ fn render_full_canvas(
 ///|
 fn inspector_node_for_document(
   document : CanvasDocument,
-  node_id : Int,
+  node_id : String,
 ) -> InspectorNodeJson? {
   match find_node(document.nodes, NodeId(node_id)) {
     None => None
@@ -272,7 +273,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   )
 
   let node_inspector = scope.derived_map(
-    (id : Int) => {
+    (id : String) => {
       inspector_node_for_document(normalized.get_or_abort().document, id)
     },
     label="canvas.inspector.node_by_id",
@@ -284,7 +285,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
       match current_selection.selected {
         Some(id) =>
           inspector_with_source(
-            node_inspector.get_or_abort(node_id_to_int(id)),
+            node_inspector.get_or_abort(node_id_to_string(id)),
             "selected",
           )
         None =>
@@ -292,7 +293,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
             None => None
             Some(id) =>
               inspector_with_source(
-                node_inspector.get_or_abort(node_id_to_int(id)),
+                node_inspector.get_or_abort(node_id_to_string(id)),
                 "hovered",
               )
           }
@@ -435,7 +436,7 @@ fn CanvasRuntime::pointer_move(
 ///|
 fn CanvasRuntime::pointer_up(
   self : CanvasRuntime,
-  node_id : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
@@ -461,8 +462,8 @@ fn CanvasRuntime::zoom(
 }
 
 ///|
-fn CanvasRuntime::hover_node(self : CanvasRuntime, node_id : Int) -> Unit {
-  let hovered : NodeId? = if node_id <= 0 {
+fn CanvasRuntime::hover_node(self : CanvasRuntime, node_id : String) -> Unit {
+  let hovered : NodeId? = if node_id == "" {
     None
   } else {
     Some(NodeId(node_id))
