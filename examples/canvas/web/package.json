@@ -11,6 +11,11 @@
     "prebuild": "npm run prebuild:moonbit",
     "prebuild:moonbit": "cd .. && MOON_WORK=off moon build --target js --release"
   },
+  "dependencies": {
+    "@codemirror/commands": "^6.5.0",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.26.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "typescript": "^5.4.0",

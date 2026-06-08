@@ -358,9 +358,12 @@ extern "js" fn js_add_update_listener_raw(
   #|     }
   #|     if (update.docChanged && !isApplying()) {
   #|       const deltas = [];
+  #|       // `individual = true` keeps adjacent changes as separate ranges;
+  #|       // the default (false) coalesces neighbours into one merged range,
+  #|       // which would collapse the per-range ChangeDelta contract.
   #|       update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
   #|         deltas.push({ from: fromA, to: toA, insert: inserted.toString() });
-  #|       });
+  #|       }, true);
   #|       onChanges(deltas);
   #|     }
   #|     if ((update.selectionSet || update.docChanged) && !isApplying()) {
