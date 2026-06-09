@@ -66,14 +66,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Vendored submodules built standalone — event-graph-walker and loom
+          # still use deprecated try? ([0020]); canopy can't migrate their
+          # source, so they run in ci-lenient mode (exempts only [0020]).
           - name: event-graph-walker
             path: event-graph-walker
+            mode: ci-lenient
           - name: loom
             path: loom/loom
+            mode: ci-lenient
           - name: svg-dsl
             path: svg-dsl
+            mode: ci
           - name: graphviz
             path: graphviz
+            mode: ci
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,7 +94,7 @@ jobs:
         run: moon version --all
 
       - name: Check and test ${{ matrix.name }}
-        run: ./scripts/run-moon-module.sh ci "${{ matrix.path }}"
+        run: ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
 
   test-examples:
     name: Test MoonBit Examples
@@ -96,14 +103,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # canopy-owned examples — migrated off try?, run fully strict (ci).
           - name: ideal
             path: examples/ideal
+            mode: ci
           - name: block-editor
             path: examples/block-editor
+            mode: ci
           - name: canvas
             path: examples/canvas
+            mode: ci
           - name: codemirror_demo
             path: examples/codemirror_demo
+            mode: ci
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -117,7 +129,7 @@ jobs:
         run: moon version --all
 
       - name: Check and test ${{ matrix.name }}
-        run: ./scripts/run-moon-module.sh ci "${{ matrix.path }}"
+        run: ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
 
   prove:
     name: Formal Verification

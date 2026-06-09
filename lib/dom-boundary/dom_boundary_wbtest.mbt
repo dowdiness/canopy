@@ -24,14 +24,19 @@ extern "js" fn install_throwing_query_document(message : String) -> Unit =
 
 ///|
 test "decode_status maps invalid selectors to typed errors" {
-  let result : Result[Unit, DomBoundaryError] = try? decode_status_parts(
-    STATUS_INVALID_SELECTOR,
-    "not a valid selector",
-    Focus,
-    Selector("["),
-  )
-  match result {
-    Err(InvalidSelector(selector~, detail~)) => {
+  let captured = try {
+    decode_status_parts(
+      STATUS_INVALID_SELECTOR,
+      "not a valid selector",
+      Focus,
+      Selector("["),
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match captured {
+    Some(InvalidSelector(selector~, detail~)) => {
       inspect(selector, content="[")
       inspect(detail, content="not a valid selector")
     }
@@ -42,9 +47,14 @@ test "decode_status maps invalid selectors to typed errors" {
 ///|
 test "focus_id reports unavailable document through JS boundary" {
   clear_fake_document()
-  let result : Result[Unit, DomBoundaryError] = try? focus_id("missing")
-  match result {
-    Err(DocumentUnavailable) => ()
+  let captured = try {
+    focus_id("missing")
+    None
+  } catch {
+    e => Some(e)
+  }
+  match captured {
+    Some(DocumentUnavailable) => ()
     _ => fail("expected DocumentUnavailable")
   }
 }
@@ -52,21 +62,31 @@ test "focus_id reports unavailable document through JS boundary" {
 ///|
 test "focus_id succeeds through JS boundary" {
   install_focus_document("target")
-  let result : Result[Unit, DomBoundaryError] = try? focus_id("target")
+  let captured = try {
+    focus_id("target")
+    None
+  } catch {
+    e => Some(e)
+  }
   clear_fake_document()
-  match result {
-    Ok(_) => ()
-    Err(error) => fail("expected focus_id to succeed, got \{error}")
+  match captured {
+    None => ()
+    Some(error) => fail("expected focus_id to succeed, got \{error}")
   }
 }
 
 ///|
 test "focus_selector reports invalid selector through JS boundary" {
   install_throwing_query_document("bad selector")
-  let result : Result[Unit, DomBoundaryError] = try? focus_selector("[")
+  let captured = try {
+    focus_selector("[")
+    None
+  } catch {
+    e => Some(e)
+  }
   clear_fake_document()
-  match result {
-    Err(InvalidSelector(selector~, detail~)) => {
+  match captured {
+    Some(InvalidSelector(selector~, detail~)) => {
       inspect(selector, content="[")
       inspect(detail, content="bad selector")
     }
@@ -76,14 +96,14 @@ test "focus_selector reports invalid selector through JS boundary" {
 
 ///|
 test "decode_status maps missing elements with target context" {
-  let result : Result[Unit, DomBoundaryError] = try? decode_status_parts(
-    STATUS_NOT_FOUND,
-    "",
-    ScrollIntoView,
-    Id("missing"),
-  )
-  match result {
-    Err(ElementNotFound(target~)) =>
+  let captured = try {
+    decode_status_parts(STATUS_NOT_FOUND, "", ScrollIntoView, Id("missing"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match captured {
+    Some(ElementNotFound(target~)) =>
       inspect(target.describe(), content="#missing")
     _ => fail("expected ElementNotFound")
   }

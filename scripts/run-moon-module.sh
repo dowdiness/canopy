@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <check|test|fmt-check|ci|bench> <module-dir>" >&2
+    echo "Usage: $0 <check|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
     exit 1
 fi
 
@@ -24,11 +24,14 @@ fi
 
 cd "$PROJECT_ROOT/$MODULE_DIR"
 
-# --warn-list=-20 exempts the `try?` deprecation ([0020], MoonBit 0.10.0) from
-# --deny-warn. try? is still used ecosystem-wide (canopy, loom, event-graph-walker,
-# moonbitlang/core) and its replacement idiom is not yet stabilized; all OTHER
-# warnings remain denied. Remove the exemption once try? is migrated everywhere.
-DENY_WARN_FLAGS=(--deny-warn --warn-list=-20)
+DENY_WARN_FLAGS=(--deny-warn)
+
+# Vendored submodules built standalone (event-graph-walker, loom) still use the
+# deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
+# and cannot migrate it, so the `ci-lenient` mode exempts only that one warning
+# via --warn-list=-20. All other warnings stay denied, and canopy's own modules
+# (migrated off try?) run fully strict. Drop this once the ecosystem migrates.
+LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 
 case "$ACTION" in
     check)
@@ -44,6 +47,13 @@ case "$ACTION" in
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
         moon check "${DENY_WARN_FLAGS[@]}"
+        moon test --release
+        ;;
+    ci-lenient)
+        # Same as `ci`, but exempts the try? [0020] deprecation for vendored
+        # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
+        "$SCRIPT_DIR/moon-update.sh"
+        moon check "${LENIENT_WARN_FLAGS[@]}"
         moon test --release
         ;;
     bench)

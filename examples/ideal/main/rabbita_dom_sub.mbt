@@ -90,23 +90,21 @@ fn dom_event_sub_loader(
   match payload {
     CustomEvent(target, event_name, tagger) => {
       let mut current_tagger = tagger
-      let subscription = try? @dom_boundary.listen_custom_event_selector(
-        target.selector(),
-        event_name.event_type(),
-        detail => scheduler.add(current_tagger(detail)),
-      )
-      match subscription {
-        Ok(subscription) =>
-          Some({
-            unload: fn(_) {
-              let _ : Result[Unit, @dom_boundary.DomBoundaryError] = try? subscription.dispose()
-            },
-            update_tagger: fn(payload) {
-              guard payload is CustomEvent(_, _, new_tagger) else { return }
-              current_tagger = new_tagger
-            },
-          })
-        Err(error) => {
+      try {
+        let subscription = @dom_boundary.listen_custom_event_selector(
+          target.selector(),
+          event_name.event_type(),
+          detail => scheduler.add(current_tagger(detail)),
+        )
+        Some({
+          unload: fn(_) { subscription.dispose() catch { _ => () } },
+          update_tagger: fn(payload) {
+            guard payload is CustomEvent(_, _, new_tagger) else { return }
+            current_tagger = new_tagger
+          },
+        })
+      } catch {
+        error => {
           js_warn_dom_event_subscription_error(
             dom_event_subscription_error_message(
               target,
