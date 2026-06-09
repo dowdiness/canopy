@@ -13,8 +13,12 @@ fi
 ACTION="$1"
 MODULE_DIR="$2"
 
-if [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod.json" ]; then
-    echo "Module root not found: $MODULE_DIR (expected moon.mod.json at $PROJECT_ROOT/$MODULE_DIR)" >&2
+# Accept either manifest format: moon.mod.json (legacy) or moon.mod (the
+# experimental TOML format that event-graph-walker main adopted). moon reads
+# both as dependencies and as a primary module under NEW_MOON_MOD=0.
+if [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod.json" ] &&
+   [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod" ]; then
+    echo "Module root not found: $MODULE_DIR (expected moon.mod.json or moon.mod at $PROJECT_ROOT/$MODULE_DIR)" >&2
     exit 1
 fi
 
