@@ -344,15 +344,33 @@ fn source_graph_change_sub_loader(
   match payload {
     GraphChanged(handle, tagger) => {
       let mut current_tagger = tagger
+      // Coalesce a burst of settle pings into a single sync. One CodeMirror
+      // transaction can apply many per-delta loom edits (`apply_codemirror_changes`
+      // settles once per delta), each firing this observer; but `SyncFromGraph`
+      // only pulls the *final* source, so all but one ping per turn are redundant
+      // TEA cycles. Hold `sync_pending` from the first ping until the deferred
+      // sync actually runs, so a multi-range edit or large paste schedules just
+      // one `SyncFromGraph` instead of one per delta.
+      let mut sync_pending = false
       match
         source_graph_subscribe(handle, fn() {
+          guard !sync_pending else { return }
+          sync_pending = true
           // Deliver on a microtask: the settle ping fires *inside* the
           // attachment mutation, before `SourceBackedGraph.source` (what
           // `SyncFromGraph` pulls via `get_source_graph_source`) is updated for
           // a canvas-origin op. Deferring lets that synchronous mutation finish
           // so the sync reads the canonical post-mutation source — and keeps
           // `scheduler.add` out of any in-progress drain (no reentrancy).
-          defer_sync(fn() { scheduler.add(current_tagger(())) })
+          //
+          // Clear `sync_pending` *before* `scheduler.add` so that if draining
+          // the sync somehow provokes a fresh settle, it re-arms and is not
+          // swallowed; settles that merely piled up before this microtask are
+          // already coalesced into this one run.
+          defer_sync(fn() {
+            sync_pending = false
+            scheduler.add(current_tagger(()))
+          })
         }) {
         Some(subscription) =>
           Some({
