@@ -30,7 +30,8 @@ DENY_WARN_FLAGS=(--deny-warn)
 # deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
 # and cannot migrate it, so the `ci-lenient` mode exempts only that one warning
 # via --warn-list=-20. All other warnings stay denied, and canopy's own modules
-# (migrated off try?) run fully strict. Drop this once the ecosystem migrates.
+# (migrated off try?) run fully strict. Drop this once the ecosystem migrates
+# (tracked in #573).
 LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 
 case "$ACTION" in
