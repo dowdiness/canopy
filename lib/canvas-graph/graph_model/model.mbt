@@ -1,19 +1,20 @@
 ///|
-const GRAPH_OPERATION_VERSION : Int = 1
+// v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
+// the v1 positional integer. The decode gate below rejects v1 payloads, so the
+// bump keeps "version" an honest, single-meaning format marker.
+const GRAPH_OPERATION_VERSION : Int = 2
 
 ///|
-/// Integer ID for graph nodes in the canvas model.
-pub(all) struct NodeId(Int) derive(Debug, Eq)
+/// Stable identity for graph nodes in the canvas model. For source-backed
+/// graphs this is the Loom `ProjectionIdentityTracker` token (`GraphNode::id()`,
+/// e.g. `"node#0:osc"`); for the hand-built canvas it is a minted string
+/// (`"7"`, `"8"`, ...). It is the only cross-frame node identity.
+pub(all) struct NodeId(String) derive(Debug, Eq)
 
 ///|
-pub fn NodeId::from_int(n : Int) -> NodeId {
-  NodeId(n)
-}
-
-///|
-pub fn NodeId::to_int(self : NodeId) -> Int {
-  let NodeId(n) = self
-  n
+pub fn NodeId::to_string(self : NodeId) -> String {
+  let NodeId(s) = self
+  s
 }
 
 ///|
@@ -23,29 +24,46 @@ pub impl Show for NodeId with fn output(self, logger) {
 
 ///|
 pub impl ToJson for NodeId with fn to_json(self) {
-  self.to_int().to_json()
+  self.to_string().to_json()
 }
 
 ///|
 pub impl @json.FromJson for NodeId with fn from_json(json, path) {
   match json {
-    Json::Number(n, ..) => NodeId(n.to_int())
-    _ => raise @json.JsonDecodeError((path, "NodeId: expected JSON number"))
+    Json::String(s) => NodeId(s)
+    _ => raise @json.JsonDecodeError((path, "NodeId: expected JSON string"))
   }
 }
 
 ///|
-pub(all) struct EdgeId(Int) derive(Debug, Eq)
+/// Identity for a typed connection, derived deterministically from its
+/// endpoints — `(source, source_port, target, target_port)` — so no allocator
+/// or registry is needed. `source_port` is included so two edges from distinct
+/// output ports of one source to the same target port do not collide.
+pub(all) struct EdgeId(String) derive(Debug, Eq)
 
 ///|
-pub fn EdgeId::from_int(n : Int) -> EdgeId {
-  EdgeId(n)
+pub fn EdgeId::from_edge(
+  source : NodeId,
+  source_port : String,
+  target : NodeId,
+  target_port : String,
+) -> EdgeId {
+  EdgeId(
+    source.to_string() +
+    "|" +
+    source_port +
+    "|" +
+    target.to_string() +
+    "|" +
+    target_port,
+  )
 }
 
 ///|
-pub fn EdgeId::to_int(self : EdgeId) -> Int {
-  let EdgeId(n) = self
-  n
+pub fn EdgeId::to_string(self : EdgeId) -> String {
+  let EdgeId(s) = self
+  s
 }
 
 ///|
@@ -55,14 +73,14 @@ pub impl Show for EdgeId with fn output(self, logger) {
 
 ///|
 pub impl ToJson for EdgeId with fn to_json(self) {
-  self.to_int().to_json()
+  self.to_string().to_json()
 }
 
 ///|
 pub impl @json.FromJson for EdgeId with fn from_json(json, path) {
   match json {
-    Json::Number(n, ..) => EdgeId(n.to_int())
-    _ => raise @json.JsonDecodeError((path, "EdgeId: expected JSON number"))
+    Json::String(s) => EdgeId(s)
+    _ => raise @json.JsonDecodeError((path, "EdgeId: expected JSON string"))
   }
 }
 
@@ -362,13 +380,13 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     }
     "ConnectPorts" => {
       let source = NodeId(
-        json_number_field(fields, path, "source", "ConnectPorts"),
+        json_string_field(fields, path, "source", "ConnectPorts"),
       )
       let source_port = json_string_field(
         fields, path, "source_port", "ConnectPorts",
       )
       let target = NodeId(
-        json_number_field(fields, path, "target", "ConnectPorts"),
+        json_string_field(fields, path, "target", "ConnectPorts"),
       )
       let target_port = json_string_field(
         fields, path, "target_port", "ConnectPorts",
@@ -377,13 +395,13 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     }
     "DisconnectPorts" => {
       let source = NodeId(
-        json_number_field(fields, path, "source", "DisconnectPorts"),
+        json_string_field(fields, path, "source", "DisconnectPorts"),
       )
       let source_port = json_string_field(
         fields, path, "source_port", "DisconnectPorts",
       )
       let target = NodeId(
-        json_number_field(fields, path, "target", "DisconnectPorts"),
+        json_string_field(fields, path, "target", "DisconnectPorts"),
       )
       let target_port = json_string_field(
         fields, path, "target_port", "DisconnectPorts",
@@ -398,14 +416,14 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     }
     "RenameNode" => {
       let node_id = NodeId(
-        json_number_field(fields, path, "node_id", "RenameNode"),
+        json_string_field(fields, path, "node_id", "RenameNode"),
       )
       let name = json_string_field(fields, path, "name", "RenameNode")
       WorkflowAction::RenameNode(node_id, name)
     }
     "SetNodeParam" => {
       let node_id = NodeId(
-        json_number_field(fields, path, "node_id", "SetNodeParam"),
+        json_string_field(fields, path, "node_id", "SetNodeParam"),
       )
       let parameter = json_string_field(
         fields, path, "parameter", "SetNodeParam",
@@ -524,9 +542,10 @@ pub(all) struct CanvasState {
   viewport : Viewport
   nodes : Array[CanvasNode]
   edges : Array[Edge]
+  /// Monotonic counter used by the hand-built (non-source) canvas to mint fresh
+  /// node ids (`NodeId(next_node_id.to_string())`). Source-backed graphs ignore
+  /// it — their identity is the Loom tracker token.
   next_node_id : Int
-  /// Monotonic counter used to mint EdgeIds for newly-created connections.
-  next_edge_id : Int
   interaction : InteractionState
   action_log : Array[GraphOperation]
 } derive(Debug)
@@ -761,7 +780,7 @@ fn append_edge(
   target_port : String,
 ) -> CanvasState {
   let edge : Edge = {
-    id: EdgeId(state.next_edge_id),
+    id: EdgeId::from_edge(source, source_port, target, target_port),
     source,
     source_port,
     target,
@@ -769,7 +788,7 @@ fn append_edge(
   }
   let edges = state.edges.copy()
   edges.push(edge)
-  { ..state, edges, next_edge_id: state.next_edge_id + 1 }
+  { ..state, edges, }
 }
 
 ///|
@@ -941,41 +960,40 @@ pub fn replay_operations(
 /// loop, and parallel-flow concepts.
 pub impl Default for CanvasState with fn default() -> CanvasState {
   let nodes = [
-    make_workflow_node(NodeId(1), TimerTrigger, -520.0, -190.0),
-    make_workflow_node(NodeId(2), HttpRequest, -190.0, -190.0),
-    make_workflow_node(NodeId(3), DataFormatter, 155.0, -190.0),
-    make_workflow_node(NodeId(4), ConditionalBranch, 500.0, -190.0),
-    make_workflow_node(NodeId(5), Loop, 150.0, 60.0),
-    make_workflow_node(NodeId(6), Parallel, 500.0, 70.0),
+    make_workflow_node(NodeId("1"), TimerTrigger, -520.0, -190.0),
+    make_workflow_node(NodeId("2"), HttpRequest, -190.0, -190.0),
+    make_workflow_node(NodeId("3"), DataFormatter, 155.0, -190.0),
+    make_workflow_node(NodeId("4"), ConditionalBranch, 500.0, -190.0),
+    make_workflow_node(NodeId("5"), Loop, 150.0, 60.0),
+    make_workflow_node(NodeId("6"), Parallel, 500.0, 70.0),
   ]
   {
     viewport: { x: 760.0, y: 330.0, scale: 0.75 },
     nodes,
     edges: [
       {
-        id: EdgeId(1),
-        source: NodeId(1),
+        id: EdgeId::from_edge(NodeId("1"), "tick", NodeId("2"), "in"),
+        source: NodeId("1"),
         source_port: "tick",
-        target: NodeId(2),
+        target: NodeId("2"),
         target_port: "in",
       },
       {
-        id: EdgeId(2),
-        source: NodeId(2),
+        id: EdgeId::from_edge(NodeId("2"), "json", NodeId("3"), "json"),
+        source: NodeId("2"),
         source_port: "json",
-        target: NodeId(3),
+        target: NodeId("3"),
         target_port: "json",
       },
       {
-        id: EdgeId(3),
-        source: NodeId(3),
+        id: EdgeId::from_edge(NodeId("3"), "text", NodeId("4"), "text"),
+        source: NodeId("3"),
         source_port: "text",
-        target: NodeId(4),
+        target: NodeId("4"),
         target_port: "text",
       },
     ],
     next_node_id: 7,
-    next_edge_id: 4,
     interaction: empty_interaction(),
     action_log: [],
   }

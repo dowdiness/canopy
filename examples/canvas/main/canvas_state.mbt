@@ -36,7 +36,6 @@ struct CanvasDocument {
   nodes : Array[CanvasNode]
   edges : Array[Edge]
   next_node_id : Int
-  next_edge_id : Int
 } derive(Debug, Eq)
 
 ///|
@@ -95,7 +94,6 @@ fn canvas_document_from_state(state : CanvasState) -> CanvasDocument {
     nodes: state.nodes.copy(),
     edges: state.edges.copy(),
     next_node_id: state.next_node_id,
-    next_edge_id: state.next_edge_id,
   }
 }
 
@@ -111,7 +109,6 @@ fn canvas_state_from_parts(
     nodes: document.nodes.copy(),
     edges: document.edges.copy(),
     next_node_id: document.next_node_id,
-    next_edge_id: document.next_edge_id,
     interaction: interaction_with_selection(
       interaction,
       selection_from_interaction(interaction),

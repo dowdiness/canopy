@@ -67,8 +67,8 @@ const validation = document.getElementById('validation-list') as HTMLDivElement;
 const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
 const contextMenu = document.getElementById('context-menu') as HTMLDivElement;
-const nodeDivs = new Map<number, HTMLDivElement>();
-const edgePaths = new Map<number, SVGPathElement>();
+const nodeDivs = new Map<string, HTMLDivElement>();
+const edgePaths = new Map<string, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
 let contextEdge: EdgeData | null = null;
@@ -155,7 +155,7 @@ function clearSelectedEdge(): void {
 
 /** Context for the in-flight connection, resolved once per render. */
 type ConnectCtx = {
-  fromNode: number;
+  fromNode: string;
   fromPort: string;
   sourceType: string | null;
   edges: EdgeData[];
@@ -170,7 +170,7 @@ function portTypesCompatible(source: string, target: string): boolean {
  * Whether dragging from the active source onto this input handle would be
  * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, type check).
  */
-function inputHandleCompatible(ctx: ConnectCtx, targetNode: number, targetPort: PortDef): boolean {
+function inputHandleCompatible(ctx: ConnectCtx, targetNode: string, targetPort: PortDef): boolean {
   if (ctx.sourceType == null) return false;
   if (ctx.fromNode === targetNode) return false; // self-loop
   const duplicate = ctx.edges.some(
@@ -232,11 +232,11 @@ function render(): void {
   edgesSvg.style.transform = transform;
 
   // Nodes ────────────────────────────────────────────────────────────────────
-  const nodesById = new Map<number, NodeData>();
-  const seenNodes = new Set<number>();
+  const nodesById = new Map<string, NodeData>();
+  const seenNodes = new Set<string>();
   const selected = new Set(state.selected_nodes ?? []);
   const invalidNodeIds = new Set(
-    state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as number),
+    state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as string),
   );
 
   // Resolve the in-flight connection's source port type once, so each input
@@ -312,7 +312,7 @@ function render(): void {
   }
 
   // Edges ────────────────────────────────────────────────────────────────────
-  const seenEdges = new Set<number>();
+  const seenEdges = new Set<string>();
   for (const edge of state.edges) {
     const src = nodesById.get(edge.source);
     const dst = nodesById.get(edge.target);
@@ -377,13 +377,13 @@ function renderValidation(state: RenderState): void {
     item.type = 'button';
     item.textContent = message.message;
     if (message.node_id != null) {
-      item.addEventListener('click', () => focusNode(message.node_id as number));
+      item.addEventListener('click', () => focusNode(message.node_id as string));
     }
     validation.appendChild(item);
   }
 }
 
-function commitSourceRename(nodeId: number, currentName: string, nextName: string): void {
+function commitSourceRename(nodeId: string, currentName: string, nextName: string): void {
   const trimmed = nextName.trim();
   if (trimmed === currentName || trimmed.length === 0) return;
   const result = adapter.renameNode(nodeId, trimmed);
@@ -398,7 +398,7 @@ function commitSourceRename(nodeId: number, currentName: string, nextName: strin
 }
 
 function commitSourceParam(
-  nodeId: number,
+  nodeId: string,
   param: NodeParamData,
   nextValue: string,
 ): void {
@@ -567,7 +567,7 @@ function renderInspector(state: RenderState): void {
   inspectorNode.replaceChildren(...children);
 }
 
-function focusNode(nodeId: number): void {
+function focusNode(nodeId: string): void {
   const node = nodeDivs.get(nodeId);
   if (!node) return;
   node.animate([
@@ -580,16 +580,16 @@ function focusNode(nodeId: number): void {
 
 type HitTarget =
   | { kind: 'background' }
-  | { kind: 'node'; nodeId: number }
+  | { kind: 'node'; nodeId: string }
   | { kind: 'edge'; edge: EdgeData }
-  | { kind: 'handle'; nodeId: number; side: 'input' | 'output'; portId: string };
+  | { kind: 'handle'; nodeId: string; side: 'input' | 'output'; portId: string };
 
 function hitFromTarget(target: EventTarget | null): HitTarget {
   let el = target instanceof Element ? target : null;
   while (el && el !== root) {
     const element = el as HTMLElement | SVGElement;
     if (element.dataset?.edgeId) {
-      const edgeId = parseInt(element.dataset.edgeId);
+      const edgeId = element.dataset.edgeId;
       const state = lastState ?? adapter.renderState();
       const edge = state.edges.find((candidate) => candidate.id === edgeId);
       if (edge) return { kind: 'edge', edge };
@@ -597,13 +597,13 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
     if (element.dataset?.handle && element.dataset?.nodeId && element.dataset?.portId) {
       return {
         kind: 'handle',
-        nodeId: parseInt(element.dataset.nodeId),
+        nodeId: element.dataset.nodeId,
         side: element.dataset.handle as 'input' | 'output',
         portId: element.dataset.portId,
       };
     }
     if (element.dataset?.nodeId && element.classList.contains('canvas-node')) {
-      return { kind: 'node', nodeId: parseInt(element.dataset.nodeId) };
+      return { kind: 'node', nodeId: element.dataset.nodeId };
     }
     el = el.parentElement;
   }
@@ -623,8 +623,8 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   scheduleRender();
 }
 
-function hoverNodeId(hit: HitTarget): number {
-  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : 0;
+function hoverNodeId(hit: HitTarget): string {
+  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : '';
 }
 
 function updateHover(hit: HitTarget): void {
@@ -809,7 +809,7 @@ function handleContextMenuSelect(key: string): void {
 // ─── Event wiring ─────────────────────────────────────────────────────────────
 
 let activePointerId = -1;
-let pointerDownNodeId = 0;
+let pointerDownNodeId = '';
 let pointerUpAdditive = false;
 
 root.addEventListener('pointerdown', (e: PointerEvent) => {
@@ -833,7 +833,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     activePointerId = e.pointerId;
     pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
     const [sx, sy] = localCoords(e);
-    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : 0;
+    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : '';
     adapter.pointerDown(pointerDownNodeId, sx, sy);
     if (hit.kind === 'background') root.classList.add('panning');
     scheduleRender();
@@ -862,10 +862,10 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       // Only output handles initiate a connection in the prototype.
       if (hit.side === 'output') {
         adapter.pointerDownHandle(hit.nodeId, hit.portId, sx, sy);
-        pointerDownNodeId = 0; // pointerup uses hover target, not down target
+        pointerDownNodeId = ''; // pointerup uses hover target, not down target
       } else {
         // Input handle clicks are inert for now; do not start background pan.
-        pointerDownNodeId = 0;
+        pointerDownNodeId = '';
       }
       break;
     case 'node':
@@ -873,8 +873,8 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       adapter.pointerDown(hit.nodeId, sx, sy);
       break;
     case 'background':
-      pointerDownNodeId = 0;
-      adapter.pointerDown(0, sx, sy);
+      pointerDownNodeId = '';
+      adapter.pointerDown('', sx, sy);
       root.classList.add('panning');
       break;
   }
@@ -927,7 +927,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
       pointerDownNodeId;
     adapter.pointerUp(upNodeId, '', pointerUpAdditive);
     activePointerId = -1;
-    pointerDownNodeId = 0;
+    pointerDownNodeId = '';
     pointerUpAdditive = false;
     root.classList.remove('panning');
     scheduleRender();
@@ -945,7 +945,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
   const targetPortId = hit.kind === 'handle' && hit.side === 'input' ? hit.portId : '';
   adapter.pointerUp(upNodeId, targetPortId, pointerUpAdditive);
   activePointerId = -1;
-  pointerDownNodeId = 0;
+  pointerDownNodeId = '';
   pointerUpAdditive = false;
   root.classList.remove('panning');
   scheduleRender();
@@ -958,18 +958,18 @@ root.addEventListener('pointercancel', (e: PointerEvent) => {
       return;
     }
     if (e.pointerId !== activePointerId) return;
-    adapter.pointerUp(0, '', false);
+    adapter.pointerUp('', '', false);
     activePointerId = -1;
-    pointerDownNodeId = 0;
+    pointerDownNodeId = '';
     pointerUpAdditive = false;
     root.classList.remove('panning');
     scheduleRender();
     return;
   }
   if (e.pointerId !== activePointerId) return;
-  adapter.pointerUp(0, '', false);
+  adapter.pointerUp('', '', false);
   activePointerId = -1;
-  pointerDownNodeId = 0;
+  pointerDownNodeId = '';
   pointerUpAdditive = false;
   root.classList.remove('panning');
   scheduleRender();

@@ -37,9 +37,7 @@ fn deleted_bindings_for_canvas_ids(
     match graph_node_for_canvas_id(doc, id) {
       Some(node) => append_unique_string(bindings, node.binding())
       None =>
-        return Err(
-          "cannot lower DeleteNodes: missing node " + id.to_int().to_string(),
-        )
+        return Err("cannot lower DeleteNodes: missing node " + id.to_string())
     }
   }
   if bindings.length() == 0 {

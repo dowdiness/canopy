@@ -3,13 +3,12 @@ fn make_test_state() -> CanvasState {
   {
     viewport: { x: 0.0, y: 0.0, scale: 1.0 },
     nodes: [
-      make_workflow_node(NodeId(1), TimerTrigger, 100.0, 100.0),
-      make_workflow_node(NodeId(2), HttpRequest, 420.0, 100.0),
-      make_workflow_node(NodeId(3), DataFormatter, 760.0, 100.0),
+      make_workflow_node(NodeId("1"), TimerTrigger, 100.0, 100.0),
+      make_workflow_node(NodeId("2"), HttpRequest, 420.0, 100.0),
+      make_workflow_node(NodeId("3"), DataFormatter, 760.0, 100.0),
     ],
     edges: [],
     next_node_id: 4,
-    next_edge_id: 1,
     interaction: @graph_model.empty_interaction(),
     action_log: [],
   }
@@ -99,9 +98,9 @@ test "zoom keeps cursor world position fixed" {
 ///|
 test "node_drag_start records offsets for the dragged node" {
   let state = make_test_state()
-  let s = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
+  let s = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
-  assert_eq(d.node_id, NodeId(1))
+  assert_eq(d.node_id, NodeId("1"))
   assert_eq(d.origins.length(), 1)
   inspect(d.origins[0].offset_x, content="-10")
   inspect(d.origins[0].offset_y, content="-20")
@@ -113,9 +112,9 @@ test "node_drag_start records offsets for the dragged node" {
 test "node_drag_start includes all selected nodes for multi-drag" {
   let state = @graph_model.apply_action(
     make_test_state(),
-    SelectNodes([NodeId(1), NodeId(2)]),
+    SelectNodes([NodeId("1"), NodeId("2")]),
   )
-  let s = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
+  let s = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
   assert_eq(d.origins.length(), 2)
 }
@@ -123,14 +122,14 @@ test "node_drag_start includes all selected nodes for multi-drag" {
 ///|
 test "node_drag_start is no-op for unknown node id" {
   let state = make_test_state()
-  let s = update_node_drag_start(state, NodeId(99), 0.0, 0.0)
+  let s = update_node_drag_start(state, NodeId("99"), 0.0, 0.0)
   assert_true(s.interaction.dragging is None)
 }
 
 ///|
 test "pointer_up records a MoveNodes action after drag" {
   let state = make_test_state()
-  let s0 = update_node_drag_start(state, NodeId(1), 110.0, 120.0)
+  let s0 = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
   let preview = drag_preview_from_move(
     match s0.interaction.dragging {
       Some(drag) => drag
@@ -150,7 +149,7 @@ test "pointer_up records a MoveNodes action after drag" {
     nodes: moved_nodes,
     interaction: { ..s0.interaction, did_move: true },
   }
-  let s2 = update_pointer_up(s1, 1, "", false)
+  let s2 = update_pointer_up(s1, "1", "", false)
   assert_eq(s2.action_log.length(), 1)
   match s2.action_log[0].action() {
     WorkflowAction::MoveNodes(positions) => {
@@ -165,34 +164,34 @@ test "pointer_up records a MoveNodes action after drag" {
 ///|
 test "pointer_up on node without movement selects it" {
   let state = make_test_state()
-  let s0 = update_node_drag_start(state, NodeId(1), 100.0, 100.0)
-  let s1 = update_pointer_up(s0, 1, "", false)
-  @debug.debug_inspect(s1.interaction.selected, content="Some(NodeId(1))")
-  @debug.assert_eq(s1.interaction.selected_nodes, [NodeId(1)])
+  let s0 = update_node_drag_start(state, NodeId("1"), 100.0, 100.0)
+  let s1 = update_pointer_up(s0, "1", "", false)
+  @debug.debug_inspect(s1.interaction.selected, content="Some(NodeId(\"1\"))")
+  @debug.assert_eq(s1.interaction.selected_nodes, [NodeId("1")])
 }
 
 ///|
 test "additive click toggles multi-selection" {
   let state = @graph_model.apply_action(
     make_test_state(),
-    SelectNodes([NodeId(1)]),
+    SelectNodes([NodeId("1")]),
   )
-  let s0 = update_node_drag_start(state, NodeId(2), 420.0, 100.0)
-  let s1 = update_pointer_up(s0, 2, "", true)
-  @debug.assert_eq(s1.interaction.selected_nodes, [NodeId(1), NodeId(2)])
-  let s2 = update_node_drag_start(s1, NodeId(1), 100.0, 100.0)
-  let s3 = update_pointer_up(s2, 1, "", true)
-  @debug.assert_eq(s3.interaction.selected_nodes, [NodeId(2)])
+  let s0 = update_node_drag_start(state, NodeId("2"), 420.0, 100.0)
+  let s1 = update_pointer_up(s0, "2", "", true)
+  @debug.assert_eq(s1.interaction.selected_nodes, [NodeId("1"), NodeId("2")])
+  let s2 = update_node_drag_start(s1, NodeId("1"), 100.0, 100.0)
+  let s3 = update_pointer_up(s2, "1", "", true)
+  @debug.assert_eq(s3.interaction.selected_nodes, [NodeId("2")])
 }
 
 ///|
 test "pointer_up on background deselects" {
   let state = @graph_model.apply_action(
     make_test_state(),
-    SelectNodes([NodeId(1)]),
+    SelectNodes([NodeId("1")]),
   )
   let s0 = update_pan_start(state, 0.0, 0.0)
-  let s1 = update_pointer_up(s0, 0, "", false)
+  let s1 = update_pointer_up(s0, "", "", false)
   inspect(s1.interaction.selected is None, content="true")
   assert_eq(s1.interaction.selected_nodes.length(), 0)
 }
@@ -200,9 +199,9 @@ test "pointer_up on background deselects" {
 ///|
 test "connect_start records source node, source port, and cursor world position" {
   let state = make_test_state()
-  let s = update_connect_start(state, NodeId(1), "tick", 250.0, 80.0)
+  let s = update_connect_start(state, NodeId("1"), "tick", 250.0, 80.0)
   guard s.interaction.connecting is Some(c)
-  assert_eq(c.from_node, NodeId(1))
+  assert_eq(c.from_node, NodeId("1"))
   inspect(c.from_port, content="tick")
   inspect(c.cursor_x, content="250")
   inspect(c.cursor_y, content="80")
@@ -212,7 +211,7 @@ test "connect_start records source node, source port, and cursor world position"
 ///|
 test "connect_move updates cursor world position" {
   let state = make_test_state()
-  let s0 = update_connect_start(state, NodeId(1), "tick", 0.0, 0.0)
+  let s0 = update_connect_start(state, NodeId("1"), "tick", 0.0, 0.0)
   let s1 = update_connect_move(s0, 333.0, 444.0)
   guard s1.interaction.connecting is Some(c)
   inspect(c.cursor_x, content="333")
@@ -223,12 +222,12 @@ test "connect_move updates cursor world position" {
 ///|
 test "connect_end commits compatible typed ports" {
   let state = make_test_state()
-  let s0 = update_connect_start(state, NodeId(1), "tick", 0.0, 0.0)
-  let s1 = update_connect_end(s0, Some(NodeId(2)), Some("in"))
+  let s0 = update_connect_start(state, NodeId("1"), "tick", 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId("2")), Some("in"))
   assert_eq(s1.edges.length(), 1)
-  assert_eq(s1.edges[0].source, NodeId(1))
+  assert_eq(s1.edges[0].source, NodeId("1"))
   assert_eq(s1.edges[0].source_port, "tick")
-  assert_eq(s1.edges[0].target, NodeId(2))
+  assert_eq(s1.edges[0].target, NodeId("2"))
   assert_eq(s1.edges[0].target_port, "in")
   assert_true(s1.interaction.connecting is None)
   assert_eq(s1.action_log.length(), 1)
@@ -237,11 +236,11 @@ test "connect_end commits compatible typed ports" {
 ///|
 test "connect_end uses the explicit target port" {
   let nodes = make_test_state().nodes.copy()
-  nodes.push(make_workflow_node(NodeId(4), Custom("Any source"), 0.0, 0.0))
-  nodes.push(make_workflow_node(NodeId(5), ConditionalBranch, 0.0, 0.0))
+  nodes.push(make_workflow_node(NodeId("4"), Custom("Any source"), 0.0, 0.0))
+  nodes.push(make_workflow_node(NodeId("5"), ConditionalBranch, 0.0, 0.0))
   let state : CanvasState = { ..make_test_state(), nodes, }
-  let s0 = update_connect_start(state, NodeId(4), "out", 0.0, 0.0)
-  let s1 = update_connect_end(s0, Some(NodeId(5)), Some("rule"))
+  let s0 = update_connect_start(state, NodeId("4"), "out", 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId("5")), Some("rule"))
   assert_eq(s1.edges.length(), 1)
   assert_eq(s1.edges[0].source_port, "out")
   assert_eq(s1.edges[0].target_port, "rule")
@@ -250,8 +249,8 @@ test "connect_end uses the explicit target port" {
 ///|
 test "connect_end rejects incompatible ports" {
   let state = make_test_state()
-  let s0 = update_connect_start(state, NodeId(1), "tick", 0.0, 0.0)
-  let s1 = update_connect_end(s0, Some(NodeId(3)), Some("json"))
+  let s0 = update_connect_start(state, NodeId("1"), "tick", 0.0, 0.0)
+  let s1 = update_connect_end(s0, Some(NodeId("3")), Some("json"))
   assert_eq(s1.edges.length(), 0)
   assert_true(s1.interaction.connecting is None)
   // Rejected attempts are still logged for audit/collaboration streams.
@@ -262,8 +261,8 @@ test "connect_end rejects incompatible ports" {
 test "connect_end does not create self-loops or duplicates" {
   let state = make_test_state()
   let self_loop = update_connect_end(
-    update_connect_start(state, NodeId(2), "json", 0.0, 0.0),
-    Some(NodeId(2)),
+    update_connect_start(state, NodeId("2"), "json", 0.0, 0.0),
+    Some(NodeId("2")),
     Some("in"),
   )
   assert_eq(self_loop.edges.length(), 0)
@@ -272,18 +271,17 @@ test "connect_end does not create self-loops or duplicates" {
     ..make_test_state(),
     edges: [
       {
-        id: EdgeId(1),
-        source: NodeId(1),
+        id: EdgeId::from_edge(NodeId("1"), "tick", NodeId("2"), "in"),
+        source: NodeId("1"),
         source_port: "tick",
-        target: NodeId(2),
+        target: NodeId("2"),
         target_port: "in",
       },
     ],
-    next_edge_id: 2,
   }
   let duplicate = update_connect_end(
-    update_connect_start(with_edge, NodeId(1), "tick", 0.0, 0.0),
-    Some(NodeId(2)),
+    update_connect_start(with_edge, NodeId("1"), "tick", 0.0, 0.0),
+    Some(NodeId("2")),
     Some("in"),
   )
   assert_eq(duplicate.edges.length(), 1)
@@ -298,7 +296,7 @@ test "workflow_add_node creates typed custom nodes through serializable action" 
   assert_eq(s.action_log.length(), 1)
   inspect(s.nodes[3].title, content="Custom step")
   match s.action_log[0].action() {
-    WorkflowAction::AddNode(node) => assert_eq(node.id, NodeId(4))
+    WorkflowAction::AddNode(node) => assert_eq(node.id, NodeId("4"))
     _ => fail("expected AddNode action")
   }
 }
@@ -306,34 +304,35 @@ test "workflow_add_node creates typed custom nodes through serializable action" 
 ///|
 test "validate_workflow reports missing typed input ports independently" {
   let nodes = make_test_state().nodes.copy()
-  nodes.push(make_workflow_node(NodeId(4), ConditionalBranch, 0.0, 0.0))
+  nodes.push(make_workflow_node(NodeId("4"), ConditionalBranch, 0.0, 0.0))
   let state : CanvasState = {
     ..make_test_state(),
     nodes,
     edges: [
       {
-        id: EdgeId(1),
-        source: NodeId(3),
+        id: EdgeId::from_edge(NodeId("3"), "text", NodeId("4"), "text"),
+        source: NodeId("3"),
         source_port: "text",
-        target: NodeId(4),
+        target: NodeId("4"),
         target_port: "text",
       },
     ],
-    next_edge_id: 2,
   }
   let messages = validate_workflow(state)
   assert_true(
     messages
     .iter()
     .any(fn(message) {
-      message.node_id == Some(4) && message.message.contains("input “rule”")
+      message.node_id == Some("4") &&
+      message.message.contains("input \u{201c}rule\u{201d}")
     }),
   )
   assert_false(
     messages
     .iter()
     .any(fn(message) {
-      message.node_id == Some(4) && message.message.contains("input “text”")
+      message.node_id == Some("4") &&
+      message.message.contains("input \u{201c}text\u{201d}")
     }),
   )
 }
@@ -353,7 +352,7 @@ test "runtime live drag updates preview before one durable MoveNodes commit" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
   let before = runtime.document.peek()
-  runtime.pointer_down(Some(NodeId(1)), -510.0, -180.0)
+  runtime.pointer_down(Some(NodeId("1")), -510.0, -180.0)
   runtime.pointer_move(-400.0, -100.0)
 
   let during = runtime.document.peek()
@@ -366,7 +365,7 @@ test "runtime live drag updates preview before one durable MoveNodes commit" {
   inspect(preview.y, content="-110")
   assert_eq(before.nodes[0].x, during.nodes[0].x)
 
-  runtime.pointer_up(1, "", false)
+  runtime.pointer_up("1", "", false)
   let after = runtime.document.peek()
   inspect(after.nodes[0].x, content="-410")
   inspect(after.nodes[0].y, content="-110")
@@ -384,13 +383,13 @@ test "runtime live drag updates preview before one durable MoveNodes commit" {
 ///|
 test "runtime delete_nodes removes selected nodes and incident edges" {
   let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.delete_nodes([NodeId(2)])
+  runtime.delete_nodes([NodeId("2")])
   let state = runtime.render_state()
   assert_eq(state.nodes.length(), 5)
   assert_eq(state.edges.length(), 1)
   assert_eq(runtime.actions.peek().length(), 1)
   match runtime.actions.peek()[0].action() {
-    DeleteNodes(nodes) => @debug.assert_eq(nodes, [NodeId(2)])
+    DeleteNodes(nodes) => @debug.assert_eq(nodes, [NodeId("2")])
     _ => fail("expected DeleteNodes action")
   }
 }
@@ -399,7 +398,7 @@ test "runtime delete_nodes removes selected nodes and incident edges" {
 test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
-  runtime.hover_node(1)
+  runtime.hover_node("1")
   match runtime.render_state().inspector {
     Some(node) => {
       inspect(node.source, content="hovered")
@@ -408,9 +407,9 @@ test "runtime sparse inspector follows hover until a node is selected" {
     None => fail("expected hovered inspector")
   }
 
-  runtime.pointer_down(Some(NodeId(2)), -190.0, -190.0)
-  runtime.pointer_up(2, "", false)
-  runtime.hover_node(1)
+  runtime.pointer_down(Some(NodeId("2")), -190.0, -190.0)
+  runtime.pointer_up("2", "", false)
+  runtime.hover_node("1")
   match runtime.render_state().inspector {
     Some(node) => {
       inspect(node.source, content="selected")

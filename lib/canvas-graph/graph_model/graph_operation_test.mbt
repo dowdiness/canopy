@@ -1,6 +1,6 @@
 ///|
 fn node_id(n : Int) -> @graph_model.NodeId {
-  @graph_model.NodeId::from_int(n)
+  @graph_model.NodeId(n.to_string())
 }
 
 ///|
@@ -23,7 +23,6 @@ fn replay_base_state() -> @graph_model.CanvasState {
     ],
     edges: [],
     next_node_id: 3,
-    next_edge_id: 1,
     interaction: @graph_model.empty_interaction(),
     action_log: [],
   }
@@ -41,7 +40,7 @@ test "GraphOperation serializes as a versioned JSON operation" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"ConnectPorts\",\"source\":1,\"source_port\":\"tick\",\"target\":2,\"target_port\":\"in\"}",
+    content="{\"version\":2,\"type\":\"ConnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
   )
 }
 
@@ -65,7 +64,7 @@ test "DeleteNodes serializes node ids" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"DeleteNodes\",\"nodes\":[1,2]}",
+    content="{\"version\":2,\"type\":\"DeleteNodes\",\"nodes\":[\"1\",\"2\"]}",
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
     operation.to_json(),
@@ -85,7 +84,7 @@ test "DisconnectPorts serializes endpoint ports" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"DisconnectPorts\",\"source\":1,\"source_port\":\"tick\",\"target\":2,\"target_port\":\"in\"}",
+    content="{\"version\":2,\"type\":\"DisconnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
     operation.to_json(),
@@ -100,14 +99,14 @@ test "source-backed edit actions serialize node and parameter payloads" {
   )
   inspect(
     rename.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"RenameNode\",\"node_id\":1,\"name\":\"oscillator\"}",
+    content="{\"version\":2,\"type\":\"RenameNode\",\"node_id\":\"1\",\"name\":\"oscillator\"}",
   )
   let set_param = @graph_model.GraphOperation::GraphOperation(
     @graph_model.WorkflowAction::SetNodeParam(node_id(1), "freq", "880"),
   )
   inspect(
     set_param.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"SetNodeParam\",\"node_id\":1,\"parameter\":\"freq\",\"value\":\"880\"}",
+    content="{\"version\":2,\"type\":\"SetNodeParam\",\"node_id\":\"1\",\"parameter\":\"freq\",\"value\":\"880\"}",
   )
   let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
     [rename.to_json(), set_param.to_json()].to_json(),
@@ -189,7 +188,10 @@ test "DeleteNodes removes incident edges and deleted selection" {
   assert_eq(deleted.nodes.length(), 1)
   assert_eq(deleted.edges.length(), 0)
   @debug.assert_eq(deleted.interaction.selected_nodes, [node_id(2)])
-  @debug.debug_inspect(deleted.interaction.selected, content="Some(NodeId(2))")
+  @debug.debug_inspect(
+    deleted.interaction.selected,
+    content="Some(NodeId(\"2\"))",
+  )
 }
 
 ///|
@@ -208,14 +210,18 @@ test "DisconnectPorts removes only the matching edge" {
     edges: [
       ..connected_once.edges,
       {
-        id: @graph_model.EdgeId::from_int(2),
+        id: @graph_model.EdgeId::from_edge(
+          node_id(2),
+          "json",
+          node_id(1),
+          "tick",
+        ),
         source: node_id(2),
         source_port: "json",
         target: node_id(1),
         target_port: "tick",
       },
     ],
-    next_edge_id: 3,
   }
   let disconnected = @graph_model.record_action(
     with_unrelated,
