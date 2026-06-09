@@ -20,7 +20,11 @@ fi
 
 cd "$PROJECT_ROOT/$MODULE_DIR"
 
-DENY_WARN_FLAGS=(--deny-warn)
+# --warn-list=-20 exempts the `try?` deprecation ([0020], MoonBit 0.10.0) from
+# --deny-warn. try? is still used ecosystem-wide (canopy, loom, event-graph-walker,
+# moonbitlang/core) and its replacement idiom is not yet stabilized; all OTHER
+# warnings remain denied. Remove the exemption once try? is migrated everywhere.
+DENY_WARN_FLAGS=(--deny-warn --warn-list=-20)
 
 case "$ACTION" in
     check)

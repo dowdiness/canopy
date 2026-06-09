@@ -14,8 +14,10 @@ runs:
       shell: bash
       run: echo "NEW_MOON_MOD=0" >> "$GITHUB_ENV"
 
-    - name: Install MoonBit (latest)
+    - name: Install MoonBit (pinned 0.10.0+84519ca0a)
       uses: hustcer/setup-moonbit@v1.22
+      with:
+        version: 0.10.0+84519ca0a
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
