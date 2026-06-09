@@ -991,6 +991,22 @@ pub fn get_source_graph_source(handle : Int) -> String {
 }
 
 ///|
+/// Subscribe to settle notifications for a registered source-backed graph. The
+/// source panel's reactive `custom_sub` uses this to replace the old 250ms
+/// poll: `listener` fires after every `GraphAttachment` settle (any mutation
+/// origin), and the panel pulls `get_source_graph_source` on the ping. Returns
+/// `None` for an unknown handle.
+fn source_graph_subscribe(
+  handle : Int,
+  listener : () -> Unit,
+) -> @graph_dsl.GraphAttachmentSubscription? {
+  match source_graph_by_handle(handle) {
+    Some(graph) => Some(graph.attachment.subscribe(listener))
+    None => None
+  }
+}
+
+///|
 fn set_source_graph_source_checked(
   handle : Int,
   source : String,
