@@ -39,20 +39,20 @@ pub fn apply_tree_edit_json(
       let json = @json.parse(op_json) catch {
         _ => return "error: invalid JSON"
       }
-      let op = try? @lang_lambda.parse_tree_edit_op(json)
-      match op {
-        Ok(op) =>
-          match
-            @lang_lambda.apply_lambda_tree_edit(
-              h.editor,
-              h.companion,
-              op,
-              timestamp_ms,
-            ) {
-            Ok(_) => "ok"
-            Err(err) => "error: " + err.message()
-          }
-        Err(err) => "error: " + err.message()
+      try {
+        let op = @lang_lambda.parse_tree_edit_op(json)
+        match
+          @lang_lambda.apply_lambda_tree_edit(
+            h.editor,
+            h.companion,
+            op,
+            timestamp_ms,
+          ) {
+          Ok(_) => "ok"
+          Err(err) => "error: " + err.message()
+        }
+      } catch {
+        err => "error: " + err.message()
       }
     }
     None => "error: no editor"

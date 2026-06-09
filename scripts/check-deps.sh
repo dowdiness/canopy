@@ -6,7 +6,7 @@
 #   [B] lib/*         must not import example modules
 #   [C] submodule/*   must not import dowdiness/canopy/*
 #   [D] submodule/*   must not import example modules
-#   [E] submodule/*   must not path-dep into dowdiness/canopy (moon.mod.json)
+#   [E] submodule/*   must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
 #
 # Applies to all scopes (normal, test, wbtest) for [A]–[D].
 # Exits non-zero on any violation. Intended to run in CI.
@@ -35,16 +35,69 @@ def iter_files(target):
         if target in filenames:
             yield os.path.join(dirpath, target)
 
+MANIFEST_NAMES = ("moon.mod.json", "moon.mod")
+
+def iter_manifests():
+    """Yield every module manifest, legacy (moon.mod.json) or experimental
+    TOML (moon.mod, adopted by event-graph-walker and lib/cognition)."""
+    for name in MANIFEST_NAMES:
+        yield from iter_files(name)
+
+def _import_block(text):
+    # Return the body inside the first balanced `import { ... }` block.
+    i = text.find("import")
+    if i < 0:
+        return ""
+    j = text.find("{", i)
+    if j < 0:
+        return ""
+    depth = 0
+    for k in range(j, len(text)):
+        if text[k] == "{":
+            depth += 1
+        elif text[k] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[j + 1:k]
+    return text[j + 1:]
+
+def load_manifest(path):
+    """Return (name, deps) for either manifest format. deps maps dep-name to
+    its spec: the version string for registry deps, or a {"path": ...} dict for
+    path-deps (matching moon.mod.json's shape so rule E works uniformly)."""
+    if path.endswith(".json"):
+        try:
+            data = json.load(open(path))
+        except Exception:
+            return None, {}
+        return data.get("name"), (data.get("deps") or {})
+    # Experimental TOML moon.mod: name = "...", import { "pkg@ver", ... }.
+    try:
+        text = open(path).read()
+    except Exception:
+        return None, {}
+    text = re.sub(r'#[^\n]*', '', text)
+    name_m = re.search(r'(?m)^\s*name\s*=\s*"([^"]+)"', text)
+    name = name_m.group(1) if name_m else None
+    deps = {}
+    for em in re.finditer(
+        r'"([^"@]+)(?:@[^"]+)?"\s*(?:=\s*\{([^}]*)\})?',
+        _import_block(text),
+    ):
+        dep_name = em.group(1)
+        inline = em.group(2) or ""
+        path_m = re.search(r'path\s*=\s*"([^"]+)"', inline)
+        deps[dep_name] = {"path": path_m.group(1)} if path_m else "registry"
+    return name, deps
+
 def nearest_module(path):
     d = os.path.dirname(path)
     while True:
-        mmj = os.path.join(d, "moon.mod.json")
-        if os.path.isfile(mmj):
-            try:
-                with open(mmj) as f:
-                    return json.load(f).get("name", "?"), d
-            except Exception:
-                return "?", d
+        for mn in MANIFEST_NAMES:
+            mmj = os.path.join(d, mn)
+            if os.path.isfile(mmj):
+                name, _ = load_manifest(mmj)
+                return (name or "?"), d
         parent = os.path.dirname(d)
         if parent == d:
             return "?", ROOT
@@ -90,12 +143,8 @@ def classify(rel_path):
 
 module_category = {}  # name -> category
 module_paths = {}     # name -> rel_path (first seen)
-for mmj in iter_files("moon.mod.json"):
-    try:
-        data = json.load(open(mmj))
-    except Exception:
-        continue
-    name = data.get("name")
+for mmj in iter_manifests():
+    name, _ = load_manifest(mmj)
     if not name:
         continue
     rel = os.path.relpath(os.path.dirname(mmj), ROOT) or "."
@@ -133,17 +182,13 @@ for pkg_file in iter_files("moon.pkg"):
 
 # --- Scan module path-deps ---
 scanned_mods = 0
-for mmj in iter_files("moon.mod.json"):
+for mmj in iter_manifests():
     scanned_mods += 1
-    try:
-        data = json.load(open(mmj))
-    except Exception:
-        continue
-    name = data.get("name")
+    name, deps = load_manifest(mmj)
     cat = module_category.get(name, "other")
     if cat != "submodule":
         continue
-    for dep_name, spec in (data.get("deps") or {}).items():
+    for dep_name, spec in deps.items():
         # Rule E is about path-deps only; registry deps (string value, or
         # dict without "path" key) are not targeted by this rule even if the
         # name would match. If we ever want to forbid registry-deps on canopy
