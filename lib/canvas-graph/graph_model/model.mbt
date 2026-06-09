@@ -1,5 +1,8 @@
 ///|
-const GRAPH_OPERATION_VERSION : Int = 1
+// v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
+// the v1 positional integer. The decode gate below rejects v1 payloads, so the
+// bump keeps "version" an honest, single-meaning format marker.
+const GRAPH_OPERATION_VERSION : Int = 2
 
 ///|
 /// Stable identity for graph nodes in the canvas model. For source-backed

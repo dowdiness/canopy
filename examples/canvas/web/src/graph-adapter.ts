@@ -316,7 +316,7 @@ export class GraphAdapter {
 
   insertNode(binding: string, constructorName: string): SourceGraphOperationResult {
     return this.applyOperation({
-      version: 1,
+      version: 2,
       type: 'AddNode',
       node: sourceNodePayload(binding, constructorName),
     });
@@ -341,7 +341,7 @@ export class GraphAdapter {
     targetPortId = 'input',
   ): SourceGraphOperationResult {
     return this.applyOperation({
-      version: 1,
+      version: 2,
       type: 'ConnectPorts',
       source: sourceNodeId,
       source_port: 'out',
@@ -355,7 +355,7 @@ export class GraphAdapter {
     const uniqueNodeIds = [...new Set(nodeIds)].filter((id) => id.length > 0);
     if (uniqueNodeIds.length === 0) return null;
     const operation: GraphOperation = {
-      version: 1,
+      version: 2,
       type: 'DeleteNodes',
       nodes: uniqueNodeIds,
     };
@@ -374,7 +374,7 @@ export class GraphAdapter {
       return null;
     }
     return this.applyOperation({
-      version: 1,
+      version: 2,
       type: 'RenameNode',
       node_id: nodeId,
       name: nextName,
@@ -398,7 +398,7 @@ export class GraphAdapter {
       return null;
     }
     return this.applyOperation({
-      version: 1,
+      version: 2,
       type: 'SetNodeParam',
       node_id: nodeId,
       parameter: nextParameter,
@@ -422,7 +422,7 @@ export class GraphAdapter {
       return null;
     }
     const operation: GraphOperation = {
-      version: 1,
+      version: 2,
       type: 'DisconnectPorts',
       source: sourceNodeId,
       source_port: sourcePortId,

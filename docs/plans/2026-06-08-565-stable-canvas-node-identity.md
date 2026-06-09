@@ -156,8 +156,16 @@ Consequences for PR2:
 - **`next_node_id : Int`** is kept only as the hand-built (non-source) canvas mint counter
   (`NodeId(next_node_id.to_string())`); source-backed and hand-built ids never share a
   `CanvasState`, so no collision.
-- **Open Q1: no wire-version marker.** No persisted numeric-id JSON exists (no
-  `localStorage`; `action_log` is in-memory per session). Test fixtures migrate to strings.
+- **Open Q1: bump `GRAPH_OPERATION_VERSION` 1→2 (no compat decode path).** No persisted
+  numeric-id JSON exists to migrate (no `localStorage`; `action_log` is in-memory per
+  session, read-out-only, never replayed into `apply_source_graph_operation`), so a
+  numeric-accepting decode path is unwarranted and would re-introduce the int/token
+  ambiguity this PR removes. But `from_json` gates on `version == GRAPH_OPERATION_VERSION`,
+  so leaving the format-defining marker at 1 while the NodeId wire encoding changed
+  (number→string) would make "v1" denote two incompatible formats. Bumping to 2 keeps the
+  marker honest: any pre-bump payload is rejected with a clear `unsupported version 1`
+  rather than a confusing `expected string`. TS producers and serialization snapshots move
+  to 2 in lockstep. Test fixtures migrate to string ids.
 - **Lookup:** loom gains `GraphDoc::find_node_by_id(String)` (landed in a loom PR; canopy
   loom pin bumped). `graph_node_for_canvas_id` resolves via it instead of `nodes[raw-1]`.
 - **Layer 3 mechanism = prune-by-token-existence, not pure deletion.** The binding-capture/

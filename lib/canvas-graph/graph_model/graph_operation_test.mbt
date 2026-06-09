@@ -40,7 +40,7 @@ test "GraphOperation serializes as a versioned JSON operation" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"ConnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
+    content="{\"version\":2,\"type\":\"ConnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
   )
 }
 
@@ -64,7 +64,7 @@ test "DeleteNodes serializes node ids" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"DeleteNodes\",\"nodes\":[\"1\",\"2\"]}",
+    content="{\"version\":2,\"type\":\"DeleteNodes\",\"nodes\":[\"1\",\"2\"]}",
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
     operation.to_json(),
@@ -84,7 +84,7 @@ test "DisconnectPorts serializes endpoint ports" {
   )
   inspect(
     operation.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"DisconnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
+    content="{\"version\":2,\"type\":\"DisconnectPorts\",\"source\":\"1\",\"source_port\":\"tick\",\"target\":\"2\",\"target_port\":\"in\"}",
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
     operation.to_json(),
@@ -99,14 +99,14 @@ test "source-backed edit actions serialize node and parameter payloads" {
   )
   inspect(
     rename.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"RenameNode\",\"node_id\":\"1\",\"name\":\"oscillator\"}",
+    content="{\"version\":2,\"type\":\"RenameNode\",\"node_id\":\"1\",\"name\":\"oscillator\"}",
   )
   let set_param = @graph_model.GraphOperation::GraphOperation(
     @graph_model.WorkflowAction::SetNodeParam(node_id(1), "freq", "880"),
   )
   inspect(
     set_param.to_json().stringify(),
-    content="{\"version\":1,\"type\":\"SetNodeParam\",\"node_id\":\"1\",\"parameter\":\"freq\",\"value\":\"880\"}",
+    content="{\"version\":2,\"type\":\"SetNodeParam\",\"node_id\":\"1\",\"parameter\":\"freq\",\"value\":\"880\"}",
   )
   let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
     [rename.to_json(), set_param.to_json()].to_json(),
