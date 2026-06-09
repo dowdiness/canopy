@@ -24,6 +24,9 @@ jobs:
       - name: Run check-deps
         run: ./scripts/check-deps.sh
 
+      - name: Check shared-substrate version drift
+        run: ./scripts/check-shared-substrate.sh
+
       - name: Check moon update is retry-wrapped
         run: ./scripts/check-moon-update-wrapped.sh
 
