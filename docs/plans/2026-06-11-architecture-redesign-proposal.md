@@ -9,9 +9,13 @@
 [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md) ·
 TODO §14 (library identity) · TODO §15 (editor decoupling) · TODO §18 (shared-runtime workspace)
 
-This is the umbrella design record plus staged migration index. Each stage
-(S1–S5b) gets its own narrow plan doc when execution starts; this document is
-the canonical statement of *why*, *what target*, and *in what order*.
+This is the umbrella proposal plus staged migration index — a `docs/plans/`
+execution spec, **not** a `docs/architecture/` record. Concrete files, types,
+and counts below are point-in-time evidence (2026-06-11 snapshot; code is the
+source of truth). The durable principle-level architecture statements live in
+`docs/architecture/` and are updated as stages land. Each stage (S1–S5b) gets
+its own narrow plan doc when execution starts; this document is the canonical
+statement of *why*, *what target*, and *in what order*.
 
 ## Why
 
@@ -106,7 +110,7 @@ Out (intentionally unchanged):
 
 Same pipeline, sharper boundaries. Arrows mean "may depend on":
 
-```
+```text
 L6 apps/examples (ideal, canvas, block-editor, web/TS)
       ↓
 L5 host bindings   ffi/host (generic registry+lifecycle) + ffi/<L> (thin registration)
