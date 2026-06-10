@@ -149,9 +149,10 @@ Key structures (each traces to a Why item):
    genuinely language-specific exports. `llm`/relay wiring moves out of
    `ffi/lambda`. One declared export manifest per app replaces the
    `crdt_reexport.mbt` + `moon.pkg` export-list pair.
-5. **Substrate governance** — one consumption mechanism per `dowdiness/*`
-   dependency, codified in an ADR with a resolver-identity CI guard (see S5a;
-   direction decided there, not here).
+5. **Substrate governance** — every `dowdiness/*` dependency has one declared
+   ownership policy: either a single consumption mechanism, or an explicit
+   dual-source exception with resolver-identity CI and a removal /
+   re-evaluation date (see S5a; direction decided there, not here).
 6. **Declared API boundary** — the S0 ADR
    (`docs/decisions/2026-06-11-library-api-boundary.md`).
 
@@ -174,8 +175,9 @@ atomic-boundary candidates from structure rather than convention.
 - `ffi/<L>` is the only place JSON serialization of editor state lives; an
   app uses typed APIs *or* the ffi surface for a given mutation flow, never
   both.
-- Substrate: one consumption mechanism per dependency; exceptions documented
-  in the substrate ADR with removal dates.
+- Substrate: one governed policy per dependency; dual-source exceptions must
+  be documented in the substrate ADR with resolver-identity CI and removal /
+  re-evaluation dates.
 - Enforcement: `.mbti` diff review (existing), import-graph lint over
   `moon.pkg` files in CI, `workspace/probe` as the cross-package contract-test
   home.
@@ -220,7 +222,7 @@ cycle** before removal *(Codex amendment)*.
    lambda 546 kB — per-entry splitting must not regress), and runtime smoke
    across all three FFI surfaces *(Codex amendment)*.
 6. **S5a — Substrate governance ADR + resolver-identity CI guard.** Decide
-   the mechanism per dependency. Preferred direction: **loom migrates to
+   the governance policy per dependency. Preferred direction: **loom migrates to
    registry `event-graph-walker`; canopy keeps its direct submodule** — the
    originally drafted inverse (drop canopy's submodule, path-dep loom's nested
    copy) would add a loom PR + pointer bump to every egw change *(Codex
@@ -247,7 +249,8 @@ cycle** before removal *(Codex amendment)*.
       no copied ffi lifecycle code).
 - [ ] `crdt_reexport.mbt` deleted only after manifest parallel-run + the three
       S4 gates pass.
-- [ ] Substrate ADR names one mechanism per dependency; resolver-identity CI
+- [ ] Substrate ADR names one governed policy per dependency (single
+      mechanism or documented dual-source exception); resolver-identity CI
       guard green.
 - [ ] Import-graph lint enforcing the boundary rules runs in CI.
 
