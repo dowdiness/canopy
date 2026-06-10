@@ -169,7 +169,7 @@ Run `moon check` after edits and `moon test` for affected packages.
 
 ## Model Routing
 
-Route by judgment complexity, not importance: Opus for architecture/novel
+Route by judgment complexity rather than importance: Opus for architecture/novel
 design/debugging, Sonnet for clear-spec implementation (50+ lines) and pre-merge
 review, Haiku for mechanical work (renames, formatting, rote migration). Under
 ~50 lines / 1-3 files, implement inline — no delegation.
