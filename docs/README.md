@@ -131,6 +131,9 @@ behavior** — check the code before relying on any specific detail.
 - [Identity and Reuse Mechanisms](decisions/2026-06-01-identity-and-reuse-mechanisms.md)
   — the three distinct parse/projection identity mechanisms, the #396 source-span
   tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
+- [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
+  — locks canopy/loom/moondsp at incr minor 0.9, the bottom-up paired-bump protocol,
+  and why cross-repo CI is deferred until shared-runtime work needs it (closes #441).
 
 ## Historical / Archive
 
