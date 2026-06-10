@@ -76,7 +76,7 @@ pub fn RelayRoom::on_message(
     return
   }
   // Safety: short or non-v2 frames broadcast unchanged
-  if data.length() < 3 || data[0] != version {
+  if data.length() < 3 || data[0] != protocol_version {
     self.broadcast(sender, data)
     return
   }

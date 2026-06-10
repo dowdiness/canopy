@@ -20,6 +20,10 @@ import {
 }
 
 import {
+  "dowdiness/canopy/protocol/wire",
+} for "test"
+
+import {
   "dowdiness/incr",
   "moonbitlang/core/debug",
 } for "wbtest"

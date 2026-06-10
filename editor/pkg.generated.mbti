@@ -4,6 +4,7 @@ package "dowdiness/canopy/editor"
 import {
   "dowdiness/canopy/ephemeral",
   "dowdiness/canopy/protocol",
+  "dowdiness/canopy/protocol/wire",
   "dowdiness/event-graph-walker/history",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
@@ -22,33 +23,25 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(ViewUpdateState, SyncEditor[T]
 
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
-pub fn decode_message(Bytes) -> SyncMessage?
+#deprecated
+pub fn decode_message(Bytes) -> @wire.SyncMessage?
 
-pub fn decode_message_result(Bytes) -> Result[SyncMessage, ProtocolError]
+#deprecated
+pub fn decode_message_result(Bytes) -> Result[@wire.SyncMessage, @wire.ProtocolError]
 
-pub fn encode_message(SyncMessage) -> Bytes
+#deprecated
+pub fn encode_message(@wire.SyncMessage) -> Bytes
 
+#deprecated
 pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
 
+#deprecated
 pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
 
+#deprecated
 pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
 
 // Errors
-pub(all) suberror ProtocolError {
-  MessageTooShort(length~ : Int)
-  UnsupportedVersion(version~ : Byte)
-  UnknownMessageType(msg_type~ : Byte)
-  MissingNamespace
-  InvalidNamespace(tag~ : Byte)
-  MissingRoomControlSubtype
-  InvalidRoomControlSubtype(sub_type~ : Byte)
-  MissingField(field~ : String)
-  InvalidSyncJson(detail~ : String)
-  InvalidVersionJson(detail~ : String)
-}
-pub fn ProtocolError::message(Self) -> String
-
 pub(all) suberror TreeEditError {
   ExpectedJsonObject
   MissingField(field~ : String)
@@ -199,17 +192,6 @@ pub enum SyncErrorReason {
 } derive(Eq, @debug.Debug)
 pub impl Show for SyncErrorReason
 
-pub(all) enum SyncMessage {
-  CrdtOps(Bytes)
-  EphemeralUpdate(@ephemeral.EphemeralNamespace, Bytes)
-  SyncRequest(Bytes)
-  SyncResponse(Bytes)
-  PeerJoined(String)
-  PeerLeft(String)
-  RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Eq, @debug.Debug)
-pub impl Show for SyncMessage
-
 pub enum SyncStatus {
   Disconnected
   Idle
@@ -240,7 +222,7 @@ pub using @ephemeral {type EphemeralEventTrigger}
 
 pub using @ephemeral {type EphemeralHub}
 
-pub using @ephemeral {type EphemeralNamespace}
+pub using @wire {type EphemeralNamespace}
 
 pub using @ephemeral {type EphemeralStore}
 
@@ -257,6 +239,12 @@ pub using @ephemeral {type PeerCursorView}
 pub using @ephemeral {type PeerPresence}
 
 pub using @ephemeral {type PresenceStatus}
+
+#deprecated
+pub using @wire {type ProtocolError}
+
+#deprecated
+pub using @wire {type SyncMessage}
 
 // Traits
 pub(open) trait SyncTransport {
