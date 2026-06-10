@@ -1,28 +1,20 @@
 ///|
-/// Wire protocol version byte.
-let version : Byte = b'\x02'
-
-///|
-/// Message type byte for room control messages.
-let msg_room_control : Byte = b'\x05'
-
-///|
-/// Flags byte (reserved, currently always 0x00).
-let flags_none : Byte = b'\x00'
-
-///|
-/// Sub-type byte for PeerJoined.
-let sub_join : Byte = b'\x01'
-
-///|
-/// Sub-type byte for PeerLeft.
-let sub_leave : Byte = b'\x02'
-
-///|
 /// LEB128 varints + length-prefixed UTF-16LE strings come from the shared
 /// `lib/byte-codec` package. relay keeps only its own framing here; the
 /// generic codec lives in one place (see docs/plans/2026-05-29-byte-codec-package-design.md).
 using @byte_codec {type Reader, read_string, write_string}
+
+///|
+/// Wire envelope constants come from the canonical protocol package
+/// (`dowdiness/canopy/protocol/wire`) since redesign S1; relay keeps only
+/// its own framing helpers below.
+using @wire {
+  protocol_version,
+  msg_room_control,
+  flags_none,
+  sub_join,
+  sub_leave,
+}
 
 ///|
 /// Encode a peer control message with the given sub-type and peer ID.
@@ -31,7 +23,7 @@ using @byte_codec {type Reader, read_string, write_string}
 /// Note: peer_id_bytes uses MoonBit's internal string encoding (not UTF-8).
 fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
   let buf = Buffer()
-  buf.write_byte(version)
+  buf.write_byte(protocol_version)
   buf.write_byte(msg_room_control)
   buf.write_byte(flags_none)
   buf.write_byte(sub_type)
@@ -65,7 +57,7 @@ fn wrap_with_sender(
   payload_offset : Int,
 ) -> Bytes {
   let buf = Buffer()
-  buf.write_byte(version)
+  buf.write_byte(protocol_version)
   buf.write_byte(new_type)
   buf.write_byte(flags_none)
   write_string(buf, sender)

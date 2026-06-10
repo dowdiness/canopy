@@ -3,27 +3,27 @@
 ///|
 fn parse_sync_message_json(
   payload : Bytes,
-) -> Result[@text.SyncMessage, ProtocolError] {
+) -> Result[@text.SyncMessage, @wire.ProtocolError] {
   let json_str = payload.to_unchecked_string()
   Ok(@text.SyncMessage::from_json_string(json_str)) catch {
-    err => Err(ProtocolError::InvalidSyncJson(detail=err.message()))
+    err => Err(@wire.ProtocolError::InvalidSyncJson(detail=err.message()))
   }
 }
 
 ///|
 fn parse_sync_request_payload(
   payload : Bytes,
-) -> Result[(String, String, String), ProtocolError] {
+) -> Result[(String, String, String), @wire.ProtocolError] {
   let reader = Reader::new(payload)
-  let sender = match read_string_field(reader, "sender") {
+  let sender = match @wire.read_string_field(reader, "sender") {
     Ok(sender) => sender
     Err(err) => return Err(err)
   }
-  let request_id = match read_string_field(reader, "request_id") {
+  let request_id = match @wire.read_string_field(reader, "request_id") {
     Ok(request_id) => request_id
     Err(err) => return Err(err)
   }
-  let version_json = match read_string_field(reader, "version_json") {
+  let version_json = match @wire.read_string_field(reader, "version_json") {
     Ok(version_json) => version_json
     Err(err) => return Err(err)
   }
@@ -33,17 +33,17 @@ fn parse_sync_request_payload(
 ///|
 fn parse_sync_response_payload(
   payload : Bytes,
-) -> Result[(String, String, String), ProtocolError] {
+) -> Result[(String, String, String), @wire.ProtocolError] {
   let reader = Reader::new(payload)
-  let sender = match read_string_field(reader, "sender") {
+  let sender = match @wire.read_string_field(reader, "sender") {
     Ok(sender) => sender
     Err(err) => return Err(err)
   }
-  let request_id = match read_string_field(reader, "request_id") {
+  let request_id = match @wire.read_string_field(reader, "request_id") {
     Ok(request_id) => request_id
     Err(err) => return Err(err)
   }
-  let sync_json = match read_string_field(reader, "sync_json") {
+  let sync_json = match @wire.read_string_field(reader, "sync_json") {
     Ok(sync_json) => sync_json
     Err(err) => return Err(err)
   }
@@ -78,7 +78,7 @@ pub fn[T : Eq] SyncEditor::ws_on_message(
   self : SyncEditor[T],
   data : Bytes,
 ) -> Unit {
-  guard decode_message_result(data) is Ok(msg) else { return }
+  guard @wire.decode_message_result(data) is Ok(msg) else { return }
   match msg {
     CrdtOps(payload) => {
       // CrdtOps is used for backwards-compatible full-state exchange (PeerJoined).
@@ -95,7 +95,7 @@ pub fn[T : Eq] SyncEditor::ws_on_message(
       for ns in all_namespaces() {
         let ns_data = self.hub.encode(ns)
         if ns_data.length() > 0 {
-          self.ws_send(encode_message(EphemeralUpdate(ns, ns_data)))
+          self.ws_send(@wire.encode_message(EphemeralUpdate(ns, ns_data)))
         }
       }
       // Send full CRDT state
@@ -103,7 +103,7 @@ pub fn[T : Eq] SyncEditor::ws_on_message(
       let json_str = crdt_msg.to_json_string()
       let buf = Buffer()
       buf.write_string_utf16le(json_str.view())
-      self.ws_send(encode_message(CrdtOps(buf.to_bytes())))
+      self.ws_send(@wire.encode_message(CrdtOps(buf.to_bytes())))
     }
     PeerLeft(peer_id) => {
       self.hub.on_peer_leave(peer_id)
@@ -138,7 +138,11 @@ pub fn[T : Eq] SyncEditor::ws_on_message(
         self.send_empty_sync_response(sender, request_id)
         return
       }
-      let wire = encode_sync_response(target=sender, request_id~, sync_json~)
+      let wire = @wire.encode_sync_response(
+        target=sender,
+        request_id~,
+        sync_json~,
+      )
       self.ws_send(wire)
     }
     SyncResponse(payload) => {
@@ -250,7 +254,7 @@ pub fn[T] SyncEditor::ws_broadcast_edit(self : SyncEditor[T]) -> Unit {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  self.ws_send(encode_message(CrdtOps(buf.to_bytes())))
+  self.ws_send(@wire.encode_message(CrdtOps(buf.to_bytes())))
 }
 
 ///|
@@ -258,7 +262,7 @@ pub fn[T] SyncEditor::ws_broadcast_cursor(self : SyncEditor[T]) -> Unit {
   guard self.ws is Some(_) else { return }
   let cursor_data = self.hub.encode(Cursor)
   if cursor_data.length() > 0 {
-    self.ws_send(encode_message(EphemeralUpdate(Cursor, cursor_data)))
+    self.ws_send(@wire.encode_message(EphemeralUpdate(Cursor, cursor_data)))
   }
 }
 
@@ -269,7 +273,7 @@ fn[T] SyncEditor::send_empty_sync_response(
   target : String,
   request_id : String,
 ) -> Unit {
-  self.ws_send(encode_sync_response(target~, request_id~, sync_json=""))
+  self.ws_send(@wire.encode_sync_response(target~, request_id~, sync_json=""))
 }
 
 ///|
@@ -302,7 +306,7 @@ fn[T] SyncEditor::send_sync_request(
   request_id : Int,
 ) -> Unit {
   let version_json = self.get_version().to_json_string()
-  let wire = encode_sync_request(
+  let wire = @wire.encode_sync_request(
     target~,
     request_id=request_id.to_string(),
     version_json~,

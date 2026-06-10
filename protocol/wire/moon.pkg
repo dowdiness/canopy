@@ -1,7 +1,7 @@
 import {
-  "dowdiness/canopy/protocol/wire",
-  "moonbitlang/core/buffer",
   "dowdiness/byte_codec",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
 }
 
 options(
