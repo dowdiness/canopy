@@ -71,42 +71,23 @@ cd loom/examples/lambda && moon bench --release
 
 ## Submodule Workflow
 
-### Updating submodules
-```bash
-git submodule update --remote        # Pull latest from all submodules
-git add <changed-submodules>         # Stage only the pointers that moved (git status)
-git commit -m "chore: update submodules"
-```
-
-### Making changes to a submodule
-```bash
-cd event-graph-walker
-# make changes, commit, push
-cd ..
-git add event-graph-walker
-git commit -m "chore: update event-graph-walker submodule"
-```
+`git submodule update --remote` pulls latest; stage only the pointers that
+actually moved (`git add <changed-submodules>`). When editing a submodule, commit
+and **push it to its own remote before** committing the parent pointer or opening
+a parent PR — CI fails if the referenced submodule commit isn't on its remote.
+Use PRs for submodule changes; never push to a submodule's main without asking.
 
 ## Rabbita Conventions
 
-Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita`
-with the `diff_subs` `update_tagger` patch applied — see
-`docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0).
+Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita` with the
+`diff_subs` `update_tagger` patch — see
+`docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0). Its docs
+(`rabbita/doc/*`, `rabbita/rabbita/*/{README.mbt.md,design.md}`) are
+authoritative: when they disagree with a plan or pasted spec, the docs win.
 
-When designing, implementing, or reviewing code that uses `@sub`,
-`@cmd`, `@html`, `@dom`, `@http`, `custom_sub`, `suberror`, or that
-authors / modifies a rabbita binding (`lib/rabbita_codemirror`, future
-libraries): **the files under `rabbita/doc/*` and
-`rabbita/rabbita/*/{README.mbt.md,design.md}` are authoritative.** Read
-them before designing. Cite the specific paths you used.
-
-If rabbita docs disagree with older `docs/plans/*.md` or with a spec
-the user pasted, the rabbita docs win — revise the plan, not the
-implementation.
-
-The `.claude/skills/rabbita` skill auto-invokes on rabbita-related
-prompts and contains the doc reading checklist + inline idiom rules +
-canonical binding patterns. Invoke manually with `/rabbita` if needed.
+The `.claude/skills/rabbita` skill auto-invokes on rabbita work (`@sub`, `@cmd`,
+`@html`, `@dom`, `@http`, bindings) and carries the doc checklist, idiom rules,
+and canonical patterns — read it before designing.
 
 ## Adding a New Language
 
@@ -188,19 +169,14 @@ Run `moon check` after edits and `moon test` for affected packages.
 
 ## Model Routing
 
-Route tasks based on judgment complexity, not importance.
+Route by judgment complexity, not importance: Opus for architecture/novel
+design/debugging, Sonnet for clear-spec implementation (50+ lines) and pre-merge
+review, Haiku for mechanical work (renames, formatting, rote migration). Under
+~50 lines / 1-3 files, implement inline — no delegation.
 
-| Task type | Model | Mechanism |
-|-----------|-------|-----------|
-| Architecture, novel design, debugging wrong approaches | Opus | Direct (default) |
-| Implementation (50+ lines, clear spec) | Sonnet | `Agent(model: "sonnet")` |
-| Code review (pre-merge) | Sonnet | `/parallel-review` or `Agent(subagent_type: "code-reviewer")` |
-| Mechanical (renames, formatting, rote migration) | Haiku | `Agent(model: "haiku")` |
-| Under 50 lines, 1-3 files | Current model | No delegation — implement inline |
-
-**Delegation requires clear scope.** If you can't list the exact files to modify, research first. Vague delegation wastes the agent's time exploring.
-
-**Use `/delegate` skill** before composing Agent prompts for non-trivial delegation. It provides the handoff format and task-type templates.
+Delegation requires clear scope — if you can't list the files to touch, research
+first. Use the `/delegate` skill for the handoff format and task templates, and
+`/parallel-review` or `Agent(subagent_type: "code-reviewer")` for review.
 
 ## Code Review Expectations
 
@@ -213,8 +189,7 @@ Route tasks based on judgment complexity, not importance.
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
 - **NEVER merge PRs until CI is fully green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. If any check is `pending`, `fail`, or `skipped`, STOP and report the exact status. Skipped is NOT passing. Do not claim CI is green without verifying.
 - After rebasing or refactoring, verify file paths haven't shifted unexpectedly. Run `git diff --stat` to confirm only intended files changed.
-- When making changes across submodules, always push submodule commits to remote BEFORE pushing the parent repo or creating parent PRs. CI will fail if submodule commits aren't available on remote.
-- Always use PRs for submodule changes — never push directly to main branches of submodules without asking first.
+- Submodule push-order and PR rules: see [Submodule Workflow](#submodule-workflow).
 
 ## Design Context
 
