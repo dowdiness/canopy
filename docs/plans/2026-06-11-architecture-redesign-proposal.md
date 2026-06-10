@@ -3,7 +3,7 @@
 **Date:** 2026-06-11
 **Status:** Proposed (Codex design-validated 2026-06-11; amendments folded in)
 **Related:**
-[Library API boundary ADR (S0, proposed)](../decisions/2026-06-11-library-api-boundary.md) ·
+[Library API boundary ADR (S0, accepted)](../decisions/2026-06-11-library-api-boundary.md) ·
 [Shared-substrate incr version lock](../decisions/2026-06-10-shared-substrate-incr-version-lock.md) ·
 [Framework genericity contract](../decisions/2026-03-29-framework-genericity-contract.md) ·
 [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md) ·
@@ -72,8 +72,7 @@ In:
 - canopy root module packages: `core`, `editor`, `projection`, `protocol`,
   `relay`, `ephemeral`, `llm` (placement only), `workspace/*`, `lang/*`,
   `ffi/*`
-- substrate dependency-consumption policy (mechanism per dependency, not
-  library internals)
+- substrate governance policy per dependency, not library internals
 - the app-seam export surface (`crdt_reexport.mbt` replacement path)
 - the public-API boundary declaration (S0 ADR)
 

@@ -327,6 +327,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: all architecture docs feel like they were written by the same person for the same audience.
 
 - [ ] Canopy library API audit and documentation.
+  Plan: boundary declared in [docs/decisions/2026-06-11-library-api-boundary.md](decisions/2026-06-11-library-api-boundary.md) (Accepted 2026-06-11; S0 of [docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)) — three tiers, `*_internal` convention, audit defaults. Remaining here: the per-symbol audit sweep (§7 aggregator-trim item, now executable against the boundary) and the optional release milestone.
   Why: canopy is currently used as an internal monorepo, but the aspirational direction is to publish it as a general projectional editor library consumable by external MoonBit modules. The audit framing — what's "unused" vs "library API surface" — depends on which direction is committed. Many `pub` symbols in `editor/`, `core/`, `projection/`, and `protocol/` are canonical library API (constructor methods, structural-edit operations, error accessors, query primitives, wire-protocol encoders) that look "unused" under an internal-tool lens because no in-tree consumer exercises them, but are exactly what external library users would call. Without a documented decision, every audit re-relitigates the framing.
   Exit:
   - Document the intended library boundary: which packages are public API for external consumers (`core`, `editor`, `projection`, `protocol`) vs internal implementation (`ffi/*`, `editor/*_internal` symbols, etc.).
@@ -352,9 +353,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   - `view_outline::kind_of()` deleted; CSS class derives from `term_css_class(node.kind)` in `lang/lambda/proj/`.
   - Adding a new language requires a `Renderable` impl (already required) plus an optional language-specific `term_css_class` for accent colors — framework views unchanged.
 
-- [ ] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
-  Why: zero dependency on editor concepts. Self-contained collaboration primitive with own binary protocol, encoding, and timeout logic.
-  Exit: `editor/` imports ephemeral as a dependency; ephemeral has its own test suite.
+- [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
+  Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
 
 - [ ] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
   Why: duplication risks protocol drift between client and server.

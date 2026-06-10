@@ -1,8 +1,7 @@
 # Library API boundary — public surface vs internal implementation
 
 **Date:** 2026-06-11
-**Status:** Proposed (awaiting maintainer acceptance — this records a decision
-only the maintainer can accept; S0 of the architecture redesign)
+**Status:** Accepted (2026-06-11, PR #581; S0 of the architecture redesign)
 **Closes:** docs/TODO.md §14 "Canopy library API audit and documentation"
 (boundary-declaration part; the per-symbol audit itself remains §7 work)
 **Related:**
