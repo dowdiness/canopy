@@ -79,11 +79,15 @@ Use PRs for submodule changes; never push to a submodule's main without asking.
 
 ## Rabbita Conventions
 
+<!-- textlint-disable slopless/word-repetition -->
+
 Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita` with the
 `diff_subs` `update_tagger` patch — see
 `docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0). Its docs
 (`rabbita/doc/*`, `rabbita/rabbita/*/{README.mbt.md,design.md}`) are
 authoritative: when they disagree with a plan or pasted spec, the docs win.
+
+<!-- textlint-enable slopless/word-repetition -->
 
 The `.claude/skills/rabbita` skill auto-invokes on rabbita work (`@sub`, `@cmd`,
 `@html`, `@dom`, `@http`, bindings) and carries the doc checklist, idiom rules,
@@ -118,7 +122,11 @@ The base rule (microbenchmark before optimizing) applies. Additionally: stale pr
 
 ### Quality & Edit Workflow
 
+<!-- textlint-disable slopless/word-repetition -->
+
 Hooks enforce `moon check` after every edit and `moon fmt && moon info` before commits. After edits, also run `moon test` and rebuild JS if web is affected. For packages with `"proof-enabled": true`, also run `moon prove` from the proof package directory. After `moon info`, check `git diff *.mbti` for unintended trait bound changes — widening a bound is an API regression even if all current consumers satisfy it. See [docs/development/task-tracking.md](docs/development/task-tracking.md) for tracking workflow.
+
+<!-- textlint-enable slopless/word-repetition -->
 
 ### Existing API First Rule
 
