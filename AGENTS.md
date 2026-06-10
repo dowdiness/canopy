@@ -15,24 +15,24 @@ git submodule update --init --recursive
 
 ### Test & Build
 ```bash
-# Workspace-root commands cover all in-repo modules listed in `moon.work`:
-# canopy + lib/{text-change,zipper,btree,moji,rabbita_codemirror,dom-boundary,
-# visualizer,semantic} + examples/{ideal,block-editor,canvas,codemirror_demo}.
+# Workspace-root commands cover every in-repo module listed in `moon.work`
+# (canopy root + all lib/* and examples/* members). Read `moon.work` for the
+# current member list — do not maintain a copy here; it drifts.
 moon test                           # All workspace members
 moon check                          # Lint across workspace
 moon info && moon fmt               # Format & update interfaces
 
-# Submodules are NOT workspace members — still need fanout:
-cd event-graph-walker && moon test  # CRDT library tests
-cd loom/loom && moon test           # Parser framework tests
-cd loom/seam && moon test           # CST library tests
-cd loom/examples/lambda && moon test # Lambda parser tests
-cd loom/examples/json && moon test
-cd loom/examples/markdown && moon test
+# Submodules are NOT workspace members — each needs its own:
+cd <submodule> && moon test
+# The authoritative tested set is CI's "Test Submodules" matrix in
+# .github/workflows/ci.yml (currently event-graph-walker, loom, svg-dsl,
+# graphviz). rle, order-tree, alga, and vendored rabbita are pure deps —
+# no separate test step; consumers exercise them.
 ```
 
-The canonical CI fan-out is described in `.github/workflows/ci.yml`. Use that
-file as the source of truth if this list drifts.
+`.github/workflows/ci.yml` is the source of truth for the full fan-out — its
+`Test Submodules` and `Test MoonBit Examples` matrices list exactly what is
+checked and tested. Read it rather than trusting any list reproduced here.
 
 JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. Vite configs, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
 
@@ -44,6 +44,17 @@ cd examples/web && npm run dev      # Dev server (localhost:5173)
 # Markdown editor: http://localhost:5173/markdown.html
 moon build --target js              # Build for web
 ```
+
+TypeScript front-ends live alongside the MoonBit examples and are typechecked +
+E2E-tested separately in CI (they are NOT covered by `moon test`):
+
+- **TS typecheck** (`Type Check TS Examples`): `examples/{web,prosemirror,demo-react}`
+- **Playwright E2E** jobs: `examples/web`, `examples/ideal/web`,
+  `examples/demo-react`, `examples/canvas/web`
+
+JS artifacts must be built (`moon build --target js`) before these run. See the
+matching jobs in `.github/workflows/ci.yml` for the exact commands and the
+pinned Playwright container per suite.
 
 ### Formal Verification
 ```bash
@@ -63,7 +74,7 @@ cd loom/examples/lambda && moon bench --release
 ### Updating submodules
 ```bash
 git submodule update --remote        # Pull latest from all submodules
-git add event-graph-walker loom      # Stage submodule pointer updates
+git add <changed-submodules>         # Stage only the pointers that moved (git status)
 git commit -m "chore: update submodules"
 ```
 
@@ -139,6 +150,36 @@ Before defining any new function, method, helper, or type in this repository:
 
 See `docs/api-map.md` for the task→existing-API index. Include a **Reuse check** section in your PR (PR template enforces this).
 
+### MoonBit Implementation Policy
+
+Extends the Existing API First Rule above from *new definitions* to *all* code.
+
+Do not write new low-level loops, helpers, or data-manipulation code until you
+have searched for existing project APIs and MoonBit/core APIs. Use
+`NEW_MOON_MOD=0 moon ide doc`, `peek-def`, `find-references`, and `outline` to
+discover existing functions and methods.
+
+**Prefer declarative code:**
+- `match` / `guard` / pattern matching
+- `Iter` methods: `map`, `filter`, `fold`, `collect`
+- list comprehensions when clearer
+- `ArrayView` / `StringView` / `BytesView` instead of copying
+- owning-type methods and constructors
+- existing project functions over new helpers
+
+**Avoid incidental mutation:**
+- justify every `let mut`, push loop, manual index loop, and `while` loop
+- use mutation only for builders, true state machines, interop, or measured
+  performance reasons
+
+**Before finalizing, report:**
+1. existing APIs reused
+2. existing APIs checked but not used
+3. any new helper introduced, and why
+4. remaining imperative code, and why it is necessary
+
+Run `moon check` after edits and `moon test` for affected packages.
+
 ## Architecture Conventions
 
 - When adding shared content, use symlinks or references to a single source of truth. Never embed copies of shared files — flag the duplication problem first.
@@ -177,22 +218,13 @@ Route tasks based on judgment complexity, not importance.
 
 ## Design Context
 
-**Personality:** Elegant, Thoughtful, Deep — beauty emerging from structure.
+**Elegant, Thoughtful, Deep** — beauty emerging from structure. Dark, focused,
+typography-driven; deep navy base with restrained purple accent. References: Zed,
+Dark/Luna, Strudel. Anti-references: generic SaaS, toy/playground aesthetics.
 
-**References:** Zed Editor, Dark/Luna, Strudel (strudel.cc)
-
-**Anti-references:** Generic SaaS, toy/playground aesthetics.
-
-**Design Principles:**
-1. **Structure reveals meaning** — color, spacing, nesting communicate relationships before labels
-2. **Progressive disclosure** — clean and focused by default, reveal depth on demand
-3. **Typography carries weight** — Inter (UI) vs JetBrains Mono (code) creates clear zones
-4. **Color is semantic, not decorative** — every color means something, no color without purpose
-5. **Calm confidence** — solid and trustworthy, never frantic. Subtle transitions, generous whitespace
-
-**Palette:** Deep navy base (`#1a1a2e`), purple accent (`#8250df`), syntax colors: keyword `#c792ea`, identifier `#82aaff`, number `#f78c6c`, string `#c3e88d`, operator `#ff5370`
-
-See `.impeccable.md` for full design tokens and context.
+`.impeccable.md` is the single source of truth for the full design context —
+personality, principles, palette, fonts, and design tokens. Read it before any
+UI/visual work; do not duplicate token values here (they drift).
 
 ## References
 
