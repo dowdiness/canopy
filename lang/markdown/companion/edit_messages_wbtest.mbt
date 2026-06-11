@@ -10,16 +10,12 @@ test "apply_markdown_edit pin: merge on first block -> silent no-op" {
   // document untouched (unlike JSON, which reports an unhandled-op error).
   let ed = new_markdown_editor("pin")
   ed.set_text("Hello\n\nWorld\n")
-  let first_id = match ed.get_proj_node() {
-    Some(p) => p.children[0].id()
-    None => {
-      fail("expected projection")
-      return
-    }
+  guard ed.get_proj_node() is Some(p) && p.children is [first, ..] else {
+    fail("expected projection with children")
   }
   let result = apply_markdown_edit(
     ed,
-    MarkdownEditOp::MergeWithPrevious(node_id=first_id),
+    MarkdownEditOp::MergeWithPrevious(node_id=first.id()),
     0,
   )
   inspect(result is Ok(_), content="true")
@@ -40,19 +36,15 @@ test "apply_markdown_edit pin: absent node id -> compute error" {
   // High child id from a donor doc with more blocks than the target has.
   let donor = new_markdown_editor("donor")
   donor.set_text("A\n\nB\n\nC\n\nD\n")
-  let absent_id = match donor.get_proj_node() {
-    Some(p) => p.children[p.children.length() - 1].id()
-    None => {
-      fail("donor: expected projection")
-      return
-    }
+  guard donor.get_proj_node() is Some(p) && p.children is [.., last] else {
+    fail("donor: expected projection with children")
   }
   let ed = new_markdown_editor("target")
   ed.set_text("Hello\n")
   match
     apply_markdown_edit(
       ed,
-      MarkdownEditOp::MergeWithPrevious(node_id=absent_id),
+      MarkdownEditOp::MergeWithPrevious(node_id=last.id()),
       0,
     ) {
     Err(msg) =>
