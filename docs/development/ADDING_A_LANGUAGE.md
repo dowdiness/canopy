@@ -179,7 +179,7 @@ pub fn parse_to_proj_node(
   let (cst, diagnostics) = @mylang.parse_cst(text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(fn(d) { d.message })
-  let root = syntax_to_proj_node(syntax_node, Ref::new(0))
+  let root = syntax_to_proj_node(syntax_node, Ref(0))
   (root, errors)
 }
 ```
@@ -234,77 +234,38 @@ Run: `moon test -p dowdiness/canopy/lang/<name>/proj`
 
 ### Step 4: Memo builder
 
-**File:** `lang/<name>/proj/<name>_memo.mbt` (~65 lines)
+**File:** end of `lang/<name>/proj/proj_node.mbt` (~15 lines)
 
-This wires the reactive pipeline: when the syntax tree changes, the projection
-rebuilds incrementally. Returns 3 memos that the `SyncEditor` consumes.
-
-Copy from `lang/markdown/proj/markdown_memo.mbt` and replace types. The
-structure is always the same:
-
-1. **proj_memo** — calls `syntax_to_proj_node`, then `reconcile` against the
-   previous tree to preserve NodeIds where the AST shape matches
-2. **registry_memo** — builds `Map[NodeId, ProjNode[T]]` from the current tree
-   for O(1) lookup
-3. **source_map_memo** — builds `SourceMap` with token spans
+This wires the reactive pipeline: when the syntax tree changes, the
+projection rebuilds incrementally. The 3-memo machinery (proj reconcile,
+registry, source map) lives in `@core.build_projection_memos` — do NOT
+hand-roll it. The language supplies only its two callbacks from Steps 2-3,
+and the resulting function is exactly what `LanguageSpec`'s `build_memos`
+field expects: `(@loom.Parser[T]) -> (proj, registry, source_map)` memos.
 
 ```moonbit
 pub fn build_my_projection_memos(
-  rt : @incr.Runtime,
-  _source_text : @incr.Signal[String],
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  _parser : @loom.ImperativeParser[@mylang.MyAst],
+  parser : @loom.Parser[@mylang.MyAst],
 ) -> (
-  @incr.Memo[@core.ProjNode[@mylang.MyAst]?],
-  @incr.Memo[Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]]],
-  @incr.Memo[@core.SourceMap],
+  @incr.Derived[@core.ProjNode[@mylang.MyAst]?],
+  @incr.Derived[Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]]],
+  @incr.Derived[@core.SourceMap],
 ) {
-  let counter : Ref[Int] = Ref::new(0)
-  let prev_proj_ref : Ref[@core.ProjNode[@mylang.MyAst]?] = Ref::new(None)
-
-  let proj_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    match syntax_tree.get() {
-      None => { prev_proj_ref.val = None; None }
-      Some(syntax_root) => {
-        let new_proj = syntax_to_proj_node(syntax_root, counter)
-        let result = match prev_proj_ref.val {
-          Some(old) => @core.reconcile(old, new_proj, counter)
-          None => new_proj
-        }
-        prev_proj_ref.val = Some(result)
-        Some(result)
-      }
-    }
-  }, label="my_proj")
-
-  let registry_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    let reg : Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]] = {}
-    match proj_memo.get() {
-      Some(root) => @core.collect_registry(root, reg)
-      None => ()
-    }
-    reg
-  }, label="my_registry")
-
-  let source_map_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    match (proj_memo.get(), syntax_tree.get()) {
-      (Some(proj_root), Some(syntax_root)) => {
-        let sm = @core.SourceMap::from_ast(proj_root)
-        populate_token_spans(sm, syntax_root, proj_root)
-        sm
-      }
-      _ => @core.SourceMap::new()
-    }
-  }, label="my_source_map")
-
-  (proj_memo, registry_memo, source_map_memo)
+  @core.build_projection_memos(
+    parser.runtime(),
+    parser.syntax_tree(),
+    syntax_to_proj_node,
+    populate_token_spans,
+    label="my",
+  )
 }
 ```
 
 **Why reconciliation matters:** Without it, every keystroke would generate
 entirely new NodeIds. The UI would lose selection, collapsed state, and
-scroll position. `reconcile` uses LCS on children with `same_kind` to
-reuse old IDs where the tree shape hasn't changed.
+scroll position. `@core.build_projection_memos` reconciles each rebuild
+against the previous tree (LCS on children with `same_kind`) to reuse old
+IDs where the tree shape hasn't changed.
 
 **Validate:** `moon check`
 
@@ -515,7 +476,7 @@ See `examples/web/src/markdown-editor.ts` for the full pattern.
 |---------|----------------------|-------------------|-------|
 | Projection builder | `lang/markdown/proj/proj_node.mbt` | `lang/json/proj/proj_node.mbt` | ~120 / ~220 |
 | Token spans | `lang/markdown/proj/populate_token_spans.mbt` | `lang/json/proj/populate_token_spans.mbt` | ~150 / ~110 |
-| Memo builder | `lang/markdown/proj/markdown_memo.mbt` | `lang/json/proj/json_memo.mbt` | ~65 / ~70 |
+| Memo builder | `lang/markdown/proj/proj_node.mbt` (`build_markdown_projection_memos`) | `lang/json/proj/proj_node.mbt` (`build_json_projection_memos`) | ~15 each |
 | Edit ops enum | `lang/markdown/edits/markdown_edit_op.mbt` | `lang/json/edits/json_edit_op.mbt` | ~22 / ~28 |
 | Edit dispatcher | `lang/markdown/edits/compute_markdown_edit.mbt` | `lang/json/edits/compute_json_edit.mbt` | ~340 / ~100+ |
 | Spec + bridge + factory | `lang/markdown/companion/markdown_companion.mbt` | `lang/json/companion/json_companion.mbt` | ~120 / ~44 |
