@@ -38,15 +38,15 @@ view diffing, cursor tracking, undo, CRDT sync.
 lang/<name>/
   proj/
     moon.pkg                    # imports: core, incr, loom, seam, <your-lang>
-    proj_node.mbt               # CST → ProjNode[T]
+    proj_node.mbt               # CST → ProjNode[T] + 3-memo builder (Step 4)
     populate_token_spans.mbt    # token span extraction
-    <name>_memo.mbt             # 3-memo builder
   edits/
     moon.pkg                    # imports: editor, core, lang/<name>/proj, <your-lang>, loom
     <name>_edit_op.mbt          # edit operation enum
     compute_<name>_edit.mbt     # op → SpanEdit dispatcher
-    <name>_edit_bridge.mbt      # bridge: applies SpanEdits to SyncEditor
-    sync_editor_<name>.mbt      # SyncEditor constructor
+  companion/
+    moon.pkg                    # imports: editor, lang/<name>/{edits,proj}, lang/runtime, incr, <your-lang>, loom
+    <name>_companion.mbt        # LanguageSpec + apply bridge + SyncEditor factory
 ```
 
 ---
