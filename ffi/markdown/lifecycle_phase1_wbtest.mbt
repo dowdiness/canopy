@@ -1,7 +1,7 @@
 // Whitebox integration tests for §P0b Phase 1b WS2: Markdown FFI editors
 // driven through the workspace coordinator. Covers spec §12 tests 1–4
 // (7-cell symmetric subset) — these need access to package-private
-// symbols (`markdown_handles`, `coordinator`, `MarkdownHandle` fields), so
+// symbols (`markdown_registry`, `coordinator`, `MarkdownHandle` fields), so
 // they live in a `_wbtest.mbt`.
 //
 // §12 #5 (`ProtectedCellDisposed`) is workspace-generic and covered by
@@ -17,27 +17,19 @@ fn reset_markdown_coordinator_for_phase1_tests() -> Unit {
   // registrations stay around with alive=true; each new test gets a fresh
   // EditorId from the monotonic counter so leakage cannot affect
   // correctness, only memory.
-  let keys = markdown_handles.keys().to_array()
-  for k in keys {
-    markdown_handles.remove(k)
-  }
-  let vkeys = markdown_view_states.keys().to_array()
-  for k in vkeys {
-    markdown_view_states.remove(k)
-  }
+  markdown_registry.clear()
 }
 
 ///|
 fn drain_markdown_handle_after_direct_coordinator_destroy(handle : Int) -> Unit {
-  markdown_handles.remove(handle)
-  markdown_view_states.remove(handle)
+  markdown_registry.remove(handle)
 }
 
 ///|
 test "spec §12 #1 (md): each protected cell reads through read_protected" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_test_agent_one")
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   let id = h.editor_id
   match coordinator.read_protected(id, h.cells.parser_syntax_tree) {
     Ok(_) => ()
@@ -74,7 +66,7 @@ test "spec §12 #1 (md): each protected cell reads through read_protected" {
 test "spec §12 #2 (md): destroy refused while depended-upon; succeeds after unregister_dep" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_test_agent_two")
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   let id = h.editor_id
   let parser_ast_id = h.cells.parser_ast.cell_id()
   let synth_id = parser_ast_id
@@ -88,15 +80,14 @@ test "spec §12 #2 (md): destroy refused while depended-upon; succeeds after unr
     Ok(_) => ()
     Err(report) => fail("expected Ok after unregister_dep, got \{report}")
   }
-  markdown_handles.remove(handle)
-  markdown_view_states.remove(handle)
+  markdown_registry.remove(handle)
 }
 
 ///|
 test "spec §12 #3 (md): read_protected after destroy returns EditorDestroyed" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_test_agent_three")
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   let id = h.editor_id
   let parser_source_cell = h.cells.parser_source
   destroy_markdown_editor(handle)
@@ -114,8 +105,8 @@ test "spec §12 #4 (md): read_protected rejects cells from a different editor" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle_a = create_markdown_editor("md_agent_alpha")
   let handle_b = create_markdown_editor("md_agent_beta")
-  let h_a = markdown_handles.get(handle_a).unwrap()
-  let h_b = markdown_handles.get(handle_b).unwrap()
+  let h_a = markdown_registry.get(handle_a).unwrap()
+  let h_b = markdown_registry.get(handle_b).unwrap()
   match coordinator.read_protected(h_b.editor_id, h_a.cells.parser_ast) {
     Ok(_) => fail("expected CellNotInProtectedSurface")
     Err(report) => assert_eq(report.kind, @workspace.CellNotInProtectedSurface)
@@ -202,7 +193,7 @@ test "workstream 2 (md): compute_view_patches collapses to [] after coordinator 
   if !alive.contains("\"FullTree\"") {
     fail("expected pre-destroy initial render to emit FullTree, got \{alive}")
   }
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   let id = h.editor_id
   match coordinator.destroy_editor(id) {
     Ok(_) => ()
@@ -211,16 +202,15 @@ test "workstream 2 (md): compute_view_patches collapses to [] after coordinator 
   // FFI bookkeeping retained — coordinator side is destroyed, but the
   // handle entry stays so subsequent calls still hit the protected-read
   // path (and that path's Err arm produces "[]").
-  match markdown_handles.get(handle) {
+  match markdown_registry.get(handle) {
     Some(_) => ()
     None =>
       fail(
-        "expected markdown_handles to retain handle after direct coordinator destroy",
+        "expected markdown_registry to retain handle after direct coordinator destroy",
       )
   }
   assert_eq(markdown_compute_view_patches_json(handle), "[]")
-  markdown_handles.remove(handle)
-  markdown_view_states.remove(handle)
+  markdown_registry.remove(handle)
 }
 
 ///|
@@ -235,7 +225,7 @@ test "workstream 3 (md): markdown_export_text collapses to empty after coordinat
   if alive == "" {
     fail("expected exported markdown before coordinator destroy")
   }
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -249,7 +239,7 @@ test "workstream 3 (md): markdown_apply_edit rejects after coordinator destroy" 
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_apply_destroy_agent")
   markdown_set_text(handle, "# Pre-destroy\n")
-  let h = markdown_handles.get(handle).unwrap()
+  let h = markdown_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")

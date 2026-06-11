@@ -66,7 +66,6 @@ pub fn destroy_json_editor(handle : Int) -> Unit {
     h.editor_id,
     "destroy_json_editor",
   )
-
 }
 
 ///|

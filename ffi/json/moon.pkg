@@ -1,7 +1,7 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/core",
-  "dowdiness/canopy/ffi/host" @host,
+  "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/lang/json/edits" @json_edits,
   "dowdiness/canopy/lang/json/companion" @json_companion,
   "dowdiness/canopy/workspace/coordinator" @workspace,
