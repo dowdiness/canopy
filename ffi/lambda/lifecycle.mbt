@@ -21,7 +21,11 @@ priv struct LambdaHandle {
 let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 
 ///|
-let lambda_handles : Map[Int, LambdaHandle] = Map::default()
+/// Generic handle/view-state bookkeeping shared with the other language FFI
+/// packages via `ffi/host`. Keyed by the exported integer handle. Lambda
+/// extras (`pretty_view_states`, `last_created_handle`, companion disposal)
+/// stay language-local.
+let lambda_registry : @host.HostRegistry[LambdaHandle] = @host.HostRegistry::HostRegistry()
 
 ///|
 let last_created_handle : Ref[Int?] = { val: None }
@@ -30,7 +34,7 @@ let last_created_handle : Ref[Int?] = { val: None }
 /// Build a Lambda editor + companion on the shared runtime, then
 /// atomically register them with the coordinator. Returns
 /// the freshly-allocated `EditorId`. Aborting at any step leaves
-/// `lambda_handles` untouched (atomic-boundary observation, spec §8.3).
+/// `lambda_registry` untouched (atomic-boundary observation, spec §8.3).
 fn assemble_lambda_handle(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
@@ -45,7 +49,7 @@ fn assemble_lambda_handle(
     agent_id,
     cells.to_protected_reads(),
   )
-  lambda_handles[editor_id.0] = { editor, companion, editor_id, cells }
+  lambda_registry.insert(editor_id.0, { editor, companion, editor_id, cells })
   last_created_handle.val = Some(editor_id.0)
   editor_id
 }
@@ -55,7 +59,7 @@ fn assemble_lambda_handle(
 pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
   match last_created_handle.val {
     Some(handle) =>
-      match lambda_handles.get(handle) {
+      match lambda_registry.get(handle) {
         Some(h) => Some(h.editor)
         None => None
       }
@@ -68,7 +72,7 @@ pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
 pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
   match last_created_handle.val {
     Some(handle) =>
-      match lambda_handles.get(handle) {
+      match lambda_registry.get(handle) {
         Some(h) => Some(h.companion)
         None => None
       }
@@ -88,27 +92,27 @@ pub fn create_editor(agent_id : String) -> Int {
 /// case the FFI-side bookkeeping and analysis attachment are intentionally
 /// left intact so reads of cached state remain valid.
 pub fn destroy_editor(handle : Int) -> Unit {
-  let h = match lambda_handles.get(handle) {
+  let h = match lambda_registry.get(handle) {
     Some(v) => v
     None => return
   }
-  match coordinator.destroy_editor(h.editor_id) {
-    Ok(_) => ()
-    Err(report) => {
-      // Phase 1: log + skip teardown so dep references remain valid.
-      // Phase 2 surfaces this to JS via a dedicated FFI error channel.
-      println("destroy_editor refused: \{report}")
-      return
-    }
+  // The host gateway logs + skips teardown on refusal so dep references
+  // remain valid (Phase 2 surfaces this to JS via a dedicated FFI error
+  // channel). On success it removes the handle entry and ordinary view
+  // state BEFORE we dispose the analysis attachment: if dispose ever raises
+  // (e.g., loom-side cleanup defect), the externally-visible state still
+  // reflects reality — the handle is gone, subsequent FFI calls on it
+  // return the empty/default fallback path. A leaked attachment is
+  // observable only via incr-level inspection; a leaked registry entry
+  // would be observable as a phantom editor.
+  guard lambda_registry.destroy(
+    coordinator,
+    handle,
+    h.editor_id,
+    "destroy_editor",
+  ) else {
+    return
   }
-  // Remove FFI-side bookkeeping BEFORE disposing the analysis attachment. If
-  // dispose ever raises (e.g., loom-side cleanup defect), the externally-visible
-  // state still reflects reality: the handle is gone, subsequent FFI calls on it
-  // return the empty/default fallback path. A leaked attachment is observable
-  // only via incr-level inspection; a leaked lambda_handles entry would be
-  // observable as a phantom editor.
-  lambda_handles.remove(handle)
-  view_states.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
@@ -119,7 +123,7 @@ pub fn destroy_editor(handle : Int) -> Unit {
 ///|
 /// Get current text content
 pub fn get_text(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
   }
@@ -128,7 +132,7 @@ pub fn get_text(handle : Int) -> String {
 ///|
 /// Set text content directly (replaces entire document)
 pub fn set_text(handle : Int, new_text : String) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()
   }

@@ -12,7 +12,7 @@ test "get_semantic_projection_json exposes free-variable overlay" {
 test "rename_semantic_node rejects free references" {
   let handle = create_editor("semantic-free-rename-ffi")
   set_text(handle, "λx. y")
-  let body_id = match lambda_handles.get(handle) {
+  let body_id = match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.get_proj_node() {
         Some(root) =>
@@ -36,7 +36,7 @@ test "rename_semantic_node rejects free references" {
 test "rename_semantic_node renames let binder through flat binding id" {
   let handle = create_editor("semantic-let-rename-ffi")
   set_text(handle, "let x = 1\nx")
-  let binding_id = match lambda_handles.get(handle) {
+  let binding_id = match lambda_registry.get(handle) {
     Some(h) =>
       match h.companion.get_module_projection() {
         Some(module_projection) =>
@@ -57,7 +57,7 @@ test "rename_semantic_node renames let binder through flat binding id" {
 test "rename_semantic_node renames binder and usages through text edits" {
   let handle = create_editor("semantic-rename-ffi")
   set_text(handle, "λx. x")
-  let body_id = match lambda_handles.get(handle) {
+  let body_id = match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.get_proj_node() {
         Some(root) =>
