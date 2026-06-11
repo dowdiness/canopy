@@ -8,7 +8,7 @@ pub fn json_apply_edit(
   op_json : String,
   timestamp_ms : Int,
 ) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) => {
       let json = @core_json.parse(op_json) catch {
         _ => return "error: invalid JSON"
