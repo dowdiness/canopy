@@ -9,7 +9,6 @@ import {
   "dowdiness/event-graph-walker/history",
   "dowdiness/incr",
   "dowdiness/loom",
-  "dowdiness/byte_codec",
   "dowdiness/canopy/core",
   "dowdiness/canopy/ephemeral",
   "dowdiness/loom/core" @loom_core,

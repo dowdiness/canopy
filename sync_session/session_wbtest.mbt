@@ -123,8 +123,12 @@ test "SyncSession: PeerLeft aborts recovery for that peer" {
   let empty_msg = empty_msg_or_fail()
   session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   let wire = @wire.encode_message(PeerLeft("alice"))
-  session.on_message(wire, test_host([], []))
+  let left : Array[String] = []
+  session.on_message(wire, test_host([], left))
   inspect(session.recovery is None, content="true")
+  // The leave is also routed to the host (hub cleanup on the editor side).
+  inspect(left.length(), content="1")
+  inspect(left[0], content="alice")
 }
 
 ///|
@@ -275,7 +279,10 @@ test "SyncSession: watchdog fire triggers retry" {
   // No scheduler — avoid infinite re-arms during test
   session.set_watchdog_scheduler(None)
   // Fire watchdog for the current request_id
-  session.on_watchdog_fire(1, test_io([]))
+  let sent : Array[Bytes] = []
+  session.on_watchdog_fire(1, test_io(sent))
+  // The retry actually sent a SyncRequest frame
+  inspect(sent.length(), content="1")
   // Should have advanced retries
   let recovery = session.recovery.unwrap()
   inspect(recovery.retries, content="1")
@@ -305,7 +312,8 @@ test "SyncSession: watchdog exhaustion → Error(Exhausted)" {
   // and hits the is_exhausted() branch.
   // After each fire we pass the current recovery_epoch so the
   // stale-check in on_watchdog_fire matches.
-  let io = test_io([])
+  let sent : Array[Bytes] = []
+  let io = test_io(sent)
   session.on_watchdog_fire(1, io) // retries 0 → advances to 1 (epoch bumps to 2)
   inspect(session.recovery is Some(_), content="true")
   session.on_watchdog_fire(session.recovery_epoch, io) // retries 1 → advances to 2 (epoch → 3)
@@ -314,6 +322,8 @@ test "SyncSession: watchdog exhaustion → Error(Exhausted)" {
   inspect(session.recovery is Some(_), content="true")
   session.on_watchdog_fire(session.recovery_epoch, io) // retries 3 → exhausted, clears
   inspect(session.recovery is None, content="true")
+  // Exactly three retry SyncRequests went out; the exhausted fire sends none.
+  inspect(sent.length(), content="3")
   inspect(
     session.get_status(),
     content=(

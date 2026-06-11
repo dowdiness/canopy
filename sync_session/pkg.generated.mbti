@@ -26,7 +26,7 @@ pub impl SyncTransport for InMemoryTransport
 
 type RecoveryContext
 
-pub(all) enum SyncErrorReason {
+pub enum SyncErrorReason {
   Exhausted(peer_id~ : String)
   TargetLeft(peer_id~ : String)
 } derive(Eq, @debug.Debug)
@@ -63,7 +63,7 @@ pub fn SyncSession::set_on_status_change(Self, ((SyncStatus) -> Unit)?) -> Unit
 pub fn SyncSession::set_watchdog_scheduler(Self, ((Int, Int) -> Unit)?) -> Unit
 pub fn SyncSession::set_watchdog_timeout(Self, Int) -> Unit
 
-pub(all) enum SyncStatus {
+pub enum SyncStatus {
   Disconnected
   Idle
   Recovering(peer_id~ : String, attempt~ : Int)

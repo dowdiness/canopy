@@ -225,20 +225,20 @@ pub fn SyncSession::on_message(
       // Parse requester's version and export delta
       let peer_version = @text.Version::from_json_string(version_json) catch {
         _ => {
-          self.send_empty_sync_response(sender, request_id, host.io)
+          send_empty_sync_response(sender, request_id, host.io)
           return
         }
       }
       let delta = (host.export_since)(peer_version) catch {
         _ => {
-          self.send_empty_sync_response(sender, request_id, host.io)
+          send_empty_sync_response(sender, request_id, host.io)
           return
         }
       }
       let sync_json = delta.to_json_string()
       // Cap response size at 1MB
       if sync_json.length() > 1_000_000 {
-        self.send_empty_sync_response(sender, request_id, host.io)
+        send_empty_sync_response(sender, request_id, host.io)
         return
       }
       let wire = @wire.encode_sync_response(
@@ -347,13 +347,12 @@ pub fn SyncSession::on_message(
 
 ///|
 /// Send an empty SyncResponse (responder can't satisfy the request).
-fn SyncSession::send_empty_sync_response(
-  self : SyncSession,
+/// Free function: empty replies involve no session state.
+fn send_empty_sync_response(
   target : String,
   request_id : String,
   io : SyncIo,
 ) -> Unit {
-  ignore(self)
   (io.send)(@wire.encode_sync_response(target~, request_id~, sync_json=""))
 }
 
