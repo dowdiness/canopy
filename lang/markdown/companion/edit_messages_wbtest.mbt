@@ -24,12 +24,15 @@ test "apply_markdown_edit pin: merge on first block -> silent no-op" {
   )
   inspect(result is Ok(_), content="true")
   // Non-vacuity: the no-op must leave the document byte-identical.
-  inspect(ed.get_text(), content=(
-    #|Hello
-    #|
-    #|World
-    #|
-  ))
+  inspect(
+    ed.get_text(),
+    content=(
+      #|Hello
+      #|
+      #|World
+      #|
+    ),
+  )
 }
 
 ///|
@@ -46,14 +49,19 @@ test "apply_markdown_edit pin: absent node id -> compute error" {
   }
   let ed = new_markdown_editor("target")
   ed.set_text("Hello\n")
-  match apply_markdown_edit(
-    ed,
-    MarkdownEditOp::MergeWithPrevious(node_id=absent_id),
-    0,
-  ) {
-    Err(msg) => inspect(msg, content=(
-      #|node not found in projection tree: NodeId(3)
-    ))
+  match
+    apply_markdown_edit(
+      ed,
+      MarkdownEditOp::MergeWithPrevious(node_id=absent_id),
+      0,
+    ) {
+    Err(msg) =>
+      inspect(
+        msg,
+        content=(
+          #|node not found in projection tree: NodeId(3)
+        ),
+      )
     Ok(_) => fail("expected Err for absent node id")
   }
 }

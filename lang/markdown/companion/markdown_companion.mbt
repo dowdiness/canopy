@@ -3,19 +3,28 @@
 ///   - structural-edit bridge (`apply_markdown_edit`)
 
 ///|
+/// Capability record for the Markdown language family (S3 lang/runtime SPI).
+/// A no-edit op is a silent no-op (e.g. merge on first block), unlike JSON.
+let markdown_spec : @lang_runtime.LanguageSpec[
+  @markdown.Block,
+  @md_edits.MarkdownEditOp,
+] = @lang_runtime.LanguageSpec::LanguageSpec(
+  make_parser=fn(s, rt) {
+    @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt)
+  },
+  build_memos=@md_proj.build_markdown_projection_memos,
+  compute_edit=@md_edits.compute_markdown_edit,
+  on_no_edit=fn(_op) { Ok(()) },
+)
+
+///|
 /// Construct a SyncEditor[@markdown.Block] using the standard 3-memo pipeline.
 pub fn new_markdown_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] {
-  @editor.SyncEditor::new_generic(
-    agent_id,
-    fn(s, rt) { @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt) },
-    @md_proj.build_markdown_projection_memos,
-    capture_timeout_ms~,
-    parent_runtime?,
-  )
+  markdown_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 
 ///|
@@ -95,17 +104,5 @@ pub fn apply_markdown_edit(
   op : @md_edits.MarkdownEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  let source = editor.get_text()
-  guard editor.get_proj_node() is Some(proj) else {
-    return Err("no projection available")
-  }
-  let source_map = editor.get_source_map()
-  match @md_edits.compute_markdown_edit(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-      Ok(())
-    }
-    Ok(None) => Ok(()) // no-op (e.g., merge on first block)
-    Err(msg) => Err(msg)
-  }
+  markdown_spec.apply_edit(editor, op, timestamp_ms)
 }
