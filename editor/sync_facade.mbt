@@ -10,7 +10,7 @@
 /// after S2.
 
 ///|
-pub using @transport_ws { type JsWebSocket }
+pub using @transport_ws {type JsWebSocket}
 
 ///|
 pub using @sync_session {

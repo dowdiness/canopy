@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/transport_ws"
+
+// Values
+
+// Errors
+
+// Types and methods
+#external
+pub type JsWebSocket
+pub fn JsWebSocket::close(Self) -> Unit
+pub fn JsWebSocket::send_bytes(Self, Bytes) -> Unit
+
+// Type aliases
+
+// Traits
+

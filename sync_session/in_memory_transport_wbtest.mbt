@@ -60,14 +60,14 @@ test "InMemoryTransport: protocol message roundtrip" {
   let room = InMemoryRoom::new()
   let t_a = InMemoryTransport::new("alice", room)
   let t_b = InMemoryTransport::new("bob", room)
-  let received_msgs : Array[SyncMessage] = []
+  let received_msgs : Array[@wire.SyncMessage] = []
   t_b.on_receive(fn(data) {
-    match decode_message(data) {
+    match @wire.decode_message(data) {
       Some(msg) => received_msgs.push(msg)
       None => ()
     }
   })
-  t_a.send(encode_message(PeerJoined("alice")))
+  t_a.send(@wire.encode_message(PeerJoined("alice")))
   inspect(received_msgs.length(), content="1")
   inspect(received_msgs[0], content="PeerJoined(\"alice\")")
 }
