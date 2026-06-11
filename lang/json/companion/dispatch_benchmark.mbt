@@ -74,7 +74,7 @@ fn run_text_intent_dispatch_bench(
   let mut i = 0
   let mut inserted = false
   b.bench(fn() {
-    let pos = positions[(i / 2) % positions.length()]
+    let pos = positions[i / 2 % positions.length()]
     let (del, ins) = if inserted { (1, "") } else { (0, "1") }
     match mode {
       Direct => editor.apply_text_edit(pos, del, ins, i)

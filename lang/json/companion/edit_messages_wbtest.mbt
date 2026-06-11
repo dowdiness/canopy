@@ -21,9 +21,13 @@ test "apply_json_edit message pin: unwrap root scalar -> compute error" {
     }
   }
   match apply_json_edit(editor, JsonEditOp::Unwrap(node_id=root_id), 0) {
-    Err(msg) => inspect(msg, content=(
-      #|unwrap requires exactly one child, found 0
-    ))
+    Err(msg) =>
+      inspect(
+        msg,
+        content=(
+          #|unwrap requires exactly one child, found 0
+        ),
+      )
     Ok(_) => fail("expected Err for unwrap on root scalar")
   }
 }
@@ -44,9 +48,13 @@ test "apply_json_edit message pin: absent node id -> compute error" {
   let editor = new_json_editor("target")
   editor.set_text("42")
   match apply_json_edit(editor, JsonEditOp::Delete(node_id=absent_id), 0) {
-    Err(msg) => inspect(msg, content=(
-      #|node not found in source map
-    ))
+    Err(msg) =>
+      inspect(
+        msg,
+        content=(
+          #|node not found in source map
+        ),
+      )
     Ok(_) => fail("expected Err for absent node id")
   }
 }

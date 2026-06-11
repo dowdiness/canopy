@@ -3,6 +3,20 @@
 //   - structural-edit bridge (`apply_json_edit`)
 
 ///|
+/// Capability record for the JSON language family (S3 lang/runtime SPI).
+/// Default no_edit_policy (ErrorUnhandled) preserves JSON's
+/// "unhandled edit op: ..." behavior.
+let json_spec : @lang_runtime.LanguageSpec[
+  @json.JsonValue,
+  @json_edits.JsonEditOp,
+] = @lang_runtime.LanguageSpec::LanguageSpec(
+  make_parser=fn(s, rt) { @loom.new_parser(s, @json.json_grammar, runtime?=rt) },
+  build_memos=@json_proj.build_json_projection_memos,
+  compute_edit=@json_edits.compute_json_edit,
+  describe_op=fn(op) { op.to_string() },
+)
+
+///|
 /// Create a new SyncEditor for JSON documents.
 /// Uses the generic 3-memo pipeline (no ModuleProjection).
 pub fn new_json_editor(
@@ -10,13 +24,7 @@ pub fn new_json_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@json.JsonValue] {
-  @editor.SyncEditor::new_generic(
-    agent_id,
-    fn(s, rt) { @loom.new_parser(s, @json.json_grammar, runtime?=rt) },
-    @json_proj.build_json_projection_memos,
-    capture_timeout_ms~,
-    parent_runtime?,
-  )
+  json_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 
 ///|
@@ -27,17 +35,5 @@ pub fn apply_json_edit(
   op : @json_edits.JsonEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  let source = editor.get_text()
-  guard editor.get_proj_node() is Some(proj) else {
-    return Err("no projection available")
-  }
-  let source_map = editor.get_source_map()
-  match @json_edits.compute_json_edit(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-      Ok(())
-    }
-    Ok(None) => Err("unhandled edit op: " + op.to_string())
-    Err(msg) => Err(msg)
-  }
+  json_spec.apply_edit(editor, op, timestamp_ms)
 }

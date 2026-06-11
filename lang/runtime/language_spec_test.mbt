@@ -17,7 +17,9 @@ fn stub_spec(
   no_edit_policy : @runtime.NoEditPolicy,
 ) -> @runtime.LanguageSpec[@djson.JsonValue, String] {
   @runtime.LanguageSpec::LanguageSpec(
-    make_parser=fn(s, rt) { @loom.new_parser(s, @djson.json_grammar, runtime?=rt) },
+    make_parser=fn(s, rt) {
+      @loom.new_parser(s, @djson.json_grammar, runtime?=rt)
+    },
     build_memos=@json_proj.build_json_projection_memos,
     compute_edit~,
     describe_op=fn(op) { op },
@@ -30,7 +32,9 @@ test "apply_edit guard pin: None projection -> no projection available" {
   // build_memos variant whose proj memo always yields None — the
   // known-positive control for the guard branch.
   let spec : @runtime.LanguageSpec[@djson.JsonValue, String] = @runtime.LanguageSpec::LanguageSpec(
-    make_parser=fn(s, rt) { @loom.new_parser(s, @djson.json_grammar, runtime?=rt) },
+    make_parser=fn(s, rt) {
+      @loom.new_parser(s, @djson.json_grammar, runtime?=rt)
+    },
     build_memos=fn(parser) {
       let (_proj, registry, source_map) = @json_proj.build_json_projection_memos(
         parser,
