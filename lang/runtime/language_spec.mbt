@@ -8,26 +8,16 @@
 // record itself stays unbounded.
 
 ///|
-/// Policy for a `compute_edit` that returns `Ok(None)` (no span edits
-/// computed). Language families differ here: JSON treats an unhandled op as
-/// an error; Markdown treats it as a silent no-op (e.g. merge on first
-/// block).
-///
-/// `pub(all)`: language packages construct their policy variant when building
-/// their LanguageSpec — cross-package construction is the end-state use, not
-/// a migration transient (pub enum constructors are read-only cross-package).
-pub(all) enum NoEditPolicy {
-  ErrorUnhandled
-  SilentNoOp
-}
-
-///|
 /// Per-language capability record for the generic companion runtime.
 ///
 /// `T` is the language's projection payload (e.g. JsonValue, Block, Term);
-/// `Op` is its structural-edit operation enum. `describe_op` renders an op
-/// for the `ErrorUnhandled` message — a closure field rather than a `Show`
-/// bound so the record stays unbounded.
+/// `Op` is its structural-edit operation enum. `on_no_edit` answers "what
+/// should this language do when `compute_edit` produced no span edits
+/// (`Ok(None)`)?" — JSON reports an unhandled-op error, Markdown treats it
+/// as a silent no-op (e.g. merge on first block). A closure field rather
+/// than a policy enum + `Show` bound, so the no-edit behavior (and any
+/// message rendering it needs) stays language-owned and the record stays
+/// unbounded.
 pub struct LanguageSpec[T, Op] {
   priv make_parser : (String, @incr.Runtime?) -> @loom.Parser[T]
   priv build_memos : (@loom.Parser[T]) -> (
@@ -39,8 +29,7 @@ pub struct LanguageSpec[T, Op] {
     (Array[@core.SpanEdit], @core.FocusHint)?,
     String,
   ]
-  priv describe_op : (Op) -> String
-  priv no_edit_policy : NoEditPolicy
+  priv on_no_edit : (Op) -> Result[Unit, String]
 }
 
 ///|
@@ -55,10 +44,9 @@ pub fn[T, Op] LanguageSpec::LanguageSpec(
     (Array[@core.SpanEdit], @core.FocusHint)?,
     String,
   ],
-  describe_op~ : (Op) -> String,
-  no_edit_policy? : NoEditPolicy = ErrorUnhandled,
+  on_no_edit~ : (Op) -> Result[Unit, String],
 ) -> LanguageSpec[T, Op] {
-  { make_parser, build_memos, compute_edit, describe_op, no_edit_policy }
+  { make_parser, build_memos, compute_edit, on_no_edit }
 }
 
 ///|
@@ -102,11 +90,7 @@ pub fn[T : Eq, Op] LanguageSpec::apply_edit(
       editor.apply_span_edits(edits, focus_hint, timestamp_ms)
       Ok(())
     }
-    Ok(None) =>
-      match self.no_edit_policy {
-        ErrorUnhandled => Err("unhandled edit op: " + (self.describe_op)(op))
-        SilentNoOp => Ok(())
-      }
+    Ok(None) => (self.on_no_edit)(op)
     Err(msg) => Err(msg)
   }
 }

@@ -1,12 +1,12 @@
 // Blackbox tests for the LanguageSpec bridge. These pin the runtime-owned
-// message contract — the "no projection available" guard and the
-// NoEditPolicy branches — including paths a concrete language surface may
+// contract — the "no projection available" guard and the Ok(None) →
+// on_no_edit routing — including paths a concrete language surface may
 // not be able to reach (an empty JSON doc still yields a recovered
 // projection root, so the guard is unreachable from lang/json/companion).
 // Stubs are built over the real JSON grammar/memo pipeline.
 
 ///|
-/// Spec whose compute_edit is stubbed; Op = String so describe_op is identity.
+/// Spec whose compute_edit and on_no_edit are stubbed; Op = String.
 /// build_memos defaults to the real JSON pipeline; the guard test overrides
 /// it with an always-None projection memo.
 fn stub_spec(
@@ -16,7 +16,7 @@ fn stub_spec(
     @core.ProjNode[@djson.JsonValue],
     @core.SourceMap,
   ) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String],
-  no_edit_policy : @runtime.NoEditPolicy,
+  on_no_edit : (String) -> Result[Unit, String],
   build_memos? : (@loom.Parser[@djson.JsonValue]) -> (
     @incr.Derived[@core.ProjNode[@djson.JsonValue]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]]],
@@ -29,8 +29,7 @@ fn stub_spec(
     },
     build_memos~,
     compute_edit~,
-    describe_op=fn(op) { op },
-    no_edit_policy~,
+    on_no_edit~,
   )
 }
 
@@ -42,7 +41,7 @@ test "apply_edit guard pin: None projection -> no projection available" {
     fn(_op, _src, _proj, _sm) {
       Err("compute_edit must not be reached when projection is None")
     },
-    @runtime.NoEditPolicy::ErrorUnhandled,
+    fn(_op) { Err("on_no_edit must not be reached when projection is None") },
     build_memos=fn(parser) {
       let (_proj, registry, source_map) = @json_proj.build_json_projection_memos(
         parser,
@@ -63,25 +62,23 @@ test "apply_edit guard pin: None projection -> no projection available" {
 }
 
 ///|
-test "apply_edit policy pin: Ok(None) + ErrorUnhandled -> unhandled edit op" {
-  let spec = stub_spec(
-    fn(_op, _src, _proj, _sm) { Ok(None) },
-    @runtime.NoEditPolicy::ErrorUnhandled,
-  )
-  let editor = spec.new_editor("policy-test")
+test "apply_edit no-edit pin: Ok(None) routes the op to on_no_edit" {
+  let spec = stub_spec(fn(_op, _src, _proj, _sm) { Ok(None) }, fn(op) {
+    Err("unhandled edit op: " + op)
+  })
+  let editor = spec.new_editor("no-edit-test")
   editor.set_text("42")
   match spec.apply_edit(editor, "StubOp", 0) {
     Err(msg) => inspect(msg, content="unhandled edit op: StubOp")
-    Ok(_) => fail("expected Err under ErrorUnhandled")
+    Ok(_) => fail("expected Err from on_no_edit")
   }
 }
 
 ///|
-test "apply_edit policy pin: Ok(None) + SilentNoOp -> Ok, doc untouched" {
-  let spec = stub_spec(
-    fn(_op, _src, _proj, _sm) { Ok(None) },
-    @runtime.NoEditPolicy::SilentNoOp,
-  )
+test "apply_edit no-edit pin: Ok(None) + Ok on_no_edit -> doc untouched" {
+  let spec = stub_spec(fn(_op, _src, _proj, _sm) { Ok(None) }, fn(_op) {
+    Ok(())
+  })
   let editor = spec.new_editor("noop-test")
   editor.set_text("42")
   inspect(spec.apply_edit(editor, "StubOp", 0) is Ok(_), content="true")
@@ -90,10 +87,9 @@ test "apply_edit policy pin: Ok(None) + SilentNoOp -> Ok, doc untouched" {
 
 ///|
 test "apply_edit passthrough pin: compute Err propagates verbatim" {
-  let spec = stub_spec(
-    fn(_op, _src, _proj, _sm) { Err("boom") },
-    @runtime.NoEditPolicy::ErrorUnhandled,
-  )
+  let spec = stub_spec(fn(_op, _src, _proj, _sm) { Err("boom") }, fn(_op) {
+    Err("on_no_edit must not be reached on compute Err")
+  })
   let editor = spec.new_editor("err-test")
   editor.set_text("42")
   match spec.apply_edit(editor, "StubOp", 0) {

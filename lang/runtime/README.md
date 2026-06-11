@@ -11,8 +11,8 @@ differ between languages:
 - `make_parser` — grammar-specific parser construction
 - `build_memos` — the 3-memo projection pipeline (ProjNode, registry, SourceMap)
 - `compute_edit` — structural op → span-level text edits + focus hint
-- `describe_op` / `no_edit_policy` — how an unhandled op is reported
-  (JSON errors; Markdown no-ops)
+- `on_no_edit` — what the language does when `compute_edit` produces no
+  edits (JSON reports "unhandled edit op: ..."; Markdown silently no-ops)
 
 The machinery that does NOT differ lives here once: `new_editor` (SyncEditor
 construction via the generic 3-memo pipeline) and `apply_edit` (the

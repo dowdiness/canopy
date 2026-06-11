@@ -4,8 +4,8 @@
 
 ///|
 /// Capability record for the JSON language family (S3 lang/runtime SPI).
-/// Default no_edit_policy (ErrorUnhandled) preserves JSON's
-/// "unhandled edit op: ..." behavior.
+/// JSON reports a no-edit (unhandled) op as an error, preserving the
+/// pre-migration "unhandled edit op: ..." message.
 let json_spec : @lang_runtime.LanguageSpec[
   @json.JsonValue,
   @json_edits.JsonEditOp,
@@ -13,7 +13,7 @@ let json_spec : @lang_runtime.LanguageSpec[
   make_parser=fn(s, rt) { @loom.new_parser(s, @json.json_grammar, runtime?=rt) },
   build_memos=@json_proj.build_json_projection_memos,
   compute_edit=@json_edits.compute_json_edit,
-  describe_op=fn(op) { op.to_string() },
+  on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
 )
 
 ///|
