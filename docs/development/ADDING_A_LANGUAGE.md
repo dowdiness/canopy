@@ -77,8 +77,13 @@ pub(all) enum Block {
   ListItem(Array[Inline])
   CodeBlock(String, String)     // language, content
   Error(String)
-}
+} derive(Eq, Debug)
 ```
+
+`derive(Eq)` is required, not optional: `SyncEditor`'s text-edit methods and
+`LanguageSpec::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
+`moon check` the moment Phase 2 routes edits through the spec. (Both
+reference ASTs derive it: `loom/examples/{json,markdown}/src/ast.mbt`.)
 
 **Trait impls:** Implement `TreeNode` and `Renderable` (from `dowdiness/loom/core`)
 in `loom/examples/<name>/src/proj_traits.mbt`:
