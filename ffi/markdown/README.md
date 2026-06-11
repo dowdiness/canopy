@@ -20,6 +20,7 @@ No other MoonBit package imports `ffi/markdown`. Consumed by the Markdown block 
 
 - `dowdiness/canopy/editor`
 - `dowdiness/canopy/core`
+- `dowdiness/canopy/ffi/host` — shared handle/view-state registry and coordinator destroy gateway
 - `dowdiness/canopy/lang/markdown/edits` + `lang/markdown/companion`
 - `dowdiness/markdown` — Markdown AST type
 
