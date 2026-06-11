@@ -368,69 +368,58 @@ Key rules:
 
 #### 5c: Wire the bridge
 
-**File:** `lang/<name>/edits/<name>_edit_bridge.mbt` (~40 lines)
+The span-edit application machinery (reverse-document-order splicing, undo
+recording, cursor reconciliation per `FocusHint`) lives in `lang/runtime` —
+do NOT hand-roll it. Declare a `LanguageSpec` and delegate (see
+`lang/json/companion/json_companion.mbt` and
+`lang/markdown/companion/markdown_companion.mbt`).
 
-Applies computed `SpanEdit`s to the `SyncEditor`. This is boilerplate — the
-pattern is identical across languages:
+**File:** `lang/<name>/companion/<name>_companion.mbt`
 
 ```moonbit
+let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
+  make_parser=fn(s, rt) { @loom.new_parser(s, @mylang.my_grammar, runtime?=rt) },
+  build_memos=@my_proj.build_my_projection_memos,
+  compute_edit=compute_my_edit,
+  // What should this language do when compute_my_edit returns Ok(None)?
+  // JSON reports an error; Markdown silently no-ops. Decide explicitly.
+  on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
+)
+
 pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
   op : MyEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  let source = editor.get_text()
-  let proj = match editor.get_proj_node() {
-    Some(p) => p
-    None => return Err("no projection available")
-  }
-  let source_map = editor.get_source_map()
-  match compute_my_edit(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      if edits.is_empty() { return Ok(()) }
-      let sorted = edits.copy()
-      sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
-      let old_cursor = editor.get_cursor()
-      for edit in sorted {
-        editor.apply_text_edit_internal(
-          edit.start, edit.delete_len, edit.inserted,
-          timestamp_ms, true, false,
-        )
-      }
-      match focus_hint {
-        @core.FocusHint::RestoreCursor => editor.move_cursor(old_cursor)
-        @core.FocusHint::MoveCursor(position~) => editor.move_cursor(position)
-      }
-      Ok(())
-    }
-    Ok(None) => Ok(())
-    Err(msg) => Err(msg)
-  }
+  my_spec.apply_edit(editor, op, timestamp_ms)
 }
 ```
-
-**Why reverse document order:** SpanEdits are sorted by descending start
-position so earlier edits don't shift the byte offsets of later ones.
 
 **Validate:** `moon check`
 
 ### Step 6: SyncEditor factory and package wiring
 
-**File:** `lang/<name>/edits/sync_editor_<name>.mbt` (~14 lines)
+**File:** same companion file — the factory delegates through the spec:
 
 ```moonbit
 pub fn new_my_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@mylang.MyAst] {
-  @editor.SyncEditor::new_generic(
-    agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @mylang.my_grammar) },
-    @my_proj.build_my_projection_memos,
-    capture_timeout_ms~,
-  )
+  my_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 ```
+
+> **The lambda exception.** `lang/lambda/companion` does NOT go through
+> `LanguageSpec` — its edit path is editor-coupled in ways the SPI
+> deliberately excludes: `compute_text_edit` needs an `EditContext` carrying
+> `registry` + `module_projection`, `apply_lambda_tree_edit` returns a typed
+> `Result[Array[SpanEdit], TreeEditError]` patch trace, and `Drop` delegates
+> to `editor.move_node`. Lambda's eval/scope/semantic extras ride the
+> optional per-instance `LanguageCapabilities` fields instead. Do not copy
+> lambda's shape for a new language; see the decision record in
+> `docs/plans/2026-06-11-s3-lang-runtime-extraction.md` (Step 4 amendment).
 
 **Package registration:**
 
@@ -454,6 +443,19 @@ import {
   "dowdiness/canopy/lang/<name>/proj" @my_proj,
   "dowdiness/<name>" @mylang,
   "dowdiness/loom" @loom,
+}
+```
+
+`lang/<name>/companion/moon.pkg`:
+```
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/<name>/edits" @my_edits,
+  "dowdiness/canopy/lang/<name>/proj" @my_proj,
+  "dowdiness/canopy/lang/runtime" @lang_runtime,
+  "dowdiness/incr",
+  "dowdiness/<name>" @mylang,
+  "dowdiness/loom",
 }
 ```
 
@@ -510,8 +512,7 @@ See `examples/web/src/markdown-editor.ts` for the full pattern.
 | Memo builder | `lang/markdown/proj/markdown_memo.mbt` | `lang/json/proj/json_memo.mbt` | ~65 / ~70 |
 | Edit ops enum | `lang/markdown/edits/markdown_edit_op.mbt` | `lang/json/edits/json_edit_op.mbt` | ~22 / ~28 |
 | Edit dispatcher | `lang/markdown/edits/compute_markdown_edit.mbt` | `lang/json/edits/compute_json_edit.mbt` | ~340 / ~100+ |
-| Edit bridge | `lang/markdown/edits/markdown_edit_bridge.mbt` | `lang/json/edits/json_edit_bridge.mbt` | ~43 / ~45 |
-| SyncEditor factory | `lang/markdown/edits/sync_editor_markdown.mbt` | `lang/json/edits/sync_editor_json.mbt` | ~14 / ~16 |
+| Spec + bridge + factory | `lang/markdown/companion/markdown_companion.mbt` | `lang/json/companion/json_companion.mbt` | ~120 / ~44 |
 | FFI exports | `ffi/canopy_markdown.mbt` | `ffi/canopy_json.mbt` | ~113 / ~237 |
 | proj moon.pkg | `lang/markdown/proj/moon.pkg` | `lang/json/proj/moon.pkg` | ~8 |
 | edits moon.pkg | `lang/markdown/edits/moon.pkg` | `lang/json/edits/moon.pkg` | ~12 |

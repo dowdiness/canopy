@@ -123,6 +123,43 @@ JSON is the clearest non-lambda reference shape: the companion surface is compac
 
 ## Step 4 — Migrate lambda companion flow and optional capabilities
 
+> **AMENDED 2026-06-12 (grounding outcome — supersedes the step as written
+> below).** Lambda does NOT migrate onto `LanguageSpec`. PR3 grounding built
+> the responsibility map and restated lambda in the spec's vocabulary; the
+> apply path failed every condition for raising it into the SPI:
+>
+> 1. `compute_text_edit` requires `EditContext{source_text, source_map,
+>    registry, module_projection}` — not the spec's
+>    `(Op, String, ProjNode[T], SourceMap)`; widening would force dead
+>    context on json/markdown.
+> 2. `apply_lambda_tree_edit` returns `Result[Array[SpanEdit],
+>    TreeEditError]` — a typed public error surface plus a patch trace
+>    consumed by `ffi/lambda` (intent.mbt, semantic.mbt) via the
+>    `@lang_lambda` facade; flattening to `Result[Unit, String]` breaks
+>    consumers.
+> 3. `Drop` delegates to `editor.move_node`, an editor-owned operation
+>    (placeholder/separator handling) — editor coupling the SPI deliberately
+>    excludes (framework generality = what it excludes).
+> 4. The proposal's "lambda extras as optional capability fields" is ALREADY
+>    satisfied by per-instance `LanguageCapabilities` (all fields optional,
+>    `None` = explicit unsupported).
+>
+> Codex adversarial review (2026-06-12): "Cannot refute — the exception
+> looks like a real boundary, not laziness", with the additional
+> verification that S4 ffi/host extraction is not blocked (ffi already
+> consumes the bridge through the facade).
+>
+> **Revisit trigger:** raise `apply_edit` into the spec only if a future
+> language needs registry/module-projection context AND a typed error
+> channel — i.e. if `LanguageSpec[T, Op, Err]` + a context record would
+> serve at least two languages without dead config in any of them.
+>
+> PR3 therefore ships: this decision record, the ADDING_A_LANGUAGE.md
+> template update (LanguageSpec is the path for new languages; lambda
+> documented as the exception), and the lang/runtime README boundary note.
+> Steps 4's original migration prose and Step 5's "one runtime-mediated
+> implementation path per language" goal are void for lambda.
+
 ### What this step does
 - Migrate `lang/lambda/companion` orchestration into `lang/runtime` by adapting the complex lambda companion shape onto the generic runtime dispatch.
 - Keep lambda-specific extra fields in the runtime capability record as optional (eval/scope/semantic). Unsupported paths return explicit errors and preserve external message text.

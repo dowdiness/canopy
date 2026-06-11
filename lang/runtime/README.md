@@ -25,6 +25,14 @@ per-language bounds (`Eq`, `Show`) at construction time, so the record stays
 unbounded. Per-instance capabilities (e.g. lambda's eval/semantic closures
 capturing instance memos) are passed to `new_editor`, not stored in the spec.
 
+What the SPI excludes — deliberately: editor-coupled edit application.
+`lang/lambda/companion` keeps its own bridge (`apply_lambda_tree_edit`)
+because its compute context needs `registry` + `module_projection`, its
+error channel is the typed `TreeEditError` with a `SpanEdit` patch-trace
+return, and `Drop` delegates to `editor.move_node`. See the Step 4
+amendment in `docs/plans/2026-06-11-s3-lang-runtime-extraction.md` for the
+decision record and the revisit trigger.
+
 Dispatch cost: benchmarked free (S3 gate,
 `lang/json/companion/dispatch_benchmark.mbt`) — capability-record indirection
 is sub-ns/call against a ~3 ms keystroke pipeline, on both wasm-gc and js.
