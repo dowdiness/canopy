@@ -32,6 +32,7 @@ Packages in the canopy root module are classified into three tiers.
 | `editor` | `SyncEditor[T]` orchestration API |
 | `protocol` (view) | ViewNode / ViewPatch / UserIntent wire boundary |
 | `protocol/wire` (once created, redesign S1) | sync wire format + version protocol |
+| `sync_session` (created in redesign S2) | transport-agnostic sync policy: SyncStatus, recovery state machine, SyncTransport seam |
 | `ephemeral` | self-contained presence/collaboration primitive |
 
 Tier 1 scope for `ephemeral` is the public presence/cursor **model**
@@ -61,8 +62,10 @@ lambda (per `ADDING_A_LANGUAGE.md`'s own warning).
 
 ### Tier 3 — Internal (no stability contract)
 
-`ffi/*`, `workspace/*`, `relay`, `llm`, `echo`, `cmd/main`, and all
-`examples/*` packages. Notes:
+`ffi/*`, `workspace/*`, `relay`, `llm`, `echo`, `cmd/main`,
+`transport_ws` (created in redesign S2: WebSocket externs, an L3 adapter
+behind the `sync_session` transport seam), and all `examples/*` packages.
+Notes:
 
 - `ffi/*` is consumed by in-tree frontends only. External frontends should
   consume via adapters (`docs/architecture.md` already says this); the
@@ -98,7 +101,8 @@ candidates for narrowing, not for external documentation.
   executable against this boundary.
 - A release plan / first published version milestone (TODO §14 optional
   exit) — separate decision once Tier 1 `.mbti` surfaces are stable.
-- Tier assignment for `sync-session`, `transport-ws`, `ffi/host`,
-  `lang/runtime` packages that do not exist yet — assigned in their
-  introducing PRs (expected: sync-session Tier 1, transport-ws Tier 3,
-  ffi/host Tier 3, lang/runtime Tier 2).
+- Tier assignment for `ffi/host` and `lang/runtime` packages that do not
+  exist yet — assigned in their introducing PRs (expected: ffi/host Tier 3,
+  lang/runtime Tier 2). `sync_session` (Tier 1) and `transport_ws` (Tier 3)
+  were assigned in redesign S2, their introducing PR; see the tier tables
+  above.

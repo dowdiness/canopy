@@ -2,10 +2,6 @@
 // Projection views subscribe to the parser's reactive memos.
 
 ///|
-/// Default watchdog timeout in milliseconds.
-const DEFAULT_WATCHDOG_MS : Int = 5000
-
-///|
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
@@ -19,13 +15,8 @@ pub struct SyncEditor[T] {
   priv cursor_view : PeerCursorView
   priv peer_id : String
   priv mut ws : JsWebSocket?
-  priv mut recovery : RecoveryContext?
-  priv mut recovery_epoch : Int
+  priv session : @sync_session.SyncSession
   priv mut projection_dirty : Bool
-  priv mut status : SyncStatus
-  priv mut on_status_change : ((SyncStatus) -> Unit)?
-  priv mut watchdog_scheduler : ((Int, Int) -> Unit)?
-  priv mut watchdog_timeout_ms : Int
   // Process-local construction identity. Two `SyncEditor` instances
   // constructed separately have different identities; the same instance
   // always returns the same value. Used as a cache key in history-view
@@ -66,13 +57,8 @@ pub fn[T] SyncEditor::new_generic(
     cursor_view,
     peer_id: agent_id,
     ws: None,
-    recovery: None,
-    recovery_epoch: 0,
+    session: @sync_session.SyncSession::SyncSession(),
     projection_dirty: false,
-    status: SyncStatus::Disconnected,
-    on_status_change: None,
-    watchdog_scheduler: None,
-    watchdog_timeout_ms: DEFAULT_WATCHDOG_MS,
     identity: next_editor_identity(),
   }
 }
@@ -215,7 +201,7 @@ pub fn[T] SyncEditor::subscribe_ephemeral_local(
 ///|
 /// Get the current sync status.
 pub fn[T] SyncEditor::get_sync_status(self : SyncEditor[T]) -> SyncStatus {
-  self.status
+  self.session.get_status()
 }
 
 ///|
@@ -225,7 +211,7 @@ pub fn[T] SyncEditor::set_on_status_change(
   self : SyncEditor[T],
   callback : ((SyncStatus) -> Unit)?,
 ) -> Unit {
-  self.on_status_change = callback
+  self.session.set_on_status_change(callback)
 }
 
 ///|
@@ -240,7 +226,7 @@ pub fn[T] SyncEditor::set_watchdog_scheduler(
   self : SyncEditor[T],
   scheduler : ((Int, Int) -> Unit)?,
 ) -> Unit {
-  self.watchdog_scheduler = scheduler
+  self.session.set_watchdog_scheduler(scheduler)
 }
 
 ///|
@@ -249,7 +235,7 @@ pub fn[T] SyncEditor::set_watchdog_timeout(
   self : SyncEditor[T],
   ms : Int,
 ) -> Unit {
-  self.watchdog_timeout_ms = ms
+  self.session.set_watchdog_timeout(ms)
 }
 
 ///|
@@ -260,24 +246,7 @@ pub fn[T] SyncEditor::on_watchdog_fire(
   self : SyncEditor[T],
   request_id : Int,
 ) -> Unit {
-  guard self.recovery is Some(ctx) else { return }
-  guard ctx.matches_request_id(request_id.to_string()) else { return }
-  self.handle_recovery_retry()
-}
-
-///|
-/// Internal: transition to a new status, emitting callback only on change.
-fn[T] SyncEditor::set_status(
-  self : SyncEditor[T],
-  new_status : SyncStatus,
-) -> Unit {
-  if self.status == new_status {
-    return
-  }
-  self.status = new_status
-  if self.on_status_change is Some(cb) {
-    cb(new_status)
-  }
+  self.session.on_watchdog_fire(request_id, self.sync_io())
 }
 
 // ── Projection accessors ─────────────────────────────────────────────────
@@ -438,9 +407,7 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self.sync_parser_after_text_change(old_source, new_source, None)
   // Clear a prior Error status once any sync applies — another peer
   // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
-  if self.status is Error(_) {
-    self.set_status(Idle)
-  }
+  self.session.note_sync_applied()
 }
 
 ///|

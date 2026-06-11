@@ -4,6 +4,7 @@ package "dowdiness/canopy/ffi/lambda"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/transport_ws",
   "dowdiness/lambda/ast",
   "moonbitlang/async/js_async",
 }
@@ -129,7 +130,7 @@ pub fn ws_on_close(Int) -> Unit
 
 pub fn ws_on_message(Int, Bytes) -> Unit
 
-pub fn ws_on_open(Int, @editor.JsWebSocket) -> Unit
+pub fn ws_on_open(Int, @transport_ws.JsWebSocket) -> Unit
 
 pub fn ws_on_watchdog_fire(Int, Int) -> Unit
 
