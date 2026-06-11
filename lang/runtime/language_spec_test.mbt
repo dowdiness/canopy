@@ -1,6 +1,6 @@
 // Blackbox tests for the LanguageSpec bridge. These pin the runtime-owned
-// message contract — the "no projection available" guard and the
-// NoEditPolicy branches — including paths a concrete language surface may
+// contract — the "no projection available" guard and the Ok(None) →
+// on_no_edit routing — including paths a concrete language surface may
 // not be able to reach (an empty JSON doc still yields a recovered
 // projection root, so the guard is unreachable from lang/json/companion).
 // Stubs are built over the real JSON grammar/memo pipeline.

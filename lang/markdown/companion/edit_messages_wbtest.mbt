@@ -6,8 +6,8 @@
 ///|
 test "apply_markdown_edit pin: merge on first block -> silent no-op" {
   // compute_markdown_edit returns Ok(None) for MergeWithPrevious on the
-  // first sibling; the companion contract maps that to Ok(()) with the
-  // document untouched (markdown's SilentNoOp policy, unlike JSON's error).
+  // first sibling; markdown's on_no_edit maps that to Ok(()) with the
+  // document untouched (unlike JSON, which reports an unhandled-op error).
   let ed = new_markdown_editor("pin")
   ed.set_text("Hello\n\nWorld\n")
   let first_id = match ed.get_proj_node() {
