@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/protocol/wire",
   "dowdiness/canopy/transport_ws",
+  "dowdiness/canopy/sync_session",
   "dowdiness/text_change",
   "dowdiness/moji",
   "dowdiness/event-graph-walker/text",

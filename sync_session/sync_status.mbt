@@ -6,7 +6,7 @@
 ///
 /// Contract: callbacks must not call back into SyncEditor synchronously —
 /// re-entry could cause double emissions that the equality guard cannot absorb.
-pub enum SyncStatus {
+pub(all) enum SyncStatus {
   /// No WebSocket connection established.
   Disconnected
   /// Connected and fully synchronized.
@@ -19,7 +19,7 @@ pub enum SyncStatus {
 
 ///|
 /// Reason for entering the Error state.
-pub enum SyncErrorReason {
+pub(all) enum SyncErrorReason {
   /// All three retries were used with no successful response.
   Exhausted(peer_id~ : String)
   /// The target peer disconnected while recovery was in progress.

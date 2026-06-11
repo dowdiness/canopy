@@ -11,3 +11,6 @@
 
 ///|
 pub using @transport_ws { type JsWebSocket }
+
+///|
+pub using @sync_session { type SyncStatus, type SyncErrorReason }
