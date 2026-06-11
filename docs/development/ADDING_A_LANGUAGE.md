@@ -325,8 +325,14 @@ pub(all) enum MyEditOp {
   CommitEdit(node_id~ : NodeId, new_text~ : String)
   Delete(node_id~ : NodeId)
   // ... language-specific operations
-} derive(Show, Eq)
+} derive(Debug, Eq)
 ```
+
+If your `on_no_edit` reports unhandled ops in its error message (the JSON
+choice), also add a manual `impl Show for MyEditOp` so `op.to_string()`
+exists — `derive(Show)` is deprecated (warning [0027]); see
+`lang/json/edits/json_edit_op.mbt` for the pattern. A silent-no-op language
+(the Markdown choice) needs no `Show` at all.
 
 Design tips:
 - Every language needs at least `CommitEdit` (replace a node's text content)
@@ -377,10 +383,10 @@ do NOT hand-roll it. Declare a `LanguageSpec` and delegate (see
 **File:** `lang/<name>/companion/<name>_companion.mbt`
 
 ```moonbit
-let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
+let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, @my_edits.MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
   make_parser=fn(s, rt) { @loom.new_parser(s, @mylang.my_grammar, runtime?=rt) },
   build_memos=@my_proj.build_my_projection_memos,
-  compute_edit=compute_my_edit,
+  compute_edit=@my_edits.compute_my_edit,
   // What should this language do when compute_my_edit returns Ok(None)?
   // JSON reports an error; Markdown silently no-ops. Decide explicitly.
   on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
@@ -388,7 +394,7 @@ let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, MyEditOp] = @lang_runtim
 
 pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
-  op : MyEditOp,
+  op : @my_edits.MyEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
   my_spec.apply_edit(editor, op, timestamp_ms)
