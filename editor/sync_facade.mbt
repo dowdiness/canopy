@@ -13,4 +13,10 @@
 pub using @transport_ws { type JsWebSocket }
 
 ///|
-pub using @sync_session { type SyncStatus, type SyncErrorReason }
+pub using @sync_session {
+  type SyncStatus,
+  type SyncErrorReason,
+  trait SyncTransport,
+  type InMemoryRoom,
+  type InMemoryTransport,
+}
