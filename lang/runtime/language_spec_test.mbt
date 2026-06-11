@@ -7,6 +7,8 @@
 
 ///|
 /// Spec whose compute_edit is stubbed; Op = String so describe_op is identity.
+/// build_memos defaults to the real JSON pipeline; the guard test overrides
+/// it with an always-None projection memo.
 fn stub_spec(
   compute_edit : (
     String,
@@ -15,12 +17,17 @@ fn stub_spec(
     @core.SourceMap,
   ) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String],
   no_edit_policy : @runtime.NoEditPolicy,
+  build_memos? : (@loom.Parser[@djson.JsonValue]) -> (
+    @incr.Derived[@core.ProjNode[@djson.JsonValue]?],
+    @incr.Derived[Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]]],
+    @incr.Derived[@core.SourceMap],
+  ) = @json_proj.build_json_projection_memos,
 ) -> @runtime.LanguageSpec[@djson.JsonValue, String] {
   @runtime.LanguageSpec::LanguageSpec(
     make_parser=fn(s, rt) {
       @loom.new_parser(s, @djson.json_grammar, runtime?=rt)
     },
-    build_memos=@json_proj.build_json_projection_memos,
+    build_memos~,
     compute_edit~,
     describe_op=fn(op) { op },
     no_edit_policy~,
@@ -31,10 +38,11 @@ fn stub_spec(
 test "apply_edit guard pin: None projection -> no projection available" {
   // build_memos variant whose proj memo always yields None — the
   // known-positive control for the guard branch.
-  let spec : @runtime.LanguageSpec[@djson.JsonValue, String] = @runtime.LanguageSpec::LanguageSpec(
-    make_parser=fn(s, rt) {
-      @loom.new_parser(s, @djson.json_grammar, runtime?=rt)
+  let spec = stub_spec(
+    fn(_op, _src, _proj, _sm) {
+      Err("compute_edit must not be reached when projection is None")
     },
+    @runtime.NoEditPolicy::ErrorUnhandled,
     build_memos=fn(parser) {
       let (_proj, registry, source_map) = @json_proj.build_json_projection_memos(
         parser,
@@ -45,10 +53,6 @@ test "apply_edit guard pin: None projection -> no projection available" {
       )
       (none_proj, registry, source_map)
     },
-    compute_edit=fn(_op, _src, _proj, _sm) {
-      Err("compute_edit must not be reached when projection is None")
-    },
-    describe_op=fn(op) { op },
   )
   let editor = spec.new_editor("guard-test")
   editor.set_text("42")
