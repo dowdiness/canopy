@@ -38,15 +38,15 @@ view diffing, cursor tracking, undo, CRDT sync.
 lang/<name>/
   proj/
     moon.pkg                    # imports: core, incr, loom, seam, <your-lang>
-    proj_node.mbt               # CST → ProjNode[T]
+    proj_node.mbt               # CST → ProjNode[T] + 3-memo builder (Step 4)
     populate_token_spans.mbt    # token span extraction
-    <name>_memo.mbt             # 3-memo builder
   edits/
     moon.pkg                    # imports: editor, core, lang/<name>/proj, <your-lang>, loom
     <name>_edit_op.mbt          # edit operation enum
     compute_<name>_edit.mbt     # op → SpanEdit dispatcher
-    <name>_edit_bridge.mbt      # bridge: applies SpanEdits to SyncEditor
-    sync_editor_<name>.mbt      # SyncEditor constructor
+  companion/
+    moon.pkg                    # imports: editor, lang/<name>/{edits,proj}, lang/runtime, incr, <your-lang>, loom
+    <name>_companion.mbt        # LanguageSpec + apply bridge + SyncEditor factory
 ```
 
 ---
@@ -77,8 +77,13 @@ pub(all) enum Block {
   ListItem(Array[Inline])
   CodeBlock(String, String)     // language, content
   Error(String)
-}
+} derive(Eq, Debug)
 ```
+
+`derive(Eq)` is required, not optional: `SyncEditor`'s text-edit methods and
+`LanguageSpec::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
+`moon check` the moment Phase 2 routes edits through the spec. (Both
+reference ASTs derive it: `loom/examples/{json,markdown}/src/ast.mbt`.)
 
 **Trait impls:** Implement `TreeNode` and `Renderable` (from `dowdiness/loom/core`)
 in `loom/examples/<name>/src/proj_traits.mbt`:
@@ -179,7 +184,7 @@ pub fn parse_to_proj_node(
   let (cst, diagnostics) = @mylang.parse_cst(text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(fn(d) { d.message })
-  let root = syntax_to_proj_node(syntax_node, Ref::new(0))
+  let root = syntax_to_proj_node(syntax_node, Ref(0))
   (root, errors)
 }
 ```
@@ -234,77 +239,38 @@ Run: `moon test -p dowdiness/canopy/lang/<name>/proj`
 
 ### Step 4: Memo builder
 
-**File:** `lang/<name>/proj/<name>_memo.mbt` (~65 lines)
+**File:** end of `lang/<name>/proj/proj_node.mbt` (~15 lines)
 
-This wires the reactive pipeline: when the syntax tree changes, the projection
-rebuilds incrementally. Returns 3 memos that the `SyncEditor` consumes.
-
-Copy from `lang/markdown/proj/markdown_memo.mbt` and replace types. The
-structure is always the same:
-
-1. **proj_memo** — calls `syntax_to_proj_node`, then `reconcile` against the
-   previous tree to preserve NodeIds where the AST shape matches
-2. **registry_memo** — builds `Map[NodeId, ProjNode[T]]` from the current tree
-   for O(1) lookup
-3. **source_map_memo** — builds `SourceMap` with token spans
+This wires the reactive pipeline: when the syntax tree changes, the
+projection rebuilds incrementally. The 3-memo machinery (proj reconcile,
+registry, source map) lives in `@core.build_projection_memos` — do NOT
+hand-roll it. The language supplies only its two callbacks from Steps 2-3,
+and the resulting function is exactly what `LanguageSpec`'s `build_memos`
+field expects: `(@loom.Parser[T]) -> (proj, registry, source_map)` memos.
 
 ```moonbit
 pub fn build_my_projection_memos(
-  rt : @incr.Runtime,
-  _source_text : @incr.Signal[String],
-  syntax_tree : @incr.Signal[@seam.SyntaxNode?],
-  _parser : @loom.ImperativeParser[@mylang.MyAst],
+  parser : @loom.Parser[@mylang.MyAst],
 ) -> (
-  @incr.Memo[@core.ProjNode[@mylang.MyAst]?],
-  @incr.Memo[Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]]],
-  @incr.Memo[@core.SourceMap],
+  @incr.Derived[@core.ProjNode[@mylang.MyAst]?],
+  @incr.Derived[Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]]],
+  @incr.Derived[@core.SourceMap],
 ) {
-  let counter : Ref[Int] = Ref::new(0)
-  let prev_proj_ref : Ref[@core.ProjNode[@mylang.MyAst]?] = Ref::new(None)
-
-  let proj_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    match syntax_tree.get() {
-      None => { prev_proj_ref.val = None; None }
-      Some(syntax_root) => {
-        let new_proj = syntax_to_proj_node(syntax_root, counter)
-        let result = match prev_proj_ref.val {
-          Some(old) => @core.reconcile(old, new_proj, counter)
-          None => new_proj
-        }
-        prev_proj_ref.val = Some(result)
-        Some(result)
-      }
-    }
-  }, label="my_proj")
-
-  let registry_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    let reg : Map[@core.NodeId, @core.ProjNode[@mylang.MyAst]] = {}
-    match proj_memo.get() {
-      Some(root) => @core.collect_registry(root, reg)
-      None => ()
-    }
-    reg
-  }, label="my_registry")
-
-  let source_map_memo = @incr.Memo::new_no_backdate(rt, fn() {
-    match (proj_memo.get(), syntax_tree.get()) {
-      (Some(proj_root), Some(syntax_root)) => {
-        let sm = @core.SourceMap::from_ast(proj_root)
-        populate_token_spans(sm, syntax_root, proj_root)
-        sm
-      }
-      _ => @core.SourceMap::new()
-    }
-  }, label="my_source_map")
-
-  (proj_memo, registry_memo, source_map_memo)
+  @core.build_projection_memos(
+    parser.runtime(),
+    parser.syntax_tree(),
+    syntax_to_proj_node,
+    populate_token_spans,
+    label="my",
+  )
 }
 ```
 
 **Why reconciliation matters:** Without it, every keystroke would generate
 entirely new NodeIds. The UI would lose selection, collapsed state, and
-scroll position. `reconcile` uses LCS on children with `same_kind` to
-reuse old IDs where the tree shape hasn't changed.
+scroll position. `@core.build_projection_memos` reconciles each rebuild
+against the previous tree (LCS on children with `same_kind`) to reuse old
+IDs where the tree shape hasn't changed.
 
 **Validate:** `moon check`
 
@@ -325,8 +291,14 @@ pub(all) enum MyEditOp {
   CommitEdit(node_id~ : NodeId, new_text~ : String)
   Delete(node_id~ : NodeId)
   // ... language-specific operations
-} derive(Show, Eq)
+} derive(Debug, Eq)
 ```
+
+If your `on_no_edit` reports unhandled ops in its error message (the JSON
+choice), also add a manual `impl Show for MyEditOp` so `op.to_string()`
+exists — `derive(Show)` is deprecated (warning [0027]); see
+`lang/json/edits/json_edit_op.mbt` for the pattern. A silent-no-op language
+(the Markdown choice) needs no `Show` at all.
 
 Design tips:
 - Every language needs at least `CommitEdit` (replace a node's text content)
@@ -368,69 +340,58 @@ Key rules:
 
 #### 5c: Wire the bridge
 
-**File:** `lang/<name>/edits/<name>_edit_bridge.mbt` (~40 lines)
+The span-edit application machinery (reverse-document-order splicing, undo
+recording, cursor reconciliation per `FocusHint`) lives in `lang/runtime` —
+do NOT hand-roll it. Declare a `LanguageSpec` and delegate (see
+`lang/json/companion/json_companion.mbt` and
+`lang/markdown/companion/markdown_companion.mbt`).
 
-Applies computed `SpanEdit`s to the `SyncEditor`. This is boilerplate — the
-pattern is identical across languages:
+**File:** `lang/<name>/companion/<name>_companion.mbt`
 
 ```moonbit
+let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, @my_edits.MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
+  make_parser=fn(s, rt) { @loom.new_parser(s, @mylang.my_grammar, runtime?=rt) },
+  build_memos=@my_proj.build_my_projection_memos,
+  compute_edit=@my_edits.compute_my_edit,
+  // What should this language do when compute_my_edit returns Ok(None)?
+  // JSON reports an error; Markdown silently no-ops. Decide explicitly.
+  on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
+)
+
 pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
-  op : MyEditOp,
+  op : @my_edits.MyEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  let source = editor.get_text()
-  let proj = match editor.get_proj_node() {
-    Some(p) => p
-    None => return Err("no projection available")
-  }
-  let source_map = editor.get_source_map()
-  match compute_my_edit(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      if edits.is_empty() { return Ok(()) }
-      let sorted = edits.copy()
-      sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
-      let old_cursor = editor.get_cursor()
-      for edit in sorted {
-        editor.apply_text_edit_internal(
-          edit.start, edit.delete_len, edit.inserted,
-          timestamp_ms, true, false,
-        )
-      }
-      match focus_hint {
-        @core.FocusHint::RestoreCursor => editor.move_cursor(old_cursor)
-        @core.FocusHint::MoveCursor(position~) => editor.move_cursor(position)
-      }
-      Ok(())
-    }
-    Ok(None) => Ok(())
-    Err(msg) => Err(msg)
-  }
+  my_spec.apply_edit(editor, op, timestamp_ms)
 }
 ```
-
-**Why reverse document order:** SpanEdits are sorted by descending start
-position so earlier edits don't shift the byte offsets of later ones.
 
 **Validate:** `moon check`
 
 ### Step 6: SyncEditor factory and package wiring
 
-**File:** `lang/<name>/edits/sync_editor_<name>.mbt` (~14 lines)
+**File:** same companion file — the factory delegates through the spec:
 
 ```moonbit
 pub fn new_my_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@mylang.MyAst] {
-  @editor.SyncEditor::new_generic(
-    agent_id,
-    fn(s) { @loom.new_imperative_parser(s, @mylang.my_grammar) },
-    @my_proj.build_my_projection_memos,
-    capture_timeout_ms~,
-  )
+  my_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 ```
+
+> **The lambda exception.** `lang/lambda/companion` does NOT go through
+> `LanguageSpec` — its edit path is editor-coupled in ways the SPI
+> deliberately excludes: `compute_text_edit` needs an `EditContext` carrying
+> `registry` + `module_projection`, `apply_lambda_tree_edit` returns a typed
+> `Result[Array[SpanEdit], TreeEditError]` patch trace, and `Drop` delegates
+> to `editor.move_node`. Lambda's eval/scope/semantic extras ride the
+> optional per-instance `LanguageCapabilities` fields instead. Do not copy
+> lambda's shape for a new language; see the decision record in
+> `docs/plans/2026-06-11-s3-lang-runtime-extraction.md` (Step 4 amendment).
 
 **Package registration:**
 
@@ -454,6 +415,19 @@ import {
   "dowdiness/canopy/lang/<name>/proj" @my_proj,
   "dowdiness/<name>" @mylang,
   "dowdiness/loom" @loom,
+}
+```
+
+`lang/<name>/companion/moon.pkg`:
+```
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/<name>/edits" @my_edits,
+  "dowdiness/canopy/lang/<name>/proj" @my_proj,
+  "dowdiness/canopy/lang/runtime" @lang_runtime,
+  "dowdiness/incr",
+  "dowdiness/<name>" @mylang,
+  "dowdiness/loom",
 }
 ```
 
@@ -507,11 +481,10 @@ See `examples/web/src/markdown-editor.ts` for the full pattern.
 |---------|----------------------|-------------------|-------|
 | Projection builder | `lang/markdown/proj/proj_node.mbt` | `lang/json/proj/proj_node.mbt` | ~120 / ~220 |
 | Token spans | `lang/markdown/proj/populate_token_spans.mbt` | `lang/json/proj/populate_token_spans.mbt` | ~150 / ~110 |
-| Memo builder | `lang/markdown/proj/markdown_memo.mbt` | `lang/json/proj/json_memo.mbt` | ~65 / ~70 |
+| Memo builder | `lang/markdown/proj/proj_node.mbt` (`build_markdown_projection_memos`) | `lang/json/proj/proj_node.mbt` (`build_json_projection_memos`) | ~15 each |
 | Edit ops enum | `lang/markdown/edits/markdown_edit_op.mbt` | `lang/json/edits/json_edit_op.mbt` | ~22 / ~28 |
 | Edit dispatcher | `lang/markdown/edits/compute_markdown_edit.mbt` | `lang/json/edits/compute_json_edit.mbt` | ~340 / ~100+ |
-| Edit bridge | `lang/markdown/edits/markdown_edit_bridge.mbt` | `lang/json/edits/json_edit_bridge.mbt` | ~43 / ~45 |
-| SyncEditor factory | `lang/markdown/edits/sync_editor_markdown.mbt` | `lang/json/edits/sync_editor_json.mbt` | ~14 / ~16 |
+| Spec + bridge + factory | `lang/markdown/companion/markdown_companion.mbt` | `lang/json/companion/json_companion.mbt` | ~120 / ~44 |
 | FFI exports | `ffi/canopy_markdown.mbt` | `ffi/canopy_json.mbt` | ~113 / ~237 |
 | proj moon.pkg | `lang/markdown/proj/moon.pkg` | `lang/json/proj/moon.pkg` | ~8 |
 | edits moon.pkg | `lang/markdown/edits/moon.pkg` | `lang/json/edits/moon.pkg` | ~12 |
