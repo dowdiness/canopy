@@ -33,7 +33,7 @@ test "viewnode serialization (100 defs)" (b : @bench.T) {
   let view_node = bench_setup(100)
   let node_count = view_node.node_count()
   println("node count: \{node_count}")
-  b.bench(fn() {
+  b.bench(() => {
     let json = view_node.to_json()
     b.keep(json.stringify())
   })
@@ -44,7 +44,7 @@ test "viewnode serialization (200 defs)" (b : @bench.T) {
   let view_node = bench_setup(200)
   let node_count = view_node.node_count()
   println("node count: \{node_count}")
-  b.bench(fn() {
+  b.bench(() => {
     let json = view_node.to_json()
     b.keep(json.stringify())
   })
@@ -55,7 +55,7 @@ test "viewnode serialization (500 defs)" (b : @bench.T) {
   let view_node = bench_setup(500)
   let node_count = view_node.node_count()
   println("node count: \{node_count}")
-  b.bench(fn() {
+  b.bench(() => {
     let json = view_node.to_json()
     b.keep(json.stringify())
   })
@@ -69,7 +69,7 @@ test "compute_view_patches (100 defs, single edit)" (b : @bench.T) {
   // Initial full tree
   let _ = compute_view_patches(state, editor)
   // Benchmark: single character edit + patch computation
-  b.bench(fn() {
+  b.bench(() => {
     editor.set_text(bench_source(100))
     b.keep(compute_view_patches(state, editor))
   })
