@@ -27,6 +27,9 @@ jobs:
       - name: Check shared-substrate version drift
         run: ./scripts/check-shared-substrate.sh
 
+      - name: Check egw resolver identity
+        run: ./scripts/check-egw-resolver-identity.sh
+
       - name: Check moon update is retry-wrapped
         run: ./scripts/check-moon-update-wrapped.sh
 
