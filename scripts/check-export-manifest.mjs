@@ -98,21 +98,21 @@ for (const [name, list] of [
   }
 }
 
-failed |= diffSets(
+failed = diffSets(
   "manifest<->ffi moon.pkg",
   manifest.ffi_exports, "manifest ffi_exports",
   ffiLive, manifest.ffi_package,
-);
-failed |= diffSets(
+) || failed;
+failed = diffSets(
   "manifest<->app moon.pkg",
   manifest.app_reexports, "manifest app_reexports",
   appLive, manifest.app_package,
-);
-failed |= diffSets(
+) || failed;
+failed = diffSets(
   "manifest<->wrapper",
   manifest.app_reexports, "manifest app_reexports",
   wrapperLive, manifest.wrapper_file,
-);
+) || failed;
 
 // Seam invariant: every app re-export must exist in the FFI export surface,
 // otherwise the wrapper would call a symbol the FFI package never exposes.
