@@ -59,8 +59,12 @@ if [ "${direct_sha}" != "${nested_sha}" ]; then
 fi
 
 # Version layer: the (now provably single) pinned egw commit's declared
-# version must match what canopy's moon.mod.json claims for the dep — moon
-# itself never checks this (probe above).
+# version must match what EVERY canopy workspace member that declares the dep
+# claims for it — moon itself never checks this (probe above), and a bump PR
+# that edits the root manifest + gitlinks can silently miss the example
+# manifests (examples/ideal, examples/block-editor also pin a version).
+# Scope: moon.work members, mirroring check-shared-substrate.sh — submodule
+# manifests (e.g. loom/examples/lambda's) belong to their own repos.
 pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
   | sed -n 's/^version = "\(.*\)"/\1/p') \
   || fail "cannot read moon.mod from event-graph-walker at ${direct_sha}
@@ -69,17 +73,68 @@ pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
 [ -n "${pinned_version}" ] \
   || fail "cannot extract version from event-graph-walker moon.mod at ${direct_sha}"
 
-declared_version=$(python3 -c "
+PINNED_VERSION="${pinned_version}" python3 - <<'PY' || exit 1
 import json
-spec = json.load(open('moon.mod.json'))['deps']['dowdiness/event-graph-walker']
-print(spec['version'] if isinstance(spec, dict) else spec)
-") || fail "cannot read dowdiness/event-graph-walker dep from moon.mod.json"
+import os
+import re
+import sys
 
-if [ "${pinned_version}" != "${declared_version}" ]; then
-  fail "event-graph-walker version mismatch:
-    pinned submodule commit declares: ${pinned_version}
-    canopy moon.mod.json declares:    ${declared_version}
-  moon does not validate path-dep versions — align them by hand."
-fi
+TARGET = "dowdiness/event-graph-walker"
+pinned = os.environ["PINNED_VERSION"]
+
+def members():
+    text = re.sub(r'#[^\n]*', '', open("moon.work").read())
+    m = re.search(r'members\s*=\s*\[(.*?)\]', text, re.DOTALL)
+    if not m:
+        sys.exit("check-egw-resolver-identity: moon.work has no members array")
+    return re.findall(r'"([^"]+)"', m.group(1))
+
+def declared_in(member):
+    """Return (manifest_rel, version-or-None) if the member declares TARGET,
+    else None. Handles JSON moon.mod.json and experimental TOML moon.mod."""
+    for name in ("moon.mod.json", "moon.mod"):
+        p = os.path.normpath(os.path.join(member, name))
+        if not os.path.isfile(p):
+            continue
+        if name.endswith(".json"):
+            try:
+                spec = (json.load(open(p)).get("deps") or {}).get(TARGET)
+            except Exception as e:
+                sys.exit(f"check-egw-resolver-identity: cannot parse {p}: {e}")
+            if spec is None:
+                return None
+            version = spec.get("version") if isinstance(spec, dict) else spec
+            return p, version
+        text = re.sub(r'#[^\n]*', '', open(p).read())
+        m = re.search(
+            r'"' + re.escape(TARGET) + r'(?:@([^"]+))?"\s*(?:=\s*\{([^}]*)\})?',
+            text)
+        if m is None:
+            return None
+        version = m.group(1)
+        if version is None and m.group(2):
+            vm = re.search(r'version\s*=\s*"([^"]+)"', m.group(2))
+            version = vm.group(1) if vm else None
+        return p, version
+    return None
+
+found = [d for d in (declared_in(m) for m in members()) if d is not None]
+if not found:
+    # The root manifest path-deps egw today; an empty scan means the scanner
+    # is broken or the topology changed — never a clean pass.
+    sys.exit(f"check-egw-resolver-identity: no workspace member declares "
+             f"{TARGET} — scanner or topology broken, refusing to pass")
+
+stale = [(p, v) for p, v in found if v is not None and v != pinned]
+if stale:
+    lines = "\n".join(f"    {p}: declares {v}" for p, v in stale)
+    sys.exit(f"check-egw-resolver-identity: {TARGET} version mismatch — "
+             f"pinned submodule commit declares {pinned}, but:\n{lines}\n"
+             f"  moon does not validate path-dep versions — align them by hand.")
+
+print(f"  {len(found)} workspace manifest(s) agree on version {pinned}:")
+for p, _ in found:
+    print(f"    {p}")
+PY
 
 echo "OK — both egw resolution paths pin ${direct_sha} (version ${pinned_version})."
