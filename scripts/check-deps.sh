@@ -1,14 +1,33 @@
 #!/usr/bin/env bash
 # Scope-aware dependency-rule checker.
 #
-# Rules (see docs/plans/2026-04-22-moonbit-workspace-reorganization.md):
+# Module-scope rules (see docs/plans/2026-04-22-moonbit-workspace-reorganization.md):
 #   [A] lib/*         must not import dowdiness/canopy/*
 #   [B] lib/*         must not import example modules
 #   [C] submodule/*   must not import dowdiness/canopy/*
 #   [D] submodule/*   must not import example modules
 #   [E] submodule/*   must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
 #
-# Applies to all scopes (normal, test, wbtest) for [A]–[D].
+# Package-level layering rules inside the dowdiness/canopy module (see
+# docs/plans/2026-06-11-architecture-redesign-proposal.md, "Dependency and
+# boundary rules"):
+#   [F] core/** and protocol/** (incl. protocol/wire) import substrate only:
+#       their canopy-internal imports must stay within {core/**, protocol/**}
+#       — no language, transport, or app imports.
+#   [G] editor/** must not import dowdiness/canopy/lang/* in ANY scope,
+#       test/wbtest included. Dated exceptions are listed in
+#       EDITOR_LANG_EXCEPTIONS below; each waiver is printed on every run
+#       (never silent) and FAILS the check if it stops matching anything.
+#   [H] relay/** imports only dowdiness/canopy/protocol/wire,
+#       dowdiness/byte_codec, and moonbitlang/* — never editor.
+#   [I] lang/** must not import dowdiness/canopy/ffi/*; a language
+#       lang/<L>/** must not import another language lang/<M>/**
+#       (lang/runtime is shared SPI, importable by every language);
+#       lang/runtime must not import any language in normal scope
+#       (test-scope fixtures are allowed).
+#
+# Applies to all scopes (normal, test, wbtest) for [A]–[D] and [F]–[I]
+# (the one scope carve-out is [I]'s lang/runtime clause, noted above).
 # Exits non-zero on any violation. Intended to run in CI.
 set -euo pipefail
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -161,6 +180,69 @@ def is_canopy(sym):
 def is_example(sym):
     return any(sym == n or sym.startswith(n + "/") for n in example_modules)
 
+# --- Package-level layering rules within dowdiness/canopy ([F]-[I]) ---
+
+def canopy_pkg(sym):
+    """Package path inside the canopy module ('' for the root package),
+    or None if sym is not a canopy import."""
+    if sym == CANOPY:
+        return ""
+    if sym.startswith(CANOPY + "/"):
+        return sym[len(CANOPY) + 1:]
+    return None
+
+def under(pkg, roots):
+    return any(pkg == r or pkg.startswith(r + "/") for r in roots)
+
+SUBSTRATE_ONLY_ROOTS = ("core", "protocol")  # [F] — protocol covers protocol/wire
+RELAY_ALLOWED = (CANOPY + "/protocol/wire", "dowdiness/byte_codec")  # [H]
+
+# [G] dated exceptions: (package, scope, import) -> reason. A waiver is
+# printed on every run; a listed exception that no longer matches any
+# import FAILS the check, so this list cannot rot silently.
+_LAMBDA_FIXTURE_REASON = (
+    "dated 2026-06-12: editor's lambda test fixture is pending replacement "
+    "by a TestExpr-style neutral grammar (redesign proposal, 'Dependency "
+    "and boundary rules'); remove this entry when editor tests stop "
+    "importing lang/lambda"
+)
+EDITOR_LANG_EXCEPTIONS = {
+    ("editor", "test", CANOPY + "/lang/lambda"): _LAMBDA_FIXTURE_REASON,
+    ("editor", "wbtest", CANOPY + "/lang/lambda"): _LAMBDA_FIXTURE_REASON,
+}
+exceptions_used = set()
+
+def check_canopy_layering(pkg, scope, sym):
+    """Yield [F]-[I] violation strings for one import of a canopy package."""
+    target = canopy_pkg(sym)
+    if under(pkg, SUBSTRATE_ONLY_ROOTS) and target is not None \
+            and not under(target, SUBSTRATE_ONLY_ROOTS):
+        yield (f"[F] {pkg} ({scope}) → {sym} "
+               f"(core/protocol import substrate only)")
+    if under(pkg, ("editor",)) and target is not None \
+            and under(target, ("lang",)):
+        key = (pkg, scope, sym)
+        if key in EDITOR_LANG_EXCEPTIONS:
+            exceptions_used.add(key)
+        else:
+            yield f"[G] {pkg} ({scope}) → {sym} (editor must not import lang/*)"
+    if under(pkg, ("relay",)) \
+            and sym not in RELAY_ALLOWED and not sym.startswith("moonbitlang/"):
+        yield (f"[H] {pkg} ({scope}) → {sym} "
+               f"(relay allowlist: protocol/wire, byte_codec, moonbitlang/*)")
+    if under(pkg, ("lang",)) and target is not None:
+        if under(target, ("ffi",)):
+            yield f"[I] {pkg} ({scope}) → {sym} (lang must not import ffi/*)"
+        elif under(target, ("lang",)) and target != "lang":
+            own = pkg.split("/")[1] if "/" in pkg else None
+            tgt = target.split("/")[1]
+            if own == "runtime":
+                if tgt != "runtime" and scope == "normal":
+                    yield (f"[I] {pkg} ({scope}) → {sym} "
+                           f"(lang/runtime must not depend on a language)")
+            elif tgt not in ("runtime", own):
+                yield f"[I] {pkg} ({scope}) → {sym} (cross-language import)"
+
 # --- Scan package imports ---
 violations = []
 scanned_pkgs = 0
@@ -179,6 +261,8 @@ for pkg_file in iter_files("moon.pkg"):
             violations.append(f"[C] submodule pkg {pkg_rel} ({mod_name}, {scope}) → {sym}")
         if cat == "submodule" and is_example(sym):
             violations.append(f"[D] submodule pkg {pkg_rel} ({mod_name}, {scope}) → {sym}")
+        if cat == "canopy":
+            violations.extend(check_canopy_layering(pkg_rel, scope, sym))
 
 # --- Scan module path-deps ---
 scanned_mods = 0
@@ -192,13 +276,22 @@ for mmj in iter_manifests():
         # Rule E is about path-deps only; registry deps (string value, or
         # dict without "path" key) are not targeted by this rule even if the
         # name would match. If we ever want to forbid registry-deps on canopy
-        # too, add rule F.
+        # too, add a new rule letter.
         if not (isinstance(spec, dict) and "path" in spec):
             continue
         if is_canopy(dep_name):
             violations.append(f"[E] submodule mod {name} has path-dep → {dep_name}")
 
 # --- Report ---
+for key in sorted(EDITOR_LANG_EXCEPTIONS):
+    if key in exceptions_used:
+        print(f"NOTE [G] waived: {key[0]} ({key[1]}) → {key[2]} — "
+              f"{EDITOR_LANG_EXCEPTIONS[key]}")
+    else:
+        violations.append(
+            f"[G] STALE exception: {key[0]} ({key[1]}) → {key[2]} no longer "
+            f"matches any import — remove it from EDITOR_LANG_EXCEPTIONS")
+
 if violations:
     print("Dependency rule violations:", file=sys.stderr)
     for v in violations:
