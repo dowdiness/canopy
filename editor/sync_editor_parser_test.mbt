@@ -1,143 +1,128 @@
 // Tests for SyncEditor parser integration and sync operations.
+// Uses the neutral TestExpr grammar — these exercise generic editor
+// behavior (parse on set_text, reparse on edit, clear on empty, dirty
+// reparse, CRDT sync), not language-specific parse trees. Lambda-grammar
+// parse correctness lives in lang/lambda's own tests.
 
 ///|
 test "parser: initial parse produces AST" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("42")
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast), content="42")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("foo")])
+    ),
+  )
 }
 
 ///|
 test "parser: edit updates AST" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("42")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="42")
-  se.set_text("λx.x")
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast), content="(λx. x)")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("foo")])
+    ),
+  )
+  se.set_text("f(x)")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("f", [Leaf("x")])])
+    ),
+  )
 }
 
 ///|
 test "parser: empty source clears AST" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("42")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="42")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("foo")])
+    ),
+  )
   se.set_text("")
-  // Empty source should yield Unit (the fallback)
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast), content="()")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [])
+    ),
+  )
 }
 
 ///|
 test "parser: parse errors reported" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("λ.x")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo(") // unclosed '('
   let errors = se.get_errors()
   inspect(errors.is_empty(), content="false")
 }
 
 ///|
 test "parser: valid source has no errors" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("λx.x")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("f(x)")
   inspect(se.is_parse_valid(), content="true")
   inspect(se.get_errors().is_empty(), content="true")
 }
 
 ///|
 test "parser: mark_dirty forces reparse" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("42")
-  let ast1 = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast1), content="42")
-  se.mark_dirty()
-  let ast2 = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast2), content="42")
-}
-
-///|
-test "parser: get_ast_pretty contains expression" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("42")
-  let pretty = @lambda.get_lambda_ast_pretty(se)
-  inspect(pretty.contains("42"), content="true")
-  inspect(pretty.contains("Expression:"), content="true")
-}
-
-///|
-test "parser: complex expression parses correctly" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("λf.λx.f x")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo")
+  let ast1 = @probe.get_test_ast(se)
   inspect(
-    @ast.print_term(@lambda.get_lambda_ast(se)),
-    content="(λf. (λx. (f x)))",
-  )
-}
-
-///|
-test "parser: let binding with body" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("let x = 1\nx + 2")
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(
-    @ast.print_term(ast),
+    ast1,
     content=(
-      #|let x = 1
-      #|(x + 2)
+      #|Branch("", [Leaf("foo")])
     ),
   )
-}
-
-///|
-test "parser: if-then-else expression" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("if x then 1 else 2")
-  inspect(
-    @ast.print_term(@lambda.get_lambda_ast(se)),
-    content="if x then 1 else 2",
-  )
-}
-
-///|
-test "parser: arithmetic addition" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("1 + 2 + 3")
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast), content="((1 + 2) + 3)")
+  se.mark_dirty()
+  let ast2 = @probe.get_test_ast(se)
+  inspect(ast1 == ast2, content="true")
 }
 
 ///|
 test "parser: empty source has no errors" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   se.set_text("")
   inspect(se.get_errors().is_empty(), content="true")
 }
 
 ///|
-test "parser: resolution tracks bound and free variables" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("λx.x + y")
-  let res = @lambda.get_lambda_resolution(se)
-  // Verify resolution is populated (bound x, free y)
-  inspect(res.vars.length() > 0, content="true")
-}
-
-///|
 test "parser: successive edits maintain consistency" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("1")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="1")
-  se.set_text("1 + 2")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="(1 + 2)")
-  se.set_text("1 + 2 + 3")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="((1 + 2) + 3)")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("a")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("a")])
+    ),
+  )
+  se.set_text("f(a)")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("f", [Leaf("a")])])
+    ),
+  )
+  se.set_text("f(a b)")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("f", [Leaf("a"), Leaf("b")])])
+    ),
+  )
 }
 
 ///|
 test "sync: export and apply roundtrip" {
-  let a = @lambda.new_lambda_editor("agent-a").0
-  let b = @lambda.new_lambda_editor("agent-b").0
+  let a = @probe.new_test_editor("agent-a")
+  let b = @probe.new_test_editor("agent-b")
   try! a.insert("h")
   try! a.insert("e")
   try! a.insert("l")
@@ -150,8 +135,8 @@ test "sync: export and apply roundtrip" {
 
 ///|
 test "sync: export_since for incremental sync" {
-  let a = @lambda.new_lambda_editor("agent-a").0
-  let b = @lambda.new_lambda_editor("agent-b").0
+  let a = @probe.new_test_editor("agent-a")
+  let b = @probe.new_test_editor("agent-b")
   // Initial content
   try! a.insert("x")
   try! b.apply_sync(try! a.export_all())
@@ -170,8 +155,8 @@ test "sync: export_since for incremental sync" {
 
 ///|
 test "sync: bidirectional sync converges" {
-  let a = @lambda.new_lambda_editor("agent-a").0
-  let b = @lambda.new_lambda_editor("agent-b").0
+  let a = @probe.new_test_editor("agent-a")
+  let b = @probe.new_test_editor("agent-b")
   try! a.insert("a")
   try! b.insert("b")
   // Sync both ways
@@ -183,28 +168,24 @@ test "sync: bidirectional sync converges" {
 
 ///|
 test "sync: AST consistent after sync" {
-  let a = @lambda.new_lambda_editor("agent-a").0
-  let b = @lambda.new_lambda_editor("agent-b").0
-  a.set_text("λx.x")
+  let a = @probe.new_test_editor("agent-a")
+  let b = @probe.new_test_editor("agent-b")
+  a.set_text("f(x)")
   try! b.apply_sync(try! a.export_all())
   // Both editors should parse to the same AST
-  inspect(
-    @ast.print_term(@lambda.get_lambda_ast(a)) ==
-    @ast.print_term(@lambda.get_lambda_ast(b)),
-    content="true",
-  )
+  inspect(@probe.get_test_ast(a) == @probe.get_test_ast(b), content="true")
 }
 
 ///|
 test "sync: empty export_all for empty editor" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   let msg = try! se.export_all()
   inspect(msg.op_count() == 0, content="true")
 }
 
 ///|
 test "sync: version advances after insert" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   let v1 = se.get_version()
   try! se.insert("x")
   let v2 = se.get_version()

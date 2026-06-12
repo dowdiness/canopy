@@ -241,21 +241,7 @@ def grammar_lang(sym):
 # printed on every run; a listed entry that no longer matches any import
 # FAILS the check, so this table cannot rot silently. Adding a waiver for
 # any rule is a data edit here, not new machinery.
-_LAMBDA_FIXTURE_REASON = (
-    "dated 2026-06-12, re-evaluate by 2026-09-12: editor's lambda test "
-    "fixture is pending replacement by a TestExpr-style neutral grammar "
-    "(redesign proposal, 'Dependency and boundary rules'); remove this "
-    "entry when editor tests stop importing it"
-)
-EXCEPTIONS = {
-    ("G", "editor", scope, sym): _LAMBDA_FIXTURE_REASON
-    for scope, sym in (
-        ("test", CANOPY + "/lang/lambda"),
-        ("wbtest", CANOPY + "/lang/lambda"),
-        ("test", "dowdiness/lambda"),
-        ("test", "dowdiness/lambda/ast"),
-    )
-}
+EXCEPTIONS = {}
 exceptions_used = set()
 
 def waived(rule, pkg, scope, sym):

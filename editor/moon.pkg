@@ -27,14 +27,11 @@ import {
 }
 
 import {
-  "moonbitlang/quickcheck" @qc,
-  "dowdiness/lambda" @parser,
-  "dowdiness/lambda/ast",
-  "dowdiness/canopy/lang/lambda",
+  "dowdiness/canopy/workspace/probe",
 } for "test"
 
 import {
-  "dowdiness/canopy/lang/lambda",
+  "dowdiness/canopy/workspace/probe",
 } for "wbtest"
 
 warnings = "-7-29"

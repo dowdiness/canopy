@@ -16,6 +16,7 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
+  "moonbitlang/quickcheck" @qc,
 }
 
 warnings = "-2-6-29"

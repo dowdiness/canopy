@@ -4,14 +4,14 @@
 ///|
 fn setup_bridge(
   text : String,
-) -> (SyncEditor[@ast.Term], @lambda.LambdaCompanion) {
-  let (editor, companion) = @lambda.new_lambda_editor("test")
+) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
+  let (editor, companion) = new_lambda_editor("test")
   editor.set_text(text)
   (editor, companion)
 }
 
 ///|
-fn get_root_id(editor : SyncEditor[@ast.Term]) -> @core.NodeId raise {
+fn get_root_id(editor : @editor.SyncEditor[@ast.Term]) -> @core.NodeId raise {
   match editor.get_proj_node() {
     Some(node) => node.id()
     None => fail("expected tree root")
@@ -19,7 +19,7 @@ fn get_root_id(editor : SyncEditor[@ast.Term]) -> @core.NodeId raise {
 }
 
 ///|
-fn assert_converged(editor : SyncEditor[@ast.Term]) -> Unit raise {
+fn assert_converged(editor : @editor.SyncEditor[@ast.Term]) -> Unit raise {
   let crdt_text = editor.get_text()
   let proj_text = match editor.get_proj_node() {
     Some(proj) => @ast.print_term(proj.kind)
@@ -32,10 +32,10 @@ fn assert_converged(editor : SyncEditor[@ast.Term]) -> Unit raise {
 test "apply_tree_edit - Select preserves text" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::Select(node_id=id),
+    @lambda_edits.TreeEditOp::Select(node_id=id),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -46,10 +46,10 @@ test "apply_tree_edit - Select preserves text" {
 test "apply_tree_edit - Collapse preserves text" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::Collapse(node_id=id),
+    @lambda_edits.TreeEditOp::Collapse(node_id=id),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -60,10 +60,10 @@ test "apply_tree_edit - Collapse preserves text" {
 test "apply_tree_edit - WrapInLambda" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
+    @lambda_edits.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -82,10 +82,10 @@ test "apply_tree_edit - WrapInLambda" {
 test "apply_tree_edit - WrapInApp" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInApp(node_id=id),
+    @lambda_edits.TreeEditOp::WrapInApp(node_id=id),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -96,10 +96,10 @@ test "apply_tree_edit - WrapInApp" {
 test "apply_tree_edit - CommitEdit replaces value" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -111,10 +111,10 @@ test "apply_tree_edit - preserves cursor for follow-up text edits" {
   let (editor, companion) = setup_bridge("42")
   editor.move_cursor(1)
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="99"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -127,10 +127,10 @@ test "apply_tree_edit - preserves cursor for follow-up text edits" {
 test "apply_tree_edit - CommitEdit with expression" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -142,10 +142,10 @@ test "apply_tree_edit - CommitEdit with expression" {
 test "apply_tree_edit - ProjNode and text converge after WrapInLambda" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
+    @lambda_edits.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -156,10 +156,10 @@ test "apply_tree_edit - ProjNode and text converge after WrapInLambda" {
 test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -174,10 +174,10 @@ test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
 test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
+    @lambda_edits.TreeEditOp::WrapInLambda(node_id=id, var_name="y"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -191,10 +191,10 @@ test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
 test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -210,10 +210,10 @@ test "apply_tree_edit - Delete non-root node inserts valid placeholder" {
     Some(root) => root.children[1].id()
     None => fail("expected tree root")
   }
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::Delete(node_id=target),
+    @lambda_edits.TreeEditOp::Delete(node_id=target),
     1,
   )
   inspect(result is Ok(_), content="true")
@@ -225,19 +225,19 @@ test "apply_tree_edit - Delete non-root node inserts valid placeholder" {
 test "apply_tree_edit - sequential edits" {
   let (editor, companion) = setup_bridge("42")
   let id1 = get_root_id(editor)
-  let result1 = @lambda.apply_lambda_tree_edit(
+  let result1 = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInLambda(node_id=id1, var_name="x"),
+    @lambda_edits.TreeEditOp::WrapInLambda(node_id=id1, var_name="x"),
     1,
   )
   inspect(result1 is Ok(_), content="true")
   inspect(editor.get_text(), content="(λx. 42)")
   let id2 = get_root_id(editor)
-  let result2 = @lambda.apply_lambda_tree_edit(
+  let result2 = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInApp(node_id=id2),
+    @lambda_edits.TreeEditOp::WrapInApp(node_id=id2),
     2,
   )
   inspect(result2 is Ok(_), content="true")
@@ -249,10 +249,10 @@ test "apply_tree_edit - sequential edits" {
 test "apply_tree_edit - tree edits are undoable" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)
-  let result = @lambda.apply_lambda_tree_edit(
+  let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
+    @lambda_edits.TreeEditOp::WrapInLambda(node_id=id, var_name="x"),
     1,
   )
   inspect(result is Ok(_), content="true")
