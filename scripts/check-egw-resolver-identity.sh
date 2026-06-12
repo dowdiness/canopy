@@ -62,7 +62,10 @@ fi
 # version must match what canopy's moon.mod.json claims for the dep — moon
 # itself never checks this (probe above).
 pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
-  | sed -n 's/^version = "\(.*\)"/\1/p')
+  | sed -n 's/^version = "\(.*\)"/\1/p') \
+  || fail "cannot read moon.mod from event-graph-walker at ${direct_sha}
+  (submodule object store missing the pinned commit? run:
+  git submodule update --init --recursive)"
 [ -n "${pinned_version}" ] \
   || fail "cannot extract version from event-graph-walker moon.mod at ${direct_sha}"
 
