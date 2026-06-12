@@ -200,6 +200,101 @@
       font-weight: 700;
     }
 
+    .related-panel {
+      display: grid;
+      gap: var(--space-md);
+      margin-top: var(--space-xl);
+      padding: var(--space-lg);
+      background: color-mix(in oklab, var(--panel), var(--bg) 8%);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 14%);
+      border-radius: 16px;
+    }
+
+    .related-panel[hidden] {
+      display: none;
+    }
+
+    .related-heading {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm) var(--space-lg);
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .related-kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .related-heading h2 {
+      margin: var(--space-xs) 0 0;
+      color: var(--text);
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    #related-count {
+      color: var(--secondary);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .related-list {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .related-item article {
+      display: grid;
+      gap: var(--space-xs);
+      padding: var(--space-md) 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .related-item:first-child article {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .related-item:last-child article {
+      padding-bottom: 0;
+    }
+
+    .related-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .related-meta time,
+    .related-match {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .related-match {
+      color: color-mix(in oklab, var(--secondary), var(--accent) 20%);
+    }
+
+    .related-text {
+      margin: 0;
+      color: var(--secondary);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
     .timeline {
       display: grid;
       gap: var(--space-lg);
@@ -271,6 +366,7 @@
       }
 
       .composer-actions,
+      .related-heading,
       .status-row {
         align-items: stretch;
         flex-direction: column;
@@ -287,7 +383,7 @@
     <header>
       <p class="eyebrow">Local-first prototype</p>
       <h1>Post to yourself.</h1>
-      <p class="lede">One field, no folders, no API key. This slice only proves that text can be posted and survive a reload; resurfacing comes after the post loop exists.</p>
+      <p class="lede">One field, no folders, no API key. As you write, a few old posts return quietly underneath; the stream stays newest-first when you just want chronology.</p>
     </header>
 
     <form class="composer" id="post-form">
@@ -306,6 +402,17 @@
         <span id="post-count">0 posts</span>
       </div>
     </form>
+
+    <section class="related-panel" id="related-panel" aria-labelledby="related-title" hidden>
+      <div class="related-heading">
+        <div>
+          <p class="related-kicker">Returning while writing</p>
+          <h2 id="related-title">Related posts</h2>
+        </div>
+        <span id="related-count">0 related posts</span>
+      </div>
+      <ul class="related-list" id="related-list"></ul>
+    </section>
 
     <section class="timeline" aria-labelledby="timeline-title">
       <h2 id="timeline-title">Chronological fallback · newest first</h2>
