@@ -56,6 +56,7 @@ export default defineConfig({
         json: 'json.html',
         memo: 'memo.html',
         markdown: 'markdown.html',
+        posts: 'posts.html',
       },
     },
   },
