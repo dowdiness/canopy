@@ -2,6 +2,11 @@
 
 **Date:** 2026-06-10
 **Status:** Accepted (decision record)
+**Amended by:** [Substrate governance: one consumption policy per dependency](2026-06-12-substrate-governance.md)
+(2026-06-12 — generalizes this record's single-dependency policy to all
+`dowdiness/*` substrate and adds the `event-graph-walker` resolver-identity
+guard alongside the incr drift guard; the lock value, bump protocol, and
+deferred cross-repo extension point below remain authoritative here)
 **Closes:** [#441](https://github.com/dowdiness/canopy/issues/441) (BAND 1b — cross-repo `incr` version-lock)
 **Related:**
 [Ecosystem vision §5.2 / §5.7 / §7.3](../research/2026-06-01-moondsp-canopy-ecosystem-vision.md) ·
