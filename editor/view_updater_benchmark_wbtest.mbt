@@ -1,11 +1,19 @@
 // ViewNode serialization benchmark — validates JSON transport performance.
-// Realistic ViewNode tree (100+ lambda defs) round-trip under 1ms.
+// Drives the generic editor/protocol serialization + patch path (which this
+// package owns) over a realistically *nested* TestExpr tree, so the numbers
+// reflect a representative projection rather than a flat token stream.
+//
+// Each "def" emits `def{i}(add{i}(x{i} n{i}))`, which the neutral grammar folds
+// to Branch("def{i}", [Branch("add{i}", [Leaf("x{i}"), Leaf("n{i}")])]) — a
+// name + nested body, mirroring the shape (not the meaning) of a language
+// definition. Feeding lambda syntax here would parse as loose
+// identifiers/gaps under the neutral grammar and measure the wrong tree.
 
 ///|
-fn bench_source(let_count : Int) -> String {
+fn bench_source(def_count : Int) -> String {
   let segments : Array[String] = []
-  for i = 0; i < let_count; i = i + 1 {
-    segments.push("let f\{i} = \\x.x + \{i}")
+  for i in 0..<def_count {
+    segments.push("def\{i}(add\{i}(x\{i} n\{i}))")
   }
   segments.push("f0")
   segments.join("\n")
