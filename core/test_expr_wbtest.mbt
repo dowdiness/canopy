@@ -64,7 +64,7 @@ impl Renderable for TestExpr with fn unparse(self) {
   match self {
     Leaf(s) => s
     Branch(tag, cs) =>
-      tag + "(" + cs.map(fn(c) { Renderable::unparse(c) }).join(", ") + ")"
+      tag + "(" + cs.map(fn(c) { Renderable::unparse(c) }).join(" ") + ")"
   }
 }
 
@@ -74,6 +74,35 @@ impl ToJson for TestExpr with fn to_json(self) {
     Leaf(s) => Json::string(s)
     Branch(tag, _) => Json::string(tag)
   }
+}
+
+///|
+// Drift guard for the TestExpr fixture (issue #601).
+//
+// TestExpr is intentionally duplicated: this `priv` copy backs core's "works
+// with any AST" contract and cannot import the `workspace/probe` copy without a
+// layering cycle (probe depends on core). The other copy is `pub(all)` in
+// `workspace/probe/test_expr.mbt` and backs the editor's neutral grammar.
+// To stop the two from drifting silently, BOTH files pin their TestExpr's
+// observable surface to the SAME frozen literals below — a frozen reference,
+// never a call back through the other copy (layering forbids it anyway), so a
+// change to EITHER definition's unparse / placeholder / kind_tag / label /
+// children fails its own file's guard. Keep the two literal blocks
+// byte-identical; if you change one, change the other (see
+// `workspace/probe/test_grammar_contract_wbtest.mbt`,
+// "TestExpr fixture surface is frozen").
+test "TestExpr fixture surface is frozen (drift guard vs workspace/probe)" {
+  let sample : TestExpr = Branch("f", [Leaf("x"), Leaf("y")])
+  inspect(Renderable::kind_tag(sample), content="Branch")
+  inspect(Renderable::label(sample), content="f")
+  inspect(Renderable::placeholder(sample), content="?")
+  inspect(Renderable::unparse(sample), content="f(x y)")
+  inspect(@loomcore.TreeNode::children(sample).length(), content="2")
+  let leaf : TestExpr = Leaf("x")
+  inspect(Renderable::kind_tag(leaf), content="Leaf")
+  inspect(Renderable::label(leaf), content="x")
+  inspect(Renderable::unparse(leaf), content="x")
+  inspect(@loomcore.TreeNode::children(leaf).length(), content="0")
 }
 
 ///|

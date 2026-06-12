@@ -88,6 +88,58 @@ test "total over a lone surrogate half — no abort" {
 }
 
 ///|
+// #5 (issue #600): the generic `get_errors` / diagnostics contract is exercised
+// against TestExpr's SINGLE structural error shape — an unclosed '('. This is
+// by design, not an oversight, and the limitation is documented here so it
+// cannot be mistaken for missing coverage. The grammar is deliberately TOTAL
+// (see test_grammar.mbt header): every other malformed input (stray
+// punctuation, garbage, non-BMP runs, lone surrogate halves) becomes a silent
+// lexer gap rather than a diagnostic. Adding a second error shape would require
+// a non-total parser path and risk the totality invariant the contract tests
+// above pin — so the single trigger is intentional. This test pins both sides:
+// exactly one diagnostic for the one trigger, and zero for silent-gap garbage.
+test "TestExpr reports exactly one structural diagnostic kind (unclosed '(')" {
+  let ed = new_test_editor("agent")
+  ed.insert("foo(")
+  let errs = ed.get_errors()
+  inspect(errs.length(), content="1")
+  inspect(errs[0].has_prefix("unclosed '('"), content="true")
+  // Totality: garbage punctuation is a silent lexer gap, NOT a diagnostic, so
+  // there is no second error shape to broaden the contract with.
+  let ed2 = new_test_editor("agent")
+  ed2.insert("@#$%^&")
+  inspect(ed2.get_errors().length(), content="0")
+}
+
+///|
+// Drift guard for the TestExpr fixture (issue #601).
+//
+// This `pub(all)` TestExpr (workspace/probe/test_expr.mbt) was promoted from
+// the `priv` copy in `core/test_expr_wbtest.mbt`, which core's "works with any
+// AST" contract must keep (probe depends on core, so the priv copy cannot be
+// replaced by importing this one without a layering cycle). To stop the two
+// from drifting silently, BOTH files pin their TestExpr's observable surface to
+// the SAME frozen literals below — a frozen reference, never a call back
+// through the other copy, so a change to EITHER definition's unparse /
+// placeholder / kind_tag / label / children fails its own file's guard. Keep
+// the two literal blocks byte-identical; if you change one, change the other
+// (see `core/test_expr_wbtest.mbt`,
+// "TestExpr fixture surface is frozen (drift guard vs workspace/probe)").
+test "TestExpr fixture surface is frozen (drift guard vs core)" {
+  let sample : TestExpr = Branch("f", [Leaf("x"), Leaf("y")])
+  inspect(@loomcore.Renderable::kind_tag(sample), content="Branch")
+  inspect(@loomcore.Renderable::label(sample), content="f")
+  inspect(@loomcore.Renderable::placeholder(sample), content="?")
+  inspect(@loomcore.Renderable::unparse(sample), content="f(x y)")
+  inspect(@loomcore.TreeNode::children(sample).length(), content="2")
+  let leaf : TestExpr = Leaf("x")
+  inspect(@loomcore.Renderable::kind_tag(leaf), content="Leaf")
+  inspect(@loomcore.Renderable::label(leaf), content="x")
+  inspect(@loomcore.Renderable::unparse(leaf), content="x")
+  inspect(@loomcore.TreeNode::children(leaf).length(), content="0")
+}
+
+///|
 test "proj node available for non-empty editor" {
   let ed = new_test_editor("agent")
   ed.insert("f(x)")
