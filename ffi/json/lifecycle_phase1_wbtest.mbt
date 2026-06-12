@@ -72,7 +72,7 @@ test "spec §12 #2 (json): destroy refused while depended-upon; succeeds after u
     Ok(_) => ()
     Err(report) => fail("expected Ok after unregister_dep, got \{report}")
   }
-  json_registry.remove(handle)
+  drain_json_handle_after_direct_coordinator_destroy(handle)
 }
 
 ///|
@@ -177,7 +177,7 @@ test "workstream 2 (json): json_get_errors collapses to [] after coordinator des
       )
   }
   assert_eq(json_get_errors(handle), "[]")
-  json_registry.remove(handle)
+  drain_json_handle_after_direct_coordinator_destroy(handle)
 }
 
 ///|

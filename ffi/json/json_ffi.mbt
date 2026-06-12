@@ -60,12 +60,7 @@ pub fn destroy_json_editor(handle : Int) -> Unit {
     Some(v) => v
     None => return
   }
-  let _ = json_registry.destroy(
-    coordinator,
-    handle,
-    h.editor_id,
-    "destroy_json_editor",
-  )
+  let _ = json_registry.destroy(coordinator, h.editor_id, "destroy_json_editor")
 }
 
 ///|

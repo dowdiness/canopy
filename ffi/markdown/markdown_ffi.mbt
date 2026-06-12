@@ -62,7 +62,6 @@ pub fn destroy_markdown_editor(handle : Int) -> Unit {
   }
   let _ = markdown_registry.destroy(
     coordinator,
-    handle,
     h.editor_id,
     "destroy_markdown_editor",
   )

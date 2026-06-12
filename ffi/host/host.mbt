@@ -8,9 +8,11 @@
 ///|
 /// Generic FFI handle registry: handle bookkeeping plus per-handle ordinary
 /// view-update state, with the coordinator destroy gateway routed through
-/// one shared implementation. Fields are private; all mutation goes through
-/// owning-package methods so language packages cannot bypass the destroy
-/// gateway's bookkeeping invariants.
+/// one shared implementation. Fields are private; mutation goes through
+/// owning-package methods. Production teardown must use `destroy` (the
+/// coordinator-gated path); `remove`/`clear` deliberately bypass the
+/// gateway and exist for whitebox-test drains after a direct coordinator
+/// destroy.
 pub struct HostRegistry[H] {
   priv handles : Map[Int, H]
   priv view_states : Map[Int, @editor.ViewUpdateState]
@@ -66,38 +68,36 @@ pub fn[H] HostRegistry::clear(self : HostRegistry[H]) -> Unit {
 }
 
 ///|
-/// Get-or-create the ordinary view-update state for a handle.
+/// Get-or-create the ordinary view-update state for a handle. Callers are
+/// expected to have validated the handle (`get`/`contains`) first; creating
+/// a state for an unregistered id would leak until `clear`.
 pub fn[H] HostRegistry::view_state(
   self : HostRegistry[H],
   id : Int,
 ) -> @editor.ViewUpdateState {
-  match self.view_states.get(id) {
-    Some(s) => s
-    None => {
-      let s = @editor.ViewUpdateState::ViewUpdateState()
-      self.view_states[id] = s
-      s
-    }
-  }
+  self.view_states.get_or_init(id, () => {
+    @editor.ViewUpdateState::ViewUpdateState()
+  })
 }
 
 ///|
 /// Destroy gateway: route teardown through `Coordinator::destroy_editor`.
 /// On refusal the FFI-side bookkeeping is intentionally left intact so
 /// reads of cached state remain valid; on success the handle entry and its
-/// ordinary view state are removed. Returns true when teardown proceeded,
-/// so language packages can remove their language-local extras afterwards.
+/// ordinary view state are removed. The bookkeeping key is derived from
+/// `editor_id.0` — every language package registers handles under that
+/// integer, so taking it as a separate parameter would only invite a
+/// mismatched pair. Returns true when teardown proceeded, so language
+/// packages can remove their language-local extras afterwards.
 pub fn[H] HostRegistry::destroy(
   self : HostRegistry[H],
   coordinator : @workspace.Coordinator,
-  id : Int,
   editor_id : @workspace.EditorId,
   label : String,
 ) -> Bool {
   match coordinator.destroy_editor(editor_id) {
     Ok(_) => {
-      self.handles.remove(id)
-      self.view_states.remove(id)
+      self.remove(editor_id.0)
       true
     }
     Err(report) => {

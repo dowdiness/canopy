@@ -80,7 +80,7 @@ test "spec §12 #2 (md): destroy refused while depended-upon; succeeds after unr
     Ok(_) => ()
     Err(report) => fail("expected Ok after unregister_dep, got \{report}")
   }
-  markdown_registry.remove(handle)
+  drain_markdown_handle_after_direct_coordinator_destroy(handle)
 }
 
 ///|
@@ -210,7 +210,7 @@ test "workstream 2 (md): compute_view_patches collapses to [] after coordinator 
       )
   }
   assert_eq(markdown_compute_view_patches_json(handle), "[]")
-  markdown_registry.remove(handle)
+  drain_markdown_handle_after_direct_coordinator_destroy(handle)
 }
 
 ///|

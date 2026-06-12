@@ -53,9 +53,7 @@ test "destroy refusal leaves bookkeeping intact; success removes it" {
   // Refusal path: a workspace dep edge points at the editor.
   let ws_cell = @incr.Derived::Derived(rt, fn() { 0 }, label="host_test_ws")
   coordinator.register_dep(ws_cell.id(), editor_id, d.id())
-  assert_false(
-    reg.destroy(coordinator, editor_id.0, editor_id, "host_test_destroy"),
-  )
+  assert_false(reg.destroy(coordinator, editor_id, "host_test_destroy"))
   assert_true(reg.contains(editor_id.0))
   assert_true(reg.view_states.contains(editor_id.0))
   // The retained view state is the same object, not a recreated one.
@@ -63,9 +61,7 @@ test "destroy refusal leaves bookkeeping intact; success removes it" {
 
   // Success path: edge released → destroy proceeds, bookkeeping removed.
   coordinator.unregister_dep(ws_cell.id(), editor_id, d.id())
-  assert_true(
-    reg.destroy(coordinator, editor_id.0, editor_id, "host_test_destroy"),
-  )
+  assert_true(reg.destroy(coordinator, editor_id, "host_test_destroy"))
   assert_false(reg.contains(editor_id.0))
   assert_false(reg.view_states.contains(editor_id.0))
 }
@@ -78,7 +74,6 @@ test "destroy of an unknown editor id refuses and keeps bookkeeping" {
   assert_false(
     reg.destroy(
       coordinator,
-      99,
       @workspace.EditorId(99),
       "host_test_unknown_destroy",
     ),

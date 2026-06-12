@@ -105,12 +105,7 @@ pub fn destroy_editor(handle : Int) -> Unit {
   // return the empty/default fallback path. A leaked attachment is
   // observable only via incr-level inspection; a leaked registry entry
   // would be observable as a phantom editor.
-  guard lambda_registry.destroy(
-    coordinator,
-    handle,
-    h.editor_id,
-    "destroy_editor",
-  ) else {
+  guard lambda_registry.destroy(coordinator, h.editor_id, "destroy_editor") else {
     return
   }
   pretty_view_states.remove(handle)

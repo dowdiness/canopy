@@ -17,7 +17,7 @@ pub struct HostRegistry[H] {
 pub fn[H] HostRegistry::HostRegistry() -> Self[H]
 pub fn[H] HostRegistry::clear(Self[H]) -> Unit
 pub fn[H] HostRegistry::contains(Self[H], Int) -> Bool
-pub fn[H] HostRegistry::destroy(Self[H], @coordinator.Coordinator, Int, @coordinator.EditorId, String) -> Bool
+pub fn[H] HostRegistry::destroy(Self[H], @coordinator.Coordinator, @coordinator.EditorId, String) -> Bool
 pub fn[H] HostRegistry::get(Self[H], Int) -> H?
 pub fn[H] HostRegistry::insert(Self[H], Int, H) -> Unit
 pub fn[H] HostRegistry::remove(Self[H], Int) -> Unit

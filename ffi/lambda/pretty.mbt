@@ -54,14 +54,9 @@ pub fn compute_pretty_patches_json(handle : Int) -> String {
           return "[]"
         }
       }
-      let state = match pretty_view_states.get(handle) {
-        Some(s) => s
-        None => {
-          let s = @editor.ViewUpdateState::ViewUpdateState()
-          pretty_view_states[handle] = s
-          s
-        }
-      }
+      let state = pretty_view_states.get_or_init(handle, () => {
+        @editor.ViewUpdateState::ViewUpdateState()
+      })
       let patches = @editor.compute_pretty_patches(state, h.editor)
       Json::array(patches.map(fn(p) { p.to_json() })).stringify()
     }
