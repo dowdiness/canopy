@@ -1,0 +1,8 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/workspace/coordinator" @workspace,
+}
+
+import {
+  "dowdiness/incr",
+} for "wbtest"

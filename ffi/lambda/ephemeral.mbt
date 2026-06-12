@@ -3,7 +3,7 @@
 ///|
 /// Encode all local ephemeral state as binary (for sending to peers)
 pub fn ephemeral_encode_all(handle : Int) -> Bytes {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.encode_ephemeral_all()
     None => Bytes::new(0)
   }
@@ -12,7 +12,7 @@ pub fn ephemeral_encode_all(handle : Int) -> Bytes {
 ///|
 /// Apply remote ephemeral update (binary received from peer)
 pub fn ephemeral_apply(handle : Int, data : Bytes) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.apply_ephemeral(data)
     None => ()
   }
@@ -25,7 +25,7 @@ pub fn ephemeral_set_presence(
   name : String,
   color : String,
 ) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.set_local_presence(name, color)
     None => ()
   }
@@ -40,7 +40,7 @@ pub fn ephemeral_set_presence_with_selection(
   sel_start : Int,
   sel_end : Int,
 ) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       h.editor.set_local_presence(
         name,
@@ -54,7 +54,7 @@ pub fn ephemeral_set_presence_with_selection(
 ///|
 /// Delete local presence (call on beforeunload for graceful disconnect)
 pub fn ephemeral_delete_presence(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.delete_local_presence()
     None => ()
   }
@@ -63,7 +63,7 @@ pub fn ephemeral_delete_presence(handle : Int) -> Unit {
 ///|
 /// Remove expired ephemeral entries (call on timer)
 pub fn ephemeral_remove_outdated(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.remove_ephemeral_outdated()
     None => ()
   }
@@ -73,7 +73,7 @@ pub fn ephemeral_remove_outdated(handle : Int) -> Unit {
 /// Get adjusted peer cursors as JSON for rendering
 /// Returns: [{"peer_id":"123","cursor":8,"name":"Alice","color":"#ff0000","selection":null}, ...]
 pub fn ephemeral_get_peer_cursors_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let cursors = h.editor.get_peer_cursors()
       let items : Array[String] = []

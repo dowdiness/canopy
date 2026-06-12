@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/lang/lambda" @lang_lambda,
   "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,

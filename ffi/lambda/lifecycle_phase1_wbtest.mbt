@@ -1,6 +1,6 @@
 // Whitebox integration tests for §P0b Phase 1: Lambda FFI editors driven
 // through the workspace coordinator. Covers spec §12 tests 1, 2, 3, 4 —
-// these need access to package-private symbols (`lambda_handles`,
+// these need access to package-private symbols (`lambda_registry`,
 // `coordinator`, `LambdaHandle` fields), so they live in a `_wbtest.mbt`.
 //
 // §12 #5 (`ProtectedCellDisposed`) and §12 #6 (`CycleDetected` mapping)
@@ -18,18 +18,8 @@ fn reset_coordinator_for_phase1_tests() -> Unit {
   // side registrations stay around with alive=true and may leak Watch
   // roots, but each new test gets a fresh EditorId from the monotonic
   // counter, so leakage cannot affect correctness — only memory.
-  let keys = lambda_handles.keys().to_array()
-  for k in keys {
-    lambda_handles.remove(k)
-  }
-  let vkeys = view_states.keys().to_array()
-  for k in vkeys {
-    view_states.remove(k)
-  }
-  let pvkeys = pretty_view_states.keys().to_array()
-  for k in pvkeys {
-    pretty_view_states.remove(k)
-  }
+  lambda_registry.clear()
+  pretty_view_states.clear()
   last_created_handle.val = None
 }
 
@@ -39,8 +29,7 @@ fn drain_lambda_handle_after_direct_coordinator_destroy(
   h : LambdaHandle,
 ) -> Unit {
   h.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle)
-  view_states.remove(handle)
+  lambda_registry.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
@@ -51,7 +40,7 @@ fn drain_lambda_handle_after_direct_coordinator_destroy(
 test "spec §12 #1: each protected cell reads through read_protected" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("test_agent_one")
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let id = h.editor_id
   // Spec compliance: every cell wired into the bundle must reach
   // `read_protected` with Ok(_) on a freshly-created editor. Reading
@@ -104,7 +93,7 @@ test "spec §12 #1: each protected cell reads through read_protected" {
 test "spec §12 #2: destroy refused while depended-upon; succeeds after unregister_dep" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("test_agent_two")
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let id = h.editor_id
   let parser_ast_id = h.cells.parser_ast.cell_id()
   // Synthetic workspace memo id — register_dep only stores edges by
@@ -127,8 +116,7 @@ test "spec §12 #2: destroy refused while depended-upon; succeeds after unregist
   // `destroy_editor(handle)` again because the coordinator has already
   // marked the registration alive=false.
   h.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle)
-  view_states.remove(handle)
+  lambda_registry.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
@@ -147,7 +135,7 @@ test "workstream 3: get_view_tree_json collapses to null after coordinator destr
   if alive_json == "null" {
     fail("expected live view tree JSON before coordinator destroy")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -165,7 +153,7 @@ test "workstream 3: compute_view_patches_json collapses to [] after coordinator 
   if alive_json == "[]" {
     fail("expected live view patch JSON before coordinator destroy")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -184,7 +172,7 @@ test "workstream 3: get_semantic_projection_json collapses to empty after coordi
   if alive_json == empty {
     fail("expected live semantic projection JSON before coordinator destroy")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -198,7 +186,7 @@ test "workstream 3: rename_semantic_node rejects after coordinator destroy" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("semantic_rename_coord_destroy_agent")
   set_text(handle, "λx. x")
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let body_id = match h.editor.get_proj_node() {
     Some(root) =>
       match root.children[0].id().to_json() {
@@ -227,7 +215,7 @@ test "workstream 3: get_pretty_view_json collapses to null after coordinator des
   if alive_json == "null" {
     fail("expected live pretty view JSON before coordinator destroy")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -245,7 +233,7 @@ test "workstream 3: compute_pretty_patches_json collapses to [] after coordinato
   if alive_json == "[]" {
     fail("expected live pretty patch JSON before coordinator destroy")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   match coordinator.destroy_editor(h.editor_id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
@@ -258,11 +246,11 @@ test "workstream 3: compute_pretty_patches_json collapses to [] after coordinato
 test "spec §12 #3: read_protected after destroy returns EditorDestroyed" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("test_agent_three")
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let id = h.editor_id
   let parser_source_cell = h.cells.parser_source
   destroy_editor(handle)
-  // The handle is now removed from lambda_handles, but the registration
+  // The handle is now removed from lambda_registry, but the registration
   // in the coordinator stays (alive=false) so the error carries agent_id.
   match coordinator.read_protected(id, parser_source_cell) {
     Ok(_) => fail("expected EditorDestroyed")
@@ -278,8 +266,8 @@ test "spec §12 #4: read_protected rejects cells from a different editor" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("agent_alpha")
   let handle_b = create_editor("agent_beta")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   match coordinator.read_protected(h_b.editor_id, h_a.cells.parser_ast) {
     Ok(_) => fail("expected CellNotInProtectedSurface")
     Err(report) => assert_eq(report.kind, @workspace.CellNotInProtectedSurface)
@@ -330,24 +318,23 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   if !alive_json.contains("\"def_name\":\"x\"") {
     fail("expected def_name=\"x\" on alive editor, got \{alive_json}")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let id = h.editor_id
   match coordinator.destroy_editor(id) {
     Ok(_) => ()
     Err(report) => fail("coordinator destroy: \{report}")
   }
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(_) => ()
     None =>
       fail(
-        "expected lambda_handles to retain handle after direct coordinator destroy",
+        "expected lambda_registry to retain handle after direct coordinator destroy",
       )
   }
   // Post-destroy must collapse to "[]" via the Err arm of read_protected.
   assert_eq(get_diagnostics_json(handle), "[]")
   h.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle)
-  view_states.remove(handle)
+  lambda_registry.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
@@ -369,7 +356,7 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   if !alive_json.contains("\"level\":\"error\"") {
     fail("expected parse-error diagnostic on alive editor, got \{alive_json}")
   }
-  let h = lambda_handles.get(handle).unwrap()
+  let h = lambda_registry.get(handle).unwrap()
   let id = h.editor_id
   match coordinator.destroy_editor(id) {
     Ok(_) => ()
@@ -377,8 +364,7 @@ test "workstream 1: get_diagnostics_json collapses to [] after coordinator destr
   }
   assert_eq(get_diagnostics_json(handle), "[]")
   h.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle)
-  view_states.remove(handle)
+  lambda_registry.remove(handle)
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None

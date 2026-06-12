@@ -2,7 +2,7 @@
 
 ///|
 pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_open(ws)
     None => ()
   }
@@ -10,7 +10,7 @@ pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
 
 ///|
 pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_message(data)
     None => ()
   }
@@ -18,7 +18,7 @@ pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
 
 ///|
 pub fn ws_on_close(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_close()
     None => ()
   }
@@ -26,7 +26,7 @@ pub fn ws_on_close(handle : Int) -> Unit {
 
 ///|
 pub fn ws_broadcast_edit(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_edit()
     None => ()
   }
@@ -34,7 +34,7 @@ pub fn ws_broadcast_edit(handle : Int) -> Unit {
 
 ///|
 pub fn ws_broadcast_cursor(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_cursor()
     None => ()
   }
@@ -47,7 +47,7 @@ pub fn ws_broadcast_cursor(handle : Int) -> Unit {
 /// `request_id` is compared against the current recovery epoch —
 /// stale firings (response already arrived) are silently ignored.
 pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.on_watchdog_fire(request_id)
     None => ()
   }
@@ -59,7 +59,7 @@ pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
 /// which schedules a setTimeout(() => ws_on_watchdog_fire(handle, request_id)).
 /// Call once at editor construction time.
 pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_watchdog_timeout(timeout_ms)
       h.editor.set_watchdog_scheduler(
@@ -86,7 +86,7 @@ pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
 /// registration so late-registering hosts can bootstrap — otherwise
 /// a status that changed before registration would never be observed.
 pub fn ws_set_status_callback(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_on_status_change(
         Some(fn(status) {

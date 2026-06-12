@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-24
 **Status:** Future-planning grounding draft — not current architecture or an implemented contract.
+**Post-S4 PR1 note (2026-06-12):** the per-language FFI globals this doc traces (`lambda_handles`, `view_states`, `markdown_view_states`, …) were replaced by per-package `@host.HostRegistry` instances in the `ffi/host` extraction; file:line anchors into `ffi/*` predate that and no longer resolve, but the destroy-ordering analysis remains valid.
 **Belongs to slice:** §P0b of `docs/research/2026-05-22-spec-aware-workspace.md`.
 **Pairs with:** `docs/research/2026-05-23-observer-discipline-contract.md`.
 

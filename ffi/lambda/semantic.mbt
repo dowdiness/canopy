@@ -28,7 +28,7 @@ fn empty_semantic_projection_json() -> String {
 /// state; semantic edits still lower through text/CRDT edit paths. Returns the
 /// empty projection if any protected read fails.
 pub fn get_semantic_projection_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let root = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -77,7 +77,7 @@ pub fn rename_semantic_node(
   new_name : String,
   timestamp_ms : Int,
 ) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let id = @core.NodeId::from_int(node_id)
       let root = match

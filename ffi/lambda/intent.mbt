@@ -9,7 +9,7 @@ pub fn insert_at(
   text : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.insert_at(position, text, timestamp_ms)
     None => ()
   }
@@ -20,7 +20,7 @@ pub fn insert_at(
 /// Records the operation for undo. Returns false if position is out of bounds.
 /// Used by ProseMirror bridge.
 pub fn delete_at(handle : Int, position : Int, timestamp_ms : Int) -> Bool {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.delete_at(position, timestamp_ms)
     None => false
   }
@@ -34,7 +34,7 @@ pub fn apply_tree_edit_json(
   op_json : String,
   timestamp_ms : Int,
 ) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let json = @json.parse(op_json) catch {
         _ => return "error: invalid JSON"
@@ -70,7 +70,7 @@ pub fn handle_text_intent(
   insert : String,
   timestamp_ms : Int,
 ) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.apply_text_edit(from, deleted_len, insert, timestamp_ms)
     None => ()
   }
@@ -89,7 +89,7 @@ pub fn handle_text_intent_checked(
   insert : String,
   timestamp_ms : Int,
 ) -> Bool {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       h.editor.apply_text_edit_exact(from, deleted_len, insert, timestamp_ms)
     None => false

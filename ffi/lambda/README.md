@@ -26,6 +26,7 @@ All symbols in this package are flat free functions exported via the link block.
 ## Dependencies
 
 - `dowdiness/canopy/editor` — `SyncEditor`, `JsWebSocket`, wire protocol
+- `dowdiness/canopy/ffi/host` — shared handle/view-state registry and coordinator destroy gateway
 - `dowdiness/canopy/lang/lambda` — `new_lambda_editor`, `apply_lambda_tree_edit`, etc.
 - `dowdiness/canopy/relay` — `RelayRoom` operations
 - `dowdiness/canopy/llm` — `fix_typos`, `edit_text`
@@ -42,4 +43,4 @@ Unstable — route through `ffi/lambda`. The exported function list changes when
 
 ## Notes
 
-Each editor instance lives in a process-local registry keyed by `Int`. The registry is global and unbounded — `destroy_editor` must be called to prevent leaks. LLM functions return `Promise[String]` and require the JS async runtime (`js_async`).
+Each editor instance lives in a process-local `@host.HostRegistry` keyed by `Int` (shared bookkeeping implementation from `ffi/host`; the instance is package-local). The registry is global and unbounded — `destroy_editor` must be called to prevent leaks. LLM functions return `Promise[String]` and require the JS async runtime (`js_async`).
