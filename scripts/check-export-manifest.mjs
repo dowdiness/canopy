@@ -26,9 +26,11 @@ function read(rel) {
 
 // Parse the JS "exports" string array out of a moon.pkg options(link:) block.
 // moon.pkg is not JSON, so locate the `"exports": [` bracket and collect the
-// quoted names up to the matching `]`.
+// quoted names up to the matching `]`. `//` line comments are stripped first
+// so a commented-out entry is correctly treated as removed (export names are
+// [A-Za-z0-9_] only, so `//` can never occur inside a quoted name).
 function parseMoonPkgExports(rel) {
-  const src = read(rel);
+  const src = read(rel).replace(/\/\/.*$/gm, "");
   const start = src.indexOf('"exports"');
   if (start === -1) {
     throw new Error(`${rel}: no "exports" array found`);
