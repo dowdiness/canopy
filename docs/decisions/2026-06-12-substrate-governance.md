@@ -58,7 +58,12 @@ never matters.
    Its two sources (direct submodule + loom's nested copy) are guarded by
    `scripts/check-egw-resolver-identity.sh` in the Dependency Rules CI job:
    both gitlinks must pin the same commit, and that commit's declared version
-   must match canopy's manifest. The guard reads what the *commits* pin
+   must match every canopy workspace member manifest that declares the dep
+   (root, `examples/ideal`, `examples/block-editor` today — discovered by
+   scanning `moon.work` members, so a future consumer is covered
+   automatically; submodule-owned manifests such as loom's belong to their
+   own repos and are covered by the gitlink check instead). The guard reads
+   what the *commits* pin
    (gitlink level), so a same-version-string / different-content drift — which
    no version check can see and moon never reports — fails CI.
 
