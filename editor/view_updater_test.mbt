@@ -15,6 +15,57 @@ test "get_view_tree returns ViewNode for non-empty editor" {
 }
 
 ///|
+// #2 (issue #600): the empty / first-render generic editor. Unlike lambda
+// (whose empty source folds to `None`), the neutral TestExpr grammar always
+// yields the empty-document `Branch("", [])`, so `get_view_tree` is `Some` even
+// with no text and the first `compute_view_patches` emits a `FullTree`. This
+// pins the generic empty-document behavior, which the moved lambda companion
+// test (`editor_view_decorations_test.mbt`) does not cover.
+test "empty generic editor yields an empty-document view and a FullTree patch" {
+  let editor = @probe.new_test_editor("test")
+  // No text inserted.
+  let tree = editor.get_view_tree()
+  assert_true(tree is Some(_))
+  let node = tree.unwrap()
+  inspect(node.kind_tag, content="Branch")
+  inspect(node.label, content="")
+  inspect(node.children.length(), content="0")
+  // First render emits a FullTree patch (previous view is None).
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let patches = @editor.compute_view_patches(state, editor)
+  let has_full_tree = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::FullTree(_) => true
+        _ => false
+      }
+    })
+  assert_true(has_full_tree)
+}
+
+///|
+// #3 (issue #600): NodeId stability across an unrelated sibling edit, on the
+// neutral grammar. Editing one sibling's label must not renumber an untouched
+// sibling — `reconcile` preserves the NodeId when `same_kind` holds. The moved
+// lambda companion test asserts this only against lambda's Module/def-index
+// projection; this pins it for the generic pipeline.
+test "NodeId stable across an unrelated sibling edit" {
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x y)")
+  // root Branch("") -> child Branch("f") -> [Leaf("x"), Leaf("y")]
+  let root = editor.get_proj_node().unwrap()
+  let x_id = root.children[0].children[0].id()
+  // Edit only the sibling: "y" -> "z". The "x" leaf is untouched.
+  editor.set_text("f(x z)")
+  // "x" must keep its identity: the same NodeId still resolves to Leaf("x").
+  match editor.get_node(x_id) {
+    Some(node) => inspect(node.kind, content="Leaf(\"x\")")
+    None => fail("x leaf lost its NodeId after an unrelated sibling edit")
+  }
+}
+
+///|
 test "initial state produces FullTree patch" {
   let editor = @probe.new_test_editor("test")
   editor.set_text("f(x)")
@@ -59,7 +110,14 @@ test "unchanged tree produces no tree patches" {
 }
 
 ///|
-test "single character edit produces UpdateNode or ReplaceNode for changed leaf" {
+// #8 (issue #600): a pure leaf-label change must emit a minimal `UpdateNode`,
+// not a `ReplaceNode`. The Leaf("a") -> Leaf("b") edit keeps the kind (so
+// `same_kind` holds, the NodeId is preserved) and TestExpr has all-None
+// capabilities — no eval-annotation churn to force a wider patch. The earlier
+// UpdateNode-OR-ReplaceNode looseness only existed to tolerate lambda's
+// eval-annotation diffs, which the generic pipeline does not produce. Assert
+// the tight shape so diff minimality is actually verified.
+test "single character leaf edit produces a minimal UpdateNode (not ReplaceNode)" {
   let editor = @probe.new_test_editor("test")
   editor.set_text("a")
   let state = @editor.ViewUpdateState::ViewUpdateState()
@@ -67,17 +125,27 @@ test "single character edit produces UpdateNode or ReplaceNode for changed leaf"
   // Change "a" to "b"
   editor.set_text("b")
   let patches = @editor.compute_view_patches(state, editor)
-  // Should contain an UpdateNode or ReplaceNode reflecting the new value "b".
-  let has_update = patches
+  // The new label "b" arrives via UpdateNode...
+  let has_update_b = patches
     .iter()
     .any(fn(p) {
       match p {
         @protocol.ViewPatch::UpdateNode(label~, ..) => label == "b"
-        @protocol.ViewPatch::ReplaceNode(node~, ..) => node.label == "b"
         _ => false
       }
     })
-  assert_true(has_update)
+  assert_true(has_update_b)
+  // ...and NOT via a ReplaceNode (which would mean the diff rebuilt the leaf
+  // instead of updating it in place).
+  let has_replace = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::ReplaceNode(_) => true
+        _ => false
+      }
+    })
+  assert_false(has_replace)
 }
 
 ///|
