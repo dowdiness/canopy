@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const POST_STORAGE_KEY = 'canopy.posts.v1';
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/posts.html');
   await expect(page.getByRole('heading', { name: 'Post to yourself.' })).toBeVisible();
@@ -54,5 +56,68 @@ test.describe('local-first post app', () => {
       'Newer post',
       'Older post',
     ]);
+  });
+
+  test('surfaces related posts while typing a draft', async ({ page }) => {
+    await page.evaluate(
+      ({ key, posts }) => window.localStorage.setItem(key, JSON.stringify(posts)),
+      {
+        key: POST_STORAGE_KEY,
+        posts: [
+          {
+            id: 'post-basil-window',
+            text: 'Basil seedlings recovered on the kitchen window shelf after I stopped overwatering.',
+            createdAt: '2026-06-10T09:00:00.000Z',
+          },
+          {
+            id: 'post-herb-light',
+            text: 'The kitchen window gets stronger afternoon light, so tender herbs move there first.',
+            createdAt: '2026-06-09T09:00:00.000Z',
+          },
+          {
+            id: 'post-basil-soup',
+            text: 'Tomato basil soup worked best with the small grocery basil, not the dried jar.',
+            createdAt: '2026-06-08T09:00:00.000Z',
+          },
+          {
+            id: 'post-parser-baseline',
+            text: 'Projection identity baseline only advances after semantic lowering succeeds.',
+            createdAt: '2026-06-07T09:00:00.000Z',
+          },
+          {
+            id: 'post-running-shoes',
+            text: 'Replace the running shoes before the next long trail loop.',
+            createdAt: '2026-06-06T09:00:00.000Z',
+          },
+        ],
+      },
+    );
+    await page.reload();
+
+    const input = page.getByLabel('Write');
+    const relatedPanel = page.locator('#related-panel');
+    const relatedTexts = page.locator('.related-text');
+
+    await expect(relatedPanel).toBeHidden();
+
+    await input.pressSequentially('basil kitchen window');
+
+    await expect(relatedPanel).toBeVisible();
+    await expect(page.locator('#related-count')).toHaveText('3 related posts');
+    await expect(relatedTexts).toHaveText([
+      'Basil seedlings recovered on the kitchen window shelf after I stopped overwatering.',
+      'The kitchen window gets stronger afternoon light, so tender herbs move there first.',
+      'Tomato basil soup worked best with the small grocery basil, not the dried jar.',
+    ]);
+
+    await input.fill('parser identity baseline');
+
+    await expect(page.locator('#related-count')).toHaveText('1 related post');
+    await expect(relatedTexts).toHaveText([
+      'Projection identity baseline only advances after semantic lowering succeeds.',
+    ]);
+
+    await input.fill('');
+    await expect(relatedPanel).toBeHidden();
   });
 });
