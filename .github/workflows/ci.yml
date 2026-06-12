@@ -30,6 +30,9 @@ jobs:
       - name: Check moon update is retry-wrapped
         run: ./scripts/check-moon-update-wrapped.sh
 
+      - name: Check FFI export manifest (lambda app seam)
+        run: node ./scripts/check-export-manifest.mjs
+
       - name: Test moon update retry wrapper
         run: ./scripts/test-moon-update-wrapper.sh
 
