@@ -98,7 +98,12 @@ const SOURCE_METHODS = [
 
 export type Tagged = string | [string, ...unknown[]];
 export type NodeKind = ['Workflow', Tagged];
-export type PortDef = { id: string; label: string; port_type: Tagged };
+export type PortDef = {
+  id: string;
+  label: string;
+  port_type: Tagged;
+  allows_fan_in?: boolean;
+};
 export type NodeParamData = {
   name: string;
   value_kind: string;

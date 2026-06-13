@@ -168,7 +168,8 @@ function portTypesCompatible(source: string, target: string): boolean {
 
 /**
  * Whether dragging from the active source onto this input handle would be
- * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, type check).
+ * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, fan-in,
+ * type check).
  */
 function inputHandleCompatible(ctx: ConnectCtx, targetNode: string, targetPort: PortDef): boolean {
   if (ctx.sourceType == null) return false;
@@ -181,6 +182,10 @@ function inputHandleCompatible(ctx: ConnectCtx, targetNode: string, targetPort: 
       e.target_port === targetPort.id,
   );
   if (duplicate) return false;
+  const occupied = ctx.edges.some(
+    (e) => e.target === targetNode && e.target_port === targetPort.id,
+  );
+  if (occupied && targetPort.allows_fan_in !== true) return false;
   return portTypesCompatible(ctx.sourceType, portTypeName(targetPort.port_type));
 }
 

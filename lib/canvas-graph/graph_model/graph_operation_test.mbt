@@ -29,6 +29,48 @@ fn replay_base_state() -> @graph_model.CanvasState {
 }
 
 ///|
+fn fan_in_base_state(allows_fan_in : Bool) -> @graph_model.CanvasState {
+  let target = {
+    ..@graph_model.make_workflow_node(
+      node_id(3),
+      @graph_model.WorkflowNodeKind::Custom("Join"),
+      760.0,
+      100.0,
+    ),
+    inputs: [
+      @graph_model.port(
+        "in",
+        "flow",
+        @graph_model.PortType::Flow,
+        allows_fan_in~,
+      ),
+    ],
+  }
+  {
+    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    nodes: [
+      @graph_model.make_workflow_node(
+        node_id(1),
+        @graph_model.WorkflowNodeKind::TimerTrigger,
+        100.0,
+        100.0,
+      ),
+      @graph_model.make_workflow_node(
+        node_id(2),
+        @graph_model.WorkflowNodeKind::TimerTrigger,
+        420.0,
+        100.0,
+      ),
+      target,
+    ],
+    edges: [],
+    next_node_id: 4,
+    interaction: @graph_model.empty_interaction(),
+    action_log: [],
+  }
+}
+
+///|
 test "GraphOperation serializes as a versioned JSON operation" {
   let operation = @graph_model.GraphOperation::GraphOperation(
     @graph_model.WorkflowAction::ConnectPorts(
@@ -237,4 +279,111 @@ test "DisconnectPorts removes only the matching edge" {
   @debug.assert_eq(disconnected.edges[0].source, node_id(2))
   @debug.assert_eq(disconnected.edges[0].target, node_id(1))
   assert_eq(disconnected.action_log.length(), 2)
+}
+
+///|
+test "default input ports reject a second distinct incoming edge" {
+  let connected_once = @graph_model.record_action(
+    fan_in_base_state(false),
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(1),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+  )
+  assert_eq(connected_once.edges.length(), 1)
+  inspect(
+    @graph_model.can_commit_edge(
+      connected_once,
+      node_id(2),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+    content="false",
+  )
+  let rejected = @graph_model.record_action(
+    connected_once,
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(2),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+  )
+  assert_eq(rejected.edges.length(), 1)
+  assert_eq(rejected.action_log.length(), 2)
+}
+
+///|
+test "explicit fan-in input ports accept distinct incoming edges" {
+  let connected_once = @graph_model.record_action(
+    fan_in_base_state(true),
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(1),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+  )
+  inspect(
+    @graph_model.can_commit_edge(
+      connected_once,
+      node_id(2),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+    content="true",
+  )
+  inspect(
+    @graph_model.can_commit_edge(
+      connected_once,
+      node_id(1),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+    content="false",
+  )
+  let connected_twice = @graph_model.record_action(
+    connected_once,
+    @graph_model.WorkflowAction::ConnectPorts(
+      node_id(2),
+      "tick",
+      node_id(3),
+      "in",
+    ),
+  )
+  assert_eq(connected_twice.edges.length(), 2)
+}
+
+///|
+test "PortDef JSON defaults fan-in capability to false" {
+  let json = @json.parse(
+    "{\"id\":\"in\",\"label\":\"flow\",\"port_type\":\"Flow\"}",
+  ) catch {
+    _ => abort("expected valid PortDef JSON")
+  }
+  let decoded : @graph_model.PortDef = @json.from_json(json)
+  inspect(decoded.allows_fan_in, content="false")
+  match decoded.to_json() {
+    Json::Object(fields) => assert_true(fields.get("allows_fan_in") is None)
+    _ => abort("expected PortDef object JSON")
+  }
+  let fan_in = @graph_model.port(
+    "in",
+    "flow",
+    @graph_model.PortType::Flow,
+    allows_fan_in=true,
+  )
+  match fan_in.to_json() {
+    Json::Object(fields) =>
+      match fields.get("allows_fan_in") {
+        Some(Json::True) => ()
+        _ => abort("expected explicit fan-in flag in PortDef JSON")
+      }
+    _ => abort("expected PortDef object JSON")
+  }
 }
