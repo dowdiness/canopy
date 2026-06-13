@@ -130,7 +130,7 @@ test "spec §12 #2: destroy refused while depended-upon; succeeds after unregist
 test "workstream 3: get_view_tree_json collapses to null after coordinator destroy" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("view_tree_coord_destroy_agent")
-  set_text(handle, "λx. x")
+  set_text(handle, "(x) => x")
   let alive_json = get_view_tree_json(handle)
   if alive_json == "null" {
     fail("expected live view tree JSON before coordinator destroy")
@@ -148,7 +148,7 @@ test "workstream 3: get_view_tree_json collapses to null after coordinator destr
 test "workstream 3: compute_view_patches_json collapses to [] after coordinator destroy" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("view_patches_coord_destroy_agent")
-  set_text(handle, "λx. x")
+  set_text(handle, "(x) => x")
   let alive_json = compute_view_patches_json(handle)
   if alive_json == "[]" {
     fail("expected live view patch JSON before coordinator destroy")
@@ -185,7 +185,7 @@ test "workstream 3: get_semantic_projection_json collapses to empty after coordi
 test "workstream 3: rename_semantic_node rejects after coordinator destroy" {
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("semantic_rename_coord_destroy_agent")
-  set_text(handle, "λx. x")
+  set_text(handle, "(x) => x")
   let h = lambda_registry.get(handle).unwrap()
   let body_id = match h.editor.get_proj_node() {
     Some(root) =>

@@ -7,11 +7,11 @@ import { useProtocolEditor, Toolbar, StatusBar } from '../editor';
 
 // Example lambda expressions
 const EXAMPLES = [
-  { label: 'Identity', code: '(\\x.x) 42' },
-  { label: 'Church 2', code: '(\\f.\\x.f (f x)) (\\n.n + 1) 0' },
-  { label: 'Add', code: '(\\x.\\y.x + y) 10 5' },
+  { label: 'Identity', code: '((x) => x) 42' },
+  { label: 'Church 2', code: '((f, x) => f (f x)) ((n) => n + 1) 0' },
+  { label: 'Add', code: '((x, y) => x + y) 10 5' },
   { label: 'Conditional', code: 'if 1 then 42 else 0' },
-  { label: 'Apply', code: '(\\f.\\x.f x) (\\n.n - 1) 10' },
+  { label: 'Apply', code: '((f, x) => f x) ((n) => n - 1) 10' },
 ];
 
 interface LambdaEditorProps {
@@ -123,7 +123,7 @@ export function LambdaEditor({
           onChange={handleTextChange}
           onSelect={handleSelect}
           onKeyDown={handleKeyDown}
-          placeholder="Type lambda calculus expressions here... (e.g., (\x.x) 5)"
+          placeholder="Type lambda calculus expressions here... (e.g., ((x) => x) 5)"
           spellCheck={false}
           autoComplete="off"
           autoCorrect="off"

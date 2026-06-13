@@ -689,7 +689,7 @@ Promote egraph PoC to production:
 - [ ] `loom/egglog/examples/lambda-eval/` package exists and builds
 - [ ] Pure Datalog rules + bridge function implement full evaluation
 - [ ] Arithmetic: `2+3 → 5`, `10-3 → 7`
-- [ ] Beta reduction: `(λx. x+1) 5 → 6`, `(λx. λy. x+y) 2 3 → 5`
+- [ ] Beta reduction: `((x) => x+1) 5 → 6`, `((x, y) => x+y) 2 3 → 5`
 - [ ] Let bindings: `let x=2 in x+x → 4`, nested `let x=1 in let y=2 in x+y → 3`
 - [ ] Conditionals: `if 1 then 2 else 3 → 2`, `if 0 then 2 else 3 → 3`
 - [ ] Module desugared to nested Let during seeding
@@ -705,7 +705,7 @@ Promote egraph PoC to production:
 ### Phase 2
 - [ ] `loom/examples/lambda/src/eval/` package exists and builds
 - [ ] `eval(env, term, fuel~) -> Value!StuckReason` handles all `Term` variants
-- [ ] Fuel limit prevents infinite loops (`(λx. x x)(λx. x x)` → `Divergence`)
+- [ ] Fuel limit prevents infinite loops (`((x) => x x)((x) => x x)` → `Divergence`)
 - [ ] `Hole` → `Incomplete`, `Error` → `ParseError`, `Unbound` → `Unbound(name)`
 - [ ] Round-trip: Tier 1 and Tier 2 agree on all complete programs
 - [ ] `cd loom/examples/lambda && moon test` passes
@@ -762,7 +762,7 @@ moon info && moon fmt
   different `IdVal` outputs, egglog unions them (correct). If they produce
   different primitive `IntVal` outputs, egglog aborts (bug). Mitigate: this
   should never happen for a deterministic evaluator. Add an assertion test.
-- **Divergence:** `(λx. x x)(λx. x x)` in Tier 1 is caught by fuel limit. In
+- **Divergence:** `((x) => x x)((x) => x x)` in Tier 1 is caught by fuel limit. In
   Tier 2, the outer loop iteration limit (100) catches it. The bridge keeps
   seeding new `Demand` facts for recursive applications until the limit.
 - **Divergence escalation is futile:** If Tier 1 hits its fuel limit, Tier 2

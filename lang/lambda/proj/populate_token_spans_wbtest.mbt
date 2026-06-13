@@ -72,21 +72,46 @@ test "populate_token_spans: root block LetDef name span lives on LetDef node" {
 }
 
 ///|
+test "populate_token_spans: multi-param lambda spans each desugared Lam" {
+  let text = "(x, y) => x"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  expect_param_span(source_map, proj, 1, 2)
+  expect_param_span(source_map, proj.children[0], 4, 5)
+}
+
+///|
+test "populate_token_spans: typed multi-param lambda ignores type identifiers" {
+  let text = "(f : Int -> Int, x : Int) => f x"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  expect_param_span(source_map, proj, 1, 2)
+  expect_param_span(source_map, proj.children[0], 17, 18)
+}
+
+///|
+test "populate_token_spans: typed fn params ignore type identifiers" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let fn_lam = proj.children[0].children[0]
+  expect_param_span(source_map, fn_lam, 9, 10)
+  expect_param_span(source_map, fn_lam.children[0], 25, 26)
+}
+
+///|
 test "populate_token_spans: application left spine reaches every lambda arg" {
-  let text = "(\u{03BB}x. x) (\u{03BB}y. y) (\u{03BB}z. z)"
+  let text = "((x) => x) ((y) => y) ((z) => z)"
   let (proj, source_map) = parse_proj_with_token_spans(text)
   let inner_app = proj.children[0]
   expect_param_span(source_map, inner_app.children[0], 2, 3)
-  expect_param_span(source_map, inner_app.children[1], 10, 11)
-  expect_param_span(source_map, proj.children[1], 18, 19)
+  expect_param_span(source_map, inner_app.children[1], 13, 14)
+  expect_param_span(source_map, proj.children[1], 24, 25)
 }
 
 ///|
 test "populate_token_spans: binary left spine reaches every lambda operand" {
-  let text = "(\u{03BB}a. a) + (\u{03BB}b. b) + (\u{03BB}c. c)"
+  let text = "((a) => a) + ((b) => b) + ((c) => c)"
   let (proj, source_map) = parse_proj_with_token_spans(text)
   let inner_bop = proj.children[0]
   expect_param_span(source_map, inner_bop.children[0], 2, 3)
-  expect_param_span(source_map, inner_bop.children[1], 12, 13)
-  expect_param_span(source_map, proj.children[1], 22, 23)
+  expect_param_span(source_map, inner_bop.children[1], 15, 16)
+  expect_param_span(source_map, proj.children[1], 28, 29)
 }

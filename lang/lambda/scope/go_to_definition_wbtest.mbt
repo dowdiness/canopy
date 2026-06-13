@@ -3,7 +3,7 @@
 // spans (via the SyntaxNode → ProjNode pipeline), since `binder_span` reads
 // them. Expected offsets are hand-derived and match the conventions pinned in
 // projection/source_map_token_spans_wbtest.mbt (e.g. `let x` name → 4..5,
-// `λx` param → 1..2).
+// `(x) =>` param → 1..2).
 
 ///|
 /// Build a scope graph and a token-span-populated SourceMap from source.
@@ -45,21 +45,21 @@ test "go_to_definition: shadowed module def — later def wins (production id pa
 
 ///|
 test "go_to_definition: lambda param — body var jumps to the param token" {
-  // "λx. x" — param "x" at 1..2; body var "x" at 4.
-  let (g, sm) = build_fixture_with_spans("\u{03BB}x. x")
-  guard go_to_definition(g, sm, 4) is Some(r)
+  // "(x) => x" — param "x" at 1..2; body var "x" at 7.
+  let (g, sm) = build_fixture_with_spans("(x) => x")
+  guard go_to_definition(g, sm, 7) is Some(r)
   inspect(r.start, content="1")
   inspect(r.end, content="2")
 }
 
 ///|
 test "go_to_definition: nested lambda shadowing — innermost param wins" {
-  // "λx. λx. x" — outer param at 1..2, inner param at 5..6; innermost use at 8
-  // resolves to the inner λ.
-  let (g, sm) = build_fixture_with_spans("\u{03BB}x. \u{03BB}x. x")
-  guard go_to_definition(g, sm, 8) is Some(r)
-  inspect(r.start, content="5")
-  inspect(r.end, content="6")
+  // "(x) => (x) => x" — outer param at 1..2, inner param at 8..9; innermost use at 14
+  // resolves to the inner lambda parameter.
+  let (g, sm) = build_fixture_with_spans("(x) => (x) => x")
+  guard go_to_definition(g, sm, 14) is Some(r)
+  inspect(r.start, content="8")
+  inspect(r.end, content="9")
 }
 
 ///|

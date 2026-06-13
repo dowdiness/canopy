@@ -44,11 +44,11 @@ test.describe('Scope-Colored Binder Highlighting', () => {
     await waitForEditor(page);
 
     // Definition sites should have binder-N and def-site classes
-    const lambdaXClass = await getLabelClass(page, 'λx');
+    const lambdaXClass = await getLabelClass(page, '(x) =>');
     expect(lambdaXClass).toContain('binder-');
     expect(lambdaXClass).toContain('def-site');
 
-    const lambdaFClass = await getLabelClass(page, 'λf');
+    const lambdaFClass = await getLabelClass(page, '(f) =>');
     expect(lambdaFClass).toContain('binder-');
     expect(lambdaFClass).toContain('def-site');
 
@@ -65,7 +65,7 @@ test.describe('Scope-Colored Binder Highlighting', () => {
   test('clicking a variable highlights binder and usages', async ({ page }) => {
     await waitForEditor(page);
 
-    // Click the 'f' variable (usage of λf)
+    // Click the 'f' variable (usage of (f) =>)
     await page
       .getByLabel('AST outline')
       .getByText('f', { exact: true })
@@ -80,8 +80,8 @@ test.describe('Scope-Colored Binder Highlighting', () => {
     expect(fRow?.classes).toContain('selected');
     expect(fRow?.classes).toContain('scope-highlighted');
 
-    // The binder (λf) should be highlighted
-    const lambdaFRow = rows.find(r => r.text.startsWith('▼λf'));
+    // The binder ((f) =>) should be highlighted
+    const lambdaFRow = rows.find(r => r.text.startsWith('▼(f) =>'));
     expect(lambdaFRow?.classes).toContain('scope-highlighted');
 
     // Unrelated nodes should be dimmed
@@ -92,18 +92,18 @@ test.describe('Scope-Colored Binder Highlighting', () => {
   test('keyboard navigation moves selection and CM6 highlight', async ({ page }) => {
     await waitForEditor(page);
 
-    // Click λf to select it and sync CM6
+    // Click (f) => to select it and sync CM6
     await page
       .getByLabel('AST outline')
-      .getByText('λf', { exact: true })
+      .getByText('(f) =>', { exact: true })
       .first()
       .click();
 
-    // Verify λf is selected
+    // Verify (f) => is selected
     await waitForSelectedRows(page);
     const beforeRows = await getTreeRows(page);
     const beforeSel = beforeRows.filter(r => r.classes.includes('selected'));
-    expect(beforeSel[0].text).toContain('λf');
+    expect(beforeSel[0].text).toContain('(f) =>');
 
     // Focus tree-rows and press ArrowDown
     await page.evaluate(() => {
@@ -111,17 +111,17 @@ test.describe('Scope-Colored Binder Highlighting', () => {
     });
     await page.keyboard.press('ArrowDown');
 
-    // Check if selection moved (ArrowDown from λf goes to its first child λx)
+    // Check if selection moved (ArrowDown from (f) => goes to its first child (x) =>)
     await waitForSelectedRows(page);
     const afterRows = await getTreeRows(page);
     const afterSel = afterRows.filter(r => r.classes.includes('selected'));
 
-    // If keyboard nav works, selection moved away from λf.
-    // If it didn't work (focus lost to CM6), selection stays on λf.
+    // If keyboard nav works, selection moved away from (f) =>
+    // If it didn't work (focus lost to CM6), selection stays on (f) =>
     // Both are valid states — the important thing is we have exactly one selected node
     // and scope highlighting is consistent.
     const selectedText = afterSel[0].text;
-    if (!selectedText.includes('λf') || !selectedText.includes('‹closure›')) {
+    if (!selectedText.includes('(f) =>') || !selectedText.includes('‹closure›')) {
       // Navigation worked — verify new node has highlighting
       expect(afterSel[0].classes).toContain('scope-highlighted');
     }

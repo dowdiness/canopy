@@ -8,7 +8,7 @@
 Show evaluation results next to definitions as you type. Both the pretty-print view and structural tree view display results through the framework protocol — no per-editor special logic.
 
 ```
-let double = λx. x + x          → ‹closure›
+let double = (x) => x + x          → ‹closure›
 let result = double 5            → 10
 if result then result else 0     → 10
 ```

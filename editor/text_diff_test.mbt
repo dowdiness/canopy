@@ -112,32 +112,32 @@ test "compute_edit - text to empty" {
 
 ///|
 test "compute_edit - lambda expression edit" {
-  let old = "λx.x"
-  let new = "λx.x + 1"
+  let old = "(x) => x"
+  let new = "(x) => x + 1"
   let edit = compute_edit(old, new)
-  inspect(edit.start, content="4")
-  inspect(edit.old_end(), content="4")
-  inspect(edit.new_end(), content="8")
+  inspect(edit.start, content="8")
+  inspect(edit.old_end(), content="8")
+  inspect(edit.new_end(), content="12")
 }
 
 ///|
 test "compute_edit - lambda parameter change" {
-  let old = "λx.x"
-  let new = "λy.y"
+  let old = "(x) => x"
+  let new = "(y) => y"
   let edit = compute_edit(old, new)
   inspect(edit.start, content="1")
-  inspect(edit.old_end(), content="4")
-  inspect(edit.new_end(), content="4")
+  inspect(edit.old_end(), content="8")
+  inspect(edit.new_end(), content="8")
 }
 
 ///|
 test "compute_edit - complex lambda edit" {
-  let old = "λf.λx.f x"
-  let new = "λf.λx.f (f x)"
+  let old = "(f, x) => f x"
+  let new = "(f, x) => f (f x)"
   let edit = compute_edit(old, new)
-  inspect(edit.start, content="8")
-  inspect(edit.old_end(), content="9")
-  inspect(edit.new_end(), content="13")
+  inspect(edit.start, content="12")
+  inspect(edit.old_end(), content="13")
+  inspect(edit.new_end(), content="17")
 }
 
 // --- Non-ASCII safety probes (issue #216) -------------------------------

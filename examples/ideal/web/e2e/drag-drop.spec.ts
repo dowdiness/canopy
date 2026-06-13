@@ -157,7 +157,7 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
 
   test.beforeEach(async ({ page }) => {
     await setupStructureMode(page);
-    // Load the "Basics" example: "let double = \x. { x + x } ..."
+    // Load the "Basics" example: "fn double(x : Int) { x + x } ..."
     await page.getByRole('button', { name: 'Basics' }).click();
     await page.waitForTimeout(500);
   });
@@ -216,8 +216,8 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(textAfter).not.toEqual(textBefore);
     // Critical: no "let x = " with empty RHS — placeholder should fill it
     expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const letCount = (textAfter.match(/let /g) || []).length;
-    expect(letCount).toBeGreaterThanOrEqual(2);
+    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
+    expect(defCount).toBeGreaterThanOrEqual(2);
   });
 
   test('After drop produces valid syntax with placeholder', async ({ page }) => {
@@ -228,8 +228,8 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     const textAfter = await getEditorText(page);
     expect(textAfter).not.toEqual(textBefore);
     expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const letCount = (textAfter.match(/let /g) || []).length;
-    expect(letCount).toBeGreaterThanOrEqual(2);
+    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
+    expect(defCount).toBeGreaterThanOrEqual(2);
   });
 
   test('self-drop is rejected (no change)', async ({ page }) => {

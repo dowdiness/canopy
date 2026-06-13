@@ -43,7 +43,7 @@ test.describe('Example Buttons', () => {
     await page.getByRole('button', { name: 'Basics' }).click();
     const text = await getOutlineText(page);
     expect(text).toContain('module [double, result]');
-    expect(text).toContain('λx');
+    expect(text).toContain('(x) =>');
   });
 
   test('Currying example updates outline', async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe('Outline Refresh', () => {
       cm?.focus();
     });
     await page.keyboard.press('Control+a');
-    await page.keyboard.type('let f = \\x.x\nf 1', { delay: 10 });
+    await page.keyboard.type('let f = (x) => x\nf 1', { delay: 10 });
     // Wait for outline refresh
     await page.waitForTimeout(300);
     const text = await getOutlineText(page);
@@ -165,7 +165,7 @@ test.describe('CodeMirror Rendering', () => {
     await waitForEditor(page);
     const hasSource = await page.evaluate(() => {
       const editor = document.querySelector('#canopy-text-editor .cm-editor');
-      return (editor?.textContent ?? '').includes('let');
+      return /\b(?:fn|let)\b/.test(editor?.textContent ?? '');
     });
     expect(hasSource).toBe(true);
   });
@@ -184,7 +184,7 @@ test.describe('CodeMirror Rendering', () => {
     const hasKeywordHighlight = await page.evaluate(() => {
       const spans = Array.from(document.querySelectorAll('#canopy-text-editor .cm-line span'));
       return spans.some((span) => {
-        return span.textContent === 'let'
+        return span.textContent === 'fn'
           && getComputedStyle(span as HTMLElement).color === 'rgb(199, 146, 234)';
       });
     });

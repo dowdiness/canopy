@@ -104,7 +104,9 @@ fn find_var_in_def_init(
 
 ///|
 test "resolve: lambda param" {
-  let (proj, module_projection, registry, source_map) = build_fixture("λx. x")
+  let (proj, module_projection, registry, source_map) = build_fixture(
+    "(x) => x",
+  )
   let g = build(module_projection, registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
@@ -136,7 +138,7 @@ test "resolve: second def init binds to first def" {
 ///|
 test "resolve: innermost lambda shadowing" {
   let (proj, module_projection, registry, source_map) = build_fixture(
-    "λx. λx. x",
+    "(x) => (x) => x",
   )
   let g = build(module_projection, registry, source_map)
   let var_node = find_var_node(proj, "x")
@@ -181,7 +183,7 @@ test "references: identity-based, shadowing-aware" {
 ///|
 test "enclosing_env: lambda params in scope" {
   let (proj, module_projection, registry, source_map) = build_fixture(
-    "λx. λy. x",
+    "(x, y) => x",
   )
   let g = build(module_projection, registry, source_map)
   let var_node = find_var_node(proj, "x")

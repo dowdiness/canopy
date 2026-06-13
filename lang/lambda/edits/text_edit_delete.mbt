@@ -63,20 +63,50 @@ fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult 
               )
             }
             Some(parent_range) =>
-              Ok(
-                Some(
-                  (
-                    [
-                      {
-                        start: parent_range.start,
-                        delete_len: parent_range.end - parent_range.start,
-                        inserted: new_text,
-                      },
-                    ],
-                    RestoreCursor,
-                  ),
-                ),
-              )
+              match
+                ensure_replaceable_node_range(
+                  ctx, parent_id, parent_node, parent_range,
+                ) {
+                Ok(_) =>
+                  Ok(
+                    Some(
+                      (
+                        [
+                          {
+                            start: parent_range.start,
+                            delete_len: parent_range.end - parent_range.start,
+                            inserted: new_text,
+                          },
+                        ],
+                        RestoreCursor,
+                      ),
+                    ),
+                  )
+                Err(parent_err) =>
+                  match
+                    ensure_replaceable_node_range(ctx, node_id, target, range) {
+                    Ok(_) => {
+                      let placeholder = @ast.print_term(
+                        placeholder_term_for_kind(target.kind),
+                      )
+                      Ok(
+                        Some(
+                          (
+                            [
+                              {
+                                start: range.start,
+                                delete_len: range.end - range.start,
+                                inserted: placeholder,
+                              },
+                            ],
+                            RestoreCursor,
+                          ),
+                        ),
+                      )
+                    }
+                    Err(_) => Err(parent_err)
+                  }
+              }
           }
         }
       }

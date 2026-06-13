@@ -11,6 +11,10 @@ fn compute_unwrap(
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
   }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   if keep_child_index < 0 || keep_child_index >= node.children.length() {
     Err("Child index out of range")
   } else {
@@ -46,6 +50,10 @@ fn compute_swap_children(
   }
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
+  }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   match node.kind {
     @ast.Term::Bop(op, l, r) => {
@@ -98,6 +106,10 @@ fn compute_change_operator(
   }
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
+  }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   match node.kind {
     @ast.Term::Bop(_, l, r) => {

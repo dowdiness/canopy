@@ -88,7 +88,7 @@
     }
 
     #editor:empty:before {
-      content: 'let twice = \\f. \\x. f (f x)';
+      content: 'fn twice(f : Int -> Int, x : Int) { f (f x) }';
       color: #6a6a6a;
     }
 
@@ -523,7 +523,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>λ Mini-ML CRDT Editor</h1>
+    <h1>Mini-ML CRDT Editor</h1>
     <p class="subtitle">Collaborative real-time editor with live evaluation</p>
 
     <div id="status" class="status">Loading JavaScript...</div>
@@ -552,13 +552,13 @@
         <div>
           <h3>Definitions</h3>
           <pre>let x = 42
-let double = \x. { x + x }
+fn double(x : Int) { x + x }
 let result = double 5
 result</pre>
 
           <h3>Functions & Application</h3>
-          <pre>let inc = \x. { x + 1 }
-let twice = \f. \x. {
+          <pre>fn inc(x : Int) { x + 1 }
+fn twice(f : Int -> Int, x : Int) {
   f (f x)
 }
 let result = twice inc 0
@@ -567,24 +567,26 @@ result</pre>
 
         <div>
           <h3>Conditionals</h3>
-          <pre>let choose = \x. if x then {
+          <pre>fn choose(x : Int) { if x then {
   x + 1
 } else {
   42
-}
+} }
 let result = choose 5
 result</pre>
 
           <h3>Grammar (EBNF)</h3>
-          <pre>Module       ::= (LetDef '\n')* Expression
-LetDef       ::= 'let' Identifier '=' Expression
-Expression   ::= BinaryOp
-BinaryOp     ::= Application (('+' | '-') Application)*
-Application  ::= Atom+
-Atom         ::= Integer | Variable | Lambda
-               | IfThenElse | '(' Expression ')'
-Lambda       ::= ('λ' | '\') Identifier '.' Expression
-IfThenElse   ::= 'if' Expression 'then' Expression 'else' Expression</pre>
+          <pre>Module       ::= ((FnDef | LetDef) '\n')* Expression?
+FnDef       ::= 'fn' Identifier ParamList Block
+LetDef      ::= 'let' Identifier '=' Expression
+ParamList   ::= '(' Identifier (':' Type)? (',' Identifier (':' Type)?)* ')'
+Expression  ::= Lambda | IfThenElse | BinaryOp
+Lambda      ::= ParamList '=>' (Expression | Block)
+BinaryOp    ::= Application (('+' | '-') Application)*
+Application ::= Atom+
+Atom        ::= Integer | Variable | Block | '(' Expression ')'
+Block       ::= '{' ((FnDef | LetDef) (';' | '\n'))* Expression? '}'
+IfThenElse  ::= 'if' Expression 'then' Expression 'else' Expression</pre>
         </div>
       </div>
     </div>
@@ -592,11 +594,11 @@ IfThenElse   ::= 'if' Expression 'then' Expression 'else' Expression</pre>
     <div class="editor-container">
       <div class="examples-bar">
         <span class="examples-label">Examples:</span>
-        <button class="example-btn" data-example="let double = \x : Int. {&#10;  x + x&#10;}&#10;let result = double 5&#10;result">Basics</button>
-        <button class="example-btn" data-example="let inc = \n : Int. { n + 1 }&#10;let twice = \f : Int -> Int. \x : Int. {&#10;  f (f x)&#10;}&#10;let result = twice inc 0&#10;result">Composition</button>
-        <button class="example-btn" data-example="let add = \x : Int. \y : Int. { x + y }&#10;let add5 = add 5&#10;let sum = add5 10&#10;sum">Currying</button>
-        <button class="example-btn" data-example="let choose = \x : Int. if x then {&#10;  x + 1&#10;} else {&#10;  42&#10;}&#10;let a = choose 0&#10;let b = choose 5&#10;a + b">Conditional</button>
-        <button class="example-btn" data-example="let compose = \f : Int -> Int. \g : Int -> Int. \x : Int. {&#10;  f (g x)&#10;}&#10;let double = \x : Int. { x + x }&#10;let inc = \x : Int. { x + 1 }&#10;let f = compose inc double&#10;f 5">Pipeline</button>
+        <button class="example-btn" data-example="fn double(x : Int) {&#10;  x + x&#10;}&#10;let result = double 5&#10;result">Basics</button>
+        <button class="example-btn" data-example="fn inc(n : Int) { n + 1 }&#10;fn twice(f : Int -> Int, x : Int) {&#10;  f (f x)&#10;}&#10;let result = twice inc 0&#10;result">Composition</button>
+        <button class="example-btn" data-example="fn add(x : Int, y : Int) { x + y }&#10;let add5 = add 5&#10;let sum = add5 10&#10;sum">Currying</button>
+        <button class="example-btn" data-example="fn choose(x : Int) { if x then {&#10;  x + 1&#10;} else {&#10;  42&#10;} }&#10;let a = choose 0&#10;let b = choose 5&#10;a + b">Conditional</button>
+        <button class="example-btn" data-example="fn compose(f : Int -> Int, g : Int -> Int, x : Int) {&#10;  f (g x)&#10;}&#10;fn double(x : Int) { x + x }&#10;fn inc(x : Int) { x + 1 }&#10;let f = compose inc double&#10;f 5">Pipeline</button>
       </div>
       <div id="editor" contenteditable="plaintext-only" spellcheck="false"></div>
     </div>

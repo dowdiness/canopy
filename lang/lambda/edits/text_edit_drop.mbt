@@ -14,18 +14,27 @@ fn compute_drop(
   guard source_map.get_range(target) is Some(target_range) else {
     return Err("Target node not found")
   }
+  guard ctx.registry.get(source) is Some(source_node) else {
+    return Err("Source node not found")
+  }
+  guard ctx.registry.get(target) is Some(target_node) else {
+    return Err("Target node not found")
+  }
+  match ensure_replaceable_node_range(ctx, source, source_node, source_range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
+  match ensure_replaceable_node_range(ctx, target, target_node, target_range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   // Legality: descendant-drop (target is inside source)
   guard !(target_range.start >= source_range.start &&
     target_range.end <= source_range.end) else {
     return Err("Cannot drop into own descendant")
   }
-  let is_let_def_drop = match
-    (ctx.registry.get(source), ctx.registry.get(target)) {
-    (Some(source_node), Some(target_node)) =>
-      source_node.kind is @ast.Term::LetDef(_, _) &&
-      target_node.kind is @ast.Term::LetDef(_, _)
-    _ => false
-  }
+  let is_let_def_drop = source_node.kind is @ast.Term::LetDef(_, _) &&
+    target_node.kind is @ast.Term::LetDef(_, _)
   let (delete_start, delete_len, insert_pos, inserted) = if is_let_def_drop {
     let source_row = source_text[source_range.start:source_range.end].to_owned()
     let (delete_start, delete_len) = binding_delete_range(

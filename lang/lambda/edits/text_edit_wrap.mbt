@@ -11,8 +11,15 @@ fn compute_wrap_lambda(
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found in registry")
   }
-  let existing = @ast.print_term(node.kind)
-  let wrapped = "(λ" + var_name + ". " + existing + ")"
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
+  let wrapped = @ast.print_term(@ast.Term::Lam(var_name, node.kind))
+  let wrapped = match find_parent(registry, node_id) {
+    Some(_) => "(" + wrapped + ")"
+    None => wrapped
+  }
   Ok(
     Some(
       (
@@ -40,6 +47,10 @@ fn compute_wrap_app(
   }
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found in registry")
+  }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(App(node.kind, Var("a")))
   Ok(
@@ -69,6 +80,10 @@ fn compute_wrap_if(
   }
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
+  }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(If(Int(0), node.kind, Int(0)))
   // "if 0 then ..." — condition placeholder "0" starts at offset 3
@@ -101,6 +116,10 @@ fn compute_wrap_bop(
   }
   guard registry.get(node_id) is Some(node) else {
     return Err("Node not found: " + node_id.to_string())
+  }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(Bop(op, node.kind, Int(0)))
   // "(expr + 0)" — placeholder "0" is at wrapped.length() - 2 from start
@@ -166,6 +185,11 @@ fn compute_insert_child(
       )
     }
     _ => {
+      match
+        ensure_replaceable_node_range(ctx, parent, parent_node, parent_range) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
       // Re-render whole parent with new child inserted
       let new_child = ProjNode::new(kind, 0, 0, 0, [])
       let new_parent = insert_child_at(parent_node, index, new_child)

@@ -163,7 +163,7 @@ fn analyze_lambda(
   add_annotation(
     projection,
     node.id(),
-    @protocol.ViewAnnotation(kind="semantic-binder", label="λ" + param),
+    @protocol.ViewAnnotation(kind="semantic-binder", label="(" + param + ") =>"),
   )
   match source_map.get_token_span(node.id(), @lambda_proj.PARAM_ROLE) {
     Some(range) =>

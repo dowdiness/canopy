@@ -38,9 +38,9 @@ fn has_annotation(
 
 ///|
 test "semantic projection annotates lambda binder and bound use" {
-  let (root, source_map) = parse_fixture("λx. x")
+  let (root, source_map) = parse_fixture("(x) => x")
   let projection = build_semantic_projection(root, source_map)
-  assert_true(has_annotation(projection, root.id(), "λx"))
+  assert_true(has_annotation(projection, root.id(), "(x) =>"))
   assert_true(has_annotation(projection, root.children[0].id(), "bound x"))
   inspect(projection.diagnostics.length(), content="0")
   assert_true(
@@ -55,7 +55,7 @@ test "semantic projection annotates lambda binder and bound use" {
 
 ///|
 test "semantic projection reports free variable" {
-  let (root, source_map) = parse_fixture("λx. y")
+  let (root, source_map) = parse_fixture("(x) => y")
   let projection = build_semantic_projection(root, source_map)
   let body = root.children[0]
   assert_true(has_annotation(projection, body.id(), "free y"))

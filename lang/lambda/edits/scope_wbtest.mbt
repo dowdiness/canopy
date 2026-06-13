@@ -29,7 +29,7 @@ test "module_def_references: finds Var references in Module body" {
 
 ///|
 test "module_def_references: respects shadowing by inner Lam" {
-  let text = "let x = 0\nλx. x"
+  let text = "let x = 0\n(x) => x"
   let (proj, _) = parse_to_proj_node(text)
   let fp = ModuleProjection::from_proj_node(proj)
   let source_map = SourceMap::from_ast(proj)

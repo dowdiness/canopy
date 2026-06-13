@@ -1,7 +1,7 @@
 ///|
 test "get_semantic_projection_json exposes free-variable overlay" {
   let handle = create_editor("semantic-ffi")
-  set_text(handle, "λx. y")
+  set_text(handle, "(x) => y")
   let json = get_semantic_projection_json(handle)
   assert_true(json.contains("\"semantic-free\""))
   assert_true(json.contains("Free variable 'y'"))
@@ -11,7 +11,7 @@ test "get_semantic_projection_json exposes free-variable overlay" {
 ///|
 test "rename_semantic_node rejects free references" {
   let handle = create_editor("semantic-free-rename-ffi")
-  set_text(handle, "λx. y")
+  set_text(handle, "(x) => y")
   let body_id = match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.get_proj_node() {
@@ -28,7 +28,7 @@ test "rename_semantic_node rejects free references" {
     rename_semantic_node(handle, body_id, "z", 0),
     content="error: node is not a semantic binder or reference",
   )
-  inspect(get_text(handle), content="λx. y")
+  inspect(get_text(handle), content="(x) => y")
   destroy_editor(handle)
 }
 
@@ -56,7 +56,7 @@ test "rename_semantic_node renames let binder through flat binding id" {
 ///|
 test "rename_semantic_node renames binder and usages through text edits" {
   let handle = create_editor("semantic-rename-ffi")
-  set_text(handle, "λx. x")
+  set_text(handle, "(x) => x")
   let body_id = match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.get_proj_node() {
@@ -70,6 +70,6 @@ test "rename_semantic_node renames binder and usages through text edits" {
     None => fail("expected handle")
   }
   inspect(rename_semantic_node(handle, body_id, "y", 0), content="ok")
-  inspect(get_text(handle), content="λy.y")
+  inspect(get_text(handle), content="(y) => y")
   destroy_editor(handle)
 }

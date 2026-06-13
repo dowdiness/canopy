@@ -5,7 +5,7 @@ import { createInlineCm } from "./cm-inline";
 import type { CrdtBridge } from "./bridge";
 
 /**
- * LambdaView renders: λ <param-editor> . <body>
+ * LambdaView renders: (<param-editor>) => <body>
  *
  * - The param name is a single-line CM6 inline editor
  * - The body (contentDOM) is managed by ProseMirror
@@ -29,9 +29,9 @@ export class LambdaView implements NodeView {
     this.dom = document.createElement("span");
     this.dom.className = "pm-lambda";
 
-    // lambda prefix
+    // opening paren before the lambda parameter
     const prefix = document.createElement("span");
-    prefix.textContent = "\u03BB";
+    prefix.textContent = "(";
     prefix.className = "pm-lambda-prefix";
     this.dom.appendChild(prefix);
 
@@ -50,9 +50,9 @@ export class LambdaView implements NodeView {
     });
     this.dom.appendChild(paramWrap);
 
-    // dot separator
+    // arrow separator after the lambda parameter
     const dot = document.createElement("span");
-    dot.textContent = ".";
+    dot.textContent = ") => ";
     dot.className = "pm-lambda-dot";
     this.dom.appendChild(dot);
 

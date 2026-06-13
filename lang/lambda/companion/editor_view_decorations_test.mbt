@@ -46,7 +46,7 @@ test "FullTree emitted when tree appears from empty" {
 ///|
 test "semantic decorations are emitted and stable" {
   let editor = new_lambda_editor("test-semantic-decorations").0
-  editor.set_text("λx. x")
+  editor.set_text("(x) => x")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
   let has_semantic_decoration = patches
