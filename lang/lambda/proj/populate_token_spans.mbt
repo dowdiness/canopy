@@ -97,8 +97,20 @@ fn collect_token_spans_let_def(
     def_syn,
     @syntax.IdentToken.to_raw(),
   )
-  if def_view.init() is Some(init_syn) && let_def_node.children.length() > 0 {
-    collect_token_spans_expr(source_map, init_syn, let_def_node.children[0])
+  guard def_view.init() is Some(init_syn) && let_def_node.children.length() > 0 else {
+    return
+  }
+  let init_proj = let_def_node.children[0]
+  let params = def_view.params()
+  if params.is_empty() {
+    collect_token_spans_expr(source_map, init_syn, init_proj)
+  } else {
+    collect_token_spans_lambda_params(source_map, def_syn, init_proj)
+    match lambda_body_proj(init_proj, params.length()) {
+      Some(body_proj) =>
+        collect_token_spans_expr(source_map, init_syn, body_proj)
+      None => ()
+    }
   }
 }
 
@@ -156,6 +168,63 @@ fn collect_token_spans_left_spine(
 }
 
 ///|
+fn param_ident_tokens(node : @seam.SyntaxNode) -> Array[@seam.SyntaxToken] {
+  let param_list = node
+    .children()
+    .iter()
+    .find_first(child => {
+      @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList
+    })
+  match param_list {
+    Some(params) => params.tokens_of_kind(@syntax.IdentToken.to_raw())
+    None => node.tokens_of_kind(@syntax.IdentToken.to_raw())
+  }
+}
+
+///|
+fn collect_token_spans_lambda_params(
+  source_map : SourceMap,
+  syntax_node : @seam.SyntaxNode,
+  proj_node : ProjNode[@ast.Term],
+) -> Unit {
+  let tokens = param_ident_tokens(syntax_node)
+  let mut current = proj_node
+  for index, tok in tokens {
+    source_map.set_token_span(
+      current.id(),
+      PARAM_ROLE,
+      @loomcore.Range::new(tok.start(), tok.end()),
+    )
+    if index + 1 < tokens.length() {
+      if current.children.length() == 0 {
+        break
+      }
+      current = current.children[0]
+    }
+  }
+}
+
+///|
+fn lambda_body_proj(
+  proj_node : ProjNode[@ast.Term],
+  param_count : Int,
+) -> ProjNode[@ast.Term]? {
+  let mut current = proj_node
+  for _ in 0..<param_count {
+    match current.kind {
+      @ast.Term::Lam(_, _) =>
+        if current.children.length() > 0 {
+          current = current.children[0]
+        } else {
+          return None
+        }
+      _ => return None
+    }
+  }
+  Some(current)
+}
+
+///|
 /// Walk an expression-level syntax node alongside its ProjNode counterpart.
 /// Extracts token spans for lambda params and recurses into children.
 fn collect_token_spans_expr(
@@ -164,16 +233,13 @@ fn collect_token_spans_expr(
   proj_node : ProjNode[@ast.Term],
 ) -> Unit {
   if @parser.LambdaExprView::cast(syntax_node) is Some(v) {
-    // Extract param token span
-    source_map.set_span_from_token(
-      proj_node.id(),
-      PARAM_ROLE,
-      syntax_node,
-      @syntax.IdentToken.to_raw(),
-    )
-    // Recurse into body
-    if v.body() is Some(body_syn) && proj_node.children.length() > 0 {
-      collect_token_spans_expr(source_map, body_syn, proj_node.children[0])
+    collect_token_spans_lambda_params(source_map, syntax_node, proj_node)
+    if v.body() is Some(body_syn) {
+      match lambda_body_proj(proj_node, v.params().length()) {
+        Some(body_proj) =>
+          collect_token_spans_expr(source_map, body_syn, body_proj)
+        None => ()
+      }
     }
   } else if @parser.AppExprView::cast(syntax_node) is Some(v) {
     // AppExpr is flattened: syntax has [func, arg1, arg2, ...]

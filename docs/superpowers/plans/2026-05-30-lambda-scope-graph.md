@@ -67,8 +67,7 @@ trust the *old* assumptions some of these correct:
   `raise` in its signature (bare `) raise {`, the repo idiom — see
   `lang/lambda/semantic/semantic_projection_test.mbt:4,16`). Otherwise MoonBit
   errors [4122] "Function with error can only be used inside a function with
-  error types in its signature." The lambda surface syntax uses the **`λ`**
-  character (U+03BB), as in `scope_wbtest.mbt:18` (`"λx. x"`).
+  error types in its signature." The lambda surface syntax uses MoonBit-style arrow lambdas, as in `scope_wbtest.mbt:18` (`"(x) => x"`).
 - **Existing binder API (the v1 migration target):**
   `pub fn resolve_binder(var_node_id, var_name, flat_proj, registry, source_map) -> BindingSite?`
   where `pub(all) enum BindingSite { LamBinder(lam_id~ : NodeId); ModuleBinder(binding_node_id~ : NodeId, def_index~ : Int) } derive(Debug, Eq)`.
@@ -568,7 +567,7 @@ fn find_var_in_def_init(
 
 ///|
 test "resolve: lambda param" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("λx. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("(x) => x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
@@ -776,7 +775,7 @@ Add to `lang/lambda/scope/graph_wbtest.mbt`:
 ```moonbit
 ///|
 test "resolve: innermost lambda shadowing" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("λx. λx. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("(x) => (x) => x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
@@ -846,7 +845,7 @@ test "references: identity-based, shadowing-aware" {
 
 ///|
 test "enclosing_env: lambda params in scope" {
-  let (proj, flat_proj, registry, source_map) = build_fixture("λx. λy. x")
+  let (proj, flat_proj, registry, source_map) = build_fixture("(x, y) => x")
   let g = build(flat_proj, registry, source_map)
   let var_node = find_var_node(proj, "x")
   let env = enclosing_env(g, var_node)
@@ -1091,12 +1090,12 @@ fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
 ///|
 test "equivalence: declaration() matches resolve_binder across all binding rules" {
   // (description, source, locator)
-  inspect(agree("λx. x", root => root.children[0].id()), content="true") // lam param (locate returns NodeId, so .id())
+  inspect(agree("(x) => x", root => root.children[0].id()), content="true") // lam param (locate returns NodeId, so .id())
   inspect(agree("let x = 0\nx", root => find_var(root, "x")), content="true") // module body
   inspect(agree("let x = x\nx", root => find_var(root, "x")), content="true") // self-ref (first x is init → unbound)
   inspect(agree("let x = 1\nlet x = 2\nx", root => find_var(root, "x")), content="true") // shadowing / latest
   inspect(agree("let a = b\nlet b = 1\na", root => find_var(root, "b")), content="true") // earlier can't see later (free)
-  inspect(agree("λx. λx. x", root => find_var(root, "x")), content="true") // nested lam shadow
+  inspect(agree("(x) => (x) => x", root => find_var(root, "x")), content="true") // nested lam shadow
 }
 ```
 

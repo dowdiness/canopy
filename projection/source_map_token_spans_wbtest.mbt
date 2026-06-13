@@ -8,7 +8,7 @@ fn parse_syntax_for_token_test(text : String) -> @seam.SyntaxNode raise {
 
 ///|
 test "token span: lambda param" {
-  let text = "\u{03BB}x.x"
+  let text = "(x) => x"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -16,7 +16,7 @@ test "token span: lambda param" {
   @lambda_proj.populate_token_spans(sm, syntax, proj)
   let lambda_id = proj.id()
   let param_span = sm.get_token_span(lambda_id, "param")
-  // param "x" after λ: λ is 1 char, so param starts at 1
+  // param "x" inside the arrow-lambda parameter list starts at 1
   guard param_span is Some(span)
   inspect(span.start, content="1")
   inspect(span.end, content="2")
@@ -24,7 +24,7 @@ test "token span: lambda param" {
 
 ///|
 test "token span: lambda param multi-char" {
-  let text = "\u{03BB}foo.foo"
+  let text = "(foo) => foo"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -39,8 +39,8 @@ test "token span: lambda param multi-char" {
 
 ///|
 test "token span: nested lambda params" {
-  // λx.λy.x — outer lambda param "x" at 1..2, inner lambda param "y" at 4..5
-  let text = "\u{03BB}x.\u{03BB}y.x"
+  // (x, y) => x — outer lambda param "x" at 1..2, inner lambda param "y" at 4..5
+  let text = "(x, y) => x"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -115,8 +115,8 @@ test "token span: no token spans for simple expression" {
 
 ///|
 test "token span: lambda inside let def" {
-  // let f = λx.x\nf — both LetDef "name" and lambda "param" should be recorded
-  let text = "let f = \u{03BB}x.x\nf"
+  // let f = (x) => x\nf — both LetDef "name" and lambda "param" should be recorded
+  let text = "let f = (x) => x\nf"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -131,14 +131,14 @@ test "token span: lambda inside let def" {
   // The lambda (child 0 of LetDef = init of first def) should have "param"
   let lambda_node = let_def.children[0]
   guard sm.get_token_span(lambda_node.id(), "param") is Some(param_span)
-  // λ is at position 8, x is at position 9..10
+  // The parameter list starts at position 8; x is at position 9..10
   inspect(param_span.start, content="9")
   inspect(param_span.end, content="10")
 }
 
 ///|
 test "token span: get_token_span returns None for missing role" {
-  let text = "\u{03BB}x.x"
+  let text = "(x) => x"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -165,7 +165,7 @@ test "token span: set_token_span manual" {
 
 ///|
 test "token span: JSON includes token spans" {
-  let text = "\u{03BB}x.x"
+  let text = "(x) => x"
   let syntax = parse_syntax_for_token_test(text)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)

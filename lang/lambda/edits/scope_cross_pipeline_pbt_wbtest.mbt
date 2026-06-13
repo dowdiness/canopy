@@ -374,17 +374,17 @@ test "cross-pipeline edge: error / recovery nodes" {
 
 ///|
 test "cross-pipeline edge: nested blocks" {
-  check_agreement("λx. λy. (x y)")
-  check_agreement("((λx. x) (λy. y))")
-  check_agreement("let f = λx. λy. (x y)\n(f f)")
+  check_agreement("(x, y) => (x y)")
+  check_agreement("(((x) => x) ((y) => y))")
+  check_agreement("let f = (x, y) => (x y)\n(f f)")
 }
 
 ///|
 test "cross-pipeline edge: shadowing chains" {
   // Later module def wins; lambda param shadows module def; nested lambdas.
   check_agreement("let x = 1\nlet x = 2\nlet x = 3\nx")
-  check_agreement("λx. λx. λx. x")
-  check_agreement("let x = 0\nλx. λy. x")
+  check_agreement("(x, x, x) => x")
+  check_agreement("let x = 0\n(x, y) => x")
   // Self-referential and forward/backward init visibility.
   check_agreement("let x = x\nx")
   check_agreement("let a = b\nlet b = 1\na")
@@ -393,7 +393,7 @@ test "cross-pipeline edge: shadowing chains" {
 
 ///|
 test "cross-pipeline: fixed sanity case agrees" {
-  check_agreement("let x = 0\nλx. x")
+  check_agreement("let x = 0\n(x) => x")
 }
 
 ///|

@@ -73,7 +73,7 @@ The `vite-plugin-moonbit.ts` plugin handles the MoonBit integration:
 ### Example Expressions
 
 ```
-(\x. x + 1) 5
-(\f. \x. f (f x)) (\y. y * 2) 3
+((x) => x + 1) 5
+((f, x) => f (f x)) ((y) => y + y) 3
 if 1 then 2 else 3
 ```

@@ -79,8 +79,8 @@ fn graph_and_sm_of(
 
 ///|
 test "declaration() resolves a Var to its enclosing Lam param" {
-  // λx. x — the body Var binds to the lambda parameter (the Lam node itself).
-  let (proj, _fp, g) = graph_of("λx. x")
+  // (x) => x — the body Var binds to the lambda parameter (the Lam node itself).
+  let (proj, _fp, g) = graph_of("(x) => x")
   let ref_id = proj.children[0].id() // body Var x
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -137,8 +137,8 @@ test "declaration() does not let an earlier def see a later one" {
 
 ///|
 test "declaration() resolves to the nearest enclosing Lam under shadowing" {
-  // λx. λx. x — the innermost Var binds to the INNER lambda param.
-  let (proj, _fp, g) = graph_of("λx. λx. x")
+  // (x) => (x) => x — the innermost Var binds to the INNER lambda param.
+  let (proj, _fp, g) = graph_of("(x) => (x) => x")
   let ref_id = find_var(proj, "x") // the single (innermost) Var
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -151,9 +151,9 @@ test "declaration() resolves to the nearest enclosing Lam under shadowing" {
 
 ///|
 test "declaration() lets a Lam param shadow a same-name module def" {
-  // let x = 0\nλx. x — the Var inside the lambda binds to the lambda param,
+  // let x = 0\n(x) => x — the Var inside the lambda binds to the lambda param,
   // NOT the module def.
-  let (proj, _fp, g) = graph_of("let x = 0\nλx. x")
+  let (proj, _fp, g) = graph_of("let x = 0\n(x) => x")
   let ref_id = find_var(proj, "x") // Var inside the body Lam
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")

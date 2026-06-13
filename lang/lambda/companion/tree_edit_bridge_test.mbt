@@ -67,7 +67,7 @@ test "apply_tree_edit - WrapInLambda" {
     1,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="(λx. 42)")
+  inspect(editor.get_text(), content="(x) => 42")
   // Trace contract: structural edits return the SpanEdits applied to the
   // CRDT so the Inspector Patch panel can show them. A regression to
   // `Ok([])` would silently empty the panel while text-outcome tests pass.
@@ -130,12 +130,12 @@ test "apply_tree_edit - CommitEdit with expression" {
   let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="(z) => z"),
     1,
   )
   inspect(result is Ok(_), content="true")
   // New path: raw text splice — inserts user's text as-is (no normalization)
-  inspect(editor.get_text(), content="λz.z")
+  inspect(editor.get_text(), content="(z) => z")
 }
 
 ///|
@@ -159,15 +159,15 @@ test "apply_tree_edit - ProjNode re-derives after CommitEdit with expression" {
   let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="(z) => z"),
     1,
   )
   inspect(result is Ok(_), content="true")
-  // New path: raw text splice means CRDT text is "λz.z" (user-typed form).
+  // New path: raw text splice means CRDT text is "(z) => z" (user-typed form).
   // The memo chain re-parses and builds a valid lambda ProjNode.
-  inspect(editor.get_text(), content="λz.z")
+  inspect(editor.get_text(), content="(z) => z")
   guard editor.get_proj_node() is Some(proj)
-  inspect(@ast.print_term(proj.kind), content="(λz. z)")
+  inspect(@ast.print_term(proj.kind), content="(z) => z")
 }
 
 ///|
@@ -184,7 +184,7 @@ test "apply_tree_edit - WrapInLambda produces valid tree after memo reconcile" {
   // New text path: node IDs are re-derived by the incremental parser,
   // so we verify a valid tree exists rather than ID preservation.
   inspect(editor.get_proj_node() is Some(_), content="true")
-  inspect(editor.get_text(), content="(λy. 42)")
+  inspect(editor.get_text(), content="(y) => 42")
 }
 
 ///|
@@ -194,13 +194,13 @@ test "apply_tree_edit - CommitEdit expression re-derives valid tree" {
   let result = apply_lambda_tree_edit(
     editor,
     companion,
-    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="λz.z"),
+    @lambda_edits.TreeEditOp::CommitEdit(node_id=id, new_value="(z) => z"),
     1,
   )
   inspect(result is Ok(_), content="true")
   // New path: raw text splice — the memo chain re-derives a lambda node.
   guard editor.get_proj_node() is Some(proj2)
-  inspect(@ast.print_term(proj2.kind), content="(λz. z)")
+  inspect(@ast.print_term(proj2.kind), content="(z) => z")
 }
 
 ///|
@@ -232,7 +232,7 @@ test "apply_tree_edit - sequential edits" {
     1,
   )
   inspect(result1 is Ok(_), content="true")
-  inspect(editor.get_text(), content="(λx. 42)")
+  inspect(editor.get_text(), content="(x) => 42")
   let id2 = get_root_id(editor)
   let result2 = apply_lambda_tree_edit(
     editor,
@@ -241,7 +241,7 @@ test "apply_tree_edit - sequential edits" {
     2,
   )
   inspect(result2 is Ok(_), content="true")
-  inspect(editor.get_text(), content="((λx. 42) a)")
+  inspect(editor.get_text(), content="(((x) => 42) a)")
   assert_converged(editor)
 }
 
@@ -256,7 +256,7 @@ test "apply_tree_edit - tree edits are undoable" {
     1,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="(λx. 42)")
+  inspect(editor.get_text(), content="(x) => 42")
   inspect(editor.can_undo(), content="true")
   inspect(editor.undo(), content="true")
   inspect(editor.get_text(), content="42")

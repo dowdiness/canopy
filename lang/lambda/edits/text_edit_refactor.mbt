@@ -11,6 +11,10 @@ fn compute_extract_to_let(
   guard source_map.get_range(node_id) is Some(range) else {
     return Err("Range not found")
   }
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let g = @scope.build(module_projection, registry, source_map)
   let fv = free_vars(node.kind, @immut/hashset.new())
   let would_capture = if module_projection.defs.is_empty() {

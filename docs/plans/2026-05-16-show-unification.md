@@ -32,11 +32,11 @@ canonical. Reasons:
 
 1. **Outputs diverge on Lam/App/Bop.** `print_term` uses the local
    `Pretty` struct interpretation (`sym.mbt`), which always wraps
-   `Lam`/`App`/`Bop` in parens (`(λx. x)`, `(f x)`, `(1 + 2)`).
+   `Lam`/`App`/`Bop` in parens (`((x) => x)`, `(f x)`, `(1 + 2)`).
    `pretty_unparse` uses the `PrettyLayout` interpretation
    (`pretty_traits.mbt`), which is precedence-aware via
    `wrap_if_needed` and emits parens only when the parent context
-   demands them (`λx. x`, `f x`, `1 + 2`). Both parse-roundtrip; the
+   demands them (`(x) => x`, `f x`, `1 + 2`). Both parse-roundtrip; the
    other nine Term variants render identically.
 2. **The two seams are intentionally aligned today.** Both
    `@pretty.Source for Term with to_source(self)` and
@@ -235,7 +235,7 @@ Out:
   `Int / Var / Lam / App / Bop / If / Module / Unit / Unbound / Error / Hole`
   (11 variants).
 - `view_outline.mbt:9-27` `kind_of(label)`:
-  - `λ`-prefix → `"lambda"`, `App` → `"app"`, `let`-prefix → `"let"`, `if` →
+  - `(x) =>` label → `"lambda"`, `App` → `"app"`, `let`-prefix → `"let"`, `if` →
     `"if"`, `()` → `"unit"`, `Error:`-prefix → `"error"`, `Plus`/`Minus` →
     `"binop"`, else → `"term"`.
 - `view_outline.mbt:70`, `view_outline.mbt:100`: `kind` used in row CSS
@@ -505,7 +505,7 @@ across lines and break the debug-trace alignment. Other Unicode
 ### `node.label` stays primary for outline rows
 
 `Renderable::label` is the curated short-form display per variant
-(`"App"`, `"λx"`, `"if"`, `"module [foo, bar]"`). It's what outline rows
+(`"App"`, `"(x) =>"`, `"if"`, `"module [foo, bar]"`). It's what outline rows
 already show via `node.label`. `Show for InteractiveTreeNode` returning
 `"#9 App [25..47]"` is debug material — useful for inspector debug
 output and logs, not for the navigation tree.

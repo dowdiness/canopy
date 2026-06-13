@@ -21,14 +21,14 @@ The goal: **close the gap between what you think and what the tool understands.*
 The demo language is lambda calculus — small enough to understand fully, rich enough to exercise the full pipeline:
 
 ```
-let double = λx. x + x
+let double = (x) => x + x
 let result = double 5
 if result then result else 0
 ```
 
 As you type this, Canopy:
 - Parses incrementally (one character change → one subtree reparse)
-- Resolves scope (knows `x` is bound by `λ`, `double` refers to the definition above)
+- Resolves scope (knows `x` is bound by the arrow-lambda parameter, `double` refers to the definition above)
 - Formats with syntax highlighting through the pretty-printer
 - Evaluates `double 5 → 10` and `if result then result else 0 → 10`
 - Synchronizes with any connected peer via CRDT

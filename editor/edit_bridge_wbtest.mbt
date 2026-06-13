@@ -126,10 +126,10 @@ test "merge_to_edits - both empty returns empty array" {
 
 ///|
 test "merge_to_edits - lambda expression edit" {
-  let edits = merge_to_edits("λx.x", "λx.x + 1")
+  let edits = merge_to_edits("(x) => x", "(x) => x + 1")
   inspect(edits.length(), content="1")
   let e = edits[0]
-  let expected = compute_edit("λx.x", "λx.x + 1")
+  let expected = compute_edit("(x) => x", "(x) => x + 1")
   assert_eq(e.start, expected.start)
   assert_eq(e.old_len, expected.old_len)
   assert_eq(e.new_len, expected.new_len)

@@ -12,7 +12,7 @@ Target: < 1ms for incremental patches (typical keystroke), acceptable for full-t
 
 - `proj_to_view_node(ProjNode[Term], SourceMap) → ViewNode` conversion + `to_json().stringify()`
 - Custom object-based `ToJson` (not `derive(ToJson)` array format)
-- Source: `let f0 = \x.x + 0\nlet f1 = \x.x + 1\n...` (realistic lambda defs)
+- Source: `let f0 = (x) => x + 0\nlet f1 = (x) => x + 1\n...` (realistic lambda defs)
 - `moon bench --release`
 
 ## Results

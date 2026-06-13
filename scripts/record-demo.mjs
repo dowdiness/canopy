@@ -116,7 +116,7 @@ async function main() {
   await capture(page, 300);
 
   // Type first definition
-  const line1 = 'let double = \\x. x + x';
+  const line1 = 'fn double(x : Int) { x + x }';
   for (const char of line1) {
     await editor.pressSequentially(char, { delay: 0 });
     await capture(page, 60);

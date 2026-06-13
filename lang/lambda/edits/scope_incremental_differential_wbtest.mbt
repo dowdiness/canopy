@@ -229,7 +229,7 @@ test "incr-diff: rename a binder shifts shadowing resolution" {
 ///|
 test "incr-diff: lambda shadowing edits" {
   run_diff_sequence([
-    "let x = 0\nλx. x", "let x = 0\nλy. x", "λx. λx. x", "λx. λy. (x y)",
+    "let x = 0\n(x) => x", "let x = 0\n(y) => x", "(x) => (x) => x", "(x, y) => (x y)",
   ])
 }
 
@@ -275,12 +275,12 @@ fn idiff_next_seed(seed : Int) -> Int {
 ///|
 /// Token fragments that the lambda lexer always accepts (no lex-error chars), so
 /// the source-file grammar can recover structurally via diagnostics rather than a
-/// raised `LexError`. Includes `let`, `λ`, separators, and a small name/number
-/// alphabet sized to force shadowing.
+/// raised `LexError`. Includes definition/lambda punctuation, separators, and
+/// a small name/number alphabet sized to force shadowing.
 fn idiff_pool() -> Array[String] {
   [
-    "x", "y", "z", "a", "b", "0", "1", "2", "let", " = ", " ", "\n", "(", ")", "+",
-    "-", "λ", ".",
+    "x", "y", "z", "a", "b", "0", "1", "2", "let", "fn", " = ", " ", "\n", "(", ")",
+    "{", "}", ",", ":", "=>", "->", "+", "-",
   ]
 }
 

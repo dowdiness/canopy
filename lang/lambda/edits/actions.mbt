@@ -39,7 +39,7 @@ pub(all) enum ActionGroup {
 pub(all) struct Action {
   /// Unique identifier for the action (e.g. "wrap_lambda", "delete")
   id : String
-  /// Human-readable label (e.g. "Wrap in λ")
+  /// Human-readable label (e.g. "Wrap in function")
   label : String
   /// Keyboard mnemonic (e.g. "l" for lambda)
   mnemonic : String
@@ -265,7 +265,7 @@ let delete : Action = {
 ///|
 let wrap_lambda : Action = {
   id: "wrap_lambda",
-  label: "Wrap in λ",
+  label: "Wrap in function",
   mnemonic: "l",
   group: Wrap,
   needs_input: true,

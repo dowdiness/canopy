@@ -11,11 +11,11 @@ test "ProjNode JSON export for simple expression" {
 
 ///|
 test "ProjNode JSON export for lambda" {
-  let (proj, _) = @lambda_proj.parse_to_proj_node("\u{03BB}x.x")
+  let (proj, _) = @lambda_proj.parse_to_proj_node("(x) => x")
   inspect(
     proj.to_json().stringify(),
     content=(
-      #|{"node_id":1,"kind":["Lam","x",["Var","x"]],"children":[{"node_id":0,"kind":["Var","x"],"children":[],"start":3,"end":4}],"start":0,"end":4}
+      #|{"node_id":1,"kind":["Lam","x",["Var","x"]],"children":[{"node_id":0,"kind":["Var","x"],"children":[],"start":6,"end":8}],"start":0,"end":8}
     ),
   )
 }

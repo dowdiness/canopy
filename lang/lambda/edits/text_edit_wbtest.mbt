@@ -110,6 +110,25 @@ test "compute_text_edit: CommitEdit replaces left operand in binary expr" {
 }
 
 ///|
+test "compute_text_edit: CommitEdit inside fn body preserves braces" {
+  let text = "fn id(x : Int) { x }\nid 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = proj.children[0].children[0].children[0]
+  let result = compute_text_edit(
+    CommitEdit(node_id=body.id(), new_value="y"),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="fn id(x : Int) {y }\nid 1")
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: no-op ops return empty array" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)
@@ -169,6 +188,25 @@ test "compute_text_edit: Delete replaces Var with placeholder" {
 }
 
 ///|
+test "compute_text_edit: Delete inside fn body preserves braces" {
+  let text = "fn id(x : Int) { x }\nid 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = proj.children[0].children[0].children[0]
+  let result = compute_text_edit(
+    Delete(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="fn id(x : Int) {a }\nid 1")
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)
@@ -183,7 +221,7 @@ test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
   match result {
     Ok(Some((edits, _))) => {
       inspect(edits.length(), content="1")
-      inspect(apply_edits(text, edits), content="(λx. 42)")
+      inspect(apply_edits(text, edits), content="(x) => 42")
     }
     _ => fail("expected Some edits")
   }
@@ -361,6 +399,39 @@ test "compute_text_edit: Drop with unknown source returns error" {
 }
 
 ///|
+test "compute_text_edit: Drop synthetic multi-param lambda source is rejected" {
+  let text = "(x, y) => x"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let inner_lam = proj.children[0]
+  let body = inner_lam.children[0]
+  let result = compute_text_edit(
+    Drop(source=inner_lam.id(), target=body.id(), position=After),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: Drop synthetic multi-param lambda target is rejected" {
+  let text = "(x, y) => x + z"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let inner_lam = proj.children[0]
+  let body_bop = inner_lam.children[0]
+  let source = body_bop.children[1]
+  let result = compute_text_edit(
+    Drop(source=source.id(), target=inner_lam.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 test "compute_text_edit: WrapInLambda with unknown node returns error" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)
@@ -390,7 +461,7 @@ test "compute_text_edit: CommitEdit with unknown node returns error" {
 
 ///|
 test "compute_text_edit: Unwrap Lam keeps body" {
-  let text = "(λx. 42)"
+  let text = "(x) => 42"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -409,6 +480,36 @@ test "compute_text_edit: Unwrap Lam keeps body" {
     }
     _ => fail("expected Some edits")
   }
+}
+
+///|
+test "compute_text_edit: Unwrap synthetic fn lambda is rejected" {
+  let text = "fn id(x : Int) { x }\nid 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let lam = proj.children[0].children[0]
+  let result = compute_text_edit(
+    Unwrap(node_id=lam.id(), keep_child_index=0),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: Unwrap synthetic multi-param lambda is rejected" {
+  let text = "(x, y) => x"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let inner_lam = proj.children[0]
+  let result = compute_text_edit(
+    Unwrap(node_id=inner_lam.id(), keep_child_index=0),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
 }
 
 ///|
@@ -796,8 +897,8 @@ test "compute_text_edit: ExtractToLet sub-expression from body" {
 
 ///|
 test "compute_text_edit: ExtractToLet rejects lambda-captured var" {
-  // Inside λx. (x + 1), trying to extract the body which captures x
-  let text = "λx. x + 1"
+  // Inside (x) => (x + 1), trying to extract the body which captures x
+  let text = "(x) => x + 1"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -980,7 +1081,7 @@ test "compute_text_edit: InlineAllUsages first duplicate preserves shadowed body
 
 ///|
 test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
-  let text = "λx. x"
+  let text = "(x) => x"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -1017,7 +1118,7 @@ test "compute_text_edit: InlineAllUsages no usages just removes binding" {
 
 ///|
 test "compute_text_edit: Rename lambda param" {
-  let text = "\u{03BB}x.x"
+  let text = "(x) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   // proj is Lam("x", Var("x"))
   let lam_id = proj.id()
@@ -1028,7 +1129,7 @@ test "compute_text_edit: Rename lambda param" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="\u{03BB}y.y")
+      inspect(new_text, content="(y) => y")
     }
     _ => fail("expected Some edits")
   }
@@ -1036,7 +1137,7 @@ test "compute_text_edit: Rename lambda param" {
 
 ///|
 test "compute_text_edit: Rename var resolves to lambda binder" {
-  let text = "\u{03BB}x.x"
+  let text = "(x) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   // body Var("x") is child[0] of Lam
   let var_x = proj.children[0]
@@ -1047,7 +1148,7 @@ test "compute_text_edit: Rename var resolves to lambda binder" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="\u{03BB}z.z")
+      inspect(new_text, content="(z) => z")
     }
     _ => fail("expected Some edits")
   }
@@ -1122,7 +1223,7 @@ test "compute_text_edit: Rename first duplicate module binding preserves shadowe
       let new_text = apply_edits(text, edits)
       // The init Var range includes its leading space; the body x must remain
       // shadowed by the second def and therefore unchanged.
-      inspect(new_text, content="let y = 0\nlet x =y\nx")
+      inspect(new_text, content="let y = 0\nlet x = y\nx")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
@@ -1149,7 +1250,7 @@ test "compute_text_edit: Rename module binding with multiple usages" {
 
 ///|
 test "compute_text_edit: Rename nested lambda" {
-  let text = "\u{03BB}x.\u{03BB}y.x"
+  let text = "(x, y) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   // Rename outer lambda param "x" to "z"
   let outer_id = proj.id()
@@ -1160,7 +1261,7 @@ test "compute_text_edit: Rename nested lambda" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="\u{03BB}z.\u{03BB}y.z")
+      inspect(new_text, content="(z, y) => z")
     }
     _ => fail("expected Some edits")
   }
@@ -1180,12 +1281,25 @@ test "compute_text_edit: Rename with unknown node returns error" {
 
 ///|
 test "compute_text_edit: Rename rejects capture of free variable" {
-  // λx. y  — renaming x to y would capture the free y
-  let text = "\u{03BB}x.y"
+  // (x) => y  — renaming x to y would capture the free y
+  let text = "(x) => y"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   let lam_id = proj.id()
   let result = compute_text_edit(
     Rename(node_id=lam_id, new_name="y"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: Rename rejects capture by inner lambda binder" {
+  // (x, y) => x — renaming outer x to y would rebind the use to inner y.
+  let text = "(x, y) => x"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let outer_lam_id = proj.id()
+  let result = compute_text_edit(
+    Rename(node_id=outer_lam_id, new_name="y"),
     make_edit_ctx(text, sm, registry, fp),
   )
   inspect(result is Err(_), content="true")
@@ -1207,8 +1321,8 @@ test "compute_text_edit: Rename rejects duplicate module binding name" {
 
 ///|
 test "compute_text_edit: Rename module binding rejects inner lambda capture" {
-  // let x = 0\nλy. x — renaming x→y would capture at the inner λy
-  let text = "let x = 0\n\u{03BB}y. x"
+  // let x = 0\n(y) => x — renaming x→y would capture at the inner (y) =>
+  let text = "let x = 0\n(y) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   let _ = proj
   let binding_id = fp.defs[0].3
@@ -1221,11 +1335,11 @@ test "compute_text_edit: Rename module binding rejects inner lambda capture" {
 
 ///|
 test "compute_text_edit: InlineDefinition rejects capture" {
-  // let y = 1\nlet x = y\nλy. x — inlining x would produce λy. y (capture)
-  let text = "let y = 1\nlet x = y\n\u{03BB}y. x"
+  // let y = 1\nlet x = y\n(y) => x — inlining x would produce (y) => y (capture)
+  let text = "let y = 1\nlet x = y\n(y) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   let _ = sm
-  // Body is λy. x — the Lam node
+  // Body is (y) => x — the Lam node
   let body = proj.children[proj.children.length() - 1]
   // body is Lam("y", Var("x")), child[0] is Var("x")
   let var_x = body.children[0]
@@ -1271,7 +1385,7 @@ test "compute_text_edit: InlineDefinition rejects later module-def shadow captur
 
 ///|
 test "compute_text_edit: InlineAllUsages rejects capture" {
-  let text = "let y = 1\nlet x = y\n\u{03BB}y. x"
+  let text = "let y = 1\nlet x = y\n(y) => x"
   let (proj, sm, registry, fp) = parse_with_token_spans(text)
   let _ = proj
   let _ = sm

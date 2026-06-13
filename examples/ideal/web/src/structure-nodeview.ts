@@ -32,7 +32,7 @@ const kindColors: Record<string, string> = {
 
 function getStructureLabel(node: PmNode): string | null {
   switch (node.type.name) {
-    case "lambda": return `\u03BB${node.attrs.param}`;
+    case "lambda": return `(${node.attrs.param}) =>`;
     case "let_def": return node.attrs.name;
     case "binary_op": return node.attrs.op;
     default: return null;

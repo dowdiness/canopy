@@ -1069,13 +1069,13 @@ fn view_compact_expr(
         text("")
       }
       span(class=hl_class, [
-        span(class="keyword", [text("\u{03BB}")]),
+        span(class="punctuation", [text("(")]),
         span(
           class="def-site \{color_class}",
           on_click=dispatch(CompactNodeClicked(nid_str)),
           [text(param)],
         ),
-        span(class="punctuation", [text(".")]),
+        span(class="punctuation", [text(") => ")]),
         body,
       ])
     }

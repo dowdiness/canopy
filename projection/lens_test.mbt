@@ -47,12 +47,12 @@ test "TreeEditorState from_projection" {
 
 ///|
 test "InteractiveTreeNode from AstNode" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("λx.x")
+  let (root, _) = @lambda_proj.parse_to_proj_node("(x) => x")
   let tree = InteractiveTreeNode::from_term_node(
     root,
     @core.SourceMap::from_ast(root),
   )
-  inspect(tree.label[:1].to_owned(), content="λ")
+  inspect(tree.label, content="(x) =>")
 }
 
 ///|

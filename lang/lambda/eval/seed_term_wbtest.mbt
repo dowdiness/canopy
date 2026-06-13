@@ -149,7 +149,7 @@ test "seed_term + run_eval: end-to-end evaluation" {
 
 ///|
 test "seed_term + run_eval: lambda application" {
-  // Seed (λx. x + 1) 5 and evaluate to 6
+  // Seed ((x) => x + 1) 5 and evaluate to 6
   let db = @egglog_eval.lambda_eval_db()
   let env = db.call("EmptyEnv", [])
   let expr = seed_term(

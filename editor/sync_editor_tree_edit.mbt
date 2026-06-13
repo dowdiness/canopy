@@ -96,7 +96,7 @@ pub fn[T : Eq] SyncEditor::commit_edit(
 ///
 /// Example:
 ///   editor.apply_text_transform(node_id, fn(src, s, e) {
-///     Ok("(λx. " + src[s:e].to_string() + ")")
+///     Ok("((x) => " + src[s:e].to_string() + ")")
 ///   }, timestamp)
 pub fn[T : Eq] SyncEditor::apply_text_transform(
   self : SyncEditor[T],

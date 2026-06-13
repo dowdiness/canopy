@@ -16,8 +16,8 @@ test "parser: get_ast_pretty contains expression" {
 ///|
 test "parser: complex expression parses correctly" {
   let se = new_lambda_editor("agent1").0
-  se.set_text("λf.λx.f x")
-  inspect(@ast.print_term(get_lambda_ast(se)), content="(λf. (λx. (f x)))")
+  se.set_text("(f, x) => f x")
+  inspect(@ast.print_term(get_lambda_ast(se)), content="(f, x) => (f x)")
 }
 
 ///|
@@ -52,7 +52,7 @@ test "parser: arithmetic addition" {
 ///|
 test "parser: resolution tracks bound and free variables" {
   let se = new_lambda_editor("agent1").0
-  se.set_text("λx.x + y")
+  se.set_text("(x) => x + y")
   let res = get_lambda_resolution(se)
   // Verify resolution is populated (bound x, free y)
   inspect(res.vars.length() > 0, content="true")

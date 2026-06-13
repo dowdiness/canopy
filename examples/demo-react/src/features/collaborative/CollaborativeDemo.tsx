@@ -62,7 +62,7 @@ export function CollaborativeDemo() {
   }, []);
 
   const handleLoadExample = useCallback(() => {
-    setSharedText('(\\x.\\y.x + y) 10 5');
+    setSharedText('((x, y) => x + y) 10 5');
     clearOperations();
   }, []);
 

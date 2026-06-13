@@ -31,7 +31,7 @@
 // forces to a full rebuild, so both arms of the patch/rebuild branch are pinned.
 //
 // SCOPE / NON-GOALS
-// Edits are ASCII-only (no λ), so a byte offset equals a UTF-16 code unit equals
+// Edits are ASCII-only, so a byte offset equals a UTF-16 code unit equals
 // a char index and the minimal-diff `Edit` is unambiguous. Empty-source steps
 // are out of scope (all sequences stay non-empty); a None projection on a
 // non-empty source is treated as a hard failure, not a skipped comparison. Like

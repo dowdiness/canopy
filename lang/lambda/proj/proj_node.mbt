@@ -67,16 +67,108 @@ fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
 }
 
 ///|
+fn block_inner_bounds(node : @seam.SyntaxNode) -> (Int, Int) {
+  let start = match node.find_token(@syntax.LBraceToken.to_raw()) {
+    Some(tok) => tok.end()
+    None => node.start()
+  }
+  let end = match node.tokens_of_kind(@syntax.RBraceToken.to_raw()).last() {
+    Some(tok) => tok.start()
+    None => node.end()
+  }
+  (start, end)
+}
+
+///|
+fn with_tight_syntax_range(
+  proj : ProjNode[@ast.Term],
+  syntax : @seam.SyntaxNode,
+) -> ProjNode[@ast.Term] {
+  let (start, end) = syntax.tight_span()
+  ProjNode::new(proj.kind, start, end, proj.node_id, proj.children)
+}
+
+///|
+fn project_function_body(
+  node : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  match @parser.BlockExprView::cast(node) {
+    Some(v) => {
+      let defs = v.defs().map(fn(def) { project_let_def(def, counter) })
+      let (_, inner_end) = block_inner_bounds(node)
+      let body = match v.body() {
+        Some(body_node) =>
+          with_tight_syntax_range(
+            syntax_to_proj_node(body_node, counter),
+            body_node,
+          )
+        None => unit_node_at(inner_end, counter)
+      }
+      if defs.length() > 0 {
+        let (inner_start, inner_end) = block_inner_bounds(node)
+        module_node_from_defs(defs, body, inner_start, inner_end, counter)
+      } else {
+        body
+      }
+    }
+    None => syntax_to_proj_node(node, counter)
+  }
+}
+
+///|
+fn wrap_params_as_lams(
+  params : Array[String],
+  param_starts : Array[Int],
+  body : ProjNode[@ast.Term],
+  start : Int,
+  end : Int,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  let mut result = body
+  for i = params.length() - 1; i >= 0; i = i - 1 {
+    let lam_start = if i == 0 || i >= param_starts.length() {
+      start
+    } else {
+      param_starts[i]
+    }
+    result = ProjNode::branch(
+      @ast.Term::Lam(params[i], result.kind),
+      lam_start,
+      end,
+      [result],
+      counter,
+    )
+  }
+  result
+}
+
+///|
 fn project_let_def(
   def : @parser.LetDefView,
   counter : Ref[Int],
 ) -> ProjectedLetDef {
   let def_node = def.syntax_node()
+  let params = def.params()
   let init = match def.init() {
-    Some(n) => syntax_to_proj_node(n, counter)
+    Some(n) =>
+      if params.is_empty() {
+        syntax_to_proj_node(n, counter)
+      } else {
+        project_function_body(n, counter)
+      }
     None =>
       error_node_for_syntax("missing let binding value", def_node, counter)
   }
+  let param_tokens = param_ident_tokens(def_node)
+  let init = wrap_params_as_lams(
+    params,
+    param_tokens.map(tok => tok.start()),
+    init,
+    def_node.start(),
+    def_node.end(),
+    counter,
+  )
   let node = ProjNode::branch(
     @ast.Term::LetDef(def.name(), init.kind),
     def_node.start(),
@@ -124,13 +216,20 @@ pub fn syntax_to_proj_node(
       Some(b) => syntax_to_proj_node(b, counter)
       None => error_node_for_syntax("missing lambda body", node, counter)
     }
-    ProjNode::branch(
-      Lam(v.param(), body.kind),
-      node.start(),
-      node.end(),
-      [body],
-      counter,
-    )
+    let params = v.params()
+    if params.is_empty() {
+      error_node_for_syntax("missing lambda parameter", node, counter)
+    } else {
+      let param_tokens = param_ident_tokens(node)
+      wrap_params_as_lams(
+        params,
+        param_tokens.map(tok => tok.start()),
+        body,
+        node.start(),
+        node.end(),
+        counter,
+      )
+    }
   } else if @parser.AppExprView::cast(node) is Some(v) {
     match v.func() {
       None =>

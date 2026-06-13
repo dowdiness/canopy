@@ -17,6 +17,72 @@ fn placeholder_term_for_kind(kind : @ast.Term) -> @ast.Term {
 }
 
 ///|
+fn range_contains_arrow(source_text : String, range : @loomcore.Range) -> Bool {
+  let mut found = false
+  for pos = range.start; pos + 1 < range.end; pos = pos + 1 {
+    if source_text[pos] == '=' && source_text[pos + 1] == '>' {
+      found = true
+      break
+    }
+  }
+  found
+}
+
+///|
+fn is_space_code(code : UInt16) -> Bool {
+  code == ' ' || code == '\n' || code == '\t' || code == '\r'
+}
+
+///|
+fn first_non_space_in_range(
+  source_text : String,
+  range : @loomcore.Range,
+) -> Int? {
+  for pos = range.start; pos < range.end; pos = pos + 1 {
+    if !is_space_code(source_text[pos]) {
+      return Some(pos)
+    }
+  }
+  None
+}
+
+///|
+fn is_source_arrow_lambda_range(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+  range : @loomcore.Range,
+) -> Bool {
+  let _ = node_id
+  match first_non_space_in_range(ctx.source_text, range) {
+    Some(start) =>
+      start < ctx.source_text.length() &&
+      ctx.source_text[start] == '(' &&
+      range_contains_arrow(ctx.source_text, range)
+    None => false
+  }
+}
+
+///|
+fn ensure_replaceable_node_range(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+  node : ProjNode[@ast.Term],
+  range : @loomcore.Range,
+) -> Result[Unit, String] {
+  match node.kind {
+    @ast.Term::Lam(_, _) =>
+      if is_source_arrow_lambda_range(ctx, node_id, range) {
+        Ok(())
+      } else {
+        Err(
+          "Cannot edit synthetic lambda parameter directly; edit the enclosing expression or function body",
+        )
+      }
+    _ => Ok(())
+  }
+}
+
+///|
 /// Find the start position of the "let " keyword by scanning backwards
 /// from a known position in the source text.
 fn find_let_start(source_text : String, from : Int) -> Int {

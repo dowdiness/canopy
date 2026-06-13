@@ -17,8 +17,8 @@ fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
 ///|
 test "SyncEditor: get_resolution returns bound/free info" {
   let se = new_lambda_editor("agent1").0
-  // λx. (x + y) — x is bound, y is free
-  try! se.insert("\\x. x + y")
+  // (x) => (x + y) — x is bound, y is free
+  try! se.insert("(x) => x + y")
   let res = get_lambda_resolution(se)
   // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
   @debug.debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")

@@ -29,7 +29,7 @@
 ```moonbit
 #loom.token
 pub enum Token {
-  #loom.keyword("λ", "\\")    // literal string(s)
+  #loom.keyword("fn")    // literal string(s)
   Lambda
   #loom.keyword("if")
   If
@@ -108,7 +108,7 @@ pub enum Term {
     view_children=["body: child(0)"],
     view_tokens=["param: IdentToken"],
   )
-  #loom.print("(λ{param}. {body})")
+  #loom.print("({param}) => {body}")
   #loom.placeholder("Lam(\"x\", Var(\"x\"))")
   Lam(VarName, Term)
 
