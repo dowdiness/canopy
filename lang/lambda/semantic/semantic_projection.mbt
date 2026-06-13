@@ -48,7 +48,45 @@ pub fn build_semantic_projection_with_module_projection(
 ) -> SemanticProjection {
   let projection = SemanticProjection::empty()
   analyze_node(root, source_map, [], projection, module_projection)
+  push_scope_failures(root, source_map, projection)
   projection
+}
+
+///|
+/// Source the free-variable diagnostics from the lambda scope graph rather than
+/// the projection's own environment walk (research note 2026-06-13 §6 Step 1).
+/// Each unresolved reference (`resolution.decl == None`) is a witnessed
+/// `ReachableFailure`; for today's lexical lambda language that failure is
+/// genuinely reachable, so the squiggle now rests on the resolver of record
+/// instead of a parallel `env.contains` check.
+///
+/// The scope graph is reconstructed from `root` (the same tree the diagnostic
+/// ranges come from) so resolution and locations share a single source of
+/// truth; the optional `module_projection` argument is only consulted by the
+/// annotation/decoration walk. Those visual bound/free annotations and
+/// decorations deliberately remain on the environment walk — §6 Step 1 regrounds
+/// the structured diagnostic only. Incremental maintenance is §6 Step 3,
+/// benchmark-gated.
+fn push_scope_failures(
+  root : @core.ProjNode[@ast.Term],
+  source_map : @core.SourceMap,
+  projection : SemanticProjection,
+) -> Unit {
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  @core.collect_registry(root, registry)
+  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(root)
+  let graph = @lambda_scope.build(module_projection, registry, source_map)
+  for failure in @lambda_scope.failures(graph, source_map) {
+    guard failure.location is Some(range) else { continue }
+    projection.diagnostics.push(
+      @protocol.Diagnostic(
+        from=range.start,
+        to=range.end,
+        severity=@protocol.SevWarning,
+        message="Free variable '" + failure.name + "'",
+      ),
+    )
+  }
 }
 
 ///|
@@ -221,18 +259,6 @@ fn analyze_var(
       "semantic-free",
       name,
     )
-    match source_map.get_range(node.id()) {
-      Some(range) =>
-        projection.diagnostics.push(
-          @protocol.Diagnostic(
-            from=range.start,
-            to=range.end,
-            severity=@protocol.SevWarning,
-            message="Free variable '" + name + "'",
-          ),
-        )
-      None => ()
-    }
   }
 }
 
