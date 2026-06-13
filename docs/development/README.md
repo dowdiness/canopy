@@ -39,6 +39,9 @@ files inside `docs/development/`.
   repo are written and maintained.
 - **[Move Contract](move-contract.md)** — how nodes are relocated across
   Canopy editors.
+- **[Codex: app-server vs MCP](codex-app-server-vs-mcp.md)** — comparison of the
+  two ways to drive Codex (MCP wrapper vs app-server / WebSocket control socket)
+  and when to use which.
 
 ## Verification
 
