@@ -65,3 +65,80 @@ test "codex lowering: EXACT rejects a hand-fed mid-grapheme offset" {
   assert_false(accepted)
   assert_eq(se.get_text(), "🧑🧒")
 }
+
+///|
+/// P1: a hunk with a leading context line must edit the actually-changed line,
+/// not the hunk's first line. Document `a\nb`; the hunk changes line 2
+/// (`b` -> `c`) behind one context line. A parser that used the hunk start
+/// (line 1) would corrupt line 1 (`c\nb`); tracking the old-side line yields
+/// `a\nc`.
+test "codex lowering: leading context selects the correct old line" {
+  let se = @probe.new_test_editor("codex-agent")
+  se.apply_text_edit(0, 0, "a\nb", 0)
+  let diff =
+    #|@@ -1,2 +1,2 @@
+    #| a
+    #|-b
+    #|+c
+  let intents = unified_diff_to_intents(se.get_text(), diff)
+  let all_accepted = intents.fold(init=true, (ok, intent) => {
+    apply_intent_exact(se, intent, 1) && ok
+  })
+  assert_true(all_accepted)
+  assert_eq(se.get_text(), "a\nc")
+}
+
+///|
+/// P2a: a stale hunk — the document line no longer equals the patch's old text
+/// — must be rejected, not spliced into unrelated content.
+test "codex lowering: stale diff is rejected" {
+  let diff =
+    #|@@ -1 +1 @@
+    #|-foo
+    #|+fOO
+  let raised = try {
+    let _ = unified_diff_to_intents("bar", diff)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(raised)
+}
+
+///|
+/// P2b: an `update` hunk with more than one changed pair is out of scope and
+/// must fail rather than silently keeping only the last pair.
+test "codex lowering: multi-line update is rejected" {
+  let diff =
+    #|@@ -1,2 +1,2 @@
+    #|-a
+    #|+x
+    #|-b
+    #|+y
+  let raised = try {
+    let _ = unified_diff_to_intents("a\nb", diff)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(raised)
+}
+
+///|
+/// P2c: a `\ No newline at end of file` marker changes trailing-newline
+/// semantics the prototype does not model, so it must be rejected rather than
+/// silently dropped (which would leave the document's old `\n` in place).
+test "codex lowering: EOF-newline marker is rejected" {
+  let diff =
+    #|@@ -1 +1 @@
+    #|-foo
+    #|+bar
+    #|\ No newline at end of file
+  let raised = try {
+    let _ = unified_diff_to_intents("foo", diff)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(raised)
+}
