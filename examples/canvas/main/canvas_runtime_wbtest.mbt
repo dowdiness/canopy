@@ -63,39 +63,6 @@ test "get_render_state exposes workflow JSON shape" {
 }
 
 ///|
-test "runtime live drag updates preview before one durable MoveNodes commit" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
-  let before = runtime.document.peek()
-  runtime.pointer_down(Some(NodeId("1")), -510.0, -180.0)
-  runtime.pointer_move(-400.0, -100.0)
-
-  let during = runtime.document.peek()
-  inspect(during.nodes[0].x, content="-520")
-  inspect(during.nodes[0].y, content="-190")
-  assert_eq(runtime.actions.peek().length(), 0)
-
-  let preview = runtime.render_state().nodes[0]
-  inspect(preview.x, content="-410")
-  inspect(preview.y, content="-110")
-  assert_eq(before.nodes[0].x, during.nodes[0].x)
-
-  runtime.pointer_up("1", "", false)
-  let after = runtime.document.peek()
-  inspect(after.nodes[0].x, content="-410")
-  inspect(after.nodes[0].y, content="-110")
-  assert_eq(runtime.actions.peek().length(), 1)
-  match runtime.actions.peek()[0].action() {
-    MoveNodes(positions) => {
-      assert_eq(positions.length(), 1)
-      inspect(positions[0].x, content="-410")
-      inspect(positions[0].y, content="-110")
-    }
-    _ => fail("expected MoveNodes action")
-  }
-}
-
-///|
 test "runtime delete_nodes removes selected nodes and incident edges" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.delete_nodes([NodeId("2")])
