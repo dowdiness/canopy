@@ -184,10 +184,10 @@ fn render_state_from_parts(
 }
 
 ///|
-/// Incr-backed canvas model. Durable graph edits flow through `document`;
-/// hover, drag preview, viewport, selection, and pointer gesture state are
-/// independent Inputs so high-frequency UI changes avoid durable recomputation.
-struct CanvasRuntime {
+/// Private storage for the example-local canvas runtime. Keep direct `@incr`
+/// cell access in this file behind `CanvasRuntime` methods so future reusable
+/// runtime work can reshape ownership without host callers depending on cells.
+priv struct CanvasRuntimeCells {
   document : @incr.Input[CanvasDocument]
   actions : @incr.Input[Array[GraphOperation]]
   hover : @incr.Input[NodeId?]
@@ -197,6 +197,14 @@ struct CanvasRuntime {
   interaction : @incr.Input[InteractionState]
   render_watch : @incr.Watch[CanvasFullRenderJson]
   inspector_watch : @incr.Watch[InspectorNodeJson?]
+}
+
+///|
+/// Example-local runtime facade. This hardens the private boundary around the
+/// split durable/ephemeral `@incr` state; it is not a public reusable runtime
+/// extraction.
+priv struct CanvasRuntime {
+  cells : CanvasRuntimeCells
 }
 
 ///|
@@ -285,7 +293,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   ignore(render_watch.read_or_abort())
   ignore(inspector_watch.read_or_abort())
   rt.gc()
-  {
+  let cells : CanvasRuntimeCells = {
     document,
     actions,
     hover,
@@ -296,19 +304,134 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
     render_watch,
     inspector_watch,
   }
+  { cells, }
+}
+
+///|
+fn CanvasRuntime::peek_document(self : CanvasRuntime) -> CanvasDocument {
+  let document = self.cells.document.peek()
+  {
+    nodes: document.nodes.copy(),
+    edges: document.edges.copy(),
+    next_node_id: document.next_node_id,
+  }
+}
+
+///|
+fn CanvasRuntime::set_document(
+  self : CanvasRuntime,
+  document : CanvasDocument,
+) -> Unit {
+  self.cells.document.set({
+    nodes: document.nodes.copy(),
+    edges: document.edges.copy(),
+    next_node_id: document.next_node_id,
+  })
+}
+
+///|
+fn CanvasRuntime::action_log_snapshot(
+  self : CanvasRuntime,
+) -> Array[GraphOperation] {
+  self.cells.actions.peek().copy()
+}
+
+///|
+fn CanvasRuntime::set_action_log(
+  self : CanvasRuntime,
+  actions : Array[GraphOperation],
+) -> Unit {
+  self.cells.actions.set(actions.copy())
+}
+
+///|
+fn CanvasRuntime::set_hover(self : CanvasRuntime, hover : NodeId?) -> Unit {
+  self.cells.hover.set(hover)
+}
+
+///|
+fn CanvasRuntime::peek_drag_preview(self : CanvasRuntime) -> DragPreview {
+  let preview = self.cells.drag_preview.peek()
+  { positions: preview.positions.copy() }
+}
+
+///|
+fn CanvasRuntime::set_drag_preview(
+  self : CanvasRuntime,
+  preview : DragPreview,
+) -> Unit {
+  self.cells.drag_preview.set({ positions: preview.positions.copy() })
+}
+
+///|
+fn CanvasRuntime::peek_viewport(self : CanvasRuntime) -> Viewport {
+  self.cells.viewport.peek()
+}
+
+///|
+fn CanvasRuntime::set_viewport(
+  self : CanvasRuntime,
+  viewport : Viewport,
+) -> Unit {
+  self.cells.viewport.set(viewport)
+}
+
+///|
+fn CanvasRuntime::peek_selection(self : CanvasRuntime) -> SelectionState {
+  let selection = self.cells.selection.peek()
+  {
+    selected: selection.selected,
+    selected_nodes: selection.selected_nodes.copy(),
+  }
+}
+
+///|
+fn CanvasRuntime::set_selection(
+  self : CanvasRuntime,
+  selection : SelectionState,
+) -> Unit {
+  self.cells.selection.set({
+    selected: selection.selected,
+    selected_nodes: selection.selected_nodes.copy(),
+  })
+}
+
+///|
+fn CanvasRuntime::peek_interaction(self : CanvasRuntime) -> InteractionState {
+  self.cells.interaction.peek()
+}
+
+///|
+fn CanvasRuntime::set_interaction(
+  self : CanvasRuntime,
+  interaction : InteractionState,
+) -> Unit {
+  self.cells.interaction.set(interaction)
+}
+
+///|
+fn CanvasRuntime::read_full_render(
+  self : CanvasRuntime,
+) -> CanvasFullRenderJson {
+  self.cells.render_watch.read_or_abort()
+}
+
+///|
+fn CanvasRuntime::read_inspector(self : CanvasRuntime) -> InspectorNodeJson? {
+  self.cells.inspector_watch.read_or_abort()
 }
 
 ///|
 fn CanvasRuntime::state_peek(self : CanvasRuntime) -> CanvasState {
   let interaction = @graph_model.interaction_with_selection(
-    self.interaction.peek(),
-    self.selection.peek(),
+    self.peek_interaction(),
+    self.peek_selection(),
   )
   @graph_model.canvas_state_from_parts(
-    self.document.peek(),
-    self.viewport.peek(),
+    self.peek_document(),
+    self.peek_viewport(),
     interaction,
-    self.actions.peek(),
+    self.action_log_snapshot(),
   )
 }
 
@@ -317,12 +440,12 @@ fn CanvasRuntime::sync_commit_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.document.set(@graph_model.canvas_document_from_state(state))
-  self.viewport.set(state.viewport)
-  self.drag_preview.set(@graph_model.idle_drag_preview())
-  self.selection.set(@graph_model.selection_from_interaction(state.interaction))
-  self.interaction.set(state.interaction)
-  self.actions.set(state.action_log.copy())
+  self.set_document(@graph_model.canvas_document_from_state(state))
+  self.set_viewport(state.viewport)
+  self.set_drag_preview(@graph_model.idle_drag_preview())
+  self.set_selection(@graph_model.selection_from_interaction(state.interaction))
+  self.set_interaction(state.interaction)
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -330,8 +453,8 @@ fn CanvasRuntime::sync_viewport_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.viewport.set(state.viewport)
-  self.interaction.set(state.interaction)
+  self.set_viewport(state.viewport)
+  self.set_interaction(state.interaction)
 }
 
 ///|
@@ -339,8 +462,8 @@ fn CanvasRuntime::sync_action_viewport_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.viewport.set(state.viewport)
-  self.actions.set(state.action_log.copy())
+  self.set_viewport(state.viewport)
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -348,8 +471,8 @@ fn CanvasRuntime::sync_document_action_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.document.set(@graph_model.canvas_document_from_state(state))
-  self.actions.set(state.action_log.copy())
+  self.set_document(@graph_model.canvas_document_from_state(state))
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -365,8 +488,8 @@ fn CanvasRuntime::pointer_down(
     sx,
     sy,
   )
-  self.drag_preview.set(@graph_model.idle_drag_preview())
-  self.interaction.set(state.interaction)
+  self.set_drag_preview(@graph_model.idle_drag_preview())
+  self.set_interaction(state.interaction)
 }
 
 ///|
@@ -379,9 +502,57 @@ fn CanvasRuntime::pointer_down_handle(
 ) -> Unit {
   let state = self.state_peek()
   let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-  self.interaction.set(
+  self.set_interaction(
     @graph_model.update_connect_start(state, node_id, port_id, wx, wy).interaction,
   )
+}
+
+///|
+fn CanvasRuntime::sync_connect_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.set_interaction(
+    @graph_model.update_connect_move(state, wx, wy).interaction,
+  )
+}
+
+///|
+fn CanvasRuntime::sync_drag_preview_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  drag : DragState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.set_drag_preview(@graph_model.drag_preview_from_move(drag, wx, wy))
+  self.set_interaction({ ..state.interaction, did_move: true })
+}
+
+///|
+fn CanvasRuntime::sync_pan_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  self.sync_viewport_state(@graph_model.update_pan_move(state, sx, sy))
+}
+
+///|
+fn CanvasRuntime::state_with_active_drag_preview(
+  self : CanvasRuntime,
+  state : CanvasState,
+) -> CanvasState {
+  match state.interaction.dragging {
+    Some(_) if state.interaction.did_move =>
+      @graph_model.state_with_preview_nodes(state, self.peek_drag_preview())
+    _ => state
+  }
 }
 
 ///|
@@ -392,31 +563,13 @@ fn CanvasRuntime::pointer_move(
 ) -> Unit {
   let state = self.state_peek()
   match state.interaction.connecting {
-    Some(_) => {
-      let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-      self.interaction.set(
-        @graph_model.update_connect_move(state, wx, wy).interaction,
-      )
-    }
+    Some(_) => self.sync_connect_move(state, sx, sy)
     None =>
       match state.interaction.dragging {
-        Some(drag) => {
-          let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            did_move: true,
-          }
-          self.drag_preview.set(
-            @graph_model.drag_preview_from_move(drag, wx, wy),
-          )
-          self.interaction.set(new_interaction)
-        }
+        Some(drag) => self.sync_drag_preview_move(state, drag, sx, sy)
         None =>
           match state.interaction.panning {
-            Some(_) =>
-              self.sync_viewport_state(
-                @graph_model.update_pan_move(state, sx, sy),
-              )
+            Some(_) => self.sync_pan_move(state, sx, sy)
             None => ()
           }
       }
@@ -430,15 +583,12 @@ fn CanvasRuntime::pointer_up(
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
-  let state = self.state_peek()
-  let commit_state = match state.interaction.dragging {
-    Some(_) if state.interaction.did_move =>
-      @graph_model.state_with_preview_nodes(state, self.drag_preview.peek())
-    _ => state
-  }
   self.sync_commit_state(
     @graph_model.update_pointer_up(
-      commit_state, node_id, target_port_id, additive,
+      self.state_with_active_drag_preview(self.state_peek()),
+      node_id,
+      target_port_id,
+      additive,
     ),
   )
 }
@@ -462,7 +612,7 @@ fn CanvasRuntime::hover_node(self : CanvasRuntime, node_id : String) -> Unit {
   } else {
     Some(NodeId(node_id))
   }
-  self.hover.set(hovered)
+  self.set_hover(hovered)
 }
 
 ///|
@@ -507,13 +657,10 @@ fn CanvasRuntime::disconnect_ports(
 
 ///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
-  render_state_from_parts(
-    self.render_watch.read_or_abort(),
-    self.inspector_watch.read_or_abort(),
-  )
+  render_state_from_parts(self.read_full_render(), self.read_inspector())
 }
 
 ///|
 fn CanvasRuntime::action_log_json(self : CanvasRuntime) -> String {
-  self.actions.peek().to_json().stringify()
+  self.action_log_snapshot().to_json().stringify()
 }
