@@ -1,19 +1,22 @@
-// SourceMap: Bidirectional mapping between AST nodes and text positions
-// Enables efficient lookup in both directions for projectional editing
+// SourceMap: Bidirectional mapping between AST nodes and UTF-16 source ranges.
+// Enables efficient lookup in both directions for projectional editing.
 
 ///|
 using @loomcore {type Range}
 
 ///|
-/// Maps between AST node IDs and their text positions
+/// Maps between AST node IDs and half-open UTF-16 code-unit source ranges.
+/// Ranges here are `@loomcore.Range`; do not pass eg-walker item-space ranges
+/// or ProseMirror tree positions to SourceMap APIs.
 pub struct SourceMap {
-  /// NodeId → Range mapping
+  /// NodeId → UTF-16 source range mapping
   node_to_range : Map[NodeId, Range]
   /// Reverse index: position → candidate NodeIds (for point queries)
   /// Uses a simple array of (range, node_id) tuples sorted by start
   ranges : Array[(Range, NodeId)]
-  /// Token-level spans within nodes (e.g., param name in lambda, binding name in let).
-  /// Outer key = NodeId of containing node, inner key = token role name, value = Range.
+  /// Token-level UTF-16 source spans within nodes (e.g., param name in lambda,
+  /// binding name in let). Outer key = NodeId of containing node, inner key =
+  /// token role name, value = Range.
   token_spans : Map[NodeId, Map[String, Range]]
 } derive(Debug, Eq)
 
@@ -100,7 +103,7 @@ pub fn[T] SourceMap::patch_subtree(
 }
 
 ///|
-/// Get the text range for a node
+/// Get the half-open UTF-16 source range for a node.
 pub fn SourceMap::get_range(self : SourceMap, node_id : NodeId) -> Range? {
   self.node_to_range.get(node_id)
 }
@@ -119,7 +122,7 @@ fn SourceMap::node_to_range_at_position(
 }
 
 ///|
-/// Find all nodes that contain a given position.
+/// Find all nodes that contain a given UTF-16 source offset.
 /// Returns nodes sorted by containing-range length descending — outermost
 /// (largest range) first, innermost (smallest range) last. Agrees with
 /// `innermost_node_at`'s `minimum_by_length` semantics: the last element is
@@ -142,7 +145,7 @@ pub fn SourceMap::nodes_at_position(
 }
 
 ///|
-/// Find the innermost (smallest) node containing a position
+/// Find the innermost (smallest) node containing a UTF-16 source offset.
 pub fn SourceMap::innermost_node_at(
   self : SourceMap,
   position : Int,
@@ -168,7 +171,7 @@ pub fn SourceMap::innermost_node_at(
 }
 
 ///|
-/// Find nodes whose ranges overlap with a given range
+/// Find nodes whose UTF-16 source ranges overlap with a given range.
 pub fn SourceMap::nodes_in_range(
   self : SourceMap,
   range : Range,
@@ -186,7 +189,8 @@ pub fn SourceMap::nodes_in_range(
 }
 
 ///|
-/// Shift a range by `delta` using the same deletion semantics as node ranges.
+/// Shift a UTF-16 source range by `delta` using the same deletion semantics as
+/// node ranges.
 fn shift_range(
   r : Range,
   edit_start : Int,
@@ -208,7 +212,7 @@ fn shift_range(
 }
 
 ///|
-/// Update positions after a text deletion.
+/// Update UTF-16 source positions after a text deletion.
 /// Shifts all node ranges and token spans after the deleted range backward.
 pub fn SourceMap::apply_edit(
   self : SourceMap,
@@ -264,9 +268,9 @@ pub fn SourceMap::node_count(self : SourceMap) -> Int {
 }
 
 ///|
-/// Set a token-level span for a specific role within a node.
+/// Set a token-level UTF-16 source span for a specific role within a node.
 /// For example, set_token_span(lambda_id, "param", Range::new(2, 3))
-/// records that the param name occupies characters 2..3.
+/// records that the param name occupies source offsets 2..3.
 pub fn SourceMap::set_token_span(
   self : SourceMap,
   node_id : NodeId,

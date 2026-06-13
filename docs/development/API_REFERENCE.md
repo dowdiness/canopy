@@ -119,12 +119,15 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
 
 [canopy251]: https://github.com/dowdiness/canopy/pull/251
 
-Three position units appear in the text-editing surface:
+The main position units are:
 
 | Layer | Unit (today) | What it counts |
 |---|---|---|
+| Projection spans (`ProjNode.start` / `.end`, `SourceMap`, token spans, `@loomcore.Range`) | UTF-16 code-unit source offsets, half-open `[start, end)` | Source/CST positions from parser and projection code. These are not eg-walker item-space positions and not ProseMirror tree positions. |
 | Editor cursor and splice APIs (`SyncEditor::*`) | UTF-16 code-unit offset, snapped to a UAX #29 grapheme boundary | Non-BMP code points still occupy 2 code units; combining marks occupy 1 code unit but are not exposed as cursor stops inside a cluster. |
 | Text diff (`@editor.text_diff`, `dowdiness/text_change`) | UTF-16 code-unit offsets aligned to grapheme boundaries | The minimal splice fields still use code-unit lengths, but prefix/suffix comparison walks full grapheme clusters. |
+| Protocol source spans (`ViewNode.text_range`, `TokenSpan`, `ViewPatch.TextChange`, `Decoration`, `Diagnostic`, `TextEdit`, `SetDocCursor`) | UTF-16 document code-unit offsets | JSON numbers at the wire boundary. See `protocol/README.md` for the field-by-field contract. |
+| ProseMirror cursor intent (`SetPmCursor.pm_tree_position`) | ProseMirror tree position | Position in the PM document tree. Convert before calling source-text APIs. |
 | eg-walker text facade (`@text.Pos`, `TextState::len` via `visible_count()`) | Item-space offset | One slot per atomic content `Op`. The editor converts UTF-16 offsets to item-space before calling `@text.Pos` / `@text.Range`. |
 
 No `GraphemeOffset` opaque type exists today. Keep treating public editor

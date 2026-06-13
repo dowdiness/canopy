@@ -41,6 +41,8 @@ so these units stay separate.
 
 | Field | Direction | Unit | Meaning |
 |---|---|---|---|
+| `ViewNode.text_range[0]` / `[1]` | MoonBit → JS | UTF-16 document code-unit offset | Half-open source range occupied by the node. |
+| `TokenSpan.start` / `.end` | MoonBit → JS | UTF-16 document code-unit offset | Half-open token or role span; same coordinate space as `ViewNode.text_range`. |
 | `ViewPatch.TextChange.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open edit range. |
 | `TextEdit.from` / `.to` | JS → MoonBit | UTF-16 document code-unit offset | Half-open edit range. |
 | `ViewPatch.SetSelection.anchor` / `.head` | MoonBit → JS | UTF-16 document code-unit offset | Text selection endpoints. |

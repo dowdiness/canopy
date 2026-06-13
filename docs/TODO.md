@@ -81,10 +81,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: 16 `find_token(...to_raw())` callsites remain, but views pattern + `token_text()` already reduce the ergonomic pain. Nice-to-have polish.
   Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam.
 
-- [ ] `lib/range` foundational package.
-  Why: Range (`{ start: Int, end: Int }`) is defined twice (loom/core, event-graph-walker/text) and represented implicitly in seam. A shared `lib/range` package at the bottom of the dependency graph would: (a) unify the duplicate definitions, (b) enable `SyntaxToken::range()` / `SyntaxNode::range()` in seam, (c) retire rle's `FromRange` trait.
-  Touches: lib/range (new), seam, loom/core, rle, canopy/core, event-graph-walker/text. Cross-submodule refactoring.
-  Exit: one Range type used by all layers.
+- [x] Reassess shared `lib/range` primitive for range/span units.
+  Why: issue #415 found repeated range-shaped values across SourceMap, protocol, editor text edits, Loom/seam syntax offsets, and eg-walker item-space positions. `moonbitlang/core/range` was also checked, but it is iteration-only today (`iter` + sealed `Step`) and has no span value type. A single `Range[Int]` would erase the unit distinctions pinned by #216 and PR #555.
+  Decision: do **not** introduce a shared `lib/range` primitive now. Keep `@loomcore.Range` for SourceMap/projection UTF-16 source spans, keep `@text.Pos` / `@text.Range` for eg-walker item-space, keep protocol fields as JSON numbers with explicit unit docs, and add unit-specific wrappers only at concrete risky boundaries.
+  Exit: accepted decision in `docs/decisions/2026-06-13-range-span-unit-boundaries.md`; public/cross-package range docs list units explicitly.
 
 - [ ] Unify Token and SyntaxKind into a single enum (rowan style).
   Why: Token and SyntaxKind overlap — every Token variant has a corresponding SyntaxKind variant. Two independent `to_raw()` impls with hardcoded integers can desynchronize.

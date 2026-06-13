@@ -34,6 +34,9 @@ pub impl ToJson for NodeId with fn to_json(self) {
 
 ///|
 /// A text span replacement computed by an edit handler.
+/// `start` and `delete_len` are UTF-16 code-unit offsets/lengths in the
+/// source document coordinate space. Multi-edit arrays are applied in reverse
+/// document order so each edit can use the original source coordinates.
 pub(all) struct SpanEdit {
   start : Int
   delete_len : Int
@@ -95,7 +98,7 @@ fn escape_for_show(s : String) -> String {
 
 ///|
 /// Hint for where to place the cursor after a structural edit.
-/// MoveCursor(position~) uses post-edit coordinates.
+/// MoveCursor(position~) uses post-edit UTF-16 code-unit coordinates.
 pub(all) enum FocusHint {
   RestoreCursor
   MoveCursor(position~ : Int)
