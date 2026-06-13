@@ -17,8 +17,10 @@
 // line-based and its content lines reach MoonBit already decoded to `String`
 // (UTF-16), there is no explicit UTF-8 byte -> UTF-16 conversion step — the
 // decode at the transport boundary absorbs it. The risk that survives is
-// grapheme-splitting by a too-fine minimal diff, which is why the splice is
-// computed at GRAPHEME granularity and driven through `apply_text_edit_exact`.
+// grapheme-splitting by a too-fine minimal diff, which is why the sub-line
+// splice delegates to the shared GRAPHEME-granular leaf
+// (@text_change.compute_text_change) and is driven through
+// `apply_text_edit_exact`.
 
 ///|
 /// Lower a unified-diff `update` payload into TextEdit intents against `doc`.
@@ -46,9 +48,20 @@ pub fn unified_diff_to_intents(
       "codex lowering: stale diff — document line \{edit_line} does not match the patch old text",
     )
   }
-  let (from_in_line, del, insert) = minimal_splice(old_text, new_text)
-  let from = line_start + from_in_line
-  [@protocol.UserIntent::TextEdit(from~, to=from + del, insert~)]
+  // Sub-line splice reuses the repository's shared, grapheme-aligned diff leaf
+  // (@text_change.compute_text_change — the same helper SyncEditor::set_text
+  // drives through), so future fixes to the centralized text-change logic reach
+  // Codex lowering too. Its endpoints land on grapheme-cluster boundaries by
+  // construction, which is what `apply_text_edit_exact` then re-checks.
+  let change = @text_change.compute_text_change(old_text, new_text)
+  let from = line_start + change.start
+  [
+    @protocol.UserIntent::TextEdit(
+      from~,
+      to=from + change.delete_len,
+      insert=change.inserted,
+    ),
+  ]
 }
 
 ///|
@@ -64,45 +77,6 @@ pub fn[T : Eq] apply_intent_exact(
     fail("codex lowering prototype: only TextEdit is supported")
   }
   se.apply_text_edit_exact(from, to - from, insert, timestamp_ms)
-}
-
-///|
-/// Minimal sub-line splice between `old` and `new` as a `(from, del, insert)`
-/// triple in UTF-16 code units, with endpoints aligned to GRAPHEME-cluster
-/// boundaries by construction.
-///
-/// Common prefix and suffix are matched a whole cluster at a time, so the
-/// returned `from`/`from + del` never split a surrogate pair or a combining
-/// sequence. This resolves the research note's §5 chain (sub-line minimal ->
-/// mid-grapheme possible -> grapheme alignment required) at the diff step,
-/// leaving `apply_text_edit_exact` as a pure seatbelt rather than a routine
-/// rejecter of legitimate edits.
-fn minimal_splice(old : String, new : String) -> (Int, Int, String) {
-  let ob = @moji.grapheme_boundaries(old)
-  let nb = @moji.grapheme_boundaries(new)
-  let onc = ob.length() - 1 // number of grapheme clusters in `old`
-  let nnc = nb.length() - 1
-  let bound = onc.min(nnc)
-  // longest common grapheme prefix, then suffix (suffix cannot overlap prefix:
-  // it scans the remaining `bound - p` clusters), so `from <= to` always holds.
-  let p = for k in 0..<bound {
-    if old[ob[k]:ob[k + 1]] != new[nb[k]:nb[k + 1]] {
-      break k
-    }
-  } nobreak {
-    bound
-  }
-  let s = for k in 0..<(bound - p) {
-    if old[ob[onc - 1 - k]:ob[onc - k]] != new[nb[nnc - 1 - k]:nb[nnc - k]] {
-      break k
-    }
-  } nobreak {
-    bound - p
-  }
-  let from = ob[p]
-  let to = ob[onc - s]
-  let insert = new[nb[p]:nb[nnc - s]].to_owned()
-  (from, to - from, insert)
 }
 
 ///|

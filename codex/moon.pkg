@@ -1,7 +1,7 @@
 import {
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/editor",
-  "dowdiness/moji",
+  "dowdiness/text_change",
   "moonbitlang/core/string",
 }
 
