@@ -35,25 +35,6 @@ struct CanvasFullRenderJson {
 } derive(Eq)
 
 ///|
-fn validate_canvas_document(document : CanvasDocument) -> ValidatedCanvas {
-  {
-    document: {
-      nodes: document.nodes.copy(),
-      edges: document.edges.copy(),
-      next_node_id: document.next_node_id,
-    },
-    validation: validate_workflow(
-      @graph_model.canvas_state_from_parts(
-        document,
-        @graph_model.default_viewport(),
-        @graph_model.empty_interaction(),
-        [],
-      ),
-    ),
-  }
-}
-
-///|
 fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
   {
     document: {
@@ -62,124 +43,6 @@ fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
       next_node_id: validated.document.next_node_id,
     },
     validation: validated.validation.copy(),
-  }
-}
-
-///|
-fn lower_canvas(normalized : NormalizedCanvas) -> LoweredCanvas {
-  {
-    nodes: normalized.document.nodes.map(node_to_json),
-    edges: normalized.document.edges.map(edge_to_json),
-    validation: normalized.validation.copy(),
-  }
-}
-
-///|
-fn preview_position_for(
-  preview : DragPreview,
-  node_id : String,
-) -> NodePosition? {
-  @graph_model.find_position(preview.positions, NodeId(node_id))
-}
-
-///|
-fn render_node_with_preview(node : NodeJson, preview : DragPreview) -> NodeJson {
-  match preview_position_for(preview, node.id) {
-    None => node
-    Some(pos) => { ..node, x: pos.x, y: pos.y }
-  }
-}
-
-///|
-fn connecting_to_json(connecting : ConnectState?) -> ConnectingJson? {
-  match connecting {
-    None => None
-    Some(c) => {
-      let NodeId(from) = c.from_node
-      Some({
-        from,
-        from_port: c.from_port,
-        cursor_x: c.cursor_x,
-        cursor_y: c.cursor_y,
-      })
-    }
-  }
-}
-
-///|
-fn render_full_canvas(
-  lowered : LoweredCanvas,
-  viewport : Viewport,
-  drag_preview : DragPreview,
-  selection : SelectionState,
-  interaction : InteractionState,
-  action_count : Int,
-) -> CanvasFullRenderJson {
-  let selected : String? = match selection.selected {
-    None => None
-    Some(id) => Some(node_id_to_string(id))
-  }
-  let selected_nodes = selection.selected_nodes.map(node_id_to_string)
-  {
-    viewport,
-    nodes: lowered.nodes.map(fn(node) {
-      render_node_with_preview(node, drag_preview)
-    }),
-    edges: lowered.edges.copy(),
-    selected,
-    selected_nodes,
-    connecting: connecting_to_json(interaction.connecting),
-    validation: lowered.validation.copy(),
-    action_count,
-  }
-}
-
-///|
-fn inspector_node_for_document(
-  document : CanvasDocument,
-  node_id : String,
-) -> InspectorNodeJson? {
-  match @graph_model.find_node(document.nodes, NodeId(node_id)) {
-    None => None
-    Some(node) =>
-      Some({
-        id: node_id,
-        title: node.title,
-        subtitle: node.subtitle,
-        configured: node.configured,
-        input_count: node.inputs.length(),
-        output_count: node.outputs.length(),
-        source: "",
-      })
-  }
-}
-
-///|
-fn inspector_with_source(
-  inspector : InspectorNodeJson?,
-  source : String,
-) -> InspectorNodeJson? {
-  match inspector {
-    None => None
-    Some(node) => Some({ ..node, source, })
-  }
-}
-
-///|
-fn render_state_from_parts(
-  full : CanvasFullRenderJson,
-  inspector : InspectorNodeJson?,
-) -> RenderStateJson {
-  {
-    viewport: full.viewport,
-    nodes: full.nodes.copy(),
-    edges: full.edges.copy(),
-    selected: full.selected,
-    selected_nodes: full.selected_nodes.copy(),
-    connecting: full.connecting,
-    validation: full.validation.copy(),
-    action_count: full.action_count,
-    inspector,
   }
 }
 
@@ -201,17 +64,24 @@ priv struct CanvasRuntimeCells {
 
 ///|
 /// Example-local runtime facade. This hardens the private boundary around the
-/// split durable/ephemeral `@incr` state; it is not a public reusable runtime
-/// extraction.
+/// split durable/ephemeral `@incr` state. Graph mechanics stay here; workflow
+/// validation/render/inspector/add-node policy is injected through the private
+/// host-policy seam rather than baked into the cells.
 priv struct CanvasRuntime {
+  policy : CanvasHostPolicy
   cells : CanvasRuntimeCells
 }
 
 ///|
 fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
+  CanvasRuntime::with_host_policy(workflow_canvas_host_policy())
+}
+
+///|
+fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let initial = CanvasState::default()
+  let initial = (policy.initial_state)()
   let document = scope.input(
     @graph_model.canvas_document_from_state(initial),
     label="canvas.document",
@@ -233,7 +103,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   let interaction = scope.input(initial.interaction, label="canvas.gesture")
 
   let validated = scope.derived(
-    () => validate_canvas_document(document.get()),
+    () => policy.validate_canvas_document(document.get()),
     label="canvas.validation",
   )
   let normalized = scope.derived(
@@ -241,12 +111,12 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
     label="canvas.normalization",
   )
   let lowered = scope.derived(
-    () => lower_canvas(normalized.get_or_abort()),
+    () => policy.lower_canvas(normalized.get_or_abort()),
     label="canvas.lowering",
   )
   let render = scope.derived(
     () => {
-      render_full_canvas(
+      policy.render_full_canvas(
         lowered.get_or_abort(),
         viewport.get(),
         drag_preview.get(),
@@ -260,7 +130,10 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
 
   let node_inspector = scope.derived_map(
     (id : String) => {
-      inspector_node_for_document(normalized.get_or_abort().document, id)
+      policy.inspector_node_for_document(
+        normalized.get_or_abort().document,
+        NodeId(id),
+      )
     },
     label="canvas.inspector.node_by_id",
   )
@@ -270,17 +143,17 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
       let current_selection = selection.get()
       match current_selection.selected {
         Some(id) =>
-          inspector_with_source(
+          policy.inspector_with_source(
             node_inspector.get_or_abort(node_id_to_string(id)),
-            "selected",
+            policy.selected_inspector_source,
           )
         None =>
           match hover.get() {
             None => None
             Some(id) =>
-              inspector_with_source(
+              policy.inspector_with_source(
                 node_inspector.get_or_abort(node_id_to_string(id)),
-                "hovered",
+                policy.hovered_inspector_source,
               )
           }
       }
@@ -304,7 +177,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
     render_watch,
     inspector_watch,
   }
-  { cells, }
+  { policy, cells }
 }
 
 ///|
@@ -625,7 +498,7 @@ fn CanvasRuntime::add_node(
   let state = self.state_peek()
   let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
   self.sync_document_action_state(
-    @graph_model.workflow_add_node(state, kind_key, wx, wy),
+    (self.policy.add_node)(state, kind_key, wx, wy),
   )
 }
 
@@ -657,7 +530,10 @@ fn CanvasRuntime::disconnect_ports(
 
 ///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
-  render_state_from_parts(self.read_full_render(), self.read_inspector())
+  self.policy.render_state_from_parts(
+    self.read_full_render(),
+    self.read_inspector(),
+  )
 }
 
 ///|

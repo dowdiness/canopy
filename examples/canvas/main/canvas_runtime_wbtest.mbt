@@ -33,7 +33,9 @@ test "validate_workflow reports missing typed input ports independently" {
       },
     ],
   }
-  let messages = validate_workflow(state)
+  let messages = validate_workflow_document(
+    @graph_model.canvas_document_from_state(state),
+  )
   assert_true(
     messages
     .iter()
