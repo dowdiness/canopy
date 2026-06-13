@@ -82,20 +82,48 @@ The MoonBit dispatch already exists in the FFI layer (`ffi/lambda/intent.mbt`):
   (returns `false` if an endpoint is off a grapheme boundary or out of range; doc
   unchanged on rejection).
 
-So the from/to→deleted_len collapse and the snap/exact choice are MoonBit
-concerns, not TypeScript. The TS adapter (`adapters/editor-adapter/cm6-adapter.ts`)
-only produces the `{type:"TextEdit", from, to, insert}` JSON.
+So the `from/to→deleted_len` collapse and the snap/exact choice are MoonBit
+concerns, not TypeScript. The TS adapter
+(`adapters/editor-adapter/cm6-adapter.ts:255`) only produces the
+`{type:"TextEdit", from, to, insert}` JSON — i.e. the **CM6 bridge** computes
+`from/to` on the **TS** side (strategy (a)-like, §4). The `codex/` prototype is
+different: it computes the splice **entirely in MoonBit** from the diff string,
+with **no TS offset step** (strategy (b), §4).
 
-## 4. The crux: offset-unit conversion (stated precisely)
+## 4. The crux: endpoint grapheme alignment (stated precisely)
 
 `TextEdit.from`/`.to` are **UTF-16 document code-unit offsets**, half-open
-(`protocol/README.md:45`; field types `Int`). Codex's diff coordinates are
-**UTF-8 lines/bytes**. An adapter must convert. Three precise claims — all
-code-verified and empirically demonstrated (§6), so stated as settled:
+(`protocol/README.md:45`; field types `Int`). The crux is that **edit endpoints
+must land on grapheme-cluster boundaries**; the coordinate system the adapter
+works in changes only *how* a misalignment is produced, never *whether* it can
+be. Two adapter strategies make this concrete:
 
-1. **The skew is nonzero even for BMP multibyte.** A single `é` (precomposed
-   U+00E9) is 2 UTF-8 bytes but 1 UTF-16 code unit. So a byte→UTF-16 converter is
-   **always** required; ASCII-only intuition is wrong even without emoji.
+- **(a) Trust the diff's byte-columns.** Codex diff content is **UTF-8
+  lines/bytes**; mapping a byte-column directly to a `TextEdit` offset requires a
+  **UTF-8 byte → UTF-16 code-unit** conversion. The *conversion error* is the
+  misalignment source.
+- **(b) Discard byte-columns, re-diff line contents.** Take only the line
+  *number* from the hunk header and recompute the splice from the `-`/`+` line
+  *contents* (already decoded to UTF-16 `String`). No byte→UTF-16 arithmetic
+  occurs — but the minimal diff **must be computed at grapheme granularity**, or
+  a common prefix/suffix boundary splits a surrogate pair / combining sequence.
+  The *granularity error* is the misalignment source.
+
+Same crux, two coordinate systems. Three precise claims — all code-verified and
+empirically demonstrated (§6), so stated as settled:
+
+1. **The skew is nonzero even for BMP multibyte.** Under (a): a single `é`
+   (precomposed U+00E9) is 2 UTF-8 bytes but 1 UTF-16 code unit, so a byte→UTF-16
+   converter is **always** required; ASCII-only intuition is wrong even without
+   emoji. Under (b) the failure has the same *shape* — a code-unit-granular
+   minimal diff splits a grapheme on innocuous-looking input — but a different
+   verified witness: the probe case is **non-BMP**, two emoji sharing a UTF-16
+   high surrogate (🧑🧒 = U+1F9D1 / U+1F9D2, both `D83E …`), where a code-unit
+   common prefix stops mid-surrogate so the splice endpoint lands inside the
+   cluster (§6). This is **not** a tight parallel of (a): (a) holds *even for
+   BMP* multibyte, whereas (b)'s verified break is non-BMP. The BMP analogue for
+   (b) — a combining sequence (`e` + U+0301) split between base and mark — is
+   plausible but **not yet probed**, so it is not asserted here.
 2. **The skew becomes a *rejectable* error only when it lands mid-cluster** —
    inside a surrogate pair or a combining sequence. When the skew instead lands on
    a *different but valid* grapheme boundary, the result is an edit **correctly
@@ -115,6 +143,18 @@ grapheme boundary. The snap site (`SnapToGrapheme`, `:231-251`) uses
 `@moji.prev/next_grapheme_boundary`, then `apply_local_text_change` constructs the
 `@loom_core.Edit` for the CRDT — i.e. snap precedes the eg-walker item-space Edit,
 matching `protocol/README.md:52-53`.
+
+**Which strategy the prototype took.** The `codex/` adapter prototype chose
+**(b)**: `parse_single_line_update` reads only the line *number* from the hunk
+header, and `minimal_splice` recomputes the splice from the `-`/`+` line contents
+at grapheme granularity (`codex/lowering.mbt` design note). So the byte→UTF-16
+conversion of (a) never appears in that code — but the crux did not vanish, it
+**moved** to minimal-diff granularity, which `minimal_splice` addresses head-on.
+Read §4's earlier "offset-unit conversion" name as the **(a)-manifestation** of a
+coordinate-independent requirement, not as the crux itself. This generalization
+is exactly §5's deduction chain (sub-line minimal → mid-grapheme possible →
+grapheme alignment required → Exact seatbelt); §5 was the correct statement of
+the crux all along.
 
 ## 5. Policy: deduced, then precedented
 
@@ -161,6 +201,14 @@ decomposed `e` + U+0301 (3 bytes / 2 units) would shift them:
 
 The probe was removed after observation (not committed), consistent with
 prototype-first discipline.
+
+A **second, committed** probe exhibits the same crux under strategy (b)
+(`codex/lowering_test.mbt`): document `🧑🧒` → `🧒`, where the two emoji share
+UTF-16 high surrogate `D83E`. A code-unit-granular minimal diff stops the common
+prefix mid-surrogate (Exact rejects / full-text-match fails); a grapheme-granular
+one yields `(from=0, del=2)` and accepts. The §6 table above is the **(a)**
+manifestation (byte-as-UTF-16 naive converter); this is the **(b)** manifestation
+— the same claim 1–3 in different coordinates.
 
 ## 7. Placement
 
