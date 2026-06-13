@@ -38,22 +38,21 @@ fn compute_duplicate_binding(
     Err(e) => return Err(e)
   }
   let def = module_projection.defs[def_index]
-  let (let_start, binding_end) = match
-    get_binding_text_range(source_text, source_map, def) {
-    Ok(r) => r
+  let binding_source = match
+    binding_rewrite_source(source_text, source_map, def) {
+    Ok(source) => source
     Err(e) => return Err(e)
   }
   // Create copy with _copy suffix on name, preserving source syntax such as
   // `fn` parameter annotations instead of reprinting the desugared Lam spine.
   let new_name = def.0 + "_copy"
   let new_binding = match
-    renamed_binding_text(
-      source_text, source_map, def, let_start, binding_end, new_name,
-    ) {
+    binding_source.renamed_text(source_text, source_map, new_name) {
     Ok(text) => text
     Err(e) => return Err(e)
   }
   // Insert after the current binding (after newline)
+  let binding_end = binding_source.binding_end
   let insert_pos = if binding_end < source_text.length() &&
     source_text[binding_end] == '\n' {
     binding_end + 1

@@ -797,7 +797,7 @@ test "compute_text_edit: DuplicateBinding on last binding" {
 
 ///|
 test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
-  let text = "fn id(x : Int) { x }\nid 1"
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -811,7 +811,7 @@ test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
       let new_text = apply_edits(text, edits)
       inspect(
         new_text,
-        content="fn id(x : Int) { x }\nfn id_copy(x : Int) { x }\nid 1",
+        content="fn twice(f : Int -> Int, x : Int) { f x }\nfn twice_copy(f : Int -> Int, x : Int) { f x }\ntwice",
       )
     }
     _ => fail("expected Some edits")
@@ -1146,8 +1146,8 @@ test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
 }
 
 ///|
-test "compute_text_edit: InlineAllUsages rejects fn binding with usages" {
-  let text = "fn id(x : Int) { x }\nid"
+test "compute_text_edit: InlineAllUsages preserves typed fn binding" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice id 1"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -1156,15 +1156,18 @@ test "compute_text_edit: InlineAllUsages rejects fn binding with usages" {
     InlineAllUsages(binding_node_id=fp.defs[0].3),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  @debug.debug_inspect(
-    result,
-    content="Err(\"Cannot inline fn binding while preserving parameter annotations\")",
-  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="((f : Int -> Int, x : Int) => { f x }) id 1")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
 }
 
 ///|
-test "compute_text_edit: InlineDefinition rejects fn binding" {
-  let text = "fn id(x : Int) { x }\nid"
+test "compute_text_edit: InlineDefinition preserves typed fn binding" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
@@ -1174,10 +1177,55 @@ test "compute_text_edit: InlineDefinition rejects fn binding" {
     InlineDefinition(node_id=body.id()),
     make_edit_ctx(text, source_map, registry, fp),
   )
-  @debug.debug_inspect(
-    result,
-    content="Err(\"Cannot inline fn binding while preserving parameter annotations\")",
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="((f : Int -> Int, x : Int) => { f x })")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition preserves indented typed fn binding" {
+  let text = "  fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, fp),
   )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="((f : Int -> Int, x : Int) => { f x })")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition zero-param fn uses block body" {
+  let text = "fn answer() { 42 }\nanswer"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="{ 42 }")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
 }
 
 ///|
