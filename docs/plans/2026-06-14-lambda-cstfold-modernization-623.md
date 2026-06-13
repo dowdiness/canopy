@@ -84,16 +84,20 @@ projection without changing editor behavior.
    - `@parser.syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))`
    for representative sources.
 2. Classify each source as either:
-   - **must agree now**: ints, vars, parens, `fn` bindings, multi-param arrows,
-     apps, binary expressions, `if`, holes, normal modules; or
+   - **must agree for valid representative sources**: ints, vars, parens,
+     `fn` bindings, multi-param arrows, apps, binary expressions, `if`, holes,
+     normal modules; or
    - **legacy divergence**: block-expression empty/single-expression behavior,
-     until a compatibility decision is made.
+     until a compatibility decision is made; or
+   - **recovery divergence**: malformed/recovery CSTs whose current projection
+     and CstFold error normalization intentionally differ.
 3. Move one safe `Term` construction responsibility from
    `lang/lambda/proj/proj_node.mbt` to the existing CstFold API. Start with a
    local, private helper that obtains the folded `Term` for a syntax subtree and
-   use it only on cases pinned by the parity tests. Do not change
-   `ModuleProjection` storage, public `.mbti` shape, source-map token roles, or
-   the edit bridge in this slice.
+   use it only on cases pinned by the parity tests. Start with leaf/value cases
+   (`Int`, `Var`, `Hole`) before composite nodes whose `ProjNode.kind` must stay
+   consistent with child kinds. Do not change `ModuleProjection` storage, public
+   `.mbti` shape, source-map token roles, or the edit bridge in this slice.
 4. Document any retained divergence in the test names/comments rather than
    silently normalizing it.
 
@@ -104,6 +108,17 @@ Likely touched files:
   `lang/lambda/proj/proj_node_cstfold_wbtest.mbt`
 - `lang/lambda/proj/pkg.generated.mbti` only if `moon info` reveals an intended
   public API change; the preferred first slice should avoid one.
+
+## Issue slicing
+
+- #628 — add CstFold parity tests.
+- #629 — decide the block-expression divergence.
+- #630 — replace safe hand-built `Term` construction with CstFold.
+- #631 — extract a definition index from `ModuleProjection`.
+- #632 — migrate scope/edit/semantic consumers off `ModuleProjection`.
+- #633 — switch the projection memo stack to the generic 3-memo path.
+- #634 — revisit the Lambda edit bridge after `ModuleProjection` removal.
+- #635 — replace typed-`fn` source scanners with structured token metadata.
 
 ## Non-goals
 
@@ -122,16 +137,22 @@ From the worktree root:
 ```bash
 NEW_MOON_MOD=0 moon check lang/lambda/proj
 NEW_MOON_MOD=0 moon test lang/lambda/proj
+NEW_MOON_MOD=0 moon test lang/lambda/flat
 NEW_MOON_MOD=0 moon test lang/lambda/edits
+NEW_MOON_MOD=0 moon test lang/lambda/semantic
 NEW_MOON_MOD=0 moon test lang/lambda/companion
 NEW_MOON_MOD=0 moon fmt
 NEW_MOON_MOD=0 moon info
 git diff -- '*.mbti'
 ```
 
-For docs-only follow-up edits in this checkout, the root `check-docs.sh`
-script is absent as of `b11b29f`; run the available doc-link check instead:
+For docs-only follow-up edits, run the root doc check if it exists in the
+current checkout. If it is still absent, run the available doc-link check:
 
 ```bash
-bash scripts/check-agent-doc-links.sh
+if [ -x ./check-docs.sh ]; then
+  bash ./check-docs.sh
+else
+  bash scripts/check-agent-doc-links.sh
+fi
 ```
