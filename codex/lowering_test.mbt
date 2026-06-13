@@ -22,12 +22,11 @@ test "codex lowering: update diff deletes first of two adjacent emoji" {
     #|-🧑🧒
     #|+🧒
   let intents = unified_diff_to_intents(se.get_text(), diff)
-  let mut all_accepted = true
-  for intent in intents {
-    if !apply_intent_exact(se, intent, 1) {
-      all_accepted = false
-    }
-  }
+  // Apply every lowered intent; the document is correct only if all are
+  // accepted by EXACT. `apply...` is the left operand so it always runs.
+  let all_accepted = intents.fold(init=true, (ok, intent) => {
+    apply_intent_exact(se, intent, 1) && ok
+  })
   assert_true(all_accepted)
   assert_eq(se.get_text(), "🧒")
 }
@@ -46,12 +45,11 @@ test "codex lowering: content line starting with dashes is not a file header" {
     #|----
     #|+***
   let intents = unified_diff_to_intents(se.get_text(), diff)
-  let mut all_accepted = true
-  for intent in intents {
-    if !apply_intent_exact(se, intent, 1) {
-      all_accepted = false
-    }
-  }
+  // Apply every lowered intent; the document is correct only if all are
+  // accepted by EXACT. `apply...` is the left operand so it always runs.
+  let all_accepted = intents.fold(init=true, (ok, intent) => {
+    apply_intent_exact(se, intent, 1) && ok
+  })
   assert_true(all_accepted)
   assert_eq(se.get_text(), "***")
 }

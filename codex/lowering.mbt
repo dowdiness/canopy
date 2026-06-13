@@ -143,15 +143,13 @@ fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
 ///|
 /// Extract the old start line `A` from a hunk header `@@ -A[,B] +C[,D] @@`.
 fn parse_hunk_old_start(header : String) -> Int raise {
-  for tok in header.split(" ") {
-    if tok.has_prefix("-") {
-      let body = tok[1:]
-      let num = match body.split(",").next() {
-        Some(v) => v.to_owned()
-        None => body.to_owned()
-      }
-      return @string.parse_int(num)
-    }
+  guard header.split(" ").find_first(tok => tok.has_prefix("-")) is Some(tok) else {
+    fail("codex lowering: malformed hunk header")
   }
-  fail("codex lowering: malformed hunk header")
+  let body = tok[1:]
+  let num = match body.split(",").next() {
+    Some(v) => v.to_owned()
+    None => body.to_owned()
+  }
+  @string.parse_int(num)
 }
