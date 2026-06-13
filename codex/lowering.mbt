@@ -31,7 +31,11 @@ pub fn unified_diff_to_intents(
   diff : String,
 ) -> Array[@protocol.UserIntent] raise {
   let (edit_line, old_text, new_text) = parse_single_line_update(diff)
-  let line_start = line_start_offset(doc, edit_line)
+  // Absent-line guard: a missing target line must NOT collapse to EOF and then
+  // match an empty `old_text` — that would apply the edit as an EOF insertion.
+  guard line_start_offset(doc, edit_line) is Some(line_start) else {
+    fail("codex lowering: target line \{edit_line} is absent from the document")
+  }
   let line_end = line_end_offset(doc, line_start)
   // Stale-diff guard: this prototype does no fuzzy/concurrent apply, so the
   // targeted document line MUST currently equal the patch's old text. Without
@@ -102,21 +106,24 @@ fn minimal_splice(old : String, new : String) -> (Int, Int, String) {
 }
 
 ///|
-/// UTF-16 offset of the start of the given 1-based line in `doc`.
-fn line_start_offset(doc : String, line_1based : Int) -> Int {
+/// UTF-16 offset of the start of the given 1-based line in `doc`, or `None` if
+/// the document has fewer than `line_1based` lines. The absent case must stay
+/// distinct from an empty line that genuinely exists at EOF — otherwise a
+/// missing target line collapses to EOF and a `""` old-text check passes.
+fn line_start_offset(doc : String, line_1based : Int) -> Int? {
   if line_1based <= 1 {
-    return 0
+    return Some(0)
   }
   for i in 0..<doc.length(); line = 1 {
     if doc[i] is '\n' {
       if line + 1 == line_1based {
-        break i + 1
+        break Some(i + 1)
       }
       continue line + 1
     }
     continue line
   } nobreak {
-    doc.length()
+    None
   }
 }
 
@@ -153,6 +160,11 @@ fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
   let mut old_count = 0
   let mut new_text : String? = None
   let mut new_count = 0
+  // A genuine single-line REPLACE emits `+new` immediately after `-old`. A `-`
+  // and `+` separated by context is a delete + insert at different positions
+  // (move-shaped) — out of scope — so track whether the `+` is adjacent.
+  let mut prev_was_minus = false
+  let mut plus_follows_minus = false
   for line in diff.split("\n") {
     if line.has_prefix("@@") {
       hunks += 1
@@ -168,9 +180,11 @@ fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
       } else if line.has_prefix("+") {
         new_text = Some(line[1:].to_owned())
         new_count += 1
+        plus_follows_minus = prev_was_minus
       } else if line.has_prefix(" ") {
         cur_old = Some(n + 1) // context line advances the old side
       }
+      prev_was_minus = line.has_prefix("-")
     }
     // lines before the first `@@` are file headers / preamble — ignored
   }
@@ -180,13 +194,18 @@ fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
   guard old_count <= 1 && new_count <= 1 else {
     fail("codex lowering: multi-line update unsupported (out of scope)")
   }
-  guard old_at is Some((edit_line, old_text)) else {
+  guard old_at is Some((edit_line, old_body)) else {
     fail("codex lowering: no hunk `-` line")
   }
-  guard new_text is Some(new_text) else {
+  guard new_text is Some(new_body) else {
     fail("codex lowering: no hunk `+` line")
   }
-  (edit_line, old_text, new_text)
+  guard plus_follows_minus else {
+    fail(
+      "codex lowering: separated delete/insert update unsupported (out of scope)",
+    )
+  }
+  (edit_line, old_body, new_body)
 }
 
 ///|

@@ -142,3 +142,44 @@ test "codex lowering: EOF-newline marker is rejected" {
   }
   assert_true(raised)
 }
+
+///|
+/// P1 (separated delete/insert): a single `-`/`+` separated by context is a
+/// delete + insert at different positions (move-shaped), not a replace.
+/// `a\nb\nc` with `-a` … `+x` means "drop line 1, append x" — pairing them as
+/// a replace would corrupt line 1 (`x\nb\nc`). It must be rejected.
+test "codex lowering: separated delete/insert is rejected" {
+  let diff =
+    #|@@ -1,3 +1,3 @@
+    #|-a
+    #| b
+    #| c
+    #|+x
+  let raised = try {
+    let _ = unified_diff_to_intents("a\nb\nc", diff)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(raised)
+}
+
+///|
+/// P2 (absent target line): a hunk whose target line does not exist in the
+/// current document must fail, not collapse to EOF and match an empty
+/// `old_text`. Here the patch edits line 2 (empty -> `bar`) but the document
+/// `foo` has only line 1, so applying it would insert at EOF (`foobar`).
+test "codex lowering: edit targeting an absent line is rejected" {
+  let diff =
+    #|@@ -1,2 +1,2 @@
+    #| foo
+    #|-
+    #|+bar
+  let raised = try {
+    let _ = unified_diff_to_intents("foo", diff)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(raised)
+}
