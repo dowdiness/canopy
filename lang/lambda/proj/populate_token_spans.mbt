@@ -101,12 +101,12 @@ fn collect_token_spans_let_def(
     return
   }
   let init_proj = let_def_node.children[0]
-  let params = def_view.params()
-  if params.is_empty() {
+  let param_count = param_ident_tokens(def_syn).length()
+  if param_count == 0 {
     collect_token_spans_expr(source_map, init_syn, init_proj)
   } else {
     collect_token_spans_lambda_params(source_map, def_syn, init_proj)
-    match lambda_body_proj(init_proj, params.length()) {
+    match lambda_body_proj(init_proj, param_count) {
       Some(body_proj) =>
         collect_token_spans_expr(source_map, init_syn, body_proj)
       None => ()
@@ -176,8 +176,26 @@ fn param_ident_tokens(node : @seam.SyntaxNode) -> Array[@seam.SyntaxToken] {
       @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList
     })
   match param_list {
-    Some(params) => params.tokens_of_kind(@syntax.IdentToken.to_raw())
-    None => node.tokens_of_kind(@syntax.IdentToken.to_raw())
+    Some(params) => {
+      let tokens : Array[@seam.SyntaxToken] = []
+      let mut expect_param = true
+      for elem in params.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(tok) => {
+            let kind = @syntax.SyntaxKind::from_raw(tok.kind())
+            if kind == @syntax.IdentToken && expect_param {
+              tokens.push(tok)
+              expect_param = false
+            } else if kind == @syntax.CommaToken {
+              expect_param = true
+            }
+          }
+          _ => ()
+        }
+      }
+      tokens
+    }
+    None => []
   }
 }
 
@@ -235,7 +253,8 @@ fn collect_token_spans_expr(
   if @parser.LambdaExprView::cast(syntax_node) is Some(v) {
     collect_token_spans_lambda_params(source_map, syntax_node, proj_node)
     if v.body() is Some(body_syn) {
-      match lambda_body_proj(proj_node, v.params().length()) {
+      match
+        lambda_body_proj(proj_node, param_ident_tokens(syntax_node).length()) {
         Some(body_proj) =>
           collect_token_spans_expr(source_map, body_syn, body_proj)
         None => ()

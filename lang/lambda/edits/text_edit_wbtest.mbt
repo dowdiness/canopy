@@ -228,6 +228,25 @@ test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
 }
 
 ///|
+test "compute_text_edit: WrapInLambda parenthesizes subexpression" {
+  let text = "f 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let func = proj.children[0]
+  let result = compute_text_edit(
+    WrapInLambda(node_id=func.id(), var_name="x"),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="((x) => f) 1")
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: WrapInApp wraps node in application" {
   let text = "42"
   let (proj, _) = parse_to_proj_node(text)
@@ -1262,6 +1281,27 @@ test "compute_text_edit: Rename nested lambda" {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="(z, y) => z")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Rename typed fn second param ignores type identifiers" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let inner_lam = proj.children[0].children[0].children[0]
+  let result = compute_text_edit(
+    Rename(node_id=inner_lam.id(), new_name="y"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content="fn twice(f : Int -> Int, y : Int) { f y }\ntwice",
+      )
     }
     _ => fail("expected Some edits")
   }

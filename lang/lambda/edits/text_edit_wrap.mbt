@@ -16,6 +16,10 @@ fn compute_wrap_lambda(
     Ok(_) => ()
   }
   let wrapped = @ast.print_term(@ast.Term::Lam(var_name, node.kind))
+  let wrapped = match find_parent(registry, node_id) {
+    Some(_) => "(" + wrapped + ")"
+    None => wrapped
+  }
   Ok(
     Some(
       (

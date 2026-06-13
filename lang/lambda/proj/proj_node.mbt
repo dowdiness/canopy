@@ -149,7 +149,8 @@ fn project_let_def(
   counter : Ref[Int],
 ) -> ProjectedLetDef {
   let def_node = def.syntax_node()
-  let params = def.params()
+  let param_tokens = param_ident_tokens(def_node)
+  let params = param_tokens.map(tok => tok.text())
   let init = match def.init() {
     Some(n) =>
       if params.is_empty() {
@@ -160,7 +161,6 @@ fn project_let_def(
     None =>
       error_node_for_syntax("missing let binding value", def_node, counter)
   }
-  let param_tokens = param_ident_tokens(def_node)
   let init = wrap_params_as_lams(
     params,
     param_tokens.map(tok => tok.start()),
@@ -216,11 +216,11 @@ pub fn syntax_to_proj_node(
       Some(b) => syntax_to_proj_node(b, counter)
       None => error_node_for_syntax("missing lambda body", node, counter)
     }
-    let params = v.params()
+    let param_tokens = param_ident_tokens(node)
+    let params = param_tokens.map(tok => tok.text())
     if params.is_empty() {
       error_node_for_syntax("missing lambda parameter", node, counter)
     } else {
-      let param_tokens = param_ident_tokens(node)
       wrap_params_as_lams(
         params,
         param_tokens.map(tok => tok.start()),

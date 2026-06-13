@@ -80,6 +80,23 @@ test "populate_token_spans: multi-param lambda spans each desugared Lam" {
 }
 
 ///|
+test "populate_token_spans: typed multi-param lambda ignores type identifiers" {
+  let text = "(f : Int -> Int, x : Int) => f x"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  expect_param_span(source_map, proj, 1, 2)
+  expect_param_span(source_map, proj.children[0], 17, 18)
+}
+
+///|
+test "populate_token_spans: typed fn params ignore type identifiers" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let fn_lam = proj.children[0].children[0]
+  expect_param_span(source_map, fn_lam, 9, 10)
+  expect_param_span(source_map, fn_lam.children[0], 25, 26)
+}
+
+///|
 test "populate_token_spans: application left spine reaches every lambda arg" {
   let text = "((x) => x) ((y) => y) ((z) => z)"
   let (proj, source_map) = parse_proj_with_token_spans(text)
