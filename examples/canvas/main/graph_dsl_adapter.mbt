@@ -1,4 +1,8 @@
 ///|
+/// Source-backed Graph DSL host policy stays in this example adapter: viewport
+/// defaults, diagnostics, Graph DSL node templates, and render-param enrichment
+/// live here while pointer/drag/zoom mechanics continue to reuse
+/// `@graph_model` reducers.
 fn default_source_graph_viewport() -> Viewport {
   { x: 360.0, y: 330.0, scale: 1.0 }
 }
