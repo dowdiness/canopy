@@ -94,22 +94,26 @@ fn line_start_offset(doc : String, line_1based : Int) -> Int {
   if line_1based <= 1 {
     return 0
   }
-  let mut count = 1
-  for i in 0..<doc.length() {
+  for i in 0..<doc.length(); line = 1 {
     if doc[i] is '\n' {
-      count += 1
-      if count == line_1based {
-        return i + 1
+      if line + 1 == line_1based {
+        break i + 1
       }
+      continue line + 1
     }
+    continue line
+  } nobreak {
+    doc.length()
   }
-  doc.length()
 }
 
 ///|
 /// Parse a single-changed-line `update` hunk: returns the 1-based old start
 /// line plus the old and new line contents (marker stripped).
 fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
+  // `for .. in` + `mut` is allowed here as a genuine parser STATE MACHINE: the
+  // `in_hunk` flag gates how each line is interpreted, and the three result
+  // slots accumulate across that state — not a simple accumulator.
   let mut line_no : Int? = None
   let mut old_line : String? = None
   let mut new_line : String? = None
