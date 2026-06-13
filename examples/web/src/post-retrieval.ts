@@ -1,9 +1,18 @@
+import type { PostEngagementSignals } from './post-events';
 import type { LocalPost } from './post-store';
+
+export type RankingReasonKind = 'match' | 'resurfacing' | 'recent';
+
+export interface RankingReason {
+  readonly kind: RankingReasonKind;
+  readonly label: string;
+}
 
 export interface RelatedPost {
   readonly post: LocalPost;
   readonly score: number;
   readonly matchedTerms: readonly string[];
+  readonly reasons: readonly RankingReason[];
 }
 
 export interface RetrievalOptions {
@@ -21,7 +30,15 @@ interface IndexedPost {
   readonly profile: TokenProfile;
 }
 
+interface ScoreBreakdown {
+  readonly lexical: number;
+  readonly resurfacing: number;
+  readonly recency: number;
+}
+
 const DEFAULT_RELATED_LIMIT = 5;
+const RESURFACING_BOOST = 0.9;
+const MAX_RECENCY_BOOST = 0.08;
 
 // #593 intentionally starts with a tiny browser-local lexical scorer instead of
 // wiring the experimental MoonBit `echo` package into Vite. Keeping the app on
@@ -100,12 +117,21 @@ const STOP_WORDS = new Set([
 export class PostRetrievalIndex {
   private readonly indexedPosts: readonly IndexedPost[];
   private readonly documentFrequency: ReadonlyMap<string, number>;
+  private readonly oldestPostTime: number;
+  private readonly newestPostTime: number;
 
-  constructor(posts: readonly LocalPost[]) {
+  constructor(
+    posts: readonly LocalPost[],
+    private readonly engagementByPost: ReadonlyMap<string, PostEngagementSignals> = new Map(),
+  ) {
     this.indexedPosts = posts
       .map(post => ({ post, profile: profileText(post.text) }))
       .filter(({ profile }) => profile.totalTerms > 0);
     this.documentFrequency = buildDocumentFrequency(this.indexedPosts);
+
+    const postTimes = this.indexedPosts.map(({ post }) => Date.parse(post.createdAt));
+    this.oldestPostTime = postTimes.length === 0 ? 0 : Math.min(...postTimes);
+    this.newestPostTime = postTimes.length === 0 ? 0 : Math.max(...postTimes);
   }
 
   query(draftText: string, options: RetrievalOptions = {}): RelatedPost[] {
@@ -128,6 +154,23 @@ export class PostRetrievalIndex {
     );
     if (matchedTerms.length === 0) return null;
 
+    const engagement = this.engagementByPost.get(indexedPost.post.id);
+    const score = this.scoreBreakdown(query, indexedPost, matchedTerms, engagement);
+
+    return {
+      post: indexedPost.post,
+      score: totalScore(score),
+      matchedTerms,
+      reasons: buildRankingReasons(matchedTerms, engagement, score),
+    };
+  }
+
+  private scoreBreakdown(
+    query: TokenProfile,
+    indexedPost: IndexedPost,
+    matchedTerms: readonly string[],
+    engagement: PostEngagementSignals | undefined,
+  ): ScoreBreakdown {
     const weightedOverlap = matchedTerms.reduce((score, term) => {
       const frequency = this.documentFrequency.get(term) ?? 0;
       const idf = Math.log(1 + this.indexedPosts.length / (1 + frequency));
@@ -138,11 +181,57 @@ export class PostRetrievalIndex {
     const lengthPenalty = Math.sqrt(indexedPost.profile.totalTerms);
 
     return {
-      post: indexedPost.post,
-      score: (weightedOverlap * (1 + queryCoverage)) / lengthPenalty,
-      matchedTerms,
+      lexical: (weightedOverlap * (1 + queryCoverage)) / lengthPenalty,
+      resurfacing: resurfacingScore(engagement),
+      recency: this.recencyScore(indexedPost.post.createdAt),
     };
   }
+
+  private recencyScore(createdAt: string): number {
+    if (this.newestPostTime <= this.oldestPostTime) return 0;
+
+    const createdTime = Date.parse(createdAt);
+    if (Number.isNaN(createdTime)) return 0;
+
+    const normalizedAge =
+      (createdTime - this.oldestPostTime) / (this.newestPostTime - this.oldestPostTime);
+    return Math.max(0, Math.min(1, normalizedAge)) * MAX_RECENCY_BOOST;
+  }
+}
+
+function resurfacingScore(engagement: PostEngagementSignals | undefined): number {
+  return engagement === undefined ? 0 : Math.log1p(engagement.relatedOpenCount) * RESURFACING_BOOST;
+}
+
+function totalScore(score: ScoreBreakdown): number {
+  return score.lexical + score.resurfacing + score.recency;
+}
+
+function buildRankingReasons(
+  matchedTerms: readonly string[],
+  engagement: PostEngagementSignals | undefined,
+  score: ScoreBreakdown,
+): RankingReason[] {
+  const reasons: RankingReason[] = [
+    { kind: 'match', label: `Echoes ${formatMatchedTerms(matchedTerms)}` },
+  ];
+
+  if (engagement !== undefined && score.resurfacing > 0) {
+    reasons.push({
+      kind: 'resurfacing',
+      label: `Revisited ${engagement.relatedOpenCount}x`,
+    });
+  }
+
+  if (score.recency > 0) {
+    reasons.push({ kind: 'recent', label: 'Newer post' });
+  }
+
+  return reasons;
+}
+
+function formatMatchedTerms(matchedTerms: readonly string[]): string {
+  return matchedTerms.slice(0, 3).join(' · ');
 }
 
 function profileText(text: string): TokenProfile {
