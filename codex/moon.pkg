@@ -1,0 +1,15 @@
+import {
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/editor",
+  "dowdiness/text_change",
+  "moonbitlang/core/string",
+}
+
+import {
+  "dowdiness/canopy/workspace/probe",
+  "dowdiness/canopy/editor",
+} for "test"
+
+options(
+  is_main: false,
+)
