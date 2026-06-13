@@ -102,15 +102,62 @@ pub impl Show for PortType with fn output(self, logger) {
 }
 
 ///|
-pub(all) struct PortDef {
+/// Port metadata shared by render DTOs and graph operations. Prefer the
+/// `port` constructor so new optional capabilities receive their defaults.
+pub struct PortDef {
   id : String
   label : String
   port_type : PortType
-} derive(Debug, Eq, ToJson, FromJson)
+  /// Input ports with this flag accept multiple distinct incoming edges.
+  /// Output ports carry the field for one shared port shape, but validation
+  /// only consults it on target input ports.
+  allows_fan_in : Bool
+} derive(Debug, Eq)
 
 ///|
 pub impl Show for PortDef with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl ToJson for PortDef with fn to_json(self) {
+  let fields : Map[String, Json] = {}
+  fields["id"] = self.id.to_json()
+  fields["label"] = self.label.to_json()
+  fields["port_type"] = self.port_type.to_json()
+  if self.allows_fan_in {
+    fields["allows_fan_in"] = true.to_json()
+  }
+  Json::object(fields)
+}
+
+///|
+pub impl @json.FromJson for PortDef with fn from_json(json, path) {
+  let fields = match json {
+    Json::Object(fields) => fields
+    _ => raise @json.JsonDecodeError((path, "PortDef: expected JSON object"))
+  }
+  let port_type : PortType = @json.from_json(
+    require_json_field(fields, path, "port_type", "PortDef"),
+  )
+  let allows_fan_in = match fields.get("allows_fan_in") {
+    None => false
+    Some(Json::True) => true
+    Some(Json::False) => false
+    Some(_) =>
+      raise @json.JsonDecodeError(
+        (
+          path.add_key("allows_fan_in"),
+          "PortDef: 'allows_fan_in' must be a boolean",
+        ),
+      )
+  }
+  {
+    id: json_string_field(fields, path, "id", "PortDef"),
+    label: json_string_field(fields, path, "label", "PortDef"),
+    port_type,
+    allows_fan_in,
+  }
 }
 
 ///|
@@ -556,8 +603,13 @@ pub impl Show for CanvasState with fn output(self, logger) {
 }
 
 ///|
-pub fn port(id : String, label : String, port_type : PortType) -> PortDef {
-  { id, label, port_type }
+pub fn port(
+  id : String,
+  label : String,
+  port_type : PortType,
+  allows_fan_in? : Bool = false,
+) -> PortDef {
+  { id, label, port_type, allows_fan_in }
 }
 
 ///|
@@ -734,13 +786,29 @@ fn port_type_compatible(source : PortType, target : PortType) -> Bool {
 }
 
 ///|
+fn port_by_id(ports : Array[PortDef], id : String) -> PortDef? {
+  ports.iter().find_first(fn(port) { port.id == id })
+}
+
+///|
 pub fn port_type_by_id(ports : Array[PortDef], id : String) -> PortType? {
-  for port in ports {
-    if port.id == id {
-      return Some(port.port_type)
-    }
+  match port_by_id(ports, id) {
+    Some(port) => Some(port.port_type)
+    None => None
   }
-  None
+}
+
+///|
+fn target_port_has_capacity(
+  edges : Array[Edge],
+  target : NodeId,
+  target_port : String,
+  target_def : PortDef,
+) -> Bool {
+  target_def.allows_fan_in ||
+  !edges
+  .iter()
+  .any(fn(edge) { edge.target == target && edge.target_port == target_port })
 }
 
 ///|
@@ -759,11 +827,17 @@ pub fn can_commit_edge(
       (Some(source_node), Some(target_node)) =>
         match
           (
-            port_type_by_id(source_node.outputs, source_port),
-            port_type_by_id(target_node.inputs, target_port),
+            port_by_id(source_node.outputs, source_port),
+            port_by_id(target_node.inputs, target_port),
           ) {
-          (Some(source_type), Some(target_type)) =>
-            port_type_compatible(source_type, target_type)
+          (Some(source_def), Some(target_def)) =>
+            port_type_compatible(source_def.port_type, target_def.port_type) &&
+            target_port_has_capacity(
+              state.edges,
+              target,
+              target_port,
+              target_def,
+            )
           _ => false
         }
       _ => false

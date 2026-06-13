@@ -33,7 +33,7 @@ pub fn interaction_with_selection(InteractionState, SelectionState) -> Interacti
 
 pub fn make_workflow_node(NodeId, WorkflowNodeKind, Double, Double) -> CanvasNode
 
-pub fn port(String, String, PortType) -> PortDef
+pub fn port(String, String, PortType, allows_fan_in? : Bool) -> PortDef
 
 pub fn port_type_by_id(Array[PortDef], String) -> PortType?
 
@@ -185,12 +185,15 @@ pub(all) struct PanState {
 } derive(Eq, @debug.Debug)
 pub impl Show for PanState
 
-pub(all) struct PortDef {
+pub struct PortDef {
   id : String
   label : String
   port_type : PortType
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+  allows_fan_in : Bool
+} derive(Eq, @debug.Debug)
 pub impl Show for PortDef
+pub impl ToJson for PortDef
+pub impl @json.FromJson for PortDef
 
 pub(all) enum PortType {
   Flow
