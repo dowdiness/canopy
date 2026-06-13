@@ -276,7 +276,7 @@
     }
 
     .related-meta time,
-    .related-match {
+    .related-reason {
       color: var(--muted);
       font-size: 0.72rem;
       font-weight: 700;
@@ -284,8 +284,19 @@
       text-transform: uppercase;
     }
 
-    .related-match {
+    .related-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .related-reason[data-kind="match"] {
       color: color-mix(in oklab, var(--secondary), var(--accent) 20%);
+    }
+
+    .related-reason[data-kind="resurfacing"] {
+      color: color-mix(in oklab, var(--success), var(--text) 18%);
     }
 
     .related-text {
@@ -293,6 +304,28 @@
       color: var(--secondary);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+    }
+
+    .related-open {
+      justify-self: start;
+      margin-top: var(--space-xs);
+      padding: 4px 10px;
+      background: color-mix(in oklab, var(--surface), var(--accent) 8%);
+      color: var(--secondary);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 24%);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .related-open:hover,
+    .related-open:focus-visible {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent), var(--border) 30%);
+      outline: none;
     }
 
     .timeline {
@@ -324,6 +357,11 @@
       background: var(--surface-soft);
       border: 1px solid var(--border);
       border-radius: 16px;
+    }
+
+    .post-item[data-highlighted="true"] article {
+      border-color: color-mix(in oklab, var(--accent), var(--border) 25%);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .post-item time {
