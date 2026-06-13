@@ -60,13 +60,16 @@ pub fn build_semantic_projection_with_module_projection(
 /// genuinely reachable, so the squiggle now rests on the resolver of record
 /// instead of a parallel `env.contains` check.
 ///
-/// The scope graph is reconstructed from `root` (the same tree the diagnostic
-/// ranges come from) so resolution and locations share a single source of
-/// truth; the optional `module_projection` argument is only consulted by the
-/// annotation/decoration walk. Those visual bound/free annotations and
-/// decorations deliberately remain on the environment walk — §6 Step 1 regrounds
-/// the structured diagnostic only. Incremental maintenance is §6 Step 3,
-/// benchmark-gated.
+/// The scope graph is reconstructed from `root` via `from_proj_node(root)` — it
+/// deliberately does NOT reuse the caller-supplied `module_projection`. Both the
+/// registry and the diagnostic ranges derive from `root`, so deriving the
+/// module projection from `root` too keeps resolution consistent with the tree
+/// the squiggles land on; the caller's projection (which under incremental
+/// editing is reconciled separately) could drift from `root` and mis-gate
+/// definition visibility. The `module_projection` argument is consulted only by
+/// the annotation/decoration walk, whose bound/free overlays deliberately remain
+/// on the environment walk — §6 Step 1 regrounds the structured diagnostic only.
+/// Incremental maintenance (avoiding this rebuild) is §6 Step 3, benchmark-gated.
 fn push_scope_failures(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,

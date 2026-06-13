@@ -91,71 +91,24 @@ fn Builder::pass2(
   module_projection : @lambda_proj.ModuleProjection,
   root : @core.ProjNode[@ast.Term],
 ) -> Unit {
-  // Single self-recursive walker (local mutual recursion is unavailable in
-  // current MoonBit, so the module-children descent is inlined in both the
-  // nested-`Module` arm and the root setup below).
-  fn walk(
-    node : @core.ProjNode[@ast.Term],
-    current : ScopeId,
-    cutoffs : Map[ScopeId, Int],
-  ) -> Unit {
-    self.node_scope[node.id()] = current
-    self.node_cutoffs[node.id()] = cutoffs
-    match node.kind {
-      @ast.Term::Lam(param, _) => {
-        let lam_scope = self.add_scope(Some(current))
-        let _ = self.add_decl(
-          lam_scope,
-          node.id(),
-          param,
-          LamParam(lam_id=node.id()),
-        )
-        for child in node.children {
-          walk(child, lam_scope, cutoffs)
-        }
-      }
-      @ast.Term::Module(defs, _) => {
-        let mod_scope = self.add_scope(Some(current))
-        for i, def in defs {
-          let _ = self.add_decl(
-            mod_scope,
-            node.children[i].id(),
-            def.0,
-            ModuleDef(def_index=i),
-          )
-        }
-        let def_count = defs.length()
-        for i, child in node.children {
-          let scoped = cutoffs.copy()
-          scoped[mod_scope] = if i < def_count { i } else { def_count }
-          walk(child, mod_scope, scoped)
-        }
-      }
-      _ =>
-        for child in node.children {
-          walk(child, current, cutoffs)
-        }
-    }
-  }
-
   let root_scope = self.add_scope(None)
   for i, def in module_projection.defs {
     let (name, _init, _start, binder_id) = def
     let _ = self.add_decl(root_scope, binder_id, name, ModuleDef(def_index=i))
   }
   match root.kind {
-    // Top-level module: its scope and decls are installed above, so descend its
-    // children directly (not through the `Module` arm, which would open a
-    // second scope and re-install the defs from the wrong binder ids).
+    // Root is the top-level module. Its scope (parent None) and decls are
+    // installed above from `module_projection.defs` — that pre-installation is
+    // the *only* thing distinguishing root from a nested block. The binder ids
+    // are in fact identical to `root.children[i].id()` (see
+    // `ModuleProjection::from_proj_node`); root is kept out of the generic
+    // `Module` arm only because that arm would open a *second* scope and
+    // re-install the decls. The per-child cutoff descent is shared via
+    // `descend_module_children`.
     @ast.Term::Module(_, _) => {
       self.node_scope[root.id()] = root_scope
       self.node_cutoffs[root.id()] = {}
-      let root_def_count = module_projection.defs.length()
-      for i, child in root.children {
-        let scoped : Map[ScopeId, Int] = {}
-        scoped[root_scope] = if i < root_def_count { i } else { root_def_count }
-        walk(child, root_scope, scoped)
-      }
+      self.descend_module_children(root, root_scope, {})
     }
     // Bare lambda / expression program: `module_projection.defs` is empty, so
     // `root_scope` holds no `ModuleDef`. Dispatch through `walk` so the root's
@@ -163,8 +116,75 @@ fn Builder::pass2(
     _ => {
       let scoped : Map[ScopeId, Int] = {}
       scoped[root_scope] = 0
-      walk(root, root_scope, scoped)
+      self.walk(root, root_scope, scoped)
     }
+  }
+}
+
+///|
+/// Descend the children of a module node (root or nested block) under
+/// `module_scope`, recording each child's sequential cutoff for that scope:
+/// definition `i` (its initialiser) sees defs `[0, i)`, and the trailing body
+/// child sees all defs. `def_count` is derived structurally as
+/// `children.length() - 1` — the body is always the last child (see
+/// `module_node_from_defs`) — so the cutoff stays consistent with the children
+/// actually iterated, independent of `module_projection`'s def count.
+fn Builder::descend_module_children(
+  self : Builder,
+  node : @core.ProjNode[@ast.Term],
+  module_scope : ScopeId,
+  base : Map[ScopeId, Int],
+) -> Unit {
+  let def_count = node.children.length() - 1
+  for i, child in node.children {
+    let scoped = base.copy()
+    scoped[module_scope] = if i < def_count { i } else { def_count }
+    self.walk(child, module_scope, scoped)
+  }
+}
+
+///|
+/// Walk a node, recording its scope and cutoff map. `Lam` nodes open a child
+/// `LamParam` scope; nested-block `Module` nodes open a child scope holding
+/// their own block-local `ModuleDef` decls and descend via
+/// `descend_module_children`. Everything else recurses in the same scope.
+fn Builder::walk(
+  self : Builder,
+  node : @core.ProjNode[@ast.Term],
+  current : ScopeId,
+  cutoffs : Map[ScopeId, Int],
+) -> Unit {
+  self.node_scope[node.id()] = current
+  self.node_cutoffs[node.id()] = cutoffs
+  match node.kind {
+    @ast.Term::Lam(param, _) => {
+      let lam_scope = self.add_scope(Some(current))
+      let _ = self.add_decl(
+        lam_scope,
+        node.id(),
+        param,
+        LamParam(lam_id=node.id()),
+      )
+      for child in node.children {
+        self.walk(child, lam_scope, cutoffs)
+      }
+    }
+    @ast.Term::Module(defs, _) => {
+      let mod_scope = self.add_scope(Some(current))
+      for i, def in defs {
+        let _ = self.add_decl(
+          mod_scope,
+          node.children[i].id(),
+          def.0,
+          ModuleDef(def_index=i),
+        )
+      }
+      self.descend_module_children(node, mod_scope, cutoffs)
+    }
+    _ =>
+      for child in node.children {
+        self.walk(child, current, cutoffs)
+      }
   }
 }
 
