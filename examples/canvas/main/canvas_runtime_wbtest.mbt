@@ -69,8 +69,9 @@ test "runtime delete_nodes removes selected nodes and incident edges" {
   let state = runtime.render_state()
   assert_eq(state.nodes.length(), 5)
   assert_eq(state.edges.length(), 1)
-  assert_eq(runtime.actions.peek().length(), 1)
-  match runtime.actions.peek()[0].action() {
+  let actions = runtime.action_log_snapshot()
+  assert_eq(actions.length(), 1)
+  match actions[0].action() {
     DeleteNodes(nodes) => @debug.assert_eq(nodes, [NodeId("2")])
     _ => fail("expected DeleteNodes action")
   }
@@ -79,7 +80,10 @@ test "runtime delete_nodes removes selected nodes and incident edges" {
 ///|
 test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
+  runtime.sync_viewport_state({
+    ..runtime.state_peek(),
+    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+  })
   runtime.hover_node("1")
   match runtime.render_state().inspector {
     Some(node) => {

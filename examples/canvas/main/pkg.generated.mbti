@@ -68,8 +68,6 @@ pub fn zoom(Int, Double, Double, Double) -> Unit
 // Types and methods
 type CanvasFullRenderJson derive(Eq)
 
-type CanvasRuntime
-
 type ConnectingJson derive(Eq, ToJson)
 
 type EdgeJson derive(Eq, ToJson)
