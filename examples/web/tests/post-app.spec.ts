@@ -130,6 +130,56 @@ test.describe('local-first post app', () => {
     await expect(relatedPanel).toBeHidden();
   });
 
+  test('asks the same input for source posts without posting the question', async ({ page }) => {
+    const question = 'what did I decide about sync recovery?';
+    const sourceText = 'For sync recovery we decided to retry locally before merging remote commits.';
+
+    await page.evaluate(
+      ({ key, posts }) => window.localStorage.setItem(key, JSON.stringify(posts)),
+      {
+        key: POST_STORAGE_KEY,
+        posts: [
+          {
+            id: 'post-sync-recovery',
+            text: sourceText,
+            createdAt: '2026-06-10T09:00:00.000Z',
+          },
+          {
+            id: 'post-basil-window',
+            text: 'Basil seedlings recovered on the kitchen window shelf after I stopped overwatering.',
+            createdAt: '2026-06-09T09:00:00.000Z',
+          },
+        ],
+      },
+    );
+    await page.reload();
+
+    const input = page.getByLabel('Write');
+
+    await input.fill(question);
+    await page.getByRole('button', { name: 'Ask' }).click();
+
+    await expect(input).toHaveValue(question);
+    await expect(page.locator('#related-panel')).toBeVisible();
+    await expect(page.locator('#related-kicker')).toHaveText('Asked from your posts');
+    await expect(page.locator('#related-title')).toHaveText('Source posts');
+    await expect(page.locator('#related-count')).toHaveText('1 source post');
+    await expect(page.locator('.related-text')).toHaveText([sourceText]);
+    await expect(page.locator('#post-count')).toHaveText('2 posts');
+
+    const storedPosts = await page.evaluate(
+      key => JSON.parse(window.localStorage.getItem(key) ?? '[]') as Array<{ text: string }>,
+      POST_STORAGE_KEY,
+    );
+    expect(storedPosts.map(post => post.text)).not.toContain(question);
+
+    const eventPayload = await page.evaluate(
+      key => window.localStorage.getItem(key),
+      POST_EVENT_STORAGE_KEY,
+    );
+    expect(eventPayload ?? '').not.toContain(question);
+  });
+
   test('boosts revisited related posts and explains why they surfaced', async ({ page }) => {
     const olderText = 'Sync recovery policy keeps retry buffer before merge.';
     const newerText = 'Sync recovery policy keeps retry buffer before commit.';
