@@ -479,6 +479,26 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Remaining: gated query-indexing is the only open scope follow-up here; the
   binder-location plan itself is complete.
 
+- [ ] Teach `edits/` resolvers about nested-block (`Module`) scopes.
+  Why: RFA Step 1 (#617) made the scope-graph builder model nested-block scopes,
+  so `failures()`/diagnostics resolve block-local bindings correctly. But
+  `edits/scope.mbt`'s parallel resolver (`declaration_id_for_name_from_scope` +
+  `def_cutoff_at_node`) still applies one root-relative cutoff to every
+  `ModuleDef` scope, and `text_edit_rename.mbt` / inline interpret
+  `DeclKind::ModuleDef(def_index)` against `ctx.module_projection.defs` (the root
+  module only). Top-level rename is unaffected (verified: edits/ suite green),
+  but renaming or referencing a *block-local* binding is now unsound — the graph
+  resolves it to a nested decl whose `def_index` is block-relative, which the
+  edits layer reads as root-relative. Pre-existing blind spot, newly reachable
+  because the graph now emits nested `ModuleDef` decls (Codex pre-PR review,
+  #617).
+  Plan: GitHub issue — generalize the edits resolver to the per-(node, scope)
+  cutoff model the builder now uses (see `lang/lambda/scope/builder.mbt`
+  `node_cutoffs`), keying `def_index` to its declaring scope rather than the root
+  module.
+  Exit: a rename of a block-local binding (`let y = { let x = 1; x }`) renames
+  only the block-local `x`, with a wbtest fixture asserting it.
+
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in

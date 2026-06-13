@@ -17,6 +17,8 @@ pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
 
 pub fn enclosing_env(ScopeGraph, @dowdiness/canopy/core.NodeId) -> @hashset.HashSet[String]
 
+pub fn failures(ScopeGraph, @dowdiness/canopy/core.SourceMap) -> Array[ReachableFailure]
+
 pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @dowdiness/loom/core.Range?
 
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
@@ -38,6 +40,12 @@ pub(all) enum DeclKind {
   LamParam(lam_id~ : @dowdiness/canopy/core.NodeId)
   ModuleDef(def_index~ : Int)
 } derive(Eq, @debug.Debug)
+
+pub(all) struct ReachableFailure {
+  name : String
+  location : @dowdiness/loom/core.Range?
+  witness : Array[ScopeId]
+} derive(@debug.Debug)
 
 pub(all) struct Ref {
   id : RefId

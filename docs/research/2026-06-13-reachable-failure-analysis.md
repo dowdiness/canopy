@@ -104,14 +104,26 @@ resolution**:
 **The decisive difference (Codex-confirmed):** unlike Method-Ray's type domain,
 lambda name resolution is **exact** for the current language — resolution walks
 parent scopes and returns `decl: None` only after exhausting the chain
-(`builder.mbt:143,152,164,175`); `ModuleDef` is a deterministic sequential cutoff,
-not open/dynamic binding. A free variable *is* free. So the false-positive caveat
+(`builder.mbt` `resolve`); `ModuleDef` is a deterministic sequential cutoff, not
+open/dynamic binding. A free variable *is* free. So the false-positive caveat
 that dooms a naive type-domain port **does not bite in the scope domain** — this is
 where Canopy can earn the name "ReachableFailure" on solid ground.
 
+Exactness was not free, though. When this note was written the builder modelled
+only `Lam` scopes; nested-block expressions (which lower to nested `Module` nodes)
+had no scope, so block-local bindings resolved as free — exactness held for flat
+top-level programs but *failed* for blocks. Step 1 (#617) extended `pass2` to open
+a child scope per nested `Module` with its own sequential cutoff (the per-(node,
+scope) `node_cutoffs` map in `builder.mbt`), restoring exactness across blocks. A
+reference-by-reference differential oracle against the semantic env-walk
+(`lang/lambda/semantic/semantic_projection_test.mbt`) now guards it.
+
 Caveat to track: the exactness claim holds *for today's lexical lambda language*. If
 lambda gains open/extensible modules or dynamic binding, scope resolution becomes
-approximate and the genuine-reachable property weakens.
+approximate and the genuine-reachable property weakens. Separately, the `edits/`
+rename/refactor resolver still reads `ModuleDef(def_index)` as root-relative, so it
+does **not** yet resolve block-local bindings correctly — tracked in `docs/TODO.md`
+§20.
 
 ## 5. What exists vs. what's missing (Codex corrections folded in)
 
