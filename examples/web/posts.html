@@ -148,17 +148,34 @@
       font-size: 0.78rem;
     }
 
-    .post-button {
+    .composer-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .post-button,
+    .ask-button {
       min-width: 116px;
       padding: 10px 18px;
-      background: var(--accent);
-      color: var(--text);
-      border: 1px solid color-mix(in oklab, var(--accent), white 10%);
       border-radius: 999px;
       cursor: pointer;
       font-weight: 800;
       letter-spacing: 0.01em;
-      transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+    }
+
+    .post-button {
+      background: var(--accent);
+      color: var(--text);
+      border: 1px solid color-mix(in oklab, var(--accent), white 10%);
+    }
+
+    .ask-button {
+      background: color-mix(in oklab, var(--surface), var(--accent) 10%);
+      color: var(--secondary);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 26%);
     }
 
     .post-button:hover:not(:disabled) {
@@ -166,7 +183,14 @@
       transform: translateY(-1px);
     }
 
-    .post-button:disabled {
+    .ask-button:hover:not(:disabled) {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent), var(--border) 30%);
+      transform: translateY(-1px);
+    }
+
+    .post-button:disabled,
+    .ask-button:disabled {
       cursor: not-allowed;
       opacity: 0.46;
     }
@@ -250,6 +274,17 @@
       margin: 0;
       padding: 0;
       list-style: none;
+    }
+
+    .related-empty {
+      margin: 0;
+      padding-top: var(--space-sm);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .related-empty[hidden] {
+      display: none;
     }
 
     .related-item article {
@@ -410,7 +445,9 @@
         flex-direction: column;
       }
 
-      .post-button {
+      .composer-buttons,
+      .post-button,
+      .ask-button {
         width: 100%;
       }
     }
@@ -432,7 +469,10 @@
 
       <div class="composer-actions">
         <p class="hint"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> posts. Plain <kbd>Enter</kbd> keeps writing.</p>
-        <button class="post-button" id="post-submit" type="submit">Post</button>
+        <div class="composer-buttons">
+          <button class="ask-button" id="post-ask" type="button">Ask</button>
+          <button class="post-button" id="post-submit" type="submit">Post</button>
+        </div>
       </div>
 
       <div class="status-row" aria-live="polite">
@@ -444,11 +484,12 @@
     <section class="related-panel" id="related-panel" aria-labelledby="related-title" hidden>
       <div class="related-heading">
         <div>
-          <p class="related-kicker">Returning while writing</p>
+          <p class="related-kicker" id="related-kicker">Returning while writing</p>
           <h2 id="related-title">Related posts</h2>
         </div>
         <span id="related-count">0 related posts</span>
       </div>
+      <p class="related-empty" id="related-empty" hidden>No matching source posts yet. Try words you remember from the post.</p>
       <ul class="related-list" id="related-list"></ul>
     </section>
 

@@ -4,13 +4,17 @@ import { type LocalPost, LocalPostStore } from './post-store';
 
 const form = document.getElementById('post-form') as HTMLFormElement;
 const draft = document.getElementById('post-input') as HTMLTextAreaElement;
+const askButton = document.getElementById('post-ask') as HTMLButtonElement;
 const submitButton = document.getElementById('post-submit') as HTMLButtonElement;
 const statusEl = document.getElementById('post-status') as HTMLParagraphElement;
 const countEl = document.getElementById('post-count') as HTMLSpanElement;
 const listEl = document.getElementById('post-list') as HTMLUListElement;
 const emptyEl = document.getElementById('empty-state') as HTMLDivElement;
 const relatedPanelEl = document.getElementById('related-panel') as HTMLElement;
+const relatedKickerEl = document.getElementById('related-kicker') as HTMLParagraphElement;
+const relatedTitleEl = document.getElementById('related-title') as HTMLHeadingElement;
 const relatedCountEl = document.getElementById('related-count') as HTMLSpanElement;
+const relatedEmptyEl = document.getElementById('related-empty') as HTMLParagraphElement;
 const relatedListEl = document.getElementById('related-list') as HTMLUListElement;
 
 const store = new LocalPostStore(window.localStorage);
@@ -22,8 +26,39 @@ const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
+type RelatedPanelMode = 'writing' | 'ask';
+
+interface RelatedPanelCopy {
+  readonly kicker: string;
+  readonly title: string;
+  readonly formatCount: (count: number) => string;
+  readonly openButtonText: string;
+  readonly openLabelPrefix: string;
+  readonly openedLabel: string;
+}
+
+const RELATED_PANEL_COPY: Record<RelatedPanelMode, RelatedPanelCopy> = {
+  writing: {
+    kicker: 'Returning while writing',
+    title: 'Related posts',
+    formatCount: pluralizeRelated,
+    openButtonText: 'Open',
+    openLabelPrefix: 'Open related post',
+    openedLabel: 'related post',
+  },
+  ask: {
+    kicker: 'Asked from your posts',
+    title: 'Source posts',
+    formatCount: pluralizeSources,
+    openButtonText: 'Open source',
+    openLabelPrefix: 'Open source post',
+    openedLabel: 'source post',
+  },
+};
+
 let posts: LocalPost[] = [];
 let highlightedPostId: string | null = null;
+let relatedMode: RelatedPanelMode = 'writing';
 let retrievalIndex = new PostRetrievalIndex(posts, eventStore.engagementByPost());
 
 function pluralizePosts(count: number): string {
@@ -32,6 +67,10 @@ function pluralizePosts(count: number): string {
 
 function pluralizeRelated(count: number): string {
   return count === 1 ? '1 related post' : `${count} related posts`;
+}
+
+function pluralizeSources(count: number): string {
+  return count === 1 ? '1 source post' : `${count} source posts`;
 }
 
 function setStatus(message: string, tone: 'idle' | 'success' | 'error' = 'idle'): void {
@@ -44,7 +83,9 @@ function formatTimestamp(value: string): string {
 }
 
 function syncSubmitState(): void {
-  submitButton.disabled = draft.value.trim().length === 0;
+  const isEmpty = draft.value.trim().length === 0;
+  askButton.disabled = isEmpty;
+  submitButton.disabled = isEmpty;
 }
 
 function renderPost(post: LocalPost): HTMLLIElement {
@@ -76,7 +117,8 @@ function renderRankingReason(reason: RankingReason): HTMLSpanElement {
   return item;
 }
 
-function renderRelatedPost(result: RelatedPost): HTMLLIElement {
+function renderRelatedPost(result: RelatedPost, mode: RelatedPanelMode): HTMLLIElement {
+  const copy = RELATED_PANEL_COPY[mode];
   const item = document.createElement('li');
   item.className = 'related-item';
 
@@ -100,8 +142,11 @@ function renderRelatedPost(result: RelatedPost): HTMLLIElement {
   const openButton = document.createElement('button');
   openButton.type = 'button';
   openButton.className = 'related-open';
-  openButton.textContent = 'Open';
-  openButton.setAttribute('aria-label', `Open related post: ${result.post.text.slice(0, 80)}`);
+  openButton.textContent = copy.openButtonText;
+  openButton.setAttribute(
+    'aria-label',
+    `${copy.openLabelPrefix}: ${result.post.text.slice(0, 80)}`,
+  );
   openButton.addEventListener('click', () => openRelatedPost(result));
 
   meta.append(time, reasons);
@@ -110,11 +155,22 @@ function renderRelatedPost(result: RelatedPost): HTMLLIElement {
   return item;
 }
 
-function renderRelated(): void {
+function renderRelated(): number {
   const relatedPosts = retrievalIndex.query(draft.value, { limit: 5 });
-  relatedCountEl.textContent = pluralizeRelated(relatedPosts.length);
-  relatedListEl.replaceChildren(...relatedPosts.map(renderRelatedPost));
-  relatedPanelEl.hidden = relatedPosts.length === 0;
+  const copy = RELATED_PANEL_COPY[relatedMode];
+  const isAskMode = relatedMode === 'ask';
+  const hasResults = relatedPosts.length > 0;
+
+  relatedKickerEl.textContent = copy.kicker;
+  relatedTitleEl.textContent = copy.title;
+  relatedCountEl.textContent = copy.formatCount(relatedPosts.length);
+  relatedListEl.replaceChildren(
+    ...relatedPosts.map(result => renderRelatedPost(result, relatedMode)),
+  );
+  relatedEmptyEl.hidden = !(isAskMode && !hasResults);
+  relatedPanelEl.hidden = !isAskMode && !hasResults;
+
+  return relatedPosts.length;
 }
 
 function replacePosts(nextPosts: LocalPost[]): void {
@@ -144,10 +200,11 @@ function openRelatedPost(result: RelatedPost): void {
   replacePosts(posts);
   render();
   focusTimelinePost(result.post.id);
+  const openedLabel = RELATED_PANEL_COPY[relatedMode].openedLabel;
   setStatus(
     recorded
-      ? 'Opened a related post. Revisited posts get a small ranking boost.'
-      : 'Opened a related post, but could not save its revisit signal.',
+      ? `Opened a ${openedLabel}. Revisited posts get a small ranking boost.`
+      : `Opened a ${openedLabel}, but could not save its revisit signal.`,
     recorded ? 'success' : 'error',
   );
 }
@@ -191,6 +248,7 @@ function submitDraft(): void {
       // Event tracking is best-effort; the post itself is the durable user data.
     }
     highlightedPostId = null;
+    relatedMode = 'writing';
     replacePosts([post, ...posts]);
     draft.value = '';
     syncSubmitState();
@@ -205,6 +263,25 @@ function submitDraft(): void {
   }
 }
 
+function askDraft(): void {
+  const queryText = draft.value.trim();
+  if (queryText.length === 0) {
+    setStatus('Write a question before asking.', 'error');
+    draft.focus();
+    return;
+  }
+
+  relatedMode = 'ask';
+  const sourceCount = renderRelated();
+  setStatus(
+    sourceCount === 0
+      ? 'No source posts matched that question. Nothing was posted.'
+      : `Found ${pluralizeSources(sourceCount)}. Nothing was posted.`,
+    sourceCount === 0 ? 'idle' : 'success',
+  );
+  draft.focus();
+}
+
 form.addEventListener('submit', event => {
   event.preventDefault();
   submitDraft();
@@ -217,7 +294,10 @@ draft.addEventListener('keydown', event => {
   }
 });
 
+askButton.addEventListener('click', askDraft);
+
 draft.addEventListener('input', () => {
+  relatedMode = 'writing';
   syncSubmitState();
   renderRelated();
 });
