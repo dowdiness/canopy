@@ -796,6 +796,29 @@ test "compute_text_edit: DuplicateBinding on last binding" {
 }
 
 ///|
+test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
+  let text = "fn id(x : Int) { x }\nid 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=fp.defs[0].3),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content="fn id(x : Int) { x }\nfn id_copy(x : Int) { x }\nid 1",
+      )
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: MoveBindingDown swaps two bindings" {
   let text = "let x = 0\nlet y = 1\nx + y"
   let (proj, _) = parse_to_proj_node(text)
@@ -1120,6 +1143,41 @@ test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
     make_edit_ctx(text, source_map, registry, fp),
   )
   inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: InlineAllUsages rejects fn binding with usages" {
+  let text = "fn id(x : Int) { x }\nid"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=fp.defs[0].3),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot inline fn binding while preserving parameter annotations\")",
+  )
+}
+
+///|
+test "compute_text_edit: InlineDefinition rejects fn binding" {
+  let text = "fn id(x : Int) { x }\nid"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot inline fn binding while preserving parameter annotations\")",
+  )
 }
 
 ///|

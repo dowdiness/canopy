@@ -135,7 +135,10 @@ fn compute_inline_definition(
       return Err("Cannot inline lambda-bound variable: " + var_name)
     DeclKind::ModuleDef(def_index~) => {
       let def = module_projection.defs[def_index]
-      let init_text = @ast.print_term(def.1.kind)
+      let init_text = match binding_inline_text(source_text, source_map, def) {
+        Ok(text) => text
+        Err(e) => return Err(e)
+      }
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.1.kind, @immut/hashset.new())
       if free_names_would_rebind_at_node(
@@ -236,7 +239,6 @@ fn compute_inline_all_usages(
   }
   let def = module_projection.defs[def_index]
   let var_name = def.0
-  let init_text = @ast.print_term(def.1.kind)
   // Find all references resolved to this binding.
   let g = @scope.build(module_projection, registry, source_map)
   let ref_ids = match module_def_references(g, def_index) {
@@ -257,6 +259,14 @@ fn compute_inline_all_usages(
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )
+    }
+  }
+  let init_text = if ref_ids.is_empty() {
+    ""
+  } else {
+    match binding_inline_text(source_text, source_map, def) {
+      Ok(text) => text
+      Err(e) => return Err(e)
     }
   }
   // Build replacement edits for all references (reverse document order)
