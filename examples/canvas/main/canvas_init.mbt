@@ -276,7 +276,7 @@ fn validate_workflow_document(
 
 ///|
 fn validate_workflow(state : CanvasState) -> Array[ValidationJson] {
-  validate_workflow_document(canvas_document_from_state(state))
+  validate_workflow_document(@graph_model.canvas_document_from_state(state))
 }
 
 ///|

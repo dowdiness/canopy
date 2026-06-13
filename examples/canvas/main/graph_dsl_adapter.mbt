@@ -28,7 +28,7 @@ fn SourceBackedGraph::SourceBackedGraph(source : String) -> SourceBackedGraph {
     source,
     viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
-    drag_preview: idle_drag_preview(),
+    drag_preview: @graph_model.idle_drag_preview(),
     layout: [],
     action_log: [],
   }
@@ -283,7 +283,7 @@ fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   let state = source_graph_base_canvas_state(graph)
   match graph.interaction.dragging {
     Some(_) if graph.interaction.did_move =>
-      state_with_preview_nodes(state, graph.drag_preview)
+      @graph_model.state_with_preview_nodes(state, graph.drag_preview)
     _ => state
   }
 }
@@ -624,7 +624,7 @@ fn SourceBackedGraph::prune_selection_to_doc(
     [head, ..] => Some(head)
     [] => None
   }
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = {
     dragging: None,
     panning: None,
@@ -728,13 +728,13 @@ fn SourceBackedGraph::pointer_down(
   } else {
     Some(NodeId(node_id))
   }
-  let state = update_pointer_down(
+  let state = @graph_model.update_pointer_down(
     source_graph_base_canvas_state(self),
     target,
     sx,
     sy,
   )
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = state.interaction
 }
 
@@ -747,24 +747,24 @@ fn SourceBackedGraph::pointer_move(
   let state = source_graph_base_canvas_state(self)
   match state.interaction.connecting {
     Some(_) => {
-      let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-      self.interaction = update_connect_move(state, wx, wy).interaction
+      let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+      self.interaction = @graph_model.update_connect_move(state, wx, wy).interaction
     }
     None =>
       match state.interaction.dragging {
         Some(drag) => {
-          let (wx, wy) = screen_to_world(state.viewport, sx, sy)
+          let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
           let new_interaction : InteractionState = {
             ..state.interaction,
             did_move: true,
           }
-          self.drag_preview = drag_preview_from_move(drag, wx, wy)
+          self.drag_preview = @graph_model.drag_preview_from_move(drag, wx, wy)
           self.interaction = new_interaction
         }
         None =>
           match state.interaction.panning {
             Some(_) => {
-              let next = update_pan_move(state, sx, sy)
+              let next = @graph_model.update_pan_move(state, sx, sy)
               self.viewport = next.viewport
               self.interaction = next.interaction
             }
@@ -784,13 +784,15 @@ fn SourceBackedGraph::pointer_up(
   let state = source_graph_base_canvas_state(self)
   let commit_state = match state.interaction.dragging {
     Some(_) if state.interaction.did_move =>
-      state_with_preview_nodes(state, self.drag_preview)
+      @graph_model.state_with_preview_nodes(state, self.drag_preview)
     _ => state
   }
-  let next = update_pointer_up(commit_state, node_id, target_port_id, additive)
+  let next = @graph_model.update_pointer_up(
+    commit_state, node_id, target_port_id, additive,
+  )
   self.sync_layout_from_state(next)
   self.viewport = next.viewport
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = next.interaction
   self.action_log = next.action_log.copy()
 }
@@ -802,7 +804,12 @@ fn SourceBackedGraph::zoom(
   cx : Double,
   cy : Double,
 ) -> Unit {
-  let next = update_zoom(source_graph_base_canvas_state(self), delta, cx, cy)
+  let next = @graph_model.update_zoom(
+    source_graph_base_canvas_state(self),
+    delta,
+    cx,
+    cy,
+  )
   self.viewport = next.viewport
   self.action_log = next.action_log.copy()
 }

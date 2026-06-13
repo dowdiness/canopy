@@ -9,7 +9,7 @@ fn make_test_state() -> CanvasState {
     ],
     edges: [],
     next_node_id: 4,
-    interaction: @graph_model.empty_interaction(),
+    interaction: empty_interaction(),
     action_log: [],
   }
 }
@@ -110,7 +110,7 @@ test "node_drag_start records offsets for the dragged node" {
 
 ///|
 test "node_drag_start includes all selected nodes for multi-drag" {
-  let state = @graph_model.apply_action(
+  let state = apply_action(
     make_test_state(),
     SelectNodes([NodeId("1"), NodeId("2")]),
   )
@@ -138,15 +138,8 @@ test "pointer_up records a MoveNodes action after drag" {
     200.0,
     300.0,
   )
-  let moved_nodes = s0.nodes.map(fn(node) {
-    match find_position(preview.positions, node.id) {
-      None => node
-      Some(pos) => { ..node, x: pos.x, y: pos.y }
-    }
-  })
   let s1 = {
-    ..s0,
-    nodes: moved_nodes,
+    ..state_with_preview_nodes(s0, preview),
     interaction: { ..s0.interaction, did_move: true },
   }
   let s2 = update_pointer_up(s1, "1", "", false)
@@ -172,10 +165,7 @@ test "pointer_up on node without movement selects it" {
 
 ///|
 test "additive click toggles multi-selection" {
-  let state = @graph_model.apply_action(
-    make_test_state(),
-    SelectNodes([NodeId("1")]),
-  )
+  let state = apply_action(make_test_state(), SelectNodes([NodeId("1")]))
   let s0 = update_node_drag_start(state, NodeId("2"), 420.0, 100.0)
   let s1 = update_pointer_up(s0, "2", "", true)
   @debug.assert_eq(s1.interaction.selected_nodes, [NodeId("1"), NodeId("2")])
@@ -186,10 +176,7 @@ test "additive click toggles multi-selection" {
 
 ///|
 test "pointer_up on background deselects" {
-  let state = @graph_model.apply_action(
-    make_test_state(),
-    SelectNodes([NodeId("1")]),
-  )
+  let state = apply_action(make_test_state(), SelectNodes([NodeId("1")]))
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pointer_up(s0, "", "", false)
   inspect(s1.interaction.selected is None, content="true")
@@ -298,123 +285,5 @@ test "workflow_add_node creates typed custom nodes through serializable action" 
   match s.action_log[0].action() {
     WorkflowAction::AddNode(node) => assert_eq(node.id, NodeId("4"))
     _ => fail("expected AddNode action")
-  }
-}
-
-///|
-test "validate_workflow reports missing typed input ports independently" {
-  let nodes = make_test_state().nodes.copy()
-  nodes.push(make_workflow_node(NodeId("4"), ConditionalBranch, 0.0, 0.0))
-  let state : CanvasState = {
-    ..make_test_state(),
-    nodes,
-    edges: [
-      {
-        id: EdgeId::from_edge(NodeId("3"), "text", NodeId("4"), "text"),
-        source: NodeId("3"),
-        source_port: "text",
-        target: NodeId("4"),
-        target_port: "text",
-      },
-    ],
-  }
-  let messages = validate_workflow(state)
-  assert_true(
-    messages
-    .iter()
-    .any(fn(message) {
-      message.node_id == Some("4") &&
-      message.message.contains("input \u{201c}rule\u{201d}")
-    }),
-  )
-  assert_false(
-    messages
-    .iter()
-    .any(fn(message) {
-      message.node_id == Some("4") &&
-      message.message.contains("input \u{201c}text\u{201d}")
-    }),
-  )
-}
-
-///|
-test "get_render_state exposes workflow JSON shape" {
-  let handle = create_canvas()
-  let json_str = get_render_state(handle)
-  assert_true(json_str.contains("\"nodes\""))
-  assert_true(json_str.contains("Timer trigger"))
-  assert_true(json_str.contains("\"source_port\""))
-  assert_true(json_str.contains("\"validation\""))
-}
-
-///|
-test "runtime live drag updates preview before one durable MoveNodes commit" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
-  let before = runtime.document.peek()
-  runtime.pointer_down(Some(NodeId("1")), -510.0, -180.0)
-  runtime.pointer_move(-400.0, -100.0)
-
-  let during = runtime.document.peek()
-  inspect(during.nodes[0].x, content="-520")
-  inspect(during.nodes[0].y, content="-190")
-  assert_eq(runtime.actions.peek().length(), 0)
-
-  let preview = runtime.render_state().nodes[0]
-  inspect(preview.x, content="-410")
-  inspect(preview.y, content="-110")
-  assert_eq(before.nodes[0].x, during.nodes[0].x)
-
-  runtime.pointer_up("1", "", false)
-  let after = runtime.document.peek()
-  inspect(after.nodes[0].x, content="-410")
-  inspect(after.nodes[0].y, content="-110")
-  assert_eq(runtime.actions.peek().length(), 1)
-  match runtime.actions.peek()[0].action() {
-    MoveNodes(positions) => {
-      assert_eq(positions.length(), 1)
-      inspect(positions[0].x, content="-410")
-      inspect(positions[0].y, content="-110")
-    }
-    _ => fail("expected MoveNodes action")
-  }
-}
-
-///|
-test "runtime delete_nodes removes selected nodes and incident edges" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.delete_nodes([NodeId("2")])
-  let state = runtime.render_state()
-  assert_eq(state.nodes.length(), 5)
-  assert_eq(state.edges.length(), 1)
-  assert_eq(runtime.actions.peek().length(), 1)
-  match runtime.actions.peek()[0].action() {
-    DeleteNodes(nodes) => @debug.assert_eq(nodes, [NodeId("2")])
-    _ => fail("expected DeleteNodes action")
-  }
-}
-
-///|
-test "runtime sparse inspector follows hover until a node is selected" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.viewport.set({ x: 0.0, y: 0.0, scale: 1.0 })
-  runtime.hover_node("1")
-  match runtime.render_state().inspector {
-    Some(node) => {
-      inspect(node.source, content="hovered")
-      inspect(node.title, content="Timer trigger")
-    }
-    None => fail("expected hovered inspector")
-  }
-
-  runtime.pointer_down(Some(NodeId("2")), -190.0, -190.0)
-  runtime.pointer_up("2", "", false)
-  runtime.hover_node("1")
-  match runtime.render_state().inspector {
-    Some(node) => {
-      inspect(node.source, content="selected")
-      inspect(node.title, content="HTTP request")
-    }
-    None => fail("expected selected inspector")
   }
 }
