@@ -699,6 +699,26 @@ test "compute_text_edit: DeleteBinding removes second let line" {
 }
 
 ///|
+test "compute_text_edit: DeleteBinding removes second fn line" {
+  let text = "fn id(x) { x }\nfn apply(f, x) { f x }\napply id 42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=fp.defs[1].3),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="fn id(x) { x }\napply id 42")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
 test "compute_text_edit: DeleteBinding removes only binding" {
   let text = "let x = 42\nx"
   let (proj, _) = parse_to_proj_node(text)
@@ -843,6 +863,29 @@ test "compute_text_edit: MoveBindingUp swaps two bindings" {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="let y = 1\nlet x = 0\nx + y")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp swaps fn bindings" {
+  let text = "fn id(x) { x }\nfn apply(f, x) { f x }\napply id 42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=fp.defs[1].3),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content="fn apply(f, x) { f x }\nfn id(x) { x }\napply id 42",
+      )
     }
     _ => fail("expected Some edits")
   }
@@ -1130,6 +1173,26 @@ test "compute_text_edit: InlineAllUsages no usages just removes binding" {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="0")
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: InlineAllUsages removes unused second fn binding" {
+  let text = "fn id(x) { x }\nfn unused(x) { x }\nid 42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    InlineAllUsages(binding_node_id=fp.defs[1].3),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="fn id(x) { x }\nid 42")
     }
     _ => fail("expected Some edits")
   }

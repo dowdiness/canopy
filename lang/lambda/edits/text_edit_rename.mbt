@@ -31,7 +31,9 @@ fn name_matches_at(source : String, pos : Int, name : String) -> Bool {
   if pos < 0 || pos + name.length() > source.length() {
     false
   } else {
+    // Mutable flag keeps the code-unit comparison allocation-free.
     let mut matches = true
+    // Manual index loop stops at the first mismatch without slicing.
     for i = 0; i < name.length(); i = i + 1 {
       if source[pos + i] != name[i] {
         matches = false
@@ -59,6 +61,7 @@ fn tight_name_range(
     return Err("Cannot rename: identifier range does not contain name")
   }
   let last = range.end - name.length()
+  // Manual range scan returns the first bounded occurrence without allocating candidates.
   for pos = range.start; pos <= last; pos = pos + 1 {
     let end = pos + name.length()
     if name_matches_at(source, pos, name) &&
@@ -118,7 +121,9 @@ fn new_name_captured_before_lam(
 ) -> Bool {
   guard scope_id_for_node(g, ref_id) is Some(start_scope) else { return false }
   guard lam_scope_id(g, lam_id) is Some(stop_scope) else { return false }
+  // Stateful cursor walks parent links until the lambda's declaring scope.
   let mut cur : @scope.ScopeId? = Some(start_scope)
+  // `while` is used because each step depends on the previous scope's parent.
   while cur is Some(sid) {
     let @scope.ScopeId(si) = sid
     let scope = g.scopes[si]
@@ -212,6 +217,7 @@ fn rename_lam_param(
   // Add edits for each identity-resolved reference, collecting tight name
   // ranges first so parser trivia around the VarRef is preserved.
   let var_ranges : Array[(Int, Int)] = []
+  // Push loop lets us abort on the first invalid range before emitting edits.
   for vid in ref_ids {
     match ref_edit_range(ctx, vid, old_name) {
       Ok(r) => var_ranges.push(r)
@@ -251,8 +257,10 @@ fn rename_from_var(
         None => Err("Lambda node not found in registry")
       }
     DeclKind::ModuleDef(def_index~) => {
-      // Find the Module node in the registry
+      // Find the Module node in the registry.
+      // Mutable slot records the first hit without materializing registry entries.
       let mut module_id : NodeId? = None
+      // Manual scan can break as soon as the Module node is found.
       for pid, pnode in ctx.registry {
         if pnode.kind is @ast.Term::Module(_, _) {
           module_id = Some(pid)
@@ -280,8 +288,10 @@ fn rename_binding_by_id(
     Err(e) => return Err(e)
   }
   let old_name = ctx.module_projection.defs[def_index].0
-  // Find Module node
+  // Find Module node.
+  // Mutable slot records the first hit without materializing registry entries.
   let mut module_id : NodeId? = None
+  // Manual scan can break as soon as the Module node is found.
   for pid, pnode in ctx.registry {
     if pnode.kind is @ast.Term::Module(_, _) {
       module_id = Some(pid)
@@ -357,6 +367,7 @@ fn rename_module_binding(
       )
   }
   let ref_ranges : Array[(Int, Int)] = []
+  // Push loop lets us abort on the first invalid range before emitting edits.
   for rid in ref_ids {
     match ref_edit_range(ctx, rid, old_name) {
       Ok(r) => ref_ranges.push(r)
