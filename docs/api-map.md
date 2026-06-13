@@ -17,8 +17,8 @@ Refresh with: `NEW_MOON_MOD=0 moon ide outline <pkg>` or `NEW_MOON_MOD=0 moon id
 | `NodeId::from_int` | `core/` | Construct from raw int (avoid unless crossing FFI boundary). |
 | `next_proj_node_id(counter)` | `core/` | Monotonic counter for fresh `ProjNode` IDs. Prefer the constructors below in projection builders. |
 | `ProjNode[T]` | `core/` | Generic projection node carrying value `T`. |
-| `ProjNode::leaf(kind, syntax_node, counter)` | `core/` | Fresh childless projection node spanning a `SyntaxNode`. Preferred for CST leaf projections. |
-| `ProjNode::branch(kind, start, end, children, counter)` | `core/` | Fresh projection node with explicit span and children. Use `ProjNode::new` only when preserving/reusing a known ID. |
+| `ProjNode::leaf(kind, syntax_node, counter)` | `core/` | Fresh childless projection node spanning a `SyntaxNode` in UTF-16 code-unit source offsets. Preferred for CST leaf projections. |
+| `ProjNode::branch(kind, start, end, children, counter)` | `core/` | Fresh projection node with explicit half-open UTF-16 source span. Use `ProjNode::new` only when preserving/reusing a known ID. |
 
 **Do not:** Create parallel `id: Int` fields or ad-hoc node numbering.
 
@@ -28,15 +28,19 @@ Refresh with: `NEW_MOON_MOD=0 moon ide outline <pkg>` or `NEW_MOON_MOD=0 moon id
 
 **Want:** Map node IDs to text ranges, or find nodes at a cursor position.
 
+`SourceMap` ranges are `@loomcore.Range` values interpreted as half-open
+UTF-16 code-unit source offsets. Do not pass eg-walker item-space ranges or
+ProseMirror tree positions to this API.
+
 | API | Location | Notes |
 |-----|----------|-------|
 | `SourceMap` | `core/` | Canonical position index. One per editor instance. |
 | `SourceMap::new()` | `core/` | Constructor. |
-| `SourceMap::get_range(node_id)` | `core/` | `Range?` for a node. |
-| `SourceMap::nodes_at_position(pos)` | `core/` | All nodes covering a position. |
-| `SourceMap::innermost_node_at(pos)` | `core/` | Deepest node at cursor. Use for hover/click. |
-| `SourceMap::nodes_in_range(range)` | `core/` | All nodes overlapping a range. |
-| `SourceMap::apply_edit(edit)` | `core/` | Update ranges after a text edit. Call this, don't rebuild. |
+| `SourceMap::get_range(node_id)` | `core/` | `@loomcore.Range?` for a node, in UTF-16 source offsets. |
+| `SourceMap::nodes_at_position(pos)` | `core/` | All nodes covering a UTF-16 source offset. |
+| `SourceMap::innermost_node_at(pos)` | `core/` | Deepest node at a UTF-16 source offset. Use for hover/click. |
+| `SourceMap::nodes_in_range(range)` | `core/` | All nodes overlapping a UTF-16 source range. |
+| `SourceMap::apply_edit(edit_start, old_range)` | `core/` | Update ranges after a text deletion. Both arguments use UTF-16 source offsets. Call this, don't rebuild. |
 | `SourceMap::rebuild_ranges()` | `core/` | Full rebuild (expensive — prefer `apply_edit`). |
 | `SourceMap::set_token_span` | `core/` | Use for computed token-level ranges. |
 | `SourceMap::set_span_from_token` | `core/` | Preferred direct-token registration helper: finds a direct visible token on a `SyntaxNode` and records its range. |

@@ -4,6 +4,9 @@
 ///|
 /// Generic projection node parameterized by AST type T.
 /// `kind : T` holds the AST node, `children : Array[ProjNode[T]]` holds child projections.
+/// `start` and `end` are UTF-16 code-unit source offsets, interpreted as a
+/// half-open range `[start, end)`. They are not eg-walker item-space positions
+/// and not ProseMirror tree positions.
 pub struct ProjNode[T] {
   node_id : Int
   kind : T
@@ -52,9 +55,10 @@ pub fn[T] ProjNode::leaf(
 }
 
 ///|
-/// Construct a ProjNode with explicit span and children, assigning a fresh id.
-/// Use this for projection branches whose identity is fresh for this build;
-/// keep `ProjNode::new` when preserving or reusing a known node id.
+/// Construct a ProjNode with explicit UTF-16 source span and children,
+/// assigning a fresh id. Use this for projection branches whose identity is
+/// fresh for this build; keep `ProjNode::new` when preserving or reusing a
+/// known node id.
 pub fn[T] ProjNode::branch(
   kind : T,
   start : Int,
