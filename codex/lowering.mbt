@@ -65,7 +65,7 @@ fn minimal_splice(old : String, new : String) -> (Int, Int, String) {
   let nb = @moji.grapheme_boundaries(new)
   let onc = ob.length() - 1 // number of grapheme clusters in `old`
   let nnc = nb.length() - 1
-  let bound = if onc < nnc { onc } else { nnc }
+  let bound = onc.min(nnc)
   // longest common grapheme prefix, then suffix (suffix cannot overlap prefix:
   // it scans the remaining `bound - p` clusters), so `from <= to` always holds.
   let p = for k in 0..<bound {
@@ -146,10 +146,11 @@ fn parse_hunk_old_start(header : String) -> Int raise {
   guard header.split(" ").find_first(tok => tok.has_prefix("-")) is Some(tok) else {
     fail("codex lowering: malformed hunk header")
   }
-  let body = tok[1:]
-  let num = match body.split(",").next() {
-    Some(v) => v.to_owned()
-    None => body.to_owned()
+  // `@@ -A[,B]` — take the field before the optional comma. `split` always
+  // yields at least one element, so a `None` here means an empty old-start
+  // (a malformed header); fail explicitly rather than silently reusing it.
+  guard tok[1:].split(",").next() is Some(start_field) else {
+    fail("codex lowering: empty hunk old-start field")
   }
-  @string.parse_int(num)
+  @string.parse_int(start_field.to_owned())
 }
