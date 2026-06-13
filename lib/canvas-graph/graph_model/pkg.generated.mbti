@@ -13,11 +13,23 @@ pub fn apply_operation(CanvasState, GraphOperation) -> CanvasState
 
 pub fn can_commit_edge(CanvasState, NodeId, String, NodeId, String) -> Bool
 
+pub fn canvas_document_from_state(CanvasState) -> CanvasDocument
+
+pub fn canvas_state_from_parts(CanvasDocument, Viewport, InteractionState, Array[GraphOperation]) -> CanvasState
+
+pub fn default_viewport() -> Viewport
+
+pub fn drag_preview_from_move(DragState, Double, Double) -> DragPreview
+
 pub fn empty_interaction() -> InteractionState
 
 pub fn find_node(Array[CanvasNode], NodeId) -> CanvasNode?
 
 pub fn find_position(Array[NodePosition], NodeId) -> NodePosition?
+
+pub fn idle_drag_preview() -> DragPreview
+
+pub fn interaction_with_selection(InteractionState, SelectionState) -> InteractionState
 
 pub fn make_workflow_node(NodeId, WorkflowNodeKind, Double, Double) -> CanvasNode
 
@@ -29,9 +41,35 @@ pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
 
+pub fn screen_to_world(Viewport, Double, Double) -> (Double, Double)
+
+pub fn selection_from_interaction(InteractionState) -> SelectionState
+
+pub fn state_with_preview_nodes(CanvasState, DragPreview) -> CanvasState
+
+pub fn update_connect_move(CanvasState, Double, Double) -> CanvasState
+
+pub fn update_connect_start(CanvasState, NodeId, String, Double, Double) -> CanvasState
+
+pub fn update_pan_move(CanvasState, Double, Double) -> CanvasState
+
+pub fn update_pointer_down(CanvasState, NodeId?, Double, Double) -> CanvasState
+
+pub fn update_pointer_up(CanvasState, String, String, Bool) -> CanvasState
+
+pub fn update_zoom(CanvasState, Double, Double, Double) -> CanvasState
+
+pub fn workflow_add_node(CanvasState, String, Double, Double) -> CanvasState
+
 // Errors
 
 // Types and methods
+pub(all) struct CanvasDocument {
+  nodes : Array[CanvasNode]
+  edges : Array[Edge]
+  next_node_id : Int
+} derive(Eq, @debug.Debug)
+
 pub(all) struct CanvasNode {
   id : NodeId
   x : Double
@@ -72,6 +110,11 @@ pub(all) struct DragOrigin {
   offset_y : Double
 } derive(Eq, @debug.Debug)
 pub impl Show for DragOrigin
+
+pub(all) struct DragPreview {
+  positions : Array[NodePosition]
+} derive(Eq, @debug.Debug)
+pub impl Show for DragPreview
 
 pub(all) struct DragState {
   node_id : NodeId
@@ -158,6 +201,11 @@ pub(all) enum PortType {
   Any
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for PortType
+
+pub(all) struct SelectionState {
+  selected : NodeId?
+  selected_nodes : Array[NodeId]
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Viewport {
   x : Double

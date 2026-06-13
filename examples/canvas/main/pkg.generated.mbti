@@ -3,7 +3,6 @@ package "dowdiness/canopy-canvas/main"
 
 import {
   "dowdiness/canopy-canvas-graph/graph_model",
-  "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
 
@@ -67,18 +66,11 @@ pub fn zoom(Int, Double, Double, Double) -> Unit
 // Errors
 
 // Types and methods
-type CanvasDocument derive(Eq, @debug.Debug)
-
 type CanvasFullRenderJson derive(Eq)
 
 type CanvasRuntime
 
 type ConnectingJson derive(Eq, ToJson)
-
-pub(all) struct DragPreview {
-  positions : Array[@graph_model.NodePosition]
-} derive(Eq, @debug.Debug)
-pub impl Show for DragPreview
 
 type EdgeJson derive(Eq, ToJson)
 
@@ -93,8 +85,6 @@ type NodeParamJson derive(Eq, ToJson)
 type NormalizedCanvas derive(Eq)
 
 type RenderStateJson derive(Eq, ToJson)
-
-type SelectionState derive(Eq, @debug.Debug)
 
 type SourceBackedGraph
 
@@ -118,6 +108,8 @@ pub using @graph_model {type CanvasState}
 pub using @graph_model {type ConnectState}
 
 pub using @graph_model {type DragOrigin}
+
+pub using @graph_model {type DragPreview}
 
 pub using @graph_model {type DragState}
 

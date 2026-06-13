@@ -22,7 +22,7 @@ fn update_pan_start(
 ///|
 /// Pan is computed as absolute offset from start_pan to avoid
 /// float accumulation across multiple move events.
-fn update_pan_move(
+pub fn update_pan_move(
   state : CanvasState,
   screen_x : Double,
   screen_y : Double,
@@ -50,7 +50,7 @@ fn update_pan_move(
 ///|
 /// Zoom the viewport toward the cursor position `(cx, cy)` in canvas-local
 /// screen coords. Factor 0.9 = zoom out, 1/0.9 ≈ 1.111 = zoom in.
-fn update_zoom(
+pub fn update_zoom(
   state : CanvasState,
   delta : Double,
   cx : Double,
@@ -70,7 +70,7 @@ fn update_zoom(
 }
 
 ///|
-fn screen_to_world(
+pub fn screen_to_world(
   viewport : Viewport,
   sx : Double,
   sy : Double,
@@ -81,7 +81,7 @@ fn screen_to_world(
 ///|
 /// Dispatch a pointer-down event to pan or drag based on node_id.
 /// Accepts screen coordinates; converts to world coords internally for dragging.
-fn update_pointer_down(
+pub fn update_pointer_down(
   state : CanvasState,
   node_id : NodeId?,
   sx : Double,
@@ -98,7 +98,7 @@ fn update_pointer_down(
 
 ///|
 /// Start an edge-creation gesture from a specific output port.
-fn update_connect_start(
+pub fn update_connect_start(
   state : CanvasState,
   node_id : NodeId,
   port_id : String,
@@ -130,7 +130,7 @@ fn update_connect_start(
 }
 
 ///|
-fn update_connect_move(
+pub fn update_connect_move(
   state : CanvasState,
   world_x : Double,
   world_y : Double,
@@ -173,7 +173,7 @@ fn workflow_node_kind_from_key(key : String) -> WorkflowNodeKind {
 }
 
 ///|
-fn workflow_add_node(
+pub fn workflow_add_node(
   state : CanvasState,
   kind_key : String,
   world_x : Double,
@@ -227,20 +227,20 @@ fn update_connect_end(
 }
 
 ///|
-fn drag_preview_from_move(
+pub fn drag_preview_from_move(
   drag : DragState,
   world_x : Double,
   world_y : Double,
 ) -> DragPreview {
-  let positions : Array[NodePosition] = []
-  for origin in drag.origins {
-    positions.push({
-      node_id: origin.node_id,
-      x: world_x + origin.offset_x,
-      y: world_y + origin.offset_y,
-    })
+  {
+    positions: drag.origins.map(fn(origin) {
+      {
+        node_id: origin.node_id,
+        x: world_x + origin.offset_x,
+        y: world_y + origin.offset_y,
+      }
+    }),
   }
-  { positions, }
 }
 
 ///|
@@ -262,19 +262,17 @@ fn update_node_drag_start(
   match find_node(state.nodes, node_id) {
     None => state
     Some(_) => {
-      let drag_ids = drag_ids_for_node(state, node_id)
-      let origins : Array[DragOrigin] = []
-      for drag_id in drag_ids {
+      let origins = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
         match find_node(state.nodes, drag_id) {
-          None => ()
+          None => None
           Some(node) =>
-            origins.push({
+            Some({
               node_id: drag_id,
               offset_x: node.x - world_x,
               offset_y: node.y - world_y,
             })
         }
-      }
+      })
       let drag : DragState = { node_id, origins }
       let new_interaction : InteractionState = {
         ..state.interaction,
@@ -292,14 +290,12 @@ fn final_drag_positions(
   state : CanvasState,
   drag : DragState,
 ) -> Array[NodePosition] {
-  let positions : Array[NodePosition] = []
-  for origin in drag.origins {
+  drag.origins.filter_map(fn(origin) {
     match find_node(state.nodes, origin.node_id) {
-      None => ()
-      Some(node) => positions.push({ node_id: node.id, x: node.x, y: node.y })
+      None => None
+      Some(node) => Some({ node_id: node.id, x: node.x, y: node.y })
     }
-  }
-  positions
+  })
 }
 
 ///|
@@ -307,9 +303,7 @@ fn toggle_selection(nodes : Array[NodeId], id : NodeId) -> Array[NodeId] {
   if nodes.iter().any(fn(n) { n == id }) {
     nodes.filter(fn(n) { n != id })
   } else {
-    let next = nodes.copy()
-    next.push(id)
-    next
+    [..nodes, id]
   }
 }
 
@@ -334,7 +328,7 @@ fn selection_after_click(
 /// Handle pointer release. `node_id` is the canvas node id under the pointer,
 /// or "" if released over the background.
 /// A "click" = pointer_down was true AND no movement occurred → select the node.
-fn update_pointer_up(
+pub fn update_pointer_up(
   state : CanvasState,
   node_id : String,
   target_port_id : String,
