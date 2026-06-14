@@ -83,20 +83,6 @@ fn ensure_replaceable_node_range(
 }
 
 ///|
-/// Find a module binding's index in an edit module view by its NodeId.
-fn find_def_index(
-  module_view : EditModuleView,
-  binding_node_id : NodeId,
-) -> Result[Int, String] {
-  for i, def in module_view.defs {
-    if def.binding_id == binding_node_id {
-      return Ok(i)
-    }
-  }
-  Err("Binding not found: " + binding_node_id.to_string())
-}
-
-///|
 /// Compute (start, length) for deleting a binding line, consuming
 /// the adjacent newline if present (trailing preferred, else leading).
 fn binding_delete_range(

@@ -3,14 +3,18 @@ fn compute_delete_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, .. } = ctx
-  let module_view = edit_module_view(ctx)
-  let def_index = match find_def_index(module_view, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let g = @scope.build(registry, source_map)
+  let decl = match module_def_decl_for_binding(g, binding_node_id) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
+  let def = match edit_binding_for_decl(ctx, decl) {
+    Ok(d) => d
     Err(e) => return Err(e)
   }
   let (let_start, binding_end) = match
-    get_binding_text_range(source_text, source_map, module_view.defs[def_index]) {
+    get_binding_text_range(source_text, source_map, def) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
@@ -29,13 +33,16 @@ fn compute_duplicate_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, .. } = ctx
-  let module_view = edit_module_view(ctx)
-  let def_index = match find_def_index(module_view, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let g = @scope.build(registry, source_map)
+  let decl = match module_def_decl_for_binding(g, binding_node_id) {
+    Ok(d) => d
     Err(e) => return Err(e)
   }
-  let def = module_view.defs[def_index]
+  let def = match edit_binding_for_decl(ctx, decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
   let binding_source = match
     binding_rewrite_source(source_text, source_map, def) {
     Ok(source) => source
@@ -78,18 +85,33 @@ fn compute_move_binding_up(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, .. } = ctx
-  let module_view = edit_module_view(ctx)
-  let def_index = match find_def_index(module_view, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let g = @scope.build(registry, source_map)
+  let decl = match module_def_decl_for_binding(g, binding_node_id) {
+    Ok(d) => d
     Err(e) => return Err(e)
+  }
+  guard decl.kind is @scope.DeclKind::ModuleDef(def_index~) else {
+    return Err("Binding is not a module definition")
   }
   if def_index == 0 {
     return Err("Cannot move first binding up")
   }
+  // Move neighbour is the def at def_index - 1 in the SAME scope (block-local
+  // aware), not a root sibling.
+  let prev_decl = match sibling_module_def_decl(g, decl.scope, def_index - 1) {
+    Some(d) => d
+    None => return Err("Cannot move first binding up")
+  }
+  let cur_def = match edit_binding_for_decl(ctx, decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
+  let prev_def = match edit_binding_for_decl(ctx, prev_decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_view.defs[def_index]
-  let prev_def = module_view.defs[def_index - 1]
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.init.kind, empty_env)
   let prev_fv = free_vars(prev_def.init.kind, empty_env)
@@ -146,18 +168,30 @@ fn compute_move_binding_down(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, .. } = ctx
-  let module_view = edit_module_view(ctx)
-  let def_index = match find_def_index(module_view, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let g = @scope.build(registry, source_map)
+  let decl = match module_def_decl_for_binding(g, binding_node_id) {
+    Ok(d) => d
     Err(e) => return Err(e)
   }
-  if def_index >= module_view.defs.length() - 1 {
-    return Err("Cannot move last binding down")
+  guard decl.kind is @scope.DeclKind::ModuleDef(def_index~) else {
+    return Err("Binding is not a module definition")
+  }
+  // Move neighbour is the def at def_index + 1 in the SAME scope (block-local
+  // aware); its absence means this is the last binding in its block.
+  let next_decl = match sibling_module_def_decl(g, decl.scope, def_index + 1) {
+    Some(d) => d
+    None => return Err("Cannot move last binding down")
+  }
+  let cur_def = match edit_binding_for_decl(ctx, decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
+  let next_def = match edit_binding_for_decl(ctx, next_decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
   }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_view.defs[def_index]
-  let next_def = module_view.defs[def_index + 1]
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.init.kind, empty_env)
   let next_fv = free_vars(next_def.init.kind, empty_env)

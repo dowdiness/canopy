@@ -16,6 +16,31 @@ fn module_def_decl_for_binding(
 }
 
 ///|
+/// The sibling module-binding decl in `scope` at `target_index`, or None when no
+/// `ModuleDef` in that scope holds that index. `def_index` is scope-local (the
+/// builder assigns `ModuleDef(def_index=i)` per scope, root and nested block
+/// alike), so adjacent indices in the SAME scope are the move-up/down neighbours
+/// — this is what makes the binding move ops block-local-aware rather than
+/// root-relative.
+fn sibling_module_def_decl(
+  g : @scope.ScopeGraph,
+  scope : @scope.ScopeId,
+  target_index : Int,
+) -> @scope.Decl? {
+  let @scope.ScopeId(si) = scope
+  g.scopes[si].decl_ids
+  .iter()
+  .map(fn(did) {
+    let @scope.DeclId(di) = did
+    g.decls[di]
+  })
+  .find_first(fn(decl) {
+    decl.kind is @scope.DeclKind::ModuleDef(def_index~) &&
+    def_index == target_index
+  })
+}
+
+///|
 /// Recursively collect Var nodes matching the given name, stopping at shadowing Lam params.
 fn collect_var_usages(
   node : ProjNode[@ast.Term],
