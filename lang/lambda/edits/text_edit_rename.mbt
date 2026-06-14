@@ -9,8 +9,14 @@ fn compute_rename(
       match n.kind {
         @ast.Term::Var(old_name) =>
           rename_from_var(ctx, node_id, old_name, new_name)
-        @ast.Term::Lam(old_name, _) =>
-          rename_lam_param(ctx, node_id, n, old_name, new_name)
+        @ast.Term::Lam(old_name, _) => {
+          let g = @scope.build(
+            ctx.module_projection,
+            ctx.registry,
+            ctx.source_map,
+          )
+          rename_lam_param(ctx, g, node_id, n, old_name, new_name)
+        }
         _ => rename_binding_by_id(ctx, node_id, new_name)
       }
     None => rename_binding_by_id(ctx, node_id, new_name)
@@ -146,13 +152,13 @@ fn new_name_captured_before_lam(
 /// Rename a Lam's parameter and all bound Var occurrences in its body.
 fn rename_lam_param(
   ctx : EditContext[@ast.Term],
+  g : @scope.ScopeGraph,
   lam_id : NodeId,
   lam_node : ProjNode[@ast.Term],
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let source_map = ctx.source_map
-  let g = @scope.build(ctx.module_projection, ctx.registry, source_map)
   let ref_ids = match lambda_param_references(g, lam_id) {
     Ok(ids) => ids
     Err(e) => return Err(e)
@@ -253,7 +259,7 @@ fn rename_from_var(
     DeclKind::LamParam(lam_id~) =>
       match ctx.registry.get(lam_id) {
         Some(lam_node) =>
-          rename_lam_param(ctx, lam_id, lam_node, old_name, new_name)
+          rename_lam_param(ctx, g, lam_id, lam_node, old_name, new_name)
         None => Err("Lambda node not found in registry")
       }
     // The decl is already the block-aware declaration the var resolves to;
