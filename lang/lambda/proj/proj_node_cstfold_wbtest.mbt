@@ -70,11 +70,64 @@ fn assert_projection_matches_compatible_fold(source : String) -> Unit raise {
 }
 
 ///|
+fn assert_leaf_projection_metadata(
+  source : String,
+  expected_kind : @ast.Term,
+  expected_start : Int,
+  expected_end : Int,
+) -> Unit raise {
+  let (proj, errors) = parse_to_proj_node(source)
+  if !errors.is_empty() {
+    fail(
+      "expected clean parse for " + source + ", got " + @debug.to_string(errors),
+    )
+  }
+  let folded = cstfold_projection_compatible_term(cstfold_term(source))
+  assert_term_equal(
+    "sample should pin CstFold-compatible leaf kind for " + source,
+    expected_kind,
+    folded,
+  )
+  assert_term_equal(
+    "leaf kind should come from CstFold-compatible term for " + source,
+    folded,
+    proj.kind,
+  )
+  if proj.start != expected_start || proj.end != expected_end {
+    fail(
+      "expected leaf span " +
+      expected_start.to_string() +
+      ".." +
+      expected_end.to_string() +
+      " for " +
+      source +
+      ", got " +
+      proj.start.to_string() +
+      ".." +
+      proj.end.to_string(),
+    )
+  }
+  if proj.node_id != 0 {
+    fail("expected first leaf node_id 0 for " + source)
+  }
+  if !proj.children.is_empty() {
+    fail("expected childless leaf projection for " + source)
+  }
+}
+
+///|
 test "cstfold parity: valid leaf and wrapper sources agree" {
   assert_clean_projection_kind_matches_fold("42")
   assert_clean_projection_kind_matches_fold("x")
   assert_clean_projection_kind_matches_fold("_")
   assert_clean_projection_kind_matches_fold("(1)")
+}
+
+///|
+test "cstfold-backed leaf projection preserves leaf metadata" {
+  assert_leaf_projection_metadata("42", Int(42), 0, 2)
+  assert_leaf_projection_metadata("  x", Var("x"), 0, 3)
+  assert_leaf_projection_metadata("_", Hole(0), 0, 1)
 }
 
 ///|
