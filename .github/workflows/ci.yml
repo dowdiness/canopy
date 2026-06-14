@@ -282,6 +282,8 @@ jobs:
             path: examples/web
           - name: prosemirror
             path: examples/prosemirror
+          - name: canvas
+            path: examples/canvas/web
           - name: demo-react
             path: examples/demo-react
     steps:
@@ -305,6 +307,11 @@ jobs:
 
       - name: Build MoonBit JS artifacts
         run: ./scripts/build-js.sh
+
+      - name: Build Canvas MoonBit JS artifacts
+        if: matrix.name == 'canvas'
+        working-directory: examples/canvas
+        run: MOON_WORK=off moon build --target js --release
 
       - name: Install dependencies
         working-directory: ${{ matrix.path }}

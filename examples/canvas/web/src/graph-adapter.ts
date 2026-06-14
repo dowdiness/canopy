@@ -26,6 +26,11 @@ export type CanvasModule = {
     target: string,
     targetPort: string,
   ) => void;
+  get_input_port_compatibility: (
+    h: number,
+    source: string,
+    sourcePort: string,
+  ) => string;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
@@ -49,6 +54,11 @@ export type CanvasModule = {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  get_source_graph_input_port_compatibility?: (
+    h: number,
+    source: string,
+    sourcePort: string,
+  ) => string;
   source_graph_zoom?: (h: number, delta: number, cx: number, cy: number) => void;
   sample_graph_dsl_source?: () => string;
   mount_source_demo?: (h: number, enabled: boolean, onChange: () => void) => void;
@@ -77,6 +87,11 @@ type SourceCanvasModule = CanvasModule & {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  get_source_graph_input_port_compatibility: (
+    h: number,
+    source: string,
+    sourcePort: string,
+  ) => string;
   source_graph_zoom: (h: number, delta: number, cx: number, cy: number) => void;
 };
 
@@ -93,6 +108,7 @@ const SOURCE_METHODS = [
   'source_graph_pointer_down',
   'source_graph_pointer_move',
   'source_graph_pointer_up',
+  'get_source_graph_input_port_compatibility',
   'source_graph_zoom',
 ] as const;
 
@@ -131,6 +147,11 @@ export type EdgeData = {
   source_port: string;
   target: string;
   target_port: string;
+};
+export type PortCompatibility = {
+  node_id: string;
+  port_id: string;
+  compatible: boolean;
 };
 export type Connecting = {
   from: string;
@@ -446,6 +467,18 @@ export class GraphAdapter {
     );
     this.emitLatestOperations();
     return null;
+  }
+
+  inputPortCompatibility(sourceNodeId: string, sourcePortId: string): PortCompatibility[] {
+    this.assertLive();
+    const json = this.isSourceBacked
+      ? this.sourceModule().get_source_graph_input_port_compatibility(
+        this.handle,
+        sourceNodeId,
+        sourcePortId,
+      )
+      : this.mb.get_input_port_compatibility(this.handle, sourceNodeId, sourcePortId);
+    return JSON.parse(json) as PortCompatibility[];
   }
 
   pointerDown(nodeId: string, sx: number, sy: number): void {

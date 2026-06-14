@@ -529,6 +529,43 @@ fn CanvasRuntime::disconnect_ports(
 }
 
 ///|
+fn input_port_compatibility_for_state(
+  state : CanvasState,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  state.nodes
+  .iter()
+  .flat_map(fn(node) {
+    node.inputs
+    .iter()
+    .map(fn(port) {
+      {
+        node_id: node.id.to_string(),
+        port_id: port.id,
+        compatible: @graph_model.can_commit_edge(
+          state,
+          source,
+          source_port,
+          node.id,
+          port.id,
+        ),
+      }
+    })
+  })
+  .to_array()
+}
+
+///|
+fn CanvasRuntime::input_port_compatibility(
+  self : CanvasRuntime,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  input_port_compatibility_for_state(self.state_peek(), source, source_port)
+}
+
+///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
   self.policy.render_state_from_parts(
     self.read_full_render(),

@@ -65,6 +65,34 @@ test "get_render_state exposes workflow JSON shape" {
 }
 
 ///|
+fn compatibility_for(
+  entries : Array[PortCompatibilityJson],
+  node_id : String,
+  port_id : String,
+) -> Bool {
+  match
+    entries
+    .iter()
+    .find_first(fn(entry) {
+      entry.node_id == node_id && entry.port_id == port_id
+    }) {
+    Some(entry) => entry.compatible
+    None => abort("missing compatibility entry: " + node_id + "." + port_id)
+  }
+}
+
+///|
+test "runtime compatibility export batches graph model results" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let entries = runtime.input_port_compatibility(NodeId("2"), "json")
+  assert_eq(entries.length(), 6)
+  inspect(compatibility_for(entries, "5", "items"), content="true")
+  inspect(compatibility_for(entries, "6", "in"), content="false")
+  inspect(compatibility_for(entries, "2", "in"), content="false")
+  inspect(compatibility_for(entries, "3", "json"), content="false")
+}
+
+///|
 test "runtime delete_nodes removes selected nodes and incident edges" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.delete_nodes([NodeId("2")])

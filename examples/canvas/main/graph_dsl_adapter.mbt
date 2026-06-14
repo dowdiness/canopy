@@ -264,20 +264,26 @@ fn source_graph_doc_for_render(
 }
 
 ///|
+fn SourceBackedGraph::state_for_doc(
+  self : SourceBackedGraph,
+  doc : @graph_dsl.GraphDoc,
+) -> CanvasState {
+  let state = canvas_state_with_source_layout(
+    canvas_from_graph_doc(doc),
+    self.layout,
+  )
+  {
+    ..state,
+    viewport: self.viewport,
+    interaction: self.interaction,
+    action_log: self.action_log.copy(),
+  }
+}
+
+///|
 fn source_graph_base_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   match source_graph_doc_for_render(graph) {
-    Some(doc) => {
-      let state = canvas_state_with_source_layout(
-        canvas_from_graph_doc(doc),
-        graph.layout,
-      )
-      {
-        ..state,
-        viewport: graph.viewport,
-        interaction: graph.interaction,
-        action_log: graph.action_log.copy(),
-      }
-    }
+    Some(doc) => graph.state_for_doc(doc)
     None => { ..empty_source_canvas_state(), viewport: graph.viewport }
   }
 }
@@ -802,6 +808,23 @@ fn SourceBackedGraph::pointer_up(
 }
 
 ///|
+fn SourceBackedGraph::input_port_compatibility(
+  self : SourceBackedGraph,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  match source_graph_current_doc(self) {
+    Ok(doc) =>
+      input_port_compatibility_for_state(
+        self.state_for_doc(doc),
+        source,
+        source_port,
+      )
+    Err(_) => []
+  }
+}
+
+///|
 fn SourceBackedGraph::zoom(
   self : SourceBackedGraph,
   delta : Double,
@@ -1092,6 +1115,22 @@ pub fn source_graph_pointer_up(
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_up(node_id, target_port_id, additive)
     None => ()
+  }
+}
+
+///|
+pub fn get_source_graph_input_port_compatibility(
+  handle : Int,
+  source : String,
+  source_port : String,
+) -> String {
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      graph
+      .input_port_compatibility(NodeId(source), source_port)
+      .to_json()
+      .stringify()
+    None => ([] : Array[PortCompatibilityJson]).to_json().stringify()
   }
 }
 

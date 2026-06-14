@@ -23,9 +23,13 @@ pub fn disconnect_ports(Int, String, String, String, String) -> Unit
 
 pub fn get_action_log(Int) -> String
 
+pub fn get_input_port_compatibility(Int, String, String) -> String
+
 pub fn get_render_state(Int) -> String
 
 pub fn get_source_graph_action_log(Int) -> String
+
+pub fn get_source_graph_input_port_compatibility(Int, String, String) -> String
 
 pub fn get_source_graph_render_state(Int) -> String
 
@@ -81,6 +85,8 @@ type NodeJson derive(Eq, ToJson)
 type NodeParamJson derive(Eq, ToJson)
 
 type NormalizedCanvas derive(Eq)
+
+type PortCompatibilityJson derive(Eq, ToJson, @json.FromJson)
 
 type RenderStateJson derive(Eq, ToJson)
 
