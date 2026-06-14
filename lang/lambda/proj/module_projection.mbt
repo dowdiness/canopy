@@ -180,8 +180,8 @@ pub fn reconcile_module_projection(
 ) -> ModuleProjection {
   let old_defs = old_fp.defs
   let new_defs = new_fp.defs
-  let old_names = old_defs.map(d => d.0)
-  let new_names = new_defs.map(d => d.0)
+  let old_names = old_fp.definition_index().names()
+  let new_names = new_fp.definition_index().names()
   let new_matched = key_match(old_names, new_names)
 
   // Build reconciled defs

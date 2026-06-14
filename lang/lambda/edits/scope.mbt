@@ -72,16 +72,7 @@ fn def_cutoff_at_node(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Int {
-  guard source_map.get_range(node_id) is Some(r) else {
-    return module_projection.defs.length()
-  }
-  module_projection.defs
-  .search_by(fn(def) {
-    source_map.get_range(def.1.id()) is Some(dr) &&
-    r.start >= dr.start &&
-    r.start < dr.end
-  })
-  .unwrap_or(module_projection.defs.length())
+  module_projection.definition_index().cutoff_at_node(source_map, node_id)
 }
 
 ///|
@@ -213,7 +204,7 @@ fn declaration_id_for_name_at_module_end(
   declaration_id_for_name_from_scope(
     g,
     root_scope,
-    module_projection.defs.length(),
+    module_projection.definition_index().length(),
     name,
   )
 }
@@ -280,10 +271,5 @@ pub fn find_binding_for_init(
   init_node_id : NodeId,
   module_projection : ModuleProjection,
 ) -> (NodeId, Int)? {
-  for i, def in module_projection.defs {
-    if def.3 == init_node_id || def.1.id() == init_node_id {
-      return Some((def.3, i))
-    }
-  }
-  None
+  module_projection.definition_index().binding_for_node(init_node_id)
 }
