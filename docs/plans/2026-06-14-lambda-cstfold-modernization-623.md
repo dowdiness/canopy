@@ -1,6 +1,6 @@
 # Lambda CstFold modernization decision note (#623)
 
-**Status:** proposed first slice  
+**Status:** accepted first slices (#628, #629)
 **Date:** 2026-06-14  
 **Issue:** <https://github.com/dowdiness/canopy/issues/623>
 
@@ -63,8 +63,10 @@ containing the remaining exceptions.
    - `{ 1 }`: current projection `Int(1)`, CstFold term `Module([], Int(1))`.
    - `{ }`: current projection `Unit`, CstFold term `Error("empty block")`.
    - `(1)` and `fn f() { 1 }\nf` already agree.
-   These differences need an explicit compatibility decision before replacing
-   the root builder wholesale.
+   #629 decided to preserve current Canopy editor semantics and keep Loom's raw
+   CstFold semantics intact. The compatibility boundary normalizes known
+   no-definition block-expression structural patterns before parity-checking
+   CstFold terms now or adopting them in later projection slices.
 4. **Related issues remain adjacent, not substitutes.**
    - #129/#scope work centralized queries but did not remove the
      `ModuleProjection` context requirement.
@@ -87,8 +89,9 @@ projection without changing editor behavior.
    - **must agree for valid representative sources**: ints, vars, parens,
      `fn` bindings, multi-param arrows, apps, binary expressions, `if`, holes,
      normal modules; or
-   - **legacy divergence**: block-expression empty/single-expression behavior,
-     until a compatibility decision is made; or
+   - **compatibility divergence**: block-expression empty/single-expression
+     behavior remains raw-CstFold divergent but adapter-normalized to current
+     editor semantics; or
    - **recovery divergence**: malformed/recovery CSTs whose current projection
      and CstFold error normalization intentionally differ.
 3. Move one safe `Term` construction responsibility from
@@ -112,7 +115,7 @@ Likely touched files:
 ## Issue slicing
 
 - #628 — add CstFold parity tests.
-- #629 — decide the block-expression divergence.
+- #629 — decide the block-expression divergence (decided: compatibility adapter).
 - #630 — replace safe hand-built `Term` construction with CstFold.
 - #631 — extract a definition index from `ModuleProjection`.
 - #632 — migrate scope/edit/semantic consumers off `ModuleProjection`.
