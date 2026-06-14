@@ -3,17 +3,13 @@ fn compute_delete_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, .. } = ctx
+  let (_, _, def) = match def_for_binding(ctx, binding_node_id) {
+    Ok(t) => t
     Err(e) => return Err(e)
   }
   let (let_start, binding_end) = match
-    get_binding_text_range(
-      source_text,
-      source_map,
-      module_projection.defs[def_index],
-    ) {
+    get_binding_text_range(source_text, source_map, def) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
@@ -32,12 +28,11 @@ fn compute_duplicate_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, .. } = ctx
+  let (_, _, def) = match def_for_binding(ctx, binding_node_id) {
+    Ok(t) => t
     Err(e) => return Err(e)
   }
-  let def = module_projection.defs[def_index]
   let binding_source = match
     binding_rewrite_source(source_text, source_map, def) {
     Ok(source) => source
@@ -45,6 +40,8 @@ fn compute_duplicate_binding(
   }
   // Create copy with _copy suffix on name, preserving source syntax such as
   // `fn` parameter annotations instead of reprinting the desugared Lam spine.
+  // NOTE: `_` is not a lexable identifier char in this language, so `_copy`
+  // does not round-trip — pre-existing, all bindings; tracked in #649.
   let new_name = def.0 + "_copy"
   let new_binding = match
     binding_source.renamed_text(source_text, source_map, new_name) {
@@ -80,17 +77,19 @@ fn compute_move_binding_up(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let (g, decl, cur_def) = match def_for_binding(ctx, binding_node_id) {
+    Ok(t) => t
     Err(e) => return Err(e)
   }
-  if def_index == 0 {
+  guard sibling_def_decl(g, decl, -1) is Some(prev_decl) else {
     return Err("Cannot move first binding up")
   }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_projection.defs[def_index]
-  let prev_def = module_projection.defs[def_index - 1]
+  let prev_def = match def_view_from_decl(registry, source_map, prev_decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.1.kind, empty_env)
   let prev_fv = free_vars(prev_def.1.kind, empty_env)
@@ -143,17 +142,19 @@ fn compute_move_binding_down(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, registry, .. } = ctx
+  let (g, decl, cur_def) = match def_for_binding(ctx, binding_node_id) {
+    Ok(t) => t
     Err(e) => return Err(e)
   }
-  if def_index >= module_projection.defs.length() - 1 {
+  guard sibling_def_decl(g, decl, 1) is Some(next_decl) else {
     return Err("Cannot move last binding down")
   }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_projection.defs[def_index]
-  let next_def = module_projection.defs[def_index + 1]
+  let next_def = match def_view_from_decl(registry, source_map, next_decl) {
+    Ok(d) => d
+    Err(e) => return Err(e)
+  }
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.1.kind, empty_env)
   let next_fv = free_vars(next_def.1.kind, empty_env)

@@ -1,24 +1,4 @@
 ///|
-/// Identity-based references to a module definition, delegated to the canonical
-/// scope graph query. The old name-based usage scan could over-match a later
-/// shadowing definition's body; this helper first locates the graph-local
-/// `DeclId` for the requested module def, then asks `@scope.references` for only
-/// refs resolved to that declaration.
-fn module_def_references(
-  g : @scope.ScopeGraph,
-  def_index : Int,
-) -> Result[Array[NodeId], String] {
-  for decl in g.decls {
-    match decl.kind {
-      @scope.DeclKind::ModuleDef(def_index=i) if i == def_index =>
-        return Ok(@scope.references(g, decl.id))
-      _ => ()
-    }
-  }
-  Err("No scope declaration for module def index " + def_index.to_string())
-}
-
-///|
 /// Recursively collect Var nodes matching the given name, stopping at shadowing Lam params.
 fn collect_var_usages(
   node : ProjNode[@ast.Term],
@@ -67,15 +47,6 @@ fn free_names_captured_at_use_sites(
 }
 
 ///|
-fn def_cutoff_at_node(
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
-  node_id : NodeId,
-) -> Int {
-  module_projection.definition_index().cutoff_at_node(source_map, node_id)
-}
-
-///|
 fn scope_id_for_node(
   g : @scope.ScopeGraph,
   node_id : NodeId,
@@ -88,11 +59,6 @@ fn scope_id_for_node(
       .find_first(fn(d) { d.node_id == node_id })
       .map(fn(d) { d.scope })
   }
-}
-
-///|
-fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
-  g.scopes.iter().find_first(fn(s) { s.parent is None }).map(fn(s) { s.id })
 }
 
 ///|
@@ -145,121 +111,79 @@ fn rename_captures_existing_use(
 }
 
 ///|
-fn declaration_id_for_name_from_scope(
-  g : @scope.ScopeGraph,
-  start_scope : @scope.ScopeId,
-  cutoff : Int,
-  name : String,
-) -> @scope.DeclId? {
-  let mut cur : @scope.ScopeId? = Some(start_scope)
-  while cur is Some(sid) {
-    let @scope.ScopeId(si) = sid
-    let scope = g.scopes[si]
-    let mut hit : @scope.DeclId? = None
-    for did in scope.decl_ids {
-      let @scope.DeclId(di) = did
-      let decl = g.decls[di]
-      if decl.name == name {
-        match decl.kind {
-          @scope.DeclKind::ModuleDef(def_index~) =>
-            if def_index < cutoff {
-              hit = Some(did)
-            }
-          @scope.DeclKind::LamParam(_) => hit = Some(did)
-        }
-      }
-    }
-    if hit is Some(_) {
-      return hit
-    }
-    cur = scope.parent
-  }
-  None
-}
-
-///|
-fn declaration_id_for_name_at_node(
-  g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
-  node_id : NodeId,
-  name : String,
-) -> @scope.DeclId? {
-  guard scope_id_for_node(g, node_id) is Some(start_scope) else { return None }
-  declaration_id_for_name_from_scope(
-    g,
-    start_scope,
-    def_cutoff_at_node(module_projection, source_map, node_id),
-    name,
-  )
-}
-
-///|
-fn declaration_id_for_name_at_module_end(
-  g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
-  name : String,
-) -> @scope.DeclId? {
-  guard root_scope_id(g) is Some(root_scope) else { return None }
-  declaration_id_for_name_from_scope(
-    g,
-    root_scope,
-    module_projection.definition_index().length(),
-    name,
-  )
-}
-
-///|
+/// Whether moving `source_node` (an init expression) to `target_node_id` would
+/// rebind any of its free vars — i.e. some free var resolves to a different
+/// declaration at the target site than at the source. The target resolution uses
+/// the scope graph's per-(node,scope) cutoffs (`@scope.resolve_name_at`), so it
+/// is correct for nested-block scopes, not a single root-relative cutoff.
 fn free_names_would_rebind_at_node(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
   source_node : ProjNode[@ast.Term],
   target_node_id : NodeId,
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
-  let mut rebound = false
-  free_names.each(fn(v) {
-    let target_decl = declaration_id_for_name_at_node(
-      g, module_projection, source_map, target_node_id, v,
-    )
-    if free_name_would_rebind_to(g, source_node, v, target_decl) {
-      rebound = true
-    }
+  let subtree : Map[NodeId, ProjNode[@ast.Term]] = {}
+  @core.collect_registry(source_node, subtree)
+  free_names
+  .iter()
+  .any(fn(v) {
+    let target_decl = @scope.resolve_name_at(g, target_node_id, v).map(fn(d) {
+      d.id
+    })
+    free_name_would_rebind_to(g, source_node, subtree, v, target_decl)
   })
-  rebound
 }
 
 ///|
+/// Whether moving `source_node` to the END of the root module (where extract
+/// inserts a new top-level `let`) would rebind any of its free vars. The target
+/// resolution is root-module-end (`@scope.resolve_at_module_root_end`), which is
+/// total even when the module body is a synthetic `Unit`.
 fn free_names_would_rebind_at_module_end(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
   source_node : ProjNode[@ast.Term],
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
-  let mut rebound = false
-  free_names.each(fn(v) {
-    let target_decl = declaration_id_for_name_at_module_end(
-      g, module_projection, v,
-    )
-    if free_name_would_rebind_to(g, source_node, v, target_decl) {
-      rebound = true
-    }
+  let subtree : Map[NodeId, ProjNode[@ast.Term]] = {}
+  @core.collect_registry(source_node, subtree)
+  free_names
+  .iter()
+  .any(fn(v) {
+    let target_decl = @scope.resolve_at_module_root_end(g, v).map(fn(d) { d.id })
+    free_name_would_rebind_to(g, source_node, subtree, v, target_decl)
   })
-  rebound
 }
 
 ///|
+/// Whether any free occurrence of `name` in `source_node` currently resolves to
+/// a declaration other than `target_decl` (the declaration `name` would resolve
+/// to at the move target). Occurrences bound WITHIN `source_node` — to a lambda
+/// param or a nested-block def in the init — are excluded: moving the init does
+/// not change their binding. `subtree` is the registry of all nodes under
+/// `source_node` (built once by the caller via `@core.collect_registry`), used
+/// to test that "bound within". An unbound occurrence rebinds iff the target
+/// binds the name.
 fn free_name_would_rebind_to(
   g : @scope.ScopeGraph,
   source_node : ProjNode[@ast.Term],
+  subtree : Map[NodeId, ProjNode[@ast.Term]],
   name : String,
   target_decl : @scope.DeclId?,
 ) -> Bool {
   let var_ids : Array[NodeId] = []
   collect_var_usages(source_node, name, var_ids)
   var_ids.any(fn(vid) {
-    @scope.declaration(g, vid).map(fn(d) { d.id }) != target_decl
+    match @scope.declaration(g, vid) {
+      // Bound inside the init (its binder is in the subtree) → unaffected.
+      Some(d) =>
+        if subtree.contains(d.node_id) {
+          false
+        } else {
+          Some(d.id) != target_decl
+        }
+      // Free/unbound at source → rebinds iff the target site binds the name.
+      None => target_decl is Some(_)
+    }
   })
 }
 

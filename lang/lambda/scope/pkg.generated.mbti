@@ -23,6 +23,10 @@ pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @d
 
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
+pub fn resolve_at_module_root_end(ScopeGraph, String) -> Decl?
+
+pub fn resolve_name_at(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
+
 // Errors
 
 // Types and methods
@@ -74,6 +78,8 @@ pub(all) struct ScopeGraph {
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @dowdiness/canopy/core.NodeId
+  node_scope : Map[@dowdiness/canopy/core.NodeId, ScopeId]
+  node_cutoffs : Map[@dowdiness/canopy/core.NodeId, Map[ScopeId, Int]]
 } derive(@debug.Debug)
 
 pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)

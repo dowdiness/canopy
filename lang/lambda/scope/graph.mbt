@@ -79,4 +79,11 @@ pub(all) struct ScopeGraph {
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @core.NodeId
+  // Per-node resolution inputs, retained from the builder so consumers can ask
+  // hypothetical-position questions ("what would `name` resolve to AT this
+  // node?", `resolve_name_at`). `node_cutoffs` keys each `ModuleDef`'s
+  // sequential visibility per enclosing module scope; lambda scopes never appear
+  // (they hold no `ModuleDef`). Every walked node has an entry in both.
+  node_scope : Map[@core.NodeId, ScopeId]
+  node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
 } derive(Debug)

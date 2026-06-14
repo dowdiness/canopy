@@ -83,17 +83,93 @@ fn ensure_replaceable_node_range(
 }
 
 ///|
-/// Find a module binding's index in module_projection.defs by its NodeId.
-fn find_def_index(
-  module_projection : ModuleProjection,
+/// Resolve a binding (LetDef) node id to its scope-graph `ModuleDef`
+/// declaration, block-locally. Unlike a root-relative `module_projection.defs`
+/// scan, this matches the binder's structural node id against every decl in the
+/// graph, so a block-local binder resolves to its own scope's declaration.
+/// Mirrors #645's `rename_binding_by_id`.
+fn decl_for_binding_node(
+  g : @scope.ScopeGraph,
   binding_node_id : NodeId,
-) -> Result[Int, String] {
-  for i, def in module_projection.defs {
-    if def.3 == binding_node_id {
-      return Ok(i)
-    }
+) -> @scope.Decl? {
+  g.decls
+  .iter()
+  .find_first(fn(d) {
+    d.node_id == binding_node_id && d.kind is @scope.DeclKind::ModuleDef(_)
+  })
+}
+
+///|
+/// Synthesize the `(name, init, start, letdef_id)` def-view tuple consumed by the
+/// binding text helpers from a `ModuleDef` declaration's LetDef projection node.
+/// Uniform for root and nested decls — `decl.node_id` is always the LetDef node,
+/// whose first child is the init expression, mirroring
+/// `ModuleProjection::from_proj_node`'s unconditional `children[0]` extraction.
+/// Returns `Err` if that child is absent (rather than aborting like the indexing
+/// in `from_proj_node`). The start comes from the LetDef node's source range (the
+/// binding span's start).
+fn def_view_from_decl(
+  registry : Map[NodeId, ProjNode[@ast.Term]],
+  source_map : SourceMap,
+  decl : @scope.Decl,
+) -> Result[(String, ProjNode[@ast.Term], Int, NodeId), String] {
+  guard registry.get(decl.node_id) is Some(letdef) else {
+    return Err("Binding node not in registry: " + decl.node_id.to_string())
   }
-  Err("Binding not found: " + binding_node_id.to_string())
+  guard source_map.get_range(decl.node_id) is Some(r) else {
+    return Err("Binding node not in source map: " + decl.node_id.to_string())
+  }
+  guard letdef.children.get(0) is Some(init) else {
+    return Err("Binding node has no init child: " + decl.node_id.to_string())
+  }
+  Ok((decl.name, init, r.start, decl.node_id))
+}
+
+///|
+/// Resolve a binding node to the scope graph, its block-local `ModuleDef`
+/// declaration, and the synthesized `(name, init, start, letdef_id)` def-view —
+/// the shared preamble of every binding op (delete/duplicate/move/inline-all).
+/// Block-local via `decl_for_binding_node`, so a nested binder resolves to its
+/// own scope's declaration rather than a root def at the same index.
+fn def_for_binding(
+  ctx : EditContext[@ast.Term],
+  binding_node_id : NodeId,
+) -> Result[
+  (@scope.ScopeGraph, @scope.Decl, (String, ProjNode[@ast.Term], Int, NodeId)),
+  String,
+] {
+  let { source_map, registry, module_projection, .. } = ctx
+  let g = @scope.build(module_projection, registry, source_map)
+  guard decl_for_binding_node(g, binding_node_id) is Some(decl) else {
+    return Err("Binding not found: " + binding_node_id.to_string())
+  }
+  match def_view_from_decl(registry, source_map, decl) {
+    Ok(def) => Ok((g, decl, def))
+    Err(e) => Err(e)
+  }
+}
+
+///|
+/// The same-scope sibling declaration at scope-relative offset `offset` from
+/// `decl` (e.g. -1 = previous binding, +1 = next), or None at the boundary.
+/// Keyed on `decl.scope` + scope-relative `def_index`, so move-up/down swap the
+/// correct neighbour within a nested block — never a root def at the same index.
+fn sibling_def_decl(
+  g : @scope.ScopeGraph,
+  decl : @scope.Decl,
+  offset : Int,
+) -> @scope.Decl? {
+  guard decl.kind is @scope.DeclKind::ModuleDef(def_index~) else { return None }
+  let target = def_index + offset
+  g.decls
+  .iter()
+  .find_first(fn(d) {
+    d.scope == decl.scope &&
+    (match d.kind {
+      @scope.DeclKind::ModuleDef(def_index=i) => i == target
+      _ => false
+    })
+  })
 }
 
 ///|

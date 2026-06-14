@@ -13,53 +13,10 @@ fn scope_test_registry(
   registry
 }
 
-///|
-test "module_def_references: finds Var references in Module body" {
-  let text = "let x = 0\nx + x"
-  let (proj, _) = parse_to_proj_node(text)
-  let fp = ModuleProjection::from_proj_node(proj)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, source_map)
-  match module_def_references(g, 0) {
-    Ok(refs) => inspect(refs.length(), content="2")
-    Err(e) => fail(e)
-  }
-}
-
-///|
-test "module_def_references: respects shadowing by inner Lam" {
-  let text = "let x = 0\n(x) => x"
-  let (proj, _) = parse_to_proj_node(text)
-  let fp = ModuleProjection::from_proj_node(proj)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, source_map)
-  match module_def_references(g, 0) {
-    Ok(refs) => inspect(refs.length(), content="0")
-    Err(e) => fail(e)
-  }
-}
-
-///|
-test "module_def_references: later duplicate shadows body only" {
-  let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
-  let fp = ModuleProjection::from_proj_node(proj)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, source_map)
-  match (module_def_references(g, 0), module_def_references(g, 1)) {
-    (Ok(first_refs), Ok(second_refs)) => {
-      // The first def is referenced by the second def's init; the body resolves
-      // to the second def. This is the identity-based case the old name scan
-      // could not distinguish when callers started at def_index + 1.
-      inspect(first_refs.length(), content="1")
-      inspect(second_refs.length(), content="1")
-    }
-    (Err(e), _) | (_, Err(e)) => fail(e)
-  }
-}
+// The `module_def_references` edits-local wrapper was removed when inline/binding
+// ops were taught block-local scopes (docs/TODO.md §20): references are now read
+// directly via `@scope.references(g, decl.id)`, whose identity-based,
+// shadowing-correct behavior is owned and tested by the `@scope` package.
 
 ///|
 test "find_binding_for_init: maps init ProjNode to binding NodeId" {
@@ -113,20 +70,4 @@ test "find_binding_for_init: duplicate defs return matching binding order" {
     }
     None => fail("expected second duplicate binding")
   }
-}
-
-///|
-test "def_cutoff_at_node: duplicate defs use init-range cutoff" {
-  let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
-  let fp = ModuleProjection::from_proj_node(proj)
-  let source_map = SourceMap::from_ast(proj)
-  let body = proj.children.last().unwrap()
-  inspect(def_cutoff_at_node(fp, source_map, fp.defs[0].1.id()), content="0")
-  inspect(def_cutoff_at_node(fp, source_map, fp.defs[1].1.id()), content="1")
-  inspect(def_cutoff_at_node(fp, source_map, body.id()), content="2")
-  inspect(
-    def_cutoff_at_node(fp, source_map, NodeId::from_int(999_999)),
-    content="2",
-  )
 }

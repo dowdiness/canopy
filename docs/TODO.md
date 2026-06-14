@@ -492,24 +492,23 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   `Rename block-local binding leaves root binding intact`, `Rename block-local
   binding by binder id`, `Rename block reference to outer binding renames root`.
 
-- [ ] Teach `edits/` **inline / extract / binding** ops about nested-block scopes.
-  Why: rename is fixed (above) by delegating to the already-block-aware `@scope`
-  API. But `text_edit_refactor.mbt` (inline/extract) and `text_edit_binding.mbt`
-  still convert the block-aware `Decl` into a root-relative `def_index`:
-  `module_def_references(g, def_index)` returns the FIRST decl at that index (root
-  wins over a block-local def at the same index), and `module_projection.defs[
-  def_index]` / `find_def_index` index the ROOT module's defs only. So inlining a
-  block-local `x` inlines the ROOT def's value, and the capture guard
-  (`def_cutoff_at_node` + `declaration_id_for_name_from_scope`, scope.mbt) applies
-  one root-relative cutoff. Pre-existing blind spot, already unsound today —
-  rename-only is strict progress, not a regression.
-  Plan: GitHub issue — for references/binder, decl-thread the same way rename now
-  does. For the *capture analysis* (a hypothetical-position query: "what would
-  name N resolve to if the init moved to position P"), generalize to the
-  per-(node, scope) cutoff model the builder uses (`lang/lambda/scope/builder.mbt`
-  `node_cutoffs`), keying each `def_index` to its declaring scope.
-  Exit: inlining/extracting a block-local binding (`let y = { let x = 1; x }`)
-  operates on the block-local `x`, with a wbtest fixture asserting it.
+- [x] Teach `edits/` **inline / extract / binding** ops about nested-block scopes.
+  Shipped (plan: `docs/plans/2026-06-14-edits-nested-block-scopes.md`). Inline and
+  the binding ops now decl-thread like rename: they resolve the binder to its
+  block-aware `@scope.Decl` (`decl_for_binding_node`) and synthesize the def-view
+  from `decl.node_id` (`def_view_from_decl`) instead of indexing the ROOT
+  `module_projection.defs`; references come from `@scope.references(g, decl.id)`,
+  and move-up/down swap same-scope siblings (`sibling_def_decl`). The capture
+  analysis (the hypothetical-position query) is now the builder's own per-(node,
+  scope) cutoff model, persisted on `ScopeGraph` (`node_scope` + `node_cutoffs`)
+  and exposed as `@scope.resolve_name_at` / `resolve_at_module_root_end`; the
+  parallel root-cutoff resolver (`def_cutoff_at_node` +
+  `declaration_id_for_name_from_scope`) and `module_def_references` are deleted —
+  no 4th resolver. `free_name_would_rebind_to` also gained a subtree filter so a
+  nested-block shadow *inside* an inlined init is no longer a false capture.
+  wbtests: `text_edit_nested_block_wbtest.mbt` (inline def-lookup, inline
+  capture-query, nested-shadow non-capture, block-local DuplicateBinding) +
+  `resolve_name_at_wbtest.mbt` (the two queries + module-node totality).
 
 ## Shipped history
 

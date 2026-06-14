@@ -98,6 +98,62 @@ pub fn go_to_definition(
 }
 
 ///|
+/// Hypothetical-position resolution: the declaration that `name` would resolve
+/// to if referenced AT `node_id`'s position — i.e. from `node_id`'s scope, with
+/// `node_id`'s per-(node,scope) cutoffs. This is the exact resolver pass 3 uses
+/// for real references, so it correctly respects nested-block sequential cutoffs
+/// (unlike a single root-relative cutoff). `None` when `node_id` was not walked
+/// (absent from `node_scope`) or `name` is unbound there.
+///
+/// Callers must pass the actual site where a moved/inlined expression would land
+/// (e.g. the replacement use site for inline), not an enclosing binding node.
+pub fn resolve_name_at(
+  g : ScopeGraph,
+  node_id : @core.NodeId,
+  name : String,
+) -> Decl? {
+  guard g.node_scope.get(node_id) is Some(start) else { return None }
+  let cutoffs = g.node_cutoffs.get(node_id).unwrap()
+  match resolve_in(g.scopes, g.decls, name, start, cutoffs).decl {
+    Some(did) => {
+      let DeclId(di) = did
+      Some(g.decls[di])
+    }
+    None => None
+  }
+}
+
+///|
+/// The declaration `name` resolves to at the END of the root module — after all
+/// root-level definitions, where a newly inserted top-level `let` (extract) would
+/// sit. Resolves in the root scope with cutoff = the count of root `ModuleDef`
+/// decls, so every root def is visible. Unlike deriving a body node from
+/// `module_projection.final_expr` (a synthetic `Unit` body has no real node),
+/// this is total: it never silently skips the capture check.
+pub fn resolve_at_module_root_end(g : ScopeGraph, name : String) -> Decl? {
+  guard g.scopes.iter().find_first(fn(s) { s.parent is None }) is Some(root) else {
+    return None
+  }
+  let cutoff = root.decl_ids.fold(init=0, fn(acc, did) {
+    let DeclId(di) = did
+    if g.decls[di].kind is ModuleDef(_) {
+      acc + 1
+    } else {
+      acc
+    }
+  })
+  let cutoffs : Map[ScopeId, Int] = {}
+  cutoffs[root.id] = cutoff
+  match resolve_in(g.scopes, g.decls, name, root.id, cutoffs).decl {
+    Some(did) => {
+      let DeclId(di) = did
+      Some(g.decls[di])
+    }
+    None => None
+  }
+}
+
+///|
 /// The set of names bound in scopes enclosing `node` — the FULL lexical
 /// environment (lambda params AND module defs). This is a SUPERSET of the
 /// retired edits-package `collect_lam_env` (which returned only lambda params);

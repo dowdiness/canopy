@@ -20,7 +20,7 @@ fn compute_extract_to_let(
   let would_capture = if module_projection.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
-    free_names_would_rebind_at_module_end(g, module_projection, node, fv)
+    free_names_would_rebind_at_module_end(g, node, fv)
   }
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
@@ -133,31 +133,28 @@ fn compute_inline_definition(
   match decl.kind {
     DeclKind::LamParam(..) =>
       return Err("Cannot inline lambda-bound variable: " + var_name)
-    DeclKind::ModuleDef(def_index~) => {
-      let def = module_projection.defs[def_index]
+    // The decl is already the block-aware declaration the var resolves to; build
+    // the def-view from it (NOT from a root-relative `module_projection.defs`
+    // index, which a block-local def shares with a root def).
+    DeclKind::ModuleDef(_) => {
+      let def = match def_view_from_decl(registry, source_map, decl) {
+        Ok(d) => d
+        Err(e) => return Err(e)
+      }
       let init_text = match binding_inline_text(source_text, source_map, def) {
         Ok(text) => text
         Err(e) => return Err(e)
       }
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.1.kind, @immut/hashset.new())
-      if free_names_would_rebind_at_node(
-          g,
-          module_projection,
-          source_map,
-          def.1,
-          node_id,
-          init_fv,
-        ) {
+      if free_names_would_rebind_at_node(g, def.1, node_id, init_fv) {
         return Err(
           "Cannot inline: would capture variables bound by enclosing lambda",
         )
       }
-      // Check if this is the sole resolved reference.
-      let refs = match module_def_references(g, def_index) {
-        Ok(ids) => ids
-        Err(e) => return Err(e)
-      }
+      // Check if this is the sole resolved reference (identity-based, so a
+      // block-local def's refs are not conflated with a root def at the same index).
+      let refs = @scope.references(g, decl.id)
       if refs.length() <= 1 {
         // Sole usage — inline and delete the binding
         let (let_start, binding_end) = match
@@ -232,30 +229,19 @@ fn compute_inline_all_usages(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, registry, module_projection } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
-    Ok(i) => i
+  let { source_text, source_map, .. } = ctx
+  // Resolve the binder to its block-aware declaration (root or block-local).
+  let (g, decl, def) = match def_for_binding(ctx, binding_node_id) {
+    Ok(t) => t
     Err(e) => return Err(e)
   }
-  let def = module_projection.defs[def_index]
   let var_name = def.0
-  // Find all references resolved to this binding.
-  let g = @scope.build(module_projection, registry, source_map)
-  let ref_ids = match module_def_references(g, def_index) {
-    Ok(ids) => ids
-    Err(e) => return Err(e)
-  }
+  // All references resolved to THIS declaration (identity-based, shadowing-correct).
+  let ref_ids = @scope.references(g, decl.id)
   // Check for capture: would any free var in init be captured by an enclosing scope at any reference site?
   let init_fv = free_vars(def.1.kind, @immut/hashset.new())
   for rid in ref_ids {
-    if free_names_would_rebind_at_node(
-        g,
-        module_projection,
-        source_map,
-        def.1,
-        rid,
-        init_fv,
-      ) {
+    if free_names_would_rebind_at_node(g, def.1, rid, init_fv) {
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )

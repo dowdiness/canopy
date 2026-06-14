@@ -181,6 +181,37 @@ test "references: identity-based, shadowing-aware" {
 }
 
 ///|
+/// A forward reference from a LATER sibling's init counts toward the earlier
+/// def. In `let x = 0\nlet x = x\nx`, def1's init `x` cannot see itself
+/// (sequential `let`), so it resolves to def0 — `references(def0)` must include
+/// it. The body `x` resolves to the latest binder (def1). Regression guard: if
+/// forward-init references stopped being recorded, `references(def0)` drops to 0.
+test "references: forward reference from a later sibling init counts" {
+  let (_proj, module_projection, registry, source_map) = build_fixture(
+    "let x = 0\nlet x = x\nx",
+  )
+  let g = build(module_projection, registry, source_map)
+  let def0 = g.decls[0].id
+  let def1 = g.decls[1].id
+  inspect(references(g, def0).length(), content="1")
+  inspect(references(g, def1).length(), content="1")
+}
+
+///|
+/// A module binding whose only use sits inside a SHADOWING lambda has zero
+/// references: in `let x = 0\n(x) => x` the body `x` is bound by the lambda
+/// param, not the module `x`. Regression guard for shadow-aware reference
+/// counting (a shadow-blind counter would report 1).
+test "references: use under a shadowing lambda does not count" {
+  let (_proj, module_projection, registry, source_map) = build_fixture(
+    "let x = 0\n(x) => x",
+  )
+  let g = build(module_projection, registry, source_map)
+  let def0 = g.decls[0].id
+  inspect(references(g, def0).length(), content="0")
+}
+
+///|
 test "enclosing_env: lambda params in scope" {
   let (proj, module_projection, registry, source_map) = build_fixture(
     "(x, y) => x",

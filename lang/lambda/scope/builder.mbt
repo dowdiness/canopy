@@ -19,12 +19,14 @@ fn build_parent_map(
 ///|
 /// Mutable builder state accumulated across passes.
 ///
-/// `node_cutoffs` is transient pass-2 state (never stored in the graph): for
-/// each node it records the sequential cutoff of every enclosing module scope
-/// — a `ModuleDef(def_index)` in scope `s` is visible to the node only if
-/// `def_index < node_cutoffs[node][s]`. Lambda scopes never appear (they hold
-/// no `ModuleDef`). This generalises the former single-`Int` cutoff so nested
-/// blocks each carry their own sequential position independently.
+/// `node_cutoffs` records, for each node, the sequential cutoff of every
+/// enclosing module scope — a `ModuleDef(def_index)` in scope `s` is visible to
+/// the node only if `def_index < node_cutoffs[node][s]`. Lambda scopes never
+/// appear (they hold no `ModuleDef`). This generalises the former single-`Int`
+/// cutoff so nested blocks each carry their own sequential position
+/// independently. Both `node_scope` and `node_cutoffs` are persisted into the
+/// built `ScopeGraph` so `resolve_name_at` can answer hypothetical-position
+/// queries; they were formerly transient pass-2 state.
 priv struct Builder {
   scopes : Array[Scope]
   decls : Array[Decl]
@@ -107,7 +109,15 @@ fn Builder::pass2(
     // `descend_module_children`.
     @ast.Term::Module(_, _) => {
       self.node_scope[root.id()] = root_scope
-      self.node_cutoffs[root.id()] = {}
+      // The root module node's own scope is `root_scope`, so its cutoff map must
+      // cover it (the resolver asserts every module scope on the chain is keyed).
+      // Module-start semantics (0 root defs visible) mirror the bare-expression
+      // arm below and make `resolve_name_at(g, module_node_id, _)` total — it
+      // returns None at the container node rather than aborting. Children get
+      // their own per-position cutoffs via `descend_module_children`.
+      let root_cutoffs : Map[ScopeId, Int] = {}
+      root_cutoffs[root_scope] = 0
+      self.node_cutoffs[root.id()] = root_cutoffs
       self.descend_module_children(root, root_scope, {})
     }
     // Bare lambda / expression program: `module_projection.defs` is empty, so
@@ -220,18 +230,36 @@ fn Builder::resolve(
   start_scope : ScopeId,
   cutoffs : Map[ScopeId, Int],
 ) -> Resolution {
+  resolve_in(self.scopes, self.decls, name, start_scope, cutoffs)
+}
+
+///|
+/// Resolve `name` from `start_scope` upward over the given `scopes`/`decls`,
+/// gating `ModuleDef` decls by the per-scope `cutoffs` and treating `LamParam`
+/// decls as always visible. This is the single canonical resolver shared by
+/// pass 3 (via `Builder::resolve`) and the public `resolve_name_at` query — both
+/// must agree, so there is one implementation, not a copy. See `Builder::resolve`
+/// for the cutoff invariant (`cutoffs.get(sid).unwrap()` asserts that every
+/// module scope on the chain was recorded for this resolution).
+fn resolve_in(
+  scopes : Array[Scope],
+  decls : Array[Decl],
+  name : String,
+  start_scope : ScopeId,
+  cutoffs : Map[ScopeId, Int],
+) -> Resolution {
   let visited : Array[ScopeId] = []
   let mut cur : ScopeId? = Some(start_scope)
   while cur is Some(sid) {
     let ScopeId(si) = sid
-    let scope = self.scopes[si]
+    let scope = scopes[si]
     // later decls win within a scope (shadowing), so search in reverse and take
     // the first match; module-scope decls respect the per-scope cutoff.
     let hit = scope.decl_ids
       .rev_iter()
       .find_first(fn(did) {
         let DeclId(di) = did
-        let decl = self.decls[di]
+        let decl = decls[di]
         decl.name == name &&
         (match decl.kind {
           ModuleDef(def_index~) => def_index < cutoffs.get(sid).unwrap()
@@ -289,5 +317,12 @@ pub fn build(
   let root = root_node(registry)
   b.pass2(module_projection, root)
   b.pass3(registry)
-  { scopes: b.scopes, decls: b.decls, refs: b.refs, module_node_id: root.id() }
+  {
+    scopes: b.scopes,
+    decls: b.decls,
+    refs: b.refs,
+    module_node_id: root.id(),
+    node_scope: b.node_scope,
+    node_cutoffs: b.node_cutoffs,
+  }
 }
