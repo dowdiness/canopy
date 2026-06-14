@@ -10,11 +10,7 @@ fn compute_rename(
         @ast.Term::Var(old_name) =>
           rename_from_var(ctx, node_id, old_name, new_name)
         @ast.Term::Lam(old_name, _) => {
-          let g = @scope.build(
-            ctx.module_projection,
-            ctx.registry,
-            ctx.source_map,
-          )
+          let g = @scope.build(ctx.registry, ctx.source_map)
           rename_lam_param(ctx, g, node_id, n, old_name, new_name)
         }
         _ => rename_binding_by_id(ctx, node_id, new_name)
@@ -251,7 +247,7 @@ fn rename_from_var(
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let g = @scope.build(ctx.module_projection, ctx.registry, ctx.source_map)
+  let g = @scope.build(ctx.registry, ctx.source_map)
   guard @scope.declaration(g, var_node_id) is Some(decl) else {
     return Err("No binding found for variable: " + old_name)
   }
@@ -279,7 +275,7 @@ fn rename_binding_by_id(
   binding_node_id : NodeId,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let g = @scope.build(ctx.module_projection, ctx.registry, ctx.source_map)
+  let g = @scope.build(ctx.registry, ctx.source_map)
   guard g.decls
     .iter()
     .find_first(fn(d) {

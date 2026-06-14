@@ -76,7 +76,7 @@ fn root_node(
 /// Pass 2: scopes, decls, and per-node scope+cutoff membership.
 ///
 /// - The root module scope holds the flat top-level `ModuleDef` decls (one per
-///   `module_projection.defs`, binder id preserved from the projection).
+///   root `Module` definition, using the first-class `LetDef` child id).
 /// - Each `Lam` node opens a child `LamParam` scope.
 /// - Each NESTED `Module` node (a block expression) opens a child scope holding
 ///   its own block-local `ModuleDef` decls — this is what makes the graph an
@@ -86,31 +86,32 @@ fn root_node(
 /// `[0, i)` and the body (`i == def_count`) sees all defs; that per-child
 /// cutoff is recorded against the scope in `node_cutoffs`, accumulating the
 /// cutoffs of all enclosing module scopes so each gates visibility independently.
-fn Builder::pass2(
-  self : Builder,
-  module_projection : @lambda_proj.ModuleProjection,
-  root : @core.ProjNode[@ast.Term],
-) -> Unit {
+fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
   let root_scope = self.add_scope(None)
-  for i, def in module_projection.defs {
-    let (name, _init, _start, binder_id) = def
-    let _ = self.add_decl(root_scope, binder_id, name, ModuleDef(def_index=i))
-  }
   match root.kind {
     // Root is the top-level module. Its scope (parent None) and decls are
-    // installed above from `module_projection.defs` — that pre-installation is
-    // the *only* thing distinguishing root from a nested block. The binder ids
-    // are in fact identical to `root.children[i].id()` (see
-    // `ModuleProjection::from_proj_node`); root is kept out of the generic
+    // installed above from the root `Module` children — that pre-installation
+    // is the *only* thing distinguishing root from a nested block. The binder
+    // ids are the first-class `LetDef` child ids; root is kept out of the generic
     // `Module` arm only because that arm would open a *second* scope and
     // re-install the decls. The per-child cutoff descent is shared via
     // `descend_module_children`.
-    @ast.Term::Module(_, _) => {
+    @ast.Term::Module(defs, _) => {
+      for i, def in defs {
+        let _ = self.add_decl(
+          root_scope,
+          root.children[i].id(),
+          def.0,
+          ModuleDef(def_index=i),
+        )
+      }
+      let root_cutoffs : Map[ScopeId, Int] = {}
+      root_cutoffs[root_scope] = defs.length()
       self.node_scope[root.id()] = root_scope
-      self.node_cutoffs[root.id()] = {}
+      self.node_cutoffs[root.id()] = root_cutoffs
       self.descend_module_children(root, root_scope, {})
     }
-    // Bare lambda / expression program: `module_projection.defs` is empty, so
+    // Bare lambda / expression program: there is no root `Module`, so
     // `root_scope` holds no `ModuleDef`. Dispatch through `walk` so the root's
     // own binder (a `Lam` param) is installed.
     _ => {
@@ -128,7 +129,7 @@ fn Builder::pass2(
 /// child sees all defs. `def_count` is derived structurally as
 /// `children.length() - 1` — the body is always the last child (see
 /// `module_node_from_defs`) — so the cutoff stays consistent with the children
-/// actually iterated, independent of `module_projection`'s def count.
+/// actually iterated, independent of any flat projection's def count.
 fn Builder::descend_module_children(
   self : Builder,
   node : @core.ProjNode[@ast.Term],
@@ -179,6 +180,10 @@ fn Builder::walk(
           ModuleDef(def_index=i),
         )
       }
+      let module_cutoffs = cutoffs.copy()
+      module_cutoffs[mod_scope] = defs.length()
+      self.node_scope[node.id()] = mod_scope
+      self.node_cutoffs[node.id()] = module_cutoffs
       self.descend_module_children(node, mod_scope, cutoffs)
     }
     _ =>
@@ -280,14 +285,20 @@ fn Builder::pass3(
 /// come from tree position recorded in pass 2 — so it is not threaded into the
 /// passes.
 pub fn build(
-  module_projection : @lambda_proj.ModuleProjection,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
   let _ = source_map
   let b = Builder::new()
   let root = root_node(registry)
-  b.pass2(module_projection, root)
+  b.pass2(root)
   b.pass3(registry)
-  { scopes: b.scopes, decls: b.decls, refs: b.refs, module_node_id: root.id() }
+  {
+    scopes: b.scopes,
+    decls: b.decls,
+    refs: b.refs,
+    module_node_id: root.id(),
+    node_scope: b.node_scope,
+    node_cutoffs: b.node_cutoffs,
+  }
 }

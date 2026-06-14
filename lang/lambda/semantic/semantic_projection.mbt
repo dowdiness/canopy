@@ -37,19 +37,23 @@ pub fn build_semantic_projection(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
 ) -> SemanticProjection {
-  build_semantic_projection_with_module_projection(root, source_map, None)
+  let projection = SemanticProjection::empty()
+  analyze_node(root, source_map, [], projection)
+  push_scope_failures(root, source_map, projection)
+  projection
 }
 
 ///|
+/// Temporary compatibility adapter for callers that still hold the flat
+/// projection memo. Semantic analysis now derives binder ids from the current
+/// `ProjNode` tree and ignores the `ModuleProjection` argument.
 pub fn build_semantic_projection_with_module_projection(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
   module_projection : @lambda_proj.ModuleProjection?,
 ) -> SemanticProjection {
-  let projection = SemanticProjection::empty()
-  analyze_node(root, source_map, [], projection, module_projection)
-  push_scope_failures(root, source_map, projection)
-  projection
+  let _ = module_projection
+  build_semantic_projection(root, source_map)
 }
 
 ///|
@@ -60,16 +64,10 @@ pub fn build_semantic_projection_with_module_projection(
 /// genuinely reachable, so the squiggle now rests on the resolver of record
 /// instead of a parallel `env.contains` check.
 ///
-/// The scope graph is reconstructed from `root` via `from_proj_node(root)` — it
-/// deliberately does NOT reuse the caller-supplied `module_projection`. Both the
-/// registry and the diagnostic ranges derive from `root`, so deriving the
-/// module projection from `root` too keeps resolution consistent with the tree
-/// the squiggles land on; the caller's projection (which under incremental
-/// editing is reconciled separately) could drift from `root` and mis-gate
-/// definition visibility. The `module_projection` argument is consulted only by
-/// the annotation/decoration walk, whose bound/free overlays deliberately remain
-/// on the environment walk — §6 Step 1 regrounds the structured diagnostic only.
-/// Incremental maintenance (avoiding this rebuild) is §6 Step 3, benchmark-gated.
+/// The scope graph is reconstructed from `root`. Both the registry and the
+/// diagnostic ranges derive from that same tree, so resolution stays consistent
+/// with the spans where squiggles land. Incremental maintenance (avoiding this
+/// rebuild) is §6 Step 3, benchmark-gated.
 fn push_scope_failures(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
@@ -77,8 +75,7 @@ fn push_scope_failures(
 ) -> Unit {
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(root, registry)
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(root)
-  let graph = @lambda_scope.build(module_projection, registry, source_map)
+  let graph = @lambda_scope.build(registry, source_map)
   for failure in @lambda_scope.failures(graph, source_map) {
     guard failure.location is Some(range) else { continue }
     projection.diagnostics.push(
@@ -98,26 +95,25 @@ fn analyze_node(
   source_map : @core.SourceMap,
   env : Array[String],
   projection : SemanticProjection,
-  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   match node.kind {
     @ast.Term::Module(defs, _) =>
-      analyze_module(node, source_map, defs, env, projection, module_projection)
+      analyze_module(node, source_map, defs, env, projection)
     @ast.Term::Lam(param, _) =>
       analyze_lambda(node, source_map, param, env, projection)
     @ast.Term::Var(name) | @ast.Term::Unbound(name) =>
       analyze_var(node, source_map, name, env, projection)
     @ast.Term::LetDef(_, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::App(_, _) | @ast.Term::Bop(_, _, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::If(_, _, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::Int(_)
     | @ast.Term::Unit
@@ -133,7 +129,6 @@ fn analyze_module(
   defs : Array[(@ast.VarName, @ast.Term)],
   env : Array[String],
   projection : SemanticProjection,
-  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   let scoped = env.copy()
   for i, def in defs {
@@ -141,7 +136,7 @@ fn analyze_module(
     let binder_id = if i < node.children.length() {
       node.children[i].id()
     } else {
-      module_binding_node_id(module_projection, i).unwrap_or(node.id())
+      node.id()
     }
     add_annotation(
       projection,
@@ -166,30 +161,13 @@ fn analyze_module(
       None => ()
     }
     if i < node.children.length() {
-      analyze_node(node.children[i], source_map, scoped, projection, None)
+      analyze_node(node.children[i], source_map, scoped, projection)
     }
     scoped.push(name)
   }
   let body_index = defs.length()
   if body_index < node.children.length() {
-    analyze_node(
-      node.children[body_index],
-      source_map,
-      scoped,
-      projection,
-      None,
-    )
-  }
-}
-
-///|
-fn module_binding_node_id(
-  module_projection : @lambda_proj.ModuleProjection?,
-  def_index : Int,
-) -> @core.NodeId? {
-  match module_projection {
-    Some(fp) if def_index < fp.defs.length() => Some(fp.defs[def_index].3)
-    _ => None
+    analyze_node(node.children[body_index], source_map, scoped, projection)
   }
 }
 
@@ -220,7 +198,7 @@ fn analyze_lambda(
   let scoped = env.copy()
   scoped.push(param)
   if node.children.length() > 0 {
-    analyze_node(node.children[0], source_map, scoped, projection, None)
+    analyze_node(node.children[0], source_map, scoped, projection)
   }
 }
 

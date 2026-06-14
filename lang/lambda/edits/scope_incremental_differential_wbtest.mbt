@@ -61,7 +61,7 @@ fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
 /// alias the Module id onto an existing init-subtree node id and corrupt the
 /// node-id-keyed registry / SourceMap.
 fn build_graph_from_fp(
-  fp : ModuleProjection,
+  fp : @lambda_proj.ModuleProjection,
   syntax : @seam.SyntaxNode,
   base_id : Int,
 ) -> (
@@ -75,7 +75,7 @@ fn build_graph_from_fp(
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, sm)
+  let g = @scope.build(registry, sm)
   (proj, registry, g, sm)
 }
 
@@ -86,7 +86,7 @@ fn build_graph_from_fp(
 /// `assert_same_var_refs`, `assert_lam_ranges_unique`, `def_init_ranges`,
 /// `normalize_decl`), so node-id values are never compared raw.
 fn assert_incr_matches_full(
-  incr_fp : ModuleProjection,
+  incr_fp : @lambda_proj.ModuleProjection,
   incr_base_id : Int,
   syntax : @seam.SyntaxNode,
   context : String,

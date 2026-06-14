@@ -49,7 +49,8 @@ pub fn LambdaCompanion::dispose_analysis_attachment(
 }
 
 ///|
-/// Returns the current ModuleProjection, or `None` when the source is empty.
+/// Temporary flat-projection adapter: returns the current `ModuleProjection`,
+/// or `None` when the source is empty.
 ///
 /// Abort semantics: `Derived::read_or_abort` panics only if the underlying
 /// cell has been disposed or participates in a reactive cycle. The Phase 1
@@ -188,7 +189,7 @@ pub fn new_lambda_editor(
     capture_timeout_ms~,
     parent_runtime?,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, source_map_memo_ref, proj_memo_ref, escalation_memo_ref,
+      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref,
     ),
   )
   let companion : LambdaCompanion = {
@@ -200,21 +201,10 @@ pub fn new_lambda_editor(
 }
 
 ///|
-fn lambda_module_projection_for_capabilities(
-  proj_memo_ref : Ref[@incr.Derived[@lambda_flat.VersionedModuleProjection]?],
-) -> @lambda_proj.ModuleProjection? {
-  match proj_memo_ref.val {
-    Some(memo) => memo.read_or_abort().proj
-    None => None
-  }
-}
-
-///|
 /// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
   source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
-  proj_memo_ref : Ref[@incr.Derived[@lambda_flat.VersionedModuleProjection]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
@@ -232,10 +222,9 @@ fn build_lambda_capabilities(
         (Some(root), Some(source_map_memo)) =>
           append_annotation_map(
             annotations,
-            @lambda_semantic.build_semantic_projection_with_module_projection(
+            @lambda_semantic.build_semantic_projection(
               root,
               source_map_memo.read_or_abort(),
-              lambda_module_projection_for_capabilities(proj_memo_ref),
             ).annotations,
           )
         _ => ()
@@ -247,10 +236,9 @@ fn build_lambda_capabilities(
         (Some(proj_memo), Some(source_map_memo)) =>
           match proj_memo.read_or_abort() {
             Some(root) =>
-              @lambda_semantic.build_semantic_projection_with_module_projection(
+              @lambda_semantic.build_semantic_projection(
                 root,
                 source_map_memo.read_or_abort(),
-                lambda_module_projection_for_capabilities(proj_memo_ref),
               ).decorations
             None => []
           }
@@ -286,17 +274,18 @@ pub fn apply_lambda_tree_edit(
       return editor.move_node(source, target, position, timestamp_ms)
     _ => ()
   }
+  let _ = companion
   let source_map = editor.get_source_map()
   let registry = editor.get_registry()
-  let module_projection = match companion.get_module_projection() {
-    Some(fp) => fp
+  let definition_index = match editor.get_proj_node() {
+    Some(root) => @lambda_proj.DefinitionIndex::from_proj_node(root)
     None => return Err(@editor.TreeEditError::ModuleProjectionUnavailable)
   }
   let ctx : @lambda_edits.EditContext[@ast.Term] = {
     source_text: editor.get_text(),
     source_map,
     registry,
-    module_projection,
+    definition_index,
   }
   match @lambda_edits.compute_text_edit(op, ctx) {
     Ok(Some((edits, focus_hint))) => {

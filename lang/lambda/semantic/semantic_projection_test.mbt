@@ -13,15 +13,15 @@ fn parse_fixture(
 ///|
 fn parse_flat_fixture(
   text : String,
-) -> (@core.ProjNode[@ast.Term], @core.SourceMap, @lambda_proj.ModuleProjection) raise {
+) -> (@core.ProjNode[@ast.Term], @core.SourceMap) raise {
   let (cst, _) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
-  let module_projection = @lambda_proj.to_module_projection(syntax, counter)
-  let root = module_projection.to_proj_node(counter)
+  let flat_projection = @lambda_proj.to_module_projection(syntax, counter)
+  let root = flat_projection.to_proj_node(counter)
   let source_map = @core.SourceMap::from_ast(root)
   @lambda_proj.populate_token_spans(source_map, syntax, root)
-  (root, source_map, module_projection)
+  (root, source_map)
 }
 
 ///|
@@ -71,12 +71,8 @@ test "free-variable diagnostic in a module def is scope-sourced" {
   // the scope-graph diagnostic path through the MODULE route (not just the bare
   // lambda route), proving `push_scope_failures` reconstructs and resolves the
   // module-def graph rather than the diagnostic still coming from stale env logic.
-  let (root, source_map, module_projection) = parse_flat_fixture("let a = z\na")
-  let projection = build_semantic_projection_with_module_projection(
-    root,
-    source_map,
-    Some(module_projection),
-  )
+  let (root, source_map) = parse_flat_fixture("let a = z\na")
+  let projection = build_semantic_projection(root, source_map)
   inspect(projection.diagnostics.length(), content="1")
   inspect(projection.diagnostics[0].message, content="Free variable 'z'")
 }
@@ -101,8 +97,7 @@ fn assert_classifiers_agree(program : String) -> Unit raise {
   let projection = build_semantic_projection(root, source_map)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(root, registry)
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(root)
-  let graph = @lambda_scope.build(module_projection, registry, source_map)
+  let graph = @lambda_scope.build(registry, source_map)
   for r in graph.refs {
     let scope_free = r.resolution.decl is None
     let anns = match projection.annotations.get(r.node_id) {
@@ -146,8 +141,7 @@ fn scope_free_names(program : String) -> Array[String] raise {
   let (root, source_map) = parse_fixture(program)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(root, registry)
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(root)
-  let graph = @lambda_scope.build(module_projection, registry, source_map)
+  let graph = @lambda_scope.build(registry, source_map)
   @lambda_scope.failures(graph, source_map).map(fn(f) { f.name })
 }
 
@@ -180,16 +174,10 @@ test "block classifier non-vacuity: block-local bound, block-free surfaced" {
 
 ///|
 test "semantic projection respects sequential module bindings" {
-  let (root, source_map, module_projection) = parse_flat_fixture(
-    "let x = 1\nlet y = x\nx + y",
-  )
-  let projection = build_semantic_projection_with_module_projection(
-    root,
-    source_map,
-    Some(module_projection),
-  )
-  assert_true(has_annotation(projection, module_projection.defs[0].3, "let x"))
-  assert_true(has_annotation(projection, module_projection.defs[1].3, "let y"))
+  let (root, source_map) = parse_flat_fixture("let x = 1\nlet y = x\nx + y")
+  let projection = build_semantic_projection(root, source_map)
+  assert_true(has_annotation(projection, root.children[0].id(), "let x"))
+  assert_true(has_annotation(projection, root.children[1].id(), "let y"))
   assert_false(has_annotation(projection, root.id(), "let x"))
   assert_false(has_annotation(projection, root.id(), "let y"))
   inspect(projection.diagnostics.length(), content="0")

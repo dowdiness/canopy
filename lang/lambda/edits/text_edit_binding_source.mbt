@@ -20,12 +20,12 @@ priv enum BindingRewriteKind {
 ///
 /// Lambda projection intentionally stores function definitions as desugared
 /// Lam spines, so parameter type annotations and `fn` block shape do not live
-/// in `def.1.kind`. Binding-level edits that duplicate, rename, or inline a
+/// in `def.init.kind`. Binding-level edits that duplicate, rename, or inline a
 /// source binding must go through this bounded source metadata layer instead
 /// of reprinting the projected Term. If the source spans cannot be recovered,
 /// reject the edit rather than falling back to a lossy `@ast.print_term` rewrite.
 priv struct BindingRewriteSource {
-  def : (String, ProjNode[@ast.Term], Int, NodeId)
+  def : EditModuleBinding
   binding_start : Int
   binding_end : Int
   kind : BindingRewriteKind
@@ -35,17 +35,18 @@ priv struct BindingRewriteSource {
 fn binding_name_range(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
+  def : EditModuleBinding,
   binding_start : Int,
   binding_end : Int,
 ) -> Result[(Int, Int), String] {
-  match source_map.get_token_span(def.3, @lambda_proj.LET_DEF_NAME_ROLE) {
+  match
+    source_map.get_token_span(def.binding_id, @lambda_proj.LET_DEF_NAME_ROLE) {
     Some(r) => Ok((r.start, r.end))
     None =>
       tight_name_range(
         source_text,
         @loomcore.Range::new(binding_start, binding_end),
-        def.0,
+        def.name,
       )
   }
 }
@@ -54,7 +55,7 @@ fn binding_name_range(
 fn binding_rewrite_source(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
+  def : EditModuleBinding,
 ) -> Result[BindingRewriteSource, String] {
   let (binding_start, binding_end) = match
     get_binding_text_range(source_text, source_map, def) {
@@ -212,7 +213,7 @@ fn BindingRewriteSource::inline_text(
     FnBinding =>
       fn_binding_inline_text(source_text, self.binding_start, self.binding_end)
     ValueBinding =>
-      match source_map.get_range(self.def.1.id()) {
+      match source_map.get_range(self.def.init.id()) {
         Some(r) => Ok(trimmed_source_text(source_text, r))
         None => Err("Cannot inline binding: init source range not found")
       }
@@ -223,7 +224,7 @@ fn BindingRewriteSource::inline_text(
 fn binding_inline_text(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
+  def : EditModuleBinding,
 ) -> Result[String, String] {
   match binding_rewrite_source(source_text, source_map, def) {
     Ok(source) => source.inline_text(source_text, source_map)

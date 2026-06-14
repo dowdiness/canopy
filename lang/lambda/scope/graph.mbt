@@ -79,4 +79,6 @@ pub(all) struct ScopeGraph {
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @core.NodeId
+  node_scope : Map[@core.NodeId, ScopeId]
+  node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
 } derive(Debug)

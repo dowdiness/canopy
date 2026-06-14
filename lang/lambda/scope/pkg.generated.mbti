@@ -2,7 +2,6 @@
 package "dowdiness/canopy/lang/lambda/scope"
 
 import {
-  "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset",
@@ -11,9 +10,11 @@ import {
 // Values
 pub fn binder_span(ScopeGraph, Decl, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
 
-pub fn build(@proj.ModuleProjection, Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
+pub fn build(Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
 
 pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
+
+pub fn declaration_for_name_at(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
 
 pub fn enclosing_env(ScopeGraph, @dowdiness/canopy/core.NodeId) -> @hashset.HashSet[String]
 
@@ -74,6 +75,8 @@ pub(all) struct ScopeGraph {
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @dowdiness/canopy/core.NodeId
+  node_scope : Map[@dowdiness/canopy/core.NodeId, ScopeId]
+  node_cutoffs : Map[@dowdiness/canopy/core.NodeId, Map[ScopeId, Int]]
 } derive(@debug.Debug)
 
 pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)

@@ -12,7 +12,7 @@ using @core {type SourceMap}
 
 ///|
 using @lambda_proj {
-  type ModuleProjection,
+  type DefinitionIndex,
   rebuild_kind,
   to_proj_node,
   parse_to_proj_node,

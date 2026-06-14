@@ -35,7 +35,11 @@ fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
 /// `declaration` query under test.)
 fn graph_of(
   text : String,
-) -> (@core.ProjNode[@ast.Term], ModuleProjection, @scope.ScopeGraph) raise {
+) -> (
+  @core.ProjNode[@ast.Term],
+  @lambda_proj.ModuleProjection,
+  @scope.ScopeGraph,
+) raise {
   let (proj, fp, g, _sm) = graph_and_sm_of(text)
   (proj, fp, g)
 }
@@ -47,15 +51,20 @@ fn graph_of(
 /// a syntax tree to walk.
 fn graph_and_sm_of(
   text : String,
-) -> (@core.ProjNode[@ast.Term], ModuleProjection, @scope.ScopeGraph, SourceMap) raise {
+) -> (
+  @core.ProjNode[@ast.Term],
+  @lambda_proj.ModuleProjection,
+  @scope.ScopeGraph,
+  SourceMap,
+) raise {
   let (cst, _errs) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = to_proj_node(syntax, Ref(0))
-  let fp = ModuleProjection::from_proj_node(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, sm)
+  let g = @scope.build(registry, sm)
   (proj, fp, g, sm)
 }
 
@@ -208,7 +217,7 @@ fn production_graph_of(
   // token span, not the full LetDef node range.
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
-  let g = @scope.build(fp, registry, sm)
+  let g = @scope.build(registry, sm)
   (proj, registry, g, sm)
 }
 

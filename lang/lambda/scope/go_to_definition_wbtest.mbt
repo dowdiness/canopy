@@ -13,12 +13,11 @@ fn build_fixture_with_spans(
   let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let source_map = @core.SourceMap::from_ast(proj)
   @lambda_proj.populate_token_spans(source_map, syntax, proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(proj, registry)
-  let g = build(module_projection, registry, source_map)
+  let g = build(registry, source_map)
   (g, source_map)
 }
 
@@ -36,7 +35,7 @@ test "go_to_definition: shadowed module def — later def wins (production id pa
   // "let x = 1\nlet x = 2\nx" — name:0 "x" at 4..5, name:1 "x" at 14..15.
   // The body var (pos 20) resolves to def_index=1, so the binder span must be
   // 14..15, NOT 4..5. This exercises the module-def binder through the
-  // production ModuleProjection/LetDef id path while Option D supplies the token span.
+  // production first-class LetDef id path while Option D supplies the token span.
   let (g, sm) = build_fixture_with_spans("let x = 1\nlet x = 2\nx")
   guard go_to_definition(g, sm, 20) is Some(r)
   inspect(r.start, content="14")
@@ -99,11 +98,10 @@ test "binder_span: None when token spans were not populated" {
   // A SourceMap built via from_ast without populate_token_spans has no token
   // spans — binder_span must degrade to None, never a wrong location.
   let (proj, _errs) = @lambda_proj.parse_to_proj_node("let x = 1\nx")
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let source_map = @core.SourceMap::from_ast(proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(proj, registry)
-  let g = build(module_projection, registry, source_map)
+  let g = build(registry, source_map)
   inspect(g.decls[0].kind is ModuleDef(_), content="true")
   inspect(binder_span(g, g.decls[0], source_map) is None, content="true")
 }
