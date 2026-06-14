@@ -55,7 +55,12 @@ fn assert_projection_fold_classification(
 
 ///|
 fn assert_projection_matches_compatible_fold(source : String) -> Unit raise {
-  let (proj, _errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(source)
+  if !errors.is_empty() {
+    fail(
+      "expected clean parse for " + source + ", got " + @debug.to_string(errors),
+    )
+  }
   let folded = cstfold_projection_compatible_term(cstfold_term(source))
   assert_term_equal(
     "expected projection/CstFold compatibility for " + source,
@@ -91,10 +96,20 @@ test "cstfold parity: valid module and fn sources agree" {
 test "cstfold parity: raw block divergence stays behind compatibility adapter" {
   assert_projection_fold_classification("{ 1 }", Int(1), Module([], Int(1)))
   assert_projection_fold_classification("{ }", Unit, Error("empty block"))
+  assert_term_equal(
+    "empty block compatibility normalization",
+    Unit,
+    cstfold_projection_compatible_term(Error("empty block")),
+  )
+  assert_term_equal(
+    "nested empty block compatibility normalization",
+    Module([("x", Unit)], Var("x")),
+    cstfold_projection_compatible_term(
+      Module([("x", Error("empty block"))], Var("x")),
+    ),
+  )
   assert_projection_matches_compatible_fold("{ 1 }")
-  assert_projection_matches_compatible_fold("{ }")
   assert_projection_matches_compatible_fold("{ { 1 } }")
-  assert_projection_matches_compatible_fold("let x = { }\nx")
   assert_projection_matches_compatible_fold("let x = { { 1 } }\nx")
   assert_projection_matches_compatible_fold("{ let x = 1; { x } }")
 }

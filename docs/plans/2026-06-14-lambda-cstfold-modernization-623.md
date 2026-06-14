@@ -64,11 +64,9 @@ containing the remaining exceptions.
    - `{ }`: current projection `Unit`, CstFold term `Error("empty block")`.
    - `(1)` and `fn f() { 1 }\nf` already agree.
    #629 decided to preserve current Canopy editor semantics and keep Loom's raw
-   CstFold semantics intact. The explicit compatibility boundary is
-   `cstfold_projection_compatible_term` in `lang/lambda/proj`: it recursively
-   normalizes `Module([], body)` to `body` and `Error("empty block")` to `Unit`
-   before parity-checking CstFold terms now or adopting them in later projection
-   slices.
+   CstFold semantics intact. The compatibility boundary normalizes known
+   no-definition block-expression structural patterns before parity-checking
+   CstFold terms now or adopting them in later projection slices.
 4. **Related issues remain adjacent, not substitutes.**
    - #129/#scope work centralized queries but did not remove the
      `ModuleProjection` context requirement.
