@@ -34,46 +34,36 @@ topology is unchanged.
 
 ### Pipeline Topology
 
-The projection pipeline is a **linear chain of 4 reactive memos**:
+The editor-facing projection pipeline is a **3-memo generic stack**:
 
 ```
-syntax_tree Signal → proj_memo (ModuleProjection)
-                   → cached_proj_node (ProjNode[T])
-                   → registry_memo (Map[NodeId, ProjNode])
-                   → source_map_memo (SourceMap)
+syntax_tree Derived → proj_memo (ProjNode[T]?)
+                    ├→ registry_memo (Map[NodeId, ProjNode])
+                    └→ source_map_memo (SourceMap)
 ```
 
-`cached_proj_node` is the **only branch point** — both registry and source_map
-depend on it independently. No cycles exist. Evaluation and annotations
-(eval_memo, scope_annotation) read from the pipeline but never feed back.
-Edits route back through text CRDT only.
+`proj_memo` is the branch point — registry and source_map depend on it
+independently, and source_map also reads the syntax tree to populate token spans.
+No cycles exist. Evaluation and annotations read from the pipeline but never feed
+back. Edits route back through text CRDT only.
 
 ### Change Detection vs Change Propagation
 
-The dominant cost per keystroke is **change detection** rather than change propagation.
-`to_module_projection_incremental` scans all N definitions checking `physical_equal()`
-on CstNode pointers, even though typically only 1 def changed. The incremental
-parsing and projection that follow are efficient — but discovering *which* defs
-changed requires a linear scan.
+The generic editor-facing path rebuilds registry and source-map views from the
+reconciled projection tree. Lambda's older `to_module_projection_incremental`
+helper still exists for legacy ModuleProjection tests/helpers, but it is no
+longer the editor-facing memo stack.
 
-**When to revisit:** If documents routinely exceed 500 definitions, investigate
-damage-guided def scanning (use the parser's damaged range to skip defs whose
-byte range doesn't overlap).
+**When to revisit:** If current measurements show projection rebuilds dominate
+keystroke latency on large Lambda documents, reproduce the bottleneck in a
+microbenchmark before reintroducing language-specific diffing.
 
-### Side-Channel Between Memos
+### Removed Lambda Memo Side-Channel
 
-`changed_def_indices_ref` is a mutable `Ref[Array[Int]?]` shared between
-`proj_memo` (writer) and `registry_memo` / `source_map_memo` (readers),
-bypassing the reactive dependency graph. Revision-skew detection and a
-full-rebuild fallback defend it.
-
-The side-channel exists for performance, but benchmarks show source_map
-overhead is small (18% of pipeline at 1000 defs, negligible at 320). The
-coupling is a design smell whose cost is cognitive rather than runtime.
-
-**Options if cleaning up:** (a) return changed indices as part of
-`proj_memo`'s return value; (b) promote to a Signal; (c) encode semantics
-as a sum type (`enum DefChange { Full; Patch(Array[Int]); None }`).
+Lambda's former editor-facing stack used a mutable changed-index side-channel
+between projection, registry, and source-map memos. #633 removed that stack in
+favor of `@core.build_projection_memos`, so new editor-facing projection work
+should start from the generic helper rather than recreating the side-channel.
 
 ### Branching for Future Features
 
@@ -88,8 +78,9 @@ The pipeline is linear today, but the reactive framework becomes *necessary*
   (imports) would be a new Signal connecting editors.
 
 Document how to add a new memo consumer when the first branch is added.
-Lambda-specific memo setup lives in `lang/lambda/flat/projection_memo.mbt`
-and `lang/lambda/eval/eval_memo.mbt`; generic memo helpers are in `core/projection_memo.mbt`.
+Lambda-specific projection wiring lives in `lang/lambda/proj/projection_memo.mbt`
+and eval wiring in `lang/lambda/eval/eval_memo.mbt`; the shared projection helper
+is `core/projection_memo.mbt`.
 
 ### Platform & Responsiveness
 
@@ -104,13 +95,12 @@ the JSON-message FFI protocol is Worker-compatible if needed.
 
 ### Strengths to Protect
 
-- **Structural stability**: Backdating + CstNode sharing + LCS reconciliation +
-  per-def patching. These compose well. Don't add shortcuts that bypass
-  reconciliation.
+- **Structural stability**: CstNode sharing + projection reconciliation. These
+  compose well. Don't add shortcuts that bypass reconciliation.
 - **Layering**: Framework genericity enforced by TestExpr proof tests. This
   enables JSON, Markdown, and future languages.
-- **Granularity calibration**: 4 memos (not 400) with hand-optimized
-  incrementality inside each memo. Don't split into per-node reactive cells.
+- **Granularity calibration**: a small fixed memo stack (not per-node reactive
+  cells). Don't split into per-node reactive cells without evidence.
 
 ### When to Re-Evaluate
 

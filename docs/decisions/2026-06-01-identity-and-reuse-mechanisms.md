@@ -7,6 +7,11 @@
 loom ADR [`2026-03-14-physical-equal-interner`](../../loom/docs/decisions/2026-03-14-physical-equal-interner.md) ·
 [Responsibility Map](../architecture/responsibility-map.md)
 
+> 2026-06-14 update: #633 removed mechanism #3 from Lambda's editor-facing
+> projection memo stack. This ADR remains useful historical context for the
+> legacy `ModuleProjection` helper/tests, but it is no longer the current editor
+> data-flow description.
+
 ## Why this record exists
 
 The #449 investigation (the BAND 2b Cliff #1 fix) surfaced a recurring confusion:

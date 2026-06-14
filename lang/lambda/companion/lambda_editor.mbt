@@ -3,24 +3,13 @@
 // and a LambdaCompanion holding lambda-specific memos.
 
 ///|
-/// Holds lambda-specific memos alongside a generic SyncEditor.
+/// Holds lambda-specific companion memos alongside a generic SyncEditor.
 /// The FFI layer stores this alongside the editor.
 pub struct LambdaCompanion {
-  priv proj_memo : @incr.Derived[@lambda_flat.VersionedModuleProjection]
   // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
   priv analysis : @parser.LambdaAnalysis
-}
-
-///|
-/// Reactive view of the versioned flat projection cell.
-/// Returns the underlying Derived so workspace-coordinator subscribers
-/// can react to changes rather than polling eagerly.
-pub fn LambdaCompanion::proj_memo(
-  self : LambdaCompanion,
-) -> @incr.Derived[@lambda_flat.VersionedModuleProjection] {
-  self.proj_memo
 }
 
 ///|
@@ -46,23 +35,6 @@ pub fn LambdaCompanion::dispose_analysis_attachment(
   self : LambdaCompanion,
 ) -> Unit {
   self.analysis.dispose()
-}
-
-///|
-/// Temporary flat-projection adapter: returns the current `ModuleProjection`,
-/// or `None` when the source is empty.
-///
-/// Abort semantics: `Derived::read_or_abort` panics only if the underlying
-/// cell has been disposed or participates in a reactive cycle. The Phase 1
-/// projection memo is a linear data flow (source_text → syntax_tree →
-/// module_projection), so a cycle would indicate a structural bug; disposal can
-/// only happen after the owning editor has been destroyed. Callers that
-/// hold a live `LambdaCompanion` are therefore safe to treat the `None`
-/// branch as "empty source" rather than "graceful failure."
-pub fn LambdaCompanion::get_module_projection(
-  self : LambdaCompanion,
-) -> @lambda_proj.ModuleProjection? {
-  self.proj_memo.read_or_abort().proj
 }
 
 ///|
@@ -96,6 +68,11 @@ fn build_eval_annotations(
   let proj = match proj_node {
     Some(p) => p
     None => return annotations
+  }
+  if proj.kind is @ast.Term::Unit &&
+    proj.start == proj.end &&
+    proj.children.is_empty() {
+    return annotations
   }
   let children = proj.children
   for i, result in eval_results {
@@ -153,12 +130,9 @@ pub fn new_lambda_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
-  // Ref side-channels let the build_memos callback publish extra memos
-  // (beyond the 3-tuple SyncEditor expects) back out to the enclosing
-  // scope for companion construction + capabilities wiring.
-  let proj_memo_ref : Ref[
-    @incr.Derived[@lambda_flat.VersionedModuleProjection]?,
-  ] = Ref(None)
+  // Ref side-channels let the build_memos callback publish companion memos
+  // back out to the enclosing scope for companion construction + capabilities
+  // wiring.
   let escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?] = Ref(
     None,
   )
@@ -171,10 +145,9 @@ pub fn new_lambda_editor(
     agent_id,
     fn(s, rt) { @loom.new_parser(s, @parser.lambda_grammar, runtime?=rt) },
     fn(parser) {
-      let (proj_memo, cached_proj_node, registry_memo, source_map_memo) = @lambda_flat.build_lambda_projection_memos(
+      let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
         parser,
       )
-      proj_memo_ref.val = Some(proj_memo)
       cached_proj_node_ref.val = Some(cached_proj_node)
       source_map_memo_ref.val = Some(source_map_memo)
       analysis_ref.val = Some(@parser.attach_lambda_analysis(parser))
@@ -193,7 +166,6 @@ pub fn new_lambda_editor(
     ),
   )
   let companion : LambdaCompanion = {
-    proj_memo: proj_memo_ref.val.unwrap(),
     escalation_memo: escalation_memo_ref.val.unwrap(),
     analysis: analysis_ref.val.unwrap(),
   }
@@ -233,8 +205,8 @@ fn build_lambda_capabilities(
     }),
     get_decorations=Some(fn() {
       match (cached_proj_node_ref.val, source_map_memo_ref.val) {
-        (Some(proj_memo), Some(source_map_memo)) =>
-          match proj_memo.read_or_abort() {
+        (Some(cached_proj_memo), Some(source_map_memo)) =>
+          match cached_proj_memo.read_or_abort() {
             Some(root) =>
               @lambda_semantic.build_semantic_projection(
                 root,

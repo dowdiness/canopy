@@ -6,8 +6,6 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/lang/lambda/eval",
-  "dowdiness/canopy/lang/lambda/flat",
-  "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/canopy/protocol",
   "dowdiness/incr/cells",
   "dowdiness/lambda",
@@ -40,8 +38,6 @@ pub fn LambdaCompanion::dispose_analysis_attachment(Self) -> Unit
 pub fn LambdaCompanion::escalation_memo(Self) -> @cells.Derived[Array[@eval.EvalResult]]
 pub fn LambdaCompanion::get_eval_annotations(Self, @core.ProjNode[@ast.Term]?) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
 pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
-pub fn LambdaCompanion::get_module_projection(Self) -> @proj.ModuleProjection?
-pub fn LambdaCompanion::proj_memo(Self) -> @cells.Derived[@flat.VersionedModuleProjection]
 pub fn LambdaCompanion::typecheck_output(Self) -> @cells.Derived[@typecheck.ModuleTypeResult]
 
 // Type aliases

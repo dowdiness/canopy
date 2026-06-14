@@ -3,6 +3,7 @@
 **Date:** 2026-05-24
 **Status:** Future-planning grounding draft — not current architecture or an implemented contract.
 **Post-S4 PR1 note (2026-06-12):** the per-language FFI globals this doc traces (`lambda_handles`, `view_states`, `markdown_view_states`, …) were replaced by per-package `@host.HostRegistry` instances in the `ffi/host` extraction; file:line anchors into `ffi/*` predate that and no longer resolve, but the destroy-ordering analysis remains valid.
+**Post-#633 note (2026-06-14):** Lambda's `@lambda_flat` / `proj_flat` / `VersionedFlatProj` projection-cell inventory below is superseded. The current editor-facing projection surface is the generic 3-memo stack exposed by `lang/lambda/proj/projection_memo.mbt`; the protected-cell surface no longer includes a separate flat-projection cell.
 **Belongs to slice:** §P0b of `docs/research/2026-05-22-spec-aware-workspace.md`.
 **Pairs with:** `docs/research/2026-05-23-observer-discipline-contract.md`.
 

@@ -6,12 +6,13 @@
 // def's binder id (`defs[i].3`) to a real LetDef node:
 //   - TEST path (`graph_and_sm_of` / `from_proj_node`): extracts the id from the
 //     parsed LetDef child;
-//   - PRODUCTION path (`production_graph_of` / `to_module_projection`): stores the id in
-//     ModuleProjection and reconstructs the LetDef child from it.
+//   - legacy ModuleProjection path (`production_graph_of` /
+//     `to_module_projection`): stores the id in ModuleProjection and
+//     reconstructs the LetDef child from it.
 // Resolution never reads `node_id` (`Builder::resolve` matches name + def_index
 // < cutoff), so the hand-verified equivalence proof in
-// `scope_equivalence_wbtest.mbt` SHOULD transfer to production — this PBT pins
-// that transfer generatively, across many sources.
+// `scope_equivalence_wbtest.mbt` SHOULD transfer to the legacy path — this PBT
+// pins that transfer generatively, across many sources.
 //
 // It also pins the Option-D binder-location contract (docs/TODO.md §20): each
 // resolved declaration is LOCATABLE via `@scope.binder_span`, and that location
@@ -33,9 +34,9 @@
 // def, a different lambda, or to free) into a match.
 //
 // SCOPE / NON-GOALS
-// This is a pure test-path-vs-production-path equivalence over a single parse.
-// It does NOT exercise `to_module_projection_incremental` or the `@incr` memo layer —
-// the live editor's incremental rebuild path is a separate concern. It also
+// This is a pure test-path-vs-legacy-ModuleProjection-path equivalence over a
+// single parse. It does NOT exercise `to_module_projection_incremental` or the
+// editor-facing generic `@incr` memo layer. It also
 // cannot catch a bug shared by both pipelines inside `@scope.build`; the frozen
 // hand-derived oracle in `scope_equivalence_wbtest.mbt` covers that blind spot
 // and is intentionally retained alongside this generator.
@@ -243,7 +244,7 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
   let (proj1, _fp1, g1, sm1) = graph_and_sm_of(text)
   let reg1 = scope_test_registry(proj1)
   let ranges1 = def_init_ranges(proj1)
-  // Pipeline 2: production path (to_module_projection), with token spans.
+  // Pipeline 2: legacy ModuleProjection path (to_module_projection), with token spans.
   let (proj2, reg2, g2, sm2) = production_graph_of(text)
   let ranges2 = def_init_ranges(proj2)
   assert_resolution_agrees(

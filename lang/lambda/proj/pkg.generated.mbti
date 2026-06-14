@@ -2,7 +2,9 @@
 package "dowdiness/canopy/lang/lambda/proj"
 
 import {
+  "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/debug",
   "moonbitlang/core/ref",
@@ -12,6 +14,8 @@ import {
 pub const LET_DEF_NAME_ROLE : String = "name"
 
 pub const PARAM_ROLE : String = "param"
+
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
 
 pub fn module_name_role(Int) -> String
 

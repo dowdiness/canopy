@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-23
 **Status:** Design draft (prose-only, pre-Codex-review)
+**Post-#633 note (2026-06-14):** references to Lambda flat-projection companion cells (`proj_memo`, `get_flat_proj`) are superseded; Lambda's editor-facing projection cells are now the generic cached projection, registry, and source-map memos.
 **Builds on:** `docs/research/2026-05-23-runtime-safety-decision.md` §"Named follow-ups" #2
 **Belongs to slice:** §P0b of `docs/research/2026-05-22-spec-aware-workspace.md`
 

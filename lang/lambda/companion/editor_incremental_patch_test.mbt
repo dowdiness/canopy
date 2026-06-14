@@ -1,9 +1,7 @@
-// Lambda resolution + lambda-flat incremental-projection tests for the lambda
-// editor. Moved here from editor/sync_editor_test.mbt as part of the
-// editor-neutral-test-grammar work (#599): these depend on lambda's
-// resolution and on the lambda-flat incremental projection (Module / def-index
-// / final_expr / synthesized Unit body), which the language-agnostic editor's
-// generic projection does not provide.
+// Lambda resolution + projection-memo tests for the lambda editor. Moved here
+// from editor/sync_editor_test.mbt as part of the editor-neutral-test-grammar
+// work (#599): these depend on lambda's resolution and Lambda-specific
+// projection shape (Module / def-index / final_expr / synthesized Unit body).
 
 ///|
 fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
@@ -26,7 +24,7 @@ test "SyncEditor: get_resolution returns bound/free info" {
 }
 
 ///|
-test "incremental patch: registry node count stable after tail edit" {
+test "projection memo: registry node count stable after tail edit" {
   let editor = new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nlet z = 0\nz")
   ignore(editor.get_proj_node())
@@ -49,7 +47,7 @@ test "incremental patch: registry node count stable after tail edit" {
 }
 
 ///|
-test "incremental patch: source_map position queries work after edit" {
+test "projection memo: source_map position queries work after edit" {
   let editor = new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   ignore(editor.get_source_map()) // warm up
@@ -66,7 +64,7 @@ test "incremental patch: source_map position queries work after edit" {
 }
 
 ///|
-test "incremental patch: get_node returns correct node after edit" {
+test "projection memo: get_node returns correct node after edit" {
   let editor = new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   let proj = editor.get_proj_node().unwrap()
@@ -86,7 +84,7 @@ test "incremental patch: get_node returns correct node after edit" {
 }
 
 ///|
-test "incremental patch: expression-only document edit works" {
+test "projection memo: expression-only document edit works" {
   // Expression-only: no defs, ProjNode is NOT a Module.
   // Patch path must fall back to full rebuild.
   let editor = new_lambda_editor("test").0
@@ -104,7 +102,7 @@ test "incremental patch: expression-only document edit works" {
 }
 
 ///|
-test "incremental patch: final_expr removal triggers full rebuild" {
+test "projection memo: final_expr removal keeps a valid projection" {
   // Remove final expression: "let x = 1\nx" → "let x = 1\n"
   let editor = new_lambda_editor("test").0
   editor.set_text("let x = 1\nx")
@@ -120,10 +118,11 @@ test "incremental patch: final_expr removal triggers full rebuild" {
 }
 
 ///|
-test "incremental patch: no-final-expr module keeps body node registered" {
+test "projection memo: no-final-expr module keeps body node registered" {
   // Module with no trailing expression: "let x = 1\n"
   // to_proj_node_with_prev_module_id synthesizes a Unit body each time.
-  // The patch path must update the body even when only defs change.
+  // The generic memo path must keep the synthesized body registered even when
+  // only defs change.
   let editor = new_lambda_editor("test").0
   editor.set_text("let x = 0\nlet y = 2\n")
   let proj1 = editor.get_proj_node().unwrap()

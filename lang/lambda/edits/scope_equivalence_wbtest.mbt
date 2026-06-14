@@ -82,9 +82,9 @@ fn graph_and_sm_of(
 // check (case 6 distinguishes inner vs outer). For MODULE cases identity is
 // carried by `def_index` alone: these fixtures build the ModuleProjection via
 // `from_proj_node`, where `decl.node_id == fp.defs[def_index].3` holds by
-// construction, so re-asserting it would be tautological. The PRODUCTION-path
-// meaning of a module binder id is pinned separately by the `to_module_projection`
-// contract test at the bottom of this file.
+// construction, so re-asserting it would be tautological. The legacy
+// ModuleProjection meaning of a module binder id is pinned separately by the
+// `to_module_projection` contract test at the bottom of this file.
 
 ///|
 test "declaration() resolves a Var to its enclosing Lam param" {
@@ -189,11 +189,11 @@ test "declaration() resolves a later def's init to an earlier same-name def" {
 }
 
 ///|
-/// Build a scope graph through the PRODUCTION ModuleProjection pipeline — `to_module_projection`
-/// (the live editor's path) rather than `from_proj_node` (used by `graph_of`
-/// above). Both paths now assign module binder ids to real LetDef nodes; this
-/// fixture exercises the production path that starts from flat entries and then
-/// reconstructs those LetDef nodes.
+/// Build a scope graph through the legacy ModuleProjection pipeline —
+/// `to_module_projection` rather than `from_proj_node` (used by `graph_of`
+/// above). Both paths assign module binder ids to real LetDef nodes; this
+/// fixture keeps the flat-entry reconstruction path covered after the live
+/// editor-facing memos moved to the generic 3-memo path.
 fn production_graph_of(
   text : String,
 ) -> (
@@ -205,15 +205,15 @@ fn production_graph_of(
   let (cst, _diags) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
-  // Production ModuleProjection: module binder ids (defs[i].3) are real LetDef node ids,
+  // Legacy ModuleProjection: module binder ids (defs[i].3) are real LetDef node ids,
   // distinct from their init expression ids.
   let fp = @lambda_proj.to_module_projection(syntax, counter)
-  // Reconstruct the Module ProjNode exactly as the live `cached_proj_node` memo
-  // does; binding ids become first-class LetDef nodes in this tree.
+  // Reconstruct the Module ProjNode from flat entries; binding ids become
+  // first-class LetDef nodes in this tree.
   let proj = fp.to_proj_node(counter)
   let sm = SourceMap::from_ast(proj)
   // Token spans are stored on the reconstructed LetDef/Module/Lam nodes, so
-  // `binder_span` works on the production path too — its locator is the binder
+  // `binder_span` works on the ModuleProjection path too — its locator is the binder
   // token span, not the full LetDef node range.
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
@@ -222,14 +222,14 @@ fn production_graph_of(
 }
 
 ///|
-/// Option-D binder-location contract on the PRODUCTION path (docs/TODO.md §20,
+/// Option-D binder-location contract on the legacy ModuleProjection path (docs/TODO.md §20,
 /// resolved). Through `to_module_projection` a module def's `Decl.node_id` is now the
 /// real LetDef node id, but locating the binder still goes through
 /// `@scope.binder_span`: it resolves the LetDef node's `"name"` token span
 /// (with the module `"name:<def_index>"` fallback during migration), not the
 /// full node range. The companion assertion that this location is
 /// pipeline-independent lives in the cross-pipeline PBT.
-test "production path: module binder located via binder_span (Option D, supersedes §20 gap)" {
+test "ModuleProjection path: module binder located via binder_span (Option D, supersedes §20 gap)" {
   let (proj, registry, g, sm) = production_graph_of("let x = 0\nx")
   let ref_id = find_var(proj, "x") // body Var x
   guard @scope.declaration(g, ref_id) is Some(d) else {

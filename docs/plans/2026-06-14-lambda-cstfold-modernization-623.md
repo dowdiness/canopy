@@ -1,6 +1,6 @@
 # Lambda CstFold modernization decision note (#623)
 
-**Status:** accepted first slices (#628, #629, #630); #642 in review
+**Status:** accepted through #633 (generic 3-memo editor-facing projection path)
 **Date:** 2026-06-14  
 **Issue:** <https://github.com/dowdiness/canopy/issues/623>
 
@@ -27,9 +27,12 @@ containing the remaining exceptions.
   - `@lang_runtime.LanguageSpec` for editor construction and edit application.
 - Lambda still uses:
   - `ModuleProjection { defs, final_expr }` in
-    `lang/lambda/proj/module_projection.mbt`.
+    `lang/lambda/proj/module_projection.mbt` for legacy helpers/tests and the
+    #634 removal follow-up.
   - Hand-written view-cast projection in `lang/lambda/proj/proj_node.mbt`.
-  - A custom 4-output memo stack in `lang/lambda/flat/projection_memo.mbt`.
+  - `@core.build_projection_memos` via
+    `lang/lambda/proj/projection_memo.mbt` for the editor-facing 3-memo stack
+    (#633).
   - A custom `apply_lambda_tree_edit` bridge in
     `lang/lambda/companion/lambda_editor.mbt`.
 - Loom Lambda already exports the existing CstFold API:
@@ -44,7 +47,7 @@ containing the remaining exceptions.
 |---|---|---|---|
 | CST -> AST value | `CstFold` + language fold node | duplicated hand-built `Term` construction in Canopy | migrate first |
 | AST/projection tree shape | small AST/syntax parallel walk | bespoke synthetic `Lam`, `App`, `Bop`, `LetDef`, `Module` shapes | preserve initially |
-| Memo pipeline | `@core.build_projection_memos` 3-memo | `VersionedModuleProjection` + proj + registry + source_map | keep legacy boundary |
+| Memo pipeline | `@core.build_projection_memos` 3-memo | `@core.build_projection_memos` via `lang/lambda/proj` (#633); legacy `ModuleProjection` no longer has an editor-facing memo | migrated in #633 |
 | Edit bridge | `LanguageSpec::apply_edit` | `EditContext{registry,module_projection}` + typed errors + patch trace + `Drop` via `move_node` | keep custom bridge |
 | New-language guidance | copy Markdown | explicitly do not copy Lambda | leave docs accurate |
 
@@ -161,9 +164,8 @@ Likely touched files:
 ## Non-goals
 
 - Do not migrate Lambda onto `LanguageSpec` in this issue slice.
-- Do not replace `build_lambda_projection_memos` with
-  `@core.build_projection_memos` until `ModuleProjection` consumers have a new
-  home.
+- After #633, keep remaining `ModuleProjection` removal and edit-bridge cleanup
+  scoped to #634 instead of broadening memo-stack work into an edit redesign.
 - Do not make #625's source scanner a reusable framework abstraction.
 - Do not reopen binder identity or scope unification under #623 unless a concrete
   projection slice is blocked by them.
@@ -175,7 +177,6 @@ From the worktree root:
 ```bash
 NEW_MOON_MOD=0 moon check lang/lambda/proj
 NEW_MOON_MOD=0 moon test lang/lambda/proj
-NEW_MOON_MOD=0 moon test lang/lambda/flat
 NEW_MOON_MOD=0 moon test lang/lambda/edits
 NEW_MOON_MOD=0 moon test lang/lambda/semantic
 NEW_MOON_MOD=0 moon test lang/lambda/companion

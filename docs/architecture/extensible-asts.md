@@ -226,4 +226,4 @@ These remain unsolved because MoonBit's type system cannot express them. They ar
 - van Steenbergen, M. [Haskell Annotations library](https://hackage.haskell.org/package/Annotations). `Ann x f a = Ann x (f a)` functor transformer.
 - igrep. ["Trees that Grow in TypeScript"](https://dev.to/igrep/flexiblly-extend-nested-structures-trees-that-grow-in-typescript-4347). Indexed access types as type family substitute.
 - oboard. [morm](https://github.com/oboard/morm). MoonBit ORM — code generation pattern via `pre-build` and `@moonbitlang/parser`.
-- Canopy source: `loom/examples/lambda/src/ast/sym.mbt` (TermSym algebra + replay fold), `core/proj_node.mbt` (ProjNode), `lang/lambda/flat/projection_memo.mbt` (incremental memos), `lang/lambda/eval/eval_memo.mbt` (eval annotations).
+- Canopy source: `loom/examples/lambda/src/ast/sym.mbt` (TermSym algebra + replay fold), `core/proj_node.mbt` (ProjNode), `lang/lambda/proj/projection_memo.mbt` (editor-facing projection memos), `lang/lambda/eval/eval_memo.mbt` (eval annotations).

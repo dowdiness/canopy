@@ -1,7 +1,7 @@
 // Tests for SyncEditor (generic editor behavior over the neutral TestExpr
-// grammar). Lambda-specific resolution and lambda-flat incremental-projection
-// tests live in lang/lambda; these exercise text editing, cursor, undo,
-// CRDT sync, presence, and generic parse-on-edit.
+// grammar). Lambda-specific resolution and projection-shape tests live in
+// lang/lambda; these exercise text editing, cursor, undo, CRDT sync, presence,
+// and generic parse-on-edit.
 
 ///|
 fn insert_each(se : SyncEditor[@probe.TestExpr], text : String) -> Unit raise {
