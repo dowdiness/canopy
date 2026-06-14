@@ -149,10 +149,7 @@ fn def_for_binding(
   guard decl_for_binding_node(g, binding_node_id) is Some(decl) else {
     return Err("Binding not found: " + binding_node_id.to_string())
   }
-  match def_view_from_decl(registry, source_map, decl) {
-    Ok(def) => Ok((g, decl, def))
-    Err(e) => Err(e)
-  }
+  def_view_from_decl(registry, source_map, decl).map(fn(def) { (g, decl, def) })
 }
 
 ///|

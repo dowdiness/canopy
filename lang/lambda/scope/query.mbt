@@ -1,14 +1,20 @@
 ///|
+/// Resolve a `DeclId` (graph-local identity) to its `Decl` record. The single
+/// place that unwraps the `DeclId` index, so the `g.decls[di]` lookup is not
+/// re-spelled at every resolution site.
+fn ScopeGraph::decl_of(self : ScopeGraph, did : DeclId) -> Decl {
+  let DeclId(di) = did
+  self.decls[di]
+}
+
+///|
 /// The declaration a reference resolves to, or None if unresolved (free).
 pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
   g.refs
   .iter()
   .find_first(fn(r) { r.node_id == ref_node })
   .bind(fn(r) { r.resolution.decl })
-  .map(fn(did) {
-    let DeclId(di) = did
-    g.decls[di]
-  })
+  .map(fn(did) { g.decl_of(did) })
 }
 
 ///|
@@ -114,13 +120,9 @@ pub fn resolve_name_at(
 ) -> Decl? {
   guard g.node_scope.get(node_id) is Some(start) else { return None }
   let cutoffs = g.node_cutoffs.get(node_id).unwrap()
-  match resolve_in(g.scopes, g.decls, name, start, cutoffs).decl {
-    Some(did) => {
-      let DeclId(di) = did
-      Some(g.decls[di])
-    }
-    None => None
-  }
+  resolve_in(g.scopes, g.decls, name, start, cutoffs).decl.map(fn(did) {
+    g.decl_of(did)
+  })
 }
 
 ///|
@@ -134,23 +136,15 @@ pub fn resolve_at_module_root_end(g : ScopeGraph, name : String) -> Decl? {
   guard g.scopes.iter().find_first(fn(s) { s.parent is None }) is Some(root) else {
     return None
   }
-  let cutoff = root.decl_ids.fold(init=0, fn(acc, did) {
-    let DeclId(di) = did
-    if g.decls[di].kind is ModuleDef(_) {
-      acc + 1
-    } else {
-      acc
-    }
-  })
+  let cutoff = root.decl_ids
+    .iter()
+    .filter(fn(did) { g.decl_of(did).kind is ModuleDef(_) })
+    .count()
   let cutoffs : Map[ScopeId, Int] = {}
   cutoffs[root.id] = cutoff
-  match resolve_in(g.scopes, g.decls, name, root.id, cutoffs).decl {
-    Some(did) => {
-      let DeclId(di) = did
-      Some(g.decls[di])
-    }
-    None => None
-  }
+  resolve_in(g.scopes, g.decls, name, root.id, cutoffs).decl.map(fn(did) {
+    g.decl_of(did)
+  })
 }
 
 ///|
@@ -176,8 +170,7 @@ pub fn enclosing_env(
     let ScopeId(si) = sid
     let scope = g.scopes[si]
     for did in scope.decl_ids {
-      let DeclId(di) = did
-      env = env.add(g.decls[di].name)
+      env = env.add(g.decl_of(did).name)
     }
     cur = scope.parent
   }
