@@ -1440,6 +1440,28 @@ test "compute_text_edit: Rename block-local binding leaves root binding intact" 
 }
 
 ///|
+/// Capturing an EXISTING use of the target name must be rejected. The block body
+/// `y` resolves to the root `y`; renaming the nested `x` binder to `y` would
+/// silently re-bind that `y` to the new local — so the rename must fail rather
+/// than change the meaning of an existing reference.
+test "compute_text_edit: Rename block binder rejects capture of existing target use" {
+  let text =
+    #|let y = 1
+    #|let z = { let x = 2
+    #|  y }
+    #|z
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // proj.children[1] = LetDef z; its init[0] is the block Module; that block's
+  // child[0] is the nested LetDef x binder.
+  let nested_x = proj.children[1].children[0].children[0]
+  let result = compute_text_edit(
+    Rename(node_id=nested_x.id(), new_name="y"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 /// Block-local rename via the BINDER-CLICK path (`rename_binding_by_id`). The
 /// nested `LetDef` node is resolved to its own block declaration by structural
 /// node id, so it renames the block-local `x`, not the root def at index 0.

@@ -105,6 +105,55 @@ fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
 }
 
 ///|
+/// Whether `scope` is `ancestor` itself or any descendant of it — i.e. whether
+/// `ancestor` lies on `scope`'s parent chain. Used to test if a reference sits
+/// inside a declaration's visibility region (its declaring scope's subtree).
+fn scope_is_within(
+  g : @scope.ScopeGraph,
+  scope : @scope.ScopeId,
+  ancestor : @scope.ScopeId,
+) -> Bool {
+  let mut cur : @scope.ScopeId? = Some(scope)
+  while cur is Some(sid) {
+    if sid == ancestor {
+      return true
+    }
+    let @scope.ScopeId(si) = sid
+    cur = g.scopes[si].parent
+  }
+  false
+}
+
+///|
+/// Whether renaming `decl` to `new_name` would CAPTURE an existing reference: a
+/// `Var(new_name)` used inside `decl`'s scope subtree that currently resolves to
+/// a binding OUTSIDE that subtree (or is free). After the rename the new local
+/// binder would shadow that outer binding and silently re-target the reference,
+/// so such a rename must be rejected. References already resolving inside the
+/// subtree are unaffected; same-scope siblings are handled by the dup-name guard.
+fn rename_captures_existing_use(
+  g : @scope.ScopeGraph,
+  decl : @scope.Decl,
+  new_name : String,
+) -> Bool {
+  g.refs
+  .iter()
+  .any(fn(r) {
+    r.name == new_name &&
+    scope_is_within(g, r.scope, decl.scope) &&
+    (match r.resolution.decl {
+      // Free use inside the region → would become bound to the renamed decl.
+      None => true
+      // Bound to a binding outside the region → would be shadowed (captured).
+      Some(rid) => {
+        let @scope.DeclId(di) = rid
+        !scope_is_within(g, g.decls[di].scope, decl.scope)
+      }
+    })
+  })
+}
+
+///|
 fn declaration_id_for_name_from_scope(
   g : @scope.ScopeGraph,
   start_scope : @scope.ScopeId,

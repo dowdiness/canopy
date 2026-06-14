@@ -322,14 +322,17 @@ fn module_binder_name_range(
 /// root-relative `def_index` — so every lookup (references, binder location,
 /// sibling collision) stays scoped to the declaration's own block.
 ///
-/// Capture analysis is conservative: a rename is rejected if `new_name` is
-/// visible in ANY enclosing scope at a usage site, including an ancestor that
-/// the renamed binder would shadow. This over-approximates the capture set,
-/// which is sound (never mis-renames) but may reject some legal renames; a
-/// precise scope-bounded analysis is tracked in docs/TODO.md §20. It also does
-/// not rewrite a previously-free `Var(new_name)` elsewhere, so — as with the
-/// existing top-level rename — alpha-renaming that newly captures an unrelated
-/// free occurrence is out of scope.
+/// Capture analysis is conservative (sound — never mis-renames — but may reject
+/// some legal renames; precise scope-bounded analysis is tracked in
+/// docs/TODO.md §20). It rejects in both directions:
+/// - D's own references rebinding OUTWARD: `new_name` visible in any enclosing
+///   scope at a usage site (`name_captured_at_node`), including an ancestor the
+///   renamed binder would shadow;
+/// - an existing `new_name` use captured INWARD: a `Var(new_name)` inside D's
+///   region resolving outside it (or free) that the renamed binder would shadow
+///   (`rename_captures_existing_use`).
+/// The inward check over-approximates (e.g. a same-scope use before D, or D's own
+/// initializer, is rejected though sequentially safe).
 fn rename_module_binding(
   ctx : EditContext[@ast.Term],
   g : @scope.ScopeGraph,
@@ -349,6 +352,15 @@ fn rename_module_binding(
     }) else {
     return Err(
       "Cannot rename: binding '" + new_name + "' already exists in this scope",
+    )
+  }
+  // Guard: an EXISTING new_name use inside the decl's region would be captured
+  // by the renamed binder (e.g. a block body `y` resolving to an outer `y`).
+  guard !rename_captures_existing_use(g, decl, new_name) else {
+    return Err(
+      "Cannot rename: '" +
+      new_name +
+      "' is already used at a site the renamed binding would capture",
     )
   }
   // References resolved to THIS declaration (identity-based, shadowing-correct).
