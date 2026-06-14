@@ -1,21 +1,18 @@
 ///|
-/// Identity-based references to a module definition, delegated to the canonical
-/// scope graph query. The old name-based usage scan could over-match a later
-/// shadowing definition's body; this helper first locates the graph-local
-/// `DeclId` for the requested module def, then asks `@scope.references` for only
-/// refs resolved to that declaration.
-fn module_def_references(
+fn module_def_decl_for_binding(
   g : @scope.ScopeGraph,
-  def_index : Int,
-) -> Result[Array[NodeId], String] {
-  for decl in g.decls {
-    match decl.kind {
-      @scope.DeclKind::ModuleDef(def_index=i) if i == def_index =>
-        return Ok(@scope.references(g, decl.id))
-      _ => ()
-    }
+  binding_node_id : NodeId,
+) -> Result[@scope.Decl, String] {
+  match
+    g.decls
+    .iter()
+    .find_first(fn(decl) {
+      decl.node_id == binding_node_id &&
+      decl.kind is @scope.DeclKind::ModuleDef(_)
+    }) {
+    Some(decl) => Ok(decl)
+    None => Err("Binding not found: " + binding_node_id.to_string())
   }
-  Err("No scope declaration for module def index " + def_index.to_string())
 }
 
 ///|
@@ -64,15 +61,6 @@ fn free_names_captured_at_use_sites(
     }
   })
   captured
-}
-
-///|
-fn def_cutoff_at_node(
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
-  node_id : NodeId,
-) -> Int {
-  module_projection.definition_index().cutoff_at_node(source_map, node_id)
 }
 
 ///|
@@ -180,31 +168,23 @@ fn declaration_id_for_name_from_scope(
 ///|
 fn declaration_id_for_name_at_node(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
   node_id : NodeId,
   name : String,
 ) -> @scope.DeclId? {
-  guard scope_id_for_node(g, node_id) is Some(start_scope) else { return None }
-  declaration_id_for_name_from_scope(
-    g,
-    start_scope,
-    def_cutoff_at_node(module_projection, source_map, node_id),
-    name,
-  )
+  @scope.declaration_for_name_at(g, node_id, name).map(fn(decl) { decl.id })
 }
 
 ///|
 fn declaration_id_for_name_at_module_end(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
+  definition_index : DefinitionIndex,
   name : String,
 ) -> @scope.DeclId? {
   guard root_scope_id(g) is Some(root_scope) else { return None }
   declaration_id_for_name_from_scope(
     g,
     root_scope,
-    module_projection.definition_index().length(),
+    definition_index.length(),
     name,
   )
 }
@@ -212,17 +192,13 @@ fn declaration_id_for_name_at_module_end(
 ///|
 fn free_names_would_rebind_at_node(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
-  source_map : SourceMap,
   source_node : ProjNode[@ast.Term],
   target_node_id : NodeId,
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
   let mut rebound = false
   free_names.each(fn(v) {
-    let target_decl = declaration_id_for_name_at_node(
-      g, module_projection, source_map, target_node_id, v,
-    )
+    let target_decl = declaration_id_for_name_at_node(g, target_node_id, v)
     if free_name_would_rebind_to(g, source_node, v, target_decl) {
       rebound = true
     }
@@ -233,14 +209,14 @@ fn free_names_would_rebind_at_node(
 ///|
 fn free_names_would_rebind_at_module_end(
   g : @scope.ScopeGraph,
-  module_projection : ModuleProjection,
+  definition_index : DefinitionIndex,
   source_node : ProjNode[@ast.Term],
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
   let mut rebound = false
   free_names.each(fn(v) {
     let target_decl = declaration_id_for_name_at_module_end(
-      g, module_projection, v,
+      g, definition_index, v,
     )
     if free_name_would_rebind_to(g, source_node, v, target_decl) {
       rebound = true
@@ -264,12 +240,12 @@ fn free_name_would_rebind_to(
 }
 
 ///|
-/// Look up the ModuleProjection binding NodeId for a given init expression or LetDef NodeId.
+/// Look up the module binding NodeId for a given init expression or LetDef NodeId.
 /// Init-expression callers are mapped to the parent LetDef id; direct LetDef
 /// callers return the binding id unchanged.
 pub fn find_binding_for_init(
   init_node_id : NodeId,
-  module_projection : ModuleProjection,
+  definition_index : DefinitionIndex,
 ) -> (NodeId, Int)? {
-  module_projection.definition_index().binding_for_node(init_node_id)
+  definition_index.binding_for_node(init_node_id)
 }

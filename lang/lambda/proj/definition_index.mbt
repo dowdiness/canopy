@@ -14,6 +14,18 @@ fn DefinitionIndexEntry::from_def(
 }
 
 ///|
+fn DefinitionIndexEntry::from_binding(
+  name : String,
+  child : ProjNode[@ast.Term],
+) -> DefinitionIndexEntry {
+  match child.kind {
+    @ast.Term::LetDef(_, _) if child.children.length() > 0 =>
+      { name, init: child.children[0], binding_id: child.id() }
+    _ => { name, init: child, binding_id: child.id() }
+  }
+}
+
+///|
 /// Index of module-level Lambda definitions.
 ///
 /// `ModuleProjection` still owns the projection storage for this slice; this
@@ -28,6 +40,28 @@ fn DefinitionIndex::from_defs(
   defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)],
 ) -> DefinitionIndex {
   { entries: defs.map(fn(def) { DefinitionIndexEntry::from_def(def) }) }
+}
+
+///|
+/// Derive a definition-index view directly from the current projection tree.
+pub fn DefinitionIndex::from_proj_node(
+  root : ProjNode[@ast.Term],
+) -> DefinitionIndex {
+  match root.kind {
+    @ast.Term::Module(defs, _) => {
+      let entries : Array[DefinitionIndexEntry] = []
+      let child_count = root.children.length()
+      for i, def in defs {
+        if i + 1 < child_count {
+          entries.push(
+            DefinitionIndexEntry::from_binding(def.0, root.children[i]),
+          )
+        }
+      }
+      { entries, }
+    }
+    _ => { entries: [] }
+  }
 }
 
 ///|

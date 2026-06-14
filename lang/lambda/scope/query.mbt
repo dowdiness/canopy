@@ -12,6 +12,41 @@ pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
 }
 
 ///|
+/// Resolve `name` as it would be seen from `node`, using the same per-module
+/// sequential cutoffs captured when the scope graph was built.
+pub fn declaration_for_name_at(
+  g : ScopeGraph,
+  node : @core.NodeId,
+  name : String,
+) -> Decl? {
+  guard g.node_scope.get(node) is Some(start_scope) else { return None }
+  guard g.node_cutoffs.get(node) is Some(cutoffs) else { return None }
+  let mut cur : ScopeId? = Some(start_scope)
+  while cur is Some(sid) {
+    let ScopeId(si) = sid
+    let scope = g.scopes[si]
+    let hit = scope.decl_ids
+      .rev_iter()
+      .find_first(fn(did) {
+        let DeclId(di) = did
+        let decl = g.decls[di]
+        decl.name == name &&
+        (match decl.kind {
+          ModuleDef(def_index~) =>
+            cutoffs.get(sid) is Some(cutoff) && def_index < cutoff
+          LamParam(_) => true
+        })
+      })
+    if hit is Some(did) {
+      let DeclId(di) = did
+      return Some(g.decls[di])
+    }
+    cur = scope.parent
+  }
+  None
+}
+
+///|
 /// All reference NodeIds whose resolution points at the declaration `decl`.
 /// Identity-based (keyed on `DeclId`, NOT a name match), so shadowing is
 /// respected. Keying on `DeclId` rather than `Decl.node_id` is deliberate:

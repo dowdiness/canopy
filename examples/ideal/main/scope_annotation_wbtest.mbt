@@ -121,11 +121,7 @@ test "scope_map keys module references by real LetDef declaration" {
   let x_vars = find_all_var_node_ids(proj_root, "x")
   let inner_x_id = x_vars[0]
   let module_x_id = x_vars[x_vars.length() - 1]
-  let graph = @scope.build(
-    companion.get_module_projection().unwrap(),
-    editor.get_registry(),
-    editor.get_source_map(),
-  )
+  let graph = @scope.build(editor.get_registry(), editor.get_source_map())
   let module_decl = @scope.declaration(graph, module_x_id).unwrap()
   let inner_decl = @scope.declaration(graph, inner_x_id).unwrap()
   inspect(module_decl.id == inner_decl.id, content="false")

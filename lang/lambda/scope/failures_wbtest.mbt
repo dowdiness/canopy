@@ -3,10 +3,8 @@
 
 ///|
 test "failures: free variable is surfaced with a populated witness" {
-  let (_proj, module_projection, registry, source_map) = build_fixture(
-    "(x) => y",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (_proj, registry, source_map) = build_fixture("(x) => y")
+  let g = build(registry, source_map)
   let fs = failures(g, source_map)
   inspect(fs.length(), content="1")
   inspect(fs[0].name, content="y")
@@ -18,19 +16,17 @@ test "failures: free variable is surfaced with a populated witness" {
 
 ///|
 test "failures: a fully-resolved program has no failures" {
-  let (_proj, module_projection, registry, source_map) = build_fixture(
+  let (_proj, registry, source_map) = build_fixture(
     "let x = 1\nlet y = x\nx + y",
   )
-  let g = build(module_projection, registry, source_map)
+  let g = build(registry, source_map)
   inspect(failures(g, source_map).length(), content="0")
 }
 
 ///|
 test "failures: self-reference in a def init is a reachable failure" {
-  let (_proj, module_projection, registry, source_map) = build_fixture(
-    "let x = x\nx",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (_proj, registry, source_map) = build_fixture("let x = x\nx")
+  let g = build(registry, source_map)
   let fs = failures(g, source_map)
   // The init `x` cannot see its own not-yet-bound def (sequential cutoff); the
   // body `x` resolves. Exactly one failure, and it is the init reference.

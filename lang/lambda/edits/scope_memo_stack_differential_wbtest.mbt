@@ -143,7 +143,7 @@ fn assert_level_b_agrees(
   guard fp_opt is Some(fp) && root_opt is Some(root) else {
     fail("[\{context}] memo projection is None on non-empty source: \{src}")
   }
-  let g_i = @scope.build(fp, reg_i, sm_i)
+  let g_i = @scope.build(reg_i, sm_i)
   let ranges_i = def_init_ranges(root)
   // Full side: a fresh production rebuild of the same current source (the oracle
   // already used by the cross-pipeline PBT).

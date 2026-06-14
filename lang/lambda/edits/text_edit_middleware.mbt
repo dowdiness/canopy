@@ -23,7 +23,9 @@ impl EditMiddleware for ValidateNodeExists with fn apply(_self, next, op, ctx) {
       if ctx.registry.contains(id) ||
         (
           op_accepts_binding_id(op) &&
-          module_projection_contains_binding_id(ctx.module_projection, id)
+          edit_module_view(ctx).defs
+          .iter()
+          .any(fn(def) { def.binding_id == id })
         ) {
         next(op, ctx)
       } else {
@@ -44,14 +46,6 @@ fn op_accepts_binding_id(op : TreeEditOp) -> Bool {
     | InlineAllUsages(..) => true
     _ => false
   }
-}
-
-///|
-fn module_projection_contains_binding_id(
-  module_projection : ModuleProjection,
-  node_id : NodeId,
-) -> Bool {
-  module_projection.defs.iter().any(fn(def) { def.3 == node_id })
 }
 
 ///|

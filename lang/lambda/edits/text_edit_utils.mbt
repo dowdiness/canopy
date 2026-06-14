@@ -83,13 +83,13 @@ fn ensure_replaceable_node_range(
 }
 
 ///|
-/// Find a module binding's index in module_projection.defs by its NodeId.
+/// Find a module binding's index in an edit module view by its NodeId.
 fn find_def_index(
-  module_projection : ModuleProjection,
+  module_view : EditModuleView,
   binding_node_id : NodeId,
 ) -> Result[Int, String] {
-  for i, def in module_projection.defs {
-    if def.3 == binding_node_id {
+  for i, def in module_view.defs {
+    if def.binding_id == binding_node_id {
       return Ok(i)
     }
   }
@@ -138,18 +138,20 @@ fn find_parent(
 fn get_binding_text_range(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
+  def : EditModuleBinding,
 ) -> Result[(Int, Int), String] {
-  let init_node = def.1
+  let init_node = def.init
   guard source_map.get_range(init_node.id()) is Some(init_range) else {
     return Err("Init node not in source map")
   }
-  let binding_end = match source_map.get_range(def.3) {
+  let binding_end = match source_map.get_range(def.binding_id) {
     Some(binding_range) => binding_range.end
     None => init_range.end
   }
-  if def.2 < 0 || def.2 > source_text.length() || def.2 > binding_end {
+  if def.start < 0 ||
+    def.start > source_text.length() ||
+    def.start > binding_end {
     return Err("Binding start out of source range")
   }
-  Ok((def.2, binding_end))
+  Ok((def.start, binding_end))
 }

@@ -75,6 +75,29 @@ test "DefinitionIndex: duplicate lookup and cutoff use source order" {
 }
 
 ///|
+test "DefinitionIndex::from_proj_node: duplicate lookup and cutoff use LetDef children" {
+  let (proj, _) = parse_to_proj_node("let x = 1\nlet x = x\nlet y = x\nx")
+  let index = DefinitionIndex::from_proj_node(proj)
+  inspect(index.length(), content="3")
+  let second_init = proj.children[1].children[0]
+  match index.binding_for_node(second_init.id()) {
+    Some((binding_id, def_index)) => {
+      inspect(binding_id == proj.children[1].id(), content="true")
+      inspect(def_index, content="1")
+    }
+    None => fail("expected duplicate binding lookup")
+  }
+  let source_map = SourceMap::from_ast(proj)
+  let body = proj.children.last().unwrap()
+  inspect(
+    index.cutoff_at_node(source_map, proj.children[0].children[0].id()),
+    content="0",
+  )
+  inspect(index.cutoff_at_node(source_map, second_init.id()), content="1")
+  inspect(index.cutoff_at_node(source_map, body.id()), content="3")
+}
+
+///|
 test "to_module_projection: no final expression defaults to None" {
   let syntax = parse_syntax("let x = 1\n")
   let fp = to_module_projection(syntax, Ref(0))

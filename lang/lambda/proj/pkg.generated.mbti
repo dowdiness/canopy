@@ -45,6 +45,7 @@ pub struct DefinitionIndex {
 }
 pub fn DefinitionIndex::binding_for_node(Self, @dowdiness/canopy/core.NodeId) -> (@dowdiness/canopy/core.NodeId, Int)?
 pub fn DefinitionIndex::cutoff_at_node(Self, @dowdiness/canopy/core.SourceMap, @dowdiness/canopy/core.NodeId) -> Int
+pub fn DefinitionIndex::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
 pub fn DefinitionIndex::length(Self) -> Int
 
 pub struct ModuleProjection {

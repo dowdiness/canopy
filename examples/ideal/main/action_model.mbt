@@ -19,13 +19,14 @@ fn detect_action_context(
     Some(n) => n
     None => return None
   }
-  let module_projection = match companion.get_module_projection() {
-    Some(fp) => fp
+  let _ = companion
+  let definition_index = match editor.get_proj_node() {
+    Some(root) => @lambda_proj.DefinitionIndex::from_proj_node(root)
     None => return None
   }
   // Check if this node is a let-binding row or init expression.
   let (is_let_binding, binding_node_id, binding_def_index) = match
-    @lambda_edits.find_binding_for_init(nid, module_projection) {
+    @lambda_edits.find_binding_for_init(nid, definition_index) {
     Some((bid, idx)) => (true, Some(bid), Some(idx))
     None => (false, None, None)
   }

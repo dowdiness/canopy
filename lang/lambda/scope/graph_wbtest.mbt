@@ -1,19 +1,17 @@
 ///|
-/// Build (proj, module_projection, registry, source_map) from source.
+/// Build (proj, registry, source_map) from source.
 fn build_fixture(
   text : String,
 ) -> (
   @core.ProjNode[@ast.Term],
-  @lambda_proj.ModuleProjection,
   Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   @core.SourceMap,
 ) raise {
   let (proj, _errs) = @lambda_proj.parse_to_proj_node(text)
-  let module_projection = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let source_map = @core.SourceMap::from_ast(proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(proj, registry)
-  (proj, module_projection, registry, source_map)
+  (proj, registry, source_map)
 }
 
 ///|
@@ -42,10 +40,8 @@ fn find_var_node(
 
 ///|
 test "build: module defs become ModuleDef decls in root scope" {
-  let (_proj, module_projection, registry, source_map) = build_fixture(
-    "let a = 1\nlet b = 2\nb",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (_proj, registry, source_map) = build_fixture("let a = 1\nlet b = 2\nb")
+  let g = build(registry, source_map)
   inspect(g.decls.length(), content="2")
   guard g.decls[0].kind is ModuleDef(def_index=d0)
   inspect(d0, content="0")
@@ -103,11 +99,45 @@ fn find_var_in_def_init(
 }
 
 ///|
-test "resolve: lambda param" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "(x) => x",
+test "build: duplicate module defs use structural binder ids and cutoffs" {
+  let (proj, registry, source_map) = build_fixture("let x = 1\nlet x = x\nx")
+  let g = build(registry, source_map)
+  guard proj.kind is @ast.Term::Module(_, _) else { fail("expected module") }
+  inspect(g.decls[0].node_id == proj.children[0].id(), content="true")
+  inspect(g.decls[1].node_id == proj.children[1].id(), content="true")
+  let init_var = find_var_in_def_init(proj, 1, "x")
+  guard declaration(g, init_var) is Some(init_decl)
+  guard init_decl.kind is ModuleDef(def_index=init_index)
+  inspect(init_index, content="0")
+  let body_var = find_var_in_body(proj, "x")
+  guard declaration(g, body_var) is Some(body_decl)
+  guard body_decl.kind is ModuleDef(def_index=body_index)
+  inspect(body_index, content="1")
+}
+
+///|
+test "declaration_for_name_at: module nodes use full local cutoff" {
+  let (proj, registry, source_map) = build_fixture("let x = 1\nlet x = 2\nx")
+  let g = build(registry, source_map)
+  guard declaration_for_name_at(g, proj.id(), "x") is Some(root_decl)
+  guard root_decl.kind is ModuleDef(def_index=root_index)
+  inspect(root_index, content="1")
+
+  let (nested, nested_registry, nested_source_map) = build_fixture(
+    "let z = { let x = 1\nx }\nz",
   )
-  let g = build(module_projection, registry, source_map)
+  let nested_graph = build(nested_registry, nested_source_map)
+  let block = nested.children[0].children[0]
+  guard declaration_for_name_at(nested_graph, block.id(), "x")
+    is Some(block_decl)
+  guard block_decl.kind is ModuleDef(def_index=block_index)
+  inspect(block_index, content="0")
+}
+
+///|
+test "resolve: lambda param" {
+  let (proj, registry, source_map) = build_fixture("(x) => x")
+  let g = build(registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
   inspect(decl.kind is LamParam(_), content="true")
@@ -115,20 +145,16 @@ test "resolve: lambda param" {
 
 ///|
 test "resolve: self-reference is unbound" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "let x = x\nx",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("let x = x\nx")
+  let g = build(registry, source_map)
   let init_var = find_var_in_def_init(proj, 0, "x")
   inspect(declaration(g, init_var) is None, content="true")
 }
 
 ///|
 test "resolve: second def init binds to first def" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "let x = 1\nlet x = x\nx",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("let x = 1\nlet x = x\nx")
+  let g = build(registry, source_map)
   let init_var = find_var_in_def_init(proj, 1, "x")
   guard declaration(g, init_var) is Some(decl)
   guard decl.kind is ModuleDef(def_index~)
@@ -137,10 +163,8 @@ test "resolve: second def init binds to first def" {
 
 ///|
 test "resolve: innermost lambda shadowing" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "(x) => (x) => x",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("(x) => (x) => x")
+  let g = build(registry, source_map)
   let var_node = find_var_node(proj, "x")
   guard declaration(g, var_node) is Some(decl)
   inspect(decl.kind is LamParam(_), content="true")
@@ -148,10 +172,8 @@ test "resolve: innermost lambda shadowing" {
 
 ///|
 test "resolve: body binds to latest def" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "let x = 1\nlet x = 2\nx",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("let x = 1\nlet x = 2\nx")
+  let g = build(registry, source_map)
   let body_var = find_var_in_body(proj, "x")
   guard declaration(g, body_var) is Some(decl)
   guard decl.kind is ModuleDef(def_index~)
@@ -160,20 +182,16 @@ test "resolve: body binds to latest def" {
 
 ///|
 test "resolve: earlier def cannot see later def" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "let a = b\nlet b = 1\na",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("let a = b\nlet b = 1\na")
+  let g = build(registry, source_map)
   let init_var = find_var_in_def_init(proj, 0, "b")
   inspect(declaration(g, init_var) is None, content="true")
 }
 
 ///|
 test "references: identity-based, shadowing-aware" {
-  let (_proj, module_projection, registry, source_map) = build_fixture(
-    "let x = 1\nlet x = 2\nx",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (_proj, registry, source_map) = build_fixture("let x = 1\nlet x = 2\nx")
+  let g = build(registry, source_map)
   let def1 = g.decls[1].id
   let def0 = g.decls[0].id
   inspect(references(g, def1).length() >= 1, content="true")
@@ -182,10 +200,8 @@ test "references: identity-based, shadowing-aware" {
 
 ///|
 test "enclosing_env: lambda params in scope" {
-  let (proj, module_projection, registry, source_map) = build_fixture(
-    "(x, y) => x",
-  )
-  let g = build(module_projection, registry, source_map)
+  let (proj, registry, source_map) = build_fixture("(x, y) => x")
+  let g = build(registry, source_map)
   let var_node = find_var_node(proj, "x")
   let env = enclosing_env(g, var_node)
   inspect(env.contains("x"), content="true")

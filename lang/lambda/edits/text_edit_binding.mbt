@@ -3,17 +3,14 @@ fn compute_delete_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
+  let { source_text, source_map, .. } = ctx
+  let module_view = edit_module_view(ctx)
+  let def_index = match find_def_index(module_view, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
   let (let_start, binding_end) = match
-    get_binding_text_range(
-      source_text,
-      source_map,
-      module_projection.defs[def_index],
-    ) {
+    get_binding_text_range(source_text, source_map, module_view.defs[def_index]) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
@@ -32,12 +29,13 @@ fn compute_duplicate_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
+  let { source_text, source_map, .. } = ctx
+  let module_view = edit_module_view(ctx)
+  let def_index = match find_def_index(module_view, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
-  let def = module_projection.defs[def_index]
+  let def = module_view.defs[def_index]
   let binding_source = match
     binding_rewrite_source(source_text, source_map, def) {
     Ok(source) => source
@@ -45,7 +43,7 @@ fn compute_duplicate_binding(
   }
   // Create copy with _copy suffix on name, preserving source syntax such as
   // `fn` parameter annotations instead of reprinting the desugared Lam spine.
-  let new_name = def.0 + "_copy"
+  let new_name = def.name + "_copy"
   let new_binding = match
     binding_source.renamed_text(source_text, source_map, new_name) {
     Ok(text) => text
@@ -80,8 +78,9 @@ fn compute_move_binding_up(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
+  let { source_text, source_map, .. } = ctx
+  let module_view = edit_module_view(ctx)
+  let def_index = match find_def_index(module_view, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
@@ -89,20 +88,24 @@ fn compute_move_binding_up(
     return Err("Cannot move first binding up")
   }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_projection.defs[def_index]
-  let prev_def = module_projection.defs[def_index - 1]
+  let cur_def = module_view.defs[def_index]
+  let prev_def = module_view.defs[def_index - 1]
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
-  let cur_fv = free_vars(cur_def.1.kind, empty_env)
-  let prev_fv = free_vars(prev_def.1.kind, empty_env)
+  let cur_fv = free_vars(cur_def.init.kind, empty_env)
+  let prev_fv = free_vars(prev_def.init.kind, empty_env)
   // Only check if cur depends on prev: after swap, cur comes first,
   // so prev (now below) wouldn't be in scope for cur's init.
   // The reverse (prev depends on cur) is safe: after swap, cur is above prev.
-  if cur_fv.contains(prev_def.0) {
+  if cur_fv.contains(prev_def.name) {
     return Err(
-      "Cannot move up: " + cur_def.0 + " uses " + prev_def.0 + " in its init",
+      "Cannot move up: " +
+      cur_def.name +
+      " uses " +
+      prev_def.name +
+      " in its init",
     )
   }
-  if cur_def.0 == prev_def.0 {
+  if cur_def.name == prev_def.name {
     return Err("Cannot swap bindings with the same name")
   }
   // Get text ranges for both bindings
@@ -143,29 +146,34 @@ fn compute_move_binding_down(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, module_projection, .. } = ctx
-  let def_index = match find_def_index(module_projection, binding_node_id) {
+  let { source_text, source_map, .. } = ctx
+  let module_view = edit_module_view(ctx)
+  let def_index = match find_def_index(module_view, binding_node_id) {
     Ok(i) => i
     Err(e) => return Err(e)
   }
-  if def_index >= module_projection.defs.length() - 1 {
+  if def_index >= module_view.defs.length() - 1 {
     return Err("Cannot move last binding down")
   }
   // Scoping guard: check if either name is free in the other's init
-  let cur_def = module_projection.defs[def_index]
-  let next_def = module_projection.defs[def_index + 1]
+  let cur_def = module_view.defs[def_index]
+  let next_def = module_view.defs[def_index + 1]
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
-  let cur_fv = free_vars(cur_def.1.kind, empty_env)
-  let next_fv = free_vars(next_def.1.kind, empty_env)
+  let cur_fv = free_vars(cur_def.init.kind, empty_env)
+  let next_fv = free_vars(next_def.init.kind, empty_env)
   // Only check if next depends on cur: after swap, next comes first,
   // so cur (now below) wouldn't be in scope for next's init.
   // The reverse (cur depends on next) is safe: after swap, next is above cur.
-  if next_fv.contains(cur_def.0) {
+  if next_fv.contains(cur_def.name) {
     return Err(
-      "Cannot move down: " + next_def.0 + " uses " + cur_def.0 + " in its init",
+      "Cannot move down: " +
+      next_def.name +
+      " uses " +
+      cur_def.name +
+      " in its init",
     )
   }
-  if cur_def.0 == next_def.0 {
+  if cur_def.name == next_def.name {
     return Err("Cannot swap bindings with the same name")
   }
   // Get text ranges for both bindings
@@ -205,7 +213,8 @@ fn compute_add_binding(
   ctx : EditContext[@ast.Term],
   module_node_id : NodeId,
 ) -> EditResult {
-  let { registry, module_projection, .. } = ctx
+  let { registry, .. } = ctx
+  let module_view = edit_module_view(ctx)
   // Validate target is a Module node before delegating
   guard registry.get(module_node_id) is Some(node) else {
     return Err("Module not found: " + module_node_id.to_string())
@@ -215,7 +224,7 @@ fn compute_add_binding(
       compute_insert_child(
         ctx,
         module_node_id,
-        module_projection.defs.length(),
+        module_view.defs.length(),
         @ast.Term::Int(0),
       )
     _ => Err("AddBinding target is not a Module node")
