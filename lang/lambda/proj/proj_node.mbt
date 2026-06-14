@@ -24,13 +24,22 @@ fn error_node_for_syntax(
 }
 
 ///|
-fn app_node(
+/// Candidate existing APIs checked: `cstfold_branch_node` already handles the
+/// one-CST-node/one-`ProjNode` case, but flat AppExpr/BinaryExpr syntax maps to
+/// multiple nested projection spine nodes. `rebuild_kind` already reconstructs
+/// one parent from a CstFold-derived shape and projected child kinds, while
+/// `ProjNode::branch` owns branch metadata and ID allocation. This helper's
+/// responsibility boundary is exactly one left-spine parent step: preserve the
+/// current two-child `ProjNode` shape and span while taking constructor/operator
+/// data from the supplied shallow CstFold parent shape.
+fn cstfold_left_spine_step(
+  shape : @ast.Term,
   left : ProjNode[@ast.Term],
   right : ProjNode[@ast.Term],
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
   ProjNode::branch(
-    App(left.kind, right.kind),
+    rebuild_kind(shape, [left, right]),
     @cmp.minimum(left.start, right.start),
     @cmp.maximum(left.end, right.end),
     [left, right],
@@ -39,19 +48,50 @@ fn app_node(
 }
 
 ///|
-fn bop_node(
-  op : @ast.Bop,
-  left : ProjNode[@ast.Term],
-  right : ProjNode[@ast.Term],
-  counter : Ref[Int],
-) -> ProjNode[@ast.Term] {
-  ProjNode::branch(
-    Bop(op, left.kind, right.kind),
-    @cmp.minimum(left.start, right.start),
-    @cmp.maximum(left.end, right.end),
-    [left, right],
-    counter,
-  )
+/// Candidate existing APIs checked: `cstfold_projection_compatible_shallow_kind`
+/// produces the whole flat AppExpr parent shape without folding descendants, but
+/// AppExpr projection still allocates one nested `ProjNode` per argument.
+/// `@ast.rebuild_from`/`rebuild_kind` can rebuild one App parent once a shape is
+/// selected, but it does not split the flat CST shape into spine steps. This
+/// helper extracts those App parent shapes from the shallow CstFold spine in the
+/// same inner-to-outer order as projection allocation, without visiting the CST
+/// descendants again. Keep this iterative because generated flat applications
+/// can contain long argument chains.
+fn cstfold_app_spine_shapes(shape : @ast.Term) -> Array[@ast.Term] {
+  let outer_to_inner : Array[@ast.Term] = []
+  for current = shape {
+    match current {
+      App(left_shape, _) => {
+        outer_to_inner.push(current)
+        continue left_shape
+      }
+      _ => break
+    }
+  }
+  outer_to_inner.rev()
+}
+
+///|
+/// Candidate existing APIs checked: `BinaryExprView::ops` exposes parser tokens,
+/// but CstFold is the semantic source of truth for operator classification.
+/// `cstfold_projection_compatible_shallow_kind` gives the complete left-nested
+/// Bop shape with placeholder operands, and `rebuild_kind` rebuilds a single Bop
+/// parent once that parent shape is selected. This helper extracts the Bop
+/// parent shapes in projection construction order so multi-operator chains keep
+/// each operator on the same nested `ProjNode` as before. Keep this iterative
+/// because generated flat binary chains can be long.
+fn cstfold_bop_spine_shapes(shape : @ast.Term) -> Array[@ast.Term] {
+  let outer_to_inner : Array[@ast.Term] = []
+  for current = shape {
+    match current {
+      Bop(_, left_shape, _) => {
+        outer_to_inner.push(current)
+        continue left_shape
+      }
+      _ => break
+    }
+  }
+  outer_to_inner.rev()
 }
 
 ///|
@@ -269,46 +309,56 @@ pub fn syntax_to_proj_node(
       None =>
         error_node_for_syntax("missing function in application", node, counter)
       Some(func_node) => {
-        let mut result = syntax_to_proj_node(func_node, counter)
-        for arg_node in v.args() {
+        let app_shape = cstfold_projection_compatible_shallow_kind(node)
+        let app_shapes = cstfold_app_spine_shapes(app_shape)
+        let args = v.args()
+        let first = syntax_to_proj_node(func_node, counter)
+        for arg_node in args; i = 0, result = first {
+          let shape = match app_shapes.get(i) {
+            Some(shape) => shape
+            None => app_shape
+          }
           let arg = syntax_to_proj_node(arg_node, counter)
-          result = app_node(result, arg, counter)
+          continue i + 1, cstfold_left_spine_step(shape, result, arg, counter)
+        } nobreak {
+          result
         }
-        result
       }
     }
   } else if @parser.BinaryExprView::cast(node) is Some(v) {
     let operands = v.operands()
-    let ops = v.ops()
-    if operands.length() == 0 {
+    let operand_count = operands.length()
+    if operand_count == 0 {
       error_node_for_syntax("empty BinaryExpr", node, counter)
-    } else if operands.length() == 1 {
+    } else if operand_count == 1 {
       syntax_to_proj_node(operands[0], counter)
     } else {
-      // Fold n-ary syntax (`a + b + c`) into binary Term shape.
-      // The parser emits operator+operand pairs, so `ops` and trailing
-      // operands stay balanced; the Error branch guards malformed or
-      // hand-built CSTs, not normal parser output. Check before recursing
-      // so we neither re-overwrite Error nor traverse unreachable operands.
-      let mut result = syntax_to_proj_node(operands[0], counter)
-      let mut missing_at : Int? = None
-      for i = 1; i < operands.length(); i = i + 1 {
-        if i - 1 >= ops.length() {
-          missing_at = Some(operands[i].start())
-          break
+      // Fold n-ary syntax (`a + b + c`) into binary projection shape.
+      // CstFold owns the operator classification for each parent shape, while
+      // the projection builder still owns child IDs, spans, and recovery terms.
+      // Check for a missing CstFold parent shape before recursing into the next
+      // operand so malformed hand-built CSTs preserve the previous recovery
+      // boundary and do not traverse unreachable operands.
+      let bop_shapes = cstfold_bop_spine_shapes(
+        cstfold_projection_compatible_shallow_kind(node),
+      )
+      let first = syntax_to_proj_node(operands[0], counter)
+      for i = 1, result = first; i < operand_count; {
+        match bop_shapes.get(i - 1) {
+          Some(shape) => {
+            let rhs = syntax_to_proj_node(operands[i], counter)
+            continue i + 1, cstfold_left_spine_step(shape, result, rhs, counter)
+          }
+          None =>
+            break error_node_with_span(
+              "missing binary operator",
+              result.start,
+              operands[i].start(),
+              counter,
+            )
         }
-        let rhs = syntax_to_proj_node(operands[i], counter)
-        result = bop_node(ops[i - 1], result, rhs, counter)
-      }
-      match missing_at {
-        Some(end) =>
-          error_node_with_span(
-            "missing binary operator",
-            result.start,
-            end,
-            counter,
-          )
-        None => result
+      } nobreak {
+        result
       }
     }
   } else if @parser.IfExprView::cast(node) is Some(v) {

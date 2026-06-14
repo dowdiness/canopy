@@ -38,17 +38,33 @@ fn cstfold_projection_compatible_kind(node : @seam.SyntaxNode) -> @ast.Term {
 }
 
 ///|
+/// Apply only the top-level block compatibility rules needed by shallow parent
+/// shapes. Do not recurse into `term.children()`: flat AppExpr/BinaryExpr parent
+/// shapes are left-nested, and recursive normalization would reintroduce one
+/// call frame per argument/operator before projection can build its iterative
+/// spine.
+fn cstfold_projection_compatible_shallow_term(term : @ast.Term) -> @ast.Term {
+  match term {
+    Error("empty block") => Unit
+    Module([], body) => body
+    _ => term
+  }
+}
+
+///|
 /// Candidate existing APIs checked: `@parser.lambda_fold_node` already exposes
 /// Loom Lambda's per-node CstFold algebra with caller-controlled recursion.
-/// `cstfold_projection_compatible_term` already applies Canopy's block
-/// compatibility normalization to a folded shape. This helper's responsibility
-/// boundary is parent-shape extraction for composite `ProjNode` builders: fold
-/// exactly the requested CST node with placeholder children, normalize that
-/// shallow shape, and leave descendant terms to the already-projected children.
+/// `cstfold_projection_compatible_term` already applies full Canopy block
+/// compatibility normalization to recursive folds, but shallow composite parent
+/// shapes must avoid recursively walking generated left spines. This helper's
+/// responsibility boundary is parent-shape extraction for composite `ProjNode`
+/// builders: fold exactly the requested CST node with placeholder children,
+/// normalize only that shallow top-level shape, and leave descendant terms to
+/// the already-projected children.
 fn cstfold_projection_compatible_shallow_kind(
   node : @seam.SyntaxNode,
 ) -> @ast.Term {
-  cstfold_projection_compatible_term(
+  cstfold_projection_compatible_shallow_term(
     @parser.lambda_fold_node(node, fn(_child) { Unit }),
   )
 }
