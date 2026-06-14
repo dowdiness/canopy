@@ -16,6 +16,10 @@ import {
   "moonbit-community/rabbita/sub",
 }
 
+// Keep this package JS-only until `defer_sync` in `source_demo.mbt` has a
+// non-JS implementation with the same post-mutation defer ordering as browser
+// `queueMicrotask`; a synchronous fallback reintroduces stale source reads.
+
 supported_targets = "js"
 
 options(
