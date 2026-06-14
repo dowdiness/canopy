@@ -36,12 +36,20 @@ fn reconcile_lambda_projection(
   counter : Ref[Int],
 ) -> @core.ProjNode[@ast.Term] {
   match (old.kind, new_.kind) {
-    (Module(_, _), Module(_, _)) =>
-      reconcile_module_projection(
+    (Module(_, _), Module(_, _)) => {
+      let reconciled = reconcile_module_projection(
         ModuleProjection::from_proj_node(old),
         ModuleProjection::from_proj_node(new_),
         counter,
       ).to_proj_node_with_prev_module_id(counter, Some(old.node_id))
+      @core.ProjNode::new(
+        reconciled.kind,
+        new_.start,
+        new_.end,
+        old.node_id,
+        reconciled.children,
+      )
+    }
     _ => @core.reconcile(old, new_, counter)
   }
 }

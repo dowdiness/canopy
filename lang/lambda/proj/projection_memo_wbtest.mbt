@@ -28,3 +28,14 @@ test "build_lambda_projection_memos: reordered defs preserve binding ids" {
   inspect(after["x"] == before["x"], content="true")
   inspect(after["y"] == before["y"], content="true")
 }
+
+///|
+test "build_lambda_projection_memos: root block module keeps outer span" {
+  let parser = @loom.new_parser("{ let x = 1\n  x }", @parser.lambda_grammar)
+  let (proj_memo, _, _) = build_lambda_projection_memos(parser)
+  ignore(proj_memo.read_or_abort())
+  parser.set_source("{ let x = 2\n  x }")
+  let after = proj_memo.read_or_abort().unwrap()
+  inspect(after.start, content="0")
+  inspect(after.end, content="17")
+}
