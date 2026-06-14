@@ -286,37 +286,6 @@ fn rename_binding_by_id(
 }
 
 ///|
-/// The binder NAME token span for a module definition, read directly from the
-/// decl's own `LetDef` node so a block-local binder is located in its own scope.
-/// The `module_name_role` compatibility spans live only on the ROOT module node,
-/// so that fallback fires solely for a root-scope decl; a nested decl with no
-/// `LetDef` span has no sound fallback and stays `None` (caller errors), never
-/// resolving to a root-relative location.
-fn module_binder_name_range(
-  g : @scope.ScopeGraph,
-  decl : @scope.Decl,
-  source_map : SourceMap,
-) -> @loomcore.Range? {
-  match
-    source_map.get_token_span(decl.node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
-    Some(r) => Some(r)
-    None =>
-      if root_scope_id(g) is Some(rs) && decl.scope == rs {
-        match decl.kind {
-          DeclKind::ModuleDef(def_index~) =>
-            source_map.get_token_span(
-              g.module_node_id,
-              @lambda_proj.module_name_role(def_index),
-            )
-          _ => None
-        }
-      } else {
-        None
-      }
-  }
-}
-
-///|
 /// Core rename logic for a module-level binding (top-level OR block-local).
 /// Operates on the resolved `decl` and the graph that produced it — never on a
 /// root-relative `def_index` — so every lookup (references, binder location,
@@ -376,7 +345,10 @@ fn rename_module_binding(
     )
   }
   let edits : Array[SpanEdit] = []
-  guard module_binder_name_range(g, decl, source_map) is Some(range) else {
+  // `@scope.binder_span` locates the binder block-locally (it reads
+  // `LET_DEF_NAME_ROLE` off the decl's own `LetDef` node and only falls back to
+  // the root `module_name_role` for a root-scope decl).
+  guard @scope.binder_span(g, decl, source_map) is Some(range) else {
     return Err("No token span for binding name: " + decl.name)
   }
   edits.push({

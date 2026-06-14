@@ -44,6 +44,18 @@ test "go_to_definition: shadowed module def — later def wins (production id pa
 }
 
 ///|
+test "go_to_definition: block-local def — body var jumps to the block binder" {
+  // "let x = { let y = 1\n  y }\nx" — nested name "y" at 14..15; the block body
+  // "y" is at position 22. It must jump to the BLOCK-LOCAL binder (14..15),
+  // proving binder_span locates a nested decl on its own LetDef node and never
+  // falls back to the root module-name span.
+  let (g, sm) = build_fixture_with_spans("let x = { let y = 1\n  y }\nx")
+  guard go_to_definition(g, sm, 22) is Some(r)
+  inspect(r.start, content="14")
+  inspect(r.end, content="15")
+}
+
+///|
 test "go_to_definition: lambda param — body var jumps to the param token" {
   // "(x) => x" — param "x" at 1..2; body var "x" at 7.
   let (g, sm) = build_fixture_with_spans("(x) => x")
