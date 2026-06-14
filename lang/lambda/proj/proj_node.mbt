@@ -83,12 +83,13 @@ fn cstfold_leaf_node(
 }
 
 ///|
-/// Candidate existing APIs checked: `cstfold_projection_compatible_kind`
-/// already derives the CstFold-compatible composite shape, but its recursive
-/// children come from the raw fold. `rebuild_kind` already reconciles a shape
-/// with projected child kinds via `@ast.rebuild_from`, but it does not allocate
-/// projection metadata. `ProjNode::branch` already owns branch span, child
-/// storage, and fresh ID allocation, but it needs a caller-supplied `Term`.
+/// Candidate existing APIs checked:
+/// `cstfold_projection_compatible_shallow_kind` already derives the
+/// CstFold-compatible composite parent shape without folding descendants.
+/// `rebuild_kind` already reconciles a shape with projected child kinds via
+/// `@ast.rebuild_from`, but it does not allocate projection metadata.
+/// `ProjNode::branch` already owns branch span, child storage, and fresh ID
+/// allocation, but it needs a caller-supplied `Term`.
 /// This wrapper's responsibility boundary is one CST node -> one branch
 /// `ProjNode`: take the CstFold-compatible parent shape, rebuild it with the
 /// already-projected children to preserve recovery behavior, then delegate all
@@ -98,7 +99,7 @@ fn cstfold_branch_node(
   children : Array[ProjNode[@ast.Term]],
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  let shape = cstfold_projection_compatible_kind(node)
+  let shape = cstfold_projection_compatible_shallow_kind(node)
   let kind = rebuild_kind(shape, children)
   ProjNode::branch(kind, node.start(), node.end(), children, counter)
 }

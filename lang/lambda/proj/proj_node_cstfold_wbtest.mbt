@@ -5,6 +5,16 @@ fn cstfold_term(source : String) -> @ast.Term raise {
 }
 
 ///|
+fn cstfold_shallow_first_child(source : String) -> @ast.Term raise {
+  let (cst, _) = @parser.parse_cst(source)
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [expr, ..] => cstfold_projection_compatible_shallow_kind(expr)
+    [] => fail("expected expression child for " + source)
+  }
+}
+
+///|
 fn assert_term_equal(
   context : String,
   expected : @ast.Term,
@@ -155,6 +165,21 @@ test "cstfold parity: valid composite sources agree" {
   assert_clean_projection_kind_matches_fold("(f, x) => f x")
   assert_clean_projection_kind_matches_fold("1 + 2 + 3")
   assert_clean_projection_kind_matches_fold("if x then 1 else 2")
+}
+
+///|
+test "cstfold-backed branch shape does not fold nested if children" {
+  let source = "if x then if y then 1 else 2 else 3"
+  assert_term_equal(
+    "recursive fold should still see the nested if",
+    If(Var("x"), If(Var("y"), Int(1), Int(2)), Int(3)),
+    cstfold_projection_compatible_term(cstfold_term(source)),
+  )
+  assert_term_equal(
+    "shallow IfExpr parent shape should use placeholders for children",
+    If(Unit, Unit, Unit),
+    cstfold_shallow_first_child(source),
+  )
 }
 
 ///|
