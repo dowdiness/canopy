@@ -36,3 +36,19 @@ fn cstfold_projection_compatible_term(term : @ast.Term) -> @ast.Term {
 fn cstfold_projection_compatible_kind(node : @seam.SyntaxNode) -> @ast.Term {
   cstfold_projection_compatible_term(@parser.syntax_node_to_term(node))
 }
+
+///|
+/// Candidate existing APIs checked: `@parser.lambda_fold_node` already exposes
+/// Loom Lambda's per-node CstFold algebra with caller-controlled recursion.
+/// `cstfold_projection_compatible_term` already applies Canopy's block
+/// compatibility normalization to a folded shape. This helper's responsibility
+/// boundary is parent-shape extraction for composite `ProjNode` builders: fold
+/// exactly the requested CST node with placeholder children, normalize that
+/// shallow shape, and leave descendant terms to the already-projected children.
+fn cstfold_projection_compatible_shallow_kind(
+  node : @seam.SyntaxNode,
+) -> @ast.Term {
+  cstfold_projection_compatible_term(
+    @parser.lambda_fold_node(node, fn(_child) { Unit }),
+  )
+}

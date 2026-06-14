@@ -83,6 +83,28 @@ fn cstfold_leaf_node(
 }
 
 ///|
+/// Candidate existing APIs checked:
+/// `cstfold_projection_compatible_shallow_kind` already derives the
+/// CstFold-compatible composite parent shape without folding descendants.
+/// `rebuild_kind` already reconciles a shape with projected child kinds via
+/// `@ast.rebuild_from`, but it does not allocate projection metadata.
+/// `ProjNode::branch` already owns branch span, child storage, and fresh ID
+/// allocation, but it needs a caller-supplied `Term`.
+/// This wrapper's responsibility boundary is one CST node -> one branch
+/// `ProjNode`: take the CstFold-compatible parent shape, rebuild it with the
+/// already-projected children to preserve recovery behavior, then delegate all
+/// branch metadata and identity handling to `ProjNode::branch`.
+fn cstfold_branch_node(
+  node : @seam.SyntaxNode,
+  children : Array[ProjNode[@ast.Term]],
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  let shape = cstfold_projection_compatible_shallow_kind(node)
+  let kind = rebuild_kind(shape, children)
+  ProjNode::branch(kind, node.start(), node.end(), children, counter)
+}
+
+///|
 fn block_inner_bounds(node : @seam.SyntaxNode) -> (Int, Int) {
   let start = match node.find_token(@syntax.LBraceToken.to_raw()) {
     Some(tok) => tok.end()
@@ -302,13 +324,7 @@ pub fn syntax_to_proj_node(
       Some(n) => syntax_to_proj_node(n, counter)
       None => error_node_for_syntax("missing else branch", node, counter)
     }
-    ProjNode::branch(
-      If(cond.kind, then_.kind, else_.kind),
-      node.start(),
-      node.end(),
-      [cond, then_, else_],
-      counter,
-    )
+    cstfold_branch_node(node, [cond, then_, else_], counter)
   } else if @parser.ParenExprView::cast(node) is Some(v) {
     match v.inner() {
       Some(inner) => {

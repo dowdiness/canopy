@@ -1,6 +1,6 @@
 # Lambda CstFold modernization decision note (#623)
 
-**Status:** accepted first slices (#628, #629)
+**Status:** accepted first slices (#628, #629, #630); #642 in review
 **Date:** 2026-06-14  
 **Issue:** <https://github.com/dowdiness/canopy/issues/623>
 
@@ -101,8 +101,41 @@ projection without changing editor behavior.
    (`Int`, `Var`, `Hole`) before composite nodes whose `ProjNode.kind` must stay
    consistent with child kinds. Do not change `ModuleProjection` storage, public
    `.mbti` shape, source-map token roles, or the edit bridge in this slice.
-4. Document any retained divergence in the test names/comments rather than
+4. For composite projection nodes, use CstFold only for the parent constructor
+   shape. Do not recursively refold descendants that have already been projected
+   into child `ProjNode`s; rebuild the parent kind from the shallow CstFold shape
+   plus the existing child kinds.
+5. Document any retained divergence in the test names/comments rather than
    silently normalizing it.
+
+### Composite parent-shape rule
+
+`@parser.syntax_node_to_term` is the full recursive fold: it computes every
+child term in the syntax subtree. That is appropriate for leaf/value projection
+and parity tests, but it is the wrong ownership boundary for composite
+`ProjNode` construction because the projection builder has already produced child
+`ProjNode`s with source spans, IDs, child order, source-map meaning, and edit
+identity.
+
+For one-CST-node/one-`ProjNode` composite cases, the safe migration pattern is:
+
+1. Use Loom Lambda's per-node fold algebra to extract only the parent constructor
+   shape with placeholder child terms.
+2. Apply the Canopy compatibility normalization to that shallow shape.
+3. Rebuild the parent `Term` with the already-projected child kinds via
+   `@ast.rebuild_from` / `rebuild_kind`.
+4. Allocate the branch through `ProjNode::branch` so projection metadata remains
+   owned by Canopy.
+
+This is a shallow fold / one-layer fold, not a visitor-specific pattern. In
+recursion-scheme terms, it separates the parent constructor shape from recursive
+child results: the parser/CstFold layer owns semantic constructor selection;
+the projection layer owns identity, spans, and child `ProjNode`s. It also avoids
+repeated suffix refolding for nested composite chains.
+
+Do not apply this pattern blindly to shapes whose projection tree is synthetic
+relative to the CST. `App` and `Bop` remain separate migration problems because
+their CST forms are flat while the current projection shape is nested.
 
 Likely touched files:
 
@@ -116,7 +149,9 @@ Likely touched files:
 
 - #628 — add CstFold parity tests.
 - #629 — decide the block-expression divergence (decided: compatibility adapter).
-- #630 — replace safe hand-built `Term` construction with CstFold.
+- #630 — replace safe leaf/value `Term` construction with CstFold.
+- #642 — migrate safe composite `Term` construction through CstFold-compatible
+  shallow parent shapes.
 - #631 — extract a definition index from `ModuleProjection`.
 - #632 — migrate scope/edit/semantic consumers off `ModuleProjection`.
 - #633 — switch the projection memo stack to the generic 3-memo path.
