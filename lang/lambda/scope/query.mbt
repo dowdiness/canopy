@@ -34,7 +34,11 @@ pub fn references(g : ScopeGraph, decl : DeclId) -> Array[@core.NodeId] {
 /// - lambda param: the `"param"` token span on the `Lam` node;
 /// - module def: the `"name"` token span on the `LetDef` node, with the
 ///   module-level `"name:<def_index>"` span as a migration fallback.
-/// Failure is always `None`, never a wrong location.
+/// Failure is always `None`, never a wrong location. The `module_name_role`
+/// fallback spans live only on the ROOT module node (`g.module_node_id`), so it
+/// is consulted ONLY for a root-scope decl; a nested-block decl with no `LetDef`
+/// span returns `None` rather than a root-relative (wrong) location — preserving
+/// the "never a wrong location" guarantee for block-local binders.
 pub fn binder_span(
   g : ScopeGraph,
   decl : Decl,
@@ -47,11 +51,17 @@ pub fn binder_span(
       match
         source_map.get_token_span(decl.node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
         Some(range) => Some(range)
-        None =>
-          source_map.get_token_span(
-            g.module_node_id,
-            @lambda_proj.module_name_role(def_index),
-          )
+        None => {
+          let ScopeId(si) = decl.scope
+          if g.scopes[si].parent is None {
+            source_map.get_token_span(
+              g.module_node_id,
+              @lambda_proj.module_name_role(def_index),
+            )
+          } else {
+            None
+          }
+        }
       }
   }
 }

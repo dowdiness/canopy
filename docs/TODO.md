@@ -479,25 +479,37 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Remaining: gated query-indexing is the only open scope follow-up here; the
   binder-location plan itself is complete.
 
-- [ ] Teach `edits/` resolvers about nested-block (`Module`) scopes.
-  Why: RFA Step 1 (#617) made the scope-graph builder model nested-block scopes,
-  so `failures()`/diagnostics resolve block-local bindings correctly. But
-  `edits/scope.mbt`'s parallel resolver (`declaration_id_for_name_from_scope` +
-  `def_cutoff_at_node`) still applies one root-relative cutoff to every
-  `ModuleDef` scope, and `text_edit_rename.mbt` / inline interpret
-  `DeclKind::ModuleDef(def_index)` against `ctx.module_projection.defs` (the root
-  module only). Top-level rename is unaffected (verified: edits/ suite green),
-  but renaming or referencing a *block-local* binding is now unsound — the graph
-  resolves it to a nested decl whose `def_index` is block-relative, which the
-  edits layer reads as root-relative. Pre-existing blind spot, newly reachable
-  because the graph now emits nested `ModuleDef` decls (Codex pre-PR review,
-  #617).
-  Plan: GitHub issue — generalize the edits resolver to the per-(node, scope)
-  cutoff model the builder now uses (see `lang/lambda/scope/builder.mbt`
-  `node_cutoffs`), keying `def_index` to its declaring scope rather than the root
-  module.
-  Exit: a rename of a block-local binding (`let y = { let x = 1; x }`) renames
-  only the block-local `x`, with a wbtest fixture asserting it.
+- [x] Block-local **rename** soundness (§20 exit criterion).
+  Shipped: `rename_from_var` / `rename_binding_by_id` / `rename_module_binding`
+  in `text_edit_rename.mbt` no longer round-trip the block-aware `Decl` back into
+  a root-relative `def_index`. They thread the resolved `Decl` + graph straight
+  through, deriving references via `@scope.references(g, decl.id)`, the binder
+  span directly off the decl's own `LetDef` node (no root `module_node_id`
+  fallback for nested decls), and the dup-name guard off the decl's own scope
+  siblings. Block-local var-rename AND binder-click rename are now sound; the
+  capture guard stays conservative (over-rejects when `new_name` is bound in an
+  ancestor the renamed binder would shadow — sound, never mis-renames). wbtests:
+  `Rename block-local binding leaves root binding intact`, `Rename block-local
+  binding by binder id`, `Rename block reference to outer binding renames root`.
+
+- [ ] Teach `edits/` **inline / extract / binding** ops about nested-block scopes.
+  Why: rename is fixed (above) by delegating to the already-block-aware `@scope`
+  API. But `text_edit_refactor.mbt` (inline/extract) and `text_edit_binding.mbt`
+  still convert the block-aware `Decl` into a root-relative `def_index`:
+  `module_def_references(g, def_index)` returns the FIRST decl at that index (root
+  wins over a block-local def at the same index), and `module_projection.defs[
+  def_index]` / `find_def_index` index the ROOT module's defs only. So inlining a
+  block-local `x` inlines the ROOT def's value, and the capture guard
+  (`def_cutoff_at_node` + `declaration_id_for_name_from_scope`, scope.mbt) applies
+  one root-relative cutoff. Pre-existing blind spot, already unsound today —
+  rename-only is strict progress, not a regression.
+  Plan: GitHub issue — for references/binder, decl-thread the same way rename now
+  does. For the *capture analysis* (a hypothetical-position query: "what would
+  name N resolve to if the init moved to position P"), generalize to the
+  per-(node, scope) cutoff model the builder uses (`lang/lambda/scope/builder.mbt`
+  `node_cutoffs`), keying each `def_index` to its declaring scope.
+  Exit: inlining/extracting a block-local binding (`let y = { let x = 1; x }`)
+  operates on the block-local `x`, with a wbtest fixture asserting it.
 
 ## Shipped history
 
