@@ -39,3 +39,15 @@ test "build_lambda_projection_memos: root block module keeps outer span" {
   inspect(after.start, content="0")
   inspect(after.end, content="17")
 }
+
+///|
+test "build_lambda_projection_memos: explicit Unit body keeps span" {
+  let parser = @loom.new_parser("let x = 1\n{}", @parser.lambda_grammar)
+  let (proj_memo, _, _) = build_lambda_projection_memos(parser)
+  ignore(proj_memo.read_or_abort())
+  parser.set_source("let x = 2\n{}")
+  let after = proj_memo.read_or_abort().unwrap()
+  let body = after.children[after.children.length() - 1]
+  inspect(body.start, content="10")
+  inspect(body.end, content="12")
+}
