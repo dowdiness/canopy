@@ -90,6 +90,43 @@ test "find_binding_for_init: returns None for non-init node" {
   let (proj, _) = parse_to_proj_node(text)
   let fp = ModuleProjection::from_proj_node(proj)
   // Body node is not an init expression
-  let body = proj.children[proj.children.length() - 1]
+  let body = proj.children.last().unwrap()
   inspect(find_binding_for_init(body.id(), fp) is None, content="true")
+}
+
+///|
+test "find_binding_for_init: duplicate defs return matching binding order" {
+  let text = "let x = 0\nlet x = x\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let fp = ModuleProjection::from_proj_node(proj)
+  match find_binding_for_init(fp.defs[0].1.id(), fp) {
+    Some((binding_id, def_index)) => {
+      inspect(binding_id == fp.defs[0].3, content="true")
+      inspect(def_index, content="0")
+    }
+    None => fail("expected first duplicate binding")
+  }
+  match find_binding_for_init(fp.defs[1].1.id(), fp) {
+    Some((binding_id, def_index)) => {
+      inspect(binding_id == fp.defs[1].3, content="true")
+      inspect(def_index, content="1")
+    }
+    None => fail("expected second duplicate binding")
+  }
+}
+
+///|
+test "def_cutoff_at_node: duplicate defs use init-range cutoff" {
+  let text = "let x = 0\nlet x = x\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let fp = ModuleProjection::from_proj_node(proj)
+  let source_map = SourceMap::from_ast(proj)
+  let body = proj.children.last().unwrap()
+  inspect(def_cutoff_at_node(fp, source_map, fp.defs[0].1.id()), content="0")
+  inspect(def_cutoff_at_node(fp, source_map, fp.defs[1].1.id()), content="1")
+  inspect(def_cutoff_at_node(fp, source_map, body.id()), content="2")
+  inspect(
+    def_cutoff_at_node(fp, source_map, NodeId::from_int(999_999)),
+    content="2",
+  )
 }

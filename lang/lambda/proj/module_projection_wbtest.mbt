@@ -38,6 +38,43 @@ test "to_module_projection: multiple let defs" {
 }
 
 ///|
+test "to_module_projection: duplicate defs keep source order and binding IDs" {
+  let syntax = parse_syntax("let x = 1\nlet x = x\nlet y = x\nx")
+  let fp = to_module_projection(syntax, Ref(0))
+  inspect(fp.defs.length(), content="3")
+  inspect(fp.defs.map(fn(def) { def.0 }).join(","), content="x,x,y")
+  inspect(fp.defs[0].3 != fp.defs[1].3, content="true")
+  inspect(fp.defs[1].3 != fp.defs[2].3, content="true")
+  let proj = fp.to_proj_node(Ref(100))
+  inspect(proj.children[0].id() == fp.defs[0].3, content="true")
+  inspect(proj.children[1].id() == fp.defs[1].3, content="true")
+  inspect(proj.children[2].id() == fp.defs[2].3, content="true")
+  inspect(proj.children[0].kind, content="LetDef(\"x\", Int(1))")
+  inspect(proj.children[1].kind, content="LetDef(\"x\", Var(\"x\"))")
+}
+
+///|
+test "DefinitionIndex: duplicate lookup and cutoff use source order" {
+  let syntax = parse_syntax("let x = 1\nlet x = x\nlet y = x\nx")
+  let fp = to_module_projection(syntax, Ref(0))
+  let index = fp.definition_index()
+  inspect(index.length(), content="3")
+  match index.binding_for_node(fp.defs[1].1.id()) {
+    Some((binding_id, def_index)) => {
+      inspect(binding_id == fp.defs[1].3, content="true")
+      inspect(def_index, content="1")
+    }
+    None => fail("expected duplicate binding lookup")
+  }
+  let proj = fp.to_proj_node(Ref(100))
+  let source_map = SourceMap::from_ast(proj)
+  let body = proj.children.last().unwrap()
+  inspect(index.cutoff_at_node(source_map, fp.defs[0].1.id()), content="0")
+  inspect(index.cutoff_at_node(source_map, fp.defs[1].1.id()), content="1")
+  inspect(index.cutoff_at_node(source_map, body.id()), content="3")
+}
+
+///|
 test "to_module_projection: no final expression defaults to None" {
   let syntax = parse_syntax("let x = 1\n")
   let fp = to_module_projection(syntax, Ref(0))

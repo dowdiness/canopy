@@ -40,10 +40,18 @@ pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.P
 // Errors
 
 // Types and methods
+pub struct DefinitionIndex {
+  // private fields
+}
+pub fn DefinitionIndex::binding_for_node(Self, @dowdiness/canopy/core.NodeId) -> (@dowdiness/canopy/core.NodeId, Int)?
+pub fn DefinitionIndex::cutoff_at_node(Self, @dowdiness/canopy/core.SourceMap, @dowdiness/canopy/core.NodeId) -> Int
+pub fn DefinitionIndex::length(Self) -> Int
+
 pub struct ModuleProjection {
   defs : Array[(String, @dowdiness/canopy/core.ProjNode[@ast.Term], Int, @dowdiness/canopy/core.NodeId)]
   final_expr : @dowdiness/canopy/core.ProjNode[@ast.Term]?
 } derive(Eq, @debug.Debug)
+pub fn ModuleProjection::definition_index(Self) -> DefinitionIndex
 pub fn ModuleProjection::empty() -> Self
 pub fn ModuleProjection::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
 pub fn ModuleProjection::to_proj_node(Self, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
