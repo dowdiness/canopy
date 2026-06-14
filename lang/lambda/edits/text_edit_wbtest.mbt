@@ -1399,6 +1399,122 @@ test "compute_text_edit: Rename module binding via Var" {
 }
 
 ///|
+/// Block-local rename soundness (docs/TODO.md §20 exit criterion).
+/// Root `x` (def_index 0) and the block-local `x` (also def_index 0) collide on
+/// index, so a root-relative resolver renames the WRONG binding. The only
+/// `Var("x")` in the whole tree is the block body usage, so we locate it by
+/// scanning the registry — renaming it must touch ONLY the block binder + body,
+/// leaving the unrelated root `let x = 1` intact.
+test "compute_text_edit: Rename block-local binding leaves root binding intact" {
+  let text =
+    #|let x = 1
+    #|let y = { let x = 2
+    #|  x }
+    #|y
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  // The block body `x` is the unique Var("x") in the program.
+  let mut inner_x : NodeId? = None
+  for id, node in registry {
+    if node.kind is @ast.Term::Var("x") {
+      inner_x = Some(id)
+    }
+  }
+  guard inner_x is Some(inner_x_id) else {
+    fail("could not locate block-local Var(\"x\")")
+  }
+  let result = compute_text_edit(
+    Rename(node_id=inner_x_id, new_name="w"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #|let x = 1
+          #|let y = { let w = 2
+          #|  w }
+          #|y
+        ),
+      )
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Block-local rename via the BINDER-CLICK path (`rename_binding_by_id`). The
+/// nested `LetDef` node is resolved to its own block declaration by structural
+/// node id, so it renames the block-local `x`, not the root def at index 0.
+test "compute_text_edit: Rename block-local binding by binder id" {
+  let text =
+    #|let x = 1
+    #|let y = { let x = 2
+    #|  x }
+    #|y
+  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  // proj.children[1] = LetDef y; its init child[0] is the block Module;
+  // that block's child[0] is the nested LetDef x.
+  let nested_let_def = proj.children[1].children[0].children[0]
+  let result = compute_text_edit(
+    Rename(node_id=nested_let_def.id(), new_name="w"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|let x = 1
+          #|let y = { let w = 2
+          #|  w }
+          #|y
+        ),
+      )
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// A reference inside a block that resolves to an OUTER (root) binding must
+/// still rename the root binding — confirms the decl-threading change keeps
+/// block→outer resolution sound, not just block-local.
+test "compute_text_edit: Rename block reference to outer binding renames root" {
+  let text =
+    #|let x = 1
+    #|let y = { let z = 2
+    #|  x }
+    #|y
+  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  // The block body `x` (unique Var("x")) resolves to the root `x`.
+  let mut inner_x : NodeId? = None
+  for id, node in registry {
+    if node.kind is @ast.Term::Var("x") {
+      inner_x = Some(id)
+    }
+  }
+  guard inner_x is Some(inner_x_id) else { fail("could not locate Var(\"x\")") }
+  let result = compute_text_edit(
+    Rename(node_id=inner_x_id, new_name="w"),
+    make_edit_ctx(text, sm, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|let w = 1
+          #|let y = { let z = 2
+          #|  w }
+          #|y
+        ),
+      )
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: Rename first duplicate module binding preserves shadowed body" {
   let text = "let x = 0\nlet x = x\nx"
   let (_, sm, registry, fp) = parse_with_token_spans(text)

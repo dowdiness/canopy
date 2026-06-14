@@ -256,116 +256,120 @@ fn rename_from_var(
           rename_lam_param(ctx, lam_id, lam_node, old_name, new_name)
         None => Err("Lambda node not found in registry")
       }
-    DeclKind::ModuleDef(def_index~) => {
-      // Find the Module node in the registry.
-      // Mutable slot records the first hit without materializing registry entries.
-      let mut module_id : NodeId? = None
-      // Manual scan can break as soon as the Module node is found.
-      for pid, pnode in ctx.registry {
-        if pnode.kind is @ast.Term::Module(_, _) {
-          module_id = Some(pid)
-          break
-        }
-      }
-      match module_id {
-        Some(mid) =>
-          rename_module_binding(ctx, mid, def_index, old_name, new_name)
-        None => Err("Module node not found in registry")
-      }
-    }
+    // The decl is already the block-aware declaration the var resolves to;
+    // thread it straight through (its `def_index` is scope-relative and must
+    // NOT be re-interpreted against the root module's defs).
+    DeclKind::ModuleDef(_) =>
+      rename_module_binding(ctx, g, decl, old_name, new_name)
   }
 }
 
 ///|
-/// Rename a module binding by its binding_node_id.
+/// Rename a module binding by its binding_node_id. Resolves the binder to its
+/// graph declaration by structural node id, so a block-local LetDef binder
+/// renames its own scope's binding rather than a root def at the same index.
 fn rename_binding_by_id(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let def_index = match find_def_index(ctx.module_projection, binding_node_id) {
-    Ok(i) => i
-    Err(e) => return Err(e)
+  let g = @scope.build(ctx.module_projection, ctx.registry, ctx.source_map)
+  guard g.decls
+    .iter()
+    .find_first(fn(d) {
+      d.node_id == binding_node_id && d.kind is DeclKind::ModuleDef(_)
+    })
+    is Some(decl) else {
+    return Err("Binding not found: " + binding_node_id.to_string())
   }
-  let old_name = ctx.module_projection.defs[def_index].0
-  // Find Module node.
-  // Mutable slot records the first hit without materializing registry entries.
-  let mut module_id : NodeId? = None
-  // Manual scan can break as soon as the Module node is found.
-  for pid, pnode in ctx.registry {
-    if pnode.kind is @ast.Term::Module(_, _) {
-      module_id = Some(pid)
-      break
-    }
-  }
-  match module_id {
-    Some(mid) => rename_module_binding(ctx, mid, def_index, old_name, new_name)
-    None => Err("Module node not found in registry")
+  rename_module_binding(ctx, g, decl, decl.name, new_name)
+}
+
+///|
+/// The binder NAME token span for a module definition, read directly from the
+/// decl's own `LetDef` node so a block-local binder is located in its own scope.
+/// The `module_name_role` compatibility spans live only on the ROOT module node,
+/// so that fallback fires solely for a root-scope decl; a nested decl with no
+/// `LetDef` span has no sound fallback and stays `None` (caller errors), never
+/// resolving to a root-relative location.
+fn module_binder_name_range(
+  g : @scope.ScopeGraph,
+  decl : @scope.Decl,
+  source_map : SourceMap,
+) -> @loomcore.Range? {
+  match
+    source_map.get_token_span(decl.node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
+    Some(r) => Some(r)
+    None =>
+      if root_scope_id(g) is Some(rs) && decl.scope == rs {
+        match decl.kind {
+          DeclKind::ModuleDef(def_index~) =>
+            source_map.get_token_span(
+              g.module_node_id,
+              @lambda_proj.module_name_role(def_index),
+            )
+          _ => None
+        }
+      } else {
+        None
+      }
   }
 }
 
 ///|
-/// Core rename logic for a module-level binding: renames the binding name token + all usages.
+/// Core rename logic for a module-level binding (top-level OR block-local).
+/// Operates on the resolved `decl` and the graph that produced it — never on a
+/// root-relative `def_index` — so every lookup (references, binder location,
+/// sibling collision) stays scoped to the declaration's own block.
+///
+/// Capture analysis is conservative: a rename is rejected if `new_name` is
+/// visible in ANY enclosing scope at a usage site, including an ancestor that
+/// the renamed binder would shadow. This over-approximates the capture set,
+/// which is sound (never mis-renames) but may reject some legal renames; a
+/// precise scope-bounded analysis is tracked in docs/TODO.md §20. It also does
+/// not rewrite a previously-free `Var(new_name)` elsewhere, so — as with the
+/// existing top-level rename — alpha-renaming that newly captures an unrelated
+/// free occurrence is out of scope.
 fn rename_module_binding(
   ctx : EditContext[@ast.Term],
-  module_id : NodeId,
-  def_index : Int,
+  g : @scope.ScopeGraph,
+  decl : @scope.Decl,
   old_name : String,
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
-  let { source_map, registry, module_projection, .. } = ctx
-  // Guard: check if another binding already uses new_name
-  for i, def in module_projection.defs {
-    if i != def_index && def.0 == new_name {
+  let source_map = ctx.source_map
+  // No-op rename: nothing to edit, and dup/capture checks do not apply.
+  guard new_name != old_name else { return Ok(Some(([], RestoreCursor))) }
+  // Guard: a sibling binding in the SAME scope already uses new_name. Keyed on
+  // the declaration's scope (block-local aware), not the root module's defs.
+  for d2 in g.decls {
+    if d2.scope == decl.scope && d2.id != decl.id && d2.name == new_name {
       return Err(
-        "Cannot rename: binding '" +
-        new_name +
-        "' already exists at index " +
-        i.to_string(),
+        "Cannot rename: binding '" + new_name + "' already exists in this scope",
       )
     }
   }
-  // Find all references resolved to this binding.
-  let g = @scope.build(module_projection, registry, source_map)
-  let ref_ids = match module_def_references(g, def_index) {
-    Ok(ids) => ids
-    Err(e) => return Err(e)
-  }
-  // Guard: check if new_name would be captured by an enclosing scope at any reference site
+  // References resolved to THIS declaration (identity-based, shadowing-correct).
+  let ref_ids = @scope.references(g, decl.id)
+  // Guard: new_name would be captured by an enclosing scope at a usage site.
   for ref_id in ref_ids {
-    if new_name != old_name && name_captured_at_node(g, ref_id, new_name) {
+    if name_captured_at_node(g, ref_id, new_name) {
       return Err(
         "Cannot rename: '" +
         new_name +
-        "' is bound by an enclosing lambda at a usage site",
+        "' is bound by an enclosing scope at a usage site",
       )
     }
   }
   let edits : Array[SpanEdit] = []
-  // Get the binder-name token span. Prefer the first-class LetDef node; keep
-  // the module-level `name:<i>` lookup as a migration fallback for older maps.
-  let binding_node_id = module_projection.defs[def_index].3
-  let name_range = match
-    source_map.get_token_span(binding_node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
-    Some(r) => Some(r)
-    None =>
-      source_map.get_token_span(
-        module_id,
-        @lambda_proj.module_name_role(def_index),
-      )
+  guard module_binder_name_range(g, decl, source_map) is Some(range) else {
+    return Err("No token span for binding name: " + decl.name)
   }
-  match name_range {
-    Some(range) =>
-      edits.push({
-        start: range.start,
-        delete_len: range.end - range.start,
-        inserted: new_name,
-      })
-    None =>
-      return Err(
-        "No token span for binding name at def index " + def_index.to_string(),
-      )
-  }
+  edits.push({
+    start: range.start,
+    delete_len: range.end - range.start,
+    inserted: new_name,
+  })
   let ref_ranges : Array[(Int, Int)] = []
   // Push loop lets us abort on the first invalid range before emitting edits.
   for rid in ref_ids {
