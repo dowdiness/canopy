@@ -28,18 +28,18 @@ fn js_source_mode_url(enabled : Bool) -> String {
 }
 
 ///|
-/// Run `run` on a microtask. Used to defer the source-graph settle ping so the
-/// synchronous mutation that triggered it completes first (see
+/// Run `run` on a browser microtask. This is load-bearing for the
+/// source-graph settle subscription: settle fires synchronously inside the
+/// attachment mutation, before `SourceBackedGraph.source` has been updated, so
+/// `SyncFromGraph` must run only after that mutation returns (see
 /// `source_graph_change_sub`).
+///
+/// There is deliberately no `#cfg(not(target="js"))` fallback: the source demo
+/// package is pinned to `supported_targets = "js"`, so widening that target set
+/// must first provide a defer primitive with this post-mutation ordering.
 #cfg(target="js")
 extern "js" fn defer_sync(run : () -> Unit) -> Unit =
   #|((run) => { queueMicrotask(() => run()); })
-
-///|
-#cfg(not(target="js"))
-fn defer_sync(run : () -> Unit) -> Unit {
-  run()
-}
 
 ///|
 struct SourceDemoModel {
