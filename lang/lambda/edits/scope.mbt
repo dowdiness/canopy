@@ -111,45 +111,38 @@ fn rename_captures_existing_use(
 }
 
 ///|
-/// Whether moving `source_node` (an init expression) to `target_node_id` would
-/// rebind any of its free vars — i.e. some free var resolves to a different
-/// declaration at the target site than at the source. The target resolution uses
-/// the scope graph's per-(node,scope) cutoffs (`@scope.resolve_name_at`), so it
-/// is correct for nested-block scopes, not a single root-relative cutoff.
-fn free_names_would_rebind_at_node(
-  g : @scope.ScopeGraph,
-  source_node : ProjNode[@ast.Term],
-  target_node_id : NodeId,
-  free_names : @immut/hashset.HashSet[String],
-) -> Bool {
-  let subtree : Map[NodeId, ProjNode[@ast.Term]] = {}
-  @core.collect_registry(source_node, subtree)
-  free_names
-  .iter()
-  .any(fn(v) {
-    let target_decl = @scope.resolve_name_at(g, target_node_id, v).map(fn(d) {
-      d.id
-    })
-    free_name_would_rebind_to(g, source_node, subtree, v, target_decl)
-  })
+/// The registry (NodeId → ProjNode) of every node under `node`. The
+/// "bound-within-init" filter in `free_name_would_rebind_to` tests membership in
+/// this set; building it once lets an inline over N use sites reuse it instead of
+/// re-walking the init per site.
+fn subtree_registry(
+  node : ProjNode[@ast.Term],
+) -> Map[NodeId, ProjNode[@ast.Term]] {
+  let reg : Map[NodeId, ProjNode[@ast.Term]] = {}
+  @core.collect_registry(node, reg)
+  reg
 }
 
 ///|
-/// Whether moving `source_node` to the END of the root module (where extract
-/// inserts a new top-level `let`) would rebind any of its free vars. The target
-/// resolution is root-module-end (`@scope.resolve_at_module_root_end`), which is
-/// total even when the module body is a synthetic `Unit`.
-fn free_names_would_rebind_at_module_end(
+/// Whether moving `source_node` (an init expression) would rebind any of its free
+/// vars — i.e. some free var resolves to a different declaration at the move
+/// target than at the source. `resolve` is the target-site resolver, supplied per
+/// op: per-node `@scope.resolve_name_at` for inline, or
+/// `@scope.resolve_at_module_root_end` for extract's module-end target (total even
+/// when the module body is a synthetic `Unit`). `subtree` (from `subtree_registry`
+/// on `source_node`) carries the bound-within-init filter; the caller builds it
+/// once so a multi-site inline does not re-walk the init per site.
+fn free_names_would_rebind(
   g : @scope.ScopeGraph,
   source_node : ProjNode[@ast.Term],
+  subtree : Map[NodeId, ProjNode[@ast.Term]],
   free_names : @immut/hashset.HashSet[String],
+  resolve : (String) -> @scope.Decl?,
 ) -> Bool {
-  let subtree : Map[NodeId, ProjNode[@ast.Term]] = {}
-  @core.collect_registry(source_node, subtree)
   free_names
   .iter()
   .any(fn(v) {
-    let target_decl = @scope.resolve_at_module_root_end(g, v).map(fn(d) { d.id })
+    let target_decl = resolve(v).map(fn(d) { d.id })
     free_name_would_rebind_to(g, source_node, subtree, v, target_decl)
   })
 }

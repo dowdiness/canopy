@@ -8,6 +8,21 @@ fn ScopeGraph::decl_of(self : ScopeGraph, did : DeclId) -> Decl {
 }
 
 ///|
+/// Resolve `name` from `start` (gating `ModuleDef` decls by `cutoffs`) to its
+/// `Decl`. The shared tail of the public hypothetical-position queries, so the
+/// `resolve_in` argument threading and `DeclId -> Decl` mapping exist once.
+fn ScopeGraph::resolve_to_decl(
+  self : ScopeGraph,
+  name : String,
+  start : ScopeId,
+  cutoffs : Map[ScopeId, Int],
+) -> Decl? {
+  resolve_in(self.scopes, self.decls, name, start, cutoffs).decl.map(fn(did) {
+    self.decl_of(did)
+  })
+}
+
+///|
 /// The declaration a reference resolves to, or None if unresolved (free).
 pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
   g.refs
@@ -120,9 +135,7 @@ pub fn resolve_name_at(
 ) -> Decl? {
   guard g.node_scope.get(node_id) is Some(start) else { return None }
   let cutoffs = g.node_cutoffs.get(node_id).unwrap()
-  resolve_in(g.scopes, g.decls, name, start, cutoffs).decl.map(fn(did) {
-    g.decl_of(did)
-  })
+  g.resolve_to_decl(name, start, cutoffs)
 }
 
 ///|
@@ -142,9 +155,7 @@ pub fn resolve_at_module_root_end(g : ScopeGraph, name : String) -> Decl? {
     .count()
   let cutoffs : Map[ScopeId, Int] = {}
   cutoffs[root.id] = cutoff
-  resolve_in(g.scopes, g.decls, name, root.id, cutoffs).decl.map(fn(did) {
-    g.decl_of(did)
-  })
+  g.resolve_to_decl(name, root.id, cutoffs)
 }
 
 ///|

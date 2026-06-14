@@ -164,14 +164,21 @@ fn sibling_def_decl(
 ) -> @scope.Decl? {
   guard decl.kind is @scope.DeclKind::ModuleDef(def_index~) else { return None }
   let target = def_index + offset
-  g.decls
+  // Walk only the binder's own scope's decls — the scope-relative sibling lives
+  // in `decl.scope`'s decl list — rather than scanning every decl in the graph.
+  let @scope.ScopeId(si) = decl.scope
+  g.scopes[si].decl_ids
   .iter()
-  .find_first(fn(d) {
-    d.scope == decl.scope &&
-    (match d.kind {
+  .find_first(fn(did) {
+    let @scope.DeclId(di) = did
+    match g.decls[di].kind {
       @scope.DeclKind::ModuleDef(def_index=i) => i == target
       _ => false
-    })
+    }
+  })
+  .map(fn(did) {
+    let @scope.DeclId(di) = did
+    g.decls[di]
   })
 }
 

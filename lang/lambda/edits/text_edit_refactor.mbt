@@ -20,7 +20,9 @@ fn compute_extract_to_let(
   let would_capture = if module_projection.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
-    free_names_would_rebind_at_module_end(g, node, fv)
+    free_names_would_rebind(g, node, subtree_registry(node), fv, fn(v) {
+      @scope.resolve_at_module_root_end(g, v)
+    })
   }
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
@@ -147,7 +149,11 @@ fn compute_inline_definition(
       }
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.1.kind, @immut/hashset.new())
-      if free_names_would_rebind_at_node(g, def.1, node_id, init_fv) {
+      let subtree = subtree_registry(def.1)
+      let captures = free_names_would_rebind(g, def.1, subtree, init_fv, fn(v) {
+        @scope.resolve_name_at(g, node_id, v)
+      })
+      if captures {
         return Err(
           "Cannot inline: would capture variables bound by enclosing lambda",
         )
@@ -238,10 +244,15 @@ fn compute_inline_all_usages(
   let var_name = def.0
   // All references resolved to THIS declaration (identity-based, shadowing-correct).
   let ref_ids = @scope.references(g, decl.id)
-  // Check for capture: would any free var in init be captured by an enclosing scope at any reference site?
+  // Check for capture: would any free var in init be captured by an enclosing
+  // scope at any reference site? The init subtree is the same for every site, so
+  // build it once before the loop rather than re-walking it per reference.
   let init_fv = free_vars(def.1.kind, @immut/hashset.new())
+  let subtree = subtree_registry(def.1)
   for rid in ref_ids {
-    if free_names_would_rebind_at_node(g, def.1, rid, init_fv) {
+    if free_names_would_rebind(g, def.1, subtree, init_fv, fn(v) {
+        @scope.resolve_name_at(g, rid, v)
+      }) {
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )
