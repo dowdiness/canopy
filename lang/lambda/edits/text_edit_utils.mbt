@@ -101,26 +101,32 @@ fn decl_for_binding_node(
 
 ///|
 /// Synthesize the `(name, init, start, letdef_id)` def-view tuple consumed by the
-/// binding text helpers from a `ModuleDef` declaration's LetDef projection node.
-/// Uniform for root and nested decls — `decl.node_id` is always the LetDef node,
-/// whose first child is the init expression, mirroring
-/// `ModuleProjection::from_proj_node`'s unconditional `children[0]` extraction.
-/// Returns `Err` if that child is absent (rather than aborting like the indexing
-/// in `from_proj_node`). The start comes from the LetDef node's source range (the
-/// binding span's start).
+/// binding text helpers from a `ModuleDef` declaration's projection node. Mirrors
+/// `ModuleProjection::from_proj_node`'s two accepted def-child shapes exactly: a
+/// production `LetDef` row carries the init at `children[0]`; the legacy init-only
+/// compat shape (from_proj_node's `_ =>` fallback) records the init node itself as
+/// `decl.node_id`, so that node IS the init. The discriminator is the node KIND,
+/// NOT child presence — a compound init like `App(f, x)` has children, so a
+/// child-presence test would wrongly pick its first child `f`. `start` comes from
+/// the node's source range (the binding span's start).
 fn def_view_from_decl(
   registry : Map[NodeId, ProjNode[@ast.Term]],
   source_map : SourceMap,
   decl : @scope.Decl,
 ) -> Result[(String, ProjNode[@ast.Term], Int, NodeId), String] {
-  guard registry.get(decl.node_id) is Some(letdef) else {
+  guard registry.get(decl.node_id) is Some(node) else {
     return Err("Binding node not in registry: " + decl.node_id.to_string())
   }
   guard source_map.get_range(decl.node_id) is Some(r) else {
     return Err("Binding node not in source map: " + decl.node_id.to_string())
   }
-  guard letdef.children.get(0) is Some(init) else {
-    return Err("Binding node has no init child: " + decl.node_id.to_string())
+  // Production LetDef row → init is children[0]; legacy init-only def child → the
+  // node itself is the init (mirrors from_proj_node's `LetDef(_,_) if children>0`
+  // arm vs its `_ =>` fallback). Keyed on kind so a compound init is never
+  // mistaken for its first child.
+  let init = match node.kind {
+    @ast.Term::LetDef(_, _) if node.children.length() > 0 => node.children[0]
+    _ => node
   }
   Ok((decl.name, init, r.start, decl.node_id))
 }
