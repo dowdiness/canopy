@@ -1413,15 +1413,11 @@ test "compute_text_edit: Rename block-local binding leaves root binding intact" 
     #|y
   let (_, sm, registry, fp) = parse_with_token_spans(text)
   // The block body `x` is the unique Var("x") in the program.
-  let mut inner_x : NodeId? = None
-  for id, node in registry {
-    if node.kind is @ast.Term::Var("x") {
-      inner_x = Some(id)
-    }
-  }
-  guard inner_x is Some(inner_x_id) else {
+  guard registry.values().find_first(fn(n) { n.kind is @ast.Term::Var("x") })
+    is Some(inner_x) else {
     fail("could not locate block-local Var(\"x\")")
   }
+  let inner_x_id = inner_x.id()
   let result = compute_text_edit(
     Rename(node_id=inner_x_id, new_name="w"),
     make_edit_ctx(text, sm, registry, fp),
@@ -1488,13 +1484,11 @@ test "compute_text_edit: Rename block reference to outer binding renames root" {
     #|y
   let (_, sm, registry, fp) = parse_with_token_spans(text)
   // The block body `x` (unique Var("x")) resolves to the root `x`.
-  let mut inner_x : NodeId? = None
-  for id, node in registry {
-    if node.kind is @ast.Term::Var("x") {
-      inner_x = Some(id)
-    }
+  guard registry.values().find_first(fn(n) { n.kind is @ast.Term::Var("x") })
+    is Some(inner_x) else {
+    fail("could not locate Var(\"x\")")
   }
-  guard inner_x is Some(inner_x_id) else { fail("could not locate Var(\"x\")") }
+  let inner_x_id = inner_x.id()
   let result = compute_text_edit(
     Rename(node_id=inner_x_id, new_name="w"),
     make_edit_ctx(text, sm, registry, fp),

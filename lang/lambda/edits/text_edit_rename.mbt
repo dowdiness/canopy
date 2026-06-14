@@ -342,24 +342,26 @@ fn rename_module_binding(
   guard new_name != old_name else { return Ok(Some(([], RestoreCursor))) }
   // Guard: a sibling binding in the SAME scope already uses new_name. Keyed on
   // the declaration's scope (block-local aware), not the root module's defs.
-  for d2 in g.decls {
-    if d2.scope == decl.scope && d2.id != decl.id && d2.name == new_name {
-      return Err(
-        "Cannot rename: binding '" + new_name + "' already exists in this scope",
-      )
-    }
+  guard !g.decls
+    .iter()
+    .any(fn(d2) {
+      d2.scope == decl.scope && d2.id != decl.id && d2.name == new_name
+    }) else {
+    return Err(
+      "Cannot rename: binding '" + new_name + "' already exists in this scope",
+    )
   }
   // References resolved to THIS declaration (identity-based, shadowing-correct).
   let ref_ids = @scope.references(g, decl.id)
   // Guard: new_name would be captured by an enclosing scope at a usage site.
-  for ref_id in ref_ids {
-    if name_captured_at_node(g, ref_id, new_name) {
-      return Err(
-        "Cannot rename: '" +
-        new_name +
-        "' is bound by an enclosing scope at a usage site",
-      )
-    }
+  guard !ref_ids
+    .iter()
+    .any(fn(ref_id) { name_captured_at_node(g, ref_id, new_name) }) else {
+    return Err(
+      "Cannot rename: '" +
+      new_name +
+      "' is bound by an enclosing scope at a usage site",
+    )
   }
   let edits : Array[SpanEdit] = []
   guard module_binder_name_range(g, decl, source_map) is Some(range) else {
