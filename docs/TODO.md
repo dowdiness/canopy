@@ -492,24 +492,46 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   `Rename block-local binding leaves root binding intact`, `Rename block-local
   binding by binder id`, `Rename block reference to outer binding renames root`.
 
-- [ ] Teach `edits/` **inline / extract / binding** ops about nested-block scopes.
-  Why: rename is fixed (above) by delegating to the already-block-aware `@scope`
-  API. But `text_edit_refactor.mbt` (inline/extract) and `text_edit_binding.mbt`
-  still convert the block-aware `Decl` into a root-relative `def_index`:
-  `module_def_references(g, def_index)` returns the FIRST decl at that index (root
-  wins over a block-local def at the same index), and `module_projection.defs[
-  def_index]` / `find_def_index` index the ROOT module's defs only. So inlining a
-  block-local `x` inlines the ROOT def's value, and the capture guard
-  (`def_cutoff_at_node` + `declaration_id_for_name_from_scope`, scope.mbt) applies
-  one root-relative cutoff. Pre-existing blind spot, already unsound today —
-  rename-only is strict progress, not a regression.
-  Plan: GitHub issue — for references/binder, decl-thread the same way rename now
-  does. For the *capture analysis* (a hypothetical-position query: "what would
-  name N resolve to if the init moved to position P"), generalize to the
-  per-(node, scope) cutoff model the builder uses (`lang/lambda/scope/builder.mbt`
-  `node_cutoffs`), keying each `def_index` to its declaring scope.
-  Exit: inlining/extracting a block-local binding (`let y = { let x = 1; x }`)
-  operates on the block-local `x`, with a wbtest fixture asserting it.
+- [x] Teach `edits/` **inline** ops about nested-block scopes.
+  Shipped: `compute_inline_definition` / `compute_inline_all_usages`
+  (`text_edit_refactor.mbt`) thread the block-aware `Decl` straight through —
+  `module_def_decl_for_binding(g, id)` → `edit_binding_for_decl(ctx, decl)` for
+  the def view, `@scope.references(g, decl.id)` for usages, and the node-relative
+  `free_names_would_rebind_at_node` for the capture guard. No root-relative
+  `def_index` round-trip. wbtests: `InlineDefinition nested block uses resolved
+  declaration`, `InlineAllUsages nested block uses binding declaration`
+  (#636 / #655).
+
+- [x] Teach `edits/` **binding** ops (delete / duplicate / move) about
+  nested-block scopes.
+  Shipped: `compute_delete_binding` / `compute_duplicate_binding` /
+  `compute_move_binding_{up,down}` (`text_edit_binding.mbt`) dropped the
+  root-only `edit_module_view` + `find_def_index` + `module_view.defs[i]` path
+  for the same decl-threaded shape as inline. The move ops find their swap
+  neighbour with `sibling_module_def_decl(g, decl.scope, def_index ± 1)` —
+  `def_index` is scope-local (the builder assigns it per scope, root and nested
+  block alike), so adjacent indices in the same scope are the move neighbours;
+  the first/last guards became `def_index == 0` (up) / `sibling is None` (down).
+  The name-based `free_vars` move guard is unchanged. wbtests assert SOUNDNESS by
+  reparsing the result (`DeleteBinding removes block-local binding`,
+  `MoveBinding{Up,Down} swaps block-local bindings`,
+  `MoveBindingUp rejects first block-local binding`). Caveat: block-local
+  **duplicate** is now reachable but its output stays unsound — `_copy` is
+  unlexable (#649) and the inserted copy is not re-indented to the block (#650);
+  the `DuplicateBinding on block-local binding` wbtest characterizes this and
+  does NOT reparse.
+
+- [ ] Teach `edits/` **extract** op about nested-block scopes — the remaining
+  §20 clause. `compute_extract_to_let` (`text_edit_refactor.mbt`) still hoists
+  the new `let` to the ROOT body and gates capture root-relative, so a
+  block-internal expression with no block-local free var is hoisted unsoundly
+  (out-of-scope reference; #659). It safely refuses the block-local-free-var case
+  (wbtest `ExtractToLet refuses block-internal expr that uses a block-local
+  binding`), but the message is misleading and the capture analysis still has the
+  defs-empty Module-blind half (#651) and the two-path split (#656).
+  Exit: extracting a block-internal expression inserts the `let` into the
+  enclosing block and the result reparses to the intended AST; tracked by #659
+  (hoist target) + #651 / #656 (capture analysis).
 
 ## Shipped history
 

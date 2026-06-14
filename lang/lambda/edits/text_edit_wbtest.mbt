@@ -920,6 +920,166 @@ test "compute_text_edit: MoveBindingUp swaps fn bindings" {
 }
 
 ///|
+/// Reparse `text` and return the definition names, in order, of the binding
+/// block held in root definition `def_index`'s initialiser. Used by the
+/// block-local binding-op tests to assert SOUNDNESS structurally (the edited
+/// text reparses to the intended block shape), not just by string match — a
+/// botched swap can string-match an expectation while reparsing to a different
+/// structure (see the #649/#650 reparse-gate lesson).
+fn nested_block_def_names(def_index : Int, text : String) -> String raise {
+  let (proj, _) = parse_to_proj_node(text)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  match fp.defs[def_index].1.kind {
+    @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
+    _ => ""
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding removes block-local binding" {
+  // `b` is block-local to `z`'s initialiser; root-relative lookup would reject
+  // it. The block-aware op deletes it and the result reparses to a block with
+  // only `a`.
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[1].1
+  let binding_id = block.children[1].id()
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let x = 0\nlet z = { let a = 1\n  a }\nz")
+      inspect(nested_block_def_names(1, new_text), content="a")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[1].1
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      // Soundness: reparses to the block with defs in swapped order.
+      inspect(nested_block_def_names(1, new_text), content="b,a")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[1].1
+  let binding_id = block.children[1].id()
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(nested_block_def_names(1, new_text), content="b,a")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp rejects first block-local binding" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[1].1
+  // `a` is the first def in the block scope (scope-local def_index 0).
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: DuplicateBinding on block-local binding" {
+  // Block-local duplicate is now reachable (no longer "Binding not found"). The
+  // output stays unsound for two reasons, both pre-existing and out of scope
+  // here: the `_copy` name is unlexable (underscore is not an identifier char,
+  // tracked as #649), and the inserted copy is not re-indented to the block.
+  // So this characterizes the current raw edit text and deliberately does NOT
+  // reparse; closing #649 is what makes a positive round-trip assertion possible.
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[1].1
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content="let x = 0\nlet z = { let a = 1\n let a_copy = 1\n  let b = 2\n  a }\nz",
+      )
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// ExtractToLet is NOT yet block-aware (it always hoists to the ROOT body): see
+/// the §20 extract clause. When the extracted block-internal expression
+/// references a block-local binding, the root-relative capture guard catches it
+/// and refuses — so the unsound hoist is at least avoided for this case. (The
+/// error text says "lambda-bound" but the captured binding here is a module
+/// def; the message is misleading, not the verdict.) The complementary case — a
+/// block-internal expression with NO block-local free var — is NOT guarded and
+/// hoists unsoundly; that is the open bug tracked separately, so it is
+/// deliberately not asserted here as if correct.
+test "compute_text_edit: ExtractToLet refuses block-internal expr that uses a block-local binding" {
+  let text = "let z = { let a = 1\n  a + 1 }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let block = fp.defs[0].1
+  let body = block.children[block.children.length() - 1]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=body.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 test "compute_text_edit: AddBinding adds new let line" {
   let text = "let x = 0\nx"
   let (proj, _) = parse_to_proj_node(text)
