@@ -164,6 +164,77 @@ test "graph-dsl projection maps into the canvas graph view model" {
 }
 
 ///|
+fn ok_port_compatibility_log(
+  json_text : String,
+) -> Array[PortCompatibilityJson] {
+  let json = @json.parse(json_text) catch {
+    _ => abort("expected port compatibility JSON")
+  }
+  @json.from_json(json) catch {
+    _ => abort("expected PortCompatibilityJson array")
+  }
+}
+
+///|
+fn source_compatibility_for(
+  entries : Array[PortCompatibilityJson],
+  node_id : String,
+  port_id : String,
+) -> Bool {
+  match
+    entries
+    .iter()
+    .find_first(fn(entry) {
+      entry.node_id == node_id && entry.port_id == port_id
+    }) {
+    Some(entry) => entry.compatible
+    None => abort("missing compatibility entry: " + node_id + "." + port_id)
+  }
+}
+
+///|
+test "source-backed compatibility export batches graph model results" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let osc = handle_token_str(handle, "osc")
+  let meter = handle_token_str(handle, "meter")
+  let entries = ok_port_compatibility_log(
+    get_source_graph_input_port_compatibility(handle, osc, "out"),
+  )
+  inspect(source_compatibility_for(entries, meter, "input"), content="true")
+  inspect(source_compatibility_for(entries, osc, "input"), content="false")
+  let operation = GraphOperation(
+    ConnectPorts(NodeId(osc), "out", NodeId(meter), "input"),
+  )
+  assert_true(
+    operation_result_applied(
+      apply_source_graph_operation(handle, operation.to_json().stringify()),
+    ),
+  )
+  let entries_after = ok_port_compatibility_log(
+    get_source_graph_input_port_compatibility(handle, osc, "out"),
+  )
+  inspect(
+    source_compatibility_for(entries_after, meter, "input"),
+    content="false",
+  )
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed compatibility export rejects invalid current source" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let osc = handle_token_str(handle, "osc")
+  set_source_graph_source(handle, "osc = sine(freq: )")
+  inspect(
+    ok_port_compatibility_log(
+      get_source_graph_input_port_compatibility(handle, osc, "out"),
+    ).length(),
+    content="0",
+  )
+  destroy_source_graph(handle)
+}
+
+///|
 test "SetParam lowers to an exact source edit and preserves graph ids" {
   let attachment = @graph_dsl.GraphAttachment::GraphAttachment(GRAPH_DSL_SAMPLE)
   let before = ok_current_graph_doc(attachment.current_result())

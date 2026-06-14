@@ -8,6 +8,7 @@ import {
   type EdgeData,
   type NodeData,
   type NodeParamData,
+  type PortCompatibility,
   type PortDef,
   type RenderState,
   type SourceGraphOperationResult,
@@ -149,44 +150,32 @@ function clearSelectedEdge(): void {
 }
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
-// Mirrors MoonBit `can_commit_edge` so input handles can preview which targets a
-// drag could land on. This is purely cosmetic — MoonBit validation stays the
-// authoritative commit/reject check on pointerup.
+// Input-handle previews ask MoonBit for one batched `can_commit_edge` snapshot
+// through GraphAdapter, so the cosmetic highlight follows the same
+// authoritative commit/reject logic as pointerup without per-handle rebuilds.
+
+type InputCompatibility = Map<string, Map<string, boolean>>;
 
 /** Context for the in-flight connection, resolved once per render. */
 type ConnectCtx = {
-  fromNode: string;
-  fromPort: string;
-  sourceType: string | null;
-  edges: EdgeData[];
+  inputs: InputCompatibility;
 };
 
-/** Mirror of MoonBit `port_type_compatible`. */
-function portTypesCompatible(source: string, target: string): boolean {
-  return source === target || source === 'Any' || target === 'Any';
+function inputCompatibilityByTarget(entries: PortCompatibility[]): InputCompatibility {
+  const byNode = new Map<string, Map<string, boolean>>();
+  for (const entry of entries) {
+    let byPort = byNode.get(entry.node_id);
+    if (!byPort) {
+      byPort = new Map<string, boolean>();
+      byNode.set(entry.node_id, byPort);
+    }
+    byPort.set(entry.port_id, entry.compatible);
+  }
+  return byNode;
 }
 
-/**
- * Whether dragging from the active source onto this input handle would be
- * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, fan-in,
- * type check).
- */
-function inputHandleCompatible(ctx: ConnectCtx, targetNode: string, targetPort: PortDef): boolean {
-  if (ctx.sourceType == null) return false;
-  if (ctx.fromNode === targetNode) return false; // self-loop
-  const duplicate = ctx.edges.some(
-    (e) =>
-      e.source === ctx.fromNode &&
-      e.source_port === ctx.fromPort &&
-      e.target === targetNode &&
-      e.target_port === targetPort.id,
-  );
-  if (duplicate) return false;
-  const occupied = ctx.edges.some(
-    (e) => e.target === targetNode && e.target_port === targetPort.id,
-  );
-  if (occupied && targetPort.allows_fan_in !== true) return false;
-  return portTypesCompatible(ctx.sourceType, portTypeName(targetPort.port_type));
+function inputCompatible(ctx: ConnectCtx, nodeId: string, portId: string): boolean {
+  return ctx.inputs.get(nodeId)?.get(portId) === true;
 }
 
 function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: ConnectCtx | null): void {
@@ -204,7 +193,9 @@ function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: Conn
       handle.setAttribute('aria-label', `${node.title} ${side} ${portTitle(port)}`);
       if (connectCtx && side === 'input') {
         handle.classList.add(
-          inputHandleCompatible(connectCtx, node.id, port) ? 'compatible-target' : 'incompatible-target',
+          inputCompatible(connectCtx, node.id, port.id)
+            ? 'compatible-target'
+            : 'incompatible-target',
         );
       }
       div.appendChild(handle);
@@ -244,19 +235,15 @@ function render(): void {
     state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as string),
   );
 
-  // Resolve the in-flight connection's source port type once, so each input
-  // handle can preview compatibility while the drag is live.
+  // Resolve the in-flight connection once, so input handles use one batched
+  // MoonBit compatibility snapshot while the drag is live.
   let connectCtx: ConnectCtx | null = null;
   const connecting = state.connecting ?? sourceConnecting ?? undefined;
   if (connecting) {
-    const from = connecting;
-    const srcNode = state.nodes.find((n) => n.id === from.from);
-    const srcPort = srcNode?.outputs.find((p) => p.id === from.from_port);
     connectCtx = {
-      fromNode: from.from,
-      fromPort: from.from_port,
-      sourceType: srcPort ? portTypeName(srcPort.port_type) : null,
-      edges: state.edges,
+      inputs: inputCompatibilityByTarget(
+        adapter.inputPortCompatibility(connecting.from, connecting.from_port),
+      ),
     };
   }
 

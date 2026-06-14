@@ -107,6 +107,18 @@ pub fn disconnect_ports(
 }
 
 ///|
+pub fn get_input_port_compatibility(
+  handle : Int,
+  source : String,
+  source_port : String,
+) -> String {
+  _registry[handle]
+  .input_port_compatibility(NodeId(source), source_port)
+  .to_json()
+  .stringify()
+}
+
+///|
 struct NodeParamJson {
   name : String
   value_kind : String
@@ -151,6 +163,13 @@ struct ConnectingJson {
   cursor_x : Double
   cursor_y : Double
 } derive(Eq, ToJson)
+
+///|
+struct PortCompatibilityJson {
+  node_id : String
+  port_id : String
+  compatible : Bool
+} derive(Eq, ToJson, FromJson)
 
 ///|
 struct ValidationJson {
