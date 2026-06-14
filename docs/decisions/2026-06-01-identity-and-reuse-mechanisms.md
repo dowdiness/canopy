@@ -26,33 +26,34 @@ deliberate design tension that makes the cliff exist, and records why the cliff 
 is an **optimization with a real design tradeoff**, not a clarity refactor. Read it
 before re-opening #449 as a refactor.
 
-## The three mechanisms
+## The three mechanisms as of 2026-06-01
 
 | # | Mechanism | Layer / package | Question it answers | Identity basis | Persistence |
 |---|-----------|-----------------|---------------------|----------------|-------------|
 | 1 | `ReuseCursor` | `loom/core` (`reuse_cursor.mbt`) | "During *this* reparse, can I splice an old CST subtree instead of re-lexing/re-parsing it?" | damage-overlap + leading/trailing token context | reconstructed **per parse** from old tree + `Edit`; only `OldTokenCache` survives (token table, *not* node identity) |
 | 2 | `ProjectionIdentityTracker` / `ProjectionIdentityBaseline` | `loom/core` (`projection_identity.mbt`) | "Which semantic leaves keep their stable `NodeId` across an edit?" | **source offset + key** (prefix/suffix windows around the edit) | last-good baseline retained across malformed intermediate input |
-| 3 | `to_module_projection_incremental` + `build_lambda_projection_memos` | `lang/lambda/proj` + `lang/lambda/flat` | "Which top-level defs are structurally unchanged, so I can reuse their `ModuleProjection` entry / `ProjNode` / source-map subtree?" | `start()` + **structural** `cst_node() ==` | prev `ModuleProjection` + prev root retained in `Ref`s inside the memo |
+| 3 | historical `to_module_projection_incremental` + Lambda-specific `build_lambda_projection_memos` | pre-#633: `lang/lambda/proj` + `lang/lambda/flat`; post-#633 legacy helper/tests only | "Which top-level defs are structurally unchanged, so I can reuse their `ModuleProjection` entry / `ProjNode` / source-map subtree?" | `start()` + **structural** `cst_node() ==` | prev `ModuleProjection` + prev root retained in `Ref`s inside the memo |
 
 Loom's own `CLAUDE.md` states #1's contract explicitly: *"`ReuseCursor` … is
 structural reuse, **not stable parser-owned token/subtree identity**."* That single
 sentence is why #1 cannot be reused as #3: it does not expose a trustworthy "this
 exact subtree is identical to before" signal.
 
-## Data flow per keystroke (as of 2026-06-01)
+## Historical Lambda data flow per keystroke (as of 2026-06-01)
 
 1. `editor/sync_editor_parser.mbt` → `parser.apply_edit(edit, new_source)` — loom's
    `ImperativeParser` does an **incremental reparse**, using mechanism **#1** to
    splice reusable subtrees.
 2. `parser.syntax_tree()` (an `@incr.Derived`) publishes the new `SyntaxNode` root.
-3. `lang/lambda/flat/projection_memo.mbt` reads that root and compares it against the
-   **previous keystroke's** root (retained in `prev_syntax_root_ref`) via mechanism
-   **#3** (`to_module_projection_incremental`).
+3. The pre-#633 Lambda-specific projection memo read that root and compared it
+   against the **previous keystroke's** root (retained in `prev_syntax_root_ref`)
+   via mechanism **#3** (`to_module_projection_incremental`).
 4. #3 emits `changed_indices`, which drives the two-phase registry patch, the
    source-map patch, and revision-skew fallback in the same memo file.
 
-So the editor **does** use incremental reparse — yet #3 still pays a structural
-`cst_node() ==` per def. The next section is why.
+At that point the editor **did** use incremental reparse — yet #3 still paid a
+structural `cst_node() ==` per def. The next section is why that historical
+cliff was not a free refactor.
 
 ## The deliberate tension that creates the cliff
 

@@ -8,9 +8,13 @@ cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 declare -A pkg_types
 
 # Canopy-internal packages (sub-packages of the main module).
-canopy_pkgs=(. core editor protocol projection relay ffi
-  lang/lambda lang/lambda/proj lang/lambda/flat lang/lambda/eval lang/lambda/edits
-  lang/json lang/json/proj lang/json/edits cmd/main)
+canopy_pkgs=(
+  . core editor protocol projection relay
+  ffi/host ffi/json ffi/lambda ffi/markdown
+  lang/lambda lang/lambda/proj lang/lambda/eval lang/lambda/scope
+  lang/lambda/semantic lang/lambda/edits lang/lambda/companion
+  lang/json lang/json/proj lang/json/edits cmd/main
+)
 
 # Workspace members from moon.work (lib/*, examples/*) — excludes root "." already above.
 mapfile -t workspace_pkgs < <(grep -oE '"\.\/[^"]*"' moon.work | tr -d '"' | sed 's|^\./||')
