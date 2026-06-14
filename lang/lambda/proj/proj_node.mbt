@@ -67,6 +67,14 @@ fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
 }
 
 ///|
+/// Candidate existing APIs checked: `ProjNode::leaf` already owns leaf span,
+/// node-id allocation, and childless shape, but it needs a caller-supplied
+/// `Term` kind. `cstfold_projection_compatible_kind` already derives the
+/// CstFold-compatible `Term` kind, but it does not construct a `ProjNode`. This
+/// wrapper is necessary to keep migrated leaf cases from re-pairing those APIs
+/// at each call site. Its responsibility boundary is leaf `ProjNode`
+/// construction only: compute the projection-compatible kind, then delegate all
+/// leaf metadata and identity handling to `ProjNode::leaf`.
 fn cstfold_leaf_node(
   node : @seam.SyntaxNode,
   counter : Ref[Int],

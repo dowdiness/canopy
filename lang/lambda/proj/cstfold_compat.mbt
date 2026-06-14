@@ -25,6 +25,14 @@ fn cstfold_projection_compatible_term(term : @ast.Term) -> @ast.Term {
 }
 
 ///|
+/// Candidate existing APIs checked: `@parser.syntax_node_to_term` already
+/// converts a CST syntax node through Loom Lambda's CstFold path, but it returns
+/// raw CstFold block semantics. `cstfold_projection_compatible_term` already
+/// normalizes those terms to Canopy projection semantics, but it starts from a
+/// folded `Term` rather than a CST node. This helper's responsibility boundary
+/// is exactly their composition: convert a CST node to a projection-compatible
+/// `Term` by folding with `@parser.syntax_node_to_term`, then applying
+/// `cstfold_projection_compatible_term`.
 fn cstfold_projection_compatible_kind(node : @seam.SyntaxNode) -> @ast.Term {
   cstfold_projection_compatible_term(@parser.syntax_node_to_term(node))
 }
