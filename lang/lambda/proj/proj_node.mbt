@@ -67,6 +67,14 @@ fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
 }
 
 ///|
+fn cstfold_leaf_node(
+  node : @seam.SyntaxNode,
+  counter : Ref[Int],
+) -> ProjNode[@ast.Term] {
+  ProjNode::leaf(cstfold_projection_compatible_kind(node), node, counter)
+}
+
+///|
 fn block_inner_bounds(node : @seam.SyntaxNode) -> (Int, Int) {
   let start = match node.find_token(@syntax.LBraceToken.to_raw()) {
     Some(tok) => tok.end()
@@ -203,14 +211,10 @@ pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  if @parser.IntLiteralView::cast(node) is Some(v) {
-    let kind : @ast.Term = match v.value() {
-      Some(n) => Int(n)
-      None => Error("invalid integer literal")
-    }
-    ProjNode::leaf(kind, node, counter)
-  } else if @parser.VarRefView::cast(node) is Some(v) {
-    ProjNode::leaf(Var(v.name()), node, counter)
+  if @parser.IntLiteralView::cast(node) is Some(_) {
+    cstfold_leaf_node(node, counter)
+  } else if @parser.VarRefView::cast(node) is Some(_) {
+    cstfold_leaf_node(node, counter)
   } else if @parser.LambdaExprView::cast(node) is Some(v) {
     let body = match v.body() {
       Some(b) => syntax_to_proj_node(b, counter)
@@ -334,7 +338,7 @@ pub fn syntax_to_proj_node(
       )
     }
   } else if @parser.HoleLiteralView::cast(node) is Some(_) {
-    ProjNode::leaf(Hole(0), node, counter)
+    cstfold_leaf_node(node, counter)
   } else {
     error_node_for_syntax(
       "unknown node kind: " + node.kind().to_string(),
