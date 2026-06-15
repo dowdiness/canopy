@@ -101,9 +101,11 @@ pub extern "js" fn Any::keys(self : Any) -> Array[String] =
 // ── JSON & stringify ────────────────────────────────────────────────────────
 
 ///|
-/// `JSON.stringify(self)`
+/// `JSON.stringify(self)`. Non-serializable values (functions, `undefined`,
+/// symbols) make `JSON.stringify` return `undefined`; coalesce to a real string
+/// so the `String` return type never lies.
 pub extern "js" fn Any::stringify(self : Any) -> String =
-  #|(v) => JSON.stringify(v)
+  #|(v) => JSON.stringify(v) ?? "undefined"
 
 ///|
 /// `JSON.parse(text)`

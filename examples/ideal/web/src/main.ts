@@ -202,7 +202,17 @@ function pickFileViaInput(): Promise<string | null> {
     input.addEventListener('change', async () => {
       const file = input.files?.[0];
       input.remove();
-      resolve(file ? await file.text() : null);
+      if (!file) {
+        resolve(null);
+        return;
+      }
+      // Resolve null ("nothing chosen") if the read rejects, so the outer
+      // Promise never hangs on a failed file.text().
+      try {
+        resolve(await file.text());
+      } catch {
+        resolve(null);
+      }
     });
     // Dismissing the dialog fires 'cancel' (modern browsers) — without this the
     // Promise and the detached <input> would leak for the page lifetime.
