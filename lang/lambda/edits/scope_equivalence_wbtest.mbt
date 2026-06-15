@@ -29,19 +29,15 @@ fn find_var(root : @core.ProjNode[@ast.Term], name : String) -> NodeId {
 }
 
 ///|
-/// Build a scope graph for a source string and return the parsed root, its
-/// flat projection, and the graph. (The ModuleProjection is the structural source of
-/// truth for module binder identities — it is built independently of the
-/// `declaration` query under test.)
+/// Build the generic ProjNode/registry/SourceMap scope path for a source
+/// string and return the parsed root plus graph. Module binder identity comes
+/// from the LetDef nodes in the ProjNode tree; the legacy ModuleProjection
+/// reconstruction path is pinned separately below.
 fn graph_of(
   text : String,
-) -> (
-  @core.ProjNode[@ast.Term],
-  @lambda_proj.ModuleProjection,
-  @scope.ScopeGraph,
-) raise {
-  let (proj, fp, g, _sm) = graph_and_sm_of(text)
-  (proj, fp, g)
+) -> (@core.ProjNode[@ast.Term], @scope.ScopeGraph) raise {
+  let (proj, g, _sm) = graph_and_sm_of(text)
+  (proj, g)
 }
 
 ///|
@@ -51,21 +47,15 @@ fn graph_of(
 /// a syntax tree to walk.
 fn graph_and_sm_of(
   text : String,
-) -> (
-  @core.ProjNode[@ast.Term],
-  @lambda_proj.ModuleProjection,
-  @scope.ScopeGraph,
-  SourceMap,
-) raise {
+) -> (@core.ProjNode[@ast.Term], @scope.ScopeGraph, SourceMap) raise {
   let (cst, _errs) = @parser.parse_cst(text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = to_proj_node(syntax, Ref(0))
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(registry, sm)
-  (proj, fp, g, sm)
+  (proj, g, sm)
 }
 
 // The following tests certify that `@scope.declaration` resolves each lambda
@@ -78,18 +68,17 @@ fn graph_and_sm_of(
 //
 // Binder-identity asymmetry: for LAMBDA cases the resolved `decl.node_id` is
 // checked against the Lam node located STRUCTURALLY in the tree (`proj.id()` /
-// `proj.children[..]`), independent of the ModuleProjection — a genuine non-circular
-// check (case 6 distinguishes inner vs outer). For MODULE cases identity is
-// carried by `def_index` alone: these fixtures build the ModuleProjection via
-// `from_proj_node`, where `decl.node_id == fp.defs[def_index].3` holds by
-// construction, so re-asserting it would be tautological. The legacy
-// ModuleProjection meaning of a module binder id is pinned separately by the
-// `to_module_projection` contract test at the bottom of this file.
+// `proj.children[..]`) — a genuine non-circular check (case 6 distinguishes
+// inner vs outer). For MODULE cases identity is carried by `def_index` alone;
+// re-asserting the LetDef node id would merely restate how this generic
+// ProjNode fixture builds the tree. The legacy ModuleProjection meaning of a
+// module binder id is pinned separately by the `to_module_projection` contract
+// test at the bottom of this file.
 
 ///|
 test "declaration() resolves a Var to its enclosing Lam param" {
   // (x) => x — the body Var binds to the lambda parameter (the Lam node itself).
-  let (proj, _fp, g) = graph_of("(x) => x")
+  let (proj, g) = graph_of("(x) => x")
   let ref_id = proj.children[0].id() // body Var x
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -103,7 +92,7 @@ test "declaration() resolves a Var to its enclosing Lam param" {
 ///|
 test "declaration() resolves a body Var to its module def" {
   // let x = 0\nx — the body Var binds to def 0.
-  let (proj, _fp, g) = graph_of("let x = 0\nx")
+  let (proj, g) = graph_of("let x = 0\nx")
   let ref_id = find_var(proj, "x") // body Var (init is Int 0, no Var)
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -117,7 +106,7 @@ test "declaration() resolves a body Var to its module def" {
 test "declaration() leaves a self-referential def init unbound" {
   // let x = x\nx — the first Var (the init `x`) cannot see def 0 from inside
   // def 0 (cutoff = 0), so it is free.
-  let (proj, _fp, g) = graph_of("let x = x\nx")
+  let (proj, g) = graph_of("let x = x\nx")
   let ref_id = find_var(proj, "x") // first Var = def 0's init
   inspect(@scope.declaration(g, ref_id) is None, content="true")
 }
@@ -125,7 +114,7 @@ test "declaration() leaves a self-referential def init unbound" {
 ///|
 test "declaration() picks the latest shadowing module def" {
   // let x = 1\nlet x = 2\nx — the body Var binds to the LATER def (index 1).
-  let (proj, _fp, g) = graph_of("let x = 1\nlet x = 2\nx")
+  let (proj, g) = graph_of("let x = 1\nlet x = 2\nx")
   let ref_id = find_var(proj, "x") // body Var (both inits are Ints)
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -139,7 +128,7 @@ test "declaration() picks the latest shadowing module def" {
 test "declaration() does not let an earlier def see a later one" {
   // let a = b\nlet b = 1\na — `b` in def 0's init cannot see def 1 (cutoff = 0),
   // so it is free.
-  let (proj, _fp, g) = graph_of("let a = b\nlet b = 1\na")
+  let (proj, g) = graph_of("let a = b\nlet b = 1\na")
   let ref_id = find_var(proj, "b") // the `b` in `a = b`
   inspect(@scope.declaration(g, ref_id) is None, content="true")
 }
@@ -147,7 +136,7 @@ test "declaration() does not let an earlier def see a later one" {
 ///|
 test "declaration() resolves to the nearest enclosing Lam under shadowing" {
   // (x) => (x) => x — the innermost Var binds to the INNER lambda param.
-  let (proj, _fp, g) = graph_of("(x) => (x) => x")
+  let (proj, g) = graph_of("(x) => (x) => x")
   let ref_id = find_var(proj, "x") // the single (innermost) Var
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -162,7 +151,7 @@ test "declaration() resolves to the nearest enclosing Lam under shadowing" {
 test "declaration() lets a Lam param shadow a same-name module def" {
   // let x = 0\n(x) => x — the Var inside the lambda binds to the lambda param,
   // NOT the module def.
-  let (proj, _fp, g) = graph_of("let x = 0\n(x) => x")
+  let (proj, g) = graph_of("let x = 0\n(x) => x")
   let ref_id = find_var(proj, "x") // Var inside the body Lam
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -178,7 +167,7 @@ test "declaration() lets a Lam param shadow a same-name module def" {
 test "declaration() resolves a later def's init to an earlier same-name def" {
   // let x = 1\nlet x = x\nx — the init Var of def 1 binds to def 0 (cutoff = 1
   // excludes def 1 itself), not to itself.
-  let (proj, _fp, g) = graph_of("let x = 1\nlet x = x\nx")
+  let (proj, g) = graph_of("let x = 1\nlet x = x\nx")
   let ref_id = find_var(proj, "x") // first Var = def 1's init `x`
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")
@@ -190,11 +179,12 @@ test "declaration() resolves a later def's init to an earlier same-name def" {
 
 ///|
 /// Build a scope graph through the legacy ModuleProjection pipeline —
-/// `to_module_projection` rather than `from_proj_node` (used by `graph_of`
-/// above). Both paths assign module binder ids to real LetDef nodes; this
-/// fixture keeps the flat-entry reconstruction path covered after the live
-/// editor-facing memos moved to the generic 3-memo path.
-fn production_graph_of(
+/// `to_module_projection` followed by `to_proj_node`, rather than the direct
+/// SyntaxNode → ProjNode path used by `graph_of` above. Both paths assign
+/// module binder ids to real LetDef nodes; this fixture keeps the flat-entry
+/// reconstruction path covered after the live editor-facing memos moved to the
+/// generic 3-memo path.
+fn legacy_module_projection_graph_of(
   text : String,
 ) -> (
   @core.ProjNode[@ast.Term],
@@ -229,8 +219,10 @@ fn production_graph_of(
 /// (with the module `"name:<def_index>"` fallback during migration), not the
 /// full node range. The companion assertion that this location is
 /// pipeline-independent lives in the cross-pipeline PBT.
-test "ModuleProjection path: module binder located via binder_span (Option D, supersedes §20 gap)" {
-  let (proj, registry, g, sm) = production_graph_of("let x = 0\nx")
+test "legacy ModuleProjection path: module binder located via binder_span (Option D, supersedes §20 gap)" {
+  let (proj, registry, g, sm) = legacy_module_projection_graph_of(
+    "let x = 0\nx",
+  )
   let ref_id = find_var(proj, "x") // body Var x
   guard @scope.declaration(g, ref_id) is Some(d) else {
     fail("expected resolved declaration")

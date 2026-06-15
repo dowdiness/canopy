@@ -12,11 +12,11 @@ import { readFileSync } from 'node:fs';
 /** Wait until the CRDT editor is mounted and its handle is published. */
 async function waitReady(page: Page) {
   await page.waitForFunction(() => {
-    const g = globalThis as any;
+    const b = (globalThis as any).__canopy_bridge;
     return (
       document.querySelector('#canopy-text-editor .cm-editor') !== null &&
-      g.__canopy_crdt &&
-      g.__canopy_crdt_handle != null
+      b?.crdt &&
+      b.crdtHandle != null
     );
   }, { timeout: 15_000 });
 }
@@ -24,8 +24,8 @@ async function waitReady(page: Page) {
 /** Read the current document text straight from the CRDT. */
 async function getEditorText(page: Page): Promise<string> {
   return await page.evaluate(() => {
-    const g = globalThis as any;
-    return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) as string;
+    const b = (globalThis as any).__canopy_bridge;
+    return b.crdt.get_text(b.crdtHandle) as string;
   });
 }
 
@@ -75,8 +75,8 @@ test.describe('File I/O', () => {
     // The "file-loaded" event must flow into the CRDT via FileLoaded → set_text.
     await page.waitForFunction(
       (want) => {
-        const g = globalThis as any;
-        return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) === want;
+        const b = (globalThis as any).__canopy_bridge;
+        return b.crdt.get_text(b.crdtHandle) === want;
       },
       loaded,
       { timeout: 10_000 },
@@ -88,8 +88,8 @@ test.describe('File I/O', () => {
     await page.getByRole('button', { name: 'Undo' }).click();
     await page.waitForFunction(
       (want) => {
-        const g = globalThis as any;
-        return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) === want;
+        const b = (globalThis as any).__canopy_bridge;
+        return b.crdt.get_text(b.crdtHandle) === want;
       },
       initial,
       { timeout: 10_000 },
@@ -157,11 +157,11 @@ test.describe('File I/O', () => {
 
     await page.waitForFunction(
       (want) => {
-        const g = globalThis as unknown as {
-          __canopy_crdt: { get_text: (h: number) => string };
-          __canopy_crdt_handle: number;
+        const b = (globalThis as any).__canopy_bridge as {
+          crdt: { get_text: (h: number) => string };
+          crdtHandle: number;
         };
-        return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) === want;
+        return b.crdt.get_text(b.crdtHandle) === want;
       },
       loaded,
       { timeout: 10_000 },

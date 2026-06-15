@@ -27,19 +27,25 @@ type ExternalCrdtChangedDetail = {
 
 type CmExtensionFactory = (cm: Record<string, any>) => any | any[];
 
+interface CanopyBridgeShape {
+  agentId: string;
+  sessionStartMs: number;
+  createLambdaExtensions: CmExtensionFactory;
+  createPeerCursorExtension: CmExtensionFactory;
+  crdt?: CrdtModule;
+  crdtHandle?: number;
+  triggerAutosave?: () => void;
+  onSelectionChanged?: (from: number, to: number) => void;
+  scheduleWatchdog?: (handle: number, requestId: number, timeoutMs: number) => void;
+  onStatusChange?: (handle: number, encoded: string) => void;
+  overlayOpen?: boolean;
+  perfCurrent?: { spans: Record<string, number>; _starts?: Record<string, number> } | null;
+  updateCmPeerCursors?: () => void;
+}
+
 type CanopyGlobal = typeof globalThis & {
-  __canopy_crdt?: CrdtModule;
-  __canopy_crdt_handle?: number;
-  __canopy_agent_id?: string;
-  __canopy_overlay_open?: boolean;
-  __canopy_trigger_autosave?: () => void;
-  __canopy_agent_name?: string;
-  __canopy_agent_color?: string;
-  __canopy_broadcast_ephemeral?: () => void;
+  __canopy_bridge?: CanopyBridgeShape;
   __canopy_codemirror?: Record<string, any>;
-  __canopy_create_cm_peer_cursor_extension?: CmExtensionFactory;
-  __canopy_create_lambda_cm_extensions?: CmExtensionFactory;
-  __canopy_update_cm_peer_cursors?: () => void;
 };
 
 const canopyGlobal = globalThis as CanopyGlobal;
@@ -49,6 +55,8 @@ const SKIP_SYNC = import.meta.env.VITE_CANOPY_SKIP_SYNC === '1';
 let crdtPromise: Promise<CrdtModule> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let activeSyncClient: SyncClient | null = null;
+let _crdt: CrdtModule | null = null;
+let _handle: number | null = null;
 let editorEventsController: AbortController | null = null;
 let beforeUnloadRegistered = false;
 let ephemeralCleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -66,15 +74,18 @@ const lambdaHighlightStyle = HighlightStyle.define([
 
 function loadCrdtModule(): Promise<CrdtModule> {
   if (!crdtPromise) {
-    // Set agent ID globally BEFORE importing the MoonBit module.
-    // MoonBit's init_model reads this to create the CRDT editor with a unique agent.
-    canopyGlobal.__canopy_agent_id = getSessionAgentId();
+    // Install the host bridge BEFORE importing the MoonBit module.
+    // MoonBit's init_model reads bridge.agentId to create the CRDT editor.
+    canopyGlobal.__canopy_bridge = {
+      agentId: getSessionAgentId(),
+      sessionStartMs: Date.now(),
+      createLambdaExtensions: () => [
+        lambda(),
+        syntaxHighlighting(lambdaHighlightStyle),
+      ],
+      createPeerCursorExtension: peerCursors,
+    };
     canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
-    canopyGlobal.__canopy_create_lambda_cm_extensions = () => [
-      lambda(),
-      syntaxHighlighting(lambdaHighlightStyle),
-    ];
-    canopyGlobal.__canopy_create_cm_peer_cursor_extension = peerCursors;
     // Loading the MoonBit module also runs Rabbita's main(), which renders <canopy-editor>.
     crdtPromise = import('@moonbit/ideal-editor') as Promise<CrdtModule>;
   }
@@ -136,15 +147,10 @@ function saveNow(handle: number, roomId: string, crdt: CrdtModule) {
 }
 
 function triggerAutosave() {
-  if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
-    const roomId = location.hash.slice(1);
-    if (roomId) {
-      saveToLocalStorage(
-        canopyGlobal.__canopy_crdt_handle,
-        roomId,
-        canopyGlobal.__canopy_crdt,
-      );
-    }
+  if (!_crdt || _handle == null) return;
+  const roomId = location.hash.slice(1);
+  if (roomId) {
+    saveToLocalStorage(_handle, roomId, _crdt);
   }
 }
 
@@ -235,10 +241,8 @@ async function openTextFile(): Promise<void> {
 }
 
 function updateCmPeerCursors() {
-  if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
-  const json = canopyGlobal.__canopy_crdt.ephemeral_get_peer_cursors_json(
-    canopyGlobal.__canopy_crdt_handle,
-  );
+  if (!_crdt || _handle == null) return;
+  const json = _crdt.ephemeral_get_peer_cursors_json(_handle);
   updatePeerCursorsFromJson(json);
 }
 
@@ -291,9 +295,9 @@ function wireEditorEvents(el: CanopyEditor) {
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.STRUCTURAL_EDIT_REQUEST, ((event: Event) => {
     const detail = (event as CustomEvent<StructuralEditDetail>).detail ?? {};
-    if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
-    const crdt = canopyGlobal.__canopy_crdt;
-    const handle = canopyGlobal.__canopy_crdt_handle;
+    if (!_crdt || _handle == null) return;
+    const crdt = _crdt;
+    const handle = _handle;
 
     let result: string;
     if (detail.type === "Drop") {
@@ -324,10 +328,8 @@ function wireEditorEvents(el: CanopyEditor) {
     dispatchStructuralEditApplied(el, detail);
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.REQUEST_UNDO, () => {
-    if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
-    const crdt = canopyGlobal.__canopy_crdt;
-    const handle = canopyGlobal.__canopy_crdt_handle;
-    const didUndo = crdt.handle_undo(handle);
+    if (!_crdt || _handle == null) return;
+    const didUndo = _crdt.handle_undo(_handle);
     if (didUndo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
@@ -335,10 +337,8 @@ function wireEditorEvents(el: CanopyEditor) {
     }
   }, { signal });
   el.addEventListener(CanopyEvents.REQUEST_REDO, () => {
-    if (!canopyGlobal.__canopy_crdt || canopyGlobal.__canopy_crdt_handle == null) return;
-    const crdt = canopyGlobal.__canopy_crdt;
-    const handle = canopyGlobal.__canopy_crdt_handle;
-    const didRedo = crdt.handle_redo(handle);
+    if (!_crdt || _handle == null) return;
+    const didRedo = _crdt.handle_redo(_handle);
     if (didRedo) {
       el.syncAfterExternalChange();
       el.notifyLocalChange();
@@ -373,15 +373,15 @@ function startSync(el: CanopyEditor, handle: number, crdt: CrdtModule, roomId: s
     beforeUnloadRegistered = true;
     window.addEventListener('beforeunload', () => {
       // Save document state immediately
-      if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
+      if (_crdt && _handle != null) {
         const currentRoomId = location.hash.slice(1);
         if (currentRoomId) {
-          saveNow(canopyGlobal.__canopy_crdt_handle, currentRoomId, canopyGlobal.__canopy_crdt);
+          saveNow(_handle, currentRoomId, _crdt);
         }
       }
       // Delete local presence before disconnecting
-      if (canopyGlobal.__canopy_crdt && canopyGlobal.__canopy_crdt_handle != null) {
-        canopyGlobal.__canopy_crdt.ephemeral_delete_presence(canopyGlobal.__canopy_crdt_handle);
+      if (_crdt && _handle != null) {
+        _crdt.ephemeral_delete_presence(_handle);
         // Send final ephemeral update so peers know we left
         activeSyncClient?.broadcastEphemeral();
       }
@@ -417,9 +417,13 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   // Don't call create_editor_with_undo again — that would overwrite
   // the singleton.
   const handle = 0;
+  _handle = handle;
+  _crdt = crdt;
   const roomId = getRoomId();
-  canopyGlobal.__canopy_crdt_handle = handle;
-  canopyGlobal.__canopy_trigger_autosave = triggerAutosave;
+  const bridge = canopyGlobal.__canopy_bridge!;
+  bridge.crdt = crdt;
+  bridge.crdtHandle = handle;
+  bridge.triggerAutosave = triggerAutosave;
   // Inject the file I/O host so the Open/Save toolbar buttons work.
   crdt.register_file_host({
     save: (content, name) => { void saveTextFile(content, name); },
@@ -452,10 +456,11 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   const agentId = getSessionAgentId();
   const name = agentDisplayName(agentId);
   const color = agentColor(agentId);
-  canopyGlobal.__canopy_agent_name = name;
-  canopyGlobal.__canopy_agent_color = color;
-  canopyGlobal.__canopy_broadcast_ephemeral = () => activeSyncClient?.broadcastEphemeral();
-  canopyGlobal.__canopy_update_cm_peer_cursors = updateCmPeerCursors;
+  bridge.onSelectionChanged = (from: number, to: number) => {
+    crdt.ephemeral_set_presence_with_selection(handle, name, color, from, to);
+    activeSyncClient?.broadcastEphemeral();
+  };
+  bridge.updateCmPeerCursors = updateCmPeerCursors;
   el.setAgentIdentity(name, color);
 
   // Announce presence to ephemeral hub
@@ -483,7 +488,6 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
 
 async function bootstrap() {
   const crdt = await loadCrdtModule();
-  canopyGlobal.__canopy_crdt = crdt;
   mountWhenReady(crdt);
 }
 

@@ -135,11 +135,11 @@ test.describe('Persistence', () => {
     });
 
     await page.evaluate(() => {
-      const g = globalThis as any;
+      const b = (globalThis as any).__canopy_bridge;
       const roomId = location.hash.slice(1);
       localStorage.setItem(
         `canopy-doc-${roomId}`,
-        g.__canopy_crdt.export_all_json(g.__canopy_crdt_handle),
+        b.crdt!.export_all_json(b.crdtHandle!),
       );
     });
 
@@ -209,10 +209,9 @@ test.describe('External Sync', () => {
     await page.keyboard.press('Control+End');
 
     await page.evaluate(() => {
-      const g = globalThis as any;
-      const handle = g.__canopy_crdt_handle;
-      const text = g.__canopy_crdt.get_text(handle);
-      g.__canopy_crdt.set_text(handle, `let remote = 0\n${text}`);
+      const b = (globalThis as any).__canopy_bridge;
+      const text = b.crdt!.get_text(b.crdtHandle!);
+      b.crdt!.set_text(b.crdtHandle!, `let remote = 0\n${text}`);
     });
     await dispatchExternalCrdtChanged(page);
     await page.waitForFunction(() => {
@@ -221,8 +220,8 @@ test.describe('External Sync', () => {
 
     await page.keyboard.type('z');
     const text = await page.evaluate(() => {
-      const g = globalThis as any;
-      return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) as string;
+      const b = (globalThis as any).__canopy_bridge;
+      return b.crdt!.get_text(b.crdtHandle!) as string;
     });
     expect(text.startsWith('let remote = 0\n')).toBe(true);
     expect(text.endsWith('z')).toBe(true);

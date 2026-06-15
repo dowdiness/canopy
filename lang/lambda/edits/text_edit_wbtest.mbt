@@ -5,12 +5,7 @@
 /// Uses the full syntax tree → ProjNode pipeline so token spans are populated.
 fn parse_with_token_spans(
   text : String,
-) -> (
-  ProjNode[@ast.Term],
-  SourceMap,
-  Map[NodeId, ProjNode[@ast.Term]],
-  @lambda_proj.ModuleProjection,
-) raise {
+) -> (ProjNode[@ast.Term], SourceMap, Map[NodeId, ProjNode[@ast.Term]]) raise {
   let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
@@ -18,8 +13,7 @@ fn parse_with_token_spans(
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  (proj, sm, registry, fp)
+  (proj, sm, registry)
 }
 
 ///|
@@ -28,13 +22,7 @@ fn text_edit_test_registry(
   root : ProjNode[@ast.Term],
 ) -> Map[NodeId, ProjNode[@ast.Term]] {
   let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
-  fn register(node : ProjNode[@ast.Term]) {
-    registry[node.id()] = node
-    for child in node.children {
-      register(child)
-    }
-  }
-  register(root)
+  @core.collect_registry(root, registry)
   registry
 }
 
@@ -57,13 +45,13 @@ fn make_edit_ctx(
   text : String,
   source_map : SourceMap,
   registry : Map[NodeId, ProjNode[@ast.Term]],
-  fp : @lambda_proj.ModuleProjection,
+  root : ProjNode[@ast.Term],
 ) -> EditContext[@ast.Term] {
   {
     source_text: text,
     source_map,
     registry,
-    definition_index: fp.definition_index(),
+    definition_index: DefinitionIndex::from_proj_node(root),
   }
 }
 
@@ -73,11 +61,10 @@ test "compute_text_edit: CommitEdit replaces single expression" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     CommitEdit(node_id=root_id, new_value="99"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -96,12 +83,11 @@ test "compute_text_edit: CommitEdit replaces left operand in binary expr" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // children[0] is the left operand (Var("x")), span [0, 1)
   let lhs = proj.children[0]
   let result = compute_text_edit(
     CommitEdit(node_id=lhs.id(), new_value="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -120,11 +106,10 @@ test "compute_text_edit: CommitEdit inside fn body preserves braces" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let body = proj.children[0].children[0].children[0]
   let result = compute_text_edit(
     CommitEdit(node_id=body.id(), new_value="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -139,10 +124,9 @@ test "compute_text_edit: no-op ops return empty array" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     Select(node_id=NodeId::from_int(0)),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   @debug.debug_inspect(result, content="Ok(Some(([], RestoreCursor)))")
 }
@@ -153,11 +137,10 @@ test "compute_text_edit: Delete replaces node with placeholder" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     Delete(node_id=root_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -175,12 +158,11 @@ test "compute_text_edit: Delete replaces Var with placeholder" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // children[0] is the left operand Var("x"), span [0, 1)
   let lhs = proj.children[0]
   let result = compute_text_edit(
     Delete(node_id=lhs.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -198,11 +180,10 @@ test "compute_text_edit: Delete inside fn body preserves braces" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let body = proj.children[0].children[0].children[0]
   let result = compute_text_edit(
     Delete(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -217,11 +198,10 @@ test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     WrapInLambda(node_id=root_id, var_name="x"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -238,11 +218,10 @@ test "compute_text_edit: WrapInLambda parenthesizes subexpression" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let func = proj.children[0]
   let result = compute_text_edit(
     WrapInLambda(node_id=func.id(), var_name="x"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -257,11 +236,10 @@ test "compute_text_edit: WrapInApp wraps node in application" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     WrapInApp(node_id=root_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -278,12 +256,11 @@ test "compute_text_edit: InsertChild into Module inserts def text" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   // Insert a new Int def at index 1 (before the body)
   let result = compute_text_edit(
     InsertChild(parent=root_id, index=1, kind=@ast.Term::Int(0)),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -302,12 +279,11 @@ test "compute_text_edit: InsertChild into non-Module re-renders parent" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   // Insert a Var child into a Bop node — re-renders with print_term
   let result = compute_text_edit(
     InsertChild(parent=root_id, index=0, kind=@ast.Term::Var("z")),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -332,13 +308,12 @@ test "compute_text_edit: Drop produces two edits" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // source = children[0] (Var "x"), target = children[1] (Int 1)
   let source_node = proj.children[0]
   let target_node = proj.children[1]
   let result = compute_text_edit(
     Drop(source=source_node.id(), target=target_node.id(), position=After),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -359,12 +334,12 @@ test "compute_text_edit: Drop produces two edits" {
 ///|
 test "compute_text_edit: Drop LetDef Inside moves the whole binding row after target" {
   let text = "let x = 1\nlet y = 2\nx"
-  let (proj, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let source = proj.children[0]
   let target = proj.children[1]
   let result = compute_text_edit(
     Drop(source=source.id(), target=target.id(), position=Inside),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -385,12 +360,12 @@ test "compute_text_edit: Drop LetDef Inside moves the whole binding row after ta
 ///|
 test "compute_text_edit: Drop LetDef Before moves the whole binding row before target" {
   let text = "let x = 1\nlet y = 2\nx"
-  let (proj, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let source = proj.children[1]
   let target = proj.children[0]
   let result = compute_text_edit(
     Drop(source=source.id(), target=target.id(), position=Before),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -414,10 +389,9 @@ test "compute_text_edit: Drop with unknown source returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     Drop(source=NodeId::from_int(9999), target=proj.id(), position=Before),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -428,12 +402,11 @@ test "compute_text_edit: Drop synthetic multi-param lambda source is rejected" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let inner_lam = proj.children[0]
   let body = inner_lam.children[0]
   let result = compute_text_edit(
     Drop(source=inner_lam.id(), target=body.id(), position=After),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -444,13 +417,12 @@ test "compute_text_edit: Drop synthetic multi-param lambda target is rejected" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let inner_lam = proj.children[0]
   let body_bop = inner_lam.children[0]
   let source = body_bop.children[1]
   let result = compute_text_edit(
     Drop(source=source.id(), target=inner_lam.id(), position=Before),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -461,10 +433,9 @@ test "compute_text_edit: WrapInLambda with unknown node returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     WrapInLambda(node_id=NodeId::from_int(9999), var_name="x"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -475,10 +446,9 @@ test "compute_text_edit: CommitEdit with unknown node returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     CommitEdit(node_id=NodeId::from_int(9999), new_value="x"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -489,11 +459,10 @@ test "compute_text_edit: Unwrap Lam keeps body" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let lam_id = proj.id()
   let result = compute_text_edit(
     Unwrap(node_id=lam_id, keep_child_index=0),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, hint))) => {
@@ -512,11 +481,10 @@ test "compute_text_edit: Unwrap synthetic fn lambda is rejected" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let lam = proj.children[0].children[0]
   let result = compute_text_edit(
     Unwrap(node_id=lam.id(), keep_child_index=0),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -527,11 +495,10 @@ test "compute_text_edit: Unwrap synthetic multi-param lambda is rejected" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let inner_lam = proj.children[0]
   let result = compute_text_edit(
     Unwrap(node_id=inner_lam.id(), keep_child_index=0),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -542,11 +509,10 @@ test "compute_text_edit: Unwrap Bop keeps left" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let bop_id = proj.id()
   let result = compute_text_edit(
     Unwrap(node_id=bop_id, keep_child_index=0),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => inspect(apply_edits(text, edits), content="1")
@@ -560,11 +526,10 @@ test "compute_text_edit: Unwrap Bop keeps right" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let bop_id = proj.id()
   let result = compute_text_edit(
     Unwrap(node_id=bop_id, keep_child_index=1),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => inspect(apply_edits(text, edits), content="2")
@@ -578,11 +543,10 @@ test "compute_text_edit: WrapInIf wraps node in if-then-else" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     WrapInIf(node_id=root_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, hint))) => {
@@ -600,11 +564,10 @@ test "compute_text_edit: WrapInBop wraps node in binary operation" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     WrapInBop(node_id=root_id, op=@ast.Bop::Plus),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, hint))) => {
@@ -623,11 +586,10 @@ test "compute_text_edit: ChangeOperator changes Bop operator" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     ChangeOperator(node_id=root_id, new_op=@ast.Bop::Minus),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, hint))) => {
@@ -644,11 +606,10 @@ test "compute_text_edit: SwapChildren swaps Bop operands" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let root_id = proj.id()
   let result = compute_text_edit(
     SwapChildren(node_id=root_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, hint))) => {
@@ -665,12 +626,11 @@ test "compute_text_edit: DeleteBinding removes first let line" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Delete first binding
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     DeleteBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -687,12 +647,11 @@ test "compute_text_edit: DeleteBinding removes second let line" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Delete second binding
-  let binding_id = fp.defs[1].3
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     DeleteBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -709,10 +668,9 @@ test "compute_text_edit: DeleteBinding removes second fn line" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
-    DeleteBinding(binding_node_id=fp.defs[1].3),
-    make_edit_ctx(text, source_map, registry, fp),
+    DeleteBinding(binding_node_id=proj.children[1].id()),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -729,11 +687,10 @@ test "compute_text_edit: DeleteBinding removes only binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     DeleteBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -750,10 +707,9 @@ test "compute_text_edit: DeleteBinding with unknown id returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     DeleteBinding(binding_node_id=NodeId::from_int(9999)),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -764,11 +720,10 @@ test "compute_text_edit: DuplicateBinding copies binding with _copy suffix" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     DuplicateBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -785,11 +740,10 @@ test "compute_text_edit: DuplicateBinding on last binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     DuplicateBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -806,10 +760,9 @@ test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
-    DuplicateBinding(binding_node_id=fp.defs[0].3),
-    make_edit_ctx(text, source_map, registry, fp),
+    DuplicateBinding(binding_node_id=proj.children[0].id()),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -829,11 +782,10 @@ test "compute_text_edit: MoveBindingDown swaps two bindings" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -851,11 +803,10 @@ test "compute_text_edit: MoveBindingDown rejects when scoping violated" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -866,11 +817,10 @@ test "compute_text_edit: MoveBindingDown rejects last binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[1].3
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -881,11 +831,10 @@ test "compute_text_edit: MoveBindingUp swaps two bindings" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[1].3
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -902,10 +851,9 @@ test "compute_text_edit: MoveBindingUp swaps fn bindings" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
-    MoveBindingUp(binding_node_id=fp.defs[1].3),
-    make_edit_ctx(text, source_map, registry, fp),
+    MoveBindingUp(binding_node_id=proj.children[1].id()),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -928,8 +876,7 @@ test "compute_text_edit: MoveBindingUp swaps fn bindings" {
 /// structure (see the #649/#650 reparse-gate lesson).
 fn nested_block_def_names(def_index : Int, text : String) -> String raise {
   let (proj, _) = parse_to_proj_node(text)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  match fp.defs[def_index].1.kind {
+  match proj.children[def_index].children[0].kind {
     @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
     _ => ""
   }
@@ -944,12 +891,11 @@ test "compute_text_edit: DeleteBinding removes block-local binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let binding_id = block.children[1].id()
   let result = compute_text_edit(
     DeleteBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -964,12 +910,12 @@ test "compute_text_edit: DeleteBinding removes block-local binding" {
 ///|
 test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let block = fp.defs[1].1
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[1].children[0]
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -992,12 +938,12 @@ test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
 ///|
 test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let block = fp.defs[1].1
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[1].children[0]
   let binding_id = block.children[1].id()
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1023,13 +969,12 @@ test "compute_text_edit: MoveBindingUp rejects first block-local binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   // `a` is the first def in the block scope (scope-local def_index 0).
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1046,12 +991,11 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
     DuplicateBinding(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1080,12 +1024,11 @@ test "compute_text_edit: ExtractToLet refuses block-internal expr that uses a bl
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[0].1
+  let block = proj.children[0].children[0]
   let body = block.children[block.children.length() - 1]
   let result = compute_text_edit(
     ExtractToLet(node_id=body.id(), var_name="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1096,11 +1039,10 @@ test "compute_text_edit: AddBinding adds new let line" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let module_id = proj.id()
   let result = compute_text_edit(
     AddBinding(module_node_id=module_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1117,12 +1059,11 @@ test "compute_text_edit: ExtractToLet from body" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Body is Bop(+, Var(x), Int(1)). Extract the whole body expression.
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     ExtractToLet(node_id=body.id(), var_name="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1139,13 +1080,12 @@ test "compute_text_edit: ExtractToLet sub-expression from body" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Extract Var("x") from the body (left operand of +)
   let body = proj.children[proj.children.length() - 1]
   let var_x = body.children[0]
   let result = compute_text_edit(
     ExtractToLet(node_id=var_x.id(), var_name="z"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1163,12 +1103,11 @@ test "compute_text_edit: ExtractToLet rejects lambda-captured var" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // The body of lambda is Bop(+, Var(x), Int(1)) — child[0] of Lam
   let body = proj.children[0]
   let result = compute_text_edit(
     ExtractToLet(node_id=body.id(), var_name="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1176,11 +1115,11 @@ test "compute_text_edit: ExtractToLet rejects lambda-captured var" {
 ///|
 test "compute_text_edit: ExtractToLet rejects module-def enclosing env capture" {
   let text = "let x = y\nlet y = 1\n0"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
-  let init_y = fp.defs[0].1
+  let (proj, sm, registry) = parse_with_token_spans(text)
+  let init_y = proj.children[0].children[0]
   let result = compute_text_edit(
     ExtractToLet(node_id=init_y.id(), var_name="z"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -1191,11 +1130,11 @@ test "compute_text_edit: ExtractToLet rejects module-def enclosing env capture" 
 ///|
 test "compute_text_edit: ExtractToLet rejects later module-def shadow capture" {
   let text = "let y = 1\nlet x = y\nlet y = 2\n0"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
-  let init_y = fp.defs[1].1
+  let (proj, sm, registry) = parse_with_token_spans(text)
+  let init_y = proj.children[1].children[0]
   let result = compute_text_edit(
     ExtractToLet(node_id=init_y.id(), var_name="z"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -1209,10 +1148,9 @@ test "compute_text_edit: ExtractToLet bare expression" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     ExtractToLet(node_id=proj.id(), var_name="x"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1224,17 +1162,39 @@ test "compute_text_edit: ExtractToLet bare expression" {
 }
 
 ///|
+/// Regression test for #651: `free_names_captured_at_use_sites` was Module-blind —
+/// it found the inner `g` inside `{ let g = 1; g }` and falsely flagged it as
+/// capturing the outer free `g`, causing a spurious rejection.
+test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed free name [#651]" {
+  // `g` is free on the left side; the block on the right locally shadows it.
+  // The inner `g`'s binder is inside the extraction subtree, so it is not a
+  // real capture of the outer `g` and must not trigger a rejection.
+  let text = "g + { let g = 1\n  g }"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let result = compute_text_edit(
+    ExtractToLet(node_id=proj.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = (g + { let g = 1\ng })\ny")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: InlineDefinition sole usage removes binding" {
   let text = "let x = 42\nx"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Body is the last child of Module — Var("x")
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1251,12 +1211,11 @@ test "compute_text_edit: InlineDefinition nested block uses resolved declaration
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let inner_body = block.children[block.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=inner_body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1273,13 +1232,12 @@ test "compute_text_edit: InlineDefinition multiple usages keeps binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Body is Bop(+, Var(x), Var(x)). Get the left Var.
   let body = proj.children[proj.children.length() - 1]
   let lhs = body.children[0]
   let result = compute_text_edit(
     InlineDefinition(node_id=lhs.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1298,11 +1256,10 @@ test "compute_text_edit: InlineAllUsages replaces all refs and removes binding" 
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1321,12 +1278,11 @@ test "compute_text_edit: InlineAllUsages nested block uses binding declaration" 
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1343,10 +1299,9 @@ test "compute_text_edit: InlineDefinition on non-Var returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     InlineDefinition(node_id=proj.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1357,10 +1312,9 @@ test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=NodeId::from_int(9999)),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1371,10 +1325,9 @@ test "compute_text_edit: InlineAllUsages preserves typed fn binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
-    InlineAllUsages(binding_node_id=fp.defs[0].3),
-    make_edit_ctx(text, source_map, registry, fp),
+    InlineAllUsages(binding_node_id=proj.children[0].id()),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1391,11 +1344,10 @@ test "compute_text_edit: InlineDefinition preserves typed fn binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1412,11 +1364,10 @@ test "compute_text_edit: InlineDefinition preserves indented typed fn binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1433,11 +1384,10 @@ test "compute_text_edit: InlineDefinition zero-param fn uses block body" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1451,10 +1401,10 @@ test "compute_text_edit: InlineDefinition zero-param fn uses block body" {
 ///|
 test "compute_text_edit: InlineAllUsages first duplicate preserves shadowed body" {
   let text = "let x = 0\nlet x = x\nx"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
-    InlineAllUsages(binding_node_id=fp.defs[0].3),
-    make_edit_ctx(text, sm, registry, fp),
+    InlineAllUsages(binding_node_id=proj.children[0].id()),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1473,12 +1423,11 @@ test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // Body is Var("x") — child[0] of Lam
   let var_x = proj.children[0]
   let result = compute_text_edit(
     InlineDefinition(node_id=var_x.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1489,11 +1438,10 @@ test "compute_text_edit: InlineAllUsages no usages just removes binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1510,10 +1458,9 @@ test "compute_text_edit: InlineAllUsages removes unused second fn binding" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
-    InlineAllUsages(binding_node_id=fp.defs[1].3),
-    make_edit_ctx(text, source_map, registry, fp),
+    InlineAllUsages(binding_node_id=proj.children[1].id()),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1527,12 +1474,12 @@ test "compute_text_edit: InlineAllUsages removes unused second fn binding" {
 ///|
 test "compute_text_edit: Rename lambda param" {
   let text = "(x) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // proj is Lam("x", Var("x"))
   let lam_id = proj.id()
   let result = compute_text_edit(
     Rename(node_id=lam_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1546,12 +1493,12 @@ test "compute_text_edit: Rename lambda param" {
 ///|
 test "compute_text_edit: Rename var resolves to lambda binder" {
   let text = "(x) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // body Var("x") is child[0] of Lam
   let var_x = proj.children[0]
   let result = compute_text_edit(
     Rename(node_id=var_x.id(), new_name="z"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1565,12 +1512,12 @@ test "compute_text_edit: Rename var resolves to lambda binder" {
 ///|
 test "compute_text_edit: Rename module binding" {
   let text = "let x = 42\nx"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
-  // Use the binding_node_id from module_projection
-  let binding_id = fp.defs[0].3
+  let (proj, sm, registry) = parse_with_token_spans(text)
+  // Use the binding LetDef node id from the generic ProjNode tree.
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     Rename(node_id=binding_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1584,11 +1531,11 @@ test "compute_text_edit: Rename module binding" {
 ///|
 test "compute_text_edit: Rename module binding to same name remains valid" {
   let text = "let x = 42\nx"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[0].3
+  let (proj, sm, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     Rename(node_id=binding_id, new_name="x"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1602,12 +1549,12 @@ test "compute_text_edit: Rename module binding to same name remains valid" {
 ///|
 test "compute_text_edit: Rename module binding via Var" {
   let text = "let x = 42\nx"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // body is Var("x") — last child of Module
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     Rename(node_id=body.id(), new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1631,7 +1578,7 @@ test "compute_text_edit: Rename block-local binding leaves root binding intact" 
     #|let y = { let x = 2
     #|  x }
     #|y
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // The block body `x` is the unique Var("x") in the program.
   guard registry.values().find_first(fn(n) { n.kind is @ast.Term::Var("x") })
     is Some(inner_x) else {
@@ -1640,7 +1587,7 @@ test "compute_text_edit: Rename block-local binding leaves root binding intact" 
   let inner_x_id = inner_x.id()
   let result = compute_text_edit(
     Rename(node_id=inner_x_id, new_name="w"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1670,13 +1617,13 @@ test "compute_text_edit: Rename block binder rejects capture of existing target 
     #|let z = { let x = 2
     #|  y }
     #|z
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // proj.children[1] = LetDef z; its init[0] is the block Module; that block's
   // child[0] is the nested LetDef x binder.
   let nested_x = proj.children[1].children[0].children[0]
   let result = compute_text_edit(
     Rename(node_id=nested_x.id(), new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1691,13 +1638,13 @@ test "compute_text_edit: Rename block-local binding by binder id" {
     #|let y = { let x = 2
     #|  x }
     #|y
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // proj.children[1] = LetDef y; its init child[0] is the block Module;
   // that block's child[0] is the nested LetDef x.
   let nested_let_def = proj.children[1].children[0].children[0]
   let result = compute_text_edit(
     Rename(node_id=nested_let_def.id(), new_name="w"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -1724,7 +1671,7 @@ test "compute_text_edit: Rename block reference to outer binding renames root" {
     #|let y = { let z = 2
     #|  x }
     #|y
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // The block body `x` (unique Var("x")) resolves to the root `x`.
   guard registry.values().find_first(fn(n) { n.kind is @ast.Term::Var("x") })
     is Some(inner_x) else {
@@ -1733,7 +1680,7 @@ test "compute_text_edit: Rename block reference to outer binding renames root" {
   let inner_x_id = inner_x.id()
   let result = compute_text_edit(
     Rename(node_id=inner_x_id, new_name="w"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -1753,10 +1700,10 @@ test "compute_text_edit: Rename block reference to outer binding renames root" {
 ///|
 test "compute_text_edit: Rename first duplicate module binding preserves shadowed body" {
   let text = "let x = 0\nlet x = x\nx"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
-    Rename(node_id=fp.defs[0].3, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    Rename(node_id=proj.children[0].id(), new_name="y"),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1772,17 +1719,16 @@ test "compute_text_edit: Rename first duplicate module binding preserves shadowe
 ///|
 test "compute_text_edit: Rename module binding with multiple usages" {
   let text = "let x = 42\nx + x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[0].3
+  let (proj, sm, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     Rename(node_id=binding_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      // Note: right operand's range may include leading space from CST
-      inspect(new_text.contains("let y = 42"), content="true")
+      inspect(new_text, content="let y = 42\ny + y")
     }
     _ => fail("expected Some edits")
   }
@@ -1791,12 +1737,12 @@ test "compute_text_edit: Rename module binding with multiple usages" {
 ///|
 test "compute_text_edit: Rename nested lambda" {
   let text = "(x, y) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   // Rename outer lambda param "x" to "z"
   let outer_id = proj.id()
   let result = compute_text_edit(
     Rename(node_id=outer_id, new_name="z"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1810,11 +1756,11 @@ test "compute_text_edit: Rename nested lambda" {
 ///|
 test "compute_text_edit: Rename typed fn second param ignores type identifiers" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let inner_lam = proj.children[0].children[0].children[0]
   let result = compute_text_edit(
     Rename(node_id=inner_lam.id(), new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1831,11 +1777,11 @@ test "compute_text_edit: Rename typed fn second param ignores type identifiers" 
 ///|
 test "compute_text_edit: Rename with unknown node returns error" {
   let text = "42"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
   let result = compute_text_edit(
     Rename(node_id=NodeId::from_int(9999), new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1844,11 +1790,11 @@ test "compute_text_edit: Rename with unknown node returns error" {
 test "compute_text_edit: Rename rejects capture of free variable" {
   // (x) => y  — renaming x to y would capture the free y
   let text = "(x) => y"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let lam_id = proj.id()
   let result = compute_text_edit(
     Rename(node_id=lam_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1857,11 +1803,11 @@ test "compute_text_edit: Rename rejects capture of free variable" {
 test "compute_text_edit: Rename rejects capture by inner lambda binder" {
   // (x, y) => x — renaming outer x to y would rebind the use to inner y.
   let text = "(x, y) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let outer_lam_id = proj.id()
   let result = compute_text_edit(
     Rename(node_id=outer_lam_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1869,13 +1815,13 @@ test "compute_text_edit: Rename rejects capture by inner lambda binder" {
 ///|
 test "compute_text_edit: Rename rejects duplicate module binding name" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
   // Rename binding x → y should fail because y already exists
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     Rename(node_id=binding_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1884,12 +1830,12 @@ test "compute_text_edit: Rename rejects duplicate module binding name" {
 test "compute_text_edit: Rename module binding rejects inner lambda capture" {
   // let x = 0\n(y) => x — renaming x→y would capture at the inner (y) =>
   let text = "let x = 0\n(y) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
-  let binding_id = fp.defs[0].3
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     Rename(node_id=binding_id, new_name="y"),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1898,7 +1844,7 @@ test "compute_text_edit: Rename module binding rejects inner lambda capture" {
 test "compute_text_edit: InlineDefinition rejects capture" {
   // let y = 1\nlet x = y\n(y) => x — inlining x would produce (y) => y (capture)
   let text = "let y = 1\nlet x = y\n(y) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = sm
   // Body is (y) => x — the Lam node
   let body = proj.children[proj.children.length() - 1]
@@ -1906,7 +1852,7 @@ test "compute_text_edit: InlineDefinition rejects capture" {
   let var_x = body.children[0]
   let result = compute_text_edit(
     InlineDefinition(node_id=var_x.id()),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1914,11 +1860,11 @@ test "compute_text_edit: InlineDefinition rejects capture" {
 ///|
 test "compute_text_edit: InlineDefinition allows same module-def reference" {
   let text = "let y = 1\nlet x = y\nx"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -1932,11 +1878,11 @@ test "compute_text_edit: InlineDefinition allows same module-def reference" {
 ///|
 test "compute_text_edit: InlineDefinition rejects later module-def shadow capture" {
   let text = "let y = 1\nlet x = y\nlet y = 2\nx"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -1947,13 +1893,13 @@ test "compute_text_edit: InlineDefinition rejects later module-def shadow captur
 ///|
 test "compute_text_edit: InlineDefinition rejects nested block shadow capture" {
   let text = "let y = 0\nlet z = { let x = y\nlet y = 1\nx }\nz"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let block_body = block.children[block.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=block_body.id()),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -1964,14 +1910,14 @@ test "compute_text_edit: InlineDefinition rejects nested block shadow capture" {
 ///|
 test "compute_text_edit: InlineAllUsages rejects capture" {
   let text = "let y = 1\nlet x = y\n(y) => x"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
   let _ = sm
   // Binding "x" is at def index 1
-  let binding_id = fp.defs[1].3
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=binding_id),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -1979,13 +1925,13 @@ test "compute_text_edit: InlineAllUsages rejects capture" {
 ///|
 test "compute_text_edit: InlineAllUsages rejects nested block shadow capture" {
   let text = "let y = 0\nlet z = { let x = y\nlet y = 1\nx }\nz"
-  let (proj, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let _ = proj
-  let block = fp.defs[1].1
+  let block = proj.children[1].children[0]
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=binding_id),
-    make_edit_ctx(text, sm, registry, fp),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -1996,10 +1942,10 @@ test "compute_text_edit: InlineAllUsages rejects nested block shadow capture" {
 ///|
 test "compute_text_edit: InlineAllUsages allows same module-def reference" {
   let text = "let y = 1\nlet x = y\nx"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
-    InlineAllUsages(binding_node_id=fp.defs[1].3),
-    make_edit_ctx(text, sm, registry, fp),
+    InlineAllUsages(binding_node_id=proj.children[1].id()),
+    make_edit_ctx(text, sm, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2013,10 +1959,10 @@ test "compute_text_edit: InlineAllUsages allows same module-def reference" {
 ///|
 test "compute_text_edit: InlineAllUsages rejects later module-def shadow capture" {
   let text = "let y = 1\nlet x = y\nlet y = 2\nx"
-  let (_, sm, registry, fp) = parse_with_token_spans(text)
+  let (proj, sm, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
-    InlineAllUsages(binding_node_id=fp.defs[1].3),
-    make_edit_ctx(text, sm, registry, fp),
+    InlineAllUsages(binding_node_id=proj.children[1].id()),
+    make_edit_ctx(text, sm, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -2027,11 +1973,11 @@ test "compute_text_edit: InlineAllUsages rejects later module-def shadow capture
 ///|
 test "compute_text_edit: middleware rejects missing node for structural ops" {
   let text = "42"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let fake_id = NodeId::from_int(99999)
   let result = compute_text_edit(
     Delete(node_id=fake_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   @debug.debug_inspect(result, content="Err(\"Node not found: NodeId(99999)\")")
 }
@@ -2040,11 +1986,11 @@ test "compute_text_edit: middleware rejects missing node for structural ops" {
 test "compute_text_edit: MoveBindingUp allows valid swap where prev uses cur" {
   // prev (x) uses cur's name (y) — after swap, y comes first so ref is valid
   let text = "let x = y\nlet y = 0\nx"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[1].3
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2059,11 +2005,11 @@ test "compute_text_edit: MoveBindingUp allows valid swap where prev uses cur" {
 test "compute_text_edit: MoveBindingDown allows valid swap where cur uses next" {
   // cur (x) uses next's name (y) — after swap, y comes first so ref is valid
   let text = "let x = y\nlet y = 0\nx"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[0].3
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2079,12 +2025,12 @@ test "compute_text_edit: MoveBindingUp rejects when swap would re-target prev's 
   // let x=1; let c=x; let x=2 — c's init refs "x" (resolves to x=1).
   // Moving x=2 up past c would make c see x=2 instead; semantics change.
   let text = "let x = 1\nlet c = x\nlet x = 2\nc"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   // defs[2] is `let x = 2`
-  let binding_id = fp.defs[2].3
+  let binding_id = proj.children[2].id()
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2094,12 +2040,12 @@ test "compute_text_edit: MoveBindingDown rejects when swap would re-target cur's
   // let b=0; let cur=b; let b=1 — cur's init refs "b", currently resolves
   // to b=0 (earlier def). Moving cur down past b=1 would shadow b=0 with b=1.
   let text = "let b = 0\nlet cur = b\nlet b = 1\ncur"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   // defs[1] is `let cur = b`
-  let binding_id = fp.defs[1].3
+  let binding_id = proj.children[1].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2111,12 +2057,12 @@ test "compute_text_edit: MoveBindingUp rejects when block-local init resolves na
   // `x` from the outer def to the inner one — no earlier SAME-scope sibling
   // named "x" exists, but the outer resolution is enough to block.
   let text = "let x = 0\nlet z = { let c = x; let x = 2; c }\nz"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let block = fp.defs[1].1
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[1].children[0]
   let binding_id = block.children[1].id() // `let x = 2`
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2127,12 +2073,12 @@ test "compute_text_edit: MoveBindingDown rejects when block-local init resolves 
   // Moving `let c = y` below `let y = 2` would retarget c's `y` from the
   // outer def to the inner one — same outer-scope retargeting case as above.
   let text = "let y = 0\nlet z = { let c = y; let y = 2; c }\nz"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let block = fp.defs[1].1
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[1].children[0]
   let binding_id = block.children[0].id() // `let c = y`
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2143,11 +2089,11 @@ test "compute_text_edit: MoveBindingUp allows free→bound improvement when no e
   // exists — the reference was free before the swap and becomes bound after.
   // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
   let text = "let a = x\nlet x = 0\na"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[1].3 // `let x = 0`
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[1].id() // `let x = 0`
   let result = compute_text_edit(
     MoveBindingUp(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -2162,11 +2108,11 @@ test "compute_text_edit: MoveBindingDown allows free→bound improvement when no
   // exists — the reference was free before the swap and becomes bound after.
   // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
   let text = "let a = b\nlet b = 0\na"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let binding_id = fp.defs[0].3 // `let a = b`
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id() // `let a = b`
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) =>
@@ -2183,11 +2129,10 @@ test "compute_text_edit: Unwrap cursor at replacement start" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let bop_id = proj.id()
   let result = compute_text_edit(
     Unwrap(node_id=bop_id, keep_child_index=1),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((_, hint))) =>
@@ -2204,11 +2149,11 @@ test "compute_text_edit: Unwrap cursor at replacement start" {
 ///|
 test "compute_text_edit: InsertChild rejects negative index" {
   let text = "let x = 0\nx"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
-  let module_id = fp.final_expr.unwrap().id()
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let module_id = proj.children.last().unwrap().id()
   let result = compute_text_edit(
     InsertChild(parent=module_id, index=-1, kind=@ast.Term::Int(0)),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2216,12 +2161,12 @@ test "compute_text_edit: InsertChild rejects negative index" {
 ///|
 test "compute_text_edit: AddBinding rejects non-Module target" {
   let text = "42"
-  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let root_id = NodeId::from_int(0)
   // root is an Int, not a Module
   let result = compute_text_edit(
     AddBinding(module_node_id=root_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
 }
@@ -2232,11 +2177,10 @@ test "compute_text_edit: Drop self-drop returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let id = proj.id()
   let result = compute_text_edit(
     Drop(source=id, target=id, position=After),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   @debug.debug_inspect(result, content="Err(\"Cannot drop onto self\")")
 }
@@ -2249,11 +2193,10 @@ test "compute_text_edit: Drop descendant-drop returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let child = proj.children[0] // Var(x), inside the Bop
   let result = compute_text_edit(
     Drop(source=proj.id(), target=child.id(), position=After),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   @debug.debug_inspect(
     result,
@@ -2267,13 +2210,12 @@ test "compute_text_edit: Drop with Before position inserts at target start" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   // source = Int(1) at children[1], target = Var(x) at children[0]
   let source_node = proj.children[1]
   let target_node = proj.children[0]
   let result = compute_text_edit(
     Drop(source=source_node.id(), target=target_node.id(), position=Before),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2296,10 +2238,58 @@ test "compute_text_edit: Drop with unknown target returns error" {
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
   let result = compute_text_edit(
     Drop(source=proj.id(), target=NodeId::from_int(9999), position=After),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
+}
+
+///|
+/// Regression test for #651: `init_ref_resolves` was Module-blind — when `h`'s
+/// init contained `{ let f = 1; f }`, it found the inner `f` (which resolves to
+/// the inner binding) and falsely concluded the outer `f` was referenced in the
+/// init, blocking a legal MoveBindingDown.
+test "compute_text_edit: MoveBindingDown does not reject block-shadowed name in init [#651-init-ref]" {
+  // `f` is NOT referenced in `h`'s init — the `f` inside the block is locally
+  // bound there. Moving `f` past `h` must succeed.
+  let text = "let f = 0\nlet h = { let f = 1\n  f }\nf"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id()
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let h = { let f = 1\n  f }\nlet f = 0\nf")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Regression test for #651: `free_name_would_rebind_to` was Module-blind — when
+/// `h`'s init was `f + { let f = 1; f }`, the inner block-bound `f` was falsely
+/// treated as a free use of the outer `f` and produced a spurious rebind error,
+/// blocking a legal InlineDefinition.
+test "compute_text_edit: InlineDefinition does not reject block-shadowed free name in init [#651-rebind]" {
+  // `h`'s init contains the outer free `f` AND a nested block that locally
+  // re-shadows `f`. The inner `f`'s binder is inside the init subtree — it is
+  // NOT a free reference to the outer `f` and must not trigger a rebind error.
+  let text = "let f = 0\nlet h = f + { let f = 1\n  f }\nh"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let f = 0\nf + { let f = 1\n  f }")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
 }

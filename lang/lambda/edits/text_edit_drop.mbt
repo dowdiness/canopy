@@ -7,18 +7,12 @@ fn compute_drop(
 ) -> EditResult {
   // Legality: self-drop
   guard source != target else { return Err("Cannot drop onto self") }
-  let { source_text, source_map, .. } = ctx
-  guard source_map.get_range(source) is Some(source_range) else {
-    return Err("Source node not found")
+  let { source_text, .. } = ctx
+  let (source_node, source_range) = ctx.resolve(source) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard source_map.get_range(target) is Some(target_range) else {
-    return Err("Target node not found")
-  }
-  guard ctx.registry.get(source) is Some(source_node) else {
-    return Err("Source node not found")
-  }
-  guard ctx.registry.get(target) is Some(target_node) else {
-    return Err("Target node not found")
+  let (target_node, target_range) = ctx.resolve(target) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, source, source_node, source_range) {
     Err(e) => return Err(e)

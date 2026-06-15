@@ -6,10 +6,11 @@ internals.
 
 **Primary example:** Markdown (uses CstFold, 3-memo pattern, clean structure).
 
-> **Don't follow the Lambda pattern.** Lambda predates CstFold, uses a 4-memo
-> ModuleProjection pipeline, and hand-builds AST values from view casts. It's the
-> oldest language integration and carries historical complexity. Use Markdown
-> as your reference; consult JSON where patterns differ.
+> **Don't follow the Lambda pattern.** Lambda predates CstFold, still carries
+> legacy `ModuleProjection` compatibility/reconciliation helpers, and has a
+> custom editor-coupled edit bridge. It's the oldest language integration and
+> carries historical complexity. Use Markdown as your reference; consult JSON
+> where patterns differ.
 
 ## How it fits together
 
@@ -384,14 +385,15 @@ pub fn new_my_editor(
 ```
 
 > **The lambda exception.** `lang/lambda/companion` does NOT go through
-> `LanguageSpec` — its edit path is editor-coupled in ways the SPI
-> deliberately excludes: `compute_text_edit` needs an `EditContext` carrying
-> `registry` + `module_projection`, `apply_lambda_tree_edit` returns a typed
-> `Result[Array[SpanEdit], TreeEditError]` patch trace, and `Drop` delegates
-> to `editor.move_node`. Lambda's eval/scope/semantic extras ride the
-> optional per-instance `LanguageCapabilities` fields instead. Do not copy
-> lambda's shape for a new language; see the decision record in
-> `docs/plans/2026-06-11-s3-lang-runtime-extraction.md` (Step 4 amendment).
+> `LanguageSpec` for edit application. After `ModuleProjection` removal,
+> Lambda's `registry` and `DefinitionIndex` are derived from the generic
+> `ProjNode` root, so context alone is not the reason to widen the SPI. The
+> remaining mismatch is the application contract: `apply_lambda_tree_edit`
+> returns a typed `Result[Array[SpanEdit], TreeEditError]` patch trace, and
+> `Drop` delegates to `editor.move_node`. Lambda's eval/scope/semantic extras
+> ride the optional per-instance `LanguageCapabilities` fields instead. Do not
+> copy lambda's shape for a new language; see the post-cleanup decision record
+> in `docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`.
 
 **Package registration:**
 

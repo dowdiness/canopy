@@ -55,11 +55,23 @@ fn init_ref_resolves(
 ) -> Bool {
   let var_ids : Array[NodeId] = []
   collect_var_usages(init, name, var_ids)
+  let subtree = subtree_node_ids(init)
   var_ids.any(fn(vid) {
-    g.refs
-    .iter()
-    .any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
+    match @scope.declaration(g, vid) {
+      Some(decl) if subtree.contains(decl.node_id) => false
+      _ =>
+        g.refs
+        .iter()
+        .any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
+    }
   })
+}
+
+///|
+fn[T] subtree_node_ids(node : ProjNode[T]) -> @immut/hashset.HashSet[NodeId] {
+  let m : Map[NodeId, ProjNode[T]] = {}
+  @core.collect_registry(node, m)
+  @immut/hashset.HashSet::from_iter(m.keys())
 }
 
 ///|
@@ -99,15 +111,21 @@ fn free_names_captured_at_use_sites(
   node : ProjNode[@ast.Term],
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
-  let mut captured = false
-  free_names.each(fn(v) {
+  // A var occurrence whose binder is inside the subtree is locally bound —
+  // not a real free use of the outer name — and must not trigger a capture report.
+  let subtree = subtree_node_ids(node)
+  free_names
+  .iter()
+  .any(fn(v) {
     let var_ids : Array[NodeId] = []
     collect_var_usages(node, v, var_ids)
-    if var_ids.any(fn(vid) { name_captured_at_node(g, vid, v) }) {
-      captured = true
-    }
+    var_ids.any(fn(vid) {
+      match @scope.declaration(g, vid) {
+        Some(decl) if subtree.contains(decl.node_id) => false
+        _ => name_captured_at_node(g, vid, v)
+      }
+    })
   })
-  captured
 }
 
 ///|
@@ -243,14 +261,13 @@ fn free_names_would_rebind_at_node(
   target_node_id : NodeId,
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
-  let mut rebound = false
-  free_names.each(fn(v) {
+  let subtree = subtree_node_ids(source_node)
+  free_names
+  .iter()
+  .any(fn(v) {
     let target_decl = declaration_id_for_name_at_node(g, target_node_id, v)
-    if free_name_would_rebind_to(g, source_node, v, target_decl) {
-      rebound = true
-    }
+    free_name_would_rebind_to(g, source_node, v, target_decl, subtree)
   })
-  rebound
 }
 
 ///|
@@ -260,16 +277,15 @@ fn free_names_would_rebind_at_module_end(
   source_node : ProjNode[@ast.Term],
   free_names : @immut/hashset.HashSet[String],
 ) -> Bool {
-  let mut rebound = false
-  free_names.each(fn(v) {
+  let subtree = subtree_node_ids(source_node)
+  free_names
+  .iter()
+  .any(fn(v) {
     let target_decl = declaration_id_for_name_at_module_end(
       g, definition_index, v,
     )
-    if free_name_would_rebind_to(g, source_node, v, target_decl) {
-      rebound = true
-    }
+    free_name_would_rebind_to(g, source_node, v, target_decl, subtree)
   })
-  rebound
 }
 
 ///|
@@ -278,11 +294,15 @@ fn free_name_would_rebind_to(
   source_node : ProjNode[@ast.Term],
   name : String,
   target_decl : @scope.DeclId?,
+  subtree : @immut/hashset.HashSet[NodeId],
 ) -> Bool {
   let var_ids : Array[NodeId] = []
   collect_var_usages(source_node, name, var_ids)
   var_ids.any(fn(vid) {
-    @scope.declaration(g, vid).map(fn(d) { d.id }) != target_decl
+    match @scope.declaration(g, vid) {
+      Some(decl) if subtree.contains(decl.node_id) => false
+      decl_opt => decl_opt.map(fn(d) { d.id }) != target_decl
+    }
   })
 }
 

@@ -129,9 +129,9 @@ fn assert_level_b_agrees(
     fail("[\{context}] memo projection is None on non-empty source: \{src}")
   }
   let g_i = @scope.build(reg_i, sm_i)
-  let ranges_i = def_init_ranges(root)
+  let ranges_i = def_binding_ranges(root)
   let (proj_f, reg_f, g_f, sm_f) = fresh_generic_graph_of(src)
-  let ranges_f = def_init_ranges(proj_f)
+  let ranges_f = def_binding_ranges(proj_f)
   assert_resolution_agrees(
     ResolutionSide(
       graph=g_i,
