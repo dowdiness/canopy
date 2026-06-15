@@ -78,7 +78,7 @@ async function waitForEditor(page: Page) {
   await page.waitForFunction(() => {
     return Boolean(
       document.querySelector('#canopy-text-editor .cm-editor') &&
-      (window as any).__canopy_crdt,
+      (window as any).__canopy_bridge?.crdt,
     );
   }, { timeout: 10000 });
 }
@@ -94,14 +94,11 @@ function lambdaSource(definitions: number): string {
 
 async function seedEditor(page: Page, source: string) {
   await page.evaluate((text) => {
-    const global = window as any;
-    const crdt = global.__canopy_crdt;
-    const handle = global.__canopy_crdt_handle;
-    if (!crdt || handle == null) {
+    const b = (window as any).__canopy_bridge;
+    if (!b?.crdt || b.crdtHandle == null) {
       throw new Error('Canopy editor is not mounted');
     }
-
-    crdt.set_text(handle, text);
+    b.crdt.set_text(b.crdtHandle, text);
   }, source);
   await dispatchExternalCrdtChanged(page);
 
@@ -120,23 +117,22 @@ async function seedEditor(page: Page, source: string) {
 
 async function measureTextInput(page: Page, text: string, injectMs: number = INJECT_PAINT_MS): Promise<ResponseSample> {
   return page.evaluate(({ insertText, injectPaintMs }) => new Promise<ResponseSample>((resolve, reject) => {
-    const global = window as any;
+    const b = (window as any).__canopy_bridge;
     const cmContent = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
-    const crdt = global.__canopy_crdt;
-    const handle = global.__canopy_crdt_handle;
-    if (!cmContent || !crdt || handle == null) {
+    if (!cmContent || !b?.crdt || b.crdtHandle == null) {
       reject(new Error('CodeMirror content is not mounted'));
       return;
     }
     cmContent.focus();
-    const before = crdt.get_text(handle);
+    const before = b.crdt.get_text(b.crdtHandle);
 
     let start = 0;
     let cancelled = false;
     let pollRafId: number | null = null;
     const timeout = window.setTimeout(() => {
       cancelled = true;
-      (window as any).__canopy_perf_current = null;
+      const b0 = (window as any).__canopy_bridge;
+      if (b0) b0.perfCurrent = null;
       cleanup();
       reject(new Error('Timed out waiting for CRDT text after text input'));
     }, 5000);
@@ -163,9 +159,10 @@ async function measureTextInput(page: Page, text: string, injectMs: number = INJ
               // busy-wait
             }
           }
-          const perf = (window as any).__canopy_perf_current;
+          const perf = (window as any).__canopy_bridge?.perfCurrent;
           const phases = { ...(perf?.spans ?? {}) };
-          (window as any).__canopy_perf_current = null;
+          const b1 = (window as any).__canopy_bridge;
+          if (b1) b1.perfCurrent = null;
           cleanup();
           resolve({
             inputToTextChangeMs: textChangedAt - start,
@@ -177,14 +174,15 @@ async function measureTextInput(page: Page, text: string, injectMs: number = INJ
     };
     const poll = () => {
       if (cancelled) return;
-      if (crdt.get_text(handle) !== before) {
+      if (b.crdt.get_text(b.crdtHandle) !== before) {
         complete();
       } else {
         pollRafId = requestAnimationFrame(poll);
       }
     };
 
-    (window as any).__canopy_perf_current = { spans: {} };
+    const b2 = (window as any).__canopy_bridge;
+    if (b2) b2.perfCurrent = { spans: {} };
     start = performance.now();
     const inserted = document.execCommand('insertText', false, insertText);
     if (!inserted) {
