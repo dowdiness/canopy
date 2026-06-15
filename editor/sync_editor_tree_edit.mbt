@@ -1,6 +1,6 @@
 // Generic Tier-2 structural edit methods and projection boundary for SyncEditor[T].
 // All edits reduce to: span lookup → compute replacement text → apply_text_edit_internal.
-// No ModuleProjection, no TreeEditOp, no lambda-specific logic.
+// No language-specific projection side channel, no TreeEditOp, no lambda-specific logic.
 
 ///|
 /// Returns true if any text edit has been applied since the last refresh().

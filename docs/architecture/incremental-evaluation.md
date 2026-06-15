@@ -50,9 +50,9 @@ back. Edits route back through text CRDT only.
 ### Change Detection vs Change Propagation
 
 The generic editor-facing path rebuilds registry and source-map views from the
-reconciled projection tree. Lambda's older `to_module_projection_incremental`
-helper still exists for legacy ModuleProjection tests/helpers, but it is no
-longer the editor-facing memo stack.
+reconciled projection tree. Lambda now has only a small root-`Module` reconcile
+hook over `ProjNode` rows; the old flat module projection helper and its
+incremental side-channel are gone.
 
 **When to revisit:** If current measurements show projection rebuilds dominate
 keystroke latency on large Lambda documents, reproduce the bottleneck in a

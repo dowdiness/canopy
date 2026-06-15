@@ -8,9 +8,12 @@ loom ADR [`2026-03-14-physical-equal-interner`](../../loom/docs/decisions/2026-0
 [Responsibility Map](../architecture/responsibility-map.md)
 
 > 2026-06-14 update: #633 removed mechanism #3 from Lambda's editor-facing
-> projection memo stack. This ADR remains useful historical context for the
-> legacy `ModuleProjection` helper/tests, but it is no longer the current editor
-> data-flow description.
+> projection memo stack.
+>
+> 2026-06-15 update: the remaining flat module projection compatibility helper,
+> tests, and benchmark were removed. This ADR is now historical context only;
+> the current Lambda path uses generic `ProjNode` projection plus a small
+> root-`Module` reconcile hook.
 
 ## Why this record exists
 
@@ -32,7 +35,7 @@ before re-opening #449 as a refactor.
 |---|-----------|-----------------|---------------------|----------------|-------------|
 | 1 | `ReuseCursor` | `loom/core` (`reuse_cursor.mbt`) | "During *this* reparse, can I splice an old CST subtree instead of re-lexing/re-parsing it?" | damage-overlap + leading/trailing token context | reconstructed **per parse** from old tree + `Edit`; only `OldTokenCache` survives (token table, *not* node identity) |
 | 2 | `ProjectionIdentityTracker` / `ProjectionIdentityBaseline` | `loom/core` (`projection_identity.mbt`) | "Which semantic leaves keep their stable `NodeId` across an edit?" | **source offset + key** (prefix/suffix windows around the edit) | last-good baseline retained across malformed intermediate input |
-| 3 | historical `to_module_projection_incremental` + Lambda-specific `build_lambda_projection_memos` | pre-#633: `lang/lambda/proj` + `lang/lambda/flat`; post-#633 legacy helper/tests only | "Which top-level defs are structurally unchanged, so I can reuse their `ModuleProjection` entry / `ProjNode` / source-map subtree?" | `start()` + **structural** `cst_node() ==` | prev `ModuleProjection` + prev root retained in `Ref`s inside the memo |
+| 3 | historical `to_module_projection_incremental` + Lambda-specific `build_lambda_projection_memos` | pre-#633: `lang/lambda/proj` + `lang/lambda/flat`; removed after #633 cleanup | "Which top-level defs are structurally unchanged, so I can reuse their flat module entry / `ProjNode` / source-map subtree?" | `start()` + **structural** `cst_node() ==` | prev flat module view + prev root retained in `Ref`s inside the memo |
 
 Loom's own `CLAUDE.md` states #1's contract explicitly: *"`ReuseCursor` … is
 structural reuse, **not stable parser-owned token/subtree identity**."* That single
@@ -67,11 +70,12 @@ decision:
 - **#396 (`4875da6`) intentionally dropped canonical physical identity** so CSTs
   could carry **source spans** — required for the scope-graph / `SourceMap` work
   (`lang/lambda/scope`, #396–#405). The code documents this in two places:
-  - `module_projection.mbt`: *"Source-span CSTs no longer guarantee canonical physical
-    identity across parses, so equality must use the stable structural CstNode
-    contract."*
-  - `projection_memo.mbt`: *"CstNode interning is position-independent, so reused
-    defs may have shifted offsets that only the SyntaxNode reflects correctly."*
+  - historical `module_projection.mbt`: *"Source-span CSTs no longer guarantee
+    canonical physical identity across parses, so equality must use the stable
+    structural CstNode contract."*
+  - historical `projection_memo.mbt`: *"CstNode interning is position-independent,
+    so reused defs may have shifted offsets that only the SyntaxNode reflects
+    correctly."*
 
 A def that shifted by one column (because an earlier def changed length) is
 structurally identical but has different source spans → `physical_equal` fails →

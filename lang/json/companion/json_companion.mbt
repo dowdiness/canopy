@@ -18,7 +18,7 @@ let json_spec : @lang_runtime.LanguageSpec[
 
 ///|
 /// Create a new SyncEditor for JSON documents.
-/// Uses the generic 3-memo pipeline (no ModuleProjection).
+/// Uses the generic 3-memo projection pipeline.
 pub fn new_json_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,

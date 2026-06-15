@@ -6,11 +6,11 @@ internals.
 
 **Primary example:** Markdown (uses CstFold, 3-memo pattern, clean structure).
 
-> **Don't follow the Lambda pattern.** Lambda predates CstFold, still carries
-> legacy `ModuleProjection` compatibility/reconciliation helpers, and has a
+> **Don't follow the Lambda pattern.** Lambda predates CstFold and keeps a
 > custom editor-coupled edit bridge. It's the oldest language integration and
-> carries historical complexity. Use Markdown as your reference; consult JSON
-> where patterns differ.
+> carries historical complexity even though its projection now uses the generic
+> 3-memo stack. Use Markdown as your reference; consult JSON where patterns
+> differ.
 
 ## How it fits together
 

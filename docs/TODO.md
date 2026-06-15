@@ -207,8 +207,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Graphviz SVG theming — SVG uses hardcoded `Arial` from submodule; needs `pub(all) struct SvgConfig` to customize.
 
 - [ ] Grammar: interleaved let/expr.
-  Why: `Module` AST supports `ModuleItem` in parser already, but `ModuleProjection` storage change caused 2× regression from MoonBit enum boxing.
-  Alternative: add helper methods on existing `ModuleProjection` for interleaved views. Decision pending in `docs/decisions-needed.md`.
+  Why: `Module` AST supports `ModuleItem` in parser already, but the projection/editor representation still assumes contiguous definition rows plus a body.
+  Alternative: design an interleaved `ProjNode`/`DefinitionIndex` view over module items. Decision pending in `docs/decisions-needed.md`.
 
 - [x] Inspector — Intent panel. *Part of Inspector traceability workstream.* Shipped in PR #293 (2026-05-17).
   Op Log tab in `view_bottom.mbt` renders `Model.intent_log : Array[String]` (cap 50), pushed from all four structural-edit dispatch sites after `apply_lambda_tree_edit` succeeds. Two row formats coexist:
@@ -247,8 +247,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   actual LetDef ProjNodes to let_def; drag/drop E2E moves whole binding rows; binding
   actions pass real LetDef ids; scope annotation uses real LetDef ids; binder_span /
   go_to_definition remain source-span based; canvas unchanged.
-  Remaining legacy cleanup (non-blocking): module_projection.mbt compat layer (~339 lines,
-  labeled "Legacy/test helper") and dead ValidateNodeExists binding-id fallback.
+  Remaining cleanup (non-blocking): dead ValidateNodeExists binding-id fallback.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
   Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder.
@@ -263,7 +262,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 11. Multi-Language Support
 
-- [ ] JSON ModuleProjection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
+- [ ] JSON member-projection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
 
 - [ ] loomgen design update.
   Why: update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON + markdown. Three real examples now inform the generator.
@@ -443,40 +442,20 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-05-26-cognition-provider-boundary-design.md`
   Exit: a provider-client plan names the backend, driver clock/scheduling model, credential boundary, retry/redaction policy, and host integration surface. No real network/LLM code lands without that plan.
 
-## 20. Scope-Graph ModuleProjection Fidelity
+## 20. Scope-Graph Fidelity
 
-- [x] Cross-pipeline resolution-equivalence property test (`@qc`).
-  Shipped: #401 (`lang/lambda/edits/scope_cross_pipeline_pbt_wbtest.mbt`),
-  trimmed to 300 cases in #402. Generates lambda source, builds the scope graph
-  through both `ModuleProjection` pipelines (`from_proj_node` test path vs `to_module_projection`
-  production path), matches references by source range, and asserts equal
-  normalized resolution; pins the production-path `node_id` invariant for both
-  decl kinds. The property is near-tautological (resolution ignores `node_id`),
-  so it is a regression guard, not a correctness oracle — the latter stays in
-  `scope_equivalence_wbtest.mbt`.
-
-- [~] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
-  Why: the PBT above *pins* the gap; it does not close it. The module-binder
-  `node_id` is synthetic on the production path (occupies no real node,
-  contradicting the `Decl` "occupies a projection node" invariant in
-  `lang/lambda/scope/graph.mbt`), and three incompatible synthetic-id schemes
-  existed (`to_module_projection`, `from_proj_node`, and the negative id in
-  `examples/ideal/main/scope_annotation.mbt`, which bypasses `@scope` and
-  re-implements resolution).
+- [x] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
   Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
   Option D: an on-demand `@scope` binder-location accessor over the
-  already-populated SourceMap token spans — no loom PR, no `ModuleProjection` change;
-  `node_id` stays synthetic but is no longer the locator).
-  Shipped (plan steps 1–5): `@scope.binder_span` + `@scope.go_to_definition`
-  accessors (`lang/lambda/scope/query.mbt`); `references` migrated off
-  `Decl.node_id` to `DeclId`; §7.1 go-to-def behavioral tests
-  (`go_to_definition_wbtest.mbt`); incremental/full scope differential tests
-  (`scope_incremental_differential_wbtest.mbt`,
-  `scope_memo_stack_differential_wbtest.mbt`); the #399 fixture +
-  cross-pipeline PBT `node_id` invariants rewritten to affirm the
-  binder-location contract (locatable + pipeline-independent); and Ideal
-  outline scope annotation collapsed onto @scope with the NodeId-keyed UI model
-  retained via stable module-binder UI keys.
+  already-populated SourceMap token spans).
+  Shipped: `@scope.binder_span` + `@scope.go_to_definition` accessors
+  (`lang/lambda/scope/query.mbt`); `references` migrated off `Decl.node_id` to
+  `DeclId`; §7.1 go-to-def behavioral tests (`go_to_definition_wbtest.mbt`);
+  live memo-stack vs fresh-rebuild scope differential coverage
+  (`scope_memo_stack_differential_wbtest.mbt`); and Ideal outline scope
+  annotation collapsed onto @scope with the NodeId-keyed UI model retained via
+  stable module-binder UI keys. The old cross-pipeline flat-module fidelity
+  tests were removed with the flat compatibility layer.
   Remaining: gated query-indexing is the only open scope follow-up here; the
   binder-location plan itself is complete.
 

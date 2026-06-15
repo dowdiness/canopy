@@ -59,8 +59,6 @@ test "new_json_editor — reconcile preserves IDs" {
   inspect(id1 == id2, content="true")
 }
 
-// get_module_projection test removed — JSON editors don't have ModuleProjection
-
 ///|
 test "apply WrapInArray" {
   let editor = new_json_editor("test")
