@@ -29,6 +29,7 @@ type CmExtensionFactory = (cm: Record<string, any>) => any | any[];
 
 interface CanopyBridgeShape {
   agentId: string;
+  sessionStartMs: number;
   createLambdaExtensions: CmExtensionFactory;
   createPeerCursorExtension: CmExtensionFactory;
   crdt?: CrdtModule;
@@ -77,6 +78,7 @@ function loadCrdtModule(): Promise<CrdtModule> {
     // MoonBit's init_model reads bridge.agentId to create the CRDT editor.
     canopyGlobal.__canopy_bridge = {
       agentId: getSessionAgentId(),
+      sessionStartMs: Date.now(),
       createLambdaExtensions: () => [
         lambda(),
         syntaxHighlighting(lambdaHighlightStyle),

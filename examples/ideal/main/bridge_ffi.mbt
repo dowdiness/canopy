@@ -8,16 +8,15 @@ extern "js" fn js_get_agent_id() -> String =
 
 ///|
 /// Current session-relative time in milliseconds for CRDT undo grouping.
-/// State is captured in a module-local closure; not visible on globalThis.
+/// Reads sessionStartMs from the host bridge so MoonBit and TypeScript share the same clock.
 extern "js" fn js_now_ms() -> Int =
-  #| (() => {
-  #|   let sessionStart = null;
-  #|   return function() {
-  #|     if (sessionStart === null) sessionStart = Date.now();
-  #|     const elapsed = Math.floor(Date.now() - sessionStart);
-  #|     return Math.max(0, Math.min(2147483647, elapsed));
-  #|   };
-  #| })()
+  #| function() {
+  #|   var bridge = globalThis.__canopy_bridge;
+  #|   var start = bridge?.sessionStartMs;
+  #|   if (typeof start !== 'number') return 0;
+  #|   var elapsed = Math.floor(Date.now() - start);
+  #|   return Math.max(0, Math.min(2147483647, elapsed));
+  #| }
 
 ///|
 /// Build the ideal editor's CodeMirror extension from the exact CM namespace
