@@ -1,6 +1,6 @@
 # First-class LetDef ProjNodes for binding-level structural edits
 
-**Status:** ready
+**Status:** done (canopy#448, cleanup #664/#668–#671; criteria verified 2026-06-15)
 **Date:** 2026-06-01
 **GitHub:** #127
 **Supersedes:** the deferred Option-B endpoint from `docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md` only for structural editing of bindings. Option D remains the source-location solution.
@@ -140,15 +140,15 @@ Observable outcomes:
 
 ## Acceptance Criteria
 
-- [ ] `Module` ProjNodes expose children `[LetDef..., body]`; every LetDef has exactly one init child.
-- [ ] `FlatProj.defs[i].3` is present in the projection registry and identifies the corresponding LetDef node.
-- [ ] `@scope.Decl` for `ModuleDef` uses the LetDef node id, and `@scope.binder_span` still returns the binder-name range.
-- [ ] Structure-mode PM conversion maps actual LetDef ProjNodes to `let_def`; no init-id synthesis remains in `convert.ts` / `reconciler.ts`.
-- [ ] Drag/drop on `.structure-let_def` moves or swaps whole binding rows. Tests must reject the old `let x = 2 / let y = 1` init-swap behavior unless an explicit expression-level drop selected the init child.
-- [ ] Binding actions (`DeleteBinding`, `DuplicateBinding`, `MoveBindingUp`, `MoveBindingDown`, `InlineAllUsages`, binding rename) work when passed the LetDef id.
-- [ ] Module binder row annotations use real LetDef ids where a visible structural row exists; source-location highlighting still uses `@scope.binder_span`; no stale negative UI key is required for top-level/module rows.
-- [ ] Go-to-definition and rename targeting remain source-span based and continue to pass existing Option-D tests.
-- [ ] No canvas/audio-graph files change as part of this refactor.
+- [x] `Module` ProjNodes expose children `[LetDef..., body]`; every LetDef has exactly one init child.
+- [x] `FlatProj.defs[i].3` is present in the projection registry and identifies the corresponding LetDef node. (Production path: EditModuleView.binding_id = LetDef child id; ModuleProjection is a labeled "Legacy/test helper" with compat fallback — by design.)
+- [x] `@scope.Decl` for `ModuleDef` uses the LetDef node id, and `@scope.binder_span` still returns the binder-name range.
+- [x] Structure-mode PM conversion maps actual LetDef ProjNodes to `let_def`; no init-id synthesis remains in `convert.ts` / `reconciler.ts`.
+- [x] Drag/drop on `.structure-let_def` moves or swaps whole binding rows. E2E test (drag-drop.spec.ts:188) verifies `'let x = 1\nlet y = 2\nx'` → `'let y = 2\nlet x = 1\nx'` after Inside drop.
+- [x] Binding actions (`DeleteBinding`, `DuplicateBinding`, `MoveBindingUp`, `MoveBindingDown`, `InlineAllUsages`, binding rename) work when passed the LetDef id.
+- [x] Module binder row annotations use real LetDef ids where a visible structural row exists; source-location highlighting still uses `@scope.binder_span`; no stale negative UI key is required for top-level/module rows.
+- [x] Go-to-definition and rename targeting remain source-span based and continue to pass existing Option-D tests.
+- [x] No canvas/audio-graph files change as part of this refactor.
 
 ## Validation
 

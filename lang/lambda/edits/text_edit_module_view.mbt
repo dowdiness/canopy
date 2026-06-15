@@ -57,16 +57,7 @@ fn edit_binding_by_id(
         @ast.Term::LetDef(name, _) => Ok(edit_binding_from_child(name, node))
         _ => Err("Binding not found: " + binding_node_id.to_string())
       }
-    None => {
-      let module_view = edit_module_view(ctx)
-      match
-        module_view.defs
-        .iter()
-        .find_first(fn(def) { def.binding_id == binding_node_id }) {
-        Some(def) => Ok(def)
-        None => Err("Binding not found: " + binding_node_id.to_string())
-      }
-    }
+    None => Err("Binding not found: " + binding_node_id.to_string())
   }
 }
 
