@@ -1170,13 +1170,10 @@ test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed 
   // The inner `g`'s binder is inside the extraction subtree, so it is not a
   // real capture of the outer `g` and must not trigger a rejection.
   let text = "g + { let g = 1\n  g }"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
     ExtractToLet(node_id=proj.id(), var_name="y"),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2257,14 +2254,11 @@ test "compute_text_edit: MoveBindingDown does not reject block-shadowed name in 
   // `f` is NOT referenced in `h`'s init — the `f` inside the block is locally
   // bound there. Moving `f` past `h` must succeed.
   let text = "let f = 0\nlet h = { let f = 1\n  f }\nf"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
-  let binding_id = fp.defs[0].3
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let binding_id = proj.children[0].id()
   let result = compute_text_edit(
     MoveBindingDown(binding_node_id=binding_id),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
@@ -2285,14 +2279,11 @@ test "compute_text_edit: InlineDefinition does not reject block-shadowed free na
   // re-shadows `f`. The inner `f`'s binder is inside the init subtree — it is
   // NOT a free reference to the outer `f` and must not trigger a rebind error.
   let text = "let f = 0\nlet h = f + { let f = 1\n  f }\nh"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
-    make_edit_ctx(text, source_map, registry, fp),
+    make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
     Ok(Some((edits, _))) => {
