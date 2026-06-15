@@ -89,6 +89,8 @@ struct NodeActionContext {
 ///|
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
+  // FFI handle for this editor, used to drive handle-keyed FFI (file I/O).
+  handle : Int
   companion : @lambda.LambdaCompanion
   outline_state : @proj.TreeEditorState[@ast.Term]
   cm_id : String

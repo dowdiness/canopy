@@ -11,6 +11,12 @@ pub enum Msg {
   // Undo/redo
   Undo
   Redo
+  // File I/O — Open/Save trigger the host picker; FileLoaded carries the
+  // chosen file's text back into the TEA loop (dispatched as a "file-loaded"
+  // DOM CustomEvent by the host, see rabbita_dom_sub.mbt).
+  OpenFile
+  SaveFile
+  FileLoaded(String)
   // Tree editing (outline collapse/expand)
   TreeEdited(@lambda_edits.TreeEditOp)
   // UI

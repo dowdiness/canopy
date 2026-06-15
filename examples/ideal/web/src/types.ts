@@ -32,8 +32,20 @@ export function getKindTag(kind: any[]): TermKindTag {
   return tag as TermKindTag;
 }
 
+/** Host capability injected into MoonBit via `register_file_host`. */
+export interface FileHost {
+  /** Write `content` to a file named `name` (picker or download). */
+  save(content: string, name: string): void;
+  /** Open a picker for `handle`; on success dispatch a "file-loaded" event. */
+  open(handle: number): void;
+}
+
 export interface CrdtModule {
   create_editor_with_undo(agentId: string, timeoutMs: number): number;
+  // File I/O (typed dependency injection — host implements FileHost).
+  register_file_host(host: FileHost): void;
+  load_file(handle: number): void;
+  save_file(handle: number, suggestedName: string): void;
   get_text(handle: number): string;
   set_text(handle: number, text: string): void;
   set_text_and_record?(handle: number, text: string, timestampMs: number): void;

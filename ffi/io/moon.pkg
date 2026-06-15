@@ -1,0 +1,11 @@
+// Language-agnostic file I/O transport. Outbound bridges to the JS host
+// (open a picker / save text). Knows nothing about editors — callers pass a
+// handle that the host echoes back to the language module's inbound callback.
+// Mirrors the host-callback split used by transport_ws (js impl vs native stub).
+options(
+  is_main: false,
+  targets: {
+    "file_io_js.mbt": [ "js" ],
+    "file_io_native.mbt": [ "not", "js" ],
+  },
+)

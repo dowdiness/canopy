@@ -203,3 +203,26 @@ pub fn handle_structural_intent(
 ) -> String {
   @ffi.handle_structural_intent(handle, op, node_id, timestamp_ms, params_json)
 }
+
+// ── File I/O ──────────────────────────────────────────────
+// Re-export the file load/save FFI so the host can inject its FileHost and
+// trigger picker/save through the ideal-editor module (see web/src/main.ts).
+
+///|
+/// Inject the JS host: `{ save(content, name), open(handle) }`.
+pub fn register_file_host(host : @io.FileHost) -> Unit {
+  @ffi.register_file_host(host)
+}
+
+///|
+/// Trigger the host's file picker for `handle`. The host reads the file and
+/// dispatches a "file-loaded" CustomEvent carrying the text.
+pub fn load_file(handle : Int) -> Unit {
+  @ffi.load_file(handle)
+}
+
+///|
+/// Ask the host to save `handle`'s current text to `suggested_name`.
+pub fn save_file(handle : Int, suggested_name : String) -> Unit {
+  @ffi.save_file(handle, suggested_name)
+}

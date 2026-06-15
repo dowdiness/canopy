@@ -23,7 +23,7 @@ fn init_model() -> Model raise {
   // Create the editor through the crdt module so it sets the singleton (editor.val).
   // JS (main.ts) reuses this handle instead of creating a second editor.
   // Under §P0b Phase 1 the coordinator allocates EditorIds from 0.
-  let _handle = @ffi.create_editor_with_undo(agent_id, 500)
+  let handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
   let companion = @ffi.get_lambda_companion().unwrap()
   // Attach the memo-event tap before any cell reads so initial-parse recomputes
@@ -38,6 +38,7 @@ fn init_model() -> Model raise {
   )
   {
     editor,
+    handle,
     companion,
     outline_state,
     cm_id: "canopy-text-editor",
@@ -318,6 +319,13 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
       text("Redo"),
     ]),
     div(class=toolbar_spacer_class, [text("")]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(OpenFile), [
+      text("Open"),
+    ]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(SaveFile), [
+      text("Save"),
+    ]),
+    div(class=toolbar_spacer_class, [text("")]),
     button(
       class=@ui.toolbar_panel_toggle_class(model.workspace.outline_visible),
       on_click=dispatch(TogglePanel(Outline)),
@@ -530,6 +538,26 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     LoadExample(example_text) => {
       model.editor.set_text_and_record(example_text, js_now_ms())
+      let new_model = refresh({
+        ..model,
+        next_timestamp: model.next_timestamp + 1,
+      })
+      let text = new_model.editor.get_text()
+      let cmd = sync_after_local_model_change(new_model, text)
+      (cmd, new_model)
+    }
+    // ── File I/O ──────────────────────────────────────────
+    OpenFile =>
+      (@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model)
+    SaveFile =>
+      (
+        @rabbita.effect(fn() { @ffi.save_file(model.handle, "canopy.lambda") }),
+        model,
+      )
+    // The host read a file and dispatched its text as a "file-loaded" event.
+    // Apply it exactly like LoadExample: record for undo, refresh, push to CM.
+    FileLoaded(content) => {
+      model.editor.set_text_and_record(content, js_now_ms())
       let new_model = refresh({
         ..model,
         next_timestamp: model.next_timestamp + 1,
