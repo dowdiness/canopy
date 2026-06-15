@@ -1163,6 +1163,64 @@ test "compute_text_edit: ExtractToLet refuses block-def extraction with block-lo
 }
 
 ///|
+/// Lambda param referenced in a block-def init: the param is declared OUTSIDE
+/// the block (in the enclosing lambda), so it stays in scope at the insertion
+/// point. This exercises the scope_is_within check on the block-def path.
+///
+/// Parser wraps the top-level lambda as an unnamed binding, so proj.kind is
+/// Module([("", Lam("x",…))], Unit). Navigation must go through that wrapper.
+test "compute_text_edit: ExtractToLet allows block-def extraction when lambda param is from outside the block" {
+  let text = "fn(x) { let y = x\ny }"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj = Module([("", Lam("x", …))], Unit)
+  // proj.children[0] = LetDef("", Lam("x", …))
+  // proj.children[0].children[0] = Lam("x", inner_block)
+  // proj.children[0].children[0].children[0] = inner_block = Module([("y",…)],…)
+  // inner_block.children[0] = LetDef("y", Var("x"))
+  // inner_block.children[0].children[0] = Var("x")  ← target
+  let lam = proj.children[0].children[0]
+  let inner_block = lam.children[0]
+  let let_y = inner_block.children[0]
+  let x_var = let_y.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=x_var.id(), var_name="v"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      // Root still has 1 def (the unnamed lambda binding); lambda body block
+      // gains the new "v" binding as its first def.
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let lam_block = result_proj.children[0].children[0].children[0]
+          match lam_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="v")
+              inspect(block_defs[1].0, content="y")
+            }
+            _ =>
+              fail(
+                "expected lambda body block to be Module, got " +
+                @debug.to_string(lam_block.kind),
+              )
+          }
+        }
+        _ => fail("expected root Module")
+      }
+    }
+    other => fail("expected Ok(Some(_)), got: " + @debug.to_string(other))
+  }
+}
+
+///|
 /// Extracting a block-internal expression with no block-local free var inserts
 /// the let inside the enclosing block (not hoisted to root). Verified by
 /// reparsing: root keeps exactly 1 def, and the block gains the new binding

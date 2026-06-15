@@ -92,15 +92,33 @@ fn compute_extract_to_let(
         ),
       )
     } else {
-      // Node is in a block def. The let is inserted before ALL block defs, so
-      // block-local free vars (not in scope before the first def) would become
-      // unbound. Apply the root-relative capture check as a conservative guard.
-      let would_capture = if module_view.defs.is_empty() {
-        free_names_captured_at_use_sites(g, node, fv)
-      } else {
-        free_names_would_rebind_at_module_end(g, definition_index, node, fv)
+      // Node is in a block def. Insertion is at the block's first def position,
+      // still inside any lambda that encloses the block. Reject if any free var
+      // resolves to a decl whose scope is the block's own inner scope or any
+      // nested scope (scope_is_within). This catches two cases:
+      //   1. Block-local ModuleDefs: not yet visible at the block start (sequential scoping).
+      //   2. Lambda params declared inside the block: not in scope at the block start.
+      // Lambda params declared OUTSIDE the block stay visible at the insertion
+      // point and must not be rejected.
+      let node_subtree = subtree_node_ids(node)
+      let unsafe_ref = match g.node_scope.get(block_node.id()) {
+        Some(bis) =>
+          fv
+          .iter()
+          .any(fn(v) {
+            let var_ids : Array[NodeId] = []
+            collect_var_usages(node, v, var_ids)
+            var_ids.any(fn(vid) {
+              match @scope.declaration(g, vid) {
+                Some(decl) if !node_subtree.contains(decl.node_id) =>
+                  scope_is_within(g, decl.scope, bis)
+                _ => false
+              }
+            })
+          })
+        None => false
       }
-      if would_capture {
+      if unsafe_ref {
         return Err("Cannot extract: expression captures lambda-bound variables")
       }
       // Guard: inserting `let var_name = expr` before all block defs makes
@@ -108,7 +126,6 @@ fn compute_extract_to_let(
       // outside the extracted expression — whether currently resolved or free —
       // must be refused: a resolved use would be retargeted; a free use would
       // become bound. Both change semantics.
-      let node_subtree = subtree_node_ids(node)
       let block_var_ids : Array[NodeId] = []
       collect_var_usages(block_node, var_name, block_var_ids)
       for vid in block_var_ids {
