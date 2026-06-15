@@ -1075,6 +1075,32 @@ test "compute_text_edit: ExtractToLet refuses block-body extraction when var_nam
 }
 
 ///|
+/// Inserting `let var_name = expr` before all block defs makes var_name
+/// visible throughout the block. Any existing Var(var_name) in the block
+/// (in later def initializers or the body) that currently resolves to an
+/// outer binding is silently retargeted, changing semantics. The block-def
+/// path must refuse.
+/// Example: outer `y`, block `{ let a = 1\n  y + a }`, extracting `1` as
+/// `y` would insert `let y = 1` before `let a`, making body `y + a` resolve
+/// `y` to 1 instead of the outer binding.
+test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would capture block ref" {
+  let text = "let y = 5\nlet z = { let a = 1\n  y + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // z is proj.children[1] (second root def); block is z's init
+  let z_def = proj.children[1]
+  let block = z_def.children[0]
+  // Extract Int(1) from `let a = 1`: block→LetDef("a")→Int(1)
+  let lit_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 /// Extracting from a block DEF when the expression uses a block-local binding
 /// defined earlier in the same block is correctly refused. Inserting `let y =
 /// expr` before all block defs would put `expr` before `a`'s binding, leaving
