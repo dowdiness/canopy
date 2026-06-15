@@ -51,7 +51,7 @@ pub(all) suberror TreeEditError {
   FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
-  ModuleProjectionUnavailable
+  ProjectionUnavailable
   UnhandledOperation(detail~ : String)
   NodeNotInSourceMap(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)
   NodeNotInRegistry(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)

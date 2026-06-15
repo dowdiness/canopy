@@ -44,19 +44,6 @@ pub fn build_semantic_projection(
 }
 
 ///|
-/// Temporary compatibility adapter for callers that still hold the flat
-/// projection memo. Semantic analysis now derives binder ids from the current
-/// `ProjNode` tree and ignores the `ModuleProjection` argument.
-pub fn build_semantic_projection_with_module_projection(
-  root : @core.ProjNode[@ast.Term],
-  source_map : @core.SourceMap,
-  module_projection : @lambda_proj.ModuleProjection?,
-) -> SemanticProjection {
-  let _ = module_projection
-  build_semantic_projection(root, source_map)
-}
-
-///|
 /// Source the free-variable diagnostics from the lambda scope graph rather than
 /// the projection's own environment walk (research note 2026-06-13 §6 Step 1).
 /// Each unresolved reference (`resolution.decl == None`) is a witnessed

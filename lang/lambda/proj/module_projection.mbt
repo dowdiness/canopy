@@ -1,19 +1,22 @@
-// Lambda-specific ModuleProjection: flat representation of Module with per-def tracking.
-// Moved from projection/module_projection.mbt to separate language code from framework.
+// Legacy Lambda ModuleProjection compatibility layer.
+//
+// Production editor-facing projection uses the generic 3-memo stack in
+// projection_memo.mbt. This flat view remains only for root-module
+// reconciliation inside this package and for legacy compatibility tests; new
+// production consumers should derive data from ProjNode, SourceMap, registry,
+// and DefinitionIndex instead.
 
 ///|
+/// Legacy flat module view used by compatibility tests and the internal
+/// root-module reconciliation hook. Prefer `ProjNode` + `DefinitionIndex` for
+/// production edit/semantic code.
 pub struct ModuleProjection {
   defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)] // (name, init, start, LetDef id)
   final_expr : ProjNode[@ast.Term]?
 } derive(Debug, Eq)
 
 ///|
-pub fn ModuleProjection::empty() -> ModuleProjection {
-  { defs: [], final_expr: None }
-}
-
-///|
-/// Build a ModuleProjection from a SourceFile SyntaxNode.
+/// Legacy/test helper: build a ModuleProjection from a SourceFile SyntaxNode.
 /// Iterates LetDef children and collects them as flat array entries.
 /// Each entry stores the init subtree plus the real LetDef node id.
 pub fn to_module_projection(
@@ -41,7 +44,8 @@ pub fn to_module_projection(
 }
 
 ///|
-/// Build a ModuleProjection incrementally by comparing old and new CST children.
+/// Legacy/test helper: build a ModuleProjection incrementally by comparing old
+/// and new CST children.
 ///
 /// For each child pair, compares start offset plus underlying CstNodes
 /// structurally. If unchanged, reuses the old ModuleProjection entry directly —
@@ -173,7 +177,7 @@ fn[K : Eq + Hash] key_match(
 ///|
 /// Reconcile two ModuleProjections, preserving node IDs where entries match.
 /// O(n) hash-based matching on def names; reconciles init subtrees individually.
-pub fn reconcile_module_projection(
+fn reconcile_module_projection(
   old_fp : ModuleProjection,
   new_fp : ModuleProjection,
   counter : Ref[Int],
@@ -215,7 +219,7 @@ pub fn reconcile_module_projection(
 }
 
 ///|
-/// Reconstruct a Module ProjNode from ModuleProjection.
+/// Legacy/test helper: reconstruct a Module ProjNode from ModuleProjection.
 /// Uses stored NodeIds for the Module node. Counter only used for Unit fallback.
 pub fn ModuleProjection::to_proj_node(
   self : ModuleProjection,
@@ -232,7 +236,7 @@ pub fn ModuleProjection::to_proj_node(
 /// of allocating a fresh one from the counter. This ensures the root Module
 /// node_id is stable across incremental rebuilds when the content hasn't
 /// changed structurally — which is required for ProseMirror document identity.
-pub fn ModuleProjection::to_proj_node_with_prev_module_id(
+fn ModuleProjection::to_proj_node_with_prev_module_id(
   self : ModuleProjection,
   counter : Ref[Int],
   prev_module_id : Int?,
@@ -278,7 +282,7 @@ pub fn ModuleProjection::to_proj_node_with_prev_module_id(
 }
 
 ///|
-/// Extract a ModuleProjection from a Module ProjNode.
+/// Legacy/test helper: extract a ModuleProjection from a Module ProjNode.
 /// Reads LetDef children and extracts their init child. Legacy init-only
 /// children are accepted as a compatibility fallback.
 pub fn ModuleProjection::from_proj_node(
@@ -319,7 +323,8 @@ pub fn ModuleProjection::from_proj_node(
 }
 
 ///|
-/// Print a ModuleProjection to text. Equivalent to @ast.print_term on the nested spine.
+/// Legacy/test helper: print a ModuleProjection to text. Equivalent to
+/// @ast.print_term on the nested spine.
 pub fn print_module_projection(fp : ModuleProjection) -> String {
   let parts : Array[String] = []
   for def in fp.defs {

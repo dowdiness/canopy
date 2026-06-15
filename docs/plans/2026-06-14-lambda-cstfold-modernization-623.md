@@ -1,14 +1,14 @@
 # Lambda CstFold modernization decision note (#623)
 
-**Status:** accepted through #633 (generic 3-memo editor-facing projection path)
+**Status:** accepted through #633; updated for #661 compatibility cleanup
 **Date:** 2026-06-14  
 **Issue:** <https://github.com/dowdiness/canopy/issues/623>
 
 ## Decision
 
 Migrate Lambda incrementally toward the CstFold pattern at the **projection
-construction** seam, but keep the Lambda-specific `ModuleProjection` memo layer
-and custom edit bridge for now.
+construction** seam, but keep the Lambda-specific `ModuleProjection`
+compatibility/reconciliation helpers and custom edit bridge for now.
 
 Markdown remains the reference integration for new languages. Lambda stays a
 legacy stress case, not a reference demo. The immediate modernization goal is to
@@ -27,8 +27,9 @@ containing the remaining exceptions.
   - `@lang_runtime.LanguageSpec` for editor construction and edit application.
 - Lambda still uses:
   - `ModuleProjection { defs, final_expr }` in
-    `lang/lambda/proj/module_projection.mbt` for legacy helpers/tests and the
-    #634 removal follow-up.
+    `lang/lambda/proj/module_projection.mbt` for legacy helpers/tests plus the
+    internal root-module reconciliation hook; it is no longer editor-facing
+    projection state.
   - Hand-written view-cast projection in `lang/lambda/proj/proj_node.mbt`.
   - `@core.build_projection_memos` via
     `lang/lambda/proj/projection_memo.mbt` for the editor-facing 3-memo stack
@@ -48,19 +49,20 @@ containing the remaining exceptions.
 | CST -> AST value | `CstFold` + language fold node | duplicated hand-built `Term` construction in Canopy | migrate first |
 | AST/projection tree shape | small AST/syntax parallel walk | bespoke synthetic `Lam`, `App`, `Bop`, `LetDef`, `Module` shapes | preserve initially |
 | Memo pipeline | `@core.build_projection_memos` 3-memo | `@core.build_projection_memos` via `lang/lambda/proj` (#633); legacy `ModuleProjection` no longer has an editor-facing memo | migrated in #633 |
-| Edit bridge | `LanguageSpec::apply_edit` | `EditContext{registry,module_projection}` + typed errors + patch trace + `Drop` via `move_node` | keep custom bridge |
+| Edit bridge | `LanguageSpec::apply_edit` | `EditContext{registry,definition_index}` derived from the generic projection root + typed errors + patch trace + `Drop` via `move_node` | keep custom bridge |
 | New-language guidance | copy Markdown | explicitly do not copy Lambda | leave docs accurate |
 
 ## Blockers to a full migration
 
-1. **`ModuleProjection` is still semantic/editor state.** Scope, semantic
-   decorations, binding actions, and many edit tests consume the flat def view
-   and its LetDef ids. Removing it requires a separate identity/scope design,
-   not just swapping memo helpers.
+1. **`ModuleProjection` remains a compatibility/reconciliation seam, not editor
+   state.** Scope, semantic decorations, binding actions, and production edits
+   now derive from the generic projection root plus `DefinitionIndex`. The
+   remaining flat view is used internally to reconcile root-module binding IDs
+   and by legacy tests being classified under #662.
 2. **The `LanguageSpec` boundary deliberately excludes Lambda's edit bridge.**
-   The S3 amendment records why: Lambda needs registry + module-projection
-   context, returns `TreeEditError` plus the applied `SpanEdit` trace, and
-   delegates `Drop` to `SyncEditor::move_node`.
+   The S3 amendment records why: Lambda needs registry plus a definition index,
+   returns `TreeEditError` plus the applied `SpanEdit` trace, and delegates
+   `Drop` to `SyncEditor::move_node`.
 3. **CstFold and current projection semantics are not byte-for-byte identical.**
    A probe comparing current projection kind with `syntax_node_to_term` showed:
    - `{ 1 }`: current projection `Int(1)`, CstFold term `Module([], Int(1))`.
@@ -71,8 +73,8 @@ containing the remaining exceptions.
    no-definition block-expression structural patterns before parity-checking
    CstFold terms now or adopting them in later projection slices.
 4. **Related issues remain adjacent, not substitutes.**
-   - #129/#scope work centralized queries but did not remove the
-     `ModuleProjection` context requirement.
+   - #129/#scope work centralized queries before #632/#661 removed the
+     production `ModuleProjection` context requirement.
    - #567/`ProjectionIdentityTracker` is relevant for future binder identity,
      but it does not replace Lambda's current projection-diff mechanism.
    - #389 may improve projection API ergonomics later; it is not a current
@@ -158,14 +160,14 @@ Likely touched files:
 - #631 — extract a definition index from `ModuleProjection`.
 - #632 — migrate scope/edit/semantic consumers off `ModuleProjection`.
 - #633 — switch the projection memo stack to the generic 3-memo path.
-- #634 — revisit the Lambda edit bridge after `ModuleProjection` removal.
+- #634 — revisit the Lambda edit bridge after compatibility-surface cleanup.
 - #635 — replace typed-`fn` source scanners with structured token metadata.
 
 ## Non-goals
 
 - Do not migrate Lambda onto `LanguageSpec` in this issue slice.
-- After #633, keep remaining `ModuleProjection` removal and edit-bridge cleanup
-  scoped to #634 instead of broadening memo-stack work into an edit redesign.
+- After #633/#661, keep remaining edit-bridge cleanup scoped to #634 instead of
+  broadening compatibility-surface work into an edit redesign.
 - Do not make #625's source scanner a reusable framework abstraction.
 - Do not reopen binder identity or scope unification under #623 unless a concrete
   projection slice is blocked by them.
