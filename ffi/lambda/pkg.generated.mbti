@@ -4,6 +4,7 @@ package "dowdiness/canopy/ffi/lambda"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/transport_ws",
   "dowdiness/lambda/ast",
   "moonbitlang/async/js_async",
@@ -92,7 +93,13 @@ pub fn insert_and_record(Int, String, Int) -> Unit
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
+pub fn load_file(Int) -> Unit
+
+pub fn on_file_opened(Int, String, Int) -> Unit
+
 pub fn redo_and_export_json(Int) -> String
+
+pub fn register_file_host(@js.Any) -> Unit
 
 pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
 
@@ -101,6 +108,8 @@ pub fn relay_on_disconnect(String, String) -> Unit
 pub fn relay_on_message(String, String, Bytes) -> Unit
 
 pub fn rename_semantic_node(Int, Int, String, Int) -> String
+
+pub fn save_file(Int, String) -> Unit
 
 pub fn set_text(Int, String) -> Unit
 
