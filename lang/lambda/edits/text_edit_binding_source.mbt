@@ -1,18 +1,11 @@
 ///|
-fn binding_starts_with_fn(source_text : String, start : Int) -> Bool {
-  start + 2 <= source_text.length() &&
-  source_text[start] == 'f' &&
-  source_text[start + 1] == 'n' &&
-  (
-    start + 2 == source_text.length() ||
-    !is_identifier_code(source_text[start + 2])
-  )
-}
-
-///|
 priv enum BindingRewriteKind {
   ValueBinding
-  FnBinding
+  FnBinding(
+    param_list~ : @loomcore.Range,
+    body~ : @loomcore.Range,
+    has_params~ : Bool
+  )
 }
 
 ///|
@@ -52,6 +45,55 @@ fn binding_name_range(
 }
 
 ///|
+fn binding_structured_role_range(
+  source_map : SourceMap,
+  def : EditModuleBinding,
+  role : String,
+  binding_start : Int,
+  binding_end : Int,
+  label : String,
+) -> Result[@loomcore.Range, String] {
+  match source_map.get_token_span(def.binding_id, role) {
+    Some(range) =>
+      if binding_start <= range.start &&
+        range.start <= range.end &&
+        range.end <= binding_end {
+        Ok(range)
+      } else {
+        Err("Cannot rewrite fn binding: " + label + " range out of binding")
+      }
+    None => Err("Cannot rewrite fn binding: " + label + " range not found")
+  }
+}
+
+///|
+fn binding_has_fn_params(
+  source_map : SourceMap,
+  def : EditModuleBinding,
+) -> Bool {
+  source_map.get_token_span(
+    def.binding_id,
+    @lambda_proj.FN_BINDING_PARAM_NAME_ROLE,
+  )
+  is Some(_)
+}
+
+///|
+fn binding_has_synthetic_fn_params(def : EditModuleBinding) -> Bool {
+  def.init.kind is @ast.Term::Lam(_, _)
+}
+
+///|
+/// Detects the desugared-Lam shape that only `fn` bindings produce: the outer
+/// Lam starts at the binding boundary instead of at a value initializer. This
+/// is only a rejection guard for missing structured roles, not a source scanner.
+fn binding_requires_fn_metadata(def : EditModuleBinding) -> Bool {
+  binding_has_synthetic_fn_params(def) &&
+  def.binding_id != def.init.id() &&
+  def.init.start == def.start
+}
+
+///|
 fn binding_rewrite_source(
   source_text : String,
   source_map : SourceMap,
@@ -62,18 +104,48 @@ fn binding_rewrite_source(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  let binding_kind_start = match
-    first_non_space_in_range(
-      source_text,
-      @loomcore.Range::new(binding_start, binding_end),
+  let kind = match
+    source_map.get_token_span(
+      def.binding_id,
+      @lambda_proj.FN_BINDING_KEYWORD_ROLE,
     ) {
-    Some(pos) => pos
-    None => binding_start
-  }
-  let kind = if binding_starts_with_fn(source_text, binding_kind_start) {
-    FnBinding
-  } else {
-    ValueBinding
+    Some(_) => {
+      let param_list = match
+        binding_structured_role_range(
+          source_map,
+          def,
+          @lambda_proj.FN_BINDING_PARAM_LIST_ROLE,
+          binding_start,
+          binding_end,
+          "parameter list",
+        ) {
+        Ok(range) => range
+        Err(e) => return Err(e)
+      }
+      let body = match
+        binding_structured_role_range(
+          source_map,
+          def,
+          @lambda_proj.FN_BINDING_BODY_ROLE,
+          binding_start,
+          binding_end,
+          "body",
+        ) {
+        Ok(range) => range
+        Err(e) => return Err(e)
+      }
+      FnBinding(
+        param_list~,
+        body~,
+        has_params=binding_has_fn_params(source_map, def),
+      )
+    }
+    None =>
+      if binding_requires_fn_metadata(def) {
+        return Err("Cannot rewrite fn binding: keyword range not found")
+      } else {
+        ValueBinding
+      }
   }
   Ok({ def, binding_start, binding_end, kind })
 }
@@ -119,84 +191,15 @@ fn trimmed_source_text(source_text : String, range : @loomcore.Range) -> String 
 }
 
 ///|
-fn find_char_in_range(
-  source_text : String,
-  needle : UInt16,
-  start : Int,
-  end : Int,
-) -> Int? {
-  for pos in start..<end {
-    if source_text[pos] == needle {
-      return Some(pos)
-    }
-  }
-  None
-}
-
-///|
-fn range_has_non_space(source_text : String, start : Int, end : Int) -> Bool {
-  for pos in start..<end {
-    if !is_space_code(source_text[pos]) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn matching_right_paren(
-  source_text : String,
-  open_pos : Int,
-  end : Int,
-) -> Result[Int, String] {
-  // Tiny source scanner state machine: depth tracks nested parens in types.
-  let mut depth = 0
-  for pos in open_pos..<end {
-    if source_text[pos] == '(' {
-      depth = depth + 1
-    } else if source_text[pos] == ')' {
-      depth = depth - 1
-      if depth == 0 {
-        return Ok(pos)
-      }
-    }
-  }
-  Err("Cannot inline fn binding: parameter list end not found")
-}
-
-///|
 fn fn_binding_inline_text(
   source_text : String,
-  binding_start : Int,
-  binding_end : Int,
+  param_list : @loomcore.Range,
+  body_range : @loomcore.Range,
+  has_params : Bool,
 ) -> Result[String, String] {
-  let param_start = match
-    find_char_in_range(source_text, '(', binding_start, binding_end) {
-    Some(pos) => pos
-    None => return Err("Cannot inline fn binding: parameter list not found")
-  }
-  let param_end = match
-    matching_right_paren(source_text, param_start, binding_end) {
-    Ok(pos) => pos + 1
-    Err(e) => return Err(e)
-  }
-  let body_start = match
-    first_non_space_in_range(
-      source_text,
-      @loomcore.Range::new(param_end, binding_end),
-    ) {
-    Some(pos) => pos
-    None => return Err("Cannot inline fn binding: body not found")
-  }
-  if source_text[body_start] != '{' {
-    return Err("Cannot inline fn binding: expected block body")
-  }
-  let params = source_text[param_start:param_end].to_owned()
-  let body = trimmed_source_text(
-    source_text,
-    @loomcore.Range::new(body_start, binding_end),
-  )
-  if range_has_non_space(source_text, param_start + 1, param_end - 1) {
+  let params = source_text[param_list.start:param_list.end].to_owned()
+  let body = trimmed_source_text(source_text, body_range)
+  if has_params {
     Ok("(" + params + " => " + body + ")")
   } else {
     Ok(body)
@@ -210,8 +213,8 @@ fn BindingRewriteSource::inline_text(
   source_map : SourceMap,
 ) -> Result[String, String] {
   match self.kind {
-    FnBinding =>
-      fn_binding_inline_text(source_text, self.binding_start, self.binding_end)
+    FnBinding(param_list~, body~, has_params~) =>
+      fn_binding_inline_text(source_text, param_list, body, has_params)
     ValueBinding =>
       match source_map.get_range(self.def.init.id()) {
         Some(r) => Ok(trimmed_source_text(source_text, r))

@@ -757,9 +757,7 @@ test "compute_text_edit: DuplicateBinding on last binding" {
 ///|
 test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
     DuplicateBinding(binding_node_id=proj.children[0].id()),
     make_edit_ctx(text, source_map, registry, proj),
@@ -1322,9 +1320,7 @@ test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
 ///|
 test "compute_text_edit: InlineAllUsages preserves typed fn binding" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice id 1"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let result = compute_text_edit(
     InlineAllUsages(binding_node_id=proj.children[0].id()),
     make_edit_ctx(text, source_map, registry, proj),
@@ -1341,9 +1337,7 @@ test "compute_text_edit: InlineAllUsages preserves typed fn binding" {
 ///|
 test "compute_text_edit: InlineDefinition preserves typed fn binding" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
@@ -1361,9 +1355,7 @@ test "compute_text_edit: InlineDefinition preserves typed fn binding" {
 ///|
 test "compute_text_edit: InlineDefinition preserves indented typed fn binding" {
   let text = "  fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
@@ -1381,9 +1373,7 @@ test "compute_text_edit: InlineDefinition preserves indented typed fn binding" {
 ///|
 test "compute_text_edit: InlineDefinition zero-param fn uses block body" {
   let text = "fn answer() { 42 }\nanswer"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
+  let (proj, source_map, registry) = parse_with_token_spans(text)
   let body = proj.children[proj.children.length() - 1]
   let result = compute_text_edit(
     InlineDefinition(node_id=body.id()),
@@ -1395,6 +1385,68 @@ test "compute_text_edit: InlineDefinition zero-param fn uses block body" {
       inspect(new_text, content="{ 42 }")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition zero-param fn with lambda body uses block body" {
+  let text = "fn make() { (x) => x }\nmake"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="{ (x) => x }")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition typed fn rejects missing keyword span" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Err(msg) =>
+      inspect(msg, content="Cannot rewrite fn binding: keyword range not found")
+    _ => fail("expected structured metadata rejection")
+  }
+}
+
+///|
+test "compute_text_edit: InlineDefinition typed fn rejects missing parameter span" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  source_map.set_token_span(
+    proj.children[0].id(),
+    @lambda_proj.FN_BINDING_KEYWORD_ROLE,
+    @loomcore.Range::new(0, 2),
+  )
+  let registry = text_edit_test_registry(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Err(msg) =>
+      inspect(
+        msg,
+        content="Cannot rewrite fn binding: parameter list range not found",
+      )
+    _ => fail("expected structured metadata rejection")
   }
 }
 
