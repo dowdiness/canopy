@@ -1,0 +1,9 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/lambda/ast",
+}
+
+import {
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+} for "wbtest"
