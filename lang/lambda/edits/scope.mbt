@@ -149,6 +149,24 @@ fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
 }
 
 ///|
+/// Whether `scope_id` contains at least one ModuleDef decl (i.e. it is a
+/// block/module scope, not a pure lambda scope). Used to distinguish nested
+/// block scopes from lambda scopes when deciding the insertion target for
+/// ExtractToLet.
+fn scope_has_module_defs(
+  g : @scope.ScopeGraph,
+  scope_id : @scope.ScopeId,
+) -> Bool {
+  let @scope.ScopeId(si) = scope_id
+  g.scopes[si].decl_ids
+  .iter()
+  .any(fn(did) {
+    let @scope.DeclId(di) = did
+    g.decls[di].kind is @scope.DeclKind::ModuleDef(_)
+  })
+}
+
+///|
 /// Whether `scope` is `ancestor` itself or any descendant of it — i.e. whether
 /// `ancestor` lies on `scope`'s parent chain. Used to test if a reference sits
 /// inside a declaration's visibility region (its declaring scope's subtree).
