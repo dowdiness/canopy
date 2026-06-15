@@ -61,6 +61,24 @@ fn compute_extract_to_let(
           }
         None => source_text.length()
       }
+      // Guard: inserting `let var_name = expr` makes var_name visible throughout
+      // the new body. Any existing resolved Var(var_name) in the body OUTSIDE
+      // the extracted expression would be silently retargeted to the new binding.
+      if block_view.final_expr is Some(body_node) {
+        let node_subtree = subtree_node_ids(node)
+        let body_var_ids : Array[NodeId] = []
+        collect_var_usages(body_node, var_name, body_var_ids)
+        for vid in body_var_ids {
+          if !node_subtree.contains(vid) &&
+            @scope.declaration(g, vid) is Some(_) {
+            return Err(
+              "Cannot extract: '" +
+              var_name +
+              "' is already bound in the block body",
+            )
+          }
+        }
+      }
       let prefix = source_text[block_body_start:range.start].to_owned()
       let suffix = source_text[range.end:block_body_end].to_owned()
       let new_body_text = let_text + prefix + var_name + suffix

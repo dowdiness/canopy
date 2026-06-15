@@ -1053,6 +1053,30 @@ test "compute_text_edit: ExtractToLet handles block body with block-local free v
 }
 
 ///|
+/// If var_name is already bound in the block body (outside the extracted
+/// expression), inserting `let var_name = expr` would silently retarget those
+/// uses to the new binding, changing semantics. The block-body path must refuse.
+/// Example: `(a + 1) + a` extracting `(a + 1)` as `a` would produce
+/// `let a = (a + 1)\na + a` where the suffix `a` now refers to the new binding
+/// instead of the original `let a = 1`.
+test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would capture suffix" {
+  let text = "let z = { let a = 1\n  (a + 1) + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // Extract `(a + 1)` from the body: block→body→Add(Add(Var(a),Int(1)), Var(a))
+  let block = proj.children[0].children[0]
+  let body = block.children[block.children.length() - 1]
+  // body is Add(Add(Var(a),Int(1)), Var(a)); first child is (a + 1)
+  let extracted = body.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=extracted.id(), var_name="a"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 /// Extracting from a block DEF when the expression uses a block-local binding
 /// defined earlier in the same block is correctly refused. Inserting `let y =
 /// expr` before all block defs would put `expr` before `a`'s binding, leaving
