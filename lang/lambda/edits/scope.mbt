@@ -56,7 +56,9 @@ fn init_ref_resolves(
   let var_ids : Array[NodeId] = []
   collect_var_usages(init, name, var_ids)
   var_ids.any(fn(vid) {
-    g.refs.iter().any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
+    g.refs
+    .iter()
+    .any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
   })
 }
 

@@ -106,7 +106,11 @@ test "remap_failures: pure insertion before failure shifts positions stably" {
   // Inserting "let w = 0\n" (10 chars) at position 0 shifts all positions +10.
   // Without remap: before-key "3:4:y" != after-key "13:14:y" → spurious diff.
   // With remap: before remapped to "13:14:y" → matches after → empty diff.
-  let insert_edit : @core.SpanEdit = { start: 0, delete_len: 0, inserted: "let w = 0\n" }
+  let insert_edit : @core.SpanEdit = {
+    start: 0,
+    delete_len: 0,
+    inserted: "let w = 0\n",
+  }
   let before = [
     ReachableFailure(name="y", location=Some({ start: 3, end: 4 }), witness=[]),
   ]
@@ -133,7 +137,9 @@ test "remap_failures: None-location failures pass through unchanged" {
 test "remap_failures: empty edit list returns failures unchanged" {
   let f = ReachableFailure(name="x", location=Some({ start: 5, end: 6 }), witness=[])
   let remapped = remap_failures([f], [])
-  guard remapped[0].location is Some(loc) else { fail("expected Some location") }
+  guard remapped[0].location is Some(loc) else {
+    fail("expected Some location")
+  }
   inspect(loc.start, content="5")
   inspect(loc.end, content="6")
 }

@@ -166,6 +166,8 @@ fn remap_pos(pos : Int, edits : Array[@core.SpanEdit]) -> Int {
     } else {
       continue shift + edit.inserted.length() - edit.delete_len
     }
-  } nobreak { shift }
+  } nobreak {
+    shift
+  }
   pos + final_shift
 }
