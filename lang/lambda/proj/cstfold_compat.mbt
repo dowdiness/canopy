@@ -4,14 +4,13 @@
 ///
 /// Loom keeps expression blocks explicit in its raw CstFold term shape:
 /// `{ 1 }` folds to `Module([], Int(1))`, and `{}` folds to
-/// `Error("empty block")`. The Lambda editor already treats a block with no
-/// definitions like grouping syntax and treats an empty block as `Unit`.
-/// Keep that compatibility boundary explicit until the projection pipeline is
-/// fully CstFold-backed.
+/// `Error("empty block")`. Canopy's projection pipeline now matches Loom for
+/// non-empty-body blocks: both produce `Module([], body)` for `{ body }`. The
+/// only remaining divergence is the empty-block `{}`: Loom gives
+/// `Error("empty block")`, Canopy gives `Module([], Unit)`.
 fn cstfold_projection_compatible_term(term : @ast.Term) -> @ast.Term {
   match term {
     Error("empty block") => Unit
-    Module([], body) => cstfold_projection_compatible_term(body)
     _ =>
       match term.children() {
         [] => term
@@ -46,7 +45,6 @@ fn cstfold_projection_compatible_kind(node : @seam.SyntaxNode) -> @ast.Term {
 fn cstfold_projection_compatible_shallow_term(term : @ast.Term) -> @ast.Term {
   match term {
     Error("empty block") => Unit
-    Module([], body) => body
     _ => term
   }
 }

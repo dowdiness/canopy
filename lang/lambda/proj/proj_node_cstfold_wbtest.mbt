@@ -419,9 +419,20 @@ test "cstfold parity: valid module and fn sources agree" {
 }
 
 ///|
-test "cstfold parity: raw block divergence stays behind compatibility adapter" {
-  assert_projection_fold_classification("{ 1 }", Int(1), Module([], Int(1)))
-  assert_projection_fold_classification("{ }", Unit, Error("empty block"))
+test "cstfold parity: block projection agrees with cstfold; empty-block divergence stays behind adapter" {
+  // Non-empty-body blocks: canopy projection now matches Loom CstFold directly.
+  assert_projection_fold_classification(
+    "{ 1 }",
+    Module([], Int(1)),
+    Module([], Int(1)),
+  )
+  // Empty block: canopy gives Module([], Unit), Loom gives Error("empty block").
+  // The compatibility adapter bridges this remaining divergence.
+  assert_projection_fold_classification(
+    "{ }",
+    Module([], Unit),
+    Error("empty block"),
+  )
   assert_term_equal(
     "empty block compatibility normalization",
     Unit,
@@ -436,7 +447,18 @@ test "cstfold parity: raw block divergence stays behind compatibility adapter" {
   )
   assert_projection_matches_compatible_fold("{ 1 }")
   assert_projection_matches_compatible_fold("{ { 1 } }")
-  assert_projection_matches_compatible_fold("let x = { { 1 } }\nx")
+  // Double-nested empty-def block in let-def init position: Loom's
+  // convert_let_def calls convert_function_body on the init expression, which
+  // transparently unwraps an outer empty-def block (defs empty → return body).
+  // Canopy's project_let_def calls syntax_to_proj_node, which preserves all
+  // empty-def blocks as Module nodes. The result: Loom folds to
+  // Module([], Int(1)) as the init (outer unwrapped), while Canopy produces
+  // Module([], Module([], Int(1))) (both levels preserved).
+  assert_projection_fold_classification(
+    "let x = { { 1 } }\nx",
+    Module([("x", Module([], Module([], Int(1))))], Var("x")),
+    Module([("x", Module([], Int(1)))], Var("x")),
+  )
   assert_projection_matches_compatible_fold("{ let x = 1; { x } }")
 }
 

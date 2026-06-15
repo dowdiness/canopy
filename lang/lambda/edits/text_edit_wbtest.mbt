@@ -1315,6 +1315,54 @@ test "compute_text_edit: ExtractToLet refuses lambda-param rebind in lambda-in-b
 }
 
 ///|
+/// The primary bug-report case: extracting `1` from `let z = { 1 + 2 }` was
+/// inserting at root scope instead of inside the block. Empty-def blocks used
+/// to collapse in projection to their body node (no Module in the registry),
+/// so `find_enclosing_block` returned None. Now empty-def blocks always emit
+/// a Module ProjNode, giving the scope graph a block scope to detect.
+/// Verified by reparsing: root still has 1 def (z), block gains def `y`.
+test "compute_text_edit: ExtractToLet inserts inside empty-def block body" {
+  let text = "let z = { 1 + 2 }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // After Option B: proj→LetDef("z")→Module([], Add)→[Add→[Int(1), Int(2)]]
+  let block = proj.children[0].children[0]
+  let int_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=int_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="1")
+              inspect(block_defs[0].0, content="y")
+            }
+            _ =>
+              fail(
+                "expected inner block to be Module, got: " +
+                @debug.to_string(inner_block.kind),
+              )
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: AddBinding adds new let line" {
   let text = "let x = 0\nx"
   let (proj, _) = parse_to_proj_node(text)
