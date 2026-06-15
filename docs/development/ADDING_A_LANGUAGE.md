@@ -385,15 +385,15 @@ pub fn new_my_editor(
 ```
 
 > **The lambda exception.** `lang/lambda/companion` does NOT go through
-> `LanguageSpec` — its edit path is editor-coupled in ways the SPI
-> deliberately excludes: `compute_text_edit` needs an `EditContext` carrying
-> `registry` plus a `DefinitionIndex` derived from the generic `ProjNode` root,
-> `apply_lambda_tree_edit` returns a typed `Result[Array[SpanEdit],
-> TreeEditError]` patch trace, and `Drop` delegates to `editor.move_node`.
-> Lambda's eval/scope/semantic extras ride the optional per-instance
-> `LanguageCapabilities` fields instead. Do not copy lambda's shape for a new
-> language; see the decision record in
-> `docs/plans/2026-06-11-s3-lang-runtime-extraction.md` (Step 4 amendment).
+> `LanguageSpec` for edit application. After `ModuleProjection` removal,
+> Lambda's `registry` and `DefinitionIndex` are derived from the generic
+> `ProjNode` root, so context alone is not the reason to widen the SPI. The
+> remaining mismatch is the application contract: `apply_lambda_tree_edit`
+> returns a typed `Result[Array[SpanEdit], TreeEditError]` patch trace, and
+> `Drop` delegates to `editor.move_node`. Lambda's eval/scope/semantic extras
+> ride the optional per-instance `LanguageCapabilities` fields instead. Do not
+> copy lambda's shape for a new language; see the post-cleanup decision record
+> in `docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`.
 
 **Package registration:**
 
