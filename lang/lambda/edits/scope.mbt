@@ -41,6 +41,28 @@ fn sibling_module_def_decl(
 }
 
 ///|
+/// Whether `init` contains any reference to `name` that currently resolves in
+/// the scope graph. Used in binding move ops: if a reference in one binding's
+/// init currently resolves — whether to an earlier same-scope sibling, a
+/// lambda parameter, or any outer-scope binding — swapping the two bindings
+/// would silently re-target that reference to the moved binding. Returns false
+/// only when every reference to `name` in `init` is free, meaning the swap
+/// would improve them from free to bound (safe to allow).
+fn init_ref_resolves(
+  g : @scope.ScopeGraph,
+  init : ProjNode[@ast.Term],
+  name : String,
+) -> Bool {
+  let var_ids : Array[NodeId] = []
+  collect_var_usages(init, name, var_ids)
+  var_ids.any(fn(vid) {
+    g.refs
+    .iter()
+    .any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
+  })
+}
+
+///|
 /// Recursively collect Var nodes matching the given name, stopping at shadowing Lam params.
 fn collect_var_usages(
   node : ProjNode[@ast.Term],

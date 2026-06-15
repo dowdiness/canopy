@@ -964,10 +964,7 @@ test "compute_text_edit: DeleteBinding removes block-local binding" {
 ///|
 test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
   let block = fp.defs[1].1
   let binding_id = block.children[0].id()
   let result = compute_text_edit(
@@ -977,8 +974,16 @@ test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      // Soundness: reparses to the block with defs in swapped order.
-      inspect(nested_block_def_names(1, new_text), content="b,a")
+      inspect(
+        new_text,
+        content=(
+          #|let x = 0
+          #|let z = {  let b = 2
+          #| let a = 1
+          #|  a }
+          #|z
+        ),
+      )
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
@@ -987,10 +992,7 @@ test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
 ///|
 test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
-  let source_map = SourceMap::from_ast(proj)
-  let registry = text_edit_test_registry(proj)
-  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
   let block = fp.defs[1].1
   let binding_id = block.children[1].id()
   let result = compute_text_edit(
@@ -1000,7 +1002,16 @@ test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(nested_block_def_names(1, new_text), content="b,a")
+      inspect(
+        new_text,
+        content=(
+          #|let x = 0
+          #|let z = {  let b = 2
+          #| let a = 1
+          #|  a }
+          #|z
+        ),
+      )
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
@@ -2059,6 +2070,107 @@ test "compute_text_edit: MoveBindingDown allows valid swap where cur uses next" 
       let new_text = apply_edits(text, edits)
       inspect(new_text, content="let y = 0\nlet x = y\nx")
     }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp rejects when swap would re-target prev's init via shadow" {
+  // let x=1; let c=x; let x=2 — c's init refs "x" (resolves to x=1).
+  // Moving x=2 up past c would make c see x=2 instead; semantics change.
+  let text = "let x = 1\nlet c = x\nlet x = 2\nc"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  // defs[2] is `let x = 2`
+  let binding_id = fp.defs[2].3
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: MoveBindingDown rejects when swap would re-target cur's init via shadow" {
+  // let b=0; let cur=b; let b=1 — cur's init refs "b", currently resolves
+  // to b=0 (earlier def). Moving cur down past b=1 would shadow b=0 with b=1.
+  let text = "let b = 0\nlet cur = b\nlet b = 1\ncur"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  // defs[1] is `let cur = b`
+  let binding_id = fp.defs[1].3
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: MoveBindingUp rejects when block-local init resolves name from outer scope" {
+  // `let c = x` inside the block currently sees the outer `x = 0`.
+  // Moving the block-local `let x = 2` above `let c = x` would retarget c's
+  // `x` from the outer def to the inner one — no earlier SAME-scope sibling
+  // named "x" exists, but the outer resolution is enough to block.
+  let text = "let x = 0\nlet z = { let c = x; let x = 2; c }\nz"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let block = fp.defs[1].1
+  let binding_id = block.children[1].id() // `let x = 2`
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: MoveBindingDown rejects when block-local init resolves name from outer scope" {
+  // `let c = y` inside the block currently sees the outer `y = 0`.
+  // Moving `let c = y` below `let y = 2` would retarget c's `y` from the
+  // outer def to the inner one — same outer-scope retargeting case as above.
+  let text = "let y = 0\nlet z = { let c = y; let y = 2; c }\nz"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let block = fp.defs[1].1
+  let binding_id = block.children[0].id() // `let c = y`
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: MoveBindingUp allows free→bound improvement when no earlier sibling shadows" {
+  // prev's init references cur's name, but no earlier sibling with that name
+  // exists — the reference was free before the swap and becomes bound after.
+  // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
+  let text = "let a = x\nlet x = 0\na"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[1].3 // `let x = 0`
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="let x = 0\nlet a = x\na")
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingDown allows free→bound improvement when no earlier sibling shadows" {
+  // cur's init references next's name, but no earlier sibling with that name
+  // exists — the reference was free before the swap and becomes bound after.
+  // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
+  let text = "let a = b\nlet b = 0\na"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[0].3 // `let a = b`
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="let b = 0\nlet a = b\na")
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
 }
