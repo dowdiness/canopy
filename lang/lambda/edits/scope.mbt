@@ -41,6 +41,29 @@ fn sibling_module_def_decl(
 }
 
 ///|
+/// Returns true if any `ModuleDef` decl in `scope` has name `name` and a
+/// `def_index` strictly less than `before_index`. Used to detect the shadow
+/// case in binding move ops: a reference that currently resolves to an earlier
+/// def would silently re-target after a swap if we allowed it to proceed.
+fn has_earlier_sibling_named(
+  g : @scope.ScopeGraph,
+  scope : @scope.ScopeId,
+  before_index : Int,
+  name : String,
+) -> Bool {
+  let @scope.ScopeId(si) = scope
+  g.scopes[si].decl_ids
+  .iter()
+  .any(fn(did) {
+    let @scope.DeclId(di) = did
+    let decl = g.decls[di]
+    decl.name == name &&
+    decl.kind is @scope.DeclKind::ModuleDef(def_index~) &&
+    def_index < before_index
+  })
+}
+
+///|
 /// Recursively collect Var nodes matching the given name, stopping at shadowing Lam params.
 fn collect_var_usages(
   node : ProjNode[@ast.Term],

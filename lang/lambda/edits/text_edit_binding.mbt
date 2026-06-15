@@ -111,13 +111,19 @@ fn compute_move_binding_up(
     Ok(d) => d
     Err(e) => return Err(e)
   }
-  // Scoping guard: check if either name is free in the other's init
+  if cur_def.name == prev_def.name {
+    return Err("Cannot swap bindings with the same name")
+  }
+  // Scoping guard: block if the swap would change what any name resolves to.
+  // - cur depends on prev's name: after swap, cur is first so prev is no
+  //   longer visible → cur's reference becomes free. Block.
+  // - prev depends on cur's name: after swap, prev can see cur, so the
+  //   reference re-targets to cur instead of its current binding (an earlier
+  //   shadowed def) or changes from free to bound. Either way the semantics
+  //   change. Block.
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.init.kind, empty_env)
   let prev_fv = free_vars(prev_def.init.kind, empty_env)
-  // Only check if cur depends on prev: after swap, cur comes first,
-  // so prev (now below) wouldn't be in scope for cur's init.
-  // The reverse (prev depends on cur) is safe: after swap, cur is above prev.
   if cur_fv.contains(prev_def.name) {
     return Err(
       "Cannot move up: " +
@@ -127,8 +133,19 @@ fn compute_move_binding_up(
       " in its init",
     )
   }
-  if cur_def.name == prev_def.name {
-    return Err("Cannot swap bindings with the same name")
+  // Block only when prev's ref to cur's name would RE-TARGET an already-resolved
+  // earlier def — if that earlier def exists, moving cur above it shadows the
+  // old binding. If no earlier def exists, prev's ref was free and the swap
+  // improves it from free to bound, which is safe to allow.
+  if prev_fv.contains(cur_def.name) &&
+    has_earlier_sibling_named(g, decl.scope, def_index - 1, cur_def.name) {
+    return Err(
+      "Cannot move up: " +
+      prev_def.name +
+      " uses " +
+      cur_def.name +
+      " in its init",
+    )
   }
   // Get text ranges for both bindings
   let (cur_start, cur_end) = match
@@ -191,13 +208,19 @@ fn compute_move_binding_down(
     Ok(d) => d
     Err(e) => return Err(e)
   }
-  // Scoping guard: check if either name is free in the other's init
+  if cur_def.name == next_def.name {
+    return Err("Cannot swap bindings with the same name")
+  }
+  // Scoping guard: block if the swap would change what any name resolves to.
+  // - next depends on cur's name: after swap, next is first so cur is no
+  //   longer visible → next's reference becomes free. Block.
+  // - cur depends on next's name: after swap, cur can see next, so the
+  //   reference re-targets to next instead of its current binding (an earlier
+  //   shadowed def) or changes from free to bound. Either way the semantics
+  //   change. Block.
   let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let cur_fv = free_vars(cur_def.init.kind, empty_env)
   let next_fv = free_vars(next_def.init.kind, empty_env)
-  // Only check if next depends on cur: after swap, next comes first,
-  // so cur (now below) wouldn't be in scope for next's init.
-  // The reverse (cur depends on next) is safe: after swap, next is above cur.
   if next_fv.contains(cur_def.name) {
     return Err(
       "Cannot move down: " +
@@ -207,8 +230,18 @@ fn compute_move_binding_down(
       " in its init",
     )
   }
-  if cur_def.name == next_def.name {
-    return Err("Cannot swap bindings with the same name")
+  // Block only when cur's ref to next's name would RE-TARGET an already-resolved
+  // earlier def. If no earlier def with that name exists, cur's ref was free
+  // and the swap improves it (free → bound), which is safe to allow.
+  if cur_fv.contains(next_def.name) &&
+    has_earlier_sibling_named(g, decl.scope, def_index, next_def.name) {
+    return Err(
+      "Cannot move down: " +
+      cur_def.name +
+      " uses " +
+      next_def.name +
+      " in its init",
+    )
   }
   // Get text ranges for both bindings
   let (cur_start, cur_end) = match
