@@ -1,6 +1,8 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/ffi/host",
+  "dowdiness/canopy/ffi/io",
+  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/lang/lambda" @lang_lambda,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
@@ -33,6 +35,11 @@ import {
 // `rename_semantic_node`) and by whitebox tests
 // (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell coverage.
 
+// JS-only: the editor FFI targets the browser/JS runtime (depends on
+// js_async and the JS file-I/O transport).
+
+supported_targets = "js"
+
 warnings = "-7"
 
 options(
@@ -43,6 +50,10 @@ options(
         "destroy_editor",
         "get_text",
         "set_text",
+        "register_file_host",
+        "load_file",
+        "on_file_opened",
+        "save_file",
         "get_ast_dot_resolved",
         "get_ast_pretty",
         "get_errors_json",

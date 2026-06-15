@@ -10,4 +10,6 @@ export const CanopyEvents = {
   ACTION_OVERLAY_OPEN: 'action-overlay-open',
   ACTION_KEY: 'action-key',
   LONG_PRESS: 'long-press',
+  // Host → MoonBit: a file was picked and read; detail is the raw text content.
+  FILE_LOADED: 'file-loaded',
 } as const;

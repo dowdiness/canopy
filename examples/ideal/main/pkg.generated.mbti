@@ -6,6 +6,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/edits",
+  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
@@ -67,7 +68,13 @@ pub fn insert_at(Int, Int, String, Int) -> Unit
 
 pub fn legend_html(@history.CausalSnapshot, String) -> String
 
+pub fn load_file(Int) -> Unit
+
+pub fn register_file_host(@js.Any) -> Unit
+
 pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
+
+pub fn save_file(Int, String) -> Unit
 
 pub fn set_text(Int, String) -> Unit
 
@@ -113,6 +120,7 @@ pub enum HistoryRender {
 
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
+  handle : Int
   companion : @companion.LambdaCompanion
   outline_state : @projection.TreeEditorState[@ast.Term]
   cm_id : String
@@ -143,6 +151,9 @@ pub enum Msg {
   StructuralEditRequested(op~ : String, node_id~ : String)
   Undo
   Redo
+  OpenFile
+  SaveFile
+  FileLoaded(String)
   TreeEdited(@edits.TreeEditOp)
   DismissPanels
   LoadExample(String)

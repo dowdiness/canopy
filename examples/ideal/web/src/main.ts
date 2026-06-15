@@ -154,6 +154,102 @@ function triggerAutosave() {
   }
 }
 
+// ── File I/O host (injected into MoonBit via register_file_host) ──────────
+// MoonBit calls these in response to the Open/Save toolbar buttons. `save`
+// writes text out; `open` reads a file and feeds it back into the TEA loop by
+// dispatching a "file-loaded" CustomEvent (rabbita_dom_sub.mbt listens for it).
+
+async function saveTextFile(content: string, suggestedName: string): Promise<void> {
+  const w = window as unknown as {
+    showSaveFilePicker?: (opts: unknown) => Promise<{
+      createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }>;
+    }>;
+  };
+  if (typeof w.showSaveFilePicker === 'function') {
+    try {
+      // Call as a method so the receiver stays `window`; invoking an extracted
+      // reference bare throws "Illegal invocation" in Chrome/Edge.
+      const fileHandle = await w.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'Text', accept: { 'text/plain': ['.lambda', '.txt'] } }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      return;
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') return; // user cancelled
+      // Other failures (permission, etc.) fall through to the download path.
+    }
+  }
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = suggestedName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function pickFileViaInput(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.lambda,.txt,text/plain';
+    input.style.display = 'none';
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) {
+        resolve(null);
+        return;
+      }
+      // Resolve null ("nothing chosen") if the read rejects, so the outer
+      // Promise never hangs on a failed file.text().
+      try {
+        resolve(await file.text());
+      } catch {
+        resolve(null);
+      }
+    });
+    // Dismissing the dialog fires 'cancel' (modern browsers) — without this the
+    // Promise and the detached <input> would leak for the page lifetime.
+    input.addEventListener('cancel', () => {
+      input.remove();
+      resolve(null);
+    });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+async function openTextFile(): Promise<void> {
+  const w = window as unknown as {
+    showOpenFilePicker?: (opts: unknown) => Promise<Array<{ getFile: () => Promise<File> }>>;
+  };
+  let content: string | null = null;
+  if (typeof w.showOpenFilePicker === 'function') {
+    try {
+      // Method call keeps the receiver as `window` (see saveTextFile).
+      const [fileHandle] = await w.showOpenFilePicker({ multiple: false });
+      content = await (await fileHandle.getFile()).text();
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') return; // user cancelled
+      // Other failures fall through to the <input> fallback.
+    }
+  }
+  if (content === null) content = await pickFileViaInput();
+  if (content === null) return; // nothing chosen
+  const target = document.getElementById('canopy-text-editor');
+  target?.dispatchEvent(new CustomEvent(CanopyEvents.FILE_LOADED, {
+    detail: content,
+    bubbles: true,
+    composed: true,
+  }));
+}
+
 function updateCmPeerCursors() {
   if (!_crdt || _handle == null) return;
   const json = _crdt.ephemeral_get_peer_cursors_json(_handle);
@@ -338,6 +434,11 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
   bridge.crdt = crdt;
   bridge.crdtHandle = handle;
   bridge.triggerAutosave = triggerAutosave;
+  // Inject the file I/O host so the Open/Save toolbar buttons work.
+  crdt.register_file_host({
+    save: (content, name) => { void saveTextFile(content, name); },
+    open: () => { void openTextFile(); },
+  });
   let restoredState = false;
 
   // Restore from localStorage if available

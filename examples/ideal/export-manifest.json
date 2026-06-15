@@ -16,6 +16,10 @@
     "destroy_editor",
     "get_text",
     "set_text",
+    "register_file_host",
+    "load_file",
+    "on_file_opened",
+    "save_file",
     "get_ast_dot_resolved",
     "get_ast_pretty",
     "get_errors_json",
@@ -104,6 +108,9 @@
     "handle_text_intent_checked",
     "handle_undo",
     "handle_redo",
-    "handle_structural_intent"
+    "handle_structural_intent",
+    "register_file_host",
+    "load_file",
+    "save_file"
   ]
 }
