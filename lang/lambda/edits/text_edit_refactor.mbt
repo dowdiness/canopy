@@ -62,19 +62,20 @@ fn compute_extract_to_let(
         None => source_text.length()
       }
       // Guard: inserting `let var_name = expr` makes var_name visible throughout
-      // the new body. Any existing resolved Var(var_name) in the body OUTSIDE
-      // the extracted expression would be silently retargeted to the new binding.
+      // the new body. Any Var(var_name) in the body OUTSIDE the extracted
+      // expression — whether currently resolved or free — must be refused:
+      // a resolved use would be retargeted; a free use would become bound.
+      // Both change semantics.
       if block_view.final_expr is Some(body_node) {
         let node_subtree = subtree_node_ids(node)
         let body_var_ids : Array[NodeId] = []
         collect_var_usages(body_node, var_name, body_var_ids)
         for vid in body_var_ids {
-          if !node_subtree.contains(vid) &&
-            @scope.declaration(g, vid) is Some(_) {
+          if !node_subtree.contains(vid) {
             return Err(
               "Cannot extract: '" +
               var_name +
-              "' is already bound in the block body",
+              "' appears in the block body outside the selected expression",
             )
           }
         }
@@ -111,16 +112,19 @@ fn compute_extract_to_let(
         return Err("Cannot extract: expression captures lambda-bound variables")
       }
       // Guard: inserting `let var_name = expr` before all block defs makes
-      // var_name visible throughout the block. Any existing resolved
-      // Var(var_name) in the block outside the extracted expression would be
-      // silently retargeted to the new binding, changing semantics.
+      // var_name visible throughout the block. Any Var(var_name) in the block
+      // outside the extracted expression — whether currently resolved or free —
+      // must be refused: a resolved use would be retargeted; a free use would
+      // become bound. Both change semantics.
       let node_subtree = subtree_node_ids(node)
       let block_var_ids : Array[NodeId] = []
       collect_var_usages(block_node, var_name, block_var_ids)
       for vid in block_var_ids {
-        if !node_subtree.contains(vid) && @scope.declaration(g, vid) is Some(_) {
+        if !node_subtree.contains(vid) {
           return Err(
-            "Cannot extract: '" + var_name + "' is already bound in this block",
+            "Cannot extract: '" +
+            var_name +
+            "' appears in this block outside the selected expression",
           )
         }
       }

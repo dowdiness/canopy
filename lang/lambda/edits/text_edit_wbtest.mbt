@@ -1075,6 +1075,48 @@ test "compute_text_edit: ExtractToLet refuses block-body extraction when var_nam
 }
 
 ///|
+/// Free (unresolved) Var(var_name) in the suffix is also a capture: the new
+/// `let var_name = expr` would bind it, changing the program from unbound/stuck
+/// to a resolved value. The check must fire for free uses too, not just
+/// already-resolved ones.
+/// Example: `(a + 1) + y` — `y` is free. Extracting `(a + 1)` as `y` would
+/// produce `let y = a + 1\ny + y` where `y` is now bound.
+test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would bind free suffix ref" {
+  let text = "let z = { let a = 1\n  (a + 1) + y }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let body = block.children[block.children.length() - 1]
+  let extracted = body.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=extracted.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// Free (unresolved) Var(var_name) anywhere in the block is also a capture:
+/// inserting `let var_name = expr` before all defs would bind it.
+/// Example: `y` is free in `{ let a = 1\n  y + a }`. Extracting `1` as `y`
+/// would produce `{ let y = 1\n  let a = 1\n  y + a }` where the previously
+/// unbound `y` now resolves.
+test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would bind free block ref" {
+  let text = "let z = { let a = 1\n  y + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let lit_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 /// Inserting `let var_name = expr` before all block defs makes var_name
 /// visible throughout the block. Any existing Var(var_name) in the block
 /// (in later def initializers or the body) that currently resolves to an
