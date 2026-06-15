@@ -1,3 +1,12 @@
+// Legacy ModuleProjection compatibility contract.
+//
+// Production-facing Lambda projection/edit paths use ProjNode + registry +
+// SourceMap + DefinitionIndex, with editor-facing memoization provided by the
+// generic 3-memo stack in projection_memo.mbt. This file intentionally keeps
+// direct coverage for the remaining legacy/test/internal flat view:
+// to_module_projection*, ModuleProjection roundtrips, root-module
+// reconciliation, and the compatibility definition-index adapter.
+
 ///|
 fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
   let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }

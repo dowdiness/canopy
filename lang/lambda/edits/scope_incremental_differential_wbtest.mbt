@@ -1,7 +1,7 @@
 // Incremental ↔ full differential resolution test (docs/TODO.md §20, plan step 3).
 //
 // WHAT THIS PINS
-// Drives the INCREMENTAL ModuleProjection path — `to_module_projection_incremental` (which reuses
+// Drives the legacy/test INCREMENTAL ModuleProjection path — `to_module_projection_incremental` (which reuses
 // unchanged def subtrees + `reconcile_module_projection` to preserve binder ids) — across
 // an EDIT SEQUENCE, and asserts that a scope graph built from the incrementally
 // reconciled `ModuleProjection` resolves every Var reference IDENTICALLY to one built from
@@ -42,7 +42,7 @@
 /// Fresh full parse of a source string into a positioned SyntaxNode. Two
 /// independent parses of the same text yield structurally-equal (Eq) `CstNode`s,
 /// so feeding successive parses to `to_module_projection_incremental` exercises its reuse
-/// branch faithfully — the same input distribution the production memo sees.
+/// branch faithfully — the input distribution the former flat memo path used.
 fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
   let (cst, _diags) = @parser.parse_cst(text)
   @seam.SyntaxNode::from_cst(cst)
@@ -50,7 +50,7 @@ fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
 
 ///|
 /// Reconstruct a scope graph from a prebuilt `ModuleProjection` + the source's SyntaxNode,
-/// exactly as the production reconstruct flow does (`production_graph_of`):
+/// exactly as the legacy flat reconstruction flow does (`legacy_module_projection_graph_of`):
 /// `fp.to_proj_node` → `SourceMap::from_ast` → `populate_token_spans` → registry →
 /// `@scope.build`. `base_id` MUST be the high-water mark of the counter that built
 /// `fp` (its `.val` after `to_module_projection`/`to_module_projection_incremental`); `to_proj_node`
@@ -81,7 +81,7 @@ fn build_graph_from_fp(
 /// Assert the scope graph from an incremental `ModuleProjection` resolves identically to
 /// one from a fresh full `to_module_projection` of the same `syntax`. Reuses the
 /// cross-pipeline PBT's pipeline-INDEPENDENT comparison leaves (`collect_var_refs`,
-/// `assert_same_var_refs`, `assert_lam_ranges_unique`, `def_init_ranges`,
+/// `assert_same_var_refs`, `assert_lam_ranges_unique`, `def_binding_ranges`,
 /// `normalize_decl`), so node-id values are never compared raw.
 fn assert_incr_matches_full(
   incr_fp : @lambda_proj.ModuleProjection,
@@ -99,8 +99,8 @@ fn assert_incr_matches_full(
     syntax,
     full_counter.val,
   )
-  let ranges_i = def_init_ranges(proj_i)
-  let ranges_f = def_init_ranges(proj_f)
+  let ranges_i = def_binding_ranges(proj_i)
+  let ranges_f = def_binding_ranges(proj_f)
   assert_resolution_agrees(
     ResolutionSide(
       graph=g_i,
@@ -127,8 +127,8 @@ fn assert_incr_matches_full(
 /// Drive an edit sequence: parse `sources[0]` fully, then for each subsequent
 /// source re-parse fresh, reconcile via `to_module_projection_incremental` against the
 /// previous tree+proj, and assert the differential AFTER EVERY edit. The counter
-/// is threaded persistently across the whole sequence (as the production memo's
-/// `next_id_ref` is), so binder ids accumulate rather than reset.
+/// is threaded persistently across the whole legacy-helper sequence (as the old
+/// flat memo's `next_id_ref` was), so binder ids accumulate rather than reset.
 fn run_diff_sequence(sources : Array[String]) -> Unit raise {
   guard sources.length() >= 1 else {
     fail("run_diff_sequence needs >=1 source")

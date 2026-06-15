@@ -1,12 +1,12 @@
 // Cross-pipeline resolution-equivalence property test (docs/TODO.md §20).
 //
 // WHAT THIS PINS
-// Two pipelines build a `ModuleProjection` from the same source, then a scope graph
-// resolves each Var reference to a declaration. Both pipelines assign a module
-// def's binder id (`defs[i].3`) to a real LetDef node:
-//   - TEST path (`graph_and_sm_of` / `from_proj_node`): extracts the id from the
-//     parsed LetDef child;
-//   - legacy ModuleProjection path (`production_graph_of` /
+// Two pipelines build a scope graph from the same source, then resolve each
+// Var reference to a declaration. Both pipelines assign a module def's binder
+// id to a real LetDef node:
+//   - generic test path (`graph_and_sm_of`): uses the direct SyntaxNode →
+//     ProjNode tree and its parsed LetDef children;
+//   - legacy ModuleProjection path (`legacy_module_projection_graph_of` /
 //     `to_module_projection`): stores the id in ModuleProjection and
 //     reconstructs the LetDef child from it.
 // Resolution never reads `node_id` (`Builder::resolve` matches name + def_index
@@ -34,9 +34,9 @@
 // def, a different lambda, or to free) into a match.
 //
 // SCOPE / NON-GOALS
-// This is a pure test-path-vs-legacy-ModuleProjection-path equivalence over a
-// single parse. It does NOT exercise `to_module_projection_incremental` or the
-// editor-facing generic `@incr` memo layer. It also
+// This is a pure generic-ProjNode-vs-legacy-ModuleProjection-path equivalence
+// over a single parse. It does NOT exercise `to_module_projection_incremental`
+// or the editor-facing generic `@incr` memo layer. It also
 // cannot catch a bug shared by both pipelines inside `@scope.build`; the frozen
 // hand-derived oracle in `scope_equivalence_wbtest.mbt` covers that blind spot
 // and is intentionally retained alongside this generator.
@@ -79,7 +79,7 @@ fn assert_same_var_refs(
   }
   for k, _ in m1 {
     guard m2.get(k) is Some(_) else {
-      fail("Var ref \{k} present in test pipeline but missing in production")
+      fail("Var ref \{k} present in left pipeline but missing on right")
     }
   }
 }
@@ -104,11 +104,11 @@ fn assert_lam_ranges_unique(
 }
 
 ///|
-/// Source ranges of a Module's def inits, indexed by def_index. Both pipelines
-/// reconstruct the Module with the def inits as its first N children (in def
-/// order), built from the same `syntax_to_proj_node`, so this array is
-/// pipeline-independent. Empty for a non-Module root (no module defs exist).
-fn def_init_ranges(root : ProjNode[@ast.Term]) -> Array[String] {
+/// Source ranges of a Module's LetDef binding rows, indexed by def_index. Both
+/// pipelines reconstruct the Module with those LetDef nodes as its first N
+/// children (in def order), so this array is pipeline-independent. Empty for a
+/// non-Module root (no module defs exist).
+fn def_binding_ranges(root : ProjNode[@ast.Term]) -> Array[String] {
   match root.kind {
     Module(term_defs, _) =>
       [
@@ -122,8 +122,8 @@ fn def_init_ranges(root : ProjNode[@ast.Term]) -> Array[String] {
 
 ///|
 /// Reduce a resolved declaration to a pipeline-independent key. Module decls
-/// use (def_index, name, init source range); lambda decls use the binder Lam
-/// node's source range (looked up in THAT pipeline's own registry) plus the
+/// use (def_index, name, LetDef row source range); lambda decls use the binder
+/// Lam node's source range (looked up in THAT pipeline's own registry) plus the
 /// name. Both kinds key on a SOURCE RANGE, not a node id or a bare index, so a
 /// future pipeline divergence that re-indexed defs (same def_index → different
 /// source def with a coincidentally equal name) cannot collapse a real
@@ -132,17 +132,17 @@ fn def_init_ranges(root : ProjNode[@ast.Term]) -> Array[String] {
 fn normalize_decl(
   decl : @scope.Decl?,
   registry : Map[NodeId, ProjNode[@ast.Term]],
-  init_ranges : Array[String],
+  def_ranges : Array[String],
 ) -> String raise {
   match decl {
     None => "free"
     Some(d) =>
       match d.kind {
         ModuleDef(def_index~) => {
-          guard def_index >= 0 && def_index < init_ranges.length() else {
+          guard def_index >= 0 && def_index < def_ranges.length() else {
             fail("ModuleDef def_index \{def_index} out of range")
           }
-          "module:\{def_index}:\{d.name}:\{init_ranges[def_index]}"
+          "module:\{def_index}:\{d.name}:\{def_ranges[def_index]}"
         }
         LamParam(lam_id~) => {
           guard registry.get(lam_id) is Some(n) else {
@@ -240,13 +240,13 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
       fail("expected clean parse but got \{diags.length()} diagnostic(s)")
     }
   }
-  // Pipeline 1: test path (from_proj_node), with token spans for binder_span.
-  let (proj1, _fp1, g1, sm1) = graph_and_sm_of(text)
+  // Pipeline 1: generic ProjNode path, with token spans for binder_span.
+  let (proj1, g1, sm1) = graph_and_sm_of(text)
   let reg1 = scope_test_registry(proj1)
-  let ranges1 = def_init_ranges(proj1)
+  let ranges1 = def_binding_ranges(proj1)
   // Pipeline 2: legacy ModuleProjection path (to_module_projection), with token spans.
-  let (proj2, reg2, g2, sm2) = production_graph_of(text)
-  let ranges2 = def_init_ranges(proj2)
+  let (proj2, reg2, g2, sm2) = legacy_module_projection_graph_of(text)
+  let ranges2 = def_binding_ranges(proj2)
   assert_resolution_agrees(
     ResolutionSide(
       graph=g1,
@@ -261,8 +261,8 @@ fn check_agreement(text : String, expect_clean? : Bool = true) -> Unit raise {
       registry=reg2,
       source_map=sm2,
       ranges=ranges2,
-      value_label="production",
-      binder_label="production",
+      value_label="legacy",
+      binder_label="legacy ModuleProjection",
     ),
     context_prefix="",
     binder_span_disagreement="binder location disagrees across pipelines",
@@ -398,14 +398,15 @@ test "cross-pipeline: fixed sanity case agrees" {
 }
 
 ///|
-/// Generated well-formed sources must resolve identically across both
-/// `ModuleProjection` construction pipelines (docs/TODO.md §20). The cross-pipeline
-/// property is near-tautological (resolution ignores `node_id`; both pipelines
-/// build defs from the same syntax in the same order), so a few hundred cases
+/// Generated well-formed sources must resolve identically across both generic
+/// ProjNode and legacy ModuleProjection construction pipelines (docs/TODO.md
+/// §20). The cross-pipeline property is near-tautological (resolution ignores
+/// `node_id`; both pipelines build defs from the same syntax in the same order),
+/// so a few hundred cases
 /// give the same confidence as thousands — `max_success` is sized for CI cost,
 /// not coverage. The edge-set fixtures above carry the structurally tricky
 /// cases that random generation is unlikely to hit.
-test "property: resolution agrees across both ModuleProjection pipelines" {
+test "property: resolution agrees across generic and legacy ModuleProjection pipelines" {
   @qc.quick_check_fn_error(
     fn(gs : GenSource) -> Unit raise { check_agreement(@ast.print_term(gs.0)) },
     max_success=300,
