@@ -4,19 +4,15 @@ fn compute_wrap_lambda(
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found in registry")
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
     Ok(_) => ()
   }
   let wrapped = @ast.print_term(@ast.Term::Lam(var_name, node.kind))
-  let wrapped = match find_parent(registry, node_id) {
+  let wrapped = match find_parent(ctx.registry, node_id) {
     Some(_) => "(" + wrapped + ")"
     None => wrapped
   }
@@ -41,12 +37,8 @@ fn compute_wrap_app(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found in registry")
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -74,12 +66,8 @@ fn compute_wrap_if(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -110,12 +98,8 @@ fn compute_wrap_bop(
   node_id : NodeId,
   op : @ast.Bop,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)

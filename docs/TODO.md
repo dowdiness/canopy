@@ -165,11 +165,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Hoist ProjNode id-allocation boilerplate into `@core` (`core/proj_node.mbt`). (finding B from PR #383)
   Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode::new`. `.mbti` change is limited to the two new `@core` exports.
 
-- [ ] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
+- [x] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
   Why: nearly every `compute_*` handler opens with the same pair of guards keyed on one `node_id` — `registry.get(id)` then `source_map.get_range(id)`, both erroring "Node not found" — made visible by the PR #383 guard sweep. `EditContext` already holds both maps.
-  Exit: `EditContext::resolve(self, node_id) -> Result[(ProjNode[T], Range), String]` (or `require_node` / `require_range`); the ~10 handler prologues collapse to one call; behavior and error messages preserved.
+  Shipped: `EditContext::resolve[T](self, node_id) -> (ProjNode[T], @loomcore.Range) raise ResolveError` added to `text_edit.mbt`; 13 handler prologues across 6 files (commit, delete, drop, structural×3, wrap×4, refactor×2) collapsed to single `resolve()` call; error messages standardised to "Node not found: {id}"; body-level redundant `registry.get` fallbacks in `compute_delete` eliminated. Note: `ResolveError` is a zero-info bridge type (tracked in #667 for cleanup alongside finding D).
 
-- [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383)
+- [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383, #667)
   Why: the `match x { Ok(v) => v; Err(e) => return Err(e) }` passthroughs left in PR #383 exist only because MoonBit has no `?`-propagation for plain `Result`. A raising error model would auto-propagate them away and let the Some/None guards sit on raising accessors. Larger design call — touches `EditResult` and error-type design; see the `moonbit-error-handling` skill.
   Exit: decision recorded (adopt or keep `Result`) with rationale; if adopted, passthroughs removed and `EditResult` retyped.
 
