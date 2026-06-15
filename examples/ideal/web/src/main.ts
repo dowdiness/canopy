@@ -154,14 +154,16 @@ function triggerAutosave() {
 // dispatching a "file-loaded" CustomEvent (rabbita_dom_sub.mbt listens for it).
 
 async function saveTextFile(content: string, suggestedName: string): Promise<void> {
-  const picker = (window as unknown as {
+  const w = window as unknown as {
     showSaveFilePicker?: (opts: unknown) => Promise<{
       createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }>;
     }>;
-  }).showSaveFilePicker;
-  if (typeof picker === 'function') {
+  };
+  if (typeof w.showSaveFilePicker === 'function') {
     try {
-      const fileHandle = await picker({
+      // Call as a method so the receiver stays `window`; invoking an extracted
+      // reference bare throws "Illegal invocation" in Chrome/Edge.
+      const fileHandle = await w.showSaveFilePicker({
         suggestedName,
         types: [{ description: 'Text', accept: { 'text/plain': ['.lambda', '.txt'] } }],
       });
@@ -208,13 +210,14 @@ function pickFileViaInput(): Promise<string | null> {
 }
 
 async function openTextFile(): Promise<void> {
-  const picker = (window as unknown as {
+  const w = window as unknown as {
     showOpenFilePicker?: (opts: unknown) => Promise<Array<{ getFile: () => Promise<File> }>>;
-  }).showOpenFilePicker;
+  };
   let content: string | null = null;
-  if (typeof picker === 'function') {
+  if (typeof w.showOpenFilePicker === 'function') {
     try {
-      const [fileHandle] = await picker({ multiple: false });
+      // Method call keeps the receiver as `window` (see saveTextFile).
+      const [fileHandle] = await w.showOpenFilePicker({ multiple: false });
       content = await (await fileHandle.getFile()).text();
     } catch (e) {
       if ((e as DOMException)?.name === 'AbortError') return; // user cancelled
