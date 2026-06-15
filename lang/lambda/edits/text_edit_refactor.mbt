@@ -220,9 +220,9 @@ fn compute_inline_all_usages(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, registry, .. } = ctx
+  let { source_text, .. } = ctx
   // Find all references resolved to this binding.
-  let g = @scope.build(registry, source_map)
+  let g = @scope.build(ctx.registry, ctx.source_map)
   let decl = match module_def_decl_for_binding(g, binding_node_id) {
     Ok(decl) => decl
     Err(e) => return Err(e)
@@ -245,7 +245,7 @@ fn compute_inline_all_usages(
   let init_text = if ref_ids.is_empty() {
     ""
   } else {
-    match binding_inline_text(source_text, source_map, def) {
+    match binding_inline_text(source_text, ctx.source_map, def) {
       Ok(text) => text
       Err(e) => return Err(e)
     }
@@ -255,7 +255,7 @@ fn compute_inline_all_usages(
   // Collect reference ranges, sorted by position (descending)
   let ref_ranges : Array[(Int, Int)] = []
   for rid in ref_ids {
-    if source_map.get_range(rid) is Some(r) {
+    if ctx.source_map.get_range(rid) is Some(r) {
       ref_ranges.push((r.start, r.end))
     }
   }
@@ -265,7 +265,7 @@ fn compute_inline_all_usages(
   }
   // Delete the binding
   let (let_start, binding_end) = match
-    get_binding_text_range(source_text, source_map, def) {
+    get_binding_text_range(source_text, ctx.source_map, def) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
