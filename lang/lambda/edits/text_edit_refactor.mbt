@@ -6,11 +6,9 @@ fn compute_extract_to_let(
 ) -> EditResult {
   let { source_text, source_map, registry, definition_index } = ctx
   let module_view = edit_module_view(ctx)
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found")
-  }
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Range not found")
+  let (node, range) = match ctx.resolve(node_id) {
+    Ok(r) => r
+    Err(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -116,14 +114,12 @@ fn compute_inline_definition(
   node_id : NodeId,
 ) -> EditResult {
   let { source_text, source_map, registry, .. } = ctx
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = match ctx.resolve(node_id) {
+    Ok(r) => r
+    Err(e) => return Err(e)
   }
   guard node.kind is @ast.Term::Var(var_name) else {
     return Err("InlineDefinition requires a Var node")
-  }
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Var not in source map")
   }
   // Resolve the binding
   let g = @scope.build(registry, source_map)

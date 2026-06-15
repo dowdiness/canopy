@@ -4,12 +4,9 @@ fn compute_unwrap(
   node_id : NodeId,
   keep_child_index : Int,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = match ctx.resolve(node_id) {
+    Ok(r) => r
+    Err(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -44,12 +41,9 @@ fn compute_swap_children(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = match ctx.resolve(node_id) {
+    Ok(r) => r
+    Err(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -100,12 +94,9 @@ fn compute_change_operator(
   node_id : NodeId,
   new_op : @ast.Bop,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
-  }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = match ctx.resolve(node_id) {
+    Ok(r) => r
+    Err(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
