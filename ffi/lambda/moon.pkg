@@ -2,6 +2,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/ffi/io",
+  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/lang/lambda" @lang_lambda,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
@@ -33,6 +34,10 @@ import {
 // (`get_diagnostics_json`, view/pretty/semantic projection accessors, and
 // `rename_semantic_node`) and by whitebox tests
 // (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell coverage.
+
+// JS-only: the editor FFI targets the browser/JS runtime (depends on
+// js_async and the JS file-I/O transport).
+supported_targets = "js"
 
 warnings = "-7"
 

@@ -6,7 +6,7 @@
 ///|
 /// Inject the JS host that performs the actual picker/write. Call once at
 /// startup: `lambdaModule.register_file_host({ save, open })`.
-pub fn register_file_host(host : @io.FileHost) -> Unit {
+pub fn register_file_host(host : @js.Any) -> Unit {
   @io.register_host(host)
 }
 

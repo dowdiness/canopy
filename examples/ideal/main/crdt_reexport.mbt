@@ -210,7 +210,7 @@ pub fn handle_structural_intent(
 
 ///|
 /// Inject the JS host: `{ save(content, name), open(handle) }`.
-pub fn register_file_host(host : @io.FileHost) -> Unit {
+pub fn register_file_host(host : @js.Any) -> Unit {
   @ffi.register_file_host(host)
 }
 
