@@ -2105,6 +2105,44 @@ test "compute_text_edit: MoveBindingDown rejects when swap would re-target cur's
 }
 
 ///|
+test "compute_text_edit: MoveBindingUp allows free→bound improvement when no earlier sibling shadows" {
+  // prev's init references cur's name, but no earlier sibling with that name
+  // exists — the reference was free before the swap and becomes bound after.
+  // has_earlier_sibling_named returns false → ALLOW (not an unconditional block).
+  let text = "let a = x\nlet x = 0\na"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[1].3 // `let x = 0`
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="let x = 0\nlet a = x\na")
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingDown allows free→bound improvement when no earlier sibling shadows" {
+  // cur's init references next's name, but no earlier sibling with that name
+  // exists — the reference was free before the swap and becomes bound after.
+  // has_earlier_sibling_named returns false → ALLOW (not an unconditional block).
+  let text = "let a = b\nlet b = 0\na"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let binding_id = fp.defs[0].3 // `let a = b`
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="let b = 0\nlet a = b\na")
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: Unwrap cursor at replacement start" {
   // Unwrap Bop keeps right child — cursor should be at range.start (0),
   // not the original position of the right child
