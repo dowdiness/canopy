@@ -283,8 +283,7 @@ fn ModuleProjection::to_proj_node_with_prev_module_id(
 
 ///|
 /// Legacy/test helper: extract a ModuleProjection from a Module ProjNode.
-/// Reads LetDef children and extracts their init child. Legacy init-only
-/// children are accepted as a compatibility fallback.
+/// Reads LetDef children and extracts their init child.
 pub fn ModuleProjection::from_proj_node(
   root : ProjNode[@ast.Term],
 ) -> ModuleProjection {
@@ -294,19 +293,12 @@ pub fn ModuleProjection::from_proj_node(
       for i = 0; i < term_defs.length(); i = i + 1 {
         if i < root.children.length() - 1 {
           let def_child = root.children[i]
-          match def_child.kind {
-            @ast.Term::LetDef(_, _) if def_child.children.length() > 0 => {
-              let init_child = def_child.children[0]
-              defs.push(
-                (term_defs[i].0, init_child, def_child.start, def_child.id()),
-              )
-            }
-            _ => {
-              let init_child = def_child
-              defs.push(
-                (term_defs[i].0, init_child, init_child.start, init_child.id()),
-              )
-            }
+          if def_child.kind is @ast.Term::LetDef(_, _) &&
+            def_child.children.length() > 0 {
+            let init_child = def_child.children[0]
+            defs.push(
+              (term_defs[i].0, init_child, def_child.start, def_child.id()),
+            )
           }
         }
       }

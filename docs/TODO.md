@@ -240,14 +240,15 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 10. Editor Drag-and-Drop Follow-ups
 
-- [ ] First-class LetDef ProjNodes for binding-level structural edits (#127).
-  Why: Structure mode already renders PM `let_def` rows and supports drag/drop
-  over them, but the ProjNode tree has no binding node; row IDs are borrowed
-  from init expressions and binding actions use ModuleProjection-only synthetic handles.
-  Plan: `docs/plans/2026-06-01-letdef-projnode-structural-edit.md`
-  Exit: Module children include real LetDef nodes; binding drag/drop/actions use
-  registry-backed LetDef IDs; `@scope.binder_span` / `go_to_definition` remain
-  the source-location path.
+- [x] First-class LetDef ProjNodes for binding-level structural edits (#127).
+  Merged: canopy#448 (336d7e1, 2026-06-01); cleanup PRs #664, #668–#671 (2026-06-15).
+  All acceptance criteria verified 2026-06-15: Module children are [LetDef..., body];
+  scope builder uses LetDef child ids for Decl.node_id; convert.ts/reconciler.ts map
+  actual LetDef ProjNodes to let_def; drag/drop E2E moves whole binding rows; binding
+  actions pass real LetDef ids; scope annotation uses real LetDef ids; binder_span /
+  go_to_definition remain source-span based; canvas unchanged.
+  Remaining legacy cleanup (non-blocking): module_projection.mbt compat layer (~339 lines,
+  labeled "Legacy/test helper") and dead ValidateNodeExists binding-id fallback.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
   Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder.

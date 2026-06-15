@@ -20,31 +20,12 @@ priv struct ValidateNodeExists {}
 impl EditMiddleware for ValidateNodeExists with fn apply(_self, next, op, ctx) {
   match extract_primary_node_id(op) {
     Some(id) =>
-      if ctx.registry.contains(id) ||
-        (
-          op_accepts_binding_id(op) &&
-          edit_module_view(ctx).defs
-          .iter()
-          .any(fn(def) { def.binding_id == id })
-        ) {
+      if ctx.registry.contains(id) {
         next(op, ctx)
       } else {
         Err("Node not found: " + id.to_string())
       }
     None => next(op, ctx)
-  }
-}
-
-///|
-fn op_accepts_binding_id(op : TreeEditOp) -> Bool {
-  match op {
-    Rename(..)
-    | DeleteBinding(..)
-    | DuplicateBinding(..)
-    | MoveBindingUp(..)
-    | MoveBindingDown(..)
-    | InlineAllUsages(..) => true
-    _ => false
   }
 }
 
