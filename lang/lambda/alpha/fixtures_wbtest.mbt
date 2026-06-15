@@ -40,12 +40,10 @@ fn find_var_node(
   if root.kind is @ast.Term::Var(found) && found == name {
     Some(root.id())
   } else {
-    let mut result : @core.NodeId? = None
-    for child in root.children {
-      if result is None {
-        result = find_var_node(child, name)
-      }
-    }
-    result
+    root.children
+    .iter()
+    .map(child => find_var_node(child, name))
+    .find_first(found => found is Some(_))
+    .bind(found => found)
   }
 }

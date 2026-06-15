@@ -98,14 +98,15 @@ fn reify_ref(
 ) -> @ast.Term {
   match alpha_ref {
     Bound(id) =>
-      match env.get(id) {
-        Some(name) => @ast.Term::Var(name)
-        None =>
-          match policy {
-            Display => @ast.Term::Unbound("bound")
-            Source => @ast.Term::Var("bound")
-          }
-      }
+      env
+      .get(id)
+      .map_or(
+        match policy {
+          Display => @ast.Term::Unbound("bound")
+          Source => @ast.Term::Var("bound")
+        },
+        name => @ast.Term::Var(name),
+      )
     Free(free) =>
       match (policy, free.origin) {
         (Display, SourceUnbound) => @ast.Term::Unbound(free.name)

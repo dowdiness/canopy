@@ -31,10 +31,7 @@ fn binder_for_node(
   node_id : @core.NodeId,
   hint : String,
 ) -> Binder {
-  match binders.get(node_id) {
-    Some(binder) => binder
-    None => generated_binder(hint, 0)
-  }
+  binders.get(node_id).map_or(generated_binder(hint, 0), binder => binder)
 }
 
 ///|
@@ -44,14 +41,17 @@ fn lower_ref(
   binders : Map[@core.NodeId, Binder],
   name : String,
 ) -> AlphaTerm {
-  match @scope.declaration(graph, node.id()) {
-    Some(decl) =>
-      match binders.get(decl.node_id) {
-        Some(binder) => Var(Bound(binder.id))
-        None => Error("resolved reference without lowered binder: " + decl.name)
-      }
-    None => Var(Free({ name, origin: SourceVar }))
-  }
+  @scope.declaration(graph, node.id()).map_or(
+    Var(Free({ name, origin: SourceVar })),
+    decl => {
+      binders
+      .get(decl.node_id)
+      .map_or(
+        Error("resolved reference without lowered binder: " + decl.name),
+        binder => Var(Bound(binder.id)),
+      )
+    },
+  )
 }
 
 ///|
@@ -62,10 +62,9 @@ fn lower_child_or_error(
   index : Int,
   label : String,
 ) -> AlphaTerm {
-  match node.children.get(index) {
-    Some(child) => lower_node(child, graph, binders)
-    None => Error("missing " + label)
-  }
+  node.children
+  .get(index)
+  .map_or(Error("missing " + label), child => lower_node(child, graph, binders))
 }
 
 ///|
@@ -91,14 +90,14 @@ fn lower_module(
 ) -> AlphaTerm {
   let lowered_defs : Array[(Binder, AlphaTerm)] = []
   for i, def in defs {
-    match node.children.get(i) {
-      Some(child) =>
-        lowered_defs.push(lower_let_def_child(child, graph, binders, def.0))
-      None =>
-        lowered_defs.push(
-          (generated_binder(def.0, i), Error("missing module definition child")),
-        )
-    }
+    lowered_defs.push(
+      node.children
+      .get(i)
+      .map_or(
+        (generated_binder(def.0, i), Error("missing module definition child")),
+        child => lower_let_def_child(child, graph, binders, def.0),
+      ),
+    )
   }
   let body = lower_child_or_error(
     node,
