@@ -110,6 +110,20 @@ fn compute_extract_to_let(
       if would_capture {
         return Err("Cannot extract: expression captures lambda-bound variables")
       }
+      // Guard: inserting `let var_name = expr` before all block defs makes
+      // var_name visible throughout the block. Any existing resolved
+      // Var(var_name) in the block outside the extracted expression would be
+      // silently retargeted to the new binding, changing semantics.
+      let node_subtree = subtree_node_ids(node)
+      let block_var_ids : Array[NodeId] = []
+      collect_var_usages(block_node, var_name, block_var_ids)
+      for vid in block_var_ids {
+        if !node_subtree.contains(vid) && @scope.declaration(g, vid) is Some(_) {
+          return Err(
+            "Cannot extract: '" + var_name + "' is already bound in this block",
+          )
+        }
+      }
       guard block_node.children.length() > 0 else {
         return Err("Cannot extract: block has no children")
       }
