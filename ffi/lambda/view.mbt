@@ -30,13 +30,6 @@ pub fn get_view_tree_json(handle : Int) -> String {
           return "null"
         }
       }
-      let _ = match coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
-        Ok(v) => v
-        Err(report) => {
-          println("get_view_tree_json flat-proj read: \{report}")
-          return "null"
-        }
-      }
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.escalation_memo) {
         Ok(v) => v
@@ -90,13 +83,6 @@ pub fn compute_view_patches_json(handle : Int) -> String {
         Ok(v) => v
         Err(report) => {
           println("compute_view_patches_json diagnostics read: \{report}")
-          return "[]"
-        }
-      }
-      let _ = match coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
-        Ok(v) => v
-        Err(report) => {
-          println("compute_view_patches_json flat-proj read: \{report}")
           return "[]"
         }
       }

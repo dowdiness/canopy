@@ -25,9 +25,10 @@ module list, see [Module Structure](modules.md).
   tree, container, undo, and history APIs rather than reimplementing them.
 - `loom` and `seam` own lossless CST, parser recovery, syntax nodes, and parser
   reuse. Canopy owns app-level projection identity and language behavior.
-- `dowdiness/incr` backs incremental projection today: memo-based `ModuleProjection`
-  updates in `editor` and `lang/lambda/flat`. Reuse its `Input`, `Derived`,
-  `DerivedMap`, `ReachableDerived`, and `Watch` primitives for incremental work.
+- `dowdiness/incr` backs incremental projection today: editor-facing projection
+  stacks are `Derived` pipelines rooted on `@loom.Parser` views. Reuse its
+  `Input`, `Derived`, `DerivedMap`, `ReachableDerived`, and `Watch` primitives
+  for incremental work.
 - MoonDsp should remain owner of DSP runtime safety, `CompiledTemplate`, voice
   scheduling, and audio-thread constraints. Any Canopy integration must be an
   authoring/editor shell boundary, not a runtime rewrite.

@@ -13,11 +13,11 @@ This package owns nothing computational: no parsing, no CRDT, no rendering. It o
 - `DropPosition` (`Before` / `After` / `Inside`) — drag-and-drop placement enum used by `GenericTreeOp` and by language-specific edit ops
 - `Direction` (`Up` / `Down` / `Left` / `Right`) — navigation direction used by `navigate_proj`
 - `SpanEdit` / `FocusHint` — low-level text-edit and cursor-placement hints returned by edit handlers
-- `build_projection_memos` — wires `SyntaxNode → ProjNode → SourceMap` as three reactive `Memo` cells
+- `build_projection_memos` — wires `SyntaxNode → ProjNode → SourceMap` as three reactive `Derived` cells; languages can provide a custom reconciliation hook when `TreeNode::same_kind` is too coarse for a sibling boundary
 
 ## Consumers
 
-Imported by almost every package in the module: `editor`, `protocol`, `projection`, all `lang/*/proj`, `lang/*/edits`, `lang/*/companion`, `lang/*/flat`, `ffi/json`, `ffi/markdown`, and the root `moon.pkg`.
+Imported by almost every package in the module: `editor`, `protocol`, `projection`, all `lang/*/proj`, `lang/*/edits`, `lang/*/companion`, `ffi/json`, `ffi/markdown`, and the root `moon.pkg`.
 
 ## Dependencies
 

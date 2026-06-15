@@ -3,44 +3,44 @@
 // work (#599):
 //   - semantic-binder / semantic-bound decorations come from lambda's
 //     LanguageCapabilities;
-//   - empty-source → None projection (and the resulting FullTree(None)) is
-//     lambda's projection special-casing — the generic projection used by the
-//     neutral TestExpr grammar always yields a (possibly empty) tree.
+//   - empty source now follows the generic projection memo path and yields a
+//     Unit projection rather than Lambda's former flat-memo `None` special case.
 
 ///|
-test "get_view_tree returns None for empty editor" {
+test "get_view_tree returns Unit for empty editor" {
   let editor = new_lambda_editor("test").0
   let tree = editor.get_view_tree()
-  assert_true(tree is None)
+  guard tree is Some(node) else { fail("expected Unit projection") }
+  inspect(node.kind_tag, content="Unit")
 }
 
 ///|
-test "FullTree emitted when tree appears from empty" {
+test "FullTree emitted for empty editor then updated after text" {
   let editor = new_lambda_editor("test").0
   let state = @editor.ViewUpdateState::ViewUpdateState()
-  // Empty editor — no tree
   let patches1 = @editor.compute_view_patches(state, editor)
-  let full_tree_none = patches1
+  let full_tree_unit = patches1
     .iter()
     .any(fn(p) {
       match p {
-        @protocol.ViewPatch::FullTree(root=None) => true
+        @protocol.ViewPatch::FullTree(root=Some(node)) =>
+          node.kind_tag == "Unit"
         _ => false
       }
     })
-  assert_true(full_tree_none)
-  // Now add text
+  assert_true(full_tree_unit)
   editor.set_text("1")
   let patches2 = @editor.compute_view_patches(state, editor)
-  let full_tree_some = patches2
+  let has_tree_update = patches2
     .iter()
     .any(fn(p) {
       match p {
-        @protocol.ViewPatch::FullTree(root=Some(_)) => true
+        @protocol.ViewPatch::ReplaceNode(_)
+        | @protocol.ViewPatch::UpdateNode(_) => true
         _ => false
       }
     })
-  assert_true(full_tree_some)
+  assert_true(has_tree_update)
 }
 
 ///|

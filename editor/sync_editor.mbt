@@ -252,7 +252,7 @@ pub fn[T] SyncEditor::on_watchdog_fire(
 // ── Projection accessors ─────────────────────────────────────────────────
 
 ///|
-/// Returns the cached ProjNode (converted from ModuleProjection once per invalidation).
+/// Returns the cached projection tree.
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
   self.cached_proj_node.read_or_abort()
@@ -274,7 +274,8 @@ pub fn[T] SyncEditor::get_registry(
 }
 
 ///|
-/// Reactive view of the cached ProjNode tree, or `None` on empty source.
+/// Reactive view of the cached ProjNode tree. A language-specific memo may
+/// return `None` when it has no projection to publish.
 /// Returns the underlying Derived cell for use by workspace-coordinator
 /// subscribers that need to react to changes rather than read eagerly.
 pub fn[T] SyncEditor::cached_proj_node(

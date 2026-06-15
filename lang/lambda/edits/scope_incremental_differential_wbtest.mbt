@@ -23,7 +23,7 @@
 //
 // NON-VACUITY (guards against a full-vs-full tautology)
 // Fresh re-parses produce structurally-equal-but-distinct `CstNode`s for unchanged
-// defs, so reuse fires through structural `CstNode` Eq exactly as in production
+// defs, so reuse fires through structural `CstNode` Eq exactly as in the legacy helper
 // (module_projection_wbtest.mbt:322-343 proves this). The dedicated single-edit test below
 // asserts `changed.val == [1]`: the non-reuse branch is the ONLY thing that pushes
 // an index (module_projection.mbt:92), so an empty slot for def 0 proves it was REUSED on
@@ -34,11 +34,9 @@
 // SCOPE / NON-GOALS
 // This is a ModuleProjection-level differential. It threads prev-SyntaxNode + prev-ModuleProjection
 // manually and calls `to_module_projection_incremental` directly — it does NOT drive the
-// `@incr` memo stack (`build_lambda_projection_memos`), whose registry/source-map
-// incremental PATCH paths (changed_def_indices side-channel, revision-skew
-// fallback, two-phase remove/add) are a separate concern. It also cannot catch a
-// bug shared by both pipelines inside `@scope.build`; the frozen hand-derived
-// oracle in `scope_equivalence_wbtest.mbt` covers that blind spot.
+// editor-facing generic `@incr` memo stack. It also cannot catch a bug shared by
+// both pipelines inside `@scope.build`; the frozen hand-derived oracle in
+// `scope_equivalence_wbtest.mbt` covers that blind spot.
 
 ///|
 /// Fresh full parse of a source string into a positioned SyntaxNode. Two

@@ -269,6 +269,16 @@ test "ModuleProjection::from_proj_node: extracts Module defs" {
 }
 
 ///|
+test "ModuleProjection::from_proj_node: preserves explicit Unit body" {
+  let (proj, _) = parse_to_proj_node("let x = 1\n{}")
+  let fp = ModuleProjection::from_proj_node(proj)
+  let body = fp.final_expr.unwrap()
+  inspect(body.kind, content="Unit")
+  inspect(body.start, content="10")
+  inspect(body.end, content="12")
+}
+
+///|
 test "ModuleProjection::from_proj_node: single expression (no Module)" {
   let (proj, _) = parse_to_proj_node("42")
   let fp = ModuleProjection::from_proj_node(proj)

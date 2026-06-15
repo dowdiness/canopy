@@ -1,6 +1,6 @@
 # lang/lambda
 
-Thin facade for the lambda-calculus editor language. Re-exports the handful of types and functions that consumers (`editor/` tests and `ffi/lambda/`) actually call through this path, sourced from the three currently-imported subpackages `edits`, `eval`, and `companion`. The other lambda subpackages (`proj`, `flat`) are not re-exported here — consumers that need them import the subpackage directly.
+Thin facade for the lambda-calculus editor language. Re-exports the handful of types and functions that consumers (`editor/` tests and `ffi/lambda/`) actually call through this path, sourced from the three currently-imported subpackages `edits`, `eval`, and `companion`. The projection subpackage (`proj`) is not re-exported here — consumers that need it import the subpackage directly.
 
 The facade was originally much larger; in 2026-05 it was trimmed to the symbols with live callers. Consumers that need more reach into the subpackages directly (see `examples/ideal/main/moon.pkg`).
 
@@ -28,7 +28,7 @@ Re-exported from `lang/lambda/eval`:
 
 ## Dependencies
 
-`lang/lambda/edits`, `lang/lambda/eval`, `lang/lambda/companion`. The `proj` and `flat` subpackages exist but are not re-exported here; consumers that need them (none today) should import them directly.
+`lang/lambda/edits`, `lang/lambda/eval`, `lang/lambda/companion`. The `proj` subpackage is not re-exported here; consumers that need it should import it directly.
 
 ## Stability
 
@@ -36,4 +36,4 @@ Experimental — the lambda language is the reference implementation for new edi
 
 ## Notes
 
-There is no top-level logic in this package. Earlier revisions included a `reconcile_ast.mbt` file re-exporting `@core.reconcile`, which had no callers and was removed. The reference for incremental projection over the lambda AST lives in `lang/lambda/flat` (`VersionedModuleProjection`, `build_lambda_projection_memos`); import that subpackage directly if needed.
+There is no top-level logic in this package. Earlier revisions included a `reconcile_ast.mbt` file re-exporting `@core.reconcile`, which had no callers and was removed. Lambda's editor-facing projection memos now live in `lang/lambda/proj` via `build_lambda_projection_memos`, a thin wrapper around `@core.build_projection_memos`.

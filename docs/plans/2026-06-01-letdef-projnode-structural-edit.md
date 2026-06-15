@@ -27,7 +27,7 @@ In:
 - `lang/lambda/proj/flat_proj.mbt`
 - `lang/lambda/proj/populate_token_spans.mbt`
 - `lang/lambda/proj/term_css_class*.mbt`
-- `lang/lambda/flat/projection_memo.mbt`
+- `lang/lambda/proj/projection_memo.mbt` (editor-facing generic memo wrapper) and legacy `lang/lambda/proj/module_projection.mbt` if ModuleProjection-specific tests need adjustment
 - `lang/lambda/scope/{builder,graph,query}.mbt`
 - `lang/lambda/edits/{actions,scope,text_edit_binding,text_edit_refactor,text_edit_rename,text_edit_utils,text_edit_middleware,tree_lens}.mbt`
 - `lang/lambda/semantic/semantic_projection.mbt`

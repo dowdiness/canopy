@@ -308,7 +308,7 @@ pub fn ModuleProjection::from_proj_node(
       }
       let body_child = root.children[root.children.length() - 1]
       let final_expr = match body_child.kind {
-        Unit => None
+        Unit if body_child.start == body_child.end => None
         _ => Some(body_child)
       }
       { defs, final_expr }
