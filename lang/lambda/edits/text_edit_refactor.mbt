@@ -15,6 +15,106 @@ fn compute_extract_to_let(
   }
   let g = @scope.build(ctx.registry, ctx.source_map)
   let fv = free_vars(node.kind, @immut/hashset.new())
+  // Build edits
+  let expr_text = @ast.print_term(node.kind)
+  let let_text = "let " + var_name + " = " + expr_text + "\n"
+  // If the node lives in a nested block scope, insert into that block rather
+  // than hoisting to the root. Detect by comparing the node's scope against
+  // the root scope; a non-root scope with ModuleDef decls is a block scope.
+  // NOTE: block detection must run BEFORE the root-relative capture check,
+  // because the block-body sub-path skips that check (the let is inserted at
+  // the same position as the expression, so free vars cannot rebind).
+  let node_scope_id_opt = g.node_scope.get(node_id)
+  let is_block_internal = match (node_scope_id_opt, root_scope_id(g)) {
+    (Some(nid), Some(root)) => nid != root && scope_has_module_defs(g, nid)
+    _ => false
+  }
+  if is_block_internal {
+    let block_scope_id = node_scope_id_opt.unwrap()
+    guard ctx.registry
+      .values()
+      .find_first(fn(n) {
+        n.kind is @ast.Term::Module(_, _) &&
+        g.node_scope.get(n.id()) is Some(sid) &&
+        sid == block_scope_id
+      })
+      is Some(block_node) else {
+      return Err("Cannot extract: enclosing block not found")
+    }
+    let block_view = EditModuleView::from_root(block_node)
+    let block_body_start = match block_view.final_expr {
+      Some(body) =>
+        match ctx.source_map.get_range(body.id()) {
+          Some(r) => r.start
+          None => source_text.length()
+        }
+      None => source_text.length()
+    }
+    if range.start >= block_body_start {
+      // Node is in the block body. The let is inserted immediately before the
+      // body, so free vars of the expression remain in scope — no rebind check.
+      let block_body_end = match block_view.final_expr {
+        Some(body) =>
+          match ctx.source_map.get_range(body.id()) {
+            Some(r) => r.end
+            None => source_text.length()
+          }
+        None => source_text.length()
+      }
+      let prefix = source_text[block_body_start:range.start].to_owned()
+      let suffix = source_text[range.end:block_body_end].to_owned()
+      let new_body_text = let_text + prefix + var_name + suffix
+      return Ok(
+        Some(
+          (
+            [
+              {
+                start: block_body_start,
+                delete_len: block_body_end - block_body_start,
+                inserted: new_body_text,
+              },
+            ],
+            MoveCursor(
+              position=block_body_start + let_text.length() + prefix.length(),
+            ),
+          ),
+        ),
+      )
+    } else {
+      // Node is in a block def. The let is inserted before ALL block defs, so
+      // block-local free vars (not in scope before the first def) would become
+      // unbound. Apply the root-relative capture check as a conservative guard.
+      let would_capture = if module_view.defs.is_empty() {
+        free_names_captured_at_use_sites(g, node, fv)
+      } else {
+        free_names_would_rebind_at_module_end(g, definition_index, node, fv)
+      }
+      if would_capture {
+        return Err("Cannot extract: expression captures lambda-bound variables")
+      }
+      guard block_node.children.length() > 0 else {
+        return Err("Cannot extract: block has no children")
+      }
+      let block_start = block_node.children[0].start
+      return Ok(
+        Some(
+          (
+            [
+              { start: block_start, delete_len: 0, inserted: let_text },
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: var_name,
+              },
+            ],
+            // let_text inserted at block_start < range.start, so range shifts right
+            MoveCursor(position=range.start + let_text.length()),
+          ),
+        ),
+      )
+    }
+  }
+  // Root-level extraction: apply the standard capture check.
   let would_capture = if module_view.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
@@ -23,9 +123,6 @@ fn compute_extract_to_let(
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
   }
-  // Build edits
-  let expr_text = @ast.print_term(node.kind)
-  let let_text = "let " + var_name + " = " + expr_text + "\n"
   if module_view.defs.is_empty() && module_view.final_expr is Some(_) {
     // No module — wrap: replace expression with "let name = expr\nname"
     let new_text = let_text + var_name
