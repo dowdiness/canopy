@@ -1,8 +1,7 @@
 ///|
 /// Edit-local view of the root module shape, derived from the current
-/// `ProjNode` registry. It replaces `ModuleProjection` as edit context: edit
-/// handlers only need the structural `LetDef` children, their source ranges,
-/// and the current body node.
+/// `ProjNode` registry. Edit handlers only need the structural `LetDef`
+/// children, their source ranges, and the current body node.
 priv struct EditModuleBinding {
   name : String
   init : ProjNode[@ast.Term]

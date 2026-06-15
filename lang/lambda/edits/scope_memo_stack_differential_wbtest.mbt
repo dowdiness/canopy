@@ -2,13 +2,11 @@
 // @incr memo stack.
 //
 // WHAT THIS PINS
-// The Level-A differential (`scope_incremental_differential_wbtest.mbt`) still
-// exercises the legacy `to_module_projection_incremental` helper directly. This
-// file drives Lambda's editor-facing projection cells off a live `@loom.Parser`
-// and the generic `@core.build_projection_memos` path exposed through
-// `@lambda_proj.build_lambda_projection_memos`. After each parser edit it reads
-// the cached projection, registry, and source map, then asserts scope resolution
-// agrees with a fresh generic rebuild of the same source.
+// This file drives Lambda's editor-facing projection cells off a live
+// `@loom.Parser` and the generic `@core.build_projection_memos` path exposed
+// through `@lambda_proj.build_lambda_projection_memos`. After each parser edit
+// it reads the cached projection, registry, and source map, then asserts scope
+// resolution agrees with a fresh generic rebuild of the same source.
 //
 // NON-GOALS
 // This intentionally does not assert registry/source-map object identity or

@@ -27,7 +27,7 @@ In:
 - `lang/lambda/proj/flat_proj.mbt`
 - `lang/lambda/proj/populate_token_spans.mbt`
 - `lang/lambda/proj/term_css_class*.mbt`
-- `lang/lambda/proj/projection_memo.mbt` (editor-facing generic memo wrapper) and legacy `lang/lambda/proj/module_projection.mbt` if ModuleProjection-specific tests need adjustment
+- `lang/lambda/proj/projection_memo.mbt` (editor-facing generic memo wrapper and root-Module reconcile hook)
 - `lang/lambda/scope/{builder,graph,query}.mbt`
 - `lang/lambda/edits/{actions,scope,text_edit_binding,text_edit_refactor,text_edit_rename,text_edit_utils,text_edit_middleware,tree_lens}.mbt`
 - `lang/lambda/semantic/semantic_projection.mbt`
@@ -141,7 +141,7 @@ Observable outcomes:
 ## Acceptance Criteria
 
 - [x] `Module` ProjNodes expose children `[LetDef..., body]`; every LetDef has exactly one init child.
-- [x] `FlatProj.defs[i].3` is present in the projection registry and identifies the corresponding LetDef node. (Production path: EditModuleView.binding_id = LetDef child id; ModuleProjection is a labeled "Legacy/test helper" with compat fallback — by design.)
+- [x] Binding ids used by edit views are present in the projection registry and identify the corresponding LetDef node. (Production path: EditModuleView.binding_id = LetDef child id.)
 - [x] `@scope.Decl` for `ModuleDef` uses the LetDef node id, and `@scope.binder_span` still returns the binder-name range.
 - [x] Structure-mode PM conversion maps actual LetDef ProjNodes to `let_def`; no init-id synthesis remains in `convert.ts` / `reconciler.ts`.
 - [x] Drag/drop on `.structure-let_def` moves or swaps whole binding rows. E2E test (drag-drop.spec.ts:188) verifies `'let x = 1\nlet y = 2\nx'` → `'let y = 2\nlet x = 1\nx'` after Inside drop.

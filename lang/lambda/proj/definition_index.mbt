@@ -1,46 +1,25 @@
 ///|
 priv struct DefinitionIndexEntry {
-  name : String
   init : ProjNode[@ast.Term]
   binding_id : NodeId
 }
 
 ///|
-fn DefinitionIndexEntry::from_def(
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
-) -> DefinitionIndexEntry {
-  let (name, init, _start, binding_id) = def
-  { name, init, binding_id }
-}
-
-///|
 fn DefinitionIndexEntry::from_binding(
-  name : String,
   child : ProjNode[@ast.Term],
 ) -> DefinitionIndexEntry {
   match child.kind {
     @ast.Term::LetDef(_, _) if child.children.length() > 0 =>
-      { name, init: child.children[0], binding_id: child.id() }
-    _ => { name, init: child, binding_id: child.id() }
+      { init: child.children[0], binding_id: child.id() }
+    _ => { init: child, binding_id: child.id() }
   }
 }
 
 ///|
-/// Index of module-level Lambda definitions.
-///
-/// Production edit paths derive this from the current `ProjNode` root. The
-/// `ModuleProjection` adapter below exists for the legacy compatibility layer
-/// and root-module reconciliation, but new consumers should use
-/// `DefinitionIndex::from_proj_node`.
+/// Index of module-level Lambda definitions derived from the current
+/// `ProjNode` root.
 pub struct DefinitionIndex {
   priv entries : Array[DefinitionIndexEntry]
-}
-
-///|
-fn DefinitionIndex::from_defs(
-  defs : Array[(String, ProjNode[@ast.Term], Int, NodeId)],
-) -> DefinitionIndex {
-  { entries: defs.map(fn(def) { DefinitionIndexEntry::from_def(def) }) }
 }
 
 ///|
@@ -50,15 +29,12 @@ pub fn DefinitionIndex::from_proj_node(
 ) -> DefinitionIndex {
   match root.kind {
     @ast.Term::Module(defs, _) => {
-      let entries : Array[DefinitionIndexEntry] = []
       let child_count = root.children.length()
-      for i, def in defs {
-        if i + 1 < child_count {
-          entries.push(
-            DefinitionIndexEntry::from_binding(def.0, root.children[i]),
-          )
+      let entries : Array[DefinitionIndexEntry] = [
+        for i, _ in defs if i + 1 < child_count => {
+          DefinitionIndexEntry::from_binding(root.children[i])
         }
-      }
+      ]
       { entries, }
     }
     _ => { entries: [] }
@@ -66,24 +42,9 @@ pub fn DefinitionIndex::from_proj_node(
 }
 
 ///|
-/// Legacy compatibility adapter: derive the definition-index view for this
-/// module projection. New production callers should use
-/// `DefinitionIndex::from_proj_node`.
-pub fn ModuleProjection::definition_index(
-  self : ModuleProjection,
-) -> DefinitionIndex {
-  DefinitionIndex::from_defs(self.defs)
-}
-
-///|
 /// Number of indexed module definitions, preserving source order.
 pub fn DefinitionIndex::length(self : DefinitionIndex) -> Int {
   self.entries.length()
-}
-
-///|
-fn DefinitionIndex::names(self : DefinitionIndex) -> Array[String] {
-  self.entries.map(fn(entry) { entry.name })
 }
 
 ///|
