@@ -8,13 +8,11 @@ fn compute_drop(
   // Legality: self-drop
   guard source != target else { return Err("Cannot drop onto self") }
   let { source_text, .. } = ctx
-  let (source_node, source_range) = match ctx.resolve(source) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (source_node, source_range) = ctx.resolve(source) catch {
+    ResolveError(e) => return Err(e)
   }
-  let (target_node, target_range) = match ctx.resolve(target) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (target_node, target_range) = ctx.resolve(target) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, source, source_node, source_range) {
     Err(e) => return Err(e)

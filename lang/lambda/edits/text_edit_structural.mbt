@@ -4,9 +4,8 @@ fn compute_unwrap(
   node_id : NodeId,
   keep_child_index : Int,
 ) -> EditResult {
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -41,9 +40,8 @@ fn compute_swap_children(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
@@ -94,9 +92,8 @@ fn compute_change_operator(
   node_id : NodeId,
   new_op : @ast.Bop,
 ) -> EditResult {
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)

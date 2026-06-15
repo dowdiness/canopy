@@ -15,19 +15,24 @@ pub(all) struct EditContext[T] {
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
 
 ///|
+priv suberror ResolveError {
+  ResolveError(String)
+}
+
+///|
 /// Look up both the projection node and its source range for a given node_id.
-/// Returns Err("Node not found: {id}") if either lookup fails.
+/// Raises ResolveError("Node not found: {id}") if either lookup fails.
 fn[T] EditContext::resolve(
   self : EditContext[T],
   node_id : NodeId,
-) -> Result[(ProjNode[T], @loomcore.Range), String] {
+) -> (ProjNode[T], @loomcore.Range) raise ResolveError {
   guard self.source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+    raise ResolveError("Node not found: " + node_id.to_string())
   }
   guard self.registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+    raise ResolveError("Node not found: " + node_id.to_string())
   }
-  Ok((node, range))
+  (node, range)
 }
 
 ///|

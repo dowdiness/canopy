@@ -1,8 +1,7 @@
 ///|
 fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult {
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match find_parent(ctx.registry, node_id) {
     Some((parent_id, parent_node, child_index)) =>

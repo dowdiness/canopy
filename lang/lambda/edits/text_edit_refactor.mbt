@@ -4,17 +4,16 @@ fn compute_extract_to_let(
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
-  let { source_text, source_map, registry, definition_index } = ctx
+  let { source_text, definition_index, .. } = ctx
   let module_view = edit_module_view(ctx)
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   match ensure_replaceable_node_range(ctx, node_id, node, range) {
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let g = @scope.build(registry, source_map)
+  let g = @scope.build(ctx.registry, ctx.source_map)
   let fv = free_vars(node.kind, @immut/hashset.new())
   let would_capture = if module_view.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
@@ -48,7 +47,7 @@ fn compute_extract_to_let(
     // Has Module — insert let before body, replace expr with var_name
     let body_start = match module_view.final_expr {
       Some(body) =>
-        match source_map.get_range(body.id()) {
+        match ctx.source_map.get_range(body.id()) {
           Some(r) => r.start
           None => source_text.length()
         }
@@ -62,7 +61,7 @@ fn compute_extract_to_let(
       //   "let var = expr\n" + (prefix before node) + var_name + (suffix after node)
       let body_end = match module_view.final_expr {
         Some(body) =>
-          match source_map.get_range(body.id()) {
+          match ctx.source_map.get_range(body.id()) {
             Some(r) => r.end
             None => source_text.length()
           }
@@ -113,16 +112,15 @@ fn compute_inline_definition(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_text, source_map, registry, .. } = ctx
-  let (node, range) = match ctx.resolve(node_id) {
-    Ok(r) => r
-    Err(e) => return Err(e)
+  let { source_text, .. } = ctx
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
   guard node.kind is @ast.Term::Var(var_name) else {
     return Err("InlineDefinition requires a Var node")
   }
   // Resolve the binding
-  let g = @scope.build(registry, source_map)
+  let g = @scope.build(ctx.registry, ctx.source_map)
   guard @scope.declaration(g, node_id) is Some(decl) else {
     return Err("No binding found for variable: " + var_name)
   }
@@ -134,7 +132,8 @@ fn compute_inline_definition(
         Ok(def) => def
         Err(e) => return Err(e)
       }
-      let init_text = match binding_inline_text(source_text, source_map, def) {
+      let init_text = match
+        binding_inline_text(source_text, ctx.source_map, def) {
         Ok(text) => text
         Err(e) => return Err(e)
       }
@@ -150,7 +149,7 @@ fn compute_inline_definition(
       if refs.length() <= 1 {
         // Sole usage — inline and delete the binding
         let (let_start, binding_end) = match
-          get_binding_text_range(source_text, source_map, def) {
+          get_binding_text_range(source_text, ctx.source_map, def) {
           Ok(r) => r
           Err(e) => return Err(e)
         }
