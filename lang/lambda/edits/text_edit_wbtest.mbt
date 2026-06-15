@@ -1162,6 +1162,32 @@ test "compute_text_edit: ExtractToLet bare expression" {
 }
 
 ///|
+/// Regression test for #651: `free_names_captured_at_use_sites` was Module-blind —
+/// it found the inner `g` inside `{ let g = 1; g }` and falsely flagged it as
+/// capturing the outer free `g`, causing a spurious rejection.
+test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed free name [#651]" {
+  // `g` is free on the left side; the block on the right locally shadows it.
+  // The inner `g`'s binder is inside the extraction subtree, so it is not a
+  // real capture of the outer `g` and must not trigger a rejection.
+  let text = "g + { let g = 1\n  g }"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let result = compute_text_edit(
+    ExtractToLet(node_id=proj.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let y = (g + { let g = 1\ng })\ny")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: InlineDefinition sole usage removes binding" {
   let text = "let x = 42\nx"
   let (proj, _) = parse_to_proj_node(text)
@@ -2220,4 +2246,59 @@ test "compute_text_edit: Drop with unknown target returns error" {
     make_edit_ctx(text, source_map, registry, proj),
   )
   inspect(result is Err(_), content="true")
+}
+
+///|
+/// Regression test for #651: `init_ref_resolves` was Module-blind — when `h`'s
+/// init contained `{ let f = 1; f }`, it found the inner `f` (which resolves to
+/// the inner binding) and falsely concluded the outer `f` was referenced in the
+/// init, blocking a legal MoveBindingDown.
+test "compute_text_edit: MoveBindingDown does not reject block-shadowed name in init [#651-init-ref]" {
+  // `f` is NOT referenced in `h`'s init — the `f` inside the block is locally
+  // bound there. Moving `f` past `h` must succeed.
+  let text = "let f = 0\nlet h = { let f = 1\n  f }\nf"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let binding_id = fp.defs[0].3
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let h = { let f = 1\n  f }\nlet f = 0\nf")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Regression test for #651: `free_name_would_rebind_to` was Module-blind — when
+/// `h`'s init was `f + { let f = 1; f }`, the inner block-bound `f` was falsely
+/// treated as a free use of the outer `f` and produced a spurious rebind error,
+/// blocking a legal InlineDefinition.
+test "compute_text_edit: InlineDefinition does not reject block-shadowed free name in init [#651-rebind]" {
+  // `h`'s init contains the outer free `f` AND a nested block that locally
+  // re-shadows `f`. The inner `f`'s binder is inside the init subtree — it is
+  // NOT a free reference to the outer `f` and must not trigger a rebind error.
+  let text = "let f = 0\nlet h = f + { let f = 1\n  f }\nh"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let fp = @lambda_proj.ModuleProjection::from_proj_node(proj)
+  let body = proj.children[proj.children.length() - 1]
+  let result = compute_text_edit(
+    InlineDefinition(node_id=body.id()),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let f = 0\nf + { let f = 1\n  f }")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
 }
