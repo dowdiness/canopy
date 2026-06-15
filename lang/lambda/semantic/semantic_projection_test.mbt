@@ -11,20 +11,6 @@ fn parse_fixture(
 }
 
 ///|
-fn parse_flat_fixture(
-  text : String,
-) -> (@core.ProjNode[@ast.Term], @core.SourceMap) raise {
-  let (cst, _) = @parser.parse_cst(text)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  let counter = Ref(0)
-  let flat_projection = @lambda_proj.to_module_projection(syntax, counter)
-  let root = flat_projection.to_proj_node(counter)
-  let source_map = @core.SourceMap::from_ast(root)
-  @lambda_proj.populate_token_spans(source_map, syntax, root)
-  (root, source_map)
-}
-
-///|
 fn has_annotation(
   projection : SemanticProjection,
   node_id : @core.NodeId,
@@ -71,7 +57,7 @@ test "free-variable diagnostic in a module def is scope-sourced" {
   // the scope-graph diagnostic path through the MODULE route (not just the bare
   // lambda route), proving `push_scope_failures` reconstructs and resolves the
   // module-def graph rather than the diagnostic still coming from stale env logic.
-  let (root, source_map) = parse_flat_fixture("let a = z\na")
+  let (root, source_map) = parse_fixture("let a = z\na")
   let projection = build_semantic_projection(root, source_map)
   inspect(projection.diagnostics.length(), content="1")
   inspect(projection.diagnostics[0].message, content="Free variable 'z'")
@@ -174,7 +160,7 @@ test "block classifier non-vacuity: block-local bound, block-free surfaced" {
 
 ///|
 test "semantic projection respects sequential module bindings" {
-  let (root, source_map) = parse_flat_fixture("let x = 1\nlet y = x\nx + y")
+  let (root, source_map) = parse_fixture("let x = 1\nlet y = x\nx + y")
   let projection = build_semantic_projection(root, source_map)
   assert_true(has_annotation(projection, root.children[0].id(), "let x"))
   assert_true(has_annotation(projection, root.children[1].id(), "let y"))

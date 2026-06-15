@@ -28,9 +28,10 @@ fn DefinitionIndexEntry::from_binding(
 ///|
 /// Index of module-level Lambda definitions.
 ///
-/// `ModuleProjection` still owns the projection storage for this slice; this
-/// derived index gives definition lookup and binding-id queries a named home
-/// without exposing the underlying tuple layout to new consumers.
+/// Production edit paths derive this from the current `ProjNode` root. The
+/// `ModuleProjection` adapter below exists for the legacy compatibility layer
+/// and root-module reconciliation, but new consumers should use
+/// `DefinitionIndex::from_proj_node`.
 pub struct DefinitionIndex {
   priv entries : Array[DefinitionIndexEntry]
 }
@@ -65,7 +66,9 @@ pub fn DefinitionIndex::from_proj_node(
 }
 
 ///|
-/// Derive the definition-index view for this module projection.
+/// Legacy compatibility adapter: derive the definition-index view for this
+/// module projection. New production callers should use
+/// `DefinitionIndex::from_proj_node`.
 pub fn ModuleProjection::definition_index(
   self : ModuleProjection,
 ) -> DefinitionIndex {

@@ -251,7 +251,7 @@ pub fn apply_lambda_tree_edit(
   let registry = editor.get_registry()
   let definition_index = match editor.get_proj_node() {
     Some(root) => @lambda_proj.DefinitionIndex::from_proj_node(root)
-    None => return Err(@editor.TreeEditError::ModuleProjectionUnavailable)
+    None => return Err(@editor.TreeEditError::ProjectionUnavailable)
   }
   let ctx : @lambda_edits.EditContext[@ast.Term] = {
     source_text: editor.get_text(),
