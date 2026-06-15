@@ -98,3 +98,42 @@ test "diff: None-location key falls back to name; same name collapses" {
   inspect(d.newly_reachable.length(), content="0")
   inspect(d.resolved.length(), content="0")
 }
+
+// ── remap_failures ───────────────────────────────────────────────────────────
+
+///|
+test "remap_failures: pure insertion before failure shifts positions stably" {
+  // Inserting "let w = 0\n" (10 chars) at position 0 shifts all positions +10.
+  // Without remap: before-key "3:4:y" != after-key "13:14:y" → spurious diff.
+  // With remap: before remapped to "13:14:y" → matches after → empty diff.
+  let insert_edit : @core.SpanEdit = { start: 0, delete_len: 0, inserted: "let w = 0\n" }
+  let before = [
+    ReachableFailure(name="y", location=Some({ start: 3, end: 4 }), witness=[]),
+  ]
+  let after = [
+    ReachableFailure(name="y", location=Some({ start: 13, end: 14 }), witness=[]),
+  ]
+  let d_naive = diff(before, after)
+  inspect(d_naive.newly_reachable.length(), content="1") // spurious without remap
+  let d_stable = diff(remap_failures(before, [insert_edit]), after)
+  inspect(d_stable.newly_reachable.length(), content="0")
+  inspect(d_stable.resolved.length(), content="0")
+}
+
+///|
+test "remap_failures: None-location failures pass through unchanged" {
+  let edit : @core.SpanEdit = { start: 0, delete_len: 0, inserted: "abc" }
+  let f = ReachableFailure(name="z", location=None, witness=[])
+  let remapped = remap_failures([f], [edit])
+  inspect(remapped[0].location is None, content="true")
+  inspect(remapped[0].name, content="z")
+}
+
+///|
+test "remap_failures: empty edit list returns failures unchanged" {
+  let f = ReachableFailure(name="x", location=Some({ start: 5, end: 6 }), witness=[])
+  let remapped = remap_failures([f], [])
+  guard remapped[0].location is Some(loc) else { fail("expected Some location") }
+  inspect(loc.start, content="5")
+  inspect(loc.end, content="6")
+}

@@ -26,6 +26,8 @@ pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @d
 
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
+pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
+
 // Errors
 
 // Types and methods

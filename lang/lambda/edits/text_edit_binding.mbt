@@ -133,12 +133,12 @@ fn compute_move_binding_up(
       " in its init",
     )
   }
-  // Block only when prev's ref to cur's name would RE-TARGET an already-resolved
-  // earlier def — if that earlier def exists, moving cur above it shadows the
-  // old binding. If no earlier def exists, prev's ref was free and the swap
-  // improves it from free to bound, which is safe to allow.
+  // Block only when prev's ref to cur's name would RE-TARGET a currently-resolved
+  // binding — whether an earlier same-scope sibling, a lambda parameter, or any
+  // outer-scope binding. If prev's ref is currently free, the swap improves it
+  // from free to bound (allow).
   if prev_fv.contains(cur_def.name) &&
-    has_earlier_sibling_named(g, decl.scope, def_index - 1, cur_def.name) {
+    init_ref_resolves(g, prev_def.init, cur_def.name) {
     return Err(
       "Cannot move up: " +
       prev_def.name +
@@ -230,11 +230,12 @@ fn compute_move_binding_down(
       " in its init",
     )
   }
-  // Block only when cur's ref to next's name would RE-TARGET an already-resolved
-  // earlier def. If no earlier def with that name exists, cur's ref was free
-  // and the swap improves it (free → bound), which is safe to allow.
+  // Block only when cur's ref to next's name would RE-TARGET a currently-resolved
+  // binding — whether an earlier same-scope sibling, a lambda parameter, or any
+  // outer-scope binding. If cur's ref is currently free, the swap improves it
+  // from free to bound (allow).
   if cur_fv.contains(next_def.name) &&
-    has_earlier_sibling_named(g, decl.scope, def_index, next_def.name) {
+    init_ref_resolves(g, cur_def.init, next_def.name) {
     return Err(
       "Cannot move down: " +
       cur_def.name +

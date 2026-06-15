@@ -41,25 +41,22 @@ fn sibling_module_def_decl(
 }
 
 ///|
-/// Returns true if any `ModuleDef` decl in `scope` has name `name` and a
-/// `def_index` strictly less than `before_index`. Used to detect the shadow
-/// case in binding move ops: a reference that currently resolves to an earlier
-/// def would silently re-target after a swap if we allowed it to proceed.
-fn has_earlier_sibling_named(
+/// Whether `init` contains any reference to `name` that currently resolves in
+/// the scope graph. Used in binding move ops: if a reference in one binding's
+/// init currently resolves — whether to an earlier same-scope sibling, a
+/// lambda parameter, or any outer-scope binding — swapping the two bindings
+/// would silently re-target that reference to the moved binding. Returns false
+/// only when every reference to `name` in `init` is free, meaning the swap
+/// would improve them from free to bound (safe to allow).
+fn init_ref_resolves(
   g : @scope.ScopeGraph,
-  scope : @scope.ScopeId,
-  before_index : Int,
+  init : ProjNode[@ast.Term],
   name : String,
 ) -> Bool {
-  let @scope.ScopeId(si) = scope
-  g.scopes[si].decl_ids
-  .iter()
-  .any(fn(did) {
-    let @scope.DeclId(di) = did
-    let decl = g.decls[di]
-    decl.name == name &&
-    decl.kind is @scope.DeclKind::ModuleDef(def_index~) &&
-    def_index < before_index
+  let var_ids : Array[NodeId] = []
+  collect_var_usages(init, name, var_ids)
+  var_ids.any(fn(vid) {
+    g.refs.iter().any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
   })
 }
 

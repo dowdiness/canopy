@@ -63,6 +63,13 @@ pub fn failures(
 /// the same name are the same failure; a semantics-preserving rebuild over the
 /// same source produces identical keys and an empty `diff`.
 ///
+/// **Stability caveat:** keys are absolute positions in the source text.
+/// When an edit only shifts an existing failure (e.g. inserting a binding
+/// before it), the position changes and a naive `diff` would report the failure
+/// as resolved-then-reintroduced. Call `remap_failures(before, edits)` before
+/// `diff` to adjust `before` positions to post-edit coordinates, producing a
+/// stable (non-spurious) diff.
+///
 /// `None` locations (SourceMap built without token spans) fall back to name
 /// only — distinct free vars at different sites collapse to the same key.
 /// Callers should ensure the SourceMap has populated token spans for
@@ -112,4 +119,53 @@ pub fn diff(
     ],
     resolved=[ for f in before if !after_set.contains(failure_key(f)) => f ],
   )
+}
+
+///|
+/// Remap `failures` source positions from before-edit coordinates to
+/// after-edit coordinates using `edits`. Call before `diff` to produce a
+/// stable (non-spurious) diff when edits only shift existing failures without
+/// introducing or fixing them.
+///
+/// `edits` must be sorted by `start` ascending and non-overlapping (the
+/// ordering `compute_text_edit` guarantees). Failures with `location = None`
+/// pass through unchanged; their key is already name-only and position-stable.
+pub fn remap_failures(
+  failures : Array[ReachableFailure],
+  edits : Array[@core.SpanEdit],
+) -> Array[ReachableFailure] {
+  if edits.length() == 0 {
+    return failures
+  }
+  failures.map(fn(f) {
+    match f.location {
+      None => f
+      Some({ start, end }) =>
+        ReachableFailure(
+          name=f.name,
+          location=Some({
+            start: remap_pos(start, edits),
+            end: remap_pos(end, edits),
+          }),
+          witness=f.witness,
+        )
+    }
+  })
+}
+
+///|
+/// Remap a single byte offset from before-edit to after-edit coordinates.
+/// Edits must be sorted by `start` ascending, non-overlapping. Positions
+/// inside a deleted range are mapped to the start of the replacement.
+fn remap_pos(pos : Int, edits : Array[@core.SpanEdit]) -> Int {
+  let final_shift = for edit in edits; shift = 0 {
+    if pos < edit.start {
+      break shift
+    } else if pos < edit.start + edit.delete_len {
+      return edit.start + shift
+    } else {
+      continue shift + edit.inserted.length() - edit.delete_len
+    }
+  } nobreak { shift }
+  pos + final_shift
 }

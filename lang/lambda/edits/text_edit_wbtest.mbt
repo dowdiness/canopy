@@ -2105,10 +2105,43 @@ test "compute_text_edit: MoveBindingDown rejects when swap would re-target cur's
 }
 
 ///|
+test "compute_text_edit: MoveBindingUp rejects when block-local init resolves name from outer scope" {
+  // `let c = x` inside the block currently sees the outer `x = 0`.
+  // Moving the block-local `let x = 2` above `let c = x` would retarget c's
+  // `x` from the outer def to the inner one — no earlier SAME-scope sibling
+  // named "x" exists, but the outer resolution is enough to block.
+  let text = "let x = 0\nlet z = { let c = x; let x = 2; c }\nz"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let block = fp.defs[1].1
+  let binding_id = block.children[1].id() // `let x = 2`
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "compute_text_edit: MoveBindingDown rejects when block-local init resolves name from outer scope" {
+  // `let c = y` inside the block currently sees the outer `y = 0`.
+  // Moving `let c = y` below `let y = 2` would retarget c's `y` from the
+  // outer def to the inner one — same outer-scope retargeting case as above.
+  let text = "let y = 0\nlet z = { let c = y; let y = 2; c }\nz"
+  let (_, source_map, registry, fp) = parse_with_token_spans(text)
+  let block = fp.defs[1].1
+  let binding_id = block.children[0].id() // `let c = y`
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, fp),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 test "compute_text_edit: MoveBindingUp allows free→bound improvement when no earlier sibling shadows" {
   // prev's init references cur's name, but no earlier sibling with that name
   // exists — the reference was free before the swap and becomes bound after.
-  // has_earlier_sibling_named returns false → ALLOW (not an unconditional block).
+  // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
   let text = "let a = x\nlet x = 0\na"
   let (_, source_map, registry, fp) = parse_with_token_spans(text)
   let binding_id = fp.defs[1].3 // `let x = 0`
@@ -2127,7 +2160,7 @@ test "compute_text_edit: MoveBindingUp allows free→bound improvement when no e
 test "compute_text_edit: MoveBindingDown allows free→bound improvement when no earlier sibling shadows" {
   // cur's init references next's name, but no earlier sibling with that name
   // exists — the reference was free before the swap and becomes bound after.
-  // has_earlier_sibling_named returns false → ALLOW (not an unconditional block).
+  // init_ref_resolves returns false (ref is free) → ALLOW (not an unconditional block).
   let text = "let a = b\nlet b = 0\na"
   let (_, source_map, registry, fp) = parse_with_token_spans(text)
   let binding_id = fp.defs[0].3 // `let a = b`
