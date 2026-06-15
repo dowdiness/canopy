@@ -28,16 +28,14 @@ fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult 
           let target = parent_node.children[child_index]
           let pk = placeholder_term_for_kind(target.kind)
           // Build new children array with placeholder at child_index
-          let new_children : Array[ProjNode[@ast.Term]] = []
-          for i, c in parent_node.children {
+          let new_children = Array::makei(parent_node.children.length(), fn(i) {
+            let c = parent_node.children[i]
             if i == child_index {
-              new_children.push(
-                ProjNode::new(pk, c.start, c.end, c.node_id, []),
-              )
+              ProjNode::new(pk, c.start, c.end, c.node_id, [])
             } else {
-              new_children.push(c)
+              c
             }
-          }
+          })
           let new_parent_kind = rebuild_kind(parent_node.kind, new_children)
           let new_text = @ast.print_term(new_parent_kind)
           match ctx.source_map.get_range(parent_id) {
