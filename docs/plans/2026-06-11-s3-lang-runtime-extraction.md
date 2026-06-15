@@ -128,10 +128,13 @@ JSON is the clearest non-lambda reference shape: the companion surface is compac
 > the responsibility map and restated lambda in the spec's vocabulary; the
 > apply path failed every condition for raising it into the SPI:
 >
-> 1. `compute_text_edit` requires `EditContext{source_text, source_map,
->    registry, module_projection}` — not the spec's
->    `(Op, String, ProjNode[T], SourceMap)`; widening would force dead
->    context on json/markdown.
+> 1. At the time, `compute_text_edit` required
+>    `EditContext{source_text, source_map, registry, module_projection}` — not
+>    the spec's `(Op, String, ProjNode[T], SourceMap)`; widening would have
+>    forced dead context on json/markdown. The post-`ModuleProjection` #634
+>    audit narrowed this point: Lambda's registry and `DefinitionIndex` are now
+>    derivable from the generic `ProjNode` root, so context alone is no longer
+>    the deciding blocker.
 > 2. `apply_lambda_tree_edit` returns `Result[Array[SpanEdit],
 >    TreeEditError]` — a typed public error surface plus a patch trace
 >    consumed by `ffi/lambda` (intent.mbt, semantic.mbt) via the
@@ -149,10 +152,11 @@ JSON is the clearest non-lambda reference shape: the companion surface is compac
 > verification that S4 ffi/host extraction is not blocked (ffi already
 > consumes the bridge through the facade).
 >
-> **Revisit trigger:** raise `apply_edit` into the spec only if a future
-> language needs registry/module-projection context AND a typed error
-> channel — i.e. if `LanguageSpec[T, Op, Err]` + a context record would
-> serve at least two languages without dead config in any of them.
+> **Revisit trigger (updated by #634):** raise `apply_edit` into the spec only
+> if a future non-Lambda language needs the same richer application contract —
+> typed edit errors, successful `SpanEdit` traces, or editor-owned move/drop
+> semantics — and the resulting API would serve at least two languages without
+> dead config in any of them.
 >
 > PR3 therefore ships: this decision record, the ADDING_A_LANGUAGE.md
 > template update (LanguageSpec is the path for new languages; lambda

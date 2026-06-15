@@ -1,6 +1,7 @@
 # Lambda CstFold modernization decision note (#623)
 
-**Status:** accepted through #633; updated for #661 compatibility cleanup
+**Status:** accepted through \#634; updated for #668 test classification and the
+\#634 edit-bridge boundary decision
 **Date:** 2026-06-14  
 **Issue:** <https://github.com/dowdiness/canopy/issues/623>
 
@@ -8,7 +9,8 @@
 
 Migrate Lambda incrementally toward the CstFold pattern at the **projection
 construction** seam, but keep the Lambda-specific `ModuleProjection`
-compatibility/reconciliation helpers and custom edit bridge for now.
+compatibility/reconciliation helpers and the custom edit bridge as the #634
+post-cleanup boundary.
 
 Markdown remains the reference integration for new languages. Lambda stays a
 legacy stress case, not a reference demo. The immediate modernization goal is to
@@ -49,7 +51,7 @@ containing the remaining exceptions.
 | CST -> AST value | `CstFold` + language fold node | duplicated hand-built `Term` construction in Canopy | migrate first |
 | AST/projection tree shape | small AST/syntax parallel walk | bespoke synthetic `Lam`, `App`, `Bop`, `LetDef`, `Module` shapes | preserve initially |
 | Memo pipeline | `@core.build_projection_memos` 3-memo | `@core.build_projection_memos` via `lang/lambda/proj` (#633); legacy `ModuleProjection` no longer has an editor-facing memo | migrated in #633 |
-| Edit bridge | `LanguageSpec::apply_edit` | `EditContext{registry,definition_index}` derived from the generic projection root + typed errors + patch trace + `Drop` via `move_node` | keep custom bridge |
+| Edit bridge | `LanguageSpec::apply_edit` | `EditContext{registry,definition_index}` derived from the generic projection root + typed errors + patch trace + `Drop` via `move_node` | keep custom bridge (#634) |
 | New-language guidance | copy Markdown | explicitly do not copy Lambda | leave docs accurate |
 
 ## Blockers to a full migration
@@ -60,9 +62,11 @@ containing the remaining exceptions.
    remaining flat view is used internally to reconcile root-module binding IDs
    and by legacy tests being classified under #662.
 2. **The `LanguageSpec` boundary deliberately excludes Lambda's edit bridge.**
-   The S3 amendment records why: Lambda needs registry plus a definition index,
-   returns `TreeEditError` plus the applied `SpanEdit` trace, and delegates
-   `Drop` to `SyncEditor::move_node`.
+   The #634 audit records the post-`ModuleProjection` boundary: Lambda's
+   registry and definition index are now derived from the generic projection
+   root, so context alone is no longer the deciding blocker. The bridge remains
+   separate because it returns `TreeEditError` plus the applied `SpanEdit`
+   trace, and delegates `Drop` to `SyncEditor::move_node`.
 3. **CstFold and current projection semantics are not byte-for-byte identical.**
    A probe comparing current projection kind with `syntax_node_to_term` showed:
    - `{ 1 }`: current projection `Int(1)`, CstFold term `Module([], Int(1))`.
@@ -160,14 +164,17 @@ Likely touched files:
 - #631 — extract a definition index from `ModuleProjection`.
 - #632 — migrate scope/edit/semantic consumers off `ModuleProjection`.
 - #633 — switch the projection memo stack to the generic 3-memo path.
-- #634 — revisit the Lambda edit bridge after compatibility-surface cleanup.
+- #634 — revisit the Lambda edit bridge after compatibility-surface cleanup
+  (decided: keep the thin Lambda bridge; see
+  `docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`).
 - #635 — replace typed-`fn` source scanners with structured token metadata.
 
 ## Non-goals
 
 - Do not migrate Lambda onto `LanguageSpec` in this issue slice.
-- After #633/#661, keep remaining edit-bridge cleanup scoped to #634 instead of
-  broadening compatibility-surface work into an edit redesign.
+- After #633/#661/#668, keep the #634 edit-bridge decision docs-only unless a
+  future implementation slice deliberately migrates typed errors, patch traces,
+  or editor-owned `Drop` semantics for more than Lambda.
 - Do not make #625's source scanner a reusable framework abstraction.
 - Do not reopen binder identity or scope unification under #623 unless a concrete
   projection slice is blocked by them.

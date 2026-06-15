@@ -134,6 +134,9 @@ behavior** — check the code before relying on any specific detail.
 - [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
   — locks canopy/loom/moondsp at incr minor 0.9, the bottom-up paired-bump protocol,
   and why cross-repo CI is deferred until shared-runtime work needs it (closes #441).
+- [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
+  — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside
+  `LanguageSpec` after `ModuleProjection` removal (closes #634).
 
 ## Historical / Archive
 
