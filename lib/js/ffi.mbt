@@ -22,7 +22,11 @@ pub extern "js" fn Any::set(self : Any, key : String, value : Any) -> Unit =
 
 ///|
 /// `self[name](...args)` — call the method `name` on `self`.
-pub extern "js" fn Any::call(self : Any, name : String, args : Array[Any]) -> Any =
+pub extern "js" fn Any::call(
+  self : Any,
+  name : String,
+  args : Array[Any],
+) -> Any =
   #|(o, m, args) => o[m](...args)
 
 ///|
