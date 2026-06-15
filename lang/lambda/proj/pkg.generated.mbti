@@ -11,6 +11,14 @@ import {
 }
 
 // Values
+pub const FN_BINDING_BODY_ROLE : String = "fn:body"
+
+pub const FN_BINDING_KEYWORD_ROLE : String = "fn:keyword"
+
+pub const FN_BINDING_PARAM_LIST_ROLE : String = "fn:param-list"
+
+pub const FN_BINDING_PARAM_NAME_ROLE : String = "fn:param-name"
+
 pub const LET_DEF_NAME_ROLE : String = "name"
 
 pub const PARAM_ROLE : String = "param"

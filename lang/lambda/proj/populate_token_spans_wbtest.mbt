@@ -11,18 +11,31 @@ fn parse_proj_with_token_spans(
 }
 
 ///|
+fn expect_role_span(
+  source_map : SourceMap,
+  node : ProjNode[@ast.Term],
+  role : String,
+  start : Int,
+  end : Int,
+) -> Unit raise {
+  guard source_map.get_token_span(node.id(), role) is Some(span) else {
+    fail("missing \{role} span")
+  }
+  if span.start != start || span.end != end {
+    fail(
+      "expected \{role} span \{start}..\{end}, got \{span.start}..\{span.end}",
+    )
+  }
+}
+
+///|
 fn expect_param_span(
   source_map : SourceMap,
   node : ProjNode[@ast.Term],
   start : Int,
   end : Int,
 ) -> Unit raise {
-  guard source_map.get_token_span(node.id(), PARAM_ROLE) is Some(span) else {
-    fail("missing param span")
-  }
-  if span.start != start || span.end != end {
-    fail("expected param span \{start}..\{end}, got \{span.start}..\{span.end}")
-  }
+  expect_role_span(source_map, node, PARAM_ROLE, start, end)
 }
 
 ///|
@@ -94,6 +107,44 @@ test "populate_token_spans: typed fn params ignore type identifiers" {
   let fn_lam = proj.children[0].children[0]
   expect_param_span(source_map, fn_lam, 9, 10)
   expect_param_span(source_map, fn_lam.children[0], 25, 26)
+}
+
+///|
+test "populate_token_spans: typed fn binding has structured rewrite spans" {
+  let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let let_def = proj.children[0]
+  expect_role_span(source_map, let_def, FN_BINDING_KEYWORD_ROLE, 0, 2)
+  expect_role_span(source_map, let_def, FN_BINDING_PARAM_LIST_ROLE, 8, 33)
+  expect_role_span(source_map, let_def, FN_BINDING_PARAM_NAME_ROLE, 9, 10)
+  expect_role_span(source_map, let_def, FN_BINDING_BODY_ROLE, 34, 41)
+}
+
+///|
+test "populate_token_spans: zero-param fn has no binding param-name span" {
+  let text = "fn make() { (x) => x }\nmake"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let let_def = proj.children[0]
+  expect_role_span(source_map, let_def, FN_BINDING_KEYWORD_ROLE, 0, 2)
+  expect_role_span(source_map, let_def, FN_BINDING_PARAM_LIST_ROLE, 7, 9)
+  expect_role_span(source_map, let_def, FN_BINDING_BODY_ROLE, 10, 22)
+  inspect(
+    source_map.get_token_span(let_def.id(), FN_BINDING_PARAM_NAME_ROLE) is None,
+    content="true",
+  )
+}
+
+///|
+test "populate_token_spans: let binding with nested fn is not marked as fn" {
+  let text = "let x = { fn y() { 1 }\n  y }\nx"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  let outer_let = proj.children[0]
+  inspect(
+    source_map.get_token_span(outer_let.id(), FN_BINDING_KEYWORD_ROLE) is None,
+    content="true",
+  )
+  let nested_let = outer_let.children[0].children[0]
+  expect_role_span(source_map, nested_let, FN_BINDING_KEYWORD_ROLE, 10, 12)
 }
 
 ///|
