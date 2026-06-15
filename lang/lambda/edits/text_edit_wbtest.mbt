@@ -1250,6 +1250,71 @@ test "compute_text_edit: ExtractToLet inserts before all block defs for non-firs
 }
 
 ///|
+/// Extracting from a lambda body nested inside a block-with-defs must use
+/// block-body insertion, not root insertion. Previously `scope_has_module_defs`
+/// returned false for the lambda scope so the node fell through to root.
+/// The ancestor-scope walk finds the enclosing block Module even when the
+/// selected node is in a lambda scope under the block scope.
+/// Verified by reparsing: root keeps 1 def, block gains a new def `y`.
+test "compute_text_edit: ExtractToLet finds block via ancestor scope for lambda-in-block" {
+  let text = "let z = { let a = 1\n(x) => a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Var("a"))]; extract Var("a")
+  let block = proj.children[0].children[0]
+  let var_a = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=var_a.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed")
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="a")
+              inspect(block_defs[1].0, content="y")
+            }
+            _ => fail("expected inner block to be Module")
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Extracting a lambda-body expression that captures the lambda param must be
+/// refused even when the lambda is nested inside a block (block-body path).
+/// The let would be inserted before the lambda, outside the param's scope,
+/// making the param references unbound.
+test "compute_text_edit: ExtractToLet refuses lambda-param rebind in lambda-in-block" {
+  let text = "let z = { let a = 1\n(x) => x + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Add(Var("x"), Var("a")))]; extract body
+  let block = proj.children[0].children[0]
+  let lam_body = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lam_body.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 test "compute_text_edit: AddBinding adds new let line" {
   let text = "let x = 0\nx"
   let (proj, _) = parse_to_proj_node(text)

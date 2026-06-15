@@ -19,28 +19,11 @@ fn compute_extract_to_let(
   let expr_text = @ast.print_term(node.kind)
   let let_text = "let " + var_name + " = " + expr_text + "\n"
   // If the node lives in a nested block scope, insert into that block rather
-  // than hoisting to the root. Detect by comparing the node's scope against
-  // the root scope; a non-root scope with ModuleDef decls is a block scope.
-  // NOTE: block detection must run BEFORE the root-relative capture check,
-  // because the block-body sub-path skips that check (the let is inserted at
-  // the same position as the expression, so free vars cannot rebind).
-  let node_scope_id_opt = g.node_scope.get(node_id)
-  let is_block_internal = match (node_scope_id_opt, root_scope_id(g)) {
-    (Some(nid), Some(root)) => nid != root && scope_has_module_defs(g, nid)
-    _ => false
-  }
-  if is_block_internal {
-    let block_scope_id = node_scope_id_opt.unwrap()
-    guard ctx.registry
-      .values()
-      .find_first(fn(n) {
-        n.kind is @ast.Term::Module(_, _) &&
-        g.node_scope.get(n.id()) is Some(sid) &&
-        sid == block_scope_id
-      })
-      is Some(block_node) else {
-      return Err("Cannot extract: enclosing block not found")
-    }
+  // than hoisting to the root. Walk ancestor scopes to find the innermost
+  // enclosing Module (handles empty blocks and lambda-nested nodes correctly).
+  // NOTE: block detection must run BEFORE the root-relative capture check;
+  // the block sub-paths have their own guards.
+  if find_enclosing_block(g, ctx.registry, node_id) is Some(block_node) {
     let block_view = EditModuleView::from_root(block_node)
     let block_body_start = match block_view.final_expr {
       Some(body) =>
@@ -78,6 +61,15 @@ fn compute_extract_to_let(
               "' appears in the block body outside the selected expression",
             )
           }
+        }
+        // Guard: node may sit inside a lambda nested in the block body. The
+        // let is inserted before the lambda, outside its param's scope, so
+        // any free var of the extracted expression that resolves via the
+        // lambda param would become unbound after extraction.
+        if free_names_would_rebind_at_node(g, node, body_node.id(), fv) {
+          return Err(
+            "Cannot extract: expression captures lambda-bound variables",
+          )
         }
       }
       let prefix = source_text[block_body_start:range.start].to_owned()

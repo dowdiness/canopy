@@ -149,21 +149,40 @@ fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
 }
 
 ///|
-/// Whether `scope_id` contains at least one ModuleDef decl (i.e. it is a
-/// block/module scope, not a pure lambda scope). Used to distinguish nested
-/// block scopes from lambda scopes when deciding the insertion target for
-/// ExtractToLet.
-fn scope_has_module_defs(
+/// Walk up ancestor scopes from `node_id` and return the innermost
+/// enclosing `Term::Module` ProjNode that is not the root module.
+///
+/// The scope builder records nested Module nodes with their own inner
+/// scope in `node_scope` (the Module node itself maps to the scope it
+/// introduces), while Lam nodes keep their outer scope. So for a given
+/// non-root scope `sid`, finding a Module whose `node_scope` entry equals
+/// `sid` identifies the block that introduced that scope. Walking up the
+/// parent chain handles both empty blocks (no ModuleDef decls) and nodes
+/// nested inside a lambda within a block.
+///
+/// Returns None if the node is at root scope or no Module ancestor exists.
+fn find_enclosing_block(
   g : @scope.ScopeGraph,
-  scope_id : @scope.ScopeId,
-) -> Bool {
-  let @scope.ScopeId(si) = scope_id
-  g.scopes[si].decl_ids
-  .iter()
-  .any(fn(did) {
-    let @scope.DeclId(di) = did
-    g.decls[di].kind is @scope.DeclKind::ModuleDef(_)
-  })
+  registry : Map[NodeId, ProjNode[@ast.Term]],
+  node_id : NodeId,
+) -> ProjNode[@ast.Term]? {
+  guard root_scope_id(g) is Some(root) else { return None }
+  let mut cur = g.node_scope.get(node_id)
+  while cur is Some(sid) && sid != root {
+    let module_opt = registry
+      .values()
+      .find_first(fn(n) {
+        n.kind is @ast.Term::Module(_, _) &&
+        g.node_scope.get(n.id()) is Some(nsid) &&
+        nsid == sid
+      })
+    if module_opt is Some(block) {
+      return Some(block)
+    }
+    let @scope.ScopeId(si) = sid
+    cur = g.scopes[si].parent
+  }
+  None
 }
 
 ///|
