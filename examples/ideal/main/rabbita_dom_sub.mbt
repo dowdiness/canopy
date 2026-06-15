@@ -172,7 +172,11 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     custom_event_sub(TextEditor, RequestRedo, emit.map(_ => Redo)),
     // The host dispatches "file-loaded" on #canopy-text-editor with the chosen
     // file's text as the (plain-string) event detail; deliver it as FileLoaded.
-    custom_event_sub(TextEditor, FileOpened, emit.map(content => FileLoaded(content))),
+    custom_event_sub(
+      TextEditor,
+      FileOpened,
+      emit.map(content => FileLoaded(content)),
+    ),
     custom_event_sub(
       EditorHost,
       StructuralEditApplied,

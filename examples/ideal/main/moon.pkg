@@ -13,7 +13,7 @@ import {
   "dowdiness/dom_boundary",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,
-  "dowdiness/canopy/lib/js" @js,
+  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/history",
   "dowdiness/canopy/projection" @proj,

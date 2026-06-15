@@ -547,8 +547,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (cmd, new_model)
     }
     // ── File I/O ──────────────────────────────────────────
-    OpenFile =>
-      (@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model)
+    OpenFile => (@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model)
     SaveFile =>
       (
         @rabbita.effect(fn() { @ffi.save_file(model.handle, "canopy.lambda") }),
