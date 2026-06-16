@@ -35,16 +35,11 @@ fn free_names(term : AlphaTerm) -> Array[String] {
         free_names(else_),
       )
     LetDef(_, init) => free_names(init)
-    Module(defs, body) => {
-      let result = free_names(body)
-      for def in defs {
+    Module(defs, body) =>
+      defs.fold(init=free_names(body), (names, def) => {
         let (_, init) = def
-        for name in free_names(init) {
-          push_unique(result, name)
-        }
-      }
-      result
-    }
+        merged_names(names, free_names(init))
+      })
     Int(_) | Unit | Error(_) | Hole(_) => []
   }
 }
@@ -55,14 +50,10 @@ fn suffix_free_names(
   body : AlphaTerm,
   start : Int,
 ) -> Array[String] {
-  let result = free_names(body)
-  for i in start..<defs.length() {
-    let (_, init) = defs[i]
-    for name in free_names(init) {
-      push_unique(result, name)
-    }
-  }
-  result
+  defs[start:].fold(init=free_names(body), (names, def) => {
+    let (_, init) = def
+    merged_names(names, free_names(init))
+  })
 }
 
 ///|

@@ -9,15 +9,20 @@ pub fn lower_root(
 
 ///|
 fn source_binders(graph : @scope.ScopeGraph) -> Map[@core.NodeId, Binder] {
-  let binders : Map[@core.NodeId, Binder] = {}
-  for i, decl in graph.decls {
-    binders[decl.node_id] = {
-      id: BinderId(i),
-      hint: decl.name,
-      origin: SourceDecl(node_id=decl.node_id, hint=decl.name),
-    }
-  }
-  binders
+  Map::from_iter(
+    graph.decls
+    .mapi((i, decl) => {
+      (
+        decl.node_id,
+        {
+          id: BinderId(i),
+          hint: decl.name,
+          origin: SourceDecl(node_id=decl.node_id, hint=decl.name),
+        },
+      )
+    })
+    .iter(),
+  )
 }
 
 ///|
@@ -88,17 +93,14 @@ fn lower_module(
   graph : @scope.ScopeGraph,
   binders : Map[@core.NodeId, Binder],
 ) -> AlphaTerm {
-  let lowered_defs : Array[(Binder, AlphaTerm)] = []
-  for i, def in defs {
-    lowered_defs.push(
-      node.children
-      .get(i)
-      .map_or(
-        (generated_binder(def.0, i), Error("missing module definition child")),
-        child => lower_let_def_child(child, graph, binders, def.0),
-      ),
+  let lowered_defs : Array[(Binder, AlphaTerm)] = defs.mapi((i, def) => {
+    node.children
+    .get(i)
+    .map_or(
+      (generated_binder(def.0, i), Error("missing module definition child")),
+      child => lower_let_def_child(child, graph, binders, def.0),
     )
-  }
+  })
   let body = lower_child_or_error(
     node,
     graph,
