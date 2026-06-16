@@ -85,3 +85,25 @@ test "lower: sequential module scope follows ScopeGraph" {
   inspect(init_id == first_binder.id, content="true")
   inspect(body_id == second_binder.id, content="true")
 }
+
+///|
+test "lower: generated fallback binder ids use node identity" {
+  let binders : Map[@core.NodeId, Binder] = {}
+  let first = @core.ProjNode::new(
+    @ast.Term::Lam("x", @ast.Term::Unit),
+    0,
+    0,
+    7,
+    [],
+  )
+  let second = @core.ProjNode::new(
+    @ast.Term::Lam("x", @ast.Term::Unit),
+    0,
+    0,
+    8,
+    [],
+  )
+  let first_binder = binder_for_node(binders, first, "x")
+  let second_binder = binder_for_node(binders, second, "x")
+  inspect(first_binder.id == second_binder.id, content="false")
+}

@@ -33,10 +33,12 @@ fn generated_binder(hint : String, salt : Int) -> Binder {
 ///|
 fn binder_for_node(
   binders : Map[@core.NodeId, Binder],
-  node_id : @core.NodeId,
+  node : @core.ProjNode[@ast.Term],
   hint : String,
 ) -> Binder {
-  binders.get(node_id).map_or(generated_binder(hint, 0), binder => binder)
+  binders
+  .get(node.id())
+  .map_or(generated_binder(hint, node.node_id), binder => binder)
 }
 
 ///|
@@ -79,7 +81,7 @@ fn lower_let_def_child(
   binders : Map[@core.NodeId, Binder],
   hint : String,
 ) -> (Binder, AlphaTerm) {
-  let binder = binder_for_node(binders, node.id(), hint)
+  let binder = binder_for_node(binders, node, hint)
   let init = lower_child_or_error(
     node, graph, binders, 0, "let definition init",
   )
@@ -123,7 +125,7 @@ fn lower_node(
     @ast.Term::Var(name) => lower_ref(node, graph, binders, name)
     @ast.Term::Unbound(name) => Var(Free({ name, origin: SourceUnbound }))
     @ast.Term::Lam(name, _) => {
-      let binder = binder_for_node(binders, node.id(), name)
+      let binder = binder_for_node(binders, node, name)
       Lam(binder, lower_child_or_error(node, graph, binders, 0, "lambda body"))
     }
     @ast.Term::App(_, _) =>
@@ -144,7 +146,7 @@ fn lower_node(
         lower_child_or_error(node, graph, binders, 2, "if else branch"),
       )
     @ast.Term::LetDef(name, _) => {
-      let binder = binder_for_node(binders, node.id(), name)
+      let binder = binder_for_node(binders, node, name)
       LetDef(
         binder,
         lower_child_or_error(node, graph, binders, 0, "let definition init"),

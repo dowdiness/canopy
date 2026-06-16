@@ -45,15 +45,20 @@ fn free_names(term : AlphaTerm) -> Array[String] {
 }
 
 ///|
-fn suffix_free_names(
+fn suffix_free_name_sets(
   defs : Array[(Binder, AlphaTerm)],
   body : AlphaTerm,
-  start : Int,
-) -> Array[String] {
-  defs[start:].fold(init=free_names(body), (names, def) => {
-    let (_, init) = def
-    merged_names(names, free_names(init))
-  })
+) -> Array[Array[String]] {
+  let initial : (Array[String], Array[Array[String]]) = (free_names(body), [])
+  let (_, reversed_suffixes) = defs
+    .rev_iter()
+    .fold(init=initial, (state, def) => {
+      let (suffix_after, suffixes) = state
+      suffixes.push(suffix_after)
+      let (_, init) = def
+      (merged_names(suffix_after, free_names(init)), suffixes)
+    })
+  reversed_suffixes.rev()
 }
 
 ///|
@@ -134,10 +139,11 @@ fn reify_module(
   let out_defs : Array[(String, @ast.Term)] = []
   let next_env = env.copy()
   let next_used = used.copy()
+  let suffix_avoids = suffix_free_name_sets(defs, body)
   for i, def in defs {
     let (binder, init) = def
     let init_term = reify_with(init, policy, next_env, next_used)
-    let avoid = merged_names(next_used, suffix_free_names(defs, body, i + 1))
+    let avoid = merged_names(next_used, suffix_avoids[i])
     let name = fresh_name(binder.hint, avoid)
     out_defs.push((name, init_term))
     next_env[binder.id] = name

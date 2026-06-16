@@ -41,3 +41,24 @@ test "reify: nested binders avoid capturing outer references" {
   inspect(inner_name, content="x1")
   inspect(body_name, content="x")
 }
+
+///|
+test "reify: module binders avoid suffix free names" {
+  let first = test_binder(0, "y")
+  let second = test_binder(1, "z")
+  let term = Module(
+    [(first, Unit), (second, free_var("y"))],
+    Var(Bound(first.id)),
+  )
+  guard reify(term, Source)
+    is @ast.Term::Module(
+      [(first_name, @ast.Term::Unit), (second_name, @ast.Term::Var(later_free))],
+      @ast.Term::Var(body_name)
+    ) else {
+    fail("expected reified module")
+  }
+  inspect(first_name, content="y1")
+  inspect(second_name, content="z")
+  inspect(later_free, content="y")
+  inspect(body_name, content="y1")
+}
