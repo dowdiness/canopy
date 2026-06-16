@@ -33,12 +33,7 @@ pub enum Msg {
   SyncStatusChanged(String)
   // Action overlay
   OpenActionOverlayForNode(String)
-  CloseActionOverlay
-  ActionMenu(@menu.Msg)
-  ActionKeyPressed(String)
-  NamePromptInput(String)
-  NamePromptSubmit
-  NamePromptCancel
+  ActionOverlay(OverlayMsg)
   LongPressTriggeredForNode(String)
   // Outline drag-and-drop
   OutlineDragStart(@canopy_core.NodeId)

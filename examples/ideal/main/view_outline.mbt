@@ -368,7 +368,7 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
             }
           "Escape" =>
             if model.overlay.is_open() {
-              dispatch(CloseActionOverlay)
+              dispatch(ActionOverlay(NameCancel))
             } else {
               dispatch(OutlineNavigate(""))
             }

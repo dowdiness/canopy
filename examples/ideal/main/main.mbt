@@ -689,17 +689,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     OpenActionOverlayForNode(node_id_str)
     | LongPressTriggeredForNode(node_id_str) =>
       open_action_overlay_from_event(model, node_id_str)
-    CloseActionOverlay => close_action_overlay(model)
-    ActionMenu(menu_msg) => handle_action_menu_msg(model, menu_msg)
-    ActionKeyPressed(key) =>
-      if key == "" {
-        (none, model)
-      } else {
-        handle_action_key(model, key)
-      }
-    NamePromptInput(value) => handle_name_prompt_input(model, value)
-    NamePromptSubmit => handle_name_prompt_submit(model)
-    NamePromptCancel => close_action_overlay(model)
+    ActionOverlay(overlay_msg) => handle_overlay_msg(model, overlay_msg)
     // ── Outline drag-and-drop ──────
     OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
     OutlineDragOver(target_id, position) =>
