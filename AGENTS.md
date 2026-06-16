@@ -177,14 +177,39 @@ Run `moon check` after edits and `moon test` for affected packages.
 
 ## Model Routing
 
-Route by judgment complexity rather than importance: Opus for architecture/novel
-design/debugging, Sonnet for clear-spec implementation (50+ lines) and pre-merge
-review, Haiku for mechanical work (renames, formatting, rote migration). Under
-~50 lines / 1-3 files, implement inline — no delegation.
+Route by judgment complexity and context impact, not by perceived importance.
+Under ~50 lines / 1-3 files, implement inline when delegation overhead would
+outweigh isolation benefits.
+
+Use pi subagents as follows:
+
+- `mechanic`: rote edits, renames, import/path migrations, and repeated
+  exact-pattern changes.
+- `scout`: broad non-MoonBit reconnaissance or unfamiliar non-MoonBit areas.
+- `moonbit-scout`: MoonBit/Canopy reconnaissance involving `.mbt`, `.mbti`,
+  `moon.pkg`, `moon.mod.json`, package roots, or `moon ide`.
+- `planner`: non-MoonBit implementation planning after reconnaissance.
+- `moonbit-planner`: MoonBit implementation planning requiring Existing API
+  First, package-root validation, `.mbti` drift checks, proof/docs/TS/submodule
+  awareness.
+- `worker`: clear implementation tasks large enough to benefit from isolated
+  execution; review its patch before continuing.
+- `reviewer`: risky non-MoonBit changes, pre-merge review, or independent
+  validation.
+- `moonbit-reviewer`: MoonBit/Canopy API, package-boundary, validation, or
+  `.mbti` review.
 
 Delegation requires clear scope — if you can't list the files to touch, research
 first. Use the `/delegate` skill for the handoff format and task templates, and
-`/parallel-review` or `Agent(subagent_type: "code-reviewer")` for review.
+`/parallel-review` or `moonbit-reviewer`/`reviewer` for review as appropriate.
+
+Do not run editing-capable agents (`mechanic`, `worker`, or any agent with
+edit/write access) in parallel in the same worktree. Parallel delegation is for
+read-only reconnaissance/review unless separate worktrees are explicitly
+arranged.
+
+For current model assignments, prefer the global pi guidance in
+`~/.pi/agent/AGENTS.md` rather than duplicating model names here.
 
 ## Code Review Expectations
 
