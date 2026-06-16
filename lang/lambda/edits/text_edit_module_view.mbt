@@ -29,19 +29,15 @@ fn edit_root_node(
 }
 
 ///|
-fn edit_binding_from_child(
+fn edit_binding_from_let_def(
   name : String,
-  child : ProjNode[@ast.Term],
+  let_def : ProjNode[@ast.Term],
 ) -> EditModuleBinding {
-  match child.kind {
-    @ast.Term::LetDef(_, _) if child.children.length() > 0 =>
-      {
-        name,
-        init: child.children[0],
-        start: child.start,
-        binding_id: child.id(),
-      }
-    _ => { name, init: child, start: child.start, binding_id: child.id() }
+  {
+    name,
+    init: let_def.children[0],
+    start: let_def.start,
+    binding_id: let_def.id(),
   }
 }
 
@@ -53,7 +49,8 @@ fn edit_binding_by_id(
   match ctx.registry.get(binding_node_id) {
     Some(node) =>
       match node.kind {
-        @ast.Term::LetDef(name, _) => Ok(edit_binding_from_child(name, node))
+        @ast.Term::LetDef(name, _) if node.children.length() > 0 =>
+          Ok(edit_binding_from_let_def(name, node))
         _ => Err("Binding not found: " + binding_node_id.to_string())
       }
     None => Err("Binding not found: " + binding_node_id.to_string())
@@ -78,8 +75,10 @@ fn EditModuleView::from_root(root : ProjNode[@ast.Term]) -> EditModuleView {
       let bindings : Array[EditModuleBinding] = []
       let child_count = root.children.length()
       for i, def in defs {
-        if i + 1 < child_count {
-          bindings.push(edit_binding_from_child(def.0, root.children[i]))
+        if i + 1 < child_count &&
+          root.children[i].kind is @ast.Term::LetDef(_, _) &&
+          root.children[i].children.length() > 0 {
+          bindings.push(edit_binding_from_let_def(def.0, root.children[i]))
         }
       }
       let final_expr = if defs.length() < child_count {

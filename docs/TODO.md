@@ -247,7 +247,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   actual LetDef ProjNodes to let_def; drag/drop E2E moves whole binding rows; binding
   actions pass real LetDef ids; scope annotation uses real LetDef ids; binder_span /
   go_to_definition remain source-span based; canvas unchanged.
-  Remaining cleanup (non-blocking): dead ValidateNodeExists binding-id fallback.
+  Post-#677 follow-up cleanup removed the remaining binding-id compatibility
+  fallbacks; action-context plumbing now uses real LetDef ids instead of init ids.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
   Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder.
@@ -501,17 +502,13 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   the `DuplicateBinding on block-local binding` wbtest characterizes this and
   does NOT reparse.
 
-- [ ] Teach `edits/` **extract** op about nested-block scopes — the remaining
-  §20 clause. `compute_extract_to_let` (`text_edit_refactor.mbt`) still hoists
-  the new `let` to the ROOT body and gates capture root-relative, so a
-  block-internal expression with no block-local free var is hoisted unsoundly
-  (out-of-scope reference; #659). It safely refuses the block-local-free-var case
-  (wbtest `ExtractToLet refuses block-internal expr that uses a block-local
-  binding`), but the message is misleading and the capture analysis still has the
-  defs-empty Module-blind half (#651) and the two-path split (#656).
-  Exit: extracting a block-internal expression inserts the `let` into the
-  enclosing block and the result reparses to the intended AST; tracked by #659
-  (hoist target) + #651 / #656 (capture analysis).
+- [x] Teach `edits/` **extract** op about nested-block scopes.
+  Shipped: PR #674 (`f0cf3cf`, 2026-06-16) makes `compute_extract_to_let`
+  find the innermost enclosing `Module` through the scope graph and insert the
+  new `let` inside that block instead of hoisting to the root. wbtests cover
+  block-body insertion, block-def insertion, lambda-in-block ancestry,
+  empty-def blocks, and capture/rebind refusals. GitHub issue #659 remains open
+  for maintainer triage/closure, not for unshipped block-aware extraction code.
 
 ## Shipped history
 

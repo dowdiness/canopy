@@ -12,8 +12,6 @@ import {
 // Values
 pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
 
-pub fn find_binding_for_init(@core.NodeId, @proj.DefinitionIndex) -> (@core.NodeId, Int)?
-
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]

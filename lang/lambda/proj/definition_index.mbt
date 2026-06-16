@@ -5,14 +5,10 @@ priv struct DefinitionIndexEntry {
 }
 
 ///|
-fn DefinitionIndexEntry::from_binding(
-  child : ProjNode[@ast.Term],
+fn DefinitionIndexEntry::from_let_def(
+  let_def : ProjNode[@ast.Term],
 ) -> DefinitionIndexEntry {
-  match child.kind {
-    @ast.Term::LetDef(_, _) if child.children.length() > 0 =>
-      { init: child.children[0], binding_id: child.id() }
-    _ => { init: child, binding_id: child.id() }
-  }
+  { init: let_def.children[0], binding_id: let_def.id() }
 }
 
 ///|
@@ -31,8 +27,10 @@ pub fn DefinitionIndex::from_proj_node(
     @ast.Term::Module(defs, _) => {
       let child_count = root.children.length()
       let entries : Array[DefinitionIndexEntry] = [
-        for i, _ in defs if i + 1 < child_count => {
-          DefinitionIndexEntry::from_binding(root.children[i])
+        for i, _ in defs if i + 1 < child_count &&
+        root.children[i].kind is @ast.Term::LetDef(_, _) &&
+        root.children[i].children.length() > 0 => {
+          DefinitionIndexEntry::from_let_def(root.children[i])
         }
       ]
       { entries, }
@@ -48,16 +46,13 @@ pub fn DefinitionIndex::length(self : DefinitionIndex) -> Int {
 }
 
 ///|
-/// Look up the binding handle for a module definition by either its LetDef node
-/// id or its initializer node id.
+/// Look up the binding handle for a module definition by its LetDef node id.
 pub fn DefinitionIndex::binding_for_node(
   self : DefinitionIndex,
   node_id : NodeId,
 ) -> (NodeId, Int)? {
   self.entries
-  .search_by(fn(entry) {
-    entry.binding_id == node_id || entry.init.id() == node_id
-  })
+  .search_by(fn(entry) { entry.binding_id == node_id })
   .map(fn(i) { (self.entries[i].binding_id, i) })
 }
 
@@ -65,8 +60,8 @@ pub fn DefinitionIndex::binding_for_node(
 /// Return the number of preceding module definitions visible at `node_id`.
 ///
 /// Nodes inside definition `i`'s initializer receive cutoff `i`; nodes outside
-/// all initializers receive the full definition count. Missing source ranges use
-/// the full count, matching the legacy edit-scope fallback.
+/// all initializers or missing from the source map receive the full definition
+/// count.
 pub fn DefinitionIndex::cutoff_at_node(
   self : DefinitionIndex,
   source_map : SourceMap,

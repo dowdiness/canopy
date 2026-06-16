@@ -100,8 +100,7 @@ fn open_action_overlay(
   if node_id_str == "" {
     return model
   }
-  let ctx = match
-    detect_action_context(model.editor, model.companion, node_id_str) {
+  let ctx = match detect_action_context(model.editor, node_id_str) {
     Some(c) => c
     None => return model
   }

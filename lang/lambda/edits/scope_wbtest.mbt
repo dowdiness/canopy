@@ -78,61 +78,6 @@ test "module_def_references: later duplicate shadows body only" {
 }
 
 ///|
-test "find_binding_for_init: maps init ProjNode to binding NodeId" {
-  let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
-  let index = DefinitionIndex::from_proj_node(proj)
-  // First def's init is the LetDef node's child.
-  let init_id = proj.children[0].children[0].id()
-  let binding_node_id = proj.children[0].id()
-  match find_binding_for_init(init_id, index) {
-    Some((binding_id, def_index)) => {
-      inspect(binding_id == binding_node_id, content="true")
-      inspect(def_index, content="0")
-    }
-    None => fail("expected Some")
-  }
-  match find_binding_for_init(binding_node_id, index) {
-    Some((binding_id, def_index)) => {
-      inspect(binding_id == binding_node_id, content="true")
-      inspect(def_index, content="0")
-    }
-    None => fail("expected Some for LetDef id")
-  }
-}
-
-///|
-test "find_binding_for_init: returns None for non-init node" {
-  let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
-  let index = DefinitionIndex::from_proj_node(proj)
-  // Body node is not an init expression
-  let body = proj.children.last().unwrap()
-  inspect(find_binding_for_init(body.id(), index) is None, content="true")
-}
-
-///|
-test "find_binding_for_init: duplicate defs return matching binding order" {
-  let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
-  let index = DefinitionIndex::from_proj_node(proj)
-  match find_binding_for_init(proj.children[0].children[0].id(), index) {
-    Some((binding_id, def_index)) => {
-      inspect(binding_id == proj.children[0].id(), content="true")
-      inspect(def_index, content="0")
-    }
-    None => fail("expected first duplicate binding")
-  }
-  match find_binding_for_init(proj.children[1].children[0].id(), index) {
-    Some((binding_id, def_index)) => {
-      inspect(binding_id == proj.children[1].id(), content="true")
-      inspect(def_index, content="1")
-    }
-    None => fail("expected second duplicate binding")
-  }
-}
-
-///|
 test "def_cutoff_at_node: duplicate defs use init-range cutoff" {
   let text = "let x = 0\nlet x = x\nx"
   let (proj, _) = parse_to_proj_node(text)
