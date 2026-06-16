@@ -1008,16 +1008,12 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
 }
 
 ///|
-/// ExtractToLet is NOT yet block-aware (it always hoists to the ROOT body): see
-/// the §20 extract clause. When the extracted block-internal expression
-/// references a block-local binding, the root-relative capture guard catches it
-/// and refuses — so the unsound hoist is at least avoided for this case. (The
-/// error text says "lambda-bound" but the captured binding here is a module
-/// def; the message is misleading, not the verdict.) The complementary case — a
-/// block-internal expression with NO block-local free var — is NOT guarded and
-/// hoists unsoundly; that is the open bug tracked separately, so it is
-/// deliberately not asserted here as if correct.
-test "compute_text_edit: ExtractToLet refuses block-internal expr that uses a block-local binding" {
+/// ExtractToLet is block-aware for block BODY expressions: inserting `let y =
+/// expr` immediately before the body leaves block-local bindings in scope, so
+/// the extraction succeeds even when the body references block-local names.
+/// Verified by reparsing: root keeps exactly 1 def, block gains `y` as a new
+/// def after `a`, and block body becomes `y`.
+test "compute_text_edit: ExtractToLet handles block body with block-local free var" {
   let text = "let z = { let a = 1\n  a + 1 }\nz"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
@@ -1028,7 +1024,400 @@ test "compute_text_edit: ExtractToLet refuses block-internal expr that uses a bl
     ExtractToLet(node_id=body.id(), var_name="y"),
     make_edit_ctx(text, source_map, registry, proj),
   )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed")
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="a")
+              inspect(block_defs[1].0, content="y")
+            }
+            _ => fail("expected inner block to be Module")
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// If var_name is already bound in the block body (outside the extracted
+/// expression), inserting `let var_name = expr` would silently retarget those
+/// uses to the new binding, changing semantics. The block-body path must refuse.
+/// Example: `(a + 1) + a` extracting `(a + 1)` as `a` would produce
+/// `let a = (a + 1)\na + a` where the suffix `a` now refers to the new binding
+/// instead of the original `let a = 1`.
+test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would capture suffix" {
+  let text = "let z = { let a = 1\n  (a + 1) + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // Extract `(a + 1)` from the body: block→body→Add(Add(Var(a),Int(1)), Var(a))
+  let block = proj.children[0].children[0]
+  let body = block.children[block.children.length() - 1]
+  // body is Add(Add(Var(a),Int(1)), Var(a)); first child is (a + 1)
+  let extracted = body.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=extracted.id(), var_name="a"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
   inspect(result is Err(_), content="true")
+}
+
+///|
+/// Free (unresolved) Var(var_name) in the suffix is also a capture: the new
+/// `let var_name = expr` would bind it, changing the program from unbound/stuck
+/// to a resolved value. The check must fire for free uses too, not just
+/// already-resolved ones.
+/// Example: `(a + 1) + y` — `y` is free. Extracting `(a + 1)` as `y` would
+/// produce `let y = a + 1\ny + y` where `y` is now bound.
+test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would bind free suffix ref" {
+  let text = "let z = { let a = 1\n  (a + 1) + y }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let body = block.children[block.children.length() - 1]
+  let extracted = body.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=extracted.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// Free (unresolved) Var(var_name) anywhere in the block is also a capture:
+/// inserting `let var_name = expr` before all defs would bind it.
+/// Example: `y` is free in `{ let a = 1\n  y + a }`. Extracting `1` as `y`
+/// would produce `{ let y = 1\n  let a = 1\n  y + a }` where the previously
+/// unbound `y` now resolves.
+test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would bind free block ref" {
+  let text = "let z = { let a = 1\n  y + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let lit_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// Inserting `let var_name = expr` before all block defs makes var_name
+/// visible throughout the block. Any existing Var(var_name) in the block
+/// (in later def initializers or the body) that currently resolves to an
+/// outer binding is silently retargeted, changing semantics. The block-def
+/// path must refuse.
+/// Example: outer `y`, block `{ let a = 1\n  y + a }`, extracting `1` as
+/// `y` would insert `let y = 1` before `let a`, making body `y + a` resolve
+/// `y` to 1 instead of the outer binding.
+test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would capture block ref" {
+  let text = "let y = 5\nlet z = { let a = 1\n  y + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // z is proj.children[1] (second root def); block is z's init
+  let z_def = proj.children[1]
+  let block = z_def.children[0]
+  // Extract Int(1) from `let a = 1`: block→LetDef("a")→Int(1)
+  let lit_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// Extracting from a block DEF when the expression uses a block-local binding
+/// defined earlier in the same block is correctly refused. Inserting `let y =
+/// expr` before all block defs would put `expr` before `a`'s binding, leaving
+/// `a` unbound. The root-relative capture guard catches this case.
+test "compute_text_edit: ExtractToLet refuses block-def extraction with block-local free var" {
+  let text = "let z = { let a = 1\n  let b = a + 1\n  b }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // Extract `a + 1` (the init of `let b`): block→LetDef("b")→Add(Var("a"), Int(1))
+  let block = proj.children[0].children[0]
+  let b_init = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=b_init.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// Lambda param referenced in a block-def init: the param is declared OUTSIDE
+/// the block (in the enclosing lambda), so it stays in scope at the insertion
+/// point. This exercises the scope_is_within check on the block-def path.
+///
+/// Parser wraps the top-level lambda as an unnamed binding, so proj.kind is
+/// Module([("", Lam("x",…))], Unit). Navigation must go through that wrapper.
+test "compute_text_edit: ExtractToLet allows block-def extraction when lambda param is from outside the block" {
+  let text = "fn(x) { let y = x\ny }"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj = Module([("", Lam("x", …))], Unit)
+  // proj.children[0] = LetDef("", Lam("x", …))
+  // proj.children[0].children[0] = Lam("x", inner_block)
+  // proj.children[0].children[0].children[0] = inner_block = Module([("y",…)],…)
+  // inner_block.children[0] = LetDef("y", Var("x"))
+  // inner_block.children[0].children[0] = Var("x")  ← target
+  let lam = proj.children[0].children[0]
+  let inner_block = lam.children[0]
+  let let_y = inner_block.children[0]
+  let x_var = let_y.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=x_var.id(), var_name="v"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      // Root still has 1 def (the unnamed lambda binding); lambda body block
+      // gains the new "v" binding as its first def.
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let lam_block = result_proj.children[0].children[0].children[0]
+          match lam_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="v")
+              inspect(block_defs[1].0, content="y")
+            }
+            _ =>
+              fail(
+                "expected lambda body block to be Module, got " +
+                @debug.to_string(lam_block.kind),
+              )
+          }
+        }
+        _ => fail("expected root Module")
+      }
+    }
+    other => fail("expected Ok(Some(_)), got: " + @debug.to_string(other))
+  }
+}
+
+///|
+/// Extracting a block-internal expression with no block-local free var inserts
+/// the let inside the enclosing block (not hoisted to root). Verified by
+/// reparsing: root keeps exactly 1 def, and the block gains the new binding
+/// as its first def.
+test "compute_text_edit: ExtractToLet inserts inside block for block-internal def" {
+  let text = "let z = { let a = 1\n  a + 1 }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // Int(1) is: proj→LetDef("z")→block→LetDef("a")→Int(1)
+  let block = proj.children[0].children[0]
+  let lit_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed")
+      }
+      // The let binding must be inside the block, so root still has exactly 1 def.
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          // Block is z's init — it should now have 2 defs: y then a.
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="y")
+              inspect(block_defs[1].0, content="a")
+            }
+            _ => fail("expected inner block to be Module")
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Non-first block def: extracting a block-internal expression that is not in
+/// the first binding still inserts let y before all block defs (at block start).
+test "compute_text_edit: ExtractToLet inserts before all block defs for non-first def" {
+  let text = "let z = { let a = 1\n  let b = 2\n  a + b }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // Extract Int(2) from `let b = 2`: proj→LetDef("z")→block→LetDef("b")→Int(2)
+  let block = proj.children[0].children[0]
+  let lit_2 = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lit_2.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed")
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="3")
+              inspect(block_defs[0].0, content="y")
+              inspect(block_defs[1].0, content="a")
+              inspect(block_defs[2].0, content="b")
+            }
+            _ => fail("expected inner block to be Module")
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Extracting from a lambda body nested inside a block-with-defs must use
+/// block-body insertion, not root insertion. Previously `scope_has_module_defs`
+/// returned false for the lambda scope so the node fell through to root.
+/// The ancestor-scope walk finds the enclosing block Module even when the
+/// selected node is in a lambda scope under the block scope.
+/// Verified by reparsing: root keeps 1 def, block gains a new def `y`.
+test "compute_text_edit: ExtractToLet finds block via ancestor scope for lambda-in-block" {
+  let text = "let z = { let a = 1\n(x) => a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Var("a"))]; extract Var("a")
+  let block = proj.children[0].children[0]
+  let var_a = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=var_a.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed")
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="2")
+              inspect(block_defs[0].0, content="a")
+              inspect(block_defs[1].0, content="y")
+            }
+            _ => fail("expected inner block to be Module")
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+/// Extracting a lambda-body expression that captures the lambda param must be
+/// refused even when the lambda is nested inside a block (block-body path).
+/// The let would be inserted before the lambda, outside the param's scope,
+/// making the param references unbound.
+test "compute_text_edit: ExtractToLet refuses lambda-param rebind in lambda-in-block" {
+  let text = "let z = { let a = 1\n(x) => x + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Add(Var("x"), Var("a")))]; extract body
+  let block = proj.children[0].children[0]
+  let lam_body = block.children[1].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=lam_body.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+/// The primary bug-report case: extracting `1` from `let z = { 1 + 2 }` was
+/// inserting at root scope instead of inside the block. Empty-def blocks used
+/// to collapse in projection to their body node (no Module in the registry),
+/// so `find_enclosing_block` returned None. Now empty-def blocks always emit
+/// a Module ProjNode, giving the scope graph a block scope to detect.
+/// Verified by reparsing: root still has 1 def (z), block gains def `y`.
+test "compute_text_edit: ExtractToLet inserts inside empty-def block body" {
+  let text = "let z = { 1 + 2 }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  // After Option B: proj→LetDef("z")→Module([], Add)→[Add→[Int(1), Int(2)]]
+  let block = proj.children[0].children[0]
+  let int_1 = block.children[0].children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=int_1.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      match result_proj.kind {
+        @ast.Term::Module(root_defs, _) => {
+          inspect(root_defs.length(), content="1")
+          let inner_block = result_proj.children[0].children[0]
+          match inner_block.kind {
+            @ast.Term::Module(block_defs, _) => {
+              inspect(block_defs.length(), content="1")
+              inspect(block_defs[0].0, content="y")
+            }
+            _ =>
+              fail(
+                "expected inner block to be Module, got: " +
+                @debug.to_string(inner_block.kind),
+              )
+          }
+        }
+        _ => fail("expected root to be Module")
+      }
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
 }
 
 ///|

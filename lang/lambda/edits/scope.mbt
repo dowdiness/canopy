@@ -149,6 +149,43 @@ fn root_scope_id(g : @scope.ScopeGraph) -> @scope.ScopeId? {
 }
 
 ///|
+/// Walk up ancestor scopes from `node_id` and return the innermost
+/// enclosing `Term::Module` ProjNode that is not the root module.
+///
+/// The scope builder records nested Module nodes with their own inner
+/// scope in `node_scope` (the Module node itself maps to the scope it
+/// introduces), while Lam nodes keep their outer scope. So for a given
+/// non-root scope `sid`, finding a Module whose `node_scope` entry equals
+/// `sid` identifies the block that introduced that scope. Walking up the
+/// parent chain handles both empty blocks (no ModuleDef decls) and nodes
+/// nested inside a lambda within a block.
+///
+/// Returns None if the node is at root scope or no Module ancestor exists.
+fn find_enclosing_block(
+  g : @scope.ScopeGraph,
+  registry : Map[NodeId, ProjNode[@ast.Term]],
+  node_id : NodeId,
+) -> ProjNode[@ast.Term]? {
+  guard root_scope_id(g) is Some(root) else { return None }
+  let mut cur = g.node_scope.get(node_id)
+  while cur is Some(sid) && sid != root {
+    let module_opt = registry
+      .values()
+      .find_first(fn(n) {
+        n.kind is @ast.Term::Module(_, _) &&
+        g.node_scope.get(n.id()) is Some(nsid) &&
+        nsid == sid
+      })
+    if module_opt is Some(block) {
+      return Some(block)
+    }
+    let @scope.ScopeId(si) = sid
+    cur = g.scopes[si].parent
+  }
+  None
+}
+
+///|
 /// Whether `scope` is `ancestor` itself or any descendant of it — i.e. whether
 /// `ancestor` lies on `scope`'s parent chain. Used to test if a reference sits
 /// inside a declaration's visibility region (its declaring scope's subtree).

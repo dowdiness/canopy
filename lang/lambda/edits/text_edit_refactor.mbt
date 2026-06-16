@@ -15,6 +15,151 @@ fn compute_extract_to_let(
   }
   let g = @scope.build(ctx.registry, ctx.source_map)
   let fv = free_vars(node.kind, @immut/hashset.new())
+  // Build edits
+  let expr_text = @ast.print_term(node.kind)
+  let let_text = "let " + var_name + " = " + expr_text + "\n"
+  // If the node lives in a nested block scope, insert into that block rather
+  // than hoisting to the root. Walk ancestor scopes to find the innermost
+  // enclosing Module (handles empty blocks and lambda-nested nodes correctly).
+  // NOTE: block detection must run BEFORE the root-relative capture check;
+  // the block sub-paths have their own guards.
+  if find_enclosing_block(g, ctx.registry, node_id) is Some(block_node) {
+    let block_view = EditModuleView::from_root(block_node)
+    let block_body_start = match block_view.final_expr {
+      Some(body) =>
+        match ctx.source_map.get_range(body.id()) {
+          Some(r) => r.start
+          None => source_text.length()
+        }
+      None => source_text.length()
+    }
+    if range.start >= block_body_start {
+      // Node is in the block body. The let is inserted immediately before the
+      // body, so free vars of the expression remain in scope — no rebind check.
+      let block_body_end = match block_view.final_expr {
+        Some(body) =>
+          match ctx.source_map.get_range(body.id()) {
+            Some(r) => r.end
+            None => source_text.length()
+          }
+        None => source_text.length()
+      }
+      // Guard: inserting `let var_name = expr` makes var_name visible throughout
+      // the new body. Any Var(var_name) in the body OUTSIDE the extracted
+      // expression — whether currently resolved or free — must be refused:
+      // a resolved use would be retargeted; a free use would become bound.
+      // Both change semantics.
+      if block_view.final_expr is Some(body_node) {
+        let node_subtree = subtree_node_ids(node)
+        let body_var_ids : Array[NodeId] = []
+        collect_var_usages(body_node, var_name, body_var_ids)
+        for vid in body_var_ids {
+          if !node_subtree.contains(vid) {
+            return Err(
+              "Cannot extract: '" +
+              var_name +
+              "' appears in the block body outside the selected expression",
+            )
+          }
+        }
+        // Guard: node may sit inside a lambda nested in the block body. The
+        // let is inserted before the lambda, outside its param's scope, so
+        // any free var of the extracted expression that resolves via the
+        // lambda param would become unbound after extraction.
+        if free_names_would_rebind_at_node(g, node, body_node.id(), fv) {
+          return Err(
+            "Cannot extract: expression captures lambda-bound variables",
+          )
+        }
+      }
+      let prefix = source_text[block_body_start:range.start].to_owned()
+      let suffix = source_text[range.end:block_body_end].to_owned()
+      let new_body_text = let_text + prefix + var_name + suffix
+      return Ok(
+        Some(
+          (
+            [
+              {
+                start: block_body_start,
+                delete_len: block_body_end - block_body_start,
+                inserted: new_body_text,
+              },
+            ],
+            MoveCursor(
+              position=block_body_start + let_text.length() + prefix.length(),
+            ),
+          ),
+        ),
+      )
+    } else {
+      // Node is in a block def. Insertion is at the block's first def position,
+      // still inside any lambda that encloses the block. Reject if any free var
+      // resolves to a decl whose scope is the block's own inner scope or any
+      // nested scope (scope_is_within). This catches two cases:
+      //   1. Block-local ModuleDefs: not yet visible at the block start (sequential scoping).
+      //   2. Lambda params declared inside the block: not in scope at the block start.
+      // Lambda params declared OUTSIDE the block stay visible at the insertion
+      // point and must not be rejected.
+      let node_subtree = subtree_node_ids(node)
+      let unsafe_ref = match g.node_scope.get(block_node.id()) {
+        Some(bis) =>
+          fv
+          .iter()
+          .any(fn(v) {
+            let var_ids : Array[NodeId] = []
+            collect_var_usages(node, v, var_ids)
+            var_ids.any(fn(vid) {
+              match @scope.declaration(g, vid) {
+                Some(decl) if !node_subtree.contains(decl.node_id) =>
+                  scope_is_within(g, decl.scope, bis)
+                _ => false
+              }
+            })
+          })
+        None => false
+      }
+      if unsafe_ref {
+        return Err("Cannot extract: expression captures lambda-bound variables")
+      }
+      // Guard: inserting `let var_name = expr` before all block defs makes
+      // var_name visible throughout the block. Any Var(var_name) in the block
+      // outside the extracted expression — whether currently resolved or free —
+      // must be refused: a resolved use would be retargeted; a free use would
+      // become bound. Both change semantics.
+      let block_var_ids : Array[NodeId] = []
+      collect_var_usages(block_node, var_name, block_var_ids)
+      for vid in block_var_ids {
+        if !node_subtree.contains(vid) {
+          return Err(
+            "Cannot extract: '" +
+            var_name +
+            "' appears in this block outside the selected expression",
+          )
+        }
+      }
+      guard block_node.children.length() > 0 else {
+        return Err("Cannot extract: block has no children")
+      }
+      let block_start = block_node.children[0].start
+      return Ok(
+        Some(
+          (
+            [
+              { start: block_start, delete_len: 0, inserted: let_text },
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: var_name,
+              },
+            ],
+            // let_text inserted at block_start < range.start, so range shifts right
+            MoveCursor(position=range.start + let_text.length()),
+          ),
+        ),
+      )
+    }
+  }
+  // Root-level extraction: apply the standard capture check.
   let would_capture = if module_view.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
@@ -23,9 +168,6 @@ fn compute_extract_to_let(
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
   }
-  // Build edits
-  let expr_text = @ast.print_term(node.kind)
-  let let_text = "let " + var_name + " = " + expr_text + "\n"
   if module_view.defs.is_empty() && module_view.final_expr is Some(_) {
     // No module — wrap: replace expression with "let name = expr\nname"
     let new_text = let_text + var_name

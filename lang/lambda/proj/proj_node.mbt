@@ -393,24 +393,15 @@ pub fn syntax_to_proj_node(
     }
   } else if @parser.BlockExprView::cast(node) is Some(v) {
     // Block expression: { LetDef* Expression? } — same structure as SourceFile.
-    // Collect defs + body, produce Module node (or unwrap single expression).
+    // Collect defs + body, always produce a Module node so the block introduces
+    // its own scope even when it has no definitions. Empty-def blocks produce
+    // Module([], body), which gives extract-to-let a scope boundary to target.
     let defs = v.defs().map(fn(def) { project_let_def(def, counter) })
     let result = match v.body() {
       Some(body) => syntax_to_proj_node(body, counter)
       None => unit_node_at(node.end(), counter)
     }
-    if defs.length() > 0 {
-      module_node_from_defs(defs, result, node.start(), node.end(), counter)
-    } else {
-      // Single expression block: unwrap like ParenExpr
-      ProjNode::new(
-        result.kind,
-        node.start(),
-        node.end(),
-        result.node_id,
-        result.children,
-      )
-    }
+    module_node_from_defs(defs, result, node.start(), node.end(), counter)
   } else if @parser.HoleLiteralView::cast(node) is Some(_) {
     cstfold_leaf_node(node, counter)
   } else {

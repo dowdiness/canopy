@@ -150,13 +150,15 @@ fn compute_insert_child(
         // Insert before the body (last child)
         let body = parent_node.children[parent_node.children.length() - 1]
         match source_map.get_range(body.id()) {
-          Some(r) => r.start
-          None => parent_range.end
+          // Synthetic body (empty-def block): body start equals parent end.
+          // Insert before the closing brace instead of after it.
+          Some(r) if r.start < parent_range.end => r.start
+          _ => parent_range.end - 1
         }
       } else {
         match source_map.get_range(parent_node.children[index].id()) {
-          Some(r) => r.start
-          None => parent_range.start
+          Some(r) if r.start < parent_range.end => r.start
+          _ => parent_range.end - 1
         }
       }
       Ok(
