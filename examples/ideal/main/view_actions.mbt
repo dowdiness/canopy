@@ -25,7 +25,7 @@ fn view_action_item(
   }
   @html.div(
     class=item_class,
-    attrs=menu.item_attrs(index, msg => dispatch(ActionMenu(msg))),
+    attrs=menu.item_attrs(index, msg => dispatch(ActionOverlay(Menu(msg)))),
     [
       @html.span(class=action_mnemonic_class, [@html.text(action.mnemonic)]),
       @html.span(class=action_label_text_class, [@html.text(action.label)]),
@@ -89,9 +89,9 @@ fn view_name_prompt(
   let on_keydown_handler = fn(kb : @html.Keyboard) {
     let key = kb.key()
     if key == "Enter" {
-      dispatch(NamePromptSubmit)
+      dispatch(ActionOverlay(NameSubmit))
     } else if key == "Escape" {
-      dispatch(NamePromptCancel)
+      dispatch(ActionOverlay(NameCancel))
     } else {
       @rabbita.none
     }
@@ -108,7 +108,7 @@ fn view_name_prompt(
           placeholder="name\u{2026}",
           value=name_value,
           autofocus=true,
-          on_input=fn(value) { dispatch(NamePromptInput(value)) },
+          on_input=fn(value) { dispatch(ActionOverlay(NameInput(value))) },
           attrs=@html.Attrs::build().aria_label(prompt_label),
         ),
       ],
@@ -138,7 +138,7 @@ fn view_submenu_choices(
     items.push(
       @html.div(
         class=action_overlay_item_class,
-        attrs=menu.item_attrs(i, msg => dispatch(ActionMenu(msg))),
+        attrs=menu.item_attrs(i, msg => dispatch(ActionOverlay(Menu(msg)))),
         [
           @html.span(class=action_mnemonic_class, [
             @html.text((i + 1).to_string()),
@@ -198,21 +198,29 @@ fn view_action_overlay(
     MainMenu | Closed =>
       view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
   }
+  let panel_attrs = match model.overlay.mode {
+    NamePrompt(_, ..) =>
+      @html.Attrs::build()
+      .role("dialog")
+      .aria_label("Structural editing name prompt")
+      .style_attr(position_style)
+    _ =>
+      model.overlay.menu
+      .panel_attrs(msg => dispatch(ActionOverlay(Menu(msg))))
+      .aria_label("Structural editing actions")
+      .style_attr(position_style)
+  }
   @html.fragment([
     // Scrim: click-catching backdrop
     @html.div(
       class=action_overlay_scrim_class,
-      attrs=@menu.scrim_attrs(dispatch(CloseActionOverlay)),
+      attrs=@menu.scrim_attrs(dispatch(ActionOverlay(NameCancel))),
       @html.nothing,
     ),
     // Overlay panel — roving focus moves to the active menu item after render.
-    @html.div(
-      class=action_overlay_panel_class,
-      attrs=model.overlay.menu
-        .panel_attrs(msg => dispatch(ActionMenu(msg)))
-        .aria_label("Structural editing actions")
-        .style_attr(position_style),
-      [view_action_overlay_error(model.overlay.error), content],
-    ),
+    @html.div(class=action_overlay_panel_class, attrs=panel_attrs, [
+      view_action_overlay_error(model.overlay.error),
+      content,
+    ]),
   ])
 }

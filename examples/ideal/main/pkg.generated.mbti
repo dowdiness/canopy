@@ -163,12 +163,7 @@ pub enum Msg {
   OpenActionOverlayFromOutline
   SyncStatusChanged(String)
   OpenActionOverlayForNode(String)
-  CloseActionOverlay
-  ActionMenu(@menu.Msg)
-  ActionKeyPressed(String)
-  NamePromptInput(String)
-  NamePromptSubmit
-  NamePromptCancel
+  ActionOverlay(OverlayMsg)
   LongPressTriggeredForNode(String)
   OutlineDragStart(@core.NodeId)
   OutlineDragOver(@core.NodeId, @core.DropPosition)
@@ -186,9 +181,21 @@ pub enum Msg {
 
 type NodeActionContext
 
+type OverlayEffect
+
 type OverlayMode
 
+pub(all) enum OverlayMsg {
+  Menu(@menu.Msg)
+  KeyPressed(String)
+  NameInput(String)
+  NameSubmit
+  NameCancel
+}
+
 type OverlayState
+
+type OverlayUpdate
 
 pub enum PanelId {
   Outline

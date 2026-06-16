@@ -38,7 +38,13 @@ fn execute_action(
           (none, { ..model, overlay, })
         }
       }
-    Ok(None) => show_name_prompt(model, action)
+    Ok(None) => {
+      let result = model.overlay.show_name_prompt(action)
+      (
+        focus_selector_after_render(".name-prompt-input"),
+        { ..model, overlay: result.state },
+      )
+    }
     Err(msg) => {
       let overlay = { ..model.overlay, error: msg }
       (none, { ..model, overlay, })
