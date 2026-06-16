@@ -342,14 +342,3 @@ fn free_name_would_rebind_to(
     }
   })
 }
-
-///|
-/// Look up the module binding NodeId for a given init expression or LetDef NodeId.
-/// Init-expression callers are mapped to the parent LetDef id; direct LetDef
-/// callers return the binding id unchanged.
-pub fn find_binding_for_init(
-  init_node_id : NodeId,
-  definition_index : DefinitionIndex,
-) -> (NodeId, Int)? {
-  definition_index.binding_for_node(init_node_id)
-}

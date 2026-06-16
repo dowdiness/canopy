@@ -715,6 +715,20 @@ test "compute_text_edit: DeleteBinding with unknown id returns error" {
 }
 
 ///|
+test "compute_text_edit: DeleteBinding with init id returns error" {
+  let text = "let x = 0\nx"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let init_id = proj.children[0].children[0].id()
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=init_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
 test "compute_text_edit: DuplicateBinding copies binding with _copy suffix" {
   let text = "let x = 42\nlet y = 1\nx + y"
   let (proj, _) = parse_to_proj_node(text)

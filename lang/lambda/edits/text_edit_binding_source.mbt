@@ -88,9 +88,7 @@ fn binding_has_synthetic_fn_params(def : EditModuleBinding) -> Bool {
 /// Lam starts at the binding boundary instead of at a value initializer. This
 /// is only a rejection guard for missing structured roles, not a source scanner.
 fn binding_requires_fn_metadata(def : EditModuleBinding) -> Bool {
-  binding_has_synthetic_fn_params(def) &&
-  def.binding_id != def.init.id() &&
-  def.init.start == def.start
+  binding_has_synthetic_fn_params(def) && def.init.start == def.start
 }
 
 ///|

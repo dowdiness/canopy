@@ -132,7 +132,7 @@ fn get_binding_text_range(
   }
   let binding_end = match source_map.get_range(def.binding_id) {
     Some(binding_range) => binding_range.end
-    None => init_range.end
+    None => return Err("Binding node not in source map")
   }
   if def.start < 0 ||
     def.start > source_text.length() ||

@@ -101,7 +101,7 @@ Observable outcomes:
    - Keep the existing tuple shape initially if possible: `(name, init, start, binding_id)` where `binding_id` now equals the real `LetDef` node id.
    - Update `to_flat_proj`, `to_flat_proj_incremental`, and `reconcile_flat_proj` to allocate/preserve LetDef ids as first-class node ids.
    - Update `FlatProj::to_proj_node_with_prev_module_id` to wrap each init in a `LetDef` ProjNode using `defs[i].3`.
-   - Update `FlatProj::from_proj_node` to read `LetDef` children and extract their init child. Treat legacy init-only Module children only if tests or migration need a compatibility fallback.
+   - Update the projection-derived definition view to read `LetDef` children and extract their init child. The legacy init-only Module-child fallback was removed after `ModuleProjection` disappeared.
 
 4. **SourceMap and token spans.**
    - Ensure `SourceMap::from_ast` records ranges for LetDef nodes.
@@ -115,9 +115,9 @@ Observable outcomes:
    - Keep `references(g, decl.id)` identity-based; do not reintroduce `Decl.node_id` as the reference key.
 
 6. **Binding edit operations.**
-   - Make `find_binding_for_init` either unnecessary or explicitly return the parent LetDef id for an init child.
+   - Removed `find_binding_for_init`; action context now queries `DefinitionIndex::binding_for_node` for selected LetDef rows only.
    - Update binding actions so a selected LetDef row directly produces `Rename`, `DeleteBinding`, `DuplicateBinding`, `MoveBindingUp`, `MoveBindingDown`, and `InlineAllUsages` with a registry-backed id.
-   - Remove or shrink `ValidateNodeExists` binding-id special cases once binding ids are registry ids.
+   - Binding ops now pass through normal `ValidateNodeExists` registry validation; no binding-id special case remains.
    - Update `get_binding_text_range` to prefer the LetDef node range. Keep init-range/backward-scan fallback only for compatibility tests.
    - Decide whether generic `Drop` on two LetDef nodes delegates to binding move/swap logic or remains in `SyncEditor::move_node` with LetDef-aware whole-range edits. The observable behavior must be whole-binding movement, not init swapping.
 
@@ -206,6 +206,6 @@ git status --short
   - `@scope.binder_span` and `@scope.go_to_definition` solve source-location use cases.
   - `FlatProj` is the current per-binding state carrier.
   - `ProjNode::branch` / `ProjNode::leaf` are sufficient construction primitives; no core projection helper is missing.
-  - `find_binding_for_init` is a workaround for the missing binding row and should shrink or disappear.
+  - `find_binding_for_init` was the workaround for the missing binding row and disappeared after first-class LetDef ids became the only binding handles.
 - Do not conflate this with #129 query/scope-resolution unification; `@scope` binding-index work already shipped the relevant pieces.
 - Do not reopen query-side indexing from `docs/TODO.md:447`; that is a separate performance-gated follow-up.
