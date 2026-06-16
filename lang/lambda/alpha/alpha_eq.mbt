@@ -14,15 +14,12 @@ fn alpha_eq_ref(
 ) -> Bool {
   match (left, right) {
     (Bound(left_id), Bound(right_id)) =>
-      left_to_right
-      .get(left_id)
-      .map_or(
-        right_to_left
-        .get(right_id)
-        .map_or(left_id == right_id, mapped => mapped == left_id),
-        mapped => mapped == right_id,
-      )
-    (Free(left_free), Free(right_free)) => left_free == right_free
+      match (left_to_right.get(left_id), right_to_left.get(right_id)) {
+        (Some(mapped), _) => mapped == right_id
+        (_, Some(mapped)) => mapped == left_id
+        _ => left_id == right_id
+      }
+    (Free(left_free), Free(right_free)) => left_free.name == right_free.name
     _ => false
   }
 }

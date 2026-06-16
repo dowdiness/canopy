@@ -17,8 +17,15 @@ test "alpha_eq: free and bound references differ" {
 }
 
 ///|
-test "alpha_eq: free origin is explicit" {
+test "alpha_eq: free origin does not affect free-name equality" {
   let source_var = Var(Free(test_free("x", SourceVar)))
   let source_unbound = Var(Free(test_free("x", SourceUnbound)))
-  assert_false(alpha_eq(source_var, source_unbound))
+  assert_true(alpha_eq(source_var, source_unbound))
+}
+
+///|
+test "alpha_eq: free names must match" {
+  let x = Var(Free(test_free("x", SourceVar)))
+  let y = Var(Free(test_free("y", GeneratedFree)))
+  assert_false(alpha_eq(x, y))
 }

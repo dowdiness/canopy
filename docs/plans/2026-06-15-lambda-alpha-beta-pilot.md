@@ -86,8 +86,8 @@ Out:
 Reuse:
 
 - `@scope.build` as the binding-resolution source for lowering.
-- `@scope.declaration` to lower `Var` / `Unbound` projection nodes to
-  `Bound(binder)` or `Free(name)`.
+- `@scope.declaration` to lower `Var` projection nodes to `Bound(binder)` or
+  `Free(name)`; `Unbound` remains an explicit unresolved/free editor term.
 - `@core.collect_registry` and `@core.SourceMap::from_ast` in tests to build a
   `ScopeGraph` from a projected root without introducing new projection plumbing.
 - `@ast.Term` constructors and `@ast.print_term` only at the named
@@ -204,10 +204,12 @@ Notes:
      `NodeId` available.
    - For each binder (`Lam`, `LetDef` in `Module`), create one `BinderId` and a
      map from the corresponding source declaration to binder id.
-   - For each `Var` / `Unbound`, call `@scope.declaration(graph, node.id())`:
+   - For each `Var`, call `@scope.declaration(graph, node.id())`:
      - resolved -> `Var(Bound(binder_id))`
-     - unresolved `Var` -> `Var(Free({ name, origin: SourceVar }))`
-     - unresolved `Unbound` -> `Var(Free({ name, origin: SourceUnbound }))`
+     - unresolved -> `Var(Free({ name, origin: SourceVar }))`
+   - Treat `Unbound` as an explicit unresolved/free editor term by lowering it
+     directly to `Var(Free({ name, origin: SourceUnbound }))`, even when a
+     same-name source binder exists.
    - Preserve `Error` and `Hole`.
    - Do not re-implement sequential module visibility; trust the `ScopeGraph`
      resolution result.

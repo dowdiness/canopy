@@ -62,11 +62,48 @@ fn suffix_free_name_sets(
 }
 
 ///|
-fn base_hint(hint : String) -> String {
-  if hint == "" {
-    "x"
+fn is_identifier_start(ch : Char) -> Bool {
+  let code = ch.to_int()
+  (code >= 'A' && code <= 'Z') || (code >= 'a' && code <= 'z')
+}
+
+///|
+fn is_identifier_char(ch : Char) -> Bool {
+  is_identifier_start(ch) ||
+  ({
+    let code = ch.to_int()
+    code >= '0' && code <= '9'
+  })
+}
+
+///|
+fn is_lambda_keyword(name : String) -> Bool {
+  match name {
+    "if" | "then" | "else" | "fn" | "let" => true
+    _ => false
+  }
+}
+
+///|
+fn is_valid_identifier_hint(hint : String) -> Bool {
+  if is_lambda_keyword(hint) {
+    false
   } else {
+    match hint {
+      [first, .. rest] =>
+        is_identifier_start(first) &&
+        rest.iter().all(ch => is_identifier_char(ch))
+      "" => false
+    }
+  }
+}
+
+///|
+fn base_hint(hint : String) -> String {
+  if is_valid_identifier_hint(hint) {
     hint
+  } else {
+    "x"
   }
 }
 

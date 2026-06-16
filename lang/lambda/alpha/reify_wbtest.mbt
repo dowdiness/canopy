@@ -62,3 +62,21 @@ test "reify: module binders avoid suffix free names" {
   inspect(later_free, content="y")
   inspect(body_name, content="y1")
 }
+
+///|
+test "reify: invalid binder hints fall back to lexable names" {
+  let invalid = test_binder(0, "x_copy")
+  let keyword = test_binder(1, "if")
+  let digit = test_binder(2, "1x")
+  let term = Lam(invalid, Lam(keyword, Lam(digit, Unit)))
+  guard reify(term, Source)
+    is @ast.Term::Lam(
+      invalid_name,
+      @ast.Term::Lam(keyword_name, @ast.Term::Lam(digit_name, @ast.Term::Unit))
+    ) else {
+    fail("expected nested lambdas")
+  }
+  inspect(invalid_name, content="x")
+  inspect(keyword_name, content="x1")
+  inspect(digit_name, content="x2")
+}

@@ -123,6 +123,9 @@ fn lower_node(
     @ast.Term::Int(value) => Int(value)
     @ast.Term::Unit => Unit
     @ast.Term::Var(name) => lower_ref(node, graph, binders, name)
+    // `Unbound` is an explicit unresolved editor term. Keep it free even if the
+    // scope graph has a same-name declaration, so display reify can preserve the
+    // diagnostic-oriented `Unbound` origin.
     @ast.Term::Unbound(name) => Var(Free({ name, origin: SourceUnbound }))
     @ast.Term::Lam(name, _) => {
       let binder = binder_for_node(binders, node, name)
