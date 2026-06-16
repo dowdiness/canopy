@@ -456,8 +456,8 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Text => "text"
         Structure => "structure"
       }
-      let cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
-      (cmd, { ..model, mode, })
+      let js_cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
+      (js_cmd, { ..model, mode, })
     }
     TogglePanel(panel) => {
       let ws = model.workspace
