@@ -82,6 +82,22 @@ fn OverlayState::open_submenu(
 }
 
 ///|
+fn OverlayState::reset_main_menu(self : OverlayState) -> OverlayState {
+  {
+    ..self,
+    mode: MainMenu,
+    // Returning to the main menu is a fresh attempt — clear any stale error.
+    error: "",
+    menu: self.menu.reset(item_count=self.actions.length()),
+  }
+}
+
+///|
+fn OverlayState::close_submenu(self : OverlayState) -> OverlayUpdate {
+  overlay_update(self.reset_main_menu(), FocusMenu)
+}
+
+///|
 fn OverlayState::dispatch_or_prompt(
   self : OverlayState,
   action : @lambda_edits.Action,
@@ -123,7 +139,7 @@ fn OverlayState::handle_text_key(
       let idx = parsed - 1 // "1" → 0, "2" → 1, etc.
       match self.execute_submenu_choice(sub_action, idx) {
         Some(result) => result
-        None => overlay_update(self, NoOverlayEffect)
+        None => self.close_submenu()
       }
     }
     // In name prompt mode, let the view handle input.
