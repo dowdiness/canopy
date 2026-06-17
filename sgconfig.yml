@@ -1,0 +1,17 @@
+ruleDirs: []
+
+customLanguages:
+  moonbit:
+    # Build this library with: make setup-ast-grep
+    libraryPath:
+      x86_64-unknown-linux-gnu: .ast-grep/tree-sitter-moonbit.so
+      aarch64-unknown-linux-gnu: .ast-grep/tree-sitter-moonbit.so
+      x86_64-apple-darwin: .ast-grep/tree-sitter-moonbit.dylib
+      aarch64-apple-darwin: .ast-grep/tree-sitter-moonbit.dylib
+    extensions: [mbt, mbti]
+    # MoonBit does not parse ast-grep's $ metavariables as identifiers.
+    expandoChar: "_"
+
+languageGlobs:
+  moonbit:
+    - "**/moon.pkg"

@@ -120,6 +120,9 @@ behavior** — check the code before relying on any specific detail.
   - [03 — Unified Editor](design/03-unified-editor.md)
   - [04 — Ephemeral Store](design/04-ephemeral-store.md)
   - [05 — Tree Edit Roundtrip](design/05-tree-edit-roundtrip.md)
+- [Analysis Query Layer](design/analysis-query-layer.md) — conservative design
+  for ast-grep-style syntax search, `moon ide`-style semantic queries, and
+  previewable refactors through snapshot-bound internal facts.
 - [Design Concerns](design/design-concerns.md) — open problems and future
   considerations.
 - [Decisions Needed](decisions-needed.md) — open architectural questions.
