@@ -23,6 +23,8 @@ pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
 pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
+pub fn[T : @dowdiness/loom/core.TreeNode] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform]) -> ProjNode[T]
+
 // Errors
 
 // Types and methods
@@ -62,6 +64,17 @@ pub(all) enum GenericTreeOp {
   Expand(node_id~ : NodeId)
 } derive(@debug.Debug)
 pub impl Show for GenericTreeOp
+
+pub(all) enum IdentityTransform {
+  Wrap(inner~ : NodeId)
+  Unwrap(wrapper~ : NodeId, keep~ : NodeId)
+  Move(subtree~ : NodeId)
+  Replace(old~ : NodeId)
+  RenameLeaf(node~ : NodeId)
+  InsertSubtree(parent~ : NodeId, index~ : Int)
+  DeleteSubtree(node~ : NodeId)
+  Opaque
+} derive(Eq, @debug.Debug)
 
 pub struct NodeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn NodeId::from_int(Int) -> Self
