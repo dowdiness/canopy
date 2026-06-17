@@ -29,6 +29,51 @@ fn compute_delete_binding(
 }
 
 ///|
+fn declaration_names_in_scope(
+  g : @scope.ScopeGraph,
+  scope : @scope.ScopeId,
+) -> @immut/hashset.HashSet[String] {
+  let @scope.ScopeId(si) = scope
+  @immut/hashset.HashSet::from_iter(
+    g.scopes[si].decl_ids
+    .iter()
+    .map(fn(did) {
+      let @scope.DeclId(di) = did
+      g.decls[di].name
+    }),
+  )
+}
+
+///|
+/// Generate a Lambda-valid copy name from `base` that does not collide with any
+/// name in `avoid`. `base` is already a valid Lambda identifier, so appending
+/// decimal digits preserves lexability.
+fn compute_fresh_name(
+  base : String,
+  avoid : @immut/hashset.HashSet[String],
+  captures_existing_use : (String) -> Bool,
+) -> String {
+  for i = 1 {
+    let candidate = base + i.to_string()
+    if !avoid.contains(candidate) && !captures_existing_use(candidate) {
+      break candidate
+    }
+    continue i + 1
+  }
+}
+
+///|
+/// Return the run of space characters starting at `pos`, used as the indentation
+/// prefix for a line that already exists at that position.
+fn leading_whitespace_at(source_text : String, pos : Int) -> String {
+  let suffix = source_text[pos:]
+  match suffix.find_by(fn(ch) { ch != ' ' }) {
+    Some(end) => suffix[:end].to_owned()
+    None => suffix.to_owned()
+  }
+}
+
+///|
 fn compute_duplicate_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
@@ -48,15 +93,22 @@ fn compute_duplicate_binding(
     Ok(source) => source
     Err(e) => return Err(e)
   }
-  // Create copy with _copy suffix on name, preserving source syntax such as
-  // `fn` parameter annotations instead of reprinting the desugared Lam spine.
-  let new_name = def.name + "_copy"
+  // Create a fresh copy name while preserving source syntax such as `fn`
+  // parameter annotations instead of reprinting the desugared Lam spine.
+  let avoid = @scope.enclosing_env(g, binding_node_id).union(
+    declaration_names_in_scope(g, decl.scope),
+  )
+  let new_name = compute_fresh_name(def.name, avoid, fn(candidate) {
+    rename_captures_existing_use(g, decl, candidate)
+  })
   let new_binding = match
     binding_source.renamed_text(source_text, source_map, new_name) {
     Ok(text) => text
     Err(e) => return Err(e)
   }
-  // Insert after the current binding (after newline)
+  // Insert after the current binding (after newline). Block-local bindings need
+  // the following line's indentation prepended to the inserted copy.
+  let block = find_enclosing_block(g, registry, binding_node_id)
   let binding_end = binding_source.binding_end
   let insert_pos = if binding_end < source_text.length() &&
     source_text[binding_end] == '\n' {
@@ -64,8 +116,17 @@ fn compute_duplicate_binding(
   } else {
     binding_end
   }
-  let insert_text = if insert_pos == binding_end {
-    // No trailing newline — add one before the new binding
+  let insert_text = if block is Some(_) {
+    let indent = leading_whitespace_at(source_text, insert_pos)
+    let copied_indent_len = leading_whitespace_at(new_binding, 0).length()
+    let block_binding = new_binding[copied_indent_len:].to_owned()
+    if insert_pos == binding_end {
+      "\n" + indent + block_binding + "\n"
+    } else {
+      indent + block_binding + "\n"
+    }
+  } else if insert_pos == binding_end {
+    // No trailing newline — add one before the new binding.
     "\n" + new_binding
   } else {
     new_binding + "\n"

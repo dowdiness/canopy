@@ -498,11 +498,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   `MoveBinding{Up,Down} swaps block-local bindings`,
   `MoveBindingUp rejects first block-local binding`). Follow-up PR #688 added
   adversarial coverage for block-local scoping-violation moves, deleting a
-  still-referenced block binding, and root/block same-name shadowing. Caveat:
-  block-local **duplicate** is now reachable but its output stays unsound — `_copy` is
-  unlexable (#649) and the inserted copy is not re-indented to the block (#650);
-  the `DuplicateBinding on block-local binding` wbtest characterizes this and
-  does NOT reparse.
+  still-referenced block binding, and root/block same-name shadowing.
 
 - [x] Teach `edits/` **extract** op about nested-block scopes.
   Shipped: PR #674 (`f0cf3cf`, 2026-06-16) makes `compute_extract_to_let`

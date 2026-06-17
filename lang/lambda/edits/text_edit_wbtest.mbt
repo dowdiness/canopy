@@ -729,7 +729,7 @@ test "compute_text_edit: DeleteBinding with init id returns error" {
 }
 
 ///|
-test "compute_text_edit: DuplicateBinding copies binding with _copy suffix" {
+test "compute_text_edit: DuplicateBinding copies binding with fresh numeric suffix" {
   let text = "let x = 42\nlet y = 1\nx + y"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
@@ -742,7 +742,7 @@ test "compute_text_edit: DuplicateBinding copies binding with _copy suffix" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="let x = 42\nlet x_copy = 42\nlet y = 1\nx + y")
+      inspect(new_text, content="let x = 42\nlet x1 = 42\nlet y = 1\nx + y")
     }
     _ => fail("expected Some edits")
   }
@@ -762,7 +762,7 @@ test "compute_text_edit: DuplicateBinding on last binding" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="let x = 0\nlet x_copy = 0\nx")
+      inspect(new_text, content="let x = 0\nlet x1 = 0\nx")
     }
     _ => fail("expected Some edits")
   }
@@ -781,10 +781,79 @@ test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
       let new_text = apply_edits(text, edits)
       inspect(
         new_text,
-        content="fn twice(f : Int -> Int, x : Int) { f x }\nfn twice_copy(f : Int -> Int, x : Int) { f x }\ntwice",
+        content="fn twice(f : Int -> Int, x : Int) { f x }\nfn twice1(f : Int -> Int, x : Int) { f x }\ntwice",
       )
     }
     _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding produces lexable name and reparses (root)" {
+  let text = "let x = 42\nlet y = 1\nx + y"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let binding_id = proj.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(root_def_names(new_text), content="x,x1,y")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding skips existing numeric suffix (root)" {
+  let text = "let x = 42\nlet x1 = 1\nx + x1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let binding_id = proj.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(root_def_names(new_text), content="x,x2,x1")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding skips suffix that would capture later free reference (root)" {
+  let text = "let x = 42\nlet y = x1\ny"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let binding_id = proj.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(root_def_names(new_text), content="x,x2,y")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
 }
 
@@ -1041,12 +1110,8 @@ test "compute_text_edit: MoveBindingUp rejects first block-local binding" {
 
 ///|
 test "compute_text_edit: DuplicateBinding on block-local binding" {
-  // Block-local duplicate is now reachable (no longer "Binding not found"). The
-  // output stays unsound for two reasons, both pre-existing and out of scope
-  // here: the `_copy` name is unlexable (underscore is not an identifier char,
-  // tracked as #649), and the inserted copy is not re-indented to the block.
-  // So this characterizes the current raw edit text and deliberately does NOT
-  // reparse; closing #649 is what makes a positive round-trip assertion possible.
+  // Block-local duplicate is reachable, produces a lexable fresh name, and keeps
+  // the inserted binding aligned with the enclosing block.
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
   let (proj, _) = parse_to_proj_node(text)
   let source_map = SourceMap::from_ast(proj)
@@ -1062,8 +1127,93 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
       let new_text = apply_edits(text, edits)
       inspect(
         new_text,
-        content="let x = 0\nlet z = { let a = 1\n let a_copy = 1\n  let b = 2\n  a }\nz",
+        content="let x = 0\nlet z = { let a = 1\n  let a1 = 1\n  let b = 2\n  a }\nz",
       )
+      inspect(nested_block_def_names(1, new_text), content="a,a1,b")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding on block-local binding produces lexable name and reparses with correct indentation" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[1].children[0]
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(
+        new_text,
+        content="let x = 0\nlet z = { let a = 1\n  let a1 = 1\n  let b = 2\n  a }\nz",
+      )
+      inspect(nested_block_def_names(1, new_text), content="a,a1,b")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding skips existing numeric suffix (block-local)" {
+  let text = "let z = { let a = 1\n  let a1 = 2\n  a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(
+        new_text,
+        content="let z = { let a = 1\n  let a2 = 1\n  let a1 = 2\n  a }\nz",
+      )
+      inspect(nested_block_def_names(0, new_text), content="a,a2,a1")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DuplicateBinding skips suffix that would capture later free reference (block-local)" {
+  let text = "let z = { let a = 1\n  let b = a1\n  b }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[0].children[0]
+  let binding_id = block.children[0].id()
+  let result = compute_text_edit(
+    DuplicateBinding(binding_node_id=binding_id),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (_, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(
+        new_text,
+        content="let z = { let a = 1\n  let a2 = 1\n  let b = a1\n  b }\nz",
+      )
+      inspect(nested_block_def_names(0, new_text), content="a,a2,b")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
