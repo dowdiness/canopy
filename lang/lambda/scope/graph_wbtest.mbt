@@ -207,3 +207,63 @@ test "enclosing_env: lambda params in scope" {
   inspect(env.contains("x"), content="true")
   inspect(env.contains("y"), content="true")
 }
+
+///|
+test "scope_for_node: ref node uses resolution start scope" {
+  let (proj, registry, source_map) = build_fixture("let x = 1\nx")
+  let g = build(registry, source_map)
+  let body_var = find_var_in_body(proj, "x")
+  guard g.scopes.iter().find_first(fn(s) { s.parent is None }) is Some(root)
+  inspect(scope_for_node(g, body_var) == Some(root.id), content="true")
+}
+
+///|
+test "scope_for_node: module declaration node uses declaring scope" {
+  let (proj, registry, source_map) = build_fixture("let x = 1\nx")
+  let g = build(registry, source_map)
+  guard g.scopes.iter().find_first(fn(s) { s.parent is None }) is Some(root)
+  inspect(
+    scope_for_node(g, proj.children[0].id()) == Some(root.id),
+    content="true",
+  )
+}
+
+///|
+test "scope_for_node: lambda binder node uses expression scope" {
+  let (proj, registry, source_map) = build_fixture("(x) => x")
+  let g = build(registry, source_map)
+  guard g.decls.iter().find_first(fn(d) { d.kind is LamParam(_) }) is Some(decl)
+  inspect(decl.node_id == proj.id(), content="true")
+  inspect(scope_for_node(g, proj.id()) != Some(decl.scope), content="true")
+  guard scope_for_node(g, proj.id()) is Some(expr_scope)
+  let ScopeId(expr_i) = expr_scope
+  inspect(g.scopes[expr_i].parent is None, content="true")
+  let ScopeId(decl_i) = decl.scope
+  inspect(g.scopes[decl_i].parent == Some(expr_scope), content="true")
+}
+
+///|
+test "scope_for_node: unknown node returns none" {
+  let (_proj, registry, source_map) = build_fixture("let x = 1\nx")
+  let g = build(registry, source_map)
+  inspect(
+    scope_for_node(g, @core.NodeId::from_int(999_999)) is None,
+    content="true",
+  )
+}
+
+///|
+test "scope_for_node: block-local ref uses block scope" {
+  let (proj, registry, source_map) = build_fixture(
+    "let z = { let x = 1\nx }\nz",
+  )
+  let g = build(registry, source_map)
+  guard proj.kind is @ast.Term::Module(_, _) else { fail("expected module") }
+  let block = proj.children[0].children[0]
+  let block_var = find_var_node(block, "x")
+  guard scope_for_node(g, block_var) is Some(sid) else {
+    fail("expected scope for block variable")
+  }
+  let ScopeId(si) = sid
+  inspect(g.scopes[si].parent is Some(_), content="true")
+}

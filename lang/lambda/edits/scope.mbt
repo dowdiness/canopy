@@ -133,14 +133,7 @@ fn scope_id_for_node(
   g : @scope.ScopeGraph,
   node_id : NodeId,
 ) -> @scope.ScopeId? {
-  match g.refs.iter().find_first(fn(r) { r.node_id == node_id }) {
-    Some(r) => Some(r.scope)
-    None =>
-      g.decls
-      .iter()
-      .find_first(fn(d) { d.node_id == node_id })
-      .map(fn(d) { d.scope })
-  }
+  @scope.scope_for_node(g, node_id)
 }
 
 ///|
@@ -167,13 +160,13 @@ fn find_enclosing_block(
   node_id : NodeId,
 ) -> ProjNode[@ast.Term]? {
   guard root_scope_id(g) is Some(root) else { return None }
-  let mut cur = g.node_scope.get(node_id)
+  let mut cur = @scope.scope_for_node(g, node_id)
   while cur is Some(sid) && sid != root {
     let module_opt = registry
       .values()
       .find_first(fn(n) {
         n.kind is @ast.Term::Module(_, _) &&
-        g.node_scope.get(n.id()) is Some(nsid) &&
+        @scope.scope_for_node(g, n.id()) is Some(nsid) &&
         nsid == sid
       })
     if module_opt is Some(block) {
