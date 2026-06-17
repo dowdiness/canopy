@@ -102,6 +102,17 @@ fn[T : TreeNode] reconcile_children(
   // (a consumed prev-id is paired at most once). Mutation justified as a
   // consumption marker (moonbit-base.md Control Flow).
   let consumed : Map[NodeId, Bool] = {}
+  // How many LCS-unmatched new children each unmatched old child's hint pairs
+  // with. Identity is carried only for an unambiguous 1:1 pairing, so an old
+  // node whose wrapped subtree could land in more than one new sibling is
+  // rejected (symmetric to the multiple-old-claiming-one-new case).
+  let old_pair_counts : Map[NodeId, Int] = if hints.is_empty() {
+    {}
+  } else {
+    hint_pair_counts(
+      old_children, new_children, old_matched, new_matched, hints,
+    )
+  }
   [
     for k in 0..<new_len => {
       if new_matched[k] >= 0 {
@@ -119,6 +130,7 @@ fn[T : TreeNode] reconcile_children(
             new_children[k],
             old_children,
             old_matched,
+            old_pair_counts,
             consumed,
             counter,
             hints,
@@ -176,6 +188,7 @@ fn[T : TreeNode] try_unmatched_hint_pair(
   new_child : ProjNode[T],
   old_children : Array[ProjNode[T]],
   old_matched : Array[Int],
+  old_pair_counts : Map[NodeId, Int],
   consumed : Map[NodeId, Bool],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
@@ -183,11 +196,14 @@ fn[T : TreeNode] try_unmatched_hint_pair(
   let candidates = [
     for idx, o in old_children if old_matched[idx] < 0 &&
     consumed.get(o.id()) is None &&
+    old_pair_counts.get(o.id()) is Some(1) &&
     hint_pairs(o, new_child, hints) => o
   ]
   // Carry identity only for an unambiguous singleton candidate; 0 or >1
   // candidates (multiple old siblings claiming the same new child) degrade to
-  // fresh ids rather than assigning identity by sibling iteration order.
+  // fresh ids rather than assigning identity by sibling iteration order. The
+  // `old_pair_counts is Some(1)` filter rejects the mirror case — one old node
+  // that could pair with several new siblings.
   match candidates {
     [o] => {
       consumed[o.id()] = true
@@ -198,6 +214,33 @@ fn[T : TreeNode] try_unmatched_hint_pair(
     }
     _ => None
   }
+}
+
+///|
+/// For each LCS-unmatched old child carrying a wrap/unwrap hint, how many
+/// LCS-unmatched new children that hint pairs with. A count other than 1 means
+/// the wrapped subtree cannot be located in exactly one new sibling, so identity
+/// must degrade to fresh rather than be assigned by sibling order.
+fn[T : TreeNode] hint_pair_counts(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  old_matched : Array[Int],
+  new_matched : Array[Int],
+  hints : Map[NodeId, IdentityTransform],
+) -> Map[NodeId, Int] {
+  let counts : Map[NodeId, Int] = {}
+  for oi, o in old_children {
+    if old_matched[oi] < 0 {
+      let cnt = [
+        for k, n in new_children if new_matched[k] < 0 &&
+        hint_pairs(o, n, hints) => n
+      ].length()
+      if cnt > 0 {
+        counts[o.id()] = cnt
+      }
+    }
+  }
+  counts
 }
 
 ///|

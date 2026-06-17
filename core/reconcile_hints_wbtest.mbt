@@ -201,3 +201,29 @@ test "same-kind Wrap with ambiguous target degrades to fresh (no id on wrapper)"
   // must NOT keep id 5; it is fresh.
   inspect(result.children[0].node_id >= 1000, content="true")
 }
+
+///|
+test "one hint matching two new wrappers degrades to fresh" {
+  // old: root#1 -> Leaf#5 (hinted as wrapped)
+  let l5 = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x")]), 0, 3, 1, [l5])
+  // new: root -> [wrapperA(Leaf), wrapperB(Leaf)] — two same-kind wrappers, each
+  // a valid wrap target for #5, so the wrapped node is not locatable in exactly
+  // one new sibling.
+  let a_leaf = ProjNode::new(Leaf("x"), 0, 1, 90, [])
+  let wa = ProjNode::new(Branch("w", [Leaf("x")]), 0, 2, 91, [a_leaf])
+  let b_leaf = ProjNode::new(Leaf("x"), 2, 3, 92, [])
+  let wb = ProjNode::new(Branch("w", [Leaf("x")]), 2, 4, 93, [b_leaf])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Leaf("x")]), Branch("w", [Leaf("x")])]),
+    0,
+    4,
+    94,
+    [wa, wb],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // #5 could land in either wrapper → ambiguous → degrade → neither inner keeps 5
+  inspect(result.children[0].children[0].node_id >= 1000, content="true")
+  inspect(result.children[1].children[0].node_id >= 1000, content="true")
+}
