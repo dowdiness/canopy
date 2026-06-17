@@ -496,8 +496,10 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   The name-based `free_vars` move guard is unchanged. wbtests assert SOUNDNESS by
   reparsing the result (`DeleteBinding removes block-local binding`,
   `MoveBinding{Up,Down} swaps block-local bindings`,
-  `MoveBindingUp rejects first block-local binding`). Caveat: block-local
-  **duplicate** is now reachable but its output stays unsound — `_copy` is
+  `MoveBindingUp rejects first block-local binding`). Follow-up PR #688 added
+  adversarial coverage for block-local scoping-violation moves, deleting a
+  still-referenced block binding, and root/block same-name shadowing. Caveat:
+  block-local **duplicate** is now reachable but its output stays unsound — `_copy` is
   unlexable (#649) and the inserted copy is not re-indented to the block (#650);
   the `DuplicateBinding on block-local binding` wbtest characterizes this and
   does NOT reparse.
