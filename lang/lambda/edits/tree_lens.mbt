@@ -133,10 +133,13 @@ pub fn TreeEditOp::to_identity_transform(
         None => @core.IdentityTransform::Opaque
       }
 
-    // Replacement / retirement ops: old identity retires
-    CommitEdit(node_id=n, ..)
-    | InlineDefinition(node_id=n)
-    | ChangeOperator(node_id=n, ..) => @core.IdentityTransform::Replace(old=n)
+    // Replacement / retirement ops: old identity retires.
+    // ChangeOperator is excluded: it changes only the operator token while
+    // keeping the same operand subtrees. Replace would call assign_fresh_ids on
+    // the whole Bop subtree, losing both operand NodeIds. LCS (Opaque) matches
+    // same-kind Bop→Bop and recurses into children, preserving operand identity.
+    CommitEdit(node_id=n, ..) | InlineDefinition(node_id=n) =>
+      @core.IdentityTransform::Replace(old=n)
 
     // Rename: leaf token changes, spine identity preserved for intra-expression
     // renames. For module-level binding renames the hint is harmlessly ignored:
@@ -145,7 +148,7 @@ pub fn TreeEditOp::to_identity_transform(
     Rename(node_id=n, ..) => @core.IdentityTransform::RenameLeaf(node=n)
 
     // All other ops: degrade to LCS (includes Delete, ExtractToLet,
-    // module-level mutations, SwapChildren, InlineAllUsages, AddBinding, etc.)
+    // ChangeOperator, module-level mutations, SwapChildren, AddBinding, etc.)
     _ => @core.IdentityTransform::Opaque
   }
 }

@@ -85,6 +85,15 @@ test "InlineDefinition returns Replace" {
 }
 
 ///|
+test "ChangeOperator returns Opaque (Replace would freshen operand NodeIds)" {
+  let id = @core.NodeId::from_int(18)
+  let hint = TreeEditOp::ChangeOperator(node_id=id, new_op=@ast.Bop::Minus).to_identity_transform(
+    no_node,
+  )
+  inspect(hint is @core.IdentityTransform::Opaque, content="true")
+}
+
+///|
 test "Delete returns Opaque (LCS handles deletion natively)" {
   let id = @core.NodeId::from_int(14)
   let hint = TreeEditOp::Delete(node_id=id).to_identity_transform(no_node)
