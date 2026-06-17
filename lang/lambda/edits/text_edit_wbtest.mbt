@@ -890,8 +890,54 @@ fn nested_block_def_names(def_index : Int, text : String) -> String raise {
   let (proj, _) = parse_to_proj_node(text)
   match proj.children[def_index].children[0].kind {
     @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
-    _ => ""
+    other =>
+      fail(
+        "expected root def initializer to reparse as block Module, got: " +
+        @debug.to_string(other),
+      )
   }
+}
+
+///|
+/// Reparse `text` and return the root definition names, in order. Used with
+/// nested_block_def_names for shadowing cases where both root and block scopes
+/// must survive a block-local edit.
+fn root_def_names(text : String) -> String raise {
+  let (proj, _) = parse_to_proj_node(text)
+  match proj.kind {
+    @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
+    other =>
+      fail(
+        "expected edited text to reparse as root Module, got: " +
+        @debug.to_string(other),
+      )
+  }
+}
+
+///|
+/// Build an edit context and return the block in root definition `def_index`'s
+/// initializer. Keeps block-local edit tests focused on the operation under test.
+fn block_local_edit_ctx(
+  text : String,
+  def_index : Int,
+) -> (EditContext[@ast.Term], ProjNode[@ast.Term]) raise {
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[def_index].children[0]
+  (make_edit_ctx(text, source_map, registry, proj), block)
+}
+
+///|
+/// Like `block_local_edit_ctx`, but preserves token spans for edit ops that
+/// rewrite binding text.
+fn block_local_edit_ctx_with_token_spans(
+  text : String,
+  def_index : Int,
+) -> (EditContext[@ast.Term], ProjNode[@ast.Term]) raise {
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[def_index].children[0]
+  (make_edit_ctx(text, source_map, registry, proj), block)
 }
 
 ///|
@@ -942,6 +988,7 @@ test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
           #|z
         ),
       )
+      inspect(nested_block_def_names(1, new_text), content="b,a")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
@@ -970,6 +1017,7 @@ test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
           #|z
         ),
       )
+      inspect(nested_block_def_names(1, new_text), content="b,a")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
@@ -1016,6 +1064,103 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
         new_text,
         content="let x = 0\nlet z = { let a = 1\n let a_copy = 1\n  let b = 2\n  a }\nz",
       )
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingDown rejects block-local scoping violation" {
+  let text = "let z = { let a = 1\n  let b = a\n  b }\nz"
+  let (ctx, block) = block_local_edit_ctx(text, 0)
+  let result = compute_text_edit(
+    MoveBindingDown(binding_node_id=block.children[0].id()),
+    ctx,
+  )
+  match result {
+    Err(msg) => inspect(msg, content="Cannot move down: b uses a in its init")
+    _ => fail("expected scoping error, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp rejects block-local scoping violation" {
+  let text = "let z = { let a = 1\n  let b = a\n  b }\nz"
+  let (ctx, block) = block_local_edit_ctx(text, 0)
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=block.children[1].id()),
+    ctx,
+  )
+  match result {
+    Err(msg) => inspect(msg, content="Cannot move up: b uses a in its init")
+    _ => fail("expected scoping error, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding succeeds on referenced block-local binding" {
+  // Characterizes current behavior: delete has no scoping guard, so it succeeds
+  // even though the result leaves `b`'s initializer referencing missing `a`.
+  // TODO: file a follow-up if DeleteBinding should reject live references the
+  // way MoveBinding{Up,Down} reject scoping-violating swaps.
+  let text = "let z = { let a = 1\n  let b = a\n  b }\nz"
+  let (ctx, block) = block_local_edit_ctx(text, 0)
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=block.children[0].id()),
+    ctx,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let z = {  let b = a\n  b }\nz")
+      inspect(nested_block_def_names(0, new_text), content="b")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: DeleteBinding preserves root binding when deleting block-local shadow" {
+  let text = "let x = 0\nlet z = { let x = 2\n  x }\nz"
+  let (ctx, block) = block_local_edit_ctx(text, 1)
+  let result = compute_text_edit(
+    DeleteBinding(binding_node_id=block.children[0].id()),
+    ctx,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="let x = 0\nlet z = {  x }\nz")
+      inspect(root_def_names(new_text), content="x,z")
+      inspect(nested_block_def_names(1, new_text), content="")
+    }
+    _ => fail("expected Some edits, got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: MoveBindingUp swaps block-local binding that shadows root name" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let x = 2\n  a }\nz"
+  let (ctx, block) = block_local_edit_ctx_with_token_spans(text, 1)
+  let result = compute_text_edit(
+    MoveBindingUp(binding_node_id=block.children[1].id()),
+    ctx,
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #|let x = 0
+          #|let z = {  let x = 2
+          #| let a = 1
+          #|  a }
+          #|z
+        ),
+      )
+      inspect(root_def_names(new_text), content="x,z")
+      inspect(nested_block_def_names(1, new_text), content="x,a")
     }
     _ => fail("expected Some edits, got: " + @debug.to_string(result))
   }
