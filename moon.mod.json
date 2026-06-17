@@ -54,6 +54,10 @@
       "path": "./lib/zipper",
       "version": "0.1.0"
     },
+    "dowdiness/analysis": {
+      "path": "./lib/analysis",
+      "version": "0.1.0"
+    },
     "dowdiness/egglog": {
       "path": "./loom/egglog",
       "version": "0.1.0"

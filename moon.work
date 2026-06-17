@@ -13,6 +13,7 @@ members = [
   "./lib/treeview",
   "./lib/dom-boundary",
   "./lib/visualizer",
+  "./lib/analysis",
   "./lib/semantic",
   "./lib/cognition",
   "./examples/ideal",

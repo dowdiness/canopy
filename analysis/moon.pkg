@@ -1,0 +1,8 @@
+import {
+  "dowdiness/analysis" @facts,
+  "dowdiness/canopy/protocol",
+}
+
+import {
+  "dowdiness/analysis" @facts,
+} for "test"

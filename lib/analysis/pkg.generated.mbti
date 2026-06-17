@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/analysis"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn byte_offset_to_utf16(String, Int) -> Int
+
+// Errors
+
+// Types and methods
+pub(all) struct PatternMatchFact {
+  snapshot : SourceSnapshot
+  from : Int
+  to : Int
+  pattern_id : String
+  captures : Map[String, (Int, Int)]
+} derive(@debug.Debug)
+pub fn PatternMatchFact::PatternMatchFact(snapshot~ : SourceSnapshot, from~ : Int, to~ : Int, pattern_id~ : String, captures~ : Map[String, (Int, Int)]) -> Self
+pub fn PatternMatchFact::is_current(Self, SourceSnapshot) -> Bool
+
+pub(all) struct SourceSnapshot {
+  doc_id : String
+  version : Int
+  text_hash : Int
+  utf16_len : Int
+} derive(Eq, Hash, @debug.Debug)
+pub fn SourceSnapshot::SourceSnapshot(doc_id~ : String, version~ : Int, source~ : String) -> Self
+pub fn SourceSnapshot::matches(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits
+

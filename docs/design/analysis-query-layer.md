@@ -1,6 +1,6 @@
 # Analysis Query Layer
 
-**Status:** design proposal — not implemented  
+**Status:** Phase 1 implemented — `lib/analysis/` (types + conversion), `analysis/` (rendering + adapter), `rules/` (ast-grep rule). Host FFI wiring pending.  
 **Goal:** bring syntax-pattern search, semantic queries, and previewable refactors
 into Canopy without weakening the core text-CRDT pipeline.
 
