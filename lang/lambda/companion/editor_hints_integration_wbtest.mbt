@@ -119,6 +119,7 @@ test "Unwrap: body node NodeId preserved after reconcile with hint" {
   guard body_of_bare_expr(root) is Some(lam) else {
     fail("expected bare-expr root")
   }
+  inspect(lam.kind is @ast.Term::Lam(_, _), content="true")
   guard lam.children.get(0) is Some(body) else { fail("lam has no body child") }
   let lam_id = lam.id()
   let old_body_id = body.id()
@@ -156,6 +157,7 @@ test "Unwrap control: LCS alone does NOT preserve body NodeId" {
     fail("expected proj node for '(f) => x'")
   }
   guard body_of_bare_expr(root) is Some(lam) else { fail("expected lam node") }
+  inspect(lam.kind is @ast.Term::Lam(_, _), content="true")
   guard lam.children.get(0) is Some(body) else { fail("lam has no body child") }
   let old_body_id = body.id()
 
