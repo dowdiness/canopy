@@ -1,0 +1,106 @@
+// Tests for structural-edit hint consumption in reconcile_hinted.
+// Reuses the TestExpr fixture (Leaf / Branch) from test_expr_wbtest.mbt.
+//
+// The hints that do real work are exactly the constructor-changing edits LCS
+// loses: Wrap and Unwrap at a CHILD position (a wrap of the whole root never
+// happens in practice). `same_kind` for TestExpr compares constructor only, so
+// rename / sibling insert / delete are already identity-preserving by LCS and
+// need no hint.
+
+///|
+/// Build a hint map from (NodeId, IdentityTransform) pairs.
+fn mk_hints(
+  pairs : Array[(Int, IdentityTransform)],
+) -> Map[NodeId, IdentityTransform] {
+  let m : Map[NodeId, IdentityTransform] = {}
+  for pair in pairs {
+    m[NodeId::from_int(pair.0)] = pair.1
+  }
+  m
+}
+
+///|
+test "Wrap hint at a child position carries the inner id" {
+  // old: root#1 -> Leaf#5
+  let inner = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x")]), 0, 5, 1, [inner])
+  // new: root -> Branch wrapper -> Leaf  (Leaf#5 got wrapped one level deeper)
+  let new_inner = ProjNode::new(Leaf("x"), 1, 2, 90, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("x")]), 1, 3, 91, [new_inner])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Leaf("x")])]),
+    0,
+    5,
+    92,
+    [wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // root keeps id 1 (same_kind Branch)
+  inspect(result.node_id, content="1")
+  // the wrapped Leaf keeps id 5; the wrapper node itself is fresh
+  inspect(result.children[0].children[0].node_id, content="5")
+  inspect(result.children[0].node_id >= 1000, content="true")
+}
+
+///|
+test "Unwrap hint at a child position carries the kept id" {
+  // old: root#1 -> wrapper#10 -> Leaf#5
+  let kept = ProjNode::new(Leaf("x"), 1, 2, 5, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("x")]), 1, 3, 10, [kept])
+  let old = ProjNode::new(Branch("root", [Branch("w", [Leaf("x")])]), 0, 5, 1, [
+    wrapper,
+  ])
+  // new: root -> Leaf  (wrapper removed, Leaf promoted)
+  let new_child = ProjNode::new(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode::new(Branch("root", [Leaf("x")]), 0, 5, 91, [new_child])
+  let hints = mk_hints([
+    (10, Unwrap(wrapper=NodeId::from_int(10), keep=NodeId::from_int(5))),
+  ])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  inspect(result.node_id, content="1")
+  // promoted Leaf keeps the kept child's id 5
+  inspect(result.children[0].node_id, content="5")
+}
+
+///|
+test "without a hint, a wrap loses the inner id (degrades to fresh)" {
+  let inner = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x")]), 0, 5, 1, [inner])
+  let new_inner = ProjNode::new(Leaf("x"), 1, 2, 90, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("x")]), 1, 3, 91, [new_inner])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Leaf("x")])]),
+    0,
+    5,
+    92,
+    [wrapper],
+  )
+  let result = reconcile_hinted(old, new_, Ref(1000), {})
+  // no hint → LCS cannot pair Leaf#5 with the Branch wrapper → inner is fresh
+  inspect(result.children[0].children[0].node_id >= 1000, content="true")
+}
+
+///|
+test "ambiguous wrap target degrades to fresh (two same-kind children)" {
+  let inner = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x")]), 0, 5, 1, [inner])
+  // wrapper has TWO Leaf children → cannot disambiguate which carries id 5
+  let la = ProjNode::new(Leaf("a"), 1, 2, 90, [])
+  let lb = ProjNode::new(Leaf("b"), 2, 3, 91, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("a"), Leaf("b")]), 1, 4, 92, [
+    la, lb,
+  ])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Leaf("a"), Leaf("b")])]),
+    0,
+    6,
+    93,
+    [wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // ambiguous → degrade: id 5 carried into neither child
+  inspect(result.children[0].children[0].node_id >= 1000, content="true")
+  inspect(result.children[0].children[1].node_id >= 1000, content="true")
+}
