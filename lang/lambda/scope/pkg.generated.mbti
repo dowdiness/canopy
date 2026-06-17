@@ -28,6 +28,8 @@ pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
 pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
 
+pub fn scope_for_node(ScopeGraph, @dowdiness/canopy/core.NodeId) -> ScopeId?
+
 // Errors
 
 // Types and methods
@@ -84,8 +86,7 @@ pub(all) struct ScopeGraph {
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @dowdiness/canopy/core.NodeId
-  node_scope : Map[@dowdiness/canopy/core.NodeId, ScopeId]
-  node_cutoffs : Map[@dowdiness/canopy/core.NodeId, Map[ScopeId, Int]]
+  // private fields
 } derive(@debug.Debug)
 
 pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)

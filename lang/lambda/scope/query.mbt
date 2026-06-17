@@ -19,7 +19,7 @@ pub fn declaration_for_name_at(
   node : @core.NodeId,
   name : String,
 ) -> Decl? {
-  guard g.node_scope.get(node) is Some(start_scope) else { return None }
+  guard scope_for_node(g, node) is Some(start_scope) else { return None }
   guard g.node_cutoffs.get(node) is Some(cutoffs) else { return None }
   let mut cur : ScopeId? = Some(start_scope)
   while cur is Some(sid) {
@@ -44,6 +44,19 @@ pub fn declaration_for_name_at(
     cur = scope.parent
   }
   None
+}
+
+///|
+/// The scope that the structural `node_id` belongs to. For a reference node,
+/// this is the scope where resolution starts. For a module-definition binder
+/// node, this is its declaring module scope. Lambda parameter declarations are
+/// represented by the owning `Lam` node, which is also an expression node; for
+/// that node this query returns the lambda expression's enclosing scope, while
+/// the parameter's declaring scope is recorded on the corresponding `Decl`.
+/// Returns `None` when the `node_id` was not recorded during scope-graph
+/// construction.
+pub fn scope_for_node(g : ScopeGraph, node_id : @core.NodeId) -> ScopeId? {
+  g.node_scope.get(node_id)
 }
 
 ///|
@@ -141,14 +154,7 @@ pub fn enclosing_env(
   g : ScopeGraph,
   node : @core.NodeId,
 ) -> @immut/hashset.HashSet[String] {
-  let start = match g.refs.iter().find_first(fn(r) { r.node_id == node }) {
-    Some(r) => Some(r.scope)
-    None =>
-      g.decls
-      .iter()
-      .find_first(fn(d) { d.node_id == node })
-      .map(fn(d) { d.scope })
-  }
+  let start = scope_for_node(g, node)
   let mut env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let mut cur = start
   while cur is Some(sid) {

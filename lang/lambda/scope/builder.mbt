@@ -19,8 +19,9 @@ fn build_parent_map(
 ///|
 /// Mutable builder state accumulated across passes.
 ///
-/// `node_cutoffs` is transient pass-2 state (never stored in the graph): for
-/// each node it records the sequential cutoff of every enclosing module scope
+/// `node_cutoffs` is builder-owned pass-2 state, persisted privately as
+/// `ScopeGraph.node_cutoffs`: for each node it records the sequential cutoff of
+/// every enclosing module scope
 /// — a `ModuleDef(def_index)` in scope `s` is visible to the node only if
 /// `def_index < node_cutoffs[node][s]`. Lambda scopes never appear (they hold
 /// no `ModuleDef`). This generalises the former single-`Int` cutoff so nested

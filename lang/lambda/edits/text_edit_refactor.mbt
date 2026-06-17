@@ -101,7 +101,7 @@ fn compute_extract_to_let(
       // Lambda params declared OUTSIDE the block stay visible at the insertion
       // point and must not be rejected.
       let node_subtree = subtree_node_ids(node)
-      let unsafe_ref = match g.node_scope.get(block_node.id()) {
+      let unsafe_ref = match @scope.scope_for_node(g, block_node.id()) {
         Some(bis) =>
           fv
           .iter()
