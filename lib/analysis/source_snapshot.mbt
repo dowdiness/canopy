@@ -20,5 +20,8 @@ pub fn SourceSnapshot::matches(
   self : SourceSnapshot,
   other : SourceSnapshot,
 ) -> Bool {
-  self.version == other.version && self.text_hash == other.text_hash
+  self.doc_id == other.doc_id &&
+  self.version == other.version &&
+  self.text_hash == other.text_hash &&
+  self.utf16_len == other.utf16_len
 }

@@ -40,6 +40,24 @@ test "snapshot rejects different content at same version" {
 }
 
 ///|
+test "snapshot rejects same-content fact from different document" {
+  // docA and docB share identical text at the same version — a fact tagged
+  // to docA must not be accepted as current for docB.
+  let source = "fn(x){ x }"
+  let snap_a = SourceSnapshot::SourceSnapshot(doc_id="docA", version=1, source~)
+  let snap_b = SourceSnapshot::SourceSnapshot(doc_id="docB", version=1, source~)
+  inspect(snap_a.matches(snap_b), content="false")
+  let fact = PatternMatchFact::PatternMatchFact(
+    snapshot=snap_a,
+    from=0,
+    to=3,
+    pattern_id="lam",
+    captures={},
+  )
+  inspect(fact.is_current(snap_b), content="false")
+}
+
+///|
 test "byte_offset_to_utf16 handles ascii" {
   let s = "hello"
   inspect(byte_offset_to_utf16(s, 0), content="0")
