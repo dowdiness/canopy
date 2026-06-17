@@ -68,13 +68,27 @@ fn[T : TreeNode] reconcile_children(
 ) -> Array[ProjNode[T]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
+  // Old children carrying a wrap/unwrap/replace/move hint are excluded from
+  // ordinary LCS matching: their identity is decided by the hint logic, so they
+  // must not be consumed by a same-kind match against the wrong new sibling
+  // first. Rename / insert / delete / opaque hints stay matchable (LCS already
+  // preserves those). Computed only when hints are present.
+  let excluded_old : Array[Bool] = if hints.is_empty() {
+    []
+  } else {
+    Array::makei(old_len, oi => lcs_excluded(hints, old_children[oi].id()))
+  }
+  let lcs_match = fn(oi : Int, nj : Int) -> Bool {
+    T::same_kind(old_children[oi].kind, new_children[nj].kind) &&
+    (excluded_old.length() == 0 || excluded_old[oi] == false)
+  }
   // Each row must be a fresh array — use makei (called per row), not
   // Array::make(.., Array::make(..)) which would share one inner array
   // reference across all rows and corrupt the DP.
   let dp = Array::makei(old_len + 1, _ => Array::make(new_len + 1, 0))
   for i = 1; i <= old_len; i = i + 1 {
     for j = 1; j <= new_len; j = j + 1 {
-      if T::same_kind(old_children[i - 1].kind, new_children[j - 1].kind) {
+      if lcs_match(i - 1, j - 1) {
         dp[i][j] = dp[i - 1][j - 1] + 1
       } else {
         dp[i][j] = @cmp.maximum(dp[i - 1][j], dp[i][j - 1])
@@ -86,7 +100,7 @@ fn[T : TreeNode] reconcile_children(
   let mut i = old_len
   let mut j = new_len
   while i > 0 && j > 0 {
-    if T::same_kind(old_children[i - 1].kind, new_children[j - 1].kind) {
+    if lcs_match(i - 1, j - 1) {
       old_matched[i - 1] = j - 1
       new_matched[j - 1] = i - 1
       i = i - 1
@@ -177,7 +191,27 @@ fn[T : TreeNode] structural_pair(
         Some(node) => Applied(node)
         None => Unlocatable
       }
+    // Replace retires the old identity; Move's identity is editor-owned
+    // (move_node) and not reconcilable here. Both freshen the node at this
+    // position rather than preserving `old.node_id`.
+    Some(Replace(_)) | Some(Move(_)) => Applied(assign_fresh_ids(new, counter))
     _ => NoStructuralHint
+  }
+}
+
+///|
+/// Whether an old child's hint means "do not let ordinary LCS assign this
+/// identity". Wrap/Unwrap/Replace/Move are handled by the hint logic; rename /
+/// insert / delete / opaque (and no hint) are left to LCS, which already honors
+/// them.
+fn lcs_excluded(hints : Map[NodeId, IdentityTransform], id : NodeId) -> Bool {
+  match hints.get(id) {
+    Some(RenameLeaf(_))
+    | Some(InsertSubtree(..))
+    | Some(DeleteSubtree(_))
+    | Some(Opaque)
+    | None => false
+    Some(_) => true
   }
 }
 

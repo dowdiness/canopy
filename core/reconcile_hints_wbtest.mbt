@@ -227,3 +227,54 @@ test "one hint matching two new wrappers degrades to fresh" {
   inspect(result.children[0].children[0].node_id >= 1000, content="true")
   inspect(result.children[1].children[0].node_id >= 1000, content="true")
 }
+
+///|
+test "hinted old child is not consumed by an LCS match against the wrong sibling" {
+  // old: root#1 -> [Leaf#5 (hinted wrapped), Leaf#6]
+  let l5 = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let l6 = ProjNode::new(Leaf("y"), 1, 2, 6, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x"), Leaf("y")]), 0, 3, 1, [
+    l5, l6,
+  ])
+  // new: [Leaf(new), Branch(Leaf)] — the standalone Leaf is same_kind as #5, but
+  // per the hint #5 belongs to the Branch wrapper. LCS must not consume #5
+  // against the standalone Leaf first.
+  let nl = ProjNode::new(Leaf("z"), 0, 1, 90, [])
+  let w_leaf = ProjNode::new(Leaf("x"), 1, 2, 91, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("x")]), 1, 3, 92, [w_leaf])
+  let new_ = ProjNode::new(
+    Branch("root", [Leaf("z"), Branch("w", [Leaf("x")])]),
+    0,
+    3,
+    93,
+    [nl, wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // #5 reaches the wrapper's inner leaf, not the standalone Leaf sibling
+  inspect(result.children[1].children[0].node_id, content="5")
+}
+
+///|
+test "Replace hint retires the old id (node is fresh, not preserved)" {
+  // old: root#1 -> a#5 (Branch)
+  let a_leaf = ProjNode::new(Leaf("x"), 0, 1, 6, [])
+  let a = ProjNode::new(Branch("a", [Leaf("x")]), 0, 2, 5, [a_leaf])
+  let old = ProjNode::new(Branch("root", [Branch("a", [Leaf("x")])]), 0, 5, 1, [
+    a,
+  ])
+  // new: a same-kind Branch occupies #5's position, but the edit replaced it.
+  let n_leaf = ProjNode::new(Leaf("y"), 0, 1, 90, [])
+  let n = ProjNode::new(Branch("b", [Leaf("y")]), 0, 2, 91, [n_leaf])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("b", [Leaf("y")])]),
+    0,
+    5,
+    92,
+    [n],
+  )
+  let hints = mk_hints([(5, Replace(old=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // same-kind would normally preserve #5; Replace retires it → the node is fresh
+  inspect(result.children[0].node_id >= 1000, content="true")
+}
