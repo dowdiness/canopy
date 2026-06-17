@@ -109,12 +109,14 @@ pub fn TreeEditOp::to_identity_transform(
   get_node : (@core.NodeId) -> @core.ProjNode[@ast.Term]?,
 ) -> @core.IdentityTransform {
   match self {
-    // Wrap ops: prev node becomes a child of a new wrapper
+    // Wrap ops: prev node becomes a child of a new wrapper.
+    // ExtractToLet is excluded: it moves N to a new location (def RHS) and
+    // replaces N's site with a Var reference, which is not a structural Wrap.
+    // Degrading to Opaque (T3) lets LCS handle the resulting topology change.
     WrapInLambda(node_id=n, ..)
     | WrapInApp(node_id=n)
     | WrapInIf(node_id=n)
-    | WrapInBop(node_id=n, ..)
-    | ExtractToLet(node_id=n, ..) => @core.IdentityTransform::Wrap(inner=n)
+    | WrapInBop(node_id=n, ..) => @core.IdentityTransform::Wrap(inner=n)
 
     // Unwrap: wrapper removed, keep the k-th child's id
     Unwrap(node_id=wrapper_id, keep_child_index=k) =>
@@ -136,11 +138,14 @@ pub fn TreeEditOp::to_identity_transform(
     | InlineDefinition(node_id=n)
     | ChangeOperator(node_id=n, ..) => @core.IdentityTransform::Replace(old=n)
 
-    // Rename: only a leaf token changes; spine identity preserved
+    // Rename: leaf token changes, spine identity preserved for intra-expression
+    // renames. For module-level binding renames the hint is harmlessly ignored:
+    // module_key_match keys on the binding NAME and misses a renamed binding,
+    // so assign_fresh_ids runs regardless (LCS fallback, no wrong IDs produced).
     Rename(node_id=n, ..) => @core.IdentityTransform::RenameLeaf(node=n)
 
-    // All other ops: degrade to LCS (includes Delete, module-level mutations,
-    // SwapChildren, InlineAllUsages, AddBinding, DuplicateBinding, etc.)
+    // All other ops: degrade to LCS (includes Delete, ExtractToLet,
+    // module-level mutations, SwapChildren, InlineAllUsages, AddBinding, etc.)
     _ => @core.IdentityTransform::Opaque
   }
 }

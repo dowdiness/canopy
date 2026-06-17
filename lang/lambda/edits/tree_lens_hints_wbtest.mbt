@@ -35,12 +35,12 @@ test "WrapInIf returns Wrap(inner=node_id)" {
 }
 
 ///|
-test "ExtractToLet returns Wrap(inner=node_id)" {
+test "ExtractToLet returns Opaque (not a structural Wrap; T3 conservative)" {
   let id = @core.NodeId::from_int(9)
   let hint = TreeEditOp::ExtractToLet(node_id=id, var_name="x").to_identity_transform(
     no_node,
   )
-  inspect(hint is @core.IdentityTransform::Wrap(inner=_), content="true")
+  inspect(hint is @core.IdentityTransform::Opaque, content="true")
 }
 
 ///|
