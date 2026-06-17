@@ -141,12 +141,17 @@ pub fn new_lambda_editor(
     None,
   )
   let source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?] = Ref(None)
+  // Shared structural-edit hint channel: apply_lambda_tree_edit pushes hints
+  // here via apply_span_edits; the reconcile closure in build_lambda_projection_memos
+  // consumes+clears it once per reparse (T4).
+  let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   let editor = @editor.SyncEditor::new_generic(
     agent_id,
     fn(s, rt) { @loom.new_parser(s, @parser.lambda_grammar, runtime?=rt) },
     fn(parser) {
       let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
         parser,
+        identity_hints=hints_ref,
       )
       cached_proj_node_ref.val = Some(cached_proj_node)
       source_map_memo_ref.val = Some(source_map_memo)
@@ -164,6 +169,7 @@ pub fn new_lambda_editor(
     capabilities=build_lambda_capabilities(
       cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref,
     ),
+    identity_hints=hints_ref,
   )
   let companion : LambdaCompanion = {
     escalation_memo: escalation_memo_ref.val.unwrap(),
@@ -264,7 +270,12 @@ pub fn apply_lambda_tree_edit(
       if edits.is_empty() {
         return Ok(edits)
       }
-      editor.apply_span_edits(edits, focus_hint, timestamp_ms)
+      editor.apply_span_edits(
+        edits,
+        focus_hint,
+        timestamp_ms,
+        hint=op.to_identity_transform(fn(id) { registry.get(id) }),
+      )
       Ok(edits)
     }
     Ok(None) =>

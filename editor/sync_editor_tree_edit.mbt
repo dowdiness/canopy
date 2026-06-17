@@ -151,6 +151,10 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   position : @core.DropPosition,
   timestamp_ms : Int,
 ) -> Result[Array[@core.SpanEdit], TreeEditError] {
+  // A drag-drop restructures the tree non-locally. Invalidate any pending
+  // structural hints so reconcile degrades to LCS for this reparse.
+  // (Move identity preservation deferred to Slice 5+ match_entities.)
+  self.taint_pending_transforms()
   // Legality: self-drop
   guard source_id != target_id else {
     return Err(TreeEditError::ProjectionEdit(detail="Cannot drop onto self"))

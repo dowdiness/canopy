@@ -95,6 +95,57 @@ pub fn TreeEditOp::to_generic(self : TreeEditOp) -> @core.GenericTreeOp {
 }
 
 ///|
+/// Map this `TreeEditOp` to an identity hint for the reparse reconciler.
+///
+/// `get_node` lets `Unwrap` look up the k-th child of the wrapper (needed to
+/// name the kept child). Returns `Opaque` whenever the hint cannot be derived
+/// (no node found, out-of-bounds child, ambiguous ops). `Opaque` degrades to
+/// standard LCS reconciliation — never produces wrong identity (T3).
+///
+/// Note: ops that don't call `apply_span_edits` (`Select`, `Drop`, etc.) are
+/// never wired to a hint push, so their return value here is unused.
+pub fn TreeEditOp::to_identity_transform(
+  self : TreeEditOp,
+  get_node : (@core.NodeId) -> @core.ProjNode[@ast.Term]?,
+) -> @core.IdentityTransform {
+  match self {
+    // Wrap ops: prev node becomes a child of a new wrapper
+    WrapInLambda(node_id=n, ..)
+    | WrapInApp(node_id=n)
+    | WrapInIf(node_id=n)
+    | WrapInBop(node_id=n, ..)
+    | ExtractToLet(node_id=n, ..) => @core.IdentityTransform::Wrap(inner=n)
+
+    // Unwrap: wrapper removed, keep the k-th child's id
+    Unwrap(node_id=wrapper_id, keep_child_index=k) =>
+      match get_node(wrapper_id) {
+        Some(wrapper) =>
+          match wrapper.children.get(k) {
+            Some(kept) =>
+              @core.IdentityTransform::Unwrap(
+                wrapper=wrapper_id,
+                keep=kept.id(),
+              )
+            None => @core.IdentityTransform::Opaque
+          }
+        None => @core.IdentityTransform::Opaque
+      }
+
+    // Replacement / retirement ops: old identity retires
+    CommitEdit(node_id=n, ..)
+    | InlineDefinition(node_id=n)
+    | ChangeOperator(node_id=n, ..) => @core.IdentityTransform::Replace(old=n)
+
+    // Rename: only a leaf token changes; spine identity preserved
+    Rename(node_id=n, ..) => @core.IdentityTransform::RenameLeaf(node=n)
+
+    // All other ops: degrade to LCS (includes Delete, module-level mutations,
+    // SwapChildren, InlineAllUsages, AddBinding, DuplicateBinding, etc.)
+    _ => @core.IdentityTransform::Opaque
+  }
+}
+
+///|
 fn[T : Renderable] placeholder_text_for_kind(kind : T) -> String {
   T::placeholder(kind)
 }
