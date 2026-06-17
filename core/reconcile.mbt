@@ -29,13 +29,16 @@ pub fn[T : TreeNode] reconcile_hinted(
   // entirely when there are no hints, keeping the per-keystroke path free of
   // extra lookups.
   let hinted = if hints.is_empty() {
-    None
+    NoStructuralHint
   } else {
     structural_pair(old, new, counter, hints)
   }
   match hinted {
-    Some(node) => node
-    None =>
+    Applied(node) => node
+    // A wrap/unwrap hint targeted this node but could not be located — degrade
+    // to fresh ids rather than leaving the preserved id on the new wrapper.
+    Unlocatable => assign_fresh_ids(new, counter)
+    NoStructuralHint =>
       if T::same_kind(old.kind, new.kind) {
         let reconciled_children = reconcile_children(
           old.children,
@@ -129,19 +132,40 @@ fn[T : TreeNode] reconcile_children(
 }
 
 ///|
-/// Apply a structural hint keyed by `old.id()` to carry identity across a
-/// constructor change. Returns `None` when no hint applies or the prev subtree
-/// cannot be located unambiguously in `new` (degrade to fresh ids — invariant T3).
+/// Outcome of consulting structural hints for one node.
+priv enum HintResult[T] {
+  /// No wrap/unwrap hint targets this node — reconcile normally.
+  NoStructuralHint
+  /// A hint applied; carries the reconciled node.
+  Applied(ProjNode[T])
+  /// A hint targets this node but its subtree could not be located
+  /// unambiguously — the caller must degrade to fresh ids (invariant T3).
+  Unlocatable
+}
+
+///|
+/// Consult the structural hint keyed by `old.id()`. A `Wrap`/`Unwrap` hint is
+/// authoritative: it either applies or forces a degrade-to-fresh. It never
+/// silently falls through to same-kind reconciliation (which would leave the
+/// preserved id on the new wrapper).
 fn[T : TreeNode] structural_pair(
   old : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
-) -> ProjNode[T]? {
+) -> HintResult[T] {
   match hints.get(old.id()) {
-    Some(Wrap(_)) => apply_wrap(old, new, counter, hints)
-    Some(Unwrap(keep~, ..)) => apply_unwrap(old, new, counter, hints, keep)
-    _ => None
+    Some(Wrap(_)) =>
+      match apply_wrap(old, new, counter, hints) {
+        Some(node) => Applied(node)
+        None => Unlocatable
+      }
+    Some(Unwrap(keep~, ..)) =>
+      match apply_unwrap(old, new, counter, hints, keep) {
+        Some(node) => Applied(node)
+        None => Unlocatable
+      }
+    _ => NoStructuralHint
   }
 }
 
@@ -167,7 +191,10 @@ fn[T : TreeNode] try_unmatched_hint_pair(
   match candidates {
     [o] => {
       consumed[o.id()] = true
-      structural_pair(o, new_child, counter, hints)
+      match structural_pair(o, new_child, counter, hints) {
+        Applied(node) => Some(node)
+        _ => None
+      }
     }
     _ => None
   }
@@ -208,7 +235,17 @@ fn[T : TreeNode] apply_wrap(
       let new_children = [
         for idx, c in wrapper.children => {
           if idx == target {
-            reconcile_hinted(old, c, counter, hints)
+            // `c` is same_kind as `old` by selection — carry `old`'s identity
+            // directly and reconcile their children. Routing through
+            // reconcile_hinted here would re-apply `old`'s own wrap hint and
+            // push the id one level too deep.
+            ProjNode::new(
+              c.kind,
+              c.start,
+              c.end,
+              old.node_id,
+              reconcile_children(old.children, c.children, counter, hints),
+            )
           } else {
             assign_fresh_ids(c, counter)
           }

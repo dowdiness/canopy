@@ -164,3 +164,40 @@ test "two old children claiming one wrapper degrade to fresh" {
   // both #5 and #6 pair the single wrapper → ambiguous → degrade → inner fresh
   inspect(result.children[0].children[0].node_id >= 1000, content="true")
 }
+
+///|
+test "same-kind Wrap with ambiguous target degrades to fresh (no id on wrapper)" {
+  // old: root#1 -> a#5 (Branch)
+  let a_leaf = ProjNode::new(Leaf("x"), 0, 1, 6, [])
+  let a = ProjNode::new(Branch("a", [Leaf("x")]), 0, 2, 5, [a_leaf])
+  let old = ProjNode::new(Branch("root", [Branch("a", [Leaf("x")])]), 0, 5, 1, [
+    a,
+  ])
+  // new: a#5 "wrapped" in a same-kind Branch that has TWO Branch children →
+  // the wrapped node cannot be located unambiguously.
+  let c1_leaf = ProjNode::new(Leaf("x"), 1, 2, 90, [])
+  let c1 = ProjNode::new(Branch("a", [Leaf("x")]), 1, 3, 91, [c1_leaf])
+  let c2_leaf = ProjNode::new(Leaf("y"), 3, 4, 92, [])
+  let c2 = ProjNode::new(Branch("b", [Leaf("y")]), 3, 5, 93, [c2_leaf])
+  let wrapper = ProjNode::new(
+    Branch("w", [Branch("a", [Leaf("x")]), Branch("b", [Leaf("y")])]),
+    1,
+    5,
+    94,
+    [c1, c2],
+  )
+  let new_ = ProjNode::new(
+    Branch("root", [
+      Branch("w", [Branch("a", [Leaf("x")]), Branch("b", [Leaf("y")])]),
+    ]),
+    0,
+    6,
+    95,
+    [wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // hint present but unlocatable (2 same-kind targets) → degrade: the wrapper
+  // must NOT keep id 5; it is fresh.
+  inspect(result.children[0].node_id >= 1000, content="true")
+}
