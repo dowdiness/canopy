@@ -22,25 +22,37 @@ pub fn[T : TreeNode] reconcile_hinted(
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
 ) -> ProjNode[T] {
-  if T::same_kind(old.kind, new.kind) {
-    let reconciled_children = reconcile_children(
-      old.children,
-      new.children,
-      counter,
-      hints,
-    )
-    ProjNode::new(
-      new.kind,
-      new.start,
-      new.end,
-      old.node_id,
-      reconciled_children,
-    )
+  // A structural hint keyed by `old.id()` (wrap / unwrap) takes precedence and
+  // may apply even when the new wrapper is the SAME kind as the wrapped node —
+  // e.g. wrapping an `App` inside another `App`. Checked before the same-kind
+  // branch so identity lands on the wrapped node, not the new wrapper. Skipped
+  // entirely when there are no hints, keeping the per-keystroke path free of
+  // extra lookups.
+  let hinted = if hints.is_empty() {
+    None
   } else {
-    match structural_pair(old, new, counter, hints) {
-      Some(node) => node
-      None => assign_fresh_ids(new, counter)
-    }
+    structural_pair(old, new, counter, hints)
+  }
+  match hinted {
+    Some(node) => node
+    None =>
+      if T::same_kind(old.kind, new.kind) {
+        let reconciled_children = reconcile_children(
+          old.children,
+          new.children,
+          counter,
+          hints,
+        )
+        ProjNode::new(
+          new.kind,
+          new.start,
+          new.end,
+          old.node_id,
+          reconciled_children,
+        )
+      } else {
+        assign_fresh_ids(new, counter)
+      }
   }
 }
 
@@ -96,6 +108,8 @@ fn[T : TreeNode] reconcile_children(
           counter,
           hints,
         )
+      } else if hints.is_empty() {
+        assign_fresh_ids(new_children[k], counter)
       } else {
         match
           try_unmatched_hint_pair(
@@ -147,12 +161,15 @@ fn[T : TreeNode] try_unmatched_hint_pair(
     consumed.get(o.id()) is None &&
     hint_pairs(o, new_child, hints) => o
   ]
+  // Carry identity only for an unambiguous singleton candidate; 0 or >1
+  // candidates (multiple old siblings claiming the same new child) degrade to
+  // fresh ids rather than assigning identity by sibling iteration order.
   match candidates {
-    [o, ..] => {
+    [o] => {
       consumed[o.id()] = true
       structural_pair(o, new_child, counter, hints)
     }
-    [] => None
+    _ => None
   }
 }
 

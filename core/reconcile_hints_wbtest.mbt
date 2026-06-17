@@ -104,3 +104,63 @@ test "ambiguous wrap target degrades to fresh (two same-kind children)" {
   inspect(result.children[0].children[0].node_id >= 1000, content="true")
   inspect(result.children[0].children[1].node_id >= 1000, content="true")
 }
+
+///|
+test "same-kind Wrap carries the wrapped node id, not the new wrapper" {
+  // old: root#1 -> a#5 (Branch) -> Leaf#6
+  let a_leaf = ProjNode::new(Leaf("x"), 0, 1, 6, [])
+  let a = ProjNode::new(Branch("a", [Leaf("x")]), 0, 2, 5, [a_leaf])
+  let old = ProjNode::new(Branch("root", [Branch("a", [Leaf("x")])]), 0, 5, 1, [
+    a,
+  ])
+  // new: a#5 wrapped in another Branch of the SAME kind (Branch -> Branch)
+  let new_a_leaf = ProjNode::new(Leaf("x"), 1, 2, 90, [])
+  let new_a = ProjNode::new(Branch("a", [Leaf("x")]), 1, 3, 91, [new_a_leaf])
+  let wrapper = ProjNode::new(
+    Branch("w", [Branch("a", [Leaf("x")])]),
+    1,
+    4,
+    92,
+    [new_a],
+  )
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Branch("a", [Leaf("x")])])]),
+    0,
+    5,
+    93,
+    [wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  inspect(result.node_id, content="1") // root preserved
+  // the wrapper Branch is fresh; the wrapped Branch a keeps id 5
+  inspect(result.children[0].node_id >= 1000, content="true")
+  inspect(result.children[0].children[0].node_id, content="5")
+}
+
+///|
+test "two old children claiming one wrapper degrade to fresh" {
+  // old: root#1 -> [Leaf#5, Leaf#6], both hinted as wrapped
+  let l5 = ProjNode::new(Leaf("x"), 0, 1, 5, [])
+  let l6 = ProjNode::new(Leaf("y"), 1, 2, 6, [])
+  let old = ProjNode::new(Branch("root", [Leaf("x"), Leaf("y")]), 0, 3, 1, [
+    l5, l6,
+  ])
+  // new: root -> single wrapper Branch with one Leaf child
+  let new_leaf = ProjNode::new(Leaf("x"), 0, 1, 90, [])
+  let wrapper = ProjNode::new(Branch("w", [Leaf("x")]), 0, 2, 91, [new_leaf])
+  let new_ = ProjNode::new(
+    Branch("root", [Branch("w", [Leaf("x")])]),
+    0,
+    3,
+    92,
+    [wrapper],
+  )
+  let hints = mk_hints([
+    (5, Wrap(inner=NodeId::from_int(5))),
+    (6, Wrap(inner=NodeId::from_int(6))),
+  ])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // both #5 and #6 pair the single wrapper → ambiguous → degrade → inner fresh
+  inspect(result.children[0].children[0].node_id >= 1000, content="true")
+}
