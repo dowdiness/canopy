@@ -1580,6 +1580,143 @@ test "compute_text_edit: ExtractToLet inserts inside empty-def block body" {
 }
 
 ///|
+/// Build a fresh scope graph for a reparsed projection.
+fn scope_graph_for_proj(proj : ProjNode[@ast.Term]) -> @scope.ScopeGraph {
+  let registry = text_edit_test_registry(proj)
+  let source_map = SourceMap::from_ast(proj)
+  @scope.build(registry, source_map)
+}
+
+///|
+/// Assert that `var_node` resolves to `expected_decl_node` in `g`.
+fn expect_var_resolves_to(
+  g : @scope.ScopeGraph,
+  var_node : ProjNode[@ast.Term],
+  expected_name : String,
+  expected_decl_node : ProjNode[@ast.Term],
+  unresolved_message : String,
+) -> Unit raise {
+  match @scope.declaration(g, var_node.id()) {
+    Some(decl) => {
+      inspect(decl.name, content=expected_name)
+      inspect(decl.node_id == expected_decl_node.id(), content="true")
+    }
+    None => fail(unresolved_message)
+  }
+}
+
+///|
+test "compute_text_edit: ExtractToLet block-body preserves resolution when block-local def shadows outer var [#659]" {
+  let text = "let a = 0\nlet z = { let a = 1\n  a + 1 }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[1].children[0]
+  let body = block.children[block.children.length() - 1]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=body.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(root_def_names(new_text), content="a,z")
+      inspect(nested_block_def_names(1, new_text), content="a,y")
+      let g = scope_graph_for_proj(result_proj)
+      let result_block = result_proj.children[1].children[0]
+      let y_init = result_block.children[1].children[0]
+      expect_var_resolves_to(
+        g,
+        y_init.children[0],
+        "a",
+        result_block.children[0],
+        "`a` in y's init is unresolved (expected block-local resolution)",
+      )
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: ExtractToLet block-body sub-expr preserves block-local free var resolution [#659]" {
+  let text = "let a = 0\nlet z = { let a = 1\n  (a + 2) + a }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[1].children[0]
+  let body = block.children[block.children.length() - 1]
+  let extracted = body.children[0]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=extracted.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      let g = scope_graph_for_proj(result_proj)
+      let result_block = result_proj.children[1].children[0]
+      let y_init = result_block.children[1].children[0]
+      expect_var_resolves_to(
+        g,
+        y_init.children[0],
+        "a",
+        result_block.children[0],
+        "`a` in y's init is unresolved",
+      )
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: ExtractToLet block-body preserves mixed inner/outer free var resolution [#659]" {
+  let text = "let x = 10\nlet z = { let a = 1\n  a + x }\nz"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let block = proj.children[1].children[0]
+  let body = block.children[block.children.length() - 1]
+  let result = compute_text_edit(
+    ExtractToLet(node_id=body.id(), var_name="y"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+        _ => fail("reparse failed: " + new_text)
+      }
+      inspect(root_def_names(new_text), content="x,z")
+      inspect(nested_block_def_names(1, new_text), content="a,y")
+      let g = scope_graph_for_proj(result_proj)
+      let result_block = result_proj.children[1].children[0]
+      let y_init = result_block.children[1].children[0]
+      expect_var_resolves_to(
+        g,
+        y_init.children[0],
+        "a",
+        result_block.children[0],
+        "`a` in y's init is unresolved",
+      )
+      expect_var_resolves_to(
+        g,
+        y_init.children[1],
+        "x",
+        result_proj.children[0],
+        "`x` in y's init is unresolved",
+      )
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
 test "compute_text_edit: AddBinding adds new let line" {
   let text = "let x = 0\nx"
   let (proj, _) = parse_to_proj_node(text)

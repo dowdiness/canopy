@@ -509,8 +509,11 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   find the innermost enclosing `Module` through the scope graph and insert the
   new `let` inside that block instead of hoisting to the root. wbtests cover
   block-body insertion, block-def insertion, lambda-in-block ancestry,
-  empty-def blocks, and capture/rebind refusals. GitHub issue #659 remains open
-  for maintainer triage/closure, not for unshipped block-aware extraction code.
+  empty-def blocks, and capture/rebind refusals. Verified via scope-graph wbtests
+  that block-body insertion preserves resolution of block-local free vars even when
+  shadowing outer bindings. The block-body path inserts after all defs so block-local
+  visibility is maintained — no scope_is_within guard needed (unlike block-def path).
+  Closes #659.
 
 ## Shipped history
 
