@@ -49,10 +49,10 @@ A source snapshot should identify:
 
 - the document and URI being analyzed;
 - the source version observed by the editor;
-- a hash and length of the exact source text sent to the provider;
-- the unit-converted length used by Canopy internals;
-- the source-map generation used when correlating ranges with projections;
-- the source text supplied to the provider.
+- a hash (32-bit `String::hash()`, sufficient for stale-result rejection) of the source text sent to the provider;
+- the unit-converted length (UTF-16 code unit count) used by Canopy internals;
+- the source-map generation used when correlating ranges with projections; *(Phase 2+)*
+- the raw source text supplied to the provider. *(Phase 2+)*
 
 A result is accepted only if its snapshot still matches the editor state it is
 being attached to. Otherwise it is stale and must be dropped without mutating
@@ -292,5 +292,5 @@ intent-level operations.
 - Stale provider results are rejected deterministically.
 - Byte offsets are converted to UTF-16 ranges before entering analysis state.
 - Non-ASCII test cases prove range conversion correctness.
-- The UI can list matches and jump to a normalized range.
+- The UI can list matches and jump to a normalized range. *(data layer: `facts_to_match_list` → `MatchListEntry` shipped; host rendering pending)*
 - No changes are required to the public protocol.
