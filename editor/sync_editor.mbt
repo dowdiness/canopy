@@ -17,6 +17,13 @@ pub struct SyncEditor[T] {
   priv mut ws : JsWebSocket?
   priv session : @sync_session.SyncSession
   priv mut projection_dirty : Bool
+  // Structural-edit identity hints accumulated since the last reconcile.
+  // Structural edits push their IdentityTransform here; raw-text edits push
+  // Opaque (taint) when non-empty. Consumed and cleared once per reparse by
+  // the reconcile_node closure in build_lambda_projection_memos.
+  // T4: cleared exactly once per reconcile pass (never stale).
+  // T1 invariant: hints reference only prev-tree NodeIds valid at push time.
+  priv pending_transforms : Ref[Array[@core.IdentityTransform]]
   // Process-local construction identity. Two `SyncEditor` instances
   // constructed separately have different identities; the same instance
   // always returns the same value. Used as a cache key in history-view
@@ -40,7 +47,16 @@ pub fn[T] SyncEditor::new_generic(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
+  // Optional shared Ref for the structural-edit hint channel. The caller
+  // (e.g. new_lambda_editor) creates a `Ref([])`, passes it here AND into
+  // build_memos so the reconcile_node closure can consume+clear it. Callers
+  // that don't use hints omit this; they get an isolated Ref that is never read.
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
 ) -> SyncEditor[T] {
+  let pending_transforms = match identity_hints {
+    Some(r) => r
+    None => Ref([])
+  }
   let parser = make_parser("", parent_runtime)
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
@@ -59,6 +75,7 @@ pub fn[T] SyncEditor::new_generic(
     ws: None,
     session: @sync_session.SyncSession::SyncSession(),
     projection_dirty: false,
+    pending_transforms,
     identity: next_editor_identity(),
   }
 }
@@ -342,17 +359,40 @@ pub fn[T] SyncEditor::get_node_range(
 // ── Span-edit application ────────────────────────────────────────────────
 
 ///|
+/// Push `Opaque` to `pending_transforms` iff the array is already non-empty.
+/// Raw-text edit paths call this so that any structural hint accumulated before
+/// the raw edit is invalidated (T2: no silent stale-hint trust).
+/// No-op during normal typing when no structural hint is pending.
+fn[T] SyncEditor::taint_pending_transforms(self : SyncEditor[T]) -> Unit {
+  if !self.pending_transforms.val.is_empty() {
+    self.pending_transforms.val.push(@core.IdentityTransform::Opaque)
+  }
+}
+
+///|
 /// Apply a list of SpanEdits through the text CRDT, then adjust the cursor
 /// per the FocusHint. Edits are applied in reverse document order to avoid
 /// position shifts. All edits are recorded for undo.
+///
+/// `hint` carries the structural-edit identity hint for this batch of span
+/// edits. When provided, it is accumulated in `pending_transforms` for the
+/// next reconcile pass. Callers that do not know the hint omit this
+/// parameter (default: not pushed).
 pub fn[T : Eq] SyncEditor::apply_span_edits(
   self : SyncEditor[T],
   edits : Array[@core.SpanEdit],
   focus_hint : @core.FocusHint,
   timestamp_ms : Int,
+  hint? : @core.IdentityTransform,
 ) -> Unit {
   if edits.is_empty() {
     return
+  }
+  // Snapshot text before applying edits so we can detect net-no-op batches
+  // (e.g. CommitEdit with the same text). Only needed when a hint is provided.
+  let text_before : String? = match hint {
+    Some(_) => Some(self.get_text())
+    None => None
   }
   let old_cursor = self.get_cursor()
   let sorted = edits.copy()
@@ -366,6 +406,18 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
       true, // record_undo — grouped by capture timeout
       false, // move_cursor_to_edit_end
     )
+  }
+  // Push hint only when the batch produced an actual text change (T4).
+  // A no-op batch leaves no pending reparse — sync_parser_after_text_change
+  // returns early when old_source == new_source — so the hint would be stale:
+  // it survives into the next structural op's hint map and causes incorrect
+  // freshening of nodes that were not actually re-parsed.
+  match (hint, text_before) {
+    (Some(h), Some(before)) =>
+      if before != self.get_text() {
+        self.pending_transforms.val.push(h)
+      }
+    _ => ()
   }
   match focus_hint {
     @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
@@ -388,6 +440,7 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
 ) -> Unit raise {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
   self.doc.sync().apply(msg) catch {
