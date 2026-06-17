@@ -388,12 +388,11 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   if edits.is_empty() {
     return
   }
-  // Push hint only when there are actual text edits (structural op had
-  // text effect). Empty-edit structural ops don't cause a reparse, so
-  // no hint is needed (T4: no pointless accumulation).
-  match hint {
-    Some(h) => self.pending_transforms.val.push(h)
-    None => ()
+  // Snapshot text before applying edits so we can detect net-no-op batches
+  // (e.g. CommitEdit with the same text). Only needed when a hint is provided.
+  let text_before : String? = match hint {
+    Some(_) => Some(self.get_text())
+    None => None
   }
   let old_cursor = self.get_cursor()
   let sorted = edits.copy()
@@ -407,6 +406,18 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
       true, // record_undo — grouped by capture timeout
       false, // move_cursor_to_edit_end
     )
+  }
+  // Push hint only when the batch produced an actual text change (T4).
+  // A no-op batch leaves no pending reparse — sync_parser_after_text_change
+  // returns early when old_source == new_source — so the hint would be stale:
+  // it survives into the next structural op's hint map and causes incorrect
+  // freshening of nodes that were not actually re-parsed.
+  match (hint, text_before) {
+    (Some(h), Some(before)) =>
+      if before != self.get_text() {
+        self.pending_transforms.val.push(h)
+      }
+    _ => ()
   }
   match focus_hint {
     @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)

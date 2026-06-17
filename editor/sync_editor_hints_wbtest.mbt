@@ -61,6 +61,27 @@ test "apply_span_edits with empty edits does not push hint (T4)" {
 }
 
 ///|
+test "apply_span_edits with net-no-op edits does not push hint (T4)" {
+  // A non-empty span batch that replaces text with itself produces no text
+  // change, so sync_parser_after_text_change returns early without triggering
+  // a reparse. The hint must not be queued — otherwise it becomes stale and
+  // corrupts the next structural op's hint map.
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("x")
+  let replace_id = @core.NodeId::from_int(5)
+  let edits : Array[@core.SpanEdit] = [
+    { start: 0, delete_len: 1, inserted: "x" },
+  ]
+  editor.apply_span_edits(
+    edits,
+    @core.FocusHint::RestoreCursor,
+    0,
+    hint=@core.IdentityTransform::Replace(old=replace_id),
+  )
+  inspect(editor.pending_transforms.val.is_empty(), content="true")
+}
+
+///|
 test "T2: set_text taints if pending_transforms non-empty" {
   let editor = @probe.new_test_editor("test")
   let fake_id = @core.NodeId::from_int(1)
