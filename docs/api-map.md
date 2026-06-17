@@ -178,6 +178,27 @@ See `/moonbit-error-handling` skill for full conventions.
 
 ---
 
+## Analysis / Pattern Matching
+
+**Want:** Hold snapshot-bound analysis results, convert provider byte offsets to UTF-16, or render facts as decorations.
+
+| API | Location | Notes |
+|-----|----------|-------|
+| `SourceSnapshot` | `lib/analysis/` | Doc identity: doc_id + version + 32-bit text_hash + utf16_len. Constructed from source text — do not build field-by-field. |
+| `SourceSnapshot::SourceSnapshot(doc_id~, version~, source~)` | `lib/analysis/` | Computes text_hash and utf16_len from source string. |
+| `SourceSnapshot::matches(other)` | `lib/analysis/` | Full identity check (all four fields). Stale-result gate. |
+| `PatternMatchFact` | `lib/analysis/` | Snapshot-bound match: UTF-16 from/to, pattern_id, captures map. |
+| `PatternMatchFact::is_current(snapshot)` | `lib/analysis/` | Returns false when fact's snapshot differs from current by doc_id, version, hash, or length. |
+| `byte_offset_to_utf16(source, byte_offset)` | `lib/analysis/` | Adapter-boundary conversion: ast-grep UTF-8 byte offset → UTF-16 code units. Call only at the adapter boundary. |
+| `AstGrepMatch` | `analysis/` | Named input type for ast-grep results (byte_start, byte_end, pattern_id). FFI-safe — prefer over bare tuples. |
+| `from_ast_grep_matches(matches, source, snapshot)` | `analysis/` | Converts `Array[AstGrepMatch]` → `Array[PatternMatchFact]` via byte→UTF-16 at the boundary. |
+| `facts_to_decorations(facts, snapshot)` | `analysis/` | Filters stale facts, maps current ones to `protocol.Decoration` with css_class and data. |
+| `facts_to_match_list(facts, snapshot)` | `analysis/` | Filters stale facts, maps current ones to `MatchListEntry` (from, to, pattern_id) for jump UI. |
+
+**Do not:** Pass ast-grep byte offsets directly to decorations — convert at the adapter boundary with `byte_offset_to_utf16` first. Do not add raw source text or source-map generation to `SourceSnapshot` before Phase 2.
+
+---
+
 ## Standard Search Commands
 
 ```bash

@@ -511,6 +511,20 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   visibility is maintained — no scope_is_within guard needed (unlike block-def path).
   Closes #659.
 
+## 21. Analysis Query Layer
+
+- [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
+  Shipped: PR #699 — `lib/analysis/` (SourceSnapshot, PatternMatchFact, byte_offset_to_utf16) + `analysis/` (facts_to_decorations, from_ast_grep_matches, AstGrepMatch).
+
+- [x] Add provider range normalization tests for analysis facts (#693).
+  Shipped: PR #699 — analysis_test.mbt covers ASCII, 3-byte BMP (世界), and surrogate-pair emoji (😀) via byte_offset_to_utf16.
+
+- [x] Reject stale analysis provider results by source snapshot (#694).
+  Shipped: PR #699 — SourceSnapshot::matches (version + 32-bit hash) gates facts_to_decorations and facts_to_match_list.
+
+- [x] Add structural-search match list and jump-to-range UI (#695).
+  Shipped: PR #699 — facts_to_match_list → Array[MatchListEntry] supplies from/to/pattern_id to host for list rendering and jump. Host-side wiring pending.
+
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in
