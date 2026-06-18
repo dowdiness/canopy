@@ -131,19 +131,46 @@ This can begin as assertions in tests rather than a reusable library type.
      - which extension point should be tried next,
      - whether a distinct `EntityId` is justified yet.
 
+## Spike Results
+
+Initial white-box tests in `lang/markdown/proj/` show that existing projection
+identity is a viable Phase 0 substrate for Markdown headings, with clear limits.
+
+Observed:
+- `SourceMap` can anchor heading entity observations with the full heading range,
+  the marker token span, and the text token span.
+- A heading rename preserves the session-local `NodeId`.
+- Duplicate headings remain distinguishable by `NodeId` and source range.
+- Inline malformed-to-recovered heading content preserves the heading `NodeId`.
+- Whitespace-only / formatter-like rewrites around headings preserve heading
+  `NodeId`s.
+
+Limitations:
+- Reordering sibling headings is currently position-stable, not
+  semantic-stable: identity stays with the projection position instead of
+  following the heading text/key.
+- Delete followed by restore does not recover the retired heading identity;
+  there is no tombstone or last-good semantic side table yet.
+
+Decision:
+- Continue with `NodeId` side tables for the next slice.
+- Do not introduce a public `EntityId` or `sdeg-*` package yet.
+- Next target: test-only matching evidence and lifecycle observation for
+  reorder and delete/restore cases.
+
 ## Acceptance Criteria
 
-- [ ] Markdown heading observations can be collected from existing projection and
+- [x] Markdown heading observations can be collected from existing projection and
       source-map data.
-- [ ] Tests cover rename, reorder, duplicate headings, delete/restore,
+- [x] Tests cover rename, reorder, duplicate headings, delete/restore,
       malformed recovery, and paste/formatter-like rewrites.
-- [ ] Each test has an explicit identity expectation: preserve, fresh,
+- [x] Each test has an explicit identity expectation: preserve, fresh,
       ambiguous, or known limitation.
 - [ ] Any identity failure includes recorded evidence and a proposed owner for a
       future fix.
-- [ ] No public `EntityId` or `sdeg-*` package is introduced.
-- [ ] Existing Markdown edit application remains on the language/edit/editor path.
-- [ ] The result is summarized against the decision gates in
+- [x] No public `EntityId` or `sdeg-*` package is introduced.
+- [x] Existing Markdown edit application remains on the language/edit/editor path.
+- [x] The result is summarized against the decision gates in
       `docs/design/stable-document-entity-graph.md`.
 
 ## Validation
