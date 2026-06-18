@@ -1,18 +1,14 @@
 ///|
-// `runtime` and `context` are co-valid: both Some when mounted, both None when
-// closed. `mount`/`close`/`empty` are the only write paths and must stay in
-// lockstep. TODO: consolidate into a single
-// `active: (NodeActionContext, ActionOverlayRuntime)?` field to make this
-// invariant structurally unrepresentable-to-violate.
 struct ActionOverlayHost {
-  runtime : ActionOverlayRuntime?
-  context : NodeActionContext?
+  // Both context and runtime are active or neither is — the tuple enforces this
+  // structurally. `mount`/`close`/`empty` are the only write paths.
+  active : (NodeActionContext, ActionOverlayRuntime)?
   next_token : Int
 }
 
 ///|
 fn ActionOverlayHost::empty() -> ActionOverlayHost {
-  { runtime: None, context: None, next_token: 1 }
+  { active: None, next_token: 1 }
 }
 
 ///|
@@ -21,16 +17,12 @@ fn ActionOverlayHost::mount(
   context : NodeActionContext,
   runtime : ActionOverlayRuntime,
 ) -> ActionOverlayHost {
-  {
-    runtime: Some(runtime),
-    context: Some(context),
-    next_token: self.next_token + 1,
-  }
+  { active: Some((context, runtime)), next_token: self.next_token + 1 }
 }
 
 ///|
 fn ActionOverlayHost::close(self : ActionOverlayHost) -> ActionOverlayHost {
-  { ..self, runtime: None, context: None }
+  { ..self, active: None }
 }
 
 ///|
