@@ -98,7 +98,7 @@ fn open_action_overlay(
   let initial_state = {
     mode: MainMenu,
     actions,
-    node_context: Some(ctx),
+    kind: ctx.kind,
     error: "",
     anchor_top,
     anchor_left,
@@ -115,7 +115,7 @@ fn open_action_overlay(
     initial_state.menu.focus_cmd(),
     {
       ..model,
-      overlay: model.overlay.mount({ cell, emit: overlay_emit, token }),
+      overlay: model.overlay.mount(ctx, { cell, emit: overlay_emit, token }),
     },
   )
 }

@@ -31,7 +31,7 @@ fn test_overlay_state(mode : OverlayMode) -> OverlayState {
   {
     mode,
     actions,
-    node_context: Some(test_overlay_context()),
+    kind: @ast.Term::Unit,
     error: "",
     anchor_top: 0,
     anchor_left: 0,
@@ -162,29 +162,25 @@ test "overlay update name cancel closes overlay" {
 ///|
 test "overlay outputs only match their originating runtime token" {
   let runtime = test_overlay_runtime(7)
-  let host = ActionOverlayHost::empty().mount(runtime)
+  let host = ActionOverlayHost::empty().mount(test_overlay_context(), runtime)
   let action = test_action_by_id("delete")
   let matching = OverlayOutput::ExecuteAction(
     token=7,
-    context=test_overlay_context(),
     action,
     choice="",
     name="",
   )
-  let stale = OverlayOutput::ExecuteAction(
-    token=8,
-    context=test_overlay_context(),
-    action,
-    choice="",
-    name="",
-  )
+  let stale = OverlayOutput::ExecuteAction(token=8, action, choice="", name="")
   inspect(host.current_runtime_for_output(matching) is Some(_), content="true")
   inspect(host.current_runtime_for_output(stale) is None, content="true")
 }
 
 ///|
 test "overlay close outputs only match their originating runtime token" {
-  let host = ActionOverlayHost::empty().mount(test_overlay_runtime(7))
+  let host = ActionOverlayHost::empty().mount(
+    test_overlay_context(),
+    test_overlay_runtime(7),
+  )
   inspect(
     host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=7))
     is Some(_),

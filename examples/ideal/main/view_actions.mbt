@@ -184,11 +184,7 @@ fn view_overlay(
   let content : @rabbita.Html = match state.mode {
     NamePrompt(_, ..) => view_name_prompt(emit, state)
     Submenu(sub_action) =>
-      match state.node_context {
-        Some(ctx) =>
-          view_submenu_choices(emit, state.menu, sub_action, ctx.kind)
-        None => view_action_list(emit, state.menu, state.actions)
-      }
+      view_submenu_choices(emit, state.menu, sub_action, state.kind)
     MainMenu | Closed => view_action_list(emit, state.menu, state.actions)
   }
   let panel_attrs = match state.mode {

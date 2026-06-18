@@ -13,7 +13,6 @@ enum OverlayMsg {
 enum OverlayOutput {
   ExecuteAction(
     token~ : Int,
-    context~ : NodeActionContext,
     @lambda_edits.Action,
     choice~ : String,
     name~ : String
@@ -62,10 +61,7 @@ fn OverlayState::show_name_prompt(
 
 ///|
 fn OverlayState::context_kind(self : OverlayState) -> @ast.Term {
-  match self.node_context {
-    Some(ctx) => ctx.kind
-    None => @ast.Term::Unit
-  }
+  self.kind
 }
 
 ///|
@@ -274,21 +270,11 @@ fn overlay_effect_to_cmd(
     FocusMenu => result.state.menu.focus_cmd()
     FocusNamePrompt => focus_selector_after_render(".name-prompt-input")
     ExecuteAction(action, choice~, name~) =>
-      match result.state.node_context {
-        Some(context) =>
-          parent_emit(
-            ActionOverlayEffect(
-              OverlayOutput::ExecuteAction(
-                token~,
-                context~,
-                action,
-                choice~,
-                name~,
-              ),
-            ),
-          )
-        None => none
-      }
+      parent_emit(
+        ActionOverlayEffect(
+          OverlayOutput::ExecuteAction(token~, action, choice~, name~),
+        ),
+      )
     CloseOverlay =>
       parent_emit(ActionOverlayEffect(OverlayOutput::CloseOverlay(token~)))
   }

@@ -46,10 +46,14 @@ fn ActionOverlayHost::current_runtime_for_output(
 /// overlay from executing against the wrong node context.
 fn handle_overlay_output(model : Model, output : OverlayOutput) -> (Cmd, Model) {
   match output {
-    ExecuteAction(context~, action, choice~, name~, ..) =>
+    ExecuteAction(action, choice~, name~, ..) =>
       match model.overlay.current_runtime_for_output(output) {
         Some(runtime) =>
-          execute_action(model, runtime, context, action, choice, name)
+          match model.overlay.context {
+            Some(context) =>
+              execute_action(model, runtime, context, action, choice, name)
+            None => (none, model)
+          }
         None => (none, model)
       }
     CloseOverlay(..) =>
