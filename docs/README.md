@@ -123,6 +123,9 @@ behavior** — check the code before relying on any specific detail.
 - [Analysis Query Layer](design/analysis-query-layer.md) — conservative design
   for ast-grep-style syntax search, `moon ide`-style semantic queries, and
   previewable refactors through snapshot-bound internal facts.
+- [Stable Document Entity Graph](design/stable-document-entity-graph.md) —
+  direction for growing a stable editing-entity layer from the existing
+  projection identity pipeline.
 - [Design Concerns](design/design-concerns.md) — open problems and future
   considerations.
 - [Decisions Needed](decisions-needed.md) — open architectural questions.
