@@ -19,6 +19,29 @@ pub fn facts_to_match_list(
 }
 
 ///|
+fn css_class_segment(input : String) -> String {
+  let segment = StringView::from_iter(
+    input
+    .iter()
+    .map(fn(ch) {
+      if ch.is_ascii_alphabetic() ||
+        ch.is_ascii_digit() ||
+        ch == '-' ||
+        ch == '_' {
+        ch
+      } else {
+        '-'
+      }
+    }),
+  ).to_owned()
+  if segment == "" {
+    "unknown"
+  } else {
+    segment
+  }
+}
+
+///|
 pub fn facts_to_decorations(
   facts : Array[@facts.PatternMatchFact],
   snapshot : @facts.SourceSnapshot,
@@ -30,7 +53,7 @@ pub fn facts_to_decorations(
     @protocol.Decoration::Decoration(
       from=f.from,
       to=f.to,
-      css_class="analysis-match pattern-" + f.pattern_id,
+      css_class="analysis-match pattern-" + css_class_segment(f.pattern_id),
       data=f.pattern_id,
     )
   })

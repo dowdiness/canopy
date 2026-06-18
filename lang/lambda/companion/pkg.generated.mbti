@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/lambda/companion"
 
 import {
+  "dowdiness/analysis",
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/edits",
@@ -34,10 +35,12 @@ pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
 pub struct LambdaCompanion {
   // private fields
 }
+pub fn LambdaCompanion::clear_stale_pattern_analysis(Self, @analysis.SourceSnapshot) -> Unit
 pub fn LambdaCompanion::dispose_analysis_attachment(Self) -> Unit
 pub fn LambdaCompanion::escalation_memo(Self) -> @cells.Derived[Array[@eval.EvalResult]]
 pub fn LambdaCompanion::get_eval_annotations(Self, @core.ProjNode[@ast.Term]?) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
 pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
+pub fn LambdaCompanion::set_pattern_analysis(Self, Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Unit
 pub fn LambdaCompanion::typecheck_output(Self) -> @cells.Derived[@typecheck.ModuleTypeResult]
 
 // Type aliases
