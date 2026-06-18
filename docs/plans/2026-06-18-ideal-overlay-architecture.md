@@ -295,9 +295,9 @@ fn test_overlay_runtime(token : Int) -> ActionOverlayRuntime {
 
 (No change needed here — `test_overlay_runtime` doesn't call `mount`.)
 
-**7c. Token tests `"overlay outputs only match their originating runtime token"` (lines 163–183):** Two changes:
-1. `ActionOverlayHost::empty().mount(runtime)` → `ActionOverlayHost::empty().mount(test_overlay_context(), runtime)`
-2. `OverlayOutput::ExecuteAction(token=7, context=..., ...)` → drop `context=`
+**7c. Both token tests (lines 163–198):** Three changes across two tests:
+1. Both `ActionOverlayHost::empty().mount(runtime)` calls → add `test_overlay_context()` as first argument
+2. `OverlayOutput::ExecuteAction(token=7, context=..., ...)` and `(token=8, context=..., ...)` → drop `context=`
 
 ```moonbit
 ///|
@@ -319,6 +319,21 @@ test "overlay outputs only match their originating runtime token" {
   )
   inspect(host.current_runtime_for_output(matching) is Some(_), content="true")
   inspect(host.current_runtime_for_output(stale) is None, content="true")
+}
+
+///|
+test "overlay close outputs only match their originating runtime token" {
+  let host = ActionOverlayHost::empty().mount(test_overlay_context(), test_overlay_runtime(7))
+  inspect(
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=7))
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=8))
+    is None,
+    content="true",
+  )
 }
 ```
 
@@ -402,6 +417,6 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 **Placeholder scan:** No TBDs, no "similar to Task N", all code blocks complete.
 
 **Type consistency:**
-- `ActionOverlayHost::mount(context : NodeActionContext, runtime : ActionOverlayRuntime)` — Step 2 defines it; Step 4 and Step 7c call it with `(ctx, { cell, emit, token })` and `(test_overlay_context(), runtime)` — consistent ✓
+- `ActionOverlayHost::mount(context : NodeActionContext, runtime : ActionOverlayRuntime)` — Step 2 defines it; Step 4 calls `mount(ctx, { cell, emit, token })`; Step 7c calls `mount(test_overlay_context(), runtime)` in both token tests (confirmed by Codex review) — consistent ✓
 - `OverlayState.kind : @ast.Term` — Step 1 defines it; Step 3b, 4, 6, 7a use it — consistent ✓
 - `OverlayOutput::ExecuteAction(token~, action, choice~, name~)` — Step 3a defines it; Step 3c constructs it; Step 5 pattern-matches it; Step 7c constructs in tests — consistent ✓
