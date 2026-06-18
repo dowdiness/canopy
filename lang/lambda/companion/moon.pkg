@@ -1,4 +1,6 @@
 import {
+  "dowdiness/canopy/analysis",
+  "dowdiness/analysis" @facts,
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,

@@ -10,6 +10,8 @@ pub struct LambdaCompanion {
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
   priv analysis : @parser.LambdaAnalysis
+  priv pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?]
+  priv pattern_snapshot_ref : Ref[@facts.SourceSnapshot?]
 }
 
 ///|
@@ -35,6 +37,32 @@ pub fn LambdaCompanion::dispose_analysis_attachment(
   self : LambdaCompanion,
 ) -> Unit {
   self.analysis.dispose()
+}
+
+///|
+/// Replace host-provided pattern analysis facts used by editor decorations.
+pub fn LambdaCompanion::set_pattern_analysis(
+  self : LambdaCompanion,
+  facts : Array[@facts.PatternMatchFact],
+  snapshot : @facts.SourceSnapshot,
+) -> Unit {
+  self.pattern_facts_ref.val = Some(facts)
+  self.pattern_snapshot_ref.val = Some(snapshot)
+}
+
+///|
+/// Drop host-provided pattern analysis if it no longer matches the current source.
+pub fn LambdaCompanion::clear_stale_pattern_analysis(
+  self : LambdaCompanion,
+  current : @facts.SourceSnapshot,
+) -> Unit {
+  match self.pattern_snapshot_ref.val {
+    Some(snapshot) if snapshot.matches(current) => ()
+    _ => {
+      self.pattern_facts_ref.val = None
+      self.pattern_snapshot_ref.val = None
+    }
+  }
 }
 
 ///|
@@ -130,6 +158,8 @@ pub fn new_lambda_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
+  let pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?] = Ref(None)
+  let pattern_snapshot_ref : Ref[@facts.SourceSnapshot?] = Ref(None)
   // Ref side-channels let the build_memos callback publish companion memos
   // back out to the enclosing scope for companion construction + capabilities
   // wiring.
@@ -167,13 +197,16 @@ pub fn new_lambda_editor(
     capture_timeout_ms~,
     parent_runtime?,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref,
+      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, pattern_facts_ref,
+      pattern_snapshot_ref,
     ),
     identity_hints=hints_ref,
   )
   let companion : LambdaCompanion = {
     escalation_memo: escalation_memo_ref.val.unwrap(),
     analysis: analysis_ref.val.unwrap(),
+    pattern_facts_ref,
+    pattern_snapshot_ref,
   }
   (editor, companion)
 }
@@ -184,6 +217,8 @@ fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
   source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
+  pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?],
+  pattern_snapshot_ref : Ref[@facts.SourceSnapshot?],
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
@@ -210,7 +245,8 @@ fn build_lambda_capabilities(
       annotations
     }),
     get_decorations=Some(fn() {
-      match (cached_proj_node_ref.val, source_map_memo_ref.val) {
+      let semantic_decorations = match
+        (cached_proj_node_ref.val, source_map_memo_ref.val) {
         (Some(cached_proj_memo), Some(source_map_memo)) =>
           match cached_proj_memo.read_or_abort() {
             Some(root) =>
@@ -222,6 +258,13 @@ fn build_lambda_capabilities(
           }
         _ => []
       }
+      let analysis_decorations = match
+        (pattern_facts_ref.val, pattern_snapshot_ref.val) {
+        (Some(facts), Some(snapshot)) =>
+          @analysis.facts_to_decorations(facts, snapshot)
+        _ => []
+      }
+      semantic_decorations + analysis_decorations
     }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {

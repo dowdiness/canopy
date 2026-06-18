@@ -79,12 +79,37 @@
     }
 
     #editor {
+      position: relative;
+      z-index: 1;
       min-height: 200px;
       outline: none;
       font-size: 16px;
       line-height: 1.5;
       white-space: pre-wrap;
       word-wrap: break-word;
+    }
+
+    .decoration-overlay {
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .decoration-mark {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    .analysis-match {
+      background: rgba(78, 201, 176, 0.15);
+      border-bottom: 1px dashed rgba(78, 201, 176, 0.45);
+    }
+
+    .pattern-moonbit-fn-def {
+      background: rgba(130, 170, 255, 0.14);
+      border-bottom-color: rgba(130, 170, 255, 0.55);
     }
 
     #editor:empty:before {
