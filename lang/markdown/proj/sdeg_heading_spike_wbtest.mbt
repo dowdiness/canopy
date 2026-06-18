@@ -46,6 +46,7 @@ struct HeadingSemanticMatch {
   previous_id : @core.NodeId
   current_id : @core.NodeId?
   confidence : HeadingSemanticConfidence
+  retained_count : Int
   candidate_count : Int
 } derive(Eq, Debug)
 
@@ -235,32 +236,40 @@ fn realign_headings_from_baseline(
 ///|
 fn semantic_match_heading(
   previous : HeadingObservation,
+  retained : Array[HeadingObservation],
   current : Array[HeadingObservation],
 ) -> HeadingSemanticMatch {
+  let same_signature = fn(obs : HeadingObservation) {
+    obs.level == previous.level && obs.text == previous.text
+  }
+  let retained_count = retained.iter().filter(same_signature).count()
   let candidates : Array[HeadingObservation] = current
     .iter()
-    .filter(fn(obs) { obs.level == previous.level && obs.text == previous.text })
+    .filter(same_signature)
     .collect()
-  if candidates.length() == 1 {
+  if retained_count > 1 || candidates.length() > 1 {
+    {
+      previous_id: previous.id,
+      current_id: None,
+      confidence: SemanticAmbiguous,
+      retained_count,
+      candidate_count: candidates.length(),
+    }
+  } else if candidates.length() == 1 {
     {
       previous_id: previous.id,
       current_id: Some(candidates[0].id),
       confidence: SemanticHigh,
+      retained_count,
       candidate_count: 1,
-    }
-  } else if candidates.length() == 0 {
-    {
-      previous_id: previous.id,
-      current_id: None,
-      confidence: SemanticMissing,
-      candidate_count: 0,
     }
   } else {
     {
       previous_id: previous.id,
       current_id: None,
-      confidence: SemanticAmbiguous,
-      candidate_count: candidates.length(),
+      confidence: SemanticMissing,
+      retained_count,
+      candidate_count: 0,
     }
   }
 }
@@ -447,8 +456,8 @@ test "sdeg phase0: semantic side-table matcher follows simple heading reorder" {
   let after = collect_heading_observations(reordered, reordered_map)
   let a_after = find_heading(after, "A").unwrap()
   let b_after = find_heading(after, "B").unwrap()
-  let a_match = semantic_match_heading(a_before, after)
-  let b_match = semantic_match_heading(b_before, after)
+  let a_match = semantic_match_heading(a_before, before, after)
+  let b_match = semantic_match_heading(b_before, before, after)
 
   inspect(a_match.confidence == SemanticHigh, content="true")
   inspect(b_match.confidence == SemanticHigh, content="true")
@@ -473,13 +482,40 @@ test "sdeg phase0: duplicate headings remain distinguishable by NodeId and range
 test "sdeg phase0: semantic side-table matcher marks duplicate headings ambiguous" {
   let (proj, source_map) = project_source("# A\n# A\n")
   let observations = collect_heading_observations(proj, source_map)
-  let match0 = semantic_match_heading(observations[0], observations)
-  let match1 = semantic_match_heading(observations[1], observations)
+  let match0 = semantic_match_heading(
+    observations[0],
+    observations,
+    observations,
+  )
+  let match1 = semantic_match_heading(
+    observations[1],
+    observations,
+    observations,
+  )
 
   inspect(match0.confidence == SemanticAmbiguous, content="true")
   inspect(match1.confidence == SemanticAmbiguous, content="true")
   inspect(match0.candidate_count, content="2")
   inspect(match1.candidate_count, content="2")
+}
+
+///|
+test "sdeg phase0: retained duplicate headings stay ambiguous after one remains" {
+  let (previous_proj, previous_map) = project_source("# A\n# A\n")
+  let previous = collect_heading_observations(previous_proj, previous_map)
+  let (current_proj, current_map) = project_source("# A\n")
+  let current = collect_heading_observations(current_proj, current_map)
+  let match0 = semantic_match_heading(previous[0], previous, current)
+  let match1 = semantic_match_heading(previous[1], previous, current)
+
+  inspect(match0.confidence == SemanticAmbiguous, content="true")
+  inspect(match1.confidence == SemanticAmbiguous, content="true")
+  inspect(match0.retained_count, content="2")
+  inspect(match1.retained_count, content="2")
+  inspect(match0.candidate_count, content="1")
+  inspect(match1.candidate_count, content="1")
+  inspect(match0.current_id is None, content="true")
+  inspect(match1.current_id is None, content="true")
 }
 
 ///|
@@ -599,7 +635,11 @@ test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
     restored, restored_map,
   )
   let a_restored = find_heading(restored_observations, "A").unwrap()
-  let match_result = semantic_match_heading(a_initial, restored_observations)
+  let match_result = semantic_match_heading(
+    a_initial,
+    [a_initial],
+    restored_observations,
+  )
 
   inspect(match_result.confidence == SemanticHigh, content="true")
   inspect(match_result.current_id == Some(a_restored.id), content="true")
