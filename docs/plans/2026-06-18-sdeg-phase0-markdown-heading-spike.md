@@ -164,6 +164,9 @@ Decision:
 - A test-only semantic side-table matcher over `NodeId` can follow simple
   reorder, find delete/restore recovery candidates if the old observation is
   retained, and mark duplicate headings ambiguous.
+- Edit-path compatibility remains unvalidated by this spike: the tests exercise
+  parse/projection/reconcile directly rather than `MarkdownEditOp`,
+  `compute_markdown_edit`, or `SyncEditor` application.
 - Next target: promote the test-only matcher shape into an internal design for
   `NodeId` side tables with lifecycle/tombstone retention, while keeping public
   APIs unchanged.
@@ -179,7 +182,7 @@ Decision:
 - [x] Any identity failure includes recorded evidence and a proposed owner for a
       future fix.
 - [x] No public `EntityId` or `sdeg-*` package is introduced.
-- [x] Existing Markdown edit application remains on the language/edit/editor path.
+- [ ] Existing Markdown edit application remains on the language/edit/editor path.
 - [x] The result is summarized against the decision gates in
       `docs/design/stable-document-entity-graph.md`.
 
