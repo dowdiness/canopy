@@ -161,8 +161,12 @@ Decision:
   these two gaps: pure sibling reorder falls into a changed window and receives
   fresh IDs, and a committed delete drops the old item from the successful
   baseline.
-- Next target: try semantic side-table matching over `NodeId`, with explicit
-  handling for move/reorder and tombstone recovery candidates.
+- A test-only semantic side-table matcher over `NodeId` can follow simple
+  reorder, find delete/restore recovery candidates if the old observation is
+  retained, and mark duplicate headings ambiguous.
+- Next target: promote the test-only matcher shape into an internal design for
+  `NodeId` side tables with lifecycle/tombstone retention, while keeping public
+  APIs unchanged.
 
 ## Acceptance Criteria
 

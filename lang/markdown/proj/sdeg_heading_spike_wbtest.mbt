@@ -35,6 +35,21 @@ struct HeadingMatchEvidence {
 } derive(Eq, Debug)
 
 ///|
+enum HeadingSemanticConfidence {
+  SemanticHigh
+  SemanticAmbiguous
+  SemanticMissing
+} derive(Eq, Debug)
+
+///|
+struct HeadingSemanticMatch {
+  previous_id : @core.NodeId
+  current_id : @core.NodeId?
+  confidence : HeadingSemanticConfidence
+  candidate_count : Int
+} derive(Eq, Debug)
+
+///|
 fn inline_text_to(
   inlines : Array[@markdown.Inline],
   buf : StringBuilder,
@@ -218,6 +233,39 @@ fn realign_headings_from_baseline(
 }
 
 ///|
+fn semantic_match_heading(
+  previous : HeadingObservation,
+  current : Array[HeadingObservation],
+) -> HeadingSemanticMatch {
+  let candidates : Array[HeadingObservation] = current
+    .iter()
+    .filter(fn(obs) { obs.level == previous.level && obs.text == previous.text })
+    .collect()
+  if candidates.length() == 1 {
+    {
+      previous_id: previous.id,
+      current_id: Some(candidates[0].id),
+      confidence: SemanticHigh,
+      candidate_count: 1,
+    }
+  } else if candidates.length() == 0 {
+    {
+      previous_id: previous.id,
+      current_id: None,
+      confidence: SemanticMissing,
+      candidate_count: 0,
+    }
+  } else {
+    {
+      previous_id: previous.id,
+      current_id: None,
+      confidence: SemanticAmbiguous,
+      candidate_count: candidates.length(),
+    }
+  }
+}
+
+///|
 fn heading_match_evidence(
   previous : HeadingObservation,
   current : HeadingObservation,
@@ -381,6 +429,36 @@ test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
 }
 
 ///|
+test "sdeg phase0: semantic side-table matcher follows simple heading reorder" {
+  let counter : Ref[Int] = Ref(0)
+  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for("# A\n# B\n", initial)
+  let before = collect_heading_observations(initial, initial_map)
+  let a_before = find_heading(before, "A").unwrap()
+  let b_before = find_heading(before, "B").unwrap()
+
+  let (reordered, reordered_map) = project_after_reconcile(
+    initial, "# B\n# A\n", counter,
+  )
+  let after = collect_heading_observations(reordered, reordered_map)
+  let a_after = find_heading(after, "A").unwrap()
+  let b_after = find_heading(after, "B").unwrap()
+  let a_match = semantic_match_heading(a_before, after)
+  let b_match = semantic_match_heading(b_before, after)
+
+  inspect(a_match.confidence == SemanticHigh, content="true")
+  inspect(b_match.confidence == SemanticHigh, content="true")
+  inspect(a_match.current_id == Some(a_after.id), content="true")
+  inspect(b_match.current_id == Some(b_after.id), content="true")
+  inspect(a_match.current_id == Some(a_before.id), content="false")
+  inspect(b_match.current_id == Some(b_before.id), content="false")
+}
+
+///|
 test "sdeg phase0: duplicate headings remain distinguishable by NodeId and range" {
   let (proj, source_map) = project_source("# A\n# A\n")
   let observations = collect_heading_observations(proj, source_map)
@@ -389,6 +467,19 @@ test "sdeg phase0: duplicate headings remain distinguishable by NodeId and range
   inspect(observations[1].text, content="A")
   inspect(observations[0].id == observations[1].id, content="false")
   inspect(observations[0].range == observations[1].range, content="false")
+}
+
+///|
+test "sdeg phase0: semantic side-table matcher marks duplicate headings ambiguous" {
+  let (proj, source_map) = project_source("# A\n# A\n")
+  let observations = collect_heading_observations(proj, source_map)
+  let match0 = semantic_match_heading(observations[0], observations)
+  let match1 = semantic_match_heading(observations[1], observations)
+
+  inspect(match0.confidence == SemanticAmbiguous, content="true")
+  inspect(match1.confidence == SemanticAmbiguous, content="true")
+  inspect(match0.candidate_count, content="2")
+  inspect(match1.candidate_count, content="2")
 }
 
 ///|
@@ -484,6 +575,35 @@ test "sdeg phase0: matching evidence detects delete-restore recovery candidate" 
   inspect(evidence.outcome == SemanticMatchWithDifferentNodeId, content="true")
   inspect(evidence.same_text && evidence.same_level, content="true")
   inspect(evidence.node_id_preserved, content="false")
+}
+
+///|
+test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
+  let counter : Ref[Int] = Ref(0)
+  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for("# A\n# B\n", initial)
+  let a_initial = find_heading(
+    collect_heading_observations(initial, initial_map),
+    "A",
+  ).unwrap()
+
+  let (deleted, _) = project_after_reconcile(initial, "# B\n", counter)
+  let (restored, restored_map) = project_after_reconcile(
+    deleted, "# A\n# B\n", counter,
+  )
+  let restored_observations = collect_heading_observations(
+    restored, restored_map,
+  )
+  let a_restored = find_heading(restored_observations, "A").unwrap()
+  let match_result = semantic_match_heading(a_initial, restored_observations)
+
+  inspect(match_result.confidence == SemanticHigh, content="true")
+  inspect(match_result.current_id == Some(a_restored.id), content="true")
+  inspect(match_result.current_id == Some(a_initial.id), content="false")
 }
 
 ///|
