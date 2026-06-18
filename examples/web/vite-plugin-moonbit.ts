@@ -1,6 +1,7 @@
 import { exec, spawn, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, access } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
@@ -306,41 +307,49 @@ async function runAstGrep(text: string): Promise<Array<{ byte_start: number; byt
 
   const repoRoot = path.resolve(process.cwd(), '../..');
   const astGrepBin = process.env.AST_GREP_BIN ?? path.resolve(process.cwd(), 'node_modules/.bin/sg');
-  const { stdout, stderr, code } = await runProcess(
-    astGrepBin,
-    [
-      'scan',
-      '-c', 'sgconfig.yml',
-      '--rule', 'rules/moonbit-fn-def.yml',
-      '--stdin',
-      '--json=stream',
-    ],
-    text,
-    repoRoot,
-    5_000,
-  );
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'canopy-ast-grep-'));
+  const tempFile = path.join(tempDir, 'input.mbt');
 
-  if (code !== 0) {
-    throw new Error(stderr || `ast-grep exited with code ${code}`);
+  try {
+    await writeFile(tempFile, text, 'utf8');
+    const { stdout, stderr, code } = await runProcess(
+      astGrepBin,
+      [
+        'scan',
+        '-c', 'sgconfig.yml',
+        '--filter', '^moonbit-fn-def$',
+        tempFile,
+        '--json=stream',
+      ],
+      '',
+      repoRoot,
+      5_000,
+    );
+
+    if (code !== 0) {
+      throw new Error(stderr || `ast-grep exited with code ${code}`);
+    }
+
+    return stdout
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => JSON.parse(line) as AstGrepJsonMatch)
+      .map(match => {
+        const start = match.range?.byteOffset?.start;
+        const end = match.range?.byteOffset?.end;
+        if (typeof start !== 'number' || typeof end !== 'number') {
+          throw new Error('ast-grep result missing byte offsets');
+        }
+        return {
+          byte_start: start,
+          byte_end: end,
+          pattern_id: match.ruleId ?? 'moonbit-fn-def',
+        };
+      });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
   }
-
-  return stdout
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(line => JSON.parse(line) as AstGrepJsonMatch)
-    .map(match => {
-      const start = match.range?.byteOffset?.start;
-      const end = match.range?.byteOffset?.end;
-      if (typeof start !== 'number' || typeof end !== 'number') {
-        throw new Error('ast-grep result missing byte offsets');
-      }
-      return {
-        byte_start: start,
-        byte_end: end,
-        pattern_id: match.ruleId ?? 'moonbit-fn-def',
-      };
-    });
 }
 
 function runProcess(
