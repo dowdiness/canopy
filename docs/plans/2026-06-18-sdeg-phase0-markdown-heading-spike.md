@@ -155,8 +155,11 @@ Limitations:
 Decision:
 - Continue with `NodeId` side tables for the next slice.
 - Do not introduce a public `EntityId` or `sdeg-*` package yet.
-- Next target: test-only matching evidence and lifecycle observation for
-  reorder and delete/restore cases.
+- Test-only matching evidence can already detect semantic reorder mismatches and
+  delete/restore recovery candidates without changing document behavior.
+- Next target: decide whether that evidence should feed improved Markdown edit
+  hints, `ProjectionIdentityTracker`-style item realignment, or a semantic
+  side-table mapping.
 
 ## Acceptance Criteria
 
@@ -166,7 +169,7 @@ Decision:
       malformed recovery, and paste/formatter-like rewrites.
 - [x] Each test has an explicit identity expectation: preserve, fresh,
       ambiguous, or known limitation.
-- [ ] Any identity failure includes recorded evidence and a proposed owner for a
+- [x] Any identity failure includes recorded evidence and a proposed owner for a
       future fix.
 - [x] No public `EntityId` or `sdeg-*` package is introduced.
 - [x] Existing Markdown edit application remains on the language/edit/editor path.

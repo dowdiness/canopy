@@ -17,6 +17,24 @@ struct HeadingObservation {
 } derive(Eq, Debug)
 
 ///|
+enum HeadingIdentityOutcome {
+  Preserved
+  SemanticMatchWithDifferentNodeId
+  Fresh
+} derive(Eq, Debug)
+
+///|
+struct HeadingMatchEvidence {
+  previous_id : @core.NodeId
+  current_id : @core.NodeId
+  outcome : HeadingIdentityOutcome
+  same_level : Bool
+  same_text : Bool
+  range_overlaps : Bool
+  node_id_preserved : Bool
+} derive(Eq, Debug)
+
+///|
 fn inline_text_to(
   inlines : Array[@markdown.Inline],
   buf : StringBuilder,
@@ -135,6 +153,37 @@ fn range_contains(outer : @loomcore.Range, inner : @loomcore.Range) -> Bool {
 }
 
 ///|
+fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
+  a.start < b.end && b.start < a.end
+}
+
+///|
+fn heading_match_evidence(
+  previous : HeadingObservation,
+  current : HeadingObservation,
+) -> HeadingMatchEvidence {
+  let node_id_preserved = previous.id == current.id
+  let same_level = previous.level == current.level
+  let same_text = previous.text == current.text
+  let outcome = if node_id_preserved {
+    Preserved
+  } else if same_level && same_text {
+    SemanticMatchWithDifferentNodeId
+  } else {
+    Fresh
+  }
+  {
+    previous_id: previous.id,
+    current_id: current.id,
+    outcome,
+    same_level,
+    same_text,
+    range_overlaps: ranges_overlap(previous.range, current.range),
+    node_id_preserved,
+  }
+}
+
+///|
 test "sdeg phase0: heading observation is backed by SourceMap ranges" {
   let (proj, source_map) = project_source("# Title\n\nBody")
   let observations = collect_heading_observations(proj, source_map)
@@ -202,6 +251,42 @@ test "sdeg phase0: heading reorder is currently position-stable, not semantic-st
 }
 
 ///|
+test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
+  let counter : Ref[Int] = Ref(0)
+  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for("# A\n# B\n", initial)
+  let before = collect_heading_observations(initial, initial_map)
+  let a_before = find_heading(before, "A").unwrap()
+  let b_before = find_heading(before, "B").unwrap()
+
+  let (reordered, reordered_map) = project_after_reconcile(
+    initial, "# B\n# A\n", counter,
+  )
+  let after = collect_heading_observations(reordered, reordered_map)
+  let a_after = find_heading(after, "A").unwrap()
+  let b_after = find_heading(after, "B").unwrap()
+  let a_evidence = heading_match_evidence(a_before, a_after)
+  let b_evidence = heading_match_evidence(b_before, b_after)
+
+  inspect(
+    a_evidence.outcome == SemanticMatchWithDifferentNodeId,
+    content="true",
+  )
+  inspect(
+    b_evidence.outcome == SemanticMatchWithDifferentNodeId,
+    content="true",
+  )
+  inspect(a_evidence.same_text && a_evidence.same_level, content="true")
+  inspect(b_evidence.same_text && b_evidence.same_level, content="true")
+  inspect(a_evidence.node_id_preserved, content="false")
+  inspect(b_evidence.node_id_preserved, content="false")
+}
+
+///|
 test "sdeg phase0: duplicate headings remain distinguishable by NodeId and range" {
   let (proj, source_map) = project_source("# A\n# A\n")
   let observations = collect_heading_observations(proj, source_map)
@@ -238,6 +323,35 @@ test "sdeg phase0: delete and restore currently cannot recover the retired headi
   // Without a tombstone/baseline side table, restoring text creates or reuses a
   // projection identity from the current tree, not the retired semantic heading.
   inspect(a_restored.id == a_initial.id, content="false")
+}
+
+///|
+test "sdeg phase0: matching evidence detects delete-restore recovery candidate" {
+  let counter : Ref[Int] = Ref(0)
+  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for("# A\n# B\n", initial)
+  let a_initial = find_heading(
+    collect_heading_observations(initial, initial_map),
+    "A",
+  ).unwrap()
+
+  let (deleted, _) = project_after_reconcile(initial, "# B\n", counter)
+  let (restored, restored_map) = project_after_reconcile(
+    deleted, "# A\n# B\n", counter,
+  )
+  let a_restored = find_heading(
+    collect_heading_observations(restored, restored_map),
+    "A",
+  ).unwrap()
+  let evidence = heading_match_evidence(a_initial, a_restored)
+
+  inspect(evidence.outcome == SemanticMatchWithDifferentNodeId, content="true")
+  inspect(evidence.same_text && evidence.same_level, content="true")
+  inspect(evidence.node_id_preserved, content="false")
 }
 
 ///|
