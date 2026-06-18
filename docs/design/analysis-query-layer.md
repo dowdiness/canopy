@@ -1,6 +1,8 @@
 # Analysis Query Layer
 
-**Status:** Phase 1 implemented — `lib/analysis/` (types + conversion), `analysis/` (rendering + adapter), `rules/` (ast-grep rule). Host FFI wiring pending.  
+**Status:** Phase 1 complete — range-only structural search is wired from
+host-side ast-grep results through normalized analysis facts into lambda editor
+range decorations.
 **Goal:** bring syntax-pattern search, semantic queries, and previewable refactors
 into Canopy without weakening the core text-CRDT pipeline.
 
@@ -196,7 +198,9 @@ expectations are stable.
 
 ### Phase 1 — range-only structural search overlay
 
-Build the smallest useful slice:
+Status: complete for range highlights in the lambda editor.
+
+Built the smallest useful slice:
 
 ```text
 current source snapshot
@@ -210,7 +214,22 @@ Do not include rewrite. Do not require node-id mapping. Do not add protocol
 variants. This phase proves snapshot validation, offset conversion, and derived
 analysis rendering.
 
+Implementation notes:
+
+- The browser demo runs ast-grep from the Vite dev server, not from editor
+  rendering or reactive recomputation.
+- The host sends normalized JSON match payloads into the lambda FFI; MoonBit
+  owns byte-to-UTF-16 conversion at the provider adapter boundary.
+- The lambda companion stores snapshot-bound structural facts and projects them
+  through existing decoration patches.
+- Production builds no-op the browser ast-grep runner unless a host endpoint is
+  provided.
+- No public protocol variant was added.
+
 ### Phase 2 — analysis projection aggregator
+
+Status: started. The active implementation plan is
+[`docs/plans/2026-06-18-analysis-query-phase2-aggregator.md`](../plans/2026-06-18-analysis-query-phase2-aggregator.md).
 
 Route existing language facts through a small internal aggregator:
 
@@ -218,6 +237,11 @@ Route existing language facts through a small internal aggregator:
 - evaluation results;
 - semantic annotations already produced by language packages;
 - diagnostics.
+
+First implementation slice: lambda-local `analysis_projection` helpers compose
+existing semantic/eval projected outputs with snapshot-bound structural pattern
+facts for decorations and annotations. Diagnostics remain on their existing FFI
+path until a larger diagnostic fact shape is justified.
 
 The goal is to learn the shape of the common fact model from real in-process
 analyses before committing to a broad provider abstraction.
@@ -288,9 +312,10 @@ intent-level operations.
 
 ## Success criteria for Phase 1
 
-- ast-grep results are displayed as range highlights for a source snapshot.
-- Stale provider results are rejected deterministically.
-- Byte offsets are converted to UTF-16 ranges before entering analysis state.
-- Non-ASCII test cases prove range conversion correctness.
-- The UI can list matches and jump to a normalized range. *(data layer: `facts_to_match_list` → `MatchListEntry` shipped; host rendering pending)*
-- No changes are required to the public protocol.
+- ast-grep results are displayed as range highlights for a source snapshot. ✅
+- Stale provider results are rejected deterministically. ✅
+- Byte offsets are converted to UTF-16 ranges before entering analysis state. ✅
+- Non-ASCII test cases prove range conversion correctness. ✅
+- The UI can list matches and jump to a normalized range. *(Data projection is
+  available; host-side list/jump rendering remains a follow-up.)*
+- No changes are required to the public protocol. ✅
