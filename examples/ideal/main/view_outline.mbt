@@ -367,7 +367,7 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
               None => @rabbita.none
             }
           "Escape" =>
-            match model.overlay_runtime {
+            match model.overlay.runtime {
               Some(_) => dispatch(ActionOverlay(OverlayNameCancel))
               None => dispatch(OutlineNavigate(""))
             }

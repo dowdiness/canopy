@@ -103,8 +103,7 @@ pub struct Model {
   next_timestamp : Int
   bottom_tab : BottomTab
   sync_status : SyncStatus
-  overlay_runtime : ActionOverlayRuntime?
-  next_overlay_token : Int
+  overlay : ActionOverlayHost
   scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state

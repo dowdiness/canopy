@@ -162,6 +162,7 @@ test "overlay update name cancel closes overlay" {
 ///|
 test "overlay outputs only match their originating runtime token" {
   let runtime = test_overlay_runtime(7)
+  let host = ActionOverlayHost::empty().mount(runtime)
   let action = test_action_by_id("delete")
   let matching = OverlayOutput::ExecuteAction(
     token=7,
@@ -177,12 +178,21 @@ test "overlay outputs only match their originating runtime token" {
     choice="",
     name="",
   )
+  inspect(host.current_runtime_for_output(matching) is Some(_), content="true")
+  inspect(host.current_runtime_for_output(stale) is None, content="true")
+}
+
+///|
+test "overlay close outputs only match their originating runtime token" {
+  let host = ActionOverlayHost::empty().mount(test_overlay_runtime(7))
   inspect(
-    current_overlay_runtime_for_output(Some(runtime), matching) is Some(_),
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=7))
+    is Some(_),
     content="true",
   )
   inspect(
-    current_overlay_runtime_for_output(Some(runtime), stale) is None,
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=8))
+    is None,
     content="true",
   )
 }

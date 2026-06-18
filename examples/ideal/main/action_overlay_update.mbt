@@ -11,7 +11,7 @@ fn handle_overlay_event(
   model : Model,
   overlay_event : OverlayEvent,
 ) -> (Cmd, Model) {
-  match model.overlay_runtime {
+  match model.overlay.runtime {
     Some(runtime) => (runtime.send(overlay_event.to_overlay_msg()), model)
     None => (none, model)
   }
@@ -25,11 +25,11 @@ fn OverlayOutput::token(self : OverlayOutput) -> Int {
 }
 
 ///|
-fn current_overlay_runtime_for_output(
-  runtime : ActionOverlayRuntime?,
+fn ActionOverlayHost::current_runtime_for_output(
+  self : ActionOverlayHost,
   output : OverlayOutput,
 ) -> ActionOverlayRuntime? {
-  match runtime {
+  match self.runtime {
     Some(runtime) =>
       if runtime.token == output.token() {
         Some(runtime)
@@ -47,13 +47,13 @@ fn current_overlay_runtime_for_output(
 fn handle_overlay_output(model : Model, output : OverlayOutput) -> (Cmd, Model) {
   match output {
     ExecuteAction(context~, action, choice~, name~, ..) =>
-      match current_overlay_runtime_for_output(model.overlay_runtime, output) {
+      match model.overlay.current_runtime_for_output(output) {
         Some(runtime) =>
           execute_action(model, runtime, context, action, choice, name)
         None => (none, model)
       }
     CloseOverlay(..) =>
-      match current_overlay_runtime_for_output(model.overlay_runtime, output) {
+      match model.overlay.current_runtime_for_output(output) {
         Some(_) => close_action_overlay(model)
         None => (none, model)
       }

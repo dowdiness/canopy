@@ -50,8 +50,7 @@ fn init_model() -> Model raise {
     next_timestamp: 1,
     bottom_tab: Problems,
     sync_status: Connecting,
-    overlay_runtime: None,
-    next_overlay_token: 1,
+    overlay: ActionOverlayHost::empty(),
     scope_map: build_scope_map(editor, companion),
     highlight_set: @immut/hashset.new(),
     drag_source: None,
@@ -918,7 +917,7 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
       ]),
     ]),
     div(class=bottom_class, [view_bottom_content(dispatch, model)]),
-    match model.overlay_runtime {
+    match model.overlay.runtime {
       Some(runtime) => runtime.view()
       None => @html.nothing
     },

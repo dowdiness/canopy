@@ -25,7 +25,7 @@ fn execute_action(
           let new_model = refresh({
             ..model,
             next_timestamp: model.next_timestamp + 1,
-            overlay_runtime: None,
+            overlay: model.overlay.close(),
           })
           let text = new_model.editor.get_text()
           let cmd = sync_after_local_model_change(new_model, text)

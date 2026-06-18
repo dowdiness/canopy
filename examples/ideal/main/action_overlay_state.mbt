@@ -94,7 +94,7 @@ fn open_action_overlay(
     return (none, model)
   }
   let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
-  let token = model.next_overlay_token
+  let token = model.overlay.next_token
   let initial_state = {
     mode: MainMenu,
     actions,
@@ -115,8 +115,7 @@ fn open_action_overlay(
     initial_state.menu.focus_cmd(),
     {
       ..model,
-      overlay_runtime: Some({ cell, emit: overlay_emit, token }),
-      next_overlay_token: token + 1,
+      overlay: model.overlay.mount({ cell, emit: overlay_emit, token }),
     },
   )
 }
@@ -127,5 +126,5 @@ fn open_action_overlay(
 /// any queued outputs from that child are rejected by token checks.
 fn close_action_overlay(model : Model) -> (Cmd, Model) {
   js_set_overlay_open(false)
-  (none, { ..model, overlay_runtime: None })
+  (none, { ..model, overlay: model.overlay.close() })
 }

@@ -88,6 +88,8 @@ pub fn undo_manager_undo(Int) -> Bool
 // Errors
 
 // Types and methods
+type ActionOverlayHost
+
 type ActionOverlayRuntime
 
 pub enum BottomTab {
@@ -131,8 +133,7 @@ pub struct Model {
   next_timestamp : Int
   bottom_tab : BottomTab
   sync_status : SyncStatus
-  overlay_runtime : ActionOverlayRuntime?
-  next_overlay_token : Int
+  overlay : ActionOverlayHost
   scope_map : Map[@core.NodeId, ScopeAnnotation]
   highlight_set : @hashset.HashSet[@core.NodeId]
   drag_source : @core.NodeId?
