@@ -1,6 +1,203 @@
 // Whitebox tests for update helpers.
 
 ///|
+fn test_actions() -> Array[@lambda_edits.Action] {
+  @lambda_edits.get_actions_for_node(
+    @ast.Term::Unit,
+    @lambda_edits.NodeContext::new(),
+  )
+}
+
+///|
+fn test_action_by_id(id : String) -> @lambda_edits.Action {
+  test_actions().iter().find_first(fn(action) { action.id == id }).unwrap()
+}
+
+///|
+fn test_overlay_context() -> NodeActionContext {
+  {
+    node_id: @canopy_core.NodeId::from_int(1),
+    kind: @ast.Term::Unit,
+    is_let_binding: false,
+    binding_node_id: None,
+    binding_def_index: None,
+    module_node_id: None,
+  }
+}
+
+///|
+fn test_overlay_state(mode : OverlayMode) -> OverlayState {
+  let actions = test_actions()
+  {
+    mode,
+    actions,
+    node_context: Some(test_overlay_context()),
+    error: "",
+    anchor_top: 0,
+    anchor_left: 0,
+    menu: @menu.Model::new(
+      id="ideal-action-overlay-menu-test",
+      item_count=actions.length(),
+    ),
+  }
+}
+
+///|
+fn test_parent_emit() -> @rabbita.Emit[Msg] {
+  let (emit, _) : (@rabbita.Emit[Msg], @rabbita.Cell) = @rabbita.simple_cell_with_emit(
+    model=0,
+    update=fn(_ : Msg, count) { count },
+    view=fn(_, _) { @html.nothing },
+  )
+  emit
+}
+
+///|
+fn test_overlay_runtime(token : Int) -> ActionOverlayRuntime {
+  let state = test_overlay_state(MainMenu)
+  let (emit, cell) = create_overlay_cell(test_parent_emit(), token, state)
+  { cell, emit, token }
+}
+
+///|
+test "overlay update dispatches main menu mnemonic action" {
+  let delete_action = test_action_by_id("delete")
+  let result = test_overlay_state(MainMenu).update(KeyPressed("d"))
+  match result.effect {
+    ExecuteAction(action, choice~, name~) => {
+      inspect(action.id, content="delete")
+      inspect(choice, content="")
+      inspect(name, content="")
+    }
+    _ => inspect("unexpected", content="ExecuteAction")
+  }
+  match result.state.mode {
+    MainMenu => inspect("main", content="main")
+    _ => inspect("unexpected", content="MainMenu")
+  }
+  inspect(delete_action.id, content="delete")
+}
+
+///|
+test "overlay update dispatches valid submenu numbered choice" {
+  let wrap_bop_action = test_action_by_id("wrap_bop")
+  let result = test_overlay_state(Submenu(wrap_bop_action)).update(
+    Menu(@menu.Activate(0)),
+  )
+  match result.effect {
+    ExecuteAction(action, choice~, name~) => {
+      inspect(action.id, content="wrap_bop")
+      inspect(choice, content="Plus")
+      inspect(name, content="")
+    }
+    _ => inspect("unexpected", content="ExecuteAction")
+  }
+}
+
+///|
+test "overlay update recovers invalid submenu key to focused main menu" {
+  let wrap_bop_action = test_action_by_id("wrap_bop")
+  let result = test_overlay_state(Submenu(wrap_bop_action)).update(
+    KeyPressed("z"),
+  )
+  match result.state.mode {
+    MainMenu => inspect("main", content="main")
+    _ => inspect("unexpected", content="MainMenu")
+  }
+  match result.effect {
+    FocusMenu => inspect("focus", content="focus")
+    _ => inspect("unexpected", content="FocusMenu")
+  }
+  inspect(result.state.error, content="")
+}
+
+///|
+test "overlay public key event preserves submenu invalid-key recovery" {
+  let wrap_bop_action = test_action_by_id("wrap_bop")
+  let result = test_overlay_state(Submenu(wrap_bop_action)).update(
+    OverlayKeyPressed("z").to_overlay_msg(),
+  )
+  match result.state.mode {
+    MainMenu => inspect("main", content="main")
+    _ => inspect("unexpected", content="MainMenu")
+  }
+  match result.effect {
+    FocusMenu => inspect("focus", content="focus")
+    _ => inspect("unexpected", content="FocusMenu")
+  }
+}
+
+///|
+test "overlay update keeps empty name submit in prompt with error" {
+  let wrap_lambda_action = test_action_by_id("wrap_lambda")
+  let state = test_overlay_state(NamePrompt(wrap_lambda_action, value="stale"))
+  let input_result = state.update(NameInput(""))
+  let result = input_result.state.update(NameSubmit)
+  match result.effect {
+    NoOverlayEffect => inspect("none", content="none")
+    _ => inspect("unexpected", content="NoOverlayEffect")
+  }
+  match result.state.mode {
+    NamePrompt(action, value~) => {
+      inspect(action.id, content="wrap_lambda")
+      inspect(value, content="")
+    }
+    _ => inspect("unexpected", content="NamePrompt")
+  }
+  inspect(result.state.error, content="Enter a name to continue")
+}
+
+///|
+test "overlay update name cancel closes overlay" {
+  let wrap_lambda_action = test_action_by_id("wrap_lambda")
+  let result = test_overlay_state(NamePrompt(wrap_lambda_action, value="x")).update(
+    NameCancel,
+  )
+  match result.effect {
+    CloseOverlay => inspect("close", content="close")
+    _ => inspect("unexpected", content="CloseOverlay")
+  }
+}
+
+///|
+test "overlay outputs only match their originating runtime token" {
+  let runtime = test_overlay_runtime(7)
+  let host = ActionOverlayHost::empty().mount(runtime)
+  let action = test_action_by_id("delete")
+  let matching = OverlayOutput::ExecuteAction(
+    token=7,
+    context=test_overlay_context(),
+    action,
+    choice="",
+    name="",
+  )
+  let stale = OverlayOutput::ExecuteAction(
+    token=8,
+    context=test_overlay_context(),
+    action,
+    choice="",
+    name="",
+  )
+  inspect(host.current_runtime_for_output(matching) is Some(_), content="true")
+  inspect(host.current_runtime_for_output(stale) is None, content="true")
+}
+
+///|
+test "overlay close outputs only match their originating runtime token" {
+  let host = ActionOverlayHost::empty().mount(test_overlay_runtime(7))
+  inspect(
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=7))
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=8))
+    is None,
+    content="true",
+  )
+}
+
+///|
 test "parse_node_id valid" {
   inspect(parse_node_id("42") is Some(_), content="true")
 }

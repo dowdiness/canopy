@@ -12,7 +12,7 @@ fn group_label(group : @lambda_edits.ActionGroup) -> String {
 ///|
 /// Render a single action row with mnemonic badge and label.
 fn view_action_item(
-  dispatch : @rabbita.Emit[Msg],
+  emit : @rabbita.Emit[OverlayMsg],
   menu : @menu.Model,
   index : Int,
   action : @lambda_edits.Action,
@@ -25,7 +25,7 @@ fn view_action_item(
   }
   @html.div(
     class=item_class,
-    attrs=menu.item_attrs(index, msg => dispatch(ActionOverlay(Menu(msg)))),
+    attrs=menu.item_attrs(index, msg => emit(Menu(msg))),
     [
       @html.span(class=action_mnemonic_class, [@html.text(action.mnemonic)]),
       @html.span(class=action_label_text_class, [@html.text(action.label)]),
@@ -36,7 +36,7 @@ fn view_action_item(
 ///|
 /// Render the main action list grouped by Core / Wrap / Binding / Module.
 fn view_action_list(
-  dispatch : @rabbita.Emit[Msg],
+  emit : @rabbita.Emit[OverlayMsg],
   menu : @menu.Model,
   actions : Array[@lambda_edits.Action],
 ) -> @rabbita.Html {
@@ -60,7 +60,7 @@ fn view_action_list(
         )
       }
     }
-    items.push(view_action_item(dispatch, menu, index, action))
+    items.push(view_action_item(emit, menu, index, action))
   }
   @html.div(class=action_overlay_list_class, items)
 }
@@ -79,19 +79,19 @@ fn name_prompt_label(action : @lambda_edits.Action) -> String {
 ///|
 /// Render the name prompt input.
 fn view_name_prompt(
-  dispatch : @rabbita.Emit[Msg],
-  model : Model,
+  emit : @rabbita.Emit[OverlayMsg],
+  state : OverlayState,
 ) -> @rabbita.Html {
-  let (prompt_label, name_value) = match model.overlay.mode {
+  let (prompt_label, name_value) = match state.mode {
     NamePrompt(action, value~) => (name_prompt_label(action), value)
     _ => ("Enter name", "")
   }
   let on_keydown_handler = fn(kb : @html.Keyboard) {
     let key = kb.key()
     if key == "Enter" {
-      dispatch(ActionOverlay(NameSubmit))
+      emit(NameSubmit)
     } else if key == "Escape" {
-      dispatch(ActionOverlay(NameCancel))
+      emit(NameCancel)
     } else {
       @rabbita.none
     }
@@ -108,7 +108,7 @@ fn view_name_prompt(
           placeholder="name\u{2026}",
           value=name_value,
           autofocus=true,
-          on_input=fn(value) { dispatch(ActionOverlay(NameInput(value))) },
+          on_input=fn(value) { emit(NameInput(value)) },
           attrs=@html.Attrs::build().aria_label(prompt_label),
         ),
       ],
@@ -119,7 +119,7 @@ fn view_name_prompt(
 ///|
 /// Render submenu choices (e.g., Plus/Minus for change_op, left/right for unwrap).
 fn view_submenu_choices(
-  dispatch : @rabbita.Emit[Msg],
+  emit : @rabbita.Emit[OverlayMsg],
   menu : @menu.Model,
   action : @lambda_edits.Action,
   kind : @ast.Term,
@@ -138,7 +138,7 @@ fn view_submenu_choices(
     items.push(
       @html.div(
         class=action_overlay_item_class,
-        attrs=menu.item_attrs(i, msg => dispatch(ActionOverlay(Menu(msg)))),
+        attrs=menu.item_attrs(i, msg => emit(Menu(msg))),
         [
           @html.span(class=action_mnemonic_class, [
             @html.text((i + 1).to_string()),
@@ -169,44 +169,37 @@ fn view_action_overlay_error(message : String) -> @rabbita.Html {
 ///|
 /// Render the action overlay: scrim + positioned panel.
 /// Returns nothing if the overlay is not visible.
-fn view_action_overlay(
-  dispatch : @rabbita.Emit[Msg],
-  model : Model,
+fn view_overlay(
+  emit : @rabbita.Emit[OverlayMsg],
+  state : OverlayState,
 ) -> @rabbita.Html {
-  if !model.overlay.is_open() {
+  if !state.is_open() {
     return @html.nothing
   }
   // Position the overlay panel using inline style from the anchor rect
-  let top = model.overlay.anchor_top
-  let left = model.overlay.anchor_left
+  let top = state.anchor_top
+  let left = state.anchor_left
   let position_style = "top: \{top}px; left: \{left}px;"
   // Determine content: name prompt, submenu, or main action list
-  let content : @rabbita.Html = match model.overlay.mode {
-    NamePrompt(_, ..) => view_name_prompt(dispatch, model)
+  let content : @rabbita.Html = match state.mode {
+    NamePrompt(_, ..) => view_name_prompt(emit, state)
     Submenu(sub_action) =>
-      match model.overlay.node_context {
+      match state.node_context {
         Some(ctx) =>
-          view_submenu_choices(
-            dispatch,
-            model.overlay.menu,
-            sub_action,
-            ctx.kind,
-          )
-        None =>
-          view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
+          view_submenu_choices(emit, state.menu, sub_action, ctx.kind)
+        None => view_action_list(emit, state.menu, state.actions)
       }
-    MainMenu | Closed =>
-      view_action_list(dispatch, model.overlay.menu, model.overlay.actions)
+    MainMenu | Closed => view_action_list(emit, state.menu, state.actions)
   }
-  let panel_attrs = match model.overlay.mode {
+  let panel_attrs = match state.mode {
     NamePrompt(_, ..) =>
       @html.Attrs::build()
       .role("dialog")
       .aria_label("Structural editing name prompt")
       .style_attr(position_style)
     _ =>
-      model.overlay.menu
-      .panel_attrs(msg => dispatch(ActionOverlay(Menu(msg))))
+      state.menu
+      .panel_attrs(msg => emit(Menu(msg)))
       .aria_label("Structural editing actions")
       .style_attr(position_style)
   }
@@ -214,12 +207,12 @@ fn view_action_overlay(
     // Scrim: click-catching backdrop
     @html.div(
       class=action_overlay_scrim_class,
-      attrs=@menu.scrim_attrs(dispatch(ActionOverlay(NameCancel))),
+      attrs=@menu.scrim_attrs(emit(NameCancel)),
       @html.nothing,
     ),
     // Overlay panel — roving focus moves to the active menu item after render.
     @html.div(class=action_overlay_panel_class, attrs=panel_attrs, [
-      view_action_overlay_error(model.overlay.error),
+      view_action_overlay_error(state.error),
       content,
     ]),
   ])

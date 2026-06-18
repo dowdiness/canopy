@@ -1,10 +1,24 @@
 ///|
-pub(all) enum OverlayMsg {
+enum OverlayMsg {
   Menu(@menu.Msg)
   KeyPressed(String)
   NameInput(String)
   NameSubmit
   NameCancel
+  SetError(String)
+  ShowNamePrompt(@lambda_edits.Action)
+}
+
+///|
+enum OverlayOutput {
+  ExecuteAction(
+    token~ : Int,
+    context~ : NodeActionContext,
+    @lambda_edits.Action,
+    choice~ : String,
+    name~ : String
+  )
+  CloseOverlay(token~ : Int)
 }
 
 ///|
@@ -243,5 +257,66 @@ fn OverlayState::update(self : OverlayState, msg : OverlayMsg) -> OverlayUpdate 
     NameInput(value) => self.handle_name_input(value)
     NameSubmit => self.handle_name_submit()
     NameCancel => overlay_update(self, CloseOverlay)
+    SetError(message) =>
+      overlay_update({ ..self, error: message }, NoOverlayEffect)
+    ShowNamePrompt(action) => self.show_name_prompt(action)
   }
+}
+
+///|
+fn overlay_effect_to_cmd(
+  parent_emit : @rabbita.Emit[Msg],
+  token : Int,
+  result : OverlayUpdate,
+) -> Cmd {
+  match result.effect {
+    NoOverlayEffect => none
+    FocusMenu => result.state.menu.focus_cmd()
+    FocusNamePrompt => focus_selector_after_render(".name-prompt-input")
+    ExecuteAction(action, choice~, name~) =>
+      match result.state.node_context {
+        Some(context) =>
+          parent_emit(
+            ActionOverlayEffect(
+              OverlayOutput::ExecuteAction(
+                token~,
+                context~,
+                action,
+                choice~,
+                name~,
+              ),
+            ),
+          )
+        None => none
+      }
+    CloseOverlay =>
+      parent_emit(ActionOverlayEffect(OverlayOutput::CloseOverlay(token~)))
+  }
+}
+
+///|
+fn overlay_cell_update(
+  parent_emit : @rabbita.Emit[Msg],
+  token : Int,
+  _emit : @rabbita.Emit[OverlayMsg],
+  msg : OverlayMsg,
+  state : OverlayState,
+) -> (Cmd, OverlayState) {
+  let result = state.update(msg)
+  (overlay_effect_to_cmd(parent_emit, token, result), result.state)
+}
+
+///|
+fn create_overlay_cell(
+  parent_emit : @rabbita.Emit[Msg],
+  token : Int,
+  initial_state : OverlayState,
+) -> (@rabbita.Emit[OverlayMsg], @rabbita.Cell) {
+  @rabbita.cell_with_emit(
+    model=initial_state,
+    update=fn(emit, msg, state) {
+      overlay_cell_update(parent_emit, token, emit, msg, state)
+    },
+    view=fn(emit, state) { view_overlay(emit, state) },
+  )
 }

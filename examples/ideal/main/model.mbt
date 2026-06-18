@@ -53,6 +53,7 @@ pub enum SyncStatus {
 /// implicit `(visible, submenu, pending_action)` encoding so that illegal
 /// combinations — a closed overlay with a pending action, or a submenu and a
 /// name prompt active at once — are unrepresentable.
+#warnings("-unused_constructor")
 enum OverlayMode {
   Closed
   MainMenu
@@ -102,7 +103,7 @@ pub struct Model {
   next_timestamp : Int
   bottom_tab : BottomTab
   sync_status : SyncStatus
-  overlay : OverlayState
+  overlay : ActionOverlayHost
   scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state

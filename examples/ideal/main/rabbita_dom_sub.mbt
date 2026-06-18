@@ -151,7 +151,7 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     custom_event_sub(
       EditorHost,
       ActionKey,
-      emit.map(key => ActionOverlay(KeyPressed(key))),
+      emit.map(key => ActionOverlay(OverlayKeyPressed(key))),
     ),
     custom_event_sub(
       EditorHost,
