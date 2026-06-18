@@ -68,6 +68,7 @@
     "ws_set_status_callback",
     "get_view_tree_json",
     "compute_view_patches_json",
+    "apply_ast_grep_results_json",
     "handle_text_intent",
     "handle_text_intent_checked",
     "handle_undo",
