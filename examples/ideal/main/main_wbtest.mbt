@@ -171,8 +171,8 @@ test "overlay outputs only match their originating runtime token" {
     name="",
   )
   let stale = OverlayOutput::ExecuteAction(token=8, action, choice="", name="")
-  inspect(host.current_runtime_for_output(matching) is Some(_), content="true")
-  inspect(host.current_runtime_for_output(stale) is None, content="true")
+  inspect(host.active_for_output(matching) is Some(_), content="true")
+  inspect(host.active_for_output(stale) is None, content="true")
 }
 
 ///|
@@ -182,13 +182,11 @@ test "overlay close outputs only match their originating runtime token" {
     test_overlay_runtime(7),
   )
   inspect(
-    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=7))
-    is Some(_),
+    host.active_for_output(OverlayOutput::CloseOverlay(token=7)) is Some(_),
     content="true",
   )
   inspect(
-    host.current_runtime_for_output(OverlayOutput::CloseOverlay(token=8))
-    is None,
+    host.active_for_output(OverlayOutput::CloseOverlay(token=8)) is None,
     content="true",
   )
 }
