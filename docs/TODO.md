@@ -513,10 +513,10 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 21. Analysis Query Layer
 
-- [ ] Phase 2 projection aggregator.
-  Why: Phase 1 proved snapshot-bound structural-search decorations, but lambda still composes ast-grep, semantic, eval, and diagnostic projections through ad-hoc closures and FFI paths.
-  Plan: `docs/plans/2026-06-18-analysis-query-phase2-aggregator.md`
-  Exit: lambda has one named aggregation seam for analysis projections, existing protocol surfaces are unchanged, and tests cover combined semantic + pattern decorations with stale external facts.
+- [ ] Decide whether diagnostics join the analysis projection aggregator (#710).
+  Why: Phase 2 shipped the lambda-local decoration/annotation aggregation seam in PR #706 and PR #708, but parse/type/eval diagnostics still use existing FFI/protocol paths. That is intentional until a larger diagnostic fact shape is justified.
+  Plan: `docs/archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md`
+  Exit: diagnostics are either explicitly kept out of the aggregator with a stable rationale, or routed through a typed diagnostic fact shape without adding public protocol variants.
 
 - [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
   Shipped: PR #699 added `lib/analysis/` and `analysis/`; PR #704 completed host FFI and lambda editor decoration wiring.
