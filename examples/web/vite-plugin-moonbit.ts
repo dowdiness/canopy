@@ -305,8 +305,9 @@ async function runAstGrep(text: string): Promise<Array<{ byte_start: number; byt
   if (text.trim() === '') return [];
 
   const repoRoot = path.resolve(process.cwd(), '../..');
+  const astGrepBin = process.env.AST_GREP_BIN ?? path.resolve(process.cwd(), 'node_modules/.bin/sg');
   const { stdout, stderr, code } = await runProcess(
-    'sg',
+    astGrepBin,
     [
       'scan',
       '-c', 'sgconfig.yml',

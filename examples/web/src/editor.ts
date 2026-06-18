@@ -34,7 +34,7 @@ export function createEditor(agentId: string) {
     if (text !== lastText) {
       crdt.set_text(handle, text);
       lastText = text;
-      decorationOverlay.applyDecorations([]);
+      applyDecorationPatches(JSON.parse(analysisApi.compute_view_patches_json(handle)));
       scheduleAnalysis(text);
     }
 
@@ -110,10 +110,7 @@ export function createEditor(agentId: string) {
       }
 
       const patches: ViewPatch[] = JSON.parse(analysisApi.compute_view_patches_json(handle));
-      const decorations = patches.flatMap((patch): Decoration[] =>
-        patch.type === 'SetDecorations' ? patch.decorations : [],
-      );
-      decorationOverlay.applyDecorations(decorations);
+      applyDecorationPatches(patches);
     } catch (error) {
       if (controller.signal.aborted || generation !== analysisGeneration) return;
       console.warn('ast-grep analysis failed', error);
@@ -122,6 +119,18 @@ export function createEditor(agentId: string) {
       if (analysisAbortController === controller) {
         analysisAbortController = null;
       }
+    }
+  }
+
+  function applyDecorationPatches(patches: ViewPatch[]) {
+    let decorations: Decoration[] | null = null;
+    for (const patch of patches) {
+      if (patch.type === 'SetDecorations') {
+        decorations = patch.decorations;
+      }
+    }
+    if (decorations !== null) {
+      decorationOverlay.applyDecorations(decorations);
     }
   }
 
