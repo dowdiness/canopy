@@ -238,10 +238,18 @@ Route existing language facts through a small internal aggregator:
 - semantic annotations already produced by language packages;
 - diagnostics.
 
-First implementation slice: lambda-local `analysis_projection` helpers compose
+First implementation slice: a lambda-local `AnalysisProjection` object composes
 existing semantic/eval projected outputs with snapshot-bound structural pattern
 facts for decorations and annotations. Diagnostics remain on their existing FFI
 path until a larger diagnostic fact shape is justified.
+
+JSON was checked as the first cross-language generalization candidate. It only
+has the structural projection stack plus parser diagnostics routed through the
+generic editor view/update surfaces; it has no semantic annotations, language
+decorations, evaluation facts, or snapshot-bound external facts to compose. A
+JSON-local aggregator would therefore be a no-op wrapper, so the common
+`AnalysisProjection` API remains deferred until a second language has multiple
+real projected analysis inputs.
 
 The goal is to learn the shape of the common fact model from real in-process
 analyses before committing to a broad provider abstraction.
