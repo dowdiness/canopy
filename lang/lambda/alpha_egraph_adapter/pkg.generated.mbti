@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/alpha_egraph_adapter"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/alpha",
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/lambda/ast",
+}
+
+// Values
+pub fn optimize_alpha(@alpha.AlphaTerm) -> @alpha.AlphaTerm
+
+pub fn optimize_projected(@core.ProjNode[@ast.Term], @scope.ScopeGraph, policy? : @alpha.ReifyPolicy) -> @ast.Term
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
