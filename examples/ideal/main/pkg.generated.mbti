@@ -5,14 +5,11 @@ import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/companion",
-  "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/lib/js",
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
-  "dowdiness/rabbita-menu/menu",
   "dowdiness/rabbita-resizable/resizable",
-  "dowdiness/rabbita_codemirror",
   "dowdiness/visualizer",
   "moonbitlang/core/immut/hashset",
 }
@@ -91,6 +88,8 @@ pub fn undo_manager_undo(Int) -> Bool
 // Errors
 
 // Types and methods
+type ActionOverlayRuntime
+
 pub enum BottomTab {
   Problems
   OpLog
@@ -132,7 +131,8 @@ pub struct Model {
   next_timestamp : Int
   bottom_tab : BottomTab
   sync_status : SyncStatus
-  overlay : OverlayState
+  overlay_runtime : ActionOverlayRuntime?
+  next_overlay_token : Int
   scope_map : Map[@core.NodeId, ScopeAnnotation]
   highlight_set : @hashset.HashSet[@core.NodeId]
   drag_source : @core.NodeId?
@@ -143,55 +143,19 @@ pub struct Model {
   incr_tap : @visualizer.RecomputeTap
 }
 
-pub enum Msg {
-  SetMode(EditorMode)
-  TogglePanel(PanelId)
-  OutlineResize(@resizable.Msg)
-  SelectBottomTab(BottomTab)
-  StructuralEditRequested(op~ : String, node_id~ : String)
-  Undo
-  Redo
-  OpenFile
-  SaveFile
-  FileLoaded(String)
-  TreeEdited(@edits.TreeEditOp)
-  DismissPanels
-  LoadExample(String)
-  OutlineNodeClicked(String)
-  OutlineNavigate(String)
-  OutlineStructuralEdit(@edits.TreeEditOp)
-  OpenActionOverlayFromOutline
-  SyncStatusChanged(String)
-  OpenActionOverlayForNode(String)
-  ActionOverlay(OverlayMsg)
-  LongPressTriggeredForNode(String)
-  OutlineDragStart(@core.NodeId)
-  OutlineDragOver(@core.NodeId, @core.DropPosition)
-  OutlineDragLeave
-  OutlineDrop(@core.NodeId, @core.DropPosition)
-  OutlineDragEnd
-  StructureNodeSelected(String)
-  StructureStructuralEdit(op~ : String, node_id~ : String)
-  ExternalCrdtChanged
-  CmMounted
-  CmDocChanged(String)
-  CmSelectionChanged(@rabbita_codemirror.SelRange)
-  CmFocusChanged(Bool)
-}
+type Msg
 
 type NodeActionContext
 
 type OverlayEffect
 
+type OverlayEvent
+
 type OverlayMode
 
-pub(all) enum OverlayMsg {
-  Menu(@menu.Msg)
-  KeyPressed(String)
-  NameInput(String)
-  NameSubmit
-  NameCancel
-}
+type OverlayMsg
+
+type OverlayOutput
 
 type OverlayState
 

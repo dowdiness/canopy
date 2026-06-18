@@ -1,18 +1,61 @@
 ///|
-fn apply_overlay_effect(model : Model, effect : OverlayEffect) -> (Cmd, Model) {
-  match effect {
-    NoOverlayEffect => (none, model)
-    FocusMenu => (model.overlay.menu.focus_cmd(), model)
-    FocusNamePrompt =>
-      (focus_selector_after_render(".name-prompt-input"), model)
-    ExecuteAction(action, choice~, name~) =>
-      execute_action(model, action, choice, name)
-    CloseOverlay => close_action_overlay(model)
+fn OverlayEvent::to_overlay_msg(self : OverlayEvent) -> OverlayMsg {
+  match self {
+    OverlayKeyPressed(key) => KeyPressed(key)
+    OverlayNameCancel => NameCancel
   }
 }
 
 ///|
-fn handle_overlay_msg(model : Model, overlay_msg : OverlayMsg) -> (Cmd, Model) {
-  let result = model.overlay.update(overlay_msg)
-  apply_overlay_effect({ ..model, overlay: result.state }, result.effect)
+fn handle_overlay_event(
+  model : Model,
+  overlay_event : OverlayEvent,
+) -> (Cmd, Model) {
+  match model.overlay_runtime {
+    Some(runtime) => (runtime.send(overlay_event.to_overlay_msg()), model)
+    None => (none, model)
+  }
+}
+
+///|
+fn OverlayOutput::token(self : OverlayOutput) -> Int {
+  match self {
+    ExecuteAction(token~, _, ..) | CloseOverlay(token~) => token
+  }
+}
+
+///|
+fn current_overlay_runtime_for_output(
+  runtime : ActionOverlayRuntime?,
+  output : OverlayOutput,
+) -> ActionOverlayRuntime? {
+  match runtime {
+    Some(runtime) =>
+      if runtime.token == output.token() {
+        Some(runtime)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+/// Apply child-cell outputs only when they come from the currently mounted
+/// overlay runtime. This prevents delayed outputs from a closed/reopened
+/// overlay from executing against the wrong node context.
+fn handle_overlay_output(model : Model, output : OverlayOutput) -> (Cmd, Model) {
+  match output {
+    ExecuteAction(context~, action, choice~, name~, ..) =>
+      match current_overlay_runtime_for_output(model.overlay_runtime, output) {
+        Some(runtime) =>
+          execute_action(model, runtime, context, action, choice, name)
+        None => (none, model)
+      }
+    CloseOverlay(..) =>
+      match current_overlay_runtime_for_output(model.overlay_runtime, output) {
+        Some(_) => close_action_overlay(model)
+        None => (none, model)
+      }
+  }
 }

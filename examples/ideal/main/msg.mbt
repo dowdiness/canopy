@@ -1,6 +1,13 @@
 ///|
 #warnings("-unused_constructor")
-pub enum Msg {
+enum OverlayEvent {
+  OverlayKeyPressed(String)
+  OverlayNameCancel
+}
+
+///|
+#warnings("-unused_constructor-unused_field")
+enum Msg {
   // Mode & layout
   SetMode(EditorMode)
   TogglePanel(PanelId)
@@ -33,7 +40,12 @@ pub enum Msg {
   SyncStatusChanged(String)
   // Action overlay
   OpenActionOverlayForNode(String)
-  ActionOverlay(OverlayMsg)
+  ActionOverlay(OverlayEvent)
+  // Internal bridge from the mounted overlay child cell back into the parent
+  // update loop. This stays package-private with the app's Rabbita message
+  // type; every output carries a runtime token so stale child-cell commands are
+  // ignored.
+  ActionOverlayEffect(OverlayOutput)
   LongPressTriggeredForNode(String)
   // Outline drag-and-drop
   OutlineDragStart(@canopy_core.NodeId)

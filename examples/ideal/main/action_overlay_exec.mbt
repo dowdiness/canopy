@@ -3,15 +3,13 @@
 /// Returns (Cmd, Model) after execution.
 fn execute_action(
   model : Model,
+  runtime : ActionOverlayRuntime,
+  context : NodeActionContext,
   action : @lambda_edits.Action,
   choice : String,
   name : String,
 ) -> (Cmd, Model) {
-  let ctx = match model.overlay.node_context {
-    Some(c) => c
-    None => return (none, model)
-  }
-  match build_tree_edit_op(action.id, ctx, choice, name) {
+  match build_tree_edit_op(action.id, context, choice, name) {
     Ok(Some(op)) =>
       match
         @lambda.apply_lambda_tree_edit(
@@ -27,27 +25,15 @@ fn execute_action(
           let new_model = refresh({
             ..model,
             next_timestamp: model.next_timestamp + 1,
-            overlay: closed_overlay(),
+            overlay_runtime: None,
           })
           let text = new_model.editor.get_text()
           let cmd = sync_after_local_model_change(new_model, text)
           (cmd, new_model)
         }
-        Err(err) => {
-          let overlay = { ..model.overlay, error: err.message() }
-          (none, { ..model, overlay, })
-        }
+        Err(err) => (runtime.send(SetError(err.message())), model)
       }
-    Ok(None) => {
-      let result = model.overlay.show_name_prompt(action)
-      (
-        focus_selector_after_render(".name-prompt-input"),
-        { ..model, overlay: result.state },
-      )
-    }
-    Err(msg) => {
-      let overlay = { ..model.overlay, error: msg }
-      (none, { ..model, overlay, })
-    }
+    Ok(None) => (runtime.send(ShowNamePrompt(action)), model)
+    Err(msg) => (runtime.send(SetError(msg)), model)
   }
 }

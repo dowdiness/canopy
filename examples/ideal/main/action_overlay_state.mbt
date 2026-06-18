@@ -9,28 +9,11 @@ fn OverlayState::is_open(self : OverlayState) -> Bool {
 
 ///|
 fn open_action_overlay_from_event(
+  parent_emit : @rabbita.Emit[Msg],
   model : Model,
   node_id_str : String,
 ) -> (Cmd, Model) {
-  let new_model = open_action_overlay(model, node_id_str)
-  if new_model.overlay.is_open() {
-    (new_model.overlay.menu.focus_cmd(), new_model)
-  } else {
-    (none, new_model)
-  }
-}
-
-///|
-fn closed_overlay() -> OverlayState {
-  {
-    mode: Closed,
-    actions: [],
-    node_context: None,
-    error: "",
-    anchor_top: 0,
-    anchor_left: 0,
-    menu: @menu.Model::new(id="ideal-action-overlay-menu", item_count=0),
-  }
+  open_action_overlay(parent_emit, model, node_id_str)
 }
 
 ///|
@@ -93,40 +76,56 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
 ///|
 /// Open the action overlay for the given node ID string.
 fn open_action_overlay(
+  parent_emit : @rabbita.Emit[Msg],
   model : Model,
   node_id_str : String,
   rect_json? : String = js_get_selected_node_rect(),
-) -> Model {
+) -> (Cmd, Model) {
   if node_id_str == "" {
-    return model
+    return (none, model)
   }
   let ctx = match detect_action_context(model.editor, node_id_str) {
     Some(c) => c
-    None => return model
+    None => return (none, model)
   }
   let proj_ctx = to_proj_context(ctx)
   let actions = @lambda_edits.get_actions_for_node(ctx.kind, proj_ctx)
   if actions.is_empty() {
-    return model
+    return (none, model)
   }
   let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
-  js_set_overlay_open(true)
-  {
-    ..model,
-    overlay: {
-      mode: MainMenu,
-      actions,
-      node_context: Some(ctx),
-      error: "",
-      anchor_top,
-      anchor_left,
-      menu: model.overlay.menu.reset(item_count=actions.length()),
-    },
+  let token = model.next_overlay_token
+  let initial_state = {
+    mode: MainMenu,
+    actions,
+    node_context: Some(ctx),
+    error: "",
+    anchor_top,
+    anchor_left,
+    menu: @menu.Model::new(
+      id="ideal-action-overlay-menu",
+      item_count=actions.length(),
+    ),
   }
+  let (overlay_emit, cell) = create_overlay_cell(
+    parent_emit, token, initial_state,
+  )
+  js_set_overlay_open(true)
+  (
+    initial_state.menu.focus_cmd(),
+    {
+      ..model,
+      overlay_runtime: Some({ cell, emit: overlay_emit, token }),
+      next_overlay_token: token + 1,
+    },
+  )
 }
 
 ///|
+/// Close the overlay and drop its child cell. In Rabbita's explicit lifecycle
+/// model, removing the runtime from the parent model makes the child inactive;
+/// any queued outputs from that child are rejected by token checks.
 fn close_action_overlay(model : Model) -> (Cmd, Model) {
   js_set_overlay_open(false)
-  (none, { ..model, overlay: closed_overlay() })
+  (none, { ..model, overlay_runtime: None })
 }

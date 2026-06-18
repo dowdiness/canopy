@@ -50,7 +50,8 @@ fn init_model() -> Model raise {
     next_timestamp: 1,
     bottom_tab: Problems,
     sync_status: Connecting,
-    overlay: closed_overlay(),
+    overlay_runtime: None,
+    next_overlay_token: 1,
     scope_map: build_scope_map(editor, companion),
     highlight_set: @immut/hashset.new(),
     drag_source: None,
@@ -449,7 +450,7 @@ fn apply_structural_edit_request(
 }
 
 ///|
-fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => {
       let mode_str : String = match mode {
@@ -669,12 +670,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         None => return (none, model)
       }
       let rect_json = js_get_outline_selected_rect()
-      let new_model = open_action_overlay(model, node_id_str, rect_json~)
-      if new_model.overlay.is_open() {
-        (new_model.overlay.menu.focus_cmd(), new_model)
-      } else {
-        (none, new_model)
-      }
+      open_action_overlay(emit, model, node_id_str, rect_json~)
     }
     SyncStatusChanged(status) => {
       let sync_status : SyncStatus = match status {
@@ -688,8 +684,9 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     OpenActionOverlayForNode(node_id_str)
     | LongPressTriggeredForNode(node_id_str) =>
-      open_action_overlay_from_event(model, node_id_str)
-    ActionOverlay(overlay_msg) => handle_overlay_msg(model, overlay_msg)
+      open_action_overlay_from_event(emit, model, node_id_str)
+    ActionOverlay(overlay_event) => handle_overlay_event(model, overlay_event)
+    ActionOverlayEffect(output) => handle_overlay_output(model, output)
     // ── Outline drag-and-drop ──────
     OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
     OutlineDragOver(target_id, position) =>
@@ -921,7 +918,10 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
       ]),
     ]),
     div(class=bottom_class, [view_bottom_content(dispatch, model)]),
-    view_action_overlay(dispatch, model),
+    match model.overlay_runtime {
+      Some(runtime) => runtime.view()
+      None => @html.nothing
+    },
   ])
 }
 
