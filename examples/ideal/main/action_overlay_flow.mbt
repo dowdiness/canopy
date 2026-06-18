@@ -60,16 +60,11 @@ fn OverlayState::show_name_prompt(
 }
 
 ///|
-fn OverlayState::context_kind(self : OverlayState) -> @ast.Term {
-  self.kind
-}
-
-///|
 fn OverlayState::submenu_choices(
   self : OverlayState,
   action : @lambda_edits.Action,
 ) -> Array[(String, String)] {
-  get_submenu_choices(action.id, self.context_kind())
+  get_submenu_choices(action.id, self.kind)
 }
 
 ///|
