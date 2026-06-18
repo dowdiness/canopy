@@ -228,8 +228,9 @@ Implementation notes:
 
 ### Phase 2 — analysis projection aggregator
 
-Status: started. The active implementation plan is
-[`docs/plans/2026-06-18-analysis-query-phase2-aggregator.md`](../plans/2026-06-18-analysis-query-phase2-aggregator.md).
+Status: complete for the lambda-local aggregation seam. The completed
+implementation plan is archived at
+[`docs/archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md`](../archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md).
 
 Route existing language facts through a small internal aggregator:
 

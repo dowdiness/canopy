@@ -1,5 +1,10 @@
 # Analysis Query Layer Phase 2 — Projection Aggregator
 
+Status: complete. Shipped via PR #706 (`9d520ff`) and PR #708 (`fabf2ee`) on
+2026-06-18. The result is deliberately lambda-local: shared
+`AnalysisProjection` promotion remains deferred until a second language has
+multiple real projected analysis inputs to merge.
+
 ## Why
 
 Phase 1 proved that external structural-search results can enter Canopy as
@@ -10,9 +15,9 @@ lambda editor now has two separate projection paths for related derived data:
 - in-process semantic, evaluation, and diagnostic data assembled directly in
   language capability closures and FFI functions.
 
-Phase 2 should introduce a small aggregation seam so these in-process analyses
-are routed through one projection layer before Canopy commits to broader
-provider abstractions or `moon ide` integration.
+Phase 2 introduced a small aggregation seam so these in-process analyses route
+through one projection layer before Canopy commits to broader provider
+abstractions or `moon ide` integration.
 
 ## Scope
 
@@ -38,6 +43,20 @@ Out:
 - broad cross-language migration beyond lambda.
 - node-id anchoring as a requirement. Source ranges remain authoritative.
 - persistent semantic database or workspace indexing.
+
+## Completion Summary
+
+- PR #706 introduced `lang/lambda/companion/analysis_projection.mbt` and routed
+  lambda semantic/eval annotations plus semantic/pattern decorations through it.
+- PR #708 refined the seam into a private `AnalysisProjection` object that owns
+  snapshot-bound pattern-analysis state atomically, and added regression coverage
+  for stale external pattern facts preserving in-process semantic decorations.
+- JSON was checked as the first cross-language generalization candidate and did
+  not justify a shared API: JSON has structural projection plus parser
+  diagnostics, but no semantic annotations, language decorations, evaluation
+  facts, or snapshot-bound external facts to compose.
+- Diagnostics remain on existing FFI/protocol paths until a larger diagnostic
+  fact shape is justified.
 
 ## Current State
 
