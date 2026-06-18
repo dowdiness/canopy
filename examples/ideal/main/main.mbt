@@ -917,8 +917,8 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
       ]),
     ]),
     div(class=bottom_class, [view_bottom_content(dispatch, model)]),
-    match model.overlay.runtime {
-      Some(runtime) => runtime.view()
+    match model.overlay.active {
+      Some((_, runtime)) => runtime.view()
       None => @html.nothing
     },
   ])
