@@ -114,7 +114,6 @@ export function createEditor(agentId: string) {
     } catch (error) {
       if (controller.signal.aborted || generation !== analysisGeneration) return;
       console.warn('ast-grep analysis failed', error);
-      decorationOverlay.applyDecorations([]);
     } finally {
       if (analysisAbortController === controller) {
         analysisAbortController = null;
