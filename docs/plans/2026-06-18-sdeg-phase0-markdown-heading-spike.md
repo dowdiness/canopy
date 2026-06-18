@@ -157,9 +157,12 @@ Decision:
 - Do not introduce a public `EntityId` or `sdeg-*` package yet.
 - Test-only matching evidence can already detect semantic reorder mismatches and
   delete/restore recovery candidates without changing document behavior.
-- Next target: decide whether that evidence should feed improved Markdown edit
-  hints, `ProjectionIdentityTracker`-style item realignment, or a semantic
-  side-table mapping.
+- `ProjectionIdentityTracker` / `realign_projection_items` is not sufficient for
+  these two gaps: pure sibling reorder falls into a changed window and receives
+  fresh IDs, and a committed delete drops the old item from the successful
+  baseline.
+- Next target: try semantic side-table matching over `NodeId`, with explicit
+  handling for move/reorder and tombstone recovery candidates.
 
 ## Acceptance Criteria
 

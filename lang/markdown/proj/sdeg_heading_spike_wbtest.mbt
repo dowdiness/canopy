@@ -158,6 +158,66 @@ fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
 }
 
 ///|
+fn heading_key(obs : HeadingObservation) -> String {
+  "h\{obs.level}:\{obs.text}"
+}
+
+///|
+fn heading_leaf(obs : HeadingObservation) -> @loomcore.ProjectionLeaf {
+  @loomcore.ProjectionLeaf::new(
+    obs.range.start,
+    obs.range.end,
+    heading_key(obs),
+  )
+}
+
+///|
+fn stable_heading_leaf(
+  obs : HeadingObservation,
+) -> @loomcore.StableProjectionLeaf[@core.NodeId] {
+  @loomcore.StableProjectionLeaf::new(
+    obs.range.start,
+    obs.range.end,
+    heading_key(obs),
+    obs.id,
+  )
+}
+
+///|
+fn heading_baseline(
+  source : String,
+  observations : Array[HeadingObservation],
+) -> @loomcore.ProjectionIdentityBaseline[@core.NodeId] {
+  @loomcore.ProjectionIdentityBaseline::new(
+    source,
+    observations.map(stable_heading_leaf),
+  )
+}
+
+///|
+fn realign_headings_from_baseline(
+  baseline : @loomcore.ProjectionIdentityBaseline[@core.NodeId],
+  next_source : String,
+  observations : Array[HeadingObservation],
+  fresh_start : Int,
+) -> Array[HeadingObservation] {
+  let fresh_counter : Ref[Int] = Ref(fresh_start)
+  @loomcore.realign_projection_items_with_optional_edit(
+    baseline,
+    next_source,
+    observations,
+    heading_leaf,
+    fn(obs, id) { { ..obs, id, } },
+    fn(_leaf) {
+      let id = @core.NodeId::from_int(fresh_counter.val)
+      fresh_counter.val = fresh_counter.val + 1
+      id
+    },
+    None,
+  )
+}
+
+///|
 fn heading_match_evidence(
   previous : HeadingObservation,
   current : HeadingObservation,
@@ -251,6 +311,40 @@ test "sdeg phase0: heading reorder is currently position-stable, not semantic-st
 }
 
 ///|
+test "sdeg phase0: ProjectionIdentityTracker does not solve heading reorder" {
+  let counter : Ref[Int] = Ref(0)
+  let source = "# A\n# B\n"
+  let next_source = "# B\n# A\n"
+  let (initial_cst, _) = @markdown.parse_cst(source)
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for(source, initial)
+  let before = collect_heading_observations(initial, initial_map)
+  let baseline = heading_baseline(source, before)
+
+  let (reordered, reordered_map) = project_after_reconcile(
+    initial, next_source, counter,
+  )
+  let after = collect_heading_observations(reordered, reordered_map)
+  let realigned = realign_headings_from_baseline(
+    baseline, next_source, after, 1000,
+  )
+  let a_before = find_heading(before, "A").unwrap()
+  let b_before = find_heading(before, "B").unwrap()
+  let a_realigned = find_heading(realigned, "A").unwrap()
+  let b_realigned = find_heading(realigned, "B").unwrap()
+
+  // The existing ProjectionIdentityTracker/realign_projection_items algorithm is
+  // edit-window oriented. It is useful for malformed-input recovery and local
+  // replacement windows, but a pure sibling reorder falls into the changed
+  // window and receives fresh IDs rather than semantic move identities.
+  inspect(a_realigned.id == a_before.id, content="false")
+  inspect(b_realigned.id == b_before.id, content="false")
+}
+
+///|
 test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
   let counter : Ref[Int] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
@@ -323,6 +417,44 @@ test "sdeg phase0: delete and restore currently cannot recover the retired headi
   // Without a tombstone/baseline side table, restoring text creates or reuses a
   // projection identity from the current tree, not the retired semantic heading.
   inspect(a_restored.id == a_initial.id, content="false")
+}
+
+///|
+test "sdeg phase0: ProjectionIdentityTracker does not recover after committed delete" {
+  let counter : Ref[Int] = Ref(0)
+  let initial_source = "# A\n# B\n"
+  let deleted_source = "# B\n"
+  let restored_source = "# A\n# B\n"
+  let (initial_cst, _) = @markdown.parse_cst(initial_source)
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for(initial_source, initial)
+  let initial_observations = collect_heading_observations(initial, initial_map)
+  let a_initial = find_heading(initial_observations, "A").unwrap()
+
+  let (deleted, deleted_map) = project_after_reconcile(
+    initial, deleted_source, counter,
+  )
+  let deleted_observations = collect_heading_observations(deleted, deleted_map)
+  let deleted_baseline = heading_baseline(deleted_source, deleted_observations)
+
+  let (restored, restored_map) = project_after_reconcile(
+    deleted, restored_source, counter,
+  )
+  let restored_observations = collect_heading_observations(
+    restored, restored_map,
+  )
+  let realigned = realign_headings_from_baseline(
+    deleted_baseline, restored_source, restored_observations, 2000,
+  )
+  let a_realigned = find_heading(realigned, "A").unwrap()
+
+  // Once deletion has committed as the successful baseline, the old A identity
+  // is no longer present for ProjectionIdentityTracker to preserve. Recovering
+  // it requires a tombstone/semantic side table rather than item realignment.
+  inspect(a_realigned.id == a_initial.id, content="false")
 }
 
 ///|
