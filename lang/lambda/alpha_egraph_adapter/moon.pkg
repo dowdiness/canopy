@@ -1,0 +1,12 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/alpha",
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/egraph",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/string",
+}
+
+import {
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+} for "wbtest"
