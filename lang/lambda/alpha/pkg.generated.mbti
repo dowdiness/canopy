@@ -11,6 +11,8 @@ import {
 // Values
 pub fn alpha_eq(AlphaTerm, AlphaTerm) -> Bool
 
+pub fn alpha_key(AlphaTerm) -> AlphaKey
+
 pub fn beta_reduce_root(AlphaTerm) -> AlphaTerm?
 
 pub fn lower_root(@core.ProjNode[@ast.Term], @scope.ScopeGraph) -> AlphaTerm
@@ -20,6 +22,15 @@ pub fn reify(AlphaTerm, ReifyPolicy) -> @ast.Term
 // Errors
 
 // Types and methods
+pub struct AlphaKey {
+  // private fields
+} derive(Eq)
+pub impl Hash for AlphaKey
+
+type AlphaKeyRef derive(Eq, Hash)
+
+type AlphaKeyRepr derive(Eq)
+
 pub(all) enum AlphaRef {
   Bound(BinderId)
   Free(FreeName)
