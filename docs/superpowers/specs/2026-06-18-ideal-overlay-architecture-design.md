@@ -154,9 +154,11 @@ update closure captures `parent_emit` at cell-creation time. The parent's
 |------|--------|
 | `model.mbt` | `OverlayState`: remove `node_context`, add `kind : @ast.Term` |
 | `action_overlay_runtime.mbt` | `ActionOverlayHost`: add `context : NodeActionContext?`; update `empty`, `mount` (new param), `close` |
-| `action_overlay_flow.mbt` | `OverlayOutput::ExecuteAction`: drop `context~`; `overlay_effect_to_cmd`: remove dead `None` guard on `node_context`; `open_action_overlay`: store `ctx` in host, pass `ctx.kind` to child state |
-| `action_overlay_state.mbt` | `context_kind()`: returns `self.kind` directly (no `Option` unwrap) |
+| `action_overlay_flow.mbt` | `OverlayOutput::ExecuteAction`: drop `context~`; `overlay_effect_to_cmd`: remove dead `None` guard; `context_kind()`: return `self.kind` directly |
+| `action_overlay_state.mbt` | `open_action_overlay`: store `ctx` in host (`mount(ctx, runtime)`), pass `ctx.kind` into child `initial_state` |
 | `action_overlay_update.mbt` | `handle_overlay_output` `ExecuteAction` arm: read `model.overlay.context` instead of receiving it from output |
+| `view_actions.mbt` | `view_overlay` Submenu arm: replace `match state.node_context { Some(ctx) => view_submenu_choices(…ctx.kind) … }` with direct `view_submenu_choices(…state.kind)` |
+| `main_wbtest.mbt` | `test_overlay_state`: replace `node_context: Some(…)` with `kind: @ast.Term::Unit`; token tests: drop `context=` from `OverlayOutput::ExecuteAction`; `ActionOverlayHost::empty().mount(runtime)` → `mount(ctx, runtime)` |
 
 `action_overlay_exec.mbt` — no change. `execute_action` still receives
 `context` from its caller (`handle_overlay_output`).
