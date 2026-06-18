@@ -74,3 +74,44 @@ test "semantic decorations are emitted and stable" {
     })
   inspect(repeats_decorations, content="false")
 }
+
+///|
+test "analysis projection combines semantic and pattern decorations" {
+  let (editor, companion) = new_lambda_editor("test-analysis-projection")
+  editor.set_text("(x) => x")
+  let source = editor.get_text()
+  let snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id="test-analysis-projection",
+    version=0,
+    source~,
+  )
+  companion.set_pattern_analysis(
+    @analysis.from_ast_grep_matches(
+      [
+        @analysis.AstGrepMatch::AstGrepMatch(
+          byte_start=0,
+          byte_end=1,
+          pattern_id="fn-def",
+        ),
+      ],
+      source,
+      snapshot,
+    ),
+    snapshot,
+  )
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let patches = @editor.compute_view_patches(state, editor)
+  let has_combined_decorations = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::SetDecorations(decorations~) =>
+          decorations.iter().any(fn(d) { d.css_class == "semantic-binder" }) &&
+          decorations
+          .iter()
+          .any(fn(d) { d.css_class == "analysis-match pattern-fn-def" })
+        _ => false
+      }
+    })
+  assert_true(has_combined_decorations)
+}

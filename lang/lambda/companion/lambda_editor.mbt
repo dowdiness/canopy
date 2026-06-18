@@ -46,8 +46,12 @@ pub fn LambdaCompanion::set_pattern_analysis(
   facts : Array[@facts.PatternMatchFact],
   snapshot : @facts.SourceSnapshot,
 ) -> Unit {
-  self.pattern_facts_ref.val = Some(facts)
-  self.pattern_snapshot_ref.val = Some(snapshot)
+  analysis_projection_set_pattern_analysis(
+    self.pattern_facts_ref,
+    self.pattern_snapshot_ref,
+    facts,
+    snapshot,
+  )
 }
 
 ///|
@@ -56,13 +60,11 @@ pub fn LambdaCompanion::clear_stale_pattern_analysis(
   self : LambdaCompanion,
   current : @facts.SourceSnapshot,
 ) -> Unit {
-  match self.pattern_snapshot_ref.val {
-    Some(snapshot) if snapshot.matches(current) => ()
-    _ => {
-      self.pattern_facts_ref.val = None
-      self.pattern_snapshot_ref.val = None
-    }
-  }
+  analysis_projection_clear_stale_pattern_analysis(
+    self.pattern_facts_ref,
+    self.pattern_snapshot_ref,
+    current,
+  )
 }
 
 ///|
@@ -133,22 +135,6 @@ fn build_eval_annotations(
     }
   }
   annotations
-}
-
-///|
-fn append_annotation_map(
-  target : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
-  extra : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
-) -> Unit {
-  for node_id, anns in extra {
-    match target.get(node_id) {
-      Some(existing) =>
-        for ann in anns {
-          existing.push(ann)
-        }
-      None => target[node_id] = anns.copy()
-    }
-  }
 }
 
 ///|
@@ -230,19 +216,18 @@ fn build_lambda_capabilities(
         Some(memo) => memo.read_or_abort()
         None => None
       }
-      let annotations = build_eval_annotations(eval_results, proj_node)
-      match (proj_node, source_map_memo_ref.val) {
+      let eval_annotations = build_eval_annotations(eval_results, proj_node)
+      let semantic_projection = match (proj_node, source_map_memo_ref.val) {
         (Some(root), Some(source_map_memo)) =>
-          append_annotation_map(
-            annotations,
+          Some(
             @lambda_semantic.build_semantic_projection(
               root,
               source_map_memo.read_or_abort(),
-            ).annotations,
+            ),
           )
-        _ => ()
+        _ => None
       }
-      annotations
+      analysis_projection_annotations(eval_annotations, semantic_projection)
     }),
     get_decorations=Some(fn() {
       let semantic_decorations = match
@@ -258,13 +243,9 @@ fn build_lambda_capabilities(
           }
         _ => []
       }
-      let analysis_decorations = match
-        (pattern_facts_ref.val, pattern_snapshot_ref.val) {
-        (Some(facts), Some(snapshot)) =>
-          @analysis.facts_to_decorations(facts, snapshot)
-        _ => []
-      }
-      semantic_decorations + analysis_decorations
+      analysis_projection_decorations(
+        pattern_facts_ref, pattern_snapshot_ref, semantic_decorations,
+      )
     }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {

@@ -513,17 +513,22 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 21. Analysis Query Layer
 
+- [ ] Phase 2 projection aggregator.
+  Why: Phase 1 proved snapshot-bound structural-search decorations, but lambda still composes ast-grep, semantic, eval, and diagnostic projections through ad-hoc closures and FFI paths.
+  Plan: `docs/plans/2026-06-18-analysis-query-phase2-aggregator.md`
+  Exit: lambda has one named aggregation seam for analysis projections, existing protocol surfaces are unchanged, and tests cover combined semantic + pattern decorations with stale external facts.
+
 - [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
-  Shipped: PR #699 — `lib/analysis/` (SourceSnapshot, PatternMatchFact, byte_offset_to_utf16) + `analysis/` (facts_to_decorations, from_ast_grep_matches, AstGrepMatch).
+  Shipped: PR #699 added `lib/analysis/` and `analysis/`; PR #704 completed host FFI and lambda editor decoration wiring.
 
 - [x] Add provider range normalization tests for analysis facts (#693).
-  Shipped: PR #699 — analysis_test.mbt covers ASCII, 3-byte BMP (世界), and surrogate-pair emoji (😀) via byte_offset_to_utf16.
+  Shipped: PR #699 covered core byte→UTF-16 conversion; PR #704 added FFI-level non-ASCII coverage.
 
 - [x] Reject stale analysis provider results by source snapshot (#694).
-  Shipped: PR #699 — SourceSnapshot::matches (version + 32-bit hash) gates facts_to_decorations and facts_to_match_list.
+  Shipped: PR #699 added `SourceSnapshot::matches`; PR #704 clears stale lambda pattern facts before view patches are computed.
 
-- [x] Add structural-search match list and jump-to-range UI (#695).
-  Shipped: PR #699 — facts_to_match_list → Array[MatchListEntry] supplies from/to/pattern_id to host for list rendering and jump. Host-side wiring pending.
+- [x] Add structural-search match list projection (#695).
+  Shipped: PR #699 — `facts_to_match_list` supplies `from`/`to`/`pattern_id` for future host list/jump rendering. Host-side list UI remains a follow-up.
 
 ## Shipped history
 
