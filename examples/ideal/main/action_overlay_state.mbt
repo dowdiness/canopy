@@ -95,6 +95,10 @@ fn open_action_overlay(
   }
   let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
   let token = model.overlay.next_token
+  // `kind` here and `ctx` passed to mount() below both derive from the same
+  // local `ctx`. OverlayState.kind (used for rendering) and
+  // ActionOverlayHost.context.kind (used for execution) are therefore always
+  // identical; they must not be set from different sources.
   let initial_state = {
     mode: MainMenu,
     actions,

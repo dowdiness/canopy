@@ -194,6 +194,13 @@ test "overlay close outputs only match their originating runtime token" {
 }
 
 ///|
+test "mount sets context on host" {
+  let ctx = test_overlay_context()
+  let host = ActionOverlayHost::empty().mount(ctx, test_overlay_runtime(7))
+  inspect(host.context is Some(_), content="true")
+}
+
+///|
 test "parse_node_id valid" {
   inspect(parse_node_id("42") is Some(_), content="true")
 }

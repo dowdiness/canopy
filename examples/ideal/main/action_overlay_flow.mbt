@@ -264,6 +264,11 @@ fn overlay_effect_to_cmd(
     NoOverlayEffect => none
     FocusMenu => result.state.menu.focus_cmd()
     FocusNamePrompt => focus_selector_after_render(".name-prompt-input")
+    // Unconditional emit is safe: close() atomically clears both runtime and
+    // context (and does NOT increment next_token), so queued outputs from a
+    // closed overlay are caught by the parent's token guard in
+    // handle_overlay_output. If close() is ever split into two steps, restore
+    // the child-side guard here.
     ExecuteAction(action, choice~, name~) =>
       parent_emit(
         ActionOverlayEffect(

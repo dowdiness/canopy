@@ -1,4 +1,9 @@
 ///|
+// `runtime` and `context` are co-valid: both Some when mounted, both None when
+// closed. `mount`/`close`/`empty` are the only write paths and must stay in
+// lockstep. TODO: consolidate into a single
+// `active: (NodeActionContext, ActionOverlayRuntime)?` field to make this
+// invariant structurally unrepresentable-to-violate.
 struct ActionOverlayHost {
   runtime : ActionOverlayRuntime?
   context : NodeActionContext?
