@@ -13,7 +13,6 @@ enum OverlayMsg {
 enum OverlayOutput {
   ExecuteAction(
     token~ : Int,
-    context~ : NodeActionContext,
     @lambda_edits.Action,
     choice~ : String,
     name~ : String
@@ -61,19 +60,11 @@ fn OverlayState::show_name_prompt(
 }
 
 ///|
-fn OverlayState::context_kind(self : OverlayState) -> @ast.Term {
-  match self.node_context {
-    Some(ctx) => ctx.kind
-    None => @ast.Term::Unit
-  }
-}
-
-///|
 fn OverlayState::submenu_choices(
   self : OverlayState,
   action : @lambda_edits.Action,
 ) -> Array[(String, String)] {
-  get_submenu_choices(action.id, self.context_kind())
+  get_submenu_choices(action.id, self.kind)
 }
 
 ///|
@@ -273,22 +264,17 @@ fn overlay_effect_to_cmd(
     NoOverlayEffect => none
     FocusMenu => result.state.menu.focus_cmd()
     FocusNamePrompt => focus_selector_after_render(".name-prompt-input")
+    // Unconditional emit is safe: close() atomically clears both runtime and
+    // context (and does NOT increment next_token), so queued outputs from a
+    // closed overlay are caught by the parent's token guard in
+    // handle_overlay_output. If close() is ever split into two steps, restore
+    // the child-side guard here.
     ExecuteAction(action, choice~, name~) =>
-      match result.state.node_context {
-        Some(context) =>
-          parent_emit(
-            ActionOverlayEffect(
-              OverlayOutput::ExecuteAction(
-                token~,
-                context~,
-                action,
-                choice~,
-                name~,
-              ),
-            ),
-          )
-        None => none
-      }
+      parent_emit(
+        ActionOverlayEffect(
+          OverlayOutput::ExecuteAction(token~, action, choice~, name~),
+        ),
+      )
     CloseOverlay =>
       parent_emit(ActionOverlayEffect(OverlayOutput::CloseOverlay(token~)))
   }

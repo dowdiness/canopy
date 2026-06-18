@@ -67,7 +67,7 @@ enum OverlayMode {
 struct OverlayState {
   mode : OverlayMode
   actions : Array[@lambda_edits.Action]
-  node_context : NodeActionContext?
+  kind : @ast.Term
   // The most recent failure to act. Overlay-wide, not prompt-specific: an
   // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
   // so the error is rendered in the panel for any open mode (view_actions.mbt).
