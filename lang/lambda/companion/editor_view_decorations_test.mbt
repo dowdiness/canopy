@@ -115,3 +115,56 @@ test "analysis projection combines semantic and pattern decorations" {
     })
   assert_true(has_combined_decorations)
 }
+
+///|
+test "analysis projection drops stale pattern decorations but keeps semantic decorations" {
+  let (editor, companion) = new_lambda_editor(
+    "test-analysis-stale-keeps-semantic",
+  )
+  editor.set_text("(x) => x")
+  let source = editor.get_text()
+  let stale_snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id="test-analysis-stale-keeps-semantic",
+    version=0,
+    source~,
+  )
+  companion.set_pattern_analysis(
+    @analysis.from_ast_grep_matches(
+      [
+        @analysis.AstGrepMatch::AstGrepMatch(
+          byte_start=0,
+          byte_end=1,
+          pattern_id="fn-def",
+        ),
+      ],
+      source,
+      stale_snapshot,
+    ),
+    stale_snapshot,
+  )
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(state, editor)
+  editor.set_text("(x) => x ")
+  let current_source = editor.get_text()
+  companion.clear_stale_pattern_analysis(
+    @facts.SourceSnapshot::SourceSnapshot(
+      doc_id="test-analysis-stale-keeps-semantic",
+      version=0,
+      source=current_source,
+    ),
+  )
+  let patches = @editor.compute_view_patches(state, editor)
+  let has_semantic_without_pattern = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::SetDecorations(decorations~) =>
+          decorations.iter().any(fn(d) { d.css_class == "semantic-binder" }) &&
+          !decorations
+          .iter()
+          .any(fn(d) { d.css_class == "analysis-match pattern-fn-def" })
+        _ => false
+      }
+    })
+  assert_true(has_semantic_without_pattern)
+}

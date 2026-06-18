@@ -10,8 +10,7 @@ pub struct LambdaCompanion {
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
   priv analysis : @parser.LambdaAnalysis
-  priv pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?]
-  priv pattern_snapshot_ref : Ref[@facts.SourceSnapshot?]
+  priv analysis_projection : AnalysisProjection
 }
 
 ///|
@@ -46,12 +45,7 @@ pub fn LambdaCompanion::set_pattern_analysis(
   facts : Array[@facts.PatternMatchFact],
   snapshot : @facts.SourceSnapshot,
 ) -> Unit {
-  analysis_projection_set_pattern_analysis(
-    self.pattern_facts_ref,
-    self.pattern_snapshot_ref,
-    facts,
-    snapshot,
-  )
+  self.analysis_projection.set_pattern_analysis(facts, snapshot)
 }
 
 ///|
@@ -60,11 +54,7 @@ pub fn LambdaCompanion::clear_stale_pattern_analysis(
   self : LambdaCompanion,
   current : @facts.SourceSnapshot,
 ) -> Unit {
-  analysis_projection_clear_stale_pattern_analysis(
-    self.pattern_facts_ref,
-    self.pattern_snapshot_ref,
-    current,
-  )
+  self.analysis_projection.clear_stale_pattern_analysis(current)
 }
 
 ///|
@@ -144,8 +134,7 @@ pub fn new_lambda_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
-  let pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?] = Ref(None)
-  let pattern_snapshot_ref : Ref[@facts.SourceSnapshot?] = Ref(None)
+  let analysis_projection = AnalysisProjection::new()
   // Ref side-channels let the build_memos callback publish companion memos
   // back out to the enclosing scope for companion construction + capabilities
   // wiring.
@@ -183,16 +172,14 @@ pub fn new_lambda_editor(
     capture_timeout_ms~,
     parent_runtime?,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, pattern_facts_ref,
-      pattern_snapshot_ref,
+      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, analysis_projection,
     ),
     identity_hints=hints_ref,
   )
   let companion : LambdaCompanion = {
     escalation_memo: escalation_memo_ref.val.unwrap(),
     analysis: analysis_ref.val.unwrap(),
-    pattern_facts_ref,
-    pattern_snapshot_ref,
+    analysis_projection,
   }
   (editor, companion)
 }
@@ -203,8 +190,7 @@ fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
   source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
-  pattern_facts_ref : Ref[Array[@facts.PatternMatchFact]?],
-  pattern_snapshot_ref : Ref[@facts.SourceSnapshot?],
+  analysis_projection : AnalysisProjection,
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
@@ -227,7 +213,7 @@ fn build_lambda_capabilities(
           )
         _ => None
       }
-      analysis_projection_annotations(eval_annotations, semantic_projection)
+      analysis_projection.annotations(eval_annotations, semantic_projection)
     }),
     get_decorations=Some(fn() {
       let semantic_decorations = match
@@ -243,9 +229,7 @@ fn build_lambda_capabilities(
           }
         _ => []
       }
-      analysis_projection_decorations(
-        pattern_facts_ref, pattern_snapshot_ref, semantic_decorations,
-      )
+      analysis_projection.decorations(semantic_decorations)
     }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {

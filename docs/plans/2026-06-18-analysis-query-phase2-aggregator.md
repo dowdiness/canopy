@@ -51,10 +51,11 @@ Out:
   boundary.
 - `analysis/render.mbt` projects pattern facts to existing
   `@protocol.Decoration` values and match-list entries.
-- `lang/lambda/companion/lambda_editor.mbt` currently merges semantic
-  decorations and ast-grep decorations in the `get_decorations` capability
-  closure. It separately merges evaluation and semantic annotations in
-  `get_annotations`.
+- `lang/lambda/companion/analysis_projection.mbt` owns the lambda-local
+  aggregation seam. Its private `AnalysisProjection` object stores
+  snapshot-bound pattern facts and composes them with semantic decorations,
+  semantic annotations, and eval annotations before they reach the existing
+  capability closures.
 - `ffi/lambda/diagnostics.mbt` assembles parse/type/eval diagnostics separately
   from the decoration/annotation path.
 - `editor/capabilities.mbt` and `editor/view_updater.mbt` already provide the
@@ -100,15 +101,15 @@ without changing the public protocol:
 
 ## Acceptance Criteria
 
-- [ ] Lambda analysis projection composition has one named seam rather than
+- [x] Lambda analysis projection composition has one named seam rather than
       duplicated ad-hoc merging in capability closures.
-- [ ] Existing semantic/eval decorations and annotations behave as before.
-- [ ] Existing ast-grep decorations remain snapshot-bound and stale-safe.
-- [ ] No new public protocol variant is introduced.
-- [ ] Tests cover combined semantic + pattern decorations and stale external
+- [x] Existing semantic/eval decorations and annotations behave as before.
+- [x] Existing ast-grep decorations remain snapshot-bound and stale-safe.
+- [x] No new public protocol variant is introduced.
+- [x] Tests cover combined semantic + pattern decorations and stale external
       facts.
-- [ ] `docs/design/analysis-query-layer.md` reflects the implemented Phase 2
-      slice and any deferred diagnostics work.
+- [x] `docs/design/analysis-query-layer.md` reflects the implemented Phase 2
+      slice and deferred diagnostics work.
 
 ## Validation
 
@@ -140,5 +141,15 @@ API widening.
   `@analysis.facts_to_match_list`,
   `@lambda_semantic.build_semantic_projection`, `build_eval_annotations`,
   `@editor.LanguageCapabilities`, and `@editor.compute_view_patches`.
+- JSON generalization checkpoint (2026-06-18): `lang/json/companion` only
+  constructs a default-capability `LanguageSpec` around
+  `build_json_projection_memos`; `lang/json/proj` builds the structural
+  `ProjNode`/registry/source-map stack; `ffi/json` exposes parser diagnostics
+  and generic view patches through `@editor.compute_view_patches`. JSON does not
+  currently have semantic annotations, language decorations, evaluation facts,
+  or snapshot-bound external facts to compose, so a JSON-local aggregator would
+  be a no-op wrapper around existing protocol surfaces. Keep the Phase 2 seam
+  lambda-local and defer shared `AnalysisProjection` promotion until a second
+  language has at least two real projected analysis inputs to merge.
 - Phase 2 should make Phase 3 easier by clarifying the projection boundary, not
   by designing the `moon ide` provider itself.
