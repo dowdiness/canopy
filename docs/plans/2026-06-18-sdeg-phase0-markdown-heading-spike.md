@@ -139,7 +139,8 @@ identity is a viable Phase 0 substrate for Markdown headings, with clear limits.
 Observed:
 - `SourceMap` can anchor heading entity observations with the full heading range,
   the marker token span, and the text token span.
-- A heading rename preserves the session-local `NodeId`.
+- A heading rename preserves the session-local `NodeId`, including when routed
+  through `MarkdownEditOp::CommitEdit` and `apply_markdown_edit`.
 - Duplicate headings remain distinguishable by `NodeId` and source range.
 - Inline malformed-to-recovered heading content preserves the heading `NodeId`.
 - Whitespace-only / formatter-like rewrites around headings preserve heading
@@ -151,6 +152,10 @@ Limitations:
   following the heading text/key.
 - Delete followed by restore does not recover the retired heading identity;
   there is no tombstone or last-good semantic side table yet.
+- Heading level changes routed through the Markdown edit path currently freshen
+  the heading `NodeId`; preserving identity for that operation likely belongs in
+  edit provenance hints or projection reconciliation rather than in SDEG side
+  tables.
 
 Decision:
 - Continue with `NodeId` side tables for the next slice.
@@ -164,9 +169,10 @@ Decision:
 - A test-only semantic side-table matcher over `NodeId` can follow simple
   reorder, find delete/restore recovery candidates if the old observation is
   retained, and mark duplicate headings ambiguous.
-- Edit-path compatibility remains unvalidated by this spike: the tests exercise
-  parse/projection/reconcile directly rather than `MarkdownEditOp`,
-  `compute_markdown_edit`, or `SyncEditor` application.
+- Edit-path compatibility is now validated for heading text replacement via
+  `MarkdownEditOp::CommitEdit`, `compute_markdown_edit`, and `SyncEditor`
+  application; a heading level-change edit-path test records the current fresh
+  `NodeId` limitation.
 - A test-only `NodeId` side table with lifecycle rows can keep the original
   projection `NodeId` as the stable row key, preserve same-node matches before
   semantic-key recovery, tombstone a deleted heading, recover it on a later
@@ -194,7 +200,7 @@ Decision:
 - [x] Any identity failure includes recorded evidence and a proposed owner for a
       future fix.
 - [x] No public `EntityId` or `sdeg-*` package is introduced.
-- [ ] Existing Markdown edit application remains on the language/edit/editor path.
+- [x] Existing Markdown edit application remains on the language/edit/editor path.
 - [x] The result is summarized against the decision gates in
       `docs/design/stable-document-entity-graph.md`.
 
