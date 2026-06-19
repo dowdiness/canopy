@@ -167,9 +167,21 @@ Decision:
 - Edit-path compatibility remains unvalidated by this spike: the tests exercise
   parse/projection/reconcile directly rather than `MarkdownEditOp`,
   `compute_markdown_edit`, or `SyncEditor` application.
-- Next target: promote the test-only matcher shape into an internal design for
-  `NodeId` side tables with lifecycle/tombstone retention, while keeping public
-  APIs unchanged.
+- A test-only `NodeId` side table with lifecycle rows can keep the original
+  projection `NodeId` as the stable row key, preserve same-node matches before
+  semantic-key recovery, tombstone a deleted heading, recover it on a later
+  unique restore, and keep duplicate restores ambiguous instead of guessing.
+- The side-table semantics have been extracted into
+  `docs/design/sdeg-nodeid-side-table.md` as a small internal design note/API
+  sketch. The white-box side-table helper now lives in
+  `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt` and mirrors that
+  sketch with a stable-row wrapper, evidence-bearing matching, same-node match
+  priority, one-to-one conflict handling, ambiguous candidate retention,
+  retired-row behavior, and snapshot invariants. Shared heading
+  observation/projection helpers remain in
+  `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`. Keep public APIs unchanged
+  and avoid introducing a durable `EntityId` until reload/peer stability is
+  required.
 
 ## Acceptance Criteria
 
