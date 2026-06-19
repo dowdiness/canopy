@@ -145,6 +145,18 @@ test "workstream 2 (md): compute_view_patches initial render emits FullTree with
 }
 
 ///|
+test "workstream 2 (md): compute_view_patches preserves ordered list kind" {
+  reset_markdown_coordinator_for_phase1_tests()
+  let handle = create_markdown_editor("md_view_ordered_list_agent")
+  markdown_set_text(handle, "1. one\n2. two\n")
+  let out = markdown_compute_view_patches_json(handle)
+  if !out.contains("\"kind_tag\":\"OrderedList\"") {
+    fail("expected ordered list ViewNode kind_tag, got \{out}")
+  }
+  destroy_markdown_editor(handle)
+}
+
+///|
 /// Incremental-diff path: a second call after a structural change must emit
 /// targeted patches (`UpdateNode` / `ReplaceNode` / `InsertChild` /
 /// `RemoveChild`), not a fresh `FullTree`. The `state.previous` carry-over

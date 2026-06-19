@@ -28,6 +28,55 @@ test "projection: unordered list" {
 }
 
 ///|
+test "projection: ordered list" {
+  let (proj, _) = parse_to_proj_node("1. first\n2. second\n")
+  inspect(proj.children.length(), content="1")
+  let list = proj.children[0]
+  inspect(list.children.length(), content="2")
+}
+
+///|
+test "source map: ordered list item text excludes marker" {
+  let source = "1. first\n2. second\n"
+  let (proj, _) = parse_to_proj_node(source)
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, _) = @markdown.parse_cst(source)
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let item = proj.children[0].children[0]
+  match source_map.get_token_span(item.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.end].to_owned(), content="first")
+    None => fail("expected ordered list item text span")
+  }
+}
+
+///|
+test "view: ordered list keeps ordered kind tag" {
+  let source = "1. first\n2. second\n"
+  let (proj, _) = parse_to_proj_node(source)
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, _) = @markdown.parse_cst(source)
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let view = proj_to_view_node(proj, source_map, source_text=Some(source))
+  inspect(view.children[0].kind_tag, content="OrderedList")
+}
+
+///|
+test "source map: outer ordered item marker wins over nested bullet" {
+  let source = "1. parent\n   - child\n"
+  let (proj, _) = parse_to_proj_node(source)
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, _) = @markdown.parse_cst(source)
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let item = proj.children[0].children[0]
+  match source_map.get_token_span(item.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.start + 6].to_owned(), content="parent")
+    None => fail("expected outer ordered list item text span")
+  }
+}
+
+///|
 test "projection: code block" {
   let (proj, _) = parse_to_proj_node("```js\nconsole.log(42)\n```")
   inspect(proj.children.length(), content="1")

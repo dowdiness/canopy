@@ -260,9 +260,23 @@ fn compute_split_block(
     Some(node) => node.kind is @markdown.ListItem(_)
     None => false
   }
-  let separator = if is_list_item { "\n- " } else { "\n\n" }
-  // Delete from split point to end of block, then insert separator + rest
-  let rest = source[split_pos:range.end].to_owned()
+  let separator = if is_list_item {
+    let marker = source[range.start:text_range.start].to_owned()
+    split_list_item_separator(marker)
+  } else {
+    "\n\n"
+  }
+  // Delete from split point to end of block, then insert separator + rest.
+  // List item source ranges can exclude the following line break; include it
+  // so the inserted marker does not create a blank line between list items.
+  let delete_end = if is_list_item &&
+    range.end < source.length() &&
+    source[range.end] == '\n' {
+    range.end + 1
+  } else {
+    range.end
+  }
+  let rest = source[split_pos:delete_end].to_owned()
   // Trim trailing newline from rest if present
   let trimmed_rest = if rest.length() > 0 && rest[rest.length() - 1] == '\n' {
     rest[:rest.length() - 1].to_owned()
@@ -276,7 +290,7 @@ fn compute_split_block(
         [
           SpanEdit::{
             start: split_pos,
-            delete_len: range.end - split_pos,
+            delete_len: delete_end - split_pos,
             inserted,
           },
         ],
@@ -284,6 +298,48 @@ fn compute_split_block(
       ),
     ),
   )
+}
+
+///|
+/// Return the marker prefix to use when splitting a Markdown list item.
+///
+/// The current Markdown Block API folds ordered and unordered CST list items
+/// into the same `ListItem` payload, so preserve the concrete source marker
+/// instead of synthesizing an unordered `- ` bullet for every split.
+fn split_list_item_separator(marker : String) -> String {
+  match next_ordered_marker(marker) {
+    Some(next) => "\n" + next
+    None => "\n" + marker
+  }
+}
+
+///|
+fn next_ordered_marker(marker : String) -> String? {
+  guard marker.find_by(fn(ch) { ch != ' ' && ch != '\t' }) is Some(marker_start) else {
+    return None
+  }
+  let marker_body = marker.view(start_offset=marker_start)
+  guard marker_body.find_by(fn(ch) { !(ch is ('0'..='9')) })
+    is Some(delimiter_offset) else {
+    return None
+  }
+  if delimiter_offset == 0 {
+    return None
+  }
+  match marker_body[delimiter_offset] {
+    '.' | ')' => {
+      let value = @string.parse_int(marker_body[:delimiter_offset], base=10) catch {
+        _ => return None
+      }
+      Some(
+        marker.view(end_offset=marker_start).to_owned() +
+        (value + 1).to_string() +
+        marker_body[delimiter_offset:delimiter_offset + 1].to_owned() +
+        marker_body[delimiter_offset + 1:].to_owned(),
+      )
+    }
+    _ => None
+  }
 }
 
 ///|

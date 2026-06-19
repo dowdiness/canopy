@@ -62,7 +62,10 @@ const modeTabs = document.querySelectorAll<HTMLButtonElement>('.mode-tab');
 // Adapters
 // ---------------------------------------------------------------------------
 
-const blockInput = new BlockInput(blockContainer, { stripParagraphSentinels });
+const blockInput = new BlockInput(blockContainer, {
+  stripParagraphSentinels,
+  getSourceText: () => crdt.markdown_export_text(handle),
+});
 const preview = new MarkdownPreview(previewContainer);
 
 // ---------------------------------------------------------------------------

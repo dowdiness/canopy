@@ -4,6 +4,7 @@ import {
   "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/lang/markdown/edits" @md_edits,
   "dowdiness/canopy/lang/markdown/companion" @md_companion,
+  "dowdiness/canopy/lang/markdown/proj" @md_proj,
   "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/workspace/coordinator" @workspace,

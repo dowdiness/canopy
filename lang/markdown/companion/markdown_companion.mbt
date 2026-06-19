@@ -24,7 +24,19 @@ pub fn new_markdown_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] {
-  markdown_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
+  markdown_spec.new_editor(
+    agent_id,
+    capture_timeout_ms~,
+    parent_runtime?,
+    capabilities=@editor.LanguageCapabilities::default().with_to_view_node(fn(
+      proj,
+      source_map,
+      annotations,
+      source_text,
+    ) {
+      @md_proj.proj_to_view_node(proj, source_map, annotations~, source_text~)
+    }),
+  )
 }
 
 ///|

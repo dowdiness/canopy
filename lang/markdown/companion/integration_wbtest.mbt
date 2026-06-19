@@ -23,6 +23,19 @@ test "round-trip: new_markdown_editor + apply_markdown_edit" {
 }
 
 ///|
+test "generic view path preserves ordered list kind" {
+  let ed = new_markdown_editor("test")
+  ed.set_text("1. one\n2. two\n")
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let patches = @editor.compute_view_patches(state, ed)
+  match patches {
+    [@protocol.ViewPatch::FullTree(root=Some(root)), ..] =>
+      inspect(root.children[0].kind_tag, content="OrderedList")
+    _ => fail("expected FullTree patch for ordered list")
+  }
+}
+
+///|
 test "split_block: middle of paragraph" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello World\n")

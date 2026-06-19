@@ -40,14 +40,19 @@ pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
         Some(get_ann) => get_ann()
         None => {}
       }
-      Some(
-        @protocol.proj_to_view_node(
-          proj_node,
-          source_map,
-          source_text~,
-          annotations~,
-        ),
-      )
+      match self.capabilities.to_view_node {
+        Some(convert) =>
+          Some(convert(proj_node, source_map, annotations, source_text))
+        None =>
+          Some(
+            @protocol.proj_to_view_node(
+              proj_node,
+              source_map,
+              source_text~,
+              annotations~,
+            ),
+          )
+      }
     }
     None => None
   }
