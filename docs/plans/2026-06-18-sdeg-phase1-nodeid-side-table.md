@@ -8,12 +8,20 @@ itself is not semantic identity:
 
 - heading rename, malformed inline recovery, and whitespace rewrites preserve
   `NodeId`;
+- heading rename also preserves `NodeId` when routed through the real Markdown
+  edit path (`MarkdownEditOp::CommitEdit` -> `apply_markdown_edit` ->
+  `SyncEditor`);
 - sibling reorder is position-stable rather than semantic-stable;
 - committed delete/restore cannot recover a retired heading identity;
 - `ProjectionIdentityTracker` / `realign_projection_items` does not cover those
   two gaps;
-- a test-only semantic matcher can detect simple reorder, delete/restore
-  recovery candidates, and duplicate-heading ambiguity.
+- heading level changes routed through the Markdown edit path currently freshen
+  `NodeId`; preserving that case needs edit provenance hints or projection
+  reconciliation, not a side-table-only guess;
+- a test-only semantic matcher can detect simple reorder mismatches,
+  delete/restore recovery candidates, and duplicate-heading ambiguity, but pure
+  reorder cannot be recovered by a side-table-only matcher while same-node
+  priority treats still-present `NodeId`s as exact matches.
 
 This plan designs the next internal slice: a package-private Markdown heading
 side table over `NodeId`, not a new public SDEG core.
@@ -46,22 +54,35 @@ contains test-only observations and match evidence. It proves:
   - ambiguous duplicate-heading match;
   - missing heading.
 
-The missing piece is lifecycle: retaining old observations across snapshots and
-mapping a stable session entity to its current `NodeId` when the projection
-`NodeId` changes.
+The companion edit-path test `lang/markdown/companion/sdeg_edit_path_wbtest.mbt`
+proves that observations can be derived after `SyncEditor` applies a Markdown
+edit; it also records heading level change as a fresh-`NodeId` limitation.
+
+The missing piece for this phase is lifecycle: retaining old observations across
+snapshots and mapping a stable session entity to its current `NodeId` when the
+previous projection node is absent. Phase 1 should not weaken the matcher to
+recover changes without evidence; it should keep ambiguous or
+provenance-sensitive cases explicit. In particular, pure sibling reorder remains
+out of scope for side-table-only recovery because Phase 0 showed the old
+`NodeId`s are still present but attached by position.
 
 ## Desired State
 
 A Markdown-internal side table can answer:
 
 - Which session-local heading entity does this current `NodeId` represent?
-- Which current `NodeId`, if any, represents this retained heading entity?
-- Was a heading preserved by `NodeId`, semantically reattached, newly spawned,
-  missing, ambiguous, or retired?
+- Which current `NodeId`, if any, represents this retained heading entity when
+  the previous current node is absent?
+- Was a heading preserved by `NodeId`, semantically reattached after absence,
+  newly spawned, missing, ambiguous, or retired?
 - What evidence justifies that decision?
 
 The side table remains internal and session-local. It does not promise reload or
 peer durability.
+
+The table is a derived snapshot layer. It consumes the current projection and
+source map after the normal edit/editor path has run; it must not mutate source
+text, projection nodes, source maps, CRDT state, or undo history.
 
 ## Design
 
@@ -147,6 +168,25 @@ current_node_id -> entity_ref
 The current-node index is rebuilt each update from live records. The entity
 records retain missing/tombstoned observations for recovery.
 
+### Carry-forward boundaries from Phase 0
+
+- Same-node evidence has priority. If the projection `NodeId` survived, preserve
+  that session entity before considering semantic recovery candidates.
+- Semantic recovery is only for cases where the previous node is absent. It must
+  be one-to-one and evidence-bearing; duplicate candidates stay ambiguous.
+- Pure sibling reorder is not recoverable in this side-table-only phase: the old
+  `NodeId`s remain present, so same-node priority wins and semantic recovery is
+  not considered. Solving that requires explicit reorder/edit provenance or a
+  projection reconciliation change that can override positional same-node
+  evidence.
+- Heading level change is not solved by dropping `level` from the signature or by
+  guessing from text alone. If Phase 1 touches that case, record it as requiring
+  edit provenance hints or projection reconciliation unless a stronger evidence
+  source is added.
+- Edit-path tests belong at the companion/editor boundary; side-table tests in
+  `lang/markdown/proj/` should consume post-projection observations rather than
+  create a parallel text mutation path.
+
 ### Matching pipeline
 
 For each successful projection snapshot:
@@ -201,48 +241,66 @@ Do not introduce production GC until UI/undo/reload requirements are clearer.
 ### Expected behavior
 
 - Rename: preserved by `NodeId`; signature changes on the same entity.
-- Reorder: semantic side table maps old A to current A and old B to current B
-  even when projection `NodeId`s swapped.
+- Reorder: pure sibling reorder is recorded as position-stable, not
+  semantic-stable, unless this phase also adds explicit reorder/edit provenance
+  or a projection reconciliation fix.
 - Delete: missing/tombstoned record retained for the deleted heading.
 - Restore: unique semantic match recovers the retained entity with a new current
   `NodeId`.
 - Duplicate headings: ambiguous; no semantic reattachment unless future evidence
   disambiguates.
+- Edit-path rename: same as rename above; observations are derived after
+  `SyncEditor` applies the Markdown edit.
+- Heading level change through the edit path: source/projection observation
+  updates, but current `NodeId` is fresh today. Phase 1 may record this as a
+  limitation; it should not claim semantic recovery without edit provenance or a
+  reconciliation fix.
 
 ## Steps
 
-1. Extract the test-only observation helpers into package-private helpers inside
+1. Start from the archived Phase 0 result note and
+   `docs/design/sdeg-nodeid-side-table.md`; treat those as prior evidence for
+   same-node priority and snapshot invariants. Where lifecycle names conflict,
+   this Phase 1 plan supersedes the older sketch: first absence is `Missing`,
+   and `Tombstoned` is reached only after the retention threshold.
+2. Extract the test-only observation helpers into package-private helpers inside
    `lang/markdown/proj/`, still not public.
-2. Add a package-private `HeadingEntityTable` with entity records and current-node
+3. Add a package-private `HeadingEntityTable` with entity records and current-node
    index.
-3. Implement update-from-observations for one successful projection snapshot.
-4. Add tests for:
+4. Implement update-from-observations for one successful projection snapshot.
+5. Add tests for:
    - rename keeps one entity and updates its signature;
-   - reorder preserves semantic entities despite current `NodeId` changes;
+   - pure sibling reorder records the same-node-priority limitation instead of
+     claiming semantic recovery;
    - delete marks the entity missing/tombstoned;
    - restore recovers the retained entity;
-   - duplicates produce ambiguity rather than guessed identity.
-5. Keep all behavior test-local until the table is needed by a real consumer.
-6. Summarize whether the table should graduate to a generic SDEG-internal
+   - duplicates produce ambiguity rather than guessed identity;
+   - heading level change remains an explicit fresh-`NodeId` limitation unless a
+     provenance/reconciliation fix is included.
+6. Keep all behavior test-local until the table is needed by a real consumer.
+7. Summarize whether the table should graduate to a generic SDEG-internal
    abstraction or remain Markdown-owned.
 
 ## Acceptance Criteria
 
 - [ ] No public `.mbti` surface changes.
 - [ ] Heading observations are extracted from existing `ProjNode` + `SourceMap`.
-- [ ] Side table preserves semantic identity across simple sibling reorder.
+- [ ] Pure sibling reorder is documented as a same-node-priority limitation, or
+      fixed only with explicit reorder/provenance evidence.
 - [ ] Side table marks delete as missing/tombstoned without deleting the record.
 - [ ] Side table recovers a uniquely restored heading from retained observation.
 - [ ] Duplicate headings are marked ambiguous.
 - [ ] Tests document which evidence produced each decision.
+- [ ] Heading level-change identity is either still documented as an upstream
+      provenance/reconciliation limitation or fixed with explicit evidence.
 - [ ] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation
 
 ```bash
-moon check
-moon test lang/markdown/proj
-moon test
+NEW_MOON_MOD=0 moon check
+NEW_MOON_MOD=0 moon test -p dowdiness/canopy/lang/markdown/proj
+NEW_MOON_MOD=0 moon test
 NEW_MOON_MOD=0 moon fmt
 NEW_MOON_MOD=0 moon info
 git diff -- '*.mbti'
@@ -260,8 +318,10 @@ committing.
   must mark duplicates ambiguous.
 - Retaining tombstones without GC can grow unbounded. Phase 1 should keep this
   test-local or editor-session-local until a retention policy is designed.
-- Reorder behavior may need edit provenance later. Do not encode current simple
-  matching as the final SDEG algorithm.
+- Reorder behavior needs edit provenance or projection reconciliation before it
+  can override same-node priority. Do not encode semantic reorder recovery as a
+  side-table-only guarantee; track that separately in
+  `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md`.
 - The side table should not mutate document state or bypass Markdown edit
   lowering.
 

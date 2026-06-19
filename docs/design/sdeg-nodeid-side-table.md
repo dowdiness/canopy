@@ -6,6 +6,12 @@ This note extracts the Phase 0 Markdown heading spike into the smallest
 side-table shape worth trying before adding a stable entity core or durable
 `EntityId`.
 
+**Phase 1 lifecycle note:** the active Phase 1 plan supersedes this sketch where
+lifecycle naming differs. In particular, Phase 1 uses `Missing` for first
+absence and reaches `Tombstoned` only after a retention threshold. Keep this
+sketch as prior evidence for same-node priority, one-to-one assignment, and
+snapshot invariants, not as the final lifecycle contract.
+
 ## Intent
 
 Use existing projection `NodeId`s as session-local identity seeds, then keep a
