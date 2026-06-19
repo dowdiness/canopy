@@ -276,4 +276,4 @@ only after another entity kind needs the same lifecycle semantics, and verify
 Related:
 
 - [Stable Document Entity Graph](stable-document-entity-graph.md)
-- [SDEG Phase 0 Markdown Heading Spike](../plans/2026-06-18-sdeg-phase0-markdown-heading-spike.md)
+- [SDEG Phase 0 Markdown Heading Spike](../archive/2026-06-18-sdeg-phase0-markdown-heading-spike.md)

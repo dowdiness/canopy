@@ -24,7 +24,7 @@ In:
 - `lang/markdown/proj/` package-private heading identity helpers.
 - White-box tests in `lang/markdown/proj/`.
 - Existing `NodeId`, `ProjNode`, `SourceMap`, and token spans.
-- Documentation updates to this plan and the Phase 0 plan if conclusions change.
+- Documentation updates to this plan and the archived Phase 0 result note if conclusions change.
 
 Out:
 - public `EntityId` or `sdeg-*` packages.
