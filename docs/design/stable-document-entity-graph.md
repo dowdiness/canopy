@@ -218,5 +218,6 @@ Until then, keep the design internal and side-table based.
 - [Responsibility Map](../architecture/responsibility-map.md)
 - [Range/span unit boundaries](../decisions/2026-06-13-range-span-unit-boundaries.md)
 - [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md)
+- [SDEG NodeId Side Table Sketch](sdeg-nodeid-side-table.md)
 - [Analysis Query Layer](analysis-query-layer.md)
 - [Design Concerns](design-concerns.md)
