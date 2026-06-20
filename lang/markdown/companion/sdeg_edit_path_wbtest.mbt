@@ -87,9 +87,9 @@ test "sdeg phase0: markdown edit path swap is replacement, not reorder provenanc
   let a_before = before[0]
   let b_before = before[1]
 
-  // MarkdownEditOp currently has no move/reorder operation. The smallest
-  // existing edit-path way to reach the swapped source is two text commits,
-  // which records replacement-by-position rather than move provenance.
+  // Without using the explicit MoveBlock operation, the smallest existing
+  // edit-path way to reach the swapped source is two text commits, which
+  // records replacement-by-position rather than move provenance.
   let first_result = apply_markdown_edit(
     editor,
     @md_edits.MarkdownEditOp::CommitEdit(node_id=a_before.id, new_text="B"),
@@ -116,6 +116,35 @@ test "sdeg phase0: markdown edit path swap is replacement, not reorder provenanc
   inspect(after[1].id == b_before.id, content="true")
   inspect(after[0].id == b_before.id, content="false")
   inspect(after[1].id == a_before.id, content="false")
+}
+
+///|
+test "sdeg spike: explicit markdown block move preserves moved heading identity" {
+  let editor = new_markdown_editor("sdeg-edit-path-explicit-move")
+  editor.set_text("# A\n# B\n")
+  editor.refresh()
+  let before = heading_edit_path_observations(editor)
+  let a_before = before[0]
+  let b_before = before[1]
+
+  let result = apply_markdown_edit(
+    editor,
+    @md_edits.MarkdownEditOp::MoveBlock(
+      source=b_before.id,
+      target=a_before.id,
+      position=@core.DropPosition::Before,
+    ),
+    0,
+  )
+  editor.refresh()
+  let after = heading_edit_path_observations(editor)
+
+  inspect(result is Ok(_), content="true")
+  inspect(editor.get_text(), content="# B\n# A\n")
+  inspect(after[0].text, content="B")
+  inspect(after[1].text, content="A")
+  inspect(after[0].id == b_before.id, content="true")
+  inspect(after[1].id == a_before.id, content="true")
 }
 
 ///|

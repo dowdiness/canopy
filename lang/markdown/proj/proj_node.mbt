@@ -184,6 +184,7 @@ fn markdown_view_kind_tag(
 /// projection.
 pub fn build_markdown_projection_memos(
   parser : @loom.Parser[@markdown.Block],
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
 ) -> (
   @incr.Derived[@core.ProjNode[@markdown.Block]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
@@ -194,6 +195,16 @@ pub fn build_markdown_projection_memos(
     parser.syntax_tree(),
     syntax_to_proj_node,
     populate_token_spans,
+    reconcile_node=(old, new_, counter) => {
+      match identity_hints {
+        None => @core.reconcile(old, new_, counter)
+        Some(hints_ref) => {
+          let hints = build_markdown_hints_map(hints_ref.val)
+          hints_ref.val = []
+          reconcile_markdown_projection_hinted(old, new_, counter, hints)
+        }
+      }
+    },
     label="markdown",
   )
 }

@@ -79,7 +79,11 @@ Out:
 1. Define the canonical move contract shared by both editors.
    Record the payload shape and the supported drop positions for each editor.
    Keep `Before`/`After` as the minimum common contract and treat `Inside` as
-   opt-in where the backend can prove it is valid.
+   opt-in where the backend can prove it is valid. For Markdown/block identity
+   provenance, use the accepted contract from
+   [Markdown Block Move Provenance Spike](2026-06-20-markdown-block-move-provenance-spike.md):
+   `MarkdownEditOp::MoveBlock(source, target, position)` with `Before`/`After`
+   only, lowered to source-text splices plus `IdentityTransform::Move`.
 2. Add positioned move primitives to the movable-tree path used by
    `examples/block-editor`.
    Prefer `move_before` / `move_after` or a single `move_between` primitive

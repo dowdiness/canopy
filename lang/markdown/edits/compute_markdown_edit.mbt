@@ -21,6 +21,10 @@ pub fn compute_markdown_edit(
       compute_split_block(source, proj, source_map, node_id, offset)
     MergeWithPrevious(node_id~) =>
       compute_merge_with_previous(source, proj, source_map, node_id)
+    MoveBlock(source=source_id, target=target_id, position~) =>
+      compute_move_block(
+        source, proj, source_map, source_id, target_id, position,
+      )
   }
 }
 
