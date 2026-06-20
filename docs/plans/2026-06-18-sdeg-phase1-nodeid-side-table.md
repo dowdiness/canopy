@@ -75,8 +75,10 @@ As of 2026-06-20, the first production extraction exists in
 files, and updates the existing white-box tests to consume the package-private
 core. Regression tests now record that preserved same-node evidence wins over a
 duplicate retained row's semantic claim, that rows retain explicit evidence for
-same-node/semantic/missing/ambiguous decisions, and that a level-only semantic
-match without preserved `NodeId` remains fresh rather than being recovered.
+same-node/semantic/missing/ambiguous decisions, that first absence is `Missing`
+and repeated absence becomes `Tombstoned`, that the table carries a rebuilt
+current-node index, and that a level-only semantic match without preserved
+`NodeId` remains fresh rather than being recovered.
 
 ## Desired State
 
@@ -291,9 +293,12 @@ Do not introduce production GC until UI/undo/reload requirements are clearer.
    - [x] duplicate retained headings do not demote a preserved same-node match;
    - [x] heading level change remains an explicit fresh-`NodeId` limitation unless a
      provenance/reconciliation fix is included.
-6. Keep all behavior test-local until the table is needed by a real consumer.
-7. Summarize whether the table should graduate to a generic SDEG-internal
-   abstraction or remain Markdown-owned.
+6. [x] Keep all behavior test-local until the table is needed by a real consumer.
+7. [x] Summarize whether the table should graduate to a generic SDEG-internal
+   abstraction or remain Markdown-owned. For now it remains Markdown-owned: the
+   evidence model is heading-signature-specific and pure reorder still needs a
+   future Markdown/block provenance path before a generic SDEG abstraction is
+   justified.
 
 ## Acceptance Criteria
 
@@ -305,6 +310,9 @@ Do not introduce production GC until UI/undo/reload requirements are clearer.
 - [x] Side table recovers a uniquely restored heading from retained observation.
 - [x] Duplicate headings are marked ambiguous.
 - [x] Same-node priority wins over a duplicate retained row's semantic claim.
+- [x] First absence is `Missing`; repeated absence becomes `Tombstoned` while
+      retained observations can still recover.
+- [x] The table carries a rebuilt current-node index for live rows.
 - [x] Tests document which evidence produced each decision.
 - [x] Heading level-change identity is either still documented as an upstream
       provenance/reconciliation limitation or fixed with explicit evidence.

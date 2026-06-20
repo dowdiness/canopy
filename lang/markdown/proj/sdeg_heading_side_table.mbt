@@ -14,6 +14,7 @@ priv struct HeadingObservation {
 ///|
 priv enum HeadingSideTableStatus {
   HeadingLive
+  HeadingMissing
   HeadingTombstoned
   HeadingAmbiguous
   HeadingRetired
@@ -75,6 +76,7 @@ priv struct HeadingSideTableRow {
 ///|
 priv struct HeadingSideTable {
   rows : Array[HeadingSideTableRow]
+  current_index : Map[@core.NodeId, HeadingStableRowId]
 }
 
 ///|
@@ -100,11 +102,35 @@ fn heading_side_table_live_row(obs : HeadingObservation) -> HeadingSideTableRow 
 }
 
 ///|
+fn heading_current_index(
+  rows : Array[HeadingSideTableRow],
+) -> Map[@core.NodeId, HeadingStableRowId] {
+  let index : Map[@core.NodeId, HeadingStableRowId] = Map([])
+  for row in rows {
+    match (row.status, row.current_id) {
+      (HeadingLive, Some(id)) => index[id] = row.stable_id
+      _ => ()
+    }
+  }
+  index
+}
+
+///|
 #warnings("-unused_value")
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
 ) -> HeadingSideTable {
-  { rows: observations.map(heading_side_table_live_row) }
+  let rows = observations.map(heading_side_table_live_row)
+  { rows, current_index: heading_current_index(rows) }
+}
+
+///|
+#warnings("-unused_value")
+fn HeadingSideTable::entity_for_current_node(
+  self : HeadingSideTable,
+  current_id : @core.NodeId,
+) -> HeadingStableRowId? {
+  self.current_index.get(current_id)
 }
 
 ///|
@@ -282,14 +308,19 @@ fn row_from_match(
     HeadingRetired => { ..row, current_id: None, candidates: [] }
     _ =>
       match ids {
-        [] =>
+        [] => {
+          let next_status = match row.status {
+            HeadingMissing | HeadingTombstoned => HeadingTombstoned
+            _ => HeadingMissing
+          }
           {
             ..row,
             current_id: None,
-            status: HeadingTombstoned,
+            status: next_status,
             candidates: [],
             evidence: match_result.evidence,
           }
+        }
         [id] if match_result.confidence is HeadingExact ||
           (claim_count(id) == 1 && match_result.confidence is HeadingProbable) =>
           match find_heading_by_id(current, id) {
@@ -367,5 +398,6 @@ fn HeadingSideTable::advance(
     })
     .map(heading_side_table_live_row)
     .collect()
-  { rows: next_rows + fresh_rows }
+  let rows = next_rows + fresh_rows
+  { rows, current_index: heading_current_index(rows) }
 }

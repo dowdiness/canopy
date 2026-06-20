@@ -109,7 +109,7 @@ fn heading_side_table_row_shape_valid(
           live_current_claim_count(rows, current_id) == 1
         None => false
       }
-    HeadingTombstoned | HeadingRetired =>
+    HeadingMissing | HeadingTombstoned | HeadingRetired =>
       row.current_id is None && row.candidates.length() == 0
     HeadingAmbiguous =>
       row.current_id is None &&
@@ -119,10 +119,30 @@ fn heading_side_table_row_shape_valid(
 }
 
 ///|
+fn live_row_count(rows : Array[HeadingSideTableRow]) -> Int {
+  rows.iter().filter(row => row.status == HeadingLive).count()
+}
+
+///|
+fn heading_side_table_index_valid(table : HeadingSideTable) -> Bool {
+  table.current_index.length() == live_row_count(table.rows) &&
+  table.rows
+  .iter()
+  .all(row => {
+    match (row.status, row.current_id) {
+      (HeadingLive, Some(current_id)) =>
+        table.entity_for_current_node(current_id) == Some(row.stable_id)
+      _ => true
+    }
+  })
+}
+
+///|
 fn heading_side_table_invariants_hold(
   table : HeadingSideTable,
   current : Array[HeadingObservation],
 ) -> Bool {
+  heading_side_table_index_valid(table) &&
   table.rows
   .iter()
   .all(row => {
@@ -186,10 +206,11 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
   let (deleted, deleted_map) = project_after_reconcile(
     initial, deleted_source, counter,
   )
-  let deleted_table = table.advance(
-    collect_heading_observations(deleted, deleted_map),
-  )
-  let a_deleted_row = find_side_table_row(deleted_table, a_before.id).unwrap()
+  let deleted_observations = collect_heading_observations(deleted, deleted_map)
+  let missing_table = table.advance(deleted_observations)
+  let a_missing_row = find_side_table_row(missing_table, a_before.id).unwrap()
+  let tombstoned_table = missing_table.advance(deleted_observations)
+  let a_tombstoned_row = find_side_table_row(tombstoned_table, a_before.id).unwrap()
 
   let (restored, restored_map) = project_after_reconcile(
     deleted, restored_source, counter,
@@ -198,15 +219,17 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
     restored, restored_map,
   )
   let a_restored = find_heading(restored_observations, "A").unwrap()
-  let restored_table = deleted_table.advance(restored_observations)
+  let restored_table = tombstoned_table.advance(restored_observations)
   let a_restored_row = find_side_table_row(restored_table, a_before.id).unwrap()
 
-  inspect(a_deleted_row.status == HeadingTombstoned, content="true")
-  inspect(a_deleted_row.current_id is None, content="true")
+  inspect(a_missing_row.status == HeadingMissing, content="true")
+  inspect(a_missing_row.current_id is None, content="true")
   inspect(
-    evidence_has_candidate_count(a_deleted_row.evidence, 0),
+    evidence_has_candidate_count(a_missing_row.evidence, 0),
     content="true",
   )
+  inspect(a_tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(a_tombstoned_row.current_id is None, content="true")
   inspect(a_restored_row.status == HeadingLive, content="true")
   inspect(
     a_restored_row.stable_id == HeadingStableRowId::from_node(a_before.id),
@@ -309,7 +332,7 @@ test "sdeg phase1: same-node match wins over duplicate semantic claimant" {
   inspect(row0.status == HeadingLive, content="true")
   inspect(row0.current_id == Some(current_a0.id), content="true")
   inspect(evidence_has_same_node(row0.evidence, current_a0.id), content="true")
-  inspect(row1.status == HeadingTombstoned, content="true")
+  inspect(row1.status == HeadingMissing, content="true")
   inspect(row1.current_id is None, content="true")
   inspect(evidence_has_candidate_count(row1.evidence, 0), content="true")
   inspect(advanced.rows.length(), content="2")
@@ -328,7 +351,7 @@ test "sdeg phase1: heading level change without same-node evidence stays fresh" 
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
 
-  inspect(old_row.status == HeadingTombstoned, content="true")
+  inspect(old_row.status == HeadingMissing, content="true")
   inspect(old_row.current_id is None, content="true")
   inspect(evidence_has_candidate_count(old_row.evidence, 0), content="true")
   inspect(fresh_row.status == HeadingLive, content="true")
@@ -393,7 +416,8 @@ test "sdeg phase0: NodeId side table retired rows do not revive" {
     status: HeadingRetired,
     candidates: [],
   }
-  let table = { rows: [retired_row] }
+  let rows = [retired_row]
+  let table = { rows, current_index: heading_current_index(rows) }
   let advanced = table.advance([current_a])
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
