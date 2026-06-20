@@ -79,8 +79,9 @@ ProseMirror tree positions to this API.
 | `ViewNode` | `protocol/` | Node in the rendered view tree. |
 | `ViewNode::ViewNode(...)` | `protocol/` | Named constructor. |
 | `layout_to_view_tree(layout)` | `protocol/` | Convert a `Layout` from the pretty-printer to a `ViewNode` tree. |
+| `LanguageCapabilities::with_to_view_node` | `editor/` | Install a language-specific `ProjNode` → `ViewNode` converter when generic `Renderable` conversion is not enough. Prefer refining `@protocol.proj_to_view_node`; wire this in `lang/*/companion`, not in `SyncEditor` or frontend adapters. |
 
-**Do not:** Build a parallel view representation outside `ViewNode`/`protocol/`.
+**Do not:** Build a parallel view representation outside `ViewNode`/`protocol/`, or special-case language-specific view semantics in generic editor/frontend code.
 
 ---
 

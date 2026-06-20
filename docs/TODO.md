@@ -77,6 +77,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `HeadingMarker(Int)`, `CodeFenceOpen(Int, String)`, `Text(String)`, `CodeText(String)` still carry payloads. Some are semantic (heading level, info string), not just raw text — needs design thought on how to derive from source.
   Exit: markdown Token is payload-free where possible, semantic info extracted at point-of-use.
 
+- [ ] Replace Markdown ordered-list `SourceMap` side channel with explicit list payloads.
+  Why: PR #720 temporarily records ordered-list kind in `SourceMap` metadata because Loom's Markdown `Block` API currently folds ordered and unordered list containers into one payload. Orderedness is semantic AST data and should come from Loom's Markdown payload once exposed there.
+  Plan: `docs/plans/2026-06-20-markdown-list-payloads.md`
+  Exit: `ORDERED_LIST_KIND_ROLE` is removed, ordered-list projection/view/FFI/block-mode regressions still pass, and Canopy reads list kind from explicit Loom Markdown list payloads.
+
 - [ ] `SyntaxNode::find[K : ToRawKind]` generic method (low priority).
   Why: 16 `find_token(...to_raw())` callsites remain, but views pattern + `token_text()` already reduce the ergonomic pain. Nice-to-have polish.
   Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam.
