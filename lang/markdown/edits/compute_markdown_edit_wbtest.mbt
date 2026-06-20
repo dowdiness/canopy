@@ -100,6 +100,15 @@ test "split_block: mid-cluster offset snaps to next grapheme boundary" {
 }
 
 ///|
+test "split_block: ordered list item keeps ordered marker" {
+  let source = "1. first\n2. second\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let item_id = proj.children[0].children[0].id()
+  let result = apply_edit(source, SplitBlock(node_id=item_id, offset=2))
+  inspect(result, content="1. fi\n2. rst\n2. second\n")
+}
+
+///|
 test "merge_with_previous: first block is no-op" {
   let source = "Hello\n"
   let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")

@@ -251,7 +251,7 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
   let current : @protocol.ViewNode? = match proj_opt {
     Some(proj) =>
       Some(
-        @protocol.proj_to_view_node(
+        @md_proj.proj_to_view_node(
           proj,
           source_map,
           source_text=Some(source_text),

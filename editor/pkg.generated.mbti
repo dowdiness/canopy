@@ -84,6 +84,7 @@ pub struct LanguageCapabilities[T] {
 }
 pub fn[T] LanguageCapabilities::default() -> Self[T]
 pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
+pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], String?) -> @protocol.ViewNode) -> Self[T]
 
 pub struct SyncEditor[T] {
   // private fields

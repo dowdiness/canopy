@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/core",
+  "dowdiness/canopy/protocol",
   "dowdiness/incr",
   "dowdiness/markdown",
   "dowdiness/loom",

@@ -59,6 +59,14 @@
   color: #666;
 }
 
+.block[data-kind="ListItem"][data-list-kind="ordered"] {
+  padding-left: 32px;
+}
+
+.block[data-kind="ListItem"][data-list-kind="ordered"]::before {
+  content: attr(data-list-marker) " ";
+}
+
 /* Code blocks: kind_tag is "Code" or "Code(lang)" */
 .block[data-kind^="Code"] {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;

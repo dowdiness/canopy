@@ -9,3 +9,7 @@ import {
   "dowdiness/markdown",
   "dowdiness/loom",
 }
+
+import {
+  "dowdiness/canopy/protocol",
+} for "wbtest"

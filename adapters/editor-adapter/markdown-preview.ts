@@ -20,7 +20,10 @@ function semanticTag(node: ViewNode): HTMLElement {
     case 'Paragraph':
       return document.createElement('p');
     case 'List':
+    case 'UnorderedList':
       return document.createElement('ul');
+    case 'OrderedList':
+      return document.createElement('ol');
     case 'ListItem':
       return document.createElement('li');
     default:
