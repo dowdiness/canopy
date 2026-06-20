@@ -7,16 +7,6 @@
 /// already preserves and where it is still only position-stable.
 
 ///|
-struct HeadingObservation {
-  id : @core.NodeId
-  level : Int
-  text : String
-  range : @loomcore.Range
-  marker : @loomcore.Range?
-  text_span : @loomcore.Range?
-} derive(Eq, Debug)
-
-///|
 enum HeadingIdentityOutcome {
   Preserved
   SemanticMatchWithDifferentNodeId
@@ -166,16 +156,6 @@ fn find_heading(
 ///|
 fn range_contains(outer : @loomcore.Range, inner : @loomcore.Range) -> Bool {
   outer.start <= inner.start && inner.end <= outer.end
-}
-
-///|
-fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
-  a.start < b.end && b.start < a.end
-}
-
-///|
-fn heading_key(obs : HeadingObservation) -> String {
-  "h\{obs.level}:\{obs.text}"
 }
 
 ///|
