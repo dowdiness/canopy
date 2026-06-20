@@ -1,6 +1,6 @@
 # Markdown Block Move Provenance Spike
 
-**Status:** backlog
+**Status:** implemented spike (2026-06-20)
 
 ## Why
 
@@ -62,6 +62,45 @@ The spike answers, with code/tests or a written rejection:
 - Do ordinary replacement edits and pure source reorder keep same-node priority
   / documented limitation behavior?
 
+## Chosen Contract
+
+The spike accepts a minimal Markdown structural operation:
+
+```moonbit
+MarkdownEditOp::MoveBlock(
+  source~ : NodeId,
+  target~ : NodeId,
+  position~ : DropPosition,
+)
+```
+
+Only `DropPosition::Before` and `DropPosition::After` are legal for now;
+`Inside` is rejected until Markdown has a nested-block contract. `source == target`
+and already-adjacent no-op moves return `Ok(None)`. The accepted spike surface
+is root-level block moves only: nested/list-item moves, list-container sources,
+and duplicate exact source payloads are rejected until Markdown list orderedness,
+ancestor reconciliation, and ambiguity handling are represented in the block
+payload. The source-text splice remains the source of truth:
+the operation lowers by re-rendering the affected root-block sequence from the
+same block source slices with separators chosen for each new neighbor pair, so
+paragraph moves preserve required blank-line separation instead of merging
+blocks.
+
+Provenance uses the existing `IdentityTransform::Move(subtree=source)` channel:
+`apply_markdown_edit` passes the hint to `SyncEditor::apply_span_edits`, and the
+Markdown editor now wires a shared pending-hint `Ref` into
+`build_markdown_projection_memos`, matching the Lambda editor pattern. Markdown
+consumes the move with a language-specific reconciler because generic
+`reconcile_hinted` intentionally freshens `Move` at the old position. The
+Markdown reconciler only lets explicit move provenance override positional
+same-node evidence for a unique exact block-kind match among LCS-unmatched
+siblings; ambiguous duplicate moved content degrades to fresh identity rather
+than guessing.
+
+No public SDEG/entity-id API is introduced. The public API changes are limited to
+Markdown's structural edit surface and an optional Markdown projection hint
+parameter required to wire the existing editor hint channel.
+
 ## Steps
 
 1. Define candidate move operations, e.g. `MoveBlockBefore(source~, target~)` /
@@ -89,19 +128,19 @@ The spike answers, with code/tests or a written rejection:
 
 ## Acceptance Criteria
 
-- [ ] A concrete Markdown/block move operation shape is accepted or rejected with
+- [x] A concrete Markdown/block move operation shape is accepted or rejected with
       reasons.
-- [ ] The provenance delivery path is named: existing `IdentityTransform::Move`,
+- [x] The provenance delivery path is named: existing `IdentityTransform::Move`,
       an extended hint channel, a Markdown-specific bridge, or a documented
       blocker.
-- [ ] Tests or a written proof-of-blocker show that explicit provenance is the
+- [x] Tests or a written proof-of-blocker show that explicit provenance is the
       only case where reorder identity can override positional same-node
       evidence.
-- [ ] Pure source reorder remains documented and tested as a limitation when no
+- [x] Pure source reorder remains documented and tested as a limitation when no
       explicit provenance is present.
-- [ ] The future block-editor drag/drop plan links to the accepted provenance
+- [x] The future block-editor drag/drop plan links to the accepted provenance
       contract.
-- [ ] No public SDEG/entity ID API is introduced.
+- [x] No public SDEG/entity ID API is introduced.
 
 ## Validation
 

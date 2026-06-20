@@ -7,6 +7,7 @@ using @core {
   type SourceMap,
   type SpanEdit,
   type FocusHint,
+  type DropPosition,
 }
 
 ///|
@@ -18,4 +19,5 @@ pub(all) enum MarkdownEditOp {
   InsertBlockAfter(node_id~ : NodeId)
   SplitBlock(node_id~ : NodeId, offset~ : Int)
   MergeWithPrevious(node_id~ : NodeId)
+  MoveBlock(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
 } derive(Debug, Eq)
