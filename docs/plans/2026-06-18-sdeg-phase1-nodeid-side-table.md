@@ -64,7 +64,10 @@ previous projection node is absent. Phase 1 should not weaken the matcher to
 recover changes without evidence; it should keep ambiguous or
 provenance-sensitive cases explicit. In particular, pure sibling reorder remains
 out of scope for side-table-only recovery because Phase 0 showed the old
-`NodeId`s are still present but attached by position.
+`NodeId`s are still present but attached by position. Reorder recovery is still
+needed for the future block-based editor UI; the owner should be a language-owned
+block move/reorder edit path that emits explicit move provenance, not the Phase 1
+derived side table guessing around same-node priority.
 
 ## Desired State
 

@@ -260,6 +260,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3)
   Exit: `block-editor` exposes positioned block moves plus structural render metadata.
 
+- [ ] Spike Markdown block move provenance for future block UI.
+  Why: SDEG Phase 1 documents pure source reorder as position-stable; future block moves need explicit provenance so identity follows the moved block.
+  Plan: `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`
+  Exit: accepted or rejected move-provenance contract, with tests or blocker proof showing only explicit provenance can override positional same-node evidence.
+
 - [ ] Convergence tests for concurrent drag-drop.
   Why: concurrent relocations across CRDT peers need convergence guarantees.
   Exit: property tests covering concurrent drop, undo grouping after relocation, and reconciliation.

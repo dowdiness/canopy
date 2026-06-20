@@ -30,14 +30,27 @@ fn heading_edit_path_observation(
 }
 
 ///|
+fn heading_edit_path_observations(
+  editor : @editor.SyncEditor[@markdown.Block],
+) -> Array[HeadingEditPathObservation] {
+  let observations : Array[HeadingEditPathObservation] = []
+  let root = editor.get_proj_node().unwrap()
+  let source = editor.get_text()
+  let source_map = editor.get_source_map()
+  for child in root.children {
+    match heading_edit_path_observation(child, source, source_map) {
+      Some(obs) => observations.push(obs)
+      None => ()
+    }
+  }
+  observations
+}
+
+///|
 fn first_heading_edit_path_observation(
   editor : @editor.SyncEditor[@markdown.Block],
 ) -> HeadingEditPathObservation {
-  heading_edit_path_observation(
-    editor.get_proj_node().unwrap().children[0],
-    editor.get_text(),
-    editor.get_source_map(),
-  ).unwrap()
+  heading_edit_path_observations(editor)[0]
 }
 
 ///|
@@ -63,6 +76,46 @@ test "sdeg phase0: heading rename goes through Markdown edit path" {
   inspect(before.id == after.id, content="true")
   inspect(before.text_span_text == Some("Alpha"), content="true")
   inspect(after.text_span_text == Some("Alpha 2"), content="true")
+}
+
+///|
+test "sdeg phase0: markdown edit path swap is replacement, not reorder provenance" {
+  let editor = new_markdown_editor("sdeg-edit-path-reorder")
+  editor.set_text("# A\n# B\n")
+  editor.refresh()
+  let before = heading_edit_path_observations(editor)
+  let a_before = before[0]
+  let b_before = before[1]
+
+  // MarkdownEditOp currently has no move/reorder operation. The smallest
+  // existing edit-path way to reach the swapped source is two text commits,
+  // which records replacement-by-position rather than move provenance.
+  let first_result = apply_markdown_edit(
+    editor,
+    @md_edits.MarkdownEditOp::CommitEdit(node_id=a_before.id, new_text="B"),
+    0,
+  )
+  editor.refresh()
+  let middle = heading_edit_path_observations(editor)
+  let second_result = apply_markdown_edit(
+    editor,
+    @md_edits.MarkdownEditOp::CommitEdit(node_id=middle[1].id, new_text="A"),
+    1,
+  )
+  editor.refresh()
+  let after = heading_edit_path_observations(editor)
+
+  inspect(first_result is Ok(_), content="true")
+  inspect(second_result is Ok(_), content="true")
+  inspect(editor.get_text(), content="# B\n# A\n")
+  inspect(a_before.text, content="A")
+  inspect(b_before.text, content="B")
+  inspect(after[0].text, content="B")
+  inspect(after[1].text, content="A")
+  inspect(after[0].id == a_before.id, content="true")
+  inspect(after[1].id == b_before.id, content="true")
+  inspect(after[0].id == b_before.id, content="false")
+  inspect(after[1].id == a_before.id, content="false")
 }
 
 ///|

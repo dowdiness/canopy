@@ -138,6 +138,8 @@ tests where the interaction becomes user-visible.
 ## Notes
 
 - Browser-native drag-and-drop is input plumbing, not the canonical move model.
+- Markdown/block identity provenance for future block moves is tracked in
+  `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`.
 - Prefer dedicated drag handles over making the editable surface itself
   draggable.
 - Leave room for future ephemeral drag presence by keeping source/target/

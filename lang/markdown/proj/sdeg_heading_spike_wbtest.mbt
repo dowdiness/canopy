@@ -359,12 +359,24 @@ test "sdeg phase0: heading reorder is currently position-stable, not semantic-st
   let after = collect_heading_observations(reordered, reordered_map)
   let b_after = find_heading(after, "B").unwrap()
   let a_after = find_heading(after, "A").unwrap()
+  let after_at_a_previous_id = after
+    .iter()
+    .find_first(fn(obs) { obs.id == a_before.id })
+    .unwrap()
+  let after_at_b_previous_id = after
+    .iter()
+    .find_first(fn(obs) { obs.id == b_before.id })
+    .unwrap()
 
   // Current generic reconcile matches same-kind siblings by position/LCS. That
   // preserves UI positions, but it does not preserve the semantic identity of a
-  // moved heading. This is a Phase 0 finding, not the desired final behavior.
+  // moved heading. Both previous heading NodeIds remain present after the swap:
+  // previous A's NodeId now names B, and previous B's NodeId now names A. This
+  // is a Phase 0 finding, not the desired final behavior.
   inspect(b_after.id == a_before.id, content="true")
   inspect(a_after.id == b_before.id, content="true")
+  inspect(after_at_a_previous_id.text, content="B")
+  inspect(after_at_b_previous_id.text, content="A")
 }
 
 ///|
