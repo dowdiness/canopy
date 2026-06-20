@@ -1,5 +1,8 @@
 # SDEG Reorder Provenance Investigation
 
+**Status:** done — concluded that Markdown reorder recovery is future block-move
+work, not SDEG Phase 1 side-table work.
+
 ## Why
 
 SDEG Phase 0 showed that pure Markdown sibling reorder is position-stable rather
@@ -57,16 +60,100 @@ Out:
 6. Update the Phase 1 side-table plan with the resulting owner and acceptance
    scope.
 
+## Investigation log
+
+### 2026-06-20 — Phase 0 pure source reorder reproduction
+
+Reproduced with:
+
+```bash
+NEW_MOON_MOD=0 moon test -p dowdiness/canopy/lang/markdown/proj --filter 'sdeg phase0: heading reorder is currently position-stable, not semantic-stable'
+```
+
+The diagnostic test in `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`
+records that after `# A\n# B\n` is reconciled to `# B\n# A\n`, both previous
+heading `NodeId`s remain present: previous A's `NodeId` is now attached to B,
+and previous B's `NodeId` is now attached to A. This confirms the Phase 0
+observation: pure source reorder without provenance is position-stable, not
+semantic-stable.
+
+### 2026-06-20 — Markdown edit-path reorder check
+
+Existing Markdown edit operations are `CommitEdit`, `ChangeHeadingLevel`,
+`ToggleListItem`, `Delete`, `InsertBlockAfter`, `SplitBlock`, and
+`MergeWithPrevious`; there is no explicit move/reorder operation. The generic
+Markdown companion bridge computes span edits and calls
+`SyncEditor::apply_span_edits` without an identity hint, so it does not produce
+move provenance for reorder-like outcomes.
+
+Added a companion white-box diagnostic covering the smallest existing edit-path
+way to reach the swapped text: two `CommitEdit` operations, A→B at the first
+heading and B→A at the second heading. The final source is `# B\n# A\n`, but
+identity stays by position: the first heading keeps previous A's `NodeId`, and
+the second heading keeps previous B's `NodeId`. This is replacement provenance,
+not reorder provenance.
+
+Reproduced with:
+
+```bash
+NEW_MOON_MOD=0 moon test -p dowdiness/canopy/lang/markdown/companion --filter 'sdeg phase0: markdown edit path swap is replacement, not reorder provenance'
+```
+
+### 2026-06-20 — Scope decision
+
+Markdown reorder recovery is needed for the future block-based editor UI, where a
+user-visible block move should carry identity with the moved block. It is not a
+Phase 1 side-table deliverable: the current Markdown edit path has no reorder
+operation or move provenance, and building that language-owned block move path
+is a larger structural-edit feature. Until that exists, pure source reorder
+remains a documented same-node-priority limitation rather than a side-table-only
+semantic override.
+
+Existing APIs checked before making that call:
+
+- `core/reconcile.mbt`: `reconcile` / `reconcile_hinted` preserve same-kind
+  siblings by LCS/position unless explicit structural hints exclude old nodes.
+- `core/identity_transform.mbt`: `IdentityTransform::Move` exists as vocabulary,
+  but the generic reconciler currently freshens move-targeted positions; there is
+  no Markdown producer for it.
+- `lang/runtime/language_spec.mbt` and `lang/markdown/companion/`: Markdown
+  structural edits are lowered to span edits without identity hints.
+- `lang/lambda/proj/projection_memo.mbt`: Lambda has custom hinted projection
+  reconciliation, but Markdown does not.
+- Loom `ProjectionIdentityTracker` / `realign_projection_items`: useful for edit
+  windows and failed-input recovery, but the Phase 0 diagnostic records that it
+  does not recover pure sibling reorder.
+
+## Conclusion
+
+Reorder recovery is **not in scope for SDEG Phase 1**. The Phase 1 side table
+should keep same-node priority for ordinary edits and report pure source reorder
+as a known limitation when no explicit provenance is present.
+
+The future owner is **Markdown/block edit lowering plus hinted projection
+reconciliation**: a block-based editor move command should produce an explicit
+move/reorder operation, lower it to text/CRDT edits, and pass identity provenance
+through the existing hint channel or a future equivalent. Projection
+reconciliation should only override positional same-node evidence for that
+explicit move provenance, not for arbitrary source reorder inferred from text.
+
+No prototype fix was added because the current Markdown edit path cannot express
+the required user intent. Adding that path is a larger block-editor structural
+edit feature, not a side-table-only change.
+
+Follow-up spike opened: `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`.
+
 ## Acceptance criteria
 
-- [ ] The investigation names whether reorder recovery is in scope for Phase 1.
-- [ ] Tests record pure source reorder as position-stable unless explicit
+- [x] The investigation names whether reorder recovery is in scope for Phase 1.
+- [x] Tests record pure source reorder as position-stable unless explicit
       provenance is present.
-- [ ] If a fix is prototyped, same-node priority still wins for ordinary
-      non-reorder edits.
-- [ ] No public API or `.mbti` surface changes unless explicitly justified.
-- [ ] Documentation states the owner: Markdown edit lowering, projection
-      reconciliation, identity realignment, or future SDEG core.
+- [x] If a fix is prototyped, same-node priority still wins for ordinary
+      non-reorder edits. Not applicable: no fix was prototyped because no
+      explicit Markdown reorder provenance exists today.
+- [x] No public API or `.mbti` surface changes unless explicitly justified.
+- [x] Documentation states the owner: Markdown edit lowering plus hinted
+      projection reconciliation for a future block move/reorder edit path.
 
 ## Validation
 

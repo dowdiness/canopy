@@ -132,8 +132,18 @@ Hooks enforce `moon check` after every edit and `moon fmt && moon info` before c
 
 Before defining any new function, method, helper, or type in this repository:
 
-1. Search: `NEW_MOON_MOD=0 moon ide doc "<keyword>"`, `NEW_MOON_MOD=0 moon ide outline <pkg>`, `NEW_MOON_MOD=0 moon ide peek-def <symbol>`, `NEW_MOON_MOD=0 moon ide find-references <symbol>`.
+1. Search project APIs and the relevant MoonBit core APIs:
+   `NEW_MOON_MOD=0 moon ide doc "<keyword>"`,
+   `NEW_MOON_MOD=0 moon ide doc "<CoreType>::*"`,
+   `NEW_MOON_MOD=0 moon ide doc "@<core-package>"`,
+   `NEW_MOON_MOD=0 moon ide outline <pkg>`,
+   `NEW_MOON_MOD=0 moon ide peek-def <symbol>`,
+   `NEW_MOON_MOD=0 moon ide find-references <symbol>`.
 2. State at least 2 candidate existing APIs, or explain why fewer exist.
+   Include actual MoonBit core candidates for the data shape involved (for
+   example `Map`, `Set`, `String`/`StringView`, `Bytes`/`BytesView`,
+   `Buffer`/`StringBuilder`, `Option`/`Result`, `cmp`/`math` helpers,
+   `Array`, `Iter`) rather than listing only `Iter`/`Array` by default.
 3. For each candidate: where defined, what it covers, whether reused, and if not — why not.
 4. If a new helper is unavoidable, state its responsibility boundary explicitly.
 
@@ -144,13 +154,19 @@ See `docs/api-map.md` for the task→existing-API index. Include a **Reuse check
 Extends the Existing API First Rule above from *new definitions* to *all* code.
 
 Do not write new low-level loops, helpers, or data-manipulation code until you
-have searched for existing project APIs and MoonBit/core APIs. Use
-`NEW_MOON_MOD=0 moon ide doc`, `peek-def`, `find-references`, and `outline` to
-discover existing functions and methods.
+have searched for existing project APIs and the actual MoonBit core APIs that
+fit the data shape. Use `NEW_MOON_MOD=0 moon ide doc`, `peek-def`,
+`find-references`, and `outline` to discover existing functions and methods.
 
 **Prefer declarative code:**
 - `match` / `guard` / pattern matching
-- `Iter` methods: `map`, `filter`, `fold`, `collect`
+- MoonBit core APIs for the concrete data shape: `Map`/`Set` lookups,
+  `Option`/`Result` handling, `String`/`StringView`/`Bytes`/`BytesView`
+  slicing, `Buffer`/`StringBuilder`, `cmp`/`math` helpers, plus `Array`/`Iter`
+  methods such as `map`, `filter`, `fold`, `collect`
+- arrow functions for higher-order callbacks (`x => expr`, `(a, b) => { ... }`);
+  reserve `fn(...) { ... }` for named/local function values, explicit
+  `raise`/`async` shape, or recursion
 - list comprehensions when clearer
 - `ArrayView` / `StringView` / `BytesView` instead of copying
 - owning-type methods and constructors
@@ -162,10 +178,11 @@ discover existing functions and methods.
   performance reasons
 
 **Before finalizing, report:**
-1. existing APIs reused
-2. existing APIs checked but not used
-3. any new helper introduced, and why
-4. remaining imperative code, and why it is necessary
+1. existing project APIs reused
+2. MoonBit core APIs checked (not just `Iter`/`Array`) and whether reused
+3. existing APIs checked but not used
+4. any new helper introduced, and why
+5. remaining imperative code, and why it is necessary
 
 Run `moon check` after edits and `moon test` for affected packages.
 

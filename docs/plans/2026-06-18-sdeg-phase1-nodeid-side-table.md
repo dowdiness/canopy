@@ -64,7 +64,21 @@ previous projection node is absent. Phase 1 should not weaken the matcher to
 recover changes without evidence; it should keep ambiguous or
 provenance-sensitive cases explicit. In particular, pure sibling reorder remains
 out of scope for side-table-only recovery because Phase 0 showed the old
-`NodeId`s are still present but attached by position.
+`NodeId`s are still present but attached by position. Reorder recovery is still
+needed for the future block-based editor UI; the owner should be a language-owned
+block move/reorder edit path that emits explicit move provenance, not the Phase 1
+derived side table guessing around same-node priority.
+
+As of 2026-06-20, the first production extraction exists in
+`lang/markdown/proj/sdeg_heading_side_table.mbt`. It keeps the side-table types
+`priv`, moves shared heading observation/range/key helpers out of white-box-only
+files, and updates the existing white-box tests to consume the package-private
+core. Regression tests now record that preserved same-node evidence wins over a
+duplicate retained row's semantic claim, that rows retain explicit evidence for
+same-node/semantic/missing/ambiguous decisions, that first absence is `Missing`
+and repeated absence becomes `Tombstoned`, that the table carries a rebuilt
+current-node index, and that a level-only semantic match without preserved
+`NodeId` remains fresh rather than being recovered.
 
 ## Desired State
 
@@ -263,37 +277,46 @@ Do not introduce production GC until UI/undo/reload requirements are clearer.
    same-node priority and snapshot invariants. Where lifecycle names conflict,
    this Phase 1 plan supersedes the older sketch: first absence is `Missing`,
    and `Tombstoned` is reached only after the retention threshold.
-2. Extract the test-only observation helpers into package-private helpers inside
-   `lang/markdown/proj/`, still not public.
-3. Add a package-private `HeadingEntityTable` with entity records and current-node
-   index.
-4. Implement update-from-observations for one successful projection snapshot.
+2. [x] Extract the test-only observation helpers into package-private helpers
+   inside `lang/markdown/proj/`, still not public.
+3. [x] Add a package-private heading side table with entity records and a
+   current-node index. The implementation name is `HeadingSideTable`; the plan's
+   earlier `HeadingEntityTable` name was descriptive, not a public contract.
+4. [x] Implement update-from-observations for one successful projection snapshot.
 5. Add tests for:
-   - rename keeps one entity and updates its signature;
-   - pure sibling reorder records the same-node-priority limitation instead of
-     claiming semantic recovery;
-   - delete marks the entity missing/tombstoned;
-   - restore recovers the retained entity;
-   - duplicates produce ambiguity rather than guessed identity;
-   - heading level change remains an explicit fresh-`NodeId` limitation unless a
+   - [x] rename keeps one entity and updates its signature;
+   - [x] pure sibling reorder records the same-node-priority limitation instead
+     of claiming semantic recovery;
+   - [x] delete marks the entity missing/tombstoned;
+   - [x] restore recovers the retained entity;
+   - [x] duplicates produce ambiguity rather than guessed identity;
+   - [x] duplicate retained headings do not demote a preserved same-node match;
+   - [x] heading level change remains an explicit fresh-`NodeId` limitation unless a
      provenance/reconciliation fix is included.
-6. Keep all behavior test-local until the table is needed by a real consumer.
-7. Summarize whether the table should graduate to a generic SDEG-internal
-   abstraction or remain Markdown-owned.
+6. [x] Keep all behavior test-local until the table is needed by a real consumer.
+7. [x] Summarize whether the table should graduate to a generic SDEG-internal
+   abstraction or remain Markdown-owned. For now it remains Markdown-owned: the
+   evidence model is heading-signature-specific and pure reorder still needs a
+   future Markdown/block provenance path before a generic SDEG abstraction is
+   justified.
 
 ## Acceptance Criteria
 
-- [ ] No public `.mbti` surface changes.
-- [ ] Heading observations are extracted from existing `ProjNode` + `SourceMap`.
-- [ ] Pure sibling reorder is documented as a same-node-priority limitation, or
+- [x] No public `.mbti` surface changes.
+- [x] Heading observations are extracted from existing `ProjNode` + `SourceMap`.
+- [x] Pure sibling reorder is documented as a same-node-priority limitation, or
       fixed only with explicit reorder/provenance evidence.
-- [ ] Side table marks delete as missing/tombstoned without deleting the record.
-- [ ] Side table recovers a uniquely restored heading from retained observation.
-- [ ] Duplicate headings are marked ambiguous.
-- [ ] Tests document which evidence produced each decision.
-- [ ] Heading level-change identity is either still documented as an upstream
+- [x] Side table marks delete as missing/tombstoned without deleting the record.
+- [x] Side table recovers a uniquely restored heading from retained observation.
+- [x] Duplicate headings are marked ambiguous.
+- [x] Same-node priority wins over a duplicate retained row's semantic claim.
+- [x] First absence is `Missing`; repeated absence becomes `Tombstoned` while
+      retained observations can still recover.
+- [x] The table carries a rebuilt current-node index for live rows.
+- [x] Tests document which evidence produced each decision.
+- [x] Heading level-change identity is either still documented as an upstream
       provenance/reconciliation limitation or fixed with explicit evidence.
-- [ ] No CRDT, frontend protocol, or public SDEG package changes.
+- [x] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation
 

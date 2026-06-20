@@ -1,98 +1,8 @@
 ///| Whitebox side-table tests for the Stable Document Entity Graph Phase 0 idea.
 
 ///|
-/// These tests keep the side-table model test-local. They reuse the heading
-/// observation helpers from `sdeg_heading_spike_wbtest.mbt` and validate the
+/// These tests exercise the package-private side-table model and validate the
 /// internal lifecycle sketch in `docs/design/sdeg-nodeid-side-table.md`.
-
-///|
-enum HeadingSideTableStatus {
-  HeadingLive
-  HeadingTombstoned
-  HeadingAmbiguous
-  HeadingRetired
-} derive(Eq, Debug)
-
-///|
-struct HeadingStableRowId {
-  seed : @core.NodeId
-} derive(Eq, Debug)
-
-///|
-fn HeadingStableRowId::from_node(id : @core.NodeId) -> HeadingStableRowId {
-  { seed: id }
-}
-
-///|
-enum HeadingSideTableConfidence {
-  HeadingExact
-  HeadingProbable
-  HeadingMatchAmbiguous
-  HeadingMissing
-} derive(Eq, Debug)
-
-///|
-enum HeadingEntityEvidence {
-  HeadingSameNodeId(@core.NodeId)
-  HeadingSameSemanticKey(String)
-  HeadingOverlappingRange(@loomcore.Range, @loomcore.Range)
-  HeadingCandidateCount(Int)
-} derive(Eq, Debug)
-
-///|
-struct HeadingMatchCandidate {
-  id : @core.NodeId
-  evidence : Array[HeadingEntityEvidence]
-} derive(Eq, Debug)
-
-///|
-struct HeadingSideTableMatch {
-  confidence : HeadingSideTableConfidence
-  candidates : Array[HeadingMatchCandidate]
-  evidence : Array[HeadingEntityEvidence]
-} derive(Eq, Debug)
-
-///|
-struct HeadingSideTableRow {
-  stable_id : HeadingStableRowId
-  current_id : @core.NodeId?
-  status : HeadingSideTableStatus
-  last_live : HeadingObservation
-  candidates : Array[@core.NodeId]
-  evidence : Array[HeadingEntityEvidence]
-} derive(Eq, Debug)
-
-///|
-struct HeadingSideTable {
-  rows : Array[HeadingSideTableRow]
-} derive(Eq, Debug)
-
-///|
-fn heading_side_table_live_row(obs : HeadingObservation) -> HeadingSideTableRow {
-  {
-    stable_id: HeadingStableRowId::from_node(obs.id),
-    current_id: Some(obs.id),
-    status: HeadingLive,
-    last_live: obs,
-    candidates: [],
-    evidence: [HeadingSameNodeId(obs.id), HeadingCandidateCount(1)],
-  }
-}
-
-///|
-fn HeadingSideTable::from_observations(
-  observations : Array[HeadingObservation],
-) -> HeadingSideTable {
-  { rows: observations.map(heading_side_table_live_row) }
-}
-
-///|
-fn find_heading_by_id(
-  observations : Array[HeadingObservation],
-  id : @core.NodeId,
-) -> HeadingObservation? {
-  observations.iter().find_first(fn(obs) { obs.id == id })
-}
 
 ///|
 fn find_side_table_row(
@@ -100,222 +10,7 @@ fn find_side_table_row(
   stable_id : @core.NodeId,
 ) -> HeadingSideTableRow? {
   let row_id = HeadingStableRowId::from_node(stable_id)
-  table.rows.iter().find_first(fn(row) { row.stable_id == row_id })
-}
-
-///|
-fn side_table_has_stable_id(
-  rows : Array[HeadingSideTableRow],
-  stable_id : HeadingStableRowId,
-) -> Bool {
-  rows.iter().any(fn(row) { row.stable_id == stable_id })
-}
-
-///|
-fn node_id_in(ids : Array[@core.NodeId], id : @core.NodeId) -> Bool {
-  ids.iter().any(fn(candidate_id) { candidate_id == id })
-}
-
-///|
-fn side_table_mentions_current_id(
-  rows : Array[HeadingSideTableRow],
-  current_id : @core.NodeId,
-) -> Bool {
-  rows
-  .iter()
-  .any(fn(row) {
-    row.current_id == Some(current_id) || node_id_in(row.candidates, current_id)
-  })
-}
-
-///|
-fn heading_evidence(
-  previous : HeadingObservation,
-  current : HeadingObservation,
-) -> Array[HeadingEntityEvidence] {
-  let evidence : Array[HeadingEntityEvidence] = []
-  if previous.id == current.id {
-    evidence.push(HeadingSameNodeId(current.id))
-  }
-  if previous.level == current.level && previous.text == current.text {
-    evidence.push(HeadingSameSemanticKey(heading_key(previous)))
-  }
-  if ranges_overlap(previous.range, current.range) {
-    evidence.push(HeadingOverlappingRange(previous.range, current.range))
-  }
-  evidence
-}
-
-///|
-fn heading_candidate(
-  previous : HeadingObservation,
-  current : HeadingObservation,
-) -> HeadingMatchCandidate {
-  { id: current.id, evidence: heading_evidence(previous, current) }
-}
-
-///|
-fn heading_side_table_match(
-  previous : HeadingObservation,
-  current : Array[HeadingObservation],
-) -> HeadingSideTableMatch {
-  let same_node = find_heading_by_id(current, previous.id)
-  let semantic_candidates : Array[HeadingMatchCandidate] = current
-    .iter()
-    .filter(fn(obs) { obs.level == previous.level && obs.text == previous.text })
-    .map(fn(obs) { heading_candidate(previous, obs) })
-    .collect()
-  let semantic_count = semantic_candidates.length()
-  match same_node {
-    Some(obs) => {
-      let candidate = heading_candidate(previous, obs)
-      let evidence = if obs.level == previous.level && obs.text == previous.text {
-        [
-          HeadingSameNodeId(obs.id),
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(1),
-        ]
-      } else {
-        [HeadingSameNodeId(obs.id), HeadingCandidateCount(1)]
-      }
-      { confidence: HeadingExact, candidates: [candidate], evidence }
-    }
-    None if semantic_count == 1 =>
-      {
-        confidence: HeadingProbable,
-        candidates: semantic_candidates,
-        evidence: [
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(1),
-        ],
-      }
-    None if semantic_count > 1 =>
-      {
-        confidence: HeadingMatchAmbiguous,
-        candidates: semantic_candidates,
-        evidence: [
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(semantic_count),
-        ],
-      }
-    None =>
-      {
-        confidence: HeadingMissing,
-        candidates: [],
-        evidence: [HeadingCandidateCount(0)],
-      }
-  }
-}
-
-///|
-fn candidate_ids(match_result : HeadingSideTableMatch) -> Array[@core.NodeId] {
-  match_result.candidates.map(fn(candidate) { candidate.id })
-}
-
-///|
-fn row_active(row : HeadingSideTableRow) -> Bool {
-  row.status != HeadingRetired
-}
-
-///|
-fn candidate_claim_count(
-  matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)],
-  id : @core.NodeId,
-) -> Int {
-  matches
-  .iter()
-  .filter(fn(pair) { node_id_in(candidate_ids(pair.1), id) })
-  .count()
-}
-
-///|
-fn row_from_match(
-  row : HeadingSideTableRow,
-  match_result : HeadingSideTableMatch,
-  current : Array[HeadingObservation],
-  claim_count : (@core.NodeId) -> Int,
-) -> HeadingSideTableRow {
-  let ids = candidate_ids(match_result)
-  if row.status == HeadingRetired {
-    { ..row, current_id: None, candidates: [] }
-  } else if ids.length() == 0 {
-    {
-      ..row,
-      current_id: None,
-      status: HeadingTombstoned,
-      candidates: [],
-      evidence: match_result.evidence,
-    }
-  } else if ids.length() == 1 &&
-    claim_count(ids[0]) == 1 &&
-    (
-      match_result.confidence == HeadingExact ||
-      match_result.confidence == HeadingProbable
-    ) {
-    match find_heading_by_id(current, ids[0]) {
-      Some(current_obs) =>
-        {
-          stable_id: row.stable_id,
-          current_id: Some(current_obs.id),
-          status: HeadingLive,
-          last_live: current_obs,
-          candidates: [],
-          evidence: match_result.evidence,
-        }
-      None =>
-        {
-          ..row,
-          current_id: None,
-          status: HeadingTombstoned,
-          candidates: [],
-          evidence: match_result.evidence,
-        }
-    }
-  } else {
-    {
-      ..row,
-      current_id: None,
-      status: HeadingAmbiguous,
-      candidates: ids,
-      evidence: match_result.evidence,
-    }
-  }
-}
-
-///|
-fn HeadingSideTable::advance(
-  self : HeadingSideTable,
-  current : Array[HeadingObservation],
-) -> HeadingSideTable {
-  let matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)] = []
-  for row in self.rows {
-    if row_active(row) {
-      matches.push((row, heading_side_table_match(row.last_live, current)))
-    }
-  }
-  let next_rows : Array[HeadingSideTableRow] = []
-  for row in self.rows {
-    if row.status == HeadingRetired {
-      next_rows.push({ ..row, current_id: None, candidates: [] })
-    } else {
-      let match_result = heading_side_table_match(row.last_live, current)
-      next_rows.push(
-        row_from_match(row, match_result, current, fn(id) {
-          candidate_claim_count(matches, id)
-        }),
-      )
-    }
-  }
-  for obs in current {
-    if !side_table_mentions_current_id(next_rows, obs.id) &&
-      !side_table_has_stable_id(
-        next_rows,
-        HeadingStableRowId::from_node(obs.id),
-      ) {
-      next_rows.push(heading_side_table_live_row(obs))
-    }
-  }
-  { rows: next_rows }
+  table.rows.iter().find_first(row => row.stable_id == row_id)
 }
 
 ///|
@@ -323,15 +18,123 @@ fn synthetic_heading(
   id : Int,
   text : String,
   start : Int,
+  level? : Int = 1,
 ) -> HeadingObservation {
   {
     id: @core.NodeId::from_int(id),
-    level: 1,
+    level,
     text,
-    range: @loomcore.Range::new(start, start + text.length() + 2),
+    range: @loomcore.Range::new(start, start + text.length() + level + 1),
     marker: None,
     text_span: None,
   }
+}
+
+///|
+fn evidence_has_same_node(
+  evidence : Array[HeadingEntityEvidence],
+  id : @core.NodeId,
+) -> Bool {
+  evidence
+  .iter()
+  .any(item => {
+    match item {
+      HeadingSameNodeId(candidate) => candidate == id
+      _ => false
+    }
+  })
+}
+
+///|
+fn evidence_has_semantic_key(
+  evidence : Array[HeadingEntityEvidence],
+  key : String,
+) -> Bool {
+  evidence
+  .iter()
+  .any(item => {
+    match item {
+      HeadingSameSemanticKey(candidate) => candidate == key
+      _ => false
+    }
+  })
+}
+
+///|
+fn evidence_has_candidate_count(
+  evidence : Array[HeadingEntityEvidence],
+  count : Int,
+) -> Bool {
+  evidence
+  .iter()
+  .any(item => {
+    match item {
+      HeadingCandidateCount(candidate) => candidate == count
+      _ => false
+    }
+  })
+}
+
+///|
+fn stable_row_claim_count(
+  rows : Array[HeadingSideTableRow],
+  stable_id : HeadingStableRowId,
+) -> Int {
+  rows.iter().filter(row => row.stable_id == stable_id).count()
+}
+
+///|
+fn live_current_claim_count(
+  rows : Array[HeadingSideTableRow],
+  current_id : @core.NodeId,
+) -> Int {
+  rows
+  .iter()
+  .filter(row => row.status == HeadingLive && row.current_id == Some(current_id))
+  .count()
+}
+
+///|
+fn heading_side_table_row_shape_valid(
+  row : HeadingSideTableRow,
+  rows : Array[HeadingSideTableRow],
+  current : Array[HeadingObservation],
+) -> Bool {
+  match row.status {
+    HeadingLive =>
+      match row.current_id {
+        Some(current_id) =>
+          row.candidates.length() == 0 &&
+          find_heading_by_id(current, current_id) is Some(_) &&
+          live_current_claim_count(rows, current_id) == 1
+        None => false
+      }
+    HeadingMissing | HeadingTombstoned | HeadingRetired =>
+      row.current_id is None && row.candidates.length() == 0
+    HeadingAmbiguous =>
+      row.current_id is None &&
+      row.candidates.length() != 0 &&
+      row.candidates.iter().all(id => live_current_claim_count(rows, id) == 0)
+  }
+}
+
+///|
+fn live_row_count(rows : Array[HeadingSideTableRow]) -> Int {
+  rows.iter().filter(row => row.status == HeadingLive).count()
+}
+
+///|
+fn heading_side_table_index_valid(table : HeadingSideTable) -> Bool {
+  table.current_index.length() == live_row_count(table.rows) &&
+  table.rows
+  .iter()
+  .all(row => {
+    match (row.status, row.current_id) {
+      (HeadingLive, Some(current_id)) =>
+        table.entity_for_current_node(current_id) == Some(row.stable_id)
+      _ => true
+    }
+  })
 }
 
 ///|
@@ -339,58 +142,13 @@ fn heading_side_table_invariants_hold(
   table : HeadingSideTable,
   current : Array[HeadingObservation],
 ) -> Bool {
-  let stable_ids : Array[HeadingStableRowId] = []
-  let live_ids : Array[@core.NodeId] = []
-  let ambiguous_ids : Array[@core.NodeId] = []
-  let mut ok = true
-  for row in table.rows {
-    if stable_ids.iter().any(fn(id) { id == row.stable_id }) {
-      ok = false
-    } else {
-      stable_ids.push(row.stable_id)
-    }
-    match row.status {
-      HeadingLive =>
-        match row.current_id {
-          Some(current_id) => {
-            if node_id_in(live_ids, current_id) {
-              ok = false
-            } else {
-              live_ids.push(current_id)
-            }
-            if find_heading_by_id(current, current_id) is None {
-              ok = false
-            }
-            if row.candidates.length() != 0 {
-              ok = false
-            }
-          }
-          None => ok = false
-        }
-      HeadingTombstoned =>
-        if row.current_id is Some(_) || row.candidates.length() != 0 {
-          ok = false
-        }
-      HeadingAmbiguous => {
-        if row.current_id is Some(_) || row.candidates.length() == 0 {
-          ok = false
-        }
-        for id in row.candidates {
-          ambiguous_ids.push(id)
-        }
-      }
-      HeadingRetired =>
-        if row.current_id is Some(_) || row.candidates.length() != 0 {
-          ok = false
-        }
-    }
-  }
-  for id in ambiguous_ids {
-    if node_id_in(live_ids, id) {
-      ok = false
-    }
-  }
-  ok
+  heading_side_table_index_valid(table) &&
+  table.rows
+  .iter()
+  .all(row => {
+    stable_row_claim_count(table.rows, row.stable_id) == 1 &&
+    heading_side_table_row_shape_valid(row, table.rows, current)
+  })
 }
 
 ///|
@@ -423,6 +181,8 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
   inspect(b_row.status == HeadingLive, content="true")
   inspect(a_row.current_id == Some(c_after.id), content="true")
   inspect(b_row.current_id == Some(a_after.id), content="true")
+  inspect(evidence_has_same_node(a_row.evidence, c_after.id), content="true")
+  inspect(evidence_has_same_node(b_row.evidence, a_after.id), content="true")
   inspect(advanced.rows.length(), content="2")
   inspect(heading_side_table_invariants_hold(advanced, after), content="true")
 }
@@ -446,10 +206,11 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
   let (deleted, deleted_map) = project_after_reconcile(
     initial, deleted_source, counter,
   )
-  let deleted_table = table.advance(
-    collect_heading_observations(deleted, deleted_map),
-  )
-  let a_deleted_row = find_side_table_row(deleted_table, a_before.id).unwrap()
+  let deleted_observations = collect_heading_observations(deleted, deleted_map)
+  let missing_table = table.advance(deleted_observations)
+  let a_missing_row = find_side_table_row(missing_table, a_before.id).unwrap()
+  let tombstoned_table = missing_table.advance(deleted_observations)
+  let a_tombstoned_row = find_side_table_row(tombstoned_table, a_before.id).unwrap()
 
   let (restored, restored_map) = project_after_reconcile(
     deleted, restored_source, counter,
@@ -458,17 +219,31 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
     restored, restored_map,
   )
   let a_restored = find_heading(restored_observations, "A").unwrap()
-  let restored_table = deleted_table.advance(restored_observations)
+  let restored_table = tombstoned_table.advance(restored_observations)
   let a_restored_row = find_side_table_row(restored_table, a_before.id).unwrap()
 
-  inspect(a_deleted_row.status == HeadingTombstoned, content="true")
-  inspect(a_deleted_row.current_id is None, content="true")
+  inspect(a_missing_row.status == HeadingMissing, content="true")
+  inspect(a_missing_row.current_id is None, content="true")
+  inspect(
+    evidence_has_candidate_count(a_missing_row.evidence, 0),
+    content="true",
+  )
+  inspect(a_tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(a_tombstoned_row.current_id is None, content="true")
   inspect(a_restored_row.status == HeadingLive, content="true")
   inspect(
     a_restored_row.stable_id == HeadingStableRowId::from_node(a_before.id),
     content="true",
   )
   inspect(a_restored_row.current_id == Some(a_restored.id), content="true")
+  inspect(
+    evidence_has_semantic_key(a_restored_row.evidence, heading_key(a_before)),
+    content="true",
+  )
+  inspect(
+    evidence_has_candidate_count(a_restored_row.evidence, 1),
+    content="true",
+  )
 }
 
 ///|
@@ -506,6 +281,14 @@ test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
   inspect(a_restored_row.current_id is None, content="true")
   inspect(a_restored_row.candidates.length(), content="2")
   inspect(
+    evidence_has_semantic_key(a_restored_row.evidence, heading_key(a_before)),
+    content="true",
+  )
+  inspect(
+    evidence_has_candidate_count(a_restored_row.evidence, 2),
+    content="true",
+  )
+  inspect(
     heading_side_table_invariants_hold(restored_table, restored_observations),
     content="true",
   )
@@ -524,10 +307,56 @@ test "sdeg phase0: NodeId side table conflicts do not double-claim current nodes
   inspect(advanced.rows.length(), content="2")
   inspect(row0.status == HeadingAmbiguous, content="true")
   inspect(row1.status == HeadingAmbiguous, content="true")
+  inspect(evidence_has_candidate_count(row0.evidence, 1), content="true")
+  inspect(evidence_has_candidate_count(row1.evidence, 1), content="true")
   inspect(row0.current_id is None, content="true")
   inspect(row1.current_id is None, content="true")
   inspect(node_id_in(row0.candidates, current_a.id), content="true")
   inspect(node_id_in(row1.candidates, current_a.id), content="true")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: same-node match wins over duplicate semantic claimant" {
+  let old_a0 = synthetic_heading(1, "A", 0)
+  let old_a1 = synthetic_heading(2, "A", 4)
+  let current_a0 = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a0, old_a1])
+  let advanced = table.advance([current_a0])
+  let row0 = find_side_table_row(advanced, old_a0.id).unwrap()
+  let row1 = find_side_table_row(advanced, old_a1.id).unwrap()
+
+  inspect(row0.status == HeadingLive, content="true")
+  inspect(row0.current_id == Some(current_a0.id), content="true")
+  inspect(evidence_has_same_node(row0.evidence, current_a0.id), content="true")
+  inspect(row1.status == HeadingMissing, content="true")
+  inspect(row1.current_id is None, content="true")
+  inspect(evidence_has_candidate_count(row1.evidence, 0), content="true")
+  inspect(advanced.rows.length(), content="2")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a0]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: heading level change without same-node evidence stays fresh" {
+  let old_a = synthetic_heading(1, "A", 0, level=1)
+  let current_a = synthetic_heading(100, "A", 0, level=2)
+  let table = HeadingSideTable::from_observations([old_a])
+  let advanced = table.advance([current_a])
+  let old_row = find_side_table_row(advanced, old_a.id).unwrap()
+  let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
+
+  inspect(old_row.status == HeadingMissing, content="true")
+  inspect(old_row.current_id is None, content="true")
+  inspect(evidence_has_candidate_count(old_row.evidence, 0), content="true")
+  inspect(fresh_row.status == HeadingLive, content="true")
+  inspect(fresh_row.current_id == Some(current_a.id), content="true")
+  inspect(advanced.rows.length(), content="2")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a]),
     content="true",
@@ -587,7 +416,8 @@ test "sdeg phase0: NodeId side table retired rows do not revive" {
     status: HeadingRetired,
     candidates: [],
   }
-  let table = { rows: [retired_row] }
+  let rows = [retired_row]
+  let table = { rows, current_index: heading_current_index(rows) }
   let advanced = table.advance([current_a])
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
