@@ -262,7 +262,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 - [x] Spike Markdown block move provenance for future block UI.
   Why: SDEG Phase 1 documents pure source reorder as position-stable; future block moves need explicit provenance so identity follows the moved block.
-  Plan: `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`
+  Plan: `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md`
   Exit: accepted `MarkdownEditOp::MoveBlock(source, target, position)` contract with tests showing only explicit provenance moves heading identity.
 
 - [ ] Convergence tests for concurrent drag-drop.

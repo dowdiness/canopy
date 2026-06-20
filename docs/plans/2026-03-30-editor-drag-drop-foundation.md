@@ -81,7 +81,7 @@ Out:
    Keep `Before`/`After` as the minimum common contract and treat `Inside` as
    opt-in where the backend can prove it is valid. For Markdown/block identity
    provenance, use the accepted contract from
-   [Markdown Block Move Provenance Spike](2026-06-20-markdown-block-move-provenance-spike.md):
+   [Markdown Block Move Provenance Spike](../archive/2026-06-20-markdown-block-move-provenance-spike.md):
    `MarkdownEditOp::MoveBlock(source, target, position)` with `Before`/`After`
    only, lowered to source-text splices plus `IdentityTransform::Move`.
 2. Add positioned move primitives to the movable-tree path used by
@@ -143,7 +143,7 @@ tests where the interaction becomes user-visible.
 
 - Browser-native drag-and-drop is input plumbing, not the canonical move model.
 - Markdown/block identity provenance for future block moves is tracked in
-  `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`.
+  `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md`.
 - Prefer dedicated drag handles over making the editable surface itself
   draggable.
 - Leave room for future ephemeral drag presence by keeping source/target/

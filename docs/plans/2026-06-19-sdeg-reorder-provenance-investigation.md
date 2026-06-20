@@ -141,7 +141,7 @@ No prototype fix was added because the current Markdown edit path cannot express
 the required user intent. Adding that path is a larger block-editor structural
 edit feature, not a side-table-only change.
 
-Follow-up spike opened: `docs/plans/2026-06-20-markdown-block-move-provenance-spike.md`.
+Follow-up spike completed and archived: `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md`.
 
 ## Acceptance criteria
 
