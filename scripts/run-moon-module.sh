@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <check|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
+    echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
     exit 1
 fi
 
@@ -43,6 +43,11 @@ LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 case "$ACTION" in
     check)
         moon check "${DENY_WARN_FLAGS[@]}"
+        ;;
+    check-lenient)
+        # Same --deny-warn but exempts only the try? [0020] deprecation
+        # from vendored submodules canopy cannot migrate (tracked in #573).
+        moon check "${LENIENT_WARN_FLAGS[@]}"
         ;;
     test)
         moon test --release

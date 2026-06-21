@@ -19,6 +19,10 @@
       "version": "0.0.1"
     },
     "dowdiness/incr": "0.9.0",
+    "dowdiness/rabbita-menu": {
+      "path": "../../lib/menu",
+      "version": "0.1.0"
+    },
     "dowdiness/rabbita-context-menu": {
       "path": "../../lib/context-menu",
       "version": "0.1.0"
