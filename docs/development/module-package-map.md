@@ -35,18 +35,15 @@ A command such as `moon check` or `moon test` from the repository root runs over
 those workspace members. It does not automatically include every example,
 submodule, generated build directory, or vendored dependency cache.
 
-Current workspace members are:
-
-- `.` — the root `dowdiness/canopy` module.
-- `lib/*` standalone modules that are Canopy-owned reusable libraries:
-  `byte-codec`, `zipper`, `btree`, `rabbita_codemirror`, `resizable`, `menu`,
-  `context-menu`, `canvas-graph`, `status`, `tabs`, `treeview`,
-  `dom-boundary`, `visualizer`, `analysis`, `semantic`, and `cognition`.
-- MoonBit example modules: `examples/ideal`, `examples/block-editor`,
-  `examples/canvas`, `examples/codemirror_demo`, `examples/resizable`, and
-  `examples/disclosure`.
-
 Read `moon.work` for the authoritative list before adding or removing a member.
+For a generated view rather than a hand-maintained copy, run:
+
+```sh
+moon work list 2>/dev/null || sed -n '/members = \[/,/\]/p' moon.work
+```
+
+The SessionStart package overview (`scripts/package-overview.sh`) also reports
+workspace members from the current `moon.work` file.
 
 ## Root `dowdiness/canopy` packages
 
@@ -136,16 +133,13 @@ membership or relying on unpublished registry modules:
 separate repositories; edit and commit them inside their own repo first, push the
 submodule commit, then update the parent pointer in Canopy.
 
-| Path | Repository | Typical role |
-| --- | --- | --- |
-| `event-graph-walker/` | `dowdiness/event-graph-walker` | CRDT engine. |
-| `loom/` | `dowdiness/loom` | Parser framework, seam, text-change, moji, pretty, language examples, and nested libraries. |
-| `rle/` | `dowdiness/rle` | Run-length encoded sequence utilities. |
-| `order-tree/` | `dowdiness/order-tree` | Order-statistic tree dependency. |
-| `graphviz/` | `dowdiness/graphviz` | Graphviz rendering support. |
-| `svg-dsl/` | `dowdiness/svg-dsl` | SVG DSL dependency. |
-| `alga/` | `dowdiness/alga` | Graph algebra dependency. |
-| `rabbita/` | `dowdiness/rabbita` | Vendored UI runtime and bindings fork. |
+For the current submodule list, use the source file or generated git output
+rather than a copied table:
+
+```sh
+cat .gitmodules
+git submodule status --recursive
+```
 
 Submodule manifests are not Canopy-owned for manifest migrations. Do not convert
 or edit them from the parent repository unless you are intentionally making a
