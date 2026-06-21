@@ -1,6 +1,6 @@
 # Replace Markdown ordered-list SourceMap side channel with explicit list payloads
 
-**Status:** Complete — Loom PR #429 added explicit Markdown list payloads; Canopy PR #730 consumes them and removes `ORDERED_LIST_KIND_ROLE` while keeping list/list-item `MoveBlock` legality rejected for #724.
+**Status:** Complete — Loom PR #429 added explicit Markdown list payloads; Canopy PR #730 consumes them and removes `ORDERED_LIST_KIND_ROLE`. At that phase, list/list-item `MoveBlock` legality stayed rejected for #724; Canopy PR #731 later used the payloads for tight same-list item reorders.
 
 ## Context
 
@@ -8,7 +8,7 @@ PR #720 updated Loom and restored ordered-list behavior in Canopy's Markdown edi
 
 That bridge is intentionally temporary. `SourceMap` token spans are good for source ranges and token locations, but ordered-vs-unordered list kind is semantic AST data. Once Loom's Markdown AST exposes list kind directly, Canopy should stop using a SourceMap side channel for this fact.
 
-Issue #724 (Markdown list/list-item move provenance) is a downstream consumer of this migration: list-container and list-item `MoveBlock` support remains rejected until orderedness is represented in the Markdown block payload rather than the temporary SourceMap side channel. The #724 starter patch hardened those rejection messages and negative tests only; it did not widen `MoveBlock` legality.
+Issue #724 (Markdown list/list-item move provenance) was a downstream consumer of this migration: list-container and list-item `MoveBlock` support remained rejected until orderedness was represented in the Markdown block payload rather than the temporary SourceMap side channel. The #724 starter patch hardened those rejection messages and negative tests only; Canopy PR #731 later widened legality for tight same-list item reorders while leaving cross-container/list-container moves and loose-list preservation as follow-ups.
 
 ## Goal
 
@@ -43,7 +43,7 @@ Represent Markdown list kind explicitly in the Loom Markdown AST/projection payl
 
 - The Loom Markdown API change lives in the `loom` submodule. Follow the submodule workflow: test the submodule in place, commit and push the Loom change to its own remote before staging the parent pointer.
 - Canopy must be able to read the list kind across the package boundary. If Loom uses a struct payload, expose the data through `pub(all)` fields or public constructors/accessors rather than assuming Canopy can construct or read package-private fields.
-- Updating the payload shape must also update generated interfaces and any `@markdown.Block` pattern matches in Canopy. In particular, `lang/markdown/edits/compute_move_block.mbt` currently rejects list container sources by matching the folded `UnorderedList(_)` payload; keep ordered and unordered list containers rejected after the payload split until #724 adds list-item scope, identity-preservation, and marker-renumbering tests.
+- Updating the payload shape must also update generated interfaces and any `@markdown.Block` pattern matches in Canopy. PR #731 updated `lang/markdown/edits/compute_move_block.mbt` to support tight same-list item reorders; keep ordered and unordered list containers and cross-container list-item moves rejected until their own legality/provenance tests land.
 - Validate with Loom's Markdown tests plus Canopy Markdown projection/edit/companion tests, then run `moon fmt && moon info` and check generated `.mbti` drift in both the submodule and parent checkout.
 - Before widening Markdown block moves near lists, add a regression for synthesized paragraph-to-list separators; the current root move renderer only preserves original adjacent separators and otherwise uses its fallback separator rules.
 

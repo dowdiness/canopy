@@ -256,7 +256,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   fallbacks; action-context plumbing now uses real LetDef ids instead of init ids.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
-  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder. Markdown list/list-item moves for issue #724 are no longer blocked on list payloads. In progress: same-list item reorder now has parse-shape, identity, ambiguity, marker-renumbering, separator, and unsupported-container regressions; cross-container/list-container legality remains narrow.
+  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder. Markdown list/list-item moves for issue #724 are no longer blocked on list payloads. PR #731 landed tight same-list item reorder with parse-shape, identity, ambiguity, marker-renumbering, separator, and unsupported-container regressions; cross-container/list-container legality and loose-list separator preservation remain narrow follow-ups.
   Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3); issue #724 tracks Markdown list/list-item move provenance.
   Exit: `block-editor` exposes positioned block moves plus structural render metadata.
 
