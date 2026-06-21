@@ -1,5 +1,5 @@
 import {
-  "dowdiness/canopy/analysis",
+  "dowdiness/canopy/analysis_bridge" @analysis,
   "dowdiness/analysis" @facts,
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,

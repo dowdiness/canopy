@@ -58,7 +58,7 @@ Important root-module package groups include:
 | `ffi/{host,io,json,lambda,markdown}/` | `dowdiness/canopy/ffi/...` | JS/host-facing FFI surfaces. |
 | `transport_ws/`, `sync_session/`, `ephemeral/` | `dowdiness/canopy/...` | Collaboration transport/session and ephemeral state. |
 | `workspace/{coordinator,probe}/` | `dowdiness/canopy/workspace/...` | Multi-editor workspace coordination and probes. |
-| `analysis/` | `dowdiness/canopy/analysis` | Bridge from analysis facts to Canopy decorations and match lists. |
+| `analysis_bridge/` | `dowdiness/canopy/analysis_bridge` | Bridge from analysis facts to Canopy decorations and match lists. |
 | `js_ffi/` | `dowdiness/canopy/js_ffi` | Root-module JavaScript/FFI substrate, despite living under `lib/`. |
 | `codex/`, `llm/`, `echo/`, `relay/`, `cmd/main/` | `dowdiness/canopy/...` | Tooling, experiments, relay, and executable packages. |
 

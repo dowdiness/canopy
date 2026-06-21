@@ -529,7 +529,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Exit: diagnostics are either explicitly kept out of the aggregator with a stable rationale, or routed through a typed diagnostic fact shape without adding public protocol variants.
 
 - [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
-  Shipped: PR #699 added `lib/analysis/` and `analysis/`; PR #704 completed host FFI and lambda editor decoration wiring.
+  Shipped: PR #699 added `lib/analysis/` and `analysis_bridge/`; PR #704 completed host FFI and lambda editor decoration wiring.
 
 - [x] Add provider range normalization tests for analysis facts (#693).
   Shipped: PR #699 covered core byte→UTF-16 conversion; PR #704 added FFI-level non-ASCII coverage.

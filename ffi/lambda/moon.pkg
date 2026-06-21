@@ -1,5 +1,5 @@
 import {
-  "dowdiness/canopy/analysis",
+  "dowdiness/canopy/analysis_bridge" @analysis,
   "dowdiness/canopy/editor",
   "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/ffi/io",
