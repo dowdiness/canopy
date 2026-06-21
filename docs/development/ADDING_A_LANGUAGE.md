@@ -75,7 +75,9 @@ pub(all) enum Block {
   Heading(Int, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
-  ListItem(Array[Inline])
+  OrderedList(Array[Block], OrderedListMarker?)
+  UnorderedListItem(Array[Inline])
+  OrderedListItem(Array[Inline], OrderedListMarker?)
   CodeBlock(String, String)     // language, content
   Error(String)
 } derive(Eq, Debug)

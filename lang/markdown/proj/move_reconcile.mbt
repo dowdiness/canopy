@@ -67,7 +67,9 @@ fn has_move_hint(hints : Map[@core.NodeId, @core.IdentityTransform]) -> Bool {
 
 ///|
 fn is_block_container(block : @markdown.Block) -> Bool {
-  block is Document(_) || block is UnorderedList(_)
+  block is Document(_) ||
+  block is UnorderedList(_) ||
+  block is OrderedList(_, _)
 }
 
 ///|

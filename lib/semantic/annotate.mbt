@@ -34,7 +34,8 @@ fn classify(index : Int, children : Array[@md.Block]) -> Role? {
     @md.Paragraph(_) if children.get(index + 1) is Some(@md.CodeBlock(_, _)) =>
       Some(CodeExplanation)
     @md.Paragraph(_) if index == 0 => Some(Abstract)
-    @md.UnorderedList(_) if prev is Some(@md.Heading(_, _)) => Some(KeyPoints)
+    @md.UnorderedList(_) | @md.OrderedList(_, _) if prev
+      is Some(@md.Heading(_, _)) => Some(KeyPoints)
     _ => None
   }
 }

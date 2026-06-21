@@ -32,6 +32,10 @@ test "projection: ordered list" {
   let (proj, _) = parse_to_proj_node("1. first\n2. second\n")
   inspect(proj.children.length(), content="1")
   let list = proj.children[0]
+  match list.kind {
+    OrderedList(_, Some(marker)) => inspect(marker.text(), content="1.")
+    _ => fail("expected ordered-list payload")
+  }
   inspect(list.children.length(), content="2")
 }
 
@@ -51,12 +55,10 @@ test "source map: ordered list item text excludes marker" {
 }
 
 ///|
-test "view: ordered list keeps ordered kind tag" {
+test "view: ordered list keeps ordered kind tag from payload" {
   let source = "1. first\n2. second\n"
   let (proj, _) = parse_to_proj_node(source)
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, _) = @markdown.parse_cst(source)
-  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let view = proj_to_view_node(proj, source_map, source_text=Some(source))
   inspect(view.children[0].kind_tag, content="OrderedList")
 }

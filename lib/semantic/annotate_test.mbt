@@ -38,9 +38,25 @@ test "list after heading → KeyPoints" {
   let doc = @md.Document([
     @md.Heading(1, [@md.Text("Features")]),
     @md.UnorderedList([
-      @md.ListItem([@md.Text("Fast")]),
-      @md.ListItem([@md.Text("Safe")]),
+      @md.UnorderedListItem([@md.Text("Fast")]),
+      @md.UnorderedListItem([@md.Text("Safe")]),
     ]),
+  ])
+  let map = annotate_symbolic(doc)
+  inspect(map[1], content="RuleBased(KeyPoints)")
+}
+
+///|
+test "ordered list after heading → KeyPoints" {
+  let doc = @md.Document([
+    @md.Heading(1, [@md.Text("Steps")]),
+    @md.OrderedList(
+      [
+        @md.OrderedListItem([@md.Text("First")], None),
+        @md.OrderedListItem([@md.Text("Second")], None),
+      ],
+      None,
+    ),
   ])
   let map = annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(KeyPoints)")
@@ -91,8 +107,8 @@ test "mixed document — full annotation" {
     @md.Paragraph([@md.Text("Section intro")]),
     @md.Heading(2, [@md.Text("Features")]),
     @md.UnorderedList([
-      @md.ListItem([@md.Text("A")]),
-      @md.ListItem([@md.Text("B")]),
+      @md.UnorderedListItem([@md.Text("A")]),
+      @md.UnorderedListItem([@md.Text("B")]),
     ]),
     @md.Paragraph([@md.Text("Code explanation")]),
     @md.CodeBlock("moonbit", "fn main {}"),
