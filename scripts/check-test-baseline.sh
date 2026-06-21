@@ -56,13 +56,16 @@ EOF
 # Failure lines look like:
 #   [moonbit-community/rabbita] test dom/README.mbt.md:17 (#0) failed: ...
 #   [dowdiness/canopy] test core/some_test.mbt:5 failed
+#   [example/codemirror_demo] test ... failed
+# Any test failure NOT explicitly from [moonbit-community/rabbita] or
+# a rabbita/rabbita/ path is counted as non-rabbita.
 non_rabbita_failures=0
 while IFS= read -r line; do
     case "$line" in
         *" test "*" failed"* | *" test "*" failed:"*)
             case "$line" in
                 *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
-                *"[dowdiness/"*) non_rabbita_failures=$(( non_rabbita_failures + 1 )) ;;
+                *) non_rabbita_failures=$(( non_rabbita_failures + 1 )) ;;
             esac
             ;;
     esac

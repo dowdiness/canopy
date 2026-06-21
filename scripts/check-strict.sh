@@ -30,12 +30,14 @@ fi
 # Error path lines look like:  ╭─[ /path/to/file.mbt:line:col ]
 # Extract all such paths and check whether any are NOT under rabbita/rabbita/.
 non_rabbita=0
+total_paths=0
 while IFS= read -r line; do
     # Match lines that start with whitespace + box-drawing char + [ /path
     # Extract the file path from error-path lines like:
     #   ╭─[ /path/to/file.mbt:line:col ]
     path=$(echo "$line" | sed -n 's|.*\[ \(/.*\.mbt\):.*|\1|p')
     if [ -n "$path" ]; then
+        total_paths=$(( total_paths + 1 ))
         case "$path" in
             */rabbita/rabbita/*) ;;
             *) non_rabbita=$(( non_rabbita + 1 )) ;;
@@ -50,5 +52,13 @@ if [ "$non_rabbita" -gt 0 ]; then
     exit "$status"
 fi
 
-echo "check-strict: suppressing rabbita-only errors (exit $status)."
+# If moon check failed but no .mbt source paths were found in the output
+# (e.g., moon.pkg/moon.mod load error, import-resolution failure), this
+# is a real error — propagate it rather than falling through to success.
+if [ "$total_paths" -eq 0 ]; then
+    echo "check-strict: moon check failed (exit $status) with no parseable source paths — failing." >&2
+    exit "$status"
+fi
+
+echo "check-strict: $total_paths rabbita-only error path(s) suppressed (exit $status)."
 exit 0
