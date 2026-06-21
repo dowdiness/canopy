@@ -9,7 +9,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "prebuild": "npm run prebuild:moonbit",
-    "prebuild:moonbit": "cd .. && MOON_WORK=off moon build --target js --release"
+    "prebuild:moonbit": "cd .. && moon build --target js --release"
   },
   "dependencies": {
     "@codemirror/commands": "^6.5.0",
