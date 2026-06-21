@@ -52,7 +52,31 @@ done <<EOF
 $output
 EOF
 
-echo "Test baseline check: $failures failures (baseline: $BASELINE)"
+# Verify every failing test is from the vendored rabbita submodule.
+# Failure lines look like:
+#   [moonbit-community/rabbita] test dom/README.mbt.md:17 (#0) failed: ...
+#   [dowdiness/canopy] test core/some_test.mbt:5 failed
+non_rabbita_failures=0
+while IFS= read -r line; do
+    case "$line" in
+        *" test "*" failed"* | *" test "*" failed:"*)
+            case "$line" in
+                *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
+                *"[dowdiness/"*) non_rabbita_failures=$(( non_rabbita_failures + 1 )) ;;
+            esac
+            ;;
+    esac
+done <<EOF
+$output
+EOF
+
+echo "Test baseline check: $failures failures (baseline: $BASELINE), $non_rabbita_failures non-rabbita"
+
+if [ "$non_rabbita_failures" -gt 0 ]; then
+    echo "FAIL: $non_rabbita_failures failing test(s) from non-rabbita sources." >&2
+    echo "$output" >&2
+    exit 1
+fi
 
 if [ "$failures" -gt "$BASELINE" ]; then
     echo "Too many test failures: $failures exceeds baseline of $BASELINE" >&2
