@@ -3,7 +3,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/ffi/host",
   "dowdiness/canopy/ffi/io",
-  "dowdiness/canopy/lib/js",
+  "dowdiness/canopy/js_ffi" @js,
   "dowdiness/canopy/lang/lambda" @lang_lambda,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
