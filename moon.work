@@ -1,6 +1,9 @@
 members = [
   ".",
   "./rabbita/rabbita",
+  "./graphviz",
+  "./svg-dsl",
+  "./alga",
   "./lib/byte-codec",
   "./lib/zipper",
   "./lib/btree",
