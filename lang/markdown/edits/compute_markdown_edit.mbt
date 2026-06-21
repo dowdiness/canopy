@@ -328,11 +328,19 @@ fn next_ordered_marker(marker : String) -> String? {
     return None
   }
   let marker_body = marker.view(start_offset=marker_start)
-  guard marker_body.find_by(fn(ch) { !(ch is ('0'..='9')) })
-    is Some(delimiter_offset) else {
+  let digit_start = if marker_body.length() > 0 && marker_body[0] == '-' {
+    1
+  } else {
+    0
+  }
+  guard marker_body
+    .view(start_offset=digit_start)
+    .find_by(fn(ch) { !(ch is ('0'..='9')) })
+    is Some(delimiter_offset_from_digit_start) else {
     return None
   }
-  if delimiter_offset == 0 {
+  let delimiter_offset = digit_start + delimiter_offset_from_digit_start
+  if delimiter_offset == digit_start {
     return None
   }
   match marker_body[delimiter_offset] {
@@ -432,4 +440,25 @@ fn find_sibling_context(
     }
   }
   ([], -1)
+}
+
+///|
+/// Find a node's parent, siblings, and index among them.
+fn find_sibling_context_and_parent(
+  root : ProjNode[@markdown.Block],
+  target : NodeId,
+) -> (ProjNode[@markdown.Block]?, Array[ProjNode[@markdown.Block]], Int) {
+  for i in 0..<root.children.length() {
+    if root.children[i].id() == target {
+      return (Some(root), root.children, i)
+    }
+    let (parent, siblings, idx) = find_sibling_context_and_parent(
+      root.children[i],
+      target,
+    )
+    if idx >= 0 {
+      return (parent, siblings, idx)
+    }
+  }
+  (None, [], -1)
 }

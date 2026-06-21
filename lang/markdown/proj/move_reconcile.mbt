@@ -57,12 +57,7 @@ fn reconcile_markdown_projection_hinted(
 
 ///|
 fn has_move_hint(hints : Map[@core.NodeId, @core.IdentityTransform]) -> Bool {
-  for _, hint in hints {
-    if hint is @core.IdentityTransform::Move(_) {
-      return true
-    }
-  }
-  false
+  hints.values().any(hint => hint is @core.IdentityTransform::Move(_))
 }
 
 ///|
@@ -85,7 +80,8 @@ fn reconcile_markdown_children_hinted(
     is_move_source(hints, old_children[i].id())
   })
   let exact_match = (oi, nj) => {
-    old_children[oi].kind == new_children[nj].kind && !excluded_old[oi]
+    markdown_child_match(old_children[oi].kind, new_children[nj].kind) &&
+    !excluded_old[oi]
   }
   // Dynamic-programming table and backtracking arrays are algorithm state for
   // occurrence-stable LCS. Mutation is local to the matcher and mirrors
@@ -150,6 +146,17 @@ fn reconcile_markdown_children_hinted(
 }
 
 ///|
+fn markdown_child_match(old : @markdown.Block, new_ : @markdown.Block) -> Bool {
+  match (old, new_) {
+    (OrderedListItem(old_inlines, _), OrderedListItem(new_inlines, _)) =>
+      old_inlines == new_inlines
+    _ if is_block_container(old) || is_block_container(new_) =>
+      @loomcore.TreeNode::same_kind(old, new_)
+    _ => old == new_
+  }
+}
+
+///|
 fn is_move_source(
   hints : Map[@core.NodeId, @core.IdentityTransform],
   id : @core.NodeId,
@@ -170,7 +177,7 @@ fn markdown_move_pair_counts(
     if old_matched[oi] < 0 && is_move_source(hints, old_child.id()) {
       let count = [
         for ni, new_child in new_children if new_matched[ni] < 0 &&
-        old_child.kind == new_child.kind => new_child
+        markdown_child_match(old_child.kind, new_child.kind) => new_child
       ].length()
       if count > 0 {
         counts[old_child.id()] = count
@@ -195,7 +202,7 @@ fn markdown_move_pair(
     consumed.get(old_child.id()) is None &&
     old_pair_counts.get(old_child.id()) is Some(1) &&
     is_move_source(hints, old_child.id()) &&
-    old_child.kind == new_child.kind => old_child
+    markdown_child_match(old_child.kind, new_child.kind) => old_child
   ]
   match candidates {
     [old_child] => {

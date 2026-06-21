@@ -391,7 +391,10 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   // Snapshot text before applying edits so we can detect net-no-op batches
   // (e.g. CommitEdit with the same text). Only needed when a hint is provided.
   let text_before : String? = match hint {
-    Some(_) => Some(self.get_text())
+    Some(h) => {
+      self.pending_transforms.val.push(h)
+      Some(self.get_text())
+    }
     None => None
   }
   let old_cursor = self.get_cursor()
@@ -407,15 +410,13 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
       false, // move_cursor_to_edit_end
     )
   }
-  // Push hint only when the batch produced an actual text change (T4).
-  // A no-op batch leaves no pending reparse — sync_parser_after_text_change
-  // returns early when old_source == new_source — so the hint would be stale:
-  // it survives into the next structural op's hint map and causes incorrect
-  // freshening of nodes that were not actually re-parsed.
+  // Drop a pre-pushed hint when the batch produced no text change (T4).
+  // Real changes need the hint available during apply_local_text_change's
+  // immediate reconcile pass; no-op batches have no reparse to consume it.
   match (hint, text_before) {
-    (Some(h), Some(before)) =>
-      if before != self.get_text() {
-        self.pending_transforms.val.push(h)
+    (Some(_), Some(before)) =>
+      if before == self.get_text() {
+        let _ = self.pending_transforms.val.pop()
       }
     _ => ()
   }
