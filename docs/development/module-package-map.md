@@ -84,15 +84,15 @@ name rather than from `dowdiness/canopy/lib/...`.
 | `lib/byte-codec/` | `dowdiness/byte_codec` | Byte encoding/decoding utilities. |
 | `lib/canvas-graph/` | `dowdiness/canopy-canvas-graph` | Canvas graph model packages. |
 | `lib/cognition/` | `dowdiness/cognition` | Incremental cognition graph runtime; already uses `moon.mod`. |
-| `lib/context-menu/` | `dowdiness/rabbita-context-menu` | Rabbita context-menu package under `src/context_menu`. |
+| `lib/context-menu/` | `dowdiness/rabbita-context-menu` | Rabbita context-menu package under `context_menu/`. |
 | `lib/dom-boundary/` | `dowdiness/dom_boundary` | DOM boundary helpers. |
-| `lib/menu/` | `dowdiness/rabbita-menu` | Rabbita menu package under `src/menu`. |
+| `lib/menu/` | `dowdiness/rabbita-menu` | Rabbita menu package under `menu/`. |
 | `lib/rabbita_codemirror/` | `dowdiness/rabbita_codemirror` | CodeMirror binding packages. |
-| `lib/resizable/` | `dowdiness/rabbita-resizable` | Rabbita resizable package under `src/resizable`. |
+| `lib/resizable/` | `dowdiness/rabbita-resizable` | Rabbita resizable package under `resizable/`. |
 | `lib/semantic/` | `dowdiness/semantic` | Semantic graph/query packages; has standalone proof module under `proof/`. |
-| `lib/status/` | `dowdiness/rabbita-status` | Rabbita status package under `src/status`. |
-| `lib/tabs/` | `dowdiness/rabbita-tabs` | Rabbita tabs package under `src/tabs`. |
-| `lib/treeview/` | `dowdiness/rabbita-treeview` | Rabbita treeview package under `src/treeview`. |
+| `lib/status/` | `dowdiness/rabbita-status` | Rabbita status package under `status/`. |
+| `lib/tabs/` | `dowdiness/rabbita-tabs` | Rabbita tabs package under `tabs/`. |
+| `lib/treeview/` | `dowdiness/rabbita-treeview` | Rabbita treeview package under `treeview/`. |
 | `lib/visualizer/` | `dowdiness/visualizer` | Visualization helpers. |
 | `lib/zipper/` | `dowdiness/zipper` | AST zipper utilities. |
 
@@ -111,9 +111,18 @@ Converted to the newer `moon.mod` format:
 - `lib/byte-codec/`
 - `lib/canvas-graph/`
 - `lib/cognition/` (already newer format)
+- `lib/context-menu/` (workspace-resolved dep on `rabbita/rabbita` and
+  `dowdiness/rabbita-menu`)
 - `lib/dom-boundary/`
+- `lib/menu/` (workspace-resolved dep on `rabbita/rabbita`)
+- `lib/rabbita_codemirror/` (workspace-resolved dep on `rabbita/rabbita`)
+- `lib/resizable/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/semantic/proof/`
+- `lib/status/` (workspace-resolved dep on `rabbita/rabbita`)
+- `lib/tabs/` (workspace-resolved dep on `rabbita/rabbita`)
+- `lib/treeview/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/zipper/`
+- `examples/disclosure/` (workspace-resolved dep on `rabbita/rabbita`)
 
 Still on legacy `moon.mod.json` because they contain local path dependencies
 whose behavior cannot be represented in `moon.mod` without changing workspace
@@ -121,11 +130,9 @@ membership or relying on unpublished registry modules:
 
 - the root module (`moon.mod.json`)
 - MoonBit examples: `examples/block-editor/`, `examples/canvas/`,
-  `examples/codemirror_demo/`, `examples/disclosure/`, `examples/ideal/`,
+  `examples/codemirror_demo/`, `examples/ideal/`,
   `examples/resizable/`
-- `lib/context-menu/`, `lib/menu/`, `lib/rabbita_codemirror/`,
-  `lib/resizable/`, `lib/semantic/`, `lib/status/`, `lib/tabs/`,
-  `lib/treeview/`, `lib/visualizer/`
+- `lib/semantic/`, `lib/visualizer/`
 
 ## Git submodules
 
