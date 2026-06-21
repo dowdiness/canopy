@@ -23,9 +23,9 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
-# Workspace mode is used: vite config and tsconfig now point to the
-# workspace-level _build path (../../_build/...). No MOON_WORK=off
-# needed — the rabbit libs' moon.mod imports resolve via workspace
-# membership.
+# Workspace mode: vite/tsconfig paths point to workspace-level _build
+# (../../_build/...). Explicitly unset MOON_WORK so child processes
+# (vite → moon build) use workspace membership for rabbita lib deps.
+unset MOON_WORK
 
 CI="${CI:-1}" npx playwright test "$@"
