@@ -25,6 +25,8 @@ function semanticTag(node: ViewNode): HTMLElement {
     case 'OrderedList':
       return document.createElement('ol');
     case 'ListItem':
+    case 'UnorderedListItem':
+    case 'OrderedListItem':
       return document.createElement('li');
     default:
       // Code blocks: kind_tag is "Code" or "Code(lang)"

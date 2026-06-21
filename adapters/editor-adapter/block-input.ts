@@ -130,7 +130,7 @@ export class BlockInput implements EditorAdapter {
     let listIndex = 1;
 
     for (const child of node.children) {
-      const childListContext = listKind && child.kind_tag === 'ListItem'
+      const childListContext = listKind && this.isListItemKind(child.kind_tag)
         ? {
           kind: listKind,
           index: listIndex++,
@@ -155,6 +155,12 @@ export class BlockInput implements EditorAdapter {
       case 'UnorderedList': return 'unordered';
       default: return null;
     }
+  }
+
+  private isListItemKind(kindTag: string): boolean {
+    return kindTag === 'ListItem' ||
+      kindTag === 'UnorderedListItem' ||
+      kindTag === 'OrderedListItem';
   }
 
   private sourceListMarker(node: ViewNode): string | undefined {
@@ -202,7 +208,9 @@ export class BlockInput implements EditorAdapter {
     if (hLevel > 0) return document.createElement(`h${hLevel}`);
     switch (kindTag) {
       case 'Paragraph': return document.createElement('p');
-      case 'ListItem': return document.createElement('p');
+      case 'ListItem':
+      case 'UnorderedListItem':
+      case 'OrderedListItem': return document.createElement('p');
       default:
         if (kindTag.startsWith('Code'))
           return document.createElement('pre');

@@ -126,7 +126,7 @@ fn compute_toggle_list_item(
     None => source[range.start:range.end].to_owned()
   }
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
-    Some(node) => node.kind is @markdown.ListItem(_)
+    Some(node) => is_markdown_list_item(node.kind)
     None => false
   }
   let (new_text, prefix_len) = if is_list_item {
@@ -261,7 +261,7 @@ fn compute_split_block(
   // Split point in source coordinates
   let split_pos = text_range.start + split_offset
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
-    Some(node) => node.kind is @markdown.ListItem(_)
+    Some(node) => is_markdown_list_item(node.kind)
     None => false
   }
   let separator = if is_list_item {
@@ -305,11 +305,16 @@ fn compute_split_block(
 }
 
 ///|
+fn is_markdown_list_item(block : @markdown.Block) -> Bool {
+  block is @markdown.Block::UnorderedListItem(_) ||
+  block is @markdown.Block::OrderedListItem(_, _)
+}
+
+///|
 /// Return the marker prefix to use when splitting a Markdown list item.
 ///
-/// The current Markdown Block API folds ordered and unordered CST list items
-/// into the same `ListItem` payload, so preserve the concrete source marker
-/// instead of synthesizing an unordered `- ` bullet for every split.
+/// Preserve the concrete source marker instead of synthesizing an unordered
+/// `- ` bullet for every split.
 fn split_list_item_separator(marker : String) -> String {
   match next_ordered_marker(marker) {
     Some(next) => "\n" + next

@@ -1,5 +1,7 @@
 # Replace Markdown ordered-list SourceMap side channel with explicit list payloads
 
+**Status:** Complete — Loom PR #429 added explicit Markdown list payloads; Canopy PR #730 consumes them and removes `ORDERED_LIST_KIND_ROLE` while keeping list/list-item `MoveBlock` legality rejected for #724.
+
 ## Context
 
 PR #720 updated Loom and restored ordered-list behavior in Canopy's Markdown editor. The current Loom Markdown `Block` API still folds ordered and unordered list containers into the same list payload, so Canopy temporarily preserves orderedness by recording `ORDERED_LIST_KIND_ROLE` in the Markdown projection `SourceMap` and refining `ViewNode.kind_tag` during Markdown-specific view conversion.

@@ -33,11 +33,11 @@ fn compute_move_block(
     _ => ()
   }
   let source_kind = source_siblings[source_idx].kind
-  // Current Loom Markdown folds ordered and unordered list containers into
-  // UnorderedList. When explicit ordered-list payloads land, keep every list
-  // container source rejected here until #724 widens MoveBlock legality with
-  // list-item scope, identity, and marker-renumbering tests.
-  if source_kind is @markdown.Block::UnorderedList(_) {
+  // Keep every list container source rejected here until #724 widens
+  // MoveBlock legality with list-item scope, identity, marker-renumbering,
+  // parse-shape, ambiguity, and separator tests.
+  if source_kind is @markdown.Block::UnorderedList(_) ||
+    source_kind is @markdown.Block::OrderedList(_, _) {
     return Err(list_payload_blocker("list container sources"))
   }
   if source_siblings.any(sibling => {
@@ -80,7 +80,10 @@ fn root_sibling_index_or_error(
     None => {
       let (nested_siblings, nested_idx) = find_sibling_context(proj, node_id)
       if nested_idx >= 0 {
-        if nested_siblings[nested_idx].kind is @markdown.Block::ListItem(_) {
+        if nested_siblings[nested_idx].kind
+          is @markdown.Block::UnorderedListItem(_) ||
+          nested_siblings[nested_idx].kind
+          is @markdown.Block::OrderedListItem(_, _) {
           return Err(list_payload_blocker("list-item " + role + "s"))
         }
         return Err(
@@ -276,7 +279,9 @@ fn original_adjacent_separator(
 ///|
 fn separator_between(left : @markdown.Block, right : @markdown.Block) -> String {
   match (left, right) {
-    (Paragraph(_), Paragraph(_)) | (UnorderedList(_), _) => "\n\n"
+    (Paragraph(_), Paragraph(_))
+    | (UnorderedList(_), _)
+    | (OrderedList(_, _), _) => "\n\n"
     _ =>
       // Default root siblings (heading/code/paragraph before non-paragraph)
       // use a single newline unless an original adjacent separator is reused.

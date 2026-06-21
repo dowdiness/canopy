@@ -96,7 +96,9 @@ test.describe('Markdown Block Editor', () => {
     await page.locator('#raw-editor').fill('3. three\n4. four\n');
     await switchMode(page, 'Block');
 
-    const listItems = page.locator('#block-container .block[data-kind="ListItem"]');
+    const listItems = page.locator(
+      '#block-container .block[data-kind="ListItem"], #block-container .block[data-kind="OrderedListItem"]',
+    );
     await expect(listItems).toHaveCount(2);
     await expect(listItems.nth(0)).toHaveAttribute('data-list-kind', 'ordered');
     await expect(listItems.nth(0)).toHaveAttribute('data-list-marker', '3.');

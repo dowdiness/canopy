@@ -1,9 +1,6 @@
 ///| Extract token spans from the Markdown CST into the SourceMap.
 
 ///|
-const ORDERED_LIST_KIND_ROLE : String = "markdown:ordered-list-kind"
-
-///|
 pub fn populate_token_spans(
   source_map : @core.SourceMap,
   syntax_root : @seam.SyntaxNode,
@@ -98,7 +95,7 @@ fn populate_block(
     Paragraph(_) =>
       // Full inline content (no prefix to skip)
       set_content_span(source_map, syntax_node, id, "text", None)
-    ListItem(_) =>
+    UnorderedListItem(_) | OrderedListItem(_, _) =>
       // Full inline content after this item's own marker. Compare marker
       // positions so a nested sublist marker never wins over the outer item
       // marker when both token kinds are present in the item CST.
@@ -109,14 +106,7 @@ fn populate_block(
         "text",
         list_item_marker_kind(syntax_node),
       )
-    UnorderedList(_) => {
-      if @markdown.SyntaxKind::from_raw(syntax_node.kind()) == OrderedListNode {
-        source_map.set_token_span(
-          id,
-          ORDERED_LIST_KIND_ROLE,
-          @loomcore.Range::new(syntax_node.start(), syntax_node.start()),
-        )
-      }
+    UnorderedList(_) | OrderedList(_, _) => {
       let syntax_children = collect_syntax_children(
         syntax_node,
         @markdown.SyntaxKind::ListItemNode,

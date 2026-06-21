@@ -41,10 +41,7 @@ fn build_proj_tree(
         collect_block_children(syntax_node),
         counter,
       )
-    UnorderedList(_) =>
-      // The current Markdown Block API folds both unordered and ordered CST
-      // list nodes to UnorderedList payloads. Preserve either CST container by
-      // collecting its ListItemNode children from the original syntax node.
+    UnorderedList(_) | OrderedList(_, _) =>
       build_container(
         syntax_node,
         block,
@@ -119,64 +116,14 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
 }
 
 ///|
-/// Convert a Markdown projection to the wire ViewNode shape while preserving
-/// CST list orderedness that the current Block payload does not carry.
+/// Convert a Markdown projection to the wire ViewNode shape.
 pub fn proj_to_view_node(
   node : @core.ProjNode[@markdown.Block],
   source_map : @core.SourceMap,
   annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = {},
   source_text? : String? = None,
 ) -> @protocol.ViewNode {
-  let view = @protocol.proj_to_view_node(
-    node,
-    source_map,
-    annotations~,
-    source_text~,
-  )
-  refine_markdown_view_node(view, node, source_map)
-}
-
-///|
-fn refine_markdown_view_node(
-  view : @protocol.ViewNode,
-  node : @core.ProjNode[@markdown.Block],
-  source_map : @core.SourceMap,
-) -> @protocol.ViewNode {
-  let children : Array[@protocol.ViewNode] = view.children
-    .iter()
-    .zip(node.children.iter())
-    .map(pair => refine_markdown_view_node(pair.0, pair.1, source_map))
-    .collect()
-  let kind_tag = markdown_view_kind_tag(view.kind_tag, node, source_map)
-  @protocol.ViewNode::ViewNode(
-    id=view.id,
-    kind_tag~,
-    label=view.label,
-    text?=view.text,
-    text_range=view.text_range,
-    token_spans=view.token_spans,
-    editable=view.editable,
-    css_class=kind_tag,
-    children~,
-    annotations=view.annotations,
-  )
-}
-
-///|
-fn markdown_view_kind_tag(
-  fallback : String,
-  node : @core.ProjNode[@markdown.Block],
-  source_map : @core.SourceMap,
-) -> String {
-  match node.kind {
-    UnorderedList(_) =>
-      if source_map.get_token_span(node.id(), ORDERED_LIST_KIND_ROLE) is Some(_) {
-        "OrderedList"
-      } else {
-        fallback
-      }
-    _ => fallback
-  }
+  @protocol.proj_to_view_node(node, source_map, annotations~, source_text~)
 }
 
 ///|

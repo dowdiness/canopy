@@ -157,6 +157,7 @@ behavior** — check the code before relying on any specific detail.
 
 Recently completed (for quick reference):
 
+- [Markdown List Payloads](archive/completed-phases/2026-06-20-markdown-list-payloads.md)
 - [Canvas Handles And Edges](archive/completed-phases/2026-05-14-canvas-handles-edges.md)
 - [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md)
 - [Lambda Annotation Plumbing — Impl](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-impl.md)

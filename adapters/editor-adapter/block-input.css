@@ -48,22 +48,28 @@
 .block[data-kind="H5"],
 .block[data-kind="H6"] { font-size: 1em; font-weight: 600; }
 
-.block[data-kind="ListItem"] {
+.block[data-kind="ListItem"],
+.block[data-kind="UnorderedListItem"],
+.block[data-kind="OrderedListItem"] {
   padding-left: 24px;
 }
 
-.block[data-kind="ListItem"]::before {
+.block[data-kind="ListItem"]::before,
+.block[data-kind="UnorderedListItem"]::before,
+.block[data-kind="OrderedListItem"]::before {
   content: "\2022 ";
   position: absolute;
   left: 8px;
   color: #666;
 }
 
-.block[data-kind="ListItem"][data-list-kind="ordered"] {
+.block[data-kind="ListItem"][data-list-kind="ordered"],
+.block[data-kind="OrderedListItem"] {
   padding-left: 32px;
 }
 
-.block[data-kind="ListItem"][data-list-kind="ordered"]::before {
+.block[data-kind="ListItem"][data-list-kind="ordered"]::before,
+.block[data-kind="OrderedListItem"]::before {
   content: attr(data-list-marker) " ";
 }
 
