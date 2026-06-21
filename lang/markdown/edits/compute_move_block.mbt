@@ -18,32 +18,14 @@ fn compute_move_block(
   }
   let source_siblings = proj.children
   let source_idx = match
-    source_siblings.search_by(sibling => sibling.id() == source_id) {
-    Some(idx) => idx
-    None => {
-      if find_sibling_context(proj, source_id).1 >= 0 {
-        return Err(
-          "markdown block move currently supports root-level blocks only",
-        )
-      }
-      return Err(
-        "source node not found in projection tree: " + source_id.to_string(),
-      )
-    }
+    root_sibling_index_or_error(proj, source_siblings, source_id, "source") {
+    Ok(idx) => idx
+    Err(msg) => return Err(msg)
   }
   let target_idx = match
-    source_siblings.search_by(sibling => sibling.id() == target_id) {
-    Some(idx) => idx
-    None => {
-      if find_sibling_context(proj, target_id).1 >= 0 {
-        return Err(
-          "markdown block move currently supports root-level blocks only",
-        )
-      }
-      return Err(
-        "target node not found in projection tree: " + target_id.to_string(),
-      )
-    }
+    root_sibling_index_or_error(proj, source_siblings, target_id, "target") {
+    Ok(idx) => idx
+    Err(msg) => return Err(msg)
   }
   match position {
     Before if source_idx + 1 == target_idx => return Ok(None)
@@ -51,10 +33,12 @@ fn compute_move_block(
     _ => ()
   }
   let source_kind = source_siblings[source_idx].kind
+  // Current Loom Markdown folds ordered and unordered list containers into
+  // UnorderedList. When explicit ordered-list payloads land, keep every list
+  // container source rejected here until #724 widens MoveBlock legality with
+  // list-item scope, identity, and marker-renumbering tests.
   if source_kind is @markdown.Block::UnorderedList(_) {
-    return Err(
-      "markdown block move does not yet support list container sources",
-    )
+    return Err(list_payload_blocker("list container sources"))
   }
   if source_siblings.any(sibling => {
       sibling.id() != source_id && sibling.kind == source_kind
@@ -82,6 +66,37 @@ fn compute_move_block(
       ),
     ),
   )
+}
+
+///|
+fn root_sibling_index_or_error(
+  proj : ProjNode[@markdown.Block],
+  root_siblings : Array[ProjNode[@markdown.Block]],
+  node_id : NodeId,
+  role : String,
+) -> Result[Int, String] {
+  match root_siblings.search_by(sibling => sibling.id() == node_id) {
+    Some(idx) => Ok(idx)
+    None => {
+      let (nested_siblings, nested_idx) = find_sibling_context(proj, node_id)
+      if nested_idx >= 0 {
+        if nested_siblings[nested_idx].kind is @markdown.Block::ListItem(_) {
+          return Err(list_payload_blocker("list-item " + role + "s"))
+        }
+        return Err(
+          "markdown block move currently supports root-level blocks only",
+        )
+      }
+      Err(role + " node not found in projection tree: " + node_id.to_string())
+    }
+  }
+}
+
+///|
+fn list_payload_blocker(blocked : String) -> String {
+  "markdown block move currently rejects " +
+  blocked +
+  " until issue #724 is unblocked by explicit ordered/unordered list payloads; see docs/plans/2026-06-20-markdown-list-payloads.md"
 }
 
 ///|
@@ -113,8 +128,8 @@ fn compute_root_move_source(
     if idx == insert_idx {
       reordered.push(siblings[source_idx])
     } else {
-      let source_offset = if idx < insert_idx { idx } else { idx - 1 }
-      match without_source.get(source_offset) {
+      let without_source_idx = if idx < insert_idx { idx } else { idx - 1 }
+      match without_source.get(without_source_idx) {
         Some(node) => reordered.push(node)
         None => ()
       }
@@ -262,6 +277,9 @@ fn original_adjacent_separator(
 fn separator_between(left : @markdown.Block, right : @markdown.Block) -> String {
   match (left, right) {
     (Paragraph(_), Paragraph(_)) | (UnorderedList(_), _) => "\n\n"
-    _ => "\n"
+    _ =>
+      // Default root siblings (heading/code/paragraph before non-paragraph)
+      // use a single newline unless an original adjacent separator is reused.
+      "\n"
   }
 }
