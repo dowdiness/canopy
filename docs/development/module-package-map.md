@@ -14,8 +14,16 @@ it, and whether edits belong in this repository or in a submodule repository.
 
 MoonBit now supports the newer `moon.mod` manifest format. The older
 `moon.mod.json` format is legacy. This repository is migrating Canopy-owned
-module manifests to `moon.mod`; submodules keep whatever manifest format their
-own repository currently uses.
+module manifests to `moon.mod` where the newer format can preserve the same
+dependency semantics; submodules keep whatever manifest format their own
+repository currently uses.
+
+Current exception: the newer `moon.mod` format expects registry-style imports
+and local-module resolution through `moon.work`, while several Canopy-owned
+modules still rely on legacy `moon.mod.json` path dependencies to submodules or
+other in-repo modules that are not workspace members. Those manifests stay on
+`moon.mod.json` until a later workspace/path-dependency migration can preserve
+behavior without changing workspace topology.
 
 `moon.pkg` files are package manifests. They do not define module boundaries;
 they define compilation units inside the nearest enclosing module manifest.
@@ -96,6 +104,31 @@ currently a tracked Canopy-owned workspace member. Do **not** delete it or treat
 that path as stale without a later, separate audit proving it is dead. The active
 text-change dependency for the root module currently resolves through the loom
 submodule path dependency `./loom/text-change`.
+
+## Canopy-owned manifest migration status
+
+Converted to the newer `moon.mod` format:
+
+- `lib/analysis/`
+- `lib/btree/`
+- `lib/byte-codec/`
+- `lib/canvas-graph/`
+- `lib/cognition/` (already newer format)
+- `lib/dom-boundary/`
+- `lib/semantic/proof/`
+- `lib/zipper/`
+
+Still on legacy `moon.mod.json` because they contain local path dependencies
+whose behavior cannot be represented in `moon.mod` without changing workspace
+membership or relying on unpublished registry modules:
+
+- the root module (`moon.mod.json`)
+- MoonBit examples: `examples/block-editor/`, `examples/canvas/`,
+  `examples/codemirror_demo/`, `examples/disclosure/`, `examples/ideal/`,
+  `examples/resizable/`
+- `lib/context-menu/`, `lib/menu/`, `lib/rabbita_codemirror/`,
+  `lib/resizable/`, `lib/semantic/`, `lib/status/`, `lib/tabs/`,
+  `lib/treeview/`, `lib/visualizer/`
 
 ## Git submodules
 

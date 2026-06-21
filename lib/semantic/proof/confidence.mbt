@@ -19,7 +19,7 @@ pub(all) enum IntConfidence {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for IntConfidence with output(self, logger) {
+pub impl Show for IntConfidence with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
