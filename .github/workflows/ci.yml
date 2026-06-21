@@ -118,19 +118,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # canopy-owned examples — migrated off try?, run fully strict (ci).
+          # ci-lenient: examples are workspace members; the vendored rabbita
+          # submodule (now a workspace member too) has pre-existing try?
+          # [0020] warnings that --deny-warn would escalate to errors.
+          # Same exemption used by event-graph-walker, loom, and root.
           - name: ideal
             path: examples/ideal
-            mode: ci
+            mode: ci-lenient
           - name: block-editor
             path: examples/block-editor
-            mode: ci
+            mode: ci-lenient
           - name: canvas
             path: examples/canvas
-            mode: ci
+            mode: ci-lenient
           - name: codemirror_demo
             path: examples/codemirror_demo
-            mode: ci
+            mode: ci-lenient
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
