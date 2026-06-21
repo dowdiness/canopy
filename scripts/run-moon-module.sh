@@ -44,6 +44,11 @@ case "$ACTION" in
     check)
         moon check "${DENY_WARN_FLAGS[@]}"
         ;;
+    check-lenient)
+        # Same --deny-warn but exempts only the try? [0020] deprecation
+        # from vendored submodules canopy cannot migrate (tracked in #573).
+        moon check "${LENIENT_WARN_FLAGS[@]}"
+        ;;
     test)
         moon test --release
         ;;
