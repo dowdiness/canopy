@@ -4,8 +4,8 @@ package "dowdiness/ideal-editor/main"
 import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
-  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
@@ -67,7 +67,7 @@ pub fn legend_html(@history.CausalSnapshot, String) -> String
 
 pub fn load_file(Int) -> Unit
 
-pub fn register_file_host(@js.Any) -> Unit
+pub fn register_file_host(@js_ffi.Any) -> Unit
 
 pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
 

@@ -24,6 +24,12 @@ fi
 
 cd "$PROJECT_ROOT/$MODULE_DIR"
 
+# Keep mixed-manifest modules buildable while Canopy still has legacy
+# moon.mod.json path-dependency exceptions. This mode accepts both moon.mod and
+# moon.mod.json without requiring every local path dependency to become a
+# moon.work member.
+export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
+
 DENY_WARN_FLAGS=(--deny-warn)
 
 # Vendored submodules built standalone (event-graph-walker, loom) still use the

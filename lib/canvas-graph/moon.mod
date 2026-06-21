@@ -1,0 +1,17 @@
+name = "dowdiness/canopy-canvas-graph"
+
+version = "0.1.0"
+
+readme = "README.md"
+
+repository = "https://github.com/dowdiness/canopy"
+
+license = "Apache-2.0"
+
+keywords = [ "canvas", "graph", "workflow", "moonbit" ]
+
+description = "Durable canvas workflow graph model for Canopy examples and libraries."
+
+preferred_target = "native"
+
+supported_targets = "js+native"

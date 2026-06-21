@@ -27,6 +27,8 @@ files inside `docs/development/`.
 - **[Testing](testing.md)** — testing guide and best practices.
 - **[Ideal Tailwind Style Management](ideal-tailwind-style-management.md)** —
   Tailwind v4 recipe conventions for the Ideal editor.
+- **[Module / Package Map](module-package-map.md)** — distinguish root packages,
+  workspace modules, examples, and submodules.
 - **[Monorepo & Submodules](monorepo.md)** — git submodule setup and daily
   cheat sheet.
 

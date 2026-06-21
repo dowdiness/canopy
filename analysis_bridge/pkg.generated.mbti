@@ -1,17 +1,18 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/canopy/analysis"
+package "dowdiness/canopy/analysis_bridge"
 
 import {
+  "dowdiness/analysis",
   "dowdiness/canopy/protocol",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn facts_to_decorations(Array[@dowdiness/analysis.PatternMatchFact], @dowdiness/analysis.SourceSnapshot) -> Array[@protocol.Decoration]
+pub fn facts_to_decorations(Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Array[@protocol.Decoration]
 
-pub fn facts_to_match_list(Array[@dowdiness/analysis.PatternMatchFact], @dowdiness/analysis.SourceSnapshot) -> Array[MatchListEntry]
+pub fn facts_to_match_list(Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Array[MatchListEntry]
 
-pub fn from_ast_grep_matches(Array[AstGrepMatch], String, @dowdiness/analysis.SourceSnapshot) -> Array[@dowdiness/analysis.PatternMatchFact]
+pub fn from_ast_grep_matches(Array[AstGrepMatch], String, @analysis.SourceSnapshot) -> Array[@analysis.PatternMatchFact]
 
 // Errors
 

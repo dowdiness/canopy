@@ -2,11 +2,11 @@
 package "dowdiness/canopy/ffi/io"
 
 import {
-  "dowdiness/canopy/lib/js",
+  "dowdiness/canopy/js_ffi",
 }
 
 // Values
-pub fn register_host(@js.Any) -> Unit
+pub fn register_host(@js_ffi.Any) -> Unit
 
 pub fn request_open(Int) -> Unit
 

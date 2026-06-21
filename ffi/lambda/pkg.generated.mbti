@@ -3,8 +3,8 @@ package "dowdiness/canopy/ffi/lambda"
 
 import {
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
-  "dowdiness/canopy/lib/js",
   "dowdiness/canopy/transport_ws",
   "dowdiness/lambda/ast",
   "moonbitlang/async/js_async",
@@ -101,7 +101,7 @@ pub fn on_file_opened(Int, String, Int) -> Unit
 
 pub fn redo_and_export_json(Int) -> String
 
-pub fn register_file_host(@js.Any) -> Unit
+pub fn register_file_host(@js_ffi.Any) -> Unit
 
 pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
 

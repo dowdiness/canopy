@@ -80,6 +80,8 @@ Only needed if you are modifying Canopy itself.
 - **[Workflow](development/workflow.md)** — development process and common commands.
 - **[Conventions](development/conventions.md)** — MoonBit coding standards.
 - **[Testing](development/testing.md)** — testing guide and best practices.
+- **[Module / Package Map](development/module-package-map.md)** — distinguish
+  root packages, workspace modules, examples, and submodules.
 - **[Monorepo & Submodules](development/monorepo.md)** — git submodule setup and
   daily cheat sheet.
 - **[Task Tracking](development/task-tracking.md)** — rules for TODOs, plans,
