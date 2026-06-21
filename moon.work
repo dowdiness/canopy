@@ -1,5 +1,6 @@
 members = [
   ".",
+  "./rabbita/rabbita",
   "./lib/byte-codec",
   "./lib/zipper",
   "./lib/btree",
