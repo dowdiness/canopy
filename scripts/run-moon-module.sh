@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <check|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
+    echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
     exit 1
 fi
 

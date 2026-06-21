@@ -71,12 +71,12 @@ jobs:
           ./scripts/run-moon-module.sh check-lenient .
 
       - name: Run tests
-        # Runs the full workspace test. Rabbita (now a workspace member) has 7
-        # pre-existing JS test failures (DOM needs browser, URL Show-format
-        # diffs) unrelated to this PR. Use continue-on-error to avoid blocking
-        # on known vendored-submodule failures.
-        run: moon test --release
-        continue-on-error: true
+        # Gated on rabbita's 7 pre-existing JS test failures (DOM, URL
+        # formatting). check-test-baseline.sh extracts "failed: N" from the
+        # output and only fails if the count exceeds the known baseline.
+        # This allows real regressions (>7 failures) to surface while
+        # absorbing the vendored rabbita noise.
+        run: ./scripts/check-test-baseline.sh 7 moon test --release
 
       - name: Build
         run: moon build --release
@@ -121,6 +121,8 @@ jobs:
   test-examples:
     name: Test MoonBit Examples
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -154,11 +156,10 @@ jobs:
         run: moon version --all
 
       - name: Check and test ${{ matrix.name }}
-        # ci-lenient checks pass, but moon test --release runs all workspace
-        # members including rabbita (7 pre-existing JS test failures). Same
-        # continue-on-error pattern as the root test step.
-        run: ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
-        continue-on-error: true
+        # Gated on rabbita's 7 pre-existing JS test failures. The baseline
+        # check gates only on the test failure count; the moon check still
+        # runs with --deny-warn --warn-list=-20 via ci-lenient mode.
+        run: ./scripts/check-test-baseline.sh 7 ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
 
   prove:
     name: Formal Verification
