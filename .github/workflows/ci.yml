@@ -326,7 +326,12 @@ jobs:
       - name: Build Canvas MoonBit JS artifacts
         if: matrix.name == 'canvas'
         working-directory: examples/canvas
-        run: MOON_WORK=off moon build --target js --release
+        # Retry-wrapped CDN update + build: transient mooncakes 403 (#467)
+        # causes builds outside workspace mode to fail on registry lookups.
+        # MOON_WORK=off needed for canvas preferred-target: js (#335).
+        run: |
+          ../../scripts/moon-update.sh
+          MOON_WORK=off moon build --target js --release
 
       - name: Install dependencies
         working-directory: ${{ matrix.path }}

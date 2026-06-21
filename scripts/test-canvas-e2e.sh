@@ -13,6 +13,13 @@ cd "$PROJECT_ROOT"
     cd examples/canvas
     # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
     "$SCRIPT_DIR/moon-update.sh"
+
+    # Pre-build JS artifacts with retry-wrapped mooncakes CDN resilience.
+    # MOON_WORK=off keeps the canvas `preferred-target: js` for the vite
+    # web build (issue #335). Doing it here — before playwright starts —
+    # avoids CDN flakes during the vite dev-server's lazy moon build.
+    MOON_WORK=off "$SCRIPT_DIR/moon-update.sh"
+    MOON_WORK=off moon build --target js
 )
 
 echo "Running canvas Playwright E2E..."
@@ -23,12 +30,7 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
-# Disable workspace mode for the JS build that vite-plugin-moonbit kicks off.
-# When examples/canvas is a moon.work member, `moon build --target js` only
-# emits wasm-gc artifacts (moon picks the workspace's wasm-gc target over
-# canvas's `preferred-target: js`), so vite can't find _build/js/.../main.js.
-# MOON_WORK=off scopes moon to the canvas package only, restoring the JS path.
-# Tracked as #335; remove once moon honors per-member preferred-target.
+# Pre-built above; vite finds artifacts up-to-date and skips moon build.
 export MOON_WORK=off
 
 CI="${CI:-1}" npx playwright test "$@"
