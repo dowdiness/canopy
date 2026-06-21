@@ -32,27 +32,47 @@ if ! [[ "$BASELINE" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# Run the command, capturing combined stdout+stderr and the exit code
+# Run the command, capturing combined stdout+stderr and the exit code.
+# The || true prevents set -e from exiting on the command's own failure;
+# we inspect $? afterwards via PIPESTATUS.
+set +e
 output="$("$@" 2>&1)"
 status=$?
+set -e
 
-# Sum all "failed: N" fields from "Total tests: ..., failed: N. [target]" lines
-failures=$(echo "$output" | grep -oP 'failed:\s*\K\d+' | paste -sd+ - | bc 2>/dev/null || echo 0)
+# Sum all "failed: N" fields from "Total tests: ..., failed: N. [target]" lines.
+# Uses sed instead of grep -P for portability; sums with pure bash arithmetic.
+failures=0
+while IFS= read -r line; do
+    n=$(echo "$line" | sed -n 's/.*failed: *\([0-9]\+\).*/\1/p')
+    if [ -n "$n" ]; then
+        failures=$(( failures + n ))
+    fi
+done <<EOF
+$output
+EOF
 
 echo "Test baseline check: $failures failures (baseline: $BASELINE)"
 
 if [ "$failures" -gt "$BASELINE" ]; then
     echo "Too many test failures: $failures exceeds baseline of $BASELINE" >&2
     echo "$output" >&2
-    # Exit non-zero even if the wrapped command succeeded (e.g., test count
-    # parser worked but the baseline was exceeded).
     if [ "$status" -ne 0 ]; then
         exit "$status"
     fi
     exit 1
 fi
 
-if [ "$status" -ne 0 ] && [ "$failures" -le "$BASELINE" ]; then
+# If the command failed but no test-failure lines were found, this is not a
+# test-failure issue — it's a real error from moon check, moon build, etc.
+# Propagate the original exit code rather than absorbing it.
+if [ "$status" -ne 0 ] && [ "$failures" -eq 0 ]; then
+    echo "Command failed (exit $status) with no test-failure lines — propagating error." >&2
+    echo "$output" >&2
+    exit "$status"
+fi
+
+if [ "$status" -ne 0 ]; then
     echo "Non-zero exit ($status) with acceptable failure count ($failures ≤ $BASELINE) — suppressing exit code."
 fi
 
