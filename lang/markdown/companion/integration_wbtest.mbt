@@ -36,6 +36,54 @@ test "generic view path preserves ordered list kind" {
 }
 
 ///|
+test "move_block: unordered list item move preserves identity" {
+  let ed = new_markdown_editor("test")
+  ed.set_text("- A\n- B\n- C\n")
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(state, ed)
+  let proj = ed.get_proj_node().unwrap()
+  let items = proj.children[0].children
+  let b_id = items[1].id()
+  let result = apply_markdown_edit(
+    ed,
+    MarkdownEditOp::MoveBlock(
+      source=b_id,
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  let _ = @editor.compute_view_patches(state, ed)
+  let moved_proj = ed.get_proj_node().unwrap()
+  inspect(moved_proj.children[0].children[0].id() == b_id, content="true")
+}
+
+///|
+test "move_block: ordered list item move preserves identity across renumbering" {
+  let ed = new_markdown_editor("test")
+  ed.set_text("1. A\n2. B\n3. C\n")
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(state, ed)
+  let proj = ed.get_proj_node().unwrap()
+  let items = proj.children[0].children
+  let c_id = items[2].id()
+  let result = apply_markdown_edit(
+    ed,
+    MarkdownEditOp::MoveBlock(
+      source=c_id,
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+    0,
+  )
+  inspect(result is Ok(_), content="true")
+  let _ = @editor.compute_view_patches(state, ed)
+  let moved_proj = ed.get_proj_node().unwrap()
+  inspect(moved_proj.children[0].children[0].id() == c_id, content="true")
+}
+
+///|
 test "split_block: middle of paragraph" {
   let ed = new_markdown_editor("test")
   ed.set_text("Hello World\n")

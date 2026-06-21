@@ -327,29 +327,261 @@ test "move_block: rejects inside position" {
 }
 
 ///|
-test "move_block: rejects unordered list item within same list" {
-  let source = "- A\n- B\n"
+test "move_block: unordered list item before sibling" {
+  let source = "- A\n- B\n- C\n"
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let items = proj.children[0].children
-  let a_id = items[0].id()
-  let b_id = items[1].id()
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="- B\n- A\n- C\n")
+}
+
+///|
+test "move_block: unordered list item after sibling" {
+  let source = "- A\n- B\n- C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[0].id(),
+      target=items[1].id(),
+      position=@core.DropPosition::After,
+    ),
+  )
+  inspect(result, content="- B\n- A\n- C\n")
+}
+
+///|
+test "move_block: ordered list item before sibling" {
+  let source = "1. A\n2. B\n3. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="1. B\n2. A\n3. C\n")
+}
+
+///|
+test "move_block: ordered list item after sibling" {
+  let source = "1. A\n2. B\n3. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[0].id(),
+      target=items[2].id(),
+      position=@core.DropPosition::After,
+    ),
+  )
+  inspect(result, content="1. B\n2. C\n3. A\n")
+}
+
+///|
+test "move_block: rejects duplicate list item payloads" {
+  let source = "- X\n- X\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = compute_edit_result(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "move_block: rejects duplicate ordered list item payloads" {
+  let source = "1. X\n2. X\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = compute_edit_result(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result is Err(_), content="true")
+}
+
+///|
+test "move_block: renumbers ordered list markers consecutively from 1" {
+  let source = "1. A\n2. B\n3. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[2].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="1. C\n2. A\n3. B\n")
+}
+
+///|
+test "move_block: renumbers ordered list when first item is empty" {
+  let source = "1. \n2. B\n3. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="1. B\n2. \n3. C\n")
+}
+
+///|
+test "move_block: moves empty ordered list item with renumbering" {
+  let source = "1. A\n2. \n3. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="1. \n2. A\n3. C\n")
+}
+
+///|
+test "move_block: preserves ordered list delimiter paren" {
+  let source = "1) A\n2) B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="1) B\n2) A\n")
+}
+
+///|
+test "move_block: inserts padding after empty ordered seed marker" {
+  inspect(ordered_marker_for_content("1.", "B"), content="1. ")
+  inspect(ordered_marker_for_content("1)", "B"), content="1) ")
+  inspect(ordered_marker_for_content("1.", ""), content="1.")
+  inspect(ordered_marker_for_content("1.", "\n  nested"), content="1.")
+}
+
+///|
+test "move_block: preserves ordered list start value" {
+  inspect(next_ordered_marker("-1. ").unwrap(), content="0. ")
+  let source = "4. A\n5. B\n6. C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[2].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result, content="4. C\n5. A\n6. B\n")
+}
+
+///|
+test "move_block: reindents ordered item continuations after renumbering" {
+  let result = reindent_ordered_item_continuations(
+    "A\n   continued\n      nested",
+    old_marker_width=3,
+    new_marker_width=4,
+  )
+  inspect(result, content="A\n    continued\n       nested")
+}
+
+///|
+test "move_block: no-op for adjacent ordered items" {
+  let source = "1. A\n2. B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = compute_edit_result(
+    source,
+    MoveBlock(
+      source=items[0].id(),
+      target=items[1].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result is Ok(None), content="true")
+}
+
+///|
+test "move_block: uses single newline separator between list items" {
+  let source = "- A\n- B\n- C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let result = apply_edit(
+    source,
+    MoveBlock(
+      source=items[2].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+  inspect(result.contains("\n\n"), content="false")
+}
+
+///|
+test "move_block: rejects loose list item move" {
+  let source = "- A\n\n- B\n- C\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
   inspect_edit_error_contains(
     source,
-    MoveBlock(source=b_id, target=a_id, position=@core.DropPosition::Before),
-    "issue #724",
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+    "loose lists",
   )
 }
 
 ///|
-test "move_block: rejects ordered list item within same list" {
-  let source = "1. A\n2. B\n"
+test "move_block: rejects whitespace-blank loose list item move" {
+  let source = "1. A\n  \n2. B\n3. C\n"
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let items = proj.children[0].children
-  let a_id = items[0].id()
-  let b_id = items[1].id()
-  inspect_edit_error(
+  inspect_edit_error_contains(
     source,
-    MoveBlock(source=b_id, target=a_id, position=@core.DropPosition::Before),
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+    "loose lists",
   )
 }
 
