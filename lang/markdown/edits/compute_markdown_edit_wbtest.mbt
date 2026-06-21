@@ -38,6 +38,23 @@ fn apply_edit(
 }
 
 ///|
+fn inspect_edit_error(source : String, op : MarkdownEditOp) -> Unit raise {
+  inspect(compute_edit_result(source, op) is Err(_), content="true")
+}
+
+///|
+fn inspect_edit_error_contains(
+  source : String,
+  op : MarkdownEditOp,
+  fragment : String,
+) -> Unit raise {
+  match compute_edit_result(source, op) {
+    Err(msg) => inspect(msg.contains(fragment.view()), content="true")
+    Ok(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "commit_edit: change paragraph text" {
   let source = "Hello world\n"
   let (proj, _) = @md_proj.parse_to_proj_node("Hello world\n")
@@ -303,24 +320,69 @@ test "move_block: rejects inside position" {
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
-  let result = compute_edit_result(
+  inspect_edit_error(
     source,
     MoveBlock(source=a_id, target=b_id, position=@core.DropPosition::Inside),
   )
-  inspect(result is Err(_), content="true")
 }
 
 ///|
-test "move_block: rejects nested list item moves" {
+test "move_block: rejects unordered list item within same list" {
   let source = "- A\n- B\n"
   let (proj, _) = @md_proj.parse_to_proj_node(source)
-  let a_id = proj.children[0].children[0].id()
-  let b_id = proj.children[0].children[1].id()
-  let result = compute_edit_result(
+  let items = proj.children[0].children
+  let a_id = items[0].id()
+  let b_id = items[1].id()
+  inspect_edit_error_contains(
+    source,
+    MoveBlock(source=b_id, target=a_id, position=@core.DropPosition::Before),
+    "issue #724",
+  )
+}
+
+///|
+test "move_block: rejects ordered list item within same list" {
+  let source = "1. A\n2. B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  let a_id = items[0].id()
+  let b_id = items[1].id()
+  inspect_edit_error(
     source,
     MoveBlock(source=b_id, target=a_id, position=@core.DropPosition::Before),
   )
-  inspect(result is Err(_), content="true")
+}
+
+///|
+test "move_block: rejects cross-list item move" {
+  let source = "- A\n- B\n\nbetween\n\n- C\n- D\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let list1_items = proj.children[0].children
+  let list2_items = proj.children[2].children
+  inspect_edit_error(
+    source,
+    MoveBlock(
+      source=list1_items[0].id(),
+      target=list2_items[0].id(),
+      position=@core.DropPosition::Before,
+    ),
+  )
+}
+
+///|
+test "move_block: rejects ordered-to-unordered list item move" {
+  let source = "1. A\n2. B\n\n- C\n- D\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let ordered_items = proj.children[0].children
+  let unordered_items = proj.children[1].children
+  inspect_edit_error(
+    source,
+    MoveBlock(
+      source=ordered_items[0].id(),
+      target=unordered_items[0].id(),
+      position=@core.DropPosition::After,
+    ),
+  )
 }
 
 ///|
@@ -329,15 +391,63 @@ test "move_block: rejects list container sources" {
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let heading_id = proj.children[0].id()
   let list_id = proj.children[1].id()
-  let result = compute_edit_result(
+  inspect_edit_error_contains(
     source,
     MoveBlock(
       source=list_id,
       target=heading_id,
       position=@core.DropPosition::Before,
     ),
+    "list container sources",
   )
-  inspect(result is Err(_), content="true")
+}
+
+///|
+test "move_block: rejects ordered list container source" {
+  let source = "# H\n1. A\n2. B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let ordered_list_id = proj.children[1].id()
+  inspect_edit_error(
+    source,
+    MoveBlock(
+      source=ordered_list_id,
+      target=heading_id,
+      position=@core.DropPosition::Before,
+    ),
+  )
+}
+
+///|
+test "move_block: rejects root target for list item source" {
+  let source = "- A\n# B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let item_id = proj.children[0].children[0].id()
+  let heading_id = proj.children[1].id()
+  inspect_edit_error_contains(
+    source,
+    MoveBlock(
+      source=item_id,
+      target=heading_id,
+      position=@core.DropPosition::Before,
+    ),
+    "list-item sources",
+  )
+}
+
+///|
+test "move_block: inside position rejected before list-item checks" {
+  let source = "- A\n- B\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let items = proj.children[0].children
+  inspect_edit_error(
+    source,
+    MoveBlock(
+      source=items[1].id(),
+      target=items[0].id(),
+      position=@core.DropPosition::Inside,
+    ),
+  )
 }
 
 ///|
