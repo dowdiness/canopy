@@ -164,6 +164,7 @@ fn populate_block(
         CodeFenceCloseToken,
       )
     }
+    HtmlBlock(_) => ()
     Error(_) => ()
   }
 }
