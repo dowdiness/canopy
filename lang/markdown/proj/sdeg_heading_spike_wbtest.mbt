@@ -159,8 +159,8 @@ fn range_contains(outer : @loomcore.Range, inner : @loomcore.Range) -> Bool {
 }
 
 ///|
-fn heading_leaf(obs : HeadingObservation) -> @loomcore.ProjectionLeaf {
-  @loomcore.ProjectionLeaf::new(
+fn heading_leaf(obs : HeadingObservation) -> @loomproj.ProjectionLeaf {
+  @loomproj.ProjectionLeaf::new(
     obs.range.start,
     obs.range.end,
     heading_key(obs),
@@ -170,8 +170,8 @@ fn heading_leaf(obs : HeadingObservation) -> @loomcore.ProjectionLeaf {
 ///|
 fn stable_heading_leaf(
   obs : HeadingObservation,
-) -> @loomcore.StableProjectionLeaf[@core.NodeId] {
-  @loomcore.StableProjectionLeaf::new(
+) -> @loomproj.StableProjectionLeaf[@core.NodeId] {
+  @loomproj.StableProjectionLeaf::new(
     obs.range.start,
     obs.range.end,
     heading_key(obs),
@@ -183,8 +183,8 @@ fn stable_heading_leaf(
 fn heading_baseline(
   source : String,
   observations : Array[HeadingObservation],
-) -> @loomcore.ProjectionIdentityBaseline[@core.NodeId] {
-  @loomcore.ProjectionIdentityBaseline::new(
+) -> @loomproj.ProjectionIdentityBaseline[@core.NodeId] {
+  @loomproj.ProjectionIdentityBaseline::new(
     source,
     observations.map(stable_heading_leaf),
   )
@@ -192,13 +192,13 @@ fn heading_baseline(
 
 ///|
 fn realign_headings_from_baseline(
-  baseline : @loomcore.ProjectionIdentityBaseline[@core.NodeId],
+  baseline : @loomproj.ProjectionIdentityBaseline[@core.NodeId],
   next_source : String,
   observations : Array[HeadingObservation],
   fresh_start : Int,
 ) -> Array[HeadingObservation] {
   let fresh_counter : Ref[Int] = Ref(fresh_start)
-  @loomcore.realign_projection_items_with_optional_edit(
+  @loomproj.realign_projection_items_with_optional_edit(
     baseline,
     next_source,
     observations,
