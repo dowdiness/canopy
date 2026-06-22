@@ -61,16 +61,12 @@ EOF
 #
 # Vendored modules with known pre-existing test failures:
 #   moonbit-community/rabbita  (DOM tests, URL formatting diffs)
-#   dowdiness/alga             (clean — no known failures, but vendored)
-#   dowdiness/graphviz         (clean)
-#   dowdiness/svg-dsl          (clean)
 non_vendored_failures=0
 while IFS= read -r line; do
     case "$line" in
         *" test "*" failed"* | *" test "*" failed:"*)
             case "$line" in
                 *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
-                *"[dowdiness/alga]"* | *"[dowdiness/graphviz]"* | *"[dowdiness/svg-dsl]"*) ;;
                 *) non_vendored_failures=$(( non_vendored_failures + 1 )) ;;
             esac
             ;;

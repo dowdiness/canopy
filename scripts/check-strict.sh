@@ -34,7 +34,7 @@ fi
 #
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
-VENDORED_DIRS="rabbita/rabbita alga graphviz svg-dsl"
+VENDORED_DIRS="rabbita/rabbita alga"
 
 # Build a grep -v pipeline that excludes each vendored directory.
 # For each dir, we match lines containing "/dir/" in the path.
