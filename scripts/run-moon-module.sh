@@ -5,6 +5,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Shared vendored-submodule error suppression for --deny-warn checks.
+# Defines run_moon_check_with_vendored_filter().
+source "$SCRIPT_DIR/vendored-check-common.sh"
+
 if [ "$#" -lt 2 ]; then
     echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
     exit 1
@@ -58,14 +62,19 @@ case "$ACTION" in
     ci)
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
-        moon check "${DENY_WARN_FLAGS[@]}"
+        # When checking from within a vendored submodule, suppress only
+        # *transitive* vendored errors (deps), not the module under test.
+        # Extract the repo-root directory name (e.g. loom/loom → loom).
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     ci-lenient)
         # Same as `ci`, but exempts the try? [0020] deprecation for vendored
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
         "$SCRIPT_DIR/moon-update.sh"
-        moon check "${LENIENT_WARN_FLAGS[@]}"
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     bench)

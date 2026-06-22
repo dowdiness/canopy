@@ -25,13 +25,6 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
-# Disable workspace mode for the JS build that vite-plugin-moonbit kicks off.
-# When examples/ideal is a moon.work member, `moon build --target js` only
-# emits wasm-gc artifacts (moon picks the workspace target over ideal's
-# `preferred-target: js`), so vite can't find the JS output it imports.
-# Tracked as #335; remove once moon honors per-member preferred-target.
-export MOON_WORK=off
-
 DEFAULT_SPECS=()
 while IFS= read -r spec; do
     DEFAULT_SPECS+=("$spec")

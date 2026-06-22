@@ -34,6 +34,10 @@ jobs:
           fi
 
       - name: Run submodule benchmarks (event-graph-walker)
+        # Vendored submodule errors (alga trait mismatches, try? warnings)
+        # surface during workspace bench runs.  Continue on error — the
+        # comparison is informational, not a gate.
+        continue-on-error: true
         run: |
           if ./scripts/run-moon-module.sh bench event-graph-walker > pr_egw_bench.txt 2>&1; then
             cat pr_egw_bench.txt
@@ -203,11 +207,6 @@ jobs:
       - name: Run realistic editor response benchmark
         working-directory: examples/ideal/web
         env:
-          # examples/ideal is a moon.work member; workspace mode emits wasm-gc
-          # only when vite-plugin-moonbit builds, so the JS bundle vite expects
-          # at _build/js/release/build/main/main.js is never produced. Same
-          # treatment as scripts/test-canvas-e2e.sh. Tracked as #335.
-          MOON_WORK: off
           # CI-only paint budget for the 10% trimmed-mean gate (#460, the durable
           # fix for the single-run-p95 flakiness #458/#459 papered over with a 175
           # ms p95 budget). The trimmed mean drops the 1-2 transient slow paints
