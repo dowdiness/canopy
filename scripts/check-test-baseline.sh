@@ -61,12 +61,23 @@ EOF
 #
 # Vendored modules with known pre-existing test failures:
 #   moonbit-community/rabbita  (DOM tests, URL formatting diffs)
+#   All submodule workspace members added in #740 — pre-existing
+#   failures that Canopy cannot fix.  The path-prefix "/loom/" covers
+#   every loom-owned submodule (loom/loom, seam, pretty, text-change,
+#   moji, egglog, egraph, examples/*).
 non_vendored_failures=0
 while IFS= read -r line; do
     case "$line" in
         *" test "*" failed"* | *" test "*" failed:"*)
             case "$line" in
                 *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
+                *"/alga/"*) ;;
+                *"/rle/"*) ;;
+                *"/order-tree/"*) ;;
+                *"/loom/"*) ;;
+                *"/event-graph-walker/"*) ;;
+                *"/graphviz/"*) ;;
+                *"/svg-dsl/"*) ;;
                 *) non_vendored_failures=$(( non_vendored_failures + 1 )) ;;
             esac
             ;;
