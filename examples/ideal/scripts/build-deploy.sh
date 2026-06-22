@@ -18,10 +18,10 @@ git submodule update --init --recursive
 echo "→ MoonBit dependencies..."
 cd "$IDEAL_ROOT"
 # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-MOON_WORK=off "$REPO_ROOT/scripts/moon-update.sh"
+"$REPO_ROOT/scripts/moon-update.sh"
 
 echo "→ MoonBit build (release JS)..."
-MOON_WORK=off moon build --target js --release
+moon build --target js --release
 
 # 3. Vite build
 echo "→ Vite build..."
