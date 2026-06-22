@@ -120,10 +120,11 @@ jobs:
         run: moon version --all
 
       - name: Check and test ${{ matrix.name }}
-        # ci-lenient checks pass, but moon test --release runs all workspace
-        # members including rabbita (7 pre-existing JS test failures).
-        run: ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
-        continue-on-error: true
+        # Gated on rabbita's 7 pre-existing JS test failures. check-test-baseline.sh
+        # suppresses only those known failures; real check failures or unexpected
+        # test failures propagate to fail the job (unlike continue-on-error which
+        # masked all failures).
+        run: ./scripts/check-test-baseline.sh 7 ./scripts/run-moon-module.sh "${{ matrix.mode }}" "${{ matrix.path }}"
 
   test-examples:
     name: Test MoonBit Examples
