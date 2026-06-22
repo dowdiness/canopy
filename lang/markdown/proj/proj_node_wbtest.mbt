@@ -96,6 +96,11 @@ test "projection: html block" {
   let source_map = @core.SourceMap::from_ast(proj)
   let (cst, _) = @markdown.parse_cst(source)
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  // Verify the "text" span covers the raw HTML content
+  match source_map.get_token_span(proj.children[1].id(), "text") {
+    Some(range) => inspect(source[range.start:range.end], content="<div>\nraw\n</div>\n")
+    None => fail("expected text span for html block")
+  }
 }
 
 ///|
