@@ -99,6 +99,29 @@ jobs:
         if: matrix.moon-build != ''
         run: ${{ matrix.moon-build }}
 
+      - name: Link workspace build artifacts (#335)
+        if: matrix.moon-build != '' && matrix.type == 'pages'
+        # Workspace mode puts JS output in root _build/ (<mod>/<pkg>),
+        # but vite-plugin-moonbit expects it under the example's local
+        # _build/ (<pkg>/).  Symlink to bridge the gap.
+        run: |
+          EXAMPLE="${{ matrix.name }}"
+          # Map matrix name to module name in _build/
+          case "$EXAMPLE" in
+            block-editor) MOD="dowdiness/canopy-block-editor" ;;
+            canvas)      MOD="dowdiness/canopy-canvas" ;;
+            ideal)       MOD="dowdiness/ideal-editor" ;;
+            *)          MOD="" ;;
+          esac
+          if [ -n "$MOD" ]; then
+            SRC="$GITHUB_WORKSPACE/_build/js/release/build/$MOD/main"
+            DST="$GITHUB_WORKSPACE/examples/$EXAMPLE/_build/js/release/build/main"
+            if [ -d "$SRC" ]; then
+              mkdir -p "$(dirname "$DST")"
+              ln -sfn "$SRC" "$DST"
+            fi
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
