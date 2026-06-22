@@ -262,11 +262,12 @@ jobs:
           bash ./scripts/check-agent-doc-links.sh
           moon fmt || true
           # Vendored submodule directories — formatting changes here are accepted.
-          VENDORED='alga/|event-graph-walker/|graphviz/|loom/|order-tree/|rabbita/|rle/|svg-dsl/'
+          # Matches both 'dir/' (subdirectory changes) and 'dir' (submodule pointer).
+          VENDORED='^(alga|event-graph-walker|graphviz|loom|order-tree|rabbita|rle|svg-dsl)(/.*)?$'
           CHANGED=$(git diff --name-only)
-          if echo "$CHANGED" | grep -qvE "^($VENDORED)"; then
+          if echo "$CHANGED" | grep -qvE "$VENDORED"; then
             echo "Formatting errors in Canopy-owned files:" >&2
-            echo "$CHANGED" | grep -vE "^($VENDORED)" >&2
+            echo "$CHANGED" | grep -vE "$VENDORED" >&2
             exit 1
           fi
           echo "Format check passed (vendored-only formatting changes accepted)."
