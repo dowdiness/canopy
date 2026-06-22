@@ -20,14 +20,14 @@ git submodule update --init --recursive
 # current member list — do not maintain a copy here; it drifts.
 moon test                           # All workspace members
 moon check                          # Lint across workspace
-moon info && moon fmt               # Format & update interfaces
 
-# Submodules are NOT workspace members — each needs its own:
-cd <submodule> && moon test
-# The authoritative tested set is CI's "Test Submodules" matrix in
-# .github/workflows/ci.yml (currently event-graph-walker, loom, svg-dsl,
-# graphviz). rle, order-tree, alga, and vendored rabbita are pure deps —
-# no separate test step; consumers exercise them.
+# Submodules are now workspace members (as of #740). Workspace-root
+# commands cover them alongside Canopy-owned modules. Vendored submodule
+# errors that Canopy cannot fix (pre-existing deprecations, trait API
+# mismatches) are suppressed by scripts/vendored-check-common.sh in CI.
+# See .github/workflows/ci.yml (Test Submodules matrix) for the full
+# tested set and ci-lenient mode details.
+moon info && moon fmt               # Format & update interfaces (NEW_MOON_MOD=0 for mixed manifests)
 ```
 
 `.github/workflows/ci.yml` is the source of truth for the full fan-out — its
