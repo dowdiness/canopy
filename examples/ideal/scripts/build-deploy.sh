@@ -14,7 +14,7 @@ git submodule update --init --recursive
 
 # 2. Moon update + build (release JS)
 # examples/ideal is a moon.work member, so workspace mode skips the JS
-# bundle vite expects unless MOON_WORK=off is set. See #335.
+# bundle vite expects. See #335.
 echo "→ MoonBit dependencies..."
 cd "$IDEAL_ROOT"
 # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
