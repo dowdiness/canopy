@@ -240,6 +240,8 @@ jobs:
         continue-on-error: true
 
       - name: Run event-graph-walker benchmarks
+        # Vendored submodule errors surface during workspace bench runs.
+        continue-on-error: true
         working-directory: event-graph-walker
         run: |
           "$GITHUB_WORKSPACE/scripts/moon-update.sh"
