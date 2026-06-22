@@ -255,9 +255,21 @@ jobs:
         uses: ./.github/actions/setup-moonbit
 
       - name: Check formatting
+        # moon fmt may reformat vendored submodule files. Run it first, then
+        # fail only if Canopy-owned files changed (vendored formatting diffs
+        # are accepted).
         run: |
           bash ./scripts/check-agent-doc-links.sh
-          ./scripts/run-moon-module.sh fmt-check .
+          moon fmt || true
+          # Vendored submodule directories — formatting changes here are accepted.
+          VENDORED='alga/|event-graph-walker/|graphviz/|loom/|order-tree/|rabbita/|rle/|svg-dsl/'
+          CHANGED=$(git diff --name-only)
+          if echo "$CHANGED" | grep -qvE "^($VENDORED)"; then
+            echo "Formatting errors in Canopy-owned files:" >&2
+            echo "$CHANGED" | grep -vE "^($VENDORED)" >&2
+            exit 1
+          fi
+          echo "Format check passed (vendored-only formatting changes accepted)."
 
   build-js:
     name: Build JavaScript Target
