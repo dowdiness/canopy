@@ -52,20 +52,26 @@ done <<EOF
 $output
 EOF
 
-# Verify every failing test is from the vendored rabbita submodule.
+# Verify every failing test is from a vendored submodule.
 # Failure lines look like:
 #   [moonbit-community/rabbita] test dom/README.mbt.md:17 (#0) failed: ...
 #   [dowdiness/canopy] test core/some_test.mbt:5 failed
 #   [example/codemirror_demo] test ... failed
-# Any test failure NOT explicitly from [moonbit-community/rabbita] or
-# a rabbita/rabbita/ path is counted as non-rabbita.
-non_rabbita_failures=0
+# Any test failure NOT explicitly from a vendored submodule is an error.
+#
+# Vendored modules with known pre-existing test failures:
+#   moonbit-community/rabbita  (DOM tests, URL formatting diffs)
+#   dowdiness/alga             (clean — no known failures, but vendored)
+#   dowdiness/graphviz         (clean)
+#   dowdiness/svg-dsl          (clean)
+non_vendored_failures=0
 while IFS= read -r line; do
     case "$line" in
         *" test "*" failed"* | *" test "*" failed:"*)
             case "$line" in
                 *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
-                *) non_rabbita_failures=$(( non_rabbita_failures + 1 )) ;;
+                *"[dowdiness/alga]"* | *"[dowdiness/graphviz]"* | *"[dowdiness/svg-dsl]"*) ;;
+                *) non_vendored_failures=$(( non_vendored_failures + 1 )) ;;
             esac
             ;;
     esac
@@ -73,10 +79,10 @@ done <<EOF
 $output
 EOF
 
-echo "Test baseline check: $failures failures (baseline: $BASELINE), $non_rabbita_failures non-rabbita"
+echo "Test baseline check: $failures failures (baseline: $BASELINE), $non_vendored_failures non-vendored"
 
-if [ "$non_rabbita_failures" -gt 0 ]; then
-    echo "FAIL: $non_rabbita_failures failing test(s) from non-rabbita sources." >&2
+if [ "$non_vendored_failures" -gt 0 ]; then
+    echo "FAIL: $non_vendored_failures failing test(s) from non-vendored sources." >&2
     echo "$output" >&2
     exit 1
 fi
