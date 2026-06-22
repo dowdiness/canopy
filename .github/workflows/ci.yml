@@ -260,12 +260,13 @@ jobs:
         uses: ./.github/actions/setup-moonbit
 
       - name: Check formatting
-        # moon fmt may reformat vendored submodule files. Run it first, then
-        # fail only if Canopy-owned files changed (vendored formatting diffs
-        # are accepted).
+        # NEW_MOON_MOD=0 handles the mixed-manifest workspace (Canopy-owned
+        # moon.mod + legacy loom submodule moon.mod.json).  Without it,
+        # moon fmt aborts on loom's moon.mod.json path deps before formatting
+        # any Canopy files, and the || true fallthrough would report success.
         run: |
           bash ./scripts/check-agent-doc-links.sh
-          moon fmt || true
+          NEW_MOON_MOD=0 moon fmt
           # Vendored submodule directories — formatting changes here are accepted.
           # Matches both 'dir/' (subdirectory changes) and 'dir' (submodule pointer).
           VENDORED='^(alga|event-graph-walker|graphviz|loom|order-tree|rabbita|rle|svg-dsl)(/.*)?$'

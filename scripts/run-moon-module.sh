@@ -62,14 +62,19 @@ case "$ACTION" in
     ci)
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
-        run_moon_check_with_vendored_filter "${DENY_WARN_FLAGS[@]}"
+        # When checking from within a vendored submodule, suppress only
+        # *transitive* vendored errors (deps), not the module under test.
+        # Extract the repo-root directory name (e.g. loom/loom → loom).
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     ci-lenient)
         # Same as `ci`, but exempts the try? [0020] deprecation for vendored
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
         "$SCRIPT_DIR/moon-update.sh"
-        run_moon_check_with_vendored_filter "${LENIENT_WARN_FLAGS[@]}"
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     bench)

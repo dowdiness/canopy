@@ -23,6 +23,15 @@
 VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita alga event-graph-walker loom rle order-tree graphviz svg-dsl}"
 
 run_moon_check_with_vendored_filter() {
+    # Parse --keep=<dir> to exclude a directory from vendored suppression.
+    # Used when running check from within a vendored submodule directory
+    # (Test Submodules CI) — errors in the module under test must surface.
+    local keep_dir=""
+    if [[ "${1:-}" == --keep=* ]]; then
+        keep_dir="${1#--keep=}"
+        shift
+    fi
+
     set +e
     local output
     output="$(moon check "$@" 2>&1)"
@@ -39,6 +48,10 @@ run_moon_check_with_vendored_filter() {
     local grep_exclude=""
     local sep=""
     for dir in $VENDORED_DIRS; do
+        # Skip the keep_dir so its errors are NOT suppressed.
+        if [ -n "$keep_dir" ] && [ "$dir" = "$keep_dir" ]; then
+            continue
+        fi
         grep_exclude="${grep_exclude}${sep}-e /$dir/"
         sep=" "
     done
