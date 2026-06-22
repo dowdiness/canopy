@@ -101,10 +101,12 @@ jobs:
             mode: ci-lenient
           - name: svg-dsl
             path: svg-dsl
-            mode: ci
+            # ci-lenient: now a workspace member (visualizer migration).
+            # Inherits vendored-submodule warnings from other members.
+            mode: ci-lenient
           - name: graphviz
             path: graphviz
-            mode: ci
+            mode: ci-lenient
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
