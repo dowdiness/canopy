@@ -55,22 +55,32 @@ favoring fork (ii)); if the hash is in-memory only, the blast radius is one reco
 (**mild**, fork (i) suffices). Reading the actual persistence/transmission layer
 settles it.
 
-**What survives — or is transmitted — across a loomgen build boundary?** Three
-surfaces: (a) source **text** files; (b) the SQLite op log
-([`store.ts`](../../examples/ideal/web/server/store.ts)); and (c) the ideal web app's
-**full CRDT state**, saved to `localStorage` via `crdt.export_all_json` and restored
-via `apply_sync_json` ([`examples/ideal/web/src/main.ts`](../../examples/ideal/web/src/main.ts):128/:449),
-and sent to peers as the same payload ([`examples/ideal/web/src/sync.ts`](../../examples/ideal/web/src/sync.ts):120).
-All three are **text/CRDT-based**: text is ground truth, re-parsed into a fresh CST
-under the current numbering. So the question reduces to: *does any of these carry a
-seam content-hash or RawKind int?*
+**What survives — or is transmitted — across a loomgen build boundary?** Every
+persisted or transmitted artifact reduces to one of **two payload classes**, no
+matter how many transports carry them: (a) source **text** files; and (b) the
+text-CRDT op stream — `@text.SyncMessage` (op runs + version heads), or the opaque
+relayed op strings derived from it. Class (b) travels over *several* transports, all
+audited below: the dev SQLite op log
+([`store.ts`](../../examples/ideal/web/server/store.ts)), the Cloudflare relay's
+Durable Object SQL ([`relay-worker.js`](../../examples/ideal/web/relay-worker.js)),
+the ideal web app's `localStorage` snapshot + peer sync via `crdt.export_all_json` /
+`apply_sync_json` ([`main.ts`](../../examples/ideal/web/src/main.ts):128/:449,
+[`sync.ts`](../../examples/ideal/web/src/sync.ts):120), and the `SyncEditor`
+WebSocket broadcast (`export_all().to_json_string()` wrapped in `@wire.CrdtOps`,
+[`sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65). Both classes are
+**text/CRDT-based**: text is ground truth, re-parsed into a fresh CST under the
+current numbering, and the op stream is character-level CRDT operations *upstream of*
+parsing. So the question reduces to: *does any of these carry a seam content-hash or
+RawKind int?*
 
 Evidence (as of 2026-06-23):
 
 | Surface | What it carries | Keys off seam hash? |
 |---------|-----------------|---------------------|
-| Op log persistence ([`examples/ideal/web/server/store.ts`](../../examples/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
+| Op log persistence — dev relay ([`examples/ideal/web/server/store.ts`](../../examples/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
+| Op log persistence — Cloudflare relay DO SQL ([`examples/ideal/web/relay-worker.js`](../../examples/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
 | Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
+| `SyncEditor` WS broadcast ([`editor/sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65 `ws_broadcast_edit` → `@wire.CrdtOps`) | `export_all().to_json_string()` — the same `@text.SyncMessage` payload, UTF-16LE framed | no — same text-CRDT op stream |
 | The op itself ([`protocol/user_intent.mbt`](../../protocol/user_intent.mbt) `UserIntent`) | `TextEdit(from, to, insert)` (text edits) + `StructuralEdit`/`SelectNode`/`CommitEdit` addressing by `@core.NodeId` | no |
 | `NodeId` ([`core/types.mbt`](../../core/types.mbt) `struct NodeId(Int)`) | allocation-order int (`assign_fresh_ids` counter), "survives reparses" | no — not hash-derived |
 | Wire view/annotation ([`protocol/view_node.mbt`](../../protocol/view_node.mbt)) | `ViewNode.kind_tag : String` (AST variant **name**), `ViewAnnotation.kind/label/severity : String`, `TokenSpan.role : String`, UTF-16 offsets | no — keys off **names** + NodeId |
