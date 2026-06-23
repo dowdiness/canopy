@@ -164,6 +164,9 @@ fn populate_block(
         CodeFenceCloseToken,
       )
     }
+    HtmlBlock(_) =>
+      // Full raw HTML content (no prefix marker to skip).
+      set_content_span(source_map, syntax_node, id, "text", None)
     Error(_) => ()
   }
 }

@@ -110,6 +110,7 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
     | OrderedListNode
     | ListItemNode
     | CodeBlockNode
+    | HtmlBlockNode
     | ErrorNode => true
     _ => false
   }

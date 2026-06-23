@@ -85,6 +85,26 @@ test "projection: code block" {
 }
 
 ///|
+test "projection: html block" {
+  let source = "# Before\n\n<div>\nraw\n</div>\n\nAfter"
+  let (proj, _) = parse_to_proj_node(source)
+  inspect(proj.children.length(), content="3")
+  match proj.children[1].kind {
+    HtmlBlock(value) => inspect(value, content="<div>\nraw\n</div>\n")
+    _ => fail("expected html block payload")
+  }
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, _) = @markdown.parse_cst(source)
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  // Verify the "text" span covers the raw HTML content
+  match source_map.get_token_span(proj.children[1].id(), "text") {
+    Some(range) =>
+      inspect(source[range.start:range.end], content="<div>\nraw\n</div>\n")
+    None => fail("expected text span for html block")
+  }
+}
+
+///|
 test "projection: mixed blocks" {
   let source = "# Title\n\nSome text.\n\n- item one\n- item two\n\nMore text."
   let (proj, _) = parse_to_proj_node(source)
