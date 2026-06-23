@@ -562,7 +562,7 @@ required" = the evidence the matcher needs to make the right call.
 | Operation | May change | Must be preserved | Evidence required | Failure mode |
 |---|---|---|---|---|
 | **rename** (`# A`→`# A2`) | signature (level+text), source range, token spans, recorded evidence | `stable_id`, current `NodeId` (same-node), `Live`, one-to-one anchor | `HeadingSameNodeId` (NodeId survives the edit path) | if `NodeId` were freshened, rename ≡ delete+spawn → identity lost. *Holds today* (Phase 0 + edit-path rename test). |
-| **reorder** (`# A\n# B`→`# B\n# A`) | ordinal/position; which `ProjNode` each `NodeId` attaches to | (today) *nothing semantic* — explicitly "position-stable, not semantic-stable" | would need explicit **move provenance** (`IdentityTransform::Move`); side-table-only has none | **silent semantic misattribution** — all structural invariants green, meaning wrong (I5/Sem3). Corrected only by the future block-move path. |
+| **reorder** (`# A\n# B`→`# B\n# A`) | ordinal/position; which `ProjNode` each `NodeId` attaches to | (today) *nothing semantic* — explicitly "position-stable, not semantic-stable" | would need explicit **move provenance** (`IdentityTransform::Move`); side-table-only has none | **silent semantic misattribution** — all structural invariants green, meaning wrong (I5/Sem3). Corrected by the explicit block-move path for root siblings (#723) and same-list items (#731); cross-container / list-container moves stay rejected — see *Decision: Markdown move-provenance scope* (#724). |
 | **duplicate** (`# A\n# A`) | confidence → `Ambiguous`; candidate set | distinct `stable_id` per distinct `NodeId` while both present; one-to-one (I4) | `HeadingSameSemanticKey` collision + `CandidateCount>1` | guessing → two rows on one node, or restore to wrong twin. *Avoided* by staying `Ambiguous` (duplicate test). Spurious collision if normalization is loose (Sem4). |
 | **delete** (`# A` removed) | status `Live→Missing→Tombstoned`; `current_id→None` | `stable_id`; `last_live` (recovery substrate) | `CandidateCount(0)` | **`Missing` conflates delete with malformed absence** (G2); committed delete also drops the projection baseline (Phase 0), so SDEG's retained `last_live` is the *only* recovery path. |
 | **restore** (deleted heading re-typed) | a new current `NodeId` (in the tested path); status →`Live` | original `stable_id` recovered iff a *unique semantic candidate* exists while the prior node is absent (freshness not required) | `HeadingSameSemanticKey` + unique candidate | duplicate text → stays `Ambiguous` (no guess); different normalization → spawns fresh (not recovered); only works before `Retired`/GC. |
@@ -571,6 +571,84 @@ required" = the evidence the matcher needs to make the right call.
 | **format-like rewrite** (whitespace/formatter) | source ranges, token spans (shift) | `stable_id`, `NodeId`, `Live`, signature (text unchanged) | same-node + same-key + overlapping-range | low risk; if formatter alters text normalization, key changes but same-node priority still preserves identity. *Holds today* (Phase 0). |
 | **projection regeneration** | full observation set + current-node index rebuilt | rows across regeneration | whatever `NodeId`s/keys survive regeneration | wholesale `NodeId` refresh (non-incremental rebuild) → mass semantic recovery; uniques recovered, duplicates → `Ambiguous`. **Bounded entirely by projection-identity stability** (G8). |
 | **reparse** (single) | token spans, ranges | `NodeId` via incremental reparse + tracker | same-node | parser reuse (`ReuseCursor`) is *structural, not identity* (identity/reuse decision) — reparse-stability is **not** a parser guarantee, only a projection-tracker one layered above (G8). "Stable across a single reparse" is the minimal named scope. |
+
+---
+
+## Decision: Markdown move-provenance scope (#724)
+
+Resolves the corrective-mechanism *reach* for **reorder** (Operation Preservation
+Matrix) and the implemented half of **G1**: explicit move provenance now
+preserves identity across the *safe* moves and **documents a proof-backed reason**
+for the moves it keeps rejecting (issue #724, AC#3, second clause). Decided
+2026-06-23; code is source of truth (`lang/markdown/edits/compute_move_block.mbt`,
+`lang/markdown/proj/move_reconcile.mbt`).
+
+`MarkdownEditOp::MoveBlock(source, target, position)` carries an explicit
+`IdentityTransform::Move(subtree=id)` so a moved block keeps its `NodeId` (and its
+SDEG row) instead of being read as delete-at-old + spawn-at-new. The
+identity-preserving reconciler is `reconcile_markdown_children_hinted`: at each
+container level it excludes the move source from the LCS match
+(`is_move_source` over that level's `old_children`), then pairs it to a **unique
+exact-payload sibling among that same container's new children**
+(`markdown_move_pair` + `markdown_move_pair_counts`, requiring a pair count of 1).
+
+**Shipped — identity preserved.**
+
+| Move | Provenance path | Coverage |
+|---|---|---|
+| root-level sibling block (heading/paragraph/code), unique payload | #723, `compute_root_move_source` | `compute_markdown_edit_wbtest.mbt` `move_block: *` |
+| same-list item reorder (ordered/unordered), unique payload | #731, `compute_list_item_move_source` | same file, `move_block: *list item*` incl. renumbering, `.`/`)` delimiters, start-value, separators |
+
+**Rejected — proof-backed (the sibling-level reconciler structurally cannot
+preserve identity here).**
+
+1. **Cross-container moves** — list item → root, root block → into a list, or an
+   item → a *different* list. Gate: `compute_move_block.mbt:45-55` (the
+   `is_markdown_list_item` arms at `:46-50` give the targeted blocker messages).
+   The `Move` hint is keyed by the subtree's `NodeId` and is consulted only at the
+   container level where that id is a *direct child*. A relocated node leaves
+   container A and surfaces as an *unmatched new child* of container B, but
+   `markdown_move_pair` only searches the **current** container's `old_children` —
+   so the move-source exclusion in A and the orphan in B never meet. The output is
+   rebuilt from `new_children` only: the relocated content surfaces as an unmatched
+   new child of B and is given a fresh id by `assign_fresh_ids`, while the source
+   node is simply dropped from A's reconciled children. The moved block therefore
+   does not inherit the source's `NodeId`, and identity is lost. This is an *architectural
+   limit of the sibling-level pairing reconciler*, **not an impossibility**:
+   preserving identity across a container boundary needs the ancestor-aware
+   container reconciliation #724 itself names as unbuilt — the same work Decision
+   Gate #3 (graph relations beyond the projection tree) would add.
+
+2. **List-container source** — moving a whole `UnorderedList` / `OrderedList`.
+   Gate: `compute_move_block.mbt:62-64`. Containers match by *kind only*:
+   `markdown_child_match` falls through to `@loomcore.TreeNode::same_kind` for any
+   `is_block_container` node, never by payload. A moved list among ≥2 same-kind
+   sibling lists therefore yields a pair count > 1 (or a spurious match against the
+   wrong list) and cannot be *uniquely* paired, so identity attribution would be a
+   guess — which the no-guessing ethic (S4/S5) forbids. The item-level ambiguity
+   rule does not transfer: it needs an exact payload, which the explicit list
+   payloads (#730) deliberately do not carry at the container level.
+
+3. **Loose lists** — blank-line-separated items. Gate:
+   `reject_loose_list_separators`. Source-text lowering re-emits items with
+   single-`\n` separators (`compute_list_item_move_source`); applying it to a loose
+   list would silently reflow loose → tight, a semantic change to the surrounding
+   list rather than a move, so the move is rejected instead of performed lossily.
+
+**Why this closes #724.** The acceptance criteria are met *without* widening
+cross-container legality:
+
+| Acceptance criterion | Satisfier |
+|---|---|
+| distinguish ordered vs unordered without `SourceMap` side channels | #730 (explicit list payloads) |
+| still reject every list-container source variant | gates above (`:62-64`), regression-tested (#726) |
+| sibling moves with identity preservation **or** a proof-backed rejection | #731 (sibling) + this decision (cross-container) |
+| tests: `- B` before `- A`, ordered moves, ordered/unordered + duplicate ambiguity, marker renumbering, synthesized separators | #731 (`compute_markdown_edit_wbtest.mbt`) |
+| #723 root-move tests + #726 blocker regressions still pass | green on `main` |
+
+The remaining cross-container / list-container legality and loose-list separator
+preservation are tracked as narrow follow-ups under the drag-drop-foundation item
+in `docs/TODO.md` (§10), not under a still-open #724.
 
 ---
 

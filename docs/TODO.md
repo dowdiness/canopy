@@ -256,8 +256,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   fallbacks; action-context plumbing now uses real LetDef ids instead of init ids.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
-  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder. Markdown list/list-item moves for issue #724 are no longer blocked on list payloads. PR #731 landed tight same-list item reorder with parse-shape, identity, ambiguity, marker-renumbering, separator, and unsupported-container regressions; cross-container/list-container legality and loose-list separator preservation remain narrow follow-ups.
-  Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3); issue #724 tracks Markdown list/list-item move provenance.
+  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder. Markdown list/list-item move provenance (issue #724) is resolved: #730 added explicit ordered/unordered list payloads, and PR #731 landed tight same-list item reorder with parse-shape, identity, ambiguity, marker-renumbering, separator, and unsupported-container regressions. #724 is closed with a proof-backed rejection for the cases the sibling-level reconciler cannot preserve identity across (see `docs/design/sdeg-invariant-review.md` "Decision: Markdown move-provenance scope"). Cross-container / list-container legality and loose-list separator preservation remain narrow follow-ups carried here.
+  Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3); cross-container/list-container move provenance follow-up (was issue #724, now documented-rejected).
   Exit: `block-editor` exposes positioned block moves plus structural render metadata.
 
 - [x] Spike Markdown block move provenance for future block UI.

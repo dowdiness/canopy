@@ -106,9 +106,14 @@ fn compute_move_block(
 
 ///|
 fn list_payload_blocker(blocked : String) -> String {
-  "markdown block move currently rejects " +
+  // The sibling-level reconciler cannot preserve identity across a container
+  // boundary, so cross-container / list-container moves stay rejected. This is a
+  // proof-backed standing decision (#724), not a temporary gate; see
+  // docs/design/sdeg-invariant-review.md "Decision: Markdown move-provenance
+  // scope" and the drag-drop-foundation follow-up in docs/TODO.md.
+  "markdown block move rejects " +
   blocked +
-  " until issue #724 widens legality beyond same-list item reorders; see docs/TODO.md"
+  ": cannot preserve identity across a container boundary; see docs/design/sdeg-invariant-review.md (Decision: Markdown move-provenance scope) and docs/TODO.md"
 }
 
 ///|
