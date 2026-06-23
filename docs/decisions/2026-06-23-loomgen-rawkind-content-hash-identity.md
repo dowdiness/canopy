@@ -55,23 +55,33 @@ favoring fork (ii)); if the hash is in-memory only, the blast radius is one reco
 (**mild**, fork (i) suffices). Reading the actual persistence/transmission layer
 settles it.
 
-**What survives — or is transmitted — across a loomgen build boundary?** Every
-persisted or transmitted artifact reduces to one of **two payload classes**, no
-matter how many transports carry them: (a) source **text** files; and (b) the
-text-CRDT op stream — `@text.SyncMessage` (op runs + version heads), or the opaque
-relayed op strings derived from it. Class (b) travels over *several* transports, all
-audited below: the dev SQLite op log
-([`store.ts`](../../examples/ideal/web/server/store.ts)), the Cloudflare relay's
-Durable Object SQL ([`relay-worker.js`](../../examples/ideal/web/relay-worker.js)),
-the ideal web app's `localStorage` snapshot + peer sync via `crdt.export_all_json` /
-`apply_sync_json` ([`main.ts`](../../examples/ideal/web/src/main.ts):128/:449,
-[`sync.ts`](../../examples/ideal/web/src/sync.ts):120), and the `SyncEditor`
-WebSocket broadcast (`export_all().to_json_string()` wrapped in `@wire.CrdtOps`,
-[`sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65). Both classes are
-**text/CRDT-based**: text is ground truth, re-parsed into a fresh CST under the
-current numbering, and the op stream is character-level CRDT operations *upstream of*
-parsing. So the question reduces to: *does any of these carry a seam content-hash or
-RawKind int?*
+**What survives — or is transmitted — across a loomgen build boundary?** The
+transmitted frames are a **closed enum** — `@wire.SyncMessage`
+([`protocol/wire/wire.mbt`](../../protocol/wire/wire.mbt):5-13): `CrdtOps`,
+`RelayedCrdtOps`, `SyncRequest`, `SyncResponse`, `EphemeralUpdate`, `PeerJoined`,
+`PeerLeft` — and persistence stores those frames' payloads (or source text)
+verbatim. Walking the *whole* enum, every frame falls into one of **three classes**,
+none carrying CST structure:
+
+- **(a) source text** — files on disk; ground truth, re-parsed into a fresh CST
+  under the current numbering.
+- **(b) the text-CRDT op stream** — `@text.SyncMessage` (op runs + version heads),
+  character-level operations *upstream of* parsing; carried by `CrdtOps` /
+  `RelayedCrdtOps` / `SyncResponse`, with `SyncRequest` carrying only the version
+  frontier. This class travels over *several* transports, all auditing identically:
+  the dev SQLite op log
+  ([`store.ts`](../../examples/ideal/web/server/store.ts)), the Cloudflare relay's
+  Durable Object SQL ([`relay-worker.js`](../../examples/ideal/web/relay-worker.js)),
+  the ideal web app's `localStorage` snapshot + peer sync via `crdt.export_all_json`
+  / `apply_sync_json` ([`main.ts`](../../examples/ideal/web/src/main.ts):128/:449,
+  [`sync.ts`](../../examples/ideal/web/src/sync.ts):120), and the `SyncEditor` WS
+  broadcast ([`sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65).
+- **(c) ephemeral / control metadata** — `EphemeralUpdate` (cursor & presence:
+  I64 text offsets + name/color/peer-id) and `PeerJoined` / `PeerLeft` (peer-id
+  strings, connection control). No document structure at all.
+
+So the question reduces to: *does any frame in the closed set — or any persisted
+payload — carry a seam content-hash or RawKind int?*
 
 Evidence (as of 2026-06-23):
 
@@ -81,6 +91,8 @@ Evidence (as of 2026-06-23):
 | Op log persistence — Cloudflare relay DO SQL ([`examples/ideal/web/relay-worker.js`](../../examples/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
 | Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
 | `SyncEditor` WS broadcast ([`editor/sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65 `ws_broadcast_edit` → `@wire.CrdtOps`) | `export_all().to_json_string()` — the same `@text.SyncMessage` payload, UTF-16LE framed | no — same text-CRDT op stream |
+| Ephemeral cursor/presence (`@wire.EphemeralUpdate`; [`editor/sync_editor.mbt`](../../editor/sync_editor.mbt):126-157 `set_local_presence`, `sync_editor_ws.mbt:69-73`) | `cursor`/`selection` as I64 **text offsets** + `peer_id`/`name`/`color` strings | no — positions + presence metadata, no NodeId or kind |
+| Peer/connection control (`@wire.PeerJoined`/`PeerLeft`; [`protocol/wire/wire.mbt`](../../protocol/wire/wire.mbt):5-13) | peer-id strings; join triggers ephemeral + full-CRDT catch-up (audited above) | no — control frames carry no document data |
 | The op itself ([`protocol/user_intent.mbt`](../../protocol/user_intent.mbt) `UserIntent`) | `TextEdit(from, to, insert)` (text edits) + `StructuralEdit`/`SelectNode`/`CommitEdit` addressing by `@core.NodeId` | no |
 | `NodeId` ([`core/types.mbt`](../../core/types.mbt) `struct NodeId(Int)`) | allocation-order int (`assign_fresh_ids` counter), "survives reparses" | no — not hash-derived |
 | Wire view/annotation ([`protocol/view_node.mbt`](../../protocol/view_node.mbt)) | `ViewNode.kind_tag : String` (AST variant **name**), `ViewAnnotation.kind/label/severity : String`, `TokenSpan.role : String`, UTF-16 offsets | no — keys off **names** + NodeId |
@@ -97,7 +109,10 @@ accelerator (interning, reuse, `Eq` fast-path), recomputed every run from whatev
 `to_raw()` currently returns. Nothing persisted or transmitted keys off it; the
 identity that *does* persist (NodeId, ProjectionIdentityTracker) is allocation-order /
 source-offset based, the wire layer addresses by stable **names**, and the full CRDT
-state export (localStorage + peer sync) carries text operations, not CST structure. A
+state export (localStorage + peer sync) carries text operations, not CST structure.
+Walking the closed `@wire.SyncMessage` enum confirms it: every remaining frame
+(`SyncRequest` version frontier, `EphemeralUpdate` cursor/presence, `PeerJoined` /
+`PeerLeft` control) carries versions, positions, or peer ids — never CST structure. A
 RawKind renumber is therefore internally consistent within a single recompile — its
 blast radius is one rebuild of all in-tree consumers, with no stale persisted state.
 **Severity is MILD.**
