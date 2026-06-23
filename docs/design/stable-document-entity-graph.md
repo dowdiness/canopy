@@ -81,6 +81,14 @@ when identity is ambiguous or low confidence.
 This evidence is valuable even before it drives behavior. The first spike should
 surface it in tests and debug views so identity failures become explainable.
 
+> **Review note (positional ≠ semantic).** A surviving projection `NodeId`
+> proves projection-*handle* continuity, not semantic continuity: pure sibling
+> reorder keeps the old `NodeId`s but re-attaches them by position, so same-node
+> evidence is positional and meaning-stability is *not* guaranteed across reorder
+> without explicit move provenance. Consumers must not treat a live entity's
+> meaning as stable across such edits. See
+> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1).
+
 ## Stability scopes
 
 The design must name the stability scope before exposing any ID beyond an
@@ -168,6 +176,22 @@ Before lifecycle states drive behavior, define a transition table and retention
 policy. In particular, specify whether non-live entities may be referenced by
 edges, diagnostics, selections, undo, or debug tooling.
 
+> **Review notes.** Two consequences worth pinning before behavior:
+>
+> - *`missing` is overloaded.* A committed delete and a transient malformed parse
+>   both produce an absent entity, so `missing` cannot distinguish them without a
+>   delete/parse-validity signal feeding the side table. The "stable across
+>   malformed intermediate input" scope depends on resolving this.
+> - *Reference policy is the gating decision.* Whether non-live entities may be
+>   referenced by edges/selections/undo/diagnostics is the precondition for GC
+>   safety, undo correctness, and bounded retention — decide it first.
+>
+> The **implemented** state set is `live / missing / ambiguous / tombstoned /
+> retired`; `retired` has no entry transition and `garbage-collectable` has no
+> representation in code yet, so treat both as unspecified. The
+> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
+> authoritative, code-grounded transition table (and G2/G4/G13).
+
 ## Phase 0 spike
 
 The next step is a design spike, not a broad package split.
@@ -219,5 +243,6 @@ Until then, keep the design internal and side-table based.
 - [Range/span unit boundaries](../decisions/2026-06-13-range-span-unit-boundaries.md)
 - [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md)
 - [SDEG NodeId Side Table Sketch](sdeg-nodeid-side-table.md)
+- [SDEG Invariant & Semantics Review](sdeg-invariant-review.md)
 - [Analysis Query Layer](analysis-query-layer.md)
 - [Design Concerns](design-concerns.md)
