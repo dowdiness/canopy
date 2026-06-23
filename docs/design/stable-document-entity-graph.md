@@ -86,8 +86,15 @@ surface it in tests and debug views so identity failures become explainable.
 > reorder keeps the old `NodeId`s but re-attaches them by position, so same-node
 > evidence is positional and meaning-stability is *not* guaranteed across reorder
 > without explicit move provenance. Consumers must not treat a live entity's
-> meaning as stable across such edits. See
-> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1).
+> meaning as stable across such edits. Explicit move provenance
+> (`MarkdownEditOp::MoveBlock`) supplies the corrective `IdentityTransform::Move`
+> for root-sibling (#723) and same-list item (#731) reorders. Cross-container
+> moves (the sibling-level reconciler cannot follow a node across a container
+> boundary without ancestor-aware reconciliation) and whole-list-container moves
+> (containers match by kind alone, so a moved list cannot be uniquely identified)
+> stay rejected with a proof-backed reason (#724). See
+> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1, and
+> *Decision: Markdown move-provenance scope*).
 
 ## Stability scopes
 
