@@ -145,6 +145,11 @@ behavior** — check the code before relying on any specific detail.
 - [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
   — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside
   `LanguageSpec` after `ModuleProjection` removal (closes #634).
+- [loomgen RawKind vs content-hash identity (L1-A)](decisions/2026-06-23-loomgen-rawkind-content-hash-identity.md)
+  — severity of loomgen's sequential-renumber bug is MILD (nothing persisted/transmitted
+  keys off the seam content hash); constrain loomgen with an append-only kind→raw
+  registry (fork (i)), holding the seam hash-name migration (fork (ii)) as a documented
+  escalation (loom #427 / #729).
 
 ## Historical / Archive
 
