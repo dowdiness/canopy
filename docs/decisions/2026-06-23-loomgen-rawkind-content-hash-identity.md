@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-23
 **Status:** Accepted (decision record)
-**Related:** loom [#427](https://github.com/dowdiness/canopy/issues/427) (gate: fix L1-A + re-baseline before loomgen build) ·
+**Related:** loom [#427](https://github.com/dowdiness/loom/issues/427) (gate: fix L1-A + re-baseline before loomgen build) ·
 canopy [#729](https://github.com/dowdiness/canopy/issues/729) (the L1-A fix in `07-loomgen-design.md`) ·
 [`07-loomgen-design.md`](../design/07-loomgen-design.md) ·
 [2026-06-01 identity-and-reuse-mechanisms](2026-06-01-identity-and-reuse-mechanisms.md) ·
@@ -15,8 +15,8 @@ The Layer-1 adversarial pass on the loomgen design (loom §4.5, 2026-06-20) foun
 latent **correctness bug — "L1-A"** — and left one question explicitly unresolved:
 how bad is it? This record settles the severity from evidence and decides the fix.
 It is **non-blocking** for the merged `@grammar` work; it is the *emitter's* gate
-(loom #427), distinct from the #444 throughput gate (perf, already done) and #449
-(deep-subtree reuse, a different axis).
+(loom #427), distinct from the loom #444 throughput gate (perf, already done) and
+loom #449 (deep-subtree reuse, a different axis).
 
 ## The bug (L1-A)
 
