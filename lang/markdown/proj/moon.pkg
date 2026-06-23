@@ -9,3 +9,4 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/cmp",
 }
+warnings = "-29"
