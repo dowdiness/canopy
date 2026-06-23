@@ -55,16 +55,22 @@ favoring fork (ii)); if the hash is in-memory only, the blast radius is one reco
 (**mild**, fork (i) suffices). Reading the actual persistence/transmission layer
 settles it.
 
-**What survives from one loomgen build to the next?** Only two things: (a) source
-**text** files, and (b) the SQLite op log. Text is ground truth — re-parsed into a
-fresh CST under the current numbering, immune to renumbering. So the question reduces
-to: *does a persisted/transmitted op carry a seam content-hash or RawKind int?*
+**What survives — or is transmitted — across a loomgen build boundary?** Three
+surfaces: (a) source **text** files; (b) the SQLite op log
+([`store.ts`](../../examples/ideal/web/server/store.ts)); and (c) the ideal web app's
+**full CRDT state**, saved to `localStorage` via `crdt.export_all_json` and restored
+via `apply_sync_json` ([`examples/ideal/web/src/main.ts`](../../examples/ideal/web/src/main.ts):128/:449),
+and sent to peers as the same payload ([`examples/ideal/web/src/sync.ts`](../../examples/ideal/web/src/sync.ts):120).
+All three are **text/CRDT-based**: text is ground truth, re-parsed into a fresh CST
+under the current numbering. So the question reduces to: *does any of these carry a
+seam content-hash or RawKind int?*
 
 Evidence (as of 2026-06-23):
 
 | Surface | What it carries | Keys off seam hash? |
 |---------|-----------------|---------------------|
 | Op log persistence ([`examples/ideal/web/server/store.ts`](../../examples/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
+| Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
 | The op itself ([`protocol/user_intent.mbt`](../../protocol/user_intent.mbt) `UserIntent`) | `TextEdit(from, to, insert)` (text edits) + `StructuralEdit`/`SelectNode`/`CommitEdit` addressing by `@core.NodeId` | no |
 | `NodeId` ([`core/types.mbt`](../../core/types.mbt) `struct NodeId(Int)`) | allocation-order int (`assign_fresh_ids` counter), "survives reparses" | no — not hash-derived |
 | Wire view/annotation ([`protocol/view_node.mbt`](../../protocol/view_node.mbt)) | `ViewNode.kind_tag : String` (AST variant **name**), `ViewAnnotation.kind/label/severity : String`, `TokenSpan.role : String`, UTF-16 offsets | no — keys off **names** + NodeId |
@@ -80,7 +86,8 @@ but is **absent** across `protocol/`, `ffi/`, `editor/`, `sync_session/`,
 accelerator (interning, reuse, `Eq` fast-path), recomputed every run from whatever
 `to_raw()` currently returns. Nothing persisted or transmitted keys off it; the
 identity that *does* persist (NodeId, ProjectionIdentityTracker) is allocation-order /
-source-offset based, and the wire layer already addresses by stable **names**. A
+source-offset based, the wire layer addresses by stable **names**, and the full CRDT
+state export (localStorage + peer sync) carries text operations, not CST structure. A
 RawKind renumber is therefore internally consistent within a single recompile — its
 blast radius is one rebuild of all in-tree consumers, with no stale persisted state.
 **Severity is MILD.**
