@@ -163,34 +163,72 @@ because Markdown has the more mature projection and edit stack in Canopy today.
 The stable entity layer needs lifecycle states, but the first implementation
 should keep them diagnostic until behavior is proven.
 
-Useful states include:
+The states describe an entity's relationship to the *current document*:
 
 - live: currently anchored and usable;
 - missing: temporarily absent, often due to malformed input;
 - ambiguous: multiple plausible matches exist;
-- tombstoned: retained for recovery, undo, or diagnostics;
-- retired: no longer eligible for matching;
-- garbage-collectable: safe to discard from side tables.
+- tombstoned: retained for recovery or diagnostics;
+- retired: no longer eligible for matching.
 
-Before lifecycle states drive behavior, define a transition table and retention
-policy. In particular, specify whether non-live entities may be referenced by
-edges, diagnostics, selections, undo, or debug tooling.
+`garbage-collectable` is **not** a sixth state. It is a *predicate over retired
+entities* — a property of an entity's relationship to its referrers and storage,
+which is a different axis from the document-observation states above. Keeping it a
+predicate, not a state, keeps garbage collection a policy layered on the lifecycle
+rather than a transition baked into the state machine.
 
-> **Review notes.** Two consequences worth pinning before behavior:
+### Reference policy for non-live entities
+
+Whether a non-live entity (missing, ambiguous, tombstoned, or retired) may be
+referenced is decided by the *kind* of reference, not by the consumer:
+
+- A **resolving reference** asks "what does this entity resolve to in the current
+  snapshot?" It is read-time, transient, and non-owning: it is re-evaluated on
+  every update and never keeps an entity alive. Resolving references may name any
+  non-live entity. A live entity resolves to its current node; a missing or
+  tombstoned entity resolves to nothing, with its last live observation available
+  for display; an ambiguous entity resolves to its candidate set, which the
+  consumer must handle as a set rather than a single node; a retired entity
+  resolves to nothing.
+- A **pinning reference** asserts "this relation must keep pointing at this entity
+  even while it is non-live." It is durable, owning, and extends retention. A
+  pinning reference is the only kind that can keep a non-live entity from being
+  collected.
+
+By consumer class:
+
+- **Selection, diagnostics, and debug tooling** hold only resolving references.
+  They may observe non-live entities — debug tooling may inspect every state,
+  including retired — but never pin them, so they never extend retention or block
+  garbage collection.
+- **Undo** is owned by the event-graph-walker and operates on CRDT history, not on
+  stable entities; it is never a reference class for this layer. When undo restores
+  deleted content, the entity recovers through the ordinary matching path. A future
+  *semantic* undo that named an entity directly would be a pinning reference, and
+  would fall under the relation rule below.
+- **Edges and relations** do not exist yet (they are gated behind a decision gate).
+  When they arrive they are the only pinning class, and an edge to a non-live
+  entity is what extends that entity's retention.
+
+### Garbage collection
+
+A retired entity is garbage-collectable when no pinning reference targets it.
+Because no pinning references exist today, every retired entity is collectable;
+the predicate's form reserves the future case where an edge keeps a retired entity
+alive. The transition *into* retired depends on a retention threshold that is left
+to a later decision; this section fixes only the safety precondition for
+discarding — the precondition that garbage collection, undo correctness, and
+bounded retention all depend on.
+
+> **Still open.** *`missing` is overloaded.* A committed delete and a transient
+> malformed parse both produce an absent entity, so `missing` cannot distinguish
+> them without a delete- or parse-validity signal feeding the side table. The
+> "stable across malformed intermediate input" scope depends on resolving this.
 >
-> - *`missing` is overloaded.* A committed delete and a transient malformed parse
->   both produce an absent entity, so `missing` cannot distinguish them without a
->   delete/parse-validity signal feeding the side table. The "stable across
->   malformed intermediate input" scope depends on resolving this.
-> - *Reference policy is the gating decision.* Whether non-live entities may be
->   referenced by edges/selections/undo/diagnostics is the precondition for GC
->   safety, undo correctness, and bounded retention — decide it first.
->
-> The **implemented** state set is `live / missing / ambiguous / tombstoned /
-> retired`; `retired` has no entry transition and `garbage-collectable` has no
-> representation in code yet, so treat both as unspecified. The
-> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
-> authoritative, code-grounded transition table (and G2/G4/G13).
+> The [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
+> authoritative, code-grounded transition table, the per-state resolution rules,
+> and the gap inventory (the reference policy here resolves G13/L5 and the
+> garbage-collection half of G4/L4; G2 remains open).
 
 ## Phase 0 spike
 

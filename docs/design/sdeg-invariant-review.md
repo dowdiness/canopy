@@ -3,6 +3,9 @@
 **Status:** Review / analysis snapshot (not a spec, not implemented behavior).
 **Reviewed against:** `aa3d475` — `file:line` citations are as-of this commit;
 code and generated `.mbti` are authoritative on drift.
+**Decisions recorded:** #745 — reference policy for non-live entities (resolves
+G13/L5 and the GC half of G4/L4); see *Lifecycle Analysis → Decision: reference
+policy for non-live entities*.
 
 ## Context
 
@@ -248,13 +251,17 @@ For each section: (F)act vs current state, (H)ypothesis/matching decision,
   as a to-do ("define a transition table and retention policy") but the live
   sketch + Phase 1 + code already encode three different ones.
 - **U:** `retired` and `garbage-collectable` have **no entry condition** anywhere
-  testable; the code never produces them (G4).
+  testable; the code never produces them (G4). *Post-#745:* `garbage-collectable`
+  is now a predicate (no entry condition needed); `retired`'s entry stays deferred
+  (G3/#746).
 - **A:** the six-state list here vs four (sketch) vs five (Phase 1/code).
-- **L:** **this is the most under-specified section in the design.** It lists six
+- **L:** **this was the most under-specified section in the design.** It lists six
   states, defers the transition table, and the open question "whether non-live
   entities may be referenced by edges, diagnostics, selections, undo, or debug
-  tooling" is the single most consequential undecided invariant (it gates GC
-  safety, undo correctness, and reference integrity — G4/G13).
+  tooling" was the single most consequential undecided invariant (it gates GC
+  safety, undo correctness, and reference integrity — G4/G13). *Now decided
+  (#745):* see *Lifecycle Analysis → Decision: reference policy for non-live
+  entities* (resolving-vs-pinning; GC is a predicate, not a sixth state).
 
 ### Phase 0 spike / Decision gates / Non-goals
 - **F:** the spike scope and the concrete decision gates (five conditions that
@@ -494,14 +501,19 @@ The design lists it as a lifecycle state; sketch/Phase 1 treat GC as policy. ·
 *Existing evidence:* none — no representation anywhere. · *Missing:* a decision
 on whether GC is a state or a predicate over `Retired` rows, and the safety
 condition (depends on the open "who may reference non-live entities" question)
-(G4/G13).
+(G4/G13). · *Decided (#745):* predicate over `Retired`; safety precondition = no
+pinning reference (see *Decision: reference policy for non-live entities*).
 
-**L5 — (OPEN) reference rules for non-live entities.**
+**L5 — (DECIDED #745) reference rules for non-live entities.**
 Whether `Missing`/`Tombstoned`/`Ambiguous`/`Retired` entities may be referenced
-by edges, selections, undo, diagnostics, or debug tooling is **explicitly
+by edges, selections, undo, diagnostics, or debug tooling was **explicitly
 undecided** in the design. · *Failure:* undo points at a GC'd entity; a selection
-survives a tombstone inconsistently. · *Existing evidence:* none. · *Missing:*
-the entire policy — and it *gates* L4 (you cannot define GC safety without it).
+survives a tombstone inconsistently. · *Existing evidence:* none. · *Decided
+(#745):* the *kind* of reference governs, not the consumer — resolving references
+(selection/diagnostics/debug) may name any non-live entity and never block GC;
+only pinning references (future edges) extend retention; undo is egw-owned and
+never references SDEG entities. This unblocks L4 (GC safety). See *Decision:
+reference policy for non-live entities*.
 
 ### Synchronization invariants
 
@@ -610,43 +622,109 @@ the three design docs disagree, the code wins and the conflict is flagged.
 - *Entry:* **undefined / unreachable** — the design says "after retention expiry"
   / "only in tests that exercise GC"; the code has **no transition into it**.
 - *Exit:* none (terminal).
-- *Allowed references:* none; inert (S6).
+- *Allowed references:* `current_id = None` (S6); per #745, resolving references
+  (selection/diagnostics/debug) may name it but resolve to nothing — debug can
+  still inspect its frozen `last_live` — and a pinning reference would block GC.
 - *Retention:* it *is* the retention boundary, but the boundary is unspecified.
-- *Open:* entire entry condition (G4).
+- *Open:* entry condition only (G4); the reference rule is decided (#745).
 
-**garbage-collectable**
-- *Entry:* **no representation** — listed as a state in the design doc, treated as
-  a *policy/predicate* in sketch/Phase 1, absent from code.
+**garbage-collectable** — *resolved to a predicate, not a state (#745).*
+- *Entry:* **no representation** as a state — and, per #745, none is needed: it is
+  a predicate over `Retired` (see *Decision: reference policy for non-live
+  entities*).
 - *Exit:* n/a.
-- *Allowed references:* would be "none" — but depends on the open question of who
-  may reference non-live entities (L5).
-- *Retention:* this state *is* the "safe to discard" predicate.
-- *Open:* is it a state or a predicate over `Retired`? Safety condition undefined
-  until L5 is decided (G4/G13).
+- *Allowed references:* a `Retired` row is collectable when **no pinning
+  reference** targets it; resolving references (selection/diagnostics/debug) never
+  block GC (L5 decided).
+- *Retention:* the predicate `gc_eligible` *is* the "safe to discard" test —
+  unconditional today (no pinning refs), edge-gated in future.
+- *Resolved:* state-vs-predicate → predicate; safety precondition → no pinning
+  reference (G4 GC-half / G13 / L4 / L5). Threshold for the `retired` *entry* still
+  deferred (G3/#746).
 
 ### Derived transition table
 
 `✓` implemented & tested · `(impl)` in code, not directly tested ·
 `(design-only)` named in a doc but **not** in code · `✗` impossible today.
 
-| From → To | live | missing | ambiguous | tombstoned | retired | gc |
-|---|---|---|---|---|---|---|
-| *(none)* → | ✓ new observation | — | — | — | — | — |
-| **live** | ✓ same-node / unique match | ✓ no candidates | ✓ multiple/contested | ✗ (must pass through missing) | ✗ | ✗ |
-| **missing** | ✓ unique recovery | ✗ never stays `missing` — continued absence → `tombstoned` (`sdeg_heading_side_table.mbt:311`) | (impl) multiple recovery candidates | ✓ absent again | (design-only) | ✗ |
-| **ambiguous** | ✓ resolves unique | ✓ all candidates vanish | (impl) still multiple | ✗ (goes to missing first) | (design-only) | ✗ |
-| **tombstoned** | ✓ unique recovery | ✗ | (impl) multiple recovery candidates | (impl) stays absent | **(design-only, unreachable)** | ✗ |
-| **retired** | ✗ (S6) | ✗ | ✗ | ✗ | (impl) inert self | (design-only) |
-| **gc** | — | — | — | — | — | (design-only) |
+`garbage-collectable` has **no column**: per the #745 decision it is a predicate
+over `retired`, not a state (see *Decision: reference policy for non-live
+entities*).
+
+| From → To | live | missing | ambiguous | tombstoned | retired |
+|---|---|---|---|---|---|
+| *(none)* → | ✓ new observation | — | — | — | — |
+| **live** | ✓ same-node / unique match | ✓ no candidates | ✓ multiple/contested | ✗ (must pass through missing) | ✗ |
+| **missing** | ✓ unique recovery | ✗ never stays `missing` — continued absence → `tombstoned` (`sdeg_heading_side_table.mbt:311`) | (impl) multiple recovery candidates | ✓ absent again | (design-only) |
+| **ambiguous** | ✓ resolves unique | ✓ all candidates vanish | (impl) still multiple | ✗ (goes to missing first) | (design-only) |
+| **tombstoned** | ✓ unique recovery | ✗ | (impl) multiple recovery candidates | (impl) stays absent | **(design-only, unreachable — entry pending retention threshold N, #746)** |
+| **retired** | ✗ (S6) | ✗ | ✗ | ✗ | (impl) inert self |
 
 **Conflicts surfaced by the table:**
 1. `Missing` column is empty in the sketch's model (sketch has no `Missing`).
 2. `ambiguous → tombstoned` is the sketch's rule; code routes `ambiguous →
    missing`. Direct contradiction.
-3. The entire `retired` and `gc` columns are `(design-only)` — **two of six
-   states are unreachable in the shipped code.**
+3. `gc` is no longer a state — per the #745 decision it is a predicate over
+   `retired` (column removed; see *Decision: reference policy for non-live
+   entities*). `retired` remains `(design-only)`: its entry transition is unbuilt,
+   pending the retention threshold (#746). Of the original six names the lifecycle
+   is now **five states + one predicate**, and `retired` is the sole
+   reachable-in-design but unbuilt state.
 4. The `live → tombstoned` direct edge in the sketch ("Live + no match →
    Tombstoned") does not exist in code (code inserts `Missing` first).
+
+### Decision: reference policy for non-live entities (#745)
+
+Resolves **G13 / L5** and the garbage-collection half of **G4 / L4**. Decided
+2026-06-23 by brainstorm; the principle-level statement lives in
+`stable-document-entity-graph.md` (Lifecycle model), the code-grounded mechanics
+here. The retention threshold N and the `retired` *entry* transition are out of
+scope (G3, tracked in #746); `missing`'s delete-vs-malformed overload is out of
+scope (G2, tracked in #748).
+
+**Discriminator: the *kind* of reference, not the consumer.**
+
+- *Resolving reference* — read-time, transient, non-owning; re-evaluated every
+  `advance`; never extends retention. May name any non-live entity.
+- *Pinning reference* — durable, owning, retention-extending. The only kind that
+  can keep a non-live entity from being collected.
+
+**Per consumer class.**
+
+| Consumer | Reference kind | May reference non-live? | Resolves to |
+|---|---|---|---|
+| edges / relations | pinning (Decision Gate #3; unbuilt) | yes — the only pinning class | the entity; **pins it against GC** |
+| selection | resolving | yes | per the per-state resolution below (live → node; missing/tombstoned/retired → nothing; ambiguous → candidate set) |
+| diagnostics | resolving (re-derived per snapshot) | yes | per the per-state resolution below (incl. `last_live` for display; ambiguous → candidate set) |
+| debug tooling | resolving, read-all, inert | yes, incl. `retired` | full row: status + evidence + `last_live` |
+| undo | none — egw-owned, operates on CRDT items | no reference to SDEG entities | — |
+
+Undo is owned by event-graph-walker (egw owns causal history / undo); it never
+references SDEG entities, so it is out of scope by the layering boundary (no SDEG
+state authoritative over egw — the stronger form of Y1). A future *semantic* undo
+that named an entity directly would be a pinning reference under the edge rule.
+
+**Per-state resolution (the "what does it resolve to" rule).**
+
+| State | Resolves to |
+|---|---|
+| `live` | current `NodeId` (S1, S3) |
+| `missing` | nothing; `last_live` retained for display (L2/L2a) |
+| `tombstoned` | nothing; `last_live` retained for display |
+| `ambiguous` | the **candidate set** — consumers handle multiplicity, never a single node (S4) |
+| `retired` | nothing; inert and not resolvable (S6). Retains frozen `last_live` in storage (the `HeadingRetired` arm spreads `..row`, clearing only `current_id`/`candidates`), so debug tooling can still inspect it. |
+
+**`garbage-collectable` is a predicate, not a state** (confirms L4). Over a
+`retired` row:
+
+> `gc_eligible(row) := row.status == Retired && no live pinning reference targets it`
+
+No pinning references exist today (no edge layer), so `retired ⟹ gc_eligible`
+unconditionally now; the predicate's *form* reserves the future edge case (a
+`retired` row targeted by a live edge is **not** collectable). This decision fixes
+only the GC *safety precondition* — the precondition that GC safety, undo
+correctness, and bounded retention (L2/L5) all require; the threshold that drives a
+row *into* `retired` is deferred (G3/#746).
 
 ---
 
@@ -752,7 +830,10 @@ Two of six named lifecycle states have no entry transition in code; `gc` has no
 representation at all. A future implementer must invent the policy from scratch,
 and the design only says "after an explicit GC policy exists." *Needed:* either
 remove these from the *lifecycle state* list (and call GC a predicate/policy), or
-specify entry conditions. This is blocked on G13.
+specify entry conditions. This is blocked on G13. *Partly resolved (#745):*
+`garbage-collectable` is now a predicate over `Retired` (removed from the state
+list) with a fixed safety precondition (no pinning reference); the `retired`
+*entry* transition remains undefined, pending the retention threshold (G3/#746).
 
 **G5 — "Global one-to-one assignment" is stated as an invariant but implemented as
 same-node reservation + local candidate-claim counting, not a global solver.** The
@@ -831,14 +912,15 @@ consumer-facing contract (read only post-reconciliation, never feed back into th
 edit path) — unenforceable from inside SDEG, so it must be a documented invariant
 on consumers.
 
-**G13 — The reference policy for non-live entities is undecided, and it gates GC,
-undo, and selection correctness.** The design explicitly leaves open "whether
-non-live entities may be referenced by edges, diagnostics, selections, undo, or
-debug tooling." This is the highest-leverage *undecided* invariant: you cannot
-define `garbage-collectable` safety (G4) without it, you cannot guarantee undo
-points at a live target, and you cannot bound retention (L2/L5). *Needed:* decide
-the reference policy *before* lifecycle states drive behavior — it is the
-precondition for half the lifecycle invariants above.
+**G13 — (RESOLVED #745) The reference policy for non-live entities was undecided,
+and it gated GC, undo, and selection correctness.** The design explicitly left
+open "whether non-live entities may be referenced by edges, diagnostics,
+selections, undo, or debug tooling." This was the highest-leverage *undecided*
+invariant: you could not define `garbage-collectable` safety (G4) without it,
+guarantee undo points at a live target, or bound retention (L2/L5) — it was the
+precondition for half the lifecycle invariants above. *Resolved (#745):* decided
+via the resolving-vs-pinning discriminator — see *Decision: reference policy for
+non-live entities* (and L5).
 
 **G14 — `advance` assumes a well-formed prior snapshot; there is no validation
 boundary.** `advance` preserves invariants for tables *it* produced, but nothing
