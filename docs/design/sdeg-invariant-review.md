@@ -18,7 +18,7 @@ Sources read:
 
 - `docs/design/stable-document-entity-graph.md` — the design direction (review target)
 - `docs/design/sdeg-nodeid-side-table.md` — the API/algorithm sketch
-- `docs/plans/2026-06-18-sdeg-phase1-nodeid-side-table.md` — the active Phase 1 plan
+- `docs/archive/2026-06-18-sdeg-phase1-nodeid-side-table.md` — completed Phase 1 plan
 - `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md` — reorder conclusion
 - `docs/archive/2026-06-18-sdeg-phase0-markdown-heading-spike.md` — Phase 0 results
 - `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md` — move provenance
