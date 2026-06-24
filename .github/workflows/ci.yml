@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -109,7 +109,7 @@ jobs:
             mode: ci-lenient
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -153,7 +153,7 @@ jobs:
             mode: ci-lenient
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -174,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -222,7 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -255,7 +255,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -303,7 +303,7 @@ jobs:
             path: examples/demo-react
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -346,7 +346,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -374,7 +374,7 @@ jobs:
       options: --ipc=host
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -406,7 +406,7 @@ jobs:
       options: --ipc=host
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -435,7 +435,7 @@ jobs:
       options: --ipc=host
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -467,7 +467,7 @@ jobs:
       options: --ipc=host
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 

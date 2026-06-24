@@ -21,7 +21,7 @@ jobs:
       run_editor_response: ${{ steps.filter.outputs.run_editor_response }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Detect benchmark-relevant changes
         id: filter
         uses: dorny/paths-filter@v3
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -130,7 +130,7 @@ jobs:
 
       - name: Checkout base branch
         if: steps.base-cache-files.outputs.complete != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           submodules: recursive
@@ -311,7 +311,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
