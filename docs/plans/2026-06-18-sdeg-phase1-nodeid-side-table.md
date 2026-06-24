@@ -115,7 +115,10 @@ is only "stable within this editor session and this side table".
 ### Core records
 
 Implementation can start with package-private types like these names. Exact
-field names may change during implementation.
+field names may change during implementation. The current Markdown implementation
+inlines `HeadingSignature` as `level`/`text` fields on `HeadingObservation`, does
+not track `ordinal`, and records historical `stable_id` reservations so physical
+GC cannot make an old session id reusable.
 
 ```moonbit
 struct HeadingSignature {
@@ -250,14 +253,18 @@ Ambiguous -> Missing if all candidates disappear
 ```
 
 For Phase 1, the default retention is "keep all tombstones" (`retention_threshold = 0`).
-Do not introduce production row removal until UI/undo/reload requirements are clearer.
+Positive thresholds are checked after the row has reached `Tombstoned`; because
+first valid absence is `Missing` and second valid absence is `Tombstoned`,
+thresholds below `3` effectively retire on the third valid absence. Do not
+introduce production row removal until UI/undo/reload requirements are clearer.
 
 Invalid or malformed snapshots are not successful projection snapshots. The
-side-table constructor and `advance` accept `is_valid_parse`; when false, the
-table uses a hold path: it creates no initial or fresh rows, clears current
-anchors, preserves `last_live`, and does not increment absence counters or
-advance toward `Retired`. Full G2 resolution still requires production wiring to
-pass a parser/projection validity signal before calling `advance`.
+side-table constructor and `advance` require an explicit snapshot-validity tag;
+when invalid, the table uses a hold path: it creates no initial or fresh rows,
+clears current anchors, preserves `last_live`, and does not increment absence
+counters or advance toward `Retired`. Full G2 resolution still requires
+production wiring to pass a parser/projection validity signal before calling
+`advance`.
 
 ### Expected behavior
 
@@ -359,7 +366,7 @@ committing.
   `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md`.
 - The side table should not mutate document state or bypass Markdown edit
   lowering.
-- The validity flag is side-table support, not a substitute for production
+- The validity tag is side-table support, not a substitute for production
   parser/projection diagnostics. Callers must pass the correct validity signal
   when this table graduates from test-local use.
 

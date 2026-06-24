@@ -293,7 +293,7 @@ violations · Failure symptoms · Existing evidence · Missing evidence.**
 **I1 — stable_id uniqueness.**
 Every row has a `stable_id` distinct from all others.
 · *Scope:* per snapshot. · *Preserved by:* seeding from a unique `NodeId` +
-fresh-row filter (`side_table_has_stable_id`). · *Allowed violations:* none.
+the table's historical `used_stable_ids` reservation. · *Allowed violations:* none.
 · *Failure symptoms:* two rows alias; current-node index overwrites; lost
 entities. · *Existing evidence:* snapshot-invariant test "stable_id unique"
 (`sdeg_heading_side_table_wbtest.mbt`); enforced in `advance`. · *Missing
@@ -387,8 +387,8 @@ evidence:* invariant test. · *Missing:* none material.
 
 **S5 — no duplicate representation.**
 A node listed as an `Ambiguous` candidate is not also emitted as a fresh `Live`
-row in the same snapshot. · *Preserved by:* `fresh_rows` filter via
-`side_table_mentions_current_id` (checks both `current_id` and `candidates`). ·
+row in the same snapshot. · *Preserved by:* `fresh_rows` filter via the
+`heading_mentioned_current_ids` set (checks both `current_id` and `candidates`). ·
 *Allowed violations:* none. · *Failure:* one node both spawns a new entity and is
 a pending candidate → eventual double identity. · *Existing evidence:* invariant
 test "candidate ids not emitted as fresh Live rows." · *Missing:* test of the
@@ -400,8 +400,9 @@ ordering dependency (fresh rows computed against already-advanced `next_rows`).
 with `current_id: None`. · *Allowed violations:* none. · *Failure:* a retired
 entity resurrects, colliding with a fresh one. · *Existing evidence:* impl
 filters; "retired-row behavior" test; retention-threshold test exercises the
-`Tombstoned → Retired` entry path. · *Missing:* no GC/removal test yet (GC is a
-predicate over retired rows).
+`Tombstoned → Retired` entry path; GC tests remove retired rows while preserving
+historical stable-id reservations. · *Missing:* production GC still needs a live
+pinning-reference set.
 
 **S7 — tree relation is borrowed.**
 SDEG owns no entity-to-entity tree; structure comes from projection children. ·
@@ -472,7 +473,9 @@ currently incidental, not enforced.
 **L1 — absence ladder.**
 First absence → `Missing`; continued absence → `Tombstoned`; when the table has a
 positive retention threshold, a `Tombstoned` row retires once its
-`consecutive_absences` reaches that threshold. · *Scope:* per advance. ·
+`consecutive_absences` reaches that threshold, with thresholds below `3` still
+retiring on the third valid absence because the second valid absence remains an
+observable `Tombstoned` frame. · *Scope:* per advance. ·
 *Preserved by:* `row_from_match` empty-ids arm. · *Allowed violations:* none. ·
 *Failure:* immediate tombstoning loses one-frame-flicker recovery, or unbounded
 retention ignores an explicit threshold. · *Existing evidence:* tests for first
@@ -484,24 +487,27 @@ absence, repeated absence, below-threshold retention, and threshold retirement. 
 unique match can recover them. · *Scope:* session. · *Preserved by:* `..row`
 spread keeps `last_live`. · *Allowed violations:* after `Retired`/GC (undefined).
 · *Failure:* premature discard → unrecoverable restore. · *Existing evidence:*
-restore test. · *Missing:* a bound — retention is "whole session," i.e.
-*unbounded* (a stated risk), with no GC test (G4).
+restore test; GC reservation test shows physical row removal does not make a
+collected `stable_id` reusable. · *Missing:* a production retention bound tied to
+pinning references.
 *Additional invariant (L2a):* `last_live` is updated **only** on an accepted
 `Live` match (`sdeg_heading_side_table.mbt:328`) and carried unchanged through
 `missing`/`tombstoned`/`ambiguous` via row spread (`:316`,`:346`,`:308`) — so the
 recovery substrate never drifts while an entity is absent.
 
 **L3 — Retired is terminal.** · *Preserved by:* S6. · *Existing evidence:* inert
-behavior and threshold-entry behavior. · *Missing:* no row-removal/GC exercise yet.
+behavior, threshold-entry behavior, and row-removal/GC tests that keep retired
+stable ids reserved after physical removal. · *Missing:* production pinning-set
+integration.
 
 **L4 — garbage-collectable is a property, not a state.**
 The design lists it as a lifecycle state; sketch/Phase 1 treat GC as policy. ·
-*Existing evidence:* none — no representation anywhere. · *Missing:* a decision
-on whether GC is a state or a predicate over `Retired` rows, and the safety
-condition (depends on the open "who may reference non-live entities" question)
-(G4/G13). · *Decided (#745):* predicate over `Retired`; safety precondition = no
-pinning reference (see *Decision: reference policy for non-live entities*). The
-`Retired` entry transition is now implemented via the retention threshold (#746).
+*Existing evidence:* `gc_eligible` is a predicate over `Retired`; `collect_garbage`
+physically removes retired rows while preserving historical stable-id reservations.
+· *Missing:* production computation of the live pinning-reference set. · *Decided
+(#745):* predicate over `Retired`; safety precondition = no pinning reference (see
+*Decision: reference policy for non-live entities*). The `Retired` entry transition
+is now implemented via the retention threshold (#746).
 
 **L5 — (DECIDED #745) reference rules for non-live entities.**
 Whether `Missing`/`Tombstoned`/`Ambiguous`/`Retired` entities may be referenced
@@ -534,11 +540,11 @@ ordering. · *Existing evidence:* edit-path tests run advance *after* `SyncEdito
 **Y3 — post-reconciliation ordering.**
 advance consumes observations only after parse + projection reconciliation. ·
 *Preserved by:* convention (the pipeline diagram) plus the side-table
-`is_valid_parse` hold path. · *Existing evidence:* companion edit-path test
-derives observations after `SyncEditor`; #748 wbtests cover invalid snapshots
-that must not advance the lifecycle. · *Missing:* production wiring still must
-source and pass parser/projection validity when the table graduates from
-test-local use (G11).
+validity-tag hold path. · *Existing evidence:* companion edit-path test derives
+observations after `SyncEditor`; #748 wbtests cover invalid snapshots that must
+not advance the lifecycle. · *Missing:* production wiring still must source and
+pass parser/projection validity when the table graduates from test-local use
+(G11).
 
 **Y4 — (DEFERRED/UNTESTABLE) reload + peer stability.**
 Out of scope by design; no durable anchor, deterministic key, or persistent
@@ -566,7 +572,7 @@ required" = the evidence the matcher needs to make the right call.
 | **duplicate** (`# A\n# A`) | confidence → `Ambiguous`; candidate set | distinct `stable_id` per distinct `NodeId` while both present; one-to-one (I4) | `HeadingSameSemanticKey` collision + `CandidateCount>1` | guessing → two rows on one node, or restore to wrong twin. *Avoided* by staying `Ambiguous` (duplicate test). Spurious collision if normalization is loose (Sem4). |
 | **delete** (`# A` removed) | status `Live→Missing→Tombstoned`; `current_id→None` | `stable_id`; `last_live` (recovery substrate) | `CandidateCount(0)` from a valid snapshot | committed delete also drops the projection baseline (Phase 0), so SDEG's retained `last_live` is the *only* recovery path; delete evidence must come from a valid snapshot. |
 | **restore** (deleted heading re-typed) | a new current `NodeId` (in the tested path); status →`Live` | original `stable_id` recovered iff a *unique semantic candidate* exists while the prior node is absent (freshness not required) | `HeadingSameSemanticKey` + unique candidate | duplicate text → stays `Ambiguous` (no guess); different normalization → spawns fresh (not recovered); only works before `Retired`/GC. |
-| **malformed input recovery** | transient `Missing`, then re-`Live` | `stable_id` across the bad window; ideally `NodeId` via `ProjectionIdentityTracker` | `is_valid_parse=false` side-table hold path, plus later NodeId survival (delegated to loom) or semantic recovery | side-table API now prevents premature `Tombstoned`/`Retired` for invalid snapshots; full G2 resolution still depends on production wiring passing the validity signal. |
+| **malformed input recovery** | transient `Missing`, then re-`Live` | `stable_id` across the bad window; ideally `NodeId` via `ProjectionIdentityTracker` | `HeadingSnapshotInvalid` side-table hold path, plus later NodeId survival (delegated to loom) or semantic recovery | side-table API now prevents premature `Tombstoned`/`Retired` for invalid snapshots; full G2 resolution still depends on production wiring passing the validity signal. |
 | **large paste** | many fresh `NodeId`s + fresh rows; possible mass ambiguity | rows whose `NodeId`s survive (untouched headings) | same-node for survivors; fresh for pasted | region-replacing paste freshens `NodeId`s → looks like delete-all+spawn-all; pasted duplicate text mis-resolves; **matching is O(rows×obs)** (nested filters) — scaling not stated as an invariant. |
 | **format-like rewrite** (whitespace/formatter) | source ranges, token spans (shift) | `stable_id`, `NodeId`, `Live`, signature (text unchanged) | same-node + same-key + overlapping-range | low risk; if formatter alters text normalization, key changes but same-node priority still preserves identity. *Holds today* (Phase 0). |
 | **projection regeneration** | full observation set + current-node index rebuilt | rows across regeneration | whatever `NodeId`s/keys survive regeneration | wholesale `NodeId` refresh (non-incremental rebuild) → mass semantic recovery; uniques recovered, duplicates → `Ambiguous`. **Bounded entirely by projection-identity stability** (G8). |
@@ -711,7 +717,8 @@ the three design docs disagree, the code wins and the conflict is flagged.
   still inspect its frozen `last_live` — and a pinning reference would block GC.
 - *Retention:* it *is* the retention boundary; the threshold is configured per
   table, with `0` meaning "never retire".
-- *Open:* no row-removal/GC implementation; the reference rule is decided (#745).
+- *Open:* production row-removal/GC must still be gated by the live pinning set;
+  the test-local `collect_garbage` path preserves historical stable-id reservations.
 
 **garbage-collectable** — *resolved to a predicate, not a state (#745).*
 - *Entry:* **no representation** as a state — and, per #745, none is needed: it is
@@ -895,29 +902,31 @@ Incompatible-interpretation risk: a consumer (outline, AI context) treats a
 `Live` row's heading text as a stable handle and silently relabels.
 
 **G2 — `Missing` conflates "deleted" and "transiently unparseable."**
-*Addressed in the side-table API (#748), not yet end-to-end wiring:* the
-constructor and `advance` now accept `is_valid_parse`. Invalid snapshots create
-no initial rows, create no fresh rows, clear stale current anchors, preserve
-`last_live`, and do not change `consecutive_absences` or advance
-`Missing→Tombstoned→Retired`. Valid snapshots retain the existing delete ladder.
-This gives the side table the mechanism needed to distinguish valid absence
-evidence from malformed-transient absence. *Remaining integration work:* the
-production caller must pass a parser/projection validity signal before G2 is
-fully resolved end to end; otherwise omitting the flag preserves the default
-valid-snapshot behavior for compatibility.
+*Addressed in the side-table API (#748/#764), not yet end-to-end wiring:* the
+constructor and `advance` now require an explicit snapshot-validity tag. Invalid
+snapshots create no initial rows, create no fresh rows, clear stale current
+anchors, preserve `last_live`, and do not change `consecutive_absences` or
+advance `Missing→Tombstoned→Retired`. Valid snapshots retain the existing delete
+ladder. This gives the side table the mechanism needed to distinguish valid
+absence evidence from malformed-transient absence. *Remaining integration work:*
+the production caller must pass a parser/projection validity signal before G2 is
+fully resolved end to end.
 
 **G3 — Retention threshold N was unspecified in the contract and hardwired in
 code.** *Resolved in code (#746):* the side table carries `retention_threshold`
 (`0` means never retire), and rows track `consecutive_absences`. A `Tombstoned`
 row becomes `Retired` when the threshold is positive and the counter reaches it.
-*Remaining doc drift:* the sketch still implies N=1, while the implemented ladder
-keeps first absence as `Missing`.
+Because the first valid absence is always observable as `Missing` and the second
+as `Tombstoned`, thresholds `1` and `2` effectively retire on the third valid
+absence. *Remaining doc drift:* the sketch still implies N=1, while the implemented
+ladder keeps first absence as `Missing`.
 
 **G4 — `retired` entry and `garbage-collectable` were undefined and unreachable.**
 *Resolved in two parts:* `garbage-collectable` is now a predicate over `Retired`
 (#745), and `Retired` has an implemented `Tombstoned → Retired` threshold entry
-(#746). *Remaining work:* no code removes retired rows; future GC must honor the
-no-pinning-reference precondition.
+(#746). `collect_garbage` removes retired rows while preserving historical
+stable-id reservations so a later fresh row cannot reuse a collected entity's id.
+*Remaining work:* production GC must honor the no-pinning-reference precondition.
 
 **G5 — "Global one-to-one assignment" is stated as an invariant but implemented as
 same-node reservation + local candidate-claim counting, not a global solver.** The
@@ -981,13 +990,13 @@ invariant/guard that `stable_id` is non-serializable and absent from any public
 later `pub` accessor).
 
 **G11 — "Successful projection snapshot" is an unencoded precondition of
-`advance`.** *Addressed in the side-table API (#748), not yet end-to-end
-wiring:* `from_observations` and `advance` now encode the precondition with an
-`is_valid_parse` flag. `false` selects the "parse failed → hold" path; `true`
-retains the existing successful-snapshot behavior and remains the default for
-compatibility with existing test-only callers. *Remaining integration work:* the
-production caller must source this from parser/projection diagnostics before
-wiring the side table into the `incr` runtime.
+`advance`.** *Addressed in the side-table API (#748/#764), not yet end-to-end
+wiring:* `from_observations` and `advance` now encode the precondition with a
+required snapshot-validity tag. `HeadingSnapshotInvalid` selects the "parse
+failed → hold" path; `HeadingSnapshotValid` retains the existing
+successful-snapshot behavior. *Remaining integration work:* the production
+caller must source this from parser/projection diagnostics before wiring the
+side table into the `incr` runtime.
 
 **G12 — "Never source of truth" is structural for writes but only conventional
 for reads.** `advance` cannot mutate document state (no handles) — good. But

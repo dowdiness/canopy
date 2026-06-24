@@ -1,5 +1,9 @@
 ///| Internal Markdown heading side table for session-local SDEG Phase 1 snapshots.
 
+// Several side-table records intentionally carry forward-looking fields and
+// constructors while SDEG remains package-private. Keep the suppressions local so
+// `moon check` still reports accidental unused code elsewhere in this package.
+
 ///|
 #warnings("-struct_never_constructed-unused_field")
 priv struct HeadingObservation {
@@ -9,6 +13,13 @@ priv struct HeadingObservation {
   range : @loomcore.Range
   marker : @loomcore.Range?
   text_span : @loomcore.Range?
+}
+
+///|
+#warnings("-unused_constructor")
+priv enum HeadingSnapshotValidity {
+  HeadingSnapshotValid
+  HeadingSnapshotInvalid
 }
 
 ///|
@@ -23,7 +34,7 @@ priv enum HeadingSideTableStatus {
 ///|
 priv struct HeadingStableRowId {
   seed : @core.NodeId
-} derive(Eq)
+} derive(Eq, Hash)
 
 ///|
 fn HeadingStableRowId::from_node(id : @core.NodeId) -> HeadingStableRowId {
@@ -81,6 +92,7 @@ priv struct HeadingSideTableRow {
 priv struct HeadingSideTable {
   rows : Array[HeadingSideTableRow]
   current_index : Map[@core.NodeId, HeadingStableRowId]
+  used_stable_ids : Set[HeadingStableRowId]
   retention_threshold : Int
   next_entity_seed : Int
 }
@@ -112,39 +124,82 @@ fn heading_side_table_live_row(obs : HeadingObservation) -> HeadingSideTableRow 
 fn heading_current_index(
   rows : Array[HeadingSideTableRow],
 ) -> Map[@core.NodeId, HeadingStableRowId] {
-  Map::from_iter(
-    rows
+  let entries : Array[(@core.NodeId, HeadingStableRowId)] = rows
     .iter()
     .filter_map(row => {
       match (row.status, row.current_id) {
         (HeadingLive, Some(id)) => Some((id, row.stable_id))
         _ => None
       }
+    })
+    .collect()
+  let index = Map::from_iter(entries.iter())
+  if index.length() != entries.length() {
+    abort("HeadingSideTable invariant violation: duplicate live current_id")
+  }
+  index
+}
+
+///|
+fn heading_used_stable_ids(
+  rows : Array[HeadingSideTableRow],
+) -> Set[HeadingStableRowId] {
+  Set::from_iter(rows.iter().map(row => row.stable_id))
+}
+
+///|
+fn heading_mentioned_current_ids(
+  rows : Array[HeadingSideTableRow],
+) -> Set[@core.NodeId] {
+  Set::from_iter(
+    rows
+    .iter()
+    .flat_map(row => {
+      let current_ids : Iter[@core.NodeId] = match row.current_id {
+        Some(id) => Iter::singleton(id)
+        None => Iter::empty()
+      }
+      current_ids + row.candidates.iter()
     }),
   )
 }
 
 ///|
+fn next_unused_stable_id(
+  used_stable_ids : Set[HeadingStableRowId],
+  seed : Int,
+) -> (HeadingStableRowId, Int) {
+  let candidate = HeadingStableRowId::from_node(@core.NodeId::from_int(seed))
+  if used_stable_ids.contains(candidate) {
+    next_unused_stable_id(used_stable_ids, seed - 1)
+  } else {
+    (candidate, seed - 1)
+  }
+}
+
+///|
+// Package-private until production side-table wiring; white-box tests exercise it.
 #warnings("-unused_value")
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
+  validity~ : HeadingSnapshotValidity,
   retention_threshold? : Int = 0,
-  is_valid_parse? : Bool = true,
 ) -> HeadingSideTable {
-  let rows = if is_valid_parse {
-    observations.map(heading_side_table_live_row)
-  } else {
-    []
+  let rows = match validity {
+    HeadingSnapshotValid => observations.map(heading_side_table_live_row)
+    HeadingSnapshotInvalid => []
   }
   {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
     retention_threshold,
     next_entity_seed: -1,
   }
 }
 
 ///|
+// Package-private current-node index query; used by side-table invariant tests.
 #warnings("-unused_value")
 fn HeadingSideTable::entity_for_current_node(
   self : HeadingSideTable,
@@ -162,36 +217,11 @@ fn find_heading_by_id(
 }
 
 ///|
-fn side_table_has_stable_id(
-  rows : Array[HeadingSideTableRow],
-  stable_id : HeadingStableRowId,
-) -> Bool {
-  rows.iter().any(row => row.stable_id == stable_id)
-}
-
-///|
-fn node_id_in(ids : Array[@core.NodeId], id : @core.NodeId) -> Bool {
-  ids.iter().any(candidate_id => candidate_id == id)
-}
-
-///|
-fn side_table_mentions_current_id(
-  rows : Array[HeadingSideTableRow],
-  current_id : @core.NodeId,
-) -> Bool {
-  rows
-  .iter()
-  .any(row => {
-    row.current_id == Some(current_id) || node_id_in(row.candidates, current_id)
-  })
-}
-
-///|
 fn heading_evidence(
   previous : HeadingObservation,
   current : HeadingObservation,
 ) -> Array[HeadingEntityEvidence] {
-  let evidence : Array[HeadingEntityEvidence] = []
+  let evidence = []
   if previous.id == current.id {
     evidence.push(HeadingSameNodeId(current.id))
   }
@@ -290,7 +320,7 @@ fn candidate_claim_count(
   matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)],
   id : @core.NodeId,
 ) -> Int {
-  matches.iter().filter(pair => node_id_in(candidate_ids(pair.1), id)).count()
+  matches.iter().filter(pair => candidate_ids(pair.1).contains(id)).count()
 }
 
 ///|
@@ -311,7 +341,8 @@ fn current_without_ids(
   current : Array[HeadingObservation],
   excluded_ids : Array[@core.NodeId],
 ) -> Array[HeadingObservation] {
-  current.iter().filter(obs => !node_id_in(excluded_ids, obs.id)).collect()
+  let excluded : Set[@core.NodeId] = Set::from_iter(excluded_ids.iter())
+  current.iter().filter(obs => !excluded.contains(obs.id)).collect()
 }
 
 ///|
@@ -341,6 +372,10 @@ fn heading_side_table_absent_row(
         HeadingTombstoned
       }
     HeadingMissing =>
+      // A Missing row with counter=0 comes from the invalid-snapshot hold path.
+      // Its first later valid absence should stay Missing with counter=1; the
+      // second consecutive valid absence enters Tombstoned so consumers can
+      // observe the missing state before retention/GC policy applies.
       if row.consecutive_absences == 0 {
         HeadingSideTableStatus::HeadingMissing
       } else {
@@ -377,8 +412,11 @@ fn row_from_match(
             match_result.evidence,
             retention_threshold,
           )
-        [id] if match_result.confidence is HeadingExact ||
-          (claim_count(id) == 1 && match_result.confidence is HeadingProbable) =>
+        [id] if claim_count(id) == 1 &&
+          (
+            match_result.confidence is HeadingExact ||
+            match_result.confidence is HeadingProbable
+          ) =>
           match find_heading_by_id(current, id) {
             Some(current_obs) =>
               {
@@ -411,90 +449,103 @@ fn row_from_match(
 }
 
 ///|
+// Package-private until production side-table wiring; white-box tests exercise it.
 #warnings("-unused_value")
 fn HeadingSideTable::advance(
   self : HeadingSideTable,
   current : Array[HeadingObservation],
-  is_valid_parse? : Bool = true,
+  validity~ : HeadingSnapshotValidity,
 ) -> HeadingSideTable {
-  if !is_valid_parse {
-    let rows = self.rows.map(row => {
-      let status = match row.status {
-        HeadingLive | HeadingAmbiguous => HeadingSideTableStatus::HeadingMissing
-        _ => row.status
-      }
-      // Invalid snapshots supply no durable match evidence; keep `evidence` and
-      // `last_live` as last trusted data while clearing current
-      // anchors/candidates and preserving the valid-absence counter.
-      { ..row, current_id: None, status, candidates: [] }
-    })
-    {
-      rows,
-      current_index: heading_current_index(rows),
-      retention_threshold: self.retention_threshold,
-      next_entity_seed: self.next_entity_seed,
-    }
-  } else {
-    let same_node_ids = same_node_claim_ids(self.rows, current)
-    let semantic_current = current_without_ids(current, same_node_ids)
-    let matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)] = self.rows
-      .iter()
-      .filter(row_active)
-      .map(row => {
-        (
-          row,
-          heading_side_table_match_with_same_node_priority(
-            row, current, semantic_current,
-          ),
-        )
-      })
-      .collect()
-    let next_rows = self.rows.map(row => {
-      match row.status {
-        HeadingRetired => { ..row, current_id: None, candidates: [] }
-        _ => {
-          let match_result = matches
-            .iter()
-            .find_first(pair => pair.0.stable_id == row.stable_id)
-            .unwrap().1
-          row_from_match(
-            row,
-            match_result,
-            current,
-            id => candidate_claim_count(matches, id),
-            retention_threshold=self.retention_threshold,
-          )
+  match validity {
+    HeadingSnapshotInvalid => {
+      let rows = self.rows.map(row => {
+        let status = match row.status {
+          HeadingLive | HeadingAmbiguous =>
+            HeadingSideTableStatus::HeadingMissing
+          _ => row.status
         }
+        // Invalid snapshots supply no durable match evidence; keep `evidence` and
+        // `last_live` as last trusted data while clearing current
+        // anchors/candidates and preserving the valid-absence counter.
+        { ..row, current_id: None, status, candidates: [] }
+      })
+      {
+        rows,
+        current_index: heading_current_index(rows),
+        used_stable_ids: self.used_stable_ids,
+        retention_threshold: self.retention_threshold,
+        next_entity_seed: self.next_entity_seed,
       }
-    })
-    let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
-      let result : Array[HeadingSideTableRow] = []
-      let mut seed = self.next_entity_seed
-      for obs in current {
-        if !side_table_mentions_current_id(next_rows, obs.id) &&
-          !side_table_mentions_current_id(result, obs.id) {
-          let base_stable = HeadingStableRowId::from_node(obs.id)
-          if side_table_has_stable_id(next_rows, base_stable) ||
-            side_table_has_stable_id(result, base_stable) {
-            let fallback = @core.NodeId::from_int(seed)
-            seed = seed - 1
-            result.push({
-              ..heading_side_table_live_row(obs),
-              stable_id: HeadingStableRowId::from_node(fallback),
-            })
-          } else {
-            result.push(heading_side_table_live_row(obs))
+    }
+    HeadingSnapshotValid => {
+      let same_node_ids = same_node_claim_ids(self.rows, current)
+      let semantic_current = current_without_ids(current, same_node_ids)
+      let matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)] = self.rows
+        .iter()
+        .filter(row_active)
+        .map(row => {
+          (
+            row,
+            heading_side_table_match_with_same_node_priority(
+              row, current, semantic_current,
+            ),
+          )
+        })
+        .collect()
+      let next_rows = self.rows.map(row => {
+        match row.status {
+          HeadingRetired => { ..row, current_id: None, candidates: [] }
+          _ => {
+            guard matches
+              .iter()
+              .find_first(pair => pair.0.stable_id == row.stable_id)
+              is Some(pair) else {
+              abort(
+                "HeadingSideTable invariant violation: active row has no match",
+              )
+            }
+            let match_result = pair.1
+            row_from_match(
+              row,
+              match_result,
+              current,
+              id => candidate_claim_count(matches, id),
+              retention_threshold=self.retention_threshold,
+            )
           }
         }
+      })
+      let used_stable_ids = self.used_stable_ids.copy()
+      let occupied_current_ids = heading_mentioned_current_ids(next_rows)
+      let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
+        let result : Array[HeadingSideTableRow] = []
+        let mut seed = self.next_entity_seed
+        for obs in current {
+          if !occupied_current_ids.contains(obs.id) {
+            let base_stable = HeadingStableRowId::from_node(obs.id)
+            let (stable_id, next_seed) = if used_stable_ids.contains(
+                base_stable,
+              ) {
+              next_unused_stable_id(used_stable_ids, seed)
+            } else {
+              (base_stable, seed)
+            }
+            seed = next_seed
+            used_stable_ids.add(stable_id)
+            occupied_current_ids.add(obs.id)
+            result.push({ ..heading_side_table_live_row(obs), stable_id, })
+          }
+        }
+        (result, seed)
       }
-      (result, seed)
-    }
-    let rows = next_rows + fresh_rows
-    {
-      rows,
-      current_index: heading_current_index(rows),
-      retention_threshold: self.retention_threshold,
-      next_entity_seed,
+      let rows = next_rows + fresh_rows
+      {
+        rows,
+        current_index: heading_current_index(rows),
+        used_stable_ids,
+        retention_threshold: self.retention_threshold,
+        next_entity_seed,
+      }
     }
   }
 }
@@ -503,6 +554,7 @@ fn HeadingSideTable::advance(
 /// Drop all rows where `gc_eligible` returns `true`. Returns a new table
 /// with only rows that are still active or retainable.
 /// No-op when no retired rows exist.
+// Package-private until production side-table wiring; white-box tests exercise it.
 #warnings("-unused_value")
 fn HeadingSideTable::collect_garbage(
   self : HeadingSideTable,
@@ -511,6 +563,7 @@ fn HeadingSideTable::collect_garbage(
   {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: self.used_stable_ids.copy(),
     retention_threshold: self.retention_threshold,
     next_entity_seed: self.next_entity_seed,
   }
