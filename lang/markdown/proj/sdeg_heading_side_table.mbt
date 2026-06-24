@@ -128,7 +128,12 @@ fn HeadingSideTable::from_observations(
   retention_threshold? : Int = 0,
 ) -> HeadingSideTable {
   let rows = observations.map(heading_side_table_live_row)
-  { rows, current_index: heading_current_index(rows), retention_threshold, next_entity_seed: -1 }
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold,
+    next_entity_seed: -1,
+  }
 }
 
 ///|
@@ -453,9 +458,10 @@ fn HeadingSideTable::advance(
         if side_table_has_stable_id(next_rows, base_stable) {
           let fallback = @core.NodeId::from_int(seed)
           seed = seed - 1
-          result.push(
-            { ..heading_side_table_live_row(obs), stable_id: HeadingStableRowId::from_node(fallback) },
-          )
+          result.push({
+            ..heading_side_table_live_row(obs),
+            stable_id: HeadingStableRowId::from_node(fallback),
+          })
         } else {
           result.push(heading_side_table_live_row(obs))
         }
@@ -464,7 +470,12 @@ fn HeadingSideTable::advance(
     (result, seed)
   }
   let rows = next_rows + fresh_rows
-  { rows, current_index: heading_current_index(rows), retention_threshold: self.retention_threshold, next_entity_seed }
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: self.retention_threshold,
+    next_entity_seed,
+  }
 }
 
 ///|
@@ -472,7 +483,14 @@ fn HeadingSideTable::advance(
 /// with only rows that are still active or retainable.
 /// No-op when no retired rows exist.
 #warnings("-unused_value")
-fn HeadingSideTable::collect_garbage(self : HeadingSideTable) -> HeadingSideTable {
+fn HeadingSideTable::collect_garbage(
+  self : HeadingSideTable,
+) -> HeadingSideTable {
   let rows = self.rows.iter().filter(row => !gc_eligible(row)).collect()
-  { rows, current_index: heading_current_index(rows), retention_threshold: self.retention_threshold, next_entity_seed: self.next_entity_seed }
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: self.retention_threshold,
+    next_entity_seed: self.next_entity_seed,
+  }
 }

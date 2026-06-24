@@ -102,10 +102,7 @@ fn stable_row_claim_count(
   rows : Array[HeadingSideTableRow],
   stable_id : HeadingStableRowId,
 ) -> Int {
-  rows
-  .iter()
-  .filter(row => row.stable_id == stable_id)
-  .count()
+  rows.iter().filter(row => row.stable_id == stable_id).count()
 }
 
 ///|
@@ -519,7 +516,12 @@ test "sdeg phase1: retired rows with same NodeId get fallback stable_id" {
     candidates: [],
   }
   let rows = [retired_row]
-  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
   let advanced = table.advance([current_a])
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
@@ -560,7 +562,12 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
     candidates: [],
   }
   let rows = [retired_a, retired_b]
-  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
   let current_a = synthetic_heading(1, "A", 0)
   let current_b = synthetic_heading(2, "B", 0)
   let advanced = table.advance([current_a, current_b])
@@ -569,10 +576,7 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
 
   inspect(fresh_a.status == HeadingLive, content="true")
   inspect(fresh_b.status == HeadingLive, content="true")
-  inspect(
-    fresh_a.stable_id != fresh_b.stable_id,
-    content="true",
-  )
+  inspect(fresh_a.stable_id != fresh_b.stable_id, content="true")
   inspect(advanced.rows.length(), content="4")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a, current_b]),
@@ -593,17 +597,25 @@ test "sdeg phase1: collect_garbage removes retired rows only" {
   }
   let live = heading_side_table_live_row(old_b)
   let rows = [retired, live]
-  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
   let gc_table = table.collect_garbage()
 
   // Retired row removed, live row kept
   inspect(gc_table.rows.length(), content="1")
-  let remaining = gc_table.rows.iter().find_first(row => row.status == HeadingLive).unwrap()
-  inspect(remaining.stable_id == HeadingStableRowId::from_node(old_b.id), content="true")
+  let remaining = gc_table.rows
+    .iter()
+    .find_first(row => row.status == HeadingLive)
+    .unwrap()
   inspect(
-    heading_side_table_invariants_hold(gc_table, [old_b]),
+    remaining.stable_id == HeadingStableRowId::from_node(old_b.id),
     content="true",
   )
+  inspect(heading_side_table_invariants_hold(gc_table, [old_b]), content="true")
 }
 
 ///|
@@ -613,8 +625,5 @@ test "sdeg phase1: collect_garbage is no-op on table with no retired rows" {
   let gc_table = table.collect_garbage()
 
   inspect(gc_table.rows.length(), content="1")
-  inspect(
-    heading_side_table_invariants_hold(gc_table, [old_a]),
-    content="true",
-  )
+  inspect(heading_side_table_invariants_hold(gc_table, [old_a]), content="true")
 }
