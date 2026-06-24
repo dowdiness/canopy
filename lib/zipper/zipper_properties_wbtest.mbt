@@ -6,18 +6,18 @@
 /// Bounded-depth recursive generator for RoseNode[Int] trees.
 fn gen_rose_node(rs : @splitmix.RandomState, depth : Int) -> RoseNode[Int] {
   if depth <= 0 {
-    RoseNode(data=rs.split().next_positive_int() % 100)
+    RoseNode::RoseNode(data=rs.split().next_positive_int() % 100)
   } else {
     let coin = rs.split().next_positive_int() % 3
     if coin == 0 {
-      RoseNode(data=rs.split().next_positive_int() % 100)
+      RoseNode::RoseNode(data=rs.split().next_positive_int() % 100)
     } else {
       let child_count = rs.split().next_positive_int() % 4
       let children : Array[RoseNode[Int]] = []
       for _ in 0..<child_count {
         children.push(gen_rose_node(rs.split(), depth - 1))
       }
-      RoseNode(data=rs.split().next_positive_int() % 100, children~)
+      RoseNode::RoseNode(data=rs.split().next_positive_int() % 100, children~)
     }
   }
 }

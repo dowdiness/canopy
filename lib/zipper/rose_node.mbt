@@ -39,7 +39,7 @@ pub fn[T, U] RoseNode::map(
   self : RoseNode[T],
   f : (T) -> U raise?,
 ) -> RoseNode[U] raise? {
-  RoseNode(data=f(self.data), children=self.children.map(child => child.map(f)))
+  RoseNode::RoseNode(data=f(self.data), children=self.children.map(child => child.map(f)))
 }
 
 ///|

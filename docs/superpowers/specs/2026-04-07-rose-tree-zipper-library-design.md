@@ -33,9 +33,9 @@ The zipper is then: `(Focus, List[Context])` — the focused subtree plus a stac
 pub(all) struct RoseNode[T] {
   data : T
   children : Array[RoseNode[T]]
-
-  fn new(data~ : T, children? : Array[RoseNode[T]] = []) -> RoseNode[T]
 } derive(Debug, Eq)
+
+fn[T] RoseNode::RoseNode(data~ : T, children? : Array[RoseNode[T]] = []) -> RoseNode[T]
 
 pub(all) struct RoseCtx[T] {
   data : T
@@ -70,7 +70,7 @@ pub fn[T] RoseNode::RoseNode(data~ : T, children? : Array[RoseNode[T]] = []) -> 
 pub fn[T] RoseZipper::from_root(tree : RoseNode[T]) -> RoseZipper[T]
 ```
 
-`RoseNode(data=x)` creates a leaf. `RoseNode(data=x, children=kids)` creates an internal node.
+`RoseNode::RoseNode(data=x)` creates a leaf. `RoseNode::RoseNode(data=x, children=kids)` creates an internal node.
 
 ### Navigation
 
@@ -163,7 +163,7 @@ ProjNode stays separate. The zipper library does not depend on canopy/core. When
 ```moonbit
 // In canopy/core or consumer package — NOT in lib/zipper
 fn proj_to_rose[T](p : ProjNode[T]) -> @zipper.RoseNode[ProjData[T]] {
-  @zipper.RoseNode(
+  @zipper.RoseNode::RoseNode(
     data=ProjData(node_id=p.node_id, kind=p.kind, start=p.start, end=p.end),
     children=p.children.map(proj_to_rose),
   )
@@ -193,7 +193,7 @@ The O(n) conversion cost is paid once, duplicating the tree into `RoseNode` form
 
 1. ~~`derive(Show, Eq)` through `@list.List[RoseNode[T]]` nesting~~ — resolved: use `derive(Debug, Eq)` + manual `Show` impl via `@debug.to_string`.
 2. ~~`@list.List` pattern syntax~~ — resolved: `Empty` and `More(head, tail=rest)` for matching; `@list.cons()` and `@list.List::default()` for construction.
-3. ~~`fn new()` declaration-inside-struct with generic type parameters~~ — resolved: define constructor outside struct as `fn[T] RoseNode::RoseNode(...)`.
+3. ~~declaration-inside-struct constructor with generic type parameters~~ — resolved: define constructor outside struct as `fn[T] RoseNode::RoseNode(...)`.
 4. ~~`go_down(index? : Int = 0)` optional parameter~~ — resolved: use `?` syntax, not `~`.
 
 ## What Phase 1 Does NOT Include
