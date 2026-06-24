@@ -14,6 +14,14 @@ fn find_side_table_row(
 }
 
 ///|
+fn find_row_by_current_id(
+  rows : Array[HeadingSideTableRow],
+  current_id : @core.NodeId,
+) -> HeadingSideTableRow? {
+  rows.iter().find_first(row => row.current_id == Some(current_id))
+}
+
+///|
 fn synthetic_heading(
   id : Int,
   text : String,
@@ -500,8 +508,9 @@ test "sdeg phase1: gc_eligible is true for retired, false for other statuses" {
 }
 
 ///|
-test "sdeg phase0: NodeId side table retired rows do not revive" {
+test "sdeg phase1: retired rows with same NodeId get fallback stable_id" {
   let old_a = synthetic_heading(1, "A", 0)
+  // Same NodeId reappears (e.g. after retirement, undo restores to same NodeId)
   let current_a = synthetic_heading(1, "A", 0)
   let retired_row = {
     ..heading_side_table_live_row(old_a),
@@ -510,24 +519,63 @@ test "sdeg phase0: NodeId side table retired rows do not revive" {
     candidates: [],
   }
   let rows = [retired_row]
-  let table = {
-    rows,
-    current_index: heading_current_index(rows),
-    retention_threshold: 0,
-  }
+  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
   let advanced = table.advance([current_a])
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
+  let fresh_row = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
 
   inspect(old_row.status == HeadingRetired, content="true")
   inspect(old_row.current_id is None, content="true")
-  inspect(live_current_claim_count(advanced.rows, current_a.id), content="0")
+
+  // Fresh row gets created with a fallback stable_id (not suppressed)
+  inspect(fresh_row.status == HeadingLive, content="true")
+  inspect(fresh_row.current_id == Some(current_a.id), content="true")
   inspect(
-    advanced.entity_for_current_node(current_a.id) is None,
+    fresh_row.stable_id != HeadingStableRowId::from_node(current_a.id),
     content="true",
   )
-  inspect(advanced.rows.length(), content="1")
+  inspect(advanced.rows.length(), content="2")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
+  // Multiple retired rows getting same-NodeId observations at once.
+  // Each must get a unique fallback stable_id.
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 0)
+  let retired_a = {
+    ..heading_side_table_live_row(old_a),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let retired_b = {
+    ..heading_side_table_live_row(old_b),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let rows = [retired_a, retired_b]
+  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
+  let current_a = synthetic_heading(1, "A", 0)
+  let current_b = synthetic_heading(2, "B", 0)
+  let advanced = table.advance([current_a, current_b])
+  let fresh_a = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
+  let fresh_b = find_row_by_current_id(advanced.rows, current_b.id).unwrap()
+
+  inspect(fresh_a.status == HeadingLive, content="true")
+  inspect(fresh_b.status == HeadingLive, content="true")
+  inspect(
+    fresh_a.stable_id != fresh_b.stable_id,
+    content="true",
+  )
+  inspect(advanced.rows.length(), content="4")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a, current_b]),
     content="true",
   )
 }

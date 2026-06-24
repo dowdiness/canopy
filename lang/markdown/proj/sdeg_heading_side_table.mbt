@@ -79,6 +79,7 @@ priv struct HeadingSideTable {
   rows : Array[HeadingSideTableRow]
   current_index : Map[@core.NodeId, HeadingStableRowId]
   retention_threshold : Int
+  next_entity_seed : Int
 }
 
 ///|
@@ -127,7 +128,7 @@ fn HeadingSideTable::from_observations(
   retention_threshold? : Int = 0,
 ) -> HeadingSideTable {
   let rows = observations.map(heading_side_table_live_row)
-  { rows, current_index: heading_current_index(rows), retention_threshold }
+  { rows, current_index: heading_current_index(rows), retention_threshold, next_entity_seed: -1 }
 }
 
 ///|
@@ -443,21 +444,25 @@ fn HeadingSideTable::advance(
       }
     }
   })
-  let fresh_rows : Array[HeadingSideTableRow] = current
-    .iter()
-    .filter(obs => {
-      !side_table_mentions_current_id(next_rows, obs.id) &&
-      !side_table_has_stable_id(
-        next_rows,
-        HeadingStableRowId::from_node(obs.id),
-      )
-    })
-    .map(heading_side_table_live_row)
-    .collect()
-  let rows = next_rows + fresh_rows
-  {
-    rows,
-    current_index: heading_current_index(rows),
-    retention_threshold: self.retention_threshold,
+  let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
+    let result : Array[HeadingSideTableRow] = []
+    let mut seed = self.next_entity_seed
+    for obs in current {
+      if !side_table_mentions_current_id(next_rows, obs.id) {
+        let base_stable = HeadingStableRowId::from_node(obs.id)
+        if side_table_has_stable_id(next_rows, base_stable) {
+          let fallback = @core.NodeId::from_int(seed)
+          seed = seed - 1
+          result.push(
+            { ..heading_side_table_live_row(obs), stable_id: HeadingStableRowId::from_node(fallback) },
+          )
+        } else {
+          result.push(heading_side_table_live_row(obs))
+        }
+      }
+    }
+    (result, seed)
   }
+  let rows = next_rows + fresh_rows
+  { rows, current_index: heading_current_index(rows), retention_threshold: self.retention_threshold, next_entity_seed }
 }
