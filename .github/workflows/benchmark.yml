@@ -45,6 +45,7 @@ jobs:
               - 'scripts/moon-update.sh'
               - 'scripts/run-moon-module.sh'
               - 'examples/ideal/web/**'
+              - 'examples/web/vite-plugin-moonbit.ts'
 
   benchmark-comparison:
     name: Compare Benchmarks
