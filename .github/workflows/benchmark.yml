@@ -5,9 +5,43 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  benchmark-gate:
+    name: Benchmark Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_benchmarks: ${{ steps.filter.outputs.run_benchmarks }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Detect benchmark-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            run_benchmarks:
+              - '**/*.mbt'
+              - '**/moon.pkg'
+              - '**/moon.mod'
+              - '**/moon.mod.json'
+              - 'moon.work'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/benchmark.yml'
+              - 'scripts/moon-update.sh'
+              - 'scripts/run-moon-module.sh'
+              - 'examples/ideal/web/**'
+
   benchmark-comparison:
     name: Compare Benchmarks
+    needs: benchmark-gate
+    if: needs.benchmark-gate.outputs.run_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -175,6 +209,8 @@ jobs:
 
   editor-response-benchmark:
     name: Editor Response Benchmark
+    needs: benchmark-gate
+    if: needs.benchmark-gate.outputs.run_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
