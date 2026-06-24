@@ -542,11 +542,10 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 22. SDEG Lifecycle
 
-- [ ] Distinguish delete from malformed transient absence (#748).
+- [x] Distinguish delete from malformed transient absence (#748).
   Why: The lifecycle `Missing` state conflates a committed delete with a transient parse failure. Both produce zero current observations, but delete should progress toward retirement while a transient absence should recover when the observation reappears.
-  Progress: The side-table API now requires an explicit snapshot-validity tag on initial construction and `advance`. Invalid snapshots hold the lifecycle, create no durable rows, preserve `last_live`, and do not advance absence counters or retirement.
-  Remaining: Wire the production caller to pass parser/projection validity before calling `advance`; until then, the side-table support is tested but not end-to-end.
-  Exit: production wiring passes validity so valid deletes advance while invalid/malformed snapshots hold, or a documented rationale accepts any remaining conflation as a known limitation.
+  Shipped: the Markdown projection pipeline now attaches a private heading side-table memo to the returned source-map memo. It derives snapshot validity from parser diagnostics plus recovered projection `Error` nodes before calling `advance`, so valid deletes advance absence counters while malformed snapshots hold.
+  Evidence: `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt` covers valid delete advancement and malformed snapshot hold through the production memo path. No public SDEG or `.mbti` surface was added.
 
 ## Shipped history
 

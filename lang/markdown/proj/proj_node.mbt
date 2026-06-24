@@ -138,7 +138,30 @@ pub fn build_markdown_projection_memos(
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
   @incr.Derived[@core.SourceMap],
 ) {
-  @core.build_projection_memos(
+  let bundle = build_markdown_projection_memos_with_heading_side_table(
+    parser,
+    identity_hints?,
+  )
+  (bundle.proj_memo, bundle.registry_memo, bundle.source_map_memo)
+}
+
+///|
+#warnings("-struct_never_constructed-unused_field")
+priv struct MarkdownProjectionMemoBundle {
+  proj_memo : @incr.Derived[@core.ProjNode[@markdown.Block]?]
+  registry_memo : @incr.Derived[
+    Map[@core.NodeId, @core.ProjNode[@markdown.Block]],
+  ]
+  source_map_memo : @incr.Derived[@core.SourceMap]
+  heading_side_table_memo : @incr.Derived[HeadingSideTable]
+}
+
+///|
+fn build_markdown_projection_memos_with_heading_side_table(
+  parser : @loom.Parser[@markdown.Block],
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
+) -> MarkdownProjectionMemoBundle {
+  let (proj_memo, registry_memo, source_map_memo) = @core.build_projection_memos(
     parser.runtime(),
     parser.syntax_tree(),
     syntax_to_proj_node,
@@ -155,4 +178,22 @@ pub fn build_markdown_projection_memos(
     },
     label="markdown",
   )
+  let heading_side_table_memo = build_markdown_heading_side_table_memo(
+    parser, proj_memo, source_map_memo,
+  )
+  let source_map_with_heading_side_table : @incr.Derived[@core.SourceMap] = @incr.Derived::Derived(
+    parser.runtime(),
+    () => {
+      let source_map = source_map_memo.get_or_abort()
+      let _ = heading_side_table_memo.get_or_abort()
+      source_map
+    },
+    label="markdown_source_map_with_heading_side_table",
+  )
+  {
+    proj_memo,
+    registry_memo,
+    source_map_memo: source_map_with_heading_side_table,
+    heading_side_table_memo,
+  }
 }
