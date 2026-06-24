@@ -71,6 +71,9 @@ priv struct HeadingSideTableRow {
   last_live : HeadingObservation
   candidates : Array[@core.NodeId]
   evidence : Array[HeadingEntityEvidence]
+  // Counts consecutive valid-snapshot absences. `Missing` with zero absences
+  // means no valid absence evidence has been observed yet, usually because an
+  // invalid snapshot used the hold path.
   consecutive_absences : Int
 }
 
@@ -126,8 +129,13 @@ fn heading_current_index(
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
   retention_threshold? : Int = 0,
+  is_valid_parse? : Bool = true,
 ) -> HeadingSideTable {
-  let rows = observations.map(heading_side_table_live_row)
+  let rows = if is_valid_parse {
+    observations.map(heading_side_table_live_row)
+  } else {
+    []
+  }
   {
     rows,
     current_index: heading_current_index(rows),
@@ -319,6 +327,38 @@ fn heading_side_table_match_with_same_node_priority(
 }
 
 ///|
+fn heading_side_table_absent_row(
+  row : HeadingSideTableRow,
+  evidence : Array[HeadingEntityEvidence],
+  retention_threshold : Int,
+) -> HeadingSideTableRow {
+  let new_absences = row.consecutive_absences + 1
+  let next_status = match row.status {
+    HeadingTombstoned =>
+      if retention_threshold > 0 && new_absences >= retention_threshold {
+        HeadingRetired
+      } else {
+        HeadingTombstoned
+      }
+    HeadingMissing =>
+      if row.consecutive_absences == 0 {
+        HeadingSideTableStatus::HeadingMissing
+      } else {
+        HeadingTombstoned
+      }
+    _ => HeadingSideTableStatus::HeadingMissing
+  }
+  {
+    ..row,
+    current_id: None,
+    status: next_status,
+    candidates: [],
+    evidence,
+    consecutive_absences: new_absences,
+  }
+}
+
+///|
 fn row_from_match(
   row : HeadingSideTableRow,
   match_result : HeadingSideTableMatch,
@@ -331,27 +371,12 @@ fn row_from_match(
     HeadingRetired => { ..row, current_id: None, candidates: [] }
     _ =>
       match ids {
-        [] => {
-          let new_absences = row.consecutive_absences + 1
-          let next_status = match row.status {
-            HeadingTombstoned =>
-              if retention_threshold > 0 && new_absences >= retention_threshold {
-                HeadingRetired
-              } else {
-                HeadingTombstoned
-              }
-            HeadingMissing => HeadingTombstoned
-            _ => HeadingMissing
-          }
-          {
-            ..row,
-            current_id: None,
-            status: next_status,
-            candidates: [],
-            evidence: match_result.evidence,
-            consecutive_absences: new_absences,
-          }
-        }
+        [] =>
+          heading_side_table_absent_row(
+            row,
+            match_result.evidence,
+            retention_threshold,
+          )
         [id] if match_result.confidence is HeadingExact ||
           (claim_count(id) == 1 && match_result.confidence is HeadingProbable) =>
           match find_heading_by_id(current, id) {
@@ -365,28 +390,12 @@ fn row_from_match(
                 evidence: match_result.evidence,
                 consecutive_absences: 0,
               }
-            None => {
-              let new_absences = row.consecutive_absences + 1
-              let next_status = match row.status {
-                HeadingTombstoned =>
-                  if retention_threshold > 0 &&
-                    new_absences >= retention_threshold {
-                    HeadingRetired
-                  } else {
-                    HeadingTombstoned
-                  }
-                HeadingMissing => HeadingTombstoned
-                _ => HeadingMissing
-              }
-              {
-                ..row,
-                current_id: None,
-                status: next_status,
-                candidates: [],
-                evidence: match_result.evidence,
-                consecutive_absences: new_absences,
-              }
-            }
+            None =>
+              heading_side_table_absent_row(
+                row,
+                match_result.evidence,
+                retention_threshold,
+              )
           }
         _ =>
           {
@@ -406,65 +415,87 @@ fn row_from_match(
 fn HeadingSideTable::advance(
   self : HeadingSideTable,
   current : Array[HeadingObservation],
+  is_valid_parse? : Bool = true,
 ) -> HeadingSideTable {
-  let same_node_ids = same_node_claim_ids(self.rows, current)
-  let semantic_current = current_without_ids(current, same_node_ids)
-  let matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)] = self.rows
-    .iter()
-    .filter(row_active)
-    .map(row => {
-      (
-        row,
-        heading_side_table_match_with_same_node_priority(
-          row, current, semantic_current,
-        ),
-      )
-    })
-    .collect()
-  let next_rows = self.rows.map(row => {
-    match row.status {
-      HeadingRetired => { ..row, current_id: None, candidates: [] }
-      _ => {
-        let match_result = matches
-          .iter()
-          .find_first(pair => pair.0.stable_id == row.stable_id)
-          .unwrap().1
-        row_from_match(
-          row,
-          match_result,
-          current,
-          id => candidate_claim_count(matches, id),
-          retention_threshold=self.retention_threshold,
-        )
+  if !is_valid_parse {
+    let rows = self.rows.map(row => {
+      let status = match row.status {
+        HeadingLive | HeadingAmbiguous => HeadingSideTableStatus::HeadingMissing
+        _ => row.status
       }
+      // Invalid snapshots supply no durable match evidence; keep `evidence` and
+      // `last_live` as last trusted data while clearing current
+      // anchors/candidates and preserving the valid-absence counter.
+      { ..row, current_id: None, status, candidates: [] }
+    })
+    {
+      rows,
+      current_index: heading_current_index(rows),
+      retention_threshold: self.retention_threshold,
+      next_entity_seed: self.next_entity_seed,
     }
-  })
-  let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
-    let result : Array[HeadingSideTableRow] = []
-    let mut seed = self.next_entity_seed
-    for obs in current {
-      if !side_table_mentions_current_id(next_rows, obs.id) {
-        let base_stable = HeadingStableRowId::from_node(obs.id)
-        if side_table_has_stable_id(next_rows, base_stable) {
-          let fallback = @core.NodeId::from_int(seed)
-          seed = seed - 1
-          result.push({
-            ..heading_side_table_live_row(obs),
-            stable_id: HeadingStableRowId::from_node(fallback),
-          })
-        } else {
-          result.push(heading_side_table_live_row(obs))
+  } else {
+    let same_node_ids = same_node_claim_ids(self.rows, current)
+    let semantic_current = current_without_ids(current, same_node_ids)
+    let matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)] = self.rows
+      .iter()
+      .filter(row_active)
+      .map(row => {
+        (
+          row,
+          heading_side_table_match_with_same_node_priority(
+            row, current, semantic_current,
+          ),
+        )
+      })
+      .collect()
+    let next_rows = self.rows.map(row => {
+      match row.status {
+        HeadingRetired => { ..row, current_id: None, candidates: [] }
+        _ => {
+          let match_result = matches
+            .iter()
+            .find_first(pair => pair.0.stable_id == row.stable_id)
+            .unwrap().1
+          row_from_match(
+            row,
+            match_result,
+            current,
+            id => candidate_claim_count(matches, id),
+            retention_threshold=self.retention_threshold,
+          )
         }
       }
+    })
+    let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
+      let result : Array[HeadingSideTableRow] = []
+      let mut seed = self.next_entity_seed
+      for obs in current {
+        if !side_table_mentions_current_id(next_rows, obs.id) &&
+          !side_table_mentions_current_id(result, obs.id) {
+          let base_stable = HeadingStableRowId::from_node(obs.id)
+          if side_table_has_stable_id(next_rows, base_stable) ||
+            side_table_has_stable_id(result, base_stable) {
+            let fallback = @core.NodeId::from_int(seed)
+            seed = seed - 1
+            result.push({
+              ..heading_side_table_live_row(obs),
+              stable_id: HeadingStableRowId::from_node(fallback),
+            })
+          } else {
+            result.push(heading_side_table_live_row(obs))
+          }
+        }
+      }
+      (result, seed)
     }
-    (result, seed)
-  }
-  let rows = next_rows + fresh_rows
-  {
-    rows,
-    current_index: heading_current_index(rows),
-    retention_threshold: self.retention_threshold,
-    next_entity_seed,
+    let rows = next_rows + fresh_rows
+    {
+      rows,
+      current_index: heading_current_index(rows),
+      retention_threshold: self.retention_threshold,
+      next_entity_seed,
+    }
   }
 }
 

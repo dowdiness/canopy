@@ -533,11 +533,12 @@ ordering. · *Existing evidence:* edit-path tests run advance *after* `SyncEdito
 
 **Y3 — post-reconciliation ordering.**
 advance consumes observations only after parse + projection reconciliation. ·
-*Preserved by:* convention (the pipeline diagram). · *Existing evidence:*
-companion edit-path test derives observations after `SyncEditor`. · *Missing:*
-the **"successful projection snapshot" precondition is unencoded** — advance has
-no validity flag, so a failed/partial parse can be fed in and misfire the
-lifecycle (G11).
+*Preserved by:* convention (the pipeline diagram) plus the side-table
+`is_valid_parse` hold path. · *Existing evidence:* companion edit-path test
+derives observations after `SyncEditor`; #748 wbtests cover invalid snapshots
+that must not advance the lifecycle. · *Missing:* production wiring still must
+source and pass parser/projection validity when the table graduates from
+test-local use (G11).
 
 **Y4 — (DEFERRED/UNTESTABLE) reload + peer stability.**
 Out of scope by design; no durable anchor, deterministic key, or persistent
@@ -563,9 +564,9 @@ required" = the evidence the matcher needs to make the right call.
 | **rename** (`# A`→`# A2`) | signature (level+text), source range, token spans, recorded evidence | `stable_id`, current `NodeId` (same-node), `Live`, one-to-one anchor | `HeadingSameNodeId` (NodeId survives the edit path) | if `NodeId` were freshened, rename ≡ delete+spawn → identity lost. *Holds today* (Phase 0 + edit-path rename test). |
 | **reorder** (`# A\n# B`→`# B\n# A`) | ordinal/position; which `ProjNode` each `NodeId` attaches to | (today) *nothing semantic* — explicitly "position-stable, not semantic-stable" | would need explicit **move provenance** (`IdentityTransform::Move`); side-table-only has none | **silent semantic misattribution** — all structural invariants green, meaning wrong (I5/Sem3). Corrected by the explicit block-move path for root siblings (#723) and same-list items (#731); cross-container / list-container moves stay rejected — see *Decision: Markdown move-provenance scope* (#724). |
 | **duplicate** (`# A\n# A`) | confidence → `Ambiguous`; candidate set | distinct `stable_id` per distinct `NodeId` while both present; one-to-one (I4) | `HeadingSameSemanticKey` collision + `CandidateCount>1` | guessing → two rows on one node, or restore to wrong twin. *Avoided* by staying `Ambiguous` (duplicate test). Spurious collision if normalization is loose (Sem4). |
-| **delete** (`# A` removed) | status `Live→Missing→Tombstoned`; `current_id→None` | `stable_id`; `last_live` (recovery substrate) | `CandidateCount(0)` | **`Missing` conflates delete with malformed absence** (G2); committed delete also drops the projection baseline (Phase 0), so SDEG's retained `last_live` is the *only* recovery path. |
+| **delete** (`# A` removed) | status `Live→Missing→Tombstoned`; `current_id→None` | `stable_id`; `last_live` (recovery substrate) | `CandidateCount(0)` from a valid snapshot | committed delete also drops the projection baseline (Phase 0), so SDEG's retained `last_live` is the *only* recovery path; delete evidence must come from a valid snapshot. |
 | **restore** (deleted heading re-typed) | a new current `NodeId` (in the tested path); status →`Live` | original `stable_id` recovered iff a *unique semantic candidate* exists while the prior node is absent (freshness not required) | `HeadingSameSemanticKey` + unique candidate | duplicate text → stays `Ambiguous` (no guess); different normalization → spawns fresh (not recovered); only works before `Retired`/GC. |
-| **malformed input recovery** | transient `Missing`, then re-`Live` | `stable_id` across the bad window; ideally `NodeId` via `ProjectionIdentityTracker` | NodeId survival (delegated to loom) or semantic recovery | premature `Tombstoned` if absent > ladder; **indistinguishable from delete** (G2); SDEG inherits the tracker's limits (G8). |
+| **malformed input recovery** | transient `Missing`, then re-`Live` | `stable_id` across the bad window; ideally `NodeId` via `ProjectionIdentityTracker` | `is_valid_parse=false` side-table hold path, plus later NodeId survival (delegated to loom) or semantic recovery | side-table API now prevents premature `Tombstoned`/`Retired` for invalid snapshots; full G2 resolution still depends on production wiring passing the validity signal. |
 | **large paste** | many fresh `NodeId`s + fresh rows; possible mass ambiguity | rows whose `NodeId`s survive (untouched headings) | same-node for survivors; fresh for pasted | region-replacing paste freshens `NodeId`s → looks like delete-all+spawn-all; pasted duplicate text mis-resolves; **matching is O(rows×obs)** (nested filters) — scaling not stated as an invariant. |
 | **format-like rewrite** (whitespace/formatter) | source ranges, token spans (shift) | `stable_id`, `NodeId`, `Live`, signature (text unchanged) | same-node + same-key + overlapping-range | low risk; if formatter alters text normalization, key changes but same-node priority still preserves identity. *Holds today* (Phase 0). |
 | **projection regeneration** | full observation set + current-node index rebuilt | rows across regeneration | whatever `NodeId`s/keys survive regeneration | wholesale `NodeId` refresh (non-incremental rebuild) → mass semantic recovery; uniques recovered, duplicates → `Ambiguous`. **Bounded entirely by projection-identity stability** (G8). |
@@ -673,8 +674,12 @@ the three design docs disagree, the code wins and the conflict is flagged.
 - *Allowed references:* `current_id = None`; retains `last_live`.
 - *Retention:* whole session unless a positive table retention threshold later
   retires the row after it has become `Tombstoned`.
-- *Open:* **cannot distinguish "deleted" from "malformed-transient"** (G2); does
-  **not exist** in the sketch (sketch jumps straight to `Tombstoned`).
+- *Open:* side-table API support for G2 now distinguishes valid absence
+  evidence from invalid snapshots: invalid snapshots can mark current anchors
+  unavailable but do not advance the tombstone ladder. Full end-to-end G2
+  resolution still depends on production wiring passing the validity signal.
+  `Missing` does **not exist** in the sketch (sketch jumps straight to
+  `Tombstoned`).
 
 **ambiguous**
 - *Entry:* active row with >1 candidate, or whose sole candidate is contested, or
@@ -723,6 +728,12 @@ the three design docs disagree, the code wins and the conflict is flagged.
   implemented as a side-table setting (G3/#746).
 
 ### Derived transition table
+
+The table below describes valid/successful projection snapshots. Invalid
+snapshots use the side-table hold path: no initial or fresh rows are created,
+`Live`/`Ambiguous` rows become `Missing` with current anchors cleared,
+`Missing`/`Tombstoned`/`Retired` stay in place, `last_live` is preserved, and
+`consecutive_absences` does not change.
 
 `✓` implemented & tested · `(impl)` in code, not directly tested ·
 `(design-only)` named in a doc but **not** in code · `✗` impossible today.
@@ -884,16 +895,16 @@ Incompatible-interpretation risk: a consumer (outline, AI context) treats a
 `Live` row's heading text as a stable handle and silently relabels.
 
 **G2 — `Missing` conflates "deleted" and "transiently unparseable."**
-Both produce zero candidates → `Missing` → `Tombstoned`, on the same ladder, with
-no distinguishing signal. The named "stable across malformed intermediate input"
-scope cannot be honored because the table cannot tell a malformed parse from a
-real deletion. *Needed:* either an edit-provenance signal ("this advance follows
-a delete") or a parse-validity signal feeding `advance`, plus an invariant that
-malformed-transient absence must not advance the tombstone ladder. *Evidence
-note:* the wbtests cover delete/restore and edit-path cases but **not** transient
-malformed absence distinct from delete (`stable-document-entity-graph.md:181`
-requests the scope; no test exercises it) — so the invariant is currently
-unevidenced as well as unstated.
+*Addressed in the side-table API (#748), not yet end-to-end wiring:* the
+constructor and `advance` now accept `is_valid_parse`. Invalid snapshots create
+no initial rows, create no fresh rows, clear stale current anchors, preserve
+`last_live`, and do not change `consecutive_absences` or advance
+`Missing→Tombstoned→Retired`. Valid snapshots retain the existing delete ladder.
+This gives the side table the mechanism needed to distinguish valid absence
+evidence from malformed-transient absence. *Remaining integration work:* the
+production caller must pass a parser/projection validity signal before G2 is
+fully resolved end to end; otherwise omitting the flag preserves the default
+valid-snapshot behavior for compatibility.
 
 **G3 — Retention threshold N was unspecified in the contract and hardwired in
 code.** *Resolved in code (#746):* the side table carries `retention_threshold`
@@ -970,12 +981,13 @@ invariant/guard that `stable_id` is non-serializable and absent from any public
 later `pub` accessor).
 
 **G11 — "Successful projection snapshot" is an unencoded precondition of
-`advance`.** The signature takes raw observations with no validity flag; nothing
-stops a caller wiring `advance` into the `incr` runtime from calling it on a
-failed/partial parse, misfiring the lifecycle (compounds G2). *Needed:* encode
-the precondition (a validity-tagged input or a separate "parse failed → hold"
-path) and an invariant that `advance` runs only on reconciled, successful
-projections.
+`advance`.** *Addressed in the side-table API (#748), not yet end-to-end
+wiring:* `from_observations` and `advance` now encode the precondition with an
+`is_valid_parse` flag. `false` selects the "parse failed → hold" path; `true`
+retains the existing successful-snapshot behavior and remains the default for
+compatibility with existing test-only callers. *Remaining integration work:* the
+production caller must source this from parser/projection diagnostics before
+wiring the side table into the `incr` runtime.
 
 **G12 — "Never source of truth" is structural for writes but only conventional
 for reads.** `advance` cannot mutate document state (no handles) — good. But

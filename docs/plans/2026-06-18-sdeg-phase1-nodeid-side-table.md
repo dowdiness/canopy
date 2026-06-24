@@ -252,6 +252,13 @@ Ambiguous -> Missing if all candidates disappear
 For Phase 1, the default retention is "keep all tombstones" (`retention_threshold = 0`).
 Do not introduce production row removal until UI/undo/reload requirements are clearer.
 
+Invalid or malformed snapshots are not successful projection snapshots. The
+side-table constructor and `advance` accept `is_valid_parse`; when false, the
+table uses a hold path: it creates no initial or fresh rows, clears current
+anchors, preserves `last_live`, and does not increment absence counters or
+advance toward `Retired`. Full G2 resolution still requires production wiring to
+pass a parser/projection validity signal before calling `advance`.
+
 ### Expected behavior
 
 - Rename: preserved by `NodeId`; signature changes on the same entity.
@@ -276,7 +283,8 @@ Do not introduce production row removal until UI/undo/reload requirements are cl
    `docs/design/sdeg-nodeid-side-table.md`; treat those as prior evidence for
    same-node priority and snapshot invariants. Where lifecycle names conflict,
    this Phase 1 plan supersedes the older sketch: first absence is `Missing`,
-   and `Tombstoned` is reached only after the retention threshold.
+   repeated absence reaches `Tombstoned`, and only `Retired` is gated by the
+   retention threshold.
 2. [x] Extract the test-only observation helpers into package-private helpers
    inside `lang/markdown/proj/`, still not public.
 3. [x] Add a package-private heading side table with entity records and a
@@ -317,6 +325,9 @@ Do not introduce production row removal until UI/undo/reload requirements are cl
 - [x] Heading level-change identity is either still documented as an upstream
       provenance/reconciliation limitation or fixed with explicit evidence.
 - [x] Tombstoned rows can retire behind an explicit retention threshold.
+- [x] Invalid snapshots hold the lifecycle instead of minting rows or advancing
+      the absence/retirement ladder; production wiring must still supply the
+      validity signal end to end.
 - [x] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation
@@ -348,6 +359,9 @@ committing.
   `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md`.
 - The side table should not mutate document state or bypass Markdown edit
   lowering.
+- The validity flag is side-table support, not a substitute for production
+  parser/projection diagnostics. Callers must pass the correct validity signal
+  when this table graduates from test-local use.
 
 ## Notes
 

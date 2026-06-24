@@ -585,6 +585,207 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
 }
 
 ///|
+test "sdeg phase1: fresh rows ignore duplicate current NodeIds" {
+  let current_a = synthetic_heading(1, "A", 0)
+  let duplicate_a = synthetic_heading(1, "A duplicate", 4)
+  let table = HeadingSideTable::from_observations([])
+  let advanced = table.advance([current_a, duplicate_a])
+  let fresh = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
+
+  inspect(advanced.rows.length(), content="1")
+  inspect(fresh.status == HeadingLive, content="true")
+  inspect(fresh.current_id == Some(current_a.id), content="true")
+  inspect(
+    fresh.stable_id == HeadingStableRowId::from_node(current_a.id),
+    content="true",
+  )
+  inspect(fresh.last_live.text, content="A")
+  inspect(advanced.next_entity_seed, content="-1")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a, duplicate_a]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: invalid initial snapshot creates no durable rows" {
+  let ghost = synthetic_heading(1, "Ghost", 0)
+  let table = HeadingSideTable::from_observations([ghost], is_valid_parse=false)
+
+  inspect(table.rows.length(), content="0")
+  inspect(table.current_index.length(), content="0")
+  inspect(table.next_entity_seed, content="-1")
+  inspect(heading_side_table_invariants_hold(table, [ghost]), content="true")
+}
+
+///|
+test "sdeg phase1: invalid advance creates no fresh rows or seed changes" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let transient_b = synthetic_heading(2, "B", 4)
+  let rows = [heading_side_table_live_row(old_a)]
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -7,
+  }
+  let advanced = table.advance([transient_b], is_valid_parse=false)
+  let old_row = find_side_table_row(advanced, old_a.id).unwrap()
+
+  inspect(advanced.rows.length(), content="1")
+  inspect(advanced.next_entity_seed, content="-7")
+  inspect(
+    find_row_by_current_id(advanced.rows, transient_b.id) is None,
+    content="true",
+  )
+  inspect(old_row.status == HeadingMissing, content="true")
+  inspect(old_row.consecutive_absences, content="0")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [transient_b]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: invalid advance marks live unavailable without aging" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let advanced = table.advance([], is_valid_parse=false)
+  let row = find_side_table_row(advanced, old_a.id).unwrap()
+
+  inspect(row.status == HeadingMissing, content="true")
+  inspect(row.current_id is None, content="true")
+  inspect(row.candidates.length(), content="0")
+  inspect(row.consecutive_absences, content="0")
+  inspect(row.last_live.id == old_a.id, content="true")
+  inspect(row.last_live.text, content="A")
+  inspect(heading_side_table_invariants_hold(advanced, []), content="true")
+}
+
+///|
+test "sdeg phase1: invalid absence requires later valid absence before tombstone" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let invalid_table = table.advance([], is_valid_parse=false)
+  let valid_missing_table = invalid_table.advance([])
+  let tombstoned_table = valid_missing_table.advance([])
+  let invalid_row = find_side_table_row(invalid_table, old_a.id).unwrap()
+  let valid_missing_row = find_side_table_row(valid_missing_table, old_a.id).unwrap()
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+
+  inspect(invalid_row.status == HeadingMissing, content="true")
+  inspect(invalid_row.consecutive_absences, content="0")
+  inspect(valid_missing_row.status == HeadingMissing, content="true")
+  inspect(valid_missing_row.consecutive_absences, content="1")
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.consecutive_absences, content="2")
+  inspect(
+    heading_side_table_invariants_hold(valid_missing_table, []),
+    content="true",
+  )
+  inspect(
+    heading_side_table_invariants_hold(tombstoned_table, []),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: invalid advance clears ambiguous candidates without aging" {
+  let old_a0 = synthetic_heading(1, "A", 0)
+  let old_a1 = synthetic_heading(2, "A", 4)
+  let current_a = synthetic_heading(100, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a0, old_a1])
+  let ambiguous_table = table.advance([current_a])
+  let invalid_table = ambiguous_table.advance([], is_valid_parse=false)
+  let row0 = find_side_table_row(invalid_table, old_a0.id).unwrap()
+  let row1 = find_side_table_row(invalid_table, old_a1.id).unwrap()
+
+  inspect(row0.status == HeadingMissing, content="true")
+  inspect(row1.status == HeadingMissing, content="true")
+  inspect(row0.candidates.length(), content="0")
+  inspect(row1.candidates.length(), content="0")
+  inspect(row0.consecutive_absences, content="0")
+  inspect(row1.consecutive_absences, content="0")
+  inspect(row0.last_live.id == old_a0.id, content="true")
+  inspect(row1.last_live.id == old_a1.id, content="true")
+  inspect(heading_side_table_invariants_hold(invalid_table, []), content="true")
+}
+
+///|
+test "sdeg phase1: invalid advance freezes missing and tombstoned rows" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    retention_threshold=3,
+  )
+  let missing_table = table.advance([])
+  let invalid_missing_table = missing_table.advance([], is_valid_parse=false)
+  let invalid_missing_row = find_side_table_row(invalid_missing_table, old_a.id).unwrap()
+  let tombstoned_table = missing_table.advance([])
+  let invalid_tombstoned_table = tombstoned_table.advance(
+    [],
+    is_valid_parse=false,
+  )
+  let invalid_tombstoned_row = find_side_table_row(
+    invalid_tombstoned_table,
+    old_a.id,
+  ).unwrap()
+
+  inspect(invalid_missing_row.status == HeadingMissing, content="true")
+  inspect(invalid_missing_row.consecutive_absences, content="1")
+  inspect(invalid_tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(invalid_tombstoned_row.consecutive_absences, content="2")
+  inspect(gc_eligible(invalid_tombstoned_row), content="false")
+  inspect(
+    heading_side_table_invariants_hold(invalid_missing_table, []),
+    content="true",
+  )
+  inspect(
+    heading_side_table_invariants_hold(invalid_tombstoned_table, []),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: invalid advance does not update last_live from matches" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let transient_a = synthetic_heading(1, "A changed", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let invalid_table = table.advance([transient_a], is_valid_parse=false)
+  let invalid_row = find_side_table_row(invalid_table, old_a.id).unwrap()
+  let recovered_table = invalid_table.advance([transient_a])
+  let recovered_row = find_side_table_row(recovered_table, old_a.id).unwrap()
+
+  inspect(invalid_row.status == HeadingMissing, content="true")
+  inspect(invalid_row.current_id is None, content="true")
+  inspect(invalid_row.last_live.text, content="A")
+  inspect(invalid_row.consecutive_absences, content="0")
+  inspect(recovered_row.status == HeadingLive, content="true")
+  inspect(recovered_row.current_id == Some(transient_a.id), content="true")
+  inspect(recovered_row.last_live.text, content="A changed")
+  inspect(recovered_row.consecutive_absences, content="0")
+  inspect(
+    heading_side_table_invariants_hold(recovered_table, [transient_a]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: default advance treats empty valid snapshot as delete evidence" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let missing_table = table.advance([])
+  let tombstoned_table = missing_table.advance([])
+  let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(missing_row.consecutive_absences, content="1")
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.consecutive_absences, content="2")
+}
+
+///|
 test "sdeg phase1: collect_garbage removes retired rows only" {
   // Create a table with a retired row (manually constructed) and a live row
   let old_a = synthetic_heading(1, "A", 0)
