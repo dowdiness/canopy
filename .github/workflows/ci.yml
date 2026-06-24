@@ -370,7 +370,7 @@ jobs:
     name: Web E2E
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
       options: --ipc=host
     steps:
       - name: Checkout code
