@@ -71,12 +71,15 @@ priv struct HeadingSideTableRow {
   last_live : HeadingObservation
   candidates : Array[@core.NodeId]
   evidence : Array[HeadingEntityEvidence]
+  consecutive_absences : Int
 }
 
 ///|
 priv struct HeadingSideTable {
   rows : Array[HeadingSideTableRow]
   current_index : Map[@core.NodeId, HeadingStableRowId]
+  retention_threshold : Int
+  next_entity_seed : Int
 }
 
 ///|
@@ -98,6 +101,7 @@ fn heading_side_table_live_row(obs : HeadingObservation) -> HeadingSideTableRow 
     last_live: obs,
     candidates: [],
     evidence: [HeadingSameNodeId(obs.id), HeadingCandidateCount(1)],
+    consecutive_absences: 0,
   }
 }
 
@@ -105,23 +109,31 @@ fn heading_side_table_live_row(obs : HeadingObservation) -> HeadingSideTableRow 
 fn heading_current_index(
   rows : Array[HeadingSideTableRow],
 ) -> Map[@core.NodeId, HeadingStableRowId] {
-  let index : Map[@core.NodeId, HeadingStableRowId] = Map([])
-  for row in rows {
-    match (row.status, row.current_id) {
-      (HeadingLive, Some(id)) => index[id] = row.stable_id
-      _ => ()
-    }
-  }
-  index
+  Map::from_iter(
+    rows
+    .iter()
+    .filter_map(row => {
+      match (row.status, row.current_id) {
+        (HeadingLive, Some(id)) => Some((id, row.stable_id))
+        _ => None
+      }
+    }),
+  )
 }
 
 ///|
 #warnings("-unused_value")
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
+  retention_threshold? : Int = 0,
 ) -> HeadingSideTable {
   let rows = observations.map(heading_side_table_live_row)
-  { rows, current_index: heading_current_index(rows) }
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold,
+    next_entity_seed: -1,
+  }
 }
 
 ///|
@@ -193,55 +205,58 @@ fn heading_candidate(
 }
 
 ///|
+fn heading_side_table_match_evidence(
+  candidates : Array[HeadingMatchCandidate],
+  count : Int,
+) -> Array[HeadingEntityEvidence] {
+  candidates.iter().flat_map(candidate => candidate.evidence.iter()).collect() +
+  [HeadingCandidateCount(count)]
+}
+
+///|
 fn heading_side_table_match(
   previous : HeadingObservation,
   current : Array[HeadingObservation],
 ) -> HeadingSideTableMatch {
-  let same_node = find_heading_by_id(current, previous.id)
-  let semantic_candidates : Array[HeadingMatchCandidate] = current
-    .iter()
-    .filter(obs => obs.level == previous.level && obs.text == previous.text)
-    .map(obs => heading_candidate(previous, obs))
-    .collect()
-  let semantic_count = semantic_candidates.length()
-  match same_node {
+  match find_heading_by_id(current, previous.id) {
     Some(obs) => {
       let candidate = heading_candidate(previous, obs)
-      let evidence = if obs.level == previous.level && obs.text == previous.text {
-        [
-          HeadingSameNodeId(obs.id),
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(1),
-        ]
-      } else {
-        [HeadingSameNodeId(obs.id), HeadingCandidateCount(1)]
+      {
+        confidence: HeadingExact,
+        candidates: [candidate],
+        evidence: heading_side_table_match_evidence([candidate], 1),
       }
-      { confidence: HeadingExact, candidates: [candidate], evidence }
     }
-    None if semantic_count == 1 =>
-      {
-        confidence: HeadingProbable,
-        candidates: semantic_candidates,
-        evidence: [
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(1),
-        ],
+    None => {
+      let semantic_candidates : Array[HeadingMatchCandidate] = current
+        .iter()
+        .filter(obs => obs.level == previous.level && obs.text == previous.text)
+        .map(obs => heading_candidate(previous, obs))
+        .collect()
+      let semantic_count = semantic_candidates.length()
+      match semantic_count {
+        1 =>
+          {
+            confidence: HeadingProbable,
+            candidates: semantic_candidates,
+            evidence: heading_side_table_match_evidence(semantic_candidates, 1),
+          }
+        count if count > 1 =>
+          {
+            confidence: HeadingMatchAmbiguous,
+            candidates: semantic_candidates,
+            evidence: heading_side_table_match_evidence(
+              semantic_candidates, count,
+            ),
+          }
+        _ =>
+          {
+            confidence: HeadingMissing,
+            candidates: [],
+            evidence: [HeadingCandidateCount(0)],
+          }
       }
-    None if semantic_count > 1 =>
-      {
-        confidence: HeadingMatchAmbiguous,
-        candidates: semantic_candidates,
-        evidence: [
-          HeadingSameSemanticKey(heading_key(previous)),
-          HeadingCandidateCount(semantic_count),
-        ],
-      }
-    None =>
-      {
-        confidence: HeadingMissing,
-        candidates: [],
-        evidence: [HeadingCandidateCount(0)],
-      }
+    }
   }
 }
 
@@ -253,6 +268,13 @@ fn candidate_ids(match_result : HeadingSideTableMatch) -> Array[@core.NodeId] {
 ///|
 fn row_active(row : HeadingSideTableRow) -> Bool {
   row.status != HeadingRetired
+}
+
+///|
+// L4/L5 GC predicate reserved for the future production GC caller.
+#warnings("-unused_value")
+fn gc_eligible(row : HeadingSideTableRow) -> Bool {
+  row.status == HeadingRetired
 }
 
 ///|
@@ -302,6 +324,7 @@ fn row_from_match(
   match_result : HeadingSideTableMatch,
   current : Array[HeadingObservation],
   claim_count : (@core.NodeId) -> Int,
+  retention_threshold? : Int = 0,
 ) -> HeadingSideTableRow {
   let ids = candidate_ids(match_result)
   match row.status {
@@ -309,8 +332,15 @@ fn row_from_match(
     _ =>
       match ids {
         [] => {
+          let new_absences = row.consecutive_absences + 1
           let next_status = match row.status {
-            HeadingMissing | HeadingTombstoned => HeadingTombstoned
+            HeadingTombstoned =>
+              if retention_threshold > 0 && new_absences >= retention_threshold {
+                HeadingRetired
+              } else {
+                HeadingTombstoned
+              }
+            HeadingMissing => HeadingTombstoned
             _ => HeadingMissing
           }
           {
@@ -319,6 +349,7 @@ fn row_from_match(
             status: next_status,
             candidates: [],
             evidence: match_result.evidence,
+            consecutive_absences: new_absences,
           }
         }
         [id] if match_result.confidence is HeadingExact ||
@@ -332,15 +363,30 @@ fn row_from_match(
                 last_live: current_obs,
                 candidates: [],
                 evidence: match_result.evidence,
+                consecutive_absences: 0,
               }
-            None =>
+            None => {
+              let new_absences = row.consecutive_absences + 1
+              let next_status = match row.status {
+                HeadingTombstoned =>
+                  if retention_threshold > 0 &&
+                    new_absences >= retention_threshold {
+                    HeadingRetired
+                  } else {
+                    HeadingTombstoned
+                  }
+                HeadingMissing => HeadingTombstoned
+                _ => HeadingMissing
+              }
               {
                 ..row,
                 current_id: None,
-                status: HeadingTombstoned,
+                status: next_status,
                 candidates: [],
                 evidence: match_result.evidence,
+                consecutive_absences: new_absences,
               }
+            }
           }
         _ =>
           {
@@ -349,6 +395,7 @@ fn row_from_match(
             status: HeadingAmbiguous,
             candidates: ids,
             evidence: match_result.evidence,
+            consecutive_absences: 0,
           }
       }
   }
@@ -378,26 +425,62 @@ fn HeadingSideTable::advance(
     match row.status {
       HeadingRetired => { ..row, current_id: None, candidates: [] }
       _ => {
-        let match_result = heading_side_table_match_with_same_node_priority(
-          row, current, semantic_current,
+        let match_result = matches
+          .iter()
+          .find_first(pair => pair.0.stable_id == row.stable_id)
+          .unwrap().1
+        row_from_match(
+          row,
+          match_result,
+          current,
+          id => candidate_claim_count(matches, id),
+          retention_threshold=self.retention_threshold,
         )
-        row_from_match(row, match_result, current, id => {
-          candidate_claim_count(matches, id)
-        })
       }
     }
   })
-  let fresh_rows : Array[HeadingSideTableRow] = current
-    .iter()
-    .filter(obs => {
-      !side_table_mentions_current_id(next_rows, obs.id) &&
-      !side_table_has_stable_id(
-        next_rows,
-        HeadingStableRowId::from_node(obs.id),
-      )
-    })
-    .map(heading_side_table_live_row)
-    .collect()
+  let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
+    let result : Array[HeadingSideTableRow] = []
+    let mut seed = self.next_entity_seed
+    for obs in current {
+      if !side_table_mentions_current_id(next_rows, obs.id) {
+        let base_stable = HeadingStableRowId::from_node(obs.id)
+        if side_table_has_stable_id(next_rows, base_stable) {
+          let fallback = @core.NodeId::from_int(seed)
+          seed = seed - 1
+          result.push({
+            ..heading_side_table_live_row(obs),
+            stable_id: HeadingStableRowId::from_node(fallback),
+          })
+        } else {
+          result.push(heading_side_table_live_row(obs))
+        }
+      }
+    }
+    (result, seed)
+  }
   let rows = next_rows + fresh_rows
-  { rows, current_index: heading_current_index(rows) }
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: self.retention_threshold,
+    next_entity_seed,
+  }
+}
+
+///|
+/// Drop all rows where `gc_eligible` returns `true`. Returns a new table
+/// with only rows that are still active or retainable.
+/// No-op when no retired rows exist.
+#warnings("-unused_value")
+fn HeadingSideTable::collect_garbage(
+  self : HeadingSideTable,
+) -> HeadingSideTable {
+  let rows = self.rows.iter().filter(row => !gc_eligible(row)).collect()
+  {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: self.retention_threshold,
+    next_entity_seed: self.next_entity_seed,
+  }
 }

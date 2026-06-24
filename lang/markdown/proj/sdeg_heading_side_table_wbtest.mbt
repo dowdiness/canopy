@@ -14,6 +14,14 @@ fn find_side_table_row(
 }
 
 ///|
+fn find_row_by_current_id(
+  rows : Array[HeadingSideTableRow],
+  current_id : @core.NodeId,
+) -> HeadingSideTableRow? {
+  rows.iter().find_first(row => row.current_id == Some(current_id))
+}
+
+///|
 fn synthetic_heading(
   id : Int,
   text : String,
@@ -70,6 +78,20 @@ fn evidence_has_candidate_count(
   .any(item => {
     match item {
       HeadingCandidateCount(candidate) => candidate == count
+      _ => false
+    }
+  })
+}
+
+///|
+fn evidence_has_any_candidate_count(
+  evidence : Array[HeadingEntityEvidence],
+) -> Bool {
+  evidence
+  .iter()
+  .any(item => {
+    match item {
+      HeadingCandidateCount(_) => true
       _ => false
     }
   })
@@ -147,6 +169,7 @@ fn heading_side_table_invariants_hold(
   .iter()
   .all(row => {
     stable_row_claim_count(table.rows, row.stable_id) == 1 &&
+    evidence_has_any_candidate_count(row.evidence) &&
     heading_side_table_row_shape_valid(row, table.rows, current)
   })
 }
@@ -230,6 +253,7 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
   )
   inspect(a_tombstoned_row.status == HeadingTombstoned, content="true")
   inspect(a_tombstoned_row.current_id is None, content="true")
+  inspect(a_restored_row.consecutive_absences, content="0")
   inspect(a_restored_row.status == HeadingLive, content="true")
   inspect(
     a_restored_row.stable_id == HeadingStableRowId::from_node(a_before.id),
@@ -407,9 +431,84 @@ test "sdeg phase0: NodeId side table invariants hold across lifecycle states" {
 }
 
 ///|
-test "sdeg phase0: NodeId side table retired rows do not revive" {
+test "sdeg phase1: tombstoned rows retire after retention threshold" {
   let old_a = synthetic_heading(1, "A", 0)
-  let current_a = synthetic_heading(100, "A", 0)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    retention_threshold=3,
+  )
+  let missing_table = table.advance([])
+  let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
+  let tombstoned_table = missing_table.advance([])
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+  let retired_table = tombstoned_table.advance([])
+  let retired_row = find_side_table_row(retired_table, old_a.id).unwrap()
+
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(missing_row.consecutive_absences, content="1")
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.consecutive_absences, content="2")
+  inspect(retired_row.status == HeadingRetired, content="true")
+  inspect(retired_row.current_id is None, content="true")
+  inspect(retired_row.consecutive_absences, content="3")
+  inspect(heading_side_table_invariants_hold(missing_table, []), content="true")
+  inspect(
+    heading_side_table_invariants_hold(tombstoned_table, []),
+    content="true",
+  )
+  inspect(heading_side_table_invariants_hold(retired_table, []), content="true")
+}
+
+///|
+test "sdeg phase1: tombstoned rows stay retained below threshold" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    retention_threshold=3,
+  )
+  let missing_table = table.advance([])
+  let tombstoned_table = missing_table.advance([])
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.consecutive_absences, content="2")
+  inspect(
+    heading_side_table_invariants_hold(tombstoned_table, []),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: gc_eligible is true for retired, false for other statuses" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    retention_threshold=3,
+  )
+  let fresh_row = find_side_table_row(table, old_a.id).unwrap()
+  inspect(gc_eligible(fresh_row), content="false")
+
+  let missing_table = table.advance([])
+  let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(gc_eligible(missing_row), content="false")
+
+  let tombstoned_table = missing_table.advance([])
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(gc_eligible(tombstoned_row), content="false")
+
+  let retired_table = tombstoned_table.advance([])
+  let retired_row = find_side_table_row(retired_table, old_a.id).unwrap()
+  inspect(retired_row.status == HeadingRetired, content="true")
+  inspect(gc_eligible(retired_row), content="true")
+}
+
+///|
+test "sdeg phase1: retired rows with same NodeId get fallback stable_id" {
+  let old_a = synthetic_heading(1, "A", 0)
+  // Same NodeId reappears (e.g. after retirement, undo restores to same NodeId)
+  let current_a = synthetic_heading(1, "A", 0)
   let retired_row = {
     ..heading_side_table_live_row(old_a),
     current_id: None,
@@ -417,18 +516,149 @@ test "sdeg phase0: NodeId side table retired rows do not revive" {
     candidates: [],
   }
   let rows = [retired_row]
-  let table = { rows, current_index: heading_current_index(rows) }
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
   let advanced = table.advance([current_a])
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
-  let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
+  let fresh_row = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
 
   inspect(old_row.status == HeadingRetired, content="true")
   inspect(old_row.current_id is None, content="true")
+
+  // Fresh row gets created with a fallback stable_id (not suppressed)
   inspect(fresh_row.status == HeadingLive, content="true")
   inspect(fresh_row.current_id == Some(current_a.id), content="true")
+  inspect(
+    fresh_row.stable_id != HeadingStableRowId::from_node(current_a.id),
+    content="true",
+  )
   inspect(advanced.rows.length(), content="2")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a]),
     content="true",
   )
+}
+
+///|
+test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
+  // Multiple retired rows getting same-NodeId observations at once.
+  // Each must get a unique fallback stable_id.
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 0)
+  let retired_a = {
+    ..heading_side_table_live_row(old_a),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let retired_b = {
+    ..heading_side_table_live_row(old_b),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let rows = [retired_a, retired_b]
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
+  let current_a = synthetic_heading(1, "A", 0)
+  let current_b = synthetic_heading(2, "B", 0)
+  let advanced = table.advance([current_a, current_b])
+  let fresh_a = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
+  let fresh_b = find_row_by_current_id(advanced.rows, current_b.id).unwrap()
+
+  inspect(fresh_a.status == HeadingLive, content="true")
+  inspect(fresh_b.status == HeadingLive, content="true")
+  inspect(fresh_a.stable_id != fresh_b.stable_id, content="true")
+  inspect(advanced.rows.length(), content="4")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a, current_b]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: collect_garbage removes retired rows only" {
+  // Create a table with a retired row (manually constructed) and a live row
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 0)
+  let retired = {
+    ..heading_side_table_live_row(old_a),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let live = heading_side_table_live_row(old_b)
+  let rows = [retired, live]
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
+  let gc_table = table.collect_garbage()
+
+  // Retired row removed, live row kept
+  inspect(gc_table.rows.length(), content="1")
+  let remaining = gc_table.rows
+    .iter()
+    .find_first(row => row.status == HeadingLive)
+    .unwrap()
+  inspect(
+    remaining.stable_id == HeadingStableRowId::from_node(old_b.id),
+    content="true",
+  )
+  inspect(heading_side_table_invariants_hold(gc_table, [old_b]), content="true")
+}
+
+///|
+test "sdeg phase1: collect_garbage is no-op on table with no retired rows" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let gc_table = table.collect_garbage()
+
+  inspect(gc_table.rows.length(), content="1")
+  inspect(heading_side_table_invariants_hold(gc_table, [old_a]), content="true")
+}
+
+///|
+test "sdeg phase1: absence counter increments under default retention" {
+  // With retention_threshold=0, the counter should keep incrementing even
+  // after reaching Tombstoned (it was previously capped at 2).
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let t1 = table.advance([]) // abs 1: Missing
+  let t2 = t1.advance([]) // abs 2: Tombstoned
+  let t3 = t2.advance([]) // abs 3: still Tombstoned, counter=3
+  let t4 = t3.advance([]) // abs 4: still Tombstoned, counter=4
+  let t5 = t4.advance([]) // abs 5: still Tombstoned, counter=5
+
+  let r1 = find_side_table_row(t1, old_a.id).unwrap()
+  let r2 = find_side_table_row(t2, old_a.id).unwrap()
+  let r3 = find_side_table_row(t3, old_a.id).unwrap()
+  let r4 = find_side_table_row(t4, old_a.id).unwrap()
+  let r5 = find_side_table_row(t5, old_a.id).unwrap()
+
+  inspect(r1.status == HeadingMissing, content="true")
+  inspect(r1.consecutive_absences, content="1")
+  inspect(r2.status == HeadingTombstoned, content="true")
+  inspect(r2.consecutive_absences, content="2")
+  inspect(r3.status == HeadingTombstoned, content="true")
+  inspect(r3.consecutive_absences, content="3")
+  inspect(r4.status == HeadingTombstoned, content="true")
+  inspect(r4.consecutive_absences, content="4")
+  inspect(r5.status == HeadingTombstoned, content="true")
+  inspect(r5.consecutive_absences, content="5")
+  inspect(heading_side_table_invariants_hold(t1, []), content="true")
+  inspect(heading_side_table_invariants_hold(t2, []), content="true")
+  inspect(heading_side_table_invariants_hold(t3, []), content="true")
+  inspect(heading_side_table_invariants_hold(t4, []), content="true")
+  inspect(heading_side_table_invariants_hold(t5, []), content="true")
 }

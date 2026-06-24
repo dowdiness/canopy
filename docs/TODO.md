@@ -540,6 +540,13 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [x] Add structural-search match list projection (#695).
   Shipped: PR #699 — `facts_to_match_list` supplies `from`/`to`/`pattern_id` for future host list/jump rendering. Host-side list UI remains a follow-up.
 
+## 22. SDEG Lifecycle
+
+- [ ] Distinguish delete from malformed transient absence (#748).
+  Why: The lifecycle `Missing` state conflates a committed delete with a transient parse failure. Both produce zero current observations, but delete should progress toward retirement while a transient absence should recover when the observation reappears. The side table and its consumer cannot tell the difference today.
+  Plan: Invariant review G2 blocks this; the likely fix needs edit provenance or a validity flag on the projection snapshot before `advance` is called.
+  Exit: `Missing` rows created by different stimuli (delete vs malformed) can be distinguished, or a documented rationale accepts the conflation as a known limitation.
+
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in

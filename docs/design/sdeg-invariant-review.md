@@ -66,8 +66,9 @@ Secondary structural problem: the **three live documents disagree on the
 lifecycle**, and the **implementation disagrees with both** in places. The main
 design doc names six states and explicitly defers the transition table; the
 sketch implements four (no `Missing`, no GC); Phase 1 implements five with a
-retention threshold; the code implements five with the threshold hardwired to a
-2-absence ladder and **no reachable `Retired` state and no GC state at all**.
+retention threshold; the code now implements five with a configurable
+consecutive-absence threshold for `Tombstoned → Retired`, while GC remains a
+predicate rather than a state.
 A future implementer can faithfully follow any one source and be incompatible
 with the others.
 
@@ -250,10 +251,10 @@ For each section: (F)act vs current state, (H)ypothesis/matching decision,
 - **I (unstated):** *retention policy is part of the lifecycle contract* — stated
   as a to-do ("define a transition table and retention policy") but the live
   sketch + Phase 1 + code already encode three different ones.
-- **U:** `retired` and `garbage-collectable` have **no entry condition** anywhere
-  testable; the code never produces them (G4). *Post-#745:* `garbage-collectable`
-  is now a predicate (no entry condition needed); `retired`'s entry stays deferred
-  (G3/#746).
+- **U:** `garbage-collectable` has no state entry condition because it is now a
+  predicate over `Retired` (post-#745). `retired` now has a testable entry
+  condition: a `Tombstoned` row retires once its consecutive-absence count reaches
+  the side table's positive retention threshold (G3/#746).
 - **A:** the six-state list here vs four (sketch) vs five (Phase 1/code).
 - **L:** **this was the most under-specified section in the design.** It lists six
   states, defers the transition table, and the open question "whether non-live
@@ -398,10 +399,9 @@ ordering dependency (fresh rows computed against already-advanced `next_rows`).
 `row_active` filter excludes them; `advance`/`row_from_match` pass them through
 with `current_id: None`. · *Allowed violations:* none. · *Failure:* a retired
 entity resurrects, colliding with a fresh one. · *Existing evidence:* impl
-filters; "retired-row behavior" test (sketch references it). · *Missing:* there
-is **no transition INTO `Retired`** in the code, so the only tested behavior is
-of a row *constructed* retired — the entry path is untested because it does not
-exist (G4).
+filters; "retired-row behavior" test; retention-threshold test exercises the
+`Tombstoned → Retired` entry path. · *Missing:* no GC/removal test yet (GC is a
+predicate over retired rows).
 
 **S7 — tree relation is borrowed.**
 SDEG owns no entity-to-entity tree; structure comes from projection children. ·
@@ -470,16 +470,14 @@ currently incidental, not enforced.
 ### Lifecycle invariants
 
 **L1 — absence ladder.**
-First absence → `Missing`; continued absence → `Tombstoned`. · *Scope:* per
-advance. · *Preserved by:* `row_from_match` empty-ids arm
-(`Missing|Tombstoned => Tombstoned; _ => Missing`). · *Allowed violations:*
-none. · *Failure:* immediate tombstoning loses one-frame-flicker recovery. ·
-*Existing evidence:* test "first absence is Missing; repeated absence becomes
-Tombstoned." · *Missing:* the **threshold is hardwired to N=2 absences** in code,
-while Phase 1 says "N small/test-controlled" and the sketch says first-absence →
-`Tombstoned` (N=1). No epoch counter (`last_seen_epoch` is in the Phase 1 *record
-sketch* but absent from the implemented `HeadingSideTableRow`). The configurable-N
-invariant is untestable because the counter does not exist (G3).
+First absence → `Missing`; continued absence → `Tombstoned`; when the table has a
+positive retention threshold, a `Tombstoned` row retires once its
+`consecutive_absences` reaches that threshold. · *Scope:* per advance. ·
+*Preserved by:* `row_from_match` empty-ids arm. · *Allowed violations:* none. ·
+*Failure:* immediate tombstoning loses one-frame-flicker recovery, or unbounded
+retention ignores an explicit threshold. · *Existing evidence:* tests for first
+absence, repeated absence, below-threshold retention, and threshold retirement. ·
+*Missing:* the sketch still differs by making first absence `Tombstoned` (N=1).
 
 **L2 — recovery retention.**
 `Missing`/`Tombstoned`/`Ambiguous` rows retain `last_live` observation so a later
@@ -494,7 +492,7 @@ restore test. · *Missing:* a bound — retention is "whole session," i.e.
 recovery substrate never drifts while an entity is absent.
 
 **L3 — Retired is terminal.** · *Preserved by:* S6. · *Existing evidence:* inert
-behavior. · *Missing:* **entry condition** — undefined and unreachable (G4).
+behavior and threshold-entry behavior. · *Missing:* no row-removal/GC exercise yet.
 
 **L4 — garbage-collectable is a property, not a state.**
 The design lists it as a lifecycle state; sketch/Phase 1 treat GC as policy. ·
@@ -502,7 +500,8 @@ The design lists it as a lifecycle state; sketch/Phase 1 treat GC as policy. ·
 on whether GC is a state or a predicate over `Retired` rows, and the safety
 condition (depends on the open "who may reference non-live entities" question)
 (G4/G13). · *Decided (#745):* predicate over `Retired`; safety precondition = no
-pinning reference (see *Decision: reference policy for non-live entities*).
+pinning reference (see *Decision: reference policy for non-live entities*). The
+`Retired` entry transition is now implemented via the retention threshold (#746).
 
 **L5 — (DECIDED #745) reference rules for non-live entities.**
 Whether `Missing`/`Tombstoned`/`Ambiguous`/`Retired` entities may be referenced
@@ -672,10 +671,10 @@ the three design docs disagree, the code wins and the conflict is flagged.
 - *Entry:* `Live`/`Ambiguous` row with zero candidates this advance.
 - *Exit:* → `Live` (unique recovery); → `Tombstoned` (still absent next advance).
 - *Allowed references:* `current_id = None`; retains `last_live`.
-- *Retention:* whole session (unbounded).
-- *Open:* **cannot distinguish "deleted" from "malformed-transient"** (G2);
-  threshold to `Tombstoned` hardwired (G3); does **not exist** in the sketch
-  (sketch jumps straight to `Tombstoned`).
+- *Retention:* whole session unless a positive table retention threshold later
+  retires the row after it has become `Tombstoned`.
+- *Open:* **cannot distinguish "deleted" from "malformed-transient"** (G2); does
+  **not exist** in the sketch (sketch jumps straight to `Tombstoned`).
 
 **ambiguous**
 - *Entry:* active row with >1 candidate, or whose sole candidate is contested, or
@@ -690,21 +689,24 @@ the three design docs disagree, the code wins and the conflict is flagged.
 
 **tombstoned**
 - *Entry:* `Missing`/`Tombstoned` row absent again (the 2nd consecutive absence).
-- *Exit:* → `Live` (unique recovery); stays `Tombstoned` while absent.
+- *Exit:* → `Live` (unique recovery); stays `Tombstoned` while absent below the
+  retention threshold; → `Retired` once `consecutive_absences >= retention_threshold`
+  and the threshold is positive.
 - *Allowed references:* `current_id = None`; retains `last_live`.
-- *Retention:* whole session; **no GC** (a stated risk).
-- *Open:* in the sketch, `Tombstoned` is the *first* absence state (no `Missing`);
-  no transition to `Retired` exists in code.
+- *Retention:* whole session by default (`retention_threshold = 0`); bounded by a
+  configured positive threshold.
+- *Open:* in the sketch, `Tombstoned` is the *first* absence state (no `Missing`).
 
 **retired**
-- *Entry:* **undefined / unreachable** — the design says "after retention expiry"
-  / "only in tests that exercise GC"; the code has **no transition into it**.
+- *Entry:* `Tombstoned` row absent on an advance where the table has a positive
+  retention threshold and the row's `consecutive_absences` reaches that threshold.
 - *Exit:* none (terminal).
 - *Allowed references:* `current_id = None` (S6); per #745, resolving references
   (selection/diagnostics/debug) may name it but resolve to nothing — debug can
   still inspect its frozen `last_live` — and a pinning reference would block GC.
-- *Retention:* it *is* the retention boundary, but the boundary is unspecified.
-- *Open:* entry condition only (G4); the reference rule is decided (#745).
+- *Retention:* it *is* the retention boundary; the threshold is configured per
+  table, with `0` meaning "never retire".
+- *Open:* no row-removal/GC implementation; the reference rule is decided (#745).
 
 **garbage-collectable** — *resolved to a predicate, not a state (#745).*
 - *Entry:* **no representation** as a state — and, per #745, none is needed: it is
@@ -717,8 +719,8 @@ the three design docs disagree, the code wins and the conflict is flagged.
 - *Retention:* the predicate `gc_eligible` *is* the "safe to discard" test —
   unconditional today (no pinning refs), edge-gated in future.
 - *Resolved:* state-vs-predicate → predicate; safety precondition → no pinning
-  reference (G4 GC-half / G13 / L4 / L5). Threshold for the `retired` *entry* still
-  deferred (G3/#746).
+  reference (G4 GC-half / G13 / L4 / L5). The `retired` entry threshold is now
+  implemented as a side-table setting (G3/#746).
 
 ### Derived transition table
 
@@ -735,7 +737,7 @@ entities*).
 | **live** | ✓ same-node / unique match | ✓ no candidates | ✓ multiple/contested | ✗ (must pass through missing) | ✗ |
 | **missing** | ✓ unique recovery | ✗ never stays `missing` — continued absence → `tombstoned` (`sdeg_heading_side_table.mbt:311`) | (impl) multiple recovery candidates | ✓ absent again | (design-only) |
 | **ambiguous** | ✓ resolves unique | ✓ all candidates vanish | (impl) still multiple | ✗ (goes to missing first) | (design-only) |
-| **tombstoned** | ✓ unique recovery | ✗ | (impl) multiple recovery candidates | (impl) stays absent | **(design-only, unreachable — entry pending retention threshold N, #746)** |
+| **tombstoned** | ✓ unique recovery | ✗ | (impl) multiple recovery candidates | (impl) stays absent below threshold | ✓ retention threshold reached |
 | **retired** | ✗ (S6) | ✗ | ✗ | ✗ | (impl) inert self |
 
 **Conflicts surfaced by the table:**
@@ -744,10 +746,8 @@ entities*).
    missing`. Direct contradiction.
 3. `gc` is no longer a state — per the #745 decision it is a predicate over
    `retired` (column removed; see *Decision: reference policy for non-live
-   entities*). `retired` remains `(design-only)`: its entry transition is unbuilt,
-   pending the retention threshold (#746). Of the original six names the lifecycle
-   is now **five states + one predicate**, and `retired` is the sole
-   reachable-in-design but unbuilt state.
+   entities*). `retired` now has an implemented threshold entry transition
+   (#746), so the lifecycle is **five states + one predicate**.
 4. The `live → tombstoned` direct edge in the sketch ("Live + no match →
    Tombstoned") does not exist in code (code inserts `Missing` first).
 
@@ -756,9 +756,9 @@ entities*).
 Resolves **G13 / L5** and the garbage-collection half of **G4 / L4**. Decided
 2026-06-23 by brainstorm; the principle-level statement lives in
 `stable-document-entity-graph.md` (Lifecycle model), the code-grounded mechanics
-here. The retention threshold N and the `retired` *entry* transition are out of
-scope (G3, tracked in #746); `missing`'s delete-vs-malformed overload is out of
-scope (G2, tracked in #748).
+here. The retention threshold N and the `retired` *entry* transition are now
+implemented in the side table (#746); `missing`'s delete-vs-malformed overload is
+out of scope (G2, tracked in #748).
 
 **Discriminator: the *kind* of reference, not the consumer.**
 
@@ -802,7 +802,7 @@ unconditionally now; the predicate's *form* reserves the future edge case (a
 `retired` row targeted by a live edge is **not** collectable). This decision fixes
 only the GC *safety precondition* — the precondition that GC safety, undo
 correctness, and bounded retention (L2/L5) all require; the threshold that drives a
-row *into* `retired` is deferred (G3/#746).
+row *into* `retired` is governed by the side table's retention threshold (#746).
 
 ---
 
@@ -895,23 +895,18 @@ malformed absence distinct from delete (`stable-document-entity-graph.md:181`
 requests the scope; no test exercises it) — so the invariant is currently
 unevidenced as well as unstated.
 
-**G3 — Retention threshold N is unspecified in the contract and hardwired in
-code.** Phase 1 says "N small/test-controlled"; the sketch implies N=1; the code
-hardwires a 2-absence ladder with **no epoch counter** (`last_seen_epoch` is in
-the Phase 1 record sketch but not in the implemented row). The configurable-N
-invariant is untestable because the state needed to test it does not exist.
-*Needed:* decide whether N is a real, counted parameter; if yes, add the epoch
-field and a test; if no, delete `last_seen_epoch` from the docs.
+**G3 — Retention threshold N was unspecified in the contract and hardwired in
+code.** *Resolved in code (#746):* the side table carries `retention_threshold`
+(`0` means never retire), and rows track `consecutive_absences`. A `Tombstoned`
+row becomes `Retired` when the threshold is positive and the counter reaches it.
+*Remaining doc drift:* the sketch still implies N=1, while the implemented ladder
+keeps first absence as `Missing`.
 
-**G4 — `retired` entry and `garbage-collectable` are undefined and unreachable.**
-Two of six named lifecycle states have no entry transition in code; `gc` has no
-representation at all. A future implementer must invent the policy from scratch,
-and the design only says "after an explicit GC policy exists." *Needed:* either
-remove these from the *lifecycle state* list (and call GC a predicate/policy), or
-specify entry conditions. This is blocked on G13. *Partly resolved (#745):*
-`garbage-collectable` is now a predicate over `Retired` (removed from the state
-list) with a fixed safety precondition (no pinning reference); the `retired`
-*entry* transition remains undefined, pending the retention threshold (G3/#746).
+**G4 — `retired` entry and `garbage-collectable` were undefined and unreachable.**
+*Resolved in two parts:* `garbage-collectable` is now a predicate over `Retired`
+(#745), and `Retired` has an implemented `Tombstoned → Retired` threshold entry
+(#746). *Remaining work:* no code removes retired rows; future GC must honor the
+no-pinning-reference precondition.
 
 **G5 — "Global one-to-one assignment" is stated as an invariant but implemented as
 same-node reservation + local candidate-claim counting, not a global solver.** The
@@ -1003,11 +998,11 @@ non-live entities* (and L5).
 **G14 — `advance` assumes a well-formed prior snapshot; there is no validation
 boundary.** `advance` preserves invariants for tables *it* produced, but nothing
 validates an externally- or hand-constructed prior `rows` array — the white-box
-tests can build invalid rows directly (`sdeg_heading_side_table_wbtest.mbt:413`).
-The moment the type is anything but strictly internal, a malformed prior table
-silently breaks S1–S8. This is distinct from G11 (which concerns the *observation*
-input, not the prior table). *Needed:* either keep construction strictly private
-(current posture) **as a stated invariant**, or add a validating constructor.
+tests can build invalid rows directly. This is distinct from G11 (which concerns
+the *observation* input, not the prior table). *Current boundary:* the side-table
+types and constructors remain package-private (`priv`), so malformed prior rows
+are possible only in same-package white-box tests. If the type ever becomes
+public, add a validating constructor before exposing direct construction.
 
 ---
 
