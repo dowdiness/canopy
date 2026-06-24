@@ -18,7 +18,7 @@ Refresh with: `NEW_MOON_MOD=0 moon ide outline <pkg>` or `NEW_MOON_MOD=0 moon id
 | `next_proj_node_id(counter)` | `core/` | Monotonic counter for fresh `ProjNode` IDs. Prefer the constructors below in projection builders. |
 | `ProjNode[T]` | `core/` | Generic projection node carrying value `T`. |
 | `ProjNode::leaf(kind, syntax_node, counter)` | `core/` | Fresh childless projection node spanning a `SyntaxNode` in UTF-16 code-unit source offsets. Preferred for CST leaf projections. |
-| `ProjNode::branch(kind, start, end, children, counter)` | `core/` | Fresh projection node with explicit half-open UTF-16 source span. Use `ProjNode::new` only when preserving/reusing a known ID. |
+| `ProjNode::branch(kind, start, end, children, counter)` | `core/` | Fresh projection node with explicit half-open UTF-16 source span. Use `ProjNode` only when preserving/reusing a known ID. |
 
 **Do not:** Create parallel `id: Int` fields or ad-hoc node numbering.
 

@@ -82,13 +82,7 @@ fn reconcile_lambda_projection_hinted(
         }
       ]
       children.push(@core.reconcile_hinted(old_body, new_body, counter, hints))
-      @core.ProjNode::new(
-        new_.kind,
-        new_.start,
-        new_.end,
-        old.node_id,
-        children,
-      )
+      @core.ProjNode(new_.kind, new_.start, new_.end, old.node_id, children)
     }
     _ => @core.reconcile_hinted(old, new_, counter, hints)
   }
@@ -217,13 +211,7 @@ fn reconcile_lambda_projection(
         }
       ]
       children.push(@core.reconcile(old_body, new_body, counter))
-      @core.ProjNode::new(
-        new_.kind,
-        new_.start,
-        new_.end,
-        old.node_id,
-        children,
-      )
+      @core.ProjNode(new_.kind, new_.start, new_.end, old.node_id, children)
     }
     _ => @core.reconcile(old, new_, counter)
   }

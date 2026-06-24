@@ -39,7 +39,7 @@ fn reconcile_markdown_projection_hinted(
   }
   if @loomcore.TreeNode::same_kind(old.kind, new_.kind) &&
     is_block_container(new_.kind) {
-    return @core.ProjNode::new(
+    return @core.ProjNode(
       new_.kind,
       new_.start,
       new_.end,
@@ -208,7 +208,7 @@ fn markdown_move_pair(
     [old_child] => {
       consumed[old_child.id()] = true
       Some(
-        @core.ProjNode::new(
+        @core.ProjNode(
           new_child.kind,
           new_child.start,
           new_child.end,

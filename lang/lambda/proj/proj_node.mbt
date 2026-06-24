@@ -11,7 +11,7 @@ fn error_node_with_span(
   end : Int,
   counter : Ref[Int],
 ) -> ProjNode[@ast.Term] {
-  ProjNode::new(Error(message), start, end, @core.next_proj_node_id(counter), [])
+  ProjNode(Error(message), start, end, @core.next_proj_node_id(counter), [])
 }
 
 ///|
@@ -103,7 +103,7 @@ priv struct ProjectedLetDef {
 
 ///|
 fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
-  ProjNode::new(Unit, pos, pos, @core.next_proj_node_id(counter), [])
+  ProjNode(Unit, pos, pos, @core.next_proj_node_id(counter), [])
 }
 
 ///|
@@ -163,7 +163,7 @@ fn with_tight_syntax_range(
   syntax : @seam.SyntaxNode,
 ) -> ProjNode[@ast.Term] {
   let (start, end) = syntax.tight_span()
-  ProjNode::new(proj.kind, start, end, proj.node_id, proj.children)
+  ProjNode(proj.kind, start, end, proj.node_id, proj.children)
 }
 
 ///|
@@ -381,7 +381,7 @@ pub fn syntax_to_proj_node(
         // Unwrap to inner Term (no Paren variant in Term), but keep
         // the outer ParenExpr span so positions on ( and ) are covered.
         let inner_node = syntax_to_proj_node(inner, counter)
-        ProjNode::new(
+        ProjNode(
           inner_node.kind,
           node.start(),
           node.end(),

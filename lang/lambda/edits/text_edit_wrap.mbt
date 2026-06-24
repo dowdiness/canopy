@@ -177,7 +177,7 @@ fn compute_insert_child(
         Ok(_) => ()
       }
       // Re-render whole parent with new child inserted
-      let new_child = ProjNode::new(kind, 0, 0, 0, [])
+      let new_child = ProjNode(kind, 0, 0, 0, [])
       let new_parent = insert_child_at(parent_node, index, new_child)
       let new_text = @ast.print_term(new_parent.kind)
       Ok(

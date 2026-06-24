@@ -167,7 +167,7 @@ fn build_proj_tree(
       build_container(syntax_node, ast, collect_block_children(syntax_node), counter)
     // Leaf: no children
     _ =>
-      @core.ProjNode::new(
+      @core.ProjNode(
         ast,
         syntax_node.start(),
         syntax_node.end(),

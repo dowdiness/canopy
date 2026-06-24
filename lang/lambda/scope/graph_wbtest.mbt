@@ -54,14 +54,10 @@ test "build: module defs become ModuleDef decls in root scope" {
 ///|
 test "build_parent_map: child maps to parent" {
   // Hand-built tree: root(id=0) Lam with one child Var(id=1).
-  let child = @core.ProjNode::new(@ast.Term::Var("x"), 0, 1, 1, [])
-  let root = @core.ProjNode::new(
-    @ast.Term::Lam("x", @ast.Term::Var("x")),
-    0,
-    5,
-    0,
-    [child],
-  )
+  let child = @core.ProjNode(@ast.Term::Var("x"), 0, 1, 1, [])
+  let root = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Var("x")), 0, 5, 0, [
+    child,
+  ])
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
   @core.collect_registry(root, registry)
   let parents = build_parent_map(registry)
