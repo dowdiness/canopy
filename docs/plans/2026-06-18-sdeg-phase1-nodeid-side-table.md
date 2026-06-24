@@ -148,7 +148,7 @@ struct HeadingEntityRecord {
   entity : HeadingEntityRef
   status : HeadingEntityStatus
   last_observation : HeadingObservation
-  last_seen_epoch : Int
+  consecutive_absences : Int
 }
 
 enum HeadingMatchConfidence {
@@ -215,8 +215,8 @@ For each successful projection snapshot:
      if available later.
 4. Classify unmatched retained records.
    - `Live -> Missing` when absent for the first update.
-   - `Missing -> Tombstoned` when still absent after the retention threshold.
-   - `Tombstoned -> Retired` only after an explicit GC policy exists.
+   - `Missing -> Tombstoned` when still absent on the next successful projection.
+   - `Tombstoned -> Retired` when a configured positive retention threshold is reached.
 5. Classify unmatched current observations.
    - Spawn a new session entity unless the candidate set is ambiguous.
 6. Rebuild the current-node index.
@@ -242,15 +242,15 @@ Initial lifecycle should be observable and conservative:
 ```text
 Live -> Missing      when no match exists in the current successful projection
 Missing -> Live      when a unique semantic match returns
-Missing -> Tombstoned after N successful epochs, where N is small/test-controlled
+Missing -> Tombstoned on the next successful projection where no match exists
 Tombstoned -> Live   when a unique semantic recovery match appears
-Tombstoned -> Retired only in tests that explicitly exercise GC policy
+Tombstoned -> Retired when consecutive absences reach a configured threshold
 Ambiguous -> Live    when ambiguity resolves uniquely
 Ambiguous -> Missing if all candidates disappear
 ```
 
-For Phase 1, the default retention can be "keep all tombstones during the test".
-Do not introduce production GC until UI/undo/reload requirements are clearer.
+For Phase 1, the default retention is "keep all tombstones" (`retention_threshold = 0`).
+Do not introduce production row removal until UI/undo/reload requirements are clearer.
 
 ### Expected behavior
 
@@ -316,6 +316,7 @@ Do not introduce production GC until UI/undo/reload requirements are clearer.
 - [x] Tests document which evidence produced each decision.
 - [x] Heading level-change identity is either still documented as an upstream
       provenance/reconciliation limitation or fixed with explicit evidence.
+- [x] Tombstoned rows can retire behind an explicit retention threshold.
 - [x] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation

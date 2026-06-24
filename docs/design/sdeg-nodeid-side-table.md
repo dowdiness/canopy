@@ -8,9 +8,13 @@ side-table shape worth trying before adding a stable entity core or durable
 
 **Phase 1 lifecycle note:** the active Phase 1 plan supersedes this sketch where
 lifecycle naming differs. In particular, Phase 1 uses `Missing` for first
-absence and reaches `Tombstoned` only after a retention threshold. Keep this
-sketch as prior evidence for same-node priority, one-to-one assignment, and
-snapshot invariants, not as the final lifecycle contract.
+absence and reaches `Tombstoned` only after a retention threshold. The
+`Tombstoned → Retired` transition is now implemented via a configurable
+`retention_threshold` on the side table (issue #746); rows track
+`consecutive_absences`, and `gc_eligible` is a predicate over `Retired` rows
+(issue #745). Keep this sketch as prior evidence for same-node priority,
+one-to-one assignment, and snapshot invariants, not as the final lifecycle
+contract. See the [Retention threshold](#retention-threshold) section below.
 
 ## Intent
 
@@ -114,6 +118,7 @@ struct EntityRow[Kind] {
   last_live : EntityObservation[Kind]
   candidates : Array[NodeId]
   evidence : Array[EntityEvidence]
+  consecutive_absences : Int
 }
 
 struct EntitySnapshot[Kind] {
@@ -176,21 +181,62 @@ retired.
 
 ## Lifecycle
 
+The implemented five-state lifecycle (code is authoritative; this sketch's
+earlier four-state version is superseded where they differ):
+
 ```text
 new observation -> Live
+Live + no match -> Missing
 Live + unique match -> Live
-Live + no match -> Tombstoned
-Tombstoned + unique match -> Live
 Live/Tombstoned + multiple matches -> Ambiguous
+Missing + no match -> Tombstoned
+Missing + unique match -> Live
+Tombstoned + unique match -> Live
+Tombstoned + no match (below threshold) -> Tombstoned
+Tombstoned + no match (threshold reached) -> Retired
 Ambiguous + unique match -> Live
-Ambiguous + no match -> Tombstoned
-Tombstoned/Ambiguous + retention expiry -> Retired
-Retired -> no longer participates in matching
+Ambiguous + no match -> Missing
+Retired -> inert (no matching, no revival)
 ```
 
-Initial retention policy: keep tombstoned and ambiguous rows for the editor
-session. Add bounded retention or garbage collection only after a consumer needs
-it. Once `Retired`, a row is diagnostic history, not a recovery candidate.
+### Retention threshold
+
+The side table carries a configurable `retention_threshold` field (set via
+`from_observations(observations, retention_threshold=N)`).
+
+| Threshold | Behavior |
+|-----------|----------|
+| `0` (default) | Preserves the old hardwired absence ladder. No `Tombstoned → Retired` transition ever fires; rows remain `Tombstoned` indefinitely. |
+| `N > 0` | A `Tombstoned` row transitions to `Retired` when its `consecutive_absences` reaches `N`. Because the threshold check only fires on rows already in `Tombstoned` status (the `Missing → Tombstoned` transition has no threshold check), and `Tombstoned` is first reached at absence 2, the earliest possible retirement is absence 3. For `N ≤ 3`, retirement occurs at absence 3 (the first advance where the row is `Tombstoned` and the check evaluates). For `N > 3`, retirement occurs at absence `N`. |
+
+Boundary behavior:
+
+- **`N = 0`**: no retirement. The side table never produces `Retired` rows through normal lifecycle. `gc_eligible` returns `false` for every row.
+- **`N = 1` or `N = 2`**: minimum retirement at absence 3. The row becomes `Tombstoned` at absence 2; the threshold check first evaluates at absence 3 (`new_absences=3 >= N`), so retirement fires at absence 3 — the same advance where it would for `N=3`.
+- **`N ≥ 3`**: retirement at absence `N`. The standard ladder: `Missing` at 1, `Tombstoned` at 2, `Retired` at `N`.
+- **`N < 0`**: negative thresholds never trigger retirement because the guard requires `retention_threshold > 0`. Behaves like `N = 0`.
+
+`consecutive_absences` is reset to `0` whenever a row recovers to `Live` or
+becomes `Ambiguous`. It increments by 1 on each advance where the row has no
+matched candidates.
+
+### Garbage collection predicate
+
+`gc_eligible(row)` is a predicate, not a lifecycle state (issue #745). It
+returns `true` when `row.status == Retired`. Today it is unconditional because
+no pinning references (future edges) exist; when edges are added, the predicate
+will also check that no pinning reference targets the row.
+
+Retired rows are inert — they do not participate in matching and cannot become
+`Live` again — but they remain in the row array. Physical removal (GC) is
+future work.
+
+### Recovery and `last_live`
+
+`Missing`, `Tombstoned`, and `Ambiguous` rows retain their `last_live`
+observation so a later unique match can recover them. Recovery resets
+`consecutive_absences` to `0`. Once `Retired`, a row cannot recover — `last_live`
+is frozen for diagnostic inspection only.
 
 ## Snapshot invariants
 
@@ -272,12 +318,24 @@ The Markdown white-box spike now mirrors this sketch in
 `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt`: it has a stable-row
 wrapper, an evidence-bearing matcher, same-node match priority, global
 one-to-one conflict handling, ambiguous candidate retention, retired-row
-behavior, and snapshot invariant tests. Shared heading observation helpers remain
-in `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`.
+behavior, the retention threshold (`Tombstoned → Retired` transition), and
+snapshot invariant tests. Shared heading observation helpers remain in
+`lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`.
+
+Implemented since the initial sketch:
+
+- **Retention threshold** (issue #746): configurable per side table via
+  `from_observations(observations, retention_threshold=N)`. Default `0` preserves
+  the old "keep tombstones forever" behavior. Positive values enable the
+  `Tombstoned → Retired` transition when `consecutive_absences` reaches the
+  threshold.
+- **`gc_eligible` predicate** (issue #745): `Retired` rows are collectable.
+  Physical row removal is not yet implemented.
 
 Keep that implementation package-private or test-local. Promote a shared helper
 only after another entity kind needs the same lifecycle semantics, and verify
-`moon info` shows no accidental public API drift.
+`moon info` shows no accidental public API drift. No TypeScript-side integration
+exists yet.
 
 Related:
 
