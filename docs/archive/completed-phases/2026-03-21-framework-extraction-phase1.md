@@ -303,10 +303,10 @@ pub struct ProjNode[T] {
 
 - [ ] **Step 2: Update ProjNode methods**
 
-Update `ProjNode::new` and `ProjNode::id`:
+Update `ProjNode` and `ProjNode::id`:
 ```moonbit
 ///|
-pub fn ProjNode::new[T](
+pub fn ProjNode[T](
   kind : T,
   start : Int,
   end : Int,
@@ -373,7 +373,7 @@ pub fn reconcile[T : TreeNode + Eq](
     let reconciled_children = reconcile_children(
       old.children, new.children, counter,
     )
-    ProjNode::new(
+    ProjNode(
       new.kind, new.start, new.end, old.node_id, reconciled_children,
     )
   } else {

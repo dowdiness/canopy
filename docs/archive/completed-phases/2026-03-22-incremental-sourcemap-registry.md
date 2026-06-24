@@ -161,11 +161,11 @@ In `projection/source_map_wbtest.mbt`, add:
 ```moonbit
 ///|
 test "SourceMap::remove_subtree removes node and children" {
-  let parent = ProjNode::new(
+  let parent = ProjNode(
     App(Var("f"), Var("x")),
     0, 5, 1,
-    [ProjNode::new(Var("f"), 0, 1, 2, []),
-     ProjNode::new(Var("x"), 2, 5, 3, [])],
+    [ProjNode(Var("f"), 0, 1, 2, []),
+     ProjNode(Var("x"), 2, 5, 3, [])],
   )
   let sm = SourceMap::from_ast(parent)
   inspect(sm.node_count(), content="3")
@@ -177,11 +177,11 @@ test "SourceMap::remove_subtree removes node and children" {
 ///|
 test "SourceMap::patch_subtree adds new node entries" {
   let sm = SourceMap::new()
-  let node = ProjNode::new(
+  let node = ProjNode(
     App(Var("f"), Var("x")),
     0, 5, 10,
-    [ProjNode::new(Var("f"), 0, 1, 11, []),
-     ProjNode::new(Var("x"), 2, 5, 12, [])],
+    [ProjNode(Var("f"), 0, 1, 11, []),
+     ProjNode(Var("x"), 2, 5, 12, [])],
   )
   sm.patch_subtree(node)
   inspect(sm.node_count(), content="3")
@@ -191,11 +191,11 @@ test "SourceMap::patch_subtree adds new node entries" {
 
 ///|
 test "SourceMap::remove_subtree then patch_subtree replaces entries" {
-  let old_child = ProjNode::new(Int(1), 10, 11, 5, [])
-  let old_root = ProjNode::new(
+  let old_child = ProjNode(Int(1), 10, 11, 5, [])
+  let old_root = ProjNode(
     Module([("x", Int(1))], Int(1)),
     0, 15, 1,
-    [old_child, ProjNode::new(Int(1), 12, 15, 6, [])],
+    [old_child, ProjNode(Int(1), 12, 15, 6, [])],
   )
   let sm = SourceMap::from_ast(old_root)
   inspect(sm.node_count(), content="3")
@@ -205,7 +205,7 @@ test "SourceMap::remove_subtree then patch_subtree replaces entries" {
   inspect(sm.node_count(), content="2")
 
   // Add new child subtree
-  let new_child = ProjNode::new(Int(2), 10, 11, 7, [])
+  let new_child = ProjNode(Int(2), 10, 11, 7, [])
   sm.patch_subtree(new_child)
   sm.rebuild_ranges()  // must be callable cross-package
   inspect(sm.node_count(), content="3")

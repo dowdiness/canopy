@@ -21,6 +21,7 @@ No other MoonBit package imports `ffi/json`. Consumed by `examples/web/json.html
 
 - `dowdiness/canopy/editor`
 - `dowdiness/canopy/core`
+- `dowdiness/canopy/ffi/host` — shared handle/view-state registry and coordinator destroy gateway
 - `dowdiness/canopy/lang/json/edits` + `lang/json/companion`
 - `dowdiness/json` — JSON value type
 

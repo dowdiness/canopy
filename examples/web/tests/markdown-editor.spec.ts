@@ -91,6 +91,26 @@ test.describe('Markdown Block Editor', () => {
     expect(afterCycle).toEqual(originalTexts);
   });
 
+  test('block mode preserves ordered list markers', async ({ page }) => {
+    await switchMode(page, 'Raw');
+    await page.locator('#raw-editor').fill('3. three\n4. four\n');
+    await switchMode(page, 'Block');
+
+    const listItems = page.locator(
+      '#block-container .block[data-kind="ListItem"], #block-container .block[data-kind="OrderedListItem"]',
+    );
+    await expect(listItems).toHaveCount(2);
+    await expect(listItems.nth(0)).toHaveAttribute('data-list-kind', 'ordered');
+    await expect(listItems.nth(0)).toHaveAttribute('data-list-marker', '3.');
+    await expect(listItems.nth(1)).toHaveAttribute('data-list-marker', '4.');
+
+    await switchMode(page, 'Raw');
+    await page.locator('#raw-editor').fill('1) one\n2) two\n');
+    await switchMode(page, 'Block');
+    await expect(listItems.nth(0)).toHaveAttribute('data-list-marker', '1)');
+    await expect(listItems.nth(1)).toHaveAttribute('data-list-marker', '2)');
+  });
+
   test('structural edit produces valid Markdown', async ({ page }) => {
     // Load Hello example (heading + paragraphs)
     await loadExample(page, 'Hello');

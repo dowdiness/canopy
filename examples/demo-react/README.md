@@ -51,7 +51,7 @@ import { EditorHandle, getCrdtModule } from './features/editor/crdt-api';
 
 const editor = new EditorHandle(getCrdtModule(), 'user-123');
 
-editor.setTextAndRecord('(\\x. x) y');
+editor.setTextAndRecord('((x) => x) y');
 const text = editor.getText();
 ```
 

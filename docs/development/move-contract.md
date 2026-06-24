@@ -90,7 +90,7 @@ All three positions produce `SpanEdit` arrays applied in reverse document order.
 3. Insert source text at target boundary (`tgt_range.start` for Before, `tgt_range.end` for After)
 
 The placeholder keeps surrounding syntax valid. Without it, removing a node
-from `let id = \x. x` would leave `let id = ` (invalid).
+from `let id = (x) => x` would leave `let id = ` (invalid).
 
 ### Block editor: `BlockDoc::move_block`
 

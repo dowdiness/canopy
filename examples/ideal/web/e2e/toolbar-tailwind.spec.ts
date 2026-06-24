@@ -144,7 +144,7 @@ test.describe('Ideal Tailwind toolbar/button recipes', () => {
     await selectOutlineNode(page);
 
     const wrap = page.locator('.inspector-actions .action-btn').filter({
-      hasText: 'Wrap in λ',
+      hasText: 'Wrap in function',
     });
     const danger = page.locator('.inspector-actions .action-btn.danger').filter({
       hasText: 'Delete',

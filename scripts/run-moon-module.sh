@@ -5,26 +5,53 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Shared vendored-submodule error suppression for --deny-warn checks.
+# Defines run_moon_check_with_vendored_filter().
+source "$SCRIPT_DIR/vendored-check-common.sh"
+
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <check|test|fmt-check|ci|bench> <module-dir>" >&2
+    echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
     exit 1
 fi
 
 ACTION="$1"
 MODULE_DIR="$2"
 
-if [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod.json" ]; then
-    echo "Module root not found: $MODULE_DIR (expected moon.mod.json at $PROJECT_ROOT/$MODULE_DIR)" >&2
+# Accept either manifest format: moon.mod.json (legacy) or moon.mod (the
+# experimental TOML format that event-graph-walker main adopted). moon reads
+# both as dependencies and as a primary module under NEW_MOON_MOD=0.
+if [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod.json" ] &&
+   [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod" ]; then
+    echo "Module root not found: $MODULE_DIR (expected moon.mod.json or moon.mod at $PROJECT_ROOT/$MODULE_DIR)" >&2
     exit 1
 fi
 
 cd "$PROJECT_ROOT/$MODULE_DIR"
 
+# Keep mixed-manifest modules buildable while Canopy still has legacy
+# moon.mod.json path-dependency exceptions. This mode accepts both moon.mod and
+# moon.mod.json without requiring every local path dependency to become a
+# moon.work member.
+export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
+
 DENY_WARN_FLAGS=(--deny-warn)
+
+# Vendored submodules built standalone (event-graph-walker, loom) still use the
+# deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
+# and cannot migrate it, so the `ci-lenient` mode exempts only that one warning
+# via --warn-list=-20. All other warnings stay denied, and canopy's own modules
+# (migrated off try?) run fully strict. Drop this once the ecosystem migrates
+# (tracked in #573).
+LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 
 case "$ACTION" in
     check)
         moon check "${DENY_WARN_FLAGS[@]}"
+        ;;
+    check-lenient)
+        # Same --deny-warn but exempts only the try? [0020] deprecation
+        # from vendored submodules canopy cannot migrate (tracked in #573).
+        moon check "${LENIENT_WARN_FLAGS[@]}"
         ;;
     test)
         moon test --release
@@ -35,7 +62,19 @@ case "$ACTION" in
     ci)
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
-        moon check "${DENY_WARN_FLAGS[@]}"
+        # When checking from within a vendored submodule, suppress only
+        # *transitive* vendored errors (deps), not the module under test.
+        # Extract the repo-root directory name (e.g. loom/loom → loom).
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
+        moon test --release
+        ;;
+    ci-lenient)
+        # Same as `ci`, but exempts the try? [0020] deprecation for vendored
+        # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
+        "$SCRIPT_DIR/moon-update.sh"
+        keep_dir="${MODULE_DIR%%/*}"
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     bench)

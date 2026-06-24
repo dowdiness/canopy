@@ -323,6 +323,29 @@ fn bottom_tab_slug(tab : BottomTab) -> String {
 }
 
 ///|
+fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
+  let behavior = bottom_tabs_behavior(model.bottom_tab)
+  let style = @ui.underline_tab_style()
+  let triggers = bottom_tab_defs.mapi(fn(i, pair) {
+    let (tab, label) = pair
+    @ui.tab_trigger_view(
+      behavior,
+      i,
+      { id: bottom_tab_slug(tab), label },
+      panel_id=bottom_tab_panel_id(tab),
+      model.bottom_tab == tab,
+      j => dispatch(SelectBottomTab(bottom_tab_defs[j].0)),
+      style.tab_class,
+    )
+  })
+  @ui.tablist_view(
+    label="Bottom panel sections",
+    class=style.container_class,
+    triggers,
+  )
+}
+
+///|
 /// Panel container id. History and Graphviz keep their existing
 /// `canopy-{name}-container` ids because the render cmds write innerHTML
 /// to those exact element ids; the others get a uniform slug.
@@ -333,38 +356,6 @@ fn bottom_tab_panel_id(tab : BottomTab) -> String {
     IncrGraph => "canopy-incr-container"
     _ => "canopy-bottom-panel-" + bottom_tab_slug(tab)
   }
-}
-
-///|
-fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
-  // The headless `@tabs` behavior owns the WAI-ARIA tablist keyboard model
-  // (ArrowLeft/Right wrap, Home/End jump), roving tabindex, `aria-selected`,
-  // and `aria-controls` (set only on the selected tab, since the other panels
-  // aren't mounted). This consumer owns the tab data, panel ids, selected-state
-  // recipe choice, and the index → `BottomTab` mapping.
-  let behavior = bottom_tabs_behavior(model.bottom_tab)
-  let buttons : Array[Html] = []
-  for i, pair in bottom_tab_defs {
-    let (tab, label) = pair
-    buttons.push(
-      @html.button(
-        class=@ui.bottom_tab_class(model.bottom_tab == tab),
-        // `dispatch` receives the *target* index, which for keyboard nav differs
-        // from this button's `i` (e.g. ArrowRight on tab `i` fires `i + 1`). Re-
-        // index `bottom_tab_defs[j]` — do NOT close over the loop's `tab`, or
-        // every arrow key would select the focused tab and break navigation.
-        attrs=behavior.tab_attrs(i, panel_id=bottom_tab_panel_id(tab), dispatch=j => {
-          dispatch(SelectBottomTab(bottom_tab_defs[j].0))
-        }),
-        [@html.text(label)],
-      ),
-    )
-  }
-  @html.div(
-    class=bottom_tabs_class,
-    attrs=@tabs.tablist_attrs(label="Bottom panel sections"),
-    buttons,
-  )
 }
 
 ///|

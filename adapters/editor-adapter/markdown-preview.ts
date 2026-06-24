@@ -20,8 +20,13 @@ function semanticTag(node: ViewNode): HTMLElement {
     case 'Paragraph':
       return document.createElement('p');
     case 'List':
+    case 'UnorderedList':
       return document.createElement('ul');
+    case 'OrderedList':
+      return document.createElement('ol');
     case 'ListItem':
+    case 'UnorderedListItem':
+    case 'OrderedListItem':
       return document.createElement('li');
     default:
       // Code blocks: kind_tag is "Code" or "Code(lang)"

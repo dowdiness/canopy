@@ -19,17 +19,16 @@ priv struct MarkdownHandle {
 let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 
 ///|
-let markdown_handles : Map[Int, MarkdownHandle] = Map::default()
-
-///|
-let markdown_view_states : Map[Int, @editor.ViewUpdateState] = Map::default()
+/// Generic handle/view-state bookkeeping shared with the other language FFI
+/// packages via `ffi/host`. Keyed by the exported integer handle.
+let markdown_registry : @host.HostRegistry[MarkdownHandle] = @host.HostRegistry::HostRegistry()
 
 // ── Lifecycle ────────────────────────────────────────────────────────────
 
 ///|
 /// Build a Markdown editor on the shared runtime, then atomically register
 /// its protected cells with the coordinator. Returns the freshly-allocated
-/// `EditorId`. Aborting at any step leaves `markdown_handles` untouched
+/// `EditorId`. Aborting at any step leaves `markdown_registry` untouched
 /// (atomic-boundary observation, spec §3.6).
 fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId {
   let editor = @md_companion.new_markdown_editor(
@@ -41,7 +40,7 @@ fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId {
     agent_id,
     cells.to_protected_reads(),
   )
-  markdown_handles[editor_id.0] = { editor, editor_id, cells }
+  markdown_registry.insert(editor_id.0, { editor, editor_id, cells })
   editor_id
 }
 
@@ -53,28 +52,24 @@ pub fn create_markdown_editor(agent_id : String) -> Int {
 ///|
 /// Destroy a Markdown editor and free its resources. The coordinator gateway
 /// refuses if workspace deps still reference the editor; in that case the
-/// FFI-side bookkeeping (markdown_handles entry, view_states entry) is
+/// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid. Phase 1
 /// behavior matches Lambda's `destroy_editor` (spec §5.3).
 pub fn destroy_markdown_editor(handle : Int) -> Unit {
-  let h = match markdown_handles.get(handle) {
+  let h = match markdown_registry.get(handle) {
     Some(v) => v
     None => return
   }
-  match coordinator.destroy_editor(h.editor_id) {
-    Ok(_) => ()
-    Err(report) => {
-      println("destroy_markdown_editor refused: \{report}")
-      return
-    }
-  }
-  markdown_handles.remove(handle)
-  markdown_view_states.remove(handle)
+  let _ = markdown_registry.destroy(
+    coordinator,
+    h.editor_id,
+    "destroy_markdown_editor",
+  )
 }
 
 ///|
 pub fn markdown_get_text(handle : Int) -> String {
-  match markdown_handles.get(handle) {
+  match markdown_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
   }
@@ -87,7 +82,7 @@ pub fn markdown_get_text(handle : Int) -> String {
 /// ZWSP character itself — leaving ZWSP inside other content (code blocks,
 /// paragraphs with mixed text) untouched.
 pub fn markdown_export_text(handle : Int) -> String {
-  match markdown_handles.get(handle) {
+  match markdown_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -113,7 +108,7 @@ pub fn markdown_export_text(handle : Int) -> String {
 
 ///|
 pub fn markdown_set_text(handle : Int, text : String) -> Unit {
-  match markdown_handles.get(handle) {
+  match markdown_registry.get(handle) {
     Some(h) => h.editor.set_text(text)
     None => ()
   }
@@ -140,7 +135,7 @@ pub fn markdown_apply_edit(
   param2 : Int,
   timestamp_ms : Int,
 ) -> String {
-  match markdown_handles.get(handle) {
+  match markdown_registry.get(handle) {
     Some(h) => {
       let nid = @core.NodeId::from_int(node_id)
       let op : @md_edits.MarkdownEditOp = match op_type {
@@ -218,18 +213,11 @@ pub fn markdown_apply_edit(
 /// Derived cell, and reading it raw doesn't violate any cell-protection
 /// invariant.
 pub fn markdown_compute_view_patches_json(handle : Int) -> String {
-  let h = match markdown_handles.get(handle) {
+  let h = match markdown_registry.get(handle) {
     Some(v) => v
     None => return "[]"
   }
-  let state = match markdown_view_states.get(handle) {
-    Some(s) => s
-    None => {
-      let s = @editor.ViewUpdateState::ViewUpdateState()
-      markdown_view_states[handle] = s
-      s
-    }
-  }
+  let state = markdown_registry.view_state(handle)
   let proj_opt = match
     coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
     Ok(p) => p
@@ -263,7 +251,7 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
   let current : @protocol.ViewNode? = match proj_opt {
     Some(proj) =>
       Some(
-        @protocol.proj_to_view_node(
+        @md_proj.proj_to_view_node(
           proj,
           source_map,
           source_text=Some(source_text),

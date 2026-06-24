@@ -95,6 +95,65 @@ pub fn TreeEditOp::to_generic(self : TreeEditOp) -> @core.GenericTreeOp {
 }
 
 ///|
+/// Map this `TreeEditOp` to an identity hint for the reparse reconciler.
+///
+/// `get_node` lets `Unwrap` look up the k-th child of the wrapper (needed to
+/// name the kept child). Returns `Opaque` whenever the hint cannot be derived
+/// (no node found, out-of-bounds child, ambiguous ops). `Opaque` degrades to
+/// standard LCS reconciliation — never produces wrong identity (T3).
+///
+/// Note: ops that don't call `apply_span_edits` (`Select`, `Drop`, etc.) are
+/// never wired to a hint push, so their return value here is unused.
+pub fn TreeEditOp::to_identity_transform(
+  self : TreeEditOp,
+  get_node : (@core.NodeId) -> @core.ProjNode[@ast.Term]?,
+) -> @core.IdentityTransform {
+  match self {
+    // Wrap ops: prev node becomes a child of a new wrapper.
+    // ExtractToLet is excluded: it moves N to a new location (def RHS) and
+    // replaces N's site with a Var reference, which is not a structural Wrap.
+    // Degrading to Opaque (T3) lets LCS handle the resulting topology change.
+    WrapInLambda(node_id=n, ..)
+    | WrapInApp(node_id=n)
+    | WrapInIf(node_id=n)
+    | WrapInBop(node_id=n, ..) => @core.IdentityTransform::Wrap(inner=n)
+
+    // Unwrap: wrapper removed, keep the k-th child's id
+    Unwrap(node_id=wrapper_id, keep_child_index=k) =>
+      match get_node(wrapper_id) {
+        Some(wrapper) =>
+          match wrapper.children.get(k) {
+            Some(kept) =>
+              @core.IdentityTransform::Unwrap(
+                wrapper=wrapper_id,
+                keep=kept.id(),
+              )
+            None => @core.IdentityTransform::Opaque
+          }
+        None => @core.IdentityTransform::Opaque
+      }
+
+    // Replacement / retirement ops: old identity retires.
+    // ChangeOperator is excluded: it changes only the operator token while
+    // keeping the same operand subtrees. Replace would call assign_fresh_ids on
+    // the whole Bop subtree, losing both operand NodeIds. LCS (Opaque) matches
+    // same-kind Bop→Bop and recurses into children, preserving operand identity.
+    CommitEdit(node_id=n, ..) | InlineDefinition(node_id=n) =>
+      @core.IdentityTransform::Replace(old=n)
+
+    // Rename: leaf token changes, spine identity preserved for intra-expression
+    // renames. For module-level binding renames the hint is harmlessly ignored:
+    // module_key_match keys on the binding NAME and misses a renamed binding,
+    // so assign_fresh_ids runs regardless (LCS fallback, no wrong IDs produced).
+    Rename(node_id=n, ..) => @core.IdentityTransform::RenameLeaf(node=n)
+
+    // All other ops: degrade to LCS (includes Delete, ExtractToLet,
+    // ChangeOperator, module-level mutations, SwapChildren, AddBinding, etc.)
+    _ => @core.IdentityTransform::Opaque
+  }
+}
+
+///|
 fn[T : Renderable] placeholder_text_for_kind(kind : T) -> String {
   T::placeholder(kind)
 }
@@ -115,7 +174,7 @@ fn insert_child_at(
   if index >= node.children.length() {
     new_children.push(child)
   }
-  ProjNode::new(
+  ProjNode(
     rebuild_kind(node.kind, new_children),
     node.start,
     node.end,

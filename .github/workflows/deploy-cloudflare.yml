@@ -33,12 +33,9 @@ jobs:
           - name: ideal
             project-name: canopy-ideal
             type: pages
-            # MOON_WORK=off: examples/ideal is a moon.work member, so workspace
-            # mode forces wasm-gc and skips the JS bundle vite expects. Same
-            # treatment as scripts/test-canvas-e2e.sh + benchmark.yml. Tracked
-            # as #335; remove once moon honors per-member preferred-target.
-            moon-update: cd examples/ideal && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/ideal && MOON_WORK=off moon build --target js --release
+            # Build with workspace on. See #335 for target override caveat.
+            moon-update: cd examples/ideal && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd examples/ideal && moon build --target js --release
             npm-dir: examples/ideal/web
             deploy-dir: examples/ideal/web/dist
 
@@ -61,18 +58,18 @@ jobs:
           - name: block-editor
             project-name: canopy-block-editor
             type: pages
-            # MOON_WORK=off: see ideal entry above (#335).
-            moon-update: cd examples/block-editor && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/block-editor && MOON_WORK=off moon build --target js --release
+            # Build with workspace on. See #335 for target override caveat.
+            moon-update: cd examples/block-editor && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd examples/block-editor && moon build --target js --release
             npm-dir: examples/block-editor/web
             deploy-dir: examples/block-editor/web/dist
 
           - name: canvas
             project-name: canopy-canvas
             type: pages
-            # MOON_WORK=off: see ideal entry above (#335).
-            moon-update: cd examples/canvas && MOON_WORK=off "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/canvas && MOON_WORK=off moon build --target js --release
+            # Build with workspace on. See #335 for target override caveat.
+            moon-update: cd examples/canvas && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd examples/canvas && moon build --target js --release
             npm-dir: examples/canvas/web
             deploy-dir: examples/canvas/web/dist
 
@@ -86,7 +83,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -101,6 +98,29 @@ jobs:
       - name: Build MoonBit modules
         if: matrix.moon-build != ''
         run: ${{ matrix.moon-build }}
+
+      - name: Link workspace build artifacts (#335)
+        if: matrix.moon-build != '' && matrix.type == 'pages'
+        # Workspace mode puts JS output in root _build/ (<mod>/<pkg>),
+        # but vite-plugin-moonbit expects it under the example's local
+        # _build/ (<pkg>/).  Symlink to bridge the gap.
+        run: |
+          EXAMPLE="${{ matrix.name }}"
+          # Map matrix name to module name in _build/
+          case "$EXAMPLE" in
+            block-editor) MOD="dowdiness/canopy-block-editor" ;;
+            canvas)      MOD="dowdiness/canopy-canvas" ;;
+            ideal)       MOD="dowdiness/ideal-editor" ;;
+            *)          MOD="" ;;
+          esac
+          if [ -n "$MOD" ]; then
+            SRC="$GITHUB_WORKSPACE/_build/js/release/build/$MOD/main"
+            DST="$GITHUB_WORKSPACE/examples/$EXAMPLE/_build/js/release/build/main"
+            if [ -d "$SRC" ]; then
+              mkdir -p "$(dirname "$DST")"
+              ln -sfn "$SRC" "$DST"
+            fi
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

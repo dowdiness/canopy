@@ -1,7 +1,8 @@
 import {
+  "dowdiness/canopy/analysis_bridge" @analysis,
+  "dowdiness/analysis" @facts,
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
-  "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
@@ -16,6 +17,7 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
+  "moonbitlang/quickcheck" @qc,
 }
 
 warnings = "-2-6-29"

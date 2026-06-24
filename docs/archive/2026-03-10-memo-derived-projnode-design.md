@@ -208,7 +208,7 @@ If the CST has errors, `syntax_to_proj_node` produces `Error(...)` nodes. Reconc
 | `syntax_to_proj_node(node, counter)` | **Made pub** — used by SyncEditor's Memo |
 | `unwrap_expression_root(node)` | **Made pub** — SyncEditor's Memo must mirror `parse_to_proj_node` root handling |
 | `SourceMap::new/rebuild/get_range/innermost_node_at` | No change |
-| `ProjNode::new(...)` | No change |
+| `ProjNode(...)` | No change |
 
 ### Functions that change
 

@@ -23,7 +23,7 @@ test.describe('Collaborative Demo Mode', () => {
   test('should load example and sync to both editors', async ({ page }) => {
     await page.getByRole('button', { name: 'Load Example' }).click();
 
-    const expectedText = '(\\x.\\y.x + y) 10 5';
+    const expectedText = '((x, y) => x + y) 10 5';
     await expect(page.getByPlaceholder("Alice's editor")).toHaveValue(expectedText);
     await expect(page.getByPlaceholder("Bob's editor")).toHaveValue(expectedText);
   });

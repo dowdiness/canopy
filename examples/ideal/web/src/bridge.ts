@@ -147,10 +147,10 @@ export class CrdtBridge {
    * edit to peers before reconcile runs. The checked variant rejects the
    * splice instead, mirroring the old `delete_at`-returns-false recovery path.
    *
-   * A multi-change batch where splice K fails leaves splices 0..K-1 applied
-   * to the CRDT but un-broadcast on this edit; the next successful edit's
-   * `export_since_json` broadcast carries them as part of the CRDT delta.
-   * This matches the prior per-char loop's behavior — preserved, not new.
+   * If a multi-change batch fails after applying an earlier splice, broadcast
+   * that valid prefix immediately before reconciling. Otherwise peers can miss
+   * the prefix until a later successful edit happens to export the pending CRDT
+   * delta.
    */
   private applySpliceChanges(
     basePos: number,
@@ -158,6 +158,7 @@ export class CrdtBridge {
     changes: { from: number; to: number; insert: string }[],
   ): boolean {
     let posOffset = 0;
+    let appliedAny = false;
     for (const change of changes) {
       const deleteLen = change.to - change.from;
       const ok = this.crdt.handle_text_intent_checked(
@@ -173,8 +174,12 @@ export class CrdtBridge {
           basePos + change.from + posOffset,
           "deleteLen=", deleteLen,
         );
+        if (appliedAny) {
+          this.afterLocalEdit();
+        }
         return false;
       }
+      appliedAny = true;
       posOffset += change.insert.length - deleteLen;
     }
     return true;

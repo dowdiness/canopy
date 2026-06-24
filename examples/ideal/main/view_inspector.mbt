@@ -140,7 +140,7 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
         on_click=dispatch(
           StructuralEditRequested(op="WrapInLambda", node_id=node_id_str),
         ),
-        [text("Wrap in \u{03BB}")],
+        [text("Wrap in function")],
       ),
       button(
         class=@ui.action_button_danger_class(),

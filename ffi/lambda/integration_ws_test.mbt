@@ -20,7 +20,7 @@ test "two editors sync via relay" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
+  let wire_msg = @wire.encode_message(@wire.CrdtOps(buf.to_bytes()))
   // Alice sends through relay — relay broadcasts to bob
   room.on_message("alice", wire_msg)
   // Bob should now have the same text
@@ -39,7 +39,7 @@ test "late joiner catches up via CrdtOps frame" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
+  let wire_msg = @wire.encode_message(@wire.CrdtOps(buf.to_bytes()))
   // Bob receives the full state
   editor_b.ws_on_message(wire_msg)
   inspect(editor_b.get_text(), content="world")
@@ -90,7 +90,7 @@ test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  let wire_msg = @editor.encode_message(@editor.CrdtOps(buf.to_bytes()))
+  let wire_msg = @wire.encode_message(@wire.CrdtOps(buf.to_bytes()))
   // Relay wraps as RelayedCrdtOps and broadcasts
   room.on_message("alice", wire_msg)
   // Bob receives RelayedCrdtOps and applies it
@@ -114,7 +114,7 @@ test "v2 relay: SyncRequest routed to target peer only" {
   msgs_a.clear()
   msgs_c.clear()
   // Bob sends SyncRequest targeting alice
-  let req = @editor.encode_sync_request(
+  let req = @wire.encode_sync_request(
     target="alice",
     request_id="1",
     version_json="{}",
@@ -145,7 +145,7 @@ test "v2 relay: three peers sync via RelayedCrdtOps" {
   buf_a.write_string_utf16le(json_a.view())
   room.on_message(
     "alice",
-    @editor.encode_message(@editor.CrdtOps(buf_a.to_bytes())),
+    @wire.encode_message(@wire.CrdtOps(buf_a.to_bytes())),
   )
   // Both bob and charlie should have the text
   inspect(editor_b.get_text(), content="abc")

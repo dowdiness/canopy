@@ -141,6 +141,25 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     ).toBeVisible();
   });
 
+  test('overlay menu exposes roles and active item state', async ({ page }) => {
+    await openVarActionOverlay(page);
+
+    const overlay = page.locator('.action-overlay-panel');
+    await expect(overlay).toHaveAttribute('role', 'menu');
+    await expect(overlay).toHaveAttribute('aria-label', 'Structural editing actions');
+    await expect(page.locator('.action-overlay-scrim')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+
+    const items = overlay.locator('.action-overlay-item');
+    const count = await items.count();
+    expect(count).toBeGreaterThan(0);
+    await expect(items.first()).toHaveAttribute('role', 'menuitem');
+    await expect(items.first()).toHaveAttribute('data-active', 'true');
+    await expect(overlay.locator('.action-overlay-item[data-active="true"]')).toHaveCount(1);
+  });
+
   test('Tailwind-owned overlay styles are applied', async ({ page }) => {
     await openVarActionOverlay(page);
 

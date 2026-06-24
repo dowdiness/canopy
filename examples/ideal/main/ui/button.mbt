@@ -1,8 +1,8 @@
 ///|
 // Ideal-local Tailwind button recipes.
 // Keep semantic hooks as the first class tokens: tests and integration code use
-// hooks such as `toolbar-btn`, `tab`, and `action-btn`, while Tailwind owns the
-// visual declarations for migrated button/tab chrome.
+// hooks such as `toolbar-btn` and `action-btn`, while Tailwind owns the
+// visual declarations for migrated button chrome.
 priv enum ButtonTone {
   Neutral
   Accent
@@ -49,41 +49,12 @@ pub fn toolbar_example_button_class() -> String {
 }
 
 ///|
-pub fn toolbar_tab_class(active : Bool) -> String {
-  if active {
-    "tab active " + toolbar_button_recipe_class(Accent)
-  } else {
-    "tab " + toolbar_button_recipe_class(Neutral)
-  }
-}
-
-///|
 pub fn toolbar_panel_toggle_class(active : Bool) -> String {
   if active {
     "panel-toggle active " + toolbar_button_recipe_class(Surface)
   } else {
     "panel-toggle " + toolbar_button_recipe_class(Neutral)
   }
-}
-
-///|
-// Bottom tabs use underline accent, not fill — lighter than toolbar tabs.
-let bottom_tab_base_class : String = button_chrome_base_class +
-  " text-canopy-caption py-canopy-sm px-canopy-md border-x-0 border-t-0 border-b-2 border-solid rounded-none min-h-[32px] pb-[calc(var(--space-sm)_-_2px)] max-[768px]:min-h-[44px] max-[768px]:min-w-[44px] max-[768px]:py-canopy-md max-[768px]:px-canopy-md max-[768px]:pb-[calc(var(--space-md)_-_2px)]"
-
-///|
-fn bottom_tab_tone_class(active : Bool) -> String {
-  if active {
-    "bg-transparent text-canopy-accent-text border-b-canopy-accent"
-  } else {
-    "bg-transparent text-canopy-dim border-b-transparent hover:bg-canopy-surface hover:text-canopy-secondary"
-  }
-}
-
-///|
-pub fn bottom_tab_class(active : Bool) -> String {
-  let hook = if active { "tab active " } else { "tab " }
-  hook + bottom_tab_base_class + " " + bottom_tab_tone_class(active)
 }
 
 ///|

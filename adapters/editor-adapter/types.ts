@@ -1,5 +1,5 @@
 // TypeScript type definitions mirroring MoonBit editor protocol types.
-// These match the JSON wire format produced by framework/protocol/ custom ToJson impls.
+// These match the JSON wire format produced by protocol/ custom ToJson impls.
 
 export type ViewNode = {
   id: number;
@@ -45,7 +45,8 @@ export type UserIntent =
   | { type: "TextEdit"; from: number; to: number; insert: string }
   | { type: "StructuralEdit"; node_id: number; op: string; params: Record<string, string> }
   | { type: "SelectNode"; node_id: number }
-  | { type: "SetCursor"; position: number }
+  | { type: "SetPmCursor"; pm_tree_position: number }
+  | { type: "SetDocCursor"; doc_code_unit_offset: number }
   | { type: "Undo" }
   | { type: "Redo" }
   | { type: "CommitEdit"; node_id: number; value: string };

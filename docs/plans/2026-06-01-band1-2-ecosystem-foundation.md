@@ -45,10 +45,9 @@ Canopy:
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/.gitmodules`: root submodules include `event-graph-walker` and `loom`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/.gitmodules`: nested submodules include `event-graph-walker`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/examples/lambda/moon.mod.json`: nested `event-graph-walker` path dependency currently points to `../../event-graph-walker`.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/lang/lambda/proj/flat_proj.mbt`: `to_flat_proj_incremental` O(N) change-detection scan.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/core/reconcile.mbt`: generic LCS reconciliation with O(m*n) child matching.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/lang/lambda/flat/projection_memo.mbt`: existing revision/changed-index pattern.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/lang/lambda/flat/versioned_flat_proj.mbt`: existing revision-stamp `Eq` pattern.
+- `/home/antisatori/ghq/github.com/dowdiness/canopy/lang/lambda/proj/projection_memo.mbt`: Lambda editor-facing projection memo wrapper around `@core.build_projection_memos` (#633), now with the direct root-`Module` reconcile hook. The older flat module projection helper was removed after #633 cleanup.
+- `/home/antisatori/ghq/github.com/dowdiness/canopy/core/projection_memo.mbt`: shared generic projection memo helper; Lambda's old `lang/lambda/flat` revision/changed-index stack was removed by #633.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/projection/tree_refresh_benchmark_wbtest.mbt`: existing benchmark package pattern using `@bench`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/.github/workflows/ci.yml`: canonical CI fan-out.
 
@@ -139,8 +138,8 @@ Primary files:
 - `moon.mod.json`
 - `lib/cognition/moon.mod`
 - `core/projection_memo.mbt`
-- `lang/lambda/flat/projection_memo.mbt`
-- `lang/lambda/flat/versioned_flat_proj.mbt`
+- `lang/lambda/proj/projection_memo.mbt`
+- `core/projection_memo.mbt`
 - `lang/json/proj/proj_node.mbt`
 - `lang/markdown/proj/proj_node.mbt`
 - `editor/sync_editor*.mbt`
@@ -492,12 +491,12 @@ This PR does not implement the optimization. It creates isolated evidence and a 
 
 Claims to test:
 
-- `to_flat_proj_incremental` O(N) change-detection scan is about 5 ms of the about 8.5 ms 1000-def keystroke pipeline.
+- The pre-#633 Lambda flat-projection change-detection claim is obsolete: the flat helper has been removed. If a current profile still implicates Lambda projection, benchmark the current direct root-`Module` reconcile hook instead of the deleted helper.
 - `core/reconcile.mbt` LCS child matching is O(m*n) and can become quadratic on wide sibling lists.
 
 Primary files:
 
-- `lang/lambda/proj/flat_proj.mbt` as measured code, not optimized in E1.
+- `lang/lambda/proj/projection_memo.mbt` as current Lambda root-`Module` reconciliation code, measured only if a fresh profile implicates it.
 - `core/reconcile.mbt` as measured code, not optimized in E1.
 - `projection/tree_refresh_benchmark_wbtest.mbt` or a new focused benchmark file under `projection/`.
 - possibly `projection/moon.pkg` if new benchmark imports are needed.
@@ -509,19 +508,18 @@ Steps:
 
 1. Check staleness and mitigations.
    - Read `docs/performance/2026-04-06-pipeline-decomposition.md`.
-   - Inspect `lang/lambda/flat/projection_memo.mbt` and `lang/lambda/flat/versioned_flat_proj.mbt` for current revision-stamp/backdating behavior.
-   - Inspect `lang/lambda/proj/flat_proj.mbt` and `core/reconcile.mbt` to confirm the measured code still exists.
-   - Record whether any later batching, caching, or lazy-eval change appears to have neutralized the claim.
+   - Inspect `lang/lambda/proj/projection_memo.mbt` and `core/projection_memo.mbt` to confirm #633's generic editor-facing path is still in use.
+   - Inspect `core/reconcile.mbt` to confirm any current measured code still exists; do not look for the deleted flat module projection helper.
+   - Record whether any later batching, caching, deletion, or lazy-eval change appears to have neutralized the claim.
 
-2. Add an isolated O(N) change-detection benchmark.
-   - Measure `to_flat_proj_incremental` alone at 20, 80, 320, and 1000 defs.
-   - Include at least: unchanged same-root or structurally unchanged case, one tail def changed, and a shifted-offset case where reuse is intentionally blocked.
-   - Keep setup outside the measured loop unless the setup is part of the claimed cost.
-   - Verification command:
+2. Reassess the obsolete O(N) change-detection claim.
+   - Record that the historical `to_module_projection_incremental` path is gone, so that benchmark is no longer applicable.
+   - Only add a new Lambda root-`Module` reconcile benchmark if a fresh full-pipeline profile implicates `lang/lambda/proj/projection_memo.mbt` after the flat helper removal.
+   - If benchmarking the current hook, keep setup outside the measured loop unless the setup is part of the claimed cost, and use:
      ```bash
      NEW_MOON_MOD=0 moon bench --release --package dowdiness/canopy/projection
      ```
-   - If 1000-def cost is not in the same order as the §7.6 claim, stop and re-evaluate before proposing an optimization.
+   - If no current Lambda projection bottleneck reproduces, stop and re-evaluate before proposing an optimization.
 
 3. Add an isolated reconciliation benchmark.
    - Measure `@core.reconcile` child matching over wide sibling lists with known same-kind and different-kind distributions.
@@ -554,7 +552,7 @@ Steps:
 
 Acceptance criteria:
 
-- The O(N) scan claim is reproduced or rejected with an isolated benchmark.
+- The historical O(N) flat-scan claim is explicitly closed as obsolete, or a fresh current root-`Module` reconcile bottleneck is reproduced with an isolated benchmark.
 - The LCS claim is reproduced or rejected with an isolated benchmark.
 - No optimization code is included in E1.
 - A follow-up optimization plan exists only for reproduced cliffs.

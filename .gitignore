@@ -26,6 +26,8 @@ examples/ideal/web/test-results/
 examples/web/test-results/
 test-results/
 .grepai/
+.ast-grep/
+reference/
 .worktrees/
 .claude/settings.local.json
 .claude/worktrees/

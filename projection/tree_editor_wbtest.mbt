@@ -117,7 +117,7 @@ test "TreeEditorState::new creates empty state" {
 
 ///|
 test "Collapse sets collapsed state on node" {
-  let (_, _, state) = tree_editor_test_state("λx.x + 1")
+  let (_, _, state) = tree_editor_test_state("(x) => x + 1")
   let root_id = tree_editor_test_ids(state.tree)[0]
   let collapsed = state.apply_edit(Collapse(node_id=root_id))
   inspect(collapsed.collapsed_nodes.contains(root_id), content="true")
@@ -132,7 +132,7 @@ test "Collapse sets collapsed state on node" {
 
 ///|
 test "Expand clears collapsed state on node" {
-  let (_, _, state) = tree_editor_test_state("λx.x + 1")
+  let (_, _, state) = tree_editor_test_state("(x) => x + 1")
   let root_id = tree_editor_test_ids(state.tree)[0]
   let expanded = state
     .apply_edit(Collapse(node_id=root_id))
@@ -146,7 +146,7 @@ test "Expand clears collapsed state on node" {
 
 ///|
 test "Collapse state survives refresh" {
-  let (root, source_map, state) = tree_editor_test_state("λx.x + 1")
+  let (root, source_map, state) = tree_editor_test_state("(x) => x + 1")
   let root_id = tree_editor_test_ids(state.tree)[0]
   let refreshed = state
     .apply_edit(Collapse(node_id=root_id))
@@ -324,7 +324,7 @@ test "SelectRange ignores elided subtree endpoints" {
 
 ///|
 test "Delete clears selection editing dragging and collapsed state" {
-  let (_, _, state) = tree_editor_test_state("λx.x + 1")
+  let (_, _, state) = tree_editor_test_state("(x) => x + 1")
   let ids = tree_editor_test_ids(state.tree)
   let target = ids[1]
   let deleted = state
@@ -386,7 +386,7 @@ test "DragOver rejects self as drop target" {
 
 ///|
 test "DragOver rejects descendant as drop target" {
-  let (_, _, state) = tree_editor_test_state("λx.x + 1")
+  let (_, _, state) = tree_editor_test_state("(x) => x + 1")
   let tree = match state.tree {
     Some(tree) => tree
     None => fail("expected tree")
@@ -407,7 +407,7 @@ test "DragOver allows elided descendant as drop target (lazy parent map)" {
   // is_descendant_of returns false, so the DragOver is accepted.
   // In practice, elided nodes are not visible in the UI, so this case
   // cannot occur from user interaction.
-  let (root, source_map, state) = tree_editor_test_state("λx.x + 1")
+  let (root, source_map, state) = tree_editor_test_state("(x) => x + 1")
   let tree = match state.tree {
     Some(tree) => tree
     None => fail("expected tree")
@@ -740,9 +740,9 @@ test "InteractiveTreeNode Show — does not recurse into children or label" {
   let parent : InteractiveTreeNode[@ast.Term] = {
     id: NodeId::from_int(1),
     kind: @ast.Term::Lam("x", @ast.Term::Var("x")),
-    // Renderable::label for Lam is "λx" — but Show ignores it,
+    // Renderable::label for Lam is "(x) =>" — but Show ignores it,
     // showing only the kind_tag.
-    label: "λx",
+    label: "(x) =>",
     children: Loaded([child]),
     selected: false,
     editing: false,

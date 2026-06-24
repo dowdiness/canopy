@@ -24,21 +24,21 @@ test.describe('Single Editor Mode', () => {
     await page.getByRole('button', { name: 'Identity' }).click();
 
     const textarea = page.getByPlaceholder(/Type lambda calculus/);
-    await expect(textarea).toHaveValue('(\\x.x) 42');
+    await expect(textarea).toHaveValue('((x) => x) 42');
   });
 
   test('should insert Church 2 example', async ({ page }) => {
     await page.getByRole('button', { name: 'Church 2' }).click();
 
     const textarea = page.getByPlaceholder(/Type lambda calculus/);
-    await expect(textarea).toHaveValue('(\\f.\\x.f (f x)) (\\n.n + 1) 0');
+    await expect(textarea).toHaveValue('((f, x) => f (f x)) ((n) => n + 1) 0');
   });
 
   test('should insert Add example', async ({ page }) => {
     await page.getByRole('button', { name: 'Add' }).click();
 
     const textarea = page.getByPlaceholder(/Type lambda calculus/);
-    await expect(textarea).toHaveValue('(\\x.\\y.x + y) 10 5');
+    await expect(textarea).toHaveValue('((x, y) => x + y) 10 5');
   });
 
   test('should insert Conditional example', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('Single Editor Mode', () => {
     await page.getByRole('button', { name: 'Apply' }).click();
 
     const textarea = page.getByPlaceholder(/Type lambda calculus/);
-    await expect(textarea).toHaveValue('(\\f.\\x.f x) (\\n.n - 1) 10');
+    await expect(textarea).toHaveValue('((f, x) => f x) ((n) => n - 1) 10');
   });
 
   test('should update character count when typing', async ({ page }) => {

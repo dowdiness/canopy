@@ -9,12 +9,24 @@ pub fn new_markdown_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] {
+  let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s, rt) { @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt) },
-    @md_proj.build_markdown_projection_memos,
+    (s, rt) => @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt),
+    parser => {
+      @md_proj.build_markdown_projection_memos(parser, identity_hints=hints_ref)
+    },
     capture_timeout_ms~,
     parent_runtime?,
+    capabilities=@editor.LanguageCapabilities::default().with_to_view_node((
+      proj,
+      source_map,
+      annotations,
+      source_text,
+    ) => {
+      @md_proj.proj_to_view_node(proj, source_map, annotations~, source_text~)
+    }),
+    identity_hints=hints_ref,
   )
 }
 
@@ -102,10 +114,25 @@ pub fn apply_markdown_edit(
   let source_map = editor.get_source_map()
   match @md_edits.compute_markdown_edit(op, source, proj, source_map) {
     Ok(Some((edits, focus_hint))) => {
-      editor.apply_span_edits(edits, focus_hint, timestamp_ms)
+      match markdown_identity_hint(op) {
+        Some(hint) =>
+          editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint~)
+        None => editor.apply_span_edits(edits, focus_hint, timestamp_ms)
+      }
       Ok(())
     }
-    Ok(None) => Ok(()) // no-op (e.g., merge on first block)
+    Ok(None) => Ok(())
     Err(msg) => Err(msg)
+  }
+}
+
+///|
+fn markdown_identity_hint(
+  op : @md_edits.MarkdownEditOp,
+) -> @core.IdentityTransform? {
+  match op {
+    MoveBlock(source~, ..) =>
+      Some(@core.IdentityTransform::Move(subtree=source))
+    _ => None
   }
 }

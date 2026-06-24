@@ -12,7 +12,15 @@ Language-agnostic CRDT editor engine that combines text storage, undo/redo, reac
 - `EphemeralHub` — multi-peer cursor and presence state (encode/apply/broadcast)
 - `SyncMessage` / `encode_message` / `decode_message` — binary protocol framing for CRDT ops, sync requests, and room control
 - `ViewUpdateState` — snapshot used to compute minimal `ViewPatch` sequences
-- `LanguageCapabilities[T]` — per-language hooks wired at construction time (text-edit handler, tree-edit handler, pretty-print, etc.)
+- `LanguageCapabilities[T]` — per-language hooks wired at construction time (text-edit handler, tree-edit handler, pretty-print, ViewNode conversion, etc.)
+
+## Language-specific ViewNode conversion
+
+`LanguageCapabilities::with_to_view_node` is the intended hook when a language needs to convert `ProjNode[T]` to `protocol.ViewNode` differently from the generic `Renderable` path. Use it for language-specific view semantics that are derived from the projection tree, `SourceMap`, annotations, and optional source text.
+
+The converter should keep the generic `ViewNode` wire contract. Prefer calling `@protocol.proj_to_view_node` first, then refining the returned tree narrowly. Markdown uses this path to preserve list-specific view tags while keeping generic editor and FFI view-patch code language-agnostic.
+
+Do not add parallel frontend-only view models or special-case language behavior in `SyncEditor::get_view_tree`; install the converter in the language companion constructor instead.
 
 ## Consumers
 

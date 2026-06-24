@@ -12,16 +12,50 @@ type Point = {
   y: number;
 };
 
-function inputHandle(page: Page, nodeId: number): Locator {
-  return page.locator(`.handle.input[data-node-id="${nodeId}"]`);
+// Source-backed nodes are identified by the Loom projection token
+// (`node#<n>:<binding>`), exposed in the DOM as `data-node-id`. Tests locate a
+// node by its user-facing binding (the `.node-title`) and resolve the token on
+// demand, so they neither hardcode the internal token format nor break when a
+// rename re-mints the token.
+function sourceNode(page: Page, binding: string): Locator {
+  return page
+    .locator('.canvas-node')
+    .filter({ has: page.locator('.node-title', { hasText: new RegExp(`^${binding}$`) }) });
 }
 
-function outputHandle(page: Page, nodeId: number): Locator {
-  return page.locator(`.handle.output[data-node-id="${nodeId}"]`);
+function inputHandle(page: Page, binding: string): Locator {
+  return sourceNode(page, binding).locator('.handle.input');
+}
+
+function outputHandle(page: Page, binding: string): Locator {
+  return sourceNode(page, binding).locator('.handle.output');
 }
 
 function edgePaths(page: Page): Locator {
   return page.locator('#edges path.edge');
+}
+
+// The source panel renders a CodeMirror editor (contenteditable), not a
+// textarea. Read its document by joining the rendered `.cm-line` divs with
+// newlines, normalizing the NBSPs CodeMirror uses for runs of spaces.
+async function cmText(page: Page): Promise<string> {
+  const lines = await page.locator('#source-editor-cm .cm-line').allTextContents();
+  return lines.map((line) => line.replace(/ /g, ' ')).join('\n');
+}
+
+// CodeMirror updates asynchronously (mount, set_doc echo, the 250ms graph
+// poll), so poll the document rather than reading it once.
+async function expectSource(page: Page, expected: string): Promise<void> {
+  await expect.poll(() => cmText(page)).toBe(expected);
+}
+
+// Replace the whole CodeMirror document, the way a user select-all + paste
+// would: the resulting transaction flows through `listen(on_change=...)` and
+// lowers into graph-dsl source.
+async function setSource(page: Page, text: string): Promise<void> {
+  await page.locator('#source-editor-cm .cm-content').click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.insertText(text);
 }
 
 async function center(locator: Locator, label: string): Promise<Point> {
@@ -84,16 +118,16 @@ test('source-backed node drag updates local layout without mutating source', asy
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
-  const node = page.locator('.canvas-node[data-node-id="1"]');
+  const node = sourceNode(page, 'osc');
   const before = await center(node, 'source-backed node');
   await dragBy(page, node.locator('.node-title'), 82, 36);
   const after = await center(node, 'dragged source-backed node');
 
   expect(after.x - before.x).toBeGreaterThan(60);
   expect(after.y - before.y).toBeGreaterThan(20);
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
@@ -102,17 +136,69 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+async function selectSourceNode(page: Page, binding: string): Promise<void> {
+  const node = sourceNode(page, binding);
+  await node.click();
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+}
+
+test('source-backed inspector rename lowers to canonical source and references', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await page.locator('#source-connect').click();
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
+
+  await selectSourceNode(page, 'osc');
+  const renameInput = page.locator('#node-rename-input');
+  await expect(renameInput).toHaveValue('osc');
+  await renameInput.fill('lfo');
+  await renameInput.press('Enter');
+
+  await expectSource(page, 'lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)');
+  // The rename re-mints the node's token, so the old binding is gone and the new
+  // one is present — the node is now identified as `lfo`.
+  await expect(sourceNode(page, 'osc')).toHaveCount(0);
+  await expect(sourceNode(page, 'lfo')).toHaveCount(1);
+  await expect(page.locator('#edges path.edge')).toHaveCount(1);
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toContainText(
+    'Renamed node binding through graph-dsl source.',
+  );
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed inspector numeric parameter edit lowers to canonical source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await selectSourceNode(page, 'osc');
+  const freqInput = page.locator('#node-param-freq');
+  await expect(freqInput).toHaveValue('440');
+  await freqInput.fill('880');
+  await freqInput.press('Enter');
+
+  await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toContainText(
+    'Updated freq through graph-dsl source.',
+  );
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -120,21 +206,19 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
-  await dragBetween(page, outputHandle(page, 1), inputHandle(page, 2));
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
   await page.mouse.up();
   await expect(edgePaths(page)).toHaveCount(1);
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
   await clickEdge(page, 0);
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Backspace');
 
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(edgePaths(page)).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
@@ -149,16 +233,16 @@ test('source-backed selected node deletion lowers into canonical source', async 
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
 
-  const meter = page.locator('.canvas-node[data-node-id="2"]');
+  const meter = sourceNode(page, 'meter');
   await meter.click();
   await expect(meter).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
 
-  await expect(page.locator('#source-editor')).toHaveValue('osc = sine(freq: 440Hz)');
+  await expectSource(page, 'osc = sine(freq: 440Hz)');
   await expect(page.locator('.canvas-node')).toHaveCount(1);
-  await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
+  await expect(sourceNode(page, 'meter')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
@@ -168,18 +252,14 @@ test('source-backed deletion rejects unsafe survivor references', async ({ page 
 
   await page.goto('/?source=1');
   await page.locator('#source-connect').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
-  const osc = page.locator('.canvas-node[data-node-id="1"]');
+  const osc = sourceNode(page, 'osc');
   await osc.click();
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await page.keyboard.press('Delete');
 
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
   await expect(page.locator('#source-status')).toContainText('Source delete rejected:');
@@ -191,10 +271,24 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await page.locator('.canvas-node[data-node-id="2"]').click();
-  await page.locator('#source-editor').focus();
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Select a canvas node so a missing focus guard WOULD delete it. The keydown
+  // bubbles to the document handler even from CodeMirror (CM6 does not
+  // stopPropagation by default), so `editableKeyboardTarget` is the only thing
+  // between this Backspace and `deleteSelectedNodes`.
+  await sourceNode(page, 'meter').click();
+  await expect(sourceNode(page, 'meter')).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+
+  // Put the cursor at the end of the document so Backspace is a real editor
+  // edit (deleting the trailing `)`), not a no-op at offset 0.
+  await page.locator('#source-editor-cm .cm-content').focus();
+  await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.press('Backspace');
 
+  // The keystroke edited the source editor ...
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(');
+  // ... and did NOT delete the selected canvas node (the focus guard held).
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
@@ -205,13 +299,13 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
     const runtimeErrors = collectRuntimeErrors(page);
 
     await page.goto('/?source=1');
-    await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+    await expectSource(page, SAMPLE_SOURCE);
     await expect(page.locator('.canvas-node')).toHaveCount(2);
 
-    await page.locator('#source-editor').fill(invalidSource.source);
+    await setSource(page, invalidSource.source);
     await page.locator('#source-apply').click();
 
-    await expect(page.locator('#source-editor')).toHaveValue(invalidSource.source);
+    await expectSource(page, invalidSource.source);
     await expect(page.locator('.canvas-node')).toHaveCount(2);
     await expect(page.locator('#edges path.edge')).toHaveCount(0);
     await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
@@ -229,6 +323,55 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
   });
 }
 
+test('source-backed editor recovers from a transiently-invalid edit without corrupting incremental deltas', async ({
+  page,
+}) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Delete `440Hz` with an incremental edit, leaving the buffer transiently
+  // invalid (`osc = sine(freq: )`). The graph rolls back to last-good and the
+  // editor diverges (dirty) — the precondition for the rebase corruption.
+  const content = page.locator('#source-editor-cm .cm-content');
+  await content.click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  for (let i = 0; i < 'osc = sine(freq: '.length; i++) {
+    await page.keyboard.press('ArrowRight');
+  }
+  for (let i = 0; i < '440Hz'.length; i++) {
+    await page.keyboard.press('Shift+ArrowRight');
+  }
+  await page.keyboard.press('Delete');
+  await expectSource(page, 'osc = sine(freq: )\nmeter = scope()');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  // Type a different valid value at the cursor. With the buffer dirty, each
+  // keystroke's delta is expressed against the editor text, not the graph's
+  // rolled-back last-good source; replaying incrementally would splice into
+  // the wrong coordinates (e.g. `220Hz440Hz`). It must recover and re-apply to
+  // the graph as exactly the typed text.
+  await page.keyboard.type('220Hz');
+
+  // The CodeMirror buffer transiently shows the typed text either way, so the
+  // graph source is the real observable. Let the 250ms graph→editor poll run a
+  // couple of cycles: when the graph and editor disagree (only possible if the
+  // graph was corrupted) the poll pushes the canonical source back into the
+  // buffer. With the rebase fixed the graph holds exactly `220Hz`, the poll is
+  // a no-op, and the buffer stays put; without the fix the deltas replay
+  // against the rolled-back last-good source and the poll surfaces the
+  // corrupted `220Hz440Hz` here.
+  await page.waitForTimeout(600);
+  expect(await cmText(page)).toBe('osc = sine(freq: 220Hz)\nmeter = scope()');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed mode mutates canonical source and render state together', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
@@ -236,26 +379,26 @@ test('source-backed mode mutates canonical source and render state together', as
 
   await expect(page.locator('#source-panel')).toBeVisible();
   await expect(page.locator('#source-mode-toggle')).toHaveText('Return to canvas runtime');
-  await expect(page.locator('#source-editor')).toHaveValue(SAMPLE_SOURCE);
+  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#edges path.edge')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   await page.locator('#source-connect').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
-    'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)',
-  );
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
 
   await page.locator('#source-insert').click();
-  await expect(page.locator('#source-editor')).toHaveValue(
+  await expectSource(
+    page,
     'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()',
   );
   await expect(page.locator('.canvas-node')).toHaveCount(3);
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
 
-  await page.locator('#source-editor').fill(
+  await setSource(
+    page,
     'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()\ntap = scope(input: reverb)',
   );
   await page.locator('#source-apply').click();

@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "server": "tsx server/ws-server.ts",
-    "prebuild:moonbit": "cd .. && MOON_WORK=off moon build --target js --release",
+    "prebuild:moonbit": "cd .. && moon build --target js --release",
     "test": "playwright test",
     "test:perf": "CANOPY_SKIP_RELAY_SERVER=1 VITE_CANOPY_SKIP_SYNC=1 playwright test e2e/editor-response.perf.spec.ts --reporter=line",
     "test:ui": "playwright test --ui",

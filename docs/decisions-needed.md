@@ -29,11 +29,11 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 **Evidence:** bridge_ffi.mbt and model.mbt exist, but insufficient evidence to judge done vs in-progress
 **Added:** 2026-03-31
 
-### flatproj-interleaved: storage strategy for let/expr interleaving
+### interleaved-module-items: storage strategy for let/expr interleaving
 **Source:** TODO.md §9
-**Context:** ModuleItem ModuleProjection storage change caused 2x regression. Alternative approach (helper methods on existing ModuleProjection) is noted but not started. Needs decision on whether to pursue fix or accept regression.
+**Context:** The parser/AST can model interleaved module items, but the projection/editor representation still needs a deliberate design now that Lambda uses generic `ProjNode` module rows only.
 **Blocks:** Grammar: interleaved let/expr support
-**Evidence:** No plan file, no implementation, alternative approach documented but not started
+**Evidence:** No plan file and no implementation started.
 **Added:** 2026-03-31
 
 ---

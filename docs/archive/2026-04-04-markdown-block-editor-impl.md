@@ -401,7 +401,7 @@ pub fn syntax_to_proj_node(
         Some(tok) => tok.text()
         None => ""
       }
-      @core.ProjNode::new(
+      @core.ProjNode(
         @markdown.Block::Error(err_text),
         node.start(),
         node.end(),
@@ -410,7 +410,7 @@ pub fn syntax_to_proj_node(
       )
     }
     _ =>
-      @core.ProjNode::new(
+      @core.ProjNode(
         @markdown.Block::Paragraph([]),
         node.start(),
         node.end(),
@@ -431,7 +431,7 @@ fn build_document(
       children.push(syntax_to_proj_node(child, counter))
     }
   }
-  @core.ProjNode::new(
+  @core.ProjNode(
     @markdown.Block::Document([]),
     node.start(),
     node.end(),
@@ -455,7 +455,7 @@ fn build_heading(
     }
     None => 1
   }
-  @core.ProjNode::new(
+  @core.ProjNode(
     @markdown.Block::Heading(level, []),
     node.start(),
     node.end(),
@@ -470,7 +470,7 @@ fn build_leaf(
   counter : Ref[Int],
   kind : @markdown.Block,
 ) -> @core.ProjNode[@markdown.Block] {
-  @core.ProjNode::new(
+  @core.ProjNode(
     kind,
     node.start(),
     node.end(),
@@ -490,7 +490,7 @@ fn build_list(
       children.push(syntax_to_proj_node(child, counter))
     }
   }
-  @core.ProjNode::new(
+  @core.ProjNode(
     @markdown.Block::UnorderedList([]),
     node.start(),
     node.end(),
@@ -512,7 +512,7 @@ fn build_code_block(
       }
     None => ""
   }
-  @core.ProjNode::new(
+  @core.ProjNode(
     @markdown.Block::CodeBlock(info, ""),
     node.start(),
     node.end(),

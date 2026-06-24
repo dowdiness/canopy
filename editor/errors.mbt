@@ -8,7 +8,7 @@ pub(all) suberror TreeEditError {
   FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
-  ModuleProjectionUnavailable
+  ProjectionUnavailable
   UnhandledOperation(detail~ : String)
   NodeNotInSourceMap(action~ : String, node_id~ : @core.NodeId)
   NodeNotInRegistry(action~ : String, node_id~ : @core.NodeId)
@@ -25,7 +25,7 @@ pub fn TreeEditError::message(self : TreeEditError) -> String {
     FieldMustBeNumber(field~) => "\{field} must be a number"
     UnknownBop(name~) => "unknown bop: \{name}"
     UnknownOpType(op_type~) => "unknown op type: \{op_type}"
-    ModuleProjectionUnavailable => "No ModuleProjection available"
+    ProjectionUnavailable => "No projection available"
     UnhandledOperation(detail~) => "Unhandled tree edit op: \{detail}"
     NodeNotInSourceMap(action~, node_id~) =>
       "\{action}: node \{node_id} not in source map"
@@ -33,40 +33,5 @@ pub fn TreeEditError::message(self : TreeEditError) -> String {
       "\{action}: node \{node_id} not in registry"
     TextTransformFailed(detail~) => "apply_text_transform: \{detail}"
     ProjectionEdit(detail~) => detail
-  }
-}
-
-///|
-pub(all) suberror ProtocolError {
-  MessageTooShort(length~ : Int)
-  UnsupportedVersion(version~ : Byte)
-  UnknownMessageType(msg_type~ : Byte)
-  MissingNamespace
-  InvalidNamespace(tag~ : Byte)
-  MissingRoomControlSubtype
-  InvalidRoomControlSubtype(sub_type~ : Byte)
-  MissingField(field~ : String)
-  InvalidSyncJson(detail~ : String)
-  InvalidVersionJson(detail~ : String)
-}
-
-///|
-pub fn ProtocolError::message(self : ProtocolError) -> String {
-  match self {
-    MessageTooShort(length~) =>
-      "protocol message too short: expected at least 3 bytes, got \{length}"
-    UnsupportedVersion(version~) =>
-      "unsupported protocol version: \{version.to_int()}"
-    UnknownMessageType(msg_type~) =>
-      "unknown protocol message type: \{msg_type.to_int()}"
-    MissingNamespace => "missing ephemeral namespace byte"
-    InvalidNamespace(tag~) =>
-      "invalid ephemeral namespace byte: \{tag.to_int()}"
-    MissingRoomControlSubtype => "missing room control subtype"
-    InvalidRoomControlSubtype(sub_type~) =>
-      "invalid room control subtype: \{sub_type.to_int()}"
-    MissingField(field~) => "missing \{field} field"
-    InvalidSyncJson(detail~) => "invalid sync JSON: \{detail}"
-    InvalidVersionJson(detail~) => "invalid version JSON: \{detail}"
   }
 }

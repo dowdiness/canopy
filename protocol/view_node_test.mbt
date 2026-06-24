@@ -13,7 +13,7 @@ test "ViewNode to_json produces object-based JSON" {
   let node = @protocol.ViewNode(
     id=@core.NodeId::from_int(42),
     kind_tag="Lam",
-    label="\u{03BB}x",
+    label="(x) =>",
     text_range=(0, 5),
     css_class="Lam",
   )

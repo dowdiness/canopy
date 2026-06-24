@@ -9,6 +9,7 @@ priv enum EventName {
   ActionOverlayOpen
   ActionKey
   ExternalCrdtChange
+  FileOpened
   LongPress
   NodeSelected
   RequestRedo
@@ -39,6 +40,7 @@ fn EventName::event_type(self : EventName) -> String {
     ActionOverlayOpen => "action-overlay-open"
     ActionKey => "action-key"
     ExternalCrdtChange => "external-crdt-changed"
+    FileOpened => "file-loaded"
     LongPress => "long-press"
     NodeSelected => "node-selected"
     RequestRedo => "request-redo"
@@ -54,6 +56,7 @@ fn EventName::key(self : EventName) -> String {
     ActionOverlayOpen => "action-overlay-open"
     ActionKey => "action-key"
     ExternalCrdtChange => "external-crdt-changed"
+    FileOpened => "file-loaded"
     LongPress => "long-press"
     NodeSelected => "node-selected"
     RequestRedo => "request-redo"
@@ -90,23 +93,21 @@ fn dom_event_sub_loader(
   match payload {
     CustomEvent(target, event_name, tagger) => {
       let mut current_tagger = tagger
-      let subscription = try? @dom_boundary.listen_custom_event_selector(
-        target.selector(),
-        event_name.event_type(),
-        detail => scheduler.add(current_tagger(detail)),
-      )
-      match subscription {
-        Ok(subscription) =>
-          Some({
-            unload: fn(_) {
-              let _ : Result[Unit, @dom_boundary.DomBoundaryError] = try? subscription.dispose()
-            },
-            update_tagger: fn(payload) {
-              guard payload is CustomEvent(_, _, new_tagger) else { return }
-              current_tagger = new_tagger
-            },
-          })
-        Err(error) => {
+      try {
+        let subscription = @dom_boundary.listen_custom_event_selector(
+          target.selector(),
+          event_name.event_type(),
+          detail => scheduler.add(current_tagger(detail)),
+        )
+        Some({
+          unload: fn(_) { subscription.dispose() catch { _ => () } },
+          update_tagger: fn(payload) {
+            guard payload is CustomEvent(_, _, new_tagger) else { return }
+            current_tagger = new_tagger
+          },
+        })
+      } catch {
+        error => {
           js_warn_dom_event_subscription_error(
             dom_event_subscription_error_message(
               target,
@@ -150,7 +151,7 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     custom_event_sub(
       EditorHost,
       ActionKey,
-      emit.map(key => ActionKeyPressed(key)),
+      emit.map(key => ActionOverlay(OverlayKeyPressed(key))),
     ),
     custom_event_sub(
       EditorHost,
@@ -169,6 +170,13 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     ),
     custom_event_sub(TextEditor, RequestUndo, emit.map(_ => Undo)),
     custom_event_sub(TextEditor, RequestRedo, emit.map(_ => Redo)),
+    // The host dispatches "file-loaded" on #canopy-text-editor with the chosen
+    // file's text as the (plain-string) event detail; deliver it as FileLoaded.
+    custom_event_sub(
+      TextEditor,
+      FileOpened,
+      emit.map(content => FileLoaded(content)),
+    ),
     custom_event_sub(
       EditorHost,
       StructuralEditApplied,

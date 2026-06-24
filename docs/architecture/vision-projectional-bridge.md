@@ -4,7 +4,7 @@ Why Canopy exists and what projectional editing is for.
 
 ## The Gap
 
-You write `let double = λx. x + x`. You know what it means: a
+You write `let double = (x) => x + x`. You know what it means: a
 function that doubles its input.
 
 But the editor sees 23 characters. It has no idea what `double` is,

@@ -64,7 +64,7 @@ impl Renderable for TestExpr with fn unparse(self) {
   match self {
     Leaf(s) => s
     Branch(tag, cs) =>
-      tag + "(" + cs.map(fn(c) { Renderable::unparse(c) }).join(", ") + ")"
+      tag + "(" + cs.map(fn(c) { Renderable::unparse(c) }).join(" ") + ")"
   }
 }
 
@@ -77,8 +77,37 @@ impl ToJson for TestExpr with fn to_json(self) {
 }
 
 ///|
+// Drift guard for the TestExpr fixture (issue #601).
+//
+// TestExpr is intentionally duplicated: this `priv` copy backs core's "works
+// with any AST" contract and cannot import the `workspace/probe` copy without a
+// layering cycle (probe depends on core). The other copy is `pub(all)` in
+// `workspace/probe/test_expr.mbt` and backs the editor's neutral grammar.
+// To stop the two from drifting silently, BOTH files pin their TestExpr's
+// observable surface to the SAME frozen literals below — a frozen reference,
+// never a call back through the other copy (layering forbids it anyway), so a
+// change to EITHER definition's unparse / placeholder / kind_tag / label /
+// children fails its own file's guard. Keep the two literal blocks
+// byte-identical; if you change one, change the other (see
+// `workspace/probe/test_grammar_contract_wbtest.mbt`,
+// "TestExpr fixture surface is frozen").
+test "TestExpr fixture surface is frozen (drift guard vs workspace/probe)" {
+  let sample : TestExpr = Branch("f", [Leaf("x"), Leaf("y")])
+  inspect(Renderable::kind_tag(sample), content="Branch")
+  inspect(Renderable::label(sample), content="f")
+  inspect(Renderable::placeholder(sample), content="?")
+  inspect(Renderable::unparse(sample), content="f(x y)")
+  inspect(@loomcore.TreeNode::children(sample).length(), content="2")
+  let leaf : TestExpr = Leaf("x")
+  inspect(Renderable::kind_tag(leaf), content="Leaf")
+  inspect(Renderable::label(leaf), content="x")
+  inspect(Renderable::unparse(leaf), content="x")
+  inspect(@loomcore.TreeNode::children(leaf).length(), content="0")
+}
+
+///|
 test "ProjNode[TestExpr] — construction and field access" {
-  let leaf = ProjNode::new(Leaf("x"), 0, 1, 0, [])
+  let leaf = ProjNode(Leaf("x"), 0, 1, 0, [])
   inspect(leaf.kind, content="Leaf(\"x\")")
   inspect(leaf.start, content="0")
   inspect(leaf.end, content="1")
@@ -106,7 +135,7 @@ test "ProjNode::leaf allocates a fresh id from syntax span" {
 ///|
 test "ProjNode::branch allocates a fresh id" {
   let counter = Ref(7)
-  let child = ProjNode::new(Leaf("x"), 0, 1, 0, [])
+  let child = ProjNode(Leaf("x"), 0, 1, 0, [])
   let branch = ProjNode::branch(
     Branch("root", [Leaf("x")]),
     0,
@@ -120,22 +149,62 @@ test "ProjNode::branch allocates a fresh id" {
 }
 
 ///|
+test "ProjNode::map transforms kinds recursively and preserves metadata" {
+  let left = ProjNode(Leaf("a"), 1, 2, 11, [])
+  let right = ProjNode(Leaf("b"), 3, 4, 12, [])
+  let root = ProjNode(Branch("root", [Leaf("a"), Leaf("b")]), 0, 5, 10, [
+    left, right,
+  ])
+  let mapped = root.map(kind => Renderable::label(kind))
+  inspect(mapped.node_id, content="10")
+  inspect(mapped.kind, content="root")
+  inspect(mapped.start, content="0")
+  inspect(mapped.end, content="5")
+  inspect(mapped.children[0].node_id, content="11")
+  inspect(mapped.children[0].kind, content="a")
+  inspect(mapped.children[0].start, content="1")
+  inspect(mapped.children[0].end, content="2")
+  inspect(mapped.children[1].node_id, content="12")
+  inspect(mapped.children[1].kind, content="b")
+  inspect(mapped.children[1].start, content="3")
+  inspect(mapped.children[1].end, content="4")
+}
+
+///|
+test "ProjNode::map propagates raising callbacks" {
+  let root = ProjNode(Leaf("boom"), 0, 4, 10, [])
+  let caught = try {
+    let _ = root.map(kind => {
+      match kind {
+        Leaf("boom") => fail("boom")
+        Leaf(s) => s
+        Branch(tag, _) => tag
+      }
+    })
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+}
+
+///|
 test "ProjNode Show — depth-1 only, uses Renderable::kind_tag" {
-  let leaf = ProjNode::new(Leaf("x"), 0, 1, 0, [])
+  let leaf = ProjNode(Leaf("x"), 0, 1, 0, [])
   inspect(leaf, content="#0 Leaf [0..1]")
 }
 
 ///|
 test "ProjNode Show — Branch with children does not recurse into kind/children" {
-  let child = ProjNode::new(Leaf("a"), 0, 1, 1, [])
-  let root = ProjNode::new(Branch("root", [Leaf("a")]), 0, 5, 7, [child])
+  let child = ProjNode(Leaf("a"), 0, 1, 1, [])
+  let root = ProjNode(Branch("root", [Leaf("a")]), 0, 5, 7, [child])
   inspect(root, content="#7 Branch [0..5]")
 }
 
 ///|
 test "SourceMap::from_ast works with TestExpr" {
-  let child = ProjNode::new(Leaf("a"), 0, 1, 1, [])
-  let root = ProjNode::new(Branch("root", [Leaf("a")]), 0, 5, 0, [child])
+  let child = ProjNode(Leaf("a"), 0, 1, 1, [])
+  let root = ProjNode(Branch("root", [Leaf("a")]), 0, 5, 0, [child])
   let sm = SourceMap::from_ast(root)
   inspect(sm.node_count(), content="2")
   inspect(sm.get_range(NodeId::from_int(0)) is Some(_), content="true")
@@ -144,8 +213,8 @@ test "SourceMap::from_ast works with TestExpr" {
 
 ///|
 test "reconcile preserves IDs when kinds match" {
-  let old = ProjNode::new(Leaf("x"), 0, 1, 42, [])
-  let new_ = ProjNode::new(Leaf("y"), 0, 1, 99, [])
+  let old = ProjNode(Leaf("x"), 0, 1, 42, [])
+  let new_ = ProjNode(Leaf("y"), 0, 1, 99, [])
   let counter = Ref(100)
   let result = reconcile(old, new_, counter)
   // same_kind(Leaf, Leaf) is true → old ID preserved
@@ -155,8 +224,8 @@ test "reconcile preserves IDs when kinds match" {
 
 ///|
 test "reconcile assigns fresh IDs when kinds differ" {
-  let old = ProjNode::new(Leaf("x"), 0, 1, 42, [])
-  let new_ = ProjNode::new(Branch("b", []), 0, 3, 99, [])
+  let old = ProjNode(Leaf("x"), 0, 1, 42, [])
+  let new_ = ProjNode(Branch("b", []), 0, 3, 99, [])
   let counter = Ref(100)
   let result = reconcile(old, new_, counter)
   // same_kind(Leaf, Branch) is false → fresh ID
@@ -165,8 +234,8 @@ test "reconcile assigns fresh IDs when kinds differ" {
 
 ///|
 test "assign_fresh_ids renumbers entire subtree" {
-  let child = ProjNode::new(Leaf("a"), 0, 1, 0, [])
-  let root = ProjNode::new(Branch("r", [Leaf("a")]), 0, 5, 1, [child])
+  let child = ProjNode(Leaf("a"), 0, 1, 0, [])
+  let root = ProjNode(Branch("r", [Leaf("a")]), 0, 5, 1, [child])
   let counter = Ref(50)
   let result = assign_fresh_ids(root, counter)
   // post-order: child gets 50, parent gets 51
@@ -176,8 +245,8 @@ test "assign_fresh_ids renumbers entire subtree" {
 
 ///|
 test "get_node_in_tree finds nested node" {
-  let leaf = ProjNode::new(Leaf("target"), 2, 8, 7, [])
-  let root = ProjNode::new(Branch("r", [Leaf("target")]), 0, 10, 0, [leaf])
+  let leaf = ProjNode(Leaf("target"), 2, 8, 7, [])
+  let root = ProjNode(Branch("r", [Leaf("target")]), 0, 10, 0, [leaf])
   let found = get_node_in_tree(root, NodeId::from_int(7))
   inspect(found is Some(_), content="true")
   inspect(found.unwrap().kind, content="Leaf(\"target\")")
@@ -185,7 +254,7 @@ test "get_node_in_tree finds nested node" {
 
 ///|
 test "ToJson for ProjNode[TestExpr] compiles" {
-  let node = ProjNode::new(Leaf("x"), 0, 1, 0, [])
+  let node = ProjNode(Leaf("x"), 0, 1, 0, [])
   let json = node.to_json()
   inspect(json.stringify().length() > 0, content="true")
 }

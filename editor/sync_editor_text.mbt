@@ -41,6 +41,7 @@ pub fn[T : Eq] SyncEditor::insert(
   self : SyncEditor[T],
   text : String,
 ) -> Unit raise {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
   let insert_start = self.cursor
@@ -59,6 +60,7 @@ pub fn[T : Eq] SyncEditor::insert(
 
 ///|
 pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
@@ -96,6 +98,7 @@ pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
 
 ///|
 pub fn[T : Eq] SyncEditor::backspace(self : SyncEditor[T]) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.next_grapheme_boundary(old_source, self.cursor)
@@ -314,6 +317,7 @@ pub fn[T : Eq] SyncEditor::apply_text_edit(
   inserted : String,
   timestamp_ms : Int,
 ) -> Unit {
+  self.taint_pending_transforms()
   self.apply_text_edit_internal(
     start, deleted_len, inserted, timestamp_ms, true, true,
   )
@@ -327,6 +331,7 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
   inserted : String,
   timestamp_ms : Int,
 ) -> Bool {
+  self.taint_pending_transforms()
   self.apply_text_edit_with_policy(
     start,
     deleted_len,
@@ -359,6 +364,7 @@ pub fn[T : Eq] SyncEditor::set_text(
   if old_text == new_text {
     return
   }
+  self.taint_pending_transforms()
   let splice = @text_change.compute_text_change(old_text, new_text)
   self.apply_text_edit_internal(
     splice.start,
@@ -383,6 +389,7 @@ pub fn[T : Eq] SyncEditor::insert_at(
   if position < 0 || position > text_len {
     return
   }
+  self.taint_pending_transforms()
   self.apply_text_edit_internal(position, 0, text, timestamp_ms, true, false)
 }
 
@@ -399,6 +406,7 @@ pub fn[T : Eq] SyncEditor::delete_at(
   if position < 0 || position >= text_len {
     return false
   }
+  self.taint_pending_transforms()
   self.apply_text_edit_internal(position, 1, "", timestamp_ms, true, false)
   true
 }
@@ -413,6 +421,7 @@ pub fn[T : Eq] SyncEditor::set_text_and_record(
   if old_text == new_text {
     return
   }
+  self.taint_pending_transforms()
   let splice = @text_change.compute_text_change(old_text, new_text)
   self.apply_text_edit_internal(
     splice.start,

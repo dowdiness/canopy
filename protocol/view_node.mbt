@@ -4,8 +4,9 @@
 
 ///|
 /// A coloured / labelled slice of a node's text. `role` is a CSS-class-style
-/// tag (e.g. "keyword", "string", "identifier") and `start`/`end` index into
-/// the document text in the same units as `ViewNode.text_range`.
+/// tag (e.g. "keyword", "string", "identifier") and `start`/`end` are
+/// half-open UTF-16 document code-unit offsets in the same coordinate space as
+/// `ViewNode.text_range`.
 pub(all) struct TokenSpan {
   role : String
   start : Int
@@ -60,7 +61,8 @@ pub impl ToJson for ViewAnnotation with fn to_json(self) {
 /// - `label` is the short human-readable name shown in tree views.
 /// - `text` is the rendered source for this subtree, when applicable.
 /// - `text_range` is the half-open `[start, end)` range in the source
-///   document the node occupies; consistent with `TokenSpan` offsets.
+///   document the node occupies, expressed as UTF-16 document code-unit
+///   offsets; consistent with `TokenSpan` offsets.
 pub(all) struct ViewNode {
   id : @core.NodeId
   kind_tag : String

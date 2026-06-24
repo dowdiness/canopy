@@ -11,7 +11,7 @@ import { structuralKeymap } from "./keymap";
 
 const agentId = "pm-agent-" + Math.random().toString(36).slice(2, 8);
 const handle = crdt.create_editor_with_undo(agentId, 300);
-crdt.set_text(handle, "let double = \u03BBx.x + x\ndouble 5");
+crdt.set_text(handle, "fn double(x : Int) { x + x }\ndouble 5");
 
 // ── PMAdapter setup ─────────────────────────────────────────
 
@@ -61,7 +61,8 @@ function handleIntent(intent: UserIntent): void {
     }
 
     case "SelectNode":
-    case "SetCursor":
+    case "SetPmCursor":
+    case "SetDocCursor":
     case "CommitEdit":
       return;
   }

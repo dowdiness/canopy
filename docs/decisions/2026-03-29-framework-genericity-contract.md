@@ -31,7 +31,7 @@ This type has different structure than `@ast.Term` (variable-arity children, no 
 
 | Test | What it verifies |
 |---|---|
-| ProjNode construction | `ProjNode::new` and field access work with any T |
+| ProjNode construction | `ProjNode` and field access work with any T |
 | SourceMap::from_ast | Source map builds correctly for non-lambda trees |
 | reconcile (preserve IDs) | Uses `TreeNode::same_kind`, not Term-specific patterns |
 | reconcile (fresh IDs) | Kind mismatch detection is generic |

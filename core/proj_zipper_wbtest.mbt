@@ -5,7 +5,7 @@
 
 ///|
 fn make_node(id : Int, children : Array[ProjNode[Int]]) -> ProjNode[Int] {
-  ProjNode::new(id, 0, 0, id, children)
+  ProjNode(id, 0, 0, id, children)
 }
 
 // Test tree:

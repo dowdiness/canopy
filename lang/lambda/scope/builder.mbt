@@ -18,16 +18,25 @@ fn build_parent_map(
 
 ///|
 /// Mutable builder state accumulated across passes.
+///
+/// `node_cutoffs` is builder-owned pass-2 state, persisted privately as
+/// `ScopeGraph.node_cutoffs`: for each node it records the sequential cutoff of
+/// every enclosing module scope
+/// — a `ModuleDef(def_index)` in scope `s` is visible to the node only if
+/// `def_index < node_cutoffs[node][s]`. Lambda scopes never appear (they hold
+/// no `ModuleDef`). This generalises the former single-`Int` cutoff so nested
+/// blocks each carry their own sequential position independently.
 priv struct Builder {
   scopes : Array[Scope]
   decls : Array[Decl]
   refs : Array[Ref]
   node_scope : Map[@core.NodeId, ScopeId]
+  node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
 }
 
 ///|
 fn Builder::new() -> Builder {
-  { scopes: [], decls: [], refs: [], node_scope: {} }
+  { scopes: [], decls: [], refs: [], node_scope: {}, node_cutoffs: {} }
 }
 
 ///|
@@ -65,41 +74,124 @@ fn root_node(
 }
 
 ///|
-/// Pass 2: root module scope, ModuleDef decls (one per flat def), and a child
-/// LamParam scope per Lam node. Records node→scope membership.
-fn Builder::pass2(
-  self : Builder,
-  module_projection : @lambda_proj.ModuleProjection,
-  root : @core.ProjNode[@ast.Term],
-) -> Unit {
+/// Pass 2: scopes, decls, and per-node scope+cutoff membership.
+///
+/// - The root module scope holds the flat top-level `ModuleDef` decls (one per
+///   root `Module` definition, using the first-class `LetDef` child id).
+/// - Each `Lam` node opens a child `LamParam` scope.
+/// - Each NESTED `Module` node (a block expression) opens a child scope holding
+///   its own block-local `ModuleDef` decls — this is what makes the graph an
+///   exact resolver for blocks, matching the semantic env-walk.
+///
+/// Within any module scope, child `i` (definition `i`'s initialiser) sees defs
+/// `[0, i)` and the body (`i == def_count`) sees all defs; that per-child
+/// cutoff is recorded against the scope in `node_cutoffs`, accumulating the
+/// cutoffs of all enclosing module scopes so each gates visibility independently.
+fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
   let root_scope = self.add_scope(None)
-  for i, def in module_projection.defs {
-    let (name, _init, _start, binder_id) = def
-    let _ = self.add_decl(root_scope, binder_id, name, ModuleDef(def_index=i))
-  }
-  fn walk(node : @core.ProjNode[@ast.Term], current : ScopeId) -> Unit {
-    self.node_scope[node.id()] = current
-    match node.kind {
-      @ast.Term::Lam(param, _) => {
-        let lam_scope = self.add_scope(Some(current))
+  match root.kind {
+    // Root is the top-level module. Its scope (parent None) and decls are
+    // installed above from the root `Module` children — that pre-installation
+    // is the *only* thing distinguishing root from a nested block. The binder
+    // ids are the first-class `LetDef` child ids; root is kept out of the generic
+    // `Module` arm only because that arm would open a *second* scope and
+    // re-install the decls. The per-child cutoff descent is shared via
+    // `descend_module_children`.
+    @ast.Term::Module(defs, _) => {
+      for i, def in defs {
         let _ = self.add_decl(
-          lam_scope,
-          node.id(),
-          param,
-          LamParam(lam_id=node.id()),
+          root_scope,
+          root.children[i].id(),
+          def.0,
+          ModuleDef(def_index=i),
         )
-        for child in node.children {
-          walk(child, lam_scope)
-        }
       }
-      _ =>
-        for child in node.children {
-          walk(child, current)
-        }
+      let root_cutoffs : Map[ScopeId, Int] = {}
+      root_cutoffs[root_scope] = defs.length()
+      self.node_scope[root.id()] = root_scope
+      self.node_cutoffs[root.id()] = root_cutoffs
+      self.descend_module_children(root, root_scope, {})
+    }
+    // Bare lambda / expression program: there is no root `Module`, so
+    // `root_scope` holds no `ModuleDef`. Dispatch through `walk` so the root's
+    // own binder (a `Lam` param) is installed.
+    _ => {
+      let scoped : Map[ScopeId, Int] = {}
+      scoped[root_scope] = 0
+      self.walk(root, root_scope, scoped)
     }
   }
+}
 
-  walk(root, root_scope)
+///|
+/// Descend the children of a module node (root or nested block) under
+/// `module_scope`, recording each child's sequential cutoff for that scope:
+/// definition `i` (its initialiser) sees defs `[0, i)`, and the trailing body
+/// child sees all defs. `def_count` is derived structurally as
+/// `children.length() - 1` — the body is always the last child (see
+/// `module_node_from_defs`) — so the cutoff stays consistent with the children
+/// actually iterated, independent of any flat projection's def count.
+fn Builder::descend_module_children(
+  self : Builder,
+  node : @core.ProjNode[@ast.Term],
+  module_scope : ScopeId,
+  base : Map[ScopeId, Int],
+) -> Unit {
+  let def_count = node.children.length() - 1
+  for i, child in node.children {
+    let scoped = base.copy()
+    scoped[module_scope] = if i < def_count { i } else { def_count }
+    self.walk(child, module_scope, scoped)
+  }
+}
+
+///|
+/// Walk a node, recording its scope and cutoff map. `Lam` nodes open a child
+/// `LamParam` scope; nested-block `Module` nodes open a child scope holding
+/// their own block-local `ModuleDef` decls and descend via
+/// `descend_module_children`. Everything else recurses in the same scope.
+fn Builder::walk(
+  self : Builder,
+  node : @core.ProjNode[@ast.Term],
+  current : ScopeId,
+  cutoffs : Map[ScopeId, Int],
+) -> Unit {
+  self.node_scope[node.id()] = current
+  self.node_cutoffs[node.id()] = cutoffs
+  match node.kind {
+    @ast.Term::Lam(param, _) => {
+      let lam_scope = self.add_scope(Some(current))
+      let _ = self.add_decl(
+        lam_scope,
+        node.id(),
+        param,
+        LamParam(lam_id=node.id()),
+      )
+      for child in node.children {
+        self.walk(child, lam_scope, cutoffs)
+      }
+    }
+    @ast.Term::Module(defs, _) => {
+      let mod_scope = self.add_scope(Some(current))
+      for i, def in defs {
+        let _ = self.add_decl(
+          mod_scope,
+          node.children[i].id(),
+          def.0,
+          ModuleDef(def_index=i),
+        )
+      }
+      let module_cutoffs = cutoffs.copy()
+      module_cutoffs[mod_scope] = defs.length()
+      self.node_scope[node.id()] = mod_scope
+      self.node_cutoffs[node.id()] = module_cutoffs
+      self.descend_module_children(node, mod_scope, cutoffs)
+    }
+    _ =>
+      for child in node.children {
+        self.walk(child, current, cutoffs)
+      }
+  }
 }
 
 ///|
@@ -117,58 +209,42 @@ fn Builder::add_ref(
 }
 
 ///|
-/// Which flat-def index a node sits within, by source position; returns the
-/// def count (body sentinel) when the node is in the module body. This is now
-/// the sole implementation of def-range containment for the lambda language.
-fn containing_def_index(
-  module_projection : @lambda_proj.ModuleProjection,
-  source_map : @core.SourceMap,
-  node_id : @core.NodeId,
-) -> Int {
-  guard source_map.get_range(node_id) is Some(r) else {
-    return module_projection.defs.length()
-  }
-  let pos = r.start
-  module_projection.defs
-  .search_by(fn(def) {
-    let (_n, init, _s, _id) = def
-    source_map.get_range(init.id()) is Some(dr) &&
-    pos >= dr.start &&
-    pos < dr.end
-  })
-  .unwrap_or(module_projection.defs.length())
-}
-
-///|
-/// Resolve `name` from `start_scope` upward. ModuleDef decls are visible only
-/// if def_index < cutoff (sequential rule). Records scopes visited that did
-/// not contain the name (negative observation).
+/// Resolve `name` from `start_scope` upward. A `ModuleDef` decl in scope `sid`
+/// is visible only if `def_index < cutoffs[sid]` (the sequential rule, applied
+/// per module scope so nested blocks gate independently); `LamParam` decls are
+/// always visible. Records scopes visited that did not contain the name
+/// (negative observation).
+///
+/// Invariant: every module scope on the parent chain from `start_scope` to the
+/// root was entered during pass 2's walk for this reference, so it is present
+/// in `cutoffs`; `cutoffs.get(sid).unwrap()` therefore asserts that invariant
+/// (a missing entry is a structural defect and a loud abort is correct), and is
+/// only ever consulted for `ModuleDef` decls — lambda scopes are never looked up.
 fn Builder::resolve(
   self : Builder,
   name : String,
   start_scope : ScopeId,
-  cutoff : Int,
+  cutoffs : Map[ScopeId, Int],
 ) -> Resolution {
   let visited : Array[ScopeId] = []
   let mut cur : ScopeId? = Some(start_scope)
   while cur is Some(sid) {
     let ScopeId(si) = sid
     let scope = self.scopes[si]
-    let mut hit : DeclId? = None
-    // later decls win within a scope (shadowing); module scope respects cutoff.
-    for did in scope.decl_ids {
-      let DeclId(di) = did
-      let decl = self.decls[di]
-      if decl.name == name {
-        match decl.kind {
-          ModuleDef(def_index~) => if def_index < cutoff { hit = Some(did) }
-          LamParam(_) => hit = Some(did)
-        }
-      }
-    }
-    if hit is Some(_) {
-      return { decl: hit, visited_scopes: visited }
-    }
+    // later decls win within a scope (shadowing), so search in reverse and take
+    // the first match; module-scope decls respect the per-scope cutoff.
+    let hit = scope.decl_ids
+      .rev_iter()
+      .find_first(fn(did) {
+        let DeclId(di) = did
+        let decl = self.decls[di]
+        decl.name == name &&
+        (match decl.kind {
+          ModuleDef(def_index~) => def_index < cutoffs.get(sid).unwrap()
+          LamParam(_) => true
+        })
+      })
+    guard hit is None else { return { decl: hit, visited_scopes: visited } }
     visited.push(sid)
     cur = scope.parent
   }
@@ -185,9 +261,7 @@ fn Builder::resolve(
 /// correct — silently defaulting to the root scope would mis-resolve it.
 fn Builder::pass3(
   self : Builder,
-  module_projection : @lambda_proj.ModuleProjection,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
-  source_map : @core.SourceMap,
 ) -> Unit {
   for _id, node in registry {
     let name = match node.kind {
@@ -197,22 +271,35 @@ fn Builder::pass3(
     }
     guard name is Some(n) else { continue }
     let scope = self.node_scope.get(node.id()).unwrap()
-    let cutoff = containing_def_index(module_projection, source_map, node.id())
-    let resolution = self.resolve(n, scope, cutoff)
+    let cutoffs = self.node_cutoffs.get(node.id()).unwrap()
+    let resolution = self.resolve(n, scope, cutoffs)
     self.add_ref(scope, node.id(), n, resolution)
   }
 }
 
 ///|
 /// Build the scope graph (Pass 2 then Pass 3).
+///
+/// `source_map` is the graph's companion coordinate input retained on the public
+/// constructor (callers already hold it and `failures()` consumes it for
+/// reference locations). Resolution itself is now purely structural — cutoffs
+/// come from tree position recorded in pass 2 — so it is not threaded into the
+/// passes.
 pub fn build(
-  module_projection : @lambda_proj.ModuleProjection,
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> ScopeGraph {
+  let _ = source_map
   let b = Builder::new()
   let root = root_node(registry)
-  b.pass2(module_projection, root)
-  b.pass3(module_projection, registry, source_map)
-  { scopes: b.scopes, decls: b.decls, refs: b.refs, module_node_id: root.id() }
+  b.pass2(root)
+  b.pass3(registry)
+  {
+    scopes: b.scopes,
+    decls: b.decls,
+    refs: b.refs,
+    module_node_id: root.id(),
+    node_scope: b.node_scope,
+    node_cutoffs: b.node_cutoffs,
+  }
 }

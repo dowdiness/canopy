@@ -112,7 +112,7 @@ fn to_proj_node_with_ranges(
       let end = start + s.length().max(1)
       offset.val = end
       let id = next_proj_node_id(counter)
-      ProjNode::new(expr, start, end, id, [])
+      ProjNode(expr, start, end, id, [])
     }
     Branch(_, cs) => {
       let start = offset.val
@@ -123,7 +123,7 @@ fn to_proj_node_with_ranges(
       let end = offset.val.max(start + 1)
       offset.val = end
       let id = next_proj_node_id(counter)
-      ProjNode::new(expr, start, end, id, children)
+      ProjNode(expr, start, end, id, children)
     }
   }
 }

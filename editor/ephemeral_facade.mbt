@@ -25,16 +25,3 @@ pub using @ephemeral {
   type EphemeralError,
   adjust_position,
 }
-
-///|
-/// Generic byte-codec primitives consumed by editor's protocol layer
-/// (sync_protocol.mbt, sync_editor_ws.mbt). These are wire-format internals,
-/// not presence concepts, so editor reads them directly from `@byte_codec`
-/// rather than reaching through `@ephemeral`. Brought into local scope without
-/// re-exporting, so editor's public API is unchanged.
-using @byte_codec {type Reader, read_string, write_string}
-
-///|
-/// Presence namespace helpers consumed by editor's protocol layer. Brought
-/// into local scope without re-exporting.
-using @ephemeral {namespace_to_byte, namespace_from_byte, all_namespaces}

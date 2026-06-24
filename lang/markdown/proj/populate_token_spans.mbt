@@ -95,16 +95,18 @@ fn populate_block(
     Paragraph(_) =>
       // Full inline content (no prefix to skip)
       set_content_span(source_map, syntax_node, id, "text", None)
-    ListItem(_) =>
-      // Full inline content after the list marker
+    UnorderedListItem(_) | OrderedListItem(_, _) =>
+      // Full inline content after this item's own marker. Compare marker
+      // positions so a nested sublist marker never wins over the outer item
+      // marker when both token kinds are present in the item CST.
       set_content_span(
         source_map,
         syntax_node,
         id,
         "text",
-        Some(ListMarkerToken),
+        list_item_marker_kind(syntax_node),
       )
-    UnorderedList(_) => {
+    UnorderedList(_) | OrderedList(_, _) => {
       let syntax_children = collect_syntax_children(
         syntax_node,
         @markdown.SyntaxKind::ListItemNode,
@@ -162,6 +164,32 @@ fn populate_block(
         CodeFenceCloseToken,
       )
     }
+    HtmlBlock(_) =>
+      // Full raw HTML content (no prefix marker to skip).
+      set_content_span(source_map, syntax_node, id, "text", None)
     Error(_) => ()
+  }
+}
+
+///|
+fn list_item_marker_kind(
+  syntax_node : @seam.SyntaxNode,
+) -> @markdown.SyntaxKind? {
+  let unordered = syntax_node.find_token(
+    @markdown.SyntaxKind::ListMarkerToken.to_raw(),
+  )
+  let ordered = syntax_node.find_token(
+    @markdown.SyntaxKind::OrderedListMarkerToken.to_raw(),
+  )
+  match (unordered, ordered) {
+    (Some(u), Some(o)) =>
+      if u.start() < o.start() {
+        Some(ListMarkerToken)
+      } else {
+        Some(OrderedListMarkerToken)
+      }
+    (Some(_), None) => Some(ListMarkerToken)
+    (None, Some(_)) => Some(OrderedListMarkerToken)
+    (None, None) => None
   }
 }

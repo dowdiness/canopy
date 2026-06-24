@@ -74,6 +74,89 @@ fn collect_token_spans_source_file(
 }
 
 ///|
+fn direct_child_of_kind(
+  node : @seam.SyntaxNode,
+  kind : @syntax.SyntaxKind,
+) -> @seam.SyntaxNode? {
+  node
+  .children()
+  .iter()
+  .find_first(child => @syntax.SyntaxKind::from_raw(child.kind()) == kind)
+}
+
+///|
+fn set_syntax_node_span_role(
+  source_map : SourceMap,
+  node_id : @core.NodeId,
+  role : String,
+  syntax_node : @seam.SyntaxNode,
+) -> Unit {
+  source_map.set_token_span(
+    node_id,
+    role,
+    @loomcore.Range::new(syntax_node.start(), syntax_node.end()),
+  )
+}
+
+///|
+fn set_fn_body_span_role(
+  source_map : SourceMap,
+  node_id : @core.NodeId,
+  body : @seam.SyntaxNode,
+) -> Unit {
+  match
+    (
+      body.find_token(@syntax.LBraceToken.to_raw()),
+      body.tokens_of_kind(@syntax.RBraceToken.to_raw()).last(),
+    ) {
+    (Some(left), Some(right)) =>
+      source_map.set_token_span(
+        node_id,
+        FN_BINDING_BODY_ROLE,
+        @loomcore.Range::new(left.start(), right.end()),
+      )
+    _ => ()
+  }
+}
+
+///|
+fn collect_token_spans_fn_binding(
+  source_map : SourceMap,
+  def_view : @parser.LetDefView,
+  let_def_node : ProjNode[@ast.Term],
+) -> Unit {
+  let def_syn = def_view.syntax_node()
+  guard def_syn.find_token(@syntax.FnKeyword.to_raw()) is Some(fn_tok) else {
+    return
+  }
+  source_map.set_token_span(
+    let_def_node.id(),
+    FN_BINDING_KEYWORD_ROLE,
+    @loomcore.Range::new(fn_tok.start(), fn_tok.end()),
+  )
+  if direct_child_of_kind(def_syn, @syntax.ParamList) is Some(params) {
+    set_syntax_node_span_role(
+      source_map,
+      let_def_node.id(),
+      FN_BINDING_PARAM_LIST_ROLE,
+      params,
+    )
+  }
+  match param_ident_tokens(def_syn) {
+    [first, ..] =>
+      source_map.set_token_span(
+        let_def_node.id(),
+        FN_BINDING_PARAM_NAME_ROLE,
+        @loomcore.Range::new(first.start(), first.end()),
+      )
+    [] => ()
+  }
+  if def_view.init() is Some(body) {
+    set_fn_body_span_role(source_map, let_def_node.id(), body)
+  }
+}
+
+///|
 /// Record the binder-name token span for one LetDef row and recurse into its
 /// initializer. The canonical span lives on the LetDef node; the module-level
 /// `name:<i>` span remains as a migration fallback for older callers.
@@ -97,8 +180,21 @@ fn collect_token_spans_let_def(
     def_syn,
     @syntax.IdentToken.to_raw(),
   )
-  if def_view.init() is Some(init_syn) && let_def_node.children.length() > 0 {
-    collect_token_spans_expr(source_map, init_syn, let_def_node.children[0])
+  collect_token_spans_fn_binding(source_map, def_view, let_def_node)
+  guard def_view.init() is Some(init_syn) && let_def_node.children.length() > 0 else {
+    return
+  }
+  let init_proj = let_def_node.children[0]
+  let param_count = param_ident_tokens(def_syn).length()
+  if param_count == 0 {
+    collect_token_spans_expr(source_map, init_syn, init_proj)
+  } else {
+    collect_token_spans_lambda_params(source_map, def_syn, init_proj)
+    match lambda_body_proj(init_proj, param_count) {
+      Some(body_proj) =>
+        collect_token_spans_expr(source_map, init_syn, body_proj)
+      None => ()
+    }
   }
 }
 
@@ -156,6 +252,75 @@ fn collect_token_spans_left_spine(
 }
 
 ///|
+fn param_ident_tokens(node : @seam.SyntaxNode) -> Array[@seam.SyntaxToken] {
+  match direct_child_of_kind(node, @syntax.ParamList) {
+    Some(params) => {
+      let tokens : Array[@seam.SyntaxToken] = []
+      let mut expect_param = true
+      for elem in params.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(tok) => {
+            let kind = @syntax.SyntaxKind::from_raw(tok.kind())
+            if kind == @syntax.IdentToken && expect_param {
+              tokens.push(tok)
+              expect_param = false
+            } else if kind == @syntax.CommaToken {
+              expect_param = true
+            }
+          }
+          _ => ()
+        }
+      }
+      tokens
+    }
+    None => []
+  }
+}
+
+///|
+fn collect_token_spans_lambda_params(
+  source_map : SourceMap,
+  syntax_node : @seam.SyntaxNode,
+  proj_node : ProjNode[@ast.Term],
+) -> Unit {
+  let tokens = param_ident_tokens(syntax_node)
+  let mut current = proj_node
+  for index, tok in tokens {
+    source_map.set_token_span(
+      current.id(),
+      PARAM_ROLE,
+      @loomcore.Range::new(tok.start(), tok.end()),
+    )
+    if index + 1 < tokens.length() {
+      if current.children.length() == 0 {
+        break
+      }
+      current = current.children[0]
+    }
+  }
+}
+
+///|
+fn lambda_body_proj(
+  proj_node : ProjNode[@ast.Term],
+  param_count : Int,
+) -> ProjNode[@ast.Term]? {
+  let mut current = proj_node
+  for _ in 0..<param_count {
+    match current.kind {
+      @ast.Term::Lam(_, _) =>
+        if current.children.length() > 0 {
+          current = current.children[0]
+        } else {
+          return None
+        }
+      _ => return None
+    }
+  }
+  Some(current)
+}
+
+///|
 /// Walk an expression-level syntax node alongside its ProjNode counterpart.
 /// Extracts token spans for lambda params and recurses into children.
 fn collect_token_spans_expr(
@@ -164,16 +329,14 @@ fn collect_token_spans_expr(
   proj_node : ProjNode[@ast.Term],
 ) -> Unit {
   if @parser.LambdaExprView::cast(syntax_node) is Some(v) {
-    // Extract param token span
-    source_map.set_span_from_token(
-      proj_node.id(),
-      PARAM_ROLE,
-      syntax_node,
-      @syntax.IdentToken.to_raw(),
-    )
-    // Recurse into body
-    if v.body() is Some(body_syn) && proj_node.children.length() > 0 {
-      collect_token_spans_expr(source_map, body_syn, proj_node.children[0])
+    collect_token_spans_lambda_params(source_map, syntax_node, proj_node)
+    if v.body() is Some(body_syn) {
+      match
+        lambda_body_proj(proj_node, param_ident_tokens(syntax_node).length()) {
+        Some(body_proj) =>
+          collect_token_spans_expr(source_map, body_syn, body_proj)
+        None => ()
+      }
     }
   } else if @parser.AppExprView::cast(syntax_node) is Some(v) {
     // AppExpr is flattened: syntax has [func, arg1, arg2, ...]

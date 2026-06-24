@@ -9,9 +9,9 @@
 Name-resolution / binding logic for the lambda language is duplicated and ad-hoc
 across ~5 sites:
 
-- `lang/lambda/edits/scope.mbt` (167 lines) — `resolve_binder`,
-  `find_enclosing_lam_binder`, `find_usages`, `collect_lam_env`,
-  `find_binding_for_init`.
+- `lang/lambda/edits/scope.mbt` (167 lines) — historical duplicate helpers:
+  `resolve_binder`, `find_enclosing_lam_binder`, `find_usages`,
+  `collect_lam_env`, and the later-removed `find_binding_for_init`.
 - `lang/lambda/edits/free_vars.mbt` (31 lines) — capture analysis `FV(term, env)`.
 - `lang/lambda/semantic/semantic_projection.mbt` (265 lines) — walks the AST
   threading an environment array, classifies each `Var` as bound/free.

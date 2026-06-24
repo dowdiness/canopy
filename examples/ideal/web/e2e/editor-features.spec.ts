@@ -43,7 +43,7 @@ test.describe('Example Buttons', () => {
     await page.getByRole('button', { name: 'Basics' }).click();
     const text = await getOutlineText(page);
     expect(text).toContain('module [double, result]');
-    expect(text).toContain('λx');
+    expect(text).toContain('(x) =>');
   });
 
   test('Currying example updates outline', async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe('Outline Refresh', () => {
       cm?.focus();
     });
     await page.keyboard.press('Control+a');
-    await page.keyboard.type('let f = \\x.x\nf 1', { delay: 10 });
+    await page.keyboard.type('let f = (x) => x\nf 1', { delay: 10 });
     // Wait for outline refresh
     await page.waitForTimeout(300);
     const text = await getOutlineText(page);
@@ -135,11 +135,11 @@ test.describe('Persistence', () => {
     });
 
     await page.evaluate(() => {
-      const g = globalThis as any;
+      const b = (globalThis as any).__canopy_bridge;
       const roomId = location.hash.slice(1);
       localStorage.setItem(
         `canopy-doc-${roomId}`,
-        g.__canopy_crdt.export_all_json(g.__canopy_crdt_handle),
+        b.crdt!.export_all_json(b.crdtHandle!),
       );
     });
 
@@ -165,7 +165,7 @@ test.describe('CodeMirror Rendering', () => {
     await waitForEditor(page);
     const hasSource = await page.evaluate(() => {
       const editor = document.querySelector('#canopy-text-editor .cm-editor');
-      return (editor?.textContent ?? '').includes('let');
+      return /\b(?:fn|let)\b/.test(editor?.textContent ?? '');
     });
     expect(hasSource).toBe(true);
   });
@@ -184,7 +184,7 @@ test.describe('CodeMirror Rendering', () => {
     const hasKeywordHighlight = await page.evaluate(() => {
       const spans = Array.from(document.querySelectorAll('#canopy-text-editor .cm-line span'));
       return spans.some((span) => {
-        return span.textContent === 'let'
+        return span.textContent === 'fn'
           && getComputedStyle(span as HTMLElement).color === 'rgb(199, 146, 234)';
       });
     });
@@ -209,10 +209,9 @@ test.describe('External Sync', () => {
     await page.keyboard.press('Control+End');
 
     await page.evaluate(() => {
-      const g = globalThis as any;
-      const handle = g.__canopy_crdt_handle;
-      const text = g.__canopy_crdt.get_text(handle);
-      g.__canopy_crdt.set_text(handle, `let remote = 0\n${text}`);
+      const b = (globalThis as any).__canopy_bridge;
+      const text = b.crdt!.get_text(b.crdtHandle!);
+      b.crdt!.set_text(b.crdtHandle!, `let remote = 0\n${text}`);
     });
     await dispatchExternalCrdtChanged(page);
     await page.waitForFunction(() => {
@@ -221,8 +220,8 @@ test.describe('External Sync', () => {
 
     await page.keyboard.type('z');
     const text = await page.evaluate(() => {
-      const g = globalThis as any;
-      return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) as string;
+      const b = (globalThis as any).__canopy_bridge;
+      return b.crdt!.get_text(b.crdtHandle!) as string;
     });
     expect(text.startsWith('let remote = 0\n')).toBe(true);
     expect(text.endsWith('z')).toBe(true);

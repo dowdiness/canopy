@@ -16,8 +16,8 @@ test "smoke 5.1: sanity sum equals known value across two editors" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("smoke_5_1_a")
   let handle_b = create_editor("smoke_5_1_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
 
   // Build the workspace memo on the coordinator's runtime.
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
@@ -67,16 +67,14 @@ test "smoke 5.1: sanity sum equals known value across two editors" {
     Err(r) => fail("teardown destroy h_a: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   match coordinator.destroy_editor(h_b.editor_id) {
     Ok(_) => ()
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -88,8 +86,8 @@ test "smoke 5.2: mutation in editor A invalidates workspace memo and recomputes"
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("smoke_5_2_a")
   let handle_b = create_editor("smoke_5_2_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
 
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
@@ -142,16 +140,14 @@ test "smoke 5.2: mutation in editor A invalidates workspace memo and recomputes"
     Err(r) => fail("teardown destroy h_a: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   match coordinator.destroy_editor(h_b.editor_id) {
     Ok(_) => ()
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -163,8 +159,8 @@ test "smoke 5.3: destroy_editor refused while workspace memo dep is live" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("smoke_5_3_a")
   let handle_b = create_editor("smoke_5_3_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
 
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
@@ -233,16 +229,14 @@ test "smoke 5.3: destroy_editor refused while workspace memo dep is live" {
     Err(r) => fail("teardown destroy h_a: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   match coordinator.destroy_editor(h_b.editor_id) {
     Ok(_) => ()
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -254,8 +248,8 @@ test "smoke 5.4: clean teardown sequence — each step returns Ok" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("smoke_5_4_a")
   let handle_b = create_editor("smoke_5_4_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
 
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
@@ -312,12 +306,10 @@ test "smoke 5.4: clean teardown sequence — each step returns Ok" {
 
   // Drain FFI bookkeeping so leaks don't pollute later tests.
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None

@@ -19,17 +19,16 @@ priv struct JsonHandle {
 let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 
 ///|
-let json_handles : Map[Int, JsonHandle] = Map::default()
-
-///|
-let json_view_states : Map[Int, @editor.ViewUpdateState] = Map::default()
+/// Generic handle/view-state bookkeeping shared with the other language FFI
+/// packages via `ffi/host`. Keyed by the exported integer handle.
+let json_registry : @host.HostRegistry[JsonHandle] = @host.HostRegistry::HostRegistry()
 
 // ── Lifecycle ────────────────────────────────────────────────────────────
 
 ///|
 /// Build a JSON editor on the shared runtime, then atomically register its
 /// protected cells with the coordinator. Returns the freshly-allocated
-/// `EditorId`. Aborting at any step leaves `json_handles` untouched
+/// `EditorId`. Aborting at any step leaves `json_registry` untouched
 /// (atomic-boundary observation, spec §3.6).
 fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
   let editor = @json_companion.new_json_editor(
@@ -41,7 +40,7 @@ fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
     agent_id,
     cells.to_protected_reads(),
   )
-  json_handles[editor_id.0] = { editor, editor_id, cells }
+  json_registry.insert(editor_id.0, { editor, editor_id, cells })
   editor_id
 }
 
@@ -54,28 +53,20 @@ pub fn create_json_editor(agent_id : String) -> Int {
 ///|
 /// Destroy a JSON editor and free its resources. The coordinator gateway
 /// refuses if workspace deps still reference the editor; in that case the
-/// FFI-side bookkeeping (json_handles entry, view_states entry) is
+/// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid.
 pub fn destroy_json_editor(handle : Int) -> Unit {
-  let h = match json_handles.get(handle) {
+  let h = match json_registry.get(handle) {
     Some(v) => v
     None => return
   }
-  match coordinator.destroy_editor(h.editor_id) {
-    Ok(_) => ()
-    Err(report) => {
-      println("destroy_json_editor refused: \{report}")
-      return
-    }
-  }
-  json_handles.remove(handle)
-  json_view_states.remove(handle)
+  let _ = json_registry.destroy(coordinator, h.editor_id, "destroy_json_editor")
 }
 
 ///|
 /// Get current text content of the JSON editor.
 pub fn json_get_text(handle : Int) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
   }
@@ -84,7 +75,7 @@ pub fn json_get_text(handle : Int) -> String {
 ///|
 /// Set text content directly (replaces entire JSON document).
 pub fn json_set_text(handle : Int, new_text : String) -> Unit {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()
   }
@@ -102,7 +93,7 @@ pub fn json_set_text(handle : Int, new_text : String) -> Unit {
 /// spurious empty-doc parser diagnostics that consumers were never
 /// previously exposed to (Codex round-2 #1).
 pub fn json_get_errors(handle : Int) -> String {
-  let h = match json_handles.get(handle) {
+  let h = match json_registry.get(handle) {
     Some(v) => v
     None => return "[]"
   }
@@ -122,7 +113,7 @@ pub fn json_get_errors(handle : Int) -> String {
 /// Get the ProjNode tree as JSON string.
 /// Returns "null" if no projection is available or the protected read fails.
 pub fn json_get_proj_node_json(handle : Int) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
         Ok(Some(proj)) => proj.to_json().stringify()
@@ -141,7 +132,7 @@ pub fn json_get_proj_node_json(handle : Int) -> String {
 /// Returns an array of {node_id, start, end} entries, or "[]" if the
 /// protected read fails.
 pub fn json_get_source_map_json(handle : Int) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
         Ok(sm) => sm.to_json().stringify()
@@ -160,7 +151,7 @@ pub fn json_get_source_map_json(handle : Int) -> String {
 /// Get the ViewNode tree as JSON for a JSON editor.
 /// Returns "null" if no projection is available or any protected read fails.
 pub fn json_get_view_tree_json(handle : Int) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -200,7 +191,7 @@ pub fn json_get_view_tree_json(handle : Int) -> String {
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
 pub fn json_compute_view_patches_json(handle : Int) -> String {
-  match json_handles.get(handle) {
+  match json_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -234,14 +225,7 @@ pub fn json_compute_view_patches_json(handle : Int) -> String {
           return "[]"
         }
       }
-      let state = match json_view_states.get(handle) {
-        Some(s) => s
-        None => {
-          let s = @editor.ViewUpdateState::ViewUpdateState()
-          json_view_states[handle] = s
-          s
-        }
-      }
+      let state = json_registry.view_state(handle)
       let patches = @editor.compute_view_patches(state, h.editor)
       Json::array(patches.map(fn(p) { p.to_json() })).stringify()
     }

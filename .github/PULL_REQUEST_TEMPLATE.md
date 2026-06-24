@@ -7,6 +7,9 @@
 ## Reuse check
 
 <!-- Required when adding new functions, methods, helpers, or types. Skip only for pure docs/config changes. -->
+<!-- Include project APIs and actual MoonBit core APIs for the data shape involved
+     (Map/Set/String/StringView/Bytes/Buffer/Option/Result/cmp/math/Array/Iter, etc.).
+     Do not satisfy this by listing only Iter/Array unless the change is purely collection iteration. -->
 
 Existing APIs considered:
 

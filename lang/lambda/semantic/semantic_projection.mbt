@@ -37,18 +37,43 @@ pub fn build_semantic_projection(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
 ) -> SemanticProjection {
-  build_semantic_projection_with_module_projection(root, source_map, None)
+  let projection = SemanticProjection::empty()
+  analyze_node(root, source_map, [], projection)
+  push_scope_failures(root, source_map, projection)
+  projection
 }
 
 ///|
-pub fn build_semantic_projection_with_module_projection(
+/// Source the free-variable diagnostics from the lambda scope graph rather than
+/// the projection's own environment walk (research note 2026-06-13 §6 Step 1).
+/// Each unresolved reference (`resolution.decl == None`) is a witnessed
+/// `ReachableFailure`; for today's lexical lambda language that failure is
+/// genuinely reachable, so the squiggle now rests on the resolver of record
+/// instead of a parallel `env.contains` check.
+///
+/// The scope graph is reconstructed from `root`. Both the registry and the
+/// diagnostic ranges derive from that same tree, so resolution stays consistent
+/// with the spans where squiggles land. Incremental maintenance (avoiding this
+/// rebuild) is §6 Step 3, benchmark-gated.
+fn push_scope_failures(
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
-  module_projection : @lambda_proj.ModuleProjection?,
-) -> SemanticProjection {
-  let projection = SemanticProjection::empty()
-  analyze_node(root, source_map, [], projection, module_projection)
-  projection
+  projection : SemanticProjection,
+) -> Unit {
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  @core.collect_registry(root, registry)
+  let graph = @lambda_scope.build(registry, source_map)
+  for failure in @lambda_scope.failures(graph, source_map) {
+    guard failure.location is Some(range) else { continue }
+    projection.diagnostics.push(
+      @protocol.Diagnostic(
+        from=range.start,
+        to=range.end,
+        severity=@protocol.SevWarning,
+        message="Free variable '" + failure.name + "'",
+      ),
+    )
+  }
 }
 
 ///|
@@ -57,26 +82,25 @@ fn analyze_node(
   source_map : @core.SourceMap,
   env : Array[String],
   projection : SemanticProjection,
-  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   match node.kind {
     @ast.Term::Module(defs, _) =>
-      analyze_module(node, source_map, defs, env, projection, module_projection)
+      analyze_module(node, source_map, defs, env, projection)
     @ast.Term::Lam(param, _) =>
       analyze_lambda(node, source_map, param, env, projection)
     @ast.Term::Var(name) | @ast.Term::Unbound(name) =>
       analyze_var(node, source_map, name, env, projection)
     @ast.Term::LetDef(_, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::App(_, _) | @ast.Term::Bop(_, _, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::If(_, _, _) =>
       for child in node.children {
-        analyze_node(child, source_map, env, projection, None)
+        analyze_node(child, source_map, env, projection)
       }
     @ast.Term::Int(_)
     | @ast.Term::Unit
@@ -92,7 +116,6 @@ fn analyze_module(
   defs : Array[(@ast.VarName, @ast.Term)],
   env : Array[String],
   projection : SemanticProjection,
-  module_projection : @lambda_proj.ModuleProjection?,
 ) -> Unit {
   let scoped = env.copy()
   for i, def in defs {
@@ -100,7 +123,7 @@ fn analyze_module(
     let binder_id = if i < node.children.length() {
       node.children[i].id()
     } else {
-      module_binding_node_id(module_projection, i).unwrap_or(node.id())
+      node.id()
     }
     add_annotation(
       projection,
@@ -125,30 +148,13 @@ fn analyze_module(
       None => ()
     }
     if i < node.children.length() {
-      analyze_node(node.children[i], source_map, scoped, projection, None)
+      analyze_node(node.children[i], source_map, scoped, projection)
     }
     scoped.push(name)
   }
   let body_index = defs.length()
   if body_index < node.children.length() {
-    analyze_node(
-      node.children[body_index],
-      source_map,
-      scoped,
-      projection,
-      None,
-    )
-  }
-}
-
-///|
-fn module_binding_node_id(
-  module_projection : @lambda_proj.ModuleProjection?,
-  def_index : Int,
-) -> @core.NodeId? {
-  match module_projection {
-    Some(fp) if def_index < fp.defs.length() => Some(fp.defs[def_index].3)
-    _ => None
+    analyze_node(node.children[body_index], source_map, scoped, projection)
   }
 }
 
@@ -163,7 +169,7 @@ fn analyze_lambda(
   add_annotation(
     projection,
     node.id(),
-    @protocol.ViewAnnotation(kind="semantic-binder", label="λ" + param),
+    @protocol.ViewAnnotation(kind="semantic-binder", label="(" + param + ") =>"),
   )
   match source_map.get_token_span(node.id(), @lambda_proj.PARAM_ROLE) {
     Some(range) =>
@@ -179,7 +185,7 @@ fn analyze_lambda(
   let scoped = env.copy()
   scoped.push(param)
   if node.children.length() > 0 {
-    analyze_node(node.children[0], source_map, scoped, projection, None)
+    analyze_node(node.children[0], source_map, scoped, projection)
   }
 }
 
@@ -221,18 +227,6 @@ fn analyze_var(
       "semantic-free",
       name,
     )
-    match source_map.get_range(node.id()) {
-      Some(range) =>
-        projection.diagnostics.push(
-          @protocol.Diagnostic(
-            from=range.start,
-            to=range.end,
-            severity=@protocol.SevWarning,
-            message="Free variable '" + name + "'",
-          ),
-        )
-      None => ()
-    }
   }
 }
 

@@ -7,7 +7,7 @@ let pretty_view_states : Map[Int, @editor.ViewUpdateState] = Map::default()
 /// Get the pretty-printed ViewNode tree as JSON for a lambda editor.
 /// Returns "null" if any protected read fails.
 pub fn get_pretty_view_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.parser_ast) {
@@ -36,7 +36,7 @@ pub fn get_pretty_view_json(handle : Int) -> String {
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
 pub fn compute_pretty_patches_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.parser_ast) {
@@ -54,14 +54,9 @@ pub fn compute_pretty_patches_json(handle : Int) -> String {
           return "[]"
         }
       }
-      let state = match pretty_view_states.get(handle) {
-        Some(s) => s
-        None => {
-          let s = @editor.ViewUpdateState::ViewUpdateState()
-          pretty_view_states[handle] = s
-          s
-        }
-      }
+      let state = pretty_view_states.get_or_init(handle, () => {
+        @editor.ViewUpdateState::ViewUpdateState()
+      })
       let patches = @editor.compute_pretty_patches(state, h.editor)
       Json::array(patches.map(fn(p) { p.to_json() })).stringify()
     }

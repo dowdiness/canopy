@@ -4,15 +4,18 @@ fn compute_wrap_lambda(
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found in registry")
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
-  let existing = @ast.print_term(node.kind)
-  let wrapped = "(λ" + var_name + ". " + existing + ")"
+  let wrapped = @ast.print_term(@ast.Term::Lam(var_name, node.kind))
+  let wrapped = match find_parent(ctx.registry, node_id) {
+    Some(_) => "(" + wrapped + ")"
+    None => wrapped
+  }
   Ok(
     Some(
       (
@@ -34,12 +37,12 @@ fn compute_wrap_app(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found in registry")
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(App(node.kind, Var("a")))
   Ok(
@@ -63,12 +66,12 @@ fn compute_wrap_if(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(If(Int(0), node.kind, Int(0)))
   // "if 0 then ..." — condition placeholder "0" starts at offset 3
@@ -95,12 +98,12 @@ fn compute_wrap_bop(
   node_id : NodeId,
   op : @ast.Bop,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   let wrapped = @ast.print_term(Bop(op, node.kind, Int(0)))
   // "(expr + 0)" — placeholder "0" is at wrapped.length() - 2 from start
@@ -147,13 +150,15 @@ fn compute_insert_child(
         // Insert before the body (last child)
         let body = parent_node.children[parent_node.children.length() - 1]
         match source_map.get_range(body.id()) {
-          Some(r) => r.start
-          None => parent_range.end
+          // Synthetic body (empty-def block): body start equals parent end.
+          // Insert before the closing brace instead of after it.
+          Some(r) if r.start < parent_range.end => r.start
+          _ => parent_range.end - 1
         }
       } else {
         match source_map.get_range(parent_node.children[index].id()) {
-          Some(r) => r.start
-          None => parent_range.start
+          Some(r) if r.start < parent_range.end => r.start
+          _ => parent_range.end - 1
         }
       }
       Ok(
@@ -166,8 +171,13 @@ fn compute_insert_child(
       )
     }
     _ => {
+      match
+        ensure_replaceable_node_range(ctx, parent, parent_node, parent_range) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
       // Re-render whole parent with new child inserted
-      let new_child = ProjNode::new(kind, 0, 0, 0, [])
+      let new_child = ProjNode(kind, 0, 0, 0, [])
       let new_parent = insert_child_at(parent_node, index, new_child)
       let new_text = @ast.print_term(new_parent.kind)
       Ok(

@@ -1,0 +1,7 @@
+options(
+  is_main: false,
+  targets: {
+    "websocket_js.mbt": [ "js" ],
+    "websocket_native.mbt": [ "not", "js" ],
+  },
+)

@@ -2,10 +2,6 @@
 // Projection views subscribe to the parser's reactive memos.
 
 ///|
-/// Default watchdog timeout in milliseconds.
-const DEFAULT_WATCHDOG_MS : Int = 5000
-
-///|
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
@@ -19,13 +15,15 @@ pub struct SyncEditor[T] {
   priv cursor_view : PeerCursorView
   priv peer_id : String
   priv mut ws : JsWebSocket?
-  priv mut recovery : RecoveryContext?
-  priv mut recovery_epoch : Int
+  priv session : @sync_session.SyncSession
   priv mut projection_dirty : Bool
-  priv mut status : SyncStatus
-  priv mut on_status_change : ((SyncStatus) -> Unit)?
-  priv mut watchdog_scheduler : ((Int, Int) -> Unit)?
-  priv mut watchdog_timeout_ms : Int
+  // Structural-edit identity hints accumulated since the last reconcile.
+  // Structural edits push their IdentityTransform here; raw-text edits push
+  // Opaque (taint) when non-empty. Consumed and cleared once per reparse by
+  // the reconcile_node closure in build_lambda_projection_memos.
+  // T4: cleared exactly once per reconcile pass (never stale).
+  // T1 invariant: hints reference only prev-tree NodeIds valid at push time.
+  priv pending_transforms : Ref[Array[@core.IdentityTransform]]
   // Process-local construction identity. Two `SyncEditor` instances
   // constructed separately have different identities; the same instance
   // always returns the same value. Used as a cache key in history-view
@@ -49,7 +47,16 @@ pub fn[T] SyncEditor::new_generic(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
   capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
+  // Optional shared Ref for the structural-edit hint channel. The caller
+  // (e.g. new_lambda_editor) creates a `Ref([])`, passes it here AND into
+  // build_memos so the reconcile_node closure can consume+clear it. Callers
+  // that don't use hints omit this; they get an isolated Ref that is never read.
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
 ) -> SyncEditor[T] {
+  let pending_transforms = match identity_hints {
+    Some(r) => r
+    None => Ref([])
+  }
   let parser = make_parser("", parent_runtime)
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
@@ -66,13 +73,9 @@ pub fn[T] SyncEditor::new_generic(
     cursor_view,
     peer_id: agent_id,
     ws: None,
-    recovery: None,
-    recovery_epoch: 0,
+    session: @sync_session.SyncSession::SyncSession(),
     projection_dirty: false,
-    status: SyncStatus::Disconnected,
-    on_status_change: None,
-    watchdog_scheduler: None,
-    watchdog_timeout_ms: DEFAULT_WATCHDOG_MS,
+    pending_transforms,
     identity: next_editor_identity(),
   }
 }
@@ -215,7 +218,7 @@ pub fn[T] SyncEditor::subscribe_ephemeral_local(
 ///|
 /// Get the current sync status.
 pub fn[T] SyncEditor::get_sync_status(self : SyncEditor[T]) -> SyncStatus {
-  self.status
+  self.session.get_status()
 }
 
 ///|
@@ -225,7 +228,7 @@ pub fn[T] SyncEditor::set_on_status_change(
   self : SyncEditor[T],
   callback : ((SyncStatus) -> Unit)?,
 ) -> Unit {
-  self.on_status_change = callback
+  self.session.set_on_status_change(callback)
 }
 
 ///|
@@ -240,7 +243,7 @@ pub fn[T] SyncEditor::set_watchdog_scheduler(
   self : SyncEditor[T],
   scheduler : ((Int, Int) -> Unit)?,
 ) -> Unit {
-  self.watchdog_scheduler = scheduler
+  self.session.set_watchdog_scheduler(scheduler)
 }
 
 ///|
@@ -249,7 +252,7 @@ pub fn[T] SyncEditor::set_watchdog_timeout(
   self : SyncEditor[T],
   ms : Int,
 ) -> Unit {
-  self.watchdog_timeout_ms = ms
+  self.session.set_watchdog_timeout(ms)
 }
 
 ///|
@@ -260,30 +263,13 @@ pub fn[T] SyncEditor::on_watchdog_fire(
   self : SyncEditor[T],
   request_id : Int,
 ) -> Unit {
-  guard self.recovery is Some(ctx) else { return }
-  guard ctx.matches_request_id(request_id.to_string()) else { return }
-  self.handle_recovery_retry()
-}
-
-///|
-/// Internal: transition to a new status, emitting callback only on change.
-fn[T] SyncEditor::set_status(
-  self : SyncEditor[T],
-  new_status : SyncStatus,
-) -> Unit {
-  if self.status == new_status {
-    return
-  }
-  self.status = new_status
-  if self.on_status_change is Some(cb) {
-    cb(new_status)
-  }
+  self.session.on_watchdog_fire(request_id, self.sync_io())
 }
 
 // ── Projection accessors ─────────────────────────────────────────────────
 
 ///|
-/// Returns the cached ProjNode (converted from ModuleProjection once per invalidation).
+/// Returns the cached projection tree.
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
   self.cached_proj_node.read_or_abort()
@@ -305,7 +291,8 @@ pub fn[T] SyncEditor::get_registry(
 }
 
 ///|
-/// Reactive view of the cached ProjNode tree, or `None` on empty source.
+/// Reactive view of the cached ProjNode tree. A language-specific memo may
+/// return `None` when it has no projection to publish.
 /// Returns the underlying Derived cell for use by workspace-coordinator
 /// subscribers that need to react to changes rather than read eagerly.
 pub fn[T] SyncEditor::cached_proj_node(
@@ -372,17 +359,43 @@ pub fn[T] SyncEditor::get_node_range(
 // ── Span-edit application ────────────────────────────────────────────────
 
 ///|
+/// Push `Opaque` to `pending_transforms` iff the array is already non-empty.
+/// Raw-text edit paths call this so that any structural hint accumulated before
+/// the raw edit is invalidated (T2: no silent stale-hint trust).
+/// No-op during normal typing when no structural hint is pending.
+fn[T] SyncEditor::taint_pending_transforms(self : SyncEditor[T]) -> Unit {
+  if !self.pending_transforms.val.is_empty() {
+    self.pending_transforms.val.push(@core.IdentityTransform::Opaque)
+  }
+}
+
+///|
 /// Apply a list of SpanEdits through the text CRDT, then adjust the cursor
 /// per the FocusHint. Edits are applied in reverse document order to avoid
 /// position shifts. All edits are recorded for undo.
+///
+/// `hint` carries the structural-edit identity hint for this batch of span
+/// edits. When provided, it is accumulated in `pending_transforms` for the
+/// next reconcile pass. Callers that do not know the hint omit this
+/// parameter (default: not pushed).
 pub fn[T : Eq] SyncEditor::apply_span_edits(
   self : SyncEditor[T],
   edits : Array[@core.SpanEdit],
   focus_hint : @core.FocusHint,
   timestamp_ms : Int,
+  hint? : @core.IdentityTransform,
 ) -> Unit {
   if edits.is_empty() {
     return
+  }
+  // Snapshot text before applying edits so we can detect net-no-op batches
+  // (e.g. CommitEdit with the same text). Only needed when a hint is provided.
+  let text_before : String? = match hint {
+    Some(h) => {
+      self.pending_transforms.val.push(h)
+      Some(self.get_text())
+    }
+    None => None
   }
   let old_cursor = self.get_cursor()
   let sorted = edits.copy()
@@ -396,6 +409,16 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
       true, // record_undo — grouped by capture timeout
       false, // move_cursor_to_edit_end
     )
+  }
+  // Drop a pre-pushed hint when the batch produced no text change (T4).
+  // Real changes need the hint available during apply_local_text_change's
+  // immediate reconcile pass; no-op batches have no reparse to consume it.
+  match (hint, text_before) {
+    (Some(_), Some(before)) =>
+      if before == self.get_text() {
+        let _ = self.pending_transforms.val.pop()
+      }
+    _ => ()
   }
   match focus_hint {
     @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
@@ -418,6 +441,7 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
 ) -> Unit raise {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
   self.doc.sync().apply(msg) catch {
@@ -438,9 +462,7 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self.sync_parser_after_text_change(old_source, new_source, None)
   // Clear a prior Error status once any sync applies — another peer
   // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
-  if self.status is Error(_) {
-    self.set_status(Idle)
-  }
+  self.session.note_sync_applied()
 }
 
 ///|

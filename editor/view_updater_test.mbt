@@ -1,27 +1,74 @@
 // Tests for ViewUpdater: compute_view_patches and get_view_tree.
-
-///|
-test "get_view_tree returns None for empty editor" {
-  let editor = @lambda.new_lambda_editor("test").0
-  let tree = editor.get_view_tree()
-  assert_true(tree is None)
-}
+// Uses the neutral TestExpr grammar — these exercise the generic view-diffing
+// pipeline (FullTree / Update / Replace / Insert / Remove / diagnostics), not
+// language-specific decorations (those live in lang/lambda).
 
 ///|
 test "get_view_tree returns ViewNode for non-empty editor" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("\\x.x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x)")
   let tree = editor.get_view_tree()
   assert_true(tree is Some(_))
   let node = tree.unwrap()
-  inspect(node.kind_tag, content="Lam")
+  inspect(node.kind_tag, content="Branch")
   assert_true(node.children.length() > 0)
 }
 
 ///|
+// #2 (issue #600): the empty / first-render generic editor. Unlike lambda
+// (whose empty source folds to `None`), the neutral TestExpr grammar always
+// yields the empty-document `Branch("", [])`, so `get_view_tree` is `Some` even
+// with no text and the first `compute_view_patches` emits a `FullTree`. This
+// pins the generic empty-document behavior, which the moved lambda companion
+// test (`editor_view_decorations_test.mbt`) does not cover.
+test "empty generic editor yields an empty-document view and a FullTree patch" {
+  let editor = @probe.new_test_editor("test")
+  // No text inserted.
+  let tree = editor.get_view_tree()
+  assert_true(tree is Some(_))
+  let node = tree.unwrap()
+  inspect(node.kind_tag, content="Branch")
+  inspect(node.label, content="")
+  inspect(node.children.length(), content="0")
+  // First render emits a FullTree patch (previous view is None).
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  let patches = @editor.compute_view_patches(state, editor)
+  let has_full_tree = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::FullTree(_) => true
+        _ => false
+      }
+    })
+  assert_true(has_full_tree)
+}
+
+///|
+// #3 (issue #600): NodeId stability across an unrelated sibling edit, on the
+// neutral grammar. Editing one sibling's label must not renumber an untouched
+// sibling — `reconcile` preserves the NodeId when `same_kind` holds. The moved
+// lambda companion test asserts this only against lambda's Module/def-index
+// projection; this pins it for the generic pipeline.
+test "NodeId stable across an unrelated sibling edit" {
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x y)")
+  // root Branch("") -> child Branch("f") -> [Leaf("x"), Leaf("y")]
+  let root = editor.get_proj_node().unwrap()
+  let x_id = root.children[0].children[0].id()
+  // Edit only the sibling: "y" -> "z". The "x" leaf is untouched.
+  editor.set_text("f(x z)")
+  // "x" must keep its identity: the same NodeId still resolves to Leaf("x").
+  match editor.get_node(x_id) {
+    Some(node) => inspect(node.kind, content="Leaf(\"x\")")
+    None => fail("x leaf lost its NodeId after an unrelated sibling edit")
+  }
+}
+
+///|
 test "initial state produces FullTree patch" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("\\x.x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
   // Should contain FullTree since previous is None
@@ -38,8 +85,8 @@ test "initial state produces FullTree patch" {
 
 ///|
 test "unchanged tree produces no tree patches" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("\\x.x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   // First call: FullTree
   let _ = @editor.compute_view_patches(state, editor)
@@ -63,39 +110,54 @@ test "unchanged tree produces no tree patches" {
 }
 
 ///|
-test "single character edit produces UpdateNode or ReplaceNode for changed leaf" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("1")
+// #8 (issue #600): a pure leaf-label change must emit a minimal `UpdateNode`,
+// not a `ReplaceNode`. The Leaf("a") -> Leaf("b") edit keeps the kind (so
+// `same_kind` holds, the NodeId is preserved) and TestExpr has all-None
+// capabilities — no eval-annotation churn to force a wider patch. The earlier
+// UpdateNode-OR-ReplaceNode looseness only existed to tolerate lambda's
+// eval-annotation diffs, which the generic pipeline does not produce. Assert
+// the tight shape so diff minimality is actually verified.
+test "single character leaf edit produces a minimal UpdateNode (not ReplaceNode)" {
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
-  // Change "1" to "2"
-  editor.set_text("2")
+  // Change "a" to "b"
+  editor.set_text("b")
   let patches = @editor.compute_view_patches(state, editor)
-  // Should contain an UpdateNode or ReplaceNode reflecting the new value "2".
-  // With language capabilities providing eval annotations, annotation changes
-  // may cause ReplaceNode instead of UpdateNode.
-  let has_update = patches
+  // The new label "b" arrives via UpdateNode...
+  let has_update_b = patches
     .iter()
     .any(fn(p) {
       match p {
-        @protocol.ViewPatch::UpdateNode(label~, ..) => label == "2"
-        @protocol.ViewPatch::ReplaceNode(node~, ..) => node.label == "2"
+        @protocol.ViewPatch::UpdateNode(label~, ..) => label == "b"
         _ => false
       }
     })
-  assert_true(has_update)
+  assert_true(has_update_b)
+  // ...and NOT via a ReplaceNode (which would mean the diff rebuilt the leaf
+  // instead of updating it in place).
+  let has_replace = patches
+    .iter()
+    .any(fn(p) {
+      match p {
+        @protocol.ViewPatch::ReplaceNode(_) => true
+        _ => false
+      }
+    })
+  assert_false(has_replace)
 }
 
 ///|
 test "structural edit produces ReplaceNode" {
-  let editor = @lambda.new_lambda_editor("test").0
+  let editor = @probe.new_test_editor("test")
   editor.set_text("x")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
-  // Change from Var to Lam — structural change
-  editor.set_text("\\x.x")
+  // Change from Leaf to Branch — structural change
+  editor.set_text("f(x)")
   let patches = @editor.compute_view_patches(state, editor)
-  // Should contain a ReplaceNode (kind changed from Var to Lam)
+  // Should contain a ReplaceNode (kind changed from Leaf to Branch)
   let has_replace = patches
     .iter()
     .any(fn(p) {
@@ -109,8 +171,8 @@ test "structural edit produces ReplaceNode" {
 
 ///|
 test "diagnostics are emitted for parse errors" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x +")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("foo(") // unclosed '('
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
   // Should contain SetDiagnostics with errors
@@ -128,12 +190,12 @@ test "diagnostics are emitted for parse errors" {
 
 ///|
 test "diagnostics are cleared when parse succeeds" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x +")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("foo(") // unclosed '('
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
   // Fix the parse error
-  editor.set_text("x + 1")
+  editor.set_text("foo(x)")
   let patches = @editor.compute_view_patches(state, editor)
   // Should contain SetDiagnostics with empty diagnostics
   let has_empty_diagnostics = patches
@@ -150,12 +212,12 @@ test "diagnostics are cleared when parse succeeds" {
 
 ///|
 test "child insertion detected" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nx")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(a)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
-  // Add another definition
-  editor.set_text("let x = 1\nlet y = 2\nx")
+  // Add another child
+  editor.set_text("f(a b)")
   let patches = @editor.compute_view_patches(state, editor)
   // Should have InsertChild or ReplaceNode for the structural change
   let has_structural = patches
@@ -172,12 +234,12 @@ test "child insertion detected" {
 
 ///|
 test "child removal detected" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nlet y = 2\nx")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(a b)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
-  // Remove one definition
-  editor.set_text("let x = 1\nx")
+  // Remove one child
+  editor.set_text("f(a)")
   let patches = @editor.compute_view_patches(state, editor)
   // Should have RemoveChild or ReplaceNode
   let has_structural = patches
@@ -194,14 +256,14 @@ test "child removal detected" {
 
 ///|
 test "proj_to_view_node converts a simple ProjNode tree" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("\\x.x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x)")
   let proj_node = editor.get_proj_node().unwrap()
   let source_map = editor.get_source_map()
   let view_node = @protocol.proj_to_view_node(proj_node, source_map)
-  // Root should be Lam
-  inspect(view_node.kind_tag, content="Lam")
-  // Should have a child (the body Var)
+  // Root should be Branch
+  inspect(view_node.kind_tag, content="Branch")
+  // Should have a child
   assert_true(view_node.children.length() > 0)
   // JSON serialization should work
   let json_str = view_node.to_json().stringify()
@@ -209,80 +271,18 @@ test "proj_to_view_node converts a simple ProjNode tree" {
 }
 
 ///|
-test "proj_to_view_node node_count for 10 defs" {
-  let editor = @lambda.new_lambda_editor("test").0
+test "proj_to_view_node node_count for 10 branches" {
+  let editor = @probe.new_test_editor("test")
   let segments : Array[String] = []
   for i = 0; i < 10; i = i + 1 {
-    segments.push("let f\{i} = \\x.x + \{i}")
+    segments.push("f\{i}(x)")
   }
-  segments.push("f0")
-  editor.set_text(segments.join("\n"))
+  editor.set_text(segments.join(" "))
   let proj_node = editor.get_proj_node().unwrap()
   let source_map = editor.get_source_map()
   let view_node = @protocol.proj_to_view_node(proj_node, source_map)
   let count = view_node.node_count()
-  // Reasonable node count for 10 defs with lambda/bop structure
-  assert_true(count >= 30)
+  // Reasonable node count for 10 branches each with one leaf child.
+  assert_true(count >= 10)
   assert_true(count <= 200)
-}
-
-///|
-test "FullTree emitted when tree appears from empty" {
-  let editor = @lambda.new_lambda_editor("test").0
-  let state = @editor.ViewUpdateState::ViewUpdateState()
-  // Empty editor — no tree
-  let patches1 = @editor.compute_view_patches(state, editor)
-  let full_tree_none = patches1
-    .iter()
-    .any(fn(p) {
-      match p {
-        @protocol.ViewPatch::FullTree(root=None) => true
-        _ => false
-      }
-    })
-  assert_true(full_tree_none)
-  // Now add text
-  editor.set_text("1")
-  let patches2 = @editor.compute_view_patches(state, editor)
-  let full_tree_some = patches2
-    .iter()
-    .any(fn(p) {
-      match p {
-        @protocol.ViewPatch::FullTree(root=Some(_)) => true
-        _ => false
-      }
-    })
-  assert_true(full_tree_some)
-}
-
-///|
-test "semantic decorations are emitted and stable" {
-  let editor = @lambda.new_lambda_editor("test-semantic-decorations").0
-  editor.set_text("λx. x")
-  let state = @editor.ViewUpdateState::ViewUpdateState()
-  let patches = @editor.compute_view_patches(state, editor)
-  let has_semantic_decoration = patches
-    .iter()
-    .any(fn(p) {
-      match p {
-        @protocol.ViewPatch::SetDecorations(decorations~) =>
-          decorations
-          .iter()
-          .any(fn(d) {
-            d.css_class == "semantic-binder" || d.css_class == "semantic-bound"
-          })
-        _ => false
-      }
-    })
-  assert_true(has_semantic_decoration)
-  let unchanged = @editor.compute_view_patches(state, editor)
-  let repeats_decorations = unchanged
-    .iter()
-    .any(fn(p) {
-      match p {
-        @protocol.ViewPatch::SetDecorations(_) => true
-        _ => false
-      }
-    })
-  inspect(repeats_decorations, content="false")
 }

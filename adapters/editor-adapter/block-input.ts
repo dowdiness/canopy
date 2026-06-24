@@ -21,7 +21,23 @@ export interface BlockInputOptions {
    * changes.
    */
   stripParagraphSentinels?: (s: string) => string;
+
+  /** Return the current source text for marker-sensitive block chrome. */
+  getSourceText?: () => string;
 }
+
+type ListKind = 'ordered' | 'unordered';
+
+type ListContext = {
+  kind: ListKind;
+  index: number;
+  marker?: string;
+};
+
+type FlattenedBlock = {
+  node: ViewNode;
+  listContext?: ListContext;
+};
 
 // ---------------------------------------------------------------------------
 // BlockInput
@@ -36,6 +52,7 @@ export class BlockInput implements EditorAdapter {
   private composing = false;
   private intentCb: ((intent: UserIntent) => void) | null = null;
   private stripParagraphSentinels: (s: string) => string;
+  private getSourceText: (() => string) | null;
 
   constructor(container: HTMLElement, opts: BlockInputOptions = {}) {
     this.container = container;
@@ -45,6 +62,7 @@ export class BlockInput implements EditorAdapter {
     // `markdown_empty_paragraph_sentinel()` exported by `ffi/markdown/`.
     this.stripParagraphSentinels =
       opts.stripParagraphSentinels ?? ((s) => s.replace(/​/g, ''));
+    this.getSourceText = opts.getSourceText ?? null;
     this.container.classList.add('block-editor');
     this.onContainerClick = this.onContainerClick.bind(this);
     this.container.addEventListener('click', this.onContainerClick);
@@ -105,27 +123,70 @@ export class BlockInput implements EditorAdapter {
     if (this.activeBlockId !== null) this.positionTextarea();
   }
 
-  /** Recursively collect editable leaf blocks (flattens containers like UnorderedList) */
-  private collectEditableBlocks(node: ViewNode): ViewNode[] {
-    const result: ViewNode[] = [];
+  /** Recursively collect editable leaf blocks while preserving list context. */
+  private collectEditableBlocks(node: ViewNode): FlattenedBlock[] {
+    const result: FlattenedBlock[] = [];
+    const listKind = this.listKindFor(node.kind_tag);
+    let listIndex = 1;
+
     for (const child of node.children) {
+      const childListContext = listKind && this.isListItemKind(child.kind_tag)
+        ? {
+          kind: listKind,
+          index: listIndex++,
+          marker: listKind === 'ordered' ? this.sourceListMarker(child) : undefined,
+        }
+        : undefined;
+
       if (child.editable) {
-        result.push(child);
+        result.push({ node: child, listContext: childListContext });
       } else if (child.children.length > 0) {
-        // Container (e.g., UnorderedList) — descend into children
+        // Container (e.g., OrderedList/UnorderedList) — descend into children.
         result.push(...this.collectEditableBlocks(child));
       }
     }
     return result;
   }
 
+  private listKindFor(kindTag: string): ListKind | null {
+    switch (kindTag) {
+      case 'OrderedList': return 'ordered';
+      case 'List':
+      case 'UnorderedList': return 'unordered';
+      default: return null;
+    }
+  }
+
+  private isListItemKind(kindTag: string): boolean {
+    return kindTag === 'ListItem' ||
+      kindTag === 'UnorderedListItem' ||
+      kindTag === 'OrderedListItem';
+  }
+
+  private sourceListMarker(node: ViewNode): string | undefined {
+    const source = this.getSourceText?.();
+    const textSpan = node.token_spans.find(span => span.role === 'text');
+    if (!source || !textSpan) return undefined;
+
+    const prefix = source.slice(node.text_range[0], textSpan.start);
+    const marker = prefix.match(/^\s*(\d+[.)])/);
+    return marker?.[1];
+  }
+
   /** Create a semantic block element based on kind_tag. */
-  private createBlockDiv(node: ViewNode): HTMLElement {
+  private createBlockDiv(block: FlattenedBlock): HTMLElement {
+    const { node, listContext } = block;
     const el = this.semanticBlockElement(node.kind_tag);
     el.className = 'block' + (node.id === this.activeBlockId ? ' active' : '');
     if (node.css_class) el.className += ' ' + node.css_class;
     el.dataset.nodeId = String(node.id);
     el.dataset.kind = node.kind_tag;
+    if (listContext) {
+      el.dataset.listKind = listContext.kind;
+      if (listContext.kind === 'ordered') {
+        el.dataset.listMarker = listContext.marker ?? `${listContext.index}.`;
+      }
+    }
 
     const textSpan = document.createElement('span');
     textSpan.className = 'block-text';
@@ -147,7 +208,9 @@ export class BlockInput implements EditorAdapter {
     if (hLevel > 0) return document.createElement(`h${hLevel}`);
     switch (kindTag) {
       case 'Paragraph': return document.createElement('p');
-      case 'ListItem': return document.createElement('p');
+      case 'ListItem':
+      case 'UnorderedListItem':
+      case 'OrderedListItem': return document.createElement('p');
       default:
         if (kindTag.startsWith('Code'))
           return document.createElement('pre');
@@ -392,10 +455,10 @@ export class BlockInput implements EditorAdapter {
   private moveFocus(direction: -1 | 1): void {
     if (this.activeBlockId === null || !this.currentTree) return;
     const siblings = this.collectEditableBlocks(this.currentTree);
-    const idx = siblings.findIndex(c => c.id === this.activeBlockId);
+    const idx = siblings.findIndex(c => c.node.id === this.activeBlockId);
     const next = siblings[idx + direction];
     if (next) {
-      this.activateBlock(next.id);
+      this.activateBlock(next.node.id);
       // Place cursor at end when moving backward, start when moving forward
       if (this.textarea) {
         const pos = direction === -1 ? this.textarea.value.length : 0;

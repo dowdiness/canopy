@@ -768,7 +768,7 @@ test "find_proj_node_for_focus at root" {
   let term = @ast.Int(42)
   let z = from_root(term)
   // Build a minimal ProjNode manually
-  let proj = @core.ProjNode::new(term, 0, 2, @core.next_proj_node_id({ val: 0 }), [])
+  let proj = @core.ProjNode(term, 0, 2, @core.next_proj_node_id({ val: 0 }), [])
   let found = find_proj_node_for_focus(z, proj)
   inspect!(found.is_empty(), content="false")
 }
@@ -928,4 +928,4 @@ git add -A && git commit -m "chore: update .mbti interfaces for zipper package"
 
 4. **Test output format.** MoonBit's `inspect!` uses `derive(Show)` output. Run `moon test --update` if the exact string format doesn't match — then verify the updated snapshot is correct.
 
-5. **ProjNode construction in tests.** The `ProjNode` struct may require `pub(all)` access or a constructor. Check if `ProjNode::new` exists or if struct literal construction works from the test package. If not, use whitebox tests (the `_wbtest.mbt` suffix).
+5. **ProjNode construction in tests.** The `ProjNode` struct may require `pub(all)` access or a constructor. Check if `ProjNode` exists or if struct literal construction works from the test package. If not, use whitebox tests (the `_wbtest.mbt` suffix).

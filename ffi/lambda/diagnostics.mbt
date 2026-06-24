@@ -3,7 +3,7 @@
 ///|
 /// Get AST as DOT format with name resolution coloring
 pub fn get_ast_dot_resolved(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_dot_resolved(h.editor)
     None => "digraph { }"
   }
@@ -12,7 +12,7 @@ pub fn get_ast_dot_resolved(handle : Int) -> String {
 ///|
 /// Get AST as pretty-printed string (expression + debug tree)
 pub fn get_ast_pretty(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_ast_pretty(h.editor)
     None => ""
   }
@@ -21,7 +21,7 @@ pub fn get_ast_pretty(handle : Int) -> String {
 ///|
 /// Get parse errors as JSON array
 pub fn get_errors_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.get_errors().to_json().stringify()
     None => "[]"
   }
@@ -34,7 +34,7 @@ pub fn get_errors_json(handle : Int) -> String {
 /// named binding (e.g. `let f = y` → `def_name: "f"`); consumers should group,
 /// filter, or badge by this field rather than parsing the message string.
 pub fn get_diagnostics_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       // Read every protected cell this accessor depends on up front; any
       // Err collapses the whole accessor to "[]". Partial diagnostics from a
@@ -120,7 +120,7 @@ pub fn get_diagnostics_json(handle : Int) -> String {
 ///|
 /// Export all operations as a SyncMessage JSON string.
 pub fn export_all_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       h.editor.export_all().to_json_string() catch {
         _ => "{\"ops\":[],\"heads\":[]}"
@@ -132,7 +132,7 @@ pub fn export_all_json(handle : Int) -> String {
 ///|
 /// Export operations since a peer's version as a SyncMessage JSON string.
 pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       try {
         let ver = @text.Version::from_json_string(peer_version_json)
@@ -147,7 +147,7 @@ pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
 ///|
 /// Apply a SyncMessage received from a peer.
 pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       try {
         let msg = @text.SyncMessage::from_json_string(sync_json)
@@ -163,7 +163,7 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 ///|
 /// Get the current version as a JSON string.
 pub fn get_version_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.get_version().to_json_string()
     None => "\"\""
   }
@@ -173,7 +173,7 @@ pub fn get_version_json(handle : Int) -> String {
 /// Get the ProjNode tree as JSON string.
 /// Returns "null" if no projection is available or the protected read fails.
 pub fn get_proj_node_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
         Ok(Some(proj)) => proj.to_json().stringify()
@@ -192,7 +192,7 @@ pub fn get_proj_node_json(handle : Int) -> String {
 /// Returns an array of {node_id, start, end} entries, or "[]" if the
 /// protected read fails.
 pub fn get_source_map_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
         Ok(sm) => sm.to_json().stringify()

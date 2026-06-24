@@ -10,8 +10,8 @@ test "wmh A1: sanity sum equals known value across two editors" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_a1_a")
   let handle_b = create_editor("wmh_a1_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
@@ -46,12 +46,10 @@ test "wmh A1: sanity sum equals known value across two editors" {
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -63,8 +61,8 @@ test "wmh A2: reactivity — mutation in editor A invalidates and recomputes" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_a2_a")
   let handle_b = create_editor("wmh_a2_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
@@ -101,12 +99,10 @@ test "wmh A2: reactivity — mutation in editor A invalidates and recomputes" {
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -118,8 +114,8 @@ test "wmh A3: clean teardown — destroy succeeds after dispose" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_a3_a")
   let handle_b = create_editor("wmh_a3_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
@@ -154,12 +150,10 @@ test "wmh A3: clean teardown — destroy succeeds after dispose" {
     Err(r) => fail("A3 expected Ok destroying h_b after dispose, got \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -171,8 +165,8 @@ test "wmh B1: bad-cell rejection + atomicity" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_b1_a")
   let handle_b = create_editor("wmh_b1_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let bad : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
   // A VALID dep on editor A precedes the bad dep (B's cell named under A, not
   // in A's protected surface). A validate-while-register impl would register
@@ -198,12 +192,10 @@ test "wmh B1: bad-cell rejection + atomicity" {
     Err(r) => fail("B1 destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -215,8 +207,8 @@ test "wmh B2: dead-editor rejection" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_b2_a")
   let handle_b = create_editor("wmh_b2_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   match coordinator.destroy_editor(h_a.editor_id) {
     Ok(_) => ()
     Err(r) => fail("B2 setup: destroy h_a should be Ok, got \{r}")
@@ -234,12 +226,10 @@ test "wmh B2: dead-editor rejection" {
     Err(r) => fail("B2 destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -250,7 +240,7 @@ test "wmh B2: dead-editor rejection" {
 test "panic wmh B3: registering the same memo twice aborts" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_b3_a")
-  let h_a = lambda_handles.get(handle_a).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
   let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     match coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s.length()
@@ -278,8 +268,8 @@ test "wmh C: destroy refusal under live handle" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_c_a")
   let handle_b = create_editor("wmh_c_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
@@ -326,12 +316,10 @@ test "wmh C: destroy refusal under live handle" {
     Err(r) => fail("teardown destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
@@ -343,8 +331,8 @@ test "wmh D: idempotent dispose — second dispose is a safe no-op" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_d_a")
   let handle_b = create_editor("wmh_d_b")
-  let h_a = lambda_handles.get(handle_a).unwrap()
-  let h_b = lambda_handles.get(handle_b).unwrap()
+  let h_a = lambda_registry.get(handle_a).unwrap()
+  let h_b = lambda_registry.get(handle_b).unwrap()
   let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
@@ -380,12 +368,10 @@ test "wmh D: idempotent dispose — second dispose is a safe no-op" {
     Err(r) => fail("D destroy h_b: \{r}")
   }
   h_a.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_a)
-  view_states.remove(handle_a)
+  lambda_registry.remove(handle_a)
   pretty_view_states.remove(handle_a)
   h_b.companion.dispose_analysis_attachment()
-  lambda_handles.remove(handle_b)
-  view_states.remove(handle_b)
+  lambda_registry.remove(handle_b)
   pretty_view_states.remove(handle_b)
   if last_created_handle.val == Some(handle_b) {
     last_created_handle.val = None
