@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.43.0",
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "@types/ws": "^8.5.12",
     "playwright": "^1.57.0",
     "rollup-plugin-visualizer": "^7.0.1",
