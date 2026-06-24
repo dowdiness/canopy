@@ -70,7 +70,7 @@ pub fn[T] RoseNode::RoseNode(data~ : T, children? : Array[RoseNode[T]] = []) -> 
 pub fn[T] RoseZipper::from_root(tree : RoseNode[T]) -> RoseZipper[T]
 ```
 
-`RoseNode::RoseNode(data=x)` creates a leaf. `RoseNode::RoseNode(data=x, children=kids)` creates an internal node.
+`RoseNode(data=x)` creates a leaf. `RoseNode(data=x, children=kids)` creates an internal node.
 
 ### Navigation
 
