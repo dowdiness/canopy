@@ -29,7 +29,7 @@ test "lower: unresolved source var remains free" {
 
 ///|
 test "lower: source Unbound origin is preserved" {
-  let root = @core.ProjNode::new(@ast.Term::Unbound("missing"), 0, 7, 0, [])
+  let root = @core.ProjNode(@ast.Term::Unbound("missing"), 0, 7, 0, [])
   let graph = graph_for_root(root)
   guard lower_root(root, graph) is Var(Free(free)) else {
     fail("expected free unbound")
@@ -40,8 +40,8 @@ test "lower: source Unbound origin is preserved" {
 
 ///|
 test "lower: source Unbound remains free even when a binder has the same name" {
-  let child = @core.ProjNode::new(@ast.Term::Unbound("x"), 0, 1, 1, [])
-  let root = @core.ProjNode::new(
+  let child = @core.ProjNode(@ast.Term::Unbound("x"), 0, 1, 1, [])
+  let root = @core.ProjNode(
     @ast.Term::Lam("x", @ast.Term::Unbound("x")),
     0,
     8,
@@ -58,8 +58,8 @@ test "lower: source Unbound remains free even when a binder has the same name" {
 
 ///|
 test "lower: Error and Hole survive" {
-  let error_root = @core.ProjNode::new(@ast.Term::Error("bad"), 0, 3, 0, [])
-  let hole_root = @core.ProjNode::new(@ast.Term::Hole(2), 0, 1, 0, [])
+  let error_root = @core.ProjNode(@ast.Term::Error("bad"), 0, 3, 0, [])
+  let hole_root = @core.ProjNode(@ast.Term::Hole(2), 0, 1, 0, [])
   inspect(
     lower_root(error_root, graph_for_root(error_root)) is Error("bad"),
     content="true",
@@ -89,20 +89,8 @@ test "lower: sequential module scope follows ScopeGraph" {
 ///|
 test "lower: generated fallback binder ids use node identity" {
   let binders : Map[@core.NodeId, Binder] = {}
-  let first = @core.ProjNode::new(
-    @ast.Term::Lam("x", @ast.Term::Unit),
-    0,
-    0,
-    7,
-    [],
-  )
-  let second = @core.ProjNode::new(
-    @ast.Term::Lam("x", @ast.Term::Unit),
-    0,
-    0,
-    8,
-    [],
-  )
+  let first = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Unit), 0, 0, 7, [])
+  let second = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Unit), 0, 0, 8, [])
   let first_binder = binder_for_node(binders, first, "x")
   let second_binder = binder_for_node(binders, second, "x")
   inspect(first_binder.id == second_binder.id, content="false")

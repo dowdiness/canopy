@@ -115,21 +115,32 @@ jobs:
           path: |
             base_bench.txt
             base_egw_bench.txt
-          key: benchmark-base-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+
+      - name: Validate base benchmark cache
+        id: base-cache-files
+        run: |
+          if [ "${{ steps.base-benchmark-cache.outputs.cache-hit }}" = "true" ] && \
+             [ -f base_bench.txt ] && \
+             [ -f base_egw_bench.txt ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Checkout base branch
-        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        if: steps.base-cache-files.outputs.complete != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           submodules: recursive
 
       - name: Set up MoonBit
-        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        if: steps.base-cache-files.outputs.complete != 'true'
         uses: ./.github/actions/setup-moonbit
 
       - name: Run base benchmarks
-        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        if: steps.base-cache-files.outputs.complete != 'true'
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
@@ -141,7 +152,7 @@ jobs:
           fi
 
       - name: Run submodule benchmarks (base - event-graph-walker)
-        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        if: steps.base-cache-files.outputs.complete != 'true'
         continue-on-error: true
         run: |
           if (
@@ -156,7 +167,7 @@ jobs:
           fi
 
       - name: Save base benchmark cache
-        if: always() && steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        if: always() && steps.base-cache-files.outputs.complete != 'true'
         continue-on-error: true
         uses: actions/cache/save@v5
         with:
@@ -197,6 +208,15 @@ jobs:
       - name: Compare results
         id: compare
         run: |
+          cat_benchmark_file() {
+            path="$1"
+            if [ -f "$path" ]; then
+              cat "$path"
+            else
+              echo "(benchmark output unavailable: $path missing)"
+            fi
+          }
+
           base_ref="${{ github.base_ref || github.event.repository.default_branch }}"
           {
             echo "## Benchmark Comparison Report"
@@ -208,13 +228,13 @@ jobs:
             echo ""
             echo "**Base branch:**"
             echo '```'
-            cat benchmark-results/base/base_bench.txt
+            cat_benchmark_file benchmark-results/base/base_bench.txt
             echo '```'
             echo ""
 
             echo "**PR branch:**"
             echo '```'
-            cat benchmark-results/pr/pr_bench.txt
+            cat_benchmark_file benchmark-results/pr/pr_bench.txt
             echo '```'
             echo ""
 
@@ -222,13 +242,13 @@ jobs:
             echo ""
             echo "**Base branch:**"
             echo '```'
-            cat benchmark-results/base/base_egw_bench.txt
+            cat_benchmark_file benchmark-results/base/base_egw_bench.txt
             echo '```'
             echo ""
 
             echo "**PR branch:**"
             echo '```'
-            cat benchmark-results/pr/pr_egw_bench.txt
+            cat_benchmark_file benchmark-results/pr/pr_egw_bench.txt
             echo '```'
             echo ""
 

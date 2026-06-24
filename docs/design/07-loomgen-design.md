@@ -506,7 +506,7 @@ pub fn reconcile_ast(old : ProjNode, new : ProjNode, counter : Ref[Int]) -> Proj
         old.children, new.children, counter,
         same_tag=same_kind_tag, reconcile=reconcile_ast,
       )
-      ProjNode::new(rebuild_kind(new.kind, children), ...)
+      ProjNode(rebuild_kind(new.kind, children), ...)
     }
     // ... other cases ...
   }

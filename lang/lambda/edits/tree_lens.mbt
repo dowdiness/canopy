@@ -174,7 +174,7 @@ fn insert_child_at(
   if index >= node.children.length() {
     new_children.push(child)
   }
-  ProjNode::new(
+  ProjNode(
     rebuild_kind(node.kind, new_children),
     node.start,
     node.end,

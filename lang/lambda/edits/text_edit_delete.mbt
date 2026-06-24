@@ -30,7 +30,7 @@ fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult 
           let new_children = Array::makei(parent_node.children.length(), fn(i) {
             let c = parent_node.children[i]
             if i == child_index {
-              ProjNode::new(pk, c.start, c.end, c.node_id, [])
+              ProjNode(pk, c.start, c.end, c.node_id, [])
             } else {
               c
             }

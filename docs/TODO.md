@@ -168,7 +168,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
 
 - [x] Hoist ProjNode id-allocation boilerplate into `@core` (`core/proj_node.mbt`). (finding B from PR #383)
-  Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode::new`. `.mbti` change is limited to the two new `@core` exports.
+  Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode`. `.mbti` change is limited to the two new `@core` exports.
 
 - [x] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
   Why: nearly every `compute_*` handler opens with the same pair of guards keyed on one `node_id` — `registry.get(id)` then `source_map.get_range(id)`, both erroring "Node not found" — made visible by the PR #383 guard sweep. `EditContext` already holds both maps.

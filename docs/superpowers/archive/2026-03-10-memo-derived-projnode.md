@@ -107,9 +107,9 @@ git commit -m "feat: expose ReactiveParser::runtime() for downstream Memos"
 ```moonbit
 // In projection/ — whitebox test
 test "ProjNode structural equality" {
-  let a = ProjNode::new(@ast.Int(42), 0, 2, 1, [])
-  let b = ProjNode::new(@ast.Int(42), 0, 2, 1, [])
-  let c = ProjNode::new(@ast.Int(99), 0, 2, 1, [])
+  let a = ProjNode(@ast.Int(42), 0, 2, 1, [])
+  let b = ProjNode(@ast.Int(42), 0, 2, 1, [])
+  let c = ProjNode(@ast.Int(99), 0, 2, 1, [])
   assert_true(a == b)
   assert_true(a != c)
 }
@@ -180,8 +180,8 @@ And update the recursive call:
 
 Note: `new_id` changes from `NodeId` (returned by `model.new_node_id()`) to `Int` (returned by `next_proj_node_id(counter)`). Remove the `.0` accessor in the return:
 ```moonbit
-  // Was: ProjNode::new(node.kind, node.start, node.end, new_id.0, new_children)
-  ProjNode::new(node.kind, node.start, node.end, new_id, new_children)
+  // Was: ProjNode(node.kind, node.start, node.end, new_id.0, new_children)
+  ProjNode(node.kind, node.start, node.end, new_id, new_children)
 ```
 
 - [ ] **Step 2: Change `reconcile_children` signature**
@@ -727,7 +727,7 @@ fn update_node_in_tree(
     for child in root.children {
       new_children.push(update_node_in_tree(child, target_id, new_node))
     }
-    ProjNode::new(
+    ProjNode(
       rebuild_kind(root.kind, new_children),
       root.start,
       root.end,
@@ -746,7 +746,7 @@ fn remove_child_at(node : ProjNode, index : Int) -> ProjNode {
       new_children.push(child)
     }
   }
-  ProjNode::new(
+  ProjNode(
     rebuild_kind(node.kind, new_children),
     node.start,
     node.end,
@@ -768,7 +768,7 @@ fn insert_child_at(node : ProjNode, index : Int, child : ProjNode) -> ProjNode {
   if index >= node.children.length() {
     new_children.push(child)
   }
-  ProjNode::new(
+  ProjNode(
     rebuild_kind(node.kind, new_children),
     node.start,
     node.end,
@@ -948,7 +948,7 @@ pub fn apply_edit_to_proj(
     CommitEdit(node_id~, new_value~) => {
       let (parsed, _) = parse_to_proj_node(new_value)
       let new_node = assign_fresh_ids(parsed, counter)
-      let replacement = ProjNode::new(
+      let replacement = ProjNode(
         new_node.kind, new_node.start, new_node.end,
         node_id.0, new_node.children,
       )

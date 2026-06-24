@@ -32,7 +32,7 @@ pub impl[T : @loomcore.Renderable] Show for ProjNode[T] with fn output(
 }
 
 ///|
-pub fn[T] ProjNode::new(
+pub fn[T] ProjNode::ProjNode(
   kind : T,
   start : Int,
   end : Int,
@@ -43,22 +43,36 @@ pub fn[T] ProjNode::new(
 }
 
 ///|
+pub fn[T, U] ProjNode::map(
+  self : ProjNode[T],
+  f : (T) -> U raise?,
+) -> ProjNode[U] raise? {
+  ProjNode(
+    f(self.kind),
+    self.start,
+    self.end,
+    self.node_id,
+    self.children.map(child => child.map(f)),
+  )
+}
+
+///|
 /// Construct a childless ProjNode spanning a syntax node, assigning a fresh id.
-/// Projection builders should prefer this for syntax leaves instead of pairing
-/// `next_proj_node_id` with `ProjNode::new` at each call site.
+/// Projection builders should prefer this for syntax leaves instead of manually
+/// pairing `next_proj_node_id` with `ProjNode(...)` at each call site.
 pub fn[T] ProjNode::leaf(
   kind : T,
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> ProjNode[T] {
-  ProjNode::new(kind, node.start(), node.end(), next_proj_node_id(counter), [])
+  ProjNode(kind, node.start(), node.end(), next_proj_node_id(counter), [])
 }
 
 ///|
 /// Construct a ProjNode with explicit UTF-16 source span and children,
 /// assigning a fresh id. Use this for projection branches whose identity is
-/// fresh for this build; keep `ProjNode::new` when preserving or reusing a
-/// known node id.
+/// fresh for this build; call `ProjNode(...)` directly when preserving or
+/// reusing a known node id.
 pub fn[T] ProjNode::branch(
   kind : T,
   start : Int,
@@ -66,7 +80,7 @@ pub fn[T] ProjNode::branch(
   children : Array[ProjNode[T]],
   counter : Ref[Int],
 ) -> ProjNode[T] {
-  ProjNode::new(kind, start, end, next_proj_node_id(counter), children)
+  ProjNode(kind, start, end, next_proj_node_id(counter), children)
 }
 
 ///|

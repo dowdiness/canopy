@@ -121,7 +121,7 @@ pub fn source_file_to_proj_node(
   let mut result = match final_proj {
     Some(p) => p
     None =>
-      ProjNode::new(
+      ProjNode(
         Unit,
         root.end(),
         root.end(),
@@ -131,7 +131,7 @@ pub fn source_file_to_proj_node(
   }
   for i = defs.length() - 1; i >= 0; i = i - 1 {
     let (name, init, def_node) = defs[i]
-    result = ProjNode::new(
+    result = ProjNode(
       Let(name, init.kind, result.kind),
       def_node.start(),
       result.end,

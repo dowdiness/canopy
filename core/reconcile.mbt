@@ -46,13 +46,7 @@ pub fn[T : TreeNode] reconcile_hinted(
           counter,
           hints,
         )
-        ProjNode::new(
-          new.kind,
-          new.start,
-          new.end,
-          old.node_id,
-          reconciled_children,
-        )
+        ProjNode(new.kind, new.start, new.end, old.node_id, reconciled_children)
       } else {
         assign_fresh_ids(new, counter)
       }
@@ -316,7 +310,7 @@ fn[T : TreeNode] apply_wrap(
             // directly and reconcile their children. Routing through
             // reconcile_hinted here would re-apply `old`'s own wrap hint and
             // push the id one level too deep.
-            ProjNode::new(
+            ProjNode(
               c.kind,
               c.start,
               c.end,
@@ -329,7 +323,7 @@ fn[T : TreeNode] apply_wrap(
         }
       ]
       Some(
-        ProjNode::new(
+        ProjNode(
           wrapper.kind,
           wrapper.start,
           wrapper.end,
