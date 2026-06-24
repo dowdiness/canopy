@@ -627,3 +627,38 @@ test "sdeg phase1: collect_garbage is no-op on table with no retired rows" {
   inspect(gc_table.rows.length(), content="1")
   inspect(heading_side_table_invariants_hold(gc_table, [old_a]), content="true")
 }
+
+///|
+test "sdeg phase1: absence counter increments under default retention" {
+  // With retention_threshold=0, the counter should keep incrementing even
+  // after reaching Tombstoned (it was previously capped at 2).
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let t1 = table.advance([]) // abs 1: Missing
+  let t2 = t1.advance([]) // abs 2: Tombstoned
+  let t3 = t2.advance([]) // abs 3: still Tombstoned, counter=3
+  let t4 = t3.advance([]) // abs 4: still Tombstoned, counter=4
+  let t5 = t4.advance([]) // abs 5: still Tombstoned, counter=5
+
+  let r1 = find_side_table_row(t1, old_a.id).unwrap()
+  let r2 = find_side_table_row(t2, old_a.id).unwrap()
+  let r3 = find_side_table_row(t3, old_a.id).unwrap()
+  let r4 = find_side_table_row(t4, old_a.id).unwrap()
+  let r5 = find_side_table_row(t5, old_a.id).unwrap()
+
+  inspect(r1.status == HeadingMissing, content="true")
+  inspect(r1.consecutive_absences, content="1")
+  inspect(r2.status == HeadingTombstoned, content="true")
+  inspect(r2.consecutive_absences, content="2")
+  inspect(r3.status == HeadingTombstoned, content="true")
+  inspect(r3.consecutive_absences, content="3")
+  inspect(r4.status == HeadingTombstoned, content="true")
+  inspect(r4.consecutive_absences, content="4")
+  inspect(r5.status == HeadingTombstoned, content="true")
+  inspect(r5.consecutive_absences, content="5")
+  inspect(heading_side_table_invariants_hold(t1, []), content="true")
+  inspect(heading_side_table_invariants_hold(t2, []), content="true")
+  inspect(heading_side_table_invariants_hold(t3, []), content="true")
+  inspect(heading_side_table_invariants_hold(t4, []), content="true")
+  inspect(heading_side_table_invariants_hold(t5, []), content="true")
+}

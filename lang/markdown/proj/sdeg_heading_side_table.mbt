@@ -332,12 +332,7 @@ fn row_from_match(
     _ =>
       match ids {
         [] => {
-          let new_absences = if row.status == HeadingTombstoned &&
-            retention_threshold == 0 {
-            row.consecutive_absences
-          } else {
-            row.consecutive_absences + 1
-          }
+          let new_absences = row.consecutive_absences + 1
           let next_status = match row.status {
             HeadingTombstoned =>
               if retention_threshold > 0 && new_absences >= retention_threshold {
@@ -371,12 +366,7 @@ fn row_from_match(
                 consecutive_absences: 0,
               }
             None => {
-              let new_absences = if row.status == HeadingTombstoned &&
-                retention_threshold == 0 {
-                row.consecutive_absences
-              } else {
-                row.consecutive_absences + 1
-              }
+              let new_absences = row.consecutive_absences + 1
               let next_status = match row.status {
                 HeadingTombstoned =>
                   if retention_threshold > 0 &&
