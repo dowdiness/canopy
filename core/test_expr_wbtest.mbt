@@ -149,6 +149,46 @@ test "ProjNode::branch allocates a fresh id" {
 }
 
 ///|
+test "ProjNode::map transforms kinds recursively and preserves metadata" {
+  let left = ProjNode::new(Leaf("a"), 1, 2, 11, [])
+  let right = ProjNode::new(Leaf("b"), 3, 4, 12, [])
+  let root = ProjNode::new(Branch("root", [Leaf("a"), Leaf("b")]), 0, 5, 10, [
+    left, right,
+  ])
+  let mapped = root.map(kind => Renderable::label(kind))
+  inspect(mapped.node_id, content="10")
+  inspect(mapped.kind, content="root")
+  inspect(mapped.start, content="0")
+  inspect(mapped.end, content="5")
+  inspect(mapped.children[0].node_id, content="11")
+  inspect(mapped.children[0].kind, content="a")
+  inspect(mapped.children[0].start, content="1")
+  inspect(mapped.children[0].end, content="2")
+  inspect(mapped.children[1].node_id, content="12")
+  inspect(mapped.children[1].kind, content="b")
+  inspect(mapped.children[1].start, content="3")
+  inspect(mapped.children[1].end, content="4")
+}
+
+///|
+test "ProjNode::map propagates raising callbacks" {
+  let root = ProjNode::new(Leaf("boom"), 0, 4, 10, [])
+  let caught = try {
+    let _ = root.map(kind => {
+      match kind {
+        Leaf("boom") => fail("boom")
+        Leaf(s) => s
+        Branch(tag, _) => tag
+      }
+    })
+    false
+  } catch {
+    _ => true
+  }
+  inspect(caught, content="true")
+}
+
+///|
 test "ProjNode Show — depth-1 only, uses Renderable::kind_tag" {
   let leaf = ProjNode::new(Leaf("x"), 0, 1, 0, [])
   inspect(leaf, content="#0 Leaf [0..1]")

@@ -43,6 +43,20 @@ pub fn[T] ProjNode::new(
 }
 
 ///|
+pub fn[T, U] ProjNode::map(
+  self : ProjNode[T],
+  f : (T) -> U raise?,
+) -> ProjNode[U] raise? {
+  ProjNode::new(
+    f(self.kind),
+    self.start,
+    self.end,
+    self.node_id,
+    self.children.map(child => child.map(f)),
+  )
+}
+
+///|
 /// Construct a childless ProjNode spanning a syntax node, assigning a fresh id.
 /// Projection builders should prefer this for syntax leaves instead of pairing
 /// `next_proj_node_id` with `ProjNode::new` at each call site.
