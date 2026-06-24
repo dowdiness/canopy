@@ -169,6 +169,7 @@ fn heading_side_table_invariants_hold(
   .iter()
   .all(row => {
     stable_row_claim_count(table.rows, row.stable_id) == 1 &&
+    table.used_stable_ids.contains(row.stable_id) &&
     evidence_has_any_candidate_count(row.evidence) &&
     heading_side_table_row_shape_valid(row, table.rows, current)
   })
@@ -186,7 +187,10 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
   )
   let initial_map = source_map_for(source, initial)
   let before = collect_heading_observations(initial, initial_map)
-  let table = HeadingSideTable::from_observations(before)
+  let table = HeadingSideTable::from_observations(
+    before,
+    validity=HeadingSnapshotValid,
+  )
   let a_before = find_heading(before, "A").unwrap()
   let b_before = find_heading(before, "B").unwrap()
 
@@ -196,7 +200,7 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
   let after = collect_heading_observations(edited, edited_map)
   let c_after = find_heading(after, "C").unwrap()
   let a_after = find_heading(after, "A").unwrap()
-  let advanced = table.advance(after)
+  let advanced = table.advance(after, validity=HeadingSnapshotValid)
   let a_row = find_side_table_row(advanced, a_before.id).unwrap()
   let b_row = find_side_table_row(advanced, b_before.id).unwrap()
 
@@ -223,16 +227,25 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
   )
   let initial_map = source_map_for(initial_source, initial)
   let before = collect_heading_observations(initial, initial_map)
-  let table = HeadingSideTable::from_observations(before)
+  let table = HeadingSideTable::from_observations(
+    before,
+    validity=HeadingSnapshotValid,
+  )
   let a_before = find_heading(before, "A").unwrap()
 
   let (deleted, deleted_map) = project_after_reconcile(
     initial, deleted_source, counter,
   )
   let deleted_observations = collect_heading_observations(deleted, deleted_map)
-  let missing_table = table.advance(deleted_observations)
+  let missing_table = table.advance(
+    deleted_observations,
+    validity=HeadingSnapshotValid,
+  )
   let a_missing_row = find_side_table_row(missing_table, a_before.id).unwrap()
-  let tombstoned_table = missing_table.advance(deleted_observations)
+  let tombstoned_table = missing_table.advance(
+    deleted_observations,
+    validity=HeadingSnapshotValid,
+  )
   let a_tombstoned_row = find_side_table_row(tombstoned_table, a_before.id).unwrap()
 
   let (restored, restored_map) = project_after_reconcile(
@@ -242,7 +255,10 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
     restored, restored_map,
   )
   let a_restored = find_heading(restored_observations, "A").unwrap()
-  let restored_table = tombstoned_table.advance(restored_observations)
+  let restored_table = tombstoned_table.advance(
+    restored_observations,
+    validity=HeadingSnapshotValid,
+  )
   let a_restored_row = find_side_table_row(restored_table, a_before.id).unwrap()
 
   inspect(a_missing_row.status == HeadingMissing, content="true")
@@ -283,7 +299,10 @@ test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
   )
   let initial_map = source_map_for(initial_source, initial)
   let before = collect_heading_observations(initial, initial_map)
-  let table = HeadingSideTable::from_observations(before)
+  let table = HeadingSideTable::from_observations(
+    before,
+    validity=HeadingSnapshotValid,
+  )
   let a_before = find_heading(before, "A").unwrap()
 
   let (deleted, deleted_map) = project_after_reconcile(
@@ -291,6 +310,7 @@ test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
   )
   let deleted_table = table.advance(
     collect_heading_observations(deleted, deleted_map),
+    validity=HeadingSnapshotValid,
   )
   let (restored, restored_map) = project_after_reconcile(
     deleted, restored_source, counter,
@@ -298,7 +318,10 @@ test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
   let restored_observations = collect_heading_observations(
     restored, restored_map,
   )
-  let restored_table = deleted_table.advance(restored_observations)
+  let restored_table = deleted_table.advance(
+    restored_observations,
+    validity=HeadingSnapshotValid,
+  )
   let a_restored_row = find_side_table_row(restored_table, a_before.id).unwrap()
 
   inspect(a_restored_row.status == HeadingAmbiguous, content="true")
@@ -323,8 +346,11 @@ test "sdeg phase0: NodeId side table conflicts do not double-claim current nodes
   let old_a0 = synthetic_heading(1, "A", 0)
   let old_a1 = synthetic_heading(2, "A", 4)
   let current_a = synthetic_heading(100, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a0, old_a1])
-  let advanced = table.advance([current_a])
+  let table = HeadingSideTable::from_observations(
+    [old_a0, old_a1],
+    validity=HeadingSnapshotValid,
+  )
+  let advanced = table.advance([current_a], validity=HeadingSnapshotValid)
   let row0 = find_side_table_row(advanced, old_a0.id).unwrap()
   let row1 = find_side_table_row(advanced, old_a1.id).unwrap()
 
@@ -335,8 +361,40 @@ test "sdeg phase0: NodeId side table conflicts do not double-claim current nodes
   inspect(evidence_has_candidate_count(row1.evidence, 1), content="true")
   inspect(row0.current_id is None, content="true")
   inspect(row1.current_id is None, content="true")
-  inspect(node_id_in(row0.candidates, current_a.id), content="true")
-  inspect(node_id_in(row1.candidates, current_a.id), content="true")
+  inspect(row0.candidates.contains(current_a.id), content="true")
+  inspect(row1.candidates.contains(current_a.id), content="true")
+  inspect(
+    heading_side_table_invariants_hold(advanced, [current_a]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: defensive exact conflicts stay ambiguous" {
+  let old_a0 = synthetic_heading(1, "A", 0)
+  let old_a1 = synthetic_heading(2, "A shadow", 4)
+  let current_a = synthetic_heading(1, "A", 0)
+  let row0 = heading_side_table_live_row(old_a0)
+  let row1 = { ..heading_side_table_live_row(old_a1), last_live: old_a0 }
+  let rows = [row0, row1]
+  let table = {
+    rows,
+    current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
+  let advanced = table.advance([current_a], validity=HeadingSnapshotValid)
+  let row0_after = find_side_table_row(advanced, old_a0.id).unwrap()
+  let row1_after = find_side_table_row(advanced, old_a1.id).unwrap()
+
+  inspect(row0_after.status == HeadingAmbiguous, content="true")
+  inspect(row1_after.status == HeadingAmbiguous, content="true")
+  inspect(row0_after.current_id is None, content="true")
+  inspect(row1_after.current_id is None, content="true")
+  inspect(row0_after.candidates.contains(current_a.id), content="true")
+  inspect(row1_after.candidates.contains(current_a.id), content="true")
+  inspect(advanced.current_index.length(), content="0")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a]),
     content="true",
@@ -348,8 +406,11 @@ test "sdeg phase1: same-node match wins over duplicate semantic claimant" {
   let old_a0 = synthetic_heading(1, "A", 0)
   let old_a1 = synthetic_heading(2, "A", 4)
   let current_a0 = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a0, old_a1])
-  let advanced = table.advance([current_a0])
+  let table = HeadingSideTable::from_observations(
+    [old_a0, old_a1],
+    validity=HeadingSnapshotValid,
+  )
+  let advanced = table.advance([current_a0], validity=HeadingSnapshotValid)
   let row0 = find_side_table_row(advanced, old_a0.id).unwrap()
   let row1 = find_side_table_row(advanced, old_a1.id).unwrap()
 
@@ -370,8 +431,11 @@ test "sdeg phase1: same-node match wins over duplicate semantic claimant" {
 test "sdeg phase1: heading level change without same-node evidence stays fresh" {
   let old_a = synthetic_heading(1, "A", 0, level=1)
   let current_a = synthetic_heading(100, "A", 0, level=2)
-  let table = HeadingSideTable::from_observations([old_a])
-  let advanced = table.advance([current_a])
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let advanced = table.advance([current_a], validity=HeadingSnapshotValid)
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_side_table_row(advanced, current_a.id).unwrap()
 
@@ -400,13 +464,19 @@ test "sdeg phase0: NodeId side table invariants hold across lifecycle states" {
   )
   let initial_map = source_map_for(source, initial)
   let initial_observations = collect_heading_observations(initial, initial_map)
-  let table = HeadingSideTable::from_observations(initial_observations)
+  let table = HeadingSideTable::from_observations(
+    initial_observations,
+    validity=HeadingSnapshotValid,
+  )
 
   let (deleted, deleted_map) = project_after_reconcile(
     initial, deleted_source, counter,
   )
   let deleted_observations = collect_heading_observations(deleted, deleted_map)
-  let deleted_table = table.advance(deleted_observations)
+  let deleted_table = table.advance(
+    deleted_observations,
+    validity=HeadingSnapshotValid,
+  )
 
   let (restored, restored_map) = project_after_reconcile(
     deleted, restored_source, counter,
@@ -414,7 +484,10 @@ test "sdeg phase0: NodeId side table invariants hold across lifecycle states" {
   let restored_observations = collect_heading_observations(
     restored, restored_map,
   )
-  let restored_table = deleted_table.advance(restored_observations)
+  let restored_table = deleted_table.advance(
+    restored_observations,
+    validity=HeadingSnapshotValid,
+  )
 
   inspect(
     heading_side_table_invariants_hold(table, initial_observations),
@@ -435,13 +508,20 @@ test "sdeg phase1: tombstoned rows retire after retention threshold" {
   let old_a = synthetic_heading(1, "A", 0)
   let table = HeadingSideTable::from_observations(
     [old_a],
+    validity=HeadingSnapshotValid,
     retention_threshold=3,
   )
-  let missing_table = table.advance([])
+  let missing_table = table.advance([], validity=HeadingSnapshotValid)
   let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
-  let tombstoned_table = missing_table.advance([])
+  let tombstoned_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
-  let retired_table = tombstoned_table.advance([])
+  let retired_table = tombstoned_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let retired_row = find_side_table_row(retired_table, old_a.id).unwrap()
 
   inspect(missing_row.status == HeadingMissing, content="true")
@@ -464,10 +544,14 @@ test "sdeg phase1: tombstoned rows stay retained below threshold" {
   let old_a = synthetic_heading(1, "A", 0)
   let table = HeadingSideTable::from_observations(
     [old_a],
+    validity=HeadingSnapshotValid,
     retention_threshold=3,
   )
-  let missing_table = table.advance([])
-  let tombstoned_table = missing_table.advance([])
+  let missing_table = table.advance([], validity=HeadingSnapshotValid)
+  let tombstoned_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
 
   inspect(tombstoned_row.status == HeadingTombstoned, content="true")
@@ -479,26 +563,68 @@ test "sdeg phase1: tombstoned rows stay retained below threshold" {
 }
 
 ///|
+test "sdeg phase1: positive retention threshold observes tombstone first" {
+  let old_a = synthetic_heading(1, "A", 0)
+  for threshold in [1, 2] {
+    let table = HeadingSideTable::from_observations(
+      [old_a],
+      validity=HeadingSnapshotValid,
+      retention_threshold=threshold,
+    )
+    let missing_table = table.advance([], validity=HeadingSnapshotValid)
+    let tombstoned_table = missing_table.advance(
+      [],
+      validity=HeadingSnapshotValid,
+    )
+    let retired_table = tombstoned_table.advance(
+      [],
+      validity=HeadingSnapshotValid,
+    )
+    let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
+    let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+    let retired_row = find_side_table_row(retired_table, old_a.id).unwrap()
+
+    inspect(missing_row.status == HeadingMissing, content="true")
+    inspect(missing_row.consecutive_absences, content="1")
+    inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+    inspect(tombstoned_row.consecutive_absences, content="2")
+    inspect(retired_row.status == HeadingRetired, content="true")
+    inspect(retired_row.consecutive_absences, content="3")
+    inspect(
+      heading_side_table_invariants_hold(retired_table, []),
+      content="true",
+    )
+  }
+}
+
+///|
 test "sdeg phase1: gc_eligible is true for retired, false for other statuses" {
   let old_a = synthetic_heading(1, "A", 0)
   let table = HeadingSideTable::from_observations(
     [old_a],
+    validity=HeadingSnapshotValid,
     retention_threshold=3,
   )
   let fresh_row = find_side_table_row(table, old_a.id).unwrap()
   inspect(gc_eligible(fresh_row), content="false")
 
-  let missing_table = table.advance([])
+  let missing_table = table.advance([], validity=HeadingSnapshotValid)
   let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
   inspect(missing_row.status == HeadingMissing, content="true")
   inspect(gc_eligible(missing_row), content="false")
 
-  let tombstoned_table = missing_table.advance([])
+  let tombstoned_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
   inspect(tombstoned_row.status == HeadingTombstoned, content="true")
   inspect(gc_eligible(tombstoned_row), content="false")
 
-  let retired_table = tombstoned_table.advance([])
+  let retired_table = tombstoned_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let retired_row = find_side_table_row(retired_table, old_a.id).unwrap()
   inspect(retired_row.status == HeadingRetired, content="true")
   inspect(gc_eligible(retired_row), content="true")
@@ -519,10 +645,11 @@ test "sdeg phase1: retired rows with same NodeId get fallback stable_id" {
   let table = {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
     retention_threshold: 0,
     next_entity_seed: -1,
   }
-  let advanced = table.advance([current_a])
+  let advanced = table.advance([current_a], validity=HeadingSnapshotValid)
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
   let fresh_row = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
 
@@ -565,12 +692,16 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
   let table = {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
     retention_threshold: 0,
     next_entity_seed: -1,
   }
   let current_a = synthetic_heading(1, "A", 0)
   let current_b = synthetic_heading(2, "B", 0)
-  let advanced = table.advance([current_a, current_b])
+  let advanced = table.advance(
+    [current_a, current_b],
+    validity=HeadingSnapshotValid,
+  )
   let fresh_a = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
   let fresh_b = find_row_by_current_id(advanced.rows, current_b.id).unwrap()
 
@@ -588,8 +719,14 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
 test "sdeg phase1: fresh rows ignore duplicate current NodeIds" {
   let current_a = synthetic_heading(1, "A", 0)
   let duplicate_a = synthetic_heading(1, "A duplicate", 4)
-  let table = HeadingSideTable::from_observations([])
-  let advanced = table.advance([current_a, duplicate_a])
+  let table = HeadingSideTable::from_observations(
+    [],
+    validity=HeadingSnapshotValid,
+  )
+  let advanced = table.advance(
+    [current_a, duplicate_a],
+    validity=HeadingSnapshotValid,
+  )
   let fresh = find_row_by_current_id(advanced.rows, current_a.id).unwrap()
 
   inspect(advanced.rows.length(), content="1")
@@ -610,7 +747,10 @@ test "sdeg phase1: fresh rows ignore duplicate current NodeIds" {
 ///|
 test "sdeg phase1: invalid initial snapshot creates no durable rows" {
   let ghost = synthetic_heading(1, "Ghost", 0)
-  let table = HeadingSideTable::from_observations([ghost], is_valid_parse=false)
+  let table = HeadingSideTable::from_observations(
+    [ghost],
+    validity=HeadingSnapshotInvalid,
+  )
 
   inspect(table.rows.length(), content="0")
   inspect(table.current_index.length(), content="0")
@@ -626,10 +766,11 @@ test "sdeg phase1: invalid advance creates no fresh rows or seed changes" {
   let table = {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
     retention_threshold: 0,
     next_entity_seed: -7,
   }
-  let advanced = table.advance([transient_b], is_valid_parse=false)
+  let advanced = table.advance([transient_b], validity=HeadingSnapshotInvalid)
   let old_row = find_side_table_row(advanced, old_a.id).unwrap()
 
   inspect(advanced.rows.length(), content="1")
@@ -649,8 +790,11 @@ test "sdeg phase1: invalid advance creates no fresh rows or seed changes" {
 ///|
 test "sdeg phase1: invalid advance marks live unavailable without aging" {
   let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a])
-  let advanced = table.advance([], is_valid_parse=false)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let advanced = table.advance([], validity=HeadingSnapshotInvalid)
   let row = find_side_table_row(advanced, old_a.id).unwrap()
 
   inspect(row.status == HeadingMissing, content="true")
@@ -665,10 +809,19 @@ test "sdeg phase1: invalid advance marks live unavailable without aging" {
 ///|
 test "sdeg phase1: invalid absence requires later valid absence before tombstone" {
   let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a])
-  let invalid_table = table.advance([], is_valid_parse=false)
-  let valid_missing_table = invalid_table.advance([])
-  let tombstoned_table = valid_missing_table.advance([])
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let invalid_table = table.advance([], validity=HeadingSnapshotInvalid)
+  let valid_missing_table = invalid_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
+  let tombstoned_table = valid_missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let invalid_row = find_side_table_row(invalid_table, old_a.id).unwrap()
   let valid_missing_row = find_side_table_row(valid_missing_table, old_a.id).unwrap()
   let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
@@ -694,9 +847,18 @@ test "sdeg phase1: invalid advance clears ambiguous candidates without aging" {
   let old_a0 = synthetic_heading(1, "A", 0)
   let old_a1 = synthetic_heading(2, "A", 4)
   let current_a = synthetic_heading(100, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a0, old_a1])
-  let ambiguous_table = table.advance([current_a])
-  let invalid_table = ambiguous_table.advance([], is_valid_parse=false)
+  let table = HeadingSideTable::from_observations(
+    [old_a0, old_a1],
+    validity=HeadingSnapshotValid,
+  )
+  let ambiguous_table = table.advance(
+    [current_a],
+    validity=HeadingSnapshotValid,
+  )
+  let invalid_table = ambiguous_table.advance(
+    [],
+    validity=HeadingSnapshotInvalid,
+  )
   let row0 = find_side_table_row(invalid_table, old_a0.id).unwrap()
   let row1 = find_side_table_row(invalid_table, old_a1.id).unwrap()
 
@@ -716,15 +878,22 @@ test "sdeg phase1: invalid advance freezes missing and tombstoned rows" {
   let old_a = synthetic_heading(1, "A", 0)
   let table = HeadingSideTable::from_observations(
     [old_a],
+    validity=HeadingSnapshotValid,
     retention_threshold=3,
   )
-  let missing_table = table.advance([])
-  let invalid_missing_table = missing_table.advance([], is_valid_parse=false)
+  let missing_table = table.advance([], validity=HeadingSnapshotValid)
+  let invalid_missing_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotInvalid,
+  )
   let invalid_missing_row = find_side_table_row(invalid_missing_table, old_a.id).unwrap()
-  let tombstoned_table = missing_table.advance([])
+  let tombstoned_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let invalid_tombstoned_table = tombstoned_table.advance(
     [],
-    is_valid_parse=false,
+    validity=HeadingSnapshotInvalid,
   )
   let invalid_tombstoned_row = find_side_table_row(
     invalid_tombstoned_table,
@@ -750,10 +919,19 @@ test "sdeg phase1: invalid advance freezes missing and tombstoned rows" {
 test "sdeg phase1: invalid advance does not update last_live from matches" {
   let old_a = synthetic_heading(1, "A", 0)
   let transient_a = synthetic_heading(1, "A changed", 0)
-  let table = HeadingSideTable::from_observations([old_a])
-  let invalid_table = table.advance([transient_a], is_valid_parse=false)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let invalid_table = table.advance(
+    [transient_a],
+    validity=HeadingSnapshotInvalid,
+  )
   let invalid_row = find_side_table_row(invalid_table, old_a.id).unwrap()
-  let recovered_table = invalid_table.advance([transient_a])
+  let recovered_table = invalid_table.advance(
+    [transient_a],
+    validity=HeadingSnapshotValid,
+  )
   let recovered_row = find_side_table_row(recovered_table, old_a.id).unwrap()
 
   inspect(invalid_row.status == HeadingMissing, content="true")
@@ -771,11 +949,17 @@ test "sdeg phase1: invalid advance does not update last_live from matches" {
 }
 
 ///|
-test "sdeg phase1: default advance treats empty valid snapshot as delete evidence" {
+test "sdeg phase1: valid advance treats empty snapshot as delete evidence" {
   let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a])
-  let missing_table = table.advance([])
-  let tombstoned_table = missing_table.advance([])
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let missing_table = table.advance([], validity=HeadingSnapshotValid)
+  let tombstoned_table = missing_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
   let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
   let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
 
@@ -801,6 +985,7 @@ test "sdeg phase1: collect_garbage removes retired rows only" {
   let table = {
     rows,
     current_index: heading_current_index(rows),
+    used_stable_ids: heading_used_stable_ids(rows),
     retention_threshold: 0,
     next_entity_seed: -1,
   }
@@ -820,9 +1005,84 @@ test "sdeg phase1: collect_garbage removes retired rows only" {
 }
 
 ///|
+test "sdeg phase1: collect_garbage reserves removed stable ids" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+    retention_threshold=3,
+  )
+  let retired_table = table
+    .advance([], validity=HeadingSnapshotValid)
+    .advance([], validity=HeadingSnapshotValid)
+    .advance([], validity=HeadingSnapshotValid)
+  let gc_table = retired_table.collect_garbage()
+  let restored_a = synthetic_heading(1, "A", 0)
+  let restored_table = gc_table.advance(
+    [restored_a],
+    validity=HeadingSnapshotValid,
+  )
+  let restored_row = find_row_by_current_id(restored_table.rows, restored_a.id).unwrap()
+
+  inspect(gc_table.rows.length(), content="0")
+  inspect(
+    gc_table.used_stable_ids.contains(HeadingStableRowId::from_node(old_a.id)),
+    content="true",
+  )
+  inspect(restored_row.status == HeadingLive, content="true")
+  inspect(
+    restored_row.stable_id ==
+    HeadingStableRowId::from_node(@core.NodeId::from_int(-1)),
+    content="true",
+  )
+  inspect(restored_table.next_entity_seed, content="-2")
+  inspect(
+    heading_side_table_invariants_hold(restored_table, [restored_a]),
+    content="true",
+  )
+
+  let second_gc_table = restored_table
+    .advance([], validity=HeadingSnapshotValid)
+    .advance([], validity=HeadingSnapshotValid)
+    .advance([], validity=HeadingSnapshotValid)
+    .collect_garbage()
+  let second_restored_a = synthetic_heading(1, "A", 0)
+  let second_restored_table = second_gc_table.advance(
+    [second_restored_a],
+    validity=HeadingSnapshotValid,
+  )
+  let second_restored_row = find_row_by_current_id(
+    second_restored_table.rows,
+    second_restored_a.id,
+  ).unwrap()
+  inspect(second_gc_table.rows.length(), content="0")
+  inspect(
+    second_gc_table.used_stable_ids.contains(
+      HeadingStableRowId::from_node(@core.NodeId::from_int(-1)),
+    ),
+    content="true",
+  )
+  inspect(
+    second_restored_row.stable_id ==
+    HeadingStableRowId::from_node(@core.NodeId::from_int(-2)),
+    content="true",
+  )
+  inspect(second_restored_table.next_entity_seed, content="-3")
+  inspect(
+    heading_side_table_invariants_hold(second_restored_table, [
+      second_restored_a,
+    ]),
+    content="true",
+  )
+}
+
+///|
 test "sdeg phase1: collect_garbage is no-op on table with no retired rows" {
   let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a])
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
   let gc_table = table.collect_garbage()
 
   inspect(gc_table.rows.length(), content="1")
@@ -834,12 +1094,15 @@ test "sdeg phase1: absence counter increments under default retention" {
   // With retention_threshold=0, the counter should keep incrementing even
   // after reaching Tombstoned (it was previously capped at 2).
   let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations([old_a])
-  let t1 = table.advance([]) // abs 1: Missing
-  let t2 = t1.advance([]) // abs 2: Tombstoned
-  let t3 = t2.advance([]) // abs 3: still Tombstoned, counter=3
-  let t4 = t3.advance([]) // abs 4: still Tombstoned, counter=4
-  let t5 = t4.advance([]) // abs 5: still Tombstoned, counter=5
+  let table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+  )
+  let t1 = table.advance([], validity=HeadingSnapshotValid) // abs 1: Missing
+  let t2 = t1.advance([], validity=HeadingSnapshotValid) // abs 2: Tombstoned
+  let t3 = t2.advance([], validity=HeadingSnapshotValid) // abs 3: still Tombstoned, counter=3
+  let t4 = t3.advance([], validity=HeadingSnapshotValid) // abs 4: still Tombstoned, counter=4
+  let t5 = t4.advance([], validity=HeadingSnapshotValid) // abs 5: still Tombstoned, counter=5
 
   let r1 = find_side_table_row(t1, old_a.id).unwrap()
   let r2 = find_side_table_row(t2, old_a.id).unwrap()
