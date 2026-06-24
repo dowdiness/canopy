@@ -66,7 +66,7 @@ pub(all) struct RoseZipper[T] {
 ### Construction
 
 ```moonbit
-pub fn[T] RoseNode::new(data~ : T, children? : Array[RoseNode[T]] = []) -> RoseNode[T]
+pub fn[T] RoseNode::RoseNode(data~ : T, children? : Array[RoseNode[T]] = []) -> RoseNode[T]
 pub fn[T] RoseZipper::from_root(tree : RoseNode[T]) -> RoseZipper[T]
 ```
 
@@ -193,7 +193,7 @@ The O(n) conversion cost is paid once, duplicating the tree into `RoseNode` form
 
 1. ~~`derive(Show, Eq)` through `@list.List[RoseNode[T]]` nesting~~ — resolved: use `derive(Debug, Eq)` + manual `Show` impl via `@debug.to_string`.
 2. ~~`@list.List` pattern syntax~~ — resolved: `Empty` and `More(head, tail=rest)` for matching; `@list.cons()` and `@list.List::default()` for construction.
-3. ~~`fn new()` declaration-inside-struct with generic type parameters~~ — resolved: define constructor outside struct as `fn[T] RoseNode::new(...)`.
+3. ~~`fn new()` declaration-inside-struct with generic type parameters~~ — resolved: define constructor outside struct as `fn[T] RoseNode::RoseNode(...)`.
 4. ~~`go_down(index? : Int = 0)` optional parameter~~ — resolved: use `?` syntax, not `~`.
 
 ## What Phase 1 Does NOT Include

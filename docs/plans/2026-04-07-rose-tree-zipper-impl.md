@@ -16,7 +16,7 @@
 1. `cd lib/zipper && moon check` passes with 0 errors, 0 warnings (except deprecated core imports if any)
 2. `cd lib/zipper && moon test` passes all tests
 3. `moon check` (canopy root) passes — no regressions
-4. `lib/zipper/pkg.generated.mbti` exports exactly: `RoseNode::new`, `RoseZipper::from_root`, `go_down`, `go_up`, `go_left`, `go_right`, `to_tree`, `replace`, `modify`, `depth`, `child_index`, `is_root`, `is_leaf`, `num_children`, `to_path`, `focus_at`
+4. `lib/zipper/pkg.generated.mbti` exports exactly: `RoseNode::RoseNode`, `RoseZipper::from_root`, `go_down`, `go_up`, `go_left`, `go_right`, `to_tree`, `replace`, `modify`, `depth`, `child_index`, `is_root`, `is_leaf`, `num_children`, `to_path`, `focus_at`
 
 ---
 
@@ -93,13 +93,13 @@ Create `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "RoseNode leaf and internal construction" {
-  let leaf = RoseNode::new(data=1)
+  let leaf = RoseNode::RoseNode(data=1)
   inspect(leaf.data, content="1")
   inspect(leaf.children.length(), content="0")
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   inspect(tree.children.length(), content="3")
   inspect(tree.children[1].data, content="2")
@@ -127,7 +127,7 @@ pub(all) struct RoseNode[T] {
 } derive(Debug, Eq)
 
 ///|
-pub fn[T] RoseNode::new(
+pub fn[T] RoseNode::RoseNode(
   data~ : T,
   children? : Array[RoseNode[T]] = [],
 ) -> RoseNode[T] {
@@ -166,7 +166,7 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "from_root creates zipper at root" {
-  let tree = RoseNode::new(data="hello")
+  let tree = RoseNode::RoseNode(data="hello")
   let z = RoseZipper::from_root(tree)
   inspect(z.focus.data, content="hello")
   inspect(z.depth(), content="0")
@@ -199,10 +199,10 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "go_down to first child" {
-  let tree = RoseNode::new(data="root", children=[
-    RoseNode::new(data="a"),
-    RoseNode::new(data="b"),
-    RoseNode::new(data="c"),
+  let tree = RoseNode::RoseNode(data="root", children=[
+    RoseNode::RoseNode(data="a"),
+    RoseNode::RoseNode(data="b"),
+    RoseNode::RoseNode(data="c"),
   ])
   let z = RoseZipper::from_root(tree)
   let z1 = z.go_down().unwrap()
@@ -211,10 +211,10 @@ test "go_down to first child" {
 }
 
 test "go_down with index" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=10),
-    RoseNode::new(data=20),
-    RoseNode::new(data=30),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=10),
+    RoseNode::RoseNode(data=20),
+    RoseNode::RoseNode(data=30),
   ])
   let z = RoseZipper::from_root(tree)
   let z2 = z.go_down(index=2).unwrap()
@@ -222,26 +222,26 @@ test "go_down with index" {
 }
 
 test "go_down boundary: leaf returns None" {
-  let z = RoseZipper::from_root(RoseNode::new(data=1))
+  let z = RoseZipper::from_root(RoseNode::RoseNode(data=1))
   inspect(z.go_down(), content="None")
 }
 
 test "go_down boundary: negative index returns None" {
-  let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
+  let tree = RoseNode::RoseNode(data=0, children=[RoseNode::RoseNode(data=1)])
   let z = RoseZipper::from_root(tree)
   inspect(z.go_down(index=-1), content="None")
 }
 
 test "go_down boundary: out of bounds returns None" {
-  let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
+  let tree = RoseNode::RoseNode(data=0, children=[RoseNode::RoseNode(data=1)])
   let z = RoseZipper::from_root(tree)
   inspect(z.go_down(index=5), content="None")
 }
 
 test "go_up from child returns parent" {
-  let tree = RoseNode::new(data="root", children=[
-    RoseNode::new(data="a"),
-    RoseNode::new(data="b"),
+  let tree = RoseNode::RoseNode(data="root", children=[
+    RoseNode::RoseNode(data="a"),
+    RoseNode::RoseNode(data="b"),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap()
   let z2 = z.go_up().unwrap()
@@ -250,15 +250,15 @@ test "go_up from child returns parent" {
 }
 
 test "go_up at root returns None" {
-  let z = RoseZipper::from_root(RoseNode::new(data=42))
+  let z = RoseZipper::from_root(RoseNode::RoseNode(data=42))
   inspect(z.go_up(), content="None")
 }
 
 test "go_down then go_up round-trip preserves tree" {
-  let tree = RoseNode::new(data=1, children=[
-    RoseNode::new(data=2, children=[RoseNode::new(data=5)]),
-    RoseNode::new(data=3),
-    RoseNode::new(data=4),
+  let tree = RoseNode::RoseNode(data=1, children=[
+    RoseNode::RoseNode(data=2, children=[RoseNode::RoseNode(data=5)]),
+    RoseNode::RoseNode(data=3),
+    RoseNode::RoseNode(data=4),
   ])
   let z = RoseZipper::from_root(tree)
   let z2 = z.go_down().unwrap().go_up().unwrap()
@@ -322,7 +322,7 @@ pub fn[T] RoseZipper::go_up(self : RoseZipper[T]) -> RoseZipper[T]? {
       let children : Array[RoseNode[T]] = ctx.left.rev().to_array()
       children.push(self.focus)
       ctx.right.each(fn(n) { children.push(n) })
-      let parent = RoseNode::new(data=ctx.data, children~)
+      let parent = RoseNode::RoseNode(data=ctx.data, children~)
       Some({ focus: parent, path: rest, depth: self.depth - 1 })
     }
   }
@@ -355,10 +355,10 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "go_right traverses siblings" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap()
   inspect(z.focus.data, content="1")
@@ -370,10 +370,10 @@ test "go_right traverses siblings" {
 }
 
 test "go_left traverses siblings backward" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree).go_down(index=2).unwrap()
   inspect(z.focus.data, content="3")
@@ -385,26 +385,26 @@ test "go_left traverses siblings backward" {
 }
 
 test "go_left at first child returns None" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap()
   inspect(z.go_left(), content="None")
 }
 
 test "go_left and go_right at root return None" {
-  let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
+  let tree = RoseNode::RoseNode(data=0, children=[RoseNode::RoseNode(data=1)])
   let z = RoseZipper::from_root(tree)
   inspect(z.go_left(), content="None")
   inspect(z.go_right(), content="None")
 }
 
 test "go_right then go_left round-trip" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap()
   let z2 = z.go_right().unwrap().go_left().unwrap()
@@ -412,10 +412,10 @@ test "go_right then go_left round-trip" {
 }
 
 test "lateral then up preserves tree" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree)
     .go_down().unwrap()
@@ -512,19 +512,19 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "to_tree from root is identity" {
-  let tree = RoseNode::new(data=1, children=[
-    RoseNode::new(data=2, children=[RoseNode::new(data=5)]),
-    RoseNode::new(data=3),
-    RoseNode::new(data=4),
+  let tree = RoseNode::RoseNode(data=1, children=[
+    RoseNode::RoseNode(data=2, children=[RoseNode::RoseNode(data=5)]),
+    RoseNode::RoseNode(data=3),
+    RoseNode::RoseNode(data=4),
   ])
   assert_eq(RoseZipper::from_root(tree).to_tree(), tree)
 }
 
 test "to_tree from deep position reconstructs full tree" {
-  let tree = RoseNode::new(data=1, children=[
-    RoseNode::new(data=2, children=[RoseNode::new(data=5)]),
-    RoseNode::new(data=3),
-    RoseNode::new(data=4),
+  let tree = RoseNode::RoseNode(data=1, children=[
+    RoseNode::RoseNode(data=2, children=[RoseNode::RoseNode(data=5)]),
+    RoseNode::RoseNode(data=3),
+    RoseNode::RoseNode(data=4),
   ])
   let z = RoseZipper::from_root(tree).go_down().unwrap().go_down().unwrap()
   inspect(z.focus.data, content="5")
@@ -532,12 +532,12 @@ test "to_tree from deep position reconstructs full tree" {
 }
 
 test "replace changes focused subtree" {
-  let tree = RoseNode::new(data=1, children=[
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=1, children=[
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree).go_down(index=1).unwrap()
-  let z2 = z.replace(RoseNode::new(data=99))
+  let z2 = z.replace(RoseNode::RoseNode(data=99))
   inspect(z2.focus.data, content="99")
   let rebuilt = z2.to_tree()
   inspect(rebuilt.children[1].data, content="99")
@@ -546,13 +546,13 @@ test "replace changes focused subtree" {
 }
 
 test "modify transforms focused subtree" {
-  let tree = RoseNode::new(data=1, children=[
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=1, children=[
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree).go_down(index=1).unwrap()
   let z2 = z.modify(fn(n) {
-    RoseNode::new(data=n.data * 10, children=n.children)
+    RoseNode::RoseNode(data=n.data * 10, children=n.children)
   })
   inspect(z2.focus.data, content="30")
   // verify modify propagates through to_tree
@@ -562,18 +562,18 @@ test "modify transforms focused subtree" {
 }
 
 test "replace at root" {
-  let tree = RoseNode::new(data=1)
+  let tree = RoseNode::RoseNode(data=1)
   let z = RoseZipper::from_root(tree)
-  let z2 = z.replace(RoseNode::new(data=99))
+  let z2 = z.replace(RoseNode::RoseNode(data=99))
   inspect(z2.focus.data, content="99")
-  assert_eq(z2.to_tree(), RoseNode::new(data=99))
+  assert_eq(z2.to_tree(), RoseNode::RoseNode(data=99))
 }
 
 test "modify at root" {
-  let tree = RoseNode::new(data=5, children=[RoseNode::new(data=10)])
+  let tree = RoseNode::RoseNode(data=5, children=[RoseNode::RoseNode(data=10)])
   let z = RoseZipper::from_root(tree)
   let z2 = z.modify(fn(n) {
-    RoseNode::new(data=n.data * 2, children=n.children)
+    RoseNode::RoseNode(data=n.data * 2, children=n.children)
   })
   let rebuilt = z2.to_tree()
   inspect(rebuilt.data, content="10")
@@ -646,8 +646,8 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "depth tracks navigation depth" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1, children=[RoseNode::new(data=2)]),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1, children=[RoseNode::RoseNode(data=2)]),
   ])
   let z = RoseZipper::from_root(tree)
   inspect(z.depth(), content="0")
@@ -658,10 +658,10 @@ test "depth tracks navigation depth" {
 }
 
 test "child_index tracks position among siblings" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
-    RoseNode::new(data=3),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
+    RoseNode::RoseNode(data=3),
   ])
   let z = RoseZipper::from_root(tree)
   inspect(z.child_index(), content="None")
@@ -674,7 +674,7 @@ test "child_index tracks position among siblings" {
 }
 
 test "is_root and is_leaf" {
-  let tree = RoseNode::new(data=0, children=[RoseNode::new(data=1)])
+  let tree = RoseNode::RoseNode(data=0, children=[RoseNode::RoseNode(data=1)])
   let z = RoseZipper::from_root(tree)
   inspect(z.is_root(), content="true")
   inspect(z.is_leaf(), content="false")
@@ -684,9 +684,9 @@ test "is_root and is_leaf" {
 }
 
 test "num_children" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
   ])
   let z = RoseZipper::from_root(tree)
   inspect(z.num_children(), content="2")
@@ -760,12 +760,12 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "to_path returns child indices from root" {
-  let tree = RoseNode::new(data="r", children=[
-    RoseNode::new(data="a", children=[
-      RoseNode::new(data="x"),
-      RoseNode::new(data="y"),
+  let tree = RoseNode::RoseNode(data="r", children=[
+    RoseNode::RoseNode(data="a", children=[
+      RoseNode::RoseNode(data="x"),
+      RoseNode::RoseNode(data="y"),
     ]),
-    RoseNode::new(data="b"),
+    RoseNode::RoseNode(data="b"),
   ])
   let z = RoseZipper::from_root(tree)
     .go_down().unwrap()
@@ -775,17 +775,17 @@ test "to_path returns child indices from root" {
 }
 
 test "to_path at root is empty" {
-  let z = RoseZipper::from_root(RoseNode::new(data=1))
+  let z = RoseZipper::from_root(RoseNode::RoseNode(data=1))
   inspect(z.to_path(), content="[]")
 }
 
 test "focus_at navigates to position" {
-  let tree = RoseNode::new(data="r", children=[
-    RoseNode::new(data="a", children=[
-      RoseNode::new(data="x"),
-      RoseNode::new(data="y"),
+  let tree = RoseNode::RoseNode(data="r", children=[
+    RoseNode::RoseNode(data="a", children=[
+      RoseNode::RoseNode(data="x"),
+      RoseNode::RoseNode(data="y"),
     ]),
-    RoseNode::new(data="b"),
+    RoseNode::RoseNode(data="b"),
   ])
   let z = RoseZipper::focus_at(tree, [0, 1]).unwrap()
   inspect(z.focus.data, content="y")
@@ -793,15 +793,15 @@ test "focus_at navigates to position" {
 }
 
 test "focus_at with empty path stays at root" {
-  let tree = RoseNode::new(data=1)
+  let tree = RoseNode::RoseNode(data=1)
   let z = RoseZipper::focus_at(tree, []).unwrap()
   inspect(z.focus.data, content="1")
   inspect(z.is_root(), content="true")
 }
 
 test "focus_at returns None on invalid path" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
   ])
   inspect(RoseZipper::focus_at(tree, [0, 5]), content="None")
   inspect(RoseZipper::focus_at(tree, [3]), content="None")
@@ -809,12 +809,12 @@ test "focus_at returns None on invalid path" {
 }
 
 test "to_path and focus_at round-trip" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1, children=[
-      RoseNode::new(data=3),
-      RoseNode::new(data=4),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1, children=[
+      RoseNode::RoseNode(data=3),
+      RoseNode::RoseNode(data=4),
     ]),
-    RoseNode::new(data=2),
+    RoseNode::RoseNode(data=2),
   ])
   let z = RoseZipper::from_root(tree)
     .go_down().unwrap()
@@ -895,9 +895,9 @@ Append to `lib/zipper/zipper_test.mbt`:
 
 ```moonbit
 test "persistence: old zipper unchanged after navigation" {
-  let tree = RoseNode::new(data=0, children=[
-    RoseNode::new(data=1),
-    RoseNode::new(data=2),
+  let tree = RoseNode::RoseNode(data=0, children=[
+    RoseNode::RoseNode(data=1),
+    RoseNode::RoseNode(data=2),
   ])
   let z = RoseZipper::from_root(tree)
   let z1 = z.go_down().unwrap()
@@ -970,7 +970,7 @@ Expected: PASS
 Run: `cat lib/zipper/pkg.generated.mbti`
 
 Verify the public API matches the spec:
-- `RoseNode::new`
+- `RoseNode::RoseNode`
 - `RoseZipper::from_root`, `go_down`, `go_up`, `go_left`, `go_right`
 - `RoseZipper::to_tree`, `replace`, `modify`
 - `RoseZipper::depth`, `child_index`, `is_root`, `is_leaf`, `num_children`

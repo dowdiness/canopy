@@ -27,11 +27,19 @@ pub impl[T : Debug] Show for RoseNode[T] with fn output(self, logger) {
 }
 
 ///|
-pub fn[T] RoseNode::new(
+pub fn[T] RoseNode::RoseNode(
   data~ : T,
   children? : Array[RoseNode[T]] = [],
 ) -> RoseNode[T] {
   { data, children }
+}
+
+///|
+pub fn[T, U] RoseNode::map(
+  self : RoseNode[T],
+  f : (T) -> U raise?,
+) -> RoseNode[U] raise? {
+  RoseNode(data=f(self.data), children=self.children.map(child => child.map(f)))
 }
 
 ///|
