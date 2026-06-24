@@ -1,10 +1,16 @@
 // Whitebox tests for generic Tier-2 tree edit methods.
-// Uses SyncEditor[@ast.Term] via the lambda convenience constructor.
+// Uses the neutral TestExpr grammar (@probe) — these exercise the
+// language-agnostic SyncEditor[T] edit surface (delete_node / commit_edit /
+// apply_text_transform / move_node / is_dirty / refresh), not any
+// lambda-specific behavior.
+//
+// TestExpr grammar: `f(x)` -> Branch("f", [Leaf("x")]); a bare ident -> Leaf;
+// the document root is Branch("", <top-level exprs>). placeholder is "?".
 
 ///|
 test "delete_node replaces span with placeholder" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("(λx. x)")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
@@ -15,38 +21,38 @@ test "delete_node replaces span with placeholder" {
 
 ///|
 test "commit_edit replaces span with new text" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  let result = editor.commit_edit(root.id(), "y", 0)
+  let result = editor.commit_edit(root.id(), "b", 0)
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="y")
+  inspect(editor.get_text(), content="b")
 }
 
 ///|
-test "apply_text_transform wraps node in lambda" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+test "apply_text_transform wraps node" {
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
   let result = editor.apply_text_transform(
     root.id(),
-    fn(src, s, e) { Ok("(λy. " + src[s:e].to_owned() + ")") },
+    fn(src, s, e) { Ok("g(" + src[s:e].to_owned() + ")") },
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="(λy. x)")
+  inspect(editor.get_text(), content="g(a)")
 }
 
 ///|
 test "delete_node returns error for unknown node_id" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   let _ = editor.get_proj_node()
   let bad_id = @core.NodeId::from_int(99999)
   let result = editor.delete_node(bad_id, 0)
@@ -55,29 +61,29 @@ test "delete_node returns error for unknown node_id" {
 
 ///|
 test "commit_edit returns error for unknown node_id" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   let _ = editor.get_proj_node()
   let bad_id = @core.NodeId::from_int(99999)
-  let result = editor.commit_edit(bad_id, "y", 0)
+  let result = editor.commit_edit(bad_id, "b", 0)
   inspect(result is Err(_), content="true")
 }
 
 ///|
 test "is_dirty set after set_text" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   inspect(editor.is_dirty(), content="true")
 }
 
 ///|
 test "is_dirty set after insert/backspace" {
-  let editor = @lambda.new_lambda_editor("test").0
+  let editor = @probe.new_test_editor("test")
   // Consume initial dirty from construction
   editor.refresh()
   inspect(editor.is_dirty(), content="false")
   // insert goes through apply_local_text_change → set_parser_signals
-  editor.insert("x") catch {
+  editor.insert("a") catch {
     _ => ()
   }
   inspect(editor.is_dirty(), content="true")
@@ -91,8 +97,8 @@ test "is_dirty set after insert/backspace" {
 
 ///|
 test "refresh clears dirty flag and further edits are accepted" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("x")
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a")
   inspect(editor.is_dirty(), content="true")
   editor.refresh()
   inspect(editor.is_dirty(), content="false")
@@ -101,231 +107,148 @@ test "refresh clears dirty flag and further edits are accepted" {
     None => fail("no proj node")
     Some(n) => n
   }
-  let result = editor.commit_edit(root.id(), "y", 0)
+  let result = editor.commit_edit(root.id(), "b", 0)
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="y")
+  inspect(editor.get_text(), content="b")
   inspect(editor.is_dirty(), content="true")
 }
 
 ///|
 test "move_node moves source before target and adjusts text" {
-  // "1 2" parses as App(Int(1), Int(2))
-  // children[0] = Int(1) at [0:1], children[1] = Int(2) at [2:3]
-  // Move Int(2) Before Int(1):
-  //   step 1: replace [2:3] with placeholder("0") → "1 0"
-  //   step 2: insert unparse("2") + " " at 0 → "2 1 0"
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("1 2")
+  // "a b" -> root Branch("", [Leaf("a"), Leaf("b")])
+  // Move Leaf("b") Before Leaf("a"):
+  //   step 1: replace b's span with placeholder("?")
+  //   step 2: insert "b " at the target start
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a b")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  // Need 2 children for App
   if root.children.length() < 2 {
-    fail("expected App with 2 children, got \{root.children.length()}")
+    fail("expected 2 top-level exprs, got \{root.children.length()}")
   }
-  let src_id = root.children[1].id() // Int(2)
-  let tgt_id = root.children[0].id() // Int(1)
-  let result = editor.move_node(src_id, tgt_id, @lambda.DropPosition::Before, 0)
+  let src_id = root.children[1].id() // Leaf("b")
+  let tgt_id = root.children[0].id() // Leaf("a")
+  let result = editor.move_node(src_id, tgt_id, @core.DropPosition::Before, 0)
   inspect(result is Ok(_), content="true")
-  // source node no longer at its original span; text has changed
-  inspect(editor.get_text() == "1 2", content="false")
+  // Before semantics, asserted on AST order rather than the raw placeholder
+  // text: the moved source ("b") now precedes the former target ("a") in the
+  // document. This stays valid across any refactor of move_node's placeholder
+  // or whitespace handling, while still proving the reorder actually happened.
+  let root2 = match editor.get_proj_node() {
+    None => fail("no proj node after move")
+    Some(n) => n
+  }
+  inspect(root2.children[0].kind, content="Leaf(\"b\")")
+  inspect(root2.children[1].kind, content="Leaf(\"a\")")
   // dirty flag set after move
   inspect(editor.is_dirty(), content="true")
 }
 
 ///|
-test "move_node exchange (Inside) swaps two expressions" {
-  // "1 2" parses as App(Int(1), Int(2))
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("1 2")
+test "move_node exchange (Inside) swaps two leaves" {
+  // "a b" -> root Branch("", [Leaf("a"), Leaf("b")])
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("a b")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  let child0 = root.children[0] // Int(1)
-  let child1 = root.children[1] // Int(2)
-  // Debug: check ranges
-  let sm = editor.get_source_map()
-  let r0 = sm.get_range(child0.id())
-  let r1 = sm.get_range(child1.id())
-  @debug.debug_inspect(
-    r0,
-    content=(
-      #|Some({ start: 0, end: 1 })
-    ),
-  )
-  @debug.debug_inspect(
-    r1,
-    content=(
-      #|Some({ start: 1, end: 3 })
-    ),
-  )
+  let child0 = root.children[0] // Leaf("a")
+  let child1 = root.children[1] // Leaf("b")
   let result = editor.move_node(
     child0.id(),
     child1.id(),
-    @lambda.DropPosition::Inside,
+    @core.DropPosition::Inside,
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="2 1")
+  inspect(editor.get_text(), content="b a")
 }
 
 ///|
-test "move_node exchange moves whole let-definitions" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nlet y = 2\nx")
+test "move_node exchange moves whole branches" {
+  // "f(a) g(b)" -> root with two Branch children
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(a) g(b)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  // Module has children: LetDef(x=1), LetDef(y=2), Var(x)
-  // Exchange the two let-defs as whole units
-  let let_x = root.children[0] // let x = 1
-  let let_y = root.children[1] // let y = 2
+  let branch_f = root.children[0] // f(a)
+  let branch_g = root.children[1] // g(b)
   let result = editor.move_node(
-    let_x.id(),
-    let_y.id(),
-    @lambda.DropPosition::Inside,
+    branch_f.id(),
+    branch_g.id(),
+    @core.DropPosition::Inside,
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(
-    editor.get_text(),
-    content=(
-      #|let y = 2
-      #|let x = 1
-      #|x
-    ),
-  )
+  inspect(editor.get_text(), content="g(b) f(a)")
 }
 
 ///|
-test "move_node exchange: variable and number in application" {
-  // "f 42" = App(Var("f"), Int(42))
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("f 42")
+test "move_node exchange: short and long leaf" {
+  // "p qrs" -> root Branch("", [Leaf("p"), Leaf("qrs")])
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("p qrs")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  let var_f = root.children[0] // Var("f")
-  let int_42 = root.children[1] // Int(42)
-  // Debug: check ranges and spans
-  let sm = editor.get_source_map()
-  let r0 = sm.get_range(var_f.id())
-  let r1 = sm.get_range(int_42.id())
-  @debug.debug_inspect(
-    r0,
-    content=(
-      #|Some({ start: 0, end: 1 })
-    ),
-  )
-  @debug.debug_inspect(
-    r1,
-    content=(
-      #|Some({ start: 1, end: 4 })
-    ),
-  )
+  let leaf_p = root.children[0] // Leaf("p")
+  let leaf_qrs = root.children[1] // Leaf("qrs")
   let result = editor.move_node(
-    var_f.id(),
-    int_42.id(),
-    @lambda.DropPosition::Inside,
+    leaf_p.id(),
+    leaf_qrs.id(),
+    @core.DropPosition::Inside,
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="42 f")
+  inspect(editor.get_text(), content="qrs p")
 }
 
 ///|
-test "move_node exchange: number and lambda body" {
-  // "\x. 42" = Lam("x", Int(42))
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("(\\x. 42) 1")
+test "move_node exchange: branch and leaf" {
+  // "f(x) y" -> root Branch("", [Branch("f", [Leaf("x")]), Leaf("y")])
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("f(x) y")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  let lam = root.children[0] // Lam
-  let int_1 = root.children[1] // Int(1)
-  // Debug: check ranges
-  let sm = editor.get_source_map()
-  let r0 = sm.get_range(lam.id())
-  let r1 = sm.get_range(int_1.id())
-  @debug.debug_inspect(
-    r0,
-    content=(
-      #|Some({ start: 0, end: 8 })
-    ),
-  )
-  @debug.debug_inspect(
-    r1,
-    content=(
-      #|Some({ start: 8, end: 10 })
-    ),
-  )
+  let branch_f = root.children[0] // f(x)
+  let leaf_y = root.children[1] // Leaf("y")
   let result = editor.move_node(
-    lam.id(),
-    int_1.id(),
-    @lambda.DropPosition::Inside,
+    branch_f.id(),
+    leaf_y.id(),
+    @core.DropPosition::Inside,
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(
-    editor.get_text(),
-    content=(
-      #|1 (\x. 42)
-    ),
-  )
+  inspect(editor.get_text(), content="y f(x)")
 }
 
 ///|
-test "move_node exchange: int with var in real editor text" {
-  // Mimics the default editor text
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text(
-    "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
-  )
+test "move_node exchange: nested siblings" {
+  // "h(p q)" -> root Branch("", [Branch("h", [Leaf("p"), Leaf("q")])])
+  // Exchange the two leaves inside the branch.
+  let editor = @probe.new_test_editor("test")
+  editor.set_text("h(p q)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
     Some(n) => n
   }
-  // root is Module with 3 children: let id, let apply, "apply id 42"
-  let app_expr = root.children[2] // "apply id 42" = App(App(Var("apply"), Var("id")), Int(42))
-  // app_expr.children[0] = App(Var("apply"), Var("id"))
-  // app_expr.children[1] = Int(42)
-  let inner_app = app_expr.children[0] // App(apply, id)
-  let int_42 = app_expr.children[1] // Int(42)
-  // inner_app.children[1] = Var("id")
-  let var_id = inner_app.children[1] // Var("id")
-  // Show ranges
-  let sm = editor.get_source_map()
-  @debug.debug_inspect(
-    sm.get_range(var_id.id()),
-    content=(
-      #|Some({ start: 52, end: 55 })
-    ),
-  )
-  @debug.debug_inspect(
-    sm.get_range(int_42.id()),
-    content=(
-      #|Some({ start: 55, end: 58 })
-    ),
-  )
-  // Exchange id <-> 42
+  let branch_h = root.children[0] // h(p q)
+  let leaf_p = branch_h.children[0] // Leaf("p")
+  let leaf_q = branch_h.children[1] // Leaf("q")
   let result = editor.move_node(
-    var_id.id(),
-    int_42.id(),
-    @lambda.DropPosition::Inside,
+    leaf_p.id(),
+    leaf_q.id(),
+    @core.DropPosition::Inside,
     0,
   )
   inspect(result is Ok(_), content="true")
-  inspect(
-    editor.get_text(),
-    content=(
-      #|let id = \x. { x }
-      #|let apply = \f. \x. { f x }
-      #|apply 42 id
-    ),
-  )
+  inspect(editor.get_text(), content="h(q p)")
 }

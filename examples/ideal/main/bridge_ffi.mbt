@@ -1,20 +1,20 @@
 ///|
-/// Read the agent ID set by JS before module import.
+/// Read the agent ID from the host bridge installed before module import.
 extern "js" fn js_get_agent_id() -> String =
   #| function() {
-  #|   var id = globalThis.__canopy_agent_id;
+  #|   var id = globalThis.__canopy_bridge?.agentId;
   #|   return typeof id === 'string' ? id : '';
   #| }
 
 ///|
 /// Current session-relative time in milliseconds for CRDT undo grouping.
+/// Reads sessionStartMs from the host bridge so MoonBit and TypeScript share the same clock.
 extern "js" fn js_now_ms() -> Int =
   #| function() {
-  #|   const key = "__canopy_session_start_ms";
-  #|   if (typeof globalThis[key] !== "number") {
-  #|     globalThis[key] = Date.now();
-  #|   }
-  #|   const elapsed = Math.floor(Date.now() - globalThis[key]);
+  #|   var bridge = globalThis.__canopy_bridge;
+  #|   var start = bridge?.sessionStartMs;
+  #|   if (typeof start !== 'number') return 0;
+  #|   var elapsed = Math.floor(Date.now() - start);
   #|   return Math.max(0, Math.min(2147483647, elapsed));
   #| }
 
@@ -127,10 +127,10 @@ extern "js" fn js_make_ideal_cm_extension_raw(
   #|     ...defaultKeymap,
   #|   ]);
   #|   const languageExtensions = normalizeExtensions(
-  #|     globalThis.__canopy_create_lambda_cm_extensions,
+  #|     globalThis.__canopy_bridge?.createLambdaExtensions,
   #|   );
   #|   const peerExtensions = normalizeExtensions(
-  #|     globalThis.__canopy_create_cm_peer_cursor_extension,
+  #|     globalThis.__canopy_bridge?.createPeerCursorExtension,
   #|   );
   #|   return [theme, ...languageExtensions, keymap, ...peerExtensions];
   #| }
@@ -149,8 +149,9 @@ extern "js" fn js_after_local_text_edit() -> Unit =
   #|   if (el && typeof el.notifyLocalChange === 'function') {
   #|     el.notifyLocalChange();
   #|   }
-  #|   if (typeof globalThis.__canopy_trigger_autosave === 'function') {
-  #|     globalThis.__canopy_trigger_autosave();
+  #|   var triggerAutosave = globalThis.__canopy_bridge?.triggerAutosave;
+  #|   if (typeof triggerAutosave === 'function') {
+  #|     triggerAutosave();
   #|   }
   #| }
 
@@ -158,28 +159,23 @@ extern "js" fn js_after_local_text_edit() -> Unit =
 /// Broadcast local text-mode cursor/selection state from the binding.
 extern "js" fn js_after_cm_selection_changed(from : Int, to : Int) -> Unit =
   #| function(from, to) {
-  #|   const state = globalThis.__canopy_pending_cm_selection ?? {};
+  #|   var bridge = globalThis.__canopy_bridge;
+  #|   if (!bridge) return;
+  #|   var state = bridge._pendingCmSelection ?? {};
   #|   state.from = from;
   #|   state.to = to;
   #|   if (state.timer != null) {
-  #|     globalThis.__canopy_pending_cm_selection = state;
+  #|     bridge._pendingCmSelection = state;
   #|     return;
   #|   }
-  #|   state.timer = setTimeout(() => {
+  #|   state.timer = setTimeout(function() {
   #|     state.timer = null;
-  #|     globalThis.__canopy_pending_cm_selection = state;
-  #|     var crdt = globalThis.__canopy_crdt;
-  #|     var handle = globalThis.__canopy_crdt_handle;
-  #|     var name = globalThis.__canopy_agent_name || "You";
-  #|     var color = globalThis.__canopy_agent_color || "#8250df";
-  #|     if (crdt && handle != null && typeof crdt.ephemeral_set_presence_with_selection === 'function') {
-  #|       crdt.ephemeral_set_presence_with_selection(handle, name, color, state.from, state.to);
-  #|     }
-  #|     if (typeof globalThis.__canopy_broadcast_ephemeral === 'function') {
-  #|       globalThis.__canopy_broadcast_ephemeral();
+  #|     bridge._pendingCmSelection = state;
+  #|     if (typeof bridge.onSelectionChanged === 'function') {
+  #|       bridge.onSelectionChanged(state.from, state.to);
   #|     }
   #|   }, 50);
-  #|   globalThis.__canopy_pending_cm_selection = state;
+  #|   bridge._pendingCmSelection = state;
   #| }
 
 ///|
@@ -203,7 +199,8 @@ extern "js" fn js_set_editor_selected_node(node_id : String) -> Unit =
 /// Tell JS whether the action overlay is currently open.
 extern "js" fn js_set_overlay_open(open : Bool) -> Unit =
   #| function(open) {
-  #|   globalThis.__canopy_overlay_open = open;
+  #|   var bridge = globalThis.__canopy_bridge;
+  #|   if (bridge) bridge.overlayOpen = open;
   #| }
 
 ///|
@@ -248,7 +245,7 @@ extern "js" fn js_focus_tree_rows() -> Unit =
 /// Start a named browser perf span for the current benchmark sample.
 extern "js" fn js_perf_begin(name : String) -> Unit =
   #| function(name) {
-  #|   var perf = globalThis.__canopy_perf_current;
+  #|   var perf = globalThis.__canopy_bridge?.perfCurrent;
   #|   if (!perf || !perf.spans) return;
   #|   if (!perf._starts) perf._starts = {};
   #|   perf._starts[name] = performance.now();
@@ -258,7 +255,7 @@ extern "js" fn js_perf_begin(name : String) -> Unit =
 /// End a named browser perf span for the current benchmark sample.
 extern "js" fn js_perf_end(name : String) -> Unit =
   #| function(name) {
-  #|   var perf = globalThis.__canopy_perf_current;
+  #|   var perf = globalThis.__canopy_bridge?.perfCurrent;
   #|   if (!perf || !perf.spans || !perf._starts) return;
   #|   var start = perf._starts[name];
   #|   if (typeof start !== 'number') return;

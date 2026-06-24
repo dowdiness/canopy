@@ -3,6 +3,7 @@ import {
   "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/markdown",
   "dowdiness/moji",
+  "moonbitlang/core/string",
 }
 
 import {

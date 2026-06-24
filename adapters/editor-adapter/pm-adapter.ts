@@ -172,8 +172,8 @@ export class PMAdapter implements EditorAdapter {
             });
           } else {
             this.intentCallback({
-              type: "SetCursor",
-              position: sel.anchor,
+              type: "SetPmCursor",
+              pm_tree_position: sel.anchor,
             });
           }
         }

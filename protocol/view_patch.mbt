@@ -1,8 +1,8 @@
 // ViewPatch: Incremental patches for the editor protocol.
 
 ///|
-/// Visual decoration applied to a half-open text range `[from, to)` in the
-/// editor's source view.
+/// Visual decoration applied to a half-open UTF-16 document code-unit range
+/// `[from, to)` in the editor's source view.
 ///
 /// `css_class` is the CSS class the frontend should attach to the range;
 /// `widget` indicates that the decoration replaces the range with an inline
@@ -49,8 +49,9 @@ pub impl ToJson for Severity with fn to_json(self) {
 }
 
 ///|
-/// A diagnostic message associated with a half-open text range `[from, to)`.
-/// Used to surface compiler/linter findings to the editor frontend.
+/// A diagnostic message associated with a half-open UTF-16 document code-unit
+/// range `[from, to)`. Used to surface compiler/linter findings to the editor
+/// frontend.
 pub(all) struct Diagnostic {
   from : Int
   to : Int
@@ -77,6 +78,7 @@ pub fn Diagnostic::Diagnostic(
 /// Frontends must treat unknown variants as no-ops so the protocol can be
 /// extended without a breaking change.
 pub(all) enum ViewPatch {
+  /// `from`/`to` are UTF-16 document code-unit offsets.
   TextChange(from~ : Int, to~ : Int, insert~ : String)
   ReplaceNode(node_id~ : @core.NodeId, node~ : ViewNode)
   InsertChild(parent_id~ : @core.NodeId, index~ : Int, child~ : ViewNode)
@@ -89,6 +91,7 @@ pub(all) enum ViewPatch {
   )
   SetDecorations(decorations~ : Array[Decoration])
   SetDiagnostics(diagnostics~ : Array[Diagnostic])
+  /// `anchor`/`head` are UTF-16 document code-unit offsets.
   SetSelection(anchor~ : Int, head~ : Int)
   SelectNode(node_id~ : @core.NodeId)
   FullTree(root~ : ViewNode?)

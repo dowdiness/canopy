@@ -6,6 +6,7 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
   text : String,
   timestamp_ms : Int,
 ) -> Unit raise {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
   let insert_start = self.cursor
@@ -32,6 +33,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
 ) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
@@ -73,6 +75,7 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
 ) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.next_grapheme_boundary(old_source, self.cursor)
@@ -105,6 +108,7 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
 
 ///|
 pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
     if !self.undo.undo(self.doc) {
@@ -122,6 +126,7 @@ pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
 
 ///|
 pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
+  self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
     if !self.undo.redo(self.doc) {
@@ -143,6 +148,7 @@ pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
 pub fn[T : Eq] SyncEditor::undo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? {
+  self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
   let success = try {
@@ -172,6 +178,7 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
 pub fn[T : Eq] SyncEditor::redo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? {
+  self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
   let success = try {

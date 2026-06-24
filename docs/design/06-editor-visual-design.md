@@ -35,7 +35,7 @@ Design system for the projectional editor UI. Extracted from Paper canvas (3 art
 | Token | Hex | Node Kind | Example |
 |-------|-----|-----------|---------|
 | `--c-let` | `#8bc99a` | let binding | `let id = … in …` |
-| `--c-lambda` | `#c4a1ff` | lambda abstraction | `λx. …` |
+| `--c-lambda` | `#c4a1ff` | lambda abstraction | `(x) => …` |
 | `--c-app` | `#7eb8da` | application | `App` |
 | `--c-literal` | `#f2c066` | literal value | `42` |
 | `--c-term` | `#e4e0dc` | variable/reference | `x` |
@@ -132,7 +132,7 @@ Design system for the projectional editor UI. Extracted from Paper canvas (3 art
 - **Toggle**: `▼` expanded, `▶` collapsed, empty for leaf nodes
 - **Label**: rendered in JetBrains Mono, colored by kind
 - **Badge**: collapsed child count, shown only when collapsed, tinted by kind
-- **Actions**: `Wrap λ` / `Delete` buttons, shown only on selected node
+- **Actions**: `Wrap function` / `Delete` buttons, shown only on selected node
 
 ### Depth Indentation (desktop)
 

@@ -10,6 +10,12 @@ pub struct LanguageCapabilities[T] {
     Array[@protocol.ViewAnnotation],
   ])?
   priv get_decorations : (() -> Array[@protocol.Decoration])?
+  priv to_view_node : ((
+    @core.ProjNode[T],
+    @core.SourceMap,
+    Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+    String?,
+  ) -> @protocol.ViewNode)?
   priv pretty_post_process : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
     @pretty.SyntaxCategory,
   ])?
@@ -24,7 +30,32 @@ pub fn[T] LanguageCapabilities::new(
     @pretty.SyntaxCategory,
   ])? = None,
 ) -> LanguageCapabilities[T] {
-  { get_annotations, get_decorations, pretty_post_process, phantom: None }
+  {
+    get_annotations,
+    get_decorations,
+    to_view_node: None,
+    pretty_post_process,
+    phantom: None,
+  }
+}
+
+///|
+pub fn[T] LanguageCapabilities::with_to_view_node(
+  self : LanguageCapabilities[T],
+  to_view_node : (
+    @core.ProjNode[T],
+    @core.SourceMap,
+    Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+    String?,
+  ) -> @protocol.ViewNode,
+) -> LanguageCapabilities[T] {
+  {
+    get_annotations: self.get_annotations,
+    get_decorations: self.get_decorations,
+    to_view_node: Some(to_view_node),
+    pretty_post_process: self.pretty_post_process,
+    phantom: None,
+  }
 }
 
 ///|
@@ -33,6 +64,7 @@ pub fn[T] LanguageCapabilities::default() -> LanguageCapabilities[T] {
   {
     get_annotations: None,
     get_decorations: None,
+    to_view_node: None,
     pretty_post_process: None,
     phantom: None,
   }

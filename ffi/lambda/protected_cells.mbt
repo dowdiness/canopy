@@ -25,7 +25,6 @@ priv struct LambdaProtectedCells {
     Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   ]
   source_map_memo : @workspace.ProtectedCell[@core.SourceMap]
-  proj_memo : @workspace.ProtectedCell[@lambda_flat.VersionedModuleProjection]
   escalation_memo : @workspace.ProtectedCell[Array[@lambda_eval.EvalResult]]
   typecheck_output : @workspace.ProtectedCell[@typecheck.ModuleTypeResult]
 }
@@ -64,10 +63,6 @@ fn LambdaProtectedCells::LambdaProtectedCells(
       "source_map",
       editor.source_map_memo(),
     ),
-    proj_memo: @workspace.ProtectedCell::from_derived(
-      "proj_flat",
-      companion.proj_memo(),
-    ),
     escalation_memo: @workspace.ProtectedCell::from_derived(
       "escalation_memo",
       companion.escalation_memo(),
@@ -93,7 +88,6 @@ fn LambdaProtectedCells::to_protected_reads(
     self.cached_proj_node.erase(),
     self.registry_memo.erase(),
     self.source_map_memo.erase(),
-    self.proj_memo.erase(),
     self.escalation_memo.erase(),
     self.typecheck_output.erase(),
   ]

@@ -53,6 +53,7 @@ pub enum SyncStatus {
 /// implicit `(visible, submenu, pending_action)` encoding so that illegal
 /// combinations — a closed overlay with a pending action, or a submenu and a
 /// name prompt active at once — are unrepresentable.
+#warnings("-unused_constructor")
 enum OverlayMode {
   Closed
   MainMenu
@@ -66,7 +67,7 @@ enum OverlayMode {
 struct OverlayState {
   mode : OverlayMode
   actions : Array[@lambda_edits.Action]
-  node_context : NodeActionContext?
+  kind : @ast.Term
   // The most recent failure to act. Overlay-wide, not prompt-specific: an
   // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
   // so the error is rendered in the panel for any open mode (view_actions.mbt).
@@ -89,6 +90,8 @@ struct NodeActionContext {
 ///|
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
+  // FFI handle for this editor, used to drive handle-keyed FFI (file I/O).
+  handle : Int
   companion : @lambda.LambdaCompanion
   outline_state : @proj.TreeEditorState[@ast.Term]
   cm_id : String
@@ -100,7 +103,7 @@ pub struct Model {
   next_timestamp : Int
   bottom_tab : BottomTab
   sync_status : SyncStatus
-  overlay : OverlayState
+  overlay : ActionOverlayHost
   scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state

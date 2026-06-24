@@ -1,7 +1,7 @@
 # ViewNode JSON Serialization — Phase 0 Spike
 
 Date: 2026-04-01
-Context: EditorProtocol design validation (`docs/plans/2026-04-01-editor-protocol-design.md`)
+Context: EditorProtocol design validation (`docs/archive/completed-phases/2026-04-01-editor-protocol-design.md`)
 
 ## Question
 
@@ -12,7 +12,7 @@ Target: < 1ms for incremental patches (typical keystroke), acceptable for full-t
 
 - `proj_to_view_node(ProjNode[Term], SourceMap) → ViewNode` conversion + `to_json().stringify()`
 - Custom object-based `ToJson` (not `derive(ToJson)` array format)
-- Source: `let f0 = \x.x + 0\nlet f1 = \x.x + 1\n...` (realistic lambda defs)
+- Source: `let f0 = (x) => x + 0\nlet f1 = (x) => x + 1\n...` (realistic lambda defs)
 - `moon bench --release`
 
 ## Results

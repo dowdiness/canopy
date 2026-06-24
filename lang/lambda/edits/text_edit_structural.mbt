@@ -4,12 +4,12 @@ fn compute_unwrap(
   node_id : NodeId,
   keep_child_index : Int,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   if keep_child_index < 0 || keep_child_index >= node.children.length() {
     Err("Child index out of range")
@@ -40,12 +40,12 @@ fn compute_swap_children(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   match node.kind {
     @ast.Term::Bop(op, l, r) => {
@@ -92,12 +92,12 @@ fn compute_change_operator(
   node_id : NodeId,
   new_op : @ast.Bop,
 ) -> EditResult {
-  let { source_map, registry, .. } = ctx
-  guard source_map.get_range(node_id) is Some(range) else {
-    return Err("Node not found: " + node_id.to_string())
+  let (node, range) = ctx.resolve(node_id) catch {
+    ResolveError(e) => return Err(e)
   }
-  guard registry.get(node_id) is Some(node) else {
-    return Err("Node not found: " + node_id.to_string())
+  match ensure_replaceable_node_range(ctx, node_id, node, range) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   match node.kind {
     @ast.Term::Bop(_, l, r) => {

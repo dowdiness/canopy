@@ -4,6 +4,9 @@ package "dowdiness/canopy/editor"
 import {
   "dowdiness/canopy/ephemeral",
   "dowdiness/canopy/protocol",
+  "dowdiness/canopy/protocol/wire",
+  "dowdiness/canopy/sync_session",
+  "dowdiness/canopy/transport_ws",
   "dowdiness/event-graph-walker/history",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
@@ -11,6 +14,7 @@ import {
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -22,33 +26,25 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(ViewUpdateState, SyncEditor[T]
 
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
-pub fn decode_message(Bytes) -> SyncMessage?
+#deprecated
+pub fn decode_message(Bytes) -> @wire.SyncMessage?
 
-pub fn decode_message_result(Bytes) -> Result[SyncMessage, ProtocolError]
+#deprecated
+pub fn decode_message_result(Bytes) -> Result[@wire.SyncMessage, @wire.ProtocolError]
 
-pub fn encode_message(SyncMessage) -> Bytes
+#deprecated
+pub fn encode_message(@wire.SyncMessage) -> Bytes
 
+#deprecated
 pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
 
+#deprecated
 pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
 
+#deprecated
 pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
 
 // Errors
-pub(all) suberror ProtocolError {
-  MessageTooShort(length~ : Int)
-  UnsupportedVersion(version~ : Byte)
-  UnknownMessageType(msg_type~ : Byte)
-  MissingNamespace
-  InvalidNamespace(tag~ : Byte)
-  MissingRoomControlSubtype
-  InvalidRoomControlSubtype(sub_type~ : Byte)
-  MissingField(field~ : String)
-  InvalidSyncJson(detail~ : String)
-  InvalidVersionJson(detail~ : String)
-}
-pub fn ProtocolError::message(Self) -> String
-
 pub(all) suberror TreeEditError {
   ExpectedJsonObject
   MissingField(field~ : String)
@@ -56,7 +52,7 @@ pub(all) suberror TreeEditError {
   FieldMustBeNumber(field~ : String)
   UnknownBop(name~ : String)
   UnknownOpType(op_type~ : String)
-  ModuleProjectionUnavailable
+  ProjectionUnavailable
   UnhandledOperation(detail~ : String)
   NodeNotInSourceMap(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)
   NodeNotInRegistry(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)
@@ -83,36 +79,18 @@ pub fn Editor::insert_at(Self, Int, String) -> Unit raise
 pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self
 
-pub struct InMemoryRoom {
-  peers : Map[String, Array[(Bytes) -> Unit]]
-}
-pub fn InMemoryRoom::new() -> Self
-
-pub struct InMemoryTransport {
-  peer_id : String
-  room : InMemoryRoom
-}
-pub fn InMemoryTransport::new(String, InMemoryRoom) -> Self
-pub impl SyncTransport for InMemoryTransport
-
-#external
-pub type JsWebSocket
-pub fn JsWebSocket::close(Self) -> Unit
-pub fn JsWebSocket::send_bytes(Self, Bytes) -> Unit
-
 pub struct LanguageCapabilities[T] {
   // private fields
 }
 pub fn[T] LanguageCapabilities::default() -> Self[T]
 pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
-
-type RecoveryContext
+pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], String?) -> @protocol.ViewNode) -> Self[T]
 
 pub struct SyncEditor[T] {
   // private fields
 }
 pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
-pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int) -> Unit
+pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int, hint? : @dowdiness/canopy/core.IdentityTransform) -> Unit
 pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
 pub fn[T : Eq] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
 pub fn[T : Eq] SyncEditor::apply_text_edit_exact(Self[T], Int, Int, String, Int) -> Bool
@@ -144,7 +122,7 @@ pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(Self[T]) -> @protocol.Vie
 pub fn[T] SyncEditor::get_proj_node(Self[T]) -> @dowdiness/canopy/core.ProjNode[T]?
 pub fn[T] SyncEditor::get_registry(Self[T]) -> Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]
 pub fn[T] SyncEditor::get_source_map(Self[T]) -> @dowdiness/canopy/core.SourceMap
-pub fn[T] SyncEditor::get_sync_status(Self[T]) -> SyncStatus
+pub fn[T] SyncEditor::get_sync_status(Self[T]) -> @sync_session.SyncStatus
 pub fn[T] SyncEditor::get_text(Self[T]) -> String
 pub fn[T] SyncEditor::get_tree(Self[T]) -> T?
 pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
@@ -162,7 +140,7 @@ pub fn[T] SyncEditor::move_cursor_left_word(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_grapheme(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], TreeEditError]
-pub fn[T] SyncEditor::new_generic(String, (String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T]) -> Self[T]
+pub fn[T] SyncEditor::new_generic(String, (String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> Self[T]
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T]
@@ -176,7 +154,7 @@ pub fn[T] SyncEditor::refresh(Self[T]) -> Unit
 pub fn[T] SyncEditor::registry_memo(Self[T]) -> @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]]
 pub fn[T] SyncEditor::remove_ephemeral_outdated(Self[T]) -> Unit
 pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (Int, Int)?) -> Unit
-pub fn[T] SyncEditor::set_on_status_change(Self[T], ((SyncStatus) -> Unit)?) -> Unit
+pub fn[T] SyncEditor::set_on_status_change(Self[T], ((@sync_session.SyncStatus) -> Unit)?) -> Unit
 pub fn[T : Eq] SyncEditor::set_text(Self[T], String) -> Unit
 pub fn[T : Eq] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
 pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
@@ -190,33 +168,8 @@ pub fn[T] SyncEditor::ws_broadcast_cursor(Self[T]) -> Unit
 pub fn[T] SyncEditor::ws_broadcast_edit(Self[T]) -> Unit
 pub fn[T] SyncEditor::ws_on_close(Self[T]) -> Unit
 pub fn[T : Eq] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
-pub fn[T] SyncEditor::ws_on_open(Self[T], JsWebSocket) -> Unit
+pub fn[T] SyncEditor::ws_on_open(Self[T], @transport_ws.JsWebSocket) -> Unit
 pub fn[T] SyncEditor::ws_send(Self[T], Bytes) -> Unit
-
-pub enum SyncErrorReason {
-  Exhausted(peer_id~ : String)
-  TargetLeft(peer_id~ : String)
-} derive(Eq, @debug.Debug)
-pub impl Show for SyncErrorReason
-
-pub(all) enum SyncMessage {
-  CrdtOps(Bytes)
-  EphemeralUpdate(@ephemeral.EphemeralNamespace, Bytes)
-  SyncRequest(Bytes)
-  SyncResponse(Bytes)
-  PeerJoined(String)
-  PeerLeft(String)
-  RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Eq, @debug.Debug)
-pub impl Show for SyncMessage
-
-pub enum SyncStatus {
-  Disconnected
-  Idle
-  Recovering(peer_id~ : String, attempt~ : Int)
-  Error(reason~ : SyncErrorReason)
-} derive(Eq, @debug.Debug)
-pub impl Show for SyncStatus
 
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
@@ -240,7 +193,7 @@ pub using @ephemeral {type EphemeralEventTrigger}
 
 pub using @ephemeral {type EphemeralHub}
 
-pub using @ephemeral {type EphemeralNamespace}
+pub using @wire {type EphemeralNamespace}
 
 pub using @ephemeral {type EphemeralStore}
 
@@ -250,6 +203,12 @@ pub using @ephemeral {type EphemeralSubscription}
 
 pub using @ephemeral {type EphemeralValue}
 
+pub using @sync_session {type InMemoryRoom}
+
+pub using @sync_session {type InMemoryTransport}
+
+pub using @transport_ws {type JsWebSocket}
+
 pub using @ephemeral {type PeerCursor}
 
 pub using @ephemeral {type PeerCursorView}
@@ -258,10 +217,17 @@ pub using @ephemeral {type PeerPresence}
 
 pub using @ephemeral {type PresenceStatus}
 
+#deprecated
+pub using @wire {type ProtocolError}
+
+pub using @sync_session {type SyncErrorReason}
+
+#deprecated
+pub using @wire {type SyncMessage}
+
+pub using @sync_session {type SyncStatus}
+
+pub using @sync_session {trait SyncTransport}
+
 // Traits
-pub(open) trait SyncTransport {
-  fn send(Self, Bytes) -> Unit
-  fn on_receive(Self, (Bytes) -> Unit) -> Unit
-  fn close(Self) -> Unit
-}
 

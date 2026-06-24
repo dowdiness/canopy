@@ -1,0 +1,15 @@
+name = "dowdiness/zipper"
+
+version = "0.1.0"
+
+import {
+  "moonbitlang/quickcheck@0.11.2",
+}
+
+repository = "https://github.com/dowdiness/canopy"
+
+license = "Apache-2.0"
+
+keywords = [ "zipper", "rose-tree", "data-structure", "moonbit" ]
+
+description = "Persistent rose tree zipper — generic, correct, O(1) lateral navigation"

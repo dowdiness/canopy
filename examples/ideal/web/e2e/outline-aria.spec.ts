@@ -52,13 +52,30 @@ test.describe('Outline ARIA (treeview behavior)', () => {
     expect(rowId).toMatch(/^canopy-outline-treeitem-/);
   });
 
-  test('expandable rows expose aria-expanded; collapsing flips it to false', async ({ page }) => {
+  test('collapse/expand hides and restores descendants with a collapsed badge', async ({ page }) => {
     // The root module node has children, so it is expandable.
-    const root = outline(page).locator('.tree-row').first();
+    const rows = outline(page).locator('.tree-row');
+    const root = rows.first();
+    const descendants = outline(page).locator('.tree-row.depth-1');
     await expect(root).toHaveAttribute('aria-expanded', 'true');
+    await expect(descendants).toHaveCount(3);
+    await expect(root.locator('.collapsed-badge')).toHaveCount(0);
+    const expandedRowCount = await rows.count();
+    expect(expandedRowCount).toBeGreaterThan(1);
 
-    // Collapse via the row's toggle button; aria-expanded must become "false".
+    // Collapse via the row's toggle button; descendants leave the DOM and the
+    // badge reports the hidden direct-child count.
     await root.locator('.tree-toggle').click();
     await expect(root).toHaveAttribute('aria-expanded', 'false');
+    await expect(rows).toHaveCount(1);
+    await expect(descendants).toHaveCount(0);
+    await expect(root.locator('.collapsed-badge')).toHaveText('3');
+
+    // Expanding restores the original visible tree and removes the badge.
+    await root.locator('.tree-toggle').click();
+    await expect(root).toHaveAttribute('aria-expanded', 'true');
+    await expect(rows).toHaveCount(expandedRowCount);
+    await expect(descendants).toHaveCount(3);
+    await expect(root.locator('.collapsed-badge')).toHaveCount(0);
   });
 });

@@ -27,6 +27,8 @@ files inside `docs/development/`.
 - **[Testing](testing.md)** — testing guide and best practices.
 - **[Ideal Tailwind Style Management](ideal-tailwind-style-management.md)** —
   Tailwind v4 recipe conventions for the Ideal editor.
+- **[Module / Package Map](module-package-map.md)** — distinguish root packages,
+  workspace modules, examples, and submodules.
 - **[Monorepo & Submodules](monorepo.md)** — git submodule setup and daily
   cheat sheet.
 
@@ -39,6 +41,9 @@ files inside `docs/development/`.
   repo are written and maintained.
 - **[Move Contract](move-contract.md)** — how nodes are relocated across
   Canopy editors.
+- **[Codex: app-server vs MCP](codex-app-server-vs-mcp.md)** — comparison of the
+  two ways to drive Codex (MCP wrapper vs app-server / WebSocket control socket)
+  and when to use which.
 
 ## Verification
 

@@ -10,14 +10,14 @@ pub fn create_canvas() -> Int {
 
 ///|
 /// Handle pointer-down. `node_id` is the canvas node id under the pointer,
-/// or 0 for background. Dispatches to pan or drag start internally.
+/// or "" for background. Dispatches to pan or drag start internally.
 pub fn pointer_down(
   handle : Int,
-  node_id : Int,
+  node_id : String,
   sx : Double,
   sy : Double,
 ) -> Unit {
-  let id : NodeId? = if node_id <= 0 { None } else { Some(NodeId(node_id)) }
+  let id : NodeId? = if node_id == "" { None } else { Some(NodeId(node_id)) }
   _registry[handle].pointer_down(id, sx, sy)
 }
 
@@ -25,7 +25,7 @@ pub fn pointer_down(
 /// Pointer-down on an output handle: start an edge-creation gesture.
 pub fn pointer_down_handle(
   handle : Int,
-  node_id : Int,
+  node_id : String,
   port_id : String,
   sx : Double,
   sy : Double,
@@ -48,7 +48,7 @@ pub fn zoom(handle : Int, delta : Double, cx : Double, cy : Double) -> Unit {
 ///|
 pub fn pointer_up(
   handle : Int,
-  node_id : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
@@ -56,7 +56,7 @@ pub fn pointer_up(
 }
 
 ///|
-pub fn hover_node(handle : Int, node_id : Int) -> Unit {
+pub fn hover_node(handle : Int, node_id : String) -> Unit {
   _registry[handle].hover_node(node_id)
 }
 
@@ -93,9 +93,9 @@ pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
 ///|
 pub fn disconnect_ports(
   handle : Int,
-  source : Int,
+  source : String,
   source_port : String,
-  target : Int,
+  target : String,
   target_port : String,
 ) -> Unit {
   _registry[handle].disconnect_ports(
@@ -107,10 +107,31 @@ pub fn disconnect_ports(
 }
 
 ///|
-/// Serializable node snapshot. Uses plain Int for `id` to avoid
-/// the NodeId newtype wrapper appearing in JSON output.
+pub fn get_input_port_compatibility(
+  handle : Int,
+  source : String,
+  source_port : String,
+) -> String {
+  _registry[handle]
+  .input_port_compatibility(NodeId(source), source_port)
+  .to_json()
+  .stringify()
+}
+
+///|
+struct NodeParamJson {
+  name : String
+  value_kind : String
+  value : String
+  unit : String?
+  editable : Bool
+} derive(Eq, ToJson)
+
+///|
+/// Serializable node snapshot. Uses plain String for `id` to carry
+/// the stable NodeId value across the JS boundary.
 struct NodeJson {
-  id : Int
+  id : String
   x : Double
   y : Double
   w : Double
@@ -121,14 +142,15 @@ struct NodeJson {
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
+  params : Array[NodeParamJson]
 } derive(Eq, ToJson)
 
 ///|
 struct EdgeJson {
-  id : Int
-  source : Int
+  id : String
+  source : String
   source_port : String
-  target : Int
+  target : String
   target_port : String
 } derive(Eq, ToJson)
 
@@ -136,22 +158,29 @@ struct EdgeJson {
 /// Serialized in-flight connection. `from` is the source node id;
 /// `cursor_x`/`cursor_y` are world coordinates of the pointer.
 struct ConnectingJson {
-  from : Int
+  from : String
   from_port : String
   cursor_x : Double
   cursor_y : Double
 } derive(Eq, ToJson)
 
 ///|
+struct PortCompatibilityJson {
+  node_id : String
+  port_id : String
+  compatible : Bool
+} derive(Eq, ToJson, FromJson)
+
+///|
 struct ValidationJson {
   severity : String
   message : String
-  node_id : Int?
+  node_id : String?
 } derive(Eq, ToJson)
 
 ///|
 struct InspectorNodeJson {
-  id : Int
+  id : String
   title : String
   subtitle : String
   configured : Bool
@@ -168,141 +197,13 @@ struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
-  selected : Int?
-  selected_nodes : Array[Int]
+  selected : String?
+  selected_nodes : Array[String]
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
   action_count : Int
   inspector : InspectorNodeJson?
 } derive(Eq, ToJson)
-
-///|
-fn node_id_to_int(id : NodeId) -> Int {
-  let NodeId(n) = id
-  n
-}
-
-///|
-fn node_to_json(n : CanvasNode) -> NodeJson {
-  let NodeId(id) = n.id
-  {
-    id,
-    x: n.x,
-    y: n.y,
-    w: n.w,
-    h: n.h,
-    kind: n.kind,
-    title: n.title,
-    subtitle: n.subtitle,
-    inputs: n.inputs,
-    outputs: n.outputs,
-    configured: n.configured,
-  }
-}
-
-///|
-fn edge_to_json(e : Edge) -> EdgeJson {
-  let EdgeId(id) = e.id
-  let NodeId(s) = e.source
-  let NodeId(t) = e.target
-  {
-    id,
-    source: s,
-    source_port: e.source_port,
-    target: t,
-    target_port: e.target_port,
-  }
-}
-
-///|
-fn input_has_edge(
-  node : CanvasNode,
-  input : PortDef,
-  edges : Array[Edge],
-) -> Bool {
-  edges
-  .iter()
-  .any(fn(edge) { edge.target == node.id && edge.target_port == input.id })
-}
-
-///|
-fn append_node_validation(
-  messages : Array[ValidationJson],
-  node : CanvasNode,
-  edges : Array[Edge],
-) -> Unit {
-  let NodeId(id) = node.id
-  if !node.configured {
-    messages.push({
-      severity: "warning",
-      message: "Configure “\{node.title}” before running the workflow.",
-      node_id: Some(id),
-    })
-  }
-  for input in node.inputs {
-    if !input_has_edge(node, input, edges) {
-      messages.push({
-        severity: "warning",
-        message: "“\{node.title}” is waiting for input “\{input.label}”.",
-        node_id: Some(id),
-      })
-    }
-  }
-}
-
-///|
-fn validate_workflow_document(
-  document : CanvasDocument,
-) -> Array[ValidationJson] {
-  let messages : Array[ValidationJson] = []
-  if document.nodes.length() == 0 {
-    messages.push({
-      severity: "error",
-      message: "Add at least one workflow node.",
-      node_id: None,
-    })
-  }
-  for node in document.nodes {
-    append_node_validation(messages, node, document.edges)
-  }
-  messages
-}
-
-///|
-fn validate_workflow(state : CanvasState) -> Array[ValidationJson] {
-  validate_workflow_document(canvas_document_from_state(state))
-}
-
-///|
-fn render_state_json(
-  state : CanvasState,
-  validation : Array[ValidationJson],
-) -> RenderStateJson {
-  let selected : Int? = match state.interaction.selected {
-    None => None
-    Some(id) => Some(node_id_to_int(id))
-  }
-  let selected_nodes = state.interaction.selected_nodes.map(node_id_to_int)
-  {
-    viewport: state.viewport,
-    nodes: state.nodes.map(node_to_json),
-    edges: state.edges.map(edge_to_json),
-    selected,
-    selected_nodes,
-    connecting: connecting_to_json(state.interaction.connecting),
-    validation,
-    action_count: state.action_log.length(),
-    inspector: None,
-  }
-}
-
-///|
-fn render_state_string(
-  state : CanvasState,
-  validation : Array[ValidationJson],
-) -> String {
-  render_state_json(state, validation).to_json().stringify()
-}
 
 ///|
 pub fn get_render_state(handle : Int) -> String {

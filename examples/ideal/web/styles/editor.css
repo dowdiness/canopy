@@ -10,6 +10,7 @@
 @source "../../main/view_outline_classes.mbt";
 @source "../../main/view_peer_empty_state_classes.mbt";
 @source "../../main/ui/button.mbt";
+@source "../../main/ui/tabs.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
 

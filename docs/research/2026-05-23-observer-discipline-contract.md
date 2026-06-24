@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-23
 **Status:** Design draft (prose-only, pre-Codex-review)
+**Post-#633 note (2026-06-14):** references to Lambda flat-projection companion cells (`proj_memo`, `get_flat_proj`) are superseded; Lambda's editor-facing projection cells are now the generic cached projection, registry, and source-map memos.
 **Builds on:** `docs/research/2026-05-23-runtime-safety-decision.md` §"Named follow-ups" #2
 **Belongs to slice:** §P0b of `docs/research/2026-05-22-spec-aware-workspace.md`
 
@@ -62,8 +63,10 @@ The set of Memos that must be rooted per editor is exactly the set read by metho
 - `SyncEditor::get_node` and `SyncEditor::node_at_position` read `registry_memo` and `source_map_memo` (`editor/sync_editor.mbt:327`, `:340`, `:348`).
 
 **Lambda-specific (companion):**
-- `LambdaCompanion::get_flat_proj` reads `proj_memo` (`lang/lambda/companion/lambda_editor.mbt:18-22`).
-- `LambdaCompanion::get_eval_results` reads `escalation_memo` (`lang/lambda/companion/lambda_editor.mbt:25-31`).
+- #633 removed the companion-owned flat projection cell from the editor-facing
+  surface; generic projection reads now go through `SyncEditor`'s cached
+  projection, registry, and source-map memos.
+- `LambdaCompanion::get_eval_results` reads `escalation_memo`.
 
 **Other languages (Markdown, JSON):** the same generic projection cells (`cached_proj_node`, `registry_memo`, `source_map_memo`), the parser diagnostics cell, plus any language-specific companion memos to be enumerated when that language ships on shared runtime.
 

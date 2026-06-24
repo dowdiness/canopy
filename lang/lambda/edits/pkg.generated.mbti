@@ -12,8 +12,6 @@ import {
 // Values
 pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
 
-pub fn find_binding_for_init(@core.NodeId, @proj.ModuleProjection) -> (@core.NodeId, Int)?
-
 pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
@@ -40,7 +38,7 @@ pub(all) struct EditContext[T] {
   source_text : String
   source_map : @core.SourceMap
   registry : Map[@core.NodeId, @core.ProjNode[T]]
-  module_projection : @proj.ModuleProjection
+  definition_index : @proj.DefinitionIndex
 }
 
 pub(all) struct NodeContext {
@@ -83,6 +81,7 @@ pub(all) enum TreeEditOp {
   Rename(node_id~ : @core.NodeId, new_name~ : String)
 } derive(@debug.Debug)
 pub fn TreeEditOp::to_generic(Self) -> @core.GenericTreeOp
+pub fn TreeEditOp::to_identity_transform(Self, (@core.NodeId) -> @core.ProjNode[@ast.Term]?) -> @core.IdentityTransform
 pub impl Show for TreeEditOp
 
 // Type aliases

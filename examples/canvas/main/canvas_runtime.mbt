@@ -27,32 +27,12 @@ struct CanvasFullRenderJson {
   viewport : Viewport
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
-  selected : Int?
-  selected_nodes : Array[Int]
+  selected : String?
+  selected_nodes : Array[String]
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
   action_count : Int
 } derive(Eq)
-
-///|
-fn validate_canvas_document(document : CanvasDocument) -> ValidatedCanvas {
-  {
-    document: {
-      nodes: document.nodes.copy(),
-      edges: document.edges.copy(),
-      next_node_id: document.next_node_id,
-      next_edge_id: document.next_edge_id,
-    },
-    validation: validate_workflow(
-      canvas_state_from_parts(
-        document,
-        default_viewport(),
-        @graph_model.empty_interaction(),
-        [],
-      ),
-    ),
-  }
-}
 
 ///|
 fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
@@ -61,154 +41,16 @@ fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
       nodes: validated.document.nodes.copy(),
       edges: validated.document.edges.copy(),
       next_node_id: validated.document.next_node_id,
-      next_edge_id: validated.document.next_edge_id,
     },
     validation: validated.validation.copy(),
   }
 }
 
 ///|
-fn lower_canvas(normalized : NormalizedCanvas) -> LoweredCanvas {
-  {
-    nodes: normalized.document.nodes.map(node_to_json),
-    edges: normalized.document.edges.map(edge_to_json),
-    validation: normalized.validation.copy(),
-  }
-}
-
-///|
-fn preview_position_for(preview : DragPreview, node_id : Int) -> NodePosition? {
-  find_position(preview.positions, NodeId(node_id))
-}
-
-///|
-fn render_node_with_preview(node : NodeJson, preview : DragPreview) -> NodeJson {
-  match preview_position_for(preview, node.id) {
-    None => node
-    Some(pos) => { ..node, x: pos.x, y: pos.y }
-  }
-}
-
-///|
-fn canvas_node_with_preview(
-  node : CanvasNode,
-  preview : DragPreview,
-) -> CanvasNode {
-  match preview_position_for(preview, node_id_to_int(node.id)) {
-    None => node
-    Some(pos) => { ..node, x: pos.x, y: pos.y }
-  }
-}
-
-///|
-fn state_with_preview_nodes(
-  state : CanvasState,
-  preview : DragPreview,
-) -> CanvasState {
-  {
-    ..state,
-    nodes: state.nodes.map(fn(node) { canvas_node_with_preview(node, preview) }),
-  }
-}
-
-///|
-fn connecting_to_json(connecting : ConnectState?) -> ConnectingJson? {
-  match connecting {
-    None => None
-    Some(c) => {
-      let NodeId(from) = c.from_node
-      Some({
-        from,
-        from_port: c.from_port,
-        cursor_x: c.cursor_x,
-        cursor_y: c.cursor_y,
-      })
-    }
-  }
-}
-
-///|
-fn render_full_canvas(
-  lowered : LoweredCanvas,
-  viewport : Viewport,
-  drag_preview : DragPreview,
-  selection : SelectionState,
-  interaction : InteractionState,
-  action_count : Int,
-) -> CanvasFullRenderJson {
-  let selected : Int? = match selection.selected {
-    None => None
-    Some(id) => Some(node_id_to_int(id))
-  }
-  let selected_nodes = selection.selected_nodes.map(node_id_to_int)
-  {
-    viewport,
-    nodes: lowered.nodes.map(fn(node) {
-      render_node_with_preview(node, drag_preview)
-    }),
-    edges: lowered.edges.copy(),
-    selected,
-    selected_nodes,
-    connecting: connecting_to_json(interaction.connecting),
-    validation: lowered.validation.copy(),
-    action_count,
-  }
-}
-
-///|
-fn inspector_node_for_document(
-  document : CanvasDocument,
-  node_id : Int,
-) -> InspectorNodeJson? {
-  match find_node(document.nodes, NodeId(node_id)) {
-    None => None
-    Some(node) =>
-      Some({
-        id: node_id,
-        title: node.title,
-        subtitle: node.subtitle,
-        configured: node.configured,
-        input_count: node.inputs.length(),
-        output_count: node.outputs.length(),
-        source: "",
-      })
-  }
-}
-
-///|
-fn inspector_with_source(
-  inspector : InspectorNodeJson?,
-  source : String,
-) -> InspectorNodeJson? {
-  match inspector {
-    None => None
-    Some(node) => Some({ ..node, source, })
-  }
-}
-
-///|
-fn render_state_from_parts(
-  full : CanvasFullRenderJson,
-  inspector : InspectorNodeJson?,
-) -> RenderStateJson {
-  {
-    viewport: full.viewport,
-    nodes: full.nodes.copy(),
-    edges: full.edges.copy(),
-    selected: full.selected,
-    selected_nodes: full.selected_nodes.copy(),
-    connecting: full.connecting,
-    validation: full.validation.copy(),
-    action_count: full.action_count,
-    inspector,
-  }
-}
-
-///|
-/// Incr-backed canvas model. Durable graph edits flow through `document`;
-/// hover, drag preview, viewport, selection, and pointer gesture state are
-/// independent Inputs so high-frequency UI changes avoid durable recomputation.
-struct CanvasRuntime {
+/// Private storage for the example-local canvas runtime. Keep direct `@incr`
+/// cell access in this file behind `CanvasRuntime` methods so future reusable
+/// runtime work can reshape ownership without host callers depending on cells.
+priv struct CanvasRuntimeCells {
   document : @incr.Input[CanvasDocument]
   actions : @incr.Input[Array[GraphOperation]]
   hover : @incr.Input[NodeId?]
@@ -221,12 +63,27 @@ struct CanvasRuntime {
 }
 
 ///|
+/// Example-local runtime facade. This hardens the private boundary around the
+/// split durable/ephemeral `@incr` state. Graph mechanics stay here; workflow
+/// validation/render/inspector/add-node policy is injected through the private
+/// host-policy seam rather than baked into the cells.
+priv struct CanvasRuntime {
+  policy : CanvasHostPolicy
+  cells : CanvasRuntimeCells
+}
+
+///|
 fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
+  CanvasRuntime::with_host_policy(workflow_canvas_host_policy())
+}
+
+///|
+fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
   let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
-  let initial = CanvasState::default()
+  let initial = (policy.initial_state)()
   let document = scope.input(
-    canvas_document_from_state(initial),
+    @graph_model.canvas_document_from_state(initial),
     label="canvas.document",
   )
   let actions = scope.input(
@@ -235,18 +92,18 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   )
   let hover = scope.input(None, label="canvas.hover")
   let drag_preview = scope.input(
-    idle_drag_preview(),
+    @graph_model.idle_drag_preview(),
     label="canvas.drag_preview",
   )
   let viewport = scope.input(initial.viewport, label="canvas.viewport")
   let selection = scope.input(
-    selection_from_interaction(initial.interaction),
+    @graph_model.selection_from_interaction(initial.interaction),
     label="canvas.selection",
   )
   let interaction = scope.input(initial.interaction, label="canvas.gesture")
 
   let validated = scope.derived(
-    () => validate_canvas_document(document.get()),
+    () => policy.validate_canvas_document(document.get()),
     label="canvas.validation",
   )
   let normalized = scope.derived(
@@ -254,12 +111,12 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
     label="canvas.normalization",
   )
   let lowered = scope.derived(
-    () => lower_canvas(normalized.get_or_abort()),
+    () => policy.lower_canvas(normalized.get_or_abort()),
     label="canvas.lowering",
   )
   let render = scope.derived(
     () => {
-      render_full_canvas(
+      policy.render_full_canvas(
         lowered.get_or_abort(),
         viewport.get(),
         drag_preview.get(),
@@ -272,8 +129,11 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   )
 
   let node_inspector = scope.derived_map(
-    (id : Int) => {
-      inspector_node_for_document(normalized.get_or_abort().document, id)
+    (id : String) => {
+      policy.inspector_node_for_document(
+        normalized.get_or_abort().document,
+        NodeId(id),
+      )
     },
     label="canvas.inspector.node_by_id",
   )
@@ -283,17 +143,17 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
       let current_selection = selection.get()
       match current_selection.selected {
         Some(id) =>
-          inspector_with_source(
-            node_inspector.get_or_abort(node_id_to_int(id)),
-            "selected",
+          policy.inspector_with_source(
+            node_inspector.get_or_abort(node_id_to_string(id)),
+            policy.selected_inspector_source,
           )
         None =>
           match hover.get() {
             None => None
             Some(id) =>
-              inspector_with_source(
-                node_inspector.get_or_abort(node_id_to_int(id)),
-                "hovered",
+              policy.inspector_with_source(
+                node_inspector.get_or_abort(node_id_to_string(id)),
+                policy.hovered_inspector_source,
               )
           }
       }
@@ -306,7 +166,7 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   ignore(render_watch.read_or_abort())
   ignore(inspector_watch.read_or_abort())
   rt.gc()
-  {
+  let cells : CanvasRuntimeCells = {
     document,
     actions,
     hover,
@@ -317,19 +177,134 @@ fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
     render_watch,
     inspector_watch,
   }
+  { policy, cells }
+}
+
+///|
+fn CanvasRuntime::peek_document(self : CanvasRuntime) -> CanvasDocument {
+  let document = self.cells.document.peek()
+  {
+    nodes: document.nodes.copy(),
+    edges: document.edges.copy(),
+    next_node_id: document.next_node_id,
+  }
+}
+
+///|
+fn CanvasRuntime::set_document(
+  self : CanvasRuntime,
+  document : CanvasDocument,
+) -> Unit {
+  self.cells.document.set({
+    nodes: document.nodes.copy(),
+    edges: document.edges.copy(),
+    next_node_id: document.next_node_id,
+  })
+}
+
+///|
+fn CanvasRuntime::action_log_snapshot(
+  self : CanvasRuntime,
+) -> Array[GraphOperation] {
+  self.cells.actions.peek().copy()
+}
+
+///|
+fn CanvasRuntime::set_action_log(
+  self : CanvasRuntime,
+  actions : Array[GraphOperation],
+) -> Unit {
+  self.cells.actions.set(actions.copy())
+}
+
+///|
+fn CanvasRuntime::set_hover(self : CanvasRuntime, hover : NodeId?) -> Unit {
+  self.cells.hover.set(hover)
+}
+
+///|
+fn CanvasRuntime::peek_drag_preview(self : CanvasRuntime) -> DragPreview {
+  let preview = self.cells.drag_preview.peek()
+  { positions: preview.positions.copy() }
+}
+
+///|
+fn CanvasRuntime::set_drag_preview(
+  self : CanvasRuntime,
+  preview : DragPreview,
+) -> Unit {
+  self.cells.drag_preview.set({ positions: preview.positions.copy() })
+}
+
+///|
+fn CanvasRuntime::peek_viewport(self : CanvasRuntime) -> Viewport {
+  self.cells.viewport.peek()
+}
+
+///|
+fn CanvasRuntime::set_viewport(
+  self : CanvasRuntime,
+  viewport : Viewport,
+) -> Unit {
+  self.cells.viewport.set(viewport)
+}
+
+///|
+fn CanvasRuntime::peek_selection(self : CanvasRuntime) -> SelectionState {
+  let selection = self.cells.selection.peek()
+  {
+    selected: selection.selected,
+    selected_nodes: selection.selected_nodes.copy(),
+  }
+}
+
+///|
+fn CanvasRuntime::set_selection(
+  self : CanvasRuntime,
+  selection : SelectionState,
+) -> Unit {
+  self.cells.selection.set({
+    selected: selection.selected,
+    selected_nodes: selection.selected_nodes.copy(),
+  })
+}
+
+///|
+fn CanvasRuntime::peek_interaction(self : CanvasRuntime) -> InteractionState {
+  self.cells.interaction.peek()
+}
+
+///|
+fn CanvasRuntime::set_interaction(
+  self : CanvasRuntime,
+  interaction : InteractionState,
+) -> Unit {
+  self.cells.interaction.set(interaction)
+}
+
+///|
+fn CanvasRuntime::read_full_render(
+  self : CanvasRuntime,
+) -> CanvasFullRenderJson {
+  self.cells.render_watch.read_or_abort()
+}
+
+///|
+fn CanvasRuntime::read_inspector(self : CanvasRuntime) -> InspectorNodeJson? {
+  self.cells.inspector_watch.read_or_abort()
 }
 
 ///|
 fn CanvasRuntime::state_peek(self : CanvasRuntime) -> CanvasState {
-  let interaction = interaction_with_selection(
-    self.interaction.peek(),
-    self.selection.peek(),
+  let interaction = @graph_model.interaction_with_selection(
+    self.peek_interaction(),
+    self.peek_selection(),
   )
-  canvas_state_from_parts(
-    self.document.peek(),
-    self.viewport.peek(),
+  @graph_model.canvas_state_from_parts(
+    self.peek_document(),
+    self.peek_viewport(),
     interaction,
-    self.actions.peek(),
+    self.action_log_snapshot(),
   )
 }
 
@@ -338,12 +313,12 @@ fn CanvasRuntime::sync_commit_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.document.set(canvas_document_from_state(state))
-  self.viewport.set(state.viewport)
-  self.drag_preview.set(idle_drag_preview())
-  self.selection.set(selection_from_interaction(state.interaction))
-  self.interaction.set(state.interaction)
-  self.actions.set(state.action_log.copy())
+  self.set_document(@graph_model.canvas_document_from_state(state))
+  self.set_viewport(state.viewport)
+  self.set_drag_preview(@graph_model.idle_drag_preview())
+  self.set_selection(@graph_model.selection_from_interaction(state.interaction))
+  self.set_interaction(state.interaction)
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -351,8 +326,8 @@ fn CanvasRuntime::sync_viewport_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.viewport.set(state.viewport)
-  self.interaction.set(state.interaction)
+  self.set_viewport(state.viewport)
+  self.set_interaction(state.interaction)
 }
 
 ///|
@@ -360,8 +335,8 @@ fn CanvasRuntime::sync_action_viewport_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.viewport.set(state.viewport)
-  self.actions.set(state.action_log.copy())
+  self.set_viewport(state.viewport)
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -369,8 +344,8 @@ fn CanvasRuntime::sync_document_action_state(
   self : CanvasRuntime,
   state : CanvasState,
 ) -> Unit {
-  self.document.set(canvas_document_from_state(state))
-  self.actions.set(state.action_log.copy())
+  self.set_document(@graph_model.canvas_document_from_state(state))
+  self.set_action_log(state.action_log)
 }
 
 ///|
@@ -380,9 +355,14 @@ fn CanvasRuntime::pointer_down(
   sx : Double,
   sy : Double,
 ) -> Unit {
-  let state = update_pointer_down(self.state_peek(), node_id, sx, sy)
-  self.drag_preview.set(idle_drag_preview())
-  self.interaction.set(state.interaction)
+  let state = @graph_model.update_pointer_down(
+    self.state_peek(),
+    node_id,
+    sx,
+    sy,
+  )
+  self.set_drag_preview(@graph_model.idle_drag_preview())
+  self.set_interaction(state.interaction)
 }
 
 ///|
@@ -394,10 +374,58 @@ fn CanvasRuntime::pointer_down_handle(
   sy : Double,
 ) -> Unit {
   let state = self.state_peek()
-  let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-  self.interaction.set(
-    update_connect_start(state, node_id, port_id, wx, wy).interaction,
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.set_interaction(
+    @graph_model.update_connect_start(state, node_id, port_id, wx, wy).interaction,
   )
+}
+
+///|
+fn CanvasRuntime::sync_connect_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.set_interaction(
+    @graph_model.update_connect_move(state, wx, wy).interaction,
+  )
+}
+
+///|
+fn CanvasRuntime::sync_drag_preview_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  drag : DragState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.set_drag_preview(@graph_model.drag_preview_from_move(drag, wx, wy))
+  self.set_interaction({ ..state.interaction, did_move: true })
+}
+
+///|
+fn CanvasRuntime::sync_pan_move(
+  self : CanvasRuntime,
+  state : CanvasState,
+  sx : Double,
+  sy : Double,
+) -> Unit {
+  self.sync_viewport_state(@graph_model.update_pan_move(state, sx, sy))
+}
+
+///|
+fn CanvasRuntime::state_with_active_drag_preview(
+  self : CanvasRuntime,
+  state : CanvasState,
+) -> CanvasState {
+  match state.interaction.dragging {
+    Some(_) if state.interaction.did_move =>
+      @graph_model.state_with_preview_nodes(state, self.peek_drag_preview())
+    _ => state
+  }
 }
 
 ///|
@@ -408,24 +436,13 @@ fn CanvasRuntime::pointer_move(
 ) -> Unit {
   let state = self.state_peek()
   match state.interaction.connecting {
-    Some(_) => {
-      let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-      self.interaction.set(update_connect_move(state, wx, wy).interaction)
-    }
+    Some(_) => self.sync_connect_move(state, sx, sy)
     None =>
       match state.interaction.dragging {
-        Some(drag) => {
-          let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            did_move: true,
-          }
-          self.drag_preview.set(drag_preview_from_move(drag, wx, wy))
-          self.interaction.set(new_interaction)
-        }
+        Some(drag) => self.sync_drag_preview_move(state, drag, sx, sy)
         None =>
           match state.interaction.panning {
-            Some(_) => self.sync_viewport_state(update_pan_move(state, sx, sy))
+            Some(_) => self.sync_pan_move(state, sx, sy)
             None => ()
           }
       }
@@ -435,18 +452,17 @@ fn CanvasRuntime::pointer_move(
 ///|
 fn CanvasRuntime::pointer_up(
   self : CanvasRuntime,
-  node_id : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
-  let state = self.state_peek()
-  let commit_state = match state.interaction.dragging {
-    Some(_) if state.interaction.did_move =>
-      state_with_preview_nodes(state, self.drag_preview.peek())
-    _ => state
-  }
   self.sync_commit_state(
-    update_pointer_up(commit_state, node_id, target_port_id, additive),
+    @graph_model.update_pointer_up(
+      self.state_with_active_drag_preview(self.state_peek()),
+      node_id,
+      target_port_id,
+      additive,
+    ),
   )
 }
 
@@ -457,17 +473,19 @@ fn CanvasRuntime::zoom(
   cx : Double,
   cy : Double,
 ) -> Unit {
-  self.sync_action_viewport_state(update_zoom(self.state_peek(), delta, cx, cy))
+  self.sync_action_viewport_state(
+    @graph_model.update_zoom(self.state_peek(), delta, cx, cy),
+  )
 }
 
 ///|
-fn CanvasRuntime::hover_node(self : CanvasRuntime, node_id : Int) -> Unit {
-  let hovered : NodeId? = if node_id <= 0 {
+fn CanvasRuntime::hover_node(self : CanvasRuntime, node_id : String) -> Unit {
+  let hovered : NodeId? = if node_id == "" {
     None
   } else {
     Some(NodeId(node_id))
   }
-  self.hover.set(hovered)
+  self.set_hover(hovered)
 }
 
 ///|
@@ -478,8 +496,10 @@ fn CanvasRuntime::add_node(
   sy : Double,
 ) -> Unit {
   let state = self.state_peek()
-  let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-  self.sync_document_action_state(workflow_add_node(state, kind_key, wx, wy))
+  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  self.sync_document_action_state(
+    (self.policy.add_node)(state, kind_key, wx, wy),
+  )
 }
 
 ///|
@@ -487,7 +507,9 @@ fn CanvasRuntime::delete_nodes(
   self : CanvasRuntime,
   nodes : Array[NodeId],
 ) -> Unit {
-  self.sync_commit_state(record_action(self.state_peek(), DeleteNodes(nodes)))
+  self.sync_commit_state(
+    @graph_model.record_action(self.state_peek(), DeleteNodes(nodes)),
+  )
 }
 
 ///|
@@ -499,7 +521,7 @@ fn CanvasRuntime::disconnect_ports(
   target_port : String,
 ) -> Unit {
   self.sync_document_action_state(
-    record_action(
+    @graph_model.record_action(
       self.state_peek(),
       DisconnectPorts(source, source_port, target, target_port),
     ),
@@ -507,14 +529,51 @@ fn CanvasRuntime::disconnect_ports(
 }
 
 ///|
+fn input_port_compatibility_for_state(
+  state : CanvasState,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  state.nodes
+  .iter()
+  .flat_map(fn(node) {
+    node.inputs
+    .iter()
+    .map(fn(port) {
+      {
+        node_id: node.id.to_string(),
+        port_id: port.id,
+        compatible: @graph_model.can_commit_edge(
+          state,
+          source,
+          source_port,
+          node.id,
+          port.id,
+        ),
+      }
+    })
+  })
+  .to_array()
+}
+
+///|
+fn CanvasRuntime::input_port_compatibility(
+  self : CanvasRuntime,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  input_port_compatibility_for_state(self.state_peek(), source, source_port)
+}
+
+///|
 fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
-  render_state_from_parts(
-    self.render_watch.read_or_abort(),
-    self.inspector_watch.read_or_abort(),
+  self.policy.render_state_from_parts(
+    self.read_full_render(),
+    self.read_inspector(),
   )
 }
 
 ///|
 fn CanvasRuntime::action_log_json(self : CanvasRuntime) -> String {
-  self.actions.peek().to_json().stringify()
+  self.action_log_snapshot().to_json().stringify()
 }

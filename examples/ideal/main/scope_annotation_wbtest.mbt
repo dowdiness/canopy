@@ -47,13 +47,13 @@ test "compute_highlight_set for non-identifier returns empty set" {
 test "clicking f does not highlight apply var (no module/lambda scope confusion)" {
   let (editor, companion) = @lambda.new_lambda_editor("test")
   editor.set_text(
-    "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42",
+    "fn id(x : Int) { x }\nfn apply(f : Int -> Int, x : Int) { f x }\napply id 42",
   )
   let scope_map = build_scope_map(editor, companion)
   let proj_root = editor.get_proj_node().unwrap()
   let f_var_id = find_var_node_id(proj_root, "f")
   let apply_var_id = find_var_node_id(proj_root, "apply")
-  // f should resolve to a binder (λf)
+  // f should resolve to a binder ((f) =>)
   let f_ann = scope_map.get(f_var_id).unwrap()
   inspect(f_ann.binder_id is None, content="false")
   // apply should also resolve to a binder (module def)
@@ -115,17 +115,13 @@ test "nested block: inner module can reference enclosing block binder" {
 ///|
 test "scope_map keys module references by real LetDef declaration" {
   let (editor, companion) = @lambda.new_lambda_editor("test")
-  editor.set_text("let x = 0\nlet f = \\x. { x }\nx")
+  editor.set_text("let x = 0\nlet f = (x) => { x }\nx")
   let scope_map = build_scope_map(editor, companion)
   let proj_root = editor.get_proj_node().unwrap()
   let x_vars = find_all_var_node_ids(proj_root, "x")
   let inner_x_id = x_vars[0]
   let module_x_id = x_vars[x_vars.length() - 1]
-  let graph = @scope.build(
-    companion.get_module_projection().unwrap(),
-    editor.get_registry(),
-    editor.get_source_map(),
-  )
+  let graph = @scope.build(editor.get_registry(), editor.get_source_map())
   let module_decl = @scope.declaration(graph, module_x_id).unwrap()
   let inner_decl = @scope.declaration(graph, inner_x_id).unwrap()
   inspect(module_decl.id == inner_decl.id, content="false")

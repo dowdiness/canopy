@@ -107,7 +107,9 @@ around line 143).
   dependence on them (do Step 3's test edits first, or do 2+3 together, so the
   package never fails to compile mid-step).
 - Keep `find_usages`, `collect_var_usages`, `find_binding_for_init`,
-  `collect_lam_env` — still live.
+  `collect_lam_env` — still live at the time of this step. Later cleanup
+  removed `find_binding_for_init` after first-class LetDef ids became the only
+  binding handles.
 - **Verify before deleting:** re-run `moon ide find-references` on each of the
   three symbols and confirm zero remaining references outside the deletions
   themselves. (Pre-Execution check — the first unexpected hit means stop.)

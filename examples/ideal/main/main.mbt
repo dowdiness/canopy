@@ -23,14 +23,14 @@ fn init_model() -> Model raise {
   // Create the editor through the crdt module so it sets the singleton (editor.val).
   // JS (main.ts) reuses this handle instead of creating a second editor.
   // Under §P0b Phase 1 the coordinator allocates EditorIds from 0.
-  let _handle = @ffi.create_editor_with_undo(agent_id, 500)
+  let handle = @ffi.create_editor_with_undo(agent_id, 500)
   let editor = @ffi.get_sync_editor().unwrap()
   let companion = @ffi.get_lambda_companion().unwrap()
   // Attach the memo-event tap before any cell reads so initial-parse recomputes
   // are visible to the IncrGraph panel. `attach` only fails if incr's listener
   // slot is already claimed by an external caller — fatal here, propagate.
   let incr_tap = @visualizer.RecomputeTap::attach(editor.parser_runtime())
-  let init_text = "let id = \\x. { x }\nlet apply = \\f. \\x. { f x }\napply id 42"
+  let init_text = "fn id(x : Int) { x }\nfn apply(f : Int -> Int, x : Int) { f x }\napply id 42"
   editor.set_text(init_text)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
     editor.get_proj_node(),
@@ -38,6 +38,7 @@ fn init_model() -> Model raise {
   )
   {
     editor,
+    handle,
     companion,
     outline_state,
     cm_id: "canopy-text-editor",
@@ -49,7 +50,7 @@ fn init_model() -> Model raise {
     next_timestamp: 1,
     bottom_tab: Problems,
     sync_status: Connecting,
-    overlay: closed_overlay(),
+    overlay: ActionOverlayHost::empty(),
     scope_map: build_scope_map(editor, companion),
     highlight_set: @immut/hashset.new(),
     drag_source: None,
@@ -258,18 +259,18 @@ fn refresh(model : Model) -> Model {
 
 ///|
 let examples : Array[(String, String)] = [
-  ("Basics", "let double = \\x. {\n  x + x\n}\nlet result = double 5\nresult"),
+  ("Basics", "fn double(x : Int) {\n  x + x\n}\nlet result = double 5\nresult"),
   (
-    "Composition", "let inc = \\n. { n + 1 }\nlet twice = \\f. \\x. {\n  f (f x)\n}\nlet result = twice inc 0\nresult",
+    "Composition", "fn inc(n : Int) { n + 1 }\nfn twice(f : Int -> Int, x : Int) {\n  f (f x)\n}\nlet result = twice inc 0\nresult",
   ),
   (
-    "Currying", "let add = \\x. \\y. { x + y }\nlet add5 = add 5\nlet sum = add5 10\nsum",
+    "Currying", "fn add(x : Int, y : Int) { x + y }\nlet add5 = add 5\nlet sum = add5 10\nsum",
   ),
   (
-    "Conditional", "let choose = \\x. if x then {\n  x + 1\n} else {\n  42\n}\nlet a = choose 0\nlet b = choose 5\na + b",
+    "Conditional", "fn choose(x : Int) { if x then {\n  x + 1\n} else {\n  42\n} }\nlet a = choose 0\nlet b = choose 5\na + b",
   ),
   (
-    "Pipeline", "let compose = \\f. \\g. \\x. {\n  f (g x)\n}\nlet double = \\x. { x + x }\nlet inc = \\x. { x + 1 }\nlet f = compose inc double\nf 5",
+    "Pipeline", "fn compose(f : Int -> Int, g : Int -> Int, x : Int) {\n  f (g x)\n}\nfn double(x : Int) { x + x }\nfn inc(x : Int) { x + 1 }\nlet f = compose inc double\nf 5",
   ),
 ]
 
@@ -316,6 +317,13 @@ fn view_toolbar(dispatch : Emit[Msg], model : Model) -> Html {
     ]),
     button(class=@ui.toolbar_button_class(), on_click=dispatch(Redo), [
       text("Redo"),
+    ]),
+    div(class=toolbar_spacer_class, [text("")]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(OpenFile), [
+      text("Open"),
+    ]),
+    button(class=@ui.toolbar_button_class(), on_click=dispatch(SaveFile), [
+      text("Save"),
     ]),
     div(class=toolbar_spacer_class, [text("")]),
     button(
@@ -441,15 +449,15 @@ fn apply_structural_edit_request(
 }
 
 ///|
-fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     SetMode(mode) => {
       let mode_str : String = match mode {
         Text => "text"
         Structure => "structure"
       }
-      let cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
-      (cmd, { ..model, mode, })
+      let js_cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
+      (js_cmd, { ..model, mode, })
     }
     TogglePanel(panel) => {
       let ws = model.workspace
@@ -530,6 +538,25 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     LoadExample(example_text) => {
       model.editor.set_text_and_record(example_text, js_now_ms())
+      let new_model = refresh({
+        ..model,
+        next_timestamp: model.next_timestamp + 1,
+      })
+      let text = new_model.editor.get_text()
+      let cmd = sync_after_local_model_change(new_model, text)
+      (cmd, new_model)
+    }
+    // ── File I/O ──────────────────────────────────────────
+    OpenFile => (@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model)
+    SaveFile =>
+      (
+        @rabbita.effect(fn() { @ffi.save_file(model.handle, "canopy.lambda") }),
+        model,
+      )
+    // The host read a file and dispatched its text as a "file-loaded" event.
+    // Apply it exactly like LoadExample: record for undo, refresh, push to CM.
+    FileLoaded(content) => {
+      model.editor.set_text_and_record(content, js_now_ms())
       let new_model = refresh({
         ..model,
         next_timestamp: model.next_timestamp + 1,
@@ -642,12 +669,7 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         None => return (none, model)
       }
       let rect_json = js_get_outline_selected_rect()
-      let new_model = open_action_overlay(model, node_id_str, rect_json~)
-      if new_model.overlay.is_open() {
-        (new_model.overlay.menu.focus_cmd(), new_model)
-      } else {
-        (none, new_model)
-      }
+      open_action_overlay(emit, model, node_id_str, rect_json~)
     }
     SyncStatusChanged(status) => {
       let sync_status : SyncStatus = match status {
@@ -661,18 +683,9 @@ fn update(_dispatch : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     OpenActionOverlayForNode(node_id_str)
     | LongPressTriggeredForNode(node_id_str) =>
-      open_action_overlay_from_event(model, node_id_str)
-    CloseActionOverlay => close_action_overlay(model)
-    ActionMenu(menu_msg) => handle_action_menu_msg(model, menu_msg)
-    ActionKeyPressed(key) =>
-      if key == "" {
-        (none, model)
-      } else {
-        handle_action_key(model, key)
-      }
-    NamePromptInput(value) => handle_name_prompt_input(model, value)
-    NamePromptSubmit => handle_name_prompt_submit(model)
-    NamePromptCancel => close_action_overlay(model)
+      open_action_overlay_from_event(emit, model, node_id_str)
+    ActionOverlay(overlay_event) => handle_overlay_event(model, overlay_event)
+    ActionOverlayEffect(output) => handle_overlay_output(model, output)
     // ── Outline drag-and-drop ──────
     OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
     OutlineDragOver(target_id, position) =>
@@ -904,7 +917,10 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
       ]),
     ]),
     div(class=bottom_class, [view_bottom_content(dispatch, model)]),
-    view_action_overlay(dispatch, model),
+    match model.overlay.active {
+      Some((_, runtime)) => runtime.view()
+      None => @html.nothing
+    },
   ])
 }
 

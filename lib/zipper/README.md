@@ -6,7 +6,7 @@ This is a foundational data structure, used wherever code needs to express navig
 
 ## Public API
 
-- `RoseNode[T]` — immutable tree node (`data : T`, `children : Array[Self[T]]`); construct with `RoseNode::new(data~, children?~)`
+- `RoseNode[T]` — immutable tree node (`data : T`, `children : Array[Self[T]]`); construct with `RoseNode(data=..., children=...)`
 - `RoseZipper[T]` — focused navigation state; build with `RoseZipper::from_root(node)`
 - `go_up`, `go_down(index?)`, `go_left`, `go_right` — return `Self?`, `None` when the move is impossible
 - `focus_at(node, path)` — jump to a position by index path; `to_path(self)` is its inverse

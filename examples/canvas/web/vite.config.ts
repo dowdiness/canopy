@@ -8,7 +8,7 @@ export default defineConfig({
         {
           name: '@moonbit/canopy-canvas',
           path: '..',
-          output: '_build/js/release/build/main/main.js'
+          output: '../../_build/js/release/build/dowdiness/canopy-canvas/main/main.js'
         }
       ]
     }) as PluginOption

@@ -8,11 +8,32 @@ pub(all) struct EditContext[T] {
   source_text : String
   source_map : SourceMap
   registry : Map[NodeId, ProjNode[T]]
-  module_projection : ModuleProjection
+  definition_index : DefinitionIndex
 }
 
 ///|
 pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
+
+///|
+priv suberror ResolveError {
+  ResolveError(String)
+}
+
+///|
+/// Look up both the projection node and its source range for a given node_id.
+/// Raises ResolveError("Node not found: {id}") if either lookup fails.
+fn[T] EditContext::resolve(
+  self : EditContext[T],
+  node_id : NodeId,
+) -> (ProjNode[T], @loomcore.Range) raise ResolveError {
+  guard self.source_map.get_range(node_id) is Some(range) else {
+    raise ResolveError("Node not found: " + node_id.to_string())
+  }
+  guard self.registry.get(node_id) is Some(node) else {
+    raise ResolveError("Node not found: " + node_id.to_string())
+  }
+  (node, range)
+}
 
 ///|
 /// Translate a TreeEditOp into text span edits.

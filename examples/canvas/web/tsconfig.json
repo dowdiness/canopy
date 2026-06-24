@@ -9,7 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "paths": {
-      "@moonbit/canopy-canvas": ["../_build/js/release/build/main/main.d.ts"]
+      "@moonbit/canopy-canvas": ["../../../_build/js/release/build/dowdiness/canopy-canvas/main/main.d.ts"]
     }
   },
   "include": ["src/**/*"],

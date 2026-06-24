@@ -119,7 +119,7 @@ The unparser already exists: `@ast.print_term(term)` in `loom/examples/lambda/sr
 ```
 Int(42)           -> "42"
 Var("x")          -> "x"
-Lam("x", body)    -> "(λx. <body>)"
+Lam("x", body)    -> "(x) => <body>"
 App(f, arg)       -> "(<f> <arg>)"
 Bop(Plus, l, r)   -> "(<l> + <r>)"
 If(c, t, e)       -> "if <c> then <t> else <e>"
@@ -169,10 +169,10 @@ pub fn SyncEditor::apply_tree_edit(
 After tree edit -> unparse -> reparse, the parser produces a fresh `@ast.Term` with no node IDs. The existing reconciliation logic in `projection/reconcile_ast.mbt` solves this:
 
 ```
-Old ProjNode (with IDs): λx[1]. (x[2] + 1[3])
+Old ProjNode (with IDs): (x) =>[1]. (x[2] + 1[3])
 Tree edit: Move 1[3] before x[2]
-Unparse -> reparse: λx[?]. (1[?] + x[?])
-Reconcile: LCS match children -> λx[1]. (1[3] + x[2])  // IDs preserved
+Unparse -> reparse: (x) =>[?]. (1[?] + x[?])
+Reconcile: LCS match children -> (x) =>[1]. (1[3] + x[2])  // IDs preserved
 ```
 
 **When reconciliation runs:** It is triggered lazily when `SyncEditor.proj_node()` is accessed after a text change. The `Memo[ProjNode]` dependency chain is:

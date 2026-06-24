@@ -21,6 +21,10 @@ pub fn compute_markdown_edit(
       compute_split_block(source, proj, source_map, node_id, offset)
     MergeWithPrevious(node_id~) =>
       compute_merge_with_previous(source, proj, source_map, node_id)
+    MoveBlock(source=source_id, target=target_id, position~) =>
+      compute_move_block(
+        source, proj, source_map, source_id, target_id, position,
+      )
   }
 }
 
@@ -122,7 +126,7 @@ fn compute_toggle_list_item(
     None => source[range.start:range.end].to_owned()
   }
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
-    Some(node) => node.kind is @markdown.ListItem(_)
+    Some(node) => is_markdown_list_item(node.kind)
     None => false
   }
   let (new_text, prefix_len) = if is_list_item {
@@ -257,12 +261,26 @@ fn compute_split_block(
   // Split point in source coordinates
   let split_pos = text_range.start + split_offset
   let is_list_item = match @core.get_node_in_tree(proj, node_id) {
-    Some(node) => node.kind is @markdown.ListItem(_)
+    Some(node) => is_markdown_list_item(node.kind)
     None => false
   }
-  let separator = if is_list_item { "\n- " } else { "\n\n" }
-  // Delete from split point to end of block, then insert separator + rest
-  let rest = source[split_pos:range.end].to_owned()
+  let separator = if is_list_item {
+    let marker = source[range.start:text_range.start].to_owned()
+    split_list_item_separator(marker)
+  } else {
+    "\n\n"
+  }
+  // Delete from split point to end of block, then insert separator + rest.
+  // List item source ranges can exclude the following line break; include it
+  // so the inserted marker does not create a blank line between list items.
+  let delete_end = if is_list_item &&
+    range.end < source.length() &&
+    source[range.end] == '\n' {
+    range.end + 1
+  } else {
+    range.end
+  }
+  let rest = source[split_pos:delete_end].to_owned()
   // Trim trailing newline from rest if present
   let trimmed_rest = if rest.length() > 0 && rest[rest.length() - 1] == '\n' {
     rest[:rest.length() - 1].to_owned()
@@ -276,7 +294,7 @@ fn compute_split_block(
         [
           SpanEdit::{
             start: split_pos,
-            delete_len: range.end - split_pos,
+            delete_len: delete_end - split_pos,
             inserted,
           },
         ],
@@ -284,6 +302,61 @@ fn compute_split_block(
       ),
     ),
   )
+}
+
+///|
+fn is_markdown_list_item(block : @markdown.Block) -> Bool {
+  block is @markdown.Block::UnorderedListItem(_) ||
+  block is @markdown.Block::OrderedListItem(_, _)
+}
+
+///|
+/// Return the marker prefix to use when splitting a Markdown list item.
+///
+/// Preserve the concrete source marker instead of synthesizing an unordered
+/// `- ` bullet for every split.
+fn split_list_item_separator(marker : String) -> String {
+  match next_ordered_marker(marker) {
+    Some(next) => "\n" + next
+    None => "\n" + marker
+  }
+}
+
+///|
+fn next_ordered_marker(marker : String) -> String? {
+  guard marker.find_by(fn(ch) { ch != ' ' && ch != '\t' }) is Some(marker_start) else {
+    return None
+  }
+  let marker_body = marker.view(start_offset=marker_start)
+  let digit_start = if marker_body.length() > 0 && marker_body[0] == '-' {
+    1
+  } else {
+    0
+  }
+  guard marker_body
+    .view(start_offset=digit_start)
+    .find_by(fn(ch) { !(ch is ('0'..='9')) })
+    is Some(delimiter_offset_from_digit_start) else {
+    return None
+  }
+  let delimiter_offset = digit_start + delimiter_offset_from_digit_start
+  if delimiter_offset == digit_start {
+    return None
+  }
+  match marker_body[delimiter_offset] {
+    '.' | ')' => {
+      let value = @string.parse_int(marker_body[:delimiter_offset], base=10) catch {
+        _ => return None
+      }
+      Some(
+        marker.view(end_offset=marker_start).to_owned() +
+        (value + 1).to_string() +
+        marker_body[delimiter_offset:delimiter_offset + 1].to_owned() +
+        marker_body[delimiter_offset + 1:].to_owned(),
+      )
+    }
+    _ => None
+  }
 }
 
 ///|
@@ -367,4 +440,25 @@ fn find_sibling_context(
     }
   }
   ([], -1)
+}
+
+///|
+/// Find a node's parent, siblings, and index among them.
+fn find_sibling_context_and_parent(
+  root : ProjNode[@markdown.Block],
+  target : NodeId,
+) -> (ProjNode[@markdown.Block]?, Array[ProjNode[@markdown.Block]], Int) {
+  for i in 0..<root.children.length() {
+    if root.children[i].id() == target {
+      return (Some(root), root.children, i)
+    }
+    let (parent, siblings, idx) = find_sibling_context_and_parent(
+      root.children[i],
+      target,
+    )
+    if idx >= 0 {
+      return (parent, siblings, idx)
+    }
+  }
+  (None, [], -1)
 }

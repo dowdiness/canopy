@@ -66,8 +66,7 @@ export function actionKeyForwardPlugin(host: HTMLElement) {
   return new Plugin({
     props: {
       handleKeyDown(_view, event) {
-        const g = globalThis as any;
-        if (!g.__canopy_overlay_open) return false;
+        if (!(globalThis as any).__canopy_bridge?.overlayOpen) return false;
         // If the name prompt input has focus, let keys flow to it naturally.
         const nameInput = document.querySelector('.name-prompt-input');
         if (nameInput && document.activeElement === nameInput) return false;

@@ -41,7 +41,7 @@ fn build_proj_tree(
         collect_block_children(syntax_node),
         counter,
       )
-    UnorderedList(_) =>
+    UnorderedList(_) | OrderedList(_, _) =>
       build_container(
         syntax_node,
         block,
@@ -107,11 +107,24 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
     HeadingNode
     | ParagraphNode
     | UnorderedListNode
+    | OrderedListNode
     | ListItemNode
     | CodeBlockNode
+    | HtmlBlockNode
     | ErrorNode => true
     _ => false
   }
+}
+
+///|
+/// Convert a Markdown projection to the wire ViewNode shape.
+pub fn proj_to_view_node(
+  node : @core.ProjNode[@markdown.Block],
+  source_map : @core.SourceMap,
+  annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = {},
+  source_text? : String? = None,
+) -> @protocol.ViewNode {
+  @protocol.proj_to_view_node(node, source_map, annotations~, source_text~)
 }
 
 ///|
@@ -119,6 +132,7 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
 /// projection.
 pub fn build_markdown_projection_memos(
   parser : @loom.Parser[@markdown.Block],
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
 ) -> (
   @incr.Derived[@core.ProjNode[@markdown.Block]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
@@ -129,6 +143,16 @@ pub fn build_markdown_projection_memos(
     parser.syntax_tree(),
     syntax_to_proj_node,
     populate_token_spans,
+    reconcile_node=(old, new_, counter) => {
+      match identity_hints {
+        None => @core.reconcile(old, new_, counter)
+        Some(hints_ref) => {
+          let hints = build_markdown_hints_map(hints_ref.val)
+          hints_ref.val = []
+          reconcile_markdown_projection_hinted(old, new_, counter, hints)
+        }
+      }
+    },
     label="markdown",
   )
 }

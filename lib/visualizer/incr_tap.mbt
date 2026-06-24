@@ -53,21 +53,18 @@ pub struct RecomputeTap {
   // the latest per cell loses nothing while bounding memory.
   priv events : @hashmap.HashMap[@incr.CellId, RecomputeRecord]
   priv cells : Array[@incr.CellId]
+  // Mirrors `cells` for O(1)-expected dedup as events arrive. It is not
+  // drained, because `cells` is the persistent frontier for graph snapshots.
+  priv seen_cells : Set[@incr.CellId]
 }
 
 ///|
-fn contains_cell_id(ids : Array[@incr.CellId], id : @incr.CellId) -> Bool {
-  for cell_id in ids {
-    if cell_id == id {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn remember_cell(ids : Array[@incr.CellId], id : @incr.CellId) -> Unit {
-  if !contains_cell_id(ids, id) {
+fn remember_cell(
+  ids : Array[@incr.CellId],
+  seen : Set[@incr.CellId],
+  id : @incr.CellId,
+) -> Unit {
+  if seen.add_and_check(id) {
     ids.push(id)
   }
 }
@@ -112,26 +109,29 @@ fn event_from_memo_event(evt : @incr.DerivedEvent) -> RecomputeRecord {
 fn RecomputeTap::record(self : RecomputeTap, evt : @incr.DerivedEvent) -> Unit {
   guard self.active.val else { return }
   let record = event_from_memo_event(evt)
-  remember_cell(self.cells, record.cell_id)
+  remember_cell(self.cells, self.seen_cells, record.cell_id)
   self.events.set(record.cell_id, record)
 }
 
 ///|
-fn snapshot_ids(tap : RecomputeTap) -> Array[@incr.CellId] {
+fn RecomputeTap::snapshot_ids(self : RecomputeTap) -> Array[@incr.CellId] {
   let ids : Array[@incr.CellId] = []
-  for id in tap.cells {
-    remember_cell(ids, id)
+  let seen : Set[@incr.CellId] = Set([])
+  for id in self.cells {
+    remember_cell(ids, seen, id)
   }
+  // Queue-style traversal is intentional: the frontier grows as dependencies
+  // and subscribers are discovered from `Runtime::cell_info`.
   let mut i = 0
   while i < ids.length() {
     let id = ids[i]
-    match tap.rt.cell_info(id) {
+    match self.rt.cell_info(id) {
       Some(info) => {
         for dep in info.dependencies {
-          remember_cell(ids, dep)
+          remember_cell(ids, seen, dep)
         }
         for sub in info.subscribers {
-          remember_cell(ids, sub)
+          remember_cell(ids, seen, sub)
         }
       }
       None => ()
@@ -186,24 +186,6 @@ fn snapshot_node_detail(
 }
 
 ///|
-/// Most recent event retained for `id`, if any.
-///
-/// The tap retains at most one record per cell (keep-last-per-cell), so this
-/// single scan returns that cell's only record — both its status and its
-/// latest `elapsed_ns` come from the one lookup.
-fn event_for_cell(
-  events : Array[RecomputeRecord],
-  id : @incr.CellId,
-) -> RecomputeRecord? {
-  for event in events {
-    if event.cell_id == id {
-      return Some(event)
-    }
-  }
-  None
-}
-
-///|
 fn record_status(record : RecomputeRecord?) -> VisualNodeStatus {
   match record {
     Some(event) =>
@@ -227,7 +209,13 @@ fn record_status(record : RecomputeRecord?) -> VisualNodeStatus {
 /// `incr` allows one memo-event listener per runtime, so attaching replaces
 /// any previous listener owned by the same runtime.
 pub fn RecomputeTap::attach(rt : @incr.Runtime) -> RecomputeTap raise Failure {
-  let tap = { rt, active: Ref(true), events: @hashmap.HashMap([]), cells: [] }
+  let tap = {
+    rt,
+    active: Ref(true),
+    events: @hashmap.HashMap([]),
+    cells: [],
+    seen_cells: Set([]),
+  }
   rt.on_derived_event(evt => tap.record(evt))
   tap
 }
@@ -257,7 +245,7 @@ pub fn RecomputeTap::drain_events(
 ///|
 /// Capture the current known dependency graph plus buffered event history.
 pub fn RecomputeTap::snapshot(self : RecomputeTap) -> RecomputeSnapshot {
-  let ids = snapshot_ids(self)
+  let ids = self.snapshot_ids()
   let nodes : Array[RecomputeSnapshotNode] = []
   let edges : Array[RecomputeSnapshotEdge] = []
   for id in ids {
@@ -280,13 +268,28 @@ pub fn RecomputeTap::snapshot(self : RecomputeTap) -> RecomputeSnapshot {
 }
 
 ///|
+fn RecomputeSnapshot::events_by_cell(
+  self : RecomputeSnapshot,
+) -> @hashmap.HashMap[@incr.CellId, RecomputeRecord] {
+  let events_by_cell : @hashmap.HashMap[@incr.CellId, RecomputeRecord] = @hashmap.HashMap(
+    [],
+    capacity=self.events.length(),
+  )
+  for event in self.events {
+    events_by_cell.set(event.cell_id, event)
+  }
+  events_by_cell
+}
+
+///|
 /// Convert an `incr` runtime snapshot to the renderer-neutral visual graph.
 pub fn RecomputeSnapshot::to_visual_graph(
   self : RecomputeSnapshot,
 ) -> VisualGraph {
   let graph = VisualGraph(id="incr")
+  let events_by_cell = self.events_by_cell()
   for node in self.nodes {
-    let record = event_for_cell(self.events, node.id)
+    let record = events_by_cell.get(node.id)
     let elapsed_ns = match record {
       Some(event) => event.elapsed_ns
       None => None

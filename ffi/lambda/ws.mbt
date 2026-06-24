@@ -2,7 +2,7 @@
 
 ///|
 pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_open(ws)
     None => ()
   }
@@ -10,7 +10,7 @@ pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
 
 ///|
 pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_message(data)
     None => ()
   }
@@ -18,7 +18,7 @@ pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
 
 ///|
 pub fn ws_on_close(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_close()
     None => ()
   }
@@ -26,7 +26,7 @@ pub fn ws_on_close(handle : Int) -> Unit {
 
 ///|
 pub fn ws_broadcast_edit(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_edit()
     None => ()
   }
@@ -34,7 +34,7 @@ pub fn ws_broadcast_edit(handle : Int) -> Unit {
 
 ///|
 pub fn ws_broadcast_cursor(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_cursor()
     None => ()
   }
@@ -47,7 +47,7 @@ pub fn ws_broadcast_cursor(handle : Int) -> Unit {
 /// `request_id` is compared against the current recovery epoch —
 /// stale firings (response already arrived) are silently ignored.
 pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => h.editor.on_watchdog_fire(request_id)
     None => ()
   }
@@ -59,7 +59,7 @@ pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
 /// which schedules a setTimeout(() => ws_on_watchdog_fire(handle, request_id)).
 /// Call once at editor construction time.
 pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_watchdog_timeout(timeout_ms)
       h.editor.set_watchdog_scheduler(
@@ -81,12 +81,12 @@ pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
 ///   {"tag":"error","reason":"target_left","peer_id":"<id>"}
 /// JSON (vs. a delimited string) avoids ambiguity when peer_id contains
 /// characters that would otherwise need escaping at the boundary.
-/// Host JS wires delivery via `globalThis.__canopy_on_status_change`.
+/// Host JS wires delivery via `globalThis.__canopy_bridge.onStatusChange`.
 /// Fires one notification with the current status immediately on
 /// registration so late-registering hosts can bootstrap — otherwise
 /// a status that changed before registration would never be observed.
 pub fn ws_set_status_callback(handle : Int) -> Unit {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_on_status_change(
         Some(fn(status) {
@@ -138,9 +138,9 @@ fn encode_sync_status(status : @editor.SyncStatus) -> String {
 
 ///|
 /// Low-level JS bridge: schedule a watchdog timer.
-/// The host JS owns timer delivery via `globalThis.__canopy_schedule_watchdog`.
+/// The host JS owns timer delivery via `globalThis.__canopy_bridge.scheduleWatchdog`.
 /// A typical binding is:
-///   globalThis.__canopy_schedule_watchdog = (handle, requestId, timeoutMs) =>
+///   bridge.scheduleWatchdog = (handle, requestId, timeoutMs) =>
 ///     setTimeout(() => lambdaModule.ws_on_watchdog_fire(handle, requestId), timeoutMs);
 /// where `lambdaModule` is the imported ESM namespace for the compiled
 /// `ffi/lambda` package (named export `ws_on_watchdog_fire`). This
@@ -152,8 +152,9 @@ extern "js" fn js_schedule_watchdog(
   timeout_ms : Int,
 ) -> Unit =
   #|(handle, requestId, timeoutMs) => {
-  #|  if (typeof globalThis.__canopy_schedule_watchdog === "function") {
-  #|    globalThis.__canopy_schedule_watchdog(handle, requestId, timeoutMs);
+  #|  var scheduleWatchdog = globalThis.__canopy_bridge?.scheduleWatchdog;
+  #|  if (typeof scheduleWatchdog === "function") {
+  #|    scheduleWatchdog(handle, requestId, timeoutMs);
   #|  }
   #|}
 
@@ -162,7 +163,8 @@ extern "js" fn js_schedule_watchdog(
 /// `encoded` is the tagged string produced by `encode_sync_status`.
 extern "js" fn js_notify_status_change(handle : Int, encoded : String) -> Unit =
   #|(handle, encoded) => {
-  #|  if (typeof globalThis.__canopy_on_status_change === "function") {
-  #|    globalThis.__canopy_on_status_change(handle, encoded);
+  #|  var onStatusChange = globalThis.__canopy_bridge?.onStatusChange;
+  #|  if (typeof onStatusChange === "function") {
+  #|    onStatusChange(handle, encoded);
   #|  }
   #|}

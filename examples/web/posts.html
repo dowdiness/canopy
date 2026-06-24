@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canopy Posts</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --panel: #1e1e36;
+      --surface: #252540;
+      --surface-soft: color-mix(in oklab, var(--surface), var(--bg) 46%);
+      --border: #2a2a48;
+      --text: #e8e8f0;
+      --secondary: #c8c8e0;
+      --muted: #777796;
+      --accent: #8250df;
+      --accent-soft: color-mix(in oklab, var(--accent), transparent 82%);
+      --success: #28c840;
+      --error: #ff5370;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 32px;
+      --space-3xl: 48px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 0%, color-mix(in oklab, var(--accent), transparent 84%), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Manrope, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    button,
+    textarea {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: clamp(32px, 7vw, 72px) 0;
+    }
+
+    header {
+      display: grid;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-2xl);
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 12ch;
+      color: var(--text);
+      font-size: clamp(2.4rem, 8vw, 5rem);
+      line-height: 0.94;
+      letter-spacing: -0.065em;
+    }
+
+    .lede {
+      max-width: 58ch;
+      margin: var(--space-md) 0 0;
+      color: var(--secondary);
+      font-size: 1rem;
+    }
+
+    .composer {
+      display: grid;
+      gap: var(--space-lg);
+      padding: var(--space-xl);
+      background: color-mix(in oklab, var(--panel), var(--bg) 18%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: var(--space-sm);
+      color: var(--secondary);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 168px;
+      resize: vertical;
+      padding: var(--space-lg);
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      outline: none;
+      font-family: Iosevka, "JetBrains Mono", "Fira Code", Consolas, monospace;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+
+    textarea::placeholder {
+      color: var(--muted);
+    }
+
+    textarea:focus {
+      border-color: color-mix(in oklab, var(--accent), var(--border) 25%);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .composer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    kbd {
+      padding: 1px 6px;
+      background: var(--surface);
+      color: var(--secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: Iosevka, "JetBrains Mono", Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .composer-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .post-button,
+    .ask-button {
+      min-width: 116px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+    }
+
+    .post-button {
+      background: var(--accent);
+      color: var(--text);
+      border: 1px solid color-mix(in oklab, var(--accent), white 10%);
+    }
+
+    .ask-button {
+      background: color-mix(in oklab, var(--surface), var(--accent) 10%);
+      color: var(--secondary);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 26%);
+    }
+
+    .post-button:hover:not(:disabled) {
+      background: color-mix(in oklab, var(--accent), white 8%);
+      transform: translateY(-1px);
+    }
+
+    .ask-button:hover:not(:disabled) {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent), var(--border) 30%);
+      transform: translateY(-1px);
+    }
+
+    .post-button:disabled,
+    .ask-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+      align-items: center;
+      justify-content: space-between;
+      min-height: 24px;
+    }
+
+    #post-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    #post-status[data-tone="success"] {
+      color: color-mix(in oklab, var(--success), var(--text) 18%);
+    }
+
+    #post-status[data-tone="error"] {
+      color: var(--error);
+    }
+
+    #post-count {
+      color: var(--secondary);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .related-panel {
+      display: grid;
+      gap: var(--space-md);
+      margin-top: var(--space-xl);
+      padding: var(--space-lg);
+      background: color-mix(in oklab, var(--panel), var(--bg) 8%);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 14%);
+      border-radius: 16px;
+    }
+
+    .related-panel[hidden] {
+      display: none;
+    }
+
+    .related-heading {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm) var(--space-lg);
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .related-kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .related-heading h2 {
+      margin: var(--space-xs) 0 0;
+      color: var(--text);
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    #related-count {
+      color: var(--secondary);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .related-list {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .related-empty {
+      margin: 0;
+      padding-top: var(--space-sm);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .related-empty[hidden] {
+      display: none;
+    }
+
+    .related-item article {
+      display: grid;
+      gap: var(--space-xs);
+      padding: var(--space-md) 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .related-item:first-child article {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .related-item:last-child article {
+      padding-bottom: 0;
+    }
+
+    .related-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .related-meta time,
+    .related-reason {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .related-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .related-reason[data-kind="match"] {
+      color: color-mix(in oklab, var(--secondary), var(--accent) 20%);
+    }
+
+    .related-reason[data-kind="resurfacing"] {
+      color: color-mix(in oklab, var(--success), var(--text) 18%);
+    }
+
+    .related-text {
+      margin: 0;
+      color: var(--secondary);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .related-open {
+      justify-self: start;
+      margin-top: var(--space-xs);
+      padding: 4px 10px;
+      background: color-mix(in oklab, var(--surface), var(--accent) 8%);
+      color: var(--secondary);
+      border: 1px solid color-mix(in oklab, var(--border), var(--accent) 24%);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .related-open:hover,
+    .related-open:focus-visible {
+      color: var(--text);
+      border-color: color-mix(in oklab, var(--accent), var(--border) 30%);
+      outline: none;
+    }
+
+    .timeline {
+      display: grid;
+      gap: var(--space-lg);
+      margin-top: var(--space-2xl);
+    }
+
+    .timeline h2 {
+      margin: 0;
+      color: var(--secondary);
+      font-size: 0.88rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .post-list {
+      display: grid;
+      gap: var(--space-md);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .post-item article {
+      display: grid;
+      gap: var(--space-sm);
+      padding: var(--space-lg);
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .post-item[data-highlighted="true"] article {
+      border-color: color-mix(in oklab, var(--accent), var(--border) 25%);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .post-item time {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .post-item p {
+      margin: 0;
+      color: var(--text);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .empty-state {
+      padding: var(--space-2xl);
+      background: color-mix(in oklab, var(--panel), transparent 20%);
+      border: 1px dashed color-mix(in oklab, var(--border), var(--secondary) 12%);
+      border-radius: 16px;
+      color: var(--muted);
+    }
+
+    .empty-state p {
+      max-width: 46ch;
+      margin: 0;
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        width: min(100% - 24px, 920px);
+        padding: var(--space-2xl) 0;
+      }
+
+      .composer {
+        padding: var(--space-lg);
+        border-radius: 14px;
+      }
+
+      .composer-actions,
+      .related-heading,
+      .status-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .composer-buttons,
+      .post-button,
+      .ask-button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">Local-first prototype</p>
+      <h1>Post to yourself.</h1>
+      <p class="lede">One field, no folders, no API key. As you write, a few old posts return quietly underneath; the stream stays newest-first when you just want chronology.</p>
+    </header>
+
+    <form class="composer" id="post-form">
+      <label for="post-input">
+        Write
+        <textarea id="post-input" name="post" placeholder="A thought, reminder, note, or question for future you…" autocomplete="off"></textarea>
+      </label>
+
+      <div class="composer-actions">
+        <p class="hint"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> posts. Plain <kbd>Enter</kbd> keeps writing.</p>
+        <div class="composer-buttons">
+          <button class="ask-button" id="post-ask" type="button">Ask</button>
+          <button class="post-button" id="post-submit" type="submit">Post</button>
+        </div>
+      </div>
+
+      <div class="status-row" aria-live="polite">
+        <p id="post-status"></p>
+        <span id="post-count">0 posts</span>
+      </div>
+    </form>
+
+    <section class="related-panel" id="related-panel" aria-labelledby="related-title" hidden>
+      <div class="related-heading">
+        <div>
+          <p class="related-kicker" id="related-kicker">Returning while writing</p>
+          <h2 id="related-title">Related posts</h2>
+        </div>
+        <span id="related-count">0 related posts</span>
+      </div>
+      <p class="related-empty" id="related-empty" hidden>No matching source posts yet. Try words you remember from the post.</p>
+      <ul class="related-list" id="related-list"></ul>
+    </section>
+
+    <section class="timeline" aria-labelledby="timeline-title">
+      <h2 id="timeline-title">Chronological fallback · newest first</h2>
+      <div class="empty-state" id="empty-state">
+        <p>No posts yet. Write the smallest thing worth remembering and reload the page to prove it stays.</p>
+      </div>
+      <ul class="post-list" id="post-list"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="/src/post-app.ts"></script>
+</body>
+</html>

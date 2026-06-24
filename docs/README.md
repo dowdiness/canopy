@@ -80,6 +80,8 @@ Only needed if you are modifying Canopy itself.
 - **[Workflow](development/workflow.md)** — development process and common commands.
 - **[Conventions](development/conventions.md)** — MoonBit coding standards.
 - **[Testing](development/testing.md)** — testing guide and best practices.
+- **[Module / Package Map](development/module-package-map.md)** — distinguish
+  root packages, workspace modules, examples, and submodules.
 - **[Monorepo & Submodules](development/monorepo.md)** — git submodule setup and
   daily cheat sheet.
 - **[Task Tracking](development/task-tracking.md)** — rules for TODOs, plans,
@@ -120,6 +122,12 @@ behavior** — check the code before relying on any specific detail.
   - [03 — Unified Editor](design/03-unified-editor.md)
   - [04 — Ephemeral Store](design/04-ephemeral-store.md)
   - [05 — Tree Edit Roundtrip](design/05-tree-edit-roundtrip.md)
+- [Analysis Query Layer](design/analysis-query-layer.md) — conservative design
+  for ast-grep-style syntax search, `moon ide`-style semantic queries, and
+  previewable refactors through snapshot-bound internal facts.
+- [Stable Document Entity Graph](design/stable-document-entity-graph.md) —
+  direction for growing a stable editing-entity layer from the existing
+  projection identity pipeline.
 - [Design Concerns](design/design-concerns.md) — open problems and future
   considerations.
 - [Decisions Needed](decisions-needed.md) — open architectural questions.
@@ -131,6 +139,17 @@ behavior** — check the code before relying on any specific detail.
 - [Identity and Reuse Mechanisms](decisions/2026-06-01-identity-and-reuse-mechanisms.md)
   — the three distinct parse/projection identity mechanisms, the #396 source-span
   tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
+- [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
+  — locks canopy/loom/moondsp at incr minor 0.9, the bottom-up paired-bump protocol,
+  and why cross-repo CI is deferred until shared-runtime work needs it (closes #441).
+- [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
+  — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside
+  `LanguageSpec` after `ModuleProjection` removal (closes #634).
+- [loomgen RawKind vs content-hash identity (L1-A)](decisions/2026-06-23-loomgen-rawkind-content-hash-identity.md)
+  — severity of loomgen's sequential-renumber bug is MILD (nothing persisted/transmitted
+  keys off the seam content hash); constrain loomgen with an append-only kind→raw
+  registry (fork (i)), holding the seam hash-name migration (fork (ii)) as a documented
+  escalation (loom #427 / #729).
 
 ## Historical / Archive
 
@@ -145,6 +164,7 @@ behavior** — check the code before relying on any specific detail.
 
 Recently completed (for quick reference):
 
+- [Markdown List Payloads](archive/completed-phases/2026-06-20-markdown-list-payloads.md)
 - [Canvas Handles And Edges](archive/completed-phases/2026-05-14-canvas-handles-edges.md)
 - [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md)
 - [Lambda Annotation Plumbing — Impl](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-impl.md)

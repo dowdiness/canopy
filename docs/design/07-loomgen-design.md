@@ -29,7 +29,7 @@
 ```moonbit
 #loom.token
 pub enum Token {
-  #loom.keyword("λ", "\\")    // literal string(s)
+  #loom.keyword("fn")    // literal string(s)
   Lambda
   #loom.keyword("if")
   If
@@ -108,7 +108,7 @@ pub enum Term {
     view_children=["body: child(0)"],
     view_tokens=["param: IdentToken"],
   )
-  #loom.print("(λ{param}. {body})")
+  #loom.print("({param}) => {body}")
   #loom.placeholder("Lam(\"x\", Var(\"x\"))")
   Lam(VarName, Term)
 
@@ -378,7 +378,23 @@ Each gets its own `SyntaxKind` token variant. Naming derives from the Token vari
 
 ### Generation idempotency
 
-Running `loomgen` twice with the same input produces identical `.g.mbt` files. Stable ordering, sequential `to_raw` integers, never reads `.g.mbt` as input.
+Running `loomgen` twice with the same `Term` enum **and** kind→raw registry produces
+identical `.g.mbt` files, with stable ordering.
+
+`to_raw` integers are **not** a fresh sequence assigned per run. loomgen reads a
+persistent, append-only **kind→raw registry** as a second input: existing kinds keep
+their assigned raw across any `Term`-enum edit, retired or deleted kinds keep their raw
+as a tombstone (never reissued), and only newly introduced kinds receive a fresh raw
+(the next unused integer). Regeneration is therefore **idempotent given the registry** —
+editing the enum reshuffles nothing already assigned.
+
+This is load-bearing, not cosmetic: seam bakes the raw int into CST structural identity
+(the `CstNode` / `CstToken` content hash, which feeds `Eq` / `Hash` / interning /
+reuse), so a naive sequential renumber on any enum edit would break node identity. The
+registry's concrete form — a sidecar manifest, `#loom.kind(raw=N)` annotations on the
+`Term` variants, or reading the prior generated output — is a loomgen implementation
+choice; the contract is only that such a stable record exists and is honored. See
+[decision: loomgen RawKind vs content-hash identity (L1-A)](../decisions/2026-06-23-loomgen-rawkind-content-hash-identity.md).
 
 ## Generator Architecture
 
@@ -490,7 +506,7 @@ pub fn reconcile_ast(old : ProjNode, new : ProjNode, counter : Ref[Int]) -> Proj
         old.children, new.children, counter,
         same_tag=same_kind_tag, reconcile=reconcile_ast,
       )
-      ProjNode::new(rebuild_kind(new.kind, children), ...)
+      ProjNode(rebuild_kind(new.kind, children), ...)
     }
     // ... other cases ...
   }

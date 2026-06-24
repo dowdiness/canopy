@@ -26,7 +26,7 @@ export default defineConfig({
         {
           name: '@moonbit/graphviz',
           path: '../../graphviz',
-          output: '_build/js/release/build/browser/browser.js'
+          output: '../_build/js/release/build/dowdiness/graphviz/browser/browser.js'
         }
       ]
     }),
@@ -56,6 +56,7 @@ export default defineConfig({
         json: 'json.html',
         memo: 'memo.html',
         markdown: 'markdown.html',
+        posts: 'posts.html',
       },
     },
   },

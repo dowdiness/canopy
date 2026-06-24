@@ -104,9 +104,6 @@ Pure edit computation — edit op enums and span-edit calculators. No editor dep
 ### `lang/*/companion/`
 Editor bridge — factory functions and edit application. Depends on editor + edits + proj. Delegates to `SyncEditor::apply_span_edits()` after computing edits. One per language.
 
-### `lang/lambda/flat/`
-Incremental ModuleProjection wrapper — memo-based incremental projection updates for lambda.
-
 ### `cmd/main/`
 Command-line entry points and REPL.
 
@@ -137,10 +134,9 @@ event-graph-walker (depends on rle + quickcheck)
 
 crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdiness/loom + dowdiness/text_change via path deps)
   ├── framework/core (depends on loom/core — generic types + traits + SpanEdit + FocusHint)
-  ├── lang/lambda/proj (depends on framework/core + lambda + seam)
+  ├── lang/lambda/proj (depends on framework/core + incr + lambda + loom + seam)
   ├── lang/lambda/edits (depends on core + lang/lambda/proj + lambda)
-  ├── lang/lambda/companion (depends on core + editor + lang/lambda/edits + lang/lambda/proj + lang/lambda/flat + lang/lambda/eval + incr + lambda + loom + seam)
-  ├── lang/lambda/flat (depends on projection + incr)
+  ├── lang/lambda/companion (depends on core + editor + lang/lambda/edits + lang/lambda/proj + lang/lambda/eval + incr + lambda + loom + seam)
   ├── lang/json/proj (depends on framework/core + json + loom + seam + incr)
   ├── lang/json/edits (depends on core + lang/json/proj + json)
   ├── lang/json/companion (depends on editor + lang/json/edits + lang/json/proj + json + loom)

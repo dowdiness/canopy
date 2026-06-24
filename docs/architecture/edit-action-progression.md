@@ -35,13 +35,13 @@ These operations share a property: they require only the cursor NodeId and (for 
 
 **Operations:** AddBinding, DeleteBinding, DuplicateBinding, MoveBindingUp, MoveBindingDown
 
-**Why deferred:** These operate at the module level rather than the cursor level. They require FlatProj — the flattened representation of a Module's let-bindings — to determine indices, boundaries, and ordering. MoveBindingUp and MoveBindingDown additionally require free-variable analysis to prevent scope violations (moving a binding above the binding it depends on).
+**Why deferred:** These operate at the module level rather than the cursor level. They require a module definition index over the projection tree to determine indices, boundaries, and ordering. MoveBindingUp and MoveBindingDown additionally require free-variable analysis to prevent scope violations (moving a binding above the binding it depends on).
 
 **What's needed to promote:**
 
 1. **Module-aware cursor context.** The Zipper's PositionRole already distinguishes LetDefinition and LetBody. The cursor must be on a binding (PositionRole = LetDefinition) for these operations to be available.
 
-2. **FlatProj access in dispatch.** The dispatch function needs access to FlatProj, currently available via `SyncEditor::get_flat_proj()` — a getter call that adds no new dependency.
+2. **Definition-index access in dispatch.** The dispatch function needs access to `DefinitionIndex::from_proj_node(editor.get_proj_node())` plus the projection registry/source map — all available through generic `SyncEditor` accessors.
 
 3. **Scope guard for reordering.** MoveBindingUp/Down must check whether the binding at the destination position depends on or is depended upon by the moving binding. This requires free-variable analysis, which exists in the compute handlers.
 

@@ -3,17 +3,18 @@ package "dowdiness/canopy/ephemeral"
 
 import {
   "dowdiness/byte_codec",
+  "dowdiness/canopy/protocol/wire",
   "moonbitlang/core/debug",
 }
 
 // Values
 pub fn adjust_position(Int, Int, Int, Int) -> Int
 
-pub fn all_namespaces() -> Array[EphemeralNamespace]
+pub fn all_namespaces() -> Array[@wire.EphemeralNamespace]
 
-pub fn namespace_from_byte(Byte) -> EphemeralNamespace?
+pub fn namespace_from_byte(Byte) -> @wire.EphemeralNamespace?
 
-pub fn namespace_to_byte(EphemeralNamespace) -> Byte
+pub fn namespace_to_byte(@wire.EphemeralNamespace) -> Byte
 
 // Errors
 pub(all) suberror EphemeralError {
@@ -56,20 +57,20 @@ pub impl Show for EphemeralEventTrigger
 pub struct EphemeralHub {
   local_peer_id : String
   wire_peer_id : String
-  stores : Map[EphemeralNamespace, EphemeralStore]
+  stores : Map[@wire.EphemeralNamespace, EphemeralStore]
 }
-pub fn EphemeralHub::apply(Self, EphemeralNamespace, Bytes) -> Unit
+pub fn EphemeralHub::apply(Self, @wire.EphemeralNamespace, Bytes) -> Unit
 pub fn EphemeralHub::apply_all(Self, Bytes) -> Unit
 pub fn EphemeralHub::clear_drag(Self) -> Unit
 pub fn EphemeralHub::clear_edit_mode(Self) -> Unit
-pub fn EphemeralHub::encode(Self, EphemeralNamespace) -> Bytes
+pub fn EphemeralHub::encode(Self, @wire.EphemeralNamespace) -> Bytes
 pub fn EphemeralHub::encode_all(Self) -> Bytes
 pub fn EphemeralHub::get_all_editing(Self) -> Map[String, EditModeState]
 pub fn EphemeralHub::get_cursor(Self, String) -> (Int, (Int, Int)?)?
 pub fn EphemeralHub::get_edit_mode(Self, String) -> EditModeState?
 pub fn EphemeralHub::get_online_peers(Self) -> Array[PeerPresence]
 pub fn EphemeralHub::get_presence(Self, String) -> PeerPresence?
-pub fn EphemeralHub::get_store(Self, EphemeralNamespace) -> EphemeralStore
+pub fn EphemeralHub::get_store(Self, @wire.EphemeralNamespace) -> EphemeralStore
 pub fn EphemeralHub::new(String) -> Self
 pub fn EphemeralHub::on_peer_leave(Self, String) -> Unit
 pub fn EphemeralHub::remove_outdated(Self) -> Unit
@@ -79,14 +80,6 @@ pub fn EphemeralHub::set_edit_mode(Self, String) -> Unit
 pub fn EphemeralHub::set_presence(Self, String, String, PresenceStatus) -> Unit
 
 type EphemeralLocalEntry
-
-pub(all) enum EphemeralNamespace {
-  Cursor
-  EditMode
-  Drag
-  Presence
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub impl Show for EphemeralNamespace
 
 type EphemeralRecord
 
@@ -175,6 +168,7 @@ pub(all) enum PresenceStatus {
 pub impl Show for PresenceStatus
 
 // Type aliases
+pub using @wire {type EphemeralNamespace}
 
 // Traits
 

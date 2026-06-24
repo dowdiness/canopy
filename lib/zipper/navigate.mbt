@@ -46,7 +46,7 @@ pub fn[T] RoseZipper::go_up(self : RoseZipper[T]) -> RoseZipper[T]? {
       children.rev_in_place() // left was stored nearest-first; restore tree order
       children.push(self.focus)
       ctx.right.each(fn(n) { children.push(n) })
-      let parent = RoseNode::new(data=ctx.data, children~)
+      let parent = RoseNode(data=ctx.data, children~)
       Some({ focus: parent, path: rest, depth: self.depth - 1 })
     }
   }

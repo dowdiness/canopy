@@ -1,9 +1,14 @@
+import * as cmCommands from '@codemirror/commands';
+import * as cmState from '@codemirror/state';
+import * as cmView from '@codemirror/view';
 import {
   GraphAdapter,
   type CanvasModule,
   type Connecting,
   type EdgeData,
   type NodeData,
+  type NodeParamData,
+  type PortCompatibility,
   type PortDef,
   type RenderState,
   type SourceGraphOperationResult,
@@ -63,8 +68,8 @@ const validation = document.getElementById('validation-list') as HTMLDivElement;
 const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
 const contextMenu = document.getElementById('context-menu') as HTMLDivElement;
-const nodeDivs = new Map<number, HTMLDivElement>();
-const edgePaths = new Map<number, SVGPathElement>();
+const nodeDivs = new Map<string, HTMLDivElement>();
+const edgePaths = new Map<string, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
 let contextEdge: EdgeData | null = null;
@@ -145,39 +150,32 @@ function clearSelectedEdge(): void {
 }
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
-// Mirrors MoonBit `can_commit_edge` so input handles can preview which targets a
-// drag could land on. This is purely cosmetic — MoonBit validation stays the
-// authoritative commit/reject check on pointerup.
+// Input-handle previews ask MoonBit for one batched `can_commit_edge` snapshot
+// through GraphAdapter, so the cosmetic highlight follows the same
+// authoritative commit/reject logic as pointerup without per-handle rebuilds.
+
+type InputCompatibility = Map<string, Map<string, boolean>>;
 
 /** Context for the in-flight connection, resolved once per render. */
 type ConnectCtx = {
-  fromNode: number;
-  fromPort: string;
-  sourceType: string | null;
-  edges: EdgeData[];
+  inputs: InputCompatibility;
 };
 
-/** Mirror of MoonBit `port_type_compatible`. */
-function portTypesCompatible(source: string, target: string): boolean {
-  return source === target || source === 'Any' || target === 'Any';
+function inputCompatibilityByTarget(entries: PortCompatibility[]): InputCompatibility {
+  const byNode = new Map<string, Map<string, boolean>>();
+  for (const entry of entries) {
+    let byPort = byNode.get(entry.node_id);
+    if (!byPort) {
+      byPort = new Map<string, boolean>();
+      byNode.set(entry.node_id, byPort);
+    }
+    byPort.set(entry.port_id, entry.compatible);
+  }
+  return byNode;
 }
 
-/**
- * Whether dragging from the active source onto this input handle would be
- * accepted, mirroring `can_commit_edge` (self-loop, duplicate edge, type check).
- */
-function inputHandleCompatible(ctx: ConnectCtx, targetNode: number, targetPort: PortDef): boolean {
-  if (ctx.sourceType == null) return false;
-  if (ctx.fromNode === targetNode) return false; // self-loop
-  const duplicate = ctx.edges.some(
-    (e) =>
-      e.source === ctx.fromNode &&
-      e.source_port === ctx.fromPort &&
-      e.target === targetNode &&
-      e.target_port === targetPort.id,
-  );
-  if (duplicate) return false;
-  return portTypesCompatible(ctx.sourceType, portTypeName(targetPort.port_type));
+function inputCompatible(ctx: ConnectCtx, nodeId: string, portId: string): boolean {
+  return ctx.inputs.get(nodeId)?.get(portId) === true;
 }
 
 function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: ConnectCtx | null): void {
@@ -195,7 +193,9 @@ function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: Conn
       handle.setAttribute('aria-label', `${node.title} ${side} ${portTitle(port)}`);
       if (connectCtx && side === 'input') {
         handle.classList.add(
-          inputHandleCompatible(connectCtx, node.id, port) ? 'compatible-target' : 'incompatible-target',
+          inputCompatible(connectCtx, node.id, port.id)
+            ? 'compatible-target'
+            : 'incompatible-target',
         );
       }
       div.appendChild(handle);
@@ -228,26 +228,22 @@ function render(): void {
   edgesSvg.style.transform = transform;
 
   // Nodes ────────────────────────────────────────────────────────────────────
-  const nodesById = new Map<number, NodeData>();
-  const seenNodes = new Set<number>();
+  const nodesById = new Map<string, NodeData>();
+  const seenNodes = new Set<string>();
   const selected = new Set(state.selected_nodes ?? []);
   const invalidNodeIds = new Set(
-    state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as number),
+    state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as string),
   );
 
-  // Resolve the in-flight connection's source port type once, so each input
-  // handle can preview compatibility while the drag is live.
+  // Resolve the in-flight connection once, so input handles use one batched
+  // MoonBit compatibility snapshot while the drag is live.
   let connectCtx: ConnectCtx | null = null;
   const connecting = state.connecting ?? sourceConnecting ?? undefined;
   if (connecting) {
-    const from = connecting;
-    const srcNode = state.nodes.find((n) => n.id === from.from);
-    const srcPort = srcNode?.outputs.find((p) => p.id === from.from_port);
     connectCtx = {
-      fromNode: from.from,
-      fromPort: from.from_port,
-      sourceType: srcPort ? portTypeName(srcPort.port_type) : null,
-      edges: state.edges,
+      inputs: inputCompatibilityByTarget(
+        adapter.inputPortCompatibility(connecting.from, connecting.from_port),
+      ),
     };
   }
 
@@ -308,7 +304,7 @@ function render(): void {
   }
 
   // Edges ────────────────────────────────────────────────────────────────────
-  const seenEdges = new Set<number>();
+  const seenEdges = new Set<string>();
   for (const edge of state.edges) {
     const src = nodesById.get(edge.source);
     const dst = nodesById.get(edge.target);
@@ -373,15 +369,160 @@ function renderValidation(state: RenderState): void {
     item.type = 'button';
     item.textContent = message.message;
     if (message.node_id != null) {
-      item.addEventListener('click', () => focusNode(message.node_id as number));
+      item.addEventListener('click', () => focusNode(message.node_id as string));
     }
     validation.appendChild(item);
   }
 }
 
+function commitSourceRename(nodeId: string, currentName: string, nextName: string): void {
+  const trimmed = nextName.trim();
+  if (trimmed === currentName || trimmed.length === 0) return;
+  const result = adapter.renameNode(nodeId, trimmed);
+  if (!result) return;
+  updateSourceOperationStatus(
+    result,
+    'Renamed node binding through graph-dsl source.',
+    'Source rename rejected',
+  );
+  clearSelectedEdge();
+  scheduleRender();
+}
+
+function commitSourceParam(
+  nodeId: string,
+  param: NodeParamData,
+  nextValue: string,
+): void {
+  const trimmed = nextValue.trim();
+  if (trimmed === param.value || trimmed.length === 0) return;
+  const result = adapter.setNodeParam(nodeId, param.name, trimmed);
+  if (!result) return;
+  updateSourceOperationStatus(
+    result,
+    `Updated ${param.name} through graph-dsl source.`,
+    'Source parameter edit rejected',
+  );
+  clearSelectedEdge();
+  scheduleRender();
+}
+
+function bindCommitOnChange(
+  input: HTMLInputElement,
+  originalValue: string,
+  commit: (value: string) => void,
+): void {
+  let committed = false;
+  const commitOnce = () => {
+    if (committed) return;
+    committed = true;
+    commit(input.value);
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitOnce();
+      input.blur();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      committed = true;
+      input.value = originalValue;
+      input.blur();
+    }
+  });
+  input.addEventListener('change', commitOnce);
+}
+
+function safeParamInputId(paramName: string): string {
+  return `node-param-${paramName.replace(/[^a-z0-9_-]/gi, '-')}`;
+}
+
+function renderSourceNodeEditor(node: NodeData): HTMLDivElement {
+  const editor = document.createElement('div');
+  editor.className = 'inspector-source-editor';
+
+  const bindingLabel = document.createElement('label');
+  bindingLabel.className = 'inspector-field';
+  bindingLabel.htmlFor = 'node-rename-input';
+  const bindingText = document.createElement('span');
+  bindingText.textContent = 'Binding';
+  const bindingInput = document.createElement('input');
+  bindingInput.id = 'node-rename-input';
+  bindingInput.type = 'text';
+  bindingInput.value = node.title;
+  bindingInput.autocomplete = 'off';
+  bindingInput.spellcheck = false;
+  bindingInput.setAttribute('aria-label', 'Node binding');
+  bindCommitOnChange(bindingInput, node.title, (value) => {
+    commitSourceRename(node.id, node.title, value);
+  });
+  bindingLabel.replaceChildren(bindingText, bindingInput);
+  editor.appendChild(bindingLabel);
+
+  const params = node.params ?? [];
+  if (params.length === 0) return editor;
+
+  const paramList = document.createElement('div');
+  paramList.className = 'inspector-param-list';
+  for (const param of params) {
+    const row = document.createElement('label');
+    row.className = `inspector-field param ${param.editable ? 'editable' : 'readonly'}`;
+    const id = safeParamInputId(param.name);
+    row.htmlFor = id;
+    const name = document.createElement('span');
+    name.textContent = param.name;
+    if (param.editable) {
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.value = param.value;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.setAttribute('aria-label', `Parameter ${param.name}`);
+      bindCommitOnChange(input, param.value, (value) => {
+        commitSourceParam(node.id, param, value);
+      });
+      if (param.unit) {
+        const unit = document.createElement('span');
+        unit.className = 'param-unit';
+        unit.textContent = param.unit;
+        row.replaceChildren(name, input, unit);
+      } else {
+        row.replaceChildren(name, input);
+      }
+    } else {
+      const value = document.createElement('span');
+      value.className = 'param-readonly-value';
+      value.textContent = param.unit ? `${param.value}${param.unit}` : param.value;
+      row.replaceChildren(name, value);
+    }
+    paramList.appendChild(row);
+  }
+  editor.appendChild(paramList);
+  return editor;
+}
+
 function renderInspector(state: RenderState): void {
   inspectorNode.replaceChildren();
-  if (!state.inspector) {
+  const selectedNodeId = state.selected ?? state.selected_nodes?.[0];
+  const selectedNode = selectedNodeId != null
+    ? state.nodes.find((candidate) => candidate.id === selectedNodeId)
+    : undefined;
+  const inspector = state.inspector ?? (
+    adapter.isSourceBacked && selectedNode
+      ? {
+          id: selectedNode.id,
+          title: selectedNode.title,
+          subtitle: selectedNode.subtitle,
+          configured: selectedNode.configured,
+          input_count: selectedNode.inputs.length,
+          output_count: selectedNode.outputs.length,
+          source: 'selected',
+        }
+      : undefined
+  );
+  if (!inspector) {
     const empty = document.createElement('div');
     empty.className = 'inspector-empty';
     empty.textContent = 'Select or hover a node to inspect its sparse derived details.';
@@ -389,7 +530,7 @@ function renderInspector(state: RenderState): void {
     return;
   }
 
-  const item = state.inspector;
+  const item = inspector;
   const status = item.configured ? 'Configured' : 'Needs config';
   const source = item.source === 'selected' ? 'Selected node' : 'Hovered node';
 
@@ -409,10 +550,16 @@ function renderInspector(state: RenderState): void {
   const portsSpan = document.createElement('span');
   portsSpan.textContent = `${item.input_count} in · ${item.output_count} out`;
   meta.replaceChildren(statusSpan, portsSpan);
-  inspectorNode.replaceChildren(eyebrow, title, subtitle, meta);
+
+  const children: HTMLElement[] = [eyebrow, title, subtitle, meta];
+  if (adapter.isSourceBacked && item.source === 'selected') {
+    const node = state.nodes.find((candidate) => candidate.id === item.id);
+    if (node) children.push(renderSourceNodeEditor(node));
+  }
+  inspectorNode.replaceChildren(...children);
 }
 
-function focusNode(nodeId: number): void {
+function focusNode(nodeId: string): void {
   const node = nodeDivs.get(nodeId);
   if (!node) return;
   node.animate([
@@ -425,16 +572,16 @@ function focusNode(nodeId: number): void {
 
 type HitTarget =
   | { kind: 'background' }
-  | { kind: 'node'; nodeId: number }
+  | { kind: 'node'; nodeId: string }
   | { kind: 'edge'; edge: EdgeData }
-  | { kind: 'handle'; nodeId: number; side: 'input' | 'output'; portId: string };
+  | { kind: 'handle'; nodeId: string; side: 'input' | 'output'; portId: string };
 
 function hitFromTarget(target: EventTarget | null): HitTarget {
   let el = target instanceof Element ? target : null;
   while (el && el !== root) {
     const element = el as HTMLElement | SVGElement;
     if (element.dataset?.edgeId) {
-      const edgeId = parseInt(element.dataset.edgeId);
+      const edgeId = element.dataset.edgeId;
       const state = lastState ?? adapter.renderState();
       const edge = state.edges.find((candidate) => candidate.id === edgeId);
       if (edge) return { kind: 'edge', edge };
@@ -442,13 +589,13 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
     if (element.dataset?.handle && element.dataset?.nodeId && element.dataset?.portId) {
       return {
         kind: 'handle',
-        nodeId: parseInt(element.dataset.nodeId),
+        nodeId: element.dataset.nodeId,
         side: element.dataset.handle as 'input' | 'output',
         portId: element.dataset.portId,
       };
     }
     if (element.dataset?.nodeId && element.classList.contains('canvas-node')) {
-      return { kind: 'node', nodeId: parseInt(element.dataset.nodeId) };
+      return { kind: 'node', nodeId: element.dataset.nodeId };
     }
     el = el.parentElement;
   }
@@ -468,8 +615,8 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   scheduleRender();
 }
 
-function hoverNodeId(hit: HitTarget): number {
-  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : 0;
+function hoverNodeId(hit: HitTarget): string {
+  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : '';
 }
 
 function updateHover(hit: HitTarget): void {
@@ -545,12 +692,6 @@ function updateSourceOperationStatus(
     : `${failurePrefix}: ${sourceOperationDetail(result)}`;
 }
 
-function syncSourceEditorFromResult(result: SourceGraphOperationResult): void {
-  if (!result.applied) return;
-  const editor = document.getElementById('source-editor') as HTMLTextAreaElement | null;
-  if (editor) editor.value = result.source;
-}
-
 function disconnectEdge(edge: EdgeData): boolean {
   const result = adapter.disconnectPorts(
     edge.source,
@@ -559,7 +700,6 @@ function disconnectEdge(edge: EdgeData): boolean {
     edge.target_port,
   );
   if (result) {
-    syncSourceEditorFromResult(result);
     updateSourceOperationStatus(
       result,
       'Disconnected selected edge through graph-dsl source.',
@@ -591,7 +731,6 @@ function deleteSelectedNodes(): boolean {
   if (selectedNodes.length === 0) return false;
   const result = adapter.deleteNodes(selectedNodes);
   if (result) {
-    syncSourceEditorFromResult(result);
     updateSourceOperationStatus(
       result,
       'Deleted selected nodes through graph-dsl source.',
@@ -662,7 +801,7 @@ function handleContextMenuSelect(key: string): void {
 // ─── Event wiring ─────────────────────────────────────────────────────────────
 
 let activePointerId = -1;
-let pointerDownNodeId = 0;
+let pointerDownNodeId = '';
 let pointerUpAdditive = false;
 
 root.addEventListener('pointerdown', (e: PointerEvent) => {
@@ -686,7 +825,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     activePointerId = e.pointerId;
     pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
     const [sx, sy] = localCoords(e);
-    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : 0;
+    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : '';
     adapter.pointerDown(pointerDownNodeId, sx, sy);
     if (hit.kind === 'background') root.classList.add('panning');
     scheduleRender();
@@ -715,10 +854,10 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       // Only output handles initiate a connection in the prototype.
       if (hit.side === 'output') {
         adapter.pointerDownHandle(hit.nodeId, hit.portId, sx, sy);
-        pointerDownNodeId = 0; // pointerup uses hover target, not down target
+        pointerDownNodeId = ''; // pointerup uses hover target, not down target
       } else {
         // Input handle clicks are inert for now; do not start background pan.
-        pointerDownNodeId = 0;
+        pointerDownNodeId = '';
       }
       break;
     case 'node':
@@ -726,8 +865,8 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       adapter.pointerDown(hit.nodeId, sx, sy);
       break;
     case 'background':
-      pointerDownNodeId = 0;
-      adapter.pointerDown(0, sx, sy);
+      pointerDownNodeId = '';
+      adapter.pointerDown('', sx, sy);
       root.classList.add('panning');
       break;
   }
@@ -780,7 +919,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
       pointerDownNodeId;
     adapter.pointerUp(upNodeId, '', pointerUpAdditive);
     activePointerId = -1;
-    pointerDownNodeId = 0;
+    pointerDownNodeId = '';
     pointerUpAdditive = false;
     root.classList.remove('panning');
     scheduleRender();
@@ -798,7 +937,7 @@ root.addEventListener('pointerup', (e: PointerEvent) => {
   const targetPortId = hit.kind === 'handle' && hit.side === 'input' ? hit.portId : '';
   adapter.pointerUp(upNodeId, targetPortId, pointerUpAdditive);
   activePointerId = -1;
-  pointerDownNodeId = 0;
+  pointerDownNodeId = '';
   pointerUpAdditive = false;
   root.classList.remove('panning');
   scheduleRender();
@@ -811,18 +950,18 @@ root.addEventListener('pointercancel', (e: PointerEvent) => {
       return;
     }
     if (e.pointerId !== activePointerId) return;
-    adapter.pointerUp(0, '', false);
+    adapter.pointerUp('', '', false);
     activePointerId = -1;
-    pointerDownNodeId = 0;
+    pointerDownNodeId = '';
     pointerUpAdditive = false;
     root.classList.remove('panning');
     scheduleRender();
     return;
   }
   if (e.pointerId !== activePointerId) return;
-  adapter.pointerUp(0, '', false);
+  adapter.pointerUp('', '', false);
   activePointerId = -1;
-  pointerDownNodeId = 0;
+  pointerDownNodeId = '';
   pointerUpAdditive = false;
   root.classList.remove('panning');
   scheduleRender();
@@ -892,7 +1031,15 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   return mb as SourceDemoModule;
 }
 
+// The source-panel CodeMirror editor loads via `mount(source="global:…")`,
+// so bundle the CM6 namespace and publish it before the MoonBit module mounts.
+// This keeps the editor deterministic and offline (no esm.sh fetch at runtime).
+const canopyGlobal = globalThis as typeof globalThis & {
+  __canopy_codemirror?: Record<string, unknown>;
+};
+
 async function init(): Promise<void> {
+  canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
   const mod = await import('@moonbit/canopy-canvas') as CanvasModule;
   const sourceDemoModule = requireSourceDemoModule(mod);
   const sourceMode = sourceDemoRequested();

@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/alpha"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn alpha_eq(AlphaTerm, AlphaTerm) -> Bool
+
+pub fn alpha_key(AlphaTerm) -> AlphaKey
+
+pub fn beta_reduce_root(AlphaTerm) -> AlphaTerm?
+
+pub fn lower_root(@core.ProjNode[@ast.Term], @scope.ScopeGraph) -> AlphaTerm
+
+pub fn reify(AlphaTerm, ReifyPolicy) -> @ast.Term
+
+// Errors
+
+// Types and methods
+pub struct AlphaKey {
+  // private fields
+} derive(Eq)
+pub impl Hash for AlphaKey
+
+type AlphaKeyRef derive(Eq, Hash)
+
+type AlphaKeyRepr derive(Eq)
+
+pub(all) enum AlphaRef {
+  Bound(BinderId)
+  Free(FreeName)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum AlphaTerm {
+  Int(Int)
+  Unit
+  Var(AlphaRef)
+  Lam(Binder, AlphaTerm)
+  App(AlphaTerm, AlphaTerm)
+  Bop(@ast.Bop, AlphaTerm, AlphaTerm)
+  If(AlphaTerm, AlphaTerm, AlphaTerm)
+  LetDef(Binder, AlphaTerm)
+  Module(Array[(Binder, AlphaTerm)], AlphaTerm)
+  Error(String)
+  Hole(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Binder {
+  id : BinderId
+  hint : String
+  origin : BinderOrigin
+} derive(Eq, @debug.Debug)
+
+pub(all) struct BinderId(Int) derive(Eq, Hash, @debug.Debug)
+
+pub(all) enum BinderOrigin {
+  SourceDecl(node_id~ : @core.NodeId, hint~ : String)
+  Generated(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FreeName {
+  name : String
+  origin : FreeOrigin
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FreeOrigin {
+  SourceVar
+  SourceUnbound
+  GeneratedFree
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ReifyPolicy {
+  Display
+  Source
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

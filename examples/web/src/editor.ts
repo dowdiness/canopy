@@ -3,7 +3,9 @@
 import * as crdt from '@moonbit/crdt-lambda';
 import * as graphviz from '@moonbit/graphviz';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
-import type { ViewPatch } from '@canopy/editor-adapter/types';
+import type { Decoration, ViewPatch } from '@canopy/editor-adapter/types';
+import { runAnalysis } from './ast-grep-runner';
+import { DecorationOverlay } from './decoration-overlay';
 
 export function createEditor(agentId: string) {
   const handle = crdt.create_editor(agentId);
@@ -15,15 +17,25 @@ export function createEditor(agentId: string) {
 
   // Protocol-based pretty-print adapter
   const prettyAdapter = new HTMLAdapter(astOutputEl);
+  const decorationOverlay = new DecorationOverlay(editorEl);
+  const analysisApi = crdt as typeof crdt & {
+    apply_ast_grep_results_json(handle: number, matchesJson: string): string;
+    compute_view_patches_json(handle: number): string;
+  };
 
   let lastText = '';
   let scheduled = false;
+  let analysisGeneration = 0;
+  let analysisTimer: number | null = null;
+  let analysisAbortController: AbortController | null = null;
 
   function updateUI() {
     const text = editorEl.textContent || '';
     if (text !== lastText) {
       crdt.set_text(handle, text);
       lastText = text;
+      applyDecorationPatches(JSON.parse(analysisApi.compute_view_patches_json(handle)));
+      scheduleAnalysis(text);
     }
 
     // AST visualization (DOT → SVG via graphviz module)
@@ -66,6 +78,58 @@ export function createEditor(agentId: string) {
           return `<li class="diag-item diag-${d.level}">${badge}${escapeHTML(d.message)}</li>`;
         })
         .join('');
+    }
+  }
+
+  function scheduleAnalysis(text: string) {
+    const generation = ++analysisGeneration;
+    if (analysisTimer !== null) {
+      window.clearTimeout(analysisTimer);
+    }
+    if (analysisAbortController !== null) {
+      analysisAbortController.abort();
+      analysisAbortController = null;
+    }
+    analysisTimer = window.setTimeout(() => {
+      analysisTimer = null;
+      void applyAnalysis(text, generation);
+    }, 150);
+  }
+
+  async function applyAnalysis(text: string, generation: number) {
+    const controller = new AbortController();
+    analysisAbortController = controller;
+    try {
+      const matches = await runAnalysis(text, { signal: controller.signal });
+      if (generation !== analysisGeneration) return;
+
+      const result = analysisApi.apply_ast_grep_results_json(handle, JSON.stringify(matches));
+      if (result !== 'ok') {
+        console.warn(`ast-grep analysis rejected: ${result}`);
+        return;
+      }
+
+      const patches: ViewPatch[] = JSON.parse(analysisApi.compute_view_patches_json(handle));
+      applyDecorationPatches(patches);
+    } catch (error) {
+      if (controller.signal.aborted || generation !== analysisGeneration) return;
+      console.warn('ast-grep analysis failed', error);
+    } finally {
+      if (analysisAbortController === controller) {
+        analysisAbortController = null;
+      }
+    }
+  }
+
+  function applyDecorationPatches(patches: ViewPatch[]) {
+    let decorations: Decoration[] | null = null;
+    for (const patch of patches) {
+      if (patch.type === 'SetDecorations') {
+        decorations = patch.decorations;
+      }
+    }
+    if (decorations !== null) {
+      decorationOverlay.applyDecorations(decorations);
     }
   }
 

@@ -20,12 +20,12 @@ async function setupStructureMode(page: Page) {
   }, { timeout: 10_000 });
 }
 
-/** Read the current editor text via the CRDT global. */
+/** Read the current editor text via the CRDT bridge. */
 async function getEditorText(page: Page): Promise<string> {
   return await page.evaluate(() => {
-    const g = globalThis as any;
-    if (g.__canopy_crdt && g.__canopy_crdt_handle != null) {
-      return g.__canopy_crdt.get_text(g.__canopy_crdt_handle) as string;
+    const b = (globalThis as any).__canopy_bridge;
+    if (b?.crdt && b.crdtHandle != null) {
+      return b.crdt.get_text(b.crdtHandle) as string;
     }
     return '';
   });
@@ -45,8 +45,8 @@ function normalizeText(text: string): string {
 
 async function setEditorText(page: Page, text: string) {
   await page.evaluate((source) => {
-    const g = globalThis as any;
-    g.__canopy_crdt.set_text(g.__canopy_crdt_handle, source);
+    const b = (globalThis as any).__canopy_bridge;
+    if (b?.crdt && b.crdtHandle != null) b.crdt.set_text(b.crdtHandle, source);
   }, text);
   await dispatchExternalCrdtChanged(page);
   // Re-enter Structure mode so the structure PM view is rebuilt from the new
@@ -157,7 +157,7 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
 
   test.beforeEach(async ({ page }) => {
     await setupStructureMode(page);
-    // Load the "Basics" example: "let double = \x. { x + x } ..."
+    // Load the "Basics" example: "fn double(x : Int) { x + x } ..."
     await page.getByRole('button', { name: 'Basics' }).click();
     await page.waitForTimeout(500);
   });
@@ -216,8 +216,8 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(textAfter).not.toEqual(textBefore);
     // Critical: no "let x = " with empty RHS — placeholder should fill it
     expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const letCount = (textAfter.match(/let /g) || []).length;
-    expect(letCount).toBeGreaterThanOrEqual(2);
+    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
+    expect(defCount).toBeGreaterThanOrEqual(2);
   });
 
   test('After drop produces valid syntax with placeholder', async ({ page }) => {
@@ -228,8 +228,8 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     const textAfter = await getEditorText(page);
     expect(textAfter).not.toEqual(textBefore);
     expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const letCount = (textAfter.match(/let /g) || []).length;
-    expect(letCount).toBeGreaterThanOrEqual(2);
+    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
+    expect(defCount).toBeGreaterThanOrEqual(2);
   });
 
   test('self-drop is rejected (no change)', async ({ page }) => {

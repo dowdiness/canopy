@@ -1,0 +1,8 @@
+// Language-agnostic file I/O transport, built on @js. The host capability is a
+// plain JS object injected once; this layer routes save/open to it and knows
+// nothing about editors. JS target only (it speaks to a JS host).
+import {
+  "dowdiness/canopy/js_ffi" @js,
+}
+
+supported_targets = "js"

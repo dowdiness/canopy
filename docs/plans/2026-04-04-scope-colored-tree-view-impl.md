@@ -49,13 +49,13 @@
 ///|
 test "go_down focuses first child" {
   // Tree: Node(0, [Node(1, []), Node(2, [])])
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(10), 0, 1, 1, [],
   )
-  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(20), 2, 3, 2, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 3, 0, [child0, child1],
   )
   let z = RoseZipper::from_root(root)
@@ -66,10 +66,10 @@ test "go_down focuses first child" {
 
 ///|
 test "go_down then go_up is identity" {
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(10), 0, 1, 1, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 1, 0, [child0],
   )
   let z = RoseZipper::from_root(root)
@@ -80,13 +80,13 @@ test "go_down then go_up is identity" {
 
 ///|
 test "go_right moves to next sibling" {
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(10), 0, 1, 1, [],
   )
-  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(20), 2, 3, 2, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 3, 0, [child0, child1],
   )
   let z = RoseZipper::from_root(root)
@@ -98,13 +98,13 @@ test "go_right moves to next sibling" {
 
 ///|
 test "go_left moves to previous sibling" {
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(10), 0, 1, 1, [],
   )
-  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(20), 2, 3, 2, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 3, 0, [child0, child1],
   )
   let z = RoseZipper::from_root(root)
@@ -116,10 +116,10 @@ test "go_left moves to previous sibling" {
 
 ///|
 test "go_right at last sibling returns None" {
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(10), 0, 1, 1, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 1, 0, [child0],
   )
   let z = RoseZipper::from_root(root)
@@ -129,7 +129,7 @@ test "go_right at last sibling returns None" {
 
 ///|
 test "go_down on leaf returns None" {
-  let leaf : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let leaf : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(42), 0, 1, 0, [],
   )
   let z = RoseZipper::from_root(leaf)
@@ -138,16 +138,16 @@ test "go_down on leaf returns None" {
 
 ///|
 test "path_indices round-trips via focus_at" {
-  let gc0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let gc0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Var("x"), 0, 1, 10, [],
   )
-  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child0 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Lam("x", @ast.Var("x")), 0, 3, 1, [gc0],
   )
-  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let child1 : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Int(20), 4, 5, 2, [],
   )
-  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode::new(
+  let root : @canopy_core.ProjNode[@ast.Term] = @canopy_core.ProjNode(
     @ast.Module([], @ast.Unit), 0, 5, 0, [child0, child1],
   )
   // Navigate to grandchild
@@ -237,7 +237,7 @@ fn[T] RoseZipper::go_up(self : RoseZipper[T]) -> RoseZipper[T]? {
   for node in ctx.right {
     children.push(node)
   }
-  let parent = @canopy_core.ProjNode::new(
+  let parent = @canopy_core.ProjNode(
     ctx.parent_kind,
     ctx.parent_start,
     ctx.parent_end,
@@ -1069,13 +1069,13 @@ fn view_compact_expr(
         text("")
       }
       span(class=hl_class, [
-        span(class="keyword", [text("\u{03BB}")]),
+        span(class="punctuation", [text("(")]),
         span(
           class="def-site \{color_class}",
           on_click=dispatch(CompactNodeClicked(nid_str)),
           [text(param)],
         ),
-        span(class="punctuation", [text(".")]),
+        span(class="punctuation", [text(") => ")]),
         body,
       ])
     }

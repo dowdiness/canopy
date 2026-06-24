@@ -77,7 +77,7 @@ Insert a dedicated binder node (carrying the name token's span) into the Module 
 
 ### Option C — `Decl` carries a materialised binder source-range field
 
-Add a binder **source range** field to the scope graph's `Decl` (name-token span for module defs; `λx`/`Lam` span for lambda params). Consumers use the range to locate the cursor; `node_id` is demoted to an internal detail.
+Add a binder **source range** field to the scope graph's `Decl` (name-token span for module defs; `(x) =>`/`Lam` span for lambda params). Consumers use the range to locate the cursor; `node_id` is demoted to an internal detail.
 
 - Locate contract: replaces the *proxy* invariant ("occupies a node") with the *real* one ("carries the binder's source range"). Go-to-def jumps to the name; rename targets the name span.
 - `scope_annotation` collapse: see §5 caveat — not as direct as first assumed (outline rows are keyed by `NodeId`).
@@ -154,7 +154,7 @@ Build go-to-definition as the thin end-to-end consumer that *forces* the fix and
 1. **Feasibility gate — RESOLVED.** The binder spans already exist in the SourceMap; no loom work needed (§4).
 2. **Option D vs B — RESOLVED for now: D.** Codex found no current consumer that needs the module binder to be a first-class `ProjNode`; resolution and `pass3` don't key on it, and the only `Decl.node_id`-as-key use is `references` (which migrates to `DeclId`). Revisit B only if structural editing *of* a binder is later required.
 3. **Binder dedup identity vs range (Q3, refined).** Frame the binder's stored identity as the preserved id / `DeclId`, and treat the range as a recomputed **"current-source location,"** not a stable value — ranges legitimately shift with edits (correct for navigation). Note an existing limitation Option D does *not* fix: `reconcile_flat_proj` matches defs by **name** (`flat_proj.mbt:178`), so renaming a binder allocates a fresh id. If stable identity across rename is later needed, that's separate work.
-4. **Lambda binder span target (still open):** does go-to-def/highlight want to land on the whole `Lam`, the `λ` head, or the param-name token? Pick for symmetry with the module name-span and for the nicest cursor behaviour.
+4. **Lambda binder span target (still open):** does go-to-def/highlight want to land on the whole `Lam`, the parameter-list head, or the param-name token? Pick for symmetry with the module name-span and for the nicest cursor behaviour.
 5. **`references` migration (new, from Codex):** confirm the target key for `references` after `node_id` is demoted — `DeclId` vs a binder-span key — and that no other caller relies on the `NodeId`-keyed form.
 6. **Gap-test rewrite:** confirm the #399 fixture + PBT `node_id` invariants are *rewritten* to affirm the new contract, not deleted, so regression coverage survives.
 

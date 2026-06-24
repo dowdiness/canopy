@@ -77,14 +77,19 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Why: `HeadingMarker(Int)`, `CodeFenceOpen(Int, String)`, `Text(String)`, `CodeText(String)` still carry payloads. Some are semantic (heading level, info string), not just raw text — needs design thought on how to derive from source.
   Exit: markdown Token is payload-free where possible, semantic info extracted at point-of-use.
 
+- [x] Replace Markdown ordered-list `SourceMap` side channel with explicit list payloads.
+  Done: Loom PR #429 exposed `OrderedList` / `UnorderedListItem` / `OrderedListItem` payloads with ordered marker metadata; Canopy PR #730 removed `ORDERED_LIST_KIND_ROLE` and reads list kind from Loom payloads.
+  Plan: `docs/archive/completed-phases/2026-06-20-markdown-list-payloads.md`
+  Exit: `ORDERED_LIST_KIND_ROLE` is removed, ordered-list projection/view/FFI/block-mode regressions pass, and Canopy reads list kind from explicit Loom Markdown list payloads.
+
 - [ ] `SyntaxNode::find[K : ToRawKind]` generic method (low priority).
   Why: 16 `find_token(...to_raw())` callsites remain, but views pattern + `token_text()` already reduce the ergonomic pain. Nice-to-have polish.
   Exit: `pub fn[K : ToRawKind] SyntaxNode::find(self, kind : K) -> SyntaxToken?` in seam.
 
-- [ ] `lib/range` foundational package.
-  Why: Range (`{ start: Int, end: Int }`) is defined twice (loom/core, event-graph-walker/text) and represented implicitly in seam. A shared `lib/range` package at the bottom of the dependency graph would: (a) unify the duplicate definitions, (b) enable `SyntaxToken::range()` / `SyntaxNode::range()` in seam, (c) retire rle's `FromRange` trait.
-  Touches: lib/range (new), seam, loom/core, rle, canopy/core, event-graph-walker/text. Cross-submodule refactoring.
-  Exit: one Range type used by all layers.
+- [x] Reassess shared `lib/range` primitive for range/span units.
+  Why: issue #415 found repeated range-shaped values across SourceMap, protocol, editor text edits, Loom/seam syntax offsets, and eg-walker item-space positions. `moonbitlang/core/range` was also checked, but it is iteration-only today (`iter` + sealed `Step`) and has no span value type. A single `Range[Int]` would erase the unit distinctions pinned by #216 and PR #555.
+  Decision: do **not** introduce a shared `lib/range` primitive now. Keep `@loomcore.Range` for SourceMap/projection UTF-16 source spans, keep `@text.Pos` / `@text.Range` for eg-walker item-space, keep protocol fields as JSON numbers with explicit unit docs, and add unit-specific wrappers only at concrete risky boundaries.
+  Exit: accepted decision in `docs/decisions/2026-06-13-range-span-unit-boundaries.md`; public/cross-package range docs list units explicitly.
 
 - [ ] Unify Token and SyntaxKind into a single enum (rowan style).
   Why: Token and SyntaxKind overlap — every Token variant has a corresponding SyntaxKind variant. Two independent `to_raw()` impls with hardcoded integers can desynchronize.
@@ -125,8 +130,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 6. Testing Gaps
 
-- [ ] E2E tests for outline tree panel.
-  Why: `examples/ideal` outline tree operations (select, collapse, expand, drag-and-drop) have no E2E coverage. Unit tests in `projection/tree_editor_wbtest.mbt` (67 tests) cover the logic, but no browser-level verification exists for the Rabbita-based outline UI.
+- [x] E2E tests for outline tree panel.
+  Shipped 2026-06-07. Audit: the original gap was stale/broad.
+  Already covered: click selection, keyboard navigation, and scroll-to-selection (`examples/ideal/web/e2e/outline-navigation.spec.ts`); tree roles, selection, active-descendant, and collapse ARIA (`examples/ideal/web/e2e/outline-aria.spec.ts`); resize-handle behavior while `.tree-rows` scrolls (`examples/ideal/web/e2e/outline-resizable.spec.ts`).
+  Closed here: collapse/expand descendant visibility plus collapsed badges; light-DOM outline row drag/drop in `examples/ideal/web/e2e/outline-drag-drop.spec.ts`, verifying CRDT/CodeMirror text sync plus outline reorder. Shadow structure-mode drag/drop remains covered separately by `examples/ideal/web/e2e/drag-drop.spec.ts`.
 
 ---
 
@@ -161,13 +168,13 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
 
 - [x] Hoist ProjNode id-allocation boilerplate into `@core` (`core/proj_node.mbt`). (finding B from PR #383)
-  Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode::new`. `.mbti` change is limited to the two new `@core` exports.
+  Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode`. `.mbti` change is limited to the two new `@core` exports.
 
-- [ ] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
+- [x] Add an `EditContext` node-resolution helper (`lang/lambda/edits/text_edit.mbt`). (finding C from PR #383)
   Why: nearly every `compute_*` handler opens with the same pair of guards keyed on one `node_id` — `registry.get(id)` then `source_map.get_range(id)`, both erroring "Node not found" — made visible by the PR #383 guard sweep. `EditContext` already holds both maps.
-  Exit: `EditContext::resolve(self, node_id) -> Result[(ProjNode[T], Range), String]` (or `require_node` / `require_range`); the ~10 handler prologues collapse to one call; behavior and error messages preserved.
+  Shipped: `EditContext::resolve[T](self, node_id) -> (ProjNode[T], @loomcore.Range) raise ResolveError` added to `text_edit.mbt`; 13 handler prologues across 6 files (commit, delete, drop, structural×3, wrap×4, refactor×2) collapsed to single `resolve()` call; error messages standardised to "Node not found: {id}"; body-level redundant `registry.get` fallbacks in `compute_delete` eliminated. Note: `ResolveError` is a zero-info bridge type (tracked in #667 for cleanup alongside finding D).
 
-- [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383)
+- [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383, #667)
   Why: the `match x { Ok(v) => v; Err(e) => return Err(e) }` passthroughs left in PR #383 exist only because MoonBit has no `?`-propagation for plain `Result`. A raising error model would auto-propagate them away and let the Some/None guards sit on raising accessors. Larger design call — touches `EditResult` and error-type design; see the `moonbit-error-handling` skill.
   Exit: decision recorded (adopt or keep `Result`) with rationale; if adopted, passthroughs removed and `EditResult` retyped.
 
@@ -191,7 +198,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Migrate Ideal to Tailwind v4 incrementally.
   Why: PR #532 proved Tailwind v4 can scan `.mbt` class strings and that shadow CSS delivery is solved; product decision is to adopt Tailwind for design-system maintainability while avoiding broad all-at-once churn.
   Plan: docs/plans/2026-06-06-ideal-tailwind-v4-migration.md; style rules: docs/development/ideal-tailwind-style-management.md; GitHub issue #533
-  Status: first slice shipped in PR #534 — Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, semantic hooks preserved, validation green, and rollback criteria documented. Second slice shipped in PR #539 — Ideal-local button recipes migrated toolbar/action-button chrome with explicit source scanning and computed-style coverage. Third slice shipped in PR #541 — bottom tab strip chrome now uses the Ideal-local button recipe layer plus a narrow bottom-strip class bundle; legacy `.bottom-tabs` declarations were removed and computed-style coverage includes desktop, hover, and mobile touch targets. Fourth slice shipped in PR #542 — light-DOM panel header/label/section chrome moved to a private `view_panel_classes.mbt` bundle, semantic hooks were preserved, legacy panel section/header CSS declarations were removed, and computed-style coverage now includes desktop plus mobile drawer states. Fifth slice shipped in PR #543 — light-DOM inspector detail chrome moved to a private `view_inspector_classes.mbt` bundle, semantic hooks were preserved, legacy inspector-detail CSS declarations were removed, and computed-style coverage now includes rows/source-preview/token spans. Sixth slice shipped in PR #544 — light-DOM outline resize-handle chrome (`panel-resize-handle`, `outline-resize-handle`) moved to a private `view_outline_classes.mbt` bundle with narrow Tailwind source scanning, legacy resize-handle CSS removal, and computed-style coverage for base geometry, pseudo-element line, hover/focus-visible states, and mobile hidden state.
+  Status: first slice shipped in PR #534 — Tailwind v4 wired for Ideal only, action overlay/name prompt migrated, semantic hooks preserved, validation green, and rollback criteria documented. Second slice shipped in PR #539 — Ideal-local button recipes migrated toolbar/action-button chrome with explicit source scanning and computed-style coverage. Third slice shipped in PR #541 — bottom tab strip chrome now uses the Ideal-local button recipe layer plus a narrow bottom-strip class bundle; legacy `.bottom-tabs` declarations were removed and computed-style coverage includes desktop, hover, and mobile touch targets. Fourth slice shipped in PR #542 — light-DOM panel header/label/section chrome moved to a private `view_panel_classes.mbt` bundle, semantic hooks were preserved, legacy panel section/header CSS declarations were removed, and computed-style coverage now includes desktop plus mobile drawer states. Fifth slice shipped in PR #543 — light-DOM inspector detail chrome moved to a private `view_inspector_classes.mbt` bundle, semantic hooks were preserved, legacy inspector-detail CSS declarations were removed, and computed-style coverage now includes rows/source-preview/token spans. Sixth slice shipped in PR #544 — light-DOM outline resize-handle chrome (`panel-resize-handle`, `outline-resize-handle`) moved to a private `view_outline_classes.mbt` bundle with narrow Tailwind source scanning, legacy resize-handle CSS removal, and computed-style coverage for base geometry, pseudo-element line, hover/focus-visible states, and mobile hidden state. Seventh slice shipped in PR #684 — toolbar and bottom-panel tab chrome moved into value-derived `main/ui/tabs.mbt` helpers, preserving toolbar button semantics and bottom-panel `@tabs.Model` behavior while avoiding Rabbita handle storage in `Model`.
   Next exit: select the next non-deferred light-DOM Tailwind slice only after confirming a single live CSS owner and a narrow `@source`; continue deferring full panel drawer/scrim/visibility transitions, bottom-panel content/history/incr raw HTML fragments, shadow-owned structure styles, and broad Tailwind scanning.
 
 - [ ] Structure mode — test and polish PM block editor, verify lazy-loading works.
@@ -205,8 +212,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Graphviz SVG theming — SVG uses hardcoded `Arial` from submodule; needs `pub(all) struct SvgConfig` to customize.
 
 - [ ] Grammar: interleaved let/expr.
-  Why: `Module` AST supports `ModuleItem` in parser already, but `ModuleProjection` storage change caused 2× regression from MoonBit enum boxing.
-  Alternative: add helper methods on existing `ModuleProjection` for interleaved views. Decision pending in `docs/decisions-needed.md`.
+  Why: `Module` AST supports `ModuleItem` in parser already, but the projection/editor representation still assumes contiguous definition rows plus a body.
+  Alternative: design an interleaved `ProjNode`/`DefinitionIndex` view over module items. Decision pending in `docs/decisions-needed.md`.
 
 - [x] Inspector — Intent panel. *Part of Inspector traceability workstream.* Shipped in PR #293 (2026-05-17).
   Op Log tab in `view_bottom.mbt` renders `Model.intent_log : Array[String]` (cap 50), pushed from all four structural-edit dispatch sites after `apply_lambda_tree_edit` succeeds. Two row formats coexist:
@@ -238,19 +245,25 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 10. Editor Drag-and-Drop Follow-ups
 
-- [ ] First-class LetDef ProjNodes for binding-level structural edits (#127).
-  Why: Structure mode already renders PM `let_def` rows and supports drag/drop
-  over them, but the ProjNode tree has no binding node; row IDs are borrowed
-  from init expressions and binding actions use ModuleProjection-only synthetic handles.
-  Plan: `docs/plans/2026-06-01-letdef-projnode-structural-edit.md`
-  Exit: Module children include real LetDef nodes; binding drag/drop/actions use
-  registry-backed LetDef IDs; `@scope.binder_span` / `go_to_definition` remain
-  the source-location path.
+- [x] First-class LetDef ProjNodes for binding-level structural edits (#127).
+  Merged: canopy#448 (336d7e1, 2026-06-01); cleanup PRs #664, #668–#671 (2026-06-15).
+  All acceptance criteria verified 2026-06-15: Module children are [LetDef..., body];
+  scope builder uses LetDef child ids for Decl.node_id; convert.ts/reconciler.ts map
+  actual LetDef ProjNodes to let_def; drag/drop E2E moves whole binding rows; binding
+  actions pass real LetDef ids; scope annotation uses real LetDef ids; binder_span /
+  go_to_definition remain source-span based; canvas unchanged.
+  Post-#677 follow-up cleanup removed the remaining binding-id compatibility
+  fallbacks; action-context plumbing now uses real LetDef ids instead of init ids.
 
 - [ ] Prepare drag-and-drop foundations for `examples/block-editor`.
-  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder.
-  Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3)
+  Why: `move_block` only appends as last child; needs `move_before`/`move_after` for sibling reorder. Markdown list/list-item move provenance (issue #724) is resolved: #730 added explicit ordered/unordered list payloads, and PR #731 landed tight same-list item reorder with parse-shape, identity, ambiguity, marker-renumbering, separator, and unsupported-container regressions. #724 is closed with a proof-backed rejection for the cases the sibling-level reconciler cannot preserve identity across (see `docs/design/sdeg-invariant-review.md` "Decision: Markdown move-provenance scope"). Cross-container / list-container legality and loose-list separator preservation remain narrow follow-ups carried here.
+  Plan: `docs/plans/2026-03-30-editor-drag-drop-foundation.md` (steps 2-3); cross-container/list-container move provenance follow-up (was issue #724, now documented-rejected).
   Exit: `block-editor` exposes positioned block moves plus structural render metadata.
+
+- [x] Spike Markdown block move provenance for future block UI.
+  Why: SDEG Phase 1 documents pure source reorder as position-stable; future block moves need explicit provenance so identity follows the moved block.
+  Plan: `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md`
+  Exit: accepted `MarkdownEditOp::MoveBlock(source, target, position)` contract with tests showing only explicit provenance moves heading identity.
 
 - [ ] Convergence tests for concurrent drag-drop.
   Why: concurrent relocations across CRDT peers need convergence guarantees.
@@ -260,7 +273,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 11. Multi-Language Support
 
-- [ ] JSON ModuleProjection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
+- [ ] JSON member-projection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
 
 - [ ] loomgen design update.
   Why: update `docs/design/07-loomgen-design.md` with learnings from lambda + JSON + markdown. Three real examples now inform the generator.
@@ -325,6 +338,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: all architecture docs feel like they were written by the same person for the same audience.
 
 - [ ] Canopy library API audit and documentation.
+  Plan: boundary declared in [docs/decisions/2026-06-11-library-api-boundary.md](decisions/2026-06-11-library-api-boundary.md) (Accepted 2026-06-11; S0 of [docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)) — three tiers, `*_internal` convention, audit defaults. Remaining here: the per-symbol audit sweep (§7 aggregator-trim item, now executable against the boundary) and the optional release milestone.
   Why: canopy is currently used as an internal monorepo, but the aspirational direction is to publish it as a general projectional editor library consumable by external MoonBit modules. The audit framing — what's "unused" vs "library API surface" — depends on which direction is committed. Many `pub` symbols in `editor/`, `core/`, `projection/`, and `protocol/` are canonical library API (constructor methods, structural-edit operations, error accessors, query primitives, wire-protocol encoders) that look "unused" under an internal-tool lens because no in-tree consumer exercises them, but are exactly what external library users would call. Without a documented decision, every audit re-relitigates the framing.
   Exit:
   - Document the intended library boundary: which packages are public API for external consumers (`core`, `editor`, `projection`, `protocol`) vs internal implementation (`ffi/*`, `editor/*_internal` symbols, etc.).
@@ -337,7 +351,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 ## 15. Editor Framework Decoupling
 
 - [x] Route inspector kind-labels through `Show`. *Part of Inspector traceability workstream.* Shipped 2026-05-17 (PRs #277, #278).
-  Why: `examples/ideal/main/view_outline.mbt::kind_of()` and `view_inspector.mbt` each implement their own kind→label classifier, hardcoding lambda-specific syntax ("λ" prefix, "App", "let", "if") in framework views. Adding a new language requires editing per-view classifiers. Existing `Show` impls on `core/proj_node.mbt::ProjNode[T]`, `core/types.mbt::GenericTreeOp`, and `core/types.mbt::SpanEdit` are stubs delegating to `@debug.to_string` (verbose dump, not a short label) with no consumers.
+  Why: `examples/ideal/main/view_outline.mbt::kind_of()` and `view_inspector.mbt` each implement their own kind→label classifier, hardcoding lambda-specific syntax ("(x) =>" label, "App", "let", "if") in framework views. Adding a new language requires editing per-view classifiers. Existing `Show` impls on `core/proj_node.mbt::ProjNode[T]`, `core/types.mbt::GenericTreeOp`, and `core/types.mbt::SpanEdit` are stubs delegating to `@debug.to_string` (verbose dump, not a short label) with no consumers.
   Exit (as originally drafted):
   - Tree-row labels in `view_outline` use `node.to_string()` — consumes real `Show for ProjNode[T]` producing e.g. `"#9 App [25..47]"`.
   - Kind chips in `view_inspector` use `node.kind.to_string()` — consumes existing `Show for Term`/`JsonValue` (already real, no stubs) producing e.g. `"App"`.
@@ -350,9 +364,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   - `view_outline::kind_of()` deleted; CSS class derives from `term_css_class(node.kind)` in `lang/lambda/proj/`.
   - Adding a new language requires a `Renderable` impl (already required) plus an optional language-specific `term_css_class` for accent colors — framework views unchanged.
 
-- [ ] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
-  Why: zero dependency on editor concepts. Self-contained collaboration primitive with own binary protocol, encoding, and timeout logic.
-  Exit: `editor/` imports ephemeral as a dependency; ephemeral has its own test suite.
+- [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
+  Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
 
 - [ ] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
   Why: duplication risks protocol drift between client and server.
@@ -410,11 +423,11 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; documented in `loom/moji/grapheme.mbt` and `loom/moji/README.md`. Concrete fixes when a hot-path actually needs them: ASCII fast path in `gcb_of` (only CR/LF/Control populate `< 0x80`), drop `ch.to_string().length()` allocation in `utf16_offset_to_item_pos` (use `if ch.to_int() >= 0x10000 { 2 } else { 1 }`), and a materialise-once boundary cache for hot callers.
   Status: not blocking; cosmetic perf debt.
 
-- [ ] Disambiguate `UserIntent.SetCursor.position` — same `number` carries PM-tree positions (PMAdapter) and CM-doc code-unit offsets (CM6Adapter). Naming cleanup, not unit conversion.
-  Status: not blocked on moji.
+- [x] Disambiguate cursor intent offsets — replaced generic `UserIntent.SetCursor.position` with `SetPmCursor(pm_tree_position)` and `SetDocCursor(doc_code_unit_offset)`. Naming cleanup only; no unit conversion.
+  Status: completed 2026-06-07.
 
-- [ ] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics. Today: if splice K in a multi-change batch fails the `handle_text_intent_checked` bounds check, splices 0..K-1 stay applied to the CRDT but skip the immediate `afterLocalEdit()` broadcast — they ride the next successful edit's `export_since_json` delta. Pre-existing behavior preserved by #246, flagged by Codex on that PR. Options: (a) call `afterLocalEdit()` if anything was applied, broadcasting the valid prefix immediately; (b) make batches atomic with a snapshot/rollback API; (c) leave as-is and document. Prefer (a) — minimal change, removes the cross-replica gap.
-  Status: not blocked on moji.
+- [x] Tighten `examples/ideal/web/src/bridge.ts::applySpliceChanges` partial-batch semantics.
+  Shipped 2026-06-07: implemented option (a). If splice K in a multi-change batch fails `handle_text_intent_checked` after splices 0..K-1 were applied, the bridge now calls `afterLocalEdit()` before reconciling so peers receive the valid prefix immediately. Playwright coverage in `examples/ideal/web/e2e/bridge-partial-batch.spec.ts` pins both prefix-broadcast and first-splice-failure/no-broadcast behavior.
 
 ---
 
@@ -440,42 +453,100 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-05-26-cognition-provider-boundary-design.md`
   Exit: a provider-client plan names the backend, driver clock/scheduling model, credential boundary, retry/redaction policy, and host integration surface. No real network/LLM code lands without that plan.
 
-## 20. Scope-Graph ModuleProjection Fidelity
+## 20. Scope-Graph Fidelity
 
-- [x] Cross-pipeline resolution-equivalence property test (`@qc`).
-  Shipped: #401 (`lang/lambda/edits/scope_cross_pipeline_pbt_wbtest.mbt`),
-  trimmed to 300 cases in #402. Generates lambda source, builds the scope graph
-  through both `ModuleProjection` pipelines (`from_proj_node` test path vs `to_module_projection`
-  production path), matches references by source range, and asserts equal
-  normalized resolution; pins the production-path `node_id` invariant for both
-  decl kinds. The property is near-tautological (resolution ignores `node_id`),
-  so it is a regression guard, not a correctness oracle — the latter stays in
-  `scope_equivalence_wbtest.mbt`.
-
-- [~] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
-  Why: the PBT above *pins* the gap; it does not close it. The module-binder
-  `node_id` is synthetic on the production path (occupies no real node,
-  contradicting the `Decl` "occupies a projection node" invariant in
-  `lang/lambda/scope/graph.mbt`), and three incompatible synthetic-id schemes
-  existed (`to_module_projection`, `from_proj_node`, and the negative id in
-  `examples/ideal/main/scope_annotation.mbt`, which bypasses `@scope` and
-  re-implements resolution).
+- [x] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
   Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
   Option D: an on-demand `@scope` binder-location accessor over the
-  already-populated SourceMap token spans — no loom PR, no `ModuleProjection` change;
-  `node_id` stays synthetic but is no longer the locator).
-  Shipped (plan steps 1–5): `@scope.binder_span` + `@scope.go_to_definition`
-  accessors (`lang/lambda/scope/query.mbt`); `references` migrated off
-  `Decl.node_id` to `DeclId`; §7.1 go-to-def behavioral tests
-  (`go_to_definition_wbtest.mbt`); incremental/full scope differential tests
-  (`scope_incremental_differential_wbtest.mbt`,
-  `scope_memo_stack_differential_wbtest.mbt`); the #399 fixture +
-  cross-pipeline PBT `node_id` invariants rewritten to affirm the
-  binder-location contract (locatable + pipeline-independent); and Ideal
-  outline scope annotation collapsed onto @scope with the NodeId-keyed UI model
-  retained via stable module-binder UI keys.
+  already-populated SourceMap token spans).
+  Shipped: `@scope.binder_span` + `@scope.go_to_definition` accessors
+  (`lang/lambda/scope/query.mbt`); `references` migrated off `Decl.node_id` to
+  `DeclId`; §7.1 go-to-def behavioral tests (`go_to_definition_wbtest.mbt`);
+  live memo-stack vs fresh-rebuild scope differential coverage
+  (`scope_memo_stack_differential_wbtest.mbt`); and Ideal outline scope
+  annotation collapsed onto @scope with the NodeId-keyed UI model retained via
+  stable module-binder UI keys. The old cross-pipeline flat-module fidelity
+  tests were removed with the flat compatibility layer.
   Remaining: gated query-indexing is the only open scope follow-up here; the
   binder-location plan itself is complete.
+
+- [x] Block-local **rename** soundness (§20 exit criterion).
+  Shipped: `rename_from_var` / `rename_binding_by_id` / `rename_module_binding`
+  in `text_edit_rename.mbt` no longer round-trip the block-aware `Decl` back into
+  a root-relative `def_index`. They thread the resolved `Decl` + graph straight
+  through, deriving references via `@scope.references(g, decl.id)`, the binder
+  span directly off the decl's own `LetDef` node (no root `module_node_id`
+  fallback for nested decls), and the dup-name guard off the decl's own scope
+  siblings. Block-local var-rename AND binder-click rename are now sound; the
+  capture guard stays conservative (over-rejects when `new_name` is bound in an
+  ancestor the renamed binder would shadow — sound, never mis-renames). wbtests:
+  `Rename block-local binding leaves root binding intact`, `Rename block-local
+  binding by binder id`, `Rename block reference to outer binding renames root`.
+
+- [x] Teach `edits/` **inline** ops about nested-block scopes.
+  Shipped: `compute_inline_definition` / `compute_inline_all_usages`
+  (`text_edit_refactor.mbt`) thread the block-aware `Decl` straight through —
+  `module_def_decl_for_binding(g, id)` → `edit_binding_for_decl(ctx, decl)` for
+  the def view, `@scope.references(g, decl.id)` for usages, and the node-relative
+  `free_names_would_rebind_at_node` for the capture guard. No root-relative
+  `def_index` round-trip. wbtests: `InlineDefinition nested block uses resolved
+  declaration`, `InlineAllUsages nested block uses binding declaration`
+  (#636 / #655).
+
+- [x] Teach `edits/` **binding** ops (delete / duplicate / move) about
+  nested-block scopes.
+  Shipped: `compute_delete_binding` / `compute_duplicate_binding` /
+  `compute_move_binding_{up,down}` (`text_edit_binding.mbt`) dropped the
+  root-only `edit_module_view` + `find_def_index` + `module_view.defs[i]` path
+  for the same decl-threaded shape as inline. The move ops find their swap
+  neighbour with `sibling_module_def_decl(g, decl.scope, def_index ± 1)` —
+  `def_index` is scope-local (the builder assigns it per scope, root and nested
+  block alike), so adjacent indices in the same scope are the move neighbours;
+  the first/last guards became `def_index == 0` (up) / `sibling is None` (down).
+  The name-based `free_vars` move guard is unchanged. wbtests assert SOUNDNESS by
+  reparsing the result (`DeleteBinding removes block-local binding`,
+  `MoveBinding{Up,Down} swaps block-local bindings`,
+  `MoveBindingUp rejects first block-local binding`). Follow-up PR #688 added
+  adversarial coverage for block-local scoping-violation moves, deleting a
+  still-referenced block binding, and root/block same-name shadowing.
+
+- [x] Teach `edits/` **extract** op about nested-block scopes.
+  Shipped: PR #674 (`f0cf3cf`, 2026-06-16) makes `compute_extract_to_let`
+  find the innermost enclosing `Module` through the scope graph and insert the
+  new `let` inside that block instead of hoisting to the root. wbtests cover
+  block-body insertion, block-def insertion, lambda-in-block ancestry,
+  empty-def blocks, and capture/rebind refusals. Verified via scope-graph wbtests
+  that block-body insertion preserves resolution of block-local free vars even when
+  shadowing outer bindings. The block-body path inserts after all defs so block-local
+  visibility is maintained — no scope_is_within guard needed (unlike block-def path).
+  Closes #659.
+
+## 21. Analysis Query Layer
+
+- [ ] Decide whether diagnostics join the analysis projection aggregator (#710).
+  Why: Phase 2 shipped the lambda-local decoration/annotation aggregation seam in PR #706 and PR #708, but parse/type/eval diagnostics still use existing FFI/protocol paths. That is intentional until a larger diagnostic fact shape is justified.
+  Plan: `docs/archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md`
+  Exit: diagnostics are either explicitly kept out of the aggregator with a stable rationale, or routed through a typed diagnostic fact shape without adding public protocol variants.
+
+- [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
+  Shipped: PR #699 added `lib/analysis/` and `analysis_bridge/`; PR #704 completed host FFI and lambda editor decoration wiring.
+
+- [x] Add provider range normalization tests for analysis facts (#693).
+  Shipped: PR #699 covered core byte→UTF-16 conversion; PR #704 added FFI-level non-ASCII coverage.
+
+- [x] Reject stale analysis provider results by source snapshot (#694).
+  Shipped: PR #699 added `SourceSnapshot::matches`; PR #704 clears stale lambda pattern facts before view patches are computed.
+
+- [x] Add structural-search match list projection (#695).
+  Shipped: PR #699 — `facts_to_match_list` supplies `from`/`to`/`pattern_id` for future host list/jump rendering. Host-side list UI remains a follow-up.
+
+## 22. SDEG Lifecycle
+
+- [ ] Distinguish delete from malformed transient absence (#748).
+  Why: The lifecycle `Missing` state conflates a committed delete with a transient parse failure. Both produce zero current observations, but delete should progress toward retirement while a transient absence should recover when the observation reappears.
+  Progress: The side-table API now requires an explicit snapshot-validity tag on initial construction and `advance`. Invalid snapshots hold the lifecycle, create no durable rows, preserve `last_live`, and do not advance absence counters or retirement.
+  Remaining: Wire the production caller to pass parser/projection validity before calling `advance`; until then, the side-table support is tested but not end-to-end.
+  Exit: production wiring passes validity so valid deletes advance while invalid/malformed snapshots hold, or a documented rationale accepts any remaining conflation as a known limitation.
 
 ## Shipped history
 

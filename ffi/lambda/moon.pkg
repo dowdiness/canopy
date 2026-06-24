@@ -1,7 +1,10 @@
 import {
+  "dowdiness/canopy/analysis_bridge" @analysis,
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/ffi/host",
+  "dowdiness/canopy/ffi/io",
+  "dowdiness/canopy/js_ffi" @js,
   "dowdiness/canopy/lang/lambda" @lang_lambda,
-  "dowdiness/canopy/lang/lambda/flat" @lambda_flat,
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
   "dowdiness/canopy/llm",
@@ -13,11 +16,16 @@ import {
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/analysis" @facts,
   "moonbitlang/async/js_async",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
+
+import {
+  "dowdiness/canopy/protocol/wire",
+} for "test"
 
 import {
   "dowdiness/incr",
@@ -29,6 +37,11 @@ import {
 // `rename_semantic_node`) and by whitebox tests
 // (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell coverage.
 
+// JS-only: the editor FFI targets the browser/JS runtime (depends on
+// js_async and the JS file-I/O transport).
+
+supported_targets = "js"
+
 warnings = "-7"
 
 options(
@@ -39,6 +52,10 @@ options(
         "destroy_editor",
         "get_text",
         "set_text",
+        "register_file_host",
+        "load_file",
+        "on_file_opened",
+        "save_file",
         "get_ast_dot_resolved",
         "get_ast_pretty",
         "get_errors_json",
@@ -87,6 +104,7 @@ options(
         "ws_set_status_callback",
         "get_view_tree_json",
         "compute_view_patches_json",
+        "apply_ast_grep_results_json",
         "handle_text_intent",
         "handle_text_intent_checked",
         "handle_undo",

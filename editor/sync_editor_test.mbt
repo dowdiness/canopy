@@ -1,13 +1,16 @@
-// Tests for SyncEditor
+// Tests for SyncEditor (generic editor behavior over the neutral TestExpr
+// grammar). Lambda-specific resolution and projection-shape tests live in
+// lang/lambda; these exercise text editing, cursor, undo, CRDT sync, presence,
+// and generic parse-on-edit.
 
 ///|
-fn insert_each(se : SyncEditor[@ast.Term], text : String) -> Unit raise {
+fn insert_each(se : SyncEditor[@probe.TestExpr], text : String) -> Unit raise {
   se.insert(text)
 }
 
 ///|
 fn insert_each_and_record(
-  se : SyncEditor[@ast.Term],
+  se : SyncEditor[@probe.TestExpr],
   text : String,
   timestamp_ms : Int,
 ) -> Unit raise {
@@ -16,25 +19,39 @@ fn insert_each_and_record(
 
 ///|
 test "SyncEditor: create and insert text" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! se.insert("x")
   inspect(se.get_text(), content="x")
-  let ast = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast), content="x")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("x")])
+    ),
+  )
 }
 
 ///|
 test "SyncEditor: sequential inserts update AST" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  try! se.insert("x")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="x")
-  try! insert_each(se, " + 1")
-  inspect(@ast.print_term(@lambda.get_lambda_ast(se)), content="(x + 1)")
+  let se = @probe.new_test_editor("agent1")
+  try! se.insert("f")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("f")])
+    ),
+  )
+  try! insert_each(se, "(x)")
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("f", [Leaf("x")])])
+    ),
+  )
 }
 
 ///|
 test "SyncEditor: delete updates AST" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each(se, "123")
   inspect(se.get_text(), content="123")
   let deleted = se.backspace()
@@ -44,15 +61,15 @@ test "SyncEditor: delete updates AST" {
 
 ///|
 test "SyncEditor: parse error handling" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  try! insert_each(se, "λ.")
-  let _ast = @lambda.get_lambda_ast(se)
+  let se = @probe.new_test_editor("agent1")
+  try! insert_each(se, "f(") // unclosed '('
+  let _ast = @probe.get_test_ast(se)
   inspect(se.is_parse_valid(), content="false")
 }
 
 ///|
 test "SyncEditor: cursor tracking" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   inspect(se.get_cursor(), content="0")
   try! insert_each(se, "abc")
   inspect(se.get_cursor(), content="3")
@@ -62,71 +79,64 @@ test "SyncEditor: cursor tracking" {
 
 ///|
 test "SyncEditor: concurrent edits converge" {
-  let se1 = @lambda.new_lambda_editor("agent1").0
-  let se2 = @lambda.new_lambda_editor("agent2").0
+  let se1 = @probe.new_test_editor("agent1")
+  let se2 = @probe.new_test_editor("agent2")
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text(), content="x")
   inspect(se2.get_text(), content="x")
-  try! insert_each(se1, " + 1")
-  try! insert_each(se2, " - 2")
+  try! insert_each(se1, " a")
+  try! insert_each(se2, " b")
   try! se1.apply_sync(try! se2.export_all())
   try! se2.apply_sync(try! se1.export_all())
   let text1 = se1.get_text()
   let text2 = se2.get_text()
   inspect(text1 == text2, content="true")
-  inspect(
-    @ast.print_term(@lambda.get_lambda_ast(se1)) ==
-    @ast.print_term(@lambda.get_lambda_ast(se2)),
-    content="true",
-  )
+  inspect(@probe.get_test_ast(se1) == @probe.get_test_ast(se2), content="true")
 }
 
 ///|
-test "SyncEditor: collaborative lambda editing" {
-  let se1 = @lambda.new_lambda_editor("agent1").0
-  let se2 = @lambda.new_lambda_editor("agent2").0
-  try! insert_each(se1, "λx.")
+test "SyncEditor: collaborative editing converges" {
+  let se1 = @probe.new_test_editor("agent1")
+  let se2 = @probe.new_test_editor("agent2")
+  try! insert_each(se1, "f(")
   try! se2.apply_sync(try! se1.export_all())
-  inspect(se1.get_text(), content="λx.")
-  inspect(se2.get_text(), content="λx.")
-  try! insert_each(se1, "x + 1")
-  try! insert_each(se2, "x - 1")
+  inspect(se1.get_text(), content="f(")
+  inspect(se2.get_text(), content="f(")
+  try! insert_each(se1, "a)")
+  try! insert_each(se2, "b)")
   try! se1.apply_sync(try! se2.export_all())
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text() == se2.get_text(), content="true")
-  inspect(
-    @ast.print_term(@lambda.get_lambda_ast(se1)) ==
-    @ast.print_term(@lambda.get_lambda_ast(se2)),
-    content="true",
-  )
+  inspect(@probe.get_test_ast(se1) == @probe.get_test_ast(se2), content="true")
 }
 
 ///|
 test "SyncEditor: incremental parsing vs full reparse" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  try! insert_each(se, "λf.λx.if f x then x + 1 else x - 1")
-  let _ast1 = @lambda.get_lambda_ast(se)
-  se.move_cursor(34)
-  let _deleted = se.backspace()
-  try! se.insert("2")
-  let ast2 = @lambda.get_lambda_ast(se)
+  let se = @probe.new_test_editor("agent1")
+  try! insert_each(se, "foo(bar)")
+  let _ast1 = @probe.get_test_ast(se)
+  se.move_cursor(7) // just after 'r'
+  let _deleted = se.backspace() // "foo(ba)"
+  try! se.insert("z") // "foo(baz)"
   inspect(
-    @ast.print_term(ast2),
-    content="(λf. (λx. if (f x) then (x + 1) else (x - 2)))",
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("foo", [Leaf("baz")])])
+    ),
   )
 }
 
 ///|
 test "SyncEditor: empty document" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   inspect(se.get_text(), content="")
-  let _ast = @lambda.get_lambda_ast(se)
+  let _ast = @probe.get_test_ast(se)
 }
 
 ///|
 test "SyncEditor: backspace at start returns false" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each(se, "abc")
   se.move_cursor(0)
   inspect(se.backspace(), content="false")
@@ -135,7 +145,7 @@ test "SyncEditor: backspace at start returns false" {
 
 ///|
 test "SyncEditor: delete at end returns false" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each(se, "abc")
   se.move_cursor(3)
   inspect(se.delete(), content="false")
@@ -144,7 +154,7 @@ test "SyncEditor: delete at end returns false" {
 
 ///|
 test "SyncEditor: export_all produces non-empty message" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! se.insert("x")
   let msg = try! se.export_all()
   inspect(msg.op_count() > 0, content="true")
@@ -152,23 +162,27 @@ test "SyncEditor: export_all produces non-empty message" {
 
 ///|
 test "SyncEditor: lazy AST evaluation" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! se.insert("x")
-  let _ast1 = @lambda.get_lambda_ast(se)
-  let ast2 = @lambda.get_lambda_ast(se)
-  inspect(@ast.print_term(ast2), content="x")
+  let _ast1 = @probe.get_test_ast(se)
+  inspect(
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Leaf("x")])
+    ),
+  )
 }
 
 ///|
 test "SyncEditor: merge invalidates AST cache" {
-  let se1 = @lambda.new_lambda_editor("agent1").0
-  let se2 = @lambda.new_lambda_editor("agent2").0
+  let se1 = @probe.new_test_editor("agent1")
+  let se2 = @probe.new_test_editor("agent2")
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
-  let _ast1 = @lambda.get_lambda_ast(se1)
+  let _ast1 = @probe.get_test_ast(se1)
   try! se2.insert("y")
   try! se1.apply_sync(try! se2.export_all())
-  let _ast2 = @lambda.get_lambda_ast(se1)
+  let _ast2 = @probe.get_test_ast(se1)
   inspect(
     se1.get_text(),
     content=(
@@ -179,7 +193,7 @@ test "SyncEditor: merge invalidates AST cache" {
 
 ///|
 test "SyncEditor: insert_and_record + undo roundtrip" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "hello", 1000)
   inspect(se.get_text(), content="hello")
   inspect(se.can_undo(), content="true")
@@ -199,7 +213,7 @@ test "SyncEditor: insert_and_record + undo roundtrip" {
 
 ///|
 test "SyncEditor: backspace_and_record + undo" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abc", 1000)
   let deleted = se.backspace_and_record(2000)
   inspect(deleted, content="true")
@@ -214,7 +228,7 @@ test "SyncEditor: backspace_and_record + undo" {
 
 ///|
 test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   se.set_text("abc")
   se.move_cursor(0)
   se.apply_text_edit(1, 1, "XYZ", 1000)
@@ -224,7 +238,7 @@ test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
 
 ///|
 test "SyncEditor: apply_text_edit records undo" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abc", 1000)
   se.apply_text_edit(1, 1, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZc")
@@ -235,7 +249,7 @@ test "SyncEditor: apply_text_edit records undo" {
 
 ///|
 test "SyncEditor: apply_text_edit records multi-character range undo" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abcdef", 1000)
   se.apply_text_edit(1, 3, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZef")
@@ -246,20 +260,22 @@ test "SyncEditor: apply_text_edit records multi-character range undo" {
 
 ///|
 test "SyncEditor: apply_text_edit reuses parser structure on local edit" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  se.set_text("λf.λx.f x")
-  ignore(@lambda.get_lambda_ast(se))
-  se.apply_text_edit(8, 1, "y", 1000)
-  inspect(se.get_text(), content="λf.λx.f y")
+  let se = @probe.new_test_editor("agent1")
+  se.set_text("foo(bar)")
+  ignore(@probe.get_test_ast(se))
+  se.apply_text_edit(6, 1, "z", 1000) // replace 'r' with 'z'
+  inspect(se.get_text(), content="foo(baz)")
   inspect(
-    @ast.print_term(@lambda.get_lambda_ast(se)),
-    content="(λf. (λx. (f y)))",
+    @probe.get_test_ast(se),
+    content=(
+      #|Branch("", [Branch("foo", [Leaf("baz")])])
+    ),
   )
 }
 
 ///|
 test "SyncEditor: clear_undo empties stacks" {
-  let se = @lambda.new_lambda_editor("agent1").0
+  let se = @probe.new_test_editor("agent1")
   try! se.insert_and_record("x", 1000)
   inspect(se.can_undo(), content="true")
   se.clear_undo()
@@ -272,8 +288,8 @@ test "SyncEditor: clear_undo empties stacks" {
 
 ///|
 test "SyncEditor: non-numeric agent IDs encode and delete presence" {
-  let alice = @lambda.new_lambda_editor("web-user").0
-  let bob = @lambda.new_lambda_editor("local-user").0
+  let alice = @probe.new_test_editor("web-user")
+  let bob = @probe.new_test_editor("local-user")
   alice.set_text("abcd")
   alice.move_cursor(2)
   alice.set_local_presence("Alice", "#ff0000")
@@ -291,8 +307,8 @@ test "SyncEditor: non-numeric agent IDs encode and delete presence" {
 
 ///|
 test "SyncEditor: local edits and undo keep peer cursors in sync" {
-  let local_editor = @lambda.new_lambda_editor("local-user").0
-  let remote = @lambda.new_lambda_editor("remote-user").0
+  let local_editor = @probe.new_test_editor("local-user")
+  let remote = @probe.new_test_editor("remote-user")
   local_editor.set_text("abcd")
   try! remote.apply_sync(try! local_editor.export_all())
   remote.move_cursor(3)
@@ -328,8 +344,8 @@ test "SyncEditor: local edits and undo keep peer cursors in sync" {
 
 ///|
 test "SyncEditor: remote sync tracks actual merged text positions" {
-  let viewer = @lambda.new_lambda_editor("viewer").0
-  let remote = @lambda.new_lambda_editor("peer-b").0
+  let viewer = @probe.new_test_editor("viewer")
+  let remote = @probe.new_test_editor("peer-b")
   viewer.set_text("abcd")
   try! remote.apply_sync(try! viewer.export_all())
   remote.move_cursor(1)
@@ -357,8 +373,8 @@ test "SyncEditor: remote sync tracks actual merged text positions" {
 
 ///|
 test "SyncEditor: apply_sync does not pollute undo stack" {
-  let se1 = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
-  let se2 = @lambda.new_lambda_editor("bob", capture_timeout_ms=500).0
+  let se1 = @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let se2 = @probe.new_test_editor("bob", capture_timeout_ms=500)
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)
@@ -372,7 +388,7 @@ test "SyncEditor: apply_sync does not pollute undo stack" {
 
 ///|
 test "SyncEditor: undo returns sync message for peer broadcast" {
-  let se = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
+  let se = @probe.new_test_editor("alice", capture_timeout_ms=500)
 
   // Type some text
   try! se.insert_and_record("hello", 1000)
@@ -390,8 +406,8 @@ test "SyncEditor: undo returns sync message for peer broadcast" {
 
 ///|
 test "SyncEditor: undo sync ops can be applied to peer" {
-  let se1 = @lambda.new_lambda_editor("alice", capture_timeout_ms=500).0
-  let se2 = @lambda.new_lambda_editor("bob", capture_timeout_ms=500).0
+  let se1 = @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let se2 = @probe.new_test_editor("bob", capture_timeout_ms=500)
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)
@@ -412,141 +428,4 @@ test "SyncEditor: undo sync ops can be applied to peer" {
 
   // Bob should converge with Alice
   inspect(se2.get_text(), content="")
-}
-
-///|
-test "SyncEditor: get_resolution returns bound/free info" {
-  let se = @lambda.new_lambda_editor("agent1").0
-  // λx. (x + y) — x is bound, y is free
-  try! insert_each(se, "\\x. x + y")
-  let res = @lambda.get_lambda_resolution(se)
-  // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
-  @debug.debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")
-  @debug.debug_inspect(res.vars.get(3), content="Some(Free)")
-}
-
-///|
-fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
-  let mut count = 1
-  for child in node.children {
-    count = count + count_nodes(child)
-  }
-  count
-}
-
-///|
-test "incremental patch: registry node count stable after tail edit" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nlet y = 2\nlet z = 0\nz")
-  ignore(editor.get_proj_node())
-  ignore(editor.get_source_map())
-  let node_count_before = match editor.get_proj_node() {
-    Some(r) => count_nodes(r)
-    None => 0
-  }
-  // Edit tail def value: 0 → 9
-  let text = editor.get_text()
-  let pos = text.length() - 3 // position of '0' in "z = 0"
-  editor.move_cursor(pos)
-  ignore(editor.backspace())
-  try! editor.insert("9")
-  let node_count_after = match editor.get_proj_node() {
-    Some(r) => count_nodes(r)
-    None => 0
-  }
-  inspect(node_count_before == node_count_after, content="true")
-}
-
-///|
-test "incremental patch: source_map position queries work after edit" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nlet y = 2\ny")
-  ignore(editor.get_source_map()) // warm up
-  // Edit: y=2 → y=3
-  let text = editor.get_text()
-  let pos = text.length() - 3 // position of '2'
-  editor.move_cursor(pos)
-  ignore(editor.backspace())
-  try! editor.insert("3")
-  let sm = editor.get_source_map()
-  // Position query should still find nodes
-  inspect(sm.innermost_node_at(0) is Some(_), content="true")
-  inspect(sm.innermost_node_at(pos) is Some(_), content="true")
-}
-
-///|
-test "incremental patch: get_node returns correct node after edit" {
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nlet y = 2\ny")
-  let proj = editor.get_proj_node().unwrap()
-  // Get node ID of x's init (Int(1)) — child of the first LetDef
-  let x_init_id = proj.children[0].children[0].id()
-  // Edit y's init: 2 → 3
-  let text = editor.get_text()
-  let pos = text.length() - 3
-  editor.move_cursor(pos)
-  ignore(editor.backspace())
-  try! editor.insert("3")
-  // x's init should still be retrievable with same ID
-  match editor.get_node(x_init_id) {
-    Some(node) => inspect(node.kind, content="Int(1)")
-    None => fail("x init node not found after y edit")
-  }
-}
-
-///|
-test "incremental patch: expression-only document edit works" {
-  // Expression-only: no defs, ProjNode is NOT a Module.
-  // Patch path must fall back to full rebuild.
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("42")
-  let sm1 = editor.get_source_map()
-  inspect(sm1.innermost_node_at(0) is Some(_), content="true")
-  // Edit: 42 → 99
-  editor.move_cursor(0)
-  ignore(editor.backspace())
-  ignore(editor.backspace())
-  try! editor.insert("9")
-  try! editor.insert("9")
-  let sm2 = editor.get_source_map()
-  inspect(sm2.innermost_node_at(0) is Some(_), content="true")
-}
-
-///|
-test "incremental patch: final_expr removal triggers full rebuild" {
-  // Remove final expression: "let x = 1\nx" → "let x = 1\n"
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 1\nx")
-  ignore(editor.get_proj_node())
-  ignore(editor.get_source_map())
-  // Delete the final 'x'
-  let text = editor.get_text()
-  editor.move_cursor(text.length())
-  ignore(editor.backspace())
-  let proj = editor.get_proj_node()
-  // Should still have a valid projection (Module with Unit body)
-  inspect(proj is Some(_), content="true")
-}
-
-///|
-test "incremental patch: no-final-expr module keeps body node registered" {
-  // Module with no trailing expression: "let x = 1\n"
-  // to_proj_node_with_prev_module_id synthesizes a Unit body each time.
-  // The patch path must update the body even when only defs change.
-  let editor = @lambda.new_lambda_editor("test").0
-  editor.set_text("let x = 0\nlet y = 2\n")
-  let proj1 = editor.get_proj_node().unwrap()
-  // Body is the last child (synthesized Unit)
-  let _body1_id = proj1.children[proj1.children.length() - 1].id()
-  ignore(editor.get_source_map())
-  // Edit def x: 0 → 9
-  editor.move_cursor(9) // position after '0' in "let x = 0" (index 8 is '0', cursor at 9)
-  ignore(editor.backspace())
-  try! editor.insert("9")
-  let proj2 = editor.get_proj_node().unwrap()
-  let body2_id = proj2.children[proj2.children.length() - 1].id()
-  // The new body node should be findable in the registry
-  inspect(editor.get_node(body2_id) is Some(_), content="true")
-  // The new body node range should be in the source map
-  inspect(editor.get_node_range(body2_id) is Some(_), content="true")
 }

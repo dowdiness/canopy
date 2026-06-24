@@ -87,7 +87,9 @@ The patch protocol is intentionally minimal. Three rules every engine must respe
 2. **Idempotent re-application.** Applying the same patch sequence twice from the same starting state yields the same result. Adapters may dedupe but engines must not rely on it.
 3. **Synchronous intents.** `UserIntent` events fire synchronously from input. Consumers may respond async, but ordering across an input gesture is preserved.
 
-The MoonBit-side custom `ToJson` impls in `framework/protocol/` are the source of truth for the wire format. TypeScript types in `types.ts` mirror them.
+The MoonBit `ToJson` impls in `protocol/` define the wire format. `types.ts`
+mirrors them. Coordinate units and breaking-change rules live in
+[`protocol/README.md`](../../protocol/README.md#position-and-offset-units).
 
 ## Extension points
 
@@ -97,7 +99,7 @@ The MoonBit-side custom `ToJson` impls in `framework/protocol/` are the source o
 
 **Custom decorations.** Send `{ type: "SetDecorations", decorations: [...] }` with a `css_class` namespaced to your project (e.g. `moondsp-pattern-cursor`). Style it in your host CSS. Use the `widget` flag for inline DOM widgets.
 
-**Selection and cursor.** `SetSelection` and `SelectNode` patches drive editor focus. `SetCursor` and `SelectNode` intents come back from the user.
+**Selection and cursor.** `SetSelection` and `SelectNode` patches drive editor focus. `SetPmCursor` (ProseMirror tree positions), `SetDocCursor` (document code-unit offsets), and `SelectNode` intents come back from the user.
 
 ## Versioning
 

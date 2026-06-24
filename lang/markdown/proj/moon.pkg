@@ -1,8 +1,13 @@
 import {
   "dowdiness/canopy/core",
+  "dowdiness/canopy/protocol",
   "dowdiness/incr",
   "dowdiness/markdown",
   "dowdiness/loom",
   "dowdiness/loom/core" @loomcore,
+  "dowdiness/loom/projection" @loomproj,
   "dowdiness/seam",
+  "moonbitlang/core/cmp",
 }
+
+warnings = "-29"

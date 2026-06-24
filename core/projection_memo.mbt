@@ -7,6 +7,7 @@ pub fn[T : TreeNode + Eq] build_projection_memos(
   syntax_tree : @incr.Derived[@seam.SyntaxNode],
   syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
+  reconcile_node? : (ProjNode[T], ProjNode[T], Ref[Int]) -> ProjNode[T] = reconcile,
   label? : String = "generic",
 ) -> (
   @incr.Derived[ProjNode[T]?],
@@ -22,7 +23,7 @@ pub fn[T : TreeNode + Eq] build_projection_memos(
       let syntax_root = syntax_tree.get_or_abort()
       let new_proj = syntax_to_proj(syntax_root, counter)
       let result = match prev_proj_ref.val {
-        Some(old) => reconcile(old, new_proj, counter)
+        Some(old) => reconcile_node(old, new_proj, counter)
         None => new_proj
       }
       prev_proj_ref.val = Some(result)

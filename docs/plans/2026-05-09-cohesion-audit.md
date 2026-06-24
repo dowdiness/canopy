@@ -79,7 +79,7 @@ imports that become redundant, name collision risks.
 **Source order in merged file:**
 1. (existing) imports / `using` declarations
 2. (existing) `pub struct ProjNode[T]`, `pub impl[T : Debug] Show for ProjNode[T]`
-3. (existing) `pub fn[T] ProjNode::new`, `ProjNode::id`
+3. (existing) `pub fn[T] ProjNode`, `ProjNode::id`
 4. (existing) `pub fn next_proj_node_id`, `collect_registry`, `get_node_in_tree`, `assign_fresh_ids`
 5. **(new)** `pub impl[T : ToJson] ToJson for ProjNode[T]` — moved from `proj_node_json.mbt`
 

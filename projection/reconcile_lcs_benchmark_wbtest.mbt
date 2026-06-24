@@ -6,13 +6,13 @@
 // But "O(n²) is bad" is not a profile — at small N with a trivial loop body it
 // may still be microseconds. This isolates the actual cost.
 //
-// IMPORTANT scope note: the lambda Module path does NOT reach this code on the
-// wide def list. `reconcile_module_projection` routes the def list through `key_match`
-// (hash-based, O(N)) and only calls `@core.reconcile` per individual init
-// subtree (narrow). The wide-sibling LCS is reached when `@core.reconcile`
-// runs on a parent that itself has many direct children — e.g. a Module node
-// reconciled as a whole (the JSON/flat-list projection path), which is what
-// this bench constructs by reconciling two N-def Modules directly.
+// IMPORTANT scope note: Lambda's root Module reconcile hook routes the def
+// list through duplicate-safe name matching (hash-based, O(N)) and only calls
+// `@core.reconcile` per individual def/body subtree (narrow). The wide-sibling
+// LCS is reached when `@core.reconcile` runs on a parent that itself has many
+// direct children — e.g. a Module node reconciled as a whole (the
+// JSON/flat-list projection path), which is what this bench constructs by
+// reconciling two N-def Modules directly.
 
 // Source generator: reuses `tree_refresh_bench_source` from
 // tree_refresh_benchmark_wbtest.mbt (same projection wbtest module). An N-def

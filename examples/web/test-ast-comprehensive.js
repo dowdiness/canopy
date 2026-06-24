@@ -62,9 +62,8 @@ async function main() {
     { input: 'foo', description: 'Multi-character variable' },
     { input: '1 + 2', description: 'Simple addition' },
     { input: 'x + 1', description: 'Variable plus integer' },
-    { input: '\\x.x', description: 'Lambda function (backslash)' },
-    { input: 'λx.x', description: 'Lambda function (lambda symbol)' },
-    { input: '(\\x.x) 5', description: 'Function application' },
+    { input: '(x) => x', description: 'Arrow lambda function' },
+    { input: '((x) => x) 5', description: 'Function application' },
     { input: 'if x then 1 else 0', description: 'Conditional expression' },
   ];
 

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { dispatchExternalCrdtChanged } from './support/dom-events';
+import { setEditorText } from './support/editor-state';
 
 const resizeHandleSelector = '.panel-resize-handle.outline-resize-handle';
 
@@ -179,11 +179,7 @@ test.describe('Outline panel resizable behavior', () => {
     await page.setViewportSize({ width: 1280, height: 420 });
     await waitForEditor(page);
     const source = Array.from({ length: 120 }, (_, i) => `let v${i} = ${i}`).join('\n');
-    await page.evaluate((text) => {
-      const g = globalThis as any;
-      g.__canopy_crdt.set_text(g.__canopy_crdt_handle, text);
-    }, source);
-    await dispatchExternalCrdtChanged(page);
+    await setEditorText(page, source);
 
     const handle = page.getByRole('separator', { name: 'Resize width' });
     await expect(handle).toBeVisible();

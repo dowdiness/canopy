@@ -151,7 +151,7 @@ For comparison, here are the parser benchmarks:
 ## Comparative Analysis
 
 ### Serialization vs Parsing
-- Parsing "λf.λx.f (f x)": ~1.22 µs
+- Parsing "(f, x) => f (f x)": ~1.22 µs
 - Serializing same AST: ~7.58 µs
 - **Ratio:** Serialization ~6× slower than parsing (acceptable)
 

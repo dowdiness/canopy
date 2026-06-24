@@ -1,4 +1,8 @@
 ///|
+/// Source-backed Graph DSL host policy stays in this example adapter: viewport
+/// defaults, diagnostics, Graph DSL node templates, and render-param enrichment
+/// live here while pointer/drag/zoom mechanics continue to reuse
+/// `@graph_model` reducers.
 fn default_source_graph_viewport() -> Viewport {
   { x: 360.0, y: 330.0, scale: 1.0 }
 }
@@ -28,7 +32,7 @@ fn SourceBackedGraph::SourceBackedGraph(source : String) -> SourceBackedGraph {
     source,
     viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
-    drag_preview: idle_drag_preview(),
+    drag_preview: @graph_model.idle_drag_preview(),
     layout: [],
     action_log: [],
   }
@@ -58,7 +62,6 @@ fn empty_source_canvas_state() -> CanvasState {
     nodes: [],
     edges: [],
     next_node_id: 1,
-    next_edge_id: 1,
     interaction: @graph_model.empty_interaction(),
     action_log: [],
   }
@@ -79,12 +82,10 @@ fn canvas_id_for_binding(
   doc : @graph_dsl.GraphDoc,
   binding : String,
 ) -> NodeId? {
-  for i, node in doc.nodes() {
-    if node.binding() == binding {
-      return Some(NodeId(i + 1))
-    }
+  match doc.find_node(binding) {
+    Some(node) => Some(NodeId(node.id()))
+    None => None
   }
-  None
 }
 
 ///|
@@ -92,13 +93,70 @@ fn graph_node_for_canvas_id(
   doc : @graph_dsl.GraphDoc,
   id : NodeId,
 ) -> @graph_dsl.GraphNode? {
-  let NodeId(raw_id) = id
-  let index = raw_id - 1
-  let nodes = doc.nodes()
-  if index < 0 || index >= nodes.length() {
-    None
-  } else {
-    Some(nodes[index])
+  doc.find_node_by_id(id.to_string())
+}
+
+///|
+fn graph_param_value_kind_text(kind : @graph_dsl.GraphValueKind) -> String {
+  match kind {
+    @graph_dsl.Numeric => "numeric"
+    @graph_dsl.StringValue => "string"
+    @graph_dsl.EnumValue => "enum"
+    @graph_dsl.InputRef => "input-ref"
+  }
+}
+
+///|
+fn graph_param_token_text(
+  param : @graph_dsl.GraphParam,
+  role : @graph_dsl.GraphTokenRole,
+) -> String? {
+  let tokens = param.value_tokens()
+  match tokens.search_by(fn(token) { token.role() == role }) {
+    Some(index) => Some(tokens[index].text())
+    None => None
+  }
+}
+
+///|
+fn graph_param_value_text(param : @graph_dsl.GraphParam) -> String {
+  let role = match param.value_kind() {
+    @graph_dsl.Numeric => @graph_dsl.NumericParameter
+    @graph_dsl.StringValue => @graph_dsl.StringField
+    @graph_dsl.EnumValue => @graph_dsl.EnumField
+    @graph_dsl.InputRef => @graph_dsl.InputReference
+  }
+  match graph_param_token_text(param, role) {
+    Some(text) => text
+    None => ""
+  }
+}
+
+///|
+fn graph_param_json(param : @graph_dsl.GraphParam) -> NodeParamJson {
+  let value_kind = param.value_kind()
+  {
+    name: param.name(),
+    value_kind: graph_param_value_kind_text(value_kind),
+    value: graph_param_value_text(param),
+    unit: graph_param_token_text(param, @graph_dsl.Unit),
+    editable: match value_kind {
+      @graph_dsl.Numeric => true
+      _ => false
+    },
+  }
+}
+
+///|
+fn source_node_to_json(
+  node_index : Map[String, @graph_dsl.GraphNode],
+  node : CanvasNode,
+) -> NodeJson {
+  let base = node_to_json(node)
+  match node_index.get(node.id.to_string()) {
+    Some(graph_node) =>
+      { ..base, params: graph_node.params().map(graph_param_json) }
+    None => base
   }
 }
 
@@ -108,7 +166,7 @@ fn canvas_node_from_graph_node(
   graph_node : @graph_dsl.GraphNode,
 ) -> CanvasNode {
   {
-    id: NodeId(index + 1),
+    id: NodeId(graph_node.id()),
     x: index.to_double() * 300.0,
     y: 0.0,
     w: 250.0,
@@ -165,7 +223,8 @@ fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
     nodes.push(canvas_node_from_graph_node(i, graph_node))
   }
   let edges : Array[Edge] = []
-  for target_index, graph_node in doc.nodes() {
+  for graph_node in doc.nodes() {
+    let target = NodeId(graph_node.id())
     for param in graph_node.params() {
       match graph_input_reference(param) {
         None => ()
@@ -174,10 +233,10 @@ fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
             None => ()
             Some(source) =>
               edges.push({
-                id: EdgeId(edges.length() + 1),
+                id: EdgeId::from_edge(source, "out", target, param.name()),
                 source,
                 source_port: "out",
-                target: NodeId(target_index + 1),
+                target,
                 target_port: param.name(),
               })
           }
@@ -189,7 +248,6 @@ fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
     nodes,
     edges,
     next_node_id: nodes.length() + 1,
-    next_edge_id: edges.length() + 1,
     interaction: @graph_model.empty_interaction(),
     action_log: [],
   }
@@ -206,20 +264,26 @@ fn source_graph_doc_for_render(
 }
 
 ///|
+fn SourceBackedGraph::state_for_doc(
+  self : SourceBackedGraph,
+  doc : @graph_dsl.GraphDoc,
+) -> CanvasState {
+  let state = canvas_state_with_source_layout(
+    canvas_from_graph_doc(doc),
+    self.layout,
+  )
+  {
+    ..state,
+    viewport: self.viewport,
+    interaction: self.interaction,
+    action_log: self.action_log.copy(),
+  }
+}
+
+///|
 fn source_graph_base_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   match source_graph_doc_for_render(graph) {
-    Some(doc) => {
-      let state = canvas_state_with_source_layout(
-        canvas_from_graph_doc(doc),
-        graph.layout,
-      )
-      {
-        ..state,
-        viewport: graph.viewport,
-        interaction: graph.interaction,
-        action_log: graph.action_log.copy(),
-      }
-    }
+    Some(doc) => graph.state_for_doc(doc)
     None => { ..empty_source_canvas_state(), viewport: graph.viewport }
   }
 }
@@ -229,7 +293,7 @@ fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   let state = source_graph_base_canvas_state(graph)
   match graph.interaction.dragging {
     Some(_) if graph.interaction.did_move =>
-      state_with_preview_nodes(state, graph.drag_preview)
+      @graph_model.state_with_preview_nodes(state, graph.drag_preview)
     _ => state
   }
 }
@@ -326,6 +390,53 @@ fn source_graph_current_doc(
 }
 
 ///|
+fn lower_rename_node(
+  doc : @graph_dsl.GraphDoc,
+  node_id : NodeId,
+  new_name : String,
+) -> Result[SourceOperationEdit, String] {
+  let node = match graph_node_for_canvas_id(doc, node_id) {
+    Some(node) => node
+    None => return Err("cannot lower RenameNode: missing node")
+  }
+  match doc.lower_rename_node_binding(node.binding(), new_name) {
+    Some(edit) => Ok(ExactLoweredEdit(edit))
+    None =>
+      Err(
+        "cannot lower RenameNode for binding '" +
+        node.binding() +
+        "' to '" +
+        new_name +
+        "'",
+      )
+  }
+}
+
+///|
+fn lower_set_node_param(
+  doc : @graph_dsl.GraphDoc,
+  node_id : NodeId,
+  parameter : String,
+  value : String,
+) -> Result[SourceOperationEdit, String] {
+  let node = match graph_node_for_canvas_id(doc, node_id) {
+    Some(node) => node
+    None => return Err("cannot lower SetNodeParam: missing node")
+  }
+  match doc.lower_set_numeric(node.binding(), parameter, value) {
+    Some(edit) => Ok(ExactLoweredEdit(edit))
+    None =>
+      Err(
+        "cannot lower SetNodeParam for binding '" +
+        node.binding() +
+        "' parameter '" +
+        parameter +
+        "'",
+      )
+  }
+}
+
+///|
 fn lower_source_operation(
   doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
@@ -365,6 +476,9 @@ fn lower_source_operation(
       }
     }
     DeleteNodes(nodes) => lower_delete_nodes(doc, nodes)
+    RenameNode(node_id, new_name) => lower_rename_node(doc, node_id, new_name)
+    SetNodeParam(node_id, parameter, value) =>
+      lower_set_node_param(doc, node_id, parameter, value)
     DisconnectPorts(source, source_port, target, target_port) =>
       lower_disconnect_ports(doc, source, source_port, target, target_port)
     MoveNodes(_) =>
@@ -411,6 +525,77 @@ fn SourceBackedGraph::apply_source_edit(
 }
 
 ///|
+/// Apply one CodeMirror transaction — delivered as an ordered batch of
+/// pre-transaction `ChangeDelta`s — to the source-backed graph as a sequence
+/// of loom edits.
+///
+/// `changes_to_edits` rebases each change onto the document the previous one
+/// produced, so the attachment's incremental reparse sees the same per-edit
+/// stream a user typing into the editor would generate, rather than one
+/// whole-document replacement.
+///
+/// The editor is the source of truth for text: `self.source` always tracks the
+/// editor's buffer (`expected_doc`, the editor's authoritative post-transaction
+/// text), and the rendered graph is derived — `current_result()` when valid,
+/// else `last_good()` (see `source_graph_doc_for_render`). We therefore do NOT
+/// roll back when a batch leaves the source not graph-valid: the attachment
+/// keeps the invalid `current_source` and its identity tracker realigns node
+/// identity across the failed intermediate parses, so the next valid keystroke
+/// recovers incrementally with stable identity (no whole-source churn).
+fn SourceBackedGraph::apply_codemirror_changes(
+  self : SourceBackedGraph,
+  changes : Array[@codemirror.ChangeDelta],
+  expected_doc : String,
+) -> SourceGraphOperationResultJson {
+  for edit, new_source in Iter2(changes_to_edits(self.source, changes).iter()) {
+    self.attachment.apply_edit(edit, new_source)
+    self.source = new_source
+  }
+  // Stale-editor guard: the deltas are expressed against the editor's
+  // pre-transaction buffer. If the incremental result does not equal the
+  // editor's authoritative post-transaction text, `self.source` had diverged
+  // from the editor (an out-of-band TS-side graph mutation moved the source out
+  // from under a stale editor). Reparse the editor's text so the keystroke wins
+  // over the racing mutation, rather than splicing onto a mismatched base.
+  if self.source != expected_doc {
+    self.attachment.set_source(expected_doc)
+    self.source = expected_doc
+  }
+  match source_graph_current_doc(self) {
+    Ok(doc) => {
+      // Identity is the tracker token, stable across delta reparse — selection
+      // survives with no remap; only drop tokens that no longer exist.
+      self.prune_selection_to_doc(doc)
+      source_graph_result_json_for_graph(self, true, None)
+    }
+    Err(message) =>
+      source_graph_result_json_for_graph(self, false, Some(message))
+  }
+}
+
+///|
+/// Handle-addressed entry point for applying a CodeMirror transaction to a
+/// registered source-backed graph. The source CodeMirror editor's
+/// `listen(on_change=...)` subscription forwards its `ChangeDelta` batch here.
+fn apply_source_graph_codemirror_changes(
+  handle : Int,
+  changes : Array[@codemirror.ChangeDelta],
+  expected_doc : String,
+) -> SourceGraphOperationResultJson {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.apply_codemirror_changes(changes, expected_doc)
+    None =>
+      source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph handle not found"],
+        0,
+        Some("source graph handle not found"),
+      )
+  }
+}
+
+///|
 fn realized_source_operation(
   doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
@@ -434,51 +619,22 @@ fn SourceBackedGraph::append_operation(
 }
 
 ///|
-fn source_delete_surviving_selection_bindings(
-  doc : @graph_dsl.GraphDoc,
-  interaction : InteractionState,
-  deleted : Array[NodeId],
-) -> Array[String] {
-  let bindings : Array[String] = []
-  for node_id in interaction.selected_nodes {
-    if !@graph_model.node_id_in_array(deleted, node_id) {
-      match graph_node_for_canvas_id(doc, node_id) {
-        Some(node) => append_unique_string(bindings, node.binding())
-        None => ()
-      }
-    }
-  }
-  bindings
-}
-
-///|
-fn source_selection_from_bindings(
-  doc : @graph_dsl.GraphDoc,
-  bindings : Array[String],
-) -> Array[NodeId] {
-  let nodes : Array[NodeId] = []
-  for binding in bindings {
-    match canvas_id_for_binding(doc, binding) {
-      Some(id) => nodes.push(id)
-      None => ()
-    }
-  }
-  nodes
-}
-
-///|
-fn SourceBackedGraph::remap_deleted_interaction(
+/// Drop any selected node whose tracker token no longer exists in `doc`, and
+/// reset in-flight gesture state. Identity is the token (`NodeId`), stable
+/// across delta reparse, so survivors keep their selection with no remapping;
+/// deleted or atomically-churned tokens fall out naturally.
+fn SourceBackedGraph::prune_selection_to_doc(
   self : SourceBackedGraph,
   doc : @graph_dsl.GraphDoc,
-  survivor_bindings : Array[String],
 ) -> Unit {
-  let selected_nodes = source_selection_from_bindings(doc, survivor_bindings)
-  let selected = if selected_nodes.length() == 0 {
-    None
-  } else {
-    Some(selected_nodes[0])
+  let selected_nodes = self.interaction.selected_nodes.filter(fn(id) {
+    doc.find_node_by_id(id.to_string()) is Some(_)
+  })
+  let selected = match selected_nodes {
+    [head, ..] => Some(head)
+    [] => None
   }
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = {
     dragging: None,
     panning: None,
@@ -491,17 +647,69 @@ fn SourceBackedGraph::remap_deleted_interaction(
 }
 
 ///|
+/// Rewrite one node's selection token after a rename (the token embeds the
+/// binding, so renaming changes it). This is a rename-local continuation, not
+/// binding-recovery: only the renamed node's `old` token maps to `new`.
+fn SourceBackedGraph::rename_selection_token(
+  self : SourceBackedGraph,
+  old : NodeId,
+  new : NodeId,
+) -> Unit {
+  let selected_nodes = self.interaction.selected_nodes.map(fn(id) {
+    if id == old {
+      new
+    } else {
+      id
+    }
+  })
+  let selected = match self.interaction.selected {
+    Some(id) if id == old => Some(new)
+    other => other
+  }
+  self.interaction = { ..self.interaction, selected, selected_nodes }
+}
+
+///|
+fn SourceBackedGraph::rename_layout_binding(
+  self : SourceBackedGraph,
+  old_binding : String,
+  new_binding : String,
+) -> Unit {
+  self.layout = self.layout.map(fn(position) {
+    if position.binding == old_binding {
+      { ..position, binding: new_binding }
+    } else {
+      position
+    }
+  })
+}
+
+///|
 fn SourceBackedGraph::sync_local_operation_state(
   self : SourceBackedGraph,
-  doc : @graph_dsl.GraphDoc,
+  old_doc : @graph_dsl.GraphDoc,
+  new_doc : @graph_dsl.GraphDoc,
   operation : GraphOperation,
-  survivor_selection_bindings : Array[String],
 ) -> Unit {
   match operation.action() {
     DeleteNodes(_) => {
-      self.remap_deleted_interaction(doc, survivor_selection_bindings)
+      self.prune_selection_to_doc(new_doc)
       self.sync_layout_from_state(source_graph_base_canvas_state(self))
     }
+    RenameNode(node_id, new_binding) =>
+      match graph_node_for_canvas_id(old_doc, node_id) {
+        Some(node) => {
+          self.rename_layout_binding(node.binding(), new_binding)
+          // The token embeds the binding, so the renamed node's id changes;
+          // carry any live selection of it forward to the new token.
+          match new_doc.find_node(new_binding) {
+            Some(renamed) =>
+              self.rename_selection_token(node_id, NodeId(renamed.id()))
+            None => ()
+          }
+        }
+        None => ()
+      }
     _ => ()
   }
 }
@@ -521,18 +729,22 @@ fn SourceBackedGraph::sync_layout_from_state(
 ///|
 fn SourceBackedGraph::pointer_down(
   self : SourceBackedGraph,
-  node_id : Int,
+  node_id : String,
   sx : Double,
   sy : Double,
 ) -> Unit {
-  let target : NodeId? = if node_id <= 0 { None } else { Some(NodeId(node_id)) }
-  let state = update_pointer_down(
+  let target : NodeId? = if node_id == "" {
+    None
+  } else {
+    Some(NodeId(node_id))
+  }
+  let state = @graph_model.update_pointer_down(
     source_graph_base_canvas_state(self),
     target,
     sx,
     sy,
   )
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = state.interaction
 }
 
@@ -545,24 +757,24 @@ fn SourceBackedGraph::pointer_move(
   let state = source_graph_base_canvas_state(self)
   match state.interaction.connecting {
     Some(_) => {
-      let (wx, wy) = screen_to_world(state.viewport, sx, sy)
-      self.interaction = update_connect_move(state, wx, wy).interaction
+      let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+      self.interaction = @graph_model.update_connect_move(state, wx, wy).interaction
     }
     None =>
       match state.interaction.dragging {
         Some(drag) => {
-          let (wx, wy) = screen_to_world(state.viewport, sx, sy)
+          let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
           let new_interaction : InteractionState = {
             ..state.interaction,
             did_move: true,
           }
-          self.drag_preview = drag_preview_from_move(drag, wx, wy)
+          self.drag_preview = @graph_model.drag_preview_from_move(drag, wx, wy)
           self.interaction = new_interaction
         }
         None =>
           match state.interaction.panning {
             Some(_) => {
-              let next = update_pan_move(state, sx, sy)
+              let next = @graph_model.update_pan_move(state, sx, sy)
               self.viewport = next.viewport
               self.interaction = next.interaction
             }
@@ -575,22 +787,41 @@ fn SourceBackedGraph::pointer_move(
 ///|
 fn SourceBackedGraph::pointer_up(
   self : SourceBackedGraph,
-  node_id : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
   let state = source_graph_base_canvas_state(self)
   let commit_state = match state.interaction.dragging {
     Some(_) if state.interaction.did_move =>
-      state_with_preview_nodes(state, self.drag_preview)
+      @graph_model.state_with_preview_nodes(state, self.drag_preview)
     _ => state
   }
-  let next = update_pointer_up(commit_state, node_id, target_port_id, additive)
+  let next = @graph_model.update_pointer_up(
+    commit_state, node_id, target_port_id, additive,
+  )
   self.sync_layout_from_state(next)
   self.viewport = next.viewport
-  self.drag_preview = idle_drag_preview()
+  self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = next.interaction
   self.action_log = next.action_log.copy()
+}
+
+///|
+fn SourceBackedGraph::input_port_compatibility(
+  self : SourceBackedGraph,
+  source : NodeId,
+  source_port : String,
+) -> Array[PortCompatibilityJson] {
+  match source_graph_current_doc(self) {
+    Ok(doc) =>
+      input_port_compatibility_for_state(
+        self.state_for_doc(doc),
+        source,
+        source_port,
+      )
+    Err(_) => []
+  }
 }
 
 ///|
@@ -600,7 +831,12 @@ fn SourceBackedGraph::zoom(
   cx : Double,
   cy : Double,
 ) -> Unit {
-  let next = update_zoom(source_graph_base_canvas_state(self), delta, cx, cy)
+  let next = @graph_model.update_zoom(
+    source_graph_base_canvas_state(self),
+    delta,
+    cx,
+    cy,
+  )
   self.viewport = next.viewport
   self.action_log = next.action_log.copy()
 }
@@ -611,7 +847,7 @@ fn source_graph_node_payload(
   constructor_name : String,
 ) -> CanvasNode {
   {
-    id: NodeId(0),
+    id: NodeId(""),
     x: 0.0,
     y: 0.0,
     w: 250.0,
@@ -692,9 +928,35 @@ fn source_graph_insert_unique_result(
 fn source_graph_connect_sample_result(
   handle : Int,
 ) -> SourceGraphOperationResultJson {
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None =>
+      return source_graph_operation_result_json(
+        false,
+        "",
+        ["source graph handle not found"],
+        0,
+        Some("source graph handle not found"),
+      )
+  }
+  let doc = match source_graph_current_doc(graph) {
+    Ok(doc) => doc
+    Err(message) =>
+      return source_graph_result_json_for_graph(graph, false, Some(message))
+  }
+  let nodes = doc.nodes()
+  guard nodes.length() >= 2 else {
+    return source_graph_result_json_for_graph(
+      graph,
+      false,
+      Some("sample connect needs at least two nodes"),
+    )
+  }
+  let source = NodeId(nodes[0].id())
+  let target = NodeId(nodes[1].id())
   let result_json = apply_source_graph_operation(
     handle,
-    GraphOperation(ConnectPorts(NodeId(1), "out", NodeId(2), "input"))
+    GraphOperation(ConnectPorts(source, "out", target, "input"))
     .to_json()
     .stringify(),
   )
@@ -763,6 +1025,22 @@ pub fn get_source_graph_source(handle : Int) -> String {
 }
 
 ///|
+/// Subscribe to settle notifications for a registered source-backed graph. The
+/// source panel's reactive `custom_sub` uses this to replace the old 250ms
+/// poll: `listener` fires after every `GraphAttachment` settle (any mutation
+/// origin), and the panel pulls `get_source_graph_source` on the ping. Returns
+/// `None` for an unknown handle.
+fn source_graph_subscribe(
+  handle : Int,
+  listener : () -> Unit,
+) -> @graph_dsl.GraphAttachmentSubscription? {
+  match source_graph_by_handle(handle) {
+    Some(graph) => Some(graph.attachment.subscribe(listener))
+    None => None
+  }
+}
+
+///|
 fn set_source_graph_source_checked(
   handle : Int,
   source : String,
@@ -781,7 +1059,12 @@ fn set_source_graph_source_checked(
   graph.source = source
   graph.attachment.set_source(source)
   match source_graph_current_doc(graph) {
-    Ok(_) => source_graph_result_json_for_graph(graph, true, None)
+    Ok(doc) => {
+      // Reset/init path: tokens survive content-preserving edits but a reorder
+      // churns them (residual limitation), so prune by token existence.
+      graph.prune_selection_to_doc(doc)
+      source_graph_result_json_for_graph(graph, true, None)
+    }
     Err(message) =>
       source_graph_result_json_for_graph(graph, false, Some(message))
   }
@@ -800,7 +1083,7 @@ pub fn set_source_graph_source_result(handle : Int, source : String) -> String {
 ///|
 pub fn source_graph_pointer_down(
   handle : Int,
-  node_id : Int,
+  node_id : String,
   sx : Double,
   sy : Double,
 ) -> Unit {
@@ -825,13 +1108,29 @@ pub fn source_graph_pointer_move(
 ///|
 pub fn source_graph_pointer_up(
   handle : Int,
-  node_id : Int,
+  node_id : String,
   target_port_id : String,
   additive : Bool,
 ) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_up(node_id, target_port_id, additive)
     None => ()
+  }
+}
+
+///|
+pub fn get_source_graph_input_port_compatibility(
+  handle : Int,
+  source : String,
+  source_port : String,
+) -> String {
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      graph
+      .input_port_compatibility(NodeId(source), source_port)
+      .to_json()
+      .stringify()
+    None => ([] : Array[PortCompatibilityJson]).to_json().stringify()
   }
 }
 
@@ -849,11 +1148,39 @@ pub fn source_graph_zoom(
 }
 
 ///|
+fn source_render_state_string(
+  graph : SourceBackedGraph,
+  state : CanvasState,
+  validation : Array[ValidationJson],
+) -> String {
+  let rendered = render_state_json(state, validation)
+  match source_graph_doc_for_render(graph) {
+    Some(doc) => {
+      // Index the doc's nodes by token once so per-node param resolution is
+      // O(1); resolving each canvas node back through find_node_by_id would be
+      // O(n) per node, i.e. O(n²) over the render.
+      let node_index : Map[String, @graph_dsl.GraphNode] = Map::from_array(
+        doc.nodes().map(fn(graph_node) { (graph_node.id(), graph_node) }),
+      )
+      {
+        ..rendered,
+        nodes: state.nodes.map(fn(node) {
+          source_node_to_json(node_index, node)
+        }),
+      }
+      .to_json()
+      .stringify()
+    }
+    None => rendered.to_json().stringify()
+  }
+}
+
+///|
 pub fn get_source_graph_render_state(handle : Int) -> String {
   match source_graph_by_handle(handle) {
     Some(graph) => {
       let state = source_graph_canvas_state(graph)
-      render_state_string(state, source_graph_validation(graph))
+      source_render_state_string(graph, state, source_graph_validation(graph))
     }
     None =>
       render_state_string(empty_source_canvas_state(), [
@@ -900,26 +1227,15 @@ pub fn apply_source_graph_operation(
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
-  let survivor_selection_bindings = match operation.action() {
-    DeleteNodes(deleted) =>
-      source_delete_surviving_selection_bindings(
-        doc,
-        graph.interaction,
-        deleted,
-      )
-    _ => []
-  }
   let lowered = match lower_source_operation(doc, operation) {
     Ok(edit) => edit
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
   match graph.apply_source_edit(lowered) {
-    Ok(doc) => {
-      graph.sync_local_operation_state(
-        doc, operation, survivor_selection_bindings,
-      )
-      graph.append_operation(realized_source_operation(doc, operation))
+    Ok(new_doc) => {
+      graph.sync_local_operation_state(doc, new_doc, operation)
+      graph.append_operation(realized_source_operation(new_doc, operation))
       source_graph_result_for_graph(graph, true, None)
     }
     Err(message) => source_graph_result_for_graph(graph, false, Some(message))

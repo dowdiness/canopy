@@ -12,6 +12,54 @@ pub fn declaration(g : ScopeGraph, ref_node : @core.NodeId) -> Decl? {
 }
 
 ///|
+/// Resolve `name` as it would be seen from `node`, using the same per-module
+/// sequential cutoffs captured when the scope graph was built.
+pub fn declaration_for_name_at(
+  g : ScopeGraph,
+  node : @core.NodeId,
+  name : String,
+) -> Decl? {
+  guard scope_for_node(g, node) is Some(start_scope) else { return None }
+  guard g.node_cutoffs.get(node) is Some(cutoffs) else { return None }
+  let mut cur : ScopeId? = Some(start_scope)
+  while cur is Some(sid) {
+    let ScopeId(si) = sid
+    let scope = g.scopes[si]
+    let hit = scope.decl_ids
+      .rev_iter()
+      .find_first(fn(did) {
+        let DeclId(di) = did
+        let decl = g.decls[di]
+        decl.name == name &&
+        (match decl.kind {
+          ModuleDef(def_index~) =>
+            cutoffs.get(sid) is Some(cutoff) && def_index < cutoff
+          LamParam(_) => true
+        })
+      })
+    if hit is Some(did) {
+      let DeclId(di) = did
+      return Some(g.decls[di])
+    }
+    cur = scope.parent
+  }
+  None
+}
+
+///|
+/// The scope that the structural `node_id` belongs to. For a reference node,
+/// this is the scope where resolution starts. For a module-definition binder
+/// node, this is its declaring module scope. Lambda parameter declarations are
+/// represented by the owning `Lam` node, which is also an expression node; for
+/// that node this query returns the lambda expression's enclosing scope, while
+/// the parameter's declaring scope is recorded on the corresponding `Decl`.
+/// Returns `None` when the `node_id` was not recorded during scope-graph
+/// construction.
+pub fn scope_for_node(g : ScopeGraph, node_id : @core.NodeId) -> ScopeId? {
+  g.node_scope.get(node_id)
+}
+
+///|
 /// All reference NodeIds whose resolution points at the declaration `decl`.
 /// Identity-based (keyed on `DeclId`, NOT a name match), so shadowing is
 /// respected. Keying on `DeclId` rather than `Decl.node_id` is deliberate:
@@ -34,7 +82,11 @@ pub fn references(g : ScopeGraph, decl : DeclId) -> Array[@core.NodeId] {
 /// - lambda param: the `"param"` token span on the `Lam` node;
 /// - module def: the `"name"` token span on the `LetDef` node, with the
 ///   module-level `"name:<def_index>"` span as a migration fallback.
-/// Failure is always `None`, never a wrong location.
+/// Failure is always `None`, never a wrong location. The `module_name_role`
+/// fallback spans live only on the ROOT module node (`g.module_node_id`), so it
+/// is consulted ONLY for a root-scope decl; a nested-block decl with no `LetDef`
+/// span returns `None` rather than a root-relative (wrong) location — preserving
+/// the "never a wrong location" guarantee for block-local binders.
 pub fn binder_span(
   g : ScopeGraph,
   decl : Decl,
@@ -47,11 +99,17 @@ pub fn binder_span(
       match
         source_map.get_token_span(decl.node_id, @lambda_proj.LET_DEF_NAME_ROLE) {
         Some(range) => Some(range)
-        None =>
-          source_map.get_token_span(
-            g.module_node_id,
-            @lambda_proj.module_name_role(def_index),
-          )
+        None => {
+          let ScopeId(si) = decl.scope
+          if g.scopes[si].parent is None {
+            source_map.get_token_span(
+              g.module_node_id,
+              @lambda_proj.module_name_role(def_index),
+            )
+          } else {
+            None
+          }
+        }
       }
   }
 }
@@ -96,14 +154,7 @@ pub fn enclosing_env(
   g : ScopeGraph,
   node : @core.NodeId,
 ) -> @immut/hashset.HashSet[String] {
-  let start = match g.refs.iter().find_first(fn(r) { r.node_id == node }) {
-    Some(r) => Some(r.scope)
-    None =>
-      g.decls
-      .iter()
-      .find_first(fn(d) { d.node_id == node })
-      .map(fn(d) { d.scope })
-  }
+  let start = scope_for_node(g, node)
   let mut env : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let mut cur = start
   while cur is Some(sid) {

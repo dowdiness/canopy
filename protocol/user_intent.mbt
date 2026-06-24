@@ -16,7 +16,8 @@ pub(all) enum UserIntent {
     params~ : Map[String, String]
   )
   SelectNode(node_id~ : @core.NodeId)
-  SetCursor(position~ : Int)
+  SetPmCursor(pm_tree_position~ : Int)
+  SetDocCursor(doc_code_unit_offset~ : Int)
   Undo
   Redo
   CommitEdit(node_id~ : @core.NodeId, value~ : String)
@@ -25,6 +26,38 @@ pub(all) enum UserIntent {
 ///|
 pub impl Show for UserIntent with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
+}
+
+///|
+fn user_intent_number_field(
+  fields : Map[String, Json],
+  path : @json.JsonPath,
+  key : String,
+  owner : String,
+) -> Int raise @json.JsonDecodeError {
+  match fields.get(key) {
+    Some(Json::Number(n, ..)) => n.to_int()
+    _ =>
+      raise @json.JsonDecodeError(
+        (path.add_key(key), "\{owner}: '\{key}' must be a number"),
+      )
+  }
+}
+
+///|
+fn user_intent_string_field(
+  fields : Map[String, Json],
+  path : @json.JsonPath,
+  key : String,
+  owner : String,
+) -> String raise @json.JsonDecodeError {
+  match fields.get(key) {
+    Some(Json::String(s)) => s
+    _ =>
+      raise @json.JsonDecodeError(
+        (path.add_key(key), "\{owner}: '\{key}' must be a string"),
+      )
+  }
 }
 
 ///|
@@ -51,9 +84,13 @@ pub impl ToJson for UserIntent with fn to_json(self) {
       m["type"] = "SelectNode".to_json()
       m["node_id"] = node_id.to_json()
     }
-    SetCursor(position~) => {
-      m["type"] = "SetCursor".to_json()
-      m["position"] = position.to_json()
+    SetPmCursor(pm_tree_position~) => {
+      m["type"] = "SetPmCursor".to_json()
+      m["pm_tree_position"] = pm_tree_position.to_json()
+    }
+    SetDocCursor(doc_code_unit_offset~) => {
+      m["type"] = "SetDocCursor".to_json()
+      m["doc_code_unit_offset"] = doc_code_unit_offset.to_json()
     }
     Undo => m["type"] = "Undo".to_json()
     Redo => m["type"] = "Redo".to_json()
@@ -81,47 +118,16 @@ pub impl @json.FromJson for UserIntent with fn from_json(json, path) {
   }
   match type_str {
     "TextEdit" => {
-      let from = match m.get("from") {
-        Some(Json::Number(n, ..)) => n.to_int()
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("from"), "TextEdit: 'from' must be a number"),
-          )
-      }
-      let to = match m.get("to") {
-        Some(Json::Number(n, ..)) => n.to_int()
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("to"), "TextEdit: 'to' must be a number"),
-          )
-      }
-      let insert = match m.get("insert") {
-        Some(Json::String(s)) => s
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("insert"), "TextEdit: 'insert' must be a string"),
-          )
-      }
+      let from = user_intent_number_field(m, path, "from", "TextEdit")
+      let to = user_intent_number_field(m, path, "to", "TextEdit")
+      let insert = user_intent_string_field(m, path, "insert", "TextEdit")
       UserIntent::TextEdit(from~, to~, insert~)
     }
     "StructuralEdit" => {
-      let node_id = match m.get("node_id") {
-        Some(Json::Number(n, ..)) => @core.NodeId::from_int(n.to_int())
-        _ =>
-          raise @json.JsonDecodeError(
-            (
-              path.add_key("node_id"),
-              "StructuralEdit: 'node_id' must be a number",
-            ),
-          )
-      }
-      let op = match m.get("op") {
-        Some(Json::String(s)) => s
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("op"), "StructuralEdit: 'op' must be a string"),
-          )
-      }
+      let node_id = @core.NodeId::from_int(
+        user_intent_number_field(m, path, "node_id", "StructuralEdit"),
+      )
+      let op = user_intent_string_field(m, path, "op", "StructuralEdit")
       let params : Map[String, String] = {}
       match m.get("params") {
         Some(Json::Object(pm)) =>
@@ -149,42 +155,30 @@ pub impl @json.FromJson for UserIntent with fn from_json(json, path) {
       UserIntent::StructuralEdit(node_id~, op~, params~)
     }
     "SelectNode" => {
-      let node_id = match m.get("node_id") {
-        Some(Json::Number(n, ..)) => @core.NodeId::from_int(n.to_int())
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("node_id"), "SelectNode: 'node_id' must be a number"),
-          )
-      }
+      let node_id = @core.NodeId::from_int(
+        user_intent_number_field(m, path, "node_id", "SelectNode"),
+      )
       UserIntent::SelectNode(node_id~)
     }
-    "SetCursor" => {
-      let position = match m.get("position") {
-        Some(Json::Number(n, ..)) => n.to_int()
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("position"), "SetCursor: 'position' must be a number"),
-          )
-      }
-      UserIntent::SetCursor(position~)
+    "SetPmCursor" => {
+      let pm_tree_position = user_intent_number_field(
+        m, path, "pm_tree_position", "SetPmCursor",
+      )
+      UserIntent::SetPmCursor(pm_tree_position~)
+    }
+    "SetDocCursor" => {
+      let doc_code_unit_offset = user_intent_number_field(
+        m, path, "doc_code_unit_offset", "SetDocCursor",
+      )
+      UserIntent::SetDocCursor(doc_code_unit_offset~)
     }
     "Undo" => UserIntent::Undo
     "Redo" => UserIntent::Redo
     "CommitEdit" => {
-      let node_id = match m.get("node_id") {
-        Some(Json::Number(n, ..)) => @core.NodeId::from_int(n.to_int())
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("node_id"), "CommitEdit: 'node_id' must be a number"),
-          )
-      }
-      let value = match m.get("value") {
-        Some(Json::String(s)) => s
-        _ =>
-          raise @json.JsonDecodeError(
-            (path.add_key("value"), "CommitEdit: 'value' must be a string"),
-          )
-      }
+      let node_id = @core.NodeId::from_int(
+        user_intent_number_field(m, path, "node_id", "CommitEdit"),
+      )
+      let value = user_intent_string_field(m, path, "value", "CommitEdit")
       UserIntent::CommitEdit(node_id~, value~)
     }
     _ =>

@@ -71,8 +71,30 @@ test "UserIntent::SelectNode round-trip" {
 }
 
 ///|
-test "UserIntent::SetCursor round-trip" {
-  let intent = @protocol.UserIntent::SetCursor(position=42)
+test "UserIntent::SetPmCursor to_json" {
+  let intent = @protocol.UserIntent::SetPmCursor(pm_tree_position=42)
+  let s = intent.to_json().stringify()
+  inspect(s, content="{\"type\":\"SetPmCursor\",\"pm_tree_position\":42}")
+}
+
+///|
+test "UserIntent::SetPmCursor round-trip" {
+  let intent = @protocol.UserIntent::SetPmCursor(pm_tree_position=42)
+  let json = intent.to_json()
+  let decoded : @protocol.UserIntent = @json.from_json(json)
+  assert_eq(intent, decoded)
+}
+
+///|
+test "UserIntent::SetDocCursor to_json" {
+  let intent = @protocol.UserIntent::SetDocCursor(doc_code_unit_offset=42)
+  let s = intent.to_json().stringify()
+  inspect(s, content="{\"type\":\"SetDocCursor\",\"doc_code_unit_offset\":42}")
+}
+
+///|
+test "UserIntent::SetDocCursor round-trip" {
+  let intent = @protocol.UserIntent::SetDocCursor(doc_code_unit_offset=42)
   let json = intent.to_json()
   let decoded : @protocol.UserIntent = @json.from_json(json)
   assert_eq(intent, decoded)
@@ -131,8 +153,18 @@ test "UserIntent from_json rejects non-object" {
 }
 
 ///|
-test "UserIntent from_json string parse" {
-  let json = @json.parse("{\"type\":\"SetCursor\",\"position\":10}")
-  let decoded : @protocol.UserIntent = @json.from_json(json)
-  assert_eq(decoded, @protocol.UserIntent::SetCursor(position=10))
+test "UserIntent from_json parses cursor-specific offsets" {
+  let pm_json = @json.parse(
+    "{\"type\":\"SetPmCursor\",\"pm_tree_position\":10}",
+  )
+  let pm_decoded : @protocol.UserIntent = @json.from_json(pm_json)
+  assert_eq(pm_decoded, @protocol.UserIntent::SetPmCursor(pm_tree_position=10))
+  let doc_json = @json.parse(
+    "{\"type\":\"SetDocCursor\",\"doc_code_unit_offset\":10}",
+  )
+  let doc_decoded : @protocol.UserIntent = @json.from_json(doc_json)
+  assert_eq(
+    doc_decoded,
+    @protocol.UserIntent::SetDocCursor(doc_code_unit_offset=10),
+  )
 }

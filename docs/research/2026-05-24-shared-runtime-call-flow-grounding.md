@@ -2,6 +2,8 @@
 
 **Date:** 2026-05-24
 **Status:** Future-planning grounding draft — not current architecture or an implemented contract.
+**Post-S4 PR1 note (2026-06-12):** the per-language FFI globals this doc traces (`lambda_handles`, `view_states`, `markdown_view_states`, …) were replaced by per-package `@host.HostRegistry` instances in the `ffi/host` extraction; file:line anchors into `ffi/*` predate that and no longer resolve, but the destroy-ordering analysis remains valid.
+**Post-#633 note (2026-06-14):** Lambda's `@lambda_flat` / `proj_flat` / `VersionedModuleProjection` projection-cell inventory below is superseded. The current editor-facing projection surface is the generic 3-memo stack exposed by `lang/lambda/proj/projection_memo.mbt`; the protected-cell surface no longer includes a separate flat-projection cell.
 **Belongs to slice:** §P0b of `docs/research/2026-05-22-spec-aware-workspace.md`.
 **Pairs with:** `docs/research/2026-05-23-observer-discipline-contract.md`.
 
@@ -78,7 +80,16 @@ new step the §P0b coordinator needs (e.g. `coord.register_editor(...)`,
 protected-cell registration) has to be inserted at two sites or
 hoisted into a shared helper that does not exist today.
 
-### 1.2 What `new_lambda_editor` actually does
+### 1.2 Historical note: what `new_lambda_editor` did before #633
+
+Post-#633, the current shape is simpler: `new_lambda_editor` calls
+`@lambda_proj.build_lambda_projection_memos(parser)` for the generic
+`cached_proj_node`, `registry_memo`, and `source_map_memo` stack, stores only
+analysis + escalation memos in `LambdaCompanion`, and wires capabilities through
+Refs to the generic projection/source-map cells. It no longer captures a separate
+flat projection memo in the companion.
+
+The original grounding snapshot was:
 
 `new_lambda_editor` is defined at
 `lang/lambda/companion/lambda_editor.mbt:96-139`. Its body:
@@ -169,24 +180,23 @@ Below is every cell construction site reached during a single
 The eventual coordinator's protected-cell registry would need to
 enumerate this list.
 
-### 2.1 Lambda projection cells (4 cells)
+### 2.1 Historical Lambda projection cells before #633 (4 cells)
 
-Created by `@lambda_flat.build_lambda_projection_memos(parser)`,
+Before #633, these were created by `@lambda_flat.build_lambda_projection_memos(parser)`,
 called from inside `new_lambda_editor`'s `build_memos` closure.
-File: `lang/lambda/flat/projection_memo.mbt`.
+The deleted file was `lang/lambda/flat/projection_memo.mbt`.
 
 | Field name        | Type                                      | Label              | Site (file:line)                      |
 |-------------------|-------------------------------------------|--------------------|---------------------------------------|
-| `proj_memo`       | `@incr.Memo[VersionedFlatProj]`           | `proj_flat`        | projection_memo.mbt:34, label at :118 |
+| `proj_memo`       | `@incr.Memo[VersionedModuleProjection]`   | `proj_flat`        | projection_memo.mbt:34, label at :118 |
 | `cached_proj_node`| `@incr.Derived[@core.ProjNode[@ast.Term]?]` | `cached_proj_node` | projection_memo.mbt:126, label at :148 |
 | `registry_memo`   | `@incr.Derived[Map[NodeId, ProjNode[...]]]` | `proj_registry`    | projection_memo.mbt:161, label at :229 |
 | `source_map_memo` | `@incr.Derived[@core.SourceMap]`           | `source_map`       | projection_memo.mbt:238, label at :318 |
 
-Note: `proj_memo` stays a `Memo` (not migrated to `Derived`) because
-`VersionedFlatProj` uses `BackdateEq` for O(1) revision comparison;
-exposing it through `Derived` would force full structural equality on
-`FlatProj` each recompute. See the inline comment at
-`lang/lambda/companion/lambda_editor.mbt:9-12`.
+Historical note: `proj_memo` stayed a `Memo` in that pre-#633 stack because its
+versioned projection wrapper used revision comparison instead of full structural
+equality. #633 deleted this editor-facing stack rather than preserving that
+language-specific side channel.
 
 All four cells are constructed on `parser.runtime()` (resolved via
 `let rt = parser.runtime()` at projection_memo.mbt:17). None is

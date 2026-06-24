@@ -2,8 +2,7 @@
 package "dowdiness/canopy-canvas/main"
 
 import {
-  "dowdiness/canopy-canvas/graph_model",
-  "moonbitlang/core/debug",
+  "dowdiness/canopy-canvas-graph/graph_model",
   "moonbitlang/core/json",
 }
 
@@ -20,31 +19,35 @@ pub fn delete_nodes(Int, String) -> Unit
 
 pub fn destroy_source_graph(Int) -> Unit
 
-pub fn disconnect_ports(Int, Int, String, Int, String) -> Unit
+pub fn disconnect_ports(Int, String, String, String, String) -> Unit
 
 pub fn get_action_log(Int) -> String
+
+pub fn get_input_port_compatibility(Int, String, String) -> String
 
 pub fn get_render_state(Int) -> String
 
 pub fn get_source_graph_action_log(Int) -> String
 
+pub fn get_source_graph_input_port_compatibility(Int, String, String) -> String
+
 pub fn get_source_graph_render_state(Int) -> String
 
 pub fn get_source_graph_source(Int) -> String
 
-pub fn hover_node(Int, Int) -> Unit
+pub fn hover_node(Int, String) -> Unit
 
 pub fn mount_canvas_context_menu((String) -> Unit, () -> Unit) -> Unit
 
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
 
-pub fn pointer_down(Int, Int, Double, Double) -> Unit
+pub fn pointer_down(Int, String, Double, Double) -> Unit
 
-pub fn pointer_down_handle(Int, Int, String, Double, Double) -> Unit
+pub fn pointer_down_handle(Int, String, String, Double, Double) -> Unit
 
 pub fn pointer_move(Int, Double, Double) -> Unit
 
-pub fn pointer_up(Int, Int, String, Bool) -> Unit
+pub fn pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn sample_graph_dsl_source() -> String
 
@@ -54,11 +57,11 @@ pub fn set_source_graph_source_result(Int, String) -> String
 
 pub fn source_graph_insert_unique(Int, String, String) -> String
 
-pub fn source_graph_pointer_down(Int, Int, Double, Double) -> Unit
+pub fn source_graph_pointer_down(Int, String, Double, Double) -> Unit
 
 pub fn source_graph_pointer_move(Int, Double, Double) -> Unit
 
-pub fn source_graph_pointer_up(Int, Int, String, Bool) -> Unit
+pub fn source_graph_pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn source_graph_zoom(Int, Double, Double, Double) -> Unit
 
@@ -67,18 +70,9 @@ pub fn zoom(Int, Double, Double, Double) -> Unit
 // Errors
 
 // Types and methods
-type CanvasDocument derive(Eq, @debug.Debug)
-
 type CanvasFullRenderJson derive(Eq)
 
-type CanvasRuntime
-
 type ConnectingJson derive(Eq, ToJson)
-
-pub(all) struct DragPreview {
-  positions : Array[@graph_model.NodePosition]
-} derive(Eq, @debug.Debug)
-pub impl Show for DragPreview
 
 type EdgeJson derive(Eq, ToJson)
 
@@ -88,11 +82,13 @@ type LoweredCanvas derive(Eq)
 
 type NodeJson derive(Eq, ToJson)
 
+type NodeParamJson derive(Eq, ToJson)
+
 type NormalizedCanvas derive(Eq)
 
-type RenderStateJson derive(Eq, ToJson)
+type PortCompatibilityJson derive(Eq, ToJson, @json.FromJson)
 
-type SelectionState derive(Eq, @debug.Debug)
+type RenderStateJson derive(Eq, ToJson)
 
 type SourceBackedGraph
 
@@ -116,6 +112,8 @@ pub using @graph_model {type CanvasState}
 pub using @graph_model {type ConnectState}
 
 pub using @graph_model {type DragOrigin}
+
+pub using @graph_model {type DragPreview}
 
 pub using @graph_model {type DragState}
 

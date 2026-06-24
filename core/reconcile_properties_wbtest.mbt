@@ -63,7 +63,7 @@ fn to_proj_node(expr : TestExpr, counter : Ref[Int]) -> ProjNode[TestExpr] {
     Branch(_, cs) => cs.map(fn(c) { to_proj_node(c, counter) })
   }
   let id = next_proj_node_id(counter)
-  ProjNode::new(expr, 0, 0, id, children)
+  ProjNode(expr, 0, 0, id, children)
 }
 
 ///|
@@ -765,7 +765,7 @@ fn to_proj_node_with_spans(
       cs.map(fn(c) { to_proj_node_with_spans(c, counter, span_offset) })
   }
   let id = next_proj_node_id(counter)
-  ProjNode::new(expr, my_span, my_span + 1, id, children)
+  ProjNode(expr, my_span, my_span + 1, id, children)
 }
 
 ///|

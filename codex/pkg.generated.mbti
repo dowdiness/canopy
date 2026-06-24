@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/codex"
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/protocol",
+}
+
+// Values
+pub fn[T : Eq] apply_intent_exact(@editor.SyncEditor[T], @protocol.UserIntent, Int) -> Bool raise
+
+pub fn unified_diff_to_intents(String, String) -> Array[@protocol.UserIntent] raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

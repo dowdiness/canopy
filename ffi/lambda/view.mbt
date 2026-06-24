@@ -1,13 +1,10 @@
 // View FFI — ViewNode tree and ViewPatch streams for lambda editors
 
 ///|
-let view_states : Map[Int, @editor.ViewUpdateState] = Map::default()
-
-///|
 /// Get the ViewNode tree as JSON for a lambda editor.
 /// Returns "null" if no projection is available or any protected read fails.
 pub fn get_view_tree_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -33,13 +30,6 @@ pub fn get_view_tree_json(handle : Int) -> String {
           return "null"
         }
       }
-      let _ = match coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
-        Ok(v) => v
-        Err(report) => {
-          println("get_view_tree_json flat-proj read: \{report}")
-          return "null"
-        }
-      }
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.escalation_memo) {
         Ok(v) => v
@@ -62,7 +52,7 @@ pub fn get_view_tree_json(handle : Int) -> String {
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
 pub fn compute_view_patches_json(handle : Int) -> String {
-  match lambda_handles.get(handle) {
+  match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -96,13 +86,6 @@ pub fn compute_view_patches_json(handle : Int) -> String {
           return "[]"
         }
       }
-      let _ = match coordinator.read_protected(h.editor_id, h.cells.proj_memo) {
-        Ok(v) => v
-        Err(report) => {
-          println("compute_view_patches_json flat-proj read: \{report}")
-          return "[]"
-        }
-      }
       let _ = match
         coordinator.read_protected(h.editor_id, h.cells.escalation_memo) {
         Ok(v) => v
@@ -111,14 +94,14 @@ pub fn compute_view_patches_json(handle : Int) -> String {
           return "[]"
         }
       }
-      let state = match view_states.get(handle) {
-        Some(s) => s
-        None => {
-          let s = @editor.ViewUpdateState::ViewUpdateState()
-          view_states[handle] = s
-          s
-        }
-      }
+      let source = h.editor.get_text()
+      let snapshot = @facts.SourceSnapshot::SourceSnapshot(
+        doc_id=h.editor_id.0.to_string(),
+        version=0,
+        source~,
+      )
+      h.companion.clear_stale_pattern_analysis(snapshot)
+      let state = lambda_registry.view_state(handle)
       let patches = @editor.compute_view_patches(state, h.editor)
       Json::array(patches.map(fn(p) { p.to_json() })).stringify()
     }

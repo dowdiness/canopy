@@ -2,7 +2,7 @@
 
 ///|
 test "insert_at inserts at specified position without moving cursor" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("hello")
   editor.move_cursor(0) // cursor at start
   editor.insert_at(5, "!", 0) // insert at end
@@ -12,7 +12,7 @@ test "insert_at inserts at specified position without moving cursor" {
 
 ///|
 test "delete_at deletes at specified position without moving cursor" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("hello!")
   editor.move_cursor(0)
   let deleted = editor.delete_at(5, 0) // delete '!' at position 5
@@ -23,7 +23,7 @@ test "delete_at deletes at specified position without moving cursor" {
 
 ///|
 test "insert_at in middle does not move cursor" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("abcd")
   editor.move_cursor(2) // cursor in middle
   editor.insert_at(2, "X", 0) // insert at cursor position
@@ -34,7 +34,7 @@ test "insert_at in middle does not move cursor" {
 
 ///|
 test "delete_at before cursor clamps cursor to text length" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   // Use per-character inserts to avoid FugueMax batch-insert caveat
   editor.insert("a") catch {
     _ => ()
@@ -61,7 +61,7 @@ test "delete_at before cursor clamps cursor to text length" {
 
 ///|
 test "insert_at records undo" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("abc")
   editor.move_cursor(0)
   editor.insert_at(3, "d", 1000)
@@ -73,7 +73,7 @@ test "insert_at records undo" {
 
 ///|
 test "delete_at records undo" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("abcd")
   editor.move_cursor(0)
   let deleted = editor.delete_at(3, 1000) // delete 'd' at position 3
@@ -86,7 +86,7 @@ test "delete_at records undo" {
 
 ///|
 test "delete_at at end of text returns false" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("abc")
   editor.move_cursor(0)
   let result = editor.delete_at(3, 0) // position == length, nothing to delete
@@ -96,7 +96,7 @@ test "delete_at at end of text returns false" {
 
 ///|
 test "insert_at with multi-char text" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("ac")
   editor.move_cursor(0)
   editor.insert_at(1, "b", 0)
@@ -119,7 +119,7 @@ test "insert_at with multi-char text" {
 ///|
 /// BMP single-code-unit char (Japanese Hiragana). Sanity baseline.
 test "insert: BMP single-code-unit char advances cursor by 1 (baseline)" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("あ") catch {
     _ => ()
   }
@@ -131,7 +131,7 @@ test "insert: BMP single-code-unit char advances cursor by 1 (baseline)" {
 /// #216: backspace after a combining acute accent (NFD form of "é")
 /// removes the whole grapheme cluster.
 test "#216: backspace removes combining grapheme" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -145,7 +145,7 @@ test "#216: backspace removes combining grapheme" {
 
 ///|
 test "insert combining mark leaves cursor on grapheme boundary" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -158,7 +158,7 @@ test "insert combining mark leaves cursor on grapheme boundary" {
 
 ///|
 test "move_cursor snaps interior grapheme offset backward" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -171,7 +171,7 @@ test "move_cursor snaps interior grapheme offset backward" {
 
 ///|
 test "move_cursor_left_grapheme skips combining mark" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -184,7 +184,7 @@ test "move_cursor_left_grapheme skips combining mark" {
 
 ///|
 test "move_cursor_right_grapheme skips combining mark" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -201,7 +201,7 @@ test "move_cursor_right_grapheme skips combining mark" {
 
 ///|
 test "apply_text_edit pure insert snaps mid-cluster to previous boundary" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.insert("e") catch {
     _ => ()
   }
@@ -215,7 +215,7 @@ test "apply_text_edit pure insert snaps mid-cluster to previous boundary" {
 
 ///|
 test "apply_text_edit_exact rejects mid-cluster start" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("e\u{0301}")
   editor.move_cursor(0)
   let accepted = editor.apply_text_edit_exact(1, 0, "X", 0)
@@ -226,7 +226,7 @@ test "apply_text_edit_exact rejects mid-cluster start" {
 
 ///|
 test "apply_text_edit_exact accepts on-boundary splice" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("e\u{0301}")
   let accepted = editor.apply_text_edit_exact(2, 0, "X", 0)
   inspect(accepted, content="true")
@@ -239,7 +239,7 @@ test "apply_text_edit_exact accepts on-boundary splice" {
 
 ///|
 test "insert_at preserves cursor when BMP splice fuses cluster" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("a")
   editor.move_cursor(0)
   editor.insert_at(1, "\u{0301}", 0)
@@ -249,7 +249,7 @@ test "insert_at preserves cursor when BMP splice fuses cluster" {
 
 ///|
 test "RI re-pairing snaps cursor to next grapheme boundary" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("🇯🇵🇺🇸")
   editor.apply_text_edit(4, 0, "🇮", 0)
   inspect(editor.get_text(), content="🇯🇵🇮🇺🇸")
@@ -258,7 +258,7 @@ test "RI re-pairing snaps cursor to next grapheme boundary" {
 
 ///|
 test "ZWJ profession join snaps preserved cursor to grapheme boundary" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("👩💻")
   editor.move_cursor(2)
   editor.insert_at(2, "\u{200D}", 0)
@@ -270,7 +270,7 @@ test "ZWJ profession join snaps preserved cursor to grapheme boundary" {
 /// #216: insert of a surrogate-pair emoji stores the full non-BMP codepoint
 /// and leaves the cursor after the grapheme.
 test "#216: insert non-BMP emoji stores full emoji" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   try! editor.insert("😀")
   inspect(editor.get_text(), content="😀")
   inspect(editor.get_cursor(), content="2")
@@ -280,7 +280,7 @@ test "#216: insert non-BMP emoji stores full emoji" {
 /// #216: ZWJ-family components are non-BMP; inserting one must not produce a
 /// mid-surrogate parser recovery token.
 test "#216: insert ZWJ family member stores full emoji" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   try! editor.insert("👨")
   inspect(editor.get_text(), content="👨")
   inspect(editor.get_cursor(), content="2")
@@ -290,7 +290,7 @@ test "#216: insert ZWJ family member stores full emoji" {
 /// #216: regional indicators are non-BMP and must stay atomic through parser
 /// recovery.
 test "#216: insert regional indicator stores flag half" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   try! editor.insert("🇯")
   inspect(editor.get_text(), content="🇯")
   inspect(editor.get_cursor(), content="2")
@@ -300,7 +300,7 @@ test "#216: insert regional indicator stores flag half" {
 /// #216: `set_text` of a string containing a surrogate pair routes through
 /// the same bulk text mutation path used by external bridge updates.
 test "#216: set_text with non-BMP content stores full emoji" {
-  let editor = @lambda.new_lambda_editor("test-agent").0
+  let editor = @probe.new_test_editor("test-agent")
   editor.set_text("😀")
   inspect(editor.get_text(), content="😀")
   inspect(editor.get_cursor(), content="2")

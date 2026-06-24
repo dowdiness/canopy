@@ -153,7 +153,7 @@ test "escalation: def depends on stuck → stays suppressed" {
 
 ///|
 test "escalation: closure in partial env" {
-  // let f = λx. x + 1
+  // let f = (x) => x + 1
   // let y = ?
   // let z = f 5         → Suppressed by Tier 1
   // z
@@ -284,7 +284,7 @@ test "escalation: top-level type error — applying int as function" {
 
 ///|
 test "escalation: adding closure to int" {
-  // let f = λx.x
+  // let f = (x) => x
   // let y = ?
   // let z = f + 1    → Add requires integers, but f is a closure
   // z

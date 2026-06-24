@@ -3,12 +3,16 @@ package "dowdiness/canopy/ffi/lambda"
 
 import {
   "dowdiness/canopy/editor",
+  "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/transport_ws",
   "dowdiness/lambda/ast",
   "moonbitlang/async/js_async",
 }
 
 // Values
+pub fn apply_ast_grep_results_json(Int, String) -> String
+
 pub fn apply_sync_json(Int, String) -> String
 
 pub fn apply_tree_edit_json(Int, String, Int) -> String
@@ -91,7 +95,13 @@ pub fn insert_and_record(Int, String, Int) -> Unit
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
+pub fn load_file(Int) -> Unit
+
+pub fn on_file_opened(Int, String, Int) -> Unit
+
 pub fn redo_and_export_json(Int) -> String
+
+pub fn register_file_host(@js_ffi.Any) -> Unit
 
 pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
 
@@ -100,6 +110,8 @@ pub fn relay_on_disconnect(String, String) -> Unit
 pub fn relay_on_message(String, String, Bytes) -> Unit
 
 pub fn rename_semantic_node(Int, Int, String, Int) -> String
+
+pub fn save_file(Int, String) -> Unit
 
 pub fn set_text(Int, String) -> Unit
 
@@ -129,7 +141,7 @@ pub fn ws_on_close(Int) -> Unit
 
 pub fn ws_on_message(Int, Bytes) -> Unit
 
-pub fn ws_on_open(Int, @editor.JsWebSocket) -> Unit
+pub fn ws_on_open(Int, @transport_ws.JsWebSocket) -> Unit
 
 pub fn ws_on_watchdog_fire(Int, Int) -> Unit
 

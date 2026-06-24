@@ -172,9 +172,9 @@ This migration is out of scope for Phase 1 — see TODO.md §11.
 `ModuleBinder(binding_node_id, def_index)`. These map to selectable nodes:
 
 - `LamBinder(lam_id)`: the `Lam` node's NodeId. The `Lam` node is a real
-  `ProjNode`. Clicking the `λx` region selects the Lam node.
+  `ProjNode`. Clicking the `(x) =>` region selects the Lam node.
 - `ModuleBinder(binding_node_id, def_index)`: the init expression's NodeId
-  (e.g., for `let add = λx. x + 1`, binding_node_id is the `λx. x + 1`
+  (e.g., for `let add = (x) => x + 1`, binding_node_id is the `(x) => x + 1`
   ProjNode's id). See `flat_proj.mbt:279`.
 
 **Important: there is no standalone LetDef ProjNode.** Module def names are
@@ -192,7 +192,7 @@ is what `ModuleBinder` returns). The `scope_map` entry for the init
 expression's NodeId has `is_definition = true`, `color_index` from the def
 name, and `usage_ids` for all uses of the def name.
 
-For lambda params: clicking the `λx` region selects the Lam node. The
+For lambda params: clicking the `(x) =>` region selects the Lam node. The
 `scope_map` entry for the Lam NodeId has `is_definition = true` for param `x`.
 
 No synthetic binder IDs or new ProjNode types needed. The selectable unit

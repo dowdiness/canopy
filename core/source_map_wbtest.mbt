@@ -43,7 +43,7 @@ test "patch_subtree clears stale token spans" {
   sm.node_to_range[nid] = @loomcore.Range::new(0, 10)
   sm.set_token_span(nid, "param", @loomcore.Range::new(2, 4))
   // Patch the node — should clear its token spans
-  let node : ProjNode[Int] = ProjNode::new(42, 0, 12, 1, [])
+  let node : ProjNode[Int] = ProjNode(42, 0, 12, 1, [])
   sm.patch_subtree(node)
   let spans = sm.get_all_token_spans(nid)
   inspect(spans.length(), content="0")

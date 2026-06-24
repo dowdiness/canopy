@@ -17,35 +17,69 @@ fn placeholder_term_for_kind(kind : @ast.Term) -> @ast.Term {
 }
 
 ///|
-/// Find the start position of the "let " keyword by scanning backwards
-/// from a known position in the source text.
-fn find_let_start(source_text : String, from : Int) -> Int {
-  let mut pos = from
-  while pos > 0 {
-    pos = pos - 1
-    if pos + 3 < source_text.length() &&
-      source_text[pos] == 'l' &&
-      source_text[pos + 1] == 'e' &&
-      source_text[pos + 2] == 't' &&
-      source_text[pos + 3] == ' ' {
-      return pos
+fn range_contains_arrow(source_text : String, range : @loomcore.Range) -> Bool {
+  let mut found = false
+  for pos = range.start; pos + 1 < range.end; pos = pos + 1 {
+    if source_text[pos] == '=' && source_text[pos + 1] == '>' {
+      found = true
+      break
     }
   }
-  pos
+  found
 }
 
 ///|
-/// Find a module binding's index in module_projection.defs by its NodeId.
-fn find_def_index(
-  module_projection : ModuleProjection,
-  binding_node_id : NodeId,
-) -> Result[Int, String] {
-  for i, def in module_projection.defs {
-    if def.3 == binding_node_id {
-      return Ok(i)
+fn is_space_code(code : UInt16) -> Bool {
+  code == ' ' || code == '\n' || code == '\t' || code == '\r'
+}
+
+///|
+fn first_non_space_in_range(
+  source_text : String,
+  range : @loomcore.Range,
+) -> Int? {
+  for pos = range.start; pos < range.end; pos = pos + 1 {
+    if !is_space_code(source_text[pos]) {
+      return Some(pos)
     }
   }
-  Err("Binding not found: " + binding_node_id.to_string())
+  None
+}
+
+///|
+fn is_source_arrow_lambda_range(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+  range : @loomcore.Range,
+) -> Bool {
+  let _ = node_id
+  match first_non_space_in_range(ctx.source_text, range) {
+    Some(start) =>
+      start < ctx.source_text.length() &&
+      ctx.source_text[start] == '(' &&
+      range_contains_arrow(ctx.source_text, range)
+    None => false
+  }
+}
+
+///|
+fn ensure_replaceable_node_range(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+  node : ProjNode[@ast.Term],
+  range : @loomcore.Range,
+) -> Result[Unit, String] {
+  match node.kind {
+    @ast.Term::Lam(_, _) =>
+      if is_source_arrow_lambda_range(ctx, node_id, range) {
+        Ok(())
+      } else {
+        Err(
+          "Cannot edit synthetic lambda parameter directly; edit the enclosing expression or function body",
+        )
+      }
+    _ => Ok(())
+  }
 }
 
 ///|
@@ -83,17 +117,27 @@ fn find_parent(
 }
 
 ///|
-/// Get the text range of a binding line: from "let " to end of init expression.
-/// Returns (let_start, init_end).
+/// Get the text range of a binding line: from the stored definition start to
+/// the end of the binding syntax. The stored start is syntax-derived, so it
+/// covers both `let` and `fn` bindings without keyword-specific scanning.
+/// Returns (binding_start, binding_end).
 fn get_binding_text_range(
   source_text : String,
   source_map : SourceMap,
-  def : (String, ProjNode[@ast.Term], Int, NodeId),
+  def : EditModuleBinding,
 ) -> Result[(Int, Int), String] {
-  let init_node = def.1
+  let init_node = def.init
   guard source_map.get_range(init_node.id()) is Some(init_range) else {
     return Err("Init node not in source map")
   }
-  let let_start = find_let_start(source_text, init_range.start)
-  Ok((let_start, init_range.end))
+  let binding_end = match source_map.get_range(def.binding_id) {
+    Some(binding_range) => binding_range.end
+    None => return Err("Binding node not in source map")
+  }
+  if def.start < 0 ||
+    def.start > source_text.length() ||
+    def.start > binding_end {
+    return Err("Binding start out of source range")
+  }
+  Ok((def.start, binding_end))
 }
