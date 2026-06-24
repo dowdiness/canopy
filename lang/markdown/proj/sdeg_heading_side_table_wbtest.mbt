@@ -579,3 +579,42 @@ test "sdeg phase1: retired rows with fallback stable_id satisfy invariants" {
     content="true",
   )
 }
+
+///|
+test "sdeg phase1: collect_garbage removes retired rows only" {
+  // Create a table with a retired row (manually constructed) and a live row
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 0)
+  let retired = {
+    ..heading_side_table_live_row(old_a),
+    current_id: None,
+    status: HeadingRetired,
+    candidates: [],
+  }
+  let live = heading_side_table_live_row(old_b)
+  let rows = [retired, live]
+  let table = { rows, current_index: heading_current_index(rows), retention_threshold: 0, next_entity_seed: -1 }
+  let gc_table = table.collect_garbage()
+
+  // Retired row removed, live row kept
+  inspect(gc_table.rows.length(), content="1")
+  let remaining = gc_table.rows.iter().find_first(row => row.status == HeadingLive).unwrap()
+  inspect(remaining.stable_id == HeadingStableRowId::from_node(old_b.id), content="true")
+  inspect(
+    heading_side_table_invariants_hold(gc_table, [old_b]),
+    content="true",
+  )
+}
+
+///|
+test "sdeg phase1: collect_garbage is no-op on table with no retired rows" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let table = HeadingSideTable::from_observations([old_a])
+  let gc_table = table.collect_garbage()
+
+  inspect(gc_table.rows.length(), content="1")
+  inspect(
+    heading_side_table_invariants_hold(gc_table, [old_a]),
+    content="true",
+  )
+}

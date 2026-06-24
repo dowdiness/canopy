@@ -229,7 +229,32 @@ will also check that no pinning reference targets the row.
 
 Retired rows are inert — they do not participate in matching and cannot become
 `Live` again — but they remain in the row array. Physical removal (GC) is
-future work.
+handled by `HeadingSideTable::collect_garbage`, which drops all rows where
+`gc_eligible` returns `true`.
+
+### Stable_id fallback after retirement
+
+The `stable_id` of a row is seeded from its origin `NodeId` via
+`HeadingStableRowId::from_node`. When a row reaches `Retired` and later a new
+observation appears with the same `NodeId` (e.g. after undo), the retired row
+still holds that `stable_id`. Instead of blocking the fresh row (which would
+leave the heading with no `current_index` entry), the side table assigns a
+**unique fallback stable_id** from its `next_entity_seed` counter:
+
+- `next_entity_seed` starts at `-1` and decrements on each fallback.
+- Fallback stable IDs use negative `NodeId` values on the assumption that
+  projection-generated `NodeId`s are always non-negative.
+- The counter is session-local, not serialized, and never wraps in practice.
+- The retired row keeps its original `stable_id`; only the new `Live` row gets
+  the fallback.
+
+Contract:
+
+- Fallback stable_ids are unique across all rows within one side table
+  snapshot, so the `stable_id`-uniqueness invariant (S6) is preserved.
+- Fallback stable_ids are **not** durable or reload-stable — they are
+  session-local and derived from a monotonic counter, not from document content
+  or projection identity.
 
 ### Recovery and `last_live`
 

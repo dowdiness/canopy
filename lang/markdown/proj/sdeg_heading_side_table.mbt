@@ -466,3 +466,13 @@ fn HeadingSideTable::advance(
   let rows = next_rows + fresh_rows
   { rows, current_index: heading_current_index(rows), retention_threshold: self.retention_threshold, next_entity_seed }
 }
+
+///|
+/// Drop all rows where `gc_eligible` returns `true`. Returns a new table
+/// with only rows that are still active or retainable.
+/// No-op when no retired rows exist.
+#warnings("-unused_value")
+fn HeadingSideTable::collect_garbage(self : HeadingSideTable) -> HeadingSideTable {
+  let rows = self.rows.iter().filter(row => !gc_eligible(row)).collect()
+  { rows, current_index: heading_current_index(rows), retention_threshold: self.retention_threshold, next_entity_seed: self.next_entity_seed }
+}
