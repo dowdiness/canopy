@@ -17,7 +17,8 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      run_benchmarks: ${{ steps.filter.outputs.run_benchmarks }}
+      run_moon_benchmarks: ${{ steps.filter.outputs.run_moon_benchmarks }}
+      run_editor_response: ${{ steps.filter.outputs.run_editor_response }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +27,7 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            run_benchmarks:
+            run_moon_benchmarks:
               - '**/*.mbt'
               - '**/moon.pkg'
               - '**/moon.mod'
@@ -44,16 +45,18 @@ jobs:
               - '.github/workflows/benchmark.yml'
               - 'scripts/moon-update.sh'
               - 'scripts/run-moon-module.sh'
-              - 'examples/ideal/web/**'
+            run_editor_response:
+              - 'examples/ideal/**'
               - 'examples/web/vite-plugin-moonbit.ts'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/benchmark.yml'
+              - 'scripts/moon-update.sh'
 
-  benchmark-comparison:
-    name: Compare Benchmarks
+  benchmark-pr:
+    name: Benchmark PR Branch
     needs: benchmark-gate
-    if: needs.benchmark-gate.outputs.run_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -90,20 +93,43 @@ jobs:
             exit 0
           fi
 
-      - name: Store PR results
-        run: |
-          mkdir -p benchmark-results
-          cp pr_bench.txt benchmark-results/
-          cp pr_egw_bench.txt benchmark-results/
+      - name: Upload PR benchmark results
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-benchmark-results
+          path: |
+            pr_bench.txt
+            pr_egw_bench.txt
+          retention-days: 7
+
+  benchmark-base:
+    name: Benchmark Base Branch
+    needs: benchmark-gate
+    if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore base benchmark cache
+        id: base-benchmark-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            base_bench.txt
+            base_egw_bench.txt
+          key: benchmark-base-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Checkout base branch
+        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           submodules: recursive
-          clean: false
+
+      - name: Set up MoonBit
+        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-moonbit
 
       - name: Run base benchmarks
+        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
@@ -115,6 +141,7 @@ jobs:
           fi
 
       - name: Run submodule benchmarks (base - event-graph-walker)
+        if: steps.base-benchmark-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         run: |
           if (
@@ -128,26 +155,66 @@ jobs:
             cat base_egw_bench.txt
           fi
 
+      - name: Save base benchmark cache
+        if: always() && steps.base-benchmark-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            base_bench.txt
+            base_egw_bench.txt
+          key: ${{ steps.base-benchmark-cache.outputs.cache-primary-key }}
+
+      - name: Upload base benchmark results
+        uses: actions/upload-artifact@v7
+        with:
+          name: base-benchmark-results
+          path: |
+            base_bench.txt
+            base_egw_bench.txt
+          retention-days: 7
+
+  benchmark-comparison:
+    name: Compare Benchmarks
+    needs: [benchmark-gate, benchmark-pr, benchmark-base]
+    if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download PR benchmark results
+        uses: actions/download-artifact@v7
+        with:
+          name: pr-benchmark-results
+          path: benchmark-results/pr
+
+      - name: Download base benchmark results
+        uses: actions/download-artifact@v7
+        with:
+          name: base-benchmark-results
+          path: benchmark-results/base
+
       - name: Compare results
         id: compare
         run: |
+          base_ref="${{ github.base_ref || github.event.repository.default_branch }}"
           {
             echo "## Benchmark Comparison Report"
             echo ""
-            echo "Comparing PR branch against \`${{ github.base_ref }}\`"
+            echo "Comparing PR branch against \`${base_ref}\`"
             echo ""
 
             echo "### Main Module Benchmarks"
             echo ""
             echo "**Base branch:**"
             echo '```'
-            cat base_bench.txt
+            cat benchmark-results/base/base_bench.txt
             echo '```'
             echo ""
 
             echo "**PR branch:**"
             echo '```'
-            cat benchmark-results/pr_bench.txt
+            cat benchmark-results/pr/pr_bench.txt
             echo '```'
             echo ""
 
@@ -155,13 +222,13 @@ jobs:
             echo ""
             echo "**Base branch:**"
             echo '```'
-            cat base_egw_bench.txt
+            cat benchmark-results/base/base_egw_bench.txt
             echo '```'
             echo ""
 
             echo "**PR branch:**"
             echo '```'
-            cat benchmark-results/pr_egw_bench.txt
+            cat benchmark-results/pr/pr_egw_bench.txt
             echo '```'
             echo ""
 
@@ -170,6 +237,7 @@ jobs:
           } > comparison.md
 
       - name: Post comment to PR
+        if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v9
         with:
@@ -204,22 +272,22 @@ jobs:
               });
             }
 
-      - name: Upload benchmark results
+      - name: Upload benchmark comparison
         uses: actions/upload-artifact@v7
         with:
           name: benchmark-comparison
           path: |
-            base_bench.txt
-            benchmark-results/pr_bench.txt
-            base_egw_bench.txt
-            benchmark-results/pr_egw_bench.txt
+            benchmark-results/base/base_bench.txt
+            benchmark-results/pr/pr_bench.txt
+            benchmark-results/base/base_egw_bench.txt
+            benchmark-results/pr/pr_egw_bench.txt
             comparison.md
           retention-days: 30
 
   editor-response-benchmark:
     name: Editor Response Benchmark
     needs: benchmark-gate
-    if: needs.benchmark-gate.outputs.run_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch

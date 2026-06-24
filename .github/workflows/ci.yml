@@ -217,36 +217,6 @@ jobs:
           eval $(opam env)
           moon prove
 
-  benchmark:
-    name: Run Benchmarks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Set up MoonBit
-        uses: ./.github/actions/setup-moonbit
-
-      - name: Update dependencies
-        run: ./scripts/update-moon-deps.sh
-
-      - name: Run main module benchmarks
-        # Workspace includes vendored submodules (alga) with pre-existing
-        # benchmark failures (stack overflow in graph algorithms).
-        run: moon bench --release
-        continue-on-error: true
-
-      - name: Run event-graph-walker benchmarks
-        # Vendored submodule errors surface during workspace bench runs.
-        continue-on-error: true
-        working-directory: event-graph-walker
-        run: |
-          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-          moon bench --release
-
   format-check:
     name: Format Check
     runs-on: ubuntu-latest
