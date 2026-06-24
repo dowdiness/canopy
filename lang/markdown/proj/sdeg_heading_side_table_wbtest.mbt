@@ -96,7 +96,6 @@ fn stable_row_claim_count(
 ) -> Int {
   rows
   .iter()
-  .filter(row_active)
   .filter(row => row.stable_id == stable_id)
   .count()
 }
@@ -164,10 +163,7 @@ fn heading_side_table_invariants_hold(
   table.rows
   .iter()
   .all(row => {
-    (
-      row.status == HeadingRetired ||
-      stable_row_claim_count(table.rows, row.stable_id) == 1
-    ) &&
+    stable_row_claim_count(table.rows, row.stable_id) == 1 &&
     evidence_has_any_candidate_count(row.evidence) &&
     heading_side_table_row_shape_valid(row, table.rows, current)
   })
@@ -524,12 +520,12 @@ test "sdeg phase0: NodeId side table retired rows do not revive" {
 
   inspect(old_row.status == HeadingRetired, content="true")
   inspect(old_row.current_id is None, content="true")
-  inspect(live_current_claim_count(advanced.rows, current_a.id), content="1")
+  inspect(live_current_claim_count(advanced.rows, current_a.id), content="0")
   inspect(
-    advanced.entity_for_current_node(current_a.id) is Some(_),
+    advanced.entity_for_current_node(current_a.id) is None,
     content="true",
   )
-  inspect(advanced.rows.length(), content="2")
+  inspect(advanced.rows.length(), content="1")
   inspect(
     heading_side_table_invariants_hold(advanced, [current_a]),
     content="true",

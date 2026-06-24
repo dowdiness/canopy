@@ -152,7 +152,7 @@ fn side_table_has_stable_id(
   rows : Array[HeadingSideTableRow],
   stable_id : HeadingStableRowId,
 ) -> Bool {
-  rows.iter().filter(row_active).any(row => row.stable_id == stable_id)
+  rows.iter().any(row => row.stable_id == stable_id)
 }
 
 ///|
