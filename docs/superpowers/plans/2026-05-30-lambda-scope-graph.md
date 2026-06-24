@@ -29,7 +29,7 @@ trust the *old* assumptions some of these correct:
   `@core.NodeId(n)`. Source: `core/types.mbt:6`.
 - **ProjNode:** `@core.ProjNode[T]` with `.id() -> NodeId`, `.children`,
   `.kind`, `.start`, `.end`; construct via
-  `@core.ProjNode::new(kind, start, end, node_id, children)`. Source:
+  `@core.ProjNode(kind, start, end, node_id, children)`. Source:
   `core/proj_node.mbt:7,32`.
 - **Registry walk:** `@core.collect_registry(node, reg)` fills
   `reg : Map[@core.NodeId, @core.ProjNode[T]]` by walking the tree. Source:
@@ -304,8 +304,8 @@ fn find_var_node(
 ///|
 test "build_parent_map: child maps to parent" {
   // Hand-built tree: root(id=0) Lam with one child Var(id=1).
-  let child = @core.ProjNode::new(@ast.Term::Var("x"), 0, 1, 1, [])
-  let root = @core.ProjNode::new(
+  let child = @core.ProjNode(@ast.Term::Var("x"), 0, 1, 1, [])
+  let root = @core.ProjNode(
     @ast.Term::Lam("x", @ast.Term::Var("x")),
     0,
     5,

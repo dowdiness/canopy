@@ -488,7 +488,7 @@ InsertChild needs to determine the insertion position within the parent. For Mod
                 }
                 _ => {
                   // Non-Module parent: re-render whole parent with child inserted
-                  let new_child_node = ProjNode::new(kind, 0, 0, 0, [])
+                  let new_child_node = ProjNode(kind, 0, 0, 0, [])
                   let new_parent = insert_child_at(parent_node, index, new_child_node)
                   let new_text = @ast.print_term(new_parent.kind)
                   Ok(Some([{ start: parent_range.start, delete_len: parent_range.end - parent_range.start, inserted: new_text }]))

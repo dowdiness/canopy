@@ -749,7 +749,7 @@ pub fn syntax_to_proj_node(
     // StringValue node contains a StringToken child. Extract its text.
     let raw = node.token_text(@json.StringToken.to_raw())
     let inner = @json.parse_json_string(raw)
-    ProjNode::new(
+    ProjNode(
       @json.String(inner),
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
@@ -759,7 +759,7 @@ pub fn syntax_to_proj_node(
     // NumberValue node contains a NumberToken child. Extract its text.
     let text = node.token_text(@json.NumberToken.to_raw())
     let n = try { @strconv.parse_double(text) } catch { _ => 0.0 }
-    ProjNode::new(
+    ProjNode(
       @json.Number(n),
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
@@ -768,21 +768,21 @@ pub fn syntax_to_proj_node(
   } else if kind == @json.BoolValue.to_raw() {
     // BoolValue node contains either TrueKeyword or FalseKeyword token.
     let b = node.find_token(@json.TrueKeyword.to_raw()) is Some(_)
-    ProjNode::new(
+    ProjNode(
       @json.Bool(b),
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
       [],
     )
   } else if kind == @json.NullValue.to_raw() {
-    ProjNode::new(
+    ProjNode(
       @json.Null,
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
       [],
     )
   } else if kind == @json.ErrorNode.to_raw() {
-    ProjNode::new(
+    ProjNode(
       @json.Error("parse error"),
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
@@ -793,7 +793,7 @@ pub fn syntax_to_proj_node(
     match node.nth_child(0) {
       Some(child) => syntax_to_proj_node(child, counter)
       None =>
-        ProjNode::new(
+        ProjNode(
           @json.Null,
           node.start(), node.end(),
           @core.next_proj_node_id(counter),
@@ -806,7 +806,7 @@ pub fn syntax_to_proj_node(
     match node.nth_child(0) {
       Some(value_node) => syntax_to_proj_node(value_node, counter)
       None =>
-        ProjNode::new(
+        ProjNode(
           @json.Error("empty member"),
           node.start(), node.end(),
           @core.next_proj_node_id(counter),
@@ -814,7 +814,7 @@ pub fn syntax_to_proj_node(
         )
     }
   } else {
-    ProjNode::new(
+    ProjNode(
       @json.Error("unknown node kind"),
       node.start(), node.end(),
       @core.next_proj_node_id(counter),
@@ -836,7 +836,7 @@ fn build_object_node(
       members.push((key, value_kind))
       // Use the MemberNode's span for the child ProjNode, not the value's span.
       // This ensures SourceMap::get_range() covers "key": value for delete.
-      let member_proj = ProjNode::new(
+      let member_proj = ProjNode(
         value_proj.kind,
         child.start(),  // MemberNode start
         child.end(),    // MemberNode end
@@ -846,7 +846,7 @@ fn build_object_node(
       children.push(member_proj)
     }
   }
-  ProjNode::new(
+  ProjNode(
     @json.Object(members),
     node.start(), node.end(),
     @core.next_proj_node_id(counter),
@@ -866,7 +866,7 @@ fn build_array_node(
     items.push(proj.kind)
     children.push(proj)
   }
-  ProjNode::new(
+  ProjNode(
     @json.Array(items),
     node.start(), node.end(),
     @core.next_proj_node_id(counter),
@@ -903,7 +903,7 @@ fn extract_member(
   let value_proj = match member_node.nth_child(0) {
     Some(v) => syntax_to_proj_node(v, counter)
     None =>
-      ProjNode::new(
+      ProjNode(
         @json.Error("missing value"),
         member_node.start(), member_node.end(),
         @core.next_proj_node_id(counter),
