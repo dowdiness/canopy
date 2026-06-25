@@ -1,4 +1,4 @@
-# SDEG NodeId Side Table Sketch
+# SDEG NodeId side-table sketch
 
 **Status:** Internal design sketch. Not implemented behavior and not a public API.
 
@@ -7,14 +7,17 @@ side-table shape worth trying before adding a stable entity core or durable
 `EntityId`.
 
 **Phase 1 lifecycle note:** the active Phase 1 plan supersedes this sketch where
-lifecycle naming differs. In particular, Phase 1 uses `Missing` for first
-absence and reaches `Tombstoned` only after a retention threshold. The
-`Tombstoned → Retired` transition is now implemented via a configurable
-`retention_threshold` on the side table (issue #746); rows track
+lifecycle naming differs. In particular, Phase 1 uses `Missing` for first absence
+and reaches `Tombstoned` only after a retention threshold.
+
+The `Tombstoned → Retired` transition is now implemented via a configurable
+`retention_threshold` on the side table (issue #746). Rows track
 `consecutive_absences`, and `gc_eligible` is a predicate over `Retired` rows
-(issue #745). Keep this sketch as prior evidence for same-node priority,
-one-to-one assignment, and snapshot invariants, not as the final lifecycle
-contract. See the [Retention threshold](#retention-threshold) section below.
+(issue #745).
+
+Keep this sketch as prior evidence for same-node priority, one-to-one assignment,
+and snapshot invariants rather than as the final lifecycle contract. See the
+[Retention threshold](#retention-threshold) section below.
 
 ## Intent
 
@@ -237,9 +240,11 @@ handled by `HeadingSideTable::collect_garbage`, which drops all rows where
 The `stable_id` of a row is seeded from its origin `NodeId` via
 `HeadingStableRowId::from_node`. When a row reaches `Retired` and later a new
 observation appears with the same `NodeId` (e.g. after undo), the retired row
-still holds that `stable_id`. Instead of blocking the fresh row (which would
-leave the heading with no `current_index` entry), the side table assigns a
-**unique fallback stable_id** from its `next_entity_seed` counter:
+still holds that `stable_id`.
+
+Instead of blocking the fresh row, which would leave the heading with no
+`current_index` entry, the side table assigns a **unique fallback stable_id** from
+its `next_entity_seed` counter:
 
 - `next_entity_seed` starts at `-1` and decrements on each fallback.
 - Fallback stable IDs use negative `NodeId` values on the assumption that
@@ -337,14 +342,25 @@ needs reload/peer stability, projection-independent graph relations,
 language-independent evidence storage beyond an extensible enum, or durable CRDT
 anchors in matching.
 
-## Next slice
+## Current Markdown slice
 
-The Markdown white-box spike now mirrors this sketch in
+The Markdown implementation remains package-private, but it is no longer only a
+white-box spike.
+
+The production projection path now attaches a private heading side-table memo to
+the returned source-map memo. That memo derives snapshot validity from parser
+diagnostics plus recovered projection `Error` nodes before calling `advance`, so
+valid deletes advance the absence ladder while malformed snapshots take the hold
+path.
+
+The implementation mirrors this sketch in
 `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt`: it has a stable-row
 wrapper, an evidence-bearing matcher, same-node match priority, global
 one-to-one conflict handling, ambiguous candidate retention, retired-row
-behavior, the retention threshold (`Tombstoned → Retired` transition), and
-snapshot invariant tests. Shared heading observation helpers remain in
+behavior, the retention threshold (`Tombstoned → Retired` transition), invalid
+snapshot hold semantics, and snapshot invariant tests.
+
+Shared heading observation helpers remain in
 `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`.
 
 Implemented since the initial sketch:
@@ -354,13 +370,16 @@ Implemented since the initial sketch:
   the old "keep tombstones forever" behavior. Positive values enable the
   `Tombstoned → Retired` transition when `consecutive_absences` reaches the
   threshold.
-- **`gc_eligible` predicate** (issue #745): `Retired` rows are collectable.
-  Physical row removal is not yet implemented.
+- **`gc_eligible` predicate** (issue #745): `Retired` rows are collectable through
+  `HeadingSideTable::collect_garbage`; production row removal still needs a live
+  pinning-reference policy.
+- **Snapshot validity wiring** (issues #748/#764, shipped by PR #767): the
+  Markdown source-map memo path supplies parser/projection validity to the
+  side-table memo before advancing it.
 
-Keep that implementation package-private or test-local. Promote a shared helper
-only after another entity kind needs the same lifecycle semantics, and verify
-`moon info` shows no accidental public API drift. No TypeScript-side integration
-exists yet.
+Keep that implementation package-private. Promote a shared helper only after
+another entity kind needs the same lifecycle semantics, and verify `moon info`
+shows no accidental public API drift. No TypeScript-side integration exists yet.
 
 Related:
 

@@ -544,8 +544,8 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 - [x] Distinguish delete from malformed transient absence (#748).
   Why: The lifecycle `Missing` state conflates a committed delete with a transient parse failure. Both produce zero current observations, but delete should progress toward retirement while a transient absence should recover when the observation reappears.
-  Shipped: the Markdown projection pipeline now attaches a private heading side-table memo to the returned source-map memo. It derives snapshot validity from parser diagnostics plus recovered projection `Error` nodes before calling `advance`, so valid deletes advance absence counters while malformed snapshots hold.
-  Evidence: `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt` covers valid delete advancement and malformed snapshot hold through the production memo path. No public SDEG or `.mbti` surface was added.
+  Shipped: the Markdown projection pipeline now attaches a private heading side-table memo to the returned source-map memo. It derives snapshot validity from parser diagnostics plus recovered projection `Error` nodes before calling `advance`, so valid deletes advance absence counters while malformed snapshots mark live/ambiguous rows unavailable without advancing the absence ladder.
+  Evidence: `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt` covers valid delete advancement and malformed snapshot unavailable-state behavior through the production memo path. No public SDEG or `.mbti` surface was added.
 
 ## Shipped history
 

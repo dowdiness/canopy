@@ -1,6 +1,6 @@
-# Stable Document Entity Graph
+# Stable document entity graph
 
-**Status:** Design direction, not implemented behavior.
+**Status:** Design direction rather than implemented behavior.
 
 This note names the direction for Canopy's next identity layer. It should guide
 experiments and plans, but code and generated interfaces remain authoritative.
@@ -82,19 +82,24 @@ This evidence is valuable even before it drives behavior. The first spike should
 surface it in tests and debug views so identity failures become explainable.
 
 > **Review note (positional ≠ semantic).** A surviving projection `NodeId`
-> proves projection-*handle* continuity, not semantic continuity: pure sibling
-> reorder keeps the old `NodeId`s but re-attaches them by position, so same-node
-> evidence is positional and meaning-stability is *not* guaranteed across reorder
-> without explicit move provenance. Consumers must not treat a live entity's
-> meaning as stable across such edits. Explicit move provenance
-> (`MarkdownEditOp::MoveBlock`) supplies the corrective `IdentityTransform::Move`
-> for root-sibling (#723) and same-list item (#731) reorders. Cross-container
-> moves (the sibling-level reconciler cannot follow a node across a container
-> boundary without ancestor-aware reconciliation) and whole-list-container moves
-> (containers match by kind alone, so a moved list cannot be uniquely identified)
-> stay rejected with a proof-backed reason (#724). See
-> [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1, and
-> *Decision: Markdown move-provenance scope*).
+> proves projection-*handle* continuity rather than semantic continuity.
+>
+> Pure sibling reorder keeps the old `NodeId`s but re-attaches them by position,
+> so same-node evidence is positional and meaning-stability is *not* guaranteed
+> across reorder without explicit move provenance.
+>
+> Consumers must not treat a live entity's meaning as stable across such edits.
+> Explicit move provenance (`MarkdownEditOp::MoveBlock`) supplies the corrective
+> `IdentityTransform::Move` for root-sibling (#723) and same-list item (#731)
+> reorders.
+>
+> Cross-container moves stay rejected because the sibling-level reconciler cannot
+> follow a node across a container boundary without ancestor-aware reconciliation.
+> Whole-list-container moves also stay rejected because containers match by kind
+> alone, so a moved list cannot be uniquely identified.
+>
+> See [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1,
+> and *Decision: Markdown move-provenance scope*).
 
 ## Stability scopes
 
@@ -129,14 +134,16 @@ once the required durability behavior is proven.
 ## Relationship to event-graph-walker
 
 `event-graph-walker` remains the durable collaboration substrate. It owns causal
-history, text/tree CRDT semantics, sync, and undo. The stable entity layer should
-compose with it, not duplicate it.
+history, text/tree CRDT semantics, sync, and undo.
+
+The stable entity layer should compose with it, not duplicate it.
 
 Not every semantic entity should become a durable CRDT object. Use durable CRDT
 identity for document objects whose structure is itself collaboratively edited,
-such as blocks or user-created structural nodes. Treat syntax-derived entities,
-such as headings or declarations, as extracted and reconciled unless a product
-case proves they need durable identity.
+such as blocks or user-created structural nodes.
+
+Treat syntax-derived entities, such as headings or declarations, as extracted and
+reconciled unless a product case proves they need durable identity.
 
 ## Relationship to the incremental runtime
 
@@ -179,10 +186,11 @@ The states describe an entity's relationship to the *current document*:
 - retired: no longer eligible for matching.
 
 `garbage-collectable` is **not** a sixth state. It is a *predicate over retired
-entities* — a property of an entity's relationship to its referrers and storage,
-which is a different axis from the document-observation states above. Keeping it a
-predicate, not a state, keeps garbage collection a policy layered on the lifecycle
-rather than a transition baked into the state machine.
+entities* — a property of an entity's relationship to its referrers and storage.
+That is a different axis from the document-observation states above.
+
+Keeping it a predicate rather than a state keeps garbage collection a policy
+layered on the lifecycle rather than a transition baked into the state machine.
 
 ### Reference policy for non-live entities
 
@@ -220,22 +228,28 @@ By consumer class:
 ### Garbage collection
 
 A retired entity is garbage-collectable when no pinning reference targets it.
-Because no pinning references exist today, every retired entity is collectable;
-the predicate's form reserves the future case where an edge keeps a retired entity
-alive. The transition *into* retired depends on a retention threshold that is left
-to a later decision; this section fixes only the safety precondition for
-discarding — the precondition that garbage collection, undo correctness, and
-bounded retention all depend on.
+Because no pinning references exist today, every retired entity is collectable.
+The predicate's form reserves the future case where an edge keeps a retired
+entity alive.
 
-> **Still open.** *`missing` is overloaded.* A committed delete and a transient
-> malformed parse both produce an absent entity, so `missing` cannot distinguish
-> them without a delete- or parse-validity signal feeding the side table. The
-> "stable across malformed intermediate input" scope depends on resolving this.
+The transition *into* retired depends on a retention threshold that is left to a
+later decision. This section fixes only the safety precondition for discarding —
+the precondition that garbage collection, undo correctness, and bounded retention
+all depend on.
+
+> **Markdown heading slice resolved.** A committed delete and a transient
+> malformed parse both produce an absent heading, but the production Markdown
+> heading side-table now separates them before lifecycle advancement.
+>
+> PR #767 derives snapshot validity from parser diagnostics plus projection
+> `Error` nodes in the source-map memo path: valid deletes advance absence
+> counters, while malformed snapshots mark live/ambiguous rows unavailable
+> (`Missing`, no current anchor or candidates) without incrementing absence
+> counters.
 >
 > The [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
 > authoritative, code-grounded transition table, the per-state resolution rules,
-> and the gap inventory (the reference policy here resolves G13/L5 and the
-> garbage-collection half of G4/L4; G2 remains open).
+> and the gap inventory for future non-Markdown or public-SDEG generalization.
 
 ## Phase 0 spike
 
