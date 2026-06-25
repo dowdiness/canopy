@@ -73,8 +73,8 @@ jobs:
 
       - name: Run PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        # Workspace includes vendored submodules (alga) with pre-existing
-        # benchmark failures (stack overflow in graph algorithms).
+        # Workspace includes vendored submodules with pre-existing
+        # benchmark failures.
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
@@ -87,7 +87,7 @@ jobs:
 
       - name: Run submodule benchmarks (event-graph-walker)
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        # Vendored submodule errors (alga trait mismatches, try? warnings)
+        # Vendored submodule errors (try? warnings and other pre-existing issues)
         # surface during workspace bench runs.  Continue on error — the
         # comparison is informational, not a gate.
         continue-on-error: true
@@ -327,13 +327,14 @@ jobs:
           retention-days: 30
 
   editor-response-benchmark:
-    name: Editor Response Benchmark
+    name: Editor Response Benchmark Gate
     needs: benchmark-gate
     runs-on: ubuntu-latest
     steps:
-      - name: Skip editor response benchmark
+      - name: Report benchmark not applicable
         if: needs.benchmark-gate.outputs.run_editor_response != 'true' && github.event_name != 'workflow_dispatch'
-        run: echo "No editor response benchmark-relevant changes detected; skipping editor response benchmark."
+        run: |
+          echo "Editor response benchmark not applicable: no editor-response paths changed."
 
       - name: Checkout PR branch
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'

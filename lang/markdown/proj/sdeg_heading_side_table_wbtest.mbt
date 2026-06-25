@@ -759,6 +759,111 @@ test "sdeg phase1: invalid initial snapshot creates no durable rows" {
 }
 
 ///|
+fn force_markdown_heading_side_table(
+  side_table : @incr.Derived[HeadingSideTable],
+  source_map : @incr.Derived[@core.SourceMap],
+) -> HeadingSideTable {
+  let _ = source_map.read_or_abort()
+  side_table.read_or_abort()
+}
+
+///|
+fn completed_cell_label(
+  runtime : @incr.Runtime,
+  event : @incr.DerivedEvent,
+) -> String? {
+  match event {
+    @incr.DerivedEvent::Completed(completed) =>
+      match runtime.cell_info(completed.cell_id) {
+        Some(info) => info.label
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+test "sdeg phase1: public projection memos force heading side table through source map" {
+  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let runtime = parser.runtime()
+  let completed_labels : Array[String] = []
+  try! runtime.on_derived_event(event => {
+    match completed_cell_label(runtime, event) {
+      Some(label) => completed_labels.push(label)
+      None => ()
+    }
+  })
+  let (_, _, source_map) = build_markdown_projection_memos(parser)
+
+  let _ = source_map.read_or_abort()
+  inspect(
+    completed_labels.contains("markdown_heading_side_table"),
+    content="true",
+  )
+
+  completed_labels.clear()
+  parser.set_source("")
+  let _ = source_map.read_or_abort()
+  inspect(
+    completed_labels.contains("markdown_heading_side_table"),
+    content="true",
+  )
+  runtime.clear_derived_event_listener()
+}
+
+///|
+test "sdeg phase1: production side table memo treats valid delete as absence evidence" {
+  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let bundle = build_markdown_projection_memos_with_heading_side_table(parser)
+  let source_map = bundle.source_map_memo
+  let side_table = bundle.heading_side_table_memo
+  let initial = force_markdown_heading_side_table(side_table, source_map)
+  let initial_row = initial.rows[0]
+
+  parser.set_source("")
+  let missing = force_markdown_heading_side_table(side_table, source_map)
+  let missing_row = find_side_table_row(missing, initial_row.last_live.id).unwrap()
+
+  parser.set_source("\n")
+  let tombstoned = force_markdown_heading_side_table(side_table, source_map)
+  let tombstoned_row = find_side_table_row(tombstoned, initial_row.last_live.id).unwrap()
+
+  inspect(initial.rows.length(), content="1")
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(missing_row.consecutive_absences, content="1")
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.consecutive_absences, content="2")
+}
+
+///|
+test "sdeg phase1: production side table memo holds malformed snapshots" {
+  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let bundle = build_markdown_projection_memos_with_heading_side_table(parser)
+  let source_map = bundle.source_map_memo
+  let side_table = bundle.heading_side_table_memo
+  let initial = force_markdown_heading_side_table(side_table, source_map)
+  let initial_row = initial.rows[0]
+
+  parser.set_source("# *A\n")
+  let invalid = force_markdown_heading_side_table(side_table, source_map)
+  let invalid_row = find_side_table_row(invalid, initial_row.last_live.id).unwrap()
+
+  parser.set_source("")
+  let valid_missing = force_markdown_heading_side_table(side_table, source_map)
+  let valid_missing_row = find_side_table_row(
+    valid_missing,
+    initial_row.last_live.id,
+  ).unwrap()
+
+  inspect(invalid_row.status == HeadingMissing, content="true")
+  inspect(invalid_row.current_id is None, content="true")
+  inspect(invalid_row.consecutive_absences, content="0")
+  inspect(invalid.rows.length(), content="1")
+  inspect(valid_missing_row.status == HeadingMissing, content="true")
+  inspect(valid_missing_row.consecutive_absences, content="1")
+}
+
+///|
 test "sdeg phase1: invalid advance creates no fresh rows or seed changes" {
   let old_a = synthetic_heading(1, "A", 0)
   let transient_b = synthetic_heading(2, "B", 4)

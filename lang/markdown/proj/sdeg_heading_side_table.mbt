@@ -13,7 +13,7 @@ priv struct HeadingObservation {
   range : @loomcore.Range
   marker : @loomcore.Range?
   text_span : @loomcore.Range?
-}
+} derive(Eq)
 
 ///|
 #warnings("-unused_constructor")
@@ -57,7 +57,7 @@ priv enum HeadingEntityEvidence {
   HeadingSameSemanticKey(String)
   HeadingOverlappingRange(@loomcore.Range, @loomcore.Range)
   HeadingCandidateCount(Int)
-}
+} derive(Eq)
 
 ///|
 #warnings("-unused_field")
@@ -86,7 +86,7 @@ priv struct HeadingSideTableRow {
   // means no valid absence evidence has been observed yet, usually because an
   // invalid snapshot used the hold path.
   consecutive_absences : Int
-}
+} derive(Eq)
 
 ///|
 priv struct HeadingSideTable {
@@ -95,7 +95,7 @@ priv struct HeadingSideTable {
   used_stable_ids : Set[HeadingStableRowId]
   retention_threshold : Int
   next_entity_seed : Int
-}
+} derive(Eq)
 
 ///|
 fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
@@ -196,6 +196,167 @@ fn HeadingSideTable::from_observations(
     retention_threshold,
     next_entity_seed: -1,
   }
+}
+
+///|
+fn heading_snapshot_validity(
+  diagnostics : @loomcore.DiagnosticSet,
+  root : @core.ProjNode[@markdown.Block]?,
+) -> HeadingSnapshotValidity {
+  match root {
+    Some(node) if diagnostics.is_empty() && !projection_has_error_block(node) =>
+      HeadingSnapshotValid
+    _ => HeadingSnapshotInvalid
+  }
+}
+
+///|
+fn inline_text_to(
+  inlines : Array[@markdown.Inline],
+  buf : StringBuilder,
+) -> Unit {
+  inlines
+  .iter()
+  .each(inline => {
+    match inline {
+      Text(s) => buf.write_string(s)
+      Bold(children) | Italic(children) => inline_text_to(children, buf)
+      InlineCode(s) => buf.write_string(s)
+      Link(children, _url) => inline_text_to(children, buf)
+      Error(s) => buf.write_string(s)
+    }
+  })
+}
+
+///|
+fn inline_text(inlines : Array[@markdown.Inline]) -> String {
+  let buf = StringBuilder::new()
+  inline_text_to(inlines, buf)
+  buf.to_string()
+}
+
+///|
+fn heading_observation(
+  node : @core.ProjNode[@markdown.Block],
+  source_map : @core.SourceMap,
+) -> HeadingObservation? {
+  match node.kind {
+    Heading(level, inlines) =>
+      match source_map.get_range(node.id()) {
+        Some(range) =>
+          Some({
+            id: node.id(),
+            level,
+            text: inline_text(inlines),
+            range,
+            marker: source_map.get_token_span(node.id(), "marker"),
+            text_span: source_map.get_token_span(node.id(), "text"),
+          })
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn collect_heading_observations_into(
+  node : @core.ProjNode[@markdown.Block],
+  source_map : @core.SourceMap,
+  out : Array[HeadingObservation],
+) -> Unit {
+  // Accumulate into one output array so recursive traversal preserves preorder
+  // without repeatedly concatenating child arrays.
+  match heading_observation(node, source_map) {
+    Some(obs) => out.push(obs)
+    None => ()
+  }
+  node.children
+  .iter()
+  .each(child => collect_heading_observations_into(child, source_map, out))
+}
+
+///|
+fn collect_heading_observations(
+  root : @core.ProjNode[@markdown.Block],
+  source_map : @core.SourceMap,
+) -> Array[HeadingObservation] {
+  // Current SDEG phase collects headings with a full projection-tree walk.
+  // Benchmark before broadening this to more entity kinds or finer invalidation.
+  let out : Array[HeadingObservation] = []
+  collect_heading_observations_into(root, source_map, out)
+  out
+}
+
+///|
+fn projection_has_error_block(node : @core.ProjNode[@markdown.Block]) -> Bool {
+  block_has_projection_error(node.kind) ||
+  node.children.iter().any(projection_has_error_block)
+}
+
+///|
+fn block_has_projection_error(block : @markdown.Block) -> Bool {
+  match block {
+    Document(_) => false
+    Heading(_, inlines) | Paragraph(inlines) =>
+      inlines.iter().any(inline_has_projection_error)
+    UnorderedList(_) | OrderedList(_, _) => false
+    UnorderedListItem(inlines) | OrderedListItem(inlines, _) =>
+      inlines.iter().any(inline_has_projection_error)
+    CodeBlock(_, _) | HtmlBlock(_) => false
+    Error(_) => true
+  }
+}
+
+///|
+fn inline_has_projection_error(inline : @markdown.Inline) -> Bool {
+  match inline {
+    Bold(children) | Italic(children) =>
+      children.iter().any(inline_has_projection_error)
+    Link(children, _) => children.iter().any(inline_has_projection_error)
+    Error(_) => true
+    Text(_) | InlineCode(_) => false
+  }
+}
+
+///|
+fn heading_side_table_snapshot_observations(
+  root : @core.ProjNode[@markdown.Block]?,
+  source_map : @core.SourceMap,
+  validity : HeadingSnapshotValidity,
+) -> Array[HeadingObservation] {
+  match (root, validity) {
+    (Some(node), HeadingSnapshotValid) =>
+      collect_heading_observations(node, source_map)
+    _ => []
+  }
+}
+
+///|
+fn build_markdown_heading_side_table_memo(
+  parser : @loom.Parser[@markdown.Block],
+  proj_memo : @incr.Derived[@core.ProjNode[@markdown.Block]?],
+  source_map_memo : @incr.Derived[@core.SourceMap],
+) -> @incr.Derived[HeadingSideTable] {
+  let previous_table : Ref[HeadingSideTable?] = Ref(None)
+  @incr.Derived::Derived(
+    parser.runtime(),
+    fn() -> HeadingSideTable {
+      let root = proj_memo.get_or_abort()
+      let source_map = source_map_memo.get_or_abort()
+      let diagnostics = parser.diagnostics().get_or_abort()
+      let validity = heading_snapshot_validity(diagnostics, root)
+      let observations = heading_side_table_snapshot_observations(
+        root, source_map, validity,
+      )
+      let table = match previous_table.val {
+        Some(previous) => previous.advance(observations, validity~)
+        None => HeadingSideTable::from_observations(observations, validity~)
+      }
+      previous_table.val = Some(table)
+      table
+    },
+    label="markdown_heading_side_table",
+  )
 }
 
 ///|
