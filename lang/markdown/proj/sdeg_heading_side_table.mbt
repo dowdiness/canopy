@@ -280,6 +280,8 @@ fn collect_heading_observations(
   root : @core.ProjNode[@markdown.Block],
   source_map : @core.SourceMap,
 ) -> Array[HeadingObservation] {
+  // Current SDEG phase collects headings with a full projection-tree walk.
+  // Benchmark before broadening this to more entity kinds or finer invalidation.
   let out : Array[HeadingObservation] = []
   collect_heading_observations_into(root, source_map, out)
   out

@@ -181,14 +181,10 @@ fn build_markdown_projection_memos_with_heading_side_table(
   let heading_side_table_memo = build_markdown_heading_side_table_memo(
     parser, proj_memo, source_map_memo,
   )
-  let source_map_with_heading_side_table : @incr.Derived[@core.SourceMap] = @incr.Derived::Derived(
+  let source_map_with_heading_side_table = source_map_with_heading_side_table_dependency(
     parser.runtime(),
-    () => {
-      let source_map = source_map_memo.get_or_abort()
-      let _ = heading_side_table_memo.get_or_abort()
-      source_map
-    },
-    label="markdown_source_map_with_heading_side_table",
+    source_map_memo,
+    heading_side_table_memo,
   )
   {
     proj_memo,
@@ -196,4 +192,24 @@ fn build_markdown_projection_memos_with_heading_side_table(
     source_map_memo: source_map_with_heading_side_table,
     heading_side_table_memo,
   }
+}
+
+///|
+fn source_map_with_heading_side_table_dependency(
+  runtime : @incr.Runtime,
+  source_map_memo : @incr.Derived[@core.SourceMap],
+  heading_side_table_memo : @incr.Derived[HeadingSideTable],
+) -> @incr.Derived[@core.SourceMap] {
+  @incr.Derived::Derived(
+    runtime,
+    () => {
+      let source_map = source_map_memo.get_or_abort()
+      // Public Markdown callers already force the source map after projection
+      // updates. Depend on the private side table here so those production reads
+      // also advance the SDEG heading snapshot without exposing a new API.
+      let _ = heading_side_table_memo.get_or_abort()
+      source_map
+    },
+    label="markdown_source_map_with_heading_side_table",
+  )
 }
