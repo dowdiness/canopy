@@ -76,22 +76,29 @@ evidence.
 The system should record why identity was preserved or refreshed: range
 continuity, same syntactic role, stable semantic key, edit provenance, retained
 projection identity, language hints, or fallback matching. It should also record
-when identity is ambiguous or low confidence.
+when identity is ambiguous, low confidence, or positionally preserved while the
+semantic signature drifted.
 
 This evidence is valuable even before it drives behavior. The first spike should
 surface it in tests and debug views so identity failures become explainable.
 
-> **Review note (positional ≠ semantic).** A surviving projection `NodeId`
+> **Consumer contract (positional ≠ semantic).** A surviving projection `NodeId`
 > proves projection-*handle* continuity rather than semantic continuity.
 >
 > Pure sibling reorder keeps the old `NodeId`s but re-attaches them by position,
 > so same-node evidence is positional and meaning-stability is *not* guaranteed
 > across reorder without explicit move provenance.
 >
-> Consumers must not treat a live entity's meaning as stable across such edits.
+> Consumers must not treat a `Live` row's meaning as stable across such edits.
+> When same-node reuse keeps the row `Live` but the row's previous semantic
+> signature no longer matches the current observation, the side table should
+> surface that drift as evidence rather than silently treating the match as
+> semantically preserved.
+>
 > Explicit move provenance (`MarkdownEditOp::MoveBlock`) supplies the corrective
 > `IdentityTransform::Move` for root-sibling (#723) and same-list item (#731)
-> reorders.
+> reorders. Without that corrective path, `Live` means "currently anchored" rather
+> than "same meaning survived."
 >
 > Cross-container moves stay rejected because the sibling-level reconciler cannot
 > follow a node across a container boundary without ancestor-aware reconciliation.
@@ -99,7 +106,9 @@ surface it in tests and debug views so identity failures become explainable.
 > alone, so a moved list cannot be uniquely identified.
 >
 > See [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) (I5/Sem3, G1,
-> and *Decision: Markdown move-provenance scope*).
+> and *Decision: Markdown move-provenance scope*), plus
+> [2026-06-19 reorder provenance investigation](../archive/2026-06-19-sdeg-reorder-provenance-investigation.md)
+> and [2026-06-20 block move provenance spike](../archive/2026-06-20-markdown-block-move-provenance-spike.md).
 
 ## Stability scopes
 
