@@ -262,9 +262,9 @@ Invalid or malformed snapshots are not successful projection snapshots. The
 side-table constructor and `advance` require an explicit snapshot-validity tag;
 when invalid, the table uses a hold path: it creates no initial or fresh rows,
 clears current anchors, preserves `last_live`, and does not increment absence
-counters or advance toward `Retired`. Full G2 resolution still requires
-production wiring to pass a parser/projection validity signal before calling
-`advance`.
+counters or advance toward `Retired`. PR #767 later completed the Markdown
+production wiring: the source-map memo path now derives validity from parser
+diagnostics plus projection `Error` nodes before calling `advance`.
 
 ### Expected behavior
 
@@ -333,8 +333,8 @@ production wiring to pass a parser/projection validity signal before calling
       provenance/reconciliation limitation or fixed with explicit evidence.
 - [x] Tombstoned rows can retire behind an explicit retention threshold.
 - [x] Invalid snapshots hold the lifecycle instead of minting rows or advancing
-      the absence/retirement ladder; production wiring must still supply the
-      validity signal end to end.
+      the absence/retirement ladder; PR #767 wires the Markdown production path to
+      supply the parser/projection validity signal end to end.
 - [x] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation
@@ -363,12 +363,12 @@ committing.
 - Reorder behavior needs edit provenance or projection reconciliation before it
   can override same-node priority. Do not encode semantic reorder recovery as a
   side-table-only guarantee; track that separately in
-  `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md`.
+  `docs/archive/2026-06-19-sdeg-reorder-provenance-investigation.md`.
 - The side table should not mutate document state or bypass Markdown edit
   lowering.
-- The validity tag is side-table support, not a substitute for production
-  parser/projection diagnostics. Callers must pass the correct validity signal
-  when this table graduates from test-local use.
+- The validity tag is side-table support, not a substitute for parser/projection
+  diagnostics. The Markdown heading production path now supplies the correct
+  validity signal; future consumers must preserve that contract.
 
 ## Notes
 

@@ -227,15 +227,17 @@ to a later decision; this section fixes only the safety precondition for
 discarding — the precondition that garbage collection, undo correctness, and
 bounded retention all depend on.
 
-> **Still open.** *`missing` is overloaded.* A committed delete and a transient
-> malformed parse both produce an absent entity, so `missing` cannot distinguish
-> them without a delete- or parse-validity signal feeding the side table. The
-> "stable across malformed intermediate input" scope depends on resolving this.
+> **Markdown heading slice resolved.** A committed delete and a transient
+> malformed parse both produce an absent heading, but the production Markdown
+> heading side-table now separates them before lifecycle advancement.
+>
+> PR #767 derives snapshot validity from parser diagnostics plus projection
+> `Error` nodes in the source-map memo path: valid deletes advance absence
+> counters, while malformed snapshots hold the prior row state.
 >
 > The [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
 > authoritative, code-grounded transition table, the per-state resolution rules,
-> and the gap inventory (the reference policy here resolves G13/L5 and the
-> garbage-collection half of G4/L4; G2 remains open).
+> and the gap inventory for future non-Markdown or public-SDEG generalization.
 
 ## Phase 0 spike
 

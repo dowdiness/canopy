@@ -36,7 +36,7 @@ Out:
 
 ## Current State
 
-- `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md` concludes
+- `docs/archive/2026-06-19-sdeg-reorder-provenance-investigation.md` concludes
   reorder recovery is not in SDEG Phase 1 and names this as future work.
 - `lang/markdown/edits/markdown_edit_op.mbt` has no move/reorder operation.
 - `lang/runtime/language_spec.mbt` lowers structural edits to span edits and
@@ -173,5 +173,5 @@ NEW_MOON_MOD=0 moon test
 
 ## Notes
 
-- Follow-up from `docs/plans/2026-06-19-sdeg-reorder-provenance-investigation.md`.
+- Follow-up from `docs/archive/2026-06-19-sdeg-reorder-provenance-investigation.md`.
 - Related broader foundation: `docs/plans/2026-03-30-editor-drag-drop-foundation.md`.

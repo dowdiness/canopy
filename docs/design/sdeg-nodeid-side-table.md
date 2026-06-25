@@ -337,14 +337,25 @@ needs reload/peer stability, projection-independent graph relations,
 language-independent evidence storage beyond an extensible enum, or durable CRDT
 anchors in matching.
 
-## Next slice
+## Current Markdown slice
 
-The Markdown white-box spike now mirrors this sketch in
+The Markdown implementation remains package-private, but it is no longer only a
+white-box spike.
+
+The production projection path now attaches a private heading side-table memo to
+the returned source-map memo. That memo derives snapshot validity from parser
+diagnostics plus recovered projection `Error` nodes before calling `advance`, so
+valid deletes advance the absence ladder while malformed snapshots take the hold
+path.
+
+The implementation mirrors this sketch in
 `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt`: it has a stable-row
 wrapper, an evidence-bearing matcher, same-node match priority, global
 one-to-one conflict handling, ambiguous candidate retention, retired-row
-behavior, the retention threshold (`Tombstoned → Retired` transition), and
-snapshot invariant tests. Shared heading observation helpers remain in
+behavior, the retention threshold (`Tombstoned → Retired` transition), invalid
+snapshot hold semantics, and snapshot invariant tests.
+
+Shared heading observation helpers remain in
 `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`.
 
 Implemented since the initial sketch:
@@ -354,13 +365,16 @@ Implemented since the initial sketch:
   the old "keep tombstones forever" behavior. Positive values enable the
   `Tombstoned → Retired` transition when `consecutive_absences` reaches the
   threshold.
-- **`gc_eligible` predicate** (issue #745): `Retired` rows are collectable.
-  Physical row removal is not yet implemented.
+- **`gc_eligible` predicate** (issue #745): `Retired` rows are collectable through
+  `HeadingSideTable::collect_garbage`; production row removal still needs a live
+  pinning-reference policy.
+- **Snapshot validity wiring** (issues #748/#764, shipped by PR #767): the
+  Markdown source-map memo path supplies parser/projection validity to the
+  side-table memo before advancing it.
 
-Keep that implementation package-private or test-local. Promote a shared helper
-only after another entity kind needs the same lifecycle semantics, and verify
-`moon info` shows no accidental public API drift. No TypeScript-side integration
-exists yet.
+Keep that implementation package-private. Promote a shared helper only after
+another entity kind needs the same lifecycle semantics, and verify `moon info`
+shows no accidental public API drift. No TypeScript-side integration exists yet.
 
 Related:
 
