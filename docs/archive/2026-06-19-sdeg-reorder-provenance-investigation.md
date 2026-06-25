@@ -1,7 +1,7 @@
-# SDEG Reorder Provenance Investigation
+# SDEG reorder provenance investigation
 
 **Status:** done — concluded that Markdown reorder recovery is future block-move
-work, not SDEG Phase 1 side-table work.
+work rather than SDEG Phase 1 side-table work.
 
 ## Why
 
@@ -72,26 +72,29 @@ NEW_MOON_MOD=0 moon test -p dowdiness/canopy/lang/markdown/proj --filter 'sdeg p
 
 The diagnostic test in `lang/markdown/proj/sdeg_heading_spike_wbtest.mbt`
 records that after `# A\n# B\n` is reconciled to `# B\n# A\n`, both previous
-heading `NodeId`s remain present: previous A's `NodeId` is now attached to B,
-and previous B's `NodeId` is now attached to A. This confirms the Phase 0
-observation: pure source reorder without provenance is position-stable, not
-semantic-stable.
+heading `NodeId`s remain present.
+
+Previous A's `NodeId` is now attached to B, and previous B's `NodeId` is now
+attached to A. This confirms the Phase 0 observation: pure source reorder without
+provenance is position-stable rather than semantic-stable.
 
 ### 2026-06-20 — Markdown edit-path reorder check
 
 Existing Markdown edit operations are `CommitEdit`, `ChangeHeadingLevel`,
 `ToggleListItem`, `Delete`, `InsertBlockAfter`, `SplitBlock`, and
-`MergeWithPrevious`; there is no explicit move/reorder operation. The generic
-Markdown companion bridge computes span edits and calls
+`MergeWithPrevious`; there is no explicit move/reorder operation.
+
+The generic Markdown companion bridge computes span edits and calls
 `SyncEditor::apply_span_edits` without an identity hint, so it does not produce
 move provenance for reorder-like outcomes.
 
 Added a companion white-box diagnostic covering the smallest existing edit-path
 way to reach the swapped text: two `CommitEdit` operations, A→B at the first
-heading and B→A at the second heading. The final source is `# B\n# A\n`, but
-identity stays by position: the first heading keeps previous A's `NodeId`, and
-the second heading keeps previous B's `NodeId`. This is replacement provenance,
-not reorder provenance.
+heading and B→A at the second heading.
+
+The final source is `# B\n# A\n`, but identity stays by position: the first
+heading keeps previous A's `NodeId`, and the second heading keeps previous B's
+`NodeId`. This is replacement provenance rather than reorder provenance.
 
 Reproduced with:
 
@@ -102,10 +105,11 @@ NEW_MOON_MOD=0 moon test -p dowdiness/canopy/lang/markdown/companion --filter 's
 ### 2026-06-20 — Scope decision
 
 Markdown reorder recovery is needed for the future block-based editor UI, where a
-user-visible block move should carry identity with the moved block. It is not a
-Phase 1 side-table deliverable: the current Markdown edit path has no reorder
-operation or move provenance, and building that language-owned block move path
-is a larger structural-edit feature. Until that exists, pure source reorder
+user-visible block move should carry identity with the moved block.
+
+It is not a Phase 1 side-table deliverable: the current Markdown edit path has no
+reorder operation or move provenance, and building that language-owned block move
+path is a larger structural-edit feature. Until that exists, pure source reorder
 remains a documented same-node-priority limitation rather than a side-table-only
 semantic override.
 
@@ -131,15 +135,17 @@ should keep same-node priority for ordinary edits and report pure source reorder
 as a known limitation when no explicit provenance is present.
 
 The future owner is **Markdown/block edit lowering plus hinted projection
-reconciliation**: a block-based editor move command should produce an explicit
+reconciliation**. A block-based editor move command should produce an explicit
 move/reorder operation, lower it to text/CRDT edits, and pass identity provenance
-through the existing hint channel or a future equivalent. Projection
-reconciliation should only override positional same-node evidence for that
-explicit move provenance, not for arbitrary source reorder inferred from text.
+through the existing hint channel or a future equivalent.
+
+Projection reconciliation should only override positional same-node evidence for
+that explicit move provenance, rather than for arbitrary source reorder inferred
+from text.
 
 No prototype fix was added because the current Markdown edit path cannot express
 the required user intent. Adding that path is a larger block-editor structural
-edit feature, not a side-table-only change.
+edit feature rather than a side-table-only change.
 
 Follow-up spike completed and archived: `docs/archive/2026-06-20-markdown-block-move-provenance-spike.md`.
 

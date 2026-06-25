@@ -1,4 +1,4 @@
-# SDEG NodeId Side Table Sketch
+# SDEG NodeId side-table sketch
 
 **Status:** Internal design sketch. Not implemented behavior and not a public API.
 
@@ -7,14 +7,17 @@ side-table shape worth trying before adding a stable entity core or durable
 `EntityId`.
 
 **Phase 1 lifecycle note:** the active Phase 1 plan supersedes this sketch where
-lifecycle naming differs. In particular, Phase 1 uses `Missing` for first
-absence and reaches `Tombstoned` only after a retention threshold. The
-`Tombstoned → Retired` transition is now implemented via a configurable
-`retention_threshold` on the side table (issue #746); rows track
+lifecycle naming differs. In particular, Phase 1 uses `Missing` for first absence
+and reaches `Tombstoned` only after a retention threshold.
+
+The `Tombstoned → Retired` transition is now implemented via a configurable
+`retention_threshold` on the side table (issue #746). Rows track
 `consecutive_absences`, and `gc_eligible` is a predicate over `Retired` rows
-(issue #745). Keep this sketch as prior evidence for same-node priority,
-one-to-one assignment, and snapshot invariants, not as the final lifecycle
-contract. See the [Retention threshold](#retention-threshold) section below.
+(issue #745).
+
+Keep this sketch as prior evidence for same-node priority, one-to-one assignment,
+and snapshot invariants rather than as the final lifecycle contract. See the
+[Retention threshold](#retention-threshold) section below.
 
 ## Intent
 
@@ -237,9 +240,11 @@ handled by `HeadingSideTable::collect_garbage`, which drops all rows where
 The `stable_id` of a row is seeded from its origin `NodeId` via
 `HeadingStableRowId::from_node`. When a row reaches `Retired` and later a new
 observation appears with the same `NodeId` (e.g. after undo), the retired row
-still holds that `stable_id`. Instead of blocking the fresh row (which would
-leave the heading with no `current_index` entry), the side table assigns a
-**unique fallback stable_id** from its `next_entity_seed` counter:
+still holds that `stable_id`.
+
+Instead of blocking the fresh row, which would leave the heading with no
+`current_index` entry, the side table assigns a **unique fallback stable_id** from
+its `next_entity_seed` counter:
 
 - `next_entity_seed` starts at `-1` and decrements on each fallback.
 - Fallback stable IDs use negative `NodeId` values on the assumption that

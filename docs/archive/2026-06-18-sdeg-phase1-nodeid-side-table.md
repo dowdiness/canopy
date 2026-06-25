@@ -1,4 +1,4 @@
-# SDEG Phase 1 NodeId Side Table Design
+# SDEG Phase 1 NodeId side-table design
 
 ## Why
 
@@ -62,23 +62,32 @@ The missing piece for this phase is lifecycle: retaining old observations across
 snapshots and mapping a stable session entity to its current `NodeId` when the
 previous projection node is absent. Phase 1 should not weaken the matcher to
 recover changes without evidence; it should keep ambiguous or
-provenance-sensitive cases explicit. In particular, pure sibling reorder remains
-out of scope for side-table-only recovery because Phase 0 showed the old
-`NodeId`s are still present but attached by position. Reorder recovery is still
-needed for the future block-based editor UI; the owner should be a language-owned
-block move/reorder edit path that emits explicit move provenance, not the Phase 1
-derived side table guessing around same-node priority.
+provenance-sensitive cases explicit.
+
+Pure sibling reorder remains out of scope for side-table-only recovery because
+Phase 0 showed the old `NodeId`s are still present but attached by position.
+
+Reorder recovery is still needed for the future block-based editor UI. The owner
+should be a language-owned block move/reorder edit path that emits explicit move
+provenance, rather than the Phase 1 derived side table guessing around same-node
+priority.
 
 As of 2026-06-20, the first production extraction exists in
 `lang/markdown/proj/sdeg_heading_side_table.mbt`. It keeps the side-table types
 `priv`, moves shared heading observation/range/key helpers out of white-box-only
 files, and updates the existing white-box tests to consume the package-private
-core. Regression tests now record that preserved same-node evidence wins over a
-duplicate retained row's semantic claim, that rows retain explicit evidence for
-same-node/semantic/missing/ambiguous decisions, that first absence is `Missing`
-and repeated absence becomes `Tombstoned`, that the table carries a rebuilt
-current-node index, and that a level-only semantic match without preserved
-`NodeId` remains fresh rather than being recovered.
+core.
+
+Regression tests now record these cases:
+
+- preserved same-node evidence wins over a duplicate retained row's semantic
+  claim;
+- rows retain explicit evidence for same-node, semantic, missing, and ambiguous
+  decisions;
+- first absence is `Missing`, and repeated absence becomes `Tombstoned`;
+- the table carries a rebuilt current-node index;
+- a level-only semantic match without preserved `NodeId` remains fresh rather
+  than being recovered.
 
 ## Desired State
 
@@ -115,10 +124,11 @@ is only "stable within this editor session and this side table".
 ### Core records
 
 Implementation can start with package-private types like these names. Exact
-field names may change during implementation. The current Markdown implementation
-inlines `HeadingSignature` as `level`/`text` fields on `HeadingObservation`, does
-not track `ordinal`, and records historical `stable_id` reservations so physical
-GC cannot make an old session id reusable.
+field names may change during implementation.
+
+The current Markdown implementation inlines `HeadingSignature` as `level`/`text`
+fields on `HeadingObservation`, does not track `ordinal`, and records historical
+`stable_id` reservations so physical GC cannot make an old session id reusable.
 
 ```moonbit
 struct HeadingSignature {
@@ -259,12 +269,15 @@ thresholds below `3` effectively retire on the third valid absence. Do not
 introduce production row removal until UI/undo/reload requirements are clearer.
 
 Invalid or malformed snapshots are not successful projection snapshots. The
-side-table constructor and `advance` require an explicit snapshot-validity tag;
-when invalid, the table uses a hold path: it creates no initial or fresh rows,
+side-table constructor and `advance` require an explicit snapshot-validity tag.
+
+When invalid, the table uses a hold path: it creates no initial or fresh rows,
 clears current anchors, preserves `last_live`, and does not increment absence
-counters or advance toward `Retired`. PR #767 later completed the Markdown
-production wiring: the source-map memo path now derives validity from parser
-diagnostics plus projection `Error` nodes before calling `advance`.
+counters or advance toward `Retired`.
+
+PR #767 later completed the Markdown production wiring: the source-map memo path
+now derives validity from parser diagnostics plus projection `Error` nodes before
+calling `advance`.
 
 ### Expected behavior
 

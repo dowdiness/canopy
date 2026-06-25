@@ -1,4 +1,4 @@
-# Markdown Block Move Provenance Spike
+# Markdown block move provenance spike
 
 **Status:** implemented spike (2026-06-20)
 
@@ -6,6 +6,7 @@
 
 Markdown reorder recovery is required for the future block-based editor UI: when a
 user moves a visible block, the block's editing identity should move with it.
+
 The SDEG reorder provenance investigation showed that current Markdown edits do
 not express that intent. Pure source reorder and replacement-style `CommitEdit`
 sequences are position-stable, so a Phase 1 side table must not infer semantic
@@ -76,25 +77,33 @@ MarkdownEditOp::MoveBlock(
 
 Only `DropPosition::Before` and `DropPosition::After` are legal for now;
 `Inside` is rejected until Markdown has a nested-block contract. `source == target`
-and already-adjacent no-op moves return `Ok(None)`. PR #723 shipped the accepted
-root-level block move surface only: nested/list-item moves, list-container
-sources, and duplicate exact source payloads remain rejected. The list/list-item
-work is now tracked as issue #724 and is blocked first on the Loom Markdown list
-payload migration in `docs/plans/2026-06-20-markdown-list-payloads.md`; after
-that, Canopy still needs list-item scope lowering/reconciliation and ordered
-marker renumbering before widening the gates. The source-text splice remains the
-source of truth: the operation lowers by re-rendering the affected root-block
-sequence from the same block source slices with separators chosen for each new
-neighbor pair, so paragraph moves preserve required blank-line separation instead
-of merging blocks.
+and already-adjacent no-op moves return `Ok(None)`.
+
+PR #723 shipped the accepted root-level block move surface only. Nested moves,
+list-item moves, list-container sources, and duplicate exact source payloads
+remain rejected.
+
+The list/list-item work is now tracked as issue #724 and is blocked first on the
+Loom Markdown list payload migration in
+`docs/plans/2026-06-20-markdown-list-payloads.md`.
+
+After that migration, Canopy still needs list-item scope lowering/reconciliation
+and ordered marker renumbering before widening the gates.
+
+The source-text splice remains the source of truth: the operation lowers by
+re-rendering the affected root-block sequence from the same block source slices
+with separators chosen for each new neighbor pair, so paragraph moves preserve
+required blank-line separation instead of merging blocks.
 
 Provenance uses the existing `IdentityTransform::Move(subtree=source)` channel:
 `apply_markdown_edit` passes the hint to `SyncEditor::apply_span_edits`, and the
 Markdown editor now wires a shared pending-hint `Ref` into
-`build_markdown_projection_memos`, matching the Lambda editor pattern. Markdown
-consumes the move with a language-specific reconciler because generic
-`reconcile_hinted` intentionally freshens `Move` at the old position. The
-Markdown reconciler only lets explicit move provenance override positional
+`build_markdown_projection_memos`, matching the Lambda editor pattern.
+
+Markdown consumes the move with a language-specific reconciler because generic
+`reconcile_hinted` intentionally freshens `Move` at the old position.
+
+The Markdown reconciler only lets explicit move provenance override positional
 same-node evidence for a unique exact block-kind match among LCS-unmatched
 siblings; ambiguous duplicate moved content degrades to fresh identity rather
 than guessing.
