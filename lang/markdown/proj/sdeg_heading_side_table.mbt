@@ -1,8 +1,9 @@
 ///| Internal Markdown heading side table for session-local SDEG Phase 1 snapshots.
 
-// Several side-table records intentionally carry forward-looking fields and
-// constructors while SDEG remains package-private. Keep the suppressions local so
-// `moon check` still reports accidental unused code elsewhere in this package.
+// Construction stays package-private: supported tables come from
+// `from_observations`, `advance`, and `collect_garbage`, not from hand-built
+// row arrays. White-box tests may intentionally violate that boundary when
+// probing invariants.
 
 ///|
 #warnings("-struct_never_constructed-unused_field")
@@ -193,8 +194,9 @@ fn next_unused_stable_id(
 }
 
 ///|
-// Package-private until production side-table wiring; white-box tests exercise it.
-#warnings("-unused_value")
+// Package-private construction boundary: callers are expected to seed tables
+// only through this entrypoint while the side-table types remain `priv`.
+// White-box tests may still hand-construct malformed rows to probe invariants.
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
   validity~ : HeadingSnapshotValidity,

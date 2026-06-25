@@ -193,6 +193,11 @@ fn heading_side_table_invariants_hold(
 }
 
 ///|
+fn rows_have_non_empty_evidence(rows : Array[HeadingSideTableRow]) -> Bool {
+  rows.iter().all(row => row.evidence.length() != 0)
+}
+
+///|
 test "sdeg phase0: NodeId side table preserves same-node matches before semantic ones" {
   let counter : Ref[Int] = Ref(0)
   let source = "# A\n# B\n"
@@ -1292,4 +1297,118 @@ test "sdeg phase1: absence counter increments under default retention" {
   inspect(heading_side_table_invariants_hold(t3, []), content="true")
   inspect(heading_side_table_invariants_hold(t4, []), content="true")
   inspect(heading_side_table_invariants_hold(t5, []), content="true")
+}
+
+///|
+test "sdeg phase1: current index contains exactly live rows" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 4)
+  let current_a = synthetic_heading(1, "A", 0)
+  let advanced = HeadingSideTable::from_observations(
+    [old_a, old_b],
+    validity=HeadingSnapshotValid,
+  ).advance([current_a], validity=HeadingSnapshotValid)
+  let live_row = find_side_table_row(advanced, old_a.id).unwrap()
+  let missing_row = find_side_table_row(advanced, old_b.id).unwrap()
+
+  inspect(live_row.status == HeadingLive, content="true")
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(advanced.current_index.length(), content="1")
+  inspect(
+    advanced.entity_for_current_node(current_a.id) == Some(live_row.stable_id),
+    content="true",
+  )
+  inspect(heading_side_table_index_valid(advanced), content="true")
+}
+
+///|
+test "sdeg phase1: every row keeps non-empty evidence across outcomes" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 4)
+  let current_a = synthetic_heading(1, "A", 0)
+  let current_c = synthetic_heading(3, "C", 8)
+  let table = HeadingSideTable::from_observations(
+    [old_a, old_b],
+    validity=HeadingSnapshotValid,
+  )
+  let mixed_table = table.advance(
+    [current_a, current_c],
+    validity=HeadingSnapshotValid,
+  )
+  let duplicate_a0 = synthetic_heading(10, "A", 0)
+  let duplicate_a1 = synthetic_heading(11, "A", 4)
+  let ambiguous_table = table.advance(
+    [duplicate_a0, duplicate_a1, old_b],
+    validity=HeadingSnapshotValid,
+  )
+  let retained_table = HeadingSideTable::from_observations(
+    [old_a],
+    validity=HeadingSnapshotValid,
+    retention_threshold=3,
+  )
+  let tombstoned_table = retained_table
+    .advance([], validity=HeadingSnapshotValid)
+    .advance([], validity=HeadingSnapshotValid)
+  let retired_table = tombstoned_table.advance(
+    [],
+    validity=HeadingSnapshotValid,
+  )
+
+  inspect(rows_have_non_empty_evidence(mixed_table.rows), content="true")
+  inspect(rows_have_non_empty_evidence(ambiguous_table.rows), content="true")
+  inspect(rows_have_non_empty_evidence(tombstoned_table.rows), content="true")
+  inspect(rows_have_non_empty_evidence(retired_table.rows), content="true")
+}
+
+///|
+test "sdeg phase1: last_live survives missing tombstoned and ambiguous states" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let old_b = synthetic_heading(2, "B", 4)
+  let table = HeadingSideTable::from_observations(
+    [old_a, old_b],
+    validity=HeadingSnapshotValid,
+  )
+  let missing_table = table.advance([old_b], validity=HeadingSnapshotValid)
+  let tombstoned_table = missing_table.advance(
+    [old_b],
+    validity=HeadingSnapshotValid,
+  )
+  let duplicate_a0 = synthetic_heading(10, "A", 0)
+  let duplicate_a1 = synthetic_heading(11, "A", 4)
+  let ambiguous_table = missing_table.advance(
+    [duplicate_a0, duplicate_a1, old_b],
+    validity=HeadingSnapshotValid,
+  )
+  let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
+  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
+  let ambiguous_row = find_side_table_row(ambiguous_table, old_a.id).unwrap()
+
+  inspect(missing_row.status == HeadingMissing, content="true")
+  inspect(missing_row.last_live == old_a, content="true")
+  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
+  inspect(tombstoned_row.last_live == old_a, content="true")
+  inspect(ambiguous_row.status == HeadingAmbiguous, content="true")
+  inspect(ambiguous_row.last_live == old_a, content="true")
+}
+
+///|
+test "sdeg phase1: malformed hand-built table violates index invariant" {
+  let old_a = synthetic_heading(1, "A", 0)
+  let row = {
+    ..heading_side_table_live_row(old_a),
+    current_id: None,
+    status: HeadingMissing,
+    evidence: [HeadingCandidateCount(0)],
+    consecutive_absences: 1,
+  }
+  let table = {
+    rows: [row],
+    current_index: Map::from_iter(Iter::singleton((old_a.id, row.stable_id))),
+    used_stable_ids: heading_used_stable_ids([row]),
+    retention_threshold: 0,
+    next_entity_seed: -1,
+  }
+
+  inspect(heading_side_table_index_valid(table), content="false")
+  inspect(heading_side_table_invariants_hold(table, []), content="false")
 }
