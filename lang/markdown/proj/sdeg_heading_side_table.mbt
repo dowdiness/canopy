@@ -55,6 +55,7 @@ priv enum HeadingSideTableConfidence {
 priv enum HeadingEntityEvidence {
   HeadingSameNodeId(@core.NodeId)
   HeadingSameSemanticKey(String)
+  HeadingSemanticDrift(String, String)
   HeadingOverlappingRange(@loomcore.Range, @loomcore.Range)
   HeadingCandidateCount(Int)
 } derive(Eq)
@@ -105,6 +106,20 @@ fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
 ///|
 fn heading_key(obs : HeadingObservation) -> String {
   "h\{obs.level}:\{obs.text}"
+}
+
+///|
+fn heading_drift_evidence(
+  previous : HeadingObservation,
+  current : HeadingObservation,
+) -> HeadingEntityEvidence? {
+  let previous_key = heading_key(previous)
+  let current_key = heading_key(current)
+  if previous_key != current_key {
+    Some(HeadingSemanticDrift(previous_key, current_key))
+  } else {
+    None
+  }
 }
 
 ///|
@@ -385,6 +400,9 @@ fn heading_evidence(
   let evidence = []
   if previous.id == current.id {
     evidence.push(HeadingSameNodeId(current.id))
+    if heading_drift_evidence(previous, current) is Some(drift) {
+      evidence.push(drift)
+    }
   }
   if previous.level == current.level && previous.text == current.text {
     evidence.push(HeadingSameSemanticKey(heading_key(previous)))

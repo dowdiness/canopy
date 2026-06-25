@@ -380,27 +380,26 @@ evidence:* snapshot-invariant test "no two Live rows share current_id." ·
 one node still cannot violate it (the impl path for same-node rows bypasses the
 claim graph — G5).
 
-**I5 — (MISSING) `NodeId` continuity is positional, not semantic.**
+**I5 — `NodeId` continuity is positional, not semantic.**
 Same-node evidence proves *position-stable* continuity; it does **not** prove the
-entity means the same thing. Should be stated as an explicit non-guarantee.
+entity means the same thing. This is now the explicit consumer contract.
 
 *Scope:* always.
 
-*Preserved by:* nothing — it is a *limit*, currently
-implicit.
+*Preserved by:* documentation plus drift evidence on same-node `Live` matches.
 
 *Allowed violations:* this is the violated property under reorder.
 
 *Failure symptoms:* silent semantic misattribution (old-A row now labels
-content-B), with *all* other invariants green.
+content-B), with *all* other invariants green, unless the drift evidence is read.
 
 *Existing evidence:* the reorder
-diagnostic tests record the *fact* (NodeIds swap attachment) but assert it as
-"expected limitation," not as a named invariant.
+diagnostic tests record both facts now: NodeIds swap attachment, and the
+side-table evidence marks semantic drift instead of leaving the `Live` match
+silent.
 
-*Missing evidence:* an
-invariant + test asserting "no consumer may treat a `Live` row's meaning as
-stable across edits that can reorder siblings without move provenance" (G1).
+*Remaining gap:* this is still a non-guarantee until explicit move provenance
+turns the reorder case into semantic preservation (G1).
 
 ### Structural invariants
 
@@ -600,10 +599,11 @@ is preserved; only that a node binding exists.
 *Failure:* reorder.
 
 *Existing
-evidence:* none (the design accepts the violation as a limitation).
+evidence:* the side-table reorder test now records semantic drift on same-node
+`Live` matches, making the violation visible rather than silent.
 
 *Missing:*
-the entire invariant, plus a corrective mechanism (move provenance) gated behind
+the invariant itself, plus a corrective mechanism (move provenance) gated behind
 a future block-edit path (G1).
 
 **Sem4 — (MISSING) normalization contract for keys.**
@@ -1139,20 +1139,23 @@ Ordered by severity. Each is a place where behavior depends on an **unstated
 invariant** or where a future implementation could diverge incompatibly. Missing
 *invariants*, not missing features.
 
-**G1 — No invariant captures semantic correctness of identity (the central gap).**
+**G1 — Semantic correctness of identity is only partially enforced (the central gap).**
 Every snapshot invariant is structural: uniqueness, Some/None, and no-shared-node.
-None asserts that a `Live` row *means* what its `last_live` says. Reorder
-satisfies all invariants while being semantically wrong.
+None can *prove* that a `Live` row means what its `last_live` says. Reorder still
+satisfies all structural invariants while being semantically wrong.
 
-*Needed:* an explicit invariant pair:
+*Implemented now:* the positional non-guarantee is stated, and the reorder
+failure is surfaced:
 
 - I5: "same-node = positional, not semantic";
-- Sem3: "identity should track meaning; not guaranteed across reorder without
-  move provenance".
+- Sem3 remains missing as a preservation invariant, but reorder now records
+  semantic drift instead of staying silent.
 
-The design also needs a stated consumer contract that meaning is unstable across
-sibling reorder. Otherwise a consumer such as outline or AI context can treat a
-`Live` row's heading text as a stable handle and silently relabel it.
+The Markdown heading side table now makes the reorder failure visible by keeping
+the row `Live` while recording semantic drift evidence on same-node matches.
+That closes the "silent relabel" part of the gap. The remaining gap is the
+corrective mechanism itself: move provenance is still required before reorder can
+count as semantic preservation rather than merely visible positional reuse.
 
 **G2 — `Missing` conflates "deleted" and "transiently unparseable."**
 *Resolved for Markdown heading side tables (#748/#764/#767):* the constructor and

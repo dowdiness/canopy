@@ -69,6 +69,23 @@ fn evidence_has_semantic_key(
 }
 
 ///|
+fn evidence_has_semantic_drift(
+  evidence : Array[HeadingEntityEvidence],
+  previous_key : String,
+  current_key : String,
+) -> Bool {
+  evidence
+  .iter()
+  .any(item => {
+    match item {
+      HeadingSemanticDrift(previous_candidate, current_candidate) =>
+        previous_candidate == previous_key && current_candidate == current_key
+      _ => false
+    }
+  })
+}
+
+///|
 fn evidence_has_candidate_count(
   evidence : Array[HeadingEntityEvidence],
   count : Int,
@@ -211,6 +228,51 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
   inspect(evidence_has_same_node(a_row.evidence, c_after.id), content="true")
   inspect(evidence_has_same_node(b_row.evidence, a_after.id), content="true")
   inspect(advanced.rows.length(), content="2")
+  inspect(heading_side_table_invariants_hold(advanced, after), content="true")
+}
+
+///|
+test "sdeg phase0: NodeId side table records semantic drift on same-node reorder" {
+  let counter : Ref[Int] = Ref(0)
+  let source = "# A\n# B\n"
+  let next_source = "# B\n# A\n"
+  let (initial_cst, _) = @markdown.parse_cst(source)
+  let initial = syntax_to_proj_node(
+    @seam.SyntaxNode::from_cst(initial_cst),
+    counter,
+  )
+  let initial_map = source_map_for(source, initial)
+  let before = collect_heading_observations(initial, initial_map)
+  let table = HeadingSideTable::from_observations(
+    before,
+    validity=HeadingSnapshotValid,
+  )
+  let a_before = find_heading(before, "A").unwrap()
+  let b_before = find_heading(before, "B").unwrap()
+  let (reordered, reordered_map) = project_after_reconcile(
+    initial, next_source, counter,
+  )
+  let after = collect_heading_observations(reordered, reordered_map)
+  let a_after = find_heading(after, "A").unwrap()
+  let b_after = find_heading(after, "B").unwrap()
+  let advanced = table.advance(after, validity=HeadingSnapshotValid)
+  let a_row = find_side_table_row(advanced, a_before.id).unwrap()
+  let b_row = find_side_table_row(advanced, b_before.id).unwrap()
+
+  inspect(a_row.status == HeadingLive, content="true")
+  inspect(b_row.status == HeadingLive, content="true")
+  inspect(a_row.current_id == Some(b_after.id), content="true")
+  inspect(b_row.current_id == Some(a_after.id), content="true")
+  inspect(evidence_has_same_node(a_row.evidence, b_after.id), content="true")
+  inspect(evidence_has_same_node(b_row.evidence, a_after.id), content="true")
+  inspect(
+    evidence_has_semantic_drift(a_row.evidence, "h1:A", "h1:B"),
+    content="true",
+  )
+  inspect(
+    evidence_has_semantic_drift(b_row.evidence, "h1:B", "h1:A"),
+    content="true",
+  )
   inspect(heading_side_table_invariants_hold(advanced, after), content="true")
 }
 
