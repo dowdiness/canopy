@@ -272,8 +272,9 @@ Invalid or malformed snapshots are not successful projection snapshots. The
 side-table constructor and `advance` require an explicit snapshot-validity tag.
 
 When invalid, the table uses a hold path: it creates no initial or fresh rows,
-clears current anchors, preserves `last_live`, and does not increment absence
-counters or advance toward `Retired`.
+converts `Live`/`Ambiguous` rows to `Missing`, clears current anchors/candidates,
+preserves `last_live`, and does not increment absence counters or advance toward
+`Retired`.
 
 PR #767 later completed the Markdown production wiring: the source-map memo path
 now derives validity from parser diagnostics plus projection `Error` nodes before
@@ -345,9 +346,9 @@ calling `advance`.
 - [x] Heading level-change identity is either still documented as an upstream
       provenance/reconciliation limitation or fixed with explicit evidence.
 - [x] Tombstoned rows can retire behind an explicit retention threshold.
-- [x] Invalid snapshots hold the lifecycle instead of minting rows or advancing
-      the absence/retirement ladder; PR #767 wires the Markdown production path to
-      supply the parser/projection validity signal end to end.
+- [x] Invalid snapshots mark live/ambiguous rows unavailable without minting rows
+      or advancing the absence/retirement ladder; PR #767 wires the Markdown
+      production path to supply the parser/projection validity signal end to end.
 - [x] No CRDT, frontend protocol, or public SDEG package changes.
 
 ## Validation

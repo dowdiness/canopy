@@ -243,7 +243,9 @@ all depend on.
 >
 > PR #767 derives snapshot validity from parser diagnostics plus projection
 > `Error` nodes in the source-map memo path: valid deletes advance absence
-> counters, while malformed snapshots hold the prior row state.
+> counters, while malformed snapshots mark live/ambiguous rows unavailable
+> (`Missing`, no current anchor or candidates) without incrementing absence
+> counters.
 >
 > The [SDEG Invariant & Semantics Review](sdeg-invariant-review.md) holds the
 > authoritative, code-grounded transition table, the per-state resolution rules,
