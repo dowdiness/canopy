@@ -67,8 +67,8 @@ jobs:
         uses: ./.github/actions/setup-moonbit
 
       - name: Run PR benchmarks
-        # Workspace includes vendored submodules (alga) with pre-existing
-        # benchmark failures (stack overflow in graph algorithms).
+        # Workspace includes vendored submodules with pre-existing
+        # benchmark failures.
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
@@ -80,7 +80,7 @@ jobs:
           fi
 
       - name: Run submodule benchmarks (event-graph-walker)
-        # Vendored submodule errors (alga trait mismatches, try? warnings)
+        # Vendored submodule errors (try? warnings and other pre-existing issues)
         # surface during workspace bench runs.  Continue on error — the
         # comparison is informational, not a gate.
         continue-on-error: true
@@ -305,20 +305,27 @@ jobs:
           retention-days: 30
 
   editor-response-benchmark:
-    name: Editor Response Benchmark
+    name: Editor Response Benchmark Gate
     needs: benchmark-gate
-    if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Report benchmark not applicable
+        if: needs.benchmark-gate.outputs.run_editor_response != 'true' && github.event_name != 'workflow_dispatch'
+        run: |
+          echo "Editor response benchmark not applicable: no editor-response paths changed."
+
       - name: Checkout PR branch
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up MoonBit
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/setup-moonbit
 
       - name: Setup Node.js
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
@@ -326,20 +333,24 @@ jobs:
           cache-dependency-path: examples/ideal/web/package-lock.json
 
       - name: Install web dependencies
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: examples/ideal/web
         run: npm ci
 
       - name: Install Playwright browser
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: examples/ideal/web
         run: npx playwright install --with-deps chromium
 
       - name: Update MoonBit dependencies
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: examples/ideal
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         run: |
           "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run realistic editor response benchmark
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: examples/ideal/web
         env:
           # CI-only paint budget for the 10% trimmed-mean gate (#460, the durable
