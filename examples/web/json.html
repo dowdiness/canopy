@@ -118,6 +118,7 @@
       background: #1e1e1e;
       border: 1px solid #3c3c3c;
       border-radius: 4px;
+      position: relative;
       outline: none;
       font-size: 15px;
       line-height: 1.6;
@@ -277,6 +278,48 @@
     .node-tag.bool,
     .node-tag.null {
       color: #569cd6;
+    }
+
+    .decoration-overlay {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .decoration-mark {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    .json-role-property-key {
+      background-color: rgba(156, 220, 254, 0.12);
+    }
+
+    .json-role-string-value {
+      background-color: rgba(206, 145, 120, 0.15);
+    }
+
+    .json-role-number-literal {
+      background-color: rgba(181, 206, 168, 0.13);
+    }
+
+    .json-role-boolean-literal {
+      background-color: rgba(86, 156, 214, 0.13);
+    }
+
+    .json-role-null-literal {
+      background-color: rgba(86, 156, 214, 0.13);
+    }
+
+    .json-role-punctuation {
+      background-color: rgba(128, 128, 128, 0.10);
+    }
+
+    .json-role-error {
+      background-color: rgba(244, 135, 113, 0.18);
+      border-bottom: 1px wavy #f48771;
     }
 
     @media (max-width: 900px) {

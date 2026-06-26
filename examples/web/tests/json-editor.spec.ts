@@ -185,6 +185,11 @@ test.describe('JSON Editor — Role Spans', () => {
       return mod.getJsonRoleSpans();
     });
   }
+    return page.evaluate(async () => {
+      const mod = await import('/src/json-editor.ts');
+      return mod.getJsonRoleSpans();
+    });
+  }
 
   test('simple object returns property-key and string-value spans', async ({ page }) => {
     await loadExample(page, 'Object');
@@ -203,7 +208,21 @@ test.describe('JSON Editor — Role Spans', () => {
     }).toBe(true);
   });
 
-  test('typing broken JSON produces error role spans', async ({ page }) => {
+  test('decoration marks visible in overlay', async ({ page }) => {
+    await loadExample(page, 'Object');
+    const firstMark = page.locator('.decoration-overlay .decoration-mark').first();
+    await expect(firstMark).toBeVisible();
+    const bgColor = await firstMark.evaluate(el => getComputedStyle(el).backgroundColor);
+    // Completely transparent is rgba(0, 0, 0, 0); role classes set a visible background.
+    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+    const count = await page.locator('.decoration-overlay .decoration-mark').count();
+    expect(count).toBeGreaterThan(0);
+    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+    const count = await page.locator('.decoration-overlay .decoration-mark').count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('error input shows error decoration', async ({ page }) => {
     const editor = page.locator('#json-input');
     await editor.click();
     await page.keyboard.press('Control+A');
@@ -224,7 +243,7 @@ test.describe('JSON Editor — Role Spans', () => {
     await expect(errors.first()).toBeVisible();
   });
 
-  test('fixing broken JSON clears error role spans', async ({ page }) => {
+  test('fixing error clears error decorations', async ({ page }) => {
     const editor = page.locator('#json-input');
     await editor.click();
     await page.keyboard.press('Control+A');
@@ -239,5 +258,6 @@ test.describe('JSON Editor — Role Spans', () => {
     await page.keyboard.type('{"ok": 1}');
     // Error should clear
     await expect.poll(async () => !(await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
+  });
   });
 });

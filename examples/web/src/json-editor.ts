@@ -1,5 +1,7 @@
 import * as crdt from '@moonbit/crdt-json';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
+import { DecorationOverlay } from './decoration-overlay';
+import type { Decoration } from '@canopy/editor-adapter/types';
 import type { ViewPatch, ViewNode } from '@canopy/editor-adapter/types';
 
 type InlineMode = 'add-member' | 'wrap-object' | 'change-type' | null;
@@ -31,6 +33,8 @@ const inlineCancelEl = must<HTMLButtonElement>('toolbar-inline-cancel');
 // Protocol-based tree adapter
 const adapter = new HTMLAdapter(treeEl, errorsEl);
 
+const decorationOverlay = new DecorationOverlay(editorEl);
+
 let inlineMode: InlineMode = null;
 let lastText = '';
 let syncScheduled = false;
@@ -56,6 +60,45 @@ function kindTagToToolbarKind(kindTag: string): string {
     case 'Error': return 'error';
     default: return 'other';
   }
+}
+
+const ROLE_TO_CSS_CLASS: Record<string, string> = {
+  'property-key': 'json-role-property-key',
+  'string-value': 'json-role-string-value',
+  'number-literal': 'json-role-number-literal',
+  'boolean-literal': 'json-role-boolean-literal',
+  'null-literal': 'json-role-null-literal',
+  'punctuation': 'json-role-punctuation',
+  'error': 'json-role-error',
+};
+
+export interface JsonRoleSpanData {
+  start: number;
+  end: number;
+  role: string;
+}
+
+/** Fetch current JSON role spans from the MoonBit parser and return as typed data. */
+export function getJsonRoleSpans(): JsonRoleSpanData[] {
+  const raw = crdt.json_get_role_spans_json(handle);
+  try {
+    return JSON.parse(raw) as JsonRoleSpanData[];
+  } catch {
+    return [];
+  }
+}
+
+/** Convert role span data to Decoration[] for the overlay. */
+function roleSpansToDecorations(spans: JsonRoleSpanData[]): Decoration[] {
+  return spans
+    .filter(s => s.end > s.start)
+    .map(s => ({
+      from: s.start,
+      to: s.end,
+      css_class: ROLE_TO_CSS_CLASS[s.role] ?? '',
+      data: null,
+      widget: false,
+    }));
 }
 
 function scheduleTextSync() {
@@ -108,7 +151,8 @@ function refresh() {
       adapter.applyPatches([{ type: 'SelectNode', node_id: root.id }]);
     }
   }
-
+  const roleSpans = getJsonRoleSpans();
+  decorationOverlay.applyDecorations(roleSpansToDecorations(roleSpans));
   updateToolbarState();
 }
 
@@ -275,6 +319,7 @@ document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach((button) =>
 
 window.addEventListener('beforeunload', () => {
   adapter.destroy();
+  decorationOverlay.dispose();
   crdt.destroy_json_editor(handle);
 });
 
