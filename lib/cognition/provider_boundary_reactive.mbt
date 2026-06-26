@@ -283,9 +283,9 @@ fn ProviderPlanningGraph::ProviderPlanningGraph(
     },
     label="cognition_provider_request_descriptor",
   )
-  let status_cell = scope.derived(
-    fn() {
-      match request_cell.get_or_abort() {
+  let status_cell = request_cell.map_eq(
+    request => {
+      match request {
         Some(request) => {
           let state = provider_state_for_request(request_states.get(), request).unwrap_or(
             ProviderRequestState::pending(request),
@@ -303,9 +303,9 @@ fn ProviderPlanningGraph::ProviderPlanningGraph(
     },
     label="cognition_provider_status",
   )
-  let retry_classification_cell = scope.derived(
-    fn() {
-      match status_cell.get_or_abort() {
+  let retry_classification_cell = status_cell.map_eq(
+    status => {
+      match status {
         Some(status) =>
           match status.status() {
             ProviderRequestStatus::Failed(error) =>
@@ -317,6 +317,11 @@ fn ProviderPlanningGraph::ProviderPlanningGraph(
     },
     label="cognition_provider_retry_classification",
   )
+  // Register mapped cells for deterministic scope disposal — replacing
+  // scope.derived (which auto-registers) with map_eq would otherwise leave
+  // status_cell/retry_classification_cell unregistered, creating a contract
+  // gap vs original code. Disposal determinism, not GC rooting.
+  scope.add_cell_ids([status_cell.id(), retry_classification_cell.id()])
   let next_driver_action_cell = scope.derived(
     fn() {
       provider_next_driver_action_for_states(

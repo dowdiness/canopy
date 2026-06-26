@@ -106,14 +106,20 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
     () => policy.validate_canvas_document(document.get()),
     label="canvas.validation",
   )
-  let normalized = scope.derived(
-    () => normalize_canvas(validated.get_or_abort()),
+  let normalized = validated.map_eq(
+    v => normalize_canvas(v),
     label="canvas.normalization",
   )
-  let lowered = scope.derived(
-    () => policy.lower_canvas(normalized.get_or_abort()),
+  let lowered = normalized.map_eq(
+    n => policy.lower_canvas(n),
     label="canvas.lowering",
   )
+  // Register mapped cells for deterministic scope disposal — replacing
+  // scope.derived (which auto-registers) with map_eq would otherwise leave
+  // normalized/lowered unregistered, creating a contract gap vs original code.
+  // This is about disposal determinism, not GC rooting (the watch chain keeps
+  // them alive either way).
+  scope.add_cell_ids([normalized.id(), lowered.id()])
   let render = scope.derived(
     () => {
       policy.render_full_canvas(
