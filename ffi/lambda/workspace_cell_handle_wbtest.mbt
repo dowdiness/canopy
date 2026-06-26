@@ -1,5 +1,5 @@
-// Whitebox integration test for the §P0b workspace memo lifecycle API.
-// Proves Coordinator::register_workspace_memo + WorkspaceMemoHandle drive
+// Whitebox integration test for the §P0b workspace cell lifecycle API.
+// Proves Coordinator::register_workspace_cell + WorkspaceCellHandle drive
 // register_dep / unregister_dep / destroy_editor gateway / read_protected
 // end-to-end against real Lambda editor cells via the global `coordinator`.
 //
@@ -26,12 +26,12 @@ test "wmh A1: sanity sum equals known value across two editors" {
     sa.length() + sb.length()
   })
   let handle = match
-    coordinator.register_workspace_memo(sum_d, [
+    coordinator.register_workspace_cell(sum_d, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_b.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
     Ok(h) => h
-    Err(r) => fail("register_workspace_memo: \{r}")
+    Err(r) => fail("register_workspace_cell: \{r}")
   }
   h_a.editor.set_text("abc")
   h_b.editor.set_text("defgh")
@@ -77,12 +77,12 @@ test "wmh A2: reactivity — mutation in editor A invalidates and recomputes" {
     sa.length() + sb.length()
   })
   let handle = match
-    coordinator.register_workspace_memo(sum_d, [
+    coordinator.register_workspace_cell(sum_d, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_b.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
     Ok(h) => h
-    Err(r) => fail("register_workspace_memo: \{r}")
+    Err(r) => fail("register_workspace_cell: \{r}")
   }
   h_a.editor.set_text("ab")
   h_b.editor.set_text("cd")
@@ -130,12 +130,12 @@ test "wmh A3: clean teardown — destroy succeeds after dispose" {
     sa.length() + sb.length()
   })
   let handle = match
-    coordinator.register_workspace_memo(sum_d, [
+    coordinator.register_workspace_cell(sum_d, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_b.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
     Ok(h) => h
-    Err(r) => fail("register_workspace_memo: \{r}")
+    Err(r) => fail("register_workspace_cell: \{r}")
   }
   h_a.editor.set_text("x")
   h_b.editor.set_text("yz")
@@ -173,7 +173,7 @@ test "wmh B1: bad-cell rejection + atomicity" {
   // the valid edge before hitting the bad one — the destroy assertion below
   // catches that leak, proving all-or-nothing rather than just "rejected".
   match
-    coordinator.register_workspace_memo(bad, [
+    coordinator.register_workspace_cell(bad, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_a.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
@@ -215,7 +215,7 @@ test "wmh B2: dead-editor rejection" {
   }
   let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
   match
-    coordinator.register_workspace_memo(m, [
+    coordinator.register_workspace_cell(m, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
     ]) {
     Ok(_) => fail("B2 expected EditorDestroyed, got Ok")
@@ -247,11 +247,11 @@ test "panic wmh B3: registering the same memo twice aborts" {
       Err(r) => abort("wmh B3 read: \{r}")
     }
   })
-  let _first = coordinator.register_workspace_memo(m, [
+  let _first = coordinator.register_workspace_cell(m, [
     (h_a.editor_id, h_a.cells.parser_source.cell_id()),
   ])
   // Second registration of the same memo must abort (guard 0b).
-  let _second = coordinator.register_workspace_memo(m, [
+  let _second = coordinator.register_workspace_cell(m, [
     (h_a.editor_id, h_a.cells.parser_source.cell_id()),
   ])
 }
@@ -260,7 +260,7 @@ test "panic wmh B3: registering the same memo twice aborts" {
 test "panic wmh B4: registering with empty deps aborts" {
   reset_coordinator_for_phase1_tests()
   let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
-  let _ = coordinator.register_workspace_memo(m, [])
+  let _ = coordinator.register_workspace_cell(m, [])
 }
 
 ///|
@@ -284,12 +284,12 @@ test "wmh C: destroy refusal under live handle" {
     sa.length() + sb.length()
   })
   let handle = match
-    coordinator.register_workspace_memo(sum_d, [
+    coordinator.register_workspace_cell(sum_d, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_b.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
     Ok(h) => h
-    Err(r) => fail("register_workspace_memo: \{r}")
+    Err(r) => fail("register_workspace_cell: \{r}")
   }
   h_a.editor.set_text("hi")
   h_b.editor.set_text("world")
@@ -347,12 +347,12 @@ test "wmh D: idempotent dispose — second dispose is a safe no-op" {
     sa.length() + sb.length()
   })
   let handle = match
-    coordinator.register_workspace_memo(sum_d, [
+    coordinator.register_workspace_cell(sum_d, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
       (h_b.editor_id, h_b.cells.parser_source.cell_id()),
     ]) {
     Ok(h) => h
-    Err(r) => fail("register_workspace_memo: \{r}")
+    Err(r) => fail("register_workspace_cell: \{r}")
   }
   h_a.editor.set_text("x")
   h_b.editor.set_text("yz")

@@ -39,7 +39,7 @@ pub fn Coordinator::new() -> Self
 pub fn[T] Coordinator::read_protected(Self, EditorId, ProtectedCell[T]) -> Result[T, AbortReport]
 pub fn Coordinator::register_dep(Self, @types.CellId, EditorId, @types.CellId) -> Unit
 pub fn Coordinator::register_editor(Self, String, Array[ProtectedRead]) -> EditorId
-pub fn[T] Coordinator::register_workspace_memo(Self, @cells.Derived[T], Array[(EditorId, @types.CellId)]) -> Result[WorkspaceMemoHandle[T], AbortReport]
+pub fn[T] Coordinator::register_workspace_cell(Self, @cells.Derived[T], Array[(EditorId, @types.CellId)]) -> Result[WorkspaceCellHandle[T], AbortReport]
 pub fn Coordinator::runtime(Self) -> @cells.Runtime
 pub fn Coordinator::unregister_dep(Self, @types.CellId, EditorId, @types.CellId) -> Unit
 
@@ -64,12 +64,12 @@ pub struct ProtectedRead {
   dispose : () -> Unit
 }
 
-pub struct WorkspaceMemoHandle[T] {
+pub struct WorkspaceCellHandle[T] {
   // private fields
 }
-pub fn[T] WorkspaceMemoHandle::dispose(Self[T]) -> Unit
-pub fn[T] WorkspaceMemoHandle::id(Self[T]) -> @types.CellId
-pub fn[T] WorkspaceMemoHandle::read(Self[T]) -> Result[T, @types.ReadError]
+pub fn[T] WorkspaceCellHandle::dispose(Self[T]) -> Unit
+pub fn[T] WorkspaceCellHandle::id(Self[T]) -> @types.CellId
+pub fn[T] WorkspaceCellHandle::read(Self[T]) -> Result[T, @types.ReadError]
 
 // Type aliases
 
