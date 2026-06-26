@@ -20,7 +20,7 @@
 #
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
-VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita loom}"
+VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita}"
 
 run_moon_check_with_vendored_filter() {
     # Parse --keep=<dir> to exclude a directory from vendored suppression.

@@ -35,8 +35,7 @@ fi
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
 # Directories are repo-root relative. Matches paths containing "/dir/".
-# loom:           pre-existing [4024] unused_trait_bound + try? warnings
-VENDORED_DIRS="rabbita/rabbita loom"
+VENDORED_DIRS="rabbita/rabbita"
 
 # Build a grep -v pipeline that excludes each vendored directory.
 # For each dir, we match lines containing "/dir/" in the path.
