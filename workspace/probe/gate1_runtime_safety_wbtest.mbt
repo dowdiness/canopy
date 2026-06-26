@@ -213,10 +213,13 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
   let id_b : @incr.CellId = parser_b.source().id()
-  let cross : @incr.Derived[Int] = @incr.Derived::Derived(shared_rt, fn() {
-    parser_a.source().get_or_abort().length() +
-    parser_b.source().get_or_abort().length()
-  })
+  let cross : @incr.Derived[Int] = parser_a
+    .source()
+    .map2_eq(
+      parser_b.source(),
+      (a, b) => a.length() + b.length(),
+      label="cross",
+    )
   // Force first computation via read_or_abort (outside-the-graph read) so
   // cross's dependency list is populated before observe/gc.
   let initial : Int = cross.read_or_abort()
