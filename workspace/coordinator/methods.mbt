@@ -48,21 +48,21 @@ pub fn Coordinator::register_editor(
 }
 
 ///|
-/// Idempotently records a `workspace_memo → editor_cell` dep edge owned by
+/// Idempotently records a `workspace_cell → editor_cell` dep edge owned by
 /// `editor_id`. `destroy_editor` refuses while any such edge points at the
 /// editor. Phase 1 callers: tests for the destroy gateway. Phase 1b+ callers:
-/// workspace memos releasing their own deps on dispose.
+/// workspace cell handles releasing their own deps on dispose.
 pub fn Coordinator::register_dep(
   self : Coordinator,
-  workspace_memo : @incr.CellId,
+  workspace_cell : @incr.CellId,
   editor_id : EditorId,
   editor_cell : @incr.CellId,
 ) -> Unit {
-  let entry = match self.deps.get(workspace_memo) {
+  let entry = match self.deps.get(workspace_cell) {
     Some(arr) => arr
     None => {
       let arr : Array[(EditorId, @incr.CellId)] = []
-      self.deps.set(workspace_memo, arr)
+      self.deps.set(workspace_cell, arr)
       arr
     }
   }
@@ -76,23 +76,23 @@ pub fn Coordinator::register_dep(
 /// Idempotent. Removes the edge if present; no-op if absent.
 pub fn Coordinator::unregister_dep(
   self : Coordinator,
-  workspace_memo : @incr.CellId,
+  workspace_cell : @incr.CellId,
   editor_id : EditorId,
   editor_cell : @incr.CellId,
 ) -> Unit {
-  let entry = match self.deps.get(workspace_memo) {
+  let entry = match self.deps.get(workspace_cell) {
     Some(e) => e
     None => return
   }
   let edge = (editor_id, editor_cell)
   // `Array::remove` is positional, not by-value; rebuild via filter and
-  // write back. Phase 1 dep-counts per workspace memo are small (<10 in
+  // write back. Phase 1 dep-counts per workspace cell are small (<10 in
   // any plausible scenario); profile in Phase 2 if this becomes hot.
   let new_entry = entry.filter(fn(e) { e != edge })
   if new_entry.is_empty() {
-    self.deps.remove(workspace_memo)
+    self.deps.remove(workspace_cell)
   } else {
-    self.deps.set(workspace_memo, new_entry)
+    self.deps.set(workspace_cell, new_entry)
   }
 }
 
@@ -119,10 +119,10 @@ pub fn Coordinator::destroy_editor(
     )
   }
   let referring : Array[@incr.CellId] = []
-  for ws_memo, edges in self.deps {
+  for ws_cell, edges in self.deps {
     for edge in edges {
       if edge.0 == editor_id {
-        referring.push(ws_memo)
+        referring.push(ws_cell)
       }
     }
   }
