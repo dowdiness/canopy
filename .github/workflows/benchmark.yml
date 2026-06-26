@@ -73,32 +73,20 @@ jobs:
 
       - name: Run PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        # Workspace includes vendored submodules with pre-existing
-        # benchmark failures.
+        # Targeted bench: compile only packages with benchmarks + their transitive
+        # deps, not all 37 workspace members. Covers EGW, btree, visualizer,
+        # editor, projection, json/companion, and loom lambda/json/markdown
+        # examples (captured when the loom submodule pointer changes).
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if ./scripts/run-moon-module.sh bench . > pr_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > pr_bench.txt 2>&1; then
             cat pr_bench.txt
           else
             cat pr_bench.txt
-            echo "(PR benchmark failed — pre-existing vendored submodule issues)"
+            echo "(PR benchmark failed)"
           fi
 
-      - name: Run submodule benchmarks (event-graph-walker)
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        # Vendored submodule errors (try? warnings and other pre-existing issues)
-        # surface during workspace bench runs.  Continue on error — the
-        # comparison is informational, not a gate.
-        continue-on-error: true
-        run: |
-          if ./scripts/run-moon-module.sh bench event-graph-walker > pr_egw_bench.txt 2>&1; then
-            cat pr_egw_bench.txt
-          else
-            cat pr_egw_bench.txt
-            echo "(egw benchmark failed — pre-existing vendored submodule issues)"
-            exit 0
-          fi
 
       - name: Upload PR benchmark results
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
@@ -107,7 +95,6 @@ jobs:
           name: pr-benchmark-results
           path: |
             pr_bench.txt
-            pr_egw_bench.txt
           retention-days: 7
 
   benchmark-base:
@@ -126,16 +113,14 @@ jobs:
         with:
           path: |
             base_bench.txt
-            base_egw_bench.txt
-          key: benchmark-base-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v5-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Validate base benchmark cache
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
         id: base-cache-files
         run: |
           if [ "${{ steps.base-benchmark-cache.outputs.cache-hit }}" = "true" ] && \
-             [ -f base_bench.txt ] && \
-             [ -f base_egw_bench.txt ]; then
+             [ -f base_bench.txt ]; then
             echo "complete=true" >> "$GITHUB_OUTPUT"
           else
             echo "complete=false" >> "$GITHUB_OUTPUT"
@@ -154,30 +139,17 @@ jobs:
 
       - name: Run base benchmarks
         if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        # Targeted bench: same -p flags as PR branch for apples-to-apples comparison.
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release > base_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > base_bench.txt 2>&1; then
             cat base_bench.txt
           else
             echo "(base branch benchmark failed — may not compile)" > base_bench.txt
             cat base_bench.txt
           fi
 
-      - name: Run submodule benchmarks (base - event-graph-walker)
-        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
-        continue-on-error: true
-        run: |
-          if (
-            cd event-graph-walker
-            "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon bench --release
-          ) > base_egw_bench.txt 2>&1; then
-            cat base_egw_bench.txt
-          else
-            echo "(base branch benchmark failed — may not compile)" > base_egw_bench.txt
-            cat base_egw_bench.txt
-          fi
 
       - name: Save base benchmark cache
         if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
@@ -186,7 +158,6 @@ jobs:
         with:
           path: |
             base_bench.txt
-            base_egw_bench.txt
           key: ${{ steps.base-benchmark-cache.outputs.cache-primary-key }}
 
       - name: Upload base benchmark results
@@ -196,7 +167,6 @@ jobs:
           name: base-benchmark-results
           path: |
             base_bench.txt
-            base_egw_bench.txt
           retention-days: 7
 
   benchmark-comparison:
@@ -259,19 +229,6 @@ jobs:
             echo '```'
             echo ""
 
-            echo "### event-graph-walker Benchmarks"
-            echo ""
-            echo "**Base branch:**"
-            echo '```'
-            cat_benchmark_file benchmark-results/base/base_egw_bench.txt
-            echo '```'
-            echo ""
-
-            echo "**PR branch:**"
-            echo '```'
-            cat_benchmark_file benchmark-results/pr/pr_egw_bench.txt
-            echo '```'
-            echo ""
 
             echo "---"
             echo "*Benchmarks run with \`--release\` flag*"
@@ -321,8 +278,6 @@ jobs:
           path: |
             benchmark-results/base/base_bench.txt
             benchmark-results/pr/pr_bench.txt
-            benchmark-results/base/base_egw_bench.txt
-            benchmark-results/pr/pr_egw_bench.txt
             comparison.md
           retention-days: 30
 
@@ -359,6 +314,12 @@ jobs:
         working-directory: examples/ideal/web
         run: npm ci
 
+      - name: Cache Playwright browsers
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('examples/ideal/web/package-lock.json') }}
       - name: Install Playwright browser
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: examples/ideal/web
