@@ -235,23 +235,16 @@ pub fn json_compute_view_patches_json(handle : Int) -> String {
 
 // ── Role spans ──────────────────────────────────────────────────────────
 
+///| Get parser role spans for the current JSON document as a JSON array of
+
 ///|
-/// Get parser role spans for the current JSON document as a JSON array of
-/// {start, end, role} objects. Reads the live syntax tree through the
-/// coordinator's protected surface.
+/// {start, end, role} objects. Read from the reactive protected cell.
 pub fn json_get_role_spans_json(handle : Int) -> String {
-  let h = match json_registry.get(handle) {
-    Some(v) => v
-    None => return "[]"
-  }
-  match coordinator.read_protected(h.editor_id, h.cells.parser_syntax_tree) {
-    Ok(st) => {
-      let spans = @djson.project_json_roles(st)
-      let exports = @djson.export_json_role_spans(spans)
-      Json::array(exports.map(s => s.to_json())).stringify()
-    }
+  guard json_registry.get(handle) is Some(h) else { return "[]" }
+  match coordinator.read_protected(h.editor_id, h.cells.parser_role_spans) {
+    Ok(exports) => Json::array(exports.map(s => s.to_json())).stringify()
     Err(report) => {
-      println("json_get_role_spans_json syntax read: \{report}")
+      println("json_get_role_spans_json cell read: \{report}")
       "[]"
     }
   }

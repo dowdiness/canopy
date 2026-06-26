@@ -6,13 +6,14 @@
 // freshly-built editor inside `assemble_json_handle` (json_ffi.mbt) and
 // erased to `Array[ProtectedRead]` for registration with the coordinator.
 //
-// 7-cell SyncEditor-generic subset (no language companion + no typecheck
+// 8-cell SyncEditor-generic subset (no language companion + no typecheck
 // pipeline). See docs/superpowers/specs/2026-05-25-p0b-phase1b-ws2-design.md
 // §5.1.
 
 ///|
 priv struct JsonProtectedCells {
   parser_syntax_tree : @workspace.ProtectedCell[@seam.SyntaxNode]
+  parser_role_spans : @workspace.ProtectedCell[Array[@djson.JsonRoleSpanExport]]
   parser_ast : @workspace.ProtectedCell[@djson.JsonValue]
   parser_source : @workspace.ProtectedCell[String]
   parser_diagnostics : @workspace.ProtectedCell[@loom.DiagnosticSet]
@@ -31,6 +32,15 @@ fn JsonProtectedCells::JsonProtectedCells(
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
       "parser_syntax_view",
       editor.parser_syntax_tree(),
+    ),
+    parser_role_spans: @workspace.ProtectedCell::from_derived(
+      "parser_role_spans",
+      editor
+      .parser_syntax_tree()
+      .map(
+        fn(st) { @djson.export_json_role_spans(@djson.project_json_roles(st)) },
+        label="parser_role_spans",
+      ),
     ),
     parser_ast: @workspace.ProtectedCell::from_derived(
       "parser_ast_view",
@@ -65,6 +75,7 @@ fn JsonProtectedCells::to_protected_reads(
 ) -> Array[@workspace.ProtectedRead] {
   [
     self.parser_syntax_tree.erase(),
+    self.parser_role_spans.erase(),
     self.parser_ast.erase(),
     self.parser_source.erase(),
     self.parser_diagnostics.erase(),
