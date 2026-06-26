@@ -185,11 +185,6 @@ test.describe('JSON Editor — Role Spans', () => {
       return mod.getJsonRoleSpans();
     });
   }
-    return page.evaluate(async () => {
-      const mod = await import('/src/json-editor.ts');
-      return mod.getJsonRoleSpans();
-    });
-  }
 
   test('simple object returns property-key and string-value spans', async ({ page }) => {
     await loadExample(page, 'Object');
@@ -215,10 +210,6 @@ test.describe('JSON Editor — Role Spans', () => {
     const bgColor = await firstMark.evaluate(el => getComputedStyle(el).backgroundColor);
     // Completely transparent is rgba(0, 0, 0, 0); role classes set a visible background.
     expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
-    const count = await page.locator('.decoration-overlay .decoration-mark').count();
-    expect(count).toBeGreaterThan(0);
-    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
-    const count = await page.locator('.decoration-overlay .decoration-mark').count();
     expect(count).toBeGreaterThan(0);
   });
 
@@ -258,6 +249,5 @@ test.describe('JSON Editor — Role Spans', () => {
     await page.keyboard.type('{"ok": 1}');
     // Error should clear
     await expect.poll(async () => !(await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
-  });
   });
 });
