@@ -7,7 +7,7 @@
 
 ///|
 priv struct JsonHandle {
-  editor : @editor.SyncEditor[@loom_json.JsonValue]
+  editor : @editor.SyncEditor[@djson.JsonValue]
   editor_id : @workspace.EditorId
   cells : JsonProtectedCells
 }
@@ -142,31 +142,6 @@ pub fn json_get_source_map_json(handle : Int) -> String {
         }
       }
     None => "[]"
-  }
-}
-
-// ── Role spans ───────────────────────────────────────────────────────────
-
-///|
-/// Get JSON syntax role spans as a JSON array of {start, end, role} objects.
-/// Reads the current parser syntax tree through the coordinator's protected
-/// surface. Returns "[]" on protected read failure.
-pub fn json_get_role_spans_json(handle : Int) -> String {
-  let h = match json_registry.get(handle) {
-    Some(v) => v
-    None => return "[]"
-  }
-  match coordinator.read_protected(h.editor_id, h.cells.parser_syntax_tree) {
-    Ok(syntax) => {
-      let spans = @loom_json.project_json_roles(syntax)
-      let exports = @loom_json.export_json_role_spans(spans)
-      let json_values = exports.map(e => e.to_json())
-      Json::array(json_values).stringify()
-    }
-    Err(report) => {
-      println("json_get_role_spans_json syntax tree read: \{report}")
-      "[]"
-    }
   }
 }
 
