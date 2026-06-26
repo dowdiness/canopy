@@ -79,7 +79,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer; } > pr_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > pr_bench.txt 2>&1; then
             cat pr_bench.txt
           else
             cat pr_bench.txt
@@ -142,7 +142,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer; } > base_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > base_bench.txt 2>&1; then
             cat base_bench.txt
           else
             echo "(base branch benchmark failed — may not compile)" > base_bench.txt
