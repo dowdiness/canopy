@@ -13,21 +13,19 @@
 ///|
 priv struct JsonProtectedCells {
   parser_syntax_tree : @workspace.ProtectedCell[@seam.SyntaxNode]
-  parser_ast : @workspace.ProtectedCell[@loom_json.JsonValue]
+  parser_ast : @workspace.ProtectedCell[@djson.JsonValue]
   parser_source : @workspace.ProtectedCell[String]
   parser_diagnostics : @workspace.ProtectedCell[@loom.DiagnosticSet]
-  cached_proj_node : @workspace.ProtectedCell[
-    @core.ProjNode[@loom_json.JsonValue]?,
-  ]
+  cached_proj_node : @workspace.ProtectedCell[@core.ProjNode[@djson.JsonValue]?]
   registry_memo : @workspace.ProtectedCell[
-    Map[@core.NodeId, @core.ProjNode[@loom_json.JsonValue]],
+    Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]],
   ]
   source_map_memo : @workspace.ProtectedCell[@core.SourceMap]
 }
 
 ///|
 fn JsonProtectedCells::JsonProtectedCells(
-  editor : @editor.SyncEditor[@loom_json.JsonValue],
+  editor : @editor.SyncEditor[@djson.JsonValue],
 ) -> JsonProtectedCells {
   {
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
