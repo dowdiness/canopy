@@ -112,7 +112,7 @@ jobs:
         with:
           path: |
             base_bench.txt
-          key: benchmark-base-v3-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v4-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Validate base benchmark cache
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
