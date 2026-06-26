@@ -74,8 +74,8 @@ jobs:
       - name: Run PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
         # Targeted bench: compile only packages with benchmarks + their transitive
-        # deps, not all 37 workspace members. Covers EGW (CRDT), btree (data
-        # structures), and visualizer (graphviz/incr).
+        # deps, not all 37 workspace members. Covers EGW, btree, visualizer,
+        # editor, projection, and lang/json/companion.
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
