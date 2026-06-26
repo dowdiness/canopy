@@ -37,9 +37,7 @@ fi
 # Directories are repo-root relative. Matches paths containing "/dir/".
 # event-graph-walker: pre-existing try? warnings
 # loom:           pre-existing [4024] unused_trait_bound + try? warnings
-# graphviz:       workspace member since #738, pre-existing warnings
-# svg-dsl:        workspace member since #738, pre-existing warnings
-VENDORED_DIRS="rabbita/rabbita event-graph-walker loom graphviz svg-dsl"
+VENDORED_DIRS="rabbita/rabbita event-graph-walker loom"
 
 # Build a grep -v pipeline that excludes each vendored directory.
 # For each dir, we match lines containing "/dir/" in the path.
