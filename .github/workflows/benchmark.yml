@@ -75,11 +75,12 @@ jobs:
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
         # Targeted bench: compile only packages with benchmarks + their transitive
         # deps, not all 37 workspace members. Covers EGW, btree, visualizer,
-        # editor, projection, and lang/json/companion.
+        # editor, projection, json/companion, and loom lambda/json/markdown
+        # examples (captured when the loom submodule pointer changes).
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > pr_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > pr_bench.txt 2>&1; then
             cat pr_bench.txt
           else
             cat pr_bench.txt
@@ -112,7 +113,7 @@ jobs:
         with:
           path: |
             base_bench.txt
-          key: benchmark-base-v4-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v5-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Validate base benchmark cache
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
@@ -142,7 +143,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > base_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > base_bench.txt 2>&1; then
             cat base_bench.txt
           else
             echo "(base branch benchmark failed — may not compile)" > base_bench.txt
