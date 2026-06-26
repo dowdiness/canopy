@@ -210,6 +210,7 @@ test.describe('JSON Editor — Role Spans', () => {
     const bgColor = await firstMark.evaluate(el => getComputedStyle(el).backgroundColor);
     // Completely transparent is rgba(0, 0, 0, 0); role classes set a visible background.
     expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+    const count = await page.locator('.decoration-overlay .decoration-mark').count();
     expect(count).toBeGreaterThan(0);
   });
 
