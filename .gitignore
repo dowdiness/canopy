@@ -37,3 +37,5 @@ reference/
 .superpowers/
 .agents/
 .slopless/
+test_output.html
+test_output.svg
