@@ -16,9 +16,7 @@ priv struct JsonProtectedCells {
   parser_ast : @workspace.ProtectedCell[@djson.JsonValue]
   parser_source : @workspace.ProtectedCell[String]
   parser_diagnostics : @workspace.ProtectedCell[@loom.DiagnosticSet]
-  cached_proj_node : @workspace.ProtectedCell[
-    @core.ProjNode[@djson.JsonValue]?,
-  ]
+  cached_proj_node : @workspace.ProtectedCell[@core.ProjNode[@djson.JsonValue]?]
   registry_memo : @workspace.ProtectedCell[
     Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]],
   ]
