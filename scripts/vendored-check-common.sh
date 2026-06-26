@@ -7,7 +7,7 @@
 #
 # Usage:
 #   source vendored-check-common.sh
-#   VENDORED_DIRS="rabbita/rabbita alga ..."
+#   VENDORED_DIRS="rabbita/rabbita ..."
 #   run_moon_check_with_vendored_filter [moon-check-args...]
 #
 # The function runs moon check, then filters errors from vendored paths.
@@ -20,7 +20,7 @@
 #
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
-VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita alga event-graph-walker loom rle order-tree graphviz svg-dsl}"
+VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita event-graph-walker loom order-tree graphviz svg-dsl}"
 
 run_moon_check_with_vendored_filter() {
     # Parse --keep=<dir> to exclude a directory from vendored suppression.
