@@ -47,6 +47,14 @@ pub(all) enum FocusHint {
 } derive(Eq, @debug.Debug)
 pub impl Show for FocusHint
 
+pub struct FoldNode[T] {
+  kind : T
+  node_id : Int
+  start : Int
+  end : Int
+} derive(Eq, @debug.Debug)
+pub fn[T] FoldNode::id(Self[T]) -> NodeId
+
 pub(all) enum GenericTreeOp {
   Select(node_id~ : NodeId)
   SelectRange(start~ : NodeId, end~ : NodeId)
@@ -90,6 +98,7 @@ pub struct ProjNode[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] ProjNode::ProjNode(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
 pub fn[T] ProjNode::branch(T, Int, Int, Array[Self[T]], @ref.Ref[Int]) -> Self[T]
+pub fn[T, U] ProjNode::fold(Self[T], (FoldNode[T], Array[U]) -> U) -> U
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
 pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int]) -> Self[T]
 pub fn[T, U] ProjNode::map(Self[T], (T) -> U raise?) -> Self[U] raise?

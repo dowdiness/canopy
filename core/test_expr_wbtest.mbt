@@ -64,7 +64,7 @@ impl Renderable for TestExpr with fn unparse(self) {
   match self {
     Leaf(s) => s
     Branch(tag, cs) =>
-      tag + "(" + cs.map(fn(c) { Renderable::unparse(c) }).join(" ") + ")"
+      tag + "(" + cs.map(c => Renderable::unparse(c)).join(" ") + ")"
   }
 }
 
@@ -250,6 +250,64 @@ test "get_node_in_tree finds nested node" {
   let found = get_node_in_tree(root, NodeId::from_int(7))
   inspect(found is Some(_), content="true")
   inspect(found.unwrap().kind, content="Leaf(\"target\")")
+}
+
+///|
+test "ProjNode::fold — leaf node returns f(node, [])" {
+  let leaf = ProjNode(Leaf("x"), 0, 1, 0, [])
+  let result = leaf.fold((n, _) => n.kind)
+  inspect(result, content="Leaf(\"x\")")
+}
+
+///|
+test "ProjNode::fold — branch passes folded children to f" {
+  let a = ProjNode(Leaf("a"), 0, 1, 11, [])
+  let b = ProjNode(Leaf("b"), 3, 4, 12, [])
+  let root = ProjNode(Branch("r", [Leaf("a"), Leaf("b")]), 0, 5, 10, [a, b])
+  let result = root.fold((n, children) => {
+    children.length().to_string() + ":" + n.id().to_string()
+  })
+  // root has 2 children, id=10
+  inspect(result, content="2:NodeId(10)")
+}
+
+///|
+test "ProjNode::fold — count_nodes: fold(_, _, (_, child_counts) => 1 + sum(child_counts))" {
+  let a = ProjNode(Leaf("a"), 0, 1, 1, [])
+  let b = ProjNode(Leaf("b"), 1, 2, 2, [])
+  let c = ProjNode(Leaf("c"), 2, 3, 3, [])
+  let middle = ProjNode(Branch("m", [Leaf("b"), Leaf("c")]), 1, 3, 4, [b, c])
+  let root = ProjNode(Branch("r", [Leaf("a"), middle.kind]), 0, 3, 5, [
+    a, middle,
+  ])
+  let count = root.fold((_, child_counts) => {
+    1 + child_counts.fold(init=0, (acc, c) => acc + c)
+  })
+  inspect(count, content="5")
+}
+
+///|
+test "ProjNode::fold — preserves ProjNode structure (identity-like fold)" {
+  let a = ProjNode(Leaf("a"), 0, 1, 1, [])
+  let b = ProjNode(Leaf("b"), 3, 4, 2, [])
+  let root = ProjNode(Branch("r", [Leaf("a"), Leaf("b")]), 0, 5, 0, [a, b])
+  let reconstructed = root.fold((n, children) => {
+    ProjNode(n.kind, n.start, n.end, n.node_id, children)
+  })
+  inspect(reconstructed == root, content="true")
+}
+
+///|
+test "ProjNode::fold — stack safety on deep chain" {
+  // Build a deep chain of 500 nodes (worst-case for recursion)
+  let mut leaf = ProjNode(Leaf("x"), 0, 1, 0, [])
+  for i in 1..<=500 {
+    leaf = ProjNode(Branch("r", [leaf.kind]), 0, 1, i, [leaf])
+  }
+  let count = leaf.fold((_, child_counts) => {
+    1 + (if child_counts.is_empty() { 0 } else { child_counts[0] })
+  })
+  inspect(count, content="501")
 }
 
 ///|

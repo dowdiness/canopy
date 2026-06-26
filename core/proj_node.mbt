@@ -16,6 +16,33 @@ pub struct ProjNode[T] {
 } derive(Debug, Eq)
 
 ///|
+/// Non-recursive carrier for the `fold` algebra: the scalar fields of a
+/// ProjNode without the `children` array. By passing this instead of
+/// `ProjNode[T]`, the algebra cannot bypass the fold by accessing the
+/// original recursive structure.
+pub struct FoldNode[T] {
+  kind : T
+  node_id : Int
+  start : Int
+  end : Int
+} derive(Debug, Eq)
+
+///|
+fn[T] FoldNode::FoldNode(
+  kind : T,
+  node_id : Int,
+  start : Int,
+  end : Int,
+) -> FoldNode[T] {
+  { kind, node_id, start, end }
+}
+
+///|
+pub fn[T] FoldNode::id(self : FoldNode[T]) -> NodeId {
+  NodeId(self.node_id)
+}
+
+///|
 /// Short structural label for inspector + debug traces:
 /// `"#<node_id> <kind_tag> [<start>..<end>]"`. Depth-1 only — children
 /// are not recursed. The kind tag comes from `Renderable::kind_tag` so
@@ -98,7 +125,65 @@ pub fn next_proj_node_id(counter : Ref[Int]) -> Int {
 }
 
 ///|
-/// Build a NodeId → ProjNode lookup by walking the tree.
+/// Bottom-up fold (catamorphism) over a ProjNode tree.
+///
+/// Rebuilds or aggregates the tree: `f` receives a `FoldNode[T]` — the
+/// scalar fields of the current node (`kind`, `start`, `end`, `node_id`)
+/// — combined with the already-folded results of its children. Since
+/// `FoldNode[T]` has no `children` field, the algebra cannot bypass the
+/// fold by recursing manually.
+///
+/// **What fold is for:** aggregate/rebuild operations where the result
+/// for a node depends on the results of its children — counting, summing,
+/// renaming, collecting text, reconstructing with modified fields.
+///
+/// **What fold is not for:** searches that short-circuit (use
+/// `get_node_in_tree`), lookups that need the full `ProjNode` value
+/// (use `collect_registry`), or traversals where insertion order matters.
+///
+/// Uses an explicit stack for stack safety on deep trees.
+pub fn[T, U] ProjNode::fold(
+  self : ProjNode[T],
+  f : (FoldNode[T], Array[U]) -> U,
+) -> U {
+  // Post-order iterative fold. Each frame tracks (node, children_processed_count).
+  let stack : Array[(ProjNode[T], Int)] = [(self, 0)]
+  let results : Array[U] = []
+
+  while stack.length() > 0 {
+    let (node, done) = stack[stack.length() - 1]
+    if done < node.children.length() {
+      // Advance the frame counter and push the next child
+      let top = stack.length() - 1
+      stack[top] = (node, done + 1)
+      stack.push((node.children[done], 0))
+    } else {
+      // All children processed — fold this node
+      let _ = stack.pop()
+      let n = node.children.length()
+      let child_results : Array[U] = []
+      for i in 0..<n {
+        child_results.push(results[results.length() - n + i])
+      }
+      for _ in 0..<n {
+        let _ = results.pop()
+      }
+      results.push(
+        f(
+          FoldNode(node.kind, node.node_id, node.start, node.end),
+          child_results,
+        ),
+      )
+    }
+  }
+
+  results[0]
+}
+
+///|
+/// Build a NodeId → ProjNode lookup by walking the tree (pre-order).
+/// Pre-order traversal ensures parent is inserted before children,
+/// matching the original recursive implementation.
 pub fn[T] collect_registry(
   node : ProjNode[T],
   reg : Map[NodeId, ProjNode[T]],
@@ -111,6 +196,8 @@ pub fn[T] collect_registry(
 
 ///|
 /// Find a node in a ProjNode tree by its NodeId.
+/// Uses early-exit recursion (short-circuits on first match) — fold is not
+/// appropriate for search since it must visit every node.
 pub fn[T] get_node_in_tree(
   root : ProjNode[T],
   target_id : NodeId,
@@ -135,10 +222,9 @@ pub fn[T] assign_fresh_ids(
   node : ProjNode[T],
   counter : Ref[Int],
 ) -> ProjNode[T] {
-  let new_children : Array[ProjNode[T]] = [
-    for child in node.children => assign_fresh_ids(child, counter)
-  ]
-  ProjNode::branch(node.kind, node.start, node.end, new_children, counter)
+  node.fold((n, children) => {
+    ProjNode::branch(n.kind, n.start, n.end, children, counter)
+  })
 }
 
 ///|
