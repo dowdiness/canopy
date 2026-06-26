@@ -1,6 +1,6 @@
 # ffi/json
 
-JavaScript FFI boundary for the JSON editor. Exports a minimal set of functions keyed by integer handle, analogous to `ffi/lambda` but for the `SyncEditor[@djson.JsonValue]` instance.
+JavaScript FFI boundary for the JSON editor. Exports a minimal set of functions keyed by integer handle, analogous to `ffi/lambda` but for the `SyncEditor[@loom_json.JsonValue]` instance.
 
 This package contains no logic — it delegates entirely to `editor`, `lang/json`, and their subpackages.
 

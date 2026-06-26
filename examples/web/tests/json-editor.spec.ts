@@ -175,3 +175,69 @@ test.describe('JSON Editor — Ad-hoc', () => {
   });
 
 });
+
+test.describe('JSON Editor — Role Spans', () => {
+
+  /** Read current role spans via Vite's module cache (same instance as the page). */
+  async function roleSpans(page: Page): Promise<Array<{ start: number; end: number; role: string }>> {
+    return page.evaluate(async () => {
+      const mod = await import('/src/json-editor.ts');
+      return mod.getJsonRoleSpans();
+    });
+  }
+
+  test('simple object returns property-key and string-value spans', async ({ page }) => {
+    await loadExample(page, 'Object');
+    await expect.poll(async () => (await roleSpans(page)).length).toBeGreaterThanOrEqual(5);
+    const spans = await roleSpans(page);
+    expect(spans[0]).toMatchObject({ role: 'punctuation' });
+    expect(spans.some(s => s.role === 'property-key')).toBe(true);
+    expect(spans.some(s => s.role === 'string-value')).toBe(true);
+  });
+
+  test('array example contains number-literal and boolean-literal', async ({ page }) => {
+    await loadExample(page, 'Array');
+    await expect.poll(async () => {
+      const s = await roleSpans(page);
+      return s.some(s => s.role === 'number-literal') && s.some(s => s.role === 'boolean-literal') && s.some(s => s.role === 'null-literal');
+    }).toBe(true);
+  });
+
+  test('typing broken JSON produces error role spans', async ({ page }) => {
+    const editor = page.locator('#json-input');
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{bad');
+    await expect.poll(async () => (await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
+  });
+
+  test('error role coexists with parser diagnostics', async ({ page }) => {
+    const editor = page.locator('#json-input');
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{"a" 1}');
+    await expect.poll(async () => (await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
+    // Parser diagnostic also present
+    const errors = page.locator('#parse-errors .error-item');
+    await expect(errors.first()).toBeVisible();
+  });
+
+  test('fixing broken JSON clears error role spans', async ({ page }) => {
+    const editor = page.locator('#json-input');
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{bad');
+    // Error should appear
+    await expect.poll(async () => (await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
+
+    // Fix it
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{"ok": 1}');
+    // Error should clear
+    await expect.poll(async () => !(await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
+  });
+});

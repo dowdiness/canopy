@@ -287,3 +287,28 @@ if (initialText.trim()) {
 }
 
 refresh();
+
+
+/**
+ * Role span with UTF-16 source offsets and a stable lower-kebab role name.
+ * Role strings: property-key | string-value | number-literal | boolean-literal
+ * | null-literal | punctuation | error
+ */
+export interface JsonRoleSpanData {
+  start: number;
+  end: number;
+  role: string;
+}
+
+/**
+ * Read current syntax role spans from the JSON editor.
+ * Returns an empty array on empty document or error.
+ */
+export function getJsonRoleSpans(): JsonRoleSpanData[] {
+  const raw = crdt.json_get_role_spans_json(handle);
+  try {
+    return JSON.parse(raw) as JsonRoleSpanData[];
+  } catch {
+    return [];
+  }
+}

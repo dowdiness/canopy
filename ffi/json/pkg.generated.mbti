@@ -18,6 +18,8 @@ pub fn json_get_errors(Int) -> String
 
 pub fn json_get_proj_node_json(Int) -> String
 
+pub fn json_get_role_spans_json(Int) -> String
+
 pub fn json_get_source_map_json(Int) -> String
 
 pub fn json_get_text(Int) -> String
