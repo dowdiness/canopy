@@ -38,14 +38,9 @@ pub fn[T] SourceMap::from_ast(root : ProjNode[T]) -> SourceMap {
 ///|
 /// Recursively build the map from an AST node
 fn[T] SourceMap::build_from_node(self : SourceMap, node : ProjNode[T]) -> Unit {
-  let node_id = NodeId(node.node_id)
-  let range = Range::new(node.start, node.end)
-  self.node_to_range[node_id] = range
-
-  // Process children
-  for child in node.children {
-    self.build_from_node(child)
-  }
+  node.walk_preorder(fn(n) {
+    self.node_to_range[n.id()] = Range::new(n.start, n.end)
+  })
 }
 
 ///|
@@ -69,6 +64,12 @@ pub fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
 }
 
 ///|
+/// Get the half-open UTF-16 source range for a node.
+pub fn SourceMap::get_range(self : SourceMap, node_id : NodeId) -> Range? {
+  self.node_to_range.get(node_id)
+}
+
+///|
 /// Remove all entries for a ProjNode subtree from the source map.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
@@ -76,36 +77,23 @@ pub fn[T] SourceMap::remove_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  let node_id = node.id()
-  self.node_to_range.remove(node_id)
-  self.token_spans.remove(node_id)
-  for child in node.children {
-    self.remove_subtree(child)
-  }
+  node.walk_preorder(fn(n) {
+    self.node_to_range.remove(n.id())
+    self.token_spans.remove(n.id())
+  })
 }
 
 ///|
-/// Add entries for a ProjNode subtree to the source map.
-/// Clears any stale token_spans for patched nodes — call
-/// populate_token_spans() afterward to repopulate them.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
 pub fn[T] SourceMap::patch_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  let node_id = node.id()
-  self.node_to_range[node_id] = Range::new(node.start, node.end)
-  self.token_spans.remove(node_id)
-  for child in node.children {
-    self.patch_subtree(child)
-  }
-}
-
-///|
-/// Get the half-open UTF-16 source range for a node.
-pub fn SourceMap::get_range(self : SourceMap, node_id : NodeId) -> Range? {
-  self.node_to_range.get(node_id)
+  node.walk_preorder(fn(n) {
+    self.node_to_range[n.id()] = Range::new(n.start, n.end)
+    self.token_spans.remove(n.id())
+  })
 }
 
 ///|
