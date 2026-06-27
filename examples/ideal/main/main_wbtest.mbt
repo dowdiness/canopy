@@ -385,3 +385,24 @@ test "overlay error: cleared on main menu reset (close_submenu)" {
   inspect(result.state.error is None, content="true")
   inspect(result.state.mode is MainMenu, content="true")
 }
+
+///|
+test "format_overlay_error: EmptyName" {
+  inspect(format_overlay_error(EmptyName), content="Enter a name to continue")
+}
+
+///|
+test "format_overlay_error: BuildActionFailed carries message" {
+  inspect(
+    format_overlay_error(BuildActionFailed("bad op")),
+    content="Build failed: bad op",
+  )
+}
+
+///|
+test "format_overlay_error: ApplyActionFailed carries message" {
+  inspect(
+    format_overlay_error(ApplyActionFailed("apply failed")),
+    content="Apply failed: apply failed",
+  )
+}
