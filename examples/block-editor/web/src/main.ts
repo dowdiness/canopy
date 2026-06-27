@@ -92,6 +92,8 @@ function render() {
     div.dataset.checked = String(block.checked);
     div.dataset.index = String(block.index);
     div.dataset.parentId = block.parent_id;
+    // Depth-based indentation for nested blocks (CSS custom property)
+    div.style.setProperty('--depth', String(block.depth));
     div.contentEditable = 'false';
     applyAriaRoles(div, block);
 
@@ -193,17 +195,19 @@ function validateDropTarget(
 }
 
 // ── Drag targeting ──────────────────────────────────────────────────���─
-function computeDropPosition(e: DragEvent, div: HTMLDivElement): DropPosition {
-  const rect = div.getBoundingClientRect();
+function computeDropPosition(e: DragEvent, _div: HTMLDivElement): DropPosition {
+  const rect = _div.getBoundingClientRect();
   const y = e.clientY - rect.top;
   const ratio = y / rect.height;
-  if (ratio < 0.5) return 'Before';
+  // Top 40 % → Before, middle 20 % → Inside, bottom 40 % → After
+  if (ratio < 0.4) return 'Before';
+  if (ratio < 0.6) return 'Inside';
   return 'After';
 }
 
 function clearDropIndicators() {
   if (currentDropTarget) {
-    currentDropTarget.classList.remove('drop-before', 'drop-after');
+    currentDropTarget.classList.remove('drop-before', 'drop-after', 'drop-inside');
     currentDropTarget = null;
   }
   currentDropPosition = null;
@@ -228,8 +232,9 @@ function wireDragTarget(div: HTMLDivElement) {
     if (currentDropTarget !== div || currentDropPosition !== position) {
       clearDropIndicators();
       currentDropTarget = div;
+      const indicatorClass = position === 'Before' ? 'drop-before' : position === 'Inside' ? 'drop-inside' : 'drop-after';
+      div.classList.add(indicatorClass);
       currentDropPosition = position;
-      div.classList.add(position === 'Before' ? 'drop-before' : 'drop-after');
     }
   });
 
@@ -243,11 +248,9 @@ function wireDragTarget(div: HTMLDivElement) {
   div.addEventListener('drop', (e) => {
     e.preventDefault();
     const targetId = div.dataset.blockId!;
-    const targetParentId = div.dataset.parentId;
     // Validate drop target before committing
-    if (dragSourceId && dragSourceId !== targetId && currentDropPosition && targetParentId && validateDropTarget(dragSourceId, targetId, currentDropPosition, blockById)) {
-      // Pass targetParentId so Before/After preserve the target's parent for nested blocks.
-      ed.editor_move_block(handle, dragSourceId, targetId, currentDropPosition, targetParentId);
+    if (dragSourceId && dragSourceId !== targetId && currentDropPosition && validateDropTarget(dragSourceId, targetId, currentDropPosition, blockById)) {
+      ed.editor_move_block(handle, dragSourceId, targetId, currentDropPosition);
       render();
     }
     clearDropIndicators();
