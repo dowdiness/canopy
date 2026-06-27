@@ -752,3 +752,42 @@ test "InteractiveTreeNode Show — does not recurse into children or label" {
   }
   inspect(parent, content="#1 Lam [0..5]")
 }
+
+test "modify_node_at — changed path root-to-target inclusive" {
+  let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let ids = tree_editor_test_ids(state.tree)
+  guard ids.length() >= 4 else { fail("expected tree with 4+ nodes") }
+  let deep_id = ids[3]
+  let collapsed = state.apply_edit(Collapse(node_id=deep_id))
+  match collapsed.loaded_nodes.get(deep_id) {
+    Some(n) => inspect(n.collapsed, content="true")
+    None => fail("expected loaded node for deep_id")
+  }
+}
+
+///|
+test "modify_node_at — untouched sibling survives collapse of other branch" {
+  let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let ids = tree_editor_test_ids(state.tree)
+  guard ids.length() >= 3 else { fail("expected 3+ nodes") }
+  let left_id = ids[1]
+  let right_id = ids[2]
+  let collapsed = state.apply_edit(Collapse(node_id=left_id))
+  // Right sibling should still be present and uncollapsed
+  match collapsed.loaded_nodes.get(right_id) {
+    Some(n) => inspect(n.collapsed, content="false")
+    None => fail("expected right sibling to survive")
+  }
+}
+
+///|
+test "modify_node_at — not-found is no-op" {
+  let (root, source_map, _) = tree_editor_test_state("42")
+  let state = TreeEditorState::from_projection(Some(root), source_map)
+  let nonexistent = NodeId::from_int(99999)
+  let collapsed = state.apply_edit(Collapse(node_id=nonexistent))
+  match collapsed.tree {
+    None => fail("expected non-null tree")
+    Some(tree) => inspect(tree.collapsed, content="false")
+  }
+}

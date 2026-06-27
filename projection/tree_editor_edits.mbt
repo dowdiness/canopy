@@ -37,60 +37,17 @@ fn[T] replace_loaded_subtree(
 }
 
 ///|
-fn[T] replace_loaded_subtree_node(
+/// Find `target_id` in a loaded InteractiveTreeNode subtree and apply `f`
+/// to the matching node. Returns the updated root, whether the target was
+/// found, and the changed ancestor path (root-to-target, inclusive).
+/// Short-circuits on first match. `Elided` subtrees are treated as opaque.
+fn[T] modify_node_at(
   node : InteractiveTreeNode[T],
   target_id : NodeId,
-  replacement : InteractiveTreeNode[T],
+  f : (InteractiveTreeNode[T]) -> InteractiveTreeNode[T],
 ) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
   if node.id == target_id {
-    (replacement, true, [replacement])
-  } else {
-    match node.children {
-      Loaded(existing_children) => {
-        let children : Array[InteractiveTreeNode[T]] = []
-        let child_path : Array[InteractiveTreeNode[T]] = []
-        let mut found = false
-        for child in existing_children {
-          if found {
-            children.push(child)
-          } else {
-            let (updated_child, child_found, changed_nodes) = replace_loaded_subtree_node(
-              child, target_id, replacement,
-            )
-            children.push(updated_child)
-            if child_found {
-              found = true
-              for changed in changed_nodes {
-                child_path.push(changed)
-              }
-            }
-          }
-        }
-        if found {
-          let updated = { ..node, children: Loaded(children) }
-          let changed_path : Array[InteractiveTreeNode[T]] = [updated]
-          for changed in child_path {
-            changed_path.push(changed)
-          }
-          (updated, true, changed_path)
-        } else {
-          (node, false, [])
-        }
-      }
-      Elided(_) => (node, false, [])
-    }
-  }
-}
-
-///|
-/// Recursively update a node's collapsed state and return the changed path.
-fn[T] update_node_collapsed(
-  node : InteractiveTreeNode[T],
-  target_id : NodeId,
-  collapsed : Bool,
-) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
-  if node.id == target_id {
-    let updated = { ..node, collapsed, }
+    let updated = f(node)
     (updated, true, [updated])
   } else {
     match node.children {
@@ -102,8 +59,8 @@ fn[T] update_node_collapsed(
           if found {
             children.push(child)
           } else {
-            let (updated_child, child_found, changed_nodes) = update_node_collapsed(
-              child, target_id, collapsed,
+            let (updated_child, child_found, changed_nodes) = modify_node_at(
+              child, target_id, f,
             )
             children.push(updated_child)
             if child_found {
@@ -131,7 +88,23 @@ fn[T] update_node_collapsed(
 }
 
 ///|
-/// Patch only the changed node path into the loaded-node index.
+fn[T] replace_loaded_subtree_node(
+  node : InteractiveTreeNode[T],
+  target_id : NodeId,
+  replacement : InteractiveTreeNode[T],
+) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
+  modify_node_at(node, target_id, _ => replacement)
+}
+
+///|
+fn[T] update_node_collapsed(
+  node : InteractiveTreeNode[T],
+  target_id : NodeId,
+  collapsed : Bool,
+) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
+  modify_node_at(node, target_id, n => { ..n, collapsed })
+}
+///|
 fn[T] update_loaded_nodes_for_path(
   loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
   changed_nodes : Array[InteractiveTreeNode[T]],
