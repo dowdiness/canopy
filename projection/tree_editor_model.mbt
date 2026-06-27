@@ -195,9 +195,9 @@ fn[T : Renderable] from_term_node_impl(
 ///|
 /// Count projection descendants using fold.
 fn[T] count_projection_descendants(node : ProjNode[T]) -> Int {
-  node.fold((_, child_counts) =>
+  node.fold((_, child_counts) => {
     1 + child_counts.fold(init=0, (acc, c) => acc + c)
-  )
+  })
 }
 
 ///|
