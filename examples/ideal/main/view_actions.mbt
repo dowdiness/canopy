@@ -154,15 +154,15 @@ fn view_submenu_choices(
 ///|
 /// Render an overlay-wide error. Actions can fail from any open overlay mode
 /// (MainMenu, Submenu, or NamePrompt), so errors live at the panel top.
-fn view_action_overlay_error(message : String) -> @rabbita.Html {
-  if message == "" {
-    @html.nothing
-  } else {
-    @html.div(
-      class=action_overlay_error_class,
-      attrs=@html.Attrs::build().role("alert").aria_live("polite"),
-      [@html.text(message)],
-    )
+fn view_action_overlay_error(err : OverlayError?) -> @rabbita.Html {
+  match err {
+    None => @html.nothing
+    Some(e) =>
+      @html.div(
+        class=action_overlay_error_class,
+        attrs=@html.Attrs::build().role("alert").aria_live("polite"),
+        [@html.text(format_overlay_error(e))],
+      )
   }
 }
 

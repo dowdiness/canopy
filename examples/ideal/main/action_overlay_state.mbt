@@ -103,7 +103,7 @@ fn open_action_overlay(
     mode: MainMenu,
     actions,
     kind: ctx.kind,
-    error: "",
+    error: None,
     anchor_top,
     anchor_left,
     menu: @menu.Model::new(

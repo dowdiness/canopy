@@ -5,7 +5,7 @@ enum OverlayMsg {
   NameInput(String)
   NameSubmit
   NameCancel
-  SetError(String)
+  SetError(OverlayError)
   ShowNamePrompt(@lambda_edits.Action)
 }
 
@@ -52,7 +52,7 @@ fn OverlayState::show_name_prompt(
     {
       ..self,
       mode: NamePrompt(action, value=""),
-      error: "",
+      error: None,
       menu: self.menu.reset(item_count=0),
     },
     FocusNamePrompt,
@@ -79,7 +79,7 @@ fn OverlayState::open_submenu(
       mode: Submenu(action),
       // Navigating into a submenu is a fresh attempt — clear any stale error so
       // it doesn't linger across the now-visible (all-mode) error surface.
-      error: "",
+      error: None,
       menu: self.menu.reset(item_count~),
     },
     FocusMenu,
@@ -92,7 +92,7 @@ fn OverlayState::reset_main_menu(self : OverlayState) -> OverlayState {
     ..self,
     mode: MainMenu,
     // Returning to the main menu is a fresh attempt — clear any stale error.
-    error: "",
+    error: None,
     menu: self.menu.reset(item_count=self.actions.length()),
   }
 }
@@ -207,7 +207,7 @@ fn OverlayState::handle_name_input(
   match self.mode {
     NamePrompt(action, ..) =>
       overlay_update(
-        { ..self, mode: NamePrompt(action, value~), error: "" },
+        { ..self, mode: NamePrompt(action, value~), error: None },
         NoOverlayEffect,
       )
     _ => overlay_update(self, NoOverlayEffect)
@@ -220,10 +220,7 @@ fn OverlayState::handle_name_submit(self : OverlayState) -> OverlayUpdate {
     NamePrompt(action, value~) => {
       let name = value.trim().to_owned()
       if name == "" {
-        overlay_update(
-          { ..self, error: "Enter a name to continue" },
-          NoOverlayEffect,
-        )
+        overlay_update({ ..self, error: Some(EmptyName) }, NoOverlayEffect)
       } else {
         overlay_update(self, ExecuteAction(action, choice="", name~))
       }
@@ -248,8 +245,8 @@ fn OverlayState::update(self : OverlayState, msg : OverlayMsg) -> OverlayUpdate 
     NameInput(value) => self.handle_name_input(value)
     NameSubmit => self.handle_name_submit()
     NameCancel => overlay_update(self, CloseOverlay)
-    SetError(message) =>
-      overlay_update({ ..self, error: message }, NoOverlayEffect)
+    SetError(err) =>
+      overlay_update({ ..self, error: Some(err) }, NoOverlayEffect)
     ShowNamePrompt(action) => self.show_name_prompt(action)
   }
 }

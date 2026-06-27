@@ -11,6 +11,7 @@ import {
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-resizable/resizable",
   "dowdiness/visualizer",
+  "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -149,6 +150,8 @@ type Msg
 type NodeActionContext
 
 type OverlayEffect
+
+type OverlayError derive(@debug.Debug)
 
 type OverlayEvent
 

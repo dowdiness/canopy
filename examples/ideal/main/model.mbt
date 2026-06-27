@@ -71,7 +71,8 @@ struct OverlayState {
   // The most recent failure to act. Overlay-wide, not prompt-specific: an
   // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
   // so the error is rendered in the panel for any open mode (view_actions.mbt).
-  error : String
+  // None unambiguously means "no error"; Some(e) means a specific typed failure.
+  error : OverlayError?
   anchor_top : Int
   anchor_left : Int
   menu : @menu.Model
