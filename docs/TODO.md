@@ -151,13 +151,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   Exit: Rabbita exposes fractional client coordinates through its public `MouseEvent` API; Canopy removes the private `lib/context-menu` JS accessors and consumes the upstream API.
 
 - [ ] Report/fix Warren dangling-symlink discovery failure.
-  Why: `warren build` can abort while walking Canopy's workspace root when it hits a dangling symlink such as `loom/target -> _build` before `loom/_build` exists: `OSError(@fs.kind(): ".../loom/target": No such file or directory)`. This is not yet proven WSL2-specific; current evidence points to discovery calling `@fs.kind(path)` without first checking `@fs.exists(path)`.
-  Plan: upstream issue `moonbit-community/rabbita#119` is open; follow with a narrow PR containing a minimal workspace repro and a discovery-walk guard for missing/dangling paths.
-  Exit: Warren skips dangling/missing paths during package discovery; the repro passes; Canopy examples no longer need the static-server workaround for this failure mode.
+  Why: `warren build` can abort while walking Canopy's workspace root when it hits a dangling symlink such as `loom/target -> _build` before `loom/_build` exists: `OSError(@fs.kind(): ".../loom/target": No such file or directory)`.
+  Upstream: PR moonbit-community/rabbita#120 merged, but released rabbita-v0.12.4 predates it. Apply by bumping rabbita submodule to a post-v0.12.4 upstream commit once available.
 
-- [ ] Upgrade `rle` consumers to `dowdiness/rle` 0.2.1 and constructor-style APIs.
-  Why: the stale `feature/container-phase3-blockdoc-sync` branch only bumped the `rle` submodule pointer to v0.2.1. The actual consumer modules still pin `dowdiness/rle` 0.2.0, and rle 0.2.1 deprecates `Rle::new()` / `PrefixSums::new()`.
-  Exit: `lib/btree`, `event-graph-walker`, and `order-tree` resolve the intended `dowdiness/rle` version, downstream code uses custom constructors such as `Rle()` / `PrefixSums()`, and CI passes.
+- [x] Upgrade `rle` consumers to `dowdiness/rle` 0.2.1 and constructor-style APIs.
+  Shipped: all consumers (`event-graph-walker@0.2.3`, `lib/btree@0.2.2`) already use constructor-style APIs (`Rle()`, `PrefixSums()`). No `Rle::new()` or `PrefixSums::new()` calls remain. Stale — the TODO itself was the only remaining artifact.
 
 - [x] Extend the aggregator-trim audit from `lang/{lambda,json}` (PR #265) to the rest of the canopy module.
   Shipped across four PRs (2026-05-16):
@@ -167,9 +165,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   - PR #275 (`relay/`, server-side, internal-tool framing): one visibility narrow (`RelayRoom::send_to`); 2 wire encoders kept per README's documented Public API; stale doc comment about `crdt_relay.mbt FFI` corrected.
   Net across 4 PRs: 0 deletions, 2 visibility narrows, ~9 annotation comments, 5 new TODOs (Inspector traceability workstream + library API audit). Methodology recorded in [[feedback-section7-audit-methodology]].
 
-- [ ] DRY seam's three `build_tree` variants (`seam/event.mbt`).
-  Why: `build_tree`, `build_tree_interned`, `build_tree_fully_interned` are ~80 lines each of near-identical stack-based tree construction, differing only in token creation and node wrapping. Discovered during error handling audit (loom PR #75).
-  Exit: shared core function parameterized by token/node creation callbacks; three variants are thin wrappers.
+- [x] DRY seam's three `build_tree` variants (`seam/event.mbt`).
+  Shipped: loom PR #494 (merged `454b460`), adopted by canopy via PR #796. `build_tree_buffered_with` parameterized by 5 callbacks; three `_buffered` wrappers are ~15 lines each. Net -167 lines.
 
 - [x] Hoist ProjNode id-allocation boilerplate into `@core` (`core/proj_node.mbt`). (finding B from PR #383)
   Shipped (#437): `@core` exposes `ProjNode::leaf[T](kind, node : @seam.SyntaxNode, counter)` and `ProjNode::branch[T](kind, start, end, children, counter)`. Lambda/JSON/Markdown projection builders now use the shared helpers for fresh syntax leaves/branches; ID-preserving sites keep raw `ProjNode`. `.mbti` change is limited to the two new `@core` exports.
