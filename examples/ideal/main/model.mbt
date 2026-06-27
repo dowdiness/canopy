@@ -49,7 +49,7 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
-/// The overlay's mode: exactly one of four states. Replaces the former
+/// The overlay's mode: exactly one of three open states. Replaces the former
 /// implicit `(visible, submenu, pending_action)` encoding so that illegal
 /// combinations — a closed overlay with a pending action, or a submenu and a
 /// name prompt active at once — are unrepresentable.

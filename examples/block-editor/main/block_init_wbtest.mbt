@@ -60,16 +60,15 @@ test "parse_block_id: zero counter" {
 
 ///|
 test "write_json_escaped: special characters" {
-  let buf = StringBuilder::new()
-  write_json_escaped(buf, "hello \"world\" \\ new\nline\ttab")
+  let buf = StringBuilder()
+  buf.write_json_escaped("hello \"world\" \\ new\nline\ttab")
   inspect(buf.to_string(), content="hello \\\"world\\\" \\\\ new\\nline\\ttab")
 }
 
 ///|
 test "write_json_escaped: control characters" {
-  let buf = StringBuilder::new()
-  // ASCII control char 0x01 (SOH)
-  write_json_escaped(buf, "\u0001")
+  let buf = StringBuilder()
+  buf.write_json_escaped("\u0001")
   inspect(buf.to_string(), content="\\u0001")
 }
 
@@ -134,4 +133,24 @@ test "editor_set_block_type changes type" {
   let json2 = get_render_state(h)
   inspect(String::contains(json2, "heading"), content="true")
   inspect(String::contains(json2, "Hello"), content="true")
+}
+
+///|
+test "get_render_state includes depth and child_count" {
+  let h = create_editor("test_depth")
+  let doc = docs.get(h).unwrap()
+  let parent = doc.create_block(Paragraph)
+  doc.set_text(parent, "parent")
+  let child = doc.create_block(Paragraph, parent~)
+  doc.set_text(child, "child")
+  let json = get_render_state(h)
+  inspect(String::contains(json, "\"depth\":0"), content="true")
+  inspect(String::contains(json, "\"depth\":1"), content="true")
+  inspect(String::contains(json, "\"child_count\":1"), content="true")
+  inspect(String::contains(json, "\"is_alive\":true"), content="true")
+  let parent_key = @container.tree_node_id_key(parent)
+  inspect(
+    String::contains(json, "\"parent_id\":\"\{parent_key}\""),
+    content="true",
+  )
 }

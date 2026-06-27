@@ -7,8 +7,8 @@ export default defineConfig({
       modules: [
         {
           name: '@moonbit/canopy-block-editor',
-          path: '..',
-          output: '_build/js/release/build/main/main.js',
+          path: '../../..',
+          output: '_build/js/release/build/dowdiness/canopy-block-editor/main/main.js',
         },
       ],
     }) as PluginOption,

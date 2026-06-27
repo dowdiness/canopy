@@ -6,10 +6,11 @@
 # graph aborts at runtime on cross-runtime reads, so a silent skew (e.g. the
 # lib/cognition TOML pin that evaded the #572 bump grep) is a latent break.
 #
-# Scope: canopy workspace members enumerated in moon.work (root + lib/* +
-# examples/*). Submodules (loom, event-graph-walker) and worktrees are NOT
-# members and are intentionally out of scope. Cross-repo (moondsp) coordination
-# is deferred to a #441 follow-up.
+# Scope: all members enumerated in moon.work, which includes root, lib/*,
+# examples/*, and loom/* packages (loom's workspace members were added in #740
+# and are subject to the same Single-Runtime constraint). event-graph-walker is
+# also a workspace member but does not depend on incr. Worktrees and the
+# moondsp cross-repo are out of scope; moondsp coordination deferred to #441.
 #
 # Exits non-zero if member incr minors disagree, printing the offending pins.
 # Intended to run in CI as a required per-PR check, mirroring check-deps.sh.

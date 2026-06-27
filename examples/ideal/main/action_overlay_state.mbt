@@ -1,5 +1,8 @@
 ///|
 /// True when the overlay is showing any of its open modes.
+/// All three current variants are open; closed state lives in the parent host
+/// layer. Match is kept (rather than returning `true` directly) so that adding
+/// a non-open mode to `OverlayMode` forces a compile-time update here.
 fn OverlayState::is_open(self : OverlayState) -> Bool {
   match self.mode {
     MainMenu | Submenu(_) | NamePrompt(_, ..) => true
