@@ -54,59 +54,114 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
 }
 
 ///|
+fn count_blocks(doc : BlockDoc, parent_id : @container.TreeNodeId) -> Int {
+  let children = doc.children(parent_id)
+  for child in children; acc = children.length() {
+    continue acc + count_blocks(doc, child)
+  } nobreak {
+    acc
+  }
+}
+
+///|
+fn emit_block_json(
+  buf : StringBuilder,
+  doc : BlockDoc,
+  id : @container.TreeNodeId,
+  parent_key : String,
+  depth : Int,
+  child_index : Int,
+) -> Unit {
+  let bt = doc.get_type(id)
+  buf
+  ..write_string("{\"id\":\"")
+  ..write_json_escaped(@container.tree_node_id_key(id))
+  ..write_string("\",\"block_type\":\"")
+  ..write_json_escaped(block_type_name(bt))
+  .write_string("\",\"level\":\"")
+  match bt {
+    Heading(n) => buf.write_json_escaped(n.to_string())
+    _ => ()
+  }
+  buf.write_string("\",\"list_style\":\"")
+  match bt {
+    ListItem(Bullet) => buf.write_string("bullet")
+    ListItem(Numbered) => buf.write_string("numbered")
+    ListItem(Todo) => buf.write_string("todo")
+    _ => ()
+  }
+  buf
+  ..write_string("\",\"checked\":")
+  ..write_string(if doc.get_checked(id) { "true" } else { "false" })
+  ..write_string(",\"index\":")
+  ..write_string(child_index.to_string())
+  ..write_string(",\"parent_id\":\"")
+  ..write_json_escaped(parent_key)
+  ..write_string("\",\"depth\":")
+  ..write_string(depth.to_string())
+  ..write_string(",\"child_count\":")
+  ..write_string(doc.children(id).length().to_string())
+  ..write_string(",\"is_alive\":true")
+  ..write_string(",\"text\":\"")
+  ..write_json_escaped(doc.get_text(id))
+  .write_string("\"}")
+  ()
+}
+
+///|
+/// Emit JSON for all blocks in the subtree rooted at `parent_id`, in preorder.
+/// `is_first` tracks whether this is the first block in the overall array (no comma prefix).
+fn emit_blocks(
+  buf : StringBuilder,
+  doc : BlockDoc,
+  parent_id : @container.TreeNodeId,
+  depth : Int,
+  is_first : Ref[Bool],
+) -> Unit {
+  let children = doc.children(parent_id)
+  let parent_key = @container.tree_node_id_key(parent_id)
+  for i in 0..<children.length() {
+    let id = children[i]
+    if is_first.val {
+      is_first.val = false
+    } else {
+      buf.write_string(",")
+    }
+    emit_block_json(buf, doc, id, parent_key, depth, i)
+    // Recurse into children
+    emit_blocks(buf, doc, id, depth + 1, is_first)
+  }
+}
+
+///| Return the full block tree as JSON, in preorder (parents before children).
+
+///|
+
+///| Each block object contains: id, block_type, level, list_style, checked,
+
+///| index (sibling order), parent_id, depth, child_count, is_alive, text.
+
+///|
+/// Blocks with children appear before their descendants in the array (preorder).
 pub fn get_render_state(handle : Int) -> String {
   match docs.get(handle) {
     Some(doc) => {
-      let buf = StringBuilder::new()
-      let children = doc.children(root_block_id)
-      let parent_key = @container.tree_node_id_key(root_block_id)
-      buf.write_string("{\"block_count\":")
-      buf.write_string(children.length().to_string())
-      buf.write_string(",\"blocks\":[")
-      for i in 0..<children.length() {
-        if i > 0 {
-          buf.write_string(",")
-        }
-        let id = children[i]
-        let bt = doc.get_type(id)
-        buf.write_string("{\"id\":\"")
-        write_json_escaped(buf, @container.tree_node_id_key(id))
-        buf.write_string("\",\"block_type\":\"")
-        write_json_escaped(buf, block_type_name(bt))
-        buf.write_string("\",\"level\":\"")
-        match bt {
-          Heading(n) => write_json_escaped(buf, n.to_string())
-          _ => ()
-        }
-        buf.write_string("\",\"list_style\":\"")
-        match bt {
-          ListItem(Bullet) => buf.write_string("bullet")
-          ListItem(Numbered) => buf.write_string("numbered")
-          ListItem(Todo) => buf.write_string("todo")
-          _ => ()
-        }
-        buf.write_string("\",\"checked\":")
-        buf.write_string(if doc.get_checked(id) { "true" } else { "false" })
-        buf.write_string(",\"index\":")
-        buf.write_string(i.to_string())
-        buf.write_string(",\"parent_id\":\"")
-        write_json_escaped(buf, parent_key)
-        buf.write_string("\",\"text\":\"")
-        write_json_escaped(buf, doc.get_text(id))
-        buf.write_string("\"}")
-      }
-      buf.write_string("]}")
-      buf.to_string()
+      let buf = StringBuilder()
+      let total = count_blocks(doc, root_block_id)
+      buf
+      ..write_string("{\"block_count\":")
+      ..write_string(total.to_string())
+      .write_string(",\"blocks\":[")
+      emit_blocks(buf, doc, root_block_id, 0, { val: true })
+      buf..write_string("]}").to_string()
     }
     None => "{\"block_count\":0,\"blocks\":[]}"
   }
 }
 
 ///|
-/// Escape a string for JSON output. Handles required escapes (RFC 8259 §7)
-/// and writes directly to the buffer without per-character allocation.
-fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
-  // Track start of unescaped run to batch-copy normal characters
+/// Escape a string and append to this buffer. Handles required JSON escapes (RFC 8259 §7).
+fn StringBuilder::write_json_escaped(self : StringBuilder, s : String) -> Unit {
   let mut run_start = 0
   for i in 0..<s.length() {
     let ch = s[i]
@@ -121,7 +176,6 @@ fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
     } else if ch == '\t' {
       Some("\\t")
     } else if ch.to_int() < 0x20 {
-      // JSON requires all control chars below U+0020 to be \uXXXX escaped
       let hi = (ch.to_int() >> 4) & 0xf
       let lo = ch.to_int() & 0xf
       Some("\\u00" + hex_char(hi).to_string() + hex_char(lo).to_string())
@@ -130,19 +184,17 @@ fn write_json_escaped(buf : StringBuilder, s : String) -> Unit {
     }
     match escape {
       Some(esc) => {
-        // Flush the unescaped run before writing the escape sequence
         if run_start < i {
-          buf.write_string(s[run_start:i].to_owned())
+          self.write_string(s[run_start:i].to_owned())
         }
-        buf.write_string(esc)
+        self.write_string(esc)
         run_start = i + 1
       }
       None => ()
     }
   }
-  // Flush any remaining unescaped tail
   if run_start < s.length() {
-    buf.write_string(s[run_start:].to_owned())
+    self.write_string(s[run_start:].to_owned())
   }
 }
 

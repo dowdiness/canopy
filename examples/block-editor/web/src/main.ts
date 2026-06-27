@@ -9,6 +9,9 @@ interface Block {
   checked: boolean;
   index: number;
   parent_id: string;
+  depth: number;
+  child_count: number;
+  is_alive: boolean;
   text: string;
 }
 
@@ -33,10 +36,14 @@ let currentDropPosition: DropPosition | null = null;
 // Seed
 ed.editor_import_markdown(handle, '# Welcome\n\nStart typing here.\n');
 
+// Block index for drop-target validation (rebuilt on each render)
+let blockById: Map<string, Block> = new Map();
+
 // ── Render ─────────────────────────────────────────────────────────────
 function render() {
   const state: RenderState = JSON.parse(ed.get_render_state(handle));
   const liveIds = new Set<string>();
+  blockById = buildBlockIndex(state);
 
   for (const block of state.blocks) {
     liveIds.add(block.id);
@@ -67,6 +74,11 @@ function render() {
       });
       div.prepend(grip);
 
+      // Editable text goes in a separate span so textContent updates don't nuke the grip
+      const textSpan = document.createElement('span');
+      textSpan.className = 'text-content';
+      textSpan.contentEditable = block.block_type === 'divider' ? 'false' : 'true';
+      div.append(textSpan);
       wireDragTarget(div);
       wireEvents(div);
       container.appendChild(div);
@@ -80,12 +92,15 @@ function render() {
     div.dataset.checked = String(block.checked);
     div.dataset.index = String(block.index);
     div.dataset.parentId = block.parent_id;
-    div.contentEditable = block.block_type === 'divider' ? 'false' : 'true';
     applyAriaRoles(div, block);
 
-    // Only update text if not focused (avoid clobbering cursor)
-    if (document.activeElement !== div && div.textContent !== block.text) {
-      div.textContent = block.text;
+    // Update the .text-content span — never nuke the grip child
+    const textSpan = div.querySelector('.text-content') as HTMLSpanElement | null;
+    if (textSpan) {
+      textSpan.contentEditable = block.block_type === 'divider' ? 'false' : 'true';
+      if (document.activeElement !== textSpan && textSpan.textContent !== block.text) {
+        textSpan.textContent = block.text;
+      }
     }
   }
 
@@ -138,6 +153,44 @@ function applyAriaRoles(div: HTMLDivElement, block: Block) {
   }
 }
 
+// ── Drop-target validation ──────────────────────────────────────────
+function buildBlockIndex(state: RenderState): Map<string, Block> {
+  const map = new Map<string, Block>();
+  for (const block of state.blocks) {
+    map.set(block.id, block);
+  }
+  return map;
+}
+
+/** Walk parent chain: is `id` inside the subtree of `potentialAncestor`?
+    Stops when root is reached (key not in block index). */
+function isDescendant(id: string, potentialAncestor: string, index: Map<string, Block>): boolean {
+  let current: string | undefined = id;
+  while (current) {
+    if (current === potentialAncestor) return true;
+    const block = index.get(current);
+    if (!block) break; // Root sentinel or unknown id — stop
+    current = block.parent_id;
+  }
+  return false;
+}
+
+function validateDropTarget(
+  sourceId: string,
+  targetId: string,
+  _position: DropPosition,
+  index: Map<string, Block>,
+): boolean {
+  const source = index.get(sourceId);
+  const target = index.get(targetId);
+  if (!source || !target) return false;
+  if (!source.is_alive || !target.is_alive) return false;
+  if (sourceId === targetId) return false;
+  // Reject dropping onto a descendant (would orphan the subtree)
+  if (isDescendant(targetId, sourceId, index)) return false;
+  return true;
+}
+
 // ── Drag targeting ──────────────────────────────────────────────────���─
 function computeDropPosition(e: DragEvent, div: HTMLDivElement): DropPosition {
   const rect = div.getBoundingClientRect();
@@ -161,6 +214,13 @@ function wireDragTarget(div: HTMLDivElement) {
     const id = div.dataset.blockId!;
     if (id === dragSourceId) return;
 
+    // Validate drop target — reject descendant and invalid targets
+    if (dragSourceId && !validateDropTarget(dragSourceId, id, computeDropPosition(e, div), blockById)) {
+      e.dataTransfer!.dropEffect = 'none';
+      if (currentDropTarget === div) clearDropIndicators();
+      return;
+    }
+
     e.dataTransfer!.dropEffect = 'move';
     const position = computeDropPosition(e, div);
 
@@ -182,7 +242,8 @@ function wireDragTarget(div: HTMLDivElement) {
   div.addEventListener('drop', (e) => {
     e.preventDefault();
     const targetId = div.dataset.blockId!;
-    if (dragSourceId && dragSourceId !== targetId && currentDropPosition) {
+    // Validate drop target before committing
+    if (dragSourceId && dragSourceId !== targetId && currentDropPosition && validateDropTarget(dragSourceId, targetId, currentDropPosition, blockById)) {
       ed.editor_move_block(handle, dragSourceId, targetId, currentDropPosition);
       render();
     }
@@ -205,11 +266,14 @@ function wireEvents(div: HTMLDivElement) {
       return;
     }
     const id = div.dataset.blockId!;
-    ed.editor_set_block_text(handle, id, div.textContent || '');
+    const textSpan = div.querySelector('.text-content') as HTMLSpanElement | null;
+    ed.editor_set_block_text(handle, id, textSpan?.textContent ?? '');
   });
 
   div.addEventListener('keydown', (e: KeyboardEvent) => {
     const id = div.dataset.blockId!;
+    const textSpan = div.querySelector('.text-content') as HTMLSpanElement | null;
+    const spanText = textSpan?.textContent ?? '';
 
     // Enter → insert block after
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -217,12 +281,15 @@ function wireEvents(div: HTMLDivElement) {
       const newId = ed.editor_insert_block_after(handle, id, 'paragraph');
       render();
       const newDiv = blockDivs.get(newId);
-      if (newDiv) newDiv.focus();
+      if (newDiv) {
+        const newSpan = newDiv.querySelector('.text-content') as HTMLSpanElement | null;
+        (newSpan ?? newDiv).focus();
+      }
       return;
     }
 
     // Backspace on empty → delete block, focus neighbor (keep at least one block)
-    if (e.key === 'Backspace' && (div.textContent || '') === '') {
+    if (e.key === 'Backspace' && spanText === '') {
       const prev = div.previousElementSibling as HTMLDivElement | null;
       const next = div.nextElementSibling as HTMLDivElement | null;
       if (!prev && !next) return; // Don't delete the only block
@@ -231,10 +298,12 @@ function wireEvents(div: HTMLDivElement) {
       render();
       const target = prev || next;
       if (target) {
-        target.focus();
+        const targetSpan = target.querySelector('.text-content') as HTMLSpanElement | null;
+        const focusTarget = targetSpan ?? target;
+        focusTarget.focus();
         const sel = window.getSelection();
-        if (sel && target.childNodes.length > 0) {
-          sel.selectAllChildren(target);
+        if (sel && focusTarget.childNodes.length > 0) {
+          sel.selectAllChildren(focusTarget);
           sel.collapseToEnd();
         }
       }
@@ -243,17 +312,20 @@ function wireEvents(div: HTMLDivElement) {
 
     // Space → check autoformat
     if (e.key === ' ') {
-      const text = div.textContent || '';
+      const text = spanText;
       const fmt = detectAutoformat(text);
       if (fmt) {
         e.preventDefault();
         ed.editor_set_block_type(handle, id, fmt.type, fmt.level, fmt.listStyle);
         ed.editor_set_block_text(handle, id, '');
         suppressNextInput = true;
-        div.textContent = '';
+        if (textSpan) textSpan.textContent = '';
         render();
         const updated = blockDivs.get(id);
-        if (updated) updated.focus();
+        if (updated) {
+          const updatedSpan = updated.querySelector('.text-content') as HTMLSpanElement | null;
+          (updatedSpan ?? updated).focus();
+        }
         dismissShortcutHints();
       }
     }
