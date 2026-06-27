@@ -36,9 +36,9 @@ pub fn[T] SourceMap::from_ast(root : ProjNode[T]) -> SourceMap {
 }
 
 ///|
-/// Recursively build the map from an AST node
+/// Walk the tree via walk_preorder to build the node-to-range map
 fn[T] SourceMap::build_from_node(self : SourceMap, node : ProjNode[T]) -> Unit {
-  node.walk_preorder(fn(n) {
+  node.walk_preorder((n) => {
     self.node_to_range[n.id()] = Range::new(n.start, n.end)
   })
 }
@@ -77,20 +77,23 @@ pub fn[T] SourceMap::remove_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  node.walk_preorder(fn(n) {
+  node.walk_preorder((n) => {
     self.node_to_range.remove(n.id())
     self.token_spans.remove(n.id())
   })
 }
 
 ///|
+/// Add entries for a ProjNode subtree to the source map.
+/// Clears any stale token_spans for patched nodes — call
+/// populate_token_spans() afterward to repopulate them.
 /// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
 /// all patches are done.
 pub fn[T] SourceMap::patch_subtree(
   self : SourceMap,
   node : ProjNode[T],
 ) -> Unit {
-  node.walk_preorder(fn(n) {
+  node.walk_preorder((n) => {
     self.node_to_range[n.id()] = Range::new(n.start, n.end)
     self.token_spans.remove(n.id())
   })
