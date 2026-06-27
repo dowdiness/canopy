@@ -101,7 +101,8 @@ fn emit_block_json(
   ..write_string(depth.to_string())
   ..write_string(",\"child_count\":")
   ..write_string(doc.children(id).length().to_string())
-  ..write_string(",\"is_alive\":true")
+  ..write_string(",\"is_alive\":")
+  ..write_string(if doc.is_alive(id) { "true" } else { "false" })
   ..write_string(",\"text\":\"")
   ..write_json_escaped(doc.get_text(id))
   .write_string("\"}")
@@ -120,6 +121,7 @@ fn emit_blocks(
 ) -> Unit {
   let children = doc.children(parent_id)
   let parent_key = @container.tree_node_id_key(parent_id)
+  // Indexed loop: i is the sibling index passed to emit_block_json.
   for i in 0..<children.length() {
     let id = children[i]
     if is_first.val {

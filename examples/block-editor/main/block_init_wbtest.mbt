@@ -148,5 +148,9 @@ test "get_render_state includes depth and child_count" {
   inspect(String::contains(json, "\"depth\":1"), content="true")
   inspect(String::contains(json, "\"child_count\":1"), content="true")
   inspect(String::contains(json, "\"is_alive\":true"), content="true")
-  inspect(String::contains(json, "\"parent"), content="true")
+  let parent_key = @container.tree_node_id_key(parent)
+  inspect(
+    String::contains(json, "\"parent_id\":\"\{parent_key}\""),
+    content="true",
+  )
 }

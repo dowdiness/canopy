@@ -173,6 +173,16 @@ test "export: divider" {
   let _ = doc.create_block(Divider)
   inspect(block_doc_to_markdown(doc), content="---\n")
 }
+///|
+test "export: nested blocks are indented" {
+  let doc = BlockDoc::new("alice")
+  let parent = doc.create_block(Paragraph)
+  doc.set_text(parent, "parent")
+  let child = doc.create_block(Paragraph, parent=parent)
+  doc.set_text(child, "child")
+  let out = block_doc_to_markdown(doc)
+  inspect(out, content="parent\n  child\n")
+}
 
 // ── Markdown import tests ─────────────────────────────────────────────────
 

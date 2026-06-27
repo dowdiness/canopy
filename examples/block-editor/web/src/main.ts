@@ -52,7 +52,7 @@ function render() {
     if (!div) {
       div = document.createElement('div');
       div.classList.add('block');
-      div.contentEditable = 'true';
+      div.contentEditable = 'false';
       div.dataset.blockId = block.id;
 
       // Drag handle — a non-editable grip that makes the block draggable
@@ -92,6 +92,7 @@ function render() {
     div.dataset.checked = String(block.checked);
     div.dataset.index = String(block.index);
     div.dataset.parentId = block.parent_id;
+    div.contentEditable = 'false';
     applyAriaRoles(div, block);
 
     // Update the .text-content span — never nuke the grip child
