@@ -318,7 +318,7 @@ test "ProjNode::walk_preorder visits all nodes" {
   let visited : Array[Int] = []
   root.walk_preorder(n => visited.push(n.node_id))
   // Pre-order: parent (0), then left child (1), then right child (2)
-  inspect(visited, content="[0, 1, 2]")
+  @debug.assert_eq(visited, [0, 1, 2])
 }
 
 ///|
@@ -326,7 +326,7 @@ test "ProjNode::walk_preorder visits single leaf" {
   let leaf = ProjNode(Leaf("x"), 0, 1, 7, [])
   let visited : Array[Int] = []
   leaf.walk_preorder(n => visited.push(n.node_id))
-  inspect(visited, content="[7]")
+  @debug.assert_eq(visited, [7])
 }
 
 ///|
