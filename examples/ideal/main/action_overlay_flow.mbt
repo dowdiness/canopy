@@ -206,7 +206,17 @@ fn OverlayState::handle_name_input(
   match self.mode {
     NamePrompt(action, ..) =>
       overlay_update(
-        { ..self, mode: NamePrompt(action, value~), error: None },
+        {
+          ..self,
+          mode: NamePrompt(action, value~),
+          // Only clear the error once the value is non-empty after trimming;
+          // whitespace alone doesn't resolve "Enter a name to continue".
+          error: if value.trim() != "" {
+            None
+          } else {
+            self.error
+          },
+        },
         NoOverlayEffect,
       )
     _ => overlay_update(self, NoOverlayEffect)

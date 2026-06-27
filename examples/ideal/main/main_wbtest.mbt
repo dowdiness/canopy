@@ -148,6 +148,27 @@ test "overlay update keeps empty name submit in prompt with error" {
 }
 
 ///|
+test "overlay update whitespace input does not clear error" {
+  let wrap_lambda_action = test_action_by_id("wrap_lambda")
+  let state_with_error = test_overlay_state(
+      NamePrompt(wrap_lambda_action, value=""),
+    ).update(NameSubmit).state
+  inspect(state_with_error.error is Some(EmptyName), content="true")
+  let result = state_with_error.update(NameInput(" "))
+  inspect(result.state.error is Some(EmptyName), content="true")
+}
+
+///|
+test "overlay update non-empty input clears error" {
+  let wrap_lambda_action = test_action_by_id("wrap_lambda")
+  let state_with_error = test_overlay_state(
+      NamePrompt(wrap_lambda_action, value=""),
+    ).update(NameSubmit).state
+  let result = state_with_error.update(NameInput("x"))
+  inspect(result.state.error is None, content="true")
+}
+
+///|
 test "overlay update name cancel closes overlay" {
   let wrap_lambda_action = test_action_by_id("wrap_lambda")
   let result = test_overlay_state(NamePrompt(wrap_lambda_action, value="x")).update(
