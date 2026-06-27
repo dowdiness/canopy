@@ -96,6 +96,10 @@
       overflow-wrap: break-word;
       word-break: break-word;
     }
+    /* Depth-based indentation for nesting hierarchy */
+    #editor-blocks > div {
+      margin-left: calc(var(--depth, 0) * 24px);
+    }
 
     /* Focus — purple left accent */
     #editor-blocks > div[contenteditable]:focus-visible {
@@ -138,7 +142,6 @@
     #editor-blocks > div[data-type="heading"][data-level="6"] {
       font-size: 1rem; line-height: 1.5; letter-spacing: 0.02em;
     }
-
     /* ── List items ───────────────────────────────────────────── */
     #editor-blocks > div[data-type="list_item"] {
       padding-left: var(--space-xl);
@@ -262,6 +265,13 @@
     }
     #editor-blocks > div.drop-after:focus-visible {
       box-shadow: -3px 0 0 0 var(--accent), 0 3px 0 0 var(--accent);
+    }
+    /* Inside — highlight the whole block as the target container */
+    #editor-blocks > div.drop-inside {
+      box-shadow: inset 0 0 0 2px var(--accent-40);
+    }
+    #editor-blocks > div.drop-inside:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--accent-40), -3px 0 0 0 var(--accent);
     }
     #editor-blocks > div.dragging { opacity: 0.4; }
 
