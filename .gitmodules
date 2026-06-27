@@ -3,7 +3,7 @@
 	url = https://github.com/dowdiness/event-graph-walker.git
 [submodule "loom"]
 	path = loom
-	url = https://github.com/dowdiness/loom.git
+	url = https://github.com/dowdiness/loom
 [submodule "svg-dsl"]
 	path = svg-dsl
 	url = https://github.com/dowdiness/svg-dsl.git
