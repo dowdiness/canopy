@@ -281,7 +281,6 @@ pub fn editor_move_block(
   id_str : String,
   ref_id_str : String,
   position_str : String,
-  ref_parent_id_str : String,
 ) -> Bool {
   match docs.get(handle) {
     Some(doc) => {
@@ -293,8 +292,7 @@ pub fn editor_move_block(
       }
       let id = parse_block_id(id_str)
       let ref_id = parse_block_id(ref_id_str)
-      let ref_parent = parse_block_id(ref_parent_id_str)
-      doc.move_block(id, ref_id, position, ref_parent~) catch {
+      doc.move_block(id, ref_id, position) catch {
         _ => return false
       }
       true

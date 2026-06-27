@@ -243,9 +243,9 @@ function wireDragTarget(div: HTMLDivElement) {
   div.addEventListener('drop', (e) => {
     e.preventDefault();
     const targetId = div.dataset.blockId!;
-    const targetParentId = div.dataset.parentId ?? '';
+    const targetParentId = div.dataset.parentId;
     // Validate drop target before committing
-    if (dragSourceId && dragSourceId !== targetId && currentDropPosition && validateDropTarget(dragSourceId, targetId, currentDropPosition, blockById)) {
+    if (dragSourceId && dragSourceId !== targetId && currentDropPosition && targetParentId && validateDropTarget(dragSourceId, targetId, currentDropPosition, blockById)) {
       // Pass targetParentId so Before/After preserve the target's parent for nested blocks.
       ed.editor_move_block(handle, dragSourceId, targetId, currentDropPosition, targetParentId);
       render();
