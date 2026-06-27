@@ -359,32 +359,35 @@ fn scenario_is_structural_safe(scenario : ConcurrentDropScenario) -> Bool {
 }
 
 ///|
-fn prop_no_structural_errors(scenario : ConcurrentDropScenario) -> Bool raise {
-  guard scenario_is_structural_safe(scenario) else { return true }
-  let (ed1, ed2, comp1, comp2) = setup_two_peers(scenario.seed_text)
-  apply_drop(
-    ed1,
-    comp1,
-    scenario.peer1_drop.source_idx,
-    scenario.peer1_drop.target_idx,
-    scenario.peer1_drop.position,
-    1,
-  )
-  assert_no_structural_errors(ed1)
-  apply_drop(
-    ed2,
-    comp2,
-    scenario.peer2_drop.source_idx,
-    scenario.peer2_drop.target_idx,
-    scenario.peer2_drop.position,
-    1,
-  )
-  assert_no_structural_errors(ed2)
-  ed1.apply_sync(ed2.export_all())
-  assert_no_structural_errors(ed1)
-  ed2.apply_sync(ed1.export_all())
-  assert_no_structural_errors(ed2)
-  true
+fn prop_no_structural_errors(scenario : ConcurrentDropScenario) -> Bool? raise {
+  if !scenario_is_structural_safe(scenario) {
+    None
+  } else {
+    let (ed1, ed2, comp1, comp2) = setup_two_peers(scenario.seed_text)
+    apply_drop(
+      ed1,
+      comp1,
+      scenario.peer1_drop.source_idx,
+      scenario.peer1_drop.target_idx,
+      scenario.peer1_drop.position,
+      1,
+    )
+    assert_no_structural_errors(ed1)
+    apply_drop(
+      ed2,
+      comp2,
+      scenario.peer2_drop.source_idx,
+      scenario.peer2_drop.target_idx,
+      scenario.peer2_drop.position,
+      1,
+    )
+    assert_no_structural_errors(ed2)
+    ed1.apply_sync(ed2.export_all())
+    assert_no_structural_errors(ed1)
+    ed2.apply_sync(ed1.export_all())
+    assert_no_structural_errors(ed2)
+    Some(true)
+  }
 }
 
 ///|
