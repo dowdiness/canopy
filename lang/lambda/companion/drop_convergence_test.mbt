@@ -176,7 +176,74 @@ impl @quickcheck.Arbitrary for ConcurrentDropScenario with fn arbitrary(
 }
 
 ///|
-impl @qc.Shrink for ConcurrentDropScenario
+/// ── Shrink ─────────────────────────────────────────────────────────────
+fn shrink_positions_before(
+  scenario : ConcurrentDropScenario,
+) -> ConcurrentDropScenario {
+  {
+    seed_text: scenario.seed_text,
+    peer1_drop: {
+      source_idx: scenario.peer1_drop.source_idx,
+      target_idx: scenario.peer1_drop.target_idx,
+      position: @core.DropPosition::Before,
+    },
+    peer2_drop: {
+      source_idx: scenario.peer2_drop.source_idx,
+      target_idx: scenario.peer2_drop.target_idx,
+      position: @core.DropPosition::Before,
+    },
+  }
+}
+
+///|
+fn shrink_seed(scenario : ConcurrentDropScenario) -> ConcurrentDropScenario? {
+  let seeds = seed_texts()
+  let (smallest_text, smallest_count) = seeds[0]
+  // Find current child count via functional for-in
+  let cur_child_count = for pair in seeds; cur = 0 {
+    let (text, count) = pair
+    if text == scenario.seed_text {
+      continue count
+    } else {
+      continue cur
+    }
+  } nobreak {
+    cur
+  }
+  if cur_child_count <= smallest_count {
+    None
+  } else {
+    Some({
+      seed_text: smallest_text,
+      peer1_drop: {
+        source_idx: 0,
+        target_idx: 1,
+        position: @core.DropPosition::Before,
+      },
+      peer2_drop: {
+        source_idx: 1,
+        target_idx: 2,
+        position: @core.DropPosition::Before,
+      },
+    })
+  }
+}
+
+///|
+impl @qc.Shrink for ConcurrentDropScenario with fn shrink(self) {
+  let candidates : Array[ConcurrentDropScenario] = []
+  // Candidate 1: normalize positions to Before (least disruptive)
+  if self.peer1_drop.position != @core.DropPosition::Before ||
+    self.peer2_drop.position != @core.DropPosition::Before {
+    candidates.push(shrink_positions_before(self))
+  }
+  // Candidate 2: smaller seed with valid remapped indices
+  match shrink_seed(self) {
+    Some(smaller) => candidates.push(smaller)
+    None => ()
+  }
+  candidates.iter()
+}
 
 ///|
 /// ── Quickcheck Properties ───────────────────────────────────────────
