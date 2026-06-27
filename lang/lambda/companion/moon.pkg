@@ -18,6 +18,8 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/quickcheck" @qc,
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
 }
 
 warnings = "-2-6-29"
