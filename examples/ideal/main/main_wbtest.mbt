@@ -32,7 +32,7 @@ fn test_overlay_state(mode : OverlayMode) -> OverlayState {
     mode,
     actions,
     kind: @ast.Term::Unit,
-    error: "",
+    error: None,
     anchor_top: 0,
     anchor_left: 0,
     menu: @menu.Model::new(
@@ -108,7 +108,7 @@ test "overlay update recovers invalid submenu key to focused main menu" {
     FocusMenu => inspect("focus", content="focus")
     _ => inspect("unexpected", content="FocusMenu")
   }
-  inspect(result.state.error, content="")
+  inspect(result.state.error is None, content="true")
 }
 
 ///|
@@ -144,7 +144,7 @@ test "overlay update keeps empty name submit in prompt with error" {
     }
     _ => inspect("unexpected", content="NamePrompt")
   }
-  inspect(result.state.error, content="Enter a name to continue")
+  inspect(result.state.error is Some(EmptyName), content="true")
 }
 
 ///|
@@ -321,5 +321,88 @@ test "structural_edit_op_to_tree_edit returns None for unrebuildable ops" {
   inspect(
     structural_edit_op_to_tree_edit("UnknownOp", nid) is None,
     content="true",
+  )
+}
+
+// ── OverlayError typed-error tests ───────────────────────────────────────────
+
+///|
+test "overlay error: SetError(BuildActionFailed) stores typed variant" {
+  let result = test_overlay_state(MainMenu).update(
+    SetError(BuildActionFailed("bad op")),
+  )
+  inspect(
+    result.state.error is Some(BuildActionFailed("bad op")),
+    content="true",
+  )
+  match result.effect {
+    NoOverlayEffect => ()
+    _ => inspect("unexpected", content="NoOverlayEffect")
+  }
+}
+
+///|
+test "overlay error: SetError(ApplyActionFailed) stores typed variant" {
+  let result = test_overlay_state(MainMenu).update(
+    SetError(ApplyActionFailed("apply failed")),
+  )
+  inspect(
+    result.state.error is Some(ApplyActionFailed("apply failed")),
+    content="true",
+  )
+}
+
+///|
+test "overlay error: cleared on name prompt open" {
+  let wrap_lambda_action = test_action_by_id("wrap_lambda")
+  let state_with_error = test_overlay_state(MainMenu).update(
+      SetError(EmptyName),
+    ).state
+  let result = state_with_error.update(ShowNamePrompt(wrap_lambda_action))
+  inspect(result.state.error is None, content="true")
+  inspect(result.state.mode is NamePrompt(_, ..), content="true")
+}
+
+///|
+test "overlay error: cleared on submenu open" {
+  let wrap_bop_action = test_action_by_id("wrap_bop")
+  let state_with_error = test_overlay_state(MainMenu).update(
+      SetError(EmptyName),
+    ).state
+  let choices = state_with_error.submenu_choices(wrap_bop_action)
+  let result = state_with_error.open_submenu(wrap_bop_action, choices.length())
+  inspect(result.state.error is None, content="true")
+  inspect(result.state.mode is Submenu(_), content="true")
+}
+
+///|
+test "overlay error: cleared on main menu reset (close_submenu)" {
+  let wrap_bop_action = test_action_by_id("wrap_bop")
+  let state_with_error = test_overlay_state(Submenu(wrap_bop_action)).update(
+      SetError(ApplyActionFailed("stale")),
+    ).state
+  let result = state_with_error.close_submenu()
+  inspect(result.state.error is None, content="true")
+  inspect(result.state.mode is MainMenu, content="true")
+}
+
+///|
+test "format_overlay_error: EmptyName" {
+  inspect(format_overlay_error(EmptyName), content="Enter a name to continue")
+}
+
+///|
+test "format_overlay_error: BuildActionFailed carries message" {
+  inspect(
+    format_overlay_error(BuildActionFailed("bad op")),
+    content="Build failed: bad op",
+  )
+}
+
+///|
+test "format_overlay_error: ApplyActionFailed carries message" {
+  inspect(
+    format_overlay_error(ApplyActionFailed("apply failed")),
+    content="Apply failed: apply failed",
   )
 }

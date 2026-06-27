@@ -49,13 +49,12 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
-/// The overlay's mode: exactly one of four states. Replaces the former
+/// The overlay's mode: exactly one of three open states. Replaces the former
 /// implicit `(visible, submenu, pending_action)` encoding so that illegal
-/// combinations — a closed overlay with a pending action, or a submenu and a
-/// name prompt active at once — are unrepresentable.
-#warnings("-unused_constructor")
+/// combinations — a submenu and a name prompt active at once — are
+/// unrepresentable. Closed state lives in the parent host layer
+/// (`ActionOverlayHost.active = None`), not here.
 enum OverlayMode {
-  Closed
   MainMenu
   Submenu(@lambda_edits.Action)
   // `value` is the text typed into the name prompt — genuinely prompt-local,
@@ -71,7 +70,8 @@ struct OverlayState {
   // The most recent failure to act. Overlay-wide, not prompt-specific: an
   // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
   // so the error is rendered in the panel for any open mode (view_actions.mbt).
-  error : String
+  // None unambiguously means "no error"; Some(e) means a specific typed failure.
+  error : OverlayError?
   anchor_top : Int
   anchor_left : Int
   menu : @menu.Model

@@ -9,7 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "paths": {
-      "@moonbit/canopy-block-editor": ["../_build/js/release/build/main/main.d.ts"]
+      "@moonbit/canopy-block-editor": ["../../../_build/js/release/build/dowdiness/canopy-block-editor/main/main.d.ts"]
     }
   },
   "include": ["src/**/*"],

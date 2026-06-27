@@ -31,9 +31,10 @@ fn execute_action(
           let cmd = sync_after_local_model_change(new_model, text)
           (cmd, new_model)
         }
-        Err(err) => (runtime.send(SetError(err.message())), model)
+        Err(err) =>
+          (runtime.send(SetError(ApplyActionFailed(err.message()))), model)
       }
     Ok(None) => (runtime.send(ShowNamePrompt(action)), model)
-    Err(msg) => (runtime.send(SetError(msg)), model)
+    Err(msg) => (runtime.send(SetError(BuildActionFailed(msg))), model)
   }
 }

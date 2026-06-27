@@ -1,8 +1,10 @@
 ///|
 /// True when the overlay is showing any of its open modes.
+/// All three current variants are open; closed state lives in the parent host
+/// layer. Match is kept (rather than returning `true` directly) so that adding
+/// a non-open mode to `OverlayMode` forces a compile-time update here.
 fn OverlayState::is_open(self : OverlayState) -> Bool {
   match self.mode {
-    Closed => false
     MainMenu | Submenu(_) | NamePrompt(_, ..) => true
   }
 }
@@ -103,7 +105,7 @@ fn open_action_overlay(
     mode: MainMenu,
     actions,
     kind: ctx.kind,
-    error: "",
+    error: None,
     anchor_top,
     anchor_left,
     menu: @menu.Model::new(

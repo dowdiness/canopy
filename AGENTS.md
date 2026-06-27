@@ -126,6 +126,8 @@ The base rule (microbenchmark before optimizing) applies. Additionally: stale pr
 
 Hooks enforce `moon check` after every edit and `moon fmt && moon info` before commits. After edits, also run `moon test` and rebuild JS if web is affected. For packages with `"proof-enabled": true`, also run `moon prove` from the proof package directory. After `moon info`, check `git diff *.mbti` for unintended trait bound changes — widening a bound is an API regression even if all current consumers satisfy it. See [docs/development/task-tracking.md](docs/development/task-tracking.md) for tracking workflow.
 
+**One file per edit call.** A single `edit` targeting lines from two different files with one snapshot hash will silently corrupt the second file. Always re-read for a fresh hash between edits, even within the same package.
+
 <!-- textlint-enable slopless/word-repetition -->
 
 ### Existing API First Rule
