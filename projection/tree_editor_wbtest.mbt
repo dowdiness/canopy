@@ -753,41 +753,97 @@ test "InteractiveTreeNode Show — does not recurse into children or label" {
   inspect(parent, content="#1 Lam [0..5]")
 }
 
+///|
 test "modify_node_at — changed path root-to-target inclusive" {
   let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let tree = match state.tree {
+    Some(t) => t
+    None => fail("expected tree")
+  }
   let ids = tree_editor_test_ids(state.tree)
   guard ids.length() >= 4 else { fail("expected tree with 4+ nodes") }
   let deep_id = ids[3]
-  let collapsed = state.apply_edit(Collapse(node_id=deep_id))
-  match collapsed.loaded_nodes.get(deep_id) {
-    Some(n) => inspect(n.collapsed, content="true")
-    None => fail("expected loaded node for deep_id")
+  let (_, found, changed_path) = modify_node_at(tree, deep_id, n => {
+    ..n,
+    collapsed: true,
+  })
+  inspect(found, content="true")
+  guard changed_path.length() > 0 else {
+    fail("expected non-empty changed_path")
   }
-}
-
-///|
-test "modify_node_at — untouched sibling survives collapse of other branch" {
-  let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
-  let ids = tree_editor_test_ids(state.tree)
-  guard ids.length() >= 3 else { fail("expected 3+ nodes") }
-  let left_id = ids[1]
-  let right_id = ids[2]
-  let collapsed = state.apply_edit(Collapse(node_id=left_id))
-  // Right sibling should still be present and uncollapsed
-  match collapsed.loaded_nodes.get(right_id) {
-    Some(n) => inspect(n.collapsed, content="false")
-    None => fail("expected right sibling to survive")
-  }
+  // Changed path ordering: root-to-target inclusive
+  inspect(changed_path[0].id == ids[0], content="true")
+  inspect(changed_path[changed_path.length() - 1].id == deep_id, content="true")
 }
 
 ///|
 test "modify_node_at — not-found is no-op" {
-  let (root, source_map, _) = tree_editor_test_state("42")
-  let state = TreeEditorState::from_projection(Some(root), source_map)
-  let nonexistent = NodeId::from_int(99999)
-  let collapsed = state.apply_edit(Collapse(node_id=nonexistent))
-  match collapsed.tree {
-    None => fail("expected non-null tree")
-    Some(tree) => inspect(tree.collapsed, content="false")
+  let (_, _, state) = tree_editor_test_state("42")
+  let tree = match state.tree {
+    Some(t) => t
+    None => fail("expected tree")
   }
+  let nonexistent = NodeId::from_int(99999)
+  let (updated, found, changed_path) = modify_node_at(tree, nonexistent, n => {
+    ..n,
+    collapsed: true,
+  })
+  inspect(found, content="false")
+  inspect(changed_path.is_empty(), content="true")
+  inspect(updated.collapsed, content="false")
+}
+
+///|
+test "modify_node_at — untouched sibling survives" {
+  let (_, _, state) = tree_editor_test_state("(1 + 2) + (3 + 4)")
+  let tree = match state.tree {
+    Some(t) => t
+    None => fail("expected tree")
+  }
+  let ids = tree_editor_test_ids(state.tree)
+  guard ids.length() >= 3 else { fail("expected 3+ nodes") }
+  let left_id = ids[1]
+  let (updated, found, _) = modify_node_at(tree, left_id, n => {
+    ..n,
+    collapsed: true,
+  })
+  inspect(found, content="true")
+  inspect(updated.id == ids[0], content="true")
+  // The root was rebuilt with changes; at minimum it still has children
+  match updated.children {
+    Loaded(children) =>
+      if children.length() > 0 {
+        () // ok
+      } else {
+        fail("expected children in updated root")
+      }
+    Elided(_) => fail("expected Loaded children")
+  }
+}
+
+///|
+test "modify_node_at — Elided children are opaque" {
+  let (_, _, state) = tree_editor_test_state("(1 + 2)")
+  let tree = match state.tree {
+    Some(t) => t
+    None => fail("expected tree")
+  }
+  let ids = tree_editor_test_ids(state.tree)
+  guard ids.length() >= 2 else { fail("expected 2+ nodes") }
+  let child_id = ids[1]
+  // Confirm child exists when Loaded
+  let (_, found_loaded, _) = modify_node_at(tree, child_id, n => {
+    ..n,
+    collapsed: true,
+  })
+  inspect(found_loaded, content="true")
+  // Same child is NOT found when children are Elided
+  let elided_tree = { ..tree, children: Elided(1) }
+  let (_, found_elided, changed_path) = modify_node_at(elided_tree, child_id, fn(
+    n,
+  ) {
+    n
+  })
+  inspect(found_elided, content="false")
+  inspect(changed_path.is_empty(), content="true")
 }

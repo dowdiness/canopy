@@ -102,8 +102,9 @@ fn[T] update_node_collapsed(
   target_id : NodeId,
   collapsed : Bool,
 ) -> (InteractiveTreeNode[T], Bool, Array[InteractiveTreeNode[T]]) {
-  modify_node_at(node, target_id, n => { ..n, collapsed })
+  modify_node_at(node, target_id, n => { ..n, collapsed, })
 }
+
 ///|
 fn[T] update_loaded_nodes_for_path(
   loaded_nodes : Map[NodeId, InteractiveTreeNode[T]],
