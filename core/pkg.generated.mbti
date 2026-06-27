@@ -102,6 +102,7 @@ pub fn[T, U] ProjNode::fold(Self[T], (FoldNode[T], Array[U]) -> U) -> U
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
 pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int]) -> Self[T]
 pub fn[T, U] ProjNode::map(Self[T], (T) -> U raise?) -> Self[U] raise?
+pub fn[T] ProjNode::walk_preorder(Self[T], (FoldNode[T]) -> Unit raise?) -> Unit raise?
 pub impl[T : @dowdiness/loom/core.Renderable] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]
 

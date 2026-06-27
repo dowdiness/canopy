@@ -181,6 +181,39 @@ pub fn[T, U] ProjNode::fold(
 }
 
 ///|
+/// Pre-order visitor over a ProjNode tree.
+///
+/// Calls `visit` with a `FoldNode[T]` (scalar fields only — no `children`
+/// array) for every node in pre-order (parent before children). Unlike
+/// `fold`, this is purely effectful — no return value, no child-result
+/// arrays allocated per node.
+///
+/// **What walk is for:** side-effect traversals — populating a map,
+/// clearing state, collecting diagnostics — that visit every node and
+/// don't need child results.
+///
+/// **What walk is not for:** post-order rebuilds (use `fold`), searches
+/// that short-circuit (use `get_node_in_tree`).
+///
+/// Uses an explicit stack for stack safety on deep trees.
+pub fn[T] ProjNode::walk_preorder(
+  self : ProjNode[T],
+  visit : (FoldNode[T]) -> Unit raise?,
+) -> Unit raise? {
+  let stack : Array[ProjNode[T]] = [self]
+  while stack.length() > 0 {
+    let node = stack.unsafe_pop()
+    visit(FoldNode(node.kind, node.node_id, node.start, node.end))
+    // Push children in reverse order so leftmost is processed first
+    let len = node.children.length()
+    for offset in 0..<len {
+      let i = len - 1 - offset
+      stack.push(node.children[i])
+    }
+  }
+}
+
+///|
 /// Build a NodeId → ProjNode lookup by walking the tree (pre-order).
 /// Pre-order traversal ensures parent is inserted before children,
 /// matching the original recursive implementation.

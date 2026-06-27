@@ -311,6 +311,35 @@ test "ProjNode::fold — stack safety on deep chain" {
 }
 
 ///|
+test "ProjNode::walk_preorder visits all nodes" {
+  let a = ProjNode(Leaf("a"), 0, 1, 1, [])
+  let b = ProjNode(Leaf("b"), 1, 2, 2, [])
+  let root = ProjNode(Branch("r", [Leaf("a"), Leaf("b")]), 0, 3, 0, [a, b])
+  let visited : Array[Int] = []
+  root.walk_preorder(n => visited.push(n.node_id))
+  // Pre-order: parent (0), then left child (1), then right child (2)
+  @debug.assert_eq(visited, [0, 1, 2])
+}
+
+///|
+test "ProjNode::walk_preorder visits single leaf" {
+  let leaf = ProjNode(Leaf("x"), 0, 1, 7, [])
+  let visited : Array[Int] = []
+  leaf.walk_preorder(n => visited.push(n.node_id))
+  @debug.assert_eq(visited, [7])
+}
+
+///|
+test "ProjNode::walk_preorder passes correct FoldNode fields" {
+  let leaf = ProjNode(Leaf("x"), 2, 8, 42, [])
+  let seen : Array[String] = []
+  leaf.walk_preorder(n => {
+    seen.push("\{n.kind}|n.\{n.node_id}|s.\{n.start}|e.\{n.end}")
+  })
+  inspect(seen[0], content="Leaf(\"x\")|n.42|s.2|e.8")
+}
+
+///|
 test "ToJson for ProjNode[TestExpr] compiles" {
   let node = ProjNode(Leaf("x"), 0, 1, 0, [])
   let json = node.to_json()
