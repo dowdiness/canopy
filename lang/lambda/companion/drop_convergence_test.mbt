@@ -161,6 +161,8 @@ fn pick_seed(size : Int) -> (String, Int) {
 
 ///|
 fn pick_distinct(child_count : Int, rs : @splitmix.RandomState) -> (Int, Int) {
+  // Uniform over all pairs (a, b) with b != a in [0..child_count).
+  // offset uniform in [0..child_count-1); wrapping by count excludes a exactly once.
   let a = rs.split().next_uint64().to_int().abs() % child_count
   let offset = rs.split().next_uint64().to_int().abs() % (child_count - 1)
   let b = (a + 1 + offset) % child_count
