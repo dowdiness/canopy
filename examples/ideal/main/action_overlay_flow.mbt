@@ -157,7 +157,6 @@ fn OverlayState::handle_text_key(
         None => overlay_update(self, NoOverlayEffect)
       }
     }
-    Closed => overlay_update(self, NoOverlayEffect)
   }
 }
 

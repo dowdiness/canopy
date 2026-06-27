@@ -185,7 +185,7 @@ fn view_overlay(
     NamePrompt(_, ..) => view_name_prompt(emit, state)
     Submenu(sub_action) =>
       view_submenu_choices(emit, state.menu, sub_action, state.kind)
-    MainMenu | Closed => view_action_list(emit, state.menu, state.actions)
+    MainMenu => view_action_list(emit, state.menu, state.actions)
   }
   let panel_attrs = match state.mode {
     NamePrompt(_, ..) =>

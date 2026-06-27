@@ -2,7 +2,6 @@
 /// Typed failures that the action overlay can surface. Closed because there are
 /// exactly three known error sources; migrate to `extenum` if plugin packages
 /// ever need overlay-specific typed failures.
-#warnings("-unused_constructor")
 enum OverlayError {
   EmptyName
   BuildActionFailed(String)

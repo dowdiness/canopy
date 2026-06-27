@@ -53,9 +53,7 @@ pub enum SyncStatus {
 /// implicit `(visible, submenu, pending_action)` encoding so that illegal
 /// combinations — a closed overlay with a pending action, or a submenu and a
 /// name prompt active at once — are unrepresentable.
-#warnings("-unused_constructor")
 enum OverlayMode {
-  Closed
   MainMenu
   Submenu(@lambda_edits.Action)
   // `value` is the text typed into the name prompt — genuinely prompt-local,

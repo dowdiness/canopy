@@ -2,7 +2,6 @@
 /// True when the overlay is showing any of its open modes.
 fn OverlayState::is_open(self : OverlayState) -> Bool {
   match self.mode {
-    Closed => false
     MainMenu | Submenu(_) | NamePrompt(_, ..) => true
   }
 }
