@@ -1,18 +1,28 @@
 ///| Export a BlockDoc to Markdown.
+
 ///|
+
 ///| Rules:
+
 ///| - Blank line between all block pairs except consecutive same-style list items
+
 ///| - Numbered list items renumbered from 1 per container
+
 ///| - Code: ```lang\n…\n```
+
 ///| - Divider: ---
+
 ///| - Raw: verbatim content
-///| - Nested blocks indented by 2 spaces per depth level
+
+///|
+/// - Nested blocks indented by 2 spaces per depth level
 pub fn block_doc_to_markdown(doc : BlockDoc) -> String {
   let buf = StringBuilder()
   emit_children(buf, doc, root_block_id, 0)
   buf.to_string()
 }
 
+///|
 fn emit_children(
   buf : StringBuilder,
   doc : BlockDoc,

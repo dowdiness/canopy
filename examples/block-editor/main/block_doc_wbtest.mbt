@@ -173,12 +173,13 @@ test "export: divider" {
   let _ = doc.create_block(Divider)
   inspect(block_doc_to_markdown(doc), content="---\n")
 }
+
 ///|
 test "export: nested blocks are indented" {
   let doc = BlockDoc::new("alice")
   let parent = doc.create_block(Paragraph)
   doc.set_text(parent, "parent")
-  let child = doc.create_block(Paragraph, parent=parent)
+  let child = doc.create_block(Paragraph, parent~)
   doc.set_text(child, "child")
   let out = block_doc_to_markdown(doc)
   inspect(out, content="parent\n  child\n")
@@ -585,6 +586,33 @@ test "move_block: descendant-drop rejected by CRDT cycle detection" {
     _ => ()
   }
   inspect(caught_cycle, content="true")
+}
+
+///|
+test "move_block Before/After with ref_parent preserves nested block's parent" {
+  let doc = BlockDoc::new("alice")
+  let parent = doc.create_block(Paragraph)
+  let child_a = doc.create_block(Paragraph, parent~)
+  let child_b = doc.create_block(Paragraph, parent~)
+  doc.set_text(child_a, "a")
+  doc.set_text(child_b, "b")
+  // Reorder: move child_a after child_b, staying under parent
+  doc.move_block(
+    child_a,
+    child_b,
+    @canopy_core.DropPosition::After,
+    ref_parent=parent,
+  ) catch {
+    _ => ()
+  }
+  let children = doc.children(parent)
+  inspect(children.length(), content="2")
+  // child_b is now first, child_a is second
+  inspect(doc.get_text(children[0]), content="b")
+  inspect(doc.get_text(children[1]), content="a")
+  // Neither block escaped to root
+  let root_children = doc.children(root_block_id)
+  inspect(root_children.length(), content="1") // only parent at root
 }
 
 // TODO: sync tests require container-level sync API (SyncMessage, VersionVector)
