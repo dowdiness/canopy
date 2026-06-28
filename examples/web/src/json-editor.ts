@@ -230,8 +230,7 @@ function refreshInlineControls() {
       const btn = createActionBtn('+', 'add-member', 'Add member key');
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        pendingNodeId = nodeId;
-        showInlineForm('add-member');
+        showInlineForm('add-member', nodeId);
       });
       actions.appendChild(btn);
     } else if (kind === 'array') {
@@ -268,8 +267,7 @@ function refreshInlineControls() {
       const wrapObj = createActionBtn('{}', 'wrap-object', 'Wrap in object');
       wrapObj.addEventListener('click', (e) => {
         e.stopPropagation();
-        pendingNodeId = nodeId;
-        showInlineForm('wrap-object');
+        showInlineForm('wrap-object', nodeId);
       });
       actions.appendChild(wrapObj);
     }
@@ -289,7 +287,8 @@ function refreshInlineControls() {
   }
 }
 
-function showInlineForm(mode: InlineMode) {
+function showInlineForm(mode: InlineMode, targetId?: number | null) {
+  pendingNodeId = targetId ?? null;
   inlineMode = mode;
   inlineFormEl.classList.add('visible');
 
@@ -307,10 +306,10 @@ function showInlineForm(mode: InlineMode) {
     inlineInputEl.value = '';
   }
 
-  // Scroll the selected row into view so the form is visible
-  const targetId = pendingNodeId ?? adapter.getSelectedNodeId();
-  if (targetId !== null) {
-    const rowEl = treeEl.querySelector(`[data-node-id="${targetId}"] > .node-row`);
+  // Scroll the target row into view
+  const scrollId = pendingNodeId ?? adapter.getSelectedNodeId();
+  if (scrollId !== null) {
+    const rowEl = treeEl.querySelector(`[data-node-id="${scrollId}"] > .node-row`);
     if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
   }
 
