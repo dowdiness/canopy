@@ -83,10 +83,9 @@
     }
 
     .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      display: flex;
+      flex-direction: column;
       gap: 20px;
-      align-items: start;
     }
 
     .panel {
@@ -112,34 +111,259 @@
       padding: 16px;
     }
 
-    #json-input {
-      min-height: 360px;
-      padding: 14px;
-      background: #1e1e1e;
-      border: 1px solid #3c3c3c;
-      border-radius: 4px;
-      position: relative;
-      outline: none;
-      font-size: 15px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
+.editor-wrapper {
+  display: flex;
+  position: relative;
+}
 
-    #json-input:focus {
-      border-color: #4ec9b0;
-    }
+.editor-gutter {
+  width: 28px;
+  flex-shrink: 0;
+  background: #1e1e1e;
+  border-right: 1px solid #2a2a2a;
+  position: relative;
+}
 
-    #json-input:empty::before {
-      content: 'Type JSON here...';
-      color: #6a6a6a;
-    }
+.json-editor-view {
+  flex: 1;
+  min-width: 0;
+  min-height: 360px;
+  padding: 14px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 0 4px 4px 0;
+  position: relative;
+  outline: none;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre;
+}
 
-    .errors-panel {
-      margin-top: 16px;
-      background: #1e1e1e;
-      border: 1px solid #3c3c3c;
-      border-radius: 4px;
+.json-editor-view:focus {
+  border-color: #4ec9b0;
+}
+
+.editor-empty {
+  color: #6a6a6a;
+}
+
+.gutter-btn {
+  position: absolute;
+  left: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #4a4a6a;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.gutter-btn:hover {
+  background: #252540;
+  color: #82aaff;
+}
+
+#json-input.json-editor-raw {
+  flex: 1;
+  min-width: 0;
+  min-height: 360px;
+  padding: 14px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 0 4px 4px 0;
+  position: relative;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#json-input.json-editor-raw:focus {
+  border-color: #4ec9b0;
+}
+
+#json-input.json-editor-raw:empty::before {
+  content: 'Type JSON here...';
+  color: #6a6a6a;
+}
+
+.toolbar-btn.active {
+  background: #8250df;
+  border-color: #8250df;
+  color: #fff;
+}
+
+.toolbar-btn.active:hover {
+  background: #6f3fbf;
+  border-color: #6f3fbf;
+}
+
+/* ── Structured JSON view ────────────────────────── */
+
+.json-container {
+  margin-left: 0;
+}
+
+.json-container .json-container {
+  margin-left: 20px;
+  border-left: 1px solid #2a2a48;
+  padding-left: 12px;
+}
+
+.json-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.json-row:hover {
+  background: #252540;
+}
+
+.json-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  color: #5a5a7a;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.json-toggle:hover {
+  color: #c8c8e0;
+}
+
+.json-brace {
+  color: #858585;
+  font-weight: 500;
+}
+
+.json-summary {
+  color: #5a5a7a;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.json-key {
+  color: #82aaff;
+}
+
+.json-colon {
+  color: #858585;
+  margin-right: 4px;
+}
+
+.json-value {
+  cursor: text;
+  padding: 1px 4px;
+  border-radius: 2px;
+  min-width: 20px;
+}
+
+.json-value:hover {
+  background: #1e1e3e;
+}
+
+.json-value.json-string {
+  color: #c3e88d;
+}
+
+.json-value.json-number {
+  color: #f78c6c;
+}
+
+.json-value.json-bool {
+  color: #c792ea;
+}
+
+.json-value.json-null {
+  color: #c792ea;
+  font-style: italic;
+}
+
+.json-value.json-error {
+  color: #f48771;
+  border-bottom: 1px wavy #f48771;
+}
+
+.json-value input {
+  background: #1e1e1e;
+  border: 1px solid #5a5a7a;
+  color: #d4d4d4;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 1px 4px;
+  border-radius: 2px;
+  outline: none;
+  min-width: 40px;
+}
+
+.json-value input:focus {
+  border-color: #8250df;
+}
+
+.json-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #4a4a6a;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.json-row:hover .json-btn {
+  opacity: 1;
+}
+
+.json-btn:hover {
+  background: #2a2a4a;
+}
+
+.json-btn-add {
+  color: #4ec9b0;
+}
+
+.json-btn-del {
+  color: #f48771;
+}
+
+.json-btn-add:hover {
+  color: #6fdfc0;
+}
+
+.json-btn-del:hover {
+  color: #f7a08e;
+}
+
       overflow: hidden;
     }
 
@@ -335,6 +559,36 @@
       color: #cf222e;
     }
 
+    .node-tag {
+      display: inline-block;
+      min-width: 24px;
+      min-height: 1.4em;
+    }
+
+    .node-tag[data-empty="true"]::after {
+      content: '""';
+      color: #5a5a7a;
+      font-style: italic;
+    }
+
+    .node-tag input,
+    .node-key input {
+      background: #1e1e1e;
+      border: 1px solid #5a5a7a;
+      color: #d4d4d4;
+      font-family: inherit;
+      font-size: inherit;
+      padding: 1px 4px;
+      border-radius: 2px;
+      outline: none;
+      min-width: 40px;
+    }
+
+    .node-tag input:focus,
+    .node-key input:focus {
+      border-color: #8250df;
+    }
+
     /* ── Value nodes (scalars) ────────────────────── */
 
     .node-row.value-node {
@@ -415,6 +669,36 @@
       z-index: 1;
       overflow: hidden;
     }
+
+    .decoration-overlay .widget-btn {
+      pointer-events: auto;
+    }
+
+    .widget-btn {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 1px solid #3a3a5a;
+      border-radius: 50%;
+      background: #252540;
+      color: #7a7a9a;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 2;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .widget-btn:hover {
+      background: #3a3a5a;
+      color: #c8c8e0;
+      border-color: #5a5a7a;
+    }
+
 
     .decoration-mark {
       position: absolute;
@@ -597,56 +881,37 @@
 
     <div class="layout">
       <section class="panel">
-        <div class="panel-header">
+        <div class="panel-header" style="display:flex;align-items:center;gap:10px">
           <h2>JSON Text</h2>
+          <button id="format-btn" class="toolbar-btn" type="button">Format</button>
+          <button id="struct-toggle-btn" class="toolbar-btn" type="button" style="margin-left:auto">▦ Structured</button>
         </div>
         <div class="editor-shell">
-          <div id="json-input" contenteditable="plaintext-only" spellcheck="false"></div>
+          <div class="editor-wrapper">
+            <div id="json-gutter" class="editor-gutter"></div>
+            <div id="json-input" contenteditable="plaintext-only" spellcheck="false" class="json-editor-raw"></div>
+            <div id="json-editor-view" class="json-editor-view" style="display:none"></div>
+          </div>
 
-          <div class="errors-panel">
+          <div class="errors-panel" id="errors-panel">
             <div class="errors-header">Parse Errors</div>
             <ul id="parse-errors" class="error-list"></ul>
           </div>
         </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Structure</h2>
-        </div>
-        <div class="toolbar">
-          <span class="toolbar-label">Edit:</span>
-
-          <button id="add-member-btn" class="toolbar-btn" type="button">+ Member</button>
-          <button id="add-element-btn" class="toolbar-btn" type="button">+ Element</button>
-          <button id="wrap-array-btn" class="toolbar-btn" type="button">[ Wrap ]</button>
-          <button id="wrap-object-btn" class="toolbar-btn" type="button">{ Wrap }</button>
-          <button id="change-type-btn" class="toolbar-btn" type="button">Type...</button>
-          <button id="delete-btn" class="toolbar-btn" type="button">Delete</button>
-          <button id="format-btn" class="toolbar-btn" type="button">Format</button>
-          <button id="unwrap-btn" class="toolbar-btn" type="button">Unwrap</button>
-
-          <div id="toolbar-inline-form" class="inline-form">
-            <span id="inline-form-label" class="toolbar-label"></span>
-            <input id="toolbar-inline-input" class="inline-input" type="text" autocomplete="off">
-            <button id="toolbar-inline-submit" class="inline-submit" type="button">Apply</button>
-            <button id="toolbar-inline-cancel" class="inline-cancel" type="button">Cancel</button>
+        <section class="panel patch-log-panel" id="patch-log-panel" style="border:none;margin-top:0;border-top:1px solid #3c3c3c">
+          <div class="panel-header patch-log-header" id="patch-log-header">
+            <h2>Edit Log <span id="patch-log-count" class="patch-log-count">0</span></h2>
+            <span id="patch-log-toggle" class="patch-log-toggle">▾</span>
           </div>
-        </div>
-
-        <div id="tree-view" class="tree-view"></div>
+          <div id="patch-log-body" class="patch-log-body">
+            <div id="patch-log-empty" class="patch-log-empty">No edits yet.</div>
+          </div>
+        </section>
       </section>
+        <div id="tree-view" style="display:none"></div>
+
     </div>
 
-      <section class="panel patch-log-panel" id="patch-log-panel">
-        <div class="panel-header patch-log-header" id="patch-log-header">
-          <h2>Edit Log <span id="patch-log-count" class="patch-log-count">0</span></h2>
-          <span id="patch-log-toggle" class="patch-log-toggle">▾</span>
-        </div>
-        <div id="patch-log-body" class="patch-log-body">
-          <div id="patch-log-empty" class="patch-log-empty">No edits yet.</div>
-        </div>
-      </section>
   </div>
 
   <script type="module" src="/src/json-editor.ts"></script>
