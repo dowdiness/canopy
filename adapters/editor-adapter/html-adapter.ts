@@ -41,6 +41,13 @@ function deriveEdgeLabel(container: HTMLElement, el: Element, parentNode: ViewNo
   }
   return null;
 }
+/** CSS classes referenced by language-specific stylesheets. */
+const CSS = {
+  TOGGLE: 'node-toggle',
+  COLLAPSED: 'collapsed',
+  VALUE_NODE: 'value-node',
+  COUNT_BADGE: 'node-count',
+} as const;
 
 export class HTMLAdapter implements EditorAdapter {
   private container: HTMLElement;
@@ -48,10 +55,13 @@ export class HTMLAdapter implements EditorAdapter {
   private intentCallback: ((intent: UserIntent) => void) | null = null;
   private selectedNodeId: number | null = null;
   private currentTree: ViewNode | null = null;
+  private collapsedNodes = new Set<number>();
+  private enableToggles: boolean;
 
-  constructor(container: HTMLElement, diagnosticsEl?: HTMLElement) {
+  constructor(container: HTMLElement, diagnosticsEl?: HTMLElement, enableToggles = false) {
     this.container = container;
     this.diagnosticsEl = diagnosticsEl ?? null;
+    this.enableToggles = enableToggles;
   }
 
   applyPatches(patches: ViewPatch[]): void {
@@ -67,6 +77,7 @@ export class HTMLAdapter implements EditorAdapter {
   destroy(): void {
     this.intentCallback = null;
     this.currentTree = null;
+    this.collapsedNodes.clear();
     this.container.replaceChildren();
     if (this.diagnosticsEl) this.diagnosticsEl.replaceChildren();
   }
@@ -82,6 +93,19 @@ export class HTMLAdapter implements EditorAdapter {
   findNode(nodeId: number): ViewNode | null {
     if (!this.currentTree) return null;
     return findNodeInTree(this.currentTree, nodeId);
+  }
+
+  /** Clear collapse state and expand all rendered nodes. */
+  resetCollapseState(): void {
+    this.collapsedNodes.clear();
+    for (const el of this.container.querySelectorAll(`.${CSS.COLLAPSED}`)) {
+      el.classList.remove(CSS.COLLAPSED);
+      const btn = el.querySelector<HTMLButtonElement>(`:scope > .node-row > .${CSS.TOGGLE}`);
+      if (btn) {
+        btn.textContent = '▼';
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    }
   }
 
   private applyPatch(patch: ViewPatch): void {
@@ -117,26 +141,50 @@ export class HTMLAdapter implements EditorAdapter {
         }
         break;
       }
-
       case 'InsertChild': {
-        const parentEl = this.container.querySelector(`[data-node-id="${patch.parent_id}"]`);
-        if (parentEl) {
-          const childrenEl = parentEl.querySelector(':scope > .node-children') ?? parentEl;
-          const newChild = this.renderNode(patch.child, null, false);
-          // .node-children contains only tree-node children (no .node-row offset)
-          const refChild = childrenEl.children[patch.index] ?? null;
-          childrenEl.insertBefore(newChild, refChild);
-        }
-        // Update currentTree
+        // Update currentTree first so the parent has the child on re-render
         if (this.currentTree) {
           this.currentTree = insertChildInTree(this.currentTree, patch.parent_id, patch.index, patch.child);
+        }
+        const parentEl = this.container.querySelector(`[data-node-id="${patch.parent_id}"]`) as HTMLElement | null;
+        if (parentEl) {
+          const hasContainerChrome = parentEl.querySelector(':scope > .node-children') !== null;
+          if (hasContainerChrome) {
+            // Normal incremental insert
+            const childrenEl = parentEl.querySelector(':scope > .node-children')!;
+            const newChild = this.renderNode(patch.child, null, false);
+            const refChild = childrenEl.children[patch.index] ?? null;
+            childrenEl.insertBefore(newChild, refChild);
+            this.updateCountBadge(parentEl, childrenEl.children.length);
+          } else {
+            // Parent was a leaf — re-render with full container chrome
+            const parentNode = this.currentTree
+              ? findNodeInTree(this.currentTree, patch.parent_id)
+              : null;
+            if (parentNode) {
+              const parentViewNode = this.currentTree
+                ? findParentInTree(this.currentTree, patch.parent_id)
+                : null;
+              const edgeLabel = deriveEdgeLabel(this.container, parentEl, parentViewNode);
+              const isRoot = parentEl === this.container.firstElementChild;
+              const newEl = this.renderNode(parentNode, edgeLabel, isRoot);
+              parentEl.parentElement?.replaceChild(newEl, parentEl);
+            }
+          }
         }
         break;
       }
 
       case 'RemoveChild': {
         const el = this.container.querySelector(`[data-node-id="${patch.child_id}"]`);
-        if (el) el.remove();
+        if (el) {
+          const parentEl = el.parentElement?.parentElement;
+          el.remove();
+          if (parentEl) {
+            const childrenEl = parentEl.querySelector(':scope > .node-children');
+            if (childrenEl) this.updateCountBadge(parentEl, childrenEl.children.length);
+          }
+        }
         // Update currentTree
         if (this.currentTree) {
           this.currentTree = removeChildInTree(this.currentTree, patch.parent_id, patch.child_id);
@@ -196,7 +244,7 @@ export class HTMLAdapter implements EditorAdapter {
       wrapper.setAttribute('data-node-id', String(node.id));
 
       const row = document.createElement('div');
-      row.className = 'node-row';
+      row.className = 'node-row value-node';
       if (node.id === this.selectedNodeId) row.classList.add('selected');
       row.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -239,6 +287,12 @@ export class HTMLAdapter implements EditorAdapter {
       this.selectNode(node.id);
     });
 
+    // Expand/collapse toggle (only when opt-in)
+    const toggle = this.enableToggles
+      ? this.createToggle(container, node.id)
+      : null;
+    if (toggle) row.appendChild(toggle);
+
     if (edgeLabel !== null) {
       const keyEl = document.createElement('span');
       keyEl.className = 'node-key';
@@ -256,8 +310,8 @@ export class HTMLAdapter implements EditorAdapter {
     row.appendChild(tagEl);
 
     const countEl = document.createElement('span');
-    countEl.className = 'node-id';
-    countEl.textContent = ` (${node.children.length})`;
+    countEl.className = CSS.COUNT_BADGE;
+    countEl.textContent = String(node.children.length);
     row.appendChild(countEl);
 
     const idEl = document.createElement('span');
@@ -278,7 +332,44 @@ export class HTMLAdapter implements EditorAdapter {
     }
     container.appendChild(childrenContainer);
 
+    // Restore collapse state after rendering (only when toggles enabled)
+    if (this.enableToggles && this.collapsedNodes.has(node.id)) {
+      container.classList.add(CSS.COLLAPSED);
+      if (toggle) {
+        toggle.textContent = '▶';
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    }
     return container;
+  }
+
+  /** Create an accessible expand/collapse toggle button for a container. */
+  private createToggle(container: HTMLElement, nodeId: number): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = CSS.TOGGLE;
+    btn.setAttribute('aria-expanded', 'true');
+    btn.textContent = '▼';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasCollapsed = container.classList.toggle(CSS.COLLAPSED);
+      if (wasCollapsed) {
+        this.collapsedNodes.add(nodeId);
+        btn.setAttribute('aria-expanded', 'false');
+        btn.textContent = '▶';
+      } else {
+        this.collapsedNodes.delete(nodeId);
+        btn.setAttribute('aria-expanded', 'true');
+        btn.textContent = '▼';
+      }
+    });
+    return btn;
+  }
+
+  /** Update the .node-count badge on a container element. */
+  private updateCountBadge(container: HTMLElement, count: number): void {
+    const badge = container.querySelector(`:scope > .node-row > .${CSS.COUNT_BADGE}`);
+    if (badge) badge.textContent = String(count);
   }
 
   private renderFormattedText(node: ViewNode, isRoot: boolean): HTMLElement {

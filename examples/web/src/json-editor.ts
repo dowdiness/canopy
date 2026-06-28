@@ -31,7 +31,7 @@ const inlineSubmitEl = must<HTMLButtonElement>('toolbar-inline-submit');
 const inlineCancelEl = must<HTMLButtonElement>('toolbar-inline-cancel');
 
 // Protocol-based tree adapter
-const adapter = new HTMLAdapter(treeEl, errorsEl);
+const adapter = new HTMLAdapter(treeEl, errorsEl, true);
 
 const decorationOverlay = new DecorationOverlay(editorEl);
 
@@ -313,6 +313,7 @@ document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach((button) =>
     crdt.json_set_text(handle, example);
     syncTextFromModel();
     hideInlineForm();
+    adapter.resetCollapseState();
     refresh();
   });
 });
@@ -331,6 +332,7 @@ if (initialText.trim()) {
   setEditorText(EXAMPLE_FALLBACK);
 }
 
+adapter.resetCollapseState();
 refresh();
 
 
