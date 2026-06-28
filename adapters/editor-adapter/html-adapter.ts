@@ -200,8 +200,12 @@ export class HTMLAdapter implements EditorAdapter {
           if (labelEl) labelEl.textContent = patch.label;
           if (patch.css_class) {
             const classes = el.className.split(/\s+/).filter(c => !c.startsWith('kind-'));
-            classes.push(`kind-${patch.css_class}`);
+            const kindClass = patch.css_class;
+            classes.push(`kind-${kindClass}`);
             el.className = classes.join(' ');
+            // Keep data-node-kind in sync so refreshInlineControls reads the current type
+            const kindTag = kindClass.charAt(0).toUpperCase() + kindClass.slice(1);
+            el.setAttribute('data-node-kind', kindTag);
           }
         }
         // Update currentTree
@@ -241,7 +245,9 @@ export class HTMLAdapter implements EditorAdapter {
     if (!hasChildren) {
       const wrapper = document.createElement('div');
       wrapper.className = isRoot ? 'tree-node root' : 'tree-node';
+      wrapper.classList.add(`kind-${kindClass}`);
       wrapper.setAttribute('data-node-id', String(node.id));
+      wrapper.setAttribute('data-node-kind', node.kind_tag);
 
       const row = document.createElement('div');
       row.className = 'node-row value-node';
@@ -273,10 +279,11 @@ export class HTMLAdapter implements EditorAdapter {
       wrapper.appendChild(row);
       return wrapper;
     }
-
     const container = document.createElement('div');
     container.className = isRoot ? 'tree-node root' : 'tree-node';
+    container.classList.add(`kind-${kindClass}`);
     container.setAttribute('data-node-id', String(node.id));
+    container.setAttribute('data-node-kind', node.kind_tag);
 
     const row = document.createElement('div');
     row.className = 'node-row';
