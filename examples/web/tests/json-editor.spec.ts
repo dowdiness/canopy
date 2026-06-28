@@ -389,3 +389,54 @@ test.describe('JSON Editor — Inline Controls', () => {
     await expect(newRow.locator('.node-type-select')).not.toBeVisible();
   });
 });
+
+test.describe('JSON Editor — Format', () => {
+
+  test('format button pretty-prints compact JSON', async ({ page }) => {
+    const editor = page.locator('#json-input');
+    const formatBtn = page.locator('#format-btn');
+
+    // Type compact JSON
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{"a":[1,2],"b":{"c":3}}');
+    await page.waitForTimeout(300);
+
+    // Click Format
+    await formatBtn.click();
+    await page.waitForTimeout(300);
+
+    // Text should be pretty-printed with newlines and indentation
+    const text = await editor.textContent();
+    expect(text).toContain('\n');
+    expect(text).toContain('  "a"');
+    expect(text).toContain('    ');
+  });
+
+  test('format button shows error on invalid JSON', async ({ page }) => {
+    const editor = page.locator('#json-input');
+    const formatBtn = page.locator('#format-btn');
+
+    // Clear and type invalid JSON
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('{invalid');
+    await page.waitForTimeout(300);
+
+    // Capture text before format attempt
+    const textBefore = await editor.textContent();
+
+    // Click Format
+    await formatBtn.click();
+    await page.waitForTimeout(300);
+
+    // Text must be unchanged (Format didn't apply)
+    const textAfter = await editor.textContent();
+    expect(textAfter).toBe(textBefore);
+
+    // Error should be shown by the Format attempt (not just parser)
+    await expect(page.locator('#parse-errors .error-item').first()).toBeVisible();
+  });
+});
