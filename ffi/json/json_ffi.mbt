@@ -10,6 +10,7 @@ priv struct JsonHandle {
   editor : @editor.SyncEditor[@djson.JsonValue]
   editor_id : @workspace.EditorId
   cells : JsonProtectedCells
+  edit_log : @queue.Queue[JsonEditLogEntry]
 }
 
 ///|
@@ -40,7 +41,12 @@ fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
     agent_id,
     cells.to_protected_reads(),
   )
-  json_registry.insert(editor_id.0, { editor, editor_id, cells })
+  json_registry.insert(editor_id.0, {
+    editor,
+    editor_id,
+    cells,
+    edit_log: @queue.Queue::Queue([]),
+  })
   editor_id
 }
 

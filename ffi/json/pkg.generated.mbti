@@ -14,6 +14,8 @@ pub fn json_apply_edit(Int, String, Int) -> String
 
 pub fn json_compute_view_patches_json(Int) -> String
 
+pub fn json_get_edit_log(Int) -> String
+
 pub fn json_get_errors(Int) -> String
 
 pub fn json_get_proj_node_json(Int) -> String

@@ -15,26 +15,53 @@ pub fn json_apply_edit(
       }
       match parse_json_edit_op(json) {
         Ok(op) => {
-          let _ = match
+          // Touch protected reads; failures mean editor unavailable
+          let proj_ok = match
             coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
-            Ok(v) => v
+            Ok(_) => true
             Err(report) => {
               println("json_apply_edit proj read: \{report}")
-              return "error: editor unavailable"
+              false
             }
           }
-          let _ = match
+          let source_map_ok = match
             coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
-            Ok(v) => v
+            Ok(_) => true
             Err(report) => {
               println("json_apply_edit source_map read: \{report}")
-              return "error: editor unavailable"
+              false
             }
           }
-          match @json_companion.apply_json_edit(h.editor, op, timestamp_ms) {
-            Ok(_) => "ok"
-            Err(err) => "error: " + err
+          let result = if proj_ok && source_map_ok {
+            match @json_companion.apply_json_edit(h.editor, op, timestamp_ms) {
+              Ok(_) => "ok"
+              Err(err) => "error: " + err
+            }
+          } else {
+            "error: editor unavailable"
           }
+          // Push to edit log (bounded — oldest entries auto-evicted)
+          let entry_ok = result == "ok"
+          h.edit_log.push({
+            op: json,
+            ts: timestamp_ms,
+            ok: entry_ok,
+            error: if entry_ok {
+              None
+            } else {
+              Some(
+                if result.has_prefix("error: ") {
+                  result[7:].to_owned()
+                } else {
+                  result
+                },
+              )
+            },
+          })
+          while h.edit_log.length() > MAX_EDIT_LOG_SIZE {
+            let _ = h.edit_log.pop()
+          }
+          result
         }
         Err(err) => "error: " + err
       }

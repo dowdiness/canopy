@@ -9,6 +9,7 @@ import {
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "moonbitlang/core/json" @core_json,
+  "moonbitlang/core/queue",
 }
 
 // `cells` field of JsonHandle is read in production by Phase 1b accessors
@@ -33,6 +34,7 @@ options(
         "json_get_view_tree_json",
         "json_compute_view_patches_json",
         "json_get_role_spans_json",
+        "json_get_edit_log",
       ],
     },
   },
