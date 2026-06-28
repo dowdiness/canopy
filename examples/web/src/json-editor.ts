@@ -38,6 +38,7 @@ const decorationOverlay = new DecorationOverlay(editorEl);
 let inlineMode: InlineMode = null;
 let lastText = '';
 let syncScheduled = false;
+let pendingNodeId: number | null = null;
 let suppressInput = false;
 
 function must<T extends HTMLElement>(id: string): T {
@@ -154,6 +155,7 @@ function refresh() {
   const roleSpans = getJsonRoleSpans();
   decorationOverlay.applyDecorations(roleSpansToDecorations(roleSpans));
   updateToolbarState();
+  refreshInlineControls();
 }
 
 function updateToolbarState() {
@@ -171,6 +173,120 @@ function updateToolbarState() {
   changeTypeBtn.disabled = !hasSelection;
   deleteBtn.disabled = !hasSelection || Boolean(isRoot);
   unwrapBtn.disabled = !(kind === 'object' || kind === 'array');
+}
+
+/** Create an inline action button with a data-action attribute. */
+function createActionBtn(label: string, action: string, title: string): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'node-action-btn';
+  btn.setAttribute('data-action', action);
+  btn.title = title;
+  btn.textContent = label;
+  return btn;
+}
+
+/**
+ * Inject per-row inline controls (action buttons, type dropdown) into tree nodes.
+ * Called after every refresh. Removes stale controls and re-creates from current DOM.
+ */
+function refreshInlineControls() {
+  // Remove stale controls
+  treeEl.querySelectorAll('.node-actions, .node-type-select').forEach(el => el.remove());
+
+  for (const nodeEl of treeEl.querySelectorAll<HTMLElement>('.tree-node')) {
+    const nodeKind = nodeEl.getAttribute('data-node-kind');
+    if (!nodeKind) continue;
+    const nodeId = Number(nodeEl.getAttribute('data-node-id'));
+    if (isNaN(nodeId)) continue;
+    const rowEl = nodeEl.querySelector(':scope > .node-row');
+    if (!rowEl) continue;
+
+    const kind = kindTagToToolbarKind(nodeKind);
+    const isContainer = kind === 'object' || kind === 'array';
+    const isRoot = nodeEl.classList.contains('root');
+    const actions = document.createElement('span');
+    actions.className = 'node-actions';
+
+    // Type dropdown for value (scalar) nodes
+    if (!isContainer && kind !== 'error' && kind !== 'other') {
+      const select = document.createElement('select');
+      select.className = 'node-type-select';
+      for (const t of ['null', 'bool', 'number', 'string', 'array', 'object']) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        if (t === kind) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener('change', () => {
+        applyEdit({ op: 'ChangeType', node_id: nodeId, new_type: select.value });
+      });
+      actions.appendChild(select);
+    }
+
+    // Add-child button (containers only)
+    if (kind === 'object') {
+      const btn = createActionBtn('+', 'add-member', 'Add member key');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pendingNodeId = nodeId;
+        showInlineForm('add-member');
+      });
+      actions.appendChild(btn);
+    } else if (kind === 'array') {
+      const btn = createActionBtn('+', 'add-element', 'Add element');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideInlineForm();
+        applyEdit({ op: 'AddElement', array_id: nodeId });
+      });
+      actions.appendChild(btn);
+    }
+
+    // Unwrap (containers only)
+    if (isContainer) {
+      const btn = createActionBtn('↩', 'unwrap', 'Unwrap');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideInlineForm();
+        applyEdit({ op: 'Unwrap', node_id: nodeId });
+      });
+      actions.appendChild(btn);
+    }
+
+    // Wrap buttons
+    if (kind !== 'error' && kind !== 'other') {
+      const wrapArray = createActionBtn('⇥', 'wrap-array', 'Wrap in array');
+      wrapArray.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideInlineForm();
+        applyEdit({ op: 'WrapInArray', node_id: nodeId });
+      });
+      actions.appendChild(wrapArray);
+
+      const wrapObj = createActionBtn('{}', 'wrap-object', 'Wrap in object');
+      wrapObj.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pendingNodeId = nodeId;
+        showInlineForm('wrap-object');
+      });
+      actions.appendChild(wrapObj);
+    }
+
+    // Delete (never on root)
+    if (!isRoot) {
+      const btn = createActionBtn('×', 'delete', 'Delete');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideInlineForm();
+        applyEdit({ op: 'Delete', node_id: nodeId });
+      });
+      actions.appendChild(btn);
+    }
+
+    rowEl.appendChild(actions);
+  }
 }
 
 function showInlineForm(mode: InlineMode) {
@@ -191,12 +307,20 @@ function showInlineForm(mode: InlineMode) {
     inlineInputEl.value = '';
   }
 
+  // Scroll the selected row into view so the form is visible
+  const targetId = pendingNodeId ?? adapter.getSelectedNodeId();
+  if (targetId !== null) {
+    const rowEl = treeEl.querySelector(`[data-node-id="${targetId}"] > .node-row`);
+    if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
+  }
+
   inlineInputEl.focus();
   inlineInputEl.select();
 }
 
 function hideInlineForm() {
   inlineMode = null;
+  pendingNodeId = null;
   inlineFormEl.classList.remove('visible');
   inlineLabelEl.textContent = '';
   inlineInputEl.value = '';
@@ -217,8 +341,9 @@ function applyEdit(op: Record<string, unknown>) {
 }
 
 function submitInlineAction() {
-  const selectedId = adapter.getSelectedNodeId();
-  if (selectedId === null || !inlineMode) return;
+  // Prefer pendingNodeId (set by row-level button) over selected node
+  const targetId = pendingNodeId ?? adapter.getSelectedNodeId();
+  if (targetId === null || !inlineMode) return;
 
   const value = inlineInputEl.value.trim();
   if (!value) {
@@ -227,15 +352,15 @@ function submitInlineAction() {
   }
 
   if (inlineMode === 'add-member') {
-    applyEdit({ op: 'AddMember', object_id: selectedId, key: value });
+    applyEdit({ op: 'AddMember', object_id: targetId, key: value });
   } else if (inlineMode === 'wrap-object') {
-    applyEdit({ op: 'WrapInObject', node_id: selectedId, key: value });
+    applyEdit({ op: 'WrapInObject', node_id: targetId, key: value });
   } else if (inlineMode === 'change-type') {
     if (!VALID_TYPES.has(value)) {
       inlineInputEl.focus();
       return;
     }
-    applyEdit({ op: 'ChangeType', node_id: selectedId, new_type: value });
+    applyEdit({ op: 'ChangeType', node_id: targetId, new_type: value });
   }
 
   hideInlineForm();

@@ -308,3 +308,84 @@ test.describe('JSON Editor — Tree Rendering Regression', () => {
     await expect(rootNode.locator(':scope > .node-row > .node-count')).toHaveText('1');
   });
 });
+
+test.describe('JSON Editor — Inline Controls', () => {
+
+  test('row-level type dropdown switches value node type', async ({ page }) => {
+    // Load Array — has string, number, bool, null values
+    await loadExample(page, 'Array');
+
+    // Click the first value node (second .node-row — first is the array root)
+    const valueNode = page.locator('.node-row.value-node').first();
+    await valueNode.click();
+    await expect(valueNode).toHaveClass(/selected/);
+
+    // The type dropdown ON the selected row should be visible
+    const typeSelect = valueNode.locator('.node-type-select');
+    await expect(typeSelect).toBeVisible();
+
+    // Switch the type to bool
+    await typeSelect.selectOption('bool');
+
+    // The node should now display as a boolean type
+    await expect(valueNode.locator('.node-tag.bool')).toBeVisible();
+  });
+
+  test('row-level delete button removes a child node', async ({ page }) => {
+    await loadExample(page, 'Array');
+    const countBefore = await treeNodeCount(page);
+
+    // Select a child value node (index 1+)
+    const childRow = page.locator('.node-row').nth(1);
+    await childRow.click();
+
+    // Click the row-level delete button within the selected row
+    const deleteBtn = childRow.locator('.node-action-btn[data-action="delete"]');
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    // Wait for tree to update
+    await expect(page.locator('.node-row')).toHaveCount(countBefore - 1, { timeout: 5000 });
+  });
+
+  test('row-level add element adds to array root', async ({ page }) => {
+    await loadExample(page, 'Array');
+    const countBefore = await treeNodeCount(page);
+
+    // Select the array root
+    await page.locator('.node-row').first().click();
+
+    // Click the row-level add button
+    const addBtn = page.locator('.node-action-btn[data-action="add-element"]');
+    await expect(addBtn).toBeVisible();
+    await addBtn.click();
+
+    // Should now have one more child node
+    await expect(page.locator('.node-row')).toHaveCount(countBefore + 1, { timeout: 5000 });
+  });
+
+  test('type-switch from scalar to array shows container controls', async ({ page }) => {
+    await loadExample(page, 'Array');
+
+    // Select a child row (index 1 is the first value node)
+    const childRow = page.locator('.node-row').nth(1);
+    await childRow.click();
+
+    // Verify it has a type dropdown (scalar controls)
+    const typeSelect = childRow.locator('.node-type-select');
+    await expect(typeSelect).toBeVisible();
+
+    // Switch type from string to array
+    await typeSelect.selectOption('array');
+
+    // After re-render, select the same-position row (may not preserve selection)
+    const newRow = page.locator('.node-row').nth(1);
+    await newRow.click();
+
+    // Container controls should now be visible
+    await expect(newRow.locator('.node-action-btn[data-action="add-element"]')).toBeVisible({ timeout: 5000 });
+
+    // The type dropdown should be gone (containers don't get the inline type select)
+    await expect(newRow.locator('.node-type-select')).not.toBeVisible();
+  });
+});

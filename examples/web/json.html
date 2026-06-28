@@ -349,6 +349,66 @@
       opacity: 1;
     }
 
+
+    /* ── Inline controls (action buttons, type dropdown) ──────── */
+
+    .node-actions {
+      display: none;
+      margin-left: auto;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .node-row:hover .node-actions,
+    .node-row.selected .node-actions {
+      display: inline-flex;
+    }
+
+    .node-action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 20px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0;
+      background: #2a2a3e;
+      color: #7a7a9a;
+      border: 1px solid #3a3a5a;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .node-action-btn:hover {
+      background: #3a3a5a;
+      color: #c8c8e0;
+      border-color: #5a5a7a;
+    }
+
+    .node-action-btn:focus-visible {
+      outline: 2px solid #8250df;
+      outline-offset: 1px;
+    }
+
+    .node-type-select {
+      display: none;
+      font-size: 10px;
+      padding: 1px 2px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border: 1px solid #3a3a5a;
+      border-radius: 3px;
+      font-family: inherit;
+      cursor: pointer;
+      max-width: 70px;
+    }
+
+    .node-row.selected .node-type-select {
+      display: inline-block;
+    }
     .decoration-overlay {
       position: absolute;
       pointer-events: none;
