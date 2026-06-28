@@ -588,6 +588,61 @@ test "move_block: descendant-drop rejected by CRDT cycle detection" {
   inspect(caught_cycle, content="true")
 }
 
+///|
+test "move_block Before: cross-parent reparents nested block to ref's parent" {
+  let doc = BlockDoc::new("alice")
+  // Root: [A, B]; A has [child-1, child-2]
+  let a = doc.create_block(Paragraph)
+  doc.set_text(a, "A")
+  let child1 = doc.create_block(Paragraph, parent=a)
+  doc.set_text(child1, "child-1")
+  let child2 = doc.create_block(Paragraph, parent=a)
+  doc.set_text(child2, "child-2")
+  let b = doc.create_block(Paragraph)
+  doc.set_text(b, "B")
+  // Move child-1 before B — should reparent from A to root
+  doc.move_block(child1, b, @canopy_core.DropPosition::Before)
+  let root_children = doc.children(root_block_id)
+  // Root should have: A, child-1, B (child-1 inserted before B)
+  inspect(root_children.length(), content="3")
+  inspect(@container.tree_node_id_eq(root_children[0], a), content="true")
+  inspect(@container.tree_node_id_eq(root_children[1], child1), content="true")
+  inspect(@container.tree_node_id_eq(root_children[2], b), content="true")
+  // A should still have child-2 only
+  let a_children = doc.children(a)
+  inspect(a_children.length(), content="1")
+  inspect(@container.tree_node_id_eq(a_children[0], child2), content="true")
+  // Text preserved
+  inspect(doc.get_text(child1), content="child-1")
+  inspect(doc.get_text(b), content="B")
+}
+
+///|
+test "move_block After: cross-parent reparents nested block to ref's parent" {
+  let doc = BlockDoc::new("alice")
+  // Root: [A, B]; A has [child-1]
+  let a = doc.create_block(Paragraph)
+  doc.set_text(a, "A")
+  let child1 = doc.create_block(Paragraph, parent=a)
+  doc.set_text(child1, "child-1")
+  let b = doc.create_block(Paragraph)
+  doc.set_text(b, "B")
+  // Move child-1 after B — should reparent from A to root
+  doc.move_block(child1, b, @canopy_core.DropPosition::After)
+  let root_children = doc.children(root_block_id)
+  // Root should have: A, B, child-1 (child-1 now under root after B)
+  inspect(root_children.length(), content="3")
+  inspect(@container.tree_node_id_eq(root_children[0], a), content="true")
+  inspect(@container.tree_node_id_eq(root_children[1], b), content="true")
+  inspect(@container.tree_node_id_eq(root_children[2], child1), content="true")
+  // A should have no children
+  let a_children = doc.children(a)
+  inspect(a_children.length(), content="0")
+  // Text preserved
+  inspect(doc.get_text(child1), content="child-1")
+  inspect(doc.get_text(b), content="B")
+}
+
 // TODO: sync tests require container-level sync API (SyncMessage, VersionVector)
 // that includes text CRDT state. Re-add when export_sync_message / apply_remote_sync_message
 // are implemented in dowdiness/event-graph-walker/container.
