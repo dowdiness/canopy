@@ -138,16 +138,14 @@ test.describe('JSON Editor — Structured Mode', () => {
     await toggleStructured(page);
 
     // The first child row should have a type select
-    const row = page.locator('#json-editor-view .node-row').nth(1);
-    const select = row.locator('.node-type-select');
+    const select = page.locator('#json-editor-view .node-row').nth(1).locator('.node-type-select');
     await expect(select).toBeVisible();
 
-    // Switch type
+    // Switch type — triggers full re-render
     await select.selectOption('bool');
 
-    // After re-render, the row should show bool tag
-    await page.waitForTimeout(500);
-    await expect(row.locator('.node-tag.bool')).toBeVisible();
+    // After re-render, the second row's tag should be bool
+    await expect(page.locator('#json-editor-view .node-row').nth(1).locator('.node-tag.bool')).toBeVisible({ timeout: 5000 });
   });
 
   test('collapse toggle persists across re-render', async ({ page }) => {
