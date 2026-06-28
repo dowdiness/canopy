@@ -13,7 +13,6 @@ const editorEl = must<HTMLDivElement>('json-input');
 const errorsEl = must<HTMLUListElement>('parse-errors');
 const treeEl = must<HTMLDivElement>('tree-view');
 const formatBtn = must<HTMLButtonElement>('format-btn');
-
 const viewEl = document.getElementById('json-editor-view')!;
 const gutterEl = document.getElementById('json-gutter');
 
