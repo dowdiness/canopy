@@ -9,6 +9,9 @@ export interface EditorAdapter {
   /** Register callback for user intents */
   onIntent(callback: (intent: UserIntent) => void): void;
 
+  /** Clear transient UI state (e.g. collapse) on document replacement */
+  resetCollapseState?(): void;
+
   /** Clean up resources */
   destroy(): void;
 }

@@ -223,7 +223,7 @@
 
     .tree-node {
       margin-left: 14px;
-      border-left: 1px solid #333;
+      border-left: 1px solid #2a2a48;
       padding-left: 12px;
     }
 
@@ -233,10 +233,46 @@
       border-left: none;
     }
 
+    .tree-node.collapsed > .node-children {
+      display: none;
+    }
+
+    /* ── Toggle ───────────────────────────────────── */
+
+    .node-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      font-size: 9px;
+      color: #5a5a7a;
+      cursor: pointer;
+      flex-shrink: 0;
+      border-radius: 2px;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-family: inherit;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .node-toggle:hover {
+      color: #c8c8e0;
+      background: #252540;
+    }
+
+    .node-toggle:focus-visible {
+      outline: 2px solid #8250df;
+      outline-offset: 1px;
+    }
+
+    /* ── Row ──────────────────────────────────────── */
+
     .node-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       padding: 4px 8px;
       margin: 2px 0;
       border-radius: 4px;
@@ -245,39 +281,72 @@
     }
 
     .node-row:hover {
-      background: #2c2c2c;
+      background: #252540;
     }
 
     .node-row.selected {
-      background: #4ec9b022;
-      outline: 1px solid #4ec9b0;
+      background: rgba(130, 80, 223, 0.12);
+      outline: 1px solid #8250df;
     }
 
-    .node-id {
-      color: #6a6a6a;
-      font-size: 11px;
-    }
+    /* ── Key labels ───────────────────────────────── */
 
     .node-key {
       color: #82aaff;
     }
 
+    .node-id {
+      color: #5a5a7a;
+      font-size: 11px;
+    }
+
+    .node-count {
+      background: #252540;
+      color: #5a5a7a;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    /* ── Type tags ────────────────────────────────── */
+
     .node-tag.object,
     .node-tag.array {
-      color: #4ec9b0;
+      color: #82aaff;
+      font-weight: 600;
     }
 
     .node-tag.string {
-      color: #ce9178;
+      color: #c3e88d;
     }
 
     .node-tag.number {
-      color: #b5cea8;
+      color: #f78c6c;
     }
 
     .node-tag.bool,
     .node-tag.null {
-      color: #569cd6;
+      color: #c792ea;
+    }
+
+    .node-tag.error {
+      color: #cf222e;
+    }
+
+    /* ── Value nodes (scalars) ────────────────────── */
+
+    .node-row.value-node {
+      padding-left: 24px;
+    }
+
+    .node-row.value-node .node-id {
+      opacity: 0.5;
+    }
+
+    .node-row.value-node:hover .node-id {
+      opacity: 1;
     }
 
     .decoration-overlay {

@@ -252,3 +252,59 @@ test.describe('JSON Editor — Role Spans', () => {
     await expect.poll(async () => !(await roleSpans(page)).some(s => s.role === 'error')).toBe(true);
   });
 });
+
+test.describe('JSON Editor — Tree Rendering Regression', () => {
+
+  test('P2: collapse state resets on example switch', async ({ page }) => {
+    // Load Nested example and collapse the root
+    await loadExample(page, 'Nested');
+    const toggle = page.locator('.node-row >> .node-toggle').first();
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    // Switch to Simple — collapse state must reset
+    await loadExample(page, 'Simple');
+    const toggles = page.locator('.node-row >> .node-toggle');
+    const count = await toggles.count();
+    for (let i = 0; i < count; i++) {
+      await expect(toggles.nth(i)).toHaveAttribute('aria-expanded', 'true');
+    }
+  });
+
+  test('P2: leaf parent gains container chrome on first child', async ({ page }) => {
+    // Start with a scalar — type null, which renders as a leaf (.value-node)
+    const editor = page.locator('#json-input');
+    await editor.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type('null');
+    await expect(page.locator('.node-row').first()).toBeVisible();
+    await page.waitForTimeout(300);
+
+    // Select the null scalar root
+    const rootRow = page.locator('.node-row').first();
+    await rootRow.click();
+
+    // Change type to Object
+    const changeBtn = page.locator('#change-type-btn');
+    await expect(changeBtn).not.toBeDisabled();
+    await changeBtn.click();
+    await page.locator('#toolbar-inline-input').fill('object');
+    await page.locator('#toolbar-inline-submit').click();
+    await page.waitForTimeout(300);
+
+    // Add first member
+    const addBtn = page.locator('#add-member-btn');
+    await expect(addBtn).not.toBeDisabled();
+    await addBtn.click();
+    await page.locator('#toolbar-inline-input').fill('key');
+    await page.locator('#toolbar-inline-submit').click();
+    await page.waitForTimeout(300);
+
+    // Parent must now have container chrome
+    const rootNode = page.locator('.tree-node.root');
+    await expect(rootNode.locator(':scope > .node-children')).toBeAttached();
+    await expect(rootNode.locator(':scope > .node-row > .node-toggle')).toBeAttached();
+    await expect(rootNode.locator(':scope > .node-row > .node-count')).toHaveText('1');
+  });
+});
