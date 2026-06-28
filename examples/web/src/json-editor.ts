@@ -57,6 +57,11 @@ export function getJsonRoleSpans(): JsonRoleSpanData[] {
   catch { return []; }
 }
 
+declare global {
+  interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
+}
+window.getJsonRoleSpans = getJsonRoleSpans;
+
 function roleSpansToDecorations(spans: JsonRoleSpanData[]): Decoration[] {
   return spans.filter(s => s.end > s.start).map(s => ({
     from: s.start, to: s.end,
@@ -232,24 +237,28 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
     addBtn.className = 'node-action-btn';
     addBtn.textContent = '+';
     addBtn.title = node.kind_tag === 'Array' ? 'Add element' : 'Add member';
+    addBtn.dataset.action = node.kind_tag === 'Array' ? 'add-element' : 'add-member';
     addBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit(node.kind_tag === 'Array' ? { op: 'AddElement', array_id: node.id } : { op: 'AddMember', object_id: node.id, key: 'key' }); });
     actions.appendChild(addBtn);
     const delBtn = document.createElement('button');
     delBtn.className = 'node-action-btn';
     delBtn.textContent = '×';
     delBtn.title = 'Delete';
+    delBtn.dataset.action = 'delete';
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); });
     actions.appendChild(delBtn);
     const wrapArrBtn = document.createElement('button');
     wrapArrBtn.className = 'node-action-btn';
     wrapArrBtn.textContent = '[]';
     wrapArrBtn.title = 'Wrap in array';
+    wrapArrBtn.dataset.action = 'wrap-array';
     wrapArrBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInArray', node_id: node.id }); });
     actions.appendChild(wrapArrBtn);
     const wrapObjBtn = document.createElement('button');
     wrapObjBtn.className = 'node-action-btn';
     wrapObjBtn.textContent = '{}';
     wrapObjBtn.title = 'Wrap in object';
+    wrapObjBtn.dataset.action = 'wrap-object';
     wrapObjBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInObject', node_id: node.id, key: 'key' }); });
     actions.appendChild(wrapObjBtn);
     if (node.children.length > 0) {
@@ -294,6 +303,7 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
     delBtn.className = 'node-action-btn';
     delBtn.textContent = '×';
     delBtn.title = 'Delete';
+    delBtn.dataset.action = 'delete';
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); });
     row.appendChild(delBtn);
     const idSpan = document.createElement('span');
