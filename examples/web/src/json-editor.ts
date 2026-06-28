@@ -22,6 +22,7 @@ const wrapArrayBtn = must<HTMLButtonElement>('wrap-array-btn');
 const wrapObjectBtn = must<HTMLButtonElement>('wrap-object-btn');
 const changeTypeBtn = must<HTMLButtonElement>('change-type-btn');
 const deleteBtn = must<HTMLButtonElement>('delete-btn');
+const formatBtn = must<HTMLButtonElement>('format-btn');
 const unwrapBtn = must<HTMLButtonElement>('unwrap-btn');
 
 const inlineFormEl = must<HTMLDivElement>('toolbar-inline-form');
@@ -325,6 +326,25 @@ function hideInlineForm() {
   inlineInputEl.value = '';
 }
 
+
+/** Pretty-print the JSON text in the editor. Shows an error if invalid. */
+function formatJson() {
+  const text = editorEl.textContent ?? '';
+  if (!text.trim()) return;
+  try {
+    const parsed = JSON.parse(text);
+    const formatted = JSON.stringify(parsed, null, 2);
+    // Set the CRDT model directly, then sync back to DOM + tree
+    crdt.json_set_text(handle, formatted);
+    syncTextFromModel();
+    refresh();
+  } catch (_e) {
+    const item = document.createElement('li');
+    item.className = 'error-item';
+    item.textContent = 'Invalid JSON — cannot format';
+    errorsEl.prepend(item);
+  }
+}
 function applyEdit(op: Record<string, unknown>) {
   const result = crdt.json_apply_edit(handle, JSON.stringify(op), Date.now());
   syncTextFromModel();
@@ -409,6 +429,11 @@ deleteBtn.addEventListener('click', () => {
     hideInlineForm();
     applyEdit({ op: 'Delete', node_id: selectedId });
   }
+});
+
+formatBtn.addEventListener('click', () => {
+  hideInlineForm();
+  formatJson();
 });
 
 unwrapBtn.addEventListener('click', () => {
