@@ -31,6 +31,12 @@ const inlineInputEl = must<HTMLInputElement>('toolbar-inline-input');
 const inlineSubmitEl = must<HTMLButtonElement>('toolbar-inline-submit');
 const inlineCancelEl = must<HTMLButtonElement>('toolbar-inline-cancel');
 
+const patchLogEl = must<HTMLDivElement>('patch-log-body');
+const patchLogHeaderEl = must<HTMLDivElement>('patch-log-header');
+const patchLogToggleEl = must<HTMLSpanElement>('patch-log-toggle');
+const patchLogCountEl = must<HTMLSpanElement>('patch-log-count');
+const patchLogEmptyEl = must<HTMLDivElement>('patch-log-empty');
+
 // Protocol-based tree adapter
 const adapter = new HTMLAdapter(treeEl, errorsEl, true);
 
@@ -88,6 +94,99 @@ export function getJsonRoleSpans(): JsonRoleSpanData[] {
   } catch {
     return [];
   }
+}
+
+interface EditLogEntry {
+  op: Record<string, unknown>;
+  ts: number;
+  ok: boolean;
+  error?: string;
+}
+
+const OP_CSS_CLASS: Record<string, string> = {
+  Delete: 'Delete',
+  AddMember: 'AddMember',
+  AddElement: 'AddElement',
+  WrapInArray: 'WrapInArray',
+  WrapInObject: 'WrapInObject',
+  Unwrap: 'Unwrap',
+  ChangeType: 'ChangeType',
+  RenameKey: 'RenameKey',
+  CommitEdit: 'CommitEdit',
+};
+
+function formatTimestamp(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function formatEntryParams(op: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(op)) {
+    if (key === 'op') continue;
+    if (typeof value === 'string') {
+      parts.push(`${key}="${value}"`);
+    } else {
+      parts.push(`${key}=${String(value)}`);
+    }
+  }
+  return parts.join('  ');
+}
+
+function fetchEditLog(): void {
+  const raw = crdt.json_get_edit_log(handle);
+  let entries: EditLogEntry[];
+  try {
+    entries = JSON.parse(raw) as EditLogEntry[];
+  } catch {
+    entries = [];
+  }
+
+  patchLogCountEl.textContent = String(entries.length);
+
+  if (entries.length === 0) {
+    patchLogEmptyEl.classList.remove('hidden');
+    patchLogEl.replaceChildren(patchLogEmptyEl);
+    return;
+  }
+
+  patchLogEmptyEl.classList.add('hidden');
+  const fragment = document.createDocumentFragment();
+
+  for (const entry of entries) {
+    const opName = String(entry.op.op ?? '?');
+    const opClass = OP_CSS_CLASS[opName] ?? '';
+
+    const div = document.createElement('div');
+    div.className = 'patch-entry';
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'patch-entry-time';
+    timeEl.textContent = formatTimestamp(entry.ts);
+
+    const opEl = document.createElement('span');
+    opEl.className = `patch-entry-op ${opClass}`;
+    opEl.textContent = opName;
+
+    const paramsEl = document.createElement('span');
+    paramsEl.className = 'patch-entry-params';
+    paramsEl.textContent = formatEntryParams(entry.op);
+
+    const statusEl = document.createElement('span');
+    if (entry.ok) {
+      statusEl.className = 'patch-entry-ok';
+      statusEl.textContent = '✓';
+    } else {
+      statusEl.className = 'patch-entry-err';
+      statusEl.textContent = entry.error ? `✗ ${entry.error}` : '✗';
+    }
+
+    div.append(timeEl, opEl, paramsEl, statusEl);
+    fragment.append(div);
+  }
+
+  patchLogEl.replaceChildren(fragment);
 }
 
 /** Convert role span data to Decoration[] for the overlay. */
@@ -349,6 +448,7 @@ function applyEdit(op: Record<string, unknown>) {
   const result = crdt.json_apply_edit(handle, JSON.stringify(op), Date.now());
   syncTextFromModel();
   refresh();
+  fetchEditLog();
 
   if (result !== 'ok') {
     // Prepend the error to the diagnostics list
@@ -467,6 +567,26 @@ document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach((button) =>
   });
 });
 
+// Patch log collapse toggle — keyboard-accessible
+patchLogHeaderEl.setAttribute('role', 'button');
+patchLogHeaderEl.setAttribute('tabindex', '0');
+patchLogHeaderEl.setAttribute('aria-expanded', 'true');
+patchLogHeaderEl.setAttribute('aria-controls', 'patch-log-body');
+
+function togglePatchLog() {
+  const isHidden = patchLogEl.classList.toggle('hidden');
+  patchLogToggleEl.classList.toggle('collapsed');
+  patchLogHeaderEl.setAttribute('aria-expanded', String(!isHidden));
+}
+
+patchLogHeaderEl.addEventListener('click', togglePatchLog);
+patchLogHeaderEl.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    togglePatchLog();
+  }
+});
+
 window.addEventListener('beforeunload', () => {
   adapter.destroy();
   decorationOverlay.dispose();
@@ -482,6 +602,8 @@ if (initialText.trim()) {
 }
 
 adapter.resetCollapseState();
+
 refresh();
+fetchEditLog();
 
 

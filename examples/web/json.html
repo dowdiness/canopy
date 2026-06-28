@@ -460,6 +460,126 @@
         max-height: none;
       }
     }
+
+    /* ── Patch log panel ───────────────────────────── */
+
+    .patch-log-panel {
+      margin-top: 20px;
+    }
+
+    .patch-log-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .patch-log-header:hover {
+      background: #2a2a2a;
+    }
+
+    .patch-log-count {
+      background: #252540;
+      color: #7a7a9a;
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: 8px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .patch-log-toggle {
+      font-size: 11px;
+      color: #5a5a7a;
+      margin-left: auto;
+      transition: transform 0.2s;
+    }
+
+    .patch-log-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .patch-log-body {
+      max-height: 480px;
+      overflow-y: auto;
+      padding: 0 16px 16px;
+    }
+
+    .patch-log-body.hidden {
+      display: none;
+    }
+
+    .patch-log-empty {
+      color: #6a6a6a;
+      font-size: 13px;
+      padding: 16px 0;
+      text-align: center;
+    }
+
+    .patch-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      margin: 3px 0;
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .patch-entry:hover {
+      border-color: #3a3a5a;
+    }
+
+    .patch-entry + .patch-entry {
+      margin-top: 4px;
+    }
+
+    .patch-entry-time {
+      color: #5a5a7a;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .patch-entry-op {
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .patch-entry-op.Delete { color: #f48771; }
+    .patch-entry-op.AddMember,
+    .patch-entry-op.AddElement { color: #c3e88d; }
+    .patch-entry-op.WrapInArray,
+    .patch-entry-op.WrapInObject { color: #82aaff; }
+    .patch-entry-op.Unwrap { color: #c792ea; }
+    .patch-entry-op.ChangeType { color: #ffcb6b; }
+    .patch-entry-op.RenameKey { color: #89ddff; }
+    .patch-entry-op.CommitEdit { color: #a0a0a0; }
+
+    .patch-entry-params {
+      color: #858585;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .patch-entry-ok {
+      color: #4ec9b0;
+      flex-shrink: 0;
+    }
+
+    .patch-entry-err {
+      color: #f48771;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -496,6 +616,7 @@
         </div>
         <div class="toolbar">
           <span class="toolbar-label">Edit:</span>
+
           <button id="add-member-btn" class="toolbar-btn" type="button">+ Member</button>
           <button id="add-element-btn" class="toolbar-btn" type="button">+ Element</button>
           <button id="wrap-array-btn" class="toolbar-btn" type="button">[ Wrap ]</button>
@@ -516,6 +637,16 @@
         <div id="tree-view" class="tree-view"></div>
       </section>
     </div>
+
+      <section class="panel patch-log-panel" id="patch-log-panel">
+        <div class="panel-header patch-log-header" id="patch-log-header">
+          <h2>Edit Log <span id="patch-log-count" class="patch-log-count">0</span></h2>
+          <span id="patch-log-toggle" class="patch-log-toggle">▾</span>
+        </div>
+        <div id="patch-log-body" class="patch-log-body">
+          <div id="patch-log-empty" class="patch-log-empty">No edits yet.</div>
+        </div>
+      </section>
   </div>
 
   <script type="module" src="/src/json-editor.ts"></script>
