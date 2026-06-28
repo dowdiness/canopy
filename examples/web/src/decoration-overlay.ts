@@ -1,12 +1,20 @@
 import type { Decoration } from '@canopy/editor-adapter/types';
 
+export type WidgetClickHandler = (widgetId: string) => void;
+
 export class DecorationOverlay {
   private readonly overlay: HTMLDivElement;
-  private decorations: Decoration[] = [];
+  private bgDecorations: Decoration[] = [];
+  private widgetDecorations: Decoration[] = [];
   private resizeObserver: ResizeObserver;
   private frame: number | null = null;
+  private readonly onWidgetClick?: WidgetClickHandler;
 
-  constructor(private readonly editorEl: HTMLElement) {
+  constructor(
+    private readonly editorEl: HTMLElement,
+    onWidgetClick?: WidgetClickHandler,
+  ) {
+    this.onWidgetClick = onWidgetClick;
     const host = editorEl.parentElement ?? editorEl;
     const hostStyle = window.getComputedStyle(host);
     if (hostStyle.position === 'static') {
@@ -24,7 +32,12 @@ export class DecorationOverlay {
   }
 
   applyDecorations(decorations: Decoration[]) {
-    this.decorations = decorations.filter(deco => deco.to > deco.from && !deco.widget);
+    this.bgDecorations = decorations.filter(
+      deco => deco.to > deco.from && !deco.widget,
+    );
+    this.widgetDecorations = decorations.filter(
+      deco => deco.widget && deco.data !== null,
+    );
     this.scheduleRender();
   }
 
@@ -59,7 +72,8 @@ export class DecorationOverlay {
       height: `${editorRect.height}px`,
     });
 
-    for (const decoration of this.decorations) {
+    // Render background marks (non-widget decorations)
+    for (const decoration of this.bgDecorations) {
       const range = this.rangeForOffsets(decoration.from, decoration.to);
       if (!range) continue;
       const rects = Array.from(range.getClientRects());
@@ -79,6 +93,38 @@ export class DecorationOverlay {
         this.overlay.appendChild(mark);
       }
     }
+
+    // Render widget decorations (interactive elements at text positions)
+    for (const decoration of this.widgetDecorations) {
+      const range = this.rangeForOffsets(
+        decoration.from,
+        Math.min(decoration.from + 1, decoration.to),
+      );
+      if (!range) continue;
+      const rects = Array.from(range.getClientRects());
+      range.detach();
+      if (rects.length === 0) continue;
+
+      const rect = rects[0];
+      const btn = document.createElement('button');
+      btn.className = `widget-btn ${decoration.css_class}`;
+      btn.setAttribute('data-widget-id', decoration.data!);
+      btn.setAttribute('aria-label', decoration.css_class.replace('widget-', '') + ' in text editor');
+      btn.type = 'button';
+      btn.textContent = '+';
+      Object.assign(btn.style, {
+        position: 'absolute',
+        left: `${rect.left - editorRect.left + this.editorEl.scrollLeft + rect.width + 2}px`,
+        top: `${rect.top - editorRect.top + this.editorEl.scrollTop}px`,
+      });
+      if (this.onWidgetClick) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.onWidgetClick!(decoration.data!);
+        });
+      }
+      this.overlay.appendChild(btn);
+    }
   }
 
   private rangeForOffsets(from: number, to: number): Range | null {
@@ -97,7 +143,11 @@ export class DecorationOverlay {
     let remaining = offset;
     let lastText: Text | null = null;
 
-    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    for (
+      let node = walker.nextNode() as Text | null;
+      node;
+      node = walker.nextNode() as Text | null
+    ) {
       lastText = node;
       const length = node.data.length;
       if (remaining <= length) {
