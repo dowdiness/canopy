@@ -58,9 +58,8 @@ pub fn BlockDoc::delete_block(
 ///|
 /// Move a block relative to a reference sibling.
 ///
-/// - `Before`: insert before `ref_id` under the same parent
-/// - `After`: insert after `ref_id` under the same parent
-/// - `Inside`: move as last child of `ref_id`
+/// - `Before`: insert before `ref_id` under `ref_id`'s parent
+/// - `After`: insert after `ref_id` under `ref_id`'s parent
 pub fn BlockDoc::move_block(
   self : BlockDoc,
   id : @container.TreeNodeId,
@@ -74,13 +73,15 @@ pub fn BlockDoc::move_block(
   if @container.tree_node_id_eq(id, root_block_id) {
     raise @container.DocumentError::Internal(detail="cannot move root block")
   }
-  // Before/After assume a flat block list (all blocks are root children).
-  // Inside reparents into ref_id for future nesting support.
   match position {
-    Before =>
-      self.tree.move_node_before(target=id, parent=root_block_id, before=ref_id)
-    After =>
-      self.tree.move_node_after(target=id, parent=root_block_id, after=ref_id)
+    Before => {
+      guard self.tree.parent(ref_id) is Some(parent) else { return }
+      self.tree.move_node_before(target=id, parent~, before=ref_id)
+    }
+    After => {
+      guard self.tree.parent(ref_id) is Some(parent) else { return }
+      self.tree.move_node_after(target=id, parent~, after=ref_id)
+    }
     Inside => self.tree.move_node(target=id, new_parent=ref_id)
   }
 }
