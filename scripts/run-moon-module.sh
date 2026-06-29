@@ -35,11 +35,6 @@ cd "$PROJECT_ROOT/$MODULE_DIR"
 export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)
-# moonc v0.10 defaults to wasm-gc, but core isn't pre-built for wasm-gc
-# on the CI runner (v128/SIMD module only compiles for native). Build
-# for native target explicitly. JS/E2E builds use build-js.sh (--target js).
-DENY_WARN_FLAGS+=(--target native)
-
 
 # Vendored submodules built standalone (event-graph-walker, loom) still use the
 # deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
@@ -48,8 +43,6 @@ DENY_WARN_FLAGS+=(--target native)
 # (migrated off try?) run fully strict. Drop this once the ecosystem migrates
 # (tracked in #573).
 LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
-LENIENT_WARN_FLAGS+=(--target native)
-
 
 case "$ACTION" in
     check)
@@ -61,7 +54,7 @@ case "$ACTION" in
         moon check "${LENIENT_WARN_FLAGS[@]}"
         ;;
     test)
-        moon test --release --target native
+        moon test --release
         ;;
     fmt-check)
         moon fmt --check
@@ -74,7 +67,7 @@ case "$ACTION" in
         # Extract the repo-root directory name (e.g. loom/loom → loom).
         keep_dir="${MODULE_DIR%%/*}"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
-        moon test --release --target native
+        moon test --release
         ;;
     ci-lenient)
         # Same as `ci`, but exempts the try? [0020] deprecation for vendored
@@ -82,7 +75,7 @@ case "$ACTION" in
         "$SCRIPT_DIR/moon-update.sh"
         keep_dir="${MODULE_DIR%%/*}"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
-        moon test --release --target native
+        moon test --release
         ;;
     bench)
         "$SCRIPT_DIR/moon-update.sh"

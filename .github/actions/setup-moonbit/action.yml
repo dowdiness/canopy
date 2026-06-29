@@ -14,21 +14,11 @@ runs:
       shell: bash
       run: echo "NEW_MOON_MOD=0" >> "$GITHUB_ENV"
 
-    # core-version is intentionally left at its `latest` default. MoonBit's
-    # core distribution offers no pinnable match: the CDN serves only
-    # `core-latest.tar.gz` (versioned core archives 403), and
-    # hustcer/setup-moonbit installs NO core alongside the toolchain, so
-    # `setup-core: false` would leave the build with no stdlib. Neither
-    # pinning core to 0.10.0+84519ca0a nor disabling setup-core is possible.
-    # The pinned moonc below bundles whatever core source is current; a future
-    # incompatible core release fails CI loudly (never silently) and is fixed
-    # by the same toolchain-bump train. See PR #572.
-    - name: Install MoonBit (pinned 0.10.0+84519ca0a)
-      uses: hustcer/setup-moonbit@v1.22
-      with:
-        version: 0.10.0+84519ca0a
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+    # MoonBit toolchain version. Previously pinned to 0.10.0+84519ca0a which
+    # had a bug: it couldn't bundle core for wasm-gc (v128/SIMD intrinsics
+    # errored with Unknown intrinsic), and core for native was also missing.
+    # Switching to latest resolves this. See PR #819.
+    - name: Install MoonBit
 
     - name: Cache MoonBit registry state
       uses: actions/cache@v5
