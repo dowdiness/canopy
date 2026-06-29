@@ -19,6 +19,11 @@ runs:
     # errored with Unknown intrinsic), and core for native was also missing.
     # Switching to latest resolves this. See PR #819.
     - name: Install MoonBit
+      uses: hustcer/setup-moonbit@v1.22
+      with:
+        version: latest
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Cache MoonBit registry state
       uses: actions/cache@v5
