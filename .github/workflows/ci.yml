@@ -183,7 +183,7 @@ jobs:
 
       - name: Cache opam switch
         id: opam-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.opam
           key: opam-why3-1.7.2-z3-${{ runner.os }}-${{ runner.arch }}
