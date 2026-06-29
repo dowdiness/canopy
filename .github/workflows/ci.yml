@@ -70,7 +70,7 @@ jobs:
           # any error from Canopy-owned code fails CI. This is stricter than
           # check-lenient (--warn-list=-20) which exempted try? for all
           # workspace members.
-          ./scripts/check-strict.sh
+          ./scripts/check-strict.sh --target native
 
       - name: Run tests
         # Gated on rabbita's 7 pre-existing JS test failures (DOM, URL
@@ -78,10 +78,10 @@ jobs:
         # output and only fails if the count exceeds the known baseline.
         # This allows real regressions (>7 failures) to surface while
         # absorbing the vendored rabbita noise.
-        run: ./scripts/check-test-baseline.sh 7 moon test --release
+        run: ./scripts/check-test-baseline.sh 7 moon test --release --target native
 
       - name: Build
-        run: moon build --release
+        run: moon build --release --target native
 
   test-submodules:
     name: Test Submodules
