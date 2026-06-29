@@ -1051,8 +1051,8 @@ test "compute_text_edit: MoveBindingDown swaps block-local bindings" {
         new_text,
         content=(
           #|let x = 0
-          #|let z = {  let b = 2
-          #| let a = 1
+          #|let z = { let b = 2
+          #|  let a = 1
           #|  a }
           #|z
         ),
@@ -1080,8 +1080,8 @@ test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
         new_text,
         content=(
           #|let x = 0
-          #|let z = {  let b = 2
-          #| let a = 1
+          #|let z = { let b = 2
+          #|  let a = 1
           #|  a }
           #|z
         ),
@@ -1303,8 +1303,8 @@ test "compute_text_edit: MoveBindingUp swaps block-local binding that shadows ro
         new_text,
         content=(
           #|let x = 0
-          #|let z = {  let x = 2
-          #| let a = 1
+          #|let z = { let x = 2
+          #|  let a = 1
           #|  a }
           #|z
         ),
