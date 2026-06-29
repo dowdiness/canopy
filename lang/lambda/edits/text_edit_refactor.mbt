@@ -66,7 +66,9 @@ fn compute_extract_to_let(
         // let is inserted before the lambda, outside its param's scope, so
         // any free var of the extracted expression that resolves via the
         // lambda param would become unbound after extraction.
-        if free_names_would_rebind_at_node(g, node, body_node.id(), fv) {
+        if free_names_would_rebind(g, node, fv, fn(v) {
+            declaration_id_for_name_at_node(g, body_node.id(), v)
+          }) {
           return Err(
             "Cannot extract: expression captures lambda-bound variables",
           )
@@ -163,7 +165,9 @@ fn compute_extract_to_let(
   let would_capture = if module_view.defs.is_empty() {
     free_names_captured_at_use_sites(g, node, fv)
   } else {
-    free_names_would_rebind_at_module_end(g, definition_index, node, fv)
+    free_names_would_rebind(g, node, fv, fn(v) {
+      declaration_id_for_name_at_module_end(g, definition_index, v)
+    })
   }
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
@@ -281,7 +285,9 @@ fn compute_inline_definition(
       }
       // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
       let init_fv = free_vars(def.init.kind, @immut/hashset.new())
-      if free_names_would_rebind_at_node(g, def.init, node_id, init_fv) {
+      if free_names_would_rebind(g, def.init, init_fv, fn(v) {
+          declaration_id_for_name_at_node(g, node_id, v)
+        }) {
         return Err(
           "Cannot inline: would capture variables bound by enclosing lambda",
         )
@@ -378,7 +384,9 @@ fn compute_inline_all_usages(
   // Check for capture: would any free var in init be captured by an enclosing scope at any reference site?
   let init_fv = free_vars(def.init.kind, @immut/hashset.new())
   for rid in ref_ids {
-    if free_names_would_rebind_at_node(g, def.init, rid, init_fv) {
+    if free_names_would_rebind(g, def.init, init_fv, fn(v) {
+        declaration_id_for_name_at_node(g, rid, v)
+      }) {
       return Err(
         "Cannot inline: would capture variables bound by enclosing lambda",
       )

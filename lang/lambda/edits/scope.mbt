@@ -285,35 +285,23 @@ fn declaration_id_for_name_at_module_end(
 }
 
 ///|
-fn free_names_would_rebind_at_node(
+/// Whether moving `source_node` would rebind any of its free vars — i.e. some
+/// free var resolves to a different declaration at the move target than at the
+/// source site. `resolve` is the target-site name resolver: per-node scope
+/// graph resolution (`declaration_id_for_name_at_node`) for inline, or
+/// module-root-end resolution (`declaration_id_for_name_at_module_end`) for
+/// extract's module-end target.
+fn free_names_would_rebind(
   g : @scope.ScopeGraph,
   source_node : ProjNode[@ast.Term],
-  target_node_id : NodeId,
   free_names : @immut/hashset.HashSet[String],
+  resolve : (String) -> @scope.DeclId?,
 ) -> Bool {
   let subtree = subtree_node_ids(source_node)
   free_names
   .iter()
   .any(fn(v) {
-    let target_decl = declaration_id_for_name_at_node(g, target_node_id, v)
-    free_name_would_rebind_to(g, source_node, v, target_decl, subtree)
-  })
-}
-
-///|
-fn free_names_would_rebind_at_module_end(
-  g : @scope.ScopeGraph,
-  definition_index : DefinitionIndex,
-  source_node : ProjNode[@ast.Term],
-  free_names : @immut/hashset.HashSet[String],
-) -> Bool {
-  let subtree = subtree_node_ids(source_node)
-  free_names
-  .iter()
-  .any(fn(v) {
-    let target_decl = declaration_id_for_name_at_module_end(
-      g, definition_index, v,
-    )
+    let target_decl = resolve(v)
     free_name_would_rebind_to(g, source_node, v, target_decl, subtree)
   })
 }
