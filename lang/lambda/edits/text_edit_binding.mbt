@@ -219,12 +219,18 @@ fn compute_move_binding_up(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  // Swap the two binding lines by replacing the combined range
+  // Swap the two binding lines by replacing the combined range.
+  // Strip leading whitespace from both texts and re-indent to destination positions,
+  // so that block-local bindings (which may carry indentation) normalize correctly.
   let prev_text = source_text[prev_start:prev_end].to_owned()
   let cur_text = source_text[cur_start:cur_end].to_owned()
-  // The separator between bindings (typically "\n")
-  let separator = source_text[prev_end:cur_start].to_owned()
-  let swapped = cur_text + separator + prev_text
+  let prev_indent_len = leading_whitespace_at(prev_text, 0).length()
+  let cur_indent_len = leading_whitespace_at(cur_text, 0).length()
+  let swapped = leading_whitespace_at(source_text, prev_start) +
+    cur_text[cur_indent_len:].to_owned() +
+    "\n" +
+    leading_whitespace_at(source_text, cur_start) +
+    prev_text[prev_indent_len:].to_owned()
   Ok(
     Some(
       (
@@ -316,11 +322,17 @@ fn compute_move_binding_down(
     Ok(r) => r
     Err(e) => return Err(e)
   }
-  // Swap the two binding lines by replacing the combined range
+  // Swap the two binding lines by replacing the combined range.
+  // Strip leading whitespace from both texts and re-indent to destination positions.
   let cur_text = source_text[cur_start:cur_end].to_owned()
   let next_text = source_text[next_start:next_end].to_owned()
-  let separator = source_text[cur_end:next_start].to_owned()
-  let swapped = next_text + separator + cur_text
+  let cur_indent_len = leading_whitespace_at(cur_text, 0).length()
+  let next_indent_len = leading_whitespace_at(next_text, 0).length()
+  let swapped = leading_whitespace_at(source_text, cur_start) +
+    next_text[next_indent_len:].to_owned() +
+    "\n" +
+    leading_whitespace_at(source_text, next_start) +
+    cur_text[cur_indent_len:].to_owned()
   Ok(
     Some(
       (
