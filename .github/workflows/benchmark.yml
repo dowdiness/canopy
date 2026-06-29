@@ -183,14 +183,14 @@ jobs:
 
       - name: Download PR benchmark results
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: pr-benchmark-results
           path: benchmark-results/pr
 
       - name: Download base benchmark results
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: base-benchmark-results
           path: benchmark-results/base
