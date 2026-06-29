@@ -155,9 +155,17 @@ fn rename_lam_param(
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let source_map = ctx.source_map
-  let ref_ids = match lambda_param_references(g, lam_id) {
+  // Resolve via scope graph; fall back to structural body walk if empty.
+  let scope_ref_ids = match lambda_param_references(g, lam_id) {
     Ok(ids) => ids
     Err(e) => return Err(e)
+  }
+  let ref_ids = if scope_ref_ids.length() == 0 && lam_node.children.length() > 0 {
+    let walk_ids : Array[NodeId] = []
+    collect_var_usages(lam_node.children[0], old_name, walk_ids)
+    walk_ids
+  } else {
+    scope_ref_ids
   }
   // Guard: check if new_name is free in the lambda body — renaming would capture it.
   if lam_node.kind is @ast.Term::Lam(_, body) {
