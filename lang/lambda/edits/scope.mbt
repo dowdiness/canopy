@@ -106,29 +106,6 @@ fn name_captured_at_node(
 }
 
 ///|
-fn free_names_captured_at_use_sites(
-  g : @scope.ScopeGraph,
-  node : ProjNode[@ast.Term],
-  free_names : @immut/hashset.HashSet[String],
-) -> Bool {
-  // A var occurrence whose binder is inside the subtree is locally bound —
-  // not a real free use of the outer name — and must not trigger a capture report.
-  let subtree = subtree_node_ids(node)
-  free_names
-  .iter()
-  .any(fn(v) {
-    let var_ids : Array[NodeId] = []
-    collect_var_usages(node, v, var_ids)
-    var_ids.any(fn(vid) {
-      match @scope.declaration(g, vid) {
-        Some(decl) if subtree.contains(decl.node_id) => false
-        _ => name_captured_at_node(g, vid, v)
-      }
-    })
-  })
-}
-
-///|
 fn scope_id_for_node(
   g : @scope.ScopeGraph,
   node_id : NodeId,

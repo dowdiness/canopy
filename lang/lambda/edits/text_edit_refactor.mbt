@@ -161,14 +161,17 @@ fn compute_extract_to_let(
       )
     }
   }
-  // Root-level extraction: apply the standard capture check.
-  let would_capture = if module_view.defs.is_empty() {
-    free_names_captured_at_use_sites(g, node, fv)
-  } else {
-    free_names_would_rebind(g, node, fv, fn(v) {
+  // Root-level extraction: apply the capture check via free_names_would_rebind,
+  // which handles both defs-empty (resolve returns None — any resolved usage
+  // at a non-subtree position signals capture) and defs-present (resolve looks
+  // up the module-end binding) through a single path with subtree filtering.
+  let would_capture = free_names_would_rebind(g, node, fv, fn(v) {
+    if module_view.defs.is_empty() {
+      None
+    } else {
       declaration_id_for_name_at_module_end(g, definition_index, v)
-    })
-  }
+    }
+  })
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
   }

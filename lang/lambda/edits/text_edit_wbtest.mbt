@@ -1995,9 +1995,10 @@ test "compute_text_edit: ExtractToLet bare expression" {
 }
 
 ///|
-/// Regression test for #651: `free_names_captured_at_use_sites` was Module-blind —
-/// it found the inner `g` inside `{ let g = 1; g }` and falsely flagged it as
-/// capturing the outer free `g`, causing a spurious rejection.
+/// Regression test for #651: the defs-empty branch of the capture check (now
+/// unified via `free_names_would_rebind` with a None resolve function) was
+/// Module-blind — it found the inner `g` inside `{ let g = 1; g }` and falsely
+/// flagged it as capturing the outer free `g`, causing a spurious rejection.
 test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed free name [#651]" {
   // `g` is free on the left side; the block on the right locally shadows it.
   // The inner `g`'s binder is inside the extraction subtree, so it is not a
