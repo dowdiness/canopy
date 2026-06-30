@@ -16,7 +16,7 @@ GitHub repo and MoonBit-module mapping on top of that list.
 | `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | `dowdiness/rle` |
 | `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | `dowdiness/order-tree` (backs event-graph-walker) |
 | `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | `dowdiness/alga` (backs event-graph-walker) |
-| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | vendored community UI library — not a root `moon.mod.json` dependency |
+| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | vendored community UI library — not a root `moon.mod` dependency |
 
 ## `event-graph-walker/` Module (Core CRDT Library)
 
@@ -62,8 +62,8 @@ This covers the loom packages most central to the editor; it is **not** exhausti
 and `dowdiness/egraph` from loom. `loom` is itself a nested monorepo:
 `loom/.gitmodules` declares `incr`/`egraph`/`egglog`/`event-graph-walker` as
 submodules and `loom/examples/` adds `json`/`markdown`. loom has no top-level
-module file — each package owns its own `moon.mod.json`; `loom/.gitmodules` plus
-the root `moon.mod.json` are authoritative for loom's package set and what the
+module file — each package owns its own `moon.mod`; `loom/.gitmodules` plus
+the root `moon.mod` are authoritative for loom's package set and what the
 root consumes.
 
 **See:** [loom/README.md](../../loom/README.md) for detailed documentation.
@@ -148,26 +148,21 @@ crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdin
 
 ## MoonBit Module Configuration
 
-The root [`moon.mod.json`](../../moon.mod.json) is the **authoritative** list of
+The root [`moon.mod`](../../moon.mod) is the **authoritative** list of
 `dowdiness/*` dependencies — do not re-curate the full set here, or it re-drifts
 (this section previously listed 5 of 15 deps and went stale).
 
-Two declaration shapes appear there:
-
-```json
-{
-  "deps": {
-    // path dep — resolves to an in-repo submodule directory
-    "dowdiness/loom": { "path": "./loom/loom" },
-    // registry dep — pinned to a published mooncakes version
-    "dowdiness/incr": "0.5.2"
-  }
+```toml
+import {
+  # path dep — resolved via moon.work workspace membership
+  "dowdiness/loom@0.1.0",
+  # registry dep — pinned to a published mooncakes version
+  "dowdiness/incr@0.11.0",
 }
 ```
-
-Most `dowdiness/*` deps are path deps into the submodules above; `incr` is the
+Most `dowdiness/*` deps are path deps via workspace membership in `moon.work`; `incr` is the
 notable exception, consumed as a registry version. For the complete, current
-list, read `moon.mod.json` directly.
+list, read `moon.mod` directly.
 
 ## Run Tests
 

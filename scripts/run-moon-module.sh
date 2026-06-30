@@ -17,9 +17,8 @@ fi
 ACTION="$1"
 MODULE_DIR="$2"
 
-# Accept either manifest format: moon.mod.json (legacy) or moon.mod (the
-# experimental TOML format that event-graph-walker main adopted). moon reads
-# both as dependencies and as a primary module under NEW_MOON_MOD=0.
+# Accept either manifest format: moon.mod (TOML) or moon.mod.json (legacy).
+# moon reads both under NEW_MOON_MOD=0.
 if [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod.json" ] &&
    [ ! -f "$PROJECT_ROOT/$MODULE_DIR/moon.mod" ]; then
     echo "Module root not found: $MODULE_DIR (expected moon.mod.json or moon.mod at $PROJECT_ROOT/$MODULE_DIR)" >&2
@@ -28,10 +27,8 @@ fi
 
 cd "$PROJECT_ROOT/$MODULE_DIR"
 
-# Keep mixed-manifest modules buildable while Canopy still has legacy
-# moon.mod.json path-dependency exceptions. This mode accepts both moon.mod and
-# moon.mod.json without requiring every local path dependency to become a
-# moon.work member.
+# Keep both manifest formats buildable. NEW_MOON_MOD=0 accepts both moon.mod and
+# moon.mod.json so local path-deps in moon.mod.json still resolve.
 export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)

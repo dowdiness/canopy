@@ -99,7 +99,7 @@ See [docs/development/ADDING_A_LANGUAGE.md](docs/development/ADDING_A_LANGUAGE.m
 
 ## Package Map
 
-The SessionStart hook runs `scripts/package-overview.sh` which provides a live package map at the start of every session. Use `moon ide outline <path>` to explore any package's public API before modifying it. Read `moon.mod.json` for module dependencies.
+The SessionStart hook runs `scripts/package-overview.sh` which provides a live package map at the start of every session. Use `moon ide outline <path>` to explore any package's public API before modifying it. Read `moon.mod` for module dependencies.
 
 ## Documentation
 
@@ -206,7 +206,7 @@ Use pi subagents as follows:
   exact-pattern changes.
 - `scout`: broad non-MoonBit reconnaissance or unfamiliar non-MoonBit areas.
 - `moonbit-scout`: MoonBit/Canopy reconnaissance involving `.mbt`, `.mbti`,
-  `moon.pkg`, `moon.mod.json`, package roots, or `moon ide`.
+  `moon.pkg`, `moon.mod` (`moon.mod.json` in legacy submodules), package roots, or `moon ide`.
 - `planner`: non-MoonBit implementation planning after reconnaissance.
 - `moonbit-planner`: MoonBit implementation planning requiring Existing API
   First, package-root validation, `.mbti` drift checks, proof/docs/TS/submodule

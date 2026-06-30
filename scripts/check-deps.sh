@@ -75,8 +75,7 @@ def iter_files(target):
 MANIFEST_NAMES = ("moon.mod.json", "moon.mod")
 
 def iter_manifests():
-    """Yield every module manifest, legacy (moon.mod.json) or experimental
-    TOML (moon.mod, adopted by event-graph-walker and lib/cognition)."""
+    """Yield every module manifest — moon.mod (TOML) or moon.mod.json (legacy, still in some submodules)."""
     for name in MANIFEST_NAMES:
         yield from iter_files(name)
 

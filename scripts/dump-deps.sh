@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Dump every moon.pkg's import edges (scope-aware) and every moon.mod.json's
-# path-deps, for the whole repo minus noise. Output format is TSV; see the two
-# section headers below.
+# Dump every moon.pkg's import edges (scope-aware) and every module-level
+# path-deps, for the whole repo minus noise. Output format is TSV; see the
+# two section headers below. Handles both moon.mod.json and moon.mod (TOML).
 #
 # Usage: scripts/dump-deps.sh > docs/architecture/dep-graph-$(date +%F).txt
 set -euo pipefail
@@ -12,6 +12,8 @@ import json
 import os
 import re
 import sys
+
+MANIFEST_NAMES = ("moon.mod.json", "moon.mod")
 
 ROOT = os.getcwd()
 SKIP_DIR_NAMES = {
@@ -34,17 +36,23 @@ def iter_files(target_name):
             yield os.path.join(dirpath, target_name)
 
 def module_for(path):
-    """Walk up from path to find the nearest moon.mod.json; return (module_name, module_root)."""
+    """Walk up from path to find the nearest moon.mod.json or moon.mod (TOML); return (module_name, module_root)."""
     d = os.path.dirname(path)
     while True:
-        mmj = os.path.join(d, "moon.mod.json")
-        if os.path.isfile(mmj):
-            try:
-                with open(mmj, "r") as f:
-                    data = json.load(f)
-                return data.get("name", "?"), d
-            except Exception:
-                return "?", d
+        for name in MANIFEST_NAMES:
+            mp = os.path.join(d, name)
+            if os.path.isfile(mp):
+                try:
+                    if name.endswith(".json"):
+                        with open(mp) as f:
+                            data = json.load(f)
+                        return data.get("name", "?"), d
+                    else:
+                        text = open(mp).read()
+                        m = re.search(r'^\s*name\s*=\s*"([^"]+)"', text, re.MULTILINE)
+                        return (m.group(1), d) if m else ("?", d)
+                except Exception:
+                    return "?", d
         parent = os.path.dirname(d)
         if parent == d:
             return "?", ROOT
@@ -71,20 +79,47 @@ def parse_moon_pkg(path):
         for s in STR_LIT.finditer(body):
             yield scope, s.group(1)
 
-def parse_moon_mod_deps(path):
-    """Yield (dep_name, kind, detail) for each declared dep."""
+def parse_manifest_deps(path):
+    """Yield (dep_name, kind, detail) for each declared dep in moon.mod.json or moon.mod (TOML).
+
+    moon.mod.json: deps are dict entries (registry version string or {"path": …}).
+    moon.mod:      deps are "pkg@version" entries inside import { … } (all registry).
+    """
     try:
-        with open(path, "r") as f:
-            data = json.load(f)
-    except Exception:
-        return
-    for name, spec in (data.get("deps") or {}).items():
-        if isinstance(spec, str):
-            yield name, "registry", spec
-        elif isinstance(spec, dict) and "path" in spec:
-            yield name, "path", spec["path"]
+        if path.endswith(".json"):
+            with open(path) as f:
+                data = json.load(f)
+            for name, spec in (data.get("deps") or {}).items():
+                if isinstance(spec, str):
+                    yield name, "registry", spec
+                elif isinstance(spec, dict) and "path" in spec:
+                    yield name, "path", spec["path"]
+                else:
+                    yield name, "other", json.dumps(spec)
         else:
-            yield name, "other", json.dumps(spec)
+            text = open(path).read()
+            # Find the first `import {` and extract the balanced-brace body.
+            # Uses a simple depth counter instead of [^}]+ so it handles
+            # nested braces if the TOML format evolves inline tables.
+            m = re.search(r'import\s*\{', text)
+            if not m:
+                return
+            start = m.end()
+            depth = 1
+            i = start
+            while i < len(text) and depth > 0:
+                if text[i] == '{':
+                    depth += 1
+                elif text[i] == '}':
+                    depth -= 1
+                i += 1
+            if depth != 0:
+                return
+            body = text[start:i-1]
+            for dep_match in re.finditer(r'"([^"]+)@([^"]+)"', body):
+                yield dep_match.group(1), "registry", dep_match.group(2)
+    except Exception:
+        pass
 
 # -------------------------------------------------------------------
 # Section A: package-level imports (moon.pkg)
@@ -103,22 +138,27 @@ for r in rows_a:
     print("\t".join(r))
 
 print()
-# -------------------------------------------------------------------
-# Section B: module-level path deps (moon.mod.json)
-# -------------------------------------------------------------------
-print("### SECTION B: module-level deps (moon.mod.json)")
+print("### SECTION B: module-level deps")
 print("# columns: module_name\tmodule_path\tdep_name\tkind\tdetail")
 rows_b = []
-for mmj in iter_files("moon.mod.json"):
-    try:
-        with open(mmj, "r") as f:
-            data = json.load(f)
-    except Exception:
-        continue
-    name = data.get("name", "?")
-    mod_path = os.path.relpath(os.path.dirname(mmj), ROOT) or "."
-    for dep_name, kind, detail in parse_moon_mod_deps(mmj):
-        rows_b.append((name, mod_path, dep_name, kind, detail))
+for manifest_name in MANIFEST_NAMES:
+    for mm in iter_files(manifest_name):
+        try:
+            if mm.endswith(".json"):
+                with open(mm) as f:
+                    data = json.load(f)
+            else:
+                text = open(mm).read()
+                data = {"name": "?"}
+                m_name = re.search(r'^\s*name\s*=\s*"([^"]+)"', text, re.MULTILINE)
+                if m_name:
+                    data["name"] = m_name.group(1)
+        except Exception:
+            continue
+        name = data.get("name", "?")
+        mod_path = os.path.relpath(os.path.dirname(mm), ROOT) or "."
+        for dep_name, kind, detail in parse_manifest_deps(mm):
+            rows_b.append((name, mod_path, dep_name, kind, detail))
 rows_b.sort()
 for r in rows_b:
     print("\t".join(r))

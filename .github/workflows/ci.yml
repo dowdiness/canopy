@@ -284,6 +284,12 @@ jobs:
             _build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts
             _build/js/release/build/dowdiness/graphviz/browser/browser.js
             _build/js/release/build/dowdiness/graphviz/browser/browser.d.ts
+            _build/js/release/build/dowdiness/ideal-editor/main/main.js
+            _build/js/release/build/dowdiness/ideal-editor/main/main.d.ts
+            _build/js/release/build/dowdiness/ideal-editor/main/moonbit.d.ts
+            _build/js/release/build/dowdiness/canopy-canvas/main/main.js
+            _build/js/release/build/dowdiness/canopy-canvas/main/main.d.ts
+            _build/js/release/build/dowdiness/canopy-canvas/main/moonbit.d.ts
           retention-days: 7
 
   typecheck-ts-examples:
@@ -364,22 +370,31 @@ jobs:
         run: ./scripts/update-moon-deps.sh
 
       - name: Build web
-        run: ./scripts/build-web.sh
-
   web-e2e:
     name: Web E2E
+    needs: [build-js]
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
       options: --ipc=host
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Set up MoonBit
-        uses: ./.github/actions/setup-moonbit
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -392,26 +407,33 @@ jobs:
         working-directory: examples/web
         run: npm ci
 
-      - name: Update MoonBit dependencies
-        run: ./scripts/update-moon-deps.sh
-
       - name: Run web Playwright suite
         run: ./scripts/test-web-e2e.sh
 
   ideal-web-e2e:
     name: Ideal Web E2E
+    needs: [build-js]
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.58.2-noble
       options: --ipc=host
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Set up MoonBit
-        uses: ./.github/actions/setup-moonbit
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/ideal-editor/main/main.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -429,18 +451,28 @@ jobs:
 
   demo-react-e2e:
     name: Demo React E2E
+    needs: [build-js]
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.60.0-noble
       options: --ipc=host
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Set up MoonBit
-        uses: ./.github/actions/setup-moonbit
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -453,26 +485,33 @@ jobs:
         working-directory: examples/demo-react
         run: npm ci
 
-      - name: Update MoonBit dependencies
-        run: ./scripts/update-moon-deps.sh
-
       - name: Run demo-react Playwright suite
         run: ./scripts/test-demo-react-e2e.sh
 
   canvas-e2e:
     name: Canvas E2E
+    needs: [build-js]
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.59.1-noble
       options: --ipc=host
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Set up MoonBit
-        uses: ./.github/actions/setup-moonbit
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy-canvas/main/main.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
