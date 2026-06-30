@@ -98,10 +98,24 @@ def parse_manifest_deps(path):
                     yield name, "other", json.dumps(spec)
         else:
             text = open(path).read()
-            import_block = re.search(r'import\s*\{([^}]+)\}', text, re.DOTALL)
-            if not import_block:
+            # Find the first `import {` and extract the balanced-brace body.
+            # Uses a simple depth counter instead of [^}]+ so it handles
+            # nested braces if the TOML format evolves inline tables.
+            m = re.search(r'import\s*\{', text)
+            if not m:
                 return
-            body = import_block.group(1)
+            start = m.end()
+            depth = 1
+            i = start
+            while i < len(text) and depth > 0:
+                if text[i] == '{':
+                    depth += 1
+                elif text[i] == '}':
+                    depth -= 1
+                i += 1
+            if depth != 0:
+                return
+            body = text[start:i-1]
             for dep_match in re.finditer(r'"([^"]+)@([^"]+)"', body):
                 yield dep_match.group(1), "registry", dep_match.group(2)
     except Exception:

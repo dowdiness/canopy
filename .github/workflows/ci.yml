@@ -390,6 +390,12 @@ jobs:
         with:
           name: moonbit-js-build
 
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
+          echo "All required MoonBit JS artifacts verified"
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -423,6 +429,11 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/ideal-editor/main/main.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -458,6 +469,11 @@ jobs:
         with:
           name: moonbit-js-build
 
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          echo "All required MoonBit JS artifacts verified"
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -491,6 +507,11 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+
+      - name: Verify downloaded artifacts
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy-canvas/main/main.js
+          echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
