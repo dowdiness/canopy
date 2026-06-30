@@ -87,7 +87,7 @@ packages — update those through the `loom` submodule, not separate repositorie
 The libraries below are all implemented and wired into Canopy. The "Repository"
 column is the actual update boundary; "Integration" is where Canopy consumes it.
 
-**Group A — Direct dependencies** (in canopy root `moon.mod.json`):
+**Group A — Direct dependencies** (in canopy root `moon.mod`):
 
 | Library | Responsibility | Repository | Integration |
 |---|---|---|---|

@@ -117,10 +117,11 @@ for member in workspace_members():
     if spec is None:
         continue
     manifest_rel = os.path.relpath(manifest, ROOT)
-    # spec is either a version string (registry dep) or a dict. moon.mod.json
-    # supports the object form {"path": ...} (rule-E shape) and {"version": ...}
-    # (lib/visualizer used this earlier). Normalize before minor extraction so a
-    # structured spec never reaches minor_of as a non-string.
+    # moon.mod.json: spec is a version string (registry) or dict with
+    # {"path": ...} (rule-E) / {"version": ...}. moon.mod (TOML) deps are
+    # always "pkg@version" strings, so only strings reach here from moon.mod.
+    # Normalize before minor extraction so a structured spec never reaches
+    # minor_of as a non-string.
     if isinstance(spec, dict):
         if "path" in spec:
             path_deps.append((member, manifest_rel, spec["path"]))

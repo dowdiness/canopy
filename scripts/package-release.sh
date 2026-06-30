@@ -26,7 +26,7 @@ tar -czf "$RELEASE_DIR/canopy-moonbit-${VERSION}.tar.gz" \
     _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js \
     _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts \
     _build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts \
-    moon.mod.json \
+    moon.mod \
     moon.pkg \
     README.md \
     README.mbt.md \

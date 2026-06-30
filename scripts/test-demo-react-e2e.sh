@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-
-# Build the current MoonBit JS outputs and run demo-react Playwright tests.
-
+#
+# Run demo-react Playwright E2E tests. Skips the MoonBit JS build step when
+# CANOPY_SKIP_MOON_BUILD=1 (CI uses pre-built artifacts from build-js).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,9 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
 
-"$SCRIPT_DIR/build-js.sh"
+if [[ "${CANOPY_SKIP_MOON_BUILD:-0}" != "1" ]]; then
+    "$SCRIPT_DIR/build-js.sh"
+fi
 
 echo "Running demo-react Playwright E2E..."
 cd examples/demo-react

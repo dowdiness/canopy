@@ -90,8 +90,7 @@ def members():
     return re.findall(r'"([^"]+)"', m.group(1))
 
 def declared_in(member):
-    """Return (manifest_rel, version-or-None) if the member declares TARGET,
-    else None. Handles JSON moon.mod.json and experimental TOML moon.mod."""
+    """Return (manifest_rel, version-or-None) if the member declares TARGET, else None. Handles both moon.mod (TOML) and moon.mod.json (legacy)."""
     for name in ("moon.mod.json", "moon.mod"):
         p = os.path.normpath(os.path.join(member, name))
         if not os.path.isfile(p):

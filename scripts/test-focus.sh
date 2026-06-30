@@ -24,22 +24,26 @@ case "$FILE" in
   *_test.mbt|*_wbtest.mbt|*_benchmark.mbt) exit 0 ;;
 esac
 
-# Find the repo root (nearest directory with moon.mod.json)
+# Find the repo root (nearest directory with moon.mod.json or moon.mod)
 DIR=$(dirname "$FILE")
 ROOT="$DIR"
 while [ "$ROOT" != "/" ]; do
-  if [ -f "$ROOT/moon.mod.json" ]; then
+  if [ -f "$ROOT/moon.mod.json" ] || [ -f "$ROOT/moon.mod" ]; then
     break
   fi
   ROOT=$(dirname "$ROOT")
 done
 
-if [ ! -f "$ROOT/moon.mod.json" ]; then
+if [ ! -f "$ROOT/moon.mod.json" ] && [ ! -f "$ROOT/moon.mod" ]; then
   exit 0  # Not in a moon project
 fi
 
-# Get module name from moon.mod.json
-MOD_NAME=$(jq -r '.name' "$ROOT/moon.mod.json")
+# Get module name from moon.mod.json or moon.mod (TOML)
+if [ -f "$ROOT/moon.mod.json" ]; then
+  MOD_NAME=$(jq -r '.name' "$ROOT/moon.mod.json")
+else
+  MOD_NAME=$(grep -oP '^name\s*=\s*"\K[^"]+' "$ROOT/moon.mod")
+fi
 
 # Get relative path from root to the file's directory
 REL_DIR=$(realpath --relative-to="$ROOT" "$DIR")
