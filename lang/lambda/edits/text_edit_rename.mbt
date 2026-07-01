@@ -284,13 +284,9 @@ fn rename_binding_by_id(
   new_name : String,
 ) -> Result[(Array[SpanEdit], FocusHint)?, String] {
   let g = @scope.build(ctx.registry, ctx.source_map)
-  guard g.decls
-    .iter()
-    .find_first(fn(d) {
-      d.node_id == binding_node_id && d.kind is DeclKind::ModuleDef(_)
-    })
-    is Some(decl) else {
-    return Err("Binding not found: " + binding_node_id.to_string())
+  let decl = match module_def_decl_for_binding(g, binding_node_id) {
+    Ok(d) => d
+    Err(e) => return Err(e)
   }
   rename_module_binding(ctx, g, decl, decl.name, new_name)
 }
