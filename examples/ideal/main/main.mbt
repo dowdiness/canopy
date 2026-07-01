@@ -902,11 +902,11 @@ fn view(dispatch : Emit[Msg], model : Model) -> Html {
       ),
       div(class=outline_class, attrs=outline_attrs, [
         div(class=panel_header_class(), [
-          span(class=panel_label_class(), [text("OUTLINE")]),
+          span(class=@ui.panel_label_class(), [text("OUTLINE")]),
         ]),
         view_outline_content(dispatch, model),
-        div(class=panel_section_class(), [
-          span(class=panel_label_class(), [text("PEERS")]),
+        div(class=@ui.panel_section_class(), [
+          span(class=@ui.panel_label_class(), [text("PEERS")]),
           view_peer_status(model),
         ]),
         view_outline_resize_handle(dispatch, model.workspace),

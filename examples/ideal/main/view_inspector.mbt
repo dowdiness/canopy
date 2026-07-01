@@ -79,7 +79,7 @@ fn view_node_details(
 ) -> Html {
   let kind_tag = @lambda_proj.term_kind_tag(node.kind)
   let items : Array[Html] = [
-    span(class=inspector_label_class(), [text("NODE")]),
+    span(class=@ui.inspector_label_class(), [text("NODE")]),
     inspector_row("Kind", kind_tag),
     inspector_row("Label", node.label),
     inspector_row("Children", children_count(node).to_string()),
@@ -126,14 +126,14 @@ fn view_node_details(
       )
     }
   }
-  div(class=inspector_section_class(), items)
+  div(class=@ui.inspector_section_class(), items)
 }
 
 ///|
 /// Render the actions section of the inspector.
 fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
-  div(class=inspector_section_class(), [
-    span(class=inspector_label_class(), [text("ACTIONS")]),
+  div(class=@ui.inspector_section_class(), [
+    span(class=@ui.inspector_label_class(), [text("ACTIONS")]),
     div(class="inspector-actions", [
       button(
         class=@ui.action_button_class(),
@@ -156,8 +156,8 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
 ///|
 /// Render the CRDT info section of the inspector.
 fn view_crdt_info(model : Model) -> Html {
-  div(class=inspector_section_class(), [
-    span(class=inspector_label_class(), [text("CRDT")]),
+  div(class=@ui.inspector_section_class(), [
+    span(class=@ui.inspector_label_class(), [text("CRDT")]),
     inspector_row("Agent", "local"),
     inspector_row("Timestamp", model.next_timestamp.to_string()),
     inspector_row("Text length", model.editor.get_text().length().to_string()),
@@ -189,7 +189,7 @@ fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html {
   }
   @html.fragment([
     div(class=panel_header_class(), [
-      span(class=inspector_label_class(), [text("INSPECTOR")]),
+      span(class=@ui.inspector_label_class(), [text("INSPECTOR")]),
     ]),
     node_section,
     view_crdt_info(model),
