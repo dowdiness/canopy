@@ -14,6 +14,14 @@ pub fn action_button_danger_class() -> String
 
 pub fn behavior(id~ : String, tab_count~ : Int, selected~ : Int) -> @tabs.Model
 
+pub fn inspector_label_class() -> String
+
+pub fn inspector_section_class() -> String
+
+pub fn panel_label_class() -> String
+
+pub fn panel_section_class() -> String
+
 pub fn tab_class(Bool) -> String
 
 pub fn tab_panel_view(@tabs.Model, Int, panel_id~ : String, class~ : String, Array[@html.Html]) -> @html.Html

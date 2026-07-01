@@ -12,6 +12,7 @@
 @source "../../main/ui/button.mbt";
 @source "../../main/ui/tabs.mbt";
 @source "../../main/ui/recipe.mbt";
+@source "../../main/ui/panel.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
 
