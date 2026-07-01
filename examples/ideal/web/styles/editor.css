@@ -11,6 +11,7 @@
 @source "../../main/view_peer_empty_state_classes.mbt";
 @source "../../main/ui/button.mbt";
 @source "../../main/ui/tabs.mbt";
+@source "../../main/ui/recipe.mbt";
 
 /* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
 

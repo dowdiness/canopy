@@ -33,28 +33,27 @@ fn toolbar_button_tone_class(tone : ButtonTone) -> String {
 
 ///|
 fn toolbar_button_recipe_class(tone : ButtonTone) -> String {
-  toolbar_button_base_class + " " + toolbar_button_tone_class(tone)
+  cx([toolbar_button_base_class, toolbar_button_tone_class(tone)])
 }
 
 ///|
 pub fn toolbar_button_class() -> String {
-  "toolbar-btn " + toolbar_button_recipe_class(Neutral)
+  cx(["toolbar-btn", toolbar_button_recipe_class(Neutral)])
 }
 
 ///|
 pub fn toolbar_example_button_class() -> String {
-  "toolbar-btn example-btn " +
-  toolbar_button_recipe_class(Neutral) +
-  " max-[768px]:hidden"
+  cx([
+    "toolbar-btn example-btn",
+    toolbar_button_recipe_class(Neutral),
+    "max-[768px]:hidden",
+  ])
 }
 
 ///|
 pub fn toolbar_panel_toggle_class(active : Bool) -> String {
-  if active {
-    "panel-toggle active " + toolbar_button_recipe_class(Surface)
-  } else {
-    "panel-toggle " + toolbar_button_recipe_class(Neutral)
-  }
+  let hook = if active { "panel-toggle active" } else { "panel-toggle" }
+  cx([hook, toolbar_button_recipe_class(if active { Surface } else { Neutral })])
 }
 
 ///|
@@ -73,16 +72,14 @@ fn action_button_tone_class(tone : ButtonTone) -> String {
 
 ///|
 pub fn action_button_class() -> String {
-  "action-btn " +
-  action_button_base_class +
-  " " +
-  action_button_tone_class(Neutral)
+  cx(["action-btn", action_button_base_class, action_button_tone_class(Neutral)])
 }
 
 ///|
 pub fn action_button_danger_class() -> String {
-  "action-btn danger " +
-  action_button_base_class +
-  " " +
-  action_button_tone_class(Danger)
+  cx([
+    "action-btn danger",
+    action_button_base_class,
+    action_button_tone_class(Danger),
+  ])
 }

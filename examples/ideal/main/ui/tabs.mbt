@@ -32,8 +32,8 @@ fn underline_tab_tone_class(active : Bool) -> String {
 ///|
 /// Public recipe for a single underline tab trigger.
 pub fn tab_class(active : Bool) -> String {
-  let hook = if active { "tab active " } else { "tab " }
-  hook + underline_tab_base_class + " " + underline_tab_tone_class(active)
+  let hook = if active { "tab active" } else { "tab" }
+  cx([hook, underline_tab_base_class, underline_tab_tone_class(active)])
 }
 
 ///|
@@ -51,7 +51,7 @@ fn tabs_container_size_class() -> String {
 ///|
 /// Public recipe for the tablist container.
 pub fn tabs_container_class() -> String {
-  tabs_container_base_class() + " " + tabs_container_size_class()
+  cx([tabs_container_base_class(), tabs_container_size_class()])
 }
 
 ///|

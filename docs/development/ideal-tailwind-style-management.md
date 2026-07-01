@@ -124,6 +124,37 @@ pub fn action_button_danger_class() -> String {
 }
 ```
 
+### `cx()` Join Helper
+
+In `ui/recipe.mbt`, a small `cx(ArrayView[String]) -> String` helper joins
+non-empty class strings with a single space, replacing manual `" " + ...`
+concatenation in recipe composition:
+
+```moonbit
+// Before: manual concat
+pub fn action_button_class() -> String {
+  "action-btn " +
+  action_button_base_class +
+  " " +
+  action_button_tone_class(Neutral)
+}
+
+// After: cx() — filters empties, joins with space
+pub fn action_button_class() -> String {
+  cx(["action-btn", action_button_base_class, action_button_tone_class(Neutral)])
+}
+```
+
+Use `cx()` when composing 3+ class chunks. For a simple hook + single-variant
+pair, direct string concat remains fine. Empty-string entries are filtered out,
+so conditional classes can be expressed as `""` in the array:
+
+```moonbit
+pub fn outline_row_class(selected : Bool) -> String {
+  cx(["tree-row", "text-canopy-secondary", if selected { "selected" } else { "" }])
+}
+```
+
 Keep semantic hooks (`toolbar-btn`, `action-btn danger`, `ideal-button` above)
 stable even if the utility bundle changes.
 
