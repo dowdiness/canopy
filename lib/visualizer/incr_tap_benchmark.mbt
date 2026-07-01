@@ -14,7 +14,7 @@ fn make_bench_fanout(
     abort("benchmark fanout must contain at least one cell")
   }
   let rt = @incr.Runtime()
-  let input = @incr.Signal(rt, 0, label="bench_input")
+  let input = @incr.Input(rt, 0, label="bench_input")
   let memos : Array[@incr.Derived[Int]] = []
   for i in 0..<count {
     memos.push(

@@ -106,16 +106,16 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
     () => policy.validate_canvas_document(document.get()),
     label="canvas.validation",
   )
-  let normalized = validated.map_eq(
+  let normalized = validated.map(
     v => normalize_canvas(v),
     label="canvas.normalization",
   )
-  let lowered = normalized.map_eq(
+  let lowered = normalized.map(
     n => policy.lower_canvas(n),
     label="canvas.lowering",
   )
   // Register mapped cells for deterministic scope disposal — replacing
-  // scope.derived (which auto-registers) with map_eq would otherwise leave
+  // scope.derived (which auto-registers) with map would otherwise leave
   // normalized/lowered unregistered, creating a contract gap vs original code.
   // This is about disposal determinism, not GC rooting (the watch chain keeps
   // them alive either way).

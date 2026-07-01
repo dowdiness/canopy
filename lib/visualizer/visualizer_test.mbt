@@ -24,7 +24,7 @@ test "visual_graph_to_svg_renders_svg" {
 ///|
 test "incr_memo_event_tap_snapshots_runtime_graph" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1, label="input")
+  let sig = @incr.Input(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
   let tap = @visualizer.RecomputeTap::attach(rt)
   inspect(memo.read_or_abort(), content="2")
@@ -42,7 +42,7 @@ test "incr_memo_event_tap_snapshots_runtime_graph" {
 ///|
 test "incr_memo_event_tap_stale_detach_does_not_clear_newer_tap" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1, label="input")
+  let sig = @incr.Input(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
   let older = @visualizer.RecomputeTap::attach(rt)
   let newer = @visualizer.RecomputeTap::attach(rt)
@@ -63,7 +63,7 @@ test "incr_memo_event_tap_stale_detach_does_not_clear_newer_tap" {
 ///|
 test "incr_memo_event_tap_buffer_is_bounded_per_cell" {
   let rt = @incr.Runtime()
-  let sig = @incr.Signal(rt, 1, label="input")
+  let sig = @incr.Input(rt, 1, label="input")
   let memo = @incr.Derived(rt, () => sig.get() + 1, label="sum")
   let tap = @visualizer.RecomputeTap::attach(rt)
   // Drive several recomputes of the SAME memo without draining: each recompute
