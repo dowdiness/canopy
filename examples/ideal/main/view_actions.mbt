@@ -19,9 +19,9 @@ fn view_action_item(
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"
   let item_class = if is_danger {
-    action_overlay_item_danger_class
+    @ui.menu_item_danger_class("action-overlay-item")
   } else {
-    action_overlay_item_class
+    @ui.menu_item_class("action-overlay-item")
   }
   @html.div(
     class=item_class,
@@ -137,7 +137,7 @@ fn view_submenu_choices(
     let (label, _) = choice
     items.push(
       @html.div(
-        class=action_overlay_item_class,
+        class=@ui.menu_item_class("action-overlay-item"),
         attrs=menu.item_attrs(i, msg => emit(Menu(msg))),
         [
           @html.span(class=action_mnemonic_class, [

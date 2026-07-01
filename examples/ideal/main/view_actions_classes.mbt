@@ -15,25 +15,6 @@ let action_overlay_list_class = "action-overlay-list flex flex-col"
 let action_group_label_class = "action-group-label text-canopy-label font-semibold text-canopy-dim tracking-[0.1em] uppercase pt-canopy-sm px-canopy-lg pb-canopy-xs border-t border-solid border-canopy-border mt-canopy-xs"
 
 ///|
-let action_overlay_item_base_class = "action-overlay-item flex items-center gap-canopy-sm py-canopy-sm px-canopy-lg cursor-pointer text-canopy-small text-canopy-fg transition-colors duration-(--duration-fast) ease-canopy-out max-[768px]:min-h-[44px] max-[768px]:py-canopy-md max-[768px]:px-canopy-lg"
-
-///|
-let action_overlay_item_normal_state_class = "hover:bg-[rgba(130,80,223,0.15)] data-[active=true]:bg-[rgba(130,80,223,0.15)]"
-
-///|
-let action_overlay_item_danger_state_class = "danger text-canopy-error-text hover:bg-canopy-error-bg data-[active=true]:bg-canopy-error-bg"
-
-///|
-let action_overlay_item_class : String = action_overlay_item_base_class +
-  " " +
-  action_overlay_item_normal_state_class
-
-///|
-let action_overlay_item_danger_class : String = action_overlay_item_base_class +
-  " " +
-  action_overlay_item_danger_state_class
-
-///|
 let action_mnemonic_class = "action-mnemonic inline-flex items-center justify-center w-[22px] h-[22px] font-canopy-mono text-canopy-label font-semibold text-canopy-accent bg-[rgba(130,80,223,0.2)] rounded-canopy-sm shrink-0 uppercase"
 
 ///|
