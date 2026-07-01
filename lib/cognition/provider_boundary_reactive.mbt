@@ -283,7 +283,7 @@ fn ProviderPlanningGraph::ProviderPlanningGraph(
     },
     label="cognition_provider_request_descriptor",
   )
-  let status_cell = request_cell.map_eq(
+  let status_cell = request_cell.map(
     request => {
       match request {
         Some(request) => {
@@ -303,7 +303,7 @@ fn ProviderPlanningGraph::ProviderPlanningGraph(
     },
     label="cognition_provider_status",
   )
-  let retry_classification_cell = status_cell.map_eq(
+  let retry_classification_cell = status_cell.map(
     status => {
       match status {
         Some(status) =>

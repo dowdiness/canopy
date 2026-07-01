@@ -215,7 +215,7 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   let id_b : @incr.CellId = parser_b.source().id()
   let cross : @incr.Derived[Int] = parser_a
     .source()
-    .map2_eq(
+    .map2(
       parser_b.source(),
       (a, b) => a.length() + b.length(),
       label="cross",

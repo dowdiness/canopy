@@ -6,7 +6,7 @@ import {
   "moonbitlang/quickcheck@0.14.0",
   "moonbitlang/x@0.4.38",
   "moonbitlang/async@0.16.8",
-  "dowdiness/incr@0.11.0",
+  "dowdiness/incr@0.12.0",
   "dowdiness/event-graph-walker@0.3.0",
   "dowdiness/byte_codec@0.1.0",
   "dowdiness/text_change@0.1.0",

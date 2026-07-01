@@ -21,7 +21,6 @@ pub fn inspector_section_class() -> String
 pub fn menu_item_class(String) -> String
 
 pub fn menu_item_danger_class(String) -> String
-
 pub fn panel_label_class() -> String
 
 pub fn panel_section_class() -> String
