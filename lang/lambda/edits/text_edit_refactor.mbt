@@ -173,8 +173,9 @@ fn compute_extract_to_let(
     }
   }
   // Root-level extraction: check whether any outside ref would rebind at the
-  // target site (module-end for defs-present, None for defs-empty — any
-  // resolved use at a non-subtree position signals capture).
+  // target site. For defs-empty, the `let` wraps the expression in-place so
+  // no new bindings are in scope — any resolved outside ref would become free.
+  // For defs-present, resolve at module end.
   let would_capture = match edit_root_node(ctx.registry) {
     Some(root) =>
       would_rebind_on_move(outside_refs, fn(v) {
@@ -252,21 +253,14 @@ fn compute_extract_to_let(
         ),
       )
     } else {
-      // Node is in a def — two independent edits at non-overlapping positions
-      Ok(
-        Some(
-          (
-            [
-              { start: body_start, delete_len: 0, inserted: let_text },
-              {
-                start: range.start,
-                delete_len: range.end - range.start,
-                inserted: var_name,
-              },
-            ],
-            MoveCursor(position=range.start),
-          ),
-        ),
+      // Node is in a def initializer. The new `let var_name = expr` would
+      // be placed at body_start (after all defs), but var_name in the def
+      // appears before its definition — var_name cannot see the let binding.
+      // Reject conservatively to preserve sequential scoping.
+      return Err(
+        "Cannot extract: expression in a def initializer would make '" +
+        var_name +
+        "' appear before its definition",
       )
     }
   }
