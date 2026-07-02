@@ -391,6 +391,9 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+          # upload-artifact roots the archive at the least common ancestor of
+          # its path list (= .../build/dowdiness); restore the original layout.
+          path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
         run: |
@@ -431,6 +434,9 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+          # upload-artifact roots the archive at the least common ancestor of
+          # its path list (= .../build/dowdiness); restore the original layout.
+          path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
         run: |
@@ -470,6 +476,9 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+          # upload-artifact roots the archive at the least common ancestor of
+          # its path list (= .../build/dowdiness); restore the original layout.
+          path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
         run: |
@@ -509,6 +518,9 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
+          # upload-artifact roots the archive at the least common ancestor of
+          # its path list (= .../build/dowdiness); restore the original layout.
+          path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
         run: |
