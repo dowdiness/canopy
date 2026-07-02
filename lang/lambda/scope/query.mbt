@@ -190,7 +190,7 @@ pub fn enclosing_env(
 pub fn references_outside_subtree(
   g : ScopeGraph,
   subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
-  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
+  registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> Array[Ref] {
   // Collect distinct scopes containing subtree nodes.
   let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.new()

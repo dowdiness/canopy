@@ -31,7 +31,11 @@ fn compute_extract_to_let(
   }
   let g = @scope.build(ctx.registry, ctx.source_map)
   let node_subtree = subtree_node_ids(node)
-  let outside_refs = @scope.references_outside_subtree(g, node_subtree, registry=Some(ctx.registry))
+  let outside_refs = @scope.references_outside_subtree(
+    g,
+    node_subtree,
+    registry=Some(ctx.registry),
+  )
   // Build edits
   let expr_text = @ast.print_term(node.kind)
   let let_text = "let " + var_name + " = " + expr_text + "\n"
@@ -326,7 +330,11 @@ fn compute_inline_definition(
       // Check for capture: would any outside ref in the init be captured by
       // an enclosing scope at the usage site?
       let init_subtree = subtree_node_ids(def.init)
-      let init_refs = @scope.references_outside_subtree(g, init_subtree, registry=Some(ctx.registry))
+      let init_refs = @scope.references_outside_subtree(
+        g,
+        init_subtree,
+        registry=Some(ctx.registry),
+      )
       if would_rebind_on_move(init_refs, fn(v) {
           declaration_id_for_name_at_node(g, node_id, v)
         }) {
@@ -425,7 +433,11 @@ fn compute_inline_all_usages(
   let ref_ids = @scope.references(g, decl.id)
   // Check for capture: would any outside ref in init rebind at any ref site?
   let init_subtree = subtree_node_ids(def.init)
-  let init_refs = @scope.references_outside_subtree(g, init_subtree, registry=Some(ctx.registry))
+  let init_refs = @scope.references_outside_subtree(
+    g,
+    init_subtree,
+    registry=Some(ctx.registry),
+  )
   for rid in ref_ids {
     if would_rebind_on_move(init_refs, fn(v) {
         declaration_id_for_name_at_node(g, rid, v)

@@ -1,4 +1,3 @@
-
 ///|
 /// Check scoping guards for swapping two adjacent bindings. `a_def` is the
 /// binding that becomes first after the swap; `b_def` becomes second.
@@ -14,8 +13,16 @@ fn check_swap_scoping(
 ) -> Result[Unit, String] {
   let a_subtree = subtree_node_ids(a_def.init)
   let b_subtree = subtree_node_ids(b_def.init)
-  let a_outside = @scope.references_outside_subtree(g, a_subtree, registry=Some(registry))
-  let b_outside = @scope.references_outside_subtree(g, b_subtree, registry=Some(registry))
+  let a_outside = @scope.references_outside_subtree(
+    g,
+    a_subtree,
+    registry=Some(registry),
+  )
+  let b_outside = @scope.references_outside_subtree(
+    g,
+    b_subtree,
+    registry=Some(registry),
+  )
   if a_outside.any(r => r.name == b_def.name) {
     return Err(
       "Cannot move " +
@@ -27,9 +34,7 @@ fn check_swap_scoping(
       " in its init",
     )
   }
-  if b_outside.any(r =>
-      r.name == a_def.name && r.resolution.decl is Some(_),
-    ) {
+  if b_outside.any(r => r.name == a_def.name && r.resolution.decl is Some(_)) {
     return Err(
       "Cannot move " +
       direction +
