@@ -1,8 +1,8 @@
 ///|
 /// Compute the set of free variables in a Term, given a set of bound names.
-/// Follows sequential scoping for Module bindings (matching resolve.mbt).
-/// [Plan C: package-private — kept for differential test oracle in wbtests.]
-fn free_vars(
+/// Follows sequential scoping for Module bindings.
+/// [Plan C: public only for wbtest oracle. Zero production callers.]
+pub fn free_vars(
   term : @ast.Term,
   env : @immut/hashset.HashSet[String],
 ) -> @immut/hashset.HashSet[String] {
