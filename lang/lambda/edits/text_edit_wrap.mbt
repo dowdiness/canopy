@@ -106,8 +106,9 @@ fn compute_wrap_bop(
     Ok(_) => ()
   }
   let wrapped = @ast.print_term(Bop(op, node.kind, Int(0)))
-  // "(expr + 0)" — placeholder "0" is at wrapped.length() - 2 from start
-  let placeholder_pos = range.start + wrapped.length() - 2
+  // "expr + 0" — the printer emits no redundant outer parens (loom printer
+  // catamorphism migration), so the placeholder "0" is the final character.
+  let placeholder_pos = range.start + wrapped.length() - 1
   Ok(
     Some(
       (

@@ -7,7 +7,7 @@ import {
   "dowdiness/canopy-canvas-graph@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/rabbita_codemirror@0.0.1",
-  "dowdiness/incr@0.11.0",
+  "dowdiness/incr@0.12.0",
   "dowdiness/rabbita-menu@0.1.0",
   "dowdiness/rabbita-context-menu@0.1.0",
   "dowdiness/rabbita-status@0.1.0",

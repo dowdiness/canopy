@@ -60,7 +60,7 @@ run_moon_check_with_vendored_filter() {
     local total_paths=0
     while IFS= read -r line; do
         local path
-        path=$(echo "$line" | sed -n 's|.*\[ \(/.*\.mbt\):.*|\1|p')
+        path=$(echo "$line" | sed -n 's|.*\[ \(/[^:]*\):.*|\1|p')
         if [ -n "$path" ]; then
             total_paths=$(( total_paths + 1 ))
             if echo "$path" | grep -q $grep_exclude; then

@@ -328,6 +328,16 @@ fn collect_token_spans_expr(
   syntax_node : @seam.SyntaxNode,
   proj_node : ProjNode[@ast.Term],
 ) -> Unit {
+  // Look through loom #542 structural wrappers (LambdaBody / IfCondition /
+  // IfThen / IfElse): the proj tree has no corresponding node (proj_node.mbt
+  // unwraps them), so keep pairing the same proj_node with the wrapped child.
+  if is_wrapper_kind(syntax_node) {
+    match syntax_node.nth_child(0) {
+      Some(child) => collect_token_spans_expr(source_map, child, proj_node)
+      None => ()
+    }
+    return
+  }
   if @parser.LambdaExprView::cast(syntax_node) is Some(v) {
     collect_token_spans_lambda_params(source_map, syntax_node, proj_node)
     if v.body() is Some(body_syn) {
