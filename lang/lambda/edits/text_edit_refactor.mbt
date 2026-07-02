@@ -1,10 +1,26 @@
 ///|
+/// Whether any outside ref in the source expression would rebind when moved
+/// to the target site. `resolve` maps a name to the decl it would see at the
+/// target (module-end for extract, per-node for inline). `outside_refs` comes
+/// from `@scope.references_outside_subtree` — self-contained refs are already
+/// excluded, so only the target comparison is needed.
+fn would_rebind_on_move(
+  outside_refs : Array[@scope.Ref],
+  resolve : (String) -> @scope.DeclId?,
+) -> Bool {
+  outside_refs.any(r => {
+    let target = resolve(r.name)
+    r.resolution.decl != target
+  })
+}
+
+///|
 fn compute_extract_to_let(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
   var_name : String,
 ) -> EditResult {
-  let { source_text, definition_index, .. } = ctx
+  let { source_text, .. } = ctx
   let module_view = edit_module_view(ctx)
   let (node, range) = ctx.resolve(node_id) catch {
     ResolveError(e) => return Err(e)
@@ -14,7 +30,12 @@ fn compute_extract_to_let(
     Ok(_) => ()
   }
   let g = @scope.build(ctx.registry, ctx.source_map)
-  let fv = free_vars(node.kind, @immut/hashset.new())
+  let node_subtree = subtree_node_ids(node)
+  let outside_refs = @scope.references_outside_subtree(
+    g,
+    node_subtree,
+    registry=Some(ctx.registry),
+  )
   // Build edits
   let expr_text = @ast.print_term(node.kind)
   let let_text = "let " + var_name + " = " + expr_text + "\n"
@@ -50,7 +71,6 @@ fn compute_extract_to_let(
       // a resolved use would be retargeted; a free use would become bound.
       // Both change semantics.
       if block_view.final_expr is Some(body_node) {
-        let node_subtree = subtree_node_ids(node)
         let body_var_ids : Array[NodeId] = []
         collect_var_usages(body_node, var_name, body_var_ids)
         for vid in body_var_ids {
@@ -66,7 +86,7 @@ fn compute_extract_to_let(
         // let is inserted before the lambda, outside its param's scope, so
         // any free var of the extracted expression that resolves via the
         // lambda param would become unbound after extraction.
-        if free_names_would_rebind(g, node, fv, fn(v) {
+        if would_rebind_on_move(outside_refs, fn(v) {
             declaration_id_for_name_at_node(g, body_node.id(), v)
           }) {
           return Err(
@@ -102,21 +122,16 @@ fn compute_extract_to_let(
       //   2. Lambda params declared inside the block: not in scope at the block start.
       // Lambda params declared OUTSIDE the block stay visible at the insertion
       // point and must not be rejected.
-      let node_subtree = subtree_node_ids(node)
       let unsafe_ref = match @scope.scope_for_node(g, block_node.id()) {
         Some(bis) =>
-          fv
-          .iter()
-          .any(fn(v) {
-            let var_ids : Array[NodeId] = []
-            collect_var_usages(node, v, var_ids)
-            var_ids.any(fn(vid) {
-              match @scope.declaration(g, vid) {
-                Some(decl) if !node_subtree.contains(decl.node_id) =>
-                  scope_is_within(g, decl.scope, bis)
-                _ => false
+          outside_refs.any(r => {
+            match r.resolution.decl {
+              Some(did) => {
+                let DeclId(di) = did
+                scope_is_within(g, g.decls[di].scope, bis)
               }
-            })
+              None => false
+            }
           })
         None => false
       }
@@ -161,17 +176,23 @@ fn compute_extract_to_let(
       )
     }
   }
-  // Root-level extraction: apply the capture check via free_names_would_rebind,
-  // which handles both defs-empty (resolve returns None — any resolved usage
-  // at a non-subtree position signals capture) and defs-present (resolve looks
-  // up the module-end binding) through a single path with subtree filtering.
-  let would_capture = free_names_would_rebind(g, node, fv, fn(v) {
-    if module_view.defs.is_empty() {
-      None
-    } else {
-      declaration_id_for_name_at_module_end(g, definition_index, v)
-    }
-  })
+  // Root-level extraction: check whether any outside ref would rebind at the
+  // target site. For defs-empty, the `let` wraps the expression in-place so
+  // no new bindings are in scope — any resolved outside ref would become free.
+  // For defs-present, resolve at module end.
+  let would_capture = match edit_root_node(ctx.registry) {
+    Some(root) =>
+      would_rebind_on_move(outside_refs, fn(v) {
+        if module_view.defs.is_empty() {
+          None
+        } else {
+          @scope.declaration_for_name_at_module_end(g, root.id(), v).map(fn(d) {
+            d.id
+          })
+        }
+      })
+    None => false
+  }
   if would_capture {
     return Err("Cannot extract: expression captures lambda-bound variables")
   }
@@ -236,19 +257,39 @@ fn compute_extract_to_let(
         ),
       )
     } else {
-      // Node is in a def — two independent edits at non-overlapping positions
+      // Node is in a def initializer. Insert the let before the first def
+      // so var_name is sequentially visible (mirrors the block-def path).
+      guard edit_root_node(ctx.registry) is Some(root) else {
+        return Err("Cannot extract: root module not found")
+      }
+      guard root.children.length() > 0 else {
+        return Err("Cannot extract: module has no children")
+      }
+      let first_def_start = root.children[0].start
+      // Guard: var_name must not appear in the module outside the subtree.
+      let module_var_ids : Array[NodeId] = []
+      collect_var_usages(root, var_name, module_var_ids)
+      for vid in module_var_ids {
+        if !node_subtree.contains(vid) {
+          return Err(
+            "Cannot extract: '" +
+            var_name +
+            "' appears in the module outside the selected expression",
+          )
+        }
+      }
       Ok(
         Some(
           (
             [
-              { start: body_start, delete_len: 0, inserted: let_text },
+              { start: first_def_start, delete_len: 0, inserted: let_text },
               {
                 start: range.start,
                 delete_len: range.end - range.start,
                 inserted: var_name,
               },
             ],
-            MoveCursor(position=range.start),
+            MoveCursor(position=range.start + let_text.length()),
           ),
         ),
       )
@@ -286,9 +327,15 @@ fn compute_inline_definition(
         Ok(text) => text
         Err(e) => return Err(e)
       }
-      // Check for capture: would any free var in init be captured by an enclosing scope at the usage site?
-      let init_fv = free_vars(def.init.kind, @immut/hashset.new())
-      if free_names_would_rebind(g, def.init, init_fv, fn(v) {
+      // Check for capture: would any outside ref in the init be captured by
+      // an enclosing scope at the usage site?
+      let init_subtree = subtree_node_ids(def.init)
+      let init_refs = @scope.references_outside_subtree(
+        g,
+        init_subtree,
+        registry=Some(ctx.registry),
+      )
+      if would_rebind_on_move(init_refs, fn(v) {
           declaration_id_for_name_at_node(g, node_id, v)
         }) {
         return Err(
@@ -384,10 +431,15 @@ fn compute_inline_all_usages(
   }
   let var_name = def.name
   let ref_ids = @scope.references(g, decl.id)
-  // Check for capture: would any free var in init be captured by an enclosing scope at any reference site?
-  let init_fv = free_vars(def.init.kind, @immut/hashset.new())
+  // Check for capture: would any outside ref in init rebind at any ref site?
+  let init_subtree = subtree_node_ids(def.init)
+  let init_refs = @scope.references_outside_subtree(
+    g,
+    init_subtree,
+    registry=Some(ctx.registry),
+  )
   for rid in ref_ids {
-    if free_names_would_rebind(g, def.init, init_fv, fn(v) {
+    if would_rebind_on_move(init_refs, fn(v) {
         declaration_id_for_name_at_node(g, rid, v)
       }) {
       return Err(

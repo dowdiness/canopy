@@ -6,13 +6,10 @@ import {
   "dowdiness/canopy/lang/lambda/proj",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
-  "moonbitlang/core/immut/hashset",
 }
 
 // Values
 pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
-
-pub fn free_vars(@ast.Term, @hashset.HashSet[String]) -> @hashset.HashSet[String]
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 

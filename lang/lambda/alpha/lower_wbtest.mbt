@@ -95,3 +95,29 @@ test "lower: generated fallback binder ids use node identity" {
   let second_binder = binder_for_node(binders, second, "x")
   inspect(first_binder.id == second_binder.id, content="false")
 }
+
+///|
+test "lower: nested block def resolves via ScopeGraph" {
+  // let z = { let x = 1\nx }\nz
+  // Root: z bound to block expression, body z resolves to root def.
+  // Block: x bound to 1, body x resolves to block-local def.
+  let (proj, graph) = alpha_parse_fixture("let z = { let x = 1\nx }\nz")
+  guard lower_root(proj, graph) is Module(defs, Var(Bound(body_id))) else {
+    fail("expected lowered module")
+  }
+  guard defs.length() == 1 else { fail("expected one root definition") }
+  let (z_binder, z_init) = defs[0]
+  // z's init is the block Module.
+  guard z_init is Module(block_defs, Var(Bound(x_body_id))) else {
+    fail("expected lowered nested module in z's init")
+  }
+  guard block_defs.length() == 1 else {
+    fail("expected one block-local definition")
+  }
+  let (x_binder, x_init) = block_defs[0]
+  guard x_init is Int(1) else { fail("expected x init to be 1") }
+  // Block body x resolves to block-local def, NOT the root's z.
+  inspect(x_body_id == x_binder.id, content="true")
+  // Root body z resolves to root def.
+  inspect(body_id == z_binder.id, content="true")
+}

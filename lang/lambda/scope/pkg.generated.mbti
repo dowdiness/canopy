@@ -16,6 +16,8 @@ pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
 
 pub fn declaration_for_name_at(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
 
+pub fn declaration_for_name_at_module_end(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
+
 pub fn diff(Array[ReachableFailure], Array[ReachableFailure]) -> FailureDiff
 
 pub fn enclosing_env(ScopeGraph, @dowdiness/canopy/core.NodeId) -> @hashset.HashSet[String]
@@ -25,6 +27,8 @@ pub fn failures(ScopeGraph, @dowdiness/canopy/core.SourceMap) -> Array[Reachable
 pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @dowdiness/loom/core.Range?
 
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
+
+pub fn references_outside_subtree(ScopeGraph, @hashset.HashSet[@dowdiness/canopy/core.NodeId]) -> Array[Ref]
 
 pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
 

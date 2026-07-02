@@ -1,4 +1,54 @@
 ///|
+/// Check scoping guards for swapping two adjacent bindings. `a_def` is the
+/// binding that becomes first after the swap; `b_def` becomes second.
+/// Rejects if a's init references b's name (which would become free), or if
+/// b's init references a's name AND that ref currently resolves (which would
+/// silently re-target to a).
+fn check_swap_scoping(
+  g : @scope.ScopeGraph,
+  a_def : EditModuleBinding,
+  b_def : EditModuleBinding,
+  direction : String,
+  registry : Map[NodeId, ProjNode[@ast.Term]],
+) -> Result[Unit, String] {
+  let a_subtree = subtree_node_ids(a_def.init)
+  let b_subtree = subtree_node_ids(b_def.init)
+  let a_outside = @scope.references_outside_subtree(
+    g,
+    a_subtree,
+    registry=Some(registry),
+  )
+  let b_outside = @scope.references_outside_subtree(
+    g,
+    b_subtree,
+    registry=Some(registry),
+  )
+  if a_outside.any(r => r.name == b_def.name) {
+    return Err(
+      "Cannot move " +
+      direction +
+      ": " +
+      a_def.name +
+      " uses " +
+      b_def.name +
+      " in its init",
+    )
+  }
+  if b_outside.any(r => r.name == a_def.name && r.resolution.decl is Some(_)) {
+    return Err(
+      "Cannot move " +
+      direction +
+      ": " +
+      b_def.name +
+      " uses " +
+      a_def.name +
+      " in its init",
+    )
+  }
+  Ok(())
+}
+
+///|
 fn compute_delete_binding(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
@@ -175,40 +225,11 @@ fn compute_move_binding_up(
   if cur_def.name == prev_def.name {
     return Err("Cannot swap bindings with the same name")
   }
-  // Scoping guard: block if the swap would change what any name resolves to.
-  // - cur depends on prev's name: after swap, cur is first so prev is no
-  //   longer visible → cur's reference becomes free. Block.
-  // - prev depends on cur's name: after swap, prev can see cur, so the
-  //   reference re-targets to cur instead of its current binding (an earlier
-  //   shadowed def) or changes from free to bound. Either way the semantics
-  //   change. Block.
-  let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
-  let cur_fv = free_vars(cur_def.init.kind, empty_env)
-  let prev_fv = free_vars(prev_def.init.kind, empty_env)
-  if cur_fv.contains(prev_def.name) {
-    return Err(
-      "Cannot move up: " +
-      cur_def.name +
-      " uses " +
-      prev_def.name +
-      " in its init",
-    )
+  // Scoping guards: the swap re-orders sequential visibility.
+  match check_swap_scoping(g, cur_def, prev_def, "up", registry) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
   }
-  // Block only when prev's ref to cur's name would RE-TARGET a currently-resolved
-  // binding — whether an earlier same-scope sibling, a lambda parameter, or any
-  // outer-scope binding. If prev's ref is currently free, the swap improves it
-  // from free to bound (allow).
-  if prev_fv.contains(cur_def.name) &&
-    init_ref_resolves(g, prev_def.init, cur_def.name) {
-    return Err(
-      "Cannot move up: " +
-      prev_def.name +
-      " uses " +
-      cur_def.name +
-      " in its init",
-    )
-  }
-  // Get text ranges for both bindings
   let (cur_start, cur_end) = match
     get_binding_text_range(source_text, source_map, cur_def) {
     Ok(r) => r
@@ -278,38 +299,10 @@ fn compute_move_binding_down(
   if cur_def.name == next_def.name {
     return Err("Cannot swap bindings with the same name")
   }
-  // Scoping guard: block if the swap would change what any name resolves to.
-  // - next depends on cur's name: after swap, next is first so cur is no
-  //   longer visible → next's reference becomes free. Block.
-  // - cur depends on next's name: after swap, cur can see next, so the
-  //   reference re-targets to next instead of its current binding (an earlier
-  //   shadowed def) or changes from free to bound. Either way the semantics
-  //   change. Block.
-  let empty_env : @immut/hashset.HashSet[String] = @immut/hashset.new()
-  let cur_fv = free_vars(cur_def.init.kind, empty_env)
-  let next_fv = free_vars(next_def.init.kind, empty_env)
-  if next_fv.contains(cur_def.name) {
-    return Err(
-      "Cannot move down: " +
-      next_def.name +
-      " uses " +
-      cur_def.name +
-      " in its init",
-    )
-  }
-  // Block only when cur's ref to next's name would RE-TARGET a currently-resolved
-  // binding — whether an earlier same-scope sibling, a lambda parameter, or any
-  // outer-scope binding. If cur's ref is currently free, the swap improves it
-  // from free to bound (allow).
-  if cur_fv.contains(next_def.name) &&
-    init_ref_resolves(g, cur_def.init, next_def.name) {
-    return Err(
-      "Cannot move down: " +
-      cur_def.name +
-      " uses " +
-      next_def.name +
-      " in its init",
-    )
+  // Scoping guards: the swap re-orders sequential visibility.
+  match check_swap_scoping(g, next_def, cur_def, "down", registry) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
   }
   // Get text ranges for both bindings
   let (cur_start, cur_end) = match

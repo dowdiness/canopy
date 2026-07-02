@@ -168,12 +168,16 @@ fn rename_lam_param(
     scope_ref_ids
   }
   // Guard: check if new_name is free in the lambda body — renaming would capture it.
-  if lam_node.kind is @ast.Term::Lam(_, body) {
-    let bound : @immut/hashset.HashSet[String] = @immut/hashset.new().add(
-      old_name,
+  if lam_node.kind is @ast.Term::Lam(_, _) {
+    // Include the Lam node itself in the subtree so refs resolving to this
+    // lambda's parameter are "inside" and excluded by references_outside_subtree.
+    let lam_subtree = subtree_node_ids(lam_node)
+    let body_refs = @scope.references_outside_subtree(
+      g,
+      lam_subtree,
+      registry=Some(ctx.registry),
     )
-    let body_fv = free_vars(body, bound)
-    if body_fv.contains(new_name) {
+    if body_refs.any(fn(r) { r.name == new_name }) {
       return Err(
         "Cannot rename: would capture free variable '" + new_name + "'",
       )

@@ -41,33 +41,6 @@ fn sibling_module_def_decl(
 }
 
 ///|
-/// Whether `init` contains any reference to `name` that currently resolves in
-/// the scope graph. Used in binding move ops: if a reference in one binding's
-/// init currently resolves — whether to an earlier same-scope sibling, a
-/// lambda parameter, or any outer-scope binding — swapping the two bindings
-/// would silently re-target that reference to the moved binding. Returns false
-/// only when every reference to `name` in `init` is free, meaning the swap
-/// would improve them from free to bound (safe to allow).
-fn init_ref_resolves(
-  g : @scope.ScopeGraph,
-  init : ProjNode[@ast.Term],
-  name : String,
-) -> Bool {
-  let var_ids : Array[NodeId] = []
-  collect_var_usages(init, name, var_ids)
-  let subtree = subtree_node_ids(init)
-  var_ids.any(fn(vid) {
-    match @scope.declaration(g, vid) {
-      Some(decl) if subtree.contains(decl.node_id) => false
-      _ =>
-        g.refs
-        .iter()
-        .any(fn(r) { r.node_id == vid && r.resolution.decl is Some(_) })
-    }
-  })
-}
-
-///|
 fn[T] subtree_node_ids(node : ProjNode[T]) -> @immut/hashset.HashSet[NodeId] {
   let m : Map[NodeId, ProjNode[T]] = {}
   @core.collect_registry(node, m)
@@ -205,98 +178,10 @@ fn rename_captures_existing_use(
 }
 
 ///|
-fn declaration_id_for_name_from_scope(
-  g : @scope.ScopeGraph,
-  start_scope : @scope.ScopeId,
-  cutoff : Int,
-  name : String,
-) -> @scope.DeclId? {
-  let mut cur : @scope.ScopeId? = Some(start_scope)
-  while cur is Some(sid) {
-    let @scope.ScopeId(si) = sid
-    let scope = g.scopes[si]
-    let mut hit : @scope.DeclId? = None
-    for did in scope.decl_ids {
-      let @scope.DeclId(di) = did
-      let decl = g.decls[di]
-      if decl.name == name {
-        match decl.kind {
-          @scope.DeclKind::ModuleDef(def_index~) =>
-            if def_index < cutoff {
-              hit = Some(did)
-            }
-          @scope.DeclKind::LamParam(_) => hit = Some(did)
-        }
-      }
-    }
-    if hit is Some(_) {
-      return hit
-    }
-    cur = scope.parent
-  }
-  None
-}
-
-///|
 fn declaration_id_for_name_at_node(
   g : @scope.ScopeGraph,
   node_id : NodeId,
   name : String,
 ) -> @scope.DeclId? {
   @scope.declaration_for_name_at(g, node_id, name).map(fn(decl) { decl.id })
-}
-
-///|
-fn declaration_id_for_name_at_module_end(
-  g : @scope.ScopeGraph,
-  definition_index : DefinitionIndex,
-  name : String,
-) -> @scope.DeclId? {
-  guard root_scope_id(g) is Some(root_scope) else { return None }
-  declaration_id_for_name_from_scope(
-    g,
-    root_scope,
-    definition_index.length(),
-    name,
-  )
-}
-
-///|
-/// Whether moving `source_node` would rebind any of its free vars — i.e. some
-/// free var resolves to a different declaration at the move target than at the
-/// source site. `resolve` is the target-site name resolver: per-node scope
-/// graph resolution (`declaration_id_for_name_at_node`) for inline, or
-/// module-root-end resolution (`declaration_id_for_name_at_module_end`) for
-/// extract's module-end target.
-fn free_names_would_rebind(
-  g : @scope.ScopeGraph,
-  source_node : ProjNode[@ast.Term],
-  free_names : @immut/hashset.HashSet[String],
-  resolve : (String) -> @scope.DeclId?,
-) -> Bool {
-  let subtree = subtree_node_ids(source_node)
-  free_names
-  .iter()
-  .any(fn(v) {
-    let target_decl = resolve(v)
-    free_name_would_rebind_to(g, source_node, v, target_decl, subtree)
-  })
-}
-
-///|
-fn free_name_would_rebind_to(
-  g : @scope.ScopeGraph,
-  source_node : ProjNode[@ast.Term],
-  name : String,
-  target_decl : @scope.DeclId?,
-  subtree : @immut/hashset.HashSet[NodeId],
-) -> Bool {
-  let var_ids : Array[NodeId] = []
-  collect_var_usages(source_node, name, var_ids)
-  var_ids.any(fn(vid) {
-    match @scope.declaration(g, vid) {
-      Some(decl) if subtree.contains(decl.node_id) => false
-      decl_opt => decl_opt.map(fn(d) { d.id }) != target_decl
-    }
-  })
 }
