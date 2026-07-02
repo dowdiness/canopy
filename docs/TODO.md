@@ -177,6 +177,8 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 - [ ] Evaluate moving the edit layer from `Result[_, String]` to a `raise EditError` model (`lang/lambda/edits`). (finding D from PR #383, #667)
   Why: the `match x { Ok(v) => v; Err(e) => return Err(e) }` passthroughs left in PR #383 exist only because MoonBit has no `?`-propagation for plain `Result`. A raising error model would auto-propagate them away and let the Some/None guards sit on raising accessors. Larger design call — touches `EditResult` and error-type design; see the `moonbit-error-handling` skill.
+  Plan: `docs/plans/2026-07-02-edit-layer-error-model.md`
+  Decision converged on ADOPTING `raise EditError` (see plan) — implementation still pending.
   Exit: decision recorded (adopt or keep `Result`) with rationale; if adopted, passthroughs removed and `EditResult` retyped.
 
 - [x] Uniform syntax→projection dispatch + projection-walk helper decision (loom `@seam` / `lang/*/proj`). (finding E from PR #383)
@@ -223,6 +225,16 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 - [x] Inspector — Patch panel. *Part of Inspector traceability workstream.* Shipped in PR #323 (2026-05-22, commit `0c093ac`).
   Scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp` (each row uses `edit.to_string()`), rendered by `view_patch_log` in `view_bottom.mbt`.
+
+- [ ] Structure-aware diff display from reconciliation trace (#830).
+  Why: the Patch panel shows character-level `SpanEdit`s even for structural edits like Wrap; the reconciler already knows "this was a Wrap" but discards it after reconciliation.
+  Plan: `docs/plans/2026-07-02-structure-aware-diff-display.md`
+  Exit: `core/reconcile.mbt` emits an opt-in `ReconcileTraceEvent` trace; Patch panel renders filtered `StructuredChange` events (e.g. "Wrapped #42 in Lambda") alongside the existing SpanEdit log.
+
+- [ ] IdentityTransform hints in undo/redo for identity-preserving undo (#831).
+  Why: `WrapInLambda` → Undo currently falls back to Level 0 LCS (fresh IDs, lost cursor position, lost collapse state) because the forward edit's hint is discarded after one reconciliation pass; the inverse hint must instead be derived at undo time from a stored `UndoOp` description plus the current tree.
+  Plan: `docs/plans/2026-07-02-undo-redo-identity-hints.md`
+  Exit: Wrap → Immediate Undo preserves cursor position and the inner expression's NodeId (first slice; Unwrap/Rename undo are explicit follow-ups).
 
 - [x] Inspector — unify Op Log label format across direct-apply and FFI paths. *Part of Inspector traceability workstream.* Shipped in PR #327 (2026-05-23, commit `336b29b`).
   Extracted `structural_edit_op_to_tree_edit` helper (handles `WrapInLambda` / `Delete`); reused in both `apply_structural_edit_request` and the `StructureStructuralEdit` FFI arm so the latter rebuilds a typed `TreeEditOp` and routes through `push_intent`. `push_intent_label` remains as fallback for ops whose payload isn't recoverable from `(op, node_id)` alone (currently only `"Drop"`). Two unit tests in `main_wbtest.mbt` pin the unified shape (`StructuralEditKeepSelected(#42)` / `Delete(#42)`).
@@ -373,9 +385,13 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
 
-- [ ] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
-  Why: duplication risks protocol drift between client and server.
-  Exit: shared protocol definition used by both editor and relay.
+- [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
+  Resolved: the duplication was resolved — `editor/sync_protocol.mbt` became a `#deprecated` re-export shim over `@wire` (`protocol/wire`), and this branch deletes the shim; `relay/wire.mbt` is a distinct concern (peer-control frames), not a duplicate.
+
+- [ ] Extract reusable orchestration out of `examples/ideal/main` (god-package: ~5.4k src lines).
+  Why: structural-edit reconstruction, scope annotation, action domain logic, and log-entry construction are library-grade logic trapped in the Rabbita example, contradicting the accepted library boundary (docs/decisions/2026-06-11-library-api-boundary.md).
+  Plan: `docs/plans/2026-07-02-ideal-orchestration-extraction.md`
+  Exit: example retains only Rabbita Model/view/command wiring; extracted logic lives in lang/lambda/{companion,scope,edits} with tests moved to owning packages.
 
 ---
 
@@ -545,6 +561,11 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 - [x] Add structural-search match list projection (#695).
   Shipped: PR #699 — `facts_to_match_list` supplies `from`/`to`/`pattern_id` for future host list/jump rendering. Host-side list UI remains a follow-up.
+
+- [ ] Consolidate Lambda name resolution on `lang/lambda/scope` (#129).
+  Why: edit free-variable guards and module-end lookup still carry local name-resolution walks that can drift from the canonical scope graph.
+  Plan: `docs/plans/2026-07-02-lambda-name-resolution-consolidation.md`
+  Exit: production edit guards, alpha lowering, and free-variable diagnostics all read scope-graph facts; duplicate edit-layer resolvers are removed or test-only; #652's module-end cutoff drift is closed.
 
 ## 22. SDEG Lifecycle
 

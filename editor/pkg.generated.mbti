@@ -26,24 +26,6 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(ViewUpdateState, SyncEditor[T]
 
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
-#deprecated
-pub fn decode_message(Bytes) -> @wire.SyncMessage?
-
-#deprecated
-pub fn decode_message_result(Bytes) -> Result[@wire.SyncMessage, @wire.ProtocolError]
-
-#deprecated
-pub fn encode_message(@wire.SyncMessage) -> Bytes
-
-#deprecated
-pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
-
-#deprecated
-pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
-
-#deprecated
-pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
-
 // Errors
 pub(all) suberror TreeEditError {
   ExpectedJsonObject
@@ -217,13 +199,7 @@ pub using @ephemeral {type PeerPresence}
 
 pub using @ephemeral {type PresenceStatus}
 
-#deprecated
-pub using @wire {type ProtocolError}
-
 pub using @sync_session {type SyncErrorReason}
-
-#deprecated
-pub using @wire {type SyncMessage}
 
 pub using @sync_session {type SyncStatus}
 
