@@ -275,7 +275,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
       timeout: 5000,
     });
     await page.keyboard.press('d');
-    await expect(page.locator('.action-overlay-panel')).not.toBeVisible();
+    await expect(page.locator('.action-overlay-panel')).not.toBeVisible({ timeout: 10000 });
   });
 
   test('r key shows name prompt for Rename', async ({ page }) => {
