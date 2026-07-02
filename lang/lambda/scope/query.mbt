@@ -185,16 +185,12 @@ pub fn enclosing_env(
 /// `ref.resolution.decl` against a target-site resolution, or group by name
 /// for the free-name set.
 ///
-/// Note: this includes Unbound refs (scope records them as unresolved
-/// `resolution.decl = None`), while the deleted edit-layer `free_vars`
-/// ignored Unbound entirely. Guards are therefore slightly more conservative
-/// on alpha-reified trees — operations the old code allowed are now rejected.
-/// Parsed Lambda trees never contain Unbound nodes, so production edit
-/// behavior is unchanged. See `scope_resolution_differential_wbtest.mbt`
-/// for the recorded divergence.
+/// Note: when `registry` is provided, Unbound nodes are excluded (matching the
+/// old `free_vars` behavior). Without a registry, Unbound refs are included.
 pub fn references_outside_subtree(
   g : ScopeGraph,
   subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
+  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> Array[Ref] {
   // Collect distinct scopes containing subtree nodes.
   let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.new()
@@ -219,7 +215,22 @@ pub fn references_outside_subtree(
           }
         }
         if is_outside {
-          result.push(r)
+          // When registry is available, skip Unbound nodes.
+          let mut skip = false
+          match registry {
+            Some(reg) =>
+              match reg.get(r.node_id) {
+                Some(node) =>
+                  if node.kind is @ast.Term::Unbound(_) {
+                    skip = true
+                  }
+                None => ()
+              }
+            None => ()
+          }
+          if !skip {
+            result.push(r)
+          }
         }
       }
     }

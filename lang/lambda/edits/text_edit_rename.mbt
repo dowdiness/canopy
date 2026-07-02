@@ -172,7 +172,7 @@ fn rename_lam_param(
     // Include the Lam node itself in the subtree so refs resolving to this
     // lambda's parameter are "inside" and excluded by references_outside_subtree.
     let lam_subtree = subtree_node_ids(lam_node)
-    let body_refs = @scope.references_outside_subtree(g, lam_subtree)
+    let body_refs = @scope.references_outside_subtree(g, lam_subtree, registry=Some(ctx.registry))
     if body_refs.any(fn(r) { r.name == new_name }) {
       return Err(
         "Cannot rename: would capture free variable '" + new_name + "'",

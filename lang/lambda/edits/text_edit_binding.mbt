@@ -10,11 +10,12 @@ fn check_swap_scoping(
   a_def : EditModuleBinding,
   b_def : EditModuleBinding,
   direction : String,
+  registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> Result[Unit, String] {
   let a_subtree = subtree_node_ids(a_def.init)
   let b_subtree = subtree_node_ids(b_def.init)
-  let a_outside = @scope.references_outside_subtree(g, a_subtree)
-  let b_outside = @scope.references_outside_subtree(g, b_subtree)
+  let a_outside = @scope.references_outside_subtree(g, a_subtree, registry=Some(registry))
+  let b_outside = @scope.references_outside_subtree(g, b_subtree, registry=Some(registry))
   if a_outside.any(r => r.name == b_def.name) {
     return Err(
       "Cannot move " +
@@ -220,7 +221,7 @@ fn compute_move_binding_up(
     return Err("Cannot swap bindings with the same name")
   }
   // Scoping guards: the swap re-orders sequential visibility.
-  match check_swap_scoping(g, cur_def, prev_def, "up") {
+  match check_swap_scoping(g, cur_def, prev_def, "up", registry) {
     Ok(_) => ()
     Err(e) => return Err(e)
   }
@@ -294,7 +295,7 @@ fn compute_move_binding_down(
     return Err("Cannot swap bindings with the same name")
   }
   // Scoping guards: the swap re-orders sequential visibility.
-  match check_swap_scoping(g, next_def, cur_def, "down") {
+  match check_swap_scoping(g, next_def, cur_def, "down", registry) {
     Ok(_) => ()
     Err(e) => return Err(e)
   }

@@ -4,13 +4,6 @@
 /// target (module-end for extract, per-node for inline). `outside_refs` comes
 /// from `@scope.references_outside_subtree` — self-contained refs are already
 /// excluded, so only the target comparison is needed.
-///
-/// Note: `references_outside_subtree` includes Unbound refs (scope records them
-/// as unresolved), while the deleted `free_vars` ignored Unbound entirely. This
-/// makes guards slightly more conservative on alpha-reified trees — the old
-/// code allowed operations that the new code rejects. Parsed trees never contain
-/// Unbound nodes, so production edit behavior is unchanged. See the differential
-/// wbtest header for the recorded divergence.
 fn would_rebind_on_move(
   outside_refs : Array[@scope.Ref],
   resolve : (String) -> @scope.DeclId?,
@@ -38,7 +31,7 @@ fn compute_extract_to_let(
   }
   let g = @scope.build(ctx.registry, ctx.source_map)
   let node_subtree = subtree_node_ids(node)
-  let outside_refs = @scope.references_outside_subtree(g, node_subtree)
+  let outside_refs = @scope.references_outside_subtree(g, node_subtree, registry=Some(ctx.registry))
   // Build edits
   let expr_text = @ast.print_term(node.kind)
   let let_text = "let " + var_name + " = " + expr_text + "\n"
@@ -260,14 +253,41 @@ fn compute_extract_to_let(
         ),
       )
     } else {
-      // Node is in a def initializer. The new `let var_name = expr` would
-      // be placed at body_start (after all defs), but var_name in the def
-      // appears before its definition — var_name cannot see the let binding.
-      // Reject conservatively to preserve sequential scoping.
-      return Err(
-        "Cannot extract: expression in a def initializer would make '" +
-        var_name +
-        "' appear before its definition",
+      // Node is in a def initializer. Insert the let before the first def
+      // so var_name is sequentially visible (mirrors the block-def path).
+      guard edit_root_node(ctx.registry) is Some(root) else {
+        return Err("Cannot extract: root module not found")
+      }
+      guard root.children.length() > 0 else {
+        return Err("Cannot extract: module has no children")
+      }
+      let first_def_start = root.children[0].start
+      // Guard: var_name must not appear in the module outside the subtree.
+      let module_var_ids : Array[NodeId] = []
+      collect_var_usages(root, var_name, module_var_ids)
+      for vid in module_var_ids {
+        if !node_subtree.contains(vid) {
+          return Err(
+            "Cannot extract: '" +
+            var_name +
+            "' appears in the module outside the selected expression",
+          )
+        }
+      }
+      Ok(
+        Some(
+          (
+            [
+              { start: first_def_start, delete_len: 0, inserted: let_text },
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: var_name,
+              },
+            ],
+            MoveCursor(position=range.start + let_text.length()),
+          ),
+        ),
       )
     }
   }
@@ -306,7 +326,7 @@ fn compute_inline_definition(
       // Check for capture: would any outside ref in the init be captured by
       // an enclosing scope at the usage site?
       let init_subtree = subtree_node_ids(def.init)
-      let init_refs = @scope.references_outside_subtree(g, init_subtree)
+      let init_refs = @scope.references_outside_subtree(g, init_subtree, registry=Some(ctx.registry))
       if would_rebind_on_move(init_refs, fn(v) {
           declaration_id_for_name_at_node(g, node_id, v)
         }) {
@@ -405,7 +425,7 @@ fn compute_inline_all_usages(
   let ref_ids = @scope.references(g, decl.id)
   // Check for capture: would any outside ref in init rebind at any ref site?
   let init_subtree = subtree_node_ids(def.init)
-  let init_refs = @scope.references_outside_subtree(g, init_subtree)
+  let init_refs = @scope.references_outside_subtree(g, init_subtree, registry=Some(ctx.registry))
   for rid in ref_ids {
     if would_rebind_on_move(init_refs, fn(v) {
         declaration_id_for_name_at_node(g, rid, v)
