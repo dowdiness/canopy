@@ -6,7 +6,7 @@ pub fn compute_markdown_edit(
   source : String,
   proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   match op {
     CommitEdit(node_id~, new_text~) =>
       compute_commit_edit(source_map, node_id, new_text)
@@ -34,14 +34,17 @@ fn compute_commit_edit(
   source_map : SourceMap,
   node_id : NodeId,
   new_text : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   // Try "text" role first, fall back to "code" for code blocks
   let range = match source_map.get_token_span(node_id, "text") {
     Some(r) => r
     None =>
       match source_map.get_token_span(node_id, "code") {
         Some(r) => r
-        None => return Err("no editable span for node " + node_id.to_string())
+        None =>
+          raise @core.EditError::SourceSpanMissing(
+            detail="no editable span for node " + node_id.to_string(),
+          )
       }
   }
   Ok(
@@ -67,10 +70,14 @@ fn compute_change_heading_level(
   source_map : SourceMap,
   node_id : NodeId,
   level : Int,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("node not found in source map")
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   let content = match source_map.get_token_span(node_id, "text") {
     Some(text_range) => source[text_range.start:text_range.end].to_owned()
@@ -116,10 +123,14 @@ fn compute_toggle_list_item(
   proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("node not found in source map")
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   let content = match source_map.get_token_span(node_id, "text") {
     Some(text_range) => source[text_range.start:text_range.end].to_owned()
@@ -159,10 +170,14 @@ fn compute_toggle_list_item(
 fn compute_delete(
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("node not found in source map")
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   Ok(
     Some(
@@ -185,10 +200,14 @@ fn compute_delete(
 fn compute_insert_block_after(
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("node not found in source map")
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   let insert_pos = range.end
   // Insert "\n<sentinel>\n" to create a visible empty paragraph.
@@ -230,14 +249,19 @@ fn compute_split_block(
   source_map : SourceMap,
   node_id : NodeId,
   offset : Int,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let text_range = match source_map.get_token_span(node_id, "text") {
     Some(r) => r
-    None => return Err("no text span for split")
+    None =>
+      raise @core.EditError::SourceSpanMissing(detail="no text span for split")
   }
   let range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("node not found")
+    None =>
+      raise @core.EditError::NodeNotFound(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   let text_slice = source[text_range.start:text_range.end].to_owned()
   let split_offset = @moji.next_grapheme_boundary(text_slice, offset)
@@ -366,11 +390,14 @@ fn compute_merge_with_previous(
   proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   // Find the parent that contains this node, then find sibling index
   let (siblings, idx) = find_sibling_context(proj, node_id)
   if idx < 0 {
-    return Err("node not found in projection tree: " + node_id.to_string())
+    raise @core.EditError::NodeNotFound(
+      action="compute_markdown_edit",
+      node_id~,
+    )
   }
   // First sibling — no-op
   if idx == 0 {
@@ -379,7 +406,11 @@ fn compute_merge_with_previous(
   let prev_node = siblings[idx - 1]
   let curr_range = match source_map.get_range(node_id) {
     Some(r) => r
-    None => return Err("current node not in source map")
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
   }
   let curr_text = match source_map.get_token_span(node_id, "text") {
     Some(r) => source[r.start:r.end].to_owned()
@@ -392,7 +423,11 @@ fn compute_merge_with_previous(
       // No text span — use full block range end as fallback
       match source_map.get_range(prev_node.id()) {
         Some(r) => r.end
-        None => return Err("previous node not in source map")
+        None =>
+          raise @core.EditError::NodeNotInSourceMap(
+            action="compute_markdown_edit",
+            node_id=prev_node.id(),
+          )
       }
   }
   // Strip empty-paragraph sentinel placeholder (from InsertBlockAfter)

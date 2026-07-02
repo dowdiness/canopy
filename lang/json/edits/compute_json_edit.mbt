@@ -6,14 +6,14 @@ using @core {type ProjNode, type SourceMap, type SpanEdit, type FocusHint}
 
 ///|
 /// Compute text-level span edits for a JSON structural edit operation.
-/// Returns Ok(Some((edits, focus_hint))) on success, Ok(None) for unhandled ops,
-/// or Err(msg) for invalid operations.
+/// Returns Some((edits, focus_hint)) on success, None for unhandled ops,
+/// or raises EditError for invalid operations.
 pub fn compute_json_edit(
   op : JsonEditOp,
   source : String,
   proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   match op {
     Delete(node_id~) => compute_delete(source, proj, source_map, node_id)
     AddMember(object_id~, key~) =>
@@ -96,7 +96,7 @@ fn compute_delete(
   proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   // Determine the delete range: for object members, use the member span
   // which covers "key": value; for other nodes, use the node's own range.
   let (range_start, range_end) = match
@@ -104,7 +104,10 @@ fn compute_delete(
     Some(span) => span
     None => {
       guard source_map.get_range(node_id) is Some(r) else {
-        return Err("node not found in source map")
+        raise @core.EditError::NodeNotInSourceMap(
+          action="compute_json_edit",
+          node_id~,
+        )
       }
       (r.start, r.end)
     }
@@ -114,12 +117,10 @@ fn compute_delete(
     source, range_start, range_end, proj, source_map, node_id,
   )
   let delete_len = delete_end - delete_start
-  Ok(
-    Some(
-      (
-        [SpanEdit::{ start: delete_start, delete_len, inserted: "" }],
-        FocusHint::MoveCursor(position=delete_start),
-      ),
+  Some(
+    (
+      [SpanEdit::{ start: delete_start, delete_len, inserted: "" }],
+      FocusHint::MoveCursor(position=delete_start),
     ),
   )
 }
@@ -232,16 +233,21 @@ fn compute_add_member(
   source_map : SourceMap,
   object_id : NodeId,
   key : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(object_id) is Some(range) else {
-    return Err("object node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id=object_id,
+    )
   }
   // Find the closing brace position
   let close_brace = range.end - 1
   if close_brace < 0 ||
     close_brace >= source.length() ||
     source[close_brace] != close_brace_code {
-    return Err("cannot find closing brace for object")
+    raise @core.EditError::InvalidTarget(
+      detail="cannot find closing brace for object",
+    )
   }
   let escaped = json_escape_key(key)
   let member_text = "\"" + escaped + "\": null"
@@ -250,12 +256,10 @@ fn compute_add_member(
   let inserted = if has_members { ", " + member_text } else { member_text }
   let insert_pos = close_brace
   let focus_pos = insert_pos + inserted.length()
-  Ok(
-    Some(
-      (
-        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
-        FocusHint::MoveCursor(position=focus_pos),
-      ),
+  Some(
+    (
+      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
+      FocusHint::MoveCursor(position=focus_pos),
     ),
   )
 }
@@ -279,26 +283,29 @@ fn compute_add_element(
   _proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
   array_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(array_id) is Some(range) else {
-    return Err("array node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id=array_id,
+    )
   }
   let close_bracket = range.end - 1
   if close_bracket < 0 ||
     close_bracket >= source.length() ||
     source[close_bracket] != close_bracket_code {
-    return Err("cannot find closing bracket for array")
+    raise @core.EditError::InvalidTarget(
+      detail="cannot find closing bracket for array",
+    )
   }
   let has_elements = has_content_between(source, range.start + 1, close_bracket)
   let inserted = if has_elements { ", null" } else { "null" }
   let insert_pos = close_bracket
   let focus_pos = insert_pos + inserted.length()
-  Ok(
-    Some(
-      (
-        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
-        FocusHint::MoveCursor(position=focus_pos),
-      ),
+  Some(
+    (
+      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
+      FocusHint::MoveCursor(position=focus_pos),
     ),
   )
 }
@@ -310,9 +317,12 @@ fn compute_wrap_in_array(
   source : String,
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(node_id) is Some(range) else {
-    return Err("node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id~,
+    )
   }
   let existing = source[range.start:range.end].to_owned()
   let wrapped = "[" + existing + "]"
@@ -321,11 +331,7 @@ fn compute_wrap_in_array(
     delete_len: range.end - range.start,
     inserted: wrapped,
   }
-  Ok(
-    Some(
-      ([edit], FocusHint::MoveCursor(position=range.start + wrapped.length())),
-    ),
-  )
+  Some(([edit], FocusHint::MoveCursor(position=range.start + wrapped.length())))
 }
 
 ///|
@@ -336,9 +342,12 @@ fn compute_wrap_in_object(
   source_map : SourceMap,
   node_id : NodeId,
   key : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(node_id) is Some(range) else {
-    return Err("node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id~,
+    )
   }
   let escaped = json_escape_key(key)
   let existing = source[range.start:range.end].to_owned()
@@ -348,11 +357,7 @@ fn compute_wrap_in_object(
     delete_len: range.end - range.start,
     inserted: wrapped,
   }
-  Ok(
-    Some(
-      ([edit], FocusHint::MoveCursor(position=range.start + wrapped.length())),
-    ),
-  )
+  Some(([edit], FocusHint::MoveCursor(position=range.start + wrapped.length())))
 }
 
 ///|
@@ -362,23 +367,29 @@ fn compute_unwrap(
   _proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
   node_id : NodeId,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(node_id) is Some(range) else {
-    return Err("node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id~,
+    )
   }
   // Find the node in the projection tree to check it has exactly one child
   guard @core.get_node_in_tree(_proj, node_id) is Some(node) else {
-    return Err("node not found in projection tree")
+    raise @core.EditError::NodeNotFound(action="compute_json_edit", node_id~)
   }
   if node.children.length() != 1 {
-    return Err(
-      "unwrap requires exactly one child, found " +
-      node.children.length().to_string(),
+    raise @core.EditError::InvalidTarget(
+      detail="unwrap requires exactly one child, found " +
+        node.children.length().to_string(),
     )
   }
   let child = node.children[0]
   guard source_map.get_range(child.id()) is Some(child_range) else {
-    return Err("child node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id=child.id(),
+    )
   }
   // Extract the child's text and replace the whole container
   let child_text = source[child_range.start:child_range.end].to_owned()
@@ -387,13 +398,8 @@ fn compute_unwrap(
     delete_len: range.end - range.start,
     inserted: child_text,
   }
-  Ok(
-    Some(
-      (
-        [edit],
-        FocusHint::MoveCursor(position=range.start + child_text.length()),
-      ),
-    ),
+  Some(
+    ([edit], FocusHint::MoveCursor(position=range.start + child_text.length())),
   )
 }
 
@@ -403,9 +409,12 @@ fn compute_change_type(
   source_map : SourceMap,
   node_id : NodeId,
   new_type : JsonType,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(node_id) is Some(range) else {
-    return Err("node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id~,
+    )
   }
   let placeholder = match new_type {
     JNull => "null"
@@ -420,13 +429,8 @@ fn compute_change_type(
     delete_len: range.end - range.start,
     inserted: placeholder,
   }
-  Ok(
-    Some(
-      (
-        [edit],
-        FocusHint::MoveCursor(position=range.start + placeholder.length()),
-      ),
-    ),
+  Some(
+    ([edit], FocusHint::MoveCursor(position=range.start + placeholder.length())),
   )
 }
 
@@ -438,10 +442,12 @@ fn compute_rename_key(
   object_id : NodeId,
   key_index : Int,
   new_key : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let role = @json_proj.key_role(key_index)
   guard source_map.get_token_span(object_id, role) is Some(key_range) else {
-    return Err("key span not found for " + role)
+    raise @core.EditError::SourceSpanMissing(
+      detail="key span not found for " + role,
+    )
   }
   let escaped = json_escape_key(new_key)
   let new_text = "\"" + escaped + "\""
@@ -450,12 +456,10 @@ fn compute_rename_key(
     delete_len: key_range.end - key_range.start,
     inserted: new_text,
   }
-  Ok(
-    Some(
-      (
-        [edit],
-        FocusHint::MoveCursor(position=key_range.start + new_text.length()),
-      ),
+  Some(
+    (
+      [edit],
+      FocusHint::MoveCursor(position=key_range.start + new_text.length()),
     ),
   )
 }
@@ -466,18 +470,19 @@ fn compute_commit_edit(
   source_map : SourceMap,
   node_id : NodeId,
   new_value : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   guard source_map.get_range(node_id) is Some(range) else {
-    return Err("node not found in source map")
+    raise @core.EditError::NodeNotInSourceMap(
+      action="compute_json_edit",
+      node_id~,
+    )
   }
   let edit = SpanEdit::{
     start: range.start,
     delete_len: range.end - range.start,
     inserted: new_value,
   }
-  Ok(
-    Some(
-      ([edit], FocusHint::MoveCursor(position=range.start + new_value.length())),
-    ),
+  Some(
+    ([edit], FocusHint::MoveCursor(position=range.start + new_value.length())),
   )
 }
