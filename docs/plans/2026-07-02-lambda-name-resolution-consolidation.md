@@ -317,3 +317,35 @@ Ready-to-paste TODO item:
   Plan: `docs/plans/2026-07-02-lambda-name-resolution-consolidation.md`
   Exit: production edit guards, alpha lowering, and free-variable diagnostics all read scope-graph facts; duplicate edit-layer resolvers are removed or test-only; #652's module-end cutoff drift is closed.
 ```
+
+## Completion Status (2026-07-02)
+
+Steps 1-8 executed in a single session.
+
+### Completed
+
+- [x] **Step 1:** Differential tests pin agreement (22 tests in `scope_resolution_differential_wbtest.mbt`). Unbound divergence recorded.
+- [x] **Step 2:** `references_outside_subtree` + `declaration_for_name_at_module_end` added to `scope/query.mbt` (17 tests).
+- [x] **Step 3:** `text_edit_refactor.mbt` extract/inline guards migrated to `references_outside_subtree`. `would_rebind_on_move` helper replaces `free_names_would_rebind`.
+- [x] **Step 4:** `text_edit_binding.mbt` move-up/down guards migrated. `init_ref_resolves` collapsed into `references_outside_subtree`.
+- [x] **Step 5:** `declaration_id_for_name_from_scope` + `declaration_id_for_name_at_module_end` deleted from `scope.mbt`. Call site migrated to `@scope.declaration_for_name_at_module_end`. **#652 closed.**
+- [x] **Step 6:** `init_ref_resolves`, `free_names_would_rebind`, `free_name_would_rebind_to` deleted from `scope.mbt`. `text_edit_rename.mbt` migrated. `free_vars` kept as `pub` — zero production callers remain.
+- [x] **Step 7:** Alpha lowering verified graph-backed (`@scope.declaration`). Nested block lowering test added. Semantic diagnostics verified graph-backed (`@scope.failures`).
+- [x] **Step 8:** This section.
+
+### Remaining follow-ups
+
+- **#712** (alpha substitution sharing with egraph adapter): adjacent, not in Plan C scope.
+- **#568** (language-agnostic scope graph extraction): gated on a second language consumer.
+- **`semantic_projection.mbt:80-215`** (separate env walk for annotations/decorations): not a resolver — diagnostic-adjacent metadata. Follow-up only if it diverges.
+
+### Files changed
+
+- `lang/lambda/scope/query.mbt` — added `references_outside_subtree`, `declaration_for_name_at_module_end`
+- `lang/lambda/edits/scope.mbt` — deleted `init_ref_resolves`, `free_names_would_rebind`, `free_name_would_rebind_to`, `declaration_id_for_name_from_scope`, `declaration_id_for_name_at_module_end` (—110 lines)
+- `lang/lambda/edits/text_edit_refactor.mbt` — migrated to `references_outside_subtree` + `would_rebind_on_move`
+- `lang/lambda/edits/text_edit_binding.mbt` — migrated to `references_outside_subtree`
+- `lang/lambda/edits/text_edit_rename.mbt` — migrated to `references_outside_subtree`
+- `lang/lambda/edits/scope_resolution_differential_wbtest.mbt` — new: 22 differential tests + module-end tests
+- `lang/lambda/scope/references_outside_subtree_wbtest.mbt` — new: 17 scope query tests
+- `lang/lambda/alpha/lower_wbtest.mbt` — 1 new nested block lowering test

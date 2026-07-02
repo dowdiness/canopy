@@ -168,3 +168,68 @@ pub fn enclosing_env(
   }
   env
 }
+
+///|
+/// All Refs in the subtree whose resolution target lies OUTSIDE the subtree
+/// (or is unresolved). This is the graph-backed equivalent of `free_vars`:
+/// a Ref is "free relative to the subtree" when its `resolution.decl` is None
+/// (unresolved) or when the resolved declaration's `node_id` is not in
+/// `subtree_node_ids`.
+///
+/// Complexity is O(N_sub + R_relevant), where N_sub is the subtree size and
+/// R_relevant is the total ref count across scopes containing subtree nodes
+/// — much cheaper than a full O(R) scan when the subtree is small relative
+/// to the graph.
+///
+/// Callers can filter by `ref.name` for per-variable rebind checks, compare
+/// `ref.resolution.decl` against a target-site resolution, or group by name
+/// for the free-name set.
+pub fn references_outside_subtree(
+  g : ScopeGraph,
+  subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
+) -> Array[Ref] {
+  // Collect distinct scopes containing subtree nodes.
+  let seen : Map[ScopeId, Unit] = {}
+  for nid in subtree_node_ids.iter() {
+    match g.node_scope.get(nid) {
+      Some(sid) => seen[sid] = ()
+      None => continue
+    }
+  }
+  let result : Array[Ref] = []
+  for sid in seen.keys() {
+    let ScopeId(si) = sid
+    for rid in g.scopes[si].ref_ids {
+      let RefId(ri) = rid
+      let r = g.refs[ri]
+      if subtree_node_ids.contains(r.node_id) {
+        let is_outside = match r.resolution.decl {
+          None => true
+          Some(did) => {
+            let DeclId(di) = did
+            !subtree_node_ids.contains(g.decls[di].node_id)
+          }
+        }
+        if is_outside {
+          result.push(r)
+        }
+      }
+    }
+  }
+  result
+}
+
+///|
+/// Resolve `name` as it would be visible at the end of the module whose
+/// ProjNode is `module_proj_node_id`. The builder records the full definition
+/// count as the cutoff on the module node itself, so this delegates to
+/// `declaration_for_name_at` — no separate recomputation from
+/// `DefinitionIndex.length()`. Returns None when the name is not bound
+/// (free or block-local).
+pub fn declaration_for_name_at_module_end(
+  g : ScopeGraph,
+  module_proj_node_id : @core.NodeId,
+  name : String,
+) -> Decl? {
+  declaration_for_name_at(g, module_proj_node_id, name)
+}
