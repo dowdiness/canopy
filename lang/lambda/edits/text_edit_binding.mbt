@@ -194,9 +194,9 @@ fn compute_move_binding_up(
       " in its init",
     )
   }
-  if prev_outside.any(
-      fn(r) { r.name == cur_def.name && r.resolution.decl is Some(_) },
-    ) {
+  if prev_outside.any(fn(r) {
+      r.name == cur_def.name && r.resolution.decl is Some(_)
+    }) {
     return Err(
       "Cannot move up: " +
       prev_def.name +
@@ -294,9 +294,9 @@ fn compute_move_binding_down(
       " in its init",
     )
   }
-  if cur_outside.any(
-      fn(r) { r.name == next_def.name && r.resolution.decl is Some(_) },
-    ) {
+  if cur_outside.any(fn(r) {
+      r.name == next_def.name && r.resolution.decl is Some(_)
+    }) {
     return Err(
       "Cannot move down: " +
       cur_def.name +

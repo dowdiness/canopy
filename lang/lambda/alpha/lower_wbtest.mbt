@@ -101,9 +101,7 @@ test "lower: nested block def resolves via ScopeGraph" {
   // let z = { let x = 1\nx }\nz
   // Root: z bound to block expression, body z resolves to root def.
   // Block: x bound to 1, body x resolves to block-local def.
-  let (proj, graph) = alpha_parse_fixture(
-    "let z = { let x = 1\nx }\nz",
-  )
+  let (proj, graph) = alpha_parse_fixture("let z = { let x = 1\nx }\nz")
   guard lower_root(proj, graph) is Module(defs, Var(Bound(body_id))) else {
     fail("expected lowered module")
   }

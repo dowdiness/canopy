@@ -181,9 +181,9 @@ fn compute_extract_to_let(
         if module_view.defs.is_empty() {
           None
         } else {
-          @scope.declaration_for_name_at_module_end(g, root.id(), v).map(
-            fn(d) { d.id },
-          )
+          @scope.declaration_for_name_at_module_end(g, root.id(), v).map(fn(d) {
+            d.id
+          })
         }
       })
     None => false

@@ -40,7 +40,6 @@ fn sibling_module_def_decl(
   })
 }
 
-
 ///|
 fn[T] subtree_node_ids(node : ProjNode[T]) -> @immut/hashset.HashSet[NodeId] {
   let m : Map[NodeId, ProjNode[T]] = {}
@@ -177,7 +176,6 @@ fn rename_captures_existing_use(
     })
   })
 }
-
 
 ///|
 fn declaration_id_for_name_at_node(

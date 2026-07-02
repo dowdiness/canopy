@@ -446,7 +446,8 @@ test "diff: Unbound divergence — scope tracks it, free_vars ignores it" {
 ///|
 test "diff module-end: root def visible" {
   let (proj, _registry, g) = build_oracle("let x = 0\n0")
-  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
+  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
+    is Some(decl)
   guard decl.kind is @scope.DeclKind::ModuleDef(def_index~)
   inspect(def_index, content="0")
 }
@@ -454,7 +455,8 @@ test "diff module-end: root def visible" {
 ///|
 test "diff module-end: later def shadows earlier" {
   let (proj, _registry, g) = build_oracle("let x = 0\nlet x = 1\n0")
-  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
+  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
+    is Some(decl)
   guard decl.kind is @scope.DeclKind::ModuleDef(def_index~)
   inspect(def_index, content="1")
 }
@@ -512,7 +514,9 @@ test "diff: Block-local def not visible at root module end" {
 
   // module-end query for "outer" at root level: visible.
   let outer_result = @scope.declaration_for_name_at_module_end(
-    g, proj.id(), "outer",
+    g,
+    proj.id(),
+    "outer",
   )
   inspect(outer_result is Some(_), content="true")
 }
