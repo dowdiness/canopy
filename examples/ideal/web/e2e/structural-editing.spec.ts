@@ -274,19 +274,8 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expect(page.locator('.action-overlay-panel')).toBeVisible({
       timeout: 5000,
     });
-    // Temporary diagnostic: capture console errors to identify why the edit fails
-    const errors: string[] = [];
-    const handler = (msg: { type: () => string; text: () => string }) => {
-      if (msg.type() === 'error') errors.push(msg.text());
-    };
-    page.on('console', handler);
     await page.keyboard.press('d');
-    // Wait for the overlay to either dismiss or show the error
-    try {
-      await expect(page.locator('.action-overlay-panel')).not.toBeVisible({ timeout: 10000 });
-    } catch {
-      throw new Error('overlay still visible; console errors: [' + errors.join('] [') + ']');
-    }
+    await expect(page.locator('.action-overlay-panel')).not.toBeVisible({ timeout: 10000 });
   });
 
   test('r key shows name prompt for Rename', async ({ page }) => {
