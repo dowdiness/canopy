@@ -302,15 +302,9 @@ fn map_edit_error(e : @core.EditError) -> @editor.TreeEditError {
       @editor.TreeEditError::ProjectionUnavailable
     @core.EditError::NodeNotFound(action~, node_id~)
     | @core.EditError::NodeNotInRegistry(action~, node_id~) =>
-      @editor.TreeEditError::NodeNotInRegistry(
-        action~,
-        node_id~,
-      )
+      @editor.TreeEditError::NodeNotInRegistry(action~, node_id~)
     @core.EditError::NodeNotInSourceMap(action~, node_id~) =>
-      @editor.TreeEditError::NodeNotInSourceMap(
-        action~,
-        node_id~,
-      )
+      @editor.TreeEditError::NodeNotInSourceMap(action~, node_id~)
     @core.EditError::BindingNotFound(..)
     | @core.EditError::InvalidTarget(..)
     | @core.EditError::UnsupportedOperation(..)
