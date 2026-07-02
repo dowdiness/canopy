@@ -205,12 +205,9 @@ test "compute_text_edit: Delete inside fn body preserves braces" {
     make_edit_ctx(text, source_map, registry, proj),
   )
   match result {
-    Err(msg) =>
-      inspect(
-        msg,
-        content="Cannot edit synthetic lambda parameter directly; edit the enclosing expression or function body",
-      )
-    _ => fail("expected error but got success")
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="fn id(x : Int) {a }\nid 1")
+    _ => fail("expected Some edits")
   }
 }
 

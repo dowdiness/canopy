@@ -57,21 +57,46 @@ fn compute_delete(
               )
             }
             Some(parent_range) => {
-              ensure_replaceable_node_range(
-                ctx, parent_id, parent_node, parent_range,
-              )
-              Some(
-                (
-                  [
-                    {
-                      start: parent_range.start,
-                      delete_len: parent_range.end - parent_range.start,
-                      inserted: new_text,
-                    },
-                  ],
-                  RestoreCursor,
-                ),
-              )
+              try {
+                ensure_replaceable_node_range(
+                  ctx, parent_id, parent_node, parent_range,
+                )
+                Some(
+                  (
+                    [
+                      {
+                        start: parent_range.start,
+                        delete_len: parent_range.end - parent_range.start,
+                        inserted: new_text,
+                      },
+                    ],
+                    RestoreCursor,
+                  ),
+                )
+              } catch {
+                parent_err =>
+                  // Parent not replaceable — fall back to child placeholder
+                  try {
+                    ensure_replaceable_node_range(ctx, node_id, target, range)
+                    let placeholder = @ast.print_term(
+                      placeholder_term_for_kind(target.kind),
+                    )
+                    Some(
+                      (
+                        [
+                          {
+                            start: range.start,
+                            delete_len: range.end - range.start,
+                            inserted: placeholder,
+                          },
+                        ],
+                        RestoreCursor,
+                      ),
+                    )
+                  } catch {
+                    _ => raise parent_err
+                  }
+              }
             }
           }
         }
