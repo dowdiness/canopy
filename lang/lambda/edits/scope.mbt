@@ -2,17 +2,17 @@
 fn module_def_decl_for_binding(
   g : @scope.ScopeGraph,
   binding_node_id : NodeId,
-) -> Result[@scope.Decl, String] {
-  match
-    g.decls
+) -> @scope.Decl raise EditError {
+  guard g.decls
     .iter()
     .find_first(fn(decl) {
       decl.node_id == binding_node_id &&
       decl.kind is @scope.DeclKind::ModuleDef(_)
-    }) {
-    Some(decl) => Ok(decl)
-    None => Err("Binding not found: " + binding_node_id.to_string())
+    })
+    is Some(decl) else {
+    raise BindingNotFound(action="Find binding decl", node_id=binding_node_id)
   }
+  decl
 }
 
 ///|

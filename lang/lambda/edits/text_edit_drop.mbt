@@ -4,28 +4,20 @@ fn compute_drop(
   source : NodeId,
   target : NodeId,
   position : DropPosition,
-) -> EditResult {
+) -> EditResult raise EditError {
   // Legality: self-drop
-  guard source != target else { return Err("Cannot drop onto self") }
+  guard source != target else {
+    raise InvalidTarget(detail="Cannot drop onto self")
+  }
   let { source_text, .. } = ctx
-  let (source_node, source_range) = ctx.resolve(source) catch {
-    ResolveError(e) => return Err(e)
-  }
-  let (target_node, target_range) = ctx.resolve(target) catch {
-    ResolveError(e) => return Err(e)
-  }
-  match ensure_replaceable_node_range(ctx, source, source_node, source_range) {
-    Err(e) => return Err(e)
-    Ok(_) => ()
-  }
-  match ensure_replaceable_node_range(ctx, target, target_node, target_range) {
-    Err(e) => return Err(e)
-    Ok(_) => ()
-  }
+  let (source_node, source_range) = ctx.resolve(source)
+  let (target_node, target_range) = ctx.resolve(target)
+  ensure_replaceable_node_range(ctx, source, source_node, source_range)
+  ensure_replaceable_node_range(ctx, target, target_node, target_range)
   // Legality: descendant-drop (target is inside source)
   guard !(target_range.start >= source_range.start &&
     target_range.end <= source_range.end) else {
-    return Err("Cannot drop into own descendant")
+    raise InvalidTarget(detail="Cannot drop into own descendant")
   }
   let is_let_def_drop = source_node.kind is @ast.Term::LetDef(_, _) &&
     target_node.kind is @ast.Term::LetDef(_, _)
@@ -38,7 +30,7 @@ fn compute_drop(
     )
     let (insert_pos, inserted) = match position {
       Before => (target_range.start, source_row + "\n")
-      // Dropping “inside” a let row means move the whole row after it; the
+      // Dropping "inside" a let row means move the whole row after it; the
       // initializer is a child, not the row's drop target.
       After | Inside => (target_range.end, "\n" + source_row)
     }
@@ -57,15 +49,13 @@ fn compute_drop(
       source_slice,
     )
   }
-  Ok(
-    Some(
-      (
-        [
-          { start: delete_start, delete_len, inserted: "" },
-          { start: insert_pos, delete_len: 0, inserted },
-        ],
-        RestoreCursor,
-      ),
+  Some(
+    (
+      [
+        { start: delete_start, delete_len, inserted: "" },
+        { start: insert_pos, delete_len: 0, inserted },
+      ],
+      RestoreCursor,
     ),
   )
 }

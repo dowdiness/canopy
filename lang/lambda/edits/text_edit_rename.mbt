@@ -3,7 +3,7 @@ fn compute_rename(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
   new_name : String,
-) -> EditResult {
+) -> EditResult raise EditError {
   match ctx.registry.get(node_id) {
     Some(n) =>
       match n.kind {
@@ -58,9 +58,11 @@ fn tight_name_range(
   source : String,
   range : @loomcore.Range,
   name : String,
-) -> Result[(Int, Int), String] {
-  if name.length() == 0 || range.end - range.start < name.length() {
-    return Err("Cannot rename: identifier range does not contain name")
+) -> (Int, Int) raise EditError {
+  guard !(name.length() == 0 || range.end - range.start < name.length()) else {
+    raise SourceSpanMissing(
+      detail="Cannot rename: identifier range does not contain name",
+    )
   }
   let last = range.end - name.length()
   // Manual range scan returns the first bounded occurrence without allocating candidates.
@@ -68,10 +70,12 @@ fn tight_name_range(
     let end = pos + name.length()
     if name_matches_at(source, pos, name) &&
       has_identifier_boundaries(source, pos, end) {
-      return Ok((pos, end))
+      return (pos, end)
     }
   }
-  Err("Cannot rename: identifier range does not contain '" + name + "'")
+  raise SourceSpanMissing(
+    detail="Cannot rename: identifier range does not contain '" + name + "'",
+  )
 }
 
 ///|
@@ -79,26 +83,26 @@ fn ref_edit_range(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
   old_name : String,
-) -> Result[(Int, Int), String] {
-  match ctx.source_map.get_range(node_id) {
-    Some(r) => tight_name_range(ctx.source_text, r, old_name)
-    None => Err("Cannot rename: reference not in source map")
+) -> (Int, Int) raise EditError {
+  guard ctx.source_map.get_range(node_id) is Some(r) else {
+    raise NodeNotInSourceMap(action="Rename reference", node_id~)
   }
+  tight_name_range(ctx.source_text, r, old_name)
 }
 
 ///|
 fn lambda_param_references(
   g : @scope.ScopeGraph,
   lam_id : NodeId,
-) -> Result[Array[NodeId], String] {
+) -> Array[NodeId] raise EditError {
   for decl in g.decls {
     match decl.kind {
       @scope.DeclKind::LamParam(lam_id=decl_lam_id) if decl_lam_id == lam_id =>
-        return Ok(@scope.references(g, decl.id))
+        return @scope.references(g, decl.id)
       _ => ()
     }
   }
-  Err("No scope declaration for lambda parameter")
+  raise BindingNotFound(action="Lambda param references", node_id=lam_id)
 }
 
 ///|
@@ -153,13 +157,10 @@ fn rename_lam_param(
   lam_node : ProjNode[@ast.Term],
   old_name : String,
   new_name : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> EditResult raise EditError {
   let source_map = ctx.source_map
   // Resolve via scope graph; fall back to structural body walk if empty.
-  let scope_ref_ids = match lambda_param_references(g, lam_id) {
-    Ok(ids) => ids
-    Err(e) => return Err(e)
-  }
+  let scope_ref_ids = lambda_param_references(g, lam_id)
   let ref_ids = if scope_ref_ids.length() == 0 && lam_node.children.length() > 0 {
     let walk_ids : Array[NodeId] = []
     collect_var_usages(lam_node.children[0], old_name, walk_ids)
@@ -177,20 +178,20 @@ fn rename_lam_param(
       lam_subtree,
       registry=Some(ctx.registry),
     )
-    if body_refs.any(fn(r) { r.name == new_name }) {
-      return Err(
-        "Cannot rename: would capture free variable '" + new_name + "'",
+    guard !body_refs.any(fn(r) { r.name == new_name }) else {
+      raise CaptureViolation(
+        detail="Cannot rename: would capture free variable '" + new_name + "'",
       )
     }
   }
   // Guard: an inner binder with the target name would capture renamed uses.
   if new_name != old_name {
     for ref_id in ref_ids {
-      if new_name_captured_before_lam(g, ref_id, new_name, lam_id) {
-        return Err(
-          "Cannot rename: '" +
-          new_name +
-          "' is bound by an inner scope at a usage site",
+      guard !new_name_captured_before_lam(g, ref_id, new_name, lam_id) else {
+        raise CaptureViolation(
+          detail="Cannot rename: '" +
+            new_name +
+            "' is bound by an inner scope at a usage site",
         )
       }
     }
@@ -210,22 +211,20 @@ fn rename_lam_param(
         (@ast.Term::Lam(_, body), Some(range)) => {
           let new_kind = @ast.Term::Lam(new_name, body)
           let new_text = @ast.print_term(new_kind)
-          return Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: new_text,
-                  },
-                ],
-                RestoreCursor,
-              ),
+          return Some(
+            (
+              [
+                {
+                  start: range.start,
+                  delete_len: range.end - range.start,
+                  inserted: new_text,
+                },
+              ],
+              RestoreCursor,
             ),
           )
         }
-        _ => return Err("Cannot rename: lambda not in source map")
+        _ => raise NodeNotInSourceMap(action="Rename lambda", node_id=lam_id)
       }
   }
   // Add edits for each identity-resolved reference, collecting tight name
@@ -233,10 +232,7 @@ fn rename_lam_param(
   let var_ranges : Array[(Int, Int)] = []
   // Push loop lets us abort on the first invalid range before emitting edits.
   for vid in ref_ids {
-    match ref_edit_range(ctx, vid, old_name) {
-      Ok(r) => var_ranges.push(r)
-      Err(e) => return Err(e)
-    }
+    var_ranges.push(ref_edit_range(ctx, vid, old_name))
   }
   // Sort descending by position for reverse-order application
   var_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
@@ -245,7 +241,7 @@ fn rename_lam_param(
   }
   // Sort all edits by start position descending (param edit might be first)
   edits.sort_by(fn(a, b) { b.start.compare(a.start) })
-  Ok(Some((edits, RestoreCursor)))
+  Some((edits, RestoreCursor))
 }
 
 ///|
@@ -258,18 +254,18 @@ fn rename_from_var(
   var_node_id : NodeId,
   old_name : String,
   new_name : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> EditResult raise EditError {
   let g = @scope.build(ctx.registry, ctx.source_map)
   guard @scope.declaration(g, var_node_id) is Some(decl) else {
-    return Err("No binding found for variable: " + old_name)
+    raise BindingNotFound(action="Rename from var", node_id=var_node_id)
   }
   match decl.kind {
-    DeclKind::LamParam(lam_id~) =>
-      match ctx.registry.get(lam_id) {
-        Some(lam_node) =>
-          rename_lam_param(ctx, g, lam_id, lam_node, old_name, new_name)
-        None => Err("Lambda node not found in registry")
+    DeclKind::LamParam(lam_id~) => {
+      guard ctx.registry.get(lam_id) is Some(lam_node) else {
+        raise NodeNotFound(action="Rename lambda", node_id=lam_id)
       }
+      rename_lam_param(ctx, g, lam_id, lam_node, old_name, new_name)
+    }
     // The decl is already the block-aware declaration the var resolves to;
     // thread it straight through (its `def_index` is scope-relative and must
     // NOT be re-interpreted against the root module's defs).
@@ -286,12 +282,9 @@ fn rename_binding_by_id(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
   new_name : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> EditResult raise EditError {
   let g = @scope.build(ctx.registry, ctx.source_map)
-  let decl = match module_def_decl_for_binding(g, binding_node_id) {
-    Ok(d) => d
-    Err(e) => return Err(e)
-  }
+  let decl = module_def_decl_for_binding(g, binding_node_id)
   rename_module_binding(ctx, g, decl, decl.name, new_name)
 }
 
@@ -318,10 +311,10 @@ fn rename_module_binding(
   decl : @scope.Decl,
   old_name : String,
   new_name : String,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> EditResult raise EditError {
   let source_map = ctx.source_map
   // No-op rename: nothing to edit, and dup/capture checks do not apply.
-  guard new_name != old_name else { return Ok(Some(([], RestoreCursor))) }
+  guard new_name != old_name else { return Some(([], RestoreCursor)) }
   // Guard: a sibling binding in the SAME scope already uses new_name. Keyed on
   // the declaration's scope (block-local aware), not the root module's defs.
   guard !g.decls
@@ -329,17 +322,19 @@ fn rename_module_binding(
     .any(fn(d2) {
       d2.scope == decl.scope && d2.id != decl.id && d2.name == new_name
     }) else {
-    return Err(
-      "Cannot rename: binding '" + new_name + "' already exists in this scope",
+    raise ScopeViolation(
+      detail="Cannot rename: binding '" +
+        new_name +
+        "' already exists in this scope",
     )
   }
   // Guard: an EXISTING new_name use inside the decl's region would be captured
   // by the renamed binder (e.g. a block body `y` resolving to an outer `y`).
   guard !rename_captures_existing_use(g, decl, new_name) else {
-    return Err(
-      "Cannot rename: '" +
-      new_name +
-      "' is already used at a site the renamed binding would capture",
+    raise CaptureViolation(
+      detail="Cannot rename: '" +
+        new_name +
+        "' is already used at a site the renamed binding would capture",
     )
   }
   // References resolved to THIS declaration (identity-based, shadowing-correct).
@@ -348,10 +343,10 @@ fn rename_module_binding(
   guard !ref_ids
     .iter()
     .any(fn(ref_id) { name_captured_at_node(g, ref_id, new_name) }) else {
-    return Err(
-      "Cannot rename: '" +
-      new_name +
-      "' is bound by an enclosing scope at a usage site",
+    raise ScopeViolation(
+      detail="Cannot rename: '" +
+        new_name +
+        "' is bound by an enclosing scope at a usage site",
     )
   }
   let edits : Array[SpanEdit] = []
@@ -359,7 +354,9 @@ fn rename_module_binding(
   // `LET_DEF_NAME_ROLE` off the decl's own `LetDef` node and only falls back to
   // the root `module_name_role` for a root-scope decl).
   guard @scope.binder_span(g, decl, source_map) is Some(range) else {
-    return Err("No token span for binding name: " + decl.name)
+    raise SourceSpanMissing(
+      detail="No token span for binding name: " + decl.name,
+    )
   }
   edits.push({
     start: range.start,
@@ -369,10 +366,7 @@ fn rename_module_binding(
   let ref_ranges : Array[(Int, Int)] = []
   // Push loop lets us abort on the first invalid range before emitting edits.
   for rid in ref_ids {
-    match ref_edit_range(ctx, rid, old_name) {
-      Ok(r) => ref_ranges.push(r)
-      Err(e) => return Err(e)
-    }
+    ref_ranges.push(ref_edit_range(ctx, rid, old_name))
   }
   // Sort descending by position
   ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
@@ -381,5 +375,5 @@ fn rename_module_binding(
   }
   // Sort all edits descending
   edits.sort_by(fn(a, b) { b.start.compare(a.start) })
-  Ok(Some((edits, RestoreCursor)))
+  Some((edits, RestoreCursor))
 }

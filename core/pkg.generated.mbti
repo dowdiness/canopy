@@ -26,6 +26,21 @@ pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @r
 pub fn[T : @dowdiness/loom/core.TreeNode] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform]) -> ProjNode[T]
 
 // Errors
+pub(all) suberror EditError {
+  ProjectionUnavailable
+  NodeNotFound(action~ : String, node_id~ : NodeId)
+  NodeNotInSourceMap(action~ : String, node_id~ : NodeId)
+  NodeNotInRegistry(action~ : String, node_id~ : NodeId)
+  BindingNotFound(action~ : String, node_id~ : NodeId)
+  InvalidTarget(detail~ : String)
+  UnsupportedOperation(detail~ : String)
+  CaptureViolation(detail~ : String)
+  ScopeViolation(detail~ : String)
+  ParseFailed(detail~ : String)
+  SourceSpanMissing(detail~ : String)
+  Invariant(detail~ : String)
+}
+pub fn EditError::message(Self) -> String
 
 // Types and methods
 pub(all) enum Direction {

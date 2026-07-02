@@ -273,8 +273,11 @@ pub fn apply_lambda_tree_edit(
     registry,
     definition_index,
   }
-  match @lambda_edits.compute_text_edit(op, ctx) {
-    Ok(Some((edits, focus_hint))) => {
+  let edits_opt = @lambda_edits.compute_text_edit(op, ctx) catch {
+    e => return Err(map_edit_error(e))
+  }
+  match edits_opt {
+    Some((edits, focus_hint)) => {
       if edits.is_empty() {
         return Ok(edits)
       }
@@ -286,8 +289,36 @@ pub fn apply_lambda_tree_edit(
       )
       Ok(edits)
     }
-    Ok(None) =>
+    None =>
       Err(@editor.TreeEditError::UnhandledOperation(detail=op.to_string()))
-    Err(msg) => Err(@editor.TreeEditError::ProjectionEdit(detail=msg))
+  }
+}
+
+///|
+/// Map a language edit error to the editor-level error type.
+fn map_edit_error(e : @core.EditError) -> @editor.TreeEditError {
+  match e {
+    @core.EditError::ProjectionUnavailable =>
+      @editor.TreeEditError::ProjectionUnavailable
+    @core.EditError::NodeNotFound(..)
+    | @core.EditError::NodeNotInRegistry(..) =>
+      @editor.TreeEditError::NodeNotInRegistry(
+        action=e.message(),
+        node_id=@core.NodeId::from_int(0),
+      )
+    @core.EditError::NodeNotInSourceMap(..) =>
+      @editor.TreeEditError::NodeNotInSourceMap(
+        action=e.message(),
+        node_id=@core.NodeId::from_int(0),
+      )
+    @core.EditError::BindingNotFound(..)
+    | @core.EditError::InvalidTarget(..)
+    | @core.EditError::UnsupportedOperation(..)
+    | @core.EditError::CaptureViolation(..)
+    | @core.EditError::ScopeViolation(..)
+    | @core.EditError::ParseFailed(..)
+    | @core.EditError::SourceSpanMissing(..)
+    | @core.EditError::Invariant(..) =>
+      @editor.TreeEditError::ProjectionEdit(detail=e.message())
   }
 }

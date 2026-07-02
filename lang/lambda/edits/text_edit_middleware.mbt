@@ -5,10 +5,10 @@
 priv trait EditMiddleware {
   fn apply(
     Self,
-    (TreeEditOp, EditContext[@ast.Term]) -> EditResult,
+    (TreeEditOp, EditContext[@ast.Term]) -> EditResult raise EditError,
     TreeEditOp,
     EditContext[@ast.Term],
-  ) -> EditResult
+  ) -> EditResult raise EditError
 }
 
 ///|
@@ -23,7 +23,7 @@ impl EditMiddleware for ValidateNodeExists with fn apply(_self, next, op, ctx) {
       if ctx.registry.contains(id) {
         next(op, ctx)
       } else {
-        Err("Node not found: " + id.to_string())
+        raise NodeNotFound(action="Validate", node_id=id)
       }
     None => next(op, ctx)
   }
