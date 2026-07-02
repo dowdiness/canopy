@@ -7,7 +7,7 @@ test "integration: two hubs sync via InMemoryTransport" {
   let t_b = InMemoryTransport::new("bob", room)
   // Wire: when alice sends ephemeral, bob applies
   t_b.on_receive(fn(data) {
-    match decode_message(data) {
+    match @wire.decode_message(data) {
       Some(EphemeralUpdate(ns, payload)) => hub_b.apply(ns, payload)
       _ => ()
     }
@@ -15,7 +15,7 @@ test "integration: two hubs sync via InMemoryTransport" {
   // Alice sets presence and sends
   hub_a.set_presence("Alice", "#ff0000", Active)
   let presence_bytes = hub_a.encode(Presence)
-  t_a.send(encode_message(EphemeralUpdate(Presence, presence_bytes)))
+  t_a.send(@wire.encode_message(EphemeralUpdate(Presence, presence_bytes)))
   // Bob should see alice's presence
   let peers = hub_b.get_online_peers()
   inspect(peers.length(), content="1")

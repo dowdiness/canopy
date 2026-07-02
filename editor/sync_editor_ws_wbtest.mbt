@@ -29,7 +29,7 @@ test "ws_on_message: PeerLeft removes peer from hub" {
   // Verify bob is present (peer-id-keyed query — no wire-key math needed)
   inspect(editor.hub.get_cursor("bob") is None, content="false")
   // Simulate PeerLeft message
-  let wire = encode_message(PeerLeft("bob"))
+  let wire = @wire.encode_message(PeerLeft("bob"))
   editor.ws_on_message(wire)
   // Bob should be removed
   inspect(editor.hub.get_cursor("bob") is None, content="true")
@@ -51,7 +51,7 @@ test "ws_on_message: CrdtOps applies remote edits" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  let wire = encode_message(CrdtOps(buf.to_bytes()))
+  let wire = @wire.encode_message(CrdtOps(buf.to_bytes()))
   // Bob receives the message
   editor_b.ws_on_message(wire)
   inspect(editor_b.get_text(), content="hello")
@@ -65,7 +65,7 @@ test "ws_on_message: EphemeralUpdate applies to hub" {
   other_hub.set_cursor(42)
   let cursor_data = other_hub.encode(Cursor)
   // Wrap as wire message
-  let wire = encode_message(EphemeralUpdate(Cursor, cursor_data))
+  let wire = @wire.encode_message(EphemeralUpdate(Cursor, cursor_data))
   editor.ws_on_message(wire)
   // Verify bob's cursor is now in alice's hub
   let bob_cursor = editor.hub.get_cursor("bob")
@@ -86,7 +86,7 @@ test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  let wire = encode_relayed_crdt_ops("alice", buf.to_bytes())
+  let wire = @wire.encode_relayed_crdt_ops("alice", buf.to_bytes())
   editor_b.ws_on_message(wire)
   inspect(editor_b.get_text(), content="hello")
 }

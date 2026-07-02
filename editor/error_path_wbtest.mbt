@@ -9,68 +9,68 @@
 
 ///|
 test "decode_message: empty bytes returns None" {
-  inspect(decode_message(Bytes::new(0)) is None, content="true")
+  inspect(@wire.decode_message(Bytes::new(0)) is None, content="true")
 }
 
 ///|
 test "decode_message: 1-byte too short returns None" {
-  inspect(decode_message(b"\x02") is None, content="true")
+  inspect(@wire.decode_message(b"\x02") is None, content="true")
 }
 
 ///|
 test "decode_message: 2-byte too short returns None" {
-  inspect(decode_message(b"\x02\x01") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x01") is None, content="true")
 }
 
 ///|
 test "decode_message: wrong protocol version returns None" {
-  inspect(decode_message(b"\xFF\x01\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\xFF\x01\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: unknown message type returns None" {
-  inspect(decode_message(b"\x02\xFF\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\xFF\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: CrdtOps with empty payload" {
-  let msg = decode_message(b"\x02\x01\x00")
+  let msg = @wire.decode_message(b"\x02\x01\x00")
   inspect(msg is Some(CrdtOps(_)), content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate missing namespace byte returns None" {
   // Header only, no namespace byte after it
-  inspect(decode_message(b"\x02\x02\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x02\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate invalid namespace returns None" {
   // Header + invalid namespace byte 0xFF
-  inspect(decode_message(b"\x02\x02\x00\xFF") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x02\x00\xFF") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined missing sub_type returns None" {
   // Header for peer message (0x05) but no sub_type byte
-  inspect(decode_message(b"\x02\x05\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x05\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined truncated peer_id returns None" {
   // Header + sub_type Join (0x01) but no peer_id string
-  inspect(decode_message(b"\x02\x05\x00\x01") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x05\x00\x01") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined unknown sub_type returns None" {
   // Header + unknown sub_type 0xFF
-  inspect(decode_message(b"\x02\x05\x00\xFF") is None, content="true")
+  inspect(@wire.decode_message(b"\x02\x05\x00\xFF") is None, content="true")
 }
 
 ///|
 test "decode_message: roundtrip preserves all message types" {
-  let messages : Array[SyncMessage] = [
+  let messages : Array[@wire.SyncMessage] = [
     CrdtOps(b"\x42\x43"),
     EphemeralUpdate(Cursor, b"\x01\x02"),
     SyncRequest(b"\x10"),
@@ -79,8 +79,8 @@ test "decode_message: roundtrip preserves all message types" {
     PeerLeft("bob"),
   ]
   for msg in messages {
-    let encoded = encode_message(msg)
-    let decoded = decode_message(encoded)
+    let encoded = @wire.encode_message(msg)
+    let decoded = @wire.decode_message(encoded)
     inspect(decoded == Some(msg), content="true")
   }
 }
@@ -116,7 +116,7 @@ test "ws_on_message: CrdtOps with invalid JSON does not panic" {
   let editor = @probe.new_test_editor("alice")
   let buf = Buffer()
   buf.write_string_utf16le("this is not valid json {{{".view())
-  let wire = encode_message(CrdtOps(buf.to_bytes()))
+  let wire = @wire.encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   // Editor should remain unchanged
   inspect(editor.get_text(), content="")
@@ -127,7 +127,7 @@ test "ws_on_message: CrdtOps with wrong JSON schema does not panic" {
   let editor = @probe.new_test_editor("alice")
   let buf = Buffer()
   buf.write_string_utf16le("{\"wrong\": \"schema\"}".view())
-  let wire = encode_message(CrdtOps(buf.to_bytes()))
+  let wire = @wire.encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
 }
@@ -137,7 +137,7 @@ test "ws_on_message: CrdtOps with empty JSON object does not panic" {
   let editor = @probe.new_test_editor("alice")
   let buf = Buffer()
   buf.write_string_utf16le("{}".view())
-  let wire = encode_message(CrdtOps(buf.to_bytes()))
+  let wire = @wire.encode_message(CrdtOps(buf.to_bytes()))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
 }
@@ -145,7 +145,7 @@ test "ws_on_message: CrdtOps with empty JSON object does not panic" {
 ///|
 test "ws_on_message: CrdtOps with empty payload does not panic" {
   let editor = @probe.new_test_editor("alice")
-  let wire = encode_message(CrdtOps(Bytes::new(0)))
+  let wire = @wire.encode_message(CrdtOps(Bytes::new(0)))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
 }
@@ -153,7 +153,7 @@ test "ws_on_message: CrdtOps with empty payload does not panic" {
 ///|
 test "ws_on_message: PeerLeft for unknown peer does not panic" {
   let editor = @probe.new_test_editor("alice")
-  let wire = encode_message(PeerLeft("nonexistent_peer"))
+  let wire = @wire.encode_message(PeerLeft("nonexistent_peer"))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
 }
@@ -173,12 +173,12 @@ test "ws_on_message: malformed message after valid sync preserves text" {
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
   buf.write_string_utf16le(json_str.view())
-  editor_b.ws_on_message(encode_message(CrdtOps(buf.to_bytes())))
+  editor_b.ws_on_message(@wire.encode_message(CrdtOps(buf.to_bytes())))
   inspect(editor_b.get_text(), content="hello")
   // Now send malformed message — bob's text should be preserved
   let bad_buf = Buffer()
   bad_buf.write_string_utf16le("not json".view())
-  editor_b.ws_on_message(encode_message(CrdtOps(bad_buf.to_bytes())))
+  editor_b.ws_on_message(@wire.encode_message(CrdtOps(bad_buf.to_bytes())))
   inspect(editor_b.get_text(), content="hello")
 }
 
