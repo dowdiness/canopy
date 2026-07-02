@@ -184,20 +184,28 @@ pub fn enclosing_env(
 /// Callers can filter by `ref.name` for per-variable rebind checks, compare
 /// `ref.resolution.decl` against a target-site resolution, or group by name
 /// for the free-name set.
+///
+/// Note: this includes Unbound refs (scope records them as unresolved
+/// `resolution.decl = None`), while the deleted edit-layer `free_vars`
+/// ignored Unbound entirely. Guards are therefore slightly more conservative
+/// on alpha-reified trees — operations the old code allowed are now rejected.
+/// Parsed Lambda trees never contain Unbound nodes, so production edit
+/// behavior is unchanged. See `scope_resolution_differential_wbtest.mbt`
+/// for the recorded divergence.
 pub fn references_outside_subtree(
   g : ScopeGraph,
   subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
 ) -> Array[Ref] {
   // Collect distinct scopes containing subtree nodes.
-  let seen : Map[ScopeId, Unit] = {}
+  let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.new()
   for nid in subtree_node_ids.iter() {
     match g.node_scope.get(nid) {
-      Some(sid) => seen[sid] = ()
+      Some(sid) => seen = seen.add(sid)
       None => continue
     }
   }
   let result : Array[Ref] = []
-  for sid in seen.keys() {
+  for sid in seen.iter() {
     let ScopeId(si) = sid
     for rid in g.scopes[si].ref_ids {
       let RefId(ri) = rid
@@ -225,7 +233,9 @@ pub fn references_outside_subtree(
 /// count as the cutoff on the module node itself, so this delegates to
 /// `declaration_for_name_at` — no separate recomputation from
 /// `DefinitionIndex.length()`. Returns None when the name is not bound
-/// (free or block-local).
+/// (free or block-local). Caller must pass a Module ProjNode id; any other
+/// node id silently performs at-position resolution via
+/// `declaration_for_name_at`.
 pub fn declaration_for_name_at_module_end(
   g : ScopeGraph,
   module_proj_node_id : @core.NodeId,

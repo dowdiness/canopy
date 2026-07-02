@@ -2033,7 +2033,7 @@ test "compute_text_edit: ExtractToLet bare expression" {
 
 ///|
 /// Regression test for #651: the defs-empty branch of the capture check (now
-/// unified via `free_names_would_rebind` with a None resolve function) was
+/// using `would_rebind_on_move` with `references_outside_subtree`) was
 /// Module-blind — it found the inner `g` inside `{ let g = 1; g }` and falsely
 /// flagged it as capturing the outer free `g`, causing a spurious rejection.
 test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed free name [#651]" {

@@ -4,6 +4,13 @@
 /// target (module-end for extract, per-node for inline). `outside_refs` comes
 /// from `@scope.references_outside_subtree` — self-contained refs are already
 /// excluded, so only the target comparison is needed.
+///
+/// Note: `references_outside_subtree` includes Unbound refs (scope records them
+/// as unresolved), while the deleted `free_vars` ignored Unbound entirely. This
+/// makes guards slightly more conservative on alpha-reified trees — the old
+/// code allowed operations that the new code rejects. Parsed trees never contain
+/// Unbound nodes, so production edit behavior is unchanged. See the differential
+/// wbtest header for the recorded divergence.
 fn would_rebind_on_move(
   outside_refs : Array[@scope.Ref],
   resolve : (String) -> @scope.DeclId?,
