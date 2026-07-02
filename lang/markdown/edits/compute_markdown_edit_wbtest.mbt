@@ -316,7 +316,7 @@ test "move_block: rejects unclosed fenced code before following sibling" {
     )
     fail("expected error")
   } catch {
-    e => inspect(true, content="true")
+    _ => inspect(true, content="true")
   }
 }
 
@@ -425,7 +425,7 @@ test "move_block: rejects duplicate list item payloads" {
     )
     fail("expected error")
   } catch {
-    e => inspect(true, content="true")
+    _ => inspect(true, content="true")
   }
 }
 
@@ -445,7 +445,7 @@ test "move_block: rejects duplicate ordered list item payloads" {
     )
     fail("expected error")
   } catch {
-    e => inspect(true, content="true")
+    _ => inspect(true, content="true")
   }
 }
 
@@ -726,6 +726,6 @@ test "move_block: rejects duplicate source payloads" {
     )
     fail("expected error")
   } catch {
-    e => inspect(true, content="true")
+    _ => inspect(true, content="true")
   }
 }
