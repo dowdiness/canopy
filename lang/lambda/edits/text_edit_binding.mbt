@@ -1,3 +1,47 @@
+
+///|
+/// Check scoping guards for swapping two adjacent bindings. `a_def` is the
+/// binding that becomes first after the swap; `b_def` becomes second.
+/// Rejects if a's init references b's name (which would become free), or if
+/// b's init references a's name AND that ref currently resolves (which would
+/// silently re-target to a).
+fn check_swap_scoping(
+  g : @scope.ScopeGraph,
+  a_def : EditModuleBinding,
+  b_def : EditModuleBinding,
+  direction : String,
+) -> Result[Unit, String] {
+  let a_subtree = subtree_node_ids(a_def.init)
+  let b_subtree = subtree_node_ids(b_def.init)
+  let a_outside = @scope.references_outside_subtree(g, a_subtree)
+  let b_outside = @scope.references_outside_subtree(g, b_subtree)
+  if a_outside.any(r => r.name == b_def.name) {
+    return Err(
+      "Cannot move " +
+      direction +
+      ": " +
+      a_def.name +
+      " uses " +
+      b_def.name +
+      " in its init",
+    )
+  }
+  if b_outside.any(r =>
+      r.name == a_def.name && r.resolution.decl is Some(_),
+    ) {
+    return Err(
+      "Cannot move " +
+      direction +
+      ": " +
+      b_def.name +
+      " uses " +
+      a_def.name +
+      " in its init",
+    )
+  }
+  Ok(())
+}
+
 ///|
 fn compute_delete_binding(
   ctx : EditContext[@ast.Term],
@@ -176,36 +220,10 @@ fn compute_move_binding_up(
     return Err("Cannot swap bindings with the same name")
   }
   // Scoping guards: the swap re-orders sequential visibility.
-  // - cur depends on prev's name: after swap, cur is first so prev's name is
-  //   no longer visible → cur's reference becomes free. Block.
-  // - prev depends on cur's name AND that ref currently resolves: after swap,
-  //   prev can see cur → the reference re-targets. Block. If prev's ref is
-  //   currently free, the swap improves it (free → bound): allow.
-  let cur_subtree = subtree_node_ids(cur_def.init)
-  let prev_subtree = subtree_node_ids(prev_def.init)
-  let cur_outside = @scope.references_outside_subtree(g, cur_subtree)
-  let prev_outside = @scope.references_outside_subtree(g, prev_subtree)
-  if cur_outside.any(fn(r) { r.name == prev_def.name }) {
-    return Err(
-      "Cannot move up: " +
-      cur_def.name +
-      " uses " +
-      prev_def.name +
-      " in its init",
-    )
+  match check_swap_scoping(g, cur_def, prev_def, "up") {
+    Ok(_) => ()
+    Err(e) => return Err(e)
   }
-  if prev_outside.any(fn(r) {
-      r.name == cur_def.name && r.resolution.decl is Some(_)
-    }) {
-    return Err(
-      "Cannot move up: " +
-      prev_def.name +
-      " uses " +
-      cur_def.name +
-      " in its init",
-    )
-  }
-  // Get text ranges for both bindings
   let (cur_start, cur_end) = match
     get_binding_text_range(source_text, source_map, cur_def) {
     Ok(r) => r
@@ -276,34 +294,9 @@ fn compute_move_binding_down(
     return Err("Cannot swap bindings with the same name")
   }
   // Scoping guards: the swap re-orders sequential visibility.
-  // - next depends on cur's name: after swap, next is first so cur's name is
-  //   no longer visible → next's reference becomes free. Block.
-  // - cur depends on next's name AND that ref currently resolves: after swap,
-  //   cur can see next → the reference re-targets. Block. If cur's ref is
-  //   currently free, the swap improves it (free → bound): allow.
-  let cur_subtree = subtree_node_ids(cur_def.init)
-  let next_subtree = subtree_node_ids(next_def.init)
-  let cur_outside = @scope.references_outside_subtree(g, cur_subtree)
-  let next_outside = @scope.references_outside_subtree(g, next_subtree)
-  if next_outside.any(fn(r) { r.name == cur_def.name }) {
-    return Err(
-      "Cannot move down: " +
-      next_def.name +
-      " uses " +
-      cur_def.name +
-      " in its init",
-    )
-  }
-  if cur_outside.any(fn(r) {
-      r.name == next_def.name && r.resolution.decl is Some(_)
-    }) {
-    return Err(
-      "Cannot move down: " +
-      cur_def.name +
-      " uses " +
-      next_def.name +
-      " in its init",
-    )
+  match check_swap_scoping(g, next_def, cur_def, "down") {
+    Ok(_) => ()
+    Err(e) => return Err(e)
   }
   // Get text ranges for both bindings
   let (cur_start, cur_end) = match

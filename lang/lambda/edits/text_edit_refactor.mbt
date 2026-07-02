@@ -15,7 +15,7 @@ fn would_rebind_on_move(
   outside_refs : Array[@scope.Ref],
   resolve : (String) -> @scope.DeclId?,
 ) -> Bool {
-  outside_refs.any(fn(r) {
+  outside_refs.any(r => {
     let target = resolve(r.name)
     r.resolution.decl != target
   })
@@ -127,7 +127,7 @@ fn compute_extract_to_let(
       // point and must not be rejected.
       let unsafe_ref = match @scope.scope_for_node(g, block_node.id()) {
         Some(bis) =>
-          outside_refs.any(fn(r) {
+          outside_refs.any(r => {
             match r.resolution.decl {
               Some(did) => {
                 let DeclId(di) = did
