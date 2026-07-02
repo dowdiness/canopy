@@ -56,7 +56,7 @@ fn compute_delete(
                 ),
               )
             }
-            Some(parent_range) => {
+            Some(parent_range) =>
               try {
                 ensure_replaceable_node_range(
                   ctx, parent_id, parent_node, parent_range,
@@ -97,7 +97,6 @@ fn compute_delete(
                     _ => raise parent_err
                   }
               }
-            }
           }
         }
       }
