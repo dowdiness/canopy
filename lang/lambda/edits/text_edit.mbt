@@ -15,18 +15,17 @@ pub(all) struct EditContext[T] {
 pub type EditResult = (Array[SpanEdit], FocusHint)?
 
 ///|
-/// Look up both the projection node and its source range for a given node_id.
-/// Raises EditError::NodeNotFound if either the source-map range or the
-/// registry entry is absent.
+/// Raises NodeNotInSourceMap if the source map lacks a range,
+/// or NodeNotInRegistry if the registry lacks the node.
 fn[T] EditContext::resolve(
   self : EditContext[T],
   node_id : NodeId,
 ) -> (ProjNode[T], @loomcore.Range) raise EditError {
   guard self.source_map.get_range(node_id) is Some(range) else {
-    raise NodeNotFound(action="Resolve", node_id~)
+    raise NodeNotInSourceMap(action="Resolve", node_id~)
   }
   guard self.registry.get(node_id) is Some(node) else {
-    raise NodeNotFound(action="Resolve", node_id~)
+    raise NodeNotInRegistry(action="Resolve", node_id~)
   }
   (node, range)
 }

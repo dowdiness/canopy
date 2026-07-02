@@ -364,7 +364,7 @@ fn compute_wrap_in_object(
 /// Unwrap a single-child container: `[value]` -> `value` or `{"k": value}` -> `value`.
 fn compute_unwrap(
   source : String,
-  _proj : ProjNode[@json.JsonValue],
+  proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
   node_id : NodeId,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
@@ -375,7 +375,7 @@ fn compute_unwrap(
     )
   }
   // Find the node in the projection tree to check it has exactly one child
-  guard @core.get_node_in_tree(_proj, node_id) is Some(node) else {
+  guard @core.get_node_in_tree(proj, node_id) is Some(node) else {
     raise @core.EditError::NodeNotFound(action="compute_json_edit", node_id~)
   }
   if node.children.length() != 1 {

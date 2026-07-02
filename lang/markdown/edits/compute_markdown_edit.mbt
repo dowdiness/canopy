@@ -248,7 +248,7 @@ fn compute_split_block(
   let range = match source_map.get_range(node_id) {
     Some(r) => r
     None =>
-      raise @core.EditError::NodeNotFound(
+      raise @core.EditError::NodeNotInSourceMap(
         action="compute_markdown_edit",
         node_id~,
       )
