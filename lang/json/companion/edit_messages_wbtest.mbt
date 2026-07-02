@@ -52,7 +52,7 @@ test "apply_json_edit message pin: absent node id -> compute error" {
       inspect(
         msg,
         content=(
-          #|node not found in source map
+          #|compute_json_edit: node NodeId(5) not in source map
         ),
       )
     Ok(_) => fail("expected Err for absent node id")

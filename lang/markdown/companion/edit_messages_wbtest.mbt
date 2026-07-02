@@ -51,7 +51,7 @@ test "apply_markdown_edit pin: absent node id -> compute error" {
       inspect(
         msg,
         content=(
-          #|node not found in projection tree: NodeId(3)
+          #|compute_markdown_edit: node NodeId(3) not found
         ),
       )
     Ok(_) => fail("expected Err for absent node id")

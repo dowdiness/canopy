@@ -108,21 +108,24 @@ pub fn apply_markdown_edit(
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
   let source = editor.get_text()
-  guard editor.get_proj_node() is Some(proj) else {
-    return Err("no projection available")
-  }
-  let source_map = editor.get_source_map()
-  match @md_edits.compute_markdown_edit(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      match markdown_identity_hint(op) {
-        Some(hint) =>
-          editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint~)
-        None => editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-      }
-      Ok(())
+  try {
+    guard editor.get_proj_node() is Some(proj) else {
+      raise @core.EditError::ProjectionUnavailable
     }
-    Ok(None) => Ok(())
-    Err(msg) => Err(msg)
+    let source_map = editor.get_source_map()
+    match @md_edits.compute_markdown_edit(op, source, proj, source_map) {
+      Some((edits, focus_hint)) => {
+        match markdown_identity_hint(op) {
+          Some(hint) =>
+            editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint~)
+          None => editor.apply_span_edits(edits, focus_hint, timestamp_ms)
+        }
+        Ok(())
+      }
+      None => Ok(())
+    }
+  } catch {
+    e => Err(e.message())
   }
 }
 

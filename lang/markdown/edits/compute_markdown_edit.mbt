@@ -47,18 +47,16 @@ fn compute_commit_edit(
           )
       }
   }
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: range.start,
-            delete_len: range.end - range.start,
-            inserted: new_text,
-          },
-        ],
-        FocusHint::MoveCursor(position=range.start + new_text.length()),
-      ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_text,
+        },
+      ],
+      FocusHint::MoveCursor(position=range.start + new_text.length()),
     ),
   )
 }
@@ -98,19 +96,17 @@ fn compute_change_heading_level(
     "" // level 0 = paragraph (no prefix)
   }
   let new_block = new_prefix + content + "\n"
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: range.start,
-            delete_len: range.end - range.start,
-            inserted: new_block,
-          },
-        ],
-        FocusHint::MoveCursor(
-          position=range.start + new_prefix.length() + content.length(),
-        ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_block,
+        },
+      ],
+      FocusHint::MoveCursor(
+        position=range.start + new_prefix.length() + content.length(),
       ),
     ),
   )
@@ -147,19 +143,17 @@ fn compute_toggle_list_item(
     // Paragraph -> list item: add "- " prefix
     ("- " + content + "\n", 2)
   }
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: range.start,
-            delete_len: range.end - range.start,
-            inserted: new_text,
-          },
-        ],
-        FocusHint::MoveCursor(
-          position=range.start + prefix_len + content.length(),
-        ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_text,
+        },
+      ],
+      FocusHint::MoveCursor(
+        position=range.start + prefix_len + content.length(),
       ),
     ),
   )
@@ -179,18 +173,16 @@ fn compute_delete(
         node_id~,
       )
   }
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: range.start,
-            delete_len: range.end - range.start,
-            inserted: "",
-          },
-        ],
-        FocusHint::RestoreCursor,
-      ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: "",
+        },
+      ],
+      FocusHint::RestoreCursor,
     ),
   )
 }
@@ -220,18 +212,16 @@ fn compute_insert_block_after(
   // Known minor gap: MarkdownPreview renders node.text as-is (sentinel invisible
   // in HTML, but could leak on copy-paste from preview).
   // Long-term fix: migrate to Container per-block text (empty block = empty text).
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: insert_pos,
-            delete_len: 0,
-            inserted: "\n" + @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n",
-          },
-        ],
-        FocusHint::MoveCursor(position=insert_pos + 1),
-      ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: insert_pos,
+          delete_len: 0,
+          inserted: "\n" + @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n",
+        },
+      ],
+      FocusHint::MoveCursor(position=insert_pos + 1),
     ),
   )
 }
@@ -268,12 +258,10 @@ fn compute_split_block(
   // Split at offset 0 → insert empty paragraph before this block
   if split_offset <= 0 {
     let insert_pos = range.start
-    return Ok(
-      Some(
-        (
-          [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n" }],
-          FocusHint::MoveCursor(position=insert_pos),
-        ),
+    return Some(
+      (
+        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n" }],
+        FocusHint::MoveCursor(position=insert_pos),
       ),
     )
   }
@@ -312,18 +300,16 @@ fn compute_split_block(
     rest
   }
   let inserted = separator + trimmed_rest + "\n"
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: split_pos,
-            delete_len: delete_end - split_pos,
-            inserted,
-          },
-        ],
-        FocusHint::MoveCursor(position=split_pos + separator.length()),
-      ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: split_pos,
+          delete_len: delete_end - split_pos,
+          inserted,
+        },
+      ],
+      FocusHint::MoveCursor(position=split_pos + separator.length()),
     ),
   )
 }
@@ -401,7 +387,7 @@ fn compute_merge_with_previous(
   }
   // First sibling — no-op
   if idx == 0 {
-    return Ok(None)
+    return None
   }
   let prev_node = siblings[idx - 1]
   let curr_range = match source_map.get_range(node_id) {
@@ -440,18 +426,16 @@ fn compute_merge_with_previous(
   // separator, current block's prefix + text + trailing newline. Always
   // append \n to restore the proper \n\n block separator with the next block.
   let inserted = clean_text + "\n"
-  Ok(
-    Some(
-      (
-        [
-          SpanEdit::{
-            start: prev_text_end,
-            delete_len: curr_range.end - prev_text_end,
-            inserted,
-          },
-        ],
-        FocusHint::MoveCursor(position=prev_text_end),
-      ),
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: prev_text_end,
+          delete_len: curr_range.end - prev_text_end,
+          inserted,
+        },
+      ],
+      FocusHint::MoveCursor(position=prev_text_end),
     ),
   )
 }
