@@ -111,9 +111,9 @@ Known constraints:
   submenu-choice data, operator/name parsing, and action-id-to-`TreeEditOp`
   construction.
 - Pure overlay state transitions are separated from Rabbita cell/command
-  creation. If moved outside the example, they live only in a package whose
-  imports are UI-toolkit-neutral; otherwise they remain example-local after the
-  Rabbita-specific tail is split away.
+  creation as an example-local file split (the state machine embeds
+  `@menu.Msg` from the Rabbita-family `rabbita-menu` package, so it cannot
+  cross the library boundary as-is; see step 6).
 - Intent/patch logging keeps app-owned arrays in `Model`, but label/snapshot
   construction is pure and reusable enough to test without mutating the
   example model.
@@ -127,11 +127,19 @@ Known constraints:
    the candidate files. Add or move only tests that pin existing behavior before
    extraction: structural-edit request string mapping, log-entry construction,
    scope annotation, action-context detection, action-to-tree-edit construction,
-   and overlay pure state transitions. Expected breakpoints: moved tests cannot
-   construct non-`pub(all)` structs until destination constructors or test-local
-   builders exist. Fix sequence: first add narrow public constructors/query
-   methods in the destination package only when the Existing API First check
-   finds no existing API; then migrate tests.
+   and overlay pure state transitions.
+
+   Test-construction decision (resolved 2026-07-02, no mid-step judgment
+   needed): because each extraction moves the type definitions into the
+   destination package, the pinning tests move as **whitebox tests**
+   (`*_wbtest.mbt`) in that destination — same-package construction is
+   unrestricted, so no `pub(all)` widening and no new public constructors are
+   required for testing. Fixtures reuse the parse → `ProjNode`/`SourceMap`/
+   `ScopeGraph` helpers already used by `lang/lambda/edits/text_edit_wbtest.mbt`
+   and the `lang/lambda/scope` wbtests. The example keeps only integration
+   tests that exercise the extracted public APIs. If an implementation step
+   nonetheless appears to require visibility widening, that is a stop-and-report
+   event, not a call to make inline.
 
 2. **Extract structural-edit request reconstruction to `lang/lambda/companion`.**
    Move the `structural_edit_op_to_tree_edit` responsibility from
@@ -173,22 +181,33 @@ Known constraints:
    `NodeContext`, submenu-choice computation, `parse_bop`, and
    `build_tree_edit_op` into the existing lambda edits package, adjacent to
    `actions.mbt`. This package already owns `Action`, `NodeContext`, and
-   `get_actions_for_node`, so it is the responsibility match. Keep the
-   editor-dependent context detection boundary carefully shaped: either expose
-   a pure builder over `ProjNode`, `DefinitionIndex`, and selected `NodeId`, or
-   a small companion wrapper if taking `SyncEditor[@ast.Term]` would pull too
-   much editor orchestration into `edits`. Migrate action-construction tests
-   from `main_wbtest.mbt` to `lang/lambda/edits`.
+   `get_actions_for_node`, so it is the responsibility match. Context-detection
+   boundary (resolved 2026-07-02 by inspection): `detect_action_context` uses
+   `SyncEditor` only for `get_node(nid)` and `get_proj_node()` — registry lookup
+   plus the root `ProjNode` — and `lang/lambda/edits/moon.pkg` does not import
+   `editor` today. Therefore expose a **pure builder** in `edits` over the root
+   `ProjNode[@ast.Term]`, the looked-up node, `DefinitionIndex`, and the
+   selected `NodeId`; place the thin `SyncEditor[@ast.Term]`-taking wrapper in
+   `lang/lambda/companion` (which already imports `editor`). Do not add an
+   `edits -> editor` import. Migrate action-construction tests from
+   `main_wbtest.mbt` to `lang/lambda/edits`.
 
-6. **Separate pure overlay flow from Rabbita runtime wiring.**
-   Split `action_overlay_flow.mbt` at the current boundary: pure
-   `OverlayMsg`/`OverlayOutput`/`OverlayEffect`/`OverlayUpdate` and
-   `OverlayState::update` stay free of Rabbita commands; Rabbita cell creation,
-   focus commands, parent emits, and view callbacks remain in
-   `examples/ideal/main`. Move the pure part only if the chosen destination has
-   no Rabbita/menu dependency leak; otherwise keep it example-local but in a
-   file that makes the pure/runtime boundary explicit. Preserve token-guard
-   behavior for delayed child outputs.
+6. **Separate pure overlay flow from Rabbita runtime wiring (example-local).**
+   Destination (resolved 2026-07-02 by inspection): the overlay state machine
+   **stays in `examples/ideal/main`**. `OverlayMsg` embeds `@menu.Msg` and
+   `OverlayState::handle_menu_msg` pattern-matches it, where `@menu` is
+   `dowdiness/rabbita-menu/menu` — a Rabbita-family package — so moving the
+   state machine to any `lang/*` package would violate the hard no-Rabbita
+   constraint. The step is therefore a file split inside the example: pure
+   `OverlayMsg`/`OverlayOutput`/`OverlayEffect`/`OverlayUpdate` and all
+   `OverlayState::*` transitions (`action_overlay_flow.mbt` up to
+   `overlay_effect_to_cmd`) in one file with no `@rabbita` import; cell
+   creation, focus commands, parent emits, and view callbacks
+   (`overlay_effect_to_cmd`, `overlay_cell_update`, `create_overlay_cell`) in a
+   runtime file. Re-modeling `OverlayMsg` on a UI-neutral menu-message enum is
+   an explicit non-goal here; note it as a follow-up only if a second consumer
+   for the overlay flow appears. Preserve token-guard behavior for delayed
+   child outputs.
 
 7. **Centralize Ideal refresh orchestration around extracted pure data.**
    After scope/log/action extraction, reduce `refresh(model)` to app-owned
@@ -279,9 +298,10 @@ especially in `editor/`, `lang/lambda/companion`, `lang/lambda/edits`, and
   covers only rebuildable operations. Do not pretend app event strings encode
   payloads they do not carry; `"Drop"` remains a fallback label unless the event
   protocol changes in a separate PR.
-- **Over-extraction of overlay flow.** Pure state-machine code is reusable, but
-  focus commands, cells, emits, and views are Rabbita-specific. Mixing those
-  would violate the hard library-boundary constraint.
+- **Over-extraction of overlay flow.** Resolved at plan time: the overlay
+  state machine depends on `@menu.Msg` (rabbita-menu) and stays example-local
+  (step 6). The residual risk is an implementer "improving" this by moving it
+  anyway — do not; re-modeling the menu dependency is out of scope.
 - **Behavior changes hidden in reducer splitting.** `update()` refactoring is
   last and should be mostly move-only so behavioral diffs are attributable to
   earlier extraction PRs.
