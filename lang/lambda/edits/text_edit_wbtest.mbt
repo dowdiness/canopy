@@ -168,7 +168,12 @@ test "compute_text_edit: Delete replaces Var with placeholder" {
     Ok(Some((edits, _))) => {
       inspect(edits.length(), content="1")
       // Var → placeholder "a", parent re-rendered with print_term
-      inspect(apply_edits(text, edits), content="(a + 1)")
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|a + 1
+        ),
+      )
     }
     _ => fail("expected Some edits")
   }
@@ -244,7 +249,12 @@ test "compute_text_edit: WrapInApp wraps node in application" {
   match result {
     Ok(Some((edits, _))) => {
       inspect(edits.length(), content="1")
-      inspect(apply_edits(text, edits), content="(42 a)")
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|42 a
+        ),
+      )
     }
     _ => fail("expected Some edits")
   }
@@ -294,7 +304,7 @@ test "compute_text_edit: InsertChild into non-Module re-renders parent" {
       inspect(
         new_text,
         content=(
-          #|(z + x)
+          #|z + x
         ),
       )
     }
@@ -572,9 +582,19 @@ test "compute_text_edit: WrapInBop wraps node in binary operation" {
   match result {
     Ok(Some((edits, hint))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="(42 + 0)")
-      // MoveCursor should point to placeholder "0" at offset 6
-      inspect(hint, content="MoveCursor(position=6)")
+      inspect(
+        new_text,
+        content=(
+          #|42 + 0
+        ),
+      )
+      // MoveCursor should point to placeholder "0" at offset 5 in "42 + 0"
+      inspect(
+        hint,
+        content=(
+          #|MoveCursor(position=5)
+        ),
+      )
     }
     _ => fail("expected Some edits")
   }
@@ -593,7 +613,12 @@ test "compute_text_edit: ChangeOperator changes Bop operator" {
   )
   match result {
     Ok(Some((edits, hint))) => {
-      inspect(apply_edits(text, edits), content="(1 - 2)")
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|1 - 2
+        ),
+      )
       inspect(hint, content="RestoreCursor")
     }
     _ => fail("expected Some edits")
@@ -613,7 +638,12 @@ test "compute_text_edit: SwapChildren swaps Bop operands" {
   )
   match result {
     Ok(Some((edits, hint))) => {
-      inspect(apply_edits(text, edits), content="(2 + 1)")
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|2 + 1
+        ),
+      )
       inspect(hint, content="RestoreCursor")
     }
     _ => fail("expected Some edits")
@@ -1901,7 +1931,14 @@ test "compute_text_edit: ExtractToLet from body" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="let x = 0\nlet y = (x + 1)\ny")
+      inspect(
+        new_text,
+        content=(
+          #|let x = 0
+          #|let y = x + 1
+          #|y
+        ),
+      )
     }
     _ => fail("expected Some edits")
   }
@@ -2012,7 +2049,14 @@ test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed 
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      inspect(new_text, content="let y = (g + { let g = 1\ng })\ny")
+      inspect(
+        new_text,
+        content=(
+          #|let y = g + { let g = 1
+          #|g }
+          #|y
+        ),
+      )
     }
     _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
   }

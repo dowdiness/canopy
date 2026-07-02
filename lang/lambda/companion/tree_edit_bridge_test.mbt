@@ -89,7 +89,12 @@ test "apply_tree_edit - WrapInApp" {
     1,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="(42 a)")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|42 a
+    ),
+  )
 }
 
 ///|
@@ -217,7 +222,12 @@ test "apply_tree_edit - Delete non-root node inserts valid placeholder" {
     1,
   )
   inspect(result is Ok(_), content="true")
-  inspect(editor.get_text(), content="(x + 0)")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|x + 0
+    ),
+  )
   assert_converged(editor)
 }
 
@@ -241,7 +251,12 @@ test "apply_tree_edit - sequential edits" {
     2,
   )
   inspect(result2 is Ok(_), content="true")
-  inspect(editor.get_text(), content="(((x) => 42) a)")
+  inspect(
+    editor.get_text(),
+    content=(
+      #|((x) => 42) a
+    ),
+  )
   assert_converged(editor)
 }
 
