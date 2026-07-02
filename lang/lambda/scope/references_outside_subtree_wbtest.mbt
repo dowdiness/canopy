@@ -121,15 +121,14 @@ test "references_outside_subtree: empty subtree" {
 ///|
 test "references_outside_subtree: subtree is just the body — def init refs excluded" {
   // let x = y\nlet y = 0\nx — subtree = only the body expression "x".
-  // The body x resolves to def 1 (which is NOT in this subtree).
-  // The init "y" in def 0 is NOT in the subtree either.
-  // But init "y" is not in the subtree node ids.
+  // The body x resolves to def 0 (the first definition).
+  // The init "y" in def 0 is NOT in this subtree.
   let (proj, registry, source_map) = build_fixture("let x = y\nlet y = 0\nx")
   let g = build(registry, source_map)
   let body = proj.children[proj.children.length() - 1]
   let body_ids = subtree_ids(body)
   let result = references_outside_subtree(g, body_ids)
-  // body x resolves to def 1 (outside the body-only subtree) → it IS an outside ref.
+  // body x resolves to def 0 (outside the body-only subtree) → it IS an outside ref.
   // This is the "free relative to subtree" semantics: from the body's perspective,
   // x is free.
   inspect(result.length(), content="1")

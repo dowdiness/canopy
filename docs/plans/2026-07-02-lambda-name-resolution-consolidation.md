@@ -329,7 +329,7 @@ Steps 1-8 executed in a single session.
 - [x] **Step 3:** `text_edit_refactor.mbt` extract/inline guards migrated to `references_outside_subtree`. `would_rebind_on_move` helper replaces `free_names_would_rebind`.
 - [x] **Step 4:** `text_edit_binding.mbt` move-up/down guards migrated. `init_ref_resolves` collapsed into `references_outside_subtree`.
 - [x] **Step 5:** `declaration_id_for_name_from_scope` + `declaration_id_for_name_at_module_end` deleted from `scope.mbt`. Call site migrated to `@scope.declaration_for_name_at_module_end`. **#652 closed.**
-- [x] **Step 6:** `init_ref_resolves`, `free_names_would_rebind`, `free_name_would_rebind_to` deleted from `scope.mbt`. `text_edit_rename.mbt` migrated. `free_vars` kept as `pub` — zero production callers remain.
+- [x] **Step 6:** `init_ref_resolves`, `free_names_would_rebind`, `free_name_would_rebind_to` deleted from `scope.mbt`. `text_edit_rename.mbt` migrated. `free_vars.mbt` deleted — function moved into `scope_resolution_differential_wbtest.mbt` as wbtest-local oracle. Removed from `pkg.generated.mbti`.
 - [x] **Step 7:** Alpha lowering verified graph-backed (`@scope.declaration`). Nested block lowering test added. Semantic diagnostics verified graph-backed (`@scope.failures`).
 - [x] **Step 8:** This section.
 
