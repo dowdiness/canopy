@@ -15,6 +15,17 @@ fn error_node_with_span(
 }
 
 ///|
+/// Structural wrapper node kinds introduced by loom #542 (LambdaBody,
+/// IfCondition, IfThen, IfElse). They carry no Term meaning; both the Term
+/// fold and the parallel token-span walk must look through them.
+fn is_wrapper_kind(node : @seam.SyntaxNode) -> Bool {
+  node.kind() == @syntax.LambdaBody.to_raw() ||
+  node.kind() == @syntax.IfCondition.to_raw() ||
+  node.kind() == @syntax.IfThen.to_raw() ||
+  node.kind() == @syntax.IfElse.to_raw()
+}
+
+///|
 fn error_node_for_syntax(
   message : String,
   node : @seam.SyntaxNode,
@@ -404,6 +415,14 @@ pub fn syntax_to_proj_node(
     module_node_from_defs(defs, result, node.start(), node.end(), counter)
   } else if @parser.HoleLiteralView::cast(node) is Some(_) {
     cstfold_leaf_node(node, counter)
+  } else if is_wrapper_kind(node) {
+    // Structural wrapper nodes introduced by loom #542. Mirror loom's own
+    // term_convert: unwrap to the single child; the wrapper carries no Term
+    // meaning of its own.
+    match node.nth_child(0) {
+      Some(child) => syntax_to_proj_node(child, counter)
+      None => error_node_for_syntax("empty wrapper node", node, counter)
+    }
   } else {
     error_node_for_syntax(
       "unknown node kind: " + node.kind().to_string(),

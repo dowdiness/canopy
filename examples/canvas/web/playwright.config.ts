@@ -18,7 +18,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run prebuild:moonbit && npx vite --port 5182 --strictPort',
+    // CANOPY_SKIP_MOON_BUILD=1 (CI Playwright container, no MoonBit
+    // toolchain) skips the prebuild and relies on pre-built artifacts
+    // downloaded by the build-js job.
+    command: process.env.CANOPY_SKIP_MOON_BUILD === '1'
+      ? 'npx vite --port 5182 --strictPort'
+      : 'npm run prebuild:moonbit && npx vite --port 5182 --strictPort',
     url: 'http://localhost:5182',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

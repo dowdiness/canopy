@@ -65,7 +65,12 @@ test "reconcile_ast preserves IDs for matching nodes" {
     reconciled.children[0].node_id,
     content=old_root.children[0].node_id.to_string(),
   )
-  inspect(@ast.print_term(reconciled.kind), content="(x + 2)")
+  inspect(
+    @ast.print_term(reconciled.kind),
+    content=(
+      #|x + 2
+    ),
+  )
 }
 
 ///|
@@ -82,7 +87,12 @@ test "reconcile_ast preserves IDs across operator-only edits" {
     reconciled.children[1].node_id,
     content=old_root.children[1].node_id.to_string(),
   )
-  inspect(@ast.print_term(reconciled.kind), content="(x - 1)")
+  inspect(
+    @ast.print_term(reconciled.kind),
+    content=(
+      #|x - 1
+    ),
+  )
 }
 
 ///|

@@ -64,9 +64,13 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
   const { modules, target = 'js', release = true, watch = true, skipIfExists = false } = options;
   const watchProcesses: ChildProcess[] = [];
 
-  // Auto-detect CI environment
+  // Auto-detect CI environment. CANOPY_SKIP_MOON_BUILD=1 is the project-wide
+  // signal (see scripts/test-*-e2e.sh) that pre-built JS artifacts already
+  // exist and the MoonBit toolchain may be unavailable (e.g. Playwright's
+  // container image).
   const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
-  const shouldSkipBuild = skipIfExists || isCI;
+  const skipMoonBuild = process.env.CANOPY_SKIP_MOON_BUILD === '1';
+  const shouldSkipBuild = skipIfExists || isCI || skipMoonBuild;
 
   // Resolve absolute paths for modules
   const resolvedModules = modules.map(mod => {
@@ -152,7 +156,9 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
         }
       });
 
-      if (watch) {
+      if (watch && shouldSkipBuild) {
+        console.log('[MoonBit] Skipping watch mode (CI / CANOPY_SKIP_MOON_BUILD=1), using pre-built modules');
+      } else if (watch) {
         // Start MoonBit watch mode for each module
         console.log('[MoonBit] Starting watch mode...');
 
