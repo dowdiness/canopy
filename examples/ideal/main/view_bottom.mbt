@@ -497,43 +497,66 @@ fn format_structured_change(
     }
   }
   fn truncate(s : String) -> String {
-    if s.length() > 60 { s.substring(0, 60) + "..." } else { s }
+    if s.length() > 60 {
+      s.substring(0, 60) + "..."
+    } else {
+      s
+    }
   }
   match c {
     @canopy_core.Inserted(_, index, node_id, kind_tag) => {
       let s = snippet(node_id)
-      if s.is_empty() { "+ \{kind_tag}" }
-      else { "+ \{kind_tag} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "+ \{kind_tag}"
+      } else {
+        "+ \{kind_tag} '\{truncate(s)}'"
+      }
     }
     @canopy_core.Deleted(_, _, node_id, kind_tag) => {
       let s = snippet(node_id)
-      if s.is_empty() { "- \{kind_tag}" }
-      else { "- \{kind_tag} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "- \{kind_tag}"
+      } else {
+        "- \{kind_tag} '\{truncate(s)}'"
+      }
     }
     @canopy_core.Wrapped(inner_id, wrapper_node_id, wrapper_kind) => {
       let s = snippet(wrapper_node_id)
       let s = if s.is_empty() { snippet(inner_id) } else { s }
-      if s.is_empty() { "⊞ \{wrapper_kind}" }
-      else { "⊞ \{wrapper_kind} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "⊞ \{wrapper_kind}"
+      } else {
+        "⊞ \{wrapper_kind} '\{truncate(s)}'"
+      }
     }
     @canopy_core.Unwrapped(wrapper_id, _, wrapper_kind) => {
       let s = snippet(wrapper_id)
-      if s.is_empty() { "⊟ \{wrapper_kind}" }
-      else { "⊟ \{wrapper_kind} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "⊟ \{wrapper_kind}"
+      } else {
+        "⊟ \{wrapper_kind} '\{truncate(s)}'"
+      }
     }
     @canopy_core.Renamed(node_id, kind_tag) => {
       let s = snippet(node_id)
-      if s.is_empty() { "→ \{kind_tag}" }
-      else { "→ \{kind_tag} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "→ \{kind_tag}"
+      } else {
+        "→ \{kind_tag} '\{truncate(s)}'"
+      }
     }
     @canopy_core.Freshened(_, _, node_id, kind_tag) => {
       let s = snippet(node_id)
-      if s.is_empty() { "~ \{kind_tag}" }
-      else { "~ \{kind_tag} '\{truncate(s)}'" }
+      if s.is_empty() {
+        "~ \{kind_tag}"
+      } else {
+        "~ \{kind_tag} '\{truncate(s)}'"
+      }
     }
   }
 }
 
+///|
 /// Render the Patch panel — paired (op label, SpanEdits) rows.
 /// Mirrors `view_op_log` shape: most-recent first, capped to MAX_PATCH_LOG.
 /// Each entry surfaces the producing `GenericTreeOp` label as a header row
@@ -570,12 +593,16 @@ fn view_patch_log(model : Model) -> Html {
       ])
     })
     [
-      @html.node("details", @html.Attrs::build().class("patch-structural-details"), [
-        @html.node("summary", @html.Attrs::build(), [
-          @html.text("Structural changes"),
-        ]),
-        @html.div(class="patch-structural-body", change_rows),
-      ]),
+      @html.node(
+        "details",
+        @html.Attrs::build().class("patch-structural-details"),
+        [
+          @html.node("summary", @html.Attrs::build(), [
+            @html.text("Structural changes"),
+          ]),
+          @html.div(class="patch-structural-body", change_rows),
+        ],
+      ),
     ]
   }
   if log.is_empty() {

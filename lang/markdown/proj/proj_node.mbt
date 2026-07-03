@@ -168,11 +168,17 @@ fn build_markdown_projection_memos_with_heading_side_table(
     populate_token_spans,
     reconcile_node=(old, new_, counter, trace_ref) => {
       match identity_hints {
-        None => @core.reconcile(old, new_, counter, trace_ref=trace_ref)
+        None => @core.reconcile(old, new_, counter, trace_ref~)
         Some(hints_ref) => {
           let hints = build_markdown_hints_map(hints_ref.val)
           hints_ref.val = []
-          reconcile_markdown_projection_hinted(old, new_, counter, hints, trace_ref=trace_ref)
+          reconcile_markdown_projection_hinted(
+            old,
+            new_,
+            counter,
+            hints,
+            trace_ref~,
+          )
         }
       }
     },
