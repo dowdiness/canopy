@@ -317,34 +317,6 @@ test "dom event subscription error message includes context" {
   )
 }
 
-///|
-/// Locks in the unified Op Log shape contract: the rebuilt-from-(op,
-/// node_id) `TreeEditOp` produced for the FFI arm must stringify the same
-/// way as the direct-apply paths' typed op (both routes go through
-/// `push_intent`, which calls `op.to_generic().to_string()`). If a future
-/// refactor reintroduces a divergent label format, this snapshot fails.
-test "structural_edit_op_to_tree_edit rebuilds known ops with unified label shape" {
-  let nid = @canopy_core.NodeId::from_int(42)
-  let wrap = structural_edit_op_to_tree_edit("WrapInLambda", nid).unwrap()
-  inspect(
-    wrap.to_generic().to_string(),
-    content="StructuralEditKeepSelected(#42)",
-  )
-  let del = structural_edit_op_to_tree_edit("Delete", nid).unwrap()
-  inspect(del.to_generic().to_string(), content="Delete(#42)")
-}
-
-///|
-test "structural_edit_op_to_tree_edit returns None for unrebuildable ops" {
-  let nid = @canopy_core.NodeId::from_int(7)
-  inspect(structural_edit_op_to_tree_edit("Drop", nid) is None, content="true")
-  inspect(structural_edit_op_to_tree_edit("", nid) is None, content="true")
-  inspect(
-    structural_edit_op_to_tree_edit("UnknownOp", nid) is None,
-    content="true",
-  )
-}
-
 // ── OverlayError typed-error tests ───────────────────────────────────────────
 
 ///|

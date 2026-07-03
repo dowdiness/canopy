@@ -21,6 +21,7 @@ pub using @lambda_companion {
   get_lambda_resolution,
   get_lambda_dot_resolved,
   parse_tree_edit_op,
+  structural_edit_op_to_tree_edit,
 }
 
 ///|

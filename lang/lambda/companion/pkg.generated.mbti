@@ -29,6 +29,8 @@ pub fn new_lambda_editor(String, capture_timeout_ms? : Int, parent_runtime? : @c
 
 pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
 
+pub fn structural_edit_op_to_tree_edit(String, @core.NodeId) -> @edits.TreeEditOp?
+
 // Errors
 
 // Types and methods
