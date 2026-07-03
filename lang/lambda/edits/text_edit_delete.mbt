@@ -1,25 +1,27 @@
 ///|
-fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult {
-  let (node, range) = ctx.resolve(node_id) catch {
-    ResolveError(e) => return Err(e)
-  }
+using @core {type EditError}
+
+///|
+fn compute_delete(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult raise EditError {
+  let (node, range) = ctx.resolve(node_id)
   match find_parent(ctx.registry, node_id) {
     Some((parent_id, parent_node, child_index)) =>
       match parent_node.kind {
         @ast.Term::Error(_) =>
           // Error parent: remove child entirely
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: "",
-                  },
-                ],
-                RestoreCursor,
-              ),
+          Some(
+            (
+              [
+                {
+                  start: range.start,
+                  delete_len: range.end - range.start,
+                  inserted: "",
+                },
+              ],
+              RestoreCursor,
             ),
           )
         _ => {
@@ -41,64 +43,58 @@ fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult 
             None => {
               // No parent range — fall back to simple placeholder
               let placeholder = placeholder_text_for_kind(node.kind)
-              Ok(
-                Some(
-                  (
-                    [
-                      {
-                        start: range.start,
-                        delete_len: range.end - range.start,
-                        inserted: placeholder,
-                      },
-                    ],
-                    RestoreCursor,
-                  ),
+              Some(
+                (
+                  [
+                    {
+                      start: range.start,
+                      delete_len: range.end - range.start,
+                      inserted: placeholder,
+                    },
+                  ],
+                  RestoreCursor,
                 ),
               )
             }
             Some(parent_range) =>
-              match
+              try {
                 ensure_replaceable_node_range(
                   ctx, parent_id, parent_node, parent_range,
-                ) {
-                Ok(_) =>
-                  Ok(
+                )
+                Some(
+                  (
+                    [
+                      {
+                        start: parent_range.start,
+                        delete_len: parent_range.end - parent_range.start,
+                        inserted: new_text,
+                      },
+                    ],
+                    RestoreCursor,
+                  ),
+                )
+              } catch {
+                parent_err =>
+                  // Parent not replaceable — fall back to child placeholder
+                  try {
+                    ensure_replaceable_node_range(ctx, node_id, target, range)
+                    let placeholder = @ast.print_term(
+                      placeholder_term_for_kind(target.kind),
+                    )
                     Some(
                       (
                         [
                           {
-                            start: parent_range.start,
-                            delete_len: parent_range.end - parent_range.start,
-                            inserted: new_text,
+                            start: range.start,
+                            delete_len: range.end - range.start,
+                            inserted: placeholder,
                           },
                         ],
                         RestoreCursor,
                       ),
-                    ),
-                  )
-                Err(parent_err) =>
-                  match
-                    ensure_replaceable_node_range(ctx, node_id, target, range) {
-                    Ok(_) => {
-                      let placeholder = @ast.print_term(
-                        placeholder_term_for_kind(target.kind),
-                      )
-                      Ok(
-                        Some(
-                          (
-                            [
-                              {
-                                start: range.start,
-                                delete_len: range.end - range.start,
-                                inserted: placeholder,
-                              },
-                            ],
-                            RestoreCursor,
-                          ),
-                        ),
-                      )
-                    }
-                    Err(_) => Err(parent_err)
+                    )
+                  } catch {
+                    _ => raise parent_err
                   }
               }
           }
@@ -107,18 +103,16 @@ fn compute_delete(ctx : EditContext[@ast.Term], node_id : NodeId) -> EditResult 
     None => {
       // No parent found — this is the root node. Just use placeholder.
       let placeholder = placeholder_text_for_kind(node.kind)
-      Ok(
-        Some(
-          (
-            [
-              {
-                start: range.start,
-                delete_len: range.end - range.start,
-                inserted: placeholder,
-              },
-            ],
-            RestoreCursor,
-          ),
+      Some(
+        (
+          [
+            {
+              start: range.start,
+              delete_len: range.end - range.start,
+              inserted: placeholder,
+            },
+          ],
+          RestoreCursor,
         ),
       )
     }

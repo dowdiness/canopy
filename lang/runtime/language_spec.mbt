@@ -13,7 +13,7 @@
 /// `T` is the language's projection payload (e.g. JsonValue, Block, Term);
 /// `Op` is its structural-edit operation enum. `on_no_edit` answers "what
 /// should this language do when `compute_edit` produced no span edits
-/// (`Ok(None)`)?" — JSON reports an unhandled-op error, Markdown treats it
+/// (`None`)? — JSON reports an unhandled-op error, Markdown treats it
 /// as a silent no-op (e.g. merge on first block). A closure field rather
 /// than a policy enum + `Show` bound, so the no-edit behavior (and any
 /// message rendering it needs) stays language-owned and the record stays
@@ -25,11 +25,11 @@ pub struct LanguageSpec[T, Op] {
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],
   )
-  priv compute_edit : (Op, String, @core.ProjNode[T], @core.SourceMap) -> Result[
-    (Array[@core.SpanEdit], @core.FocusHint)?,
-    String,
-  ]
-  priv on_no_edit : (Op) -> Result[Unit, String]
+  priv compute_edit : (Op, String, @core.ProjNode[T], @core.SourceMap) -> (
+    Array[@core.SpanEdit],
+    @core.FocusHint,
+  )? raise @core.EditError
+  priv on_no_edit : (Op) -> Unit raise @core.EditError
 }
 
 ///|
@@ -40,11 +40,11 @@ pub fn[T, Op] LanguageSpec::LanguageSpec(
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],
   ),
-  compute_edit~ : (Op, String, @core.ProjNode[T], @core.SourceMap) -> Result[
-    (Array[@core.SpanEdit], @core.FocusHint)?,
-    String,
-  ],
-  on_no_edit~ : (Op) -> Result[Unit, String],
+  compute_edit~ : (Op, String, @core.ProjNode[T], @core.SourceMap) -> (
+    Array[@core.SpanEdit],
+    @core.FocusHint,
+  )? raise @core.EditError,
+  on_no_edit~ : (Op) -> Unit raise @core.EditError,
 ) -> LanguageSpec[T, Op] {
   { make_parser, build_memos, compute_edit, on_no_edit }
 }
@@ -81,16 +81,22 @@ pub fn[T : Eq, Op] LanguageSpec::apply_edit(
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
   let source = editor.get_text()
-  guard editor.get_proj_node() is Some(proj) else {
-    return Err("no projection available")
-  }
   let source_map = editor.get_source_map()
-  match (self.compute_edit)(op, source, proj, source_map) {
-    Ok(Some((edits, focus_hint))) => {
-      editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-      Ok(())
+  try {
+    guard editor.get_proj_node() is Some(proj) else {
+      raise @core.EditError::ProjectionUnavailable
     }
-    Ok(None) => (self.on_no_edit)(op)
-    Err(msg) => Err(msg)
+    match (self.compute_edit)(op, source, proj, source_map) {
+      Some((edits, focus_hint)) => {
+        editor.apply_span_edits(edits, focus_hint, timestamp_ms)
+        Ok(())
+      }
+      None => {
+        (self.on_no_edit)(op)
+        Ok(())
+      }
+    }
+  } catch {
+    e => Err(e.message())
   }
 }

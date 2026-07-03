@@ -19,16 +19,11 @@ fn compute_extract_to_let(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
   var_name : String,
-) -> EditResult {
+) -> EditResult raise EditError {
   let { source_text, .. } = ctx
   let module_view = edit_module_view(ctx)
-  let (node, range) = ctx.resolve(node_id) catch {
-    ResolveError(e) => return Err(e)
-  }
-  match ensure_replaceable_node_range(ctx, node_id, node, range) {
-    Err(e) => return Err(e)
-    Ok(_) => ()
-  }
+  let (node, range) = ctx.resolve(node_id)
+  ensure_replaceable_node_range(ctx, node_id, node, range)
   let g = @scope.build(ctx.registry, ctx.source_map)
   let node_subtree = subtree_node_ids(node)
   let outside_refs = @scope.references_outside_subtree(
@@ -75,10 +70,10 @@ fn compute_extract_to_let(
         collect_var_usages(body_node, var_name, body_var_ids)
         for vid in body_var_ids {
           if !node_subtree.contains(vid) {
-            return Err(
-              "Cannot extract: '" +
-              var_name +
-              "' appears in the block body outside the selected expression",
+            raise CaptureViolation(
+              detail="Cannot extract: '" +
+                var_name +
+                "' appears in the block body outside the selected expression",
             )
           }
         }
@@ -89,27 +84,25 @@ fn compute_extract_to_let(
         if would_rebind_on_move(outside_refs, fn(v) {
             declaration_id_for_name_at_node(g, body_node.id(), v)
           }) {
-          return Err(
-            "Cannot extract: expression captures lambda-bound variables",
+          raise CaptureViolation(
+            detail="Cannot extract: expression captures lambda-bound variables",
           )
         }
       }
       let prefix = source_text[block_body_start:range.start].to_owned()
       let suffix = source_text[range.end:block_body_end].to_owned()
       let new_body_text = let_text + prefix + var_name + suffix
-      return Ok(
-        Some(
-          (
-            [
-              {
-                start: block_body_start,
-                delete_len: block_body_end - block_body_start,
-                inserted: new_body_text,
-              },
-            ],
-            MoveCursor(
-              position=block_body_start + let_text.length() + prefix.length(),
-            ),
+      return Some(
+        (
+          [
+            {
+              start: block_body_start,
+              delete_len: block_body_end - block_body_start,
+              inserted: new_body_text,
+            },
+          ],
+          MoveCursor(
+            position=block_body_start + let_text.length() + prefix.length(),
           ),
         ),
       )
@@ -136,7 +129,9 @@ fn compute_extract_to_let(
         None => false
       }
       if unsafe_ref {
-        return Err("Cannot extract: expression captures lambda-bound variables")
+        raise CaptureViolation(
+          detail="Cannot extract: expression captures lambda-bound variables",
+        )
       }
       // Guard: inserting `let var_name = expr` before all block defs makes
       // var_name visible throughout the block. Any Var(var_name) in the block
@@ -147,31 +142,29 @@ fn compute_extract_to_let(
       collect_var_usages(block_node, var_name, block_var_ids)
       for vid in block_var_ids {
         if !node_subtree.contains(vid) {
-          return Err(
-            "Cannot extract: '" +
-            var_name +
-            "' appears in this block outside the selected expression",
+          raise CaptureViolation(
+            detail="Cannot extract: '" +
+              var_name +
+              "' appears in this block outside the selected expression",
           )
         }
       }
       guard block_node.children.length() > 0 else {
-        return Err("Cannot extract: block has no children")
+        raise Invariant(detail="Cannot extract: block has no children")
       }
       let block_start = block_node.children[0].start
-      return Ok(
-        Some(
-          (
-            [
-              { start: block_start, delete_len: 0, inserted: let_text },
-              {
-                start: range.start,
-                delete_len: range.end - range.start,
-                inserted: var_name,
-              },
-            ],
-            // let_text inserted at block_start < range.start, so range shifts right
-            MoveCursor(position=range.start + let_text.length()),
-          ),
+      return Some(
+        (
+          [
+            { start: block_start, delete_len: 0, inserted: let_text },
+            {
+              start: range.start,
+              delete_len: range.end - range.start,
+              inserted: var_name,
+            },
+          ],
+          // let_text inserted at block_start < range.start, so range shifts right
+          FocusHint::MoveCursor(position=range.start + let_text.length()),
         ),
       )
     }
@@ -194,23 +187,23 @@ fn compute_extract_to_let(
     None => false
   }
   if would_capture {
-    return Err("Cannot extract: expression captures lambda-bound variables")
+    raise CaptureViolation(
+      detail="Cannot extract: expression captures lambda-bound variables",
+    )
   }
   if module_view.defs.is_empty() && module_view.final_expr is Some(_) {
     // No module — wrap: replace expression with "let name = expr\nname"
     let new_text = let_text + var_name
-    Ok(
-      Some(
-        (
-          [
-            {
-              start: range.start,
-              delete_len: range.end - range.start,
-              inserted: new_text,
-            },
-          ],
-          MoveCursor(position=range.start + let_text.length()),
-        ),
+    Some(
+      (
+        [
+          {
+            start: range.start,
+            delete_len: range.end - range.start,
+            inserted: new_text,
+          },
+        ],
+        FocusHint::MoveCursor(position=range.start + let_text.length()),
       ),
     )
   } else {
@@ -240,19 +233,17 @@ fn compute_extract_to_let(
       let prefix = source_text[body_start:range.start].to_owned()
       let suffix = source_text[range.end:body_end].to_owned()
       let new_body_text = let_text + prefix + var_name + suffix
-      Ok(
-        Some(
-          (
-            [
-              {
-                start: body_start,
-                delete_len: body_end - body_start,
-                inserted: new_body_text,
-              },
-            ],
-            MoveCursor(
-              position=body_start + let_text.length() + prefix.length(),
-            ),
+      Some(
+        (
+          [
+            {
+              start: body_start,
+              delete_len: body_end - body_start,
+              inserted: new_body_text,
+            },
+          ],
+          FocusHint::MoveCursor(
+            position=body_start + let_text.length() + prefix.length(),
           ),
         ),
       )
@@ -260,10 +251,10 @@ fn compute_extract_to_let(
       // Node is in a def initializer. Insert the let before the first def
       // so var_name is sequentially visible (mirrors the block-def path).
       guard edit_root_node(ctx.registry) is Some(root) else {
-        return Err("Cannot extract: root module not found")
+        raise NodeNotFound(action="Extract root", node_id~)
       }
       guard root.children.length() > 0 else {
-        return Err("Cannot extract: module has no children")
+        raise Invariant(detail="Cannot extract: module has no children")
       }
       let first_def_start = root.children[0].start
       // Guard: var_name must not appear in the module outside the subtree.
@@ -271,26 +262,24 @@ fn compute_extract_to_let(
       collect_var_usages(root, var_name, module_var_ids)
       for vid in module_var_ids {
         if !node_subtree.contains(vid) {
-          return Err(
-            "Cannot extract: '" +
-            var_name +
-            "' appears in the module outside the selected expression",
+          raise CaptureViolation(
+            detail="Cannot extract: '" +
+              var_name +
+              "' appears in the module outside the selected expression",
           )
         }
       }
-      Ok(
-        Some(
-          (
-            [
-              { start: first_def_start, delete_len: 0, inserted: let_text },
-              {
-                start: range.start,
-                delete_len: range.end - range.start,
-                inserted: var_name,
-              },
-            ],
-            MoveCursor(position=range.start + let_text.length()),
-          ),
+      Some(
+        (
+          [
+            { start: first_def_start, delete_len: 0, inserted: let_text },
+            {
+              start: range.start,
+              delete_len: range.end - range.start,
+              inserted: var_name,
+            },
+          ],
+          FocusHint::MoveCursor(position=range.start + let_text.length()),
         ),
       )
     }
@@ -301,32 +290,25 @@ fn compute_extract_to_let(
 fn compute_inline_definition(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
-) -> EditResult {
+) -> EditResult raise EditError {
   let { source_text, .. } = ctx
-  let (node, range) = ctx.resolve(node_id) catch {
-    ResolveError(e) => return Err(e)
-  }
+  let (node, range) = ctx.resolve(node_id)
   guard node.kind is @ast.Term::Var(var_name) else {
-    return Err("InlineDefinition requires a Var node")
+    raise InvalidTarget(detail="InlineDefinition requires a Var node")
   }
   // Resolve the binding
   let g = @scope.build(ctx.registry, ctx.source_map)
   guard @scope.declaration(g, node_id) is Some(decl) else {
-    return Err("No binding found for variable: " + var_name)
+    raise BindingNotFound(action="Inline", node_id~)
   }
   match decl.kind {
     DeclKind::LamParam(..) =>
-      return Err("Cannot inline lambda-bound variable: " + var_name)
+      raise InvalidTarget(
+        detail="Cannot inline lambda-bound variable: " + var_name,
+      )
     DeclKind::ModuleDef(_) => {
-      let def = match edit_binding_for_decl(ctx, decl) {
-        Ok(def) => def
-        Err(e) => return Err(e)
-      }
-      let init_text = match
-        binding_inline_text(source_text, ctx.source_map, def) {
-        Ok(text) => text
-        Err(e) => return Err(e)
-      }
+      let def = edit_binding_for_decl(ctx, decl)
+      let init_text = binding_inline_text(source_text, ctx.source_map, def)
       // Check for capture: would any outside ref in the init be captured by
       // an enclosing scope at the usage site?
       let init_subtree = subtree_node_ids(def.init)
@@ -338,19 +320,19 @@ fn compute_inline_definition(
       if would_rebind_on_move(init_refs, fn(v) {
           declaration_id_for_name_at_node(g, node_id, v)
         }) {
-        return Err(
-          "Cannot inline: would capture variables bound by enclosing lambda",
+        raise CaptureViolation(
+          detail="Cannot inline: would capture variables bound by enclosing lambda",
         )
       }
       // Check if this is the sole resolved reference.
       let refs = @scope.references(g, decl.id)
       if refs.length() <= 1 {
         // Sole usage — inline and delete the binding
-        let (let_start, binding_end) = match
-          get_binding_text_range(source_text, ctx.source_map, def) {
-          Ok(r) => r
-          Err(e) => return Err(e)
-        }
+        let (let_start, binding_end) = get_binding_text_range(
+          source_text,
+          ctx.source_map,
+          def,
+        )
         let (del_start, del_len) = binding_delete_range(
           source_text, let_start, binding_end,
         )
@@ -360,41 +342,21 @@ fn compute_inline_definition(
           // Var is after binding — two non-overlapping edits.
           // Cursor must use post-edit coordinates: the binding deletion
           // shifts everything after del_start left by del_len.
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: init_text,
-                  },
-                  { start: del_start, delete_len: del_len, inserted: "" },
-                ],
-                MoveCursor(position=range.start - del_len),
-              ),
+          Some(
+            (
+              [
+                {
+                  start: range.start,
+                  delete_len: range.end - range.start,
+                  inserted: init_text,
+                },
+                { start: del_start, delete_len: del_len, inserted: "" },
+              ],
+              MoveCursor(position=range.start - del_len),
             ),
           )
         } else {
           // Var is within the binding init — just replace the var
-          Ok(
-            Some(
-              (
-                [
-                  {
-                    start: range.start,
-                    delete_len: range.end - range.start,
-                    inserted: init_text,
-                  },
-                ],
-                MoveCursor(position=range.start),
-              ),
-            ),
-          )
-        }
-      } else {
-        // Multiple usages — just replace this single var
-        Ok(
           Some(
             (
               [
@@ -406,6 +368,20 @@ fn compute_inline_definition(
               ],
               MoveCursor(position=range.start),
             ),
+          )
+        }
+      } else {
+        // Multiple usages — just replace this single var
+        Some(
+          (
+            [
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: init_text,
+              },
+            ],
+            MoveCursor(position=range.start),
           ),
         )
       }
@@ -417,18 +393,12 @@ fn compute_inline_definition(
 fn compute_inline_all_usages(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
-) -> EditResult {
+) -> EditResult raise EditError {
   let { source_text, .. } = ctx
   // Find all references resolved to this binding.
   let g = @scope.build(ctx.registry, ctx.source_map)
-  let decl = match module_def_decl_for_binding(g, binding_node_id) {
-    Ok(decl) => decl
-    Err(e) => return Err(e)
-  }
-  let def = match edit_binding_for_decl(ctx, decl) {
-    Ok(def) => def
-    Err(e) => return Err(e)
-  }
+  let decl = module_def_decl_for_binding(g, binding_node_id)
+  let def = edit_binding_for_decl(ctx, decl)
   let var_name = def.name
   let ref_ids = @scope.references(g, decl.id)
   // Check for capture: would any outside ref in init rebind at any ref site?
@@ -442,18 +412,15 @@ fn compute_inline_all_usages(
     if would_rebind_on_move(init_refs, fn(v) {
         declaration_id_for_name_at_node(g, rid, v)
       }) {
-      return Err(
-        "Cannot inline: would capture variables bound by enclosing lambda",
+      raise CaptureViolation(
+        detail="Cannot inline: would capture variables bound by enclosing lambda",
       )
     }
   }
   let init_text = if ref_ids.is_empty() {
     ""
   } else {
-    match binding_inline_text(source_text, ctx.source_map, def) {
-      Ok(text) => text
-      Err(e) => return Err(e)
-    }
+    binding_inline_text(source_text, ctx.source_map, def)
   }
   // Build replacement edits for all references (reverse document order)
   let edits : Array[SpanEdit] = []
@@ -469,14 +436,14 @@ fn compute_inline_all_usages(
     edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: init_text })
   }
   // Delete the binding
-  let (let_start, binding_end) = match
-    get_binding_text_range(source_text, ctx.source_map, def) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+  let (let_start, binding_end) = get_binding_text_range(
+    source_text,
+    ctx.source_map,
+    def,
+  )
   let (del_start, del_len) = binding_delete_range(
     source_text, let_start, binding_end,
   )
   edits.push({ start: del_start, delete_len: del_len, inserted: "" })
-  Ok(Some((edits, RestoreCursor)))
+  Some((edits, RestoreCursor))
 }

@@ -68,17 +68,16 @@ fn ensure_replaceable_node_range(
   node_id : NodeId,
   node : ProjNode[@ast.Term],
   range : @loomcore.Range,
-) -> Result[Unit, String] {
+) -> Unit raise EditError {
   match node.kind {
-    @ast.Term::Lam(_, _) =>
-      if is_source_arrow_lambda_range(ctx, node_id, range) {
-        Ok(())
-      } else {
-        Err(
-          "Cannot edit synthetic lambda parameter directly; edit the enclosing expression or function body",
+    @ast.Term::Lam(_, _) => {
+      guard is_source_arrow_lambda_range(ctx, node_id, range) else {
+        raise UnsupportedOperation(
+          detail="Cannot edit synthetic lambda parameter directly; edit the enclosing expression or function body",
         )
       }
-    _ => Ok(())
+    }
+    _ => ()
   }
 }
 
@@ -125,19 +124,26 @@ fn get_binding_text_range(
   source_text : String,
   source_map : SourceMap,
   def : EditModuleBinding,
-) -> Result[(Int, Int), String] {
+) -> (Int, Int) raise EditError {
   let init_node = def.init
   guard source_map.get_range(init_node.id()) is Some(init_range) else {
-    return Err("Init node not in source map")
+    raise NodeNotInSourceMap(
+      action="Get binding text range",
+      node_id=init_node.id(),
+    )
   }
   let binding_end = match source_map.get_range(def.binding_id) {
     Some(binding_range) => binding_range.end
-    None => return Err("Binding node not in source map")
+    None =>
+      raise NodeNotInSourceMap(
+        action="Get binding text range",
+        node_id=def.binding_id,
+      )
   }
-  if def.start < 0 ||
+  guard !(def.start < 0 ||
     def.start > source_text.length() ||
-    def.start > binding_end {
-    return Err("Binding start out of source range")
+    def.start > binding_end) else {
+    raise Invariant(detail="Binding start out of source range")
   }
-  Ok((def.start, binding_end))
+  (def.start, binding_end)
 }

@@ -4,11 +4,15 @@
 fn compute_edit_result(
   source : String,
   op : MarkdownEditOp,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] raise @loomcore.LexError {
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let (proj, _) = @md_proj.parse_to_proj_node(source) catch {
+    @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
+  }
   let source_map = @core.SourceMap::from_ast(proj)
   // Re-parse to get the SyntaxNode for populate_token_spans
-  let (cst, _) = @markdown.parse_cst(source)
+  let (cst, _) = @markdown.parse_cst(source) catch {
+    @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
+  }
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
   @md_proj.populate_token_spans(source_map, syntax_root, proj)
   compute_markdown_edit(op, source, proj, source_map)
@@ -19,9 +23,9 @@ fn compute_edit_result(
 fn apply_edit(
   source : String,
   op : MarkdownEditOp,
-) -> String raise @loomcore.LexError {
+) -> String raise @core.EditError {
   match compute_edit_result(source, op) {
-    Ok(Some((edits, _))) => {
+    Some((edits, _)) => {
       let sorted = edits.copy()
       sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
       let mut result = source
@@ -32,14 +36,22 @@ fn apply_edit(
       }
       result
     }
-    Ok(None) => source // no-op
-    Err(msg) => abort("edit failed: " + msg)
+    None => source // no-op
   }
 }
 
 ///|
 fn inspect_edit_error(source : String, op : MarkdownEditOp) -> Unit raise {
-  inspect(compute_edit_result(source, op) is Err(_), content="true")
+  let is_err : Bool = try {
+    let _ = compute_edit_result(source, op)
+    false
+  } catch {
+    e => {
+      ignore(e)
+      true
+    }
+  }
+  inspect(is_err, content="true")
 }
 
 ///|
@@ -48,10 +60,13 @@ fn inspect_edit_error_contains(
   op : MarkdownEditOp,
   fragment : String,
 ) -> Unit raise {
-  match compute_edit_result(source, op) {
-    Err(msg) => inspect(msg.contains(fragment.view()), content="true")
-    Ok(_) => inspect(false, content="true")
+  let msg = try {
+    let _ = compute_edit_result(source, op)
+    "no error"
+  } catch {
+    e => e.message()
   }
+  inspect(msg.contains(fragment.view()), content="true")
 }
 
 ///|
@@ -182,7 +197,7 @@ test "move_block: adjacent duplicate before move is no-op" {
       position=@core.DropPosition::Before,
     ),
   )
-  inspect(result is Ok(None), content="true")
+  inspect(result is None, content="true")
 }
 
 ///|
@@ -290,15 +305,19 @@ test "move_block: rejects unclosed fenced code before following sibling" {
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let heading_id = proj.children[0].id()
   let code_id = proj.children[1].id()
-  let result = compute_edit_result(
-    source,
-    MoveBlock(
-      source=heading_id,
-      target=code_id,
-      position=@core.DropPosition::After,
-    ),
-  )
-  inspect(result is Err(_), content="true")
+  try {
+    let _ = compute_edit_result(
+      source,
+      MoveBlock(
+        source=heading_id,
+        target=code_id,
+        position=@core.DropPosition::After,
+      ),
+    )
+    fail("expected error")
+  } catch {
+    _ => inspect(true, content="true")
+  }
 }
 
 ///|
@@ -395,15 +414,19 @@ test "move_block: rejects duplicate list item payloads" {
   let source = "- X\n- X\n"
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let items = proj.children[0].children
-  let result = compute_edit_result(
-    source,
-    MoveBlock(
-      source=items[1].id(),
-      target=items[0].id(),
-      position=@core.DropPosition::Before,
-    ),
-  )
-  inspect(result is Err(_), content="true")
+  try {
+    let _ = compute_edit_result(
+      source,
+      MoveBlock(
+        source=items[1].id(),
+        target=items[0].id(),
+        position=@core.DropPosition::Before,
+      ),
+    )
+    fail("expected error")
+  } catch {
+    _ => inspect(true, content="true")
+  }
 }
 
 ///|
@@ -411,15 +434,19 @@ test "move_block: rejects duplicate ordered list item payloads" {
   let source = "1. X\n2. X\n"
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let items = proj.children[0].children
-  let result = compute_edit_result(
-    source,
-    MoveBlock(
-      source=items[1].id(),
-      target=items[0].id(),
-      position=@core.DropPosition::Before,
-    ),
-  )
-  inspect(result is Err(_), content="true")
+  try {
+    let _ = compute_edit_result(
+      source,
+      MoveBlock(
+        source=items[1].id(),
+        target=items[0].id(),
+        position=@core.DropPosition::Before,
+      ),
+    )
+    fail("expected error")
+  } catch {
+    _ => inspect(true, content="true")
+  }
 }
 
 ///|
@@ -534,7 +561,7 @@ test "move_block: no-op for adjacent ordered items" {
       position=@core.DropPosition::Before,
     ),
   )
-  inspect(result is Ok(None), content="true")
+  inspect(result is None, content="true")
 }
 
 ///|
@@ -688,13 +715,17 @@ test "move_block: rejects duplicate source payloads" {
   let (proj, _) = @md_proj.parse_to_proj_node(source)
   let first_id = proj.children[0].id()
   let second_id = proj.children[1].id()
-  let result = compute_edit_result(
-    source,
-    MoveBlock(
-      source=second_id,
-      target=first_id,
-      position=@core.DropPosition::Before,
-    ),
-  )
-  inspect(result is Err(_), content="true")
+  try {
+    let _ = compute_edit_result(
+      source,
+      MoveBlock(
+        source=second_id,
+        target=first_id,
+        position=@core.DropPosition::Before,
+      ),
+    )
+    fail("expected error")
+  } catch {
+    _ => inspect(true, content="true")
+  }
 }

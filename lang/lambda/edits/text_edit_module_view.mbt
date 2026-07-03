@@ -45,26 +45,25 @@ fn edit_binding_from_let_def(
 fn edit_binding_by_id(
   ctx : EditContext[@ast.Term],
   binding_node_id : NodeId,
-) -> Result[EditModuleBinding, String] {
-  match ctx.registry.get(binding_node_id) {
-    Some(node) =>
-      match node.kind {
-        @ast.Term::LetDef(name, _) if node.children.length() > 0 =>
-          Ok(edit_binding_from_let_def(name, node))
-        _ => Err("Binding not found: " + binding_node_id.to_string())
-      }
-    None => Err("Binding not found: " + binding_node_id.to_string())
+) -> EditModuleBinding raise EditError {
+  guard ctx.registry.get(binding_node_id) is Some(node) else {
+    raise BindingNotFound(action="Find edit binding", node_id=binding_node_id)
   }
+  guard node.kind is @ast.Term::LetDef(name, _) && node.children.length() > 0 else {
+    raise BindingNotFound(action="Find edit binding", node_id=binding_node_id)
+  }
+  edit_binding_from_let_def(name, node)
 }
 
 ///|
 fn edit_binding_for_decl(
   ctx : EditContext[@ast.Term],
   decl : @scope.Decl,
-) -> Result[EditModuleBinding, String] {
+) -> EditModuleBinding raise EditError {
   match decl.kind {
     @scope.DeclKind::ModuleDef(_) => edit_binding_by_id(ctx, decl.node_id)
-    @scope.DeclKind::LamParam(_) => Err("Expected module binding")
+    @scope.DeclKind::LamParam(_) =>
+      raise InvalidTarget(detail="Expected module binding")
   }
 }
 

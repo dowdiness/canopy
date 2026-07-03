@@ -12,25 +12,20 @@ pub(all) struct EditContext[T] {
 }
 
 ///|
-pub type EditResult = Result[(Array[SpanEdit], FocusHint)?, String]
+pub type EditResult = (Array[SpanEdit], FocusHint)?
 
 ///|
-priv suberror ResolveError {
-  ResolveError(String)
-}
-
-///|
-/// Look up both the projection node and its source range for a given node_id.
-/// Raises ResolveError("Node not found: {id}") if either lookup fails.
+/// Raises NodeNotInSourceMap if the source map lacks a range,
+/// or NodeNotInRegistry if the registry lacks the node.
 fn[T] EditContext::resolve(
   self : EditContext[T],
   node_id : NodeId,
-) -> (ProjNode[T], @loomcore.Range) raise ResolveError {
+) -> (ProjNode[T], @loomcore.Range) raise EditError {
   guard self.source_map.get_range(node_id) is Some(range) else {
-    raise ResolveError("Node not found: " + node_id.to_string())
+    raise NodeNotInSourceMap(action="Resolve", node_id~)
   }
   guard self.registry.get(node_id) is Some(node) else {
-    raise ResolveError("Node not found: " + node_id.to_string())
+    raise NodeNotInRegistry(action="Resolve", node_id~)
   }
   (node, range)
 }
@@ -41,13 +36,16 @@ fn[T] EditContext::resolve(
 pub fn compute_text_edit(
   op : TreeEditOp,
   ctx : EditContext[@ast.Term],
-) -> EditResult {
+) -> EditResult raise EditError {
   ValidateNodeExists::{  }.apply(core_dispatch, op, ctx)
 }
 
 ///|
 /// Exhaustive router: delegates each TreeEditOp variant to its handler file.
-fn core_dispatch(op : TreeEditOp, ctx : EditContext[@ast.Term]) -> EditResult {
+fn core_dispatch(
+  op : TreeEditOp,
+  ctx : EditContext[@ast.Term],
+) -> EditResult raise EditError {
   match op {
     Select(..)
     | SelectRange(..)
@@ -56,7 +54,7 @@ fn core_dispatch(op : TreeEditOp, ctx : EditContext[@ast.Term]) -> EditResult {
     | StartDrag(..)
     | DragOver(..)
     | Collapse(..)
-    | Expand(..) => Ok(Some(([], RestoreCursor)))
+    | Expand(..) => Some(([], RestoreCursor))
     CommitEdit(node_id~, new_value~) => compute_commit(ctx, node_id, new_value)
     Delete(node_id~) => compute_delete(ctx, node_id)
     WrapInLambda(node_id~, var_name~) =>

@@ -31,10 +31,10 @@ fn binding_name_range(
   def : EditModuleBinding,
   binding_start : Int,
   binding_end : Int,
-) -> Result[(Int, Int), String] {
+) -> (Int, Int) raise EditError {
   match
     source_map.get_token_span(def.binding_id, @lambda_proj.LET_DEF_NAME_ROLE) {
-    Some(r) => Ok((r.start, r.end))
+    Some(r) => (r.start, r.end)
     None =>
       tight_name_range(
         source_text,
@@ -52,17 +52,22 @@ fn binding_structured_role_range(
   binding_start : Int,
   binding_end : Int,
   label : String,
-) -> Result[@loomcore.Range, String] {
+) -> @loomcore.Range raise EditError {
   match source_map.get_token_span(def.binding_id, role) {
     Some(range) =>
       if binding_start <= range.start &&
         range.start <= range.end &&
         range.end <= binding_end {
-        Ok(range)
+        range
       } else {
-        Err("Cannot rewrite fn binding: " + label + " range out of binding")
+        raise Invariant(
+          detail="Cannot rewrite fn binding: " + label + " range out of binding",
+        )
       }
-    None => Err("Cannot rewrite fn binding: " + label + " range not found")
+    None =>
+      raise SourceSpanMissing(
+        detail="Cannot rewrite fn binding: " + label + " range not found",
+      )
   }
 }
 
@@ -96,42 +101,32 @@ fn binding_rewrite_source(
   source_text : String,
   source_map : SourceMap,
   def : EditModuleBinding,
-) -> Result[BindingRewriteSource, String] {
-  let (binding_start, binding_end) = match
-    get_binding_text_range(source_text, source_map, def) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+) -> BindingRewriteSource raise EditError {
+  let (binding_start, binding_end) = get_binding_text_range(
+    source_text, source_map, def,
+  )
   let kind = match
     source_map.get_token_span(
       def.binding_id,
       @lambda_proj.FN_BINDING_KEYWORD_ROLE,
     ) {
     Some(_) => {
-      let param_list = match
-        binding_structured_role_range(
-          source_map,
-          def,
-          @lambda_proj.FN_BINDING_PARAM_LIST_ROLE,
-          binding_start,
-          binding_end,
-          "parameter list",
-        ) {
-        Ok(range) => range
-        Err(e) => return Err(e)
-      }
-      let body = match
-        binding_structured_role_range(
-          source_map,
-          def,
-          @lambda_proj.FN_BINDING_BODY_ROLE,
-          binding_start,
-          binding_end,
-          "body",
-        ) {
-        Ok(range) => range
-        Err(e) => return Err(e)
-      }
+      let param_list = binding_structured_role_range(
+        source_map,
+        def,
+        @lambda_proj.FN_BINDING_PARAM_LIST_ROLE,
+        binding_start,
+        binding_end,
+        "parameter list",
+      )
+      let body = binding_structured_role_range(
+        source_map,
+        def,
+        @lambda_proj.FN_BINDING_BODY_ROLE,
+        binding_start,
+        binding_end,
+        "body",
+      )
       FnBinding(
         param_list~,
         body~,
@@ -140,12 +135,14 @@ fn binding_rewrite_source(
     }
     None =>
       if binding_requires_fn_metadata(def) {
-        return Err("Cannot rewrite fn binding: keyword range not found")
+        raise SourceSpanMissing(
+          detail="Cannot rewrite fn binding: keyword range not found",
+        )
       } else {
         ValueBinding
       }
   }
-  Ok({ def, binding_start, binding_end, kind })
+  { def, binding_start, binding_end, kind }
 }
 
 ///|
@@ -154,23 +151,17 @@ fn BindingRewriteSource::renamed_text(
   source_text : String,
   source_map : SourceMap,
   new_name : String,
-) -> Result[String, String] {
-  let (name_start, name_end) = match
-    binding_name_range(
-      source_text,
-      source_map,
-      self.def,
-      self.binding_start,
-      self.binding_end,
-    ) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
-  Ok(
-    source_text[self.binding_start:name_start].to_owned() +
-    new_name +
-    source_text[name_end:self.binding_end].to_owned(),
+) -> String raise EditError {
+  let (name_start, name_end) = binding_name_range(
+    source_text,
+    source_map,
+    self.def,
+    self.binding_start,
+    self.binding_end,
   )
+  source_text[self.binding_start:name_start].to_owned() +
+  new_name +
+  source_text[name_end:self.binding_end].to_owned()
 }
 
 ///|
@@ -194,13 +185,13 @@ fn fn_binding_inline_text(
   param_list : @loomcore.Range,
   body_range : @loomcore.Range,
   has_params : Bool,
-) -> Result[String, String] {
+) -> String {
   let params = source_text[param_list.start:param_list.end].to_owned()
   let body = trimmed_source_text(source_text, body_range)
   if has_params {
-    Ok("(" + params + " => " + body + ")")
+    "(" + params + " => " + body + ")"
   } else {
-    Ok(body)
+    body
   }
 }
 
@@ -209,15 +200,18 @@ fn BindingRewriteSource::inline_text(
   self : BindingRewriteSource,
   source_text : String,
   source_map : SourceMap,
-) -> Result[String, String] {
+) -> String raise EditError {
   match self.kind {
     FnBinding(param_list~, body~, has_params~) =>
       fn_binding_inline_text(source_text, param_list, body, has_params)
-    ValueBinding =>
-      match source_map.get_range(self.def.init.id()) {
-        Some(r) => Ok(trimmed_source_text(source_text, r))
-        None => Err("Cannot inline binding: init source range not found")
+    ValueBinding => {
+      guard source_map.get_range(self.def.init.id()) is Some(r) else {
+        raise SourceSpanMissing(
+          detail="Cannot inline binding: init source range not found",
+        )
       }
+      trimmed_source_text(source_text, r)
+    }
   }
 }
 
@@ -226,9 +220,8 @@ fn binding_inline_text(
   source_text : String,
   source_map : SourceMap,
   def : EditModuleBinding,
-) -> Result[String, String] {
-  match binding_rewrite_source(source_text, source_map, def) {
-    Ok(source) => source.inline_text(source_text, source_map)
-    Err(e) => Err(e)
-  }
+) -> String raise EditError {
+  binding_rewrite_source(source_text, source_map, def).inline_text(
+    source_text, source_map,
+  )
 }

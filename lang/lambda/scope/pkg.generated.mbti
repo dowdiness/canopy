@@ -28,7 +28,7 @@ pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @d
 
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
-pub fn references_outside_subtree(ScopeGraph, @hashset.HashSet[@dowdiness/canopy/core.NodeId]) -> Array[Ref]
+pub fn references_outside_subtree(ScopeGraph, @hashset.HashSet[@dowdiness/canopy/core.NodeId], registry? : Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]?) -> Array[Ref]
 
 pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
 

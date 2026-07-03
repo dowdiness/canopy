@@ -9,7 +9,7 @@ import {
 }
 
 // Values
-pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
+pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 
@@ -84,7 +84,7 @@ pub impl Show for TreeEditOp
 // Type aliases
 pub using @core {type DropPosition}
 
-pub type EditResult = Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
+pub type EditResult = (Array[@core.SpanEdit], @core.FocusHint)?
 
 pub using @core {type FocusHint}
 

@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn compute_markdown_edit(MarkdownEditOp, String, @core.ProjNode[@markdown.Block], @core.SourceMap) -> Result[(Array[@core.SpanEdit], @core.FocusHint)?, String]
+pub fn compute_markdown_edit(MarkdownEditOp, String, @core.ProjNode[@markdown.Block], @core.SourceMap) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
 
 // Errors
 
