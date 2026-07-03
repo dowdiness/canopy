@@ -14,6 +14,7 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
   ) {
     reconcile(o, n, c)
   },
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
   label? : String = "generic",
 ) -> (
   @incr.Derived[ProjNode[T]?],
@@ -28,8 +29,16 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
     fn() -> ProjNode[T]? {
       let syntax_root = syntax_tree.get_or_abort()
       let new_proj = syntax_to_proj(syntax_root, counter)
+      match trace_ref {
+        Some(r) => r.val = []
+        None => ()
+      }
       let result = match prev_proj_ref.val {
-        Some(old) => reconcile_node(old, new_proj, counter)
+        Some(old) =>
+          match trace_ref {
+            Some(_) => reconcile(old, new_proj, counter, trace_ref~)
+            None => reconcile_node(old, new_proj, counter)
+          }
         None => new_proj
       }
       prev_proj_ref.val = Some(result)
