@@ -98,12 +98,12 @@ test "get_submenu_choices: delete returns empty" {
 
 ///|
 test "parse_bop: Plus" {
-  inspect(parse_bop("Plus"), content="Some(Plus)")
+  inspect(parse_bop("Plus") is Some(@ast.Bop::Plus), content="true")
 }
 
 ///|
 test "parse_bop: Minus" {
-  inspect(parse_bop("Minus"), content="Some(Minus)")
+  inspect(parse_bop("Minus") is Some(@ast.Bop::Minus), content="true")
 }
 
 ///|
@@ -128,9 +128,12 @@ test "to_node_context: non-binding context returns default" {
 test "to_node_context: binding context produces new_binding" {
   let nc = to_node_context(test_binding_ctx())
   inspect(nc.is_let_binding, content="true")
-  inspect(nc.binding_node_id, content="Some(NodeId(10))")
-  inspect(nc.binding_def_index, content="Some(0)")
-  inspect(nc.module_node_id, content="Some(NodeId(0))")
+  inspect(
+    nc.binding_node_id == Some(@core.NodeId::from_int(10)),
+    content="true",
+  )
+  inspect(nc.binding_def_index == Some(0), content="true")
+  inspect(nc.module_node_id == Some(@core.NodeId::from_int(0)), content="true")
 }
 
 // ── build_action_context ────────────────────────────────────────────

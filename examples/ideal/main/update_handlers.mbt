@@ -181,7 +181,17 @@ fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
         Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
         None => @immut/hashset.new()
       }
-      Some((cmd, { ..model, selected_node: Some(node_id), highlight_set, nav_path: None }))
+      Some(
+        (
+          cmd,
+          {
+            ..model,
+            selected_node: Some(node_id),
+            highlight_set,
+            nav_path: None,
+          },
+        ),
+      )
     }
     OutlineNavigate(node_id_str) => {
       let new_selected : String? = if node_id_str == "" {
@@ -368,7 +378,17 @@ fn handle_structure_mode(
           Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
           None => @immut/hashset.new()
         }
-        Some((none, { ..model, selected_node: Some(node_id), highlight_set, nav_path: None }))
+        Some(
+          (
+            none,
+            {
+              ..model,
+              selected_node: Some(node_id),
+              highlight_set,
+              nav_path: None,
+            },
+          ),
+        )
       }
     StructureStructuralEdit(op~, node_id~) =>
       if op == "" || node_id == "" {
