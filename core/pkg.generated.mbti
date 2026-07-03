@@ -11,7 +11,7 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T], label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T], label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
 
 pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
 
@@ -23,9 +23,11 @@ pub fn[T] navigate_proj_cached(NodeId, Direction, ProjNode[T], Array[Int]?) -> (
 
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
-pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform]) -> ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
+
+pub fn to_structured_changes(Array[ReconcileTraceEvent]) -> Array[StructuredChange]
 
 // Errors
 pub(all) suberror EditError {
@@ -123,6 +125,16 @@ pub fn[T] ProjNode::walk_preorder(Self[T], (FoldNode[T]) -> Unit raise?) -> Unit
 pub impl[T : @dowdiness/loom/core.Renderable] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]
 
+pub(all) enum ReconcileTraceEvent {
+  Matched(NodeId, Int, Int, NodeId, String)
+  Inserted(NodeId, Int, NodeId, String)
+  Deleted(NodeId, Int, NodeId, String)
+  Wrapped(NodeId, NodeId, String)
+  Unwrapped(NodeId, NodeId, String)
+  Renamed(NodeId, String)
+  Freshened(NodeId, Int, NodeId, String)
+} derive(Eq)
+
 pub struct SourceMap {
   node_to_range : Map[NodeId, @dowdiness/loom/core.Range]
   ranges : Array[(@dowdiness/loom/core.Range, NodeId)]
@@ -152,6 +164,15 @@ pub(all) struct SpanEdit {
   inserted : String
 } derive(Eq, @debug.Debug)
 pub impl Show for SpanEdit
+
+pub(all) enum StructuredChange {
+  Inserted(NodeId, Int, NodeId, String)
+  Deleted(NodeId, Int, NodeId, String)
+  Wrapped(NodeId, NodeId, String)
+  Unwrapped(NodeId, NodeId, String)
+  Renamed(NodeId, String)
+  Freshened(NodeId, Int, NodeId, String)
+} derive(Eq)
 
 // Type aliases
 

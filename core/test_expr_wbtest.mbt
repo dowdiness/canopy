@@ -8,7 +8,6 @@
 // and new language editors will not work.
 
 ///|
-using @loomcore {trait Renderable}
 
 ///|
 priv enum TestExpr {
@@ -39,7 +38,7 @@ impl @loomcore.TreeNode for TestExpr with fn same_kind(self, other) {
 }
 
 ///|
-impl Renderable for TestExpr with fn kind_tag(self) {
+impl @loomcore.Renderable for TestExpr with fn kind_tag(self) {
   match self {
     Leaf(_) => "Leaf"
     Branch(_, _) => "Branch"
@@ -47,7 +46,7 @@ impl Renderable for TestExpr with fn kind_tag(self) {
 }
 
 ///|
-impl Renderable for TestExpr with fn label(self) {
+impl @loomcore.Renderable for TestExpr with fn label(self) {
   match self {
     Leaf(s) => s
     Branch(tag, _) => tag
@@ -55,16 +54,16 @@ impl Renderable for TestExpr with fn label(self) {
 }
 
 ///|
-impl Renderable for TestExpr with fn placeholder(_self) {
+impl @loomcore.Renderable for TestExpr with fn placeholder(_self) {
   "?"
 }
 
 ///|
-impl Renderable for TestExpr with fn unparse(self) {
+impl @loomcore.Renderable for TestExpr with fn unparse(self) {
   match self {
     Leaf(s) => s
     Branch(tag, cs) =>
-      tag + "(" + cs.map(c => Renderable::unparse(c)).join(" ") + ")"
+      tag + "(" + cs.map(c => @loomcore.Renderable::unparse(c)).join(" ") + ")"
   }
 }
 

@@ -1,13 +1,19 @@
 ///|
-using @loomcore {trait TreeNode}
+using @loomcore {trait TreeNode, trait Renderable}
 
 ///|
-pub fn[T : TreeNode + Eq] build_projection_memos(
+pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
   rt : @incr.Runtime,
   syntax_tree : @incr.Derived[@seam.SyntaxNode],
   syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
-  reconcile_node? : (ProjNode[T], ProjNode[T], Ref[Int]) -> ProjNode[T] = reconcile,
+  reconcile_node? : (ProjNode[T], ProjNode[T], Ref[Int]) -> ProjNode[T] = fn(
+    o,
+    n,
+    c,
+  ) {
+    reconcile(o, n, c)
+  },
   label? : String = "generic",
 ) -> (
   @incr.Derived[ProjNode[T]?],
