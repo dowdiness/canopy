@@ -1,13 +1,25 @@
 // AST reconciliation: preserve ProjNode identities across reparses.
 
 ///|
+fn emit_trace(
+  trace_ref : Ref[Array[ReconcileTraceEvent]]?,
+  event : ReconcileTraceEvent,
+) -> Unit {
+  match trace_ref {
+    Some(r) => r.val.push(event)
+    None => ()
+  }
+}
+
+///|
 /// Generic reconciliation: Preserve node IDs where possible when AST changes.
-pub fn[T : TreeNode] reconcile(
+pub fn[T : TreeNode + Renderable] reconcile(
   old : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
-  reconcile_hinted(old, new, counter, {})
+  reconcile_hinted(old, new, counter, {}, trace_ref~)
 }
 
 ///|
@@ -16,11 +28,12 @@ pub fn[T : TreeNode] reconcile(
 /// id) lets identity survive a constructor change at a position that positional
 /// LCS reconciliation alone would lose — see
 /// docs/architecture/grove-and-structural-identity.md.
-pub fn[T : TreeNode] reconcile_hinted(
+pub fn[T : TreeNode + Renderable] reconcile_hinted(
   old : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
   // A structural hint keyed by `old.id()` (wrap / unwrap) takes precedence and
   // may apply even when the new wrapper is the SAME kind as the wrapped node —
@@ -31,7 +44,7 @@ pub fn[T : TreeNode] reconcile_hinted(
   let hinted = if hints.is_empty() {
     NoStructuralHint
   } else {
-    structural_pair(old, new, counter, hints)
+    structural_pair(old, new, counter, hints, trace_ref~)
   }
   match hinted {
     Applied(node) => node
@@ -45,6 +58,8 @@ pub fn[T : TreeNode] reconcile_hinted(
           new.children,
           counter,
           hints,
+          old.node_id,
+          trace_ref~,
         )
         ProjNode(new.kind, new.start, new.end, old.node_id, reconciled_children)
       } else {
@@ -54,11 +69,13 @@ pub fn[T : TreeNode] reconcile_hinted(
 }
 
 ///|
-fn[T : TreeNode] reconcile_children(
+fn[T : TreeNode + Renderable] reconcile_children(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
+  parent_id : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> Array[ProjNode[T]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
@@ -121,17 +138,34 @@ fn[T : TreeNode] reconcile_children(
       old_children, new_children, old_matched, new_matched, hints,
     )
   }
-  [
+  let result = [
     for k in 0..<new_len => {
       if new_matched[k] >= 0 {
-        reconcile_hinted(
+        let reconciled = reconcile_hinted(
           old_children[new_matched[k]],
           new_children[k],
           counter,
           hints,
+          trace_ref~,
         )
+        emit_trace(
+          trace_ref,
+          Matched(
+            parent_id,
+            new_matched[k],
+            k,
+            reconciled.id(),
+            T::kind_tag(reconciled.kind),
+          ),
+        )
+        reconciled
       } else if hints.is_empty() {
-        assign_fresh_ids(new_children[k], counter)
+        let fresh = assign_fresh_ids(new_children[k], counter)
+        emit_trace(
+          trace_ref,
+          Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+        )
+        fresh
       } else {
         match
           try_unmatched_hint_pair(
@@ -142,13 +176,41 @@ fn[T : TreeNode] reconcile_children(
             consumed,
             counter,
             hints,
+            trace_ref~,
           ) {
-          Some(node) => node
-          None => assign_fresh_ids(new_children[k], counter)
+          Some(node) => {
+            emit_trace(
+              trace_ref,
+              Matched(parent_id, -1, k, node.id(), T::kind_tag(node.kind)),
+            )
+            node
+          }
+          None => {
+            let fresh = assign_fresh_ids(new_children[k], counter)
+            emit_trace(
+              trace_ref,
+              Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+            )
+            fresh
+          }
         }
       }
     }
   ]
+  for oi = 0; oi < old_len; oi = oi + 1 {
+    if old_matched[oi] < 0 {
+      emit_trace(
+        trace_ref,
+        Deleted(
+          parent_id,
+          oi,
+          old_children[oi].id(),
+          T::kind_tag(old_children[oi].kind),
+        ),
+      )
+    }
+  }
+  result
 }
 
 ///|
@@ -168,21 +230,34 @@ priv enum HintResult[T] {
 /// authoritative: it either applies or forces a degrade-to-fresh. It never
 /// silently falls through to same-kind reconciliation (which would leave the
 /// preserved id on the new wrapper).
-fn[T : TreeNode] structural_pair(
+fn[T : TreeNode + Renderable] structural_pair(
   old : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> HintResult[T] {
   match hints.get(old.id()) {
     Some(Wrap(_)) =>
-      match apply_wrap(old, new, counter, hints) {
-        Some(node) => Applied(node)
+      match apply_wrap(old, new, counter, hints, trace_ref~) {
+        Some(node) => {
+          emit_trace(
+            trace_ref,
+            Wrapped(old.id(), node.id(), T::kind_tag(node.kind)),
+          )
+          Applied(node)
+        }
         None => Unlocatable
       }
     Some(Unwrap(keep~, ..)) =>
-      match apply_unwrap(old, new, counter, hints, keep) {
-        Some(node) => Applied(node)
+      match apply_unwrap(old, new, counter, hints, keep, trace_ref~) {
+        Some(node) => {
+          emit_trace(
+            trace_ref,
+            Unwrapped(old.id(), node.id(), T::kind_tag(old.kind)),
+          )
+          Applied(node)
+        }
         None => Unlocatable
       }
     // Replace retires the old identity; Move's identity is editor-owned
@@ -212,7 +287,7 @@ fn lcs_excluded(hints : Map[NodeId, IdentityTransform], id : NodeId) -> Bool {
 ///|
 /// For an LCS-unmatched `new_child`, find a still-unmatched, unconsumed prev
 /// child whose `Wrap`/`Unwrap` hint pairs with it, and carry identity.
-fn[T : TreeNode] try_unmatched_hint_pair(
+fn[T : TreeNode + Renderable] try_unmatched_hint_pair(
   new_child : ProjNode[T],
   old_children : Array[ProjNode[T]],
   old_matched : Array[Int],
@@ -220,6 +295,7 @@ fn[T : TreeNode] try_unmatched_hint_pair(
   consumed : Map[NodeId, Bool],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T]? {
   let candidates = [
     for idx, o in old_children if old_matched[idx] < 0 &&
@@ -235,7 +311,7 @@ fn[T : TreeNode] try_unmatched_hint_pair(
   match candidates {
     [o] => {
       consumed[o.id()] = true
-      match structural_pair(o, new_child, counter, hints) {
+      match structural_pair(o, new_child, counter, hints, trace_ref~) {
         Applied(node) => Some(node)
         _ => None
       }
@@ -292,11 +368,12 @@ fn[T : TreeNode] hint_pairs(
 ///|
 /// Wrap: `wrapper` introduces a level over the prev subtree `old`. Carry `old`'s
 /// identity into the unique same-kind child; the wrapper itself is fresh.
-fn[T : TreeNode] apply_wrap(
+fn[T : TreeNode + Renderable] apply_wrap(
   old : ProjNode[T],
   wrapper : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T]? {
   let targets = [
     for idx, c in wrapper.children if T::same_kind(c.kind, old.kind) => idx
@@ -315,7 +392,14 @@ fn[T : TreeNode] apply_wrap(
               c.start,
               c.end,
               old.node_id,
-              reconcile_children(old.children, c.children, counter, hints),
+              reconcile_children(
+                old.children,
+                c.children,
+                counter,
+                hints,
+                old.node_id,
+                trace_ref~,
+              ),
             )
           } else {
             assign_fresh_ids(c, counter)
@@ -339,15 +423,16 @@ fn[T : TreeNode] apply_wrap(
 ///|
 /// Unwrap: the prev `wrapper` is removed and its child `keep` promoted to `new`.
 /// Carry `keep`'s identity into `new`; the wrapper id retires.
-fn[T : TreeNode] apply_unwrap(
+fn[T : TreeNode + Renderable] apply_unwrap(
   wrapper : ProjNode[T],
   new : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
   keep : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T]? {
   match find_child(wrapper, keep) {
-    Some(k) => Some(reconcile_hinted(k, new, counter, hints))
+    Some(k) => Some(reconcile_hinted(k, new, counter, hints, trace_ref~))
     None => None
   }
 }
