@@ -185,18 +185,12 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 8. Handler Chain Follow-ups
 
-- [x] AST transform pipeline — first pass: constant folding middleware.
-  Shipped: `FoldConstants` middleware in `lang/lambda/edits/text_edit_middleware.mbt` (PR #842). Intercepts `CommitEdit` on `Bop(_, Int(a), Int(b))`, short-circuits with folded `Int(a⊕b)`. Trigger: `CommitEdit` only (non-`CommitEdit` structural ops pass through).
+- [ ] AST transform pipeline.
   Why: the `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
-
-- [ ] Beta reduction middleware — second AST transform pass (#841).
-  Why: `App(Lam(x, body), arg)` should reduce to `body[x := arg]` at edit time, same pattern as constant folding.
-  Design: raw-AST substitute on `@ast.Term` (~25 lines). Capture-avoiding via `@alpha` pipeline or documented limitation on first pass.
-  Plan: follow-up issue #841
-  Exit: `FoldConstants`-style middleware reducing beta-redexes on `CommitEdit`, with positive/negative tests and no regression in existing beta-reducible structural edit ops.
 
 - [ ] Cache navigation path between keystrokes to avoid O(n) DFS per keystroke (GitHub #91).
   Exit: path or zipper is cached in editor state and reused across consecutive keystrokes.
+
 ---
 
 ## 9. Ideal Editor
