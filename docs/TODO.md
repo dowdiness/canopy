@@ -185,12 +185,18 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 8. Handler Chain Follow-ups
 
-- [ ] AST transform pipeline.
-  Why: the `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
+- [x] ~~AST transform pipeline~~ (reverted — design mistake).
+  The `EditMiddleware` trait intercepts `TreeEditOp` pre-dispatch. It is a
+  **guard/observer** mechanism (ValidateNodeExists, access control, audit log)
+  and should NOT be used for AST-to-AST transforms — those destroy source text
+  and bypass user intent.
+
+  Simplification (constant folding, beta reduction) is already solved by the
+  e-graph optimizer + eval annotations — non-destructive, hover-to-see results.
+  Implemented and reverted in PRs #842 / #843. Closed #841 as wont-fix.
 
 - [ ] Cache navigation path between keystrokes to avoid O(n) DFS per keystroke (GitHub #91).
   Exit: path or zipper is cached in editor state and reused across consecutive keystrokes.
-
 ---
 
 ## 9. Ideal Editor
