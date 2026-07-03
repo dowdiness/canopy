@@ -4,12 +4,12 @@
 fn execute_action(
   model : Model,
   runtime : ActionOverlayRuntime,
-  context : NodeActionContext,
+  context : @lambda_edits.ActionContext,
   action : @lambda_edits.Action,
   choice : String,
   name : String,
 ) -> (Cmd, Model) {
-  match build_tree_edit_op(action.id, context, choice, name) {
+  match @lambda_edits.build_tree_edit_op(action.id, context, choice, name) {
     Ok(Some(op)) =>
       match
         @lambda.apply_lambda_tree_edit(

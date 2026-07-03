@@ -8,9 +8,21 @@ import {
 }
 
 // Values
+pub fn add_module_scope_annotations(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
+pub fn add_nested_module_scope_annotations(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
+pub fn add_scope_graph_annotations(Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation], ScopeGraph) -> Unit
+
+pub fn binder_color_index(String) -> Int
+
 pub fn binder_span(ScopeGraph, Decl, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
 
 pub fn build(Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
+
+pub fn build_scope_map(@dowdiness/canopy/core.ProjNode[@ast.Term], Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]
+
+pub fn compute_highlight_set(@dowdiness/canopy/core.NodeId, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> @hashset.HashSet[@dowdiness/canopy/core.NodeId]
 
 pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
 
@@ -26,11 +38,15 @@ pub fn failures(ScopeGraph, @dowdiness/canopy/core.SourceMap) -> Array[Reachable
 
 pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @dowdiness/loom/core.Range?
 
+pub fn rebuild_usage_lists(Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
 pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
 
 pub fn references_outside_subtree(ScopeGraph, @hashset.HashSet[@dowdiness/canopy/core.NodeId], registry? : Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]?) -> Array[Ref]
 
 pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
+
+pub fn scope_binder_ui_key(Decl) -> @dowdiness/canopy/core.NodeId
 
 pub fn scope_for_node(ScopeGraph, @dowdiness/canopy/core.NodeId) -> ScopeId?
 
@@ -84,6 +100,13 @@ pub(all) struct Scope {
   decl_ids : Array[DeclId]
   ref_ids : Array[RefId]
 } derive(@debug.Debug)
+
+pub struct ScopeAnnotation {
+  binder_id : @dowdiness/canopy/core.NodeId?
+  is_definition : Bool
+  color_index : Int
+  usage_ids : Array[@dowdiness/canopy/core.NodeId]
+}
 
 pub(all) struct ScopeGraph {
   scopes : Array[Scope]

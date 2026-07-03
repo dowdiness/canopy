@@ -77,16 +77,6 @@ struct OverlayState {
 }
 
 ///|
-struct NodeActionContext {
-  node_id : @canopy_core.NodeId
-  kind : @ast.Term
-  is_let_binding : Bool
-  binding_node_id : @canopy_core.NodeId?
-  binding_def_index : Int?
-  module_node_id : @canopy_core.NodeId?
-}
-
-///|
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
   // FFI handle for this editor, used to drive handle-keyed FFI (file I/O).
@@ -103,7 +93,7 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : ActionOverlayHost
-  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
+  scope_map : Map[@canopy_core.NodeId, @scope.ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state
   drag_source : @canopy_core.NodeId?

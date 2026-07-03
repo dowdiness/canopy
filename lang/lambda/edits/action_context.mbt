@@ -1,55 +1,43 @@
-// Action context detection and TreeEditOp builder for the structural editing overlay.
-// Bridges the UI layer (string-based node IDs, action IDs) to the projection layer
-// (typed NodeId, TreeEditOp, NodeContext).
+///|
+/// Context for building a TreeEditOp from the action overlay. Builds on
+/// NodeContext (used for action filtering) with the node's identity and
+/// term kind needed by build_tree_edit_op.
+pub(all) struct ActionContext {
+  node_id : @core.NodeId
+  kind : @ast.Term
+  is_let_binding : Bool
+  binding_node_id : @core.NodeId?
+  binding_def_index : Int?
+  module_node_id : @core.NodeId?
+}
 
 ///|
-/// Detect the action context for a selected node.
-/// Parses the node ID string, looks up the node in the editor's projection,
-/// checks if it's a let-binding row, and finds the enclosing Module node.
-fn detect_action_context(
-  editor : @editor.SyncEditor[@ast.Term],
-  selected_node : String,
-) -> NodeActionContext? {
-  let nid = match parse_node_id(selected_node) {
-    Some(id) => id
-    None => return None
-  }
-  let node = match editor.get_node(nid) {
-    Some(n) => n
-    None => return None
-  }
-  let definition_index = match editor.get_proj_node() {
-    Some(root) => @lambda_proj.DefinitionIndex::from_proj_node(root)
-    None => return None
-  }
-  // Check if this node is a let-binding row.
+/// Pure builder: construct an ActionContext from projection data.
+/// The SyncEditor-dependent extraction lives in lang/lambda/companion.
+pub fn build_action_context(
+  node_id~ : @core.NodeId,
+  kind~ : @ast.Term,
+  definition_index~ : @lambda_proj.DefinitionIndex,
+  module_node_id~ : @core.NodeId?,
+) -> ActionContext {
   let (is_let_binding, binding_node_id, binding_def_index) = match
-    definition_index.binding_for_node(nid) {
+    definition_index.binding_for_node(node_id) {
     Some((bid, idx)) => (true, Some(bid), Some(idx))
     None => (false, None, None)
   }
-  // Find the Module node — it's the root ProjNode
-  let module_node_id = match editor.get_proj_node() {
-    Some(root) =>
-      match root.kind {
-        @ast.Term::Module(_, _) => Some(root.id())
-        _ => None
-      }
-    None => None
-  }
-  Some({
-    node_id: nid,
-    kind: node.kind,
+  {
+    node_id,
+    kind,
     is_let_binding,
     binding_node_id,
     binding_def_index,
     module_node_id,
-  })
+  }
 }
 
 ///|
-/// Convert a NodeActionContext to a @lambda_edits.NodeContext for action filtering.
-fn to_proj_context(ctx : NodeActionContext) -> @lambda_edits.NodeContext {
+/// Convert an ActionContext to a NodeContext for action filtering.
+pub fn to_node_context(ctx : ActionContext) -> NodeContext {
   match
     (
       ctx.is_let_binding,
@@ -58,19 +46,19 @@ fn to_proj_context(ctx : NodeActionContext) -> @lambda_edits.NodeContext {
       ctx.module_node_id,
     ) {
     (true, Some(bid), Some(idx), Some(mid)) =>
-      @lambda_edits.NodeContext::new_binding(
+      NodeContext::new_binding(
         binding_node_id=bid,
         binding_def_index=idx,
         module_node_id=mid,
       )
-    _ => @lambda_edits.NodeContext::new()
+    _ => NodeContext::new()
   }
 }
 
 ///|
 /// Get submenu choices for an action that requires a choice.
 /// Returns array of (label, value) pairs, empty if no submenu needed.
-fn get_submenu_choices(
+pub fn get_submenu_choices(
   action_id : String,
   kind : @ast.Term,
 ) -> Array[(String, String)] {
@@ -94,8 +82,8 @@ fn get_submenu_choices(
 }
 
 ///|
-/// Parse a Bop choice string to a @ast.Bop value.
-fn parse_bop(choice : String) -> @ast.Bop? {
+/// Parse a Bop choice string to an AST Bop value.
+pub fn parse_bop(choice : String) -> @ast.Bop? {
   match choice {
     "Plus" => Some(@ast.Bop::Plus)
     "Minus" => Some(@ast.Bop::Minus)
@@ -108,27 +96,27 @@ fn parse_bop(choice : String) -> @ast.Bop? {
 /// Returns Ok(None) when a name prompt is needed first (i.e. action requires
 /// user text input and no name was provided).
 /// Returns Err for invalid action IDs or missing required parameters.
-fn build_tree_edit_op(
+pub fn build_tree_edit_op(
   action_id : String,
-  ctx : NodeActionContext,
+  ctx : ActionContext,
   choice : String,
   name : String,
-) -> Result[@lambda_edits.TreeEditOp?, String] {
+) -> Result[TreeEditOp?, String] {
   let node_id = ctx.node_id
   match action_id {
-    "delete" => Ok(Some(@lambda_edits.Delete(node_id~)))
+    "delete" => Ok(Some(Delete(node_id~)))
     "extract_to_let" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@lambda_edits.ExtractToLet(node_id~, var_name=name)))
+        Ok(Some(ExtractToLet(node_id~, var_name=name)))
       }
-    "inline" => Ok(Some(@lambda_edits.InlineDefinition(node_id~)))
+    "inline" => Ok(Some(InlineDefinition(node_id~)))
     "rename" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@lambda_edits.Rename(node_id~, new_name=name)))
+        Ok(Some(Rename(node_id~, new_name=name)))
       }
     "unwrap" => {
       let keep_child_index = match choice {
@@ -137,71 +125,65 @@ fn build_tree_edit_op(
         "2" => 2
         _ => return Err("Select which child to keep")
       }
-      Ok(Some(@lambda_edits.Unwrap(node_id~, keep_child_index~)))
+      Ok(Some(Unwrap(node_id~, keep_child_index~)))
     }
-    "swap" => Ok(Some(@lambda_edits.SwapChildren(node_id~)))
+    "swap" => Ok(Some(SwapChildren(node_id~)))
     "change_op" => {
       let new_op = match parse_bop(choice) {
         Some(op) => op
         None => return Err("Select an operator")
       }
-      Ok(Some(@lambda_edits.ChangeOperator(node_id~, new_op~)))
+      Ok(Some(ChangeOperator(node_id~, new_op~)))
     }
     "wrap_lambda" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@lambda_edits.WrapInLambda(node_id~, var_name=name)))
+        Ok(Some(WrapInLambda(node_id~, var_name=name)))
       }
-    "wrap_if" => Ok(Some(@lambda_edits.WrapInIf(node_id~)))
+    "wrap_if" => Ok(Some(WrapInIf(node_id~)))
     "wrap_bop" => {
       let op = match parse_bop(choice) {
         Some(op) => op
         None => return Err("Select an operator")
       }
-      Ok(Some(@lambda_edits.WrapInBop(node_id~, op~)))
+      Ok(Some(WrapInBop(node_id~, op~)))
     }
-    "wrap_app" => Ok(Some(@lambda_edits.WrapInApp(node_id~)))
+    "wrap_app" => Ok(Some(WrapInApp(node_id~)))
     "binding_rename" =>
       if name == "" {
         Ok(None)
       } else {
-        Ok(Some(@lambda_edits.Rename(node_id~, new_name=name)))
+        Ok(Some(Rename(node_id~, new_name=name)))
       }
     "binding_duplicate" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) =>
-          Ok(Some(@lambda_edits.DuplicateBinding(binding_node_id~)))
+        Some(binding_node_id) => Ok(Some(DuplicateBinding(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_move_up" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) =>
-          Ok(Some(@lambda_edits.MoveBindingUp(binding_node_id~)))
+        Some(binding_node_id) => Ok(Some(MoveBindingUp(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_move_down" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) =>
-          Ok(Some(@lambda_edits.MoveBindingDown(binding_node_id~)))
+        Some(binding_node_id) => Ok(Some(MoveBindingDown(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_inline_all" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) =>
-          Ok(Some(@lambda_edits.InlineAllUsages(binding_node_id~)))
+        Some(binding_node_id) => Ok(Some(InlineAllUsages(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "binding_delete" =>
       match ctx.binding_node_id {
-        Some(binding_node_id) =>
-          Ok(Some(@lambda_edits.DeleteBinding(binding_node_id~)))
+        Some(binding_node_id) => Ok(Some(DeleteBinding(binding_node_id~)))
         None => Err("Select a let-binding first")
       }
     "add_binding" =>
       match ctx.module_node_id {
-        Some(module_node_id) =>
-          Ok(Some(@lambda_edits.AddBinding(module_node_id~)))
+        Some(module_node_id) => Ok(Some(AddBinding(module_node_id~)))
         None => Err("No module in scope")
       }
     _ => Err("Unknown action")

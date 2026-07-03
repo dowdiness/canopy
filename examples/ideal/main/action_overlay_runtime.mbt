@@ -2,7 +2,7 @@
 struct ActionOverlayHost {
   // Both context and runtime are active or neither is — the tuple enforces this
   // structurally. `mount`/`close`/`empty` are the only write paths.
-  active : (NodeActionContext, ActionOverlayRuntime)?
+  active : (@lambda_edits.ActionContext, ActionOverlayRuntime)?
   next_token : Int
 }
 
@@ -14,7 +14,7 @@ fn ActionOverlayHost::empty() -> ActionOverlayHost {
 ///|
 fn ActionOverlayHost::mount(
   self : ActionOverlayHost,
-  context : NodeActionContext,
+  context : @lambda_edits.ActionContext,
   runtime : ActionOverlayRuntime,
 ) -> ActionOverlayHost {
   { active: Some((context, runtime)), next_token: self.next_token + 1 }

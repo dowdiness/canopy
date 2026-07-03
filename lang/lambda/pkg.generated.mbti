@@ -14,6 +14,8 @@ import {
 // Values
 pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @editor.TreeEditError]
 
+pub fn detect_action_context(@editor.SyncEditor[@ast.Term], @core.NodeId) -> @edits.ActionContext?
+
 pub fn get_lambda_ast(@editor.SyncEditor[@ast.Term]) -> @ast.Term
 
 pub fn get_lambda_ast_pretty(@editor.SyncEditor[@ast.Term]) -> String
@@ -25,6 +27,10 @@ pub fn get_lambda_resolution(@editor.SyncEditor[@ast.Term]) -> @dowdiness/lambda
 pub fn new_lambda_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion)
 
 pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
+
+pub fn snapshot_span_edits(Array[@core.SpanEdit], Int) -> Array[@core.SpanEdit]
+
+pub fn structural_edit_op_to_tree_edit(String, @core.NodeId) -> @edits.TreeEditOp?
 
 // Errors
 

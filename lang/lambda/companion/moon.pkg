@@ -17,9 +17,18 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
   "moonbitlang/quickcheck" @qc,
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+  "dowdiness/incr",
+  "dowdiness/loom",
+} for "wbtest"
 
 warnings = "-2-6-29"

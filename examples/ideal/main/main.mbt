@@ -51,12 +51,12 @@ fn init_model() -> Model raise {
     bottom_tab: Problems,
     sync_status: Connecting,
     overlay: ActionOverlayHost::empty(),
-    scope_map: build_scope_map(editor, companion),
+    scope_map: build_scope_map_from_editor(editor),
     highlight_set: @immut/hashset.new(),
+    nav_path: None,
     drag_source: None,
     drop_target_id: None,
     drop_position: None,
-    nav_path: None,
     intent_log: [],
     patch_log: [],
     incr_tap,
@@ -195,35 +195,30 @@ fn push_patch(
   if edits.is_empty() {
     return
   }
-  let snapshot : Array[@canopy_core.SpanEdit] = edits.map(fn(e) {
-    // Truncate by iterating codepoints, not UTF-16 code units. Slicing
-    // `e.inserted[:N]` would abort uncatchably if index N landed mid
-    // surrogate pair (e.g. user pastes 199 BMP code units then an emoji).
-    // `String::length` is the cheap upper-bound check; the loop produces a
-    // codepoint-bounded copy when truncation is warranted.
-    let inserted = if e.inserted.length() > MAX_PATCH_INSERTED_CHARS {
-      let buf = StringBuilder::new(size_hint=MAX_PATCH_INSERTED_CHARS)
-      let mut count = 0
-      for ch in e.inserted {
-        if count >= MAX_PATCH_INSERTED_CHARS {
-          break
-        }
-        buf.write_char(ch)
-        count = count + 1
-      }
-      buf.write_char('…')
-      buf.to_string()
-    } else {
-      e.inserted
-    }
-    { start: e.start, delete_len: e.delete_len, inserted }
-  })
+  let snapshot = @lambda.snapshot_span_edits(edits, MAX_PATCH_INSERTED_CHARS)
   model.patch_log.push({
     op_label: op.to_generic().to_string(),
     edits: snapshot,
   })
   while model.patch_log.length() > MAX_PATCH_LOG {
     model.patch_log.remove(0) |> ignore
+  }
+}
+
+///|
+/// Build scope_map from an editor. Thin wrapper over the pure
+/// @scope.build_scope_map that extracts projection data from SyncEditor.
+fn build_scope_map_from_editor(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Map[@canopy_core.NodeId, @scope.ScopeAnnotation] {
+  match editor.get_proj_node() {
+    Some(proj_root) =>
+      @scope.build_scope_map(
+        proj_root,
+        editor.get_registry(),
+        editor.get_source_map(),
+      )
+    None => {}
   }
 }
 
@@ -241,14 +236,14 @@ fn refresh(model : Model) -> Model {
   js_perf_end("treeEditorRefresh")
   // Build scope_map from current projection
   js_perf_begin("buildScopeMap")
-  let scope_map = build_scope_map(model.editor, model.companion)
+  let scope_map = build_scope_map_from_editor(model.editor)
   js_perf_end("buildScopeMap")
   // Recompute highlight_set if a node is selected
   js_perf_begin("computeHighlightSet")
   let highlight_set = match model.selected_node {
     Some(nid_str) =>
       match parse_node_id(nid_str) {
-        Some(nid) => compute_highlight_set(nid, scope_map)
+        Some(nid) => @scope.compute_highlight_set(nid, scope_map)
         None => @immut/hashset.new()
       }
     None => @immut/hashset.new()
@@ -394,26 +389,6 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 }
 
 ///|
-/// Map a standard structural-edit op string to a typed `TreeEditOp`. Used
-/// on both the direct-apply path (`apply_structural_edit_request`, from
-/// Inspector / Web Component `STRUCTURAL_EDIT_REQUEST`) and the FFI-applied
-/// path (`StructureStructuralEdit`, from `STRUCTURAL_EDIT_APPLIED`) so the
-/// Op Log row shape matches in both. Must stay in sync with the dispatch
-/// sites in `view_inspector.mbt` and `web/src/keymap.ts`. Returns `None`
-/// for ops outside the standard set — notably `"Drop"`, whose `source` /
-/// `position` payload is not recoverable from `(op, node_id)` alone.
-fn structural_edit_op_to_tree_edit(
-  op : String,
-  node_id : @canopy_core.NodeId,
-) -> @lambda_edits.TreeEditOp? {
-  match op {
-    "WrapInLambda" => Some(@lambda_edits.WrapInLambda(node_id~, var_name="x"))
-    "Delete" => Some(@lambda_edits.Delete(node_id~))
-    _ => None
-  }
-}
-
-///|
 fn apply_structural_edit_request(
   model : Model,
   op : String,
@@ -423,7 +398,7 @@ fn apply_structural_edit_request(
     Some(id) => id
     None => return (none, model)
   }
-  let tree_op = match structural_edit_op_to_tree_edit(op, nid) {
+  let tree_op = match @lambda.structural_edit_op_to_tree_edit(op, nid) {
     Some(tree_op) => tree_op
     None => return (none, model)
   }
@@ -451,382 +426,35 @@ fn apply_structural_edit_request(
 
 ///|
 fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
-  match msg {
-    SetMode(mode) => {
-      let mode_str : String = match mode {
-        Text => "text"
-        Structure => "structure"
-      }
-      let js_cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
-      (js_cmd, { ..model, mode, })
-    }
-    TogglePanel(panel) => {
-      let ws = model.workspace
-      let workspace = match panel {
-        Outline => { ..ws, outline_visible: !ws.outline_visible }
-        Inspector => { ..ws, inspector_visible: !ws.inspector_visible }
-        Bottom => { ..ws, bottom_visible: !ws.bottom_visible }
-      }
-      let new_model = { ..model, workspace, }
-      // Bottom-panel HTML is now mounted through rabbita's vdom (see
-      // `view_bottom_content`), so opening/closing the panel re-renders
-      // it from scratch — no separate refresh command needed.
-      (none, new_model)
-    }
-    OutlineResize(resize_msg) => {
-      let workspace = model.workspace.update_outline_resize(resize_msg)
-      (none, { ..model, workspace, })
-    }
-    DismissPanels => {
-      let ws = model.workspace
-      let workspace = { ..ws, outline_visible: false, inspector_visible: false }
-      (none, { ..model, workspace, })
-    }
-    SelectBottomTab(tab) => {
-      let new_model = { ..model, bottom_tab: tab }
-      (bottom_tab_focus_cmd(tab), new_model)
-    }
-    StructuralEditRequested(op~, node_id~) =>
-      if op == "" || node_id == "" {
-        (none, model)
-      } else {
-        apply_structural_edit_request(model, op, node_id)
-      }
-    TreeEdited(op) =>
-      match op {
-        @lambda_edits.Expand(node_id~) => {
-          let hydrate_after_expand = can_hydrate_tree_node(model, node_id)
-          let outline_state = if hydrate_after_expand {
-            model.outline_state.expand_node(
-              node_id,
-              model.editor.get_proj_node(),
-              model.editor.get_source_map(),
-            )
-          } else {
-            model.outline_state.apply_edit(op.to_generic())
-          }
-          return (none, { ..model, outline_state, })
-        }
-        @lambda_edits.Collapse(..)
-        | @lambda_edits.Select(..)
-        | @lambda_edits.SelectRange(..) => {
-          let outline_state = model.outline_state.apply_edit(op.to_generic())
-          return (none, { ..model, outline_state, })
-        }
-        _ => (none, model)
-      }
-    Undo => {
-      let did_undo = model.editor.undo()
-      if did_undo {
-        let new_model = refresh(model)
-        let text = new_model.editor.get_text()
-        let cmd = sync_after_local_model_change(new_model, text)
-        (cmd, new_model)
-      } else {
-        (none, model)
-      }
-    }
-    Redo => {
-      let did_redo = model.editor.redo()
-      if did_redo {
-        let new_model = refresh(model)
-        let text = new_model.editor.get_text()
-        let cmd = sync_after_local_model_change(new_model, text)
-        (cmd, new_model)
-      } else {
-        (none, model)
-      }
-    }
-    LoadExample(example_text) => {
-      model.editor.set_text_and_record(example_text, js_now_ms())
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let text = new_model.editor.get_text()
-      let cmd = sync_after_local_model_change(new_model, text)
-      (cmd, new_model)
-    }
-    // ── File I/O ──────────────────────────────────────────
-    OpenFile => (@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model)
-    SaveFile =>
-      (
-        @rabbita.effect(fn() { @ffi.save_file(model.handle, "canopy.lambda") }),
-        model,
-      )
-    // The host read a file and dispatched its text as a "file-loaded" event.
-    // Apply it exactly like LoadExample: record for undo, refresh, push to CM.
-    FileLoaded(content) => {
-      model.editor.set_text_and_record(content, js_now_ms())
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let text = new_model.editor.get_text()
-      let cmd = sync_after_local_model_change(new_model, text)
-      (cmd, new_model)
-    }
-    OutlineNodeClicked(node_id) => {
-      // Highlight in the active editor, then re-focus tree rows.
-      let cmd = select_editor_node_cmd(model, node_id)
-      let highlight_set = match parse_node_id(node_id) {
-        Some(nid) => compute_highlight_set(nid, model.scope_map)
-        None => @immut/hashset.new()
-      }
-      (
-        cmd,
-        { ..model, selected_node: Some(node_id), highlight_set, nav_path: None },
-      )
-    }
-    OutlineNavigate(node_id_str) => {
-      // Update selection without touching editor focus — outline keeps keyboard focus
-      let new_selected : String? = if node_id_str == "" {
-        None
-      } else {
-        Some(node_id_str)
-      }
-      let outline_state = match new_selected {
-        Some(s) =>
-          match parse_node_id(s) {
-            Some(nid) =>
-              model.outline_state.apply_edit(
-                @canopy_core.GenericTreeOp::Select(node_id=nid),
-              )
-            None => return (none, model)
-          }
-        None => model.outline_state
-      }
-      let cmd = match new_selected {
-        Some(s) =>
-          @rabbita.batch([
-            select_editor_node_cmd(model, s),
-            scroll_selector_after_render(".outline-panel .tree-row.selected"),
-          ])
-        None => none
-      }
-      let highlight_set = match new_selected {
-        Some(s) =>
-          match parse_node_id(s) {
-            Some(nid) => compute_highlight_set(nid, model.scope_map)
-            None => @immut/hashset.new()
-          }
-        None => @immut/hashset.new()
-      }
-      (
-        cmd,
-        { ..model, selected_node: new_selected, outline_state, highlight_set },
-      )
-    }
-    OutlineStructuralEdit(tree_op) =>
-      match
-        @lambda.apply_lambda_tree_edit(
-          model.editor,
-          model.companion,
-          tree_op,
-          js_now_ms(),
-        ) {
-        Ok(edits) => {
-          push_intent(model, tree_op)
-          push_patch(model, tree_op, edits)
-          let new_model = refresh({
-            ..model,
-            next_timestamp: model.next_timestamp + 1,
-          })
-          // Relocate selection to where FocusHint placed the text cursor
-          let (new_selected, outline_state) = match
-            new_model.editor
-            .get_source_map()
-            .innermost_node_at(new_model.editor.get_cursor()) {
-            Some(nid) => {
-              let os = new_model.outline_state.apply_edit(
-                @canopy_core.GenericTreeOp::Select(node_id=nid),
-              )
-              (Some(node_id_to_string(nid)), os)
-            }
-            None => (None, new_model.outline_state)
-          }
-          let highlight_set = match new_selected {
-            Some(s) =>
-              match parse_node_id(s) {
-                Some(nid) => compute_highlight_set(nid, new_model.scope_map)
-                None => @immut/hashset.new()
-              }
-            None => @immut/hashset.new()
-          }
-          let text = new_model.editor.get_text()
-          let cmd = sync_after_local_model_change(new_model, text)
-          (
-            cmd,
-            {
-              ..new_model,
-              selected_node: new_selected,
-              outline_state,
-              highlight_set,
-              nav_path: None,
-            },
-          )
-        }
-        Err(_) => (none, model)
-      }
-    OpenActionOverlayFromOutline => {
-      let node_id_str = match model.selected_node {
-        Some(s) => s
-        None => return (none, model)
-      }
-      let rect_json = js_get_outline_selected_rect()
-      open_action_overlay(emit, model, node_id_str, rect_json~)
-    }
-    SyncStatusChanged(status) => {
-      let sync_status : SyncStatus = match status {
-        "connected" => Connected
-        "connecting" => Connecting
-        "disconnected" => Offline
-        "error" => Error
-        _ => model.sync_status
-      }
-      (none, { ..model, sync_status, })
-    }
-    OpenActionOverlayForNode(node_id_str)
-    | LongPressTriggeredForNode(node_id_str) =>
-      open_action_overlay_from_event(emit, model, node_id_str)
-    ActionOverlay(overlay_event) => handle_overlay_event(model, overlay_event)
-    ActionOverlayEffect(output) => handle_overlay_output(model, output)
-    // ── Outline drag-and-drop ──────
-    OutlineDragStart(node_id) => (none, { ..model, drag_source: Some(node_id) })
-    OutlineDragOver(target_id, position) =>
-      (
-        none,
-        {
-          ..model,
-          drop_target_id: Some(target_id),
-          drop_position: Some(position),
-        },
-      )
-    OutlineDragLeave =>
-      (none, { ..model, drop_target_id: None, drop_position: None })
-    OutlineDragEnd =>
-      (
-        none,
-        {
-          ..model,
-          drag_source: None,
-          drop_target_id: None,
-          drop_position: None,
-        },
-      )
-    OutlineDrop(target_id, position) => {
-      let source = model.drag_source
-      let model = {
-        ..model,
-        drag_source: None,
-        drop_target_id: None,
-        drop_position: None,
-      }
-      match source {
-        None => (none, model)
-        Some(source_id) => {
-          let tree_op = @lambda_edits.TreeEditOp::Drop(
-            source=source_id,
-            target=target_id,
-            position~,
-          )
-          match
-            @lambda.apply_lambda_tree_edit(
-              model.editor,
-              model.companion,
-              tree_op,
-              js_now_ms(),
-            ) {
-            Ok(edits) => {
-              push_intent(model, tree_op)
-              push_patch(model, tree_op, edits)
-              let new_model = refresh({
-                ..model,
-                next_timestamp: model.next_timestamp + 1,
-              })
-              let text = new_model.editor.get_text()
-              let cmd = sync_after_local_model_change(new_model, text)
-              (cmd, new_model)
-            }
-            Err(_) => (none, model)
-          }
-        }
-      }
-    }
-    // ── Structure-mode Web Component communication ──────
-    StructureNodeSelected(node_id) =>
-      if node_id == "" {
-        (none, model)
-      } else {
-        let highlight_set = match parse_node_id(node_id) {
-          Some(nid) => compute_highlight_set(nid, model.scope_map)
-          None => @immut/hashset.new()
-        }
-        (
-          none,
-          {
-            ..model,
-            selected_node: Some(node_id),
-            highlight_set,
-            nav_path: None,
-          },
-        )
-      }
-    StructureStructuralEdit(op~, node_id~) =>
-      if op == "" || node_id == "" {
-        (none, model)
-      } else {
-        // The edit was already applied by TS calling handle_structural_intent FFI.
-        // For ops the helper can rebuild (`WrapInLambda`, `Delete`), route
-        // through `push_intent` so the Op Log row shape matches direct-apply
-        // paths. Fall back to a raw label for ops whose payload can't be
-        // reconstructed from `(op, node_id)` (e.g. `"Drop"`).
-        let rebuilt = parse_node_id(node_id).bind(nid => {
-          structural_edit_op_to_tree_edit(op, nid)
-        })
-        match rebuilt {
-          Some(tree_op) => push_intent(model, tree_op)
-          None => push_intent_label(model, "\{op}(node=\{node_id})")
-        }
-        let new_model = refresh({
-          ..model,
-          next_timestamp: model.next_timestamp + 1,
-        })
-        (sync_after_external_crdt_change(new_model), new_model)
-      }
-    ExternalCrdtChanged => {
-      let new_model = refresh(model)
-      (sync_after_external_crdt_change(new_model), new_model)
-    }
-    CmMounted => {
-      let new_model = { ..model, mounted: true }
-      (sync_after_external_crdt_change(new_model), new_model)
-    }
-    CmDocChanged(text) => {
-      // Binding listen sends the full document; use the recording variant so undo keeps working.
-      model.editor.set_text_and_record(text, js_now_ms())
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let actual_text = new_model.editor.get_text()
-      let sync_cmd = if actual_text != text {
-        @cm.set_doc(model.cm_id, actual_text)
-      } else {
-        none
-      }
-      let cmd = @rabbita.batch([
-        sync_cmd,
-        @rabbita.effect(fn() { js_after_local_text_edit() }),
-      ])
-      (cmd, new_model)
-    }
-    CmSelectionChanged(range) => {
-      js_after_cm_selection_changed(range.from, range.to)
-      (none, model)
-    }
-    CmFocusChanged(_) => (none, model)
+  match handle_workspace(emit, msg, model) {
+    Some(r) => return r
+    None => ()
   }
+  match handle_structural(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  match handle_outline(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  match handle_overlay(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  match handle_file_io(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  match handle_structure_mode(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  match handle_codemirror(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
+  abort("unhandled message")
 }
 
 ///|

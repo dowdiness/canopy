@@ -9,9 +9,19 @@ import {
 }
 
 // Values
+pub fn build_action_context(node_id~ : @core.NodeId, kind~ : @ast.Term, definition_index~ : @proj.DefinitionIndex, module_node_id~ : @core.NodeId?) -> ActionContext
+
+pub fn build_tree_edit_op(String, ActionContext, String, String) -> Result[TreeEditOp?, String]
+
 pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
+
+pub fn get_submenu_choices(String, @ast.Term) -> Array[(String, String)]
+
+pub fn parse_bop(String) -> @ast.Bop?
+
+pub fn to_node_context(ActionContext) -> NodeContext
 
 // Errors
 
@@ -23,6 +33,15 @@ pub(all) struct Action {
   group : ActionGroup
   needs_input : Bool
 } derive(Eq, @debug.Debug)
+
+pub(all) struct ActionContext {
+  node_id : @core.NodeId
+  kind : @ast.Term
+  is_let_binding : Bool
+  binding_node_id : @core.NodeId?
+  binding_def_index : Int?
+  module_node_id : @core.NodeId?
+}
 
 pub(all) enum ActionGroup {
   Core

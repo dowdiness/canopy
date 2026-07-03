@@ -28,7 +28,7 @@ fn OverlayOutput::token(self : OverlayOutput) -> Int {
 fn ActionOverlayHost::active_for_output(
   self : ActionOverlayHost,
   output : OverlayOutput,
-) -> (NodeActionContext, ActionOverlayRuntime)? {
+) -> (@lambda_edits.ActionContext, ActionOverlayRuntime)? {
   match self.active {
     Some((context, runtime)) =>
       if runtime.token == output.token() {
