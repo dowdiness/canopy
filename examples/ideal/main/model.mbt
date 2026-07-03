@@ -97,6 +97,9 @@ pub struct Model {
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state
   drag_source : @canopy_core.NodeId?
+  // Cached navigation path between consecutive arrow key presses.
+  // Cleared on any non-navigation event (structural edit, click, etc.).
+  mut nav_path : Array[Int]?
   drop_target_id : @canopy_core.NodeId?
   drop_position : @canopy_core.DropPosition?
   // Inspector traceability: rolling log of structural intents (most recent last).

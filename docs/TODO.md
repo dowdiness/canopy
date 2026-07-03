@@ -185,12 +185,18 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 8. Handler Chain Follow-ups
 
-- [ ] AST transform pipeline.
-  Why: the `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
+- [x] ~~AST transform pipeline~~ (reverted — design mistake).
+  The `EditMiddleware` trait intercepts `TreeEditOp` pre-dispatch. It is a
+  **guard/observer** mechanism (ValidateNodeExists, access control, audit log)
+  and should NOT be used for AST-to-AST transforms — those destroy source text
+  and bypass user intent.
+
+  Simplification (constant folding, beta reduction) is already solved by the
+  e-graph optimizer + eval annotations — non-destructive, hover-to-see results.
+  Implemented and reverted in PRs #842 / #843. Closed #841 as wont-fix.
 
 - [ ] Cache navigation path between keystrokes to avoid O(n) DFS per keystroke (GitHub #91).
   Exit: path or zipper is cached in editor state and reused across consecutive keystrokes.
-
 ---
 
 ## 9. Ideal Editor
@@ -226,6 +232,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Structure-aware diff display from reconciliation trace (#830).
   Why: the Patch panel shows character-level `SpanEdit`s even for structural edits like Wrap; the reconciler already knows "this was a Wrap" but discards it after reconciliation.
   Plan: `docs/plans/2026-07-02-structure-aware-diff-display.md`
+  Status: `ReconcileTraceEvent` and `StructuredChange` enum types + `to_structured_changes` filter shipped in `core/diff_event.mbt`. The reconciliation emission plumbing (`trace_ref` threading through 7 functions in `core/reconcile.mbt`) is deferred — the types are the foundation.
   Exit: `core/reconcile.mbt` emits an opt-in `ReconcileTraceEvent` trace; Patch panel renders filtered `StructuredChange` events (e.g. "Wrapped #42 in Lambda") alongside the existing SpanEdit log.
 
 - [ ] IdentityTransform hints in undo/redo for identity-preserving undo (#831).

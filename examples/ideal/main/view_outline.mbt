@@ -249,6 +249,8 @@ fn view_outline_node(
 
 ///|
 /// Compute structural navigation from the current selection.
+/// Uses `navigate_proj_cached` to reuse the path from the previous
+/// navigation, avoiding an O(n) DFS on consecutive keystrokes.
 fn navigate_outline(
   model : Model,
   direction : @canopy_core.Direction,
@@ -265,10 +267,14 @@ fn navigate_outline(
     Some(p) => p
     None => return None
   }
-  match @canopy_core.navigate_proj(node_id, direction, proj_root) {
-    Some(new_id) => Some(node_id_to_string(new_id))
-    None => None
-  }
+  let (new_path, new_id) = @canopy_core.navigate_proj_cached(
+    node_id,
+    direction,
+    proj_root,
+    model.nav_path,
+  )
+  model.nav_path = new_path
+  new_id.map(fn(id) { node_id_to_string(id) })
 }
 
 ///|

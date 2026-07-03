@@ -53,6 +53,7 @@ fn init_model() -> Model raise {
     overlay: ActionOverlayHost::empty(),
     scope_map: build_scope_map_from_editor(editor),
     highlight_set: @immut/hashset.new(),
+    nav_path: None,
     drag_source: None,
     drop_target_id: None,
     drop_position: None,
