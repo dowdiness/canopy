@@ -380,7 +380,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
   - `view_outline::kind_of()` and any duplicate per-view classifier deleted.
   - Adding a new language touches only the language's `Show for Kind` impl, not framework views.
 
-  As shipped (see `docs/plans/2026-05-16-show-unification.md` for the trace):
+  As shipped (see `docs/archive/completed-phases/2026-05-16-show-unification.md` for the trace):
   - Real `Show` impls landed for `SpanEdit`/`GenericTreeOp`/`ProjNode[T]`/`InteractiveTreeNode[T]` (PR #277), but `view_outline` tree-row body keeps `node.label` — the `"#9 App [25..47]"` form is debug output for inspectors/logs, not the navigation tree.
   - Inspector chip uses `@loomcore.Renderable::kind_tag(node.kind)` (typed kind tag) rather than `node.kind.to_string()` (PR #278); same end-state for the kind→label classifier collapse, different mechanism.
   - `view_outline::kind_of()` deleted; CSS class derives from `term_css_class(node.kind)` in `lang/lambda/proj/`.
@@ -459,9 +459,9 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 17. Lambda Type System
 
-- [ ] Evolve the lambda typecheck pipeline so it produces ranged diagnostics + queryable types via subscription, not stringly-typed JSON snapshots.
-  Why: the diagnostic pane shipped (PR #186 + follow-ups), but the pipeline below it lacks the primitives every future surface needs — source ranges on diagnostics, a typed wire protocol, `TypecheckIndex`, push-based subscription, per-def memos, and a shared `attach_typecheck` abstraction. Once these land, hover / inline squigglies / inlay hints / click-to-locate become ~10-line consumers each.
-  Plan: `docs/plans/2026-04-26-lambda-typecheck-pipeline-evolution.md`
+- [x] Evolve the lambda typecheck pipeline so it produces ranged diagnostics + queryable types via subscription, not stringly-typed JSON snapshots.
+  Why: the diagnostic pane shipped (PR #186 + follow-ups), but the pipeline below it lacked the primitives every future surface needs. All 6 plan steps now shipped.
+  Plan: `docs/archive/completed-phases/2026-04-26-lambda-typecheck-pipeline-evolution.md`
   Exit: 6/6 plan steps shipped — type diagnostics carry ranges, wire is typed (no JSON round-trip), `query_type_at_offset` exposed and consumed by hover, diagnostic updates are subscription-driven, per-def memo isolation verified by test, and `@typecheck.attach` is the single shared attachment abstraction used by both canopy and the loom example.
 
 ## 18. Shared-Runtime Workspace (§P0b prep)
@@ -482,7 +482,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 ## 20. Scope-Graph Fidelity
 
 - [x] Reconcile the module-binder `node_id` divergence (Option D, driven by go-to-definition).
-  Plan: docs/plans/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
+  Plan: docs/archive/completed-phases/2026-05-30-scope-binder-node-id-reconciliation.md (Codex-reviewed;
   Option D: an on-demand `@scope` binder-location accessor over the
   already-populated SourceMap token spans).
   Shipped: `@scope.binder_span` + `@scope.go_to_definition` accessors
