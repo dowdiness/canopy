@@ -7,12 +7,13 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
   syntax_tree : @incr.Derived[@seam.SyntaxNode],
   syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
-  reconcile_node? : (ProjNode[T], ProjNode[T], Ref[Int]) -> ProjNode[T] = fn(
+  reconcile_node? : (ProjNode[T], ProjNode[T], Ref[Int], Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T] = fn(
     o,
     n,
     c,
+    tr,
   ) {
-    reconcile(o, n, c)
+    reconcile(o, n, c, trace_ref=tr)
   },
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
   label? : String = "generic",
@@ -34,11 +35,7 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
         None => ()
       }
       let result = match prev_proj_ref.val {
-        Some(old) =>
-          match trace_ref {
-            Some(_) => reconcile(old, new_proj, counter, trace_ref~)
-            None => reconcile_node(old, new_proj, counter)
-          }
+        Some(old) => reconcile_node(old, new_proj, counter, trace_ref)
         None => new_proj
       }
       prev_proj_ref.val = Some(result)

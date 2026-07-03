@@ -33,9 +33,10 @@ fn reconcile_markdown_projection_hinted(
   new_ : @core.ProjNode[@markdown.Block],
   counter : Ref[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@markdown.Block] {
   if hints.is_empty() || !has_move_hint(hints) {
-    return @core.reconcile_hinted(old, new_, counter, hints)
+    return @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
   }
   if @loomcore.TreeNode::same_kind(old.kind, new_.kind) &&
     is_block_container(new_.kind) {
@@ -49,10 +50,11 @@ fn reconcile_markdown_projection_hinted(
         new_.children,
         counter,
         hints,
+        trace_ref~,
       ),
     )
   }
-  @core.reconcile_hinted(old, new_, counter, hints)
+  @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
 }
 
 ///|
@@ -73,6 +75,7 @@ fn reconcile_markdown_children_hinted(
   new_children : Array[@core.ProjNode[@markdown.Block]],
   counter : Ref[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> Array[@core.ProjNode[@markdown.Block]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
@@ -125,6 +128,7 @@ fn reconcile_markdown_children_hinted(
           new_children[k],
           counter,
           hints,
+          trace_ref~,
         )
       } else {
         match
@@ -136,6 +140,7 @@ fn reconcile_markdown_children_hinted(
             consumed,
             counter,
             hints,
+            trace_ref~,
           ) {
           Some(node) => node
           None => @core.assign_fresh_ids(new_children[k], counter)
@@ -196,6 +201,7 @@ fn markdown_move_pair(
   consumed : Map[@core.NodeId, Bool],
   counter : Ref[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@markdown.Block]? {
   let candidates = [
     for idx, old_child in old_children if old_matched[idx] < 0 &&
@@ -218,6 +224,7 @@ fn markdown_move_pair(
             new_child.children,
             counter,
             hints,
+            trace_ref~,
           ),
         ),
       )
