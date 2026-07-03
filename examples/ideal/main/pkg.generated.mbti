@@ -6,6 +6,7 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/projection",
   "dowdiness/event-graph-walker/history",
   "dowdiness/lambda/ast",
@@ -135,7 +136,7 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : ActionOverlayHost
-  scope_map : Map[@core.NodeId, ScopeAnnotation]
+  scope_map : Map[@core.NodeId, @scope.ScopeAnnotation]
   highlight_set : @hashset.HashSet[@core.NodeId]
   drag_source : @core.NodeId?
   drop_target_id : @core.NodeId?
@@ -175,8 +176,6 @@ pub(all) struct PatchEntry {
   op_label : String
   edits : Array[@core.SpanEdit]
 }
-
-type ScopeAnnotation
 
 pub enum SyncStatus {
   Offline

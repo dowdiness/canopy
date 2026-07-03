@@ -51,7 +51,7 @@ fn init_model() -> Model raise {
     bottom_tab: Problems,
     sync_status: Connecting,
     overlay: ActionOverlayHost::empty(),
-    scope_map: build_scope_map(editor, companion),
+    scope_map: build_scope_map_from_editor(editor),
     highlight_set: @immut/hashset.new(),
     drag_source: None,
     drop_target_id: None,
@@ -205,6 +205,23 @@ fn push_patch(
 }
 
 ///|
+/// Build scope_map from an editor. Thin wrapper over the pure
+/// @scope.build_scope_map that extracts projection data from SyncEditor.
+fn build_scope_map_from_editor(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Map[@canopy_core.NodeId, @scope.ScopeAnnotation] {
+  match editor.get_proj_node() {
+    Some(proj_root) =>
+      @scope.build_scope_map(
+        proj_root,
+        editor.get_registry(),
+        editor.get_source_map(),
+      )
+    None => {}
+  }
+}
+
+///|
 fn refresh(model : Model) -> Model {
   js_perf_begin("refreshTotal")
   js_perf_begin("getProjNode")
@@ -218,14 +235,14 @@ fn refresh(model : Model) -> Model {
   js_perf_end("treeEditorRefresh")
   // Build scope_map from current projection
   js_perf_begin("buildScopeMap")
-  let scope_map = build_scope_map(model.editor, model.companion)
+  let scope_map = build_scope_map_from_editor(model.editor)
   js_perf_end("buildScopeMap")
   // Recompute highlight_set if a node is selected
   js_perf_begin("computeHighlightSet")
   let highlight_set = match model.selected_node {
     Some(nid_str) =>
       match parse_node_id(nid_str) {
-        Some(nid) => compute_highlight_set(nid, scope_map)
+        Some(nid) => @scope.compute_highlight_set(nid, scope_map)
         None => @immut/hashset.new()
       }
     None => @immut/hashset.new()
@@ -527,7 +544,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       // Highlight in the active editor, then re-focus tree rows.
       let cmd = select_editor_node_cmd(model, node_id)
       let highlight_set = match parse_node_id(node_id) {
-        Some(nid) => compute_highlight_set(nid, model.scope_map)
+        Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
         None => @immut/hashset.new()
       }
       (cmd, { ..model, selected_node: Some(node_id), highlight_set })
@@ -561,7 +578,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let highlight_set = match new_selected {
         Some(s) =>
           match parse_node_id(s) {
-            Some(nid) => compute_highlight_set(nid, model.scope_map)
+            Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
             None => @immut/hashset.new()
           }
         None => @immut/hashset.new()
@@ -602,7 +619,8 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           let highlight_set = match new_selected {
             Some(s) =>
               match parse_node_id(s) {
-                Some(nid) => compute_highlight_set(nid, new_model.scope_map)
+                Some(nid) =>
+                  @scope.compute_highlight_set(nid, new_model.scope_map)
                 None => @immut/hashset.new()
               }
             None => @immut/hashset.new()
@@ -712,7 +730,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, model)
       } else {
         let highlight_set = match parse_node_id(node_id) {
-          Some(nid) => compute_highlight_set(nid, model.scope_map)
+          Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
           None => @immut/hashset.new()
         }
         (none, { ..model, selected_node: Some(node_id), highlight_set })

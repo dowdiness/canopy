@@ -103,7 +103,7 @@ pub struct Model {
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : ActionOverlayHost
-  scope_map : Map[@canopy_core.NodeId, ScopeAnnotation]
+  scope_map : Map[@canopy_core.NodeId, @scope.ScopeAnnotation]
   highlight_set : @immut/hashset.HashSet[@canopy_core.NodeId]
   // Outline drag-and-drop state
   drag_source : @canopy_core.NodeId?

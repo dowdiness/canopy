@@ -1,4 +1,4 @@
-// Whitebox tests for scope annotation.
+// Whitebox tests for scope outline annotation.
 
 ///|
 test "color_index is stable across calls" {
@@ -12,11 +12,11 @@ test "color_index is stable across calls" {
 
 ///|
 test "compute_highlight_set for variable returns binder + usages" {
-  let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
-  let var_id = @canopy_core.NodeId::from_int(10)
-  let binder_id = @canopy_core.NodeId::from_int(1)
-  let usage1 = @canopy_core.NodeId::from_int(10)
-  let usage2 = @canopy_core.NodeId::from_int(20)
+  let scope_map : Map[@core.NodeId, ScopeAnnotation] = {}
+  let var_id = @core.NodeId::from_int(10)
+  let binder_id = @core.NodeId::from_int(1)
+  let usage1 = @core.NodeId::from_int(10)
+  let usage2 = @core.NodeId::from_int(20)
   scope_map[var_id] = {
     binder_id: Some(binder_id),
     is_definition: false,
@@ -37,22 +37,20 @@ test "compute_highlight_set for variable returns binder + usages" {
 
 ///|
 test "compute_highlight_set for non-identifier returns empty set" {
-  let scope_map : Map[@canopy_core.NodeId, ScopeAnnotation] = {}
-  let unknown_id = @canopy_core.NodeId::from_int(99)
+  let scope_map : Map[@core.NodeId, ScopeAnnotation] = {}
+  let unknown_id = @core.NodeId::from_int(99)
   let hs = compute_highlight_set(unknown_id, scope_map)
   inspect(hs.length(), content="0")
 }
 
 ///|
 test "clicking f does not highlight apply var (no module/lambda scope confusion)" {
-  let (editor, companion) = @lambda.new_lambda_editor("test")
-  editor.set_text(
+  let (proj, registry, source_map) = build_fixture(
     "fn id(x : Int) { x }\nfn apply(f : Int -> Int, x : Int) { f x }\napply id 42",
   )
-  let scope_map = build_scope_map(editor, companion)
-  let proj_root = editor.get_proj_node().unwrap()
-  let f_var_id = find_var_node_id(proj_root, "f")
-  let apply_var_id = find_var_node_id(proj_root, "apply")
+  let scope_map = build_scope_map(proj, registry, source_map)
+  let f_var_id = find_var_node(proj, "f")
+  let apply_var_id = find_var_node(proj, "apply")
   // f should resolve to a binder ((f) =>)
   let f_ann = scope_map.get(f_var_id).unwrap()
   inspect(f_ann.binder_id is None, content="false")
@@ -70,13 +68,38 @@ test "clicking f does not highlight apply var (no module/lambda scope confusion)
 }
 
 ///|
+fn find_all_var_node_ids(
+  node : @core.ProjNode[@ast.Term],
+  name : String,
+) -> Array[@core.NodeId] {
+  let results : Array[@core.NodeId] = []
+  collect_var_ids(node, name, results)
+  results
+}
+
+///|
+fn collect_var_ids(
+  node : @core.ProjNode[@ast.Term],
+  name : String,
+  results : Array[@core.NodeId],
+) -> Unit {
+  match node.kind {
+    @ast.Term::Var(n) => if n == name { results.push(node.id()) }
+    _ => ()
+  }
+  for child in node.children {
+    collect_var_ids(child, name, results)
+  }
+}
+
+///|
 test "nested block: inner x does not highlight outer x" {
-  let (editor, companion) = @lambda.new_lambda_editor("test")
-  editor.set_text("let x = 0\nlet y = { let x = 1\n  x }\nx")
-  let scope_map = build_scope_map(editor, companion)
-  let proj_root = editor.get_proj_node().unwrap()
+  let (proj, registry, source_map) = build_fixture(
+    "let x = 0\nlet y = { let x = 1\n  x }\nx",
+  )
+  let scope_map = build_scope_map(proj, registry, source_map)
   // There are two Var("x") nodes — inner (inside block) and outer (body)
-  let x_vars = find_all_var_node_ids(proj_root, "x")
+  let x_vars = find_all_var_node_ids(proj, "x")
   // Should have at least 2 Var("x") usages
   inspect(x_vars.length() >= 2, content="true")
   // Each x should resolve to a different binder
@@ -97,11 +120,11 @@ test "nested block: inner x does not highlight outer x" {
 
 ///|
 test "nested block: inner module can reference enclosing block binder" {
-  let (editor, companion) = @lambda.new_lambda_editor("test")
-  editor.set_text("let x = 0\nlet y = { let x = 1\n  { let z = x\n    z } }\nx")
-  let scope_map = build_scope_map(editor, companion)
-  let proj_root = editor.get_proj_node().unwrap()
-  let x_vars = find_all_var_node_ids(proj_root, "x")
+  let (proj, registry, source_map) = build_fixture(
+    "let x = 0\nlet y = { let x = 1\n  { let z = x\n    z } }\nx",
+  )
+  let scope_map = build_scope_map(proj, registry, source_map)
+  let x_vars = find_all_var_node_ids(proj, "x")
   inspect(x_vars.length() >= 2, content="true")
   let inner_x_ann = scope_map.get(x_vars[0]).unwrap()
   let outer_x_ann = scope_map.get(x_vars[x_vars.length() - 1]).unwrap()
@@ -114,24 +137,24 @@ test "nested block: inner module can reference enclosing block binder" {
 
 ///|
 test "scope_map keys module references by real LetDef declaration" {
-  let (editor, companion) = @lambda.new_lambda_editor("test")
-  editor.set_text("let x = 0\nlet f = (x) => { x }\nx")
-  let scope_map = build_scope_map(editor, companion)
-  let proj_root = editor.get_proj_node().unwrap()
-  let x_vars = find_all_var_node_ids(proj_root, "x")
+  let (proj, registry, source_map) = build_fixture(
+    "let x = 0\nlet f = (x) => { x }\nx",
+  )
+  let scope_map = build_scope_map(proj, registry, source_map)
+  let x_vars = find_all_var_node_ids(proj, "x")
   let inner_x_id = x_vars[0]
   let module_x_id = x_vars[x_vars.length() - 1]
-  let graph = @scope.build(editor.get_registry(), editor.get_source_map())
-  let module_decl = @scope.declaration(graph, module_x_id).unwrap()
-  let inner_decl = @scope.declaration(graph, inner_x_id).unwrap()
+  let graph = build(registry, source_map)
+  let module_decl = declaration(graph, module_x_id).unwrap()
+  let inner_decl = declaration(graph, inner_x_id).unwrap()
   inspect(module_decl.id == inner_decl.id, content="false")
   let is_module_decl = match module_decl.kind {
-    @scope.DeclKind::ModuleDef(def_index=_) => true
+    DeclKind::ModuleDef(def_index=_) => true
     _ => false
   }
   inspect(is_module_decl, content="true")
   let module_binder_key = scope_binder_ui_key(module_decl)
-  let binder_node = editor.get_registry().get(module_binder_key).unwrap()
+  let binder_node = registry.get(module_binder_key).unwrap()
   let is_let_def = match binder_node.kind {
     @ast.Term::LetDef(_, _) => true
     _ => false
@@ -141,52 +164,9 @@ test "scope_map keys module references by real LetDef declaration" {
   inspect(ann.binder_id == Some(module_binder_key), content="true")
   let binder_ann = scope_map.get(module_binder_key).unwrap()
   inspect(
-    binder_ann.usage_ids == @scope.references(graph, module_decl.id),
+    binder_ann.usage_ids == references(graph, module_decl.id),
     content="true",
   )
   let hs_inner = compute_highlight_set(inner_x_id, scope_map)
   inspect(hs_inner.contains(module_x_id), content="false")
-}
-
-///|
-fn find_var_node_id(
-  node : @canopy_core.ProjNode[@ast.Term],
-  name : String,
-) -> @canopy_core.NodeId {
-  match node.kind {
-    Var(n) => if n == name { return node.id() }
-    _ => ()
-  }
-  for child in node.children {
-    let result = find_var_node_id(child, name)
-    if result != @canopy_core.NodeId::from_int(-1) {
-      return result
-    }
-  }
-  @canopy_core.NodeId::from_int(-1)
-}
-
-///|
-fn find_all_var_node_ids(
-  node : @canopy_core.ProjNode[@ast.Term],
-  name : String,
-) -> Array[@canopy_core.NodeId] {
-  let results : Array[@canopy_core.NodeId] = []
-  collect_var_ids(node, name, results)
-  results
-}
-
-///|
-fn collect_var_ids(
-  node : @canopy_core.ProjNode[@ast.Term],
-  name : String,
-  results : Array[@canopy_core.NodeId],
-) -> Unit {
-  match node.kind {
-    Var(n) => if n == name { results.push(node.id()) }
-    _ => ()
-  }
-  for child in node.children {
-    collect_var_ids(child, name, results)
-  }
 }
