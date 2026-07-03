@@ -232,6 +232,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [ ] Structure-aware diff display from reconciliation trace (#830).
   Why: the Patch panel shows character-level `SpanEdit`s even for structural edits like Wrap; the reconciler already knows "this was a Wrap" but discards it after reconciliation.
   Plan: `docs/plans/2026-07-02-structure-aware-diff-display.md`
+  Status: `ReconcileTraceEvent` and `StructuredChange` enum types + `to_structured_changes` filter shipped in `core/diff_event.mbt`. The reconciliation emission plumbing (`trace_ref` threading through 7 functions in `core/reconcile.mbt`) is deferred — the types are the foundation.
   Exit: `core/reconcile.mbt` emits an opt-in `ReconcileTraceEvent` trace; Patch panel renders filtered `StructuredChange` events (e.g. "Wrapped #42 in Lambda") alongside the existing SpanEdit log.
 
 - [ ] IdentityTransform hints in undo/redo for identity-preserving undo (#831).
