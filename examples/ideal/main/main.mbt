@@ -56,6 +56,7 @@ fn init_model() -> Model raise {
     drag_source: None,
     drop_target_id: None,
     drop_position: None,
+    nav_path: None,
     intent_log: [],
     patch_log: [],
     incr_tap,
@@ -572,7 +573,10 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(nid) => compute_highlight_set(nid, model.scope_map)
         None => @immut/hashset.new()
       }
-      (cmd, { ..model, selected_node: Some(node_id), highlight_set })
+      (
+        cmd,
+        { ..model, selected_node: Some(node_id), highlight_set, nav_path: None },
+      )
     }
     OutlineNavigate(node_id_str) => {
       // Update selection without touching editor focus — outline keeps keyboard focus
@@ -658,6 +662,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               selected_node: new_selected,
               outline_state,
               highlight_set,
+              nav_path: None,
             },
           )
         }
@@ -757,7 +762,15 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           Some(nid) => compute_highlight_set(nid, model.scope_map)
           None => @immut/hashset.new()
         }
-        (none, { ..model, selected_node: Some(node_id), highlight_set })
+        (
+          none,
+          {
+            ..model,
+            selected_node: Some(node_id),
+            highlight_set,
+            nav_path: None,
+          },
+        )
       }
     StructureStructuralEdit(op~, node_id~) =>
       if op == "" || node_id == "" {

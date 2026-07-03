@@ -19,6 +19,8 @@ pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
 
 pub fn[T] navigate_proj(NodeId, Direction, ProjNode[T]) -> NodeId?
 
+pub fn[T] navigate_proj_cached(NodeId, Direction, ProjNode[T], Array[Int]?) -> (Array[Int]?, NodeId?)
+
 pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
 
 pub fn[T : @dowdiness/loom/core.TreeNode] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
