@@ -66,3 +66,65 @@ fn extract_primary_node_id(op : TreeEditOp) -> NodeId? {
     AddBinding(module_node_id~) => Some(module_node_id)
   }
 }
+
+///|
+/// Fold constants at edit time: when a CommitEdit targets a Bop node
+/// with both Int children (e.g. `1 + 2`), replace the entire expression
+/// with the folded result (e.g. `3`). Only fires on CommitEdit — structural
+/// ops (SwapChildren, Unwrap, ChangeOperator, etc.) delegate to core_dispatch
+/// unchanged.
+priv struct FoldConstants {}
+
+///|
+impl EditMiddleware for FoldConstants with fn apply(_self, next, op, ctx) {
+  match try_fold_constant(op, ctx) {
+    Some(result) => result
+    None => next(op, ctx)
+  }
+}
+
+///|
+/// Attempt to fold Bop(Plus, Int(a), Int(b)) → Int(a + b)
+/// or Bop(Minus, Int(a), Int(b)) → Int(a - b).
+/// Only triggers on CommitEdit (user replacing text at the Bop node).
+fn try_fold_constant(
+  op : TreeEditOp,
+  ctx : EditContext[@ast.Term],
+) -> EditResult? {
+  let node_id = match op {
+    CommitEdit(node_id~, ..) => node_id
+    _ => return None
+  }
+  let node = match ctx.registry.get(node_id) {
+    Some(n) => n
+    None => return None
+  }
+  match node.kind {
+    @ast.Term::Bop(op_kind, @ast.Term::Int(a), @ast.Term::Int(b)) => {
+      let folded = match op_kind {
+        @ast.Bop::Plus => a + b
+        @ast.Bop::Minus => a - b
+      }
+      let range = match ctx.source_map.get_range(node_id) {
+        Some(r) => r
+        None => return None
+      }
+      let fold_text = folded.to_string()
+      Some(
+        Some(
+          (
+            [
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: fold_text,
+              },
+            ],
+            RestoreCursor,
+          ),
+        ),
+      )
+    }
+    _ => None
+  }
+}

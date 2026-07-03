@@ -3242,3 +3242,83 @@ test "compute_text_edit: InlineDefinition does not reject block-shadowed free na
     _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
   }
 }
+
+///|
+test "compute_text_edit: FoldConstants folds 1 + 2 to 3 on CommitEdit" {
+  let text = "1 + 2"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let root_id = proj.id()
+  let result = test_edit(
+    CommitEdit(node_id=root_id, new_value="x"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      inspect(apply_edits(text, edits), content="3")
+      inspect(hint, content="RestoreCursor")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: FoldConstants folds 5 - 3 to 2 on CommitEdit" {
+  let text = "5 - 3"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let root_id = proj.id()
+  let result = test_edit(
+    CommitEdit(node_id=root_id, new_value="x"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, hint))) => {
+      inspect(apply_edits(text, edits), content="2")
+      inspect(hint, content="RestoreCursor")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: FoldConstants skips non-Bop nodes" {
+  let text = "42"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let root_id = proj.id()
+  let result = test_edit(
+    CommitEdit(node_id=root_id, new_value="99"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="99")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}
+
+///|
+test "compute_text_edit: FoldConstants skips Bop with non-Int child" {
+  let text = "x + 1"
+  let (proj, _) = parse_to_proj_node(text)
+  let source_map = SourceMap::from_ast(proj)
+  let registry = text_edit_test_registry(proj)
+  let root_id = proj.id()
+  let result = test_edit(
+    CommitEdit(node_id=root_id, new_value="99"),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(new_text, content="99")
+    }
+    _ => fail("expected Ok(Some(edits)), got: " + @debug.to_string(result))
+  }
+}

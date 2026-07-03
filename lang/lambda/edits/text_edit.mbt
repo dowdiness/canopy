@@ -32,12 +32,20 @@ fn[T] EditContext::resolve(
 
 ///|
 /// Translate a TreeEditOp into text span edits.
-/// Passes through ValidateNodeExists middleware before core dispatch.
+/// Passes through FoldConstants and ValidateNodeExists middleware before
+/// core dispatch. FoldConstants runs outermost so foldable patterns are
+/// caught before validation.
 pub fn compute_text_edit(
   op : TreeEditOp,
   ctx : EditContext[@ast.Term],
 ) -> EditResult raise EditError {
-  ValidateNodeExists::{  }.apply(core_dispatch, op, ctx)
+  FoldConstants::{  }.apply(
+    fn(op_arg, ctx_arg) raise EditError {
+      ValidateNodeExists::{  }.apply(core_dispatch, op_arg, ctx_arg)
+    },
+    op,
+    ctx,
+  )
 }
 
 ///|
