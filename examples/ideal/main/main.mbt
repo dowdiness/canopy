@@ -425,6 +425,7 @@ fn apply_structural_edit_request(
 
 ///|
 fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+  // ── Workspace / mode ──────────────────────────────────────
   match msg {
     SetMode(mode) => {
       let mode_str : String = match mode {
@@ -460,6 +461,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let new_model = { ..model, bottom_tab: tab }
       (bottom_tab_focus_cmd(tab), new_model)
     }
+    // ── Structural edits ──────────────────────────────────────
     StructuralEditRequested(op~, node_id~) =>
       if op == "" || node_id == "" {
         (none, model)
@@ -489,6 +491,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         _ => (none, model)
       }
+    // ── History (undo/redo) ──────────────────────────────────
     Undo => {
       let did_undo = model.editor.undo()
       if did_undo {
@@ -540,6 +543,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let cmd = sync_after_local_model_change(new_model, text)
       (cmd, new_model)
     }
+    // ── Outline navigation ───────────────────────────────────
     OutlineNodeClicked(node_id) => {
       // Highlight in the active editor, then re-focus tree rows.
       let cmd = select_editor_node_cmd(model, node_id)
@@ -639,6 +643,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         }
         Err(_) => (none, model)
       }
+    // ── Overlay ───────────────────────────────────────────────
     OpenActionOverlayFromOutline => {
       let node_id_str = match model.selected_node {
         Some(s) => s
@@ -761,6 +766,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let new_model = refresh(model)
       (sync_after_external_crdt_change(new_model), new_model)
     }
+    // ── External CRDT / CodeMirror ────────────────────────────
     CmMounted => {
       let new_model = { ..model, mounted: true }
       (sync_after_external_crdt_change(new_model), new_model)

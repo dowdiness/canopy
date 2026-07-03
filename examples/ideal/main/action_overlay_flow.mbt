@@ -259,4 +259,3 @@ fn OverlayState::update(self : OverlayState, msg : OverlayMsg) -> OverlayUpdate 
     ShowNamePrompt(action) => self.show_name_prompt(action)
   }
 }
-
