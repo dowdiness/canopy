@@ -14,7 +14,7 @@ fn test_action_by_id(id : String) -> @lambda_edits.Action {
 }
 
 ///|
-fn test_overlay_context() -> NodeActionContext {
+fn test_overlay_context() -> @lambda_edits.ActionContext {
   {
     node_id: @canopy_core.NodeId::from_int(1),
     kind: @ast.Term::Unit,

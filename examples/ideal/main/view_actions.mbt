@@ -124,7 +124,7 @@ fn view_submenu_choices(
   action : @lambda_edits.Action,
   kind : @ast.Term,
 ) -> @rabbita.Html {
-  let choices = get_submenu_choices(action.id, kind)
+  let choices = @lambda_edits.get_submenu_choices(action.id, kind)
   let items : Array[@rabbita.Html] = []
   items.push(
     @html.div(

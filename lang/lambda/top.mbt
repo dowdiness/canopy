@@ -23,6 +23,7 @@ pub using @lambda_companion {
   parse_tree_edit_op,
   structural_edit_op_to_tree_edit,
   snapshot_span_edits,
+  detect_action_context,
 }
 
 ///|

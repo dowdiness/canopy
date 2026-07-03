@@ -64,7 +64,7 @@ fn OverlayState::submenu_choices(
   self : OverlayState,
   action : @lambda_edits.Action,
 ) -> Array[(String, String)] {
-  get_submenu_choices(action.id, self.kind)
+  @lambda_edits.get_submenu_choices(action.id, self.kind)
 }
 
 ///|

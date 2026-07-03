@@ -86,11 +86,15 @@ fn open_action_overlay(
   if node_id_str == "" {
     return (none, model)
   }
-  let ctx = match detect_action_context(model.editor, node_id_str) {
+  let nid = match parse_node_id(node_id_str) {
+    Some(id) => id
+    None => return (none, model)
+  }
+  let ctx = match @lambda.detect_action_context(model.editor, nid) {
     Some(c) => c
     None => return (none, model)
   }
-  let proj_ctx = to_proj_context(ctx)
+  let proj_ctx = @lambda_edits.to_node_context(ctx)
   let actions = @lambda_edits.get_actions_for_node(ctx.kind, proj_ctx)
   if actions.is_empty() {
     return (none, model)

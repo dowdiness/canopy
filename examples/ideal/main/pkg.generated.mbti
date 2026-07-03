@@ -148,8 +148,6 @@ pub struct Model {
 
 type Msg
 
-type NodeActionContext
-
 type OverlayEffect
 
 type OverlayError derive(@debug.Debug)
