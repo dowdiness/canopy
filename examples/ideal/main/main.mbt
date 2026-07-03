@@ -194,29 +194,7 @@ fn push_patch(
   if edits.is_empty() {
     return
   }
-  let snapshot : Array[@canopy_core.SpanEdit] = edits.map(fn(e) {
-    // Truncate by iterating codepoints, not UTF-16 code units. Slicing
-    // `e.inserted[:N]` would abort uncatchably if index N landed mid
-    // surrogate pair (e.g. user pastes 199 BMP code units then an emoji).
-    // `String::length` is the cheap upper-bound check; the loop produces a
-    // codepoint-bounded copy when truncation is warranted.
-    let inserted = if e.inserted.length() > MAX_PATCH_INSERTED_CHARS {
-      let buf = StringBuilder::new(size_hint=MAX_PATCH_INSERTED_CHARS)
-      let mut count = 0
-      for ch in e.inserted {
-        if count >= MAX_PATCH_INSERTED_CHARS {
-          break
-        }
-        buf.write_char(ch)
-        count = count + 1
-      }
-      buf.write_char('…')
-      buf.to_string()
-    } else {
-      e.inserted
-    }
-    { start: e.start, delete_len: e.delete_len, inserted }
-  })
+  let snapshot = @lambda.snapshot_span_edits(edits, MAX_PATCH_INSERTED_CHARS)
   model.patch_log.push({
     op_label: op.to_generic().to_string(),
     edits: snapshot,
