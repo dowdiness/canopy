@@ -241,12 +241,12 @@ pub fn split_at_hardlines(
 
   fn walk(l : @pretty.Layout[@pretty.SyntaxCategory]) -> Unit {
     match l {
-      HardLine => flush()
-      Concat(left, right) => {
+      HardLine(_) => flush()
+      Concat(left, right, _) => {
         walk(left)
         walk(right)
       }
-      Empty => ()
+      Empty(_) => ()
       other => parts.push(other)
     }
   }
