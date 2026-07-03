@@ -185,15 +185,15 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 8. Handler Chain Follow-ups
 
-- [x] AST transform pipeline — first pass: constant folding middleware.
-  Shipped: `FoldConstants` middleware in `lang/lambda/edits/text_edit_middleware.mbt` (PR #842). Intercepts `CommitEdit` on `Bop(_, Int(a), Int(b))`, short-circuits with folded `Int(a⊕b)`. Trigger: `CommitEdit` only (non-`CommitEdit` structural ops pass through).
-  Why: the `EditMiddleware` trait is ready for composable AST-to-AST transforms (constant folding, dead code elimination, simplification). Each pass becomes a middleware impl that intercepts before `core_dispatch`.
+- [x] ~~AST transform pipeline~~ (reverted — design mistake).
+  The `EditMiddleware` trait intercepts `TreeEditOp` pre-dispatch. It is a
+  **guard/observer** mechanism (ValidateNodeExists, access control, audit log)
+  and should NOT be used for AST-to-AST transforms — those destroy source text
+  and bypass user intent.
 
-- [ ] Beta reduction middleware — second AST transform pass (#841).
-  Why: `App(Lam(x, body), arg)` should reduce to `body[x := arg]` at edit time, same pattern as constant folding.
-  Design: raw-AST substitute on `@ast.Term` (~25 lines). Capture-avoiding via `@alpha` pipeline or documented limitation on first pass.
-  Plan: follow-up issue #841
-  Exit: `FoldConstants`-style middleware reducing beta-redexes on `CommitEdit`, with positive/negative tests and no regression in existing beta-reducible structural edit ops.
+  Simplification (constant folding, beta reduction) is already solved by the
+  e-graph optimizer + eval annotations — non-destructive, hover-to-see results.
+  Implemented and reverted in PRs #842 / #843. Closed #841 as wont-fix.
 
 - [ ] Cache navigation path between keystrokes to avoid O(n) DFS per keystroke (GitHub #91).
   Exit: path or zipper is cached in editor state and reused across consecutive keystrokes.
