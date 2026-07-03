@@ -16,6 +16,7 @@ pub struct LambdaCompanion {
   // panel or to drive custom trace visualizations.
   priv trace_ref : Ref[Array[@core.ReconcileTraceEvent]]
 }
+
 ///|
 /// Read the current reconciliation trace, filter to user-facing
 /// StructuredChange events (discards Matched events), and return them.

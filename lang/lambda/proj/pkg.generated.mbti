@@ -22,7 +22,7 @@ pub const LET_DEF_NAME_ROLE : String = "name"
 
 pub const PARAM_ROLE : String = "param"
 
-pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]], trace_ref? : @ref.Ref[Array[@dowdiness/canopy/core.ReconcileTraceEvent]]?) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
 
 pub fn module_name_role(Int) -> String
 

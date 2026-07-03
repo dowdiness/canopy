@@ -42,7 +42,13 @@ fn reconcile_module_child_hinted(
     Some(i) =>
       match old_children.get(i) {
         Some(old_child) =>
-          @core.reconcile_hinted(old_child, new_child, counter, hints, trace_ref~)
+          @core.reconcile_hinted(
+            old_child,
+            new_child,
+            counter,
+            hints,
+            trace_ref~,
+          )
         None => @core.assign_fresh_ids(new_child, counter)
       }
     None => @core.assign_fresh_ids(new_child, counter)
@@ -84,7 +90,9 @@ fn reconcile_lambda_projection_hinted(
           )
         }
       ]
-      children.push(@core.reconcile_hinted(old_body, new_body, counter, hints, trace_ref~))
+      children.push(
+        @core.reconcile_hinted(old_body, new_body, counter, hints, trace_ref~),
+      )
       @core.ProjNode(new_.kind, new_.start, new_.end, old.node_id, children)
     }
     _ => @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
@@ -120,11 +128,17 @@ pub fn build_lambda_projection_memos(
         Some(hints_ref) => {
           let hints = build_hints_map(hints_ref.val)
           hints_ref.val = [] // T4: cleared exactly once per reparse
-          reconcile_lambda_projection_hinted(old, new_, counter, hints, trace_ref=tr)
+          reconcile_lambda_projection_hinted(
+            old,
+            new_,
+            counter,
+            hints,
+            trace_ref=tr,
+          )
         }
       }
     },
-    trace_ref=trace_ref,
+    trace_ref~,
     label="lambda",
   )
 }
@@ -176,7 +190,8 @@ fn reconcile_module_child(
   match matched_index {
     Some(i) =>
       match old_children.get(i) {
-        Some(old_child) => @core.reconcile(old_child, new_child, counter, trace_ref~)
+        Some(old_child) =>
+          @core.reconcile(old_child, new_child, counter, trace_ref~)
         None => @core.assign_fresh_ids(new_child, counter)
       }
     None => @core.assign_fresh_ids(new_child, counter)
