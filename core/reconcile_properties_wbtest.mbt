@@ -801,7 +801,8 @@ test "property: result uses new tree spans" {
 fn count_expr_nodes(expr : TestExpr) -> Int {
   match expr {
     Leaf(_) => 1
-    Branch(_, cs) => 1 + cs.fold(init=0, fn(acc, c) { acc + count_expr_nodes(c) })
+    Branch(_, cs) =>
+      1 + cs.fold(init=0, fn(acc, c) { acc + count_expr_nodes(c) })
   }
 }
 
