@@ -392,10 +392,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
   Resolved: the duplication was resolved — `editor/sync_protocol.mbt` became a `#deprecated` re-export shim over `@wire` (`protocol/wire`), and this branch deletes the shim; `relay/wire.mbt` is a distinct concern (peer-control frames), not a duplicate.
 
-- [ ] Extract reusable orchestration out of `examples/ideal/main` (god-package: ~5.4k src lines).
+- [x] Extract reusable orchestration out of `examples/ideal/main` (god-package: ~5.4k src lines).
   Why: structural-edit reconstruction, scope annotation, action domain logic, and log-entry construction are library-grade logic trapped in the Rabbita example, contradicting the accepted library boundary (docs/decisions/2026-06-11-library-api-boundary.md).
-  Plan: `docs/plans/2026-07-02-ideal-orchestration-extraction.md`
-  Exit: example retains only Rabbita Model/view/command wiring; extracted logic lives in lang/lambda/{companion,scope,edits} with tests moved to owning packages.
+  Plan: `docs/archive/2026-07-02-ideal-orchestration-extraction.md` (archived)
+  Shipped: PR #845 (`3a14f20`, 2026-07-03). Verified post-merge 2026-07-04: `lang/lambda/{companion,scope,edits}` own the extracted logic with tests (`edits/action_context.mbt` + wbtest, `scope/outline_annotation.mbt`), `update()` split into `examples/ideal/main/update_handlers.mbt`, and the extracted packages import no `@rabbita`/`@html`/`@cmd`/`@sub`/menu.
 
 ---
 
