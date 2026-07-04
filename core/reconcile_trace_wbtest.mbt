@@ -72,6 +72,29 @@ test "deleted child produces Deleted event" {
 }
 
 ///|
+test "bulk insert: N children produce N Inserted events" {
+  let old_child = ProjNode(Leaf("x"), 0, 1, 1, [])
+  let old = ProjNode(Branch("r", [Leaf("x")]), 0, 5, 0, [old_child])
+  let n = 20
+  let new_children : Array[ProjNode[TestExpr]] = []
+  // First child matches old Leaf (same_kind Leaf)
+  new_children.push(ProjNode(Leaf("x"), 0, 1, 10, []))
+  // 20 Branch children are unlike Leaf → each produces an Inserted event
+  for i = 0; i < n; i = i + 1 {
+    new_children.push(ProjNode(Branch("w", []), i + 1, i + 2, 20 + i, []))
+  }
+  let new_ = ProjNode(Branch("r", []), 0, n + 1, 50, new_children)
+  let trace = Ref([])
+  let _result = reconcile(old, new_, Ref(100), trace_ref=Some(trace))
+  // 1 Matched + 20 Inserted = 21 events
+  inspect(trace.val.length(), content="21")
+  let inserted_count = [
+    for ev in trace.val if ev is Inserted(_, _, _, _) => 1
+  ].length()
+  inspect(inserted_count, content="20")
+}
+
+///|
 test "all children matched with aligned constructors" {
   // Constructors aligned at same indices: old [Leaf, Branch] → new [Leaf, Branch]
   // LCS: Leaf↔Leaf (idx 0), Branch↔Branch (idx 1) → 2 pairs → 2 Matched, no insert/delete
