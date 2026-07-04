@@ -503,56 +503,44 @@ fn format_structured_change(
       s
     }
   }
+  fn format_kind_change(
+    prefix : String,
+    kind_tag : String,
+    node_id : @canopy_core.NodeId,
+  ) -> String {
+    let s = snippet(node_id)
+    if s.is_empty() {
+      prefix + " " + kind_tag
+    } else {
+      prefix + " " + kind_tag + " '" + truncate(s) + "'"
+    }
+  }
   match c {
-    @canopy_core.Inserted(_, index, node_id, kind_tag) => {
-      let s = snippet(node_id)
-      if s.is_empty() {
-        "+ \{kind_tag}"
-      } else {
-        "+ \{kind_tag} '\{truncate(s)}'"
-      }
-    }
-    @canopy_core.Deleted(_, _, node_id, kind_tag) => {
-      let s = snippet(node_id)
-      if s.is_empty() {
-        "- \{kind_tag}"
-      } else {
-        "- \{kind_tag} '\{truncate(s)}'"
-      }
-    }
+    @canopy_core.Inserted(_, _, node_id, kind_tag) =>
+      format_kind_change("+", kind_tag, node_id)
+    @canopy_core.Deleted(_, _, node_id, kind_tag) =>
+      format_kind_change("-", kind_tag, node_id)
     @canopy_core.Wrapped(inner_id, wrapper_node_id, wrapper_kind) => {
       let s = snippet(wrapper_node_id)
       let s = if s.is_empty() { snippet(inner_id) } else { s }
       if s.is_empty() {
-        "⊞ \{wrapper_kind}"
+        "⊞ " + wrapper_kind
       } else {
-        "⊞ \{wrapper_kind} '\{truncate(s)}'"
+        "⊞ " + wrapper_kind + " '" + truncate(s) + "'"
       }
     }
     @canopy_core.Unwrapped(wrapper_id, _, wrapper_kind) => {
       let s = snippet(wrapper_id)
       if s.is_empty() {
-        "⊟ \{wrapper_kind}"
+        "⊟ " + wrapper_kind
       } else {
-        "⊟ \{wrapper_kind} '\{truncate(s)}'"
+        "⊟ " + wrapper_kind + " '" + truncate(s) + "'"
       }
     }
-    @canopy_core.Renamed(node_id, kind_tag) => {
-      let s = snippet(node_id)
-      if s.is_empty() {
-        "→ \{kind_tag}"
-      } else {
-        "→ \{kind_tag} '\{truncate(s)}'"
-      }
-    }
-    @canopy_core.Freshened(_, _, node_id, kind_tag) => {
-      let s = snippet(node_id)
-      if s.is_empty() {
-        "~ \{kind_tag}"
-      } else {
-        "~ \{kind_tag} '\{truncate(s)}'"
-      }
-    }
+    @canopy_core.Renamed(node_id, kind_tag) =>
+      format_kind_change("→", kind_tag, node_id)
+    @canopy_core.Freshened(_, _, node_id, kind_tag) =>
+      format_kind_change("~", kind_tag, node_id)
   }
 }
 
@@ -606,13 +594,18 @@ fn view_patch_log(model : Model) -> Html {
     ]
   }
   if log.is_empty() {
-    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
-      @html.span(class="no-problems", [
-        @html.text(
-          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
-        ),
-      ]),
-    ])
+    @html.div(
+      class="bottom-content",
+      attrs=bottom_panel_attrs(Patch),
+      structural_block +
+      [
+        @html.span(class="no-problems", [
+          @html.text(
+            "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
+          ),
+        ]),
+      ],
+    )
   } else {
     let n = log.length()
     let items : Array[Html] = Array::new(capacity=n)
