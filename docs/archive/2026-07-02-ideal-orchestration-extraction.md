@@ -1,5 +1,7 @@
 # Ideal Orchestration Extraction
 
+**Status: SHIPPED 2026-07-03 via PR #845 (`3a14f20`); archived 2026-07-04.**
+
 ## Why
 
 `examples/ideal/main` is no longer a thin example. It currently contains 6,008
@@ -230,24 +232,29 @@ and tests green before the next extraction starts.
 
 ## Acceptance Criteria
 
-- [ ] No `@rabbita`, `@html`, `@cmd`, `@sub`, `@menu`, CodeMirror, DOM, or Web
+Ticked post-merge 2026-07-04 against main after PR #845 (`3a14f20`): direct
+greps verified the no-UI-imports and update-split criteria; the ownership
+criteria are grounded in #845's diff (extracted files + moved tests); the two
+process criteria (`.mbti` review, reuse check) rode PR #845's normal review.
+
+- [x] No `@rabbita`, `@html`, `@cmd`, `@sub`, `@menu`, CodeMirror, DOM, or Web
       Component type appears in `editor/`, `lang/lambda/companion`,
       `lang/lambda/edits`, or `lang/lambda/scope`.
-- [ ] `examples/ideal/main` imports extracted APIs instead of defining
+- [x] `examples/ideal/main` imports extracted APIs instead of defining
       structural-edit reconstruction, scope annotation, and action-to-edit
       construction locally.
-- [ ] `lang/lambda/companion` owns lambda structural-edit request reconstruction
+- [x] `lang/lambda/companion` owns lambda structural-edit request reconstruction
       and keeps unsupported/unrebuildable app events explicit.
-- [ ] `lang/lambda/scope` owns `ScopeAnnotation`-style scope annotation and
+- [x] `lang/lambda/scope` owns `ScopeAnnotation`-style scope annotation and
       highlight computation, with nested module and shadowing tests moved there.
-- [ ] `lang/lambda/edits` owns action context / submenu / action-id-to-edit
+- [x] `lang/lambda/edits` owns action context / submenu / action-id-to-edit
       construction, with tests moved there.
-- [ ] Intent/patch log arrays remain app-owned, while any extracted helper is
+- [x] Intent/patch log arrays remain app-owned, while any extracted helper is
       pure and preserves label/truncation invariants.
-- [ ] `update()` is split only after extraction and remains example-internal.
-- [ ] `.mbti` diffs for Tier 1/Tier 2 packages are reviewed as API changes;
+- [x] `update()` is split only after extraction and remains example-internal.
+- [x] `.mbti` diffs for Tier 1/Tier 2 packages are reviewed as API changes;
       no visibility widening is accepted only to make old example tests compile.
-- [ ] Each PR reports the Existing API First reuse check for any new API.
+- [x] Each PR reports the Existing API First reuse check for any new API.
 
 ## Validation
 
