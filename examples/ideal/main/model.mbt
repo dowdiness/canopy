@@ -20,9 +20,13 @@ pub enum BottomTab {
 /// shape as the Op Log entry) paired with the `SpanEdit`s that the editor
 /// produced for it. Empty `edits` is legal — pure navigation ops like
 /// `Select` resolve to zero text changes.
+/// `changes` is a per-entry snapshot of `StructuredChange` events captured
+/// at the edit point, so historical display shows the right diff for each
+/// entry — not the latest reconcile's trace.
 pub(all) struct PatchEntry {
   op_label : String
   edits : Array[@canopy_core.SpanEdit]
+  changes : Array[@canopy_core.StructuredChange]
 }
 
 ///|

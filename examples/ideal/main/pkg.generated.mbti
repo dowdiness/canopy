@@ -139,6 +139,7 @@ pub struct Model {
   scope_map : Map[@core.NodeId, @scope.ScopeAnnotation]
   highlight_set : @hashset.HashSet[@core.NodeId]
   drag_source : @core.NodeId?
+  mut nav_path : Array[Int]?
   drop_target_id : @core.NodeId?
   drop_position : @core.DropPosition?
   intent_log : Array[String]
@@ -173,6 +174,7 @@ pub enum PanelId {
 pub(all) struct PatchEntry {
   op_label : String
   edits : Array[@core.SpanEdit]
+  changes : Array[@core.StructuredChange]
 }
 
 pub enum SyncStatus {
