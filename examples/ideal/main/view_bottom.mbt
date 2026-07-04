@@ -550,6 +550,7 @@ fn format_structured_change(
 /// Each entry surfaces the producing `GenericTreeOp` label as a header row
 /// so the user can cross-reference the matching Op Log entry, then each
 /// `SpanEdit` renders via its `Show` impl (`@<start> -<delete_len> +«…»`).
+/// Per-entry `changes` are rendered in a `<details>` block within each row.
 fn view_patch_log(model : Model) -> Html {
   // See `view_op_log` for the rationale; Patch panel rows are heavier
   // (header + N `SpanEdit` rows per entry), so guarding here matters more.
@@ -561,51 +562,16 @@ fn view_patch_log(model : Model) -> Html {
     )
   }
   let log = model.patch_log
-  // Force projection memo to recompute so trace_ref is populated
-  let _ = model.editor.get_proj_node()
-  // Read structural changes from the reconciliation trace
-  // Read the source map to resolve positions for structured change display
   let source_map = model.editor.get_source_map()
-  // Read the editor text to extract source snippets for structural changes
   let source_text = model.editor.get_text()
-  let structured_changes = model.companion.get_structured_changes()
-  // Build the structural-changes details block when events are present
-  let structural_block : Array[Html] = if structured_changes.is_empty() {
-    []
-  } else {
-    let change_rows : Array[Html] = structured_changes.map(fn(c) {
-      @html.div(class="patch-structural-change", [
-        @html.span(class="patch-change-text", [
-          @html.text(format_structured_change(c, source_map, source_text)),
-        ]),
-      ])
-    })
-    [
-      @html.node(
-        "details",
-        @html.Attrs::build().class("patch-structural-details"),
-        [
-          @html.node("summary", @html.Attrs::build(), [
-            @html.text("Structural changes"),
-          ]),
-          @html.div(class="patch-structural-body", change_rows),
-        ],
-      ),
-    ]
-  }
   if log.is_empty() {
-    @html.div(
-      class="bottom-content",
-      attrs=bottom_panel_attrs(Patch),
-      structural_block +
-      [
-        @html.span(class="no-problems", [
-          @html.text(
-            "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
-          ),
-        ]),
-      ],
-    )
+    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
+      @html.span(class="no-problems", [
+        @html.text(
+          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
+        ),
+      ]),
+    ])
   } else {
     let n = log.length()
     let items : Array[Html] = Array::new(capacity=n)
@@ -616,20 +582,47 @@ fn view_patch_log(model : Model) -> Html {
           @html.span(class="patch-log-edit-text", [@html.text(edit.to_string())]),
         ])
       })
-      items.push(
-        @html.div(class="patch-log-row", [
-          @html.div(class="patch-log-header", [
-            @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
-            @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
+      let change_rows : Array[Html] = entry.changes.map(fn(c) {
+        @html.div(class="patch-structural-change", [
+          @html.span(class="patch-change-text", [
+            @html.text(format_structured_change(c, source_map, source_text)),
           ]),
-          @html.div(class="patch-log-edits", edit_rows),
-        ]),
+        ])
+      })
+      let structural_details : Array[Html] = if change_rows.is_empty() {
+        []
+      } else {
+        [
+          @html.node(
+            "details",
+            @html.Attrs::build().class("patch-structural-details"),
+            [
+              @html.node("summary", @html.Attrs::build(), [
+                @html.text("Structural changes"),
+              ]),
+              @html.div(class="patch-structural-body", change_rows),
+            ],
+          ),
+        ]
+      }
+      items.push(
+        @html.div(
+          class="patch-log-row",
+          [
+            @html.div(class="patch-log-header", [
+              @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
+              @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
+            ]),
+            @html.div(class="patch-log-edits", edit_rows),
+          ] +
+          structural_details,
+        ),
       )
     }
     @html.div(
       class="bottom-content patch-log",
       attrs=bottom_panel_attrs(Patch),
-      structural_block + items,
+      items,
     )
   }
 }

@@ -196,9 +196,14 @@ fn push_patch(
     return
   }
   let snapshot = @lambda.snapshot_span_edits(edits, MAX_PATCH_INSERTED_CHARS)
+  // Force reconcile to populate the trace with this edit's events,
+  // then capture the structural changes as a per-entry snapshot.
+  let _ = model.editor.get_proj_node()
+  let changes = model.companion.get_structured_changes()
   model.patch_log.push({
     op_label: op.to_generic().to_string(),
     edits: snapshot,
+    changes,
   })
   while model.patch_log.length() > MAX_PATCH_LOG {
     model.patch_log.remove(0) |> ignore
