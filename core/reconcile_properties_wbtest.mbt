@@ -795,3 +795,30 @@ fn prop_result_uses_new_spans(expr : TestExpr) -> Bool {
 test "property: result uses new tree spans" {
   @qc.quick_check_fn(prop_result_uses_new_spans)
 }
+
+///|
+/// Count nodes in a TestExpr tree (tree shape, not ProjNode).
+fn count_expr_nodes(expr : TestExpr) -> Int {
+  match expr {
+    Leaf(_) => 1
+    Branch(_, cs) => 1 + cs.fold(init=0, fn(acc, c) { acc + count_expr_nodes(c) })
+  }
+}
+
+///|
+/// Property 16: Trace event count is bounded by total nodes in both trees.
+/// Each event corresponds to at most one (old_child, new_child) position, so
+/// the total event count cannot exceed the combined node count.
+fn prop_trace_event_count_bounded_by_total_nodes(pair : TestExprPair) -> Bool {
+  let old_node = to_proj_node(pair.old, Ref(0))
+  let new_node = to_proj_node(pair.new, Ref(500))
+  let trace = Ref([])
+  let _result = reconcile(old_node, new_node, Ref(1000), trace_ref=Some(trace))
+  let bound = count_expr_nodes(pair.old) + count_expr_nodes(pair.new)
+  trace.val.length() <= bound
+}
+
+///|
+test "property: trace event count bounded by total nodes" {
+  @qc.quick_check_fn(prop_trace_event_count_bounded_by_total_nodes)
+}
