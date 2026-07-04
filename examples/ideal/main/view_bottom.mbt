@@ -492,13 +492,13 @@ fn format_structured_change(
 ) -> String {
   fn snippet(node_id : @canopy_core.NodeId) -> String {
     match source_map.get_range(node_id) {
-      Some(r) => source_text.substring(r.start, r.end)
+      Some(r) => source_text[r.start:r.end].to_string()
       None => ""
     }
   }
   fn truncate(s : String) -> String {
     if s.length() > 60 {
-      s.substring(0, 60) + "..."
+      s[0:60].to_string() + "..."
     } else {
       s
     }
