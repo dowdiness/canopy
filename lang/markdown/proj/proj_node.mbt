@@ -166,13 +166,19 @@ fn build_markdown_projection_memos_with_heading_side_table(
     parser.syntax_tree(),
     syntax_to_proj_node,
     populate_token_spans,
-    reconcile_node=(old, new_, counter) => {
+    reconcile_node=(old, new_, counter, trace_ref) => {
       match identity_hints {
-        None => @core.reconcile(old, new_, counter)
+        None => @core.reconcile(old, new_, counter, trace_ref~)
         Some(hints_ref) => {
           let hints = build_markdown_hints_map(hints_ref.val)
           hints_ref.val = []
-          reconcile_markdown_projection_hinted(old, new_, counter, hints)
+          reconcile_markdown_projection_hinted(
+            old,
+            new_,
+            counter,
+            hints,
+            trace_ref~,
+          )
         }
       }
     },

@@ -36,12 +36,19 @@ fn reconcile_module_child_hinted(
   matched_index : Int?,
   counter : Ref[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@ast.Term] {
   match matched_index {
     Some(i) =>
       match old_children.get(i) {
         Some(old_child) =>
-          @core.reconcile_hinted(old_child, new_child, counter, hints)
+          @core.reconcile_hinted(
+            old_child,
+            new_child,
+            counter,
+            hints,
+            trace_ref~,
+          )
         None => @core.assign_fresh_ids(new_child, counter)
       }
     None => @core.assign_fresh_ids(new_child, counter)
@@ -57,14 +64,15 @@ fn reconcile_lambda_projection_hinted(
   new_ : @core.ProjNode[@ast.Term],
   counter : Ref[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@ast.Term] {
   match (old.kind, new_.kind) {
     (Module(old_defs, _), Module(new_defs, _)) => {
       guard old.children.get(old_defs.length()) is Some(old_body) else {
-        return @core.reconcile_hinted(old, new_, counter, hints)
+        return @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
       }
       guard new_.children.get(new_defs.length()) is Some(new_body) else {
-        return @core.reconcile_hinted(old, new_, counter, hints)
+        return @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
       }
       let new_matched = module_key_match(
         old_defs.map(def => def.0),
@@ -78,13 +86,16 @@ fn reconcile_lambda_projection_hinted(
             new_matched[j],
             counter,
             hints,
+            trace_ref~,
           )
         }
       ]
-      children.push(@core.reconcile_hinted(old_body, new_body, counter, hints))
+      children.push(
+        @core.reconcile_hinted(old_body, new_body, counter, hints, trace_ref~),
+      )
       @core.ProjNode(new_.kind, new_.start, new_.end, old.node_id, children)
     }
-    _ => @core.reconcile_hinted(old, new_, counter, hints)
+    _ => @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
   }
 }
 
@@ -100,6 +111,7 @@ fn reconcile_lambda_projection_hinted(
 pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
   identity_hints? : Ref[Array[@core.IdentityTransform]],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> (
   @incr.Derived[@core.ProjNode[@ast.Term]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
@@ -110,16 +122,23 @@ pub fn build_lambda_projection_memos(
     parser.syntax_tree(),
     to_proj_node,
     populate_token_spans,
-    reconcile_node=fn(old, new_, counter) {
+    reconcile_node=fn(old, new_, counter, tr) {
       match identity_hints {
-        None => reconcile_lambda_projection(old, new_, counter)
+        None => reconcile_lambda_projection(old, new_, counter, trace_ref=tr)
         Some(hints_ref) => {
           let hints = build_hints_map(hints_ref.val)
           hints_ref.val = [] // T4: cleared exactly once per reparse
-          reconcile_lambda_projection_hinted(old, new_, counter, hints)
+          reconcile_lambda_projection_hinted(
+            old,
+            new_,
+            counter,
+            hints,
+            trace_ref=tr,
+          )
         }
       }
     },
+    trace_ref~,
     label="lambda",
   )
 }
@@ -166,11 +185,13 @@ fn reconcile_module_child(
   new_child : @core.ProjNode[@ast.Term],
   matched_index : Int?,
   counter : Ref[Int],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@ast.Term] {
   match matched_index {
     Some(i) =>
       match old_children.get(i) {
-        Some(old_child) => @core.reconcile(old_child, new_child, counter)
+        Some(old_child) =>
+          @core.reconcile(old_child, new_child, counter, trace_ref~)
         None => @core.assign_fresh_ids(new_child, counter)
       }
     None => @core.assign_fresh_ids(new_child, counter)
@@ -187,14 +208,15 @@ fn reconcile_lambda_projection(
   old : @core.ProjNode[@ast.Term],
   new_ : @core.ProjNode[@ast.Term],
   counter : Ref[Int],
+  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@ast.Term] {
   match (old.kind, new_.kind) {
     (Module(old_defs, _), Module(new_defs, _)) => {
       guard old.children.get(old_defs.length()) is Some(old_body) else {
-        return @core.reconcile(old, new_, counter)
+        return @core.reconcile(old, new_, counter, trace_ref~)
       }
       guard new_.children.get(new_defs.length()) is Some(new_body) else {
-        return @core.reconcile(old, new_, counter)
+        return @core.reconcile(old, new_, counter, trace_ref~)
       }
       let new_matched = module_key_match(
         old_defs.map(def => def.0),
@@ -207,12 +229,13 @@ fn reconcile_lambda_projection(
             new_.children[j],
             new_matched[j],
             counter,
+            trace_ref~,
           )
         }
       ]
-      children.push(@core.reconcile(old_body, new_body, counter))
+      children.push(@core.reconcile(old_body, new_body, counter, trace_ref~))
       @core.ProjNode(new_.kind, new_.start, new_.end, old.node_id, children)
     }
-    _ => @core.reconcile(old, new_, counter)
+    _ => @core.reconcile(old, new_, counter, trace_ref~)
   }
 }

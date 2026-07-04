@@ -483,6 +483,68 @@ fn view_op_log(model : Model) -> Html {
 }
 
 ///|
+/// Format a single StructuredChange as human-readable text for the Patch panel.
+/// Shows the kind tag and the actual source text at the affected position.
+fn format_structured_change(
+  c : @canopy_core.StructuredChange,
+  source_map : @canopy_core.SourceMap,
+  source_text : String,
+) -> String {
+  fn snippet(node_id : @canopy_core.NodeId) -> String {
+    match source_map.get_range(node_id) {
+      Some(r) => source_text[r.start:r.end].to_owned()
+      None => ""
+    }
+  }
+  fn truncate(s : String) -> String {
+    if s.length() > 60 {
+      s[0:60].to_owned() + "..."
+    } else {
+      s
+    }
+  }
+  fn format_kind_change(
+    prefix : String,
+    kind_tag : String,
+    node_id : @canopy_core.NodeId,
+  ) -> String {
+    let s = snippet(node_id)
+    if s.is_empty() {
+      prefix + " " + kind_tag
+    } else {
+      prefix + " " + kind_tag + " '" + truncate(s) + "'"
+    }
+  }
+  match c {
+    @canopy_core.Inserted(_, _, node_id, kind_tag) =>
+      format_kind_change("+", kind_tag, node_id)
+    @canopy_core.Deleted(_, _, node_id, kind_tag) =>
+      format_kind_change("-", kind_tag, node_id)
+    @canopy_core.Wrapped(inner_id, wrapper_node_id, wrapper_kind) => {
+      let s = snippet(wrapper_node_id)
+      let s = if s.is_empty() { snippet(inner_id) } else { s }
+      if s.is_empty() {
+        "⊞ " + wrapper_kind
+      } else {
+        "⊞ " + wrapper_kind + " '" + truncate(s) + "'"
+      }
+    }
+    @canopy_core.Unwrapped(wrapper_id, _, wrapper_kind) => {
+      let s = snippet(wrapper_id)
+      if s.is_empty() {
+        "⊟ " + wrapper_kind
+      } else {
+        "⊟ " + wrapper_kind + " '" + truncate(s) + "'"
+      }
+    }
+    @canopy_core.Renamed(node_id, kind_tag) =>
+      format_kind_change("→", kind_tag, node_id)
+    @canopy_core.Freshened(_, _, node_id, kind_tag) =>
+      format_kind_change("~", kind_tag, node_id)
+  }
+}
+
+///|
 /// Render the Patch panel — paired (op label, SpanEdits) rows.
 /// Mirrors `view_op_log` shape: most-recent first, capped to MAX_PATCH_LOG.
 /// Each entry surfaces the producing `GenericTreeOp` label as a header row
@@ -499,14 +561,51 @@ fn view_patch_log(model : Model) -> Html {
     )
   }
   let log = model.patch_log
+  // Force projection memo to recompute so trace_ref is populated
+  let _ = model.editor.get_proj_node()
+  // Read structural changes from the reconciliation trace
+  // Read the source map to resolve positions for structured change display
+  let source_map = model.editor.get_source_map()
+  // Read the editor text to extract source snippets for structural changes
+  let source_text = model.editor.get_text()
+  let structured_changes = model.companion.get_structured_changes()
+  // Build the structural-changes details block when events are present
+  let structural_block : Array[Html] = if structured_changes.is_empty() {
+    []
+  } else {
+    let change_rows : Array[Html] = structured_changes.map(fn(c) {
+      @html.div(class="patch-structural-change", [
+        @html.span(class="patch-change-text", [
+          @html.text(format_structured_change(c, source_map, source_text)),
+        ]),
+      ])
+    })
+    [
+      @html.node(
+        "details",
+        @html.Attrs::build().class("patch-structural-details"),
+        [
+          @html.node("summary", @html.Attrs::build(), [
+            @html.text("Structural changes"),
+          ]),
+          @html.div(class="patch-structural-body", change_rows),
+        ],
+      ),
+    ]
+  }
   if log.is_empty() {
-    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
-      @html.span(class="no-problems", [
-        @html.text(
-          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
-        ),
-      ]),
-    ])
+    @html.div(
+      class="bottom-content",
+      attrs=bottom_panel_attrs(Patch),
+      structural_block +
+      [
+        @html.span(class="no-problems", [
+          @html.text(
+            "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
+          ),
+        ]),
+      ],
+    )
   } else {
     let n = log.length()
     let items : Array[Html] = Array::new(capacity=n)
@@ -530,7 +629,7 @@ fn view_patch_log(model : Model) -> Html {
     @html.div(
       class="bottom-content patch-log",
       attrs=bottom_panel_attrs(Patch),
-      items,
+      structural_block + items,
     )
   }
 }

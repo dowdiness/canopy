@@ -11,7 +11,7 @@ import {
 // Values
 pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int]) -> ProjNode[T], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int], @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
 
 pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
 

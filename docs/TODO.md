@@ -229,10 +229,10 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Inspector — Patch panel. *Part of Inspector traceability workstream.* Shipped in PR #323 (2026-05-22, commit `0c093ac`).
   Scrollable log of recent `SpanEdit`s with back-reference to producing `GenericTreeOp` (each row uses `edit.to_string()`), rendered by `view_patch_log` in `view_bottom.mbt`.
 
-- [ ] Structure-aware diff display from reconciliation trace (#830).
-  Why: the Patch panel shows character-level `SpanEdit`s even for structural edits like Wrap; the reconciler already knows "this was a Wrap" but discards it after reconciliation.
+- [x] Structure-aware diff display from reconciliation trace (#830).
+  Why: the Patch panel shows character-level SpanEdits even for structural edits like Wrap; the reconciler already knows "this was a Wrap" but discards it after reconciliation.
   Plan: `docs/plans/2026-07-02-structure-aware-diff-display.md`
-  Status: `ReconcileTraceEvent` and `StructuredChange` enum types + `to_structured_changes` filter shipped in `core/diff_event.mbt`. The reconciliation emission plumbing (`trace_ref` threading through 7 functions in `core/reconcile.mbt`) is deferred — the types are the foundation.
+  Status: Rendering in the Ideal editor's Patch tab — shows Inserted/Deleted/Wrapped/etc as a `<details>` section with source text snippets.
   Exit: `core/reconcile.mbt` emits an opt-in `ReconcileTraceEvent` trace; Patch panel renders filtered `StructuredChange` events (e.g. "Wrapped #42 in Lambda") alongside the existing SpanEdit log.
 
 - [ ] IdentityTransform hints in undo/redo for identity-preserving undo (#831).

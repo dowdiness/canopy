@@ -11,6 +11,19 @@ pub struct LambdaCompanion {
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
   priv analysis : @parser.LambdaAnalysis
   priv analysis_projection : AnalysisProjection
+  // Reconciliation trace events populated on every reconcile pass. The caller
+  // reads this to display structural changes alongside SpanEdits in the Patch
+  // panel or to drive custom trace visualizations.
+  priv trace_ref : Ref[Array[@core.ReconcileTraceEvent]]
+}
+
+///|
+/// Read the current reconciliation trace, filter to user-facing
+/// StructuredChange events (discards Matched events), and return them.
+pub fn LambdaCompanion::get_structured_changes(
+  self : LambdaCompanion,
+) -> Array[@core.StructuredChange] {
+  @core.to_structured_changes(self.trace_ref.val)
 }
 
 ///|
@@ -135,6 +148,9 @@ pub fn new_lambda_editor(
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
   let analysis_projection = AnalysisProjection::new()
+  // Reconciliation trace accumulator. Populated on every reconcile pass;
+  // the caller reads `trace_ref.val` after projection changes.
+  let trace_ref : Ref[Array[@core.ReconcileTraceEvent]] = Ref([])
   // Ref side-channels let the build_memos callback publish companion memos
   // back out to the enclosing scope for companion construction + capabilities
   // wiring.
@@ -157,6 +173,7 @@ pub fn new_lambda_editor(
       let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
         parser,
         identity_hints=hints_ref,
+        trace_ref=Some(trace_ref),
       )
       cached_proj_node_ref.val = Some(cached_proj_node)
       source_map_memo_ref.val = Some(source_map_memo)
@@ -180,6 +197,7 @@ pub fn new_lambda_editor(
     escalation_memo: escalation_memo_ref.val.unwrap(),
     analysis: analysis_ref.val.unwrap(),
     analysis_projection,
+    trace_ref,
   }
   (editor, companion)
 }
