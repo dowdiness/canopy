@@ -9,6 +9,8 @@ A persistent memory space for storing knowledge that survives across conversatio
 
 **Location:** `.claude/skills/agent-memory/memories/`
 
+**Role (decided 2026-07-04):** this directory is a *design/theory document store* — repo-committed notes on architecture theory, prover/toolchain constraints, and design rationale that belong with the codebase and benefit all contributors. Session-crossing personal/working memory (feedback, project status, preferences) belongs in Claude's auto-memory directory (`~/.claude/projects/<project>/memory/`), NOT here. Files here ARE tracked by git; deleting or adding one is a repo change that must be committed deliberately (on an appropriate branch, not swept into unrelated commits).
+
 ## Proactive Usage
 
 Save memories when you discover something worth preserving:
@@ -96,7 +98,7 @@ rg "keyword" .claude/skills/agent-memory/memories/ --no-ignore --hidden -i
 # 6. Read specific memory file if relevant
 ```
 
-**Note:** Memory files are gitignored, so use `--no-ignore` and `--hidden` flags with ripgrep.
+**Note:** Memory files are tracked by git (they are repo-committed design/theory docs — see Role above). The `--no-ignore` and `--hidden` flags are still useful because the path lives under the hidden `.claude/` directory.
 
 ## Operations
 
