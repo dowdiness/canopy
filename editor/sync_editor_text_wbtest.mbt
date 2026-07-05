@@ -305,3 +305,33 @@ test "#216: set_text with non-BMP content stores full emoji" {
   inspect(editor.get_text(), content="😀")
   inspect(editor.get_cursor(), content="2")
 }
+
+///|
+/// Word navigation applies the policy layer (word_nav.mbt), not raw UAX
+/// boundaries: whitespace is skipped, right lands at word end.
+test "word navigation: policy semantics through SyncEditor" {
+  let editor = @probe.new_test_editor("test-agent")
+  editor.set_text("foo bar")
+  editor.move_cursor(0)
+  editor.move_cursor_right_word()
+  inspect(editor.get_cursor(), content="3") // end of "foo", not raw stop at 4
+  editor.move_cursor_right_word()
+  inspect(editor.get_cursor(), content="7")
+  editor.move_cursor_left_word()
+  inspect(editor.get_cursor(), content="4")
+  editor.move_cursor_left_word()
+  inspect(editor.get_cursor(), content="0")
+  editor.move_cursor_left_word() // at 0: stays
+  inspect(editor.get_cursor(), content="0")
+}
+
+///|
+/// Word navigation post-snaps to grapheme boundaries even where a raw UAX
+/// word boundary falls inside a cluster (U+0600 is Prepend/Numeric).
+test "word navigation: landing snapped to grapheme boundary" {
+  let editor = @probe.new_test_editor("test-agent")
+  editor.set_text("\u{600}!")
+  editor.move_cursor(0)
+  editor.move_cursor_right_word()
+  inspect(editor.get_cursor(), content="2") // not 1 (inside the cluster)
+}

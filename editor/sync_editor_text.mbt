@@ -155,20 +155,16 @@ pub fn[T] SyncEditor::move_cursor_right_grapheme(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
+/// Word-navigation policy (VS Code-style) over moji's raw UAX #29
+/// boundaries: left lands at word start, right at word end, whitespace is
+/// skipped, punctuation runs are single units. See `word_nav.mbt`.
 pub fn[T] SyncEditor::move_cursor_left_word(self : SyncEditor[T]) -> Unit {
-  if self.cursor == 0 {
-    return
-  }
-  self.cursor = @moji.prev_word_boundary(self.doc.text(), self.cursor - 1)
+  self.cursor = prev_word_stop(self.doc.text(), self.cursor)
 }
 
 ///|
 pub fn[T] SyncEditor::move_cursor_right_word(self : SyncEditor[T]) -> Unit {
-  let text = self.doc.text()
-  if self.cursor == text.length() {
-    return
-  }
-  self.cursor = @moji.next_word_boundary(text, self.cursor + 1)
+  self.cursor = next_word_stop(self.doc.text(), self.cursor)
 }
 
 ///|
