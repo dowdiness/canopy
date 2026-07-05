@@ -443,8 +443,14 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [x] **Restore non-BMP §4.3 cluster-fusing-cursor tests.**
   Resolved (follow-up): `editor/sync_editor_text_wbtest.mbt` now pins `"🇯🇵🇺🇸" + apply_text_edit(4, 0, "🇮") → cursor 8` and `"👩💻" + insert_at(2, "\u{200D}") → cursor 5`.
 
-- [ ] **Word-navigation policy on top of moji's raw UAX boundaries.** moji exposes spec-correct UAX #29 word boundaries (every transition between word/whitespace/punctuation). Editor word-navigation typically wants different semantics — skip whitespace, treat punctuation as part of the word in some contexts, optionally split camelCase/snake_case. Plan: define the policy as a wrapper around `move_cursor_left_word` / `_right_word` in `editor/sync_editor_text.mbt`. Spec §6.3 deliberately deferred this; pick a default policy (Sublime/VS Code-style is a reasonable starting point) and ship behind a config flag if needed.
-  Status: not blocked; standalone canopy-side work.
+- [x] **Word-navigation policy on top of moji's raw UAX boundaries.** moji exposes spec-correct UAX #29 word boundaries (every transition between word/whitespace/punctuation). Editor word-navigation typically wants different semantics — skip whitespace, treat punctuation as part of the word in some contexts, optionally split camelCase/snake_case. Plan: define the policy as a wrapper around `move_cursor_left_word` / `_right_word` in `editor/sync_editor_text.mbt`. Spec §6.3 deliberately deferred this; pick a default policy (Sublime/VS Code-style is a reasonable starting point) and ship behind a config flag if needed.
+  Shipped 2026-07-05 (**experimental** — may be deleted; disposal inventory in
+  `docs/plans/2026-07-05-word-navigation-policy.md`): VS Code-style policy in
+  `editor/word_nav.mbt` (`priv` stop-finders; no config flag — camelCase/
+  snake_case and script-boundary CJK splitting are named follow-ups in the
+  spec, deliberately unbuilt). Landings post-snap to grapheme boundaries,
+  fixing a latent defect (raw UAX word boundaries can fall inside clusters,
+  e.g. GCB=Prepend). Codex-validated design; moji contract unchanged.
 
 - [ ] (perf, P3) `editor/sync_editor_text.mbt::utf16_offset_to_item_pos` is O(n) per call and runs on every mutation path; `gcb_of` does up to 13 binary searches per codepoint; `next/prev_grapheme_boundary` rebuild the boundary array each call (O(n²) for tight loops). Acceptable for canopy's short strings today; documented in `loom/moji/grapheme.mbt` and `loom/moji/README.md`. Concrete fixes when a hot-path actually needs them: ASCII fast path in `gcb_of` (only CR/LF/Control populate `< 0x80`), drop `ch.to_string().length()` allocation in `utf16_offset_to_item_pos` (use `if ch.to_int() >= 0x10000 { 2 } else { 1 }`), and a materialise-once boundary cache for hot callers.
   Status: not blocking; cosmetic perf debt.
