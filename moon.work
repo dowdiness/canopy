@@ -5,7 +5,6 @@ members = [
   "./svg-dsl",
   "./alga",
   "./event-graph-walker",
-  "./rle",
   "./order-tree",
   "./loom/examples/markdown",
   "./loom/examples/json",

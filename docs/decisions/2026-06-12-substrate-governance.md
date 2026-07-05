@@ -16,9 +16,9 @@ incr drift guard `scripts/check-shared-substrate.sh` ([#574](https://github.com/
 The 2026-06-10 ADR governs one dependency (`incr`). The redesign proposal's
 substrate rule generalizes it: **every `dowdiness/*` dependency has one
 declared ownership policy — either a single consumption mechanism, or an
-explicit dual-source exception with resolver-identity CI and a removal /
-re-evaluation date.** This record names that policy per dependency and
-documents the one exception that exists today: `event-graph-walker`.
+re-evaluation date.** This record once documented one such exception
+(`event-graph-walker`); it was resolved by S5b (2026-07-05) — see amendments
+below.
 
 ## What moon actually does with two sources (probed 2026-06-12)
 
@@ -52,34 +52,22 @@ never matters.
 1. **One governed consumption policy per `dowdiness/*` dependency** (table
    below). New dependencies declare their mechanism on introduction; a second
    mechanism for an existing dependency requires amending this record with a
-   dual-source exception entry (guard + date), not just a manifest edit.
+2. **`event-graph-walker` was the sole dual-source exception**, resolved by
+   S5b (2026-07-05). Its two sources (direct submodule + loom's nested copy)
+   were guarded by `scripts/check-egw-resolver-identity.sh`. After S5b, loom's
+   nested copy was removed; canopy's direct submodule is the single source
+   within the canopy workspace (its path-dep shadowing loom's registry pin —
+   normal override semantics). The guard was updated in the same PR to compare
+   the submodule's version against loom's registry pin and verify consistency
+   across all workspace member manifests.
 
-2. **`event-graph-walker` is the sole dual-source exception**, transitional.
-   Its two sources (direct submodule + loom's nested copy) are guarded by
-   `scripts/check-egw-resolver-identity.sh` in the Dependency Rules CI job:
-   both gitlinks must pin the same commit, and that commit's declared version
-   must match every canopy workspace member manifest that declares the dep
-   (root, `examples/ideal`, `examples/block-editor` today — discovered by
-   scanning `moon.work` members, so a future consumer is covered
-   automatically; submodule-owned manifests such as loom's belong to their
-   own repos and are covered by the gitlink check instead). The guard reads
-   what the *commits* pin
-   (gitlink level), so a same-version-string / different-content drift — which
-   no version check can see and moon never reports — fails CI.
-
-3. **De-dup direction (binds S5b): loom migrates to registry
-   `event-graph-walker`; canopy keeps its direct submodule.** The originally
-   drafted inverse — drop canopy's submodule and path-dep loom's nested copy —
-   was rejected (Codex amendment): it would add a loom PR + pointer bump as a
-   merge gate to *every* egw change. After S5b executes, loom's nested copy
-   disappears, canopy's direct submodule becomes the single source within the
-   canopy workspace (its path-dep shadowing loom's registry pin — the same
-   normal override semantics as order-tree below), and the exception entry
-   here is closed. The guard fails loudly if the nested gitlink disappears, so
-   the S5b PR must update it deliberately to compare submodule version against
-   loom's registry pin.
-
-4. **Re-evaluation date: 2026-09-12.** If S5b has not executed by then, this
+3. **S5b executed 2026-07-05.** Loom's nested egw copy was removed (loom PR
+   #623); canopy's direct submodule is the single source within the workspace.
+   The guard was updated to compare the submodule version against loom's
+   registry pin, covering all workspace member manifests.
+4. **Re-evaluation date: resolved by S5b (2026-07-05).** The 2026-09-12
+   deadline was met. The ./rle submodule was also removed per its build-inert
+   flag (same deadline).
    exception must be re-justified or the de-dup re-planned — dual-source
    without a horizon is exactly what this record exists to prevent.
 
@@ -91,38 +79,36 @@ workspace directory) · `submodule` (path-dep into a vendored submodule) ·
 
 | Dependency | Mechanism | Policy notes |
 |------------|-----------|--------------|
-| `dowdiness/incr` | registry 0.9.0 | Governed by the 2026-06-10 version-lock ADR; intra-repo drift guard `check-shared-substrate.sh` |
-| `dowdiness/event-graph-walker` | **dual** (direct submodule + loom nested copy) | Exception §2–4 above; guard `check-egw-resolver-identity.sh`; closes with S5b; re-evaluate by 2026-09-12 |
+| `dowdiness/event-graph-walker` | submodule (`./event-graph-walker`) | Former dual-source exception, resolved by S5b (2026-07-05). Guard `check-egw-resolver-identity.sh` now checks version consistency across workspace members. |
 | loom family: `loom`, `seam`, `pretty`, `text_change`, `moji`, `lambda`, `json`, `markdown`, `egglog`, `egraph`, `graph-dsl` | submodule (`./loom/...`) | Single mechanism — every consumer path-deps into the one vendored loom tree |
 | in-repo libs: `byte_codec`, `zipper`, `btree`, `visualizer`, `dom_boundary`, `canopy-canvas-graph`, `rabbita_codemirror`, `rabbita-menu`, `rabbita-tabs`, `rabbita-treeview`, `rabbita-resizable`, `rabbita-status`, `rabbita-context-menu` | in-repo | Single mechanism — workspace members path-dep'ing each other |
 | `dowdiness/order-tree` | submodule (`./order-tree`) | canopy's path-dep shadows egw's registry pin 0.1.0 inside the workspace build — normal moon override semantics, one declared source per build context, not a dual-source exception |
 | `dowdiness/alga` | submodule (`./alga`) | Same shadowing shape (egw pins 0.3.0, graphviz pins 0.2.0; the path-dep wins in-workspace) |
 | `dowdiness/svg-dsl` | submodule (`./svg-dsl`) | Shadows graphviz's registry pin in-workspace |
-| `dowdiness/graphviz` | submodule (`./graphviz`) | Shadows loom's registry pin 0.1.0 in-workspace |
-| `dowdiness/rle` | registry 0.2.2 | The `./rle` submodule is **build-inert** — no manifest path-deps it; builds resolve rle from the registry (`.mooncakes`). Kept for development against rle source; flagged: if it is still inert at the S5b re-evaluation, remove it or wire it in |
+| `dowdiness/rle` | registry 0.2.2 | The `./rle` submodule was BUILD-INERT and removed in S5b (2026-07-05). All consumers use the registry pin. |
 | `moonbit-community/rabbita` | submodule (`./rabbita`, vendored fork) | Single mechanism; fork status and patch documented in CLAUDE.md / the rabbita skill |
 
 **Shadowing is not dual-source.** A registry pin inside a vendored module's
 own manifest (egw pinning order-tree, graphviz pinning svg-dsl) is that
 module's *standalone-build* declaration; inside the canopy workspace exactly
 one path-dep'd directory provides the module, so there is one source per build
-context and nothing to guard. The egw case is categorically different: **two
+context and nothing to guard. The egw case was categorically different — **two
 path-dep'd directories with the same module name in one workspace build**,
-where moon picks a winner silently. That shape — and only that shape —
-requires a resolver-identity guard.
+where moon picks a winner silently — until S5b (2026-07-05) removed the second
+source. The shadowing-is-not-dual-source principle stands.
 
 ## Consequences
 
-- A drifted egw pair (the silent failure probe 1+2 prove possible) now fails
-  the Dependency Rules job with the bump order spelled out
-  (egw → loom → canopy, per the version-lock ADR's bottom-up protocol).
-- S5b has its direction decided here and a forcing function: the guard breaks
-  loudly when loom drops its nested copy, so the topology change and the guard
-  update land in the same PR.
+- S5b (2026-07-05) resolved the egw dual-source exception: loom's nested copy
+  removed, guard updated, rle build-inert submodule removed.
+- A drifted egw pair is no longer possible (single source). The version
+  consistency guard remains to catch manifest skew across workspace members.
+- S5b had its direction decided here and a forcing function: the guard broke
+  loudly when loom dropped its nested copy, ensuring the topology change and
+  the guard update landed in the same PR.
 - Introducing a second source for any other substrate dependency has a named
   cost: amend this record, add a guard, set a date — or don't do it.
-- The build-inert `./rle` submodule has a dated disposition instead of being
-  silently carried.
+- The build-inert `./rle` submodule was removed in S5b.
 
 ## Source of truth on drift
 
