@@ -1,11 +1,10 @@
 # S5b — Architecture Redesign De-dup Execution
 
 **Date:** 2026-07-05
-**Status:** Draft — plan for execution, not yet approved
-**Expiry:** Dual-source exception expires **2026-09-12**. If this plan is not
-executed by that date, the exception must be re-evaluated (or the existing dual
-source made permanent with a CI guard). Same deadline applies to the `./rle`
-submodule — remove or wire in.
+**Status:** Executed (2026-07-05)
+**Expiry:** RESOLVED by execution on 2026-07-05. Re-evaluation deadline
+2026-09-12 was met. The dual-source exception is closed; the `./rle` submodule
+was removed.
 **Direction:** Per S5a ADR
 ([substrate governance](../decisions/2026-06-12-substrate-governance.md)):
 loom migrates to registry `event-graph-walker`; canopy keeps its direct
