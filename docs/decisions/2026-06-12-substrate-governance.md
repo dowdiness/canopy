@@ -79,12 +79,14 @@ workspace directory) · `submodule` (path-dep into a vendored submodule) ·
 
 | Dependency | Mechanism | Policy notes |
 |------------|-----------|--------------|
+| `dowdiness/incr` | registry 0.13.0 | Governed by the 2026-06-10 version-lock ADR; intra-repo drift guard `check-shared-substrate.sh` |
 | `dowdiness/event-graph-walker` | submodule (`./event-graph-walker`) | Former dual-source exception, resolved by S5b (2026-07-05). Guard `check-egw-resolver-identity.sh` now checks version consistency across workspace members. |
 | loom family: `loom`, `seam`, `pretty`, `text_change`, `moji`, `lambda`, `json`, `markdown`, `egglog`, `egraph`, `graph-dsl` | submodule (`./loom/...`) | Single mechanism — every consumer path-deps into the one vendored loom tree |
 | in-repo libs: `byte_codec`, `zipper`, `btree`, `visualizer`, `dom_boundary`, `canopy-canvas-graph`, `rabbita_codemirror`, `rabbita-menu`, `rabbita-tabs`, `rabbita-treeview`, `rabbita-resizable`, `rabbita-status`, `rabbita-context-menu` | in-repo | Single mechanism — workspace members path-dep'ing each other |
 | `dowdiness/order-tree` | submodule (`./order-tree`) | canopy's path-dep shadows egw's registry pin 0.1.0 inside the workspace build — normal moon override semantics, one declared source per build context, not a dual-source exception |
 | `dowdiness/alga` | submodule (`./alga`) | Same shadowing shape (egw pins 0.3.0, graphviz pins 0.2.0; the path-dep wins in-workspace) |
 | `dowdiness/svg-dsl` | submodule (`./svg-dsl`) | Shadows graphviz's registry pin in-workspace |
+| `dowdiness/graphviz` | submodule (`./graphviz`) | Shadows loom's registry pin 0.1.0 in-workspace |
 | `dowdiness/rle` | registry 0.2.2 | The `./rle` submodule was BUILD-INERT and removed in S5b (2026-07-05). All consumers use the registry pin. |
 | `moonbit-community/rabbita` | submodule (`./rabbita`, vendored fork) | Single mechanism; fork status and patch documented in CLAUDE.md / the rabbita skill |
 
