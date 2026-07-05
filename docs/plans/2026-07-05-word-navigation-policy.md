@@ -6,6 +6,16 @@ a month; the design is constrained to be cheap to throw away. Closes the
 first unchecked item of [TODO §16](../TODO.md) ("Word-navigation policy on top
 of moji's raw UAX boundaries").
 
+**Keep/delete decision rule (2026-08-05 review):** this feature cannot
+generate usage signal on its own (zero consumers reach these methods), so
+the review judges consumer existence, not "experiment success". Delete per
+the disposal inventory below **unless** by 2026-08-05 either (a) some
+surface actually binds word navigation to these methods, or (b) a concrete
+plan (GitHub issue) for a headless `SyncEditor` consumer exists. The
+grapheme post-snap survives deletion regardless (pre-existing bug fix).
+Do not let the library-framing KEEP default override this rule — the rule
+was set precisely because that default would otherwise decide by inertia.
+
 **Disposal inventory** (total cost of deletion): remove
 `editor/word_nav.mbt` + `editor/word_nav_wbtest.mbt`, revert the two
 `SyncEditor` method bodies to raw one-liners, drop the integration test
