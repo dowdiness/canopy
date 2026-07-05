@@ -5,14 +5,13 @@
 /// Allocates a fresh runtime, claims the single-occupancy `set_on_change`
 /// slot (spec §6.1), and constructs an empty registry.
 pub fn Coordinator::new() -> Coordinator {
-  let runtime = @incr.Runtime(on_change=fn() {
-    // Phase 1 stub. Pre-populates the §6.1 single-occupancy slot at
-    // construction so the runtime always has *some* listener. Callers
-    // can still overwrite via `Runtime::set_on_change` — Phase 2 will
-    // close that hole by routing all listener registration through a
-    // coordinator-owned multiplexer (spec §13 follow-up).
-
-  })
+  // The no-op on_change is a Phase 1 stub. Pre-populating the §6.1
+  // single-occupancy slot at construction means the runtime always has
+  // *some* listener. Callers can still overwrite via
+  // `Runtime::set_on_change` — Phase 2 will close that hole by routing
+  // all listener registration through a coordinator-owned multiplexer
+  // (spec §13 follow-up).
+  let runtime = @incr.Runtime(on_change=() => ())
   Coordinator(runtime~)
 }
 
