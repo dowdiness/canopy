@@ -253,16 +253,29 @@ passes, the de-dup is sound.
 
 ## Acceptance Criteria
 
-- [ ] `loom/moon.work` no longer lists `"./event-graph-walker"`
-- [ ] `loom/.gitmodules` no longer has an egw submodule entry
-- [ ] `moon check` passes in loom workspace
-- [ ] `moon test` passes in loom workspace
-- [ ] `moon.work` no longer lists `"./rle"`
-- [ ] `.gitmodules` no longer has an rle submodule entry
-- [ ] `./rle/` directory is gone from working tree
-- [ ] `scripts/check-egw-resolver-identity.sh` exits 0 after all changes
-- [ ] `moon check` passes at canopy root
-- [ ] `moon test` passes at canopy root
-- [ ] No `.mbti` drift (run `moon info` before commit)
-- [ ] Canopy PR contains both the loom pointer bump AND the guard script update
-- [ ] `docs/decisions/2026-06-12-substrate-governance.md` amended per Phase 5
+Verified 2026-07-05, post-execution audit. Evidence per item:
+
+- [x] `loom/moon.work` no longer lists `"./event-graph-walker"` — `git show
+  f56e497:moon.work` (the committed pointer): zero matches
+- [x] `loom/.gitmodules` no longer has an egw submodule entry — same commit,
+  zero matches
+- [x] `moon check` passes in loom workspace — loom PR #623 merged; check-runs
+  on merge commit `f56e497`: 0 non-success
+- [x] `moon test` passes in loom workspace — same CI run
+- [x] `moon.work` no longer lists `"./rle"`
+- [x] `.gitmodules` no longer has an rle submodule entry
+- [x] `./rle/` directory is gone from working tree
+- [x] `scripts/check-egw-resolver-identity.sh` exits 0 — re-run 2026-07-05:
+  "OK — submodule pin a7d813c (0.3.0) matches loom registry pin (0.3.0) and
+  all workspace manifests agree"
+- [x] `moon check` passes at canopy root — check-runs on main HEAD `c6ae2e1`:
+  0 non-success (incl. Test Main Module, Test Submodules, Format Check)
+- [x] `moon test` passes at canopy root — same CI run
+- [x] No `.mbti` drift — companion interface regen committed as `cd35793`;
+  Format Check green
+- [x] Loom pointer bump AND guard script update landed together — both in
+  commit `528c80a`. **Deviation:** landed as a direct push to main, not the
+  canopy PR this plan specified (Phase 6); the same-commit atomicity
+  requirement itself was met
+- [x] `docs/decisions/2026-06-12-substrate-governance.md` amended per
+  Phase 5 — in `528c80a`
