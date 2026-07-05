@@ -1,8 +1,18 @@
 # Word-Navigation Policy over Raw UAX #29 Boundaries
 
-**Status:** Design approved 2026-07-05 (interview-driven brainstorm). Closes the
+**Status:** Design approved 2026-07-05 (interview-driven brainstorm).
+**Experimental** — user decision 2026-07-05: real chance of deletion within
+a month; the design is constrained to be cheap to throw away. Closes the
 first unchecked item of [TODO §16](../TODO.md) ("Word-navigation policy on top
 of moji's raw UAX boundaries").
+
+**Disposal inventory** (total cost of deletion): remove
+`editor/word_nav.mbt` + `editor/word_nav_wbtest.mbt`, revert the two
+`SyncEditor` method bodies to raw one-liners, drop the integration test
+blocks. No `.mbti` change either way (helpers are `priv`, method signatures
+unchanged); no FFI/TS/config/moji footprint. **Exception:** the grapheme
+post-snap in the two methods survives deletion — it fixes a pre-existing
+defect independent of the policy.
 
 **GitHub context:** [#216](https://github.com/dowdiness/canopy/issues/216)
 (Unicode Text Correctness), moji shipped in
