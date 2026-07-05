@@ -82,7 +82,7 @@ fn json_parser_on(
 
 ///|
 test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobbers first" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   ignore(parser_b)
@@ -108,7 +108,7 @@ test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobber
 /// "the slot is wired correctly when uncontended" vs. "on_change is broken
 /// against parser.set_source." Keeps §A's verdict attributable.
 test "P0a gate #1 §A control — single registered callback fires once per bump" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let count : Ref[Int] = { val: 0 }
   shared_rt.set_on_change(fn() { count.val = count.val + 1 })
@@ -141,7 +141,7 @@ test "P0a gate #1 §A control — single registered callback fires once per bump
 
 ///|
 test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos survive" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
 
@@ -177,7 +177,7 @@ test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos surv
 /// removed parser A" (which would require an attributable explanation
 /// the test does not provide).
 test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
@@ -208,7 +208,7 @@ test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
 
 ///|
 test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inputs" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
@@ -240,7 +240,7 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
 /// it AND, since cross was the only thing keeping the source views
 /// reachable through gc_dependencies, both source views collected too.
 test "P0a gate #1 §C control — unrooted cross-Memo + inputs all collected" {
-  let shared_rt = @incr.Runtime::new()
+  let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()

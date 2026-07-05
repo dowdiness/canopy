@@ -5,7 +5,7 @@
 /// Allocates a fresh runtime, claims the single-occupancy `set_on_change`
 /// slot (spec §6.1), and constructs an empty registry.
 pub fn Coordinator::new() -> Coordinator {
-  let runtime = @incr.Runtime::new(on_change=fn() {
+  let runtime = @incr.Runtime(on_change=fn() {
     // Phase 1 stub. Pre-populates the §6.1 single-occupancy slot at
     // construction so the runtime always has *some* listener. Callers
     // can still overwrite via `Runtime::set_on_change` — Phase 2 will

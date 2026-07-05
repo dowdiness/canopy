@@ -8,7 +8,7 @@
 // @kernel.alloc_runtime_id(). Two cells from the same runtime share the same
 // runtime_id; cells from different runtimes have distinct runtime_id values.
 test "SyncEditor::new_generic threads parent_runtime through to Parser" {
-  let shared = @incr.Runtime::new()
+  let shared = @incr.Runtime()
   let editor = @probe.new_test_editor("test", parent_runtime=shared)
   let parser_rt = editor.parser_runtime()
   // Allocate an Input on each runtime to read their CellId.runtime_id.

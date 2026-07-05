@@ -11,7 +11,7 @@ struct CognitionReactive {
 fn CognitionReactive::CognitionReactive(
   dependencies : Map[CognitionKey, Array[CognitionKey]],
 ) -> CognitionReactive {
-  let runtime = @incr.Runtime::new()
+  let runtime = @incr.Runtime()
   let revision = @incr.Input(runtime, Revision(0), label="cognition_revision")
   let dependency_tick = @incr.Input(
     runtime,
