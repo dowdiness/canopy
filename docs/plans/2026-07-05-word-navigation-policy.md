@@ -22,6 +22,17 @@ word start (left) / word end (right).
 moji's contract stays raw — the policy lives entirely in the `editor`
 package as a wrapper. No moji API changes.
 
+### Consumer framing (user decision 2026-07-05)
+
+No current front-end reaches these methods: CodeMirror surfaces handle word
+navigation client-side, the canvas example uses a native `<input>`, and
+there is no FFI export. The intended consumer is **canopy as a headless
+editor-engine library** — future self-drawn / TUI / embedded editor
+surfaces that drive `SyncEditor` directly. Under that framing these methods
+are canonical engine API, and shipping raw UAX #29 behavior behind them is
+a library trap (call it and get broken navigation); this policy layer fixes
+the canonical surface before any consumer binds to it.
+
 ## Decisions (interview 2026-07-05)
 
 | Axis | Decision |
