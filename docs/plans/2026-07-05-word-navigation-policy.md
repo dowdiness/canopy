@@ -10,8 +10,9 @@ of moji's raw UAX boundaries").
 generate usage signal on its own (zero consumers reach these methods), so
 the review judges consumer existence, not "experiment success". Delete per
 the disposal inventory below **unless** by 2026-08-05 either (a) some
-surface actually binds word navigation to these methods, or (b) a concrete
-plan (GitHub issue) for a headless `SyncEditor` consumer exists. The
+surface actually binds word navigation to these methods, or (b) an open
+GitHub issue, linked from TODO §16, names a headless `SyncEditor` consumer
+and the surface that will bind these methods. The
 grapheme post-snap survives deletion regardless (pre-existing bug fix).
 Do not let the library-framing KEEP default override this rule — the rule
 was set precisely because that default would otherwise decide by inertia.
@@ -62,7 +63,7 @@ the canonical surface before any consumer binds to it.
 | Left-word landing | **Start** of current/previous unit |
 | Whitespace | Never a stop target; always skipped |
 | Punctuation | A run of punctuation/symbols is one stop unit |
-| CJK | Merged into `Other` runs — one stop per run (VS Code default). Script-boundary splitting is a named follow-up, not built now |
+| CJK | Han/Hiragana (WB=Other) stretches merge into `Other` runs — one stop per run (VS Code default); Katakana has its own WB class and stays `Word`. Script-boundary splitting is a named follow-up, not built now |
 | camelCase / snake_case sub-word | Deferred entirely; **no config flag** (YAGNI — zero consumers) |
 | Word-delete / selection | Out of scope; the pure stop-finders are the reserved extension point |
 
@@ -77,8 +78,10 @@ the canonical surface before any consumer binds to it.
      Pure functions of their arguments; no `SyncEditor` dependency.
 2. **`editor/sync_editor_text.mbt`** — the two existing `SyncEditor` word
    methods are rewritten in place to delegate to the stop-finders. Their
-   signatures and the existing top/bottom guards (`cursor == 0`,
-   `cursor == text.length()`) are unchanged. No consumers exist today
+   signatures are unchanged; the old top/bottom guards (`cursor == 0`,
+   `cursor == text.length()`) are removed as redundant — the stop-finders
+   are total and their fallbacks (`0` / `text.length()`) enforce the same
+   edge behavior. No consumers exist today
    (verified 2026-07-04: no FFI export, no example/TS caller), so the
    behavior change has zero blast radius.
 
@@ -108,9 +111,11 @@ invisible character a stop target. Non-BMP codepoints are read with
 
 ### Unit merging
 
-Adjacent `Other` segments merge into one unit. (`Word` segments are already
-maximal runs under UAX; `Whitespace` needs no merging because it is never a
-target.) Merging makes `->`, `...`, and a CJK stretch each a single stop.
+Only adjacent `Other` segments merge into one unit; `Word` segments are
+kept exactly as UAX emits them, so adjacent `Word` units can exist (e.g.
+ALetter ÷ Katakana in `"abcカナ"` — pinned by test) and each is its own
+stop. `Whitespace` needs no merging because it is never a target. Merging
+makes `->`, `...`, and a Han/Hiragana stretch each a single stop.
 
 ### Navigation semantics
 
