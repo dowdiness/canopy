@@ -88,6 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           # Vendored submodules built standalone — event-graph-walker and loom
@@ -133,6 +134,7 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           # ci-lenient: examples are workspace members; the vendored rabbita
@@ -297,6 +299,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - name: web
