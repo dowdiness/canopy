@@ -107,7 +107,7 @@ fn build_def_states(
               e.to_string(),
             )
         }
-        env = env.extend(name, raw)
+        env = env.bind(name, raw)
         states.push({ name, term: expr, result, raw_value: Some(raw) })
       }
       Stuck(_) =>
@@ -279,7 +279,7 @@ fn build_tier1_env(
   }
   let mut env = @lambda_eval.Env::empty()
   for name, v in bindings {
-    env = env.extend(name, v)
+    env = env.bind(name, v)
   }
   env
 }

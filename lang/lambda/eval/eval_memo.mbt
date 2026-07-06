@@ -117,7 +117,7 @@ fn eval_module_cached(
     results.push(cached.result)
     new_cache.push(cached)
     match cached.raw_value {
-      Some(v) => env = env.extend(defs[i].0, v)
+      Some(v) => env = env.bind(defs[i].0, v)
       None => {
         // Stuck in unchanged prefix: env is incomplete.
         // Everything from here onward is Suppressed regardless of changes.
@@ -134,7 +134,7 @@ fn eval_module_cached(
       let display = Value(render_value(v))
       results.push(display)
       new_cache.push({ name, term: expr, result: display, raw_value: Some(v) })
-      env = env.extend(name, v)
+      env = env.bind(name, v)
     } catch {
       reason => {
         let display = render_stuck(reason)
