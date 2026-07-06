@@ -175,15 +175,33 @@ jobs:
     name: Formal Verification
     runs-on: ubuntu-latest
     steps:
+      - name: Detect proof-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_prove:
+              - 'lib/semantic/proof/**'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/moon-update.sh'
+
+      - name: Skip if no proof changes
+        if: steps.filter.outputs.run_prove != 'true'
+        run: echo "No proof-relevant changes; skipping formal verification."
+
       - name: Checkout code
+        if: steps.filter.outputs.run_prove == 'true'
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up MoonBit
+        if: steps.filter.outputs.run_prove == 'true'
         uses: ./.github/actions/setup-moonbit
 
       - name: Cache opam switch
+        if: steps.filter.outputs.run_prove == 'true'
         id: opam-cache
         uses: actions/cache@v6
         with:
@@ -191,29 +209,32 @@ jobs:
           key: opam-why3-1.7.2-z3-${{ runner.os }}-${{ runner.arch }}
 
       - name: Install opam
+        if: steps.filter.outputs.run_prove == 'true'
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq opam
 
       - name: Initialize opam and install Why3/Z3
-        if: steps.opam-cache.outputs.cache-hit != 'true'
+        if: steps.filter.outputs.run_prove == 'true' && steps.opam-cache.outputs.cache-hit != 'true'
         run: |
           opam init --disable-sandboxing --yes
           eval $(opam env)
           opam install why3.1.7.2 z3 --yes
 
       - name: Configure Why3 provers
+        if: steps.filter.outputs.run_prove == 'true'
         run: |
           eval $(opam env)
           why3 config detect
 
       - name: Update MoonBit dependencies
+        if: steps.filter.outputs.run_prove == 'true'
         working-directory: lib/semantic/proof
-        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         run: |
           "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run moon prove
+        if: steps.filter.outputs.run_prove == 'true'
         working-directory: lib/semantic/proof
         run: |
           eval $(opam env)
@@ -385,26 +406,49 @@ jobs:
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
+      - name: Detect web E2E-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_e2e:
+              - 'examples/web/**'
+              - 'examples/ideal/**'
+              - 'examples/demo-react/**'
+              - 'examples/canvas/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/build-js.sh'
+              - 'scripts/test-web-e2e.sh'
+              - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-demo-react-e2e.sh'
+              - 'scripts/test-canvas-e2e.sh'
+
+      - name: Skip if no E2E-relevant changes
+        if: steps.filter.outputs.run_e2e != 'true'
+        run: echo "No E2E-relevant changes; skipping web E2E."
+
       - name: Checkout code
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
-          # upload-artifact roots the archive at the least common ancestor of
-          # its path list (= .../build/dowdiness); restore the original layout.
           path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         run: |
           test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
           test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
           echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
@@ -412,10 +456,12 @@ jobs:
           cache-dependency-path: examples/web/package-lock.json
 
       - name: Install web dependencies
+        if: steps.filter.outputs.run_e2e == 'true'
         working-directory: examples/web
         run: npm ci
 
       - name: Run web Playwright suite
+        if: steps.filter.outputs.run_e2e == 'true'
         run: ./scripts/test-web-e2e.sh
 
   ideal-web-e2e:
@@ -428,36 +474,61 @@ jobs:
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
+      - name: Detect E2E-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_e2e:
+              - 'examples/web/**'
+              - 'examples/ideal/**'
+              - 'examples/demo-react/**'
+              - 'examples/canvas/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/build-js.sh'
+              - 'scripts/test-web-e2e.sh'
+              - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-demo-react-e2e.sh'
+              - 'scripts/test-canvas-e2e.sh'
+
+      - name: Skip if no E2E-relevant changes
+        if: steps.filter.outputs.run_e2e != 'true'
+        run: echo "No E2E-relevant changes; skipping ideal E2E."
+
       - name: Checkout code
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
-          # upload-artifact roots the archive at the least common ancestor of
-          # its path list (= .../build/dowdiness); restore the original layout.
           path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         run: |
           test -f _build/js/release/build/dowdiness/ideal-editor/main/main.js
           echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: examples/ideal/web/package-lock.json
 
-      - name: Install Ideal editor web dependencies
+      - name: Install web dependencies
+        if: steps.filter.outputs.run_e2e == 'true'
         working-directory: examples/ideal/web
         run: npm ci
 
       - name: Run Ideal editor Playwright suite
+        if: steps.filter.outputs.run_e2e == 'true'
         run: ./scripts/test-ideal-web-e2e.sh
 
   demo-react-e2e:
@@ -470,25 +541,48 @@ jobs:
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
+      - name: Detect E2E-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_e2e:
+              - 'examples/web/**'
+              - 'examples/ideal/**'
+              - 'examples/demo-react/**'
+              - 'examples/canvas/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/build-js.sh'
+              - 'scripts/test-web-e2e.sh'
+              - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-demo-react-e2e.sh'
+              - 'scripts/test-canvas-e2e.sh'
+
+      - name: Skip if no E2E-relevant changes
+        if: steps.filter.outputs.run_e2e != 'true'
+        run: echo "No E2E-relevant changes; skipping demo-react E2E."
+
       - name: Checkout code
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
-          # upload-artifact roots the archive at the least common ancestor of
-          # its path list (= .../build/dowdiness); restore the original layout.
           path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         run: |
           test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
           echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
@@ -496,10 +590,12 @@ jobs:
           cache-dependency-path: examples/demo-react/package-lock.json
 
       - name: Install demo-react dependencies
+        if: steps.filter.outputs.run_e2e == 'true'
         working-directory: examples/demo-react
         run: npm ci
 
       - name: Run demo-react Playwright suite
+        if: steps.filter.outputs.run_e2e == 'true'
         run: ./scripts/test-demo-react-e2e.sh
 
   canvas-e2e:
@@ -512,25 +608,48 @@ jobs:
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
+      - name: Detect E2E-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_e2e:
+              - 'examples/web/**'
+              - 'examples/ideal/**'
+              - 'examples/demo-react/**'
+              - 'examples/canvas/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/build-js.sh'
+              - 'scripts/test-web-e2e.sh'
+              - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-demo-react-e2e.sh'
+              - 'scripts/test-canvas-e2e.sh'
+
+      - name: Skip if no E2E-relevant changes
+        if: steps.filter.outputs.run_e2e != 'true'
+        run: echo "No E2E-relevant changes; skipping canvas E2E."
+
       - name: Checkout code
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/download-artifact@v7
         with:
           name: moonbit-js-build
-          # upload-artifact roots the archive at the least common ancestor of
-          # its path list (= .../build/dowdiness); restore the original layout.
           path: _build/js/release/build/dowdiness
 
       - name: Verify downloaded artifacts
+        if: steps.filter.outputs.run_e2e == 'true'
         run: |
           test -f _build/js/release/build/dowdiness/canopy-canvas/main/main.js
           echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js
+        if: steps.filter.outputs.run_e2e == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
@@ -538,10 +657,12 @@ jobs:
           cache-dependency-path: examples/canvas/web/package-lock.json
 
       - name: Install canvas web dependencies
+        if: steps.filter.outputs.run_e2e == 'true'
         working-directory: examples/canvas/web
         run: npm ci
 
       - name: Run canvas Playwright suite
+        if: steps.filter.outputs.run_e2e == 'true'
         run: ./scripts/test-canvas-e2e.sh
 
   all-checks-passed:
@@ -565,19 +686,22 @@ jobs:
     steps:
       - name: Check all job statuses
         run: |
-          if [[ "${{ needs.dep-check.result }}" != "success" ]] || \
-             [[ "${{ needs.test-main.result }}" != "success" ]] || \
-             [[ "${{ needs.test-submodules.result }}" != "success" ]] || \
-             [[ "${{ needs.test-examples.result }}" != "success" ]] || \
-             [[ "${{ needs.prove.result }}" != "success" ]] || \
-             [[ "${{ needs.format-check.result }}" != "success" ]] || \
-             [[ "${{ needs.build-js.result }}" != "success" ]] || \
-             [[ "${{ needs.typecheck-ts-examples.result }}" != "success" ]] || \
-             [[ "${{ needs.web-build.result }}" != "success" ]] || \
-             [[ "${{ needs.web-e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.ideal-web-e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.demo-react-e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.canvas-e2e.result }}" != "success" ]]; then
+          is_success_or_skipped() {
+            [[ "$1" == "success" || "$1" == "skipped" ]]
+          }
+          if ! is_success_or_skipped "${{ needs.dep-check.result }}" || \
+             ! is_success_or_skipped "${{ needs.test-main.result }}" || \
+             ! is_success_or_skipped "${{ needs.test-submodules.result }}" || \
+             ! is_success_or_skipped "${{ needs.test-examples.result }}" || \
+             ! is_success_or_skipped "${{ needs.prove.result }}" || \
+             ! is_success_or_skipped "${{ needs.format-check.result }}" || \
+             ! is_success_or_skipped "${{ needs.build-js.result }}" || \
+             ! is_success_or_skipped "${{ needs.typecheck-ts-examples.result }}" || \
+             ! is_success_or_skipped "${{ needs.web-build.result }}" || \
+             ! is_success_or_skipped "${{ needs.web-e2e.result }}" || \
+             ! is_success_or_skipped "${{ needs.ideal-web-e2e.result }}" || \
+             ! is_success_or_skipped "${{ needs.demo-react-e2e.result }}" || \
+             ! is_success_or_skipped "${{ needs.canvas-e2e.result }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi
