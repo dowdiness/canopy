@@ -21,7 +21,7 @@ runs:
     - name: Install MoonBit
       uses: hustcer/setup-moonbit@v1.22
       with:
-        version: pre-release
+        version: 0.10.0+84519ca0a
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
