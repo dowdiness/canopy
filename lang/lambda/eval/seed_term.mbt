@@ -77,7 +77,7 @@ fn build_partial_env(
   let mut val_env = @egglog_eval.ValueEnv::make(db)
   for binding in bindings {
     let (name, value) = binding
-    val_env = val_env.extend(db, name, seed_value(db, value))
+    val_env = val_env.bind(db, name, seed_value(db, value))
   }
   val_env.id
 }
