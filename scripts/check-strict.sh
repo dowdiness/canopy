@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
-# Strict moon check — only suppresses errors from vendored rabbita submodule.
+# Strict moon check — suppresses errors from vendored submodule sources
+# (both .mbt paths and moon.pkg parse errors).
 #
 # Usage: check-strict.sh [moon-check-args...]
 #
 # Runs `moon check --deny-warn` from the workspace root. If any error
-# originates from a path NOT under rabbita/rabbita/, the script fails.
-# Errors from rabbita/rabbita/ (known vendored-submodule try? warnings)
-# are suppressed.
+# originates from a path NOT under a vendored directory, the script fails.
+# Errors from vendored directories (known pre-existing deprecation warnings,
+# vendored test diffs, moon.pkg syntax mismatches) are suppressed.
 #
 # Replaces check-lenient (--warn-list=-20) which exempted try? [0020]
 # for ALL workspace members. Now a try? reintroduction in Canopy-owned
@@ -29,8 +30,9 @@ fi
 
 # Vendored submodule root directories at the repository level. Errors from
 # these paths are known pre-existing issues (deprecation warnings, vendored
-# test diffs) that Canopy cannot fix. Paths are matched against the repo
-# checkout directory so they work regardless of the CI checkout path.
+# test diffs, moon.pkg syntax) that Canopy cannot fix. Paths are matched
+# against the repo checkout directory so they work regardless of the CI
+# checkout path.
 #
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
@@ -46,12 +48,24 @@ for dir in $VENDORED_DIRS; do
     sep=" "
 done
 
-# Error path lines look like:  ╭─[ /path/to/file.mbt:line:col ]
-# Extract all such paths and check whether any are NOT under a vendored dir.
+# Path extraction handles two error formats:
+#   .mbt source:  ╭─[ /path/to/file.mbt:line:col ]
+#   moon.pkg:     at path '/home/.../rabbita/rabbita'
 non_vendored=0
 total_paths=0
 while IFS= read -r line; do
-    path=$(echo "$line" | sed -n 's|.*\[ \(/[^:]*\):.*|\1|p')
+    path=""
+    # Try .mbt source path first
+    candidate=$(echo "$line" | sed -n 's|.*\[ \(/[^:]*\):.*|\1|p')
+    if [ -n "$candidate" ]; then
+        path="$candidate"
+    else
+        # Try moon.pkg path: "at path '/some/dir'"
+        candidate=$(echo "$line" | sed -n "s|.*at path '\([^']*\)'.*|\1|p")
+        if [ -n "$candidate" ]; then
+            path="$candidate"
+        fi
+    fi
     if [ -n "$path" ]; then
         total_paths=$(( total_paths + 1 ))
         if echo "$path" | grep -q $grep_exclude; then
@@ -69,8 +83,8 @@ if [ "$non_vendored" -gt 0 ]; then
     exit "$status"
 fi
 
-# If moon check failed but no .mbt source paths were found in the output
-# (e.g., moon.pkg/moon.mod load error, import-resolution failure), this
+# If moon check failed but no .mbt or moon.pkg paths were found in the
+# output (e.g., import-resolution failure without file attribution), this
 # is a real error — propagate it rather than falling through to success.
 if [ "$total_paths" -eq 0 ]; then
     echo "check-strict: moon check failed (exit $status) with no parseable source paths — failing." >&2
