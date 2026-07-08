@@ -99,6 +99,9 @@ jobs:
           bash ./scripts/check-agent-doc-links.sh
           ./scripts/check-strict.sh
 
+
+      - name: Check moon.pkg compatibility with pinned toolchain
+        run: ./scripts/check-moonbit-pkg-compat.sh
       - name: Run tests
         run: ./scripts/check-test-baseline.sh 7 moon test --release
 
@@ -270,6 +273,9 @@ jobs:
 
       - name: Build JavaScript artifacts
         run: ./scripts/build-js.sh
+
+      - name: Check moon.pkg compatibility with pinned toolchain
+        run: ./scripts/check-moonbit-pkg-compat.sh
 
       - name: Upload JS artifacts
         uses: actions/upload-artifact@v7
