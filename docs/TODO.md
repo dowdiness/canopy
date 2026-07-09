@@ -295,6 +295,11 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ## 11. Multi-Language Support
 
+- [ ] JSX incremental parser for generative UI (Phase 0: loom `examples/html` housekeeping — #626/#646).
+  Why: foundation for streaming LLM-generated JSX with node-identity-stable incremental rendering.
+  Plan: `docs/plans/2026-07-09-jsx-incremental-parser-generative-ui.md`
+  Exit: Phase 0 complete (per plan's own acceptance criteria) unblocks Phase 1 (`loom/examples/jsx`).
+
 - [ ] JSON member-projection optimization — 1000-member objects at 28 ms exceed 16 ms budget. Add incremental per-member derivation when needed.
 
 - [ ] loomgen design update.
