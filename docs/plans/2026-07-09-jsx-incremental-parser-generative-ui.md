@@ -332,7 +332,7 @@ two items below — they are the actual novel algorithm work in this whole
 plan; everything else is mechanical application of the html/markdown
 patterns.
 
-- [ ] **Step 1:** Write a prose design doc (append to this plan's Notes, or a
+- [x] **Step 1:** Write a prose design doc (append to this plan's Notes, or a
   short standalone note) answering, for the **embedded-expression mode
   switch**:
   - **Mechanism choice first, not assumed:** per Current State,
@@ -383,7 +383,7 @@ patterns.
     most common streaming event in real LLM-JSX output (attribute/text
     values grow character-by-character far more often than new sibling
     elements appear).
-- [ ] **Step 2:** Write a prose design doc for **error recovery on a
+- [x] **Step 2:** Write a prose design doc for **error recovery on a
   streaming (monotonically-growing) prefix of JSX text**, enumerating at
   least these cases and what CST/diagnostic shape each produces:
   1. Fully closed element tree (baseline, not interesting).
@@ -410,7 +410,7 @@ patterns.
      eagerly. Prefer eager partial emission if it doesn't require guessing
      — consistent with case 2's requirement that already-seen content stays
      visible.
-- [ ] **Step 3:** Get both designs validated before Task 1.2 starts, per
+- [x] **Step 3:** Get both designs validated before Task 1.2 starts, per
   this project's Algorithm Implementation Process (CLAUDE.md): "Is this
   algorithm correct? What edge cases break it?" If Codex is available this
   session, use it (`mcp__codex__codex`). If Codex is unavailable (as it was
@@ -418,7 +418,7 @@ patterns.
   with no prior context on this plan, and have it independently re-derive
   the edge cases rather than just checking the ones already listed in Step
   1/2 — do not implement against an unvalidated design.
-- [ ] **Step 4:** Append the validated design (or a link to wherever it's
+- [x] **Step 4:** Append the validated design (or a link to wherever it's
   recorded) to this plan's Notes section before starting Task 1.2.
 
 ### Task 1.2 — Grammar, lexer, AST (mechanical, follows html/markdown pattern)
@@ -518,7 +518,7 @@ says otherwise; do not silently diverge from what Task 1.1 decided.
 
 ### Acceptance Criteria (Phase 1)
 
-- [ ] Task 1.1's two design docs exist and were validated (Codex or
+- [x] Task 1.1's two design docs exist and were validated (Codex or
       equivalent second-opinion review) before any Task 1.2 implementation
       commit
 - [ ] `moon test -p dowdiness/jsx` passes, covering every case enumerated in
@@ -806,6 +806,376 @@ doesn't have to rediscover scope boundaries:
   deprecated postfix-`!` syntax in a pasted test snippet.
 - Task 1.1's design-gate output (the two prose docs) should be appended
   below this line once written, or linked if kept as separate files.
+- **2026-07-10, Task 1.1 Step 1/2 design, round 2 (Opus, revised after
+  Codex round-1 verdict `needs-rework` — see the round-1 verdict and the
+  round-2 confirmation entries below this block for the full record).**
+  This replaces the round-1 draft in place; round-1's text is preserved
+  only in git history, not duplicated here, per this project's
+  documentation conventions (docs are the current truth, not a changelog
+  of drafts).
+
+  ### Design A — embedded-expression mode switch
+
+  **Mechanism:** `ModeLexer[Token, JsxLexMode]`
+  (`loom/loom/core/mode_lexer.mbt`), not `set_lex_mode` — confirmed again
+  this session that `set_lex_mode` has no working lex/parse feedback
+  consumer in loom, and `ModeLexer` is the mechanism `examples/markdown`
+  already ships with (`markdown_mode_lexer`, `loom/examples/markdown/lexer.mbt`).
+  `tokenize_with_modes`/`ModeRelexState`/`relex_from` give incremental
+  re-lex for free, which the streaming use case needs regardless of the
+  mode-switch design itself.
+
+  **Mode shape** (data folded into the mode value, following the
+  `CodeBlock(fence_len)` and `HtmlBlockUntil(delimiter)` precedent in
+  `markdown/lexer.mbt` — `M` is a free type parameter, so it can carry an
+  `Int` and a nested enum, not just a bare tag):
+
+  ```
+  enum JsxLexMode {
+    Children
+    TagBody   // between the tag name and `>`/`/>`: scanning for the next
+              // attribute name or the tag close — the one concrete mode
+              // an attribute-value expression always resumes into
+    JsExprRaw(depth~ : Int, origin~ : ExprOrigin)
+    JsExprString(quote~ : Char, depth~ : Int, origin~ : ExprOrigin)
+  }
+  enum ExprOrigin { FromChildren; FromAttrValue }
+  ```
+
+  (Names illustrative — Task 1.2 Step 1 owns the actual `token.mbt`/mode
+  enum wiring; this fixes the *shape*, not the identifiers.)
+
+  **Scope boundary, corrected after Codex round 2 (round 1's `AttrValue`
+  label was a bare tag with no real content — Codex round 2 correctly
+  called this a relabeling, not a fix, so `TagBody` above is now the
+  actual, singular, concrete resume mode, not a placeholder name):**
+  `Children`/`TagBody` are the two modes relevant to the `{}` mode switch
+  specifically, not the full JSX tag/attr lexer state machine — how
+  `TagBody` itself recognizes an attribute name vs. `>`/`/>` (i.e.
+  whether it needs internal sub-states of its own, mirroring
+  `examples/html/lexer.mbt`'s `read_open_tag_body` cursor loop) is Task
+  1.2's mechanical implementation detail, not a Task 1.1 design question
+  — the point Task 1.1 must fix, and now does, is that there is exactly
+  **one** resume mode (`TagBody`) for every attribute-value expression
+  exit, so `origin=FromAttrValue`'s exit target is unambiguous without
+  needing to carry a nested resume mode value.
+
+  - **Trigger:** lexer sees `{` while mode is `Children` or `TagBody` →
+    transitions to `JsExprRaw(depth=1, origin=FromChildren|FromAttrValue)`
+    (origin recorded from whichever mode was active at the `{`).
+  - **Exit:** matching `}` at `depth == 1` (about to close, i.e. the
+    outermost `{`) transitions back to `Children` (if `origin=FromChildren`)
+    or `TagBody` (if `origin=FromAttrValue`) — a direct match on the
+    `origin` tag, not a stored nested mode, since `TagBody` is the one
+    and only concrete resume state for the attribute-value case. This is
+    *why* `origin` is carried in the mode value alongside depth, not just
+    depth alone: nothing else at the point of the closing `}` knows which
+    of the two fixed targets to resume.
+  - **Depth tracking:** folded into the mode value itself
+    (`JsExprRaw(depth~, ..)`), not a side counter reconstructed by
+    `fold_node`. Reason: `ModeLexer`'s `lex_step` is a pure function of
+    `(input, pos, mode)` — nothing outside the mode value is visible to
+    the next step call. More importantly, `tokenize_with_modes` records
+    "the mode BEFORE each token" into a parallel array specifically so
+    `relex_from`'s convergence check has a complete lexer-state snapshot
+    at every token boundary; a counter that lived outside the mode (e.g.
+    reconstructed later from the token stream) would be invisible to that
+    contract and would break incremental re-lex correctness, not just be
+    inelegant. On `{` inside `JsExprRaw`, depth increments (still
+    `origin`-tagged); on `}` at depth > 1, depth decrements and mode stays
+    `JsExprRaw`; only depth == 1 exiting on `}` leaves the expression.
+  - **String-literal awareness (`"`/`'` only — see template-literal
+    scoping below):** on `"` or `'` while in `JsExprRaw(depth, origin)`,
+    transition to `JsExprString(quote, depth, origin)` (depth carried
+    through unchanged — string content never participates in brace
+    counting). Inside `JsExprString`, a `\` consumes itself plus the next
+    character unconditionally (mirrors `examples/html/lexer.mbt`'s
+    `read_attr_value` escape handling), and the matching unescaped
+    `quote` returns to `JsExprRaw(depth, origin)`. Verified correct for
+    `{"a}b"}` and `attr={cond ? "a}" : "b"}` — the `}` inside the string
+    never reaches the depth counter.
+  - **Template literals (`` ` ``) are explicitly out of scope for Phase
+    1's correct handling, not silently mis-tokenized.** Codex's
+    round-1 review found that treating `` ` `` identically to `"`/`'`
+    (scan for the next unescaped backtick, ignore everything between)
+    mis-balances on nested substitutions — `` {`${`x`}`} `` has an inner
+    backtick that gets mistaken for the outer literal's close, letting
+    its `${}` region's `}` close the JSX expression early. Real JS-aware
+    template handling needs a *stack* of "in template text" /
+    "in `${...}` substitution" states (each `${` inside template text
+    pushes back into brace-counted expression scanning, each matching
+    `}` pops), which is genuine recursive nesting the opaque-blob
+    philosophy elsewhere in this design deliberately avoids. Phase 1's
+    answer: the lexer still recognizes `` ` `` and enters
+    `JsExprString('`', depth, origin)`, but does **not** special-case
+    `${` inside it — a raw `` ` `` is a plain opaque-content delimiter,
+    same rule as `"`/`'`. Any `{...}` value containing a nested
+    backtick-inside-backtick or a `${...}` substitution that itself
+    contains a backtick-delimited string will mis-tokenize (produces a
+    wrong span or a spurious "unclosed expression" diagnostic, not a
+    silent wrong-but-plausible parse). This is a stated Phase 1
+    limitation with a concrete failure mode, not a silent gap — nested
+    template substitutions are common enough in real JSX that this
+    should be revisited before Phase 1 is called done for anything
+    beyond the plan's own examples, but implementing the full stack
+    machine now is out of scope for this pass.
+  - **Comments and regex literals inside `{...}` are also out of scope
+    and will corrupt depth counting** (`{ /* } */ x }`, `{ // }\nx }`,
+    `{ /}/.test(x) }`) — braces inside `//`/`/* */` comments or regex
+    literals are not string-delimited, so this design's `"`/`'`-only
+    escaping does not protect them. Stated as an explicit Phase 1
+    limitation (same category as template literals above): the plan's
+    own JSX examples do not require comment/regex support inside `{}`,
+    and adding a full JS-lexical-aware scanner (distinguishing regex
+    from division, tracking comment state) is disproportionate scope for
+    Phase 1's opaque-span design. Track as a follow-up if real usage
+    hits it.
+  - **Nested JSX inside `{...}`** (e.g. `{cond ? <a/> : <b/>}`): stays one
+    opaque blob under this design — the lexer/parser never leaves
+    `JsExprRaw`/`JsExprString` to re-enter `Children`/tag-parsing.
+    Consequence, stated explicitly per the plan's instruction: JSX
+    conditionally-rendered inside `{...}` (a common real LLM-JSX pattern)
+    gets no incremental visible growth *inside* the expression — only the
+    `ExprSpan`'s boundaries move. Accepted as a Phase 1 limitation.
+  - **Growing opaque `ExprSpan` identity — corrected after Codex round 1
+    (the original draft's justification was factually wrong, not just
+    under-specified):** the *CST* node for a growing `{fo` → `{foo` →
+    `{foo}` span is expected to re-parse on each edit — that's normal
+    loom behavior and not itself a problem. `ReuseCursor`'s structural
+    reuse does **not** apply here as originally claimed: `ReuseCursor`
+    only reuses a node that sits wholly *outside* the edit's damage
+    range with matching leading/trailing token context, and a span
+    that's actively growing at its own tail is exactly the
+    left-adjacent-to-damage case `ReuseCursor` conservatively declines to
+    reuse (per loom's own reuse contract — a node ending where damage
+    starts is not "outside damage"). Claiming `ReuseCursor` gives content
+    mutation without a new node was the wrong mechanism.
+    The real answer lives one layer up: identity stability for
+    `ExprSpan` is a **projection-level** guarantee via
+    `@core.reconcile`, which preserves an old `ProjNode`'s ID across a
+    CST re-parse when `TreeNode::same_kind(old.kind, new.kind)` holds for
+    the corresponding node — i.e. as long as the re-parsed node is still
+    kind-tagged `ExprSpan`, projection reconciliation keeps the same
+    `ProjNode` ID even though the underlying CST node is a fresh parse
+    with different raw content. This is the same category of guarantee
+    Task 2.4 records for first-appearance-while-unclosed identity
+    elsewhere in this plan, but it is `@core.reconcile`'s job, not
+    `ReuseCursor`'s — the two are different layers (CST structural reuse
+    vs. projection kind-based identity) and this design should not
+    conflate them again. **Required before Task 1.2's tests are called
+    complete:** a projection-layer test asserting the `ExprSpan`
+    `ProjNode` ID is stable across `{fo}` → `{foo}` → `{foo}` growth, and
+    a second asserting stability across an *unclosed* prefix growing
+    into a closed one (`{fo` → `{foo` → `{foo}`), not just the
+    already-closed case.
+
+  ### Design B — error recovery on a streaming JSX prefix
+
+  Baseline precedent verified by reading `loom/examples/html/cst_parser.mbt`
+  directly this session (`parse_content`/`finish_element`, lines ~110–173):
+  html's element-content loop (`while !ctx.at_eof() { match ctx.peek() { ... } }`)
+  keeps emitting child nodes as normal CST children of the currently-open
+  element regardless of whether a matching close tag ever arrives; on EOF
+  it calls `ctx.error("Unclosed element: " + tag_name)` — a diagnostic
+  push, not a control-flow branch that discards anything — and the caller
+  (`parse_element`) unconditionally calls `ctx.finish_node()` right after,
+  so the CST node closes normally with every already-parsed child intact.
+  JSX's design below is this same shape applied to JSX's four cases, not a
+  new invention.
+
+  1. **Fully closed tree** — baseline, not interesting (per plan).
+  2. **Open elements, no matching close yet** (`<div><span>text`): follow
+     html's precedent exactly — `parse_jsx_content`'s loop runs until a
+     matching close tag, `/>`, or EOF; on EOF it pushes
+     `ctx.error("Unclosed JSX element: <" + tag_name + ">")` and the
+     caller still calls `ctx.finish_node()` unconditionally. The `Element`
+     CST/AST node therefore always contains its already-seen children —
+     it is never replaced by a content-discarding error node. Stated as a
+     hard CST-shape requirement per the plan's instruction, because
+     Phase 2's read-only projection rendering depends on it for
+     incremental visible growth.
+  3. **Truncated tag mid-token** (`<div cla`, `<di`): split into two
+     sub-cases, because they need different answers.
+     - *Identifier-like truncation* (tag name, attribute name cut off
+       mid-word, no trailing delimiter expected): the lexer's
+       `take_while`-style identifier scan is naturally EOF-safe — it just
+       stops at end of input and emits a best-effort partial token (e.g.
+       `TagName("di")`) with no synthetic error token needed at the lex
+       level. The truncation surfaces one level up, at the parser: it
+       reaches EOF still inside tag-open state, never having seen `>` or
+       `/>`. This is not a distinct lexer contract; it's the same
+       "loop until sync point or EOF" shape as case 2, just inside
+       `parse_open_tag` instead of `parse_content`. Corrected after Codex
+       round 1: give `parse_open_tag` its **own explicit EOF branch**
+       (`ctx.error("Truncated tag: <" + partial_name + ">")` then finish
+       the node directly) rather than routing through the generic
+       `skip_until`-based recovery loop for the EOF case specifically —
+       `skip_until` guarantees "don't consume past a sync point," not
+       "make progress," and html's own `parse_html_root` needed
+       `skip_until_progress` instead to avoid spinning when already
+       sitting on a sync token (loom PR #647, see the 2026-07-10 Task 0.1
+       note below). Reserve `skip_until`/`skip_until_progress` for the
+       *non-EOF* recovery case inside `parse_open_tag` (an unexpected
+       token that isn't EOF) — `is_sync_point` for JSX must include `EOF`
+       explicitly either way, matching html's set, so the loop can still
+       terminate if it does fall through to the generic path. Codex round
+       2 correctly flagged that this left the non-EOF branch's actual
+       progress invariant unstated, so: **use `skip_until_progress`, not
+       plain `skip_until`, for the non-EOF branch too** — the same reason
+       html needed it at the root applies identically inside
+       `parse_open_tag` (an unexpected-but-non-EOF token can itself
+       already be sitting on a sync point, e.g. an unexpected `>` — mirror
+       is_sync_point's exact membership from html's tag-open recovery, not
+       a JSX-specific set), and `parse_open_tag` must not call plain
+       `skip_until` anywhere in its non-EOF path. This makes the rule
+       uniform across both branches: EOF gets its own direct
+       diagnose-and-finish exit (no recovery loop needed since there's
+       nothing left to skip past), everything else goes through
+       `skip_until_progress`, never plain `skip_until`.
+     - *Quoted-value truncation* (`attr="unterminated`, no closing quote
+       before EOF): needs a lexer-level signal, mirroring
+       `examples/html/lexer.mbt`'s `read_attr_value`. Corrected after
+       Codex round 1: do **not** rely on `ModeLexer`'s generic
+       `LexStep::Incomplete` auto-recovery for this — `Incomplete`
+       (per `push_recovered_mode_step`) emits a single synthetic
+       *error* token spanning `[at, EOF)` and a diagnostic, which loses
+       the actual scanned text as normal content. Since case 2's hard
+       requirement is "already-seen content stays visible," the lexer
+       must instead emit the partial value as a **normal `Produced`
+       token** of a distinct kind — e.g. `AttrStringLitUnterminated(text)`
+       alongside the existing `AttrStringLit(text)` for the well-formed
+       case — so the raw scanned characters reach the CST/AST like any
+       other content. The *parser*, on seeing
+       `AttrStringLitUnterminated`, is what pushes
+       `ctx.error("Unterminated attribute string literal")`; the
+       diagnostic is a parser-level annotation on top of a normal token,
+       not a framework-injected error token that replaces it.
+  4. **Truncated embedded expression** (`{foo.bar(`, no matching `}` yet):
+     same "eager partial emission, never guess" shape as case 2/3 — do
+     not defer node emission until `}` arrives. Corrected after Codex
+     round 1: "slice `ctx` source positions into the AST node" is not
+     itself a CST construction mechanism — `ExprSpan` needs real tokens
+     so the parser can assemble it the same way `parse_content` assembles
+     an `Element`'s children, not a special-cased leaf. Concretely:
+     lexer emits an `ExprOpen` token for the triggering `{`, then zero or
+     more `ExprRawText` tokens (each a `Produced` chunk of raw content —
+     one chunk per contiguous run between mode transitions, i.e. a run
+     ends where `JsExprString` begins/ends so string-boundary crossings
+     don't get silently merged into one opaque blob the parser can't
+     inspect for diagnostics), then either `ExprClose` (`}` at depth 1)
+     or nothing (EOF while still inside `JsExprRaw`/`JsExprString`). The
+     parser builds the `ExprSpan` CST node from `ExprOpen` +
+     accumulated `ExprRawText` children exactly as `parse_content` builds
+     an `Element` from its children — on EOF without `ExprClose`, it
+     pushes `ctx.error("Unclosed expression: missing '}'")` and finishes
+     the node anyway with whatever `ExprRawText` children were already
+     collected, mirroring case 2's "diagnostic doesn't gate node
+     creation" rule exactly, now on a real shallow subtree instead of a
+     hand-waved leaf. **Gap Codex round 2 found:** this token stream lets
+     the parser diagnose "missing `}`" (no `ExprClose` seen) but gives it
+     no way to independently know EOF happened *inside a string*
+     specifically (`{ "x` vs. `{foo.bar(` are indistinguishable from
+     `ExprRawText` chunks alone, since mode boundaries aren't exposed).
+     Fix: when EOF hits while mode is `JsExprString(quote, ..)`
+     specifically (as opposed to plain `JsExprRaw`), the lexer emits the
+     accumulated partial string content as a distinct
+     `ExprStringUnterminated` token kind (same "preserve content, don't
+     replace with a synthetic error token" rule as
+     `AttrStringLitUnterminated` above) instead of a plain
+     `ExprRawText`. The parser, on seeing `ExprStringUnterminated` as the
+     last child before EOF, pushes a second, additive diagnostic
+     ("Unterminated string literal in expression") alongside — not
+     instead of — the "missing `}`" one, since both are independently
+     true and independently detectable once the token kind distinguishes
+     the two truncation shapes. This token's raw text still folds into
+     `ExprSpan`'s concatenated content exactly like any other
+     `ExprRawText` chunk — only the diagnostic-triggering is different,
+     not the AST shape.
+
+  **Step 3 (external validation), round 1 — Codex, 2026-07-10.**
+  Verdict: **needs-rework**. Findings (all applied above in this same
+  entry, so Designs A/B above already reflect the fixes — nothing further
+  to change from round 1's findings):
+  1. Template-literal nesting (`` {`${`x`}`} ``) mis-balances depth under
+     the original "treat `` ` `` like `"`/`'`" rule — fixed by explicitly
+     scoping template literals as an out-of-scope Phase 1 limitation with
+     a stated concrete failure mode (see Design A above), not silently
+     mis-tokenizing.
+  2. Comments/regex literals inside `{...}` also corrupt depth counting
+     and weren't mentioned at all — added as a second explicit Phase 1
+     limitation.
+  3. The mode enum didn't specify how `origin=FromAttrValue`'s exit
+     re-enters tag-body lexing — added the scope-boundary note clarifying
+     this is Task 1.2's mechanical extension, with the return-target
+     requirement stated explicitly.
+  4. `Incomplete` was the right `LexStep` classification but its actual
+     behavior (single synthetic error token, content not preserved)
+     contradicted case 2's "content stays visible" requirement — fixed
+     by emitting partial content as a normal token
+     (`AttrStringLitUnterminated`) instead of relying on the framework's
+     auto-recovery token.
+  5. The original `ReuseCursor`-based identity justification was
+     factually wrong (damage-adjacency makes it inapplicable to a
+     growing span) — replaced with the correct mechanism,
+     `@core.reconcile`'s kind-based `ProjNode` ID preservation, plus two
+     required tests.
+  6. `skip_until` was conflated with `skip_until_progress`'s
+     progress-guarantee — fixed by giving `parse_open_tag` its own
+     explicit EOF branch instead of relying on the generic recovery loop
+     for that case.
+  7. Case 4's "slice ctx source positions" leaf-construction was
+     hand-wavy given `ExprSpan` isn't actually a bare token — fixed by
+     defining real `ExprOpen`/`ExprRawText`/`ExprClose` tokens so the
+     parser assembles it like any other subtree.
+
+  Additional edge cases Codex surfaced that weren't in the plan's
+  original enumeration — recorded here as required test cases for Task
+  1.2 Steps 3/4, not solved further at the design-prose level:
+  - Unterminated string/template inside an expression (`{ "x`, `` {`abc``):
+    decide whether the diagnostic reports "missing `}`" only, or also
+    "missing closing quote/backtick" — Task 1.2 should emit both when
+    both are true, since they're independently detectable from the
+    `AttrStringLitUnterminated`-style token plus the missing `ExprClose`.
+  - Escaped-backslash runs and EOF immediately after a trailing
+    backslash (`{"\\\\}"}`, `{"x\\`) — exercises the escape-consumes-next-
+    char-unconditionally rule at the EOF boundary specifically.
+  - `attr={f()} b="c">` and `attr={f()}/>` — validates that
+    `origin=FromAttrValue`'s exit correctly resumes tag-body scanning for
+    a following attribute or tag close, not just end-of-input.
+  - A stray `}` encountered while *not* inside any `JsExprRaw` (i.e. in
+    `Children` or tag-body mode) — Task 1.2 must decide and test whether
+    this is silently treated as literal text or produces a diagnostic;
+    this design doc does not yet pick one, flagged for Task 1.2 Step 3/4
+    rather than left implicit.
+
+  **Step 3, round 2 (confirmation) — Codex, 2026-07-10.** Verdict:
+  **needs one more fix pass** (not a fresh needs-rework — 5 of 7 round-1
+  fixes confirmed RESOLVED outright: template-literal scoping,
+  comments/regex scoping, `AttrStringLitUnterminated`-as-normal-token,
+  `@core.reconcile`/`same_kind` identity mechanism — verified to actually
+  exist in `core/reconcile.mbt` and `loom/loom/core/proj_traits.mbt` —
+  and the `ExprOpen`/`ExprRawText`/`ExprClose` chunking not contradicting
+  the opaque-leaf framing). 3 gaps remained and are now fixed in Designs
+  A/B above, in the same edit that added this entry:
+  1. `origin=FromAttrValue`'s exit target was relabeled, not resolved —
+     `AttrValue` carried no real content of its own. Fixed by replacing
+     it with `TagBody`, the one concrete resume mode, and rewriting
+     Trigger/Exit to name it directly instead of a placeholder label.
+  2. `parse_open_tag`'s non-EOF recovery branch left its progress
+     invariant unstated (still capable of the same no-progress hazard
+     `skip_until_progress` exists to fix). Fixed by requiring
+     `skip_until_progress` uniformly for that branch, never plain
+     `skip_until`, with EOF handled by its own separate direct exit.
+  3. New gap this round exposed rather than introduced: case 4's token
+     stream could report "missing `}`" but had no way to independently
+     detect "EOF happened mid-string" (`{ "x` vs `{foo.bar(`
+     indistinguishable from `ExprRawText` alone). Fixed by adding a
+     distinct `ExprStringUnterminated` token kind, emitted only when EOF
+     hits inside `JsExprString` specifically, driving an additive second
+     diagnostic alongside the missing-`}` one.
+  With these three applied, Designs A/B are considered validated per this
+  project's Algorithm Implementation Process — Task 1.2 may begin
+  (Step 4 below records this).
 - **2026-07-10, Task 0.1 resolution:** #646 was already fixed upstream before
   this session picked up Phase 0 — loom PR #647 (merged 2026-07-07) replaced
   `parse_html_root`'s recovery from `skip_until` to `skip_until_progress`,
