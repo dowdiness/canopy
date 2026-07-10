@@ -937,6 +937,34 @@ doesn't have to rediscover scope boundaries:
     conditionally-rendered inside `{...}` (a common real LLM-JSX pattern)
     gets no incremental visible growth *inside* the expression — only the
     `ExprSpan`'s boundaries move. Accepted as a Phase 1 limitation.
+    **Scope of this limitation, widened after a 2026-07-10 post-commit
+    review (not a Codex round, a direct value-fit check against the
+    plan's own generative-UI premise):** the plan's wording above singles
+    out conditional rendering (ternaries) as the flagged example, but the
+    dominant real-world instance of "JSX nested inside `{...}`" for
+    generative-UI output is **`.map()`-driven list rendering**
+    (`{items.map(item => <Card key={item.id}>{item.name}</Card>)}`) —
+    table rows, chat messages, card grids — not ternaries. Brace-depth
+    counting still finds the correct outer `}` for this pattern (the
+    braces inside a `.map()` callback are textually balanced, same as any
+    other nested-brace JS), so the *lexer* is not at risk here. The
+    limitation is that this pattern is also swallowed whole into one
+    `ExprSpan`, meaning the specific content Phase 1's "incremental
+    visible growth" value proposition is meant to showcase — list items
+    or cards appearing one at a time as an LLM streams them — gets only
+    boundary-level growth (the whole blob's span moves), not per-item
+    incremental structure. Phase 1 still delivers real value for static
+    scaffolding (headers, containers, text/attribute character-by-
+    character streaming), but that is a narrower slice of realistic
+    generative-UI output than "conditional-rendering-heavy" suggests.
+    This does not change Phase 1's scope or defer anything further —
+    Phase 3 (`## Phase 3 — Deferred`) already defers "JS expression
+    evaluation of `{...}` spans" and the component-registry rendering
+    surface, which is where recursing into `.map()`-returned JSX would
+    eventually have to live — but it should be weighed honestly when
+    deciding whether to continue past Phase 1, not discovered later as a
+    surprise gap between what shipped and what the plan's premise
+    implied.
   - **Growing opaque `ExprSpan` identity — corrected after Codex round 1
     (the original draft's justification was factually wrong, not just
     under-specified):** the *CST* node for a growing `{fo` → `{foo` →
