@@ -20,7 +20,7 @@
     },
     "dowdiness/incr": {
       "path": "../../loom/incr/incr",
-      "version": "0.14.0"
+      "version": "0.14.2"
     },
     "dowdiness/rabbita-menu": {
       "path": "../../lib/menu",
