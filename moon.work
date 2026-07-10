@@ -11,6 +11,7 @@ members = [
   "./loom/examples/lambda",
   "./loom/examples/graph-dsl",
   "./loom/loom",
+  "./loom/incr/incr",
   "./loom/seam",
   "./loom/pretty",
   "./loom/text-change",
