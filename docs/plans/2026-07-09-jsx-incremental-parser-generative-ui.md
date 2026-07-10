@@ -153,12 +153,16 @@ touching canopy's submodule pointer — per canopy `CLAUDE.md` Submodule
 Workflow. Do not bump the canopy `loom` pointer until Phase 0 is merged
 upstream in loom.
 
-### Task 0.1: Reproduce and minimize the tcc hang (issue #646)
+### Task 0.1: Reproduce and minimize the tcc hang (issue #646) — RESOLVED 2026-07-10
 
 This is an investigation task, not a scripted fix — the root cause is
 unconfirmed (toolchain-side `tcc` bug vs. project-side). Time-box it.
 
-- [ ] **Step 1:** From `loom/` submodule root, reproduce:
+**Resolution: already fixed upstream, no further work needed here — see the
+2026-07-10 Notes entry.** Steps below are recorded as N/A per that finding
+rather than executed individually.
+
+- [x] **Step 1:** From `loom/` submodule root, reproduce:
   ```bash
   cd loom/examples/html
   NEW_MOON_MOD=0 moon test --target native
@@ -167,31 +171,34 @@ unconfirmed (toolchain-side `tcc` bug vs. project-side). Time-box it.
   `.github/workflows/ci.yml` for the pinned MoonBit version — do not assume
   the 2026-06-29 repro toolchain in #646 is still current; re-check the pin
   first).
-- [ ] **Step 2:** Minimize — does `moon test -p dowdiness/html --target native`
+- [x] **Step 2:** Minimize — does `moon test -p dowdiness/html --target native`
   from `examples/html/` alone still hang, or only full-workspace fan-out
   (`cd loom && moon test`)? Record which.
-- [ ] **Step 3:** Per #646's own suggested investigation: inspect why the
+  N/A — confirmed no hang either way on the current checkout (fix already
+  present); unscoped fan-out surfaces an unrelated pre-existing
+  `lambda/typecheck` abort, not a hang.
+- [x] **Step 3:** Per #646's own suggested investigation: inspect why the
   html blackbox test driver's `tcc` rspfile includes `README.mbt.md:0-5`
   (the doc-test block) alongside `parser_test.mbt`/`lexer_test.mbt`. If the
   doc-test compilation is the hang trigger, try isolating/removing it from
   the native blackbox build and re-test.
-- [ ] **Step 4 (branch on result):**
-  - If reproducible and root-cause-able on the project side within ~1 hour
-    of investigation → fix it, re-add `examples/html` to loom's
-    `test-modules` CI matrix (`.github/workflows/ci.yml` in loom), verify
-    green.
-  - If it reproduces on `wasm-gc` target too, or looks toolchain-internal
-    (tcc spinning with tiny constant RSS, no forward progress) → do not keep
-    debugging inside this plan. File/update the upstream MoonBit issue,
-    leave the CI workaround (`-p <module>` scoping) in place, and continue
-    to Task 0.2 — the hang blocks CI coverage, not correctness, so it must
-    not block Phase 1.
-- [ ] **Step 5:** Whichever branch: leave a one-paragraph note in this plan's
+  N/A — root cause was a parser recovery bug (mismatched close tag from a
+  README doc test caused an infinite recovery loop), already found and
+  fixed in loom PR #647; no doc-test isolation needed.
+- [x] **Step 4 (branch on result):** Branch taken: reproducible and already
+  root-caused/fixed **by someone else** before this session (loom PR #647,
+  merged 2026-07-07) — `examples/html` is already back in loom's CI
+  `test-modules` matrix (loom PR #649, merged 2026-07-08), confirmed green
+  via the scoped local repro this session.
+- [x] **Step 5:** Whichever branch: leave a one-paragraph note in this plan's
   Notes section (or a loom-side issue comment on #646) recording which
   branch was taken and why, so the next agent doesn't re-investigate from
   scratch.
+  Done — see the 2026-07-10 Notes entry above.
 
-### Task 0.2: Fix RawText emission for `<script>`/`<style>` (issue #626)
+### Task 0.2: Fix RawText emission for `<script>`/`<style>` (issue #626) — DONE 2026-07-10
+
+**Resolution: merged as [dowdiness/loom#662](https://github.com/dowdiness/loom/pull/662), squashed into loom `main` at `13b809e`, CI green (33/33 checks), canopy's loom submodule pointer bumped to that commit in the same session.** Steps below are recorded as completed per that PR, not re-executed individually.
 
 Two options are already named in #626 itself. **Design gate, not a coin
 flip** — and per Current State, `set_lex_mode` (Option B as originally
@@ -200,13 +207,23 @@ lexer is invoked as a whole-input batch function with no feedback path from
 `ParserContext`. Do not start Option B's implementation steps until Step 0
 below is answered.
 
-- [ ] **Step 0 (architecture check, do this first):** Read
+- [x] **Step 0 (architecture check, do this first):** Read
   `loom/examples/html/grammar.mbt` and `cst_parser.mbt` and confirm how
   lexing and parsing are actually sequenced for this example: is the whole
   input tokenized once via `Grammar.lex` before `cst_parser.mbt` ever runs
   (this appears to be the case given `Grammar.lex : (String) -> LexResult[T]`
   takes no `ParserContext`), or is there an interleaved/incremental path
   this example uses instead? Then choose:
+  Confirmed by direct read: `Grammar.lex : (String) -> LexResult[T]`, no
+  `ParserContext` parameter, batch pass — Option A confirmed correct, no
+  interleaved path exists. One refinement the plan didn't anticipate: the
+  existing `PrefixLexer`/step-lexer (`html_step_lexer(source, start)`) is
+  itself stateless per call — no channel to carry "the previous token was
+  `OpenTag(script)"`. The correct Option A mechanism is `@core.ModeLexer[T,
+  M]` + `@core.erase_mode_lexer`, the exact pattern `examples/markdown`
+  already uses for its own raw-until-delimiter lexing
+  (`HtmlBlockRaw`/`HtmlBlockUntil`) — not a hand-rolled stateless hack. See
+  PR #662 for the implementation.
   - If lexing is a single batch pass (expected): use **Option A**
     (lexer-side detection) — teach `lexer.mbt` to recognize the literal
     `<script`/`<style` open-tag text during its own scan and switch itself
@@ -228,69 +245,65 @@ below is answered.
 `lexer.mbt`), since the batch-lexing architecture is the expected finding.
 The steps below assume Option A; adapt them if Step 0 finds otherwise.
 
-- [ ] **Step 1:** Write a failing test first, in
-  `loom/examples/html/parser_test.mbt`:
-  ```moonbit
-  ///|
-  test "script content is raw text" {
-    let (tree, diagnostics) = html_grammar.parse_cst(
-      "<script>var x = 1;</script>",
-    )
-    inspect(diagnostics.length(), content="0")
-    // assert the script body is under a RawTextLeaf node, not TextLeaf —
-    // exact assertion shape depends on how @seam.SyntaxNode exposes child
-    // kinds; inspect the actual tree shape via `moon ide` before writing
-    // the final assertion, don't guess the API.
-  }
-  ```
-- [ ] **Step 2:** Run it, confirm it fails (diagnostics.length() != 0, or the
-  node kind assertion fails) — `moon test -p dowdiness/html -f parser_test.mbt`
-  from `loom/examples/html/` (do NOT run unscoped `moon test` here — see
-  Task 0.1).
-- [ ] **Step 3 (Option A path — expected):** In `loom/examples/html/lexer.mbt`,
-  when the tokenizer's own scan recognizes an `OpenTag(String)` whose tag
-  name is `script` or `style` (case-insensitively — HTML tag/element names
-  are ASCII case-insensitive per spec, do not gate on exact-case `<script`),
-  switch the lexer's own internal scanning state so subsequent characters
-  are consumed as raw text and emitted as a single `@token.RawText` token,
-  scanning until it finds the matching close-tag sequence
-  (`</script>`/`</style>`, also case-insensitive) rather than re-entering
-  normal tag-scanning rules mid-content. This is self-contained within
-  `lexer.mbt` — no `ParserContext` involvement, no `cst_parser.mbt` change
-  needed beyond the existing `RawTextLeaf` branch already having somewhere
-  to attach the token.
-- [ ] **Step 3-alt (only if Step 0 found an interleaved lex/parse path):**
-  In `cst_parser.mbt`, call `ctx.set_lex_mode(RAW_TEXT_MODE)` after emitting
-  the `<script>`/`<style>` open-tag node and `ctx.set_lex_mode(0)` at the
-  matching close tag; then wire the interleaved lexer (found in Step 0) to
-  consult `ctx.lex_mode()` before producing each token. Do not attempt this
-  branch without first confirming in Step 0 that such an interleaved path
-  exists — building one from scratch is #609's scope, not this task's.
-- [ ] **Step 4:** Whichever path Step 3 took, confirm `@token.RawText` (not
-  `@token.Text`) is emitted for script/style content, and that the emitted
-  token spans exactly the content between the open and close tags (excluding
-  the tags themselves).
-- [ ] **Step 5:** Run the test from Step 1, confirm it passes.
-- [ ] **Step 6:** Run the full scoped suite:
-  `moon test -p dowdiness/html` and `moon check -p dowdiness/html --deny-warn`
-  from `loom/examples/html/`.
-- [ ] **Step 7:** `moon info && moon fmt` (loom root), check
-  `git diff -- '*.mbti'` for unintended surface changes.
-- [ ] **Step 8:** Commit in the loom submodule, push to loom's remote, open
-  a loom-side PR referencing #626 (and #609 if this closes the M19
-  capstone's core exercise).
+- [x] **Step 1:** Write a failing test first, in
+  `loom/examples/html/parser_test.mbt` — done as `"script content is raw
+  text"`, using `@seam.CstElement::Node(tree).iter().find_first(...)` to
+  locate the `RawTextToken` leaf (not `CstNode::first_token`, whose
+  parameter is an `is_trivia` skip-predicate, not a match-predicate — a
+  real API-signature trap caught during Step 5, see PR #662).
+- [x] **Step 2:** Run it, confirm it fails — confirmed 2 diagnostics
+  (expected 0) via `moon test -p dowdiness/html` from `loom/examples/html/`
+  (the `-f parser_test.mbt` filter itself is unreliable/broken, see
+  `feedback_moon_test_f_filter_broken` memory — ran the full scoped suite
+  instead).
+- [x] **Step 3 (Option A path — expected):** Implemented in
+  `loom/examples/html/lexer.mbt` via `@core.ModeLexer[Token, HtmlLexMode]`
+  (`Normal | RawText(String)`) + `@core.erase_mode_lexer`, case-insensitive
+  close-tag matching with a tag-name-boundary check (`</scripts>` doesn't
+  falsely close a `<script>`), zero-width-match self-delegation for
+  immediately-closed elements (`<script></script>`) to avoid the #646 class
+  of zero-progress bug. Also made `is_raw_text_tag` (cst_parser.mbt)
+  case-insensitive and shared it as the single source of truth between the
+  lexer's mode switch and the parser's raw-branch gate.
+- [ ] **Step 3-alt:** not taken — Step 0 confirmed no interleaved lex/parse
+  path exists.
+- [x] **Step 4:** Confirmed via lexer-level regression tests
+  (`lexer_test.mbt`): `@token.RawText` (not `@token.Text`) emitted, span
+  excludes the open/close tags, mixed-case tags work, empty content doesn't
+  hang or emit a zero-width token.
+- [x] **Step 5:** Test from Step 1 passes (26/26 total in the package).
+- [x] **Step 6:** `moon test -p dowdiness/html` (26/26) and
+  `moon check -p dowdiness/html --deny-warn` (clean) both pass — note
+  `moon check` takes filesystem `[PATH]...`, not `moon test`'s `-p
+  <module/package>` flag; ran from within `loom/examples/html/` instead.
+- [x] **Step 7:** `moon info && moon fmt` run from loom root;
+  `git diff -- '*.mbti'` empty — no interface changes (new bindings are
+  unexported `let`s).
+- [x] **Step 8:** Committed in the loom submodule (2 commits: the fix, plus
+  a `/moonbit-refactoring`-pass follow-up flattening a nested match),
+  pushed to `dowdiness/loom`, opened
+  [PR #662](https://github.com/dowdiness/loom/pull/662) (`Closes #626`,
+  auto-closed on merge). CI green (33/33 checks, including main's own
+  post-merge run at `13b809e`, not just the pre-merge PR checks). Squash-merged
+  with explicit user confirmation. Canopy's `loom` submodule pointer bumped
+  to `13b809e` in this same session (see next commit in canopy's own
+  history) — #609 (M19 capstone) is NOT closed by this PR, it remains a
+  separate, larger task per Step 0's explicit scope boundary.
 
-### Acceptance Criteria (Phase 0)
+### Acceptance Criteria (Phase 0) — met 2026-07-10
 
-- [ ] `moon test -p dowdiness/html` passes from `loom/examples/html/`
-- [ ] `<script>`/`<style>` content produces `RawTextLeaf` nodes, 0
+- [x] `moon test -p dowdiness/html` passes from `loom/examples/html/`
+      (26/26)
+- [x] `<script>`/`<style>` content produces `RawTextLeaf` nodes, 0
       diagnostics, per the Step 1 test
-- [ ] Either #646 is fixed and `examples/html` is back in loom's CI
-      `test-modules` matrix, OR the investigation branch is documented (Task
-      0.1 Step 5) and the CI workaround remains — both are acceptable exit
-      states, silence is not
-- [ ] `git diff -- '*.mbti'` reviewed for unintended API changes
-- [ ] Loom-side PR merged and pushed to loom's own remote
+- [x] #646 is fixed (already, before this session — loom PR #647) and
+      `examples/html` is back in loom's CI `test-modules` matrix (loom PR
+      #649) — the first acceptable exit state, not the documented-workaround
+      branch
+- [x] `git diff -- '*.mbti'` reviewed — no interface changes
+- [x] Loom-side PR merged and pushed to loom's own remote —
+      [dowdiness/loom#662](https://github.com/dowdiness/loom/pull/662),
+      squash-merged, CI green including main's own post-merge run
 
 ### Validation (Phase 0)
 
@@ -749,9 +762,11 @@ doesn't have to rediscover scope boundaries:
 
 ## Notes
 
-- Related loom issues: #626 (RawText emission, OPEN), #609 (M19 capstone,
-  OPEN), #532 (lex-mode API, CLOSED/shipped), #646 (tcc hang, CLOSED but
-  root cause unresolved per its own body).
+- Related loom issues: #626 (RawText emission, OPEN as of 2026-07-10), #609
+  (M19 capstone, OPEN as of 2026-07-10), #532 (lex-mode API, CLOSED/shipped),
+  #646 (tcc hang, CLOSED — root cause found and fixed by loom PR #647, see
+  the 2026-07-10 Task 0.1 resolution note below, not just a CI workaround as
+  originally suspected).
 - Reference packages to read before writing code, not to copy blindly:
   `loom/examples/html/` (tag/lexer structure, coarse-token design),
   `loom/examples/markdown/src/` (`ModeLexer[T, M]` — the mechanism Phase 1
@@ -791,3 +806,21 @@ doesn't have to rediscover scope boundaries:
   deprecated postfix-`!` syntax in a pasted test snippet.
 - Task 1.1's design-gate output (the two prose docs) should be appended
   below this line once written, or linked if kept as separate files.
+- **2026-07-10, Task 0.1 resolution:** #646 was already fixed upstream before
+  this session picked up Phase 0 — loom PR #647 (merged 2026-07-07) replaced
+  `parse_html_root`'s recovery from `skip_until` to `skip_until_progress`,
+  fixing a genuine parser bug (a mismatched close tag left a `CloseTag` sync
+  point at the root that `skip_until` never advanced past, spinning the
+  `while !ctx.at_eof()` loop forever — not an upstream tcc issue as the
+  original issue speculated). PR #649 (merged 2026-07-08) re-added
+  `examples/html`/`css`/`graph-dsl`/`moonbit` to loom's CI `test-modules`
+  matrix on `--target native`. Verified empirically this session: the fix
+  commit (`ca7aa2e`) is an ancestor of canopy's pinned loom commit
+  (`2c369ae2`), and `NEW_MOON_MOD=0 moon test -p dowdiness/html --target
+  native` from `loom/examples/html/` completes in ~1s, 23/23 passed, no
+  tcc spin. No further investigation needed — Task 0.1 is closed as
+  already-resolved, not re-derived. (Note: an unscoped `moon test` from
+  within `examples/html/` still cascades to the full workspace per
+  `moon.work` semantics and hit an unrelated pre-existing abort in
+  `lambda/typecheck` — out of scope for this plan, use `-p dowdiness/html`
+  as Step 2 already specifies.)
