@@ -506,17 +506,23 @@ says otherwise; do not silently diverge from what Task 1.1 decided.
   cp /tmp/jsx-syntax/syntax_kind.mbt loom/examples/jsx/syntax/
   cp /tmp/jsx-token/token_impls.g.mbt loom/examples/jsx/token/
   ```
-- [ ] **Step 3:** Write the lexer (`lexer.mbt`), implementing Task 1.1's
+- [x] **Step 3:** Write the lexer (`lexer.mbt`), implementing Task 1.1's
   validated mode-switch design. Write failing tests in `lexer_test.mbt`
   first (one per token kind + one for the brace-depth/string-awareness edge
-  case from Task 1.1 Step 2), confirm they fail, then implement.
-- [ ] **Step 4:** Write the recursive-descent parser (`cst_parser.mbt`),
+  case from Task 1.1 Step 2), confirm they fail, then implement. Done
+  2026-07-10 in loom commits `a2f6805` + `8a3f78a` (Codex
+  post-implementation review applied; 20 lexer tests).
+- [x] **Step 4:** Write the recursive-descent parser (`cst_parser.mbt`),
   implementing Task 1.1's validated error-recovery design. Write failing
   tests in `parser_test.mbt` first — at minimum: simple element, nested
   elements, fragment, self-closing tag, attribute with string value,
   attribute with `{expr}` value, text child, `{expr}` child, unclosed
   element (per design case 2), truncated tag (per design case 3), truncated
-  expression (per design case 4).
+  expression (per design case 4). Done 2026-07-10 in loom commit `d97399d`
+  (tests confirmed red first; 23 parser tests incl. 2 Codex-review
+  termination regressions; 43/43 for the package; `parse_cst` exposed via
+  `SyntaxGrammar` — fold-free until Step 5; note: `parse_jsx_root` must
+  not open a RootNode, the entry points wrap in `spec.root_kind`).
 - [ ] **Step 5:** Write `fold_node` in `grammar.mbt`, converting CST to the
   `JsxNode` AST from the shape above (or its Task-1.1-revised version).
 - [ ] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
