@@ -73,6 +73,32 @@ priv struct CanvasRuntime {
 }
 
 ///|
+fn canvas_render(
+  scope : @incr.Scope,
+  policy : CanvasHostPolicy,
+  lowered : @incr.Derived[LoweredCanvas],
+  viewport : @incr.InputView[Viewport],
+  drag_preview : @incr.InputView[DragPreview],
+  selection : @incr.InputView[SelectionState],
+  interaction : @incr.InputView[InteractionState],
+  actions : @incr.InputView[Array[GraphOperation]],
+) -> @incr.Derived[CanvasFullRenderJson] {
+  scope.derived(
+    () => {
+      policy.render_full_canvas(
+        lowered.get_or_abort(),
+        viewport.get(),
+        drag_preview.get(),
+        selection.get(),
+        interaction.get(),
+        actions.get().length(),
+      )
+    },
+    label="canvas.render",
+  )
+}
+
+///|
 fn CanvasRuntime::CanvasRuntime() -> CanvasRuntime {
   CanvasRuntime::with_host_policy(workflow_canvas_host_policy())
 }
@@ -120,18 +146,15 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
   // This is about disposal determinism, not GC rooting (the watch chain keeps
   // them alive either way).
   scope.add_cell_ids([normalized.id(), lowered.id()])
-  let render = scope.derived(
-    () => {
-      policy.render_full_canvas(
-        lowered.get_or_abort(),
-        viewport.get(),
-        drag_preview.get(),
-        selection.get(),
-        interaction.get(),
-        actions.get().length(),
-      )
-    },
-    label="canvas.render",
+  let render = canvas_render(
+    scope,
+    policy,
+    lowered,
+    viewport[:],
+    drag_preview[:],
+    selection[:],
+    interaction[:],
+    actions[:],
   )
 
   let node_inspector = scope.derived_map(
