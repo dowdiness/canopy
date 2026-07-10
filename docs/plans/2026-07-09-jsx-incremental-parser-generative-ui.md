@@ -539,24 +539,37 @@ diverge from what Task 1.1 decided.
   AST-shape divergences recorded in the snippet above; `parse_cst` now
   delegates to the full `jsx_grammar`, Step 4's interim `SyntaxGrammar`
   removed).
-- [ ] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
+- [x] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
   `proj_traits.mbt`, following the html/markdown pattern shown in
   ADDING_A_LANGUAGE.md Step 1 (`children`, `same_kind`, `kind_tag`, `label`,
-  `placeholder`, `unparse`).
-- [ ] **Step 7:** `moon test -p dowdiness/jsx` (scoped — do not run unscoped
-  `moon test` from inside `loom/`, see Phase 0's tcc-hang history).
+  `placeholder`, `unparse`). Done 2026-07-11 in loom commit `4751207`
+  (tests confirmed red first; 14 trait tests incl. 2 Codex-review
+  regressions). Load-bearing decisions: `Element` `same_kind` requires an
+  equal tag (one identity reset at streaming tag completion);
+  `Text`/`ExprSpan` `same_kind` ignore content (growing-span ProjNode
+  identity, per the Design B note); `kind_tag` = plain variant names
+  (Phase 2's Step 4 test expects exactly `"Element"`). Note: the two
+  projection-layer ExprSpan ID-stability tests the Design B note requires
+  live in Phase 2's `streaming_reconcile_wbtest.mbt` (Steps 3/5) — they
+  need canopy's `@core.reconcile`, which loom-side Task 1.2 cannot reach.
+- [x] **Step 7:** `moon test -p dowdiness/jsx` (scoped — do not run unscoped
+  `moon test` from inside `loom/`, see Phase 0's tcc-hang history). Done
+  2026-07-11: 73/73 (20 lexer, 23 parser, 16 AST, 14 trait tests).
 
 ### Acceptance Criteria (Phase 1)
 
 - [x] Task 1.1's two design docs exist and were validated (Codex or
       equivalent second-opinion review) before any Task 1.2 implementation
       commit
-- [ ] `moon test -p dowdiness/jsx` passes, covering every case enumerated in
+- [x] `moon test -p dowdiness/jsx` passes, covering every case enumerated in
       Task 1.1 Step 2 (cases 1-4) plus the string-literal brace-depth edge
-      case from Task 1.1 Step 1
-- [ ] `JsxNode` derives `Eq, Debug`
-- [ ] `moon check -p dowdiness/jsx --deny-warn` clean
-- [ ] `moon info && moon fmt`, `git diff -- '*.mbti'` reviewed
+      case from Task 1.1 Step 1 — 73/73 as of loom `4751207` (2026-07-11)
+- [x] `JsxNode` derives `Eq, Debug` (`examples/jsx/ast.mbt`)
+- [x] `moon check -p dowdiness/jsx --deny-warn` clean (2026-07-11, run as
+      `moon check examples/jsx --deny-warn` — `moon check` scopes by path)
+- [x] `moon info && moon fmt`, `git diff -- '*.mbti'` reviewed after every
+      step (final surface: `parse_cst`, `parse_ast`, `jsx_grammar`,
+      `JsxNode`/`JsxAttr`/`JsxAttrValue`, TreeNode/Renderable impls)
 - [ ] Loom-side PR merged and pushed to loom's remote
 
 ### Validation (Phase 1)
