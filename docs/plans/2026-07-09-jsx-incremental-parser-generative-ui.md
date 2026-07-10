@@ -480,14 +480,24 @@ require adjusting it (e.g. if unclosed elements need a distinct
 incomplete-children marker). Update it in place if the validated design
 says otherwise; do not silently diverge from what Task 1.1 decided.
 
-- [ ] **Step 1:** Scaffold `meta/term_kind.mbt` and `token/token.mbt` with
+- [x] **Step 1:** Scaffold `meta/term_kind.mbt` and `token/token.mbt` with
   `#loom.term`/`#loom.token` annotations covering: `OpenTagStart` (`<`),
   `TagName`, `Slash`, `TagEnd` (`>`), `SelfCloseEnd` (`/>`),
   `AttrName`, `Eq`, `AttrStringLit`, `BraceOpen`, `BraceClose`, `Text`,
   `FragmentOpen` (`<>`), `FragmentClose` (`</>`), plus whatever Task 1.1's
-  design settled on for raw-mode JS-expr tokens.
-- [ ] **Step 2:** Run loomgen (mirrors html's `Regenerating Generated Files`
-  recipe in its README):
+  design settled on for raw-mode JS-expr tokens. Done 2026-07-10 in loom
+  commit `97e8dd7` (`feat/jsx-phase1-task1.2` branch, not yet merged) —
+  also added `ExprRawText`/`ExprStringUnterminated`/
+  `AttrStringLitUnterminated` (Design B) and `ExprSpanNode`/`AttrNode`
+  term kinds beyond html's set. `NEW_MOON_MOD=0 moon check examples/jsx`
+  passes.
+- [x] **Step 2:** Run loomgen (mirrors html's `Regenerating Generated Files`
+  recipe in its README). Done 2026-07-10 in loom commit `9034eb8` — ran
+  both parts of html's recipe (the snippet below only shows part 1; part
+  2 seeds `spec.g.mbt`/`make_jsx_spec` from the generated
+  `syntax_kind.mbt`, needed later for `jsx_spec.mbt`/`grammar.mbt`).
+  Re-running part 1 with `--seed` reproduced byte-identical
+  `token_impls.g.mbt` output, confirming determinism.
   ```bash
   moon run loomgen --target native -- \
     loom/examples/jsx/token/token.mbt \
