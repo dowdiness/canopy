@@ -716,6 +716,21 @@ plan's "Why" section — not optional, not generic coverage.
   unclosed→closed identity transition, which is the property the whole
   plan's premise depends on.) Assert those specific `NodeId`s are identical
   across every subsequent prefix, including the mid-token ones from Step 2.
+  **Recording-point clarification (2026-07-11, decided at Task 1.2 Step 6):**
+  "first appearance" means the first prefix where the element exists *with
+  its complete tag name* — for the example sequence, `<div>` first counts
+  at `<div><h1`, not at `<di`. Task 1.2 made `Element`'s
+  `TreeNode::same_kind` tag-sensitive (loom `proj_traits.mbt`: `di` and
+  `div` are different element types, so downstream state must not carry
+  over), which means a mid-tag-name prefix like `<di` holds an
+  `Element(tag="di")` whose ProjNode ID legitimately resets once when the
+  tag completes. Recording at a mid-tag-name prefix would therefore fail
+  by design, not by bug. The mid-token prefixes still participate in the
+  stability assertion for every element whose tag completed earlier, and
+  identity through *content* growth stays covered because `Text`/`ExprSpan`
+  `same_kind` are deliberately content-insensitive. Optionally add a
+  companion assertion pinning the one-time reset (`<di`'s element ID ≠
+  `<div`'s) so the tag-completion boundary is documented behavior.
 - [ ] **Step 4:** Also assert every prefix from the first point `<div>` has
   been opened onward produces a non-empty `children` array on the outer
   element's `ProjNode`, even before `</div>` arrives — Task 1.1 Step 2 case
