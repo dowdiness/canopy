@@ -456,10 +456,11 @@ ADDING_A_LANGUAGE.md Step 1's `derive(Eq, Debug)` requirement:
 
 ```moonbit
 pub(all) enum JsxNode {
+  Root(children~ : Array[JsxNode])   // streaming prefix can have several roots
   Element(tag~ : String, attrs~ : Array[JsxAttr], children~ : Array[JsxNode])
   Fragment(children~ : Array[JsxNode])
   Text(String)
-  ExprSpan(raw~ : String)   // opaque {...} content, unparsed
+  ExprSpan(raw~ : String)   // opaque {...} content, unparsed, quotes kept
   Error(String)
 } derive(Eq, Debug)
 
@@ -469,16 +470,24 @@ pub(all) struct JsxAttr {
 } derive(Eq, Debug)
 
 pub(all) enum JsxAttrValue {
-  StringLit(String)
+  StringLit(String)        // unquoted content; diagnostics carry truncation
   ExprSpan(raw~ : String)  // {...} in attribute position
+  Bare                     // boolean attribute, or truncated `<div cla`
 } derive(Eq, Debug)
 ```
 
-This shape is a starting point, not gospel — Task 1.1's design gate may
-require adjusting it (e.g. if unclosed elements need a distinct
-`UnclosedElement` variant rather than reusing `Element` with an
-incomplete-children marker). Update it in place if the validated design
-says otherwise; do not silently diverge from what Task 1.1 decided.
+This shape was a starting point; Step 5 (2026-07-10) updated it in place
+per the instruction below with three divergences, each recorded in loom
+commit `9857615`: `Root(children~)` added (a streaming prefix legally has
+several roots and `Fragment` must not be conflated with the document
+root), `JsxAttrValue::Bare` added (boolean attributes and EOF-truncated
+attribute names both produce value-less `AttrNode`s), and `StringLit`
+stores unquoted content (diagnostics, not the AST, carry the
+unterminated-literal fact). Unclosed elements reuse `Element` with no
+marker — the truncated-prefix AST is deliberately shape-identical to its
+closed equivalent (Design B case 2). Original instruction: update this
+snippet in place if the validated design says otherwise; do not silently
+diverge from what Task 1.1 decided.
 
 - [x] **Step 1:** Scaffold `meta/term_kind.mbt` and `token/token.mbt` with
   `#loom.term`/`#loom.token` annotations covering: `OpenTagStart` (`<`),
@@ -523,8 +532,13 @@ says otherwise; do not silently diverge from what Task 1.1 decided.
   termination regressions; 43/43 for the package; `parse_cst` exposed via
   `SyntaxGrammar` — fold-free until Step 5; note: `parse_jsx_root` must
   not open a RootNode, the entry points wrap in `spec.root_kind`).
-- [ ] **Step 5:** Write `fold_node` in `grammar.mbt`, converting CST to the
+- [x] **Step 5:** Write `fold_node` in `grammar.mbt`, converting CST to the
   `JsxNode` AST from the shape above (or its Task-1.1-revised version).
+  Done 2026-07-10 in loom commit `9857615` (tests confirmed red first; 16
+  AST tests incl. 2 Codex-review regressions; 59/59 for the package;
+  AST-shape divergences recorded in the snippet above; `parse_cst` now
+  delegates to the full `jsx_grammar`, Step 4's interim `SyntaxGrammar`
+  removed).
 - [ ] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
   `proj_traits.mbt`, following the html/markdown pattern shown in
   ADDING_A_LANGUAGE.md Step 1 (`children`, `same_kind`, `kind_tag`, `label`,
