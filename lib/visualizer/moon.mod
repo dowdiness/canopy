@@ -3,7 +3,7 @@ name = "dowdiness/visualizer"
 version = "0.1.0"
 
 import {
-  "dowdiness/incr@0.14.0",
+  "dowdiness/incr@0.14.2",
   "dowdiness/graphviz@0.1.0",
   "dowdiness/svg-dsl@0.1.0",
   "dowdiness/alga@0.3.0",
