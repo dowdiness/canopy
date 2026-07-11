@@ -175,11 +175,6 @@ function applyAttr(el, attr) {
   const n = attr.name; const v = attr.value; if (!n) return;
   if (typeof v === 'string') {
     if (n === 'class') el.className = (el.className || '') + ' ' + v;
-    else if (n === 'id') el.id = v; else if (n === 'href') el.href = v;
-    else if (n === 'style') el.style.cssText = v; else if (n === 'target') el.target = v;
-    else el.setAttribute(n, v);
-  } else if (v?.type === 'bare') el.setAttribute(n, '');
-}
 function updateChildren(parent, node) {
   if (!node.children) return;
   const container = parent._genuiContent || parent;
@@ -187,6 +182,12 @@ function updateChildren(parent, node) {
   for (const child of node.children) {
     if (nodeElementMap.has(child.node_id)) {
       const existing = nodeElementMap.get(child.node_id);
+      // Update leaf node content when text/expression grows
+      if (child.kind_tag === 'Text') {
+        existing.textContent = child.kind.value || '';
+      } else if (child.kind_tag === 'ExprSpan') {
+        existing.textContent = '{' + (child.kind.value || '') + '}';
+      }
       existing.classList.remove('new'); existing.classList.add('stable');
       updateChildren(existing, child);
     } else {
@@ -198,7 +199,7 @@ function updateChildren(parent, node) {
     }
     idx++;
   }
-  // Remove stale DOM children that no longer have matching ProjNode children
+  // Remove stale DOM children
   while (idx < container.children.length) {
     container.children[idx].remove();
   }
