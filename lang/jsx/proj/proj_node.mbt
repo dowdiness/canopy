@@ -23,11 +23,23 @@ pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> @core.ProjNode[@jsx.JsxNode] {
-  // CstFold produces a fully-populated JsxNode (tags, attrs, text, expr
-  // spans already folded in).
   let fold = @loomcore.CstFold::new(@jsx.jsx_grammar.fold_node)
   let ast = fold.fold(node)
   build_proj_tree(node, ast, counter)
+}
+
+///|
+/// Check if text is whitespace-only (newlines/indentation between elements).
+/// Returns empty string for whitespace-only content (will be skipped by
+/// build_container). Returns the original string unchanged otherwise —
+/// text content like "Score: " must preserve its trailing space.
+fn normalize_jsx_text(s : String) -> String {
+  for ch in s.iter() {
+    if ch != ' ' && ch != '\n' && ch != '\t' && ch != '\r' {
+      return s
+    }
+  }
+  ""
 }
 
 ///|
@@ -46,16 +58,23 @@ fn build_proj_tree(
         element_content_children(syntax_node),
         counter,
       )
-    Text(_) | ExprSpan(..) | Error(_) =>
-      @core.ProjNode::leaf(ast, syntax_node, counter)
+    Text(s) => {
+      let normalized = normalize_jsx_text(s)
+      let node_ast = if normalized.is_empty() || normalized == s {
+        ast
+      } else {
+        @jsx.JsxNode::Text(normalized)
+      }
+      @core.ProjNode::leaf(node_ast, syntax_node, counter)
+    }
+    ExprSpan(..) | Error(_) => @core.ProjNode::leaf(ast, syntax_node, counter)
   }
 }
 
 ///|
 /// An Element's CST children interleave AttrNodes with its content
-/// children (child elements/text/expr spans) — AttrNodes fold into the
-/// AST's `attrs` field, not `children`, so they must be excluded here to
-/// keep the parallel walk aligned with `ast.children()`.
+/// children — AttrNodes fold into the AST's `attrs` field, not `children`,
+/// so they must be excluded here to keep the parallel walk aligned.
 fn element_content_children(node : @seam.SyntaxNode) -> Array[@seam.SyntaxNode] {
   let attr_kind = @syntax.SyntaxKind::AttrNode.to_raw()
   node.children().filter(c => c.kind() != attr_kind)
@@ -72,7 +91,16 @@ fn build_container(
   let len = syntax_children.length().min(ast_children.length())
   let children : Array[@core.ProjNode[@jsx.JsxNode]] = []
   for i in 0..<len {
-    children.push(build_proj_tree(syntax_children[i], ast_children[i], counter))
+    let ast_child = ast_children[i]
+    // Filter whitespace-only text (JSX spec §1.5 — insignificant whitespace)
+    let is_ws = match ast_child {
+      @jsx.JsxNode::Text(s) => normalize_jsx_text(s).is_empty()
+      _ => false
+    }
+    if is_ws {
+      continue
+    }
+    children.push(build_proj_tree(syntax_children[i], ast_child, counter))
   }
   @core.ProjNode::branch(
     ast,

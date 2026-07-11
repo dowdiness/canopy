@@ -6,21 +6,35 @@ import {
   "dowdiness/jsx",
   "dowdiness/loom/pipeline",
   "dowdiness/seam",
+  "moonbitlang/core/debug",
   "moonbitlang/core/ref",
 }
 
 // Values
 pub fn build_jsx_projection_memos(@pipeline.Parser[@jsx.JsxNode]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@jsx.JsxNode]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@jsx.JsxNode]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
 
+pub fn dom_patches_to_json(Array[DomPatch]) -> String
+
 pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@jsx.JsxNode], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@jsx.JsxNode]) -> Unit
+
+pub fn reconcile(@dowdiness/canopy/core.ProjNode[@jsx.JsxNode], Array[Int]) -> (Array[DomPatch], Array[Int])
 
 pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@jsx.JsxNode]
 
 // Errors
 
 // Types and methods
+pub(all) enum DomPatch {
+  MakeElement(Int, Int, String, Array[@jsx.JsxAttr], Int)
+  MakeText(Int, Int, String, Int)
+  MakeExprSpan(Int, Int, String, Int)
+  SetText(Int, String)
+  SetExpr(Int, String)
+  SetAttrs(Int, Array[@jsx.JsxAttr])
+  Release(Int)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
