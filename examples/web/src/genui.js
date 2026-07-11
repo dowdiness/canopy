@@ -155,15 +155,13 @@ function createElementForKind(node) {
     return el;
   }
   if (kt === 'Text') { const s = document.createElement('span'); s.className = 'genui-text'; s.textContent = k.value || ''; return s; }
-  if (kt === 'ExprSpan') { const s = document.createElement('span'); s.className = 'genui-expr'; s.textContent = '{' + (k.value || '') + '}'; return s; }
-  if (kt === 'Error') { const d = document.createElement('div'); d.className = 'genui-error'; d.textContent = '\u26A0 ' + (k.value || ''); return d; }
   const f = document.createElement('span'); f.textContent = '[' + kt + ']'; return f;
 }
 
 function applyAttr(el, attr) {
   const n = attr.name; const v = attr.value; if (!n) return;
   if (typeof v === 'string') {
-    if (n === 'class') el.className = (el.className || '') + ' ' + v;
+    if (n === 'class') el.setAttribute('class', v);
     else if (n === 'id') el.id = v; else if (n === 'href') el.href = v;
     else if (n === 'style') el.style.cssText = v; else if (n === 'target') el.target = v;
     else el.setAttribute(n, v);
