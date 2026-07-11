@@ -237,7 +237,7 @@ streamBtn.addEventListener('click', async () => {
   previousNodeIds = new Set(); nodeElementMap = new Map();
   statusBar.textContent = 'Loading MoonBit JSX module...';
 
-  const CHUNK = 3;
+  const CHUNK = 15;
   const prefixes = [];
   for (let i = CHUNK; i <= fullText.length; i += CHUNK) prefixes.push(fullText.slice(0, i));
   if (prefixes[prefixes.length - 1] !== fullText) prefixes.push(fullText);
