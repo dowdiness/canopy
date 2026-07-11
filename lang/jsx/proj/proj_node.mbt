@@ -29,25 +29,17 @@ pub fn syntax_to_proj_node(
 }
 
 ///|
-/// JSX text normalization (React/Babel convention, the de facto JSX spec):
-/// trim leading/trailing whitespace, collapse internal whitespace sequences
-/// (newlines, tabs, multiple spaces) to a single space. Returns empty for
-/// whitespace-only content, which callers treat as "skip this node".
+/// Check if text is whitespace-only (newlines/indentation between elements).
+/// Returns empty string for whitespace-only content (will be skipped by
+/// build_container). Returns the original string unchanged otherwise —
+/// text content like "Score: " must preserve its trailing space.
 fn normalize_jsx_text(s : String) -> String {
-  let trimmed = s.trim()
-  if trimmed.is_empty() { return trimmed.to_owned() }
-  let parts : Array[String] = []
-  let mut in_ws = false
-  for ch in trimmed.iter() {
-    if ch == ' ' || ch == '\n' || ch == '\t' || ch == '\r' {
-      in_ws = true
-    } else {
-      if in_ws && parts.length() > 0 { parts.push(" ") }
-      parts.push(ch.to_string())
-      in_ws = false
+  for ch in s.iter() {
+    if ch != ' ' && ch != '\n' && ch != '\t' && ch != '\r' {
+      return s
     }
   }
-  parts.join("")
+  ""
 }
 
 ///|
