@@ -22,6 +22,9 @@ EXPECTED_ARTIFACTS=(
     "_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js"
     "_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts"
     "_build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts"
+    "_build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.js"
+    "_build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.d.ts"
+    "_build/js/release/build/dowdiness/canopy/ffi/jsx/moonbit.d.ts"
     "_build/js/release/build/dowdiness/graphviz/browser/browser.js"
     "_build/js/release/build/dowdiness/graphviz/browser/browser.d.ts"
 )

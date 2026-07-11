@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Generative UI — JSX Incremental Parser Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      background: #1e1e1e; color: #d4d4d4; padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { color: #4ec9b0; margin-bottom: 6px; }
+    .subtitle { color: #858585; margin-bottom: 20px; font-size: 14px; }
+    .subtitle a { color: #4ec9b0; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #252526; border: 1px solid #3c3c3c; border-radius: 6px; padding: 16px;
+    }
+    .card h2 { color: #4ec9b0; font-size: 14px; margin-bottom: 12px; text-transform: uppercase; }
+
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+      padding-bottom: 12px; border-bottom: 1px solid #3c3c3c;
+    }
+    .btn {
+      padding: 6px 12px; background: #3c3c3c; color: #d4d4d4;
+      border: 1px solid #555; border-radius: 3px; cursor: pointer;
+      font-size: 12px; font-family: inherit; transition: background 0.2s;
+    }
+    .btn:hover { background: #4c4c4c; border-color: #666; }
+    .btn:active { background: #2c2c2c; }
+    .btn.primary { background: #007acc; border-color: #007acc; }
+    .btn.primary:hover { background: #0098ff; }
+    .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.danger { background: #c74e4e; border-color: #c74e4e; }
+    .btn.danger:hover { background: #e06060; }
+
+    #source-input {
+      width: 100%; min-height: 100px; background: #1e1e1e;
+      color: #d4d4d4; border: 1px solid #3c3c3c; border-radius: 3px;
+      padding: 10px; font-size: 14px; font-family: inherit; resize: vertical;
+      outline: none; white-space: pre-wrap;
+    }
+    #source-input:focus { border-color: #4ec9b0; }
+
+    .stream-progress {
+      margin-top: 8px; padding: 6px 10px; background: #1e1e1e;
+      border-radius: 3px; font-size: 12px; color: #858585;
+      min-height: 28px; word-break: break-all;
+    }
+    .stream-progress .highlight-new {
+      color: #f0c674;
+      background: rgba(240, 198, 116, 0.15);
+    }
+
+    #tree-output {
+      background: #1e1e1e; padding: 10px; border-radius: 3px;
+      overflow: auto; font-size: 12px; max-height: 500px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      line-height: 1.6;
+    }
+
+    .tree-node {
+      padding-left: 20px; border-left: 1px solid #3c3c3c; margin: 2px 0;
+    }
+    .tree-node-header {
+      cursor: pointer; user-select: none;
+    }
+    .tree-node-header:hover { background: rgba(255,255,255,0.03); }
+    .node-id { display: inline-block; min-width: 32px; padding: 0 4px; border-radius: 3px; text-align: center; font-weight: bold; }
+    .node-id.stable { background: rgba(78, 201, 176, 0.2); color: #4ec9b0; }
+    .node-id.new { background: rgba(240, 198, 116, 0.2); color: #f0c674; }
+    .node-id.changed { background: rgba(244, 135, 113, 0.2); color: #f48771; }
+    .kind-tag { color: #569cd6; }
+    .tag-name { color: #c586c0; }
+    .text-val { color: #c3e88d; }
+    .error-val { color: #f48771; }
+    .attr-name { color: #9cdcfe; font-size: 11px; }
+    .children-count { color: #858585; font-size: 11px; }
+    .tree-toggle { color: #858585; margin-right: 4px; }
+
+    .errors-panel { margin-top: 12px; }
+    .errors-panel h3 { color: #f48771; font-size: 12px; margin-bottom: 6px; }
+    .error-item { color: #f48771; padding: 3px 0; font-size: 12px; border-left: 2px solid #f48771; padding-left: 8px; margin-bottom: 3px; }
+
+    .step-counter {
+      font-size: 12px; color: #858585; margin-bottom: 8px;
+    }
+    .step-counter .active-step { color: #4ec9b0; font-weight: bold; }
+
+    .legend { display: flex; gap: 16px; margin-bottom: 8px; font-size: 11px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+    .legend-swatch.stable { background: rgba(78, 201, 176, 0.3); }
+    .legend-swatch.new { background: rgba(240, 198, 116, 0.3); }
+
+    .status-bar {
+      margin-top: 12px; padding: 8px; background: #1e1e1e; border-radius: 3px;
+      font-size: 12px; color: #858585;
+    }
+    .status-bar.loading { color: #569cd6; }
+    .status-bar.error { color: #f48771; }
+
+    .no-parse {
+      text-align: center; padding: 40px; color: #858585; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Generative UI</h1>
+    <p class="subtitle">
+      JSX Incremental Parser — streaming reconciliation demo.
+      JSX is parsed chunk-by-chunk (simulating an LLM token stream) and each step shows the
+      <code>ProjNode</code> tree. <span style="color:#4ec9b0;">NodeIds already assigned to
+      complete elements stay stable</span> as new content arrives.
+      <a href="https://github.com/dowdiness/canopy" target="_blank">GitHub</a>
+    </p>
+
+    <div class="layout">
+      <div class="card">
+        <h2>Input</h2>
+        <div class="toolbar">
+          <span style="color:#858585;font-size:12px;margin-right:4px">Examples:</span>
+          <button class="btn" data-example="0">Simple</button>
+          <button class="btn" data-example="1">Attributes</button>
+          <button class="btn" data-example="2">Deep Nesting</button>
+          <button class="btn" data-example="3">Expression Spans</button>
+          <button class="btn" data-example="4">Mixed Content</button>
+          <button class="btn primary" id="stream-btn">▶ Simulate Streaming</button>
+          <button class="btn" id="clear-btn">Clear</button>
+        </div>
+        <textarea id="source-input" spellcheck="false">&lt;div&gt;
+  &lt;h1&gt;Hello, World!&lt;/h1&gt;
+  &lt;p&gt;This is JSX parsed incrementally.&lt;/p&gt;
+&lt;/div&gt;</textarea>
+        <div class="stream-progress" id="stream-progress">Ready.</div>
+      </div>
+
+      <div class="card">
+        <h2>Projection Tree</h2>
+        <div class="step-counter" id="step-counter">Step: <span id="step-num">—</span></div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-swatch stable"></span> Stable NodeId</span>
+          <span class="legend-item"><span class="legend-swatch new"></span> New NodeId</span>
+        </div>
+        <div id="tree-output">
+          <div class="no-parse">Enter JSX and click ▶ Simulate Streaming</div>
+        </div>
+        <div class="errors-panel" id="errors-panel" style="display:none">
+          <h3>▲ Diagnostics</h3>
+          <div id="errors-list"></div>
+        </div>
+        <div class="status-bar" id="status-bar">Ready.</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // ── Preset Examples ──────────────────────────────────────────────────────
+    const EXAMPLES = [
+      `<div class="container">\\n  <h1>Hello, World!</h1>\\n  <p>This is JSX parsed incrementally.</p>\\n</div>`,
+      `<article>\\n  <h2 id="title">Generative UI</h2>\\n  <p class="desc" style="color:blue">Streaming JSX content</p>\\n  <a href="/next">Continue</a>\\n</article>`,
+      `<div>\\n  <section>\\n    <header>\\n      <h1>Deep Nesting</h1>\\n    </header>\\n    <main>\\n      <p>Level 3 content</p>\\n      <ul>\\n        <li>Item A</li>\\n        <li>Item B</li>\\n      </ul>\\n    </main>\\n  </section>\\n</div>`,
+      `<div>\\n  <p>Value: {user.name}</p>\\n  <span class={activeClass}>Dynamic</span>\\n</div>`,
+      `<main>\\n  <header>\\n    <h1>Dashboard</h1>\\n    <nav>\\n      <a href="/home">Home</a>\\n      <a href="/about">About</a>\\n    </nav>\\n  </header>\\n  <section>\\n    <p>Welcome back, {username}!</p>\\n    <p>You have {count} notifications.</p>\\n  </section>\\n</main>`,
+    ];
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    const sourceInput = document.getElementById('source-input');
+    const streamBtn = document.getElementById('stream-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const treeOutput = document.getElementById('tree-output');
+    const errorsPanel = document.getElementById('errors-panel');
+    const errorsList = document.getElementById('errors-list');
+    const stepNum = document.getElementById('step-num');
+    const streamProgress = document.getElementById('stream-progress');
+    const statusBar = document.getElementById('status-bar');
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let isStreaming = false;
+    let abortStream = false;
+    let previousNodeIds = new Set();
+
+    // ── Example buttons ──────────────────────────────────────────────────────
+    document.querySelectorAll('[data-example]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (isStreaming) return;
+        const idx = parseInt(btn.dataset.example);
+        sourceInput.value = EXAMPLES[idx];
+        previousNodeIds = new Set();
+        treeOutput.innerHTML = '<div class="no-parse">Click ▶ Simulate Streaming</div>';
+        streamProgress.textContent = 'Example loaded. Click ▶ Simulate Streaming.';
+        stepNum.textContent = '—';
+        errorsPanel.style.display = 'none';
+        statusBar.textContent = 'Ready.';
+      });
+    });
+
+    // ── Clear ────────────────────────────────────────────────────────────────
+    clearBtn.addEventListener('click', () => {
+      abortStream = true;
+      isStreaming = false;
+      streamBtn.disabled = false;
+      streamBtn.textContent = '▶ Simulate Streaming';
+      sourceInput.value = '';
+      previousNodeIds = new Set();
+      treeOutput.innerHTML = '<div class="no-parse">Enter JSX and click ▶ Simulate Streaming</div>';
+      streamProgress.textContent = 'Cleared.';
+      stepNum.textContent = '—';
+      errorsPanel.style.display = 'none';
+      statusBar.textContent = 'Ready.';
+    });
+
+    // ── Tree Rendering ───────────────────────────────────────────────────────
+    function renderTreeNode(node, prevIds) {
+      const nodeId = node.node_id;
+      const isStable = prevIds.has(nodeId);
+      const idClass = isStable ? 'stable' : 'new';
+
+      let headerLabel = '';
+      const kind = node.kind;
+      const kindTag = node.kind_tag;
+
+      switch (kindTag) {
+        case 'Root':
+          headerLabel = `<span class="kind-tag">Root</span>`;
+          break;
+        case 'Element':
+          headerLabel = `<span class="kind-tag">Element</span> <span class="tag-name">&lt;${kind.tag}&gt;</span>`;
+          if (kind.attrs && kind.attrs.length > 0) {
+            const attrStr = kind.attrs.map(a =>
+              `<span class="attr-name">${a.name}=</span>${renderAttrValue(a.value)}`
+            ).join(' ');
+            headerLabel += ` <span style="font-size:11px;color:#858585">[${attrStr}]</span>`;
+          }
+          break;
+        case 'Fragment':
+          headerLabel = `<span class="kind-tag">Fragment</span>`;
+          break;
+        case 'Text':
+          headerLabel = `<span class="kind-tag">Text</span> <span class="text-val">"${escapeHtml(kind.value)}"</span>`;
+          break;
+        case 'ExprSpan':
+          headerLabel = `<span class="kind-tag">ExprSpan</span> <span class="text-val">{${escapeHtml(kind.value)}}</span>`;
+          break;
+        case 'Error':
+          headerLabel = `<span class="kind-tag error-val">Error</span> <span class="error-val">"${escapeHtml(kind.value)}"</span>`;
+          break;
+        default:
+          headerLabel = `<span class="kind-tag">${kindTag}</span>`;
+      }
+
+      const hasChildren = node.children && node.children.length > 0;
+      const toggle = hasChildren ? '<span class="tree-toggle">▼</span>' : '<span class="tree-toggle"> </span>';
+      const countStr = hasChildren ? ` <span class="children-count">(${node.children.length})</span>` : '';
+
+      let html = `<div class="tree-node">`;
+      html += `<div class="tree-node-header">${toggle}<span class="node-id ${idClass}">#${nodeId}</span> ${headerLabel}${countStr}</div>`;
+
+      if (hasChildren) {
+        html += '<div class="tree-children">';
+        for (const child of node.children) {
+          html += renderTreeNode(child, prevIds);
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderAttrValue(val) {
+      if (typeof val === 'string') return `<span class="text-val">"${escapeHtml(val)}"</span>`;
+      if (val && val.type === 'expr-span') return `<span class="text-val">{${escapeHtml(val.raw)}}</span>`;
+      if (val && val.type === 'bare') return `<span style="color:#569cd6">true</span>`;
+      return '';
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderTree(data, prevIds) {
+      const div = document.createElement('div');
+      if (data && data.root) {
+        div.innerHTML = renderTreeNode(data.root, prevIds);
+      } else {
+        div.innerHTML = '<div class="no-parse">No parse result</div>';
+      }
+      return div.innerHTML;
+    }
+
+    // ── Streaming Simulation ────────────────────────────────────────────────
+    streamBtn.addEventListener('click', async () => {
+      if (isStreaming) {
+        abortStream = true;
+        return;
+      }
+
+      const fullText = sourceInput.value;
+      if (!fullText.trim()) {
+        statusBar.textContent = 'Please enter JSX text.';
+        return;
+      }
+
+      isStreaming = true;
+      abortStream = false;
+      streamBtn.disabled = false;
+      streamBtn.textContent = '■ Stop';
+      streamBtn.className = 'btn danger';
+      previousNodeIds = new Set();
+      statusBar.className = 'status-bar loading';
+      statusBar.textContent = 'Loading MoonBit JSX module...';
+
+      // Build prefixes: grow character by character, but stop growing at
+      // boundaries to keep chunk count manageable (~20-30 steps).
+      const CHARS_PER_CHUNK = 3;
+      const prefixes = [];
+      for (let i = CHARS_PER_CHUNK; i <= fullText.length; i += CHARS_PER_CHUNK) {
+        prefixes.push(fullText.slice(0, i));
+      }
+      // Ensure the full text is the last prefix
+      if (prefixes[prefixes.length - 1] !== fullText) {
+        prefixes.push(fullText);
+      }
+
+      try {
+        // Import the MoonBit module
+        const JsxMod = await import('@moonbit/crdt-jsx');
+        statusBar.textContent = `Streaming ${prefixes.length} steps...`;
+
+        const prefixStr = prefixes.join('\0');
+        const resultJson = JsxMod.jsx_streaming_to_json(prefixStr);
+        const steps = JSON.parse(resultJson);
+
+        for (let i = 0; i < steps.length; i++) {
+          if (abortStream) break;
+
+          const step = steps[i];
+          stepNum.textContent = `${i + 1} / ${steps.length}`;
+
+          // Show current streaming text
+          const currentText = prefixes[i];
+          streamProgress.innerHTML = `<span style="color:#858585">Streaming:</span> ${escapeHtml(currentText)}`;
+
+          if (step.success && step.root) {
+            // Collect NodeIds from this step's tree
+            const currentIds = collectNodeIds(step.root);
+            treeOutput.innerHTML = renderTree(step, previousNodeIds);
+            previousNodeIds = currentIds;
+          } else if (step.success) {
+            treeOutput.innerHTML = '<div class="no-parse">Projection not available (parser may be in an unclosed state with no root node).</div>';
+          } else {
+            treeOutput.innerHTML = `<div class="no-parse" style="color:#f48771">Parse error: ${escapeHtml(step.error || 'unknown')}</div>`;
+          }
+
+          // Show errors
+          if (step.errors && step.errors.length > 0) {
+            errorsPanel.style.display = 'block';
+            errorsList.innerHTML = step.errors.map(e =>
+              `<div class="error-item">${escapeHtml(e)}</div>`
+            ).join('');
+          } else {
+            errorsPanel.style.display = 'none';
+          }
+
+          statusBar.textContent = `Step ${i + 1}/${steps.length} — ${step.errors && step.errors.length > 0 ? step.errors.length + ' diagnostic(s)' : 'no diagnostics'}`;
+
+          // Delay for visual effect (faster at the beginning, slower at the end)
+          const delayMs = i < 5 ? 50 : 80;
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+
+        statusBar.className = 'status-bar';
+        statusBar.textContent = abortStream ? 'Stopped.' : 'Streaming complete.';
+      } catch (err) {
+        console.error('Stream error:', err);
+        statusBar.className = 'status-bar error';
+        statusBar.textContent = `Error: ${err.message}`;
+        treeOutput.innerHTML = `<div class="no-parse" style="color:#f48771">Error: ${escapeHtml(err.message)}</div>`;
+      }
+
+      isStreaming = false;
+      streamBtn.textContent = '▶ Simulate Streaming';
+      streamBtn.className = 'btn primary';
+    });
+
+    function collectNodeIds(root) {
+      const ids = new Set();
+      function walk(node) {
+        if (node && node.node_id != null) ids.add(node.node_id);
+        if (node && node.children) {
+          for (const child of node.children) walk(child);
+        }
+      }
+      walk(root);
+      return ids;
+    }
+  </script>
+</body>
+</html>

@@ -24,6 +24,11 @@ export default defineConfig({
           output: '_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js'
         },
         {
+          name: '@moonbit/crdt-jsx',
+          path: '../..',
+          output: '_build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.js'
+        },
+        {
           name: '@moonbit/graphviz',
           path: '../../graphviz',
           output: '../_build/js/release/build/dowdiness/graphviz/browser/browser.js'
@@ -57,10 +62,11 @@ export default defineConfig({
         memo: 'memo.html',
         markdown: 'markdown.html',
         posts: 'posts.html',
+        genui: 'genui.html',
       },
     },
   },
   optimizeDeps: {
-    exclude: ['*.wasm', '@moonbit/crdt-lambda', '@moonbit/crdt-json', '@moonbit/crdt-markdown', '@moonbit/graphviz']
+    exclude: ['*.wasm', '@moonbit/crdt-lambda', '@moonbit/crdt-json', '@moonbit/crdt-markdown', '@moonbit/crdt-jsx', '@moonbit/graphviz']
   }
 });
