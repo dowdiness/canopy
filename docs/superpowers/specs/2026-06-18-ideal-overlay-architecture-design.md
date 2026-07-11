@@ -194,7 +194,14 @@ ephemeral overlay with parent-context execution:
 
 ## Non-Goals
 
-- Changing the token mechanism or `parent_emit` pattern
+- Changing the token mechanism or `parent_emit` pattern — **superseded
+  2026-07-11**: see
+  [S6 app-layer modularization design](2026-07-11-s6-app-layer-modularization-design.md)
+  Phase 2 item 3. Package-extracting `action_overlay` requires the child
+  to stop receiving `token : Int` at all; the token's *attachment point*
+  moves to a parent-side wrap closure. The stale-output guard invariant
+  itself is unchanged — only where the token gets stamped onto
+  `OverlayOutput` moves.
 - Changing `OverlayEvent` / `OverlayMsg` separation
 - Eliminating the child cell or changing the skip-dirty behaviour
 - Touching the action execution logic in `action_overlay_exec.mbt`
