@@ -22,13 +22,6 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 **Evidence:** No plan file, no implementation started, TODO presents options without decision
 **Added:** 2026-03-31
 
-### structure-mode: PM block editor completion state
-**Source:** TODO.md §9
-**Context:** "Test and polish PM block editor, verify lazy-loading." Bridge FFI and model files exist in examples/ideal but completion state is unclear.
-**Blocks:** Block editor UX polish
-**Evidence:** bridge_ffi.mbt and model.mbt exist, but insufficient evidence to judge done vs in-progress
-**Added:** 2026-03-31
-
 ### interleaved-module-items: storage strategy for let/expr interleaving
 **Source:** TODO.md §9
 **Context:** The parser/AST can model interleaved module items, but the projection/editor representation still needs a deliberate design now that Lambda uses generic `ProjNode` module rows only.
@@ -40,4 +33,8 @@ Items requiring human judgment. Populated by `/moonbit-housekeeping triage`, res
 
 ## Recently Resolved
 
-_(empty — move decided items here temporarily, then to docs/decisions/)_
+### structure-mode: PM block editor completion state
+**Resolved:** 2026-07-11 — see `docs/decisions/2026-07-11-structure-mode-completion-state.md`.
+Structure mode is complete and actively maintained (two E2E suites, verified
+lazy-loading, seven-way-split update handler). The 2026-03-31 "unclear"
+judgment was stale.
