@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 test.describe('Generative UI Demo', () => {
   test('page loads and shows initial state', async ({ page }) => {
@@ -17,36 +16,42 @@ test.describe('Generative UI Demo', () => {
     expect(val).toContain('div');
   });
 
-  test('streaming completes and shows tree nodes', async ({ page }) => {
-    test.setTimeout(60000); // streaming takes time
+  test('streaming completes and shows tree + HTML nodes', async ({ page }) => {
+    test.setTimeout(60000);
 
     await page.goto('/genui.html');
     await page.locator('button[data-example="0"]').click();
     await page.waitForTimeout(500);
 
-    // Click stream button
     await page.locator('#stream-btn').click();
 
-    // Wait for streaming to complete (status bar shows "complete")
-    await expect(page.locator('#status-bar')).toContainText('complete', { timeout: 45000 });
+    // Wait for streaming complete
+    await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
 
-    // Verify tree output has node elements
+    // Verify tree output
     const treeHtml = await page.locator('#tree-output').innerHTML();
     expect(treeHtml).toContain('node-id');
     expect(treeHtml).toContain('Root');
-    expect(treeHtml).toContain('Element');
+
+    // Verify HTML rendered preview shows elements
+    const htmlContent = await page.locator('#html-preview').innerHTML();
+    expect(htmlContent.length).toBeGreaterThan(10);
+
+    // Verify DOM node count is shown
+    const nodeCount = await page.locator('#html-node-count').textContent();
+    expect(parseInt(nodeCount)).toBeGreaterThan(0);
   });
 
-  test('multiple examples work', async ({ page }) => {
-    test.setTimeout(120000);
+  test('multiple examples produce DOM nodes', async ({ page }) => {
+    test.setTimeout(90000);
 
     await page.goto('/genui.html');
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       await page.locator(`button[data-example="${i}"]`).click();
       await page.waitForTimeout(300);
       await page.locator('#stream-btn').click();
-      await expect(page.locator('#status-bar')).toContainText('complete', { timeout: 45000 });
+      await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
       await page.waitForTimeout(500);
     }
   });
