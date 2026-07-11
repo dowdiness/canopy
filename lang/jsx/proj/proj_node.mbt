@@ -23,11 +23,31 @@ pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
   counter : Ref[Int],
 ) -> @core.ProjNode[@jsx.JsxNode] {
-  // CstFold produces a fully-populated JsxNode (tags, attrs, text, expr
-  // spans already folded in).
   let fold = @loomcore.CstFold::new(@jsx.jsx_grammar.fold_node)
   let ast = fold.fold(node)
   build_proj_tree(node, ast, counter)
+}
+
+///|
+/// JSX text normalization (React/Babel convention, the de facto JSX spec):
+/// trim leading/trailing whitespace, collapse internal whitespace sequences
+/// (newlines, tabs, multiple spaces) to a single space. Returns empty for
+/// whitespace-only content, which callers treat as "skip this node".
+fn normalize_jsx_text(s : String) -> String {
+  let trimmed = s.trim()
+  if trimmed.is_empty() { return trimmed.to_owned() }
+  let parts : Array[String] = []
+  let mut in_ws = false
+  for ch in trimmed.iter() {
+    if ch == ' ' || ch == '\n' || ch == '\t' || ch == '\r' {
+      in_ws = true
+    } else {
+      if in_ws && parts.length() > 0 { parts.push(" ") }
+      parts.push(ch.to_string())
+      in_ws = false
+    }
+  }
+  parts.join("")
 }
 
 ///|
@@ -46,29 +66,29 @@ fn build_proj_tree(
         element_content_children(syntax_node),
         counter,
       )
-    Text(_) | ExprSpan(..) | Error(_) =>
+    Text(s) => {
+      let normalized = normalize_jsx_text(s)
+      let node_ast = if normalized.is_empty() || normalized == s {
+        ast
+      } else {
+        @jsx.JsxNode::Text(normalized)
+      }
+      @core.ProjNode::leaf(node_ast, syntax_node, counter)
+    }
+    ExprSpan(..) | Error(_) =>
       @core.ProjNode::leaf(ast, syntax_node, counter)
   }
 }
 
 ///|
 /// An Element's CST children interleave AttrNodes with its content
-/// children (child elements/text/expr spans) — AttrNodes fold into the
-/// AST's `attrs` field, not `children`, so they must be excluded here to
-/// keep the parallel walk aligned with `ast.children()`.
-fn element_content_children(node : @seam.SyntaxNode) -> Array[@seam.SyntaxNode] {
+/// children — AttrNodes fold into the AST's `attrs` field, not `children`,
+/// so they must be excluded here to keep the parallel walk aligned.
+fn element_content_children(
+  node : @seam.SyntaxNode,
+) -> Array[@seam.SyntaxNode] {
   let attr_kind = @syntax.SyntaxKind::AttrNode.to_raw()
   node.children().filter(c => c.kind() != attr_kind)
-}
-
-///|
-/// Whitespace-only Text nodes (newlines, indentation between elements) are
-/// skipped in the projection tree — they have no visual rendering.
-fn is_whitespace_text(node : @jsx.JsxNode) -> Bool {
-  match node {
-    @jsx.JsxNode::Text(s) => s.trim().is_empty()
-    _ => false
-  }
 }
 
 ///|
@@ -83,7 +103,12 @@ fn build_container(
   let children : Array[@core.ProjNode[@jsx.JsxNode]] = []
   for i in 0..<len {
     let ast_child = ast_children[i]
-    if is_whitespace_text(ast_child) { continue }
+    // Filter whitespace-only text (JSX spec §1.5 — insignificant whitespace)
+    let is_ws = match ast_child {
+      @jsx.JsxNode::Text(s) => normalize_jsx_text(s).is_empty()
+      _ => false
+    }
+    if is_ws { continue }
     children.push(build_proj_tree(syntax_children[i], ast_child, counter))
   }
   @core.ProjNode::branch(
