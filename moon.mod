@@ -18,6 +18,7 @@ import {
   "dowdiness/order-tree@0.1.0",
   "dowdiness/pretty@0.1.0",
   "dowdiness/markdown@0.1.0",
+  "dowdiness/jsx@0.1.0",
   "dowdiness/zipper@0.1.0",
   "dowdiness/analysis@0.1.0",
   "dowdiness/egglog@0.1.0",

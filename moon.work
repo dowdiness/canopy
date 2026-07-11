@@ -7,6 +7,7 @@ members = [
   "./event-graph-walker",
   "./order-tree",
   "./loom/examples/markdown",
+  "./loom/examples/jsx",
   "./loom/examples/json",
   "./loom/examples/lambda",
   "./loom/examples/graph-dsl",
