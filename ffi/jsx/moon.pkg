@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/js_ffi" @js,
+  "dowdiness/incr" @incr,
   "dowdiness/canopy/lang/jsx/proj" @jsx_proj,
   "dowdiness/jsx" @jsx_ast,
   "dowdiness/loom",
@@ -17,6 +18,7 @@ options(
         "jsx_streaming_to_json",
         "jsx_parse_and_render",
         "reset_jsx_state",
+        "clear_registry",
       ],
     },
   },

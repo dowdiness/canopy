@@ -146,23 +146,39 @@ fn get_or_empty_errors(text : String) -> Array[String] {
   }
 }
 
+let __state : @js.Any = @js.object()
+
 ///|
-/// Parse JSX text, reconcile against existing NodeIds, apply patches to DOM.
-/// Container element is read from globalThis.__jsx_container.
-/// `existing_json` = JSON array of NodeIds from previous render (e.g. "[]").
-/// Returns JSON array of NodeIds for the next render call.
+/// Parse and render using a shared parser for stable node_ids across calls.
 pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
-  let (proj, _errors) = @jsx_proj.parse_to_proj_node(text) catch {
-    _ => return existing_json
+  let p = __state.get("p")
+  if p.is_nullish() {
+    let parser : @loom.Parser[@jsx_ast.JsxNode] = @loom.new_parser(
+      text,
+      @jsx_ast.jsx_grammar,
+    )
+    let (mem, _, _) = @jsx_proj.build_jsx_projection_memos(parser)
+    __state.set("p", @js.any(parser))
+    __state.set("m", @js.any(mem))
+  } else {
+    let parser : @loom.Parser[@jsx_ast.JsxNode] = p.cast()
+    parser.set_source(text)
   }
+  let mem : @incr.Derived[@canopy_core.ProjNode[@jsx_ast.JsxNode]?] = __state.get("m").cast()
+  match mem.read_or_abort() {
+    Some(proj) => render_proj(proj, existing_json)
+    None => existing_json
+  }
+}
+
+fn render_proj(proj : @canopy_core.ProjNode[@jsx_ast.JsxNode], existing_json : String) -> String {
   let existing : Array[Int] = []
-  let parsed = @js.parse(existing_json)
+  let parsed : @js.Any = @js.parse(existing_json)
   let len : Int = parsed.get("length").cast()
   for i in 0..<len {
     let val : Int = parsed.at(i).cast()
     existing.push(val)
   }
-  let (patches, _reached) = @jsx_proj.reconcile(proj, existing)
-  let patches_json = @jsx_proj.dom_patches_to_json(patches)
-  apply_patches(patches_json)
+  let (patches, _) = @jsx_proj.reconcile(proj, existing)
+  apply_patches(@jsx_proj.dom_patches_to_json(patches))
 }

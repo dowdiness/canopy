@@ -14,8 +14,8 @@ let element_registry : @js.Any = {
 }
 
 ///|
-/// Clear the element registry (call before starting a new stream).
-pub fn reset_jsx_state() -> Unit {
+/// Clear only the element registry.
+pub fn clear_registry() -> Unit {
   let _ = element_registry.call("clear", [])
 }
 
