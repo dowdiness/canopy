@@ -153,8 +153,9 @@ function createElementForKind(node) {
     if (k.attrs) { for (var ai = 0; ai < k.attrs.length; ai++) { applyAttr(el, k.attrs[ai]); } }
     return el;
   }
-  if (kt === 'Text') { const s = document.createElement('span'); s.className = 'genui-text'; s.textContent = k.value || ''; return s; }
-  const f = document.createElement('span'); f.textContent = '[' + kt + ']'; return f;
+  if (kt === 'Text') { const s = document.createElement('span'); s.textContent = k.value || ''; return s; }
+  if (kt === 'ExprSpan') { const s = document.createElement('span'); s.textContent = '{' + (k.value || '') + '}'; return s; }
+  if (kt === 'Error') { const d = document.createElement('div'); d.textContent = '\u26A0 ' + (k.value || ''); return d; }
 }
 
 function applyAttr(el, attr) {
