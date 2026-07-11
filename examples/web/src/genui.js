@@ -126,9 +126,17 @@ streamBtn.addEventListener('click', async function() {
   htmlPreview.innerHTML = '';
   statusBar.textContent = 'Loading MoonBit JSX module...';
 
-  var CHUNK = 15;
+  // Split at JSX syntactic boundaries (after `>`) so each prefix ends at a
+  // complete tag opening or closing, avoiding "truncated tag" / "unterminated
+  // attribute" diagnostics from mid-attribute cuts.
   var prefixes = [];
-  for (var i = CHUNK; i <= fullText.length; i += CHUNK) prefixes.push(fullText.slice(0, i));
+  var lastSplit = 0;
+  for (var i = 0; i < fullText.length; i++) {
+    if (fullText[i] === '>' && i - lastSplit >= 10) {
+      prefixes.push(fullText.slice(0, i + 1));
+      lastSplit = i;
+    }
+  }
   if (prefixes[prefixes.length - 1] !== fullText) prefixes.push(fullText);
 
   try {
