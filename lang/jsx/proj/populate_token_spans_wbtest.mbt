@@ -49,3 +49,27 @@ test "token spans: nested same-tag elements each get their own close_bracket" {
   inspect(inner_span.start, content="16")
   inspect(outer_span.start, content="22")
 }
+
+///|
+test "token spans: open_bracket and tag_name are populated for an element" {
+  // "<div>hi</div>" — open_bracket '<' at 0..1, tag_name "div" at 1..4.
+  let (root, source_map) = source_map_for("<div>hi</div>")
+  let div = root.children[0]
+  let open_span = source_map.get_token_span(div.id(), "open_bracket").unwrap()
+  let tag_name_span = source_map.get_token_span(div.id(), "tag_name").unwrap()
+  inspect(open_span.start, content="0")
+  inspect(open_span.end, content="1")
+  inspect(tag_name_span.start, content="1")
+  inspect(tag_name_span.end, content="4")
+}
+
+///|
+test "token spans: tag_name uses the open tag's name, not the close tag's" {
+  // "<div><div>x</div></div>" — outer's own tag_name is at 1..4 (the
+  // opening "div"), not the inner element's or either close tag's name.
+  let (root, source_map) = source_map_for("<div><div>x</div></div>")
+  let outer = root.children[0]
+  let tag_name_span = source_map.get_token_span(outer.id(), "tag_name").unwrap()
+  inspect(tag_name_span.start, content="1")
+  inspect(tag_name_span.end, content="4")
+}

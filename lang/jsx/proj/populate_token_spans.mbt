@@ -77,6 +77,17 @@ fn populate_element_delimiters(
     "open_bracket",
     @syntax.SyntaxKind::OpenTagStartToken,
   )
+  // `find_token`'s first-match default is exactly what "tag_name" needs:
+  // the open tag's TagNameToken is always emitted before any close tag's
+  // (emit_close_tag in cst_parser.mbt also emits one for `</name>`), so
+  // the first direct match is always the opening tag's own name.
+  set_optional_token_span(
+    source_map,
+    syntax_node,
+    id,
+    "tag_name",
+    @syntax.SyntaxKind::TagNameToken,
+  )
   match
     syntax_node.direct_token_of_kind(
       @syntax.SyntaxKind::SelfCloseEndToken.to_raw(),
@@ -154,6 +165,13 @@ fn set_optional_token_span(
 /// "attr_name"/"attr_value" role would collide across multiple
 /// attributes on one element (SourceMap holds one Range per (id, role));
 /// index-suffix each role instead.
+///
+/// Caveat: the index is positional within the element's current attribute
+/// list, not a stable per-attribute identity — inserting, removing, or
+/// reordering an attribute shifts every later index's role key even
+/// though the owning Element's NodeId doesn't change. Fine for Phase 2
+/// (read-only), but a future editor consuming these roles must not treat
+/// "attr_name:N" as a durable handle across edits.
 fn populate_attrs(
   source_map : @core.SourceMap,
   element_syntax_node : @seam.SyntaxNode,

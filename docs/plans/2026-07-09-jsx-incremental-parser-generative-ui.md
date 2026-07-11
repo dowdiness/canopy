@@ -698,6 +698,22 @@ estimate for this step)
   Re-verified 2026-07-11 after the close_bracket fix above: `moon check`
   workspace-wide clean, `moon test -p dowdiness/canopy/lang/jsx/proj` →
   14/14 passed (11 original + 3 new regression tests).
+  **Follow-up broad Codex review (2026-07-11, post-merge on PR #877's
+  squashed commit) caught a second gap**: Step 1's doc comment listed
+  `"tag_name"` as a role convention, but it was never actually populated
+  — `populate_element_delimiters` only ever set `open_bracket`/
+  `close_bracket`. Fixed by adding a `set_optional_token_span(...,
+  "tag_name", TagNameToken)` call; `find_token`'s first-match default is
+  correct here without extra disambiguation (unlike `close_bracket`)
+  because the open tag's `TagNameToken` is always emitted before any
+  close tag's. 2 new regression tests added (basic element, and a
+  nested-same-tag case proving the open tag's name is picked, not the
+  close tag's or inner element's). The broad review also flagged that
+  `attr_name:N`/`attr_value:N`'s index is positional, not a durable
+  per-attribute identity across edits — documented as a caveat in
+  `populate_attrs`'s doc comment rather than changed (no consumer yet;
+  Phase 2 is read-only). `moon test -p dowdiness/canopy/lang/jsx/proj` →
+  16/16 passed.
 - [x] **Step 4 (checkpoint whitebox test):** written in
   `lang/jsx/proj/proj_node_wbtest.mbt`, done 2026-07-11 — 8 tests, all
   passing. The plan's literal snippet above needed one correction before
