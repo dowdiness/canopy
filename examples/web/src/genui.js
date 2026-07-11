@@ -155,7 +155,12 @@ function createElementForKind(node) {
     if (k.attrs) { for (const a of k.attrs) { applyAttr(el, a); const v = a.value; if (typeof v === 'string') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>=<span class="attr-val">"' + esc(v) + '"</span>'; else if (v?.type === 'expr-span') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>=<span class="attr-val">{' + esc(v.raw) + '}</span>'; else if (v?.type === 'bare') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>'; } }
     const op = document.createElement('div'); op.className = 'genui-tag genui-tag-open'; op.innerHTML = '&lt;<span class="tag-name">' + esc(tag) + '</span>' + attrStr + '&gt;'; el.appendChild(op);
     const cd = document.createElement('div'); cd.className = 'genui-content'; el.appendChild(cd);
-    const cl = document.createElement('div'); cl.className = 'genui-tag genui-tag-close'; cl.innerHTML = '&lt;/<span class="tag-name">' + esc(tag) + '</span>&gt;'; el.appendChild(cl);
+    const cl = document.createElement('div'); cl.className = 'genui-tag genui-tag-close';
+    cl.appendChild(document.createTextNode('</'));
+    const tagSpan = document.createElement('span'); tagSpan.className = 'tag-name'; tagSpan.textContent = tag;
+    cl.appendChild(tagSpan);
+    cl.appendChild(document.createTextNode('>'));
+    el.appendChild(cl);
     el._genuiContent = cd;
     const cls = { h1:'genui-heading', a:'genui-link', p:'genui-paragraph', ul:'genui-list', ol:'genui-list', nav:'genui-nav', code:'genui-code' };
     if (cls[tagLower]) el.classList.add(cls[tagLower]);
