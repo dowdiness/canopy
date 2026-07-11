@@ -3,7 +3,8 @@ const EXAMPLES = [
   `<article>\n  <h2 id="title">Generative UI</h2>\n  <p class="desc" style="color:blue">Streaming JSX content</p>\n  <a href="/next">Continue reading \u2192</a>\n</article>`,
   `<div>\n  <section>\n    <header>\n      <h1>Deep Nesting</h1>\n    </header>\n    <main>\n      <p>Level 3 content</p>\n      <ul>\n        <li>Item A</li>\n        <li>Item B</li>\n      </ul>\n    </main>\n  </section>\n</div>`,
   `<div>\n  <p>Hello, {user.name}!</p>\n  <span class={activeClass}>Dynamic</span>\n  <p>Score: {count} / {total}</p>\n</div>`,
-  `<main>\n  <header>\n    <h1>\u{1F4CA} Dashboard</h1>\n    <nav>\n      <a href="/home">Home</a>\n      <a href="/about">About</a>\n    </nav>\n  </header>\n  <section>\n    <p>Welcome back, <strong>{username}</strong>!</p>\n    <p>You have <strong>{count}</strong> notifications.</p>\n  </section>\n</main>`,
+  `<div class="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 rounded-lg shadow-lg max-w-md">\n  <h1 class="text-2xl font-bold mb-4">Tailwind CSS</h1>\n  <p class="text-indigo-100 mb-3">Classes from the input JSX are applied to rendered DOM.</p>\n  <div class="flex gap-2">\n    <span class="bg-white/20 px-3 py-1 rounded-full text-sm">Active</span>\n    <span class="bg-white/10 px-3 py-1 rounded-full text-sm">Pending</span>\n  </div>\n  <p class="mt-4 text-indigo-200 text-sm">Gradient card via Tailwind utilities.</p>\n</div>`,
+  `<main>\n  <header>\n    <h1>\u{1F4CA} Dashboard</h1>\n</main>`,
 ];
 
 const sourceInput = document.getElementById('source-input');
@@ -249,6 +250,7 @@ streamBtn.addEventListener('click', async function() {
   isStreaming = true; abortStream = false;
   streamBtn.textContent = '\u25A0 Stop'; streamBtn.className = 'btn-primary';
   previousNodeIds = new Set(); nodeElementMap = new Map();
+  htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see rendered output.</div>';
   statusBar.textContent = 'Loading MoonBit JSX module...';
 
   const CHUNK = 15;
