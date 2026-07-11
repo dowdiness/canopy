@@ -570,7 +570,9 @@ diverge from what Task 1.1 decided.
 - [x] `moon info && moon fmt`, `git diff -- '*.mbti'` reviewed after every
       step (final surface: `parse_cst`, `parse_ast`, `jsx_grammar`,
       `JsxNode`/`JsxAttr`/`JsxAttrValue`, TreeNode/Renderable impls)
-- [ ] Loom-side PR merged and pushed to loom's remote
+- [x] Loom-side PR merged and pushed to loom's remote — loom PR #680,
+      squash `1e90ab7`, merged 2026-07-11 (37/37 checks green; CI matrix
+      gained examples-jsx format + check/test jobs in the same PR)
 
 ### Validation (Phase 1)
 
