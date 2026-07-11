@@ -621,63 +621,89 @@ subpackage, not `edits/` or `companion/`.
 **File:** `lang/jsx/proj/proj_node.mbt` (~60-120 lines, per the guide's own
 estimate for this step)
 
-- [ ] **Step 1:** `lang/jsx/proj/moon.pkg`:
+- [x] **Step 1:** `lang/jsx/proj/moon.pkg` — done 2026-07-11, added
+  `"dowdiness/jsx/syntax" @syntax` beyond this snippet (needed for
+  `AttrNode`/token-kind filtering in Steps 2 and Task 2.2). Also required
+  registering `dowdiness/jsx@0.1.0` in canopy's root `moon.mod` import
+  list (not just `moon.work` membership) — `moon check` failed with
+  "containing module is not imported" until both were added.
   ```
   import {
     "dowdiness/canopy/core" @core,
     "dowdiness/incr" @incr,
     "dowdiness/jsx" @jsx,
+    "dowdiness/jsx/syntax" @syntax,
     "dowdiness/loom" @loom,
     "dowdiness/loom/core" @loomcore,
     "dowdiness/seam" @seam,
   }
   ```
-- [ ] **Step 2:** Implement `syntax_to_proj_node` / `build_proj_tree`,
-  pattern-matching on `JsxNode`, following the guide's `Document(blocks)`
-  container-vs-leaf example (Element/Fragment are containers; Text/ExprSpan
-  are leaves).
-- [ ] **Step 3:** Add `parse_to_proj_node(text : String)` convenience
-  function per the guide's exact signature.
-- [ ] **Step 4:** `moon check`.
+- [x] **Step 2:** Implemented `syntax_to_proj_node` / `build_proj_tree` in
+  `proj_node.mbt`, done 2026-07-11. Container/leaf split follows
+  `JsxNode`'s own `TreeNode::children` grouping (`loom/examples/jsx/proj_traits.mbt`):
+  `Root`/`Fragment`/`Element` are containers, `Text`/`ExprSpan`/`Error` are
+  leaves — verified by direct read of `jsx_fold_node` in
+  `loom/examples/jsx/grammar.mbt` that this matches the CST shape.
+  Divergence from the guide's `Document(blocks)` example: `Element`'s CST
+  children interleave `AttrNode`s with content children (confirmed by
+  reading `jsx_fold_node`'s own `node.children().filter(c => c.kind() !=
+  attr_kind)` filtering), so `build_proj_tree` needs the same filter
+  (`element_content_children`) before the parallel walk — `Root`/`Fragment`
+  have no such filtering need. `fold_node` itself is reached via
+  `@jsx.jsx_grammar.fold_node` (a `Grammar` struct field), not a
+  separately-exported top-level function like markdown's
+  `markdown_fold_node` — jsx's `pkg.generated.mbti` doesn't export one.
+- [x] **Step 3:** Added `parse_to_proj_node(text : String)` — done
+  2026-07-11, matches the guide's signature exactly.
+- [x] **Step 4:** `moon check lang/jsx/proj` — done 2026-07-11, clean (0
+  errors; `@incr`/`@loom` unused-import warnings expected until Task 2.3
+  consumes them).
 
 ### Task 2.2: Token spans
 
 **File:** `lang/jsx/proj/populate_token_spans.mbt` (~80-150 lines)
 
-- [ ] **Step 1:** Define role conventions for JSX, following Markdown's
-  table pattern: `"tag_name"`, `"attr_name"`, `"attr_value"`, `"text"`,
-  `"expr_raw"` (the opaque `{...}` content span — needed later if/when
-  Phase 3 wires an editor, but populate it now since it's free to compute
-  alongside the others), `"open_bracket"`/`"close_bracket"` for element
-  delimiters.
-- [ ] **Step 2:** Implement `populate_token_spans`, parallel-walking syntax
-  tree and projection tree per the guide's pattern, calling
-  `source_map.set_token_span(proj_id, role, range)`.
-- [ ] **Step 3:** `moon check`.
-- [ ] **Step 4 (checkpoint whitebox test):**
-  `lang/jsx/proj/proj_node_wbtest.mbt`:
-  ```moonbit
-  test "parse and project basic element" {
-    let (root, errors) = parse_to_proj_node("<div>hello</div>")
-    inspect(errors.length(), content="0")
-    inspect(root.kind.kind_tag(), content="Element")
-  }
-  ```
-  (Verified against current syntax in `lang/markdown/proj/proj_node_wbtest.mbt`
-  — that file uses plain `inspect(...)`/`parse_to_proj_node(...)`, not the
-  deprecated postfix-`!` error-propagation call form; do not copy the `!`
-  form from ADDING_A_LANGUAGE.md's own prose example without checking
-  current code first.)
-  Run: `moon test -p dowdiness/canopy/lang/jsx/proj`
+- [x] **Step 1:** Role conventions defined 2026-07-11 per the plan's list,
+  plus one addition: `"attr_name"`/`"attr_value"` are index-suffixed
+  (`"attr_name:0"`, `"attr_value:0"`, ...) because attributes aren't
+  separate `ProjNode`s (excluded from `TreeNode::children`), so their
+  spans must attach to the owning `Element`'s id — a plain role string
+  would collide across an element with more than one attribute
+  (`SourceMap` holds one `Range` per `(id, role)`). Documented inline in
+  `populate_attrs`'s doc comment.
+- [x] **Step 2:** Implemented in `populate_token_spans.mbt`, done
+  2026-07-11. `"close_bracket"` needed extra care beyond the guide's
+  pattern: an element's close tag reuses the same token kinds as its open
+  tag (`OpenTagStartToken`, `TagNameToken`, `TagEndToken` all appear
+  twice for a container element — confirmed by reading
+  `loom/examples/jsx/cst_parser.mbt`'s close-tag comment), so
+  `close_bracket` takes the *last* `TagEndToken` (via
+  `tokens_of_kind`), not `find_token`'s first-match default; an unclosed
+  element (Design B case 2) has neither a self-close nor a `TagEndToken`
+  and correctly gets no `close_bracket` span.
+- [x] **Step 3:** `moon check lang/jsx/proj` — done 2026-07-11, clean.
+- [x] **Step 4 (checkpoint whitebox test):** written in
+  `lang/jsx/proj/proj_node_wbtest.mbt`, done 2026-07-11 — 8 tests, all
+  passing. The plan's literal snippet above needed one correction before
+  it would pass: `parse_to_proj_node` always wraps in `Root` (Task 1.2
+  Step 5's later AST divergence — a streaming prefix can have several
+  roots — postdates this snippet), so `root.kind.kind_tag()` is `"Root"`,
+  not `"Element"`; the actual test asserts `root.children[0].kind.kind_tag()
+  == "Element"` instead. Confirmed by first running the plan's exact
+  snippet and observing the failure before editing it (not just spot-copied).
+  Run: `moon test -p dowdiness/canopy/lang/jsx/proj` → 8/8 passed.
 
 ### Task 2.3: Memo builder
 
 **File:** end of `lang/jsx/proj/proj_node.mbt` (~15 lines)
 
-- [ ] **Step 1:** Implement `build_jsx_projection_memos`, delegating to
-  `@core.build_projection_memos` exactly per the guide's template (do not
-  hand-roll reconciliation).
-- [ ] **Step 2:** `moon check`.
+- [x] **Step 1:** Implemented `build_jsx_projection_memos` — done
+  2026-07-11, delegates to `@core.build_projection_memos` with no
+  `reconcile_node` override (uses its default, `@core.reconcile`), exactly
+  per the guide's basic template — no hand-rolled reconciliation.
+- [x] **Step 2:** `moon check lang/jsx/proj --deny-warn` — done
+  2026-07-11, clean (the `@incr`/`@loom` unused-import warnings from Task
+  2.1 Step 4 are gone now that this step consumes them).
 
 ### Task 2.4: Streaming-reconciliation existence-proof test
 
@@ -686,74 +712,57 @@ plan's "Why" section — not optional, not generic coverage.
 
 **File:** `lang/jsx/proj/streaming_reconcile_wbtest.mbt`
 
-- [ ] **Step 1:** Pick a fixed JSX fixture with at least 3 nested elements
-  and one `{expr}` child, e.g.
-  `<div><h1>{title}</h1><p>hello world</p></div>`.
-- [ ] **Step 2:** Write a test that feeds the parser this text in at least 6
-  increasing prefixes, and make sure at least two of them cut **mid-token**,
-  not just at clean JSX-token boundaries — LLM token streams don't align
-  with JSX tokens, so a test that only ever cuts cleanly (`<div><h1>`, never
-  `<di`) doesn't exercise Task 1.1 Step 2 cases 3/4 at all. Example prefix
-  sequence: `<di` (mid-tag-name), `<div><h1` (mid-tag-name again), `<div><h1>`,
-  `<div><h1>{titl` (mid-expression), `<div><h1>{title}</h1><p>hello`
-  (mid-text), full string. Use the same `Parser[JsxAst]`/incremental
-  re-parse entry point Markdown's integration test uses — that test lives
-  at `lang/markdown/companion/integration_wbtest.mbt` (in `companion/`, not
-  `proj/`; verified by direct read, correcting an earlier draft of this
-  plan). Since Phase 2 explicitly does not create a `lang/jsx/companion/`
-  package, this test must drive the incremental parser directly (whatever
-  `Parser[JsxAst]`/`apply_edit`-equivalent entry point `loom/loom/pipeline/`
-  exposes) from inside `lang/jsx/proj/streaming_reconcile_wbtest.mbt` — read
-  the companion test only for the call shape, do not conclude a companion
-  package is needed to write this test.
-- [ ] **Step 3:** Record the `NodeId` assigned to the outer `<div>`
-  element's `ProjNode` and to the `<h1>` element's `ProjNode` **at their
-  first appearance** in the tree — which, per Task 1.1 Step 2 case 2's
-  requirement, is while they are still unclosed, not after the whole
-  fixture has streamed in. (An earlier draft of this task recorded NodeIds
-  "once fully parsed" — for the outer `<div>`, that's only true at the
-  *final* prefix, making any stability assertion vacuous since there are no
-  later prefixes left to check against. Recording at first appearance is
-  the only version of this test that actually exercises the
-  unclosed→closed identity transition, which is the property the whole
-  plan's premise depends on.) Assert those specific `NodeId`s are identical
-  across every subsequent prefix, including the mid-token ones from Step 2.
-  **Recording-point clarification (2026-07-11, decided at Task 1.2 Step 6):**
-  "first appearance" means the first prefix where the element exists *with
-  its complete tag name* — for the example sequence, `<div>` first counts
-  at `<div><h1`, not at `<di`. Task 1.2 made `Element`'s
-  `TreeNode::same_kind` tag-sensitive (loom `proj_traits.mbt`: `di` and
-  `div` are different element types, so downstream state must not carry
-  over), which means a mid-tag-name prefix like `<di` holds an
-  `Element(tag="di")` whose ProjNode ID legitimately resets once when the
-  tag completes. Recording at a mid-tag-name prefix would therefore fail
-  by design, not by bug. The mid-token prefixes still participate in the
-  stability assertion for every element whose tag completed earlier, and
-  identity through *content* growth stays covered because `Text`/`ExprSpan`
-  `same_kind` are deliberately content-insensitive. Optionally add a
-  companion assertion pinning the one-time reset (`<di`'s element ID ≠
-  `<div`'s) so the tag-completion boundary is documented behavior.
-- [ ] **Step 4:** Also assert every prefix from the first point `<div>` has
-  been opened onward produces a non-empty `children` array on the outer
-  element's `ProjNode`, even before `</div>` arrives — Task 1.1 Step 2 case
-  2's hard requirement, checked end-to-end here.
-- [ ] **Step 5:** For the `{title}` expression specifically, additionally
-  test the growing-opaque-span sub-case from Task 1.1 Step 1 (`{titl` →
-  `{title` → `{title}`) and assert whichever identity behavior that design
-  doc specified (single leaf with mutating content, vs. new node per
-  partial parse) — do not leave this case unchecked just because Step 3
-  covers element-level identity; span-level identity is a distinct claim.
-- [ ] **Step 6:** `moon test -p dowdiness/canopy/lang/jsx/proj`.
+- [x] **Step 1:** Fixture chosen exactly as the plan's example —
+  `<div><h1>{title}</h1><p>hello world</p></div>` (3 elements: div, h1, p;
+  1 expr child) — `streaming_fixture` in `streaming_reconcile_wbtest.mbt`.
+- [x] **Step 2:** Implemented using the plan's exact 6-prefix example
+  sequence verbatim (`streaming_prefixes`), driving a raw
+  `@loom.new_parser(text, @jsx.jsx_grammar)` + `parser.set_source(...)`
+  directly — confirmed by reading `lang/markdown/companion/integration_wbtest.mbt`
+  for the call shape only, and finding the more on-point precedent in
+  `lang/markdown/proj/sdeg_heading_side_table_wbtest.mbt` (a proj-level
+  wbtest already using `@loom.new_parser` + `parser.set_source` +
+  `derived.read_or_abort()` with no companion package involved) — no
+  `lang/jsx/companion/` package created.
+- [x] **Step 3:** Recorded `div`'s and `h1`'s `NodeId`s at prefix index 1
+  (`"<div><h1"`) per the recording-point clarification — both tags are
+  already complete and stable at that prefix. Added the optional
+  companion assertion: prefix 0's `<di` element's id differs from `div`'s
+  recorded id (`inspect(di_id == div_id, content="false")`).
+- [x] **Step 4:** Asserted `div.children.length() > 0` for every prefix
+  from index 1 onward (indices 2-5 in the loop, plus index 1 itself at
+  the point of recording) — done, same test.
+- [x] **Step 5:** Implemented as two separate tests (Design A's note
+  requires two distinct claims, not one):
+  `"streaming: ExprSpan identity stable across unclosed-to-closed growth"`
+  (`<h1>{titl` → `<h1>{title` → `<h1>{title}`, the plan's literal
+  example) and `"streaming: ExprSpan identity stable across closed-content
+  growth"` (`<h1>{a}` → `<h1>{ab}` → `<h1>{abc}`, covering Design A's other
+  required case — content mutating while the span stays closed at every
+  step, which the unclosed→closed sequence never exercises). Both assert
+  `ProjNode` id stability, confirming `@core.reconcile`'s `same_kind`-based
+  identity preservation as designed.
+- [x] **Step 6:** `moon test -p dowdiness/canopy/lang/jsx/proj` — done
+  2026-07-11: 11/11 passed (8 from Task 2.2 + 3 streaming tests).
 
 ### Acceptance Criteria (Phase 2)
 
-- [ ] `moon test -p dowdiness/canopy/lang/jsx/proj` passes, including the
-      Task 2.4 streaming-reconciliation test
-- [ ] `moon check` (workspace) clean
-- [ ] `moon info`, `git diff -- '*.mbti'` reviewed
-- [ ] No `lang/jsx/edits/` or `lang/jsx/companion/` package created (explicit
-      scope boundary — flag it in review if a future agent adds one under
-      this plan without an explicit scope amendment)
+- [x] `moon test -p dowdiness/canopy/lang/jsx/proj` passes, including the
+      Task 2.4 streaming-reconciliation test — 11/11, 2026-07-11
+- [x] `moon check` (workspace) clean — 2026-07-11, 0 errors (1
+      pre-existing unrelated warning in `lang/lambda`, not touched by this
+      work)
+- [x] `moon info`, `git diff -- '*.mbti'` reviewed — 2026-07-11. Running
+      `moon fmt`/`moon info` at the workspace root reformatted files in
+      several *unrelated* submodules (`alga`, `event-graph-walker`,
+      `graphviz`, `order-tree`, `rabbita`, `svg-dsl`) as a side effect of
+      `moon.work`'s full-workspace fan-out (toolchain-skew line-wrap
+      drift, no semantic change) — reverted with `git checkout -- .` in
+      each before committing; only `lang/jsx/proj`'s own new
+      `pkg.generated.mbti` is part of this change. See
+      `reference_moon_fmt_workspace_cascade` memory.
+- [x] No `lang/jsx/edits/` or `lang/jsx/companion/` package created —
+      confirmed: `lang/jsx/` contains only `proj/`
 
 ### Validation (Phase 2)
 
