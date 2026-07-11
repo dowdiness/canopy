@@ -7,15 +7,9 @@
   <link rel="stylesheet" href="/src/tailwind.css" />
   <style>
     .genui-element {
-      margin: 4px 0; padding: 8px 12px; border-radius: 4px;
+      margin: 4px 0; padding: 12px; border-radius: 4px;
       border: 1px solid transparent;
       transition: border-color 0.3s, background 0.3s;
-      position: relative;
-    }
-    .genui-element[data-tag]::before {
-      content: attr(data-tag); position: absolute; top: -8px; left: 8px;
-      font-size: 9px; color: #565c64; background: #0d0f14; padding: 0 4px;
-      border-radius: 2px;
     }
     .genui-element.new {
       border-color: rgba(240, 198, 116, 0.3);
@@ -23,6 +17,19 @@
       animation: fadeIn 0.3s ease-out;
     }
     .genui-element.stable { border-color: rgba(78, 201, 176, 0.2); }
+
+    .genui-tag {
+      display: block; font-size: 10px; color: #565c64;
+      font-family: 'Consolas', monospace; margin: 0;
+      user-select: none;
+    }
+    .genui-tag-open { margin-bottom: 4px; }
+    .genui-tag-close { margin-top: 4px; }
+    .genui-tag .tag-name { color: #569cd6; }
+    .genui-tag .attr-text { color: #9cdcfe; }
+    .genui-tag .attr-val { color: #c3e88d; }
+
+    .genui-content { padding-left: 12px; border-left: 1px solid #2c313a; }
     .genui-text { color: #c3e88d; font-size: 13px; }
     .genui-expr { color: #f0c674; background: rgba(240, 198, 116, 0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px; font-family: 'Consolas', monospace; }
     .genui-error { color: #f48771; background: rgba(244, 135, 113, 0.08); padding: 4px 8px; border-radius: 3px; font-size: 12px; border: 1px dashed rgba(244, 135, 113, 0.3); }
@@ -33,6 +40,7 @@
     .genui-list { margin: 4px 0; padding-left: 20px; }
     .genui-nav { display: flex; gap: 12px; padding: 4px 0; }
     .genui-fragment { border-left: 2px solid rgba(78, 201, 176, 0.25); padding: 4px 8px; }
+    .genui-fragment-tag { color: #565c64; font-size: 10px; font-family: 'Consolas', monospace; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -257,19 +265,17 @@
         const existing = nodeElementMap.get(nodeId);
         updateChildren(existing, node);
         return existing;
-      }
       let el = createElementForKind(node);
       el.dataset.nodeId = nodeId;
-      el.classList.add('genui-element', 'new');
-      if (node.kind_tag === 'Root' || node.kind_tag === 'Fragment') {
+      // Only container-like nodes get the visual element class
+      if (node.kind_tag !== 'Root') el.classList.add('genui-element', 'new');
+      // Determine where children go
+      let container = el;
+      if (el._genuiContent) container = el._genuiContent;
+      if (node.children) {
         for (const child of node.children) {
           const childEl = buildDomFromProjNode(child);
-          if (childEl) el.appendChild(childEl);
-        }
-      } else if (node.kind_tag === 'Element' && node.children) {
-        for (const child of node.children) {
-          const childEl = buildDomFromProjNode(child);
-          if (childEl) el.appendChild(childEl);
+          if (childEl) container.appendChild(childEl);
         }
       }
       nodeElementMap.set(nodeId, el);
@@ -278,17 +284,73 @@
     function createElementForKind(node) {
       const kt = node.kind_tag;
       const k = node.kind;
-      if (kt === 'Root') { const d = document.createElement('div'); d.className = ''; return d; }
-      if (kt === 'Fragment') { const d = document.createElement('div'); d.className = 'genui-fragment'; return d; }
+      if (kt === 'Root') {
+        const div = document.createElement('div');
+        return div;
+      }
+      if (kt === 'Fragment') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'genui-element genui-fragment';
+        const open = document.createElement('div');
+        open.className = 'genui-fragment-tag';
+        open.textContent = '<>';
+        wrapper.appendChild(open);
+        const content = document.createElement('div');
+        content.className = 'genui-content';
+        wrapper.appendChild(content);
+        const close = document.createElement('div');
+        close.className = 'genui-fragment-tag';
+        close.textContent = '</>';
+        wrapper.appendChild(close);
+        wrapper._genuiContent = content;
+        return wrapper;
+      }
       if (kt === 'Element') {
-        const tag = (k.tag || 'div').toLowerCase();
-        const map = { h1:'h1',h2:'h2',h3:'h3',h4:'h4',h5:'h5',h6:'h6', a:'a', p:'p', ul:'ul', ol:'ol', li:'li', nav:'nav', strong:'strong', em:'em', code:'code', span:'span', div:'div', section:'section', header:'header', main:'main', article:'article', footer:'footer' };
-        const tn = map[tag] || 'div';
-        const el = document.createElement(tn);
-        el.dataset.tag = tag;
+        const tag = (k.tag || 'div');
+        const tagLower = tag.toLowerCase();
+        const semanticMap = { h1:'h1',h2:'h2',h3:'h3',h4:'h4',h5:'h5',h6:'h6', a:'a', p:'p', ul:'ul', ol:'ol', li:'li', nav:'nav', strong:'strong', em:'em', code:'code', span:'span', div:'div', section:'section', header:'header', main:'main', article:'article', footer:'footer' };
+        const semTag = semanticMap[tagLower] || 'div';
+        const el = document.createElement(semTag);
+        el.className = 'genui-element';
+
+        // Build attribute string for display
+        let attrStr = '';
+        if (k.attrs) {
+          for (const a of k.attrs) {
+            applyAttr(el, a);
+            const v = a.value;
+            if (typeof v === 'string') {
+              attrStr += ` <span class="attr-text">${esc(a.name)}</span>=<span class="attr-val">"${esc(v)}"</span>`;
+            } else if (v?.type === 'expr-span') {
+              attrStr += ` <span class="attr-text">${esc(a.name)}</span>=<span class="attr-val">{${esc(v.raw)}}</span>`;
+            } else if (v?.type === 'bare') {
+              attrStr += ` <span class="attr-text">${esc(a.name)}</span>`;
+            }
+          }
+        }
+
+        // Opening tag label
+        const openDiv = document.createElement('div');
+        openDiv.className = 'genui-tag genui-tag-open';
+        openDiv.innerHTML = `&lt;<span class="tag-name">${esc(tag)}</span>${attrStr}&gt;`;
+        el.appendChild(openDiv);
+
+        // Content wrapper
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'genui-content';
+        el.appendChild(contentDiv);
+
+        // Closing tag label
+        const closeDiv = document.createElement('div');
+        closeDiv.className = 'genui-tag genui-tag-close';
+        closeDiv.innerHTML = `&lt;/<span class="tag-name">${esc(tag)}</span>&gt;`;
+        el.appendChild(closeDiv);
+
+        el._genuiContent = contentDiv;
+
+        // Apply semantic classes
         const clsMap = { h1:'genui-heading', a:'genui-link', p:'genui-paragraph', ul:'genui-list', ol:'genui-list', nav:'genui-nav', code:'genui-code' };
-        if (clsMap[tag]) el.className = clsMap[tag];
-        if (k.attrs) for (const a of k.attrs) applyAttr(el, a);
+        if (clsMap[tagLower]) el.classList.add(clsMap[tagLower]);
         return el;
       }
       if (kt === 'Text') { const s = document.createElement('span'); s.className = 'genui-text'; s.textContent = k.value || ''; return s; }
@@ -310,6 +372,7 @@
     }
     function updateChildren(parent, node) {
       if (!node.children) return;
+      const container = parent._genuiContent || parent;
       let idx = 0;
       for (const child of node.children) {
         if (nodeElementMap.has(child.node_id)) {
@@ -319,8 +382,8 @@
         } else {
           const childEl = buildDomFromProjNode(child);
           if (childEl) {
-            const next = parent.children[idx];
-            next ? parent.insertBefore(childEl, next) : parent.appendChild(childEl);
+            const next = container.children[idx];
+            next ? container.insertBefore(childEl, next) : container.appendChild(childEl);
           }
         }
         idx++;
