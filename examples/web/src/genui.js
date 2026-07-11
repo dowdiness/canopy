@@ -247,8 +247,8 @@ streamBtn.addEventListener('click', async () => {
       if (step.success && step.root) {
         const currentIds = collectNodeIds(step.root);
         treeOutput.innerHTML = renderTreeNode(step.root, previousNodeIds);
-        const isLast = (i === steps.length - 1);
-        if (isLast) renderHtmlTree(step.root);
+        const clean = !step.errors || step.errors.length === 0;
+        if (clean) renderHtmlTree(step.root);
         previousNodeIds = currentIds;
       } else if (step.success) {
         treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No root node.</div>';
