@@ -62,6 +62,16 @@ fn element_content_children(node : @seam.SyntaxNode) -> Array[@seam.SyntaxNode] 
 }
 
 ///|
+/// Whitespace-only Text nodes (newlines, indentation between elements) are
+/// skipped in the projection tree — they have no visual rendering.
+fn is_whitespace_text(node : @jsx.JsxNode) -> Bool {
+  match node {
+    @jsx.JsxNode::Text(s) => s.trim().is_empty()
+    _ => false
+  }
+}
+
+///|
 fn build_container(
   syntax_node : @seam.SyntaxNode,
   ast : @jsx.JsxNode,
@@ -72,7 +82,9 @@ fn build_container(
   let len = syntax_children.length().min(ast_children.length())
   let children : Array[@core.ProjNode[@jsx.JsxNode]] = []
   for i in 0..<len {
-    children.push(build_proj_tree(syntax_children[i], ast_children[i], counter))
+    let ast_child = ast_children[i]
+    if is_whitespace_text(ast_child) { continue }
+    children.push(build_proj_tree(syntax_children[i], ast_child, counter))
   }
   @core.ProjNode::branch(
     ast,
