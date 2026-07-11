@@ -108,12 +108,15 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // ── DOM Building ──
 function buildDomFromProjNode(node) {
   const nodeId = node.node_id;
+  // Skip Error nodes entirely — they are transient parse diagnostics, not content
+  if (node.kind_tag === 'Error') return null;
   if (nodeElementMap.has(nodeId)) {
     const existing = nodeElementMap.get(nodeId);
     updateChildren(existing, node);
     return existing;
   }
   let el = createElementForKind(node);
+  if (!el) return null;
   el.dataset.nodeId = nodeId;
   if (node.kind_tag !== 'Root') el.classList.add('genui-element', 'new');
   let container = el;
@@ -247,8 +250,7 @@ streamBtn.addEventListener('click', async () => {
       if (step.success && step.root) {
         const currentIds = collectNodeIds(step.root);
         treeOutput.innerHTML = renderTreeNode(step.root, previousNodeIds);
-        const clean = !step.errors || step.errors.length === 0;
-        if (clean) renderHtmlTree(step.root);
+        renderHtmlTree(step.root);
         previousNodeIds = currentIds;
       } else if (step.success) {
         treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No root node.</div>';
