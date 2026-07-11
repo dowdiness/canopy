@@ -97,16 +97,18 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
     async buildStart() {
       if (shouldSkipBuild) {
         console.log('[MoonBit] CI mode detected, checking for pre-built modules...');
-        const allExist = await checkAllModulesExist(resolvedModules);
-        if (allExist) {
+        const missingModules = await findMissingModules(resolvedModules);
+        if (missingModules.length === 0) {
           console.log('[MoonBit] All pre-built modules found, skipping build');
           return;
-        } else {
-          console.log('[MoonBit] Some modules missing, building...');
         }
-      } else {
-        console.log('[MoonBit] Building modules...');
+        const missingList = missingModules.map(m => '  ' + m.name + ' at ' + m.absoluteOutputPath).join('\n');
+        throw new Error(
+          '[MoonBit] Pre-built modules missing (CANOPY_SKIP_MOON_BUILD=1 but moon toolchain unavailable):\n' +
+          missingList,
+        );
       }
+      console.log('[MoonBit] Building modules...');
       await buildAllModules(resolvedModules, target, release);
     },
 
@@ -247,28 +249,21 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
 /**
  * Infer output path from module name and build settings
  */
-function inferOutputPath(moduleName: string, target: string, release: boolean): string {
-  // Extract last part of module name (e.g., '@moonbit/crdt' -> 'crdt')
-  const baseName = moduleName.split('/').pop() || 'module';
-  const mode = release ? 'release' : 'debug';
-  return `_build/${target}/${mode}/build/${baseName}.js`;
-}
-
-/**
- * Check if all module output files exist
- */
-async function checkAllModulesExist(
+///|
+/// Return list of modules whose output files are missing.
+async function findMissingModules(
   modules: Array<MoonBitModule & { absoluteOutputPath: string }>
-): Promise<boolean> {
+): Promise<Array<MoonBitModule & { absoluteOutputPath: string }>> {
+  const missing: Array<MoonBitModule & { absoluteOutputPath: string }> = []
   for (const mod of modules) {
     try {
       await access(mod.absoluteOutputPath);
     } catch {
       console.log(`[MoonBit] Missing: ${mod.name} at ${mod.absoluteOutputPath}`);
-      return false;
+      missing.push(mod)
     }
   }
-  return true;
+  return missing
 }
 
 /**
