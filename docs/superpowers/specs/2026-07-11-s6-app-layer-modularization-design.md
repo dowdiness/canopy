@@ -145,7 +145,7 @@ explicitly marked "no change... still receives context from its caller"):
 
 | Child package (`action_overlay/`) | Stays in `main` (parent) |
 |---|---|
-| `action_overlay_flow.mbt` (`OverlayOutput`, `OverlayState`, `OverlayMode`, `OverlayMsg`) | `action_overlay_exec.mbt` (`execute_action` — needs `editor`/`companion`/full context) |
+| `action_overlay_flow.mbt` (`OverlayOutput`, `OverlayMsg`) — plus `OverlayState`/`OverlayMode`, which the plan-authoring pass found actually live in `model.mbt` today, not here as this table originally claimed; they move into this file | `action_overlay_exec.mbt` (`execute_action` — needs `editor`/`companion`/full context) |
 | `action_overlay_flow_wiring.mbt` (`create_overlay_cell`, `overlay_effect_to_cmd`) | `action_overlay_update.mbt` (`handle_overlay_event`, `handle_overlay_output` — dispatch against `Model`) |
 | `action_overlay_error.mbt` (`OverlayError`) | `action_overlay_runtime.mbt` (`ActionOverlayHost`, `ActionOverlayRuntime` — parent-owned host state) |
 | `view_overlay` (currently misfiled in `view_actions.mbt` — must move into the package) | `action_overlay_state.mbt` (`open_action_overlay*` — context detection needs `Model`) |
