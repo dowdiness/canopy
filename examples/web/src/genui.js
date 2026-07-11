@@ -118,6 +118,15 @@ function buildDomFromProjNode(node) {
       existing.textContent = node.kind.value || '';
     } else if (node.kind_tag === 'ExprSpan') {
       existing.textContent = '{' + (node.kind.value || '') + '}';
+    } else if (node.kind_tag === 'Element' && node.kind.attrs) {
+      var baseClass = 'genui-element';
+      var clsMap = { genuiHeading:'genui-heading', genuiLink:'genui-link', genuiParagraph:'genui-paragraph', genuiList:'genui-list', genuiNav:'genui-nav', genuiCode:'genui-code' };
+      for (var ck in clsMap) { if (existing.classList.contains(clsMap[ck])) { baseClass += ' ' + clsMap[ck]; break; } }
+      existing.className = baseClass;
+      existing.style.cssText = '';
+      for (var ai = 0; ai < node.kind.attrs.length; ai++) {
+        applyAttr(existing, node.kind.attrs[ai]);
+      }
     }
     updateChildren(existing, node);
     return existing;
