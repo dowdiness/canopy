@@ -119,10 +119,7 @@ function buildDomFromProjNode(node) {
     } else if (node.kind_tag === 'ExprSpan') {
       existing.textContent = '{' + (node.kind.value || '') + '}';
     } else if (node.kind_tag === 'Element' && node.kind.attrs) {
-      var baseClass = 'genui-element';
-      var clsMap = { genuiHeading:'genui-heading', genuiLink:'genui-link', genuiParagraph:'genui-paragraph', genuiList:'genui-list', genuiNav:'genui-nav', genuiCode:'genui-code' };
-      for (var ck in clsMap) { if (existing.classList.contains(clsMap[ck])) { baseClass += ' ' + clsMap[ck]; break; } }
-      existing.className = baseClass;
+      existing.className = '';
       existing.style.cssText = '';
       for (var ai = 0; ai < node.kind.attrs.length; ai++) {
         applyAttr(existing, node.kind.attrs[ai]);
@@ -134,13 +131,11 @@ function buildDomFromProjNode(node) {
   var el = createElementForKind(node);
   if (!el) return null;
   el.dataset.nodeId = nodeId;
-  if (node.kind_tag !== 'Root') el.classList.add('genui-element', 'new');
-  var container = el;
-  if (el._genuiContent) container = el._genuiContent;
+  if (node.kind_tag !== 'Root') el.classList.add('new');
   if (node.children) {
     for (var ci = 0; ci < node.children.length; ci++) {
       const childEl = buildDomFromProjNode(node.children[ci]);
-      if (childEl) container.appendChild(childEl);
+      if (childEl) el.appendChild(childEl);
     }
   }
   nodeElementMap.set(nodeId, el);
@@ -151,30 +146,12 @@ function createElementForKind(node) {
   const kt = node.kind_tag;
   const k = node.kind;
   if (kt === 'Root') { return document.createElement('div'); }
-  if (kt === 'Fragment') {
-    const w = document.createElement('div'); w.className = 'genui-element genui-fragment';
-    const o = document.createElement('div'); o.className = 'genui-fragment-tag'; o.textContent = '<>'; w.appendChild(o);
-    const c = document.createElement('div'); c.className = 'genui-content'; w.appendChild(c);
-    const x = document.createElement('div'); x.className = 'genui-fragment-tag'; x.textContent = '</>'; w.appendChild(x);
-    w._genuiContent = c; return w;
-  }
+  if (kt === 'Fragment') { const d = document.createElement('div'); return d; }
   if (kt === 'Element') {
     const tag = k.tag || 'div'; const tagLower = tag.toLowerCase();
     const sem = { h1:'h1',h2:'h2',h3:'h3',h4:'h4',h5:'h5',h6:'h6', a:'a', p:'p', ul:'ul', ol:'ol', li:'li', nav:'nav', strong:'strong', em:'em', code:'code', span:'span', div:'div', section:'section', header:'header', main:'main', article:'article', footer:'footer' };
-    const el = document.createElement(sem[tagLower] || 'div'); el.className = 'genui-element';
-    var attrStr = '';
-    if (k.attrs) { for (var ai = 0; ai < k.attrs.length; ai++) { const a = k.attrs[ai]; applyAttr(el, a); const v = a.value; if (typeof v === 'string') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>=<span class="attr-val">"' + esc(v) + '"</span>'; else if (v && v.type === 'expr-span') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>=<span class="attr-val">{' + esc(v.raw) + '}</span>'; else if (v && v.type === 'bare') attrStr += ' <span class="attr-text">' + esc(a.name) + '</span>'; } }
-    const op = document.createElement('div'); op.className = 'genui-tag genui-tag-open'; op.innerHTML = '&lt;<span class="tag-name">' + esc(tag) + '</span>' + attrStr + '&gt;'; el.appendChild(op);
-    const cd = document.createElement('div'); cd.className = 'genui-content'; el.appendChild(cd);
-    const cl = document.createElement('div'); cl.className = 'genui-tag genui-tag-close';
-    cl.appendChild(document.createTextNode('</'));
-    const tagSpan = document.createElement('span'); tagSpan.className = 'tag-name'; tagSpan.textContent = tag;
-    cl.appendChild(tagSpan);
-    cl.appendChild(document.createTextNode('>'));
-    el.appendChild(cl);
-    el._genuiContent = cd;
-    const cls = { h1:'genui-heading', a:'genui-link', p:'genui-paragraph', ul:'genui-list', ol:'genui-list', nav:'genui-nav', code:'genui-code' };
-    if (cls[tagLower]) el.classList.add(cls[tagLower]);
+    const el = document.createElement(sem[tagLower] || 'div');
+    if (k.attrs) { for (var ai = 0; ai < k.attrs.length; ai++) { applyAttr(el, k.attrs[ai]); } }
     return el;
   }
   if (kt === 'Text') { const s = document.createElement('span'); s.className = 'genui-text'; s.textContent = k.value || ''; return s; }
@@ -195,7 +172,6 @@ function applyAttr(el, attr) {
 
 function updateChildren(parent, node) {
   if (!node.children) return;
-  const container = parent._genuiContent || parent;
   var idx = 0;
   for (var ci = 0; ci < node.children.length; ci++) {
     const child = node.children[ci];
@@ -211,17 +187,16 @@ function updateChildren(parent, node) {
     } else {
       const childEl = buildDomFromProjNode(child);
       if (childEl) {
-        const next = container.children[idx];
-        if (next) { container.insertBefore(childEl, next); } else { container.appendChild(childEl); }
+        const next = parent.children[idx];
+        if (next) { parent.insertBefore(childEl, next); } else { parent.appendChild(childEl); }
       }
     }
     idx++;
   }
-  while (idx < container.children.length) {
-    container.children[idx].remove();
+  while (idx < parent.children.length) {
+    parent.children[idx].remove();
   }
 }
-
 function renderHtmlTree(data) {
   if (!data) { htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No parse result.</div>'; htmlNodeCount.textContent = '0'; return; }
   const rootEl = buildDomFromProjNode(data);

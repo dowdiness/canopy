@@ -6,40 +6,15 @@
   <title>Generative UI — JSX Incremental Parser Demo</title>
   <link rel="stylesheet" href="/src/tailwind.css" />
   <style>
-    .genui-element {
-      border: 1px solid transparent;
-      transition: border-color 0.3s, background 0.3s;
-    }
-    .genui-element.new {
-      border-color: rgba(240, 198, 116, 0.3);
+    .new {
+      border: 1px solid rgba(240, 198, 116, 0.3);
       background: rgba(240, 198, 116, 0.05);
       animation: fadeIn 0.3s ease-out;
     }
-    .genui-element.stable { border-color: rgba(78, 201, 176, 0.2); }
-
-    .genui-tag {
-      display: block; font-size: 10px; color: #565c64;
-      font-family: 'Consolas', monospace; margin: 0;
-      user-select: none;
-    }
-    .genui-tag-open { margin-bottom: 4px; }
-    .genui-tag-close { margin-top: 4px; }
-    .genui-tag .tag-name { color: #569cd6; }
-    .genui-tag .attr-text { color: #9cdcfe; }
-    .genui-tag .attr-val { color: #c3e88d; }
-
-    .genui-content { padding-left: 12px; border-left: 1px solid #2c313a; }
-    .genui-text { color: #c3e88d; font-size: 13px; }
-    .genui-expr { color: #f0c674; background: rgba(240, 198, 116, 0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px; font-family: 'Consolas', monospace; }
+    .stable { border: 1px solid rgba(78, 201, 176, 0.2); }
+    .genui-text { color: #c3e88d; font-size: 13px; display: inline; }
+    .genui-expr { color: #f0c674; background: rgba(240, 198, 116, 0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px; font-family: 'Consolas', monospace; display: inline; }
     .genui-error { color: #f48771; background: rgba(244, 135, 113, 0.08); padding: 4px 8px; border-radius: 3px; font-size: 12px; border: 1px dashed rgba(244, 135, 113, 0.3); }
-    .genui-heading { font-weight: bold; margin: 8px 0 4px; }
-    .genui-link { color: #4ec9b0; text-decoration: underline; cursor: pointer; }
-    .genui-code { background: #2d2d2d; padding: 2px 6px; border-radius: 2px; font-family: 'Consolas', monospace; }
-    .genui-paragraph { margin: 4px 0; line-height: 1.6; }
-    .genui-list { margin: 4px 0; padding-left: 20px; }
-    .genui-nav { display: flex; gap: 12px; padding: 4px 0; }
-    .genui-fragment { border-left: 2px solid rgba(78, 201, 176, 0.25); padding: 4px 8px; }
-    .genui-fragment-tag { color: #565c64; font-size: 10px; font-family: 'Consolas', monospace; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
