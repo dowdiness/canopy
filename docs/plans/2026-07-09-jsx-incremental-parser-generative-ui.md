@@ -456,10 +456,11 @@ ADDING_A_LANGUAGE.md Step 1's `derive(Eq, Debug)` requirement:
 
 ```moonbit
 pub(all) enum JsxNode {
+  Root(children~ : Array[JsxNode])   // streaming prefix can have several roots
   Element(tag~ : String, attrs~ : Array[JsxAttr], children~ : Array[JsxNode])
   Fragment(children~ : Array[JsxNode])
   Text(String)
-  ExprSpan(raw~ : String)   // opaque {...} content, unparsed
+  ExprSpan(raw~ : String)   // opaque {...} content, unparsed, quotes kept
   Error(String)
 } derive(Eq, Debug)
 
@@ -469,25 +470,43 @@ pub(all) struct JsxAttr {
 } derive(Eq, Debug)
 
 pub(all) enum JsxAttrValue {
-  StringLit(String)
+  StringLit(String)        // unquoted content; diagnostics carry truncation
   ExprSpan(raw~ : String)  // {...} in attribute position
+  Bare                     // boolean attribute, or truncated `<div cla`
 } derive(Eq, Debug)
 ```
 
-This shape is a starting point, not gospel — Task 1.1's design gate may
-require adjusting it (e.g. if unclosed elements need a distinct
-`UnclosedElement` variant rather than reusing `Element` with an
-incomplete-children marker). Update it in place if the validated design
-says otherwise; do not silently diverge from what Task 1.1 decided.
+This shape was a starting point; Step 5 (2026-07-10) updated it in place
+per the instruction below with three divergences, each recorded in loom
+commit `9857615`: `Root(children~)` added (a streaming prefix legally has
+several roots and `Fragment` must not be conflated with the document
+root), `JsxAttrValue::Bare` added (boolean attributes and EOF-truncated
+attribute names both produce value-less `AttrNode`s), and `StringLit`
+stores unquoted content (diagnostics, not the AST, carry the
+unterminated-literal fact). Unclosed elements reuse `Element` with no
+marker — the truncated-prefix AST is deliberately shape-identical to its
+closed equivalent (Design B case 2). Original instruction: update this
+snippet in place if the validated design says otherwise; do not silently
+diverge from what Task 1.1 decided.
 
-- [ ] **Step 1:** Scaffold `meta/term_kind.mbt` and `token/token.mbt` with
+- [x] **Step 1:** Scaffold `meta/term_kind.mbt` and `token/token.mbt` with
   `#loom.term`/`#loom.token` annotations covering: `OpenTagStart` (`<`),
   `TagName`, `Slash`, `TagEnd` (`>`), `SelfCloseEnd` (`/>`),
   `AttrName`, `Eq`, `AttrStringLit`, `BraceOpen`, `BraceClose`, `Text`,
   `FragmentOpen` (`<>`), `FragmentClose` (`</>`), plus whatever Task 1.1's
-  design settled on for raw-mode JS-expr tokens.
-- [ ] **Step 2:** Run loomgen (mirrors html's `Regenerating Generated Files`
-  recipe in its README):
+  design settled on for raw-mode JS-expr tokens. Done 2026-07-10 in loom
+  commit `97e8dd7` (`feat/jsx-phase1-task1.2` branch, not yet merged) —
+  also added `ExprRawText`/`ExprStringUnterminated`/
+  `AttrStringLitUnterminated` (Design B) and `ExprSpanNode`/`AttrNode`
+  term kinds beyond html's set. `NEW_MOON_MOD=0 moon check examples/jsx`
+  passes.
+- [x] **Step 2:** Run loomgen (mirrors html's `Regenerating Generated Files`
+  recipe in its README). Done 2026-07-10 in loom commit `9034eb8` — ran
+  both parts of html's recipe (the snippet below only shows part 1; part
+  2 seeds `spec.g.mbt`/`make_jsx_spec` from the generated
+  `syntax_kind.mbt`, needed later for `jsx_spec.mbt`/`grammar.mbt`).
+  Re-running part 1 with `--seed` reproduced byte-identical
+  `token_impls.g.mbt` output, confirming determinism.
   ```bash
   moon run loomgen --target native -- \
     loom/examples/jsx/token/token.mbt \
@@ -496,38 +515,64 @@ says otherwise; do not silently diverge from what Task 1.1 decided.
   cp /tmp/jsx-syntax/syntax_kind.mbt loom/examples/jsx/syntax/
   cp /tmp/jsx-token/token_impls.g.mbt loom/examples/jsx/token/
   ```
-- [ ] **Step 3:** Write the lexer (`lexer.mbt`), implementing Task 1.1's
+- [x] **Step 3:** Write the lexer (`lexer.mbt`), implementing Task 1.1's
   validated mode-switch design. Write failing tests in `lexer_test.mbt`
   first (one per token kind + one for the brace-depth/string-awareness edge
-  case from Task 1.1 Step 2), confirm they fail, then implement.
-- [ ] **Step 4:** Write the recursive-descent parser (`cst_parser.mbt`),
+  case from Task 1.1 Step 2), confirm they fail, then implement. Done
+  2026-07-10 in loom commits `a2f6805` + `8a3f78a` (Codex
+  post-implementation review applied; 20 lexer tests).
+- [x] **Step 4:** Write the recursive-descent parser (`cst_parser.mbt`),
   implementing Task 1.1's validated error-recovery design. Write failing
   tests in `parser_test.mbt` first — at minimum: simple element, nested
   elements, fragment, self-closing tag, attribute with string value,
   attribute with `{expr}` value, text child, `{expr}` child, unclosed
   element (per design case 2), truncated tag (per design case 3), truncated
-  expression (per design case 4).
-- [ ] **Step 5:** Write `fold_node` in `grammar.mbt`, converting CST to the
+  expression (per design case 4). Done 2026-07-10 in loom commit `d97399d`
+  (tests confirmed red first; 23 parser tests incl. 2 Codex-review
+  termination regressions; 43/43 for the package; `parse_cst` exposed via
+  `SyntaxGrammar` — fold-free until Step 5; note: `parse_jsx_root` must
+  not open a RootNode, the entry points wrap in `spec.root_kind`).
+- [x] **Step 5:** Write `fold_node` in `grammar.mbt`, converting CST to the
   `JsxNode` AST from the shape above (or its Task-1.1-revised version).
-- [ ] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
+  Done 2026-07-10 in loom commit `9857615` (tests confirmed red first; 16
+  AST tests incl. 2 Codex-review regressions; 59/59 for the package;
+  AST-shape divergences recorded in the snippet above; `parse_cst` now
+  delegates to the full `jsx_grammar`, Step 4's interim `SyntaxGrammar`
+  removed).
+- [x] **Step 6:** Write `ast.mbt` trait impls (`TreeNode`, `Renderable`) in
   `proj_traits.mbt`, following the html/markdown pattern shown in
   ADDING_A_LANGUAGE.md Step 1 (`children`, `same_kind`, `kind_tag`, `label`,
-  `placeholder`, `unparse`).
-- [ ] **Step 7:** `moon test -p dowdiness/jsx` (scoped — do not run unscoped
-  `moon test` from inside `loom/`, see Phase 0's tcc-hang history).
+  `placeholder`, `unparse`). Done 2026-07-11 in loom commit `4751207`
+  (tests confirmed red first; 14 trait tests incl. 2 Codex-review
+  regressions). Load-bearing decisions: `Element` `same_kind` requires an
+  equal tag (one identity reset at streaming tag completion);
+  `Text`/`ExprSpan` `same_kind` ignore content (growing-span ProjNode
+  identity, per the Design B note); `kind_tag` = plain variant names
+  (Phase 2's Step 4 test expects exactly `"Element"`). Note: the two
+  projection-layer ExprSpan ID-stability tests the Design B note requires
+  live in Phase 2's `streaming_reconcile_wbtest.mbt` (Steps 3/5) — they
+  need canopy's `@core.reconcile`, which loom-side Task 1.2 cannot reach.
+- [x] **Step 7:** `moon test -p dowdiness/jsx` (scoped — do not run unscoped
+  `moon test` from inside `loom/`, see Phase 0's tcc-hang history). Done
+  2026-07-11: 73/73 (20 lexer, 23 parser, 16 AST, 14 trait tests).
 
 ### Acceptance Criteria (Phase 1)
 
 - [x] Task 1.1's two design docs exist and were validated (Codex or
       equivalent second-opinion review) before any Task 1.2 implementation
       commit
-- [ ] `moon test -p dowdiness/jsx` passes, covering every case enumerated in
+- [x] `moon test -p dowdiness/jsx` passes, covering every case enumerated in
       Task 1.1 Step 2 (cases 1-4) plus the string-literal brace-depth edge
-      case from Task 1.1 Step 1
-- [ ] `JsxNode` derives `Eq, Debug`
-- [ ] `moon check -p dowdiness/jsx --deny-warn` clean
-- [ ] `moon info && moon fmt`, `git diff -- '*.mbti'` reviewed
-- [ ] Loom-side PR merged and pushed to loom's remote
+      case from Task 1.1 Step 1 — 73/73 as of loom `4751207` (2026-07-11)
+- [x] `JsxNode` derives `Eq, Debug` (`examples/jsx/ast.mbt`)
+- [x] `moon check -p dowdiness/jsx --deny-warn` clean (2026-07-11, run as
+      `moon check examples/jsx --deny-warn` — `moon check` scopes by path)
+- [x] `moon info && moon fmt`, `git diff -- '*.mbti'` reviewed after every
+      step (final surface: `parse_cst`, `parse_ast`, `jsx_grammar`,
+      `JsxNode`/`JsxAttr`/`JsxAttrValue`, TreeNode/Renderable impls)
+- [x] Loom-side PR merged and pushed to loom's remote — loom PR #680,
+      squash `1e90ab7`, merged 2026-07-11 (37/37 checks green; CI matrix
+      gained examples-jsx format + check/test jobs in the same PR)
 
 ### Validation (Phase 1)
 
@@ -673,6 +718,21 @@ plan's "Why" section — not optional, not generic coverage.
   unclosed→closed identity transition, which is the property the whole
   plan's premise depends on.) Assert those specific `NodeId`s are identical
   across every subsequent prefix, including the mid-token ones from Step 2.
+  **Recording-point clarification (2026-07-11, decided at Task 1.2 Step 6):**
+  "first appearance" means the first prefix where the element exists *with
+  its complete tag name* — for the example sequence, `<div>` first counts
+  at `<div><h1`, not at `<di`. Task 1.2 made `Element`'s
+  `TreeNode::same_kind` tag-sensitive (loom `proj_traits.mbt`: `di` and
+  `div` are different element types, so downstream state must not carry
+  over), which means a mid-tag-name prefix like `<di` holds an
+  `Element(tag="di")` whose ProjNode ID legitimately resets once when the
+  tag completes. Recording at a mid-tag-name prefix would therefore fail
+  by design, not by bug. The mid-token prefixes still participate in the
+  stability assertion for every element whose tag completed earlier, and
+  identity through *content* growth stays covered because `Text`/`ExprSpan`
+  `same_kind` are deliberately content-insensitive. Optionally add a
+  companion assertion pinning the one-time reset (`<di`'s element ID ≠
+  `<div`'s) so the tag-completion boundary is documented behavior.
 - [ ] **Step 4:** Also assert every prefix from the first point `<div>` has
   been opened onward produces a non-empty `children` array on the outer
   element's `ProjNode`, even before `</div>` arrives — Task 1.1 Step 2 case
