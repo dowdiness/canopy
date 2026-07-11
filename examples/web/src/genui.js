@@ -272,8 +272,7 @@ streamBtn.addEventListener('click', async function() {
       if (step.success && step.root) {
         const currentIds = collectNodeIds(step.root);
         treeOutput.innerHTML = renderTreeNode(step.root, previousNodeIds);
-        const hasTruncatedTag = step.errors && step.errors.some(function(e) { return e.indexOf('Truncated tag') === 0; });
-        if (!hasTruncatedTag) renderHtmlTree(step.root);
+        renderHtmlTree(step.root);
         previousNodeIds = currentIds;
       } else if (step.success) {
         treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No root node.</div>';
