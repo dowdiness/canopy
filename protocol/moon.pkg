@@ -1,0 +1,7 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/pretty",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}

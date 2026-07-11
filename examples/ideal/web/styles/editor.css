@@ -1,0 +1,1047 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+/* Keep source detection as narrow as the migrated slice; expand per slice. */
+@source "../../main/view_actions_classes.mbt";
+@source "../../main/view_toolbar_classes.mbt";
+@source "../../main/view_bottom_classes.mbt";
+@source "../../main/view_panel_classes.mbt";
+@source "../../main/view_inspector_classes.mbt";
+@source "../../main/view_outline_classes.mbt";
+@source "../../main/view_peer_empty_state_classes.mbt";
+@source "../../main/ui/button.mbt";
+@source "../../main/ui/tabs.mbt";
+@source "../../main/ui/recipe.mbt";
+@source "../../main/ui/panel.mbt";
+@source "../../main/ui/menu_item.mbt";
+
+/* Fonts loaded via <link> in index.html (avoids CSS @import waterfall) */
+
+@theme inline {
+  --color-canopy-bg: var(--canopy-bg);
+  --color-canopy-header: var(--canopy-header-bg);
+  --color-canopy-panel: var(--canopy-panel-bg);
+  --color-canopy-surface: var(--canopy-surface);
+  --color-canopy-border: var(--canopy-border);
+  --color-canopy-fg: var(--canopy-fg);
+  --color-canopy-fg-inverse: var(--canopy-fg-inverse);
+  --color-canopy-secondary: var(--canopy-text-secondary);
+  --color-canopy-muted: var(--canopy-muted);
+  --color-canopy-dim: var(--canopy-text-dim);
+  --color-canopy-accent: var(--canopy-accent);
+  --color-canopy-accent-hover: var(--canopy-accent-hover);
+  --color-canopy-accent-text: var(--canopy-accent-text);
+  --color-canopy-accent-border: var(--canopy-accent-border);
+  --color-canopy-focus-ring: var(--canopy-focus-ring);
+  --color-canopy-identifier: var(--canopy-identifier);
+  --color-canopy-number: var(--canopy-number);
+  --color-canopy-string: var(--canopy-string);
+  --color-canopy-operator: var(--canopy-operator);
+  --color-canopy-error-text: var(--canopy-error-text);
+  --color-canopy-error-bg: var(--canopy-error-bg);
+  --color-canopy-error-border: var(--canopy-error-border);
+
+  --font-canopy-ui: var(--canopy-font-ui);
+  --font-canopy-mono: var(--canopy-font-mono);
+
+  --text-canopy-label: var(--text-label);
+  --text-canopy-caption: var(--text-caption);
+  --text-canopy-small: var(--text-small);
+  --text-canopy-body: var(--text-body);
+
+  --spacing-canopy-xs: var(--space-xs);
+  --spacing-canopy-sm: var(--space-sm);
+  --spacing-canopy-md: var(--space-md);
+  --spacing-canopy-lg: var(--space-lg);
+  --spacing-canopy-xl: var(--space-xl);
+
+  --radius-canopy-sm: var(--radius-sm);
+  --radius-canopy-md: var(--radius-md);
+  --radius-canopy-lg: var(--radius-lg);
+
+  --ease-canopy-out: var(--ease-out-quart);
+  --animate-canopy-overlay-enter: overlay-enter var(--duration-fast) var(--ease-out-quart);
+}
+
+:root {
+  /* ── Background surfaces (warm navy tint) ────────────── */
+  --canopy-bg: #161625;
+  --canopy-header-bg: #12121f;
+  --canopy-panel-bg: #1a1a2c;
+  --canopy-surface: #222238;
+  --canopy-border: #28283e;
+  --canopy-glow: rgba(130, 80, 223, 0.06);
+
+  /* ── Text hierarchy ────────────────────────────────────── */
+  --canopy-fg: #e4e4f0;
+  --canopy-text-secondary: #b8b8d0;
+  --canopy-muted: #8888a8;
+  --canopy-text-dim: #8a8aaa;        /* ~4.6:1 on panel-bg */
+
+  /* ── Accent ────────────────────────────────────────────── */
+  --canopy-accent: #8250df;
+  --canopy-accent-hover: rgba(130, 80, 223, 0.12);
+  --canopy-accent-text: #b090e0;
+  --canopy-focus-ring: #a070ef;
+
+  /* ── Syntax (semantic color) ───────────────────────────── */
+  --canopy-keyword: #c792ea;
+  --canopy-identifier: #82aaff;
+  --canopy-number: #f78c6c;
+  --canopy-string: #c3e88d;
+  --canopy-operator: #ff5370;
+
+  /* ── Status ────────────────────────────────────────────── */
+  --canopy-error: #cf222e;
+  --canopy-error-text: #ef4444;
+  --canopy-success: #34d058;
+  --canopy-peer-blue: #58a6ff;
+  --canopy-frontier: #ffcb6b;        /* Causal-history "now" stroke. Mirrored
+                                        in MoonBit as FRONTIER_STROKE — DOT
+                                        can't read CSS vars, so the literal
+                                        must stay in sync. */
+  --canopy-shadow-heavy: rgba(0, 0, 0, 0.5);
+
+  /* ── Derived (hover/interaction overlays) ────────────── */
+  --canopy-hover-overlay: rgba(255, 255, 255, 0.03);
+  --canopy-accent-border: rgba(130, 80, 223, 0.2);
+  --canopy-error-bg: rgba(207, 34, 46, 0.1);
+  --canopy-error-border: rgba(207, 34, 46, 0.2);
+  --canopy-scrollbar: rgba(255, 255, 255, 0.08);
+  --canopy-scrollbar-hover: rgba(255, 255, 255, 0.15);
+  --canopy-fg-inverse: #fff;
+
+  /* ── Fonts ─────────────────────────────────────────────── */
+  --canopy-font-mono: 'Iosevka', 'Iosevka Web', monospace;
+  --canopy-font-ui: 'Manrope', system-ui, sans-serif;
+
+  /* ── Type scale ────────────────────────────────────────── */
+  --text-label: 0.6875rem;
+  --text-caption: 0.8125rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-code: 1.125rem;
+
+  /* ── Type weights ──────────────────────────────────────── */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* ── Line heights ──────────────────────────────────────── */
+  --leading-tight: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ── Spacing ───────────────────────────────────────────── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* ── Bottom panel ──────────────────────────────────────── */
+  --bottom-content-max-height: 160px;
+
+  /* ── Radii ─────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+@layer base {
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+}
+
+body {
+  background: var(--canopy-bg);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* dvh respects mobile browser chrome */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Focus ──────────────────────────────────────────────── */
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--canopy-focus-ring);
+    outline-offset: 2px;
+  }
+
+  button:focus-visible, .action-btn:focus-visible,
+  .tab:focus-visible, .tree-toggle:focus-visible {
+    outline: 2px solid var(--canopy-focus-ring);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* ── App Shell ──────────────────────────────────────────── */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  animation: fade-in var(--duration-slow) var(--ease-out-quart);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Toolbar ────────────────────────────────────────────── */
+
+/* Toolbar shell/button chrome is Tailwind-owned via
+   examples/ideal/main/view_toolbar_classes.mbt and main/ui/button.mbt. */
+
+/* ── Workspace ──────────────────────────────────────────── */
+
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Outline Panel ──────────────────────────────────────── */
+
+.outline-panel {
+  width: var(--outline-panel-width, 220px);
+  position: relative;
+  background: var(--canopy-panel-bg);
+  border-right: 1px solid var(--canopy-border);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  /* Fade/slide first, then width collapses after delay */
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              width 0ms var(--duration-normal);
+}
+
+/* Panel header/label/section chrome is Tailwind-owned via
+   examples/ideal/main/view_panel_classes.mbt. Resize-handle chrome is
+   Tailwind-owned via examples/ideal/main/view_outline_classes.mbt. */
+
+/* ── Tree ───────────────────────────────────────────────── */
+
+.tree-rows {
+  padding: 0 var(--space-sm);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tree-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-small);
+  color: var(--canopy-text-secondary);
+  line-height: var(--leading-tight);
+  transition: background var(--duration-fast) var(--ease-out-quart);
+}
+
+.tree-row:hover {
+  background: var(--canopy-hover-overlay);
+}
+
+.tree-row.selected {
+  background: var(--canopy-accent-hover);
+  color: var(--canopy-accent-text);
+}
+
+.tree-accent {
+  width: 3px;
+  height: 16px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--duration-fast) var(--ease-out-quart);
+}
+
+.tree-row:hover .tree-accent,
+.tree-row.selected .tree-accent {
+  opacity: 1;
+}
+
+.tree-row.kind-lambda .tree-accent { background: var(--canopy-keyword); }
+.tree-row.kind-module .tree-accent { background: var(--canopy-accent); }
+.tree-row.kind-app .tree-accent { background: var(--canopy-text-dim); }
+.tree-row.kind-int .tree-accent { background: var(--canopy-number); }
+.tree-row.kind-var .tree-accent { background: var(--canopy-identifier); }
+.tree-row.kind-if .tree-accent { background: var(--canopy-keyword); }
+.tree-row.kind-binop .tree-accent { background: var(--canopy-operator); }
+.tree-row.kind-error .tree-accent { background: var(--canopy-error); }
+.tree-row.kind-unit .tree-accent { background: var(--canopy-text-dim); }
+.tree-row.kind-unbound .tree-accent { background: var(--canopy-error); }
+.tree-row.kind-hole .tree-accent { background: var(--canopy-text-dim); }
+
+.tree-toggle {
+  font-size: var(--text-label);
+  width: 16px;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--canopy-text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out-quart);
+}
+
+.tree-toggle:hover { color: var(--canopy-text-secondary); }
+
+.tree-label-text {
+  font-family: var(--canopy-font-mono);
+  font-size: var(--text-small);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tree indentation */
+.tree-row.depth-1 { padding-left: 24px; }
+.tree-row.depth-2 { padding-left: 40px; }
+.tree-row.depth-3 { padding-left: 56px; }
+.tree-row.depth-4 { padding-left: 72px; }
+.tree-row.depth-5 { padding-left: 88px; }
+.tree-row.depth-6 { padding-left: 104px; }
+.tree-row.depth-7 { padding-left: 120px; }
+
+/* Outline drag-and-drop */
+.tree-row.outline-dragging { opacity: 0.4; }
+.tree-row.outline-drop-before { border-top: 2px solid var(--canopy-accent); }
+.tree-row.outline-drop-after { border-bottom: 2px solid var(--canopy-accent); }
+.tree-row.outline-drop-inside { outline: 2px solid var(--canopy-accent); outline-offset: -2px; }
+
+.collapsed-badge {
+  font-size: var(--text-label);
+  color: var(--canopy-text-dim);
+  margin-left: auto;
+  background: var(--canopy-surface);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.eval-badge {
+  font-family: var(--canopy-font-mono);
+  font-size: var(--text-label);
+  color: var(--canopy-accent-text);
+  opacity: 0.7;
+  font-style: italic;
+  margin-left: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.eval-badge.eval-error {
+  color: var(--canopy-error);
+}
+
+/* No-tree note and peer chrome are Tailwind-owned via
+   examples/ideal/main/view_peer_empty_state_classes.mbt. */
+
+/* ── Peers ──────────────────────────────────────────────── */
+
+@keyframes pulse-connected {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes pulse-connecting {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Empty States ──────────────────────────────────────── */
+
+/* Empty-state chrome is Tailwind-owned via
+   examples/ideal/main/view_peer_empty_state_classes.mbt. */
+
+/* ── Editor ─────────────────────────────────────────────── */
+
+.inactive-pane {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
+.editor-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--canopy-bg);
+}
+
+canopy-editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#canopy-text-editor:not(.inactive-pane) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Inspector Panel ────────────────────────────────────── */
+
+.inspector-panel {
+  width: 240px;
+  background: var(--canopy-panel-bg);
+  border-left: 1px solid var(--canopy-border);
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              width 0ms var(--duration-normal);
+}
+
+/* Inspector section/label chrome is Tailwind-owned via
+   examples/ideal/main/view_panel_classes.mbt. */
+/* Inspector row/source/token detail chrome is Tailwind-owned via
+   examples/ideal/main/view_inspector_classes.mbt. */
+
+.inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Inspector action button chrome is Tailwind-owned by main/ui/button.mbt. */
+
+/* ── Bottom Panel ───────────────────────────────────────── */
+
+.bottom-panel {
+  background: var(--canopy-panel-bg);
+  border-top: 1px solid var(--canopy-border);
+  max-height: 200px;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              grid-template-rows var(--duration-normal) var(--ease-out-quart);
+}
+
+.bottom-content {
+  padding: var(--space-md) var(--space-lg);
+  overflow-y: auto;
+  max-height: var(--bottom-content-max-height);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.no-problems {
+  font-size: var(--text-small);
+  color: var(--canopy-success);
+}
+
+.problem-item {
+  padding: var(--space-xs) 0;
+  font-size: var(--text-small);
+}
+
+.problem-text {
+  color: var(--canopy-error-text);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+}
+
+.state-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+.state-label {
+  font-size: var(--text-small);
+  font-weight: var(--weight-regular);
+  color: var(--canopy-muted);
+  width: 88px;
+}
+
+.state-value {
+  font-size: var(--text-small);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Op log tab (Intent panel — §9.2 inspector traceability) ─ */
+
+.op-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.op-log-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  align-items: baseline;
+}
+
+.op-log-index {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.op-log-intent {
+  font-size: var(--text-small);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+/* ── Patch log tab (§9.2 inspector traceability) ────────── */
+
+.patch-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.patch-log-row {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs) 0;
+  border-left: 2px solid var(--canopy-border);
+  padding-left: var(--space-sm);
+}
+
+.patch-log-header {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.patch-log-index {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.patch-log-op {
+  font-size: var(--text-small);
+  color: var(--canopy-fg);
+  font-family: var(--canopy-font-mono);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+.patch-log-edits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 40px;
+  padding-top: 2px;
+}
+
+.patch-log-edit {
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+  font-family: var(--canopy-font-mono);
+  word-break: break-all;
+}
+
+/* ── Graphviz tab ───────────────────────────────────────── */
+
+/*
+ * The SVG produced by `@gv_svg.render_svg_with_config` carries a viewBox
+ * but no intrinsic width/height. Without an explicit max-height the SVG
+ * inflates to (container_width × viewBox_aspect), which for narrow graphs
+ * (e.g. a 3-node chain at viewBox 90×146) produces a 2000+px tall SVG
+ * inside a 160px panel. Constrain on both axes so the SVG fits the panel
+ * by default while preserving aspect ratio.
+ */
+.graphviz-content {
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+.graphviz-content svg {
+  max-width: 100%;
+  max-height: calc(var(--bottom-content-max-height) - var(--space-md) * 2);
+  width: auto;
+  height: auto;
+}
+
+/* ── Causal History tab ─────────────────────────────────── */
+
+/*
+ * Vertical layout: legend strip on top (decoder for the agent palette and
+ * the "now" frontier highlight), SVG below in a centered, overflow-aware
+ * region. Same SVG sizing strategy as the Graphviz tab, scoped to the
+ * graph row so the legend isn't squeezed out.
+ */
+.history-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-label);
+  color: var(--canopy-muted);
+  border-bottom: 1px solid var(--canopy-border);
+  flex-shrink: 0;
+}
+
+.history-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.history-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.history-legend-frontier {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid var(--canopy-frontier);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.history-graph {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--space-md);
+}
+
+.history-graph svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.history-empty {
+  display: block;
+  padding: var(--space-md);
+  font-size: var(--text-small);
+  color: var(--canopy-muted);
+}
+
+/* ── Incr Graph tab ─────────────────────────────────────── */
+
+/*
+ * Same vertical layout as the History tab: a fixed status-color legend
+ * strip on top (decoder for the VisualNodeStatus palette), the dependency
+ * SVG below in a centered, overflow-aware region.
+ */
+.incr-graph-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Empty-state message ("No incr cells observed yet") — the container drops
+ * its padding for the legend layout, so restore it for the bare span. The
+ * shared `.no-problems` color is success-green (right for the Problems tab,
+ * wrong for this neutral-info message); override to muted for parity with
+ * the History tab's `.history-empty`. */
+.incr-graph-content .no-problems {
+  padding: var(--space-md);
+  color: var(--canopy-muted);
+}
+
+.incr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-label);
+  color: var(--canopy-muted);
+  border-bottom: 1px solid var(--canopy-border);
+  flex-shrink: 0;
+}
+
+.incr-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+/*
+ * Swatch mirrors an actual graph node: a rounded rect filled with the
+ * status fill color and bordered with its stroke color. Both colors arrive
+ * via inline style, sourced from @visualizer.VisualNodeStatus::fill/::stroke.
+ */
+.incr-legend-swatch {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1.5px solid;
+  flex-shrink: 0;
+}
+
+.incr-graph {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--space-md);
+}
+
+.incr-graph svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+/* ── Panel scrim (mobile only — hidden on desktop) ─────── */
+
+.panel-scrim {
+  display: none;
+}
+
+/* ── Panel visibility transitions ───────────────────────── */
+
+.panel-visible {
+  opacity: 1;
+  transform: translateX(0) translateY(0);
+  pointer-events: auto;
+  /* Override hide-delay: width restores instantly on show */
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              width 0ms 0ms;
+}
+
+.outline-panel.panel-hidden {
+  opacity: 0;
+  transform: translateX(-16px);
+  pointer-events: none;
+  width: 0;
+  overflow: hidden;
+  border-color: transparent;
+  padding: 0;
+  /* Fade/slide first (250ms), then collapse width/padding/border after */
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              width 0ms var(--duration-normal),
+              padding 0ms var(--duration-normal),
+              border-color 0ms var(--duration-normal);
+}
+
+.inspector-panel.panel-hidden {
+  opacity: 0;
+  transform: translateX(16px);
+  pointer-events: none;
+  width: 0;
+  overflow: hidden;
+  border-color: transparent;
+  padding: 0;
+  transition: opacity var(--duration-normal) var(--ease-out-quart),
+              transform var(--duration-normal) var(--ease-out-quart),
+              width 0ms var(--duration-normal),
+              padding 0ms var(--duration-normal),
+              border-color 0ms var(--duration-normal);
+}
+
+.bottom-panel.panel-hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  overflow: hidden;
+  border: none;
+  /* Use grid-template-rows for GPU-friendly height collapse */
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+.bottom-panel.panel-hidden > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+
+/* Tablet: compact panels */
+@media (max-width: 1024px) {
+  .outline-panel { width: var(--outline-panel-width, 180px); }
+  .inspector-panel { width: 200px; }
+}
+
+/* Mobile: drawer panels, touch-friendly toolbar */
+@media (max-width: 768px) {
+  /* Safe area support for notched devices */
+  .app-shell {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ── Toolbar: compact, scrollable, safe-area aware ─────── */
+
+  /* Toolbar compact/scrollable rules moved to Tailwind-owned recipes. */
+
+  /* Bottom-tab touch target rules moved to Tailwind-owned recipes. */
+
+  /* Resize-handle mobile visibility moved to Tailwind-owned recipes. */
+
+  /* ── Panel drawers: slide from edges ───────────────────── */
+
+  .outline-panel,
+  .inspector-panel {
+    position: fixed;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    bottom: 0;
+    z-index: 20;
+    width: min(280px, 80vw);
+    overflow-y: auto;
+    /* Reset desktop transitions/hidden state */
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ── Scrim: dim backdrop behind drawer panels ──────────── */
+
+  .panel-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    z-index: 15;
+    background: var(--canopy-shadow-heavy);
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity var(--duration-normal) var(--ease-out-quart);
+  }
+
+  .panel-scrim.scrim-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Outline slides from left */
+  .outline-panel {
+    left: 0;
+    border-right: 1px solid var(--canopy-border);
+    box-shadow: 8px 0 32px var(--canopy-shadow-heavy);
+    transform: translateX(0);
+    transition: transform var(--duration-normal) var(--ease-out-quart);
+  }
+
+  .outline-panel.panel-hidden {
+    transform: translateX(-100%);
+    box-shadow: none;
+    pointer-events: none;
+    /* Override desktop hidden: width must stay for transform to work */
+    width: min(280px, 80vw);
+    overflow: hidden;
+    border: none;
+    padding: 0;
+    opacity: 1; /* slide, don't fade */
+  }
+
+  /* Inspector slides from right */
+  .inspector-panel {
+    right: 0;
+    border-left: 1px solid var(--canopy-border);
+    box-shadow: -8px 0 32px var(--canopy-shadow-heavy);
+    transform: translateX(0);
+    transition: transform var(--duration-normal) var(--ease-out-quart);
+  }
+
+  .inspector-panel.panel-hidden {
+    transform: translateX(100%);
+    box-shadow: none;
+    pointer-events: none;
+    width: min(280px, 80vw);
+    overflow: hidden;
+    border: none;
+    padding: 0;
+    opacity: 1;
+  }
+
+  /* ── Bottom panel: taller on mobile for touch ──────────── */
+
+  .bottom-panel {
+    max-height: 45vh;
+  }
+
+  .bottom-content {
+    /* Override the token, not max-height directly, so .graphviz/.history
+     * SVGs (which derive their cap from this token) scale with the
+     * mobile-expanded panel instead of staying clamped to 160px. */
+    --bottom-content-max-height: 40vh;
+  }
+
+  /* ── Tree: reduce indentation, cap at depth 5 ──────────── */
+
+  .tree-row.depth-1 { padding-left: 20px; }
+  .tree-row.depth-2 { padding-left: 32px; }
+  .tree-row.depth-3 { padding-left: 44px; }
+  .tree-row.depth-4 { padding-left: 56px; }
+  .tree-row.depth-5,
+  .tree-row.depth-6,
+  .tree-row.depth-7 { padding-left: 64px; }
+
+  /* Touch targets: 44px minimum per WCAG 2.5.8 */
+  .tree-row {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    min-height: 44px;
+  }
+
+  .tree-toggle {
+    width: 28px;
+    min-height: 28px;
+    font-size: var(--text-small);
+  }
+
+  /* Panel section chrome is Tailwind-owned via main/view_panel_classes.mbt. */
+}
+
+/* Small phones: further compact */
+@media (max-width: 480px) {
+  .outline-panel,
+  .inspector-panel {
+    width: 100vw;
+  }
+
+  .outline-panel.panel-hidden {
+    width: 100vw;
+  }
+
+  .inspector-panel.panel-hidden {
+    width: 100vw;
+  }
+}
+
+/* Touch device: suppress hover flicker */
+@media (hover: none) {
+  .tree-row:hover { background: transparent; }
+}
+
+/* Landscape mobile: reduce toolbar + bottom panel height */
+@media (max-width: 768px) and (orientation: landscape) {
+  .outline-panel,
+  .inspector-panel {
+    top: calc(40px + env(safe-area-inset-top, 0px));
+  }
+
+  .outline-panel.panel-hidden,
+  .inspector-panel.panel-hidden {
+    top: calc(40px + env(safe-area-inset-top, 0px));
+  }
+
+  .panel-scrim {
+    top: calc(40px + env(safe-area-inset-top, 0px));
+  }
+
+  .bottom-panel { max-height: 30vh; }
+  .bottom-content { --bottom-content-max-height: 25vh; }
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--canopy-scrollbar); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--canopy-scrollbar-hover); }
+
+.app-shell, .app-shell * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--canopy-scrollbar) transparent;
+}
+
+/* ── Action Overlay ──────────────────────────────────────
+   Visual declarations for the light-DOM action overlay/name prompt now live in
+   Tailwind utilities in examples/ideal/main/view_actions.mbt. Keep only the
+   keyframes referenced by the Tailwind animation token. */
+
+@keyframes overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

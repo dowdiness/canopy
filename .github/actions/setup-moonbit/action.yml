@@ -1,0 +1,36 @@
+name: 'Set up MoonBit'
+description: >-
+  Install the latest MoonBit toolchain and export NEW_MOON_MOD=0 for
+  every downstream step. NEW_MOON_MOD=0 opts out of the rr_moon_mod
+  TOML migration (moonbitlang/moon#1716), which otherwise drops path
+  fields from cross-repo deps that have no valid TOML expression.
+  Setup chosen after comparing three candidates on 2026-05-23 (run
+  26330483536); see docs/2026-05-22-upstream-moonbit-rr-moon-mod-issue.md.
+
+runs:
+  using: composite
+  steps:
+    - name: Export NEW_MOON_MOD opt-out
+      shell: bash
+      run: echo "NEW_MOON_MOD=0" >> "$GITHUB_ENV"
+    # MoonBit toolchain version pinned to 0.10.2+1bb3e16cf (2026-06-29).
+    # Version 0.10.0+84519ca0a had a wasm-gc v128/SIMD bundling bug and
+    # didn't support the `formatter` key in moon.pkg (needed by rabbita).
+    # See PR #819 for the wasm-gc fix context.
+    - name: Install MoonBit
+      uses: hustcer/setup-moonbit@v1.22
+      with:
+        version: 0.10.2+1bb3e16cf
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Cache MoonBit registry state
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.moon/registry/index
+          ~/.moon/registry/cache
+          ~/.moon/registry/symbols
+        key: moonbit-registry-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/moon.mod.json', '**/moon.mod') }}
+        restore-keys: |
+          moonbit-registry-${{ runner.os }}-${{ runner.arch }}-

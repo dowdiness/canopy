@@ -1,0 +1,63 @@
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
+  "dowdiness/canopy-canvas-graph/graph_model",
+  "dowdiness/incr",
+  "dowdiness/graph-dsl" @graph_dsl,
+  "dowdiness/loom/core",
+  "dowdiness/rabbita_codemirror" @codemirror,
+  "dowdiness/rabbita-context-menu/context_menu",
+  "dowdiness/rabbita-status/status",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+}
+
+// Keep this package JS-only until `defer_sync` in `source_demo.mbt` has a
+// non-JS implementation with the same post-mutation defer ordering as browser
+// `queueMicrotask`; a synchronous fallback reintroduces stale source reads.
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+  link: {
+    "js": {
+      "exports": [
+        "create_canvas",
+        "pointer_down",
+        "pointer_down_handle",
+        "pointer_move",
+        "pointer_up",
+        "hover_node",
+        "zoom",
+        "add_node",
+        "delete_nodes",
+        "disconnect_ports",
+        "get_input_port_compatibility",
+        "get_render_state",
+        "get_action_log",
+        "create_source_graph",
+        "destroy_source_graph",
+        "get_source_graph_source",
+        "set_source_graph_source",
+        "set_source_graph_source_result",
+        "get_source_graph_render_state",
+        "get_source_graph_action_log",
+        "apply_source_graph_operation",
+        "sample_graph_dsl_source",
+        "mount_source_demo",
+        "mount_canvas_context_menu",
+        "source_graph_insert_unique",
+        "source_graph_pointer_down",
+        "source_graph_pointer_move",
+        "source_graph_pointer_up",
+        "get_source_graph_input_port_compatibility",
+        "source_graph_zoom",
+      ],
+    },
+  },
+)

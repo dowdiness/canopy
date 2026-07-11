@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita_codemirror/js"
+
+// Values
+pub fn cm_module_of(@moonbit-community/rabbita/js.Value) -> CmModule
+
+pub fn js_add_update_listener(CmView, Compartment, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit) -> Disposable
+
+pub fn js_compartment_new(CmModule) -> Compartment
+
+pub fn js_compartment_of(Compartment, Extension) -> Extension
+
+pub fn js_compartment_reconfigure(Compartment, Extension) -> TransactionSpec
+
+pub fn js_create_view(CmModule, String, String, Extension) -> CmView
+
+pub fn js_dispatch(CmView, TransactionSpec) -> Unit
+
+pub fn js_extension_combine(Array[Extension]) -> Extension
+
+pub fn js_replace_doc_minimal(CmView, String) -> Unit
+
+pub fn js_state_doc(CmView) -> String
+
+pub fn js_state_selection_main(CmView) -> @moonbit-community/rabbita/js.Value
+
+pub fn js_view_destroy(CmView) -> Unit
+
+pub fn load_codemirror(source? : String) -> @moonbit-community/rabbita/js.Promise
+
+pub fn raw_extension(@moonbit-community/rabbita/js.Value) -> Extension
+
+// Errors
+
+// Types and methods
+pub struct CmModule(@moonbit-community/rabbita/js.Value)
+
+pub struct CmView(@moonbit-community/rabbita/js.Value)
+
+pub struct Compartment(@moonbit-community/rabbita/js.Value)
+
+pub struct Disposable(() -> Unit)
+pub fn Disposable::dispose(Self) -> Unit
+
+pub struct Extension(@moonbit-community/rabbita/js.Value)
+
+pub struct TransactionSpec(@moonbit-community/rabbita/js.Value)
+
+// Type aliases
+
+// Traits
+

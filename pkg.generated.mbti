@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/projection",
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/relay",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @core {type NodeId}
+
+pub using @core {type ProjNode}
+
+pub using @relay {type RelayRoom}
+
+pub using @core {type SourceMap}
+
+pub using @editor {type SyncEditor}
+
+pub using @projection {type TreeEditorState}
+
+pub using @protocol {type ViewNode}
+
+pub using @protocol {type ViewPatch}
+
+pub using @editor {type ViewUpdateState}
+
+// Traits
+

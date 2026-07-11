@@ -1,0 +1,70 @@
+// Lambda calculus grammar for Lezer / CodeMirror 6
+// Matches the source-file grammar from loom/examples/lambda.
+//
+// Precedence (low→high): lambda/if < binary-op < application < atom
+
+@top Program { newline* (item (newline+ item)* newline*)? }
+
+item { FnDef | LetDef | expression }
+
+FnDef { kw<"fn"> VariableName ParamList Block }
+
+LetDef { kw<"let"> VariableName "=" expression }
+
+ParamList { "(" param ("," param)* ")" }
+
+param { VariableName ~arrow TypeAnnot? }
+
+TypeAnnot { ":" type }
+
+type { typeAtom ("->" type)? }
+
+typeAtom { VariableName | "(" type ")" }
+
+expression {
+  LambdaExpr |
+  IfExpr |
+  binaryOrApp
+}
+
+LambdaExpr { ParamList "=>" lambdaBody }
+
+lambdaBody { expression }
+
+IfExpr { kw<"if"> expression kw<"then"> expression kw<"else"> expression }
+
+binaryOrApp {
+  Application (Operator Application)*
+}
+
+Application { atom+ }
+
+atom {
+  Number |
+  VariableName ~arrow |
+  Block |
+  ParenExpr
+}
+
+Block { "{" newline* (item ((newline | ";")+ item)* (newline | ";")*)? "}" }
+
+ParenExpr { "(" expression ")" }
+
+kw<word> { @specialize[@name={word}]<VariableName, word> }
+
+@tokens {
+  Number { $[0-9]+ }
+  VariableName { $[a-zA-Z_] $[a-zA-Z0-9_]* }
+  Operator { "+" | "-" }
+  newline { "\n" }
+  space { $[ \t\r]+ }
+  "(" ")" "{" "}"
+  "," ":" ";"
+  "=" "=>" "->"
+
+  @precedence { "=>", "->", Number, VariableName }
+}
+
+@skip { space }
+
+@detectDelim

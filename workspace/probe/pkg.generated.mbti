@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/workspace/probe"
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/incr/cells",
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn get_test_ast(@editor.SyncEditor[TestExpr]) -> TestExpr
+
+pub fn new_test_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[TestExpr]
+
+// Errors
+
+// Types and methods
+pub(all) enum TestExpr {
+  Leaf(String)
+  Branch(String, Array[TestExpr])
+} derive(Eq, @debug.Debug)
+pub impl @core.Renderable for TestExpr
+pub impl @core.TreeNode for TestExpr
+pub impl Show for TestExpr
+pub impl ToJson for TestExpr
+
+type TestKind derive(Eq, @debug.Debug)
+
+type TestToken derive(Eq)
+
+// Type aliases
+
+// Traits
+

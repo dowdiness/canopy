@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/json/edits"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/json",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn compute_json_edit(JsonEditOp, String, @core.ProjNode[@json.JsonValue], @core.SourceMap) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
+
+// Errors
+
+// Types and methods
+pub(all) enum JsonEditOp {
+  Delete(node_id~ : @core.NodeId)
+  AddMember(object_id~ : @core.NodeId, key~ : String)
+  AddElement(array_id~ : @core.NodeId)
+  WrapInArray(node_id~ : @core.NodeId)
+  WrapInObject(node_id~ : @core.NodeId, key~ : String)
+  Unwrap(node_id~ : @core.NodeId)
+  ChangeType(node_id~ : @core.NodeId, new_type~ : JsonType)
+  RenameKey(object_id~ : @core.NodeId, key_index~ : Int, new_key~ : String)
+  CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for JsonEditOp
+
+pub(all) enum JsonType {
+  JNull
+  JBool
+  JNumber
+  JString
+  JArray
+  JObject
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

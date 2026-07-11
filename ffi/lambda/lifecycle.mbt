@@ -1,0 +1,134 @@
+// Lambda editor FFI — lifecycle, text I/O, handle registry.
+//
+// All editor construction funnels through `assemble_lambda_handle` so the
+// FFI ctors (`create_editor`, `create_editor_with_undo`) share one
+// `@incr.Runtime`, one atomic registration boundary, and one destroy
+// gateway. See docs/superpowers/specs/2026-05-24-p0b-phase1-skeleton-design.md
+// §8 and docs/superpowers/plans/2026-05-24-p0b-phase1-implementation.md §PR4.
+
+///|
+priv struct LambdaHandle {
+  editor : @editor.SyncEditor[@ast.Term]
+  companion : @lang_lambda.LambdaCompanion
+  editor_id : @workspace.EditorId
+  cells : LambdaProtectedCells
+}
+
+///|
+/// Process-global coordinator. Claimed once. Every FFI ctor goes through
+/// `assemble_lambda_handle`, which uses this instance so all editors share
+/// the same `@incr.Runtime` and the same atomic registration boundary.
+let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
+
+///|
+/// Generic handle/view-state bookkeeping shared with the other language FFI
+/// packages via `ffi/host`. Keyed by the exported integer handle. Lambda
+/// extras (`pretty_view_states`, `last_created_handle`, companion disposal)
+/// stay language-local.
+let lambda_registry : @host.HostRegistry[LambdaHandle] = @host.HostRegistry::HostRegistry()
+
+///|
+let last_created_handle : Ref[Int?] = { val: None }
+
+///|
+/// Build a Lambda editor + companion on the shared runtime, then
+/// atomically register them with the coordinator. Returns
+/// the freshly-allocated `EditorId`. Aborting at any step leaves
+/// `lambda_registry` untouched (atomic-boundary observation, spec §8.3).
+fn assemble_lambda_handle(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+) -> @workspace.EditorId {
+  let (editor, companion) = @lang_lambda.new_lambda_editor(
+    agent_id,
+    capture_timeout_ms~,
+    parent_runtime=coordinator.runtime(),
+  )
+  let cells = LambdaProtectedCells::LambdaProtectedCells(editor, companion)
+  let editor_id = coordinator.register_editor(
+    agent_id,
+    cells.to_protected_reads(),
+  )
+  lambda_registry.insert(editor_id.0, { editor, companion, editor_id, cells })
+  last_created_handle.val = Some(editor_id.0)
+  editor_id
+}
+
+///|
+/// Get the most recently created editor for legacy MoonBit consumers.
+pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]? {
+  match last_created_handle.val {
+    Some(handle) =>
+      match lambda_registry.get(handle) {
+        Some(h) => Some(h.editor)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+/// Get the companion for the most recently created lambda editor.
+pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
+  match last_created_handle.val {
+    Some(handle) =>
+      match lambda_registry.get(handle) {
+        Some(h) => Some(h.companion)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+/// Create a new SyncEditor instance. Returns a unique handle.
+pub fn create_editor(agent_id : String) -> Int {
+  assemble_lambda_handle(agent_id).0
+}
+
+///|
+/// Destroy an editor instance and free its resources. The coordinator
+/// gateway refuses if workspace deps still reference the editor; in that
+/// case the FFI-side bookkeeping and analysis attachment are intentionally
+/// left intact so reads of cached state remain valid.
+pub fn destroy_editor(handle : Int) -> Unit {
+  let h = match lambda_registry.get(handle) {
+    Some(v) => v
+    None => return
+  }
+  // The host gateway logs + skips teardown on refusal so dep references
+  // remain valid (Phase 2 surfaces this to JS via a dedicated FFI error
+  // channel). On success it removes the handle entry and ordinary view
+  // state BEFORE we dispose the analysis attachment: if dispose ever raises
+  // (e.g., loom-side cleanup defect), the externally-visible state still
+  // reflects reality — the handle is gone, subsequent FFI calls on it
+  // return the empty/default fallback path. A leaked attachment is
+  // observable only via incr-level inspection; a leaked registry entry
+  // would be observable as a phantom editor.
+  guard lambda_registry.destroy(coordinator, h.editor_id, "destroy_editor") else {
+    return
+  }
+  pretty_view_states.remove(handle)
+  if last_created_handle.val == Some(handle) {
+    last_created_handle.val = None
+  }
+  h.companion.dispose_analysis_attachment()
+}
+
+///|
+/// Get current text content
+pub fn get_text(handle : Int) -> String {
+  match lambda_registry.get(handle) {
+    Some(h) => h.editor.get_text()
+    None => ""
+  }
+}
+
+///|
+/// Set text content directly (replaces entire document)
+pub fn set_text(handle : Int, new_text : String) -> Unit {
+  match lambda_registry.get(handle) {
+    Some(h) => h.editor.set_text(new_text)
+    None => ()
+  }
+}

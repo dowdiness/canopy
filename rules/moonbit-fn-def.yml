@@ -1,0 +1,10 @@
+id: moonbit-fn-def
+language: moonbit
+severity: hint
+message: "MoonBit function definition"
+# Uses expandoChar "_" (configured in sgconfig.yml) — metavariables use _NAME
+# not $NAME. Run: sg run -c 'rules/' --json to get byte-offset matches.
+rule:
+  any:
+    - pattern: "fn _FNAME(___PARAMS) { ___BODY }"
+    - pattern: "fn _FNAME(___PARAMS) -> _RET { ___BODY }"

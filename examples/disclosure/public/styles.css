@@ -1,0 +1,122 @@
+:root {
+  --base: #1a1a2e;
+  --surface: #21213a;
+  --surface-2: #2a2a48;
+  --border: #34345a;
+  --accent: #8250df;
+  --accent-2: #c792ea;
+  --text: #e7e7f4;
+  --muted: #9a9ac0;
+  --string: #c3e88d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 70% -10%, #232342 0%, var(--base) 60%);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 72px 24px 96px;
+}
+
+.hero {
+  margin-bottom: 40px;
+}
+
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin: 0 0 8px;
+}
+
+.hero h1 {
+  font-size: 44px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 52ch;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.disclosure {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  overflow: hidden;
+}
+
+.disclosure-trigger {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 550;
+  padding: 18px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 140ms ease;
+}
+
+.disclosure-trigger:hover {
+  background: rgba(130, 80, 223, 0.08);
+}
+
+.disclosure-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Chevron driven purely by ARIA state — no extra markup. */
+.disclosure-trigger::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--accent-2);
+  border-bottom: 2px solid var(--accent-2);
+  transform: rotate(-45deg);
+  transition: transform 160ms ease;
+  flex: none;
+}
+
+.disclosure-trigger[aria-expanded="true"]::before {
+  transform: rotate(45deg);
+}
+
+.disclosure-panel {
+  padding: 0 20px 20px 40px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.disclosure-panel p {
+  margin: 0;
+}

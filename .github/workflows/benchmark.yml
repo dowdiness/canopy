@@ -1,0 +1,353 @@
+name: Benchmark Regression
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-gate:
+    name: Benchmark Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_moon_benchmarks: ${{ steps.filter.outputs.run_moon_benchmarks }}
+      run_editor_response: ${{ steps.filter.outputs.run_editor_response }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Detect benchmark-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            run_moon_benchmarks:
+              - '**/*.mbt'
+              - '**/moon.pkg'
+              - '**/moon.mod'
+              - '**/moon.mod.json'
+              - 'moon.work'
+              - 'alga'
+              - 'event-graph-walker'
+              - 'graphviz'
+              - 'loom'
+              - 'order-tree'
+              - 'rabbita'
+              - 'rle'
+              - 'svg-dsl'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/benchmark.yml'
+              - 'scripts/moon-update.sh'
+              - 'scripts/run-moon-module.sh'
+            run_editor_response:
+              - 'examples/ideal/**'
+              - 'examples/web/vite-plugin-moonbit.ts'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/benchmark.yml'
+              - 'scripts/moon-update.sh'
+
+  benchmark-pr:
+    name: Benchmark PR Branch
+    needs: benchmark-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip PR benchmarks
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
+        run: echo "No MoonBit benchmark-relevant changes detected; skipping PR benchmarks."
+
+      - name: Checkout PR branch
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Run PR benchmarks
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        # Targeted bench: compile only packages with benchmarks + their transitive
+        # deps, not all 37 workspace members. Covers EGW, btree, visualizer,
+        # editor, projection, json/companion, and loom lambda/json/markdown
+        # examples (captured when the loom submodule pointer changes).
+        continue-on-error: true
+        run: |
+          echo "Running benchmarks on PR branch..."
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > pr_bench.txt 2>&1; then
+            cat pr_bench.txt
+          else
+            cat pr_bench.txt
+            echo "(PR benchmark failed)"
+          fi
+
+
+      - name: Upload PR benchmark results
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-benchmark-results
+          path: |
+            pr_bench.txt
+          retention-days: 7
+
+  benchmark-base:
+    name: Benchmark Base Branch
+    needs: benchmark-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip base benchmarks
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
+        run: echo "No MoonBit benchmark-relevant changes detected; skipping base benchmarks."
+
+      - name: Restore base benchmark cache
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        id: base-benchmark-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            base_bench.txt
+          key: benchmark-base-v5-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+
+      - name: Validate base benchmark cache
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        id: base-cache-files
+        run: |
+          if [ "${{ steps.base-benchmark-cache.outputs.cache-hit }}" = "true" ] && \
+             [ -f base_bench.txt ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout base branch
+        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          submodules: recursive
+
+      - name: Set up MoonBit
+        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Run base benchmarks
+        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        # Targeted bench: same -p flags as PR branch for apples-to-apples comparison.
+        continue-on-error: true
+        run: |
+          echo "Running benchmarks on base branch..."
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > base_bench.txt 2>&1; then
+            cat base_bench.txt
+          else
+            echo "(base branch benchmark failed — may not compile)" > base_bench.txt
+            cat base_bench.txt
+          fi
+
+
+      - name: Save base benchmark cache
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            base_bench.txt
+          key: ${{ steps.base-benchmark-cache.outputs.cache-primary-key }}
+
+      - name: Upload base benchmark results
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: base-benchmark-results
+          path: |
+            base_bench.txt
+          retention-days: 7
+
+  benchmark-comparison:
+    name: Compare Benchmarks
+    needs: [benchmark-gate, benchmark-pr, benchmark-base]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Skip benchmark comparison
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
+        run: echo "No MoonBit benchmark-relevant changes detected; skipping benchmark comparison."
+
+      - name: Download PR benchmark results
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v8
+        with:
+          name: pr-benchmark-results
+          path: benchmark-results/pr
+
+      - name: Download base benchmark results
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v8
+        with:
+          name: base-benchmark-results
+          path: benchmark-results/base
+
+      - name: Compare results
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        id: compare
+        run: |
+          cat_benchmark_file() {
+            path="$1"
+            if [ -f "$path" ]; then
+              cat "$path"
+            else
+              echo "(benchmark output unavailable: $path missing)"
+            fi
+          }
+
+          base_ref="${{ github.base_ref || github.event.repository.default_branch }}"
+          {
+            echo "## Benchmark Comparison Report"
+            echo ""
+            echo "Comparing PR branch against \`${base_ref}\`"
+            echo ""
+
+            echo "### Main Module Benchmarks"
+            echo ""
+            echo "**Base branch:**"
+            echo '```'
+            cat_benchmark_file benchmark-results/base/base_bench.txt
+            echo '```'
+            echo ""
+
+            echo "**PR branch:**"
+            echo '```'
+            cat_benchmark_file benchmark-results/pr/pr_bench.txt
+            echo '```'
+            echo ""
+
+
+            echo "---"
+            echo "*Benchmarks run with \`--release\` flag*"
+          } > comparison.md
+
+      - name: Post comment to PR
+        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const comparison = fs.readFileSync('comparison.md', 'utf8');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Benchmark Comparison Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comparison
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comparison
+              });
+            }
+
+      - name: Upload benchmark comparison
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-comparison
+          path: |
+            benchmark-results/base/base_bench.txt
+            benchmark-results/pr/pr_bench.txt
+            comparison.md
+          retention-days: 30
+
+  editor-response-benchmark:
+    name: Editor Response Benchmark Gate
+    needs: benchmark-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report benchmark not applicable
+        if: needs.benchmark-gate.outputs.run_editor_response != 'true' && github.event_name != 'workflow_dispatch'
+        run: |
+          echo "Editor response benchmark not applicable: no editor-response paths changed."
+
+      - name: Checkout PR branch
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Setup Node.js
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: examples/ideal/web/package-lock.json
+
+      - name: Install web dependencies
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: examples/ideal/web
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('examples/ideal/web/package-lock.json') }}
+      - name: Install Playwright browser
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: examples/ideal/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Update MoonBit dependencies
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: examples/ideal
+        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+        run: |
+          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+
+      - name: Run realistic editor response benchmark
+        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: examples/ideal/web
+        env:
+          # CI-only paint budget for the 10% trimmed-mean gate (#460, the durable
+          # fix for the single-run-p95 flakiness #458/#459 papered over with a 175
+          # ms p95 budget). The trimmed mean drops the 1-2 transient slow paints
+          # per run that made p95 noisy, so the gate tracks the runner's central
+          # latency. 130 is derived from the observed CI distribution (12 runs):
+          # worst central tendency ~95-97 ms plus ~3.5 sigma of the ~9.6 ms
+          # between-run baseline drift. It is a calibrated empirical ceiling (n=12,
+          # not a strong statistical bound) — meaningfully tighter than the old 175
+          # (catches a ~+37% regression on the ~95 ms CI baseline vs ~+119% before)
+          # while leaving ~35% headroom over the worst clean run. The 100 ms local
+          # default in the spec is preserved. Positive control: re-run with
+          # EDITOR_RESPONSE_INJECT_PAINT_MS set (e.g. 80) to confirm the gate still
+          # FAILS on a uniform ~2x paint regression.
+          EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS: 130
+        run: npm run test:perf

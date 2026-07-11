@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita-tabs/tabs"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn tablist_attrs(label~ : String) -> @html.Attrs
+
+// Errors
+
+// Types and methods
+pub struct Model {
+  // private fields
+}
+pub fn Model::focus_cmd(Self) -> @cmd.Cmd
+pub fn Model::nav_target(Self, String) -> Int?
+pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Self
+pub fn Model::panel_attrs(Self, Int, panel_id~ : String) -> @html.Attrs
+pub fn Model::tab_attrs(Self, Int, panel_id~ : String, dispatch~ : (Int) -> @cmd.Cmd) -> @html.Attrs
+
+// Type aliases
+
+// Traits
+

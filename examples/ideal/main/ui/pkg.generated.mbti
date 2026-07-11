@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main/ui"
+
+import {
+  "dowdiness/rabbita-tabs/tabs",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn action_button_class() -> String
+
+pub fn action_button_danger_class() -> String
+
+pub fn behavior(id~ : String, tab_count~ : Int, selected~ : Int) -> @tabs.Model
+
+pub fn inspector_label_class() -> String
+
+pub fn inspector_section_class() -> String
+
+pub fn menu_item_class(String) -> String
+
+pub fn menu_item_danger_class(String) -> String
+
+pub fn panel_label_class() -> String
+
+pub fn panel_section_class() -> String
+
+pub fn tab_class(Bool) -> String
+
+pub fn tab_panel_view(@tabs.Model, Int, panel_id~ : String, class~ : String, Array[@html.Html]) -> @html.Html
+
+pub fn tab_trigger_view(@tabs.Model, Int, Tab, panel_id~ : String, Bool, (Int) -> @cmd.Cmd, (Bool) -> String) -> @html.Html
+
+pub fn tablist_view(label~ : String, class~ : String, Array[@html.Html]) -> @html.Html
+
+pub fn tabs_container_class() -> String
+
+pub fn toolbar_button_class() -> String
+
+pub fn toolbar_example_button_class() -> String
+
+pub fn toolbar_panel_toggle_class(Bool) -> String
+
+pub fn toolbar_tab_class(Bool) -> String
+
+pub fn underline_tab_style() -> TabStyle
+
+// Errors
+
+// Types and methods
+pub(all) struct Tab {
+  id : String
+  label : String
+}
+
+pub(all) struct TabStyle {
+  container_class : String
+  tab_class : (Bool) -> String
+}
+
+// Type aliases
+
+// Traits
+

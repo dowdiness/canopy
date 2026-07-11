@@ -1,0 +1,120 @@
+import {
+  "dowdiness/canopy/analysis_bridge" @analysis,
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/ffi/host",
+  "dowdiness/canopy/ffi/io",
+  "dowdiness/canopy/js_ffi" @js,
+  "dowdiness/canopy/lang/lambda" @lang_lambda,
+  "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
+  "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
+  "dowdiness/canopy/llm",
+  "dowdiness/canopy/relay",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/workspace/coordinator" @workspace,
+  "dowdiness/lambda/ast",
+  "dowdiness/lambda/typecheck",
+  "dowdiness/loom/core" @loom,
+  "dowdiness/seam",
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/analysis" @facts,
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+}
+
+import {
+  "dowdiness/canopy/protocol/wire",
+} for "test"
+
+import {
+  "dowdiness/incr",
+  "moonbitlang/core/debug",
+} for "wbtest"
+
+// `cells` field of LambdaHandle is read in production by Phase 1b accessors
+// (`get_diagnostics_json`, view/pretty/semantic projection accessors, and
+// `rename_semantic_node`) and by whitebox tests
+// (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell coverage.
+
+// JS-only: the editor FFI targets the browser/JS runtime (depends on
+// js_async and the JS file-I/O transport).
+
+supported_targets = "js"
+
+warnings = "-7"
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "create_editor",
+        "destroy_editor",
+        "get_text",
+        "set_text",
+        "register_file_host",
+        "load_file",
+        "on_file_opened",
+        "save_file",
+        "get_ast_dot_resolved",
+        "get_ast_pretty",
+        "get_errors_json",
+        "get_diagnostics_json",
+        "get_semantic_projection_json",
+        "rename_semantic_node",
+        "export_all_json",
+        "export_since_json",
+        "apply_sync_json",
+        "get_version_json",
+        "create_editor_with_undo",
+        "insert_and_record",
+        "delete_and_record",
+        "backspace_and_record",
+        "set_text_and_record",
+        "undo_manager_undo",
+        "undo_manager_redo",
+        "undo_manager_can_undo",
+        "undo_manager_can_redo",
+        "undo_manager_set_tracking",
+        "undo_manager_clear",
+        "ephemeral_encode_all",
+        "ephemeral_apply",
+        "ephemeral_set_presence",
+        "ephemeral_set_presence_with_selection",
+        "ephemeral_delete_presence",
+        "ephemeral_remove_outdated",
+        "ephemeral_get_peer_cursors_json",
+        "get_proj_node_json",
+        "get_source_map_json",
+        "apply_tree_edit_json",
+        "insert_at",
+        "delete_at",
+        "undo_and_export_json",
+        "redo_and_export_json",
+        "relay_on_connect",
+        "relay_on_message",
+        "relay_on_disconnect",
+        "ws_on_open",
+        "ws_on_message",
+        "ws_on_close",
+        "ws_broadcast_edit",
+        "ws_broadcast_cursor",
+        "ws_on_watchdog_fire",
+        "ws_enable_watchdog",
+        "ws_set_status_callback",
+        "get_view_tree_json",
+        "compute_view_patches_json",
+        "apply_ast_grep_results_json",
+        "handle_text_intent",
+        "handle_text_intent_checked",
+        "handle_undo",
+        "handle_redo",
+        "handle_structural_intent",
+        "get_pretty_view_json",
+        "compute_pretty_patches_json",
+        "canopy_llm_fix_typos",
+        "canopy_llm_edit",
+      ],
+    },
+  },
+)

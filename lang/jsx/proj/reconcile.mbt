@@ -93,9 +93,13 @@ fn walk(
         walk(node.children[i], id, i, existing, patches, reached)
       }
     }
-    @jsx.JsxNode::Root(..) | @jsx.JsxNode::Fragment(..) =>
+    @jsx.JsxNode::Root(..) =>
       for i in 0..<node.children.length() {
-        walk(node.children[i], id, i, existing, patches, reached)
+        walk(node.children[i], -1, i, existing, patches, reached)
+      }
+    @jsx.JsxNode::Fragment(..) =>
+      for i in 0..<node.children.length() {
+        walk(node.children[i], -1, i, existing, patches, reached)
       }
     @jsx.JsxNode::Error(_) => ()
   }

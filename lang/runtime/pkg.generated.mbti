@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/runtime"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/incr/cells",
+  "dowdiness/loom/pipeline",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct LanguageSpec[T, Op] {
+  // private fields
+}
+pub fn[T, Op] LanguageSpec::LanguageSpec(make_parser~ : (String, @cells.Runtime?) -> @pipeline.Parser[T], build_memos~ : (@pipeline.Parser[T]) -> (@cells.Derived[@core.ProjNode[T]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[T]]], @cells.Derived[@core.SourceMap]), compute_edit~ : (Op, String, @core.ProjNode[T], @core.SourceMap) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError, on_no_edit~ : (Op) -> Unit raise @core.EditError) -> Self[T, Op]
+pub fn[T : Eq, Op] LanguageSpec::apply_edit(Self[T, Op], @editor.SyncEditor[T], Op, Int) -> Result[Unit, String]
+pub fn[T, Op] LanguageSpec::new_editor(Self[T, Op], String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : @editor.LanguageCapabilities[T]) -> @editor.SyncEditor[T]
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,7 @@
+import {
+  "moonbit-community/rabbita/html",
+}
+
+warnings = "-unused_package"
+
+supported_targets = "js+native"

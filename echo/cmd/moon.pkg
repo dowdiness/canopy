@@ -1,0 +1,13 @@
+import {
+  "dowdiness/canopy/echo",
+  "dowdiness/canopy/echo/tokenizer",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitlang/core/argparse",
+  "moonbitlang/x/sys",
+  "moonbitlang/x/fs",
+}
+
+options(
+  "is-main": true,
+)

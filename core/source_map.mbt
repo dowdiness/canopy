@@ -1,0 +1,356 @@
+// SourceMap: Bidirectional mapping between AST nodes and UTF-16 source ranges.
+// Enables efficient lookup in both directions for projectional editing.
+
+///|
+using @loomcore {type Range}
+
+///|
+/// Maps between AST node IDs and half-open UTF-16 code-unit source ranges.
+/// Ranges here are `@loomcore.Range`; do not pass eg-walker item-space ranges
+/// or ProseMirror tree positions to SourceMap APIs.
+pub struct SourceMap {
+  /// NodeId → UTF-16 source range mapping
+  node_to_range : Map[NodeId, Range]
+  /// Reverse index: position → candidate NodeIds (for point queries)
+  /// Uses a simple array of (range, node_id) tuples sorted by start
+  ranges : Array[(Range, NodeId)]
+  /// Token-level UTF-16 source spans within nodes (e.g., param name in lambda,
+  /// binding name in let). Outer key = NodeId of containing node, inner key =
+  /// token role name, value = Range.
+  token_spans : Map[NodeId, Map[String, Range]]
+} derive(Debug, Eq)
+
+///|
+/// Create an empty SourceMap
+pub fn SourceMap::new() -> SourceMap {
+  { node_to_range: {}, ranges: [], token_spans: {} }
+}
+
+///|
+/// Build a SourceMap from a ProjNode tree
+pub fn[T] SourceMap::from_ast(root : ProjNode[T]) -> SourceMap {
+  let map = SourceMap::new()
+  map.build_from_node(root)
+  map.rebuild_ranges()
+  map
+}
+
+///|
+/// Walk the tree via walk_preorder to build the node-to-range map
+fn[T] SourceMap::build_from_node(self : SourceMap, node : ProjNode[T]) -> Unit {
+  node.walk_preorder(n => {
+    self.node_to_range[n.id()] = Range::new(n.start, n.end)
+  })
+}
+
+///|
+/// Rebuild the sorted ranges array for efficient position queries
+pub fn SourceMap::rebuild_ranges(self : SourceMap) -> Unit {
+  self.ranges.clear()
+  for node_id, range in self.node_to_range {
+    self.ranges.push((range, node_id))
+  }
+  // Sort by start position, then by end position (larger ranges first)
+  self.ranges.sort_by(fn(a, b) {
+    let (range_a, _) = a
+    let (range_b, _) = b
+    if range_a.start != range_b.start {
+      range_a.start.compare(range_b.start)
+    } else {
+      // Larger ranges (higher end) come first for proper nesting
+      range_b.end.compare(range_a.end)
+    }
+  })
+}
+
+///|
+/// Get the half-open UTF-16 source range for a node.
+pub fn SourceMap::get_range(self : SourceMap, node_id : NodeId) -> Range? {
+  self.node_to_range.get(node_id)
+}
+
+///|
+/// Remove all entries for a ProjNode subtree from the source map.
+/// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
+/// all patches are done.
+pub fn[T] SourceMap::remove_subtree(
+  self : SourceMap,
+  node : ProjNode[T],
+) -> Unit {
+  node.walk_preorder(n => {
+    self.node_to_range.remove(n.id())
+    self.token_spans.remove(n.id())
+  })
+}
+
+///|
+/// Add entries for a ProjNode subtree to the source map.
+/// Clears any stale token_spans for patched nodes — call
+/// populate_token_spans() afterward to repopulate them.
+/// Does NOT rebuild the sorted ranges array — call rebuild_ranges() after
+/// all patches are done.
+pub fn[T] SourceMap::patch_subtree(
+  self : SourceMap,
+  node : ProjNode[T],
+) -> Unit {
+  node.walk_preorder(n => {
+    self.node_to_range[n.id()] = Range::new(n.start, n.end)
+    self.token_spans.remove(n.id())
+  })
+}
+
+///|
+fn SourceMap::node_to_range_at_position(
+  self : SourceMap,
+  position : Int,
+) -> Map[NodeId, Range] {
+  self.ranges.fold(init=Map::default(), fn(acc, item) {
+    if item.0.contains(position) {
+      acc.set(item.1, item.0)
+    }
+    acc
+  })
+}
+
+///|
+/// Find all nodes that contain a given UTF-16 source offset.
+/// Returns nodes sorted by containing-range length descending — outermost
+/// (largest range) first, innermost (smallest range) last. Agrees with
+/// `innermost_node_at`'s `minimum_by_length` semantics: the last element is
+/// the innermost node.
+///
+/// Among nodes of equal range length, relative order is unspecified.
+/// Strict containment of consecutive ranges (parent encloses child) further
+/// relies on the input being a tree of non-overlapping sibling ranges — the
+/// invariant satisfied by `SourceMap::from_ast`.
+pub fn SourceMap::nodes_at_position(
+  self : SourceMap,
+  position : Int,
+) -> Array[NodeId] {
+  let pairs : Array[(NodeId, Range)] = [
+    for id, range in self.node_to_range_at_position(position) => (id, range)
+  ]
+  // Negated length key sorts descending: outermost (largest range) first.
+  pairs.sort_by_key(p => -p.1.length())
+  pairs.map(p => p.0)
+}
+
+///|
+/// Find the innermost (smallest) node containing a UTF-16 source offset.
+pub fn SourceMap::innermost_node_at(
+  self : SourceMap,
+  position : Int,
+) -> NodeId? {
+  self
+  .node_to_range_at_position(position)
+  .iter()
+  .fold(init=None, fn(acc, item) {
+    if acc is None {
+      Some(item)
+    } else if acc is Some(map) {
+      let m = map.1.minimum_by_length(item.1)
+      if m == map.1 {
+        acc
+      } else {
+        Some(item)
+      }
+    } else {
+      acc
+    }
+  })
+  .map(fn(x) { x.0 })
+}
+
+///|
+/// Find nodes whose UTF-16 source ranges overlap with a given range.
+pub fn SourceMap::nodes_in_range(
+  self : SourceMap,
+  range : Range,
+) -> Array[NodeId] {
+  self.node_to_range
+  .iter()
+  .filter_map(item => {
+    if range.start < item.1.end && range.end > item.1.start {
+      Some(item.0)
+    } else {
+      None
+    }
+  })
+  .collect()
+}
+
+///|
+/// Shift a UTF-16 source range by `delta` using the same deletion semantics as
+/// node ranges.
+fn shift_range(
+  r : Range,
+  edit_start : Int,
+  old_end : Int,
+  delta : Int,
+) -> Range {
+  if r.end <= edit_start {
+    r
+  } else if r.start >= old_end {
+    Range::new(r.start - delta, r.end - delta)
+  } else {
+    // Overlap: the deleted region intersects this range. Clamp start/end to
+    // the deletion boundary — the deleted portion is removed, and any surviving
+    // suffix past old_end shifts left by delta.
+    let new_start = if r.start < edit_start { r.start } else { edit_start }
+    let new_end = if r.end <= old_end { edit_start } else { r.end - delta }
+    Range::new(new_start, new_end)
+  }
+}
+
+///|
+/// Update UTF-16 source positions after a text deletion.
+/// Shifts all node ranges and token spans after the deleted range backward.
+pub fn SourceMap::apply_edit(
+  self : SourceMap,
+  edit_start : Int,
+  old_range : Range,
+) -> Unit {
+  let delta = old_range.length()
+  let old_end = old_range.end
+
+  // Update node ranges. Snapshot the entries first so we don't mutate the
+  // map mid-iteration; the key set is unchanged, only the values shift.
+  let entries = self.node_to_range.iter().collect()
+  for pair in entries {
+    self.node_to_range[pair.0] = shift_range(pair.1, edit_start, old_end, delta)
+  }
+
+  // Shift token spans by the same delta
+  for _node_id, roles in self.token_spans {
+    let shifted : Array[(String, Range)] = [
+      for role, span in roles => {
+        (role, shift_range(span, edit_start, old_end, delta))
+      }
+    ]
+    for pair in shifted {
+      roles[pair.0] = pair.1
+    }
+  }
+
+  self.rebuild_ranges()
+}
+
+///|
+/// Recovery / debug API: full SourceMap regeneration from a fresh projection tree.
+/// Property-tested in `source_map_properties_wbtest.mbt`. No production consumer
+/// today; intended for stale-map diagnostics or replay/resync flows if those
+/// surface. Not bundled into the click-path wiring TODO (docs/TODO.md §9) since
+/// no UI consumer is currently committed.
+///
+/// Note: this clears token_spans. Call populate_token_spans() afterward
+/// if token-level spans are needed.
+pub fn[T] SourceMap::rebuild(self : SourceMap, root : ProjNode[T]) -> Unit {
+  self.node_to_range.clear()
+  self.ranges.clear()
+  self.token_spans.clear()
+  self.build_from_node(root)
+  self.rebuild_ranges()
+}
+
+///|
+/// Get the number of mapped nodes
+pub fn SourceMap::node_count(self : SourceMap) -> Int {
+  self.node_to_range.length()
+}
+
+///|
+/// Set a token-level UTF-16 source span for a specific role within a node.
+/// For example, set_token_span(lambda_id, "param", Range::new(2, 3))
+/// records that the param name occupies source offsets 2..3.
+pub fn SourceMap::set_token_span(
+  self : SourceMap,
+  node_id : NodeId,
+  role : String,
+  range : Range,
+) -> Unit {
+  match self.token_spans.get(node_id) {
+    Some(roles) => roles[role] = range
+    None => {
+      let roles : Map[String, Range] = {}
+      roles[role] = range
+      self.token_spans[node_id] = roles
+    }
+  }
+}
+
+///|
+/// Find a token within a syntax node and record its span for a specific role.
+pub fn SourceMap::set_span_from_token(
+  self : SourceMap,
+  node_id : NodeId,
+  role : String,
+  syntax_node : @seam.SyntaxNode,
+  token_kind : @seam.RawKind,
+) -> Unit {
+  match syntax_node.find_token(token_kind) {
+    Some(tok) =>
+      self.set_token_span(
+        node_id,
+        role,
+        @loomcore.Range::new(tok.start(), tok.end()),
+      )
+    None => ()
+  }
+}
+
+///|
+/// Get the token-level span for a specific role within a node.
+/// Returns None if no token span is recorded for that node/role.
+pub fn SourceMap::get_token_span(
+  self : SourceMap,
+  node_id : NodeId,
+  role : String,
+) -> Range? {
+  match self.token_spans.get(node_id) {
+    Some(roles) => roles.get(role)
+    None => None
+  }
+}
+
+///|
+/// Get all token-level spans for a node as (role, range) pairs sorted by
+/// range start position. Returns an empty array if no spans are recorded.
+pub fn SourceMap::get_all_token_spans(
+  self : SourceMap,
+  node_id : NodeId,
+) -> Array[(String, Range)] {
+  match self.token_spans.get(node_id) {
+    Some(roles) => {
+      let pairs : Array[(String, Range)] = [
+        for role, range in roles => (role, range)
+      ]
+      pairs.sort_by_key(p => p.1.start)
+      pairs
+    }
+    None => []
+  }
+}
+
+///|
+pub impl ToJson for SourceMap with fn to_json(self) {
+  let entries : Array[Json] = []
+  for node_id, range in self.node_to_range {
+    let entry : Map[String, Json] = {}
+    entry["node_id"] = node_id.0.to_json()
+    entry["start"] = range.start.to_json()
+    entry["end"] = range.end.to_json()
+    // Include token spans if present for this node
+    match self.token_spans.get(node_id) {
+      Some(roles) => {
+        let token_spans_json : Map[String, Json] = {}
+        for role, span in roles {
+          token_spans_json[role] = { "start": span.start, "end": span.end }
+        }
+        entry["token_spans"] = Json::object(token_spans_json)
+      }
+      None => ()
+    }
+    entries.push(Json::object(entry))
+  }
+  Json::array(entries)
+}

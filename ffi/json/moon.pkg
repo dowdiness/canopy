@@ -1,0 +1,41 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/ffi/host",
+  "dowdiness/canopy/lang/json/edits" @json_edits,
+  "dowdiness/canopy/lang/json/companion" @json_companion,
+  "dowdiness/canopy/workspace/coordinator" @workspace,
+  "dowdiness/json" @djson,
+  "dowdiness/loom/core" @loom,
+  "dowdiness/seam",
+  "moonbitlang/core/json" @core_json,
+  "moonbitlang/core/queue",
+}
+
+// `cells` field of JsonHandle is read in production by Phase 1b accessors
+// (`json_get_errors`, read/view accessors, and `json_apply_edit`) and by
+// whitebox tests (`lifecycle_phase1_wbtest.mbt`) for direct protected-cell
+// coverage.
+
+warnings = "-7"
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "create_json_editor",
+        "destroy_json_editor",
+        "json_get_text",
+        "json_set_text",
+        "json_get_errors",
+        "json_get_proj_node_json",
+        "json_get_source_map_json",
+        "json_apply_edit",
+        "json_get_view_tree_json",
+        "json_compute_view_patches_json",
+        "json_get_role_spans_json",
+        "json_get_edit_log",
+      ],
+    },
+  },
+)

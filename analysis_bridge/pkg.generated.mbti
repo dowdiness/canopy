@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/analysis_bridge"
+
+import {
+  "dowdiness/analysis",
+  "dowdiness/canopy/protocol",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn facts_to_decorations(Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Array[@protocol.Decoration]
+
+pub fn facts_to_match_list(Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Array[MatchListEntry]
+
+pub fn from_ast_grep_matches(Array[AstGrepMatch], String, @analysis.SourceSnapshot) -> Array[@analysis.PatternMatchFact]
+
+// Errors
+
+// Types and methods
+pub(all) struct AstGrepMatch {
+  byte_start : Int
+  byte_end : Int
+  pattern_id : String
+} derive(@debug.Debug)
+pub fn AstGrepMatch::AstGrepMatch(byte_start~ : Int, byte_end~ : Int, pattern_id~ : String) -> Self
+
+pub(all) struct MatchListEntry {
+  from : Int
+  to : Int
+  pattern_id : String
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits
+

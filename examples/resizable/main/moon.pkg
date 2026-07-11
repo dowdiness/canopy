@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+  "dowdiness/rabbita-resizable/resizable",
+}
+
+supported_targets = "js"
+
+options(
+  "is-main": true,
+)

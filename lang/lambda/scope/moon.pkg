@@ -1,0 +1,14 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/core" @loomcore,
+  "moonbitlang/core/immut/hashset" @immut/hashset,
+}
+
+import {
+  "dowdiness/lambda" @parser,
+  "dowdiness/seam",
+} for "wbtest"
+
+warnings = "-2-6-29"

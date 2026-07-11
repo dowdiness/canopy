@@ -1,0 +1,124 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/scope"
+
+import {
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset",
+}
+
+// Values
+pub fn add_module_scope_annotations(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
+pub fn add_nested_module_scope_annotations(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
+pub fn add_scope_graph_annotations(Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation], ScopeGraph) -> Unit
+
+pub fn binder_color_index(String) -> Int
+
+pub fn binder_span(ScopeGraph, Decl, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
+
+pub fn build(Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> ScopeGraph
+
+pub fn build_scope_map(@dowdiness/canopy/core.ProjNode[@ast.Term], Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]], @dowdiness/canopy/core.SourceMap) -> Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]
+
+pub fn compute_highlight_set(@dowdiness/canopy/core.NodeId, Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> @hashset.HashSet[@dowdiness/canopy/core.NodeId]
+
+pub fn declaration(ScopeGraph, @dowdiness/canopy/core.NodeId) -> Decl?
+
+pub fn declaration_for_name_at(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
+
+pub fn declaration_for_name_at_module_end(ScopeGraph, @dowdiness/canopy/core.NodeId, String) -> Decl?
+
+pub fn diff(Array[ReachableFailure], Array[ReachableFailure]) -> FailureDiff
+
+pub fn enclosing_env(ScopeGraph, @dowdiness/canopy/core.NodeId) -> @hashset.HashSet[String]
+
+pub fn failures(ScopeGraph, @dowdiness/canopy/core.SourceMap) -> Array[ReachableFailure]
+
+pub fn go_to_definition(ScopeGraph, @dowdiness/canopy/core.SourceMap, Int) -> @dowdiness/loom/core.Range?
+
+pub fn rebuild_usage_lists(Map[@dowdiness/canopy/core.NodeId, ScopeAnnotation]) -> Unit
+
+pub fn references(ScopeGraph, DeclId) -> Array[@dowdiness/canopy/core.NodeId]
+
+pub fn references_outside_subtree(ScopeGraph, @hashset.HashSet[@dowdiness/canopy/core.NodeId], registry? : Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]?) -> Array[Ref]
+
+pub fn remap_failures(Array[ReachableFailure], Array[@dowdiness/canopy/core.SpanEdit]) -> Array[ReachableFailure]
+
+pub fn scope_binder_ui_key(Decl) -> @dowdiness/canopy/core.NodeId
+
+pub fn scope_for_node(ScopeGraph, @dowdiness/canopy/core.NodeId) -> ScopeId?
+
+// Errors
+
+// Types and methods
+pub(all) struct Decl {
+  id : DeclId
+  node_id : @dowdiness/canopy/core.NodeId
+  name : String
+  scope : ScopeId
+  kind : DeclKind
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DeclId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum DeclKind {
+  LamParam(lam_id~ : @dowdiness/canopy/core.NodeId)
+  ModuleDef(def_index~ : Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FailureDiff {
+  newly_reachable : Array[ReachableFailure]
+  resolved : Array[ReachableFailure]
+} derive(@debug.Debug)
+
+pub(all) struct ReachableFailure {
+  name : String
+  location : @dowdiness/loom/core.Range?
+  witness : Array[ScopeId]
+} derive(@debug.Debug)
+
+pub(all) struct Ref {
+  id : RefId
+  node_id : @dowdiness/canopy/core.NodeId
+  name : String
+  scope : ScopeId
+  resolution : Resolution
+} derive(@debug.Debug)
+
+pub(all) struct RefId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) struct Resolution {
+  decl : DeclId?
+  visited_scopes : Array[ScopeId]
+} derive(@debug.Debug)
+
+pub(all) struct Scope {
+  id : ScopeId
+  parent : ScopeId?
+  decl_ids : Array[DeclId]
+  ref_ids : Array[RefId]
+} derive(@debug.Debug)
+
+pub struct ScopeAnnotation {
+  binder_id : @dowdiness/canopy/core.NodeId?
+  is_definition : Bool
+  color_index : Int
+  usage_ids : Array[@dowdiness/canopy/core.NodeId]
+}
+
+pub(all) struct ScopeGraph {
+  scopes : Array[Scope]
+  decls : Array[Decl]
+  refs : Array[Ref]
+  module_node_id : @dowdiness/canopy/core.NodeId
+  // private fields
+} derive(@debug.Debug)
+
+pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

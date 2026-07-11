@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/protocol/wire"
+
+import {
+  "dowdiness/byte_codec",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn all_namespaces() -> Array[EphemeralNamespace]
+
+pub fn decode_message(Bytes) -> SyncMessage?
+
+pub fn decode_message_result(Bytes) -> Result[SyncMessage, ProtocolError]
+
+pub fn encode_message(SyncMessage) -> Bytes
+
+pub fn encode_relayed_crdt_ops(String, Bytes) -> Bytes
+
+pub fn encode_sync_request(target~ : String, request_id~ : String, version_json~ : String) -> Bytes
+
+pub fn encode_sync_response(target~ : String, request_id~ : String, sync_json~ : String) -> Bytes
+
+pub let flags_none : Byte
+
+pub let msg_room_control : Byte
+
+pub fn namespace_from_byte(Byte) -> EphemeralNamespace?
+
+pub fn namespace_to_byte(EphemeralNamespace) -> Byte
+
+pub let protocol_version : Byte
+
+pub fn read_string_field(@byte_codec.Reader, String) -> Result[String, ProtocolError]
+
+pub let sub_join : Byte
+
+pub let sub_leave : Byte
+
+// Errors
+pub(all) suberror ProtocolError {
+  MessageTooShort(length~ : Int)
+  UnsupportedVersion(version~ : Byte)
+  UnknownMessageType(msg_type~ : Byte)
+  MissingNamespace
+  InvalidNamespace(tag~ : Byte)
+  MissingRoomControlSubtype
+  InvalidRoomControlSubtype(sub_type~ : Byte)
+  MissingField(field~ : String)
+  InvalidSyncJson(detail~ : String)
+  InvalidVersionJson(detail~ : String)
+}
+pub fn ProtocolError::message(Self) -> String
+
+// Types and methods
+pub(all) enum EphemeralNamespace {
+  Cursor
+  EditMode
+  Drag
+  Presence
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub impl Show for EphemeralNamespace
+
+pub(all) enum SyncMessage {
+  CrdtOps(Bytes)
+  EphemeralUpdate(EphemeralNamespace, Bytes)
+  SyncRequest(Bytes)
+  SyncResponse(Bytes)
+  PeerJoined(String)
+  PeerLeft(String)
+  RelayedCrdtOps(sender~ : String, payload~ : Bytes)
+} derive(Eq, @debug.Debug)
+pub impl Show for SyncMessage
+
+// Type aliases
+
+// Traits
+

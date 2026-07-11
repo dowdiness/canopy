@@ -1,0 +1,8 @@
+import {
+  "dowdiness/graphviz/lib/parser" @dot,
+  "dowdiness/graphviz/lib/layout",
+  "dowdiness/graphviz/lib/svg" @graph_svg,
+  "dowdiness/incr",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/bench",
+}

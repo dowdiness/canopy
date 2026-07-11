@@ -1,0 +1,6 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/json/proj" @json_proj,
+  "dowdiness/json",
+  "moonbitlang/core/debug",
+}

@@ -27,15 +27,16 @@ jobs:
     # If you do not check out your code, Copilot will do this for you.
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        uses: ./.github/actions/setup-moonbit
 
       - name: Update MoonBit dependencies
         run: |
             moon version --all
-            moon update
+            # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
+            "$GITHUB_WORKSPACE/scripts/moon-update.sh"
             

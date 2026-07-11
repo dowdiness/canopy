@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/semantic"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/protocol",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn build_semantic_projection(@core.ProjNode[@ast.Term], @core.SourceMap) -> SemanticProjection
+
+// Errors
+
+// Types and methods
+pub struct SemanticProjection {
+  annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
+  decorations : Array[@protocol.Decoration]
+  diagnostics : Array[@protocol.Diagnostic]
+} derive(@debug.Debug)
+pub fn SemanticProjection::empty() -> Self
+pub impl ToJson for SemanticProjection
+
+// Type aliases
+
+// Traits
+

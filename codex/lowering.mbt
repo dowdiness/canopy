@@ -1,0 +1,198 @@
+// Codex app-server edit lowering (prototype).
+//
+// Lowers a Codex `FileChange.update` unified diff into `@protocol.UserIntent`
+// TextEdit operations and drives them into a `SyncEditor` under the EXACT
+// (grapheme-boundary-checked) policy. Background and verification record:
+// docs/research/2026-06-13-canopy-codex-app-server-lowering.md.
+//
+// Prototype scope (§8 of the research note is OUT of scope): exactly one
+// changed line (one `-` line + one `+` line) inside a single `update` hunk,
+// applied only when the document line still matches the patch's old text.
+// Multi-hunk diffs, multi-line hunks, `add`/`delete` whole-document variants,
+// `move_path`, `\ No newline at end of file` semantics, and concurrent /
+// stale apply are REJECTED with a clear error here — never silently
+// mishandled, which would corrupt unrelated text.
+//
+// Design note (refines the research note's framing): because a unified diff is
+// line-based and its content lines reach MoonBit already decoded to `String`
+// (UTF-16), there is no explicit UTF-8 byte -> UTF-16 conversion step — the
+// decode at the transport boundary absorbs it. The risk that survives is
+// grapheme-splitting by a too-fine minimal diff, which is why the sub-line
+// splice delegates to the shared GRAPHEME-granular leaf
+// (@text_change.compute_text_change) and is driven through
+// `apply_text_edit_exact`.
+
+///|
+/// Lower a unified-diff `update` payload into TextEdit intents against `doc`.
+///
+/// `doc` is the current document text (UTF-16); `diff` is the unified-diff
+/// string from `FileChange.update.unified_diff`. Returns one TextEdit per
+/// changed line (prototype: exactly one).
+pub fn unified_diff_to_intents(
+  doc : String,
+  diff : String,
+) -> Array[@protocol.UserIntent] raise {
+  let (edit_line, old_text, new_text) = parse_single_line_update(diff)
+  // Absent-line guard: a missing target line must NOT collapse to EOF and then
+  // match an empty `old_text` — that would apply the edit as an EOF insertion.
+  guard line_start_offset(doc, edit_line) is Some(line_start) else {
+    fail("codex lowering: target line \{edit_line} is absent from the document")
+  }
+  let line_end = line_end_offset(doc, line_start)
+  // Stale-diff guard: this prototype does no fuzzy/concurrent apply, so the
+  // targeted document line MUST currently equal the patch's old text. Without
+  // it, a stale hunk would splice grapheme-aligned offsets into unrelated
+  // content and `apply_text_edit_exact` would accept the corruption.
+  guard doc[line_start:line_end] == old_text[:] else {
+    fail(
+      "codex lowering: stale diff — document line \{edit_line} does not match the patch old text",
+    )
+  }
+  // Sub-line splice reuses the repository's shared, grapheme-aligned diff leaf
+  // (@text_change.compute_text_change — the same helper SyncEditor::set_text
+  // drives through), so future fixes to the centralized text-change logic reach
+  // Codex lowering too. Its endpoints land on grapheme-cluster boundaries by
+  // construction, which is what `apply_text_edit_exact` then re-checks.
+  let change = @text_change.compute_text_change(old_text, new_text)
+  let from = line_start + change.start
+  [
+    @protocol.UserIntent::TextEdit(
+      from~,
+      to=from + change.delete_len,
+      insert=change.inserted,
+    ),
+  ]
+}
+
+///|
+/// Drive a single lowered intent into the editor under EXACT-boundary policy.
+/// Returns `false` (document unchanged) if the splice endpoints are not
+/// grapheme boundaries or are out of range — the load-bearing seatbelt.
+pub fn[T : Eq] apply_intent_exact(
+  se : @editor.SyncEditor[T],
+  intent : @protocol.UserIntent,
+  timestamp_ms : Int,
+) -> Bool raise {
+  guard intent is @protocol.UserIntent::TextEdit(from~, to~, insert~) else {
+    fail("codex lowering prototype: only TextEdit is supported")
+  }
+  se.apply_text_edit_exact(from, to - from, insert, timestamp_ms)
+}
+
+///|
+/// UTF-16 offset of the start of the given 1-based line in `doc`, or `None` if
+/// the document has fewer than `line_1based` lines. The absent case must stay
+/// distinct from an empty line that genuinely exists at EOF — otherwise a
+/// missing target line collapses to EOF and a `""` old-text check passes.
+fn line_start_offset(doc : String, line_1based : Int) -> Int? {
+  if line_1based <= 1 {
+    return Some(0)
+  }
+  for i in 0..<doc.length(); line = 1 {
+    if doc[i] is '\n' {
+      if line + 1 == line_1based {
+        break Some(i + 1)
+      }
+      continue line + 1
+    }
+    continue line
+  } nobreak {
+    None
+  }
+}
+
+///|
+/// UTF-16 offset of the end of the line that starts at `start` — the next
+/// `\n`, or the end of the document.
+fn line_end_offset(doc : String, start : Int) -> Int {
+  for i in start..<doc.length() {
+    if doc[i] is '\n' {
+      break i
+    }
+  } nobreak {
+    doc.length()
+  }
+}
+
+///|
+/// Parse a single-changed-line `update` hunk. Returns `(old_line_number,
+/// old_text, new_text)` where `old_line_number` is the 1-based old-side line
+/// of the `-` line (NOT the hunk's first line — a hunk may carry leading
+/// context). Rejects anything outside the prototype's scope.
+///
+/// `for .. in` + `mut` is allowed here as a genuine parser STATE MACHINE:
+/// `cur_old` (Some once the `@@` header is seen) tracks the old-side line
+/// number, and the slots accumulate across that state. Per the unified-diff
+/// model, context (` `) and deleted (`-`) lines advance the old side; added
+/// (`+`) lines do not. Out-of-scope inputs — more than one hunk, more than one
+/// changed pair, or a `\ No newline at end of file` marker — fail rather than
+/// being silently dropped or mis-applied.
+fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
+  let mut cur_old : Int? = None // None until the first `@@`; else next old line
+  let mut hunks = 0
+  let mut old_at : (Int, String)? = None // (old line number, content) of `-`
+  let mut old_count = 0
+  let mut new_text : String? = None
+  let mut new_count = 0
+  // A genuine single-line REPLACE emits `+new` immediately after `-old`. A `-`
+  // and `+` separated by context is a delete + insert at different positions
+  // (move-shaped) — out of scope — so track whether the `+` is adjacent.
+  let mut prev_was_minus = false
+  let mut plus_follows_minus = false
+  for line in diff.split("\n") {
+    if line.has_prefix("@@") {
+      hunks += 1
+      cur_old = Some(parse_hunk_old_start(line.to_owned()))
+    } else if line.has_prefix("\\") {
+      // `\ No newline at end of file`: trailing-newline semantics unsupported.
+      fail("codex lowering: EOF-newline marker unsupported (out of scope)")
+    } else if cur_old is Some(n) {
+      if line.has_prefix("-") {
+        old_at = Some((n, line[1:].to_owned()))
+        old_count += 1
+        cur_old = Some(n + 1)
+      } else if line.has_prefix("+") {
+        new_text = Some(line[1:].to_owned())
+        new_count += 1
+        plus_follows_minus = prev_was_minus
+      } else if line.has_prefix(" ") {
+        cur_old = Some(n + 1) // context line advances the old side
+      }
+      prev_was_minus = line.has_prefix("-")
+    }
+    // lines before the first `@@` are file headers / preamble — ignored
+  }
+  guard hunks <= 1 else {
+    fail("codex lowering: multi-hunk update unsupported (out of scope)")
+  }
+  guard old_count <= 1 && new_count <= 1 else {
+    fail("codex lowering: multi-line update unsupported (out of scope)")
+  }
+  guard old_at is Some((edit_line, old_body)) else {
+    fail("codex lowering: no hunk `-` line")
+  }
+  guard new_text is Some(new_body) else {
+    fail("codex lowering: no hunk `+` line")
+  }
+  guard plus_follows_minus else {
+    fail(
+      "codex lowering: separated delete/insert update unsupported (out of scope)",
+    )
+  }
+  (edit_line, old_body, new_body)
+}
+
+///|
+/// Extract the old start line `A` from a hunk header `@@ -A[,B] +C[,D] @@`.
+fn parse_hunk_old_start(header : String) -> Int raise {
+  guard header.split(" ").find_first(tok => tok.has_prefix("-")) is Some(tok) else {
+    fail("codex lowering: malformed hunk header")
+  }
+  // `@@ -A[,B]` — take the field before the optional comma. `split` always
+  // yields at least one element, so a `None` here means an empty old-start
+  // (a malformed header); fail explicitly rather than silently reusing it.
+  guard tok[1:].split(",").next() is Some(start_field) else {
+    fail("codex lowering: empty hunk old-start field")
+  }
+  @string.parse_int(start_field.to_owned())
+}

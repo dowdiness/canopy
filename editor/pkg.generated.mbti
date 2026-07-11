@@ -1,0 +1,209 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/editor"
+
+import {
+  "dowdiness/canopy/ephemeral",
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/protocol/wire",
+  "dowdiness/canopy/sync_session",
+  "dowdiness/canopy/transport_ws",
+  "dowdiness/event-graph-walker/history",
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/incr/cells",
+  "dowdiness/loom/pipeline",
+  "dowdiness/pretty",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn adjust_position(Int, Int, Int, Int) -> Int
+
+pub fn compute_edit(String, String) -> @dowdiness/loom/core.Edit
+
+pub fn[T : @pretty.Pretty] compute_pretty_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
+
+pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
+
+// Errors
+pub(all) suberror TreeEditError {
+  ExpectedJsonObject
+  MissingField(field~ : String)
+  FieldMustBeString(field~ : String)
+  FieldMustBeNumber(field~ : String)
+  UnknownBop(name~ : String)
+  UnknownOpType(op_type~ : String)
+  ProjectionUnavailable
+  UnhandledOperation(detail~ : String)
+  NodeNotInSourceMap(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)
+  NodeNotInRegistry(action~ : String, node_id~ : @dowdiness/canopy/core.NodeId)
+  TextTransformFailed(detail~ : String)
+  ProjectionEdit(detail~ : String)
+}
+pub fn TreeEditError::message(Self) -> String
+
+// Types and methods
+pub struct Editor {
+  doc : @text.TextState
+  mut cursor : Int
+} derive(@debug.Debug)
+pub fn Editor::apply_sync(Self, @text.SyncMessage) -> Unit raise
+pub fn Editor::backspace(Self) -> Bool
+pub fn Editor::delete(Self) -> Bool
+pub fn Editor::export_all(Self) -> @text.SyncMessage raise
+pub fn Editor::export_since(Self, @text.Version) -> @text.SyncMessage raise
+pub fn Editor::get_cursor(Self) -> Int
+pub fn Editor::get_text(Self) -> String
+pub fn Editor::get_version(Self) -> @text.Version
+pub fn Editor::insert(Self, String) -> Unit raise
+pub fn Editor::insert_at(Self, Int, String) -> Unit raise
+pub fn Editor::move_cursor(Self, Int) -> Unit
+pub fn Editor::new(String) -> Self
+
+pub struct LanguageCapabilities[T] {
+  // private fields
+}
+pub fn[T] LanguageCapabilities::default() -> Self[T]
+pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
+pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], String?) -> @protocol.ViewNode) -> Self[T]
+
+pub struct SyncEditor[T] {
+  // private fields
+}
+pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
+pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int, hint? : @dowdiness/canopy/core.IdentityTransform) -> Unit
+pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
+pub fn[T : Eq] SyncEditor::apply_text_edit(Self[T], Int, Int, String, Int) -> Unit
+pub fn[T : Eq] SyncEditor::apply_text_edit_exact(Self[T], Int, Int, String, Int) -> Bool
+pub fn[T : Eq] SyncEditor::apply_text_transform(Self[T], @dowdiness/canopy/core.NodeId, (String, Int, Int) -> Result[String, String], Int) -> Result[Unit, TreeEditError]
+pub fn[T : Eq] SyncEditor::backspace(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::backspace_and_record(Self[T], Int) -> Bool
+pub fn[T] SyncEditor::cached_proj_node(Self[T]) -> @cells.Derived[@dowdiness/canopy/core.ProjNode[T]?]
+pub fn[T] SyncEditor::can_redo(Self[T]) -> Bool
+pub fn[T] SyncEditor::can_undo(Self[T]) -> Bool
+pub fn[T] SyncEditor::causal_snapshot(Self[T]) -> @history.CausalSnapshot
+pub fn[T] SyncEditor::clear_undo(Self[T]) -> Unit
+pub fn[T : Eq] SyncEditor::commit_edit(Self[T], @dowdiness/canopy/core.NodeId, String, Int) -> Result[Unit, TreeEditError]
+pub fn[T : Eq] SyncEditor::delete(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::delete_and_record(Self[T], Int) -> Bool
+pub fn[T : Eq] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
+pub fn[T] SyncEditor::delete_local_presence(Self[T]) -> Unit
+pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/core.NodeId, Int) -> Result[Unit, TreeEditError]
+pub fn[T] SyncEditor::encode_ephemeral_all(Self[T]) -> Bytes
+pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
+pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise
+pub fn[T] SyncEditor::get_cursor(Self[T]) -> Int
+pub fn[T] SyncEditor::get_errors(Self[T]) -> Array[String]
+pub fn[T] SyncEditor::get_hub(Self[T]) -> @ephemeral.EphemeralHub
+pub fn[T] SyncEditor::get_node(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/canopy/core.ProjNode[T]?
+pub fn[T] SyncEditor::get_node_range(Self[T], @dowdiness/canopy/core.NodeId) -> @dowdiness/loom/core.Range?
+pub fn[T] SyncEditor::get_peer_cursors(Self[T]) -> Map[String, @ephemeral.PeerCursor]
+pub fn[T] SyncEditor::get_peer_id(Self[T]) -> String
+pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(Self[T]) -> @protocol.ViewNode
+pub fn[T] SyncEditor::get_proj_node(Self[T]) -> @dowdiness/canopy/core.ProjNode[T]?
+pub fn[T] SyncEditor::get_registry(Self[T]) -> Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]
+pub fn[T] SyncEditor::get_source_map(Self[T]) -> @dowdiness/canopy/core.SourceMap
+pub fn[T] SyncEditor::get_sync_status(Self[T]) -> @sync_session.SyncStatus
+pub fn[T] SyncEditor::get_text(Self[T]) -> String
+pub fn[T] SyncEditor::get_tree(Self[T]) -> T?
+pub fn[T] SyncEditor::get_version(Self[T]) -> @text.Version
+pub fn[T : @dowdiness/loom/core.Renderable] SyncEditor::get_view_tree(Self[T]) -> @protocol.ViewNode?
+pub fn[T] SyncEditor::identity(Self[T]) -> Int
+pub fn[T : Eq] SyncEditor::insert(Self[T], String) -> Unit raise
+pub fn[T : Eq] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
+pub fn[T : Eq] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
+pub fn[T] SyncEditor::is_dirty(Self[T]) -> Bool
+pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::mark_dirty(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor(Self[T], Int) -> Unit
+pub fn[T] SyncEditor::move_cursor_left_grapheme(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_left_word(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_right_grapheme(Self[T]) -> Unit
+pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
+pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], TreeEditError]
+pub fn[T] SyncEditor::new_generic(String, (String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> Self[T]
+pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
+pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
+pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T]
+pub fn[T] SyncEditor::parser_diagnostics(Self[T]) -> @cells.Derived[@dowdiness/loom/core.DiagnosticSet]
+pub fn[T] SyncEditor::parser_runtime(Self[T]) -> @cells.Runtime
+pub fn[T] SyncEditor::parser_source(Self[T]) -> @cells.Derived[String]
+pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Derived[@seam.SyntaxNode]
+pub fn[T : Eq] SyncEditor::redo(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T] SyncEditor::refresh(Self[T]) -> Unit
+pub fn[T] SyncEditor::registry_memo(Self[T]) -> @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]]
+pub fn[T] SyncEditor::remove_ephemeral_outdated(Self[T]) -> Unit
+pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (Int, Int)?) -> Unit
+pub fn[T] SyncEditor::set_on_status_change(Self[T], ((@sync_session.SyncStatus) -> Unit)?) -> Unit
+pub fn[T : Eq] SyncEditor::set_text(Self[T], String) -> Unit
+pub fn[T : Eq] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
+pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
+pub fn[T] SyncEditor::set_watchdog_scheduler(Self[T], ((Int, Int) -> Unit)?) -> Unit
+pub fn[T] SyncEditor::set_watchdog_timeout(Self[T], Int) -> Unit
+pub fn[T] SyncEditor::source_map_memo(Self[T]) -> @cells.Derived[@dowdiness/canopy/core.SourceMap]
+pub fn[T] SyncEditor::subscribe_ephemeral_local(Self[T], (Bytes) -> Bool) -> @ephemeral.EphemeralSubscription
+pub fn[T : Eq] SyncEditor::undo(Self[T]) -> Bool
+pub fn[T : Eq] SyncEditor::undo_and_export(Self[T]) -> @text.SyncMessage?
+pub fn[T] SyncEditor::ws_broadcast_cursor(Self[T]) -> Unit
+pub fn[T] SyncEditor::ws_broadcast_edit(Self[T]) -> Unit
+pub fn[T] SyncEditor::ws_on_close(Self[T]) -> Unit
+pub fn[T : Eq] SyncEditor::ws_on_message(Self[T], Bytes) -> Unit
+pub fn[T] SyncEditor::ws_on_open(Self[T], @transport_ws.JsWebSocket) -> Unit
+pub fn[T] SyncEditor::ws_send(Self[T], Bytes) -> Unit
+
+pub struct ViewUpdateState {
+  mut previous : @protocol.ViewNode?
+  mut previous_decorations : Array[@protocol.Decoration]?
+  mut had_errors : Bool
+} derive(@debug.Debug)
+pub fn ViewUpdateState::ViewUpdateState() -> Self
+pub fn ViewUpdateState::set_had_errors(Self, Bool) -> Unit
+pub fn ViewUpdateState::set_previous(Self, @protocol.ViewNode?) -> Unit
+
+// Type aliases
+pub using @ephemeral {type DragPosition}
+
+pub using @ephemeral {type DragState}
+
+pub using @ephemeral {type EditModeState}
+
+pub using @ephemeral {type EphemeralError}
+
+pub using @ephemeral {type EphemeralEventTrigger}
+
+pub using @ephemeral {type EphemeralHub}
+
+pub using @wire {type EphemeralNamespace}
+
+pub using @ephemeral {type EphemeralStore}
+
+pub using @ephemeral {type EphemeralStoreEvent}
+
+pub using @ephemeral {type EphemeralSubscription}
+
+pub using @ephemeral {type EphemeralValue}
+
+pub using @sync_session {type InMemoryRoom}
+
+pub using @sync_session {type InMemoryTransport}
+
+pub using @transport_ws {type JsWebSocket}
+
+pub using @ephemeral {type PeerCursor}
+
+pub using @ephemeral {type PeerCursorView}
+
+pub using @ephemeral {type PeerPresence}
+
+pub using @ephemeral {type PresenceStatus}
+
+pub using @sync_session {type SyncErrorReason}
+
+pub using @sync_session {type SyncStatus}
+
+pub using @sync_session {trait SyncTransport}
+
+// Traits
+

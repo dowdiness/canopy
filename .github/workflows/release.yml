@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Update dependencies
+        run: make update
+
+      - name: Run tests
+        run: make test-all
+
+      - name: Build supported targets
+        run: |
+          make build
+          make build-js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Build web application
+        run: make build-web
+
+      - name: Create release archive
+        run: |
+          VERSION=${{ github.ref_name }}
+          if [ -z "$VERSION" ]; then
+            VERSION=${{ inputs.version }}
+          fi
+
+          make release-artifacts VERSION="$VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION=${{ github.ref_name }}
+          if [ -z "$VERSION" ]; then
+            VERSION=${{ inputs.version }}
+          fi
+
+          echo "## What's Changed" > CHANGELOG.txt
+          echo "" >> CHANGELOG.txt
+
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" >> CHANGELOG.txt
+          else
+            git log --pretty=format:"- %s (%h)" -10 >> CHANGELOG.txt
+          fi
+
+          echo "" >> CHANGELOG.txt
+          echo "" >> CHANGELOG.txt
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/${VERSION}" >> CHANGELOG.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name || inputs.version }}
+          name: Release ${{ github.ref_name || inputs.version }}
+          body_path: CHANGELOG.txt
+          draft: false
+          prerelease: false
+          files: |
+            release/*.tar.gz
+          generate_release_notes: true
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artifacts
+          path: release/
+          retention-days: 90

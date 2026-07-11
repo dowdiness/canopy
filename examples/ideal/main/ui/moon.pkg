@@ -1,0 +1,7 @@
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+  "dowdiness/rabbita-tabs/tabs",
+}
+
+supported_targets = "js"

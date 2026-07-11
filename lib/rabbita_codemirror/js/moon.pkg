@@ -1,0 +1,7 @@
+import {
+  "moonbit-community/rabbita/js" @js_value,
+}
+
+options(
+  targets: { "*": [ "js" ] },
+)

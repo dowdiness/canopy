@@ -1,0 +1,82 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/sync_session"
+
+import {
+  "dowdiness/canopy/protocol/wire",
+  "dowdiness/event-graph-walker/text",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct InMemoryRoom {
+  peers : Map[String, Array[(Bytes) -> Unit]]
+}
+pub fn InMemoryRoom::new() -> Self
+
+pub struct InMemoryTransport {
+  peer_id : String
+  room : InMemoryRoom
+}
+pub fn InMemoryTransport::new(String, InMemoryRoom) -> Self
+pub impl SyncTransport for InMemoryTransport
+
+type RecoveryContext
+
+pub enum SyncErrorReason {
+  Exhausted(peer_id~ : String)
+  TargetLeft(peer_id~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for SyncErrorReason
+
+pub struct SyncHost {
+  io : SyncIo
+  apply_sync : (@text.SyncMessage) -> Unit raise
+  export_all : () -> @text.SyncMessage raise
+  export_since : (@text.Version) -> @text.SyncMessage raise
+  apply_ephemeral : (@wire.EphemeralNamespace, Bytes) -> Unit
+  encode_ephemeral : (@wire.EphemeralNamespace) -> Bytes
+  on_peer_leave : (String) -> Unit
+}
+pub fn SyncHost::SyncHost(io~ : SyncIo, apply_sync~ : (@text.SyncMessage) -> Unit raise, export_all~ : () -> @text.SyncMessage raise, export_since~ : (@text.Version) -> @text.SyncMessage raise, apply_ephemeral~ : (@wire.EphemeralNamespace, Bytes) -> Unit, encode_ephemeral~ : (@wire.EphemeralNamespace) -> Bytes, on_peer_leave~ : (String) -> Unit) -> Self
+
+pub struct SyncIo {
+  send : (Bytes) -> Unit
+  current_version : () -> @text.Version
+}
+pub fn SyncIo::SyncIo(send~ : (Bytes) -> Unit, current_version~ : () -> @text.Version) -> Self
+
+pub struct SyncSession {
+  // private fields
+}
+pub fn SyncSession::SyncSession() -> Self
+pub fn SyncSession::get_status(Self) -> SyncStatus
+pub fn SyncSession::note_sync_applied(Self) -> Unit
+pub fn SyncSession::on_close(Self) -> Unit
+pub fn SyncSession::on_message(Self, Bytes, SyncHost) -> Unit
+pub fn SyncSession::on_open(Self) -> Unit
+pub fn SyncSession::on_watchdog_fire(Self, Int, SyncIo) -> Unit
+pub fn SyncSession::set_on_status_change(Self, ((SyncStatus) -> Unit)?) -> Unit
+pub fn SyncSession::set_watchdog_scheduler(Self, ((Int, Int) -> Unit)?) -> Unit
+pub fn SyncSession::set_watchdog_timeout(Self, Int) -> Unit
+
+pub enum SyncStatus {
+  Disconnected
+  Idle
+  Recovering(peer_id~ : String, attempt~ : Int)
+  Error(reason~ : SyncErrorReason)
+} derive(Eq, @debug.Debug)
+pub impl Show for SyncStatus
+
+// Type aliases
+
+// Traits
+pub(open) trait SyncTransport {
+  fn send(Self, Bytes) -> Unit
+  fn on_receive(Self, (Bytes) -> Unit) -> Unit
+  fn close(Self) -> Unit
+}
+
