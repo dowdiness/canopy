@@ -4,6 +4,8 @@ package "dowdiness/canopy/ffi/jsx"
 // Values
 pub fn apply_patches(String) -> String
 
+pub fn clear_registry() -> Unit
+
 pub fn jsx_parse_and_render(String, String) -> String
 
 pub fn jsx_parse_to_json(String) -> String

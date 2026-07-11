@@ -1,7 +1,7 @@
 import {
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/js_ffi" @js,
-  "dowdiness/incr" @incr,
+  "dowdiness/incr",
   "dowdiness/canopy/lang/jsx/proj" @jsx_proj,
   "dowdiness/jsx" @jsx_ast,
   "dowdiness/loom",

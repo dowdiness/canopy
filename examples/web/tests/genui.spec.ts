@@ -36,6 +36,21 @@ test.describe('Generative UI Demo', () => {
     // Verify HTML rendered preview shows elements
     const htmlContent = await page.locator('#html-preview').innerHTML();
     expect(htmlContent.length).toBeGreaterThan(10);
+    expect(htmlContent).not.toContain('Stream JSX to see rendered output.');
+
+    const heading = page.locator('#html-preview h1');
+    const headingStyle = await heading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderLeftWidth: style.borderLeftWidth,
+        paddingLeft: style.paddingLeft,
+      };
+    });
+    expect(headingStyle).toEqual({
+      borderLeftWidth: '0px',
+      paddingLeft: '0px',
+    });
+    await expect(heading).toHaveAttribute('data-node-id', /\d+/);
 
     // Verify DOM node count is shown
     const nodeCount = await page.locator('#html-node-count').textContent();

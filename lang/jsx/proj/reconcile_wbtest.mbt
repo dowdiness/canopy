@@ -97,6 +97,20 @@ test "reconcile: nested elements" {
 }
 
 ///|
+/// A trailing `<` is a recoverable parser state, not a valid DOM element.
+test "reconcile: incomplete tag does not produce empty MakeElement" {
+  let (root, _) = parse_to_proj_node("<div><p>text</p>\n<")
+  let (patches, _) = reconcile(root, [])
+  for patch in patches {
+    match patch {
+      MakeElement(_, _, "", _, _) =>
+        fail("empty tag must not cross the DOM patch boundary")
+      _ => ()
+    }
+  }
+}
+
+///|
 /// Second render of nested tree produces Update patches.
 test "reconcile: nested second render" {
   let (root, _) = parse_to_proj_node("<div><h1>title</h1></div>")

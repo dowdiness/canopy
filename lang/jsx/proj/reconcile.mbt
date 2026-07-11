@@ -67,6 +67,15 @@ fn walk(
   patches : Array[DomPatch],
   reached : Array[Int],
 ) -> Unit {
+  match node.kind {
+    @jsx.JsxNode::Element(tag="", ..) => {
+      for i in 0..<node.children.length() {
+        walk(node.children[i], parent_id, i, existing, patches, reached)
+      }
+      return
+    }
+    _ => ()
+  }
   let id = node.node_id
   reached.push(id)
   let is_new = !in_set(id, existing)
