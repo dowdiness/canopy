@@ -145,3 +145,28 @@ fn get_or_empty_errors(text : String) -> Array[String] {
     _ => []
   }
 }
+
+///|
+/// Parse JSX text, reconcile against existing NodeIds, apply patches to DOM.
+/// `container_json` = JSON.stringify of the container DOM element.
+/// `existing_json`  = JSON array of NodeIds from previous render (e.g. "[]").
+/// Returns JSON array of NodeIds for the next render call.
+pub fn jsx_parse_and_render(
+  text : String,
+  container_json : String,
+  existing_json : String,
+) -> String {
+  let (proj, _errors) = @jsx_proj.parse_to_proj_node(text) catch {
+    _ => return existing_json
+  }
+  let existing : Array[Int] = []
+  let parsed = @js.parse(existing_json)
+  let len : Int = parsed.get("length").cast()
+  for i in 0..<len {
+    let val : Int = parsed.at(i).cast()
+    existing.push(val)
+  }
+  let (patches, _reached) = @jsx_proj.reconcile(proj, existing)
+  let patches_json = @jsx_proj.dom_patches_to_json(patches)
+  apply_patches(container_json, patches_json)
+}
