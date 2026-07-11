@@ -184,6 +184,10 @@ function updateChildren(parent, node) {
     }
     idx++;
   }
+  // Remove stale DOM children that no longer have matching ProjNode children
+  while (idx < container.children.length) {
+    container.children[idx].remove();
+  }
 }
 function renderHtmlTree(data) {
   if (!data) { htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No parse result.</div>'; htmlNodeCount.textContent = '0'; return; }
