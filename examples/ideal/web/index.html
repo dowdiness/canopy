@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canopy Editor</title>
+
+  <!-- Inline SVG favicon — lambda symbol in brand purple -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23161625'/%3E%3Ctext x='16' y='23' font-family='system-ui' font-size='20' font-weight='600' fill='%238250df' text-anchor='middle'%3E%CE%BB%3C/text%3E%3C/svg%3E">
+
+  <!-- Preconnect to font CDNs (parallel, non-blocking) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <!-- Load fonts via <link> instead of CSS @import (avoids waterfall) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.0/latin-400.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.0/latin-500.css">
+
+  <link rel="stylesheet" href="/styles/editor.css">
+
+  <!-- Inline critical CSS for loading skeleton -->
+  <style>
+    body { margin: 0; background: #161625; }
+    .loading-skeleton {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      font-family: 'Manrope', system-ui, sans-serif;
+      color: #8888a8;
+    }
+    .loading-toolbar {
+      height: 48px;
+      background: #12121f;
+      border-bottom: 1px solid #28283e;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+    }
+    .loading-toolbar span {
+      font-size: 13px;
+      opacity: 0.6;
+    }
+    .loading-workspace {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #2a2a48;
+      border-top-color: #8250df;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .loading-spinner { animation: none; opacity: 0.5; }
+    }
+
+    /* Binder palette — 8 hues */
+    :root {
+      --binder-0: #e06c75;
+      --binder-1: #61afef;
+      --binder-2: #c3e88d;
+      --binder-3: #f78c6c;
+      --binder-4: #dcdcaa;
+      --binder-5: #c792ea;
+      --binder-6: #89ddff;
+      --binder-7: #ff5370;
+    }
+    .binder-0 { color: var(--binder-0); }
+    .binder-1 { color: var(--binder-1); }
+    .binder-2 { color: var(--binder-2); }
+    .binder-3 { color: var(--binder-3); }
+    .binder-4 { color: var(--binder-4); }
+    .binder-5 { color: var(--binder-5); }
+    .binder-6 { color: var(--binder-6); }
+    .binder-7 { color: var(--binder-7); }
+
+    /* Definition site weight */
+    .def-site { font-weight: 700; }
+
+    /* Selection states */
+    .scope-highlighted { opacity: 1; }
+    .scope-dimmed { opacity: 0.35; transition: opacity 0.15s ease; }
+
+  </style>
+</head>
+<body>
+  <!-- Loading skeleton shown while MoonBit modules download (2.8MB) -->
+  <div id="app" class="loading-skeleton">
+    <div class="loading-toolbar">
+      <span>Canopy Editor</span>
+    </div>
+    <div class="loading-workspace">
+      <div class="loading-spinner"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

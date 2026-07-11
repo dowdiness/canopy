@@ -1,0 +1,47 @@
+import {
+  "dowdiness/canopy/protocol/wire",
+  "dowdiness/canopy/transport_ws",
+  "dowdiness/canopy/sync_session",
+  "dowdiness/text_change",
+  "dowdiness/moji",
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/undo",
+  "dowdiness/event-graph-walker/history",
+  "dowdiness/incr",
+  "dowdiness/loom",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/ephemeral",
+  "dowdiness/loom/core" @loom_core,
+  "dowdiness/seam",
+  "dowdiness/pretty",
+  "dowdiness/canopy/protocol",
+  "moonbitlang/core/bench",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
+  "moonbitlang/core/builtin",
+  "moonbitlang/core/int",
+  "moonbitlang/core/json",
+}
+
+import {
+  "dowdiness/canopy/workspace/probe",
+} for "test"
+
+import {
+  "dowdiness/canopy/workspace/probe",
+} for "wbtest"
+
+warnings = "-7-29"
+
+options(
+  is_main: false,
+  targets: {
+    "error_path_wbtest.mbt": [ "not", "js" ],
+    "sync_editor_ws_wbtest.mbt": [ "not", "js" ],
+    "test_ws_helper_js_wbtest.mbt": [ "js" ],
+    "test_ws_helper_native_wbtest.mbt": [ "not", "js" ],
+  },
+)

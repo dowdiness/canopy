@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+options(
+  targets: { "fetch_ffi.mbt": [ "js" ] },
+)

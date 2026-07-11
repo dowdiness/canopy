@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/semantic"
+
+import {
+  "dowdiness/markdown",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn annotate_symbolic(@markdown.Block) -> FixedArray[Confidence[Role]]
+
+// Errors
+pub(all) suberror InvalidConfidence {
+  BadConfidence(Float)
+} derive(@debug.Debug)
+pub impl Show for InvalidConfidence
+
+// Types and methods
+pub(all) enum Confidence[T] {
+  Unknown
+  Guessed(Float, T)
+  RuleBased(T)
+  Confirmed(T)
+  Conflict
+} derive(Eq, @debug.Debug)
+pub fn[T] Confidence::guessed(Float, T) -> Self[T] raise InvalidConfidence
+pub fn[T : Eq] Confidence::join(Self[T], Self[T]) -> Self[T]
+pub impl[T : @debug.Debug] Show for Confidence[T]
+
+pub(all) enum Role {
+  Abstract
+  SectionIntro
+  CodeExplanation
+  KeyPoints
+  Unclassified
+} derive(Eq, @debug.Debug)
+pub impl Show for Role
+
+// Type aliases
+
+// Traits
+

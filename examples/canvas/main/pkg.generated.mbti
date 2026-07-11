@@ -1,0 +1,147 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-canvas/main"
+
+import {
+  "dowdiness/canopy-canvas-graph/graph_model",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn add_node(Int, String, Double, Double) -> Unit
+
+pub fn apply_source_graph_operation(Int, String) -> String
+
+pub fn create_canvas() -> Int
+
+pub fn create_source_graph(String) -> Int
+
+pub fn delete_nodes(Int, String) -> Unit
+
+pub fn destroy_source_graph(Int) -> Unit
+
+pub fn disconnect_ports(Int, String, String, String, String) -> Unit
+
+pub fn get_action_log(Int) -> String
+
+pub fn get_input_port_compatibility(Int, String, String) -> String
+
+pub fn get_render_state(Int) -> String
+
+pub fn get_source_graph_action_log(Int) -> String
+
+pub fn get_source_graph_input_port_compatibility(Int, String, String) -> String
+
+pub fn get_source_graph_render_state(Int) -> String
+
+pub fn get_source_graph_source(Int) -> String
+
+pub fn hover_node(Int, String) -> Unit
+
+pub fn mount_canvas_context_menu((String) -> Unit, () -> Unit) -> Unit
+
+pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
+
+pub fn pointer_down(Int, String, Double, Double) -> Unit
+
+pub fn pointer_down_handle(Int, String, String, Double, Double) -> Unit
+
+pub fn pointer_move(Int, Double, Double) -> Unit
+
+pub fn pointer_up(Int, String, String, Bool) -> Unit
+
+pub fn sample_graph_dsl_source() -> String
+
+pub fn set_source_graph_source(Int, String) -> Unit
+
+pub fn set_source_graph_source_result(Int, String) -> String
+
+pub fn source_graph_insert_unique(Int, String, String) -> String
+
+pub fn source_graph_pointer_down(Int, String, Double, Double) -> Unit
+
+pub fn source_graph_pointer_move(Int, Double, Double) -> Unit
+
+pub fn source_graph_pointer_up(Int, String, String, Bool) -> Unit
+
+pub fn source_graph_zoom(Int, Double, Double, Double) -> Unit
+
+pub fn zoom(Int, Double, Double, Double) -> Unit
+
+// Errors
+
+// Types and methods
+type CanvasFullRenderJson derive(Eq)
+
+type ConnectingJson derive(Eq, ToJson)
+
+type EdgeJson derive(Eq, ToJson)
+
+type InspectorNodeJson derive(Eq, ToJson)
+
+type LoweredCanvas derive(Eq)
+
+type NodeJson derive(Eq, ToJson)
+
+type NodeParamJson derive(Eq, ToJson)
+
+type NormalizedCanvas derive(Eq)
+
+type PortCompatibilityJson derive(Eq, ToJson, @json.FromJson)
+
+type RenderStateJson derive(Eq, ToJson)
+
+type SourceBackedGraph
+
+type SourceDemoModel
+
+type SourceDemoMsg
+
+type SourceGraphOperationResultJson derive(ToJson, @json.FromJson)
+
+type SourceNodePosition
+
+type ValidatedCanvas derive(Eq)
+
+type ValidationJson derive(Eq, ToJson)
+
+// Type aliases
+pub using @graph_model {type CanvasNode}
+
+pub using @graph_model {type CanvasState}
+
+pub using @graph_model {type ConnectState}
+
+pub using @graph_model {type DragOrigin}
+
+pub using @graph_model {type DragPreview}
+
+pub using @graph_model {type DragState}
+
+pub using @graph_model {type Edge}
+
+pub using @graph_model {type EdgeId}
+
+pub using @graph_model {type GraphOperation}
+
+pub using @graph_model {type InteractionState}
+
+pub using @graph_model {type NodeId}
+
+pub using @graph_model {type NodeKind}
+
+pub using @graph_model {type NodePosition}
+
+pub using @graph_model {type PanState}
+
+pub using @graph_model {type PortDef}
+
+pub using @graph_model {type PortType}
+
+pub using @graph_model {type Viewport}
+
+pub using @graph_model {type WorkflowAction}
+
+pub using @graph_model {type WorkflowNodeKind}
+
+// Traits
+

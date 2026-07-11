@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/markdown/sentinel"
+
+// Values
+pub const EMPTY_PARAGRAPH_SENTINEL : String = "​"
+
+pub fn is_empty_paragraph_text(String) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

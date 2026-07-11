@@ -1,0 +1,28 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/loom/core" @loomcore,
+  "moonbitlang/core/bench",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset" @immut/hashset,
+}
+
+import {
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast",
+  "dowdiness/seam",
+} for "test"
+
+import {
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast",
+  "dowdiness/seam",
+} for "wbtest"
+
+warnings = "-2-6-29"
+
+options(
+  is_main: false,
+)

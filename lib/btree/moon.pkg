@@ -1,0 +1,11 @@
+import {
+  "dowdiness/rle",
+  "moonbitlang/core/bench",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"

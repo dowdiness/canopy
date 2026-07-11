@@ -1,0 +1,197 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/js_ffi",
+  "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/canopy/projection",
+  "dowdiness/event-graph-walker/history",
+  "dowdiness/lambda/ast",
+  "dowdiness/rabbita-resizable/resizable",
+  "dowdiness/visualizer",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset",
+}
+
+// Values
+pub fn apply_sync_json(Int, String) -> String
+
+pub fn apply_tree_edit_json(Int, String, Int) -> String
+
+pub fn create_editor_with_undo(String, Int) -> Int
+
+pub fn delete_at(Int, Int, Int) -> Bool
+
+pub fn ephemeral_apply(Int, Bytes) -> Unit
+
+pub fn ephemeral_delete_presence(Int) -> Unit
+
+pub fn ephemeral_encode_all(Int) -> Bytes
+
+pub fn ephemeral_get_peer_cursors_json(Int) -> String
+
+pub fn ephemeral_remove_outdated(Int) -> Unit
+
+pub fn ephemeral_set_presence(Int, String, String) -> Unit
+
+pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> Unit
+
+pub fn export_all_json(Int) -> String
+
+pub fn export_since_json(Int, String) -> String
+
+pub fn get_errors_json(Int) -> String
+
+pub fn get_proj_node_json(Int) -> String
+
+pub fn get_source_map_json(Int) -> String
+
+pub fn get_text(Int) -> String
+
+pub fn get_version_json(Int) -> String
+
+pub fn handle_redo(Int) -> Bool
+
+pub fn handle_structural_intent(Int, String, String, Int, String) -> String
+
+pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
+
+pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool
+
+pub fn handle_undo(Int) -> Bool
+
+pub fn insert_at(Int, Int, String, Int) -> Unit
+
+pub fn legend_html(@history.CausalSnapshot, String) -> String
+
+pub fn load_file(Int) -> Unit
+
+pub fn register_file_host(@js_ffi.Any) -> Unit
+
+pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
+
+pub fn save_file(Int, String) -> Unit
+
+pub fn set_text(Int, String) -> Unit
+
+pub fn set_text_and_record(Int, String, Int) -> Unit
+
+pub fn undo_manager_can_redo(Int) -> Bool
+
+pub fn undo_manager_can_undo(Int) -> Bool
+
+pub fn undo_manager_redo(Int) -> Bool
+
+pub fn undo_manager_undo(Int) -> Bool
+
+// Errors
+
+// Types and methods
+type ActionOverlayHost
+
+type ActionOverlayRuntime
+
+pub enum BottomTab {
+  Problems
+  OpLog
+  Patch
+  History
+  CrdtState
+  Graphviz
+  IncrGraph
+} derive(Eq)
+
+type CompressedData
+
+type CompressedNode
+
+pub enum EditorMode {
+  Text
+  Structure
+} derive(Eq)
+
+type HistoryData
+
+pub enum HistoryRender {
+  Empty
+  Dot(String)
+  TooLarge(Int)
+}
+
+pub struct Model {
+  editor : @editor.SyncEditor[@ast.Term]
+  handle : Int
+  companion : @companion.LambdaCompanion
+  outline_state : @projection.TreeEditorState[@ast.Term]
+  cm_id : String
+  mounted : Bool
+  mode : EditorMode
+  workspace : WorkspaceLayout
+  selected_node : String?
+  diagnostics_open : Bool
+  next_timestamp : Int
+  bottom_tab : BottomTab
+  sync_status : SyncStatus
+  overlay : ActionOverlayHost
+  scope_map : Map[@core.NodeId, @scope.ScopeAnnotation]
+  highlight_set : @hashset.HashSet[@core.NodeId]
+  drag_source : @core.NodeId?
+  mut nav_path : Array[Int]?
+  drop_target_id : @core.NodeId?
+  drop_position : @core.DropPosition?
+  intent_log : Array[String]
+  patch_log : Array[PatchEntry]
+  incr_tap : @visualizer.RecomputeTap
+}
+
+type Msg
+
+type OverlayEffect
+
+type OverlayError derive(@debug.Debug)
+
+type OverlayEvent
+
+type OverlayMode
+
+type OverlayMsg
+
+type OverlayOutput
+
+type OverlayState
+
+type OverlayUpdate
+
+pub enum PanelId {
+  Outline
+  Inspector
+  Bottom
+} derive(Eq)
+
+pub(all) struct PatchEntry {
+  op_label : String
+  edits : Array[@core.SpanEdit]
+  changes : Array[@core.StructuredChange]
+}
+
+pub enum SyncStatus {
+  Offline
+  Connecting
+  Connected
+  Error
+} derive(Eq)
+
+pub struct WorkspaceLayout {
+  outline_visible : Bool
+  inspector_visible : Bool
+  bottom_visible : Bool
+  outline_resize : @resizable.Model
+}
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,56 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/projection"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset",
+}
+
+// Values
+pub fn[T : @dowdiness/loom/core.TreeNode] is_leaf_node(T) -> Bool
+
+// Errors
+
+// Types and methods
+pub enum InteractiveChildren[T] {
+  Loaded(Array[InteractiveTreeNode[T]])
+  Elided(Int)
+} derive(@debug.Debug)
+
+pub struct InteractiveTreeNode[T] {
+  id : @dowdiness/canopy/core.NodeId
+  kind : T
+  label : String
+  children : InteractiveChildren[T]
+  selected : Bool
+  editing : Bool
+  collapsed : Bool
+  drop_target : Bool
+  text_range : @dowdiness/loom/core.Range
+} derive(@debug.Debug)
+pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap) -> Self[T]
+pub impl[T : @dowdiness/loom/core.Renderable] Show for InteractiveTreeNode[T]
+
+pub struct TreeEditorState[T] {
+  tree : InteractiveTreeNode[T]?
+  selection : Array[@dowdiness/canopy/core.NodeId]
+  editing_node : @dowdiness/canopy/core.NodeId?
+  edit_value : String
+  dragging : @dowdiness/canopy/core.NodeId?
+  drop_target : @dowdiness/canopy/core.NodeId?
+  drop_position : @dowdiness/canopy/core.DropPosition?
+  collapsed_nodes : @hashset.HashSet[@dowdiness/canopy/core.NodeId]
+  // private fields
+}
+pub fn[T] TreeEditorState::apply_edit(Self[T], @dowdiness/canopy/core.GenericTreeOp) -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::expand_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::from_projection(@dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
+pub fn[T] TreeEditorState::get_loaded_node(Self[T], @dowdiness/canopy/core.NodeId) -> InteractiveTreeNode[T]?
+pub fn[T] TreeEditorState::has_node(Self[T], @dowdiness/canopy/core.NodeId) -> Bool
+pub fn[T] TreeEditorState::new() -> Self[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] TreeEditorState::refresh(Self[T], @dowdiness/canopy/core.ProjNode[T]?, @dowdiness/canopy/core.SourceMap) -> Self[T]
+
+// Type aliases
+
+// Traits
+

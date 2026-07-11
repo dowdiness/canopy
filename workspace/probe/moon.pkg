@@ -1,0 +1,24 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core",
+  "dowdiness/incr",
+  "dowdiness/loom",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/lang/json/companion" @json_companion,
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/incr",
+  "dowdiness/json" @_json_lang,
+  "dowdiness/lambda/ast",
+  "dowdiness/loom",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/core/debug",
+} for "wbtest"

@@ -1,0 +1,19 @@
+name = "crdt-signaling-server"
+main = "signaling-worker.js"
+compatibility_date = "2026-01-04"
+
+# Durable Objects binding
+[[durable_objects.bindings]]
+name = "SIGNALING_ROOM"
+class_name = "SignalingRoom"
+
+# Migration to create the Durable Object class
+# Using new_sqlite_classes for free tier compatibility
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SignalingRoom"]
+
+# Optional: Configure custom domain after deployment
+# routes = [
+#   { pattern = "signaling.yourdomain.com", custom_domain = true }
+# ]

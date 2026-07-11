@@ -1,0 +1,177 @@
+// Whitebox tests for SourceMap token-level spans
+
+///|
+fn parse_syntax_for_token_test(text : String) -> @seam.SyntaxNode raise {
+  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  @seam.SyntaxNode::from_cst(cst)
+}
+
+///|
+test "token span: lambda param" {
+  let text = "(x) => x"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let lambda_id = proj.id()
+  let param_span = sm.get_token_span(lambda_id, "param")
+  // param "x" inside the arrow-lambda parameter list starts at 1
+  guard param_span is Some(span)
+  inspect(span.start, content="1")
+  inspect(span.end, content="2")
+}
+
+///|
+test "token span: lambda param multi-char" {
+  let text = "(foo) => foo"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let lambda_id = proj.id()
+  let param_span = sm.get_token_span(lambda_id, "param")
+  guard param_span is Some(span)
+  inspect(span.start, content="1")
+  inspect(span.end, content="4")
+}
+
+///|
+test "token span: nested lambda params" {
+  // (x, y) => x — outer lambda param "x" at 1..2, inner lambda param "y" at 4..5
+  let text = "(x, y) => x"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  // Outer lambda
+  let outer_id = proj.id()
+  guard sm.get_token_span(outer_id, "param") is Some(outer_span)
+  inspect(outer_span.start, content="1")
+  inspect(outer_span.end, content="2")
+  // Inner lambda is the first child of outer
+  let inner_lambda = proj.children[0]
+  let inner_id = inner_lambda.id()
+  guard sm.get_token_span(inner_id, "param") is Some(inner_span)
+  inspect(inner_span.start, content="4")
+  inspect(inner_span.end, content="5")
+}
+
+///|
+test "token span: let def name" {
+  // let x = 1\nx — name "x" at position 4..5
+  let text = "let x = 1\nx"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let module_id = proj.id()
+  let let_def_id = proj.children[0].id()
+  guard sm.get_token_span(let_def_id, @lambda_proj.LET_DEF_NAME_ROLE)
+    is Some(span)
+  inspect(span.start, content="4")
+  inspect(span.end, content="5")
+  guard sm.get_token_span(module_id, "name:0") is Some(fallback)
+  inspect(fallback.start, content="4")
+  inspect(fallback.end, content="5")
+}
+
+///|
+test "token span: multiple let defs" {
+  let text = "let x = 1\nlet y = 2\nx + y"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let module_id = proj.id()
+  // First let: "x" at position 4..5
+  guard sm.get_token_span(proj.children[0].id(), @lambda_proj.LET_DEF_NAME_ROLE)
+    is Some(x_span)
+  inspect(x_span.start, content="4")
+  inspect(x_span.end, content="5")
+  // Second let: "y" at position 14..15
+  guard sm.get_token_span(proj.children[1].id(), @lambda_proj.LET_DEF_NAME_ROLE)
+    is Some(y_span)
+  inspect(y_span.start, content="14")
+  inspect(y_span.end, content="15")
+  guard sm.get_token_span(module_id, "name:0") is Some(_)
+  guard sm.get_token_span(module_id, "name:1") is Some(_)
+}
+
+///|
+test "token span: no token spans for simple expression" {
+  let text = "42"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  inspect(sm.token_spans.length(), content="0")
+}
+
+///|
+test "token span: lambda inside let def" {
+  // let f = (x) => x\nf — both LetDef "name" and lambda "param" should be recorded
+  let text = "let f = (x) => x\nf"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  // LetDef node should have canonical "name" plus module fallback "name:0".
+  let module_id = proj.id()
+  let let_def = proj.children[0]
+  guard sm.get_token_span(let_def.id(), @lambda_proj.LET_DEF_NAME_ROLE)
+    is Some(_)
+  guard sm.get_token_span(module_id, "name:0") is Some(_)
+  // The lambda (child 0 of LetDef = init of first def) should have "param"
+  let lambda_node = let_def.children[0]
+  guard sm.get_token_span(lambda_node.id(), "param") is Some(param_span)
+  // The parameter list starts at position 8; x is at position 9..10
+  inspect(param_span.start, content="9")
+  inspect(param_span.end, content="10")
+}
+
+///|
+test "token span: get_token_span returns None for missing role" {
+  let text = "(x) => x"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let lambda_id = proj.id()
+  // "param" exists
+  guard sm.get_token_span(lambda_id, "param") is Some(_)
+  // "name" does not
+  guard sm.get_token_span(lambda_id, "name") is None
+  // Non-existent node
+  guard sm.get_token_span(NodeId::from_int(999), "param") is None
+}
+
+///|
+test "token span: set_token_span manual" {
+  let sm = SourceMap::new()
+  let nid = NodeId::from_int(42)
+  sm.set_token_span(nid, "test_role", Range::new(10, 20))
+  guard sm.get_token_span(nid, "test_role") is Some(span)
+  inspect(span.start, content="10")
+  inspect(span.end, content="20")
+}
+
+///|
+test "token span: JSON includes token spans" {
+  let text = "(x) => x"
+  let syntax = parse_syntax_for_token_test(text)
+  let counter = Ref(0)
+  let proj = @lambda_proj.to_proj_node(syntax, counter)
+  let sm = SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(sm, syntax, proj)
+  let json_str = sm.to_json().stringify()
+  inspect(json_str.contains("token_spans"), content="true")
+  inspect(json_str.contains("param"), content="true")
+}

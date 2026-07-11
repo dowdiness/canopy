@@ -1,0 +1,196 @@
+# Benchmark Baseline — 2026-03-18 — post-FlatProj
+# HEAD: 9d7817d feat: add JS bindings for undo/redo with sync export
+
+## crdt module (editor)
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:33 ("parser benchmark - reactive full reparse medium") ok
+ 195.20 µs ±   9.44 µs   185.99 µs … 215.71 µs  in 10 ×    459 runs
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:54 ("parser benchmark - imperative incremental medium") ok
+ 195.65 µs ±   4.72 µs   190.92 µs … 204.30 µs  in 10 ×    503 runs
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:79 ("parser benchmark - reactive full reparse large") ok
+ 791.27 µs ±   9.79 µs   776.42 µs … 807.68 µs  in 10 ×    128 runs
+[dowdiness/canopy] bench editor/performance_benchmark.mbt:100 ("parser benchmark - imperative incremental large") ok
+ 804.22 µs ±  16.57 µs   784.42 µs … 836.41 µs  in 10 ×    124 runs
+
+## event-graph-walker
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:21 ("merge - concurrent edits (2 agents x 10)") ok
+  19.57 µs ±   0.58 µs    18.87 µs …  20.73 µs  in 10 ×   5341 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:59 ("merge - concurrent edits (2 agents x 50)") ok
+ 134.16 µs ±   4.48 µs   130.33 µs … 145.73 µs  in 10 ×    740 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:97 ("merge - concurrent edits (2 agents x 200)") ok
+ 711.96 µs ±  13.55 µs   694.70 µs … 737.19 µs  in 10 ×    140 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:135 ("merge - many agents (5 agents x 20)") ok
+ 199.06 µs ±   3.08 µs   193.56 µs … 204.10 µs  in 10 ×    495 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:184 ("merge - with deletes (50 inserts, 25 deletes)") ok
+ 110.03 µs ±   0.93 µs   108.55 µs … 111.81 µs  in 10 ×    905 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:230 ("merge - graph_diff advance (20 ops)") ok
+  56.59 µs ±   0.44 µs    55.69 µs …  56.96 µs  in 10 ×   1741 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:303 ("merge - repeated small (10 iterations x 5 ops)") ok
+ 176.42 µs ±   2.35 µs   173.51 µs … 181.16 µs  in 10 ×    570 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_merge_benchmark.mbt:341 ("merge - context apply operations (50 ops)") ok
+   6.45 µs ±   0.05 µs     6.38 µs …   6.55 µs  in 10 ×  15267 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:6 ("branch - checkout (10 ops)") ok
+   4.45 µs ±   0.12 µs     4.36 µs …   4.76 µs  in 10 ×  22677 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:29 ("branch - checkout (100 ops)") ok
+  74.02 µs ±   0.60 µs    73.09 µs …  74.96 µs  in 10 ×   1358 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:47 ("branch - checkout (1000 ops)") ok
+   1.41 ms ±  18.86 µs     1.38 ms …   1.44 ms  in 10 ×     72 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:65 ("branch - advance (10 new ops)") ok
+  26.85 µs ±   0.13 µs    26.62 µs …  27.02 µs  in 10 ×   3762 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:91 ("branch - advance (100 new ops)") ok
+ 113.41 µs ±   1.45 µs   111.86 µs … 115.99 µs  in 10 ×    873 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:117 ("branch - checkout with concurrent branches") ok
+  75.20 µs ±   0.84 µs    73.92 µs …  76.53 µs  in 10 ×   1344 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:145 ("branch - checkout with deletes") ok
+ 121.85 µs ±   1.05 µs   120.33 µs … 123.85 µs  in 10 ×    795 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:176 ("branch - repeated advance steady-state (10 iterations)") ok
+ 102.76 µs ±   0.91 µs   101.42 µs … 104.49 µs  in 10 ×    977 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:220 ("branch - repeated advance with oplog mutations (10 iterations)") ok
+  16.66 ms ±   5.35 ms     9.61 ms …  25.01 ms  in 10 ×     18 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:246 ("branch - to_text (100 chars)") ok
+ 101.95 µs ±   0.87 µs   100.80 µs … 103.53 µs  in 10 ×    968 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:264 ("branch - to_text (1000 chars)") ok
+  10.23 ms ±  90.03 µs    10.08 ms …  10.36 ms  in 10 ×     10 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:285 ("branch - single advance (1 new op)") ok
+  20.48 µs ±   0.16 µs    20.25 µs …  20.73 µs  in 10 ×   4898 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:311 ("branch - single advance (50 new ops)") ok
+  63.01 µs ±   0.46 µs    62.38 µs …  63.72 µs  in 10 ×   1579 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:342 ("branch - realistic typing (50 chars)") ok
+  78.98 ms ±  27.27 ms    42.89 ms … 119.44 ms  in 10 ×      5 runs
+[dowdiness/event-graph-walker] bench internal/branch/branch_benchmark.mbt:375 ("branch - concurrent merge scenario") ok
+  18.12 µs ±   0.24 µs    17.91 µs …  18.47 µs  in 10 ×   5607 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:6 ("walker - linear history (10 ops)") ok
+   3.51 µs ±   0.05 µs     3.44 µs …   3.60 µs  in 10 ×  28932 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:22 ("walker - linear history (100 ops)") ok
+  61.67 µs ±   2.07 µs    60.35 µs …  67.19 µs  in 10 ×   1546 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:38 ("walker - linear history (1000 ops)") ok
+   1.14 ms ±  14.58 µs     1.12 ms …   1.16 ms  in 10 ×     87 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:54 ("walker - concurrent branches (2 agents x 50)") ok
+  60.53 µs ±   0.84 µs    59.65 µs …  62.43 µs  in 10 ×   1637 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:79 ("walker - concurrent branches (5 agents x 20)") ok
+  59.46 µs ±   0.66 µs    58.55 µs …  60.51 µs  in 10 ×   1687 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:99 ("walker - diamond pattern (50 diamonds)") ok
+ 121.32 µs ±   3.68 µs   118.30 µs … 130.71 µs  in 10 ×    841 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:121 ("walker - diff advance only (10 new ops)") ok
+  25.75 µs ±   0.19 µs    25.46 µs …  26.07 µs  in 10 ×   3901 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:145 ("walker - diff with concurrent branches") ok
+  50.48 µs ±   1.71 µs    48.93 µs …  54.83 µs  in 10 ×   2014 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:176 ("walker - large history (10000 ops)") ok
+  25.68 ms ±   1.50 ms    23.67 ms …  28.01 ms  in 10 ×      4 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:196 ("walker - linear history (100000 ops)") ok
+ 741.49 ms ±  64.13 ms   652.90 ms … 846.51 ms  in 10 ×      1 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/walker_benchmark.mbt:213 ("walker - concurrent branches (100000 ops, 5 agents)") ok
+ 735.12 ms ±  57.46 ms   657.62 ms … 817.55 ms  in 10 ×      1 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:6 ("version_vector - create (1 agent)") ok
+   0.05 µs ±   0.00 µs     0.05 µs …   0.05 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:15 ("version_vector - create (5 agents)") ok
+   0.25 µs ±   0.00 µs     0.25 µs …   0.26 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:29 ("version_vector - create (20 agents)") ok
+   1.14 µs ±   0.02 µs     1.12 µs …   1.17 µs  in 10 ×  86928 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:42 ("version_vector - compare equal (5 agents)") ok
+   0.20 µs ±   0.00 µs     0.20 µs …   0.20 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:63 ("version_vector - compare <= (5 agents)") ok
+   0.11 µs ±   0.00 µs     0.11 µs …   0.12 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:84 ("version_vector - compare <= (20 agents)") ok
+   0.46 µs ±   0.01 µs     0.45 µs …   0.47 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:100 ("version_vector - merge (5 agents)") ok
+   0.36 µs ±   0.00 µs     0.35 µs …   0.36 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:118 ("version_vector - merge (20 agents)") ok
+   1.80 µs ±   0.01 µs     1.79 µs …   1.81 µs  in 10 ×  55986 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:134 ("version_vector - includes (5 agents)") ok
+   0.18 µs ±   0.00 µs     0.18 µs …   0.19 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:153 ("version_vector - concurrent (5 agents)") ok
+   0.12 µs ±   0.00 µs     0.12 µs …   0.12 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:170 ("version_vector - from_frontier (10 ops)") ok
+   1.02 µs ±   0.01 µs     1.00 µs …   1.04 µs  in 10 ×  99290 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:186 ("version_vector - from_frontier (100 ops, 5 agents)") ok
+  14.30 µs ±   0.23 µs    14.06 µs …  14.69 µs  in 10 ×   6986 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:206 ("version_vector - to_frontier (5 agents)") ok
+   0.21 µs ±   0.04 µs     0.19 µs …   0.28 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:230 ("version_vector - roundtrip (5 agents)") ok
+  14.89 µs ±   0.34 µs    14.47 µs …  15.46 µs  in 10 ×   6673 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:251 ("version_vector - agents (5 agents)") ok
+   0.04 µs ±   0.00 µs     0.04 µs …   0.04 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/causal_graph/version_vector_benchmark.mbt:266 ("version_vector - length (20 agents)") ok
+   0.01 µs ±   0.00 µs     0.01 µs …   0.01 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:6 ("oplog - insert (100 ops)") ok
+  41.76 µs ±   0.75 µs    40.79 µs …  42.99 µs  in 10 ×   2137 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:20 ("oplog - insert (1000 ops)") ok
+ 624.36 µs ±  14.55 µs   608.83 µs … 646.29 µs  in 10 ×    161 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:34 ("oplog - insert and delete mix (100 ops)") ok
+  68.37 µs ±   0.90 µs    66.64 µs …  69.10 µs  in 10 ×   1486 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:58 ("oplog - apply_remote (50 ops)") ok
+  23.90 µs ±   0.41 µs    23.39 µs …  24.50 µs  in 10 ×   4179 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:79 ("oplog - get_op (1000 ops)") ok
+   0.02 µs ±   0.00 µs     0.01 µs …   0.02 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:97 ("oplog - get_frontier (single agent)") ok
+   0.02 µs ±   0.00 µs     0.02 µs …   0.02 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:112 ("oplog - get_frontier (5 agents)") ok
+   0.02 µs ±   0.00 µs     0.02 µs …   0.02 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:134 ("oplog - walk_and_collect (100 ops)") ok
+  64.02 µs ±   0.55 µs    63.24 µs …  64.81 µs  in 10 ×   1538 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:150 ("oplog - walk_and_collect (concurrent)") ok
+  64.72 µs ±   1.00 µs    63.42 µs …  66.21 µs  in 10 ×   1465 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:177 ("oplog - diff_and_collect (advance 20)") ok
+  31.31 µs ±   0.18 µs    31.06 µs …  31.53 µs  in 10 ×   3200 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:202 ("oplog - walk_filtered (inserts only)") ok
+  45.41 µs ±   0.49 µs    44.78 µs …  46.12 µs  in 10 ×   2238 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:233 ("oplog - sequential typing (500 chars)") ok
+ 274.77 µs ±   6.85 µs   265.45 µs … 284.51 µs  in 10 ×    374 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:249 ("oplog - random position inserts (100 ops)") ok
+  41.53 µs ±   0.42 µs    41.05 µs …  42.34 µs  in 10 ×   2434 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:270 ("oplog - sequential typing (100000 chars)") ok
+ 257.57 ms ±  35.20 ms   201.44 ms … 303.77 ms  in 10 ×      1 runs
+[dowdiness/event-graph-walker] bench internal/oplog/oplog_benchmark.mbt:287 ("oplog - diff_and_collect (100000 ops advance)") ok
+ 711.70 ms ±  47.20 ms   632.66 ms … 771.85 ms  in 10 ×      1 runs
+[dowdiness/event-graph-walker] bench internal/rle/rle_benchmark.mbt:40 ("runs - range iter (small)") ok
+  10.32 µs ±   0.07 µs    10.22 µs …  10.42 µs  in 10 ×   9742 runs
+[dowdiness/event-graph-walker] bench internal/rle/rle_benchmark.mbt:57 ("runs - range iter (middle)") ok
+  17.89 µs ±   0.24 µs    17.48 µs …  18.31 µs  in 10 ×   5684 runs
+[dowdiness/event-graph-walker] bench internal/rle/rle_benchmark.mbt:87 ("runs - concat batch") ok
+   0.90 µs ±   0.05 µs     0.84 µs …   0.98 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench internal/rle/rle_benchmark.mbt:98 ("runs - extend batch") ok
+ 307.08 µs ±  14.93 µs   287.04 µs … 330.63 µs  in 10 ×    344 runs
+[dowdiness/event-graph-walker] bench internal/rle/rle_benchmark.mbt:109 ("runs - from_array_batch") ok
+  97.15 µs ±   2.83 µs    92.40 µs … 100.55 µs  in 10 ×   1031 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:10 ("text - insert append (100 chars)") ok
+   4.16 ms ± 148.40 µs     4.03 ms …   4.51 ms  in 10 ×     23 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:22 ("text - insert append (1000 chars)") ok
+   3.88 s ±  29.91 ms     3.84 s …   3.93 s  in 10 ×      1 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:35 ("text - insert prepend (100 chars)") ok
+   4.13 ms ±  30.22 µs     4.09 ms …   4.18 ms  in 10 ×     25 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:51 ("text - delete (100 deletes from 100-char doc)") ok
+  15.17 ms ± 163.46 µs    14.93 ms …  15.45 ms  in 10 ×      7 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:70 ("text - text() (100-char doc)") ok
+ 105.48 µs ±   1.14 µs   103.95 µs … 107.36 µs  in 10 ×    954 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:83 ("text - text() (1000-char doc)") ok
+  13.11 ms ± 145.98 µs    12.87 ms …  13.33 ms  in 10 ×      8 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:96 ("text - len() (1000-char doc)") ok
+   0.01 µs ±   0.00 µs     0.01 µs …   0.01 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:113 ("text - sync export_all (100 ops)") ok
+   0.19 µs ±   0.01 µs     0.19 µs …   0.21 µs  in 10 × 100000 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:126 ("text - sync export_all (1000 ops)") ok
+   1.45 µs ±   0.04 µs     1.42 µs …   1.55 µs  in 10 ×  70022 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:139 ("text - sync export_since (50-op delta, 1000-op base)") ok
+ 450.67 µs ±  18.18 µs   430.46 µs … 480.14 µs  in 10 ×    219 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:156 ("text - sync apply (50 remote ops)") ok
+  73.55 µs ±   0.98 µs    72.15 µs …  75.18 µs  in 10 ×   1357 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:171 ("text - sync apply (500 remote ops)") ok
+   1.20 ms ±  11.18 µs     1.18 ms …   1.22 ms  in 10 ×     86 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:186 ("text - bidirectional sync (2 peers, 50 ops each)") ok
+ 151.93 µs ±   1.87 µs   149.64 µs … 154.36 µs  in 10 ×    662 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:216 ("text - checkout (midpoint of 100-op doc)") ok
+  37.10 µs ±   0.91 µs    35.94 µs …  38.52 µs  in 10 ×   2726 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:233 ("text - checkout (midpoint of 1000-op doc)") ok
+ 641.55 µs ±  12.79 µs   629.08 µs … 670.52 µs  in 10 ×    152 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:256 ("text - undo record_insert (100 ops, 1 group)") ok
+   1.72 µs ±   0.04 µs     1.67 µs …   1.77 µs  in 10 ×  58807 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:269 ("text - undo record_insert (100 ops, 100 groups)") ok
+   2.39 µs ±   0.08 µs     2.27 µs …   2.51 µs  in 10 ×  42190 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:281 ("text - undo undo() (10-op group)") ok
+  37.71 µs ±   0.53 µs    36.92 µs …  38.47 µs  in 10 ×   2488 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:295 ("text - undo undo() (50-op group)") ok
+   2.30 ms ±  36.26 µs     2.24 ms …   2.36 ms  in 10 ×     45 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:309 ("text - undo undo+redo roundtrip (10-op group)") ok
+  42.49 µs ±   0.73 µs    41.42 µs …  43.41 µs  in 10 ×   2368 runs
+[dowdiness/event-graph-walker] bench text/text_benchmark.mbt:324 ("text - undo 10 undo+redo cycles (10-op group)") ok
+ 366.62 µs ±   9.50 µs   358.38 µs … 388.56 µs  in 10 ×    271 runs

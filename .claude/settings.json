@@ -1,0 +1,83 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "moon fmt && moon info && DRIFT=$(git diff --stat -- '*.mbt' '*.mbti'); if [ -n \"$DRIFT\" ]; then echo '{\"decision\":\"block\",\"reason\":\"moon fmt/info changed files. Stage or revert before committing:\\n'\"$(echo $DRIFT | head -5)\"'\"}'; else moon check && moon test; fi",
+            "timeout": 120,
+            "statusMessage": "Running pre-commit lint & test..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(git push*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git submodule foreach 'git diff --exit-code @{push}.. 2>/dev/null || echo WARNING: unpushed submodule commits in $name'",
+            "timeout": 30,
+            "statusMessage": "Checking for unpushed submodule commits..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "moon check 2>&1 | head -20"
+          },
+          {
+            "type": "command",
+            "command": "test -f scripts/test-focus.sh && bash scripts/test-focus.sh || true",
+            "timeout": 60,
+            "async": true,
+            "statusMessage": "Running focused tests..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "moon update",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "test -f scripts/package-overview.sh && bash scripts/package-overview.sh || true",
+            "timeout": 30,
+            "statusMessage": "Discovering package structure..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f scripts/stop-phrase-guard.sh && bash scripts/stop-phrase-guard.sh || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(moon check *)",
+      "Bash(moon test *)",
+      "Bash(moon ide *)",
+      "Bash(moon bench *)"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/ffi/host",
+  "dowdiness/canopy/lang/markdown/edits" @md_edits,
+  "dowdiness/canopy/lang/markdown/companion" @md_companion,
+  "dowdiness/canopy/lang/markdown/proj" @md_proj,
+  "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/workspace/coordinator" @workspace,
+  "dowdiness/loom/core" @loom,
+  "dowdiness/seam",
+  "dowdiness/markdown" @md,
+  "moonbitlang/core/json",
+}
+
+// `cells` field of MarkdownHandle is read in production by
+// `markdown_compute_view_patches_json`, `markdown_export_text`, and
+// `markdown_apply_edit` (parser_diagnostics + cached_proj_node +
+// source_map_memo) and by whitebox tests (`lifecycle_phase1_wbtest.mbt`) for
+// the remaining 4 cells. Per-field unused warnings still fire on the rest of
+// `MarkdownProtectedCells`.
+
+warnings = "-7"
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "create_markdown_editor",
+        "destroy_markdown_editor",
+        "markdown_get_text",
+        "markdown_export_text",
+        "markdown_set_text",
+        "markdown_compute_view_patches_json",
+        "markdown_apply_edit",
+        "markdown_empty_paragraph_sentinel",
+      ],
+    },
+  },
+)

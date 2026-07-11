@@ -1,0 +1,157 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/ffi/lambda"
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/js_ffi",
+  "dowdiness/canopy/lang/lambda/companion",
+  "dowdiness/canopy/transport_ws",
+  "dowdiness/lambda/ast",
+  "moonbitlang/async/js_async",
+}
+
+// Values
+pub fn apply_ast_grep_results_json(Int, String) -> String
+
+pub fn apply_sync_json(Int, String) -> String
+
+pub fn apply_tree_edit_json(Int, String, Int) -> String
+
+pub fn backspace_and_record(Int, Int) -> Bool
+
+pub fn canopy_llm_edit(String, String, String) -> @js_async.Promise[String]
+
+pub fn canopy_llm_fix_typos(String, String) -> @js_async.Promise[String]
+
+pub fn compute_pretty_patches_json(Int) -> String
+
+pub fn compute_view_patches_json(Int) -> String
+
+pub fn create_editor(String) -> Int
+
+pub fn create_editor_with_undo(String, Int) -> Int
+
+pub fn delete_and_record(Int, Int) -> Bool
+
+pub fn delete_at(Int, Int, Int) -> Bool
+
+pub fn destroy_editor(Int) -> Unit
+
+pub fn ephemeral_apply(Int, Bytes) -> Unit
+
+pub fn ephemeral_delete_presence(Int) -> Unit
+
+pub fn ephemeral_encode_all(Int) -> Bytes
+
+pub fn ephemeral_get_peer_cursors_json(Int) -> String
+
+pub fn ephemeral_remove_outdated(Int) -> Unit
+
+pub fn ephemeral_set_presence(Int, String, String) -> Unit
+
+pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> Unit
+
+pub fn export_all_json(Int) -> String
+
+pub fn export_since_json(Int, String) -> String
+
+pub fn get_ast_dot_resolved(Int) -> String
+
+pub fn get_ast_pretty(Int) -> String
+
+pub fn get_diagnostics_json(Int) -> String
+
+pub fn get_errors_json(Int) -> String
+
+pub fn get_lambda_companion() -> @companion.LambdaCompanion?
+
+pub fn get_pretty_view_json(Int) -> String
+
+pub fn get_proj_node_json(Int) -> String
+
+pub fn get_semantic_projection_json(Int) -> String
+
+pub fn get_source_map_json(Int) -> String
+
+pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]?
+
+pub fn get_text(Int) -> String
+
+pub fn get_version_json(Int) -> String
+
+pub fn get_view_tree_json(Int) -> String
+
+pub fn handle_redo(Int) -> Bool
+
+pub fn handle_structural_intent(Int, String, String, Int, String) -> String
+
+pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
+
+pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool
+
+pub fn handle_undo(Int) -> Bool
+
+pub fn insert_and_record(Int, String, Int) -> Unit
+
+pub fn insert_at(Int, Int, String, Int) -> Unit
+
+pub fn load_file(Int) -> Unit
+
+pub fn on_file_opened(Int, String, Int) -> Unit
+
+pub fn redo_and_export_json(Int) -> String
+
+pub fn register_file_host(@js_ffi.Any) -> Unit
+
+pub fn relay_on_connect(String, String, (Bytes) -> Unit) -> Bool
+
+pub fn relay_on_disconnect(String, String) -> Unit
+
+pub fn relay_on_message(String, String, Bytes) -> Unit
+
+pub fn rename_semantic_node(Int, Int, String, Int) -> String
+
+pub fn save_file(Int, String) -> Unit
+
+pub fn set_text(Int, String) -> Unit
+
+pub fn set_text_and_record(Int, String, Int) -> Unit
+
+pub fn undo_and_export_json(Int) -> String
+
+pub fn undo_manager_can_redo(Int) -> Bool
+
+pub fn undo_manager_can_undo(Int) -> Bool
+
+pub fn undo_manager_clear(Int) -> Unit
+
+pub fn undo_manager_redo(Int) -> Bool
+
+pub fn undo_manager_set_tracking(Int, Bool) -> Unit
+
+pub fn undo_manager_undo(Int) -> Bool
+
+pub fn ws_broadcast_cursor(Int) -> Unit
+
+pub fn ws_broadcast_edit(Int) -> Unit
+
+pub fn ws_enable_watchdog(Int, Int) -> Unit
+
+pub fn ws_on_close(Int) -> Unit
+
+pub fn ws_on_message(Int, Bytes) -> Unit
+
+pub fn ws_on_open(Int, @transport_ws.JsWebSocket) -> Unit
+
+pub fn ws_on_watchdog_fire(Int, Int) -> Unit
+
+pub fn ws_set_status_callback(Int) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

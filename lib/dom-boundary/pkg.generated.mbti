@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/dom_boundary"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn click_id(String) -> Unit raise DomBoundaryError
+
+pub fn click_selector(String) -> Unit raise DomBoundaryError
+
+pub fn dispatch_custom_event_id(String, String, detail? : String, bubbles? : Bool, composed? : Bool) -> Unit raise DomBoundaryError
+
+pub fn dispatch_custom_event_selector(String, String, detail? : String, bubbles? : Bool, composed? : Bool) -> Unit raise DomBoundaryError
+
+pub fn focus_id(String) -> Unit raise DomBoundaryError
+
+pub fn focus_selector(String) -> Unit raise DomBoundaryError
+
+pub fn listen_custom_event_id(String, String, (String) -> Unit) -> CustomEventSubscription raise DomBoundaryError
+
+pub fn listen_custom_event_selector(String, String, (String) -> Unit) -> CustomEventSubscription raise DomBoundaryError
+
+pub fn scroll_id(String, behavior? : ScrollBehavior, block? : ScrollBlock) -> Unit raise DomBoundaryError
+
+pub fn scroll_selector(String, behavior? : ScrollBehavior, block? : ScrollBlock) -> Unit raise DomBoundaryError
+
+// Errors
+pub(all) suberror DomBoundaryError {
+  DocumentUnavailable
+  InvalidSelector(selector~ : String, detail~ : String)
+  ElementNotFound(target~ : DomTarget)
+  UnsupportedAction(action~ : DomAction, target~ : DomTarget)
+  ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
+  UnknownStatus(status~ : Int, action~ : DomAction, target~ : DomTarget, detail~ : String)
+} derive(Eq, @debug.Debug)
+pub fn DomBoundaryError::message(Self) -> String
+pub impl Show for DomBoundaryError
+
+// Types and methods
+pub struct CustomEventSubscription {
+  // private fields
+}
+pub fn CustomEventSubscription::dispose(Self) -> Unit raise DomBoundaryError
+
+pub(all) enum DomAction {
+  Focus
+  Click
+  ScrollIntoView
+  DispatchCustomEvent
+  ListenCustomEvent
+  RemoveCustomEventListener
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DomTarget {
+  Id(String)
+  Selector(String)
+  EventSubscription
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ScrollBehavior {
+  Auto
+  Instant
+  Smooth
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ScrollBlock {
+  Start
+  Center
+  End
+  Nearest
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

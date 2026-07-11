@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Web frontend dependencies
+  - package-ecosystem: "npm"
+    directory: "/examples/web"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      playwright:
+        patterns:
+          - "@playwright/*"
+          - "playwright"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+
+  # Demo React example dependencies
+  - package-ecosystem: "npm"
+    directory: "/examples/demo-react"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "npm"

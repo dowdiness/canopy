@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/cmd/main"
+
+// Values
+pub fn run_convergence_demo() -> Unit
+
+pub fn run_repl(String) -> Unit
+
+// Errors
+
+// Types and methods
+type ReplState
+
+// Type aliases
+
+// Traits
+

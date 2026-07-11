@@ -1,0 +1,13 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
+  "dowdiness/markdown",
+  "dowdiness/moji",
+  "moonbitlang/core/string",
+}
+
+import {
+  "dowdiness/canopy/lang/markdown/proj" @md_proj,
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+} for "wbtest"

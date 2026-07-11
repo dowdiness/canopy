@@ -1,0 +1,449 @@
+///|
+/// Whether any outside ref in the source expression would rebind when moved
+/// to the target site. `resolve` maps a name to the decl it would see at the
+/// target (module-end for extract, per-node for inline). `outside_refs` comes
+/// from `@scope.references_outside_subtree` — self-contained refs are already
+/// excluded, so only the target comparison is needed.
+fn would_rebind_on_move(
+  outside_refs : Array[@scope.Ref],
+  resolve : (String) -> @scope.DeclId?,
+) -> Bool {
+  outside_refs.any(r => {
+    let target = resolve(r.name)
+    r.resolution.decl != target
+  })
+}
+
+///|
+fn compute_extract_to_let(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+  var_name : String,
+) -> EditResult raise EditError {
+  let { source_text, .. } = ctx
+  let module_view = edit_module_view(ctx)
+  let (node, range) = ctx.resolve(node_id)
+  ensure_replaceable_node_range(ctx, node_id, node, range)
+  let g = @scope.build(ctx.registry, ctx.source_map)
+  let node_subtree = subtree_node_ids(node)
+  let outside_refs = @scope.references_outside_subtree(
+    g,
+    node_subtree,
+    registry=Some(ctx.registry),
+  )
+  // Build edits
+  let expr_text = @ast.print_term(node.kind)
+  let let_text = "let " + var_name + " = " + expr_text + "\n"
+  // If the node lives in a nested block scope, insert into that block rather
+  // than hoisting to the root. Walk ancestor scopes to find the innermost
+  // enclosing Module (handles empty blocks and lambda-nested nodes correctly).
+  // NOTE: block detection must run BEFORE the root-relative capture check;
+  // the block sub-paths have their own guards.
+  if find_enclosing_block(g, ctx.registry, node_id) is Some(block_node) {
+    let block_view = EditModuleView::from_root(block_node)
+    let block_body_start = match block_view.final_expr {
+      Some(body) =>
+        match ctx.source_map.get_range(body.id()) {
+          Some(r) => r.start
+          None => source_text.length()
+        }
+      None => source_text.length()
+    }
+    if range.start >= block_body_start {
+      // Node is in the block body. The let is inserted immediately before the
+      // body, so free vars of the expression remain in scope — no rebind check.
+      let block_body_end = match block_view.final_expr {
+        Some(body) =>
+          match ctx.source_map.get_range(body.id()) {
+            Some(r) => r.end
+            None => source_text.length()
+          }
+        None => source_text.length()
+      }
+      // Guard: inserting `let var_name = expr` makes var_name visible throughout
+      // the new body. Any Var(var_name) in the body OUTSIDE the extracted
+      // expression — whether currently resolved or free — must be refused:
+      // a resolved use would be retargeted; a free use would become bound.
+      // Both change semantics.
+      if block_view.final_expr is Some(body_node) {
+        let body_var_ids : Array[NodeId] = []
+        collect_var_usages(body_node, var_name, body_var_ids)
+        for vid in body_var_ids {
+          if !node_subtree.contains(vid) {
+            raise CaptureViolation(
+              detail="Cannot extract: '" +
+                var_name +
+                "' appears in the block body outside the selected expression",
+            )
+          }
+        }
+        // Guard: node may sit inside a lambda nested in the block body. The
+        // let is inserted before the lambda, outside its param's scope, so
+        // any free var of the extracted expression that resolves via the
+        // lambda param would become unbound after extraction.
+        if would_rebind_on_move(outside_refs, fn(v) {
+            declaration_id_for_name_at_node(g, body_node.id(), v)
+          }) {
+          raise CaptureViolation(
+            detail="Cannot extract: expression captures lambda-bound variables",
+          )
+        }
+      }
+      let prefix = source_text[block_body_start:range.start].to_owned()
+      let suffix = source_text[range.end:block_body_end].to_owned()
+      let new_body_text = let_text + prefix + var_name + suffix
+      return Some(
+        (
+          [
+            {
+              start: block_body_start,
+              delete_len: block_body_end - block_body_start,
+              inserted: new_body_text,
+            },
+          ],
+          MoveCursor(
+            position=block_body_start + let_text.length() + prefix.length(),
+          ),
+        ),
+      )
+    } else {
+      // Node is in a block def. Insertion is at the block's first def position,
+      // still inside any lambda that encloses the block. Reject if any free var
+      // resolves to a decl whose scope is the block's own inner scope or any
+      // nested scope (scope_is_within). This catches two cases:
+      //   1. Block-local ModuleDefs: not yet visible at the block start (sequential scoping).
+      //   2. Lambda params declared inside the block: not in scope at the block start.
+      // Lambda params declared OUTSIDE the block stay visible at the insertion
+      // point and must not be rejected.
+      let unsafe_ref = match @scope.scope_for_node(g, block_node.id()) {
+        Some(bis) =>
+          outside_refs.any(r => {
+            match r.resolution.decl {
+              Some(did) => {
+                let DeclId(di) = did
+                scope_is_within(g, g.decls[di].scope, bis)
+              }
+              None => false
+            }
+          })
+        None => false
+      }
+      if unsafe_ref {
+        raise CaptureViolation(
+          detail="Cannot extract: expression captures lambda-bound variables",
+        )
+      }
+      // Guard: inserting `let var_name = expr` before all block defs makes
+      // var_name visible throughout the block. Any Var(var_name) in the block
+      // outside the extracted expression — whether currently resolved or free —
+      // must be refused: a resolved use would be retargeted; a free use would
+      // become bound. Both change semantics.
+      let block_var_ids : Array[NodeId] = []
+      collect_var_usages(block_node, var_name, block_var_ids)
+      for vid in block_var_ids {
+        if !node_subtree.contains(vid) {
+          raise CaptureViolation(
+            detail="Cannot extract: '" +
+              var_name +
+              "' appears in this block outside the selected expression",
+          )
+        }
+      }
+      guard block_node.children.length() > 0 else {
+        raise Invariant(detail="Cannot extract: block has no children")
+      }
+      let block_start = block_node.children[0].start
+      return Some(
+        (
+          [
+            { start: block_start, delete_len: 0, inserted: let_text },
+            {
+              start: range.start,
+              delete_len: range.end - range.start,
+              inserted: var_name,
+            },
+          ],
+          // let_text inserted at block_start < range.start, so range shifts right
+          FocusHint::MoveCursor(position=range.start + let_text.length()),
+        ),
+      )
+    }
+  }
+  // Root-level extraction: check whether any outside ref would rebind at the
+  // target site. For defs-empty, the `let` wraps the expression in-place so
+  // no new bindings are in scope — any resolved outside ref would become free.
+  // For defs-present, resolve at module end.
+  let would_capture = match edit_root_node(ctx.registry) {
+    Some(root) =>
+      would_rebind_on_move(outside_refs, fn(v) {
+        if module_view.defs.is_empty() {
+          None
+        } else {
+          @scope.declaration_for_name_at_module_end(g, root.id(), v).map(fn(d) {
+            d.id
+          })
+        }
+      })
+    None => false
+  }
+  if would_capture {
+    raise CaptureViolation(
+      detail="Cannot extract: expression captures lambda-bound variables",
+    )
+  }
+  if module_view.defs.is_empty() && module_view.final_expr is Some(_) {
+    // No module — wrap: replace expression with "let name = expr\nname"
+    let new_text = let_text + var_name
+    Some(
+      (
+        [
+          {
+            start: range.start,
+            delete_len: range.end - range.start,
+            inserted: new_text,
+          },
+        ],
+        FocusHint::MoveCursor(position=range.start + let_text.length()),
+      ),
+    )
+  } else {
+    // Has Module — insert let before body, replace expr with var_name
+    let body_start = match module_view.final_expr {
+      Some(body) =>
+        match ctx.source_map.get_range(body.id()) {
+          Some(r) => r.start
+          None => source_text.length()
+        }
+      None => source_text.length()
+    }
+    // Check if node is within the body (range starts at or after body start).
+    // If so, we need a single combined edit to avoid overlapping edits.
+    if range.start >= body_start {
+      // Node is in the body — produce a single edit:
+      // Replace body text from body_start to end with:
+      //   "let var = expr\n" + (prefix before node) + var_name + (suffix after node)
+      let body_end = match module_view.final_expr {
+        Some(body) =>
+          match ctx.source_map.get_range(body.id()) {
+            Some(r) => r.end
+            None => source_text.length()
+          }
+        None => source_text.length()
+      }
+      let prefix = source_text[body_start:range.start].to_owned()
+      let suffix = source_text[range.end:body_end].to_owned()
+      let new_body_text = let_text + prefix + var_name + suffix
+      Some(
+        (
+          [
+            {
+              start: body_start,
+              delete_len: body_end - body_start,
+              inserted: new_body_text,
+            },
+          ],
+          FocusHint::MoveCursor(
+            position=body_start + let_text.length() + prefix.length(),
+          ),
+        ),
+      )
+    } else {
+      // Node is in a def initializer. Insert the let before the first def
+      // so var_name is sequentially visible (mirrors the block-def path).
+      guard edit_root_node(ctx.registry) is Some(root) else {
+        raise NodeNotFound(action="Extract root", node_id~)
+      }
+      guard root.children.length() > 0 else {
+        raise Invariant(detail="Cannot extract: module has no children")
+      }
+      let first_def_start = root.children[0].start
+      // Guard: var_name must not appear in the module outside the subtree.
+      let module_var_ids : Array[NodeId] = []
+      collect_var_usages(root, var_name, module_var_ids)
+      for vid in module_var_ids {
+        if !node_subtree.contains(vid) {
+          raise CaptureViolation(
+            detail="Cannot extract: '" +
+              var_name +
+              "' appears in the module outside the selected expression",
+          )
+        }
+      }
+      Some(
+        (
+          [
+            { start: first_def_start, delete_len: 0, inserted: let_text },
+            {
+              start: range.start,
+              delete_len: range.end - range.start,
+              inserted: var_name,
+            },
+          ],
+          FocusHint::MoveCursor(position=range.start + let_text.length()),
+        ),
+      )
+    }
+  }
+}
+
+///|
+fn compute_inline_definition(
+  ctx : EditContext[@ast.Term],
+  node_id : NodeId,
+) -> EditResult raise EditError {
+  let { source_text, .. } = ctx
+  let (node, range) = ctx.resolve(node_id)
+  guard node.kind is @ast.Term::Var(var_name) else {
+    raise InvalidTarget(detail="InlineDefinition requires a Var node")
+  }
+  // Resolve the binding
+  let g = @scope.build(ctx.registry, ctx.source_map)
+  guard @scope.declaration(g, node_id) is Some(decl) else {
+    raise BindingNotFound(action="Inline", node_id~)
+  }
+  match decl.kind {
+    DeclKind::LamParam(..) =>
+      raise InvalidTarget(
+        detail="Cannot inline lambda-bound variable: " + var_name,
+      )
+    DeclKind::ModuleDef(_) => {
+      let def = edit_binding_for_decl(ctx, decl)
+      let init_text = binding_inline_text(source_text, ctx.source_map, def)
+      // Check for capture: would any outside ref in the init be captured by
+      // an enclosing scope at the usage site?
+      let init_subtree = subtree_node_ids(def.init)
+      let init_refs = @scope.references_outside_subtree(
+        g,
+        init_subtree,
+        registry=Some(ctx.registry),
+      )
+      if would_rebind_on_move(init_refs, fn(v) {
+          declaration_id_for_name_at_node(g, node_id, v)
+        }) {
+        raise CaptureViolation(
+          detail="Cannot inline: would capture variables bound by enclosing lambda",
+        )
+      }
+      // Check if this is the sole resolved reference.
+      let refs = @scope.references(g, decl.id)
+      if refs.length() <= 1 {
+        // Sole usage — inline and delete the binding
+        let (let_start, binding_end) = get_binding_text_range(
+          source_text,
+          ctx.source_map,
+          def,
+        )
+        let (del_start, del_len) = binding_delete_range(
+          source_text, let_start, binding_end,
+        )
+        // If the var range is after the binding, we need to adjust
+        // for the deletion. Produce edits in reverse document order.
+        if range.start >= binding_end {
+          // Var is after binding — two non-overlapping edits.
+          // Cursor must use post-edit coordinates: the binding deletion
+          // shifts everything after del_start left by del_len.
+          Some(
+            (
+              [
+                {
+                  start: range.start,
+                  delete_len: range.end - range.start,
+                  inserted: init_text,
+                },
+                { start: del_start, delete_len: del_len, inserted: "" },
+              ],
+              MoveCursor(position=range.start - del_len),
+            ),
+          )
+        } else {
+          // Var is within the binding init — just replace the var
+          Some(
+            (
+              [
+                {
+                  start: range.start,
+                  delete_len: range.end - range.start,
+                  inserted: init_text,
+                },
+              ],
+              MoveCursor(position=range.start),
+            ),
+          )
+        }
+      } else {
+        // Multiple usages — just replace this single var
+        Some(
+          (
+            [
+              {
+                start: range.start,
+                delete_len: range.end - range.start,
+                inserted: init_text,
+              },
+            ],
+            MoveCursor(position=range.start),
+          ),
+        )
+      }
+    }
+  }
+}
+
+///|
+fn compute_inline_all_usages(
+  ctx : EditContext[@ast.Term],
+  binding_node_id : NodeId,
+) -> EditResult raise EditError {
+  let { source_text, .. } = ctx
+  // Find all references resolved to this binding.
+  let g = @scope.build(ctx.registry, ctx.source_map)
+  let decl = module_def_decl_for_binding(g, binding_node_id)
+  let def = edit_binding_for_decl(ctx, decl)
+  let var_name = def.name
+  let ref_ids = @scope.references(g, decl.id)
+  // Check for capture: would any outside ref in init rebind at any ref site?
+  let init_subtree = subtree_node_ids(def.init)
+  let init_refs = @scope.references_outside_subtree(
+    g,
+    init_subtree,
+    registry=Some(ctx.registry),
+  )
+  for rid in ref_ids {
+    if would_rebind_on_move(init_refs, fn(v) {
+        declaration_id_for_name_at_node(g, rid, v)
+      }) {
+      raise CaptureViolation(
+        detail="Cannot inline: would capture variables bound by enclosing lambda",
+      )
+    }
+  }
+  let init_text = if ref_ids.is_empty() {
+    ""
+  } else {
+    binding_inline_text(source_text, ctx.source_map, def)
+  }
+  // Build replacement edits for all references (reverse document order)
+  let edits : Array[SpanEdit] = []
+  // Collect reference ranges, sorted by position (descending)
+  let ref_ranges : Array[(Int, Int)] = []
+  for rid in ref_ids {
+    if ctx.source_map.get_range(rid) is Some(r) {
+      ref_ranges.push((r.start, r.end))
+    }
+  }
+  ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
+  for rr in ref_ranges {
+    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: init_text })
+  }
+  // Delete the binding
+  let (let_start, binding_end) = get_binding_text_range(
+    source_text,
+    ctx.source_map,
+    def,
+  )
+  let (del_start, del_len) = binding_delete_range(
+    source_text, let_start, binding_end,
+  )
+  edits.push({ start: del_start, delete_len: del_len, inserted: "" })
+  Some((edits, RestoreCursor))
+}

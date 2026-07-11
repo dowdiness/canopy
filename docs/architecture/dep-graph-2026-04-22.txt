@@ -1,0 +1,580 @@
+### SECTION A: package-level imports (moon.pkg)
+# columns: module_name	package_rel_path	scope	imported_symbol
+antisatori/valtio	src	normal	dowdiness/text_change
+dowdiness/alga	src	normal	moonbitlang/core/bench
+dowdiness/alga	src	normal	moonbitlang/core/debug
+dowdiness/alga	src	normal	moonbitlang/core/hashmap
+dowdiness/alga	src	normal	moonbitlang/core/hashset
+dowdiness/alga	src	normal	moonbitlang/core/quickcheck
+dowdiness/alga	src	normal	moonbitlang/core/quickcheck/splitmix
+dowdiness/alga	src	normal	moonbitlang/quickcheck
+dowdiness/alga	src/experiment	normal	dowdiness/alga
+dowdiness/alga	src/experiment	normal	moonbitlang/core/bench
+dowdiness/alga	src/experiment	normal	moonbitlang/core/hashmap
+dowdiness/alga	src/experiment	normal	moonbitlang/core/hashset
+dowdiness/btree	.	normal	dowdiness/rle
+dowdiness/btree	.	normal	moonbitlang/core/bench
+dowdiness/btree	.	normal	moonbitlang/core/debug
+dowdiness/btree	.	wbtest	moonbitlang/core/quickcheck
+dowdiness/btree	.	wbtest	moonbitlang/quickcheck
+dowdiness/canopy	.	normal	dowdiness/canopy/core
+dowdiness/canopy	.	normal	dowdiness/canopy/editor
+dowdiness/canopy	.	normal	dowdiness/canopy/projection
+dowdiness/canopy	.	normal	dowdiness/canopy/protocol
+dowdiness/canopy	.	normal	dowdiness/canopy/relay
+dowdiness/canopy	cmd/main	normal	dowdiness/canopy/editor
+dowdiness/canopy	cmd/main	normal	dowdiness/event-graph-walker/text
+dowdiness/canopy	cmd/main	normal	dowdiness/lambda
+dowdiness/canopy	cmd/main	normal	dowdiness/pretty
+dowdiness/canopy	cmd/main	normal	moonbitlang/core/debug
+dowdiness/canopy	core	normal	dowdiness/incr
+dowdiness/canopy	core	normal	dowdiness/loom/core
+dowdiness/canopy	core	normal	dowdiness/seam
+dowdiness/canopy	core	normal	moonbitlang/core/cmp
+dowdiness/canopy	core	normal	moonbitlang/core/debug
+dowdiness/canopy	core	wbtest	moonbitlang/core/quickcheck
+dowdiness/canopy	core	wbtest	moonbitlang/core/quickcheck/splitmix
+dowdiness/canopy	core	wbtest	moonbitlang/quickcheck
+dowdiness/canopy	echo	normal	dowdiness/canopy/echo/tokenizer
+dowdiness/canopy	echo	normal	moonbitlang/core/math
+dowdiness/canopy	echo/cmd	normal	dowdiness/canopy/echo
+dowdiness/canopy	echo/cmd	normal	dowdiness/canopy/echo/tokenizer
+dowdiness/canopy	echo/cmd	normal	moonbitlang/core/argparse
+dowdiness/canopy	echo/cmd	normal	moonbitlang/core/debug
+dowdiness/canopy	echo/cmd	normal	moonbitlang/core/json
+dowdiness/canopy	echo/cmd	normal	moonbitlang/x/fs
+dowdiness/canopy	echo/cmd	normal	moonbitlang/x/sys
+dowdiness/canopy	editor	normal	dowdiness/canopy/core
+dowdiness/canopy	editor	normal	dowdiness/canopy/protocol
+dowdiness/canopy	editor	normal	dowdiness/event-graph-walker/text
+dowdiness/canopy	editor	normal	dowdiness/event-graph-walker/undo
+dowdiness/canopy	editor	normal	dowdiness/incr
+dowdiness/canopy	editor	normal	dowdiness/loom
+dowdiness/canopy	editor	normal	dowdiness/loom/core
+dowdiness/canopy	editor	normal	dowdiness/pretty
+dowdiness/canopy	editor	normal	dowdiness/seam
+dowdiness/canopy	editor	normal	dowdiness/text_change
+dowdiness/canopy	editor	normal	moonbitlang/core/bench
+dowdiness/canopy	editor	normal	moonbitlang/core/buffer
+dowdiness/canopy	editor	normal	moonbitlang/core/builtin
+dowdiness/canopy	editor	normal	moonbitlang/core/debug
+dowdiness/canopy	editor	normal	moonbitlang/core/int
+dowdiness/canopy	editor	normal	moonbitlang/core/json
+dowdiness/canopy	editor	normal	moonbitlang/core/quickcheck
+dowdiness/canopy	editor	normal	moonbitlang/core/strconv
+dowdiness/canopy	editor	normal	moonbitlang/core/string
+dowdiness/canopy	editor	test	dowdiness/canopy/lang/lambda
+dowdiness/canopy	editor	test	dowdiness/lambda
+dowdiness/canopy	editor	test	dowdiness/lambda/ast
+dowdiness/canopy	editor	test	moonbitlang/quickcheck
+dowdiness/canopy	editor	wbtest	dowdiness/canopy/lang/lambda
+dowdiness/canopy	ffi/json	normal	dowdiness/canopy/core
+dowdiness/canopy	ffi/json	normal	dowdiness/canopy/editor
+dowdiness/canopy	ffi/json	normal	dowdiness/canopy/lang/json/companion
+dowdiness/canopy	ffi/json	normal	dowdiness/canopy/lang/json/edits
+dowdiness/canopy	ffi/json	normal	dowdiness/json
+dowdiness/canopy	ffi/json	normal	moonbitlang/core/json
+dowdiness/canopy	ffi/lambda	normal	dowdiness/canopy/editor
+dowdiness/canopy	ffi/lambda	normal	dowdiness/canopy/lang/lambda
+dowdiness/canopy	ffi/lambda	normal	dowdiness/canopy/llm
+dowdiness/canopy	ffi/lambda	normal	dowdiness/canopy/relay
+dowdiness/canopy	ffi/lambda	normal	dowdiness/event-graph-walker/text
+dowdiness/canopy	ffi/lambda	normal	dowdiness/incr/cells
+dowdiness/canopy	ffi/lambda	normal	dowdiness/lambda/ast
+dowdiness/canopy	ffi/lambda	normal	dowdiness/lambda/typecheck
+dowdiness/canopy	ffi/lambda	normal	dowdiness/seam
+dowdiness/canopy	ffi/lambda	normal	moonbitlang/async/js_async
+dowdiness/canopy	ffi/lambda	normal	moonbitlang/core/buffer
+dowdiness/canopy	ffi/lambda	normal	moonbitlang/core/json
+dowdiness/canopy	ffi/lambda	normal	moonbitlang/core/string
+dowdiness/canopy	ffi/markdown	normal	dowdiness/canopy/core
+dowdiness/canopy	ffi/markdown	normal	dowdiness/canopy/editor
+dowdiness/canopy	ffi/markdown	normal	dowdiness/canopy/lang/markdown/companion
+dowdiness/canopy	ffi/markdown	normal	dowdiness/canopy/lang/markdown/edits
+dowdiness/canopy	ffi/markdown	normal	dowdiness/markdown
+dowdiness/canopy	lang/json	normal	dowdiness/canopy/lang/json/companion
+dowdiness/canopy	lang/json	normal	dowdiness/canopy/lang/json/edits
+dowdiness/canopy	lang/json	normal	dowdiness/canopy/lang/json/proj
+dowdiness/canopy	lang/json/companion	normal	dowdiness/canopy/editor
+dowdiness/canopy	lang/json/companion	normal	dowdiness/canopy/lang/json/edits
+dowdiness/canopy	lang/json/companion	normal	dowdiness/canopy/lang/json/proj
+dowdiness/canopy	lang/json/companion	normal	dowdiness/json
+dowdiness/canopy	lang/json/companion	normal	dowdiness/loom
+dowdiness/canopy	lang/json/companion	normal	moonbitlang/core/bench
+dowdiness/canopy	lang/json/edits	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/json/edits	normal	dowdiness/canopy/lang/json/proj
+dowdiness/canopy	lang/json/edits	normal	dowdiness/json
+dowdiness/canopy	lang/json/edits	normal	moonbitlang/core/debug
+dowdiness/canopy	lang/json/proj	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/json/proj	normal	dowdiness/incr
+dowdiness/canopy	lang/json/proj	normal	dowdiness/json
+dowdiness/canopy	lang/json/proj	normal	dowdiness/loom
+dowdiness/canopy	lang/json/proj	normal	dowdiness/loom/core
+dowdiness/canopy	lang/json/proj	normal	dowdiness/seam
+dowdiness/canopy	lang/json/proj	normal	moonbitlang/core/strconv
+dowdiness/canopy	lang/json/proj	normal	moonbitlang/core/string
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/lang/lambda/companion
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/lang/lambda/edits
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/lang/lambda/eval
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/lang/lambda/flat
+dowdiness/canopy	lang/lambda	normal	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/editor
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/lang/lambda/edits
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/lang/lambda/eval
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/lang/lambda/flat
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/canopy/protocol
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/incr
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/lambda
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/lambda/ast
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/loom
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/pretty
+dowdiness/canopy	lang/lambda/companion	normal	dowdiness/seam
+dowdiness/canopy	lang/lambda/companion	normal	moonbitlang/core/debug
+dowdiness/canopy	lang/lambda/companion	normal	moonbitlang/core/json
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/lambda
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/lambda/ast
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/loom/core
+dowdiness/canopy	lang/lambda/edits	normal	dowdiness/seam
+dowdiness/canopy	lang/lambda/edits	normal	moonbitlang/core/cmp
+dowdiness/canopy	lang/lambda/edits	normal	moonbitlang/core/debug
+dowdiness/canopy	lang/lambda/edits	normal	moonbitlang/core/immut/hashset
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/egglog/examples/lambda-eval
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/egglog/src
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/egraph/examples/lambda-opt
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/incr
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/lambda/ast
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/lambda/eval
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/loom
+dowdiness/canopy	lang/lambda/eval	normal	dowdiness/pretty
+dowdiness/canopy	lang/lambda/eval	normal	moonbitlang/core/debug
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/incr
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/lambda/ast
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/loom
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/loom/core
+dowdiness/canopy	lang/lambda/flat	normal	dowdiness/seam
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/lambda
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/lambda/ast
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/lambda/syntax
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/loom/core
+dowdiness/canopy	lang/lambda/proj	normal	dowdiness/seam
+dowdiness/canopy	lang/lambda/proj	normal	moonbitlang/core/cmp
+dowdiness/canopy	lang/markdown/companion	normal	dowdiness/canopy/editor
+dowdiness/canopy	lang/markdown/companion	normal	dowdiness/canopy/lang/markdown/edits
+dowdiness/canopy	lang/markdown/companion	normal	dowdiness/canopy/lang/markdown/proj
+dowdiness/canopy	lang/markdown/companion	normal	dowdiness/loom
+dowdiness/canopy	lang/markdown/companion	normal	dowdiness/markdown
+dowdiness/canopy	lang/markdown/edits	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/markdown/edits	normal	dowdiness/markdown
+dowdiness/canopy	lang/markdown/edits	wbtest	dowdiness/canopy/lang/markdown/proj
+dowdiness/canopy	lang/markdown/edits	wbtest	dowdiness/loom/core
+dowdiness/canopy	lang/markdown/edits	wbtest	dowdiness/seam
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/canopy/core
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/incr
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/loom
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/loom/core
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/markdown
+dowdiness/canopy	lang/markdown/proj	normal	dowdiness/seam
+dowdiness/canopy	llm	normal	moonbitlang/async/js_async
+dowdiness/canopy	llm	normal	moonbitlang/core/debug
+dowdiness/canopy	llm	normal	moonbitlang/core/json
+dowdiness/canopy	projection	normal	dowdiness/canopy/core
+dowdiness/canopy	projection	normal	dowdiness/loom/core
+dowdiness/canopy	projection	normal	moonbitlang/core/bench
+dowdiness/canopy	projection	normal	moonbitlang/core/cmp
+dowdiness/canopy	projection	normal	moonbitlang/core/immut/hashset
+dowdiness/canopy	projection	test	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	projection	test	dowdiness/lambda
+dowdiness/canopy	projection	test	dowdiness/lambda/ast
+dowdiness/canopy	projection	test	dowdiness/seam
+dowdiness/canopy	projection	wbtest	dowdiness/canopy/lang/lambda/proj
+dowdiness/canopy	projection	wbtest	dowdiness/lambda
+dowdiness/canopy	projection	wbtest	dowdiness/lambda/ast
+dowdiness/canopy	projection	wbtest	dowdiness/seam
+dowdiness/canopy	protocol	normal	dowdiness/canopy/core
+dowdiness/canopy	protocol	normal	dowdiness/loom/core
+dowdiness/canopy	protocol	normal	dowdiness/pretty
+dowdiness/canopy	protocol	normal	moonbitlang/core/debug
+dowdiness/canopy	protocol	normal	moonbitlang/core/json
+dowdiness/canopy	relay	normal	moonbitlang/core/buffer
+dowdiness/canopy-block-editor	main	normal	dowdiness/canopy/core
+dowdiness/canopy-block-editor	main	normal	dowdiness/event-graph-walker/container
+dowdiness/canopy-block-editor	main	normal	moonbitlang/core/debug
+dowdiness/canopy-canvas	main	normal	moonbitlang/core/debug
+dowdiness/canopy-canvas	main	normal	moonbitlang/core/json
+dowdiness/cst-transform	src	normal	moonbitlang/core/bench
+dowdiness/cst-transform	src	normal	moonbitlang/core/debug
+dowdiness/egglog	examples/lambda	normal	dowdiness/egglog/src
+dowdiness/egglog	examples/lambda-eval	normal	dowdiness/egglog/examples/lambda
+dowdiness/egglog	examples/lambda-eval	normal	dowdiness/egglog/src
+dowdiness/egglog	examples/stlc	normal	dowdiness/egglog/src
+dowdiness/egglog	src	normal	dowdiness/incr
+dowdiness/egglog	src	normal	moonbitlang/core/debug
+dowdiness/egraph	.	normal	dowdiness/lambda/ast
+dowdiness/egraph	.	normal	moonbitlang/core/bench
+dowdiness/egraph	.	normal	moonbitlang/core/builtin
+dowdiness/egraph	.	normal	moonbitlang/core/debug
+dowdiness/egraph	.	normal	moonbitlang/core/hashset
+dowdiness/egraph	.	normal	moonbitlang/core/string
+dowdiness/egraph	examples/lambda-opt	normal	dowdiness/egraph
+dowdiness/egraph	examples/lambda-opt	normal	dowdiness/lambda/ast
+dowdiness/egraph	examples/lambda-opt	normal	moonbitlang/core/debug
+dowdiness/egraph	examples/lambda-opt	normal	moonbitlang/core/hashset
+dowdiness/egraph	examples/lambda-opt	normal	moonbitlang/core/string
+dowdiness/event-graph-walker	container	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	container	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	container	normal	dowdiness/event-graph-walker/internal/fractional_index
+dowdiness/event-graph-walker	container	normal	dowdiness/event-graph-walker/internal/fugue
+dowdiness/event-graph-walker	container	normal	dowdiness/event-graph-walker/internal/movable_tree
+dowdiness/event-graph-walker	container	normal	dowdiness/rle
+dowdiness/event-graph-walker	container	test	moonbitlang/core/debug
+dowdiness/event-graph-walker	container	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	container	test	moonbitlang/quickcheck
+dowdiness/event-graph-walker	internal/branch	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	internal/branch	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	internal/branch	normal	dowdiness/event-graph-walker/internal/fugue
+dowdiness/event-graph-walker	internal/branch	normal	dowdiness/event-graph-walker/internal/oplog
+dowdiness/event-graph-walker	internal/branch	normal	dowdiness/rle
+dowdiness/event-graph-walker	internal/branch	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	internal/causal_graph	normal	dowdiness/alga
+dowdiness/event-graph-walker	internal/causal_graph	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	internal/causal_graph	normal	dowdiness/rle
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/immut/hashmap
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/json
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/queue
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	internal/causal_graph	normal	moonbitlang/quickcheck
+dowdiness/event-graph-walker	internal/core	normal	dowdiness/rle
+dowdiness/event-graph-walker	internal/core	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	internal/core	normal	moonbitlang/core/hashset
+dowdiness/event-graph-walker	internal/core	normal	moonbitlang/core/json
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/btree
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/event-graph-walker/internal/branch
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/event-graph-walker/internal/fugue
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/event-graph-walker/internal/oplog
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/order-tree
+dowdiness/event-graph-walker	internal/document	normal	dowdiness/rle
+dowdiness/event-graph-walker	internal/document	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	internal/fractional_index	test	moonbitlang/core/debug
+dowdiness/event-graph-walker	internal/fractional_index	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	internal/fractional_index	test	moonbitlang/quickcheck
+dowdiness/event-graph-walker	internal/fugue	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	internal/fugue	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	internal/fugue	test	moonbitlang/core/cmp
+dowdiness/event-graph-walker	internal/fugue	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	internal/fugue	test	moonbitlang/quickcheck
+dowdiness/event-graph-walker	internal/movable_tree	normal	dowdiness/event-graph-walker/internal/fractional_index
+dowdiness/event-graph-walker	internal/movable_tree	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	internal/movable_tree	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	internal/movable_tree	test	moonbitlang/quickcheck
+dowdiness/event-graph-walker	internal/oplog	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	internal/oplog	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	internal/oplog	normal	dowdiness/rle
+dowdiness/event-graph-walker	internal/oplog	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	internal/oplog	normal	moonbitlang/core/immut/hashset
+dowdiness/event-graph-walker	internal/oplog	normal	moonbitlang/core/json
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/branch
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/document
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/fugue
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/internal/oplog
+dowdiness/event-graph-walker	text	normal	dowdiness/event-graph-walker/undo
+dowdiness/event-graph-walker	text	normal	dowdiness/rle
+dowdiness/event-graph-walker	text	normal	moonbitlang/core/bench
+dowdiness/event-graph-walker	text	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	text	normal	moonbitlang/core/json
+dowdiness/event-graph-walker	text	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	text	test	moonbitlang/quickcheck
+dowdiness/event-graph-walker	tree	normal	dowdiness/event-graph-walker/internal/causal_graph
+dowdiness/event-graph-walker	tree	normal	dowdiness/event-graph-walker/internal/core
+dowdiness/event-graph-walker	tree	normal	dowdiness/event-graph-walker/internal/fractional_index
+dowdiness/event-graph-walker	tree	normal	dowdiness/event-graph-walker/internal/movable_tree
+dowdiness/event-graph-walker	tree	normal	moonbitlang/core/debug
+dowdiness/event-graph-walker	tree	test	moonbitlang/core/quickcheck
+dowdiness/event-graph-walker	undo	test	dowdiness/event-graph-walker/text
+dowdiness/event-graph-walker	undo	test	moonbitlang/core/quickcheck
+dowdiness/graphviz	src/browser	normal	dowdiness/graphviz/lib/layout
+dowdiness/graphviz	src/browser	normal	dowdiness/graphviz/lib/parser
+dowdiness/graphviz	src/browser	normal	dowdiness/graphviz/lib/svg
+dowdiness/graphviz	src/lib/layout	normal	dowdiness/alga
+dowdiness/graphviz	src/lib/layout	normal	dowdiness/graphviz/lib/parser
+dowdiness/graphviz	src/lib/layout	normal	moonbitlang/core/bench
+dowdiness/graphviz	src/lib/layout	normal	moonbitlang/core/debug
+dowdiness/graphviz	src/lib/layout	normal	moonbitlang/core/hashset
+dowdiness/graphviz	src/lib/parser	normal	moonbitlang/core/debug
+dowdiness/graphviz	src/lib/svg	normal	dowdiness/graphviz/lib/layout
+dowdiness/graphviz	src/lib/svg	normal	dowdiness/svg-dsl/lib
+dowdiness/graphviz	src/lib/svg	normal	moonbitlang/x/fs
+dowdiness/graphviz	src/lib/svg	test	dowdiness/graphviz/lib/parser
+dowdiness/graphviz	src/main	normal	dowdiness/graphviz/lib/layout
+dowdiness/graphviz	src/main	normal	dowdiness/graphviz/lib/parser
+dowdiness/graphviz	src/main	normal	dowdiness/graphviz/lib/svg
+dowdiness/ideal-editor	main	normal	antisatori/graphviz/lib/layout
+dowdiness/ideal-editor	main	normal	antisatori/graphviz/lib/parser
+dowdiness/ideal-editor	main	normal	antisatori/graphviz/lib/svg
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/core
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/editor
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/ffi/lambda
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/lang/lambda
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/lang/lambda/edits
+dowdiness/ideal-editor	main	normal	dowdiness/canopy/projection
+dowdiness/ideal-editor	main	normal	dowdiness/lambda/ast
+dowdiness/ideal-editor	main	normal	moonbit-community/rabbita
+dowdiness/ideal-editor	main	normal	moonbit-community/rabbita/cmd
+dowdiness/ideal-editor	main	normal	moonbit-community/rabbita/html
+dowdiness/ideal-editor	main	normal	moonbitlang/core/immut/hashset
+dowdiness/ideal-editor	main	normal	moonbitlang/core/json
+dowdiness/ideal-editor	main	normal	moonbitlang/core/strconv
+dowdiness/ideal-editor	main	normal	moonbitlang/core/string
+dowdiness/incr	.	normal	dowdiness/incr/cells
+dowdiness/incr	.	normal	dowdiness/incr/pipeline
+dowdiness/incr	.	normal	dowdiness/incr/types
+dowdiness/incr	cells	normal	dowdiness/incr/cells/internal/datalog
+dowdiness/incr	cells	normal	dowdiness/incr/cells/internal/pull
+dowdiness/incr	cells	normal	dowdiness/incr/cells/internal/push
+dowdiness/incr	cells	normal	dowdiness/incr/cells/internal/shared
+dowdiness/incr	cells	normal	dowdiness/incr/types
+dowdiness/incr	cells	normal	moonbitlang/core/debug
+dowdiness/incr	cells	normal	moonbitlang/core/hashmap
+dowdiness/incr	cells	normal	moonbitlang/core/hashset
+dowdiness/incr	cells	normal	moonbitlang/core/priority_queue
+dowdiness/incr	cells	test	moonbitlang/core/bench
+dowdiness/incr	cells/internal/datalog	normal	dowdiness/incr/cells/internal/shared
+dowdiness/incr	cells/internal/datalog	normal	dowdiness/incr/types
+dowdiness/incr	cells/internal/datalog	normal	moonbitlang/core/hashset
+dowdiness/incr	cells/internal/pull	normal	dowdiness/incr/cells/internal/shared
+dowdiness/incr	cells/internal/pull	normal	dowdiness/incr/types
+dowdiness/incr	cells/internal/pull	normal	moonbitlang/core/hashmap
+dowdiness/incr	cells/internal/pull	normal	moonbitlang/core/hashset
+dowdiness/incr	cells/internal/push	normal	dowdiness/incr/cells/internal/shared
+dowdiness/incr	cells/internal/push	normal	dowdiness/incr/types
+dowdiness/incr	cells/internal/push	normal	moonbitlang/core/hashset
+dowdiness/incr	cells/internal/shared	normal	dowdiness/incr/types
+dowdiness/incr	cells/internal/shared	normal	moonbitlang/core/hashset
+dowdiness/incr	tests	test	dowdiness/incr
+dowdiness/incr	tests	test	dowdiness/incr/pipeline
+dowdiness/incr	tests	test	moonbitlang/core/bench
+dowdiness/incr	types	normal	moonbitlang/core/debug
+dowdiness/incr	types	normal	moonbitlang/core/hashmap
+dowdiness/json	src	normal	dowdiness/loom
+dowdiness/json	src	normal	dowdiness/loom/core
+dowdiness/json	src	normal	dowdiness/pretty
+dowdiness/json	src	normal	dowdiness/seam
+dowdiness/json	src	normal	moonbitlang/core/bench
+dowdiness/json	src	normal	moonbitlang/core/debug
+dowdiness/json	src	normal	moonbitlang/core/string
+dowdiness/lambda	src	normal	dowdiness/incr
+dowdiness/lambda	src	normal	dowdiness/lambda/ast
+dowdiness/lambda	src	normal	dowdiness/lambda/lexer
+dowdiness/lambda	src	normal	dowdiness/lambda/syntax
+dowdiness/lambda	src	normal	dowdiness/lambda/token
+dowdiness/lambda	src	normal	dowdiness/lambda/typecheck
+dowdiness/lambda	src	normal	dowdiness/loom
+dowdiness/lambda	src	normal	dowdiness/loom/core
+dowdiness/lambda	src	normal	dowdiness/loom/incremental
+dowdiness/lambda	src	normal	dowdiness/loom/viz
+dowdiness/lambda	src	normal	dowdiness/seam
+dowdiness/lambda	src	normal	moonbitlang/core/debug
+dowdiness/lambda	src	normal	moonbitlang/core/string
+dowdiness/lambda	src	test	dowdiness/event-graph-walker/text
+dowdiness/lambda	src	test	dowdiness/pretty
+dowdiness/lambda	src	test	moonbitlang/core/quickcheck
+dowdiness/lambda	src	test	moonbitlang/quickcheck
+dowdiness/lambda	src/ast	normal	dowdiness/loom/core
+dowdiness/lambda	src/ast	normal	dowdiness/pretty
+dowdiness/lambda	src/ast	normal	moonbitlang/core/debug
+dowdiness/lambda	src/ast	normal	moonbitlang/core/json
+dowdiness/lambda	src/ast	normal	moonbitlang/core/quickcheck
+dowdiness/lambda	src/ast	normal	moonbitlang/core/quickcheck/splitmix
+dowdiness/lambda	src/ast	normal	moonbitlang/quickcheck
+dowdiness/lambda	src/benchmarks	normal	dowdiness/lambda
+dowdiness/lambda	src/benchmarks	normal	dowdiness/lambda/lexer
+dowdiness/lambda	src/benchmarks	normal	dowdiness/lambda/token
+dowdiness/lambda	src/benchmarks	normal	dowdiness/loom
+dowdiness/lambda	src/benchmarks	normal	dowdiness/loom/core
+dowdiness/lambda	src/benchmarks	normal	dowdiness/loom/incremental
+dowdiness/lambda	src/benchmarks	normal	dowdiness/seam
+dowdiness/lambda	src/benchmarks	normal	moonbitlang/core/bench
+dowdiness/lambda	src/eval	normal	dowdiness/lambda/ast
+dowdiness/lambda	src/eval	normal	moonbitlang/core/debug
+dowdiness/lambda	src/lexer	normal	dowdiness/lambda/token
+dowdiness/lambda	src/lexer	normal	dowdiness/loom/core
+dowdiness/lambda	src/lexer	test	moonbitlang/quickcheck
+dowdiness/lambda	src/syntax	normal	dowdiness/seam
+dowdiness/lambda	src/syntax	normal	moonbitlang/core/debug
+dowdiness/lambda	src/token	normal	dowdiness/loom/core
+dowdiness/lambda	src/token	normal	dowdiness/seam
+dowdiness/lambda	src/typecheck	normal	dowdiness/incr
+dowdiness/lambda	src/typecheck	normal	dowdiness/lambda/ast
+dowdiness/lambda	src/typecheck	normal	dowdiness/lambda/syntax
+dowdiness/lambda	src/typecheck	normal	dowdiness/seam
+dowdiness/lambda	src/typecheck	normal	moonbitlang/core/debug
+dowdiness/lambda	src/typecheck	normal	moonbitlang/core/hashmap
+dowdiness/lambda	src/typecheck	normal	moonbitlang/core/string
+dowdiness/loom	src	normal	dowdiness/incr
+dowdiness/loom	src	normal	dowdiness/loom/core
+dowdiness/loom	src	normal	dowdiness/loom/incremental
+dowdiness/loom	src	normal	dowdiness/loom/pipeline
+dowdiness/loom	src	normal	dowdiness/seam
+dowdiness/loom	src	normal	moonbitlang/core/debug
+dowdiness/loom	src/core	normal	dowdiness/seam
+dowdiness/loom	src/core	normal	dowdiness/text_change
+dowdiness/loom	src/core	normal	moonbitlang/core/cmp
+dowdiness/loom	src/core	normal	moonbitlang/core/debug
+dowdiness/loom	src/core	wbtest	moonbitlang/quickcheck
+dowdiness/loom	src/incremental	normal	dowdiness/loom/core
+dowdiness/loom	src/incremental	normal	dowdiness/seam
+dowdiness/loom	src/pipeline	normal	dowdiness/incr
+dowdiness/loom	src/pipeline	normal	dowdiness/loom/core
+dowdiness/loom	src/pipeline	normal	dowdiness/loom/incremental
+dowdiness/loom	src/pipeline	normal	dowdiness/seam
+dowdiness/loom	src/viz	normal	dowdiness/graphviz/lib/parser
+dowdiness/markdown	src	normal	dowdiness/loom
+dowdiness/markdown	src	normal	dowdiness/loom/core
+dowdiness/markdown	src	normal	dowdiness/seam
+dowdiness/markdown	src	normal	moonbitlang/core/bench
+dowdiness/markdown	src	normal	moonbitlang/core/debug
+dowdiness/order-tree	src	normal	dowdiness/btree
+dowdiness/order-tree	src	normal	dowdiness/rle
+dowdiness/order-tree	src	normal	moonbitlang/core/bench
+dowdiness/order-tree	src	test	moonbitlang/core/debug
+dowdiness/order-tree	src	test	moonbitlang/core/quickcheck
+dowdiness/order-tree	src	wbtest	moonbitlang/core/debug
+dowdiness/pretty	.	normal	moonbitlang/core/debug
+dowdiness/pretty	.	wbtest	moonbitlang/quickcheck
+dowdiness/rle	src	normal	moonbitlang/core/bench
+dowdiness/rle	src	normal	moonbitlang/core/builtin
+dowdiness/rle	src	normal	moonbitlang/core/debug
+dowdiness/rle	src	normal	moonbitlang/core/quickcheck
+dowdiness/rle	src	normal	moonbitlang/quickcheck
+dowdiness/rle	src/example	normal	dowdiness/rle
+dowdiness/rle	src/example/authored	normal	dowdiness/rle
+dowdiness/rle	src/example/authored	normal	moonbitlang/core/builtin
+dowdiness/rle	src/example/authored	normal	moonbitlang/core/debug
+dowdiness/rle	src/example/pixel	normal	dowdiness/rle
+dowdiness/rle	src/example/pixel	normal	moonbitlang/core/debug
+dowdiness/rle	src/example/string	normal	dowdiness/rle
+dowdiness/seam	.	normal	moonbitlang/core/debug
+dowdiness/seam	.	normal	moonbitlang/core/hashmap
+dowdiness/seam	.	wbtest	moonbitlang/core/bench
+dowdiness/seam	.	wbtest	moonbitlang/quickcheck
+dowdiness/semantic	.	normal	dowdiness/markdown
+dowdiness/semantic	.	normal	moonbitlang/core/debug
+dowdiness/semantic	.	wbtest	moonbitlang/core/float
+dowdiness/semantic	.	wbtest	moonbitlang/core/quickcheck
+dowdiness/semantic	.	wbtest	moonbitlang/quickcheck
+dowdiness/semantic-proof	.	normal	moonbitlang/core/debug
+dowdiness/svg-dsl	src/lib	normal	moonbitlang/core/debug
+dowdiness/zipper	.	normal	moonbitlang/core/debug
+dowdiness/zipper	.	normal	moonbitlang/core/list
+dowdiness/zipper	.	wbtest	moonbitlang/core/quickcheck
+dowdiness/zipper	.	wbtest	moonbitlang/core/quickcheck/splitmix
+dowdiness/zipper	.	wbtest	moonbitlang/quickcheck
+
+### SECTION B: module-level deps (moon.mod.json)
+# columns: module_name	module_path	dep_name	kind	detail
+antisatori/valtio	valtio	dowdiness/text_change	path	../lib/text-change
+dowdiness/alga	alga	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/btree	lib/btree	dowdiness/rle	path	../../rle
+dowdiness/btree	lib/btree	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/canopy	.	dowdiness/egglog	path	./loom/egglog
+dowdiness/canopy	.	dowdiness/egraph	path	./loom/egraph
+dowdiness/canopy	.	dowdiness/event-graph-walker	path	./event-graph-walker
+dowdiness/canopy	.	dowdiness/incr	path	./loom/incr
+dowdiness/canopy	.	dowdiness/json	path	./loom/examples/json
+dowdiness/canopy	.	dowdiness/lambda	path	./loom/examples/lambda
+dowdiness/canopy	.	dowdiness/loom	path	./loom/loom
+dowdiness/canopy	.	dowdiness/markdown	path	./loom/examples/markdown
+dowdiness/canopy	.	dowdiness/order-tree	path	./order-tree
+dowdiness/canopy	.	dowdiness/pretty	path	./loom/pretty
+dowdiness/canopy	.	dowdiness/seam	path	./loom/seam
+dowdiness/canopy	.	dowdiness/text_change	path	./lib/text-change
+dowdiness/canopy	.	dowdiness/zipper	path	./lib/zipper
+dowdiness/canopy	.	moonbitlang/async	registry	0.16.8
+dowdiness/canopy	.	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/canopy	.	moonbitlang/x	registry	0.4.38
+dowdiness/canopy-block-editor	examples/block-editor	dowdiness/canopy	path	../..
+dowdiness/canopy-block-editor	examples/block-editor	dowdiness/event-graph-walker	path	../../event-graph-walker
+dowdiness/egglog	loom/egglog	dowdiness/incr	registry	0.4.1
+dowdiness/egraph	loom/egraph	dowdiness/lambda	path	../examples/lambda
+dowdiness/event-graph-walker	event-graph-walker	dowdiness/alga	path	../alga
+dowdiness/event-graph-walker	event-graph-walker	dowdiness/btree	path	../lib/btree
+dowdiness/event-graph-walker	event-graph-walker	dowdiness/order-tree	path	../order-tree
+dowdiness/event-graph-walker	event-graph-walker	dowdiness/rle	path	../rle
+dowdiness/event-graph-walker	event-graph-walker	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/graphviz	graphviz	dowdiness/alga	registry	0.2.0
+dowdiness/graphviz	graphviz	dowdiness/svg-dsl	registry	0.1.0
+dowdiness/graphviz	graphviz	moonbitlang/x	registry	0.4.38
+dowdiness/ideal-editor	examples/ideal	antisatori/graphviz	path	../../graphviz
+dowdiness/ideal-editor	examples/ideal	dowdiness/canopy	path	../..
+dowdiness/ideal-editor	examples/ideal	dowdiness/lambda	path	../../loom/examples/lambda
+dowdiness/ideal-editor	examples/ideal	dowdiness/text_change	path	../../lib/text-change
+dowdiness/ideal-editor	examples/ideal	moonbit-community/rabbita	registry	0.11.5
+dowdiness/json	loom/examples/json	dowdiness/loom	path	../../loom
+dowdiness/json	loom/examples/json	dowdiness/pretty	path	../../pretty
+dowdiness/json	loom/examples/json	dowdiness/seam	path	../../seam
+dowdiness/lambda	loom/examples/lambda	dowdiness/event-graph-walker	path	../../../event-graph-walker
+dowdiness/lambda	loom/examples/lambda	dowdiness/incr	path	../../incr
+dowdiness/lambda	loom/examples/lambda	dowdiness/loom	path	../../loom
+dowdiness/lambda	loom/examples/lambda	dowdiness/pretty	path	../../pretty
+dowdiness/lambda	loom/examples/lambda	dowdiness/seam	path	../../seam
+dowdiness/lambda	loom/examples/lambda	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/loom	loom/loom	dowdiness/graphviz	registry	0.1.0
+dowdiness/loom	loom/loom	dowdiness/incr	path	../incr
+dowdiness/loom	loom/loom	dowdiness/seam	path	../seam
+dowdiness/loom	loom/loom	dowdiness/text_change	path	../../lib/text-change
+dowdiness/loom	loom/loom	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/markdown	loom/examples/markdown	dowdiness/loom	path	../../loom
+dowdiness/markdown	loom/examples/markdown	dowdiness/seam	path	../../seam
+dowdiness/order-tree	order-tree	dowdiness/btree	path	../lib/btree
+dowdiness/order-tree	order-tree	dowdiness/rle	path	../rle
+dowdiness/order-tree	order-tree	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/pretty	loom/pretty	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/rle	rle	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/seam	loom/seam	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/semantic	lib/semantic	dowdiness/markdown	path	../../loom/examples/markdown
+dowdiness/semantic	lib/semantic	moonbitlang/quickcheck	registry	0.11.2
+dowdiness/zipper	lib/zipper	moonbitlang/quickcheck	registry	0.11.2
+
+### SECTION C: summary
+# total package-level import edges: 482
+# total module-level dep edges:     62
+# packages (distinct module+path):  92
+# moon.pkg count by module:
+#   antisatori/valtio	1 packages	1 edges
+#   dowdiness/alga	2 packages	11 edges
+#   dowdiness/btree	1 packages	5 edges
+#   dowdiness/canopy	26 packages	187 edges
+#   dowdiness/canopy-block-editor	1 packages	3 edges
+#   dowdiness/canopy-canvas	1 packages	2 edges
+#   dowdiness/cst-transform	1 packages	2 edges
+#   dowdiness/egglog	4 packages	6 edges
+#   dowdiness/egraph	2 packages	11 edges
+#   dowdiness/event-graph-walker	12 packages	77 edges
+#   dowdiness/graphviz	5 packages	16 edges
+#   dowdiness/ideal-editor	1 packages	17 edges
+#   dowdiness/incr	8 packages	30 edges
+#   dowdiness/json	1 packages	7 edges
+#   dowdiness/lambda	8 packages	48 edges
+#   dowdiness/loom	5 packages	18 edges
+#   dowdiness/markdown	1 packages	5 edges
+#   dowdiness/order-tree	1 packages	6 edges
+#   dowdiness/pretty	1 packages	2 edges
+#   dowdiness/rle	5 packages	12 edges
+#   dowdiness/seam	1 packages	4 edges
+#   dowdiness/semantic	1 packages	5 edges
+#   dowdiness/semantic-proof	1 packages	1 edges
+#   dowdiness/svg-dsl	1 packages	1 edges
+#   dowdiness/zipper	1 packages	5 edges

@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/byte_codec"
+
+import {
+  "moonbitlang/core/buffer",
+}
+
+// Values
+pub fn read_f64_le(Reader) -> Double raise CodecError
+
+pub fn read_ivarint(Reader) -> Int64 raise CodecError
+
+pub fn read_len_bytes(Reader) -> Bytes raise CodecError
+
+pub fn read_string(Reader) -> String raise CodecError
+
+pub fn read_uvarint(Reader) -> UInt64 raise CodecError
+
+pub fn safe_uvarint_to_int(UInt64) -> Int raise CodecError
+
+pub fn write_f64_le(@buffer.Buffer, Double) -> Unit
+
+pub fn write_ivarint(@buffer.Buffer, Int64) -> Unit
+
+pub fn write_len_bytes(@buffer.Buffer, Bytes) -> Unit
+
+pub fn write_string(@buffer.Buffer, String) -> Unit
+
+pub fn write_uvarint(@buffer.Buffer, UInt64) -> Unit
+
+// Errors
+pub(all) suberror CodecError {
+  UnexpectedEndOfInput
+  VarintTooLong
+  VarintValueTooLarge
+  InvalidUtf16
+}
+pub fn CodecError::message(Self) -> String
+
+// Types and methods
+pub struct Reader {
+  data : Bytes
+  mut pos : Int
+}
+pub fn Reader::new(Bytes) -> Self
+pub fn Reader::read_byte(Self) -> Byte raise CodecError
+
+// Type aliases
+
+// Traits
+

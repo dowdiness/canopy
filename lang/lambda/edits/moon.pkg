@@ -1,0 +1,22 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/canopy/lang/lambda/scope",
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset" @immut/hashset,
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+  "dowdiness/incr",
+  "dowdiness/loom",
+} for "wbtest"
+
+warnings = "-2-6-29"

@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/eval"
+
+import {
+  "dowdiness/egglog/src",
+  "dowdiness/incr/cells",
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/pipeline",
+  "dowdiness/pretty",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn build_escalation_memo(@pipeline.Parser[@ast.Term], @cells.Derived[Array[EvalResult]]) -> @cells.Derived[Array[EvalResult]]
+
+pub fn build_eval_memo(@pipeline.Parser[@ast.Term]) -> @cells.Derived[Array[EvalResult]]
+
+pub fn eval_annotation_layout(EvalResult) -> @pretty.Layout[@pretty.SyntaxCategory]?
+
+pub fn eval_term(@ast.Term) -> Array[EvalResult]
+
+pub fn inject_eval_annotations(@pretty.Layout[@pretty.SyntaxCategory], Array[EvalResult]) -> @pretty.Layout[@pretty.SyntaxCategory]
+
+pub fn seed_term(@src.Database, @ast.Term) -> @src.Value
+
+pub fn split_at_hardlines(@pretty.Layout[@pretty.SyntaxCategory]) -> Array[@pretty.Layout[@pretty.SyntaxCategory]]
+
+// Errors
+
+// Types and methods
+pub(all) enum EvalResult {
+  Value(String)
+  Stuck(String)
+  Suppressed
+} derive(Eq, @debug.Debug)
+pub impl Show for EvalResult
+
+// Type aliases
+
+// Traits
+

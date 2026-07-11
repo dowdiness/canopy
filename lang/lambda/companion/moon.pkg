@@ -1,0 +1,34 @@
+import {
+  "dowdiness/canopy/analysis_bridge" @analysis,
+  "dowdiness/analysis" @facts,
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/protocol",
+  "dowdiness/incr",
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast",
+  "dowdiness/lambda/typecheck",
+  "dowdiness/loom",
+  "dowdiness/pretty",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/quickcheck" @qc,
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+  "dowdiness/incr",
+  "dowdiness/loom",
+} for "wbtest"
+
+warnings = "-2-6-29"

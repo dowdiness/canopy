@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/markdown/proj"
+
+import {
+  "dowdiness/canopy/protocol",
+  "dowdiness/incr/cells",
+  "dowdiness/loom/pipeline",
+  "dowdiness/markdown",
+  "dowdiness/seam",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+
+pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@markdown.Block], Array[String]) raise @dowdiness/loom/core.LexError
+
+pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@markdown.Block]) -> Unit
+
+pub fn proj_to_view_node(@dowdiness/canopy/core.ProjNode[@markdown.Block], @dowdiness/canopy/core.SourceMap, annotations? : Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], source_text? : String?) -> @protocol.ViewNode
+
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@markdown.Block]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

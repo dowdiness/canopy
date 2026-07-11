@@ -1,0 +1,55 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/llm"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn edit_text(GeminiConfig, String, String) -> Array[EditAction] raise LlmError
+
+pub async fn fix_typos(GeminiConfig, String) -> Array[EditAction] raise LlmError
+
+pub fn parse_edit_actions(String) -> Array[EditAction]
+
+// Errors
+pub suberror LlmError {
+  LlmError(String)
+} derive(@debug.Debug)
+pub impl Show for LlmError
+
+// Types and methods
+pub(all) enum EditAction {
+  Replace(line~ : Int, old~ : String, new~ : String)
+  Insert(line~ : Int, text~ : String)
+  Delete(line~ : Int)
+  FixTypos(original~ : String, fixed~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for EditAction
+pub impl ToJson for EditAction
+
+pub(all) struct GeminiConfig {
+  api_key : String
+  model : String
+  temperature : Double
+  max_output_tokens : Int
+} derive(@debug.Debug)
+pub fn GeminiConfig::GeminiConfig(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int) -> Self
+
+pub(all) struct Message {
+  role : Role
+  content : String
+} derive(Eq, @debug.Debug)
+pub fn Message::Message(role~ : Role, content~ : String) -> Self
+
+pub(all) enum Role {
+  System
+  User
+  Assistant
+} derive(Eq, @debug.Debug)
+pub impl Show for Role
+
+// Type aliases
+
+// Traits
+

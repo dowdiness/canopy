@@ -1,0 +1,112 @@
+/* BlockInput — thin block-mode input layer with textarea overlay */
+
+.block-editor {
+  position: relative;
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+/* --- Block base --------------------------------------------------------- */
+
+/* Reset default margins for semantic elements used as blocks */
+.block-editor h1, .block-editor h2, .block-editor h3,
+.block-editor h4, .block-editor h5, .block-editor h6,
+.block-editor p, .block-editor pre {
+  margin: 0;
+}
+
+.block {
+  position: relative;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: text;
+  min-height: 1.5em;
+  transition: background 0.1s ease;
+}
+
+.block:hover {
+  background: rgba(130, 80, 223, 0.04);
+}
+
+.block.active {
+  outline: 2px solid #8250df;
+  outline-offset: -1px;
+}
+
+/* --- Block kinds -------------------------------------------------------- */
+
+/* Headings: kind_tag is "H1"–"H6" */
+.block[data-kind^="H"] {
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.block[data-kind="H1"] { font-size: 2em; }
+.block[data-kind="H2"] { font-size: 1.5em; font-weight: 600; }
+.block[data-kind="H3"] { font-size: 1.25em; font-weight: 600; }
+.block[data-kind="H4"] { font-size: 1.1em; font-weight: 600; }
+.block[data-kind="H5"],
+.block[data-kind="H6"] { font-size: 1em; font-weight: 600; }
+
+.block[data-kind="ListItem"],
+.block[data-kind="UnorderedListItem"],
+.block[data-kind="OrderedListItem"] {
+  padding-left: 24px;
+}
+
+.block[data-kind="ListItem"]::before,
+.block[data-kind="UnorderedListItem"]::before,
+.block[data-kind="OrderedListItem"]::before {
+  content: "\2022 ";
+  position: absolute;
+  left: 8px;
+  color: #666;
+}
+
+.block[data-kind="ListItem"][data-list-kind="ordered"],
+.block[data-kind="OrderedListItem"] {
+  padding-left: 32px;
+}
+
+.block[data-kind="ListItem"][data-list-kind="ordered"]::before,
+.block[data-kind="OrderedListItem"]::before {
+  content: attr(data-list-marker) " ";
+}
+
+/* Code blocks: kind_tag is "Code" or "Code(lang)" */
+.block[data-kind^="Code"] {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+  background: rgba(130, 80, 223, 0.04);
+  border-radius: 4px;
+}
+
+/* --- Textarea overlay --------------------------------------------------- */
+
+.block-textarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: inherit;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  font: inherit;
+  color: transparent;
+  caret-color: #e0e0e8;
+  background: transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+  z-index: 1;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* --- Text span ---------------------------------------------------------- */
+
+.block-text {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}

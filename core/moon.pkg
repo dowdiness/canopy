@@ -1,0 +1,13 @@
+import {
+  "dowdiness/incr",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"

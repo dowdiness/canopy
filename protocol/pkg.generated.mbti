@@ -1,0 +1,108 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/protocol"
+
+import {
+  "dowdiness/pretty",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn layout_to_view_tree(@pretty.Layout[@pretty.SyntaxCategory], width? : Int) -> ViewNode
+
+pub fn[T : @dowdiness/loom/core.Renderable] proj_to_view_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, annotations? : Map[@dowdiness/canopy/core.NodeId, Array[ViewAnnotation]], source_text? : String?) -> ViewNode
+
+// Errors
+
+// Types and methods
+pub(all) struct Decoration {
+  from : Int
+  to : Int
+  css_class : String
+  data : String?
+  widget : Bool
+} derive(Eq, @debug.Debug)
+pub fn Decoration::Decoration(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Self
+pub impl ToJson for Decoration
+
+pub(all) struct Diagnostic {
+  from : Int
+  to : Int
+  severity : Severity
+  message : String
+} derive(Eq, @debug.Debug)
+pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String) -> Self
+pub impl ToJson for Diagnostic
+
+pub(all) enum Severity {
+  SevError
+  SevWarning
+  SevInfo
+  SevHint
+} derive(Eq, @debug.Debug)
+pub impl ToJson for Severity
+
+pub(all) struct TokenSpan {
+  role : String
+  start : Int
+  end : Int
+} derive(Eq, @debug.Debug)
+pub fn TokenSpan::TokenSpan(role~ : String, start~ : Int, end~ : Int) -> Self
+pub impl ToJson for TokenSpan
+
+pub(all) enum UserIntent {
+  TextEdit(from~ : Int, to~ : Int, insert~ : String)
+  StructuralEdit(node_id~ : @dowdiness/canopy/core.NodeId, op~ : String, params~ : Map[String, String])
+  SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
+  SetPmCursor(pm_tree_position~ : Int)
+  SetDocCursor(doc_code_unit_offset~ : Int)
+  Undo
+  Redo
+  CommitEdit(node_id~ : @dowdiness/canopy/core.NodeId, value~ : String)
+} derive(Eq, @debug.Debug)
+pub impl Show for UserIntent
+pub impl ToJson for UserIntent
+pub impl @json.FromJson for UserIntent
+
+pub(all) struct ViewAnnotation {
+  kind : String
+  label : String
+  severity : String
+} derive(Eq, @debug.Debug)
+pub fn ViewAnnotation::ViewAnnotation(kind~ : String, label~ : String, severity? : String) -> Self
+pub impl ToJson for ViewAnnotation
+
+pub(all) struct ViewNode {
+  id : @dowdiness/canopy/core.NodeId
+  kind_tag : String
+  label : String
+  text : String?
+  text_range : (Int, Int)
+  token_spans : Array[TokenSpan]
+  editable : Bool
+  css_class : String
+  children : Array[ViewNode]
+  annotations : Array[ViewAnnotation]
+} derive(Eq, @debug.Debug)
+pub fn ViewNode::ViewNode(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self], annotations? : Array[ViewAnnotation]) -> Self
+pub fn ViewNode::node_count(Self) -> Int
+pub impl ToJson for ViewNode
+
+pub(all) enum ViewPatch {
+  TextChange(from~ : Int, to~ : Int, insert~ : String)
+  ReplaceNode(node_id~ : @dowdiness/canopy/core.NodeId, node~ : ViewNode)
+  InsertChild(parent_id~ : @dowdiness/canopy/core.NodeId, index~ : Int, child~ : ViewNode)
+  RemoveChild(parent_id~ : @dowdiness/canopy/core.NodeId, index~ : Int, child_id~ : @dowdiness/canopy/core.NodeId)
+  UpdateNode(node_id~ : @dowdiness/canopy/core.NodeId, label~ : String, css_class~ : String, text~ : String?)
+  SetDecorations(decorations~ : Array[Decoration])
+  SetDiagnostics(diagnostics~ : Array[Diagnostic])
+  SetSelection(anchor~ : Int, head~ : Int)
+  SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
+  FullTree(root~ : ViewNode?)
+} derive(Eq, @debug.Debug)
+pub impl ToJson for ViewPatch
+
+// Type aliases
+
+// Traits
+

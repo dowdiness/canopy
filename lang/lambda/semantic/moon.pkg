@@ -1,0 +1,15 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/canopy/lang/lambda/scope" @lambda_scope,
+  "dowdiness/canopy/protocol",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/json",
+}
+
+import {
+  "dowdiness/lambda" @parser,
+  "dowdiness/seam",
+} for "test"
+
+warnings = "-2-6-29"

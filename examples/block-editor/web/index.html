@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canopy Block Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource-variable/iosevka@5/index.min.css" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ──────────────────────────────────────── */
+    :root {
+      --bg-base: #1a1a2e;
+      --bg-surface: #252540;
+      --border: #2a2a48;
+      --text-primary: #f0f0f8;
+      --text-secondary: #d8d8ec;
+      --text-muted: #9090b0;
+      --accent: #8250df;
+      --accent-08: rgba(130, 80, 223, 0.08);
+      --accent-15: rgba(130, 80, 223, 0.15);
+      --accent-20: rgba(130, 80, 223, 0.2);
+      --accent-22: rgba(130, 80, 223, 0.22);
+      --accent-35: rgba(130, 80, 223, 0.35);
+      --accent-40: rgba(130, 80, 223, 0.4);
+      --accent-05: rgba(130, 80, 223, 0.05);
+      --font-ui: 'Manrope', system-ui, sans-serif;
+      --font-code: 'Iosevka', 'Iosevka Variable', monospace;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 48px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg-base); color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 1.0625rem;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Toolbar ──────────────────────────────────────────────── */
+    nav[aria-label="Document tools"] {
+      display: flex;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav[aria-label="Document tools"] button {
+      padding: 6px 14px;
+      background: var(--accent-08);
+      border: 1px solid var(--accent-20);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+    }
+    nav[aria-label="Document tools"] button:hover {
+      background: var(--accent-15);
+      border-color: var(--accent-35);
+      color: var(--text-primary);
+    }
+    nav[aria-label="Document tools"] button:active {
+      background: var(--accent-22);
+    }
+    nav[aria-label="Document tools"] button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ── Editor container ─────────────────────────────────────── */
+    #editor-blocks {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: var(--space-2xl) var(--space-xl);
+      counter-reset: list-number;
+    }
+
+    /* ── Block base ───────────────────────────────────────────── */
+    #editor-blocks > div {
+      position: relative;
+      min-height: 1.4em;
+      padding: var(--space-xs) 0;
+      outline: none;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    /* Depth-based indentation for nesting hierarchy */
+    #editor-blocks > div {
+      margin-left: calc(var(--depth, 0) * 24px);
+    }
+
+    /* Focus — purple left accent */
+    #editor-blocks > div[contenteditable]:focus-visible {
+      box-shadow: -3px 0 0 0 var(--accent);
+    }
+
+    /* Empty editor placeholder */
+    #editor-blocks:empty::after {
+      content: "Start typing or upload a .md file";
+      color: var(--text-muted);
+      font-style: italic;
+      display: block;
+      padding: var(--space-xs) 0;
+    }
+
+    /* ── Block spacing rhythm ─────────────────────────────────── */
+    #editor-blocks > div + div { margin-top: var(--space-sm); }
+    #editor-blocks > div[data-type="heading"] { margin-top: var(--space-xl); }
+    #editor-blocks > div[data-type="heading"]:first-child { margin-top: 0; }
+    #editor-blocks > div[data-type="divider"] { margin-top: var(--space-xl); }
+    #editor-blocks > div[data-type="divider"] + div { margin-top: var(--space-xl); }
+
+    /* ── Headings (1.25 ratio type scale) ─────────────────────── */
+    #editor-blocks > div[data-type="heading"] { font-weight: 600; }
+    #editor-blocks > div[data-type="heading"][data-level="1"] {
+      font-size: 1.953rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="2"] {
+      font-size: 1.563rem; line-height: 1.25; letter-spacing: -0.015em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="3"] {
+      font-size: 1.25rem; line-height: 1.35; letter-spacing: -0.01em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="4"] {
+      font-size: 1.1rem; line-height: 1.4;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="5"] {
+      font-size: 1.0625rem; line-height: 1.45; letter-spacing: 0.01em;
+    }
+    #editor-blocks > div[data-type="heading"][data-level="6"] {
+      font-size: 1rem; line-height: 1.5; letter-spacing: 0.02em;
+    }
+    /* ── List items ───────────────────────────────────────────── */
+    #editor-blocks > div[data-type="list_item"] {
+      padding-left: var(--space-xl);
+    }
+    #editor-blocks > div[data-type="list_item"]::before {
+      position: absolute;
+      left: var(--space-xs);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    #editor-blocks > div[data-list-style="bullet"]::before { content: "•"; }
+    #editor-blocks > div[data-list-style="numbered"] { counter-increment: list-number; }
+    #editor-blocks > div[data-list-style="numbered"]::before {
+      content: counter(list-number) ".";
+      font-variant-numeric: tabular-nums;
+      font-size: 0.875rem;
+    }
+    #editor-blocks > div:not([data-list-style="numbered"]) { counter-reset: list-number; }
+    #editor-blocks > div[data-list-style="todo"]::before {
+      content: "☐";
+      font-size: 0.875rem;
+    }
+    #editor-blocks > div[data-list-style="todo"][data-checked="true"]::before {
+      content: "☑";
+      color: var(--accent);
+    }
+
+    /* ── Quote ─────────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="quote"] {
+      border-left: 3px solid var(--accent-40);
+      padding-left: var(--space-lg);
+      color: var(--text-secondary);
+    }
+
+    /* ── Code ──────────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="code"] {
+      font-family: var(--font-code);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      background: var(--accent-05);
+      padding-left: var(--space-md);
+      white-space: pre-wrap;
+    }
+
+    /* ── Divider ───────────────────────────────────────────────── */
+    #editor-blocks > div[data-type="divider"] {
+      border-top: 1px solid var(--border);
+      min-height: 0;
+      padding: var(--space-sm) 0;
+    }
+
+    /* ── Shortcut hints ───────────────────────────────────────── */
+    #shortcut-hints {
+      display: flex;
+      gap: var(--space-lg);
+      padding: 6px var(--space-lg);
+      background: var(--accent-05);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: opacity 300ms ease-out, max-height 300ms ease-out;
+      overflow: hidden;
+      max-height: 2rem;
+    }
+    #shortcut-hints.hidden {
+      opacity: 0;
+      max-height: 0;
+      padding: 0 var(--space-lg);
+      border-bottom: none;
+    }
+    #shortcut-hints kbd {
+      display: inline-block;
+      padding: 0 4px;
+      background: var(--accent-08);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--font-code);
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+    #shortcut-hints span {
+      white-space: nowrap;
+    }
+    #shortcut-hints .hints-instruction {
+      margin-left: auto;
+      opacity: 0.7;
+    }
+    /* ── Drag handle ──────────────────────────────────────────── */
+    .drag-handle {
+      position: absolute;
+      left: -28px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 150ms ease-out;
+      user-select: none;
+      border-radius: 3px;
+    }
+    .drag-handle:hover { background: var(--accent-08); }
+    .drag-handle:active { cursor: grabbing; }
+    #editor-blocks > div:hover .drag-handle { opacity: 1; }
+
+    /* ── Drop indicators ──────────────────────────────────────── */
+    /* Combine with focus shadow so neither overrides the other */
+    #editor-blocks > div.drop-before {
+      box-shadow: 0 -3px 0 0 var(--accent);
+    }
+    #editor-blocks > div.drop-after {
+      box-shadow: 0 3px 0 0 var(--accent);
+    }
+    #editor-blocks > div.drop-before:focus-visible {
+      box-shadow: -3px 0 0 0 var(--accent), 0 -3px 0 0 var(--accent);
+    }
+    #editor-blocks > div.drop-after:focus-visible {
+      box-shadow: -3px 0 0 0 var(--accent), 0 3px 0 0 var(--accent);
+    }
+    /* Inside — highlight the whole block as the target container */
+    #editor-blocks > div.drop-inside {
+      box-shadow: inset 0 0 0 2px var(--accent-40);
+    }
+    #editor-blocks > div.drop-inside:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--accent-40), -3px 0 0 0 var(--accent);
+    }
+    #editor-blocks > div.dragging { opacity: 0.4; }
+
+    /* ── Touch devices: larger targets ─────────────────────────── */
+    @media (pointer: coarse) {
+      nav[aria-label="Document tools"] button {
+        min-height: 44px;
+        padding: 10px 16px;
+      }
+    }
+
+    /* ── Narrow viewports ─────────────────────────────────────── */
+    @media (max-width: 480px) {
+      #editor-blocks {
+        padding: var(--space-xl) var(--space-lg);
+      }
+      #shortcut-hints {
+        gap: var(--space-sm);
+        font-size: 0.6875rem;
+        flex-wrap: wrap;
+      }
+      #shortcut-hints .hints-instruction {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+
+    /* ── Reduced motion ────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav aria-label="Document tools">
+    <button id="btn-download">Download .md</button>
+    <button id="btn-upload">Upload .md</button>
+    <input type="file" id="file-input" accept=".md" aria-label="Upload markdown file" style="display:none" />
+  </nav>
+  <div id="shortcut-hints" role="status" aria-label="Formatting shortcuts">
+    <span><kbd>#</kbd> heading</span>
+    <span><kbd>-</kbd> list</span>
+    <span><kbd>1.</kbd> numbered</span>
+    <span><kbd>- [ ]</kbd> todo</span>
+    <span><kbd>&gt;</kbd> quote</span>
+    <span class="hints-instruction">type shortcut + Space</span>
+  </div>
+  <main>
+    <div id="editor-blocks" role="textbox" aria-multiline="true" aria-label="Document editor"></div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

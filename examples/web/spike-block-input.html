@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BlockInput Spike</title>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; max-width: 600px; margin: 40px auto; }
+  .block { position: relative; padding: 4px 8px; border-radius: 4px; cursor: text; min-height: 1.5em; }
+  .block:hover { background: #f5f5f5; }
+  .block.active { outline: 2px solid #8250df; }
+  .block[data-kind="heading"] { font-size: 1.5em; font-weight: 700; }
+  .block[data-kind="list_item"]::before { content: "• "; color: #666; }
+  .block-text { white-space: pre-wrap; }
+  .block-textarea {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    padding: inherit; margin: 0; border: none; outline: none; resize: none;
+    font: inherit; color: inherit; background: transparent;
+    overflow: hidden; box-sizing: border-box; z-index: 1;
+  }
+  .toolbar { margin-bottom: 16px; display: flex; gap: 8px; }
+  .toolbar button { padding: 4px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="btn-heading">Heading</button>
+  <button id="btn-paragraph">Paragraph</button>
+  <button id="btn-list">List Item</button>
+</div>
+
+<div id="editor"></div>
+
+<script>
+const blocks = [
+  { id: "1", kind: "heading", text: "Hello World" },
+  { id: "2", kind: "paragraph", text: "This is a paragraph with some text." },
+  { id: "3", kind: "list_item", text: "First item" },
+  { id: "4", kind: "list_item", text: "Second item" },
+  { id: "5", kind: "paragraph", text: "Another paragraph." },
+];
+
+const editor = document.getElementById("editor");
+let activeBlockId = null;
+let textarea = null;
+let blurBound = false;
+
+function render() {
+  editor.innerHTML = "";
+  for (const block of blocks) {
+    const div = document.createElement("div");
+    div.className = "block" + (block.id === activeBlockId ? " active" : "");
+    div.dataset.kind = block.kind;
+    div.dataset.id = block.id;
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "block-text";
+    textSpan.textContent = block.text;
+    div.appendChild(textSpan);
+
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
+      activateBlock(block.id);
+    });
+    editor.appendChild(div);
+  }
+  if (activeBlockId) positionTextarea();
+}
+
+function activateBlock(blockId) {
+  activeBlockId = blockId;
+  blurBound = false;
+  render();
+
+  if (!textarea) {
+    textarea = document.createElement("textarea");
+    textarea.className = "block-textarea";
+    textarea.composing = false;
+    textarea.addEventListener("pointerdown", (e) => e.stopPropagation());
+    textarea.addEventListener("input", onInput);
+    textarea.addEventListener("keydown", onKeydown);
+    textarea.addEventListener("compositionstart", () => { textarea.composing = true; });
+    textarea.addEventListener("compositionend", () => {
+      textarea.composing = false;
+      onInput();
+    });
+  }
+  positionTextarea();
+}
+
+function positionTextarea() {
+  if (!textarea) return;
+  const block = blocks.find(b => b.id === activeBlockId);
+  const div = editor.querySelector(`[data-id="${activeBlockId}"]`);
+  if (!block || !div) return;
+
+  div.appendChild(textarea);
+  textarea.value = block.text;
+
+  // Match font from the block div
+  const style = getComputedStyle(div);
+  textarea.style.font = style.font;
+  textarea.style.padding = style.padding;
+  textarea.style.lineHeight = style.lineHeight;
+  // 1.05x height buffer (Excalidraw technique)
+  textarea.style.height = (div.offsetHeight * 1.05) + "px";
+
+  textarea.focus();
+
+  // Deferred blur (Excalidraw pattern)
+  if (!blurBound) {
+    document.addEventListener("pointerup", (e) => {
+      // Don't bind blur if click was on toolbar
+      if (e.target.closest(".toolbar")) return;
+      textarea.onblur = deactivate;
+      blurBound = true;
+    }, { once: true });
+  }
+}
+
+function onInput() {
+  if (textarea.composing) return; // Skip during IME composition
+
+  const block = blocks.find(b => b.id === activeBlockId);
+  if (!block) return;
+
+  // Save caret
+  const selStart = textarea.selectionStart;
+  const selEnd = textarea.selectionEnd;
+
+  // Update backing data
+  block.text = textarea.value;
+
+  // Simulate re-render: replace the text span (DOM mutation under textarea)
+  const div = editor.querySelector(`[data-id="${activeBlockId}"]`);
+  if (div) {
+    const textSpan = div.querySelector(".block-text");
+    if (textSpan) textSpan.textContent = block.text;
+    // Re-match textarea height
+    textarea.style.height = (div.offsetHeight * 1.05) + "px";
+  }
+
+  // Restore caret
+  textarea.selectionStart = selStart;
+  textarea.selectionEnd = selEnd;
+}
+
+function onKeydown(e) {
+  if (e.isComposing || e.keyCode === 229) return;
+  // Block navigation stubs
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    console.log("Enter → InsertBlockAfter / SplitBlock");
+  }
+}
+
+function deactivate() {
+  if (activeBlockId === null) return; // idempotent guard
+  activeBlockId = null;
+  blurBound = false;
+  if (textarea) {
+    textarea.onblur = null; // clear stale blur handler
+    if (textarea.parentNode) textarea.parentNode.removeChild(textarea);
+  }
+  render();
+}
+
+// Toolbar: test deferred blur
+document.getElementById("btn-heading").addEventListener("click", () => {
+  const block = blocks.find(b => b.id === activeBlockId);
+  if (block) { block.kind = "heading"; render(); textarea?.focus(); }
+});
+document.getElementById("btn-paragraph").addEventListener("click", () => {
+  const block = blocks.find(b => b.id === activeBlockId);
+  if (block) { block.kind = "paragraph"; render(); textarea?.focus(); }
+});
+document.getElementById("btn-list").addEventListener("click", () => {
+  const block = blocks.find(b => b.id === activeBlockId);
+  if (block) { block.kind = "list_item"; render(); textarea?.focus(); }
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#editor") && !e.target.closest(".toolbar")) deactivate();
+});
+
+render();
+</script>
+</body>
+</html>

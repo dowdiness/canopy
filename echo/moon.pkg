@@ -1,0 +1,16 @@
+import {
+  "dowdiness/canopy/echo/tokenizer",
+  "moonbitlang/core/math",
+}
+
+import {
+  "moonbitlang/core/debug",
+} for "test"
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
+
+options(
+  is_main: false,
+)

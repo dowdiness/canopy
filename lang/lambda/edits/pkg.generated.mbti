@@ -1,0 +1,113 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/edits"
+
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn build_action_context(node_id~ : @core.NodeId, kind~ : @ast.Term, definition_index~ : @proj.DefinitionIndex, module_node_id~ : @core.NodeId?) -> ActionContext
+
+pub fn build_tree_edit_op(String, ActionContext, String, String) -> Result[TreeEditOp?, String]
+
+pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
+
+pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
+
+pub fn get_submenu_choices(String, @ast.Term) -> Array[(String, String)]
+
+pub fn parse_bop(String) -> @ast.Bop?
+
+pub fn to_node_context(ActionContext) -> NodeContext
+
+// Errors
+
+// Types and methods
+pub(all) struct Action {
+  id : String
+  label : String
+  mnemonic : String
+  group : ActionGroup
+  needs_input : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ActionContext {
+  node_id : @core.NodeId
+  kind : @ast.Term
+  is_let_binding : Bool
+  binding_node_id : @core.NodeId?
+  binding_def_index : Int?
+  module_node_id : @core.NodeId?
+}
+
+pub(all) enum ActionGroup {
+  Core
+  Wrap
+  Binding
+  Module
+} derive(Eq, @debug.Debug)
+
+pub(all) struct EditContext[T] {
+  source_text : String
+  source_map : @core.SourceMap
+  registry : Map[@core.NodeId, @core.ProjNode[T]]
+  definition_index : @proj.DefinitionIndex
+}
+
+pub(all) struct NodeContext {
+  is_let_binding : Bool
+  binding_node_id : @core.NodeId?
+  binding_def_index : Int?
+  module_node_id : @core.NodeId?
+} derive(Eq, @debug.Debug)
+pub fn NodeContext::new() -> Self
+pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
+
+pub(all) enum TreeEditOp {
+  Select(node_id~ : @core.NodeId)
+  SelectRange(start~ : @core.NodeId, end~ : @core.NodeId)
+  StartEdit(node_id~ : @core.NodeId)
+  CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
+  CancelEdit
+  Delete(node_id~ : @core.NodeId)
+  WrapInLambda(node_id~ : @core.NodeId, var_name~ : String)
+  WrapInApp(node_id~ : @core.NodeId)
+  InsertChild(parent~ : @core.NodeId, index~ : Int, kind~ : @ast.Term)
+  StartDrag(node_id~ : @core.NodeId)
+  DragOver(target~ : @core.NodeId, position~ : @core.DropPosition)
+  Drop(source~ : @core.NodeId, target~ : @core.NodeId, position~ : @core.DropPosition)
+  Collapse(node_id~ : @core.NodeId)
+  Expand(node_id~ : @core.NodeId)
+  Unwrap(node_id~ : @core.NodeId, keep_child_index~ : Int)
+  SwapChildren(node_id~ : @core.NodeId)
+  WrapInIf(node_id~ : @core.NodeId)
+  WrapInBop(node_id~ : @core.NodeId, op~ : @ast.Bop)
+  ChangeOperator(node_id~ : @core.NodeId, new_op~ : @ast.Bop)
+  DeleteBinding(binding_node_id~ : @core.NodeId)
+  DuplicateBinding(binding_node_id~ : @core.NodeId)
+  MoveBindingUp(binding_node_id~ : @core.NodeId)
+  MoveBindingDown(binding_node_id~ : @core.NodeId)
+  AddBinding(module_node_id~ : @core.NodeId)
+  ExtractToLet(node_id~ : @core.NodeId, var_name~ : String)
+  InlineDefinition(node_id~ : @core.NodeId)
+  InlineAllUsages(binding_node_id~ : @core.NodeId)
+  Rename(node_id~ : @core.NodeId, new_name~ : String)
+} derive(@debug.Debug)
+pub fn TreeEditOp::to_generic(Self) -> @core.GenericTreeOp
+pub fn TreeEditOp::to_identity_transform(Self, (@core.NodeId) -> @core.ProjNode[@ast.Term]?) -> @core.IdentityTransform
+pub impl Show for TreeEditOp
+
+// Type aliases
+pub using @core {type DropPosition}
+
+pub type EditResult = (Array[@core.SpanEdit], @core.FocusHint)?
+
+pub using @core {type FocusHint}
+
+pub using @core {type SpanEdit}
+
+// Traits
+

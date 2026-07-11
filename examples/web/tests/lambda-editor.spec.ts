@@ -1,0 +1,151 @@
+// Lambda calculus editor — foundation invariant tests.
+// Tests the editor's contract, not UI surface details.
+// Uses built-in example presets to avoid text-sync timing issues.
+
+import { test, expect, type Page } from '@playwright/test';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Load an example preset and wait for AST output to update. */
+async function loadExample(page: Page, name: string) {
+  await page.locator(`.example-btn:has-text("${name}")`).click();
+  await expect(page.locator('#ast-output')).not.toContainText('Waiting for input...');
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+let pageErrors: Error[];
+
+test.beforeEach(async ({ page }) => {
+  pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error));
+  await page.goto('/');
+  await expect(page.locator('#status')).toContainText('Ready!');
+});
+
+test.describe('Lambda Editor — Foundation', () => {
+
+  test('page loads without errors', async () => {
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('editor is visible and focusable', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await expect(editor).toBeVisible();
+    await expect(editor).toHaveAttribute('contenteditable', 'plaintext-only');
+  });
+
+  test('example buttons populate editor', async ({ page }) => {
+    const examples = ['Basics', 'Composition', 'Currying', 'Conditional', 'Pipeline'];
+    for (const name of examples) {
+      await page.locator(`.example-btn:has-text("${name}")`).click();
+      const text = await page.locator('#editor').textContent();
+      expect(text!.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test('typing triggers AST graph', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('42');
+    await expect(page.locator('#ast-graph svg')).toBeVisible();
+  });
+
+  test('pretty-print updates', async ({ page }) => {
+    await loadExample(page, 'Basics');
+    await expect(page.locator('#ast-output')).not.toContainText('Waiting for input...');
+  });
+
+  test('every example preset typechecks clean', async ({ page }) => {
+    // All five presets now carry `: Type` annotations on every lambda
+    // (see examples/web/index.html). Loading each must produce a clean
+    // typecheck — no diagnostic error items.
+    const examples = ['Basics', 'Composition', 'Currying', 'Conditional', 'Pipeline'];
+    for (const name of examples) {
+      await loadExample(page, name);
+      await expect(page.locator('#error-output')).toContainText('No errors');
+      expect(
+        await page.locator('#error-output .diag-item.diag-error').count(),
+      ).toBe(0);
+    }
+  });
+
+  test('annotated lambda typechecks clean', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('(x : Int) => x');
+
+    await expect(page.locator('#error-output')).toContainText('No errors');
+    expect(await page.locator('#error-output .diag-item.diag-error').count()).toBe(0);
+  });
+
+  test('unbound variable shows eval warning', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('x');
+
+    // "x" is an unbound variable — diagnostics panel should show a warning
+    await expect(page.locator('#error-output .diag-item.diag-warning')).toBeVisible();
+    await expect(page.locator('#error-output')).toContainText('unbound');
+  });
+
+  test('unbound variable produces typecheck error alongside warning', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('x + 1');
+
+    await expect(page.locator('#error-output .diag-item.diag-error')).toBeVisible();
+    await expect(page.locator('#error-output')).toContainText('unbound variable: x');
+  });
+
+  test('unannotated lambda produces typecheck error', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('(x) => x');
+
+    await expect(page.locator('#error-output .diag-item.diag-error')).toBeVisible();
+    await expect(page.locator('#error-output')).toContainText('missing type annotation');
+  });
+
+  test('well-typed expression shows no errors', async ({ page }) => {
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('1 + 2');
+
+    await expect(page.locator('#error-output')).toContainText('No errors');
+    expect(await page.locator('#error-output .diag-item').count()).toBe(0);
+  });
+
+  test('type error inside a named binding shows def badge', async ({ page }) => {
+    // `let f = y\nf` — `y` is unbound inside def `f`. FFI emits the
+    // diagnostic with `def_name: "f"`, which the UI renders as a
+    // `.diag-def-badge` span instead of a `[f]` string prefix.
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('let f = y\nf');
+
+    const badge = page.locator('#error-output .diag-item .diag-def-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('f');
+    // The old `[f] ` string prefix must not appear in the message.
+    await expect(page.locator('#error-output')).not.toContainText('[f]');
+  });
+
+  test('parse errors suppress type diagnostics', async ({ page }) => {
+    // A missing arrow body is malformed, so parsing fails. Because the AST is
+    // incomplete, get_diagnostics_json only emits parse errors and skips the
+    // type-checker entirely.
+    const editor = page.locator('#editor');
+    await editor.click();
+    await page.keyboard.type('(x) =>');
+
+    await expect(page.locator('#error-output .diag-item.diag-error').first()).toBeVisible();
+    await expect(page.locator('#error-output')).not.toContainText('missing type annotation');
+    await expect(page.locator('#error-output')).not.toContainText('unbound variable');
+  });
+
+});

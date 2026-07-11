@@ -1,0 +1,11 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/projection" @proj,
+  "dowdiness/canopy/protocol",
+  "dowdiness/canopy/relay",
+}
+
+options(
+  is_main: false,
+)

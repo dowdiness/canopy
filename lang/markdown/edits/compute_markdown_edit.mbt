@@ -1,0 +1,483 @@
+///| Compute SpanEdits for Markdown edit operations.
+
+///|
+pub fn compute_markdown_edit(
+  op : MarkdownEditOp,
+  source : String,
+  proj : ProjNode[@markdown.Block],
+  source_map : SourceMap,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  match op {
+    CommitEdit(node_id~, new_text~) =>
+      compute_commit_edit(source_map, node_id, new_text)
+    ChangeHeadingLevel(node_id~, level~) =>
+      compute_change_heading_level(source, source_map, node_id, level)
+    ToggleListItem(node_id~) =>
+      compute_toggle_list_item(source, proj, source_map, node_id)
+    Delete(node_id~) => compute_delete(source_map, node_id)
+    InsertBlockAfter(node_id~) =>
+      compute_insert_block_after(source_map, node_id)
+    SplitBlock(node_id~, offset~) =>
+      compute_split_block(source, proj, source_map, node_id, offset)
+    MergeWithPrevious(node_id~) =>
+      compute_merge_with_previous(source, proj, source_map, node_id)
+    MoveBlock(source=source_id, target=target_id, position~) =>
+      compute_move_block(
+        source, proj, source_map, source_id, target_id, position,
+      )
+  }
+}
+
+///|
+/// Replace the editable "text" span of a block with new content.
+fn compute_commit_edit(
+  source_map : SourceMap,
+  node_id : NodeId,
+  new_text : String,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  // Try "text" role first, fall back to "code" for code blocks
+  let range = match source_map.get_token_span(node_id, "text") {
+    Some(r) => r
+    None =>
+      match source_map.get_token_span(node_id, "code") {
+        Some(r) => r
+        None =>
+          raise @core.EditError::SourceSpanMissing(
+            detail="no editable span for node " + node_id.to_string(),
+          )
+      }
+  }
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_text,
+        },
+      ],
+      FocusHint::MoveCursor(position=range.start + new_text.length()),
+    ),
+  )
+}
+
+///|
+/// Change heading level (1-6) or convert paragraph to/from heading.
+fn compute_change_heading_level(
+  source : String,
+  source_map : SourceMap,
+  node_id : NodeId,
+  level : Int,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  let content = match source_map.get_token_span(node_id, "text") {
+    Some(text_range) => source[text_range.start:text_range.end].to_owned()
+    None => {
+      // No text span — content is the whole block minus trailing newline
+      let block_text = source[range.start:range.end].to_owned()
+      let mut end = block_text.length()
+      if end > 0 && block_text[end - 1] == '\n' {
+        end = end - 1
+      }
+      block_text[:end].to_owned()
+    }
+  }
+  let clamped = level.max(0).min(6)
+  let new_prefix = if clamped > 0 {
+    "#".repeat(clamped) + " "
+  } else {
+    "" // level 0 = paragraph (no prefix)
+  }
+  let new_block = new_prefix + content + "\n"
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_block,
+        },
+      ],
+      FocusHint::MoveCursor(
+        position=range.start + new_prefix.length() + content.length(),
+      ),
+    ),
+  )
+}
+
+///|
+/// Toggle paragraph to/from list item.
+fn compute_toggle_list_item(
+  source : String,
+  proj : ProjNode[@markdown.Block],
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  let content = match source_map.get_token_span(node_id, "text") {
+    Some(text_range) => source[text_range.start:text_range.end].to_owned()
+    None => source[range.start:range.end].to_owned()
+  }
+  let is_list_item = match @core.get_node_in_tree(proj, node_id) {
+    Some(node) => is_markdown_list_item(node.kind)
+    None => false
+  }
+  let (new_text, prefix_len) = if is_list_item {
+    // List item -> paragraph: just content
+    (content + "\n", 0)
+  } else {
+    // Paragraph -> list item: add "- " prefix
+    ("- " + content + "\n", 2)
+  }
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: new_text,
+        },
+      ],
+      FocusHint::MoveCursor(
+        position=range.start + prefix_len + content.length(),
+      ),
+    ),
+  )
+}
+
+///|
+/// Delete a block (including trailing newline).
+fn compute_delete(
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: range.start,
+          delete_len: range.end - range.start,
+          inserted: "",
+        },
+      ],
+      FocusHint::RestoreCursor,
+    ),
+  )
+}
+
+///|
+/// Insert empty paragraph after a block.
+fn compute_insert_block_after(
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  let insert_pos = range.end
+  // Insert "\n<sentinel>\n" to create a visible empty paragraph.
+  // The zero-width space gives the parser a real token to produce a ProjNode,
+  // so BlockInput can render and focus the new block. The sentinel is stripped at:
+  //   - markdown_export_text() (FFI export boundary — raw mode)
+  //   - BlockInput.stripParagraphSentinels (TS display/edit/commit, sourced
+  //     from this FFI's markdown_empty_paragraph_sentinel accessor)
+  //   - compute_merge_with_previous (on block merge)
+  // Known minor gap: MarkdownPreview renders node.text as-is (sentinel invisible
+  // in HTML, but could leak on copy-paste from preview).
+  // Long-term fix: migrate to Container per-block text (empty block = empty text).
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: insert_pos,
+          delete_len: 0,
+          inserted: "\n" + @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n",
+        },
+      ],
+      FocusHint::MoveCursor(position=insert_pos + 1),
+    ),
+  )
+}
+
+///|
+/// Split block at cursor offset within the text span.
+///
+/// `offset` is a UTF-16 code-unit offset inside the block's text span
+/// (i.e. relative to `text_range.start`, not the document root). The
+/// offset is snapped forward to a grapheme boundary within the block text
+/// before computing the split point.
+fn compute_split_block(
+  source : String,
+  proj : ProjNode[@markdown.Block],
+  source_map : SourceMap,
+  node_id : NodeId,
+  offset : Int,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  let text_range = match source_map.get_token_span(node_id, "text") {
+    Some(r) => r
+    None =>
+      raise @core.EditError::SourceSpanMissing(detail="no text span for split")
+  }
+  let range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  let text_slice = source[text_range.start:text_range.end].to_owned()
+  let split_offset = @moji.next_grapheme_boundary(text_slice, offset)
+  // Split at offset 0 → insert empty paragraph before this block
+  if split_offset <= 0 {
+    let insert_pos = range.start
+    return Some(
+      (
+        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n" }],
+        FocusHint::MoveCursor(position=insert_pos),
+      ),
+    )
+  }
+  // Split at end -> insert empty paragraph after
+  let text_len = text_range.end - text_range.start
+  if split_offset >= text_len {
+    return compute_insert_block_after(source_map, node_id)
+  }
+  // Split point in source coordinates
+  let split_pos = text_range.start + split_offset
+  let is_list_item = match @core.get_node_in_tree(proj, node_id) {
+    Some(node) => is_markdown_list_item(node.kind)
+    None => false
+  }
+  let separator = if is_list_item {
+    let marker = source[range.start:text_range.start].to_owned()
+    split_list_item_separator(marker)
+  } else {
+    "\n\n"
+  }
+  // Delete from split point to end of block, then insert separator + rest.
+  // List item source ranges can exclude the following line break; include it
+  // so the inserted marker does not create a blank line between list items.
+  let delete_end = if is_list_item &&
+    range.end < source.length() &&
+    source[range.end] == '\n' {
+    range.end + 1
+  } else {
+    range.end
+  }
+  let rest = source[split_pos:delete_end].to_owned()
+  // Trim trailing newline from rest if present
+  let trimmed_rest = if rest.length() > 0 && rest[rest.length() - 1] == '\n' {
+    rest[:rest.length() - 1].to_owned()
+  } else {
+    rest
+  }
+  let inserted = separator + trimmed_rest + "\n"
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: split_pos,
+          delete_len: delete_end - split_pos,
+          inserted,
+        },
+      ],
+      FocusHint::MoveCursor(position=split_pos + separator.length()),
+    ),
+  )
+}
+
+///|
+fn is_markdown_list_item(block : @markdown.Block) -> Bool {
+  block is @markdown.Block::UnorderedListItem(_) ||
+  block is @markdown.Block::OrderedListItem(_, _)
+}
+
+///|
+/// Return the marker prefix to use when splitting a Markdown list item.
+///
+/// Preserve the concrete source marker instead of synthesizing an unordered
+/// `- ` bullet for every split.
+fn split_list_item_separator(marker : String) -> String {
+  match next_ordered_marker(marker) {
+    Some(next) => "\n" + next
+    None => "\n" + marker
+  }
+}
+
+///|
+fn next_ordered_marker(marker : String) -> String? {
+  guard marker.find_by(fn(ch) { ch != ' ' && ch != '\t' }) is Some(marker_start) else {
+    return None
+  }
+  let marker_body = marker.view(start_offset=marker_start)
+  let digit_start = if marker_body.length() > 0 && marker_body[0] == '-' {
+    1
+  } else {
+    0
+  }
+  guard marker_body
+    .view(start_offset=digit_start)
+    .find_by(fn(ch) { !(ch is ('0'..='9')) })
+    is Some(delimiter_offset_from_digit_start) else {
+    return None
+  }
+  let delimiter_offset = digit_start + delimiter_offset_from_digit_start
+  if delimiter_offset == digit_start {
+    return None
+  }
+  match marker_body[delimiter_offset] {
+    '.' | ')' => {
+      let value = @string.parse_int(marker_body[:delimiter_offset], base=10) catch {
+        _ => return None
+      }
+      Some(
+        marker.view(end_offset=marker_start).to_owned() +
+        (value + 1).to_string() +
+        marker_body[delimiter_offset:delimiter_offset + 1].to_owned() +
+        marker_body[delimiter_offset + 1:].to_owned(),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+/// Merge block with previous block.
+fn compute_merge_with_previous(
+  source : String,
+  proj : ProjNode[@markdown.Block],
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  // Find the parent that contains this node, then find sibling index
+  let (siblings, idx) = find_sibling_context(proj, node_id)
+  if idx < 0 {
+    raise @core.EditError::NodeNotFound(
+      action="compute_markdown_edit",
+      node_id~,
+    )
+  }
+  // First sibling — no-op
+  if idx == 0 {
+    return None
+  }
+  let prev_node = siblings[idx - 1]
+  let curr_range = match source_map.get_range(node_id) {
+    Some(r) => r
+    None =>
+      raise @core.EditError::NodeNotInSourceMap(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+  let curr_text = match source_map.get_token_span(node_id, "text") {
+    Some(r) => source[r.start:r.end].to_owned()
+    None => ""
+  }
+  // End of previous block's text content — merge point
+  let prev_text_end = match source_map.get_token_span(prev_node.id(), "text") {
+    Some(r) => r.end
+    None =>
+      // No text span — use full block range end as fallback
+      match source_map.get_range(prev_node.id()) {
+        Some(r) => r.end
+        None =>
+          raise @core.EditError::NodeNotInSourceMap(
+            action="compute_markdown_edit",
+            node_id=prev_node.id(),
+          )
+      }
+  }
+  // Strip empty-paragraph sentinel placeholder (from InsertBlockAfter)
+  let clean_text = if @md_sentinel.is_empty_paragraph_text(curr_text) {
+    ""
+  } else {
+    curr_text
+  }
+  // The delete span covers: previous block's trailing newline, blank-line
+  // separator, current block's prefix + text + trailing newline. Always
+  // append \n to restore the proper \n\n block separator with the next block.
+  let inserted = clean_text + "\n"
+  Some(
+    (
+      [
+        SpanEdit::{
+          start: prev_text_end,
+          delete_len: curr_range.end - prev_text_end,
+          inserted,
+        },
+      ],
+      FocusHint::MoveCursor(position=prev_text_end),
+    ),
+  )
+}
+
+///|
+/// Find a node's siblings and its index among them.
+/// Searches the tree for the parent containing `target`, handling nested
+/// structures like list items inside UnorderedList.
+fn find_sibling_context(
+  root : ProjNode[@markdown.Block],
+  target : NodeId,
+) -> (Array[ProjNode[@markdown.Block]], Int) {
+  for i in 0..<root.children.length() {
+    if root.children[i].id() == target {
+      return (root.children, i)
+    }
+    // Search nested children (e.g., list items inside UnorderedList)
+    let (siblings, idx) = find_sibling_context(root.children[i], target)
+    if idx >= 0 {
+      return (siblings, idx)
+    }
+  }
+  ([], -1)
+}
+
+///|
+/// Find a node's parent, siblings, and index among them.
+fn find_sibling_context_and_parent(
+  root : ProjNode[@markdown.Block],
+  target : NodeId,
+) -> (ProjNode[@markdown.Block]?, Array[ProjNode[@markdown.Block]], Int) {
+  for i in 0..<root.children.length() {
+    if root.children[i].id() == target {
+      return (Some(root), root.children, i)
+    }
+    let (parent, siblings, idx) = find_sibling_context_and_parent(
+      root.children[i],
+      target,
+    )
+    if idx >= 0 {
+      return (parent, siblings, idx)
+    }
+  }
+  (None, [], -1)
+}

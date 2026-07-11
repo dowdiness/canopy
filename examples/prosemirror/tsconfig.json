@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "preserveSymlinks": true,
+    "paths": {
+      "@moonbit/canopy": ["../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.d.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "../../_build"]
+}

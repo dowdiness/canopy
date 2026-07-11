@@ -1,0 +1,26 @@
+{
+  "name": "crdt-prosemirror",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@canopy/editor-adapter": "file:../../adapters/editor-adapter",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.0",
+    "prosemirror-commands": "^1.6.0",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.24.0",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-transform": "^1.10.0",
+    "prosemirror-view": "^1.37.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^6.0.0"
+  }
+}

@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/js_ffi"
+
+import {
+  "moonbitlang/async/js_async",
+}
+
+// Values
+pub fn[T] any(T) -> Any
+
+pub fn array() -> Any
+
+pub fn equal(Any, Any) -> Bool
+
+pub fn[A] fn0(() -> A) -> Any
+
+pub fn[A, B] fn1((A) -> B) -> Any
+
+pub fn[A, B, C] fn2((A, B) -> C) -> Any
+
+pub fn[A, B, C, D] fn3((A, B, C) -> D) -> Any
+
+pub fn global() -> Any
+
+pub fn[A, B] identity(A) -> B
+
+pub fn null_() -> Any
+
+pub fn[T] nullable(T?) -> Any
+
+pub fn object() -> Any
+
+pub fn parse(String) -> Any
+
+pub fn[T] promise(async () -> T) -> Any
+
+pub fn undefined() -> Any
+
+// Errors
+
+// Types and methods
+#external
+pub type Any
+pub fn[T] Any::as_promise(Self) -> @js_async.Promise[T]
+pub fn Any::at(Self, Int) -> Self
+pub async fn[T] Any::await_(Self) -> T
+pub fn Any::call(Self, String, Array[Self]) -> Self
+pub fn[T] Any::cast(Self) -> T
+pub fn Any::construct(Self, Array[Self]) -> Self
+pub fn Any::get(Self, String) -> Self
+pub fn Any::invoke(Self, Array[Self]) -> Self
+pub fn Any::is_array(Self) -> Bool
+pub fn Any::is_function(Self) -> Bool
+pub fn Any::is_nullish(Self) -> Bool
+pub fn Any::keys(Self) -> Array[String]
+pub fn Any::set(Self, String, Self) -> Unit
+pub fn Any::stringify(Self) -> String
+pub fn[T] Any::to_option(Self) -> T?
+pub fn Any::to_str(Self) -> String
+pub fn Any::type_of(Self) -> String
+
+// Type aliases
+
+// Traits
+

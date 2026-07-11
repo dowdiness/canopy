@@ -1,0 +1,44 @@
+{
+  "name": "dowdiness/canopy-canvas",
+  "version": "0.1.0",
+  "deps": {
+    "dowdiness/graph-dsl": {
+      "path": "../../loom/examples/graph-dsl",
+      "version": "0.1.0"
+    },
+    "dowdiness/canopy-canvas-graph": {
+      "path": "../../lib/canvas-graph",
+      "version": "0.1.0"
+    },
+    "dowdiness/loom": {
+      "path": "../../loom/loom",
+      "version": "0.1.0"
+    },
+    "dowdiness/rabbita_codemirror": {
+      "path": "../../lib/rabbita_codemirror",
+      "version": "0.0.1"
+    },
+    "dowdiness/incr": {
+      "path": "../../loom/incr/incr",
+      "version": "0.14.2"
+    },
+    "dowdiness/rabbita-menu": {
+      "path": "../../lib/menu",
+      "version": "0.1.0"
+    },
+    "dowdiness/rabbita-context-menu": {
+      "path": "../../lib/context-menu",
+      "version": "0.1.0"
+    },
+    "dowdiness/rabbita-status": {
+      "path": "../../lib/status",
+      "version": "0.1.0"
+    },
+    "moonbit-community/rabbita": {
+      "path": "../../rabbita/rabbita",
+      "version": "0.12.4"
+    }
+  },
+  "source": ".",
+  "preferred-target": "js"
+}

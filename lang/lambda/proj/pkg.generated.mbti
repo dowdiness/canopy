@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/lang/lambda/proj"
+
+import {
+  "dowdiness/incr/cells",
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/pipeline",
+  "dowdiness/seam",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub const FN_BINDING_BODY_ROLE : String = "fn:body"
+
+pub const FN_BINDING_KEYWORD_ROLE : String = "fn:keyword"
+
+pub const FN_BINDING_PARAM_LIST_ROLE : String = "fn:param-list"
+
+pub const FN_BINDING_PARAM_NAME_ROLE : String = "fn:param-name"
+
+pub const LET_DEF_NAME_ROLE : String = "name"
+
+pub const PARAM_ROLE : String = "param"
+
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]], trace_ref? : @ref.Ref[Array[@dowdiness/canopy/core.ReconcileTraceEvent]]?) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+
+pub fn module_name_role(Int) -> String
+
+pub fn parse_to_proj_node(String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
+
+pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
+
+pub fn rebuild_kind(@ast.Term, Array[@dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @ast.Term
+
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+
+pub fn term_css_class(@ast.Term) -> String
+
+pub fn term_kind_tag(@ast.Term) -> String
+
+pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+
+// Errors
+
+// Types and methods
+pub struct DefinitionIndex {
+  // private fields
+}
+pub fn DefinitionIndex::binding_for_node(Self, @dowdiness/canopy/core.NodeId) -> (@dowdiness/canopy/core.NodeId, Int)?
+pub fn DefinitionIndex::cutoff_at_node(Self, @dowdiness/canopy/core.SourceMap, @dowdiness/canopy/core.NodeId) -> Int
+pub fn DefinitionIndex::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
+pub fn DefinitionIndex::length(Self) -> Int
+
+// Type aliases
+
+// Traits
+

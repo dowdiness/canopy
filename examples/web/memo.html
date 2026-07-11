@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canopy Memo — AI Editor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Helvetica Neue', sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 24px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { color: #8250df; font-size: 20px; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+    .config-section {
+      background: #16213e; border: 1px solid #2a2a4a; border-radius: 6px;
+      padding: 12px 16px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center;
+    }
+    .config-section label { color: #888; font-size: 12px; white-space: nowrap; }
+    .config-section input {
+      flex: 1; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 4px;
+      color: #e0e0e0; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    }
+    .editor-area {
+      background: #16213e; border: 1px solid #2a2a4a; border-radius: 6px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    #memo {
+      width: 100%; min-height: 200px; background: #1a1a2e;
+      border: 1px solid #2a2a4a; border-radius: 4px; color: #e0e0e0;
+      padding: 12px; font-family: 'JetBrains Mono', monospace;
+      font-size: 14px; line-height: 1.6; resize: vertical;
+    }
+    #memo:focus { outline: 1px solid #8250df; }
+    .toolbar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
+      font-family: inherit; font-size: 13px; transition: background 0.15s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #8250df; color: white; }
+    .btn-primary:hover:not(:disabled) { background: #9a6fe8; }
+    .btn-secondary { background: #2a2a4a; color: #ccc; }
+    .btn-secondary:hover:not(:disabled) { background: #3a3a5a; }
+    .instruction-row { display: flex; gap: 8px; margin-top: 8px; }
+    #instruction {
+      flex: 1; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 4px;
+      color: #e0e0e0; padding: 6px 10px; font-family: inherit; font-size: 13px;
+    }
+    #instruction:focus { outline: 1px solid #8250df; }
+    .status-bar { font-size: 12px; color: #666; margin-top: 8px; min-height: 18px; }
+    .status-bar.error { color: #ff5370; }
+    .status-bar.success { color: #c3e88d; }
+    .diff-section {
+      background: #16213e; border: 1px solid #2a2a4a; border-radius: 6px;
+      padding: 16px; display: none;
+    }
+    .diff-section.visible { display: block; }
+    .diff-section h2 { color: #8250df; font-size: 14px; margin-bottom: 12px; }
+    .diff-content { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .diff-pane h3 { color: #888; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; }
+    .diff-pane pre {
+      background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 4px;
+      padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;
+      max-height: 300px; overflow-y: auto;
+    }
+    .diff-actions { margin-top: 12px; display: flex; gap: 8px; }
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+      .diff-content { grid-template-columns: 1fr; }
+      .config-section { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Canopy Memo</h1>
+    <p class="subtitle">AI-powered text editor — typo correction &amp; structured edits</p>
+    <div style="background:#2a1a1a;border:1px solid #ff537044;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ff8a80;">
+      <strong>Local demo only.</strong> API key is sent directly from your browser to Google.
+      Do not deploy this page publicly. Production use requires a server-side proxy.
+    </div>
+    <div class="config-section">
+      <label for="api-key">Gemini API Key:</label>
+      <input type="password" id="api-key" placeholder="Enter your API key (stored in memory only)">
+    </div>
+    <div class="editor-area">
+      <textarea id="memo" placeholder="Type or paste your text here..."></textarea>
+      <div class="toolbar">
+        <button id="fix-typos-btn" class="btn btn-primary">Fix Typos</button>
+      </div>
+      <div class="instruction-row">
+        <input type="text" id="instruction" placeholder="Edit instruction (e.g. 3行目をもっと丁寧にして)">
+        <button id="edit-btn" class="btn btn-secondary">Edit</button>
+      </div>
+      <div class="status-bar" id="status"></div>
+    </div>
+    <div class="diff-section" id="diff-section">
+      <h2>Suggested Changes</h2>
+      <div class="diff-content">
+        <div class="diff-pane">
+          <h3>Original</h3>
+          <pre id="diff-original"></pre>
+        </div>
+        <div class="diff-pane">
+          <h3>Corrected</h3>
+          <pre id="diff-fixed"></pre>
+        </div>
+      </div>
+      <div class="diff-actions">
+        <button id="accept-btn" class="btn btn-primary">Accept</button>
+        <button id="reject-btn" class="btn btn-secondary">Reject</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/memo-editor.ts"></script>
+</body>
+</html>

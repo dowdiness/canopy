@@ -1,0 +1,15 @@
+.DS_Store
+target
+target/
+.mooncakes/
+.moonagent/
+
+node_modules/
+dist/
+
+.env
+_build
+
+.playwright-mcp/
+playwright-report/
+test-results/

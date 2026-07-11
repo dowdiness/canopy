@@ -1,0 +1,17 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/incr",
+  "dowdiness/lambda" @parser,
+  "dowdiness/lambda/ast",
+  "dowdiness/lambda/syntax",
+  "dowdiness/loom",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+  "moonbitlang/core/cmp",
+}
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
+
+warnings = "-2-6-35"
