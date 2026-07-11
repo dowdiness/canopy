@@ -112,6 +112,12 @@ function buildDomFromProjNode(node) {
   if (node.kind_tag === 'Error') return null;
   if (nodeElementMap.has(nodeId)) {
     const existing = nodeElementMap.get(nodeId);
+    // Update leaf node content on re-parse (text/expr grow incrementally)
+    if (node.kind_tag === 'Text') {
+      existing.textContent = node.kind.value || '';
+    } else if (node.kind_tag === 'ExprSpan') {
+      existing.textContent = '{' + (node.kind.value || '') + '}';
+    }
     updateChildren(existing, node);
     return existing;
   }
