@@ -1,0 +1,23 @@
+import {
+  "dowdiness/canopy/core" @canopy_core,
+  "dowdiness/canopy/js_ffi" @js,
+  "dowdiness/canopy/lang/jsx/proj" @jsx_proj,
+  "dowdiness/jsx" @jsx_ast,
+  "dowdiness/loom",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "jsx_parse_to_json",
+        "jsx_streaming_to_json",
+        "jsx_parse_and_render",
+        "reset_jsx_state",
+      ],
+    },
+  },
+)

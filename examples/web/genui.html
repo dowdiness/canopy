@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-canopy-bg text-canopy-text">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Generative UI — JSX Incremental Parser Demo</title>
+  <link rel="stylesheet" href="/src/tailwind.css" />
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="font-mono p-5">
+  <div class="max-w-[1600px] mx-auto">
+    <h1 class="text-canopy-green text-2xl mb-1">Generative UI</h1>
+    <p class="text-canopy-muted text-[13px] mb-4">
+      JSX streamed chunk-by-chunk → <em class="text-canopy-yellow not-italic">real DOM elements</em> appear incrementally.
+      Stable NodeIds reuse existing DOM nodes; only new content triggers renders.
+      <a href="https://github.com/dowdiness/canopy" target="_blank" class="text-canopy-green underline">GitHub</a>
+    </p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Input Panel -->
+      <div class="bg-canopy-surface border border-canopy-border rounded-lg p-3.5 flex flex-col">
+        <h2 class="text-canopy-green text-[13px] mb-2.5 uppercase tracking-wider">Input</h2>
+        <div class="flex flex-wrap gap-1.5 mb-2.5 pb-2.5 border-b border-canopy-border">
+          <span class="text-canopy-muted text-[11px] mr-0.5">Examples:</span>
+          <button class="btn" data-example="0">Simple</button>
+          <button class="btn" data-example="1">Attributes</button>
+          <button class="btn" data-example="2">Deep Nesting</button>
+          <button class="btn" data-example="3">Expressions</button>
+          <button class="btn" data-example="4">Mixed</button>
+          <button class="btn" data-example="5">Tailwind</button>
+          <button class="btn-primary" id="stream-btn">▶ Stream</button>
+          <button class="btn" id="clear-btn">Clear</button>
+        </div>
+        <textarea id="source-input" spellcheck="false"
+          class="w-full min-h-[80px] flex-1 bg-canopy-bg text-canopy-text border border-canopy-border rounded-md p-2 text-[13px] font-mono resize-y outline-none focus:border-canopy-green">&lt;div class="card"&gt;
+  &lt;h1&gt;Hello, World!&lt;/h1&gt;
+  &lt;p&gt;Streaming JSX → live DOM.&lt;/p&gt;
+&lt;/div&gt;</textarea>
+        <div id="stream-progress" class="mt-1.5 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted min-h-[24px] break-all">Ready.</div>
+      </div>
+
+      <!-- Rendered HTML Panel -->
+      <div class="bg-canopy-surface border border-canopy-border rounded-lg p-3.5 flex flex-col">
+        <h2 class="text-canopy-green text-[13px] mb-2.5 uppercase tracking-wider">Rendered HTML</h2>
+        <div class="text-[11px] text-canopy-muted mb-1.5">Step: <span id="html-step-num" class="text-canopy-green font-bold">—</span> · <span id="html-node-count" class="text-canopy-green font-bold">0</span> DOM nodes</div>
+        <div id="html-preview" class="flex-1 overflow-auto bg-canopy-bg rounded-md p-4 min-h-[200px] max-h-[500px]">
+          <div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see rendered output.</div>
+        </div>
+      </div>
+
+      <!-- Tree + Diagnostics Panel -->
+      <div class="bg-canopy-surface border border-canopy-border rounded-lg p-3.5 flex flex-col">
+        <h2 class="text-canopy-green text-[13px] mb-2.5 uppercase tracking-wider">Projection Tree</h2>
+        <div class="flex gap-1 mb-2">
+          <button class="view-tab active" data-view="tree">Tree</button>
+          <button class="view-tab" data-view="errors">Diagnostics</button>
+        </div>
+        <div class="view-panel active flex flex-col flex-1" id="view-tree">
+          <div class="text-[11px] text-canopy-muted mb-1.5">Step: <span id="step-num" class="text-canopy-green font-bold">—</span></div>
+          <div class="flex gap-3 mb-1.5 text-[10px]">
+            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded bg-canopy-green/40"></span> Stable NodeId</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded bg-canopy-yellow/40"></span> New NodeId</span>
+          </div>
+          <div class="flex-1 overflow-auto bg-canopy-bg rounded-md p-2.5 min-h-[200px] max-h-[500px]">
+            <div id="tree-output" class="text-[11px] leading-relaxed">
+              <div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see the tree.</div>
+            </div>
+          </div>
+        </div>
+        <div class="view-panel flex-col flex-1 hidden" id="view-errors">
+          <div class="text-[11px] text-canopy-muted mb-1.5">Parser diagnostics during streaming:</div>
+          <div class="flex-1 overflow-auto bg-canopy-bg rounded-md p-2.5 min-h-[200px] max-h-[500px]">
+            <div id="errors-list"><div class="text-center py-8 text-canopy-muted text-xs">No errors.</div></div>
+          </div>
+        </div>
+        <div id="status-bar" class="mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted">Ready.</div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .btn {
+      padding: 5px 10px; background: #3c3c3c; color: #abb2bf;
+      border: 1px solid #555; border-radius: 3px; cursor: pointer;
+      font-size: 11px; font-family: inherit; transition: background 0.15s;
+    }
+    .btn:hover { background: #4c4c4c; border-color: #666; }
+    .btn-primary {
+      padding: 5px 10px; background: #4d78cc; color: #fff;
+      border: 1px solid #4d78cc; border-radius: 3px; cursor: pointer;
+      font-size: 11px; font-family: inherit; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #5c8ae6; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .view-tab {
+      padding: 4px 10px; background: #2d2d2d; border: 1px solid #2c313a;
+      border-radius: 3px; cursor: pointer; font-size: 11px; color: #565c64;
+      font-family: inherit;
+    }
+    .view-tab.active { background: #3c3c3c; color: #abb2bf; border-color: #4ec9b0; }
+    .view-tab:hover { background: #3c3c3c; }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; }
+    .node-id { display: inline-block; min-width: 28px; padding: 0 3px; border-radius: 2px; text-align: center; font-weight: bold; font-size: 10px; }
+    .node-id.stable { background: rgba(78, 201, 176, 0.25); color: #4ec9b0; }
+    .node-id.new { background: rgba(240, 198, 116, 0.25); color: #f0c674; }
+    .tree-toggle { color: #565c64; margin-right: 3px; }
+    .tree-node { padding-left: 16px; border-left: 1px solid #2c313a; margin: 1px 0; }
+    .tree-node-header { cursor: pointer; user-select: none; }
+    .tree-node-header:hover { background: rgba(255,255,255,0.02); }
+    .error-item { color: #f48771; padding: 2px 0; font-size: 11px; border-left: 2px solid #f48771; padding-left: 6px; margin-bottom: 2px; }
+  </style>
+  <!-- Tailwind safelist: ensures scanner finds example JSX classes -->
+  <div class="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
+
+  <script type="module" src="/src/genui.js"></script>
+</body>
+</html>
