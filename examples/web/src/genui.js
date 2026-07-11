@@ -131,7 +131,6 @@ function buildDomFromProjNode(node) {
   var el = createElementForKind(node);
   if (!el) return null;
   el.dataset.nodeId = nodeId;
-  if (node.kind_tag !== 'Root') el.classList.add('new');
   if (node.children) {
     for (var ci = 0; ci < node.children.length; ci++) {
       const childEl = buildDomFromProjNode(node.children[ci]);
@@ -185,7 +184,7 @@ function updateChildren(parent, node) {
           applyAttr(existing, child.kind.attrs[ai2]);
         }
       }
-      existing.classList.remove('new'); existing.classList.add('stable');
+
       updateChildren(existing, child);
     } else {
       const childEl = buildDomFromProjNode(child);
