@@ -179,6 +179,11 @@ function updateChildren(parent, node) {
         existing.textContent = child.kind.value || '';
       } else if (child.kind_tag === 'ExprSpan') {
         existing.textContent = '{' + (child.kind.value || '') + '}';
+      } else if (child.kind_tag === 'Element' && child.kind.attrs) {
+        existing.className = ''; existing.style.cssText = '';
+        for (var ai2 = 0; ai2 < child.kind.attrs.length; ai2++) {
+          applyAttr(existing, child.kind.attrs[ai2]);
+        }
       }
       existing.classList.remove('new'); existing.classList.add('stable');
       updateChildren(existing, child);
