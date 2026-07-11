@@ -146,6 +146,7 @@ fn get_or_empty_errors(text : String) -> Array[String] {
   }
 }
 
+///|
 let __state : @js.Any = @js.object()
 
 ///|
@@ -154,8 +155,7 @@ pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
   let p = __state.get("p")
   if p.is_nullish() {
     let parser : @loom.Parser[@jsx_ast.JsxNode] = @loom.new_parser(
-      text,
-      @jsx_ast.jsx_grammar,
+      text, @jsx_ast.jsx_grammar,
     )
     let (mem, _, _) = @jsx_proj.build_jsx_projection_memos(parser)
     __state.set("p", @js.any(parser))
@@ -164,14 +164,20 @@ pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
     let parser : @loom.Parser[@jsx_ast.JsxNode] = p.cast()
     parser.set_source(text)
   }
-  let mem : @incr.Derived[@canopy_core.ProjNode[@jsx_ast.JsxNode]?] = __state.get("m").cast()
+  let mem : @incr.Derived[@canopy_core.ProjNode[@jsx_ast.JsxNode]?] = __state
+    .get("m")
+    .cast()
   match mem.read_or_abort() {
     Some(proj) => render_proj(proj, existing_json)
     None => existing_json
   }
 }
 
-fn render_proj(proj : @canopy_core.ProjNode[@jsx_ast.JsxNode], existing_json : String) -> String {
+///|
+fn render_proj(
+  proj : @canopy_core.ProjNode[@jsx_ast.JsxNode],
+  existing_json : String,
+) -> String {
   let existing : Array[Int] = []
   let parsed : @js.Any = @js.parse(existing_json)
   let len : Int = parsed.get("length").cast()
@@ -181,4 +187,12 @@ fn render_proj(proj : @canopy_core.ProjNode[@jsx_ast.JsxNode], existing_json : S
   }
   let (patches, _) = @jsx_proj.reconcile(proj, existing)
   apply_patches(@jsx_proj.dom_patches_to_json(patches))
+}
+
+///|
+/// Reset the parser, projection memos, and DOM element registry.
+pub fn reset_jsx_state() -> Unit {
+  __state.set("p", @js.null_())
+  __state.set("m", @js.null_())
+  clear_registry()
 }

@@ -123,7 +123,7 @@ streamBtn.addEventListener('click', async function() {
   streamBtn.textContent = '\u25A0 Stop'; streamBtn.className = 'btn-primary';
   previousNodeIds = new Set();
   var ids = new Set();
-  htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see rendered output.</div>';
+  htmlPreview.innerHTML = '';
   statusBar.textContent = 'Loading MoonBit JSX module...';
 
   var CHUNK = 15;
