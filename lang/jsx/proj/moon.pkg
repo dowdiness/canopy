@@ -1,0 +1,10 @@
+import {
+  "dowdiness/canopy/core",
+  "dowdiness/incr",
+  "dowdiness/jsx",
+  "dowdiness/jsx/syntax",
+  "dowdiness/loom",
+  "dowdiness/loom/core" @loomcore,
+  "dowdiness/seam",
+  "moonbitlang/core/json",
+}
