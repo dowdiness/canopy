@@ -677,11 +677,27 @@ estimate for this step)
   tag (`OpenTagStartToken`, `TagNameToken`, `TagEndToken` all appear
   twice for a container element — confirmed by reading
   `loom/examples/jsx/cst_parser.mbt`'s close-tag comment), so
-  `close_bracket` takes the *last* `TagEndToken` (via
-  `tokens_of_kind`), not `find_token`'s first-match default; an unclosed
-  element (Design B case 2) has neither a self-close nor a `TagEndToken`
-  and correctly gets no `close_bracket` span.
+  `close_bracket` takes the *last* `TagEndToken` (via `tokens_of_kind`),
+  not `find_token`'s first-match default.
+  **Codex post-impl review (2026-07-11) caught a real bug here**: the
+  first cut took *any* last match, so an unclosed element (Design B case
+  2, e.g. `<div><span>text`) — whose only direct `TagEndToken` is the
+  open tag's own `>`, since `parse_content` in `cst_parser.mbt` is only
+  reached after that token is already emitted, and `emit_close_tag`
+  contributes a second one only when a real `</tag>` closer exists —
+  wrongly got that open-tag `>` recorded as `close_bracket` instead of
+  `None`. Fixed to require `tokens_of_kind(TagEndToken).length() >= 2`
+  before taking the last match. Regression coverage added in
+  `lang/jsx/proj/populate_token_spans_wbtest.mbt` (new file, 3 tests):
+  unclosed element → no `close_bracket`; closed element → `close_bracket`
+  at its own `>`; nested same-tag elements (`<div><div>x</div></div>`)
+  each get their own distinct `close_bracket` span. Confirmed red
+  (`Some({start: 4, end: 5})` instead of `None`) against the pre-fix code
+  before reapplying the fix, per test-first discipline.
 - [x] **Step 3:** `moon check lang/jsx/proj` — done 2026-07-11, clean.
+  Re-verified 2026-07-11 after the close_bracket fix above: `moon check`
+  workspace-wide clean, `moon test -p dowdiness/canopy/lang/jsx/proj` →
+  14/14 passed (11 original + 3 new regression tests).
 - [x] **Step 4 (checkpoint whitebox test):** written in
   `lang/jsx/proj/proj_node_wbtest.mbt`, done 2026-07-11 — 8 tests, all
   passing. The plan's literal snippet above needed one correction before
@@ -743,7 +759,19 @@ plan's "Why" section — not optional, not generic coverage.
   `ProjNode` id stability, confirming `@core.reconcile`'s `same_kind`-based
   identity preservation as designed.
 - [x] **Step 6:** `moon test -p dowdiness/canopy/lang/jsx/proj` — done
-  2026-07-11: 11/11 passed (8 from Task 2.2 + 3 streaming tests).
+  2026-07-11: 11/11 passed (8 from Task 2.2 + 3 streaming tests; 14/14
+  after the Task 2.2 Step 2 close_bracket regression tests were added).
+
+**Known coverage gap (Codex post-impl review, 2026-07-11, not fixed —
+scope call, not an oversight):** the fixture/prefix list above is
+prescribed verbatim by this plan and intentionally not extended. Codex
+flagged that it doesn't exercise identity/span stability while an
+*attribute* streams in (`<div cla` → `<div class="a"`) or while a
+self-closing tag completes (`<div/` → `<div/>`). Both are real streaming
+cases per Task 1.1's Design B, but neither is part of the plan's chosen
+existence-proof fixture. Left as a documented gap rather than silently
+expanding Task 2.4's locked scope; a future task should add it if a real
+consumer needs attribute-level or self-close streaming guarantees.
 
 ### Acceptance Criteria (Phase 2)
 

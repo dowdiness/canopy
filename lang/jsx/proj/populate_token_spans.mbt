@@ -88,10 +88,13 @@ fn populate_element_delimiters(
         @loomcore.Range::new(tok.start(), tok.end()),
       )
     None =>
+      // A direct TagEndToken always includes the open tag's own `>`
+      // (parse_content is only reached after emitting it) — a real close
+      // tag contributes a second one via emit_close_tag. One match means
+      // the element is unclosed (Design B case 2): no close_bracket.
       match
         syntax_node.tokens_of_kind(@syntax.SyntaxKind::TagEndToken.to_raw()) {
-        [] => ()
-        toks => {
+        [_, ..] as toks if toks.length() >= 2 => {
           let last = toks[toks.length() - 1]
           source_map.set_token_span(
             id,
@@ -99,6 +102,7 @@ fn populate_element_delimiters(
             @loomcore.Range::new(last.start(), last.end()),
           )
         }
+        _ => ()
       }
   }
 }
