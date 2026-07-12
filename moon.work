@@ -36,7 +36,6 @@ members = [
   "./lib/cognition",
   "./examples/ideal",
   "./examples/block-editor",
-  "./examples/canvas",
   "./examples/codemirror_demo",
   "./examples/resizable",
   "./examples/disclosure",

@@ -1,0 +1,17 @@
+members = [
+  ".",
+  "../../loom/examples/graph-dsl",
+  "../../lib/canvas-graph",
+  "../../loom/loom",
+  "../../lib/rabbita_codemirror",
+  "../../loom/incr/incr",
+  "../../lib/menu",
+  "../../lib/context-menu",
+  "../../lib/status",
+  "../../rabbita/rabbita",
+  "../../loom/seam",
+  "../../loom/pretty",
+  "../../loom/text-change",
+  "../../loom/moji",
+  "../../graphviz",
+]
