@@ -72,8 +72,10 @@ contract while remaining free to implement platform-specific behavior.
 
 Generated UI must not imply unrestricted authority. Components, actions, data
 access, expressions, and side effects should be constrained by explicit
-capabilities and schemas. Structural edits should be auditable and, where
-needed, require approval before effects occur.
+capabilities and schemas. The first prototype should use an allowlisted,
+declarative component model with no model-controlled network access, raw HTML,
+navigation, or arbitrary code/expression execution. Structural edits should be
+auditable and, where needed, require approval before effects occur.
 
 ## High-value applications
 
@@ -104,13 +106,13 @@ needed, require approval before effects occur.
    detail/summary panel while preserving user state. Keep generated actions
    side-effect-free and place the minimal component, action, and data
    capability boundary before expanding the scope.
-3. Extract the patch, identity, state-preservation, and capability invariants
-   from that use case, then define the renderer-neutral conformance suite.
-4. Add semantic edits, preview/undo, and auditability. Define concurrent
+3. Extract provisional patch, identity, state-preservation, and capability
+   invariants from that use case.
+4. Validate those provisional invariants with a second materially different
+   adapter, then freeze the renderer-neutral conformance suite and contract.
+5. Add semantic edits, preview/undo, and auditability. Define concurrent
    semantic-edit and conflict behavior before describing co-editing as a
-   supported guarantee.
-5. Validate the shared contract with a second materially different adapter,
-   then generalize from JSX to multiple projections.
+   supported guarantee, then generalize from JSX to multiple projections.
 
 ## First vertical-slice acceptance criteria
 
@@ -122,8 +124,12 @@ the following:
 - Incomplete or invalid generated input does not destroy the last valid UI.
 - Reapplying the same update produces the same modeled UI result.
 - A failed patch application leaves the committed revision and DOM unchanged.
-- The generated surface is read-only: no network mutation, persistence, or
-  other external side effect is reachable through generated controls.
+- The generated surface uses only allowlisted declarative components: no
+  model-controlled network access, persistence, navigation, raw HTML, or
+  arbitrary code/expression execution is reachable through generated controls.
+- Cancelling generation invalidates its generation revision; late chunks from
+  that revision are rejected and cannot overwrite newer committed UI.
+- Resumption starts only from an explicitly selected committed revision.
 - The prototype records enough patch/revision information to inspect what the
   model changed and to measure update latency.
 
