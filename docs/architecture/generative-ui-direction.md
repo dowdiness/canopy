@@ -89,7 +89,7 @@ LLM/provider
   → syntax and schema validation
   → capability validation
   → base-revision check
-  → candidate projection and preview
+  → candidate projection and internal dry-run
   → committed UI update
 ```
 
@@ -97,9 +97,11 @@ The provider transport, request lifecycle, UI-program validation, and renderer
 must remain separate responsibilities. Provider-specific code may fetch and
 decode model responses, but it must not own UI identity, DOM state, or commit
 policy. The request lifecycle owns request identity, observed revision,
-cancellation, stale-completion rejection, and typed failure classification.
+cancellation, chunk sequencing and assembly, finalization, stale-completion
+rejection, terminal-state idempotency, and typed failure classification.
 The UI input adapter owns the constrained UI-program schema and candidate
-validation. The renderer only applies validated candidates.
+validation. The renderer only applies validated candidates through the session
+commit boundary.
 
 The first implementation should use a replayable fixed-chunk source before
 connecting a live model. This makes incomplete output, duplicate chunks,
@@ -115,8 +117,17 @@ The output representation should evolve in stages:
 
 Every candidate is evaluated against an explicit base revision. Cancelled or
 stale candidates are rejected, and only a validated candidate can advance the
-committed revision. This boundary is more important than any particular model
-provider or transport API.
+committed revision. A candidate is not committed until DOM application succeeds
+and the session state, registry, mounted IDs, and revision remain consistent.
+If application fails partway through, the existing session recovery and
+dirty-state contract determines whether the previous state is restored or the
+affected UI is rebuilt; the candidate must not be reported as committed. This
+boundary is more important than any particular model provider or transport API.
+
+The input path has two distinct kinds of preview. An internal dry-run or fake
+DOM application is required before committing a candidate. A user-visible
+approval preview is a separate product feature and is deferred beyond the
+first vertical slice.
 
 ## High-value applications
 
@@ -147,8 +158,9 @@ provider or transport API.
    detail/summary panel while preserving user state. Keep generated actions
    side-effect-free and place the minimal component, action, and data
    capability boundary before expanding the scope.
-3. Extract provisional patch, identity, state-preservation, and capability
-   invariants from that use case.
+3. Extract provisional patch, identity, state-preservation, capability, and
+   candidate-commit invariants from that use case. Require internal dry-run
+   validation; defer user-visible approval preview.
 4. Validate those provisional invariants with a second materially different
    adapter, then freeze the renderer-neutral conformance suite and contract.
 5. Add semantic edits, preview/undo, and auditability. Define concurrent
@@ -164,13 +176,18 @@ the following:
   whenever the structure permits.
 - Incomplete or invalid generated input does not destroy the last valid UI.
 - Reapplying the same update produces the same modeled UI result.
-- A failed patch application leaves the committed revision and DOM unchanged.
+- A failed patch application leaves the candidate uncommitted and follows the
+  session recovery/dirty-state contract without falsely advancing revision.
 - The generated surface uses only allowlisted declarative components: no
   model-controlled network access, persistence, navigation, raw HTML, or
   arbitrary code/expression execution is reachable through generated controls.
 - Cancelling generation invalidates its generation revision; late chunks from
   that revision are rejected and cannot overwrite newer committed UI.
 - Resumption starts only from an explicitly selected committed revision.
+- Chunk sequencing, duplicate handling, finalization, and terminal-state
+  idempotency are deterministic and owned by the request lifecycle.
+- Internal dry-run validation succeeds before any candidate commit; a
+  user-visible approval preview is not required for this first slice.
 - The prototype records enough patch/revision information to inspect what the
   model changed and to measure update latency.
 
