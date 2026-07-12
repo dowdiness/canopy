@@ -29,7 +29,12 @@ artifact.
 
 The differentiator is therefore not that a model can write JSX. It is that a
 model can safely edit a structured UI while preserving user state and making
-the change inspectable, reversible, and mergeable.
+the change inspectable, reversible, and eventually mergeable.
+
+For V1, "mergeable" is limited to sequential or single-writer edits. Canopy
+does not yet define how concurrent semantic UI edits map to projection identity,
+conflict resolution, or user-visible state. The CRDT source-edit path and the
+future semantic-edit path must not be treated as having the same guarantees.
 
 ## Direction
 
@@ -44,7 +49,9 @@ boundary.
 
 AI changes must preserve user-entered values, focus, selection, and local
 customizations wherever the structure permits. Human edits and AI edits should
-be represented in the same incremental and collaborative model.
+eventually be represented in the same incremental and collaborative model. The
+V1 implementation should first establish these preservation rules for
+sequential edits before claiming concurrent co-editing semantics.
 
 ### Streaming and interruption
 
@@ -90,12 +97,17 @@ needed, require approval before effects occur.
 1. Finish V1 correctness gates: CI, browser validation, and property-based
    coverage for patch ordering, sibling indexes, nested updates, disposal,
    isolation, and failed-apply recovery. See issue #888.
-2. Define a renderer-neutral patch and identity conformance suite.
-3. Demonstrate one end-to-end use case: an AI-assisted, editable data
-   exploration or adaptive-form surface that preserves user state.
-4. Add semantic edits, preview/undo, capability checks, and auditability.
-5. Generalize from JSX to multiple projections only after the shared contract
-   is exercised by a real use case.
+2. Demonstrate one read-only or sandboxed end-to-end use case: an AI-assisted
+   data-exploration or adaptive-form surface that preserves user state. Place a
+   minimal component, action, and data capability boundary before exposing any
+   side effect.
+3. Extract the patch, identity, state-preservation, and capability invariants
+   from that use case, then define the renderer-neutral conformance suite.
+4. Add semantic edits, preview/undo, and auditability. Define concurrent
+   semantic-edit and conflict behavior before describing co-editing as a
+   supported guarantee.
+5. Validate the shared contract with a second materially different adapter,
+   then generalize from JSX to multiple projections.
 
 ## Non-goals
 
