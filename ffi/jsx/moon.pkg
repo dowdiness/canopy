@@ -6,6 +6,7 @@ import {
   "dowdiness/jsx" @jsx_ast,
   "dowdiness/loom",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
 }
 
 supported_targets = "js"
@@ -16,6 +17,9 @@ options(
       "exports": [
         "jsx_parse_to_json",
         "jsx_streaming_to_json",
+        "jsx_session_new",
+        "jsx_session_render",
+        "jsx_session_dispose",
         "jsx_parse_and_render",
         "reset_jsx_state",
         "clear_registry",

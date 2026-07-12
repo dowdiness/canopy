@@ -315,6 +315,116 @@ test "property: retained siblings keep IDs after child insertion" {
 }
 
 ///|
+fn exact_test_key(expr : TestExpr) -> String {
+  match expr {
+    Leaf(value) => "Leaf:" + value
+    Branch(tag, _) => "Branch:" + tag
+  }
+}
+
+///|
+test "reconcile: append equal-kind siblings preserves positional IDs" {
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("b"), Leaf("c")]),
+    Ref(500),
+  )
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[2].node_id != old_node.children[0].node_id,
+    content="true",
+  )
+}
+
+///|
+test "reconcile: prepend equal-kind siblings preserves positional IDs" {
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("a"), Leaf("b")]),
+    Ref(500),
+  )
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[2].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+}
+
+///|
+test "reconcile: middle equal-kind insertion preserves positional IDs" {
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("x"), Leaf("b")]),
+    Ref(500),
+  )
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[2].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+}
+
+///|
+test "reconcile: exact preference does not reduce match cardinality" {
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("b"), Leaf("c")]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("y"), Leaf("z"), Leaf("a")]),
+    Ref(500),
+  )
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  let old_ids : Map[Int, Bool] = {}
+  for child in old_node.children {
+    old_ids[child.node_id] = true
+  }
+  let mut reused = 0
+  for child in result.children {
+    if old_ids.contains(child.node_id) {
+      reused += 1
+    }
+  }
+  inspect(reused, content="3")
+}
+
+///|
 /// Property 6: After deleting a child, the number of reused old IDs equals
 /// the LCS length between old and new children (by same_kind).
 /// We can't assume WHICH old children are matched (LCS tie-breaking is

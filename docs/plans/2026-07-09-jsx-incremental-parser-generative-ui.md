@@ -842,6 +842,145 @@ doesn't have to rediscover scope boundaries:
   attributes (`{...props}`) — defer indefinitely unless a concrete
   consumer needs them; do not add speculatively.
 
+### V1 contract: FFI sessions and empty-tag recovery (#886)
+
+This section fixes the V1 implementation boundary. V1 solves same-session
+projection identity for the JSX streaming demo; it does not introduce a
+generic `ProjectionShape`, persistent cross-session identity, `Move`/
+`Reparent` patches, or a general DOM transaction/rollback framework.
+
+The stateful FFI surface is:
+
+- `jsx_session_new(source, root_id) -> SessionCreateResult`, where the JSON
+  result contains `handle` (a decimal opaque handle or `null`) and the initial
+  `RenderResult` under `result`;
+- `jsx_session_render(handle, source) -> RenderResult`;
+- `jsx_session_dispose(handle) -> Unit`.
+
+`SessionCreateResult` and `RenderResult` are JSON strings at the JavaScript
+boundary. A successful creation publishes the handle only after the initial
+render commits; a failed creation returns `handle: null`.
+
+`jsx_parse_to_json` remains a stateless inspection API and makes no ID-stability
+promise. The old `jsx_parse_and_render` API may remain as a compatibility
+wrapper for one migration cycle, but it must not remain the owner of global
+parser or DOM state.
+
+The V1 result envelope is versioned and contains `schema_version`, `success`,
+`revision`, `mounted_ids`, `diagnostics`, and `error`. `mounted_ids` are
+decimal strings at the FFI boundary even though the internal `NodeId` remains
+an integer. Recoverable parser diagnostics produce `success=true` when the
+recovered projection is renderable; parse, projection, or render failures
+produce `success=false`.
+
+#### FFI session ownership and disposal
+
+The FFI surface uses an opaque, per-renderer `JsxSession` handle. A session is
+the identity boundary for one logical JSX stream; it is not a process-global
+parser or renderer.
+
+- The caller creates and owns the session. Creation supplies the initial source
+  and the DOM root/container that the session is allowed to modify.
+- The session owns the Loom parser, projection memo(s), previous projected tree,
+  diagnostics state, mounted-node registry, and the identity allocation epoch.
+  The caller never receives or stores the parser or memo separately.
+- A render/update operation plans the source update, recovered projection, ID
+  changes, and DOM patches as one candidate. Only a successful candidate and a
+  successful DOM application advance the committed revision and mounted IDs.
+  Recoverable diagnostics do not prevent a commit when the projection is
+  renderable.
+- Calls for one session are single-threaded and non-reentrant. Separate
+  sessions may exist concurrently and must not share parsers, projection
+  memos, mounted-node registries, or identity state.
+- `NodeId` stability is guaranteed only between successful updates of the same
+  live session. Independent `parse_to_proj_node`/inspection calls and newly
+  created sessions allocate identity independently; equal numeric IDs may
+  recur, but IDs have no cross-session persistence or ownership meaning.
+- Disposal is explicit and idempotent. It unmounts nodes created by the session
+  from the owned container, clears that session's registry, releases the parser
+  and projection references, and invalidates the handle. A later update/render
+  against the handle returns a structured disposed-session error; it never
+  silently creates a replacement session.
+- The compatibility reset disposes all live sessions and invalidates their
+  handles; it does not recycle handles or preserve `NodeId`s. Stateful callers
+  should use explicit dispose/create instead.
+- A parse or projection failure does not advance the committed source,
+  projection, identity allocation, revision, or mounted IDs. The session
+  restores the parser to the last committed source, remains usable, and
+  returns the rejected candidate's diagnostics together with the last
+  committed revision and mounted IDs.
+- V1 does not promise rollback for an arbitrary exception during DOM mutation.
+  If DOM application fails after partial mutation, the session becomes
+  `dirty`; the next successful render must remount the smallest supported
+  mountable ancestor subtree before resuming incremental updates. A future
+  version may replace this recovery path with detached-subtree staging or
+  rollback.
+
+The compatibility convenience function may retain a fresh-session,
+stateless-inspection form, but it must not imply identity stability. The
+stateful web path must migrate away from module-level parser and element
+registries; the DOM root is caller-owned, while the session may remove only
+nodes it created in that root.
+
+#### Empty-tag recovery renderer behavior
+
+`Element(tag="")` remains an explicit recovery projection node so the tree
+inspector, source map, and diagnostics can account for the malformed source.
+It is not a valid DOM element and is never passed to `document.createElement`.
+
+The DOM renderer treats the recovery node as a transparent, non-mountable
+wrapper:
+
+- it emits no `MakeElement`, `SetAttrs`, or `Release` patch for the recovery
+  node itself;
+- it does not add the recovery node's ID to the mounted-ID set;
+- its already-parsed children are visited under the recovery node's parent, with
+  compacted sibling indexes, preserving visible streamed content;
+- attributes on the empty-tag recovery node are ignored by the DOM renderer;
+  their source and diagnostics remain available in the projection/inspector;
+- an empty recovery node with no children produces no DOM operation.
+
+When the recovery node becomes a valid tagged element, the renderer creates a
+new mountable element and renders the recovered children beneath it. Because
+the current patch protocol has no reparent operation, the affected descendant
+subtree is remounted at this transition if it was previously mounted through
+the transparent recovery context. V1 remounts the smallest supported
+mountable ancestor subtree; it does not attempt to preserve descendant DOM
+identity through this boundary. Identity preservation resumes normally on
+subsequent updates of the valid element. This transition is therefore an
+explicit exception to the ordinary same-kind identity guarantee and must have
+its own regression test.
+
+The same remount boundary is used for any element-tag change, including a
+truncated valid tag such as `di` becoming `div`, because V1 has no reparent
+patch and cannot safely move already-mounted descendants across a changed
+element parent.
+
+The contract is intentionally suppressive rather than placeholder-rendering:
+incomplete markup must not add visual chrome to the user's generated UI. The
+tree/debug view may still label the node as a recovery element, and diagnostics
+remain the user-visible explanation for the missing tag.
+
+#### Required acceptance tests
+
+- Two live sessions render independently without cross-session IDs or DOM
+  registry leakage.
+- Initial render commits as revision 1; failed initial render publishes no
+  usable handle and leaves the root untouched.
+- Disposal removes only the session's mounted nodes, is safe to call twice, and
+  rejects later updates.
+- Recoverable diagnostics return success with diagnostics; rejected candidates
+  return failure with the previous committed revision and mounted IDs.
+- A recoverable empty-tag node emits no invalid-element patch while its children
+  remain visible under the original parent.
+- Empty-tag recovery transitioning to a valid tag creates a valid element and
+  remounts the smallest supported mountable ancestor subtree.
+- A simulated DOM-application failure marks the session dirty and the next
+  successful render repairs the affected subtree before incremental updates
+  resume.
+- Stateless inspection documents fresh-ID semantics, while successive updates
+  through one session preserve unaffected same-kind IDs.
+
 ## Risks
 
 - **Phase 0's tcc hang may not be fixable within this plan's timebox.** The

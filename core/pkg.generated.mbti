@@ -27,6 +27,8 @@ pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reco
 
 pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
 
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_with_exact_key(ProjNode[T], ProjNode[T], @ref.Ref[Int], (T) -> String, trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
+
 pub fn to_structured_changes(Array[ReconcileTraceEvent]) -> Array[StructuredChange]
 
 // Errors

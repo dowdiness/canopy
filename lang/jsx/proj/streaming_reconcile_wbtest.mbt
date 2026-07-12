@@ -108,3 +108,26 @@ test "streaming: ExprSpan identity stable across closed-content growth" {
     inspect(expr.id() == expr_id, content="true")
   }
 }
+
+///|
+/// Repeated structural siblings must have distinct identities, and appending
+/// another equal-kind sibling must not retarget the existing two.
+test "streaming: duplicate siblings keep distinct identities" {
+  let parser = @loom.new_parser(
+    "<div><span>a</span><span>b</span></div>", @jsx.jsx_grammar,
+  )
+  let (proj_memo, _, _) = build_jsx_projection_memos(parser)
+  let root0 = proj_memo.read_or_abort().unwrap()
+  let div0 = root0.children[0]
+  let first_id = div0.children[0].id()
+  let second_id = div0.children[1].id()
+  inspect(first_id == second_id, content="false")
+
+  parser.set_source("<div><span>a</span><span>b</span><span>c</span></div>")
+  let root1 = proj_memo.read_or_abort().unwrap()
+  let div1 = root1.children[0]
+  inspect(div1.id() == div0.id(), content="true")
+  inspect(div1.children[0].id() == first_id, content="true")
+  inspect(div1.children[1].id() == second_id, content="true")
+  inspect(div1.children[0].id() != div1.children[1].id(), content="true")
+}
