@@ -14,17 +14,20 @@ pub fn GenerativeUiGenerationId::to_int(self : GenerativeUiGenerationId) -> Int 
 /// This is intentionally separate from provider revisions and from the JSX
 /// session's implementation details. An adapter may map it to either of
 /// those at a later boundary.
-pub struct GenerativeUiRevision(Int) derive(Debug, Eq, Hash, Compare)
+pub struct GenerativeUiRevision {
+  priv value : Int
+} derive(Debug, Eq, Hash, Compare)
 
 ///|
-pub fn GenerativeUiRevision::new(value : Int) -> GenerativeUiRevision {
-  GenerativeUiRevision(value)
+pub fn GenerativeUiRevision::GenerativeUiRevision(
+  value : Int,
+) -> GenerativeUiRevision {
+  { value, }
 }
 
 ///|
 pub fn GenerativeUiRevision::to_int(self : GenerativeUiRevision) -> Int {
-  let GenerativeUiRevision(value) = self
-  value
+  self.value
 }
 
 ///|
@@ -157,7 +160,7 @@ pub struct GenerativeUiLifecycle {
 }
 
 ///|
-pub fn GenerativeUiLifecycle::new() -> GenerativeUiLifecycle {
+pub fn GenerativeUiLifecycle::GenerativeUiLifecycle() -> GenerativeUiLifecycle {
   {
     phase: Idle,
     next_generation_id: 1,

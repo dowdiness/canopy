@@ -10,8 +10,8 @@ fn inspect_transition(
 fn generative_ui_start_for_test(
   base_revision : Int,
 ) -> (GenerativeUiLifecycle, GenerativeUiGenerationId, GenerativeUiRevision) {
-  let lifecycle = GenerativeUiLifecycle::new()
-  let revision = GenerativeUiRevision::new(base_revision)
+  let lifecycle = GenerativeUiLifecycle::GenerativeUiLifecycle()
+  let revision = GenerativeUiRevision::GenerativeUiRevision(base_revision)
   let transition = lifecycle.dispatch(Start(base_revision=revision))
   match transition {
     Started(generation_id~) => (lifecycle, generation_id, revision)
@@ -130,14 +130,14 @@ test "generative ui final freezes input and rejects later chunks" {
 test "generative ui rejects stale candidates without advancing revision" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(4)
   let _ = lifecycle.dispatch(generative_ui_finalize(generation_id, revision, 0))
-  let stale_revision = GenerativeUiRevision::new(5)
+  let stale_revision = GenerativeUiRevision::GenerativeUiRevision(5)
   inspect_transition(
     lifecycle.dispatch(
       CandidateValid(generation_id~, current_revision=stale_revision),
     ),
     Rejected(
       reason=BaseRevisionMismatch(
-        expected=GenerativeUiRevision::new(4),
+        expected=GenerativeUiRevision::GenerativeUiRevision(4),
         received=stale_revision,
       ),
     ),
@@ -164,9 +164,12 @@ test "generative ui validates, dry-runs, and commits exactly once" {
   inspect(lifecycle.phase() == Applying, content="true")
   inspect_transition(
     lifecycle.dispatch(
-      ApplySucceeded(generation_id~, revision=GenerativeUiRevision::new(10)),
+      ApplySucceeded(
+        generation_id~,
+        revision=GenerativeUiRevision::GenerativeUiRevision(10),
+      ),
     ),
-    Committed(revision=GenerativeUiRevision::new(10)),
+    Committed(revision=GenerativeUiRevision::GenerativeUiRevision(10)),
   )
   inspect(lifecycle.phase() == Committed, content="true")
   match lifecycle.committed_revision() {
@@ -175,7 +178,10 @@ test "generative ui validates, dry-runs, and commits exactly once" {
   }
   inspect_transition(
     lifecycle.dispatch(
-      ApplySucceeded(generation_id~, revision=GenerativeUiRevision::new(10)),
+      ApplySucceeded(
+        generation_id~,
+        revision=GenerativeUiRevision::GenerativeUiRevision(10),
+      ),
     ),
     Ignored(reason=TerminalState),
   )
@@ -254,10 +260,10 @@ test "generative ui cancellation wins before applying and is too late during app
     applying.dispatch(
       ApplySucceeded(
         generation_id=applying_id,
-        revision=GenerativeUiRevision::new(4),
+        revision=GenerativeUiRevision::GenerativeUiRevision(4),
       ),
     ),
-    Committed(revision=GenerativeUiRevision::new(4)),
+    Committed(revision=GenerativeUiRevision::GenerativeUiRevision(4)),
   )
 }
 
@@ -319,13 +325,13 @@ test "generative ui cancellation, invalid candidates, dry-run failures, and appl
     mismatch.dispatch(
       ApplySucceeded(
         generation_id=mismatch_id,
-        revision=GenerativeUiRevision::new(99),
+        revision=GenerativeUiRevision::GenerativeUiRevision(99),
       ),
     ),
     Failed(
       reason=ApplyRevisionMismatch(
-        expected=GenerativeUiRevision::new(4),
-        received=GenerativeUiRevision::new(99),
+        expected=GenerativeUiRevision::GenerativeUiRevision(4),
+        received=GenerativeUiRevision::GenerativeUiRevision(99),
       ),
     ),
   )
@@ -365,14 +371,17 @@ test "generative ui ignores stale generations and terminal late events" {
   let _ = lifecycle.dispatch(DryRunSucceeded(generation_id=restarted_id))
   inspect_transition(
     lifecycle.dispatch(
-      ApplySucceeded(generation_id~, revision=GenerativeUiRevision::new(1)),
+      ApplySucceeded(
+        generation_id~,
+        revision=GenerativeUiRevision::GenerativeUiRevision(1),
+      ),
     ),
     Ignored(reason=StaleGeneration),
   )
   let _ = lifecycle.dispatch(
     ApplySucceeded(
       generation_id=restarted_id,
-      revision=GenerativeUiRevision::new(1),
+      revision=GenerativeUiRevision::GenerativeUiRevision(1),
     ),
   )
   inspect_transition(
@@ -393,7 +402,7 @@ test "generative ui resumption requires a newly selected committed revision" {
   let _ = first.dispatch(
     ApplySucceeded(
       generation_id=first_id,
-      revision=GenerativeUiRevision::new(11),
+      revision=GenerativeUiRevision::GenerativeUiRevision(11),
     ),
   )
   let committed_revision = first.committed_revision().unwrap()

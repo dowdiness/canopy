@@ -153,12 +153,12 @@ pub(all) enum GenerativeUiInputKind {
 pub struct GenerativeUiLifecycle {
   // private fields
 }
+pub fn GenerativeUiLifecycle::GenerativeUiLifecycle() -> Self
 pub fn GenerativeUiLifecycle::base_revision(Self) -> GenerativeUiRevision?
 pub fn GenerativeUiLifecycle::candidate_source(Self) -> String
 pub fn GenerativeUiLifecycle::committed_revision(Self) -> GenerativeUiRevision?
 pub fn GenerativeUiLifecycle::dispatch(Self, GenerativeUiEvent) -> GenerativeUiTransition
 pub fn GenerativeUiLifecycle::generation_id(Self) -> GenerativeUiGenerationId?
-pub fn GenerativeUiLifecycle::new() -> Self
 pub fn GenerativeUiLifecycle::next_sequence(Self) -> Int
 pub fn GenerativeUiLifecycle::phase(Self) -> GenerativeUiPhase
 pub fn GenerativeUiLifecycle::rejection(Self) -> GenerativeUiRejection?
@@ -188,8 +188,18 @@ pub(all) enum GenerativeUiRejection {
   ApplyRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
 } derive(Eq, @debug.Debug)
 
-pub struct GenerativeUiRevision(Int) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiRevision::new(Int) -> Self
+pub struct GenerativeUiReplaySource {
+  // private fields
+}
+pub fn GenerativeUiReplaySource::GenerativeUiReplaySource(events~ : Array[GenerativeUiInput]) -> Self
+pub fn GenerativeUiReplaySource::is_exhausted(Self) -> Bool
+pub fn GenerativeUiReplaySource::next(Self) -> GenerativeUiInput?
+pub fn GenerativeUiReplaySource::reset(Self) -> Unit
+
+pub struct GenerativeUiRevision {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiRevision::GenerativeUiRevision(Int) -> Self
 pub fn GenerativeUiRevision::to_int(Self) -> Int
 
 pub(all) enum GenerativeUiTransition {
