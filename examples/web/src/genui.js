@@ -1,3 +1,12 @@
+import {
+  ORDER_ROWS,
+  ORDERS_CSV_FIXTURE,
+  deriveOrderView,
+  parseOrdersCsv,
+  selectOrder,
+  summarizeOrders,
+} from './genui-data.ts';
+
 const EXAMPLES = [
   `<div class="bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg">\n  <h1 class="text-2xl font-bold text-emerald-400 mb-2">Hello, World!</h1>\n  <p class="text-gray-300">This is JSX parsed incrementally with Tailwind.</p>\n</div>`,
   `<article class="bg-gray-800 text-white p-6 rounded-xl max-w-lg">\n  <h2 class="text-xl font-bold text-sky-400 mb-3">Generative UI</h2>\n  <p class="text-gray-300 mb-2">Streaming JSX content with Tailwind styling.</p>\n  <a href="/next" class="text-sky-400 underline hover:text-sky-300">Continue reading</a>\n</article>`,
@@ -18,12 +27,32 @@ const htmlStepNum = document.getElementById('html-step-num')
 const htmlNodeCount = document.getElementById('html-node-count')
 const streamProgress = document.getElementById('stream-progress')
 const statusBar = document.getElementById('status-bar')
+const dataFilterInput = document.getElementById('data-filter-input')
+const dataFilterClear = document.getElementById('data-filter-clear')
+const dataJsonSource = document.getElementById('data-json-source')
+const dataCsvSource = document.getElementById('data-csv-source')
+const dataSourceLabel = document.getElementById('data-source-label')
+const dataRowCount = document.getElementById('data-row-count')
+const dataSummaryCount = document.getElementById('data-summary-count')
+const dataSummaryTotal = document.getElementById('data-summary-total')
+const dataSummaryAverage = document.getElementById('data-summary-average')
+const ordersTableBody = document.getElementById('orders-table-body')
+const dataSelectionStatus = document.getElementById('data-selection-status')
+const dataDetailEmpty = document.getElementById('data-detail-empty')
+const dataDetailContent = document.getElementById('data-detail-content')
+const dataDetailId = document.getElementById('data-detail-id')
+const dataDetailName = document.getElementById('data-detail-name')
+const dataDetailStatus = document.getElementById('data-detail-status')
+const dataDetailAmount = document.getElementById('data-detail-amount')
 
 let isStreaming = false
 let abortStream = false
 let previousNodeIds = new Set()
 let jsxModule = null
 let jsxSessionHandle = null
+let dataRows = ORDER_ROWS
+let dataSource = 'JSON fixture'
+let selectedOrderId = null
 
 document.querySelectorAll('[data-example]').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -55,6 +84,117 @@ clearBtn.addEventListener('click', function() {
   resetState();
   statusBar.textContent = 'Cleared.';
 });
+
+dataFilterInput.addEventListener('input', renderDataExplorer)
+dataFilterClear.addEventListener('click', function() {
+  dataFilterInput.value = '';
+  renderDataExplorer();
+  dataFilterInput.focus();
+});
+
+dataJsonSource.addEventListener('click', function() {
+  setDataSource(ORDER_ROWS, 'JSON fixture');
+});
+
+dataCsvSource.addEventListener('click', function() {
+  setDataSource(parseOrdersCsv(ORDERS_CSV_FIXTURE), 'CSV fixture');
+});
+
+function renderDataExplorer() {
+  const view = deriveOrderView(dataRows, dataFilterInput.value, selectedOrderId);
+  const summary = summarizeOrders(view.rows);
+  const focusedOrderId = document.activeElement instanceof HTMLElement
+    ? document.activeElement.dataset.orderId ?? null
+    : null;
+  dataRowCount.textContent = String(view.rows.length);
+  dataSummaryCount.textContent = String(summary.count);
+  dataSummaryTotal.textContent = formatOrderAmount(summary.totalAmount);
+  dataSummaryAverage.textContent = formatOrderAmount(summary.averageAmount);
+  dataSourceLabel.textContent = dataSource;
+  ordersTableBody.replaceChildren();
+
+  for (const row of view.rows) {
+    const tr = document.createElement('tr');
+    tr.className = 'order-row' + (row.id === selectedOrderId ? ' selected' : '');
+    tr.dataset.orderId = row.id;
+    tr.dataset.testid = 'order-row-' + row.id;
+    tr.tabIndex = 0;
+    tr.setAttribute('aria-selected', String(row.id === selectedOrderId));
+    tr.addEventListener('click', () => selectDataRow(row.id));
+    tr.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectDataRow(row.id);
+      }
+    });
+
+    appendOrderCell(tr, row.id, 'text-canopy-muted');
+    appendOrderCell(tr, row.name, 'text-canopy-text');
+    const statusCell = appendOrderCell(tr, '', '');
+    const status = document.createElement('span');
+    status.className = 'status-chip status-' + row.status;
+    status.textContent = row.status;
+    statusCell.append(status);
+    appendOrderCell(tr, formatOrderAmount(row.amount), 'text-right text-canopy-text');
+    ordersTableBody.append(tr);
+  }
+
+  if (focusedOrderId !== null) {
+    for (const candidate of ordersTableBody.children) {
+      if (candidate instanceof HTMLElement && candidate.dataset.orderId === focusedOrderId) {
+        candidate.focus();
+        break;
+      }
+    }
+  }
+
+  if (view.selected === null) {
+    dataSelectionStatus.textContent = 'No row selected.';
+    dataDetailEmpty.hidden = false;
+    dataDetailContent.hidden = true;
+  } else {
+    const hiddenSuffix = view.selectedVisible ? '' : ' — hidden by filter.';
+    dataSelectionStatus.textContent = 'Selected: ' + view.selected.name + ' (' + view.selected.id + ')' + hiddenSuffix;
+    renderOrderDetail(view.selected);
+  }
+}
+
+function setDataSource(rows, label) {
+  dataRows = rows;
+  dataSource = label;
+  selectedOrderId = selectOrder(dataRows, selectedOrderId ?? '');
+  dataJsonSource.setAttribute('aria-pressed', String(label === 'JSON fixture'));
+  dataCsvSource.setAttribute('aria-pressed', String(label === 'CSV fixture'));
+  renderDataExplorer();
+}
+
+function selectDataRow(id) {
+  selectedOrderId = selectOrder(dataRows, id);
+  renderDataExplorer();
+}
+
+function renderOrderDetail(row) {
+  dataDetailEmpty.hidden = true;
+  dataDetailContent.hidden = false;
+  dataDetailId.textContent = row.id;
+  dataDetailName.textContent = row.name;
+  dataDetailStatus.textContent = row.status;
+  dataDetailAmount.textContent = formatOrderAmount(row.amount);
+}
+
+function appendOrderCell(row, value, className) {
+  const cell = document.createElement('td');
+  cell.className = 'px-3 py-2 ' + className;
+  cell.textContent = value;
+  row.append(cell);
+  return cell;
+}
+
+function formatOrderAmount(amount) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+}
+
+renderDataExplorer();
 
 function resetState() {
   if (jsxModule && jsxSessionHandle !== null) {

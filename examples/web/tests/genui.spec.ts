@@ -16,12 +16,70 @@ test.describe('Generative UI Demo', () => {
     expect(val).toContain('div');
   });
 
+  test('renders the host-owned JSON fixture as a table', async ({ page }) => {
+    await page.goto('/genui.html');
+    const table = page.getByRole('table', { name: 'Orders' });
+    const rows = table.locator('tbody').getByRole('row');
+    await expect(rows).toHaveCount(6);
+    await expect(page.getByTestId('data-row-count')).toHaveText('6');
+    await expect(page.getByTestId('data-summary-count')).toHaveText('6');
+    await expect(page.getByTestId('data-summary-total')).toHaveText('$6,846.50');
+    await expect(page.getByTestId('data-summary-average')).toHaveText('$1,141.08');
+    await expect(rows.filter({ hasText: 'Acme renewal' })).toContainText('$1,280.50');
+  });
+
+  test('filters rows while preserving a selected host-owned row', async ({ page }) => {
+    await page.goto('/genui.html');
+    const table = page.getByRole('table', { name: 'Orders' });
+    const rows = table.locator('tbody').getByRole('row');
+    await page.getByTestId('order-row-ord-1002').click();
+    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002)');
+    await expect(page.getByTestId('data-detail-name')).toHaveText('Northstar onboarding');
+    await expect(page.getByTestId('data-detail-name')).toBeVisible();
+
+    await page.getByLabel('Filter name, status, or ID').fill('paid');
+    await expect(rows).toHaveCount(3);
+    await expect(page.getByTestId('data-row-count')).toHaveText('3');
+    await expect(page.getByTestId('data-summary-count')).toHaveText('3');
+    await expect(page.getByTestId('data-summary-total')).toHaveText('$2,486.50');
+    await expect(page.getByTestId('data-summary-average')).toHaveText('$828.83');
+    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002) — hidden by filter.');
+
+    await page.getByRole('button', { name: 'Clear filter' }).click();
+    await expect(rows).toHaveCount(6);
+    await expect(page.getByTestId('order-row-ord-1002')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('preserves keyboard focus when selecting a row', async ({ page }) => {
+    await page.goto('/genui.html');
+    const row = page.getByTestId('order-row-ord-1003');
+    await row.focus();
+    await row.press('Enter');
+    await expect(row).toHaveAttribute('aria-selected', 'true');
+    await expect(row).toBeFocused();
+    await expect(page.getByTestId('data-detail-name')).toBeVisible();
+  });
+
+  test('switches to the CSV fixture while preserving detail and selection', async ({ page }) => {
+    await page.goto('/genui.html');
+    await page.getByTestId('order-row-ord-1004').click();
+    await expect(page.getByTestId('data-detail-id')).toHaveText('ord-1004');
+    await expect(page.getByTestId('data-detail-amount')).toHaveText('$2,180.00');
+
+    const csvSource = page.getByRole('button', { name: 'CSV fixture' });
+    await csvSource.click();
+    await expect(csvSource).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'JSON fixture' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('data-row-count')).toHaveText('6');
+    await expect(page.getByTestId('data-detail-name')).toHaveText('Lumen migration');
+    await expect(page.getByRole('status')).toHaveText('Selected: Lumen migration (ord-1004)');
+  });
+
   test('streaming completes and shows tree + HTML nodes', async ({ page }) => {
     test.setTimeout(60000);
 
     await page.goto('/genui.html');
     await page.locator('button[data-example="0"]').click();
-    await page.waitForTimeout(500);
 
     await page.locator('#stream-btn').click();
 
@@ -64,10 +122,8 @@ test.describe('Generative UI Demo', () => {
 
     for (let i = 0; i < 3; i++) {
       await page.locator(`button[data-example="${i}"]`).click();
-      await page.waitForTimeout(300);
       await page.locator('#stream-btn').click();
       await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
-      await page.waitForTimeout(500);
     }
   });
 });

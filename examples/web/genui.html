@@ -81,6 +81,70 @@
         <div id="status-bar" class="mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted">Ready.</div>
       </div>
     </div>
+
+    <!-- Phase 4: host-owned JSON fixture rendered through a constrained table. -->
+    <section id="data-explorer" class="mt-4 bg-canopy-surface border border-canopy-border rounded-lg p-3.5">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="text-canopy-green text-[13px] uppercase tracking-wider">Data Explorer</h2>
+          <p class="text-canopy-muted text-[11px] mt-1">Host-owned fixture → declarative table</p>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-canopy-muted">
+          <span class="binding-badge">@orders</span>
+          <span><strong id="data-row-count" data-testid="data-row-count" class="text-canopy-green">0</strong> visible rows</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mb-3" aria-label="Data sources">
+        <span class="text-[11px] text-canopy-muted">Source:</span>
+        <button id="data-json-source" class="btn" type="button" aria-pressed="true">JSON fixture</button>
+        <button id="data-csv-source" class="btn" type="button" aria-pressed="false">CSV fixture</button>
+        <span id="data-source-label" class="text-[11px] text-canopy-muted">JSON fixture</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <label for="data-filter-input" class="text-[11px] text-canopy-muted">Filter name, status, or ID</label>
+        <input id="data-filter-input" type="search" placeholder="Try: pending" autocomplete="off"
+          class="min-w-[220px] flex-1 bg-canopy-bg text-canopy-text border border-canopy-border rounded-md px-2 py-1.5 text-[12px] font-mono outline-none focus:border-canopy-green" />
+        <button id="data-filter-clear" class="btn" type="button">Clear filter</button>
+      </div>
+      <dl class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3" aria-label="Order summary">
+        <div class="summary-card">
+          <dt>Visible rows</dt>
+          <dd id="data-summary-count" data-testid="data-summary-count">0</dd>
+        </div>
+        <div class="summary-card">
+          <dt>Total amount</dt>
+          <dd id="data-summary-total" data-testid="data-summary-total">$0.00</dd>
+        </div>
+        <div class="summary-card">
+          <dt>Average amount</dt>
+          <dd id="data-summary-average" data-testid="data-summary-average">$0.00</dd>
+        </div>
+      </dl>
+      <div class="overflow-x-auto bg-canopy-bg rounded-md">
+        <table id="orders-table" data-testid="orders-table" aria-label="Orders" class="w-full text-left text-[12px]">
+          <thead class="text-canopy-muted border-b border-canopy-border">
+            <tr>
+              <th class="px-3 py-2 font-normal">Order</th>
+              <th class="px-3 py-2 font-normal">Name</th>
+              <th class="px-3 py-2 font-normal">Status</th>
+              <th class="px-3 py-2 font-normal text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body"></tbody>
+        </table>
+      </div>
+      <div id="data-selection-status" class="mt-3 text-[11px] text-canopy-muted" role="status" aria-live="polite">No row selected.</div>
+      <aside id="data-detail" class="mt-3 border-t border-canopy-border pt-3" aria-labelledby="data-detail-heading">
+        <h3 id="data-detail-heading" class="text-canopy-green text-[11px] uppercase tracking-wider">Selected order</h3>
+        <p id="data-detail-empty" class="text-canopy-muted text-[11px] mt-1">Select a row to inspect its details.</p>
+        <dl id="data-detail-content" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2" hidden>
+          <div class="detail-field"><dt>ID</dt><dd id="data-detail-id" data-testid="data-detail-id"></dd></div>
+          <div class="detail-field"><dt>Name</dt><dd id="data-detail-name" data-testid="data-detail-name"></dd></div>
+          <div class="detail-field"><dt>Status</dt><dd id="data-detail-status" data-testid="data-detail-status"></dd></div>
+          <div class="detail-field"><dt>Amount</dt><dd id="data-detail-amount" data-testid="data-detail-amount"></dd></div>
+        </dl>
+      </aside>
+    </section>
   </div>
 
   <style>
@@ -114,6 +178,17 @@
     .tree-node-header { cursor: pointer; user-select: none; }
     .tree-node-header:hover { background: rgba(255,255,255,0.02); }
     .error-item { color: #f48771; padding: 2px 0; font-size: 11px; border-left: 2px solid #f48771; padding-left: 6px; margin-bottom: 2px; }
+    .binding-badge { color: #82aaff; background: rgba(130,170,255,0.12); border: 1px solid rgba(130,170,255,0.3); border-radius: 3px; padding: 2px 6px; }
+    .summary-card, .detail-field { padding: 8px 10px; background: rgba(30,34,42,0.7); border: 1px solid #2c313a; border-radius: 4px; }
+    .summary-card dt, .detail-field dt { color: #565c64; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .summary-card dd, .detail-field dd { color: #abb2bf; font-size: 12px; margin-top: 3px; }
+    .order-row { border-bottom: 1px solid rgba(44,49,58,0.7); cursor: pointer; }
+    .order-row:hover { background: rgba(78,201,176,0.06); }
+    .order-row.selected { background: rgba(78,201,176,0.14); box-shadow: inset 2px 0 #4ec9b0; }
+    .status-chip { display: inline-block; border-radius: 999px; padding: 2px 7px; font-size: 10px; }
+    .status-paid { color: #9fe2c9; background: rgba(78,201,176,0.14); }
+    .status-pending { color: #f0c674; background: rgba(240,198,116,0.14); }
+    .status-review { color: #82aaff; background: rgba(130,170,255,0.14); }
   </style>
   <!-- Tailwind safelist: ensures scanner finds example JSX classes -->
   <div class="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
