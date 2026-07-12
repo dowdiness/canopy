@@ -112,9 +112,63 @@ fn build_container(
 }
 
 ///|
+/// Prefer unchanged JSX subtrees when same-kind LCS has multiple alignments.
+fn jsx_attr_key(attr : @jsx.JsxAttr) -> String {
+  let value = match attr.value {
+    @jsx.JsxAttrValue::StringLit(text) => "string:" + text
+    @jsx.JsxAttrValue::ExprSpan(raw~) => "expr:" + raw
+    @jsx.JsxAttrValue::Bare => "bare"
+  }
+  attr.name.length().to_string() +
+  ":" +
+  attr.name +
+  value.length().to_string() +
+  ":" +
+  value
+}
+
+///|
+fn jsx_exact_key(node : @jsx.JsxNode) -> String {
+  match node {
+    Root(..) => "Root"
+    Fragment(..) => "Fragment"
+    Element(tag~, attrs~, ..) => {
+      let attrs_key = attrs
+        .map(attr => {
+          let key = jsx_attr_key(attr)
+          key.length().to_string() + ":" + key
+        })
+        .join("")
+      "Element:" +
+      tag.length().to_string() +
+      ":" +
+      tag +
+      "[" +
+      attrs.length().to_string() +
+      ":" +
+      attrs_key +
+      "]"
+    }
+    Text(text) => "Text:" + text
+    ExprSpan(raw~) => "ExprSpan:" + raw
+    Error(message) => "Error:" + message
+  }
+}
+
+///|
+fn reconcile_jsx_projection(
+  old : @core.ProjNode[@jsx.JsxNode],
+  new : @core.ProjNode[@jsx.JsxNode],
+  counter : Ref[Int],
+  trace_ref : Ref[Array[@core.ReconcileTraceEvent]]?,
+) -> @core.ProjNode[@jsx.JsxNode] {
+  @core.reconcile_with_exact_key(old, new, counter, jsx_exact_key, trace_ref~)
+}
+
+///|
 /// Build the 3-memo pipeline (proj, registry, source_map) for the JSX
 /// projection. Delegates to @core.build_projection_memos exactly per
-/// ADDING_A_LANGUAGE.md Step 4 — no hand-rolled reconciliation.
+/// ADDING_A_LANGUAGE.md Step 4, with JSX-specific exact-subtree matching.
 pub fn build_jsx_projection_memos(
   parser : @loom.Parser[@jsx.JsxNode],
 ) -> (
@@ -127,6 +181,7 @@ pub fn build_jsx_projection_memos(
     parser.syntax_tree(),
     syntax_to_proj_node,
     populate_token_spans,
+    reconcile_node=reconcile_jsx_projection,
     label="jsx",
   )
 }

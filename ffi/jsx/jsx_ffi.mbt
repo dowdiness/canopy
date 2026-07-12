@@ -147,28 +147,17 @@ fn get_or_empty_errors(text : String) -> Array[String] {
 }
 
 ///|
-let __state : @js.Any = @js.object()
-
-///|
-/// Parse and render using a shared parser for stable node_ids across calls.
+/// Legacy one-cycle compatibility wrapper. Identity stability belongs to
+/// `jsx_session_new`/`jsx_session_render`; this function intentionally parses
+/// independently on every call and keeps no parser or DOM ownership state.
 pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
-  let p = __state.get("p")
-  if p.is_nullish() {
-    let parser : @loom.Parser[@jsx_ast.JsxNode] = @loom.new_parser(
-      text, @jsx_ast.jsx_grammar,
-    )
-    let (mem, _, _) = @jsx_proj.build_jsx_projection_memos(parser)
-    __state.set("p", @js.any(parser))
-    __state.set("m", @js.any(mem))
-  } else {
-    let parser : @loom.Parser[@jsx_ast.JsxNode] = p.cast()
-    parser.set_source(text)
+  let parsed : (@canopy_core.ProjNode[@jsx_ast.JsxNode], Array[String])? = Some(
+    @jsx_proj.parse_to_proj_node(text),
+  ) catch {
+    _ => None
   }
-  let mem : @incr.Derived[@canopy_core.ProjNode[@jsx_ast.JsxNode]?] = __state
-    .get("m")
-    .cast()
-  match mem.read_or_abort() {
-    Some(proj) => render_proj(proj, existing_json)
+  match parsed {
+    Some((proj, _)) => render_proj(proj, existing_json)
     None => existing_json
   }
 }
@@ -190,9 +179,9 @@ fn render_proj(
 }
 
 ///|
-/// Reset the parser, projection memos, and DOM element registry.
+/// Reset all stateful sessions and the legacy registry. This is a compatibility
+/// operation for old demo callers; new callers should dispose their handle.
 pub fn reset_jsx_state() -> Unit {
-  __state.set("p", @js.null_())
-  __state.set("m", @js.null_())
+  reset_all_jsx_sessions()
   clear_registry()
 }

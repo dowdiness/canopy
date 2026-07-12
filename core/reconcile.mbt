@@ -23,6 +23,37 @@ pub fn[T : TreeNode + Renderable] reconcile(
 }
 
 ///|
+/// Reconcile with a caller-provided exact-key preference for sibling LCS.
+/// The key describes a node's own payload; child structure is fingerprinted by
+/// the reconciler. Exact keys only break ties between same-kind matches: they
+/// cannot reduce the number of matched children, and content edits still fall
+/// back to `TreeNode::same_kind`.
+pub fn[T : TreeNode + Renderable] reconcile_with_exact_key(
+  old : ProjNode[T],
+  new : ProjNode[T],
+  counter : Ref[Int],
+  exact_key : (T) -> String,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+) -> ProjNode[T] {
+  let interner : Map[String, Int] = {}
+  let next_fingerprint = Ref(0)
+  let old_fingerprints = exact_fingerprint_map(
+    old, exact_key, interner, next_fingerprint,
+  )
+  let new_fingerprints = exact_fingerprint_map(
+    new, exact_key, interner, next_fingerprint,
+  )
+  reconcile_exact(
+    old,
+    new,
+    counter,
+    old_fingerprints,
+    new_fingerprints,
+    trace_ref~,
+  )
+}
+
+///|
 /// Reconciliation with structural-edit hints. Behaves identically to `reconcile`
 /// when `hints` is empty. A `Wrap` / `Unwrap` hint (keyed by the previous node's
 /// id) lets identity survive a constructor change at a position that positional
@@ -211,6 +242,167 @@ fn[T : TreeNode + Renderable] reconcile_children(
     }
   }
   result
+}
+
+///|
+/// Build position-independent fingerprints once for one projection tree.
+fn[T] exact_fingerprint_map(
+  root : ProjNode[T],
+  exact_key : (T) -> String,
+  interner : Map[String, Int],
+  next_fingerprint : Ref[Int],
+) -> Map[NodeId, Int] {
+  let result : Map[NodeId, Int] = {}
+  let _ = root.fold(fn(node, children : Array[Int]) -> Int {
+    let key = exact_key(node.kind)
+    let signature = key.length().to_string() +
+      ":" +
+      key +
+      "|" +
+      children.length().to_string() +
+      ":" +
+      children.map(id => id.to_string()).join(",")
+    let fingerprint = match interner.get(signature) {
+      Some(id) => id
+      None => {
+        let id = next_fingerprint.val
+        next_fingerprint.val += 1
+        interner[signature] = id
+        id
+      }
+    }
+    result[node.id()] = fingerprint
+    fingerprint
+  })
+  result
+}
+
+///|
+/// Child reconciliation for `reconcile_with_exact_key`.
+///
+/// This path intentionally has no structural-edit hints: the JSX projection
+/// uses it for ordinary streaming updates, while the default/hinted path above
+/// retains the framework's historical LCS tie-breaking contract.
+fn[T : TreeNode + Renderable] reconcile_children_exact(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  counter : Ref[Int],
+  old_fingerprints : Map[NodeId, Int],
+  new_fingerprints : Map[NodeId, Int],
+  parent_id : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+) -> Array[ProjNode[T]] {
+  let old_len = old_children.length()
+  let new_len = new_children.length()
+  let match_base_score = old_len.min(new_len) + 1
+  let match_score = fn(oi : Int, nj : Int) -> Int {
+    if !T::same_kind(old_children[oi].kind, new_children[nj].kind) {
+      0
+    } else if old_fingerprints[old_children[oi].id()] ==
+      new_fingerprints[new_children[nj].id()] {
+      match_base_score + 1
+    } else {
+      match_base_score
+    }
+  }
+  let dp = Array::makei(old_len + 1, _ => Array::make(new_len + 1, 0))
+  for i = 1; i <= old_len; i = i + 1 {
+    for j = 1; j <= new_len; j = j + 1 {
+      let diagonal = dp[i - 1][j - 1] + match_score(i - 1, j - 1)
+      dp[i][j] = @cmp.maximum(
+        @cmp.maximum(dp[i - 1][j], dp[i][j - 1]),
+        diagonal,
+      )
+    }
+  }
+  let old_matched = Array::make(old_len, -1)
+  let new_matched = Array::make(new_len, -1)
+  let mut i = old_len
+  let mut j = new_len
+  while i > 0 && j > 0 {
+    let score = match_score(i - 1, j - 1)
+    if score > 0 && dp[i][j] == dp[i - 1][j - 1] + score {
+      old_matched[i - 1] = j - 1
+      new_matched[j - 1] = i - 1
+      i = i - 1
+      j = j - 1
+    } else if dp[i - 1][j] >= dp[i][j - 1] {
+      i = i - 1
+    } else {
+      j = j - 1
+    }
+  }
+  let result = [
+    for k in 0..<new_len => {
+      if new_matched[k] >= 0 {
+        let reconciled = reconcile_exact(
+          old_children[new_matched[k]],
+          new_children[k],
+          counter,
+          old_fingerprints,
+          new_fingerprints,
+          trace_ref~,
+        )
+        emit_trace(
+          trace_ref,
+          Matched(
+            parent_id,
+            new_matched[k],
+            k,
+            reconciled.id(),
+            T::kind_tag(reconciled.kind),
+          ),
+        )
+        reconciled
+      } else {
+        let fresh = assign_fresh_ids(new_children[k], counter)
+        emit_trace(
+          trace_ref,
+          Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+        )
+        fresh
+      }
+    }
+  ]
+  for oi = 0; oi < old_len; oi = oi + 1 {
+    if old_matched[oi] < 0 {
+      emit_trace(
+        trace_ref,
+        Deleted(
+          parent_id,
+          oi,
+          old_children[oi].id(),
+          T::kind_tag(old_children[oi].kind),
+        ),
+      )
+    }
+  }
+  result
+}
+
+///|
+fn[T : TreeNode + Renderable] reconcile_exact(
+  old : ProjNode[T],
+  new : ProjNode[T],
+  counter : Ref[Int],
+  old_fingerprints : Map[NodeId, Int],
+  new_fingerprints : Map[NodeId, Int],
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+) -> ProjNode[T] {
+  if T::same_kind(old.kind, new.kind) {
+    let reconciled_children = reconcile_children_exact(
+      old.children,
+      new.children,
+      counter,
+      old_fingerprints,
+      new_fingerprints,
+      old.node_id,
+      trace_ref~,
+    )
+    ProjNode(new.kind, new.start, new.end, old.node_id, reconciled_children)
+  } else {
+    assign_fresh_ids(new, counter)
+  }
 }
 
 ///|

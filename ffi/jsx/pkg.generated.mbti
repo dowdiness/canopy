@@ -10,6 +10,12 @@ pub fn jsx_parse_and_render(String, String) -> String
 
 pub fn jsx_parse_to_json(String) -> String
 
+pub fn jsx_session_dispose(Int) -> Unit
+
+pub fn jsx_session_new(String, String) -> String
+
+pub fn jsx_session_render(Int, String) -> String
+
 pub fn jsx_streaming_to_json(String) -> String
 
 pub fn reset_jsx_state() -> Unit

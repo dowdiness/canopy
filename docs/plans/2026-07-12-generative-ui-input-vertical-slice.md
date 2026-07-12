@@ -1,0 +1,315 @@
+# Generative UI input vertical slice
+
+## Why
+
+Canopy now has a JSX incremental parser, session-owned FFI rendering, and a
+direction for Generative UI. The missing implementation boundary is the path
+from an asynchronous model-like input stream to a validated candidate UI.
+
+The first implementation must prove that incomplete, duplicated, cancelled,
+late, or invalid input cannot corrupt the committed UI. It should establish
+this property without depending on a live LLM or a particular provider.
+
+## Scope
+
+In:
+
+- A replayable fixed-chunk input source for the JSX session.
+- A request/generation envelope with request identity, base revision, chunk
+  sequence, finalization, cancellation, and terminal-state rules.
+- Candidate syntax, schema, capability, and base-revision validation.
+- Internal dry-run validation using a pure/fake DOM model before commit.
+- Commit and recovery behavior for the existing session-owned JSX renderer.
+- A read-only JSON/CSV data-exploration vertical slice with table, filter, and
+  detail/summary projections.
+- Property, focused contract, and browser tests for the input lifecycle.
+
+Out:
+
+- Live Gemini or other provider integration.
+- Arbitrary JSX, raw HTML, JavaScript, or model-controlled expressions.
+- Network, persistence, navigation, or other generated side effects.
+- User-visible approval preview (internal dry-run is required).
+- Concurrent semantic editing, cross-session identity, and multi-language
+  renderer generalization.
+- A general-purpose renderer-neutral API.
+
+## Current State
+
+- The Generative UI direction and guarantees are documented in
+  `docs/architecture/generative-ui-direction.md`.
+- JSX sessions own parser/projection/DOM state and expose structured render
+  results through `ffi/jsx/session.mbt`.
+- DOM patch ordering and sibling-index correctness have a regression test in
+  `ffi/jsx/session_contract_wbtest.mbt`; broader property coverage is tracked
+  by [Issue #888](https://github.com/dowdiness/canopy/issues/888).
+- `examples/web/src/genui.js` already replays JSX prefixes through a stateful
+  session, but its source is a local fixed string and its stop behavior is not
+  yet a generation lifecycle contract.
+- `llm/` is a Gemini-specific, whole-response text-edit client. It is not the
+  UI candidate protocol and is intentionally not required for this phase.
+- `lib/cognition` contains provider-boundary concepts for request identity,
+  source revisions, cancellation, stale completion, and typed failures. Reuse
+  those semantics rather than duplicating provider lifecycle rules in the JSX
+  renderer.
+
+## Work Ownership
+
+- **Request lifecycle:** pure request/generation state and transition tests;
+  reuse provider-boundary semantics, but keep the first implementation
+  provider-independent.
+- **UI input adapter:** constrained candidate schema, capability validator, and
+  structured rejection diagnostics.
+- **Dry-run model:** patch/model comparison and generated-tree invariants; it
+  must not become a second production DOM implementation.
+- **JSX session adapter:** candidate-to-session wiring and the existing commit,
+  recovery, registry, and revision contract.
+- **Web example:** replay controls, generation status, and the JSON/CSV
+  vertical-slice surface. It does not own revision or commit policy.
+- **Host interaction state:** trusted data bindings, filter values, selection,
+  and allowlisted aggregation parameters remain host-owned. The candidate may
+  reference these capabilities declaratively but cannot execute code or own
+  their mutable state.
+
+The first implementation should prefer existing project APIs in each owner
+package. Any new public type or helper must state its responsibility boundary
+and have a focused test before callers are migrated.
+
+## Desired State
+
+The vertical slice has this observable pipeline:
+
+```text
+replayable chunk source
+  → request lifecycle
+  → candidate assembly
+  → syntax/schema/capability validation
+  → base-revision check
+  → internal dry-run against a fake DOM/model
+  → session-owned DOM commit
+```
+
+The LLM/provider is replaceable and not trusted. Only a validated candidate
+whose base revision is current and whose dry-run succeeds may advance the
+committed session revision.
+
+### Input envelope
+
+Each input event carries, at minimum:
+
+```text
+generation_id
+base_revision
+sequence
+payload
+kind = chunk | final | cancel
+```
+
+The request lifecycle owns ordering, duplicate handling, missing-sequence
+policy, finalization, cancellation, stale-generation rejection, and
+terminal-state idempotency. A late or cancelled generation cannot overwrite a
+newer committed generation.
+
+### Phase 0 transition contract
+
+The following transitions are fixed before implementation begins:
+
+| Current state | Event | Next state | Required effect |
+| --- | --- | --- | --- |
+| `Idle` | `Start(base_revision)` | `Receiving` | allocate generation identity |
+| `Receiving` | next expected `Chunk` | `Receiving` | append exactly once |
+| `Receiving` | duplicate `Chunk` | `Receiving` | no state or candidate change |
+| `Receiving` | gap `Chunk` | `Receiving` or `Rejected` | follow the explicit gap policy |
+| `Receiving` | `Final` | `Validating` | freeze input; reject later chunks |
+| `Receiving` | `Cancel` | `Cancelled` | invalidate generation |
+| `Validating` | `Cancel` | `Cancelled` | invalidate before dry-run |
+| `Validating` | valid candidate | `DryRunning` | check base revision |
+| `Validating` | invalid/stale candidate | `Rejected` | preserve committed UI |
+| `DryRunning` | `Cancel` | `Cancelled` | invalidate before applying |
+| `DryRunning` | success | `Applying` | no committed revision change yet |
+| `DryRunning` | failure | `Rejected` | preserve or repair per session contract |
+| `Applying` | `Cancel` | `Applying` | cancellation is too late; linearize apply |
+| `Applying` | DOM/session success | `Committed` | advance revision once |
+| `Applying` | DOM/session failure | `Failed` | candidate remains uncommitted |
+| terminal state | any late event | same terminal state | idempotent no-op or typed rejection |
+
+Phase 0 must also decide whether a missing sequence is buffered or rejected,
+whether `Final` is a separate event or a flagged chunk, and which terminal
+state wins when cancellation races with finalization. Cancellation is checked at
+each asynchronous boundary. Once DOM application begins, it is synchronous for
+the purpose of this contract: cancellation cannot interrupt or roll it back,
+and the apply result determines whether the candidate commits.
+
+### Candidate and capability boundary
+
+The first candidate language is a constrained JSX-like language or equivalent
+allowlisted UI program. It permits only declarative components needed by the
+vertical slice: table, column, filter, text, stack/panel, and summary. Data
+bindings are opaque host-owned references; filter fields/operators, selection
+keys, and summary aggregations come from allowlisted host capabilities.
+
+Validation rejects unknown components, invalid attributes, disallowed data
+access, raw HTML, navigation, URLs controlled by the model, arbitrary code or
+expressions, and any side-effecting action. The renderer receives only
+validated candidates.
+
+### Commit boundary
+
+Candidate state is not committed when parsing or validation succeeds. Commit
+requires successful dry-run and successful DOM application with consistent
+session state, registry, mounted IDs, and revision. If application fails, the
+existing session recovery/dirty-state contract applies: committed source and
+revision remain unchanged, the session is marked dirty, and the candidate is
+reported as uncommitted. V1 permits the DOM to be temporarily dirty after a
+partial failure; the next successful render must remount/repair the dirty root
+before committing a new candidate. Immediate rollback is a separate follow-up
+if the product requires it.
+
+## Steps
+
+1. **Phase 0 — contract:** define the request lifecycle and event envelope as
+   pure domain data. Resolve every transition-table policy and add deterministic
+   tests for start, chunk, duplicate, gap, final, cancel, stale, failed, and
+   resumed states.
+2. **Phase 1 — replay:** add a fixed-chunk replay source and fixtures for
+   complete, incomplete,
+   duplicated, out-of-order, late, cancelled, and resumed generations. Do not
+   call a network provider.
+3. **Phase 2 — candidate boundary:** define the constrained UI candidate schema
+   and validator. Keep the allowlist minimal, make rejection diagnostics
+   structured and replayable, and define the lowering from host-owned data
+   bindings and interaction state into the JSX session.
+4. **Phase 3 — dry-run and commit:** build the internal dry-run model. Compare
+   candidate projection results with
+   the expected model, including sibling order, text/element mixtures, nested
+   updates, and failed applications. Reuse the existing patch contract rather
+   than inventing a second DOM semantics.
+5. Connect validated replay candidates to the existing JSX session. Commit only
+   after dry-run and DOM success. On failure, preserve committed source and
+   revision, mark the session dirty, and verify that the next success repairs
+   the dirty root before commit.
+6. **Phase 4 — smallest vertical slice:** implement JSON fixture + table first,
+   then add one filter and selection preservation. Only after those pass, add
+   detail/summary and CSV input. Preserve filter and selection state where
+   structure permits.
+7. Add focused and property-based tests, then browser tests for streaming,
+   cancellation, late chunks, state preservation, and recovery.
+8. Measure update latency, candidate rejection/repair counts, state-loss
+   count, stale-chunk application count, and deterministic replay results.
+
+## Acceptance Criteria
+
+- [ ] **AC-01:** A complete replay produces the expected fixture table.
+- [ ] **AC-02:** A filter and selection update preserve supported user state.
+- [ ] **AC-03:** Incomplete or invalid candidates leave committed source and
+      revision unchanged; invalid candidates do not reach the renderer.
+- [ ] **AC-04:** A stale base revision is rejected without advancing the
+      session revision.
+- [ ] **AC-05:** Duplicate chunks are idempotent; out-of-order chunks follow a
+      defined
+      rejection or buffering policy.
+- [ ] **AC-06:** Cancellation invalidates generations before `Applying`; late
+      chunks cannot commit. Cancellation after `Applying` begins is too late
+      and the apply result linearizes.
+- [ ] **AC-07:** Resumption starts only from an explicitly selected committed
+      revision.
+- [ ] **AC-08:** Finalization is idempotent and terminal generations cannot
+      accept later
+      chunks.
+- [ ] **AC-09:** Dry-run validation completes before any candidate commit.
+- [ ] **AC-10:** DOM application failure preserves committed source and
+      revision, marks the session dirty, never reports the candidate committed,
+      and the next successful render repairs the dirty root before commit.
+- [ ] **AC-11:** The generated surface cannot perform network mutation,
+      persistence,
+      navigation, raw HTML insertion, or arbitrary code execution.
+- [ ] **AC-12:** Property tests cover removal-before-insertion, sibling indexes,
+      nested
+      updates, text/expression-span nodes, and session isolation.
+- [ ] **AC-13:** Host-owned data bindings, filter/selection state, and
+      allowlisted aggregations lower into the candidate without arbitrary
+      expressions or candidate-owned mutable state.
+- [ ] **AC-14:** Browser tests cover the same lifecycle against the real JSX
+      session.
+- [ ] **AC-15:** The results and measurements are recorded before deciding
+      whether to add
+      a live provider or freeze a renderer-neutral contract.
+
+Required zero-count safety metrics: stale chunk commits, cancelled-generation
+commits, state loss, falsely committed failed applies, and deterministic replay
+mismatches. Latency, rejection rate, repair count, and memory usage are
+recorded as measurements; this plan does not set performance targets yet.
+
+## Test Matrix
+
+| Acceptance criteria | Pure lifecycle/model | MoonBit package tests | Browser/E2E |
+| --- | --- | --- | --- |
+| AC-01–AC-02 | candidate/model fixtures | JSX session contract | JSON/CSV surface |
+| AC-03–AC-05 | transition + property tests | session recovery | failed/old render |
+| AC-06–AC-08 | cancellation/terminal tests | generation adapter | stop/resume UI |
+| AC-09–AC-11 | validator + dry-run tests | DOM error contract | real DOM commit |
+| AC-12–AC-13 | patch/model + binding properties | `ffi/jsx` tests | interaction cases |
+| AC-14–AC-15 | replay/measurement harness | package totals | browser report |
+
+## Exit Gates
+
+- **Gate 0:** transition table policies are decided and every transition has a
+  deterministic test.
+- **Gate 1:** fixed replay passes without network access, including duplicate,
+  stale, cancellation, and finalization cases.
+- **Gate 2:** invalid candidates cannot reach the renderer and AC-09–AC-11
+  pass.
+- **Gate 3:** JSON fixture + table + one filter pass AC-01–AC-10 in both model
+  and browser tests, and AC-13 confirms host-owned bindings.
+- **Gate 4:** full acceptance matrix and zero-count safety metrics pass. Only
+  then may a live provider or renderer-neutral contract be planned.
+
+## Validation
+
+During implementation, run the smallest affected checks after each change:
+
+```bash
+NEW_MOON_MOD=0 moon check ffi/jsx
+moon test ffi/jsx
+moon test core
+moon test lang/jsx/proj
+```
+
+Before the vertical slice is considered complete:
+
+```bash
+moon fmt
+moon info
+moon check
+moon test
+moon build --target js --release
+cd examples/web && npm run build
+```
+
+Run the relevant browser suite after the web server and built artifacts are
+available. Existing unrelated vendored-browser failures must remain separately
+identified rather than hidden by this plan.
+
+## Risks
+
+- A fake DOM model may accidentally diverge from real DOM behavior; retain
+  browser tests for the commit path.
+- The candidate allowlist may be too broad; begin with the smallest useful
+  component set.
+- Chunk buffering can create unbounded memory; enforce a generation size and
+  sequence limit.
+- Recovery may rebuild more UI than ideal; correctness precedes optimization.
+- Provider-specific concerns may leak into the lifecycle; keep the replay
+  source and provider boundary separate.
+- A successful demo may tempt premature semantic merge or multi-renderer
+  abstraction; require a second adapter and measured invariants first.
+
+## Notes
+
+- The first live provider should be added only after replay and browser tests
+  pass. Adapt `llm/` as a transport/provider implementation; do not make its
+  Gemini-specific `EditAction` contract the Generative UI domain model.
+- `moon prove` is a later option for pure request/reconciliation invariants. It
+  is not a prerequisite for proving the JavaScript/DOM boundary.
+- Related direction: `docs/architecture/generative-ui-direction.md`.
+- Related correctness work: [Issue #888](https://github.com/dowdiness/canopy/issues/888).

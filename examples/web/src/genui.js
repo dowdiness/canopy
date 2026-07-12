@@ -22,6 +22,8 @@ const statusBar = document.getElementById('status-bar')
 let isStreaming = false
 let abortStream = false
 let previousNodeIds = new Set()
+let jsxModule = null
+let jsxSessionHandle = null
 
 document.querySelectorAll('[data-example]').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -55,6 +57,10 @@ clearBtn.addEventListener('click', function() {
 });
 
 function resetState() {
+  if (jsxModule && jsxSessionHandle !== null) {
+    jsxModule.jsx_session_dispose(jsxSessionHandle)
+    jsxSessionHandle = null
+  }
   previousNodeIds = new Set();
   treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see the tree.</div>';
   htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see rendered output.</div>';
@@ -113,7 +119,7 @@ function collectNodeIds(root) {
   return ids;
 }
 
-// ── Streaming (MoonBit render via jsx_parse_and_render) ──
+// ── Streaming (MoonBit render via a stateful JSX FFI session) ──
 streamBtn.addEventListener('click', async function() {
   if (isStreaming) { abortStream = true; return; }
   const fullText = sourceInput.value;
@@ -137,18 +143,37 @@ streamBtn.addEventListener('click', async function() {
 
   try {
     const JsxMod = await import('@moonbit/crdt-jsx');
-    JsxMod.reset_jsx_state();
+    jsxModule = JsxMod;
+    if (jsxSessionHandle !== null) {
+      JsxMod.jsx_session_dispose(jsxSessionHandle);
+      jsxSessionHandle = null;
+    }
     statusBar.textContent = 'Streaming ' + prefixes.length + ' steps...';
-    let existingIds = '[]';
+    let finalIds = [];
     for (let si = 0; si < prefixes.length; si++) {
       if (abortStream) break;
       stepNum.textContent = (si + 1) + ' / ' + prefixes.length;
       htmlStepNum.textContent = (si + 1) + ' / ' + prefixes.length;
       streamProgress.innerHTML = '<span class="text-canopy-muted">Step ' + (si + 1) + ':</span> ' + esc(prefixes[si]);
       
-      // MoonBit: parse → reconcile → apply patches in one call
-      existingIds = JsxMod.jsx_parse_and_render(prefixes[si], existingIds);
-      const ids = JSON.parse(existingIds);
+      // The first call creates and renders the session. Later calls update
+      // exactly that session, so parser/projection/DOM ownership stays local.
+      let renderResult;
+      if (si === 0) {
+        const created = JSON.parse(JsxMod.jsx_session_new(prefixes[si], 'html-preview'));
+        if (!created.success || created.handle === null) {
+          throw new Error(created.result?.error?.message || 'JSX session creation failed');
+        }
+        jsxSessionHandle = Number(created.handle);
+        renderResult = created.result;
+      } else {
+        renderResult = JSON.parse(JsxMod.jsx_session_render(jsxSessionHandle, prefixes[si]));
+      }
+      if (!renderResult.success) {
+        throw new Error(renderResult.error?.message || 'JSX session render failed');
+      }
+      const ids = renderResult.mounted_ids;
+      finalIds = ids;
       htmlNodeCount.textContent = ids.length;
       
       // Tree view from batch parse
@@ -175,7 +200,6 @@ streamBtn.addEventListener('click', async function() {
       await new Promise(function(r) { setTimeout(r, si < 5 ? 60 : 100); });
     }
     statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted';
-    const finalIds = JSON.parse(existingIds);
     statusBar.textContent = abortStream ? 'Stopped.' : 'Complete \u2014 ' + finalIds.length + ' DOM nodes rendered.';
   } catch (err) {
     console.error(err);
