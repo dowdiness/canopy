@@ -15,7 +15,7 @@ The existing architecture is a good fit:
 ```text
 source / semantic UI program
   → incremental parse and projection
-  → stable view identity
+  → session-scoped identity preservation
   → patch adapter
   → UI surface
 ```
@@ -29,12 +29,14 @@ artifact.
 
 The differentiator is therefore not that a model can write JSX. It is that a
 model can safely edit a structured UI while preserving user state and making
-the change inspectable, reversible, and eventually mergeable.
+the change inspectable and reversible. Semantic merging is a later capability,
+not a V1 guarantee.
 
-For V1, "mergeable" is limited to sequential or single-writer edits. Canopy
-does not yet define how concurrent semantic UI edits map to projection identity,
-conflict resolution, or user-visible state. The CRDT source-edit path and the
-future semantic-edit path must not be treated as having the same guarantees.
+For V1, supported edits are limited to sequential or single-writer edits.
+Canopy does not yet define how concurrent semantic UI edits map to projection
+identity, conflict resolution, or user-visible state. The CRDT source-edit path
+and the future semantic-edit path must not be treated as having the same
+guarantees.
 
 ## Direction
 
@@ -97,10 +99,11 @@ needed, require approval before effects occur.
 1. Finish V1 correctness gates: CI, browser validation, and property-based
    coverage for patch ordering, sibling indexes, nested updates, disposal,
    isolation, and failed-apply recovery. See issue #888.
-2. Demonstrate one read-only or sandboxed end-to-end use case: an AI-assisted
-   data-exploration or adaptive-form surface that preserves user state. Place a
-   minimal component, action, and data capability boundary before exposing any
-   side effect.
+2. Demonstrate one read-only end-to-end use case: an AI-assisted JSON/CSV data
+   exploration surface that incrementally produces a table, filters, and a
+   detail/summary panel while preserving user state. Keep generated actions
+   side-effect-free and place the minimal component, action, and data
+   capability boundary before expanding the scope.
 3. Extract the patch, identity, state-preservation, and capability invariants
    from that use case, then define the renderer-neutral conformance suite.
 4. Add semantic edits, preview/undo, and auditability. Define concurrent
@@ -108,6 +111,34 @@ needed, require approval before effects occur.
    supported guarantee.
 5. Validate the shared contract with a second materially different adapter,
    then generalize from JSX to multiple projections.
+
+## First vertical-slice acceptance criteria
+
+The first Generative UI prototype is successful only if it demonstrates all of
+the following:
+
+- Existing input, filter, and selection state survives incremental generation
+  whenever the structure permits.
+- Incomplete or invalid generated input does not destroy the last valid UI.
+- Reapplying the same update produces the same modeled UI result.
+- A failed patch application leaves the committed revision and DOM unchanged.
+- The generated surface is read-only: no network mutation, persistence, or
+  other external side effect is reachable through generated controls.
+- The prototype records enough patch/revision information to inspect what the
+  model changed and to measure update latency.
+
+The prototype should be treated as a sequential or single-writer experiment.
+It does not claim concurrent semantic merging, cross-session identity, or a
+renderer-neutral contract.
+
+## Explicitly deferred
+
+- Concurrent semantic-edit conflict resolution.
+- Persistent or cross-session view identity.
+- General-purpose renderer-neutral APIs.
+- Additional language projections beyond the first validated use case.
+- Formal proof of the JavaScript/DOM boundary; prove pure reconciliation
+  invariants only after they are isolated from the adapter.
 
 ## Non-goals
 
