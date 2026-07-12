@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy/ffi/jsx"
 
+import {
+  "dowdiness/cognition",
+}
+
 // Values
 pub fn apply_patches(String) -> String
 
@@ -9,6 +13,8 @@ pub fn clear_registry() -> Unit
 pub fn jsx_parse_and_render(String, String) -> String
 
 pub fn jsx_parse_to_json(String) -> String
+
+pub fn jsx_session_commit_candidate(Int, @cognition.GenerativeUiRevision, @cognition.GenerativeUiCandidate) -> String
 
 pub fn jsx_session_dispose(Int) -> Unit
 

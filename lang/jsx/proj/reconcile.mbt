@@ -32,7 +32,9 @@ pub(all) enum DomPatch {
 
 ///|
 /// Walk `root`, compare against previously-known NodeIds, produce patches.
-/// Returns `(patches, updated_ids)` for the next reconcile call.
+/// Returns `(patches, mounted_ids)` for the next reconcile call. The returned
+/// IDs correspond only to nodes with DOM patches; root, fragment, and error
+/// projection nodes are not mounted DOM nodes.
 pub fn reconcile(
   root : @core.ProjNode[@jsx.JsxNode],
   existing : Array[Int],
@@ -77,22 +79,26 @@ fn walk(
     _ => ()
   }
   let id = node.node_id
-  reached.push(id)
   let is_new = !in_set(id, existing)
   match node.kind {
-    @jsx.JsxNode::Text(s) =>
+    @jsx.JsxNode::Text(s) => {
+      reached.push(id)
       if is_new {
         patches.push(DomPatch::MakeText(parent_id, id, s, idx))
       } else {
         patches.push(DomPatch::SetText(id, s))
       }
-    @jsx.JsxNode::ExprSpan(raw~) =>
+    }
+    @jsx.JsxNode::ExprSpan(raw~) => {
+      reached.push(id)
       if is_new {
         patches.push(DomPatch::MakeExprSpan(parent_id, id, raw, idx))
       } else {
         patches.push(DomPatch::SetExpr(id, raw))
       }
+    }
     @jsx.JsxNode::Element(tag~, attrs~, ..) => {
+      reached.push(id)
       if is_new {
         patches.push(DomPatch::MakeElement(parent_id, id, tag, attrs, idx))
       } else {
