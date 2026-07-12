@@ -94,6 +94,15 @@ fn apply_patches_unchecked(
   let patches_arr : @js.Any = @js.parse(patches_json)
   let len : Int = patches_arr.get("length").cast()
   let ids : Array[Int] = []
+  // Release first so projected insertion indexes are evaluated against the
+  // post-removal sibling list.
+  for i in 0..<len {
+    let patch = patches_arr.at(i)
+    if patch.get("$tag").to_str() == "Release" {
+      let node_id : Int = patch.get("_0").at(0).cast()
+      release_element(registry, node_id)
+    }
+  }
   for i in 0..<len {
     let patch = patches_arr.at(i)
     let tag : String = patch.get("$tag").to_str()
@@ -194,14 +203,9 @@ fn apply_patches_unchecked(
         apply_attrs(el, attrs)
         ids.push(node_id)
       }
-      "Release" => {
-        let node_id : Int = args.at(0).cast()
-        let el = retrieve_element(registry, node_id)
-        if !el.is_nullish() {
-          ignore(el.call("remove", []))
-          forget_element(registry, node_id)
-        }
-      }
+      "Release" =>
+        // Releases are applied in the pass above, before insertions.
+        ()
       _ => ()
     }
   }
@@ -240,6 +244,15 @@ fn retrieve_element(registry : @js.Any, node_id : Int) -> @js.Any {
 ///|
 fn forget_element(registry : @js.Any, node_id : Int) -> Unit {
   let _ = registry.call("delete", [@js.any(node_id)])
+}
+
+///|
+fn release_element(registry : @js.Any, node_id : Int) -> Unit {
+  let el = retrieve_element(registry, node_id)
+  if !el.is_nullish() {
+    ignore(el.call("remove", []))
+    forget_element(registry, node_id)
+  }
 }
 
 ///|

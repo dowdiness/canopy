@@ -223,6 +223,23 @@ test "DOM adapter honors sibling indexes for inserted children" {
 }
 
 ///|
+test "DOM adapter releases removed siblings before inserting replacements" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new(
+      "<div><span>a</span><span>b</span><span>c</span></div>", "session-root-a",
+    ),
+  )
+  let handle = session_test_handle(created)
+  let updated = @js.parse(
+    jsx_session_render(handle, "<div><span>b</span><span>c</span>{e}</div>"),
+  )
+  assert_true(updated.get("success").cast())
+  assert_eq(session_test_nested_texts("session-root-a"), "b|c|{e}")
+  jsx_session_dispose(handle)
+}
+
+///|
 test "DOM failure keeps the committed revision and next success repairs dirty state" {
   install_session_test_document()
   let created = @js.parse(jsx_session_new("<div>one</div>", "session-root-a"))
