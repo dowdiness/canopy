@@ -77,6 +77,47 @@ declarative component model with no model-controlled network access, raw HTML,
 navigation, or arbitrary code/expression execution. Structural edits should be
 auditable and, where needed, require approval before effects occur.
 
+### LLM input boundary
+
+An LLM is an untrusted, asynchronous candidate generator, not the source of
+truth for UI state. Its output must never mutate the committed UI directly.
+The input path is:
+
+```text
+LLM/provider
+  → untrusted candidate
+  → syntax and schema validation
+  → capability validation
+  → base-revision check
+  → candidate projection and preview
+  → committed UI update
+```
+
+The provider transport, request lifecycle, UI-program validation, and renderer
+must remain separate responsibilities. Provider-specific code may fetch and
+decode model responses, but it must not own UI identity, DOM state, or commit
+policy. The request lifecycle owns request identity, observed revision,
+cancellation, stale-completion rejection, and typed failure classification.
+The UI input adapter owns the constrained UI-program schema and candidate
+validation. The renderer only applies validated candidates.
+
+The first implementation should use a replayable fixed-chunk source before
+connecting a live model. This makes incomplete output, duplicate chunks,
+revision conflicts, cancellation, late responses, and deterministic replay
+testable without depending on model behavior.
+
+The output representation should evolve in stages:
+
+1. constrained JSX-like source;
+2. semantic edits such as adding a table or filter;
+3. a renderer-neutral semantic UI program, only after a real use case and a
+   second adapter establish the shared invariants.
+
+Every candidate is evaluated against an explicit base revision. Cancelled or
+stale candidates are rejected, and only a validated candidate can advance the
+committed revision. This boundary is more important than any particular model
+provider or transport API.
+
 ## High-value applications
 
 - Adaptive data-exploration workspaces that add filters, charts, and detail
