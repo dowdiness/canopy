@@ -116,6 +116,97 @@ pub(all) struct Dependency {
   input : CognitionKey
 } derive(Eq, @debug.Debug)
 
+pub(all) enum GenerativeUiEvent {
+  Start(base_revision~ : GenerativeUiRevision)
+  Input(GenerativeUiInput)
+  CandidateValid(generation_id~ : GenerativeUiGenerationId, current_revision~ : GenerativeUiRevision)
+  CandidateInvalid(generation_id~ : GenerativeUiGenerationId, message~ : String)
+  DryRunSucceeded(generation_id~ : GenerativeUiGenerationId)
+  DryRunFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
+  ApplySucceeded(generation_id~ : GenerativeUiGenerationId, revision~ : GenerativeUiRevision)
+  ApplyFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiGenerationId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiGenerationId::to_int(Self) -> Int
+
+pub(all) enum GenerativeUiIgnoreReason {
+  StaleGeneration
+  TerminalState
+  EventNotAcceptedInPhase
+  CancellationTooLate
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiInput {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiInput::cancel(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
+pub fn GenerativeUiInput::chunk(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int, payload~ : String) -> Self
+pub fn GenerativeUiInput::finalize(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
+
+pub(all) enum GenerativeUiInputKind {
+  Chunk
+  Final
+  Cancel
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiLifecycle {
+  // private fields
+}
+pub fn GenerativeUiLifecycle::base_revision(Self) -> GenerativeUiRevision?
+pub fn GenerativeUiLifecycle::candidate_source(Self) -> String
+pub fn GenerativeUiLifecycle::committed_revision(Self) -> GenerativeUiRevision?
+pub fn GenerativeUiLifecycle::dispatch(Self, GenerativeUiEvent) -> GenerativeUiTransition
+pub fn GenerativeUiLifecycle::generation_id(Self) -> GenerativeUiGenerationId?
+pub fn GenerativeUiLifecycle::new() -> Self
+pub fn GenerativeUiLifecycle::next_sequence(Self) -> Int
+pub fn GenerativeUiLifecycle::phase(Self) -> GenerativeUiPhase
+pub fn GenerativeUiLifecycle::rejection(Self) -> GenerativeUiRejection?
+pub fn GenerativeUiLifecycle::restart(Self, GenerativeUiRevision) -> GenerativeUiTransition
+
+pub(all) enum GenerativeUiPhase {
+  Idle
+  Receiving
+  Validating
+  DryRunning
+  Applying
+  Committed
+  Rejected
+  Cancelled
+  Failed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum GenerativeUiRejection {
+  InvalidSequence(sequence~ : Int)
+  SequenceGap(expected~ : Int, received~ : Int)
+  ConflictingDuplicate(sequence~ : Int)
+  UnexpectedFinalPayload
+  BaseRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
+  InvalidCandidate(message~ : String)
+  DryRunFailed(message~ : String)
+  ApplyFailed(message~ : String)
+  ApplyRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiRevision(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiRevision::new(Int) -> Self
+pub fn GenerativeUiRevision::to_int(Self) -> Int
+
+pub(all) enum GenerativeUiTransition {
+  Started(generation_id~ : GenerativeUiGenerationId)
+  ChunkAccepted(sequence~ : Int)
+  DuplicateChunk(sequence~ : Int)
+  Finalized
+  ValidationStarted
+  DryRunStarted
+  ApplyStarted
+  Committed(revision~ : GenerativeUiRevision)
+  Cancelled
+  Rejected(reason~ : GenerativeUiRejection)
+  Failed(reason~ : GenerativeUiRejection)
+  Ignored(reason~ : GenerativeUiIgnoreReason)
+} derive(Eq, @debug.Debug)
+
 pub struct ProviderDependencyFingerprint(String) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn ProviderDependencyFingerprint::new(String) -> Self
 pub fn ProviderDependencyFingerprint::to_string(Self) -> String
