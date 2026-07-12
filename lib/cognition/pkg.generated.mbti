@@ -116,6 +116,63 @@ pub(all) struct Dependency {
   input : CognitionKey
 } derive(Eq, @debug.Debug)
 
+pub(all) enum GenerativeUiAggregation {
+  Count
+  Sum
+  Average
+  Minimum
+  Maximum
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub struct GenerativeUiBindingCapabilities {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(name~ : String, fields~ : Array[String], selection_keys~ : Array[String]) -> Self
+
+pub struct GenerativeUiCandidate {
+  // private fields
+}
+pub fn GenerativeUiCandidate::root(Self) -> GenerativeUiCandidateNode
+pub fn GenerativeUiCandidate::validate(raw~ : GenerativeUiRawNode, capabilities~ : GenerativeUiHostCapabilities) -> Result[Self, Array[GenerativeUiDiagnostic]]
+
+type GenerativeUiCandidateContext derive(Eq)
+
+pub(all) enum GenerativeUiCandidateNode {
+  Stack(children~ : Array[GenerativeUiCandidateNode])
+  Panel(children~ : Array[GenerativeUiCandidateNode])
+  Table(binding~ : GenerativeUiDataBinding, selection_key~ : GenerativeUiSelectionKey?, children~ : Array[GenerativeUiCandidateNode])
+  Column(field~ : GenerativeUiField, label~ : String?)
+  Filter(field~ : GenerativeUiField, operator~ : GenerativeUiFilterOperator)
+  Text(value~ : String)
+  Summary(field~ : GenerativeUiField, aggregation~ : GenerativeUiAggregation)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiDataBinding(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiDataBinding::to_string(Self) -> String
+
+pub struct GenerativeUiDiagnostic {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiDiagnostic::detail(Self) -> String
+pub fn GenerativeUiDiagnostic::kind(Self) -> GenerativeUiDiagnosticKind
+pub fn GenerativeUiDiagnostic::path(Self) -> String
+
+pub(all) enum GenerativeUiDiagnosticKind {
+  UnknownComponent
+  UnknownAttribute
+  MissingAttribute
+  InvalidAttributeValue
+  DisallowedBinding
+  DisallowedSelectionKey
+  DisallowedFilterOperator
+  DisallowedAggregation
+  RawHtml
+  ArbitraryExpression
+  InvalidChild
+  UnexpectedChildren
+  LimitExceeded
+} derive(Compare, Eq, Hash, @debug.Debug)
+
 pub(all) enum GenerativeUiEvent {
   Start(base_revision~ : GenerativeUiRevision)
   Input(GenerativeUiInput)
@@ -127,8 +184,24 @@ pub(all) enum GenerativeUiEvent {
   ApplyFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
 } derive(Eq, @debug.Debug)
 
+pub struct GenerativeUiField(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiField::to_string(Self) -> String
+
+pub(all) enum GenerativeUiFilterOperator {
+  Equal
+  NotEqual
+  Contains
+  GreaterThan
+  LessThan
+} derive(Compare, Eq, Hash, @debug.Debug)
+
 pub struct GenerativeUiGenerationId(Int) derive(Compare, Eq, Hash, @debug.Debug)
 pub fn GenerativeUiGenerationId::to_int(Self) -> Int
+
+pub struct GenerativeUiHostCapabilities {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(bindings~ : Array[GenerativeUiBindingCapabilities], filter_operators~ : Array[GenerativeUiFilterOperator], aggregations~ : Array[GenerativeUiAggregation]) -> Self
 
 pub(all) enum GenerativeUiIgnoreReason {
   StaleGeneration
@@ -176,6 +249,18 @@ pub(all) enum GenerativeUiPhase {
   Failed
 } derive(Eq, @debug.Debug)
 
+pub struct GenerativeUiRawAttribute {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(name~ : String, value~ : String) -> Self
+
+pub(all) enum GenerativeUiRawNode {
+  Component(name~ : String, attributes~ : Array[GenerativeUiRawAttribute], children~ : Array[GenerativeUiRawNode])
+  Text(value~ : String)
+  RawHtml(value~ : String)
+  Expression(value~ : String)
+} derive(Eq, @debug.Debug)
+
 pub(all) enum GenerativeUiRejection {
   InvalidSequence(sequence~ : Int)
   SequenceGap(expected~ : Int, received~ : Int)
@@ -201,6 +286,9 @@ pub struct GenerativeUiRevision {
 } derive(Compare, Eq, Hash, @debug.Debug)
 pub fn GenerativeUiRevision::GenerativeUiRevision(Int) -> Self
 pub fn GenerativeUiRevision::to_int(Self) -> Int
+
+pub struct GenerativeUiSelectionKey(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiSelectionKey::to_string(Self) -> String
 
 pub(all) enum GenerativeUiTransition {
   Started(generation_id~ : GenerativeUiGenerationId)

@@ -188,6 +188,36 @@ fit the data shape. Use `NEW_MOON_MOD=0 moon ide doc`, `peek-def`,
 
 Run `moon check` after edits and `moon test` for affected packages.
 
+### Functional Core / Imperative Shell
+
+The canonical cross-project rule is maintained in `~/.codex/AGENTS.md` and
+`~/.pi/agent/AGENTS.md`; the Canopy-specific interpretation is documented
+below.
+
+Use [Functional Core, Imperative Shell](https://github.com/kbilsted/Functional-core-imperative-shell) as the default architecture for stateful and integration-heavy work.
+
+- **Functional core:** keep domain transformations, validation, lowering, and
+  state-transition decisions deterministic. Pass inputs and capabilities
+  explicitly; return values, next state, commands, or structured diagnostics.
+  The core must not read or write the DOM, filesystem, network, clock, random
+  sources, provider clients, or mutable session/store state.
+- **Imperative shell:** own I/O, scheduling, cancellation, replay cursors,
+  lifecycle mutation, provider adapters, DOM/session adapters, and persistence.
+  Keep the shell thin: translate effects into core inputs, then execute the
+  core's returned decisions.
+- For state machines, prefer a reducer-shaped boundary such as
+  `State + Event -> (State, Decision)`. A mutable MoonBit façade is acceptable
+  only when it remains a shell around deterministic transition logic.
+- Do not expose internal mutable `Array` values from validated core results.
+  Return immutable views where possible, or defensive copies when an adapter
+  requires an owning array.
+- Local mutation used only to build a returned value is permitted in a pure
+  function, but it must have no observable external effect and still follow
+  the mutation-justification rule above.
+- Test the functional core with deterministic unit/property tests. Keep shell
+  tests focused on effect wiring, integration boundaries, and a small number
+  of end-to-end cases.
+
 ## Architecture Conventions
 
 - When adding shared content, use symlinks or references to a single source of truth. Never embed copies of shared files — flag the duplication problem first.
