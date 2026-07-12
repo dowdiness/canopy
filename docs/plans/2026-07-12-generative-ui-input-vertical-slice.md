@@ -66,6 +66,10 @@ Out:
   recovery, registry, and revision contract.
 - **Web example:** replay controls, generation status, and the JSON/CSV
   vertical-slice surface. It does not own revision or commit policy.
+- **Host interaction state:** trusted data bindings, filter values, selection,
+  and allowlisted aggregation parameters remain host-owned. The candidate may
+  reference these capabilities declaratively but cannot execute code or own
+  their mutable state.
 
 The first implementation should prefer existing project APIs in each owner
 package. Any new public type or helper must state its responsibility boundary
@@ -118,23 +122,31 @@ The following transitions are fixed before implementation begins:
 | `Receiving` | gap `Chunk` | `Receiving` or `Rejected` | follow the explicit gap policy |
 | `Receiving` | `Final` | `Validating` | freeze input; reject later chunks |
 | `Receiving` | `Cancel` | `Cancelled` | invalidate generation |
+| `Validating` | `Cancel` | `Cancelled` | invalidate before dry-run |
 | `Validating` | valid candidate | `DryRunning` | check base revision |
 | `Validating` | invalid/stale candidate | `Rejected` | preserve committed UI |
+| `DryRunning` | `Cancel` | `Cancelled` | invalidate before applying |
 | `DryRunning` | success | `Applying` | no committed revision change yet |
 | `DryRunning` | failure | `Rejected` | preserve or repair per session contract |
+| `Applying` | `Cancel` | `Applying` | cancellation is too late; linearize apply |
 | `Applying` | DOM/session success | `Committed` | advance revision once |
 | `Applying` | DOM/session failure | `Failed` | candidate remains uncommitted |
 | terminal state | any late event | same terminal state | idempotent no-op or typed rejection |
 
 Phase 0 must also decide whether a missing sequence is buffered or rejected,
 whether `Final` is a separate event or a flagged chunk, and which terminal
-state wins when cancellation races with finalization.
+state wins when cancellation races with finalization. Cancellation is checked at
+each asynchronous boundary. Once DOM application begins, it is synchronous for
+the purpose of this contract: cancellation cannot interrupt or roll it back,
+and the apply result determines whether the candidate commits.
 
 ### Candidate and capability boundary
 
 The first candidate language is a constrained JSX-like language or equivalent
 allowlisted UI program. It permits only declarative components needed by the
-vertical slice: table, column, filter, text, stack/panel, and summary.
+vertical slice: table, column, filter, text, stack/panel, and summary. Data
+bindings are opaque host-owned references; filter fields/operators, selection
+keys, and summary aggregations come from allowlisted host capabilities.
 
 Validation rejects unknown components, invalid attributes, disallowed data
 access, raw HTML, navigation, URLs controlled by the model, arbitrary code or
@@ -146,8 +158,12 @@ validated candidates.
 Candidate state is not committed when parsing or validation succeeds. Commit
 requires successful dry-run and successful DOM application with consistent
 session state, registry, mounted IDs, and revision. If application fails, the
-existing session recovery/dirty-state contract applies and the candidate is
-reported as uncommitted.
+existing session recovery/dirty-state contract applies: committed source and
+revision remain unchanged, the session is marked dirty, and the candidate is
+reported as uncommitted. V1 permits the DOM to be temporarily dirty after a
+partial failure; the next successful render must remount/repair the dirty root
+before committing a new candidate. Immediate rollback is a separate follow-up
+if the product requires it.
 
 ## Steps
 
@@ -160,16 +176,18 @@ reported as uncommitted.
    duplicated, out-of-order, late, cancelled, and resumed generations. Do not
    call a network provider.
 3. **Phase 2 — candidate boundary:** define the constrained UI candidate schema
-   and validator. Keep the
-   allowlist minimal and make rejection diagnostics structured and replayable.
+   and validator. Keep the allowlist minimal, make rejection diagnostics
+   structured and replayable, and define the lowering from host-owned data
+   bindings and interaction state into the JSX session.
 4. **Phase 3 — dry-run and commit:** build the internal dry-run model. Compare
    candidate projection results with
    the expected model, including sibling order, text/element mixtures, nested
    updates, and failed applications. Reuse the existing patch contract rather
    than inventing a second DOM semantics.
 5. Connect validated replay candidates to the existing JSX session. Commit only
-   after dry-run and DOM success; preserve the last committed UI on rejection
-   or failure.
+   after dry-run and DOM success. On failure, preserve committed source and
+   revision, mark the session dirty, and verify that the next success repairs
+   the dirty root before commit.
 6. **Phase 4 — smallest vertical slice:** implement JSON fixture + table first,
    then add one filter and selection preservation. Only after those pass, add
    detail/summary and CSV input. Preserve filter and selection state where
@@ -183,33 +201,37 @@ reported as uncommitted.
 
 - [ ] **AC-01:** A complete replay produces the expected fixture table.
 - [ ] **AC-02:** A filter and selection update preserve supported user state.
-- [ ] **AC-03:** Incomplete or invalid candidates leave the last committed UI
-      intact.
+- [ ] **AC-03:** Incomplete or invalid candidates leave committed source and
+      revision unchanged; invalid candidates do not reach the renderer.
 - [ ] **AC-04:** A stale base revision is rejected without advancing the
       session revision.
 - [ ] **AC-05:** Duplicate chunks are idempotent; out-of-order chunks follow a
       defined
       rejection or buffering policy.
-- [ ] **AC-06:** Cancellation invalidates the generation; late chunks cannot
-      commit.
+- [ ] **AC-06:** Cancellation invalidates generations before `Applying`; late
+      chunks cannot commit. Cancellation after `Applying` begins is too late
+      and the apply result linearizes.
 - [ ] **AC-07:** Resumption starts only from an explicitly selected committed
       revision.
 - [ ] **AC-08:** Finalization is idempotent and terminal generations cannot
       accept later
       chunks.
 - [ ] **AC-09:** Dry-run validation completes before any candidate commit.
-- [ ] **AC-10:** DOM application failure follows session recovery/dirty-state
-      behavior and
-      never reports the rejected candidate as committed.
+- [ ] **AC-10:** DOM application failure preserves committed source and
+      revision, marks the session dirty, never reports the candidate committed,
+      and the next successful render repairs the dirty root before commit.
 - [ ] **AC-11:** The generated surface cannot perform network mutation,
       persistence,
       navigation, raw HTML insertion, or arbitrary code execution.
 - [ ] **AC-12:** Property tests cover removal-before-insertion, sibling indexes,
       nested
       updates, text/expression-span nodes, and session isolation.
-- [ ] **AC-13:** Browser tests cover the same lifecycle against the real JSX
+- [ ] **AC-13:** Host-owned data bindings, filter/selection state, and
+      allowlisted aggregations lower into the candidate without arbitrary
+      expressions or candidate-owned mutable state.
+- [ ] **AC-14:** Browser tests cover the same lifecycle against the real JSX
       session.
-- [ ] **AC-14:** The results and measurements are recorded before deciding
+- [ ] **AC-15:** The results and measurements are recorded before deciding
       whether to add
       a live provider or freeze a renderer-neutral contract.
 
@@ -226,8 +248,8 @@ recorded as measurements; this plan does not set performance targets yet.
 | AC-03–AC-05 | transition + property tests | session recovery | failed/old render |
 | AC-06–AC-08 | cancellation/terminal tests | generation adapter | stop/resume UI |
 | AC-09–AC-11 | validator + dry-run tests | DOM error contract | real DOM commit |
-| AC-12 | patch/model properties | `ffi/jsx` tests | selected lifecycle cases |
-| AC-13–AC-14 | replay/measurement harness | package totals | browser report |
+| AC-12–AC-13 | patch/model + binding properties | `ffi/jsx` tests | interaction cases |
+| AC-14–AC-15 | replay/measurement harness | package totals | browser report |
 
 ## Exit Gates
 
@@ -238,7 +260,7 @@ recorded as measurements; this plan does not set performance targets yet.
 - **Gate 2:** invalid candidates cannot reach the renderer and AC-09–AC-11
   pass.
 - **Gate 3:** JSON fixture + table + one filter pass AC-01–AC-10 in both model
-  and browser tests.
+  and browser tests, and AC-13 confirms host-owned bindings.
 - **Gate 4:** full acceptance matrix and zero-count safety metrics pass. Only
   then may a live provider or renderer-neutral contract be planned.
 
