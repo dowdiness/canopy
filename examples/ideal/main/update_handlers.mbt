@@ -141,27 +141,13 @@ fn handle_structural(
             }
             None => (None, new_model.outline_state)
           }
-          let highlight_set = match new_selected {
-            Some(s) =>
-              match parse_node_id(s) {
-                Some(nid) =>
-                  @scope.compute_highlight_set(nid, new_model.scope_map)
-                None => @immut/hashset.new()
-              }
-            None => @immut/hashset.new()
-          }
+          let selected = select_with_highlight(new_model, new_selected, true)
           let text = new_model.editor.get_text()
           let cmd = sync_after_local_model_change(new_model, text)
           Some(
             (
               cmd,
-              {
-                ..new_model,
-                selected_node: new_selected,
-                outline_state,
-                highlight_set,
-                nav_path: None,
-              },
+              { ..selected, outline_state },
             ),
           )
         }
@@ -177,21 +163,8 @@ fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
   match msg {
     OutlineNodeClicked(node_id) => {
       let cmd = select_editor_node_cmd(model, node_id)
-      let highlight_set = match parse_node_id(node_id) {
-        Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
-        None => @immut/hashset.new()
-      }
-      Some(
-        (
-          cmd,
-          {
-            ..model,
-            selected_node: Some(node_id),
-            highlight_set,
-            nav_path: None,
-          },
-        ),
-      )
+      let selected = select_with_highlight(model, Some(node_id), true)
+      Some((cmd, selected))
     }
     OutlineNavigate(node_id_str) => {
       let new_selected : String? = if node_id_str == "" {
@@ -218,20 +191,8 @@ fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
           ])
         None => none
       }
-      let highlight_set = match new_selected {
-        Some(s) =>
-          match parse_node_id(s) {
-            Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
-            None => @immut/hashset.new()
-          }
-        None => @immut/hashset.new()
-      }
-      Some(
-        (
-          cmd,
-          { ..model, selected_node: new_selected, outline_state, highlight_set },
-        ),
-      )
+      let selected = select_with_highlight(model, new_selected, false)
+      Some((cmd, { ..selected, outline_state }))
     }
     // Drag-and-drop
     OutlineDragStart(node_id) =>
@@ -374,19 +335,11 @@ fn handle_structure_mode(
       if node_id == "" {
         Some((none, model))
       } else {
-        let highlight_set = match parse_node_id(node_id) {
-          Some(nid) => @scope.compute_highlight_set(nid, model.scope_map)
-          None => @immut/hashset.new()
-        }
+        let selected = select_with_highlight(model, Some(node_id), true)
         Some(
           (
             none,
-            {
-              ..model,
-              selected_node: Some(node_id),
-              highlight_set,
-              nav_path: None,
-            },
+            selected,
           ),
         )
       }

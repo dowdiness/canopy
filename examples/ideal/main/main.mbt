@@ -245,20 +245,40 @@ fn refresh(model : Model) -> Model {
   js_perf_end("buildScopeMap")
   // Recompute highlight_set if a node is selected
   js_perf_begin("computeHighlightSet")
-  let highlight_set = match model.selected_node {
-    Some(nid_str) =>
-      match parse_node_id(nid_str) {
+  let highlight_set = highlight_set_for(model.selected_node, scope_map)
+  js_perf_end("computeHighlightSet")
+  js_perf_end("refreshTotal")
+  { ..model, outline_state, scope_map, highlight_set }
+}
+///|
+fn highlight_set_for(
+  node_id : String?,
+  scope_map : Map[@canopy_core.NodeId, @scope.ScopeAnnotation],
+) -> @immut/hashset.HashSet[@canopy_core.NodeId] {
+  match node_id {
+    Some(value) =>
+      match parse_node_id(value) {
         Some(nid) => @scope.compute_highlight_set(nid, scope_map)
         None => @immut/hashset.new()
       }
     None => @immut/hashset.new()
   }
-  js_perf_end("computeHighlightSet")
-  js_perf_end("refreshTotal")
-  { ..model, outline_state, scope_map, highlight_set }
 }
 
 ///|
+fn select_with_highlight(
+  model : Model,
+  selected_node : String?,
+  reset_nav : Bool,
+) -> Model {
+  let highlight_set = highlight_set_for(selected_node, model.scope_map)
+  if reset_nav {
+    { ..model, selected_node, highlight_set, nav_path: None }
+  } else {
+    { ..model, selected_node, highlight_set }
+  }
+}
+
 let examples : Array[(String, String)] = [
   ("Basics", "fn double(x : Int) {\n  x + x\n}\nlet result = double 5\nresult"),
   (

@@ -411,6 +411,16 @@ fn selected_test_model() -> (Model, String) raise {
   model.editor.move_cursor(range.start)
   (model, node_id_to_string(node_id))
 }
+///|
+test "select_with_highlight obeys its explicit reset_nav policy" {
+  let (model, node_id) = try! selected_test_model()
+  model.nav_path = Some([0])
+  let preserved = select_with_highlight(model, Some(node_id), false)
+  inspect(preserved.highlight_set.is_empty(), content="false")
+  inspect(preserved.nav_path, content="Some([0])")
+  let reset = select_with_highlight(model, Some(node_id), true)
+  inspect(reset.nav_path is None, content="true")
+}
 
 ///|
 test "selection characterization: refresh recomputes selected highlight" {
