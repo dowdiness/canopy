@@ -61,14 +61,15 @@ test timing.
 
 The browser run records zero counts for:
 
-- stale candidate commits;
+- stale-base candidate commits;
 - host state-loss events;
 - falsely committed failed DOM applies;
 - deterministic replay mismatches.
 
 The cognition test suite separately records cancelled-generation commits and
-late-generation acceptance as zero. Those values are not presented as browser
-measurements because the browser candidate API is synchronous whole-replay.
+stale/late-generation chunk or terminal-event acceptance as zero. Those values
+are not presented as browser measurements because the browser candidate API is
+synchronous whole-replay.
 
 Latency, rejection rate, repair count, and browser heap usage are reported from
 the attached measurement JSON. Unsupported heap measurements are recorded as

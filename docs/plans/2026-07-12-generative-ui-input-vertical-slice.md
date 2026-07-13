@@ -42,12 +42,18 @@ Out:
   results through `ffi/jsx/session.mbt`.
 - The Phase 3 DOM patch semantics and dry-run/DOM boundary are fixed in the
   [JSX DOM patch contract](../decisions/2026-07-13-jsx-dom-patch-contract.md).
-- DOM patch ordering and sibling-index correctness have a regression test in
-  `ffi/jsx/session_contract_wbtest.mbt`; broader property coverage is tracked
-  by [Issue #888](https://github.com/dowdiness/canopy/issues/888).
-- `examples/web/src/genui.js` already replays JSX prefixes through a stateful
-  session, but its source is a local fixed string and its stop behavior is not
-  yet a generation lifecycle contract.
+- DOM patch ordering, sibling-index correctness, and duplicate identity
+  preservation are covered by merged Canopy PR #892
+  (`core/reconcile_properties_wbtest.mbt`,
+  `lang/jsx/proj/reconcile_wbtest.mbt`, and
+  `lang/jsx/proj/patch_properties_wbtest.mbt`). Issue #888 is closed.
+- `examples/web/src/genui.js` now replays validated candidates through the
+  session-owned JSX boundary. Its DEV-only `window.__canopyGenUiTest` surface
+  is a thin browser-test call-through, not lifecycle or commit policy.
+- Browser evidence now covers invalid candidates, stale bases, DOM apply
+  failure, dirty-root repair, host-state preservation, and deterministic fresh
+  replay. Candidate replay remains synchronous whole-replay; cancellation and
+  late candidate chunks remain cognition-only evidence.
 - `llm/` is a Gemini-specific, whole-response text-edit client. It is not the
   UI candidate protocol and is intentionally not required for this phase.
 - `lib/cognition` contains provider-boundary concepts for request identity,
@@ -169,102 +175,130 @@ if the product requires it.
 
 ## Steps
 
-1. **Phase 0 — contract:** define the request lifecycle and event envelope as
-   pure domain data. Resolve every transition-table policy and add deterministic
-   tests for start, chunk, duplicate, gap, final, cancel, stale, failed, and
-   resumed states.
-2. **Phase 1 — replay:** add a fixed-chunk replay source and fixtures for
-   complete, incomplete,
-   duplicated, out-of-order, late, cancelled, and resumed generations. Do not
-   call a network provider.
-3. **Phase 2 — candidate boundary:** define the constrained UI candidate schema
-   and validator. Keep the allowlist minimal, make rejection diagnostics
-   structured and replayable, and define the lowering from host-owned data
-   bindings and interaction state into the JSX session.
-4. **Phase 3 — dry-run and commit:** build the internal dry-run model. Compare
-   candidate projection results with
-   the expected model, including sibling order, text/element mixtures, nested
-   updates, and failed applications. Reuse the existing patch contract rather
-   than inventing a second DOM semantics.
-5. Connect validated replay candidates to the existing JSX session. Commit only
-   after dry-run and DOM success. On failure, preserve committed source and
-   revision, mark the session dirty, and verify that the next success repairs
-   the dirty root before commit.
-6. **Phase 4 — smallest vertical slice:** implement JSON fixture + table first,
-   then add one filter and selection preservation. Only after those pass, add
-   detail/summary and CSV input. Preserve filter and selection state where
-   structure permits.
-7. Add focused and property-based tests, then browser tests for streaming,
-   cancellation, late chunks, state preservation, and recovery.
-8. Measure update latency, candidate rejection/repair counts, state-loss
-   count, stale-chunk application count, and deterministic replay results.
+1. **Phase 0–4 implementation:** completed by merged PR #890. This includes
+   the pure lifecycle, fixed replay source, candidate schema/validator,
+   candidate lowering, dry-run model, session commit/recovery contract, and
+   JSON/CSV data-exploration surface.
+2. **Patch-ordering correctness:** completed by merged PR #892. The generic
+   exact-key LCS reconstruction now preserves duplicate sibling identities;
+   focused core/JSX regressions and generated patch properties are landed.
+3. **Browser boundary evidence:** completed in
+   `examples/web/tests/genui.spec.ts` for invalid and stale candidates, DOM
+   apply failure, dirty-root repair, host-owned state preservation, and
+   deterministic fresh replay. No second lifecycle controller was added;
+   cancellation and late candidate chunks remain pure cognition coverage
+   because the exported candidate replay is synchronous.
+4. **Measurements:** completed with a fixed-count browser measurement test.
+   Raw latency samples, rejection counts/rate, repair count, state-loss count,
+   deterministic replay mismatches, and heap availability are recorded below.
 
 ## Acceptance Criteria
 
-- [ ] **AC-01:** A complete replay produces the expected fixture table.
-- [ ] **AC-02:** A filter and selection update preserve supported user state.
-- [ ] **AC-03:** Incomplete or invalid candidates leave committed source and
+- [x] **AC-01:** A complete replay produces the expected fixture table.
+      `examples/web/tests/genui.spec.ts` and the existing candidate browser
+      test cover the JSON fixture table.
+- [x] **AC-02:** A filter and selection update preserve supported user state.
+      The existing browser interaction tests cover filter, selection, detail,
+      and focus preservation.
+- [x] **AC-03:** Incomplete or invalid candidates leave committed source and
       revision unchanged; invalid candidates do not reach the renderer.
-- [ ] **AC-04:** A stale base revision is rejected without advancing the
-      session revision.
-- [ ] **AC-05:** Duplicate chunks are idempotent; out-of-order chunks follow a
-      defined
-      rejection or buffering policy.
-- [ ] **AC-06:** Cancellation invalidates generations before `Applying`; late
-      chunks cannot commit. Cancellation after `Applying` begins is too late
-      and the apply result linearizes.
-- [ ] **AC-07:** Resumption starts only from an explicitly selected committed
-      revision.
-- [ ] **AC-08:** Finalization is idempotent and terminal generations cannot
-      accept later
-      chunks.
-- [ ] **AC-09:** Dry-run validation completes before any candidate commit.
-- [ ] **AC-10:** DOM application failure preserves committed source and
+      `lib/cognition/generative_ui_test.mbt` and the browser invalid-candidate
+      test cover this boundary.
+- [x] **AC-04:** A stale base revision is rejected without advancing the
+      session revision. Covered by cognition/session tests and the browser
+      stale-base test.
+- [x] **AC-05:** Duplicate chunks are idempotent; out-of-order chunks follow a
+      defined rejection policy. Covered by
+      `lib/cognition/generative_ui_test.mbt` and replay tests.
+- [x] **AC-06:** Cancellation invalidates generations before `Applying`; late
+      chunks cannot commit, while cancellation after applying is too late.
+      Covered by deterministic cognition lifecycle tests. The browser candidate
+      API is synchronous and does not claim a browser interleaving test.
+- [x] **AC-07:** Resumption starts only from an explicitly selected committed
+      revision. Covered by the lifecycle tests.
+- [x] **AC-08:** Finalization is idempotent and terminal generations cannot
+      accept later chunks. Covered by the lifecycle tests.
+- [x] **AC-09:** Dry-run validation completes before any candidate commit.
+      Covered by `ffi/jsx/session_contract_wbtest.mbt` and lifecycle tests;
+      the browser suite verifies the subsequent real DOM boundary.
+- [x] **AC-10:** DOM application failure preserves committed source and
       revision, marks the session dirty, never reports the candidate committed,
-      and the next successful render repairs the dirty root before commit.
-- [ ] **AC-11:** The generated surface cannot perform network mutation,
-      persistence,
-      navigation, raw HTML insertion, or arbitrary code execution.
-- [ ] **AC-12:** Property tests cover removal-before-insertion, sibling indexes,
-      nested
-      updates, text/expression-span nodes, and session isolation.
-- [ ] **AC-13:** Host-owned data bindings, filter/selection state, and
+      and the next successful render repairs the dirty root. Covered by
+      `ffi/jsx/render_baseline_wbtest.mbt`, session tests, and the browser
+      failure/recovery test.
+- [x] **AC-11:** The generated surface cannot perform network mutation,
+      persistence, navigation, raw HTML insertion, or arbitrary code execution.
+      Covered by candidate validator/projection tests and the invalid browser
+      candidate test.
+- [ ] **AC-12:** Property tests cover removal-before-insertion, sibling
+      indexes, nested updates, text/expression-span nodes, and session
+      isolation. The generated patch property suite covers patch/model
+      equivalence and the known-positive corruption detector; fixed session
+      contract tests cover isolation, but a dedicated session-isolation
+      property is not yet present.
+- [x] **AC-13:** Host-owned data bindings, filter/selection state, and
       allowlisted aggregations lower into the candidate without arbitrary
-      expressions or candidate-owned mutable state.
+      expressions or candidate-owned mutable state. Covered by candidate,
+      projection, data-explorer, and browser state tests.
 - [ ] **AC-14:** Browser tests cover the same lifecycle against the real JSX
-      session.
-- [ ] **AC-15:** The results and measurements are recorded before deciding
-      whether to add
-      a live provider or freeze a renderer-neutral contract.
+      session. Browser coverage now proves invalid/stale rejection, DOM failure
+      and recovery, state preservation, and deterministic replay. Cancellation,
+      late candidate chunks, and internal dry-run failure remain cognition/
+      MoonBit evidence because the public candidate replay call is synchronous
+      and does not expose internal dry-run state.
+- [x] **AC-15:** Results and measurements are recorded before deciding whether
+      to add a live provider or freeze a renderer-neutral contract. See the
+      dated evidence and metric table below; the live-provider gate remains
+      closed while AC-14 is incomplete.
 
-Required zero-count safety metrics: stale chunk commits, cancelled-generation
-commits, state loss, falsely committed failed applies, and deterministic replay
-mismatches. Latency, rejection rate, repair count, and memory usage are
-recorded as measurements; this plan does not set performance targets yet.
+Required zero-count safety metrics are recorded separately by source:
+
+- cognition lifecycle: cancelled-generation commits `0`; stale/late-generation
+  chunk commits or terminal-event acceptances `0`; deterministic replay
+  mismatches `0` (covered by the cancellation, stale-generation, and terminal
+  event tests in `lib/cognition/generative_ui_test.mbt`);
+- browser session: stale-base candidate commits `0`; host state loss `0`;
+  falsely committed failed DOM applies `0`; deterministic fresh-replay
+  mismatches `0`.
+
+Browser measurement run (`npx playwright test tests/genui.spec.ts --grep
+"safety measurements"`, Chromium, 2026-07-13): five valid replay latency
+samples were `340.50, 1.80, 1.80, 1.60, 1.70 ms` (min `1.60`, median `1.80`,
+mean `69.48`, max `340.50`); three invalid and three stale-base candidates
+were rejected (`6/6`, rejection rate `1.0`); one forced DOM failure was
+followed by one successful repair; deterministic fresh-replay mismatch count
+was `0`; Chromium reported heap measurement available with `17,100,000` used
+and `20,500,000` total bytes in the captured sample. The attached raw JSON
+also contains matching before/after host-state snapshots and failed/repaired
+DOM result summaries; fixed denominators and every latency sample are retained.
 
 ## Test Matrix
 
 | Acceptance criteria | Pure lifecycle/model | MoonBit package tests | Browser/E2E |
 | --- | --- | --- | --- |
 | AC-01–AC-02 | candidate/model fixtures | JSX session contract | JSON/CSV surface |
-| AC-03–AC-05 | transition + property tests | session recovery | failed/old render |
-| AC-06–AC-08 | cancellation/terminal tests | generation adapter | stop/resume UI |
-| AC-09–AC-11 | validator + dry-run tests | DOM error contract | real DOM commit |
-| AC-12–AC-13 | patch/model + binding properties | `ffi/jsx` tests | interaction cases |
-| AC-14–AC-15 | replay/measurement harness | package totals | browser report |
+| AC-03–AC-05 | transition + property tests | session recovery | invalid/stale candidate tests |
+| AC-06–AC-08 | cancellation/terminal tests | generation adapter | cognition-only for candidate cancellation |
+| AC-09–AC-11 | validator + dry-run tests | DOM error contract | real DOM commit and apply-failure recovery |
+| AC-12–AC-13 | patch/model + binding properties | `ffi/jsx` tests | interaction/state-preservation cases |
+| AC-14–AC-15 | replay/measurement harness | package totals | partial lifecycle browser report + attached metrics |
 
 ## Exit Gates
 
-- **Gate 0:** transition table policies are decided and every transition has a
-  deterministic test.
-- **Gate 1:** fixed replay passes without network access, including duplicate,
-  stale, cancellation, and finalization cases.
-- **Gate 2:** invalid candidates cannot reach the renderer and AC-09–AC-11
-  pass.
-- **Gate 3:** JSON fixture + table + one filter pass AC-01–AC-10 in both model
-  and browser tests, and AC-13 confirms host-owned bindings.
-- **Gate 4:** full acceptance matrix and zero-count safety metrics pass. Only
-  then may a live provider or renderer-neutral contract be planned.
+- **Gate 0:** **passed** — transition policies and deterministic lifecycle
+  tests are landed in `lib/cognition`.
+- **Gate 1:** **passed** — fixed replay covers duplicate, stale, cancellation,
+  late, and finalization cases without network access.
+- **Gate 2:** **passed** — invalid candidates are rejected before lowering;
+  validator, dry-run, DOM error, and capability tests cover AC-09–AC-11.
+- **Gate 3:** **partially passed** — model and browser tests cover the JSON/CSV
+  surface, host state, candidate rejection, DOM failure, and recovery. Browser
+  cancellation/late-candidate interleaving and internal dry-run fault
+  injection are intentionally not claimed.
+- **Gate 4:** **not yet passed** — all recorded browser safety counts are zero,
+  but AC-14 remains open for the explicitly bounded browser lifecycle gap.
+  Do not add a live provider or renderer-neutral contract until that gate is
+  closed by an approved evidence decision.
 
 ## Validation
 
@@ -308,10 +342,12 @@ identified rather than hidden by this plan.
 
 ## Notes
 
-- The first live provider should be added only after replay and browser tests
-  pass. Adapt `llm/` as a transport/provider implementation; do not make its
+- The first live provider must remain deferred until the remaining browser
+  lifecycle evidence decision is closed and the recorded metrics are reviewed.
+  Adapt `llm/` only as a transport/provider implementation; do not make its
   Gemini-specific `EditAction` contract the Generative UI domain model.
 - `moon prove` is a later option for pure request/reconciliation invariants. It
   is not a prerequisite for proving the JavaScript/DOM boundary.
 - Related direction: `docs/architecture/generative-ui-direction.md`.
-- Related correctness work: [Issue #888](https://github.com/dowdiness/canopy/issues/888).
+- Related correctness work: merged PR #892, “fix(reconcile): preserve duplicate
+  sibling identities.”
