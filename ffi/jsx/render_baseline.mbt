@@ -1,5 +1,6 @@
 ///|
 /// The origin of a successful render and the kind currently being planned.
+#warnings("-unused_value")
 priv enum RenderKind {
   Source
   Candidate
@@ -61,6 +62,7 @@ fn RenderPlan::RenderPlan(
 }
 
 ///|
+#warnings("-unused_value")
 priv enum RenderOutcome {
   Success
   DryRunFail
