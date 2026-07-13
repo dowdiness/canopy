@@ -113,8 +113,8 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
   lang/jsx/proj `43/43`.
 - Scoped `moon fmt` and `moon info` passed with no generated interface drift.
 - `npm run build` passed.
-- Playwright GenUI suite passed: `14/14`; the measurement test retained
-  `genui-safety-metrics.json` with the values recorded in the vertical-slice
-  plan.
+- Playwright GenUI suite passed: `14/14`; the final measurement JSON is tracked
+  at `docs/plans/evidence/2026-07-13-generative-ui-safety-metrics.json` and
+  matches the values recorded in the vertical-slice plan.
 - The live-provider gate remains closed because AC-12 and AC-14 are still
   explicitly unchecked.
