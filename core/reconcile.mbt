@@ -281,8 +281,9 @@ fn[T] exact_fingerprint_map(
 /// Child reconciliation for `reconcile_with_exact_key`.
 ///
 /// This path intentionally has no structural-edit hints: the JSX projection
-/// uses it for ordinary streaming updates, while the default/hinted path above
-/// retains the framework's historical LCS tie-breaking contract.
+/// uses it for ordinary streaming updates. It computes the primary LCS
+/// optimum, then reconstructs from the front using the earliest feasible
+/// diagonal so duplicate siblings retain stable prefix identities.
 fn[T : TreeNode + Renderable] reconcile_children_exact(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
@@ -305,31 +306,39 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
       match_base_score
     }
   }
-  let dp = Array::makei(old_len + 1, _ => Array::make(new_len + 1, 0))
-  for i = 1; i <= old_len; i = i + 1 {
-    for j = 1; j <= new_len; j = j + 1 {
-      let diagonal = dp[i - 1][j - 1] + match_score(i - 1, j - 1)
-      dp[i][j] = @cmp.maximum(
-        @cmp.maximum(dp[i - 1][j], dp[i][j - 1]),
+  let suffix = Array::makei(old_len + 1, _ => Array::make(new_len + 1, 0))
+  let mut suffix_i = old_len
+  while suffix_i > 0 {
+    suffix_i -= 1
+    let mut suffix_j = new_len
+    while suffix_j > 0 {
+      suffix_j -= 1
+      let diagonal = suffix[suffix_i + 1][suffix_j + 1] +
+        match_score(suffix_i, suffix_j)
+      suffix[suffix_i][suffix_j] = @cmp.maximum(
+        @cmp.maximum(
+          suffix[suffix_i + 1][suffix_j],
+          suffix[suffix_i][suffix_j + 1],
+        ),
         diagonal,
       )
     }
   }
   let old_matched = Array::make(old_len, -1)
   let new_matched = Array::make(new_len, -1)
-  let mut i = old_len
-  let mut j = new_len
-  while i > 0 && j > 0 {
-    let score = match_score(i - 1, j - 1)
-    if score > 0 && dp[i][j] == dp[i - 1][j - 1] + score {
-      old_matched[i - 1] = j - 1
-      new_matched[j - 1] = i - 1
-      i = i - 1
-      j = j - 1
-    } else if dp[i - 1][j] >= dp[i][j - 1] {
-      i = i - 1
+  let mut oi = 0
+  let mut nj = 0
+  while oi < old_len && nj < new_len {
+    let score = match_score(oi, nj)
+    if score > 0 && score + suffix[oi + 1][nj + 1] == suffix[oi][nj] {
+      old_matched[oi] = nj
+      new_matched[nj] = oi
+      oi += 1
+      nj += 1
+    } else if suffix[oi][nj + 1] == suffix[oi][nj] {
+      nj += 1
     } else {
-      j = j - 1
+      oi += 1
     }
   }
   let result = [

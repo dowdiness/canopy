@@ -203,6 +203,44 @@ test "reconcile: append equal-kind sibling mounts only the tail" {
 }
 
 ///|
+/// Exact duplicate sibling keys preserve existing IDs positionally.
+test "reconcile: duplicate exact siblings preserve identity order" {
+  let (old_root, _) = parse_to_proj_node(
+    "<div><span>a</span><span>a</span></div>",
+  )
+  let old_div = old_root.children[0]
+  let (new_raw, _) = parse_to_proj_node(
+    "<div><span>a</span><span>a</span><span>a</span></div>",
+  )
+  let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
+  let new_div = new_root.children[0]
+  inspect(new_div.children[0].id() == old_div.children[0].id(), content="true")
+  inspect(new_div.children[1].id() == old_div.children[1].id(), content="true")
+  inspect(new_div.children[2].id() != old_div.children[0].id(), content="true")
+  inspect(new_div.children[2].id() != old_div.children[1].id(), content="true")
+  inspect(
+    @core.NodeId::op_ge(new_div.children[2].id(), @core.NodeId::from_int(1000)),
+    content="true",
+  )
+}
+
+///|
+/// Removing an exact duplicate preserves the earliest existing identities.
+test "reconcile: duplicate exact siblings preserve prefix on deletion" {
+  let (old_root, _) = parse_to_proj_node(
+    "<div><span>a</span><span>a</span><span>a</span></div>",
+  )
+  let old_div = old_root.children[0]
+  let (new_raw, _) = parse_to_proj_node(
+    "<div><span>a</span><span>a</span></div>",
+  )
+  let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
+  let new_div = new_root.children[0]
+  inspect(new_div.children[0].id() == old_div.children[0].id(), content="true")
+  inspect(new_div.children[1].id() == old_div.children[1].id(), content="true")
+}
+
+///|
 /// Attribute differences are part of the exact subtree key, so a same-tag
 /// middle insertion does not retarget either existing sibling.
 test "reconcile: attribute-distinct siblings preserve exact identities" {
