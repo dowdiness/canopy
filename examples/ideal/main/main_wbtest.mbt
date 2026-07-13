@@ -454,6 +454,17 @@ test "selection characterization: outline navigation preserves nav cache" {
     None => abort("OutlineNavigate was not handled")
   }
 }
+test "outline navigation with an invalid id is a handled no-op" {
+  let model = try! init_model()
+  match handle_outline(
+    test_parent_emit(),
+    OutlineNavigate("not-a-node-id"),
+    model,
+  ) {
+    Some((_, changed)) => inspect(changed.selected_node, content="None")
+    None => abort("invalid OutlineNavigate fell through to the top-level abort")
+  }
+}
 
 ///|
 test "selection characterization: outline structural edit refreshes selection" {

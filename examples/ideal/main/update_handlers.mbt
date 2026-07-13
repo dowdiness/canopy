@@ -206,7 +206,7 @@ fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
               model.outline_state.apply_edit(
                 @canopy_core.GenericTreeOp::Select(node_id=nid),
               )
-            None => return None
+            None => return Some((none, model))
           }
         None => model.outline_state
       }
