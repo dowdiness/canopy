@@ -1,4 +1,5 @@
 import {
+  "dowdiness/cognition",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/js_ffi" @js,
   "dowdiness/incr",
@@ -8,6 +9,12 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
 
 supported_targets = "js"
 
@@ -19,6 +26,8 @@ options(
         "jsx_streaming_to_json",
         "jsx_session_new",
         "jsx_session_render",
+        "jsx_session_commit_candidate",
+        "jsx_session_replay_candidate_json",
         "jsx_session_dispose",
         "jsx_parse_and_render",
         "reset_jsx_state",

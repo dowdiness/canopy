@@ -6,6 +6,20 @@ import {
 }
 
 // Values
+pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int = 32
+
+pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
+
+pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
+
+pub const GENERATIVE_UI_MAX_DEPTH : Int = 32
+
+pub const GENERATIVE_UI_MAX_NODES : Int = 1024
+
+pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1048576
+
+pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int = 8192
+
 pub fn demo_trace() -> Array[String]
 
 // Errors
@@ -114,6 +128,202 @@ pub fn ContextRanker::path_match() -> Self
 pub(all) struct Dependency {
   from : CognitionKey
   input : CognitionKey
+} derive(Eq, @debug.Debug)
+
+pub(all) enum GenerativeUiAggregation {
+  Count
+  Sum
+  Average
+  Minimum
+  Maximum
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub struct GenerativeUiBindingCapabilities {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(name~ : String, fields~ : Array[String], selection_keys~ : Array[String]) -> Self
+
+pub struct GenerativeUiCandidate {
+  // private fields
+}
+pub fn GenerativeUiCandidate::root(Self) -> GenerativeUiCandidateNode
+pub fn GenerativeUiCandidate::validate(raw~ : GenerativeUiRawNode, capabilities~ : GenerativeUiHostCapabilities) -> Result[Self, Array[GenerativeUiDiagnostic]]
+
+type GenerativeUiCandidateContext derive(Eq)
+
+pub(all) enum GenerativeUiCandidateNode {
+  Stack(children~ : Array[GenerativeUiCandidateNode])
+  Panel(children~ : Array[GenerativeUiCandidateNode])
+  Table(binding~ : GenerativeUiDataBinding, selection_key~ : GenerativeUiSelectionKey?, children~ : Array[GenerativeUiCandidateNode])
+  Column(field~ : GenerativeUiField, label~ : String?)
+  Filter(field~ : GenerativeUiField, operator~ : GenerativeUiFilterOperator)
+  Text(value~ : String)
+  Summary(field~ : GenerativeUiField, aggregation~ : GenerativeUiAggregation)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiDataBinding(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiDataBinding::to_string(Self) -> String
+
+pub struct GenerativeUiDiagnostic {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiDiagnostic::detail(Self) -> String
+pub fn GenerativeUiDiagnostic::kind(Self) -> GenerativeUiDiagnosticKind
+pub fn GenerativeUiDiagnostic::path(Self) -> String
+
+pub(all) enum GenerativeUiDiagnosticKind {
+  UnknownComponent
+  UnknownAttribute
+  MissingAttribute
+  InvalidAttributeValue
+  DisallowedBinding
+  DisallowedSelectionKey
+  DisallowedFilterOperator
+  DisallowedAggregation
+  RawHtml
+  ArbitraryExpression
+  InvalidChild
+  UnexpectedChildren
+  LimitExceeded
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub(all) enum GenerativeUiEvent {
+  Start(base_revision~ : GenerativeUiRevision)
+  Input(GenerativeUiInput)
+  CandidateValid(generation_id~ : GenerativeUiGenerationId, current_revision~ : GenerativeUiRevision)
+  CandidateInvalid(generation_id~ : GenerativeUiGenerationId, message~ : String)
+  DryRunSucceeded(generation_id~ : GenerativeUiGenerationId)
+  DryRunFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
+  ApplySucceeded(generation_id~ : GenerativeUiGenerationId, revision~ : GenerativeUiRevision)
+  ApplyFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiField(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiField::to_string(Self) -> String
+
+pub(all) enum GenerativeUiFilterOperator {
+  Equal
+  NotEqual
+  Contains
+  GreaterThan
+  LessThan
+} derive(Compare, Eq, Hash, @debug.Debug)
+
+pub struct GenerativeUiGenerationId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiGenerationId::to_int(Self) -> Int
+
+pub struct GenerativeUiHostCapabilities {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(bindings~ : Array[GenerativeUiBindingCapabilities], filter_operators~ : Array[GenerativeUiFilterOperator], aggregations~ : Array[GenerativeUiAggregation]) -> Self
+
+pub(all) enum GenerativeUiIgnoreReason {
+  StaleGeneration
+  TerminalState
+  EventNotAcceptedInPhase
+  CancellationTooLate
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiInput {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiInput::cancel(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
+pub fn GenerativeUiInput::chunk(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int, payload~ : String) -> Self
+pub fn GenerativeUiInput::finalize(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
+
+pub(all) enum GenerativeUiInputKind {
+  Chunk
+  Final
+  Cancel
+} derive(Eq, @debug.Debug)
+
+pub(all) enum GenerativeUiInputLimit {
+  ChunkLength
+  ChunkCount
+  SourceLength
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiLifecycle {
+  // private fields
+}
+pub fn GenerativeUiLifecycle::GenerativeUiLifecycle() -> Self
+pub fn GenerativeUiLifecycle::base_revision(Self) -> GenerativeUiRevision?
+pub fn GenerativeUiLifecycle::candidate_source(Self) -> String
+pub fn GenerativeUiLifecycle::committed_revision(Self) -> GenerativeUiRevision?
+pub fn GenerativeUiLifecycle::dispatch(Self, GenerativeUiEvent) -> GenerativeUiTransition
+pub fn GenerativeUiLifecycle::generation_id(Self) -> GenerativeUiGenerationId?
+pub fn GenerativeUiLifecycle::next_sequence(Self) -> Int
+pub fn GenerativeUiLifecycle::phase(Self) -> GenerativeUiPhase
+pub fn GenerativeUiLifecycle::rejection(Self) -> GenerativeUiRejection?
+pub fn GenerativeUiLifecycle::restart(Self, GenerativeUiRevision) -> GenerativeUiTransition
+
+pub(all) enum GenerativeUiPhase {
+  Idle
+  Receiving
+  Validating
+  DryRunning
+  Applying
+  Committed
+  Rejected
+  Cancelled
+  Failed
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiRawAttribute {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(name~ : String, value~ : String) -> Self
+
+pub(all) enum GenerativeUiRawNode {
+  Component(name~ : String, attributes~ : Array[GenerativeUiRawAttribute], children~ : Array[GenerativeUiRawNode])
+  Text(value~ : String)
+  RawHtml(value~ : String)
+  Expression(value~ : String)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum GenerativeUiRejection {
+  InvalidSequence(sequence~ : Int)
+  SequenceGap(expected~ : Int, received~ : Int)
+  ConflictingDuplicate(sequence~ : Int)
+  InputLimitExceeded(limit~ : GenerativeUiInputLimit)
+  UnexpectedFinalPayload
+  BaseRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
+  InvalidCandidate(message~ : String)
+  DryRunFailed(message~ : String)
+  ApplyFailed(message~ : String)
+  ApplyRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
+} derive(Eq, @debug.Debug)
+
+pub struct GenerativeUiReplaySource {
+  // private fields
+}
+pub fn GenerativeUiReplaySource::GenerativeUiReplaySource(events~ : Array[GenerativeUiInput]) -> Self
+pub fn GenerativeUiReplaySource::is_exhausted(Self) -> Bool
+pub fn GenerativeUiReplaySource::next(Self) -> GenerativeUiInput?
+pub fn GenerativeUiReplaySource::reset(Self) -> Unit
+
+pub struct GenerativeUiRevision {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiRevision::GenerativeUiRevision(Int) -> Self
+pub fn GenerativeUiRevision::to_int(Self) -> Int
+
+pub struct GenerativeUiSelectionKey(String) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn GenerativeUiSelectionKey::to_string(Self) -> String
+
+pub(all) enum GenerativeUiTransition {
+  Started(generation_id~ : GenerativeUiGenerationId)
+  ChunkAccepted(sequence~ : Int)
+  DuplicateChunk(sequence~ : Int)
+  Finalized
+  ValidationStarted
+  DryRunStarted
+  ApplyStarted
+  Committed(revision~ : GenerativeUiRevision)
+  Cancelled
+  Rejected(reason~ : GenerativeUiRejection)
+  Failed(reason~ : GenerativeUiRejection)
+  Ignored(reason~ : GenerativeUiIgnoreReason)
 } derive(Eq, @debug.Debug)
 
 pub struct ProviderDependencyFingerprint(String) derive(Compare, Eq, Hash, @debug.Debug)

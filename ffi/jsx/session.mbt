@@ -15,10 +15,17 @@ priv struct JsxSession {
   registry : @js.Any
   root_id : String
   mut committed_source : String
-  mut revision : Int
+  mut baseline : SessionBaseline
   mut mounted_ids : Array[Int]
   mut last_proj : @canopy_core.ProjNode[@jsx_ast.JsxNode]?
-  mut dirty : Bool
+  mut dry_run_model : @jsx_proj.DryRunModel
+}
+
+///|
+priv enum SourceProjectionRead {
+  Available(@canopy_core.ProjNode[@jsx_ast.JsxNode])
+  Unavailable
+  Failed
 }
 
 ///|
@@ -29,6 +36,38 @@ let disposed_session_handles : Map[Int, Bool] = {}
 
 ///|
 let next_session_handle : Ref[Int] = { val: 1 }
+
+///|
+priv struct JsxSessionErrorJson {
+  code : String
+  message : String
+} derive(ToJson)
+
+///|
+priv struct JsxSessionResultJson {
+  schema_version : Int
+  success : Bool
+  revision : Int
+  mounted_ids : Array[String]
+  diagnostics : Array[String]
+  error : JsxSessionErrorJson?
+}
+
+///|
+impl ToJson for JsxSessionResultJson with fn to_json(self) {
+  let error_json = match self.error {
+    Some(error) => error.to_json()
+    None => Json::null()
+  }
+  Json::object({
+    "schema_version": self.schema_version.to_json(),
+    "success": self.success.to_json(),
+    "revision": self.revision.to_json(),
+    "mounted_ids": self.mounted_ids.to_json(),
+    "diagnostics": self.diagnostics.to_json(),
+    "error": error_json,
+  })
+}
 
 ///|
 /// The result schema is deliberately JSON at the JS boundary. `mounted_ids`
@@ -42,23 +81,19 @@ fn render_result_json(
   error : (String, String)?,
 ) -> String {
   let error_json = match error {
-    Some((code, message)) =>
-      Json::object({
-        "code": Json::string(code),
-        "message": Json::string(message),
-      })
-    None => Json::null()
+    Some((code, message)) => Some(JsxSessionErrorJson::{ code, message })
+    None => None
   }
-  Json::object({
-    "schema_version": Json::number(1.0),
-    "success": Json::boolean(success),
-    "revision": Json::number(revision.to_double()),
-    "mounted_ids": Json::array(
-      mounted_ids.map(id => Json::string(id.to_string())),
-    ),
-    "diagnostics": Json::array(diagnostics.map(Json::string)),
-    "error": error_json,
-  }).stringify()
+  JsxSessionResultJson::{
+    schema_version: 1,
+    success,
+    revision,
+    mounted_ids: mounted_ids.map(id => id.to_string()),
+    diagnostics,
+    error: error_json,
+  }
+  .to_json()
+  .stringify()
 }
 
 ///|
@@ -91,10 +126,10 @@ fn new_jsx_session(source : String, root_id : String) -> JsxSession {
     registry: new_element_registry(),
     root_id,
     committed_source: source,
-    revision: 0,
+    baseline: SessionBaseline::initial(),
     mounted_ids: [],
     last_proj: None,
-    dirty: false,
+    dry_run_model: @jsx_proj.DryRunModel::empty(),
   }
 }
 
@@ -120,11 +155,127 @@ fn has_mount_boundary_transition(
 }
 
 ///|
-/// Return the parser to the last DOM-committed source after a rejected
-/// candidate. The memo may still retain internal speculative work, so the
-/// session remains dirty and the next successful render must remount.
+/// Return the parser to the last DOM-committed source after a rejected source
+/// render. Mounted truth remains in `last_proj`, so projection failure preserves
+/// the baseline's existing dirty state.
 fn restore_committed_source(session : JsxSession) -> Unit {
   session.parser.set_source(session.committed_source)
+}
+
+///|
+fn apply_session_baseline_effect(
+  session : JsxSession,
+  effect : SessionBaselineEffect,
+) -> Unit {
+  match effect {
+    NoEffect => ()
+    RestoreCommittedSource => restore_committed_source(session)
+  }
+}
+
+///|
+fn revision_exhausted_result(session : JsxSession) -> String {
+  render_result_json(
+    false,
+    session.baseline.revision,
+    session.mounted_ids,
+    [],
+    Some(("RevisionExhausted", "session revision is exhausted")),
+  )
+}
+
+///|
+fn finish_projection_failure(
+  session : JsxSession,
+  plan : RenderPlan,
+  diagnostics : Array[String],
+  code : String,
+  message : String,
+) -> String {
+  let (baseline, effect) = finish_render(plan, ProjectionFail)
+  session.baseline = baseline
+  apply_session_baseline_effect(session, effect)
+  render_result_json(
+    false,
+    session.baseline.revision,
+    session.mounted_ids,
+    diagnostics,
+    Some((code, message)),
+  )
+}
+
+///|
+fn commit_projection(
+  session : JsxSession,
+  plan : RenderPlan,
+  proj : @canopy_core.ProjNode[@jsx_ast.JsxNode],
+  diagnostics : Array[String],
+  source_to_commit : String?,
+) -> String {
+  let existing = if plan.must_remount { [] } else { session.mounted_ids.copy() }
+  let (patches, next_mounted_ids) = @jsx_proj.reconcile(proj, existing)
+  let dry_run_base = if plan.must_remount {
+    @jsx_proj.DryRunModel::empty()
+  } else {
+    session.dry_run_model
+  }
+  match dry_run_base.apply(patches) {
+    Err(message) => {
+      let (baseline, effect) = finish_render(plan, DryRunFail)
+      session.baseline = baseline
+      apply_session_baseline_effect(session, effect)
+      render_result_json(
+        false,
+        session.baseline.revision,
+        session.mounted_ids,
+        diagnostics,
+        Some(("DryRunError", message)),
+      )
+    }
+    Ok(dry_run_model) => {
+      if plan.must_remount {
+        clear_element_registry(session.registry)
+      }
+      match
+        apply_patches_with_registry(
+          @jsx_proj.dom_patches_to_json(patches),
+          session.root_id,
+          session.registry,
+        ) {
+        Ok(_) => {
+          let (baseline, effect) = finish_render(plan, Success)
+          session.baseline = baseline
+          apply_session_baseline_effect(session, effect)
+          session.mounted_ids = next_mounted_ids
+          session.last_proj = Some(proj)
+          session.dry_run_model = dry_run_model
+          match source_to_commit {
+            Some(source) => session.committed_source = source
+            None => ()
+          }
+          render_result_json(
+            true,
+            session.baseline.revision,
+            session.mounted_ids,
+            diagnostics,
+            None,
+          )
+        }
+        Err(message) => {
+          let (baseline, effect) = finish_render(plan, DomFail)
+          session.baseline = baseline
+          apply_session_baseline_effect(session, effect)
+          render_result_json(
+            false,
+            session.baseline.revision,
+            session.mounted_ids,
+            diagnostics,
+            Some(("DomApplyError", message)),
+          )
+        }
+      }
+    }
+  }
 }
 
 ///|
@@ -140,84 +291,69 @@ fn dispose_jsx_session(session : JsxSession) -> Unit {
 }
 
 ///|
+fn read_source_projection(session : JsxSession) -> SourceProjectionRead {
+  match session.proj_watch.read() {
+    Ok(Some(proj)) => Available(proj)
+    Ok(None) => Unavailable
+    Err(_) => Failed
+  }
+}
+
+///|
+fn render_jsx_session_with_projection_read(
+  session : JsxSession,
+  source : String,
+  update_source : Bool,
+  projection_read_override? : SourceProjectionRead,
+) -> String {
+  match begin_render(session.baseline) {
+    Err(RevisionExhausted) => revision_exhausted_result(session)
+    Ok(permit) => {
+      if update_source {
+        session.parser.set_source(source)
+      }
+      let diagnostics = get_or_empty_errors(source)
+      let projection_read = match projection_read_override {
+        Some(value) => value
+        None => read_source_projection(session)
+      }
+      match projection_read {
+        Available(proj) => {
+          let transition = match session.last_proj {
+            Some(old) => has_mount_boundary_transition(old, proj)
+            None => false
+          }
+          let plan = plan_render(permit, Source, transition)
+          commit_projection(session, plan, proj, diagnostics, Some(source))
+        }
+        Unavailable =>
+          finish_projection_failure(
+            session,
+            plan_render(permit, Source, false),
+            diagnostics,
+            "ProjectionUnavailable",
+            "projection produced no root",
+          )
+        Failed =>
+          finish_projection_failure(
+            session,
+            plan_render(permit, Source, false),
+            diagnostics,
+            "ProjectionError",
+            "projection evaluation failed",
+          )
+      }
+    }
+  }
+}
+
+///|
 fn render_jsx_session(
   session : JsxSession,
   source : String,
   update_source : Bool,
 ) -> String {
-  if update_source {
-    session.parser.set_source(source)
-  }
-  let diagnostics = get_or_empty_errors(source)
-  match session.proj_watch.read() {
-    Ok(Some(proj)) => {
-      let transition = match session.last_proj {
-        Some(old) => has_mount_boundary_transition(old, proj)
-        None => false
-      }
-      let remount = session.dirty || transition
-      if remount {
-        // V1 has no Move/Reparent patch. The supported repair boundary is the
-        // root container, which is also the smallest boundary we can safely
-        // identify without a committed DOM parent graph.
-        clear_element_registry(session.registry)
-      }
-      let existing = if remount { [] } else { session.mounted_ids.copy() }
-      let (patches, _) = @jsx_proj.reconcile(proj, existing)
-      match
-        apply_patches_with_registry(
-          @jsx_proj.dom_patches_to_json(patches),
-          session.root_id,
-          session.registry,
-        ) {
-        Ok(mounted_ids) => {
-          session.revision += 1
-          session.mounted_ids = mounted_ids
-          session.last_proj = Some(proj)
-          session.committed_source = source
-          session.dirty = false
-          render_result_json(
-            true,
-            session.revision,
-            session.mounted_ids,
-            diagnostics,
-            None,
-          )
-        }
-        Err(message) => {
-          session.dirty = true
-          restore_committed_source(session)
-          render_result_json(
-            false,
-            session.revision,
-            session.mounted_ids,
-            diagnostics,
-            Some(("DomApplyError", message)),
-          )
-        }
-      }
-    }
-    Ok(None) => {
-      restore_committed_source(session)
-      render_result_json(
-        false,
-        session.revision,
-        session.mounted_ids,
-        diagnostics,
-        Some(("ProjectionUnavailable", "projection produced no root")),
-      )
-    }
-    Err(_) => {
-      restore_committed_source(session)
-      render_result_json(
-        false,
-        session.revision,
-        session.mounted_ids,
-        diagnostics,
-        Some(("ProjectionError", "projection evaluation failed")),
-      )
-    }
-  }
+  render_jsx_session_with_projection_read(session, source, update_source)
 }
 
 ///|
@@ -250,6 +386,50 @@ pub fn jsx_session_new(source : String, root_id : String) -> String {
 pub fn jsx_session_render(handle : Int, source : String) -> String {
   match session_registry.get(handle) {
     Some(session) => render_jsx_session(session, source, true)
+    None => {
+      let error = if disposed_session_handles.contains(handle) {
+        ("DisposedSession", "session handle has been disposed")
+      } else {
+        ("InvalidSession", "unknown session handle")
+      }
+      render_result_json(false, 0, [], [], Some(error))
+    }
+  }
+}
+
+///|
+/// Lower one validated candidate through the same dry-run and DOM commit
+/// boundary as a regular JSX session render. The base revision is checked
+/// before the parser or DOM is touched.
+pub fn jsx_session_commit_candidate(
+  handle : Int,
+  base_revision : @cognition.GenerativeUiRevision,
+  candidate : @cognition.GenerativeUiCandidate,
+) -> String {
+  match session_registry.get(handle) {
+    Some(session) => {
+      if session.baseline.revision != base_revision.to_int() {
+        return render_result_json(
+          false,
+          session.baseline.revision,
+          session.mounted_ids,
+          [],
+          Some(
+            (
+              "BaseRevisionMismatch", "candidate base revision does not match the session revision",
+            ),
+          ),
+        )
+      }
+      match begin_render(session.baseline) {
+        Err(RevisionExhausted) => revision_exhausted_result(session)
+        Ok(permit) => {
+          let projection = candidate_to_projection(candidate)
+          let plan = plan_render(permit, Candidate, false)
+          commit_projection(session, plan, projection, [], None)
+        }
+      }
+    }
     None => {
       let error = if disposed_session_handles.contains(handle) {
         ("DisposedSession", "session handle has been disposed")

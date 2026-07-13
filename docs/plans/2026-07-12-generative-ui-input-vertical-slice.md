@@ -40,6 +40,8 @@ Out:
   `docs/architecture/generative-ui-direction.md`.
 - JSX sessions own parser/projection/DOM state and expose structured render
   results through `ffi/jsx/session.mbt`.
+- The Phase 3 DOM patch semantics and dry-run/DOM boundary are fixed in the
+  [JSX DOM patch contract](../decisions/2026-07-13-jsx-dom-patch-contract.md).
 - DOM patch ordering and sibling-index correctness have a regression test in
   `ffi/jsx/session_contract_wbtest.mbt`; broader property coverage is tracked
   by [Issue #888](https://github.com/dowdiness/canopy/issues/888).

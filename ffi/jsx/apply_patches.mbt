@@ -278,13 +278,52 @@ fn create_element(tag : String) -> @js.Any {
 ///|
 fn apply_attrs(el : @js.Any, attrs : @js.Any) -> Unit {
   let len : Int = attrs.get("length").cast()
+  let names : Array[String] = []
+  for i in 0..<len {
+    let attr = attrs.at(i)
+    let name : String = attr.get("name").cast()
+    if name != "data-node-id" &&
+      dom_attribute_value_kind(attr.get("value")) != "ignored" {
+      names.push(attr.get("name").cast())
+    }
+  }
+  let existing_names = el.call("getAttributeNames", [])
+  let existing_len : Int = existing_names.get("length").cast()
+  for i in 0..<existing_len {
+    let name : String = existing_names.at(i).cast()
+    if name != "data-node-id" && !names.contains(name) {
+      ignore(el.call("removeAttribute", [@js.any(name)]))
+    }
+  }
   for i in 0..<len {
     let attr = attrs.at(i)
     let name : String = attr.get("name").cast()
     let v = attr.get("value")
-    if !v.is_nullish() && v.type_of() == "string" {
-      let val : String = v.cast()
-      ignore(el.call("setAttribute", [@js.any(name), @js.any(val)]))
+    if name != "data-node-id" {
+      match dom_attribute_value_kind(v) {
+        "string" => {
+          let val : String = v.cast()
+          let decoded = @jsx_proj.normalize_dom_attribute_value(name, val)
+          ignore(el.call("setAttribute", [@js.any(name), @js.any(decoded)]))
+        }
+        "bare" => ignore(el.call("setAttribute", [@js.any(name), @js.any("")]))
+        _ => ()
+      }
     }
+  }
+}
+
+///|
+/// V1 applies string and bare attributes only. Opaque expression attributes
+/// stay out of the DOM because expression evaluation is outside this shell.
+fn dom_attribute_value_kind(value : @js.Any) -> String {
+  if value.is_nullish() {
+    "ignored"
+  } else if value.type_of() == "string" {
+    "string"
+  } else if value.get("type").to_str() == "bare" {
+    "bare"
+  } else {
+    "ignored"
   }
 }

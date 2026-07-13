@@ -21,6 +21,7 @@ import {
   "dowdiness/jsx@0.1.0",
   "dowdiness/zipper@0.1.0",
   "dowdiness/analysis@0.1.0",
+  "dowdiness/cognition@0.1.0",
   "dowdiness/egglog@0.1.0",
   "dowdiness/egraph@0.1.0",
 }

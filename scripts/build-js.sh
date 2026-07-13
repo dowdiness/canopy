@@ -11,6 +11,8 @@ echo "Building canopy JavaScript artifacts..."
 # graphviz is now a workspace member — its JS artifacts land in the
 # workspace _build/, not in graphviz/_build/.
 moon build --target js --release
+echo "Building canvas JavaScript artifacts..."
+(cd "$PROJECT_ROOT/examples/canvas" && moon build --target js --release --target-dir "$PROJECT_ROOT/_build")
 
 EXPECTED_ARTIFACTS=(
     "_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"
@@ -27,6 +29,9 @@ EXPECTED_ARTIFACTS=(
     "_build/js/release/build/dowdiness/canopy/ffi/jsx/moonbit.d.ts"
     "_build/js/release/build/dowdiness/graphviz/browser/browser.js"
     "_build/js/release/build/dowdiness/graphviz/browser/browser.d.ts"
+    "_build/js/release/build/dowdiness/canopy-canvas/main/main.js"
+    "_build/js/release/build/dowdiness/canopy-canvas/main/main.d.ts"
+    "_build/js/release/build/dowdiness/canopy-canvas/main/moonbit.d.ts"
 )
 
 for artifact in "${EXPECTED_ARTIFACTS[@]}"; do

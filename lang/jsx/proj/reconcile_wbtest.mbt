@@ -133,11 +133,11 @@ test "reconcile: removed node produces Release" {
 }
 
 ///|
-/// Nested elements produce correct node count.
+/// Nested elements produce the mounted DOM node count.
 test "reconcile: nested elements" {
   let (root, _) = parse_to_proj_node("<div><h1>title</h1><p>body</p></div>")
   let (_, reached) = reconcile(root, [])
-  inspect(reached.length(), content="6")
+  inspect(reached.length(), content="5")
 }
 
 ///|
