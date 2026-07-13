@@ -8,3 +8,10 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/set",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
