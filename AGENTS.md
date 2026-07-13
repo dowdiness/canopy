@@ -269,7 +269,7 @@ For current model assignments, prefer the global pi guidance in
 
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
-- **NEVER merge PRs until CI is fully green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. If any check is `pending`, `fail`, or `skipped`, STOP and report the exact status. Skipped is NOT passing. Do not claim CI is green without verifying.
+- **NEVER merge PRs until the required CI gate is green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. STOP if any check is `pending` or `fail`, or if `All Checks Passed` is not `pass`. A `skipped` job is acceptable only when it is listed in the `needs` of `.github/workflows/ci.yml`'s `All Checks Passed` job and that aggregate job passes; the aggregate intentionally accepts path-filtered jobs whose result is `success` or `skipped`. Do not treat an unaggregated skipped check as green, and do not claim CI is green without verifying the aggregate and raw statuses.
 - After rebasing or refactoring, verify file paths haven't shifted unexpectedly. Run `git diff --stat` to confirm only intended files changed.
 - Submodule push-order and PR rules: see [Submodule Workflow](#submodule-workflow).
 
