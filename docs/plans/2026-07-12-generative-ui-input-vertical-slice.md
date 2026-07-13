@@ -263,8 +263,8 @@ Required zero-count safety metrics are recorded separately by source:
 
 Browser measurement run (`npx playwright test tests/genui.spec.ts --grep
 "safety measurements"`, Chromium, 2026-07-13): five valid replay latency
-samples were `288.50, 1.90, 1.30, 4.50, 1.80 ms` (min `1.30`, median `1.90`,
-mean `59.60`, max `288.50`); three invalid and three stale-base candidates
+samples were `195.40, 1.60, 1.40, 1.50, 1.50 ms` (min `1.40`, median `1.50`,
+mean `40.28`, max `195.40`); three invalid and three stale-base candidates
 were rejected (`6/6`, rejection rate `1.0`); one forced DOM failure was
 followed by one successful repair; deterministic fresh-replay mismatch count
 was `0`; Chromium reported heap measurement available with `17,100,000` used
