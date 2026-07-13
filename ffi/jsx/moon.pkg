@@ -10,6 +10,12 @@ import {
   "moonbitlang/core/string",
 }
 
+import {
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
+
 supported_targets = "js"
 
 options(

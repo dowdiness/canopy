@@ -406,11 +406,122 @@ fn session_test_candidate() -> @cognition.GenerativeUiCandidate {
 }
 
 ///|
-test "candidate lowering keeps host metadata declarative and non-duplicated" {
-  let source = lower_generative_ui_candidate(session_test_candidate()).unwrap()
-  assert_eq(
-    source, "<div data-genui-kind=\"stack\">Orders<div data-genui-kind=\"table\" data-genui-binding=\"orders\" data-genui-selection=\"id\"><div data-genui-kind=\"column\" data-genui-field=\"name\" data-genui-label=\"Name\"></div><div data-genui-kind=\"filter\" data-genui-field=\"name\" data-genui-operator=\"contains\"></div><div data-genui-kind=\"summary\" data-genui-field=\"amount\" data-genui-aggregation=\"count\"></div></div></div>",
-  )
+fn session_test_expected_candidate_ast() -> @jsx_ast.JsxNode {
+  @jsx_ast.JsxNode::Root(children=[
+    @jsx_ast.JsxNode::Element(
+      tag="div",
+      attrs=[
+        @jsx_ast.JsxAttr::JsxAttr(
+          name="data-genui-kind",
+          value=@jsx_ast.JsxAttrValue::StringLit("stack"),
+        ),
+      ],
+      children=[
+        @jsx_ast.JsxNode::Text("Orders"),
+        @jsx_ast.JsxNode::Element(
+          tag="div",
+          attrs=[
+            @jsx_ast.JsxAttr::JsxAttr(
+              name="data-genui-kind",
+              value=@jsx_ast.JsxAttrValue::StringLit("table"),
+            ),
+            @jsx_ast.JsxAttr::JsxAttr(
+              name="data-genui-binding",
+              value=@jsx_ast.JsxAttrValue::StringLit("orders"),
+            ),
+            @jsx_ast.JsxAttr::JsxAttr(
+              name="data-genui-selection",
+              value=@jsx_ast.JsxAttrValue::StringLit("id"),
+            ),
+          ],
+          children=[
+            @jsx_ast.JsxNode::Element(
+              tag="div",
+              attrs=[
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-kind",
+                  value=@jsx_ast.JsxAttrValue::StringLit("column"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-field",
+                  value=@jsx_ast.JsxAttrValue::StringLit("name"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-label",
+                  value=@jsx_ast.JsxAttrValue::StringLit("Name"),
+                ),
+              ],
+              children=[],
+            ),
+            @jsx_ast.JsxNode::Element(
+              tag="div",
+              attrs=[
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-kind",
+                  value=@jsx_ast.JsxAttrValue::StringLit("filter"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-field",
+                  value=@jsx_ast.JsxAttrValue::StringLit("name"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-operator",
+                  value=@jsx_ast.JsxAttrValue::StringLit("contains"),
+                ),
+              ],
+              children=[],
+            ),
+            @jsx_ast.JsxNode::Element(
+              tag="div",
+              attrs=[
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-kind",
+                  value=@jsx_ast.JsxAttrValue::StringLit("summary"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-field",
+                  value=@jsx_ast.JsxAttrValue::StringLit("amount"),
+                ),
+                @jsx_ast.JsxAttr::JsxAttr(
+                  name="data-genui-aggregation",
+                  value=@jsx_ast.JsxAttrValue::StringLit("count"),
+                ),
+              ],
+              children=[],
+            ),
+          ],
+        ),
+      ],
+    ),
+  ])
+}
+
+///|
+fn session_test_projection_is_paired(
+  node : @canopy_core.ProjNode[@jsx_ast.JsxNode],
+) -> Bool {
+  match node.kind {
+    @jsx_ast.JsxNode::Root(children~) =>
+      children == node.children.map(child => child.kind) &&
+      node.children.all(session_test_projection_is_paired)
+    @jsx_ast.JsxNode::Element(children~, ..) =>
+      children == node.children.map(child => child.kind) &&
+      node.children.all(session_test_projection_is_paired)
+    @jsx_ast.JsxNode::Fragment(children~) =>
+      children == node.children.map(child => child.kind) &&
+      node.children.all(session_test_projection_is_paired)
+    @jsx_ast.JsxNode::Text(_) |
+    @jsx_ast.JsxNode::ExprSpan(..) |
+    @jsx_ast.JsxNode::Error(_) => node.children.is_empty()
+  }
+}
+
+///|
+test "candidate projection keeps host metadata declarative and non-duplicated" {
+  let projection = candidate_to_projection(session_test_candidate())
+  assert_true(projection_ids_are_valid(projection))
+  assert_true(projection.kind == session_test_expected_candidate_ast())
+  assert_true(session_test_projection_is_paired(projection))
 }
 
 ///|
@@ -456,7 +567,7 @@ test "candidate base revision is checked before parser or DOM work" {
 }
 
 ///|
-test "candidate lowering rejects JSX syntax in text before commit" {
+test "candidate projection preserves JSX syntax in text" {
   let capabilities = @cognition.GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(
     bindings=[],
     filter_operators=[],
@@ -477,11 +588,9 @@ test "candidate lowering rejects JSX syntax in text before commit" {
     Ok(value) => value
     Err(_) => fail("candidate fixture must validate")
   }
-  match lower_generative_ui_candidate(candidate) {
-    Ok(_) => fail("unsafe text unexpectedly lowered")
-    Err(message) =>
-      assert_eq(message, "candidate text contains JSX syntax characters")
-  }
+  let projection = candidate_to_projection(candidate)
+  assert_true(projection_texts(projection) == ["unsafe <tag>"])
+  assert_true(projection_ids_are_valid(projection))
 }
 
 ///|
