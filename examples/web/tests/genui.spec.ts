@@ -126,4 +126,15 @@ test.describe('Generative UI Demo', () => {
       await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
     }
   });
+  test('generates and commits the constrained data candidate through the browser action', async ({ page }) => {
+    await page.goto('/genui.html');
+    await page.getByRole('button', { name: 'Generate candidate' }).click();
+    await expect(page.locator('#status-bar')).toContainText(
+      'Candidate committed through replay, validation, dry-run, and DOM apply.',
+    );
+    await expect(page.locator('#html-preview [data-genui-kind="stack"]')).toBeVisible();
+    await expect(page.locator('#html-preview [data-genui-kind="table"]')).toHaveCount(1);
+    await expect(page.locator('#html-preview')).toContainText('Orders');
+  });
+
 });

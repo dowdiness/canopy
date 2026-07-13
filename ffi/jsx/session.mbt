@@ -32,6 +32,38 @@ let disposed_session_handles : Map[Int, Bool] = {}
 let next_session_handle : Ref[Int] = { val: 1 }
 
 ///|
+priv struct JsxSessionErrorJson {
+  code : String
+  message : String
+} derive(ToJson)
+
+///|
+priv struct JsxSessionResultJson {
+  schema_version : Int
+  success : Bool
+  revision : Int
+  mounted_ids : Array[String]
+  diagnostics : Array[String]
+  error : JsxSessionErrorJson?
+}
+
+///|
+impl ToJson for JsxSessionResultJson with fn to_json(self) {
+  let error_json = match self.error {
+    Some(error) => error.to_json()
+    None => Json::null()
+  }
+  Json::object({
+    "schema_version": self.schema_version.to_json(),
+    "success": self.success.to_json(),
+    "revision": self.revision.to_json(),
+    "mounted_ids": self.mounted_ids.to_json(),
+    "diagnostics": self.diagnostics.to_json(),
+    "error": error_json,
+  })
+}
+
+///|
 /// The result schema is deliberately JSON at the JS boundary. `mounted_ids`
 /// are strings so JavaScript callers never depend on MoonBit's internal
 /// integer representation for NodeId.
@@ -43,23 +75,19 @@ fn render_result_json(
   error : (String, String)?,
 ) -> String {
   let error_json = match error {
-    Some((code, message)) =>
-      Json::object({
-        "code": Json::string(code),
-        "message": Json::string(message),
-      })
-    None => Json::null()
+    Some((code, message)) => Some(JsxSessionErrorJson::{ code, message })
+    None => None
   }
-  Json::object({
-    "schema_version": Json::number(1.0),
-    "success": Json::boolean(success),
-    "revision": Json::number(revision.to_double()),
-    "mounted_ids": Json::array(
-      mounted_ids.map(id => Json::string(id.to_string())),
-    ),
-    "diagnostics": Json::array(diagnostics.map(Json::string)),
-    "error": error_json,
-  }).stringify()
+  JsxSessionResultJson::{
+    schema_version: 1,
+    success,
+    revision,
+    mounted_ids: mounted_ids.map(id => id.to_string()),
+    diagnostics,
+    error: error_json,
+  }
+  .to_json()
+  .stringify()
 }
 
 ///|

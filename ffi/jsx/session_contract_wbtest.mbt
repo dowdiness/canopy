@@ -57,6 +57,10 @@ extern "js" fn set_session_test_append_failure(value : Bool) -> Unit =
   #|(value) => { document.__canopySessionState.failAppend = value; }
 
 ///|
+extern "js" fn session_test_has_own_key(value : @js.Any, key : String) -> Bool =
+  #|(value, key) => Object.prototype.hasOwnProperty.call(value, key)
+
+///|
 extern "js" fn session_test_root_child_count(root_id : String) -> Int =
   #|(rootId) => document.getElementById(rootId).children.length
 
@@ -115,6 +119,7 @@ test "render result uses the versioned envelope and string mounted ids" {
     "recoverable JSX diagnostic",
   )
   assert_true(json.get("error").is_nullish())
+  assert_true(session_test_has_own_key(json, "error"))
 }
 
 ///|
@@ -610,5 +615,341 @@ test "dry-run failure leaves the candidate uncommitted and repairs next time" {
   assert_true(repaired.get("success").cast())
   assert_eq(repaired.get("revision").cast(), 2)
   assert_eq(session_test_nested_texts("session-root-a"), "two")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter validates and commits through the JSX session" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate_prefix = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":["
+  let candidate_suffix = "{\"type\":\"component\",\"name\":\"text\",\"attributes\":[{\"name\":\"value\",\"value\":\"Orders\"}],\"children\":[]}]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(
+      handle,
+      1,
+      candidate_prefix + "\u{0000}" + candidate_suffix,
+      capabilities,
+    ),
+  )
+  assert_true(result.get("success").cast())
+  assert_eq(result.get("revision").cast(), 2)
+  assert_eq(
+    session_test_root_attribute("session-root-a", "data-genui-kind"),
+    "stack",
+  )
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter rejects a stale session revision before commit" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"component\",\"name\":\"text\",\"attributes\":[{\"name\":\"value\",\"value\":\"Orders\"}],\"children\":[]}]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 0, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "BaseRevisionMismatch")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter reports lowering failure without committing" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"component\",\"name\":\"text\",\"attributes\":[{\"name\":\"value\",\"value\":\"unsafe <tag>\"}],\"children\":[]}]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CandidateLoweringError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter rejects excessive empty chunks before splitting" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let excessive_chunks = String::repeat(
+    "\u{0000}",
+    @cognition.GENERATIVE_UI_MAX_CHUNKS,
+  )
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, excessive_chunks, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "InputRejected")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter decodes typed JSON errors without committing" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let malformed_candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"text\"}]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(
+      handle, 1, malformed_candidate, capabilities,
+    ),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CandidateDecodeError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter rejects too-deep JSON before typed recursion" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let depth = @cognition.GENERATIVE_UI_MAX_DEPTH + 1
+  let prefix = String::repeat(
+    "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[",
+    depth,
+  )
+  let suffix = String::repeat("]}", depth)
+  let candidate = prefix + "{\"type\":\"text\",\"value\":\"leaf\"}" + suffix
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CandidateDecodeError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter rejects children attached to a leaf" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let depth = @cognition.GENERATIVE_UI_MAX_DEPTH + 1
+  let prefix = String::repeat(
+    "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[",
+    depth,
+  )
+  let suffix = String::repeat("]}", depth)
+  let nested_children = prefix +
+    "{\"type\":\"text\",\"value\":\"nested\"}" +
+    suffix
+  let candidate = "{\"type\":\"text\",\"value\":\"leaf\",\"children\":[" +
+    nested_children +
+    "]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CandidateDecodeError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter treats optional JSON null as absent" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"text\",\"value\":\"leaf\",\"name\":null,\"attributes\":null,\"children\":null}]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_true(result.get("success").cast())
+  assert_eq(result.get("revision").cast(), 2)
+  assert_eq(session_test_nested_texts("session-root-a"), "leaf")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter bounds leaf attributes" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let attribute = "{\"name\":\"field\",\"value\":\"x\"}"
+  let attributes = String::repeat(
+      attribute + ",",
+      @cognition.GENERATIVE_UI_MAX_ATTRIBUTES,
+    ) +
+    attribute
+  let candidate = "{\"type\":\"text\",\"value\":\"leaf\",\"attributes\":[" +
+    attributes +
+    "]}"
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CandidateDecodeError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter bounds capabilities JSON before decoding" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let padding = String::repeat("x", GENUI_MAX_CAPABILITIES_LENGTH + 1)
+  let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[],\"padding\":\"" +
+    padding +
+    "\"}"
+  let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[]}"
+  let result = @js.parse(
+    jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+  )
+  assert_false(result.get("success").cast())
+  assert_eq(result.get("error").get("code").to_str(), "CapabilityDecodeError")
+  assert_eq(result.get("revision").cast(), 1)
+  assert_eq(
+    session_test_root_attribute("session-root-a", "data-genui-kind"),
+    "",
+  )
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter rejects invalid and stale sessions before decoding" {
+  install_session_test_document()
+  let invalid = @js.parse(
+    jsx_session_replay_candidate_json(987654, 1, "not-json", "not-json"),
+  )
+  assert_false(invalid.get("success").cast())
+  assert_eq(invalid.get("error").get("code").to_str(), "InvalidSession")
+  assert_eq(invalid.get("revision").cast(), 0)
+
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let stale = @js.parse(
+    jsx_session_replay_candidate_json(handle, 0, "not-json", "not-json"),
+  )
+  assert_false(stale.get("success").cast())
+  assert_eq(stale.get("error").get("code").to_str(), "BaseRevisionMismatch")
+  assert_eq(stale.get("revision").cast(), 1)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay candidate adapter bounds capability arrays and strings" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[]}"
+  let binding = "{\"name\":\"orders\",\"fields\":[],\"selection_keys\":[]}"
+  let oversized_bindings = String::repeat(
+      binding + ",",
+      GENUI_MAX_CAPABILITY_BINDINGS,
+    ) +
+    binding
+  let fields = String::repeat("\"field\",", GENUI_MAX_CAPABILITY_FIELDS) +
+    "\"field\""
+  let binding_with_oversized_fields = "{\"name\":\"orders\",\"fields\":[" +
+    fields +
+    "],\"selection_keys\":[]}"
+  let selection_keys = String::repeat(
+      "\"id\",",
+      GENUI_MAX_CAPABILITY_SELECTION_KEYS,
+    ) +
+    "\"id\""
+  let binding_with_oversized_selection_keys = "{\"name\":\"orders\",\"fields\":[],\"selection_keys\":[" +
+    selection_keys +
+    "]}"
+  let operators = String::repeat(
+      "\"contains\",",
+      GENUI_MAX_CAPABILITY_OPERATORS,
+    ) +
+    "\"contains\""
+  let aggregations = String::repeat(
+      "\"sum\",",
+      GENUI_MAX_CAPABILITY_AGGREGATIONS,
+    ) +
+    "\"sum\""
+  let long_name = String::repeat(
+    "x",
+    @cognition.GENERATIVE_UI_MAX_STRING_LENGTH + 1,
+  )
+  let binding_with_long_name = "{\"name\":\"" +
+    long_name +
+    "\",\"fields\":[],\"selection_keys\":[]}"
+  let capability_cases = [
+    "{\"bindings\":[" +
+    oversized_bindings +
+    "],\"filter_operators\":[],\"aggregations\":[]}",
+    "{\"bindings\":[" +
+    binding_with_oversized_fields +
+    "],\"filter_operators\":[],\"aggregations\":[]}",
+    "{\"bindings\":[" +
+    binding_with_oversized_selection_keys +
+    "],\"filter_operators\":[],\"aggregations\":[]}",
+    "{\"bindings\":[],\"filter_operators\":[" +
+    operators +
+    "],\"aggregations\":[]}",
+    "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[" +
+    aggregations +
+    "]}",
+    "{\"bindings\":[" +
+    binding_with_long_name +
+    "],\"filter_operators\":[],\"aggregations\":[]}",
+  ]
+  for capabilities in capability_cases {
+    let result = @js.parse(
+      jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
+    )
+    assert_false(result.get("success").cast())
+    assert_eq(result.get("error").get("code").to_str(), "CapabilityDecodeError")
+    assert_eq(result.get("revision").cast(), 1)
+  }
+  assert_eq(
+    session_test_root_attribute("session-root-a", "data-genui-kind"),
+    "",
+  )
   jsx_session_dispose(handle)
 }

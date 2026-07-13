@@ -6,11 +6,19 @@ import {
 }
 
 // Values
+pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int = 32
+
 pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
 
 pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
 
+pub const GENERATIVE_UI_MAX_DEPTH : Int = 32
+
+pub const GENERATIVE_UI_MAX_NODES : Int = 1024
+
 pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1048576
+
+pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int = 8192
 
 pub fn demo_trace() -> Array[String]
 

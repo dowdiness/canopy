@@ -15,16 +15,16 @@ pub(all) enum GenerativeUiRawNode {
 } derive(Debug, Eq)
 
 ///|
-const GENERATIVE_UI_MAX_DEPTH = 32
+pub const GENERATIVE_UI_MAX_DEPTH : Int = 32
 
 ///|
-const GENERATIVE_UI_MAX_NODES = 1024
+pub const GENERATIVE_UI_MAX_NODES : Int = 1024
 
 ///|
-const GENERATIVE_UI_MAX_ATTRIBUTES = 32
+pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int = 32
 
 ///|
-const GENERATIVE_UI_MAX_STRING_LENGTH = 8192
+pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int = 8192
 
 ///|
 /// Untrusted string attribute attached to a raw component.

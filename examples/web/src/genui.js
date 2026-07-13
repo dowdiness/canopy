@@ -31,6 +31,7 @@ const dataFilterInput = document.getElementById('data-filter-input')
 const dataFilterClear = document.getElementById('data-filter-clear')
 const dataJsonSource = document.getElementById('data-json-source')
 const dataCsvSource = document.getElementById('data-csv-source')
+const dataGenerateCandidate = document.getElementById('data-generate-candidate')
 const dataSourceLabel = document.getElementById('data-source-label')
 const dataRowCount = document.getElementById('data-row-count')
 const dataSummaryCount = document.getElementById('data-summary-count')
@@ -50,6 +51,7 @@ let abortStream = false
 let previousNodeIds = new Set()
 let jsxModule = null
 let jsxSessionHandle = null
+let jsxSessionRevision = null
 let dataRows = ORDER_ROWS
 let dataSource = 'JSON fixture'
 let selectedOrderId = null
@@ -200,6 +202,7 @@ function resetState() {
   if (jsxModule && jsxSessionHandle !== null) {
     jsxModule.jsx_session_dispose(jsxSessionHandle)
     jsxSessionHandle = null
+    jsxSessionRevision = null
   }
   previousNodeIds = new Set();
   treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see the tree.</div>';
@@ -210,6 +213,73 @@ function resetState() {
   htmlNodeCount.textContent = '0';
   errorsList.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">No errors.</div>';
 }
+
+async function replayCandidate(candidateJson, capabilitiesJson) {
+  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+  if (jsxSessionHandle === null) {
+    const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', 'html-preview'))
+    if (!created.success || created.handle === null) return created.result
+    jsxSessionHandle = Number(created.handle)
+    jsxSessionRevision = created.result.revision
+  }
+  const split = Math.max(1, Math.floor(candidateJson.length / 2))
+  const chunks = candidateJson.slice(0, split) + '\u0000' + candidateJson.slice(split)
+  const result = JSON.parse(
+    jsxModule.jsx_session_replay_candidate_json(
+      jsxSessionHandle,
+      jsxSessionRevision,
+      chunks,
+      capabilitiesJson,
+    ),
+  )
+  if (result.success) {
+    jsxSessionRevision = result.revision
+    htmlNodeCount.textContent = String(result.mounted_ids.length)
+  }
+  return result
+}
+
+dataGenerateCandidate.addEventListener('click', async function() {
+  if (isStreaming) return
+  dataGenerateCandidate.disabled = true
+  try {
+    const candidate = JSON.stringify({
+      type: 'component',
+      name: 'stack',
+      attributes: [],
+      children: [
+        { type: 'component', name: 'text', attributes: [{ name: 'value', value: 'Orders' }], children: [] },
+        {
+          type: 'component',
+          name: 'table',
+          attributes: [
+            { name: 'data', value: 'orders' },
+            { name: 'selection', value: 'id' },
+          ],
+          children: [
+            { type: 'component', name: 'column', attributes: [{ name: 'field', value: 'name' }, { name: 'label', value: 'Name' }], children: [] },
+            { type: 'component', name: 'filter', attributes: [{ name: 'field', value: 'status' }, { name: 'operator', value: 'contains' }], children: [] },
+            { type: 'component', name: 'summary', attributes: [{ name: 'field', value: 'amount' }, { name: 'aggregation', value: 'sum' }], children: [] },
+          ],
+        },
+      ],
+    })
+    const capabilities = JSON.stringify({
+      bindings: [{ name: 'orders', fields: ['name', 'status', 'amount'], selection_keys: ['id'] }],
+      filter_operators: ['contains'],
+      aggregations: ['sum'],
+    })
+    const result = await replayCandidate(candidate, capabilities)
+    statusBar.textContent = result.success
+      ? 'Candidate committed through replay, validation, dry-run, and DOM apply.'
+      : 'Candidate rejected: ' + (result.error?.message || 'unknown error')
+  } catch (error) {
+    console.error(error)
+    statusBar.textContent = 'Candidate error: ' + (error instanceof Error ? error.message : String(error))
+  } finally {
+    dataGenerateCandidate.disabled = false
+  }
+})
 
 // ── ProjNode Tree Rendering (pure JS, unchanged) ──
 function renderTreeNode(node, prevIds) {
@@ -287,6 +357,7 @@ streamBtn.addEventListener('click', async function() {
     if (jsxSessionHandle !== null) {
       JsxMod.jsx_session_dispose(jsxSessionHandle);
       jsxSessionHandle = null;
+      jsxSessionRevision = null
     }
     statusBar.textContent = 'Streaming ' + prefixes.length + ' steps...';
     let finalIds = [];
@@ -312,6 +383,7 @@ streamBtn.addEventListener('click', async function() {
       if (!renderResult.success) {
         throw new Error(renderResult.error?.message || 'JSX session render failed');
       }
+      jsxSessionRevision = renderResult.revision
       const ids = renderResult.mounted_ids;
       finalIds = ids;
       htmlNodeCount.textContent = ids.length;

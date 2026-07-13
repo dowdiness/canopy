@@ -21,6 +21,7 @@ options(
         "jsx_session_new",
         "jsx_session_render",
         "jsx_session_commit_candidate",
+        "jsx_session_replay_candidate_json",
         "jsx_session_dispose",
         "jsx_parse_and_render",
         "reset_jsx_state",
