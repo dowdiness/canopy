@@ -396,6 +396,8 @@ test.describe('Generative UI Demo', () => {
 
     const currentRevision = await sessionRevision(page);
     if (currentRevision === null) throw new Error('expected a committed session revision');
+    const staleBeforeRevision = currentRevision;
+    const staleBeforeMarkup = await committedMarkup(page);
     let staleRejected = 0;
     for (let i = 0; i < 3; i += 1) {
       const result = await replayCandidateAtRevision(
@@ -406,6 +408,10 @@ test.describe('Generative UI Demo', () => {
       );
       if (!result.success && result.error?.code === 'BaseRevisionMismatch') staleRejected += 1;
     }
+    const staleAfterRevision = await sessionRevision(page);
+    const staleAfterMarkup = await committedMarkup(page);
+    const staleStatePreserved =
+      staleAfterRevision === staleBeforeRevision && staleAfterMarkup === staleBeforeMarkup;
 
     await setDomApplyFailure(page, true);
     let failedApply: GenUiSessionResult;
@@ -448,6 +454,12 @@ test.describe('Generative UI Demo', () => {
         attempted: 6,
         rate: (invalidRejected + staleRejected) / 6,
       },
+      stale_base_state: {
+        before_revision: staleBeforeRevision,
+        after_revision: staleAfterRevision,
+        before_markup: staleBeforeMarkup,
+        after_markup: staleAfterMarkup,
+      },
       host_state: {
         before: beforeHostState,
         after: afterHostState,
@@ -471,7 +483,10 @@ test.describe('Generative UI Demo', () => {
           ? 1
           : 0,
       zero_counts: {
-        stale_candidate_commits: staleRejected === 3 ? 0 : 1,
+        stale_candidate_commits:
+          staleRejected === 3 && staleStatePreserved
+            ? 0
+            : 1,
         host_state_loss: hostStateLoss,
         falsely_committed_failed_apply:
           failedApply.success ||
