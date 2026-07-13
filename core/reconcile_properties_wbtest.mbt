@@ -425,6 +425,76 @@ test "reconcile: exact preference does not reduce match cardinality" {
 }
 
 ///|
+test "reconcile: exact duplicate append preserves prefix identities" {
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("a")]), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("a"), Leaf("a")]),
+    Ref(500),
+  )
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+  inspect(result.children[2].node_id >= 1000, content="true")
+}
+
+///|
+test "reconcile: exact duplicate deletion preserves prefix identities" {
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("a"), Leaf("a")]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("a")]), Ref(500))
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+}
+
+///|
+test "reconcile: mixed same-kind tie chooses earliest feasible pair" {
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("b"), Leaf("c"), Leaf("d")]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(Branch("root", [Leaf("w"), Leaf("x")]), Ref(500))
+  let result = reconcile_with_exact_key(
+    old_node,
+    new_node,
+    Ref(1000),
+    exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+}
+
+///|
 /// Property 6: After deleting a child, the number of reused old IDs equals
 /// the LCS length between old and new children (by same_kind).
 /// We can't assume WHICH old children are matched (LCS tie-breaking is
