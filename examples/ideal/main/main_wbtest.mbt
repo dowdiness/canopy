@@ -399,3 +399,94 @@ test "format_overlay_error: ApplyActionFailed carries message" {
     content="Apply failed: apply failed",
   )
 }
+///|
+fn selected_test_model() -> (Model, String) raise {
+  let model = init_model()
+  let node_id = model.scope_map.keys().to_array().iter()
+    .find_first(nid =>
+      !@scope.compute_highlight_set(nid, model.scope_map).is_empty()
+    )
+    .unwrap()
+  let range = model.editor.get_source_map().get_range(node_id).unwrap()
+  model.editor.move_cursor(range.start)
+  (model, node_id_to_string(node_id))
+}
+
+///|
+test "selection characterization: refresh recomputes selected highlight" {
+  let (model, node_id) = try! selected_test_model()
+  let refreshed = refresh({ ..model, selected_node: Some(node_id) })
+  inspect(refreshed.highlight_set.is_empty(), content="false")
+}
+
+///|
+test "selection characterization: outline click selects highlights and clears nav" {
+  let (model, node_id) = try! selected_test_model()
+  model.nav_path = Some([0])
+  match handle_outline(
+    test_parent_emit(),
+    OutlineNodeClicked(node_id),
+    model,
+  ) {
+    Some((_, changed)) => {
+      inspect(changed.selected_node == Some(node_id), content="true")
+      inspect(changed.highlight_set.is_empty(), content="false")
+      inspect(changed.nav_path is None, content="true")
+    }
+    None => abort("OutlineNodeClicked was not handled")
+  }
+}
+
+///|
+test "selection characterization: outline navigation preserves nav cache" {
+  let (model, node_id) = try! selected_test_model()
+  model.nav_path = Some([0])
+  match handle_outline(
+    test_parent_emit(),
+    OutlineNavigate(node_id),
+    model,
+  ) {
+    Some((_, changed)) => {
+      inspect(changed.selected_node == Some(node_id), content="true")
+      inspect(changed.highlight_set.is_empty(), content="false")
+      inspect(changed.nav_path, content="Some([0])")
+    }
+    None => abort("OutlineNavigate was not handled")
+  }
+}
+
+///|
+test "selection characterization: outline structural edit refreshes selection" {
+  let (model, node_id) = try! selected_test_model()
+  model.nav_path = Some([0])
+  let nid = parse_node_id(node_id).unwrap()
+  match handle_structural(
+    test_parent_emit(),
+    OutlineStructuralEdit(@lambda_edits.TreeEditOp::Select(node_id=nid)),
+    model,
+  ) {
+    Some((_, changed)) => {
+      inspect(changed.highlight_set.is_empty(), content="false")
+      inspect(changed.nav_path is None, content="true")
+    }
+    None => abort("OutlineStructuralEdit was not handled")
+  }
+}
+
+///|
+test "selection characterization: structure selection highlights and clears nav" {
+  let (model, node_id) = try! selected_test_model()
+  model.nav_path = Some([0])
+  match handle_structure_mode(
+    test_parent_emit(),
+    StructureNodeSelected(node_id),
+    model,
+  ) {
+    Some((_, changed)) => {
+      inspect(changed.selected_node == Some(node_id), content="true")
+      inspect(changed.highlight_set.is_empty(), content="false")
+      inspect(changed.nav_path is None, content="true")
+    }
+    None => abort("StructureNodeSelected was not handled")
+  }
+}
