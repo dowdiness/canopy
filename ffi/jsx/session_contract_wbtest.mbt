@@ -1011,6 +1011,11 @@ test "replay candidate adapter rejects a stale session revision before commit" {
     jsx_session_new("<div>initial</div>", "session-root-a"),
   )
   let handle = session_test_handle(created)
+  let committed_id : String = created
+    .get("result")
+    .get("mounted_ids")
+    .at(0)
+    .cast()
   let candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"component\",\"name\":\"text\",\"attributes\":[{\"name\":\"value\",\"value\":\"Orders\"}],\"children\":[]}]}"
   let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
   let result = @js.parse(
@@ -1019,6 +1024,7 @@ test "replay candidate adapter rejects a stale session revision before commit" {
   assert_false(result.get("success").cast())
   assert_eq(result.get("error").get("code").to_str(), "BaseRevisionMismatch")
   assert_eq(result.get("revision").cast(), 1)
+  assert_eq(result.get("mounted_ids").at(0).cast(), committed_id)
   assert_eq(session_test_nested_texts("session-root-a"), "initial")
   jsx_session_dispose(handle)
 }
@@ -1070,6 +1076,11 @@ test "replay candidate adapter decodes typed JSON errors without committing" {
     jsx_session_new("<div>initial</div>", "session-root-a"),
   )
   let handle = session_test_handle(created)
+  let committed_id : String = created
+    .get("result")
+    .get("mounted_ids")
+    .at(0)
+    .cast()
   let malformed_candidate = "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"text\"}]}"
   let capabilities = "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
   let result = @js.parse(
@@ -1080,6 +1091,7 @@ test "replay candidate adapter decodes typed JSON errors without committing" {
   assert_false(result.get("success").cast())
   assert_eq(result.get("error").get("code").to_str(), "CandidateDecodeError")
   assert_eq(result.get("revision").cast(), 1)
+  assert_eq(result.get("mounted_ids").at(0).cast(), committed_id)
   assert_eq(session_test_nested_texts("session-root-a"), "initial")
   jsx_session_dispose(handle)
 }

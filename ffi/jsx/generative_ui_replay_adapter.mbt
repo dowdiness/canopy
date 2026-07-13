@@ -133,8 +133,8 @@ pub fn jsx_session_replay_candidate_json(
   let revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(
     base_revision,
   )
-  let session_revision = match session_registry.get(handle) {
-    Some(session) => session.baseline.revision
+  let session = match session_registry.get(handle) {
+    Some(session) => session
     None => {
       let error = if disposed_session_handles.contains(handle) {
         ("DisposedSession", "session handle has been disposed")
@@ -144,11 +144,12 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(false, 0, [], [], Some(error))
     }
   }
+  let session_revision = session.baseline.revision
   guard session_revision == base_revision else {
     return render_result_json(
       false,
       session_revision,
-      [],
+      session.mounted_ids,
       [],
       Some(
         (
@@ -167,7 +168,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("ReplayError", "failed to start generation")),
       )
@@ -178,7 +179,7 @@ pub fn jsx_session_replay_candidate_json(
     return render_result_json(
       false,
       base_revision,
-      [],
+      session.mounted_ids,
       [],
       Some(("InputRejected", "replay input exceeds the generation limit")),
     )
@@ -194,7 +195,7 @@ pub fn jsx_session_replay_candidate_json(
     return render_result_json(
       false,
       base_revision,
-      [],
+      session.mounted_ids,
       [],
       Some(("InputRejected", "chunk count exceeds the generation limit")),
     )
@@ -232,7 +233,7 @@ pub fn jsx_session_replay_candidate_json(
         return render_result_json(
           false,
           base_revision,
-          [],
+          session.mounted_ids,
           [],
           Some(("InputRejected", replay_transition_message(transition))),
         )
@@ -242,7 +243,7 @@ pub fn jsx_session_replay_candidate_json(
     return render_result_json(
       false,
       base_revision,
-      [],
+      session.mounted_ids,
       [],
       Some(("InputRejected", "replay did not finalize")),
     )
@@ -256,7 +257,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("CandidateDecodeError", message)),
       )
@@ -271,7 +272,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("CapabilityDecodeError", message)),
       )
@@ -293,7 +294,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         messages,
         Some(("CandidateValidationError", "candidate rejected")),
       )
@@ -320,7 +321,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         current_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("BaseRevisionMismatch", "candidate base revision is stale")),
       )
@@ -328,7 +329,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("CandidateRejected", replay_transition_message(transition))),
       )
@@ -339,7 +340,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("SessionError", "session returned invalid JSON")),
       )
@@ -349,7 +350,7 @@ pub fn jsx_session_replay_candidate_json(
       return render_result_json(
         false,
         base_revision,
-        [],
+        session.mounted_ids,
         [],
         Some(("SessionError", "session returned invalid JSON shape")),
       )
