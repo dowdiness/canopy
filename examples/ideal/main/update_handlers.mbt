@@ -290,16 +290,7 @@ fn handle_overlay(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
 fn handle_file_io(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
   let _ = emit
   match msg {
-    LoadExample(example_text) => {
-      model.editor.set_text_and_record(example_text, js_now_ms())
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let text = new_model.editor.get_text()
-      let cmd = sync_after_local_model_change(new_model, text)
-      Some((cmd, new_model))
-    }
+    LoadExample(example_text) => Some(load_text(model, example_text))
     OpenFile =>
       Some((@rabbita.effect(fn() { @ffi.load_file(model.handle) }), model))
     SaveFile =>
@@ -309,16 +300,7 @@ fn handle_file_io(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
           model,
         ),
       )
-    FileLoaded(content) => {
-      model.editor.set_text_and_record(content, js_now_ms())
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let text = new_model.editor.get_text()
-      let cmd = sync_after_local_model_change(new_model, text)
-      Some((cmd, new_model))
-    }
+    FileLoaded(content) => Some(load_text(model, content))
     _ => None
   }
 }

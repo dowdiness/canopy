@@ -421,6 +421,14 @@ test "select_with_highlight obeys its explicit reset_nav policy" {
   let reset = select_with_highlight(model, Some(node_id), true)
   inspect(reset.nav_path is None, content="true")
 }
+///|
+test "load_text records text and advances the edit timestamp" {
+  let model = try! init_model()
+  let before = model.next_timestamp
+  let (_, changed) = load_text(model, "fn loaded() { 42 }")
+  inspect(changed.editor.get_text(), content="fn loaded() { 42 }")
+  inspect(changed.next_timestamp, content="\{before + 1}")
+}
 
 ///|
 test "selection characterization: refresh recomputes selected highlight" {

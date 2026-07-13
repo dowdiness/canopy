@@ -94,6 +94,22 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd {
 }
 
 ///|
+fn apply_text_edit(model : Model, text : String) -> (String, Model) {
+  model.editor.set_text_and_record(text, js_now_ms())
+  let changed = refresh({
+    ..model,
+    next_timestamp: model.next_timestamp + 1,
+  })
+  (changed.editor.get_text(), changed)
+}
+
+///|
+fn load_text(model : Model, text : String) -> (Cmd, Model) {
+  let (actual_text, changed) = apply_text_edit(model, text)
+  (sync_after_local_model_change(changed, actual_text), changed)
+}
+
+///|
 fn select_text_node_cmd(model : Model, node_id : String) -> Cmd {
   match parse_node_id(node_id) {
     None => none
