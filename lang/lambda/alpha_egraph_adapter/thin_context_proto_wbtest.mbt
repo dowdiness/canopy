@@ -53,7 +53,7 @@ fn canonical_binder(binder : @alpha.Binder, position : Int) -> @alpha.Binder {
 }
 
 ///|
-fn LambdaContext::extend(
+fn LambdaContext::bind(
   self : LambdaContext,
   binder : @alpha.BinderId,
 ) -> LambdaContext {
@@ -107,7 +107,7 @@ fn normalize_defs(
     let position = current_ctx.binders.length()
     let normalized_binder = canonical_binder(binder, position)
     normalized_defs.push((normalized_binder, normalized_init))
-    continue (current_ctx.extend(binder.id), normalized_defs)
+    continue (current_ctx.bind(binder.id), normalized_defs)
   } nobreak {
     state
   }
@@ -126,7 +126,7 @@ fn normalize_term(
       let normalized_binder = canonical_binder(binder, position)
       @alpha.AlphaTerm::Lam(
         normalized_binder,
-        normalize_term(ctx.extend(binder.id), body),
+        normalize_term(ctx.bind(binder.id), body),
       )
     }
     App(func, arg) =>
