@@ -34,13 +34,13 @@
   - `resetSession()` delegates to the existing `resetState` function.
 - The surface must not implement lifecycle transitions, validation, revision changes, or recovery.
 
-- [ ] Step 1: Add the underscored test surface beside the existing candidate/session functions.
-- [ ] Step 2: Run the web TypeScript check or Vite build to catch syntax/import errors.
+- [x] Step 1: Add the underscored test surface beside the existing candidate/session functions.
+- [x] Step 2: Run the web TypeScript check or Vite build to catch syntax/import errors.
 
 Run: `npm run build` from `examples/web`
 Expected: Vite build succeeds.
 
-- [ ] Step 3: Re-read the edited region and verify the surface contains no duplicated policy.
+- [x] Step 3: Re-read the edited region and verify the surface contains no duplicated policy.
 
 ### Task 2: Add failing browser scenarios
 
@@ -52,13 +52,13 @@ Expected: Vite build succeeds.
 - Uses the existing `#html-preview` root and existing Data Explorer controls.
 - Uses a valid candidate fixture and a forbidden `raw_html` candidate fixture defined in the test file.
 
-- [ ] Step 1: Add a test for invalid candidate rejection with unchanged revision and preview.
-- [ ] Step 2: Add a test for stale base-revision rejection with unchanged revision and preview.
-- [ ] Step 3: Add a test that replaces the preview root insertion method with a throwing wrapper, asserts `DomApplyError`, unchanged revision, and no committed success state.
-- [ ] Step 4: Restore the insertion method, submit the same valid candidate, and assert revision advances once and the candidate surface is present.
-- [ ] Step 5: Add host-state assertions for filter, selection, detail text, and focus around the failure/recovery sequence.
-- [ ] Step 6: Add deterministic replay assertions comparing normalized preview markup, mounted-node count, success, and revision from two fresh sessions.
-- [ ] Step 7: Run only the new tests and confirm failures identify missing observability or behavior rather than silently passing.
+- [x] Step 1: Add a test for invalid candidate rejection with unchanged revision and preview.
+- [x] Step 2: Add a test for stale base-revision rejection with unchanged revision and preview.
+- [x] Step 3: Add a test that replaces the preview root insertion method with a throwing wrapper, asserts `DomApplyError`, unchanged revision, and no committed success state.
+- [x] Step 4: Restore the insertion method, submit the same valid candidate, and assert revision advances once and the candidate surface is present.
+- [x] Step 5: Add host-state assertions for filter, selection, detail text, and focus around the failure/recovery sequence.
+- [x] Step 6: Add deterministic replay assertions comparing normalized preview markup, mounted-node count, success, and revision from two fresh sessions.
+- [x] Step 7: Run only the new tests and confirm failures identify missing observability or behavior rather than silently passing.
 
 Run: `npx playwright test tests/genui.spec.ts --grep "candidate|recovery|replay"`
 Expected before implementation: failing tests due to missing test surface or assertions.
@@ -68,9 +68,9 @@ Expected before implementation: failing tests due to missing test surface or ass
 **Files:**
 - Modify: `examples/web/src/genui.js`
 
-- [ ] Step 1: Implement only the call-through methods specified in Task 1.
-- [ ] Step 2: Run `npm run build` from `examples/web`.
-- [ ] Step 3: Run the focused Playwright scenarios from Task 2.
+- [x] Step 1: Implement only the call-through methods specified in Task 1.
+- [x] Step 2: Run `npm run build` from `examples/web`.
+- [x] Step 3: Run the focused Playwright scenarios from Task 2.
 
 Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 
@@ -85,23 +85,36 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 - Leaves cancellation/late-candidate browser evidence explicitly marked as cognition-only because the browser candidate API is synchronous.
 - Records zero-count safety metrics and reproducible latency/rejection/repair/heap observations from an attached raw JSON measurement artifact.
 
-- [ ] Step 1: Map each acceptance criterion to exact landed implementation and test paths.
-- [ ] Step 2: Mark only criteria with concrete evidence as complete; leave any unsupported claim unchecked.
-- [ ] Step 3: Replace stale Issue #888 wording with merged PR #892 evidence.
-- [ ] Step 4: Add a dated evidence table for focused MoonBit tests and browser tests.
-- [ ] Step 5: Add a dedicated Playwright measurement test with fixed denominators: five valid replay latency samples, three invalid attempts, three stale-base attempts, one forced failure plus repair, and two deterministic fresh replays.
-- [ ] Step 6: Attach raw JSON containing every `performance.now()` duration, attempt/result counts, state snapshots, repair count, and `performance.memory` availability/values.
-- [ ] Step 7: Add the measured safety metrics, including zero counts and unavailable measurements where the runtime cannot report them; label cognition-derived cancellation values separately.
-- [ ] Step 8: Self-review the plan for stale future-tense Phase 0–4 descriptions and distinguish historical implementation steps from remaining gates.
+- [x] Step 1: Map each acceptance criterion to exact landed implementation and test paths.
+- [x] Step 2: Mark only criteria with concrete evidence as complete; leave any unsupported claim unchecked.
+- [x] Step 3: Replace stale Issue #888 wording with merged PR #892 evidence.
+- [x] Step 4: Add a dated evidence table for focused MoonBit tests and browser tests.
+- [x] Step 5: Add a dedicated Playwright measurement test with fixed denominators: five valid replay latency samples, three invalid attempts, three stale-base attempts, one forced failure plus repair, and two deterministic fresh replays.
+- [x] Step 6: Attach raw JSON containing every `performance.now()` duration, attempt/result counts, state snapshots, repair count, and `performance.memory` availability/values.
+- [x] Step 7: Add the measured safety metrics, including zero counts and unavailable measurements where the runtime cannot report them; label cognition-derived cancellation values separately.
+- [x] Step 8: Self-review the plan for stale future-tense Phase 0–4 descriptions and distinguish historical implementation steps from remaining gates.
 
 ### Task 5: Verify the complete slice
 
 **Files:**
 - No source changes.
 
-- [ ] Step 1: Run focused MoonBit checks/tests for `lib/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
-- [ ] Step 2: Run scoped `moon fmt` and `moon info` only if MoonBit files changed; inspect generated interface drift.
-- [ ] Step 3: Run `npm run build` from `examples/web`.
-- [ ] Step 4: Run the complete `examples/web/tests/genui.spec.ts` suite.
-- [ ] Step 5: Run `git diff --check` and inspect the final diff for only the intended files.
-- [ ] Step 6: Report that live-provider work remains gated on the recorded evidence.
+- [x] Step 1: Run focused MoonBit checks/tests for `lib/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
+- [x] Step 2: Run scoped `moon fmt` and `moon info` only if MoonBit files changed; inspect generated interface drift.
+- [x] Step 3: Run `npm run build` from `examples/web`.
+- [x] Step 4: Run the complete `examples/web/tests/genui.spec.ts` suite.
+- [x] Step 5: Run `git diff --check` and inspect the final diff for only the intended files.
+- [x] Step 6: Report that live-provider work remains gated on the recorded evidence.
+
+## Verification record
+
+- `NEW_MOON_MOD=0 moon check lib/cognition ffi/jsx lang/jsx/proj` passed.
+- Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `49/49`, and
+  lang/jsx/proj `43/43`.
+- Scoped `moon fmt` and `moon info` passed with no generated interface drift.
+- `npm run build` passed.
+- Playwright GenUI suite passed: `14/14`; the measurement test retained
+  `genui-safety-metrics.json` with the values recorded in the vertical-slice
+  plan.
+- The live-provider gate remains closed because AC-12 and AC-14 are still
+  explicitly unchecked.
