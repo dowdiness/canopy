@@ -27,12 +27,50 @@ fn plan_or_abort(
 }
 
 ///|
+fn assert_no_baseline_effect(effect : SessionBaselineEffect) -> Unit raise {
+  match effect {
+    NoEffect => ()
+    RestoreCommittedSource => fail("expected no baseline effect")
+  }
+}
+
+///|
+fn assert_source_restoration(effect : SessionBaselineEffect) -> Unit raise {
+  match effect {
+    RestoreCommittedSource => ()
+    NoEffect => fail("expected committed-source restoration")
+  }
+}
+
+///|
+fn baseline_effect_matches(
+  actual : SessionBaselineEffect,
+  expected : SessionBaselineEffect,
+) -> Bool {
+  match (actual, expected) {
+    (NoEffect, NoEffect) | (RestoreCommittedSource, RestoreCommittedSource) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn baseline_matches(
+  actual : SessionBaseline,
+  expected : SessionBaseline,
+) -> Bool {
+  actual.mounted_origin == expected.mounted_origin &&
+  actual.dirty == expected.dirty &&
+  actual.revision == expected.revision
+}
+
+///|
 test "render baseline: initial source success preserves clean source origin" {
   let initial = SessionBaseline::initial()
   let plan = plan_or_abort(initial, Source, false)
   assert_false(plan.must_remount)
   let (next, effect) = finish_render(plan, Success)
-  assert_true(effect == NoEffect)
+  assert_no_baseline_effect(effect)
   assert_true(next.mounted_origin == Source)
   assert_false(next.dirty)
   assert_eq(next.revision, 1)
@@ -44,7 +82,7 @@ test "render baseline: candidate success always remounts" {
   let plan = plan_or_abort(initial, Candidate, false)
   assert_true(plan.must_remount)
   let (next, effect) = finish_render(plan, Success)
-  assert_true(effect == NoEffect)
+  assert_no_baseline_effect(effect)
   assert_true(next.mounted_origin == Candidate)
   assert_false(next.dirty)
   assert_eq(next.revision, 1)
@@ -60,7 +98,7 @@ test "render baseline: source success following candidate remounts" {
   let plan = plan_or_abort(candidate, Source, false)
   assert_true(plan.must_remount)
   let (next, effect) = finish_render(plan, Success)
-  assert_true(effect == NoEffect)
+  assert_no_baseline_effect(effect)
   assert_true(next.mounted_origin == Source)
   assert_false(next.dirty)
   assert_eq(next.revision, 2)
@@ -71,7 +109,7 @@ test "render baseline: dry-run failure retains origin and marks dirty" {
   let initial = SessionBaseline::initial()
   let plan = plan_or_abort(initial, Source, false)
   let (next, effect) = finish_render(plan, DryRunFail)
-  assert_true(effect == RestoreCommittedSource)
+  assert_source_restoration(effect)
   assert_true(next.mounted_origin == Source)
   assert_true(next.dirty)
   assert_eq(next.revision, 0)
@@ -82,7 +120,7 @@ test "render baseline: DOM failure retains origin and marks dirty" {
   let initial = SessionBaseline::initial()
   let plan = plan_or_abort(initial, Source, false)
   let (next, effect) = finish_render(plan, DomFail)
-  assert_true(effect == RestoreCommittedSource)
+  assert_source_restoration(effect)
   assert_true(next.mounted_origin == Source)
   assert_true(next.dirty)
   assert_eq(next.revision, 0)
@@ -93,17 +131,17 @@ test "render baseline: candidate failures never restore source" {
   let initial = SessionBaseline::initial()
   let plan = plan_or_abort(initial, Candidate, false)
   let (after_dry_run, dry_run_effect) = finish_render(plan, DryRunFail)
-  assert_true(dry_run_effect == NoEffect)
+  assert_no_baseline_effect(dry_run_effect)
   assert_true(after_dry_run.dirty)
   let (after_dom, dom_effect) = finish_render(plan, DomFail)
-  assert_true(dom_effect == NoEffect)
+  assert_no_baseline_effect(dom_effect)
   assert_true(after_dom.dirty)
   let (after_projection, projection_effect) = finish_render(
     plan,
     ProjectionFail,
   )
-  assert_true(projection_effect == NoEffect)
-  assert_true(after_projection == initial)
+  assert_no_baseline_effect(projection_effect)
+  assert_true(baseline_matches(after_projection, initial))
 }
 
 ///|
@@ -116,8 +154,8 @@ test "render baseline: source projection failure requests source restoration" {
   let plan = plan_or_abort(candidate, Source, false)
   assert_true(plan.must_remount)
   let (next, effect) = finish_render(plan, ProjectionFail)
-  assert_true(effect == RestoreCommittedSource)
-  assert_true(next == candidate)
+  assert_source_restoration(effect)
+  assert_true(baseline_matches(next, candidate))
   assert_true(next.mounted_origin == Candidate)
   assert_false(next.dirty)
   assert_eq(next.revision, 1)
@@ -132,7 +170,7 @@ test "render baseline: final permitted success reaches cap then rejects" {
   )
   let plan = plan_or_abort(before_cap, Source, false)
   let (exhausted, effect) = finish_render(plan, Success)
-  assert_true(effect == NoEffect)
+  assert_no_baseline_effect(effect)
   assert_true(exhausted.mounted_origin == Source)
   assert_false(exhausted.dirty)
   assert_eq(exhausted.revision, MAX_SESSION_REVISION)
@@ -211,14 +249,15 @@ fn prop_baseline_preserves_reachable_lifecycle_invariants(
           next.revision == baseline.revision + 1 &&
           next.mounted_origin == event.kind &&
           !next.dirty &&
-          effect == NoEffect
+          baseline_effect_matches(effect, NoEffect)
         DryRunFail | DomFail =>
           next.revision == baseline.revision &&
           next.mounted_origin == baseline.mounted_origin &&
           next.dirty &&
-          effect == expected_source_failure_effect
+          baseline_effect_matches(effect, expected_source_failure_effect)
         ProjectionFail =>
-          next == baseline && effect == expected_source_failure_effect
+          baseline_matches(next, baseline) &&
+          baseline_effect_matches(effect, expected_source_failure_effect)
       }
       (
         next,

@@ -15,11 +15,17 @@ priv struct JsxSession {
   registry : @js.Any
   root_id : String
   mut committed_source : String
-  mut revision : Int
+  mut baseline : SessionBaseline
   mut mounted_ids : Array[Int]
   mut last_proj : @canopy_core.ProjNode[@jsx_ast.JsxNode]?
   mut dry_run_model : @jsx_proj.DryRunModel
-  mut dirty : Bool
+}
+
+///|
+priv enum SourceProjectionRead {
+  Available(@canopy_core.ProjNode[@jsx_ast.JsxNode])
+  Unavailable
+  Failed
 }
 
 ///|
@@ -120,11 +126,10 @@ fn new_jsx_session(source : String, root_id : String) -> JsxSession {
     registry: new_element_registry(),
     root_id,
     committed_source: source,
-    revision: 0,
+    baseline: SessionBaseline::initial(),
     mounted_ids: [],
     last_proj: None,
     dry_run_model: @jsx_proj.DryRunModel::empty(),
-    dirty: false,
   }
 }
 
@@ -150,11 +155,127 @@ fn has_mount_boundary_transition(
 }
 
 ///|
-/// Return the parser to the last DOM-committed source after a rejected
-/// candidate. The memo may still retain internal speculative work, so the
-/// session remains dirty and the next successful render must remount.
+/// Return the parser to the last DOM-committed source after a rejected source
+/// render. Mounted truth remains in `last_proj`, so projection failure preserves
+/// the baseline's existing dirty state.
 fn restore_committed_source(session : JsxSession) -> Unit {
   session.parser.set_source(session.committed_source)
+}
+
+///|
+fn apply_session_baseline_effect(
+  session : JsxSession,
+  effect : SessionBaselineEffect,
+) -> Unit {
+  match effect {
+    NoEffect => ()
+    RestoreCommittedSource => restore_committed_source(session)
+  }
+}
+
+///|
+fn revision_exhausted_result(session : JsxSession) -> String {
+  render_result_json(
+    false,
+    session.baseline.revision,
+    session.mounted_ids,
+    [],
+    Some(("RevisionExhausted", "session revision is exhausted")),
+  )
+}
+
+///|
+fn finish_projection_failure(
+  session : JsxSession,
+  plan : RenderPlan,
+  diagnostics : Array[String],
+  code : String,
+  message : String,
+) -> String {
+  let (baseline, effect) = finish_render(plan, ProjectionFail)
+  session.baseline = baseline
+  apply_session_baseline_effect(session, effect)
+  render_result_json(
+    false,
+    session.baseline.revision,
+    session.mounted_ids,
+    diagnostics,
+    Some((code, message)),
+  )
+}
+
+///|
+fn commit_projection(
+  session : JsxSession,
+  plan : RenderPlan,
+  proj : @canopy_core.ProjNode[@jsx_ast.JsxNode],
+  diagnostics : Array[String],
+  source_to_commit : String?,
+) -> String {
+  let existing = if plan.must_remount { [] } else { session.mounted_ids.copy() }
+  let (patches, next_mounted_ids) = @jsx_proj.reconcile(proj, existing)
+  let dry_run_base = if plan.must_remount {
+    @jsx_proj.DryRunModel::empty()
+  } else {
+    session.dry_run_model
+  }
+  match dry_run_base.apply(patches) {
+    Err(message) => {
+      let (baseline, effect) = finish_render(plan, DryRunFail)
+      session.baseline = baseline
+      apply_session_baseline_effect(session, effect)
+      render_result_json(
+        false,
+        session.baseline.revision,
+        session.mounted_ids,
+        diagnostics,
+        Some(("DryRunError", message)),
+      )
+    }
+    Ok(dry_run_model) => {
+      if plan.must_remount {
+        clear_element_registry(session.registry)
+      }
+      match
+        apply_patches_with_registry(
+          @jsx_proj.dom_patches_to_json(patches),
+          session.root_id,
+          session.registry,
+        ) {
+        Ok(_) => {
+          let (baseline, effect) = finish_render(plan, Success)
+          session.baseline = baseline
+          apply_session_baseline_effect(session, effect)
+          session.mounted_ids = next_mounted_ids
+          session.last_proj = Some(proj)
+          session.dry_run_model = dry_run_model
+          match source_to_commit {
+            Some(source) => session.committed_source = source
+            None => ()
+          }
+          render_result_json(
+            true,
+            session.baseline.revision,
+            session.mounted_ids,
+            diagnostics,
+            None,
+          )
+        }
+        Err(message) => {
+          let (baseline, effect) = finish_render(plan, DomFail)
+          session.baseline = baseline
+          apply_session_baseline_effect(session, effect)
+          render_result_json(
+            false,
+            session.baseline.revision,
+            session.mounted_ids,
+            diagnostics,
+            Some(("DomApplyError", message)),
+          )
+        }
+      }
+    }
+  }
 }
 
 ///|
@@ -170,111 +291,69 @@ fn dispose_jsx_session(session : JsxSession) -> Unit {
 }
 
 ///|
+fn read_source_projection(session : JsxSession) -> SourceProjectionRead {
+  match session.proj_watch.read() {
+    Ok(Some(proj)) => Available(proj)
+    Ok(None) => Unavailable
+    Err(_) => Failed
+  }
+}
+
+///|
+fn render_jsx_session_with_projection_read(
+  session : JsxSession,
+  source : String,
+  update_source : Bool,
+  projection_read_override? : SourceProjectionRead,
+) -> String {
+  match begin_render(session.baseline) {
+    Err(RevisionExhausted) => revision_exhausted_result(session)
+    Ok(permit) => {
+      if update_source {
+        session.parser.set_source(source)
+      }
+      let diagnostics = get_or_empty_errors(source)
+      let projection_read = match projection_read_override {
+        Some(value) => value
+        None => read_source_projection(session)
+      }
+      match projection_read {
+        Available(proj) => {
+          let transition = match session.last_proj {
+            Some(old) => has_mount_boundary_transition(old, proj)
+            None => false
+          }
+          let plan = plan_render(permit, Source, transition)
+          commit_projection(session, plan, proj, diagnostics, Some(source))
+        }
+        Unavailable =>
+          finish_projection_failure(
+            session,
+            plan_render(permit, Source, false),
+            diagnostics,
+            "ProjectionUnavailable",
+            "projection produced no root",
+          )
+        Failed =>
+          finish_projection_failure(
+            session,
+            plan_render(permit, Source, false),
+            diagnostics,
+            "ProjectionError",
+            "projection evaluation failed",
+          )
+      }
+    }
+  }
+}
+
+///|
 fn render_jsx_session(
   session : JsxSession,
   source : String,
   update_source : Bool,
 ) -> String {
-  if update_source {
-    session.parser.set_source(source)
-  }
-  let diagnostics = get_or_empty_errors(source)
-  match session.proj_watch.read() {
-    Ok(Some(proj)) => {
-      let transition = match session.last_proj {
-        Some(old) => has_mount_boundary_transition(old, proj)
-        None => false
-      }
-      let remount = session.dirty || transition
-      let existing = if remount { [] } else { session.mounted_ids.copy() }
-      let (patches, next_mounted_ids) = @jsx_proj.reconcile(proj, existing)
-      let dry_run_base = if remount {
-        @jsx_proj.DryRunModel::empty()
-      } else {
-        session.dry_run_model
-      }
-      match dry_run_base.apply(patches) {
-        Err(message) => {
-          session.dirty = true
-          restore_committed_source(session)
-          render_result_json(
-            false,
-            session.revision,
-            session.mounted_ids,
-            diagnostics,
-            Some(("DryRunError", message)),
-          )
-        }
-        Ok(dry_run_model) => {
-          if remount {
-            // V1 has no Move/Reparent patch. The supported repair boundary is
-            // the root container, which is also the smallest boundary we can
-            // safely identify without a committed DOM parent graph.
-            //
-            // A rejected dry-run must leave the last DOM-committed tree
-            // untouched, so clear the old registry only after validation.
-            clear_element_registry(session.registry)
-          }
-          match
-            apply_patches_with_registry(
-              @jsx_proj.dom_patches_to_json(patches),
-              session.root_id,
-              session.registry,
-            ) {
-            Ok(_) => {
-              session.revision += 1
-              // Reconcile owns the complete reachable-ID set. The DOM shell's
-              // result only contains IDs touched by this patch sequence and
-              // must not become the next existing-ID baseline.
-              session.mounted_ids = next_mounted_ids
-              session.last_proj = Some(proj)
-              session.dry_run_model = dry_run_model
-              session.committed_source = source
-              session.dirty = false
-              render_result_json(
-                true,
-                session.revision,
-                session.mounted_ids,
-                diagnostics,
-                None,
-              )
-            }
-            Err(message) => {
-              session.dirty = true
-              restore_committed_source(session)
-              render_result_json(
-                false,
-                session.revision,
-                session.mounted_ids,
-                diagnostics,
-                Some(("DomApplyError", message)),
-              )
-            }
-          }
-        }
-      }
-    }
-    Ok(None) => {
-      restore_committed_source(session)
-      render_result_json(
-        false,
-        session.revision,
-        session.mounted_ids,
-        diagnostics,
-        Some(("ProjectionUnavailable", "projection produced no root")),
-      )
-    }
-    Err(_) => {
-      restore_committed_source(session)
-      render_result_json(
-        false,
-        session.revision,
-        session.mounted_ids,
-        diagnostics,
-        Some(("ProjectionError", "projection evaluation failed")),
-      )
-    }
-  }
+  render_jsx_session_with_projection_read(session, source, update_source)
 }
 
 ///|
@@ -329,10 +408,10 @@ pub fn jsx_session_commit_candidate(
 ) -> String {
   match session_registry.get(handle) {
     Some(session) => {
-      if session.revision != base_revision.to_int() {
+      if session.baseline.revision != base_revision.to_int() {
         return render_result_json(
           false,
-          session.revision,
+          session.baseline.revision,
           session.mounted_ids,
           [],
           Some(
@@ -342,16 +421,13 @@ pub fn jsx_session_commit_candidate(
           ),
         )
       }
-      match lower_generative_ui_candidate(candidate) {
-        Ok(source) => render_jsx_session(session, source, true)
-        Err(message) =>
-          render_result_json(
-            false,
-            session.revision,
-            session.mounted_ids,
-            [],
-            Some(("CandidateLoweringError", message)),
-          )
+      match begin_render(session.baseline) {
+        Err(RevisionExhausted) => revision_exhausted_result(session)
+        Ok(permit) => {
+          let projection = candidate_to_projection(candidate)
+          let plan = plan_render(permit, Candidate, false)
+          commit_projection(session, plan, projection, [], None)
+        }
       }
     }
     None => {

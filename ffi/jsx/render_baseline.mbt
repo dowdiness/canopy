@@ -16,7 +16,7 @@ priv struct SessionBaseline {
   mounted_origin : RenderKind
   dirty : Bool
   revision : Int
-} derive(Debug, Eq)
+}
 
 ///|
 fn SessionBaseline::SessionBaseline(
@@ -36,7 +36,7 @@ fn SessionBaseline::initial() -> SessionBaseline {
 /// Evidence that the baseline admitted one render before imperative work.
 priv struct RenderPermit {
   baseline : SessionBaseline
-} derive(Debug, Eq)
+}
 
 ///|
 fn RenderPermit::RenderPermit(baseline~ : SessionBaseline) -> RenderPermit {
@@ -49,7 +49,7 @@ priv struct RenderPlan {
   baseline : SessionBaseline
   kind : RenderKind
   must_remount : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 fn RenderPlan::RenderPlan(
@@ -66,18 +66,18 @@ priv enum RenderOutcome {
   DryRunFail
   DomFail
   ProjectionFail
-} derive(Debug, Eq)
+} derive(Debug)
 
 ///|
 priv enum SessionBaselineEffect {
   NoEffect
   RestoreCommittedSource
-} derive(Debug, Eq)
+}
 
 ///|
 priv enum RenderPlanningError {
   RevisionExhausted
-} derive(Debug, Eq)
+}
 
 ///|
 fn begin_render(

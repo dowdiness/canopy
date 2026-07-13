@@ -134,7 +134,7 @@ pub fn jsx_session_replay_candidate_json(
     base_revision,
   )
   let session_revision = match session_registry.get(handle) {
-    Some(session) => session.revision
+    Some(session) => session.baseline.revision
     None => {
       let error = if disposed_session_handles.contains(handle) {
         ("DisposedSession", "session handle has been disposed")
@@ -300,7 +300,7 @@ pub fn jsx_session_replay_candidate_json(
     }
   }
   let current_revision = match session_registry.get(handle) {
-    Some(session) => session.revision
+    Some(session) => session.baseline.revision
     None => base_revision
   }
   let current_revision_value = @cognition.GenerativeUiRevision::GenerativeUiRevision(

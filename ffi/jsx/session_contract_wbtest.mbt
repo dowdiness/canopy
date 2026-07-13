@@ -3,11 +3,12 @@
 ///|
 extern "js" fn install_session_test_document() -> Unit =
   #|() => {
-  #|  const state = { failAppend: false };
+  #|  const state = { failAppend: false, nextNodeId: 1 };
   #|  const makeNode = (tag, text = "") => {
   #|    const node = {
   #|      tag,
   #|      textContent: text,
+  #|      testId: state.nextNodeId++,
   #|      children: [],
   #|      get childNodes() { return this.children; },
   #|      parent: null,
@@ -65,6 +66,10 @@ extern "js" fn session_test_root_child_count(root_id : String) -> Int =
   #|(rootId) => document.getElementById(rootId).children.length
 
 ///|
+extern "js" fn session_test_root_child_identity(root_id : String) -> Int =
+  #|(rootId) => document.getElementById(rootId).children[0]?.testId ?? 0
+
+///|
 extern "js" fn session_test_first_nested_tag(root_id : String) -> String =
   #|(rootId) => document.getElementById(rootId).children[0]?.children[0]?.tag ?? ""
 
@@ -78,6 +83,14 @@ extern "js" fn session_test_root_attribute(
   name : String,
 ) -> String =
   #|(rootId, name) => document.getElementById(rootId).children[0]?.attrs[name] ?? ""
+
+///|
+extern "js" fn session_test_nested_attribute(
+  root_id : String,
+  index : Int,
+  name : String,
+) -> String =
+  #|(rootId, index, name) => document.getElementById(rootId).children[0]?.children[index]?.attrs[name] ?? ""
 
 ///|
 extern "js" fn session_test_has_root_attribute(
@@ -406,6 +419,37 @@ fn session_test_candidate() -> @cognition.GenerativeUiCandidate {
 }
 
 ///|
+fn session_test_text_candidate(
+  values : Array[String],
+) -> @cognition.GenerativeUiCandidate {
+  let capabilities = @cognition.GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(
+    bindings=[],
+    filter_operators=[],
+    aggregations=[],
+  )
+  let raw = @cognition.GenerativeUiRawNode::Component(
+    name="stack",
+    attributes=[],
+    children=values.map(value => {
+      @cognition.GenerativeUiRawNode::Component(
+        name="text",
+        attributes=[
+          @cognition.GenerativeUiRawAttribute::GenerativeUiRawAttribute(
+            name="value",
+            value~,
+          ),
+        ],
+        children=[],
+      )
+    }),
+  )
+  match @cognition.GenerativeUiCandidate::validate(raw~, capabilities~) {
+    Ok(candidate) => candidate
+    Err(_) => abort("text candidate fixture must validate")
+  }
+}
+
+///|
 fn session_test_expected_candidate_ast() -> @jsx_ast.JsxNode {
   @jsx_ast.JsxNode::Root(children=[
     @jsx_ast.JsxNode::Element(
@@ -510,9 +554,9 @@ fn session_test_projection_is_paired(
     @jsx_ast.JsxNode::Fragment(children~) =>
       children == node.children.map(child => child.kind) &&
       node.children.all(session_test_projection_is_paired)
-    @jsx_ast.JsxNode::Text(_) |
-    @jsx_ast.JsxNode::ExprSpan(..) |
-    @jsx_ast.JsxNode::Error(_) => node.children.is_empty()
+    @jsx_ast.JsxNode::Text(_)
+    | @jsx_ast.JsxNode::ExprSpan(..)
+    | @jsx_ast.JsxNode::Error(_) => node.children.is_empty()
   }
 }
 
@@ -542,6 +586,212 @@ test "validated candidate commits only after the session dry run" {
   assert_eq(result.get("revision").cast(), 2)
   assert_eq(session_test_child_tag("session-root-a", 1), "div")
   assert_eq(session_test_root_child_count("session-root-a"), 1)
+  let session = session_registry.get(handle).unwrap()
+  assert_eq(session.committed_source, "<div>initial</div>")
+  assert_true(session.baseline.mounted_origin == Candidate)
+  let candidate_root_identity = session_test_root_child_identity(
+    "session-root-a",
+  )
+
+  let source = @js.parse(jsx_session_render(handle, "<div>source</div>"))
+  assert_true(source.get("success").cast())
+  assert_eq(source.get("revision").cast(), 3)
+  assert_true(
+    session_test_root_child_identity("session-root-a") !=
+    candidate_root_identity,
+  )
+  assert_true(session.baseline.mounted_origin == Source)
+  assert_eq(session.committed_source, "<div>source</div>")
+  assert_eq(session_test_nested_texts("session-root-a"), "source")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "candidate replacement preserves shifted sibling order" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let first = @js.parse(
+    jsx_session_commit_candidate(
+      handle,
+      @cognition.GenerativeUiRevision::GenerativeUiRevision(1),
+      session_test_text_candidate(["a", "b"]),
+    ),
+  )
+  assert_true(first.get("success").cast())
+  assert_eq(first.get("revision").cast(), 2)
+  assert_eq(session_test_nested_texts("session-root-a"), "a|b")
+  let first_root_identity = session_test_root_child_identity("session-root-a")
+
+  let shifted = @js.parse(
+    jsx_session_commit_candidate(
+      handle,
+      @cognition.GenerativeUiRevision::GenerativeUiRevision(2),
+      session_test_text_candidate(["x", "a", "b"]),
+    ),
+  )
+  assert_true(shifted.get("success").cast())
+  assert_eq(shifted.get("revision").cast(), 3)
+  assert_eq(shifted.get("mounted_ids").get("length").cast(), 4)
+  assert_eq(session_test_nested_texts("session-root-a"), "x|a|b")
+  assert_true(
+    session_test_root_child_identity("session-root-a") != first_root_identity,
+  )
+  assert_eq(session_test_root_child_count("session-root-a"), 1)
+  jsx_session_dispose(handle)
+}
+
+///|
+test "candidate metadata reaches DOM with exact entity-like values" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let metadata = "&amp;lt; &amp;amp; \"quoted\" 雪"
+  let capabilities = @cognition.GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(
+    bindings=[
+      @cognition.GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(
+        name="orders",
+        fields=["name"],
+        selection_keys=[],
+      ),
+    ],
+    filter_operators=[],
+    aggregations=[],
+  )
+  let raw = @cognition.GenerativeUiRawNode::Component(
+    name="table",
+    attributes=[
+      @cognition.GenerativeUiRawAttribute::GenerativeUiRawAttribute(
+        name="data",
+        value="orders",
+      ),
+    ],
+    children=[
+      @cognition.GenerativeUiRawNode::Component(
+        name="column",
+        attributes=[
+          @cognition.GenerativeUiRawAttribute::GenerativeUiRawAttribute(
+            name="field",
+            value="name",
+          ),
+          @cognition.GenerativeUiRawAttribute::GenerativeUiRawAttribute(
+            name="label",
+            value=metadata,
+          ),
+        ],
+        children=[],
+      ),
+    ],
+  )
+  let candidate = match
+    @cognition.GenerativeUiCandidate::validate(raw~, capabilities~) {
+    Ok(value) => value
+    Err(_) => abort("metadata candidate fixture must validate")
+  }
+  let committed = @js.parse(
+    jsx_session_commit_candidate(
+      handle,
+      @cognition.GenerativeUiRevision::GenerativeUiRevision(1),
+      candidate,
+    ),
+  )
+  assert_true(committed.get("success").cast())
+  assert_eq(
+    session_test_root_attribute("session-root-a", "data-genui-binding"),
+    "orders",
+  )
+  assert_eq(
+    session_test_nested_attribute("session-root-a", 0, "data-genui-label"),
+    metadata,
+  )
+  jsx_session_dispose(handle)
+}
+
+///|
+test "exhausted revision rejects source before parser or DOM work" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let session = session_registry.get(handle).unwrap()
+  session.baseline = SessionBaseline(
+    mounted_origin=Source,
+    dirty=false,
+    revision=MAX_SESSION_REVISION,
+  )
+
+  let rejected = @js.parse(jsx_session_render(handle, "<div>uncommitted</div>"))
+  assert_false(rejected.get("success").cast())
+  assert_eq(rejected.get("revision").cast(), MAX_SESSION_REVISION)
+  assert_eq(rejected.get("error").get("code").to_str(), "RevisionExhausted")
+  assert_eq(session.committed_source, "<div>initial</div>")
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "source projection failure after candidate restores and recovers" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let candidate = @js.parse(
+    jsx_session_commit_candidate(
+      handle,
+      @cognition.GenerativeUiRevision::GenerativeUiRevision(1),
+      session_test_text_candidate(["candidate"]),
+    ),
+  )
+  assert_true(candidate.get("success").cast())
+  let candidate_root_identity = session_test_root_child_identity(
+    "session-root-a",
+  )
+  let session = session_registry.get(handle).unwrap()
+  let candidate_mounted_ids = session.mounted_ids.copy()
+
+  let failed = @js.parse(
+    render_jsx_session_with_projection_read(
+      session,
+      "<div>uncommitted</div>",
+      true,
+      projection_read_override=Failed,
+    ),
+  )
+  assert_false(failed.get("success").cast())
+  assert_eq(failed.get("revision").cast(), 2)
+  assert_eq(failed.get("error").get("code").to_str(), "ProjectionError")
+  assert_true(session.mounted_ids == candidate_mounted_ids)
+  assert_true(session.baseline.mounted_origin == Candidate)
+  assert_false(session.baseline.dirty)
+  assert_eq(session.committed_source, "<div>initial</div>")
+  assert_eq(session_test_nested_texts("session-root-a"), "candidate")
+  assert_eq(
+    session_test_root_child_identity("session-root-a"),
+    candidate_root_identity,
+  )
+  match read_source_projection(session) {
+    Available(projection) =>
+      assert_true(projection_texts(projection) == ["initial"])
+    _ => abort("restored source projection must be available")
+  }
+
+  let recovered = @js.parse(jsx_session_render(handle, "<div>recovered</div>"))
+  assert_true(recovered.get("success").cast())
+  assert_eq(recovered.get("revision").cast(), 3)
+  assert_true(session.baseline.mounted_origin == Source)
+  assert_false(session.baseline.dirty)
+  assert_eq(session.committed_source, "<div>recovered</div>")
+  assert_eq(session_test_nested_texts("session-root-a"), "recovered")
+  assert_true(
+    session_test_root_child_identity("session-root-a") !=
+    candidate_root_identity,
+  )
   jsx_session_dispose(handle)
 }
 
@@ -774,7 +1024,7 @@ test "replay candidate adapter rejects a stale session revision before commit" {
 }
 
 ///|
-test "replay candidate adapter reports lowering failure without committing" {
+test "replay candidate adapter commits JSX-significant text exactly" {
   install_session_test_document()
   let created = @js.parse(
     jsx_session_new("<div>initial</div>", "session-root-a"),
@@ -785,10 +1035,9 @@ test "replay candidate adapter reports lowering failure without committing" {
   let result = @js.parse(
     jsx_session_replay_candidate_json(handle, 1, candidate, capabilities),
   )
-  assert_false(result.get("success").cast())
-  assert_eq(result.get("error").get("code").to_str(), "CandidateLoweringError")
-  assert_eq(result.get("revision").cast(), 1)
-  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  assert_true(result.get("success").cast())
+  assert_eq(result.get("revision").cast(), 2)
+  assert_eq(session_test_nested_texts("session-root-a"), "unsafe <tag>")
   jsx_session_dispose(handle)
 }
 
