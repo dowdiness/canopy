@@ -36,7 +36,7 @@
 - Produces: a private recursive lowering boundary that returns paired typed AST/projection nodes and owns the preorder synthetic-ID cursor.
 - Produces: a Root wrapper with ID `0`; all mounted Element/Text nodes receive unique IDs beginning at `-2` and descending once per mounted node.
 
-- [ ] **Step 1: Add failing typed-projection tests.**
+- [x] **Step 1: Add failing typed-projection tests.**
   - In `generative_ui_projection_wbtest.mbt`, construct validated candidate fixtures containing `<`, `>`, `{`, `}`, `&`, single/double quotes, entity-looking strings, and Unicode text.
   - Assert `candidate_to_projection` produces `JsxNode::Text` carrying the exact original MoonBit `String`, not an `ExprSpan`, not HTML, and not escaped source text.
   - Add a table/column/filter/summary fixture whose metadata includes `&amp;lt;`, `&amp;amp;`, quotes, and Unicode. Assert the typed `JsxAttr::StringLit` values are the escaped transport values expected by the existing one-pass `data-genui-*` normalizer.
@@ -44,12 +44,12 @@
   - Add a bounded QuickCheck generator for valid raw candidate trees. Validate each generated raw tree against fixture capabilities before lowering. Run the same whole-tree ID and exact-text assertions for every generated candidate plus a fixed special-string corpus.
   - Change the existing source-string snapshot and “rejects JSX syntax in text” tests in `session_contract_wbtest.mbt` to assert typed projection structure and text preservation instead.
 
-- [ ] **Step 2: Verify the tests fail before implementation.**
+- [x] **Step 2: Verify the tests fail before implementation.**
   - Add the existing QuickCheck dependencies to `ffi/jsx/moon.pkg` under `for "wbtest"`, matching `core/moon.pkg`.
   - Run `moon test ffi/jsx`.
   - Confirm the test compile fails because `candidate_to_projection` is absent or because the old string-lowering contract cannot satisfy the typed assertions.
 
-- [ ] **Step 3: Implement the minimal typed lowering.**
+- [x] **Step 3: Implement the minimal typed lowering.**
   - Replace `lower_generative_ui_candidate` and source-string helpers in `generative_ui_adapter.mbt` with `candidate_to_projection` and recursive typed lowering.
   - Map Stack/Panel/Table/Column/Filter/Summary to the same generic JSX elements and `data-genui-*` metadata currently emitted by the source-string adapter.
   - Reuse the existing attribute escaping transformation before constructing `JsxAttr::StringLit`; do not introduce a second entity decoder.
@@ -57,12 +57,12 @@
   - Use source spans `0..0` for all synthetic nodes. Assign Root `0`; decrement only for mounted Element/Text nodes, never allocating `-1`.
   - Lower `GenerativeUiCandidateNode::Text` directly to `JsxNode::Text(value)` with exact `String` equality. Do not parse candidate text and do not reject syntax characters.
 
-- [ ] **Step 4: Verify the pure projection boundary.**
+- [x] **Step 4: Verify the pure projection boundary.**
   - Run `moon check ffi/jsx`.
   - Run `moon test ffi/jsx`.
   - Confirm special-character text, ID properties, and metadata transport tests pass. On any QuickCheck failure, retain its seed/counterexample in the failing test output before changing production code.
 
-- [ ] **Step 5: Commit the pure lowering slice.**
+- [x] **Step 5: Commit the pure lowering slice.**
   - Stage only `ffi/jsx/generative_ui_adapter.mbt`, `ffi/jsx/moon.pkg`, `ffi/jsx/generative_ui_projection_wbtest.mbt`, and the targeted test edits.
   - Commit with a focused message such as `feat: lower generative UI candidates to typed JSX`.
 
@@ -79,28 +79,28 @@
 - Produces: private `plan_render(baseline, kind, structural_transition) -> RenderPlan`, where `RenderPlan` contains `must_remount`.
 - Produces: private `finish_render(baseline, plan, outcome) -> (SessionBaseline, SessionBaselineEffect)`, where outcomes are `Success`, `DryRunFail`, `DomFail`, and `ProjectionFail`, and effects include `RestoreCommittedSource` only when the shell must restore a source parser.
 
-- [ ] **Step 1: Write failing transition and property tests.**
+- [x] **Step 1: Write failing transition and property tests.**
   - Define exact example tests for initial source success, candidate success, source success following candidate success, dry-run failure, DOM failure, and source projection failure.
   - Assert every candidate plan remounts; source plans after Candidate origin remount even for equal root tags; Source origin only avoids remount when not dirty and without a structural transition.
   - Define a bounded generator of `(render kind, structural-transition flag, outcome)` event sequences. Fold only from `SessionBaseline::initial()`; never generate arbitrary invalid baseline fields.
   - Property assertions: candidate attempts remount; any dirty baseline remounts; first source attempt after a candidate success remounts; failures do not advance revision or replace mounted origin; successes advance revision once; source failures retain Candidate origin; source `ProjectionFail` emits `RestoreCommittedSource`.
 
-- [ ] **Step 2: Verify the baseline tests fail.**
+- [x] **Step 2: Verify the baseline tests fail.**
   - Run `moon test ffi/jsx`.
   - Confirm missing `SessionBaseline`, render-plan, and outcome interfaces prevent compilation.
 
-- [ ] **Step 3: Implement the pure planning/reduction boundary.**
+- [x] **Step 3: Implement the pure planning/reduction boundary.**
   - Keep all types and functions package-private in `render_baseline.mbt`.
   - Encode Candidate origin as the single successful-baseline fact; do not add a redundant `force_source_remount` boolean.
   - Plan remount before an outcome is known. Complete a plan only after the shell reports the outcome.
   - On `Success`, increment revision exactly once and set origin to the completed render kind. On `DryRunFail` and `DomFail`, retain revision/origin and make the resulting baseline dirty. On `ProjectionFail`, retain revision/origin/dirty and emit `RestoreCommittedSource` only for Source rendering.
 
-- [ ] **Step 4: Verify the functional core.**
+- [x] **Step 4: Verify the functional core.**
   - Run `moon check ffi/jsx`.
   - Run `moon test ffi/jsx`.
   - Confirm all example transitions and generated reachable-state properties pass.
 
-- [ ] **Step 5: Commit the baseline slice.**
+- [x] **Step 5: Commit the baseline slice.**
   - Stage only the new baseline implementation and whitebox test, plus any `moon.pkg` change not already committed in Task 1.
   - Commit with a focused message such as `feat: model JSX render baselines purely`.
 
@@ -116,7 +116,7 @@
 - Produces: `jsx_session_commit_candidate` that commits typed candidate projections without parser-source lowering.
 - Preserves: JSON response schema, session handles, `jsx_session_render`, `jsx_session_replay_candidate_json`, and stale/disposed error precedence.
 
-- [ ] **Step 1: Write failing session-boundary tests.**
+- [x] **Step 1: Write failing session-boundary tests.**
   - Add deterministic DOM-fixture coverage for normal JSX → candidate → normal JSX. Assert each success advances revision once, the final DOM contains only normal JSX nodes, and reported mounted IDs match the final reachable set.
   - Add candidate → candidate coverage with shifted children. Assert the second candidate replaces the first in sibling order rather than reconciling synthetic IDs against the prior candidate registry.
   - Add replay coverage proving special-character candidate text commits successfully and the DOM fixture exposes exactly the original text.
@@ -124,11 +124,11 @@
   - Add source projection failure after candidate success. Assert revision and mounted IDs do not advance, parser restoration is requested by the baseline effect, Candidate origin remains active, and a subsequent source success remounts and commits.
   - Preserve/update existing dry-run and DOM-apply failure tests: dry-run failure leaves physical DOM intact; DOM-apply failure makes no physical rollback assertion but preserves logical revision/mounted IDs and repairs on the next successful remount.
 
-- [ ] **Step 2: Verify the integration tests fail.**
+- [x] **Step 2: Verify the integration tests fail.**
   - Run `moon test ffi/jsx`.
   - Confirm the current `jsx_session_commit_candidate` still calls source-string lowering and cannot satisfy direct-text, candidate-origin, and remount assertions.
 
-- [ ] **Step 3: Refactor the session as a thin shell over the baseline.**
+- [x] **Step 3: Refactor the session as a thin shell over the baseline.**
   - Replace the session’s independent revision/dirty bookkeeping with one `SessionBaseline`; derive JSON response revision from it.
   - Extract the shared dry-run/registry/DOM commit procedure so source projection and typed candidate projection invoke the same shell path with a `RenderPlan`.
   - Source rendering: update/read the parser, compute structural transition only for Source projections, obtain a Source plan, and execute `RestoreCommittedSource` when the finished plan requests it.
@@ -137,12 +137,12 @@
   - Keep `committed_source` updates exclusive to successful ordinary source commits. A failed DOM apply leaves logical session state untouched except for the dirty baseline; it may leave physical DOM partial or empty.
   - Keep the replay adapter’s first handle/revision lookup before chunk splitting, candidate decode, capability decode, and candidate validation.
 
-- [ ] **Step 4: Verify the session boundary.**
+- [x] **Step 4: Verify the session boundary.**
   - Run `moon check ffi/jsx` after the session edit.
   - Run `moon test ffi/jsx` and inspect all session-contract, typed-projection, and QuickCheck properties.
   - Run `moon test lang/jsx/proj` to confirm the reused patch and dry-run contract remains valid.
 
-- [ ] **Step 5: Commit the shell integration slice.**
+- [x] **Step 5: Commit the shell integration slice.**
   - Stage only the session, replay-adapter changes if any, and targeted session tests.
   - Commit with a focused message such as `fix: commit generative UI text without source parsing`.
 
@@ -156,26 +156,26 @@
 - Consumes: all three prior tasks and the existing GenUI replay-browser action.
 - Produces: verified JS build artifacts and an intentional interface diff, if any.
 
-- [ ] **Step 1: Run focused formatting and interface generation.**
+- [x] **Step 1: Run focused formatting and interface generation.**
   - Run `moon fmt ffi/jsx`.
   - Run `moon info ffi/jsx`.
   - Inspect `ffi/jsx/pkg.generated.mbti`; no new public candidate/session API is expected because the typed projection and baseline helpers are package-private. Investigate any unexpected public interface drift before retaining it.
 
-- [ ] **Step 2: Run focused MoonBit validation.**
+- [x] **Step 2: Run focused MoonBit validation.**
   - Run `moon check ffi/jsx`.
   - Run `moon test ffi/jsx`.
   - Run `moon test lang/jsx/proj`.
   - Run `git diff --check` and confirm no staged or unstaged change includes the pre-existing `loom` or `rabbita` submodule pointers.
 
-- [ ] **Step 3: Rebuild and run browser coverage.**
+- [x] **Step 3: Rebuild and run browser coverage.**
   - Run `bash scripts/build-js.sh` so the JS-only `ffi/jsx` package is exercised in its deployment target.
   - Run `CANOPY_SKIP_MOON_BUILD=1 bash scripts/test-web-e2e.sh tests/genui.spec.ts`.
   - If `examples/web/tests/genui.spec.ts` changed, ensure it observes one end-to-end special-text candidate result instead of asserting implementation details.
 
-- [ ] **Step 4: Run workspace safety verification.**
+- [x] **Step 4: Run workspace safety verification.**
   - Run `moon check` and record the expected pre-existing reserved-keyword warning separately from this change.
   - Confirm every task-owned source/test/generated-interface file is intentional and that `loom` and `rabbita` remain uncommitted.
 
-- [ ] **Step 5: Commit verification-generated task files.**
+- [x] **Step 5: Commit verification-generated task files.**
   - Stage only task-owned formatting, test, generated-interface, and browser-regression files.
   - Commit with a focused message such as `test: cover generative UI text replay invariants` if a separate verification commit is needed; otherwise amend only mechanical generation output into the relevant prior task commit.
