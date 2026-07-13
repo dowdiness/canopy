@@ -6,6 +6,12 @@ import {
 }
 
 // Values
+pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
+
+pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
+
+pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1048576
+
 pub fn demo_trace() -> Array[String]
 
 // Errors
@@ -223,6 +229,12 @@ pub(all) enum GenerativeUiInputKind {
   Cancel
 } derive(Eq, @debug.Debug)
 
+pub(all) enum GenerativeUiInputLimit {
+  ChunkLength
+  ChunkCount
+  SourceLength
+} derive(Eq, @debug.Debug)
+
 pub struct GenerativeUiLifecycle {
   // private fields
 }
@@ -265,6 +277,7 @@ pub(all) enum GenerativeUiRejection {
   InvalidSequence(sequence~ : Int)
   SequenceGap(expected~ : Int, received~ : Int)
   ConflictingDuplicate(sequence~ : Int)
+  InputLimitExceeded(limit~ : GenerativeUiInputLimit)
   UnexpectedFinalPayload
   BaseRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
   InvalidCandidate(message~ : String)

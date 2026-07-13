@@ -9,6 +9,23 @@ pub fn GenerativeUiGenerationId::to_int(self : GenerativeUiGenerationId) -> Int 
 }
 
 ///|
+/// Input limits are measured in String::length units, not encoded bytes.
+pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
+
+///|
+pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
+
+///|
+pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1024 * 1024
+
+///|
+pub(all) enum GenerativeUiInputLimit {
+  ChunkLength
+  ChunkCount
+  SourceLength
+} derive(Debug, Eq)
+
+///|
 /// Revision selected by the host as the base for one candidate generation.
 ///
 /// This is intentionally separate from provider revisions and from the JSX
@@ -105,6 +122,7 @@ pub(all) enum GenerativeUiRejection {
   InvalidSequence(sequence~ : Int)
   SequenceGap(expected~ : Int, received~ : Int)
   ConflictingDuplicate(sequence~ : Int)
+  InputLimitExceeded(limit~ : GenerativeUiInputLimit)
   UnexpectedFinalPayload
   BaseRevisionMismatch(
     expected~ : GenerativeUiRevision,
@@ -154,6 +172,7 @@ pub struct GenerativeUiLifecycle {
   priv mut generation_id : GenerativeUiGenerationId?
   priv mut base_revision : GenerativeUiRevision?
   priv mut next_sequence : Int
+  priv mut source_length : Int
   priv chunks : Array[String]
   priv mut rejection : GenerativeUiRejection?
   priv mut committed_revision : GenerativeUiRevision?
@@ -168,6 +187,7 @@ pub fn GenerativeUiLifecycle::GenerativeUiLifecycle() -> GenerativeUiLifecycle {
     base_revision: None,
     next_sequence: 0,
     chunks: [],
+    source_length: 0,
     rejection: None,
     committed_revision: None,
   }
@@ -294,6 +314,7 @@ fn GenerativeUiLifecycle::start(
   self.generation_id = Some(generation_id)
   self.base_revision = Some(base_revision)
   self.next_sequence = 0
+  self.source_length = 0
   self.chunks.clear()
   self.rejection = None
   self.committed_revision = None
@@ -353,8 +374,19 @@ fn GenerativeUiLifecycle::accept_chunk(
       SequenceGap(expected=self.next_sequence, received=sequence),
     )
   }
+  guard self.next_sequence < GENERATIVE_UI_MAX_CHUNKS else {
+    return self.reject(InputLimitExceeded(limit=ChunkCount))
+  }
+  let payload_length = payload.length()
+  guard payload_length <= GENERATIVE_UI_MAX_CHUNK_LENGTH else {
+    return self.reject(InputLimitExceeded(limit=ChunkLength))
+  }
+  guard payload_length <= GENERATIVE_UI_MAX_SOURCE_LENGTH - self.source_length else {
+    return self.reject(InputLimitExceeded(limit=SourceLength))
+  }
   self.chunks.push(payload)
   self.next_sequence += 1
+  self.source_length += payload_length
   ChunkAccepted(sequence~)
 }
 

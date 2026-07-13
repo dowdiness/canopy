@@ -418,3 +418,129 @@ test "generative ui resumption requires a newly selected committed revision" {
   }
   inspect(first.phase() == Receiving, content="true")
 }
+
+///|
+test "generative ui rejects an oversized chunk without mutating input state" {
+  let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
+  let oversized = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH + 1)
+  inspect_transition(
+    lifecycle.dispatch(
+      generative_ui_chunk(generation_id, revision, 0, oversized),
+    ),
+    Rejected(reason=InputLimitExceeded(limit=ChunkLength)),
+  )
+  inspect(lifecycle.next_sequence(), content="0")
+  inspect(lifecycle.candidate_source(), content="")
+}
+
+///|
+test "generative ui rejects an overflow-adjacent sequence without mutation" {
+  let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
+  inspect_transition(
+    lifecycle.dispatch(
+      generative_ui_chunk(generation_id, revision, 0x7FFFFFFF, "x"),
+    ),
+    Rejected(reason=SequenceGap(expected=0, received=0x7FFFFFFF)),
+  )
+  inspect(lifecycle.next_sequence(), content="0")
+  inspect(lifecycle.candidate_source(), content="")
+}
+
+///|
+test "generative ui rejects aggregate input growth at the limit" {
+  let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
+  let chunk = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH)
+  let chunk_count = GENERATIVE_UI_MAX_SOURCE_LENGTH /
+    GENERATIVE_UI_MAX_CHUNK_LENGTH
+  for sequence in 0..<chunk_count {
+    inspect_transition(
+      lifecycle.dispatch(
+        generative_ui_chunk(generation_id, revision, sequence, chunk),
+      ),
+      ChunkAccepted(sequence~),
+    )
+  }
+  inspect_transition(
+    lifecycle.dispatch(
+      generative_ui_chunk(generation_id, revision, chunk_count, "x"),
+    ),
+    Rejected(reason=InputLimitExceeded(limit=SourceLength)),
+  )
+  inspect(lifecycle.next_sequence(), content=chunk_count.to_string())
+  inspect(
+    lifecycle.candidate_source().length(),
+    content=GENERATIVE_UI_MAX_SOURCE_LENGTH.to_string(),
+  )
+}
+
+///|
+test "generative ui rejects chunk count overflow without mutating state" {
+  let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
+  for sequence in 0..<GENERATIVE_UI_MAX_CHUNKS {
+    inspect_transition(
+      lifecycle.dispatch(
+        generative_ui_chunk(generation_id, revision, sequence, "x"),
+      ),
+      ChunkAccepted(sequence~),
+    )
+  }
+  inspect_transition(
+    lifecycle.dispatch(
+      generative_ui_chunk(
+        generation_id,
+        revision,
+        GENERATIVE_UI_MAX_CHUNKS,
+        "x",
+      ),
+    ),
+    Rejected(reason=InputLimitExceeded(limit=ChunkCount)),
+  )
+  inspect(
+    lifecycle.next_sequence(),
+    content=GENERATIVE_UI_MAX_CHUNKS.to_string(),
+  )
+  inspect(
+    lifecycle.candidate_source().length(),
+    content=GENERATIVE_UI_MAX_CHUNKS.to_string(),
+  )
+}
+
+///|
+test "generative ui preserves duplicate and stale precedence over input limits" {
+  let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
+  let chunk = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH)
+  let chunk_count = GENERATIVE_UI_MAX_SOURCE_LENGTH /
+    GENERATIVE_UI_MAX_CHUNK_LENGTH
+  for sequence in 0..<chunk_count {
+    let _ = lifecycle.dispatch(
+      generative_ui_chunk(generation_id, revision, sequence, chunk),
+    )
+  }
+  inspect_transition(
+    lifecycle.dispatch(generative_ui_chunk(generation_id, revision, 0, chunk)),
+    DuplicateChunk(sequence=0),
+  )
+  inspect_transition(
+    lifecycle.dispatch(
+      generative_ui_chunk(generation_id, revision, 0, "conflict"),
+    ),
+    Rejected(reason=ConflictingDuplicate(sequence=0)),
+  )
+  let (stale_lifecycle, stale_generation, stale_revision) = generative_ui_start_for_test(
+    0,
+  )
+  let _ = stale_lifecycle.dispatch(
+    generative_ui_cancel(stale_generation, stale_revision, 0),
+  )
+  let _ = stale_lifecycle.restart(stale_revision)
+  let stale = GenerativeUiInput::chunk(
+    generation_id=stale_generation,
+    base_revision=stale_revision,
+    sequence=0x7FFFFFFF,
+    payload=String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH + 1),
+  )
+  inspect_transition(
+    stale_lifecycle.dispatch(Input(stale)),
+    Ignored(reason=StaleGeneration),
+  )
+}
