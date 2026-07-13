@@ -429,6 +429,18 @@ test "load_text records text and advances the edit timestamp" {
   inspect(changed.editor.get_text(), content="fn loaded() { 42 }")
   inspect(changed.next_timestamp, content="\{before + 1}")
 }
+///|
+test "commit_tree_edit returns the committed model" {
+  let (model, node_id) = try! selected_test_model()
+  let op = @lambda_edits.TreeEditOp::Select(
+    node_id=parse_node_id(node_id).unwrap(),
+  )
+  match commit_tree_edit(model, op) {
+    Ok((_, changed)) =>
+      inspect(changed.next_timestamp, content="\{model.next_timestamp + 1}")
+    Err(err) => abort(err.message())
+  }
+}
 
 ///|
 test "selection characterization: refresh recomputes selected highlight" {

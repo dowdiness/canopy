@@ -115,20 +115,8 @@ fn handle_structural(
         _ => Some((none, model))
       }
     OutlineStructuralEdit(tree_op) =>
-      match
-        @lambda.apply_lambda_tree_edit(
-          model.editor,
-          model.companion,
-          tree_op,
-          js_now_ms(),
-        ) {
-        Ok(edits) => {
-          push_intent(model, tree_op)
-          push_patch(model, tree_op, edits)
-          let new_model = refresh({
-            ..model,
-            next_timestamp: model.next_timestamp + 1,
-          })
+      match commit_tree_edit(model, tree_op) {
+        Ok((cmd, new_model)) => {
           let (new_selected, outline_state) = match
             new_model.editor
             .get_source_map()
@@ -142,14 +130,7 @@ fn handle_structural(
             None => (None, new_model.outline_state)
           }
           let selected = select_with_highlight(new_model, new_selected, true)
-          let text = new_model.editor.get_text()
-          let cmd = sync_after_local_model_change(new_model, text)
-          Some(
-            (
-              cmd,
-              { ..selected, outline_state },
-            ),
-          )
+          Some((cmd, { ..selected, outline_state }))
         }
         Err(_) => Some((none, model))
       }
@@ -238,24 +219,8 @@ fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
             target=target_id,
             position~,
           )
-          match
-            @lambda.apply_lambda_tree_edit(
-              model.editor,
-              model.companion,
-              tree_op,
-              js_now_ms(),
-            ) {
-            Ok(edits) => {
-              push_intent(model, tree_op)
-              push_patch(model, tree_op, edits)
-              let new_model = refresh({
-                ..model,
-                next_timestamp: model.next_timestamp + 1,
-              })
-              let text = new_model.editor.get_text()
-              let cmd = sync_after_local_model_change(new_model, text)
-              Some((cmd, new_model))
-            }
+          match commit_tree_edit(model, tree_op) {
+            Ok(result) => Some(result)
             Err(_) => Some((none, model))
           }
         }

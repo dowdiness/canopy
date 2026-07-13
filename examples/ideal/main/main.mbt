@@ -430,6 +430,34 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 }
 
 ///|
+fn commit_tree_edit(
+  model : Model,
+  tree_op : @lambda_edits.TreeEditOp,
+) -> Result[(Cmd, Model), @editor.TreeEditError] {
+  match @lambda.apply_lambda_tree_edit(
+    model.editor,
+    model.companion,
+    tree_op,
+    js_now_ms(),
+  ) {
+    Ok(edits) => {
+      push_intent(model, tree_op)
+      push_patch(model, tree_op, edits)
+      let changed = refresh({
+        ..model,
+        next_timestamp: model.next_timestamp + 1,
+      })
+      let cmd = sync_after_local_model_change(
+        changed,
+        changed.editor.get_text(),
+      )
+      Ok((cmd, changed))
+    }
+    Err(err) => Err(err)
+  }
+}
+
+///|
 fn apply_structural_edit_request(
   model : Model,
   op : String,
@@ -443,24 +471,8 @@ fn apply_structural_edit_request(
     Some(tree_op) => tree_op
     None => return (none, model)
   }
-  match
-    @lambda.apply_lambda_tree_edit(
-      model.editor,
-      model.companion,
-      tree_op,
-      js_now_ms(),
-    ) {
-    Ok(edits) => {
-      push_intent(model, tree_op)
-      push_patch(model, tree_op, edits)
-      let new_model = refresh({
-        ..model,
-        next_timestamp: model.next_timestamp + 1,
-      })
-      let text = new_model.editor.get_text()
-      let cmd = sync_after_local_model_change(new_model, text)
-      (cmd, new_model)
-    }
+  match commit_tree_edit(model, tree_op) {
+    Ok(result) => result
     Err(_) => (none, model)
   }
 }
