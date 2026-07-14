@@ -2,6 +2,7 @@ import {
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",
+  "dowdiness/dom_boundary",
 }
 
 warnings = "-unused_package"

@@ -4,6 +4,7 @@ version = "0.1.0"
 
 import {
   "moonbit-community/rabbita@0.12.4",
+  "dowdiness/dom_boundary@0.1.0",
 }
 
 readme = "README.md"

@@ -2,6 +2,10 @@ name = "dowdiness/dom_boundary"
 
 version = "0.1.0"
 
+import {
+  "dowdiness/canopy@0.1.0",
+}
+
 repository = "https://github.com/dowdiness/canopy"
 
 license = "Apache-2.0"
