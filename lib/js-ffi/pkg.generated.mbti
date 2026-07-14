@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/canopy/js_ffi"
+package "dowdiness/js_ffi"
 
 import {
   "moonbitlang/async/js_async",

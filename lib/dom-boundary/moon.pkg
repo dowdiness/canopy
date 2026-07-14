@@ -1,7 +1,9 @@
 import {
   "moonbitlang/core/debug",
-  "dowdiness/canopy/js_ffi" @js,
+  "dowdiness/js_ffi" @js,
 }
+
+warnings = "-unused_package"
 
 options(
   targets: {

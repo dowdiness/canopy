@@ -24,6 +24,7 @@ import {
   "dowdiness/cognition@0.1.0",
   "dowdiness/egglog@0.1.0",
   "dowdiness/egraph@0.1.0",
+  "dowdiness/js_ffi@0.1.0",
 }
 
 readme = "README.mbt.md"

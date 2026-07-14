@@ -4,10 +4,10 @@ package "dowdiness/ideal-editor/main"
 import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
-  "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/projection",
+  "dowdiness/js_ffi",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-resizable/resizable",
   "dowdiness/visualizer",

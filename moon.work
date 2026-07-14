@@ -30,6 +30,7 @@ members = [
   "./lib/tabs",
   "./lib/treeview",
   "./lib/dom-boundary",
+  "./lib/js-ffi",
   "./lib/visualizer",
   "./lib/analysis",
   "./lib/semantic",

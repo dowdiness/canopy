@@ -2,7 +2,7 @@
 package "dowdiness/canopy/ffi/io"
 
 import {
-  "dowdiness/canopy/js_ffi",
+  "dowdiness/js_ffi",
 }
 
 // Values
