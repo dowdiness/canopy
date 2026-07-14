@@ -1,3 +1,8 @@
+using @overlay {
+  type OverlayMode,
+  format_overlay_error,
+}
+
 // Whitebox tests for update helpers.
 
 ///|
@@ -516,7 +521,7 @@ test "select_with_highlight obeys its explicit reset_nav policy" {
   model.nav_path = Some([0])
   let preserved = select_with_highlight(model, Some(node_id), false)
   inspect(preserved.highlight_set.is_empty(), content="false")
-  inspect(preserved.nav_path, content="Some([0])")
+  @debug.assert_eq(preserved.nav_path, Some([0]))
   let reset = select_with_highlight(model, Some(node_id), true)
   inspect(reset.nav_path is None, content="true")
 }
@@ -572,7 +577,7 @@ test "selection characterization: outline navigation preserves nav cache" {
     Some((_, changed)) => {
       inspect(changed.selected_node == Some(node_id), content="true")
       inspect(changed.highlight_set.is_empty(), content="false")
-      inspect(changed.nav_path, content="Some([0])")
+      @debug.assert_eq(changed.nav_path, Some([0]))
     }
     None => abort("OutlineNavigate was not handled")
   }
@@ -583,7 +588,7 @@ test "outline navigation with an invalid id is a handled no-op" {
   let model = init_model()
   match
     handle_outline(test_parent_emit(), OutlineNavigate("not-a-node-id"), model) {
-    Some((_, changed)) => inspect(changed.selected_node, content="None")
+    Some((_, changed)) => @debug.assert_eq(changed.selected_node, None)
     None => abort("invalid OutlineNavigate fell through to the top-level abort")
   }
 }

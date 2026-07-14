@@ -54,14 +54,10 @@ pub enum SyncStatus {
 
 ///|
 using @overlay {
-  type OverlayMode,
   type OverlayState,
   type OverlayMsg,
   type OverlayOutput,
   type OverlayEffect,
-  type OverlayUpdate,
-  type OverlayError,
-  format_overlay_error,
 }
 
 ///|
