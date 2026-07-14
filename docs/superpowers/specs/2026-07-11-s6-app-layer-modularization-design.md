@@ -3,12 +3,17 @@
 **Date:** 2026-07-11
 **Scope:** `examples/ideal/main/` — de-duplication, action-overlay package
 extraction, feature-scoped file renames, pure-computation `internal/`
-packages.
-**Status:** Proposed (pending user review)
+packages. The migration may update the minimal supporting package manifests
+and boundary adapters (`js_ffi`, `lib/dom-boundary`, `lib/menu/menu`) required
+to compile, target, and test the extracted package; no unrelated behavior is
+in scope.
+**Status:** Design approved for migration; supporting boundary scope amendment
+requires review.
 **Builds on:**
 [2026-06-18 ideal overlay architecture design](2026-06-18-ideal-overlay-architecture-design.md)
-(approved; established the child-cell pattern this design extends into a
-real package boundary — read that doc first, this one does not repeat it).
+(approved; its ownership and behavior decisions remain authoritative, while
+this design supersedes its legacy child-Cell representation — read that doc
+first, this one does not repeat its behavioral rationale).
 **Related:**
 [architecture redesign proposal](../../plans/2026-06-11-architecture-redesign-proposal.md)
 (S6 definition, line 239) ·
@@ -132,81 +137,98 @@ fields. No cell, no package — this candidate failed the three-axis test
 in the Design Test section. This phase is optional / can be folded into
 Phase 3's renames if it's not worth a dedicated PR.
 
-## Phase 2 — Action overlay: package extraction
+## Phase 2 — Action overlay: effect-free component package
 
-Builds directly on the approved 2026-06-18 design. That doc already
-separated child-owned UI state (`OverlayState`) from parent-owned
-application context (`ActionOverlayHost`); this phase turns that already-
-proven boundary into a real MoonBit package boundary.
+The overlay remains a separately named feature boundary, but it is no longer
+an independent Rabbita `Cell` or nested runtime. The current Rabbita pin has
+removed `Cell::view`, so retaining the old child-cell representation is not a
+valid migration target. The overlay is instead divided into a deterministic
+state/effect core, a framework-facing view adapter, and the parent shell:
 
-**File cut** (narrower than initially proposed — verified against the
-2026-06-18 doc's own file table, which shows `action_overlay_exec.mbt`
-explicitly marked "no change... still receives context from its caller"):
+1. The root app is created with `@rabbita.create_state_with_init`. Its init
+   callback returns the initial `Model` and the existing CodeMirror mount
+   command. The root view is `model.map(model => view(emit, model))`.
+2. `Model` owns an optional overlay state slice and the parent-owned action
+   context/token. It does not store `Cell`, `Val`, `Emit`, or `Cmd` values.
+   `Model` remains the existing application-shell state boundary: its mutable
+   editor, FFI handles, and incremental observer are not reclassified as
+   functional-core values by this migration.
+3. The extracted `action_overlay/` package has two layers:
+   - **Deterministic core:** `OverlayState`, overlay modes/messages/effects,
+     state constructors, placement calculations, and the transition
+     `(OverlayMsg, OverlayState) -> (OverlayEffect, OverlayState)`. The core
+     performs no editor, DOM, command, or effect-executor side effects. It
+     currently reuses `@menu.Model`/`@menu.Msg`, so the package retains a
+     transitive Rabbita/cmd/html dependency. S6 guarantees effect-free,
+     deterministic transitions and native-testable behavior, not a
+     framework-independent dependency graph. Splitting `@menu` into a pure
+     state/message layer is a separate follow-up design.
+   - **Framework-facing view adapter:** `view_overlay` and its rendering/event
+     helpers. It may use `@rabbita`, `@html`, `Emit[OverlayMsg]`, and
+     `@menu` rendering APIs to translate core state into HTML and user events
+     into overlay messages. It does not execute `OverlayEffect`.
+4. The root `update` maps browser events to top-level messages, invokes the
+   deterministic overlay transition when the overlay is active, and
+   interprets the returned effect. Editor/CRDT commits remain in `main`,
+   where the full `Model` and action context are available. Commands are
+   returned from `update`; none are stored in the model.
+5. The parent stamps the current overlay token when it creates an
+   `ActionOverlayEffect` wrapper. `handle_overlay_output` rejects stale
+   output when the wrapper token does not match the active context.
+
+### File cut
 
 | Child package (`action_overlay/`) | Stays in `main` (parent) |
 |---|---|
-| `action_overlay_flow.mbt` (`OverlayOutput`, `OverlayState`, `OverlayMode`, `OverlayMsg`) | `action_overlay_exec.mbt` (`execute_action` — needs `editor`/`companion`/full context) |
-| `action_overlay_flow_wiring.mbt` (`create_overlay_cell`, `overlay_effect_to_cmd`) | `action_overlay_update.mbt` (`handle_overlay_event`, `handle_overlay_output` — dispatch against `Model`) |
-| `action_overlay_error.mbt` (`OverlayError`) | `action_overlay_runtime.mbt` (`ActionOverlayHost`, `ActionOverlayRuntime` — parent-owned host state) |
-| `view_overlay` (currently misfiled in `view_actions.mbt` — must move into the package) | `action_overlay_state.mbt` (`open_action_overlay*` — context detection needs `Model`) |
+| **Deterministic core:** `action_overlay_flow.mbt` (`OverlayOutput`, `OverlayState`, `OverlayMode`, `OverlayMsg`, `OverlayEffect`), `action_overlay_state.mbt` (state constructors and transition), and `action_overlay_error.mbt` | `action_overlay_exec.mbt` (`execute_action` — needs editor/companion/full context) |
+| **Framework-facing view adapter:** `view_overlay` (currently in `view_actions.mbt`) | `action_overlay_update.mbt` (top-level message routing and effect interpretation) |
+|  | `action_overlay_runtime.mbt` (deleted after host data is folded into `Model`) and `action_overlay_flow_wiring.mbt` (deleted; no child Cell/Emit adapter remains) |
 
-**Required refactors (the boundary is bidirectional — child→parent was
-found first, parent→child was missed initially):**
+### Boundary requirements
 
-1. **Child → parent (blocking).** `create_overlay_cell`'s `parent_emit`
-   param is typed `Emit[Msg]` — the parent's top-level message type — and
-   `overlay_effect_to_cmd` directly constructs
-   `Msg::ActionOverlayEffect(OverlayOutput::...)`. If `action_overlay`
-   became its own package, this creates a circular package dependency
-   (child needs parent's `Msg`; parent needs child's types). **Fix:**
-   `parent_emit : Emit[OverlayOutput]`; the `OverlayOutput -> Msg`
-   wrapping moves to the call site in `main`.
-2. **Parent → child (missed in the first pass).** The parent also
-   *constructs* child message values directly: `OverlayEvent::to_overlay_msg`
-   (`action_overlay_update.mbt:2-7`) and `execute_action`'s
-   `runtime.send(SetError(...))`/`ShowNamePrompt(...)`. For this to
-   compile across a package boundary, `OverlayMsg`, `OverlayError`, and
-   `OverlayState` need either `pub(all)` or explicit constructor
-   functions exposed by the child package. Prefer narrow constructors
-   over a blanket `pub(all)` unless the type is already a plain data
-   record with no invariants to protect — this repo has been burned
-   before by exposing mutable/invariant-bearing structs too broadly
-   across a package boundary.
-3. **Token mechanism: revised (deliberately, superseding the 2026-06-18
-   doc's Non-Goal).** That doc ruled out "changing the token mechanism or
-   `parent_emit` pattern" — a reasonable Non-Goal at the time, since
-   nothing about that design required touching it. Package extraction
-   changes that: keeping `token~` on `OverlayOutput`'s variants means the
-   child package must receive a `token : Int` and thread it through
-   purely for the parent's own stale-output bookkeeping, which is exactly
-   the kind of parent-concern leakage the package boundary exists to
-   prevent. **New shape:** strip `token~` from `OverlayOutput` entirely
-   (`ExecuteAction(@lambda_edits.Action, choice~: String, name~: String)`,
-   `CloseOverlay`) — the child never receives or knows about a token.
-   `create_overlay_cell`'s caller (in `main`, at the `open_action_overlay*`
-   call sites) builds the actual `Emit[OverlayOutput]` it hands to the
-   child as an adapter closure that captures the current `token`, stamps
-   it, and wraps into `Msg::ActionOverlayEffect` before calling the real
-   parent `Emit[Msg]`. The stale-output guard invariant itself
-   (`ActionOverlayHost.runtime.token` vs. the token on the received
-   output) is unchanged — only *where* the token is attached moves, from
-   child-constructed to parent-stamped. This is a stronger decoupling
-   than the original in-place design, not just a stylistic swap: it
-   directly serves this design's own goal (minimize what the child
-   package needs to know about the parent), which is why it's adopted
-   here despite revising an approved doc. The 2026-06-18 doc's Non-Goals
-   list has been amended in place with a pointer to this section, so it
-   isn't read as still-current in isolation.
-4. **Test split.** `main_wbtest.mbt`'s overlay tests: host-side tests
-   (token guard, `ActionOverlayHost` lifecycle) stay in `main`;
-   `OverlayState`/state-machine tests move into the new package.
+1. The child package must not import the parent package or its `Msg` type.
+   Parent wrapping of overlay effects happens at the top-level dispatch site.
+2. Prefer narrow constructors and accessors over blanket `pub(all)` for
+   `OverlayState`, `OverlayMsg`, and `OverlayError`. The package exposes only
+   values needed by the parent dispatcher and blackbox tests.
+3. `OverlayOutput` carries no token. The parent defines the stamped wrapper
+   `ActionOverlayEffect(token : Int, output : OverlayOutput)` in `main` (the
+   `Msg::ActionOverlayEffect` variant carries both values). The parent captures
+   the active token when it schedules the effect command, and stamps it exactly
+   once at that boundary. `handle_overlay_output` validates the wrapper token;
+   no child package type or constructor knows about the token.
+4. Deterministic core transition tests move with the package and must not
+   invoke the Rabbita view/runtime or effect executor. View adapter tests cover
+   rendered state and event wiring. Parent tests retain host lifecycle, token
+   rejection, action execution, and command interpretation coverage.
 
-**Sequencing within this phase:** prove the emit-boundary inversion
-*in-package* first (same files, same package, just the narrowed
-signatures) — this validates the boundary compiles and behaves
-identically before paying the ceremony cost of an actual `moon.pkg`
-split. Only then move the files and add the package manifest.
+This phase is deliberately an effect-free state/effect migration rather than a
+second reactive runtime. It preserves the approved child-owned UI boundary
+while avoiding imperative cross-component wiring that a nested `Val` would
+require. The deterministic core still has the transitive `@menu` dependency
+described above; it is not a framework-independent package.
 
+## Phase 2 sequencing
+
+1. Replace the root `cell_with_emit` call with
+   `create_state_with_init`, preserving the initial CodeMirror command and
+   subscriptions.
+2. Add characterization tests for overlay transitions and parent token
+   rejection before changing the host representation.
+3. Invert the overlay boundary in the existing package: remove child
+   `parent_emit`, token threading, and runtime-held Cell values; return
+   effect values instead.
+4. Move the deterministic core files and framework-facing view adapter into
+   `action_overlay/`, add its manifest, and expose only the required
+   constructors/accessors.
+5. Delete the obsolete runtime/wiring files and update parent call sites.
+6. Run `moon check` and `moon test` after the root migration, in-package
+   boundary proof, and package split; inspect generated `.mbti` changes after
+   the split.
+
+This replaces the earlier in-place child-cell sequencing. The old
+`create_overlay_cell`/`overlay_effect_to_cmd` boundary is not an intermediate
+target because it depends on the removed `Cell::view` API.
 ## Phase 3 — Feature-scoped renames (mechanical, low-risk, any time after Phase 0)
 
 Follows the existing `view_X.mbt` convention already established in this
@@ -314,13 +336,23 @@ checked against the three-axis test, not a scope cut.
   `parent_emit` pattern is otherwise unchanged.
 - Splitting `view_history.mbt` (already single-purpose).
 
+## Resolved implementation decisions
+
+- Extract the overlay as `examples/ideal/main/action_overlay/`, a sibling
+  package to `ui/`. It is a feature package, not an `internal/` computation
+  package, because it owns the overlay view and state machine.
+- Use narrow constructors/accessors for `OverlayMsg`, `OverlayError`, and
+  `OverlayState`. Do not widen the package with blanket `pub(all)` unless a
+  compiler error demonstrates that a specific public constructor is required.
+- Integrate overlay state into the root state graph. Do not create a nested
+  `Val` with late-bound `Emit` references; the root model is the single
+  reactive owner and `Val::map` supplies the overlay subtree.
+
 ## Open decisions for implementation time
 
-- Exact package path for the extracted overlay: `examples/ideal/main/action_overlay/`
-  as a sibling to `ui/`, vs. an `internal/` prefix. Both are visible only
-  to `main` either way (no external consumers) — pick based on whether
-  future reuse outside `examples/ideal` is ever plausible (unlikely,
-  given the library-api-boundary ADR places all of `examples/*` in Tier
-  3).
-- Whether `pub(all)` or narrow constructors are used for
-  `OverlayMsg`/`OverlayError`/`OverlayState` at the Phase 2 boundary.
+- Exact naming of the parent-owned host fields after `ActionOverlayRuntime`
+  removal. The implementation must retain context and token semantics while
+  removing Cell/Emit/Cmd storage; choose names that match the existing `Model`
+  vocabulary after reading all call sites.
+- Whether the pure overlay error representation needs a public constructor or
+  can remain parent-created through one narrow `set_error` function.
