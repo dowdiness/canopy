@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main/action_overlay"
+
+import {
+  "dowdiness/canopy/lang/lambda/edits",
+  "dowdiness/lambda/ast",
+  "dowdiness/rabbita-menu/menu",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn format_overlay_error(OverlayError) -> String
+
+// Errors
+
+// Types and methods
+pub enum OverlayEffect {
+  NoOverlayEffect
+  FocusMenu
+  FocusNamePrompt
+  ExecuteAction(@edits.Action, choice~ : String, name~ : String)
+  CloseOverlay
+}
+
+pub(all) enum OverlayError {
+  EmptyName
+  BuildActionFailed(String)
+  ApplyActionFailed(String)
+} derive(@debug.Debug)
+
+pub(all) enum OverlayMode {
+  MainMenu
+  Submenu(@edits.Action)
+  NamePrompt(@edits.Action, value~ : String)
+}
+
+pub(all) enum OverlayMsg {
+  Menu(@menu.Msg)
+  KeyPressed(String)
+  NameInput(String)
+  NameSubmit
+  NameCancel
+  SetError(OverlayError)
+  ShowNamePrompt(@edits.Action)
+}
+
+pub(all) enum OverlayOutput {
+  ExecuteAction(@edits.Action, choice~ : String, name~ : String)
+  CloseOverlay
+}
+
+pub struct OverlayState {
+  // private fields
+}
+pub fn OverlayState::OverlayState(mode~ : OverlayMode, actions~ : Array[@edits.Action], kind~ : @ast.Term, error~ : OverlayError?, anchor_top~ : Int, anchor_left~ : Int, menu~ : @menu.Model) -> Self
+pub fn OverlayState::anchor_left_px(Self) -> Int
+pub fn OverlayState::anchor_top_px(Self) -> Int
+pub fn OverlayState::close_submenu(Self) -> OverlayUpdate
+pub fn OverlayState::is_open(Self) -> Bool
+pub fn OverlayState::menu_model(Self) -> @menu.Model
+pub fn OverlayState::open_submenu(Self, @edits.Action, Int) -> OverlayUpdate
+pub fn OverlayState::overlay_actions(Self) -> Array[@edits.Action]
+pub fn OverlayState::overlay_error(Self) -> OverlayError?
+pub fn OverlayState::overlay_kind(Self) -> @ast.Term
+pub fn OverlayState::overlay_mode(Self) -> OverlayMode
+pub fn OverlayState::show_name_prompt(Self, @edits.Action) -> OverlayUpdate
+pub fn OverlayState::submenu_choices(Self, @edits.Action) -> Array[(String, String)]
+pub fn OverlayState::update(Self, OverlayMsg) -> OverlayUpdate
+pub fn OverlayState::with_error(Self, OverlayError?) -> Self
+
+pub struct OverlayUpdate {
+  state : OverlayState
+  effect : OverlayEffect
+}
+
+// Type aliases
+
+// Traits
+

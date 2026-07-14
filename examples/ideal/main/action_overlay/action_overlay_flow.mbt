@@ -1,5 +1,5 @@
 ///|
-enum OverlayMsg {
+pub(all) enum OverlayMsg {
   Menu(@menu.Msg)
   KeyPressed(String)
   NameInput(String)
@@ -10,18 +10,13 @@ enum OverlayMsg {
 }
 
 ///|
-enum OverlayOutput {
-  ExecuteAction(
-    token~ : Int,
-    @lambda_edits.Action,
-    choice~ : String,
-    name~ : String
-  )
-  CloseOverlay(token~ : Int)
+pub(all) enum OverlayOutput {
+  ExecuteAction(@lambda_edits.Action, choice~ : String, name~ : String)
+  CloseOverlay
 }
 
 ///|
-enum OverlayEffect {
+pub enum OverlayEffect {
   NoOverlayEffect
   FocusMenu
   FocusNamePrompt
@@ -30,7 +25,7 @@ enum OverlayEffect {
 }
 
 ///|
-struct OverlayUpdate {
+pub struct OverlayUpdate {
   state : OverlayState
   effect : OverlayEffect
 }
@@ -44,7 +39,7 @@ fn overlay_update(
 }
 
 ///|
-fn OverlayState::show_name_prompt(
+pub fn OverlayState::show_name_prompt(
   self : OverlayState,
   action : @lambda_edits.Action,
 ) -> OverlayUpdate {
@@ -60,7 +55,7 @@ fn OverlayState::show_name_prompt(
 }
 
 ///|
-fn OverlayState::submenu_choices(
+pub fn OverlayState::submenu_choices(
   self : OverlayState,
   action : @lambda_edits.Action,
 ) -> Array[(String, String)] {
@@ -68,7 +63,7 @@ fn OverlayState::submenu_choices(
 }
 
 ///|
-fn OverlayState::open_submenu(
+pub fn OverlayState::open_submenu(
   self : OverlayState,
   action : @lambda_edits.Action,
   item_count : Int,
@@ -98,7 +93,7 @@ fn OverlayState::reset_main_menu(self : OverlayState) -> OverlayState {
 }
 
 ///|
-fn OverlayState::close_submenu(self : OverlayState) -> OverlayUpdate {
+pub fn OverlayState::close_submenu(self : OverlayState) -> OverlayUpdate {
   overlay_update(self.reset_main_menu(), FocusMenu)
 }
 
@@ -239,7 +234,10 @@ fn OverlayState::handle_name_submit(self : OverlayState) -> OverlayUpdate {
 }
 
 ///|
-fn OverlayState::update(self : OverlayState, msg : OverlayMsg) -> OverlayUpdate {
+pub fn OverlayState::update(
+  self : OverlayState,
+  msg : OverlayMsg,
+) -> OverlayUpdate {
   match msg {
     Menu(menu_msg) => self.handle_menu_msg(menu_msg)
     KeyPressed(key) =>

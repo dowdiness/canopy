@@ -2,7 +2,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 /* Keep source detection as narrow as the migrated slice; expand per slice. */
-@source "../../main/view_actions_classes.mbt";
+@source "../../main/action_overlay/view/view_actions_classes.mbt";
 @source "../../main/view_toolbar_classes.mbt";
 @source "../../main/view_bottom_classes.mbt";
 @source "../../main/view_panel_classes.mbt";

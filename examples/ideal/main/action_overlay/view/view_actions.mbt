@@ -1,4 +1,7 @@
 ///|
+using @overlay {type OverlayError, type OverlayMsg, type OverlayState}
+
+///|
 /// Group label for each ActionGroup.
 fn group_label(group : @lambda_edits.ActionGroup) -> String {
   match group {
@@ -82,7 +85,7 @@ fn view_name_prompt(
   emit : @rabbita.Emit[OverlayMsg],
   state : OverlayState,
 ) -> @rabbita.Html {
-  let (prompt_label, name_value) = match state.mode {
+  let (prompt_label, name_value) = match state.overlay_mode() {
     NamePrompt(action, value~) => (name_prompt_label(action), value)
     _ => ("Enter name", "")
   }
@@ -161,7 +164,7 @@ fn view_action_overlay_error(err : OverlayError?) -> @rabbita.Html {
       @html.div(
         class=action_overlay_error_class,
         attrs=@html.Attrs::build().role("alert").aria_live("polite"),
-        [@html.text(format_overlay_error(e))],
+        [@html.text(@overlay.format_overlay_error(e))],
       )
   }
 }
@@ -169,7 +172,7 @@ fn view_action_overlay_error(err : OverlayError?) -> @rabbita.Html {
 ///|
 /// Render the action overlay: scrim + positioned panel.
 /// Returns nothing if the overlay is not visible.
-fn view_overlay(
+pub fn view_overlay(
   emit : @rabbita.Emit[OverlayMsg],
   state : OverlayState,
 ) -> @rabbita.Html {
@@ -177,24 +180,31 @@ fn view_overlay(
     return @html.nothing
   }
   // Position the overlay panel using inline style from the anchor rect
-  let top = state.anchor_top
-  let left = state.anchor_left
+  let top = state.anchor_top_px()
+  let left = state.anchor_left_px()
   let position_style = "top: \{top}px; left: \{left}px;"
   // Determine content: name prompt, submenu, or main action list
-  let content : @rabbita.Html = match state.mode {
+  let content : @rabbita.Html = match state.overlay_mode() {
     NamePrompt(_, ..) => view_name_prompt(emit, state)
     Submenu(sub_action) =>
-      view_submenu_choices(emit, state.menu, sub_action, state.kind)
-    MainMenu => view_action_list(emit, state.menu, state.actions)
+      view_submenu_choices(
+        emit,
+        state.menu_model(),
+        sub_action,
+        state.overlay_kind(),
+      )
+    MainMenu =>
+      view_action_list(emit, state.menu_model(), state.overlay_actions())
   }
-  let panel_attrs = match state.mode {
+  let panel_attrs = match state.overlay_mode() {
     NamePrompt(_, ..) =>
       @html.Attrs::build()
       .role("dialog")
       .aria_label("Structural editing name prompt")
       .style_attr(position_style)
     _ =>
-      state.menu
+      state
+      .menu_model()
       .panel_attrs(msg => emit(Menu(msg)))
       .aria_label("Structural editing actions")
       .style_attr(position_style)
@@ -208,7 +218,7 @@ fn view_overlay(
     ),
     // Overlay panel — roving focus moves to the active menu item after render.
     @html.div(class=action_overlay_panel_class, attrs=panel_attrs, [
-      view_action_overlay_error(state.error),
+      view_action_overlay_error(state.overlay_error()),
       content,
     ]),
   ])

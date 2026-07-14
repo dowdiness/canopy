@@ -1,0 +1,8 @@
+import {
+  "dowdiness/rabbita-menu/menu",
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "js+native"

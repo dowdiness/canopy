@@ -15,7 +15,7 @@ const CHAIN_THRESHOLD : Int = 5
 /// Hard ceiling for Phase 1: above this, refuse to render. A "most recent N"
 /// cut is not ancestry-closed and would silently misrepresent the DAG, so
 /// the only honest options are render-everything or render-nothing.
-const MAX_OPS : Int = 1000
+pub const MAX_OPS : Int = 1000
 
 ///|
 /// Per-agent palette index (0..7). The local agent is pinned to 0 so the
@@ -477,7 +477,7 @@ fn display_name(agent : String, local_agent : String) -> String {
 /// `innerHTML`. Quote escaping covers attribute-value contexts; the
 /// callers above never put user strings inside attribute values, but
 /// keeping it complete avoids a footgun if the legend grows tooltips.
-fn escape_html_string(s : String) -> String {
+pub fn escape_html_string(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s {
     match ch {

@@ -1,21 +1,10 @@
 ///|
-/// True when the overlay is showing any of its open modes.
-/// All three current variants are open; closed state lives in the parent host
-/// layer. Match is kept (rather than returning `true` directly) so that adding
-/// a non-open mode to `OverlayMode` forces a compile-time update here.
-fn OverlayState::is_open(self : OverlayState) -> Bool {
-  match self.mode {
-    MainMenu | Submenu(_) | NamePrompt(_, ..) => true
-  }
-}
-
-///|
 fn open_action_overlay_from_event(
-  parent_emit : @rabbita.Emit[Msg],
+  _parent_emit : @rabbita.Emit[Msg],
   model : Model,
   node_id_str : String,
 ) -> (Cmd, Model) {
-  open_action_overlay(parent_emit, model, node_id_str)
+  open_action_overlay(model, node_id_str)
 }
 
 ///|
@@ -78,7 +67,6 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
 ///|
 /// Open the action overlay for the given node ID string.
 fn open_action_overlay(
-  parent_emit : @rabbita.Emit[Msg],
   model : Model,
   node_id_str : String,
   rect_json? : String = js_get_selected_node_rect(),
@@ -100,40 +88,28 @@ fn open_action_overlay(
     return (none, model)
   }
   let (anchor_top, anchor_left) = parse_anchor_rect(rect_json)
-  let token = model.overlay.next_token
-  // `kind` here and `ctx` passed to mount() below both derive from the same
-  // local `ctx`. OverlayState.kind (used for rendering) and the context
-  // component of ActionOverlayHost.active (used for execution) are therefore
-  // always identical; they must not be set from different sources.
-  let initial_state = {
-    mode: MainMenu,
-    actions,
-    kind: ctx.kind,
-    error: None,
-    anchor_top,
-    anchor_left,
-    menu: @menu.Model::new(
+  let initial_state = OverlayState::OverlayState(
+    mode=MainMenu,
+    actions~,
+    kind=ctx.kind,
+    error=None,
+    anchor_top~,
+    anchor_left~,
+    menu=@menu.Model::new(
       id="ideal-action-overlay-menu",
       item_count=actions.length(),
     ),
-  }
-  let (overlay_emit, cell) = create_overlay_cell(
-    parent_emit, token, initial_state,
   )
   js_set_overlay_open(true)
   (
-    initial_state.menu.focus_cmd(),
-    {
-      ..model,
-      overlay: model.overlay.mount(ctx, { cell, emit: overlay_emit, token }),
-    },
+    initial_state.menu_model().focus_cmd(),
+    { ..model, overlay: model.overlay.mount(ctx, initial_state) },
   )
 }
 
 ///|
-/// Close the overlay and drop its child cell. In Rabbita's explicit lifecycle
-/// model, removing the runtime from the parent model makes the child inactive;
-/// any queued outputs from that child are rejected by token checks.
+/// Clear the active parent-owned overlay host. Parent-stamped queued
+/// messages and effects from the prior token are rejected by token checks.
 fn close_action_overlay(model : Model) -> (Cmd, Model) {
   js_set_overlay_open(false)
   (none, { ..model, overlay: model.overlay.close() })

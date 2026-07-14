@@ -8,11 +8,12 @@ import {
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/projection",
-  "dowdiness/event-graph-walker/history",
+  "dowdiness/ideal-editor/main/action_overlay",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-resizable/resizable",
   "dowdiness/visualizer",
-  "moonbitlang/core/debug",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -43,6 +44,8 @@ pub fn export_all_json(Int) -> String
 
 pub fn export_since_json(Int, String) -> String
 
+pub fn format_overlay_error(@action_overlay.OverlayError) -> String
+
 pub fn get_errors_json(Int) -> String
 
 pub fn get_proj_node_json(Int) -> String
@@ -65,13 +68,9 @@ pub fn handle_undo(Int) -> Bool
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
-pub fn legend_html(@history.CausalSnapshot, String) -> String
-
 pub fn load_file(Int) -> Unit
 
 pub fn register_file_host(@js_ffi.Any) -> Unit
-
-pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
 
 pub fn save_file(Int, String) -> Unit
 
@@ -87,12 +86,12 @@ pub fn undo_manager_redo(Int) -> Bool
 
 pub fn undo_manager_undo(Int) -> Bool
 
+pub fn view_overlay(@cmd.Emit[@action_overlay.OverlayMsg], @action_overlay.OverlayState) -> @html.Html
+
 // Errors
 
 // Types and methods
 type ActionOverlayHost
-
-type ActionOverlayRuntime
 
 pub enum BottomTab {
   Problems
@@ -104,22 +103,10 @@ pub enum BottomTab {
   IncrGraph
 } derive(Eq)
 
-type CompressedData
-
-type CompressedNode
-
 pub enum EditorMode {
   Text
   Structure
 } derive(Eq)
-
-type HistoryData
-
-pub enum HistoryRender {
-  Empty
-  Dot(String)
-  TooLarge(Int)
-}
 
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
@@ -149,21 +136,7 @@ pub struct Model {
 
 type Msg
 
-type OverlayEffect
-
-type OverlayError derive(@debug.Debug)
-
 type OverlayEvent
-
-type OverlayMode
-
-type OverlayMsg
-
-type OverlayOutput
-
-type OverlayState
-
-type OverlayUpdate
 
 pub enum PanelId {
   Outline
@@ -176,6 +149,8 @@ pub(all) struct PatchEntry {
   edits : Array[@core.SpanEdit]
   changes : Array[@core.StructuredChange]
 }
+
+type RootState
 
 pub enum SyncStatus {
   Offline
@@ -192,6 +167,19 @@ pub struct WorkspaceLayout {
 }
 
 // Type aliases
+pub using @action_overlay {type OverlayEffect}
+
+pub using @action_overlay {type OverlayError}
+
+pub using @action_overlay {type OverlayMode}
+
+pub using @action_overlay {type OverlayMsg}
+
+pub using @action_overlay {type OverlayOutput}
+
+pub using @action_overlay {type OverlayState}
+
+pub using @action_overlay {type OverlayUpdate}
 
 // Traits
 

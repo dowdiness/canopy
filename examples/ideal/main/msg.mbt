@@ -41,11 +41,10 @@ enum Msg {
   // Action overlay
   OpenActionOverlayForNode(String)
   ActionOverlay(OverlayEvent)
-  // Internal bridge from the mounted overlay child cell back into the parent
-  // update loop. This stays package-private with the app's Rabbita message
-  // type; every output carries a runtime token so stale child-cell commands are
-  // ignored.
-  ActionOverlayEffect(OverlayOutput)
+  ActionOverlayMsg(token~ : Int, OverlayMsg)
+  // Parent-stamped bridge for delayed overlay effects. The token is assigned
+  // from the active host at scheduling time and rejects stale commands.
+  ActionOverlayEffect(token~ : Int, OverlayOutput)
   LongPressTriggeredForNode(String)
   // Outline drag-and-drop
   OutlineDragStart(@canopy_core.NodeId)

@@ -1,0 +1,11 @@
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+  "dowdiness/rabbita-menu/menu",
+  "dowdiness/ideal-editor/main/action_overlay" @overlay,
+  "dowdiness/ideal-editor/main/ui",
+  "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/lambda/ast",
+}
+
+supported_targets = "js"

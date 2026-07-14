@@ -3,7 +3,6 @@
 /// Returns (Cmd, Model) after execution.
 fn execute_action(
   model : Model,
-  runtime : ActionOverlayRuntime,
   context : @lambda_edits.ActionContext,
   action : @lambda_edits.Action,
   choice : String,
@@ -17,9 +16,50 @@ fn execute_action(
           (cmd, { ..new_model, overlay: model.overlay.close() })
         }
         Err(err) =>
-          (runtime.send(SetError(ApplyActionFailed(err.message()))), model)
+          match model.overlay.active {
+            Some((_, state, _)) =>
+              (
+                none,
+                {
+                  ..model,
+                  overlay: model.overlay.set_state(
+                    state.with_error(
+                      Some(
+                        @overlay.OverlayError::ApplyActionFailed(err.message()),
+                      ),
+                    ),
+                  ),
+                },
+              )
+            None => (none, model)
+          }
       }
-    Ok(None) => (runtime.send(ShowNamePrompt(action)), model)
-    Err(msg) => (runtime.send(SetError(BuildActionFailed(msg))), model)
+    Ok(None) =>
+      match model.overlay.active {
+        Some((_, state, _)) => {
+          let result = state.show_name_prompt(action)
+          (
+            focus_selector_after_render(".name-prompt-input"),
+            { ..model, overlay: model.overlay.set_state(result.state) },
+          )
+        }
+        None => (none, model)
+      }
+    Err(msg) =>
+      match model.overlay.active {
+        Some((_, state, _)) =>
+          (
+            none,
+            {
+              ..model,
+              overlay: model.overlay.set_state(
+                state.with_error(
+                  Some(@overlay.OverlayError::BuildActionFailed(msg)),
+                ),
+              ),
+            },
+          )
+        None => (none, model)
+      }
   }
 }

@@ -219,6 +219,7 @@ extern "js" fn js_get_selected_node_rect() -> String =
 /// Get viewport dimensions as JSON for overlay position clamping.
 extern "js" fn js_get_viewport_size() -> String =
   #| function() {
+  #|   if (typeof window === "undefined") return '{}';
   #|   return JSON.stringify({ width: window.innerWidth, height: window.innerHeight });
   #| }
 

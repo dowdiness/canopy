@@ -53,31 +53,74 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
-/// The overlay's mode: exactly one of three open states. Replaces the former
-/// implicit `(visible, submenu, pending_action)` encoding so that illegal
-/// combinations — a closed overlay with a pending action, or a submenu and a
-/// name prompt active at once — are unrepresentable.
-enum OverlayMode {
-  MainMenu
-  Submenu(@lambda_edits.Action)
-  // `value` is the text typed into the name prompt — genuinely prompt-local,
-  // so it lives in the variant rather than as a flat OverlayState field.
-  NamePrompt(@lambda_edits.Action, value~ : String)
+pub using @overlay {
+  type OverlayMode,
+  type OverlayState,
+  type OverlayMsg,
+  type OverlayOutput,
+  type OverlayEffect,
+  type OverlayUpdate,
+  type OverlayError,
+  format_overlay_error,
 }
 
 ///|
-struct OverlayState {
-  mode : OverlayMode
-  actions : Array[@lambda_edits.Action]
-  kind : @ast.Term
-  // The most recent failure to act. Overlay-wide, not prompt-specific: an
-  // action can fail to apply from MainMenu or Submenu just as from NamePrompt,
-  // so the error is rendered in the panel for any open mode (view_actions.mbt).
-  // None unambiguously means "no error"; Some(e) means a specific typed failure.
-  error : OverlayError?
-  anchor_top : Int
-  anchor_left : Int
-  menu : @menu.Model
+pub using @overlay_view {view_overlay}
+
+///|
+struct ActionOverlayHost {
+  active : (@lambda_edits.ActionContext, OverlayState, Int)?
+  next_token : Int
+}
+
+///|
+fn ActionOverlayHost::empty() -> ActionOverlayHost {
+  { active: None, next_token: 1 }
+}
+
+///|
+fn ActionOverlayHost::mount(
+  self : ActionOverlayHost,
+  context : @lambda_edits.ActionContext,
+  state : OverlayState,
+) -> ActionOverlayHost {
+  {
+    active: Some((context, state, self.next_token)),
+    next_token: self.next_token + 1,
+  }
+}
+
+///|
+fn ActionOverlayHost::set_state(
+  self : ActionOverlayHost,
+  state : OverlayState,
+) -> ActionOverlayHost {
+  match self.active {
+    Some((context, _, token)) =>
+      { ..self, active: Some((context, state, token)) }
+    None => self
+  }
+}
+
+///|
+fn ActionOverlayHost::active_for_token(
+  self : ActionOverlayHost,
+  token : Int,
+) -> (@lambda_edits.ActionContext, OverlayState, Int)? {
+  match self.active {
+    Some((context, state, active_token)) =>
+      if active_token == token {
+        Some((context, state, active_token))
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn ActionOverlayHost::close(self : ActionOverlayHost) -> ActionOverlayHost {
+  { ..self, active: None }
 }
 
 ///|
