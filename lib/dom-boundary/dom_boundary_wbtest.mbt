@@ -23,6 +23,16 @@ extern "js" fn install_throwing_query_document(message : String) -> Unit =
   #| }
 
 ///|
+extern "js" fn install_unsupported_query_document() -> Unit =
+  #| () => {
+  #|   globalThis.document = {
+  #|     getElementById() {
+  #|       return { focus() {} };
+  #|     },
+  #|   };
+  #| }
+
+///|
 extern "js" fn install_descendant_document(
   root_id : String,
   menu_id : String,
@@ -314,6 +324,22 @@ test "focus_selector_id reports invalid selectors" {
   match captured {
     Some(InvalidSelector(selector="[", detail="bad selector")) => ()
     _ => fail("expected InvalidSelector")
+  }
+}
+
+///|
+test "focus_selector_id reports unsupported query selectors" {
+  install_unsupported_query_document()
+  let captured = try {
+    focus_selector_id("host", ".item")
+    None
+  } catch {
+    e => Some(e)
+  }
+  clear_fake_document()
+  match captured {
+    Some(UnsupportedAction(action=Focus, target=Id("host"))) => ()
+    _ => fail("expected unsupported focus action")
   }
 }
 

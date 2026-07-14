@@ -324,6 +324,23 @@ test "parse_node_id invalid returns None" {
 }
 
 ///|
+test "graphviz parse errors escape HTML details" {
+  let dot = "digraph { a -> b } extra"
+  match @gv_parser.parse_dot(dot) {
+    Err(error) =>
+      @debug.assert_eq(
+        render_dot_to_svg(dot),
+        render_graphviz_parse_error(error.position, error.message),
+      )
+    Ok(_) => fail("expected malformed Graphviz input")
+  }
+  @debug.assert_eq(
+    render_graphviz_parse_error(3, "<script>&\""),
+    "<span class=\"problem-text\">Parse error at 3: &lt;script&gt;&amp;&quot;</span>",
+  )
+}
+
+///|
 test "event_detail_node_id extracts nodeId from object detail" {
   inspect(event_detail_node_id("{\"nodeId\":\"42\"}"), content="42")
 }

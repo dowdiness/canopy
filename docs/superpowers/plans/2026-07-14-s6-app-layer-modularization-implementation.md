@@ -5,7 +5,7 @@
 **Scope:** `examples/ideal/main/`, plus the minimal supporting package manifests
 and boundary adapters required to compile, target, and test the extracted
 package (`js_ffi`, `lib/dom-boundary`, `lib/menu/menu`)
-**Status:** Executed; supporting boundary scope amendment requires review
+**Status:** Executed; the supporting boundary scope is included in the migration.
 
 ## Scope amendment
 
@@ -237,7 +237,10 @@ claiming completion.
   current Rabbita API deprecates/removes nested Cell composition; independent
   child `create_state` was rejected because it requires late-bound imperative
   Emit wiring and duplicates state ownership.
-- New helper boundary: `OverlayEffect` is the only new pure data boundary; it
-  describes overlay intent and contains no side effects.
+- New pure data boundary: `OverlayEffect` describes overlay intent and contains
+  no side effects.
+- Same-package helpers introduced for narrow responsibilities: the shared
+  post-history refresh/sync flow, the name-prompt selector constant, and the
+  Graphviz parse-error HTML renderer.
 - Remaining imperative code: CodeMirror/DOM commands, scheduling, and CRDT
   mutation remain in the parent shell because they are integration effects.

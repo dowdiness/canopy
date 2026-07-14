@@ -23,6 +23,9 @@ const LOOKUP_ID : String = "id"
 const LOOKUP_SELECTOR : String = "selector"
 
 ///|
+/// Resolve an element ID using the host's native lookup when available.
+/// Shadow-root-like scopes lack `getElementById`, so child traversal is the
+/// fallback for those scopes.
 fn js_find_by_id(scope : @js.Any, id : String) -> @js.Any? {
   guard !scope.is_nullish() else { return None }
   if scope.get("id").to_str() == id {

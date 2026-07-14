@@ -89,15 +89,14 @@ fn view_patch_log(model : Model) -> Html {
     ])
   } else {
     let n = log.length()
-    let items : Array[Html] = Array::new(capacity=n)
-    for i in 0..<n {
+    let items : Array[Html] = Array::makei(n, i => {
       let entry = log[n - 1 - i]
-      let edit_rows : Array[Html] = entry.edits.map(fn(edit) {
+      let edit_rows : Array[Html] = entry.edits.map(edit => {
         @html.div(class="patch-log-edit", [
           @html.span(class="patch-log-edit-text", [@html.text(edit.to_string())]),
         ])
       })
-      let change_rows : Array[Html] = entry.changes.map(fn(c) {
+      let change_rows : Array[Html] = entry.changes.map(c => {
         @html.div(class="patch-structural-change", [
           @html.span(class="patch-change-text", [
             @html.text(format_structured_change(c, source_map, source_text)),
@@ -120,20 +119,18 @@ fn view_patch_log(model : Model) -> Html {
           ),
         ]
       }
-      items.push(
-        @html.div(
-          class="patch-log-row",
-          [
-            @html.div(class="patch-log-header", [
-              @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
-              @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
-            ]),
-            @html.div(class="patch-log-edits", edit_rows),
-          ] +
-          structural_details,
-        ),
+      @html.div(
+        class="patch-log-row",
+        [
+          @html.div(class="patch-log-header", [
+            @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
+            @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
+          ]),
+          @html.div(class="patch-log-edits", edit_rows),
+        ] +
+        structural_details,
       )
-    }
+    })
     @html.div(
       class="bottom-content patch-log",
       attrs=bottom_panel_attrs(Patch),

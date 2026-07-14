@@ -39,7 +39,7 @@ fn execute_action(
         Some((_, state, _)) => {
           let result = state.show_name_prompt(action)
           (
-            focus_selector_after_render(".name-prompt-input"),
+            focus_selector_after_render(NAME_PROMPT_SELECTOR),
             { ..model, overlay: model.overlay.set_state(result.state) },
           )
         }

@@ -3,6 +3,14 @@
 // Some((Cmd, Model)). Returns None for unmatched variants.
 
 ///|
+fn sync_after_history_change(model : Model) -> (Cmd, Model) {
+  let new_model = refresh(model)
+  let text = new_model.editor.get_text()
+  let cmd = sync_after_local_model_change(new_model, text)
+  (cmd, new_model)
+}
+
+///|
 fn handle_workspace(
   emit : Emit[Msg],
   msg : Msg,
@@ -54,9 +62,7 @@ fn handle_workspace(
     Undo => {
       let did_undo = model.editor.undo()
       if did_undo {
-        let new_model = refresh(model)
-        let text = new_model.editor.get_text()
-        let cmd = sync_after_local_model_change(new_model, text)
+        let (cmd, new_model) = sync_after_history_change(model)
         Some((cmd, new_model))
       } else {
         Some((none, model))
@@ -65,9 +71,7 @@ fn handle_workspace(
     Redo => {
       let did_redo = model.editor.redo()
       if did_redo {
-        let new_model = refresh(model)
-        let text = new_model.editor.get_text()
-        let cmd = sync_after_local_model_change(new_model, text)
+        let (cmd, new_model) = sync_after_history_change(model)
         Some((cmd, new_model))
       } else {
         Some((none, model))

@@ -1,4 +1,9 @@
 ///|
+fn render_graphviz_parse_error(position : Int, message : String) -> String {
+  "<span class=\"problem-text\">Parse error at \{position}: \{@history_render.escape_html_string(message)}</span>"
+}
+
+///|
 fn render_dot_to_svg(dot : String) -> String {
   if dot == "" || dot == "digraph { }" {
     return "<span class=\"no-problems\">No graph data</span>"
@@ -11,8 +16,7 @@ fn render_dot_to_svg(dot : String) -> String {
       )
       @gv_svg.render_svg_with_config(layout, bottom_tab_svg_config)
     }
-    Err(e) =>
-      "<span class=\"problem-text\">Parse error at \{e.position}: \{e.message}</span>"
+    Err(e) => render_graphviz_parse_error(e.position, e.message)
   }
 }
 

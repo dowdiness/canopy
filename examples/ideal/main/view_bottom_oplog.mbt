@@ -22,16 +22,13 @@ fn view_op_log(model : Model) -> Html {
   } else {
     // Most recent first; index labels reflect ordinal across the visible window.
     let n = log.length()
-    let items : Array[Html] = Array::new(capacity=n)
-    for i in 0..<n {
+    let items : Array[Html] = Array::makei(n, i => {
       let label = log[n - 1 - i]
-      items.push(
-        @html.div(class="op-log-row", [
-          @html.span(class="op-log-index", [@html.text("\{n - i}.")]),
-          @html.span(class="op-log-intent", [@html.text(label)]),
-        ]),
-      )
-    }
+      @html.div(class="op-log-row", [
+        @html.span(class="op-log-index", [@html.text("\{n - i}.")]),
+        @html.span(class="op-log-intent", [@html.text(label)]),
+      ])
+    })
     @html.div(
       class="bottom-content op-log",
       attrs=bottom_panel_attrs(OpLog),

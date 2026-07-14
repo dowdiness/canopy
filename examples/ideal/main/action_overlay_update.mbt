@@ -1,4 +1,7 @@
 ///|
+const NAME_PROMPT_SELECTOR = ".name-prompt-input"
+
+///|
 fn OverlayEvent::to_overlay_msg(self : OverlayEvent) -> OverlayMsg {
   match self {
     OverlayKeyPressed(key) => KeyPressed(key)
@@ -16,7 +19,7 @@ fn overlay_effect_to_cmd(
   match effect {
     NoOverlayEffect => none
     FocusMenu => state.menu_model().focus_cmd()
-    FocusNamePrompt => focus_selector_after_render(".name-prompt-input")
+    FocusNamePrompt => focus_selector_after_render(NAME_PROMPT_SELECTOR)
     ExecuteAction(action, choice~, name~) =>
       parent_emit(
         ActionOverlayEffect(

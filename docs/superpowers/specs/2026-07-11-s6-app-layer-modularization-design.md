@@ -7,8 +7,8 @@ packages. The migration may update the minimal supporting package manifests
 and boundary adapters (`js_ffi`, `lib/dom-boundary`, `lib/menu/menu`) required
 to compile, target, and test the extracted package; no unrelated behavior is
 in scope.
-**Status:** Design approved for migration; supporting boundary scope amendment
-requires review.
+**Status:** Design approved for migration; the supporting boundary scope is
+included in the approved migration.
 **Builds on:**
 [2026-06-18 ideal overlay architecture design](2026-06-18-ideal-overlay-architecture-design.md)
 (approved; its ownership and behavior decisions remain authoritative, while
