@@ -1,7 +1,5 @@
-using @overlay {
-  type OverlayMode,
-  format_overlay_error,
-}
+///|
+using @overlay {type OverlayMode, format_overlay_error}
 
 // Whitebox tests for update helpers.
 

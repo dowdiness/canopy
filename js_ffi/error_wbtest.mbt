@@ -13,6 +13,7 @@ extern "js" fn js_throw_undefined() -> Any =
 ///|
 extern "js" fn js_throw_null() -> Any =
   #|() => { throw null; }
+
 ///|
 extern "js" fn js_throw_error() -> Any =
   #|() => { throw new Error("boom"); }
@@ -66,6 +67,7 @@ test "try_sync preserves undefined as nullish" {
   let value = try_sync(() => js_return_undefined())
   inspect(value.is_nullish(), content="true")
 }
+
 ///|
 test "try_sync preserves null as a successful value" {
   let value = try_sync(() => js_return_null())
