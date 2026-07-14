@@ -20,7 +20,7 @@ pub const MAX_OPS : Int = 1000
 ///|
 /// Per-agent palette index (0..7). The local agent is pinned to 0 so the
 /// user's own ops stay visually anchored across sessions.
-struct HistoryData {
+priv struct HistoryData {
   frontier : Map[Int, Bool]
   agent_color : Map[String, Int]
 }
@@ -29,13 +29,13 @@ struct HistoryData {
 /// One node in the rendered graph. A `Chain` carries the full LV list, not
 /// just `(start, end, count)`, so future selection / time-travel features
 /// can map a click on a compressed node back to its constituents.
-enum CompressedNode {
+priv enum CompressedNode {
   Single(Int)
   Chain(Array[Int])
 }
 
 ///|
-struct CompressedData {
+priv struct CompressedData {
   nodes : Array[CompressedNode]
   parents : Array[Array[Int]]
 }
