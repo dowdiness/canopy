@@ -53,7 +53,7 @@ pub enum SyncStatus {
 } derive(Eq)
 
 ///|
-pub using @overlay {
+using @overlay {
   type OverlayMode,
   type OverlayState,
   type OverlayMsg,
@@ -63,9 +63,6 @@ pub using @overlay {
   type OverlayError,
   format_overlay_error,
 }
-
-///|
-pub using @overlay_view {view_overlay}
 
 ///|
 struct ActionOverlayHost {

@@ -3,6 +3,17 @@ extern "js" fn js_return_undefined() -> Any =
   #|() => undefined
 
 ///|
+extern "js" fn js_return_null() -> Any =
+  #|() => null
+
+///|
+extern "js" fn js_throw_undefined() -> Any =
+  #|() => { throw undefined; }
+
+///|
+extern "js" fn js_throw_null() -> Any =
+  #|() => { throw null; }
+///|
 extern "js" fn js_throw_error() -> Any =
   #|() => { throw new Error("boom"); }
 
@@ -54,6 +65,33 @@ test "try_sync returns ordinary values" {
 test "try_sync preserves undefined as nullish" {
   let value = try_sync(() => js_return_undefined())
   inspect(value.is_nullish(), content="true")
+}
+///|
+test "try_sync preserves null as a successful value" {
+  let value = try_sync(() => js_return_null())
+  inspect(value.is_nullish(), content="true")
+}
+
+///|
+test "try_sync preserves undefined exceptions" {
+  let was_nullish = try {
+    let _ = try_sync(() => js_throw_undefined())
+    false
+  } catch {
+    JsError(raw) => raw.is_nullish()
+  }
+  inspect(was_nullish, content="true")
+}
+
+///|
+test "try_sync preserves null exceptions" {
+  let was_nullish = try {
+    let _ = try_sync(() => js_throw_null())
+    false
+  } catch {
+    JsError(raw) => raw.is_nullish()
+  }
+  inspect(was_nullish, content="true")
 }
 
 ///|

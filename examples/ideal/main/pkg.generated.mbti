@@ -8,12 +8,9 @@ import {
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/projection",
-  "dowdiness/ideal-editor/main/action_overlay",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-resizable/resizable",
   "dowdiness/visualizer",
-  "moonbit-community/rabbita/cmd",
-  "moonbit-community/rabbita/html",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -43,8 +40,6 @@ pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> U
 pub fn export_all_json(Int) -> String
 
 pub fn export_since_json(Int, String) -> String
-
-pub fn format_overlay_error(@action_overlay.OverlayError) -> String
 
 pub fn get_errors_json(Int) -> String
 
@@ -85,8 +80,6 @@ pub fn undo_manager_can_undo(Int) -> Bool
 pub fn undo_manager_redo(Int) -> Bool
 
 pub fn undo_manager_undo(Int) -> Bool
-
-pub fn view_overlay(@cmd.Emit[@action_overlay.OverlayMsg], @action_overlay.OverlayState) -> @html.Html
 
 // Errors
 
@@ -167,19 +160,6 @@ pub struct WorkspaceLayout {
 }
 
 // Type aliases
-pub using @action_overlay {type OverlayEffect}
-
-pub using @action_overlay {type OverlayError}
-
-pub using @action_overlay {type OverlayMode}
-
-pub using @action_overlay {type OverlayMsg}
-
-pub using @action_overlay {type OverlayOutput}
-
-pub using @action_overlay {type OverlayState}
-
-pub using @action_overlay {type OverlayUpdate}
 
 // Traits
 
