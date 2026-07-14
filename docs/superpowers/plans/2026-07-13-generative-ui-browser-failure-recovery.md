@@ -109,12 +109,12 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 ## Verification record
 
 - `NEW_MOON_MOD=0 moon check lib/cognition ffi/jsx lang/jsx/proj` passed.
-- Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `49/49`, and
+- Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `52/52`, and
   lang/jsx/proj `43/43`.
 - Scoped `moon fmt` and `moon info` passed with no generated interface drift.
 - `npm run build` passed.
-- Playwright GenUI suite passed: `14/14`; the final measurement JSON is tracked
+- Playwright GenUI suite passed: `21/21`; the final measurement JSON is tracked
   at `docs/plans/evidence/2026-07-13-generative-ui-safety-metrics.json` and
   matches the values recorded in the vertical-slice plan.
-- The live-provider gate remains closed because AC-12 and AC-14 are still
-  explicitly unchecked.
+- The live-provider gate remains closed pending separate provider/product
+  approval; AC-12 and AC-14 have concrete browser and package evidence.

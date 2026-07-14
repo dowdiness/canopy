@@ -16,11 +16,80 @@ type GenUiBrowserApi = {
   ): Promise<GenUiSessionResult>;
   sessionRevision(): number | null;
   resetSession(): void;
+  sessionNewForTest(rootId: string): { success: boolean; handle: number; revision: number };
+  sessionDisposeForTest(handle: number): void;
+  asyncDriverNewForSession(sessionHandle: number, baseRevision: number): AsyncDriverStart;
+}
+
+type AsyncDriverTransition = {
+  kind: string;
+  reason?: string | null;
+  generation_id?: number | null;
+  revision?: number | null;
 };
+
+type AsyncDriverStart = {
+  driver_handle: number;
+  generation_id: number;
+  revision: number;
+};
+
+type AsyncDriverStats = {
+  abort_observed: boolean;
+  commit_count: number;
+};
+
+type GenUiAsyncDriverApi = {
+  asyncDriverNew(baseRevision: number): AsyncDriverStart;
+  asyncDriverStart(driverHandle: number): AsyncDriverTransition & { generation_id: number };
+  asyncDriverQueueChunk(
+    driverHandle: number,
+    generationId: number,
+    baseRevision: number,
+    sequence: number,
+    payload: string,
+  ): void;
+  asyncDriverQueueFinal(
+    driverHandle: number,
+    generationId: number,
+    baseRevision: number,
+    sequence: number,
+  ): void;
+  asyncDriverQueueFailure(
+    driverHandle: number,
+    generationId: number,
+    baseRevision: number,
+    sequence: number,
+    code: string,
+    message: string,
+  ): void;
+  asyncDriverResolveNext(driverHandle: number): Promise<AsyncDriverTransition>;
+  asyncDriverWaitNext(driverHandle: number): Promise<AsyncDriverTransition>;
+  asyncDriverResolveCurrent(driverHandle: number): void;
+  asyncDriverProviderNew(
+    driverHandle: number,
+    generationId: number,
+    baseRevision: number,
+    sequence: number,
+  ): { provider_handle: number };
+  asyncDriverProviderWait(providerHandle: number): Promise<AsyncDriverTransition>;
+  asyncDriverProviderReject(providerHandle: number, code: string, message: string): void;
+  asyncDriverProviderAbort(providerHandle: number): void;
+  asyncDriverCancel(driverHandle: number): AsyncDriverTransition;
+  asyncDriverRestart(driverHandle: number, baseRevision: number): AsyncDriverTransition & { generation_id: number };
+  asyncDriverCommit(driverHandle: number, capabilitiesJson: string): GenUiSessionResult;
+  asyncDriverStats(driverHandle: number): AsyncDriverStats;
+  asyncDriverDispose(driverHandle: number): void;
+};
+
+type AsyncTransportResult =
+  | { status: 'resolved'; value: unknown }
+  | { status: 'rejected'; error: string };
 
 declare global {
   interface Window {
-    __canopyGenUiTest?: GenUiBrowserApi;
+    __canopyGenUiTest?: GenUiBrowserApi & GenUiAsyncDriverApi;
+    __genuiPendingTransport?: Promise<AsyncTransportResult>;
   }
 }
 
@@ -228,6 +297,494 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByTestId('data-detail-name')).toHaveText('Lumen migration');
     await expect(page.getByRole('status')).toHaveText('Selected: Lumen migration (ord-1004)');
   });
+
+  test('async driver rejects cancelled late events and commits only the active generation', async ({ page }) => {
+    await page.goto('/genui.html');
+    await page.getByTestId('order-row-ord-1002').click();
+    await page.getByLabel('Filter name, status, or ID').fill('paid');
+    const beforeHostState = await hostState(page);
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const beforeMarkup = await committedMarkup(page);
+    const beforeRevision = await page.evaluate(() => window.__canopyGenUiTest?.sessionRevision() ?? null);
+    expect(beforeRevision).toBe(initial.revision);
+
+    const start = await page.evaluate((revision) => {
+      const api = window.__canopyGenUiTest;
+      if (!api) throw new Error('GenUI browser test API is unavailable');
+      return api.asyncDriverNew(revision);
+    }, initial.revision);
+    const generationA = start.generation_id;
+    await page.evaluate(
+      ({ handle, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(handle, generationId, revision, 0, payload),
+      {
+        handle: start.driver_handle,
+        generationId: generationA,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    await page.evaluate((handle) => {
+      const api = window.__canopyGenUiTest;
+      if (!api) throw new Error('GenUI browser test API is unavailable');
+      window.__genuiPendingTransport = api.asyncDriverWaitNext(handle).then(
+        (value) => ({ status: 'resolved', value }),
+        (error) => ({ status: 'rejected', error: String(error) }),
+      );
+    }, start.driver_handle);
+    await page.evaluate(() => Promise.resolve());
+    const cancelled = await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverCancel(handle), start.driver_handle);
+    expect(cancelled.kind).toBe('cancelled');
+    expect(await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverStats(handle), start.driver_handle)).toEqual({
+      abort_observed: true,
+      commit_count: 0,
+    });
+    const cancelledTransport = await page.evaluate(() => window.__genuiPendingTransport);
+    expect(cancelledTransport?.status).toBe('rejected');
+    const restarted = await page.evaluate(
+      ({ handle, revision }) => window.__canopyGenUiTest!.asyncDriverRestart(handle, revision),
+      { handle: start.driver_handle, revision: initial.revision },
+    );
+    expect(restarted.generation_id).not.toBe(generationA);
+
+    await page.evaluate(
+      ({ handle, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(handle, generationId, revision, 1, payload),
+      {
+        handle: start.driver_handle,
+        generationId: generationA,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE_CHANGED,
+      },
+    );
+    const late = await page.evaluate(
+      (handle) => window.__canopyGenUiTest!.asyncDriverResolveNext(handle),
+      start.driver_handle,
+    );
+    expect(late.kind).toBe('ignored');
+    expect(await page.evaluate(() => window.__canopyGenUiTest?.sessionRevision() ?? null)).toBe(beforeRevision);
+    expect(await committedMarkup(page)).toBe(beforeMarkup);
+    await page.evaluate(
+      ({ handle, generationId, revision }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueFailure(
+          handle,
+          generationId,
+          revision,
+          1,
+          'ProviderFailure',
+          'late A failure',
+        ),
+      {
+        handle: start.driver_handle,
+        generationId: generationA,
+        revision: initial.revision,
+      },
+    );
+    const lateFailure = await page.evaluate(
+      (handle) => window.__canopyGenUiTest!.asyncDriverResolveNext(handle),
+      start.driver_handle,
+    );
+    expect(lateFailure).toEqual({
+      kind: 'provider_failed',
+      code: 'ProviderFailure',
+      reason: 'late A failure',
+    });
+    expect(await page.evaluate(() => window.__canopyGenUiTest?.sessionRevision() ?? null)).toBe(beforeRevision);
+    expect(await committedMarkup(page)).toBe(beforeMarkup);
+
+    const generationB = restarted.generation_id;
+    await page.evaluate(
+      ({ handle, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(handle, generationId, revision, 0, payload),
+      {
+        handle: start.driver_handle,
+        generationId: generationB,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE_CHANGED,
+      },
+    );
+    await page.evaluate(
+      ({ handle, generationId, revision, sequence }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueFinal(handle, generationId, revision, sequence),
+      {
+        handle: start.driver_handle,
+        generationId: generationB,
+        revision: initial.revision,
+        sequence: 1,
+      },
+    );
+    await page.evaluate((handle) => {
+      const api = window.__canopyGenUiTest;
+      if (!api) throw new Error('GenUI browser test API is unavailable');
+      window.__genuiPendingTransport = api.asyncDriverWaitNext(handle).then(
+        (value) => ({ status: 'resolved', value }),
+        (error) => ({ status: 'rejected', error: String(error) }),
+      );
+    }, start.driver_handle);
+    await page.evaluate(() => Promise.resolve());
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverResolveCurrent(handle), start.driver_handle);
+    const activeTransport = await page.evaluate(() => window.__genuiPendingTransport);
+    expect(activeTransport).toEqual({
+      status: 'resolved',
+      value: { kind: 'chunk_accepted', sequence: 0 },
+    });
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverResolveNext(handle), start.driver_handle);
+    const committed = await page.evaluate(
+      ({ handle, capabilities }) => window.__canopyGenUiTest!.asyncDriverCommit(handle, capabilities),
+      { handle: start.driver_handle, capabilities: CAPABILITIES },
+    );
+    expect(committed.success).toBe(true);
+    expect(committed.revision).toBe(initial.revision + 1);
+    expect(await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverStats(handle), start.driver_handle)).toEqual({
+      abort_observed: true,
+      commit_count: 1,
+    });
+    expect(await committedMarkup(page)).not.toBe(beforeMarkup);
+    expect(await hostState(page)).toEqual(beforeHostState);
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+
+  test('duplicate async waits reject without consuming the next item', async ({ page }) => {
+    await page.goto('/genui.html');
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
+    await page.evaluate(
+      ({ handle, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(handle, generationId, revision, 0, payload),
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    await page.evaluate(
+      ({ handle, generationId, revision }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueFinal(handle, generationId, revision, 1),
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+      },
+    );
+    await page.evaluate((handle) => {
+      const api = window.__canopyGenUiTest;
+      if (!api) throw new Error('GenUI browser test API is unavailable');
+      window.__genuiPendingTransport = api.asyncDriverWaitNext(handle).then(
+        (value) => ({ status: 'resolved', value }),
+        (error) => ({ status: 'rejected', error: String(error) }),
+      );
+    }, start.driver_handle);
+    await page.evaluate(() => Promise.resolve());
+    const duplicate = await page.evaluate(async (handle) => {
+      const api = window.__canopyGenUiTest;
+      if (!api) throw new Error('GenUI browser test API is unavailable');
+      return Promise.race([
+        api.asyncDriverWaitNext(handle).then((value) => ({ status: 'resolved' as const, value })),
+        new Promise<{ status: 'timeout' }>((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 250)),
+      ]);
+    }, start.driver_handle);
+    expect(duplicate).toEqual({
+      status: 'resolved',
+      value: { kind: 'driver_error', reason: 'async driver wait already pending' },
+    });
+    const cancelled = await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverCancel(handle), start.driver_handle);
+    expect(cancelled.kind).toBe('cancelled');
+    expect((await page.evaluate(() => window.__genuiPendingTransport))?.status).toBe('rejected');
+    expect(await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverResolveNext(handle), start.driver_handle)).toEqual({
+      kind: 'ignored',
+      reason: 'terminal_state',
+    });
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+  test('cancelled wait continuation cannot clear a restarted wait', async ({ page }) => {
+    await page.goto('/genui.html');
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
+    const race = await page.evaluate(
+      async ({ handle, generationId, revision, payload }) => {
+        const api = window.__canopyGenUiTest;
+        if (!api) throw new Error('GenUI browser test API is unavailable');
+        api.asyncDriverQueueChunk(handle, generationId, revision, 0, payload);
+        const first = api.asyncDriverWaitNext(handle).then(
+          (value) => ({ status: 'resolved' as const, value }),
+          (error) => ({ status: 'rejected' as const, error: String(error) }),
+        );
+        api.asyncDriverResolveCurrent(handle);
+        const cancelled = api.asyncDriverCancel(handle);
+        const restarted = api.asyncDriverRestart(handle, revision);
+        api.asyncDriverQueueChunk(handle, restarted.generation_id, revision, 0, payload);
+        const second = api.asyncDriverWaitNext(handle).then(
+          (value) => ({ status: 'resolved' as const, value }),
+          (error) => ({ status: 'rejected' as const, error: String(error) }),
+        );
+        const firstResult = await first;
+        api.asyncDriverResolveCurrent(handle);
+        const secondResult = await Promise.race([
+          second,
+          new Promise<{ status: 'timeout' }>((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 250)),
+        ]);
+        return { cancelled, first: firstResult, second: secondResult };
+      },
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    expect(race.cancelled.kind).toBe('cancelled');
+    expect(race.first).toEqual({
+      status: 'resolved',
+      value: { kind: 'ignored', reason: 'stale_generation' },
+    });
+    expect(race.second).toEqual({
+      status: 'resolved',
+      value: { kind: 'chunk_accepted', sequence: 0 },
+    });
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+
+
+  test('stale resolve continuation preserves the active wait slot', async ({ page }) => {
+    await page.goto('/genui.html');
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
+    const race = await page.evaluate(
+      async ({ handle, generationId, revision, payload }) => {
+        const api = window.__canopyGenUiTest;
+        if (!api) throw new Error('GenUI browser test API is unavailable');
+        api.asyncDriverQueueChunk(handle, generationId, revision, 0, payload);
+        const first = api.asyncDriverResolveNext(handle);
+        const cancelled = api.asyncDriverCancel(handle);
+        const restarted = api.asyncDriverRestart(handle, revision);
+        api.asyncDriverQueueChunk(handle, restarted.generation_id, revision, 0, payload);
+        const second = api.asyncDriverWaitNext(handle).then(
+          (value) => ({ status: 'resolved' as const, value }),
+          (error) => ({ status: 'rejected' as const, error: String(error) }),
+        );
+        const firstResult = await first;
+        api.asyncDriverResolveCurrent(handle);
+        const secondResult = await Promise.race([
+          second,
+          new Promise<{ status: 'timeout' }>((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 250)),
+        ]);
+        return { cancelled, first: firstResult, second: secondResult };
+      },
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    expect(race.cancelled.kind).toBe('cancelled');
+    expect(race.first).toEqual({ kind: 'ignored', reason: 'stale_generation' });
+    expect(race.second).toEqual({
+      status: 'resolved',
+      value: { kind: 'chunk_accepted', sequence: 0 },
+    });
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+
+  test('async provider abort resolves through the real Promise wait path', async ({ page }) => {
+    await page.goto('/genui.html');
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
+    const provider = await page.evaluate(
+      ({ handle, generationId, revision }) =>
+        window.__canopyGenUiTest!.asyncDriverProviderNew(handle, generationId, revision, 0),
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+      },
+    );
+    await page.evaluate((providerHandle) => {
+      window.__genuiPendingTransport = window.__canopyGenUiTest!.asyncDriverProviderWait(providerHandle).then(
+        (value) => ({ status: 'resolved', value }),
+        (error) => ({ status: 'rejected', error: String(error) }),
+      );
+    }, provider.provider_handle);
+    await page.evaluate(() => Promise.resolve());
+    await page.evaluate(
+      (providerHandle) => window.__canopyGenUiTest!.asyncDriverProviderAbort(providerHandle),
+      provider.provider_handle,
+    );
+    expect(await page.evaluate(() => window.__genuiPendingTransport)).toEqual({
+      status: 'resolved',
+      value: { kind: 'aborted' },
+    });
+    expect(await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverStats(handle), start.driver_handle)).toEqual({
+      abort_observed: true,
+      commit_count: 0,
+    });
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+
+  test('async provider failure cancels the generation and cannot commit', async ({ page }) => {
+    await page.goto('/genui.html');
+    const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    expect(initial.success).toBe(true);
+    const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
+
+    await page.evaluate(
+      ({ handle, generationId, revision }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueFailure(
+          handle,
+          generationId,
+          revision,
+          0,
+          'ProviderFailure',
+          'scripted provider failure',
+        ),
+      {
+        handle: start.driver_handle,
+        generationId: start.generation_id,
+        revision: initial.revision,
+      },
+    );
+    const failure = await page.evaluate(
+      (handle) => window.__canopyGenUiTest!.asyncDriverResolveNext(handle),
+      start.driver_handle,
+    );
+    expect(failure).toEqual({
+      kind: 'provider_failed',
+      code: 'ProviderFailure',
+      reason: 'scripted provider failure',
+    });
+    expect(await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverStats(handle), start.driver_handle)).toEqual({
+      abort_observed: false,
+      commit_count: 0,
+    });
+    const commit = await page.evaluate(
+      ({ handle, capabilities }) => window.__canopyGenUiTest!.asyncDriverCommit(handle, capabilities),
+      { handle: start.driver_handle, capabilities: CAPABILITIES },
+    );
+    expect(commit.success).toBe(false);
+    expect(commit.revision).toBe(initial.revision);
+    expect(await page.evaluate(() => window.__canopyGenUiTest?.sessionRevision() ?? null)).toBe(initial.revision);
+    await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
+  });
+
+  test('property: async drivers isolate two sessions across disposal and late events', async ({ page }) => {
+    await page.goto('/genui.html');
+    await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
+    await page.evaluate(() => {
+      for (const id of ['async-root-a', 'async-root-b']) {
+        const root = document.createElement('div');
+        root.id = id;
+        document.body.appendChild(root);
+      }
+    });
+    const sessions = await page.evaluate(() => {
+      const api = window.__canopyGenUiTest!;
+      return [
+        api.sessionNewForTest('async-root-a'),
+        api.sessionNewForTest('async-root-b'),
+      ];
+    });
+    const rootBeforeDispose = await page.locator('#async-root-a').innerHTML();
+    expect(sessions[0].success).toBe(true);
+    expect(sessions[1].success).toBe(true);
+    expect(sessions[0].handle).not.toBe(sessions[1].handle);
+
+    const drivers = await page.evaluate(
+      ([first, second]) => {
+        const api = window.__canopyGenUiTest!;
+        return [
+          api.asyncDriverNewForSession(first.handle, first.revision),
+          api.asyncDriverNewForSession(second.handle, second.revision),
+        ];
+      },
+      sessions,
+    );
+    expect(drivers[0].driver_handle).not.toBe(drivers[1].driver_handle);
+
+    await page.evaluate(
+      ({ driver, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(
+          driver,
+          generationId,
+          revision,
+          0,
+          payload,
+        ),
+      {
+        driver: drivers[0].driver_handle,
+        generationId: drivers[0].generation_id,
+        revision: sessions[0].revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    await page.evaluate((driver) => window.__canopyGenUiTest!.asyncDriverDispose(driver), drivers[0].driver_handle);
+    const lateDisposed = await page.evaluate(
+      (driver) => window.__canopyGenUiTest!.asyncDriverResolveNext(driver),
+      drivers[0].driver_handle,
+    );
+    expect(lateDisposed.kind).toBe('driver_error');
+
+    await page.evaluate(
+      ({ driver, generationId, revision, payload }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueChunk(
+          driver,
+          generationId,
+          revision,
+          0,
+          payload,
+        ),
+      {
+        driver: drivers[1].driver_handle,
+        generationId: drivers[1].generation_id,
+        revision: sessions[1].revision,
+        payload: VALID_CANDIDATE,
+      },
+    );
+    expect(await page.evaluate((driver) => window.__canopyGenUiTest!.asyncDriverResolveNext(driver), drivers[1].driver_handle)).toEqual({
+      kind: 'chunk_accepted',
+      sequence: 0,
+    });
+    await page.evaluate(
+      ({ driver, generationId, revision }) =>
+        window.__canopyGenUiTest!.asyncDriverQueueFinal(driver, generationId, revision, 1),
+      {
+        driver: drivers[1].driver_handle,
+        generationId: drivers[1].generation_id,
+        revision: sessions[1].revision,
+      },
+    );
+    expect(await page.evaluate((driver) => window.__canopyGenUiTest!.asyncDriverResolveNext(driver), drivers[1].driver_handle)).toEqual({
+      kind: 'finalized',
+    });
+    const committedB = await page.evaluate(
+      ({ driver, capabilities }) => window.__canopyGenUiTest!.asyncDriverCommit(driver, capabilities),
+      { driver: drivers[1].driver_handle, capabilities: CAPABILITIES },
+    );
+    expect(committedB.success).toBe(true);
+    expect(committedB.revision).toBe(sessions[1].revision + 1);
+    expect(committedB.mounted_ids.length).toBeGreaterThan(0);
+    const rootsAfterCommit = await page.evaluate(() => ({
+      a: document.getElementById('async-root-a')?.innerHTML ?? '',
+      b: document.getElementById('async-root-b')?.innerHTML ?? '',
+    }));
+    expect(rootsAfterCommit.a).toBe(rootBeforeDispose);
+    expect(rootsAfterCommit.b).toContain('Orders');
+    expect(rootsAfterCommit.b).toContain('data-node-id');
+    expect(await page.evaluate((driver) => window.__canopyGenUiTest!.asyncDriverStats(driver), drivers[1].driver_handle)).toEqual({
+      abort_observed: false,
+      commit_count: 1,
+    });
+
+    await page.evaluate((driver) => window.__canopyGenUiTest!.asyncDriverDispose(driver), drivers[1].driver_handle);
+    await page.evaluate((handle) => window.__canopyGenUiTest!.sessionDisposeForTest(handle), sessions[0].handle);
+    await page.evaluate((handle) => window.__canopyGenUiTest!.sessionDisposeForTest(handle), sessions[1].handle);
+  });
+
 
   test('streaming completes and shows tree + HTML nodes', async ({ page }) => {
     test.setTimeout(60000);

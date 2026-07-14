@@ -3,9 +3,46 @@ package "dowdiness/canopy/ffi/jsx"
 
 import {
   "dowdiness/cognition",
+  "moonbitlang/async/js_async",
 }
 
 // Values
+pub fn __jsx_async_driver_cancel(Int) -> String
+
+pub fn __jsx_async_driver_commit(Int, String) -> String
+
+pub fn __jsx_async_driver_dispose(Int) -> Unit
+
+pub fn __jsx_async_driver_new(Int, Int) -> String
+
+pub fn __jsx_async_driver_provider_abort(Int) -> Unit
+
+pub fn __jsx_async_driver_provider_new(Int, Int, Int, Int) -> String
+
+pub fn __jsx_async_driver_provider_reject(Int, String, String) -> Unit
+
+pub fn __jsx_async_driver_provider_resolve(Int, String) -> Unit
+
+pub fn __jsx_async_driver_provider_wait(Int) -> @js_async.Promise[String]
+
+pub fn __jsx_async_driver_queue_chunk(Int, Int, Int, Int, String) -> Unit
+
+pub fn __jsx_async_driver_queue_failure(Int, Int, Int, Int, String, String) -> Unit
+
+pub fn __jsx_async_driver_queue_final(Int, Int, Int, Int) -> Unit
+
+pub fn __jsx_async_driver_resolve_current(Int) -> Unit
+
+pub fn __jsx_async_driver_resolve_next(Int) -> @js_async.Promise[String]
+
+pub fn __jsx_async_driver_restart(Int, Int) -> String
+
+pub fn __jsx_async_driver_start(Int) -> String
+
+pub fn __jsx_async_driver_stats(Int) -> String
+
+pub fn __jsx_async_driver_wait_next(Int) -> @js_async.Promise[String]
+
 pub fn apply_patches(String) -> String
 
 pub fn clear_registry() -> Unit
