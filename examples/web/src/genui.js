@@ -222,12 +222,18 @@ async function replayCandidate(candidateJson, capabilitiesJson) {
     jsxSessionHandle = Number(created.handle)
     jsxSessionRevision = created.result.revision
   }
+  return replayCandidateAtRevision(jsxSessionRevision, candidateJson, capabilitiesJson)
+}
+
+async function replayCandidateAtRevision(baseRevision, candidateJson, capabilitiesJson) {
+  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+  if (jsxSessionHandle === null) throw new Error('candidate session is not initialized')
   const split = Math.max(1, Math.floor(candidateJson.length / 2))
   const chunks = candidateJson.slice(0, split) + '\u0000' + candidateJson.slice(split)
   const result = JSON.parse(
     jsxModule.jsx_session_replay_candidate_json(
       jsxSessionHandle,
-      jsxSessionRevision,
+      baseRevision,
       chunks,
       capabilitiesJson,
     ),
@@ -237,6 +243,15 @@ async function replayCandidate(candidateJson, capabilitiesJson) {
     htmlNodeCount.textContent = String(result.mounted_ids.length)
   }
   return result
+}
+
+if (import.meta.env.DEV) {
+  window.__canopyGenUiTest = Object.freeze({
+    replayCandidate,
+    replayCandidateAtRevision,
+    sessionRevision: () => jsxSessionRevision,
+    resetSession: resetState,
+  })
 }
 
 dataGenerateCandidate.addEventListener('click', async function() {

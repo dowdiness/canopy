@@ -1,0 +1,88 @@
+{
+  "sample_counts": {
+    "latency": 5,
+    "invalid": 3,
+    "stale": 3,
+    "dom_failure_and_repair": 1,
+    "deterministic_replays": 2
+  },
+  "latency_samples": [
+    {
+      "duration_ms": 195.40000000596046,
+      "success": true,
+      "revision": 2
+    },
+    {
+      "duration_ms": 1.5999999940395355,
+      "success": true,
+      "revision": 2
+    },
+    {
+      "duration_ms": 1.4000000059604645,
+      "success": true,
+      "revision": 2
+    },
+    {
+      "duration_ms": 1.5,
+      "success": true,
+      "revision": 2
+    },
+    {
+      "duration_ms": 1.5,
+      "success": true,
+      "revision": 2
+    }
+  ],
+  "rejection": {
+    "invalid_rejected": 3,
+    "stale_rejected": 3,
+    "attempted": 6,
+    "rate": 1
+  },
+  "stale_base_state": {
+    "before_revision": 2,
+    "after_revision": 2,
+    "before_markup": "<div data-genui-kind=\"stack\">Orders</div>",
+    "after_markup": "<div data-genui-kind=\"stack\">Orders</div>"
+  },
+  "host_state": {
+    "before": {
+      "filter": "paid",
+      "selection": "Selected: Cedar support plan (ord-1003)",
+      "detail": "Cedar support plan",
+      "focusedOrderId": "ord-1003",
+      "selectedTestId": "order-row-ord-1003"
+    },
+    "after": {
+      "filter": "paid",
+      "selection": "Selected: Cedar support plan (ord-1003)",
+      "detail": "Cedar support plan",
+      "focusedOrderId": "ord-1003",
+      "selectedTestId": "order-row-ord-1003"
+    }
+  },
+  "dom_apply": {
+    "failed": {
+      "success": false,
+      "revision": 2,
+      "error_code": "DomApplyError"
+    },
+    "repaired": {
+      "success": true,
+      "revision": 3,
+      "error_code": null
+    }
+  },
+  "repair_count": 1,
+  "zero_counts": {
+    "stale_candidate_commits": 0,
+    "host_state_loss": 0,
+    "falsely_committed_failed_apply": 0,
+    "deterministic_replay_mismatches": 0
+  },
+  "heap": {
+    "available": true,
+    "used_js_heap_size": 17100000,
+    "total_js_heap_size": 20500000
+  }
+}
