@@ -28,10 +28,15 @@ fn handle_codemirror(
       ])
       Some((cmd, new_model))
     }
-    CmSelectionChanged(range) => {
-      js_after_cm_selection_changed(range.from, range.to)
-      Some((none, model))
-    }
+    CmSelectionChanged(range) =>
+      Some(
+        (
+          @rabbita.effect(() => {
+            js_after_cm_selection_changed(range.from, range.to)
+          }),
+          model,
+        ),
+      )
     CmFocusChanged(_) => Some((none, model))
     _ => None
   }

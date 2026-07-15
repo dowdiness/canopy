@@ -4,7 +4,7 @@ fn handle_overlay(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
     OpenActionOverlayFromOutline => {
       let node_id_str = match model.selected_node {
         Some(s) => s
-        None => return None
+        None => return Some((none, model))
       }
       let rect_json = js_get_outline_selected_rect()
       Some(open_action_overlay(model, node_id_str, rect_json~))

@@ -182,6 +182,19 @@ test "overlay outputs only match their originating parent token" {
 }
 
 ///|
+test "opening overlay without selection is handled as a no-op" {
+  let model = init_model()
+  match
+    handle_overlay(test_parent_emit(), OpenActionOverlayFromOutline, model) {
+    Some((_, changed)) => {
+      inspect(changed.selected_node is None, content="true")
+      inspect(changed.overlay.active is None, content="true")
+    }
+    None => fail("opening overlay without selection was not handled")
+  }
+}
+
+///|
 test "overlay close effects use the active parent token" {
   let host = ActionOverlayHost::empty().mount(
     test_overlay_context(),
