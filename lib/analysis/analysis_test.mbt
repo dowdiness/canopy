@@ -52,7 +52,7 @@ test "snapshot rejects same-content fact from different document" {
     from=0,
     to=3,
     pattern_id="lam",
-    captures={},
+    captures=Map([]),
   )
   inspect(fact.is_current(snap_b), content="false")
 }
@@ -96,7 +96,7 @@ test "fact is_current accepts matching snapshot" {
     from=0,
     to=3,
     pattern_id="lambda",
-    captures={},
+    captures=Map([]),
   )
   inspect(fact.is_current(snap), content="true")
 }
@@ -111,7 +111,7 @@ test "fact is_current rejects stale snapshot" {
     from=0,
     to=3,
     pattern_id="lambda",
-    captures={},
+    captures=Map([]),
   )
   inspect(fact.is_current(stale), content="false")
 }
