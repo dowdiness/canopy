@@ -70,6 +70,10 @@ contract while remaining free to implement platform-specific behavior.
 
 ### Capability-bounded generation
 
+Expressiveness and authority are separate axes. Capability boundaries should
+constrain ambient authority and effects without treating the first prototype's
+component allowlist as the permanent ceiling on composition.
+
 Generated UI must not imply unrestricted authority. Components, actions, data
 access, expressions, and side effects should be constrained by explicit
 capabilities and schemas. The first prototype should use an allowlisted,
@@ -107,6 +111,10 @@ The first implementation should use a replayable fixed-chunk source before
 connecting a live model. This makes incomplete output, duplicate chunks,
 revision conflicts, cancellation, late responses, and deterministic replay
 testable without depending on model behavior.
+
+Deterministic replay establishes lifecycle and projection correctness; it does
+not establish product value. Product experiments must compare generated outcomes
+with an appropriate hand-authored baseline.
 
 The output representation should evolve in stages:
 
@@ -201,6 +209,10 @@ renderer-neutral contract.
 - Persistent or cross-session view identity.
 - General-purpose renderer-neutral APIs.
 - Additional language projections beyond the first validated use case.
+- Typed pure-expression and local state-transition models, pending a concrete
+  use case and validation by a materially different adapter.
+- Commands-as-data, effect approval, and undo/audit semantics for generated
+  actions.
 - Formal proof of the JavaScript/DOM boundary; prove pure reconciliation
   invariants only after they are isolated from the adapter.
 
