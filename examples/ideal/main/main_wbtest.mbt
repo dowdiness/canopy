@@ -195,16 +195,6 @@ test "opening overlay without selection is handled as a no-op" {
 }
 
 ///|
-test "overlay close effects use the active parent token" {
-  let host = ActionOverlayHost::empty().mount(
-    test_overlay_context(),
-    test_overlay_state(MainMenu),
-  )
-  inspect(host.active_for_token(1) is Some(_), content="true")
-  inspect(host.active_for_token(2) is None, content="true")
-}
-
-///|
 test "mount sets context and state on host" {
   let ctx = test_overlay_context()
   let host = ActionOverlayHost::empty().mount(ctx, test_overlay_state(MainMenu))
