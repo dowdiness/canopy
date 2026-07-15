@@ -33,13 +33,13 @@ export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)
 
-# Vendored submodules built standalone (event-graph-walker, loom) still use the
-# deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
-# and cannot migrate it, so the `ci-lenient` mode exempts only that one warning
-# via --warn-list=-20. All other warnings stay denied, and canopy's own modules
-# (migrated off try?) run fully strict. Drop this once the ecosystem migrates
-# (tracked in #573).
-LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
+# Vendored submodules built standalone (event-graph-walker, loom) still use
+# deprecated `try?` ([0020]) and MoonBit 0.10.4's [0082]/[0083] diagnostics;
+# canopy does not own their source and cannot migrate it. The `ci-lenient`
+# mode exempts only these known warnings. All other warnings stay denied, and
+# canopy's own modules (migrated off try?) run fully strict. Drop these
+# exemptions once the ecosystem migrates (tracked in #573).
+LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-82-83)
 
 case "$ACTION" in
     check)
