@@ -13,7 +13,7 @@
 fn collect_var_refs(
   registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> Map[String, NodeId] raise {
-  let refs : Map[String, NodeId] = {}
+  let refs : Map[String, NodeId] = Map([])
   for id, node in registry {
     if node.kind is @ast.Term::Var(name) {
       let key = "\{node.start}:\{node.end}:\{name}"
@@ -54,7 +54,7 @@ fn assert_same_var_refs(
 fn assert_lam_ranges_unique(
   registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> Unit raise {
-  let seen : Map[String, NodeId] = {}
+  let seen : Map[String, NodeId] = Map([])
   for _, node in registry {
     if node.kind is @ast.Term::Lam(_, _) {
       let key = "\{node.start}:\{node.end}"

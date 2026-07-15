@@ -9,7 +9,7 @@
 fn subtree_ids(
   root : @core.ProjNode[@ast.Term],
 ) -> @immut/hashset.HashSet[@core.NodeId] {
-  let m : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let m : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, m)
   @immut/hashset.HashSet::from_iter(m.keys())
 }

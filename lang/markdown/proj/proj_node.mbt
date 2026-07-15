@@ -121,7 +121,7 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
 pub fn proj_to_view_node(
   node : @core.ProjNode[@markdown.Block],
   source_map : @core.SourceMap,
-  annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = {},
+  annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = Map([]),
   source_text? : String? = None,
 ) -> @protocol.ViewNode {
   @protocol.proj_to_view_node(node, source_map, annotations~, source_text~)

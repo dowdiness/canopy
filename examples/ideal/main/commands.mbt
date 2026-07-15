@@ -105,7 +105,7 @@ fn build_scope_map_from_editor(
         editor.get_registry(),
         editor.get_source_map(),
       )
-    None => {}
+    None => Map([])
   }
 }
 

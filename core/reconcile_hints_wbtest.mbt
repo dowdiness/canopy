@@ -12,7 +12,7 @@
 fn mk_hints(
   pairs : Array[(Int, IdentityTransform)],
 ) -> Map[NodeId, IdentityTransform] {
-  let m : Map[NodeId, IdentityTransform] = {}
+  let m : Map[NodeId, IdentityTransform] = Map([])
   for pair in pairs {
     m[NodeId::from_int(pair.0)] = pair.1
   }
@@ -68,7 +68,7 @@ test "without a hint, a wrap loses the inner id (degrades to fresh)" {
   let new_ = ProjNode(Branch("root", [Branch("w", [Leaf("x")])]), 0, 5, 92, [
     wrapper,
   ])
-  let result = reconcile_hinted(old, new_, Ref(1000), {})
+  let result = reconcile_hinted(old, new_, Ref(1000), Map([]))
   // no hint → LCS cannot pair Leaf#5 with the Branch wrapper → inner is fresh
   inspect(result.children[0].children[0].node_id >= 1000, content="true")
 }

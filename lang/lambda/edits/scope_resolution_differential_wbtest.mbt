@@ -66,7 +66,7 @@ fn build_oracle(
   let proj = to_proj_node(syntax, counter)
   let sm = SourceMap::from_ast(proj)
   populate_token_spans(sm, syntax, proj)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   let g = @scope.build(registry, sm)
   (proj, registry, g)
@@ -83,7 +83,7 @@ fn build_oracle(
 fn collect_var_keys(
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
 ) -> Map[String, @core.NodeId] raise {
-  let keys : Map[String, @core.NodeId] = {}
+  let keys : Map[String, @core.NodeId] = Map([])
   for id, node in registry {
     if node.kind is @ast.Term::Var(name) {
       let key = "\{node.start}:\{node.end}:\{name}"
@@ -101,7 +101,7 @@ fn collect_var_keys(
 fn collect_unbound_keys(
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
 ) -> Map[String, @core.NodeId] {
-  let keys : Map[String, @core.NodeId] = {}
+  let keys : Map[String, @core.NodeId] = Map([])
   for id, node in registry {
     if node.kind is @ast.Term::Unbound(name) {
       let key = "\{node.start}:\{node.end}:\{name}"
@@ -117,7 +117,7 @@ fn scope_free_map(
   g : @scope.ScopeGraph,
   var_keys : Map[String, @core.NodeId],
 ) -> Map[String, Bool] {
-  let free : Map[String, Bool] = {}
+  let free : Map[String, Bool] = Map([])
   for key, id in var_keys {
     free[key] = @scope.declaration(g, id) is None
   }
@@ -134,7 +134,7 @@ fn scope_unbound_has_unresolved_ref(
   g : @scope.ScopeGraph,
   unbound_keys : Map[String, @core.NodeId],
 ) -> Map[String, Bool] {
-  let status : Map[String, Bool] = {}
+  let status : Map[String, Bool] = Map([])
   for key, id in unbound_keys {
     let has_ref = g.refs.iter().any(fn(r) { r.node_id == id })
     let unresolved = g.refs
@@ -199,13 +199,13 @@ fn free_vars_per_var(
   root : @core.ProjNode[@ast.Term],
   registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> (Map[@core.NodeId, Bool], @immut/hashset.HashSet[String]) {
-  let per_node : Map[@core.NodeId, Bool] = {}
+  let per_node : Map[@core.NodeId, Bool] = Map([])
   free_vars_per_var_go(root, @immut/hashset.new(), per_node)
   let mut free_names : @immut/hashset.HashSet[String] = @immut/hashset.new()
   let reg = match registry {
     Some(r) => r
     None => {
-      let m : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+      let m : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
       @core.collect_registry(root, m)
       m
     }
@@ -438,7 +438,7 @@ test "diff: Unbound divergence — scope tracks it, free_vars ignores it" {
     ],
   )
   let sm = SourceMap::from_ast(root)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let g = @scope.build(registry, sm)
 

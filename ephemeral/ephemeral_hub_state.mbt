@@ -6,7 +6,7 @@ pub fn EphemeralHub::set_cursor(
   position : Int,
   selection? : (Int, Int)? = None,
 ) -> Unit {
-  let map : Map[String, EphemeralValue] = {}
+  let map : Map[String, EphemeralValue] = Map([])
   map["position"] = EphemeralValue::I64(position.to_int64())
   if selection is Some((start, end)) {
     map["selection"] = EphemeralValue::List([

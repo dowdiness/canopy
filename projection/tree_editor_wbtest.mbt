@@ -63,7 +63,7 @@ fn tree_editor_test_refresh_minimal(
   ui_state : TreeUIState,
   previous_nodes : Map[NodeId, InteractiveTreeNode[@ast.Term]],
 ) -> RefreshedInteractiveNode[@ast.Term] {
-  let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[@ast.Term]] = {}
+  let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[@ast.Term]] = Map([])
   refresh_node_minimal(
     node, source_map, ui_state, previous_nodes, new_loaded_nodes,
   )
@@ -83,7 +83,7 @@ test "refresh_node_minimal skips unchanged subtrees" {
     editing_node: None,
     drop_target: None,
   }
-  let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[@ast.Term]] = {}
+  let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[@ast.Term]] = Map([])
   let left_result = refresh_node_minimal(
     reconciled.children[0],
     source_map,

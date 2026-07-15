@@ -29,10 +29,10 @@ priv enum SourceProjectionRead {
 }
 
 ///|
-let session_registry : Map[Int, JsxSession] = {}
+let session_registry : Map[Int, JsxSession] = Map([])
 
 ///|
-let disposed_session_handles : Map[Int, Bool] = {}
+let disposed_session_handles : Map[Int, Bool] = Map([])
 
 ///|
 let next_session_handle : Ref[Int] = { val: 1 }

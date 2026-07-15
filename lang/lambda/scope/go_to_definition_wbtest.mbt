@@ -15,7 +15,7 @@ fn build_fixture_with_spans(
   let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
   let source_map = @core.SourceMap::from_ast(proj)
   @lambda_proj.populate_token_spans(source_map, syntax, proj)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   let g = build(registry, source_map)
   (g, source_map)
@@ -99,7 +99,7 @@ test "binder_span: None when token spans were not populated" {
   // spans — binder_span must degrade to None, never a wrong location.
   let (proj, _errs) = @lambda_proj.parse_to_proj_node("let x = 1\nx")
   let source_map = @core.SourceMap::from_ast(proj)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   let g = build(registry, source_map)
   inspect(g.decls[0].kind is ModuleDef(_), content="true")

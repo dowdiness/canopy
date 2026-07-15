@@ -81,7 +81,7 @@ test "free-variable diagnostic in a module def is scope-sourced" {
 fn assert_classifiers_agree(program : String) -> Unit raise {
   let (root, source_map) = parse_fixture(program)
   let projection = build_semantic_projection(root, source_map)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let graph = @lambda_scope.build(registry, source_map)
   for r in graph.refs {
@@ -125,7 +125,7 @@ fn assert_classifiers_agree(program : String) -> Unit raise {
 ///|
 fn scope_free_names(program : String) -> Array[String] raise {
   let (root, source_map) = parse_fixture(program)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let graph = @lambda_scope.build(registry, source_map)
   @lambda_scope.failures(graph, source_map).map(fn(f) { f.name })

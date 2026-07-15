@@ -1,6 +1,6 @@
 ///|
 pub fn reify(term : AlphaTerm, policy : ReifyPolicy) -> @ast.Term {
-  let env : Map[BinderId, String] = {}
+  let env : Map[BinderId, String] = Map([])
   let used : Array[String] = []
   reify_with(term, policy, env, used)
 }

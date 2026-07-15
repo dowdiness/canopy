@@ -5,7 +5,7 @@
 fn[T] build_parent_map_from_tree(
   tree : InteractiveTreeNode[T]?,
 ) -> Map[NodeId, NodeId] {
-  let map : Map[NodeId, NodeId] = {}
+  let map : Map[NodeId, NodeId] = Map([])
   match tree {
     Some(root) => build_parent_map_walk(root, map)
     None => ()
@@ -32,7 +32,7 @@ fn[T] build_parent_map_walk(
 /// Build preorder index by walking the InteractiveTreeNode tree.
 fn[T] build_preorder_from_tree(tree : InteractiveTreeNode[T]?) -> LazyPreorder {
   let ids : Array[NodeId] = []
-  let range_by_root : Map[NodeId, (Int, Int)] = {}
+  let range_by_root : Map[NodeId, (Int, Int)] = Map([])
   match tree {
     Some(root) => build_preorder_walk(root, ids, range_by_root)
     None => ()

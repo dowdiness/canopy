@@ -2,7 +2,7 @@
 fn scope_test_registry(
   root : ProjNode[@ast.Term],
 ) -> Map[NodeId, ProjNode[@ast.Term]] {
-  let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
+  let registry : Map[NodeId, ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   registry
 }

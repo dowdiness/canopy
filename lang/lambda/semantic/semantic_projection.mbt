@@ -13,19 +13,19 @@ pub struct SemanticProjection {
 
 ///|
 pub fn SemanticProjection::empty() -> SemanticProjection {
-  { annotations: {}, decorations: [], diagnostics: [] }
+  { annotations: Map([]), decorations: [], diagnostics: [] }
 }
 
 ///|
 pub impl ToJson for SemanticProjection with fn to_json(self) {
   let annotation_entries : Array[Json] = []
   for node_id, anns in self.annotations {
-    let m : Map[String, Json] = {}
+    let m : Map[String, Json] = Map([])
     m["node_id"] = node_id.to_json()
     m["annotations"] = Json::array(anns.map(fn(a) { a.to_json() }))
     annotation_entries.push(Json::object(m))
   }
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["annotations"] = Json::array(annotation_entries)
   m["decorations"] = Json::array(self.decorations.map(fn(d) { d.to_json() }))
   m["diagnostics"] = Json::array(self.diagnostics.map(fn(d) { d.to_json() }))
@@ -60,7 +60,7 @@ fn push_scope_failures(
   source_map : @core.SourceMap,
   projection : SemanticProjection,
 ) -> Unit {
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let graph = @lambda_scope.build(registry, source_map)
   for failure in @lambda_scope.failures(graph, source_map) {

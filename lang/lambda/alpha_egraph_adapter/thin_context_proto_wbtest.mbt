@@ -161,7 +161,7 @@ fn Thin::valid(
   target : LambdaContext,
 ) -> Bool {
   guard self.map.length() == target.binders.length() else { return false }
-  let seen : Map[Int, Unit] = {}
+  let seen : Map[Int, Unit] = Map([])
   for entry in self.map {
     match entry {
       None => ()

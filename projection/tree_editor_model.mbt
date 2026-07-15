@@ -265,7 +265,7 @@ pub fn[T] TreeEditorState::new() -> TreeEditorState[T] {
     drop_target: None,
     drop_position: None,
     collapsed_nodes: @immut/hashset.new(),
-    loaded_nodes: {},
+    loaded_nodes: Map([]),
   }
 }
 
@@ -282,11 +282,11 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::from_projection(
     editing_node: None,
     drop_target: None,
   }
-  let loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
+  let loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = Map([])
   let tree = match proj {
     Some(ast) =>
       Some(
-        refresh_node_minimal(ast, source_map, ui_state, {}, loaded_nodes).node,
+        refresh_node_minimal(ast, source_map, ui_state, Map([]), loaded_nodes).node,
       )
     None => None
   }

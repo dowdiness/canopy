@@ -9,7 +9,7 @@ fn build_fixture(
 ) raise {
   let (proj, _errs) = @lambda_proj.parse_to_proj_node(text)
   let source_map = @core.SourceMap::from_ast(proj)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   (proj, registry, source_map)
 }
@@ -58,7 +58,7 @@ test "build_parent_map: child maps to parent" {
   let root = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Var("x")), 0, 5, 0, [
     child,
   ])
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let parents = build_parent_map(registry)
   inspect(parents.get(@core.NodeId::from_int(1)) is Some(_), content="true")

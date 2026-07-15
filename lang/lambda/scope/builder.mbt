@@ -7,7 +7,7 @@
 fn build_parent_map(
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
 ) -> Map[@core.NodeId, @core.NodeId] {
-  let parents : Map[@core.NodeId, @core.NodeId] = {}
+  let parents : Map[@core.NodeId, @core.NodeId] = Map([])
   for _id, node in registry {
     for child in node.children {
       parents[child.id()] = node.id()
@@ -36,7 +36,13 @@ priv struct Builder {
 
 ///|
 fn Builder::new() -> Builder {
-  { scopes: [], decls: [], refs: [], node_scope: {}, node_cutoffs: {} }
+  {
+    scopes: [],
+    decls: [],
+    refs: [],
+    node_scope: Map([]),
+    node_cutoffs: Map([]),
+  }
 }
 
 ///|
@@ -106,17 +112,17 @@ fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
           ModuleDef(def_index=i),
         )
       }
-      let root_cutoffs : Map[ScopeId, Int] = {}
+      let root_cutoffs : Map[ScopeId, Int] = Map([])
       root_cutoffs[root_scope] = defs.length()
       self.node_scope[root.id()] = root_scope
       self.node_cutoffs[root.id()] = root_cutoffs
-      self.descend_module_children(root, root_scope, {})
+      self.descend_module_children(root, root_scope, Map([]))
     }
     // Bare lambda / expression program: there is no root `Module`, so
     // `root_scope` holds no `ModuleDef`. Dispatch through `walk` so the root's
     // own binder (a `Lam` param) is installed.
     _ => {
-      let scoped : Map[ScopeId, Int] = {}
+      let scoped : Map[ScopeId, Int] = Map([])
       scoped[root_scope] = 0
       self.walk(root, root_scope, scoped)
     }

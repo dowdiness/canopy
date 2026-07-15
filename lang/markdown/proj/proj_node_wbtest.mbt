@@ -130,7 +130,7 @@ test "projection: IDs are unique" {
     }
   }
   collect(proj)
-  let unique : Map[Int, Bool] = {}
+  let unique : Map[Int, Bool] = Map([])
   let mut all_unique = true
   for id in ids {
     if unique.get(id) == Some(true) {

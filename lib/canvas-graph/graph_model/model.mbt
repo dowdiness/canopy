@@ -121,7 +121,7 @@ pub impl Show for PortDef with fn output(self, logger) {
 
 ///|
 pub impl ToJson for PortDef with fn to_json(self) {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   fields["id"] = self.id.to_json()
   fields["label"] = self.label.to_json()
   fields["port_type"] = self.port_type.to_json()
@@ -341,7 +341,7 @@ fn json_string_field(
 
 ///|
 pub impl ToJson for GraphOperation with fn to_json(self) {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   fields["version"] = self.version.to_json()
   match self.action {
     AddNode(node) => {

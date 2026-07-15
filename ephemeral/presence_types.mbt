@@ -52,7 +52,7 @@ pub impl Show for PeerPresence with fn output(self, logger) {
 
 ///|
 pub fn EditModeState::to_ephemeral(self : EditModeState) -> EphemeralValue {
-  let map : Map[String, EphemeralValue] = {}
+  let map : Map[String, EphemeralValue] = Map([])
   map["node_id"] = EphemeralValue::String(self.node_id)
   EphemeralValue::Map(map)
 }
@@ -90,7 +90,7 @@ fn drag_position_from_string(s : String) -> DragPosition? {
 
 ///|
 pub fn DragState::to_ephemeral(self : DragState) -> EphemeralValue {
-  let map : Map[String, EphemeralValue] = {}
+  let map : Map[String, EphemeralValue] = Map([])
   map["source_id"] = EphemeralValue::String(self.source_id)
   if self.target is Some((target_id, position)) {
     map["target_id"] = EphemeralValue::String(target_id)
@@ -142,7 +142,7 @@ fn presence_status_from_string(s : String) -> PresenceStatus {
 
 ///|
 pub fn PeerPresence::to_ephemeral(self : PeerPresence) -> EphemeralValue {
-  let map : Map[String, EphemeralValue] = {}
+  let map : Map[String, EphemeralValue] = Map([])
   map["peer_id"] = EphemeralValue::String(self.peer_id)
   map["display_name"] = EphemeralValue::String(self.display_name)
   map["color"] = EphemeralValue::String(self.color)

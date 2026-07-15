@@ -19,7 +19,7 @@ priv struct EditModuleView {
 fn edit_root_node(
   registry : Map[NodeId, ProjNode[@ast.Term]],
 ) -> ProjNode[@ast.Term]? {
-  let parents : Map[NodeId, NodeId] = {}
+  let parents : Map[NodeId, NodeId] = Map([])
   for _id, node in registry {
     for child in node.children {
       parents[child.id()] = node.id()

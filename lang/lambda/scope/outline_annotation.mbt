@@ -66,7 +66,7 @@ pub fn add_module_scope_annotations(
   source_map : @core.SourceMap,
   scope_map : Map[@core.NodeId, ScopeAnnotation],
 ) -> Unit {
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(node, registry)
   if registry.is_empty() {
     return
@@ -129,7 +129,7 @@ pub fn build_scope_map(
   registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   source_map : @core.SourceMap,
 ) -> Map[@core.NodeId, ScopeAnnotation] {
-  let scope_map : Map[@core.NodeId, ScopeAnnotation] = {}
+  let scope_map : Map[@core.NodeId, ScopeAnnotation] = Map([])
   if registry.is_empty() {
     return scope_map
   }

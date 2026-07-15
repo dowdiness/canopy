@@ -34,7 +34,7 @@ pub fn json_get_edit_log(handle : Int) -> String {
 
 ///|
 fn JsonEditLogEntry::to_json(self : JsonEditLogEntry) -> Json {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["op"] = self.op
   m["ts"] = Json::number(self.ts.to_double())
   m["ok"] = self.ok.to_json()

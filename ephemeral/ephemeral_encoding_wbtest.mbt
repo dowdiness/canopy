@@ -132,7 +132,7 @@ test "ephemeral value roundtrip: nested structures" {
 test "ephemeral value roundtrip: empty containers" {
   let buf = Buffer()
   write_ephemeral_value(buf, EphemeralValue::List([]))
-  let empty_map : Map[String, EphemeralValue] = {}
+  let empty_map : Map[String, EphemeralValue] = Map([])
   write_ephemeral_value(buf, EphemeralValue::Map(empty_map))
   let reader = Reader::new(buf.to_bytes())
   inspect(try! read_ephemeral_value(reader), content="List([])")

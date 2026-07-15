@@ -38,7 +38,7 @@ pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
       let source_text = Some(self.get_text())
       let annotations = match self.capabilities.get_annotations {
         Some(get_ann) => get_ann()
-        None => {}
+        None => Map([])
       }
       match self.capabilities.to_view_node {
         Some(convert) =>

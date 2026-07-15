@@ -4,7 +4,7 @@ fn module_binding_ids(
 ) -> Map[String, @core.NodeId] raise {
   match root.kind {
     Module(defs, _) => {
-      let ids : Map[String, @core.NodeId] = {}
+      let ids : Map[String, @core.NodeId] = Map([])
       for i, def in defs {
         if i < root.children.length() - 1 {
           ids[def.0] = root.children[i].id()

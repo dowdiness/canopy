@@ -7,7 +7,7 @@
 pub fn[T : @loomcore.Renderable] proj_to_view_node(
   node : @core.ProjNode[T],
   source_map : @core.SourceMap,
-  annotations? : Map[@core.NodeId, Array[ViewAnnotation]] = {},
+  annotations? : Map[@core.NodeId, Array[ViewAnnotation]] = Map([]),
   source_text? : String? = None,
 ) -> ViewNode {
   let node_id = node.id()

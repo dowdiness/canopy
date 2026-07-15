@@ -121,7 +121,7 @@ pub fn EphemeralStore::get(
 pub fn EphemeralStore::get_all_states(
   self : EphemeralStore,
 ) -> Map[String, EphemeralValue] {
-  let out : Map[String, EphemeralValue] = {}
+  let out : Map[String, EphemeralValue] = Map([])
   for key, record in self.states {
     if record.value is Some(value) {
       out[key] = value
@@ -372,7 +372,7 @@ fn EphemeralStore::remove_outdated_at(
   now : UInt64,
 ) -> Unit {
   let removed : Array[String] = []
-  let next : Map[String, EphemeralRecord] = {}
+  let next : Map[String, EphemeralRecord] = Map([])
   for key, record in self.states {
     if is_expired(record.updated_at, now, self.timeout_ms) {
       if record.value is Some(_) {
