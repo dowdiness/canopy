@@ -114,6 +114,7 @@ Converted to the newer `moon.mod` format:
 - `lib/context-menu/` (workspace-resolved dep on `rabbita/rabbita` and
   `dowdiness/rabbita-menu`)
 - `lib/dom-boundary/`
+- `lib/js-ffi/`
 - `lib/menu/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/rabbita_codemirror/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/resizable/` (workspace-resolved dep on `rabbita/rabbita`)
