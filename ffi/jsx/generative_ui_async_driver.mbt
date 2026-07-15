@@ -505,6 +505,21 @@ fn async_take_pending(driver : GenerativeUiAsyncDriver) -> AsyncPending? {
 }
 
 ///|
+fn async_cancel_generation(
+  driver : GenerativeUiAsyncDriver,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  base_revision : @cognition.GenerativeUiRevision,
+  sequence : Int,
+) -> Unit {
+  let input = @cognition.GenerativeUiInput::cancel(
+    generation_id~,
+    base_revision~,
+    sequence~,
+  )
+  let _ = driver.lifecycle.dispatch(@cognition.GenerativeUiEvent::Input(input))
+}
+
+///|
 fn async_dispatch_pending(
   driver : GenerativeUiAsyncDriver,
   pending : AsyncPending,
@@ -535,13 +550,11 @@ fn async_dispatch_pending(
       )
     }
     AsyncPendingKind::Failure(code~, message~) => {
-      let input = @cognition.GenerativeUiInput::cancel(
-        generation_id=pending.generation_id,
-        base_revision=pending.base_revision,
-        sequence=pending.sequence,
-      )
-      let _ = driver.lifecycle.dispatch(
-        @cognition.GenerativeUiEvent::Input(input),
+      async_cancel_generation(
+        driver,
+        pending.generation_id,
+        pending.base_revision,
+        pending.sequence,
       )
       async_error_json(code, message)
     }
@@ -877,8 +890,19 @@ pub fn __jsx_async_driver_provider_wait(
           _ =>
             match pending.status {
               AsyncProviderStatus::Aborted => return async_aborted_json()
-              AsyncProviderStatus::Rejected(code~, message~) =>
+              AsyncProviderStatus::Rejected(code~, message~) => {
+                match async_driver_registry.get(pending.driver_handle) {
+                  Some(driver) =>
+                    async_cancel_generation(
+                      driver,
+                      pending.generation_id,
+                      pending.base_revision,
+                      pending.sequence,
+                    )
+                  None => ()
+                }
                 return async_error_json(code, message)
+              }
               _ =>
                 return async_unexpected_provider_json(
                   "provider promise rejected",
