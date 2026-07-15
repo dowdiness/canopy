@@ -4,7 +4,11 @@
     "invalid": 3,
     "stale": 3,
     "dom_failure_and_repair": 1,
-    "deterministic_replays": 2
+    "deterministic_replays": 2,
+    "async_driver_scenarios": 7,
+    "async_late_events": 3,
+    "async_provider_failures": 1,
+    "async_provider_aborts": 1
   },
   "latency_samples": [
     {
@@ -84,5 +88,53 @@
     "available": true,
     "used_js_heap_size": 17100000,
     "total_js_heap_size": 20500000
+  },
+  "async_driver": {
+    "browser_scenarios": 7,
+    "cancel_restart_late_chunk": {
+      "generation_a_late_ignored": 1,
+      "generation_a_late_revision_changes": 0,
+      "generation_a_late_markup_changes": 0,
+      "generation_b_commits": 1,
+      "transport_abort_observed": true,
+      "host_state_loss": 0
+    },
+    "late_provider_failure_after_restart": {
+      "provider_failures": 1,
+      "stale_generation_aborts": 0,
+      "revision_changes": 0,
+      "markup_changes": 0
+    },
+    "provider_abort": {
+      "transport_abort_resolved": 1,
+      "transport_abort_rejections": 0,
+      "revision_changes": 0,
+      "markup_changes": 0
+    },
+    "duplicate_wait": {
+      "duplicate_wait_rejected": 1,
+      "next_item_preserved": 1
+    },
+    "stale_wait_continuation": {
+      "stale_generation_ignored": 1,
+      "active_wait_resolved": 1
+    },
+    "stale_resolve_continuation": {
+      "stale_generation_ignored": 1,
+      "active_wait_resolved": 1
+    },
+    "session_isolation": {
+      "sessions": 2,
+      "distinct_session_handles": true,
+      "distinct_driver_handles": true,
+      "disposed_late_events_rejected": 1,
+      "active_session_commits": 1,
+      "isolation_failures": 0
+    }
+  },
+  "verification": {
+    "browser_suite": "21/21",
+    "focused_async_suite": "7/7",
+    "moonbit_ffi_jsx_tests": "52/52"
   }
 }

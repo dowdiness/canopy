@@ -248,6 +248,23 @@ pub fn jsx_session_replay_candidate_json(
       Some(("InputRejected", "replay did not finalize")),
     )
   }
+  commit_candidate_with_lifecycle(
+    session, handle, revision, lifecycle, generation_id, capabilities_json,
+  )
+}
+
+///|
+/// Validate and commit a candidate using the caller-owned lifecycle.
+/// Transport adapters call this after their lifecycle accepted Final; the
+/// session remains the only owner of dry-run, DOM apply, and revision commit.
+fn commit_candidate_with_lifecycle(
+  session : JsxSession,
+  handle : Int,
+  revision : @cognition.GenerativeUiRevision,
+  lifecycle : @cognition.GenerativeUiLifecycle,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  capabilities_json : String,
+) -> String {
   let raw = match decode_candidate_json(lifecycle.candidate_source()) {
     Ok(value) => value
     Err(message) => {
@@ -256,7 +273,7 @@ pub fn jsx_session_replay_candidate_json(
       )
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         [],
         Some(("CandidateDecodeError", message)),
@@ -271,7 +288,7 @@ pub fn jsx_session_replay_candidate_json(
       )
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         [],
         Some(("CapabilityDecodeError", message)),
@@ -293,17 +310,14 @@ pub fn jsx_session_replay_candidate_json(
       )
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         messages,
         Some(("CandidateValidationError", "candidate rejected")),
       )
     }
   }
-  let current_revision = match session_registry.get(handle) {
-    Some(session) => session.baseline.revision
-    None => base_revision
-  }
+  let current_revision = session.baseline.revision
   let current_revision_value = @cognition.GenerativeUiRevision::GenerativeUiRevision(
     current_revision,
   )
@@ -328,7 +342,7 @@ pub fn jsx_session_replay_candidate_json(
     transition =>
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         [],
         Some(("CandidateRejected", replay_transition_message(transition))),
@@ -339,7 +353,7 @@ pub fn jsx_session_replay_candidate_json(
     _ =>
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         [],
         Some(("SessionError", "session returned invalid JSON")),
@@ -349,7 +363,7 @@ pub fn jsx_session_replay_candidate_json(
     _ =>
       return render_result_json(
         false,
-        base_revision,
+        revision.to_int(),
         session.mounted_ids,
         [],
         Some(("SessionError", "session returned invalid JSON shape")),

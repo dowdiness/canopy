@@ -230,26 +230,26 @@ if the product requires it.
       persistence, navigation, raw HTML insertion, or arbitrary code execution.
       Covered by candidate validator/projection tests and the invalid browser
       candidate test.
-- [ ] **AC-12:** Property tests cover removal-before-insertion, sibling
+- [x] **AC-12:** Property tests cover removal-before-insertion, sibling
       indexes, nested updates, text/expression-span nodes, and session
       isolation. The generated patch property suite covers patch/model
-      equivalence and the known-positive corruption detector; fixed session
-      contract tests cover isolation, but a dedicated session-isolation
-      property is not yet present.
+      equivalence and the known-positive corruption detector; the dedicated
+      async-driver session-isolation property covers two sessions, distinct
+      handles, disposal, and late-event rejection.
 - [x] **AC-13:** Host-owned data bindings, filter/selection state, and
       allowlisted aggregations lower into the candidate without arbitrary
       expressions or candidate-owned mutable state. Covered by candidate,
       projection, data-explorer, and browser state tests.
-- [ ] **AC-14:** Browser tests cover the same lifecycle against the real JSX
-      session. Browser coverage now proves invalid/stale rejection, DOM failure
-      and recovery, state preservation, and deterministic replay. Cancellation,
-      late candidate chunks, and internal dry-run failure remain cognition/
-      MoonBit evidence because the public candidate replay call is synchronous
-      and does not expose internal dry-run state.
+- [x] **AC-14:** Browser tests cover the same lifecycle against the real JSX
+      session. The async-driver scenarios exercise cancellation, restart, late
+      chunk rejection, late provider-failure rejection, real Promise/Abort
+      transport observation, B-only commit, DOM markup preservation, host state
+      preservation, and two-session disposal isolation. Internal dry-run and DOM
+      recovery remain owned by the existing session commit boundary.
 - [x] **AC-15:** Results and measurements are recorded before deciding whether
       to add a live provider or freeze a renderer-neutral contract. See the
       dated evidence and metric table below; the live-provider gate remains
-      closed while AC-14 is incomplete.
+      closed pending separate provider/product approval.
 
 Required zero-count safety metrics are recorded separately by source:
 
@@ -260,6 +260,11 @@ Required zero-count safety metrics are recorded separately by source:
 - browser session: stale-base candidate commits `0`; host state loss `0`;
   falsely committed failed DOM applies `0`; deterministic fresh-replay
   mismatches `0`.
+- async driver: stale/late chunk and provider-failure revision changes `0`;
+  stale/late markup changes `0`; disposed-session isolation failures `0`;
+  transport abort observed in the cancellation scenario and the real
+  provider `Promise::wait` path resolves a classified abort result without
+  rejection.
 
 Browser measurement run (`npx playwright test tests/genui.spec.ts --grep
 "safety measurements"`, Chromium, 2026-07-13): five valid replay latency
@@ -283,7 +288,7 @@ The exact final-run JSON is tracked at
 | AC-06–AC-08 | cancellation/terminal tests | generation adapter | cognition-only for candidate cancellation |
 | AC-09–AC-11 | validator + dry-run tests | DOM error contract | real DOM commit and apply-failure recovery |
 | AC-12–AC-13 | patch/model + binding properties | `ffi/jsx` tests | interaction/state-preservation cases |
-| AC-14–AC-15 | replay/measurement harness | package totals | partial lifecycle browser report + attached metrics |
+| AC-14–AC-15 | replay/measurement harness | package totals | complete async lifecycle browser report + attached metrics |
 
 ## Exit Gates
 
@@ -293,14 +298,13 @@ The exact final-run JSON is tracked at
   late, and finalization cases without network access.
 - **Gate 2:** **passed** — invalid candidates are rejected before lowering;
   validator, dry-run, DOM error, and capability tests cover AC-09–AC-11.
-- **Gate 3:** **partially passed** — model and browser tests cover the JSON/CSV
-  surface, host state, candidate rejection, DOM failure, and recovery. Browser
-  cancellation/late-candidate interleaving and internal dry-run fault
-  injection are intentionally not claimed.
-- **Gate 4:** **not yet passed** — all recorded browser safety counts are zero,
-  but AC-14 remains open for the explicitly bounded browser lifecycle gap.
-  Do not add a live provider or renderer-neutral contract until that gate is
-  closed by an approved evidence decision.
+- **Gate 3:** **passed** — model and browser tests cover the JSON/CSV surface,
+  host state, candidate rejection, DOM failure/recovery, and the real async
+  cancellation/late-event/session-isolation interleavings.
+- **Gate 4:** **passed for the deterministic shell** — all recorded browser
+  safety counts are zero, the async Promise/Abort path is exercised without a
+  network provider, and AC-12/AC-14 have concrete package and browser evidence.
+  Live Gemini/provider integration remains a separate gated decision.
 
 ## Validation
 

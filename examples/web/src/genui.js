@@ -245,12 +245,137 @@ async function replayCandidateAtRevision(baseRevision, candidateJson, capabiliti
   return result
 }
 
+function requireJsxSession() {
+  if (!jsxModule || jsxSessionHandle === null) throw new Error('candidate session is not initialized');
+}
+
+function sessionNewForTest(rootId) {
+  if (!jsxModule) throw new Error('JSX module is not initialized');
+  const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', rootId));
+  return {
+    success: created.success,
+    handle: Number(created.handle),
+    revision: created.result?.revision ?? null,
+  };
+}
+
+function sessionDisposeForTest(handle) {
+  if (!jsxModule) throw new Error('JSX module is not initialized');
+  jsxModule.jsx_session_dispose(handle);
+}
+
+function asyncDriverNewForSession(sessionHandle, baseRevision) {
+  if (!jsxModule) throw new Error('JSX module is not initialized');
+  return JSON.parse(jsxModule.__jsx_async_driver_new(sessionHandle, baseRevision));
+}
+
+function asyncDriverNew(baseRevision) {
+  requireJsxSession();
+  return JSON.parse(jsxModule.__jsx_async_driver_new(jsxSessionHandle, baseRevision));
+}
+
+function asyncDriverStart(driverHandle) {
+  return JSON.parse(jsxModule.__jsx_async_driver_start(driverHandle));
+}
+
+function asyncDriverQueueChunk(driverHandle, generationId, baseRevision, sequence, payload) {
+  jsxModule.__jsx_async_driver_queue_chunk(driverHandle, generationId, baseRevision, sequence, payload);
+}
+
+function asyncDriverQueueFinal(driverHandle, generationId, baseRevision, sequence) {
+  jsxModule.__jsx_async_driver_queue_final(driverHandle, generationId, baseRevision, sequence);
+}
+
+function asyncDriverQueueFailure(driverHandle, generationId, baseRevision, sequence, code, message) {
+  jsxModule.__jsx_async_driver_queue_failure(driverHandle, generationId, baseRevision, sequence, code, message);
+}
+
+async function asyncDriverResolveNext(driverHandle) {
+  return JSON.parse(await jsxModule.__jsx_async_driver_resolve_next(driverHandle));
+}
+
+async function asyncDriverWaitNext(driverHandle) {
+  return JSON.parse(await jsxModule.__jsx_async_driver_wait_next(driverHandle));
+}
+
+function asyncDriverResolveCurrent(driverHandle) {
+  jsxModule.__jsx_async_driver_resolve_current(driverHandle);
+}
+
+function asyncDriverProviderNew(driverHandle, generationId, baseRevision, sequence) {
+  return JSON.parse(
+    jsxModule.__jsx_async_driver_provider_new(
+      driverHandle,
+      generationId,
+      baseRevision,
+      sequence,
+    ),
+  );
+}
+
+async function asyncDriverProviderWait(providerHandle) {
+  return JSON.parse(await jsxModule.__jsx_async_driver_provider_wait(providerHandle));
+}
+
+function asyncDriverProviderReject(providerHandle, code, message) {
+  jsxModule.__jsx_async_driver_provider_reject(providerHandle, code, message);
+}
+
+function asyncDriverProviderAbort(providerHandle) {
+  jsxModule.__jsx_async_driver_provider_abort(providerHandle);
+}
+
+function asyncDriverCancel(driverHandle) {
+  return JSON.parse(jsxModule.__jsx_async_driver_cancel(driverHandle));
+}
+
+function asyncDriverRestart(driverHandle, baseRevision) {
+  return JSON.parse(jsxModule.__jsx_async_driver_restart(driverHandle, baseRevision));
+}
+
+function asyncDriverCommit(driverHandle, capabilitiesJson) {
+  const result = JSON.parse(jsxModule.__jsx_async_driver_commit(driverHandle, capabilitiesJson));
+  if (result.success) {
+    jsxSessionRevision = result.revision;
+    htmlNodeCount.textContent = String(result.mounted_ids.length);
+  }
+  return result;
+}
+
+function asyncDriverStats(driverHandle) {
+  return JSON.parse(jsxModule.__jsx_async_driver_stats(driverHandle));
+}
+
+function asyncDriverDispose(driverHandle) {
+  jsxModule.__jsx_async_driver_dispose(driverHandle);
+}
+
 if (import.meta.env.DEV) {
   window.__canopyGenUiTest = Object.freeze({
+    sessionNewForTest,
+    sessionDisposeForTest,
+    asyncDriverNewForSession,
     replayCandidate,
     replayCandidateAtRevision,
     sessionRevision: () => jsxSessionRevision,
     resetSession: resetState,
+    asyncDriverNew,
+    asyncDriverStart,
+    asyncDriverQueueChunk,
+    asyncDriverQueueFinal,
+    asyncDriverQueueFailure,
+    asyncDriverResolveNext,
+    asyncDriverWaitNext,
+    asyncDriverResolveCurrent,
+    asyncDriverProviderNew,
+    asyncDriverProviderWait,
+    asyncDriverProviderReject,
+    asyncDriverProviderAbort,
+    asyncDriverCancel,
+    asyncDriverRestart,
+    asyncDriverCommit,
+    asyncDriverStats,
+    asyncDriverDispose,
   })
 }
 
