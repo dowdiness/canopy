@@ -1,5 +1,12 @@
 ///|
 fn view_problems(model : Model) -> Html {
+  guard model.workspace.bottom_visible else {
+    return @html.div(
+      class="bottom-content",
+      attrs=bottom_panel_attrs(Problems),
+      ([] : Array[Html]),
+    )
+  }
   let errors = model.editor.get_errors()
   if errors.is_empty() {
     @html.div(class="bottom-content", attrs=bottom_panel_attrs(Problems), [

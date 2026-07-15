@@ -77,8 +77,6 @@ fn view_patch_log(model : Model) -> Html {
     )
   }
   let log = model.patch_log
-  let source_map = model.editor.get_source_map()
-  let source_text = model.editor.get_text()
   if log.is_empty() {
     @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
       @html.span(class="no-problems", [
@@ -88,6 +86,8 @@ fn view_patch_log(model : Model) -> Html {
       ]),
     ])
   } else {
+    let source_map = model.editor.get_source_map()
+    let source_text = model.editor.get_text()
     let n = log.length()
     let items : Array[Html] = Array::makei(n, i => {
       let entry = log[n - 1 - i]
