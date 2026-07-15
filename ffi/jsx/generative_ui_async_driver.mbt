@@ -579,17 +579,17 @@ fn async_clear_current_if_same(
 pub fn __jsx_async_driver_wait_next(handle : Int) -> @js_async.Promise[String] {
   match async_driver_registry.get(handle) {
     None =>
-      @js_async.Promise::from_async(async fn() {
+      @js_async.Promise::from_async(fn() {
         async_invalid_driver_json("async driver handle is unavailable")
       })
     Some(driver) => {
       guard driver.current_pending is None else {
-        return @js_async.Promise::from_async(async fn() {
+        return @js_async.Promise::from_async(fn() {
           async_invalid_driver_json("async driver wait already pending")
         })
       }
       guard async_take_pending(driver) is Some(pending) else {
-        return @js_async.Promise::from_async(async fn() {
+        return @js_async.Promise::from_async(fn() {
           async_invalid_driver_json("async driver queue is empty")
         })
       }
@@ -634,17 +634,17 @@ pub fn __jsx_async_driver_resolve_next(
 ) -> @js_async.Promise[String] {
   match async_driver_registry.get(handle) {
     None =>
-      @js_async.Promise::from_async(async fn() {
+      @js_async.Promise::from_async(fn() {
         async_invalid_driver_json("async driver handle is unavailable")
       })
     Some(driver) => {
       guard driver.current_pending is None else {
-        return @js_async.Promise::from_async(async fn() {
+        return @js_async.Promise::from_async(fn() {
           async_invalid_driver_json("async driver wait already pending")
         })
       }
       guard async_take_pending(driver) is Some(pending) else {
-        return @js_async.Promise::from_async(async fn() {
+        return @js_async.Promise::from_async(fn() {
           async_invalid_driver_json("async driver queue is empty")
         })
       }
@@ -879,7 +879,7 @@ pub fn __jsx_async_driver_provider_wait(
 ) -> @js_async.Promise[String] {
   match async_provider_registry.get(provider_handle) {
     None =>
-      @js_async.Promise::from_async(async fn() {
+      @js_async.Promise::from_async(fn() {
         async_invalid_driver_json("provider handle is unavailable")
       })
     Some(pending) =>
