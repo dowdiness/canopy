@@ -658,3 +658,27 @@ test "selection characterization: structure selection highlights and clears nav"
     None => abort("StructureNodeSelected was not handled")
   }
 }
+
+///|
+test "history SVG escapes adversarial agent labels" {
+  let me = "me"
+  let weird = "evil-<&>"
+  let (alice, _) = @lambda.new_lambda_editor(me)
+  alice.insert_at(0, "a", 0)
+  let (bob, _) = @lambda.new_lambda_editor(weird)
+  bob.apply_sync(alice.export_all())
+  bob.insert_at(1, "b", 0)
+  alice.apply_sync(bob.export_all())
+  let dot = match @history_render.render_history(alice.causal_snapshot(), me) {
+    @history_render.Dot(value) => value
+    _ => {
+      fail("expected history DOT")
+      return
+    }
+  }
+  let svg = render_dot_to_svg(dot)
+  inspect(svg.contains("&lt;"), content="true")
+  inspect(svg.contains("&amp;"), content="true")
+  inspect(svg.contains("&gt;"), content="true")
+  inspect(svg.contains("<&>"), content="false")
+}

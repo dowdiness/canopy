@@ -232,9 +232,9 @@ fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
 /// raw SVG sitting under the new tab's children, because rabbita's
 /// `remove_property("innerHTML")` is a `delete element.innerHTML` which
 /// is a no-op for prototype accessors.
-/// The `inner_html` call is XSS-vulnerable in general; the input here
-/// is built from our own SVG renderer + `escape_html_string` for the
-/// aria-label, never user-supplied text.
+/// The `inner_html` call is XSS-vulnerable in general. Here, the SVG text
+/// labels are XML-escaped by `@gv_svg`, and the aria-label is escaped with
+/// `escape_html_string` before interpolation.
 #warnings("-alert_xss_vulnerable")
 fn view_history_panel(model : Model) -> Html {
   // When the bottom panel is collapsed, the entire <section> is CSS-hidden
