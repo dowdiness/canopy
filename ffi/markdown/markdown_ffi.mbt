@@ -255,7 +255,7 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
           proj,
           source_map,
           source_text=Some(source_text),
-          annotations={},
+          annotations=Map([]),
         ),
       )
     None => None

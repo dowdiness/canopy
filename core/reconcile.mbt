@@ -19,7 +19,7 @@ pub fn[T : TreeNode + Renderable] reconcile(
   counter : Ref[Int],
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
-  reconcile_hinted(old, new, counter, {}, trace_ref~)
+  reconcile_hinted(old, new, counter, Map([]), trace_ref~)
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn[T : TreeNode + Renderable] reconcile_with_exact_key(
   exact_key : (T) -> String,
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
-  let interner : Map[String, Int] = {}
+  let interner : Map[String, Int] = Map([])
   let next_fingerprint = Ref(0)
   let old_fingerprints = exact_fingerprint_map(
     old, exact_key, interner, next_fingerprint,
@@ -157,13 +157,13 @@ fn[T : TreeNode + Renderable] reconcile_children(
   // Injectivity ledger for hint-based pairing of LCS-unmatched children
   // (a consumed prev-id is paired at most once). Mutation justified as a
   // consumption marker (moonbit-base.md Control Flow).
-  let consumed : Map[NodeId, Bool] = {}
+  let consumed : Map[NodeId, Bool] = Map([])
   // How many LCS-unmatched new children each unmatched old child's hint pairs
   // with. Identity is carried only for an unambiguous 1:1 pairing, so an old
   // node whose wrapped subtree could land in more than one new sibling is
   // rejected (symmetric to the multiple-old-claiming-one-new case).
   let old_pair_counts : Map[NodeId, Int] = if hints.is_empty() {
-    {}
+    Map([])
   } else {
     hint_pair_counts(
       old_children, new_children, old_matched, new_matched, hints,
@@ -252,7 +252,7 @@ fn[T] exact_fingerprint_map(
   interner : Map[String, Int],
   next_fingerprint : Ref[Int],
 ) -> Map[NodeId, Int] {
-  let result : Map[NodeId, Int] = {}
+  let result : Map[NodeId, Int] = Map([])
   let _ = root.fold(fn(node, children : Array[Int]) -> Int {
     let key = exact_key(node.kind)
     let signature = key.length().to_string() +
@@ -533,7 +533,7 @@ fn[T : TreeNode] hint_pair_counts(
   new_matched : Array[Int],
   hints : Map[NodeId, IdentityTransform],
 ) -> Map[NodeId, Int] {
-  let counts : Map[NodeId, Int] = {}
+  let counts : Map[NodeId, Int] = Map([])
   for oi, o in old_children {
     if old_matched[oi] < 0 {
       let cnt = [

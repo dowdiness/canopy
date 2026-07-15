@@ -267,7 +267,7 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::refresh(
         editing_node: self.editing_node,
         drop_target: self.drop_target,
       }
-      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
+      let new_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = Map([])
       let tree = Some(
         refresh_node_minimal(
           ast,
@@ -323,7 +323,7 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::refresh(
         dragging: None,
         drop_target: None,
         drop_position: None,
-        loaded_nodes: {},
+        loaded_nodes: Map([]),
       }
   }
 }
@@ -373,7 +373,8 @@ fn[T : TreeNode + Renderable] TreeEditorState::hydrate_subtree(
                 editing_node: self.editing_node,
                 drop_target: self.drop_target,
               }
-              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = {}
+              let subtree_loaded_nodes : Map[NodeId, InteractiveTreeNode[T]] = Map([],
+              )
               let hydrated = refresh_node_minimal(
                 proj_node,
                 source_map,

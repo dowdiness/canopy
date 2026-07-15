@@ -15,12 +15,12 @@ const CHAIN_THRESHOLD : Int = 5
 /// Hard ceiling for Phase 1: above this, refuse to render. A "most recent N"
 /// cut is not ancestry-closed and would silently misrepresent the DAG, so
 /// the only honest options are render-everything or render-nothing.
-const MAX_OPS : Int = 1000
+pub const MAX_OPS : Int = 1000
 
 ///|
 /// Per-agent palette index (0..7). The local agent is pinned to 0 so the
 /// user's own ops stay visually anchored across sessions.
-struct HistoryData {
+priv struct HistoryData {
   frontier : Map[Int, Bool]
   agent_color : Map[String, Int]
 }
@@ -29,13 +29,13 @@ struct HistoryData {
 /// One node in the rendered graph. A `Chain` carries the full LV list, not
 /// just `(start, end, count)`, so future selection / time-travel features
 /// can map a click on a compressed node back to its constituents.
-enum CompressedNode {
+priv enum CompressedNode {
   Single(Int)
   Chain(Array[Int])
 }
 
 ///|
-struct CompressedData {
+priv struct CompressedData {
   nodes : Array[CompressedNode]
   parents : Array[Array[Int]]
 }
@@ -80,12 +80,12 @@ fn collect_history_data(
   local_agent : String,
 ) -> HistoryData {
   let n = snap.op_count()
-  let frontier : Map[Int, Bool] = {}
+  let frontier : Map[Int, Bool] = Map([])
   for lv in snap.frontier() {
     frontier[lv] = true
   }
   // Gather unique agents.
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   let others : Array[String] = []
   for lv in 0..<n {
     match snap.entry(lv) {
@@ -102,7 +102,7 @@ fn collect_history_data(
     }
   }
   others.sort()
-  let agent_color : Map[String, Int] = {}
+  let agent_color : Map[String, Int] = Map([])
   agent_color[local_agent] = 0
   // Non-local agents wrap through 1..7 so index 0 stays reserved for the
   // local agent — a naïve `idx % 8` would silently recycle the local
@@ -134,7 +134,7 @@ fn chain_compress(
 
   // chain_succ[p] = c if edge p→c is a chain link.
   // Functional in p (p has children_count == 1, so the unique child is c).
-  let chain_succ : Map[Int, Int] = {}
+  let chain_succ : Map[Int, Int] = Map([])
   for c in 0..<n {
     if frontier.contains(c) {
       continue
@@ -166,11 +166,11 @@ fn chain_compress(
 
   // A node is a chain interior/tail iff it appears as a chain successor.
   // Chain heads have no chain predecessor; we walk forward from each.
-  let has_chain_pred : Map[Int, Bool] = {}
+  let has_chain_pred : Map[Int, Bool] = Map([])
   for _, c in chain_succ {
     has_chain_pred[c] = true
   }
-  let lv_to_node : Map[Int, Int] = {}
+  let lv_to_node : Map[Int, Int] = Map([])
   let nodes : Array[CompressedNode] = []
   for lv in 0..<n {
     if lv_to_node.contains(lv) {
@@ -477,7 +477,7 @@ fn display_name(agent : String, local_agent : String) -> String {
 /// `innerHTML`. Quote escaping covers attribute-value contexts; the
 /// callers above never put user strings inside attribute values, but
 /// keeping it complete avoids a footgun if the legend grows tooltips.
-fn escape_html_string(s : String) -> String {
+pub fn escape_html_string(s : String) -> String {
   let buf = StringBuilder::new()
   for ch in s {
     match ch {

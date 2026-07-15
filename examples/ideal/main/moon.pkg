@@ -13,18 +13,22 @@ import {
   "dowdiness/dom_boundary",
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/canopy/ffi/lambda" @ffi,
-  "dowdiness/canopy/js_ffi" @js,
+  "dowdiness/js_ffi" @js,
   "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/history",
+  "dowdiness/ideal-editor/main/internal/history_render",
   "dowdiness/canopy/projection" @proj,
   "dowdiness/canopy/lang/lambda",
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/ideal-editor/main/action_overlay" @overlay,
+  "dowdiness/ideal-editor/main/action_overlay/view" @overlay_view,
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/lambda/ast",
   "moonbitlang/core/strconv",
   "moonbitlang/core/string",
   "moonbitlang/core/json",
+  "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset" @immut/hashset,
   "moonbit-community/rabbita/cmd" @rabbita_cmd,
   "dowdiness/graphviz/lib/parser" @gv_parser,
@@ -36,8 +40,9 @@ import {
 
 supported_targets = "js"
 
+pkgtype(kind: "executable")
+
 options(
-  "is-main": true,
   link: {
     "js": {
       "exports": [

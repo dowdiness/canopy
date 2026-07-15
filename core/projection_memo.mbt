@@ -45,7 +45,7 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
   let registry_memo : @incr.Derived[Map[NodeId, ProjNode[T]]] = @incr.Derived::Derived(
     rt,
     fn() -> Map[NodeId, ProjNode[T]] {
-      let reg : Map[NodeId, ProjNode[T]] = {}
+      let reg : Map[NodeId, ProjNode[T]] = Map([])
       match proj_memo.get_or_abort() {
         Some(root) => collect_registry(root, reg)
         None => ()

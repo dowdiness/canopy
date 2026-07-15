@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main/internal/history_render"
+
+import {
+  "dowdiness/event-graph-walker/history",
+}
+
+// Values
+pub const MAX_OPS : Int = 1000
+
+pub fn escape_html_string(String) -> String
+
+pub fn legend_html(@history.CausalSnapshot, String) -> String
+
+pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
+
+// Errors
+
+// Types and methods
+pub enum HistoryRender {
+  Empty
+  Dot(String)
+  TooLarge(Int)
+}
+
+// Type aliases
+
+// Traits
+

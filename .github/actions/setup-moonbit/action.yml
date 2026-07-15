@@ -1,6 +1,6 @@
 name: 'Set up MoonBit'
 description: >-
-  Install the latest MoonBit toolchain and export NEW_MOON_MOD=0 for
+  Install the pinned MoonBit toolchain and core, and export NEW_MOON_MOD=0 for
   every downstream step. NEW_MOON_MOD=0 opts out of the rr_moon_mod
   TOML migration (moonbitlang/moon#1716), which otherwise drops path
   fields from cross-repo deps that have no valid TOML expression.
@@ -13,16 +13,23 @@ runs:
     - name: Export NEW_MOON_MOD opt-out
       shell: bash
       run: echo "NEW_MOON_MOD=0" >> "$GITHUB_ENV"
-    # MoonBit toolchain version pinned to 0.10.2+1bb3e16cf (2026-06-29).
-    # Version 0.10.0+84519ca0a had a wasm-gc v128/SIMD bundling bug and
-    # didn't support the `formatter` key in moon.pkg (needed by rabbita).
-    # See PR #819 for the wasm-gc fix context.
+    # MoonBit toolchain and core are pinned as a compatibility pair. The core
+    # CDN publishes matching versioned archives (unlike older releases).
+    # 0.10.4 fixes the wasm-gc v128/SIMD bundling bug seen in 0.10.0.
     - name: Install MoonBit
       uses: hustcer/setup-moonbit@v1.22
       with:
-        version: 0.10.2+1bb3e16cf
+        version: 0.10.4+ade96c819
+        core-version: 0.10.4+ade96c819
       env:
         GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Verify MoonBit core bundle
+      shell: bash
+      run: |
+        for target in wasm wasm-gc js native; do
+          test -f "$HOME/.moon/lib/core/_build/$target/release/bundle/prelude/prelude.mi"
+        done
 
     - name: Cache MoonBit registry state
       uses: actions/cache@v5

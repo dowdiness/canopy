@@ -11,10 +11,10 @@
 fn build_markdown_hints_map(
   hints : Array[@core.IdentityTransform],
 ) -> Map[@core.NodeId, @core.IdentityTransform] {
-  let result : Map[@core.NodeId, @core.IdentityTransform] = {}
+  let result : Map[@core.NodeId, @core.IdentityTransform] = Map([])
   for hint in hints {
     match hint {
-      @core.IdentityTransform::Opaque => return {}
+      @core.IdentityTransform::Opaque => return Map([])
       @core.IdentityTransform::Wrap(inner=id) => result[id] = hint
       @core.IdentityTransform::Unwrap(wrapper=id, ..) => result[id] = hint
       @core.IdentityTransform::Move(subtree=id) => result[id] = hint
@@ -116,7 +116,7 @@ fn reconcile_markdown_children_hinted(
     }
   }
   // Consumption marker: a previous moved node may be paired at most once.
-  let consumed : Map[@core.NodeId, Bool] = {}
+  let consumed : Map[@core.NodeId, Bool] = Map([])
   let old_pair_counts = markdown_move_pair_counts(
     old_children, new_children, old_matched, new_matched, hints,
   )
@@ -177,7 +177,7 @@ fn markdown_move_pair_counts(
   new_matched : Array[Int],
   hints : Map[@core.NodeId, @core.IdentityTransform],
 ) -> Map[@core.NodeId, Int] {
-  let counts : Map[@core.NodeId, Int] = {}
+  let counts : Map[@core.NodeId, Int] = Map([])
   for oi, old_child in old_children {
     if old_matched[oi] < 0 && is_move_source(hints, old_child.id()) {
       let count = [

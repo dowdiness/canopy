@@ -225,6 +225,7 @@ test.describe('Structural Editing - Overlay on Var nodes', () => {
     await expectActiveActionItem(page, 0);
   });
 
+
   test('Enter activates focused menu item', async ({ page }) => {
     await openVarActionOverlay(page);
     await focusActionByLabel(page, 'Rename');

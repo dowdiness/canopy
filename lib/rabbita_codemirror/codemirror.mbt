@@ -66,7 +66,7 @@ priv struct CmEntry {
 
 ///|
 #cfg(target="js")
-let editors : Map[String, CmEntry] = {}
+let editors : Map[String, CmEntry] = Map([])
 
 ///|
 priv suberror CmSubscription {

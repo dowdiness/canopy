@@ -13,10 +13,10 @@
 fn build_hints_map(
   hints : Array[@core.IdentityTransform],
 ) -> Map[@core.NodeId, @core.IdentityTransform] {
-  let result : Map[@core.NodeId, @core.IdentityTransform] = {}
+  let result : Map[@core.NodeId, @core.IdentityTransform] = Map([])
   for hint in hints {
     match hint {
-      @core.IdentityTransform::Opaque => return {}
+      @core.IdentityTransform::Opaque => return Map([])
       @core.IdentityTransform::Wrap(inner=id) => result[id] = hint
       @core.IdentityTransform::Unwrap(wrapper=id, ..) => result[id] = hint
       @core.IdentityTransform::Move(subtree=id) => result[id] = hint
@@ -157,14 +157,14 @@ fn[K : Eq + Hash] module_key_match(
   old_keys : Array[K],
   new_keys : Array[K],
 ) -> Array[Int?] {
-  let old_by_key : Map[K, Array[Int]] = {}
+  let old_by_key : Map[K, Array[Int]] = Map([])
   for i, key in old_keys {
     match old_by_key.get(key) {
       Some(indices) => indices.push(i)
       None => old_by_key[key] = [i]
     }
   }
-  let cursors : Map[K, Int] = {}
+  let cursors : Map[K, Int] = Map([])
   [
     for key in new_keys => {
       let cursor = cursors.get(key).unwrap_or(0)

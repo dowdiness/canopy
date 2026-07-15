@@ -150,7 +150,7 @@ fn run_batch_egglog(
 ) -> Array[EvalResult] {
   let results : Array[EvalResult] = def_states.map(fn(s) { s.result })
   let rules = @egglog_eval.eval_rules()
-  let recovered_values : Map[Int, @lambda_eval.Value] = {}
+  let recovered_values : Map[Int, @lambda_eval.Value] = Map([])
   for i, state in def_states {
     match state.raw_value {
       Some(v) => recovered_values[i] = v
@@ -245,7 +245,7 @@ fn build_candidate_bindings(
   candidate_idx : Int,
 ) -> Array[(String, @lambda_eval.Value)] {
   let bindings : Array[(String, @lambda_eval.Value)] = []
-  let seen_names : Map[String, Bool] = {}
+  let seen_names : Map[String, Bool] = Map([])
   for j = candidate_idx - 1; j >= 0; j = j - 1 {
     let prev = def_states[j]
     if seen_names.get(prev.name).unwrap_or(false) {
@@ -269,7 +269,7 @@ fn build_tier1_env(
   recovered_values : Map[Int, @lambda_eval.Value],
   up_to_index : Int,
 ) -> @lambda_eval.Env {
-  let bindings : Map[String, @lambda_eval.Value] = {}
+  let bindings : Map[String, @lambda_eval.Value] = Map([])
   for j = 0; j < up_to_index; j = j + 1 {
     let prev = def_states[j]
     match recovered_values.get(j) {

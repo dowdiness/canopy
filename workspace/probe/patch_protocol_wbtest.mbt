@@ -152,7 +152,7 @@ test "A3 WrapInLambda — FIT-CLEAN (with default-on-missing)" {
   assert_eq(show_op(restored_explicit), show_op(source))
 
   // Missing-key case: decoder default `"x"` matches the existing decoder.
-  let params_empty : Map[String, String] = {}
+  let params_empty : Map[String, String] = Map([])
   let wire_empty = @protocol.UserIntent::StructuralEdit(
     node_id=@core.NodeId::from_int(11),
     op="WrapInLambda",

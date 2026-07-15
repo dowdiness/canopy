@@ -33,13 +33,22 @@ export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)
 
-# Vendored submodules built standalone (event-graph-walker, loom) still use the
-# deprecated `try?` ([0020], MoonBit 0.10.0); canopy does not own their source
-# and cannot migrate it, so the `ci-lenient` mode exempts only that one warning
-# via --warn-list=-20. All other warnings stay denied, and canopy's own modules
-# (migrated off try?) run fully strict. Drop this once the ecosystem migrates
-# (tracked in #573).
-LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
+# Vendored submodules built standalone still use deprecated `try?` ([0020])
+# and MoonBit 0.10.4's [0082]/[0083] diagnostics; Canopy does not own their
+# source. Keep Canopy-owned example modules on the narrower [0020] exemption.
+module_root="${MODULE_DIR%%/*}"
+is_vendored_module=0
+for vendored_dir in $VENDORED_DIRS; do
+    if [ "$module_root" = "$vendored_dir" ]; then
+        is_vendored_module=1
+        break
+    fi
+done
+if [ "$is_vendored_module" -eq 1 ]; then
+    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-82-83)
+else
+    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
+fi
 
 case "$ACTION" in
     check)
@@ -61,8 +70,8 @@ case "$ACTION" in
         "$SCRIPT_DIR/moon-update.sh"
         # When checking from within a vendored submodule, suppress only
         # *transitive* vendored errors (deps), not the module under test.
-        # Extract the repo-root directory name (e.g. loom/loom → loom).
-        keep_dir="${MODULE_DIR%%/*}"
+        # Keep the exact module subtree under test unsuppressed.
+        keep_dir="$MODULE_DIR"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
@@ -70,7 +79,7 @@ case "$ACTION" in
         # Same as `ci`, but exempts the try? [0020] deprecation for vendored
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
         "$SCRIPT_DIR/moon-update.sh"
-        keep_dir="${MODULE_DIR%%/*}"
+        keep_dir="$MODULE_DIR"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;

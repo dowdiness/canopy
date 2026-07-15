@@ -4,15 +4,13 @@ package "dowdiness/ideal-editor/main"
 import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
-  "dowdiness/canopy/js_ffi",
   "dowdiness/canopy/lang/lambda/companion",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/projection",
-  "dowdiness/event-graph-walker/history",
+  "dowdiness/js_ffi",
   "dowdiness/lambda/ast",
   "dowdiness/rabbita-resizable/resizable",
   "dowdiness/visualizer",
-  "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset",
 }
 
@@ -65,13 +63,9 @@ pub fn handle_undo(Int) -> Bool
 
 pub fn insert_at(Int, Int, String, Int) -> Unit
 
-pub fn legend_html(@history.CausalSnapshot, String) -> String
-
 pub fn load_file(Int) -> Unit
 
 pub fn register_file_host(@js_ffi.Any) -> Unit
-
-pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
 
 pub fn save_file(Int, String) -> Unit
 
@@ -92,8 +86,6 @@ pub fn undo_manager_undo(Int) -> Bool
 // Types and methods
 type ActionOverlayHost
 
-type ActionOverlayRuntime
-
 pub enum BottomTab {
   Problems
   OpLog
@@ -104,22 +96,10 @@ pub enum BottomTab {
   IncrGraph
 } derive(Eq)
 
-type CompressedData
-
-type CompressedNode
-
 pub enum EditorMode {
   Text
   Structure
 } derive(Eq)
-
-type HistoryData
-
-pub enum HistoryRender {
-  Empty
-  Dot(String)
-  TooLarge(Int)
-}
 
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
@@ -149,21 +129,7 @@ pub struct Model {
 
 type Msg
 
-type OverlayEffect
-
-type OverlayError derive(@debug.Debug)
-
 type OverlayEvent
-
-type OverlayMode
-
-type OverlayMsg
-
-type OverlayOutput
-
-type OverlayState
-
-type OverlayUpdate
 
 pub enum PanelId {
   Outline
@@ -176,6 +142,8 @@ pub(all) struct PatchEntry {
   edits : Array[@core.SpanEdit]
   changes : Array[@core.StructuredChange]
 }
+
+type RootState
 
 pub enum SyncStatus {
   Offline

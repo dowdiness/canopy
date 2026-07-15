@@ -98,7 +98,7 @@ pub impl Hash for AlphaKey with fn hash_combine(self, hasher) {
 /// the result is intended for whole `AlphaTerm` keys rather than context-free
 /// subterm extraction.
 pub fn alpha_key(term : AlphaTerm) -> AlphaKey {
-  let env : Map[BinderId, Int] = {}
+  let env : Map[BinderId, Int] = Map([])
   let (key, _) = key_term(term, env, 0)
   AlphaKey::{ repr: key }
 }

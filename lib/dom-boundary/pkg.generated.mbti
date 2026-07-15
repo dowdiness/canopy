@@ -18,6 +18,10 @@ pub fn focus_id(String) -> Unit raise DomBoundaryError
 
 pub fn focus_selector(String) -> Unit raise DomBoundaryError
 
+pub fn focus_selector_id(String, String) -> Unit raise DomBoundaryError
+
+pub fn focus_selector_id_within(String, String, String) -> Unit raise DomBoundaryError
+
 pub fn listen_custom_event_id(String, String, (String) -> Unit) -> CustomEventSubscription raise DomBoundaryError
 
 pub fn listen_custom_event_selector(String, String, (String) -> Unit) -> CustomEventSubscription raise DomBoundaryError

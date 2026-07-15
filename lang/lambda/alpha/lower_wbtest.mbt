@@ -88,7 +88,7 @@ test "lower: sequential module scope follows ScopeGraph" {
 
 ///|
 test "lower: generated fallback binder ids use node identity" {
-  let binders : Map[@core.NodeId, Binder] = {}
+  let binders : Map[@core.NodeId, Binder] = Map([])
   let first = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Unit), 0, 0, 7, [])
   let second = @core.ProjNode(@ast.Term::Lam("x", @ast.Term::Unit), 0, 0, 8, [])
   let first_binder = binder_for_node(binders, first, "x")

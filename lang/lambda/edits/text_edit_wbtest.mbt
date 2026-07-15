@@ -35,7 +35,7 @@ fn parse_with_token_spans(
 fn text_edit_test_registry(
   root : ProjNode[@ast.Term],
 ) -> Map[NodeId, ProjNode[@ast.Term]] {
-  let registry : Map[NodeId, ProjNode[@ast.Term]] = {}
+  let registry : Map[NodeId, ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   registry
 }

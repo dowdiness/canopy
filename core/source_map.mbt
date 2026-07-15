@@ -23,7 +23,7 @@ pub struct SourceMap {
 ///|
 /// Create an empty SourceMap
 pub fn SourceMap::new() -> SourceMap {
-  { node_to_range: {}, ranges: [], token_spans: {} }
+  { node_to_range: Map([]), ranges: [], token_spans: Map([]) }
 }
 
 ///|
@@ -271,7 +271,7 @@ pub fn SourceMap::set_token_span(
   match self.token_spans.get(node_id) {
     Some(roles) => roles[role] = range
     None => {
-      let roles : Map[String, Range] = {}
+      let roles : Map[String, Range] = Map([])
       roles[role] = range
       self.token_spans[node_id] = roles
     }
@@ -335,14 +335,14 @@ pub fn SourceMap::get_all_token_spans(
 pub impl ToJson for SourceMap with fn to_json(self) {
   let entries : Array[Json] = []
   for node_id, range in self.node_to_range {
-    let entry : Map[String, Json] = {}
+    let entry : Map[String, Json] = Map([])
     entry["node_id"] = node_id.0.to_json()
     entry["start"] = range.start.to_json()
     entry["end"] = range.end.to_json()
     // Include token spans if present for this node
     match self.token_spans.get(node_id) {
       Some(roles) => {
-        let token_spans_json : Map[String, Json] = {}
+        let token_spans_json : Map[String, Json] = Map([])
         for role, span in roles {
           token_spans_json[role] = { "start": span.start, "end": span.end }
         }

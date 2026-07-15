@@ -137,19 +137,44 @@ extern "js" fn install_shadow_focus_fixture(
   #|     children: [],
   #|     focus() { globalThis.__menuFocusLog.push("shadow:" + this.id); },
   #|   };
+  #|   const shadowActiveItem = {
+  #|     id: "menu-item-2",
+  #|     children: [],
+  #|     focus() { globalThis.__menuFocusLog.push("shadow:" + this.id); },
+  #|   };
   #|   const documentItem = {
   #|     id: itemId,
   #|     children: [],
   #|     focus() { globalThis.__menuFocusLog.push("document:" + this.id); },
   #|   };
+  #|   const documentActiveItem = {
+  #|     id: "menu-item-2",
+  #|     children: [],
+  #|     focus() { globalThis.__menuFocusLog.push("document:" + this.id); },
+  #|   };
+  #|   const shadowMenu = {
+  #|     id: "menu",
+  #|     children: [shadowItem, shadowActiveItem],
+  #|     querySelector(selector) {
+  #|       return selector === '[data-active="true"]' ? shadowActiveItem : null;
+  #|     },
+  #|   };
+  #|   const documentMenu = {
+  #|     id: "menu",
+  #|     children: [documentItem, documentActiveItem],
+  #|     querySelector(selector) {
+  #|       return selector === '[data-active="true"]' ? documentActiveItem : null;
+  #|     },
+  #|   };
   #|   const shadowRoot = {
-  #|     children: [shadowItem],
-  #|     getElementById(id) { return id === itemId ? shadowItem : null; },
+  #|     children: [shadowMenu],
+  #|     getElementById(id) { return id === "menu" ? shadowMenu : null; },
   #|   };
   #|   const host = { id: rootId, children: [], shadowRoot };
   #|   globalThis.document = {
   #|     getElementById(id) {
   #|       if (id === rootId) return host;
+  #|       if (id === "menu") return documentMenu;
   #|       if (id === itemId) return documentItem;
   #|       return null;
   #|     },
@@ -171,13 +196,26 @@ extern "js" fn clear_focus_fixture() -> Unit =
 
 ///|
 #cfg(target="js")
-test "focus_cmd_within searches a shadow host before document duplicates" {
-  let model = Model::new(id="menu", item_count=2).update(FocusNext)
+test "focus_cmd_within resolves the active item at execution time" {
+  let model = Model::new(id="menu", item_count=3).update(FocusNext)
   install_shadow_focus_fixture("menu-host", "menu-item-1")
   let scheduler = FocusCmdTestScheduler::new()
   scheduler.add(model.focus_cmd_within(root_id="menu-host"))
   let log = focus_log()
   clear_focus_fixture()
   inspect(scheduler.after_render_count, content="1")
-  inspect(log, content="shadow:menu-item-1")
+  inspect(log, content="shadow:menu-item-2")
+}
+
+///|
+#cfg(target="js")
+test "focus_cmd resolves the active item at execution time" {
+  let model = Model::new(id="menu", item_count=3).update(FocusNext)
+  install_shadow_focus_fixture("menu-host", "menu-item-1")
+  let scheduler = FocusCmdTestScheduler::new()
+  scheduler.add(model.focus_cmd())
+  let log = focus_log()
+  clear_focus_fixture()
+  inspect(scheduler.after_render_count, content="1")
+  inspect(log, content="document:menu-item-2")
 }

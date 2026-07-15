@@ -1,0 +1,12 @@
+import {
+  "dowdiness/event-graph-walker/history",
+}
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/lambda",
+  "dowdiness/lambda/ast",
+  "dowdiness/graphviz/lib/parser" @gv_parser,
+} for "wbtest"
+
+supported_targets = "js+native"

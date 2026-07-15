@@ -17,7 +17,7 @@ pub struct EphemeralHub {
 
 ///|
 pub fn EphemeralHub::new(local_peer_id : String) -> EphemeralHub {
-  let stores : Map[EphemeralNamespace, EphemeralStore] = {}
+  let stores : Map[EphemeralNamespace, EphemeralStore] = Map([])
   for ns in all_namespaces() {
     stores[ns] = EphemeralStore::new(default_timeout(ns))
   }

@@ -40,7 +40,7 @@ pub fn ViewAnnotation::ViewAnnotation(
 
 ///|
 pub impl ToJson for ViewAnnotation with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["kind"] = self.kind.to_json()
   m["label"] = self.label.to_json()
   m["severity"] = self.severity.to_json()
@@ -105,7 +105,7 @@ pub fn ViewNode::ViewNode(
 
 ///|
 pub impl ToJson for TokenSpan with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["role"] = self.role.to_json()
   m["start"] = self.start.to_json()
   m["end"] = self.end.to_json()
@@ -114,7 +114,7 @@ pub impl ToJson for TokenSpan with fn to_json(self) {
 
 ///|
 pub impl ToJson for ViewNode with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   let NodeId(id_int) = self.id
   m["id"] = id_int.to_json()
   m["kind_tag"] = self.kind_tag.to_json()

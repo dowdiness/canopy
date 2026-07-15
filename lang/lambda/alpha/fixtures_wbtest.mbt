@@ -16,7 +16,7 @@ fn free_var(name : String) -> AlphaTerm {
 ///|
 fn graph_for_root(root : @core.ProjNode[@ast.Term]) -> @scope.ScopeGraph {
   let source_map = @core.SourceMap::from_ast(root)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   @scope.build(registry, source_map)
 }

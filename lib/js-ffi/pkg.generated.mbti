@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/canopy/js_ffi"
+package "dowdiness/js_ffi"
 
 import {
   "moonbitlang/async/js_async",
@@ -11,6 +11,8 @@ pub fn[T] any(T) -> Any
 pub fn array() -> Any
 
 pub fn equal(Any, Any) -> Bool
+
+pub fn error_detail(Any) -> String
 
 pub fn[A] fn0(() -> A) -> Any
 
@@ -34,9 +36,14 @@ pub fn parse(String) -> Any
 
 pub fn[T] promise(async () -> T) -> Any
 
+pub fn try_sync(() -> Any) -> Any raise JsError
+
 pub fn undefined() -> Any
 
 // Errors
+pub suberror JsError {
+  JsError(Any)
+}
 
 // Types and methods
 #external

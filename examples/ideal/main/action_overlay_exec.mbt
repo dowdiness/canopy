@@ -3,7 +3,6 @@
 /// Returns (Cmd, Model) after execution.
 fn execute_action(
   model : Model,
-  runtime : ActionOverlayRuntime,
   context : @lambda_edits.ActionContext,
   action : @lambda_edits.Action,
   choice : String,
@@ -11,30 +10,56 @@ fn execute_action(
 ) -> (Cmd, Model) {
   match @lambda_edits.build_tree_edit_op(action.id, context, choice, name) {
     Ok(Some(op)) =>
-      match
-        @lambda.apply_lambda_tree_edit(
-          model.editor,
-          model.companion,
-          op,
-          js_now_ms(),
-        ) {
-        Ok(edits) => {
-          push_intent(model, op)
-          push_patch(model, op, edits)
+      match commit_tree_edit(model, op) {
+        Ok((cmd, new_model)) => {
           js_set_overlay_open(false)
-          let new_model = refresh({
-            ..model,
-            next_timestamp: model.next_timestamp + 1,
-            overlay: model.overlay.close(),
-          })
-          let text = new_model.editor.get_text()
-          let cmd = sync_after_local_model_change(new_model, text)
-          (cmd, new_model)
+          (cmd, { ..new_model, overlay: model.overlay.close() })
         }
         Err(err) =>
-          (runtime.send(SetError(ApplyActionFailed(err.message()))), model)
+          match model.overlay.active {
+            Some((_, state, _)) =>
+              (
+                none,
+                {
+                  ..model,
+                  overlay: model.overlay.set_state(
+                    state.with_error(
+                      Some(
+                        @overlay.OverlayError::ApplyActionFailed(err.message()),
+                      ),
+                    ),
+                  ),
+                },
+              )
+            None => (none, model)
+          }
       }
-    Ok(None) => (runtime.send(ShowNamePrompt(action)), model)
-    Err(msg) => (runtime.send(SetError(BuildActionFailed(msg))), model)
+    Ok(None) =>
+      match model.overlay.active {
+        Some((_, state, _)) => {
+          let result = state.show_name_prompt(action)
+          (
+            focus_selector_after_render(NAME_PROMPT_SELECTOR),
+            { ..model, overlay: model.overlay.set_state(result.state) },
+          )
+        }
+        None => (none, model)
+      }
+    Err(msg) =>
+      match model.overlay.active {
+        Some((_, state, _)) =>
+          (
+            none,
+            {
+              ..model,
+              overlay: model.overlay.set_state(
+                state.with_error(
+                  Some(@overlay.OverlayError::BuildActionFailed(msg)),
+                ),
+              ),
+            },
+          )
+        None => (none, model)
+      }
   }
 }

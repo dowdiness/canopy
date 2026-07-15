@@ -20,7 +20,7 @@ test "UserIntent::TextEdit round-trip" {
 
 ///|
 test "UserIntent::StructuralEdit to_json" {
-  let params : Map[String, String] = {}
+  let params : Map[String, String] = Map([])
   params["var_name"] = "x"
   let intent = @protocol.UserIntent::StructuralEdit(
     node_id=@core.NodeId::from_int(42),
@@ -36,7 +36,7 @@ test "UserIntent::StructuralEdit to_json" {
 
 ///|
 test "UserIntent::StructuralEdit round-trip" {
-  let params : Map[String, String] = {}
+  let params : Map[String, String] = Map([])
   params["var_name"] = "y"
   let intent = @protocol.UserIntent::StructuralEdit(
     node_id=@core.NodeId::from_int(7),
@@ -53,7 +53,7 @@ test "UserIntent::StructuralEdit round-trip with empty params" {
   let intent = @protocol.UserIntent::StructuralEdit(
     node_id=@core.NodeId::from_int(7),
     op="Delete",
-    params={},
+    params=Map([]),
   )
   let json = intent.to_json()
   let decoded : @protocol.UserIntent = @json.from_json(json)

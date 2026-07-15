@@ -7,7 +7,7 @@
 #
 # Usage:
 #   source vendored-check-common.sh
-#   VENDORED_DIRS="rabbita/rabbita ..."
+#   VENDORED_DIRS="rabbita ..."
 #   run_moon_check_with_vendored_filter [moon-check-args...]
 #
 # The function runs moon check, then filters errors from vendored paths.
@@ -20,7 +20,10 @@
 #
 # When adding a new vendored submodule to moon.work, add its repo-root
 # directory here if it has pre-existing --deny-warn errors.
-VENDORED_DIRS="${VENDORED_DIRS:-rabbita/rabbita}"
+#
+# Entries are repository-root names rather than package paths so nested
+# workspace members (for example loom/*) share one suppression boundary.
+VENDORED_DIRS="${VENDORED_DIRS:-alga event-graph-walker graphviz loom order-tree rabbita svg-dsl}"
 
 run_moon_check_with_vendored_filter() {
     # Parse --keep=<dir> to exclude a directory from vendored suppression.
@@ -44,30 +47,44 @@ run_moon_check_with_vendored_filter() {
         return 0
     fi
 
-    # Build a grep -v pipeline that excludes each vendored directory.
-    local grep_exclude=""
-    local sep=""
-    for dir in $VENDORED_DIRS; do
-        # Skip the keep_dir so its errors are NOT suppressed.
-        if [ -n "$keep_dir" ] && [ "$dir" = "$keep_dir" ]; then
-            continue
-        fi
-        grep_exclude="${grep_exclude}${sep}-e /$dir/"
-        sep=" "
-    done
-
+    local repo_root
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
     local non_vendored=0
     local total_paths=0
     while IFS= read -r line; do
-        local path
+        local path=""
+        # Try .mbt source path first.
         path=$(echo "$line" | sed -n 's|.*\[ \(/[^:]*\):.*|\1|p')
-        if [ -n "$path" ]; then
-            total_paths=$(( total_paths + 1 ))
-            if echo "$path" | grep -q $grep_exclude; then
-                : # vendored — suppress
-            else
-                non_vendored=$(( non_vendored + 1 ))
-            fi
+        if [ -z "$path" ]; then
+            # Try moon.pkg path: "at path '/some/dir'".
+            path=$(echo "$line" | sed -n "s|.*at path '\([^']*\)'.*|\1|p")
+        fi
+        if [ -z "$path" ]; then
+            continue
+        fi
+
+        total_paths=$(( total_paths + 1 ))
+        local relative_path=""
+        if [[ "$path" == "$repo_root/"* ]]; then
+            relative_path="${path#"$repo_root"/}"
+        fi
+        local repo_dir="${relative_path%%/*}"
+        local is_vendored=0
+        if [ -n "$keep_dir" ] &&
+           { [ "$relative_path" = "$keep_dir" ] ||
+             [[ "$relative_path" == "$keep_dir/"* ]]; }; then
+            # The module under test remains unsuppressed.
+            is_vendored=0
+        else
+            for dir in $VENDORED_DIRS; do
+                if [ -n "$repo_dir" ] && [ "$repo_dir" = "$dir" ]; then
+                    is_vendored=1
+                    break
+                fi
+            done
+        fi
+        if [ "$is_vendored" -eq 0 ]; then
+            non_vendored=$(( non_vendored + 1 ))
         fi
     done <<EOF
 $output

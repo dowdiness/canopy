@@ -94,7 +94,7 @@ fn build_eval_annotations(
   eval_results : Array[@lambda_eval.EvalResult],
   proj_node : @core.ProjNode[@ast.Term]?,
 ) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]] {
-  let annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = {}
+  let annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = Map([])
   if eval_results.is_empty() {
     return annotations
   }

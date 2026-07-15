@@ -1,0 +1,23 @@
+// Canopy's JavaScript interop core.
+//
+// One opaque `Any` handle plus the zero-cost conversions and the
+// property/method/global escape hatches every JS binding needs — so bindings
+// describe *what* JS to call, not boilerplate `extern "js"` per operation.
+//
+// JS declarations are target-gated; this package is intentionally empty on non-JS backends.
+import {
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/ref",
+}
+
+warnings = "-unused_package"
+
+options(
+  targets: {
+    "any.mbt": [ "js" ],
+    "error.mbt": [ "js" ],
+    "error_wbtest.mbt": [ "js" ],
+    "ffi.mbt": [ "js" ],
+    "promise.mbt": [ "js" ],
+  },
+)

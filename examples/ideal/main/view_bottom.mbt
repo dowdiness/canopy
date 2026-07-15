@@ -105,158 +105,6 @@ let bottom_tab_svg_config : @gv_svg.SvgConfig = {
 }
 
 ///|
-fn render_dot_to_svg(dot : String) -> String {
-  if dot == "" || dot == "digraph { }" {
-    return "<span class=\"no-problems\">No graph data</span>"
-  }
-  match @gv_parser.parse_dot(dot) {
-    Ok(graph) => {
-      let layout = @gv_layout.compute_layout_with_config(
-        graph,
-        @gv_layout.LayoutConfig::compact(),
-      )
-      @gv_svg.render_svg_with_config(layout, bottom_tab_svg_config)
-    }
-    Err(e) =>
-      "<span class=\"problem-text\">Parse error at \{e.position}: \{e.message}</span>"
-  }
-}
-
-///|
-/// Render the Graphviz tab's HTML (cached). Consumed by
-/// `view_bottom_content` via `Attrs::inner_html` so the raw SVG lives
-/// inside rabbita's vdom rather than being painted in via a side-effect.
-/// Mounting through vdom is what keeps tab-switching consistent: when
-/// the user moves to another tab, rabbita's diff sees the panel element
-/// transition from `<section>` (SVG panels) to `<div>` (everything
-/// else), removes the old subtree wholesale, and rebuilds — so stale
-/// SVG can't leak past the diff and block sibling click handlers.
-fn render_graphviz_html(model : Model) -> String {
-  let snap = model.editor.causal_snapshot()
-  let key = render_cache_key(model.editor.identity(), snap)
-  if cache_hit(graphviz_cache, key) {
-    graphviz_cache.html
-  } else {
-    let dot = @lambda.get_lambda_dot_resolved(model.editor)
-    let svg = render_dot_to_svg(dot)
-    let wrapped = "<div role=\"img\" aria-label=\"Resolved lambda expression graph\">" +
-      svg +
-      "</div>"
-    cache_store(graphviz_cache, key, wrapped)
-    wrapped
-  }
-}
-
-///|
-/// Static color key for the IncrGraph tab. Unlike the History legend
-/// (whose chips are per-agent and data-driven), the incr status palette is
-/// fixed: the four `VisualNodeStatus` values map to fixed colors. Each
-/// swatch sources its colors from `@visualizer.VisualNodeStatus::fill` /
-/// `::stroke` — the same accessors the SVG renderer uses — so the key can't
-/// drift from the rendered nodes.
-///
-/// Labels follow the status semantics in the visualizer event adapter
-/// (`incr_tap.mbt` `record_status`): `Active` = a cell currently
-/// recomputing, `Changed` = recompute produced a new value, `Failed` = the
-/// recompute aborted, `Neutral` = resting (no recent event, or a recompute
-/// that re-derived the prior value).
-///
-/// Emitted as a sibling of the `role="img"` SVG div (not inside it) so the
-/// decoder stays list-readable for assistive tech, mirroring `legend_html`.
-fn incr_legend_html() -> String {
-  let entries : Array[(@visualizer.VisualNodeStatus, String)] = [
-    (Neutral, "Idle"),
-    (Active, "Recomputing"),
-    (Changed, "Changed"),
-    (Failed, "Failed"),
-  ]
-  let buf = StringBuilder::new()
-  buf.write_string(
-    "<div class=\"incr-legend\" role=\"list\" aria-label=\"Incr graph status color legend\">",
-  )
-  for entry in entries {
-    let (status, label) = entry
-    // Swatch is decorative (aria-hidden) — it duplicates the SVG fill; the
-    // text label carries the meaning for assistive tech.
-    buf.write_string(
-      "<span class=\"incr-legend-item\" role=\"listitem\"><span class=\"incr-legend-swatch\" aria-hidden=\"true\" style=\"background:",
-    )
-    buf.write_string(status.fill())
-    buf.write_string(";border-color:")
-    buf.write_string(status.stroke())
-    buf.write_string("\"></span>")
-    buf.write_string(label)
-    buf.write_string("</span>")
-  }
-  buf.write_string("</div>")
-  buf.to_string()
-}
-
-///|
-/// Render the IncrGraph tab's HTML (cached). Keyed on the same triple as
-/// the Graphviz tab: the incr dependency graph only changes when text
-/// edits advance `op_count`, so cache hits skip the snapshot copy + DOT
-/// pipeline. On cache miss we also `drain_events()` on the tap — the
-/// snapshot we just took already captured a copy of the events for
-/// status coloring, so draining bounds `tap.events` growth to one
-/// inter-text-edit gap.
-fn render_incr_graph_html(model : Model) -> String {
-  let snap = model.editor.causal_snapshot()
-  let key = render_cache_key(model.editor.identity(), snap)
-  if cache_hit(incr_graph_cache, key) {
-    incr_graph_cache.html
-  } else {
-    let snapshot = model.incr_tap.snapshot()
-    let _ = model.incr_tap.drain_events()
-    let html = if snapshot.nodes.is_empty() {
-      "<span class=\"no-problems\">No incr cells observed yet</span>"
-    } else {
-      let svg = snapshot
-        .to_visual_graph()
-        .to_svg_with_config(bottom_tab_svg_config)
-      incr_legend_html() +
-      "<div class=\"incr-graph\" role=\"img\" aria-label=\"Incr runtime dependency graph\">" +
-      svg +
-      "</div>"
-    }
-    cache_store(incr_graph_cache, key, html)
-    html
-  }
-}
-
-///|
-/// Render the causal-graph History tab's HTML (legend + SVG, cached).
-/// See `render_graphviz_html` for the vdom-mount rationale.
-fn render_history_html(model : Model) -> String {
-  let snap = model.editor.causal_snapshot()
-  let me = model.editor.get_peer_id()
-  let key = render_cache_key(model.editor.identity(), snap)
-  if cache_hit(history_cache, key) {
-    history_cache.html
-  } else {
-    let h = match render_history(snap, me) {
-      Empty =>
-        "<span class=\"history-empty\">No history yet. Edits will appear here as you type.</span>"
-      TooLarge(n) =>
-        "<span class=\"history-empty\">Too many edits to render (\{n}). This view shows histories up to \{MAX_OPS} ops.</span>"
-      Dot(dot) => {
-        // Screen-reader label for the SVG. Legend stays outside the
-        // role="img" subtree so its agent decoder remains list-readable.
-        let svg_label = "Causal history graph: \{snap.op_count()} edits"
-        legend_html(snap, me) +
-        "<div class=\"history-graph\" role=\"img\" aria-label=\"" +
-        escape_html_string(svg_label) +
-        "\">" +
-        render_dot_to_svg(dot) +
-        "</div>"
-      }
-    }
-    cache_store(history_cache, key, h)
-    h
-  }
-}
-
-///|
 /// Canonical bottom-tab order: the single source of truth for tab ordering,
 /// labels, the tab ↔ index mapping, and the tab count. The headless `@tabs`
 /// behavior is parameterized by index, so this list — not the behavior — owns
@@ -384,9 +232,9 @@ fn bottom_panel_attrs(tab : BottomTab) -> @html.Attrs {
 /// raw SVG sitting under the new tab's children, because rabbita's
 /// `remove_property("innerHTML")` is a `delete element.innerHTML` which
 /// is a no-op for prototype accessors.
-/// The `inner_html` call is XSS-vulnerable in general; the input here
-/// is built from our own SVG renderer + `escape_html_string` for the
-/// aria-label, never user-supplied text.
+/// The `inner_html` call is XSS-vulnerable in general. Here, the SVG text
+/// labels are XML-escaped by `@gv_svg`, and the aria-label is escaped with
+/// `escape_html_string` before interpolation.
 #warnings("-alert_xss_vulnerable")
 fn view_history_panel(model : Model) -> Html {
   // When the bottom panel is collapsed, the entire <section> is CSS-hidden
@@ -441,214 +289,6 @@ fn view_incr_graph_panel(model : Model) -> Html {
 }
 
 ///|
-fn view_op_log(model : Model) -> Html {
-  // When the bottom panel is collapsed, the whole <section> is CSS-hidden but
-  // `view()` still re-runs on every model change. Skip the log iteration and
-  // emit an empty container; vdom diff repopulates it when the panel reopens.
-  if !model.workspace.bottom_visible {
-    return @html.div(
-      class="bottom-content",
-      attrs=bottom_panel_attrs(OpLog),
-      ([] : Array[Html]),
-    )
-  }
-  let log = model.intent_log
-  if log.is_empty() {
-    @html.div(class="bottom-content", attrs=bottom_panel_attrs(OpLog), [
-      @html.span(class="no-problems", [
-        @html.text(
-          "No structural edits yet — try the action overlay or drag.",
-        ),
-      ]),
-    ])
-  } else {
-    // Most recent first; index labels reflect ordinal across the visible window.
-    let n = log.length()
-    let items : Array[Html] = Array::new(capacity=n)
-    for i in 0..<n {
-      let label = log[n - 1 - i]
-      items.push(
-        @html.div(class="op-log-row", [
-          @html.span(class="op-log-index", [@html.text("\{n - i}.")]),
-          @html.span(class="op-log-intent", [@html.text(label)]),
-        ]),
-      )
-    }
-    @html.div(
-      class="bottom-content op-log",
-      attrs=bottom_panel_attrs(OpLog),
-      items,
-    )
-  }
-}
-
-///|
-/// Format a single StructuredChange as human-readable text for the Patch panel.
-/// Shows the kind tag and the actual source text at the affected position.
-fn format_structured_change(
-  c : @canopy_core.StructuredChange,
-  source_map : @canopy_core.SourceMap,
-  source_text : String,
-) -> String {
-  fn snippet(node_id : @canopy_core.NodeId) -> String {
-    match source_map.get_range(node_id) {
-      Some(r) => source_text[r.start:r.end].to_owned()
-      None => ""
-    }
-  }
-  fn truncate(s : String) -> String {
-    if s.length() > 60 {
-      s[0:60].to_owned() + "..."
-    } else {
-      s
-    }
-  }
-  fn format_kind_change(
-    prefix : String,
-    kind_tag : String,
-    node_id : @canopy_core.NodeId,
-  ) -> String {
-    let s = snippet(node_id)
-    if s.is_empty() {
-      prefix + " " + kind_tag
-    } else {
-      prefix + " " + kind_tag + " '" + truncate(s) + "'"
-    }
-  }
-  match c {
-    @canopy_core.Inserted(_, _, node_id, kind_tag) =>
-      format_kind_change("+", kind_tag, node_id)
-    @canopy_core.Deleted(_, _, node_id, kind_tag) =>
-      format_kind_change("-", kind_tag, node_id)
-    @canopy_core.Wrapped(inner_id, wrapper_node_id, wrapper_kind) => {
-      let s = snippet(wrapper_node_id)
-      let s = if s.is_empty() { snippet(inner_id) } else { s }
-      if s.is_empty() {
-        "⊞ " + wrapper_kind
-      } else {
-        "⊞ " + wrapper_kind + " '" + truncate(s) + "'"
-      }
-    }
-    @canopy_core.Unwrapped(wrapper_id, _, wrapper_kind) => {
-      let s = snippet(wrapper_id)
-      if s.is_empty() {
-        "⊟ " + wrapper_kind
-      } else {
-        "⊟ " + wrapper_kind + " '" + truncate(s) + "'"
-      }
-    }
-    @canopy_core.Renamed(node_id, kind_tag) =>
-      format_kind_change("→", kind_tag, node_id)
-    @canopy_core.Freshened(_, _, node_id, kind_tag) =>
-      format_kind_change("~", kind_tag, node_id)
-  }
-}
-
-///|
-/// Render the Patch panel — paired (op label, SpanEdits) rows.
-/// Mirrors `view_op_log` shape: most-recent first, capped to MAX_PATCH_LOG.
-/// Each entry surfaces the producing `GenericTreeOp` label as a header row
-/// so the user can cross-reference the matching Op Log entry, then each
-/// `SpanEdit` renders via its `Show` impl (`@<start> -<delete_len> +«…»`).
-/// Per-entry `changes` are rendered in a `<details>` block within each row.
-fn view_patch_log(model : Model) -> Html {
-  // See `view_op_log` for the rationale; Patch panel rows are heavier
-  // (header + N `SpanEdit` rows per entry), so guarding here matters more.
-  if !model.workspace.bottom_visible {
-    return @html.div(
-      class="bottom-content",
-      attrs=bottom_panel_attrs(Patch),
-      ([] : Array[Html]),
-    )
-  }
-  let log = model.patch_log
-  let source_map = model.editor.get_source_map()
-  let source_text = model.editor.get_text()
-  if log.is_empty() {
-    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
-      @html.span(class="no-problems", [
-        @html.text(
-          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
-        ),
-      ]),
-    ])
-  } else {
-    let n = log.length()
-    let items : Array[Html] = Array::new(capacity=n)
-    for i in 0..<n {
-      let entry = log[n - 1 - i]
-      let edit_rows : Array[Html] = entry.edits.map(fn(edit) {
-        @html.div(class="patch-log-edit", [
-          @html.span(class="patch-log-edit-text", [@html.text(edit.to_string())]),
-        ])
-      })
-      let change_rows : Array[Html] = entry.changes.map(fn(c) {
-        @html.div(class="patch-structural-change", [
-          @html.span(class="patch-change-text", [
-            @html.text(format_structured_change(c, source_map, source_text)),
-          ]),
-        ])
-      })
-      let structural_details : Array[Html] = if change_rows.is_empty() {
-        []
-      } else {
-        [
-          @html.node(
-            "details",
-            @html.Attrs::build().class("patch-structural-details"),
-            [
-              @html.node("summary", @html.Attrs::build(), [
-                @html.text("Structural changes"),
-              ]),
-              @html.div(class="patch-structural-body", change_rows),
-            ],
-          ),
-        ]
-      }
-      items.push(
-        @html.div(
-          class="patch-log-row",
-          [
-            @html.div(class="patch-log-header", [
-              @html.span(class="patch-log-index", [@html.text("\{n - i}.")]),
-              @html.span(class="patch-log-op", [@html.text(entry.op_label)]),
-            ]),
-            @html.div(class="patch-log-edits", edit_rows),
-          ] +
-          structural_details,
-        ),
-      )
-    }
-    @html.div(
-      class="bottom-content patch-log",
-      attrs=bottom_panel_attrs(Patch),
-      items,
-    )
-  }
-}
-
-///|
-fn view_problems(model : Model) -> Html {
-  let errors = model.editor.get_errors()
-  if errors.is_empty() {
-    @html.div(class="bottom-content", attrs=bottom_panel_attrs(Problems), [
-      @html.span(class="no-problems", [@html.text("No problems found")]),
-    ])
-  } else {
-    let items = errors.map(fn(err) {
-      @html.div(class="problem-item", [
-        @html.span(class="problem-text", [@html.text(err)]),
-      ])
-    })
-    @html.div(
-      class="bottom-content problems-list",
-      attrs=bottom_panel_attrs(Problems),
-      items,
-    )
-  }
-}
-
-///|
 fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
@@ -684,4 +324,34 @@ fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
     IncrGraph => view_incr_graph_panel(model)
   }
   @html.fragment([view_bottom_tabs(dispatch, model), content])
+}
+
+///|
+fn render_history_html(model : Model) -> String {
+  let snap = model.editor.causal_snapshot()
+  let me = model.editor.get_peer_id()
+  let key = render_cache_key(model.editor.identity(), snap)
+  if cache_hit(history_cache, key) {
+    history_cache.html
+  } else {
+    let h = match @history_render.render_history(snap, me) {
+      @history_render.Empty =>
+        "<span class=\"history-empty\">No history yet. Edits will appear here as you type.</span>"
+      @history_render.TooLarge(n) =>
+        "<span class=\"history-empty\">Too many edits to render (\{n}). This view shows histories up to \{@history_render.MAX_OPS} ops.</span>"
+      @history_render.Dot(dot) => {
+        // Screen-reader label for the SVG. Legend stays outside the
+        // role="img" subtree so its agent decoder remains list-readable.
+        let svg_label = "Causal history graph: \{snap.op_count()} edits"
+        @history_render.legend_html(snap, me) +
+        "<div class=\"history-graph\" role=\"img\" aria-label=\"" +
+        @history_render.escape_html_string(svg_label) +
+        "\">" +
+        render_dot_to_svg(dot) +
+        "</div>"
+      }
+    }
+    cache_store(history_cache, key, h)
+    h
+  }
 }

@@ -46,15 +46,15 @@ pub fn block_type_name(t : BlockType) -> String {
 /// Allocates a Map — use `block_type_name` when only the name is needed.
 pub fn block_type_to_string(t : BlockType) -> (String, Map[String, String]) {
   match t {
-    Paragraph => ("paragraph", {})
+    Paragraph => ("paragraph", Map([]))
     Heading(n) => ("heading", { "level": n.to_string() })
     ListItem(Bullet) => ("list_item", { "list_style": "bullet" })
     ListItem(Numbered) => ("list_item", { "list_style": "numbered" })
     ListItem(Todo) => ("list_item", { "list_style": "todo" })
-    Quote => ("quote", {})
+    Quote => ("quote", Map([]))
     Code(lang) => ("code", { "language": lang })
-    Divider => ("divider", {})
-    Raw => ("raw", {})
+    Divider => ("divider", Map([]))
+    Raw => ("raw", Map([]))
   }
 }
 

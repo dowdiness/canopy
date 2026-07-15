@@ -1,7 +1,7 @@
 ///|
 pub fn alpha_eq(left : AlphaTerm, right : AlphaTerm) -> Bool {
-  let left_to_right : Map[BinderId, BinderId] = {}
-  let right_to_left : Map[BinderId, BinderId] = {}
+  let left_to_right : Map[BinderId, BinderId] = Map([])
+  let right_to_left : Map[BinderId, BinderId] = Map([])
   alpha_eq_term(left, right, left_to_right, right_to_left)
 }
 

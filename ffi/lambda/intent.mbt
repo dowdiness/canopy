@@ -116,7 +116,7 @@ pub fn handle_structural_intent(
   timestamp_ms : Int,
   params_json : String,
 ) -> String {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["type"] = op.to_json()
   let node_id_int = @string.parse_int(node_id_str) catch {
     _ => return "error: invalid node_id"

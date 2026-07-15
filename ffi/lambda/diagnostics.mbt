@@ -85,13 +85,13 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       }
       let diags : Array[Json] = []
       for msg in parse_errors {
-        let m : Map[String, Json] = {}
+        let m : Map[String, Json] = Map([])
         m["level"] = "error".to_json()
         m["message"] = msg.to_json()
         diags.push(Json::object(m))
       }
       for diag in typecheck_diags {
-        let m : Map[String, Json] = {}
+        let m : Map[String, Json] = Map([])
         m["level"] = "error".to_json()
         m["message"] = diag.message.to_json()
         match diag.def_name {
@@ -103,7 +103,7 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       for result in eval_results {
         match result {
           @lang_lambda.EvalResult::Stuck(s) => {
-            let m : Map[String, Json] = {}
+            let m : Map[String, Json] = Map([])
             m["level"] = "warning".to_json()
             m["message"] = s.to_json()
             diags.push(Json::object(m))

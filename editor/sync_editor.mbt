@@ -130,7 +130,7 @@ pub fn[T] SyncEditor::set_local_presence(
   selection? : (Int, Int)? = None,
 ) -> Unit {
   // Write cursor data to cursor store (with name/color for cursor_view compat)
-  let map : Map[String, EphemeralValue] = {}
+  let map : Map[String, EphemeralValue] = Map([])
   map["peer_id"] = EphemeralValue::String(self.peer_id)
   // Use selection start as cursor position when provided (CM6 passes
   // the actual caret position via sel_start, not self.cursor).

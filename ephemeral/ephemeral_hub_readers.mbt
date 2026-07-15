@@ -50,7 +50,7 @@ pub fn EphemeralHub::get_edit_mode(
 pub fn EphemeralHub::get_all_editing(
   self : EphemeralHub,
 ) -> Map[String, EditModeState] {
-  let result : Map[String, EditModeState] = {}
+  let result : Map[String, EditModeState] = Map([])
   for key, value in self.stores[EditMode].get_all_states() {
     if EditModeState::from_ephemeral(value) is Some(state) {
       result[key] = state

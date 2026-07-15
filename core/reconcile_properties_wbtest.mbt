@@ -129,7 +129,7 @@ fn[T] remove_at(arr : Array[T], idx : Int) -> Array[T] {
 ///|
 /// Check that all elements in an array are unique.
 fn all_unique(arr : Array[Int]) -> Bool {
-  let seen : Map[Int, Bool] = {}
+  let seen : Map[Int, Bool] = Map([])
   for id in arr {
     if seen.contains(id) {
       return false
@@ -293,7 +293,7 @@ fn prop_retained_siblings_keep_ids_after_insert(expr : TestExpr) -> Bool {
   let result = reconcile(old_node, new_node, reconcile_counter)
   // The old IDs for retained children should appear in the result.
   // Build a set of old child IDs
-  let old_child_ids : Map[Int, Bool] = {}
+  let old_child_ids : Map[Int, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -411,7 +411,7 @@ test "reconcile: exact preference does not reduce match cardinality" {
     Ref(1000),
     exact_test_key,
   )
-  let old_ids : Map[Int, Bool] = {}
+  let old_ids : Map[Int, Bool] = Map([])
   for child in old_node.children {
     old_ids[child.node_id] = true
   }
@@ -525,7 +525,7 @@ fn prop_reused_id_count_after_delete(expr : TestExpr) -> Bool {
     return false
   }
   // Collect all old child root IDs
-  let old_child_ids : Map[Int, Bool] = {}
+  let old_child_ids : Map[Int, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -705,7 +705,7 @@ fn prop_different_root_kind_all_fresh(expr : TestExpr) -> Bool {
   }
   // No old IDs should appear
   let old_ids = collect_ids(old_node)
-  let old_set : Map[Int, Bool] = {}
+  let old_set : Map[Int, Bool] = Map([])
   for id in old_ids {
     old_set[id] = true
   }
@@ -734,7 +734,7 @@ fn prop_fresh_ids_from_counter_range(pair : TestExprPair) -> Bool {
   let counter = Ref(counter_start)
   let result = reconcile(old_node, new_node, counter)
   // Build set of old IDs
-  let old_id_set : Map[Int, Bool] = {}
+  let old_id_set : Map[Int, Bool] = Map([])
   for id in collect_ids(old_node) {
     old_id_set[id] = true
   }
@@ -783,7 +783,7 @@ fn prop_swap_siblings_preserves_most_ids(expr : TestExpr) -> Bool {
   let new_node = to_proj_node(new_expr, new_counter)
   let result = reconcile(old_node, new_node, Ref(1000))
   // Collect old child root IDs
-  let old_child_ids : Map[Int, Bool] = {}
+  let old_child_ids : Map[Int, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -886,11 +886,11 @@ fn prop_no_new_tree_id_leakage(pair : TestExprPair) -> Bool {
   let counter_start = 1000
   let result = reconcile(old_node, new_node, Ref(counter_start))
   // Build sets of old and new IDs
-  let old_id_set : Map[Int, Bool] = {}
+  let old_id_set : Map[Int, Bool] = Map([])
   for id in collect_ids(old_node) {
     old_id_set[id] = true
   }
-  let new_id_set : Map[Int, Bool] = {}
+  let new_id_set : Map[Int, Bool] = Map([])
   for id in collect_ids(new_node) {
     new_id_set[id] = true
   }

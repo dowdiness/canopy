@@ -167,7 +167,7 @@ fn read_ephemeral_value(reader : Reader) -> EphemeralValue raise EphemeralError 
     EphemeralValue::List(items)
   } else if tag == tag_map {
     let count = safe_uvarint_to_int(read_uvarint(reader))
-    let map : Map[String, EphemeralValue] = {}
+    let map : Map[String, EphemeralValue] = Map([])
     for _ in 0..<count {
       let key = read_string(reader)
       let item = read_ephemeral_value(reader)

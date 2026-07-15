@@ -27,7 +27,7 @@ fn build_gemini_body(
   system_prompt~ : String,
   user_text~ : String,
 ) -> String {
-  let body : Map[String, Json] = {}
+  let body : Map[String, Json] = Map([])
   body["contents"] = [
     Json::object({
       "role": "user".to_json(),

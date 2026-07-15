@@ -12,7 +12,7 @@ test "color_index is stable across calls" {
 
 ///|
 test "compute_highlight_set for variable returns binder + usages" {
-  let scope_map : Map[@core.NodeId, ScopeAnnotation] = {}
+  let scope_map : Map[@core.NodeId, ScopeAnnotation] = Map([])
   let var_id = @core.NodeId::from_int(10)
   let binder_id = @core.NodeId::from_int(1)
   let usage1 = @core.NodeId::from_int(10)
@@ -37,7 +37,7 @@ test "compute_highlight_set for variable returns binder + usages" {
 
 ///|
 test "compute_highlight_set for non-identifier returns empty set" {
-  let scope_map : Map[@core.NodeId, ScopeAnnotation] = {}
+  let scope_map : Map[@core.NodeId, ScopeAnnotation] = Map([])
   let unknown_id = @core.NodeId::from_int(99)
   let hs = compute_highlight_set(unknown_id, scope_map)
   inspect(hs.length(), content="0")

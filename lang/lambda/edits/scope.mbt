@@ -42,7 +42,7 @@ fn sibling_module_def_decl(
 
 ///|
 fn[T] subtree_node_ids(node : ProjNode[T]) -> @immut/hashset.HashSet[NodeId] {
-  let m : Map[NodeId, ProjNode[T]] = {}
+  let m : Map[NodeId, ProjNode[T]] = Map([])
   @core.collect_registry(node, m)
   @immut/hashset.HashSet::from_iter(m.keys())
 }

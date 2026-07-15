@@ -62,7 +62,7 @@ fn user_intent_string_field(
 
 ///|
 pub impl ToJson for UserIntent with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   match self {
     TextEdit(from~, to~, insert~) => {
       m["type"] = "TextEdit".to_json()
@@ -74,7 +74,7 @@ pub impl ToJson for UserIntent with fn to_json(self) {
       m["type"] = "StructuralEdit".to_json()
       m["node_id"] = node_id.to_json()
       m["op"] = op.to_json()
-      let pm : Map[String, Json] = {}
+      let pm : Map[String, Json] = Map([])
       for k, v in params {
         pm[k] = v.to_json()
       }
@@ -128,7 +128,7 @@ pub impl @json.FromJson for UserIntent with fn from_json(json, path) {
         user_intent_number_field(m, path, "node_id", "StructuralEdit"),
       )
       let op = user_intent_string_field(m, path, "op", "StructuralEdit")
-      let params : Map[String, String] = {}
+      let params : Map[String, String] = Map([])
       match m.get("params") {
         Some(Json::Object(pm)) =>
           for k, v in pm {

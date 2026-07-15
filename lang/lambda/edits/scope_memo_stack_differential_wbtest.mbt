@@ -101,7 +101,7 @@ fn fresh_generic_graph_of(
   let proj = @lambda_proj.to_proj_node(syntax, counter)
   let sm = @core.SourceMap::from_ast(proj)
   @lambda_proj.populate_token_spans(sm, syntax, proj)
-  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = {}
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   let graph = @scope.build(registry, sm)
   (proj, registry, graph, sm)

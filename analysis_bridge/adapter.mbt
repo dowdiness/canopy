@@ -32,7 +32,7 @@ pub fn from_ast_grep_matches(
       from=@facts.byte_offset_to_utf16(source, m.byte_start),
       to=@facts.byte_offset_to_utf16(source, m.byte_end),
       pattern_id=m.pattern_id,
-      captures={}, // Phase 2 will populate from ast-grep's metaVariables
+      captures=Map([]), // Phase 2 will populate from ast-grep's metaVariables
     )
   })
 }

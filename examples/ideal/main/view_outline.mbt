@@ -293,7 +293,7 @@ fn get_selected_node_id(model : Model) -> @canopy_core.NodeId? {
 fn build_outline_eval_annotations(
   model : Model,
 ) -> Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] {
-  let annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] = {}
+  let annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] = Map([])
   let eval_results = model.companion.get_eval_results()
   if eval_results.is_empty() {
     return annotations

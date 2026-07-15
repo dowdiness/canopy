@@ -119,61 +119,30 @@ pub fn scrim_attrs(on_close : @rabbita.Cmd) -> @html.Attrs {
 
 ///|
 #cfg(target="js")
-fn Model::focused_item_id(self : Model) -> String? {
-  match self.focused {
-    Some(index) => Some(self.item_id(index))
-    None => None
+fn focus_active_item_by_id(menu_id : String) -> Unit {
+  @dom_boundary.focus_selector_id(menu_id, "[data-active=\"true\"]") catch {
+    _ => ()
   }
 }
 
 ///|
 #cfg(target="js")
-extern "js" fn focus_element_by_id(id : String) -> Unit =
-  #| (id) => {
-  #|   const el = document.getElementById(id);
-  #|   if (el && typeof el.focus === "function") {
-  #|     el.focus();
-  #|   }
-  #| }
+fn focus_active_item_by_id_within(root_id : String, menu_id : String) -> Unit {
+  @dom_boundary.focus_selector_id_within(
+    root_id, menu_id, "[data-active=\"true\"]",
+  ) catch {
+    _ => ()
+  }
+}
 
 ///|
 #cfg(target="js")
-extern "js" fn focus_element_by_id_within(
-  root_id : String,
-  id : String,
-) -> Unit =
-  #| (rootId, id) => {
-  #|   if (typeof document === "undefined") return;
-  #|   const root = document.getElementById(rootId);
-  #|   const scope = root && root.shadowRoot ? root.shadowRoot : root;
-  #|   const findById = (node, targetId) => {
-  #|     if (!node) return null;
-  #|     if (typeof node.getElementById === "function") {
-  #|       const found = node.getElementById(targetId);
-  #|       if (found) return found;
-  #|     }
-  #|     if (node.id === targetId) return node;
-  #|     const children = node.children || [];
-  #|     for (let i = 0; i < children.length; i += 1) {
-  #|       const found = findById(children[i], targetId);
-  #|       if (found) return found;
-  #|     }
-  #|     return null;
-  #|   };
-  #|   const el = findById(scope, id);
-  #|   if (el && typeof el.focus === "function") {
-  #|     el.focus();
-  #|   }
-  #| }
-
-///|
-#cfg(target="js")
-fn Model::focus_item_cmd(
+fn Model::focus_menu_cmd(
   self : Model,
   focus : (String) -> Unit,
 ) -> @rabbita.Cmd {
-  match self.focused_item_id() {
-    Some(id) => @cmd.custom_cmd(_ => focus(id), kind=@cmd.after_render)
+  match self.focused {
+    Some(_) => @cmd.custom_cmd(_ => focus(self.id), kind=@cmd.after_render)
     None => @rabbita.none
   }
 }
@@ -181,7 +150,7 @@ fn Model::focus_item_cmd(
 ///|
 #cfg(target="js")
 pub fn Model::focus_cmd(self : Model) -> @rabbita.Cmd {
-  self.focus_item_cmd(focus_element_by_id)
+  self.focus_menu_cmd(focus_active_item_by_id)
 }
 
 ///|
@@ -194,7 +163,9 @@ pub fn Model::focus_cmd(self : Model) -> @rabbita.Cmd {
 ///|
 #cfg(target="js")
 pub fn Model::focus_cmd_within(self : Model, root_id~ : String) -> @rabbita.Cmd {
-  self.focus_item_cmd(id => focus_element_by_id_within(root_id, id))
+  self.focus_menu_cmd(menu_id => {
+    focus_active_item_by_id_within(root_id, menu_id)
+  })
 }
 
 ///|

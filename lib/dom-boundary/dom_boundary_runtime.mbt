@@ -23,6 +23,128 @@ const LOOKUP_ID : String = "id"
 const LOOKUP_SELECTOR : String = "selector"
 
 ///|
+/// Resolve an element ID using the host's native lookup when available.
+/// Shadow-root-like scopes lack `getElementById`, so child traversal is the
+/// fallback for those scopes.
+fn js_find_by_id(scope : @js.Any, id : String) -> @js.Any? {
+  guard !scope.is_nullish() else { return None }
+  if scope.get("id").to_str() == id {
+    Some(scope)
+  } else {
+    let getter = scope.get("getElementById")
+    if getter.is_function() {
+      let found = scope.call("getElementById", [@js.any(id)])
+      if found.is_nullish() {
+        js_find_in_children(scope, id)
+      } else {
+        Some(found)
+      }
+    } else {
+      js_find_in_children(scope, id)
+    }
+  }
+}
+
+///|
+fn js_find_in_children(scope : @js.Any, id : String) -> @js.Any? {
+  let children = scope.get("children")
+  guard !children.is_nullish() else { return None }
+  let length : Int = children.get("length").cast()
+  for i in 0..<length; found = None {
+    match found {
+      Some(_) => continue found
+      None => continue js_find_by_id(children.at(i), id)
+    }
+  } nobreak {
+    found
+  }
+}
+
+///|
+fn focus_selector_in_scope(
+  scope : @js.Any,
+  ancestor_id : String,
+  selector : String,
+) -> Unit raise DomBoundaryError {
+  guard js_find_by_id(scope, ancestor_id) is Some(ancestor) else {
+    decode_status_parts(STATUS_NOT_FOUND, "", Focus, Id(ancestor_id))
+  }
+  let query_selector = ancestor.get("querySelector")
+  guard query_selector.is_function() else {
+    decode_status_parts(STATUS_UNSUPPORTED_ACTION, "", Focus, Id(ancestor_id))
+  }
+  let item = @js.try_sync(() => {
+    ancestor.call("querySelector", [@js.any(selector)])
+  }) catch {
+    @js.JsError(raw) => {
+      let detail = @js.error_detail(raw)
+      decode_status_parts(
+        STATUS_INVALID_SELECTOR,
+        detail,
+        Focus,
+        Selector(selector),
+      )
+      @js.undefined()
+    }
+  }
+  guard !item.is_nullish() else {
+    decode_status_parts(STATUS_NOT_FOUND, "", Focus, Selector(selector))
+  }
+  let element : DomElement = item.cast()
+  guard js_has_method(element, "focus") else {
+    decode_status_parts(
+      STATUS_UNSUPPORTED_ACTION,
+      "",
+      Focus,
+      Selector(selector),
+    )
+  }
+  let _ = run_dom_operation(Focus, Selector(selector), () => {
+    js_focus(element)
+    @js.undefined()
+  })
+}
+
+///|
+pub fn focus_selector_id(
+  ancestor_id : String,
+  selector : String,
+) -> Unit raise DomBoundaryError {
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  let document = @js.global().get("document")
+  focus_selector_in_scope(document, ancestor_id, selector)
+}
+
+///|
+pub fn focus_selector_id_within(
+  root_id : String,
+  ancestor_id : String,
+  selector : String,
+) -> Unit raise DomBoundaryError {
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  let document = @js.global().get("document")
+  guard js_find_by_id(document, root_id) is Some(root) else {
+    decode_status_parts(STATUS_NOT_FOUND, "", Focus, Id(root_id))
+  }
+  let shadow_root = root.get("shadowRoot")
+  let scope = if shadow_root.is_nullish() { root } else { shadow_root }
+  focus_selector_in_scope(scope, ancestor_id, selector)
+}
+
+///|
+fn run_dom_operation(
+  action : DomAction,
+  target : DomTarget,
+  effect : () -> @js.Any,
+) -> @js.Any raise DomBoundaryError {
+  let result = @js.try_sync(effect) catch {
+    @js.JsError(raw) =>
+      raise ActionFailed(action~, target~, detail=@js.error_detail(raw))
+  }
+  result
+}
+
+///|
 fn focus_target(
   lookup_kind : String,
   raw_target : String,
@@ -32,7 +154,10 @@ fn focus_target(
   guard js_has_method(element, "focus") else {
     raise UnsupportedAction(action=Focus, target~)
   }
-  raise_action_detail(js_focus(element), Focus, target)
+  let _ = run_dom_operation(Focus, target, () => {
+    js_focus(element)
+    @js.undefined()
+  })
 }
 
 ///|
@@ -45,7 +170,10 @@ fn click_target(
   guard js_has_method(element, "click") else {
     raise UnsupportedAction(action=Click, target~)
   }
-  raise_action_detail(js_click(element), Click, target)
+  let _ = run_dom_operation(Click, target, () => {
+    js_click(element)
+    @js.undefined()
+  })
 }
 
 ///|
@@ -60,15 +188,14 @@ fn scroll_target(
   guard js_has_method(element, "scrollIntoView") else {
     raise UnsupportedAction(action=ScrollIntoView, target~)
   }
-  raise_action_detail(
+  let _ = run_dom_operation(ScrollIntoView, target, () => {
     js_scroll_into_view(
       element,
       behavior.to_dom_string(),
       block.to_dom_string(),
-    ),
-    ScrollIntoView,
-    target,
-  )
+    )
+    @js.undefined()
+  })
 }
 
 ///|
@@ -90,11 +217,10 @@ fn dispatch_custom_event_target(
   guard js_has_method(element, "dispatchEvent") && js_custom_event_available() else {
     raise UnsupportedAction(action=DispatchCustomEvent, target~)
   }
-  raise_action_detail(
-    js_dispatch_custom_event(element, event_type, detail, bubbles~, composed~),
-    DispatchCustomEvent,
-    target,
-  )
+  let _ = run_dom_operation(DispatchCustomEvent, target, () => {
+    js_dispatch_custom_event(element, event_type, detail, bubbles~, composed~)
+    @js.undefined()
+  })
 }
 
 ///|
@@ -115,33 +241,26 @@ fn listen_custom_event_target(
     js_has_method(element, "removeEventListener") else {
     raise UnsupportedAction(action=ListenCustomEvent, target~)
   }
-  decode_subscription_status(
-    js_listen_custom_event(
-      STATUS_OK,
-      STATUS_ACTION_FAILED,
-      element,
-      event_type,
-      on_event,
-    ),
-    ListenCustomEvent,
-    target,
-  )
+  let handle = run_dom_operation(ListenCustomEvent, target, () => {
+    @js.any(js_listen_custom_event(element, event_type, on_event))
+  })
+  { handle: handle.cast() }
 }
 
 ///|
 fn dispose_subscription(
   handle : DomEventSubscriptionHandle,
 ) -> Unit raise DomBoundaryError {
-  decode_status(
-    js_dispose_custom_event_subscription(
-      STATUS_OK,
-      STATUS_UNSUPPORTED_ACTION,
-      STATUS_ACTION_FAILED,
-      handle,
-    ),
-    RemoveCustomEventListener,
-    EventSubscription,
-  )
+  guard js_subscription_can_dispose(handle) else {
+    raise UnsupportedAction(
+      action=RemoveCustomEventListener,
+      target=EventSubscription,
+    )
+  }
+  let _ = run_dom_operation(RemoveCustomEventListener, EventSubscription, () => {
+    js_dispose_custom_event_subscription(handle)
+    @js.undefined()
+  })
 }
 
 ///|
@@ -151,32 +270,38 @@ fn resolve_target(
   action : DomAction,
   target : DomTarget,
 ) -> DomElement raise DomBoundaryError {
-  if js_document_unavailable() {
-    raise DocumentUnavailable
-  }
-  let status = match lookup_kind {
-    LOOKUP_ID => js_get_element_by_id(STATUS_OK, STATUS_NOT_FOUND, raw_target)
-    LOOKUP_SELECTOR =>
-      js_query_selector(
-        STATUS_OK,
-        STATUS_NOT_FOUND,
-        STATUS_INVALID_SELECTOR,
-        raw_target,
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  let document = @js.global().get("document")
+  match lookup_kind {
+    LOOKUP_ID => {
+      let status = js_get_element_by_id(STATUS_OK, STATUS_NOT_FOUND, raw_target)
+      decode_status(status, action, target)
+      dom_status_element(status)
+    }
+    LOOKUP_SELECTOR => {
+      let element = @js.try_sync(() => js_query_selector(raw_target)) catch {
+        @js.JsError(raw) => {
+          decode_status_parts(
+            STATUS_INVALID_SELECTOR,
+            @js.error_detail(raw),
+            action,
+            target,
+          )
+          @js.undefined()
+        }
+      }
+      guard !element.is_nullish() else { raise ElementNotFound(target~) }
+      element.cast()
+    }
+    _ => {
+      decode_status_parts(
+        STATUS_ACTION_FAILED,
+        "unknown lookup kind: \{lookup_kind}",
+        action,
+        target,
       )
-    _ => js_status(STATUS_ACTION_FAILED, "unknown lookup kind: \{lookup_kind}")
-  }
-  decode_status(status, action, target)
-  dom_status_element(status)
-}
-
-///|
-fn raise_action_detail(
-  detail : String,
-  action : DomAction,
-  target : DomTarget,
-) -> Unit raise DomBoundaryError {
-  if detail != "" {
-    raise ActionFailed(action~, target~, detail~)
+      document.cast()
+    }
   }
 }
 
@@ -192,16 +317,6 @@ fn decode_status(
     action,
     target,
   )
-}
-
-///|
-fn decode_subscription_status(
-  status : DomStatus,
-  action : DomAction,
-  target : DomTarget,
-) -> CustomEventSubscription raise DomBoundaryError {
-  decode_status(status, action, target)
-  { handle: dom_status_handle(status) }
 }
 
 ///|
@@ -277,10 +392,6 @@ fn with_detail(message : String, detail : String) -> String {
 }
 
 ///|
-extern "js" fn js_status(status : Int, detail : String) -> DomStatus =
-  #| (status, detail) => ({ status, detail })
-
-///|
 extern "js" fn dom_status_code(status : DomStatus) -> Int =
   #| (status) => status.status
 
@@ -293,10 +404,6 @@ extern "js" fn dom_status_element(status : DomStatus) -> DomElement =
   #| (status) => status.element
 
 ///|
-extern "js" fn dom_status_handle(
-  status : DomStatus,
-) -> DomEventSubscriptionHandle =
-  #| (status) => status.handle
 
 ///|
 extern "js" fn js_document_unavailable() -> Bool =
@@ -316,23 +423,8 @@ extern "js" fn js_get_element_by_id(
   #| }
 
 ///|
-extern "js" fn js_query_selector(
-  status_ok : Int,
-  status_not_found : Int,
-  status_invalid_selector : Int,
-  selector : String,
-) -> DomStatus =
-  #| (statusOk, statusNotFound, statusInvalidSelector, selector) => {
-  #|   try {
-  #|     const element = document.querySelector(selector);
-  #|     return element
-  #|       ? { status: statusOk, detail: "", element }
-  #|       : { status: statusNotFound, detail: "" };
-  #|   } catch (error) {
-  #|     const detail = error && typeof error.message === "string" ? error.message : String(error);
-  #|     return { status: statusInvalidSelector, detail };
-  #|   }
-  #| }
+extern "js" fn js_query_selector(selector : String) -> @js.Any =
+  #| (selector) => document.querySelector(selector)
 
 ///|
 extern "js" fn js_has_method(
@@ -346,40 +438,21 @@ extern "js" fn js_custom_event_available() -> Bool =
   #| () => typeof CustomEvent !== "undefined"
 
 ///|
-extern "js" fn js_focus(element : DomElement) -> String =
-  #| (element) => {
-  #|   try {
-  #|     element.focus();
-  #|     return "";
-  #|   } catch (error) {
-  #|     return error && typeof error.message === "string" ? error.message : String(error);
-  #|   }
-  #| }
+extern "js" fn js_focus(element : DomElement) -> Unit =
+  #| (element) => { element.focus(); }
 
 ///|
-extern "js" fn js_click(element : DomElement) -> String =
-  #| (element) => {
-  #|   try {
-  #|     element.click();
-  #|     return "";
-  #|   } catch (error) {
-  #|     return error && typeof error.message === "string" ? error.message : String(error);
-  #|   }
-  #| }
+extern "js" fn js_click(element : DomElement) -> Unit =
+  #| (element) => { element.click(); }
 
 ///|
 extern "js" fn js_scroll_into_view(
   element : DomElement,
   behavior : String,
   block : String,
-) -> String =
+) -> Unit =
   #| (element, behavior, block) => {
-  #|   try {
-  #|     element.scrollIntoView({ behavior, block });
-  #|     return "";
-  #|   } catch (error) {
-  #|     return error && typeof error.message === "string" ? error.message : String(error);
-  #|   }
+  #|   element.scrollIntoView({ behavior, block });
   #| }
 
 ///|
@@ -389,67 +462,54 @@ extern "js" fn js_dispatch_custom_event(
   detail : String,
   bubbles~ : Bool,
   composed~ : Bool,
-) -> String =
+) -> Unit =
   #| (element, eventType, detail, bubbles, composed) => {
-  #|   try {
-  #|     element.dispatchEvent(new CustomEvent(eventType, { detail, bubbles, composed }));
-  #|     return "";
-  #|   } catch (error) {
-  #|     return error && typeof error.message === "string" ? error.message : String(error);
-  #|   }
-  #| }
+  #|   element.dispatchEvent(new CustomEvent(eventType, { detail, bubbles, composed }));
+  #|}
 
 ///|
+/// The listener callback normalizes event detail because it crosses JS later.
 extern "js" fn js_listen_custom_event(
-  status_ok : Int,
-  status_action_failed : Int,
   element : DomElement,
   event_type : String,
   on_event : (String) -> Unit,
-) -> DomStatus =
-  #| (statusOk, statusActionFailed, element, eventType, onEvent) => {
+) -> DomEventSubscriptionHandle =
+  #| (element, eventType, onEvent) => {
   #|   const detailToString = (event) => {
   #|     const detail = event && "detail" in event ? event.detail : "";
   #|     if (typeof detail === "string") return detail;
   #|     if (detail == null) return "";
   #|     try {
-  #|       return JSON.stringify(detail);
+  #|       const json = JSON.stringify(detail);
+  #|       if (typeof json === "string") return json;
+  #|       return "";
   #|     } catch (_) {
-  #|       return String(detail);
+  #|       try {
+  #|         return String(detail);
+  #|       } catch (_) {
+  #|         return "";
+  #|       }
   #|     }
   #|   };
-  #|   try {
-  #|     const listener = (event) => onEvent(detailToString(event));
-  #|     element.addEventListener(eventType, listener);
-  #|     return {
-  #|       status: statusOk,
-  #|       detail: "",
-  #|       handle: { element, eventType, listener, disposed: false },
-  #|     };
-  #|   } catch (error) {
-  #|     const detail = error && typeof error.message === "string" ? error.message : String(error);
-  #|     return { status: statusActionFailed, detail };
-  #|   }
+  #|   const listener = (event) => onEvent(detailToString(event));
+  #|   element.addEventListener(eventType, listener);
+  #|   return { element, eventType, listener, disposed: false };
   #| }
 
 ///|
-extern "js" fn js_dispose_custom_event_subscription(
-  status_ok : Int,
-  status_unsupported_action : Int,
-  status_action_failed : Int,
+extern "js" fn js_subscription_can_dispose(
   handle : DomEventSubscriptionHandle,
-) -> DomStatus =
-  #| (statusOk, statusUnsupportedAction, statusActionFailed, handle) => {
-  #|   if (!handle || handle.disposed) return { status: statusOk, detail: "" };
-  #|   if (!handle.element || typeof handle.element.removeEventListener !== "function") {
-  #|     return { status: statusUnsupportedAction, detail: "" };
-  #|   }
-  #|   try {
-  #|     handle.element.removeEventListener(handle.eventType, handle.listener);
-  #|     handle.disposed = true;
-  #|     return { status: statusOk, detail: "" };
-  #|   } catch (error) {
-  #|     const detail = error && typeof error.message === "string" ? error.message : String(error);
-  #|     return { status: statusActionFailed, detail };
-  #|   }
+) -> Bool =
+  #| (handle) => !!handle &&
+  #|   (handle.disposed === true ||
+  #|     !!handle.element && typeof handle.element.removeEventListener === "function")
+
+///|
+extern "js" fn js_dispose_custom_event_subscription(
+  handle : DomEventSubscriptionHandle,
+) -> Unit =
+  #| (handle) => {
+  #|   if (!handle || handle.disposed) return;
+  #|   handle.element.removeEventListener(handle.eventType, handle.listener);
+  #|   handle.disposed = true;
   #| }

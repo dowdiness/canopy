@@ -64,7 +64,6 @@ Important root-module package groups include:
 | `transport_ws/`, `sync_session/`, `ephemeral/` | `dowdiness/canopy/...` | Collaboration transport/session and ephemeral state. |
 | `workspace/{coordinator,probe}/` | `dowdiness/canopy/workspace/...` | Multi-editor workspace coordination and probes. |
 | `analysis_bridge/` | `dowdiness/canopy/analysis_bridge` | Bridge from analysis facts to Canopy decorations and match lists. |
-| `js_ffi/` | `dowdiness/canopy/js_ffi` | Root-module JavaScript/FFI substrate, despite living under `lib/`. |
 | `codex/`, `llm/`, `echo/`, `relay/`, `cmd/main/` | `dowdiness/canopy/...` | Tooling, experiments, relay, and executable packages. |
 
 A root package may live more than one directory deep. For example
@@ -86,6 +85,7 @@ name rather than from `dowdiness/canopy/lib/...`.
 | `lib/cognition/` | `dowdiness/cognition` | Incremental cognition graph runtime; already uses `moon.mod`. |
 | `lib/context-menu/` | `dowdiness/rabbita-context-menu` | Rabbita context-menu package under `context_menu/`. |
 | `lib/dom-boundary/` | `dowdiness/dom_boundary` | DOM boundary helpers. |
+| `lib/js-ffi/` | `dowdiness/js_ffi` | Shared JavaScript/FFI substrate for standalone bindings. |
 | `lib/menu/` | `dowdiness/rabbita-menu` | Rabbita menu package under `menu/`. |
 | `lib/rabbita_codemirror/` | `dowdiness/rabbita_codemirror` | CodeMirror binding packages. |
 | `lib/resizable/` | `dowdiness/rabbita-resizable` | Rabbita resizable package under `resizable/`. |
@@ -114,6 +114,7 @@ Converted to the newer `moon.mod` format:
 - `lib/context-menu/` (workspace-resolved dep on `rabbita/rabbita` and
   `dowdiness/rabbita-menu`)
 - `lib/dom-boundary/`
+- `lib/js-ffi/`
 - `lib/menu/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/rabbita_codemirror/` (workspace-resolved dep on `rabbita/rabbita`)
 - `lib/resizable/` (workspace-resolved dep on `rabbita/rabbita`)

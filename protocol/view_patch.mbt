@@ -99,7 +99,7 @@ pub(all) enum ViewPatch {
 
 ///|
 pub impl ToJson for Decoration with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["from"] = self.from.to_json()
   m["to"] = self.to.to_json()
   m["css_class"] = self.css_class.to_json()
@@ -113,7 +113,7 @@ pub impl ToJson for Decoration with fn to_json(self) {
 
 ///|
 pub impl ToJson for Diagnostic with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   m["from"] = self.from.to_json()
   m["to"] = self.to.to_json()
   m["severity"] = self.severity.to_json()
@@ -123,7 +123,7 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
 
 ///|
 pub impl ToJson for ViewPatch with fn to_json(self) {
-  let m : Map[String, Json] = {}
+  let m : Map[String, Json] = Map([])
   match self {
     TextChange(from~, to~, insert~) => {
       m["type"] = "TextChange".to_json()

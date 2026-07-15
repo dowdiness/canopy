@@ -2,7 +2,7 @@
 /// Typed failures that the action overlay can surface. Closed because there are
 /// exactly three known error sources; migrate to `extenum` if plugin packages
 /// ever need overlay-specific typed failures.
-enum OverlayError {
+pub(all) enum OverlayError {
   EmptyName
   BuildActionFailed(String)
   ApplyActionFailed(String)
@@ -10,7 +10,7 @@ enum OverlayError {
 
 ///|
 /// Single source of truth for all user-facing overlay error copy.
-fn format_overlay_error(err : OverlayError) -> String {
+pub fn format_overlay_error(err : OverlayError) -> String {
   match err {
     EmptyName => "Enter a name to continue"
     BuildActionFailed(msg) => "Build failed: \{msg}"

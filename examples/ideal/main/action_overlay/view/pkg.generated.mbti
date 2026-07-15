@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/ideal-editor/main/action_overlay/view"
+
+import {
+  "dowdiness/ideal-editor/main/action_overlay",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn view_overlay(@cmd.Emit[@action_overlay.OverlayMsg], @action_overlay.OverlayState) -> @html.Html
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
