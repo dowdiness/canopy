@@ -32,29 +32,28 @@
 - Existing lifecycle input replay loop, candidate lowering, capability lowering, and session DOM/dry-run internals remain imperative because this task was a behavior-preserving boundary extraction, not a renderer/lifecycle redesign.
 
 ## RED failure evidence
-1. After adding white-box tests before implementation, `NEW_MOON_MOD=0 moon check` failed as expected because the extracted boundary did not exist yet.
-2. Focused failure evidence:
-   - `moon test ffi/jsx -f session_contract_wbtest.mbt`
-   - Result: compile failure with `The value identifier commit_validated_candidate_transaction is unbound` at the new white-box transaction tests.
+1. Reproduced RED in an isolated detached worktree at parent commit `012d88e2` with the final Task 1 white-box test file and no production implementation changes.
+2. Corrected focused failure command:
+   - `moon test ffi/jsx/session_contract_wbtest.mbt`
+   - Result: exit 1 with `commit_validated_candidate_transaction is unbound` at test lines 1154, 1186, and 1220.
+   - This proves the focused file selection compiled all 42 Task 1 contracts and failed specifically because the private boundary was absent.
 
 ## Verification commands and results
 1. `NEW_MOON_MOD=0 moon check`
    - Before implementation after test edit: failed as expected with missing `commit_validated_candidate_transaction` boundary.
-2. `moon test ffi/jsx -f session_contract_wbtest.mbt`
-   - Before implementation: failed as expected with missing `commit_validated_candidate_transaction`.
-3. `NEW_MOON_MOD=0 moon check`
+2. `NEW_MOON_MOD=0 moon check`
    - After implementing adapter extraction: passed with only pre-existing repository warnings.
-4. `moon test ffi/jsx/session_contract_wbtest.mbt`
+3. `moon test ffi/jsx/session_contract_wbtest.mbt`
    - Passed: `Total tests: 42, passed: 42, failed: 0.`
-5. `moon test ffi/jsx`
+4. `moon test ffi/jsx`
    - Passed after review fix: `Total tests: 57, passed: 57, failed: 0.`
-6. `moon info && moon fmt`
+5. `moon info && moon fmt`
    - Completed successfully during Task 1 implementation.
-7. `git diff -- ffi/jsx/pkg.generated.mbti`
+6. `git diff -- ffi/jsx/pkg.generated.mbti`
    - No diff; public interface unchanged.
-8. `NEW_MOON_MOD=0 moon check`
+7. `NEW_MOON_MOD=0 moon check`
    - Re-run after `moon fmt`: passed with only pre-existing warnings.
-9. Review-fix evidence
+8. Review-fix evidence
    - Added mounted-id/revision assertions for invalid capability and semantic replay failures.
    - Added transaction regression proving corrupted `session.dry_run_model` is ignored by validated candidate replay because candidate commits always remount from `DryRunModel::empty`.
 
