@@ -434,7 +434,7 @@
   - Commit all implementation and deterministic tests before model discovery or the first real Ollama request.
   - Run an independent different-model implementation review against the committed diff. Require explicit inspection of prompt/rubric separation, MoonBit parser/materializer authority, transaction gating, production isolation, immutable model identity, replay comparison, and no-retry slot accounting.
   - Resolve findings in a new implementation commit and rerun deterministic checks.
-  - Run the provider-read-only manifest builder exactly once as `node examples/web/scripts/build-genui-feasibility-manifest.mjs --model gemma4:4b --output examples/web/studies/2026-07-15-genui-local-llm-v1.json`, inspect every frozen field and digest, and commit the versioned manifest. Run a final independent review against that exact clean commit.
+  - Run the provider-read-only manifest builder exactly once as `node examples/web/scripts/build-genui-feasibility-manifest.mjs --model gemma4:e2b --output examples/web/studies/2026-07-15-genui-local-llm-v1.json`, inspect every frozen field and digest, and commit the versioned manifest. Run a final independent review against that exact clean commit.
   - The lookup tag is not identity. Any code, prompt, fixture, schema, rubric, model-manifest/details digest, Ollama version, effective parameter, generation setting, schedule, manifest, or decision-rule change after this point starts a new versioned study.
 
 - [ ] **Step 6: Execute the real frozen study once.**
