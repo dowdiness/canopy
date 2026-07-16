@@ -1,19 +1,29 @@
-# Product vision: write, structure, surface
+# Product vision: write, negotiate structure, surface context
 
 The full product vision for Canopy — beyond the code editor, toward a
-personal knowledge environment where writing is the only action, structure
-emerges automatically, and the right information surfaces when needed.
+personal thinking workbench where writing is the primary action, provisional
+structure emerges as revisable hypotheses, and relevant context is offered
+with reasons and under the person's control.
 
-## The Core Loop
+See [Human-centered product principles](human-centered-product-principles.md)
+for the behavior invariants this vision is designed around. The
+[Personal Knowledge Environment direction](personal-knowledge-environment-direction.md)
+records the current product priority and its first resumable-project-memory
+wedge.
+
+## The core loop
 
 ```
-Write → auto-structure → right info surfaces → better writing → ...
+Write → provisional structure → relevant context with reasons → better thinking → ...
 ```
 
-The user never organizes. They write. The system maintains meaning
-incrementally. When the user needs information, it's already there.
+The person is not required to organize before writing. They may organize
+explicitly whenever that helps. Structure also emerges as provisional,
+navigable hypotheses that the person can inspect, correct, pin, suppress, or
+replace. When context is needed, the system offers relevant context with reasons
+— one candidate view the person can accept or decline.
 
-## Input: The "Post" Action
+## Input: the 'post' action
 
 The reason posting on Twitter feels lightweight is that it requires no
 structure — no title, no categories, no format. You write and send.
@@ -23,58 +33,67 @@ inputs must be as effortless as text. Writing text, pasting a URL,
 dropping an image, inserting code, attaching a file — all are the same
 single action: **posting**.
 
-There is one input field at all times, and the system determines
-content type automatically.
+The default capture surface is one input field. The system proposes a content
+type and the person can correct it.
 
-There are no concepts like "new document" or "new task." There is only
-**post**.
+Named documents, tasks, and collections may be created or emerge later, but
+none is required before capture. The lightweight default action is **post**.
 
-## Storage: Automatic Structuring
+## Storage: provisional structuring
 
 Three layers, each building on the last.
 
-### Layer 1: Automatic Linking
+### Layer 1: proposed linking
 
 The system detects relationships between posts — semantic similarity,
-shared references, common keywords — and connects them without explicit
-links. Users do not "create" links; they **discover** them.
+shared references, common keywords — and proposes links. The person
+can accept, name, correct, or suppress each one. Explicit
+user-authored links remain first-class and are never replaced by
+inferred ones.
 
-### Layer 2: Automatic Clustering
+### Layer 2: proposed clustering
 
 As posts accumulate, similar ones form groups. Clusters like
-"MoonBit-related," "reading notes," or "shopping" emerge organically.
-Users may name them, but clusters function without labels. These are
-not static folders but dynamic, evolving **islands**.
+"MoonBit-related," "reading notes," or "shopping" emerge as proposals.
+The person can name them, pin them, merge them, or dismiss them.
+Clusters function without labels but remain negotiable. These are not
+static folders but dynamic, revisable **islands**.
 
-### Layer 3: Pattern Detection
+### Layer 3: pattern detection
 
 The system identifies meta-level patterns: "posts of this type appear
 every Monday," "no updates on this project for three weeks," "these
-two topics frequently appear together."
+two topics frequently appear together." Patterns are surfaced with
+reasons and remain one view among many — they do not replace
+chronological or user-defined ordering.
 
-## Output: returning the right information
+## Output: offering relevant context
 
-Three models, depending on when and how information returns.
+Three models, depending on when and how context returns. All are
+opt-in and quiet by default.
 
-### Model A: Return While Writing
+### Model A: context while writing
 
-When the user starts writing, relevant past posts surface in real time.
-"I've considered this before" is automatically brought up. Beyond
-passive recall: "this is where you left off last time."
+When the person starts writing, relevant past posts can surface with
+reasons. "I've considered this before" is offered, not imposed. Beyond
+passive recall: "this is where you left off last time." The person
+controls whether and when this appears.
 
-### Model B: Return When Asked
+### Model B: context when asked
 
-Users write questions into the same input field: "What was the title of
+People write questions into the same input field: "What was the title of
 that book?" or "What was the conclusion of last month's project?" The
-system constructs answers from past posts — a personal search engine
-that ranks by meaning rather than keywords.
+system constructs answers from past posts — a search interface that
+ranks by meaning rather than keywords, with sources shown.
 
-### Model C: Return Proactively
+### Model C: context offered proactively
 
-The system initiates: "You marked this 'to be reviewed' three days ago
+The system can offer: "You marked this 'to be reviewed' three days ago
 but no conclusion reached," or "These two notes might be related."
-Unlike social media notifications, these continue and support the
-user's own thinking.
+Unlike engagement-optimized notifications, these are opt-in, quiet by
+default, and support the person's own thinking rather than competing
+for attention. Revisit frequency may influence ordering, while the
+person remains the authority on importance.
 
 ## Key design difference: writing to yourself
 
@@ -82,54 +101,58 @@ Twitter is for writing to others. This system is for **writing to
 yourself**.
 
 The timeline need not be chronological. In personal notes, the most
-recent item is not always the most important — the most **relevant**
-item at the current moment deserves priority.
-
-The default view orders posts by relevance to the present context, and
-chronological order becomes one filter among many.
+recent item is not always the most useful — a relevant item at the
+current moment may deserve priority. But relevance is one inspectable
+projection among chronological, pinned, and user-defined views. The
+person chooses.
 
 Instead of likes or retweets, there is **resurfacing**. When a past
-post is revisited, its importance increases, and related posts rise
-with it. Revisit frequency becomes a signal that feeds automatic
-structuring.
+post is revisited, its visibility in relevant-context views can
+increase. The person can inspect, reset, or suppress that signal.
 
-## The Cold Pitch
+## The cold pitch
 
 > **Canopy**
 >
 > Write. It structures itself.
 >
-> One input. No folders, no categories, no organizing. Just write —
-> text, code, links, images. The system parses, links, clusters, and
-> surfaces what you need, when you need it.
+> Structure emerges visibly and reversibly; you remain the author.
 >
-> Think of it as a second brain that thinks alongside you. It
-> remembers what you wrote, finds connections you missed, and brings
-> back the right context while you're writing — not after you search
-> for it.
+> One input. No mandatory folders, no required categories. Just write —
+> text, code, links, images. The system proposes links, clusters, and
+> relevant context with reasons — all inspectable, correctable, and
+> under your control.
+>
+> Think of it as a thinking workbench that remembers context without
+> speaking for you. It shows connections you can accept or dismiss,
+> offers relevant context while you're writing, and keeps your data
+> on your devices.
 >
 > Works across devices with no server — your thoughts sync peer-to-peer.
 
-## From Here to There
+## From here to there
 
-The code editor (lambda calculus, JSON) is the proving ground. Every
-piece of the product vision is validated first in the editor context:
+The code editor (lambda calculus, JSON) remains one proving ground for the
+product vision, but it is no longer a mandatory sequence for every product
+feature. The near-term Personal Knowledge Environment work validates
+capture and resumption directly, then reuses editor infrastructure only when
+it improves a named task.
 
-| Product feature | Editor equivalent | Status |
-|---|---|---|
-| Unified input | Text CRDT input | Done |
-| Auto-structuring | Incremental parsing + projection | Done |
-| Semantic linking | Name resolution, type inference | In progress |
-| Return while writing | Live inline evaluation | Next |
-| Return when asked | Egglog semantic queries | Planned |
-| Return proactively | Reactive triggers on semantic changes | Future |
-| Multi-device sync | CRDT peer-to-peer | Done |
-| Relevance ordering | Semantic-model-driven view selection | Future |
+| Product capability | Existing proving-ground evidence |
+|---|---|
+| Unified input | Text CRDT input and the local-first Posts prototype |
+| Provisional structuring | Incremental parsing and projection |
+| Semantic linking | Name resolution, type inference, and explained lexical retrieval |
+| Context while writing | Live inline evaluation and related-post retrieval |
+| Context when asked | Source-post retrieval |
+| Multi-device sync | CRDT peer-to-peer collaboration |
+| Multiple representations | Text, structure, timeline, and related-context views |
 
-Each row is a step from editor to product. The editor isn't a
-detour — it's the vertical slice that proves every layer works.
+These mappings are reusable evidence, not a product-development checklist. The
+[Personal Knowledge Environment direction](personal-knowledge-environment-direction.md)
+owns the current priority and its review gates.
 
-## Appendix: Technical Foundations
+## Appendix: Technical foundations
 
 How each product layer maps to Canopy's existing infrastructure.
 
@@ -139,11 +162,11 @@ recalculating affected relationships when new data arrives. Directly
 served by the reactive signal graph in `loom/incr`.
 
 **CRDT synchronization (event-graph-walker)** — The "stream of posts +
-automatic linking" model aligns with CRDT architecture. The event graph
+proposed linking" model aligns with CRDT architecture. The event graph
 provides multi-device sync with no central server. Write on your phone,
 links update on your laptop.
 
-**Semantic model (egglog)** — Automatic linking, clustering, and
+**Semantic model (egglog)** — Proposed linking, clustering, and
 retrieval are relational queries over meaning. Egglog's Datalog engine
 can express: `SimilarTo(post_a, post_b)`, `ReferencesUrl(post, url)`,
 `InCluster(post, cluster)`, `StaleReview(post, days)`.
@@ -158,7 +181,8 @@ all structured thought:
 
 ```
 Raw post (syntax)        →  text in the input field
-Linked post (semantics)  →  connections, clusters, types discovered
-Surfaced post (intent)   →  right info at the right time
-Understood (mental model) →  the system fits how you think
+Linked post (semantics)  →  connections, clusters, types proposed
+Offered post (intent)    →  relevant context with reasons, under user control
+Understood (orientation) →  the person chooses representations;
+                             the system does not claim their mental model
 ```

@@ -41,8 +41,14 @@ the files inside `docs/architecture/`.
 
 ## Vision
 
-- **[Product Vision](product-vision.md)** — the full product: write,
-  auto-structure, surface.
+- **[Product Vision](product-vision.md)** — the full product: write, negotiate
+  structure, and surface context.
+- **[Personal Knowledge Environment Direction](personal-knowledge-environment-direction.md)** —
+  near-term primary product direction: human-centered personal knowledge
+  environment with resumable technical project memory as the initial wedge.
+- **[Human-centered product principles](human-centered-product-principles.md)**
+  — canonical behavior invariants for authority, negotiable structure,
+  orientation, accessible equivalence, and product gates.
 - **[The Projectional Bridge](vision-projectional-bridge.md)** — bridging
   syntax → semantics → intent → mental model.
 - **[Structure-Format Research](structure-format-research.md)** — PL research
