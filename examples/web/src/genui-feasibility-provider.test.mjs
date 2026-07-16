@@ -24,13 +24,14 @@ const SHOW_BODY = Object.freeze({
   model_info: { 'general.architecture': 'gemma3' },
   capabilities: ['completion'],
 });
+const CANONICAL_PARAMETERS = 'num_ctx 4096\ntemperature 0.2';
 const FROZEN_IDENTITY = Object.freeze({
   lookupTag: MODEL_TAG,
   modelManifestSha256: 'sha256:model-manifest',
-  showDetailsSha256: sha256Hex(canonicalJson(SHOW_BODY)),
+  showDetailsSha256: sha256Hex(canonicalJson({ ...SHOW_BODY, parameters: CANONICAL_PARAMETERS })),
   ollamaVersion: '0.11.4',
   templateSha256: sha256Hex(SHOW_BODY.template),
-  parametersSha256: sha256Hex(SHOW_BODY.parameters),
+  parametersSha256: sha256Hex(CANONICAL_PARAMETERS),
 });
 const RAW_CANDIDATE = '{"not":"parsed by provider"}';
 
@@ -131,6 +132,78 @@ test('canonical JSON and identity discovery freeze all provider identity surface
   assert.equal(canonicalJson({ z: 1, a: { y: 2, x: 3 } }), '{"a":{"x":3,"y":2},"z":1}');
   const identity = await readOllamaIdentity(MODEL_TAG, { fetch: identityFetch() });
   assert.deepEqual(identity, FROZEN_IDENTITY);
+});
+
+test('parameter identity ignores provider line order', async () => {
+  const first = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        parameters: 'temperature 0.2\nnum_ctx 4096',
+      },
+    }),
+  });
+  const reordered = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        parameters: 'num_ctx 4096\ntemperature 0.2',
+      },
+    }),
+  });
+
+  assert.equal(first.parametersSha256, reordered.parametersSha256);
+  assert.equal(first.showDetailsSha256, reordered.showDetailsSha256);
+});
+
+test('parameter identity detects value changes', async () => {
+  const original = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch(),
+  });
+  const changed = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        parameters: 'temperature 0.3\nnum_ctx 4096',
+      },
+    }),
+  });
+
+  assert.notEqual(original.parametersSha256, changed.parametersSha256);
+  assert.notEqual(original.showDetailsSha256, changed.showDetailsSha256);
+});
+
+test('show identity ignores only Modelfile parameter order', async () => {
+  const first = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        modelfile:
+          'FROM sha256:test\nPARAMETER temperature 0.2\nPARAMETER num_ctx 4096\nTEMPLATE {{ .Prompt }}',
+      },
+    }),
+  });
+  const reordered = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        modelfile:
+          'FROM sha256:test\nPARAMETER num_ctx 4096\nPARAMETER temperature 0.2\nTEMPLATE {{ .Prompt }}',
+      },
+    }),
+  });
+  const changed = await readOllamaIdentity(MODEL_TAG, {
+    fetch: identityFetch({
+      showBody: {
+        ...SHOW_BODY,
+        modelfile:
+          'FROM sha256:other\nPARAMETER num_ctx 4096\nPARAMETER temperature 0.2\nTEMPLATE {{ .Prompt }}',
+      },
+    }),
+  });
+
+  assert.equal(first.showDetailsSha256, reordered.showDetailsSha256);
+  assert.notEqual(first.showDetailsSha256, changed.showDetailsSha256);
 });
 
 test('one provider attempt preserves opaque candidate bytes and frozen telemetry', async () => {

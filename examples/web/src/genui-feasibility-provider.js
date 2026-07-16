@@ -30,6 +30,15 @@ export function buildFeasibilityPrompt(fixture) {
   ].join('\n');
 }
 
+function sortSelectedLineSlots(text, isSelected) {
+  const lines = text.split('\n');
+  const sortedLines = lines.filter(isSelected).sort();
+  let sortedIndex = 0;
+  return lines
+    .map((line) => isSelected(line) ? sortedLines[sortedIndex++] : line)
+    .join('\n');
+}
+
 export async function readOllamaIdentity(modelTag, deps = {}) {
   const fetchImpl = deps.fetch ?? fetch;
   const digest = deps.digest ?? sha256Hex;
@@ -60,12 +69,22 @@ export async function readOllamaIdentity(modelTag, deps = {}) {
     throw new ProviderReadError('provider_identity_error', 'Ollama returned an invalid model details response.');
   }
   const template = typeof showBody.template === 'string' ? showBody.template : '';
-  const parameters = typeof showBody.parameters === 'string' ? showBody.parameters : '';
+  const parameters = sortSelectedLineSlots(
+    typeof showBody.parameters === 'string' ? showBody.parameters : '',
+    (line) => line !== '',
+  );
+  const normalizedShowBody = { ...showBody, parameters };
+  if (typeof normalizedShowBody.modelfile === 'string') {
+    normalizedShowBody.modelfile = sortSelectedLineSlots(
+      normalizedShowBody.modelfile,
+      (line) => line.startsWith('PARAMETER '),
+    );
+  }
 
   return deepFreeze({
     lookupTag: modelTag,
     modelManifestSha256: model.digest,
-    showDetailsSha256: digest(canonicalJson(showBody)),
+    showDetailsSha256: digest(canonicalJson(normalizedShowBody)),
     ollamaVersion: versionBody.version,
     templateSha256: digest(template),
     parametersSha256: digest(parameters),
