@@ -78,8 +78,10 @@ export async function buildManifest({
 
   return {
     manifestVersion: 1,
-    studyId: 'genui-local-llm-v1',
+    studyId: 'genui-local-llm-v2',
     claimScope: 'technical feasibility only; no usability, task-performance, adoption, or product-value claim',
+    changedInputReason:
+      'validation children remove inherited GENUI_FEASIBILITY_* before manifest env overlay',
     sourceCommit,
     modelIdentity,
     generationSettings: {
@@ -148,9 +150,9 @@ export async function buildManifest({
         env: {},
       },
     ],
-    journalPath: 'examples/web/test-results/genui-feasibility-live/journal.jsonl',
-    rawOutputPath: 'examples/web/test-results/genui-feasibility-live/raw-slots.json',
-    evidencePath: 'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility.json',
+    journalPath: 'examples/web/test-results/genui-feasibility-live-v2/journal.jsonl',
+    rawOutputPath: 'examples/web/test-results/genui-feasibility-live-v2/raw-slots.json',
+    evidencePath: 'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json',
   };
 }
 

@@ -256,6 +256,24 @@ test('manifest builder freezes nine slots, provider identity, inputs, and valida
   assert.equal(manifest.sourceCommit, 'frozen-commit');
   assert.deepEqual(manifest.modelIdentity, identity);
   assert.deepEqual(manifest.schedule, SCHEDULE);
+  assert.equal(manifest.manifestVersion, 1);
+  assert.equal(manifest.studyId, 'genui-local-llm-v2');
+  assert.equal(
+    manifest.changedInputReason,
+    'validation children remove inherited GENUI_FEASIBILITY_* before manifest env overlay',
+  );
+  assert.equal(
+    manifest.journalPath,
+    'examples/web/test-results/genui-feasibility-live-v2/journal.jsonl',
+  );
+  assert.equal(
+    manifest.rawOutputPath,
+    'examples/web/test-results/genui-feasibility-live-v2/raw-slots.json',
+  );
+  assert.equal(
+    manifest.evidencePath,
+    'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json',
+  );
   assert.equal(manifest.validationCommands.length, 7);
   assert.equal(Object.keys(manifest.inputDigests).length, 7);
   for (const digest of Object.values(manifest.inputDigests)) {
