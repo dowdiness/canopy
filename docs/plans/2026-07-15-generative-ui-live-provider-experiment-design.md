@@ -7,46 +7,57 @@
 
 ## Why
 
-The deterministic Generative UI path now covers request identity, base revisions,
+The deterministic Generative UI path covers request identity, base revisions,
 chunk assembly, cancellation, late-event rejection, validation, dry-run, and
-session-owned commit. The remaining question is whether a real provider can
-produce useful constrained UI candidates often enough, quickly enough, and
-cheaply enough to justify retaining a live adapter.
+session-owned commit. This establishes a safe experiment boundary, not a reason
+to add candidate generation.
 
-A syntactically valid commit is not evidence of value. A provider could return a
-no-op, a trivial panel, or a valid table that does not satisfy the requested task.
-The experiment therefore measures fixture-specific task success and blinded
-human usefulness in addition to the existing zero-tolerance safety metrics.
+The useful JSON/CSV explorer is already a fixed host UI. The current provider
+tasks ask for tables, filters, and summaries that this explorer can provide.
+Measuring only whether Gemini reproduces those features would show adapter
+reliability, not that candidate generation improves a concrete user job or
+justifies another runtime boundary.
 
-The current renderer does not yet meet that value bar. It lowers validated
-`table`, `filter`, and `summary` nodes to empty declarative `data-genui-*`
-markers. The working JSON/CSV explorer is a separate fixed host UI. Running a
-live provider against that split would measure candidate shape, not a generated
-UI that anyone can use.
+The value question therefore precedes provider work: for which structured-data
+job does a task-specific UI beat the fixed explorer, how much of that advantage
+can deterministic rules recover, and does a model recover enough additional
+value to justify its latency, cost, failure modes, and lifecycle complexity?
 
-Before the first live request, fixed replay must prove one authoritative,
-session-owned functional projection. The validated candidate selects structure;
-a trusted host context supplies data and interaction state; the existing session
-dry-run, commit, and recovery boundary owns the actual visible explorer.
-
-No provider implementation may land from this document alone. This design must
-be reviewed, the experiment issue must be approved, and a separate implementation
-plan must be accepted first.
+No provider implementation may land from this document alone. Gate A uses the
+existing explorer and a hand-authored standalone oracle without a candidate
+projection. If Gate A passes, Gate B may add only the minimum synchronous local
+evaluation harness needed to materialize oracle and rules candidates. The
+provider proxy, credentials, async lifecycle integration, and live adapter
+remain prohibited until the rules-capture gate makes Gemini eligible.
 
 ## Value gate
 
-- **Consumer:** maintainers evaluating the read-only JSON/CSV data-exploration
-  surface in `examples/web`.
-- **Signal:** safety, fixture-specific semantic task success, blinded human
-  usefulness, latency, token use, provider cost, retries, and rejection reasons.
-- **Lifecycle:** a local-only, removable experiment. It does not establish a
-  public library API, production service, or renderer-neutral provider contract.
-- **Decision:** record `KEEP` or `DELETE` in the experiment issue by 2026-07-29.
-  Missing or incomplete evidence defaults to `DELETE`; the experiment cannot
-  remain indefinitely pending.
+- **Target-user hypothesis:** a developer or analyst answering a specified
+  question over an unfamiliar read-only JSON/CSV schema. This is a hypothesis
+  to test, not an established Canopy consumer.
+- **Primary signal:** correct task completion within a fixed time limit on
+  held-out schema-by-question cases.
+- **Secondary signals:** completion time, interaction count, blinded usefulness,
+  safety, latency, token use, provider cost, retries, and rejection reasons.
+- **Comparators:** the existing fixed explorer, a task-specific hand-authored
+  oracle, deterministic rules, and Gemini only if the earlier gates pass.
+- **Lifecycle:** a removable experiment. It does not establish a public library
+  API, production service, generator-neutral runtime, or provider contract.
+- **Decision:** record `FIXED`, `RULES`, or `GENERATE` by the decision date.
+  Missing or incomplete evidence defaults to `FIXED`.
 
-`KEEP` authorizes a follow-up decision about continued experimentation. It does
-not authorize production deployment or freeze a general provider API.
+Before the custodian opens the held-out set, the initial manifest freezes the
+job, set digests, answer keys, primary metric, time limit, participant protocol,
+sample counts, four win margins, statistical analysis plan, role/access matrix,
+fixed-explorer version, development rules, prompt, candidate schema,
+model/settings, and cost and safety limits. Gate B separately freezes the later
+harness and projection commit, while Gate C separately freezes provider
+integration.
+Changing a field after its stage freeze invalidates the campaign.
+
+`GENERATE` authorizes only a separately reviewed continuation of the private
+experiment. It does not authorize production deployment or freeze a general
+provider or renderer-neutral API.
 
 ## Alternatives considered
 
@@ -73,7 +84,7 @@ Two-phase apply and rollback would therefore overstate atomicity.
 
 Tree-shape checks can reject malformed and trivial output, but they cannot prove
 that a person can use the result. This would preserve the current split and make
-the keep/delete decision easy to game.
+the final decision easy to game.
 
 ### 4. Browser-direct Gemini request — rejected
 
@@ -91,21 +102,45 @@ different adapter is required before freezing a shared contract.
 The synchronous `CognitionProvider` and Gemini-specific `EditAction` types are
 not candidates for reuse as the async Generative UI domain model.
 
+
+### 6. Cloudflare Agents SDK as the experiment control plane — deferred
+
+Cloudflare can host a later evaluation control plane, but the current experiment
+does not require the Agents SDK. Durable Objects and SQLite, Workers AI or other
+model bindings, Workflows, and platform observability are Cloudflare platform
+primitives rather than evidence for adopting an agent abstraction.
+
+If the value gates justify a live campaign, evaluate a narrow Worker plus
+Workflow first, with a regular Durable Object only if per-campaign coordination
+requires it. The Agents SDK adds agent-specific chat, tool orchestration, client
+state synchronization, and autonomous-loop concepts that this design excludes.
+Reconsider it only if bidirectional agent sessions or connection recovery become
+explicit experiment requirements.
+
+Durable storage is not immutable evidence. Any Cloudflare-backed evaluator must
+use an append-only event schema, freeze manifest and output digests, and preserve
+the finalized evidence outside the mutable runtime when independent retention is
+required. Adopting any deployed Cloudflare control plane requires a separate
+review because this experiment is currently local-only.
+
 ## Scope
 
 ### In
 
-- A provider-neutral, session-owned functional projection for the existing
-  read-only order explorer.
-- A private trusted host context for fixture rows and host interaction state.
-- Fixed, allowlisted host event handling for filter and selection updates.
-- Gemini Developer API as the first experimental backend.
-- A local-development-only, same-origin server proxy.
-- Whole-response structured JSON generation.
-- Browser scheduling and cancellation through the existing deterministic async
-  driver shell.
-- Three fixed read-only fixture tasks, ten runs per fixture.
-- Automated semantic scoring, blinded human evaluation, and dated evidence.
+- A preregistered fixed/oracle/rules value comparison with separate development
+  and held-out schema-by-question sets.
+- Objective answer keys, one primary completion metric, frozen win margins,
+  blinded secondary evaluation, and dated `FIXED | RULES | GENERATE` evidence.
+- Gate A: the existing fixed explorer and a hand-authored standalone oracle,
+  with no candidate projection or generation runtime.
+- Conditional on Gate A passing: a minimum synchronous local evaluation harness
+  and projection shared by oracle and deterministic-rules candidates under the
+  same capability surface.
+- Conditional on Gemini eligibility: a session-owned functional projection,
+  private trusted host context, fixed host events, Gemini Developer API, local
+  same-origin proxy, whole-response JSON, and browser-owned async scheduling.
+- Conditional on Gemini eligibility: three fixed reliability fixtures, ten live
+  runs per fixture, with automated semantic scoring and complete evidence.
 
 ### Out
 
@@ -120,6 +155,8 @@ not candidates for reuse as the async Generative UI domain model.
   semantics.
 - Multi-provider abstraction, renderer-neutral API, semantic edits, undo,
   co-editing, or generated side effects.
+- A deployed Cloudflare control plane or the Cloudflare Agents SDK; either needs
+  a separate decision after the value prerequisite.
 
 ## Responsibility map
 
@@ -132,7 +169,7 @@ not candidates for reuse as the async Generative UI domain model.
 | Trusted host context | Defensive derived render snapshot from the existing TypeScript order functions: visible rows, selected row, query, summaries, and allowed capabilities | Candidate/provider values, mutable source arrays, callbacks, HTTP, revision or commit policy |
 | Session-owned functional adapter | Validate candidate references against the trusted snapshot; render the actual explorer projection; session dry-run, DOM apply, revision, recovery, registry and mounted-ID consistency | Filtering/selection/summary business logic, provider transport, credentials, candidate-owned state or callbacks, a second visible explorer |
 | Trusted host interaction shell | Use existing pure TypeScript functions to derive proposed state and a defensive render snapshot for allowlisted filter/selection events; request session refresh with the same committed candidate | Direct generated DOM mutation, arbitrary candidate actions, provider calls |
-| Experiment evaluator | Fixture rubric, shuffled artifacts, usefulness score, keep/delete evidence | Changing candidates, repairing output, replacing failed runs |
+| Experiment evaluator | Preregistered manifest, held-out custody and reveal, arm blinding, objective and human scoring, append-only evidence, final decision | Tuning after reveal, changing candidates, repairing output, replacing failed cases or runs |
 
 The provider can generate candidate bytes only. It cannot claim that a candidate
 was accepted, materialized, useful, or committed.
@@ -397,16 +434,213 @@ JSON remains only in the local evidence bundle required for semantic review; it
 is not written to consoles or issue comments. Fixtures contain synthetic order
 data and no personal information.
 
-## Fixed experiment fixtures
+## Preregistered value prerequisite
+
+### Development and held-out boundary
+
+The development set is visible to oracle-pattern, rules, prompt, candidate-schema,
+harness, and projection authors. They may use it to choose task families, tune
+deterministic rules, revise the prompt, and implement generic materialization.
+Development results are diagnostic only and never enter the final decision.
+
+One independent custodian controls the materially different held-out
+schema-by-question cases. The custodian may also author the held-out oracle, but
+may not be a rules, prompt, harness, projection, or provider-integration author
+in the same campaign. Held-out cases and case-level artifacts remain unavailable
+to those authors until the final decision is recorded.
+
+| Role | Development set | Held-out access before final decision | May change frozen implementation |
+| --- | --- | --- | --- |
+| Custodian/oracle | Yes | Full, after initial manifest freeze | No |
+| Rules/prompt/harness/projection/provider authors | Yes | No; aggregate gate result only | No |
+| Blinded human evaluator | No requirement | Shuffled task artifacts only | No |
+| Decision maintainer | Manifest and development summary | Aggregate scores and audit status only | No |
+
+Gate A is executed by the custodian. It returns only the aggregate oracle uplift
+and pass/fail decision to implementation authors. If Gate A passes, harness and
+projection authors work from the development set only. Before the custodian runs
+Gate B, the campaign freezes the harness and projection code commit, candidate
+schema and capability manifest, fixed-explorer version, rules and prompt digests,
+exact model and settings, metrics, margins, and sample counts.
+
+The custodian then executes every arm against the same held-out questions, source
+data, capability surface, time limit, answer keys, and evaluation procedure.
+Gemini uses the preregistered repeat count; failed or timed-out slots remain
+failures and are not replaced. Arm labels and provider metadata remain hidden
+during human review.
+
+The manifest records set digests, author-role assignments, access events, freeze
+time, reveal time, all frozen implementation digests, blinding, and cost and
+safety limits. Any forbidden role overlap, early case-level disclosure, post-
+freeze implementation change, or replacement case invalidates the campaign.
+Held-out contents are revealed only after the outcome and evidence digests are
+recorded.
+
+The existing F1–F3 fixtures below are lifecycle and materialization controls.
+They cannot satisfy this value prerequisite and do not enter its comparative
+scores.
+
+### Participant and experimental-unit procedure
+
+This campaign uses non-author proxy participants unless the frozen manifest
+names recruited target users. A proxy may be a Canopy maintainer only when they
+have no custodian, oracle, implementation, or decision role in this campaign and
+have not seen its held-out cases. Proxy results may decide whether to continue,
+but they do not establish developer or analyst product value. If the campaign
+cannot recruit enough eligible independent participants, its evidence is
+incomplete and the decision is `FIXED`; there is no role-overlap waiver.
+
+One experimental observation is one participant attempting one held-out
+schema-by-question case through one arm. Gates A, B, and C use disjoint
+participant pools; each participant belongs to exactly one gate. Within a gate,
+every arm receives the same number of observations per case. For Gemini, each
+frozen generated candidate is assigned to one participant; deterministic arms
+use distinct participants for their matching observations.
+
+Assignment within a gate is blocked by case and balanced across arms. A
+participant never sees the same schema or answer in more than one arm, receives
+no correctness feedback until the campaign ends, and encounters arms in a
+counterbalanced order. The manifest freezes participant eligibility, recruitment
+or proxy status, gate/pool membership, counts, case-to-arm assignment, order
+schedule, and exclusion rules before held-out execution.
+
+The task clock starts when the participant receives the question and initiates
+the assigned arm, so generation and materialization waits count. It stops on
+answer submission or the frozen timeout. Answers are captured in a separate
+arm-neutral form and scored against the objective key without provider metadata.
+Every assigned timeout, abort, invalid output, infrastructure failure, or missing
+answer remains an incorrect observation and is not replaced.
+
+For each arm:
+
+```text
+S_arm = correct assigned observations / all assigned observations
+```
+
+Completion time and post-task usefulness are secondary measures. The evidence
+records participant pseudonym, case and arm assignment, order position, start
+and stop times, answer digest, correctness, timeout/failure classification, and
+artifact digest without recording personal data.
+
+### Staged materialization boundary
+
+For Gate A, the custodian compares the existing explorer with a purpose-built,
+hand-authored standalone oracle. The oracle may be interactive, but it is not a
+candidate program and needs no generic projection, provider, network, credential,
+or generation lifecycle.
+
+Only after Gate A passes may implementation authors build a minimum synchronous
+local evaluation harness from development cases. Before held-out execution, its
+code, projection, candidate schema, capabilities, and rules are frozen. The
+custodian, not those authors, uses the frozen harness to materialize held-out
+oracle and rules candidates. A held-out incompatibility is a failed case; fixing
+it requires a new manifest and campaign.
+
+The harness may reuse pure host data functions and candidate validation. It must
+not contain Gemini code, a proxy, credentials, provider transport, retries,
+`Promise`/`Abort` generation control, or live-session lifecycle integration.
+
+The harness and projection are experiment apparatus, not an accepted runtime.
+A `FIXED` outcome deletes them unless another accepted use exists. A `RULES`
+outcome retains only the projection required by the accepted deterministic
+behavior. Only Gemini eligibility permits separately reviewed
+provider integration built from development cases; it must not change the frozen
+candidate semantics or reveal held-out cases before the final campaign ends.
+
+### Decision math
+
+Gate A and Gate B use different oracle surfaces and therefore different scores.
+Let `S_fixed_A` and `S_oracle_A` be Gate A completion rates for the existing
+explorer and standalone oracle. Let `S_fixed_B`, `S_oracle_B`, and `S_rules_B`
+be Gate B rates on the capability-bounded evaluation surface. Let
+`S_incumbent_C` and `S_gemini_C` be contemporaneous Gate C rates in the disjoint
+Gate C participant pool. The incumbent arm is deterministic rules when Gate B
+established `rules_viable`; otherwise it is the fixed explorer.
+
+The manifest freezes four minimum practical uplifts from development-set
+calibration: `delta_oracle_A`, `delta_oracle_B`, `delta_rules`, and
+`delta_model`. Each is an absolute completion-rate difference, not an arbitrary
+positive epsilon. The two oracle margins must each be at least 0.15; the rules
+and model margins must each be at least 0.10.
+
+The manifest also freezes observations per case, eligibility strata, disjoint
+gate/pool membership, the finite set of balanced whole-participant schedules, and
+a one-sided randomization test with `alpha = 0.05`. The test reassigns complete
+schedules among participants within the same gate and eligibility stratum. All
+observations from one participant move as a cluster; case identities, order
+positions, and exclusion outcomes remain fixed.
+
+Development-only simulation must replay that exact gate/pool assignment,
+schedule assignment, and exclusion process and show at least 80% power to detect
+every corresponding frozen margin.
+Freeze the analysis script, assignment and simulation seeds, and digest before
+Gate A. A primary comparison passes only when its observed uplift meets the
+margin and its preregistered test passes. If enough eligible participants are
+unavailable, the evidence is incomplete and the decision is `FIXED`.
+
+1. Gate A passes only when:
+
+   ```text
+   S_oracle_A - S_fixed_A >= delta_oracle_A
+   ```
+
+   and the Gate A test passes. Otherwise select `FIXED`.
+2. Gate B first verifies that the constrained projection preserved a worthwhile
+   adaptive advantage:
+
+   ```text
+   S_oracle_B - S_fixed_B >= delta_oracle_B
+   ```
+
+   The Gate B test must also pass. If either condition fails, select `FIXED` for
+   the current campaign. A projection redesign requires a new manifest and
+   campaign; it cannot repair the exposed held-out run.
+3. Only after that check compute rules gain and capture on the same Gate B
+   surface:
+
+   ```text
+   rules_gain = S_rules_B - S_fixed_B
+   rules_capture =
+     rules_gain / (S_oracle_B - S_fixed_B)
+   rules_viable =
+     rules_gain >= delta_rules and the preregistered rules test passes
+   ```
+
+   If `rules_capture >= 0.80` and `rules_viable`, select `RULES`. If capture is
+   at least 0.80 but rules are not viable, select `FIXED`.
+4. Only when `rules_capture < 0.80` may the live Gemini campaign begin. After
+   Gate B, freeze the Gate C incumbent as deterministic rules when
+   `rules_viable`, otherwise as the fixed explorer. Gate C randomizes its own
+   participant pool between that incumbent and Gemini. Select `GENERATE` only if
+   `S_gemini_C - S_incumbent_C >= delta_model`, the preregistered model test
+   passes, and every live-provider safety, reliability, latency, cost, and
+   evidence condition passes. If Gate C fails, select `RULES` when Gate B
+   established `rules_viable`; otherwise select `FIXED`.
+
+Secondary usefulness, completion-time, and interaction-count results explain the
+primary result but cannot override a failed primary or zero-tolerance safety
+gate. Incomplete evidence selects `FIXED`.
+
+`FIXED` retains the existing explorer and removes any experiment-only local
+harness or projection; the proxy and live adapter remain absent or are removed.
+`RULES` retains only the task-specific deterministic behavior and minimum
+projection justified by held-out evidence, with no live provider path.
+`GENERATE` keeps the provider-capable session projection and Gemini path private
+and experimental pending a separate continuation review.
+
+## Live-provider reliability fixtures
+
+These fixed `orders` cases test materialization and lifecycle reliability after
+the value prerequisite permits a live campaign. They do not compare product
+value against the existing explorer or deterministic rules.
 
 All runs use fixed repository fixtures and prompts. Prompt text, candidate
 schema, model, temperature, output-token limit, capability set, and initial
 candidate are hashed into the evidence manifest. Any change invalidates the run
 set and requires restarting it.
 
-Before collecting runs, fixed replay must pass the functional-projection
-prerequisite for all three task shapes. A materialization failure blocks the
-experiment rather than consuming a slot.
+Before collecting runs, fixed replay must materialize all three task shapes.
+If any shape fails materialization, the experiment does not start.
 
 ### F1: `json-overview`
 
@@ -444,7 +678,7 @@ required filter and summary, preserved selection and query, focus restored when
 structurally possible, two pending rows, and total amount `2180.00`. An unchanged
 base is a no-op and fails.
 
-## Semantic and human evaluation
+## Live-provider semantic and human evaluation
 
 A slot is semantically successful only when:
 
@@ -474,7 +708,7 @@ because any earlier stage failed is task-incomplete and score 1. The evaluator
 records the checklist and one reason before metrics are unblinded. Manual edits,
 prompt retries, cherry-picking, and replacement runs are prohibited.
 
-## Metrics and evidence
+## Live-provider metrics and evidence
 
 Record every attempt, including failures:
 
@@ -501,31 +735,42 @@ slot result, including retries and waits. No timeout value is substituted. The
 45-second slot deadline bounds it. P95 is the nearest-rank 95th percentile across
 all 30 slot latencies. Cost includes every attempt, including failed slots.
 
-## Keep/delete gate
+## Final decision gate
 
-Run each fixture exactly ten times, for 30 predetermined slots. Decide by
-2026-07-29.
+The preregistered value prerequisite first selects `FIXED`, `RULES`, or
+eligibility for the live Gemini campaign. An eligible campaign freezes the Gate C
+incumbent from Gate B, then runs balanced, contemporaneous incumbent and Gemini
+arms in its own participant pool. It also runs each reliability fixture exactly
+ten times, for 30 predetermined lifecycle slots. The final decision remains due
+on 2026-07-29.
 
-`KEEP` requires every condition:
+`GENERATE` requires the preregistered model uplift over the frozen incumbent and
+every condition below:
 
 - zero stale-generation commits;
 - zero cancelled-generation commits;
 - zero invalid-candidate commits;
 - zero falsely reported failed DOM applies;
-- at least 9/10 semantic task successes for each fixture, hence at least 27/30;
-- median blinded usefulness at least 4 for each fixture;
-- no manual candidate or prompt repair and no replacement runs;
+- at least 9/10 semantic task successes for each reliability fixture, hence at
+  least 27/30;
+- median blinded usefulness at least 4 for each reliability fixture;
+- no manual candidate or prompt repair and no replacement cases or runs;
 - median end-to-end latency at most 8 seconds and p95 at most 20 seconds;
-- total provider cost for all attempts at most USD 5.00;
+- total provider cost within the preregistered campaign ceiling and no more than
+  USD 5.00 for the 30 reliability slots;
 - complete redacted evidence and a passing secret-leak probe.
 
-Any missing condition produces `DELETE`. Record the decision, metric table,
-evidence path, settings digest, and decision author in the issue by the deadline.
+Failure of a Gate C value or live-provider condition selects `RULES` when
+`rules_viable`; otherwise it selects `FIXED`. Incomplete evidence selects
+`FIXED`. Record the incumbent identity, outcome, comparative scores, rules gain
+and capture, statistical results, metric tables, evidence path, manifest digest,
+and decision author in the issue by the deadline.
 
-`DELETE` removes the live proxy and adapter while retaining provider-neutral
-deterministic projection/lifecycle/validation coverage and decision evidence.
-`KEEP` permits a separately reviewed continuation plan but leaves the adapter
-experimental and private.
+`FIXED` retains the existing explorer and removes any experiment-only projection,
+proxy, adapter, or runtime scaffolding that lacks another accepted use.
+`RULES` retains only deterministic task behavior and its required projection;
+the live proxy and adapter are absent or removed. `GENERATE` permits a separately
+reviewed continuation plan but leaves the adapter experimental and private.
 
 ## Test contract for a later implementation
 
@@ -565,17 +810,37 @@ not tests and never run in CI, on page load, or in a production build.
 
 ## Approval gates
 
-1. Independent design review against the cognition provider boundary and
-   Generative UI direction.
-2. Maintainer approval of this design, prompts, rubric, model, cost ceiling, and
-   dated keep/delete rule.
-3. A separate implementation plan defining file ownership and test-first slices.
-4. Deterministic fixed-replay proof of the session-owned functional explorer,
-   including state interaction and known-negative controls.
-5. Implementation review before the first request carrying a real credential.
-6. Keep/delete review of complete 30-slot evidence by 2026-07-29.
-7. If kept, a second materially different adapter before any renderer-neutral
-   provider contract or conformance suite is frozen.
+1. Independent review of this amended design against the cognition provider
+   boundary and Generative UI direction.
+2. Approve the target-user hypothesis, job, primary metric, decision math,
+   development/held-out construction, custodian, and non-overlapping author-role
+   access matrix.
+3. Calibrate the standalone oracle pattern, deterministic rules, candidate
+   schema, prompt, sample counts, and win margins on development cases only.
+4. Freeze and approve the initial manifest, exact model/settings, cost ceiling,
+   author roles, access log, and held-out set digest before custodian-only reveal.
+5. The custodian runs Gate A and returns only its aggregate uplift and pass/fail.
+   Stop with `FIXED` unless the frozen oracle-uplift gate passes.
+6. After Gate A passes, approve and implement a test-first plan for only the
+   synchronous local evaluation harness and capability-bounded projection, using
+   development cases only.
+7. Review and freeze the harness/projection code commit, fixed-explorer version,
+   rules, prompt, candidate schema, capabilities, metrics, margins, and sample
+   counts before the custodian runs Gate B.
+8. The custodian runs Gate B without case-level disclosure. Stop with `RULES`
+   only when `rules_capture >= 0.80` and `rules_viable`.
+9. Only after Gemini eligibility, freeze the Gate C incumbent identity from Gate
+   B, then approve a separate test-first plan for provider integration. Do not
+   change frozen candidate semantics or use held-out cases during implementation.
+10. Prove the provider-capable session projection with deterministic fixed
+    replay, state interaction, and known-negative controls.
+11. Complete implementation review before the first credentialed request. The
+    custodian then runs the frozen held-out Gate C incumbent and Gemini arms,
+    plus all 30 reliability slots, without replacement.
+12. Record `FIXED`, `RULES`, or `GENERATE` and evidence digests before revealing
+    held-out contents, no later than 2026-07-29.
+13. If `GENERATE`, require a materially different second adapter before freezing
+    any renderer-neutral provider contract or conformance suite.
 
 ## References
 
@@ -586,3 +851,5 @@ not tests and never run in CI, on page load, or in a production build.
 - [Gemini API key security](https://ai.google.dev/gemini-api/docs/generate-content/api-key)
 - [Gemini retries](https://ai.google.dev/gemini-api/docs/troubleshooting)
 - [Gemini model versions](https://ai.google.dev/gemini-api/docs/models/gemini)
+- [Cloudflare Agents overview](https://developers.cloudflare.com/agents/)
+- [Cloudflare Workflows](https://developers.cloudflare.com/workflows/)
