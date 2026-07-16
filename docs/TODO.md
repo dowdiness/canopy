@@ -35,6 +35,30 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 
 ---
 
+## 0. Near-term priority: personal knowledge environment
+
+**Note:** Canopy's current implementation is a projectional editor with CRDT
+collaboration, and the sections below still track that work. Near-term product
+development now prioritizes the **Personal Knowledge Environment** direction:
+resumable technical project memory, with the projectional editor preserved in
+maintenance and proving-ground mode.
+
+- [ ] Deliver the first Personal Knowledge Environment vertical slice: import
+  a user-selected pi session snapshot into a fixed, source-backed Resume View.
+  Why: the initial wedge should restore a technical work session without asking
+  the person to enter the same context twice.
+  Plan: `docs/plans/2026-07-16-pi-activity-capture-resume-prototype.md`
+  Direction: `docs/architecture/personal-knowledge-environment-direction.md`
+  Exit: fixed fixture and explicit import satisfy the plan's
+  correctness/privacy/traceability criteria; on an unseen transcript,
+  evaluator identifies goal, one verified outcome, unresolved question or next
+  step, and opens source evidence within five minutes; Resume improves
+  correctness, time, or both vs chronology.
+  Later gate: expansion is governed by the direction document's
+  product-evidence gate using actual work across sessions.
+
+---
+
 ## 1. CI/CD & Automation
 
 - [ ] If wasm support is added later, add a dedicated wasm implementation and CI job.

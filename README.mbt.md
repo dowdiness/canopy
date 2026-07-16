@@ -2,6 +2,8 @@
 
 **Write. It structures itself.**
 
+Structure emerges visibly and reversibly; you remain the author.
+
 ![Demo: type code, see evaluation results update live](docs/demo.gif)
 
 Canopy reads your code as a live structure rather than flat text. As you type, it reparses incrementally, tracks scope and types, evaluates expressions, and formats the result — without breaking your flow. Two people can edit the same document at once with no server, and edits merge automatically.
@@ -12,9 +14,9 @@ Canopy reads your code as a live structure rather than flat text. As you type, i
 
 Most editors treat source code as flat text. You type characters, and the tool does its best to guess what you meant — syntax highlighting, auto-complete, error squiggles — all reconstructed after the fact from dead text.
 
-Canopy treats your program as a living structure. Text and syntax tree are **two synchronized views** of the same document. Type in one, the other updates. Restructure in one, the other follows. The editor doesn't guess what your code means — it knows, because it maintains the meaning incrementally as you type.
+Canopy treats your program as a living structure. Text and syntax tree are **two synchronized views** of the same document. Type in one, the other updates. Restructure in one, the other follows. The editor exposes an explicit, inspectable semantic model — scope, bindings, types, values — derived from the text rather than substituted for it.
 
-The goal: **close the gap between what you think and what the tool understands.** When the editor holds the same mental model you do — scope, types, values, dependencies — it can show you what matters, when it matters, without you having to search for it.
+The goal: **close the gap between what you think and what the tool can show you.** By making its current semantic model visible and correctable through the source — scope, types, values, dependencies — the editor can offer relevant context with reasons, under your control.
 
 ## What it looks like
 
@@ -28,7 +30,7 @@ if result then result else 0
 
 As you type this, Canopy:
 - Parses incrementally (one character change → one subtree reparse)
-- Resolves scope (knows `x` is bound by the arrow-lambda parameter, `double` refers to the definition above)
+- Resolves scope (tracks that `x` is bound by the arrow-lambda parameter and `double` refers to the definition above)
 - Formats with syntax highlighting through the pretty-printer
 - Evaluates `double 5 → 10` and `if result then result else 0 → 10`
 - Synchronizes with any connected peer via CRDT
@@ -80,9 +82,13 @@ The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
 
 Canopy is a framework as much as an editor. Define a grammar for your language, implement a few traits, and you get incremental parsing, structural editing, pretty-printing, and CRDT collaboration out of the box.
 
-But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, structure emerges automatically, and the right information surfaces when you need it.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
+But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, provisional structure emerges as revisable hypotheses, and relevant context is offered with reasons and under your control.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
 
-Read more: [Product Vision](docs/architecture/product-vision.md) · [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) · [Multi-Representation System](docs/architecture/multi-representation-system.md)
+Read more: [Product Vision](docs/architecture/product-vision.md) ·
+[Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) ·
+[The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) ·
+[Multi-Representation System](docs/architecture/multi-representation-system.md) ·
+[Human-centered product principles](docs/architecture/human-centered-product-principles.md)
 
 ## Framework Design
 
@@ -168,7 +174,8 @@ of the docs into a learning path, API/reference, and contributor material. The
 highlights:
 
 **Vision and architecture:**
-- [Product Vision](docs/architecture/product-vision.md) — the full picture: write, auto-structure, surface
+- [Product Vision](docs/architecture/product-vision.md) — the full picture: write, negotiate structure, surface context
+- [Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) — resumable technical project memory
 - [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
 - [Multi-Representation System](docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
 - [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath

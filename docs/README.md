@@ -23,21 +23,27 @@ material is grouped at the bottom and is not required reading.
 Read in order to build a mental model of the system.
 
 1. **[Product Vision](architecture/product-vision.md)** — what Canopy is trying
-   to be: write, auto-structure, surface.
-2. **[The Projectional Bridge](architecture/vision-projectional-bridge.md)** —
+   to be: write, negotiate structure, and surface context.
+2. **[Personal Knowledge Environment Direction](architecture/personal-knowledge-environment-direction.md)**
+   — near-term primary product direction: human-centered personal knowledge
+   environment with resumable technical project memory as the initial wedge.
+3. **[Human-centered product principles](architecture/human-centered-product-principles.md)**
+   — canonical product behavior invariants: human authority, negotiable
+   structure, contestability, and product gates.
+4. **[The Projectional Bridge](architecture/vision-projectional-bridge.md)** —
    why: syntax → semantics → intent → mental model.
-3. **[Architecture Overview](architecture.md)** — single-page summary of the
+5. **[Architecture Overview](architecture.md)** — single-page summary of the
    pipeline, package responsibilities, key invariants, and extension points.
-4. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
+6. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
    high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
-5. **[Module Structure](architecture/modules.md)** — how the monorepo and
+7. **[Module Structure](architecture/modules.md)** — how the monorepo and
    submodules map onto that pipeline.
-6. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
+8. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
    boundaries, reuse-first APIs, and the current extension priority order.
-7. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
+9. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
    the compositional engine underneath.
-8. **[Multi-Representation System](architecture/multi-representation-system.md)**
-   — the `Printable` trait family (Show, Debug, Source, Pretty).
+10. **[Multi-Representation System](architecture/multi-representation-system.md)**
+    — the `Printable` trait family (Show, Debug, Source, Pretty).
 
 > The earlier "Projectional Editing" deep-dive has been archived to
 > [`archive/PROJECTIONAL_EDITING.md`](archive/PROJECTIONAL_EDITING.md). It is

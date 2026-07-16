@@ -223,5 +223,27 @@ arbitrary model-generated code, or replacing conventional hand-authored UI.
 The initial goal is a safe incremental bridge between structured generation,
 human editing, and multiple UI projections.
 
-Related: [JSX Incremental Parser for Generative UI](../plans/2026-07-09-jsx-incremental-parser-generative-ui.md),
-[property-based correctness coverage issue #888](https://github.com/dowdiness/canopy/issues/888).
+## Human outcome gate
+
+Generated UI changes are meaningful only when they meet the product-level
+gates defined in [Human-centered product principles](human-centered-product-principles.md).
+This document's generative-UI-specific interpretation:
+
+- **Candidate rationale/provenance tied to the exact candidate/revision.**
+  Every generated change carries a reason the person can read, linked to the
+  specific candidate and base revision that produced it.
+- **Preview/rejection cannot mutate committed state.** Internal dry-run must
+  validate a candidate before it reaches the session commit boundary; rejected
+  candidates change no committed state.
+- **Apply/recovery preserves focus, selection, and orientation.** Generated
+  changes preserve user-entered values, focus, selection, and local
+  customizations whenever the structure permits.
+- **Generated outcomes are compared with fixed/rules alternatives.** The
+  generated outcome must produce a measurably better result on a named task
+  than a fixed, rules-based alternative. Novelty alone is not justification.
+
+These gates are product requirements, not technical implementation details.
+They sit above the commit and candidate contracts defined in this document.
+
+Related: [JSX Incremental Parser for Generative UI](../plans/2026-07-09-jsx-incremental-parser-generative-ui.md)
+and [property-based correctness coverage issue #888](https://github.com/dowdiness/canopy/issues/888).
