@@ -29,13 +29,7 @@ fn PreparedFeasibilityCandidate::PreparedFeasibilityCandidate(
   evidence_json : String,
   rubric : FeasibilityRubricResult,
 ) -> PreparedFeasibilityCandidate {
-  {
-    candidate,
-    safe_output_json,
-    safe_output_sha256,
-    evidence_json,
-    rubric,
-  }
+  { candidate, safe_output_json, safe_output_sha256, evidence_json, rubric }
 }
 
 ///|
@@ -161,7 +155,9 @@ fn prepare_feasibility_candidate(
     Err(("CandidateDecodeError", message, _)) =>
       return Err(FeasibilityPreparationError("candidate_decode_error", message))
     Err(("CapabilityDecodeError", message, _)) =>
-      return Err(FeasibilityPreparationError("capability_decode_error", message))
+      return Err(
+        FeasibilityPreparationError("capability_decode_error", message),
+      )
     Err((_, message, _)) =>
       return Err(
         FeasibilityPreparationError("candidate_validation_error", message),
@@ -175,8 +171,7 @@ fn prepare_feasibility_candidate(
   guard feasibility_capabilities_match_dataset(capabilities_json, dataset) else {
     return Err(
       FeasibilityPreparationError(
-        "capability_decode_error",
-        "capabilities differ from the normalized dataset",
+        "capability_decode_error", "capabilities differ from the normalized dataset",
       ),
     )
   }

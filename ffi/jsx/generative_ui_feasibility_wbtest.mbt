@@ -387,10 +387,7 @@ test "count accepts a non-numeric summary field" {
   )
   let evidence = @json.parse(prepared.evidence_json)
   let summary = feasibility_test_json_field(evidence, "summary")
-  assert_eq(
-    feasibility_test_json_field(summary, "value").stringify(),
-    "2",
-  )
+  assert_eq(feasibility_test_json_field(summary, "value").stringify(), "2")
 }
 
 ///|
@@ -717,7 +714,10 @@ test "evaluate-only and commit share preparation while rubric gates session effe
   )
   assert_eq(stale.get("classification").to_str(), "replay_mismatch")
   assert_false(stale.get("session").get("success").cast())
-  assert_eq(stale.get("session").get("error").get("code").to_str(), "BaseRevisionMismatch")
+  assert_eq(
+    stale.get("session").get("error").get("code").to_str(),
+    "BaseRevisionMismatch",
+  )
   let missing_session = @js.parse(
     __jsx_commit_feasibility_candidate_json(
       handle + 1000,
