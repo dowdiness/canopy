@@ -74,7 +74,7 @@ opt-in and quiet by default.
 
 ### Model A: context while writing
 
-When the person starts writing, relevant past posts can surface with
+Only after the person opts in may relevant past posts surface with
 reasons. "I've considered this before" is offered, not imposed. Beyond
 passive recall: "this is where you left off last time." The person
 controls whether and when this appears.

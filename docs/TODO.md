@@ -49,10 +49,13 @@ maintenance and proving-ground mode.
   the person to enter the same context twice.
   Plan: `docs/plans/2026-07-16-pi-activity-capture-resume-prototype.md`
   Direction: `docs/architecture/personal-knowledge-environment-direction.md`
-  Exit: the same session renders as chronology and Resume views; an unfamiliar
-  reviewer can identify the goal, verified outcome, unresolved question or
-  next step, and source evidence within five minutes, and the Resume condition
-  improves correctness, time, or both without losing traceability.
+  Exit: fixed fixture and explicit import satisfy the plan's
+  correctness/privacy/traceability criteria; on an unseen transcript,
+  evaluator identifies goal, one verified outcome, unresolved question or next
+  step, and opens source evidence within five minutes; Resume improves
+  correctness, time, or both vs chronology.
+  Later gate: expansion is governed by the direction document's
+  product-evidence gate using actual work across sessions.
 
 ---
 

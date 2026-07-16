@@ -99,10 +99,8 @@ intent.
 
 The structure-format IR problem is not "how to annotate trees."
 
-Program meaning must be explicit enough for projections to render it at
-multiple levels of abstraction. Building the semantic model (egglog + incr
-reactive graph) moves toward that goal; a tree annotation mechanism alone does
-not.
+Projections across abstraction levels require a shared explicit semantic model
+rather than separate encoded meanings.
 
 ### Editing is bidirectional
 

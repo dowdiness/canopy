@@ -324,12 +324,12 @@ cd examples/web
 npx tsc --noEmit
 npm run build
 npx playwright test tests/post-app.spec.ts tests/pi-resume.spec.ts
+cd ../..
 
 # If Phase 3 is later authorized
 pi -e .pi/extensions/canopy-capture/index.ts
 
 # Documentation and interface drift
-cd ../..
 NEW_MOON_MOD=0 moon info
 git diff -- '*.mbti'
 git diff --check

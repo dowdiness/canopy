@@ -35,7 +35,7 @@ Deliberately narrow:
 
 ## Core loop: Capture → checkpoint → Resume
 
-```
+```text
 Capture semantic activity
     → checkpoint curated memory
     → Resume from checkpoint in next session
@@ -87,9 +87,8 @@ Three distinct authorities with enforced boundaries:
    is opt-in; curated memory is inspectable and correctable; deletion is
    explicit.
 
-Provenance travels with every record: source session, source event, actor,
-ancestry, and relevant document revision. Records lacking required provenance
-are rejected.
+Provenance accompanies every activity and memory record so Resume claims can
+be traced to their source.
 
 ## Local ownership and privacy
 

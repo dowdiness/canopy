@@ -226,21 +226,21 @@ human editing, and multiple UI projections.
 ## Human outcome gate
 
 Generated UI changes are meaningful only when they meet the product-level
-gates defined in [Human-centered product principles](human-centered-product-principles.md):
+gates defined in [Human-centered product principles](human-centered-product-principles.md).
+This document's generative-UI-specific interpretation:
 
-- **Legible and governable.** Every generated change can be read and
-  understood. Consequential changes require explicit acceptance or a narrow,
-  revocable policy the person chose.
-- **Orientation-preserving.** Generated changes do not steal attention,
-  fragment the user's place in the document, or create cognitively unstable
-  transitions.
-- **Accessible equivalence.** Every generated control has a keyboard and
-  screen-reader equivalent path. Accessibility is not a fallback.
-- **Rationale and reversal.** Each generated change carries a reason the
-  person can read, and can be undone without losing prior state.
-- **Net value over fixed alternatives.** The generated outcome must produce
-  a measurably better result on a named task than a fixed, rules-based
-  alternative. Novelty alone is not justification.
+- **Candidate rationale/provenance tied to the exact candidate/revision.**
+  Every generated change carries a reason the person can read, linked to the
+  specific candidate and base revision that produced it.
+- **Preview/rejection cannot mutate committed state.** Internal dry-run must
+  validate a candidate before it reaches the session commit boundary; rejected
+  candidates change no committed state.
+- **Apply/recovery preserves focus, selection, and orientation.** Generated
+  changes preserve user-entered values, focus, selection, and local
+  customizations whenever the structure permits.
+- **Generated outcomes are compared with fixed/rules alternatives.** The
+  generated outcome must produce a measurably better result on a named task
+  than a fixed, rules-based alternative. Novelty alone is not justification.
 
 These gates are product requirements, not technical implementation details.
 They sit above the commit and candidate contracts defined in this document.

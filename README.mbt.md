@@ -84,7 +84,11 @@ Canopy is a framework as much as an editor. Define a grammar for your language, 
 
 But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, provisional structure emerges as revisable hypotheses, and relevant context is offered with reasons and under your control.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
 
-Read more: [Product Vision](docs/architecture/product-vision.md) · [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) · [Multi-Representation System](docs/architecture/multi-representation-system.md) · [Human-centered product principles](docs/architecture/human-centered-product-principles.md)
+Read more: [Product Vision](docs/architecture/product-vision.md) ·
+[Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) ·
+[The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) ·
+[Multi-Representation System](docs/architecture/multi-representation-system.md) ·
+[Human-centered product principles](docs/architecture/human-centered-product-principles.md)
 
 ## Framework Design
 
@@ -171,6 +175,7 @@ highlights:
 
 **Vision and architecture:**
 - [Product Vision](docs/architecture/product-vision.md) — the full picture: write, negotiate structure, surface context
+- [Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) — resumable technical project memory
 - [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
 - [Multi-Representation System](docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
 - [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath
