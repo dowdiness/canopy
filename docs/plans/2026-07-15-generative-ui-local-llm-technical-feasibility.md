@@ -92,10 +92,14 @@ The contract describes only allowlisted presentation and references to
 host-owned capabilities. It cannot contain source data, executable expressions,
 network targets, persistence commands, navigation, or arbitrary event handlers.
 
-The schema and runtime validator must have one authoritative definition or a
-complete conformance check that proves they accept and reject the same values.
-The shared schema cannot encode a fixture's expected filter, columns,
-aggregation, answer, or outcome rubric.
+The MoonBit runtime validator is the sole trust authority. A provider JSON
+Schema is only a generation aid and may be narrower. Any disagreement becomes a
+runtime rejection.
+
+Contract tests exercise every provider-schema node variant and every known
+authority-boundary negative against the runtime validator. Neither the schema
+nor the prompt may encode a fixture's expected filter, columns, aggregation,
+answer, or outcome rubric.
 
 ### Host capability layer
 
@@ -103,11 +107,17 @@ Trusted host code owns data, filtering, projection, aggregation, query, and
 selection. A candidate may select an allowlisted capability and validated
 parameters; host code performs the operation and owns its mutable state.
 
-### Session projection
+After generic validation, a pure host materializer consumes the immutable
+candidate and frozen fixture input. It returns a safe output candidate plus
+evidence.
 
-Only a validated candidate may reach dry-run and the existing session commit
-boundary. Rejection or application failure leaves the last valid UI, host state,
-and committed revision intact. Provider code cannot bypass this boundary.
+The separate fixture rubric evaluates that evidence. Only a
+rubric-passing output candidate may reach dry-run and the existing session commit
+boundary.
+
+Generic rejection, materialization failure, rubric failure, or session
+application failure leaves the last valid UI, host state, and committed revision
+intact. Provider code cannot bypass any of these boundaries.
 
 ### Public recorded demo
 
