@@ -162,7 +162,7 @@ review because this experiment is currently local-only.
 
 | Surface | Owns | Must not own |
 | --- | --- | --- |
-| Local Gemini proxy | Fixed fixture prompts, Gemini request encoding, server-side credential lookup, HTTP transport, response decoding, usage metadata, size limits, safe error mapping | Generation IDs, revisions, DOM/session state, retries, commit decisions, arbitrary prompts |
+| Local Gemini proxy | Compiled reliability fixtures and a custodian-frozen opaque held-out-task allowlist, Gemini request encoding, server-side credential lookup, HTTP transport, response decoding, usage metadata, size limits, safe error mapping | Generation IDs, revisions, DOM/session state, retries, commit decisions, arbitrary prompts |
 | Browser provider driver | One active request, timeout, retry pacing, `AbortController`, provider-result correlation, transport outcomes, experiment metrics | API key, candidate validation, host data/state, DOM/session mutation |
 | Existing async lifecycle | Generation identity, base revision, cancellation, terminal idempotency, late-result rejection, exact-generation completion | Provider credentials, HTTP, prompts, retries, rendering |
 | UI input adapter | Candidate syntax, schema, capability validation, limits, structured rejection | Provider transport, host values, events, DOM mutation |
@@ -177,7 +177,7 @@ was accepted, materialized, useful, or committed.
 ## Data flow
 
 ```text
-fixed fixture id
+compiled reliability fixture ID or opaque held-out task ID
   → local same-origin proxy
   → Gemini generateContent
   → decoded untrusted candidate JSON
@@ -310,16 +310,30 @@ The experiment adds one development-only same-origin endpoint:
 POST /__canopy_dev/genui/generate
 ```
 
-The request accepts only:
+The request accepts exactly one selector. Reliability runs use:
 
 ```json
 { "fixture_id": "json-overview" }
 ```
 
-Allowed fixture IDs are compiled into the proxy. The proxy chooses the fixed
-prompt, fixture data, candidate schema, model settings, and opaque attempt ID.
-It rejects unknown fields and fixture IDs. It is not a general prompt or model
-proxy.
+Gate C held-out runs use:
+
+```json
+{ "task_id": "opaque-held-out-task-id" }
+```
+
+Allowed fixture IDs are compiled into the proxy. Before Gate C, the custodian
+supplies a frozen server-side allowlist whose non-semantic task IDs bind the
+held-out case, question and prompt construction, fixture-data digest, candidate
+schema, capability manifest, model settings, and campaign-manifest digest. The
+allowlist remains outside source control and client assets; implementation
+authors cannot access it, and only the custodian-run host may load it after the
+provider-integration freeze. The browser sends only the opaque task ID.
+
+The proxy chooses all bound inputs and the opaque attempt ID. It rejects unknown
+IDs, extra fields, both selectors, or neither selector. Requests cannot carry a
+prompt, case data, schema, capabilities, or model settings, so this is not a
+general prompt or model proxy.
 
 A successful response has this transport-only envelope:
 
@@ -482,13 +496,19 @@ scores.
 
 ### Participant and experimental-unit procedure
 
-This campaign uses non-author proxy participants unless the frozen manifest
-names recruited target users. A proxy may be a Canopy maintainer only when they
-have no custodian, oracle, implementation, or decision role in this campaign and
-have not seen its held-out cases. Proxy results may decide whether to continue,
-but they do not establish developer or analyst product value. If the campaign
-cannot recruit enough eligible independent participants, its evidence is
-incomplete and the decision is `FIXED`; there is no role-overlap waiver.
+A final `RULES` or `GENERATE` outcome requires every observation used in a
+decisive gate (Gate A and Gate B, plus Gate C when run) to come from
+preregistered eligible participants in the named target-user population.
+Non-author proxy participants may be used only for
+pilot or continuation decisions. Their observations remain separately labelled,
+do not enter final `S_*` values, and cannot satisfy an uplift, viability, capture,
+or model threshold. If the target-user population is missing or any gate has
+insufficient eligible target-user observations, the final decision is `FIXED`
+even when proxy-only results pass the same thresholds.
+
+A proxy may be a Canopy maintainer only when they have no custodian, oracle,
+implementation, or decision role in this campaign and have not seen its held-out
+cases. There is no role-overlap or target-user-evidence waiver.
 
 One experimental observation is one participant attempting one held-out
 schema-by-question case through one arm. Gates A, B, and C use disjoint
@@ -517,10 +537,24 @@ For each arm:
 S_arm = correct assigned observations / all assigned observations
 ```
 
-Completion time and post-task usefulness are secondary measures. The evidence
-records participant pseudonym, case and arm assignment, order position, start
-and stop times, answer digest, correctness, timeout/failure classification, and
-artifact digest without recording personal data.
+Completion time and post-task usefulness are secondary measures. Each
+participant receives a random, non-semantic, non-reversible study ID that cannot
+be derived from a name, contact address, account, or stable project identifier.
+The evidence store records only that study ID, case and arm assignment, order
+position, start and stop times, answer digest, correctness, timeout/failure
+classification, and artifact digest. These records are pseudonymized, not
+anonymous: timing and assignment data may remain linkable.
+
+Any recruitment or re-identification mapping stays in a separate access-
+controlled store, is never copied or joined into the evidence store or review
+artifacts, and is accessible only to the custodian with logged access. The
+custodian alone may read pseudonymized evidence. The decision maintainer receives
+only aggregate scores and audit status; implementation and provider authors
+receive only aggregate results and redacted artifacts. The initial manifest
+freezes named access roles and deletion dates. Destroy the re-identification
+mapping within 30 days after the final decision. Delete or irreversibly
+aggregate pseudonymized participant evidence within 12 months after that
+decision.
 
 ### Staged materialization boundary
 
@@ -563,20 +597,42 @@ calibration: `delta_oracle_A`, `delta_oracle_B`, `delta_rules`, and
 positive epsilon. The two oracle margins must each be at least 0.15; the rules
 and model margins must each be at least 0.10.
 
-The manifest also freezes observations per case, eligibility strata, disjoint
-gate/pool membership, the finite set of balanced whole-participant schedules, and
-a one-sided randomization test with `alpha = 0.05`. The test reassigns complete
-schedules among participants within the same gate and eligibility stratum. All
-observations from one participant move as a cluster; case identities, order
-positions, and exclusion outcomes remain fixed.
+The manifest freezes four confirmatory one-sided randomization tests: Gate A
+oracle versus fixed, Gate B oracle versus fixed, Gate B rules versus fixed, and
+Gate C Gemini versus its frozen incumbent. Each uses the absolute completion-rate
+difference
 
-Development-only simulation must replay that exact gate/pool assignment,
-schedule assignment, and exclusion process and show at least 80% power to detect
-every corresponding frozen margin.
-Freeze the analysis script, assignment and simulation seeds, and digest before
-Gate A. A primary comparison passes only when its observed uplift meets the
-margin and its preregistered test passes. If enough eligible participants are
-unavailable, the evidence is incomplete and the decision is `FIXED`.
+```text
+T_X = S_treatment_X - S_control_X
+```
+
+as its test statistic. A Bonferroni allocation fixes `alpha_X = 0.0125` for each
+test, controlling the four-test family at `0.05`; alpha is neither recycled nor
+reassigned. `rules_capture` is a deterministic decision threshold, not a fifth
+hypothesis test.
+
+Within each gate and eligibility stratum, the frozen randomization procedure
+reassigns complete balanced schedules among participants. All observations from
+one participant move as a cluster; case identities, order positions, and
+preassignment exclusion outcomes remain fixed. Ties count as at least as extreme.
+The manifest freezes exact enumeration or a Monte Carlo permutation count. Exact
+enumeration uses the proportion of valid assignments with `T_perm >= T_obs`;
+Monte Carlo uses `(1 + count(T_perm >= T_obs)) / (1 + N_perm)` with its frozen
+seed and permutation count.
+
+Only preregistered preassignment ineligibility may exclude an observation. Every
+post-assignment missing answer, timeout, abort, invalid output, infrastructure
+failure, or withdrawal from the task remains in the denominator with correctness
+zero; there is no imputation, replacement, or outcome-based exclusion.
+
+Development-only simulation must replay the complete frozen gate/pool assignment,
+schedule, exclusion, failure, test-statistic, tie, permutation, and multiplicity
+procedure and show at least 80% power at `alpha_X = 0.0125` to detect every
+corresponding frozen margin. Before Gate A, freeze and digest the analysis script,
+data-cleaning rules, assignment and simulation seeds, enumeration or permutation
+counts, and all procedure inputs. A primary comparison passes only when its
+observed uplift meets the margin and its frozen test passes. Insufficient eligible
+target-user observations make the evidence incomplete and select `FIXED`.
 
 1. Gate A passes only when:
 
@@ -584,7 +640,9 @@ unavailable, the evidence is incomplete and the decision is `FIXED`.
    S_oracle_A - S_fixed_A >= delta_oracle_A
    ```
 
-   and the Gate A test passes. Otherwise select `FIXED`.
+   and `p_A <= 0.0125` under the frozen procedure on preregistered eligible
+   target-user observations. A proxy-only pass may authorize another private
+   campaign but selects `FIXED` in this campaign. Otherwise select `FIXED`.
 2. Gate B first verifies that the constrained projection preserved a worthwhile
    adaptive advantage:
 
@@ -592,9 +650,10 @@ unavailable, the evidence is incomplete and the decision is `FIXED`.
    S_oracle_B - S_fixed_B >= delta_oracle_B
    ```
 
-   The Gate B test must also pass. If either condition fails, select `FIXED` for
-   the current campaign. A projection redesign requires a new manifest and
-   campaign; it cannot repair the exposed held-out run.
+   The Gate B test must satisfy `p_B <= 0.0125` under the same frozen procedure
+   on eligible target-user observations. If either condition fails, select
+   `FIXED` for the current campaign. A projection redesign requires a new
+   manifest and campaign; it cannot repair the exposed held-out run.
 3. Only after that check compute rules gain and capture on the same Gate B
    surface:
 
@@ -603,23 +662,30 @@ unavailable, the evidence is incomplete and the decision is `FIXED`.
    rules_capture =
      rules_gain / (S_oracle_B - S_fixed_B)
    rules_viable =
-     rules_gain >= delta_rules and the preregistered rules test passes
+     rules_gain >= delta_rules and p_rules <= 0.0125
    ```
 
-   If `rules_capture >= 0.80` and `rules_viable`, select `RULES`. If capture is
-   at least 0.80 but rules are not viable, select `FIXED`.
+   The frozen procedure computes `p_rules` from eligible target-user
+   observations; only those observations enter `rules_gain` and `rules_capture`.
+   If `rules_capture >= 0.80` and `rules_viable`, select `RULES`.
+   If capture is at least 0.80 but rules are not viable, select `FIXED`.
 4. Only when `rules_capture < 0.80` may the live Gemini campaign begin. After
    Gate B, freeze the Gate C incumbent as deterministic rules when
    `rules_viable`, otherwise as the fixed explorer. Gate C randomizes its own
    participant pool between that incumbent and Gemini. Select `GENERATE` only if
-   `S_gemini_C - S_incumbent_C >= delta_model`, the preregistered model test
-   passes, and every live-provider safety, reliability, latency, cost, and
-   evidence condition passes. If Gate C fails, select `RULES` when Gate B
-   established `rules_viable`; otherwise select `FIXED`.
+   `S_gemini_C - S_incumbent_C >= delta_model`, `p_C <= 0.0125` under the frozen
+   procedure on eligible target-user observations, and every live-provider
+   safety, reliability, latency, cost, and evidence condition passes. If Gate C
+   fails, select `RULES` only when target-user Gate B evidence established
+   `rules_viable`; otherwise select `FIXED`.
 
 Secondary usefulness, completion-time, and interaction-count results explain the
 primary result but cannot override a failed primary or zero-tolerance safety
 gate. Incomplete evidence selects `FIXED`.
+
+A proxy-only campaign always records `FIXED`. It may authorize a new,
+preregistered target-user campaign, but it cannot retain rules or a live provider
+as a validated outcome.
 
 `FIXED` retains the existing explorer and removes any experiment-only local
 harness or projection; the proxy and live adapter remain absent or are removed.
@@ -712,7 +778,8 @@ prompt retries, cherry-picking, and replacement runs are prohibited.
 
 Record every attempt, including failures:
 
-- fixture ID, predetermined slot ID, and every provider attempt ID;
+- reliability fixture ID or opaque held-out task ID, predetermined slot ID, and
+  every provider attempt ID;
 - prompt/schema/settings manifest digest;
 - provider and exact model;
 - attempt count, errors, retry delays, and cancellation outcome;
@@ -744,6 +811,10 @@ arms in its own participant pool. It also runs each reliability fixture exactly
 ten times, for 30 predetermined lifecycle slots. The final decision remains due
 on 2026-07-29.
 
+Only preregistered eligible target-user observations may select `RULES` or
+`GENERATE`. Proxy-only comparisons are continuation evidence and always produce
+a final `FIXED` outcome, regardless of their measured uplift.
+
 `GENERATE` requires the preregistered model uplift over the frozen incumbent and
 every condition below:
 
@@ -760,11 +831,13 @@ every condition below:
   USD 5.00 for the 30 reliability slots;
 - complete redacted evidence and a passing secret-leak probe.
 
-Failure of a Gate C value or live-provider condition selects `RULES` when
-`rules_viable`; otherwise it selects `FIXED`. Incomplete evidence selects
-`FIXED`. Record the incumbent identity, outcome, comparative scores, rules gain
-and capture, statistical results, metric tables, evidence path, manifest digest,
-and decision author in the issue by the deadline.
+At any gate, missing or insufficient target-user evidence selects `FIXED`. With
+complete target-user evidence, failure of a Gate C value or live-provider
+condition selects `RULES` only when Gate B established `rules_viable`; otherwise
+it selects `FIXED`.
+Record the incumbent identity, participant-population status, outcome,
+comparative scores, rules gain and capture, statistical results, metric tables,
+evidence path, manifest digest, and decision author in the issue by the deadline.
 
 `FIXED` retains the existing explorer and removes any experiment-only projection,
 proxy, adapter, or runtime scaffolding that lacks another accepted use.
@@ -793,7 +866,9 @@ plan must preserve these deterministic checks:
   the last valid functional explorer;
 - active restart/disposal terminalizes the exact generation before abort/removal,
   including late provider success and rejection;
-- proxy allowlist rejects arbitrary prompts and unknown fields;
+- proxy selector allowlisting accepts one known reliability fixture or opaque
+  held-out task, and rejects unknown IDs, both or neither selector, extra fields,
+  prompts, and case data;
 - Gemini success/error decoding uses fixtures;
 - a credential sentinel is absent from client artifacts, errors, logs, and
   evidence;
@@ -812,15 +887,18 @@ not tests and never run in CI, on page load, or in a production build.
 
 1. Independent review of this amended design against the cognition provider
    boundary and Generative UI direction.
-2. Approve the target-user hypothesis, job, primary metric, decision math,
-   development/held-out construction, custodian, and non-overlapping author-role
-   access matrix.
+2. Approve the target-user hypothesis, named target-user population, recruitment
+   and eligibility rules, job, primary metric, decision math, development/held-
+   out construction, custodian, and non-overlapping author-role access matrix.
 3. Calibrate the standalone oracle pattern, deterministic rules, candidate
    schema, prompt, sample counts, and win margins on development cases only.
-4. Freeze and approve the initial manifest, exact model/settings, cost ceiling,
-   author roles, access log, and held-out set digest before custodian-only reveal.
-5. The custodian runs Gate A and returns only its aggregate uplift and pass/fail.
-   Stop with `FIXED` unless the frozen oracle-uplift gate passes.
+4. Freeze and approve the initial manifest, complete statistical procedure and
+   script digest, study-ID access and retention controls, exact model/settings,
+   cost ceiling, author roles, access log, and held-out set digest before
+   custodian-only reveal.
+5. The custodian runs Gate A. Only eligible target-user observations can satisfy
+   the final oracle-uplift gate; a proxy-only pass may authorize a new target-user
+   campaign but the current campaign records `FIXED`.
 6. After Gate A passes, approve and implement a test-first plan for only the
    synchronous local evaluation harness and capability-bounded projection, using
    development cases only.
@@ -828,15 +906,18 @@ not tests and never run in CI, on page load, or in a production build.
    rules, prompt, candidate schema, capabilities, metrics, margins, and sample
    counts before the custodian runs Gate B.
 8. The custodian runs Gate B without case-level disclosure. Stop with `RULES`
-   only when `rules_capture >= 0.80` and `rules_viable`.
-9. Only after Gemini eligibility, freeze the Gate C incumbent identity from Gate
-   B, then approve a separate test-first plan for provider integration. Do not
-   change frozen candidate semantics or use held-out cases during implementation.
+   only when eligible target-user evidence establishes `rules_capture >= 0.80`
+   and `rules_viable`.
+9. Only after Gemini eligibility, freeze the Gate C incumbent identity and the
+   custodian-controlled opaque held-out-task allowlist digest, then approve a
+   separate test-first plan for provider integration. Do not change frozen
+   candidate semantics or use held-out cases during implementation.
 10. Prove the provider-capable session projection with deterministic fixed
     replay, state interaction, and known-negative controls.
 11. Complete implementation review before the first credentialed request. The
-    custodian then runs the frozen held-out Gate C incumbent and Gemini arms,
-    plus all 30 reliability slots, without replacement.
+    custodian then runs the frozen held-out Gate C incumbent and Gemini arms with
+    eligible target-user participants, plus all 30 reliability slots, without
+    replacement.
 12. Record `FIXED`, `RULES`, or `GENERATE` and evidence digests before revealing
     held-out contents, no later than 2026-07-29.
 13. If `GENERATE`, require a materially different second adapter before freezing
