@@ -1,160 +1,102 @@
 # Personal knowledge environment direction
 
-**Status:** near-term primary product direction. This document states the
-strategic reorientation and governing principles; it does not describe
-implemented behavior.
+**Status:** near-term primary product direction. This document states strategy
+and product invariants; it does not describe implemented behavior.
 
-## Strategic reorientation
+## Decision
 
 Canopy's long-term vision — write, negotiate structure, surface context — is
 unchanged. The current implementation remains a projectional editor with CRDT
-collaboration. Near-term primary development effort shifts to a
-**human-centered personal knowledge environment** whose initial wedge is
-resumable technical project memory for developers and researchers.
+collaboration. Near-term development shifts to a **human-centered personal
+knowledge environment**, beginning with resumable technical project memory for
+developers and researchers.
 
-The projectional editor is preserved in maintenance and proving-ground mode.
-Its incremental, collaborative, and multi-representation capabilities remain
-available. The editor's role will be reconsidered once the knowledge
-environment has produced measurable product evidence.
+The projectional editor remains in maintenance and proving-ground mode. Its
+incremental, collaborative, and multi-representation capabilities stay
+available when product evidence calls for them.
 
-## Initial wedge: resumable technical project memory
+## Initial wedge
 
-Technical work loses continuity every time a person stops and restarts.
-Resumption is manual: the person rereads, reorients, and reconstructs the
-state that was obvious last time. The initial wedge captures enough semantic
-activity during a work session that the same person can resume from a
-checkpoint rather than cold memory.
+Technical work loses continuity across interruptions. The first product should
+help a person resume one explicit project without rereading an entire history.
+It is deliberately:
 
-Deliberately narrow:
+- **Project-scoped:** one selected work context, never system-wide surveillance.
+- **Integrated:** it captures semantic events from tools already in use.
+- **Resume-first:** it restores orientation before attempting a knowledge graph.
 
-- **Project-scoped.** Capture is limited to one explicit work context at a time.
-- **Integrated with tools already in use.** Capture happens through an existing
-  agent runtime; no new always-on background process.
-- **Resume-first.** The first useful output is "where did I leave off," not a
-  full knowledge graph.
-
-## Core loop: Capture → checkpoint → Resume
+## Capture → checkpoint → Resume
 
 ```text
 Capture semantic activity
-    → checkpoint curated memory
-    → Resume from checkpoint in next session
-    → ...
+    → checkpoint accepted anchors
+    → Resume in the next session
 ```
 
-**Capture** observes semantic activity — what the person was doing at the
-level of intent and outcome, not raw keystrokes. Project-scoped, opt-in.
-Observes tool invocations, proposals, file-level changes, and session
-transitions with stable identity and provenance.
+| Stage | Role | Authority |
+|---|---|---|
+| Capture | Record intent, outcomes, file changes, and session transitions with stable identity and provenance. | Imported activity remains evidence, not curated knowledge. |
+| Checkpoint | Preserve goals, decisions, open questions, and next actions. | Anchors are human-authored or explicitly accepted; agent prose cannot promote itself. |
+| Resume | Combine the latest checkpoint with subsequent activity. | The view is derived and cannot rewrite its sources. |
 
-**Checkpoint** records goals, decisions, open questions, and next actions the
-person wants to encounter again. Anchors are human-authored or explicitly
-accepted; the system does not infer decisions from an agent transcript. A
-deterministic reducer organizes accepted anchors so the same inputs produce
-the same state.
+Replay of the same stable activity identity is a no-op.
 
-**Resume** reconstructs orientation from the latest checkpoint plus new
-activity since. A derived view over the checkpoint, supplemented by
-subsequent activity, leaving the checkpoint unchanged.
+## Capture boundary
 
-## Semantic activity, not surveillance
-
-The boundary is what capture is allowed to observe:
-
-| Captured | Not captured in first slice |
+| Included | Excluded from the first slice |
 |---|---|
-| Tool invocations with declared identity | Raw keyboard or screen input |
-| Proposals with base revision and outcome | System prompts, context-file contents |
-| File-level changes attributed to a session | Hidden reasoning traces |
-| Session lifecycle (start, fork, compaction, end) | Credentials or API keys |
-| Declared model/agent identity | Arbitrary full tool output |
-| | Anything not opted in |
+| Tool invocations and outcomes | Raw keyboard, screen, clipboard, or microphone capture |
+| Revision-bound proposals | System prompts and context-file contents |
+| File changes attributed to the session | Hidden reasoning and credentials |
+| Session lifecycle and declared agent identity | Arbitrary full tool output or anything not opted in |
 
-Capture candidates are not authoritative. A candidate becomes curated memory
-only after the person, or a deterministic policy the person chose, accepts it.
-Replay with the same stable identity must not create a duplicate entry.
+A capture candidate becomes curated memory only after the person, or a
+revocable deterministic policy they chose, accepts it. The canonical
+[human-centered product principles](human-centered-product-principles.md)
+supply the governing rules for consent, pacing, accessibility, and reversal.
 
 ## Authority and provenance
 
-Three distinct authorities with enforced boundaries:
-
-1. **Agent runtime** owns the conversation session — prompt history, model
-   responses, tool invocations, persistence. Authoritative for what the model
-   saw and said.
-2. **Knowledge environment** owns imported activity and curated memory, once
-   imported with stable identity, idempotent replay, and provenance.
-3. **Person** owns decisions about what to capture, keep, and delete. Capture
-   is opt-in; curated memory is inspectable and correctable; deletion is
-   explicit.
+| Owner | Owns |
+|---|---|
+| Agent runtime | Conversation history, model responses, tool invocations, and session persistence |
+| Knowledge environment | Bounded imported activity and accepted curated memory |
+| Person | What to capture, accept, correct, retain, and delete |
 
 Provenance accompanies every activity and memory record so Resume claims can
 be traced to their source.
 
-## Local ownership and privacy
+## Local ownership
 
-Canopy-owned activity data, curated memory, and checkpoints live on the
-person's devices. No required external service; capture must not transmit
-another copy of agent-session data. Any later synchronization must preserve
-local ownership and pass its own collaboration and deletion review.
+Canopy-owned activity, checkpoints, and curated memory stay on the person's
+devices. The capture path adds no provider call or second transmission of agent
+session data. Any later provider use or synchronization requires a separate
+data-egress, collaboration, deletion, and product-value review.
 
-The first slice makes no provider call. The agent runtime may already use an
-external model under its own policy, but capture adds no provider disclosure.
-A later provider-assisted feature requires a separate data-egress and
-product-value gate.
+## Fixed baseline before generation
 
-These rules are specific applications of the
-[human-centered product principles](human-centered-product-principles.md).
-
-## Deterministic baseline before semantic or generated behavior
-
-- The activity reducer is deterministic. Same inputs → same checkpoint, no
-  provider call.
-- The Resume view is deterministic over a fixed checkpoint plus fixed event
-  log. No generated summarization in the first slice.
-- A fixed, inspectable transcript is the first acceptance artifact. The Resume
-  view renders it faithfully before any semantic capture, provider call, or
-  generated summary.
+The first acceptance artifact is a fixed, inspectable transcript rendered as
+chronology and a deterministic Resume view. The same inputs must produce the
+same checkpoint and view without a provider call.
 
 Semantic candidates and generated summaries remain out of scope until this
-baseline is proven correct, inspected, and accepted.
+baseline is correct, inspected, and accepted. Generative or adaptive views are
+disposable projections: they cannot mutate authoritative records, rejected
+output changes no committed state, and the fixed view remains available.
 
-## Generated UI: disposable projection, never authority
+## Gates
 
-Generative or adaptive UI is a disposable projection over curated memory. It
-cannot mutate authoritative records directly, and rejected output changes no
-committed state. Authoritative changes require the proposal and commit boundary;
-the fixed deterministic view remains available.
+| Gate | Pass condition |
+|---|---|
+| First slice | An unfamiliar evaluator identifies the session goal, verified outcome, unresolved question or next step, and source evidence within a predeclared bound. Rendering is deterministic. |
+| Product evidence | An external developer or researcher uses Resume during actual work across multiple sessions; time from opening the tool to orientation improves over their unaided baseline; at least one useful surfaced claim remains traceable to its source. |
 
-## Review gates
-
-### First-slice gate
-
-- A fixed transcript of representative activity events exists and is
-  inspectable.
-- A Resume view renders it as a chronological activity list plus checkpoint
-  summary.
-- Rendering is deterministic: same transcript → same view, no provider call.
-- A person unfamiliar with the transcript can read the view and correctly
-  answer "what was this session doing, and where did it leave off" within a
-  predeclared bound, tracing each answer to source activity.
-
-### Product-evidence gate
-
-- At least one external developer or researcher uses the Resume view during
-  actual work across multiple sessions.
-- Resumption time, measured from opening the tool to orientation, is shorter
-  than the person's unaided baseline.
-- The person can name at least one specific decision or claim surfaced by the
-  tool they would otherwise have reconstructed manually.
-
-If the product-evidence gate does not pass, the direction is reconsidered.
-Evidence decides rather than this document predetermining the outcome.
+If the product-evidence gate fails, the direction is reconsidered. Evidence may
+justify a narrower hypothesis or renewed projectional-editor investment.
 
 ## Related documentation
 
 The [product vision](product-vision.md) remains the long-term destination, and
 [human-centered product principles](human-centered-product-principles.md) govern
-this direction. The first slice treats the external agent runtime as a
-read-only source; Canopy neither owns its loop nor grants it mutation authority.
-Implementation starts with the
+this direction. The first implementation is the
 [Pi session activity → Resume view prototype](../plans/2026-07-16-pi-activity-capture-resume-prototype.md).
