@@ -381,6 +381,143 @@ test "candidate validation rejects unknown attributes and invalid shapes" {
 }
 
 ///|
+test "candidate validation rejects duplicate attributes before lookup" {
+  let capabilities = candidate_test_capabilities()
+  let cases : Array[(String, String, GenerativeUiRawNode)] = [
+    (
+      "data",
+      "root",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[
+          candidate_test_attribute("data", "orders"),
+          candidate_test_attribute("data", "orders"),
+        ],
+        children=[],
+      ),
+    ),
+    (
+      "selection",
+      "root",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[
+          candidate_test_attribute("data", "orders"),
+          candidate_test_attribute("selection", "order_id"),
+          candidate_test_attribute("selection", "order_id"),
+        ],
+        children=[],
+      ),
+    ),
+    (
+      "field",
+      "root.children[0]",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[candidate_test_attribute("data", "orders")],
+        children=[
+          GenerativeUiRawNode::Component(
+            name="column",
+            attributes=[
+              candidate_test_attribute("field", "status"),
+              candidate_test_attribute("field", "status"),
+            ],
+            children=[],
+          ),
+        ],
+      ),
+    ),
+    (
+      "operator",
+      "root.children[0]",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[candidate_test_attribute("data", "orders")],
+        children=[
+          GenerativeUiRawNode::Component(
+            name="filter",
+            attributes=[
+              candidate_test_attribute("field", "status"),
+              candidate_test_attribute("operator", "contains"),
+              candidate_test_attribute("operator", "contains"),
+            ],
+            children=[],
+          ),
+        ],
+      ),
+    ),
+    (
+      "aggregation",
+      "root.children[0]",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[candidate_test_attribute("data", "orders")],
+        children=[
+          GenerativeUiRawNode::Component(
+            name="summary",
+            attributes=[
+              candidate_test_attribute("field", "amount"),
+              candidate_test_attribute("aggregation", "sum"),
+              candidate_test_attribute("aggregation", "sum"),
+            ],
+            children=[],
+          ),
+        ],
+      ),
+    ),
+    (
+      "label",
+      "root.children[0]",
+      GenerativeUiRawNode::Component(
+        name="table",
+        attributes=[candidate_test_attribute("data", "orders")],
+        children=[
+          GenerativeUiRawNode::Component(
+            name="column",
+            attributes=[
+              candidate_test_attribute("field", "status"),
+              candidate_test_attribute("label", "Status"),
+              candidate_test_attribute("label", "Status"),
+            ],
+            children=[],
+          ),
+        ],
+      ),
+    ),
+    (
+      "value",
+      "root",
+      GenerativeUiRawNode::Component(
+        name="text",
+        attributes=[
+          candidate_test_attribute("value", "hello"),
+          candidate_test_attribute("value", "hello"),
+        ],
+        children=[],
+      ),
+    ),
+  ]
+  for case in cases {
+    let (name, path, raw) = case
+    match GenerativeUiCandidate::validate(raw~, capabilities~) {
+      Ok(_) => fail("duplicate \{name} must be rejected")
+      Err(diagnostics) => {
+        guard diagnostics
+          .iter()
+          .any(diagnostic => {
+            diagnostic.kind() ==
+            GenerativeUiDiagnosticKind::InvalidAttributeValue &&
+            diagnostic.path() == path &&
+            diagnostic.detail() == "attribute appears more than once: \{name}"
+          }) else {
+          fail("duplicate \{name} must report InvalidAttributeValue at \{path}")
+        }
+      }
+    }
+  }
+}
+
+///|
 test "candidate validation enforces resource limits" {
   let capabilities = candidate_test_capabilities()
   let mut too_deep = GenerativeUiRawNode::Text(value="leaf")
