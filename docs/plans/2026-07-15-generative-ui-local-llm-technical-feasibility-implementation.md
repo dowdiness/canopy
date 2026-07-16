@@ -1,5 +1,7 @@
 # Generative UI local-LLM technical feasibility implementation plan
 
+**Status:** Executed — v1 selected `NOT_YET_FEASIBLE`
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` (recommended) or `executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prove whether a frozen local Ollama model can generate bounded candidates for three structurally different data fixtures, while MoonBit remains the sole candidate parser and semantic interpreter and only rubric-passing prepared output reaches the existing session commit boundary.
@@ -430,24 +432,30 @@
   - Confirm exactly nine calls, no retry, stable slot IDs/seeds, complete raw output, dirty-tree refusal, and correct positive/negative decision aggregation.
   - This fake run is harness validation only and must not be written as local-model evidence.
 
-- [ ] **Step 5: Review implementation, then freeze the model-bound manifest.**
+- [x] **Step 5: Review implementation, then freeze the model-bound manifest.**
   - Commit all implementation and deterministic tests before model discovery or the first real Ollama request.
   - Run an independent different-model implementation review against the committed diff. Require explicit inspection of prompt/rubric separation, MoonBit parser/materializer authority, transaction gating, production isolation, immutable model identity, replay comparison, and no-retry slot accounting.
   - Resolve findings in a new implementation commit and rerun deterministic checks.
   - Run the provider-read-only manifest builder exactly once as `node examples/web/scripts/build-genui-feasibility-manifest.mjs --model gemma4:e2b --output examples/web/studies/2026-07-15-genui-local-llm-v1.json`, inspect every frozen field and digest, and commit the versioned manifest. Run a final independent review against that exact clean commit.
   - The lookup tag is not identity. Any code, prompt, fixture, schema, rubric, model-manifest/details digest, Ollama version, effective parameter, generation setting, schedule, manifest, or decision-rule change after this point starts a new versioned study.
 
-- [ ] **Step 6: Execute the real frozen study once.**
+- [x] **Step 6: Execute the real frozen study once.**
   - Run from repository root with `GENUI_FEASIBILITY_LIVE=1` and the committed manifest path:
     `GENUI_FEASIBILITY_MANIFEST=examples/web/studies/2026-07-15-genui-local-llm-v1.json node examples/web/scripts/run-genui-feasibility-study.mjs`.
   - Expected: one final evidence JSON containing nine terminal slots and either `TECHNICALLY_FEASIBLE` or `NOT_YET_FEASIBLE`; a negative decision is a valid completed study result.
   - Do not rerun failed or missing slots. A new run requires new versioned evidence and an explicit changed-input reason.
 
-- [ ] **Step 7: Verify and commit evidence separately.**
+- [x] **Step 7: Verify and commit evidence separately.**
   - Validate the evidence JSON parses, all digests and nine slots are present, the decision follows the frozen rule, and no raw source rows, credentials, environment dump, or private user data were retained.
   - Run `slopless` on the design and implementation-plan Markdown; save raw findings under `.slopless/findings` and fix concrete prose findings while leaving document-level readability metrics as advisory.
   - Run `moon info && moon fmt`; inspect `.mbti` drift and confirm no unintended public trait-bound or type-surface changes.
   - Commit the evidence and any final status-only design update separately from implementation with message `docs(genui): record local feasibility result`.
+
+The v1 execution stopped at deterministic preflight before provider access.
+The inherited study-mode environment made the development E2E Vite process
+require an ephemeral run capability that is intentionally created only after
+preflight. The frozen rule therefore selected `NOT_YET_FEASIBLE`, classified
+all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
 
 ## Reuse Check
 

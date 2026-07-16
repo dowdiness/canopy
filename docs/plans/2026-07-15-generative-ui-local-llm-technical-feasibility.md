@@ -1,8 +1,8 @@
 # Generative UI local-LLM technical feasibility
 
 - **Date:** 2026-07-15
-- **Status:** Approved
-- **Decision:** `TECHNICALLY_FEASIBLE` or `NOT_YET_FEASIBLE`
+- **Status:** Executed
+- **Decision:** `NOT_YET_FEASIBLE`
 - **Scope owner:** Canopy maintainers
 
 ## Purpose
@@ -15,6 +15,22 @@ This is an engineering feasibility study. It does not evaluate what Generative
 UI product should be built, whether a generated interface is useful to people,
 or whether it improves on a fixed interface. Product discovery and value
 evaluation are separate later work.
+
+## Result
+
+- **Decision:** The frozen v1 study at commit `3263c714` selected
+  `NOT_YET_FEASIBLE`.
+- **Preflight:** Four deterministic checks passed. The development E2E check
+  failed because its Vite process inherited study mode before an ephemeral run
+  capability existed.
+- **Provider access:** No provider request occurred. All nine slots were
+  classified as `not_run_preflight_failure`.
+- **Interpretation:** The result identifies a live-harness
+  environment-isolation defect. It provides no evidence about `gemma4:e2b`
+  candidate quality or local-model feasibility.
+- **Re-execution:** The v1 study and evidence must not be rerun or overwritten.
+  A corrected execution requires a new versioned manifest, evidence path,
+  output paths, and an explicit changed-input reason.
 
 ## Existing foundation
 
