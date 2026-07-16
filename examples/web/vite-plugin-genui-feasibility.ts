@@ -9,6 +9,7 @@ import {
   sha256Hex,
 } from './src/genui-feasibility-provider.js';
 import { GENUI_FEASIBILITY_FIXTURES } from './src/genui-feasibility-fixtures.js';
+import { getRecordedFeasibilityCandidate } from './src/genui-recorded-candidates.js';
 
 const REQUEST_LIMIT_BYTES = 1024;
 const REQUEST_KEYS = ['caseId', 'runCapability', 'slotId', 'studyId'];
@@ -24,7 +25,7 @@ type FrozenIdentity = {
 
 type StudyManifest = {
   studyId: string;
-  identity: FrozenIdentity;
+  modelIdentity: FrozenIdentity;
   schedule: Array<{ caseId: string; slotId: number }>;
   settings?: unknown;
 };
@@ -66,9 +67,31 @@ export function createFeasibilityRequestGate(options: GateOptions) {
       return options.callSlot({
         fixture,
         slotId: body.slotId,
-        frozenIdentity: options.manifest.identity,
+        frozenIdentity: options.manifest.modelIdentity,
       });
     },
+  };
+}
+
+export async function callFakeFeasibilitySlot(input: {
+  fixture: (typeof GENUI_FEASIBILITY_FIXTURES)[number];
+  slotId: number;
+  frozenIdentity: FrozenIdentity;
+}): Promise<Record<string, unknown>> {
+  if (input.slotId === 2) {
+    return {
+      classification: 'provider_failure',
+      message: 'Deterministic fake provider failure.',
+    };
+  }
+  return {
+    classification: 'success',
+    candidateJson: input.slotId === 0
+      ? JSON.stringify(getRecordedFeasibilityCandidate(input.fixture.caseId))
+      : '{}',
+    caseId: input.fixture.caseId,
+    slotId: input.slotId,
+    ...input.frozenIdentity,
   };
 }
 
@@ -91,7 +114,9 @@ export function genUiFeasibilityPlugin(): Plugin | false {
     manifest,
     runCapability,
     fixtures: GENUI_FEASIBILITY_FIXTURES,
-    callSlot: (input) => callOllamaSlot(input),
+    callSlot: process.env.GENUI_FEASIBILITY_FAKE === '1'
+      ? (input) => callFakeFeasibilitySlot(input)
+      : (input) => callOllamaSlot(input),
   });
 
   return {
@@ -120,14 +145,14 @@ export function genUiFeasibilityPlugin(): Plugin | false {
 
 export function parseStudyManifest(source: string): StudyManifest {
   const value: unknown = JSON.parse(source);
-  if (!isRecord(value) || typeof value.studyId !== 'string' || !isRecord(value.identity) || !Array.isArray(value.schedule)) {
+  if (!isRecord(value) || typeof value.studyId !== 'string' || !isRecord(value.modelIdentity) || !Array.isArray(value.schedule)) {
     throw new Error('Invalid feasibility study manifest.');
   }
   const identityKeys = [
     'lookupTag', 'modelManifestSha256', 'showDetailsSha256', 'ollamaVersion',
     'templateSha256', 'parametersSha256',
   ];
-  if (identityKeys.some((key) => typeof value.identity[key] !== 'string')) {
+  if (identityKeys.some((key) => typeof value.modelIdentity[key] !== 'string')) {
     throw new Error('Feasibility study manifest has an invalid model identity.');
   }
   if (!value.schedule.every((entry) =>

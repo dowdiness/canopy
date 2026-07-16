@@ -418,6 +418,9 @@ fn feasibility_summary_value(
   field : String,
   aggregation : @cognition.GenerativeUiAggregation,
 ) -> Result[FeasibilitySummaryValue, String] {
+  guard aggregation != Count else {
+    return Ok(Numeric(Double::from_int(rows.length())))
+  }
   let values : Array[Double] = []
   for row in rows {
     match feasibility_row_value(row, field) {

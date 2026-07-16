@@ -369,6 +369,31 @@ test "all filter operators preserve exact scalar semantics and source order" {
 }
 
 ///|
+test "count accepts a non-numeric summary field" {
+  let candidate = feasibility_test_candidate(
+    "Count records",
+    "records",
+    "id",
+    [("id", "ID"), ("text", "Text")],
+    "flag",
+    "eq",
+    "text",
+    "count",
+  )
+  let prepared = feasibility_test_prepare(
+    candidate,
+    feasibility_test_operator_capabilities(),
+    feasibility_test_operator_dataset("true"),
+  )
+  let evidence = @json.parse(prepared.evidence_json)
+  let summary = feasibility_test_json_field(evidence, "summary")
+  assert_eq(
+    feasibility_test_json_field(summary, "value").stringify(),
+    "2",
+  )
+}
+
+///|
 test "all aggregations normalize number spelling and empty numeric sets" {
   let cases : Array[(String, String)] = [
     ("count", "2"),

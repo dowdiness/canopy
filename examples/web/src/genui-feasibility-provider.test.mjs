@@ -12,7 +12,7 @@ import {
 } from './genui-feasibility-provider.js';
 import { GENUI_FEASIBILITY_FIXTURES } from './genui-feasibility-fixtures.js';
 import { getRecordedFeasibilityCandidate } from './genui-recorded-candidates.js';
-import { createFeasibilityRequestGate } from '../vite-plugin-genui-feasibility.ts';
+import { callFakeFeasibilitySlot, createFeasibilityRequestGate } from '../vite-plugin-genui-feasibility.ts';
 
 const MODEL_TAG = 'gemma4:4b';
 const SHOW_BODY = Object.freeze({
@@ -252,7 +252,7 @@ test('request gate rejects malformed or replayed slots before provider access', 
   let providerCalls = 0;
   const manifest = {
     studyId: 'genui-local-v1',
-    identity: FROZEN_IDENTITY,
+    modelIdentity: FROZEN_IDENTITY,
     schedule: GENUI_FEASIBILITY_FIXTURES.flatMap((fixture) => [0, 1, 2].map((slotId) => ({ caseId: fixture.caseId, slotId }))),
   };
   const gate = createFeasibilityRequestGate({
@@ -277,4 +277,19 @@ test('request gate rejects malformed or replayed slots before provider access', 
   assert.equal((await gate.execute(valid)).classification, 'success');
   assert.equal((await gate.execute(valid)).classification, 'duplicate_slot');
   assert.equal(providerCalls, 1);
+});
+
+test('fake study provider returns one recorded candidate, one rejection candidate, and one failure per case', async () => {
+  for (const fixture of GENUI_FEASIBILITY_FIXTURES) {
+    const success = await callFakeFeasibilitySlot({ fixture, slotId: 0, frozenIdentity: FROZEN_IDENTITY });
+    assert.equal(success.classification, 'success');
+    assert.equal(success.candidateJson, JSON.stringify(getRecordedFeasibilityCandidate(fixture.caseId)));
+
+    const rejected = await callFakeFeasibilitySlot({ fixture, slotId: 1, frozenIdentity: FROZEN_IDENTITY });
+    assert.equal(rejected.classification, 'success');
+    assert.equal(rejected.candidateJson, '{}');
+
+    const failure = await callFakeFeasibilitySlot({ fixture, slotId: 2, frozenIdentity: FROZEN_IDENTITY });
+    assert.equal(failure.classification, 'provider_failure');
+  }
 });
