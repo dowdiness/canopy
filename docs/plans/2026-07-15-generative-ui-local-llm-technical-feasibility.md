@@ -18,19 +18,35 @@ evaluation are separate later work.
 
 ## Result
 
-- **Decision:** The frozen v1 study at commit `3263c714` selected
+- **v2 decision:** The corrected frozen study at commit `e93c5cc7` selected
   `NOT_YET_FEASIBLE`.
-- **Preflight:** Four deterministic checks passed. The development E2E check
-  failed because its Vite process inherited study mode before an ephemeral run
-  capability existed.
-- **Provider access:** No provider request occurred. All nine slots were
-  classified as `not_run_preflight_failure`.
-- **Interpretation:** The result identifies a live-harness
-  environment-isolation defect. It provides no evidence about `gemma4:e2b`
-  candidate quality or local-model feasibility.
-- **Re-execution:** The v1 study and evidence must not be rerun or overwritten.
-  A corrected execution requires a new versioned manifest, evidence path,
-  output paths, and an explicit changed-input reason.
+- **v2 preflight:** Seven deterministic validation commands and the frozen
+  model-identity check passed after validation-child environment isolation.
+- **v2 provider boundary:** All nine scheduled attempts terminated as
+  `provider_http_error` after Ollama returned HTTP 500. No candidate reached
+  MoonBit preparation, no slot was retried, and no candidate bytes were
+  retained in the final evidence.
+- **v2 interpretation:** The harness correction succeeded, but the selected
+  local model and frozen request settings did not produce any candidate. The
+  study therefore establishes neither end-to-end technical feasibility nor
+  candidate quality, usability, or product value.
+- **v2 retained evidence:** The frozen manifest and aggregate evidence remain
+  immutable and must not be rerun, replaced, or overwritten. The ignored
+  journal and raw-slot archive were validated after execution but were later
+  deleted when Playwright cleaned `examples/web/test-results`. They were not
+  reconstructed. The retention incident is recorded in
+  `docs/evidence/2026-07-16-generative-ui-local-llm-feasibility-v2-retention-incident.json`.
+  The aggregate evidence supports the conservative decision, but v2 is no
+  longer independently auditable from raw execution artifacts.
+- **Preserved v1 result:** The frozen v1 study at commit `3263c714` also
+  selected `NOT_YET_FEASIBLE`. Four deterministic checks passed, but the
+  development E2E check failed because its Vite process inherited study mode
+  before an ephemeral run capability existed. No v1 provider request occurred;
+  all nine v1 slots were classified as `not_run_preflight_failure`.
+- **v1 interpretation:** The v1 result identifies the corrected live-harness
+  environment-isolation defect and provides no evidence about `gemma4:e2b`
+  candidate quality or local-model feasibility. Its manifest, journal, and
+  evidence remain immutable.
 
 ## Approved v2 harness correction
 

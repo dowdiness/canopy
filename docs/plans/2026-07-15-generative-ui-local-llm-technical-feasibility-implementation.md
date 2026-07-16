@@ -1,6 +1,6 @@
 # Generative UI local-LLM technical feasibility implementation plan
 
-**Status:** Executed v1 (`NOT_YET_FEASIBLE`); approved v2 harness correction planned
+**Status:** Executed v2 (`NOT_YET_FEASIBLE`); aggregate evidence retained, raw execution audit lost; v1 result preserved
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` (recommended) or `executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -474,7 +474,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   `runDeterministicPreflight(validationCommands, parentEnv = process.env)`.
   Every validation spawn uses the fresh environment returned by the helper.
 
-- [ ] **Step 1: Write failing pure and spawn-wiring tests.**
+- [x] **Step 1: Write failing pure and spawn-wiring tests.**
 
   Add `buildValidationEnv` and `runDeterministicPreflight` to the runner imports.
   Add two pure Node tests:
@@ -546,7 +546,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   });
   ```
 
-- [ ] **Step 2: Run the focused test and confirm RED.**
+- [x] **Step 2: Run the focused test and confirm RED.**
 
   Run from `examples/web`:
 
@@ -556,7 +556,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
 
   Expected: failure because `buildValidationEnv` is not exported.
 
-- [ ] **Step 3: Implement the pure environment boundary and use it at spawn.**
+- [x] **Step 3: Implement the pure environment boundary and use it at spawn.**
 
   Add to `run-genui-feasibility-study.mjs`:
 
@@ -596,7 +596,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   Do not mutate `process.env`, scrub after the explicit overlay, or change the
   live-provider process environment.
 
-- [ ] **Step 4: Confirm GREEN and regression coverage.**
+- [x] **Step 4: Confirm GREEN and regression coverage.**
 
   Run from `examples/web`:
 
@@ -612,7 +612,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   NEW_MOON_MOD=0 moon check
   ```
 
-- [ ] **Step 5: Commit the correction separately.**
+- [x] **Step 5: Commit the correction separately.**
 
   ```bash
   git add examples/web/scripts/run-genui-feasibility-study.mjs \
@@ -636,7 +636,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   `changedInputReason`, and v2-only journal, raw-output, and evidence paths.
   `manifestVersion` remains `1` because the manifest schema is unchanged.
 
-- [ ] **Step 1: Write the failing v2 manifest assertions.**
+- [x] **Step 1: Write the failing v2 manifest assertions.**
 
   Extend the existing manifest-builder test:
 
@@ -661,7 +661,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   );
   ```
 
-- [ ] **Step 2: Run the focused test and confirm RED.**
+- [x] **Step 2: Run the focused test and confirm RED.**
 
   Run from `examples/web`:
 
@@ -672,7 +672,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   Expected: the current v1 study ID, absent changed-input reason, and v1
   output paths fail the new assertions.
 
-- [ ] **Step 3: Change only the versioned manifest metadata and paths.**
+- [x] **Step 3: Change only the versioned manifest metadata and paths.**
 
   In the manifest object returned by `buildManifest`, retain all frozen
   generation settings, schedule, inputs, commands, and decision rules. Replace
@@ -687,7 +687,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   evidencePath: 'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json',
   ```
 
-- [ ] **Step 4: Confirm GREEN, then commit the builder change.**
+- [x] **Step 4: Confirm GREEN, then commit the builder change.**
 
   Run:
 
@@ -699,7 +699,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   git commit -m "test(genui): define corrected v2 feasibility study"
   ```
 
-- [ ] **Step 5: Generate and inspect the v2 manifest exactly once.**
+- [x] **Step 5: Generate and inspect the v2 manifest exactly once.**
 
   From a clean repository root:
 
@@ -718,7 +718,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   git commit -m "test(genui): freeze corrected local feasibility study"
   ```
 
-- [ ] **Step 6: Review the exact frozen v2 commit before execution.**
+- [x] **Step 6: Review the exact frozen v2 commit before execution.**
 
   A different-model reviewer must inspect the committed environment-ordering
   tests, runner boundary, manifest source commit, digests, model identity,
@@ -739,7 +739,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
 - Produces: one immutable v2 evidence object selecting only
   `TECHNICALLY_FEASIBLE` or `NOT_YET_FEASIBLE`.
 
-- [ ] **Step 1: Execute the frozen v2 study exactly once.**
+- [x] **Step 1: Execute the frozen v2 study exactly once.**
 
   From the repository root:
 
@@ -752,7 +752,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   Do not rerun, replace a slot, edit the manifest, or overwrite evidence. If
   execution stops, preserve the v2 journal and evidence as the v2 result.
 
-- [ ] **Step 2: Validate the evidence before committing it.**
+- [x] **Step 2: Validate the evidence before committing it.**
 
   Confirm that JSON parsing succeeds; the evidence references the reviewed
   v2 frozen commit and manifest digest; all nine slots have one terminal
@@ -760,13 +760,19 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   fixture row, credential, environment dump, or product-value claim is
   retained.
 
-- [ ] **Step 3: Update status without changing the recorded outcome.**
+  Post-study verification later deleted the ignored v2 journal and raw-slot
+  archive when Playwright cleaned `examples/web/test-results`. The study was
+  not rerun and the missing files were not reconstructed. The incident record
+  preserves the surviving manifest/evidence digests and limits the claim to
+  the conservative aggregate result.
+
+- [x] **Step 3: Update status without changing the recorded outcome.**
 
   Record the v2 decision and observed boundary in the design. Mark Tasks 7-9
   complete only after their evidence exists. Keep the v1 result and evidence
   intact.
 
-- [ ] **Step 4: Run final verification and independent review.**
+- [x] **Step 4: Run final verification and independent review.**
 
   Run from the repository root:
 
