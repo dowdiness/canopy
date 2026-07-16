@@ -800,7 +800,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   Inspect `.mbti` drift and require a different-model review of the final clean
   committed range, including the v2 evidence.
 
-- [ ] **Step 5: Commit evidence separately and complete the branch workflow.**
+- [x] **Step 5: Commit evidence separately and complete the branch workflow.**
 
   ```bash
   git add docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json \
