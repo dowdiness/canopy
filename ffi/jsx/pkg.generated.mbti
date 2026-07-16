@@ -43,6 +43,10 @@ pub fn __jsx_async_driver_stats(Int) -> String
 
 pub fn __jsx_async_driver_wait_next(Int) -> @js_async.Promise[String]
 
+pub fn __jsx_commit_feasibility_candidate_json(Int, Int, String, String, String) -> String
+
+pub fn __jsx_evaluate_feasibility_candidate_json(String, String, String) -> String
+
 pub fn apply_patches(String) -> String
 
 pub fn clear_registry() -> Unit

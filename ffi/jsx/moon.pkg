@@ -8,8 +8,10 @@ import {
   "dowdiness/loom",
   "moonbitlang/async/js_async",
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/queue",
   "moonbitlang/core/string",
+  "moonbitlang/x/crypto",
 }
 
 import {

@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "sku": "sku-001",
+      "product": "Flux capacitor",
+      "category": "components",
+      "on_hand": 4
+    },
+    {
+      "sku": "sku-002",
+      "product": "Quantum relay",
+      "category": "components",
+      "on_hand": 7
+    },
+    {
+      "sku": "sku-003",
+      "product": "Sensor array",
+      "category": "instruments",
+      "on_hand": 14
+    },
+    {
+      "sku": "sku-004",
+      "product": "Thermal coupler",
+      "category": "components",
+      "on_hand": 22
+    }
+  ]
+}
