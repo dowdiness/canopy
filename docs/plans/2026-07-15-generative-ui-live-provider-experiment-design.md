@@ -50,9 +50,12 @@ Before the custodian opens the held-out set, the initial manifest freezes the
 job, set digests, answer keys, primary metric, time limit, participant protocol,
 sample counts, four win margins, statistical analysis plan, role/access matrix,
 fixed-explorer version, development rules, prompt, candidate schema,
-model/settings, and cost and safety limits. Gate B separately freezes the later
-harness and projection commit, while Gate C separately freezes provider
-integration.
+model-selection protocol, candidate eligibility, development benchmark,
+settings envelope, tie-breaks, and cost and safety limits. Gate B separately
+freezes the later harness and projection commit. Only after Gemini eligibility
+may the preregistered development-only bake-off select a model; Gate C then
+freezes the exact provider, model ID and version, settings, and provider
+integration before its held-out set is opened.
 Changing a field after its stage freeze invalidates the campaign.
 
 `GENERATE` authorizes only a separately reviewed continuation of the private
@@ -284,12 +287,50 @@ type is justified.
 
 ## Backend and transport contract
 
+### Spike 0 evidence boundary
+
+Spike 0 connected the development-only host to local Ollama
+`gemma4:e2b` and produced one valid bounded recipe for the fixed pending-orders
+case. The run demonstrated the provider-to-schema-to-renderer path. It did not
+establish model value because the schema already fixed the `pending` filter,
+`amount` sum, and answer-required fields.
+
+Observed end-to-end latency ranged from 5.8 to 57.6 seconds. These
+diagnostic runs enter no `S_*`, uplift, power, viability, or model-selection
+calculation, and no result may be generalized from `gemma4:e2b` to stronger
+models or LLMs as a class.
+
+### Development-only model selection
+
+The initial manifest freezes the selection procedure rather than naming a
+winner. Candidate eligibility requires a stable versioned model ID, Gemini
+Developer API structured JSON output, the frozen candidate schema, and the
+preregistered latency, cost, and safety ceilings. The manifest also freezes the
+development cases, repeat count, prompt, temperature, output-token limit,
+timeout, no-replacement failure treatment, primary selection metric, and
+tie-break order.
+
+Only after Gate B establishes Gemini eligibility may provider authors run the
+frozen bake-off on development cases. Select the eligible model with the highest
+task-complete valid-candidate rate. Break a tie by lower median end-to-end
+latency, then lower total cost. A timeout, provider error, invalid candidate,
+task-incomplete candidate, or missing slot scores as failure and is not
+replaced. Record every candidate model and setting, predetermined slot, raw
+metric, exclusion, and the deterministic selection result before the Gate C
+custodian opens held-out cases.
+
+Gate C evaluates one selected model. Trying multiple models on held-out cases
+and reporting only the best is prohibited. A multi-model held-out comparison
+requires a new preregistered campaign, separately powered arms, and multiplicity
+control. Changing the winner, model version, prompt, schema, or settings after
+Gate C freeze invalidates the campaign.
+
 ### Provider selection
 
 - Backend: Gemini Developer API.
-- Endpoint: `POST /v1beta/models/gemini-3.5-flash:generateContent`.
-- Model: explicit `gemini-3.5-flash`; do not use a floating `latest` alias during
-  the 30-run experiment.
+- Endpoint: `POST /v1beta/models/{frozen-model-id}:generateContent`.
+- Model: the explicit versioned winner of the frozen development-only selection
+  procedure; never use a floating `latest` alias.
 - Mode: non-streaming whole response.
 - Output: `application/json` constrained by a provider-side JSON schema matching
   the current candidate tree.
@@ -340,7 +381,7 @@ A successful response has this transport-only envelope:
 ```json
 {
   "attempt_id": "opaque-server-id",
-  "model": "gemini-3.5-flash",
+  "model": "frozen-versioned-model-id",
   "candidate_json": "{...}",
   "usage": {
     "prompt_tokens": 0,
@@ -475,13 +516,16 @@ and pass/fail decision to implementation authors. If Gate A passes, harness and
 projection authors work from the development set only. Before the custodian runs
 Gate B, the campaign freezes the harness and projection code commit, candidate
 schema and capability manifest, fixed-explorer version, rules and prompt digests,
-exact model and settings, metrics, margins, and sample counts.
+metrics, margins, and sample counts. Gate B contains no provider or model arm.
 
-The custodian then executes every arm against the same held-out questions, source
-data, capability surface, time limit, answer keys, and evaluation procedure.
-Gemini uses the preregistered repeat count; failed or timed-out slots remain
-failures and are not replaced. Arm labels and provider metadata remain hidden
-during human review.
+The custodian executes each gate's frozen arms against that gate's held-out
+questions, source data, capability surface, time limit, answer keys, and
+evaluation procedure. Only after Gate B establishes Gemini eligibility do
+provider authors run the frozen development-only model-selection procedure.
+Before Gate C, the campaign freezes its incumbent, selected model and settings,
+provider integration, repeat count, and opaque held-out-task allowlist. Failed
+or timed-out slots remain failures and are not replaced. Arm labels and provider
+metadata remain hidden during human review.
 
 The manifest records set digests, author-role assignments, access events, freeze
 time, reveal time, all frozen implementation digests, blinding, and cost and
@@ -577,9 +621,10 @@ not contain Gemini code, a proxy, credentials, provider transport, retries,
 The harness and projection are experiment apparatus, not an accepted runtime.
 A `FIXED` outcome deletes them unless another accepted use exists. A `RULES`
 outcome retains only the projection required by the accepted deterministic
-behavior. Only Gemini eligibility permits separately reviewed
-provider integration built from development cases; it must not change the frozen
-candidate semantics or reveal held-out cases before the final campaign ends.
+behavior. Only Gemini eligibility permits the frozen development-only model
+selection and separately reviewed provider integration. Both use development
+cases only, must preserve the frozen candidate semantics, and cannot reveal
+held-out cases before the final campaign ends.
 
 ### Decision math
 
@@ -891,11 +936,13 @@ not tests and never run in CI, on page load, or in a production build.
    and eligibility rules, job, primary metric, decision math, development/held-
    out construction, custodian, and non-overlapping author-role access matrix.
 3. Calibrate the standalone oracle pattern, deterministic rules, candidate
-   schema, prompt, sample counts, and win margins on development cases only.
+   schema, prompt, sample counts, win margins, model-selection procedure,
+   candidate eligibility, development benchmark, settings envelope, and
+   tie-breaks on development cases only.
 4. Freeze and approve the initial manifest, complete statistical procedure and
-   script digest, study-ID access and retention controls, exact model/settings,
-   cost ceiling, author roles, access log, and held-out set digest before
-   custodian-only reveal.
+   script digest, study-ID access and retention controls, model-selection
+   protocol, cost ceiling, author roles, access log, and held-out set digest
+   before custodian-only reveal.
 5. The custodian runs Gate A. Only eligible target-user observations can satisfy
    the final oracle-uplift gate; a proxy-only pass may authorize a new target-user
    campaign but the current campaign records `FIXED`.
@@ -908,19 +955,26 @@ not tests and never run in CI, on page load, or in a production build.
 8. The custodian runs Gate B without case-level disclosure. Stop with `RULES`
    only when eligible target-user evidence establishes `rules_capture >= 0.80`
    and `rules_viable`.
-9. Only after Gemini eligibility, freeze the Gate C incumbent identity and the
-   custodian-controlled opaque held-out-task allowlist digest, then approve a
-   separate test-first plan for provider integration. Do not change frozen
-   candidate semantics or use held-out cases during implementation.
-10. Prove the provider-capable session projection with deterministic fixed
+9. Only after Gemini eligibility, review the frozen development-only selection
+   runner and its credential controls before its first request. Execute every
+   predetermined candidate slot, record failures without replacement, apply the
+   frozen metric and tie-breaks, and freeze the selected versioned model and
+   settings before any Gate C held-out access.
+10. Freeze the Gate C incumbent identity and custodian-controlled opaque
+    held-out-task allowlist digest, then approve a separate test-first plan for
+    provider integration. Do not change frozen candidate semantics or use
+    held-out cases during implementation.
+11. Prove the provider-capable session projection with deterministic fixed
     replay, state interaction, and known-negative controls.
-11. Complete implementation review before the first credentialed request. The
-    custodian then runs the frozen held-out Gate C incumbent and Gemini arms with
-    eligible target-user participants, plus all 30 reliability slots, without
-    replacement.
-12. Record `FIXED`, `RULES`, or `GENERATE` and evidence digests before revealing
+12. Complete implementation review and freeze the provider-integration commit,
+    selected model/settings, prompt/schema digests, repeat count, cost and safety
+    limits, and allowlist before the first Gate C credentialed request.
+13. The custodian runs the frozen held-out Gate C incumbent and selected-model
+    arms with eligible target-user participants, plus all 30 reliability slots,
+    without replacement.
+14. Record `FIXED`, `RULES`, or `GENERATE` and evidence digests before revealing
     held-out contents, no later than 2026-07-29.
-13. If `GENERATE`, require a materially different second adapter before freezing
+15. If `GENERATE`, require a materially different second adapter before freezing
     any renderer-neutral provider contract or conformance suite.
 
 ## References
