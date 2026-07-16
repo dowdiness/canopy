@@ -47,6 +47,7 @@ const manifestPath = process.env.GENUI_FEASIBILITY_MANIFEST;
 const runCapability = process.env.GENUI_FEASIBILITY_RUN_CAPABILITY;
 const journalPath = process.env.GENUI_FEASIBILITY_JOURNAL;
 const rawOutputPath = process.env.GENUI_FEASIBILITY_RAW_OUTPUT;
+const fakeMode = process.env.GENUI_FEASIBILITY_FAKE === '1';
 
 function required(name: string, value: string | undefined): string {
   if (value === undefined || value === '') throw new Error(`${name} is required`);
@@ -87,8 +88,11 @@ function replayComparable(result: FeasibilityResult): unknown {
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value !== null && typeof value === 'object') {
-    return `{${Object.keys(value as Record<string, unknown>).sort().map((key) =>
-      `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`
+    const entries = Object.entries(value).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0
+    );
+    return `{${entries.map(([key, child]) =>
+      `${JSON.stringify(key)}:${canonicalJson(child)}`
     ).join(',')}}`;
   }
   return JSON.stringify(value);
@@ -117,6 +121,7 @@ test('executes the frozen nine-slot feasibility schedule exactly once', async ({
 
   await page.goto('/genui.html');
   const rawSlots: Array<Record<string, unknown>> = [];
+  const fakeClassifications: string[] = [];
   try {
     for (const slot of manifest.schedule) {
       appendDurableJsonLine(durableJournalPath, { kind: 'started', ...slot });
@@ -155,10 +160,26 @@ test('executes the frozen nine-slot feasibility schedule exactly once', async ({
       }
       rawSlots.push({ ...slot, result: terminal });
       appendDurableJsonLine(durableJournalPath, { kind: 'terminal', ...slot, result: terminal });
+      if (fakeMode) {
+        fakeClassifications.push(
+          typeof terminal.classification === 'string'
+            ? terminal.classification
+            : '<missing>',
+        );
+      }
     }
   } finally {
     writeRawOutput(outputPath, { studyId: manifest.studyId, slots: rawSlots });
   }
 
   expect(rawSlots).toHaveLength(9);
+  if (fakeMode) {
+    expect(fakeClassifications).toEqual(
+      manifest.schedule.map((slot) => {
+        if (slot.slotId === 0) return 'success';
+        if (slot.slotId === 1) return 'candidate_decode_error';
+        return 'provider_failure';
+      }),
+    );
+  }
 });
