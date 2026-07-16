@@ -254,6 +254,32 @@ pub fn jsx_session_replay_candidate_json(
 }
 
 ///|
+/// Decode, capability-check, and validate the replay payload into the opaque
+/// candidate consumed by the session transaction.
+fn decode_validated_candidate(
+  candidate_source : String,
+  capabilities_json : String,
+) -> Result[@cognition.GenerativeUiCandidate, (String, String, Array[String])] {
+  let raw = match decode_candidate_json(candidate_source) {
+    Ok(value) => value
+    Err(message) => return Err(("CandidateDecodeError", message, []))
+  }
+  let capabilities = match decode_capabilities_json(capabilities_json) {
+    Ok(value) => value
+    Err(message) => return Err(("CapabilityDecodeError", message, []))
+  }
+  match @cognition.GenerativeUiCandidate::validate(raw~, capabilities~) {
+    Ok(candidate) => Ok(candidate)
+    Err(diagnostics) => {
+      let messages = diagnostics.map(diagnostic => {
+        "\{diagnostic.path()}: \{diagnostic.detail()}"
+      })
+      Err(("CandidateValidationError", "candidate rejected", messages))
+    }
+  }
+}
+
+///|
 /// Validate and commit a candidate using the caller-owned lifecycle.
 /// Transport adapters call this after their lifecycle accepted Final; the
 /// session remains the only owner of dry-run, DOM apply, and revision commit.
@@ -265,58 +291,44 @@ fn commit_candidate_with_lifecycle(
   generation_id : @cognition.GenerativeUiGenerationId,
   capabilities_json : String,
 ) -> String {
-  let raw = match decode_candidate_json(lifecycle.candidate_source()) {
-    Ok(value) => value
-    Err(message) => {
-      let _ = lifecycle.dispatch(
-        @cognition.GenerativeUiEvent::CandidateInvalid(generation_id~, message~),
+  match
+    decode_validated_candidate(lifecycle.candidate_source(), capabilities_json) {
+    Ok(candidate) =>
+      commit_validated_candidate_transaction(
+        session, handle, revision, lifecycle, generation_id, candidate,
       )
-      return render_result_json(
-        false,
-        revision.to_int(),
-        session.mounted_ids,
-        [],
-        Some(("CandidateDecodeError", message)),
-      )
-    }
-  }
-  let capabilities = match decode_capabilities_json(capabilities_json) {
-    Ok(value) => value
-    Err(message) => {
-      let _ = lifecycle.dispatch(
-        @cognition.GenerativeUiEvent::CandidateInvalid(generation_id~, message~),
-      )
-      return render_result_json(
-        false,
-        revision.to_int(),
-        session.mounted_ids,
-        [],
-        Some(("CapabilityDecodeError", message)),
-      )
-    }
-  }
-  let candidate = match
-    @cognition.GenerativeUiCandidate::validate(raw~, capabilities~) {
-    Ok(value) => value
-    Err(diagnostics) => {
-      let messages = diagnostics.map(diagnostic => {
-        "\{diagnostic.path()}: \{diagnostic.detail()}"
-      })
+    Err((error_code, error_message, diagnostics)) => {
+      let invalid_message = if diagnostics.is_empty() {
+        error_message
+      } else {
+        diagnostics.join("; ")
+      }
       let _ = lifecycle.dispatch(
         @cognition.GenerativeUiEvent::CandidateInvalid(
           generation_id~,
-          message=messages.join("; "),
+          message=invalid_message,
         ),
       )
-      return render_result_json(
+      render_result_json(
         false,
         revision.to_int(),
         session.mounted_ids,
-        messages,
-        Some(("CandidateValidationError", "candidate rejected")),
+        diagnostics,
+        Some((error_code, error_message)),
       )
     }
   }
+}
+
+///|
+fn commit_validated_candidate_transaction(
+  session : JsxSession,
+  handle : Int,
+  revision : @cognition.GenerativeUiRevision,
+  lifecycle : @cognition.GenerativeUiLifecycle,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  candidate : @cognition.GenerativeUiCandidate,
+) -> String {
   let current_revision = session.baseline.revision
   let current_revision_value = @cognition.GenerativeUiRevision::GenerativeUiRevision(
     current_revision,

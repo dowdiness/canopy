@@ -450,6 +450,50 @@ fn session_test_text_candidate(
 }
 
 ///|
+fn session_test_validating_lifecycle(
+  base_revision : @cognition.GenerativeUiRevision,
+) -> (@cognition.GenerativeUiLifecycle, @cognition.GenerativeUiGenerationId) {
+  let lifecycle = @cognition.GenerativeUiLifecycle::GenerativeUiLifecycle()
+  let generation_id = match
+    lifecycle.dispatch(@cognition.GenerativeUiEvent::Start(base_revision~)) {
+    @cognition.GenerativeUiTransition::Started(generation_id~) => generation_id
+    _ => abort("lifecycle fixture must start")
+  }
+  let finalized = lifecycle.dispatch(
+    @cognition.GenerativeUiEvent::Input(
+      @cognition.GenerativeUiInput::finalize(
+        generation_id~,
+        base_revision~,
+        sequence=0,
+      ),
+    ),
+  )
+  guard finalized is @cognition.GenerativeUiTransition::Finalized else {
+    abort("lifecycle fixture must finalize")
+  }
+  (lifecycle, generation_id)
+}
+
+///|
+fn session_test_empty_capabilities_json() -> String {
+  "{\"bindings\":[],\"filter_operators\":[],\"aggregations\":[]}"
+}
+
+///|
+fn session_test_replay_result(
+  handle : Int,
+  base_revision : Int,
+  candidate : String,
+  capabilities : String,
+) -> @js.Any {
+  @js.parse(
+    jsx_session_replay_candidate_json(
+      handle, base_revision, candidate, capabilities,
+    ),
+  )
+}
+
+///|
 fn session_test_expected_candidate_ast() -> @jsx_ast.JsxNode {
   @jsx_ast.JsxNode::Root(children=[
     @jsx_ast.JsxNode::Element(
@@ -1002,6 +1046,187 @@ test "replay candidate adapter validates and commits through the JSX session" {
     "stack",
   )
   jsx_session_dispose(handle)
+}
+
+///|
+test "replay decode and validation errors keep precedence and payloads" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let committed_ids = created.get("result").get("mounted_ids")
+  let invalid_capabilities = "{\"bindings\":\"nope\",\"filter_operators\":[],\"aggregations\":[]}"
+
+  let malformed_candidate = session_test_replay_result(
+    handle, 1, "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"text\"}]}",
+    invalid_capabilities,
+  )
+  assert_false(malformed_candidate.get("success").cast())
+  assert_eq(
+    malformed_candidate.get("error").get("code").to_str(),
+    "CandidateDecodeError",
+  )
+  assert_eq(
+    malformed_candidate.get("error").get("message").to_str(),
+    "text node value is missing or invalid",
+  )
+  assert_eq(malformed_candidate.get("revision").cast(), 1)
+  assert_eq(
+    malformed_candidate.get("mounted_ids").stringify(),
+    committed_ids.stringify(),
+  )
+
+  let invalid_capability_result = session_test_replay_result(
+    handle, 1, "{\"type\":\"raw_html\",\"value\":\"<b>unsafe</b>\"}", invalid_capabilities,
+  )
+  assert_false(invalid_capability_result.get("success").cast())
+  assert_eq(
+    invalid_capability_result.get("error").get("code").to_str(),
+    "CapabilityDecodeError",
+  )
+  assert_eq(
+    invalid_capability_result.get("error").get("message").to_str(),
+    "capability bindings are missing or invalid",
+  )
+  assert_eq(
+    invalid_capability_result.get("diagnostics").get("length").cast(),
+    0,
+  )
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(handle)
+}
+
+///|
+test "replay semantic validation rejects unsafe nodes before dry run" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let capabilities = session_test_empty_capabilities_json()
+  let cases = [
+    (
+      "{\"type\":\"raw_html\",\"value\":\"<b>unsafe</b>\"}", "root: raw HTML is not allowed",
+    ),
+    (
+      "{\"type\":\"expression\",\"value\":\"danger\"}", "root: expressions are not allowed",
+    ),
+    (
+      "{\"type\":\"component\",\"name\":\"stack\",\"attributes\":[],\"children\":[{\"type\":\"component\",\"name\":\"table\",\"attributes\":[{\"name\":\"data\",\"value\":\"orders\"}],\"children\":[]}]}",
+      "root.children[0]: data binding is not available",
+    ),
+  ]
+  for item in cases {
+    let (candidate, diagnostic) = item
+    let result = session_test_replay_result(handle, 1, candidate, capabilities)
+    assert_false(result.get("success").cast())
+    assert_eq(
+      result.get("error").get("code").to_str(),
+      "CandidateValidationError",
+    )
+    assert_eq(result.get("error").get("message").to_str(), "candidate rejected")
+    assert_eq(result.get("diagnostics").at(0).to_str(), diagnostic)
+    assert_eq(result.get("revision").cast(), 1)
+    assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  }
+  jsx_session_dispose(handle)
+}
+
+///|
+test "validated replay transaction accepts an opaque candidate without JSON decode" {
+  install_session_test_document()
+  let created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let handle = session_test_handle(created)
+  let session = session_registry.get(handle).unwrap()
+  let revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(1)
+  let (lifecycle, generation_id) = session_test_validating_lifecycle(revision)
+  let result = @js.parse(
+    commit_validated_candidate_transaction(
+      session,
+      handle,
+      revision,
+      lifecycle,
+      generation_id,
+      session_test_text_candidate(["safe"]),
+    ),
+  )
+  assert_true(result.get("success").cast())
+  assert_eq(result.get("revision").cast(), 2)
+  assert_eq(session_test_nested_texts("session-root-a"), "safe")
+  assert_true(lifecycle.phase() == @cognition.GenerativeUiPhase::Committed)
+  assert_true(
+    lifecycle.committed_revision() ==
+    Some(@cognition.GenerativeUiRevision::GenerativeUiRevision(2)),
+  )
+  jsx_session_dispose(handle)
+}
+
+///|
+test "validated replay transaction preserves apply and stale paths" {
+  install_session_test_document()
+  let dom_created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let dom_handle = session_test_handle(dom_created)
+  let dom_session = session_registry.get(dom_handle).unwrap()
+  let dom_revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(1)
+  let (dom_lifecycle, dom_generation_id) = session_test_validating_lifecycle(
+    dom_revision,
+  )
+  set_session_test_append_failure(true)
+  let dom_result = @js.parse(
+    commit_validated_candidate_transaction(
+      dom_session,
+      dom_handle,
+      dom_revision,
+      dom_lifecycle,
+      dom_generation_id,
+      session_test_text_candidate(["dom"]),
+    ),
+  )
+  set_session_test_append_failure(false)
+  assert_false(dom_result.get("success").cast())
+  assert_eq(dom_result.get("revision").cast(), 1)
+  assert_eq(dom_result.get("error").get("code").to_str(), "DomApplyError")
+  assert_true(dom_lifecycle.phase() == @cognition.GenerativeUiPhase::Failed)
+  jsx_session_dispose(dom_handle)
+
+  install_session_test_document()
+  let stale_created = @js.parse(
+    jsx_session_new("<div>initial</div>", "session-root-a"),
+  )
+  let stale_handle = session_test_handle(stale_created)
+  let stale_session = session_registry.get(stale_handle).unwrap()
+  let stale_revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(0)
+  let (stale_lifecycle, stale_generation_id) = session_test_validating_lifecycle(
+    stale_revision,
+  )
+  let stale_result = @js.parse(
+    commit_validated_candidate_transaction(
+      stale_session,
+      stale_handle,
+      stale_revision,
+      stale_lifecycle,
+      stale_generation_id,
+      session_test_text_candidate(["stale"]),
+    ),
+  )
+  assert_false(stale_result.get("success").cast())
+  assert_eq(stale_result.get("revision").cast(), 1)
+  assert_eq(
+    stale_result.get("error").get("code").to_str(),
+    "BaseRevisionMismatch",
+  )
+  assert_eq(
+    stale_result.get("error").get("message").to_str(),
+    "candidate base revision is stale",
+  )
+  assert_true(stale_lifecycle.phase() == @cognition.GenerativeUiPhase::Rejected)
+  assert_eq(session_test_nested_texts("session-root-a"), "initial")
+  jsx_session_dispose(stale_handle)
 }
 
 ///|
