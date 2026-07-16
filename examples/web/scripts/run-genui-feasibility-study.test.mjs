@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   assertUnusedOutputs,
+  buildValidationEnv,
   createRunCapability,
+  runDeterministicPreflight,
 } from './run-genui-feasibility-study.mjs';
 import { finalizeEvidence } from './finalize-genui-feasibility-study.mjs';
 import { buildManifest } from './build-genui-feasibility-manifest.mjs';
@@ -167,6 +169,67 @@ test('run capability is exactly 256 bits from the injected CSPRNG', () => {
   });
   assert.equal(requestedBytes, 32);
   assert.equal(capability, 'ab'.repeat(32));
+});
+
+test('validation environment removes inherited study state and preserves unrelated keys', () => {
+  assert.deepEqual(
+    buildValidationEnv(
+      {
+        PATH: '/bin',
+        GENUI_FEASIBILITY_LIVE: '1',
+        GENUI_FEASIBILITY_RUN_CAPABILITY: 'ambient-secret',
+      },
+      {},
+    ),
+    { PATH: '/bin' },
+  );
+});
+
+test('validation environment applies explicit manifest study state after isolation', () => {
+  assert.deepEqual(
+    buildValidationEnv(
+      {
+        PATH: '/bin',
+        GENUI_FEASIBILITY_LIVE: '1',
+        CONTROL: 'ambient',
+      },
+      {
+        GENUI_FEASIBILITY_LIVE: '0',
+        CONTROL: 'manifest',
+      },
+    ),
+    {
+      PATH: '/bin',
+      GENUI_FEASIBILITY_LIVE: '0',
+      CONTROL: 'manifest',
+    },
+  );
+});
+
+test('deterministic preflight isolates ambient study state at the child process', () => {
+  const assertionScript = `
+    const assert = require('node:assert/strict');
+    assert.equal(process.env.GENUI_FEASIBILITY_LIVE, '0');
+    assert.equal(process.env.GENUI_FEASIBILITY_RUN_CAPABILITY, undefined);
+    assert.equal(process.env.UNRELATED_PARENT_KEY, 'preserved');
+  `;
+  const preflight = runDeterministicPreflight(
+    [{
+      id: 'environment-boundary',
+      command: process.execPath,
+      args: ['-e', assertionScript],
+      cwd: '.',
+      env: { GENUI_FEASIBILITY_LIVE: '0' },
+    }],
+    {
+      GENUI_FEASIBILITY_LIVE: '1',
+      GENUI_FEASIBILITY_RUN_CAPABILITY: 'ambient-secret',
+      UNRELATED_PARENT_KEY: 'preserved',
+    },
+  );
+
+  assert.equal(preflight.passed, true);
+  assert.equal(preflight.checks[0].exitCode, 0);
 });
 
 test('manifest builder freezes nine slots, provider identity, inputs, and validation commands without generation', async () => {

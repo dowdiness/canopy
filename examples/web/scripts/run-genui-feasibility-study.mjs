@@ -26,6 +26,15 @@ export function createRunCapability(randomBytesImpl = randomBytes) {
   return Buffer.from(bytes).toString('hex');
 }
 
+export function buildValidationEnv(parentEnv, explicitEnv) {
+  const childEnv = { ...parentEnv };
+  for (const key of Object.keys(childEnv)) {
+    if (key.startsWith('GENUI_FEASIBILITY_')) delete childEnv[key];
+  }
+  Object.assign(childEnv, explicitEnv);
+  return childEnv;
+}
+
 export function appendJournalEvent(journalPath, event) {
   mkdirSync(dirname(journalPath), { recursive: true });
   const file = openSync(journalPath, 'a', 0o600);
@@ -101,11 +110,11 @@ function validateManifest(manifest) {
   }
 }
 
-function runCommand(check) {
+function runCommand(check, parentEnv) {
   const cwd = check.cwd === '.' ? REPOSITORY_ROOT : resolve(REPOSITORY_ROOT, check.cwd);
   const result = spawnSync(check.command, check.args, {
     cwd,
-    env: { ...process.env, ...check.env },
+    env: buildValidationEnv(parentEnv, check.env),
     stdio: 'inherit',
   });
   return {
@@ -117,10 +126,10 @@ function runCommand(check) {
   };
 }
 
-export function runDeterministicPreflight(validationCommands) {
+export function runDeterministicPreflight(validationCommands, parentEnv = process.env) {
   const checks = [];
   for (const command of validationCommands) {
-    const result = runCommand(command);
+    const result = runCommand(command, parentEnv);
     checks.push(result);
     if (result.exitCode !== 0) break;
   }
