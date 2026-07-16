@@ -86,14 +86,31 @@ interaction state, or a human study.
 ### Trusted fixture ingestion
 
 Fixture-specific trusted host adapters parse the frozen JSON array, nested JSON,
-and restricted CSV inputs. They normalize those sources into a versioned dataset
-containing a case identifier, source format, binding, scalar rows, and the
-host-owned task value.
+and restricted CSV inputs. They normalize those sources into the exact
+`schema_version: 1` dataset object with these fields, in this order:
+`schema_version`, `case_id`, `source_format`, `binding`, `selection_key`,
+`fields`, `rows`, and `task_value`. `source_format` is exactly `json-array`,
+`json-nested-items`, or `restricted-csv`. `fields` is an ordered array of unique
+field names, including `selection_key`. Each row is `{ stable_key, values }`;
+`stable_key` is a non-empty string, and `values` is an ordered array of
+two-element `[field, scalar]` pairs containing every declared field exactly once
+and in `fields` order. The row value for `selection_key` must be a string
+exactly equal to `stable_key`. This pair-array representation keeps duplicate
+row fields observable at the MoonBit boundary.
 
-Normalized row values are limited to strings, finite numbers, booleans, and
-null. The ingestion adapter does not parse, inspect, validate, or act on the
-provider candidate. CSV syntax remains an ingestion concern rather than a new
-candidate-interpreter concern.
+A scalar uses its native JSON string, finite number, boolean, or null variant.
+Number lexical spelling is not identity: MoonBit decodes numbers to finite
+`Double` values and deterministically re-encodes them without retaining the
+input token spelling. Both the trusted adapter and MoonBit decoder reject
+missing or extra fields, duplicate field names or stable keys, empty stable
+keys, a missing or non-string `selection_key` value, disagreement between that
+value and `stable_key`, non-finite numbers, unsupported nested values, and row
+order or field order disagreement. They also require capabilities to expose
+exactly one binding whose field and selection key allowlists equal the dataset
+declarations.
+The trusted adapter does not parse,
+inspect, validate, or act on the provider candidate. CSV syntax remains an
+ingestion concern rather than a new candidate-interpreter concern.
 
 ### Local provider adapter
 
@@ -127,24 +144,58 @@ MoonBit validator, which rejects any disagreement at runtime. The schema and
 prompt must not encode a fixture's expected filter, columns, aggregation,
 answer, matched keys, or outcome rubric.
 
+The runtime validator rejects duplicate attribute names on every raw component
+before interpreting any `data`, `selection`, `field`, `operator`, `aggregation`,
+`label`, or `value` attribute. A duplicated allowlisted attribute is invalid,
+not a first-value or last-value override.
+
 ### MoonBit materialization core
 
 After validation, a pure MoonBit core consumes the opaque validated candidate,
 host capabilities, normalized dataset, and host-owned task value. It performs
 the candidate-selected filter, projection, and aggregation exactly once.
 
+The only materializable provider topology is a root `Stack` with exactly two
+direct children in order: one `Text` title and one `Table`. No provider `Panel`
+or nested `Stack` is accepted. The `Table` has exactly two to four unique direct
+`Column` children followed by exactly one direct `Filter` and exactly one
+direct `Summary`. Any missing, duplicated, reordered, nested, or extra node is a
+generic materialization failure.
+
 The core returns an internal prepared value containing generic evidence and an
 opaque validated safe-output candidate. It does not read the DOM, session,
 revision, provider, clock, filesystem, or rubric expectations.
 
-The safe output contains only inert Stack, Panel, and Text nodes. Model text and
-host data remain text values. The core synthesizes no HTML, expression, URL,
-event handler, query state, or selection state.
+The safe output contains a root `Stack`, the provider title as its first typed
+`Text`, one `Panel` per matched row in source order, and one final summary
+`Text`. Each panel contains one `Text` per projected column in candidate order,
+formatted as `label: scalar`, where `label` is the candidate label or field
+name. The summary is formatted as `aggregation field: scalar`, using the
+canonical `count`, `sum`, `average`, `minimum`, or `maximum` name. Scalar text
+is the original string, `Double::to_string`, lowercase boolean, or `null`.
+Every numeric aggregate is checked after evaluation; a non-finite result is a
+generic materialization failure before evidence or safe-output construction.
+Only an empty numeric input set produces a null summary value.
+Model text and host data remain typed text values. The core synthesizes no HTML,
+expression, URL, event handler, query state, or selection state.
 
-Generic evidence records the selected binding, filter field/operator/task value,
-projected fields, matched stable row keys in source order, summary
-field/aggregation/value, source format, and safe-output digest. It contains no
-fixture-specific pass/fail judgment.
+The safe-output projection JSON is the compact object tree
+`{ "type": "stack", "children": [...] }`; text nodes contain exactly `type` and
+`value`, and panel nodes contain exactly `type` and `children`, in that field
+order. Its child order is the safe-output order above. The safe-output digest is
+the lowercase SHA-256 hex digest of that compact JSON's UTF-8 bytes. The same
+in-memory safe tree produces both this JSON and the raw Stack/Panel/Text tree
+that is revalidated with empty capabilities, so hashing cannot describe a
+different output.
+
+Generic evidence uses `schema_version: 1` and records fields in this order:
+`schema_version`, `case_id`, `source_format`, `binding`, `filter`,
+`projected_fields`, `matched_stable_keys`, `summary`, and
+`safe_output_sha256`. `filter` contains `field`, canonical `operator`, and the
+native JSON scalar task `value`; `projected_fields` preserves candidate order;
+`matched_stable_keys` preserves source order; and `summary` contains `field`,
+canonical `aggregation`, and a native JSON scalar or null `value`. It contains
+no expected rows, expected aggregate, or fixture-specific pass/fail judgment.
 
 ### Fixture rubric
 

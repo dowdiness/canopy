@@ -100,6 +100,34 @@
   - Run `moon info && moon fmt`, inspect `ffi/jsx/pkg.generated.mbti`, and confirm there is no public interface change.
   - Commit message: `refactor(genui): isolate validated candidate transaction`.
 
+### Task 1.5: Reject Duplicate Candidate Attributes
+
+**Files:**
+- Modify: `lib/cognition/generative_ui_candidate.mbt`
+- Modify: `lib/cognition/generative_ui_candidate_test.mbt`
+
+- [ ] **Step 1: Write failing duplicate-attribute contracts.**
+  - Add raw-candidate validation cases for duplicate `data`, `selection`,
+    `field`, `operator`, `aggregation`, `label`, and `value` attributes.
+  - Require `InvalidAttributeValue` at the duplicated component path; do not add
+    a public diagnostic variant.
+  - Run `moon test lib/cognition/generative_ui_candidate_test.mbt` and confirm
+    the duplicate inputs are incorrectly accepted before implementation.
+
+- [ ] **Step 2: Reject duplicate names before attribute interpretation.**
+  - Extend the existing attribute diagnostic pass with `Set[String]`; report
+    each repeated name once and preserve existing unknown-attribute diagnostics.
+  - Do not change first-match lookup, component topology, capability semantics,
+    or any public signature.
+  - Run `NEW_MOON_MOD=0 moon check` immediately after each file edit.
+
+- [ ] **Step 3: Verify and commit the prerequisite fix separately.**
+  - Run `moon test lib/cognition/generative_ui_candidate_test.mbt` and
+    `moon test lib/cognition`.
+  - Run `moon info && moon fmt`; confirm
+    `lib/cognition/pkg.generated.mbti` is unchanged.
+  - Commit message: `fix(cognition): reject duplicate candidate attributes`.
+
 ### Task 2: Freeze Fixtures and Add the MoonBit Preparation Core
 
 **Files:**
@@ -116,10 +144,10 @@
 - Remove after replacement tests pass: `examples/web/src/genui-spike-case.js`, `examples/web/src/genui-spike-recipe.js`, `examples/web/src/genui-spike-recipe.test.mjs`
 
 **Interfaces:**
-- JavaScript produces `GENUI_FEASIBILITY_FIXTURES`, `getFeasibilityFixture(caseId)`, `capabilitiesJsonForFixture(fixture)`, and `normalizedDatasetJsonForFixture(fixture)`. The versioned dataset contains case ID, source format, binding, selection key, scalar rows, and host-owned task value.
+- JavaScript produces `GENUI_FEASIBILITY_FIXTURES`, `getFeasibilityFixture(caseId)`, `capabilitiesJsonForFixture(fixture)`, and `normalizedDatasetJsonForFixture(fixture)`. The last function emits only the canonical design's exact `schema_version: 1` object: ordered declarations, ordered rows, and duplicate-observable `[field, scalar]` pairs.
 - MoonBit produces `__jsx_evaluate_feasibility_candidate_json(candidate_json, capabilities_json, dataset_json)` and `__jsx_commit_feasibility_candidate_json(handle, base_revision, candidate_json, capabilities_json, dataset_json)`.
 - Both FFI entry points call one private `prepare_feasibility_candidate` core. Evaluate-only returns preparation evidence without a session; evaluate-and-commit passes the internal validated safe-output candidate directly to Task 1’s private transaction.
-- Result schema carries `schema_version`, terminal classification, generic evidence, rubric result, safe-output SHA-256 digest, and nullable session result. It never returns a serialized safe candidate for JavaScript to interpret.
+- Result schema carries `schema_version: 1`, terminal classification, the canonical ordered generic-evidence object, rubric result, lowercase safe-output SHA-256 digest, and nullable session result. It never returns a serialized safe candidate for JavaScript to interpret.
 - Recorded controls remain case-neutral raw candidates. They enter the same MoonBit preparation core and are not represented as local-model evidence.
 
 **Frozen fixtures:**
@@ -128,26 +156,34 @@
 - `inventory-low-stock`: nested JSON object whose `items` array contains `sku`, `product`, `category`, and `on_hand`; binding `inventory`; selection key `sku`; numeric task value `10`; at least two rows are below the threshold and their `on_hand` sum is `11`.
 
 **Pure algorithm invariants:**
-- Trusted JavaScript ingestion accepts only strings, finite numbers, booleans, and null; rejects duplicate/missing CSV headers, ragged rows, non-finite numbers, unsupported nested values, duplicate stable keys, and dataset/capability disagreement before candidate evaluation.
-- MoonBit rechecks normalized-dataset version, case, binding, selection key, required scalar fields, finite numbers, unique stable keys, and capability consistency at the FFI boundary.
-- MoonBit alone decodes the raw candidate. Exactly one root Stack, one title Text, and one Table are materializable. The Table contains two to four unique Columns, exactly one Filter, and exactly one Summary. Ambiguity is a generic materialization failure.
-- The runtime validator has already approved every binding, field, selection key, operator, and aggregation. The materializer still rejects missing or structurally ambiguous normalized data and never broadens authority.
-- `eq`/`neq` compare equal scalar variants exactly. `contains` accepts strings and compares `String::to_lower` results without locale-specific behavior. `gt`/`lt` require finite numeric row and task values.
+- Trusted JavaScript ingestion accepts only native JSON strings, finite numbers, booleans, and null; rejects missing or extra fields, duplicate or missing CSV headers, ragged rows, empty or duplicate stable keys, a selection key absent from the field declarations, a missing or non-string row selection value, disagreement between that value and the row stable key, non-finite numbers, unsupported nested values, row/field order disagreement, and dataset/capability disagreement before candidate evaluation.
+- MoonBit rechecks the exact dataset version and property set, source-format enum, case, binding, selection key, ordered unique field declarations including that selection key, duplicate-observable row pairs, finite numbers, complete rows, non-empty unique stable keys, exact string equality between every row selection value and stable key, and exact single-binding capability consistency at the FFI boundary.
+- MoonBit alone decodes the raw candidate. The only materializable topology is direct `Stack([Text(title), Table(children)])`; no provider Panel or nested Stack is accepted. Table children are exactly two to four unique Columns followed by one Filter and one Summary. Any missing, duplicated, reordered, nested, or extra node is a generic materialization failure.
+- The runtime validator has already rejected duplicate attributes and approved every binding, field, selection key, operator, and aggregation. The materializer still rejects missing or structurally ambiguous normalized data and never broadens authority.
+- `eq`/`neq` compare equal scalar variants exactly. `contains` accepts strings and compares `String::to_lower` results without locale-specific behavior. `gt`/`lt` require finite numeric row and task values. JSON number token spelling is discarded after finite `Double` decoding.
 - Filtering preserves source order. Projection preserves candidate column order. Normalized rows and candidate values are immutable.
-- `count` returns matched-row count. `sum`, `average`, `minimum`, and `maximum` require finite numeric field values. Empty numeric sets produce `null`; they cannot produce `NaN`, infinity, or an exception.
-- The safe output is deterministic: root Stack; provider title as typed Text; one Panel per matched source row, containing one Text per projected column in candidate order; and one final summary Text. Labels use the candidate label or field name. Scalar text uses the frozen variant formatter: original String, `Double::to_string`, lowercase Bool, or `null`.
-- The core validates that host-owned raw Stack/Panel/Text tree with empty capabilities, hashes its deterministic projection JSON with `@crypto.sha256`, and retains the resulting opaque `GenerativeUiCandidate`. No HTML, expression, URL, attribute, event handler, query state, or selection state is synthesized.
-- Generic evidence contains case/source identifiers, selected binding, filter field/operator/task value, projected fields, matched stable row keys in source order, summary field/aggregation/value, and safe-output digest. It contains no expected rows, expected aggregate, or task pass/fail rule.
+- `count` returns matched-row count. `sum`, `average`, `minimum`, and `maximum` require finite numeric field values and a finite result after evaluation; overflow is a generic materialization failure before evidence or safe-output construction. Empty numeric sets alone produce `null`; they cannot produce `NaN`, infinity, or an exception.
+- The safe output is deterministic: root Stack; provider title as typed Text; one Panel per matched source row, containing one `label: scalar` Text per projected column in candidate order; and one `aggregation field: scalar` summary Text. Scalar text uses the frozen variant formatter: original String, `Double::to_string`, lowercase Bool, or `null`.
+- One in-memory safe tree produces both the revalidated raw Stack/Panel/Text candidate and the canonical compact projection JSON. Hash exactly that JSON's UTF-8 bytes with `@crypto.sha256` and encode lowercase with `bytes_to_hex_string`; never synthesize HTML, expression, URL, attribute, event handler, query state, or selection state.
+- Generic evidence is the canonical `schema_version: 1` object ordered as `schema_version`, `case_id`, `source_format`, `binding`, `filter`, `projected_fields`, `matched_stable_keys`, `summary`, and `safe_output_sha256`. It uses native JSON scalars and contains no expected rows, expected aggregate, or task pass/fail rule.
 - The separate rubric file consumes generic evidence only. It cannot inspect source rows, raw candidate JSON, provider data, session state, or the prepared candidate.
 
 - [ ] **Step 1: Obtain independent algorithm review before tests.**
-  - Provide the approved design, this task, `generative_ui_candidate.mbt`, Task 1’s private transaction, and current Spike 0 fixture code to a different-model reviewer.
-  - Require pass/fail plus no more than three findings with exact file/line evidence and tool calls.
-  - Resolve every correctness finding before continuing. Do not implement algorithm code before a pass.
+  - Provide the approved design, this task, `generative_ui_candidate.mbt`, Task
+    1's private transaction, and current Spike 0 fixture code to a
+    different-model reviewer.
+  - The first review failed on duplicate attributes, wire/hash ambiguity, and
+    candidate topology. The second review retained duplicate rejection as a
+    prerequisite and found stable-key/selection-value identity plus aggregate
+    overflow unspecified. Apply Task 1.5 and all frozen direct-shape, identity,
+    and finite-result contracts, then require a fresh pass/fail review with no
+    more than three findings, exact file/line evidence, and tool calls.
+  - Resolve every correctness finding before continuing. Do not implement
+    materialization code before a pass.
 
 - [ ] **Step 2: Add frozen sources and failing trusted-ingestion tests one file at a time.**
   - Inventory JSON uses a nested `items` array and no expected-output fields. Incidents CSV has one canonical raw string and no duplicate copy.
-  - Test flat JSON, nested JSON path, restricted CSV, scalar typing, finite-number checks, duplicate stable keys, source order, immutability, and every malformed-source rejection above.
+  - Test the exact version/property/source-format contract, ordered field declarations and row pairs, flat JSON, nested JSON path, restricted CSV, scalar typing, finite-number checks, empty/duplicate stable keys, duplicate/missing row fields, source order, immutability, exact capability equality, and every malformed-source rejection above.
   - Prove fixture objects and recorded candidates contain no expected filter field, expected columns, matched keys, expected aggregate, or rubric result.
   - Run `node --test src/genui-feasibility-fixtures.test.mjs` and confirm the missing-ingestion failure.
   - Run `NEW_MOON_MOD=0 moon check` after each file edit.
@@ -159,7 +195,7 @@
 
 - [ ] **Step 4: Write failing MoonBit preparation and rubric contracts.**
   - Cover all three recorded candidates and normalized datasets.
-  - Cover candidate decode/capability/semantic rejection; duplicate/missing components; `eq`, `neq`, `contains`, `gt`, `lt`; `count`, `sum`, `average`, `minimum`, `maximum`; empty numeric sets; non-finite values; source/column order; immutable inputs; and JSX-significant text.
+  - Cover candidate decode/capability/semantic rejection; exact direct topology and every duplicate/missing/reordered component; `eq`, `neq`, `contains`, `gt`, `lt`; `count`, `sum`, `average`, `minimum`, `maximum`; empty numeric sets; non-finite values; number-spelling normalization; source/column order; immutable inputs; exact evidence order; exact safe-output text/tree/JSON/hash bytes; and JSX-significant text.
   - Prove a runtime-valid candidate using an allowed but task-wrong field materializes generically, then fails the separate rubric without reaching the session transaction.
   - Prove evaluate-only creates no session or revision, and evaluate-only/evaluate-and-commit produce identical preparation classification, generic evidence, rubric result, and safe-output digest for the same bytes.
   - Prove the safe-output candidate reaches Task 1’s private transaction without candidate JSON serialization or a second semantic interpretation.
@@ -167,14 +203,14 @@
   - Run `NEW_MOON_MOD=0 moon check` after the test file edit.
 
 - [ ] **Step 5: Implement normalized-dataset decoding and generic materialization.**
-  - Reuse MoonBit `Json`/`FromJson`, `Result`, `Option`, `Map`, `Set`, `Array::filter`/`map`/`fold`/`find_first`/`every`, `@cmp.minimum`/`maximum`, `@buffer.Buffer`, `@encoding.encode`, and `@crypto.sha256`/`bytes_to_hex_string`.
+  - Reuse MoonBit `Json`/`FromJson`, `Result`, `Option`, `Map`, `Set`, `Array::filter`/`map`/`fold`/`search_by`/`all`, `@cmp.minimum`/`maximum`, `String::to_lower`, `@utf8.encode`, and `@crypto.sha256`/`bytes_to_hex_string`.
   - Keep parsing, filter/project/aggregate decisions, evidence construction, safe-output validation, projection hashing, and prepared-candidate retention in MoonBit. Do not add a JavaScript candidate decoder or materializer.
   - Run `NEW_MOON_MOD=0 moon check` after each MoonBit file edit.
 
 - [ ] **Step 6: Implement separate rubrics and the two FFI shells.**
   - Rubrics assert task-required filter/operator, minimum projected fields, matched stable row keys, summary field/aggregation, and exact summary value using generic evidence only.
   - Both FFI shells call one preparation function. Only a rubric-passing prepared value may call the private validated-candidate transaction.
-  - Add only the two double-underscore experimental functions and required `moonbitlang/x/crypto`, UTF-8 encoding, and buffer imports to `moon.pkg`.
+  - Add only the two double-underscore experimental functions plus `moonbitlang/x/crypto` and `moonbitlang/core/encoding/utf8` imports to `moon.pkg`.
   - Run `NEW_MOON_MOD=0 moon check` after each file edit.
 
 - [ ] **Step 7: Remove the answer-specific Spike 0 recipe files.**
