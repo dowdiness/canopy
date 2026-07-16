@@ -1,15 +1,15 @@
 # Generative UI local-LLM technical feasibility
 
 - **Date:** 2026-07-15
-- **Status:** Proposed
+- **Status:** Approved
 - **Decision:** `TECHNICALLY_FEASIBLE` or `NOT_YET_FEASIBLE`
 - **Scope owner:** Canopy maintainers
 
 ## Purpose
 
-Determine whether Canopy can accept an untrusted candidate from a local LLM,
-validate it fail-closed, materialize it through host-owned capabilities, and
-update the committed UI without corrupting existing state.
+Determine whether Canopy can accept an untrusted candidate from a frozen local
+LLM, interpret it once inside MoonBit, materialize it through host-owned
+capabilities, and update the committed UI without corrupting existing state.
 
 This is an engineering feasibility study. It does not evaluate what Generative
 UI product should be built, whether a generated interface is useful to people,
@@ -36,11 +36,12 @@ by the answer, it does not yet establish a reusable local-LLM candidate boundary
 
 Can the existing deterministic shell accept local-LLM candidates across
 structurally different fixtures without adding model-controlled code, data,
-effects, or commit authority?
+effects, interpretation, or commit authority?
 
-A positive result requires the same candidate contract and materialization path
-to work for both development-only live generation and production-safe recorded
-replay. It does not require a cloud provider or a human study.
+A positive result requires the same MoonBit candidate interpretation and
+materialization core to serve development-only live generation and
+production-safe recorded replay. It does not require a cloud provider, generated
+interaction state, or a human study.
 
 ## Scope
 
@@ -50,19 +51,26 @@ replay. It does not require a cloud provider or a human study.
 - A bounded declarative recipe for read-only JSON/CSV surfaces.
 - Structurally different fixtures that exercise the bounded contract without
   sharing one answer-specific recipe.
+- Trusted fixture-specific normalization into one bounded dataset format.
 - Fail-closed syntax, schema, capability, field, and authority validation.
+- A single MoonBit interpretation of every candidate-selected binding, field,
+  operator, aggregation, and presentation node.
+- MoonBit-owned filtering, projection, aggregation, safe-output construction,
+  and generic evidence production.
 - A frozen fixture-specific outcome rubric evaluated after materialization.
-- Host-owned filtering, projection, aggregation, query, and selection behavior.
-- Candidate materialization through the existing session-owned commit boundary.
-- Preservation of committed UI and host interaction state on rejection or
-  failed application.
-- Recorded production-demo candidates that traverse the same validator and
-  materialization path without network access.
-- Deterministic evidence for valid, invalid, unsupported, stale, and failed
-  candidates.
+- Candidate commit through the existing session-owned dry-run, DOM, and revision
+  boundary.
+- Preservation of the last valid committed UI and unrelated host interaction
+  state on rejection or failed application.
+- Recorded production-demo candidates that traverse the same validation,
+  materialization, rubric, and commit path without network access.
+- Deterministic evidence for valid, invalid, unsupported, stale, interrupted,
+  drifted, and failed candidates.
 
 ### Out
 
+- Generated query state, generated selection state, or interaction-state
+  migration between successful generated outputs.
 - Target-user recruitment, telemetry, feedback collection, or usability claims.
 - Comparison with the fixed explorer, hand-authored oracle, or deterministic
   rules.
@@ -75,121 +83,234 @@ replay. It does not require a cloud provider or a human study.
 
 ## Responsibility boundaries
 
+### Trusted fixture ingestion
+
+Fixture-specific trusted host adapters parse the frozen JSON array, nested JSON,
+and restricted CSV inputs. They normalize those sources into a versioned dataset
+containing a case identifier, source format, binding, scalar rows, and the
+host-owned task value.
+
+Normalized row values are limited to strings, finite numbers, booleans, and
+null. The ingestion adapter does not parse, inspect, validate, or act on the
+provider candidate. CSV syntax remains an ingestion concern rather than a new
+candidate-interpreter concern.
+
 ### Local provider adapter
 
-The adapter owns only the development request, whole-response decoding, limits,
-and transport failure classification. It cannot validate UI semantics, access
-the DOM, mutate host state, or advance a session revision.
+The adapter owns only the development request, whole-response envelope, limits,
+model-identity checks, and transport failure classification. It cannot validate
+UI semantics, interpret candidate fields or operations, access the DOM, mutate
+host state, or advance a session revision.
 
-Each request contains only the frozen synthetic fixture rows, the fixture task,
-and the candidate schema and instructions. It contains no live user or project
-data. The feasibility result makes no broader privacy claim about a future
-product data path.
+Each request contains only the frozen synthetic fixture rows, fixture task,
+candidate schema, and instructions. It contains no live user or project data.
+The feasibility result makes no broader privacy claim about a future product
+data path.
 
-### Candidate contract
+Normal development and production builds expose recorded controls only. The live
+provider endpoint exists only in an explicit study mode and accepts requests
+from the frozen runner through an ephemeral run capability.
 
-The contract describes only allowlisted presentation and references to
-host-owned capabilities. It cannot contain source data, executable expressions,
-network targets, persistence commands, navigation, or arbitrary event handlers.
+### Candidate trust boundary
 
-The MoonBit runtime validator is the sole trust authority. A provider JSON
-Schema is only a generation aid and may be narrower. Any disagreement becomes a
-runtime rejection.
+The provider contract describes only allowlisted presentation and references to
+host-owned capabilities. It cannot grant network, persistence, navigation,
+arbitrary event, DOM, expression, or commit authority.
 
-Contract tests exercise every provider-schema node variant and every known
-authority-boundary negative against the runtime validator. Neither the schema
-nor the prompt may encode a fixture's expected filter, columns, aggregation,
-answer, or outcome rubric.
+MoonBit is the sole candidate parser, validator, and semantic interpreter. Raw
+provider JSON crosses into one MoonBit validate-and-materialize operation. No
+JavaScript stage reparses the candidate or independently selects a binding,
+field, operator, aggregation, or presentation meaning.
 
-### Host capability layer
+The provider JSON Schema is only a generation aid and may be narrower than the
+MoonBit validator, which rejects any disagreement at runtime. The schema and
+prompt must not encode a fixture's expected filter, columns, aggregation,
+answer, matched keys, or outcome rubric.
 
-Trusted host code owns data, filtering, projection, aggregation, query, and
-selection. A candidate may select an allowlisted capability and validated
-parameters; host code performs the operation and owns its mutable state.
+### MoonBit materialization core
 
-After generic validation, a pure host materializer consumes the immutable
-candidate and frozen fixture input. It returns a safe output candidate plus
-evidence.
+After validation, a pure MoonBit core consumes the opaque validated candidate,
+host capabilities, normalized dataset, and host-owned task value. It performs
+the candidate-selected filter, projection, and aggregation exactly once.
 
-The separate fixture rubric evaluates that evidence. Only a
-rubric-passing output candidate may reach dry-run and the existing session commit
-boundary.
+The core returns an internal prepared value containing generic evidence and an
+opaque validated safe-output candidate. It does not read the DOM, session,
+revision, provider, clock, filesystem, or rubric expectations.
 
-Generic rejection, materialization failure, rubric failure, or session
-application failure leaves the last valid UI, host state, and committed revision
-intact. Provider code cannot bypass any of these boundaries.
+The safe output contains only inert Stack, Panel, and Text nodes. Model text and
+host data remain text values. The core synthesizes no HTML, expression, URL,
+event handler, query state, or selection state.
+
+Generic evidence records the selected binding, filter field/operator/task value,
+projected fields, matched stable row keys in source order, summary
+field/aggregation/value, source format, and safe-output digest. It contains no
+fixture-specific pass/fail judgment.
+
+### Fixture rubric
+
+Each frozen case owns a separate pure rubric. The rubric consumes generic
+evidence only and returns pass/fail reasons. It cannot alter evidence, construct
+a candidate, invoke a provider, access source rows, or commit a session.
+
+Only a rubric-passing prepared value may reach dry-run and commit. A task-wrong
+candidate may pass generic validation and materialization, but it must fail at
+this separate boundary.
+
+### Session shell
+
+The existing session shell remains the only owner of dry-run, DOM application,
+recovery, and committed revision changes. The recorded replay path and
+feasibility path share the same private operation that accepts an already
+validated candidate and performs the session transaction.
+
+Evaluate-only feasibility execution creates no session and advances no revision.
+Evaluate-and-commit uses the same pure preparation core, then passes the internal
+safe-output candidate directly to the existing transaction. It never
+serializes the raw provider candidate for another interpreter.
+
+Generic rejection, materialization failure, rubric failure, stale revision,
+dry-run failure, or DOM application failure leaves the last valid UI, unrelated
+host state, and committed revision intact.
 
 ### Public recorded demo
 
-The production build contains recorded candidates and the shared deterministic
-candidate path. It omits the local-provider endpoint, credential path, telemetry,
-and external requests. Recorded replay executes the shared validator and
-projection, and its visible result comes from that path.
+The production build contains recorded control candidates, frozen fixture
+normalizers, and the shared deterministic MoonBit path. It omits the live
+provider endpoint, study capability, model setting, prompt transport, telemetry
+collector, and external requests.
+
+Recorded replay executes the shared validation, materialization, rubric, and
+session transaction. Its visible result must come from that path rather than
+from embedded expected output.
 
 ## Required fixture breadth
 
-The evidence set must contain multiple structurally different JSON/CSV shapes
-and exercise distinct combinations of the bounded capabilities. Their sole
-purpose is falsifying contract overfitting across technical shapes.
+The evidence set contains multiple structurally different JSON/CSV shapes and
+exercises distinct combinations of the bounded capabilities. Their sole purpose
+is falsifying contract overfitting across technical shapes.
 
-Validation of product use cases belongs to later product discovery. The set must
-include known-negative candidates for every generic authority boundary.
+Validation of product use cases belongs to later product discovery. The set
+includes known-negative candidates for every generic authority boundary.
 
-Each valid fixture also has a separate frozen outcome rubric. Apply that rubric
-after materialization to check whether the candidate produced the requested
-technical structure and behavior. Keep the rubric outside the shared candidate
-schema, prompt, and generic validator so it cannot predetermine the model output.
+Each valid fixture has a separate frozen outcome rubric. The rubric runs after
+materialization to check whether the candidate produced the requested technical
+structure and result. It remains outside the shared candidate schema, prompt,
+validator, normalized dataset, and generic materializer.
 
-Fixture content, expected materialized structure, state-preservation invariants,
-generic rejection outcomes, and fixture-specific rubric are fixed before judging
-feasibility. A failed fixture is not replaced with an easier one.
+Fixture content, normalized dataset shape, capabilities, task values, expected
+materialized structure, generic rejection outcomes, and fixture-specific rubric
+are fixed before judging feasibility. A failed fixture is not replaced with an
+easier one.
+
+## Frozen study manifest
+
+Before the first generation request, a versioned manifest freezes:
+
+- the valid fixture set and ordered three-slot schedule per fixture;
+- fixture, normalization-contract, candidate-schema, prompt, and rubric digests;
+- the mutable lookup tag, model-manifest SHA-256 digest, and canonical digest of
+  the complete relevant `/api/show` identity payload;
+- the Ollama version and separate digests of effective model template and
+  parameters;
+- every explicit generation setting, seed, timeout, and size limit;
+- terminal classifications, replay comparison, and final decision rules.
+
+Model discovery and identity checks do not generate candidates. The runner binds
+the committed manifest digest to a clean implementation Git revision in the run
+evidence, avoiding a self-referential commit field inside the manifest.
+
+Any change to the implementation, fixture, normalizer, capability manifest,
+prompt, schema, rubric, model content, Ollama version, effective model
+parameters, generation settings, schedule, or decision rule creates a new
+versioned study. It does not amend or resume the frozen run.
 
 ## Local model attempt protocol
 
-Before the first live attempt, freeze the valid fixture set, local model ID and
-version, prompt digest, generation settings, limits, and exactly three attempt
-slots per valid fixture.
+The study runner uses a fresh development server, one browser worker, no test
+retry, and an ephemeral run capability. The live endpoint rejects an invalid
+capability, unknown study, unknown case, unknown slot, or duplicate slot before
+provider access.
 
-Execute every slot once. Transport errors, malformed responses, generic
-validation rejection, materialization failure, fixture-rubric failure, and
-missing results remain failed slots. Do not retry, replace, edit the prompt, or
-rerun a preferred result.
+Before each provider call, the runner appends a `started` entry for that slot to
+a local study journal. The slot then receives exactly one provider request.
+Transport errors, timeouts, aborts, malformed responses, validation rejection,
+materialization failure, rubric failure, commit failure, and missing results
+remain failed terminal slots.
 
-At least one of the three predetermined slots for each valid fixture must pass
-the generic validator, materialization path, and fixture-specific outcome rubric.
-Retain and report all slot classifications and the success rate.
+After a process interruption, a separate provider-disabled finalizer reopens the
+journal. It classifies a trailing `started` slot as `interrupted` and every
+later unstarted slot as `not_run_interrupted`, then emits complete terminal
+evidence and a `NOT_YET_FEASIBLE` decision. The finalizer has no endpoint or run
+capability and cannot contact the provider.
+
+The runner does not retry interrupted or unstarted slots. Existing journal or
+evidence for the same study ID prevents another execution. A new attempt
+requires a new versioned manifest and an explicit changed-input reason.
+
+For every returned candidate, the runner retains the raw response in an ignored
+local artifact, records its digest, and performs the real evaluate-and-commit
+path once. It then resets to the same baseline and performs provider-free
+evaluate-only replay from the exact saved candidate bytes.
+
+The preparation classification covers candidate decode, validation,
+materialization, and rubric outcome. Both executions must agree on it, generic
+evidence, rubric result, and safe-output digest.
+
+The evaluate-and-commit session outcome is recorded separately and is not part
+of replay equality. A preparation mismatch becomes `replay_mismatch`; the
+provider is not called again.
+
+The runner verifies the model-manifest and `/api/show` identity digests, Ollama
+version, effective template, and effective parameters before the first slot,
+immediately before and after every request, and after the final slot. The tag is
+lookup metadata, not identity. Drift rejects any in-flight result and terminates
+the remaining schedule as failed without further provider access.
+
+For each valid fixture, at least one of the three predetermined slots must pass
+the generic validator, MoonBit materialization core, fixture-specific rubric,
+session transaction, and offline replay comparison. The evidence reports every
+slot classification and the resulting success rate.
 
 This threshold establishes only that the frozen local model can cross the
 technical boundary for each fixture. It does not establish reliability or model
-quality. Changing any frozen input starts a new feasibility run.
+quality.
 
 ## Acceptance criteria
 
 Select `TECHNICALLY_FEASIBLE` only when all of the following are observed:
 
 1. At least one of the three predetermined local Ollama slots for every frozen
-   valid fixture passes generic validation, materialization, and the separate
-   frozen fixture rubric through the real development adapter.
-2. Every successful candidate uses only the bounded recipe and host-owned
+   valid fixture passes MoonBit validation, materialization, the separate frozen
+   rubric, session commit, and offline replay through the real development
+   adapter.
+2. MoonBit is the only interpreter of raw provider candidates. Trusted host
+   ingestion normalizes fixture data but never parses or acts on candidate
+   semantics.
+3. Every successful candidate uses only the bounded recipe and host-owned
    capabilities; no arbitrary code or generated side effect is reachable.
-3. The generic validator rejects every frozen syntax, schema, capability, field,
-   and authority-boundary negative fixture before commit.
-4. The separate frozen fixture rubric classifies each materialized valid
-   candidate without influencing the prompt, candidate schema, or generic
-   validator.
-5. Rejection, stale base revision, dry-run failure, and DOM application failure
-   preserve the last valid UI and follow the existing dirty-state and recovery
-   contracts without falsely advancing the committed revision.
-6. Replaying the same successful candidate from the same base state produces the
-   same modeled and visible result.
-7. Frozen interaction state survives regeneration whenever the resulting
-   structure still supports that state.
-8. Production recorded replay traverses the shared validator and projection,
-   works without network access, and exposes no provider endpoint or credential
-   path.
-9. Every predetermined local model slot has a terminal classification, and
-   deterministic replay reproduces each returned candidate's validation,
-   materialization, and fixture-rubric result.
+4. The generic validator rejects every frozen syntax, schema, capability, field,
+   and authority-boundary negative before materialization or commit.
+5. The generic materializer performs filter, projection, aggregation, and safe
+   output construction without consulting case-specific expected results.
+6. The separate frozen fixture rubric classifies generic evidence without
+   influencing the prompt, provider schema, validator, normalized dataset, or
+   materializer.
+7. Rejection, stale base revision, dry-run failure, and DOM application failure
+   preserve the last valid UI and unrelated fixed-explorer/source-editor state
+   without falsely advancing the committed revision.
+8. Evaluate-only and evaluate-and-commit use the same pure preparation core and
+   produce the same preparation classification, generic evidence, rubric result,
+   and safe-output digest from the same candidate bytes. Stale-revision,
+   dry-run, DOM, and commit outcomes remain separate session results.
+9. Production recorded replay traverses the shared validation, materialization,
+   rubric, and session path, works without network access, and exposes no live
+   endpoint, run capability, model setting, or provider marker.
+10. Every predetermined slot has one terminal classification, no slot is retried
+    or replaced, and a started but incomplete slot remains an interrupted
+    failure.
+11. The model-manifest and `/api/show` identity digests, Ollama version,
+    effective model template and parameters, generation settings, frozen
+    manifest, and implementation revision remain unchanged across the run.
 
 Any missing criterion selects `NOT_YET_FEASIBLE`. A negative result identifies a
 technical boundary to redesign; it does not imply that Generative UI is or is
@@ -197,21 +318,29 @@ not useful.
 
 ## Evidence and non-claims
 
-Retain fixture digests, rubric digests, prompt digest, frozen model identity and
-version, generation settings, slot IDs, every terminal classification, candidate
-digests, validation and rubric results, state and revision assertions, browser
-results, and end-to-end local latency. Do not collect participant data or public
-telemetry.
+Retain the frozen manifest and implementation digests; fixture, normalizer,
+schema, prompt, and rubric digests; model lookup tag, model-manifest digest, and
+`/api/show` identity digest; Ollama version and effective model-configuration
+digests; generation settings; slot IDs; every terminal classification; and
+candidate, generic-evidence, rubric-result, and safe-output digests;
+preparation classifications and replay comparisons; session outcomes; state,
+revision, browser, and end-to-end latency results.
+
+Raw candidate responses and fixture rows remain in ignored local study artifacts
+and are not committed as evidence. Do not collect participant data, public
+telemetry, credentials, environment dumps, or private user data.
 
 A successful result supports only this claim:
 
-> A local LLM can drive Canopy's bounded Generative UI candidate path across the
-> frozen synthetic fixtures. Fixture data stays host-owned, and the model and
-> its candidate receive no effect, DOM, mutable-state, or commit authority.
+> A frozen local LLM can drive Canopy's bounded Generative UI candidate path
+> across the frozen synthetic fixtures. MoonBit alone interprets each untrusted
+> candidate, host-owned data operations produce an inert output, and the model
+> and candidate receive no effect, DOM, mutable-state, or commit authority.
 
-It does not support claims about usability, usefulness, adoption, task
-performance, model superiority, production readiness, or a general provider or
-renderer abstraction.
+It does not support claims about generated query or selection state, interaction
+state migration, usability, usefulness, adoption, task performance, model
+superiority, production readiness, or a general provider or renderer
+abstraction.
 
 ## Later product-discovery boundary
 
