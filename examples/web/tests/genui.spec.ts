@@ -489,7 +489,7 @@ test.describe('Generative UI Demo', () => {
     const table = page.getByRole('table', { name: 'Orders' });
     const rows = table.locator('tbody').getByRole('row');
     await page.getByTestId('order-row-ord-1002').click();
-    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002)');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Northstar onboarding (ord-1002)');
     await expect(page.getByTestId('data-detail-name')).toHaveText('Northstar onboarding');
     await expect(page.getByTestId('data-detail-name')).toBeVisible();
 
@@ -499,7 +499,7 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByTestId('data-summary-count')).toHaveText('3');
     await expect(page.getByTestId('data-summary-total')).toHaveText('$2,486.50');
     await expect(page.getByTestId('data-summary-average')).toHaveText('$828.83');
-    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002) — hidden by filter.');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Northstar onboarding (ord-1002) — hidden by filter.');
 
     await page.getByRole('button', { name: 'Clear filter' }).click();
     await expect(rows).toHaveCount(6);
@@ -528,7 +528,7 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByRole('button', { name: 'JSON fixture' })).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('data-row-count')).toHaveText('6');
     await expect(page.getByTestId('data-detail-name')).toHaveText('Lumen migration');
-    await expect(page.getByRole('status')).toHaveText('Selected: Lumen migration (ord-1004)');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Lumen migration (ord-1004)');
   });
 
   test('async driver rejects cancelled late events and commits only the active generation', async ({ page }) => {
@@ -1152,15 +1152,18 @@ test.describe('Generative UI Demo', () => {
       await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
     }
   });
-  test('generates and commits the constrained data candidate through the browser action', async ({ page }) => {
+  test('runs and commits the recorded feasibility candidate through the browser action', async ({ page }) => {
     await page.goto('/genui.html');
-    await page.getByRole('button', { name: 'Generate candidate' }).click();
-    await expect(page.locator('#status-bar')).toContainText(
-      'Candidate committed through replay, validation, dry-run, and DOM apply.',
+    await page.getByRole('button', { name: 'Run recorded candidate' }).click();
+    await expect(page.locator('#feasibility-status')).toHaveText(
+      'Committed after MoonBit preparation, rubric, dry-run, and DOM apply.',
     );
-    await expect(page.locator('#html-preview [data-genui-kind="stack"]')).toBeVisible();
-    await expect(page.locator('#html-preview [data-genui-kind="table"]')).toHaveCount(1);
-    await expect(page.locator('#html-preview')).toContainText('Orders');
+    await expect(page.locator('#feasibility-classification')).toHaveText('success');
+    await expect(page.locator('#feasibility-preview [data-genui-kind="stack"]')).toBeVisible();
+    await expect(page.locator('#feasibility-preview')).toContainText('Northstar onboarding');
+    await expect(page.locator('#feasibility-preview')).toContainText('Vertex renewal');
+    await expect(page.locator('#feasibility-preview')).toContainText('sum amount: 2180');
+    await expect(page.locator('#feasibility-preview')).toContainText('Pending orders requiring attention');
   });
 
   test('rejects invalid candidates without changing committed preview or revision', async ({ page }) => {
