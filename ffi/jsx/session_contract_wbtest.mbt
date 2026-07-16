@@ -1089,6 +1089,11 @@ test "replay decode and validation errors keep precedence and payloads" {
     invalid_capability_result.get("error").get("message").to_str(),
     "capability bindings are missing or invalid",
   )
+  assert_eq(invalid_capability_result.get("revision").cast(), 1)
+  assert_eq(
+    invalid_capability_result.get("mounted_ids").stringify(),
+    committed_ids.stringify(),
+  )
   assert_eq(
     invalid_capability_result.get("diagnostics").get("length").cast(),
     0,
@@ -1104,6 +1109,7 @@ test "replay semantic validation rejects unsafe nodes before dry run" {
     jsx_session_new("<div>initial</div>", "session-root-a"),
   )
   let handle = session_test_handle(created)
+  let committed_ids = created.get("result").get("mounted_ids")
   let capabilities = session_test_empty_capabilities_json()
   let cases = [
     (
@@ -1128,6 +1134,7 @@ test "replay semantic validation rejects unsafe nodes before dry run" {
     assert_eq(result.get("error").get("message").to_str(), "candidate rejected")
     assert_eq(result.get("diagnostics").at(0).to_str(), diagnostic)
     assert_eq(result.get("revision").cast(), 1)
+    assert_eq(result.get("mounted_ids").stringify(), committed_ids.stringify())
     assert_eq(session_test_nested_texts("session-root-a"), "initial")
   }
   jsx_session_dispose(handle)
@@ -1165,41 +1172,46 @@ test "validated replay transaction accepts an opaque candidate without JSON deco
 }
 
 ///|
-test "validated replay transaction preserves apply and stale paths" {
+test "validated replay transaction ignores corrupted prior dry-run state" {
   install_session_test_document()
-  let dom_created = @js.parse(
+  let created = @js.parse(
     jsx_session_new("<div>initial</div>", "session-root-a"),
   )
-  let dom_handle = session_test_handle(dom_created)
-  let dom_session = session_registry.get(dom_handle).unwrap()
-  let dom_revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(1)
-  let (dom_lifecycle, dom_generation_id) = session_test_validating_lifecycle(
-    dom_revision,
-  )
-  set_session_test_append_failure(true)
-  let dom_result = @js.parse(
+  let handle = session_test_handle(created)
+  let session = session_registry.get(handle).unwrap()
+  session.dry_run_model = @jsx_proj.DryRunModel::empty()
+  let revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(1)
+  let (lifecycle, generation_id) = session_test_validating_lifecycle(revision)
+  let result = @js.parse(
     commit_validated_candidate_transaction(
-      dom_session,
-      dom_handle,
-      dom_revision,
-      dom_lifecycle,
-      dom_generation_id,
-      session_test_text_candidate(["dom"]),
+      session,
+      handle,
+      revision,
+      lifecycle,
+      generation_id,
+      session_test_text_candidate(["candidate"]),
     ),
   )
-  set_session_test_append_failure(false)
-  assert_false(dom_result.get("success").cast())
-  assert_eq(dom_result.get("revision").cast(), 1)
-  assert_eq(dom_result.get("error").get("code").to_str(), "DomApplyError")
-  assert_true(dom_lifecycle.phase() == @cognition.GenerativeUiPhase::Failed)
-  jsx_session_dispose(dom_handle)
+  assert_true(result.get("success").cast())
+  assert_eq(result.get("revision").cast(), 2)
+  assert_eq(session_test_nested_texts("session-root-a"), "candidate")
+  assert_true(
+    result.get("mounted_ids").get("length").cast() ==
+    session_registry.get(handle).unwrap().mounted_ids.length(),
+  )
+  assert_true(lifecycle.phase() == @cognition.GenerativeUiPhase::Committed)
+  jsx_session_dispose(handle)
+}
 
+///|
+test "validated replay transaction preserves stale fields" {
   install_session_test_document()
   let stale_created = @js.parse(
     jsx_session_new("<div>initial</div>", "session-root-a"),
   )
   let stale_handle = session_test_handle(stale_created)
   let stale_session = session_registry.get(stale_handle).unwrap()
+  let committed_ids = stale_created.get("result").get("mounted_ids")
   let stale_revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(0)
   let (stale_lifecycle, stale_generation_id) = session_test_validating_lifecycle(
     stale_revision,
@@ -1216,6 +1228,10 @@ test "validated replay transaction preserves apply and stale paths" {
   )
   assert_false(stale_result.get("success").cast())
   assert_eq(stale_result.get("revision").cast(), 1)
+  assert_eq(
+    stale_result.get("mounted_ids").stringify(),
+    committed_ids.stringify(),
+  )
   assert_eq(
     stale_result.get("error").get("code").to_str(),
     "BaseRevisionMismatch",

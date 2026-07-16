@@ -2,7 +2,7 @@
 
 ## Files changed
 - `ffi/jsx/generative_ui_replay_adapter.mbt` - extracted one shared decode/validate boundary and one opaque validated-candidate session transaction while preserving replay behavior.
-- `ffi/jsx/session_contract_wbtest.mbt` - added regression coverage for precedence, diagnostics, lifecycle outcomes, and the new private validated-candidate transaction boundary.
+- `ffi/jsx/session_contract_wbtest.mbt` - added regression coverage for precedence, diagnostics, lifecycle outcomes, invalid replay result fields, and the validated-candidate transaction boundary.
 
 ## Reuse check
 ### Project APIs checked/reused
@@ -44,26 +44,29 @@
    - Before implementation: failed as expected with missing `commit_validated_candidate_transaction`.
 3. `NEW_MOON_MOD=0 moon check`
    - After implementing adapter extraction: passed with only pre-existing repository warnings.
-4. `moon test ffi/jsx -f session_contract_wbtest.mbt`
-   - Current harness behavior: command reports `Warning: no test entry found. Total tests: 0, passed: 0, failed: 0.`
+4. `moon test ffi/jsx/session_contract_wbtest.mbt`
+   - Passed: `Total tests: 42, passed: 42, failed: 0.`
 5. `moon test ffi/jsx`
-   - Passed: `Total tests: 56, passed: 56, failed: 0.`
+   - Passed after review fix: `Total tests: 57, passed: 57, failed: 0.`
 6. `moon info && moon fmt`
-   - Completed successfully.
+   - Completed successfully during Task 1 implementation.
 7. `git diff -- ffi/jsx/pkg.generated.mbti`
    - No diff; public interface unchanged.
 8. `NEW_MOON_MOD=0 moon check`
    - Re-run after `moon fmt`: passed with only pre-existing warnings.
+9. Review-fix evidence
+   - Added mounted-id/revision assertions for invalid capability and semantic replay failures.
+   - Added transaction regression proving corrupted `session.dry_run_model` is ignored by validated candidate replay because candidate commits always remount from `DryRunModel::empty`.
 
 ## Commit SHA
-- `465a91bcfb08b6d9124d36277e6dd0a72e11d4a2`
+- Task 1 implementation commit: `213f163867cbe96f506382c45020d0c98d724691`
 
 ## Self-review
-- Reviewed committed diff via `git show --stat --oneline --format=fuller HEAD` after commit.
+- Reviewed committed diff via `git show --stat --oneline --format=fuller HEAD` after the Task 1 commit.
 - Verified replay still routes through the original decode helpers and `GenerativeUiCandidate::validate` exactly once.
 - Verified the new private transaction accepts only a validated candidate and never decodes/revalidates JSON.
 - Verified error precedence stayed candidate decode -> capability decode -> semantic validation -> lifecycle/session transaction.
 - Verified no public API or `pkg.generated.mbti` change.
 
 ## Concerns
-- The brief-specified `moon test ffi/jsx -f session_contract_wbtest.mbt` command does not select tests in this repository/harness and currently reports zero tests found even after the file changes; package-level `moon test ffi/jsx` was used to verify the actual white-box tests.
+- A real `DryRunError` through `commit_validated_candidate_transaction` is structurally unreachable without changing production behavior: `jsx_session_commit_candidate` always plans candidate renders with `must_remount=true`, and `commit_projection` therefore dry-runs candidates from `DryRunModel::empty` rather than `session.dry_run_model`. The added regression now locks that invariant in place instead.
