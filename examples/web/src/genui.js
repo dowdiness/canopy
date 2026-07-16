@@ -291,63 +291,66 @@ function renderSpikeRecipe(recipe, telemetry) {
   setSpikeState('result')
 }
 
-spikeQuestion.textContent = GENUI_SPIKE_CASE.question
-setSpikeState('empty')
+if (import.meta.env.DEV) {
+  document.getElementById('genui-spike').hidden = false
+  spikeQuestion.textContent = GENUI_SPIKE_CASE.question
+  setSpikeState('empty')
 
-spikeGenerate.addEventListener('click', async function() {
-  if (spikeGenerating) return
-  spikeGenerating = true
-  spikeGenerate.disabled = true
-  spikeGenerate.textContent = 'Generating…'
-  spikeCheckAnswer.disabled = true
-  spikeTelemetry.hidden = true
-  spikeAnswerFeedback.textContent = ''
-  setSpikeState('loading')
+  spikeGenerate.addEventListener('click', async function() {
+    if (spikeGenerating) return
+    spikeGenerating = true
+    spikeGenerate.disabled = true
+    spikeGenerate.textContent = 'Generating…'
+    spikeCheckAnswer.disabled = true
+    spikeTelemetry.hidden = true
+    spikeAnswerFeedback.textContent = ''
+    setSpikeState('loading')
 
-  try {
-    const response = await fetch('/api/genui-spike', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ caseId: GENUI_SPIKE_CASE.id }),
-    })
-    const body = await response.json()
-    if (!response.ok) {
-      throw new Error(typeof body?.error === 'string' ? body.error : `Prototype endpoint returned HTTP ${response.status}.`)
+    try {
+      const response = await fetch('/api/genui-spike', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ caseId: GENUI_SPIKE_CASE.id }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        throw new Error(typeof body?.error === 'string' ? body.error : `Prototype endpoint returned HTTP ${response.status}.`)
+      }
+
+      const parsedRecipe = parseGenUiRecipe(body?.recipe)
+      if (!parsedRecipe.ok) {
+        throw new Error(`Browser rejected recipe: ${parsedRecipe.error}`)
+      }
+      renderSpikeRecipe(parsedRecipe.value, body?.telemetry)
+    } catch (error) {
+      spikeErrorMessage.textContent = error instanceof Error ? error.message : String(error)
+      setSpikeState('error')
+    } finally {
+      spikeGenerating = false
+      spikeGenerate.disabled = false
+      spikeGenerate.textContent = 'Generate one-shot view'
     }
+  })
 
-    const parsedRecipe = parseGenUiRecipe(body?.recipe)
-    if (!parsedRecipe.ok) {
-      throw new Error(`Browser rejected recipe: ${parsedRecipe.error}`)
-    }
-    renderSpikeRecipe(parsedRecipe.value, body?.telemetry)
-  } catch (error) {
-    spikeErrorMessage.textContent = error instanceof Error ? error.message : String(error)
-    setSpikeState('error')
-  } finally {
-    spikeGenerating = false
-    spikeGenerate.disabled = false
-    spikeGenerate.textContent = 'Generate one-shot view'
-  }
-})
+  spikeAnswerForm.addEventListener('submit', function(event) {
+    event.preventDefault()
+    const submittedIds = spikeAnswerOrders.value
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0)
+      .sort()
+    const idsCorrect = submittedIds.length === spikeExpectedIds.length &&
+      submittedIds.every((id, index) => id === spikeExpectedIds[index])
+    const totalCorrect = Number(spikeAnswerTotal.value) === spikeExpectedTotal
+    const correct = idsCorrect && totalCorrect
 
-spikeAnswerForm.addEventListener('submit', function(event) {
-  event.preventDefault()
-  const submittedIds = spikeAnswerOrders.value
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter((value) => value.length > 0)
-    .sort()
-  const idsCorrect = submittedIds.length === spikeExpectedIds.length &&
-    submittedIds.every((id, index) => id === spikeExpectedIds[index])
-  const totalCorrect = Number(spikeAnswerTotal.value) === spikeExpectedTotal
-  const correct = idsCorrect && totalCorrect
-
-  spikeAnswerFeedback.classList.remove('text-canopy-green', 'text-[#f48771]')
-  spikeAnswerFeedback.classList.add(correct ? 'text-canopy-green' : 'text-[#f48771]')
-  spikeAnswerFeedback.textContent = correct
-    ? 'Correct. The generated view supported the complete development answer.'
-    : 'Not yet. Check both the matching order IDs and the displayed total.'
-})
+    spikeAnswerFeedback.classList.remove('text-canopy-green', 'text-[#f48771]')
+    spikeAnswerFeedback.classList.add(correct ? 'text-canopy-green' : 'text-[#f48771]')
+    spikeAnswerFeedback.textContent = correct
+      ? 'Correct. The generated view supported the complete development answer.'
+      : 'Not yet. Check both the matching order IDs and the displayed total.'
+  })
+}
 
 renderDataExplorer();
 
