@@ -134,6 +134,9 @@ behavior** — check the code before relying on any specific detail.
 - [Stable Document Entity Graph](design/stable-document-entity-graph.md) —
   direction for growing a stable editing-entity layer from the existing
   projection identity pipeline.
+- [Incremental Generative UI document engine](design/incremental-generative-ui-document-engine.md) —
+  semantic authority, operation, identity, and recovery direction for generated
+  documents.
 - [Design Concerns](design/design-concerns.md) — open problems and future
   considerations.
 - [Decisions Needed](decisions-needed.md) — open architectural questions.

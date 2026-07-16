@@ -159,6 +159,15 @@ maintenance and proving-ground mode.
   Already covered: click selection, keyboard navigation, and scroll-to-selection (`examples/ideal/web/e2e/outline-navigation.spec.ts`); tree roles, selection, active-descendant, and collapse ARIA (`examples/ideal/web/e2e/outline-aria.spec.ts`); resize-handle behavior while `.tree-rows` scrolls (`examples/ideal/web/e2e/outline-resizable.spec.ts`).
   Closed here: collapse/expand descendant visibility plus collapsed badges; light-DOM outline row drag/drop in `examples/ideal/web/e2e/outline-drag-drop.spec.ts`, verifying CRDT/CodeMirror text sync plus outline reorder. Shadow structure-mode drag/drop remains covered separately by `examples/ideal/web/e2e/drag-drop.spec.ts`.
 
+- [ ] Verify the incremental Generative UI semantic core.
+  Why: the document-engine authority, transaction, recovery, and identity
+  claims have no implementation or falsifiable evidence; adapter work before
+  the core gate would hide architectural failure.
+  Plan: `docs/plans/2026-07-16-incremental-generative-ui-semantic-core-validation.md`
+  Exit: the fixed invalid-draft, exactly-once, rewrite-conflict, outbox, and
+  restart transcript passes with every non-deferred evidence-matrix row;
+  deferred adapter and trust claims remain explicitly unclaimed.
+
 ---
 
 ## 7. Code Cleanup

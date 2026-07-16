@@ -244,6 +244,10 @@ This document's generative-UI-specific interpretation:
 
 These gates are product requirements, not technical implementation details.
 They sit above the commit and candidate contracts defined in this document.
+A private semantic-core experiment may falsify proposed invariants, but it does
+not replace this sequence, authorize product integration, or freeze a public
+renderer-neutral contract.
 
-Related: [JSX Incremental Parser for Generative UI](../plans/2026-07-09-jsx-incremental-parser-generative-ui.md)
-and [property-based correctness coverage issue #888](https://github.com/dowdiness/canopy/issues/888).
+Related: [JSX Incremental Parser for Generative UI](../plans/2026-07-09-jsx-incremental-parser-generative-ui.md),
+[property-based correctness coverage issue #888](https://github.com/dowdiness/canopy/issues/888),
+and the [Incremental Generative UI document engine](../design/incremental-generative-ui-document-engine.md).
