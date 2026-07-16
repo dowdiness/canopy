@@ -6,6 +6,8 @@ import {
   selectOrder,
   summarizeOrders,
 } from './genui-data.ts';
+import { GENUI_SPIKE_CASE } from './genui-spike-case.js';
+import { parseGenUiRecipe } from './genui-spike-recipe.js';
 
 const EXAMPLES = [
   `<div class="bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg">\n  <h1 class="text-2xl font-bold text-emerald-400 mb-2">Hello, World!</h1>\n  <p class="text-gray-300">This is JSX parsed incrementally with Tailwind.</p>\n</div>`,
@@ -45,6 +47,30 @@ const dataDetailId = document.getElementById('data-detail-id')
 const dataDetailName = document.getElementById('data-detail-name')
 const dataDetailStatus = document.getElementById('data-detail-status')
 const dataDetailAmount = document.getElementById('data-detail-amount')
+const spikeQuestion = document.getElementById('spike-question')
+const spikeGenerate = document.getElementById('spike-generate')
+const spikeEmpty = document.getElementById('spike-empty')
+const spikeLoading = document.getElementById('spike-loading')
+const spikeResult = document.getElementById('spike-result')
+const spikeError = document.getElementById('spike-error')
+const spikeErrorMessage = document.getElementById('spike-error-message')
+const spikeResultTitle = document.getElementById('spike-result-title')
+const spikeFilterChip = document.getElementById('spike-filter-chip')
+const spikeSummaryLabel = document.getElementById('spike-summary-label')
+const spikeSummaryValue = document.getElementById('spike-summary-value')
+const spikeMatchCount = document.getElementById('spike-match-count')
+const spikeTableHead = document.getElementById('spike-table-head')
+const spikeTableBody = document.getElementById('spike-table-body')
+const spikeAnswerForm = document.getElementById('spike-answer-form')
+const spikeAnswerOrders = document.getElementById('spike-answer-orders')
+const spikeAnswerTotal = document.getElementById('spike-answer-total')
+const spikeCheckAnswer = document.getElementById('spike-check-answer')
+const spikeAnswerFeedback = document.getElementById('spike-answer-feedback')
+const spikeTelemetry = document.getElementById('spike-telemetry')
+const spikeModel = document.getElementById('spike-model')
+const spikeElapsed = document.getElementById('spike-elapsed')
+const spikePromptTokens = document.getElementById('spike-prompt-tokens')
+const spikeOutputTokens = document.getElementById('spike-output-tokens')
 
 let isStreaming = false
 let abortStream = false
@@ -195,6 +221,133 @@ function appendOrderCell(row, value, className) {
 function formatOrderAmount(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
+
+const SPIKE_COLUMN_LABELS = {
+  id: 'Order',
+  name: 'Name',
+  status: 'Status',
+  amount: 'Amount',
+}
+const spikeExpectedRows = ORDER_ROWS.filter((row) => row.status === 'pending')
+const spikeExpectedIds = spikeExpectedRows.map((row) => row.id).sort()
+const spikeExpectedTotal = summarizeOrders(spikeExpectedRows).totalAmount
+let spikeGenerating = false
+
+function setSpikeState(state) {
+  spikeEmpty.classList.toggle('hidden', state !== 'empty')
+  spikeLoading.classList.toggle('hidden', state !== 'loading')
+  spikeLoading.classList.toggle('flex', state === 'loading')
+  spikeResult.hidden = state !== 'result'
+  spikeError.classList.toggle('hidden', state !== 'error')
+  spikeError.classList.toggle('flex', state === 'error')
+}
+
+function renderSpikeRecipe(recipe, telemetry) {
+  const matchingRows = ORDER_ROWS.filter((row) => row[recipe.filter.field] === recipe.filter.value)
+  const summary = summarizeOrders(matchingRows)
+
+  spikeResultTitle.textContent = recipe.title
+  spikeFilterChip.textContent = `${recipe.filter.field} = ${recipe.filter.value}`
+  spikeSummaryLabel.textContent = recipe.summary.label
+  spikeSummaryValue.textContent = formatOrderAmount(summary.totalAmount)
+  spikeMatchCount.textContent = String(matchingRows.length)
+
+  const headerRow = document.createElement('tr')
+  recipe.columns.forEach((field) => {
+    const heading = document.createElement('th')
+    heading.className = `px-3 py-2 font-normal ${field === 'amount' ? 'text-right' : ''}`
+    heading.scope = 'col'
+    heading.textContent = SPIKE_COLUMN_LABELS[field]
+    headerRow.append(heading)
+  })
+  spikeTableHead.replaceChildren(headerRow)
+
+  const bodyRows = matchingRows.map((order) => {
+    const row = document.createElement('tr')
+    row.className = 'border-b border-canopy-border/70'
+    recipe.columns.forEach((field) => {
+      const cell = document.createElement('td')
+      cell.className = `px-3 py-2.5 ${field === 'amount' ? 'text-right text-canopy-green' : 'text-canopy-text'}`
+      if (field === 'status') {
+        const status = document.createElement('span')
+        status.className = `status-chip status-${order.status}`
+        status.textContent = order.status
+        cell.append(status)
+      } else {
+        cell.textContent = field === 'amount' ? formatOrderAmount(order.amount) : String(order[field])
+      }
+      row.append(cell)
+    })
+    return row
+  })
+  spikeTableBody.replaceChildren(...bodyRows)
+
+  spikeModel.textContent = typeof telemetry?.model === 'string' ? telemetry.model : 'unknown'
+  spikeElapsed.textContent = Number.isFinite(telemetry?.elapsedMs) ? `${(telemetry.elapsedMs / 1000).toFixed(1)} s` : '—'
+  spikePromptTokens.textContent = Number.isFinite(telemetry?.promptTokens) ? `${telemetry.promptTokens} tokens` : '—'
+  spikeOutputTokens.textContent = Number.isFinite(telemetry?.outputTokens) ? `${telemetry.outputTokens} tokens` : '—'
+  spikeTelemetry.hidden = false
+  spikeCheckAnswer.disabled = false
+  setSpikeState('result')
+}
+
+spikeQuestion.textContent = GENUI_SPIKE_CASE.question
+setSpikeState('empty')
+
+spikeGenerate.addEventListener('click', async function() {
+  if (spikeGenerating) return
+  spikeGenerating = true
+  spikeGenerate.disabled = true
+  spikeGenerate.textContent = 'Generating…'
+  spikeCheckAnswer.disabled = true
+  spikeTelemetry.hidden = true
+  spikeAnswerFeedback.textContent = ''
+  setSpikeState('loading')
+
+  try {
+    const response = await fetch('/api/genui-spike', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ caseId: GENUI_SPIKE_CASE.id }),
+    })
+    const body = await response.json()
+    if (!response.ok) {
+      throw new Error(typeof body?.error === 'string' ? body.error : `Prototype endpoint returned HTTP ${response.status}.`)
+    }
+
+    const parsedRecipe = parseGenUiRecipe(body?.recipe)
+    if (!parsedRecipe.ok) {
+      throw new Error(`Browser rejected recipe: ${parsedRecipe.error}`)
+    }
+    renderSpikeRecipe(parsedRecipe.value, body?.telemetry)
+  } catch (error) {
+    spikeErrorMessage.textContent = error instanceof Error ? error.message : String(error)
+    setSpikeState('error')
+  } finally {
+    spikeGenerating = false
+    spikeGenerate.disabled = false
+    spikeGenerate.textContent = 'Generate one-shot view'
+  }
+})
+
+spikeAnswerForm.addEventListener('submit', function(event) {
+  event.preventDefault()
+  const submittedIds = spikeAnswerOrders.value
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0)
+    .sort()
+  const idsCorrect = submittedIds.length === spikeExpectedIds.length &&
+    submittedIds.every((id, index) => id === spikeExpectedIds[index])
+  const totalCorrect = Number(spikeAnswerTotal.value) === spikeExpectedTotal
+  const correct = idsCorrect && totalCorrect
+
+  spikeAnswerFeedback.classList.remove('text-canopy-green', 'text-[#f48771]')
+  spikeAnswerFeedback.classList.add(correct ? 'text-canopy-green' : 'text-[#f48771]')
+  spikeAnswerFeedback.textContent = correct
+    ? 'Correct. The generated view supported the complete development answer.'
+    : 'Not yet. Check both the matching order IDs and the displayed total.'
+})
 
 renderDataExplorer();
 

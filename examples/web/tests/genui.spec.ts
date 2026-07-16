@@ -251,6 +251,38 @@ test.describe('Generative UI Demo', () => {
     await expect(rows.filter({ hasText: 'Acme renewal' })).toContainText('$1,280.50');
   });
 
+  test('renders a validated one-shot recipe and checks the development answer', async ({ page }) => {
+    await page.route('**/api/genui-spike', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        recipe: {
+          kind: 'filtered_orders',
+          title: 'Pending orders requiring attention',
+          filter: { field: 'status', operator: 'equals', value: 'pending' },
+          columns: ['id', 'name', 'amount'],
+          summary: { field: 'amount', aggregation: 'sum', label: 'Pending value' },
+        },
+        telemetry: {
+          model: 'test-model',
+          elapsedMs: 12,
+          promptTokens: 20,
+          outputTokens: 10,
+        },
+      }),
+    }));
+    await page.goto('/genui.html');
+
+    await page.getByRole('button', { name: 'Generate one-shot view' }).click();
+    await expect(page.locator('#spike-result')).toBeVisible();
+    await expect(page.locator('#spike-summary-value')).toHaveText('$2,180.00');
+    await expect(page.locator('#spike-table-body').getByRole('row')).toHaveCount(2);
+
+    await page.getByLabel('Order IDs, comma separated').fill('ord-1002, ord-1006');
+    await page.getByLabel('Total amount').fill('2180');
+    await page.getByRole('button', { name: 'Check development answer' }).click();
+    await expect(page.locator('#spike-answer-feedback')).toContainText('Correct.');
+  });
+
   test('filters rows while preserving a selected host-owned row', async ({ page }) => {
     await page.goto('/genui.html');
     const table = page.getByRole('table', { name: 'Orders' });
