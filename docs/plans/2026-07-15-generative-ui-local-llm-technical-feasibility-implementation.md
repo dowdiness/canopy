@@ -83,7 +83,7 @@
   - Run `NEW_MOON_MOD=0 moon check` immediately after editing the test file.
 
 - [ ] **Step 3: Run the focused test and confirm the expected failure.**
-  - Run `moon test ffi/jsx -f session_contract_wbtest.mbt`.
+  - Run `moon test ffi/jsx/session_contract_wbtest.mbt`.
   - Expected: compile failure because the new private helper boundary is absent.
 
 - [ ] **Step 4: Extract the shared validation and validated-candidate transaction.**
@@ -94,7 +94,7 @@
   - Run `NEW_MOON_MOD=0 moon check` immediately after editing `generative_ui_replay_adapter.mbt`.
 
 - [ ] **Step 5: Verify and commit the internal trust boundary.**
-  - Run `moon test ffi/jsx -f session_contract_wbtest.mbt`.
+  - Run `moon test ffi/jsx/session_contract_wbtest.mbt`.
   - Run `moon test ffi/jsx`.
   - Expected: all focused and package tests pass; existing replay errors, lifecycle events, mounted IDs, and revisions remain unchanged.
   - Run `moon info && moon fmt`, inspect `ffi/jsx/pkg.generated.mbti`, and confirm there is no public interface change.
@@ -163,7 +163,7 @@
   - Prove a runtime-valid candidate using an allowed but task-wrong field materializes generically, then fails the separate rubric without reaching the session transaction.
   - Prove evaluate-only creates no session or revision, and evaluate-only/evaluate-and-commit produce identical preparation classification, generic evidence, rubric result, and safe-output digest for the same bytes.
   - Prove the safe-output candidate reaches Task 1’s private transaction without candidate JSON serialization or a second semantic interpretation.
-  - Run `moon test ffi/jsx -f generative_ui_feasibility_wbtest.mbt` and confirm the missing-core failure.
+  - Run `moon test ffi/jsx/generative_ui_feasibility_wbtest.mbt` and confirm the missing-core failure.
   - Run `NEW_MOON_MOD=0 moon check` after the test file edit.
 
 - [ ] **Step 5: Implement normalized-dataset decoding and generic materialization.**
@@ -184,7 +184,7 @@
 
 - [ ] **Step 8: Verify and commit the MoonBit functional core.**
   - Run `node --test src/genui-feasibility-fixtures.test.mjs` from `examples/web`.
-  - Run `moon test ffi/jsx -f generative_ui_feasibility_wbtest.mbt`.
+  - Run `moon test ffi/jsx/generative_ui_feasibility_wbtest.mbt`.
   - Run `moon test ffi/jsx`.
   - Run `moon info && moon fmt`; inspect `ffi/jsx/pkg.generated.mbti` and confirm only the two experimental exports were added.
   - Expected: all ingestion, operator, aggregation, immutability, safe-output, rubric-separation, replay-equality, and session-gating cases pass.
@@ -296,7 +296,7 @@
 
 - [ ] **Step 6: Verify and commit the browser transaction.**
   - Run `node --test src/genui-feasibility-flow.test.mjs src/genui-feasibility-fixtures.test.mjs`.
-  - Run `moon test ffi/jsx -f generative_ui_feasibility_wbtest.mbt`.
+  - Run `moon test ffi/jsx/generative_ui_feasibility_wbtest.mbt`.
   - Run `npx tsc --noEmit` from `examples/web` after `moon build --target js`.
   - Expected: fixture ingestion, thin-shell, MoonBit preparation, and TypeScript checks pass.
   - Commit message: `feat(genui): gate MoonBit preparation before commit`.
