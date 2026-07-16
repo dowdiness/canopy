@@ -21,4 +21,12 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
+echo "Running GenUI recipe contract tests..."
+node --test src/genui-spike-recipe.test.mjs
+
 CI="${CI:-1}" npx playwright test "$@"
+
+if [ "$#" -eq 0 ]; then
+    echo "Running GenUI production preview tests..."
+    CI="${CI:-1}" npx playwright test --config=playwright.preview.config.ts
+fi

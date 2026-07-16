@@ -2,12 +2,14 @@ import { defineConfig } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { moonbitPlugin } from './vite-plugin-moonbit';
 import tailwindcss from '@tailwindcss/vite';
+import { genUiSpikePlugin } from './vite-plugin-genui-spike';
 
 const analyze = process.env.ANALYZE === '1';
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
+    genUiSpikePlugin(),
     moonbitPlugin({
       modules: [
         {
