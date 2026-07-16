@@ -1,6 +1,6 @@
 # Generative UI local-LLM technical feasibility implementation plan
 
-**Status:** Executed — v1 selected `NOT_YET_FEASIBLE`
+**Status:** Executed v1 (`NOT_YET_FEASIBLE`); approved v2 harness correction planned
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` (recommended) or `executing-plans` to execute this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -456,6 +456,355 @@ The inherited study-mode environment made the development E2E Vite process
 require an ephemeral run capability that is intentionally created only after
 preflight. The frozen rule therefore selected `NOT_YET_FEASIBLE`, classified
 all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
+
+## v2 Harness Correction Continuation
+
+### Task 7: Isolate Validation Child Environments
+
+**Files:**
+
+- Modify: `examples/web/scripts/run-genui-feasibility-study.mjs`
+- Test: `examples/web/scripts/run-genui-feasibility-study.test.mjs`
+
+**Interfaces:**
+
+- Consumes: a plain parent environment object, a validation command's explicit
+  manifest `env` object, and the existing validation-command list.
+- Produces: `buildValidationEnv(parentEnv, explicitEnv) -> object`, plus
+  `runDeterministicPreflight(validationCommands, parentEnv = process.env)`.
+  Every validation spawn uses the fresh environment returned by the helper.
+
+- [ ] **Step 1: Write failing pure and spawn-wiring tests.**
+
+  Add `buildValidationEnv` and `runDeterministicPreflight` to the runner imports.
+  Add two pure Node tests:
+
+  ```javascript
+  test('validation environment removes inherited study state and preserves unrelated keys', () => {
+    assert.deepEqual(
+      buildValidationEnv(
+        {
+          PATH: '/bin',
+          GENUI_FEASIBILITY_LIVE: '1',
+          GENUI_FEASIBILITY_RUN_CAPABILITY: 'ambient-secret',
+        },
+        {},
+      ),
+      { PATH: '/bin' },
+    );
+  });
+
+  test('validation environment applies explicit manifest study state after isolation', () => {
+    assert.deepEqual(
+      buildValidationEnv(
+        {
+          PATH: '/bin',
+          GENUI_FEASIBILITY_LIVE: '1',
+          CONTROL: 'ambient',
+        },
+        {
+          GENUI_FEASIBILITY_LIVE: '0',
+          CONTROL: 'manifest',
+        },
+      ),
+      {
+        PATH: '/bin',
+        GENUI_FEASIBILITY_LIVE: '0',
+        CONTROL: 'manifest',
+      },
+    );
+  });
+  ```
+
+  Add one integration test through the real preflight spawn:
+
+  ```javascript
+  test('deterministic preflight isolates ambient study state at the child process', () => {
+    const assertionScript = `
+      const assert = require('node:assert/strict');
+      assert.equal(process.env.GENUI_FEASIBILITY_LIVE, '0');
+      assert.equal(process.env.GENUI_FEASIBILITY_RUN_CAPABILITY, undefined);
+      assert.equal(process.env.UNRELATED_PARENT_KEY, 'preserved');
+    `;
+    const preflight = runDeterministicPreflight(
+      [{
+        id: 'environment-boundary',
+        command: process.execPath,
+        args: ['-e', assertionScript],
+        cwd: '.',
+        env: { GENUI_FEASIBILITY_LIVE: '0' },
+      }],
+      {
+        GENUI_FEASIBILITY_LIVE: '1',
+        GENUI_FEASIBILITY_RUN_CAPABILITY: 'ambient-secret',
+        UNRELATED_PARENT_KEY: 'preserved',
+      },
+    );
+
+    assert.equal(preflight.passed, true);
+    assert.equal(preflight.checks[0].exitCode, 0);
+  });
+  ```
+
+- [ ] **Step 2: Run the focused test and confirm RED.**
+
+  Run from `examples/web`:
+
+  ```bash
+  node --test scripts/run-genui-feasibility-study.test.mjs
+  ```
+
+  Expected: failure because `buildValidationEnv` is not exported.
+
+- [ ] **Step 3: Implement the pure environment boundary and use it at spawn.**
+
+  Add to `run-genui-feasibility-study.mjs`:
+
+  ```javascript
+  export function buildValidationEnv(parentEnv, explicitEnv) {
+    const childEnv = { ...parentEnv };
+    for (const key of Object.keys(childEnv)) {
+      if (key.startsWith('GENUI_FEASIBILITY_')) delete childEnv[key];
+    }
+    Object.assign(childEnv, explicitEnv);
+    return childEnv;
+  }
+  ```
+
+  Pass the injected environment through the existing spawn path:
+
+  ```javascript
+  function runCommand(check, parentEnv) {
+    // Existing cwd and spawn result handling remain unchanged.
+    const result = spawnSync(check.command, check.args, {
+      cwd,
+      env: buildValidationEnv(parentEnv, check.env),
+      stdio: 'inherit',
+    });
+    // Existing result object remains unchanged.
+  }
+
+  export function runDeterministicPreflight(
+    validationCommands,
+    parentEnv = process.env,
+  ) {
+    // Existing loop remains unchanged except:
+    const result = runCommand(command, parentEnv);
+  }
+  ```
+
+  Do not mutate `process.env`, scrub after the explicit overlay, or change the
+  live-provider process environment.
+
+- [ ] **Step 4: Confirm GREEN and regression coverage.**
+
+  Run from `examples/web`:
+
+  ```bash
+  node --test scripts/run-genui-feasibility-study.test.mjs
+  ```
+
+  Expected: all runner/finalizer/manifest tests pass.
+
+  Run from the repository root after each edited file:
+
+  ```bash
+  NEW_MOON_MOD=0 moon check
+  ```
+
+- [ ] **Step 5: Commit the correction separately.**
+
+  ```bash
+  git add examples/web/scripts/run-genui-feasibility-study.mjs \
+    examples/web/scripts/run-genui-feasibility-study.test.mjs
+  git commit -m "fix(genui): isolate validation child environments"
+  ```
+
+### Task 8: Freeze the Versioned v2 Study
+
+**Files:**
+
+- Modify: `examples/web/scripts/build-genui-feasibility-manifest.mjs`
+- Test: `examples/web/scripts/run-genui-feasibility-study.test.mjs`
+- Create: `examples/web/studies/2026-07-15-genui-local-llm-v2.json`
+
+**Interfaces:**
+
+- Consumes: the same selected `gemma4:e2b` lookup tag and provider-read-only
+  identity discovery used by v1.
+- Produces: study ID `genui-local-llm-v2`, a non-empty
+  `changedInputReason`, and v2-only journal, raw-output, and evidence paths.
+  `manifestVersion` remains `1` because the manifest schema is unchanged.
+
+- [ ] **Step 1: Write the failing v2 manifest assertions.**
+
+  Extend the existing manifest-builder test:
+
+  ```javascript
+  assert.equal(manifest.manifestVersion, 1);
+  assert.equal(manifest.studyId, 'genui-local-llm-v2');
+  assert.equal(
+    manifest.changedInputReason,
+    'validation children remove inherited GENUI_FEASIBILITY_* before manifest env overlay',
+  );
+  assert.equal(
+    manifest.journalPath,
+    'examples/web/test-results/genui-feasibility-live-v2/journal.jsonl',
+  );
+  assert.equal(
+    manifest.rawOutputPath,
+    'examples/web/test-results/genui-feasibility-live-v2/raw-slots.json',
+  );
+  assert.equal(
+    manifest.evidencePath,
+    'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json',
+  );
+  ```
+
+- [ ] **Step 2: Run the focused test and confirm RED.**
+
+  Run from `examples/web`:
+
+  ```bash
+  node --test scripts/run-genui-feasibility-study.test.mjs
+  ```
+
+  Expected: the current v1 study ID, absent changed-input reason, and v1
+  output paths fail the new assertions.
+
+- [ ] **Step 3: Change only the versioned manifest metadata and paths.**
+
+  In the manifest object returned by `buildManifest`, retain all frozen
+  generation settings, schedule, inputs, commands, and decision rules. Replace
+  or add only:
+
+  ```javascript
+  studyId: 'genui-local-llm-v2',
+  changedInputReason:
+    'validation children remove inherited GENUI_FEASIBILITY_* before manifest env overlay',
+  journalPath: 'examples/web/test-results/genui-feasibility-live-v2/journal.jsonl',
+  rawOutputPath: 'examples/web/test-results/genui-feasibility-live-v2/raw-slots.json',
+  evidencePath: 'docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json',
+  ```
+
+- [ ] **Step 4: Confirm GREEN, then commit the builder change.**
+
+  Run:
+
+  ```bash
+  node --test examples/web/scripts/run-genui-feasibility-study.test.mjs
+  NEW_MOON_MOD=0 moon check
+  git add examples/web/scripts/build-genui-feasibility-manifest.mjs \
+    examples/web/scripts/run-genui-feasibility-study.test.mjs
+  git commit -m "test(genui): define corrected v2 feasibility study"
+  ```
+
+- [ ] **Step 5: Generate and inspect the v2 manifest exactly once.**
+
+  From a clean repository root:
+
+  ```bash
+  node examples/web/scripts/build-genui-feasibility-manifest.mjs \
+    --model gemma4:e2b \
+    --output examples/web/studies/2026-07-15-genui-local-llm-v2.json
+  ```
+
+  Verify the v2 identity and paths, the changed-input reason, exactly nine
+  unchanged schedule slots, seven validation commands, frozen input digests,
+  and unchanged decision rule. Commit:
+
+  ```bash
+  git add examples/web/studies/2026-07-15-genui-local-llm-v2.json
+  git commit -m "test(genui): freeze corrected local feasibility study"
+  ```
+
+- [ ] **Step 6: Review the exact frozen v2 commit before execution.**
+
+  A different-model reviewer must inspect the committed environment-ordering
+  tests, runner boundary, manifest source commit, digests, model identity,
+  schedule, output paths, and decision rule. Resolve any finding in a new
+  commit and generate a new versioned study; do not mutate a reviewed manifest.
+
+### Task 9: Execute v2 Once and Record Its Result
+
+**Files:**
+
+- Create: `docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json`
+- Modify: `docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility.md`
+- Modify: `docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md`
+
+**Interfaces:**
+
+- Consumes: one clean, reviewed v2 frozen commit with absent v2 output paths.
+- Produces: one immutable v2 evidence object selecting only
+  `TECHNICALLY_FEASIBLE` or `NOT_YET_FEASIBLE`.
+
+- [ ] **Step 1: Execute the frozen v2 study exactly once.**
+
+  From the repository root:
+
+  ```bash
+  GENUI_FEASIBILITY_LIVE=1 \
+  GENUI_FEASIBILITY_MANIFEST=examples/web/studies/2026-07-15-genui-local-llm-v2.json \
+  node examples/web/scripts/run-genui-feasibility-study.mjs
+  ```
+
+  Do not rerun, replace a slot, edit the manifest, or overwrite evidence. If
+  execution stops, preserve the v2 journal and evidence as the v2 result.
+
+- [ ] **Step 2: Validate the evidence before committing it.**
+
+  Confirm that JSON parsing succeeds; the evidence references the reviewed
+  v2 frozen commit and manifest digest; all nine slots have one terminal
+  classification; the decision follows the frozen rule; and no raw candidate,
+  fixture row, credential, environment dump, or product-value claim is
+  retained.
+
+- [ ] **Step 3: Update status without changing the recorded outcome.**
+
+  Record the v2 decision and observed boundary in the design. Mark Tasks 7-9
+  complete only after their evidence exists. Keep the v1 result and evidence
+  intact.
+
+- [ ] **Step 4: Run final verification and independent review.**
+
+  Run from the repository root:
+
+  ```bash
+  node --test examples/web/scripts/run-genui-feasibility-study.test.mjs \
+    examples/web/src/genui-feasibility-fixtures.test.mjs \
+    examples/web/src/genui-feasibility-provider.test.mjs \
+    examples/web/src/genui-feasibility-demo.test.mjs \
+    examples/web/src/genui-feasibility-flow.test.mjs
+  NEW_MOON_MOD=0 moon test
+  NEW_MOON_MOD=0 moon info
+  NEW_MOON_MOD=0 moon fmt
+  ```
+
+  Run from `examples/web`:
+
+  ```bash
+  npx playwright test --config=playwright.feasibility.config.ts \
+    --project=chromium
+  npx playwright test --config=playwright.preview.config.ts \
+    --project=chromium --workers=1
+  npx tsc --noEmit
+  ```
+
+  Inspect `.mbti` drift and require a different-model review of the final clean
+  committed range, including the v2 evidence.
+
+- [ ] **Step 5: Commit evidence separately and complete the branch workflow.**
+
+  ```bash
+  git add docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json \
+    docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility.md \
+    docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md
+  git commit -m "docs(genui): record corrected local feasibility result"
+  ```
+
+  Push the branch, open the pull request, and use the repository's automatic PR
+  lifecycle until the required aggregate CI gate is green.
 
 ## Reuse Check
 

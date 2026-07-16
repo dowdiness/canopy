@@ -32,6 +32,37 @@ evaluation are separate later work.
   A corrected execution requires a new versioned manifest, evidence path,
   output paths, and an explicit changed-input reason.
 
+## Approved v2 harness correction
+
+The v2 runner isolates each validation child from ambient study state. It
+constructs the child environment in this order:
+
+1. Copy the parent environment.
+2. Remove every inherited key whose name starts with
+   `GENUI_FEASIBILITY_`.
+3. Overlay the validation command's explicit manifest environment.
+
+The final overlay is authoritative. A manifest may deliberately set a reserved
+study key, and that value must reach the child process. This ordering prevents
+an inherited live-study flag from changing deterministic preflight behavior
+without silently defeating explicit manifest configuration.
+
+The runner receives regression contracts before implementation. Two pure tests
+prove that inherited reserved keys are absent, unrelated parent keys remain
+available, and an explicitly declared reserved key survives with its manifest
+value. A wiring test invokes `runDeterministicPreflight` with an injected plain
+parent environment and a real Node child. The child must observe explicit
+`GENUI_FEASIBILITY_LIVE=0`, no inherited run capability, and the unrelated
+parent key. Production defaults the injected parent environment to
+`process.env`; tests never mutate that global object.
+
+The v1 manifest, journal, and evidence remain immutable. After the correction
+passes focused and workspace verification, execution uses a new v2 manifest,
+journal, raw-output path, evidence path, and frozen implementation commit. The
+v2 manifest records environment isolation as its changed-input reason. The
+frozen v2 run remains one-shot and retains the original acceptance rule: any
+missing criterion selects `NOT_YET_FEASIBLE`.
+
 ## Existing foundation
 
 The deterministic input vertical slice already establishes the request,
