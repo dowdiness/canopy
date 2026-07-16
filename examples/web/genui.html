@@ -82,92 +82,60 @@
       </div>
     </div>
 
-    <section id="genui-spike" class="mt-4 overflow-hidden rounded-lg border border-canopy-border bg-canopy-surface" hidden>
+    <section id="genui-feasibility" class="mt-4 overflow-hidden rounded-lg border border-canopy-border bg-canopy-surface">
       <header class="flex flex-col gap-4 border-b border-canopy-border px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
         <div class="max-w-3xl">
           <div class="mb-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-canopy-muted">
-            <span class="text-canopy-green">Spike 0</span>
+            <span class="text-canopy-green">Technical feasibility</span>
             <span aria-hidden="true">·</span>
-            <span>Local LLM</span>
+            <span>Recorded candidate</span>
             <span aria-hidden="true">·</span>
-            <span>Development evidence only</span>
+            <span>No user-value claim</span>
           </div>
-          <h2 class="text-[16px] font-semibold text-canopy-text">Generate a focused view for one unfamiliar-data question</h2>
-          <p id="spike-question" class="mt-2 max-w-[72ch] text-[13px] leading-6 text-canopy-muted"></p>
+          <h2 class="text-[16px] font-semibold text-canopy-text">Capability-bounded candidate transaction</h2>
+          <p class="mt-2 max-w-[74ch] text-[12px] leading-5 text-canopy-muted">
+            Choose a frozen fixture, then replay a recorded candidate through the same MoonBit decode, validation,
+            materialization, rubric, dry-run, and commit path used by the local study.
+          </p>
         </div>
-        <button id="spike-generate" class="btn-primary min-h-9 self-start px-3" type="button">
-          Generate one-shot view
+        <button id="feasibility-run-recorded" class="btn-primary min-h-9 self-start px-3" type="button">
+          Run recorded candidate
         </button>
       </header>
 
-      <div class="grid min-h-[280px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div class="grid min-h-[300px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div class="p-4">
-          <div id="spike-empty" class="flex min-h-[240px] items-center justify-center border border-dashed border-canopy-border px-6 text-center">
-            <div class="max-w-md">
-              <p class="text-[13px] text-canopy-text">No generated view yet.</p>
-              <p class="mt-2 text-[11px] leading-5 text-canopy-muted">One local model call will choose a bounded filter, columns, and summary. Invalid output is rejected rather than rendered.</p>
-            </div>
+          <div class="flex flex-wrap gap-2" aria-label="Feasibility cases">
+            <button class="btn feasibility-case active" data-feasibility-case="orders-pending-attention" type="button">Orders</button>
+            <button class="btn feasibility-case" data-feasibility-case="inventory-low-stock" type="button">Inventory</button>
+            <button class="btn feasibility-case" data-feasibility-case="incidents-critical-resolution" type="button">Incidents</button>
           </div>
+          <p id="feasibility-question" class="mt-3 text-[13px] leading-6 text-canopy-text"></p>
+          <p id="feasibility-source" class="mt-1 text-[10px] uppercase tracking-wider text-canopy-muted"></p>
 
-          <div id="spike-loading" class="hidden min-h-[240px] items-center justify-center" role="status" aria-live="polite">
-            <div class="text-center">
-              <div class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-canopy-border border-t-canopy-green"></div>
-              <p class="mt-3 text-[12px] text-canopy-text">Local model is shaping the view…</p>
-              <p class="mt-1 text-[10px] text-canopy-muted">No retry · hard 120 second timeout</p>
-            </div>
-          </div>
-
-          <div id="spike-result" hidden>
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p class="text-[10px] uppercase tracking-[0.14em] text-canopy-muted">Generated recipe</p>
-                <h3 id="spike-result-title" class="mt-1 text-[15px] font-semibold text-canopy-text"></h3>
+          <div class="mt-4 rounded-md border border-canopy-border bg-canopy-bg p-4">
+            <div id="feasibility-preview" class="min-h-[180px] overflow-auto">
+              <div class="flex min-h-[180px] items-center justify-center text-center text-[11px] leading-5 text-canopy-muted">
+                Run the recorded candidate to materialize a safe projection.
               </div>
-              <span id="spike-filter-chip" class="status-chip status-pending"></span>
-            </div>
-            <dl class="mt-4 grid grid-cols-2 gap-3 border-y border-canopy-border py-3">
-              <div>
-                <dt id="spike-summary-label" class="text-[10px] uppercase tracking-wider text-canopy-muted"></dt>
-                <dd id="spike-summary-value" class="mt-1 text-[20px] text-canopy-green"></dd>
-              </div>
-              <div>
-                <dt class="text-[10px] uppercase tracking-wider text-canopy-muted">Matching orders</dt>
-                <dd id="spike-match-count" class="mt-1 text-[20px] text-canopy-text"></dd>
-              </div>
-            </dl>
-            <div class="mt-3 overflow-x-auto">
-              <table class="w-full text-left text-[12px]" aria-label="Generated focused order view">
-                <thead id="spike-table-head" class="border-b border-canopy-border text-canopy-muted"></thead>
-                <tbody id="spike-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div id="spike-error" class="hidden min-h-[240px] items-center justify-center text-center" role="alert">
-            <div class="max-w-md">
-              <p class="text-[13px] text-[#f48771]">The generated view was not rendered.</p>
-              <p id="spike-error-message" class="mt-2 text-[11px] leading-5 text-canopy-muted"></p>
             </div>
           </div>
         </div>
 
-        <aside class="border-t border-canopy-border bg-canopy-bg/40 p-4 lg:border-l lg:border-t-0" aria-labelledby="spike-answer-heading">
-          <h3 id="spike-answer-heading" class="text-[10px] uppercase tracking-[0.14em] text-canopy-green">Your answer</h3>
-          <p class="mt-2 text-[11px] leading-5 text-canopy-muted">Answer after inspecting the generated view. This diagnostic result never enters Gate A.</p>
-          <form id="spike-answer-form" class="mt-4 flex flex-col gap-3">
-            <label class="text-[11px] text-canopy-muted" for="spike-answer-orders">Order IDs, comma separated</label>
-            <input id="spike-answer-orders" class="bg-canopy-bg text-canopy-text border border-canopy-border rounded-md px-2 py-2 text-[12px] font-mono outline-none focus:border-canopy-green" placeholder="ord-1002, ord-1006" autocomplete="off" />
-            <label class="text-[11px] text-canopy-muted" for="spike-answer-total">Total amount</label>
-            <input id="spike-answer-total" class="bg-canopy-bg text-canopy-text border border-canopy-border rounded-md px-2 py-2 text-[12px] font-mono outline-none focus:border-canopy-green" type="number" min="0" step="0.01" placeholder="0.00" />
-            <button id="spike-check-answer" class="btn mt-1 min-h-9" type="submit" disabled>Check development answer</button>
-          </form>
-          <p id="spike-answer-feedback" class="mt-3 min-h-10 text-[11px] leading-5 text-canopy-muted" aria-live="polite"></p>
-          <dl id="spike-telemetry" class="mt-5 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-canopy-border pt-3 text-[10px] text-canopy-muted" hidden>
-            <div><dt>Model</dt><dd id="spike-model" class="mt-0.5 text-canopy-text"></dd></div>
-            <div><dt>Elapsed</dt><dd id="spike-elapsed" class="mt-0.5 text-canopy-text"></dd></div>
-            <div><dt>Prompt</dt><dd id="spike-prompt-tokens" class="mt-0.5 text-canopy-text"></dd></div>
-            <div><dt>Output</dt><dd id="spike-output-tokens" class="mt-0.5 text-canopy-text"></dd></div>
+        <aside class="border-t border-canopy-border bg-canopy-bg/40 p-4 lg:border-l lg:border-t-0" aria-labelledby="feasibility-evidence-heading">
+          <h3 id="feasibility-evidence-heading" class="text-[10px] uppercase tracking-[0.14em] text-canopy-green">Transaction evidence</h3>
+          <p id="feasibility-status" class="mt-2 text-[11px] leading-5 text-canopy-muted" role="status" aria-live="polite">
+            Ready. No provider request has been made.
+          </p>
+          <dl class="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-canopy-border pt-3 text-[10px] text-canopy-muted">
+            <div><dt>Classification</dt><dd id="feasibility-classification" class="mt-0.5 text-canopy-text">—</dd></div>
+            <div><dt>Revision</dt><dd id="feasibility-revision" class="mt-0.5 text-canopy-text">—</dd></div>
+            <div class="col-span-2"><dt>Matched stable keys</dt><dd id="feasibility-keys" class="mt-0.5 break-words text-canopy-text">—</dd></div>
+            <div><dt>Summary</dt><dd id="feasibility-summary" class="mt-0.5 text-canopy-text">—</dd></div>
+            <div><dt>Rubric</dt><dd id="feasibility-rubric" class="mt-0.5 text-canopy-text">—</dd></div>
+            <div class="col-span-2"><dt>Safe-output SHA-256</dt><dd id="feasibility-hash" class="mt-0.5 break-all font-mono text-[9px] text-canopy-text">—</dd></div>
           </dl>
+
         </aside>
       </div>
     </section>
@@ -188,7 +156,6 @@
         <span class="text-[11px] text-canopy-muted">Source:</span>
         <button id="data-json-source" class="btn" type="button" aria-pressed="true">JSON fixture</button>
         <button id="data-csv-source" class="btn" type="button" aria-pressed="false">CSV fixture</button>
-        <button id="data-generate-candidate" class="btn-primary" type="button">Generate candidate</button>
         <span id="data-source-label" class="text-[11px] text-canopy-muted">JSON fixture</span>
       </div>
       <div class="flex flex-wrap items-center gap-2 mb-3">
@@ -280,6 +247,7 @@
     .status-paid { color: #9fe2c9; background: rgba(78,201,176,0.14); }
     .status-pending { color: #f0c674; background: rgba(240,198,116,0.14); }
     .status-review { color: #82aaff; background: rgba(130,170,255,0.14); }
+    .feasibility-case.active { color: #e8e8f0; border-color: #8250df; background: rgba(130,80,223,0.18); }
   </style>
   <!-- Tailwind safelist: ensures scanner finds example JSX classes -->
   <div class="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
