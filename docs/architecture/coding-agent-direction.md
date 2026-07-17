@@ -7,15 +7,22 @@ Canopy's near-term priority remains the
 See [OpenSeek–Canopy integration research](../research/2026-07-16-openseek-canopy-integration.md)
 for the source-backed investigation.
 
-## Decision
+## The boundary to preserve
 
-Canopy should reuse an external coding-agent engine instead of implementing its
-own agent loop. The engine may run models and tools, but Canopy must retain
-authority over projections, validation, approval, live documents, and
-collaborative commit.
+A coding-agent engine already knows how to call models, run tools, keep a
+conversation, and recover from model failures. Rebuilding those capabilities in
+Canopy would create a second agent framework without improving the part Canopy
+is designed to own.
 
-Implementation should begin only when a product experiment shows that an agent
-works better than a simpler fixed workflow.
+Reusing an engine looks simple until the first edit. Its normal shell and file
+tools can change the same source that Canopy parses, projects, and shares with
+peers. If those tools write directly, Canopy may display a change it never
+validated, approved, or recorded as a collaborative operation.
+
+The safe boundary is therefore narrower: the engine may decide what to request,
+but Canopy decides what a request means and whether it changes authoritative
+state. This direction should be implemented only when a product experiment
+shows that an agent works better than a simpler fixed workflow.
 
 ## Ownership
 
@@ -43,18 +50,20 @@ document.
 
 ### The host chooses capabilities
 
-The host chooses which tools are available before sending a prompt. The agent
-cannot expand that set. If the host cannot verify the active tools, the
-integration stops.
+Removing direct editor writes is not enough if another enabled tool can reach
+the same files. The host therefore chooses which tools are available before
+sending a prompt, and the agent cannot expand that set. If the host cannot
+verify the active tools, the integration stops.
 
 Third-party tools remain the host's responsibility. Disabling an engine's
 built-ins is not a general sandbox guarantee.
 
-### Proposals bind revision and approval
+### Preview does not authorize a later document
 
 A proposal identifies the document revision it was prepared from. Validation
-and preview do not mutate the live document. Commit checks the revision again
-so concurrent edits cannot change an approved proposal's meaning.
+and preview do not mutate the live document. Even after approval, commit checks
+the revision again; otherwise a concurrent edit could change the meaning of the
+proposal between preview and application.
 
 Approval is issued by the host and binds one proposal, base revision, and
 preview. Any content or revision change creates a new proposal and repeats
@@ -63,14 +72,15 @@ validation.
 Read-only queries and effect-free generated views do not need user approval,
 but they still pass their existing validation and capability checks.
 
-### Effects are idempotent
+### One authorized effect happens once
 
-Any path with cancellation, retry, reconnect, or replay must prevent duplicate
-commit. Late and cancelled results cannot gain authority after their request
-closes.
+A correct commit can still become incorrect when cancellation, retry, reconnect,
+or replay delivers the same result twice. Any effect-bearing path must prevent a
+duplicate commit. Late and cancelled results cannot gain authority after their
+request closes.
 
-A single-process read-only bridge does not need a general replay protocol before
-it has effects to deduplicate. Correlation requirements should match the
+A single-process read-only bridge has no effect to deduplicate and does not need
+a general replay protocol. Correlation requirements should grow with the
 transport and effects actually supported.
 
 ## Integration boundary
@@ -85,8 +95,9 @@ external engine
 ```
 
 Agents should request language-owned operations instead of reproducing Canopy's
-projection internals. For a rename, Canopy resolves scope, computes the text
-changes, previews the projection, and decides whether the proposal is valid.
+projection internals. For a rename, the agent can name the desired operation
+while Canopy resolves scope, computes the text changes, and previews the
+resulting projection.
 
 The mutation flow is:
 
@@ -105,14 +116,17 @@ decisions, and lifecycle transitions. It receives explicit inputs and returns
 decisions without I/O or document mutation.
 
 A thin shell owns process I/O, scheduling, cancellation, scratch editors, and
-the final live commit.
+the final live commit. This keeps proposal decisions testable without turning a
+transport mock into the source of truth.
 
 ## Generated UI and audit
 
+Not every agent result carries the same authority.
+
 Effect-free candidates may keep using the validation, dry-run, and commit path
-in the [Generative UI direction](generative-ui-direction.md). Generated actions
-that change documents or perform host effects use the same host-owned authority
-boundary as other proposals.
+in the [Generative UI direction](generative-ui-direction.md). A generated
+action that changes a document or performs a host effect crosses the proposal
+boundary above.
 
 The external engine owns conversation history and tool-call records. Canopy
 owns proposal identity, base revision, approval, commit, and collaborative
