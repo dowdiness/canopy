@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { canonicalJson } from '../src/genui-feasibility-provider.js';
@@ -126,8 +126,11 @@ test('production dependencies preserve failure taxonomy from the MoonBit browser
 
 test('production provider attempts close Codex sessions, normalize Ollama success, and stop at frozen budgets', async () => {
   let codexClosed = 0;
+  let receivedCodexIdentity = null;
   const deps = await createComparisonDependencies({ manifest: manifest() }, {
-    createCodexSession: async () => ({
+    createCodexSession: async ({ frozenIdentity }) => {
+      receivedCodexIdentity = frozenIdentity;
+      return {
       runSlot: async () => ({
         classification: 'success',
         candidateJson: '{}',
@@ -136,8 +139,9 @@ test('production provider attempts close Codex sessions, normalize Ollama succes
         ],
         tokenUsage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5, reasoningOutputTokens: 0, totalTokens: 15 },
       }),
-      close: async () => { codexClosed += 1; },
-    }),
+        close: async () => { codexClosed += 1; },
+      };
+    },
     callOllama: async () => ({
       classification: 'success',
       candidateJson: '{}',
@@ -154,6 +158,13 @@ test('production provider attempts close Codex sessions, normalize Ollama succes
   assert.equal(codex.rawEvents.filter((event) => event.type === 'agentMessage').length, 1);
   assert.equal(codex.usage.totalTokens, 15);
   assert.equal(codexClosed, 1);
+  assert.deepEqual(receivedCodexIdentity, {
+    cliVersion: 'codex-cli 0.144.4',
+    slug: 'gpt-5.6-luna',
+    effort: 'medium',
+    authMode: 'chatgpt',
+    catalogEntrySha256: 'b'.repeat(64),
+  });
   assert.deepEqual(await deps.requestGate({ slot }), { classification: 'global_stop' });
 
   const ollama = await deps.attempts.ollama({
@@ -229,5 +240,62 @@ test('production dependencies accept an explicit reviewed Codex binary path', as
     if (previous === undefined) delete process.env.GENUI_PROVIDER_CODEX_BINARY;
     else process.env.GENUI_PROVIDER_CODEX_BINARY = previous;
     await rm(runRoot, { recursive: true, force: true });
+  }
+});
+
+test('production preflight maps manifest identity and rejects discovered drift', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'canopy-provider-preflight-'));
+  const stateHome = join(root, 'state');
+  const namespace = join(stateHome, 'canopy', 'genui-provider-benchmark');
+  const authSource = join(root, 'auth.json');
+  const previousStateHome = process.env.XDG_STATE_HOME;
+  const expectedIdentity = {
+    cliVersion: 'codex-cli 0.144.4',
+    slug: 'gpt-5.6-luna',
+    effort: 'medium',
+    authMode: 'chatgpt',
+    catalogEntrySha256: 'b'.repeat(64),
+  };
+  const discoveryInputs = [];
+  let drift = false;
+  try {
+    await mkdir(namespace, { recursive: true });
+    await writeFile(authSource, '{}');
+    process.env.XDG_STATE_HOME = stateHome;
+    const deps = await createComparisonDependencies({ manifest: manifest() }, {
+      authSource,
+      verifyRepository: async () => COMMIT,
+      prepareSandbox: async () => ({
+        contract: { codexVersion: expectedIdentity.cliVersion },
+        spawnProcess: async () => undefined,
+        cleanup: async () => undefined,
+      }),
+      discoverCodexIdentity: async ({ cliVersion, slug, effort }) => {
+        discoveryInputs.push({ cliVersion, slug, effort });
+        return {
+          ...expectedIdentity,
+          ...(drift ? { catalogEntrySha256: 'c'.repeat(64) } : {}),
+        };
+      },
+    });
+
+    assert.deepEqual(await deps.preflight(), {
+      isolation: true,
+      identity: true,
+      credentials: true,
+      budget: true,
+    });
+    assert.deepEqual(discoveryInputs, [{
+      cliVersion: expectedIdentity.cliVersion,
+      slug: expectedIdentity.slug,
+      effort: expectedIdentity.effort,
+    }]);
+
+    drift = true;
+    await assert.rejects(() => deps.preflight(), /identity differs/u);
+  } finally {
+    if (previousStateHome === undefined) delete process.env.XDG_STATE_HOME;
+    else process.env.XDG_STATE_HOME = previousStateHome;
+    await rm(root, { recursive: true, force: true });
   }
 });

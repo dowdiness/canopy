@@ -67,6 +67,13 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
     hostPaths: [],
     secretValues: [`CANOPY-PRIVATE-${randomBytes(16).toString('hex')}`],
   };
+  const codexIdentity = Object.freeze({
+    cliVersion: manifest.providerIdentities.codex.cliVersion,
+    slug: manifest.providerIdentities.codex.modelSlug,
+    effort: manifest.providerIdentities.codex.reasoningEffort,
+    authMode: manifest.providerIdentities.codex.authMode,
+    catalogEntrySha256: manifest.providerIdentities.codex.catalogEntrySha256,
+  });
   let browserEvaluatorPromise = null;
 
   const createSandbox = async ({ runRoot }) => {
@@ -89,7 +96,7 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
     if (budget.globalStop) return globalStopAttempt();
     const factory = overrides.createCodexSession ?? createCodexAppServerSession;
     const session = await factory({
-      frozenIdentity: manifest.providerIdentities.codex,
+      frozenIdentity: codexIdentity,
       spawnProcess: sandbox.spawnProcess,
     });
     try {
@@ -161,6 +168,7 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
     verifyRepository: overrides.verifyRepository ?? (() => verifyCleanRepository(repositoryRoot)),
     preflight: overrides.runPreflight ?? (async () => runProductionPreflight({
       manifest,
+      frozenCodexIdentity: codexIdentity,
       repositoryRoot,
       codexBinary,
       bwrapBinary,
@@ -328,8 +336,9 @@ async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }) {
   });
 }
 
-async function runProductionPreflight({ manifest, repositoryRoot, codexBinary, bwrapBinary, authSource, canaries, overrides }) {
-  const frozenCommit = await verifyCleanRepository(repositoryRoot);
+async function runProductionPreflight({ manifest, frozenCodexIdentity, repositoryRoot, codexBinary, bwrapBinary, authSource, canaries, overrides }) {
+  const verifyRepository = overrides.verifyRepository ?? verifyCleanRepository;
+  const frozenCommit = await verifyRepository(repositoryRoot);
   if (frozenCommit !== manifest.sourceCommit) throw new Error('Preflight repository commit differs from the manifest.');
   const stateHome = process.env.XDG_STATE_HOME;
   if (!stateHome) throw new Error('XDG_STATE_HOME is required for the production preflight.');
@@ -350,13 +359,13 @@ async function runProductionPreflight({ manifest, repositoryRoot, codexBinary, b
       canaries,
     });
     const discover = overrides.discoverCodexIdentity ?? discoverCodexAppServerIdentity;
-    const codexIdentity = await discover({
+    const discoveredCodexIdentity = await discover({
       cliVersion: sandbox.contract.codexVersion,
-      slug: manifest.providerIdentities.codex.modelSlug,
-      effort: manifest.providerIdentities.codex.reasoningEffort,
+      slug: frozenCodexIdentity.slug,
+      effort: frozenCodexIdentity.effort,
       spawnProcess: sandbox.spawnProcess,
     });
-    if (canonicalJson(codexIdentity) !== canonicalJson(manifest.providerIdentities.codex)) {
+    if (canonicalJson(discoveredCodexIdentity) !== canonicalJson(frozenCodexIdentity)) {
       throw new Error('Codex identity differs from the frozen manifest.');
     }
     if (manifest.branch === 'paired') {
