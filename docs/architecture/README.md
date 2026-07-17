@@ -49,6 +49,8 @@ the files inside `docs/architecture/`.
 - **[Human-centered product principles](human-centered-product-principles.md)**
   — canonical behavior invariants for authority, negotiable structure,
   orientation, accessible equivalence, and product gates.
+- **[Coding Agent Direction](coding-agent-direction.md)** — deferred boundary
+  for external agent engines, revision-bound proposals, and host-owned effects.
 - **[The Projectional Bridge](vision-projectional-bridge.md)** — bridging
   syntax → semantics → intent → mental model.
 - **[Structure-Format Research](structure-format-research.md)** — PL research
