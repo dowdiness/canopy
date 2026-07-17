@@ -4,18 +4,21 @@
 
 ## Purpose
 
+A recovered graph can look correct while the same request has committed twice,
+a newer draft has been overwritten, or a renderer has resumed from an older
+baseline. Testing those failures separately would miss the state that connects
+them.
+
 The [document-engine design](../design/incremental-generative-ui-document-engine.md)
-defines unimplemented authority, identity, transaction, and recovery rules.
-This plan tests them in a private deterministic core before syntax, DOM,
-storage, or JavaScript integration.
+earns adapter work only if one private deterministic core can preserve an
+invalid human draft, commit exactly once, block a conflicting rewrite, recover
+a failed renderer, and restart with the same identities. If that combined trace
+fails, revise or reject the design before syntax, DOM, storage, or JavaScript
+integration.
 
-The gate is intentionally falsifiable: if an invalid human draft, exactly-once
-semantic commit, failed renderer, conflicting rewrite, and restart cannot
-coexist in a small core and fake shell, revise or reject the design.
-
-Passing does not authorize PKE semantic candidates before its fixed baseline,
-change the Generative UI V1 sequence, or establish a public renderer-neutral
-contract.
+A passing trace still does not authorize PKE semantic candidates before its
+fixed baseline, change the Generative UI V1 sequence, or establish a public
+renderer-neutral contract.
 
 ## Scope
 

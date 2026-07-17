@@ -69,10 +69,11 @@ Only `Applied` advances `GraphRevision`. Its canonical delivery plan records
 the source effect kind/preconditions and the ordered renderer targets/baselines
 captured at commit. A pure function derives exactly one source effect and one
 render effect per captured target: `MarkSynchronized` for text, or
-`RewriteSource` for projection, agent, and undo origins. Each expected tuple
-contains `EffectId`, request, revision, kind, target, and baselines; `EffectId`
-derives deterministically from the plan position and tuple identity. The plan,
-its digest, derived manifest, and outbox entries persist atomically. There is no
+`RewriteSource` for projection, agent, and undo origins. Each canonical effect
+payload contains request, revision, kind, target, and baselines. `EffectId`
+derives from `(DocumentId, plan position, payload)`; the expected tuple adds
+that ID to the payload. The plan, its digest, derived manifest, and outbox
+entries persist atomically. There is no
 generic rewrite effect for text-origin commits.
 
 `NoSemanticChange` and `Rejected` are ledger-only outcomes: their delivery
@@ -88,16 +89,25 @@ approval evidence.
 
 ## Renderer separation
 
-Semantic commit does not depend on DOM or renderer success. A committed change
-emits durable renderer work and its origin-specific source effect through an
-outbox. Renderer failure leaves meaning unchanged, marks only that renderer
-dirty, and schedules repair from the committed graph.
+A renderer can fail after the graph is durable. If that failure revoked the
+commit, document meaning would depend on which renderer happened to be
+available. Semantic commit therefore emits durable renderer work through the
+outbox but does not wait for DOM success. Failure marks only that renderer dirty
+and repairs it from the committed graph.
 
-The existing JSX session still follows its V1 rule that a candidate is not
-reported committed until DOM apply succeeds. That adapter/session contract does
-not define semantic authority for the new document engine.
+The existing JSX session appears stricter: it does not report a V1 candidate as
+committed until DOM apply succeeds. That remains the local adapter/session
+contract. It cannot decide semantic authority for a document with other
+renderers.
 
 ## Requests and idempotency
+
+A commit can succeed while its response is lost, so the caller retries the same
+`RequestId` and the graph must not advance twice. A repeated ID appears
+sufficient, but a caller can reuse it for different content. Replacing that
+content comparison with a digest only moves the ambiguity because collisions
+remain possible. Retry safety therefore rests on the validated canonical
+request itself.
 
 | Field | Rule |
 | --- | --- |
@@ -233,6 +243,12 @@ reversal path.
 
 ## Draft, source, and renderer transitions
 
+Text and non-text commits leave the source in different conditions. A text
+commit already exists in the current draft, so writing generated source back
+could destroy its lossless complement. Projection, agent, and undo commits have
+changed the graph without changing those bytes. Their source effect must first
+prove that the draft has not moved.
+
 The functional core follows:
 
 ```text
@@ -273,6 +289,13 @@ is private and collision-checked.
 
 ## Persistence and recovery
 
+A checkpoint can restore the right graph and still restore the wrong protocol.
+Without a ledger-only outcome, a retry may run again. Without acknowledged
+outbox state, delivery may resume from the wrong point. Even a manifest/outbox
+comparison is insufficient when both omit the same renderer target: the two
+corrupt records still agree. The durable commit therefore keeps an independent
+canonical delivery plan from which the expected effects can be regenerated.
+
 An applied commit atomically groups:
 
 - next graph or checkpoint/delta reference;
@@ -311,14 +334,14 @@ Renderer ordering is explicit:
 3. An effect whose base equals the baseline may apply.
 4. A gap rebuilds the latest snapshot; older deltas never apply.
 
-`MarkSynchronized` changes no bytes. A matching draft becomes synchronized; a
-newer draft produces a durable stale acknowledgment without changing draft or
-sync state. `RewriteSource` for projection, agent, or undo requires matching draft
-revision, valid/rewrite-eligible status, and source semantic baseline. A mismatch
-preserves source and durably records blocked `RewriteConflict`, consuming that
-effect rather than retrying forever. A later rewrite requires a new effect.
-Rewrite gaps coalesce to the latest graph and canonical source. Observed state
-never regresses.
+The source origin determines what delivery can safely do. `MarkSynchronized`
+changes no bytes: a matching text draft becomes synchronized, while a newer
+draft receives a durable stale acknowledgment and remains untouched.
+`RewriteSource` serves projection, agent, and undo commits only after draft,
+eligibility, and semantic-baseline checks pass. A mismatch preserves source and
+durably records blocked `RewriteConflict`, consuming that effect rather than
+retrying forever. A later rewrite requires a new effect. Rewrite gaps coalesce
+to the latest graph and canonical source. Observed state never regresses.
 
 ## Concurrency
 
