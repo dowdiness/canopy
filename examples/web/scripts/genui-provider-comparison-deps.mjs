@@ -302,20 +302,23 @@ async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }) {
     browser = await chromium.launch();
     page = await browser.newPage();
     await page.goto(`http://${host}:${port}/genui.html`);
-    await page.waitForFunction(() => typeof window.__canopyGenUiFeasibilityTest?.commitSavedCandidate === 'function');
+    await page.waitForFunction(() => typeof window.__canopyGenUiFeasibilityTest?.commitCandidate === 'function');
   } catch (error) {
     await browser?.close();
     stopProcessGroup(child);
     throw new Error(`Browser candidate evaluator failed to start: ${error instanceof Error ? error.message : String(error)}\n${logs.join('').slice(-4000)}`);
   }
   return Object.freeze({
-    async evaluate({ caseId, candidateJson }) {
-      return page.evaluate(async ({ selectedCaseId, rawCandidate }) => {
+    async evaluate({ candidateJson, input }) {
+      return page.evaluate(async ({ rawCandidate, candidateInput }) => {
         const api = window.__canopyGenUiFeasibilityTest;
         if (!api) throw new Error('GenUI feasibility browser test API is unavailable.');
         await api.resetSlotSession();
-        return api.commitSavedCandidate({ caseId: selectedCaseId, candidateJson: rawCandidate });
-      }, { selectedCaseId: caseId, rawCandidate: candidateJson });
+        return api.commitCandidate({
+          candidateJson: rawCandidate,
+          ...candidateInput,
+        });
+      }, { rawCandidate: candidateJson, candidateInput: input });
     },
     async close() {
       await browser.close();
