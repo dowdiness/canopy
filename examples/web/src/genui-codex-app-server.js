@@ -568,7 +568,8 @@ class JsonlTransport {
     this.clearTimer = clearTimer;
     this.nextRequestId = 1;
     this.transcript = [];
-    this.messages = new AsyncQueue();
+    this.responses = new AsyncQueue();
+    this.notifications = new AsyncQueue();
     this.terminated = false;
     this.reader = this.#readStdout();
   }
@@ -576,7 +577,7 @@ class JsonlTransport {
   async request(method, params) {
     const id = this.nextRequestId++;
     this.#write({ id, method, params });
-    const message = await this.readMessage();
+    const message = await this.readMessage(this.responses);
     if (!isRecord(message) || message.id !== id || 'method' in message) {
       throw protocolError(`Codex response does not match request ${id} (${method}).`);
     }
@@ -599,16 +600,16 @@ class JsonlTransport {
   }
 
   async readNotification(expectedMethod) {
-    const message = await this.readMessage();
+    const message = await this.readMessage(this.notifications);
     if (!isRecord(message) || message.method !== expectedMethod || 'id' in message) {
       throw protocolError(`Expected ${expectedMethod} notification.`);
     }
     return message;
   }
 
-  async readMessage() {
+  async readMessage(queue = this.notifications) {
     return withTimeout(
-      this.messages.shift(),
+      queue.shift(),
       this.timeoutMs,
       this.setTimer,
       this.clearTimer,
@@ -621,7 +622,9 @@ class JsonlTransport {
     try {
       this.child.kill(signal);
     } finally {
-      this.messages.fail(protocolError('Codex process terminated.'));
+      const terminated = protocolError('Codex process terminated.');
+      this.responses.fail(terminated);
+      this.notifications.fail(terminated);
       this.child.stdin.end?.();
       await Promise.resolve(this.child.exit).catch(() => undefined);
       await this.reader.catch(() => undefined);
@@ -657,14 +660,26 @@ class JsonlTransport {
             throw protocolError('Codex emitted an invalid JSON-RPC envelope.');
           }
           this.transcript.push(normalizeTranscriptEvent('server', message));
-          this.messages.push(message);
+          if ('id' in message && !('method' in message)) {
+            this.responses.push(message);
+          } else if (
+            'id' in message ||
+            (isRecord(message.params) &&
+              (typeof message.params.threadId === 'string' || isRecord(message.params.thread)))
+          ) {
+            this.notifications.push(message);
+          }
         }
       }
       buffered += decoder.decode();
       if (buffered.length !== 0) throw protocolError('Codex stdout ended with a partial JSONL line.');
-      this.messages.fail(protocolError('Codex stdout reached EOF before session close.'));
+      const eofError = protocolError('Codex stdout reached EOF before session close.');
+      this.responses.fail(eofError);
+      this.notifications.fail(eofError);
     } catch (error) {
-      this.messages.fail(asProviderBoundaryError(error));
+      const boundaryError = asProviderBoundaryError(error);
+      this.responses.fail(boundaryError);
+      this.notifications.fail(boundaryError);
     }
   }
 }

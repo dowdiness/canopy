@@ -411,6 +411,34 @@ test('discovers the selected Codex identity without starting a thread or turn', 
   assert.deepEqual(child.kills, ['SIGTERM']);
 });
 
+test('routes App Server background notifications without coupling them to request responses', async () => {
+  const steps = handshakeSteps();
+  const accountStep = steps[2];
+  steps[2] = {
+    ...accountStep,
+    emit: (request) => [
+      notification('configWarning', { message: 'known background notice' }),
+      notification('remoteControl/status/changed', { status: 'disconnected' }),
+      notification('future/global-notice', { detail: 'not request-correlated' }),
+      response(request, {
+        account: { type: 'chatgpt', email: null, planType: 'plus' },
+        requiresOpenaiAuth: true,
+      }),
+    ],
+  };
+  const child = createScriptedProcess(steps);
+
+  const identity = await discoverCodexAppServerIdentity({
+    cliVersion: '0.144.4',
+    slug: 'gpt-5.6-luna',
+    effort: 'medium',
+    spawnProcess: () => child,
+  }, { timeoutMs: 50 });
+
+  assert.deepEqual(identity, FROZEN_IDENTITY);
+  assert.deepEqual(child.kills, ['SIGTERM']);
+});
+
 test('negotiates experimental API and preserves exact candidate bytes and per-turn usage', async () => {
   const { child, session, result } = await runScript();
 
@@ -534,7 +562,7 @@ test('rejects model reroute and response identity drift as global failures', asy
   assert.equal(drifted.result.globalStop, true);
 });
 
-test('correlates response IDs and rejects a notification before its response', async () => {
+test('correlates responses by ID while preserving notifications that arrive first', async () => {
   const wrongIdSteps = handshakeSteps();
   wrongIdSteps[0] = {
     emit: (request) => [response({ id: request.id + 99 }, initializeResult())],
@@ -547,7 +575,7 @@ test('correlates response IDs and rejects a notification before its response', a
   const outOfOrder = await runScript({
     run: successfulRunSteps({ responseFirst: false }),
   });
-  assert.equal(outOfOrder.result.classification, 'provider_protocol_error');
+  assert.equal(outOfOrder.result.classification, 'success', outOfOrder.result.message);
 });
 
 test('rejects wrong thread and turn IDs and completion before item completion', async () => {
