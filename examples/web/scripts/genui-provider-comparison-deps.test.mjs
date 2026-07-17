@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { canonicalJson } from '../src/genui-feasibility-provider.js';
 import {
   getFeasibilityFixture,
@@ -202,4 +205,29 @@ test('production Codex usage contributes exact tokens to the frozen run budget',
   assert.equal(second.usage.totalTokens, 15);
   assert.deepEqual(await deps.requestGate({ slot }), { classification: 'global_stop' });
   await deps.close();
+});
+
+test('production dependencies accept an explicit reviewed Codex binary path', async () => {
+  const runRoot = await mkdtemp(join(tmpdir(), 'canopy-provider-codex-binary-'));
+  const previous = process.env.GENUI_PROVIDER_CODEX_BINARY;
+  process.env.GENUI_PROVIDER_CODEX_BINARY = '/opt/reviewed/codex';
+  let receivedBinary = null;
+  try {
+    const deps = await createComparisonDependencies({ manifest: manifest() }, {
+      prepareSandbox: async ({ codexBinary }) => {
+        receivedBinary = codexBinary;
+        return {
+          contract: {},
+          spawnProcess: async () => undefined,
+          cleanup: async () => undefined,
+        };
+      },
+    });
+    await deps.createSandbox({ runRoot });
+    assert.equal(receivedBinary, '/opt/reviewed/codex');
+  } finally {
+    if (previous === undefined) delete process.env.GENUI_PROVIDER_CODEX_BINARY;
+    else process.env.GENUI_PROVIDER_CODEX_BINARY = previous;
+    await rm(runRoot, { recursive: true, force: true });
+  }
 });

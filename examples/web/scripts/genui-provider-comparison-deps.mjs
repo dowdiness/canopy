@@ -58,7 +58,7 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
   if (!manifest || typeof manifest !== 'object') throw new TypeError('A frozen comparison manifest is required.');
   const repositoryRoot = overrides.repositoryRoot ?? resolve(import.meta.dirname, '../../..');
   const webRoot = resolve(import.meta.dirname, '..');
-  const codexBinary = overrides.codexBinary ?? DEFAULT_CODEX_BINARY;
+  const codexBinary = overrides.codexBinary ?? process.env.GENUI_PROVIDER_CODEX_BINARY ?? DEFAULT_CODEX_BINARY;
   const bwrapBinary = overrides.bwrapBinary ?? DEFAULT_BWRAP_BINARY;
   const authSource = overrides.authSource ?? join(homedir(), '.codex', 'auth.json');
   const startedAt = (overrides.now ?? Date.now)();
