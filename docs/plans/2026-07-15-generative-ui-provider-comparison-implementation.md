@@ -674,7 +674,8 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Require one completed turn, exactly one final agent message, no forbidden
   item, exact candidate bytes, successful MoonBit preparation, replay equality,
   cleanup success, mode `0600` outputs, and no canary in stderr, JSONL,
-  transcript, or diagnostics.
+  transcript, or diagnostics. Token telemetry must be present with a positive
+  integer `totalTokens` and non-negative integer component counts.
 - [ ] Freeze numeric limits with this preregistered rule:
   - slot positions: 60, with the single smoke recorded separately;
   - active scored requests: 60 for `paired` or 30 for `codex_only`;
@@ -689,7 +690,8 @@ manifest freeze, scored execution, and evidence closure.
     `paired` or 960,000 for `codex_only`;
   - run wall-time ceiling: the branch's active-request count multiplied by the
     slot timeout, plus five minutes of fixed orchestration allowance.
-- [ ] Add exact boundary tests for both branches: smoke totals 0 and 4,000 freeze
+- [ ] Add exact boundary tests for both branches: missing, non-integer, negative,
+  or zero smoke totals stop before manifest creation; totals 1 and 4,000 freeze
   16,000; 4,001 freezes 17,000; 8,000 freezes 32,000; 8,001 stops before
   manifest creation. Prove each manifest contains numbers only, never a formula
   or symbolic value.
@@ -905,9 +907,10 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] The manifest freezes all ten Ollama seeds. Every repeated index in `paired`
   reaches its exact seed without changing the legacy three-slot
   `callOllamaSlot` contract; `codex_only` never invokes Ollama.
-- [ ] The per-request observed-token ceiling is
-  `max(16000, ceilTo1000(4 * smokeTotalTokens))`; values above 32,000 stop before
-  manifest creation. The run ceiling is the accepted per-request value times
+- [ ] A positive integer `smokeTotalTokens` is required. The per-request
+  observed-token ceiling is `max(16000, ceilTo1000(4 * smokeTotalTokens))`;
+  missing, invalid, or zero telemetry blocks manifest creation, as do derived
+  values above 32,000. The run ceiling is the accepted per-request value times
   the branch's active-request count: 60 for `paired` or 30 for `codex_only`,
   capped at 1,920,000 or 960,000 respectively.
 - [ ] Stage 2 runs only after every branch-specific Stage 1 eligibility predicate

@@ -532,8 +532,11 @@ opaque IDs and removes absolute paths and account metadata. It preserves:
 - selected model identity observations;
 - item types and boundary violations;
 - usage and timing fields;
-- candidate bytes and digest;
+- candidate digest, byte length, and private raw-artifact digest;
 - every redaction performed.
+
+The committed transcript contains neither prompt nor candidate bytes. Exact
+bytes remain private under the run root.
 
 Fixtures are synthetic and fixed. The provider receives no held-out, user,
 repository, or host data. A transcript containing a secret/path canary cannot be
