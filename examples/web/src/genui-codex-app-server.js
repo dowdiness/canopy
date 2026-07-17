@@ -27,6 +27,8 @@ const USAGE_FIELDS = Object.freeze([
   'reasoningOutputTokens',
   'totalTokens',
 ]);
+const DEFAULT_TERMINATION_GRACE_MS = 1_000;
+
 
 export async function createCodexAppServerSession({
   frozenIdentity,
@@ -45,9 +47,15 @@ export async function createCodexAppServerSession({
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
     throw protocolError('Codex protocol timeout must be a positive integer.');
   }
+  const terminationGraceMs = deps.terminationGraceMs ?? DEFAULT_TERMINATION_GRACE_MS;
+  if (!Number.isInteger(terminationGraceMs) || terminationGraceMs <= 0) {
+    throw protocolError('Codex termination grace period must be a positive integer.');
+  }
+
   const child = await spawnProcess();
   const transport = new JsonlTransport(child, {
     timeoutMs,
+    terminationGraceMs,
     setTimer: deps.setTimer ?? setTimeout,
     clearTimer: deps.clearTimer ?? clearTimeout,
   });
@@ -558,12 +566,18 @@ function failureTransition(state, classification, message, globalStop = false) {
 }
 
 class JsonlTransport {
-  constructor(child, { timeoutMs, setTimer, clearTimer }) {
-    if (!child?.stdin || !child?.stdout || typeof child.kill !== 'function') {
+  constructor(child, { timeoutMs, terminationGraceMs, setTimer, clearTimer }) {
+    if (
+      !child?.stdin ||
+      !child?.stdout ||
+      typeof child.kill !== 'function' ||
+      typeof child.exit?.then !== 'function'
+    ) {
       throw protocolError('Codex process does not implement the required stdio lifecycle.');
     }
     this.child = child;
     this.timeoutMs = timeoutMs;
+    this.terminationGraceMs = terminationGraceMs;
     this.setTimer = setTimer;
     this.clearTimer = clearTimer;
     this.nextRequestId = 1;
@@ -619,16 +633,32 @@ class JsonlTransport {
   async terminate(signal) {
     if (this.terminated) return;
     this.terminated = true;
-    try {
-      this.child.kill(signal);
-    } finally {
-      const terminated = protocolError('Codex process terminated.');
-      this.responses.fail(terminated);
-      this.notifications.fail(terminated);
-      this.child.stdin.end?.();
-      await Promise.resolve(this.child.exit).catch(() => undefined);
-      await this.reader.catch(() => undefined);
+    const terminated = protocolError('Codex process terminated.');
+    this.responses.fail(terminated);
+    this.notifications.fail(terminated);
+    this.child.stdin.end?.();
+    this.child.kill(signal);
+    const exited = await settlesWithin(
+      this.child.exit,
+      this.terminationGraceMs,
+      this.setTimer,
+      this.clearTimer,
+    );
+    if (!exited && signal !== 'SIGKILL') {
+      this.child.kill('SIGKILL');
+      await settlesWithin(
+        this.child.exit,
+        this.terminationGraceMs,
+        this.setTimer,
+        this.clearTimer,
+      );
     }
+    await settlesWithin(
+      this.reader,
+      this.terminationGraceMs,
+      this.setTimer,
+      this.clearTimer,
+    );
   }
 
   #write(message) {
@@ -709,6 +739,20 @@ class AsyncQueue {
     if (this.error !== null) return Promise.reject(this.error);
     return new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
   }
+}
+
+function settlesWithin(promise, milliseconds, setTimer, clearTimer) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimer(timer);
+      resolve(value);
+    };
+    const timer = setTimer(() => finish(false), milliseconds);
+    promise.then(() => finish(true), () => finish(true));
+  });
 }
 
 function withTimeout(promise, milliseconds, setTimer, clearTimer) {

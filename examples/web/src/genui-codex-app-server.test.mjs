@@ -677,6 +677,32 @@ test('preserves non-ASCII whitespace and rejects oversize or invalid UTF-8 candi
   assert.equal(invalid.result.classification, 'candidate_invalid_utf8');
 });
 
+test('escalates ignored graceful shutdown and resolves close after a bounded wait', async () => {
+  const child = createScriptedProcess(handshakeSteps());
+  let resolveExit;
+  child.exit = new Promise((resolve) => { resolveExit = resolve; });
+  child.kill = (signal) => {
+    child.kills.push(signal);
+    if (signal === 'SIGKILL') {
+      child.stdout.end();
+      child.stderr.end();
+      resolveExit({ code: null, signal });
+    }
+    return true;
+  };
+  const session = await createCodexAppServerSession({
+    frozenIdentity: FROZEN_IDENTITY,
+    spawnProcess: () => child,
+  }, {
+    timeoutMs: 50,
+    terminationGraceMs: 5,
+  });
+
+  await session.close();
+
+  assert.deepEqual(child.kills, ['SIGTERM', 'SIGKILL']);
+});
+
 test('serializes slots and makes close idempotent', async () => {
   const { session } = await createSession({
     steps: [...handshakeSteps(), ...successfulRunSteps()],

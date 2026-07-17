@@ -9,7 +9,10 @@ import {
   getFeasibilityFixture,
   normalizeTrustedFixture,
 } from '../src/genui-feasibility-fixtures.js';
-import { createComparisonDependencies } from './genui-provider-comparison-deps.mjs';
+import {
+  createBrowserCandidateEvaluator,
+  createComparisonDependencies,
+} from './genui-provider-comparison-deps.mjs';
 
 const COMMIT = 'a'.repeat(40);
 const fixture = getFeasibilityFixture('orders-pending-attention');
@@ -239,6 +242,57 @@ test('production Codex usage contributes exact tokens to the frozen run budget',
   assert.equal(second.usage.totalTokens, 15);
   assert.deepEqual(await deps.requestGate({ slot }), { classification: 'global_stop' });
   await deps.close();
+});
+
+test('browser startup waits for child termination before rejecting', async () => {
+  const events = [];
+  const child = { pid: 999_999, stdout: null, stderr: null };
+
+  await assert.rejects(
+    createBrowserCandidateEvaluator({
+      webRoot: join(import.meta.dirname, '..'),
+      host: '127.0.0.1',
+      port: 51_987,
+      spawn: () => child,
+    }, {
+      waitForReady: async () => {
+        events.push('startup_failed');
+        throw new Error('preview unavailable');
+      },
+      stopChild: async (received) => {
+        assert.equal(received, child);
+        events.push('child_stopped');
+      },
+    }),
+    /preview unavailable/u,
+  );
+
+  assert.deepEqual(events, ['startup_failed', 'child_stopped']);
+});
+
+test('browser startup does not signal a child that already exited', async () => {
+  const signals = [];
+  const child = {
+    pid: Number.MAX_SAFE_INTEGER,
+    exitCode: 1,
+    stdout: null,
+    stderr: null,
+    kill: (signal) => signals.push(signal),
+  };
+
+  await assert.rejects(
+    createBrowserCandidateEvaluator({
+      webRoot: join(import.meta.dirname, '..'),
+      host: '127.0.0.1',
+      port: 51_987,
+      spawn: () => child,
+    }, {
+      waitForReady: async () => { throw new Error('preview unavailable'); },
+    }),
+    /preview unavailable/u,
+  );
+
+  assert.deepEqual(signals, []);
 });
 
 test('production dependencies accept an explicit reviewed Codex binary path', async () => {

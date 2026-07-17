@@ -300,9 +300,13 @@ function mapBrowserEvaluation(result) {
   });
 }
 
-async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }) {
+export async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }, deps = {}) {
+  const accessFile = deps.access ?? access;
+  const waitForReady = deps.waitForReady ?? waitForUrl;
+  const launchBrowser = deps.launchBrowser ?? (() => chromium.launch());
+  const stopChild = deps.stopChild ?? terminateProcessGroup;
   const vite = resolve(webRoot, 'node_modules/vite/bin/vite.js');
-  await access(vite);
+  await accessFile(vite);
   const child = spawn(process.execPath, [vite, '--host', host, '--port', String(port), '--strictPort'], {
     cwd: webRoot,
     detached: true,
@@ -319,14 +323,14 @@ async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }) {
   let browser;
   let page;
   try {
-    await waitForUrl(`http://${host}:${port}/genui.html`, child, logs);
-    browser = await chromium.launch();
+    await waitForReady(`http://${host}:${port}/genui.html`, child, logs);
+    browser = await launchBrowser();
     page = await browser.newPage();
     await page.goto(`http://${host}:${port}/genui.html`);
     await page.waitForFunction(() => typeof window.__canopyGenUiFeasibilityTest?.commitCandidate === 'function');
   } catch (error) {
     await browser?.close();
-    stopProcessGroup(child);
+    await stopChild(child);
     throw new Error(`Browser candidate evaluator failed to start: ${error instanceof Error ? error.message : String(error)}\n${logs.join('').slice(-4000)}`);
   }
   return Object.freeze({
@@ -342,9 +346,11 @@ async function createBrowserCandidateEvaluator({ webRoot, host, port, spawn }) {
       }, { rawCandidate: candidateJson, candidateInput: input });
     },
     async close() {
-      await browser.close();
-      stopProcessGroup(child);
-      await waitForExit(child);
+      try {
+        await browser.close();
+      } finally {
+        await stopChild(child);
+      }
     },
   });
 }
@@ -447,27 +453,35 @@ async function waitForUrl(url, child, logs) {
   throw new Error('Timed out waiting for the local GenUI server.');
 }
 
-function stopProcessGroup(child) {
+function signalProcessGroup(child, signal) {
   try {
-    process.kill(-child.pid, 'SIGTERM');
+    process.kill(-child.pid, signal);
   } catch {
-    child.kill('SIGTERM');
+    child.kill(signal);
   }
 }
 
-async function waitForExit(child) {
+async function terminateProcessGroup(child) {
   if (child.exitCode !== null) return;
-  await Promise.race([
-    new Promise((resolvePromise) => child.once('exit', resolvePromise)),
-    new Promise((resolvePromise) => setTimeout(resolvePromise, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    try {
-      process.kill(-child.pid, 'SIGKILL');
-    } catch {
-      child.kill('SIGKILL');
-    }
-  }
+  signalProcessGroup(child, 'SIGTERM');
+  if (await waitForExit(child, 5_000)) return;
+  signalProcessGroup(child, 'SIGKILL');
+  await waitForExit(child, 5_000);
+}
+
+async function waitForExit(child, timeoutMs) {
+  if (child.exitCode !== null) return true;
+  return new Promise((resolvePromise) => {
+    let settled = false;
+    const finish = (exited) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolvePromise(exited);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    child.once('exit', () => finish(true));
+  });
 }
 
 function sha256(value) {

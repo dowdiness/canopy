@@ -7,8 +7,8 @@ import { delimiter, join } from 'node:path';
 import test from 'node:test';
 
 import {
+  CODEX_SANDBOX_CONTRACT,
   MINIMAL_CONFIG_KEY_PATHS,
-  PINNED_CONFIG_SCHEMA_SHA256,
   assertCanaryFree,
   buildCodexSandboxSpec,
   buildMinimalCodexConfig,
@@ -17,60 +17,6 @@ import {
 } from './genui-codex-sandbox.mjs';
 
 const AUTH_BYTES = '{"tokens":{"access_token":"AUTH-BYTE-CANARY"}}\n';
-const PINNED_SCHEMA_SHA256 = '841e0ab1c1bd2fea736ba2d46212ab5bedc06dce9fd83bbafbf50b57b9056d17';
-const FORBIDDEN_FEATURES = Object.freeze([
-  'apply_patch_freeform',
-  'apps',
-  'browser_use',
-  'browser_use_external',
-  'browser_use_full_cdp_access',
-  'code_mode',
-  'code_mode_host',
-  'code_mode_only',
-  'codex_git_commit',
-  'codex_hooks',
-  'collab',
-  'collaboration_modes',
-  'computer_use',
-  'connectors',
-  'default_mode_request_user_input',
-  'enable_fanout',
-  'enable_mcp_apps',
-  'exec_permission_approvals',
-  'experimental_use_unified_exec_tool',
-  'hooks',
-  'in_app_browser',
-  'js_repl',
-  'js_repl_tools_only',
-  'memories',
-  'memory_tool',
-  'multi_agent',
-  'multi_agent_mode',
-  'network_proxy',
-  'non_prefixed_mcp_tool_names',
-  'plugin_hooks',
-  'plugin_sharing',
-  'plugins',
-  'request_permissions',
-  'request_permissions_tool',
-  'search_tool',
-  'shell_snapshot',
-  'shell_tool',
-  'shell_zsh_fork',
-  'skill_env_var_dependency_prompt',
-  'skill_mcp_dependency_install',
-  'standalone_web_search',
-  'tool_call_mcp_elicitation',
-  'tool_search',
-  'tool_search_always_defer_mcp_tools',
-  'tool_suggest',
-  'unavailable_dummy_tools',
-  'unified_exec',
-  'unified_exec_zsh_fork',
-  'web_search',
-  'web_search_cached',
-  'web_search_request',
-]);
 
 function findExecutable(name) {
   for (const directory of (process.env.PATH ?? '').split(delimiter)) {
@@ -193,7 +139,7 @@ test('minimal config disables persistence, telemetry, context injection, tools, 
   const config = buildMinimalCodexConfig();
   const values = parseToml(config);
 
-  assert.equal(PINNED_CONFIG_SCHEMA_SHA256, PINNED_SCHEMA_SHA256);
+  assert.equal(CODEX_SANDBOX_CONTRACT.configSchemaSha256, '841e0ab1c1bd2fea736ba2d46212ab5bedc06dce9fd83bbafbf50b57b9056d17');
   assert.deepEqual([...values.keys()].sort(), [...MINIMAL_CONFIG_KEY_PATHS].sort());
   assert.equal(values.get('history.persistence'), '"none"');
   assert.equal(values.get('analytics.enabled'), 'false');
@@ -215,7 +161,7 @@ test('minimal config disables persistence, telemetry, context injection, tools, 
   assert.equal(values.get('apps._default.enabled'), 'false');
   assert.equal(values.get('mcp_servers'), '{}');
   assert.equal(values.get('plugins'), '{}');
-  for (const feature of FORBIDDEN_FEATURES) {
+  for (const feature of CODEX_SANDBOX_CONTRACT.forbiddenFeatures) {
     assert.equal(values.get(`features.${feature}`), 'false', feature);
   }
 });
@@ -337,6 +283,38 @@ test('auth copy is private, launcher metadata is secret-free, and cleanup preser
   assert.ok(child.killed);
   await assert.rejects(() => access(copiedAuth));
   assert.equal(await readFile(join(fixture.rawRoot, 'keep.json'), 'utf8'), '{}\n');
+});
+
+test('failed namespace discovery kills the spawned child before rejecting', async () => {
+  const fixture = await temporaryFixture();
+  const recorder = fakeSpawnRecorder();
+  const spawnWithEvents = (...args) => {
+    const child = recorder.spawn(...args);
+    child.once = () => child;
+    return child;
+  };
+  const prepared = await prepareCodexSandbox({
+    runRoot: fixture.runRoot,
+    codexBinary: '/private/static/codex',
+    bwrapBinary: '/usr/bin/bwrap',
+    authSource: fixture.authSource,
+    canaries: fixture.canaries,
+  }, {
+    spawn: spawnWithEvents,
+    runIsolationPreflight: async () => fakeIsolationPreflight(),
+    resolveExecutable: async (file) => file,
+    validateExecutable: async () => {},
+    readVersion: async () => 'pinned',
+    sha256File: async () => 'b'.repeat(64),
+    signalSource: new EventEmitter(),
+    discoverNamespace: async () => { throw new Error('namespace unavailable'); },
+  });
+
+  await assert.rejects(prepared.spawnProcess(), /namespace unavailable/u);
+
+  assert.equal(recorder.children.length, 1);
+  assert.equal(recorder.children[0].killed, 'SIGKILL');
+  await prepared.cleanup();
 });
 
 test('cleanup runs on signal and after every terminal scenario', async () => {

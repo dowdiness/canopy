@@ -17,61 +17,66 @@ import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-export const PINNED_CONFIG_SCHEMA_SHA256 = '841e0ab1c1bd2fea736ba2d46212ab5bedc06dce9fd83bbafbf50b57b9056d17';
+export const CODEX_SANDBOX_CONTRACT = Object.freeze({
+  configSchemaSha256: '841e0ab1c1bd2fea736ba2d46212ab5bedc06dce9fd83bbafbf50b57b9056d17',
+  forbiddenFeatures: Object.freeze([
+    'apply_patch_freeform',
+    'apps',
+    'browser_use',
+    'browser_use_external',
+    'browser_use_full_cdp_access',
+    'code_mode',
+    'code_mode_host',
+    'code_mode_only',
+    'codex_git_commit',
+    'codex_hooks',
+    'collab',
+    'collaboration_modes',
+    'computer_use',
+    'connectors',
+    'default_mode_request_user_input',
+    'enable_fanout',
+    'enable_mcp_apps',
+    'exec_permission_approvals',
+    'experimental_use_unified_exec_tool',
+    'hooks',
+    'in_app_browser',
+    'js_repl',
+    'js_repl_tools_only',
+    'memories',
+    'memory_tool',
+    'multi_agent',
+    'multi_agent_mode',
+    'network_proxy',
+    'non_prefixed_mcp_tool_names',
+    'plugin_hooks',
+    'plugin_sharing',
+    'plugins',
+    'request_permissions',
+    'request_permissions_tool',
+    'search_tool',
+    'shell_snapshot',
+    'shell_tool',
+    'shell_zsh_fork',
+    'skill_env_var_dependency_prompt',
+    'skill_mcp_dependency_install',
+    'standalone_web_search',
+    'tool_call_mcp_elicitation',
+    'tool_search',
+    'tool_search_always_defer_mcp_tools',
+    'tool_suggest',
+    'unavailable_dummy_tools',
+    'unified_exec',
+    'unified_exec_zsh_fork',
+    'web_search',
+    'web_search_cached',
+    'web_search_request',
+  ]),
+});
 
-const FORBIDDEN_FEATURES = Object.freeze([
-  'apply_patch_freeform',
-  'apps',
-  'browser_use',
-  'browser_use_external',
-  'browser_use_full_cdp_access',
-  'code_mode',
-  'code_mode_host',
-  'code_mode_only',
-  'codex_git_commit',
-  'codex_hooks',
-  'collab',
-  'collaboration_modes',
-  'computer_use',
-  'connectors',
-  'default_mode_request_user_input',
-  'enable_fanout',
-  'enable_mcp_apps',
-  'exec_permission_approvals',
-  'experimental_use_unified_exec_tool',
-  'hooks',
-  'in_app_browser',
-  'js_repl',
-  'js_repl_tools_only',
-  'memories',
-  'memory_tool',
-  'multi_agent',
-  'multi_agent_mode',
-  'network_proxy',
-  'non_prefixed_mcp_tool_names',
-  'plugin_hooks',
-  'plugin_sharing',
-  'plugins',
-  'request_permissions',
-  'request_permissions_tool',
-  'search_tool',
-  'shell_snapshot',
-  'shell_tool',
-  'shell_zsh_fork',
-  'skill_env_var_dependency_prompt',
-  'skill_mcp_dependency_install',
-  'standalone_web_search',
-  'tool_call_mcp_elicitation',
-  'tool_search',
-  'tool_search_always_defer_mcp_tools',
-  'tool_suggest',
-  'unavailable_dummy_tools',
-  'unified_exec',
-  'unified_exec_zsh_fork',
-  'web_search',
-  'web_search_cached',
-  'web_search_request',
-]);
+export const PINNED_CONFIG_SCHEMA_SHA256 = CODEX_SANDBOX_CONTRACT.configSchemaSha256;
+
+const FORBIDDEN_FEATURES = CODEX_SANDBOX_CONTRACT.forbiddenFeatures;
 const MOUNT_KEYS = Object.freeze([
   'static_codex_binary',
   'tls_certificate',
@@ -218,6 +223,7 @@ export async function prepareCodexSandbox({
   const sha256File = deps.sha256File ?? defaultSha256File;
   const runIsolationPreflight = deps.runIsolationPreflight ?? defaultRunIsolationPreflight;
   const signalSource = deps.signalSource ?? process;
+  const discoverNamespace = deps.discoverNamespace ?? waitForNamespace;
 
   await mkdir(runRoot, { recursive: true, mode: 0o700 });
   await chmod(runRoot, 0o700);
@@ -317,13 +323,19 @@ export async function prepareCodexSandbox({
         env: {},
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      const namespacePid = typeof child.once === 'function' && Number.isInteger(child.pid)
-        ? await waitForNamespace(child.pid, async (root) => (
-            await defaultPathExists(`${root}/bin/codex`)
-          ) && (
-            await defaultPathExists(`${root}/codex-home/config.toml`)
-          ))
-        : child.pid;
+      let namespacePid;
+      try {
+        namespacePid = typeof child.once === 'function' && Number.isInteger(child.pid)
+          ? await discoverNamespace(child.pid, async (root) => (
+              await defaultPathExists(`${root}/bin/codex`)
+            ) && (
+              await defaultPathExists(`${root}/codex-home/config.toml`)
+            ))
+          : child.pid;
+      } catch (error) {
+        await stopChild(child);
+        throw error;
+      }
       const wrapped = wrapChildProcess(child, canaries, auditErrors, namespacePid);
       activeChildren.add(wrapped);
       void wrapped.exit.finally(() => activeChildren.delete(wrapped));
