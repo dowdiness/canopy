@@ -27,14 +27,14 @@ function git(args) {
   return result.stdout;
 }
 
-function verifyBuilderRepository() {
+export function verifyBuilderRepository() {
   if (git(['status', '--porcelain']) !== '') {
     throw new Error('Manifest discovery requires a clean committed implementation tree');
   }
   return git(['rev-parse', 'HEAD']).trim();
 }
 
-function digestFile(path) {
+export function digestFile(path) {
   return sha256Hex(readFileSync(resolve(REPOSITORY_ROOT, path)));
 }
 

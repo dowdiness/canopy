@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +13,12 @@ import {
   qualifyProvider,
   validateComparisonJournal,
 } from './genui-provider-comparison.mjs';
+import {
+  buildComparisonManifest,
+  writeComparisonManifest,
+} from './build-genui-provider-comparison-manifest.mjs';
+import { buildManifest as buildFeasibilityManifest } from './build-genui-feasibility-manifest.mjs';
+import { canonicalJson } from '../src/genui-feasibility-provider.js';
 
 const FIXTURES = Object.freeze([
   Object.freeze({ id: 'ast', digest: 'a'.repeat(64) }),
@@ -20,6 +27,118 @@ const FIXTURES = Object.freeze([
 ]);
 const OLLAMA_SEEDS = Object.freeze([1701, 1702, 1703, 1704, 1705, 1706, 1707, 1708, 1709, 1710]);
 const DIGEST = 'd'.repeat(64);
+const DIAGNOSTIC_STEPS = Object.freeze([
+  'environment_and_model',
+  'load_without_generation',
+  'minimal_text',
+  'json_object',
+  'unrelated_json_schema',
+  'candidate_schema_synthetic',
+  'trusted_fixtures',
+]);
+
+function manifestBuilderInput(branch = 'paired') {
+  const activeRequests = branch === 'paired' ? 60 : 30;
+  const diagnosticSummary = {
+    version: 1,
+    terminal: true,
+    complete: true,
+    safe: true,
+    selectedBranch: branch,
+    probeOrder: branch === 'paired' ? [...DIAGNOSTIC_STEPS] : DIAGNOSTIC_STEPS.slice(0, 4),
+    firstFailure: branch === 'paired' ? null : {
+      step: 'json_object',
+      classification: 'provider_http_error',
+    },
+    qualifiedForComparison: branch === 'paired',
+    fixtureIds: branch === 'paired' ? FIXTURES.map((fixture) => fixture.id) : [],
+    identityPreserved: true,
+    evidenceIntegrity: true,
+    credentialsSafe: true,
+    budgetSafe: true,
+    isolationSafe: true,
+    requestSettingsFrozen: true,
+    requestDigest: 'e'.repeat(64),
+  };
+  return {
+    branch,
+    diagnosticSummary,
+    diagnosticSummarySha256: createHash('sha256').update(canonicalJson(diagnosticSummary)).digest('hex'),
+    fixtures: FIXTURES,
+    repeats: 10,
+    randomizationSeed: 730_513,
+    ollamaSeeds: OLLAMA_SEEDS,
+    inputDigests: {
+      candidateSchemaSha256: '1'.repeat(64),
+      fixturesSha256: '2'.repeat(64),
+      capabilitiesSha256: '3'.repeat(64),
+      promptSha256: '4'.repeat(64),
+      rubricSourceSha256: '5'.repeat(64),
+      preparationCoreSourceSha256: '6'.repeat(64),
+      validationCommandsSha256: '7'.repeat(64),
+    },
+    providerIdentities: {
+      ollama: {
+        lookupTag: 'gemma4:e2b',
+        ollamaVersion: '0.11.4',
+        modelManifestSha256: '8'.repeat(64),
+        templateSha256: '9'.repeat(64),
+        parametersSha256: 'a'.repeat(64),
+      },
+      codex: {
+        cliVersion: 'codex-cli 0.144.4',
+        catalogEntrySha256: 'b'.repeat(64),
+        modelSlug: 'gpt-5.6-luna',
+        reasoningEffort: 'medium',
+        authMode: 'chatgpt',
+      },
+    },
+    providerContracts: {
+      ollama: {
+        stream: false,
+        temperature: 0.2,
+        numCtx: 4096,
+        numPredict: 512,
+        keepAlive: '5m',
+      },
+      codex: {
+        transport: 'stdio-jsonl',
+        experimentalApi: true,
+        allowProviderModelFallback: false,
+      },
+      sandbox: {
+        bubblewrapVersion: '0.9.0',
+        configSha256: 'c'.repeat(64),
+        repositoryMounted: false,
+        hostHomeMounted: false,
+      },
+    },
+    limits: {
+      slotPositions: 60,
+      activeRequests,
+      maxCandidateBytes: 65_536,
+      slotWallTimeMs: 120_000,
+      perRequestTokenCeiling: 16_000,
+      runTokenCeiling: activeRequests * 16_000,
+      runWallTimeMs: activeRequests * 120_000 + 300_000,
+    },
+    validationCommands: [
+      { id: 'node', command: 'node', args: ['--test'], cwd: 'examples/web' },
+      { id: 'moon', command: 'moon', args: ['test', 'ffi/jsx'], cwd: '.' },
+    ],
+    artifactContract: {
+      privateRunRoot: '$XDG_STATE_HOME/canopy/genui-provider-benchmark/<run-id>/',
+      rawArtifacts: {
+        appServerJsonl: 'raw/app-server.jsonl',
+        appServerStderr: 'raw/app-server.stderr',
+        ollamaBodies: 'raw/ollama/',
+        ollamaServerLogs: 'raw/ollama-server/',
+      },
+      normalizedTranscript: 'docs/evidence/genui-provider-comparison-transcript.json',
+      aggregateEvidence: 'docs/evidence/genui-provider-comparison.json',
+    },
+  };
+}
 
 function schedule(branch = 'paired', randomizationSeed = 730_513) {
   return buildComparisonSchedule({
@@ -393,4 +512,155 @@ test('CLI writes normalized transcript exclusively and refuses replacement', asy
   assert.equal(JSON.stringify(written).includes('private-request'), false);
   const second = spawnSync(process.execPath, [cli, 'normalize', '--input', inputPath, '--output', outputPath], { encoding: 'utf8' });
   assert.notEqual(second.status, 0);
+});
+
+test('manifest builder freezes both branches, identities, schedule, contracts, limits, commands, and logical artifacts', () => {
+  for (const branch of ['paired', 'codex_only']) {
+    const input = manifestBuilderInput(branch);
+    const manifest = buildComparisonManifest(input, {
+      verifyRepository: () => '0'.repeat(40),
+    });
+    assert.equal(manifest.manifestVersion, 1);
+    assert.equal(manifest.studyId, 'genui-provider-comparison-v1');
+    assert.match(manifest.claimScope, /engineering provider benchmark/u);
+    assert.match(manifest.claimScope, /no user-value|does not establish user value/u);
+    assert.equal(manifest.sourceCommit, '0'.repeat(40));
+    assert.equal(manifest.diagnosticSummarySha256, input.diagnosticSummarySha256);
+    assert.equal(manifest.branch, branch);
+    assert.equal(manifest.schedule.length, 60);
+    assert.deepEqual(manifest.providerOrder, ['ollama', 'codex']);
+    assert.deepEqual(manifest.ollamaSeeds, OLLAMA_SEEDS);
+    assert.deepEqual(manifest.inputDigests, input.inputDigests);
+    assert.deepEqual(manifest.providerIdentities, input.providerIdentities);
+    assert.deepEqual(manifest.providerContracts, input.providerContracts);
+    assert.deepEqual(manifest.limits, input.limits);
+    assert.deepEqual(manifest.validationCommands, input.validationCommands);
+    assert.deepEqual(manifest.artifacts, input.artifactContract);
+    assert.equal(manifest.decisionRule.noRetry, true);
+    assert.equal(manifest.decisionRule.replayRequiredForEveryCandidate, true);
+    assert.equal(manifest.decisionRule.stage1Slots, 18);
+    assert.equal(manifest.decisionRule.stage2RequiresEligibleStage1, true);
+    assert.equal(manifest.schedule.filter((slot) => slot.active).length, branch === 'paired' ? 60 : 30);
+    assert.equal(
+      manifest.schedule.filter((slot) => !slot.active).every((slot) =>
+        slot.providerId === 'ollama' && slot.classification === 'ollama_not_operational'
+      ),
+      true,
+    );
+    for (const slot of manifest.schedule) {
+      assert.equal(slot.ollamaSeed, slot.providerId === 'ollama' ? OLLAMA_SEEDS[slot.repeatIndex] : null);
+    }
+    const serialized = JSON.stringify(manifest);
+    assert.equal(serialized.includes('/home/'), false);
+    assert.equal(serialized.includes('/tmp/'), false);
+    assert.equal(
+      manifest.artifacts.privateRunRoot,
+      '$XDG_STATE_HOME/canopy/genui-provider-benchmark/<run-id>/',
+    );
+  }
+});
+
+test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, branch mismatch, paths, and invalid limits', () => {
+  assert.throws(
+    () => buildComparisonManifest(manifestBuilderInput(), {
+      verifyRepository: () => {
+        throw new Error('repository must be clean');
+      },
+    }),
+    /clean/u,
+  );
+
+  const mismatch = manifestBuilderInput('paired');
+  mismatch.diagnosticSummary = { ...mismatch.diagnosticSummary, selectedBranch: 'codex_only' };
+  assert.throws(() => buildComparisonManifest(mismatch, { verifyRepository: () => '0'.repeat(40) }), /branch/u);
+
+  const staleDigest = manifestBuilderInput('paired');
+  staleDigest.diagnosticSummary = { ...staleDigest.diagnosticSummary, requestDigest: '0'.repeat(64) };
+  assert.throws(
+    () => buildComparisonManifest(staleDigest, { verifyRepository: () => '0'.repeat(40) }),
+    /diagnostic.*digest|digest.*diagnostic|mismatch/u,
+  );
+
+  const incomplete = manifestBuilderInput('paired');
+  incomplete.diagnosticSummary = {
+    ...incomplete.diagnosticSummary,
+    probeOrder: DIAGNOSTIC_STEPS.slice(0, 6),
+  };
+  assert.throws(() => buildComparisonManifest(incomplete, { verifyRepository: () => '0'.repeat(40) }), /diagnostic|seven|probe/u);
+
+  for (const patch of [
+    { safe: false },
+    { evidenceIntegrity: false },
+    { credentialsSafe: false },
+    { budgetSafe: false },
+    { isolationSafe: false },
+  ]) {
+    const unsafe = manifestBuilderInput();
+    unsafe.diagnosticSummary = { ...unsafe.diagnosticSummary, ...patch };
+    assert.throws(
+      () => buildComparisonManifest(unsafe, { verifyRepository: () => '0'.repeat(40) }),
+      /safe|integrity|credential|budget|isolation/u,
+    );
+  }
+
+  const localRaw = manifestBuilderInput();
+  localRaw.artifactContract = {
+    ...localRaw.artifactContract,
+    privateRunRoot: 'examples/web/test-results/provider-benchmark/',
+  };
+  assert.throws(() => buildComparisonManifest(localRaw, { verifyRepository: () => '0'.repeat(40) }), /raw|XDG|artifact/u);
+
+  const absolutePublic = manifestBuilderInput();
+  absolutePublic.artifactContract = {
+    ...absolutePublic.artifactContract,
+    rawArtifacts: { ...absolutePublic.artifactContract.rawArtifacts, appServerJsonl: '/tmp/raw.jsonl' },
+  };
+  assert.throws(() => buildComparisonManifest(absolutePublic, { verifyRepository: () => '0'.repeat(40) }), /absolute|artifact|path/u);
+
+  for (const invalid of ['4 * smokeTotalTokens', 0, -1, 16_000.5, 32_001]) {
+    const invalidLimit = manifestBuilderInput();
+    invalidLimit.limits = { ...invalidLimit.limits, perRequestTokenCeiling: invalid };
+    assert.throws(
+      () => buildComparisonManifest(invalidLimit, { verifyRepository: () => '0'.repeat(40) }),
+      /limit|token|integer|range/u,
+    );
+  }
+});
+
+test('manifest writer creates output exclusively', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'canopy-genui-manifest-'));
+  const outputPath = join(root, 'manifest.json');
+  const deps = { verifyRepository: () => '0'.repeat(40) };
+  const first = await writeComparisonManifest({
+    outputPath,
+    input: manifestBuilderInput('codex_only'),
+  }, deps);
+  assert.equal(first.branch, 'codex_only');
+  assert.equal(JSON.parse(await readFile(outputPath, 'utf8')).sourceCommit, '0'.repeat(40));
+  await assert.rejects(
+    () => writeComparisonManifest({ outputPath, input: manifestBuilderInput('codex_only') }, deps),
+    /exist|overwrite/u,
+  );
+});
+
+test('exporting legacy manifest helpers leaves the v2 manifest bytes unchanged', async () => {
+  const identity = {
+    lookupTag: 'gemma4:4b',
+    modelManifestSha256: 'a'.repeat(64),
+    showDetailsSha256: 'b'.repeat(64),
+    ollamaVersion: '0.1.2',
+    templateSha256: 'c'.repeat(64),
+    parametersSha256: 'd'.repeat(64),
+  };
+  const manifest = await buildFeasibilityManifest({
+    model: identity.lookupTag,
+    verifyRepository: () => 'frozen-commit',
+    readIdentity: async () => identity,
+  });
+  const bytes = `${JSON.stringify(manifest, null, 2)}\n`;
+  assert.equal(Buffer.byteLength(bytes), 4_884);
+  assert.equal(
+    createHash('sha256').update(bytes).digest('hex'),
+    'ae8c89814b9a42e7fbeb36f00f6aec8a4a9ecb23a1caa323e968da87ae1558d7',
+  );
 });
