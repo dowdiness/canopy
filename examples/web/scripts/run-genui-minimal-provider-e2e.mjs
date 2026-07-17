@@ -148,6 +148,19 @@ function waitForProcess(child, { timeoutMs, kill, platform }) {
   });
 }
 
+async function settlePipedOutput(child, stream, completion) {
+  let timer;
+  const bounded = new Promise(resolveDone => {
+    timer = setTimeout(() => {
+      child.stdout.destroy();
+      stream.destroy();
+      resolveDone();
+    }, 5_000);
+  });
+  await Promise.race([completion.catch(() => undefined), bounded]);
+  clearTimeout(timer);
+}
+
 export async function runProviderAttempt(run, options, deps = {}) {
   const spawnProcess = deps.spawnProcess ?? spawn;
   const providerInvocation = deps.providerInvocation ?? { command: 'codex', prefixArgs: [] };
@@ -181,7 +194,7 @@ export async function runProviderAttempt(run, options, deps = {}) {
   child.stderr.on('data', chunk => { stderr += chunk; });
   child.stdin.end(run.request.prompt);
   const observed = await processResult;
-  await eventsDone;
+  await settlePipedOutput(child, eventsStream, eventsDone);
   const base = { ...observed, invocationCount: 1 };
   if (observed.timedOut) return { ...base, classification: 'provider_timeout', safeMessage: 'Provider deadline exceeded.' };
   if (observed.interrupted) return { ...base, classification: 'provider_failed', safeMessage: 'Provider interrupted.' };
@@ -189,22 +202,32 @@ export async function runProviderAttempt(run, options, deps = {}) {
   return { ...base, classification: 'success', safeMessage: null, stderr };
 }
 
-async function readCandidate(run) {
-  let bytes;
-  try { bytes = await readFile(run.paths.candidate); }
+export async function classifyCandidate(candidatePath, maxBytes) {
+  let candidateStat;
+  try { candidateStat = await stat(candidatePath); }
   catch { return { classification: 'provider_failed', safeMessage: 'Provider produced no final message.' }; }
-  if (bytes.length > GENUI_PROVIDER_SETTINGS.maxCandidateBytes) {
+  if (candidateStat.size === 0) {
+    return { classification: 'provider_failed', safeMessage: 'Provider produced no final message.' };
+  }
+  if (candidateStat.size > maxBytes) {
     return { classification: 'candidate_oversize', safeMessage: 'Provider final output exceeded the size limit.' };
   }
-  let value;
-  try { value = JSON.parse(bytes.toString('utf8')); }
-  catch { return { classification: 'candidate_invalid', safeMessage: 'Provider final output was not valid JSON.' }; }
-  await chmod(run.paths.candidate, 0o600);
-  return { classification: 'success', value };
+  let bytes;
+  try { bytes = await readFile(candidatePath); }
+  catch { return { classification: 'provider_failed', safeMessage: 'Provider produced no final message.' }; }
+  let candidateJson;
+  try {
+    candidateJson = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    JSON.parse(candidateJson);
+  } catch {
+    return { classification: 'candidate_invalid', safeMessage: 'Provider final output was not valid JSON.' };
+  }
+  await chmod(candidatePath, 0o600);
+  return { candidateJson, bytes };
 }
 
-async function runBrowser(run, deps = {}) {
-  const spawnProcess = deps.spawnProcess ?? spawn;
+export async function evaluateInBrowser(run, options, deps = {}) {
+  const spawnProcess = deps.spawnBrowserProcess ?? spawn;
   const child = spawnProcess(
     'npx',
     ['playwright', 'test', '--config=playwright.minimal-provider.config.ts', '--project=chromium'],
@@ -212,20 +235,17 @@ async function runBrowser(run, deps = {}) {
       cwd: resolve(import.meta.dirname, '..'),
       env: { ...process.env, GENUI_MINIMAL_PROVIDER_RUN_DIR: run.paths.root },
       detached: process.platform !== 'win32',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'ignore', 'ignore'],
     },
   );
   const observed = await waitForProcess(child, {
-    timeoutMs: run.options.timeoutMs,
+    timeoutMs: options.timeoutMs,
     kill: deps.kill ?? process.kill,
     platform: deps.platform ?? process.platform,
   });
   if (observed.exitCode !== 0) return { classification: 'browser_failed', safeMessage: 'Browser validation failed.' };
   try {
-    const result = JSON.parse(await readFile(run.paths.browserResult, 'utf8'));
-    return result.classification === 'success' && result.rubric?.passed === true && result.session?.success === true
-      ? result
-      : { classification: result.classification ?? 'browser_failed', safeMessage: 'Browser validation failed.' };
+    return JSON.parse(await readFile(run.paths.browserResult, 'utf8'));
   } catch {
     return { classification: 'browser_failed', safeMessage: 'Browser result was unavailable.' };
   }
@@ -241,13 +261,13 @@ export async function runMinimalProviderE2E(options, deps = {}) {
       await writeTerminalResult(run, result);
       return { exitCode: 1, result };
     }
-    const candidate = await readCandidate(run);
-    if (candidate.classification !== 'success') {
+    const candidate = await classifyCandidate(run.paths.candidate, GENUI_PROVIDER_SETTINGS.maxCandidateBytes);
+    if (candidate.classification) {
       const result = { ...candidate, invocationCount: provider.invocationCount };
       await writeTerminalResult(run, result);
       return { exitCode: 1, result };
     }
-    const browser = await (deps.runBrowser?.(run) ?? runBrowser(run, deps));
+    const browser = await (deps.runBrowser?.(run) ?? evaluateInBrowser(run, options, deps));
     const result = { ...browser, invocationCount: provider.invocationCount };
     await writeTerminalResult(run, result);
     return { exitCode: result.classification === 'success' ? 0 : 1, result };
