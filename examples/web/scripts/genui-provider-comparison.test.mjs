@@ -347,7 +347,7 @@ test('Stage 1 independently fails preparation, safety, mutation, credential, ide
   }
 });
 
-test('qualification pins 23/24 overall, 6/7 per fixture, and zero-tolerance boundaries', () => {
+test('qualification pins 24/24 overall, 7/7 per fixture, and zero-tolerance boundaries', () => {
   const providerSlots = (fixturePasses) => FIXTURES.flatMap((fixture) => Array.from({ length: 10 }, (_, index) => ({
     providerId: 'codex',
     fixtureId: fixture.id,
@@ -946,7 +946,39 @@ test('runner executes the paired frozen schedule sequentially with exact Ollama 
   assert.equal(result.journal.terminalCount, 60);
   assert.equal(result.journal.activeAttempts, 60);
   assert.equal(result.journal.stage2Executed, true);
+  assert.equal(result.qualification.ollama.qualifies, true);
+  assert.equal(result.qualification.codex.qualifies, true);
   assert.match(result.evidence.manifestSha256, /^[0-9a-f]{64}$/u);
+});
+
+test('runner projects candidate-gate safety failures into qualification records', async () => {
+  const manifest = testComparisonManifest('paired');
+  const firstSlotId = manifest.schedule[0].slotId;
+  const paths = await makeRunPaths('safety-projection');
+  const deps = runnerDeps(manifest, [], {
+    evaluateCandidate: async ({ slot }) => {
+      const result = passingCandidateGate();
+      return slot.slotId === firstSlotId
+        ? {
+            ...result,
+            classification: 'state_mutation',
+            mutationViolations: 1,
+          }
+        : result;
+    },
+  });
+
+  const result = await executeComparisonStudy({
+    manifest,
+    runRoot: paths.runRoot,
+    xdgStateHome: paths.xdgStateHome,
+    repositoryRoot: paths.repositoryRoot,
+  }, deps);
+
+  const failed = result.slots.find((slot) => slot.slotId === firstSlotId);
+  assert.equal(failed.stateMutationViolations, 1);
+  assert.equal(result.qualification[failed.providerId].qualifies, false);
+  assert.equal(result.qualification[failed.providerId].failures.includes('safety_violation'), true);
 });
 
 test('runner rejects a reviewed Ollama seed assigned to the wrong repeat before provider access', async () => {
