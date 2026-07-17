@@ -275,6 +275,9 @@ function validateProviderIdentities(identities) {
   for (const field of ['cliVersion', 'modelSlug', 'reasoningEffort', 'authMode']) {
     requireString(identities.codex[field], `Codex ${field}`);
   }
+  if (!/^\d+\.\d+\.\d+$/u.test(identities.codex.cliVersion)) {
+    throw manifestError('identity_invalid', 'The Codex CLI version must be a bare semantic version.');
+  }
   requireDigest(identities.codex.catalogEntrySha256, 'Codex catalog entry digest');
   if (identities.codex.reasoningEffort !== 'medium') {
     throw manifestError('identity_invalid', 'The frozen Codex reasoning effort must be medium.');

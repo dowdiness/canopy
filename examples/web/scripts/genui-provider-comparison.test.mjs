@@ -119,7 +119,7 @@ function manifestBuilderInput(branch = 'paired') {
         parametersSha256: 'a'.repeat(64),
       },
       codex: {
-        cliVersion: 'codex-cli 0.144.4',
+        cliVersion: '0.144.4',
         catalogEntrySha256: 'b'.repeat(64),
         modelSlug: 'gpt-5.6-luna',
         reasoningEffort: 'medium',
@@ -684,6 +684,13 @@ test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, br
       /limit|token|integer|range/u,
     );
   }
+
+  const binaryDisplayVersion = manifestBuilderInput();
+  binaryDisplayVersion.providerIdentities.codex.cliVersion = 'codex-cli 0.144.4';
+  assert.throws(
+    () => buildComparisonManifest(binaryDisplayVersion, { verifyRepository: () => '0'.repeat(40) }),
+    /Codex.*CLI.*version|cliVersion/u,
+  );
 
   const missingShowIdentity = manifestBuilderInput();
   delete missingShowIdentity.providerIdentities.ollama.showDetailsSha256;
