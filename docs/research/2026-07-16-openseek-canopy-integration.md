@@ -1,293 +1,187 @@
 # OpenSeek–Canopy integration research (2026-07-16)
 
-**Status:** research note — records what was verified and why, not what to build.
-This is a "what was verified" record, kept separate from an implementation plan.
-It deliberately cites concrete types, fields, and file paths; that is precisely
-why it lives in `docs/research/` and not under architecture docs (which are
-principles-only).
+**Status:** verified research, not an implementation plan. Concrete APIs and
+paths live here rather than in architecture documentation.
 
 **Inspected revisions:**
+
 - Canopy: `43f16244`
 - OpenSeek: `b72389a`
 - Tau: `6c14f83`
 
-**Companion references:**
-- [Coding Agent Direction](../architecture/coding-agent-direction.md) — the
-  principles-only target architecture and activation gates this research
-  informs.
+See [Coding Agent Direction](../architecture/coding-agent-direction.md) for the
+deferred architecture and activation gates.
 
-## OpenSeek identity and capabilities
+## External engine findings
 
-OpenSeek is a MoonBit-native coding agent. The inspected revision (`b72389a`)
-reveals:
+### OpenSeek
 
-- **Native engine:** the agent loop, tools, conversation state, and session
-  persistence are implemented in MoonBit.
-- **Portable protocol decoder:** `openseek_protocol` parses the wire contract
-  without depending on the engine and supports browser and native targets.
-- **JSONL command/event protocol:** `serve` reads commands from stdin and emits
-  typed events on stdout. Durable replay belongs to the separate session store.
-- **Typed tool registry:** tools advertise JSON input schemas and return typed
-  response or control actions. Built-ins cover file access, shell execution,
-  plans, goals, and turn completion.
-- **MCP support:** MCP servers can contribute namespaced tools over stdio or
-  Streamable HTTP.
-- **Append-only sessions:** a header and typed events form the durable log.
-  Compaction appends a summary that changes model-context projection while
-  preserving covered history.
-- **Provider coupling:** the current loop targets DeepSeek and Kimi models.
-  OpenSeek owns its concrete model selection and API credentials. A
-  provider-neutral abstraction remains future work.
-- **License:** Apache-2.0.
+The inspected OpenSeek revision provides:
 
-## Tau lessons as reference
+- a MoonBit agent loop, tool registry, conversation state, and session store;
+- a native `serve` command that reads JSONL commands from stdin and emits typed
+  events on stdout;
+- a portable `openseek_protocol` decoder for native, JavaScript, and WebAssembly
+  clients;
+- built-in file, shell, plan, goal, and completion tools;
+- MCP tools over stdio or Streamable HTTP;
+- append-only sessions whose compaction changes model-context projection without
+  deleting covered history;
+- concrete DeepSeek and Kimi model support, with credentials owned by OpenSeek;
+- Apache-2.0 licensing.
 
-Tau is a small Python coding agent and teaching project. The inspected revision
-(`6c14f83`) demonstrates:
+OpenSeek is therefore a plausible external engine, but its native process and
+filesystem tools still need a host boundary for browser and editor use.
 
-- **Provider and agent event layers:** provider adapters feed one event stream
-  into a separate agent event contract.
-- **Portable harness:** the reusable harness excludes terminal, rendering, and
-  coding-session resource concerns. Frontends consume its event stream.
-- **Append-only sessions:** replay, branching, and compaction derive active
-  context without rewriting history.
-- **Reference only:** Tau is implemented in Python. Canopy should reuse these
-  boundaries rather than depend on Tau's implementation.
+### Tau
+
+Tau is a small Python reference, not a dependency candidate. Its useful lessons
+are architectural:
+
+- provider events feed a separate agent event contract;
+- its reusable harness excludes terminal and rendering concerns;
+- append-only sessions derive replay, branching, and compaction views without
+  rewriting history.
 
 ## Current Canopy seams
 
-### Cognition context and provider boundary
+### Cognition
 
-The cognition runtime models an incremental context graph for AI coding
-context. The provider boundary separates deterministic graph recomputation from
-external provider interaction.
+The cognition store (`lib/cognition/store.mbt`) keeps revisioned context,
+dependencies, dirty state, and request records deterministic. Provider-neutral
+values are defined in `lib/cognition/provider_boundary.mbt`. Their store
+operations live in `lib/cognition/provider_boundary_store.mbt`.
 
-- `lib/cognition/store.mbt` — `CognitionStore` owns revision, dirty state,
-  dependencies, and artifact lifetime. It may plan provider requests and keep
-  request/status/result records, but it must not own HTTP clients, credentials,
-  retry loops, timers, or background tasks.
-- `lib/cognition/provider_boundary.mbt` defines provider-neutral request,
-  result, status, provenance, and error descriptors.
-- `lib/cognition/provider_boundary_store.mbt` exposes planning
-  (`plan_provider_request`), cancellation (`cancel_provider_request`),
-  completion (`complete_provider_request`), and request/status/result queries
-  on `CognitionStore`.
-- `lib/cognition/provider_boundary_reactive.mbt` contains the private reactive
-  planning graph and `ProviderDriverAction`. Next-action polling is internal,
-  not a public driver contract. A real external driver shell remains future
-  work.
-- `lib/cognition/types.mbt` — context item types with provenance (source key,
-  source revision, payload, inclusion reason).
+The reactive next-action machinery and `ProviderDriverAction` remain private in
+`lib/cognition/provider_boundary_reactive.mbt`. Canopy has no public external
+driver contract for a coding-agent process.
 
-### Generative UI lifecycle and candidate validation
+### Generative UI
 
-The Generative UI lifecycle manages revision-bound candidate generation,
-validation, and commit. The LLM is an untrusted candidate generator; its output
-must never mutate the committed UI directly.
+`lib/cognition/generative_ui.mbt` already models generation identity, revision,
+cancellation, chunk order, validation, dry-run, and stale-result rejection.
+`lib/cognition/generative_ui_candidate.mbt` validates untrusted candidate data.
+This lifecycle has no user approval step.
 
-- `lib/cognition/generative_ui.mbt` — lifecycle state machine: generation ID,
-  revision, cancellation, chunk sequencing, finalization, stale-completion
-  rejection. Every candidate is evaluated against an explicit base revision.
-  The lifecycle progresses through validation, dry-run, and commit phases
-  deterministically; it does not include a user-visible approval step.
-- `lib/cognition/generative_ui_candidate.mbt` — syntax, schema, size, and
-  host-capability validation for untrusted candidate data. Revision checks,
-  dry-run, and commit remain separate lifecycle and session responsibilities.
+`ffi/jsx/generative_ui_adapter.mbt` lowers validated data into typed JSX, while
+`ffi/jsx/session.mbt` commits only after dry-run and DOM application succeed.
+Generated values do not become event handlers, URLs, expressions, or direct DOM
+operations.
 
-The current Generative UI path supports internal validation, internal dry-run,
-and session commit. A user-visible approval preview is deferred. Effectful
-actions and document mutations require the future host-approval boundary.
+This path is suitable for effect-free views. Document changes and other host
+effects still need a separate approval boundary.
 
-### JSX candidate projection and session commit
+### Intent and view protocol
 
-The JSX boundary lowers validated candidates into a typed synthetic projection,
-then commits that projection through the existing session dry-run and DOM-apply
-path.
+- `protocol/user_intent.mbt` carries editor-originated text, structural,
+  selection, cursor, undo/redo, and value-commit intents.
+- `protocol/view_node.mbt` is the renderer-facing tree.
+- `protocol/view_patch.mbt` carries editor output such as node, text,
+  decoration, diagnostic, and selection updates.
 
-- `ffi/jsx/session.mbt` — JSX session state, revision tracking, render planning,
-  dry-run, DOM application, recovery, and commit. A candidate is not reported as
-  committed unless the session commit succeeds.
-- `ffi/jsx/generative_ui_adapter.mbt` — lowering from validated candidate nodes
-  to a typed JSX projection. Generated values never become event handlers,
-  URLs, expressions, or direct DOM operations.
-- `lang/jsx/proj/reconcile.mbt` — reconciliation logic that computes patches
-  between projected JSX states.
-- `lang/jsx/proj/dry_run.mbt` — pure modeled application of DOM patches before
-  the imperative DOM boundary runs.
+`ViewPatch` is output, not an authoring format. `UserIntent` also does not yet
+model a revision-bound agent proposal with host approval.
 
-### UserIntent, ViewNode, and ViewPatch
+### Existing external lowering probe
 
-The protocol layer defines the boundary between Canopy's domain and external
-adapters.
+`codex/lowering.mbt` converts one narrowly constrained unified-diff update into
+`UserIntent.TextEdit`.
 
-- `protocol/user_intent.mbt` — `UserIntent` enum: text edit, structural edit,
-  node selection, cursor movement, undo/redo, and node-value commit. These are
-  editor-adapter-originated actions: they represent the intent path from a
-  frontend or adapter into the editor. Direct FFI paths and language-specific
-  edit paths exist alongside this intent enum.
-- `protocol/view_node.mbt` — `ViewNode` struct: the UI boundary. New renderers
-  should consume protocol output instead of inventing a parallel view tree.
-- `protocol/view_patch.mbt` — `ViewPatch` enum: text changes, node replacement
-  and child updates, decorations, diagnostics, selection, and full-tree output.
-  It is editor output consumed by render adapters, not an authoring input.
+It accepts one changed line in one hunk only when the old line still matches and
+grapheme boundaries are valid. Tests pin stale-diff and UTF-16 boundary
+rejection.
 
-### Codex lowering prototype
-
-The Codex lowering prototype demonstrates how an external agent's file changes
-can be lowered into `UserIntent` operations and driven into a `SyncEditor`
-under the exact (grapheme-boundary-checked) policy.
-
-- `codex/lowering.mbt` — lowers a Codex `FileChange.update` unified diff into
-  `UserIntent.TextEdit` operations. The prototype scope is narrow: exactly one
-  changed line inside a single hunk, applied only when the document line still
-  matches the patch's old text. Multi-hunk diffs, multi-line hunks, and
-  concurrent/stale apply are rejected with a clear error.
-- `codex/lowering_test.mbt` — tests for grapheme-boundary alignment,
-  stale-diff rejection, and exact-boundary policy, including adjacent emoji
-  whose UTF-16 encodings share a high surrogate. The earlier Codex research
-  note records the separate UTF-8 byte-to-UTF-16 probe.
+This proves that an external change can be lowered through a guarded Canopy
+boundary. It is not a generic proposal or commit gateway.
 
 ### Workspace coordinator
 
-The workspace coordinator manages multiple editors on a shared runtime,
-enforcing observer discipline and atomic disposal boundaries.
+`workspace/coordinator` manages editor registration, protected reads,
+dependencies, and disposal on a shared incremental runtime. It has no stable
+`DocumentId`, document registry, proposal revision gateway, or workspace
+persistence.
 
-- `workspace/coordinator/types.mbt` — coordinator types: `EditorId`,
-  `ProtectedCell`, lifecycle abort kinds and reports, and the coordinator-owned
-  registration state.
-- `workspace/coordinator/pkg.generated.mbti` — public API: `Coordinator::new`,
-  `register_editor`, `destroy_editor`, `read_protected`,
-  `register_workspace_cell`, `register_dep`, `unregister_dep`, `runtime`.
-- `ffi/json/json_ffi.mbt` — JSON FFI bundle uses the workspace coordinator to
-  manage multiple JSON editors on a shared runtime.
+### Lambda rename
 
-The coordinator provides shared incremental-runtime access, protected-cell
-lifecycle, and disposal safety. It has no `DocumentId`, document registry,
-workspace persistence, multi-document identity, or proposal revision gateway.
+`lang/lambda/edits/text_edit_rename.mbt` performs scope-aware rename. It resolves
+declarations and references through the scope graph and rejects sibling-name
+capture. The operation is Lambda-specific; no language-neutral action facade
+currently exposes it.
 
-### Lambda rename: scope-aware, Lambda-specific
+## OpenSeek integration constraints
 
-- `lang/lambda/edits/text_edit_rename.mbt` — rename operations are
-  scope-graph-aware: they resolve through `@scope.Decl`, use
-  `@scope.references(g, decl.id)`, thread the block-local `Decl` straight
-  through without round-tripping a root-relative `def_index`, and enforce a
-  capture guard against sibling bindings in the same scope. This is
-  Lambda-specific; no language-owned action facade generalizes it yet.
+### Native engine, portable decoder
 
-### Current explicit gaps
+The browser can decode OpenSeek events, but it cannot run the native engine and
+filesystem tools directly. A browser integration needs a native host or server
+bridge.
 
-The following infrastructure does not exist today:
+### Built-ins cannot be restricted
 
-- No generic proposal session for agent-authored edits.
-- No host-issued approval evidence mechanism.
-- No audit ledger recording proposal, approval, and commit provenance.
-- No revision-bound commit API for inbound proposals.
-- No document workspace with stable `DocumentId` or document registry.
+`agent/tool_definition.mbt::build_tools` always adds `shell`, `read`, `edit`,
+`multi_edit`, `write`, `remove`, `plan`, `goal`, and `finish`, plus
+`shell_output` and `shell_stop` where supported. `extra_tools` only appends.
+`serve` has no setting that removes the file-changing built-ins.
 
-## Observed integration constraints
+### The final registry is not reported
 
-These constraints follow from the inspected source. They are facts about the
-current codebase, not design recommendations.
+`serve` resolves MCP tools, builds the final registry, and then starts its stdin
+reader. It emits no complete list of tools available to the model.
+`mcp_tools_registered` reports only MCP discovery and is absent without an MCP
+configuration.
 
-- **`serve` is native JSONL over stdio.** The serve loop reads JSONL commands
-  from stdin and writes JSONL events to stdout (`serve.mbt`). This is a
-  native-process contract.
-- **Protocol decoder is portable.** `openseek_protocol` parses the wire
-  contract without engine dependencies and supports browser targets.
-- **Browser needs native or server bridge.** The engine and its process and
-  filesystem tools remain native. Browser deployments need a local native host
-  or server bridge even though the decoder itself is portable.
-- **Standard serve always registers mutation-capable built-ins.** The default
-  registry includes workspace-mutating `shell`, `edit`, `multi_edit`, `write`,
-  and `remove` tools alongside `read` and the session/control tools `plan`,
-  `goal`, and `finish` (`tool_definition.mbt`). No built-in profile or
-  host-policy switch disables the workspace-mutating subset for an
-  external-editor integration.
-- **Protocol and domain separation.** OpenSeek's protocol layer
-  (`openseek_protocol`) is independent of its engine, but the engine's tool
-  semantics (file writes, shell execution) are not mediated by any Canopy
-  domain concept today. An adapter must translate between OpenSeek's tool
-  actions and Canopy's proposal and intent contracts.
+Registry reporting can describe today's standard engine before configurable
+built-ins exist. Once restrictions exist, the same startup report can verify
+them before a prompt is sent.
 
-## Candidate integration blockers
+### Initial correlation can stay narrow
 
-The inspected `serve` path exposes two concrete blockers for a safe subprocess
-integration:
+The current `serve` scheduler uses one ordered queue and one active work item.
+A single-process, read-only bridge can keep request state in its adapter without
+a general replay protocol.
 
-- **Built-in write paths cannot be omitted.** A controller cannot currently
-  remove `shell`, `edit`, `multi_edit`, `write`, and `remove` while retaining
-  the model loop and selected read/control tools.
-- **The final registry is not reported.** `serve` resolves MCP tools, builds the
-  final registry, and then starts its stdin reader without emitting the names
-  available to the model. `mcp_tools_registered` reports only MCP discovery and
-  is absent when no MCP configuration is supplied.
+Reconnect, replay, concurrent effects, or commit-capable results would require
+stable correlation so duplicate delivery cannot duplicate an effect.
 
-Registry reporting can describe the current standard engine before
-configurable built-ins exist. Once a restricted registry exists, the same
-startup report can verify it before a prompt is sent.
+## Candidate first mutation slice
 
-The current `serve` scheduler funnels commands through one ordered queue and
-runs one active work item at a time. An initial single-process, read-only bridge
-can keep request state in its adapter without a general replay protocol.
+The existing Lambda rename is a plausible first operation because its semantic
+checks already live in Canopy. A future plan could use a selected-node rename or
+first build a language-owned action facade; this research does not choose.
 
-Stable cross-process correlation becomes necessary when an implementation adds
-reconnect, replay, concurrent effects, or any path whose duplicate result could
-commit state.
+Either mutation slice still needs infrastructure that Canopy lacks:
 
-A later mutation slice also depends on Canopy infrastructure that does not yet
-exist: proposal identity, revision checks, host-issued approval, and a commit
-gateway. Abstracting OpenSeek's concrete model providers is a separate engine
-concern and is not required to test this host boundary.
+- proposal identity and base revision;
+- host-issued approval;
+- revision recheck at commit;
+- proposal, approval, and commit provenance;
+- duplicate and cancellation handling;
+- CRDT peer-convergence tests.
 
-## Feasibility finding: first vertical slice
-
-The current Lambda rename implementation is scope-graph-aware and
-capture-safe, but it is Lambda-specific. No language-owned action facade
-generalizes rename across languages.
-
-A first vertical slice could therefore use a **Lambda selected-node rename
-proposal**, or it must build a language-owned action facade first. Choosing
-between those scopes belongs in a future implementation decision and plan.
-
-Either mutation slice would require infrastructure that does not exist today:
-
-- A generic proposal model that carries proposal identity, base revision, and
-  structured edit intent.
-- A host-issued approval step that the agent cannot mint itself.
-- A revision-checked commit gateway that re-checks the base revision at commit
-  time.
-- An audit trail recording proposal, approval, and commit provenance.
-
-None of this infrastructure exists today.
-
-The responsibility split and activation gates for this slice are defined in the
-[Coding Agent Direction](../architecture/coding-agent-direction.md). This
-research note does not authorize implementation.
+Stable document identity is not required for one active editor, but it is
+required before multi-document proposals.
 
 ## Risks and open questions
 
-- **Retrieval gap:** OpenSeek supplies an agent and tools, while Canopy currently
-  supplies deterministic context packing with a path-oriented default ranker.
-  Projection-derived and semantic retrieval remain future work.
-- **Narrow structural parameters:** string-valued structural parameters cover
-  rename but not every refactoring shape.
-- **Document-qualified identity:** multi-document proposals need stable document
-  identity in addition to projection identity. No `DocumentId` exists today.
-- **Protocol skew:** the portable decoder tolerates additive events, but a safe
-  adapter still needs a startup inventory of the tools actually available to
-  the model. General version negotiation should be added only when a concrete
-  compatibility boundary requires it.
-- **Generative UI value gate:** agent integration does not authorize a live
-  provider. A later OpenSeek-driven experiment must retain effect-free host
-  capabilities and pass the separate product-value and provider gates;
-  effectful actions also need future host approval evidence.
+- **Product priority:** agent integration is deferred while the Personal
+  Knowledge Environment is the near-term direction.
+- **Retrieval:** the current default cognition ranker is path-oriented;
+  projection-aware semantic retrieval remains future work.
+- **Structural parameters:** string-valued edit parameters cover rename but not
+  every refactoring.
+- **Protocol evolution:** additive event decoding is tolerant, but a safe host
+  still needs the actual startup tool inventory. General version negotiation
+  should wait for a concrete compatibility need.
+- **Generative UI:** an agent connection does not bypass the existing product,
+  provider, validation, or effect-authority gates.
 
-## Disclaimer
+## Conclusion
 
-This is not an implementation plan. It does not authorize live-provider
-production work. It records what was verified and why, and it informs the
-principles-only target architecture direction in
-[Coding Agent Direction](../architecture/coding-agent-direction.md).
+OpenSeek can supply the agent loop and session, while Canopy can supply semantic
+queries and authoritative commit. The immediate upstream gaps are the inability
+to remove file-changing built-ins and the absence of a final tool inventory.
+Canopy's larger proposal, approval, and audit boundary remains unimplemented.
 
-Implementation work should pass the activation gates in the direction document
-and should be scoped through an executable plan with clear acceptance criteria.
+Any implementation should first pass the activation gates in
+[Coding Agent Direction](../architecture/coding-agent-direction.md) and use an
+executable plan with explicit acceptance criteria.
