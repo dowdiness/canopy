@@ -189,7 +189,7 @@ export async function executeComparisonStudy({
     } finally {
       await sandbox?.cleanup();
     }
-    if (attempt?.classification === GLOBAL_STOP) {
+    if (attempt?.globalStop === true || attempt?.classification === GLOBAL_STOP) {
       globalStop = true;
     } else if (attempt?.classification === STAGE1_INELIGIBLE) {
       attempt = { ...attempt, classification: 'provider_protocol_error' };

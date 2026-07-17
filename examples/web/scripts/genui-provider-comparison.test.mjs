@@ -1094,6 +1094,31 @@ test('runner never retries ordinary failures and global stop fills every remaini
   assert.equal(stopped.slots.filter((slot) => slot.classification === 'global_stop').length, 60);
 });
 
+test('runner halts after a provider identity drift requests a global stop', async () => {
+  const manifest = testComparisonManifest('paired');
+  const paths = await makeRunPaths('identity-global-stop');
+  const calls = [];
+  const deps = runnerDeps(manifest, calls);
+  for (const providerId of ['codex', 'ollama']) {
+    deps.attempts[providerId] = async ({ slot }) => {
+      calls.push(`${providerId}:${slot.slotId}`);
+      return { classification: 'identity_drift', globalStop: true, rawEvents: [] };
+    };
+  }
+
+  const result = await executeComparisonStudy({
+    manifest,
+    runRoot: paths.runRoot,
+    xdgStateHome: paths.xdgStateHome,
+    repositoryRoot: paths.repositoryRoot,
+  }, deps);
+
+  assert.equal(calls.filter((entry) => /^(codex|ollama):/u.test(entry)).length, 1);
+  assert.equal(result.slots.filter((slot) => slot.classification === 'identity_drift').length, 1);
+  assert.equal(result.slots.filter((slot) => slot.classification === 'global_stop').length, 59);
+  assert.equal(result.journal.globalStop, true);
+});
+
 test('run root enforces XDG ancestry, symlink safety, permissions, and exclusive outputs', async () => {
   const paths = await makeRunPaths('root-policy');
   await assert.rejects(
