@@ -115,6 +115,10 @@ function diagnosticInput(runRoot, overrides = {}) {
       v1: JSON.stringify({ manifestVersion: 1, studyId: 'v1' }),
       v2: JSON.stringify({ manifestVersion: 2, studyId: 'v2' }),
     },
+    canaries: {
+      hostPaths: ['/private/HOST-PATH-CANARY'],
+      secretValues: ['SECRET-DIAGNOSTIC-CANARY'],
+    },
     ...overrides,
   };
 }
@@ -198,13 +202,19 @@ test('first failing prerequisite is retained, later probes stop, and one runtime
     executeProbe: async ({ probe, model }) => {
       calls.push(`${probe.id}:${model}`);
       if (probe.id === 'minimal_text' && model === FROZEN_IDENTITY.lookupTag) {
-        return observation({
-          step: probe.id,
-          success: false,
-          classification: 'provider_http_error',
-          response: { status: 500, headers: { 'content-type': 'text/plain' }, body: 'llama.cpp assertion details' },
-          serverLog: 'private backtrace',
-        });
+        return {
+          ...observation({
+            step: 'provider-controlled-step',
+            success: false,
+            classification: 'provider_http_error',
+            response: { status: 500, headers: { 'content-type': 'text/plain' }, body: 'llama.cpp assertion details' },
+            serverLog: 'private backtrace',
+          }),
+          fixtureId: 'provider-controlled-fixture',
+          changedDimension: 'provider-controlled-dimension',
+          model: 'provider-controlled-model',
+          runtimeControl: true,
+        };
       }
       return observation({ step: probe.id });
     },
@@ -218,6 +228,10 @@ test('first failing prerequisite is retained, later probes stop, and one runtime
   assert.deepEqual(summary.fixtureIds, []);
   assert.equal(summary.requestSettingsFrozen, true);
   assert.equal(summary.observations.at(-1).requestSettingsSha256, summary.requestDigest);
+  const failedObservation = summary.observations.at(-1);
+  for (const field of ['responseStatus', 'responseHeaders', 'requestBytes', 'responseBytes', 'serverLogBytes']) {
+    assert.equal(field in failedObservation, false);
+  }
   assert.equal(summary.runtimeControl.model, 'qwen3:4b');
   assert.equal(summary.runtimeControl.classification, 'pass');
   assert.equal(calls.filter((call) => call === 'minimal_text:qwen3:4b').length, 1);
@@ -226,6 +240,12 @@ test('first failing prerequisite is retained, later probes stop, and one runtime
   const raw = await readFile(join(runRoot, 'raw', 'diagnostic', '02-minimal-text.json'), 'utf8');
   assert.equal(raw.includes('llama.cpp assertion details'), true);
   assert.equal(raw.includes('private backtrace'), true);
+  const rawRecord = JSON.parse(raw);
+  assert.equal(rawRecord.step, 'minimal_text');
+  assert.equal(rawRecord.fixtureId, null);
+  assert.equal(rawRecord.changedDimension, 'prompt');
+  assert.equal(rawRecord.model, undefined);
+  assert.equal(rawRecord.runtimeControl, undefined);
 });
 
 test('runtime control never substitutes for selected-model qualification and does not run after Canopy prompt', async () => {
@@ -262,6 +282,7 @@ test('HTTP JSON/text errors, timeout, identity drift, and preparation failure re
     ['http-text', observation({ success: false, classification: 'provider_http_error', response: { status: 500, headers: { 'content-type': 'text/plain' }, body: 'model crash' } }), 'provider_http_error'],
     ['timeout', observation({ success: false, classification: 'timeout' }), 'timeout'],
     ['identity', observation({ identityAfter: { ...FROZEN_IDENTITY, parametersSha256: SHA('9') } }), 'identity_drift'],
+    ['missing-identity', { ...observation(), identityBefore: undefined }, 'identity_drift'],
   ];
   for (const [label, failed, classification] of scenarios) {
     const runRoot = await makeRunRoot(label);
@@ -294,6 +315,17 @@ test('unsafe observations fail closed and cannot claim a comparison branch', asy
   assert.equal(summary.credentialsSafe, false);
   assert.equal(summary.selectedBranch, null);
   assert.equal(summary.qualifiedForComparison, false);
+
+  const isolationRoot = await makeRunRoot('unsafe-success');
+  const isolationDeps = successfulDependencies([], {
+    executeProbe: async ({ probe }) => probe.id === 'minimal_text'
+      ? observation({ step: probe.id, success: true, classification: 'pass', safety: { isolationSafe: false } })
+      : observation({ step: probe.id }),
+  });
+  const isolationSummary = await executeOllamaDiagnostic(diagnosticInput(isolationRoot), isolationDeps);
+  assert.equal(isolationSummary.firstFailure.classification, 'diagnostic_safety_failure');
+  assert.equal(isolationSummary.observations.at(-1).classification, 'diagnostic_safety_failure');
+  assert.equal(isolationSummary.selectedBranch, null);
 });
 
 test('raw and summary outputs are exclusive and a rerun performs no provider request', async () => {
@@ -322,6 +354,19 @@ test('missing fixtures, candidate bytes, request-setting consistency, and protec
   assert.throws(
     () => buildOllamaDiagnosticPlan({ frozenIdentity: FROZEN_IDENTITY, fixtures: FIXTURES.slice(0, 2), candidateSchema: {}, syntheticPrompt: 'x' }),
     /Exactly three/u,
+  );
+  const traversingFixtures = [
+    { ...FIXTURES[0], id: '../escape' },
+    ...FIXTURES.slice(1),
+  ];
+  assert.throws(
+    () => buildOllamaDiagnosticPlan({
+      frozenIdentity: FROZEN_IDENTITY,
+      fixtures: traversingFixtures,
+      candidateSchema: {},
+      syntheticPrompt: 'x',
+    }),
+    /portable|fixture id/u,
   );
 
   const missingCandidateRoot = await makeRunRoot('missing-candidate');
@@ -355,4 +400,16 @@ test('missing fixtures, candidate bytes, request-setting consistency, and protec
     },
   });
   await assert.rejects(executeOllamaDiagnostic(input, mutationDeps), /protected diagnostic input was mutated/u);
+
+  const canaryRoot = await makeRunRoot('raw-canary');
+  const canaryDeps = successfulDependencies([], {
+    executeProbe: async ({ probe }) => observation({
+      step: probe.id,
+      serverLog: probe.id === 'minimal_text' ? 'prefix SECRET-DIAGNOSTIC-CANARY suffix' : '',
+    }),
+  });
+  await assert.rejects(
+    executeOllamaDiagnostic(diagnosticInput(canaryRoot), canaryDeps),
+    /canary|forbidden/u,
+  );
 });

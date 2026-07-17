@@ -4,6 +4,7 @@ import { lstat, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 import { canonicalJson, sha256Hex } from '../src/genui-feasibility-provider.js';
+import { assertCanaryFree } from './genui-codex-sandbox.mjs';
 
 const STEP_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'environment_and_model', changedDimension: null, operation: 'inspect' }),
@@ -21,6 +22,7 @@ const STEP_DEFINITIONS = Object.freeze([
 const PUBLIC_HEADER_ALLOWLIST = new Set(['content-type', 'content-length', 'date', 'etag']);
 const SAFETY_FIELDS = Object.freeze(['credentialsSafe', 'budgetSafe', 'isolationSafe', 'evidenceIntegrity']);
 const BEFORE_CANOPY_PROMPT = new Set(['load_without_generation', 'minimal_text', 'json_object', 'unrelated_json_schema']);
+const PORTABLE_FIXTURE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 
 export function buildOllamaDiagnosticPlan({ frozenIdentity, fixtures, candidateSchema, syntheticPrompt }) {
   validateIdentity(frozenIdentity);
@@ -57,7 +59,9 @@ export async function executeOllamaDiagnostic(input, deps) {
     syntheticPrompt,
     knownWorkingModel = null,
     protectedInputs = {},
+    canaries = { hostPaths: [], secretValues: [] },
   } = input ?? {};
+  validateCanaries(canaries);
   const plan = buildOllamaDiagnosticPlan({ frozenIdentity, fixtures, candidateSchema, syntheticPrompt });
   const protectedDigest = sha256Hex(canonicalJson(protectedInputs));
   const paths = await prepareOutputPaths(runRoot);
@@ -68,7 +72,7 @@ export async function executeOllamaDiagnostic(input, deps) {
     state.probeOrder.push(probe.id);
     if (probe.id === 'environment_and_model') {
       const result = await deps.inspectEnvironment({ probe, frozenIdentity, runRoot });
-      const accepted = await acceptObservation({ result, probe, stepIndex, frozenIdentity, paths, state });
+      const accepted = await acceptObservation({ result, probe, stepIndex, frozenIdentity, paths, state, canaries });
       if (!accepted) break;
       continue;
     }
@@ -93,6 +97,7 @@ export async function executeOllamaDiagnostic(input, deps) {
           frozenIdentity,
           paths,
           state,
+          canaries,
         });
         if (!accepted) {
           failed = true;
@@ -127,7 +132,7 @@ export async function executeOllamaDiagnostic(input, deps) {
       frozenIdentity,
       runRoot,
     });
-    const accepted = await acceptObservation({ result, probe, stepIndex, frozenIdentity, paths, state });
+    const accepted = await acceptObservation({ result, probe, stepIndex, frozenIdentity, paths, state, canaries });
     if (!accepted) {
       if (knownWorkingModel && BEFORE_CANOPY_PROMPT.has(probe.id)) {
         state.runtimeControl = await runRuntimeControl({
@@ -138,6 +143,7 @@ export async function executeOllamaDiagnostic(input, deps) {
           runRoot,
           paths,
           deps,
+          canaries,
         });
       }
       break;
@@ -166,16 +172,21 @@ async function acceptObservation({
   frozenIdentity,
   paths,
   state,
+  canaries,
 }) {
   const normalized = normalizeObservation(result, probe, frozenIdentity);
   accumulateSafety(state, normalized.safety);
   const rawPath = join(paths.rawRoot, rawFileName(stepIndex, probe.id, fixtureIndex, fixture?.id));
-  await writeExclusiveJson(rawPath, {
+  const rawRecord = {
+    ...copyJson(result),
     step: probe.id,
     fixtureId: fixture?.id ?? null,
     changedDimension: probe.changedDimension,
-    ...copyJson(result),
-  }, 0o600);
+    model: undefined,
+    runtimeControl: undefined,
+  };
+  assertCanaryFree(rawRecord, canaries, `Ollama diagnostic raw observation ${probe.id}`);
+  await writeExclusiveJson(rawPath, rawRecord, 0o600);
   state.observations.push(publicObservation(normalized, probe, fixture));
 
   if (probe.operation === 'generate') {
@@ -199,11 +210,13 @@ async function acceptObservation({
   return true;
 }
 
-async function runRuntimeControl({ probe, stepIndex, model, frozenIdentity, runRoot, paths, deps }) {
+async function runRuntimeControl({ probe, stepIndex, model, frozenIdentity, runRoot, paths, deps, canaries }) {
   const result = await deps.executeProbe({ probe, fixture: null, model, frozenIdentity, runRoot, runtimeControl: true });
   const normalized = normalizeObservation(result, probe, null);
   const rawPath = join(paths.rawRoot, `control-${rawFileName(stepIndex, probe.id)}`);
-  await writeExclusiveJson(rawPath, { step: probe.id, model, runtimeControl: true, ...copyJson(result) }, 0o600);
+  const rawRecord = { ...copyJson(result), step: probe.id, model, runtimeControl: true };
+  assertCanaryFree(rawRecord, canaries, `Ollama diagnostic runtime control ${probe.id}`);
+  await writeExclusiveJson(rawPath, rawRecord, 0o600);
   return Object.freeze({
     model,
     classification: normalized.success ? 'pass' : normalized.classification,
@@ -225,7 +238,10 @@ function normalizeObservation(result, probe, expectedIdentity) {
     success = false;
     classification = 'identity_drift';
   }
-  if (!SAFETY_FIELDS.every((field) => safety[field])) success = false;
+  if (!SAFETY_FIELDS.every((field) => safety[field])) {
+    success = false;
+    classification = 'diagnostic_safety_failure';
+  }
   return {
     success,
     classification,
@@ -253,11 +269,13 @@ function publicObservation(normalized, probe, fixture) {
     requestSha256: normalized.requestSha256,
     responseSha256: normalized.responseSha256,
     serverLogSha256: normalized.serverLogSha256,
-    responseStatus: normalized.responseStatus,
-    responseHeaders: normalized.responseHeaders,
-    requestBytes: normalized.requestBytes,
-    responseBytes: normalized.responseBytes,
-    serverLogBytes: normalized.serverLogBytes,
+    ...(normalized.success ? {
+      responseStatus: normalized.responseStatus,
+      responseHeaders: normalized.responseHeaders,
+      requestBytes: normalized.requestBytes,
+      responseBytes: normalized.responseBytes,
+      serverLogBytes: normalized.serverLogBytes,
+    } : {}),
   });
 }
 
@@ -379,7 +397,13 @@ function byteLength(value) {
 }
 
 function identityMatches(expected, actual) {
-  return expected !== null && actual !== null && canonicalJson(expected) === canonicalJson(actual);
+  return expected !== null &&
+    typeof expected === 'object' &&
+    !Array.isArray(expected) &&
+    actual !== null &&
+    typeof actual === 'object' &&
+    !Array.isArray(actual) &&
+    canonicalJson(expected) === canonicalJson(actual);
 }
 
 function validateIdentity(identity) {
@@ -395,10 +419,22 @@ function validateFixtures(fixtures) {
   for (const fixture of fixtures) {
     requireObject(fixture, 'fixture');
     requireNonEmptyString(fixture.id, 'fixture id');
+    if (!PORTABLE_FIXTURE_ID.test(fixture.id)) {
+      throw new Error(`Fixture id must be one portable path segment: ${fixture.id}`);
+    }
     requireNonEmptyString(fixture.digest, 'fixture digest');
     requireNonEmptyString(fixture.prompt, 'fixture prompt');
     if (ids.has(fixture.id)) throw new Error('Fixture IDs must be unique.');
     ids.add(fixture.id);
+  }
+}
+
+function validateCanaries(canaries) {
+  requireObject(canaries, 'diagnostic canaries');
+  for (const field of ['hostPaths', 'secretValues']) {
+    if (!Array.isArray(canaries[field]) || canaries[field].some((value) => typeof value !== 'string')) {
+      throw new Error(`Diagnostic canaries ${field} must be an array of strings.`);
+    }
   }
 }
 
