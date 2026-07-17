@@ -386,6 +386,10 @@ if (import.meta.env.DEV) {
         provider,
       }
     },
+    async commitSavedCandidate({ caseId, candidateJson }) {
+      await resetSlotSession()
+      return commitFeasibilityCandidate(candidateJson, recordedDemoInput(caseId))
+    },
     async evaluateSavedCandidate({ caseId, candidateJson }) {
       return evaluateFeasibilityCandidate(candidateJson, recordedDemoInput(caseId))
     },
