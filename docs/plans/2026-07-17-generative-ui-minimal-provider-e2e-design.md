@@ -1,6 +1,6 @@
 # Generative UI minimal provider E2E design
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Issue:** #896
 
@@ -69,8 +69,7 @@ The minimal command reuses rather than duplicates:
 
 - `GENUI_CANDIDATE_SCHEMA` from
   `examples/web/src/genui-candidate-schema.js`.
-- `buildFeasibilityPrompt`, `GENUI_PROVIDER_SETTINGS.maxCandidateBytes`, and
-  canonical JSON utilities from
+- `buildFeasibilityPrompt` and `GENUI_PROVIDER_SETTINGS.maxCandidateBytes` from
   `examples/web/src/genui-feasibility-provider.js`.
 - Existing fixture lookup and normalized capability/dataset JSON from
   `examples/web/src/genui-feasibility-fixtures.js`.
@@ -78,7 +77,8 @@ The minimal command reuses rather than duplicates:
   `examples/web/src/genui-feasibility-flow.js`.
 - The existing browser-loaded MoonBit evaluator and session commit path in
   `examples/web/src/genui.js`.
-- The existing Playwright web-server configuration and Chromium dependency.
+- The existing Playwright Chromium dependency and the dev-server command pattern
+  in `examples/web/playwright.feasibility.config.ts`.
 
 No general provider interface is introduced. A second live provider is required
 before a shared provider abstraction can be justified.
@@ -90,16 +90,21 @@ The developer command accepts only:
 - `--fixture <case-id>`
 - `--model <model-slug>`
 - `--output-dir <absolute-path-outside-repository>`
-- `--timeout-ms <positive-integer>` with a conservative default
+- optional `--timeout-ms <positive-integer>`, defaulting to the existing
+  `GENUI_PROVIDER_SETTINGS.timeoutMs`
 
-The output directory must not already exist. The command creates it with mode
-`0700`; retained files use mode `0600`. The command rejects paths inside the
-repository so private model output cannot be committed accidentally.
+The output directory must not already exist, and its parent must already exist.
+The command resolves the parent canonically, rejects parents inside the
+repository (including symlink aliases), then creates the directory exclusively
+with mode `0700`; retained files use mode `0600`. This prevents private model
+output from landing in the checkout accidentally.
 
-The process exits `0` only when the provider succeeds and the existing MoonBit
-path returns classification `success`, `rubric.passed == true`, and
-`session.success == true`. Every other terminal outcome exits nonzero after
-writing `result.json`.
+Fixture, model, timeout, and output-parent validation happen
+before the run directory is created. A failure in that pre-run phase writes one
+diagnostic to stderr and creates no artifact. Once the run directory exists,
+every terminal outcome writes `result.json`. The process exits `0` only when the
+provider succeeds and the existing MoonBit path returns classification
+`success`, `rubric.passed == true`, and `session.success == true`.
 
 ## Provider invocation
 
@@ -122,12 +127,19 @@ runner supplies the complete feasibility prompt on stdin and starts Codex in an
 empty directory below the private run directory. The prompt contains the fixture
 question, capabilities, and normalized dataset but no rubric or expected answer.
 
-At startup the command verifies that the installed `codex exec --help` exposes
-the required flags. It does not compare display strings such as
-`codex-cli 0.144.4` with semantic versions such as `0.144.4`.
+This is not a confidentiality sandbox. Codex `read-only` prevents writes but can
+read host files available to an ordinary local Codex invocation, and tool output
+can be sent to the configured model provider. The command is limited to trusted
+synthetic fixtures and machines where that ordinary Codex access is acceptable.
+Stronger host-read isolation would require the deliberately excluded external
+sandbox.
 
-The parent process enforces the timeout. Timeout or interruption terminates the
-single child and records the terminal outcome; it never retries.
+
+The parent process enforces the timeout over the complete provider process tree,
+not only the direct `codex` child. It sends a graceful tree termination, waits a
+small bounded interval, then force-terminates survivors. Timeout or interruption
+records one terminal outcome and never retries. POSIX process groups and the
+Windows process-tree facility provide the platform-specific mechanism.
 
 ## Data flow
 
@@ -138,18 +150,21 @@ developer command
   -> write private request.json and temporary schema
   -> codex exec once in private empty cwd
   -> provider-events.jsonl + candidate.json
-  -> reject missing, invalid, or >64 KiB candidate
+  -> reject missing, syntactically invalid, or >64 KiB candidate
   -> local Playwright Chromium page
-  -> existing DEV-only commitCandidate hook
+  -> new minimal DEV-only injected-candidate commit hook
   -> existing MoonBit decode/materialize/rubric/replay/session commit
   -> private result.json
   -> exit 0 or nonzero
 ```
 
-The Playwright step uses the existing web-server lifecycle rather than adding a
-custom Vite readiness loop or browser process manager. A local-only Playwright
-entry reads `candidate.json`, calls the DEV-only browser hook, writes the returned
-MoonBit result, and asserts the command success contract.
+The Playwright step follows the existing feasibility dev-server command pattern
+but uses dedicated local-only wiring. It binds to loopback, uses a strict port,
+never reuses an already-running server, disables trace retention, and directs
+all temporary Playwright output below the private run directory. A local-only
+Playwright entry reads `candidate.json`, calls the DEV-only browser hook, and
+writes the returned MoonBit result without reclassifying it. The runner alone
+applies the command success contract so MoonBit failure classifications survive.
 
 ## Private run directory
 
@@ -167,6 +182,10 @@ at the end of the run. Stderr may be included in `result.json` only after a
 small fixed byte cap; inherited environment variables and credential paths are
 never serialized.
 
+Playwright traces, reports, screenshots, and `test-results` must not be written
+inside the repository. Temporary Playwright output is deleted before the final
+four-file contract is checked.
+
 No digest graph, manifest, journal, redacted transcript, or aggregate evidence
 is required for a single developer-run E2E check.
 
@@ -175,14 +194,19 @@ is required for a single developer-run E2E check.
 The command needs only boundary-level classifications that change the next
 engineering action:
 
-- `configuration_error`: invalid CLI input, fixture, output path, or unsupported
-  Codex CLI surface.
-- `provider_timeout`: the one provider process exceeded its deadline.
-- `provider_failed`: Codex exited nonzero or without a final message.
+- `configuration_error`: a pre-run invalid CLI input, fixture, or output parent.
+  It is reported on stderr because no safe run directory exists yet.
+- `provider_timeout`: the sole provider generation process exceeded its deadline.
+- `provider_failed`: Codex could not start, rejected its options, was interrupted,
+  exited nonzero, or produced no final message.
 - `candidate_oversize`: final output exceeded the existing 64 KiB limit.
-- `candidate_invalid`: final output was not a JSON value accepted by the
-  candidate boundary.
-- `materialization_error`, `rubric_failure`, `replay_mismatch`, and
+- `candidate_invalid`: final output was not syntactically valid JSON. The runner
+  does not duplicate MoonBit semantic candidate validation.
+- `browser_failed`: the dedicated Playwright process could not return one
+  parseable MoonBit result.
+- `candidate_decode_error`, `capability_decode_error`,
+  `candidate_validation_error`, `dataset_decode_error`,
+  `materialization_error`, `rubric_failure`, `replay_mismatch`, and
   `commit_failure`: preserved unchanged from the existing MoonBit result.
 - `success`: rubric and session commit both succeeded.
 
@@ -192,19 +216,23 @@ There is no global-stop taxonomy because one invocation owns one attempt.
 
 Tests defend only observable behavior needed by the command:
 
-1. CLI parsing rejects missing/invalid fixture, model, timeout, and unsafe
-   output paths before provider invocation.
-2. Provider arguments use the required supported Codex flags, existing prompt,
-   generated schema, selected model, and exactly one process invocation.
-3. Timeout terminates the child and writes a non-success `result.json` without a
-   retry.
-4. Missing, malformed, and oversized final output never reaches the browser.
+1. CLI parsing rejects missing/invalid fixture, model, or output parent and
+   invalid timeout values, non-canonical paths, repository-internal parents,
+   and symlink aliases before provider invocation or artifact creation; omitted
+   timeout uses the existing default.
+2. The sole provider generation process receives the required Codex flags,
+   existing prompt, generated schema, and selected model.
+3. Timeout terminates an orphan-prone fake provider's complete process tree and
+   writes a non-success `result.json` without a retry.
+4. Missing, malformed, and oversized final output never reaches the browser;
+   syntactically valid schema failures remain owned by MoonBit.
 5. A fake provider candidate traverses the real browser/MoonBit path and commits
    successfully.
-6. Each existing MoonBit failure classification produces nonzero exit and is
+6. Every existing MoonBit failure classification produces nonzero exit and is
    retained unchanged.
-7. The run directory contains only the four documented durable files, with
-   `candidate.json` absent when no candidate exists.
+7. The completed run directory contains only the four documented durable files,
+   with `candidate.json` absent when no candidate exists and no Playwright output
+   retained in the repository.
 8. A local opt-in smoke proves one real `codex exec` invocation can produce and
    commit a candidate. It is never part of CI.
 
@@ -245,8 +273,9 @@ not a runtime dependency and may not be imported or vendored.
 - A successful provider output reaches the real MoonBit materialization, rubric,
   replay, and session-commit path.
 - The command exits zero only for a passing rubric and successful commit.
-- A failed boundary writes one private `result.json` and exits nonzero without
-  retry.
+- After safe run-directory creation, a failed boundary writes one private
+  `result.json` and exits nonzero without retry. Pre-run validation failures
+  create no artifact.
 - The private run directory follows the four-file contract and remains outside
   the repository.
 - No provider comparison, App Server client, bubblewrap contract, scheduler,
