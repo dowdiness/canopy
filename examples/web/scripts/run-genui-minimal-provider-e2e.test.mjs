@@ -3,10 +3,12 @@ import { mkdtemp, mkdir, readFile, readdir, realpath, stat, symlink, writeFile }
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { spawn } from 'node:child_process';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 
 import {
+  classifyCandidate,
   createPrivateRun,
   parseMinimalProviderArgs,
   runMinimalProviderE2E,
@@ -109,11 +111,155 @@ test('provider lifecycle performs exactly one fixed Codex invocation', async () 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, 'codex');
   assert.equal(calls[0].args.filter(value => value === 'exec').length, 1);
-  for (const flag of ['--json', '--ephemeral', '--ignore-git-repo-check', '--skip-rules', '--sandbox', '--model', '--output-schema', '--output-last-message']) {
+  for (const flag of ['--json', '--ephemeral', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check', '--sandbox', '--model', '--output-schema', '--output-last-message']) {
     assert.equal(calls[0].args.filter(value => value === flag).length, 1);
   }
   assert.equal(calls[0].args.at(-1), '-');
   assert.equal(calls[0].spawnOptions.cwd, run.paths.work);
+});
+
+test('provider timeout kills the process group and settles inherited output', { timeout: 15_000 }, async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run'), ['--timeout-ms', '1']), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 24680;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const signals = [];
+  const observed = await runProviderAttempt(run, options, {
+    spawnProcess: () => child,
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    platform: 'linux',
+    kill(pid, signal) {
+      signals.push([pid, signal]);
+      if (signal === 'SIGKILL') child.emit('exit', null, signal);
+    },
+  });
+  assert.equal(observed.classification, 'provider_timeout');
+  assert.deepEqual(signals, [[-24680, 'SIGTERM'], [-24680, 'SIGKILL']]);
+});
+test('timeout kills a live provider grandchild after bounded escalation', { timeout: 15_000 }, async () => {
+  if (process.platform === 'win32') return;
+  const { root, repositoryRoot } = await sandbox();
+  const scriptPath = join(root, 'provider-tree.mjs');
+  const heartbeatPath = join(root, 'heartbeat');
+  const pidPath = join(root, 'grandchild-pid');
+  await writeFile(scriptPath, `
+    import { spawn } from 'node:child_process';
+    import { writeFileSync } from 'node:fs';
+    const heartbeat = process.argv[2];
+    const pidFile = process.argv[3];
+    const grandchild = spawn(process.execPath, ['-e', \`
+      const { appendFileSync } = require('node:fs');
+      process.on('SIGTERM', () => {});
+      setInterval(() => appendFileSync(process.argv[1], '.'), 20);
+    \`, heartbeat], { stdio: 'ignore' });
+    writeFileSync(pidFile, String(grandchild.pid));
+    process.on('SIGTERM', () => {});
+    setInterval(() => {}, 1000);
+  `);
+  const options = parseMinimalProviderArgs(argv(join(root, 'run'), ['--timeout-ms', '250']), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  let spawnCount = 0;
+  const observed = await runProviderAttempt(run, options, {
+    spawnProcess(_command, _args, spawnOptions) {
+      spawnCount += 1;
+      return spawn(process.execPath, [scriptPath, heartbeatPath, pidPath], spawnOptions);
+    },
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+  });
+  assert.equal(observed.classification, 'provider_timeout');
+  assert.equal(spawnCount, 1);
+  assert.ok((await readFile(heartbeatPath, 'utf8')).length > 0);
+  const grandchildPid = Number(await readFile(pidPath, 'utf8'));
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.throws(() => process.kill(grandchildPid, 0), error => error.code === 'ESRCH');
+});
+
+
+test('provider interruption terminates without retry', async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 13579;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const attempt = runProviderAttempt(run, options, {
+    spawnProcess: () => child,
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    platform: 'linux',
+    kill(_pid, signal) {
+      child.stdout.end();
+      child.stderr.end();
+      child.emit('exit', null, signal);
+    },
+  });
+  setTimeout(() => process.emit('SIGINT'), 10);
+  const observed = await attempt;
+  assert.equal(observed.classification, 'provider_failed');
+  assert.equal(observed.interrupted, true);
+  assert.equal(observed.invocationCount, 1);
+});
+
+test('candidate boundaries distinguish missing, invalid UTF-8, malformed, and oversize output', async () => {
+  const { root } = await sandbox();
+  const candidatePath = join(root, 'candidate.json');
+  assert.equal((await classifyCandidate(candidatePath, 65_536)).classification, 'provider_failed');
+  await writeFile(candidatePath, Buffer.from([0xff]));
+  assert.equal((await classifyCandidate(candidatePath, 65_536)).classification, 'candidate_invalid');
+  await writeFile(candidatePath, '{');
+  assert.equal((await classifyCandidate(candidatePath, 65_536)).classification, 'candidate_invalid');
+  await writeFile(candidatePath, ' '.repeat(65_535) + '0');
+  assert.equal((await classifyCandidate(candidatePath, 65_536)).bytes.length, 65_536);
+  await writeFile(candidatePath, ' '.repeat(65_536) + '0');
+  assert.equal((await classifyCandidate(candidatePath, 65_536)).classification, 'candidate_oversize');
+});
+
+async function runWithBrowserOutcome(outcome) {
+  const { root, repositoryRoot } = await sandbox();
+  const outputDir = join(root, 'run');
+  const options = parseMinimalProviderArgs(argv(outputDir), { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 12345;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const observed = await runMinimalProviderE2E(options, {
+    repositoryRoot,
+    runBrowser: async () => outcome,
+    spawnProcess(_command, args) {
+      queueMicrotask(async () => {
+        const outputFlag = args.indexOf('--output-last-message');
+        await writeFile(args[outputFlag + 1], '{}');
+        child.stdout.end();
+        child.stderr.end();
+        child.emit('exit', 0, null);
+      });
+      return child;
+    },
+  });
+  return observed;
+}
+
+test('MoonBit classifications and failed success predicates remain terminal failures', async () => {
+  const schemaInvalid = { classification: 'candidate_validation_error', diagnostics: ['schema'] };
+  assert.deepEqual((await runWithBrowserOutcome(schemaInvalid)).result.diagnostics, ['schema']);
+  for (const outcome of [
+    { classification: 'success', rubric: { passed: false }, session: { success: true } },
+    { classification: 'success', rubric: { passed: true }, session: { success: false } },
+  ]) {
+    const observed = await runWithBrowserOutcome(outcome);
+    assert.equal(observed.exitCode, 1);
+    assert.deepEqual(observed.result.rubric, outcome.rubric);
+    assert.deepEqual(observed.result.session, outcome.session);
+  }
 });
 
 test('fake provider traverses real browser and MoonBit commit path', { timeout: 360_000 }, async () => {

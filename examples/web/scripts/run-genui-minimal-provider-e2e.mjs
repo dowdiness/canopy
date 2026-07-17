@@ -102,8 +102,7 @@ export async function writeTerminalResult(run, terminal) {
   }
   await writeExclusive(run.paths.result, `${JSON.stringify(terminal, null, 2)}\n`);
 }
-
-function waitForProcess(child, { timeoutMs, kill, platform }) {
+function waitForProcess(child, { timeoutMs, kill, platform, terminateWindowsTree }) {
   return new Promise((resolveResult) => {
     let timedOut = false;
     let interrupted = false;
@@ -119,10 +118,10 @@ function waitForProcess(child, { timeoutMs, kill, platform }) {
       resolveResult(result);
     };
     const signal = name => {
-      if (platform === 'win32') child.kill(name);
-      else {
-        try { kill(-child.pid, name); } catch { child.kill(name); }
-      }
+    if (platform === 'win32') terminateWindowsTree(child.pid, name === 'SIGKILL');
+    else {
+      try { kill(-child.pid, name); } catch { child.kill(name); }
+    }
     };
     const terminate = () => {
       signal('SIGTERM');
@@ -173,8 +172,9 @@ export async function runProviderAttempt(run, options, deps = {}) {
     'exec',
     '--json',
     '--ephemeral',
-    '--ignore-git-repo-check',
-    '--skip-rules',
+    '--ignore-user-config',
+    '--ignore-rules',
+    '--skip-git-repo-check',
     '--sandbox', 'read-only',
     '--model', options.model,
     '--output-schema', run.paths.schema,
@@ -188,7 +188,11 @@ export async function runProviderAttempt(run, options, deps = {}) {
     detached: platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
   });
-  const processResult = waitForProcess(child, { timeoutMs: options.timeoutMs, kill, platform });
+  const terminateWindowsTree = deps.terminateWindowsTree ?? ((pid, force) => {
+    const killer = spawn('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], { stdio: 'ignore' });
+    killer.unref();
+  });
+  const processResult = waitForProcess(child, { timeoutMs: options.timeoutMs, kill, platform, terminateWindowsTree });
   const eventsDone = finished(child.stdout.pipe(eventsStream));
   let stderr = '';
   child.stderr.on('data', chunk => { stderr += chunk; });
@@ -238,10 +242,15 @@ export async function evaluateInBrowser(run, options, deps = {}) {
       stdio: ['ignore', 'ignore', 'ignore'],
     },
   );
+  const terminateWindowsTree = deps.terminateWindowsTree ?? ((pid, force) => {
+    const killer = spawn('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], { stdio: 'ignore' });
+    killer.unref();
+  });
   const observed = await waitForProcess(child, {
     timeoutMs: options.timeoutMs,
     kill: deps.kill ?? process.kill,
     platform: deps.platform ?? process.platform,
+    terminateWindowsTree,
   });
   if (observed.exitCode !== 0) return { classification: 'browser_failed', safeMessage: 'Browser validation failed.' };
   try {
