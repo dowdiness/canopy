@@ -539,10 +539,14 @@ test('final evidence binds the reviewed manifest, schedule, identities, and uniq
   assert.equal(complete.studyId, input.manifest.studyId);
   assert.equal(complete.sourceCommit, input.manifest.sourceCommit);
   assert.deepEqual(complete.providerIdentities, input.manifest.providerIdentities);
+  assert.deepEqual(complete.preflight, input.preflight);
   assert.equal(complete.schedule.sha256, createHash('sha256')
     .update(canonicalJson(input.manifest.schedule))
     .digest('hex'));
   input.manifest.providerIdentities.ollama.lookupTag = 'mutated';
+  input.preflight.isolation = false;
+  assert.equal(complete.preflight.isolation, true);
+  assert.equal(Object.isFrozen(complete.preflight), true);
   assert.notEqual(complete.providerIdentities.ollama.lookupTag, 'mutated');
   assert.equal(Object.isFrozen(complete.providerIdentities), true);
   assert.equal(Object.isFrozen(complete.providerIdentities.ollama), true);

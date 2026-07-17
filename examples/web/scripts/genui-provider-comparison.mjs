@@ -431,6 +431,7 @@ export function finalizeComparisonEvidence({
       slots: schedule.length,
       sha256: createHash('sha256').update(canonicalJson(schedule)).digest('hex'),
     }),
+    preflight: frozenJsonSnapshot(preflight),
     journal: journalSummary,
     rawArtifacts: Object.freeze(artifactInventory),
     auditability,
