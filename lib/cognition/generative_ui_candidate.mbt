@@ -902,11 +902,21 @@ fn attribute_diagnostics(
   allowed : Array[String],
   path : String,
 ) -> Array[GenerativeUiDiagnostic] {
-  attributes.filter_map(attr => {
-    if allowed.contains(attr.name) {
-      None
-    } else {
-      Some(
+  let diagnostics : Array[GenerativeUiDiagnostic] = []
+  let seen : Set[String] = Set([])
+  let repeated : Set[String] = Set([])
+  for attr in attributes {
+    if !seen.add_and_check(attr.name) && repeated.add_and_check(attr.name) {
+      diagnostics.push(
+        diagnostic(
+          path,
+          InvalidAttributeValue,
+          "attribute appears more than once: \{attr.name}",
+        ),
+      )
+    }
+    if !allowed.contains(attr.name) {
+      diagnostics.push(
         diagnostic(
           path,
           UnknownAttribute,
@@ -914,7 +924,8 @@ fn attribute_diagnostics(
         ),
       )
     }
-  })
+  }
+  diagnostics
 }
 
 ///|

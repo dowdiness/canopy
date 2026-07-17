@@ -6,8 +6,11 @@ import {
   selectOrder,
   summarizeOrders,
 } from './genui-data.ts';
-import { GENUI_SPIKE_CASE } from './genui-spike-case.js';
-import { parseGenUiRecipe } from './genui-spike-recipe.js';
+import {
+  buildLiveStudyRequest,
+  recordedDemoInput,
+} from './genui-feasibility-demo.js';
+import { runFeasibilityCandidate as executeFeasibilityCandidate } from './genui-feasibility-flow.js';
 
 const EXAMPLES = [
   `<div class="bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg">\n  <h1 class="text-2xl font-bold text-emerald-400 mb-2">Hello, World!</h1>\n  <p class="text-gray-300">This is JSX parsed incrementally with Tailwind.</p>\n</div>`,
@@ -33,7 +36,7 @@ const dataFilterInput = document.getElementById('data-filter-input')
 const dataFilterClear = document.getElementById('data-filter-clear')
 const dataJsonSource = document.getElementById('data-json-source')
 const dataCsvSource = document.getElementById('data-csv-source')
-const dataGenerateCandidate = document.getElementById('data-generate-candidate')
+
 const dataSourceLabel = document.getElementById('data-source-label')
 const dataRowCount = document.getElementById('data-row-count')
 const dataSummaryCount = document.getElementById('data-summary-count')
@@ -47,30 +50,16 @@ const dataDetailId = document.getElementById('data-detail-id')
 const dataDetailName = document.getElementById('data-detail-name')
 const dataDetailStatus = document.getElementById('data-detail-status')
 const dataDetailAmount = document.getElementById('data-detail-amount')
-const spikeQuestion = document.getElementById('spike-question')
-const spikeGenerate = document.getElementById('spike-generate')
-const spikeEmpty = document.getElementById('spike-empty')
-const spikeLoading = document.getElementById('spike-loading')
-const spikeResult = document.getElementById('spike-result')
-const spikeError = document.getElementById('spike-error')
-const spikeErrorMessage = document.getElementById('spike-error-message')
-const spikeResultTitle = document.getElementById('spike-result-title')
-const spikeFilterChip = document.getElementById('spike-filter-chip')
-const spikeSummaryLabel = document.getElementById('spike-summary-label')
-const spikeSummaryValue = document.getElementById('spike-summary-value')
-const spikeMatchCount = document.getElementById('spike-match-count')
-const spikeTableHead = document.getElementById('spike-table-head')
-const spikeTableBody = document.getElementById('spike-table-body')
-const spikeAnswerForm = document.getElementById('spike-answer-form')
-const spikeAnswerOrders = document.getElementById('spike-answer-orders')
-const spikeAnswerTotal = document.getElementById('spike-answer-total')
-const spikeCheckAnswer = document.getElementById('spike-check-answer')
-const spikeAnswerFeedback = document.getElementById('spike-answer-feedback')
-const spikeTelemetry = document.getElementById('spike-telemetry')
-const spikeModel = document.getElementById('spike-model')
-const spikeElapsed = document.getElementById('spike-elapsed')
-const spikePromptTokens = document.getElementById('spike-prompt-tokens')
-const spikeOutputTokens = document.getElementById('spike-output-tokens')
+const feasibilityQuestion = document.getElementById('feasibility-question')
+const feasibilitySource = document.getElementById('feasibility-source')
+const feasibilityRunRecorded = document.getElementById('feasibility-run-recorded')
+const feasibilityStatus = document.getElementById('feasibility-status')
+const feasibilityClassification = document.getElementById('feasibility-classification')
+const feasibilityRevision = document.getElementById('feasibility-revision')
+const feasibilityKeys = document.getElementById('feasibility-keys')
+const feasibilitySummary = document.getElementById('feasibility-summary')
+const feasibilityRubric = document.getElementById('feasibility-rubric')
+const feasibilityHash = document.getElementById('feasibility-hash')
 
 let isStreaming = false
 let abortStream = false
@@ -222,135 +211,189 @@ function formatOrderAmount(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
-const SPIKE_COLUMN_LABELS = {
-  id: 'Order',
-  name: 'Name',
-  status: 'Status',
-  amount: 'Amount',
-}
-const spikeExpectedRows = ORDER_ROWS.filter((row) => row.status === 'pending')
-const spikeExpectedIds = spikeExpectedRows.map((row) => row.id).sort()
-const spikeExpectedTotal = summarizeOrders(spikeExpectedRows).totalAmount
-let spikeGenerating = false
+let selectedFeasibilityCaseId = 'orders-pending-attention'
+let feasibilitySessionHandle = null
+let feasibilitySessionRevision = null
+let feasibilityBusy = false
+let feasibilityLastSuccessfulResult = null
 
-function setSpikeState(state) {
-  spikeEmpty.classList.toggle('hidden', state !== 'empty')
-  spikeLoading.classList.toggle('hidden', state !== 'loading')
-  spikeLoading.classList.toggle('flex', state === 'loading')
-  spikeResult.hidden = state !== 'result'
-  spikeError.classList.toggle('hidden', state !== 'error')
-  spikeError.classList.toggle('flex', state === 'error')
-}
-
-function renderSpikeRecipe(recipe, telemetry) {
-  const matchingRows = ORDER_ROWS.filter((row) => row[recipe.filter.field] === recipe.filter.value)
-  const summary = summarizeOrders(matchingRows)
-
-  spikeResultTitle.textContent = recipe.title
-  spikeFilterChip.textContent = `${recipe.filter.field} = ${recipe.filter.value}`
-  spikeSummaryLabel.textContent = recipe.summary.label
-  spikeSummaryValue.textContent = formatOrderAmount(summary.totalAmount)
-  spikeMatchCount.textContent = String(matchingRows.length)
-
-  const headerRow = document.createElement('tr')
-  recipe.columns.forEach((field) => {
-    const heading = document.createElement('th')
-    heading.className = `px-3 py-2 font-normal ${field === 'amount' ? 'text-right' : ''}`
-    heading.scope = 'col'
-    heading.textContent = SPIKE_COLUMN_LABELS[field]
-    headerRow.append(heading)
+function setFeasibilityCase(caseId) {
+  const input = recordedDemoInput(caseId)
+  selectedFeasibilityCaseId = caseId
+  feasibilityQuestion.textContent = input.fixture.question
+  feasibilitySource.textContent = `${input.fixture.sourceFormat} · @${input.fixture.binding} · ${input.fixture.fields.length} fields`
+  document.querySelectorAll('[data-feasibility-case]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.feasibilityCase === caseId)
   })
-  spikeTableHead.replaceChildren(headerRow)
-
-  const bodyRows = matchingRows.map((order) => {
-    const row = document.createElement('tr')
-    row.className = 'border-b border-canopy-border/70'
-    recipe.columns.forEach((field) => {
-      const cell = document.createElement('td')
-      cell.className = `px-3 py-2.5 ${field === 'amount' ? 'text-right text-canopy-green' : 'text-canopy-text'}`
-      if (field === 'status') {
-        const status = document.createElement('span')
-        status.className = `status-chip status-${order.status}`
-        status.textContent = order.status
-        cell.append(status)
-      } else {
-        cell.textContent = field === 'amount' ? formatOrderAmount(order.amount) : String(order[field])
-      }
-      row.append(cell)
-    })
-    return row
-  })
-  spikeTableBody.replaceChildren(...bodyRows)
-
-  spikeModel.textContent = typeof telemetry?.model === 'string' ? telemetry.model : 'unknown'
-  spikeElapsed.textContent = Number.isFinite(telemetry?.elapsedMs) ? `${(telemetry.elapsedMs / 1000).toFixed(1)} s` : '—'
-  spikePromptTokens.textContent = Number.isFinite(telemetry?.promptTokens) ? `${telemetry.promptTokens} tokens` : '—'
-  spikeOutputTokens.textContent = Number.isFinite(telemetry?.outputTokens) ? `${telemetry.outputTokens} tokens` : '—'
-  spikeTelemetry.hidden = false
-  spikeCheckAnswer.disabled = false
-  setSpikeState('result')
+  resetFeasibilitySession()
+  resetFeasibilityEvidence()
 }
+
+function resetFeasibilitySession() {
+  if (jsxModule && feasibilitySessionHandle !== null) {
+    jsxModule.jsx_session_dispose(feasibilitySessionHandle)
+  }
+  feasibilitySessionHandle = null
+  feasibilitySessionRevision = null
+  feasibilityLastSuccessfulResult = null
+  document.getElementById('feasibility-preview').innerHTML =
+    '<div class="flex min-h-[180px] items-center justify-center text-center text-[11px] leading-5 text-canopy-muted">Run the recorded candidate to materialize a safe projection.</div>'
+}
+
+function resetFeasibilityEvidence() {
+  feasibilityStatus.textContent = 'Ready. No provider request has been made.'
+  feasibilityClassification.textContent = '—'
+  feasibilityRevision.textContent = '—'
+  feasibilityKeys.textContent = '—'
+  feasibilitySummary.textContent = '—'
+  feasibilityRubric.textContent = '—'
+  feasibilityHash.textContent = '—'
+}
+
+async function ensureFeasibilityModule() {
+  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+}
+
+async function ensureFeasibilitySession() {
+  await ensureFeasibilityModule()
+  if (feasibilitySessionHandle !== null) return
+  const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', 'feasibility-preview'))
+  if (!created.success || created.handle === null) {
+    throw new Error(created.result?.error?.message || 'Could not create the dedicated feasibility session.')
+  }
+  feasibilitySessionHandle = Number(created.handle)
+  feasibilitySessionRevision = Number(created.result.revision)
+}
+
+async function resetSlotSession() {
+  resetFeasibilitySession()
+  await ensureFeasibilitySession()
+}
+
+async function evaluateFeasibilityCandidate(candidateJson, input) {
+  await ensureFeasibilityModule()
+  return executeFeasibilityCandidate({
+    mode: 'evaluate',
+    candidateJson,
+    fixture: input,
+    evaluateCandidate: (rawCandidate, capabilitiesJson, datasetJson) =>
+      jsxModule.__jsx_evaluate_feasibility_candidate_json(rawCandidate, capabilitiesJson, datasetJson),
+    commitCandidate: null,
+  })
+}
+
+async function commitFeasibilityCandidate(candidateJson, input) {
+  await ensureFeasibilitySession()
+  const result = await executeFeasibilityCandidate({
+    mode: 'commit',
+    candidateJson,
+    fixture: input,
+    evaluateCandidate: null,
+    commitCandidate: (rawCandidate, capabilitiesJson, datasetJson) =>
+      jsxModule.__jsx_commit_feasibility_candidate_json(
+        feasibilitySessionHandle,
+        feasibilitySessionRevision,
+        rawCandidate,
+        capabilitiesJson,
+        datasetJson,
+      ),
+  })
+  if (result.classification === 'success' && result.session?.success) {
+    feasibilitySessionRevision = Number(result.session.revision)
+  }
+  return result
+}
+
+function renderFeasibilityAttempt(result) {
+  const success = result.classification === 'success' && result.session?.success
+  if (success || feasibilityLastSuccessfulResult === null) {
+    renderFeasibilityEvidence(result)
+  }
+  if (success) {
+    feasibilityLastSuccessfulResult = result
+    feasibilityStatus.textContent = 'Committed after MoonBit preparation, rubric, dry-run, and DOM apply.'
+  } else {
+    feasibilityStatus.textContent =
+      `Rejected without commit: ${result.message || result.session?.error?.message || result.classification || 'unknown error'}`
+  }
+}
+
+function renderFeasibilityEvidence(result) {
+  const success = result.classification === 'success' && result.session?.success
+  feasibilityClassification.textContent = result.classification || 'unknown'
+  feasibilityClassification.className = `mt-0.5 ${success ? 'text-canopy-green' : 'text-[#f48771]'}`
+  feasibilityRevision.textContent = result.session?.revision == null ? '—' : String(result.session.revision)
+  feasibilityKeys.textContent = result.evidence?.matched_stable_keys?.join(', ') || '—'
+  const summary = result.evidence?.summary
+  feasibilitySummary.textContent = summary == null ? '—' : `${summary.aggregation}(${summary.field}) = ${summary.value ?? 'null'}`
+  feasibilityRubric.textContent = result.rubric == null
+    ? '—'
+    : result.rubric.passed ? 'passed' : `failed: ${result.rubric.reasons.join('; ')}`
+  feasibilityHash.textContent = result.safe_output_sha256 || '—'
+}
+
+async function runFeasibilityAction(candidateJson, input, button, pendingLabel) {
+  if (feasibilityBusy) return
+  feasibilityBusy = true
+  button.disabled = true
+  const previousLabel = button.textContent
+  button.textContent = pendingLabel
+  feasibilityStatus.textContent = 'Preparing candidate…'
+  try {
+    renderFeasibilityAttempt(await commitFeasibilityCandidate(candidateJson, input))
+  } catch (error) {
+    feasibilityStatus.textContent = `Candidate transaction failed: ${error instanceof Error ? error.message : String(error)}`
+    if (feasibilityLastSuccessfulResult === null) {
+      feasibilityClassification.textContent = 'client_failure'
+      feasibilityClassification.className = 'mt-0.5 text-[#f48771]'
+    }
+  } finally {
+    button.disabled = false
+    button.textContent = previousLabel
+    feasibilityBusy = false
+  }
+}
+
+document.querySelectorAll('[data-feasibility-case]').forEach((button) => {
+  button.addEventListener('click', () => setFeasibilityCase(button.dataset.feasibilityCase))
+})
+
+feasibilityRunRecorded.addEventListener('click', () => {
+  const input = recordedDemoInput(selectedFeasibilityCaseId)
+  return runFeasibilityAction(input.candidateJson, input, feasibilityRunRecorded, 'Replaying…')
+})
 
 if (import.meta.env.DEV) {
-  document.getElementById('genui-spike').hidden = false
-  spikeQuestion.textContent = GENUI_SPIKE_CASE.question
-  setSpikeState('empty')
-
-  spikeGenerate.addEventListener('click', async function() {
-    if (spikeGenerating) return
-    spikeGenerating = true
-    spikeGenerate.disabled = true
-    spikeGenerate.textContent = 'Generating…'
-    spikeCheckAnswer.disabled = true
-    spikeTelemetry.hidden = true
-    spikeAnswerFeedback.textContent = ''
-    setSpikeState('loading')
-
-    try {
-      const response = await fetch('/api/genui-spike', {
+  window.__canopyGenUiFeasibilityTest = Object.freeze({
+    async runSlot({ studyId, runCapability, caseId, slotId }) {
+      const input = recordedDemoInput(caseId)
+      const request = buildLiveStudyRequest({ studyId, runCapability, caseId, slotId })
+      await resetSlotSession()
+      const response = await fetch('/api/genui-feasibility', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ caseId: GENUI_SPIKE_CASE.id }),
+        body: JSON.stringify(request),
       })
-      const body = await response.json()
-      if (!response.ok) {
-        throw new Error(typeof body?.error === 'string' ? body.error : `Prototype endpoint returned HTTP ${response.status}.`)
+      const provider = await response.json()
+      if (!response.ok || provider.classification !== 'success' || typeof provider.candidateJson !== 'string') {
+        return provider
       }
-
-      const parsedRecipe = parseGenUiRecipe(body?.recipe)
-      if (!parsedRecipe.ok) {
-        throw new Error(`Browser rejected recipe: ${parsedRecipe.error}`)
+      const result = await commitFeasibilityCandidate(provider.candidateJson, input)
+      return {
+        candidateJson: provider.candidateJson,
+        ...result,
+        revision: result.session?.revision ?? null,
+        provider,
       }
-      renderSpikeRecipe(parsedRecipe.value, body?.telemetry)
-    } catch (error) {
-      spikeErrorMessage.textContent = error instanceof Error ? error.message : String(error)
-      setSpikeState('error')
-    } finally {
-      spikeGenerating = false
-      spikeGenerate.disabled = false
-      spikeGenerate.textContent = 'Generate one-shot view'
-    }
-  })
-
-  spikeAnswerForm.addEventListener('submit', function(event) {
-    event.preventDefault()
-    const submittedIds = spikeAnswerOrders.value
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => value.length > 0)
-      .sort()
-    const idsCorrect = submittedIds.length === spikeExpectedIds.length &&
-      submittedIds.every((id, index) => id === spikeExpectedIds[index])
-    const totalCorrect = Number(spikeAnswerTotal.value) === spikeExpectedTotal
-    const correct = idsCorrect && totalCorrect
-
-    spikeAnswerFeedback.classList.remove('text-canopy-green', 'text-[#f48771]')
-    spikeAnswerFeedback.classList.add(correct ? 'text-canopy-green' : 'text-[#f48771]')
-    spikeAnswerFeedback.textContent = correct
-      ? 'Correct. The generated view supported the complete development answer.'
-      : 'Not yet. Check both the matching order IDs and the displayed total.'
+    },
+    async evaluateSavedCandidate({ caseId, candidateJson }) {
+      return evaluateFeasibilityCandidate(candidateJson, recordedDemoInput(caseId))
+    },
+    resetSlotSession,
   })
 }
+
+setFeasibilityCase(selectedFeasibilityCaseId)
 
 renderDataExplorer();
 
@@ -535,47 +578,7 @@ if (import.meta.env.DEV) {
   })
 }
 
-dataGenerateCandidate.addEventListener('click', async function() {
-  if (isStreaming) return
-  dataGenerateCandidate.disabled = true
-  try {
-    const candidate = JSON.stringify({
-      type: 'component',
-      name: 'stack',
-      attributes: [],
-      children: [
-        { type: 'component', name: 'text', attributes: [{ name: 'value', value: 'Orders' }], children: [] },
-        {
-          type: 'component',
-          name: 'table',
-          attributes: [
-            { name: 'data', value: 'orders' },
-            { name: 'selection', value: 'id' },
-          ],
-          children: [
-            { type: 'component', name: 'column', attributes: [{ name: 'field', value: 'name' }, { name: 'label', value: 'Name' }], children: [] },
-            { type: 'component', name: 'filter', attributes: [{ name: 'field', value: 'status' }, { name: 'operator', value: 'contains' }], children: [] },
-            { type: 'component', name: 'summary', attributes: [{ name: 'field', value: 'amount' }, { name: 'aggregation', value: 'sum' }], children: [] },
-          ],
-        },
-      ],
-    })
-    const capabilities = JSON.stringify({
-      bindings: [{ name: 'orders', fields: ['name', 'status', 'amount'], selection_keys: ['id'] }],
-      filter_operators: ['contains'],
-      aggregations: ['sum'],
-    })
-    const result = await replayCandidate(candidate, capabilities)
-    statusBar.textContent = result.success
-      ? 'Candidate committed through replay, validation, dry-run, and DOM apply.'
-      : 'Candidate rejected: ' + (result.error?.message || 'unknown error')
-  } catch (error) {
-    console.error(error)
-    statusBar.textContent = 'Candidate error: ' + (error instanceof Error ? error.message : String(error))
-  } finally {
-    dataGenerateCandidate.disabled = false
-  }
-})
+
 
 // ── ProjNode Tree Rendering (pure JS, unchanged) ──
 function renderTreeNode(node, prevIds) {

@@ -1,0 +1,215 @@
+{
+  "evidenceVersion": 1,
+  "studyId": "genui-local-llm-v1",
+  "decision": "NOT_YET_FEASIBLE",
+  "claimScope": "technical feasibility only; no usability, task-performance, adoption, or product-value claim",
+  "frozenCommit": "3263c714ba8f064dd0ae5fae9132759613905c97",
+  "manifestSha256": "42fae5d10ad78ff0d95318dbeef43c1e982c64902aebce2f9acd01271df97f0c",
+  "modelIdentity": {
+    "lookupTag": "gemma4:e2b",
+    "modelManifestSha256": "7fbdbf8f5e45a75bb122155ed546e765b4d9c53a1285f62fd9f506baa1c5a47e",
+    "showDetailsSha256": "3bf9147769635ef27eb12b705b88fdb981baa3f93faac30cfe5d79f4ff780f01",
+    "ollamaVersion": "0.20.0",
+    "templateSha256": "b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+    "parametersSha256": "7cf6d183c523e25856d599df53d25cf76917d5b2fbc3f95ec70838bb75e4bff1"
+  },
+  "generationSettings": {
+    "stream": false,
+    "temperature": 0.2,
+    "numCtx": 4096,
+    "numPredict": 512,
+    "keepAlive": "5m",
+    "timeoutMs": 120000,
+    "slotSeeds": [
+      1701,
+      1702,
+      1703
+    ],
+    "maxCandidateBytes": 65536
+  },
+  "inputDigests": {
+    "candidateSchemaSha256": "28482ad4978e5b8b30947b556c46d4e022966652debd77f0210bb7c2ab6ea0a6",
+    "fixturesSha256": "b82e433ce3767fde8d2ae61083f44d3116e90e823cbf29ef90c615d38c25c4c3",
+    "normalizerSourceSha256": "96a92a9a4c60b564e149ec4292102628853e8c3e6887fe1d409ca52c6374acb8",
+    "capabilitiesSha256": "f6001c235614e1cb4fa6bc22a0d47d91f327e56183dbb41943e41ff8005a1a1a",
+    "promptSha256": "fd471cccbfda69fa965c30d620349671ef63a119c32589c3ab31589a05e96e29",
+    "rubricSourceSha256": "12bb436da5766c3a31ddbaad307c56837e865c4a123ae7791e52efcd9678e7b0",
+    "preparationCoreSourceSha256": "29141b6ecff55caf1248795030c918bf1b41ecf598a745fadc1c2d2bd2f35a67"
+  },
+  "decisionRule": {
+    "positive": "all_checks_pass_and_each_fixture_has_success",
+    "negative": "otherwise",
+    "requiredSlots": 9,
+    "noRetry": true,
+    "replayRequiredForEveryCandidate": true
+  },
+  "preflight": {
+    "checks": [
+      {
+        "command": "moon test ffi/jsx",
+        "cwd": ".",
+        "exitCode": 0,
+        "id": "moonbit-tests",
+        "signal": null
+      },
+      {
+        "command": "node --test src/genui-feasibility-fixtures.test.mjs src/genui-feasibility-provider.test.mjs src/genui-feasibility-demo.test.mjs src/genui-feasibility-flow.test.mjs scripts/run-genui-feasibility-study.test.mjs",
+        "cwd": "examples/web",
+        "exitCode": 0,
+        "id": "node-tests",
+        "signal": null
+      },
+      {
+        "command": "moon build --target js",
+        "cwd": ".",
+        "exitCode": 0,
+        "id": "moonbit-js-build",
+        "signal": null
+      },
+      {
+        "command": "npx tsc --noEmit",
+        "cwd": "examples/web",
+        "exitCode": 0,
+        "id": "typescript",
+        "signal": null
+      },
+      {
+        "command": "npx playwright test tests/genui.spec.ts --project=chromium --grep feasibility",
+        "cwd": "examples/web",
+        "exitCode": 1,
+        "id": "development-e2e",
+        "signal": null
+      }
+    ],
+    "passed": false
+  },
+  "audit": {
+    "scheduledSlots": 9,
+    "terminalSlots": 9,
+    "duplicateEvents": 0,
+    "journalProtocolValid": false,
+    "harnessPassed": false,
+    "everyCandidateReplayed": true,
+    "eachFixtureHasSuccess": false,
+    "everySlotTerminal": false
+  },
+  "slots": [
+    {
+      "caseId": "orders-pending-attention",
+      "slotId": 0,
+      "seed": 1701,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "orders-pending-attention",
+      "slotId": 1,
+      "seed": 1702,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "orders-pending-attention",
+      "slotId": 2,
+      "seed": 1703,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "inventory-low-stock",
+      "slotId": 0,
+      "seed": 1701,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "inventory-low-stock",
+      "slotId": 1,
+      "seed": 1702,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "inventory-low-stock",
+      "slotId": 2,
+      "seed": 1703,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "incidents-critical-resolution",
+      "slotId": 0,
+      "seed": 1701,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "incidents-critical-resolution",
+      "slotId": 1,
+      "seed": 1702,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    },
+    {
+      "caseId": "incidents-critical-resolution",
+      "slotId": 2,
+      "seed": 1703,
+      "classification": "not_run_preflight_failure",
+      "candidateSha256": null,
+      "replayEqual": null,
+      "safeOutputSha256": null,
+      "evidence": null,
+      "rubric": null,
+      "session": null,
+      "provider": null
+    }
+  ]
+}

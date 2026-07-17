@@ -1,10 +1,42 @@
 import { writeFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
+import {
+  getRecordedFeasibilityCandidate,
+  recordedFeasibilityCandidateJson,
+} from '../src/genui-recorded-candidates.js';
 type GenUiSessionResult = {
   success: boolean;
   revision: number;
   mounted_ids: string[];
   error?: { code: string; message: string } | null;
+};
+
+type FeasibilityResult = {
+  classification: string;
+  candidateJson?: string;
+  evidence?: {
+    matched_stable_keys: string[];
+    summary: { field: string; aggregation: string; value: number | null };
+  } | null;
+  rubric?: { passed: boolean; reasons: string[] } | null;
+  safe_output_sha256?: string | null;
+  session?: GenUiSessionResult | null;
+  revision?: number | null;
+  provider?: unknown;
+};
+
+type FeasibilityBrowserApi = {
+  runSlot(input: {
+    studyId: string;
+    runCapability: string;
+    caseId: string;
+    slotId: number;
+  }): Promise<FeasibilityResult>;
+  evaluateSavedCandidate(input: {
+    caseId: string;
+    candidateJson: string;
+  }): Promise<FeasibilityResult>;
+  resetSlotSession(): Promise<void>;
 };
 
 type GenUiBrowserApi = {
@@ -90,6 +122,7 @@ declare global {
   interface Window {
     __canopyGenUiTest?: GenUiBrowserApi & GenUiAsyncDriverApi;
     __genuiPendingTransport?: Promise<AsyncTransportResult>;
+    __canopyGenUiFeasibilityTest?: FeasibilityBrowserApi;
   }
 }
 
@@ -165,10 +198,14 @@ async function sessionRevision(page: Page): Promise<number | null> {
   });
 }
 
-async function setDomApplyFailure(page: Page, enabled: boolean): Promise<void> {
-  await page.evaluate((shouldFail) => {
-    const root = document.getElementById('html-preview');
-    if (!root) throw new Error('GenUI preview root is unavailable');
+async function setDomApplyFailure(
+  page: Page,
+  enabled: boolean,
+  rootId = 'html-preview',
+): Promise<void> {
+  await page.evaluate(({ shouldFail, targetRootId }) => {
+    const root = document.getElementById(targetRootId);
+    if (!root) throw new Error(`GenUI preview root ${targetRootId} is unavailable`);
     const prototype = Node.prototype as typeof Node.prototype & {
       __canopyOriginalAppendChild?: typeof Node.prototype.appendChild;
       __canopyOriginalInsertBefore?: typeof Node.prototype.insertBefore;
@@ -199,7 +236,7 @@ async function setDomApplyFailure(page: Page, enabled: boolean): Promise<void> {
       delete prototype.__canopyOriginalAppendChild;
       delete prototype.__canopyOriginalInsertBefore;
     }
-  }, enabled);
+  }, { shouldFail: enabled, targetRootId: rootId });
 }
 
 async function hostState(page: Page) {
@@ -221,6 +258,56 @@ async function committedMarkup(page: Page): Promise<string> {
     clone.querySelectorAll('[data-node-id]').forEach((node) => node.removeAttribute('data-node-id'));
     return clone.outerHTML;
   });
+}
+
+async function runFeasibilitySlot(
+  page: Page,
+  caseId: string,
+  slotId: number,
+): Promise<FeasibilityResult> {
+  return page.evaluate(
+    async ({ selectedCaseId, selectedSlotId }) => {
+      const api = window.__canopyGenUiFeasibilityTest;
+      if (!api) throw new Error('GenUI feasibility browser test API is unavailable');
+      return api.runSlot({
+        studyId: 'genui-local-v1',
+        runCapability: '1111111111111111111111111111111111111111111111111111111111111111',
+        caseId: selectedCaseId,
+        slotId: selectedSlotId,
+      });
+    },
+    { selectedCaseId: caseId, selectedSlotId: slotId },
+  );
+}
+
+async function evaluateSavedFeasibilityCandidate(
+  page: Page,
+  caseId: string,
+  candidateJson: string,
+): Promise<FeasibilityResult> {
+  return page.evaluate(
+    async ({ selectedCaseId, rawCandidate }) => {
+      const api = window.__canopyGenUiFeasibilityTest;
+      if (!api) throw new Error('GenUI feasibility browser test API is unavailable');
+      return api.evaluateSavedCandidate({
+        caseId: selectedCaseId,
+        candidateJson: rawCandidate,
+      });
+    },
+    { selectedCaseId: caseId, rawCandidate: candidateJson },
+  );
+}
+
+async function resetFeasibilitySlot(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const api = window.__canopyGenUiFeasibilityTest;
+    if (!api) throw new Error('GenUI feasibility browser test API is unavailable');
+    await api.resetSlotSession();
+  });
+}
+
+async function feasibilityMarkup(page: Page): Promise<string> {
+  return page.locator('#feasibility-preview').innerHTML();
 }
 
 test.describe('Generative UI Demo', () => {
@@ -251,36 +338,150 @@ test.describe('Generative UI Demo', () => {
     await expect(rows.filter({ hasText: 'Acme renewal' })).toContainText('$1,280.50');
   });
 
-  test('renders a validated one-shot recipe and checks the development answer', async ({ page }) => {
-    await page.route('**/api/genui-spike', (route) => route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        recipe: {
-          kind: 'filtered_orders',
-          title: 'Pending orders requiring attention',
-          filter: { field: 'status', operator: 'equals', value: 'pending' },
-          columns: ['id', 'name', 'amount'],
-          summary: { field: 'amount', aggregation: 'sum', label: 'Pending value' },
-        },
-        telemetry: {
-          model: 'test-model',
-          elapsedMs: 12,
-          promptTokens: 20,
-          outputTokens: 10,
-        },
-      }),
-    }));
+  test('feasibility commits host-derived evidence and replays each recorded candidate deterministically', async ({ page }) => {
+    const expected = {
+      'orders-pending-attention': {
+        keys: ['ord-1002', 'ord-1006'],
+        summary: { field: 'amount', aggregation: 'sum', value: 2180 },
+      },
+      'inventory-low-stock': {
+        keys: ['sku-001', 'sku-002'],
+        summary: { field: 'on_hand', aggregation: 'sum', value: 11 },
+      },
+      'incidents-critical-resolution': {
+        keys: ['inc-001', 'inc-003'],
+        summary: { field: 'resolution_minutes', aggregation: 'average', value: 120 },
+      },
+    } as const;
+    let providerCalls = 0;
+    await page.route('**/api/genui-feasibility', async (route) => {
+      providerCalls += 1;
+      const request = route.request().postDataJSON() as { caseId: keyof typeof expected };
+      const candidateJson = recordedFeasibilityCandidateJson(request.caseId);
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          classification: 'success',
+          candidateJson,
+          caseId: request.caseId,
+          slotId: providerCalls - 1,
+        }),
+      });
+    });
     await page.goto('/genui.html');
+    await page.getByLabel('Filter name, status, or ID').fill('paid');
+    const selectedRow = page.getByTestId('order-row-ord-1003');
+    await selectedRow.click();
+    await selectedRow.focus();
+    const beforeHostState = await hostState(page);
 
-    await page.getByRole('button', { name: 'Generate one-shot view' }).click();
-    await expect(page.locator('#spike-result')).toBeVisible();
-    await expect(page.locator('#spike-summary-value')).toHaveText('$2,180.00');
-    await expect(page.locator('#spike-table-body').getByRole('row')).toHaveCount(2);
+    for (const [caseId, expectedResult] of Object.entries(expected)) {
+      const candidateJson = recordedFeasibilityCandidateJson(caseId);
+      const first = await runFeasibilitySlot(page, caseId, 0);
+      const firstMarkup = await feasibilityMarkup(page);
+      expect(first.candidateJson).toBe(candidateJson);
+      expect(first.classification).toBe('success');
+      expect(first.session?.success).toBe(true);
+      expect(first.evidence?.matched_stable_keys).toEqual(expectedResult.keys);
+      expect(first.evidence?.summary).toEqual(expectedResult.summary);
+      expect(first.rubric).toEqual({ passed: true, reasons: [] });
+      expect(first.safe_output_sha256).toMatch(/^[0-9a-f]{64}$/);
+      expect(await hostState(page)).toEqual(beforeHostState);
 
-    await page.getByLabel('Order IDs, comma separated').fill('ord-1002, ord-1006');
-    await page.getByLabel('Total amount').fill('2180');
-    await page.getByRole('button', { name: 'Check development answer' }).click();
-    await expect(page.locator('#spike-answer-feedback')).toContainText('Correct.');
+      const replay = await evaluateSavedFeasibilityCandidate(page, caseId, candidateJson);
+      expect(replay.classification).toBe(first.classification);
+      expect(replay.evidence).toEqual(first.evidence);
+      expect(replay.rubric).toEqual(first.rubric);
+      expect(replay.safe_output_sha256).toBe(first.safe_output_sha256);
+
+      const second = await runFeasibilitySlot(page, caseId, 1);
+      expect(await feasibilityMarkup(page)).toBe(firstMarkup);
+      expect(second.evidence).toEqual(first.evidence);
+      expect(second.rubric).toEqual(first.rubric);
+      expect(second.safe_output_sha256).toBe(first.safe_output_sha256);
+      expect(await hostState(page)).toEqual(beforeHostState);
+    }
+    expect(providerCalls).toBe(6);
+  });
+
+  test('feasibility rejects invalid and task-wrong candidates before commit', async ({ page }) => {
+    const invalidCandidate = JSON.stringify({
+      type: 'raw_html',
+      value: '<script>window.__unsafe = true</script>',
+    });
+    const wrongCandidate = structuredClone(
+      getRecordedFeasibilityCandidate('orders-pending-attention'),
+    ) as {
+      children: Array<{
+        children?: Array<{ name: string; attributes: Array<{ name: string; value: string }> }>;
+      }>;
+    };
+    const summary = wrongCandidate.children[1].children?.find((child) => child.name === 'summary');
+    const aggregation = summary?.attributes.find((attribute) => attribute.name === 'aggregation');
+    if (!aggregation) throw new Error('Recorded candidate summary aggregation is unavailable');
+    aggregation.value = 'count';
+    const candidates = [invalidCandidate, JSON.stringify(wrongCandidate)];
+    await page.route('**/api/genui-feasibility', async (route) => {
+      const request = route.request().postDataJSON() as { slotId: number };
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          classification: 'success',
+          candidateJson: candidates[request.slotId],
+        }),
+      });
+    });
+    await page.goto('/genui.html');
+    await page.getByLabel('Filter name, status, or ID').fill('paid');
+    const selectedRow = page.getByTestId('order-row-ord-1003');
+    await selectedRow.click();
+    await selectedRow.focus();
+    const beforeHostState = await hostState(page);
+    await resetFeasibilitySlot(page);
+    const baselineMarkup = await feasibilityMarkup(page);
+
+    const invalid = await runFeasibilitySlot(page, 'orders-pending-attention', 0);
+    expect(invalid.classification).toMatch(/^candidate_(decode|validation)_error$/);
+    expect(invalid.session).toBeNull();
+    expect(await feasibilityMarkup(page)).toBe(baselineMarkup);
+    expect(await hostState(page)).toEqual(beforeHostState);
+
+    const wrong = await runFeasibilitySlot(page, 'orders-pending-attention', 1);
+    expect(wrong.classification).toBe('rubric_failure');
+    expect(wrong.rubric?.passed).toBe(false);
+    expect(wrong.session).toBeNull();
+    expect(await feasibilityMarkup(page)).toBe(baselineMarkup);
+    expect(await hostState(page)).toEqual(beforeHostState);
+  });
+
+  test('feasibility DOM apply failure leaves its dedicated revision uncommitted', async ({ page }) => {
+    const candidateJson = recordedFeasibilityCandidateJson('orders-pending-attention');
+    await page.goto('/genui.html');
+    await page.getByLabel('Filter name, status, or ID').fill('paid');
+    const selectedRow = page.getByTestId('order-row-ord-1003');
+    await selectedRow.click();
+    await selectedRow.focus();
+    const beforeHostState = await hostState(page);
+    await page.route('**/api/genui-feasibility', async (route) => {
+      await setDomApplyFailure(page, true, 'feasibility-preview');
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ classification: 'success', candidateJson }),
+      });
+    });
+
+    let failed: FeasibilityResult;
+    try {
+      failed = await runFeasibilitySlot(page, 'orders-pending-attention', 0);
+    } finally {
+      await setDomApplyFailure(page, false, 'feasibility-preview');
+    }
+    expect(failed.classification).toBe('commit_failure');
+    expect(failed.session?.success).toBe(false);
+    expect(failed.session?.error?.code).toBe('DomApplyError');
+    expect(failed.session?.revision).toBe(1);
+    expect(failed.revision).toBe(1);
+    expect(await hostState(page)).toEqual(beforeHostState);
   });
 
   test('filters rows while preserving a selected host-owned row', async ({ page }) => {
@@ -288,7 +489,7 @@ test.describe('Generative UI Demo', () => {
     const table = page.getByRole('table', { name: 'Orders' });
     const rows = table.locator('tbody').getByRole('row');
     await page.getByTestId('order-row-ord-1002').click();
-    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002)');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Northstar onboarding (ord-1002)');
     await expect(page.getByTestId('data-detail-name')).toHaveText('Northstar onboarding');
     await expect(page.getByTestId('data-detail-name')).toBeVisible();
 
@@ -298,7 +499,7 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByTestId('data-summary-count')).toHaveText('3');
     await expect(page.getByTestId('data-summary-total')).toHaveText('$2,486.50');
     await expect(page.getByTestId('data-summary-average')).toHaveText('$828.83');
-    await expect(page.getByRole('status')).toHaveText('Selected: Northstar onboarding (ord-1002) — hidden by filter.');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Northstar onboarding (ord-1002) — hidden by filter.');
 
     await page.getByRole('button', { name: 'Clear filter' }).click();
     await expect(rows).toHaveCount(6);
@@ -327,7 +528,7 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByRole('button', { name: 'JSON fixture' })).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('data-row-count')).toHaveText('6');
     await expect(page.getByTestId('data-detail-name')).toHaveText('Lumen migration');
-    await expect(page.getByRole('status')).toHaveText('Selected: Lumen migration (ord-1004)');
+    await expect(page.locator('#data-selection-status')).toHaveText('Selected: Lumen migration (ord-1004)');
   });
 
   test('async driver rejects cancelled late events and commits only the active generation', async ({ page }) => {
@@ -951,15 +1152,18 @@ test.describe('Generative UI Demo', () => {
       await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered', { timeout: 45000 });
     }
   });
-  test('generates and commits the constrained data candidate through the browser action', async ({ page }) => {
+  test('runs and commits the recorded feasibility candidate through the browser action', async ({ page }) => {
     await page.goto('/genui.html');
-    await page.getByRole('button', { name: 'Generate candidate' }).click();
-    await expect(page.locator('#status-bar')).toContainText(
-      'Candidate committed through replay, validation, dry-run, and DOM apply.',
+    await page.getByRole('button', { name: 'Run recorded candidate' }).click();
+    await expect(page.locator('#feasibility-status')).toHaveText(
+      'Committed after MoonBit preparation, rubric, dry-run, and DOM apply.',
     );
-    await expect(page.locator('#html-preview [data-genui-kind="stack"]')).toBeVisible();
-    await expect(page.locator('#html-preview [data-genui-kind="table"]')).toHaveCount(1);
-    await expect(page.locator('#html-preview')).toContainText('Orders');
+    await expect(page.locator('#feasibility-classification')).toHaveText('success');
+    await expect(page.locator('#feasibility-preview [data-genui-kind="stack"]')).toBeVisible();
+    await expect(page.locator('#feasibility-preview')).toContainText('Northstar onboarding');
+    await expect(page.locator('#feasibility-preview')).toContainText('Vertex renewal');
+    await expect(page.locator('#feasibility-preview')).toContainText('sum amount: 2180');
+    await expect(page.locator('#feasibility-preview')).toContainText('Pending orders requiring attention');
   });
 
   test('rejects invalid candidates without changing committed preview or revision', async ({ page }) => {

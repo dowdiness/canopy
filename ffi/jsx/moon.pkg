@@ -8,8 +8,10 @@ import {
   "dowdiness/loom",
   "moonbitlang/async/js_async",
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/queue",
   "moonbitlang/core/string",
+  "moonbitlang/x/crypto",
 }
 
 import {
@@ -35,6 +37,8 @@ options(
         "jsx_parse_and_render",
         "reset_jsx_state",
         "clear_registry",
+        "__jsx_commit_feasibility_candidate_json",
+        "__jsx_evaluate_feasibility_candidate_json",
         "__jsx_async_driver_new",
         "__jsx_async_driver_start",
         "__jsx_async_driver_queue_chunk",

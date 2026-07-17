@@ -1,0 +1,32 @@
+{
+  "incidentVersion": 1,
+  "studyId": "genui-local-llm-v2",
+  "detectedAt": "2026-07-16T18:01:04Z",
+  "status": "post_study_raw_artifact_loss",
+  "decisionImpact": "aggregate_negative_result_retained_but_raw_execution_audit_unavailable",
+  "survivingArtifacts": [
+    {
+      "path": "examples/web/studies/2026-07-15-genui-local-llm-v2.json",
+      "sha256": "2ebd46afd7652d12332e45c722702a345e457d7d329fd961208903ac4303cf2a"
+    },
+    {
+      "path": "docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json",
+      "sha256": "68f2511bdbb60fd79660e646d38142ff5c3f46d5237bf65b3c2e300cb9524631"
+    }
+  ],
+  "missingArtifacts": [
+    "examples/web/test-results/genui-feasibility-live-v2/journal.jsonl",
+    "examples/web/test-results/genui-feasibility-live-v2/raw-slots.json"
+  ],
+  "observation": "The journal and raw-slot archive existed and were validated after the one-shot study. Both paths were absent after later Playwright verification cleaned the ignored test-results tree.",
+  "cause": {
+    "status": "inferred",
+    "description": "Playwright output-directory cleanup removed the study artifacts because they were stored beneath examples/web/test-results."
+  },
+  "response": [
+    "The v2 study was not rerun.",
+    "The missing artifacts were not reconstructed.",
+    "The immutable aggregate evidence and frozen manifest were preserved.",
+    "The conservative NOT_YET_FEASIBLE decision was retained, but v2 is not described as fully retained or independently auditable from raw execution artifacts."
+  ]
+}

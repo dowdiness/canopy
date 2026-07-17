@@ -1,9 +1,21 @@
 # Generative UI live-provider experiment design
 
 - **Date:** 2026-07-15
-- **Status:** Proposed, design-only; live provider and network implementation remain unapproved
-- **Decision date:** 2026-07-29
+- **Status:** Deferred before campaign freeze; no manifest was frozen and no gate was executed
+- **Former decision date:** 2026-07-29; not active while this proposal is deferred
 - **Decision owner:** Canopy maintainers
+
+## Status
+
+This document preserves a proposed product-value experiment for possible later
+product discovery. It is not the active Generative UI workstream, does not
+authorize participant recruitment or provider implementation, and has produced
+no `FIXED`, `RULES`, or `GENERATE` campaign decision.
+
+The active engineering question is defined separately in
+[Generative UI local-LLM technical feasibility](2026-07-15-generative-ui-local-llm-technical-feasibility.md).
+That work tests implementation feasibility only. It neither depends on this
+value protocol nor supplies evidence for its gates.
 
 ## Why
 
