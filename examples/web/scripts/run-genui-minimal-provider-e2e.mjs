@@ -270,7 +270,8 @@ export async function runMinimalProviderE2E(options, deps = {}) {
     const browser = await (deps.runBrowser?.(run) ?? evaluateInBrowser(run, options, deps));
     const result = { ...browser, invocationCount: provider.invocationCount };
     await writeTerminalResult(run, result);
-    return { exitCode: result.classification === 'success' ? 0 : 1, result };
+    const passed = result.classification === 'success' && result.rubric?.passed === true && result.session?.success === true;
+    return { exitCode: passed ? 0 : 1, result };
   } finally {
     if (run) {
       for (const path of [run.paths.schema, run.paths.work, run.paths.playwright, run.paths.browserResult]) {
