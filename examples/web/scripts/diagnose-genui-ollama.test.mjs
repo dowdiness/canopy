@@ -216,6 +216,8 @@ test('first failing prerequisite is retained, later probes stop, and one runtime
   assert.equal(summary.selectedBranch, 'codex_only');
   assert.equal(summary.qualifiedForComparison, false);
   assert.deepEqual(summary.fixtureIds, []);
+  assert.equal(summary.requestSettingsFrozen, true);
+  assert.equal(summary.observations.at(-1).requestSettingsSha256, summary.requestDigest);
   assert.equal(summary.runtimeControl.model, 'qwen3:4b');
   assert.equal(summary.runtimeControl.classification, 'pass');
   assert.equal(calls.filter((call) => call === 'minimal_text:qwen3:4b').length, 1);
@@ -248,6 +250,8 @@ test('runtime control never substitutes for selected-model qualification and doe
     assert.equal(summary.selectedBranch, 'codex_only');
     assert.equal(summary.qualifiedForComparison, false);
     assert.equal(summary.runtimeControl, null);
+    assert.equal(summary.requestSettingsFrozen, true);
+    assert.equal(summary.observations.at(-1).requestSettingsSha256, summary.requestDigest);
     assert.equal(calls.some((call) => call.endsWith(':qwen3:4b')), false);
   }
 });

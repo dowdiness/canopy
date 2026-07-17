@@ -178,18 +178,24 @@ async function acceptObservation({
   }, 0o600);
   state.observations.push(publicObservation(normalized, probe, fixture));
 
+  if (probe.operation === 'generate') {
+    const settingsDigest = normalized.requestSettingsSha256;
+    if (settingsDigest === null) {
+      state.requestDigestMismatch = true;
+      if (normalized.success) recordFailure(state, probe.id, 'request_digest_mismatch');
+    } else if (state.requestDigest === null) {
+      state.requestDigest = settingsDigest;
+    } else if (state.requestDigest !== settingsDigest) {
+      state.requestDigestMismatch = true;
+      if (normalized.success) recordFailure(state, probe.id, 'request_digest_mismatch');
+    }
+  }
+
   if (!normalized.success) {
     recordFailure(state, probe.id, normalized.classification);
     return false;
   }
-  if (probe.id === 'candidate_schema_synthetic' || probe.id === 'trusted_fixtures') {
-    const settingsDigest = sha256Hex(canonicalJson(normalized.requestSettings));
-    if (state.requestDigest === null) state.requestDigest = settingsDigest;
-    else if (state.requestDigest !== settingsDigest) {
-      recordFailure(state, probe.id, 'request_digest_mismatch');
-      return false;
-    }
-  }
+  if (state.requestDigestMismatch) return false;
   return true;
 }
 
