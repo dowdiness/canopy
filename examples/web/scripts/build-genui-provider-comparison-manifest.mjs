@@ -143,8 +143,8 @@ function validateDiagnostic(input) {
       throw manifestError('diagnostic_fixture_mismatch', 'The diagnostic fixture identities do not match the manifest fixtures.');
     }
   } else {
-    if (summary.probeOrder.length >= DIAGNOSTIC_STEPS.length || summary.qualifiedForComparison !== false) {
-      throw manifestError('diagnostic_branch', 'The codex_only branch requires a terminal Ollama failure before qualification.');
+    if (summary.qualifiedForComparison !== false) {
+      throw manifestError('diagnostic_branch', 'The codex_only branch requires a terminal Ollama qualification failure.');
     }
     requireObject(summary.firstFailure, 'diagnostic first failure');
     if (summary.firstFailure.step !== summary.probeOrder.at(-1) || typeof summary.firstFailure.classification !== 'string') {
@@ -154,9 +154,89 @@ function validateDiagnostic(input) {
       throw manifestError('diagnostic_fixture_mismatch', 'A pre-qualification Ollama failure cannot claim fixture qualification.');
     }
   }
+  validateDiagnosticObservations(summary, input);
   const actualDigest = sha256(canonicalJson(summary));
   if (actualDigest !== input.diagnosticSummarySha256) {
     throw manifestError('diagnostic_digest_mismatch', 'The diagnostic summary digest does not match its content.');
+  }
+}
+
+function validateDiagnosticObservations(summary, input) {
+  if (!Array.isArray(summary.observations)) {
+    throw manifestError('diagnostic_observations', 'The diagnostic observations are missing.');
+  }
+  const fixtureIds = input.fixtures?.map((fixture) => fixture.id) ?? [];
+  const expected = [];
+  for (const step of summary.probeOrder) {
+    if (step !== 'trusted_fixtures') {
+      expected.push({ step, fixtureId: null });
+      continue;
+    }
+    const trustedCount = input.branch === 'paired'
+      ? fixtureIds.length
+      : summary.observations.length - expected.length;
+    if (trustedCount < 1 || trustedCount > fixtureIds.length) {
+      throw manifestError('diagnostic_observations', 'The trusted-fixture diagnostic observations are incomplete.');
+    }
+    for (const fixtureId of fixtureIds.slice(0, trustedCount)) {
+      expected.push({ step, fixtureId });
+    }
+  }
+  if (summary.observations.length !== expected.length) {
+    throw manifestError('diagnostic_observations', 'The diagnostic observations do not cover the frozen probe sequence exactly once.');
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    const observation = summary.observations[index];
+    requireObject(observation, `diagnostic observation ${index}`);
+    if (observation.step !== expected[index].step || observation.fixtureId !== expected[index].fixtureId) {
+      throw manifestError('diagnostic_observations', 'The diagnostic observation order or fixture identity does not match the frozen sequence.');
+    }
+    if (typeof observation.classification !== 'string' || observation.classification.length === 0) {
+      throw manifestError('diagnostic_observations', 'Every diagnostic observation requires a terminal classification.');
+    }
+    for (const field of ['requestSettingsSha256', 'requestSha256', 'responseSha256', 'serverLogSha256']) {
+      requireDigest(observation[field], `diagnostic observation ${field}`);
+    }
+    for (const field of ['requestBytes', 'responseBytes', 'serverLogBytes']) {
+      if (!Number.isInteger(observation[field]) || observation[field] < 0) {
+        throw manifestError('diagnostic_observations', `Diagnostic observation ${field} must be a non-negative integer.`);
+      }
+    }
+    const isRetainedTerminalFailure = input.branch === 'codex_only'
+      && index === expected.length - 1
+      && (observation.classification === summary.firstFailure.classification
+        || observation.preparationClassification === summary.firstFailure.classification);
+    if (['candidate_schema_synthetic', 'trusted_fixtures'].includes(observation.step)
+      && observation.requestSettingsSha256 !== summary.requestDigest
+      && !isRetainedTerminalFailure) {
+      throw manifestError('diagnostic_request_mismatch', 'The diagnostic request settings do not match the frozen request digest.');
+    }
+    if (input.branch === 'paired' && observation.classification !== 'pass') {
+      throw manifestError('diagnostic_observations', 'Paired qualification requires every diagnostic observation to pass.');
+    }
+    if (observation.step === 'trusted_fixtures'
+      && observation.preparationClassification !== 'candidate_pass'
+      && !isRetainedTerminalFailure) {
+      throw manifestError('diagnostic_preparation', 'Every trusted fixture must pass the unchanged preparation pipeline.');
+    }
+  }
+  if (input.branch === 'codex_only') {
+    const last = summary.observations.at(-1);
+    const retainedFailure = last?.classification === summary.firstFailure.classification
+      || last?.preparationClassification === summary.firstFailure.classification;
+    if (!retainedFailure) {
+      throw manifestError('diagnostic_failure', 'The final diagnostic observation does not retain the first failure classification.');
+    }
+  }
+  if (summary.runtimeControl !== null) {
+    requireObject(summary.runtimeControl, 'diagnostic runtime control');
+    if (typeof summary.runtimeControl.model !== 'string' || summary.runtimeControl.model.length === 0
+      || typeof summary.runtimeControl.classification !== 'string' || summary.runtimeControl.classification.length === 0) {
+      throw manifestError('diagnostic_runtime_control', 'The runtime control requires model identity and classification.');
+    }
+    for (const field of ['requestSha256', 'responseSha256', 'serverLogSha256']) {
+      requireDigest(summary.runtimeControl[field], `diagnostic runtime control ${field}`);
+    }
   }
 }
 

@@ -45,6 +45,28 @@ const DIAGNOSTIC_STEPS = Object.freeze([
   'trusted_fixtures',
 ]);
 
+function diagnosticObservations(branch) {
+  const steps = branch === 'paired' ? DIAGNOSTIC_STEPS : DIAGNOSTIC_STEPS.slice(0, 4);
+  return steps.flatMap((step) => {
+    const fixtureIds = step === 'trusted_fixtures' ? FIXTURES.map((fixture) => fixture.id) : [null];
+    return fixtureIds.map((fixtureId) => ({
+      step,
+      fixtureId,
+      classification: branch === 'codex_only' && step === steps.at(-1) ? 'provider_http_error' : 'pass',
+      requestSha256: '1'.repeat(64),
+      responseSha256: '2'.repeat(64),
+      serverLogSha256: '3'.repeat(64),
+      requestBytes: 128,
+      responseBytes: 256,
+      serverLogBytes: 64,
+      requestSettingsSha256: ['candidate_schema_synthetic', 'trusted_fixtures'].includes(step)
+        ? 'e'.repeat(64)
+        : '4'.repeat(64),
+      preparationClassification: step === 'trusted_fixtures' ? 'candidate_pass' : null,
+    }));
+  });
+}
+
 function manifestBuilderInput(branch = 'paired') {
   const activeRequests = branch === 'paired' ? 60 : 30;
   const diagnosticSummary = {
@@ -67,6 +89,8 @@ function manifestBuilderInput(branch = 'paired') {
     isolationSafe: true,
     requestSettingsFrozen: true,
     requestDigest: 'e'.repeat(64),
+    runtimeControl: null,
+    observations: diagnosticObservations(branch),
   };
   return {
     branch,
@@ -568,6 +592,30 @@ test('manifest builder freezes both branches, identities, schedule, contracts, l
     );
   }
 });
+test('manifest accepts codex-only selection after a retained trusted-fixture provider failure', () => {
+  const input = manifestBuilderInput('codex_only');
+  const observations = diagnosticObservations('paired').slice(0, 8);
+  observations[7] = {
+    ...observations[7],
+    classification: 'provider_http_error',
+    preparationClassification: null,
+  };
+  input.diagnosticSummary = {
+    ...input.diagnosticSummary,
+    probeOrder: [...DIAGNOSTIC_STEPS],
+    firstFailure: {
+      step: 'trusted_fixtures',
+      classification: 'provider_http_error',
+    },
+    observations,
+  };
+  input.diagnosticSummarySha256 = createHash('sha256')
+    .update(canonicalJson(input.diagnosticSummary))
+    .digest('hex');
+  const manifest = buildComparisonManifest(input, { verifyRepository: () => '0'.repeat(40) });
+  assert.equal(manifest.branch, 'codex_only');
+});
+
 
 test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, branch mismatch, paths, and invalid limits', () => {
   assert.throws(
@@ -641,6 +689,40 @@ test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, br
     () => buildComparisonManifest(missingShowIdentity, { verifyRepository: () => '0'.repeat(40) }),
     /Ollama.*show.*digest|showDetailsSha256/u,
   );
+  for (const [diagnosticCase, mutateDiagnostic] of [
+    ['missing observation', (summary) => ({ ...summary, observations: summary.observations.slice(0, -1) })],
+    ['duplicate observation', (summary) => ({
+      ...summary,
+      observations: [...summary.observations, summary.observations.at(-1)],
+    })],
+    ['failed preparation', (summary) => ({
+      ...summary,
+      observations: summary.observations.map((entry) =>
+        entry.step === 'trusted_fixtures'
+          ? { ...entry, preparationClassification: 'preparation_failure' }
+          : entry
+      ),
+    })],
+    ['request digest drift', (summary) => ({
+      ...summary,
+      observations: summary.observations.map((entry) =>
+        entry.step === 'trusted_fixtures'
+          ? { ...entry, requestSettingsSha256: '4'.repeat(64) }
+          : entry
+      ),
+    })],
+  ]) {
+    const invalidDiagnostic = manifestBuilderInput();
+    invalidDiagnostic.diagnosticSummary = mutateDiagnostic(invalidDiagnostic.diagnosticSummary);
+    invalidDiagnostic.diagnosticSummarySha256 = createHash('sha256')
+      .update(canonicalJson(invalidDiagnostic.diagnosticSummary))
+      .digest('hex');
+    assert.throws(
+      () => buildComparisonManifest(invalidDiagnostic, { verifyRepository: () => '0'.repeat(40) }),
+      /diagnostic|observation|fixture|preparation|request/u,
+      diagnosticCase,
+    );
+  }
 });
 
 test('manifest writer creates output exclusively', async () => {
