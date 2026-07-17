@@ -5,6 +5,7 @@ import test from 'node:test';
 import { GENUI_CANDIDATE_SCHEMA } from './genui-candidate-schema.js';
 import {
   createCodexAppServerSession,
+  discoverCodexAppServerIdentity,
 } from './genui-codex-app-server.js';
 import {
   buildFeasibilityPrompt,
@@ -390,6 +391,25 @@ async function runScript({
   const result = await session.runSlot({ fixture: FIXTURE, slotId: 'slot-1' });
   return { child, session, result };
 }
+
+test('discovers the selected Codex identity without starting a thread or turn', async () => {
+  const child = createScriptedProcess(handshakeSteps());
+  const identity = await discoverCodexAppServerIdentity({
+    cliVersion: '0.144.4',
+    slug: 'gpt-5.6-luna',
+    effort: 'medium',
+    spawnProcess: () => child,
+  }, { timeoutMs: 50 });
+
+  assert.deepEqual(identity, FROZEN_IDENTITY);
+  assert.deepEqual(child.writes.map((request) => request.method), [
+    'initialize',
+    'initialized',
+    'account/read',
+    'model/list',
+  ]);
+  assert.deepEqual(child.kills, ['SIGTERM']);
+});
 
 test('negotiates experimental API and preserves exact candidate bytes and per-turn usage', async () => {
   const { child, session, result } = await runScript();

@@ -112,7 +112,50 @@ export async function createCodexAppServerSession({
   }
 }
 
+export async function discoverCodexAppServerIdentity({
+  cliVersion,
+  slug,
+  effort,
+  spawnProcess,
+}, deps = {}) {
+  if (typeof cliVersion !== 'string' || cliVersion.length === 0 ||
+      typeof slug !== 'string' || slug.length === 0 ||
+      typeof effort !== 'string' || effort.length === 0 ||
+      typeof spawnProcess !== 'function') {
+    throw protocolError('Codex identity discovery requires CLI version, model, effort, and process factory.');
+  }
+  const timeoutMs = deps.timeoutMs ?? GENUI_PROVIDER_SETTINGS.timeoutMs;
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw protocolError('Codex protocol timeout must be a positive integer.');
+  }
+  const child = await spawnProcess();
+  const transport = new JsonlTransport(child, {
+    timeoutMs,
+    setTimer: deps.setTimer ?? setTimeout,
+    clearTimer: deps.clearTimer ?? clearTimeout,
+  });
+  try {
+    const identity = await discoverProcessIdentity(transport, { slug, effort });
+    await transport.terminate('SIGTERM');
+    return Object.freeze({ cliVersion, ...identity });
+  } catch (error) {
+    await transport.terminate('SIGKILL');
+    throw error;
+  }
+}
+
 async function initializeProcess(transport, frozenIdentity) {
+  const identity = await discoverProcessIdentity(transport, frozenIdentity);
+  if (identity.authMode !== frozenIdentity.authMode) {
+    throw identityError('Codex authentication mode differs from the frozen identity.');
+  }
+  if (identity.catalogEntrySha256 !== frozenIdentity.catalogEntrySha256) {
+    throw identityError('Codex model catalog entry differs from the frozen identity.');
+  }
+  return Object.freeze({ cliVersion: frozenIdentity.cliVersion, ...identity });
+}
+
+async function discoverProcessIdentity(transport, { slug, effort }) {
   await transport.request('initialize', {
     clientInfo: CLIENT_INFO,
     capabilities: { experimentalApi: true },
@@ -121,8 +164,8 @@ async function initializeProcess(transport, frozenIdentity) {
 
   const accountResult = await transport.request('account/read', { refreshToken: false });
   const authMode = accountResult?.account?.type;
-  if (authMode !== frozenIdentity.authMode) {
-    throw identityError('Codex authentication mode differs from the frozen identity.');
+  if (typeof authMode !== 'string' || authMode.length === 0) {
+    throw identityError('Codex authentication mode is unavailable.');
   }
 
   const entries = [];
@@ -149,30 +192,24 @@ async function initializeProcess(transport, frozenIdentity) {
     cursor = page.nextCursor;
   }
 
-  const selected = entries.filter((entry) => isRecord(entry) && entry.model === frozenIdentity.slug);
+  const selected = entries.filter((entry) => isRecord(entry) && entry.model === slug);
   if (selected.length === 0) {
-    throw new ProviderBoundaryError('model_not_available', 'Frozen Codex model is absent from the catalog.', true);
+    throw new ProviderBoundaryError('model_not_available', 'Selected Codex model is absent from the catalog.', true);
   }
   if (selected.length !== 1) {
     throw protocolError('Codex model catalog contains duplicate selected entries.');
   }
   const catalogEntry = selected[0];
   if (!Array.isArray(catalogEntry.supportedReasoningEfforts) || !catalogEntry.supportedReasoningEfforts.some(
-    (option) => isRecord(option) && option.reasoningEffort === frozenIdentity.effort,
+    (option) => isRecord(option) && option.reasoningEffort === effort,
   )) {
-    throw identityError('Frozen Codex reasoning effort is not supported.');
+    throw identityError('Selected Codex reasoning effort is not supported.');
   }
-  const catalogEntrySha256 = sha256Hex(canonicalJson(catalogEntry));
-  if (catalogEntrySha256 !== frozenIdentity.catalogEntrySha256) {
-    throw identityError('Codex model catalog entry differs from the frozen identity.');
-  }
-
   return Object.freeze({
-    cliVersion: frozenIdentity.cliVersion,
-    slug: frozenIdentity.slug,
-    effort: frozenIdentity.effort,
+    slug,
+    effort,
     authMode,
-    catalogEntrySha256,
+    catalogEntrySha256: sha256Hex(canonicalJson(catalogEntry)),
   });
 }
 

@@ -36,6 +36,10 @@ type FeasibilityBrowserApi = {
     caseId: string;
     candidateJson: string;
   }): Promise<FeasibilityResult>;
+  commitSavedCandidate(input: {
+    caseId: string;
+    candidateJson: string;
+  }): Promise<FeasibilityResult>;
   resetSlotSession(): Promise<void>;
 };
 
@@ -298,6 +302,24 @@ async function evaluateSavedFeasibilityCandidate(
   );
 }
 
+async function commitSavedFeasibilityCandidate(
+  page: Page,
+  caseId: string,
+  candidateJson: string,
+): Promise<FeasibilityResult> {
+  return page.evaluate(
+    async ({ selectedCaseId, rawCandidate }) => {
+      const api = window.__canopyGenUiFeasibilityTest;
+      if (!api) throw new Error('GenUI feasibility browser test API is unavailable');
+      return api.commitSavedCandidate({
+        caseId: selectedCaseId,
+        candidateJson: rawCandidate,
+      });
+    },
+    { selectedCaseId: caseId, rawCandidate: candidateJson },
+  );
+}
+
 async function resetFeasibilitySlot(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const api = window.__canopyGenUiFeasibilityTest;
@@ -336,6 +358,21 @@ test.describe('Generative UI Demo', () => {
     await expect(page.getByTestId('data-summary-total')).toHaveText('$6,846.50');
     await expect(page.getByTestId('data-summary-average')).toHaveText('$1,141.08');
     await expect(rows.filter({ hasText: 'Acme renewal' })).toContainText('$1,280.50');
+  });
+
+  test('commits an injected candidate through the production MoonBit session path', async ({ page }) => {
+    const caseId = 'orders-pending-attention';
+    await page.goto('/genui.html');
+    await resetFeasibilitySlot(page);
+    const result = await commitSavedFeasibilityCandidate(
+      page,
+      caseId,
+      recordedFeasibilityCandidateJson(caseId),
+    );
+
+    expect(result.classification).toBe('success');
+    expect(result.rubric?.passed).toBe(true);
+    expect(result.session?.success).toBe(true);
   });
 
   test('feasibility commits host-derived evidence and replays each recorded candidate deterministically', async ({ page }) => {
