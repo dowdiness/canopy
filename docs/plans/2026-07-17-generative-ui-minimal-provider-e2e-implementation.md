@@ -416,6 +416,7 @@ Select one literal model slug from the locally authenticated Codex catalog befor
 ```bash
 : "${XDG_STATE_HOME:?XDG_STATE_HOME must be set}"
 : "${MODEL_SLUG:?MODEL_SLUG must be selected before the smoke}"
+mkdir -p "$XDG_STATE_HOME/canopy/genui-minimal-provider-e2e"
 RUN_DIR="$XDG_STATE_HOME/canopy/genui-minimal-provider-e2e/$(date -u +%Y%m%dT%H%M%SZ)"
 test ! -e "$RUN_DIR"
 cd examples/web
