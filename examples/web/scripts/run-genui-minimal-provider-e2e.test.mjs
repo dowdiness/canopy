@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, realpath, stat, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
 
 import {
   createPrivateRun,
   parseMinimalProviderArgs,
+  runProviderAttempt,
   writeTerminalResult,
 } from './run-genui-minimal-provider-e2e.mjs';
 import { GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
@@ -73,4 +76,40 @@ test('output path rejects aliases and unsafe parents before run creation', async
     const options = parseMinimalProviderArgs(argv(outputDir), { repositoryRoot });
     await assert.rejects(() => createPrivateRun(options, { repositoryRoot }), error => error.code === 'configuration_error');
   }
+});
+
+test('provider lifecycle performs exactly one fixed Codex invocation', async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const calls = [];
+  const child = new EventEmitter();
+  child.pid = 12345;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const resultPromise = runProviderAttempt(run, options, {
+    spawnProcess(command, args, spawnOptions) {
+      calls.push({ command, args, spawnOptions });
+      queueMicrotask(() => {
+        child.stdout.end();
+        child.stderr.end();
+        child.emit('exit', 0, null);
+      });
+      return child;
+    },
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+  });
+  const result = await resultPromise;
+  assert.equal(result.classification, 'success');
+  assert.equal(result.invocationCount, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, 'codex');
+  assert.equal(calls[0].args.filter(value => value === 'exec').length, 1);
+  for (const flag of ['--json', '--ephemeral', '--ignore-git-repo-check', '--skip-rules', '--sandbox', '--model', '--output-schema', '--output-last-message']) {
+    assert.equal(calls[0].args.filter(value => value === flag).length, 1);
+  }
+  assert.equal(calls[0].args.at(-1), '-');
+  assert.equal(calls[0].spawnOptions.cwd, run.paths.work);
 });

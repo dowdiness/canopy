@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
-import { mkdir, open, realpath, rm, stat } from 'node:fs/promises';
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { chmod, mkdir, open, readFile, realpath, rm, stat } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { finished } from 'node:stream/promises';
 
 import { GENUI_CANDIDATE_SCHEMA } from '../src/genui-candidate-schema.js';
 import { getFeasibilityFixture } from '../src/genui-feasibility-fixtures.js';
@@ -74,7 +76,7 @@ export async function createPrivateRun(options, deps = {}) {
     schema: join(canonicalOutput, '.candidate-schema.json'),
     work: join(canonicalOutput, '.codex-work'),
     playwright: join(canonicalOutput, '.playwright'),
-    browserResult: join(canonicalOutput, '.browser-result.json'),
+    browserResult: join(canonicalOutput, 'browser-result.json'),
   };
   const prompt = buildFeasibilityPrompt(options.fixture);
   const schemaJson = JSON.stringify(GENUI_CANDIDATE_SCHEMA);
@@ -100,3 +102,175 @@ export async function writeTerminalResult(run, terminal) {
   }
   await writeExclusive(run.paths.result, `${JSON.stringify(terminal, null, 2)}\n`);
 }
+
+function waitForProcess(child, { timeoutMs, kill, platform }) {
+  return new Promise((resolveResult) => {
+    let timedOut = false;
+    let interrupted = false;
+    let forceTimer;
+    let settled = false;
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(forceTimer);
+      process.off('SIGINT', interrupt);
+      process.off('SIGTERM', interrupt);
+      resolveResult(result);
+    };
+    const signal = name => {
+      if (platform === 'win32') child.kill(name);
+      else {
+        try { kill(-child.pid, name); } catch { child.kill(name); }
+      }
+    };
+    const terminate = () => {
+      signal('SIGTERM');
+      forceTimer = setTimeout(() => {
+        signal('SIGKILL');
+        finish({ exitCode: null, signal: 'SIGKILL', timedOut, interrupted, error: null });
+      }, 5_000);
+    };
+    const interrupt = () => {
+      interrupted = true;
+      terminate();
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      terminate();
+    }, timeoutMs);
+    process.once('SIGINT', interrupt);
+    process.once('SIGTERM', interrupt);
+    child.once('error', error => finish({ exitCode: null, signal: null, timedOut, interrupted, error }));
+    child.once('exit', (exitCode, signalName) => {
+      finish({ exitCode, signal: signalName, timedOut, interrupted, error: null });
+    });
+  });
+}
+
+export async function runProviderAttempt(run, options, deps = {}) {
+  const spawnProcess = deps.spawnProcess ?? spawn;
+  const providerInvocation = deps.providerInvocation ?? { command: 'codex', prefixArgs: [] };
+  const platform = deps.platform ?? process.platform;
+  const kill = deps.kill ?? process.kill;
+  await writeExclusive(run.paths.schema, `${JSON.stringify(GENUI_CANDIDATE_SCHEMA)}\n`);
+  await mkdir(run.paths.work, { mode: 0o700 });
+  const args = [
+    ...providerInvocation.prefixArgs,
+    'exec',
+    '--json',
+    '--ephemeral',
+    '--ignore-git-repo-check',
+    '--skip-rules',
+    '--sandbox', 'read-only',
+    '--model', options.model,
+    '--output-schema', run.paths.schema,
+    '--output-last-message', run.paths.candidate,
+    '-',
+  ];
+  const eventsHandle = await open(run.paths.providerEvents, 'a', 0o600);
+  const eventsStream = eventsHandle.createWriteStream();
+  const child = spawnProcess(providerInvocation.command, args, {
+    cwd: run.paths.work,
+    detached: platform !== 'win32',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const processResult = waitForProcess(child, { timeoutMs: options.timeoutMs, kill, platform });
+  const eventsDone = finished(child.stdout.pipe(eventsStream));
+  let stderr = '';
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.stdin.end(run.request.prompt);
+  const observed = await processResult;
+  await eventsDone;
+  const base = { ...observed, invocationCount: 1 };
+  if (observed.timedOut) return { ...base, classification: 'provider_timeout', safeMessage: 'Provider deadline exceeded.' };
+  if (observed.interrupted) return { ...base, classification: 'provider_failed', safeMessage: 'Provider interrupted.' };
+  if (observed.error || observed.exitCode !== 0) return { ...base, classification: 'provider_failed', safeMessage: 'Provider process failed.' };
+  return { ...base, classification: 'success', safeMessage: null, stderr };
+}
+
+async function readCandidate(run) {
+  let bytes;
+  try { bytes = await readFile(run.paths.candidate); }
+  catch { return { classification: 'provider_failed', safeMessage: 'Provider produced no final message.' }; }
+  if (bytes.length > GENUI_PROVIDER_SETTINGS.maxCandidateBytes) {
+    return { classification: 'candidate_oversize', safeMessage: 'Provider final output exceeded the size limit.' };
+  }
+  let value;
+  try { value = JSON.parse(bytes.toString('utf8')); }
+  catch { return { classification: 'candidate_invalid', safeMessage: 'Provider final output was not valid JSON.' }; }
+  await chmod(run.paths.candidate, 0o600);
+  return { classification: 'success', value };
+}
+
+async function runBrowser(run, deps = {}) {
+  const spawnProcess = deps.spawnProcess ?? spawn;
+  const child = spawnProcess(
+    'npx',
+    ['playwright', 'test', '--config=playwright.minimal-provider.config.ts', '--project=chromium'],
+    {
+      cwd: resolve(import.meta.dirname, '..'),
+      env: { ...process.env, GENUI_MINIMAL_PROVIDER_RUN_DIR: run.paths.root },
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  const observed = await waitForProcess(child, {
+    timeoutMs: run.options.timeoutMs,
+    kill: deps.kill ?? process.kill,
+    platform: deps.platform ?? process.platform,
+  });
+  if (observed.exitCode !== 0) return { classification: 'browser_failed', safeMessage: 'Browser validation failed.' };
+  try {
+    const result = JSON.parse(await readFile(run.paths.browserResult, 'utf8'));
+    return result.classification === 'success' && result.rubric?.passed === true && result.session?.success === true
+      ? result
+      : { classification: result.classification ?? 'browser_failed', safeMessage: 'Browser validation failed.' };
+  } catch {
+    return { classification: 'browser_failed', safeMessage: 'Browser result was unavailable.' };
+  }
+}
+
+export async function runMinimalProviderE2E(options, deps = {}) {
+  let run;
+  try {
+    run = await createPrivateRun(options, deps);
+    const provider = await runProviderAttempt(run, options, deps);
+    if (provider.classification !== 'success') {
+      const result = { ...provider, invocationCount: provider.invocationCount };
+      await writeTerminalResult(run, result);
+      return { exitCode: 1, result };
+    }
+    const candidate = await readCandidate(run);
+    if (candidate.classification !== 'success') {
+      const result = { ...candidate, invocationCount: provider.invocationCount };
+      await writeTerminalResult(run, result);
+      return { exitCode: 1, result };
+    }
+    const browser = await (deps.runBrowser?.(run) ?? runBrowser(run, deps));
+    const result = { ...browser, invocationCount: provider.invocationCount };
+    await writeTerminalResult(run, result);
+    return { exitCode: result.classification === 'success' ? 0 : 1, result };
+  } finally {
+    if (run) {
+      for (const path of [run.paths.schema, run.paths.work, run.paths.playwright, run.paths.browserResult]) {
+        await rm(path, { recursive: true, force: true });
+      }
+    }
+  }
+}
+
+async function main() {
+  try {
+    const options = parseMinimalProviderArgs(process.argv.slice(2), {
+      repositoryRoot: resolve(import.meta.dirname, '../../..'),
+    });
+    const { exitCode } = await runMinimalProviderE2E(options);
+    process.exitCode = exitCode;
+  } catch (error) {
+    console.error(error.code === CONFIGURATION_ERROR ? error.message : 'Minimal provider E2E failed.');
+    process.exitCode = 1;
+  }
+}
+
+if (import.meta.url === new URL(process.argv[1], 'file:').href) await main();
