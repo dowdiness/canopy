@@ -1122,6 +1122,10 @@ test('runner halts after a provider identity drift requests a global stop', asyn
 
   assert.equal(calls.filter((entry) => /^(codex|ollama):/u.test(entry)).length, 1);
   assert.equal(result.slots.filter((slot) => slot.classification === 'identity_drift').length, 1);
+  const drift = result.slots.find((slot) => slot.classification === 'identity_drift');
+  assert.equal(drift.identityDrift, true);
+  assert.equal(result.qualification[drift.providerId].qualifies, false);
+  assert.equal(result.qualification[drift.providerId].failures.includes('identity_drift'), true);
   assert.equal(result.slots.filter((slot) => slot.classification === 'global_stop').length, 59);
   assert.equal(result.journal.globalStop, true);
 });

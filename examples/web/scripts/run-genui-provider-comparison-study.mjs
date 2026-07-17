@@ -285,7 +285,7 @@ function terminalFor(slot, classification, details = {}) {
     credentialLeakageViolations: classification === 'credential_leakage'
       ? 1
       : (details.credentialLeakageViolations ?? 0),
-    identityDrift: details.identityDrift === true,
+    identityDrift: classification === 'identity_drift' || details.identityDrift === true,
     replayMismatch: details.replayMismatch === true,
     validations: details.validations ?? null,
   });
