@@ -1168,6 +1168,17 @@ test('credentialed smoke uses one distinct synthetic fixture and rejects a secon
     evaluateCandidate: async ({ candidateJson, input }) => {
       assert.equal(candidateJson, CANDIDATE_JSON);
       assert.equal(input.fixture.caseId, SMOKE_FIXTURE.caseId);
+      const capabilities = JSON.parse(input.capabilitiesJson);
+      assert.deepEqual(capabilities.bindings[0], {
+        name: SMOKE_FIXTURE.binding,
+        fields: SMOKE_FIXTURE.fields,
+        selection_keys: [SMOKE_FIXTURE.selectionKey],
+      });
+      assert.equal(capabilities.filter_operators.includes('lt'), true);
+      assert.equal(capabilities.aggregations.includes('sum'), true);
+      const dataset = JSON.parse(input.datasetJson);
+      assert.equal(dataset.case_id, SMOKE_FIXTURE.caseId);
+      assert.equal(dataset.rows.length, SMOKE_FIXTURE.source.length);
       return passingCandidateGate();
     },
     canaries: RUN_CANARIES,

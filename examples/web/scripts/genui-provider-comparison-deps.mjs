@@ -199,6 +199,7 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
       const result = await evaluator.evaluate({
         caseId: slot.fixtureId ?? input.fixture.caseId,
         candidateJson,
+        input,
       });
       return mapBrowserEvaluation(result);
     },

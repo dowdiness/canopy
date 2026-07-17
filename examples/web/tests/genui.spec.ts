@@ -4,6 +4,11 @@ import {
   getRecordedFeasibilityCandidate,
   recordedFeasibilityCandidateJson,
 } from '../src/genui-recorded-candidates.js';
+import {
+  getFeasibilityFixture,
+  capabilitiesJsonForFixture,
+  normalizedDatasetJsonForFixture,
+} from '../src/genui-feasibility-fixtures.js';
 type GenUiSessionResult = {
   success: boolean;
   revision: number;
@@ -39,6 +44,12 @@ type FeasibilityBrowserApi = {
   commitSavedCandidate(input: {
     caseId: string;
     candidateJson: string;
+  }): Promise<FeasibilityResult>;
+  commitCandidate(input: {
+    candidateJson: string;
+    fixture: Record<string, unknown>;
+    capabilitiesJson: string;
+    datasetJson: string;
   }): Promise<FeasibilityResult>;
   resetSlotSession(): Promise<void>;
 };
@@ -320,6 +331,28 @@ async function commitSavedFeasibilityCandidate(
   );
 }
 
+async function commitFeasibilityCandidate(
+  page: Page,
+  candidateJson: string,
+  input: {
+    fixture: Record<string, unknown>;
+    capabilitiesJson: string;
+    datasetJson: string;
+  },
+): Promise<FeasibilityResult> {
+  return page.evaluate(
+    async ({ rawCandidate, candidateInput }) => {
+      const api = window.__canopyGenUiFeasibilityTest;
+      if (!api) throw new Error('GenUI feasibility browser test API is unavailable');
+      return api.commitCandidate({
+        candidateJson: rawCandidate,
+        ...candidateInput,
+      });
+    },
+    { rawCandidate: candidateJson, candidateInput: input },
+  );
+}
+
 async function resetFeasibilitySlot(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const api = window.__canopyGenUiFeasibilityTest;
@@ -368,6 +401,28 @@ test.describe('Generative UI Demo', () => {
       page,
       caseId,
       recordedFeasibilityCandidateJson(caseId),
+    );
+
+    expect(result.classification).toBe('success');
+    expect(result.rubric?.passed).toBe(true);
+    expect(result.session?.success).toBe(true);
+  });
+
+  test('commits explicit frozen fixture bytes through the production MoonBit session path', async ({
+    page,
+  }) => {
+    const caseId = 'orders-pending-attention';
+    const fixture = getFeasibilityFixture(caseId);
+    await page.goto('/genui.html');
+    await resetFeasibilitySlot(page);
+    const result = await commitFeasibilityCandidate(
+      page,
+      recordedFeasibilityCandidateJson(caseId),
+      {
+        fixture,
+        capabilitiesJson: capabilitiesJsonForFixture(fixture),
+        datasetJson: normalizedDatasetJsonForFixture(fixture),
+      },
     );
 
     expect(result.classification).toBe('success');

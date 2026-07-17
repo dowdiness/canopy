@@ -392,6 +392,9 @@ if (import.meta.env.DEV) {
     async commitSavedCandidate({ caseId, candidateJson }) {
       return commitFeasibilityCandidate(candidateJson, recordedDemoInput(caseId))
     },
+    async commitCandidate({ candidateJson, fixture, capabilitiesJson, datasetJson }) {
+      return commitFeasibilityCandidate(candidateJson, { fixture, capabilitiesJson, datasetJson })
+    },
     resetSlotSession,
   })
 }

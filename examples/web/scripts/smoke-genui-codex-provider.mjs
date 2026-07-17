@@ -5,10 +5,14 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { normalizeProviderTranscript } from './genui-provider-comparison.mjs';
 import { validateComparisonRunRoot } from './run-genui-provider-comparison-study.mjs';
+import {
+  capabilitiesJsonForFixture,
+  normalizedDatasetJsonForFixture,
+} from '../src/genui-feasibility-fixtures.js';
 
 export const SMOKE_FIXTURE = Object.freeze({
   caseId: 'provider-smoke-synthetic',
-  question: 'Which synthetic records exceed the frozen threshold, and what is their total value?',
+  question: 'Which synthetic records are below the frozen threshold, and what is their total value?',
   sourceFormat: 'json-array',
   binding: 'smoke_records',
   selectionKey: 'id',
@@ -53,8 +57,8 @@ export async function executeCodexSmoke({
 
   const input = Object.freeze({
     fixture: SMOKE_FIXTURE,
-    capabilitiesJson: JSON.stringify({ bindings: [{ name: SMOKE_FIXTURE.binding }] }),
-    datasetJson: JSON.stringify(SMOKE_FIXTURE.source),
+    capabilitiesJson: capabilitiesJsonForFixture(SMOKE_FIXTURE),
+    datasetJson: normalizedDatasetJsonForFixture(SMOKE_FIXTURE),
   });
   const slot = Object.freeze({
     slotId: 'provider-smoke-synthetic/codex',

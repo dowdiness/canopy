@@ -89,6 +89,7 @@ test('production dependencies load frozen fixture bytes and commit through the b
     sessionCommit: true,
   });
   assert.equal(calls[0].caseId, fixture.caseId);
+  assert.deepEqual(calls[0].input, input);
   await deps.close();
   assert.equal(calls.at(-1), 'closed');
 });
@@ -158,4 +159,47 @@ test('production provider attempts close Codex sessions, normalize Ollama succes
     seed: 1701,
   });
   assert.equal(ollama.classification, 'global_stop');
+});
+
+test('production Codex usage contributes exact tokens to the frozen run budget', async () => {
+  const budgetManifest = manifest();
+  budgetManifest.limits = {
+    activeRequests: 10,
+    perRequestTokenCeiling: 100,
+    runTokenCeiling: 30,
+    runWallTimeMs: 1_000_000,
+  };
+  const deps = await createComparisonDependencies({ manifest: budgetManifest }, {
+    createCodexSession: async () => ({
+      runSlot: async () => ({
+        classification: 'success',
+        candidateJson: '{}',
+        transcript: [
+          { direction: 'server', method: 'item/completed', itemType: 'agentMessage', terminalStatus: null },
+        ],
+        tokenUsage: {
+          inputTokens: 10,
+          cachedInputTokens: 0,
+          outputTokens: 5,
+          reasoningOutputTokens: 0,
+          totalTokens: 15,
+        },
+      }),
+      close: async () => undefined,
+    }),
+  });
+  const sandbox = { spawnProcess: async () => undefined };
+  const slot = { slotId: 'slot-1', fixtureId: fixture.caseId, providerId: 'codex' };
+
+  const first = await deps.attempts.codex({ slot, fixture, sandbox });
+  assert.equal(first.usage.totalTokens, 15);
+  assert.deepEqual(await deps.requestGate({ slot }), { classification: 'pass' });
+  const second = await deps.attempts.codex({
+    slot: { ...slot, slotId: 'slot-2' },
+    fixture,
+    sandbox,
+  });
+  assert.equal(second.usage.totalTokens, 15);
+  assert.deepEqual(await deps.requestGate({ slot }), { classification: 'global_stop' });
+  await deps.close();
 });
