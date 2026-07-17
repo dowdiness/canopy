@@ -358,9 +358,12 @@ async function runProductionPreflight({ manifest, frozenCodexIdentity, repositor
       authSource,
       canaries,
     });
+    if (sandbox.contract.codexVersion !== `codex-cli ${frozenCodexIdentity.cliVersion}`) {
+      throw new Error('Codex binary version differs from the frozen manifest.');
+    }
     const discover = overrides.discoverCodexIdentity ?? discoverCodexAppServerIdentity;
     const discoveredCodexIdentity = await discover({
-      cliVersion: sandbox.contract.codexVersion,
+      cliVersion: frozenCodexIdentity.cliVersion,
       slug: frozenCodexIdentity.slug,
       effort: frozenCodexIdentity.effort,
       spawnProcess: sandbox.spawnProcess,

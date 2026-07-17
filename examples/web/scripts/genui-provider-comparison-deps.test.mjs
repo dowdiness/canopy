@@ -25,7 +25,7 @@ function manifest() {
     schedule: [],
     providerIdentities: {
       codex: {
-        cliVersion: 'codex-cli 0.144.4',
+        cliVersion: '0.144.4',
         modelSlug: 'gpt-5.6-luna',
         reasoningEffort: 'medium',
         authMode: 'chatgpt',
@@ -159,7 +159,7 @@ test('production provider attempts close Codex sessions, normalize Ollama succes
   assert.equal(codex.usage.totalTokens, 15);
   assert.equal(codexClosed, 1);
   assert.deepEqual(receivedCodexIdentity, {
-    cliVersion: 'codex-cli 0.144.4',
+    cliVersion: '0.144.4',
     slug: 'gpt-5.6-luna',
     effort: 'medium',
     authMode: 'chatgpt',
@@ -243,14 +243,14 @@ test('production dependencies accept an explicit reviewed Codex binary path', as
   }
 });
 
-test('production preflight maps manifest identity and rejects discovered drift', async () => {
+test('production preflight distinguishes binary and protocol versions and rejects identity drift', async () => {
   const root = await mkdtemp(join(tmpdir(), 'canopy-provider-preflight-'));
   const stateHome = join(root, 'state');
   const namespace = join(stateHome, 'canopy', 'genui-provider-benchmark');
   const authSource = join(root, 'auth.json');
   const previousStateHome = process.env.XDG_STATE_HOME;
   const expectedIdentity = {
-    cliVersion: 'codex-cli 0.144.4',
+    cliVersion: '0.144.4',
     slug: 'gpt-5.6-luna',
     effort: 'medium',
     authMode: 'chatgpt',
@@ -258,6 +258,7 @@ test('production preflight maps manifest identity and rejects discovered drift',
   };
   const discoveryInputs = [];
   let drift = false;
+  let binaryVersion = `codex-cli ${expectedIdentity.cliVersion}`;
   try {
     await mkdir(namespace, { recursive: true });
     await writeFile(authSource, '{}');
@@ -266,7 +267,7 @@ test('production preflight maps manifest identity and rejects discovered drift',
       authSource,
       verifyRepository: async () => COMMIT,
       prepareSandbox: async () => ({
-        contract: { codexVersion: expectedIdentity.cliVersion },
+        contract: { codexVersion: binaryVersion },
         spawnProcess: async () => undefined,
         cleanup: async () => undefined,
       }),
@@ -293,6 +294,10 @@ test('production preflight maps manifest identity and rejects discovered drift',
 
     drift = true;
     await assert.rejects(() => deps.preflight(), /identity differs/u);
+
+    drift = false;
+    binaryVersion = 'codex-cli 0.144.5';
+    await assert.rejects(() => deps.preflight(), /binary version differs/u);
   } finally {
     if (previousStateHome === undefined) delete process.env.XDG_STATE_HOME;
     else process.env.XDG_STATE_HOME = previousStateHome;
