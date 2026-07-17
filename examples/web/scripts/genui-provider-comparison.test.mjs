@@ -90,6 +90,7 @@ function manifestBuilderInput(branch = 'paired') {
         lookupTag: 'gemma4:e2b',
         ollamaVersion: '0.11.4',
         modelManifestSha256: '8'.repeat(64),
+        showDetailsSha256: 'd'.repeat(64),
         templateSha256: '9'.repeat(64),
         parametersSha256: 'a'.repeat(64),
       },
@@ -633,6 +634,13 @@ test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, br
       /limit|token|integer|range/u,
     );
   }
+
+  const missingShowIdentity = manifestBuilderInput();
+  delete missingShowIdentity.providerIdentities.ollama.showDetailsSha256;
+  assert.throws(
+    () => buildComparisonManifest(missingShowIdentity, { verifyRepository: () => '0'.repeat(40) }),
+    /Ollama.*show.*digest|showDetailsSha256/u,
+  );
 });
 
 test('manifest writer creates output exclusively', async () => {
@@ -855,6 +863,39 @@ test('runner executes the paired frozen schedule sequentially with exact Ollama 
   assert.equal(result.journal.activeAttempts, 60);
   assert.equal(result.journal.stage2Executed, true);
   assert.match(result.evidence.manifestSha256, /^[0-9a-f]{64}$/u);
+});
+
+test('runner rejects a reviewed Ollama seed assigned to the wrong repeat before provider access', async () => {
+  const base = testComparisonManifest('paired');
+  const firstOllamaSlotId = base.schedule.find((slot) => slot.providerId === 'ollama').slotId;
+  const manifest = {
+    ...base,
+    schedule: base.schedule.map((slot) =>
+      slot.slotId === firstOllamaSlotId
+        ? { ...slot, ollamaSeed: base.ollamaSeeds[(slot.repeatIndex + 1) % base.ollamaSeeds.length] }
+        : slot),
+  };
+  const paths = await makeRunPaths('invalid-ollama-seed');
+  let ollamaProviderCalls = 0;
+  const deps = runnerDeps(manifest, [], {
+    attempts: {
+      codex: async ({ slot }) => successfulProviderAttempt(slot),
+      ollama: async () => {
+        ollamaProviderCalls += 1;
+        return { classification: 'candidate_pass' };
+      },
+    },
+  });
+  await assert.rejects(
+    executeComparisonStudy({
+      manifest,
+      runRoot: paths.runRoot,
+      xdgStateHome: paths.xdgStateHome,
+      repositoryRoot: paths.repositoryRoot,
+    }, deps),
+    /reviewed manifest seed vector/u,
+  );
+  assert.equal(ollamaProviderCalls, 0);
 });
 
 test('runner codex-only branch preserves all canonical slots and never invokes Ollama', async () => {

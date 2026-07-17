@@ -188,7 +188,7 @@ function validateProviderIdentities(identities) {
   requireObject(identities.ollama, 'Ollama identity');
   requireString(identities.ollama.lookupTag, 'Ollama lookup tag');
   requireString(identities.ollama.ollamaVersion, 'Ollama version');
-  for (const field of ['modelManifestSha256', 'templateSha256', 'parametersSha256']) {
+  for (const field of ['modelManifestSha256', 'showDetailsSha256', 'templateSha256', 'parametersSha256']) {
     requireDigest(identities.ollama[field], `Ollama ${field}`);
   }
   requireObject(identities.codex, 'Codex identity');

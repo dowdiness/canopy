@@ -142,6 +142,16 @@ export async function executeComparisonStudy({
       }
     }
 
+    if (
+      slot.providerId === 'ollama' &&
+      (
+        !Number.isInteger(slot.ollamaSeed) ||
+        slot.ollamaSeed !== manifest.ollamaSeeds[slot.repeatIndex]
+      )
+    ) {
+      throw new Error(`Ollama slot ${slot.slotId} does not use the reviewed manifest seed vector.`);
+    }
+
     const input = await deps.loadFixture(slot, manifest);
     if (!input || input.digest !== slot.fixtureDigest || input.fixture?.caseId !== slot.fixtureId) {
       throw new Error(`Fixture identity drift for ${slot.slotId}.`);
