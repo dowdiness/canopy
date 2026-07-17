@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { canonicalJson } from '../src/genui-feasibility-provider.js';
 
 const PROVIDERS = Object.freeze(['ollama', 'codex']);
 const BRANCHES = new Set(['paired', 'codex_only']);
@@ -240,6 +242,7 @@ export function validateComparisonJournal({ manifest, journal }) {
       if (first.classification !== expectedClassification) {
         throw comparisonError('journal_terminal', `Slot ${slot.slotId} has the wrong terminal classification.`);
       }
+      requireTerminalIdentity(slot, first);
       recordTerminal(first, seenTerminals);
       eventIndex += 1;
       continue;
@@ -247,12 +250,14 @@ export function validateComparisonJournal({ manifest, journal }) {
 
     if (first.type === 'terminal' && first.classification === 'global_stop') {
       globalStop = true;
+      requireTerminalIdentity(slot, first);
       recordTerminal(first, seenTerminals);
       eventIndex += 1;
       continue;
     }
     if (slot.stage === 2 && first.type === 'terminal' && first.classification === 'stage1_ineligible') {
       stage1Ineligible = true;
+      requireTerminalIdentity(slot, first);
       recordTerminal(first, seenTerminals);
       eventIndex += 1;
       continue;
@@ -273,6 +278,7 @@ export function validateComparisonJournal({ manifest, journal }) {
       throw comparisonError('journal_terminal', `Slot ${slot.slotId} has an invalid active terminal classification.`);
     }
     if (terminal.classification === 'global_stop') globalStop = true;
+    requireTerminalIdentity(slot, terminal);
     recordTerminal(terminal, seenTerminals);
     eventIndex += 1;
   }
@@ -361,10 +367,20 @@ export function finalizeComparisonEvidence({
   journal,
   rawArtifacts,
 }) {
-  requireManifestSchedule(manifest);
+  const schedule = requireManifestSchedule(manifest);
   requireDigest(manifestSha256, 'manifestSha256');
+  requireManifestEvidenceMetadata(manifest);
+  const actualManifestSha256 = createHash('sha256')
+    .update(`${JSON.stringify(manifest, null, 2)}\n`)
+    .digest('hex');
+  if (manifestSha256 !== actualManifestSha256) {
+    throw comparisonError('evidence_manifest', 'Manifest digest does not match the reviewed manifest bytes.');
+  }
   if (typeof frozenCommit !== 'string' || !HEX_COMMIT.test(frozenCommit)) {
     throw comparisonError('evidence_invalid', 'Frozen commit must be a full hexadecimal commit SHA.');
+  }
+  if (frozenCommit !== manifest.sourceCommit) {
+    throw comparisonError('evidence_manifest', 'Frozen commit does not match the manifest source commit.');
   }
   if (!preflight || ['isolation', 'identity', 'credentials', 'budget'].some((key) => preflight[key] !== true)) {
     throw comparisonError('evidence_preflight', 'All evidence preflight gates must pass.');
@@ -373,12 +389,23 @@ export function finalizeComparisonEvidence({
   if (!Array.isArray(rawArtifacts) || rawArtifacts.length === 0) {
     throw comparisonError('evidence_invalid', 'Raw artifact inventory is required.');
   }
+  const expectedArtifactIds = new Set(
+    journal.filter((event) => event.type === 'start').map((event) => event.slotId),
+  );
+  const seenArtifactIds = new Set();
   let auditability = 'full';
   const artifactInventory = rawArtifacts.map((artifact) => {
     if (!artifact || typeof artifact.id !== 'string' || artifact.id.length === 0 || typeof artifact.available !== 'boolean') {
       throw comparisonError('evidence_invalid', 'Raw artifact inventory entry is malformed.');
     }
     if (artifact.available) requireDigest(artifact.digest, `raw artifact ${artifact.id} digest`);
+    if (seenArtifactIds.has(artifact.id)) {
+      throw comparisonError('evidence_invalid', `Raw artifact ID ${artifact.id} is duplicated.`);
+    }
+    if (!expectedArtifactIds.has(artifact.id)) {
+      throw comparisonError('evidence_invalid', `Raw artifact ID ${artifact.id} has no matching started slot.`);
+    }
+    seenArtifactIds.add(artifact.id);
     if (!artifact.available) auditability = 'unavailable';
     return Object.freeze({
       id: artifact.id,
@@ -386,11 +413,24 @@ export function finalizeComparisonEvidence({
       ...(artifact.available ? { digest: artifact.digest } : {}),
     });
   });
+  if (seenArtifactIds.size !== expectedArtifactIds.size) {
+    throw comparisonError('evidence_invalid', 'Raw artifact inventory does not cover every started slot.');
+  }
   return Object.freeze({
+    studyId: manifest.studyId,
+    manifestVersion: manifest.manifestVersion,
+    randomizationSeed: manifest.randomizationSeed,
+    sourceCommit: manifest.sourceCommit,
+    providerIdentities: frozenJsonSnapshot(manifest.providerIdentities),
+    diagnosticSummarySha256: manifest.diagnosticSummarySha256,
     manifestSha256,
     frozenCommit,
     branch: manifest.branch,
-    schedule: Object.freeze({ complete: true, slots: manifest.schedule.length }),
+    schedule: Object.freeze({
+      complete: true,
+      slots: schedule.length,
+      sha256: createHash('sha256').update(canonicalJson(schedule)).digest('hex'),
+    }),
     journal: journalSummary,
     rawArtifacts: Object.freeze(artifactInventory),
     auditability,
@@ -398,6 +438,22 @@ export function finalizeComparisonEvidence({
       ? null
       : 'raw artifact loss makes the affected evidence unavailable for provider conclusions.',
   });
+}
+
+function frozenJsonSnapshot(value) {
+  return deepFreezeJson(JSON.parse(canonicalJson(value)));
+}
+
+function deepFreezeJson(value) {
+  if (Array.isArray(value)) {
+    for (const entry of value) deepFreezeJson(entry);
+    return Object.freeze(value);
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const entry of Object.values(value)) deepFreezeJson(entry);
+    return Object.freeze(value);
+  }
+  return value;
 }
 
 function balancedProviderOrders(pairCount, seed) {
@@ -438,6 +494,30 @@ function requireManifestSchedule(manifest) {
     seen.add(slot.slotId);
   }
   return manifest.schedule;
+}
+
+function requireManifestEvidenceMetadata(manifest) {
+  if (typeof manifest.studyId !== 'string' || manifest.studyId.length === 0) {
+    throw comparisonError('evidence_manifest', 'Manifest study ID is required.');
+  }
+  if (!Number.isInteger(manifest.manifestVersion) || manifest.manifestVersion <= 0) {
+    throw comparisonError('evidence_manifest', 'Manifest version must be a positive integer.');
+  }
+  if (!Number.isInteger(manifest.randomizationSeed) || manifest.randomizationSeed < 0) {
+    throw comparisonError('evidence_manifest', 'Manifest randomization seed must be a non-negative integer.');
+  }
+  requireDigest(manifest.diagnosticSummarySha256, 'manifest diagnosticSummarySha256');
+  if (typeof manifest.sourceCommit !== 'string' || !HEX_COMMIT.test(manifest.sourceCommit)) {
+    throw comparisonError('evidence_manifest', 'Manifest source commit must be a full hexadecimal commit SHA.');
+  }
+}
+
+function requireTerminalIdentity(slot, terminal) {
+  for (const field of ['pairId', 'fixtureId', 'providerId', 'stage']) {
+    if (terminal[field] !== slot[field]) {
+      throw comparisonError('journal_identity', `Terminal identity mismatch for ${slot.slotId}: ${field}.`);
+    }
+  }
 }
 
 function recordTerminal(event, seenTerminals) {

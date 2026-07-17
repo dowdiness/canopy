@@ -32,6 +32,8 @@ const INPUT_DIGEST_FIELDS = Object.freeze([
 const HEX_SHA256 = /^[0-9a-f]{64}$/u;
 const HEX_COMMIT = /^[0-9a-f]{40}$/u;
 const PRIVATE_RUN_ROOT = '$XDG_STATE_HOME/canopy/genui-provider-benchmark/<run-id>/';
+const PORTABLE_FIXTURE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+const VALIDATION_EXECUTABLES = new Set(['moon', 'node', 'npm', 'npx']);
 
 export function buildComparisonManifest(input, deps = {}) {
   const verifyRepository = deps.verifyRepository ?? verifyBuilderRepository;
@@ -247,8 +249,12 @@ function validateFixtures(fixtures) {
   const ids = new Set();
   for (const fixture of fixtures) {
     requireObject(fixture, 'fixture');
-    if (typeof fixture.id !== 'string' || fixture.id.length === 0 || ids.has(fixture.id)) {
-      throw manifestError('fixture_invalid', 'Fixture IDs must be non-empty and unique.');
+    if (
+      typeof fixture.id !== 'string' ||
+      !PORTABLE_FIXTURE_ID.test(fixture.id) ||
+      ids.has(fixture.id)
+    ) {
+      throw manifestError('fixture_invalid', 'Fixture IDs must be portable and unique.');
     }
     requireDigest(fixture.digest, `fixture ${fixture.id} digest`);
     ids.add(fixture.id);
@@ -334,6 +340,9 @@ function validateCommands(commands) {
     for (const field of ['id', 'command', 'cwd']) requireString(command[field], `validation command ${field}`);
     if (ids.has(command.id) || isHostAbsolute(command.cwd) || hasTraversal(command.cwd)) {
       throw manifestError('command_invalid', 'Validation command IDs must be unique and working directories repository-relative.');
+    }
+    if (!VALIDATION_EXECUTABLES.has(command.command)) {
+      throw manifestError('command_invalid', 'Validation command executables must use the reviewed allowlist.');
     }
     if (!Array.isArray(command.args) || command.args.some((arg) => typeof arg !== 'string')) {
       throw manifestError('command_invalid', 'Validation command arguments must be strings.');

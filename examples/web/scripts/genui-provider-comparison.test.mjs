@@ -219,31 +219,66 @@ function passingAudit(overrides = {}) {
   };
 }
 
+function terminalEvent(slot, classification) {
+  return {
+    type: 'terminal',
+    slotId: slot.slotId,
+    pairId: slot.pairId,
+    fixtureId: slot.fixtureId,
+    providerId: slot.providerId,
+    stage: slot.stage,
+    repeatIndex: slot.repeatIndex,
+    classification,
+  };
+}
+
 function journalFor(manifest, terminalFor = () => 'candidate_pass') {
-  return manifest.schedule.flatMap((slot) => slot.active
-    ? [
-        { type: 'start', slotId: slot.slotId },
-        { type: 'terminal', slotId: slot.slotId, classification: terminalFor(slot) },
-      ]
-    : [{ type: 'terminal', slotId: slot.slotId, classification: 'ollama_not_operational' }]);
+  return manifest.schedule.flatMap((slot) => {
+    const terminal = terminalEvent(
+      slot,
+      slot.active ? terminalFor(slot) : 'ollama_not_operational',
+    );
+    return slot.active
+      ? [{ type: 'start', slotId: slot.slotId }, terminal]
+      : [terminal];
+  });
 }
 
 function manifestFor(branch = 'paired') {
-  return { branch, schedule: schedule(branch) };
+  return {
+    studyId: 'genui-provider-comparison-v1',
+    manifestVersion: 1,
+    randomizationSeed: 730_513,
+    diagnosticSummarySha256: '9'.repeat(64),
+    sourceCommit: '2'.repeat(40),
+    branch,
+    providerIdentities: {
+      ollama: { lookupTag: 'gemma4:e2b' },
+      codex: { modelSlug: 'gpt-5.6-luna' },
+    },
+    schedule: schedule(branch),
+  };
+}
+
+function manifestFileDigest(manifest) {
+  return createHash('sha256')
+    .update(`${JSON.stringify(manifest, null, 2)}\n`)
+    .digest('hex');
 }
 
 function finalizerInput(overrides = {}) {
   const manifest = manifestFor('paired');
   return {
     manifest,
-    manifestSha256: '1'.repeat(64),
-    frozenCommit: '2'.repeat(40),
+    manifestSha256: manifestFileDigest(manifest),
+    frozenCommit: manifest.sourceCommit,
     preflight: { isolation: true, identity: true, credentials: true, budget: true },
     journal: journalFor(manifest),
-    rawArtifacts: [
-      { id: 'app-server-jsonl', digest: '3'.repeat(64), available: true },
-      { id: 'stderr', digest: '4'.repeat(64), available: true },
-    ],
+    rawArtifacts: manifest.schedule.map((slot) => ({
+      id: slot.slotId,
+      digest: createHash('sha256').update(slot.slotId).digest('hex'),
+      available: true,
+    })),
     ...overrides,
   };
 }
@@ -402,16 +437,15 @@ test('journal continues ordinary failures and accepts only fail-closed terminal 
   const firstTerminalIndex = ordinary.findIndex((event) => event.type === 'terminal');
   const globalStop = [
     ...ordinary.slice(0, firstTerminalIndex + 1),
-    ...paired.schedule.slice(1).map((slot) => ({ type: 'terminal', slotId: slot.slotId, classification: 'global_stop' })),
+    ...paired.schedule.slice(1).map((slot) => terminalEvent(slot, 'global_stop')),
   ];
   assert.equal(validateComparisonJournal({ manifest: paired, journal: globalStop }).globalStop, true);
 
   const stage1 = paired.schedule.filter((slot) => slot.stage === 1);
   const ineligible = [
     ...journalFor({ ...paired, schedule: stage1 }),
-    ...paired.schedule.filter((slot) => slot.stage === 2).map((slot) => ({
-      type: 'terminal', slotId: slot.slotId, classification: 'stage1_ineligible',
-    })),
+    ...paired.schedule.filter((slot) => slot.stage === 2)
+      .map((slot) => terminalEvent(slot, 'stage1_ineligible')),
   ];
   assert.equal(validateComparisonJournal({ manifest: paired, journal: ineligible }).stage2Executed, false);
 
@@ -420,11 +454,10 @@ test('journal continues ordinary failures and accepts only fail-closed terminal 
   const codexStage1 = codexOnly.schedule.filter((slot) => slot.stage === 1);
   const codexIneligible = [
     ...journalFor({ ...codexOnly, schedule: codexStage1 }),
-    ...codexOnly.schedule.filter((slot) => slot.stage === 2).map((slot) => ({
-      type: 'terminal',
-      slotId: slot.slotId,
-      classification: slot.active ? 'stage1_ineligible' : 'ollama_not_operational',
-    })),
+    ...codexOnly.schedule.filter((slot) => slot.stage === 2).map((slot) => terminalEvent(
+      slot,
+      slot.active ? 'stage1_ineligible' : 'ollama_not_operational',
+    )),
   ];
   const codexIneligibleSummary = validateComparisonJournal({ manifest: codexOnly, journal: codexIneligible });
   assert.equal(codexIneligibleSummary.activeAttempts, 9);
@@ -497,11 +530,22 @@ test('transcript rejects injected canaries and malformed reviewable fields', () 
   }), /usage|token/u);
 });
 
-test('final evidence verifies schedule and raw digests and downgrades missing raw auditability', () => {
-  const complete = finalizeComparisonEvidence(finalizerInput());
+test('final evidence binds the reviewed manifest, schedule, identities, and unique raw digests', () => {
+  const input = finalizerInput();
+  const complete = finalizeComparisonEvidence(input);
   assert.equal(complete.schedule.complete, true);
   assert.equal(complete.journal.terminalCount, 60);
   assert.equal(complete.auditability, 'full');
+  assert.equal(complete.studyId, input.manifest.studyId);
+  assert.equal(complete.sourceCommit, input.manifest.sourceCommit);
+  assert.deepEqual(complete.providerIdentities, input.manifest.providerIdentities);
+  assert.equal(complete.schedule.sha256, createHash('sha256')
+    .update(canonicalJson(input.manifest.schedule))
+    .digest('hex'));
+  input.manifest.providerIdentities.ollama.lookupTag = 'mutated';
+  assert.notEqual(complete.providerIdentities.ollama.lookupTag, 'mutated');
+  assert.equal(Object.isFrozen(complete.providerIdentities), true);
+  assert.equal(Object.isFrozen(complete.providerIdentities.ollama), true);
   assert.equal(JSON.stringify(complete).includes('private candidate bytes'), false);
 
   const missingInput = finalizerInput();
@@ -509,6 +553,23 @@ test('final evidence verifies schedule and raw digests and downgrades missing ra
   const missing = finalizeComparisonEvidence(missingInput);
   assert.equal(missing.auditability, 'unavailable');
   assert.match(missing.conclusionLimit, /raw artifact/u);
+  assert.throws(
+    () => finalizeComparisonEvidence(finalizerInput({ manifestSha256: '1'.repeat(64) })),
+    /manifest.*digest|digest.*manifest/u,
+  );
+  assert.throws(
+    () => finalizeComparisonEvidence(finalizerInput({ frozenCommit: '3'.repeat(40) })),
+    /commit/u,
+  );
+  const metadataDrift = finalizerInput();
+  metadataDrift.journal[1] = {
+    ...metadataDrift.journal[1],
+    providerId: metadataDrift.manifest.schedule[0].providerId === 'ollama' ? 'codex' : 'ollama',
+  };
+  assert.throws(() => finalizeComparisonEvidence(metadataDrift), /schedule|provider/u);
+  const duplicateArtifacts = finalizerInput();
+  duplicateArtifacts.rawArtifacts[1] = { ...duplicateArtifacts.rawArtifacts[1], id: duplicateArtifacts.rawArtifacts[0].id };
+  assert.throws(() => finalizeComparisonEvidence(duplicateArtifacts), /duplicate|unique/u);
   assert.throws(() => finalizeComparisonEvidence(finalizerInput({ rawArtifacts: [{ id: 'raw', available: true }] })), /digest/u);
   assert.throws(() => finalizeComparisonEvidence(finalizerInput({ manifest: { branch: 'paired', schedule: schedule('paired').slice(1) } })), /60|schedule/u);
 });
@@ -675,6 +736,43 @@ test('manifest builder rejects dirty state, unsafe or incomplete diagnostics, br
     rawArtifacts: { ...absolutePublic.artifactContract.rawArtifacts, appServerJsonl: '/tmp/raw.jsonl' },
   };
   assert.throws(() => buildComparisonManifest(absolutePublic, { verifyRepository: () => '0'.repeat(40) }), /absolute|artifact|path/u);
+
+  for (const fixtureId of ['../escape', 'nested/fixture', 'nested\\fixture']) {
+    const unsafeFixture = manifestBuilderInput();
+    unsafeFixture.fixtures = [
+      { ...unsafeFixture.fixtures[0], id: fixtureId },
+      ...unsafeFixture.fixtures.slice(1),
+    ];
+    unsafeFixture.diagnosticSummary = {
+      ...unsafeFixture.diagnosticSummary,
+      fixtureIds: [
+        fixtureId,
+        ...unsafeFixture.diagnosticSummary.fixtureIds.slice(1),
+      ],
+      observations: unsafeFixture.diagnosticSummary.observations.map((entry) =>
+        entry.fixtureId === FIXTURES[0].id ? { ...entry, fixtureId } : entry
+      ),
+    };
+    unsafeFixture.diagnosticSummarySha256 = createHash('sha256')
+      .update(canonicalJson(unsafeFixture.diagnosticSummary))
+      .digest('hex');
+    assert.throws(
+      () => buildComparisonManifest(unsafeFixture, { verifyRepository: () => '0'.repeat(40) }),
+      /fixture.*ID|portable|path/u,
+    );
+  }
+
+  for (const executable of ['/usr/bin/node', '../node', 'tools/node', 'bash']) {
+    const unsafeCommand = manifestBuilderInput();
+    unsafeCommand.validationCommands = [
+      { ...unsafeCommand.validationCommands[0], command: executable },
+      ...unsafeCommand.validationCommands.slice(1),
+    ];
+    assert.throws(
+      () => buildComparisonManifest(unsafeCommand, { verifyRepository: () => '0'.repeat(40) }),
+      /validation command|executable|allowlist/u,
+    );
+  }
 
   for (const invalid of ['4 * smokeTotalTokens', 0, -1, 16_000.5, 32_001]) {
     const invalidLimit = manifestBuilderInput();
