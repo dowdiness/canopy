@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, realpath, stat, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, realpath, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -9,10 +9,12 @@ import test from 'node:test';
 import {
   createPrivateRun,
   parseMinimalProviderArgs,
+  runMinimalProviderE2E,
   runProviderAttempt,
   writeTerminalResult,
 } from './run-genui-minimal-provider-e2e.mjs';
 import { GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
+import { recordedFeasibilityCandidateJson } from '../src/genui-recorded-candidates.js';
 
 const fixtureId = 'orders-pending-attention';
 
@@ -112,4 +114,28 @@ test('provider lifecycle performs exactly one fixed Codex invocation', async () 
   }
   assert.equal(calls[0].args.at(-1), '-');
   assert.equal(calls[0].spawnOptions.cwd, run.paths.work);
+});
+
+test('fake provider traverses real browser and MoonBit commit path', { timeout: 360_000 }, async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const fakeProvider = join(root, 'fake-provider.mjs');
+  const candidateJson = recordedFeasibilityCandidateJson(fixtureId);
+  await writeFile(fakeProvider, [
+    "import { writeFile } from 'node:fs/promises';",
+    "const outputFlag = process.argv.indexOf('--output-last-message');",
+    "if (outputFlag < 0) process.exit(2);",
+    `await writeFile(process.argv[outputFlag + 1], ${JSON.stringify(candidateJson)});`,
+    "process.stdout.write(JSON.stringify({ type: 'turn.completed' }) + '\\n');",
+  ].join('\n'));
+  const outputDir = join(root, 'run');
+  const options = parseMinimalProviderArgs(argv(outputDir, ['--timeout-ms', '300000']), { repositoryRoot });
+  const observed = await runMinimalProviderE2E(options, {
+    repositoryRoot,
+    providerInvocation: { command: process.execPath, prefixArgs: [fakeProvider] },
+  });
+  assert.equal(observed.exitCode, 0);
+  assert.equal(observed.result.classification, 'success');
+  assert.equal(observed.result.rubric.passed, true);
+  assert.equal(observed.result.session.success, true);
+  assert.deepEqual((await readdir(outputDir)).sort(), ['candidate.json', 'provider-events.jsonl', 'request.json', 'result.json']);
 });
