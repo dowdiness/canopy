@@ -91,11 +91,50 @@ export async function readOllamaIdentity(modelTag, deps = {}) {
   });
 }
 
+export function buildOllamaGenerationRequest({ fixture, seed, frozenIdentity }) {
+  if (!Number.isInteger(seed)) {
+    throw new TypeError('Ollama generation requires an integer seed.');
+  }
+  const prompt = buildFeasibilityPrompt(fixture);
+  return deepFreeze({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: frozenIdentity.lookupTag,
+      prompt,
+      stream: GENUI_PROVIDER_SETTINGS.stream,
+      format: GENUI_CANDIDATE_SCHEMA,
+      options: {
+        temperature: GENUI_PROVIDER_SETTINGS.temperature,
+        num_ctx: GENUI_PROVIDER_SETTINGS.numCtx,
+        num_predict: GENUI_PROVIDER_SETTINGS.numPredict,
+        seed,
+      },
+      keep_alive: GENUI_PROVIDER_SETTINGS.keepAlive,
+    }),
+  });
+}
+
 export async function callOllamaSlot({ fixture, slotId, frozenIdentity }, deps = {}) {
   if (!Number.isInteger(slotId) || slotId < 0 || slotId >= GENUI_PROVIDER_SETTINGS.slotSeeds.length) {
     return failure('request_rejected', `Unknown feasibility slot: ${slotId}`);
   }
+  return callOllamaAttemptCore({
+    fixture,
+    seed: GENUI_PROVIDER_SETTINGS.slotSeeds[slotId],
+    frozenIdentity,
+    slotId,
+  }, deps);
+}
 
+export async function callOllamaAttempt({ fixture, seed, frozenIdentity }, deps = {}) {
+  if (!Number.isInteger(seed)) {
+    return failure('request_rejected', 'Ollama generation requires an integer seed.');
+  }
+  return callOllamaAttemptCore({ fixture, seed, frozenIdentity }, deps);
+}
+
+async function callOllamaAttemptCore({ fixture, seed, frozenIdentity, slotId }, deps) {
   const digest = deps.digest ?? sha256Hex;
   const readIdentity = deps.readIdentity ?? ((modelTag) => readOllamaIdentity(modelTag, deps));
   let identityBefore;
@@ -108,21 +147,8 @@ export async function callOllamaSlot({ fixture, slotId, frozenIdentity }, deps =
     return failure('model_identity_mismatch', 'Ollama model identity differs from the frozen study manifest.');
   }
 
-  const seed = GENUI_PROVIDER_SETTINGS.slotSeeds[slotId];
   const prompt = buildFeasibilityPrompt(fixture);
-  const requestBody = {
-    model: frozenIdentity.lookupTag,
-    prompt,
-    stream: GENUI_PROVIDER_SETTINGS.stream,
-    format: GENUI_CANDIDATE_SCHEMA,
-    options: {
-      temperature: GENUI_PROVIDER_SETTINGS.temperature,
-      num_ctx: GENUI_PROVIDER_SETTINGS.numCtx,
-      num_predict: GENUI_PROVIDER_SETTINGS.numPredict,
-      seed,
-    },
-    keep_alive: GENUI_PROVIDER_SETTINGS.keepAlive,
-  };
+  const request = buildOllamaGenerationRequest({ fixture, seed, frozenIdentity });
   const fetchImpl = deps.fetch ?? fetch;
   const baseUrl = deps.ollamaUrl ?? 'http://127.0.0.1:11434';
   const now = deps.now ?? (() => performance.now());
@@ -132,9 +158,7 @@ export async function callOllamaSlot({ fixture, slotId, frozenIdentity }, deps =
   let response;
   try {
     response = await fetchImpl(`${baseUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      ...request,
       signal: timeoutSignal(GENUI_PROVIDER_SETTINGS.timeoutMs),
     });
   } catch (error) {
@@ -180,7 +204,7 @@ export async function callOllamaSlot({ fixture, slotId, frozenIdentity }, deps =
     classification: 'success',
     candidateJson,
     caseId: fixture.caseId,
-    slotId,
+    ...(slotId === undefined ? {} : { slotId }),
     lookupTag: frozenIdentity.lookupTag,
     modelManifestSha256: frozenIdentity.modelManifestSha256,
     showDetailsSha256: frozenIdentity.showDetailsSha256,

@@ -5,6 +5,8 @@ import { GENUI_CANDIDATE_SCHEMA } from './genui-candidate-schema.js';
 import {
   GENUI_PROVIDER_SETTINGS,
   buildFeasibilityPrompt,
+  buildOllamaGenerationRequest,
+  callOllamaAttempt,
   callOllamaSlot,
   canonicalJson,
   readOllamaIdentity,
@@ -204,6 +206,65 @@ test('show identity ignores only Modelfile parameter order', async () => {
 
   assert.equal(first.showDetailsSha256, reordered.showDetailsSha256);
   assert.notEqual(first.showDetailsSha256, changed.showDetailsSha256);
+});
+
+test('explicit-seed Ollama core preserves all legacy request bytes and accepts the ten comparison seeds', async () => {
+  const fixture = GENUI_FEASIBILITY_FIXTURES[0];
+  const requestSnapshot = ({ url, options }) => ({
+    url,
+    method: options.method,
+    headers: options.headers,
+    body: options.body,
+  });
+
+  for (let slotId = 0; slotId < GENUI_PROVIDER_SETTINGS.slotSeeds.length; slotId += 1) {
+    const seed = GENUI_PROVIDER_SETTINGS.slotSeeds[slotId];
+    const legacy = createGenerateFetch();
+    const explicit = createGenerateFetch();
+    const deps = {
+      readIdentity: async () => FROZEN_IDENTITY,
+      timeoutSignal: () => new AbortController().signal,
+    };
+    const legacyResult = await callOllamaSlot(
+      { fixture, slotId, frozenIdentity: FROZEN_IDENTITY },
+      { ...deps, fetch: legacy.fetch },
+    );
+    const explicitResult = await callOllamaAttempt(
+      { fixture, seed, frozenIdentity: FROZEN_IDENTITY },
+      { ...deps, fetch: explicit.fetch },
+    );
+
+    assert.equal(legacyResult.seed, seed);
+    assert.equal(explicitResult.seed, seed);
+    assert.deepEqual(requestSnapshot(explicit.calls[0]), requestSnapshot(legacy.calls[0]));
+  }
+
+  for (const seed of [1701, 1702, 1703, 1704, 1705, 1706, 1707, 1708, 1709, 1710]) {
+    const request = buildOllamaGenerationRequest({ fixture, seed, frozenIdentity: FROZEN_IDENTITY });
+    assert.deepEqual(
+      {
+        method: request.method,
+        headers: request.headers,
+        body: JSON.parse(request.body),
+      },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: {
+          model: MODEL_TAG,
+          prompt: buildFeasibilityPrompt(fixture),
+          stream: false,
+          format: GENUI_CANDIDATE_SCHEMA,
+          options: { temperature: 0.2, num_ctx: 4096, num_predict: 512, seed },
+          keep_alive: '5m',
+        },
+      },
+    );
+  }
+  assert.throws(
+    () => buildOllamaGenerationRequest({ fixture, seed: 1.5, frozenIdentity: FROZEN_IDENTITY }),
+    /integer seed/u,
+  );
 });
 
 test('one provider attempt preserves opaque candidate bytes and frozen telemetry', async () => {
