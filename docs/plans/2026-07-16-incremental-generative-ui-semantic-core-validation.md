@@ -85,7 +85,12 @@ only when it cannot escape.
   separate equality-preserving tombstone or monotonic sequence design.
 - Each `SchemaRevision` names one immutable descriptor. Commits and checkpoints
   persist its digest; restore rejects identity/content disagreement.
-- Persistence intent and acknowledgment are separate reducer events.
+- Persistence intent and acknowledgment are separate reducer events. Each
+  `Applied` commit stores a canonical delivery plan and digest. A pure function
+  regenerates the exact effect tuples/IDs from its source kind, ordered renderer
+  targets, and baselines. Ledger-only outcomes store empty plans/manifests.
+  Every effect remains pending until an applied, stale, or blocked outcome is
+  durable.
 - Dirty renderer repair precedes stale acknowledgment. Clean renderers apply
   only from the expected baseline and rebuild the latest snapshot after gaps.
 - The core makes no adapter, host-trust, accessibility, collaboration, or
@@ -101,8 +106,9 @@ model with the implementation using one test-only observation:
 - graph, schema revision/digest, and graph revision;
 - exact draft bytes/revision and sync state;
 - canonical terminal request outcomes and handle mappings;
-- applied history and pending effects with base/target revisions, snapshot
-  references, and draft preconditions;
+- applied history, canonical delivery plans/digests, regenerated effect
+  manifests, and complete outbox status keyed by `EffectId`, including kind,
+  request/revision, target, baselines, routing preconditions, and outcome;
 - renderer/source baselines and dirty/conflict state;
 - explicit diagnostic read-only recovery state.
 
@@ -117,13 +123,14 @@ On mismatch, report the minimized event trace and both observations.
    schema identity/digest, renderer baseline 0, and acknowledged effect `E0`.
 2. Change the draft to exact invalid bytes `D1 = "valid\n<unfinished"`; retain
    `G0` as meaning. These bytes are fixtures, not proposed syntax.
-3. Submit host-built request `Q` at base 0. Its batch inserts two handles and
-   sets a property, making ordinal IDs and multi-step atomicity observable.
-4. Atomically persist `G1`, revision 1, request record, history, and source/render
-   effects, then lose the response. Retry `Q`; return its record without a
+3. Submit host-built agent request `Q` at base 0. Its batch inserts two handles
+   and sets a property, making ordinal IDs and multi-step atomicity observable.
+4. Atomically persist `G1`, revision 1, request record, history, exact effect
+   manifest, and source/render entries, then lose the response. Retry `Q`;
+   return its record without a
    second revision or history entry.
-5. Deliver the source effect. Its draft precondition fails, so preserve `D1`
-   byte-for-byte and enter `RewriteConflict`.
+5. Deliver its `RewriteSource` effect. The draft precondition fails, so
+   preserve `D1` byte-for-byte and durably record blocked `RewriteConflict`.
 6. Fail renderer effect `E1`. While dirty at baseline 0, deliver stale `E0`;
    dirty repair must rebuild `G1` rather than merely acknowledge `E0`. Duplicate
    `E1` after recovery without regression.
@@ -135,7 +142,15 @@ On mismatch, report the minimized event trace and both observations.
 Additional mandatory fixtures:
 
 - persist, restart, and retry one `NoSemanticChange` and one `Rejected` request;
-  neither creates graph revision, applied history, or outbox work;
+  neither creates graph revision, applied history, manifest, or outbox work;
+- edit the draft before delivering text-origin `MarkSynchronized`; record a
+  stale outcome without changing bytes, crash before that outcome is durable,
+  then redeliver to the same result;
+- assert that projection- and undo-origin commits emit exactly one
+  `RewriteSource` and no `MarkSynchronized`;
+- regenerate manifests from canonical delivery plans; reject omitted/duplicate
+  targets, cross-linked entries, swapped IDs across two commits, and corruption
+  of an acknowledged entry;
 - deliver revision 2 to renderer baseline 0 and rebuild the latest snapshot;
 - force equal digests for different canonical requests and preserve all state;
 - reject failed batch prefixes and distinguish `RemoveProperty` from `null`.
@@ -152,9 +167,12 @@ Additional mandatory fixtures:
 | Handles cannot mint/reuse IDs | Derivation, uniqueness, retry, and replay properties. |
 | Inverse restores under preconditions | Valid-batch/inverse property. |
 | No-delta lowering preserves meaning | Reducer fixture: synchronized draft; no request, revision, history, or outbox. |
+| Text-origin commit never rewrites source | Matching/stale `MarkSynchronized` fixtures with crash/redelivery. |
+| Non-text semantic commit uses rewrite | Projection/undo fixtures and agent transcript: `RewriteSource` only. |
 | Invalid or stale draft is preserved | Fixed transcript and generated CAS mismatch. |
 | Renderer state never regresses | Dirty-plus-stale transcript and delivery permutations. |
-| Replay reconstructs or fails closed | Gap, request, digest, schema, and checkpoint corruption. |
+| Commit/effect correlation is exact | Regenerated delivery-plan tuples; omitted/duplicate/swapped-ID fixtures. |
+| Replay reconstructs or fails closed | Full-ledger/all-status outbox restart plus corruption fixtures. |
 | Stale graph/schema/draft rejects | Generated revision properties. |
 | Schema change is semantic and immutable | Equality and descriptor mismatch properties. |
 | Transport canonicalization agrees | Typed canonical-content tests; raw decoder equivalence deferred. |
@@ -224,14 +242,18 @@ package checks/tests; no PR starts the next adapter layer.
 ### Phase 2 — Requests and persistence
 
 - Add typed canonical content, collision-aware lookup, and terminal outcomes.
-- Model persistence intent, success/failure, response release, and effect
-  release as reducer events.
+- Model persistence intent, canonical delivery plans/digests, derived manifests,
+  success/failure, response release, and effect release as reducer events.
 - Add fake-store failures before commit, response loss after commit, restart,
   request-ID misuse, forced digest collision, and no-op/rejected recovery.
 
 ### Phase 3 — Draft and outbox
 
 - Add draft validity/revision and source rewrite CAS without a real parser.
+- Emit `MarkSynchronized` for text-origin commits and `RewriteSource` only for
+  projection, agent, or undo origins; cover every origin explicitly.
+- Give source effects durable applied, stale, or blocked outcomes. Test draft
+  edits before delivery and crashes before outcome persistence.
 - Classify renderer/source effects with dirty precedence, stale acknowledgment,
   expected baseline, and latest-snapshot rebuild.
 - Make the fixed transcript pass through restart with duplicate, reordered, and
@@ -248,9 +270,13 @@ package checks/tests; no PR starts the next adapter layer.
 
 ### Phase 5 — Replay and corruption
 
-- Replay checkpoint plus contiguous applied history.
-- Inject history gaps, request/digest mismatches, schema identity/digest changes,
-  stale acknowledgments, and crash boundaries.
+- Restore the checkpoint, complete request ledger, effect manifests, and every
+  pending or terminal outbox status, then replay contiguous applied history.
+- Recompute ledger/delivery-plan digests, regenerate full effect tuples, and
+  require exact manifest/outbox equality; ledger-only outcomes have empty plans.
+- Redeliver pending effects, then inject omitted or duplicate targets, swapped
+  IDs across commits, cross-links, corrupt acknowledged entries, history gaps,
+  schema changes, stale acknowledgments, and crash boundaries.
 - Match the live observation or enter explicit diagnostic read-only state.
 
 ### Phase 6 — Optional scalar proof
@@ -283,8 +309,12 @@ package checks/tests; no PR starts the next adapter layer.
 - Syntax-only lowering synchronizes the draft without a request, graph revision,
   history, or outbox work.
 - Draft bytes and semantic meaning survive all tested conflict/failure paths.
-- Renderer/source baselines never regress, including dirty-plus-stale and gaps.
-- Replay reconstructs exactly or fails closed on every injected corruption.
+- Source effect kinds and durable outcomes preserve bytes under delayed delivery
+  and crash/redelivery; renderer/source baselines never regress.
+- Regeneration from the canonical delivery plan proves each applied commit has
+  exactly its expected effect tuples; ledger-only outcomes have empty plans.
+- Replay restores all request and outbox statuses exactly or fails closed on
+  every injected corruption.
 - Generated failures shrink to reproducible minimal traces.
 - Optional proofs claim only compiled scalar properties and run in CI.
 - No source, renderer, JavaScript, storage backend, collaboration, or product
@@ -321,6 +351,7 @@ NEW_MOON_MOD=0 moon test --target native lib/generative-ui-document
 Before merge:
 
 ```bash
+NEW_MOON_MOD=0 moon check
 NEW_MOON_MOD=0 moon test
 NEW_MOON_MOD=0 moon fmt
 NEW_MOON_MOD=0 moon info

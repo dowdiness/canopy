@@ -54,7 +54,7 @@ request lookup and bounds
 → final graph and schema validation
 → terminal outcome
    Applied          → atomically persist graph, revision, applied batch,
-                      request record, and outbox
+                      request record, exact effect manifest, and outbox entries
    NoSemanticChange → persist request record only
    Rejected         → persist request record only
 → respond; release post-commit effects only for Applied
@@ -65,10 +65,20 @@ ID, canonical content, digest, outcome, and resolved handle-to-ID mapping.
 Decode or bounds failures before canonical request construction remain boundary
 diagnostics.
 
-Only `Applied` advances `GraphRevision`. `NoSemanticChange` and `Rejected` are
-ledger-only outcomes: they add no applied history or outbox work. Rejection
-also exposes no partial batch and changes no graph, source, or renderer
-baseline.
+Only `Applied` advances `GraphRevision`. Its canonical delivery plan records
+the source effect kind/preconditions and the ordered renderer targets/baselines
+captured at commit. A pure function derives exactly one source effect and one
+render effect per captured target: `MarkSynchronized` for text, or
+`RewriteSource` for projection, agent, and undo origins. Each expected tuple
+contains `EffectId`, request, revision, kind, target, and baselines; `EffectId`
+derives deterministically from the plan position and tuple identity. The plan,
+its digest, derived manifest, and outbox entries persist atomically. There is no
+generic rewrite effect for text-origin commits.
+
+`NoSemanticChange` and `Rejected` are ledger-only outcomes: their delivery
+plans and effect manifests are empty, so they add no applied history or outbox
+work. Rejection also exposes no partial batch and changes no
+graph, source, or renderer baseline.
 
 The host owns the component registry, schema, authority facts, and approval
 evidence. Generated input can name only capabilities allowed by the pinned
@@ -79,9 +89,9 @@ approval evidence.
 ## Renderer separation
 
 Semantic commit does not depend on DOM or renderer success. A committed change
-emits durable source and renderer work through an outbox. Renderer failure
-leaves meaning unchanged, marks only that renderer dirty, and schedules repair
-from the committed graph.
+emits durable renderer work and its origin-specific source effect through an
+outbox. Renderer failure leaves meaning unchanged, marks only that renderer
+dirty, and schedules repair from the committed graph.
 
 The existing JSX session still follows its V1 rule that a candidate is not
 reported committed until DOM apply succeeds. That adapter/session contract does
@@ -153,7 +163,7 @@ AtStart | AtEnd | Before(sibling) | After(sibling)
 
 The parent and optional sibling must already resolve in the private working
 graph; the sibling must belong to that parent. Same-parent moves detach the
-moved node before resolving placement, and self anchors are invalid. Insert
+moved node before resolving placement, and self-anchors are invalid. Insert
 requires a fresh local handle and allowed component. Move and remove require an
 existing non-root node; a move cannot target its own subtree. `RemoveProperty`
 requires a present property. Assigning the current value or moving to the
@@ -237,8 +247,8 @@ provider I/O, then reports results as events.
 | Draft edit | Preserve exact bytes and advance `DraftRevision`; keep the graph unchanged until lowering succeeds. |
 | Text-derived semantic change | Commit only when origin draft, graph, and schema revisions match. |
 | No-delta text change | Preserve complement; sync without request, revision, history, or outbox. |
-| Matching text-origin commit | Mark the current draft synchronized without rewriting its bytes. |
-| Projection/agent commit | Rewrite only on matching draft and semantic baselines; otherwise enter `RewriteConflict`. |
+| Matching text-origin commit | Emit `MarkSynchronized`; never rewrite its bytes. |
+| Non-text semantic commit | Emit `RewriteSource` on matching baselines; otherwise enter `RewriteConflict`. |
 | Renderer success | Advance only that renderer's baseline. |
 | Renderer failure | Keep meaning, mark that renderer dirty, and repair from committed state. |
 
@@ -269,18 +279,30 @@ An applied commit atomically groups:
 - graph revision, schema revision, and schema descriptor digest;
 - validated batch, ID allocations, and provenance;
 - canonical request content, digest, and terminal outcome;
-- source and renderer outbox entries.
+- canonical delivery plan and digest;
+- the derived effect manifest and matching source/render outbox entries.
 
-Recovery loads the latest valid checkpoint and replays a contiguous history
-suffix. Every step must match base graph/schema revisions and the next recorded
-revision. Reconstructed graph, schema identity/digest, and checkpoint must
-agree. Gaps, request-content/digest mismatches, unavailable or changed schemas,
-and replay mismatches enter diagnostic read-only state.
+Recovery restores the latest valid checkpoint, complete request ledger, and
+all outbox statuses, then replays a contiguous applied-history suffix. It
+recomputes each ledger and delivery-plan digest, regenerates every expected
+effect tuple from the plan, and requires exact equality with the manifest and
+outbox statuses. `NoSemanticChange` and `Rejected` records must have no history,
+delivery plan, manifest entries, or effects. Omitted targets, duplicates,
+cross-links, or swapped effect IDs fail closed. Pending effects are redelivered;
+terminal source/render outcomes remain available for integrity checks.
 
-Outbox effects carry `EffectId`, target, base/target graph revisions, graph hash
-or snapshot reference, and optional expected draft state. Delivery is
-at-least-once and adapters are idempotent against effect IDs and baselines.
-Redelivery cannot create another semantic commit.
+Every replay step must match base graph/schema revisions and the next recorded
+revision. Reconstructed graph, schema identity/digest, request outcomes, outbox
+statuses, and checkpoint must agree. Corrupt ledger/outbox data, history gaps,
+unavailable or changed schemas, and replay mismatches enter diagnostic
+read-only state.
+
+Outbox effects carry `EffectId`, applied request/revision, target, base/target
+graph revisions, graph hash or snapshot reference, and optional expected draft
+state. Delivery is at-least-once and adapters are idempotent against effect IDs
+and baselines. An effect stays pending until its applied, stale, or blocked
+outcome is durable; a crash before that acknowledgment causes deterministic
+redelivery. Redelivery cannot create another semantic commit.
 
 Renderer ordering is explicit:
 
@@ -289,11 +311,14 @@ Renderer ordering is explicit:
 3. An effect whose base equals the baseline may apply.
 4. A gap rebuilds the latest snapshot; older deltas never apply.
 
-A text-origin source effect matching the current draft marks it synchronized
-without rewriting bytes. Projection/agent source effects require matching draft
-revision, valid/rewrite-eligible status, and source semantic baseline; otherwise
-they preserve source and enter `RewriteConflict`. Gaps coalesce to the latest graph and canonical source.
-Observed state never regresses.
+`MarkSynchronized` changes no bytes. A matching draft becomes synchronized; a
+newer draft produces a durable stale acknowledgment without changing draft or
+sync state. `RewriteSource` for projection, agent, or undo requires matching draft
+revision, valid/rewrite-eligible status, and source semantic baseline. A mismatch
+preserves source and durably records blocked `RewriteConflict`, consuming that
+effect rather than retrying forever. A later rewrite requires a new effect.
+Rewrite gaps coalesce to the latest graph and canonical source. Observed state
+never regresses.
 
 ## Concurrency
 
