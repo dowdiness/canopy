@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import {
@@ -19,6 +19,14 @@ import {
 } from './build-genui-provider-comparison-manifest.mjs';
 import { buildManifest as buildFeasibilityManifest } from './build-genui-feasibility-manifest.mjs';
 import { canonicalJson } from '../src/genui-feasibility-provider.js';
+import {
+  executeComparisonStudy,
+  prepareComparisonRunRoot,
+} from './run-genui-provider-comparison-study.mjs';
+import {
+  executeCodexSmoke,
+  SMOKE_FIXTURE,
+} from './smoke-genui-codex-provider.mjs';
 
 const FIXTURES = Object.freeze([
   Object.freeze({ id: 'ast', digest: 'a'.repeat(64) }),
@@ -663,4 +671,395 @@ test('exporting legacy manifest helpers leaves the v2 manifest bytes unchanged',
     createHash('sha256').update(bytes).digest('hex'),
     'ae8c89814b9a42e7fbeb36f00f6aec8a4a9ecb23a1caa323e968da87ae1558d7',
   );
+});
+
+const CANDIDATE_JSON = '{"type":"component","component":"DataTable"}';
+const CANDIDATE_DIGEST = createHash('sha256').update(CANDIDATE_JSON).digest('hex');
+const RUN_CANARIES = Object.freeze({
+  hostPaths: Object.freeze(['/private/host/worktree']),
+  secretValues: Object.freeze(['private-secret-value']),
+});
+
+function successfulProviderAttempt(slot) {
+  return {
+    classification: 'candidate_pass',
+    candidateJson: CANDIDATE_JSON,
+    rawEvents: [
+      {
+        type: 'agentMessage',
+        requestId: `request-${slot.slotId}`,
+        threadId: `thread-${slot.slotId}`,
+        turnId: `turn-${slot.slotId}`,
+        model: slot.providerId,
+        timing: { elapsedMs: 5 },
+        candidateDigest: CANDIDATE_DIGEST,
+        candidateByteLength: Buffer.byteLength(CANDIDATE_JSON),
+        usage: { inputTokens: 3, cachedInputTokens: 0, outputTokens: 2, totalTokens: 5 },
+      },
+    ],
+  };
+}
+
+function passingCandidateGate() {
+  return {
+    classification: 'candidate_pass',
+    preparationPassed: true,
+    safetyViolations: 0,
+    mutationViolations: 0,
+    credentialLeakageViolations: 0,
+    identityDrift: false,
+    replayMismatch: false,
+    validations: {
+      decoding: true,
+      semantic: true,
+      materialization: true,
+      rubric: true,
+      replay: true,
+      sessionCommit: true,
+    },
+  };
+}
+
+function passingStage1Audit() {
+  return {
+    manifest: true,
+    schedule: true,
+    evidence: true,
+    retention: true,
+    identityPreserved: true,
+    evidenceIntegrity: true,
+    credentialsSafe: true,
+    budgetSafe: true,
+    isolationSafe: true,
+    requestSettingsFrozen: true,
+  };
+}
+
+async function runnerFixture(manifest, slot) {
+  const frozen = manifest.fixtures.find((fixture) => fixture.id === slot.fixtureId);
+  return {
+    fixture: {
+      caseId: slot.fixtureId,
+      question: `Question for ${slot.fixtureId}`,
+      sourceFormat: 'json-array',
+      binding: 'records',
+      selectionKey: 'id',
+      fields: ['id', 'value'],
+      numericFields: ['value'],
+      taskValue: 1,
+      source: [{ id: slot.fixtureId, value: 1 }],
+    },
+    capabilitiesJson: '{"bindings":[{"name":"records"}]}',
+    datasetJson: '[{"id":"record-1","value":1}]',
+    digest: frozen.digest,
+  };
+}
+
+async function makeRunPaths(label) {
+  const root = await mkdtemp(join(tmpdir(), `canopy-provider-${label}-`));
+  const xdgStateHome = join(root, 'state');
+  const runRoot = join(xdgStateHome, 'canopy', 'genui-provider-benchmark', 'run-001');
+  const repositoryRoot = join(root, 'repository');
+  await mkdir(repositoryRoot, { mode: 0o700 });
+  return { root, xdgStateHome, runRoot, repositoryRoot };
+}
+
+function runnerDeps(manifest, calls, overrides = {}) {
+  return {
+    verifyRepository: () => manifest.sourceCommit,
+    preflight: async () => {
+      calls.push('preflight');
+      return {
+        isolation: true,
+        identity: true,
+        credentials: true,
+        budget: true,
+      };
+    },
+    loadFixture: (slot) => runnerFixture(manifest, slot),
+    createSandbox: async ({ slot }) => {
+      calls.push(`sandbox:${slot.slotId}`);
+      return {
+        contract: { runRoot: `/private/${slot.slotId}` },
+        cleanup: async () => calls.push(`cleanup:${slot.slotId}`),
+      };
+    },
+    requestGate: async ({ slot }) => calls.push(`gate:${slot.slotId}`),
+    attempts: {
+      codex: async ({ slot, sandbox }) => {
+        assert.equal(sandbox.contract.runRoot, `/private/${slot.slotId}`);
+        calls.push(`codex:${slot.slotId}`);
+        return successfulProviderAttempt(slot);
+      },
+      ollama: async ({ slot, seed }) => {
+        calls.push(`ollama:${slot.slotId}:${seed}`);
+        return successfulProviderAttempt(slot);
+      },
+    },
+    evaluateCandidate: async ({ slot, candidateJson, input }) => {
+      assert.equal(candidateJson, CANDIDATE_JSON);
+      assert.equal(input.fixture.caseId, slot.fixtureId);
+      calls.push(`moonbit:${slot.slotId}`);
+      return passingCandidateGate();
+    },
+    auditStage1: async () => passingStage1Audit(),
+    canaries: RUN_CANARIES,
+    now: () => '2026-07-17T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function testComparisonManifest(branch) {
+  return buildComparisonManifest(manifestBuilderInput(branch), {
+    verifyRepository: () => '0'.repeat(40),
+  });
+}
+
+test('runner executes the paired frozen schedule sequentially with exact Ollama seeds', async () => {
+  const manifest = testComparisonManifest('paired');
+  const paths = await makeRunPaths('paired');
+  const calls = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const deps = runnerDeps(manifest, calls);
+  for (const providerId of ['codex', 'ollama']) {
+    const attempt = deps.attempts[providerId];
+    deps.attempts[providerId] = async (input) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolvePromise) => setImmediate(resolvePromise));
+      const result = await attempt(input);
+      inFlight -= 1;
+      return result;
+    };
+  }
+
+  const result = await executeComparisonStudy({
+    manifest,
+    runRoot: paths.runRoot,
+    xdgStateHome: paths.xdgStateHome,
+    repositoryRoot: paths.repositoryRoot,
+  }, deps);
+
+  assert.equal(calls[0], 'preflight');
+  assert.equal(maxInFlight, 1);
+  assert.equal(calls.filter((entry) => entry.startsWith('codex:')).length, 30);
+  const ollamaCalls = calls.filter((entry) => entry.startsWith('ollama:'));
+  assert.equal(ollamaCalls.length, 30);
+  assert.deepEqual(
+    ollamaCalls.map((entry) => Number(entry.split(':').at(-1))).sort((left, right) => left - right),
+    OLLAMA_SEEDS.flatMap((seed) => [seed, seed, seed]).sort((left, right) => left - right),
+  );
+  assert.equal(calls.filter((entry) => entry.startsWith('cleanup:')).length, 30);
+  assert.equal(result.journal.terminalCount, 60);
+  assert.equal(result.journal.activeAttempts, 60);
+  assert.equal(result.journal.stage2Executed, true);
+  assert.match(result.evidence.manifestSha256, /^[0-9a-f]{64}$/u);
+});
+
+test('runner codex-only branch preserves all canonical slots and never invokes Ollama', async () => {
+  const manifest = testComparisonManifest('codex_only');
+  const paths = await makeRunPaths('codex-only');
+  const calls = [];
+  const deps = runnerDeps(manifest, calls, {
+    attempts: {
+      codex: async ({ slot }) => {
+        calls.push(`codex:${slot.slotId}`);
+        return successfulProviderAttempt(slot);
+      },
+      ollama: async () => assert.fail('Ollama must not run in codex_only'),
+    },
+  });
+
+  const result = await executeComparisonStudy({
+    manifest,
+    runRoot: paths.runRoot,
+    xdgStateHome: paths.xdgStateHome,
+    repositoryRoot: paths.repositoryRoot,
+  }, deps);
+
+  assert.equal(result.journal.terminalCount, 60);
+  assert.equal(result.journal.activeAttempts, 30);
+  assert.equal(result.journal.stage2Executed, true);
+  assert.equal(result.slots.filter((slot) => slot.classification === 'ollama_not_operational').length, 30);
+  assert.equal(calls.filter((entry) => entry.startsWith('codex:')).length, 30);
+});
+
+test('runner never retries ordinary failures and global stop fills every remaining slot', async () => {
+  const manifest = testComparisonManifest('paired');
+  const ordinaryPaths = await makeRunPaths('ordinary-failure');
+  const ordinaryCalls = [];
+  let failedSlotId = null;
+  const ordinaryDeps = runnerDeps(manifest, ordinaryCalls);
+  const firstProvider = manifest.schedule.find((slot) => slot.active).providerId;
+  const successful = ordinaryDeps.attempts[firstProvider];
+  ordinaryDeps.attempts[firstProvider] = async (input) => {
+    ordinaryCalls.push(`${firstProvider}:${input.slot.slotId}`);
+    if (failedSlotId === null) {
+      failedSlotId = input.slot.slotId;
+      return { classification: 'process_crash', rawEvents: [] };
+    }
+    return successful(input);
+  };
+
+  const ordinary = await executeComparisonStudy({
+    manifest,
+    runRoot: ordinaryPaths.runRoot,
+    xdgStateHome: ordinaryPaths.xdgStateHome,
+    repositoryRoot: ordinaryPaths.repositoryRoot,
+  }, ordinaryDeps);
+  assert.equal(
+    ordinaryCalls.filter((entry) => entry === `${firstProvider}:${failedSlotId}`).length,
+    1,
+  );
+  assert.equal(ordinary.slots.find((slot) => slot.slotId === failedSlotId).classification, 'process_crash');
+  assert.equal(ordinary.journal.activeAttempts, 60);
+  assert.equal(ordinary.journal.stage2Executed, true);
+
+  const stopPaths = await makeRunPaths('global-stop');
+  const stopCalls = [];
+  const stopDeps = runnerDeps(manifest, stopCalls);
+  for (const providerId of ['codex', 'ollama']) {
+    stopDeps.attempts[providerId] = async ({ slot }) => {
+      stopCalls.push(`${providerId}:${slot.slotId}`);
+      return { classification: 'global_stop', rawEvents: [] };
+    };
+  }
+  const stopped = await executeComparisonStudy({
+    manifest,
+    runRoot: stopPaths.runRoot,
+    xdgStateHome: stopPaths.xdgStateHome,
+    repositoryRoot: stopPaths.repositoryRoot,
+  }, stopDeps);
+  assert.equal(stopCalls.filter((entry) => /^(codex|ollama):/u.test(entry)).length, 1);
+  assert.equal(stopped.journal.terminalCount, 60);
+  assert.equal(stopped.journal.globalStop, true);
+  assert.equal(stopped.slots.filter((slot) => slot.classification === 'global_stop').length, 60);
+});
+
+test('run root enforces XDG ancestry, symlink safety, permissions, and exclusive outputs', async () => {
+  const paths = await makeRunPaths('root-policy');
+  await assert.rejects(
+    () => prepareComparisonRunRoot({ runRoot: 'relative', xdgStateHome: paths.xdgStateHome, repositoryRoot: paths.repositoryRoot }),
+    /absolute/u,
+  );
+  await assert.rejects(
+    () => prepareComparisonRunRoot({ runRoot: paths.runRoot, xdgStateHome: '', repositoryRoot: paths.repositoryRoot }),
+    /XDG_STATE_HOME/u,
+  );
+  await assert.rejects(
+    () => prepareComparisonRunRoot({
+      runRoot: join(paths.repositoryRoot, 'state', 'canopy', 'genui-provider-benchmark', 'run'),
+      xdgStateHome: join(paths.repositoryRoot, 'state'),
+      repositoryRoot: paths.repositoryRoot,
+    }),
+    /repository/u,
+  );
+
+  const outside = join(paths.root, 'outside');
+  await mkdir(outside);
+  const stateParent = join(paths.xdgStateHome, 'canopy');
+  await mkdir(stateParent, { recursive: true });
+  await symlink(outside, join(stateParent, 'genui-provider-benchmark'));
+  await assert.rejects(
+    () => prepareComparisonRunRoot({ runRoot: paths.runRoot, xdgStateHome: paths.xdgStateHome, repositoryRoot: paths.repositoryRoot }),
+    /symbolic link|symlink/u,
+  );
+
+  const clean = await makeRunPaths('root-modes');
+  const prepared = await prepareComparisonRunRoot(clean);
+  assert.equal((await stat(prepared.runRoot)).mode & 0o777, 0o700);
+  assert.equal((await stat(prepared.journalPath)).mode & 0o777, 0o600);
+  await assert.rejects(() => prepareComparisonRunRoot(clean), /exist|exclusive/u);
+  await chmod(prepared.runRoot, 0o755);
+  await assert.rejects(
+    () => prepareComparisonRunRoot({ ...clean, runRoot: prepared.runRoot }),
+    /exist|exclusive|mode/u,
+  );
+});
+
+test('credentialed smoke uses one distinct synthetic fixture and rejects a second request path', async () => {
+  const manifest = testComparisonManifest('codex_only');
+  assert.equal(manifest.fixtures.some((fixture) => fixture.id === SMOKE_FIXTURE.caseId), false);
+  const paths = await makeRunPaths('smoke');
+  let requests = 0;
+  let cleanupCalls = 0;
+  const result = await executeCodexSmoke({
+    manifest,
+    runRoot: paths.runRoot,
+    xdgStateHome: paths.xdgStateHome,
+    repositoryRoot: paths.repositoryRoot,
+  }, {
+    verifyRepository: () => manifest.sourceCommit,
+    preflight: async () => ({
+      isolation: true,
+      identity: true,
+      credentials: true,
+      budget: true,
+    }),
+    createSandbox: async () => ({
+      contract: { runRoot: '/private/smoke' },
+      cleanup: async () => { cleanupCalls += 1; },
+    }),
+    requestGate: async () => undefined,
+    codexAttempt: async ({ fixture, sandbox }) => {
+      requests += 1;
+      assert.equal(fixture.caseId, SMOKE_FIXTURE.caseId);
+      assert.equal(sandbox.contract.runRoot, '/private/smoke');
+      return successfulProviderAttempt({ slotId: 'smoke', providerId: 'codex' });
+    },
+    evaluateCandidate: async ({ candidateJson, input }) => {
+      assert.equal(candidateJson, CANDIDATE_JSON);
+      assert.equal(input.fixture.caseId, SMOKE_FIXTURE.caseId);
+      return passingCandidateGate();
+    },
+    canaries: RUN_CANARIES,
+    now: () => '2026-07-17T00:00:00.000Z',
+  });
+  assert.equal(requests, 1);
+  assert.equal(cleanupCalls, 1);
+  assert.equal(result.classification, 'candidate_pass');
+  assert.equal(result.usage.totalTokens, 5);
+  assert.equal(resolve(result.rawArtifactPath).startsWith(resolve(paths.runRoot, 'smoke')), true);
+  assert.equal(resolve(result.summaryPath).startsWith(resolve(paths.runRoot, 'smoke')), true);
+  assert.equal((await stat(result.rawArtifactPath)).mode & 0o777, 0o600);
+  assert.equal((await stat(result.summaryPath)).mode & 0o777, 0o600);
+});
+
+test('credentialed smoke fails closed on provider and canary errors without retry', async () => {
+  const manifest = testComparisonManifest('codex_only');
+  for (const scenario of ['provider', 'canary']) {
+    const paths = await makeRunPaths(`smoke-${scenario}`);
+    let requests = 0;
+    await assert.rejects(
+      () => executeCodexSmoke({
+        manifest,
+        runRoot: paths.runRoot,
+        xdgStateHome: paths.xdgStateHome,
+        repositoryRoot: paths.repositoryRoot,
+      }, {
+        verifyRepository: () => manifest.sourceCommit,
+        preflight: async () => ({
+          isolation: true,
+          identity: true,
+          credentials: true,
+          budget: true,
+        }),
+        createSandbox: async () => ({ contract: {}, cleanup: async () => undefined }),
+        requestGate: async () => undefined,
+        codexAttempt: async ({ slot }) => {
+          requests += 1;
+          if (scenario === 'provider') throw new Error('provider failed');
+          const attempt = successfulProviderAttempt(slot);
+          attempt.rawEvents[0].itemText = RUN_CANARIES.secretValues[0];
+          return attempt;
+        },
+        evaluateCandidate: async () => passingCandidateGate(),
+        canaries: RUN_CANARIES,
+        now: () => '2026-07-17T00:00:00.000Z',
+      }),
+      scenario === 'provider' ? /provider failed/u : /canary|secret/u,
+    );
+    assert.equal(requests, 1);
+  }
 });

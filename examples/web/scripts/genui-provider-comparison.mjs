@@ -269,9 +269,10 @@ export function validateComparisonJournal({ manifest, journal }) {
       throw comparisonError('journal_terminal', `Active slot ${slot.slotId} must terminate before the next slot.`);
     }
     if (!TERMINAL_CLASSIFICATIONS.has(terminal.classification) ||
-        ['global_stop', 'stage1_ineligible', 'ollama_not_operational'].includes(terminal.classification)) {
+        ['stage1_ineligible', 'ollama_not_operational'].includes(terminal.classification)) {
       throw comparisonError('journal_terminal', `Slot ${slot.slotId} has an invalid active terminal classification.`);
     }
+    if (terminal.classification === 'global_stop') globalStop = true;
     recordTerminal(terminal, seenTerminals);
     eventIndex += 1;
   }
