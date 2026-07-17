@@ -160,6 +160,9 @@ Lambda rename is a plausible first mutation because Canopy already owns its
 scope and capture checks. The agent could request the operation without
 reimplementing those semantics.
 
+This is a technical mutation probe, not the next product experiment. It becomes
+relevant only after a read-only agent condition beats the fixed PKE baseline.
+
 The remaining gap is not rename logic. Before the operation can reach a live
 document, Canopy still needs:
 

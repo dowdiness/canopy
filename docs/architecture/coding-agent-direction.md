@@ -137,9 +137,9 @@ session cannot erase Canopy's commit record.
 
 Implementation requires all of the following:
 
-1. A product experiment justifies an agent over a fixed workflow.
-2. Any experiment using PKE or session data passes the PKE fixed-baseline and
-   data-egress gates first.
+1. A read-only agent condition beats the fixed workflow on a named user task.
+2. Any use of PKE or session data passes the fixed-baseline and data-egress
+   gates.
 3. The engine can run without built-in write paths around Canopy.
 4. The host can inspect available tools before sending a prompt.
 5. An executable plan covers identity, revision checks, approval, cancellation,
