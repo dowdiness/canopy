@@ -573,6 +573,8 @@ test('manifest builder freezes both branches, identities, schedule, contracts, l
     assert.equal(manifest.decisionRule.replayRequiredForEveryCandidate, true);
     assert.equal(manifest.decisionRule.stage1Slots, 18);
     assert.equal(manifest.decisionRule.stage2RequiresEligibleStage1, true);
+    assert.equal(manifest.decisionRule.qualificationOverallMinimum, 24);
+    assert.equal(manifest.decisionRule.qualificationPerFixtureMinimum, 7);
     assert.equal(manifest.schedule.filter((slot) => slot.active).length, branch === 'paired' ? 60 : 30);
     assert.equal(
       manifest.schedule.filter((slot) => !slot.active).every((slot) =>
