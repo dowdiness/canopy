@@ -595,6 +595,11 @@ test('classifies malformed JSONL, EOF, failed, interrupted, timeout, and process
   });
   assert.equal(malformed.result.classification, 'provider_protocol_error');
 
+  const invalidEnvelope = await runScript({
+    run: successfulRunSteps({ turnEvents: [{}] }),
+  });
+  assert.equal(invalidEnvelope.result.classification, 'provider_protocol_error');
+
   const eofRun = successfulRunSteps({ turnEvents: [] });
   eofRun[1].endStdout = true;
   const eof = await runScript({ run: eofRun });

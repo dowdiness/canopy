@@ -659,6 +659,38 @@ test('manifest builder freezes both branches, identities, schedule, contracts, l
     );
   }
 });
+
+test('manifest builder accepts a safe codex-only decision before any Ollama generation request', () => {
+  const input = manifestBuilderInput('codex_only');
+  input.diagnosticSummary = {
+    ...input.diagnosticSummary,
+    requestSettingsFrozen: false,
+    requestDigest: createHash('sha256').update(canonicalJson(null)).digest('hex'),
+    probeOrder: ['environment_and_model'],
+    firstFailure: {
+      step: 'environment_and_model',
+      classification: 'provider_not_operational',
+    },
+    observations: [{
+      ...input.diagnosticSummary.observations[0],
+      classification: 'provider_not_operational',
+      requestSettingsSha256: null,
+      requestSha256: null,
+      responseSha256: null,
+      serverLogSha256: null,
+    }],
+  };
+  input.diagnosticSummarySha256 = createHash('sha256')
+    .update(canonicalJson(input.diagnosticSummary))
+    .digest('hex');
+
+  const manifest = buildComparisonManifest(input, {
+    verifyRepository: () => '0'.repeat(40),
+  });
+
+  assert.equal(manifest.branch, 'codex_only');
+});
+
 test('manifest accepts codex-only selection after a retained trusted-fixture provider failure', () => {
   const input = manifestBuilderInput('codex_only');
   const observations = diagnosticObservations('paired').slice(0, 8);
@@ -1127,13 +1159,19 @@ test('runner codex-only branch preserves all canonical slots and never invokes O
   const manifest = testComparisonManifest('codex_only');
   const paths = await makeRunPaths('codex-only');
   const calls = [];
+  let stage1Audits = 0;
   const deps = runnerDeps(manifest, calls, {
     attempts: {
       codex: async ({ slot }) => {
+        if (slot.stage === 2) assert.equal(stage1Audits, 1);
         calls.push(`codex:${slot.slotId}`);
         return successfulProviderAttempt(slot);
       },
       ollama: async () => assert.fail('Ollama must not run in codex_only'),
+    },
+    auditStage1: async () => {
+      stage1Audits += 1;
+      return passingStage1Audit();
     },
   });
 
@@ -1146,6 +1184,7 @@ test('runner codex-only branch preserves all canonical slots and never invokes O
 
   assert.equal(result.journal.terminalCount, 60);
   assert.equal(result.journal.activeAttempts, 30);
+  assert.equal(stage1Audits, 1);
   assert.equal(result.journal.stage2Executed, true);
   assert.equal(result.slots.filter((slot) => slot.classification === 'ollama_not_operational').length, 30);
   assert.equal(calls.filter((entry) => entry.startsWith('codex:')).length, 30);

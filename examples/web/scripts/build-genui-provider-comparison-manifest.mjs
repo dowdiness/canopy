@@ -119,7 +119,7 @@ function validateDiagnostic(input) {
   requireObject(input.diagnosticSummary, 'diagnostic summary');
   requireDigest(input.diagnosticSummarySha256, 'diagnostic summary digest');
   const summary = input.diagnosticSummary;
-  for (const field of ['terminal', 'complete', 'safe', 'identityPreserved', 'evidenceIntegrity', 'credentialsSafe', 'budgetSafe', 'isolationSafe', 'requestSettingsFrozen']) {
+  for (const field of ['terminal', 'complete', 'safe', 'identityPreserved', 'evidenceIntegrity', 'credentialsSafe', 'budgetSafe', 'isolationSafe']) {
     if (summary[field] !== true) {
       throw manifestError('diagnostic_unsafe', `Diagnostic safety, integrity, credential, budget, or isolation gate ${field} must be true before manifest creation.`);
     }
@@ -157,6 +157,20 @@ function validateDiagnostic(input) {
     }
   }
   validateDiagnosticObservations(summary, input);
+  const observedRequestSettings = summary.observations
+    .map((observation) => observation.requestSettingsSha256)
+    .filter((digest) => digest !== null);
+  if (summary.requestSettingsFrozen === true) {
+    if (observedRequestSettings.length === 0) {
+      throw manifestError('diagnostic_request_mismatch', 'A frozen request-settings claim requires observed request settings.');
+    }
+  } else if (
+    input.branch !== 'codex_only'
+    || observedRequestSettings.length !== 0
+    || summary.requestDigest !== sha256(canonicalJson(null))
+  ) {
+    throw manifestError('diagnostic_request_mismatch', 'Unfrozen request settings are allowed only when Ollama failed before request settings existed.');
+  }
   const actualDigest = sha256(canonicalJson(summary));
   if (actualDigest !== input.diagnosticSummarySha256) {
     throw manifestError('diagnostic_digest_mismatch', 'The diagnostic summary digest does not match its content.');
@@ -197,7 +211,7 @@ function validateDiagnosticObservations(summary, input) {
       throw manifestError('diagnostic_observations', 'Every diagnostic observation requires a terminal classification.');
     }
     for (const field of ['requestSettingsSha256', 'requestSha256', 'responseSha256', 'serverLogSha256']) {
-      requireDigest(observation[field], `diagnostic observation ${field}`);
+      requireNullableDigest(observation[field], `diagnostic observation ${field}`);
     }
     for (const field of ['requestBytes', 'responseBytes', 'serverLogBytes']) {
       if (!Number.isInteger(observation[field]) || observation[field] < 0) {
@@ -237,7 +251,7 @@ function validateDiagnosticObservations(summary, input) {
       throw manifestError('diagnostic_runtime_control', 'The runtime control requires model identity and classification.');
     }
     for (const field of ['requestSha256', 'responseSha256', 'serverLogSha256']) {
-      requireDigest(summary.runtimeControl[field], `diagnostic runtime control ${field}`);
+      requireNullableDigest(summary.runtimeControl[field], `diagnostic runtime control ${field}`);
     }
   }
 }
@@ -408,6 +422,10 @@ function requireDigest(value, field) {
   if (typeof value !== 'string' || !HEX_SHA256.test(value)) {
     throw manifestError('digest_invalid', `${field} must be a lowercase SHA-256 digest.`);
   }
+}
+
+function requireNullableDigest(value, field) {
+  if (value !== null) requireDigest(value, field);
 }
 
 function requirePositiveInteger(value, field) {

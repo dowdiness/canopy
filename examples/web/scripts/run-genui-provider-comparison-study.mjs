@@ -108,6 +108,7 @@ export async function executeComparisonStudy({
   const rawArtifacts = [];
   let globalStop = false;
   let stage1Eligible = true;
+  let stage1Audited = false;
 
   for (const slot of manifest.schedule) {
     if (!slot.active) {
@@ -122,11 +123,8 @@ export async function executeComparisonStudy({
       await appendTerminal(prepared.journalPath, journal, terminals, terminalFor(slot, STAGE1_INELIGIBLE));
       continue;
     }
-    if (slot.stage === 2 && terminals.filter((record) => record.stage === 1).length > 0 && stage1Eligible === true) {
-      // Stage 1 is evaluated exactly once below, before the first Stage 2 slot.
-    }
 
-    if (slot.stage === 2 && !terminals.some((record) => record.stage === 2)) {
+    if (slot.stage === 2 && !stage1Audited) {
       const audit = await deps.auditStage1({ manifest, slots: terminals.filter((record) => record.stage === 1), runRoot: prepared.runRoot });
       requireTrueFields(audit, REQUIRED_STAGE1_AUDIT, 'Stage 1 audit');
       const eligibility = evaluateStage1Eligibility({
@@ -136,6 +134,7 @@ export async function executeComparisonStudy({
       });
       stage1Eligible = eligibility.eligible;
       await writeExclusiveJson(join(prepared.runRoot, 'stage1-eligibility.json'), eligibility);
+      stage1Audited = true;
       if (!stage1Eligible) {
         await appendTerminal(prepared.journalPath, journal, terminals, terminalFor(slot, STAGE1_INELIGIBLE));
         continue;

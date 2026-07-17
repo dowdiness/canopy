@@ -698,6 +698,8 @@ class JsonlTransport {
               (typeof message.params.threadId === 'string' || isRecord(message.params.thread)))
           ) {
             this.notifications.push(message);
+          } else if (typeof message.method !== 'string') {
+            throw protocolError('Codex emitted an invalid request or notification envelope.');
           }
         }
       }
