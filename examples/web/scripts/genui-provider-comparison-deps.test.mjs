@@ -175,6 +175,29 @@ test('production provider attempts close Codex sessions, normalize Ollama succes
   assert.equal(ollama.classification, 'global_stop');
 });
 
+test('production Ollama attempts map identity and protocol failures to journal terminal classifications', async () => {
+  const classifications = [
+    ['model_identity_mismatch', 'identity_drift'],
+    ['model_not_installed', 'identity_drift'],
+    ['provider_identity_error', 'provider_protocol_error'],
+    ['provider_transport_error', 'provider_protocol_error'],
+    ['provider_envelope_error', 'provider_protocol_error'],
+    ['request_rejected', 'provider_protocol_error'],
+  ];
+  for (const [providerClassification, terminalClassification] of classifications) {
+    const deps = await createComparisonDependencies({ manifest: manifest() }, {
+      callOllama: async () => ({ classification: providerClassification }),
+    });
+    const result = await deps.attempts.ollama({
+      slot: { slotId: 'slot-1', fixtureId: fixture.caseId, providerId: 'ollama' },
+      fixture,
+      seed: 1701,
+    });
+    assert.equal(result.classification, terminalClassification);
+    await deps.close();
+  }
+});
+
 test('production Codex usage contributes exact tokens to the frozen run budget', async () => {
   const budgetManifest = manifest();
   budgetManifest.limits = {

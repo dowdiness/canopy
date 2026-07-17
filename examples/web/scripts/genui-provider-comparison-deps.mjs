@@ -46,6 +46,15 @@ const TERMINAL_MAP = Object.freeze({
   commit_failure: 'session_commit_failure',
 });
 
+const OLLAMA_TERMINAL_MAP = Object.freeze({
+  model_identity_mismatch: 'identity_drift',
+  model_not_installed: 'identity_drift',
+  provider_identity_error: 'provider_protocol_error',
+  provider_transport_error: 'provider_protocol_error',
+  provider_envelope_error: 'provider_protocol_error',
+  request_rejected: 'provider_protocol_error',
+});
+
 const CODEX_TERMINAL_MAP = Object.freeze({
   model_not_available: 'identity_drift',
   provider_identity_mismatch: 'identity_drift',
@@ -149,7 +158,11 @@ export async function createComparisonDependencies({ manifest }, overrides = {})
             totalTokens: (result.promptTokens ?? 0) + (result.outputTokens ?? 0),
           },
         }
-      : { ...result, rawEvents: [{ type: 'providerResponse', status: result.classification }] };
+      : {
+          ...result,
+          classification: OLLAMA_TERMINAL_MAP[result.classification] ?? result.classification,
+          rawEvents: [{ type: 'providerResponse', status: result.classification }],
+        };
     return accountForAttempt(attempt, manifest.limits, budget);
   };
 
