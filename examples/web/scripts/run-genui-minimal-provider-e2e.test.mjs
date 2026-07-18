@@ -129,10 +129,13 @@ test('provider timeout kills the process group and settles inherited output', { 
   child.stderr = new PassThrough();
   child.kill = () => true;
   const signals = [];
+  const startedAt = Date.now();
   const observed = await runProviderAttempt(run, options, {
     spawnProcess: () => child,
     providerInvocation: { command: 'codex', prefixArgs: [] },
     platform: 'linux',
+    terminationGraceMs: 10,
+    outputSettleMs: 10,
     kill(pid, signal) {
       signals.push([pid, signal]);
       if (signal === 'SIGKILL') child.emit('exit', null, signal);
@@ -140,6 +143,7 @@ test('provider timeout kills the process group and settles inherited output', { 
   });
   assert.equal(observed.classification, 'provider_timeout');
   assert.deepEqual(signals, [[-24680, 'SIGTERM'], [-24680, 'SIGKILL']]);
+  assert.ok(Date.now() - startedAt < 1_000, 'injected lifecycle bounds must avoid the production grace period');
 });
 test('timeout kills a live provider grandchild after bounded escalation', { timeout: 15_000 }, async () => {
   if (process.platform === 'win32') return;
@@ -170,6 +174,7 @@ test('timeout kills a live provider grandchild after bounded escalation', { time
       return spawn(process.execPath, [scriptPath, heartbeatPath, pidPath], spawnOptions);
     },
     providerInvocation: { command: 'codex', prefixArgs: [] },
+    terminationGraceMs: 100,
   });
   assert.equal(observed.classification, 'provider_timeout');
   assert.equal(spawnCount, 1);

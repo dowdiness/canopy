@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
-import { chmod, mkdir, open, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { chmod, mkdir, open, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { finished } from 'node:stream/promises';
 
 import { GENUI_CANDIDATE_SCHEMA } from '../src/genui-candidate-schema.js';
 import { getFeasibilityFixture } from '../src/genui-feasibility-fixtures.js';
 import { buildFeasibilityPrompt, GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
+import { runProviderProcess, waitForProcess } from './genui-minimal-provider-process.mjs';
 
 const CONFIGURATION_ERROR = 'configuration_error';
 
@@ -102,108 +102,17 @@ export async function writeTerminalResult(run, terminal) {
   }
   await writeExclusive(run.paths.result, `${JSON.stringify(terminal, null, 2)}\n`);
 }
-function waitForProcess(child, { timeoutMs, kill, platform, terminateWindowsTree }) {
-  return new Promise((resolveResult) => {
-    let timedOut = false;
-    let interrupted = false;
-    let forceTimer;
-    let settled = false;
-    const finish = result => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      clearTimeout(forceTimer);
-      process.off('SIGINT', interrupt);
-      process.off('SIGTERM', interrupt);
-      resolveResult(result);
-    };
-    const signal = name => {
-    if (platform === 'win32') terminateWindowsTree(child.pid, name === 'SIGKILL');
-    else {
-      try { kill(-child.pid, name); } catch { child.kill(name); }
-    }
-    };
-    const terminate = () => {
-      signal('SIGTERM');
-      forceTimer = setTimeout(() => {
-        signal('SIGKILL');
-        finish({ exitCode: null, signal: 'SIGKILL', timedOut, interrupted, error: null });
-      }, 5_000);
-    };
-    const interrupt = () => {
-      interrupted = true;
-      terminate();
-    };
-    const timer = setTimeout(() => {
-      timedOut = true;
-      terminate();
-    }, timeoutMs);
-    process.once('SIGINT', interrupt);
-    process.once('SIGTERM', interrupt);
-    child.once('error', error => finish({ exitCode: null, signal: null, timedOut, interrupted, error }));
-    child.once('exit', (exitCode, signalName) => {
-      finish({ exitCode, signal: signalName, timedOut, interrupted, error: null });
-    });
-  });
-}
-
-async function settlePipedOutput(child, stream, completion) {
-  let timer;
-  const bounded = new Promise(resolveDone => {
-    timer = setTimeout(() => {
-      child.stdout.destroy();
-      stream.destroy();
-      resolveDone();
-    }, 5_000);
-  });
-  await Promise.race([completion.catch(() => undefined), bounded]);
-  clearTimeout(timer);
-}
 
 export async function runProviderAttempt(run, options, deps = {}) {
-  const spawnProcess = deps.spawnProcess ?? spawn;
-  const providerInvocation = deps.providerInvocation ?? { command: 'codex', prefixArgs: [] };
-  const platform = deps.platform ?? process.platform;
-  const kill = deps.kill ?? process.kill;
   await writeExclusive(run.paths.schema, `${JSON.stringify(GENUI_CANDIDATE_SCHEMA)}\n`);
   await mkdir(run.paths.work, { mode: 0o700 });
-  const args = [
-    ...providerInvocation.prefixArgs,
-    'exec',
-    '--json',
-    '--ephemeral',
-    '--ignore-user-config',
-    '--ignore-rules',
-    '--skip-git-repo-check',
-    '--sandbox', 'read-only',
-    '--model', options.model,
-    '--output-schema', run.paths.schema,
-    '--output-last-message', run.paths.candidate,
-    '-',
-  ];
   const eventsHandle = await open(run.paths.providerEvents, 'a', 0o600);
   const eventsStream = eventsHandle.createWriteStream();
-  const child = spawnProcess(providerInvocation.command, args, {
-    cwd: run.paths.work,
-    detached: platform !== 'win32',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const terminateWindowsTree = deps.terminateWindowsTree ?? ((pid, force) => {
-    const killer = spawn('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], { stdio: 'ignore' });
-    killer.unref();
-  });
-  const processResult = waitForProcess(child, { timeoutMs: options.timeoutMs, kill, platform, terminateWindowsTree });
-  const eventsDone = finished(child.stdout.pipe(eventsStream));
-  let stderr = '';
-  child.stderr.on('data', chunk => { stderr += chunk; });
-  child.stdin.end(run.request.prompt);
-  const observed = await processResult;
-  await settlePipedOutput(child, eventsStream, eventsDone);
-  const base = { ...observed, invocationCount: 1 };
-  if (observed.timedOut) return { ...base, classification: 'provider_timeout', safeMessage: 'Provider deadline exceeded.' };
-  if (observed.interrupted) return { ...base, classification: 'provider_failed', safeMessage: 'Provider interrupted.' };
-  if (observed.error || observed.exitCode !== 0) return { ...base, classification: 'provider_failed', safeMessage: 'Provider process failed.' };
-  return { ...base, classification: 'success', safeMessage: null, stderr };
+  const observed = await runProviderProcess(run, options, { ...deps, eventsStream });
+  if (observed.timedOut) return { ...observed, classification: 'provider_timeout', safeMessage: 'Provider deadline exceeded.' };
+  if (observed.interrupted) return { ...observed, classification: 'provider_failed', safeMessage: 'Provider interrupted.' };
+  if (observed.error || observed.exitCode !== 0) return { ...observed, classification: 'provider_failed', safeMessage: 'Provider process failed.' };
+  return { ...observed, classification: 'success', safeMessage: null };
 }
 
 export async function classifyCandidate(candidatePath, maxBytes) {
