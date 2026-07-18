@@ -159,6 +159,18 @@ maintenance and proving-ground mode.
   Already covered: click selection, keyboard navigation, and scroll-to-selection (`examples/ideal/web/e2e/outline-navigation.spec.ts`); tree roles, selection, active-descendant, and collapse ARIA (`examples/ideal/web/e2e/outline-aria.spec.ts`); resize-handle behavior while `.tree-rows` scrolls (`examples/ideal/web/e2e/outline-resizable.spec.ts`).
   Closed here: collapse/expand descendant visibility plus collapsed badges; light-DOM outline row drag/drop in `examples/ideal/web/e2e/outline-drag-drop.spec.ts`, verifying CRDT/CodeMirror text sync plus outline reorder. Shadow structure-mode drag/drop remains covered separately by `examples/ideal/web/e2e/drag-drop.spec.ts`.
 
+- [ ] Discover where Generative UI creates user value.
+  Why: current engineering evidence covers a bounded Declarative/Projectional
+  path, but no research has established which people, jobs, value sources,
+  lifecycles, or generation modes deserve product investment.
+  Plan: `docs/plans/2026-07-17-generative-ui-opportunity-discovery-design.md`
+  Exit: the bounded initial tranche yields a reviewed opportunity map and
+  ranked hypotheses; Stage 3 compares the smallest eligible modes for each
+  surviving hypothesis, with lifecycle recorded separately. Closure requires
+  the redacted evidence corpus, representation comparison, confirmatory
+  proposal or stop recommendation, and canonical direction updates defined by
+  the plan.
+
 - [ ] Verify the incremental Generative UI semantic core.
   Why: the document-engine authority, transaction, recovery, and identity
   claims have no implementation or falsifiable evidence; adapter work before

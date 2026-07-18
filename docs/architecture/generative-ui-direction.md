@@ -1,253 +1,169 @@
 # Generative UI direction
 
-## Thesis
+## Purpose and authority
 
-Canopy should treat Generative UI as incremental editing of a stateful UI
-program, not as repeated generation of disposable HTML or JSX.
+Canopy's top-level Generative UI question is not tied to one user job, output
+representation, or generation system:
 
-The important property is that an AI-generated view remains editable,
-state-preserving, incrementally updateable, and safe to reconcile with human
-edits. JSX is one projection surface for this idea, not the definition of the
-whole system.
+> For which people, intents, contexts, and lifecycles does a generated
+> interface create useful capability, and what generation authority is
+> necessary to create that value?
 
-The existing architecture is a good fit:
+This document is the source of truth for durable Generative UI principles,
+taxonomy, and architectural claim boundaries.
 
-```text
-source / semantic UI program
-  → incremental parse and projection
-  → session-scoped identity preservation
-  → patch adapter
-  → UI surface
-```
+Research and implementation plans own concrete jobs, representations, execution
+mechanisms, staged sequences, and acceptance criteria. Evidence from one bounded
+plan may revise this direction, but it must not silently become a general
+architectural conclusion.
 
-## Why this matters
+## Candidate spectrum
 
-Whole-view regeneration causes lost input, remounted components, broken focus,
-unnecessary work, and conflicts between AI and human edits. Incremental
-projection makes the generated result behave more like a shared, editable
-artifact.
+Opportunity discovery evaluates six representation modes as parallel candidates:
 
-The differentiator is therefore not that a model can write JSX. It is that a
-model can safely edit a structured UI while preserving user state and making
-the change inspectable and reversible. Semantic merging is a later capability,
-not a V1 guarantee.
+| Mode | Architectural definition | Native strength |
+| --- | --- | --- |
+| Static | Generated content or choices within a host-owned interaction | Predictability and host control |
+| Declarative | Generated structure composed within declared capabilities | Inspectability and structural validation |
+| Open-Ended | Generated presentation outside a fixed structural catalog | Expressive presentation |
+| Dynamic | Generated executable behavior | Novel state, computation, and integration |
+| Projectional | Generated semantic operations over an identity-bearing artifact | Editing, replay, provenance, and collaboration |
+| Hybrid | Explicitly bounded combinations of other modes | Authority matched to each part of an interface |
 
-For V1, supported edits are limited to sequential or single-writer edits.
-Canopy does not yet define how concurrent semantic UI edits map to projection
-identity, conflict resolution, or user-visible state. The CRDT source-edit path
-and the future semantic-edit path must not be treated as having the same
-guarantees.
+These modes are not a maturity ladder and do not form a single strength axis.
+Open-Ended presentation, Dynamic execution, and Projectional identity are
+incomparable capabilities. A job may require one mode, several incomparable
+minimum modes, or a Hybrid.
 
-## Direction
+Lifecycle is a separate axis. Every representation mode may be ephemeral,
+session-scoped, personally persistent, shared, or productized. Persistence
+increases identity, migration, provenance, replay, ownership, and maintenance
+obligations; it is not intrinsic to Projectional representation.
 
-### Structured edits instead of whole-view generation
+Expressiveness, execution authority, persistence, and inspectability are also
+separate axes. Each experiment must identify the minimum sufficient capability
+and authority bundle instead of assuming that a more expressive mode is better.
 
-Natural-language requests should eventually lower to semantic UI edits such
-as adding a field, changing a layout, or showing a detail panel. The system
-should validate, preview, reject, undo, and merge these edits at a structural
-boundary.
+## Durable principles
 
-### Human and AI co-editing
+### Discover value before choosing architecture
 
-AI changes must preserve user-entered values, focus, selection, and local
-customizations wherever the structure permits. Human edits and AI edits should
-eventually be represented in the same incremental and collaborative model. The
-V1 implementation should first establish these preservation rules for
-sequential edits before claiming concurrent co-editing semantics.
+A Generative UI proposal must name the person, job, context, value source,
+strongest realistic alternative, expected lifecycle, and required authority.
+Generation is justified only by a useful outcome that the strongest alternative
+cannot provide as effectively. Novelty and technical feasibility are not product
+value.
 
-### Streaming and interruption
+### Keep generated output subordinate to human authority
 
-The UI should be useful while generation is incomplete. This requires
-well-defined partial states, placeholders, transaction boundaries, cancellation,
-and resumption rather than treating incomplete output as a fatal parse error.
+People must be able to understand what the system proposes, what it may affect,
+and which decisions remain theirs. Consequential changes require explicit
+acceptance or a narrow, revocable policy chosen by the person. Generated output
+must not acquire authority merely because it was successfully produced.
 
-### Semantic UI with multiple projections
+### Preserve continuity when continuity creates value
 
-The long-term abstraction should be a semantic UI model that can project to
-JSX/DOM, native UI, canvas, accessibility-oriented views, voice interfaces,
-and other surfaces. Renderer adapters must share one patch and identity
-contract while remaining free to implement platform-specific behavior.
+When a job depends on ongoing interaction or editing, generated changes should
+preserve the person's values, focus, selection, orientation, and local
+customizations wherever the structure permits. Whole replacement remains a
+valid mode where continuity is unnecessary; it is not the default for an
+identity-bearing artifact.
 
-### Capability-bounded generation
+### Separate proposals from committed state
 
-Expressiveness and authority are separate axes. Capability boundaries should
-constrain ambient authority and effects without treating the first prototype's
-component allowlist as the permanent ceiling on composition.
+Generation produces untrusted proposals, not authoritative state. A proposal
+must cross explicit validation and commitment boundaries before it can change a
+canonical artifact. Rejection or failed application must not be reported as a
+successful commit.
 
-Generated UI must not imply unrestricted authority. Components, actions, data
-access, expressions, and side effects should be constrained by explicit
-capabilities and schemas. The first prototype should use an allowlisted,
-declarative component model with no model-controlled network access, raw HTML,
-navigation, or arbitrary code/expression execution. Structural edits should be
-auditable and, where needed, require approval before effects occur.
+Generation, validation, state ownership, and commitment policy remain distinct
+responsibilities. No generation mechanism owns artifact identity or decides by
+itself that an output is accepted, useful, or committed.
 
-### LLM input boundary
+### Make change inspectable and reversible
 
-An LLM is an untrusted, asynchronous candidate generator, not the source of
-truth for UI state. Its output must never mutate the committed UI directly.
-The input path is:
+Generated changes should retain enough identity, rationale, and provenance for a
+person to inspect what changed and why. Reversal must preserve prior work rather
+than reconstructing an approximation of it. Persistence and collaboration raise
+these obligations but do not define the representation mode.
 
-```text
-LLM/provider
-  → untrusted candidate
-  → syntax and schema validation
-  → capability validation
-  → base-revision check
-  → candidate projection and internal dry-run
-  → committed UI update
-```
+### Treat incompleteness and interruption as normal states
 
-The provider transport, request lifecycle, UI-program validation, and renderer
-must remain separate responsibilities. Provider-specific code may fetch and
-decode model responses, but it must not own UI identity, DOM state, or commit
-policy. The request lifecycle owns request identity, observed revision,
-cancellation, chunk sequencing and assembly, finalization, stale-completion
-rejection, terminal-state idempotency, and typed failure classification.
-The UI input adapter owns the constrained UI-program schema and candidate
-validation. The renderer only applies validated candidates through the session
-commit boundary.
+Generation may be partial, cancelled, superseded, or resumed. Those states need
+explicit semantics so incomplete work does not corrupt the last accepted
+artifact or overwrite newer intent.
 
-The first implementation should use a replayable fixed-chunk source before
-connecting a live model. This makes incomplete output, duplicate chunks,
-revision conflicts, cancellation, late responses, and deterministic replay
-testable without depending on model behavior.
+### Scope identity and collaboration claims precisely
 
-Deterministic replay establishes lifecycle and projection correctness; it does
-not establish product value. Product experiments must compare generated outcomes
-with an appropriate hand-authored baseline.
+Sequential editing, concurrent editing, cross-session identity, and shared
+collaboration are different guarantees. Evidence for one does not establish the
+others. Canopy must not claim semantic co-editing until conflict, identity, and
+recovery behavior are defined for that scope.
 
-The output representation should evolve in stages:
+### Separate technical correctness from product evidence
 
-1. constrained JSX-like source;
-2. semantic edits such as adding a table or filter;
-3. a renderer-neutral semantic UI program, only after a real use case and a
-   second adapter establish the shared invariants.
+Deterministic validation can establish lifecycle, state, and projection
+invariants. It cannot establish that a generated interface is useful.
 
-Every candidate is evaluated against an explicit base revision. Cancelled or
-stale candidates are rejected, and only a validated candidate can advance the
-committed revision. A candidate is not committed until DOM application succeeds
-and the session state, registry, mounted IDs, and revision remain consistent.
-If application fails partway through, the existing session recovery and
-dirty-state contract determines whether the previous state is restored or the
-affected UI is rebuilt; the candidate must not be reported as committed. This
-boundary is more important than any particular model provider or transport API.
+Product claims require comparison with the strongest realistic alternative on a
+named job. Architecture claims require evidence across materially different
+contexts.
 
-The input path has two distinct kinds of preview. An internal dry-run or fake
-DOM application is required before committing a candidate. A user-visible
-approval preview is a separate product feature and is deferred beyond the
-first vertical slice.
+## Current architecture hypothesis
 
-## High-value applications
+Canopy's current hypothesis is that incremental editing of an identity-bearing
+semantic artifact can create value when people need generated changes to remain
+editable, state-preserving, inspectable, and reversible. This hypothesis aligns
+with Canopy's projectional architecture, but it is neither the definition of
+Generative UI nor the preferred answer before opportunity discovery.
 
-- Adaptive data-exploration workspaces that add filters, charts, and detail
-  views without losing the current query state.
-- Forms that reveal and validate fields based on the user's answers.
-- Educational surfaces that generate exercises, hints, visualizations, and
-  explanations around the learner's current state.
-- Collaborative workspaces where people and AI edit the same structured view.
-- Temporary debugging interfaces assembled from live program state.
+Where semantic editing is justified, natural-language intent should lower to
+structured operations over a canonical model rather than bypassing that model.
+Multiple projections may share semantic intent and identity without requiring a
+single universal representation or premature renderer-neutral contract.
 
-## Risks to measure
-
-- Non-deterministic or surprising model edits.
-- State loss during identity changes or reconciliation.
-- Accessibility and responsive-layout regressions.
-- Unsafe actions hidden behind generated controls.
-- Versioning and migration of generated UI structures.
-- Latency, token cost, and bundle/runtime overhead.
-
-## Recommended sequence
-
-1. Finish V1 correctness gates: CI, browser validation, and property-based
-   coverage for patch ordering, sibling indexes, nested updates, disposal,
-   isolation, and failed-apply recovery. See issue #888.
-2. Demonstrate one read-only end-to-end use case: an AI-assisted JSON/CSV data
-   exploration surface that incrementally produces a table, filters, and a
-   detail/summary panel while preserving user state. Keep generated actions
-   side-effect-free and place the minimal component, action, and data
-   capability boundary before expanding the scope.
-3. Extract provisional patch, identity, state-preservation, capability, and
-   candidate-commit invariants from that use case. Require internal dry-run
-   validation; defer user-visible approval preview.
-4. Validate those provisional invariants with a second materially different
-   adapter, then freeze the renderer-neutral conformance suite and contract.
-5. Add semantic edits, preview/undo, and auditability. Define concurrent
-   semantic-edit and conflict behavior before describing co-editing as a
-   supported guarantee, then generalize from JSX to multiple projections.
-
-## First vertical-slice acceptance criteria
-
-The first Generative UI prototype is successful only if it demonstrates all of
-the following:
-
-- Existing input, filter, and selection state survives incremental generation
-  whenever the structure permits.
-- Incomplete or invalid generated input does not destroy the last valid UI.
-- Reapplying the same update produces the same modeled UI result.
-- A failed patch application leaves the candidate uncommitted and follows the
-  session recovery/dirty-state contract without falsely advancing revision.
-- The generated surface uses only allowlisted declarative components: no
-  model-controlled network access, persistence, navigation, raw HTML, or
-  arbitrary code/expression execution is reachable through generated controls.
-- Cancelling generation invalidates its generation revision; late chunks from
-  that revision are rejected and cannot overwrite newer committed UI.
-- Resumption starts only from an explicitly selected committed revision.
-- Chunk sequencing, duplicate handling, finalization, and terminal-state
-  idempotency are deterministic and owned by the request lifecycle.
-- Internal dry-run validation succeeds before any candidate commit; a
-  user-visible approval preview is not required for this first slice.
-- The prototype records enough patch/revision information to inspect what the
-  model changed and to measure update latency.
-
-The prototype should be treated as a sequential or single-writer experiment.
-It does not claim concurrent semantic merging, cross-session identity, or a
-renderer-neutral contract.
-
-## Explicitly deferred
-
-- Concurrent semantic-edit conflict resolution.
-- Persistent or cross-session view identity.
-- General-purpose renderer-neutral APIs.
-- Additional language projections beyond the first validated use case.
-- Typed pure-expression and local state-transition models, pending a concrete
-  use case and validation by a materially different adapter.
-- Commands-as-data, effect approval, and undo/audit semantics for generated
-  actions.
-- Formal proof of the JavaScript/DOM boundary; prove pure reconciliation
-  invariants only after they are isolated from the adapter.
-
-## Non-goals
-
-This direction does not require making JSX a universal UI language, allowing
-arbitrary model-generated code, or replacing conventional hand-authored UI.
-The initial goal is a safe incremental bridge between structured generation,
-human editing, and multiple UI projections.
+The hypothesis remains bounded. A successful Projectional experiment does not
+exclude Static, Declarative, Open-Ended, Dynamic, or Hybrid approaches. A failed
+experiment rejects only its frozen person, job, representation, comparator, and
+evidence contract.
 
 ## Human outcome gate
 
-Generated UI changes are meaningful only when they meet the product-level
-gates defined in [Human-centered product principles](human-centered-product-principles.md).
-This document's generative-UI-specific interpretation:
+Generated UI changes are meaningful only when they meet the product-level gates
+defined in [Human-centered product principles](human-centered-product-principles.md):
 
-- **Candidate rationale/provenance tied to the exact candidate/revision.**
-  Every generated change carries a reason the person can read, linked to the
-  specific candidate and base revision that produced it.
-- **Preview/rejection cannot mutate committed state.** Internal dry-run must
-  validate a candidate before it reaches the session commit boundary; rejected
-  candidates change no committed state.
-- **Apply/recovery preserves focus, selection, and orientation.** Generated
-  changes preserve user-entered values, focus, selection, and local
-  customizations whenever the structure permits.
-- **Generated outcomes are compared with fixed/rules alternatives.** The
-  generated outcome must produce a measurably better result on a named task
-  than a fixed, rules-based alternative. Novelty alone is not justification.
+- **Legibility and governance:** people can understand generated changes and
+  retain authority over consequential effects.
+- **Orientation:** changes preserve the person's place and attention.
+- **Accessible equivalence:** generated capability has an equivalent accessible
+  path.
+- **Rationale and reversal:** changes carry understandable provenance and can be
+  undone without losing prior work.
+- **Net value:** the outcome improves a named job over its strongest realistic
+  alternative.
 
-These gates are product requirements, not technical implementation details.
-They sit above the commit and candidate contracts defined in this document.
-A private semantic-core experiment may falsify proposed invariants, but it does
-not replace this sequence, authorize product integration, or freeze a public
-renderer-neutral contract.
+These gates govern every representation mode. No architecture, model, or
+implementation path is exempt.
 
-Related: [JSX Incremental Parser for Generative UI](../plans/2026-07-09-jsx-incremental-parser-generative-ui.md),
-[property-based correctness coverage issue #888](https://github.com/dowdiness/canopy/issues/888),
-and the [Incremental Generative UI document engine](../design/incremental-generative-ui-document-engine.md).
+## Non-goals
+
+This direction does not prescribe one universal UI language, require generated
+execution, replace conventional hand-authored interfaces, or rank representation
+modes before evidence exists. It also does not authorize production integration,
+participant recruitment, or a public contract.
+
+## Detailed work
+
+Concrete research and execution details live in their bounded documents:
+
+- [Generative UI opportunity discovery](../plans/2026-07-17-generative-ui-opportunity-discovery-design.md)
+  defines sampling, evidence, comparison, and stop rules.
+- [Generative UI input vertical slice](../plans/2026-07-12-generative-ui-input-vertical-slice.md)
+  records the completed bounded implementation sequence and its technical
+  acceptance criteria.
+- [Structured-data bounded-provider experiment](../plans/2026-07-15-generative-ui-live-provider-experiment-design.md)
+  preserves one deferred confirmatory protocol without generalizing its job or
+  representation.
+- [Incremental Generative UI semantic-core validation](../plans/2026-07-16-incremental-generative-ui-semantic-core-validation.md)
+  defines the evidence required for the current semantic architecture
+  hypothesis.
