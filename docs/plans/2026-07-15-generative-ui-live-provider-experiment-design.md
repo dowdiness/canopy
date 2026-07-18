@@ -19,11 +19,16 @@ value protocol nor supplies evidence for its gates.
 
 ## Experiment-local claim
 
-This is one confirmatory experiment over one job family: answering specified
-questions about unfamiliar, read-only JSON/CSV data. It compares the existing
-fixed explorer, a task-specific hand-authored oracle, deterministic rules, and
-an eligible model-generated candidate on a capability-bounded
-Declarative/Projectional surface.
+This is one confirmatory experiment in the **Information understanding** job
+family: answering specified questions about unfamiliar, read-only JSON/CSV
+data. It tests one required value source from the opportunity taxonomy:
+**composing known controls around a new intent**.
+
+The experiment asks whether a task-specific composition of the bounded table,
+filter, and summary capabilities improves task completion over the fixed
+explorer. It compares the existing fixed explorer, a task-specific hand-authored
+oracle, deterministic rules, and an eligible model-generated candidate on the
+same capability-bounded Declarative/Projectional surface.
 
 It does not compare Static, Declarative, Open-Ended, Dynamic, Projectional, and
 Hybrid generation as general approaches, nor does it compare their possible
@@ -68,10 +73,18 @@ remain prohibited until the rules-capture gate makes Gemini eligible.
 - **Target-user hypothesis:** a developer or analyst answering a specified
   question over an unfamiliar read-only JSON/CSV schema. This is a hypothesis
   to test, not an established Canopy consumer.
-- **Primary signal:** correct task completion within a fixed time limit on
-  held-out schema-by-question cases.
-- **Secondary signals:** completion time, interaction count, blinded usefulness,
-  safety, latency, token use, provider cost, retries, and rejection reasons.
+- **Required value source:** composing known controls around a new intent.
+- **Primary signal:** the preregistered difference in correct task-completion
+  rate within a fixed time limit on held-out schema-by-question cases. Gate A
+  measures whether task-specific composition improves on the fixed explorer;
+  Gate B measures whether the capability-bounded surface preserves that uplift;
+  Gate C, when eligible, measures whether a model recovers additional uplift.
+- **Evidence:** each decisive observation binds the question, frozen capability
+  composition, answer correctness, completion time, interaction trace, and
+  reported useful moment. Aggregate success is attributed to this value source
+  only through the frozen arm comparisons.
+- **Secondary signals:** interaction count, blinded usefulness, safety, latency,
+  token use, provider cost, retries, and rejection reasons.
 - **Comparators:** the existing fixed explorer, a task-specific hand-authored
   oracle, deterministic rules, and Gemini only if the earlier gates pass.
 - **Lifecycle:** a removable experiment. It does not establish a public library

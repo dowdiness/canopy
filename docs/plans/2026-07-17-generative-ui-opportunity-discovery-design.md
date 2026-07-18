@@ -246,9 +246,13 @@ For each sampled job family, investigate:
 - what failure would make the interface unsafe or untrustworthy;
 - which existing alternative is strongest.
 
-Evidence consists of redacted notes, workflow diagrams, observed artifacts,
-and coded opportunity statements. Interview counts are not a success metric;
-new evidence must stop changing the opportunity map before sampling ends.
+Evidence consists of redacted notes, workflow diagrams, coded opportunity
+statements, and artifacts retained under the rules below. An artifact may be
+retained only when it is synthetic, redacted, or covered by explicit participant
+consent. Stage 1 retains no sensitive source data.
+
+Interview counts are not a success metric. Sampling ends only after new evidence
+stops changing the opportunity map.
 
 ### Stage 2: Representation-neutral concept tests
 
@@ -274,10 +278,10 @@ Declarative; another may compare Declarative with Dynamic; a persistent
 collaboration hypothesis may compare a Projectional artifact with a persistent
 Dynamic artifact.
 
-Prototype source and behavior are fixed before each session. Provider calls are
-not required: deterministic fixtures, hand-authored alternatives, and
-facilitator-driven behavior isolate the representation question from model
-reliability.
+Prototype source and behavior are fixed before each session. Provider calls,
+credentials, and networked model execution are prohibited during sessions.
+Deterministic fixtures, hand-authored alternatives, and facilitator-driven
+behavior isolate the representation question from model reliability.
 
 ### Stage 4: Useful moments and terminal limits
 

@@ -164,11 +164,12 @@ maintenance and proving-ground mode.
   path, but no research has established which people, jobs, value sources,
   lifecycles, or generation modes deserve product investment.
   Plan: `docs/plans/2026-07-17-generative-ui-opportunity-discovery-design.md`
-  Exit: a reviewed opportunity map samples the bounded initial tranche across
-  Static, Declarative, Open-Ended, Dynamic, Projectional, and Hybrid modes with
-  lifecycle recorded separately; ranked hypotheses name their strongest
-  alternatives, useful moments, capability and authority bundles, and
-  confirmatory exit criteria.
+  Exit: the bounded initial tranche yields a reviewed opportunity map and
+  ranked hypotheses; Stage 3 compares the smallest eligible modes for each
+  surviving hypothesis, with lifecycle recorded separately. Closure requires
+  the redacted evidence corpus, representation comparison, confirmatory
+  proposal or stop recommendation, and canonical direction updates defined by
+  the plan.
 
 - [ ] Verify the incremental Generative UI semantic core.
   Why: the document-engine authority, transaction, recovery, and identity
