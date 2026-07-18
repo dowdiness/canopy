@@ -110,6 +110,7 @@ test('provider schema accepts recorded controls and embeds no case authority', (
     assert.equal(validateSchema(getRecordedFeasibilityCandidate(fixture.caseId), GENUI_CANDIDATE_SCHEMA), true);
   }
   const schemaText = JSON.stringify(GENUI_CANDIDATE_SCHEMA);
+  assert.equal(schemaText.includes('"prefixItems":[]'), false, 'provider schema cannot contain empty prefixItems');
   for (const forbidden of [
     'orders', 'inventory', 'incidents', 'status', 'amount', 'on_hand', 'severity',
     'resolution_minutes', 'pending', 'critical', 'ord-1002', 'sku-001', 'inc-001',

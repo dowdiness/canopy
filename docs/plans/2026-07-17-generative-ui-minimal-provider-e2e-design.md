@@ -255,6 +255,32 @@ planning constraint, not a reason to omit a required failure path. If the design
 requires a protocol client, scheduler, manifest builder, or finalizer, stop and
 re-evaluate the boundary instead of recreating PR #906.
 
+## Implementation structure refinement
+
+The implementation keeps orchestration in the command runner but extracts the
+provider child-process lifecycle into one private support module. That module
+owns the single spawn, fixed Codex arguments, timeout and interrupt handling,
+whole-process-tree termination, and bounded pipe settlement. The runner retains
+CLI validation, private artifact ownership, candidate classification, browser
+evaluation, and terminal result policy.
+
+This split is organizational, not a provider abstraction. It introduces no
+provider interface, scheduler, retry policy, or second execution path. Existing
+runner exports remain stable for focused tests and the package command remains
+the only user-facing entry point.
+
+The lifecycle module keeps production timing defaults fixed while permitting
+tests to shorten grace periods. At least one real descendant-process test must
+still exercise operating-system process-tree cleanup rather than a fake child.
+The fake-provider browser test continues to pin the unchanged MoonBit
+materialization, rubric, replay, and session-commit boundary.
+
+Implementation verification and live feature validation are reported
+separately. Deterministic tests may establish that the command and unchanged
+pipeline work, but Required test 8 remains unmet until a post-fix credentialed
+run ends with classification `success`, a passing rubric, and a successful
+session commit. No deterministic substitute may be reported as that evidence.
+
 ## Preservation and migration
 
 PR #906 is closed without merge. Its complete implementation remains on remote

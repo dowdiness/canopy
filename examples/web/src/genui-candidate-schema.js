@@ -18,11 +18,9 @@ function componentSchema(name, attributes, children) {
     properties: {
       type: { const: 'component' },
       name: { const: name },
-      attributes: {
-        type: 'array',
-        prefixItems: attributes,
-        items: false,
-      },
+      attributes: attributes.length === 0
+        ? { type: 'array', maxItems: 0 }
+        : { type: 'array', prefixItems: attributes, items: false },
       children,
     },
   };
