@@ -1,16 +1,30 @@
 # Generative UI direction
 
-## Thesis
+## Research purpose
 
-Canopy should treat Generative UI as incremental editing of a stateful UI
-program, not as repeated generation of disposable HTML or JSX.
+Canopy's top-level Generative UI question is not tied to one data format, user
+job, output representation, or provider:
 
-The important property is that an AI-generated view remains editable,
-state-preserving, incrementally updateable, and safe to reconcile with human
-edits. JSX is one projection surface for this idea, not the definition of the
-whole system.
+> For which people, intents, contexts, and lifecycles does a generated
+> interface create useful capability, and what generation authority is
+> necessary to create that value?
 
-The existing architecture is a good fit:
+The research program must discover those conditions before choosing a preferred
+representation. A successful experiment in one job does not establish a global
+architecture, and a failed experiment does not reject Generative UI outside
+that experiment's frozen scope.
+
+## Current architecture hypothesis
+
+Canopy's current hypothesis is that treating generated UI as incremental editing
+of a stateful UI program can make the result editable, state-preserving,
+incrementally updateable, and safe to reconcile with human edits. This is one
+candidate answer to the research question, not the definition of Generative UI
+or a conclusion that disposable documents and executable generated interfaces
+are unhelpful.
+
+JSX is one projection surface for this hypothesis, not the definition of the
+whole system. The existing architecture is a good fit:
 
 ```text
 source / semantic UI program
@@ -37,6 +51,40 @@ Canopy does not yet define how concurrent semantic UI edits map to projection
 identity, conflict resolution, or user-visible state. The CRDT source-edit path
 and the future semantic-edit path must not be treated as having the same
 guarantees.
+
+## Candidate spectrum
+
+Opportunity discovery evaluates these modes as parallel candidates:
+
+| Mode | Generated result | Native strength |
+| --- | --- | --- |
+| Static | Content, parameters, or tool choices inside a host-authored UI | Predictability, speed, and host control |
+| Declarative | A component tree, bindings, and allowlisted actions | Flexible composition with structural validation |
+| Open-Ended | A document such as HTML and CSS | Visual freedom and portable presentation |
+| Dynamic | Executable UI code | Novel stateful behavior, computation, and integration |
+| Projectional | A semantic UI artifact and structured edits | Direct editing, identity, replay, and collaboration |
+| Hybrid | Explicitly bounded combinations of the other modes | Authority matched to each part of the interface |
+
+These modes are not a maturity ladder and do not form a single strength axis.
+Declarative generation is not preferred because its first implementation
+already exists, Dynamic generation is not a last resort, and Projectional
+generation is not the winner merely because it matches Canopy's architecture.
+Open-Ended presentation, Dynamic execution, and Projectional identity are
+incomparable capabilities. A job may require one mode, several incomparable
+minimum modes, or a Hybrid.
+
+Lifecycle is a separate axis. Static, Declarative, Open-Ended, Dynamic,
+Projectional, and Hybrid results may each be ephemeral, session-scoped,
+personally persistent, shared, or productized. Persistence increases identity,
+migration, provenance, replay, ownership, and maintenance obligations; it is
+not intrinsic to Projectional representation.
+
+Expressiveness, execution authority, persistence, and inspectability are also
+separate axes. Dynamic generation remains eligible where custom behavior,
+local state, computation, or integration produces value unavailable to a fixed
+component vocabulary. Its sandbox, dependency, interruption, lifecycle,
+latency, and maintenance costs are evidence to measure against that value, not
+reasons to exclude it before discovery.
 
 ## Direction
 
@@ -74,12 +122,17 @@ Expressiveness and authority are separate axes. Capability boundaries should
 constrain ambient authority and effects without treating the first prototype's
 component allowlist as the permanent ceiling on composition.
 
-Generated UI must not imply unrestricted authority. Components, actions, data
-access, expressions, and side effects should be constrained by explicit
-capabilities and schemas. The first prototype should use an allowlisted,
-declarative component model with no model-controlled network access, raw HTML,
-navigation, or arbitrary code/expression execution. Structural edits should be
-auditable and, where needed, require approval before effects occur.
+Generated UI must not imply unrestricted authority. Every mode needs a boundary
+appropriate to what it can execute: schemas and allowlists for declarative
+programs; document isolation for open-ended output; and sandboxing, budgets,
+interruption, dependency policy, re-entry control, and disposal for Dynamic
+code. Projectional artifacts additionally need explicit edit, identity, and
+commit authority.
+
+The first engineering prototype uses an allowlisted declarative component model
+with no model-controlled network access, raw HTML, navigation, or arbitrary
+code/expression execution. That is a contract for one validated slice, not a
+research conclusion or a permanent ceiling on later experiments.
 
 ### LLM input boundary
 
@@ -137,15 +190,29 @@ DOM application is required before committing a candidate. A user-visible
 approval preview is a separate product feature and is deferred beyond the
 first vertical slice.
 
-## High-value applications
+## Opportunity hypotheses
+
+Potential value is broader than one data-exploration task. Discovery should
+sample materially different jobs rather than treat any item below as an
+established consumer:
 
 - Adaptive data-exploration workspaces that add filters, charts, and detail
   views without losing the current query state.
-- Forms that reveal and validate fields based on the user's answers.
-- Educational surfaces that generate exercises, hints, visualizations, and
-  explanations around the learner's current state.
-- Collaborative workspaces where people and AI edit the same structured view.
-- Temporary debugging interfaces assembled from live program state.
+- Forms and workflows that reveal, validate, and act on information according
+  to the person's changing intent.
+- Educational surfaces that generate exercises, hints, simulations,
+  visualizations, and explanations around the learner's current state.
+- Monitoring and debugging interfaces assembled from live system state.
+- Personal or domain-specific applications whose useful interaction was not
+  known when the host was authored.
+- Creative authoring surfaces in which the generated interface is itself
+  inspected, edited, and reused.
+- Collaborative workspaces where people and AI evolve a shared artifact.
+
+The value source may be information selection, composition, visual adaptation,
+novel behavior, computation, integration, editability, persistence, reuse, or
+collaboration. An experiment must name which source it tests instead of using
+"Generative UI" as an undifferentiated treatment.
 
 ## Risks to measure
 
@@ -156,7 +223,12 @@ first vertical slice.
 - Versioning and migration of generated UI structures.
 - Latency, token cost, and bundle/runtime overhead.
 
-## Recommended sequence
+## Current bounded implementation sequence
+
+The following sequence validates Canopy's incremental, capability-bounded
+architecture hypothesis. It is not the ordering for opportunity discovery and
+does not make its JSON/CSV job, Declarative representation, or projectional
+direction the default for later product experiments.
 
 1. Finish V1 correctness gates: CI, browser validation, and property-based
    coverage for patch ordering, sibling indexes, nested updates, disposal,
@@ -218,10 +290,15 @@ renderer-neutral contract.
 
 ## Non-goals
 
-This direction does not require making JSX a universal UI language, allowing
-arbitrary model-generated code, or replacing conventional hand-authored UI.
-The initial goal is a safe incremental bridge between structured generation,
-human editing, and multiple UI projections.
+This direction does not require making JSX a universal UI language, replacing
+conventional hand-authored UI, or treating unrestricted execution as a
+prerequisite for every experiment. It also does not exclude open-ended
+documents, Dynamic generated code, or hybrids from opportunity discovery.
+
+The current engineering goal is narrower: establish a safe incremental bridge
+between structured generation, human editing, and multiple UI projections.
+Other modes must earn their own value and safety claims through evidence suited
+to what they generate and execute.
 
 ## Human outcome gate
 
@@ -238,9 +315,11 @@ This document's generative-UI-specific interpretation:
 - **Apply/recovery preserves focus, selection, and orientation.** Generated
   changes preserve user-entered values, focus, selection, and local
   customizations whenever the structure permits.
-- **Generated outcomes are compared with fixed/rules alternatives.** The
-  generated outcome must produce a measurably better result on a named task
-  than a fixed, rules-based alternative. Novelty alone is not justification.
+- **Generated outcomes are compared with the strongest realistic alternative.**
+  The comparator may be a fixed UI, rules-based system, hand-authored
+  application, manual coding, conversational answer, or the workflow without
+  an interface. The generated outcome must create measurably better value on a
+  named task; novelty alone is not justification.
 
 These gates are product requirements, not technical implementation details.
 They sit above the commit and candidate contracts defined in this document.

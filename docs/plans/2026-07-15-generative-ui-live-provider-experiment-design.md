@@ -1,4 +1,4 @@
-# Generative UI live-provider experiment design
+# Structured-data bounded-provider experiment design
 
 - **Date:** 2026-07-15
 - **Status:** Deferred before campaign freeze; no manifest was frozen and no gate was executed
@@ -16,6 +16,27 @@ The active engineering question is defined separately in
 [Generative UI local-LLM technical feasibility](2026-07-15-generative-ui-local-llm-technical-feasibility.md).
 That work tests implementation feasibility only. It neither depends on this
 value protocol nor supplies evidence for its gates.
+
+## Experiment-local claim
+
+This is one confirmatory experiment over one job family: answering specified
+questions about unfamiliar, read-only JSON/CSV data. It compares the existing
+fixed explorer, a task-specific hand-authored oracle, deterministic rules, and
+an eligible model-generated candidate on a capability-bounded
+Declarative/Projectional surface.
+
+It does not compare Static, Declarative, Open-Ended, Dynamic, Projectional, and
+Hybrid generation as general approaches, nor does it compare their possible
+lifecycles. It cannot show that this job is Canopy's best Generative UI
+opportunity, that bounded declarative output is the preferred representation
+elsewhere, or that generated code and open-ended documents lack value. Its
+`FIXED`, `RULES`, and `GENERATE` labels are experiment-local retention decisions
+for this job and apparatus, not architecture-wide verdicts.
+
+Arbitrary model-generated HTML, JavaScript, network calls, calculations, and
+effects remain outside this experiment. A later opportunity hypothesis that
+needs Dynamic or Open-Ended generation requires its own execution boundary,
+comparator, evidence contract, and review.
 
 ## Why
 
