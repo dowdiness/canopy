@@ -15,6 +15,7 @@ import {
   runProviderAttempt,
   writeTerminalResult,
 } from './run-genui-minimal-provider-e2e.mjs';
+import { runProviderProcess } from './genui-minimal-provider-process.mjs';
 import { GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
 import { recordedFeasibilityCandidateJson } from '../src/genui-recorded-candidates.js';
 
@@ -87,6 +88,7 @@ test('provider lifecycle performs exactly one fixed Codex invocation', async () 
   const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
   const run = await createPrivateRun(options, { repositoryRoot });
   const calls = [];
+  const monotonicTimes = [100, 125];
   const child = new EventEmitter();
   child.pid = 12345;
   child.stdin = new PassThrough();
@@ -104,10 +106,12 @@ test('provider lifecycle performs exactly one fixed Codex invocation', async () 
       return child;
     },
     providerInvocation: { command: 'codex', prefixArgs: [] },
+    monotonicNow: () => monotonicTimes.shift(),
   });
   const result = await resultPromise;
   assert.equal(result.classification, 'success');
   assert.equal(result.invocationCount, 1);
+  assert.equal(result.providerDurationMs, 25);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, 'codex');
   assert.equal(calls[0].args.filter(value => value === 'exec').length, 1);
@@ -116,6 +120,32 @@ test('provider lifecycle performs exactly one fixed Codex invocation', async () 
   }
   assert.equal(calls[0].args.at(-1), '-');
   assert.equal(calls[0].spawnOptions.cwd, run.paths.work);
+});
+
+test('provider event artifact write failures remain terminal', async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 24680;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const eventsStream = new PassThrough();
+  await assert.rejects(runProviderProcess(run, options, {
+    spawnProcess() {
+      queueMicrotask(() => {
+        eventsStream.destroy(new Error('artifact write failed'));
+        child.stdout.end('{}\n');
+        child.emit('exit', 0, null);
+      });
+      return child;
+    },
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    eventsStream,
+    outputSettleMs: 5,
+  }), /artifact write failed/);
 });
 
 test('provider timeout kills the process group and settles inherited output', { timeout: 15_000 }, async () => {
@@ -184,6 +214,46 @@ test('timeout kills a live provider grandchild after bounded escalation', { time
   assert.throws(() => process.kill(grandchildPid, 0), error => error.code === 'ESRCH');
 });
 
+test('timeout force-kills descendants after the provider parent exits', { timeout: 15_000 }, async () => {
+  if (process.platform === 'win32') return;
+  const { root, repositoryRoot } = await sandbox();
+  const scriptPath = join(root, 'provider-parent-exits.mjs');
+  const heartbeatPath = join(root, 'parent-exits-heartbeat');
+  const pidPath = join(root, 'parent-exits-grandchild-pid');
+  await writeFile(scriptPath, `
+    import { spawn } from 'node:child_process';
+    import { writeFileSync } from 'node:fs';
+    const heartbeat = process.argv[2];
+    const pidFile = process.argv[3];
+    const grandchild = spawn(process.execPath, ['-e', \`
+      const { appendFileSync } = require('node:fs');
+      process.on('SIGTERM', () => {});
+      setInterval(() => appendFileSync(process.argv[1], '.'), 20);
+    \`, heartbeat], { stdio: 'ignore' });
+    writeFileSync(pidFile, String(grandchild.pid));
+    process.on('SIGTERM', () => process.exit(0));
+    setInterval(() => {}, 1000);
+  `);
+  const options = parseMinimalProviderArgs(argv(join(root, 'run'), ['--timeout-ms', '250']), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const observed = await runProviderAttempt(run, options, {
+    spawnProcess(_command, _args, spawnOptions) {
+      return spawn(process.execPath, [scriptPath, heartbeatPath, pidPath], spawnOptions);
+    },
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    terminationGraceMs: 100,
+  });
+  assert.equal(observed.classification, 'provider_timeout');
+  assert.ok((await readFile(heartbeatPath, 'utf8')).length > 0);
+  const grandchildPid = Number(await readFile(pidPath, 'utf8'));
+  await new Promise(resolve => setTimeout(resolve, 100));
+  try {
+    assert.throws(() => process.kill(grandchildPid, 0), error => error.code === 'ESRCH');
+  } finally {
+    try { process.kill(grandchildPid, 'SIGKILL'); } catch {}
+  }
+});
+
 
 test('provider interruption terminates without retry', async () => {
   const { root, repositoryRoot } = await sandbox();
@@ -210,6 +280,126 @@ test('provider interruption terminates without retry', async () => {
   assert.equal(observed.classification, 'provider_failed');
   assert.equal(observed.interrupted, true);
   assert.equal(observed.invocationCount, 1);
+});
+
+test('Windows timeout awaits forced tree termination after the child exits', async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run'), ['--timeout-ms', '1']), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 97531;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  let resolveForcedTermination;
+  const forcedTermination = new Promise(resolve => { resolveForcedTermination = resolve; });
+  let completed = false;
+  const attempt = runProviderAttempt(run, options, {
+    spawnProcess: () => child,
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    platform: 'win32',
+    terminationGraceMs: 5,
+    outputSettleMs: 5,
+    terminateWindowsTree(_pid, force) {
+      if (!force) {
+        child.stdout.end();
+        child.stderr.end();
+        queueMicrotask(() => child.emit('exit', 0, null));
+        return Promise.resolve();
+      }
+      return forcedTermination;
+    },
+  }).then(result => {
+    completed = true;
+    return result;
+  });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(completed, false);
+  resolveForcedTermination();
+  const observed = await attempt;
+  assert.equal(observed.classification, 'provider_timeout');
+});
+
+test('Windows forced tree termination has a bounded wait', { timeout: 15_000 }, async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run'), ['--timeout-ms', '1']), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 13579;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const startedAt = Date.now();
+  const observed = await runProviderAttempt(run, options, {
+    spawnProcess: () => child,
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+    platform: 'win32',
+    terminationGraceMs: 5,
+    forceTerminationMs: 5,
+    outputSettleMs: 5,
+    terminateWindowsTree(_pid, force) {
+      if (!force) {
+        child.stdout.end();
+        child.stderr.end();
+        queueMicrotask(() => child.emit('exit', 0, null));
+        return Promise.resolve();
+      }
+      return new Promise(() => {});
+    },
+  });
+  assert.equal(observed.classification, 'provider_timeout');
+  assert.ok(Date.now() - startedAt < 1_000);
+});
+
+test('provider early stdin close is classified without an uncaught EPIPE', { timeout: 15_000 }, async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const providerPath = join(root, 'provider-closes-stdin.mjs');
+  await writeFile(providerPath, 'process.stdin.destroy(); process.exit(2);');
+  const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  run.request.prompt = 'x'.repeat(1_048_576);
+  const observed = await runProviderAttempt(run, options, {
+    providerInvocation: { command: process.execPath, prefixArgs: [providerPath] },
+  });
+  assert.equal(observed.classification, 'provider_failed');
+  assert.equal(observed.exitCode, 2);
+  assert.equal(observed.invocationCount, 1);
+});
+
+test('provider stderr is UTF-8 safe and bounded by retained bytes', async () => {
+  const { root, repositoryRoot } = await sandbox();
+  const options = parseMinimalProviderArgs(argv(join(root, 'run')), { repositoryRoot });
+  const run = await createPrivateRun(options, { repositoryRoot });
+  const child = new EventEmitter();
+  child.pid = 86420;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const euro = Buffer.from('€');
+  const observed = await runProviderAttempt(run, options, {
+    spawnProcess() {
+      queueMicrotask(() => {
+        child.stderr.write(euro.subarray(0, 1));
+        child.stderr.write(euro.subarray(1));
+        child.stderr.write('x'.repeat(16_380));
+        child.stderr.write(euro.subarray(0, 1));
+        child.stderr.write(euro.subarray(1));
+        child.stdout.end();
+        child.stderr.end();
+        child.emit('exit', 2, null);
+      });
+      return child;
+    },
+    providerInvocation: { command: 'codex', prefixArgs: [] },
+  });
+  assert.equal(observed.classification, 'provider_failed');
+  assert.equal(observed.stderr.startsWith('€'), true);
+  assert.ok(Buffer.byteLength(observed.stderr) <= 16_384);
+  assert.equal(observed.stderr.includes('\uFFFD'), false);
+  assert.equal(observed.stderrTruncated, true);
 });
 
 test('candidate boundaries distinguish missing, invalid UTF-8, malformed, and oversize output', async () => {
