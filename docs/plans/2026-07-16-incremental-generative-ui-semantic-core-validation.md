@@ -120,7 +120,7 @@ On mismatch, report the minimized event trace and both observations.
 
 ## Fixed transcript
 
-`fixed_scenario_wbtest.mbt` is the first red test and final integration gate:
+`fixed_scenario_wbtest.mbt` defines the shared fixture and final integration gate:
 
 1. Start with valid draft `D0`, root-only graph `G0` at revision 0, immutable
    schema identity/digest, renderer baseline 0, and acknowledged effect `E0`.
@@ -219,39 +219,58 @@ Do not introduce a helper until `moon ide doc`, `outline`, `peek-def`, and
 
 ## Implementation phases
 
-Each phase is a separate PR. It begins with failing evidence and ends with
-package checks/tests; no PR starts the next adapter layer.
+Each phase is a separate mergeable PR. It begins by running a newly registered
+bounded test and observing the expected failure, then ends with that test and
+the package checks passing. The complete transcript is represented once as
+shared fixture data in Phase 0, but it is not registered as an end-to-end test
+until Phase 3 implements every behavior needed for it to pass. Earlier phases
+execute successively longer prefixes of that same fixture. No phase lands a
+skipped, ignored, placeholder, or knowingly failing test, and no PR starts the
+next adapter layer.
 
-### Phase 0 — Boundary and red gate
+### Phase 0 — Boundary and executable fixture
 
 - Add the module to `moon.work`, with pinned `moonbitlang/quickcheck`, JS/native
   support, and `core/quickcheck`, SplitMix, and `@qc` imports restricted to
   white-box tests.
 - Record the Existing API First results.
-- Add observation types, fake-shell protocol, and the complete failing fixed
-  transcript. Its first failure must demonstrate missing core behavior while
-  the package remains free of adapter dependencies.
+- Add private observation types, the fake-shell event protocol, and the complete
+  fixed transcript as immutable fixture data with named checkpoints.
+- Register only boundary and fixture-contract tests: the package has no forbidden
+  dependency or public API, event/checkpoint ordering is complete and
+  deterministic, exact draft bytes are retained in the fixture, and later
+  phases can select a prefix without copying or rewriting the transcript.
+- Do not register the complete transcript as a test and do not add production
+  transition behavior in this phase.
 
-### Phase 1 — Graph and operations
+### Phase 1 — Graph and operations prefix
 
+- Register and first observe failure for the graph/operation prefix ending after
+  the request batch has produced `G1`.
 - Add private values, graph, revisions, schema descriptor identity/digest,
   request-local handles, and deterministic IDs.
 - Apply all five operations to a private working graph, checking each
   primitive's structural preconditions as it runs and final graph/schema
   invariants at the batch boundary.
 - Cover atomic rejection, no-op, property deletion versus `null`, graph
-  invariants, limits, and inverse derivation.
+  invariants, limits, and inverse derivation; end the PR with this prefix green.
 
-### Phase 2 — Requests and persistence
+### Phase 2 — Requests and persistence prefix
 
+- Extend the registered prefix through atomic persistence, response loss, retry,
+  and durable ledger-only outcomes; first observe its expected failure.
 - Add typed canonical content, collision-aware lookup, and terminal outcomes.
 - Model persistence intent, canonical delivery plans/digests, derived manifests,
   success/failure, response release, and effect release as reducer events.
 - Add fake-store failures before commit, response loss after commit, restart,
-  request-ID misuse, forced digest collision, and no-op/rejected recovery.
+  request-ID misuse, forced digest collision, and no-op/rejected recovery; end
+  the PR with this prefix green.
 
-### Phase 3 — Draft and outbox
+### Phase 3 — Draft, outbox, and complete transcript
 
+- Extend the registered prefix through draft/source and renderer delivery, first
+  observe its expected failure, and then register the complete fixed transcript
+  as the end-to-end test.
 - Add draft validity/revision and source rewrite CAS without a real parser.
 - Emit `MarkSynchronized` for text-origin commits and `RewriteSource` only for
   projection, agent, or undo origins; cover every origin explicitly.
@@ -259,8 +278,8 @@ package checks/tests; no PR starts the next adapter layer.
   edits before delivery and crashes before outcome persistence.
 - Classify renderer/source effects with dirty precedence, stale acknowledgment,
   expected baseline, and latest-snapshot rebuild.
-- Make the fixed transcript pass through restart with duplicate, reordered, and
-  failed delivery.
+- End the PR with the complete fixed transcript passing through restart with
+  duplicate, reordered, and failed delivery.
 
 ### Phase 4 — Generated traces
 
@@ -306,6 +325,10 @@ package checks/tests; no PR starts the next adapter layer.
 ## Acceptance gate
 
 - The private module has no forbidden dependency or accidental public API.
+- Phase 0 registers only bounded fixture-contract tests; Phases 1 and 2 register
+  only their executable prefixes; Phase 3 registers the complete transcript.
+  Every phase lands with no skipped, ignored, placeholder, or knowingly failing
+  test.
 - Fixed and generated traces match the reference model on JS and native.
 - Applied, no-op, rejected, response-loss, and collision outcomes satisfy their
   persistence and retry contracts.
