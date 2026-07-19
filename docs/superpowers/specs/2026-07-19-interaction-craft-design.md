@@ -1,6 +1,6 @@
 # Canopy interaction craft design
 
-**Status:** Design approved; written specification awaiting review  
+**Status:** Executed and verified in PR #913; merge deferred  
 **Date:** 2026-07-19  
 **Scope:** Strengthen the implementation decisions in `.impeccable.md` without changing the Legible Instrument product direction.
 
