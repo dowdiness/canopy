@@ -129,7 +129,7 @@ Canopy's visual identity comes from precise alignment, concise language, stable 
 Motion communicates causality; it does not decorate.
 
 - Press feedback begins on pointer-down or key activation.
-- Press feedback targets 80–100 ms.
+- Press feedback targets 100–160 ms.
 - Selection-state transitions target 120–160 ms.
 - Inline disclosure targets approximately 200 ms.
 - Large spatial transitions use critically damped, non-overshooting behavior only when continuity requires movement.

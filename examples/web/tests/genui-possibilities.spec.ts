@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const prototypeUrl = process.env.GENUI_POSSIBILITIES_URL ?? '/genui-possibilities.html';
 
@@ -38,26 +38,26 @@ const responseContracts: ResponseContract[] = [
   },
 ];
 
-async function currentRevision(page) {
+async function currentRevision(page: Page) {
   const label = await page.locator('#revision-label').textContent();
   const match = (label ?? '').match(/Revision\s+(\d+)/);
   return match ? Number(match[1]) : NaN;
 }
 
-async function itinerarySnapshot(page) {
+async function itinerarySnapshot(page: Page) {
   return page.locator('#itinerary-list > li').evaluateAll((items) =>
     items.map((item) => item.textContent?.replace(/\s+/g, ' ').trim() ?? '')
   );
 }
 
-async function assertNodeSentinels(page, selector: string, prefix: string) {
+async function assertNodeSentinels(page: Page, selector: string, prefix: string) {
   const count = await page.locator(selector).count();
   for (let index = 0; index < count; index += 1) {
     await expect(page.locator(selector).nth(index)).toHaveAttribute('data-node-sentinel', `${prefix}-${index}`);
   }
 }
 
-async function markNodeSentinels(page, selector: string, prefix: string) {
+async function markNodeSentinels(page: Page, selector: string, prefix: string) {
   await page.evaluate(
     ({ selector, prefix }) => {
       document.querySelectorAll(selector).forEach((node, index) => {
@@ -75,7 +75,7 @@ type Box = {
   bottom: number;
 };
 
-async function getBox(locator): Promise<Box> {
+async function getBox(locator: Locator): Promise<Box> {
   return locator.evaluate((node: Element) => {
     const rect = node.getBoundingClientRect();
     return {
@@ -91,7 +91,7 @@ function boxesOverlap(a: Box, b: Box) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
-async function expectTabToFocus(page, target) {
+async function expectTabToFocus(page: Page, target: Locator) {
   for (let attempts = 0; attempts < 20; attempts += 1) {
     if (await target.evaluate((element) => element === document.activeElement)) {
       return;
@@ -101,7 +101,7 @@ async function expectTabToFocus(page, target) {
   throw new Error(`Did not focus expected control after keyboard navigation`);
 }
 
-async function waitForNoOverflow(page) {
+async function waitForNoOverflow(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 }
@@ -117,7 +117,7 @@ function parseCssDurationMs(value: string): number {
   );
 }
 
-async function expectReducedMotionSuppressed(locator) {
+async function expectReducedMotionSuppressed(locator: Locator) {
   const motion = await locator.evaluate((node: Element) => {
     const nodeStyle = getComputedStyle(node);
     const htmlStyle = getComputedStyle(document.documentElement);
@@ -144,6 +144,8 @@ test.describe('generative itinerary decision', () => {
     await expect(page.getByRole('heading', { name: 'Compare responses' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'What would change' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Choose what happens next' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Current artifact' })).toContainText('Naoshima journey');
+    await expect(page.locator('#itinerary-list')).toHaveAttribute('role', 'list');
 
     const responses = page.getByRole('radio');
     const applyButton = page.getByRole('button', { name: 'Apply to itinerary' });
@@ -276,6 +278,13 @@ test.describe('generative itinerary decision', () => {
     }
   });
 
+  test('tablet comparison reflows without horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 900 });
+
+    await waitForNoOverflow(page);
+    await expect(page.locator('.comparison-labels')).toBeHidden();
+  });
+
   test('mobile keeps arrival, cost, and consequence without overflow or obstruction', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
@@ -319,9 +328,7 @@ test.describe('generative itinerary decision', () => {
     await applyButton.click();
     await expect(undoButton).toBeEnabled();
     await expect(page.getByRole('status')).toContainText(`${responseContracts[0].name} applied to the itinerary.`);
-    if (await undoButton.isVisible()) {
-      await expect(undoButton).toBeVisible();
-    }
+    await expect(undoButton).toBeVisible();
   });
 
   test('keyboard-only flow preserves authority, reversibility, and live feedback', async ({ page }) => {

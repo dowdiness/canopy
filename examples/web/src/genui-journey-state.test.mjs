@@ -26,6 +26,36 @@ test('selecting a response previews it without mutating the itinerary', () => {
   assert.deepEqual(selected.plan, initial.plan);
   assert.equal(selected.revision, initial.revision);
 });
+
+test('selecting no response dismisses the preview without mutating the itinerary', () => {
+  const initial = createJourneyState();
+  const selected = transitionJourney(initial, { type: 'select_option', option: 'early' });
+  const dismissed = transitionJourney(selected, { type: 'select_option', option: null });
+
+  assert.equal(dismissed.selectedOption, null);
+  assert.deepEqual(dismissed.plan, initial.plan);
+  assert.equal(dismissed.revision, initial.revision);
+});
+
+test('applying with no selected response is a no-op', () => {
+  const initial = createJourneyState();
+  const applied = transitionJourney(initial, { type: 'apply_option' });
+
+  assert.equal(applied.selectedOption, null);
+  assert.equal(applied.previousPlan, null);
+  assert.equal(applied.revision, initial.revision);
+  assert.strictEqual(applied, initial);
+});
+
+test('undo with no previous itinerary is a no-op', () => {
+  const initial = createJourneyState();
+  const undone = transitionJourney(initial, { type: 'undo' });
+
+  assert.equal(undone.selectedOption, null);
+  assert.equal(undone.previousPlan, null);
+  assert.equal(undone.revision, initial.revision);
+  assert.strictEqual(undone, initial);
+});
 test('every response preserves the protected stop through apply and undo', () => {
   const protectedStop = 'Chichu Art Museum · tomorrow 10:30';
 
