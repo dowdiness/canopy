@@ -65,6 +65,7 @@ export default defineConfig({
         markdown: 'markdown.html',
         posts: 'posts.html',
         genui: 'genui.html',
+        genuiPossibilities: 'genui-possibilities.html',
       },
     },
   },
