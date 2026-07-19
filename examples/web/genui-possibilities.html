@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3f0e8" />
+    <title>Naoshima journey</title>
+    <link rel="stylesheet" href="/src/genui-possibilities.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#decision-workspace">Skip to decision</a>
+    <header class="app-bar">
+      <a class="wordmark" href="/" aria-label="Canopy home">CANOPY</a>
+      <div class="journey-identity" aria-label="Current artifact">
+        <span>Naoshima journey</span>
+      </div>
+      <section class="revision-trace" aria-labelledby="revision-trace-title">
+        <h2 id="revision-trace-title" class="visually-hidden">Revision history</h2>
+        <span id="revision-label">Revision 3</span>
+        <button class="quiet-action" id="undo-button" type="button" disabled>Undo last change</button>
+      </section>
+    </header>
+
+    <main id="decision-workspace" aria-labelledby="decision-title">
+      <section class="disruption" aria-labelledby="disruption-title">
+        <div class="disruption-mark" aria-hidden="true">!</div>
+        <div class="disruption-copy">
+          <p class="section-label">Disruption context · updated 8 min ago</p>
+          <h2 id="disruption-title">Strong winds put the 17:20 ferry at risk.</h2>
+          <p>The last connection expected to run normally leaves Kyoto at 12:52. Your museum reservation tomorrow is unchanged.</p>
+        </div>
+        <dl class="source-status">
+          <div>
+            <dt>Risk</dt>
+            <dd><span class="certainty likely">Cancellation likely</span></dd>
+          </div>
+          <div>
+            <dt>Sources</dt>
+            <dd>JR West + Shikoku Kisen</dd>
+          </div>
+        </dl>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="itinerary-panel" aria-labelledby="itinerary-title">
+          <header class="panel-heading">
+            <div>
+              <p class="section-label">Persistent itinerary</p>
+              <h2 id="itinerary-title">Kyoto to Naoshima</h2>
+            </div>
+            <span id="plan-status" class="plan-status at-risk">Needs attention</span>
+          </header>
+          <ol id="itinerary-list" class="itinerary-list"></ol>
+        </section>
+
+        <section class="decision-panel" aria-labelledby="decision-title">
+          <header class="decision-heading">
+            <p class="section-label">Decision</p>
+            <h1 id="decision-title">How should this journey change?</h1>
+            <p>Nothing changes until you apply a response.</p>
+          </header>
+
+          <section class="response-comparison" aria-labelledby="response-comparison-title">
+            <header class="comparison-heading">
+              <h2 id="response-comparison-title">Compare responses</h2>
+              <p>Each response uses the same arrival, cost, evidence, and consequence.</p>
+            </header>
+            <div class="comparison-table" role="radiogroup" aria-labelledby="response-comparison-title">
+              <div class="comparison-labels" aria-hidden="true">
+                <span>Response and evidence</span><span>Arrival</span><span>Cost</span><span>What changes</span>
+              </div>
+              <div id="response-list"></div>
+            </div>
+          </section>
+
+          <section class="decision-preview" aria-labelledby="selection-detail-title">
+            <header>
+              <p class="section-label">Decision preview</p>
+              <h2 id="selection-detail-title">What would change</h2>
+            </header>
+            <aside id="selection-detail" class="selection-detail" aria-live="polite">
+              <p>Select a response to see exactly what would change in your itinerary.</p>
+            </aside>
+          </section>
+
+          <section class="decision-action-region" aria-labelledby="decision-actions-title">
+            <div>
+              <p class="section-label">Actions</p>
+              <h2 id="decision-actions-title">Choose what happens next</h2>
+            </div>
+            <div class="decision-actions">
+              <button id="apply-button" class="primary-action" type="button" disabled>Apply to itinerary</button>
+              <button id="dismiss-button" class="secondary-action" type="button">Clear response preview</button>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/genui-possibilities.js"></script>
+  </body>
+</html>
