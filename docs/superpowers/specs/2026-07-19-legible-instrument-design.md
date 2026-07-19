@@ -1,6 +1,6 @@
 # Legible Instrument design direction
 
-**Status:** Approved direction; written specification awaiting review  
+**Status:** Executed and verified
 **Date:** 2026-07-19  
 **Scope:** Canopy-wide UI and UX direction
 
@@ -162,6 +162,114 @@ Responsive design preserves decision-critical information rather than preserving
 
 Desktop and mobile must reach equivalent decisions using equivalent evidence.
 
+## Compositional design
+
+Composability means that content and functions can be combined while the resulting interface still forms one coherent experience. Reuse alone is insufficient. A composition succeeds when hierarchy, relationships, reading order, and action priority remain understandable as content, context, and viewport change.
+
+### One focal question
+
+Each screen or bounded workspace has one focal question. Every region has a role in answering it: subject, cause, evidence, alternative, action, or result. A component does not bring its own claim to visual primacy.
+
+For a disruption workspace, the focal question may be “How should this plan change?” The disruption explains why the question exists, the artifact provides the subject, alternatives provide possible answers, and actions commit the decision.
+
+### Relative emphasis
+
+Emphasis belongs to the composition rather than the component. The same content may be primary in one context, supporting in another, and reference material in a third. A workspace has at most one primary region; supporting and reference regions remain available without competing for attention.
+
+Urgency, importance, and visual emphasis are independent properties. Status color communicates state. Position, typography, spacing, and order establish hierarchy.
+
+### Spatial grammar
+
+Canopy uses a small set of layout relationships:
+
+- **Stack:** sequential reading or action.
+- **Cluster:** short peers with equal weight, such as metadata or compact actions.
+- **Split:** two responsibilities that benefit from simultaneous view, such as artifact and proposed change.
+- **Grid:** multiple objects compared on shared axes.
+- **Inset:** supporting information attached to a local subject.
+- **Overlay:** a short task that must suspend the underlying workflow.
+
+These terms describe relationships rather than fixed components. The composition chooses the relationship; product components supply the content and behavior.
+
+Overlay is reserved for cases where suspending the current task is necessary, such as approval of an irreversible effect. Supplemental detail remains in the flow.
+
+### Relational spacing
+
+Spacing communicates semantic distance:
+
+```text
+within element
+< within group
+< between groups
+< between responsibilities
+```
+
+The exact values may change with density, text size, and viewport, but the ordering remains stable. Related content is made legible through proximity before an enclosing surface is introduced.
+
+### Shared alignment
+
+Related and comparable information shares a small number of visual anchors. Names, values, times, costs, diagnostics, and actions align across component boundaries when the alignment supports scanning or comparison.
+
+Responsive layouts may transform an alignment axis. A desktop comparison column can become a repeated label/value alignment inside each mobile option. The relationship and comparison axis remain available.
+
+### Boundary economy
+
+A boundary communicates independent identity, responsibility, selection, movement, or overlap. Parent and child regions do not repeat equivalent framing. When spacing is sufficient to communicate grouping, another background or border is not added.
+
+The composition selects the minimum effective combination of spacing, rule, background difference, and elevation. Each additional boundary must communicate a distinct relationship.
+
+### Color budget
+
+Color is a shared attention budget managed by the composition. Components request semantic roles; they do not introduce local accent systems.
+
+- Ordinary content remains neutral.
+- Interactive state uses the shared interaction role.
+- Warning, error, and success roles appear only when those states are present.
+- State colors do not substitute for hierarchy or grouping.
+- Simultaneous states remain distinguishable through text, shape, iconography, and control state as well as color.
+
+### Action mapping
+
+Control placement communicates its target. Local actions remain near the object they affect. Workspace actions appear at the end of the decision flow. Preview and apply remain in the same decision region; undo appears with the resulting revision.
+
+Each bounded decision has one primary action. Selection, preview, commit, external execution, and undo remain perceptually distinct even when they occur in sequence.
+
+### Information-preserving reflow
+
+Responsive composition preserves the focal question, evidence, alternatives, action mapping, and reading order. It may change simultaneity, density, columns, and spacing. It does not remove a decision-critical comparison axis merely to preserve a compact layout.
+
+Desktop favors simultaneous comparison. Mobile favors a sequential narrative. Both must support the same informed decision.
+
+### Coordinated motion
+
+Motion belongs to the causal event rather than individual components. One input produces one dominant motion response. Only the source, affected result, or changed relationship moves.
+
+When several regions update, their behavior communicates a single cause. Stable content does not replay entrance motion, and child components do not run unrelated transitions. Interaction type—not component identity—determines timing.
+
+### Design primitives and product components
+
+Design primitives express perceptual relationships: Stack, Cluster, Split, Grid, Inset, Rule, text roles, action groups, and status indicators.
+
+Product components express Canopy responsibilities: identity, artifact, change, comparison, reason, decision, revision, and diagnostic.
+
+Product components compose design primitives without owning an isolated visual language. Their surrounding composition controls emphasis, outer spacing, alignment, and boundaries. Components own their semantic content, internal state, direct affordances, and accessibility contract.
+
+### Composition laws
+
+Every composition preserves:
+
+1. **Focal clarity:** one question remains visually primary.
+2. **Relationship fidelity:** spacing, alignment, and boundaries reflect semantic relationships.
+3. **Action locality:** a control's target and consequence are apparent from placement and wording.
+4. **Information parity:** a reflow retains the evidence required for the same decision.
+5. **Identity stability:** the same artifact remains recognizable across preview, update, and projection.
+6. **Authority:** composition never turns selection or preview into implicit commit.
+7. **Reversibility:** combining reversible operations defines a coherent reversal boundary.
+8. **Accessible order:** visual, keyboard, and assistive-technology order express the same relationships.
+9. **Negotiability:** inferred grouping, hierarchy, emphasis, and projection remain visibly distinguishable from user-authored organization and can be corrected, suppressed, or replaced.
+
+Semantic interaction models and projection infrastructure exist to preserve these design laws. They support the visual grammar rather than define it.
+
 ## Component responsibilities
 
 Components are named for their product responsibility rather than their appearance:
@@ -212,9 +320,22 @@ A migrated surface must not introduce a second design system beside the new dire
 
 - `.impeccable.md` defines Canopy through the five usability costs, causal interaction model, and human-centered product invariants.
 - The replacement direction specifies visual hierarchy in terms of attention, comprehension, and task context.
+- The replacement direction defines composability through one focal question, relative emphasis, relational spacing, shared alignment, boundary economy, color budget, action mapping, information-preserving reflow, and coordinated motion.
 - `genui-possibilities` demonstrates the new direction through stable hierarchy, restrained semantic color, precise comparison, and immediate feedback.
 - The demo preserves preview-before-apply, stable artifact identity, explicit reasoning, revision history, and undo.
 - Desktop and 390 px mobile layouts retain every decision-critical comparison field.
 - Pointer, keyboard, and screen-reader paths expose equivalent actions and evidence.
 - Reduced-motion and higher-contrast modes preserve comprehension.
 - Browser verification confirms no horizontal overflow, focus loss, hidden comparison field, or action-obscuring feedback.
+
+## Execution evidence
+
+Verified on 2026-07-19 against the `genui-possibilities` reference surface:
+
+- **Canonical direction:** `.impeccable.md` defines the five usability costs, causal interaction model, human-centered invariants, and design-first composability. Review of the replacement text found no retired dark-surface, purple-accent, glass, material-metaphor, or proprietary-font direction.
+- **Composition and hierarchy:** `genui-possibilities.html` exposes one primary question and named artifact, comparison, preview, action, and revision regions. The focused browser suite verifies every response exposes response, evidence, arrival, cost, and consequence fields.
+- **Authority and reversibility:** `node --test src/genui-journey-state.test.mjs src/genui-possibility-scores.test.mjs` passed 6/6. The reducer and browser checks verify selection does not mutate the itinerary, apply creates exactly one revision, protected content survives every response, and undo restores prior content as a new revision.
+- **Stable identity and focus:** Browser sentinels remain attached to all four itinerary nodes and all three response nodes after apply and undo. Keyboard tests verify roving radio behavior, preview, apply, revision, undo, live status feedback, and focus restoration.
+- **Desktop, mobile, pointer, keyboard, and accessibility parity:** `GENUI_POSSIBILITIES_URL=http://localhost:5176/genui-possibilities.html npx playwright test tests/genui-possibilities.spec.ts --project=chromium --reporter=line` passed 7/7. Accessible roles, names, checked and disabled states expose the same actions and decision evidence used by pointer and keyboard paths. Desktop and 390 px checks retain every comparison field with zero horizontal overflow and unobscured actions, preview, revision, and feedback.
+- **Motion and contrast:** The browser suite verifies reduced-motion mode removes transition, animation, and smooth-scroll dependencies. Forced-colors mode retains selected state, risk, protected content, consequences, controls, and accessible names without relying on color alone.
+- **Build and workspace validation:** `npm run build` passed. `moon test` passed 3,639 wasm-gc tests, 1,937 JavaScript tests, and 70 native tests with zero failures. `moon info && moon fmt` completed successfully with no MoonBit public API change introduced by this HTML/CSS/JavaScript surface.
