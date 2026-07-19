@@ -57,7 +57,7 @@ const selectionDetail = document.querySelector('#selection-detail');
 const revisionLabel = document.querySelector('#revision-label');
 const planStatus = document.querySelector('#plan-status');
 const applyButton = document.querySelector('#apply-button');
-const dismissButton = document.querySelector('#dismiss-button');
+const clearSelectionButton = document.querySelector('#clear-selection-button');
 const undoButton = document.querySelector('#undo-button');
 const toast = document.querySelector('#toast');
 
@@ -272,6 +272,8 @@ function renderDetail() {
     emptyMessage.textContent = 'Select a response to see exactly what would change in your itinerary.';
     selectionDetail.append(emptyMessage);
     applyButton.disabled = true;
+    applyButton.textContent = 'Apply to itinerary';
+    clearSelectionButton.disabled = true;
     return;
   }
 
@@ -289,6 +291,7 @@ function renderDetail() {
   selectionDetail.append(header, detailText);
 
   applyButton.disabled = false;
+  clearSelectionButton.disabled = false;
   applyButton.textContent = response.id === 'wait' ? 'Keep current itinerary' : 'Apply to itinerary';
 }
 
@@ -379,14 +382,15 @@ applyButton.addEventListener('click', () => {
   showToast(`${chosen.name} applied to the itinerary. No booking was changed.`);
 });
 
-dismissButton.addEventListener('click', () => {
+clearSelectionButton.addEventListener('click', () => {
+  if (state.selectedOption === null) return;
   const previousFocus = focusedResponseId;
   state = transitionJourney(state, { type: 'select_option', option: null });
   render();
   if (previousFocus !== null) {
     focusResponse(previousFocus);
   }
-  showToast('Current itinerary kept. The ferry risk is still active.');
+  showToast('Selection cleared. Current itinerary unchanged.');
 });
 
 undoButton.addEventListener('click', () => {

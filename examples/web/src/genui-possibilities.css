@@ -471,10 +471,15 @@ main {
 }
 
 .comparison-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-md);
+}
+
+.comparison-heading-copy {
+  display: grid;
+  gap: var(--space-2xs);
 }
 
 .comparison-heading h2 {
@@ -484,11 +489,41 @@ main {
 }
 
 .comparison-heading p {
-  max-width: 52ch;
+  max-width: 64ch;
   margin: 0;
   color: var(--muted);
   font-size: 0.75rem;
-  text-align: right;
+}
+
+.selection-reset {
+  min-height: 2.75rem;
+  padding-inline: var(--space-sm);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--control-radius);
+  color: var(--ink-secondary);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--press-transition), background-color var(--selection-transition), border-color var(--selection-transition);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .selection-reset:hover:not(:disabled) {
+    border-color: var(--ink-secondary);
+    background: var(--surface-inset);
+  }
+}
+
+.selection-reset:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.selection-reset:disabled {
+  border-color: var(--line);
+  color: var(--disabled-ink);
+  background: var(--disabled-surface);
+  cursor: default;
 }
 
 .comparison-table {
@@ -840,14 +875,6 @@ main {
     font-size: 1.75rem;
   }
 
-  .comparison-heading {
-    display: grid;
-    gap: var(--space-2xs);
-  }
-
-  .comparison-heading p {
-    text-align: left;
-  }
 
   .comparison-labels {
     display: none;

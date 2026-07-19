@@ -150,11 +150,13 @@ test.describe('generative itinerary decision', () => {
     const responses = page.getByRole('radio');
     const applyButton = page.getByRole('button', { name: 'Apply to itinerary' });
     const undoButton = page.getByRole('button', { name: 'Undo last change' });
+    const clearSelectionButton = page.getByRole('button', { name: 'Clear selection' });
     const revision = page.locator('#revision-label');
     const selectionDetail = page.locator('#selection-detail');
 
     await expect(responses).toHaveCount(responseContracts.length);
     await expect(applyButton).toBeDisabled();
+    await expect(clearSelectionButton).toBeDisabled();
     await expect(undoButton).toBeDisabled();
     await expect(revision).toHaveText('Revision 3');
     await expect(selectionDetail).toContainText('Select a response to see exactly what would change in your itinerary.');
@@ -200,7 +202,7 @@ test.describe('generative itinerary decision', () => {
     const itinerary = page.locator('#itinerary-list > li');
     const responses = page.getByRole('radio');
     const applyButton = page.getByRole('button', { name: /(Apply to itinerary|Keep current itinerary)/i });
-    const dismissButton = page.getByRole('button', { name: 'Clear response preview' });
+    const clearSelectionButton = page.getByRole('button', { name: 'Clear selection' });
     const undoButton = page.getByRole('button', { name: 'Undo last change' });
     const revisionLabel = page.locator('#revision-label');
     const selectionDetail = page.locator('#selection-detail');
@@ -209,6 +211,7 @@ test.describe('generative itinerary decision', () => {
     await expect(itinerary).toHaveCount(4);
     await expect(revisionLabel).toHaveText('Revision 3');
     await expect(applyButton).toBeDisabled();
+    await expect(clearSelectionButton).toBeDisabled();
     await markNodeSentinels(page, '#itinerary-list > li', 'itinerary');
     await markNodeSentinels(page, '[role="radio"]', 'response');
 
@@ -219,6 +222,7 @@ test.describe('generative itinerary decision', () => {
     await response.click();
 
     await expect(applyButton).toBeEnabled();
+    await expect(clearSelectionButton).toBeEnabled();
     await expect(response).toHaveAttribute('aria-checked', 'true');
     await expect(selectionDetail).toContainText('Previewing');
     await expect(selectionDetail).toContainText(responseContracts[0].name);
@@ -233,8 +237,14 @@ test.describe('generative itinerary decision', () => {
     await expect(protectedStop).toContainText('Protected');
     await expect(protectedStop).toContainText('Unchanged in preview');
 
-    await dismissButton.click();
+    await clearSelectionButton.click();
     await expect(revisionLabel).toHaveText('Revision 3');
+    await expect(response).toHaveAttribute('aria-checked', 'false');
+    await expect(response).toBeFocused();
+    await expect(applyButton).toBeDisabled();
+    await expect(clearSelectionButton).toBeDisabled();
+    await expect(selectionDetail).toContainText('Select a response to see exactly what would change in your itinerary.');
+    await expect(status).toContainText('Selection cleared. Current itinerary unchanged.');
     await expect(firstStop.getByRole('group', { name: 'Current stop' })).toContainText('14:10');
     await expect(firstStop.getByRole('group', { name: 'Proposed stop' })).toBeHidden();
     await expect(protectedStop.locator('.change-note')).toBeHidden();
@@ -274,6 +284,7 @@ test.describe('generative itinerary decision', () => {
     const revision = page.locator('#revision-label');
     const undoButton = page.getByRole('button', { name: 'Undo last change' });
     const compare = page.getByRole('radiogroup', { name: 'Compare responses' });
+    const clearSelectionButton = page.getByRole('button', { name: 'Clear selection' });
 
     await waitForNoOverflow(page);
     await expect(itineraryRegion).toBeVisible();
@@ -284,7 +295,7 @@ test.describe('generative itinerary decision', () => {
     await expect(itinerary).toBeVisible();
     await expect(previewRegion).toBeVisible();
     await expect(actionRegion.getByRole('button', { name: 'Apply to itinerary' })).toBeVisible();
-    await expect(actionRegion.getByRole('button', { name: 'Clear response preview' })).toBeVisible();
+    await expect(clearSelectionButton).toBeVisible();
 
     for (let index = 0; index < responseContracts.length; index += 1) {
       const contract = responseContracts[index];
@@ -322,7 +333,7 @@ test.describe('generative itinerary decision', () => {
     const applyButton = page.getByRole('button', { name: /(Apply to itinerary|Keep current itinerary)/i });
     const undoButton = page.getByRole('button', { name: 'Undo last change' });
     const revisionLabel = page.locator('#revision-label');
-    const dismissButton = page.getByRole('button', { name: 'Clear response preview' });
+    const clearSelectionButton = page.getByRole('button', { name: 'Clear selection' });
     await selected.click();
     await expect(selectionDetail).toContainText('Previewing');
     await expect(selectionDetail).toContainText(responseContracts[0].name);
@@ -330,18 +341,15 @@ test.describe('generative itinerary decision', () => {
     const selectedBox = await getBox(selected);
     const previewBox = await getBox(selectionDetail);
     const applyBox = await getBox(applyButton);
-    const dismissBox = await getBox(dismissButton);
-    const actionBox = {
-      left: Math.min(applyBox.left, dismissBox.left),
-      right: Math.max(applyBox.right, dismissBox.right),
-      top: Math.min(applyBox.top, dismissBox.top),
-      bottom: Math.max(applyBox.bottom, dismissBox.bottom),
-    };
+    const clearSelectionBox = await getBox(clearSelectionButton);
     const revisionBox = await getBox(revisionLabel);
 
-    expect(boxesOverlap(actionBox, selectedBox)).toBe(false);
-    expect(boxesOverlap(actionBox, previewBox)).toBe(false);
-    expect(boxesOverlap(actionBox, revisionBox)).toBe(false);
+    expect(boxesOverlap(applyBox, selectedBox)).toBe(false);
+    expect(boxesOverlap(applyBox, previewBox)).toBe(false);
+    expect(boxesOverlap(applyBox, revisionBox)).toBe(false);
+    expect(boxesOverlap(clearSelectionBox, selectedBox)).toBe(false);
+    expect(boxesOverlap(clearSelectionBox, previewBox)).toBe(false);
+    expect(boxesOverlap(clearSelectionBox, revisionBox)).toBe(false);
 
     await applyButton.click();
     await expect(undoButton).toBeEnabled();

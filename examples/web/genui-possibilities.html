@@ -62,8 +62,11 @@
 
           <section class="response-comparison" aria-labelledby="response-comparison-title">
             <header class="comparison-heading">
-              <h2 id="response-comparison-title">Compare responses</h2>
-              <p>Each response uses the same arrival, cost, evidence, and consequence.</p>
+              <div class="comparison-heading-copy">
+                <h2 id="response-comparison-title">Compare responses</h2>
+                <p>Each response uses the same arrival, cost, evidence, and consequence.</p>
+              </div>
+              <button id="clear-selection-button" class="selection-reset" type="button" disabled>Clear selection</button>
             </header>
             <div class="comparison-table" role="radiogroup" aria-labelledby="response-comparison-title">
               <div class="comparison-labels" aria-hidden="true">
@@ -90,7 +93,6 @@
             </div>
             <div class="decision-actions">
               <button id="apply-button" class="primary-action" type="button" disabled>Apply to itinerary</button>
-              <button id="dismiss-button" class="secondary-action" type="button">Clear response preview</button>
             </div>
           </section>
         </section>
