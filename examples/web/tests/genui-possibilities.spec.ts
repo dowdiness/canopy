@@ -196,10 +196,11 @@ test.describe('generative itinerary decision', () => {
     await expect(page.locator('#selection-detail')).toContainText('Previewing');
   });
 
-  test('selection previews without mutating the itinerary and applies once', async ({ page }) => {
+  test('selection previews before and after values without mutating the itinerary and applies once', async ({ page }) => {
     const itinerary = page.locator('#itinerary-list > li');
     const responses = page.getByRole('radio');
     const applyButton = page.getByRole('button', { name: /(Apply to itinerary|Keep current itinerary)/i });
+    const dismissButton = page.getByRole('button', { name: 'Clear response preview' });
     const undoButton = page.getByRole('button', { name: 'Undo last change' });
     const revisionLabel = page.locator('#revision-label');
     const selectionDetail = page.locator('#selection-detail');
@@ -213,6 +214,8 @@ test.describe('generative itinerary decision', () => {
 
     const originalItinerary = await itinerarySnapshot(page);
     const response = responses.first();
+    const firstStop = itinerary.first();
+    const protectedStop = itinerary.nth(3);
     await response.click();
 
     await expect(applyButton).toBeEnabled();
@@ -221,14 +224,29 @@ test.describe('generative itinerary decision', () => {
     await expect(selectionDetail).toContainText(responseContracts[0].name);
     await expect(revisionLabel).toHaveText('Revision 3');
     await expect(page.locator('#plan-status')).toHaveText('Needs attention');
-    await expect(itinerary.nth(3)).toContainText('Chichu Art Museum');
-    await expect(itinerary.nth(3)).toContainText('Protected');
+    await expect(firstStop.getByRole('group', { name: 'Current stop' })).toContainText('Kyoto Station');
+    await expect(firstStop.getByRole('group', { name: 'Current stop' })).toContainText('14:10');
+    await expect(firstStop.getByRole('group', { name: 'Proposed stop' })).toContainText('Kyoto Station');
+    await expect(firstStop.getByRole('group', { name: 'Proposed stop' })).toContainText('12:52');
+    await expect(firstStop.locator('.protected-badge')).toBeHidden();
+    await expect(protectedStop).toContainText('Chichu Art Museum');
+    await expect(protectedStop).toContainText('Protected');
+    await expect(protectedStop).toContainText('Unchanged in preview');
 
+    await dismissButton.click();
+    await expect(revisionLabel).toHaveText('Revision 3');
+    await expect(firstStop.getByRole('group', { name: 'Current stop' })).toContainText('14:10');
+    await expect(firstStop.getByRole('group', { name: 'Proposed stop' })).toBeHidden();
+    await expect(protectedStop.locator('.change-note')).toBeHidden();
+
+    await response.click();
     await applyButton.click();
     await expect(revisionLabel).toHaveText('Revision 4');
     await expect(undoButton).toBeEnabled();
     await expect(status).toContainText(`${responseContracts[0].name} applied to the itinerary.`);
     await expect(page.locator('#plan-status')).toHaveText('Updated · booking unchanged');
+    await expect(firstStop.getByRole('group', { name: 'Current stop' })).toContainText('12:52');
+    await expect(firstStop.getByRole('group', { name: 'Proposed stop' })).toBeHidden();
     await assertNodeSentinels(page, '#itinerary-list > li', 'itinerary');
     await assertNodeSentinels(page, '[role="radio"]', 'response');
 

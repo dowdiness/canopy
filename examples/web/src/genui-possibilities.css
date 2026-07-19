@@ -366,18 +366,34 @@ main {
   box-shadow: 0 0 0 1px var(--line-strong);
 }
 
-.itinerary-stop > div {
+.stop-version {
   display: grid;
+  grid-column: 2;
   gap: var(--space-2xs);
+  min-width: 0;
 }
 
-.itinerary-stop strong {
+.stop-version[hidden] {
+  display: none;
+}
+
+.stop-version strong {
   font-size: 0.875rem;
 }
 
-.itinerary-stop > div > span {
+.stop-version > span:not(.stop-version-label) {
   color: var(--muted);
   font-size: 0.8125rem;
+}
+
+.stop-version-label {
+  width: max-content;
+  color: var(--muted);
+  font-size: 0.625rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .itinerary-stop.proposed {
@@ -390,10 +406,20 @@ main {
   background: var(--accent);
 }
 
+.proposed-stop {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--line);
+}
+
+.proposed-stop .stop-version-label {
+  color: var(--accent);
+}
+
 .change-note {
   grid-column: 2;
-  margin-top: var(--space-2xs);
-  color: var(--accent);
+  margin-top: var(--space-xs);
+  color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 650;
 }
@@ -413,6 +439,10 @@ main {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   vertical-align: 0.0625rem;
+}
+
+.protected-badge[hidden] {
+  display: none;
 }
 
 .decision-heading {

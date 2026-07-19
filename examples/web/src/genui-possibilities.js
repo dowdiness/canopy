@@ -97,33 +97,58 @@ function createItineraryRow(index) {
   marker.className = 'stop-marker';
   marker.setAttribute('aria-hidden', 'true');
 
-  const textBlock = document.createElement('div');
+  const currentStop = document.createElement('div');
+  currentStop.className = 'stop-version current-stop';
+  currentStop.setAttribute('role', 'group');
+  currentStop.setAttribute('aria-label', 'Current stop');
+  const currentLabel = document.createElement('span');
+  currentLabel.className = 'stop-version-label';
+  currentLabel.textContent = 'Current';
+  currentLabel.hidden = true;
   const label = document.createElement('strong');
   const placeText = document.createTextNode('');
   const protectedBadge = document.createElement('span');
   protectedBadge.className = 'protected-badge';
   protectedBadge.textContent = 'Protected';
   protectedBadge.hidden = true;
-
   const timeText = document.createTextNode('');
   const timeNode = document.createElement('span');
   timeNode.append(timeText);
-
   label.append(placeText, protectedBadge);
-  textBlock.append(label, timeNode);
+  currentStop.append(currentLabel, label, timeNode);
+
+  const proposedStop = document.createElement('div');
+  proposedStop.className = 'stop-version proposed-stop';
+  proposedStop.setAttribute('role', 'group');
+  proposedStop.setAttribute('aria-label', 'Proposed stop');
+  proposedStop.hidden = true;
+  const proposedLabel = document.createElement('span');
+  proposedLabel.className = 'stop-version-label';
+  proposedLabel.textContent = 'Proposed';
+  const proposedPlace = document.createElement('strong');
+  const proposedPlaceText = document.createTextNode('');
+  proposedPlace.append(proposedPlaceText);
+  const proposedTimeText = document.createTextNode('');
+  const proposedTimeNode = document.createElement('span');
+  proposedTimeNode.append(proposedTimeText);
+  proposedStop.append(proposedLabel, proposedPlace, proposedTimeNode);
 
   const changeNote = document.createElement('span');
   changeNote.className = 'change-note';
   changeNote.hidden = true;
 
-  row.append(marker, textBlock, changeNote);
+  row.append(marker, currentStop, proposedStop, changeNote);
 
   return {
     index,
     row,
+    currentLabel,
     placeText,
     timeText,
     protectedBadge,
+    proposedStop,
+    proposedPlaceText,
+    proposedTimeText,
     changeNote,
   };
 }
@@ -205,24 +230,28 @@ function focusResponse(responseId) {
 
 function renderItinerary() {
   const selected = selectedResponse();
-  const shownPlan = selected?.preview ?? state.plan.items;
 
   for (let index = 0; index < itineraryRows.length; index++) {
     const row = itineraryRows[index];
-    const sourceStop = shownPlan[index] ?? '';
-    const planStop = state.plan.items[index] ?? '';
-    const wasChanged = sourceStop !== planStop;
+    const currentStop = state.plan.items[index] ?? '';
+    const proposedStop = selected?.preview[index] ?? currentStop;
+    const isPreviewing = selected !== null;
+    const wasChanged = isPreviewing && proposedStop !== currentStop;
 
-    const { place: sourcePlace, time: sourceTime } = splitStopText(sourceStop);
-    const { time: previousTime } = splitStopText(planStop);
+    const { place: currentPlace, time: currentTime } = splitStopText(currentStop);
+    const { place: proposedPlace, time: proposedTime } = splitStopText(proposedStop);
 
-    row.placeText.data = sourcePlace;
-    row.timeText.data = sourceTime;
-    row.protectedBadge.hidden = !isProtectedStop(sourcePlace);
+    row.placeText.data = currentPlace;
+    row.timeText.data = currentTime;
+    row.protectedBadge.hidden = !isProtectedStop(currentPlace);
+    row.currentLabel.hidden = !wasChanged;
+    row.proposedStop.hidden = !wasChanged;
+    row.proposedPlaceText.data = proposedPlace;
+    row.proposedTimeText.data = proposedTime;
     row.row.classList.toggle('proposed', wasChanged);
 
-    row.changeNote.hidden = !wasChanged;
-    row.changeNote.textContent = wasChanged ? `was ${previousTime || 'not planned'}` : '';
+    row.changeNote.hidden = !isPreviewing;
+    row.changeNote.textContent = wasChanged ? 'Replaces current stop' : 'Unchanged in preview';
   }
 }
 
