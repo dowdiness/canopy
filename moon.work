@@ -35,6 +35,7 @@ members = [
   "./lib/analysis",
   "./lib/semantic",
   "./lib/cognition",
+  "./lib/generative-ui-document",
   "./examples/ideal",
   "./examples/block-editor",
   "./examples/codemirror_demo",
