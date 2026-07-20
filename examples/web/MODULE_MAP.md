@@ -6,14 +6,14 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 | Surface | HTML | Browser entry | Feature-owned source | Styles | Runtime and tests |
 |---|---|---|---|---|---|
-| Lambda | `index.html` | `src/entries/lambda.ts` | `features/lambda/browser/{mount,editor,ast-grep-runner}.ts` (uses shared decoration overlay) | Inline in `index.html` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
-| JSON | `json.html` | `src/entries/json.ts` | `features/json/browser/{editor,mount}.ts` (uses shared decoration overlay) | Inline in `json.html` plus `src/json-editor.css` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
-| Markdown | `markdown.html` | `src/entries/markdown.ts` | `features/markdown/browser/{app,mount,sentinels}.ts` | Inline in `markdown.html` plus editor-adapter CSS | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts` |
-| Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | Inline in `memo.html` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
-| Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | Inline in `posts.html` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
+| Lambda | `index.html` | `src/entries/lambda.ts` | `features/lambda/browser/{mount,editor,ast-grep-runner}.ts` (uses shared decoration overlay) | `features/lambda/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
+| JSON | `json.html` | `src/entries/json.ts` | `features/json/browser/{editor,mount}.ts` (uses shared decoration overlay) | `features/json/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
+| Markdown | `markdown.html` | `src/entries/markdown.ts` | `features/markdown/browser/{app,mount,sentinels}.ts` | `features/markdown/browser/styles.css`, imported by `mount.ts`; adapter CSS remains adapter-owned | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts` |
+| Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | `features/memo/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
+| Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | `features/posts/browser/styles.css`, imported by `mount.ts` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
 | Resume/PKE | `resume.html` | `src/resume-app.tsx` | `resume-app.tsx`, `pi-resume-core.ts`, `pi-resume-chat-protocol.ts`, `components/ai-elements/*` | `src/resume.css` | Browser React + Vite chat relay; `tests/pi-resume.spec.ts` |
 | GenUI | `genui.html` | `src/genui.js` | `genui.js`, `genui-data.ts`, feasibility flow/fixtures/schema/provider/recorded/spike modules, `src/fixtures/*` | Inline in `genui.html` plus `src/tailwind.css` | Browser + generated MoonBit JSX, deterministic feasibility code, and a server-only provider; `tests/genui.spec.ts`, feasibility suites, colocated Node tests, study scripts |
-| GenUI Possibilities | `genui-possibilities.html` | `src/entries/genui-possibilities.js` | `features/genui-possibilities/core/journey-state.js`, `features/genui-possibilities/browser/mount.js` | `src/genui-possibilities.css` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
+| GenUI Possibilities | `genui-possibilities.html` | `src/entries/genui-possibilities.js` | `features/genui-possibilities/core/journey-state.js`, `features/genui-possibilities/browser/mount.js` | `features/genui-possibilities/browser/styles.css`, imported by `mount.js` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
 
 `spike-block-input.html` is an inactive investigation surface and is not part of the eight Vite inputs.
 
@@ -55,6 +55,8 @@ The target vocabulary is:
 - **features**: browser-owned modules for one application only;
 - **shared**: reusable deterministic types, adapters, protocols, and core logic;
 - **server**: Node/Vite/provider capabilities and relays.
+
+Style ownership is explicit: feature-only styles live under that feature's `browser/` directory and are imported by a browser module; stable multi-feature styles belong under `shared/browser/`; adapter styles remain imported from the adapter package. Inline HTML styles are migration debt unless a documented delivery or CSP constraint requires them.
 
 Allowed direction is `entries -> corresponding feature -> shared`; server adapters may consume shared/core data but browser code must not consume server. Shared cannot consume features. A feature cannot consume another feature's internals. Declared `core/` and `protocol/` paths cannot import Node, Vite, React, or provider capabilities. The checker parses static imports with the TypeScript compiler and classifies the current flat tree explicitly; new target-shaped paths are checked by the same rules.
 

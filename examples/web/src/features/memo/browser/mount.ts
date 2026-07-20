@@ -1,3 +1,4 @@
+import './styles.css';
 import { createMemoApp } from './app';
 import { createMemoView } from './view';
 
