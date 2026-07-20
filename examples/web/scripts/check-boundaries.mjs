@@ -31,7 +31,7 @@ const CURRENT_ENTRY_SCRIPTS = new Map([
   ['posts.html', 'src/entries/posts.ts'],
   ['resume.html', 'src/resume-app.tsx'],
   ['genui.html', 'src/genui.js'],
-  ['genui-possibilities.html', 'src/genui-possibilities.js'],
+  ['genui-possibilities.html', 'src/entries/genui-possibilities.js'],
 ]);
 const ROOT_SERVER_FILES = new Set([
   'signaling-server.js',
@@ -98,9 +98,7 @@ export function describePath(filePath) {
   if (/^(resume-app|pi-resume-)/.test(base) || normalized.includes('components/ai-elements/')) {
     return { kind: 'feature', owner: 'resume' };
   }
-  if (/^genui-possibilities\./.test(base) || base.startsWith('genui-journey-state.')) {
-    return { kind: 'feature', owner: 'genui-possibilities' };
-  }
+
   if (/^genui(?:-|\.)/.test(base) || normalized.includes('/fixtures/')) {
     return { kind: 'feature', owner: 'genui' };
   }

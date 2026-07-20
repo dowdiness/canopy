@@ -13,7 +13,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 | Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | Inline in `posts.html` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
 | Resume/PKE | `resume.html` | `src/resume-app.tsx` | `resume-app.tsx`, `pi-resume-core.ts`, `pi-resume-chat-protocol.ts`, `components/ai-elements/*` | `src/resume.css` | Browser React + Vite chat relay; `tests/pi-resume.spec.ts` |
 | GenUI | `genui.html` | `src/genui.js` | `genui.js`, `genui-data.ts`, feasibility flow/fixtures/schema/provider/recorded/spike modules, `src/fixtures/*` | Inline in `genui.html` plus `src/tailwind.css` | Browser + generated MoonBit JSX, deterministic feasibility code, and a server-only provider; `tests/genui.spec.ts`, feasibility suites, colocated Node tests, study scripts |
-| GenUI Possibilities | `genui-possibilities.html` | `src/genui-possibilities.js` | `genui-possibilities.js`, `genui-journey-state.js` | `src/genui-possibilities.css` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
+| GenUI Possibilities | `genui-possibilities.html` | `src/entries/genui-possibilities.js` | `features/genui-possibilities/core/journey-state.js`, `features/genui-possibilities/browser/mount.js` | `src/genui-possibilities.css` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
 
 `spike-block-input.html` is an inactive investigation surface and is not part of the eight Vite inputs.
 

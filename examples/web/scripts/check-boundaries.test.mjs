@@ -67,6 +67,15 @@ test('resolves relative and Vite root-relative local imports', () => {
 
 test('requires entries to import the matching feature browser surface only', () => {
   assert.deepEqual(
+    evaluateEdge('src/entries/genui-possibilities.js', 'src/features/genui-possibilities/browser/mount.js'),
+    [],
+  );
+  assert.match(
+    evaluateEdge('src/entries/genui-possibilities.js', 'src/features/genui-possibilities/core/journey-state.js')[0],
+    /entry/,
+  );
+
+  assert.deepEqual(
     evaluateEdge('src/entries/posts.ts', 'src/features/posts/browser/mount.ts'),
     [],
   );
@@ -153,6 +162,37 @@ test('requires HTML to load target-shaped entry modules for migrated features', 
       'src/entries/markdown.ts',
     ),
     [],
+  );
+  assert.equal(htmlEntryAccepted('/src/genui-possibilities.js', 'genui-possibilities', 'src/entries/genui-possibilities.js'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/genui-possibilities.js', 'genui-possibilities', 'src/entries/genui-possibilities.js'), true);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'genui-possibilities.html',
+      'genui-possibilities',
+      ['/src/entries/genui-possibilities.js'],
+      'src/entries/genui-possibilities.js',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'genui-possibilities.html',
+      'genui-possibilities',
+      ['/src/genui-possibilities.js'],
+      'src/entries/genui-possibilities.js',
+    ),
+    [
+      {
+        from: 'genui-possibilities.html',
+        to: 'src/genui-possibilities.js',
+        rule: 'HTML entry must load its corresponding browser entry module',
+      },
+      {
+        from: 'genui-possibilities.html',
+        to: '<missing>',
+        rule: 'HTML entry must load at least one corresponding browser entry module',
+      },
+    ],
   );
 });
 
