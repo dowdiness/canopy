@@ -33,6 +33,18 @@ test.describe('Lambda Editor — Foundation', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('ast-grep endpoint preserves its method and empty-input contract', async ({ page }) => {
+    const getResponse = await page.request.get('/api/ast-grep');
+    expect(getResponse.status()).toBe(405);
+
+    const postResponse = await page.request.post('/api/ast-grep', {
+      headers: { 'content-type': 'application/json' },
+      data: { text: '' },
+    });
+    expect(postResponse.status()).toBe(200);
+    expect(await postResponse.json()).toEqual({ matches: [] });
+  });
+
   test('editor is visible and focusable', async ({ page }) => {
     const editor = page.locator('#editor');
     await expect(editor).toBeVisible();

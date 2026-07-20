@@ -5,6 +5,7 @@ import { moonbitPlugin } from './vite-plugin-moonbit';
 import tailwindcss from '@tailwindcss/vite';
 import { genUiFeasibilityPlugin } from './vite-plugin-genui-feasibility';
 import { piResumeChatPlugin } from './server/vite/resume-chat';
+import { astGrepPlugin } from './server/vite/ast-grep';
 
 const analyze = process.env.ANALYZE === '1';
 
@@ -14,6 +15,7 @@ export default defineConfig({
     tailwindcss(),
     genUiFeasibilityPlugin(),
     piResumeChatPlugin(),
+    astGrepPlugin(),
     moonbitPlugin({
       modules: [
         {

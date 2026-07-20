@@ -20,7 +20,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 ## Runtime and generated dependencies
 
 - Browser code is TypeScript/TSX/JS bundled by Vite. React and the AI SDK are used by Resume/PKE; GenUI is plain browser JavaScript plus the generated JSX FFI.
-- `vite-plugin-moonbit.ts` owns MoonBit builds, virtual-module loading, output watching, and HMR. It also currently owns the Lambda-only `/api/ast-grep` development relay.
+- `server/vite/ast-grep.ts` owns the Lambda-only `/api/ast-grep` development relay. `vite-plugin-moonbit.ts` owns MoonBit build, virtual-module, and HMR behavior only.
 - `server/vite/resume-chat.ts` owns the local Resume/PKE provider relay and consumes the Resume protocol surface. `vite-plugin-genui-feasibility.ts` owns the local GenUI study relay and imports the server-only `src/genui-feasibility-provider.js`. These Vite adapters are not browser entry dependencies.
 - `signaling-server.js`, `signaling-worker.js`, `wrangler-signaling.toml`, and `wrangler.jsonc` are deployment/integration shells outside the eight browser entry graphs.
 
