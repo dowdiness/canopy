@@ -70,6 +70,10 @@ test('requires entries to import the matching feature browser surface only', () 
     evaluateEdge('src/entries/posts.ts', 'src/features/posts/browser/mount.ts'),
     [],
   );
+  assert.deepEqual(
+    evaluateEdge('src/entries/json.ts', 'src/features/json/browser/mount.ts'),
+    [],
+  );
   assert.match(
     evaluateEdge('src/entries/posts.ts', 'src/features/posts/core/posts.ts')[0],
     /entry/,
@@ -115,6 +119,17 @@ test('requires HTML to load target-shaped entry modules for migrated features', 
       'memo',
       ['/src/entries/memo.ts'],
       'src/entries/memo.ts',
+    ),
+    [],
+  );
+  assert.equal(htmlEntryAccepted('/src/json-editor.ts', 'json', 'src/entries/json.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/json.ts', 'json', 'src/entries/json.ts'), true);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'json.html',
+      'json',
+      ['/src/entries/json.ts'],
+      'src/entries/json.ts',
     ),
     [],
   );
@@ -164,6 +179,7 @@ test('recognizes current exceptions and future top-level runtime vocabulary', ()
   assert.equal(classifyPath('src/components/ai-elements/message.tsx'), 'resume');
   assert.equal(classifyPath('src/genui-feasibility-provider.js'), 'server');
   assert.equal(classifyPath('server/vite/genui-provider.ts'), 'server');
+  assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');
   assert.deepEqual(
     describePath('src/features/json/browser/editor.ts'),
     { kind: 'feature', owner: 'json', layer: 'browser' },
