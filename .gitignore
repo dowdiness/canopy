@@ -17,6 +17,7 @@ _build
 .vite/
 
 .playwright-mcp/
+.playwright-cli/
 examples/demo-react/playwright-report/
 examples/demo-react/test-results/
 examples/canvas/web/playwright-report/

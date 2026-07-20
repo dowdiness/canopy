@@ -40,22 +40,46 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 **Note:** Canopy's current implementation is a projectional editor with CRDT
 collaboration, and the sections below still track that work. Near-term product
 development now prioritizes the **Personal Knowledge Environment** direction:
-resumable technical project memory, with the projectional editor preserved in
-maintenance and proving-ground mode.
+agent histories as a thinking environment with movement across Trace, Shape,
+and Meaning scales; the projectional editor is preserved in maintenance and
+proving-ground mode.
 
-- [ ] Deliver the first Personal Knowledge Environment vertical slice: import
-  a user-selected pi session snapshot into a fixed, source-backed Resume View.
-  Why: the initial wedge should restore a technical work session without asking
-  the person to enter the same context twice.
-  Plan: `docs/plans/2026-07-16-pi-activity-capture-resume-prototype.md`
-  Direction: `docs/architecture/personal-knowledge-environment-direction.md`
-  Exit: fixed fixture and explicit import satisfy the plan's
-  correctness/privacy/traceability criteria; on an unseen transcript,
-  evaluator identifies goal, one verified outcome, unresolved question or next
-  step, and opens source evidence within five minutes; Resume improves
-  correctness, time, or both vs chronology.
-  Later gate: expansion is governed by the direction document's
-  product-evidence gate using actual work across sessions.
+- [ ] Validate the first history-to-thinking vertical slice: use the synchronized
+  source workbench and independent chat during one genuinely unfinished
+  non-Canopy work session before adding another capability.
+  Why: past agent activity already contains intent, corrections, actions, tool
+  evidence, failures, and outcomes. Explicit per-turn attachment should help the
+  person think with that history without duplicate capture, automatic scanning,
+  or system interpretation replacing the source record.
+  Plan (direction): `docs/architecture/personal-knowledge-environment-direction.md`
+  Plan (execution): `docs/plans/2026-07-18-agent-history-thinking-environment.md`
+  Status: the Resume/semantic-study product hypothesis is superseded by the
+  new direction; the technical baseline, decoder, WorkBench interactions, and
+  provenance evidence remain. Direct long-context semantic study failed because
+  cardinality/content complexity defeated byte-only chunking; no Cloudflare or
+  study runtime remains in this PR. The current implemented slice is the
+  synchronized source workbench (Timeline / Conversation / Evidence) plus
+  independent chat. The epistemic core boundary and independent chat with
+  explicit per-turn attachment are implemented. Source-bounded chat—the
+  workbench as primary interaction form—failed in direct use. Ordinary chat
+  defaults to no history; selected history and the current recorded path
+  attach only as explicit per-turn choices with exact outbound preview and
+  per-turn context snapshots; provider and model are fixed to DeepSeek
+  `deepseek-v4-flash` through a same-origin local relay; authority is limited
+  to explicitly sent text and explicitly attached normalized history;
+  import/read authority remains separate from model-egress authority; warnings
+  do not censor explicit source text; `automaticOutputAllowed` metadata remains
+  but this PR includes NO automatic model workflow; no persistence, retrieval,
+  suggested prompts, automatic scanning, capture, or multi-session
+  authorization. The framing question is settled; the open gate is empirical
+  value in real history and present thinking. No provider egress, automatic
+  scanning, persistence, capture, or multi-session memory is authorized beyond
+  the independent chat; each is a separately gated follow-up.
+  Exit: the next clean test uses a genuinely unfinished non-Canopy work
+  session. Evaluate whether the independent chat with explicit per-turn
+  attachment changes or advances current thought or work, without inferring
+  value from tests, schema validity, or this Canopy-development session.
+  Validation excludes semantic Playwright and study Node tests.
 
 ---
 

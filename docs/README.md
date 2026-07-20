@@ -26,7 +26,8 @@ Read in order to build a mental model of the system.
    to be: write, negotiate structure, and surface context.
 2. **[Personal Knowledge Environment Direction](architecture/personal-knowledge-environment-direction.md)**
    — near-term primary product direction: human-centered personal knowledge
-   environment with resumable technical project memory as the initial wedge.
+   environment where past agent activity participates in present thinking
+   through Trace, Shape, and Meaning scales.
 3. **[Human-centered product principles](architecture/human-centered-product-principles.md)**
    — canonical product behavior invariants: human authority, negotiable
    structure, contestability, and product gates.

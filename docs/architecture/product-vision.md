@@ -8,8 +8,9 @@ with reasons and under the person's control.
 See [Human-centered product principles](human-centered-product-principles.md)
 for the behavior invariants this vision is designed around. The
 [Personal Knowledge Environment direction](personal-knowledge-environment-direction.md)
-records the current product priority and its first resumable-project-memory
-wedge.
+records the current product priority: use histories already produced in
+everyday tools, beginning with agent histories, so past activity can
+participate in present thinking.
 
 ## The core loop
 
@@ -134,9 +135,9 @@ increase. The person can inspect, reset, or suppress that signal.
 
 The code editor (lambda calculus, JSON) remains one proving ground for the
 product vision, but it is no longer a mandatory sequence for every product
-feature. The near-term Personal Knowledge Environment work validates
-capture and resumption directly, then reuses editor infrastructure only when
-it improves a named task.
+feature. Near-term Personal Knowledge Environment work validates continuous
+movement from activity shape to exact source and back into present thinking,
+then reuses editor infrastructure only when it improves that experience.
 
 | Product capability | Existing proving-ground evidence |
 |---|---|
