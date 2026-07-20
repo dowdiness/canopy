@@ -6,8 +6,8 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 | Surface | HTML | Browser entry | Feature-owned source | Styles | Runtime and tests |
 |---|---|---|---|---|---|
-| Lambda | `index.html` | `src/main.ts` | `editor.ts`, `decoration-overlay.ts`, `ast-grep-runner.ts` | Inline in `index.html` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
-| JSON | `json.html` | `src/json-editor.ts` | `json-editor.ts` (uses shared decoration overlay) | Inline in `json.html` plus `src/json-editor.css` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
+| Lambda | `index.html` | `src/main.ts` | `editor.ts`, `ast-grep-runner.ts` (uses shared decoration overlay) | Inline in `index.html` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
+| JSON | `json.html` | `src/entries/json.ts` | `features/json/browser/{editor,mount}.ts` (uses shared decoration overlay) | Inline in `json.html` plus `src/json-editor.css` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
 | Markdown | `markdown.html` | `src/markdown-editor.ts` | `markdown-editor.ts`, `markdown-sentinels.ts` | Inline in `markdown.html` plus editor-adapter CSS | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts` |
 | Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | Inline in `memo.html` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
 | Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | Inline in `posts.html` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
@@ -45,7 +45,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 ## Current structural exceptions and debt
 
-Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Posts and Memo are pilot migrations to the target entry/feature layout. `decoration-overlay.ts` is shared by Lambda and JSON but lives at the source root. GenUI feasibility modules mix deterministic fixtures/flows with the server-only provider. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
+Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Posts, Memo, and JSON are pilot migrations to the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI feasibility modules mix deterministic fixtures/flows with the server-only provider. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
 ## Boundary vocabulary and allowed direction
 

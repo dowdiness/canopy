@@ -5,7 +5,7 @@ import * as graphviz from '@moonbit/graphviz';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
 import type { Decoration, ViewPatch } from '@canopy/editor-adapter/types';
 import { runAnalysis } from './ast-grep-runner';
-import { DecorationOverlay } from './decoration-overlay';
+import { DecorationOverlay } from './shared/decoration-overlay';
 
 export function createEditor(agentId: string) {
   const handle = crdt.create_editor(agentId);

@@ -1,9 +1,16 @@
 import * as crdt from '@moonbit/crdt-json';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
-import { DecorationOverlay } from './decoration-overlay';
+import { DecorationOverlay } from '../../../shared/decoration-overlay';
 import type { Decoration } from '@canopy/editor-adapter/types';
 import type { ViewPatch, ViewNode } from '@canopy/editor-adapter/types';
 
+interface JsonRoleSpanData { start: number; end: number; role: string }
+
+declare global {
+  interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
+}
+
+export function mountJsonEditor(): void {
 const EXAMPLE_FALLBACK = '{"hello": "world"}';
 
 const agentId = `json-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -48,17 +55,12 @@ const ROLE_TO_CSS_CLASS: Record<string, string> = {
   'error': 'json-role-error',
 };
 
-export interface JsonRoleSpanData { start: number; end: number; role: string }
-
-export function getJsonRoleSpans(): JsonRoleSpanData[] {
+function getJsonRoleSpans(): JsonRoleSpanData[] {
   const raw = crdt.json_get_role_spans_json(handle);
   try { return JSON.parse(raw) as JsonRoleSpanData[]; }
   catch { return []; }
 }
 
-declare global {
-  interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
-}
 window.getJsonRoleSpans = getJsonRoleSpans;
 
 function roleSpansToDecorations(spans: JsonRoleSpanData[]): Decoration[] {
@@ -543,3 +545,4 @@ else {
 adapter.resetCollapseState();
 refresh();
 fetchEditLog();
+}

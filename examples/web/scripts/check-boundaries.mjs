@@ -25,7 +25,7 @@ const ENTRY_FEATURES = new Map([
 ]);
 const CURRENT_ENTRY_SCRIPTS = new Map([
   ['index.html', 'src/main.ts'],
-  ['json.html', 'src/json-editor.ts'],
+  ['json.html', 'src/entries/json.ts'],
   ['markdown.html', 'src/markdown-editor.ts'],
   ['memo.html', 'src/entries/memo.ts'],
   ['posts.html', 'src/entries/posts.ts'],
@@ -86,11 +86,10 @@ export function describePath(filePath) {
     };
   }
 
-  if (/(^|\/)shared\//.test(normalized) || base === 'decoration-overlay.ts' || base === 'vite-env.d.ts') {
+  if (/(^|\/)shared\//.test(normalized) || base === 'vite-env.d.ts') {
     return { kind: 'shared' };
   }
   if (/^(main|editor|ast-grep-runner)\./.test(base)) return { kind: 'feature', owner: 'lambda' };
-  if (base.startsWith('json-editor.')) return { kind: 'feature', owner: 'json' };
   if (base === 'resume.css') return { kind: 'feature', owner: 'resume' };
   if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
   if (base === 'genui-possibilities.css') {
