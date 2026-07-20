@@ -331,6 +331,18 @@ jobs:
       - name: Build web
         run: ./scripts/build-web.sh
 
+      - name: Type check web
+        working-directory: examples/web
+        run: npm run typecheck
+
+      - name: Check web dependency boundaries
+        working-directory: examples/web
+        run: npm run check:boundaries
+
+      - name: Test web dependency boundaries
+        working-directory: examples/web
+        run: npm run test:boundaries
+
       - name: Install prosemirror dependencies
         working-directory: examples/prosemirror
         run: npm ci
