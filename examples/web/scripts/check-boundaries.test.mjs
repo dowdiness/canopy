@@ -84,7 +84,7 @@ test('requires entries to import the matching feature browser surface only', () 
   );
 });
 
-test('requires HTML to load the Posts target-shaped entry module', () => {
+test('requires HTML to load target-shaped entry modules for migrated features', () => {
   assert.equal(htmlEntryAccepted('/src/post-app.ts', 'posts', 'src/entries/posts.ts'), false);
   assert.equal(htmlEntryAccepted('/src/post-store.ts', 'posts', 'src/entries/posts.ts'), false);
   assert.equal(htmlEntryAccepted('/src/entries/posts.ts', 'posts', 'src/entries/posts.ts'), true);
@@ -104,6 +104,17 @@ test('requires HTML to load the Posts target-shaped entry module', () => {
       'posts',
       ['/src/entries/posts.ts'],
       'src/entries/posts.ts',
+    ),
+    [],
+  );
+  assert.equal(htmlEntryAccepted('/src/memo-editor.ts', 'memo', 'src/entries/memo.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/memo.ts', 'memo', 'src/entries/memo.ts'), true);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'memo.html',
+      'memo',
+      ['/src/entries/memo.ts'],
+      'src/entries/memo.ts',
     ),
     [],
   );
