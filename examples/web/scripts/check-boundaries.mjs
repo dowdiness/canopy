@@ -26,7 +26,7 @@ const ENTRY_FEATURES = new Map([
 const CURRENT_ENTRY_SCRIPTS = new Map([
   ['index.html', 'src/main.ts'],
   ['json.html', 'src/entries/json.ts'],
-  ['markdown.html', 'src/markdown-editor.ts'],
+  ['markdown.html', 'src/entries/markdown.ts'],
   ['memo.html', 'src/entries/memo.ts'],
   ['posts.html', 'src/entries/posts.ts'],
   ['resume.html', 'src/resume-app.tsx'],
@@ -95,7 +95,6 @@ export function describePath(filePath) {
   if (base === 'genui-possibilities.css') {
     return { kind: 'feature', owner: 'genui-possibilities' };
   }
-  if (/^(markdown-editor|markdown-sentinels)\./.test(base)) return { kind: 'feature', owner: 'markdown' };
   if (/^(resume-app|pi-resume-)/.test(base) || normalized.includes('components/ai-elements/')) {
     return { kind: 'feature', owner: 'resume' };
   }
