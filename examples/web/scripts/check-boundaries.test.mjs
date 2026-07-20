@@ -267,6 +267,7 @@ test('recognizes current exceptions and future top-level runtime vocabulary', ()
   assert.equal(classifyPath('src/resume.css'), 'unclassified');
   assert.equal(classifyPath('src/genui-feasibility-provider.js'), 'server');
   assert.equal(classifyPath('server/vite/genui-provider.ts'), 'server');
+  assert.equal(classifyPath('server/vite/ast-grep.ts'), 'server');
   assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');
   assert.deepEqual(
     describePath('src/entries/lambda.ts'),
