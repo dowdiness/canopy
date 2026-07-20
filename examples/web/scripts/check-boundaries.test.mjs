@@ -87,6 +87,14 @@ test('requires entries to import the matching feature browser surface only', () 
     evaluateEdge('src/entries/markdown.ts', 'src/features/markdown/browser/mount.ts'),
     [],
   );
+  assert.deepEqual(
+    evaluateEdge('src/entries/resume.ts', 'src/features/resume/browser/app.tsx'),
+    [],
+  );
+  assert.match(
+    evaluateEdge('src/entries/resume.ts', 'src/features/resume/core/session.ts')[0],
+    /entry/,
+  );
   assert.match(
     evaluateEdge('src/entries/posts.ts', 'src/features/posts/core/posts.ts')[0],
     /entry/,
@@ -174,6 +182,17 @@ test('requires HTML to load target-shaped entry modules for migrated features', 
     ),
     [],
   );
+  assert.equal(htmlEntryAccepted('/src/resume-app.tsx', 'resume', 'src/entries/resume.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/resume.ts', 'resume', 'src/entries/resume.ts'), true);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'resume.html',
+      'resume',
+      ['/src/entries/resume.ts'],
+      'src/entries/resume.ts',
+    ),
+    [],
+  );
   assert.deepEqual(
     evaluateHtmlEntryScripts(
       'genui-possibilities.html',
@@ -236,7 +255,16 @@ test('rejects capabilities from declared core and protocol paths', () => {
 });
 
 test('recognizes current exceptions and future top-level runtime vocabulary', () => {
-  assert.equal(classifyPath('src/components/ai-elements/message.tsx'), 'resume');
+  assert.equal(classifyPath('src/features/resume/browser/app.tsx'), 'resume');
+  assert.equal(classifyPath('src/features/resume/browser/components/message.tsx'), 'resume');
+  assert.equal(classifyPath('src/features/resume/browser/styles.css'), 'resume');
+  assert.equal(classifyPath('src/features/resume/core/session.ts'), 'resume');
+  assert.equal(classifyPath('src/features/resume/protocol/chat.ts'), 'resume');
+  assert.equal(classifyPath('src/resume-app.tsx'), 'unclassified');
+  assert.equal(classifyPath('src/pi-resume-core.ts'), 'unclassified');
+  assert.equal(classifyPath('src/pi-resume-chat-protocol.ts'), 'unclassified');
+  assert.equal(classifyPath('src/components/ai-elements/message.tsx'), 'unclassified');
+  assert.equal(classifyPath('src/resume.css'), 'unclassified');
   assert.equal(classifyPath('src/genui-feasibility-provider.js'), 'server');
   assert.equal(classifyPath('server/vite/genui-provider.ts'), 'server');
   assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');

@@ -29,7 +29,7 @@ const CURRENT_ENTRY_SCRIPTS = new Map([
   ['markdown.html', 'src/entries/markdown.ts'],
   ['memo.html', 'src/entries/memo.ts'],
   ['posts.html', 'src/entries/posts.ts'],
-  ['resume.html', 'src/resume-app.tsx'],
+  ['resume.html', 'src/entries/resume.ts'],
   ['genui.html', 'src/genui.js'],
   ['genui-possibilities.html', 'src/entries/genui-possibilities.js'],
 ]);
@@ -39,7 +39,6 @@ const ROOT_SERVER_FILES = new Set([
   'vite.config.ts',
   'vite-plugin-genui-feasibility.ts',
   'vite-plugin-moonbit.ts',
-  'vite-plugin-pi-resume-chat.ts',
 ]);
 
 function normalize(filePath) {
@@ -90,11 +89,7 @@ export function describePath(filePath) {
     return { kind: 'shared' };
   }
   // Removed: flat files moved to features/lambda/browser/
-  if (base === 'resume.css') return { kind: 'feature', owner: 'resume' };
   if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
-  if (/^(resume-app|pi-resume-)/.test(base) || normalized.includes('components/ai-elements/')) {
-    return { kind: 'feature', owner: 'resume' };
-  }
 
   if (/^genui(?:-|\.)/.test(base) || normalized.includes('/fixtures/')) {
     return { kind: 'feature', owner: 'genui' };

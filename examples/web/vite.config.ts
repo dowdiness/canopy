@@ -4,7 +4,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { moonbitPlugin } from './vite-plugin-moonbit';
 import tailwindcss from '@tailwindcss/vite';
 import { genUiFeasibilityPlugin } from './vite-plugin-genui-feasibility';
-import { piResumeChatPlugin } from './vite-plugin-pi-resume-chat';
+import { piResumeChatPlugin } from './server/vite/resume-chat';
 
 const analyze = process.env.ANALYZE === '1';
 

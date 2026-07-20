@@ -9,7 +9,6 @@ import {
 } from 'ai';
 import type { Connect, Plugin } from 'vite';
 import {
-  PKE_CHAT_DEEPSEEK_PROVIDER_OPTIONS,
   PKE_CHAT_MODEL,
   PKE_CHAT_PROVIDER,
   PKE_CHAT_REQUEST_MAX_BYTES,
@@ -20,14 +19,19 @@ import {
   type PkeChatContext,
   type PkeChatSource,
   type PkeChatStatus,
-} from './src/pi-resume-chat-protocol.ts';
+} from '../../src/features/resume/protocol/chat.ts';
 import {
   isLoopbackAddress,
   isSameOrigin,
-} from './src/pi-resume-chat-protocol.ts';
+} from '../../src/features/resume/protocol/chat.ts';
 
 const PKE_CHAT_FAKE_MODEL = 'pke-chat-fake-v1' as const;
 const PKE_CHAT_OUTPUT_TOKEN_LIMIT = 1_600;
+const PKE_CHAT_DEEPSEEK_PROVIDER_OPTIONS = Object.freeze({
+  deepseek: Object.freeze({
+    thinking: Object.freeze({ type: 'disabled' as const }),
+  }),
+});
 
 interface PkeChatProvider {
   readonly status: PkeChatStatus;

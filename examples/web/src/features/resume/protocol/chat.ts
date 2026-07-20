@@ -1,11 +1,10 @@
-import type { UIMessage } from 'ai';
 import type {
   ActivityItem,
   Derivation,
   EpistemicOrigin,
   SourceReference,
-} from './pi-resume-core';
-import { activityTextForDisplay } from './pi-resume-core';
+} from '../core/session';
+import { activityTextForDisplay } from '../core/session';
 
 export const PKE_CHAT_PROVIDER = 'deepseek' as const;
 export const PKE_CHAT_MODEL = 'deepseek-v4-flash' as const;
@@ -16,11 +15,17 @@ export const PKE_CHAT_MESSAGE_LIMIT = 24;
 export const PKE_CHAT_MESSAGE_TEXT_LIMIT = 8_000;
 export const PKE_CHAT_CONVERSATION_TEXT_LIMIT = 32_000;
 export const PKE_CHAT_SOURCE_TEXT_LIMIT = 1_000;
-export const PKE_CHAT_DEEPSEEK_PROVIDER_OPTIONS = Object.freeze({
-  deepseek: Object.freeze({
-    thinking: Object.freeze({ type: 'disabled' as const }),
-  }),
-});
+
+export interface PkeChatMessagePart {
+  readonly type: string;
+  readonly text?: string;
+}
+
+export interface PkeChatMessage {
+  readonly id: string;
+  readonly role: string;
+  readonly parts: readonly PkeChatMessagePart[];
+}
 
 export interface PkeChatSource {
   readonly source: SourceReference;
@@ -154,7 +159,7 @@ export function parsePkeChatEnvelope(value: unknown): PkeChatEnvelope {
   return Object.freeze({ messages: record.messages, context, sources });
 }
 
-export function pkeChatTextMessages(messages: readonly UIMessage[]): UIMessage[] {
+export function pkeChatTextMessages(messages: readonly PkeChatMessage[]): PkeChatMessage[] {
   return messages.map(message => Object.freeze({
     id: message.id,
     role: message.role,
@@ -164,7 +169,7 @@ export function pkeChatTextMessages(messages: readonly UIMessage[]): UIMessage[]
   }));
 }
 
-export function validatePkeChatMessages(messages: UIMessage[]): UIMessage[] {
+export function validatePkeChatMessages<T extends PkeChatMessage>(messages: T[]): T[] {
   let totalTextLength = 0;
   for (const [index, message] of messages.entries()) {
     if (message.role !== 'user' && message.role !== 'assistant') {
@@ -180,7 +185,7 @@ export function validatePkeChatMessages(messages: UIMessage[]): UIMessage[] {
       );
     }
     const textLength = message.parts.reduce(
-      (length, part) => length + (part.type === 'text' ? part.text.length : 0),
+      (length, part) => length + (part.type === 'text' ? (part.text as string).length : 0),
       0,
     );
     if (textLength === 0 || textLength > PKE_CHAT_MESSAGE_TEXT_LIMIT) {
