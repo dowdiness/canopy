@@ -6,7 +6,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 | Surface | HTML | Browser entry | Feature-owned source | Styles | Runtime and tests |
 |---|---|---|---|---|---|
-| Lambda | `index.html` | `src/main.ts` | `editor.ts`, `ast-grep-runner.ts` (uses shared decoration overlay) | Inline in `index.html` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
+| Lambda | `index.html` | `src/entries/lambda.ts` | `features/lambda/browser/{mount,editor,ast-grep-runner}.ts` (uses shared decoration overlay) | Inline in `index.html` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
 | JSON | `json.html` | `src/entries/json.ts` | `features/json/browser/{editor,mount}.ts` (uses shared decoration overlay) | Inline in `json.html` plus `src/json-editor.css` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
 | Markdown | `markdown.html` | `src/entries/markdown.ts` | `features/markdown/browser/{app,mount,sentinels}.ts` | Inline in `markdown.html` plus editor-adapter CSS | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts` |
 | Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | Inline in `memo.html` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
