@@ -251,12 +251,13 @@ test.describe('PKE workbench', () => {
     await expect(page.locator('.pilot-current-work')).toHaveCount(0);
     await expect(chat).toContainText('Test model · local relay');
     await expect(prompt).toBeEnabled();
-    await chat.getByRole('button', { name: 'Add current moment' }).click();
     await page.locator('.pilot-conversation-list [data-entry-id="0000000e"]').click();
     await chat.getByRole('button', { name: 'Add current moment' }).click();
+    await page.locator('.pilot-conversation-list [data-entry-id="00000001"]').click();
+    await chat.getByRole('button', { name: 'Add current moment' }).click();
     await expect(chat).toContainText('Next message context · selected · 2 exact sources');
-    await expect(chat).toContainText('source 00000001 · Human intent');
     await expect(chat).toContainText('source 0000000e · Assistant requested edit');
+    await expect(chat).toContainText('source 00000001 · Human intent');
     await prompt.fill(question);
     await chat.getByText('Outbound request preview').click();
     await expect(chat.locator('.pilot-chat-payload pre')).toContainText(
@@ -273,7 +274,7 @@ test.describe('PKE workbench', () => {
     await expect(userMessage).toContainText(question);
     await expect(userMessage).toHaveAttribute('data-origin', 'person-authored');
     await expect(userMessage).toHaveAttribute('data-derivation', 'recorded');
-    await expect(assistantMessage).toContainText('[source:00000001]');
+    await expect(assistantMessage).toContainText('[source:0000000e]');
     await expect(assistantMessage.locator('strong')).toHaveText('Context:');
     await expect(assistantMessage.locator('li')).toHaveCount(2);
     await expect(assistantMessage).toHaveAttribute('data-origin', 'canopy-system');
@@ -298,19 +299,20 @@ test.describe('PKE workbench', () => {
         leafId: '0000000f',
       },
       sources: [
-        { source: { sessionId: 'pke-demo-session-001', entryId: '00000001' } },
         { source: { sessionId: 'pke-demo-session-001', entryId: '0000000e' } },
+        { source: { sessionId: 'pke-demo-session-001', entryId: '00000001' } },
       ],
     });
     expect(JSON.stringify(postedRequests[0])).not.toContain('00000003');
 
-    await expect(assistantMessage.getByRole('button', {
-      name: 'Open cited source 00000001',
-    })).toBeVisible();
-    await assistantMessage.getByRole('button', { name: 'Open cited source 00000001' }).click();
+    const citedSource = assistantMessage.getByRole('button', {
+      name: 'Open cited source 0000000e',
+    });
+    await expect(citedSource).toBeVisible();
+    await citedSource.click();
     await expect(page.locator('.pilot-conversation-list > li[data-selected="true"]')).toHaveAttribute(
       'data-entry-id',
-      '00000001',
+      '0000000e',
     );
     await chat.getByText('Next message context · selected · 2 exact sources').click();
     await chat.getByRole('button', {
@@ -336,6 +338,14 @@ test.describe('PKE workbench', () => {
     await expect(chat.locator('.ai-message')).toHaveCount(2);
     await expect(prompt).toHaveValue('Unsaved source-bound draft.');
     await expect(chat).toContainText('No activity history will be sent');
+
+    await citedSource.click();
+    await expect(page.locator('#branch-select')).toHaveValue('0000000f');
+    await expect(page.locator('.pilot-conversation-list > li[data-selected="true"]')).toHaveAttribute(
+      'data-entry-id',
+      '0000000e',
+    );
+    await expect(prompt).toHaveValue('Unsaved source-bound draft.');
 
     await page.getByLabel('Open session file').setInputFiles(
       path.resolve('tests/fixtures/pi-session-v3.jsonl'),

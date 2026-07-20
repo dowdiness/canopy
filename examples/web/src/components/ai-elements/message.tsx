@@ -48,7 +48,6 @@ export const MessageResponse = memo(
       </ReactMarkdown>
     </div>
   ),
-  (previous, next) => previous.children === next.children && previous.mode === next.mode,
 );
 
 MessageResponse.displayName = 'MessageResponse';
