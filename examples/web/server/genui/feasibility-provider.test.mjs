@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { GENUI_CANDIDATE_SCHEMA } from './genui-candidate-schema.js';
+import { GENUI_CANDIDATE_SCHEMA } from '../../src/features/genui/core/genui-candidate-schema.js';
 import {
   GENUI_PROVIDER_SETTINGS,
   buildFeasibilityPrompt,
@@ -9,10 +9,10 @@ import {
   canonicalJson,
   readOllamaIdentity,
   sha256Hex,
-} from './genui-feasibility-provider.js';
-import { GENUI_FEASIBILITY_FIXTURES } from './genui-feasibility-fixtures.js';
-import { getRecordedFeasibilityCandidate } from './genui-recorded-candidates.js';
-import { callFakeFeasibilitySlot, createFeasibilityRequestGate } from '../vite-plugin-genui-feasibility.ts';
+} from './feasibility-provider.js';
+import { GENUI_FEASIBILITY_FIXTURES } from '../../src/features/genui/core/genui-feasibility-fixtures.js';
+import { getRecordedFeasibilityCandidate } from '../../src/features/genui/core/genui-recorded-candidates.js';
+import { callFakeFeasibilitySlot, createFeasibilityRequestGate } from '../vite/genui-feasibility.ts';
 
 const MODEL_TAG = 'gemma4:4b';
 const SHOW_BODY = Object.freeze({

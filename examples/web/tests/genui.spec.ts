@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   getRecordedFeasibilityCandidate,
   recordedFeasibilityCandidateJson,
-} from '../src/genui-recorded-candidates.js';
+} from '../src/features/genui/core/genui-recorded-candidates.js';
 type GenUiSessionResult = {
   success: boolean;
   revision: number;

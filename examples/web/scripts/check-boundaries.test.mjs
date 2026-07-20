@@ -265,7 +265,11 @@ test('recognizes current exceptions and future top-level runtime vocabulary', ()
   assert.equal(classifyPath('src/pi-resume-chat-protocol.ts'), 'unclassified');
   assert.equal(classifyPath('src/components/ai-elements/message.tsx'), 'unclassified');
   assert.equal(classifyPath('src/resume.css'), 'unclassified');
-  assert.equal(classifyPath('src/genui-feasibility-provider.js'), 'server');
+  assert.equal(classifyPath('src/features/genui/browser/mount.js'), 'genui');
+  assert.equal(classifyPath('src/features/genui/browser/styles.css'), 'genui');
+  assert.equal(classifyPath('src/features/genui/core/genui-feasibility-flow.js'), 'genui');
+  assert.equal(classifyPath('server/genui/feasibility-provider.js'), 'server');
+  assert.equal(classifyPath('server/vite/genui-feasibility.ts'), 'server');
   assert.equal(classifyPath('server/vite/genui-provider.ts'), 'server');
   assert.equal(classifyPath('server/vite/ast-grep.ts'), 'server');
   assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');

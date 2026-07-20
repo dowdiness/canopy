@@ -3,18 +3,18 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-import { GENUI_CANDIDATE_SCHEMA } from '../src/genui-candidate-schema.js';
+import { GENUI_CANDIDATE_SCHEMA } from '../src/features/genui/core/genui-candidate-schema.js';
 import {
   GENUI_FEASIBILITY_FIXTURES,
   capabilitiesJsonForFixture,
-} from '../src/genui-feasibility-fixtures.js';
+} from '../src/features/genui/core/genui-feasibility-fixtures.js';
 import {
   GENUI_PROVIDER_SETTINGS,
   buildFeasibilityPrompt,
   canonicalJson,
   readOllamaIdentity,
   sha256Hex,
-} from '../src/genui-feasibility-provider.js';
+} from '../server/genui/feasibility-provider.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIR, '../../..');
@@ -98,7 +98,7 @@ export async function buildManifest({
     inputDigests: {
       candidateSchemaSha256: sha256Hex(canonicalJson(GENUI_CANDIDATE_SCHEMA)),
       fixturesSha256: sha256Hex(fixturesCanonical),
-      normalizerSourceSha256: digestFile('examples/web/src/genui-feasibility-fixtures.js'),
+      normalizerSourceSha256: digestFile('examples/web/src/features/genui/core/genui-feasibility-fixtures.js'),
       capabilitiesSha256: sha256Hex(capabilitiesCanonical),
       promptSha256: sha256Hex(promptsCanonical),
       rubricSourceSha256: digestFile('ffi/jsx/generative_ui_feasibility_rubric.mbt'),
@@ -118,10 +118,10 @@ export async function buildManifest({
         command: 'node',
         args: [
           '--test',
-          'src/genui-feasibility-fixtures.test.mjs',
-          'src/genui-feasibility-provider.test.mjs',
-          'src/genui-feasibility-demo.test.mjs',
-          'src/genui-feasibility-flow.test.mjs',
+          'src/features/genui/core/genui-feasibility-fixtures.test.mjs',
+          'server/genui/feasibility-provider.test.mjs',
+          'src/features/genui/core/genui-feasibility-demo.test.mjs',
+          'src/features/genui/core/genui-feasibility-flow.test.mjs',
           'scripts/run-genui-feasibility-study.test.mjs',
         ],
         cwd: 'examples/web',

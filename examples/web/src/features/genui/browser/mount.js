@@ -1,3 +1,4 @@
+import './styles.css';
 import {
   ORDER_ROWS,
   ORDERS_CSV_FIXTURE,
@@ -5,12 +6,12 @@ import {
   parseOrdersCsv,
   selectOrder,
   summarizeOrders,
-} from './genui-data.ts';
+} from '../core/data.ts';
 import {
   buildLiveStudyRequest,
   recordedDemoInput,
-} from './genui-feasibility-demo.js';
-import { runFeasibilityCandidate as executeFeasibilityCandidate } from './genui-feasibility-flow.js';
+} from '../core/genui-feasibility-demo.js';
+import { runFeasibilityCandidate as executeFeasibilityCandidate } from '../core/genui-feasibility-flow.js';
 
 const EXAMPLES = [
   `<div class="bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg">\n  <h1 class="text-2xl font-bold text-emerald-400 mb-2">Hello, World!</h1>\n  <p class="text-gray-300">This is JSX parsed incrementally with Tailwind.</p>\n</div>`,

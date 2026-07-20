@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { moonbitPlugin } from './vite-plugin-moonbit';
 import tailwindcss from '@tailwindcss/vite';
-import { genUiFeasibilityPlugin } from './vite-plugin-genui-feasibility';
+import { genUiFeasibilityPlugin } from './server/vite/genui-feasibility';
 import { piResumeChatPlugin } from './server/vite/resume-chat';
 import { astGrepPlugin } from './server/vite/ast-grep';
 

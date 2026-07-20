@@ -12,7 +12,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 | Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | `features/memo/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
 | Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | `features/posts/browser/styles.css`, imported by `mount.ts` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
 | Resume/PKE | `resume.html` | `src/entries/resume.ts` | `features/resume/browser/app.tsx`, `features/resume/browser/components/*`, `features/resume/core/session.ts`, `features/resume/protocol/chat.ts` | `features/resume/browser/styles.css`, imported by `app.tsx` | Browser React + `server/vite/resume-chat.ts` local chat relay; `tests/pi-resume.spec.ts` |
-| GenUI | `genui.html` | `src/genui.js` | `genui.js`, `genui-data.ts`, feasibility flow/fixtures/schema/provider/recorded/spike modules, `src/fixtures/*` | Inline in `genui.html` plus `src/tailwind.css` | Browser + generated MoonBit JSX, deterministic feasibility code, and a server-only provider; `tests/genui.spec.ts`, feasibility suites, colocated Node tests, study scripts |
+| GenUI | `genui.html` | `src/entries/genui.js` | `features/genui/browser/mount.js`, deterministic `features/genui/core/*` (fixtures, schema, flow, recorded candidates, data, spikes), `server/genui/feasibility-provider.js`, and `server/vite/genui-feasibility.ts` | `features/genui/browser/styles.css`, imported by `mount.js`; `src/tailwind.css` remains the GenUI Tailwind input | Browser + generated MoonBit JSX, deterministic feasibility core, and a server-only study relay; `tests/genui.spec.ts`, feasibility suites, colocated core/server Node tests, study scripts |
 | GenUI Possibilities | `genui-possibilities.html` | `src/entries/genui-possibilities.js` | `features/genui-possibilities/core/journey-state.js`, `features/genui-possibilities/browser/mount.js` | `features/genui-possibilities/browser/styles.css`, imported by `mount.js` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
 
 `spike-block-input.html` is an inactive investigation surface and is not part of the eight Vite inputs.
@@ -21,7 +21,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 - Browser code is TypeScript/TSX/JS bundled by Vite. React and the AI SDK are used by Resume/PKE; GenUI is plain browser JavaScript plus the generated JSX FFI.
 - `server/vite/ast-grep.ts` owns the Lambda-only `/api/ast-grep` development relay. `vite-plugin-moonbit.ts` owns MoonBit build, virtual-module, and HMR behavior only.
-- `server/vite/resume-chat.ts` owns the local Resume/PKE provider relay and consumes the Resume protocol surface. `vite-plugin-genui-feasibility.ts` owns the local GenUI study relay and imports the server-only `src/genui-feasibility-provider.js`. These Vite adapters are not browser entry dependencies.
+- `server/vite/resume-chat.ts` owns the local Resume/PKE provider relay and consumes the Resume protocol surface. `server/vite/genui-feasibility.ts` owns the local GenUI study relay and imports `server/genui/feasibility-provider.js`; it consumes only GenUI core fixtures and recorded candidates. These Vite adapters are not browser entry dependencies.
 - `signaling-server.js`, `signaling-worker.js`, `wrangler-signaling.toml`, and `wrangler.jsonc` are deployment/integration shells outside the eight browser entry graphs.
 
 | Virtual module | Owning package/output | Browser owner |
@@ -39,13 +39,13 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 - `playwright.config.ts` runs the default browser suites under `tests/`; `playwright.preview.config.ts` owns the production-preview GenUI check.
 - `playwright.feasibility.config.ts` and `tests/genui-feasibility-live.spec.ts` own the live local-provider study path.
 - `playwright.minimal-provider.config.ts` and `tests/genui-minimal-provider.spec.ts` own the bounded minimal-provider path.
-- Deterministic GenUI tests are colocated as `src/genui-*.test.mjs`. Study orchestration tests are `scripts/*.test.mjs`; study evidence is retained under `studies/`.
+- Deterministic GenUI tests are colocated under `src/features/genui/core/*.test.mjs`; provider tests are colocated under `server/genui/`. Study orchestration tests are `scripts/*.test.mjs`; study evidence is retained under `studies/`.
 - `tests/fixtures/pi-session-v3.jsonl` belongs to Resume/PKE import and relay tests.
 - `spike-block-input.html`, `test-ast-bug.js`, and `test-ast-comprehensive.js` are not active Vite inputs or current test-runner inputs. Their removal or archival requires a separate reviewed slice.
 
 ## Current structural exceptions and debt
 
-Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, and Markdown use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI feasibility modules mix deterministic fixtures/flows with the server-only provider. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
+Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
 ## Boundary vocabulary and allowed direction
 

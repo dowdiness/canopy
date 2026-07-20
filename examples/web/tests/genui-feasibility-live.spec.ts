@@ -10,7 +10,7 @@ import {
 import { dirname } from 'node:path';
 import { test, expect } from '@playwright/test';
 
-import { GENUI_FEASIBILITY_FIXTURES } from '../src/genui-feasibility-fixtures.js';
+import { GENUI_FEASIBILITY_FIXTURES } from '../src/features/genui/core/genui-feasibility-fixtures.js';
 
 type FeasibilityResult = {
   classification?: string;

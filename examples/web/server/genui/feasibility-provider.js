@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
-import { GENUI_CANDIDATE_SCHEMA } from './genui-candidate-schema.js';
-import { capabilitiesJsonForFixture } from './genui-feasibility-fixtures.js';
+import { GENUI_CANDIDATE_SCHEMA } from '../../src/features/genui/core/genui-candidate-schema.js';
+import { capabilitiesJsonForFixture } from '../../src/features/genui/core/genui-feasibility-fixtures.js';
 
 export const GENUI_PROVIDER_SETTINGS = deepFreeze({
   stream: false,
