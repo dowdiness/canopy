@@ -5,8 +5,9 @@ import { BlockInput } from '@canopy/editor-adapter/block-input';
 import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
 import '@canopy/editor-adapter/block-input.css';
 import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
-import { stripParagraphSentinels } from './markdown-sentinels';
+import { stripParagraphSentinels } from './sentinels';
 
+export function mountMarkdownApp(): void {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -332,3 +333,4 @@ crdt.markdown_set_text(handle, DEFAULT_TEXT);
 syncRawFromModel();
 refresh();
 updateToolbar();
+}

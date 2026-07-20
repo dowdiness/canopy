@@ -74,6 +74,10 @@ test('requires entries to import the matching feature browser surface only', () 
     evaluateEdge('src/entries/json.ts', 'src/features/json/browser/mount.ts'),
     [],
   );
+  assert.deepEqual(
+    evaluateEdge('src/entries/markdown.ts', 'src/features/markdown/browser/mount.ts'),
+    [],
+  );
   assert.match(
     evaluateEdge('src/entries/posts.ts', 'src/features/posts/core/posts.ts')[0],
     /entry/,
@@ -130,6 +134,23 @@ test('requires HTML to load target-shaped entry modules for migrated features', 
       'json',
       ['/src/entries/json.ts'],
       'src/entries/json.ts',
+    ),
+    [],
+  );
+  assert.equal(
+    htmlEntryAccepted('/src/markdown-editor.ts', 'markdown', 'src/entries/markdown.ts'),
+    false,
+  );
+  assert.equal(
+    htmlEntryAccepted('/src/entries/markdown.ts', 'markdown', 'src/entries/markdown.ts'),
+    true,
+  );
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'markdown.html',
+      'markdown',
+      ['/src/entries/markdown.ts'],
+      'src/entries/markdown.ts',
     ),
     [],
   );
