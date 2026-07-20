@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createJourneyState, transitionJourney } from './genui-journey-state.js';
+import { createJourneyState, transitionJourney } from './journey-state.js';
 
 test('starts with a persistent itinerary under one active disruption', () => {
   const state = createJourneyState();
