@@ -236,11 +236,14 @@ test('rejects capabilities from declared core and protocol paths', () => {
 });
 
 test('recognizes current exceptions and future top-level runtime vocabulary', () => {
-  assert.equal(classifyPath('src/main.ts'), 'lambda');
   assert.equal(classifyPath('src/components/ai-elements/message.tsx'), 'resume');
   assert.equal(classifyPath('src/genui-feasibility-provider.js'), 'server');
   assert.equal(classifyPath('server/vite/genui-provider.ts'), 'server');
   assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');
+  assert.deepEqual(
+    describePath('src/entries/lambda.ts'),
+    { kind: 'entry', owner: 'lambda' },
+  );
   assert.deepEqual(
     describePath('src/features/json/browser/editor.ts'),
     { kind: 'feature', owner: 'json', layer: 'browser' },
@@ -260,4 +263,50 @@ test('rejects newly added unclassified production modules', () => {
     to: 'src/mystery.ts',
     rule: 'source module has no declared owner',
   }]);
+});
+
+test('Lambda entry respects feature-boundary rules', () => {
+  assert.deepEqual(
+    evaluateEdge('src/entries/lambda.ts', 'src/features/lambda/browser/mount.ts'),
+    [],
+  );
+  assert.match(
+    evaluateEdge('src/entries/lambda.ts', 'src/shared/decoration-overlay.ts')[0],
+    /entry/,
+  );
+});
+
+test('Lambda HTML accepts migrated entry and rejects flat scripts', () => {
+  assert.equal(htmlEntryAccepted('/src/entries/lambda.ts', 'lambda', 'src/entries/lambda.ts'), true);
+  assert.equal(htmlEntryAccepted('/src/main.ts', 'lambda', 'src/entries/lambda.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/editor.ts', 'lambda', 'src/entries/lambda.ts'), false);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'index.html',
+      'lambda',
+      ['/src/entries/lambda.ts'],
+      'src/entries/lambda.ts',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'index.html',
+      'lambda',
+      ['/src/main.ts'],
+      'src/entries/lambda.ts',
+    ),
+    [
+      {
+        from: 'index.html',
+        to: 'src/main.ts',
+        rule: 'HTML entry must load its corresponding browser entry module',
+      },
+      {
+        from: 'index.html',
+        to: '<missing>',
+        rule: 'HTML entry must load at least one corresponding browser entry module',
+      },
+    ],
+  );
 });

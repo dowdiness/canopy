@@ -24,7 +24,7 @@ const ENTRY_FEATURES = new Map([
   ['genui-possibilities.html', 'genui-possibilities'],
 ]);
 const CURRENT_ENTRY_SCRIPTS = new Map([
-  ['index.html', 'src/main.ts'],
+  ['index.html', 'src/entries/lambda.ts'],
   ['json.html', 'src/entries/json.ts'],
   ['markdown.html', 'src/entries/markdown.ts'],
   ['memo.html', 'src/entries/memo.ts'],
@@ -89,7 +89,7 @@ export function describePath(filePath) {
   if (/(^|\/)shared\//.test(normalized) || base === 'vite-env.d.ts') {
     return { kind: 'shared' };
   }
-  if (/^(main|editor|ast-grep-runner)\./.test(base)) return { kind: 'feature', owner: 'lambda' };
+  // Removed: flat files moved to features/lambda/browser/
   if (base === 'resume.css') return { kind: 'feature', owner: 'resume' };
   if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
   if (base === 'genui-possibilities.css') {
