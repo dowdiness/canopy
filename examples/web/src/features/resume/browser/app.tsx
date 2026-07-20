@@ -12,31 +12,31 @@ import {
   type MouseEvent,
 } from 'react';
 import { createRoot } from 'react-dom/client';
-import fixtureSource from '../tests/fixtures/pi-session-v3.jsonl?raw';
+import fixtureSource from '../../../../tests/fixtures/pi-session-v3.jsonl?raw';
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-} from './components/ai-elements/conversation';
+} from './components/conversation';
 import {
   Message,
   MessageContent,
   MessageResponse,
-} from './components/ai-elements/message';
+} from './components/message';
 import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-} from './components/ai-elements/prompt-input';
+} from './components/prompt-input';
 import {
   Source,
   Sources,
   SourcesContent,
   SourcesTrigger,
-} from './components/ai-elements/sources';
+} from './components/sources';
 import {
   DEFAULT_LIMITS,
   activityTextForDisplay,
@@ -50,7 +50,7 @@ import {
   type ReducedPiSession,
   type ResumeDiagnostic,
   type ResumeProjection,
-} from './pi-resume-core';
+} from '../core/session';
 import {
   PKE_CHAT_MESSAGE_LIMIT,
   PKE_CHAT_MESSAGE_TEXT_LIMIT,
@@ -63,8 +63,8 @@ import {
   type PkeChatContext,
   type PkeChatSource,
   type PkeChatStatus,
-} from './pi-resume-chat-protocol';
-import './resume.css';
+} from '../protocol/chat';
+import './styles.css';
 
 const demoSession = reducePiSession(parsePiSessionJsonl(fixtureSource));
 
@@ -1633,11 +1633,13 @@ export function ResumeApp() {
   );
 }
 
-const rootElement = document.getElementById('root');
-if (rootElement === null) throw new Error('Resume root element is missing.');
+export function mountResume(): void {
+  const rootElement = document.getElementById('root');
+  if (rootElement === null) throw new Error('Resume root element is missing.');
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <ResumeApp />
-  </StrictMode>,
-);
+  createRoot(rootElement).render(
+    <StrictMode>
+      <ResumeApp />
+    </StrictMode>,
+  );
+}

@@ -657,8 +657,8 @@ test.describe('PKE workbench', () => {
   test('validates bounded source-chat context without promoting model output', async ({ page }) => {
     const fixture = await loadFixture(page);
     const result = await page.evaluate(async ({ fixture }) => {
-      const core = await import('/src/pi-resume-core.ts');
-      const chat = await import('/src/pi-resume-chat-protocol.ts');
+      const core = await import('/src/features/resume/core/session.ts');
+      const chat = await import('/src/features/resume/protocol/chat.ts');
       const reduced = core.reducePiSession(core.parsePiSessionJsonl(fixture));
       const projection = core.projectResume(reduced, '0000000f');
       const human = projection.chronology.find(item => item.source.entryId === '00000001');
@@ -741,7 +741,6 @@ test.describe('PKE workbench', () => {
           noHistoryPrompt.includes('No activity history is attached'),
         normalizedHistory: textOnlyHistory,
         messagesPreserved: validatedMessages === messages,
-        providerOptions: chat.PKE_CHAT_DEEPSEEK_PROVIDER_OPTIONS,
         immutable:
           Object.isFrozen(envelope) &&
           Object.isFrozen(envelope.context) &&
@@ -842,7 +841,6 @@ test.describe('PKE workbench', () => {
         },
       ],
       messagesPreserved: true,
-      providerOptions: { deepseek: { thinking: { type: 'disabled' } } },
       immutable: true,
       noSources: 'Selected context needs between 1 and 8 exact sources.',
       duplicates: 'Chat sources must be unique.',
@@ -856,7 +854,7 @@ test.describe('PKE workbench', () => {
   test('preserves deterministic core and fails closed on invalid input', async ({ page }) => {
     const fixture = await loadFixture(page);
     const result = await page.evaluate(async ({ fixture }) => {
-      const core = await import('/src/pi-resume-core.ts');
+      const core = await import('/src/features/resume/core/session.ts');
       const parsed = core.parsePiSessionJsonl(fixture);
       const reduced = core.reducePiSession(parsed);
       const projection = core.projectResume(reduced, '0000000f');
