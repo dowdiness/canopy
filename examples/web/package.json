@@ -8,7 +8,10 @@
     "build:deploy": "sh scripts/build-deploy.sh",
     "preview": "vite preview",
     "signaling": "node signaling-server.js",
-    "genui:minimal-provider-e2e": "node scripts/run-genui-minimal-provider-e2e.mjs"
+    "genui:minimal-provider-e2e": "node scripts/run-genui-minimal-provider-e2e.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:boundaries": "node --test scripts/check-boundaries.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.12",
