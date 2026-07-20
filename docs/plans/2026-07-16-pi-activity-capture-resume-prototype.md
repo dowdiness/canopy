@@ -1,7 +1,16 @@
 # Pi session activity → Resume view prototype
 
-**Status:** ready for Phase 0. Live transport and durable Canopy storage are
-gated follow-ups.
+**Status:** Product framing superseded. Phase 0 and the explicit in-memory
+import remain technical and source-inspection evidence; follow-up work is owned
+by the current PKE direction and plan.
+
+**Note:** This plan's product framing (resumable technical memory as the
+near-term PKE wedge) is superseded by
+[Agent history as thinking environment](2026-07-18-agent-history-thinking-environment.md),
+which reorients the PKE toward three-scale movement (Trace, Shape, Meaning)
+over agent histories. The technical baseline, decoder, WorkBench source
+inspection, and provenance evidence in this plan remain valid as historical
+evidence.
 
 ## Goal and scope
 
@@ -89,8 +98,10 @@ normalizes metadata and source references while raw bodies remain transient.
 The normalized model is metadata-only by default. Only an explicitly selected,
 bounded excerpt that passes fail-closed sensitive-pattern checks may enter the
 in-memory view; rejected text has no override in the first slice. Nothing is
-written to browser persistence. Tool data uses per-tool argument allowlists and
-never imports full result bodies. Omissions are visible diagnostics.
+written to browser persistence. Tool data uses per-tool allowlists; result text
+must correlate to an allowlisted call on the selected ancestry path and is
+retained only as a bounded excerpt. Unbounded or uncorrelated result bodies are
+never imported. Omissions are visible diagnostics.
 
 ### Functional core and imperative shell
 
@@ -121,17 +132,17 @@ does not access the DOM, filesystem, clock, network, or `localStorage`.
 
 Phase 0 passes when:
 
-- [ ] The same normalized activity produces byte-for-byte equivalent Resume
+- [x] The same normalized activity produces byte-for-byte equivalent Resume
       model output across repeated runs.
-- [ ] Invalid bounds, versions, JSONL, identity, parentage, and cycles fail with
+- [x] Invalid bounds, versions, JSONL, identity, parentage, and cycles fail with
       diagnostics.
-- [ ] Replay is a no-op; identity/content mismatch is an integrity error.
-- [ ] `dist/resume.html` is emitted by the production build.
-- [ ] Human anchors, assistant claims, and tool evidence remain distinct and
+- [x] Replay is a no-op; identity/content mismatch is an integrity error.
+- [x] `dist/resume.html` is emitted by the production build.
+- [x] Human anchors, assistant claims, and tool evidence remain distinct and
       source-linked.
-- [ ] Compaction retains covered activity; terminal branches require explicit
+- [x] Compaction retains covered activity; terminal branches require explicit
       selection and never merge silently.
-- [ ] Keyboard and screen-reader users can switch views and inspect evidence on
+- [x] Keyboard and screen-reader users can switch views and inspect evidence on
       equivalent terms.
 
 ### Phase 1 — Explicit session import
@@ -149,11 +160,20 @@ Phase 0 passes when:
 
 Phase 1 passes when:
 
-- [ ] A current pi snapshot renders without re-entering its prompt.
-- [ ] No imported content reaches browser persistence.
-- [ ] Excluded blocks, metadata, custom messages, and tool bodies remain outside
+- [x] A current pi snapshot renders without re-entering its prompt.
+- [x] No imported content reaches browser persistence.
+- [x] Excluded blocks, metadata, custom messages, and tool bodies remain outside
       the normalized model; only accepted excerpts enter the in-memory view.
-- [ ] Diagnostics explain omissions, and Forget clears only the Canopy copy.
+- [x] Diagnostics explain omissions, and Forget clears only the Canopy copy.
+
+**Validated outcome (2026-07-18):** The current 24,418,932-byte pi snapshot
+imported from one explicit file selection, reduced to its single terminal path,
+and produced the bounded Resume, chronology, and semantic-preview inputs
+without prompt re-entry. Playwright verifies that import creates no
+`localStorage`, `sessionStorage`, or IndexedDB state, Forget returns only this
+page to the demo, and reload discards an imported fixture. Sensitive/excluded
+content and malformed references remain covered by the closed decoder and
+safe-corpus tests, with visible omission diagnostics.
 
 ### Phase 2 — Dogfood and compare
 
@@ -176,9 +196,27 @@ minutes:
 Resume must improve correctness, time, or both without reducing traceability.
 Otherwise record the failed hypothesis and stop before widening capture.
 
+**Inspected outcome (2026-07-17):** The fixed Resume view was inspected
+against a real Canopy session with no accepted checkpoints. The view correctly
+reproduces session metadata, bounded excerpts, and evidence labels with source
+references, but it does not explain what the session means. A person who reads
+the fixed Resume still has to reconstruct intent, progress, and open questions
+from chronology and evidence items. The fixed Resume product hypothesis fails:
+the view is a correct, inspected technical baseline, but not the product view.
+Chronology remains the fallback and comparison source, not the product view.
+
+The Phase 2 dogfood-and-compare product comparison was replaced by a bounded
+semantic briefing study, which failed because cardinality and content complexity
+defeated byte-only chunking; no Cloudflare or study runtime remains in this PR.
+The fixed viewer remains available as the comparison baseline; product framing
+is superseded by
+[Agent history as thinking environment](2026-07-18-agent-history-thinking-environment.md).
+
 ### Phase 3 — Project-local extension (gated)
 
-Only after Phases 0–2 pass:
+Only after Phases 0–2 pass **and** a separate implementation plan and explicit
+authorization are approved. Passing the semantic study does not authorize
+capture or persistence.
 
 1. Add `.pi/extensions/canopy-capture/` observing `input`,
    `before_agent_start`, finalized messages, paired tool start/end events,

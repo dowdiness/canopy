@@ -45,7 +45,8 @@ the files inside `docs/architecture/`.
   structure, and surface context.
 - **[Personal Knowledge Environment Direction](personal-knowledge-environment-direction.md)** —
   near-term primary product direction: human-centered personal knowledge
-  environment with resumable technical project memory as the initial wedge.
+  environment where past agent activity participates in present thinking
+  through Trace, Shape, and Meaning scales.
 - **[Human-centered product principles](human-centered-product-principles.md)**
   — canonical behavior invariants for authority, negotiable structure,
   orientation, accessible equivalence, and product gates.
