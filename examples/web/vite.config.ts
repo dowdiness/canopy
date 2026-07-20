@@ -1,15 +1,19 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { moonbitPlugin } from './vite-plugin-moonbit';
 import tailwindcss from '@tailwindcss/vite';
 import { genUiFeasibilityPlugin } from './vite-plugin-genui-feasibility';
+import { piResumeChatPlugin } from './vite-plugin-pi-resume-chat';
 
 const analyze = process.env.ANALYZE === '1';
 
 export default defineConfig({
   plugins: [
+    react(),
     tailwindcss(),
     genUiFeasibilityPlugin(),
+    piResumeChatPlugin(),
     moonbitPlugin({
       modules: [
         {
@@ -64,6 +68,7 @@ export default defineConfig({
         memo: 'memo.html',
         markdown: 'markdown.html',
         posts: 'posts.html',
+        resume: 'resume.html',
         genui: 'genui.html',
         genuiPossibilities: 'genui-possibilities.html',
       },
