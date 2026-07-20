@@ -1,3 +1,4 @@
+import './styles.css';
 import { createJourneyState, transitionJourney } from '../core/journey-state.js';
 
 const responses = [

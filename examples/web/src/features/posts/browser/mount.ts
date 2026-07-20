@@ -1,3 +1,4 @@
+import './styles.css';
 import { createPostsApp } from './app';
 import { LocalPostEventStore } from './post-events';
 import { LocalPostStore } from './post-store';

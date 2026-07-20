@@ -1,5 +1,6 @@
 // Main entry point for Lambda Calculus CRDT Editor
 
+import './styles.css';
 import { createEditor } from './editor';
 
 export function mountLambda(): void {

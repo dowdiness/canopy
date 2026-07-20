@@ -92,9 +92,6 @@ export function describePath(filePath) {
   // Removed: flat files moved to features/lambda/browser/
   if (base === 'resume.css') return { kind: 'feature', owner: 'resume' };
   if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
-  if (base === 'genui-possibilities.css') {
-    return { kind: 'feature', owner: 'genui-possibilities' };
-  }
   if (/^(resume-app|pi-resume-)/.test(base) || normalized.includes('components/ai-elements/')) {
     return { kind: 'feature', owner: 'resume' };
   }
