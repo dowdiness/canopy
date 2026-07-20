@@ -4,7 +4,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { canonicalJson, readOllamaIdentity, sha256Hex } from '../src/genui-feasibility-provider.js';
+import { canonicalJson, readOllamaIdentity, sha256Hex } from '../server/genui/feasibility-provider.js';
 import { finalizeFromFiles } from './finalize-genui-feasibility-study.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

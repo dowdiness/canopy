@@ -30,7 +30,7 @@ test('replays the recorded control without exposing the local study runner', asy
 });
 
 test('production JavaScript assets omit every local provider marker', async ({ request }) => {
-  const developmentSource = await readFile(new URL('../src/genui.js', import.meta.url), 'utf8');
+  const developmentSource = await readFile(new URL('../src/features/genui/browser/mount.js', import.meta.url), 'utf8');
   expect(developmentSource).toContain('/api/genui-feasibility');
 
   const documentResponse = await request.get('/genui.html');

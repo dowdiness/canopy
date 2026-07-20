@@ -3,9 +3,9 @@ import { spawn } from 'node:child_process';
 import { chmod, mkdir, open, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { GENUI_CANDIDATE_SCHEMA } from '../src/genui-candidate-schema.js';
-import { getFeasibilityFixture } from '../src/genui-feasibility-fixtures.js';
-import { buildFeasibilityPrompt, GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
+import { GENUI_CANDIDATE_SCHEMA } from '../src/features/genui/core/genui-candidate-schema.js';
+import { getFeasibilityFixture } from '../src/features/genui/core/genui-feasibility-fixtures.js';
+import { buildFeasibilityPrompt, GENUI_PROVIDER_SETTINGS } from '../server/genui/feasibility-provider.js';
 import { runProviderProcess, waitForProcess } from './genui-minimal-provider-process.mjs';
 
 const CONFIGURATION_ERROR = 'configuration_error';

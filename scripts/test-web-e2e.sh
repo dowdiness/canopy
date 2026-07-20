@@ -22,7 +22,7 @@ if [ ! -d node_modules ]; then
 fi
 
 echo "Running GenUI recipe contract tests..."
-node --test src/genui-spike-recipe.test.mjs
+node --test src/features/genui/core/genui-spike-recipe.test.mjs
 
 CI="${CI:-1}" npx playwright test "$@"
 

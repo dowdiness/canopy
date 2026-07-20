@@ -30,14 +30,13 @@ const CURRENT_ENTRY_SCRIPTS = new Map([
   ['memo.html', 'src/entries/memo.ts'],
   ['posts.html', 'src/entries/posts.ts'],
   ['resume.html', 'src/entries/resume.ts'],
-  ['genui.html', 'src/genui.js'],
+  ['genui.html', 'src/entries/genui.js'],
   ['genui-possibilities.html', 'src/entries/genui-possibilities.js'],
 ]);
 const ROOT_SERVER_FILES = new Set([
   'signaling-server.js',
   'signaling-worker.js',
   'vite.config.ts',
-  'vite-plugin-genui-feasibility.ts',
   'vite-plugin-moonbit.ts',
 ]);
 
@@ -67,8 +66,7 @@ export function describePath(filePath) {
   }
   if (
     /(^|\/)server\//.test(normalized) ||
-    ROOT_SERVER_FILES.has(normalized) ||
-    base === 'genui-feasibility-provider.js'
+    ROOT_SERVER_FILES.has(normalized)
   ) {
     return { kind: 'server' };
   }
@@ -88,12 +86,7 @@ export function describePath(filePath) {
   if (/(^|\/)shared\//.test(normalized) || base === 'vite-env.d.ts') {
     return { kind: 'shared' };
   }
-  // Removed: flat files moved to features/lambda/browser/
   if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
-
-  if (/^genui(?:-|\.)/.test(base) || normalized.includes('/fixtures/')) {
-    return { kind: 'feature', owner: 'genui' };
-  }
   return { kind: 'unclassified' };
 }
 

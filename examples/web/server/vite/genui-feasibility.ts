@@ -7,9 +7,9 @@ import {
   GENUI_PROVIDER_SETTINGS,
   callOllamaSlot,
   sha256Hex,
-} from './src/genui-feasibility-provider.js';
-import { GENUI_FEASIBILITY_FIXTURES } from './src/genui-feasibility-fixtures.js';
-import { getRecordedFeasibilityCandidate } from './src/genui-recorded-candidates.js';
+} from '../genui/feasibility-provider.js';
+import { GENUI_FEASIBILITY_FIXTURES } from '../../src/features/genui/core/genui-feasibility-fixtures.js';
+import { getRecordedFeasibilityCandidate } from '../../src/features/genui/core/genui-recorded-candidates.js';
 
 const REQUEST_LIMIT_BYTES = 1024;
 const REQUEST_KEYS = ['caseId', 'runCapability', 'slotId', 'studyId'];

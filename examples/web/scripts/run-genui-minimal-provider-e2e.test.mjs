@@ -16,8 +16,8 @@ import {
   writeTerminalResult,
 } from './run-genui-minimal-provider-e2e.mjs';
 import { runProviderProcess } from './genui-minimal-provider-process.mjs';
-import { GENUI_PROVIDER_SETTINGS } from '../src/genui-feasibility-provider.js';
-import { recordedFeasibilityCandidateJson } from '../src/genui-recorded-candidates.js';
+import { GENUI_PROVIDER_SETTINGS } from '../server/genui/feasibility-provider.js';
+import { recordedFeasibilityCandidateJson } from '../src/features/genui/core/genui-recorded-candidates.js';
 
 const fixtureId = 'orders-pending-attention';
 

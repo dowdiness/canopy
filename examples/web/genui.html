@@ -5,12 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Generative UI — JSX Incremental Parser Demo</title>
   <link rel="stylesheet" href="/src/tailwind.css" />
-  <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
 </head>
 <body class="font-mono p-5">
   <div class="max-w-[1600px] mx-auto">
@@ -205,53 +199,9 @@
     </section>
   </div>
 
-  <style>
-    .btn {
-      padding: 5px 10px; background: #3c3c3c; color: #abb2bf;
-      border: 1px solid #555; border-radius: 3px; cursor: pointer;
-      font-size: 11px; font-family: inherit; transition: background 0.15s;
-    }
-    .btn:hover { background: #4c4c4c; border-color: #666; }
-    .btn-primary {
-      padding: 5px 10px; background: #4d78cc; color: #fff;
-      border: 1px solid #4d78cc; border-radius: 3px; cursor: pointer;
-      font-size: 11px; font-family: inherit; transition: background 0.15s;
-    }
-    .btn-primary:hover { background: #5c8ae6; }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-    .view-tab {
-      padding: 4px 10px; background: #2d2d2d; border: 1px solid #2c313a;
-      border-radius: 3px; cursor: pointer; font-size: 11px; color: #565c64;
-      font-family: inherit;
-    }
-    .view-tab.active { background: #3c3c3c; color: #abb2bf; border-color: #4ec9b0; }
-    .view-tab:hover { background: #3c3c3c; }
-    .view-panel { display: none; }
-    .view-panel.active { display: flex; }
-    .node-id { display: inline-block; min-width: 28px; padding: 0 3px; border-radius: 2px; text-align: center; font-weight: bold; font-size: 10px; }
-    .node-id.stable { background: rgba(78, 201, 176, 0.25); color: #4ec9b0; }
-    .node-id.new { background: rgba(240, 198, 116, 0.25); color: #f0c674; }
-    .tree-toggle { color: #565c64; margin-right: 3px; }
-    .tree-node { padding-left: 16px; border-left: 1px solid #2c313a; margin: 1px 0; }
-    .tree-node-header { cursor: pointer; user-select: none; }
-    .tree-node-header:hover { background: rgba(255,255,255,0.02); }
-    .error-item { color: #f48771; padding: 2px 0; font-size: 11px; border-left: 2px solid #f48771; padding-left: 6px; margin-bottom: 2px; }
-    .binding-badge { color: #82aaff; background: rgba(130,170,255,0.12); border: 1px solid rgba(130,170,255,0.3); border-radius: 3px; padding: 2px 6px; }
-    .summary-card, .detail-field { padding: 8px 10px; background: rgba(30,34,42,0.7); border: 1px solid #2c313a; border-radius: 4px; }
-    .summary-card dt, .detail-field dt { color: #565c64; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .summary-card dd, .detail-field dd { color: #abb2bf; font-size: 12px; margin-top: 3px; }
-    .order-row { border-bottom: 1px solid rgba(44,49,58,0.7); cursor: pointer; }
-    .order-row:hover { background: rgba(78,201,176,0.06); }
-    .order-row.selected { background: rgba(78,201,176,0.14); box-shadow: inset 2px 0 #4ec9b0; }
-    .status-chip { display: inline-block; border-radius: 999px; padding: 2px 7px; font-size: 10px; }
-    .status-paid { color: #9fe2c9; background: rgba(78,201,176,0.14); }
-    .status-pending { color: #f0c674; background: rgba(240,198,116,0.14); }
-    .status-review { color: #82aaff; background: rgba(130,170,255,0.14); }
-    .feasibility-case.active { color: #e8e8f0; border-color: #8250df; background: rgba(130,80,223,0.18); }
-  </style>
   <!-- Tailwind safelist: ensures scanner finds example JSX classes -->
   <div class="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
 
-  <script type="module" src="/src/genui.js"></script>
+  <script type="module" src="/src/entries/genui.js"></script>
 </body>
 </html>
