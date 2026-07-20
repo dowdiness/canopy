@@ -5,6 +5,7 @@ import {
   classifyPath,
   describePath,
   evaluateEdge,
+  evaluateHtmlEntryScripts,
   htmlEntryAccepted,
   resolveLocalImport,
   staticImports,
@@ -89,6 +90,23 @@ test('requires HTML to load a current entry or the target-shaped entry module', 
   assert.equal(htmlEntryAccepted('/src/entries/posts.ts', 'posts', 'src/post-app.ts'), true);
   assert.equal(htmlEntryAccepted('/src/features/posts/core/posts.ts', 'posts', 'src/post-app.ts'), false);
   assert.equal(htmlEntryAccepted('/src/entries/resume.tsx', 'posts', 'src/post-app.ts'), false);
+  assert.deepEqual(
+    evaluateHtmlEntryScripts('posts.html', 'posts', [], 'src/post-app.ts'),
+    [{
+      from: 'posts.html',
+      to: '<missing>',
+      rule: 'HTML entry must load at least one corresponding browser entry module',
+    }],
+  );
+  assert.deepEqual(
+    evaluateHtmlEntryScripts(
+      'posts.html',
+      'posts',
+      ['/src/entries/posts.ts'],
+      'src/post-app.ts',
+    ),
+    [],
+  );
 });
 
 test('limits future server adapters to feature core and protocol surfaces', () => {
@@ -99,6 +117,23 @@ test('limits future server adapters to feature core and protocol surfaces', () =
   assert.match(
     evaluateEdge('server/vite/resume-chat.ts', 'src/features/resume/browser/chat.ts')[0],
     /server code/,
+  );
+});
+
+test('rejects browser-layer imports from declared core and protocol paths', () => {
+  assert.match(
+    evaluateEdge(
+      'src/features/resume/core/session.ts',
+      'src/features/resume/browser/import-session.ts',
+    )[0],
+    /browser layers/,
+  );
+  assert.match(
+    evaluateEdge(
+      'src/features/resume/protocol/chat.ts',
+      'src/shared/browser/fetch-json.ts',
+    )[0],
+    /browser layers/,
   );
 });
 

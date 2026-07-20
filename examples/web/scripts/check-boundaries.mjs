@@ -215,10 +215,17 @@ export function evaluateEdge(from, to, specifier = to) {
   }
   if (
     source.kind === 'feature' &&
-    (source.layer === 'core' || source.layer === 'protocol') &&
-    capabilityImport(specifier)
+    (source.layer === 'core' || source.layer === 'protocol')
   ) {
-    violations.push('core/protocol code cannot import Node/Vite/React/provider capabilities');
+    if (
+      (target.kind === 'feature' && target.layer === 'browser') ||
+      (target.kind === 'shared' && /(^|\/)shared\/browser\//.test(normalize(to)))
+    ) {
+      violations.push('core/protocol code cannot import browser layers');
+    }
+    if (capabilityImport(specifier)) {
+      violations.push('core/protocol code cannot import Node/Vite/React/provider capabilities');
+    }
   }
   return [...new Set(violations)];
 }
@@ -284,22 +291,43 @@ export function htmlEntryAccepted(script, feature, currentScript) {
     (target.kind === 'entry' && target.owner === feature);
 }
 
+export function evaluateHtmlEntryScripts(html, feature, scripts, currentScript) {
+  const violations = [];
+  let acceptedCount = 0;
+  for (const script of scripts) {
+    const relative = script.startsWith('/') ? script.slice(1) : script;
+    if (htmlEntryAccepted(script, feature, currentScript)) {
+      acceptedCount += 1;
+    } else {
+      violations.push({
+        from: html,
+        to: relative,
+        rule: 'HTML entry must load its corresponding browser entry module',
+      });
+    }
+  }
+  if (acceptedCount === 0) {
+    violations.push({
+      from: html,
+      to: '<missing>',
+      rule: 'HTML entry must load at least one corresponding browser entry module',
+    });
+  }
+  return violations;
+}
+
 export function checkHtmlEntries(root) {
   const violations = [];
   for (const [html, feature] of ENTRY_FEATURES) {
     const htmlText = fs.readFileSync(path.join(root, html), 'utf8');
     const scripts = [...htmlText.matchAll(/<script[^>]+src=["']([^"']+)["']/g)]
       .map(match => match[1]);
-    for (const script of scripts) {
-      const relative = script.startsWith('/') ? script.slice(1) : script;
-      if (!htmlEntryAccepted(script, feature, CURRENT_ENTRY_SCRIPTS.get(html))) {
-        violations.push({
-          from: html,
-          to: relative,
-          rule: 'HTML entry must load its corresponding browser entry module',
-        });
-      }
-    }
+    violations.push(...evaluateHtmlEntryScripts(
+      html,
+      feature,
+      scripts,
+      CURRENT_ENTRY_SCRIPTS.get(html),
+    ));
   }
   return violations;
 }
