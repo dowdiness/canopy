@@ -10,7 +10,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 | JSON | `json.html` | `src/json-editor.ts` | `json-editor.ts` (uses shared decoration overlay) | Inline in `json.html` plus `src/json-editor.css` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
 | Markdown | `markdown.html` | `src/markdown-editor.ts` | `markdown-editor.ts`, `markdown-sentinels.ts` | Inline in `markdown.html` plus editor-adapter CSS | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts` |
 | Memo | `memo.html` | `src/memo-editor.ts` | `memo-editor.ts` | Inline in `memo.html` | Browser + generated MoonBit Lambda; no dedicated test suite |
-| Posts | `posts.html` | `src/post-app.ts` | `post-app.ts`, `post-events.ts`, `post-retrieval.ts`, `post-store.ts` | Inline in `posts.html` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
+| Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{mount,post-events,post-store}.ts` | Inline in `posts.html` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
 | Resume/PKE | `resume.html` | `src/resume-app.tsx` | `resume-app.tsx`, `pi-resume-core.ts`, `pi-resume-chat-protocol.ts`, `components/ai-elements/*` | `src/resume.css` | Browser React + Vite chat relay; `tests/pi-resume.spec.ts` |
 | GenUI | `genui.html` | `src/genui.js` | `genui.js`, `genui-data.ts`, feasibility flow/fixtures/schema/provider/recorded/spike modules, `src/fixtures/*` | Inline in `genui.html` plus `src/tailwind.css` | Browser + generated MoonBit JSX, deterministic feasibility code, and a server-only provider; `tests/genui.spec.ts`, feasibility suites, colocated Node tests, study scripts |
 | GenUI Possibilities | `genui-possibilities.html` | `src/genui-possibilities.js` | `genui-possibilities.js`, `genui-journey-state.js` | `src/genui-possibilities.css` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
@@ -45,7 +45,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 ## Current structural exceptions and debt
 
-The source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. `decoration-overlay.ts` is shared by Lambda and JSON but lives at the source root. GenUI feasibility modules mix deterministic fixtures/flows with the server-only provider. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
+Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Posts is the pilot migration to the target entry/feature layout. `decoration-overlay.ts` is shared by Lambda and JSON but lives at the source root. GenUI feasibility modules mix deterministic fixtures/flows with the server-only provider. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
 ## Boundary vocabulary and allowed direction
 

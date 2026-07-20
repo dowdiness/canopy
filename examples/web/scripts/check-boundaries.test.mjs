@@ -84,14 +84,14 @@ test('requires entries to import the matching feature browser surface only', () 
   );
 });
 
-test('requires HTML to load a current entry or the target-shaped entry module', () => {
-  assert.equal(htmlEntryAccepted('/src/post-app.ts', 'posts', 'src/post-app.ts'), true);
-  assert.equal(htmlEntryAccepted('/src/post-store.ts', 'posts', 'src/post-app.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/posts.ts', 'posts', 'src/post-app.ts'), true);
-  assert.equal(htmlEntryAccepted('/src/features/posts/core/posts.ts', 'posts', 'src/post-app.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/resume.tsx', 'posts', 'src/post-app.ts'), false);
+test('requires HTML to load the Posts target-shaped entry module', () => {
+  assert.equal(htmlEntryAccepted('/src/post-app.ts', 'posts', 'src/entries/posts.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/post-store.ts', 'posts', 'src/entries/posts.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/posts.ts', 'posts', 'src/entries/posts.ts'), true);
+  assert.equal(htmlEntryAccepted('/src/features/posts/core/posts.ts', 'posts', 'src/entries/posts.ts'), false);
+  assert.equal(htmlEntryAccepted('/src/entries/resume.tsx', 'posts', 'src/entries/posts.ts'), false);
   assert.deepEqual(
-    evaluateHtmlEntryScripts('posts.html', 'posts', [], 'src/post-app.ts'),
+    evaluateHtmlEntryScripts('posts.html', 'posts', [], 'src/entries/posts.ts'),
     [{
       from: 'posts.html',
       to: '<missing>',
@@ -103,7 +103,7 @@ test('requires HTML to load a current entry or the target-shaped entry module', 
       'posts.html',
       'posts',
       ['/src/entries/posts.ts'],
-      'src/post-app.ts',
+      'src/entries/posts.ts',
     ),
     [],
   );

@@ -1,5 +1,5 @@
 import type { PostEngagementSignals } from './post-events';
-import type { LocalPost } from './post-store';
+import type { LocalPost } from './posts';
 
 export type RankingReasonKind = 'match' | 'resurfacing' | 'recent';
 
