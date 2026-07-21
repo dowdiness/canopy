@@ -215,6 +215,10 @@ unless multiple projection drivers establish a reusable contract.
 - The collaboration runtime must become payload-opaque before it can serve both
   text and container drivers.
 - Existing consumers require deprecation shims or adapters during migration.
+- Parent `moon.mod` currently requests EGW 0.3 while the workspace selects the
+  checked EGW 0.4 submodule. External collaboration behavior is therefore
+  unverified until the manifest is reconciled and tested without a workspace
+  override before publication.
 - The current binary relay and the separate JSON-history relay must not be
   treated as one protocol without an explicit convergence or retirement plan.
 - Functional-core/imperative-shell boundaries apply at every layer: protocol
