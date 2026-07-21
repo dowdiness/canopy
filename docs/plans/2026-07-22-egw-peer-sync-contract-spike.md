@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-22
 
-**Status:** Ready; execution is stopped pending explicit authorization to modify
-the `dowdiness/event-graph-walker` repository
+**Status:** Evidence complete — GO WITH CONDITIONS; close-out awaits a
+separately reviewed migration plan that decides whether to adopt the private
+spike code
 
 **Related:**
 [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
@@ -17,8 +18,8 @@ and container drivers before assigning a public package boundary.
 moving Canopy code, publishing a companion, changing dependency versions, or
 implementing room transport.
 
-**Keep until:** The spike produces a go/no-go result for a shared peer-sync
-contract and that result is folded into the collaboration ADR.
+**Keep until:** The collaboration ADR records the result and a follow-up
+migration plan decides whether to adopt or delete the private spike code.
 
 **Disposition:** On completion, update the ADR with the evidence and move this
 plan to `docs/archive/`. Delete private spike code unless a separately reviewed
@@ -273,30 +274,81 @@ projection and transport I/O remain outside it.
     adopts it. Archive this plan with its result and update the collaboration
     backlog.
 
+## Result
+
+The private EGW 0.4 experiment at local commit `c296d8f` established one
+event/decision contract for the real text and container façades. It remains on
+unpublished branch `advisor/peer-sync-contract-spike` in an isolated worktree.
+
+No push, package publication, parent pointer update, or public API change
+occurred.
+
+The test-only reducer covers admission, version comparison, full bootstrap,
+incremental local commits, bounded recovery, disconnect/reconnect, peer
+departure, and fatal escalation. State contains only peer lifecycle and retry
+metadata.
+
+A test scheduler holds envelopes only before apply. Text
+`pending_sync_records` and container `pending_sync_ops` remain the sole causal
+pending queues after delivery.
+
+Fifteen deterministic scenarios prove identical decision traces for text and
+container bootstrap, duplicate delivery, incremental sync, offline concurrent
+edits, out-of-order recovery, reconnect, and version-confirmed convergence.
+
+Both façades classify malformed, invalid-content, conflicting-identity, and
+limit failures as terminal without request/retry loops. Multi-peer incremental
+fan-out is also pinned.
+
+Validation from the EGW worktree passed:
+
+- targeted `moon check --deny-warn` and 15/15 tests;
+- full `moon check --deny-warn` and 681/681 tests;
+- `moon fmt` and `moon info`; and
+- an empty generated interface for the private package, with no existing
+  `.mbti` drift.
+
+Independent `moonbit-reviewer` review returned PASS. Independent
+`qwen3.8-max-preview` review returned GO WITH CONDITIONS and found no spike
+defect after the multi-peer fan-out test was added.
+
+Consumer validation exposed the expected migration blocker. Parent Canopy full
+`moon check` and targeted `sync_session` do not compile against the workspace's
+EGW 0.4. Loom's lambda fixture uses the older raising/apply shape, while
+`sync_session` still names removed text failure variants.
+
+The unaffected boundaries pass: `protocol/wire` passed 19/19 tests, `relay`
+passed 45/45, and the nested exact-EGW-0.4 typed-spreadsheet adapter passed 19/19
+JS tests.
+
+**Decision:** GO for a shared EGW-versioned companion contract. NO-GO for
+publication or Canopy migration until a follow-up plan reconciles the parent
+EGW 0.3 manifest, the checked EGW 0.4 source, Loom's text fixture, and Tier 1
+`sync_session` compatibility without a workspace override.
+
 ## Acceptance criteria
 
-- [ ] Actual EGW 0.4 text and container APIs are recorded from generated
+- [x] Actual EGW 0.4 text and container APIs are recorded from generated
       interfaces and `moon ide`, without inferred method names.
-- [ ] Existing document-local pending storage and replay ownership is named and
+- [x] Existing document-local pending storage and replay ownership is named and
       remains solely in EGW core.
-- [ ] One scenario matrix covers full bootstrap, incremental sync, duplicate
+- [x] One scenario matrix covers full bootstrap, incremental sync, duplicate
       delivery, missing/out-of-order dependencies, concurrent offline edits,
       reconnect, peer departure during recovery, and convergence.
-- [ ] Both drivers distinguish retryable missing dependencies from malformed,
+- [x] Both drivers distinguish retryable missing dependencies from malformed,
       conflicting-identity, and limit failures without an unbounded recovery
       loop.
-- [ ] Text and container run through the same private transition semantics, or a
-      documented no-go result identifies why they cannot.
-- [ ] Candidate peer-sync state contains no raw CRDT operation or sync-message
+- [x] Text and container run through the same private transition semantics.
+- [x] Candidate peer-sync state contains no raw CRDT operation or sync-message
       queue.
-- [ ] The deterministic delivery harness remains test-only and does not become a
+- [x] The deterministic delivery harness remains test-only and does not become a
       second transport protocol.
-- [ ] No public trait, generic `egw_incr`, room, presence, persistence, reset,
+- [x] No public trait, generic `egw_incr`, room, presence, persistence, reset,
       WebSocket, relay, or Cloudflare API is introduced.
-- [ ] No EGW, Canopy, Loom, or incr dependency version changes occur.
-- [ ] The collaboration ADR records the spike result before this plan is
+- [x] No EGW, Canopy, Loom, or incr dependency version changes occur.
+- [x] The collaboration ADR records the spike result before this plan is
       archived.
-- [ ] Generated interfaces show no unintended public API drift.
+- [x] Generated interfaces show no unintended public API drift.
 
 ## Validation
 

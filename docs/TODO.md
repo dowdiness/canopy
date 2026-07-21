@@ -103,10 +103,15 @@ proving-ground mode.
 
 ## 2. Collaboration Features
 
-- [ ] Prove the cross-driver EGW peer-sync contract before transport productization.
-  Why: current recovery is text-bound, while the typed-spreadsheet container driver needs the same bootstrap and causal-recovery semantics without a second pending-operation queue.
+- [x] Prove the cross-driver EGW peer-sync contract before transport productization.
+  Result: a private EGW 0.4 package produced identical text/container decision traces while EGW remained the sole causal pending owner; targeted 15/15 and full 681/681 tests passed.
   Plan: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
-  Exit: EGW text and container drivers either produce one executable peer-sync decision contract or a documented no-go result, and the collaboration ADR records the evidence.
+  Exit: met; the collaboration ADR records a conditional GO.
+
+- [ ] Reconcile EGW versions and Tier 1 text compatibility before companion migration.
+  Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
+  Evidence: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
+  Exit: a reviewed migration plan defines EGW-first release order, Loom fixture updates, `sync_session` compatibility, and verification without a workspace override.
 
 ---
 
