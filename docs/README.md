@@ -105,6 +105,9 @@ Only needed if you are modifying Canopy itself.
 - [TODO](TODO.md) — active backlog index.
 - [docs/plans/](plans/) — executable plans (use
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
+- [EGW peer-sync contract spike](plans/2026-07-22-egw-peer-sync-contract-spike.md)
+  — proves shared text/container recovery semantics before package extraction
+  or transport productization.
 
 **Performance:**
 
@@ -138,6 +141,9 @@ behavior** — check the code before relying on any specific detail.
 - [Incremental Generative UI document engine](design/incremental-generative-ui-document-engine.md) —
   semantic authority, operation, identity, and recovery direction for generated
   documents.
+- [Typed spreadsheet room and join UX](superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md)
+  — share-link, temporary-room, offline, reconnect, and local-draft behavior for
+  the collaboration product pilot.
 - [Design Concerns](design/design-concerns.md) — open problems and future
   considerations.
 - [Decisions Needed](decisions-needed.md) — open architectural questions.
@@ -171,6 +177,8 @@ behavior** — check the code before relying on any specific detail.
 > only when you need historical context.
 
 - [docs/archive/](archive/) — completed plans and superseded designs.
+- [Superseded WebSocket client integration plan](archive/2026-03-29-websocket-client-integration.md)
+- [Superseded sync recovery follow-up](archive/2026-03-29-sync-recovery-followup.md)
 - [Investigation Index](archive/INVESTIGATION_INDEX.md) — earlier investigations.
 - [Branch Variance Investigations](archive/investigations/branch-variance/) —
   historical perf investigations.
