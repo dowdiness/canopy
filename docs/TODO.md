@@ -103,15 +103,10 @@ proving-ground mode.
 
 ## 2. Collaboration Features
 
-- [ ] Complete WebSocket client integration.
-  Why: the wire protocol exists, but the supported browser-side integration path is not yet treated as a finished, documented workflow.
-  Plan: `docs/plans/2026-03-29-websocket-client-integration.md`
-  Exit: one canonical client flow is implemented, documented, and validated.
-
-- [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` do not leave peers diverged silently.
-  Why: now unblocked — container Phase 3 (unified sync) shipped via egw#21, so retry/buffering/failure semantics can be aligned against the Document-level sync boundary.
-  Plan: `docs/plans/2026-03-29-sync-recovery-followup.md`
-  Exit: malformed/incompatible ops trigger defined recovery (retry, buffering, or surfaced failure) against the Document sync boundary rather than silent divergence.
+- [ ] Prove the cross-driver EGW peer-sync contract before transport productization.
+  Why: current recovery is text-bound, while the typed-spreadsheet container driver needs the same bootstrap and causal-recovery semantics without a second pending-operation queue.
+  Plan: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
+  Exit: EGW text and container drivers either produce one executable peer-sync decision contract or a documented no-go result, and the collaboration ADR records the evidence.
 
 ---
 

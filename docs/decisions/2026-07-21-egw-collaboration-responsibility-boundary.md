@@ -6,6 +6,7 @@
 
 **Related:**
 [Library API boundary](2026-06-11-library-api-boundary.md) ·
+[EGW peer-sync contract spike](../plans/2026-07-22-egw-peer-sync-contract-spike.md) ·
 [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md) ·
 [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
