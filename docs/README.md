@@ -160,6 +160,9 @@ behavior** — check the code before relying on any specific detail.
   keys off the seam content hash); constrain loomgen with an append-only kind→raw
   registry (fork (i)), holding the seam hash-name migration (fork (ii)) as a documented
   escalation (loom #427 / #729).
+- [EGW collaboration responsibility boundary](decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
+  — separates EGW core, its peer-sync companion, a payload-opaque collaboration
+  runtime, infrastructure providers, and application policy.
 
 ## Historical / Archive
 

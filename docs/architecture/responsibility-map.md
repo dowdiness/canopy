@@ -160,12 +160,20 @@ When adding semantic overlays:
 
 When adding collaboration features:
 
-- Use `event-graph-walker/text` for text collaboration and
-  `event-graph-walker/tree` or `container` when structure itself needs CRDT
-  semantics.
-- Keep `relay` as a transport layer. It should not interpret CRDT operations.
-- Define reconnect and recovery behavior before adding UI affordances around
-  collaboration state.
+- Follow the [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md).
+- Keep CRDT operations, façade codecs, and the document-local causal pending
+  queue in EGW core. A companion versioned with that core interprets apply
+  reports and decides peer bootstrap or recovery commands.
+- Keep connection/session transitions, transport backpressure, and envelopes in
+  a reusable, payload-opaque collaboration runtime. It does not buffer CRDT
+  operations according to causal state.
+- Keep network, room routing, access, reconnect, and storage in infrastructure
+  providers. They may inspect generic routing metadata but do not interpret the
+  enclosed CRDT payload.
+- Keep document identity, share/join behavior, drafts, focus, projection,
+  reset, diagnostics, and presence meaning in the application.
+- Distinguish causal recovery from network reconnection before adding UI
+  affordances around collaboration state.
 
 When exploring MoonDsp integration:
 
