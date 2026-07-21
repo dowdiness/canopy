@@ -1,13 +1,13 @@
 # protocol/wire — sync wire protocol
 
-The single definition of canopy's binary sync wire format. **Tier 1 library
-surface** per the
+The single definition of canopy's binary sync wire format. It is a **Tier 1
+library surface** under the
 [library API boundary ADR](../../docs/decisions/2026-06-11-library-api-boundary.md):
 "unused in-tree" is not a deletion trigger here, and API changes follow the
 deprecation idiom with at least one release cycle.
 
 Extracted from `editor/sync_protocol.mbt` in architecture-redesign S1
-([plan](../../docs/plans/2026-06-11-s1-protocol-wire-extraction.md)). `editor`,
+([archived plan](../../docs/archive/completed-phases/2026-06-11-s1-protocol-wire-extraction.md)). `editor`,
 `relay`, and `ephemeral` consume this package exclusively; `editor` retains
 deprecated forwarding shims for the historical `@editor.*` spellings. This
 package imports substrate only (`byte_codec`, core) — never editor, ephemeral,

@@ -115,6 +115,11 @@ The earlier WebSocket client and sync-recovery plans predate the accepted
 five-layer boundary. This plan supersedes them as the active collaboration
 contract spec; their implementation history moves to the archive.
 
+Parent `moon.mod` requests EGW 0.3 while the workspace selects the checked EGW
+0.4 submodule. An external consumer therefore resolves behavior different from
+the workspace-tested source. Treat external collaboration consumption as
+unverified until the manifest is reconciled before publication.
+
 ### Typed spreadsheet
 
 The application-specific adapter on branch
@@ -241,27 +246,30 @@ projection and transport I/O remain outside it.
 14. Prove out-of-order or missing-dependency delivery reaches EGW core, appears
     through the actual report/failure surface, and yields a peer recovery
     decision without retaining payloads in companion state.
-15. Prove concurrent offline edits converge after bidirectional exchange.
-16. Prove reconnect uses full synchronization and clears recovery only after EGW
+15. Prove failure classification distinguishes retryable causal gaps from
+    malformed messages, conflicting identity, and limit failures. The latter
+    failures must surface or escalate without an unbounded peer-request loop.
+16. Prove concurrent offline edits converge after bidirectional exchange.
+17. Prove reconnect uses full synchronization and clears recovery only after EGW
     reports causal progress.
-17. Prove peer departure during recovery cancels peer-specific recovery without
+18. Prove peer departure during recovery cancels peer-specific recovery without
     clearing EGW's document-local pending state.
-18. Run the same decision-trace assertions for text and container. Keep separate
+19. Run the same decision-trace assertions for text and container. Keep separate
     document-content assertions at each driver edge.
 
 ### Phase 2 — evaluate the boundary
 
-19. Compare the two traces and classify every difference as façade mapping,
+20. Compare the two traces and classify every difference as façade mapping,
     EGW semantic difference, application policy, or accidental implementation
     detail.
-20. Check that candidate state contains no CRDT payload queue, application
+21. Check that candidate state contains no CRDT payload queue, application
     document identity, presence, room, transport, `incr`, or projection state.
-21. If the traces establish one contract, write a bounded proposal for a later
+22. If the traces establish one contract, write a bounded proposal for a later
     EGW-versioned companion. If they do not, record a no-go result and the
     smallest façade-specific boundaries that remain valid.
-22. Update the collaboration ADR with the result. Do not publish an API or move
+23. Update the collaboration ADR with the result. Do not publish an API or move
     production code under this plan.
-23. Remove private spike code unless the follow-up migration plan explicitly
+24. Remove private spike code unless the follow-up migration plan explicitly
     adopts it. Archive this plan with its result and update the collaboration
     backlog.
 
@@ -274,6 +282,9 @@ projection and transport I/O remain outside it.
 - [ ] One scenario matrix covers full bootstrap, incremental sync, duplicate
       delivery, missing/out-of-order dependencies, concurrent offline edits,
       reconnect, peer departure during recovery, and convergence.
+- [ ] Both drivers distinguish retryable missing dependencies from malformed,
+      conflicting-identity, and limit failures without an unbounded recovery
+      loop.
 - [ ] Text and container run through the same private transition semantics, or a
       documented no-go result identifies why they cannot.
 - [ ] Candidate peer-sync state contains no raw CRDT operation or sync-message
@@ -344,12 +355,16 @@ browser jobs required by a later migration plan.
 
 ### Documentation
 
-From the parent Canopy root:
+From the parent Canopy root, verify the agent-instruction alias and whitespace:
 
 ```bash
 bash scripts/check-agent-doc-links.sh
 git diff --check
 ```
+
+`check-agent-doc-links.sh` checks only the `CLAUDE.md` alias. Resolve every
+relative Markdown link changed by the spike separately; the repository does not
+currently provide a general Markdown link checker.
 
 From `loom/incr/` when nested links change:
 

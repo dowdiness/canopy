@@ -32,9 +32,11 @@ workflow while preserving a path from developer evidence to a general-user
 product.
 
 The first release uses temporary rooms, link-based edit access, minimal peer
-status, offline local edits, and automatic convergence after reconnect. It does
-not add accounts, roles, persistent rooms, remote cursors, or synchronized
-selection.
+status, offline local edits, and automatic convergence after reconnect.
+
+The pilot does not add accounts, roles, persistent rooms, remote cursors,
+synchronized selection, or bearer-link revocation. Stop-sharing semantics must
+be decided before room UX implementation.
 
 ## 2. Primary user action
 
@@ -240,3 +242,5 @@ before room UX implementation:
    public deployment?
 5. What detach or reconnect semantics would justify adding an explicit Leave
    action in a later slice?
+6. Should **Stop sharing** revoke the bearer capability immediately, and what
+   happens to connected peers and their unsynchronized local commits?
