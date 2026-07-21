@@ -225,6 +225,34 @@ unless multiple projection drivers establish a reusable contract.
   and session decisions are deterministic; scheduling and I/O stay in
   providers and application shells.
 
+## Spike evidence
+
+The 2026-07-22 private EGW 0.4 spike established one deterministic
+peer-sync event/decision contract for real text and container drivers. Its
+payload-free state covers admission, version exchange, incremental send,
+full-sync recovery, bounded retry, disconnect/reconnect, peer departure, and
+terminal failures.
+
+Both façades produced identical decision traces. Their EGW document state
+remained the sole owner of causal pending operations.
+
+The private test package has an empty generated interface. EGW validation passed
+15/15 targeted and 681/681 full tests with deny-warn checks.
+
+Independent MoonBit review passed. Independent `qwen3.8-max-preview` review
+returned GO WITH CONDITIONS and found no spike defect after multi-peer send
+fan-out was pinned.
+
+The contract result stands; its condition concerns consumer compatibility.
+Parent Canopy full checks and Tier 1 `sync_session` fail when the workspace
+selects EGW 0.4 because Loom's text fixture and `sync_session` still use the
+older text API.
+
+`protocol/wire`, `relay`, and the nested exact-EGW-0.4 container adapter pass.
+Therefore gates 1–3 have supporting evidence. Publication and Canopy migration
+remain blocked at gate 4 until version and compatibility work is verified
+without a workspace override.
+
 ## Migration gates
 
 This ADR does not authorize an immediate cross-repository rewrite. A migration
