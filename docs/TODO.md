@@ -105,13 +105,13 @@ proving-ground mode.
 
 - [x] Prove the cross-driver EGW peer-sync contract before transport productization.
   Result: a private EGW 0.4 package produced identical text/container decision traces while EGW remained the sole causal pending owner; targeted 15/15 and full 681/681 tests passed.
-  Plan: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
+  Plan: `docs/archive/2026-07-22-egw-peer-sync-contract-spike.md`
   Exit: met; the collaboration ADR records a conditional GO.
 
-- [ ] Reconcile EGW versions and Tier 1 text compatibility before companion migration.
+- [ ] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
   Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
-  Evidence: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
-  Exit: a reviewed migration plan defines EGW-first release order, Loom fixture updates, `sync_session` compatibility, and verification without a workspace override.
+  Plan: `docs/plans/2026-07-22-egw-companion-canopy-migration.md`
+  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 interfaces remain byte-for-byte compatible.
 
 ---
 
