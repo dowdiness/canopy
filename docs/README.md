@@ -105,9 +105,9 @@ Only needed if you are modifying Canopy itself.
 - [TODO](TODO.md) — active backlog index.
 - [docs/plans/](plans/) — executable plans (use
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
-- [EGW peer-sync contract spike](plans/2026-07-22-egw-peer-sync-contract-spike.md)
-  — proves shared text/container recovery semantics before package extraction
-  or transport productization.
+- [EGW companion and Canopy compatibility migration](plans/2026-07-22-egw-companion-canopy-migration.md)
+  — aligns EGW, Loom, and Canopy versions, preserves Tier 1 interfaces, and
+  splits EGW policy from payload-opaque session mechanics before transport.
 
 **Performance:**
 
@@ -179,6 +179,7 @@ behavior** — check the code before relying on any specific detail.
 - [docs/archive/](archive/) — completed plans and superseded designs.
 - [Superseded WebSocket client integration plan](archive/2026-03-29-websocket-client-integration.md)
 - [Superseded sync recovery follow-up](archive/2026-03-29-sync-recovery-followup.md)
+- [Completed EGW peer-sync contract spike](archive/2026-07-22-egw-peer-sync-contract-spike.md)
 - [Investigation Index](archive/INVESTIGATION_INDEX.md) — earlier investigations.
 - [Branch Variance Investigations](archive/investigations/branch-variance/) —
   historical perf investigations.

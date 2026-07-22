@@ -2,11 +2,13 @@
 
 **Date:** 2026-07-21
 
-**Status:** Accepted target architecture; migration not started (2026-07-21)
+**Status:** Accepted target architecture; migration planned but not started
+(2026-07-22)
 
 **Related:**
 [Library API boundary](2026-06-11-library-api-boundary.md) ·
-[EGW peer-sync contract spike](../plans/2026-07-22-egw-peer-sync-contract-spike.md) ·
+[EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
+[Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md) ·
 [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md) ·
 [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
