@@ -76,6 +76,17 @@ test "decode_message_result reports wrong version" {
 }
 
 ///|
+test "v2 frame is rejected after v3 cutover" {
+  let result = decode_message_result(b"\x02\x01\x00")
+  guard result is Err(err)
+  match err {
+    UnsupportedVersion(version~) => inspect(version, content="b'\\x02'")
+    _ => fail("expected UnsupportedVersion")
+  }
+  inspect(err.message(), content="unsupported protocol version: 2")
+}
+
+///|
 test "decode rejects too short" {
   let buf = Buffer()
   buf.write_byte(b'\x02')
@@ -85,15 +96,15 @@ test "decode rejects too short" {
 
 ///|
 test "decode_message_result reports unknown message type" {
-  let result = decode_message_result(b"\x02\xFF\x00")
+  let result = decode_message_result(b"\x03\xFF\x00")
   guard result is Err(err)
   inspect(err.message(), content="unknown protocol message type: 255")
 }
 
 ///|
-test "wire format: version byte is 0x02" {
+test "wire format: version byte is 0x03" {
   let encoded = encode_message(CrdtOps(b""))
-  inspect(encoded[0], content="b'\\x02'")
+  inspect(encoded[0], content="b'\\x03'")
 }
 
 ///|
@@ -123,7 +134,7 @@ test "EphemeralUpdate all namespaces" {
 }
 
 ///|
-test "v2: encode/decode RelayedCrdtOps roundtrip" {
+test "v3: encode/decode RelayedCrdtOps roundtrip" {
   let payload = str_to_bytes("test payload")
   let encoded = encode_relayed_crdt_ops("alice", payload)
   let decoded = decode_message(encoded)
@@ -137,7 +148,7 @@ test "v2: encode/decode RelayedCrdtOps roundtrip" {
 }
 
 ///|
-test "v2: RelayedCrdtOps with empty payload" {
+test "v3: RelayedCrdtOps with empty payload" {
   let encoded = encode_relayed_crdt_ops("bob", Bytes::new(0))
   let decoded = decode_message(encoded)
   match decoded {
@@ -150,7 +161,7 @@ test "v2: RelayedCrdtOps with empty payload" {
 }
 
 ///|
-test "v2: encode/decode SyncRequest with target and request_id" {
+test "v3: encode/decode SyncRequest with target and request_id" {
   let encoded = encode_sync_request(
     target="bob",
     request_id="42",
@@ -187,7 +198,7 @@ test "v2: encode/decode SyncRequest with target and request_id" {
 }
 
 ///|
-test "v2: encode/decode SyncResponse with target and request_id" {
+test "v3: encode/decode SyncResponse with target and request_id" {
   let encoded = encode_sync_response(
     target="alice",
     request_id="7",
@@ -224,7 +235,7 @@ test "v2: encode/decode SyncResponse with target and request_id" {
 }
 
 ///|
-test "v2: SyncRequest with empty version_json" {
+test "v3: SyncRequest with empty version_json" {
   let encoded = encode_sync_request(target="x", request_id="1", version_json="")
   let decoded = decode_message(encoded)
   match decoded {
@@ -258,14 +269,14 @@ test "v2: SyncRequest with empty version_json" {
 
 ///|
 test "decode_message_result reports missing room control subtype" {
-  let result = decode_message_result(b"\x02\x05\x00")
+  let result = decode_message_result(b"\x03\x05\x00")
   guard result is Err(err)
   inspect(err.message(), content="missing room control subtype")
 }
 
 ///|
 test "decode_message_result reports invalid room control subtype before peer id" {
-  let result = decode_message_result(b"\x02\x05\x00\xFF")
+  let result = decode_message_result(b"\x03\x05\x00\xFF")
   guard result is Err(err)
   inspect(err.message(), content="invalid room control subtype: 255")
 }

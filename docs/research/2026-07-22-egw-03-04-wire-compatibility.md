@@ -2,12 +2,13 @@
 
 **Date:** 2026-07-22
 
-**Status:** Complete; migration gate failed
+**Status:** Complete; protocol v3 hard cutover selected
 
 **Related:**
 [Collaboration boundary ADR](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [EGW companion migration plan](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
-[Exact fixtures](fixtures/2026-07-22-egw-wire-compatibility/)
+[Exact fixtures](fixtures/2026-07-22-egw-wire-compatibility/) ·
+[Protocol v3 hard cutover](../decisions/2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers deciding how Canopy moves its current text-bound
 collaboration protocol from EGW 0.3 to the target EGW release.
@@ -21,11 +22,11 @@ families, but every tested EGW version and sync payload is rejected by the
 other EGW release. The migration plan's wire compatibility gate is therefore
 closed as a failure, not as an unverified risk.
 
-**Keep until:** An ADR chooses a protocol-version cutover or a supported bridge,
-and permanent protocol tests own the selected compatibility behavior.
+**Keep until:** The protocol v3 cutover and the later EGW dependency migration
+pass their published-artifact and collaboration validation.
 
-**Disposition:** After that decision ships, move the durable conclusion into the
-ADR and delete this report plus its temporary fixture directory.
+**Disposition:** After that migration ships, retain the durable conclusion in
+the ADR and delete this report plus its temporary fixture directory.
 
 ## Scope
 
@@ -127,23 +128,16 @@ The fixture directory contains the complete JSON payloads, cross-consumer
 results, exact base64 frame bytes, and the MoonBit package sources used to
 produce and consume them.
 
-## Decision required
+## Decision
 
-Canopy must not advertise EGW 0.4 payloads as wire protocol v2 without an
-explicit compatibility decision. Two viable policy directions remain:
+The protocol v3 ADR selects a coordinated hard cut. Endpoint decoders reject v2
+frames before EGW payload handling, and the relay drops complete frames whose
+version is not v3. No identity bridge, dual decoder, or mixed-version room mode
+is introduced.
 
-1. assign a new Canopy protocol version and reject mixed peers before decoding
-   EGW payloads; or
-2. define and own a supported bridge with explicit identity translation and
-   rollout limits.
-
-The second direction conflicts with EGW 0.4's intentional removal of legacy
-identity and decoder behavior. Unless an actual rolling-upgrade requirement
-justifies that cost, a coordinated protocol-version cutover is the smaller and
-safer direction.
-
-This report does not choose that direction. The collaboration ADR must own the
-choice before the Canopy dependency migration continues.
+This resolves the wire decision required before the Canopy dependency
+migration. The companion publication, Loom migration, and clean published-
+resolution gates remain unchanged.
 
 ## Validation commands
 

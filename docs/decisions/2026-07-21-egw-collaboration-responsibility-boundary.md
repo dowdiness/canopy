@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-21
 
-**Status:** Accepted target architecture; Canopy migration blocked by the
-confirmed EGW 0.3/0.4 wire incompatibility (2026-07-22)
+**Status:** Accepted target architecture; protocol v3 cutover selected while
+EGW companion publication and dependency migration remain gated (2026-07-22)
 
 **Related:**
 
@@ -13,6 +13,7 @@ confirmed EGW 0.3/0.4 wire incompatibility (2026-07-22)
 - [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 - [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 - [EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
+- [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers designing or reviewing CRDT synchronization,
 collaboration sessions, transport providers, or collaborative applications
@@ -264,9 +265,10 @@ cross-version fixture.
 
 Canopy protocol-v2 outer frames carried both payload families without
 corruption; the incompatibility is the enclosed EGW identity and JSON schema.
-The Canopy dependency migration must now wait for an explicit protocol-version
-cutover or supported-bridge decision. A bridge is not implied by the companion
-contract.
+
+The protocol v3 ADR resolves this gate with a coordinated hard cut. Endpoint
+decoders and the relay reject v2 complete frames, and no bridge is implied by
+the companion contract. The remaining dependency migration gates are unchanged.
 
 ## Migration gates
 
