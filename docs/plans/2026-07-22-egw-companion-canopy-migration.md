@@ -2,14 +2,15 @@
 
 **Date:** 2026-07-22
 
-**Status:** Canopy migration is blocked at the wire compatibility gate;
-EGW companion source remains separately approval-gated
+**Status:** Protocol v3 hard cutover selected; EGW companion source and the
+Canopy dependency migration remain separately approval-gated
 
 **Related:**
 [Collaboration responsibility ADR](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md) ·
 [Typed-spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
-[EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
+[EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md) ·
+[Protocol v3 hard cutover](../decisions/2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers migrating EGW, Loom, and Canopy without hiding version
 skew behind a workspace override or breaking Tier 1 collaboration APIs.
@@ -262,9 +263,12 @@ rejected every cross-version version, full-sync, incremental-sync, and empty
 incremental fixture in both directions.
 
 Canopy v2 outer frames preserved both payload families exactly, so the embedded
-EGW schema is the incompatibility. See the linked wire evidence. Phase 5 must
-not begin until a separate decision chooses a protocol-version cutover or a
-supported bridge.
+EGW schema is the incompatibility. See the linked wire evidence.
+
+**Resolution:** The protocol v3 ADR chooses a coordinated hard cut with no
+bridge or dual decoder. Endpoint decoders and the relay reject v2 complete
+frames before EGW payload handling. Phase 5 remains blocked only by its EGW,
+Loom, publication, and clean-resolution gates.
 
 ### Phase 1 — split the private proof before designing public API
 

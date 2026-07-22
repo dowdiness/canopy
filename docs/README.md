@@ -172,6 +172,9 @@ behavior** — check the code before relying on any specific detail.
 - [EGW collaboration responsibility boundary](decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
   — separates EGW core, its peer-sync companion, a payload-opaque collaboration
   runtime, infrastructure providers, and application policy.
+- [Protocol v3 hard cutover](decisions/2026-07-22-protocol-v3-hard-cutover.md)
+  — rejects v2 frames at endpoints and the relay rather than bridging the
+  incompatible EGW 0.3 and 0.4 identity schemas.
 
 ## Historical / Archive
 

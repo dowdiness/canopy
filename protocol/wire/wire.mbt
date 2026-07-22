@@ -18,7 +18,7 @@ pub impl Show for SyncMessage with fn output(self, logger) {
 }
 
 ///|
-pub let protocol_version : Byte = b'\x02'
+pub let protocol_version : Byte = b'\x03'
 
 // Message type constants
 

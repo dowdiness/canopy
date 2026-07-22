@@ -111,9 +111,10 @@ proving-ground mode.
 - [ ] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
   Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
   Plan: `docs/plans/2026-07-22-egw-companion-canopy-migration.md`
-  Status: blocked before the Canopy bump. Separate EGW 0.3 and 0.4 processes rejected every cross-version version/full/incremental fixture in both directions, while Canopy v2 outer frames preserved both payload families. An explicit protocol-version cutover or supported bridge must be chosen first.
+  Status: the wire decision is resolved by a protocol v3 hard cut. Endpoint decoders and the relay reject complete v2 frames; no bridge or mixed-version room mode is retained. EGW companion publication and the dependency migration remain separately gated.
   Evidence: `docs/research/2026-07-22-egw-03-04-wire-compatibility.md`
-  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 interfaces remain byte-for-byte compatible, and the selected wire policy rejects or bridges mixed-version peers explicitly.
+  Decision: `docs/decisions/2026-07-22-protocol-v3-hard-cutover.md`
+  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 source interfaces remain compatible, and mixed-version peers fail before EGW payload decoding.
 
 ---
 
@@ -465,7 +466,7 @@ proving-ground mode.
 - [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
 
-- [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
+- [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x03, same message types).
   Resolved: the duplication was resolved — `editor/sync_protocol.mbt` became a `#deprecated` re-export shim over `@wire` (`protocol/wire`), and this branch deletes the shim; `relay/wire.mbt` is a distinct concern (peer-control frames), not a duplicate.
 
 - [x] Extract reusable orchestration out of `examples/ideal/main` (god-package: ~5.4k src lines).

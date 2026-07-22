@@ -28,44 +28,49 @@ test "decode_message: wrong protocol version returns None" {
 }
 
 ///|
+test "decode_message: v2 frame returns None after v3 cutover" {
+  inspect(@wire.decode_message(b"\x02\x01\x00") is None, content="true")
+}
+
+///|
 test "decode_message: unknown message type returns None" {
-  inspect(@wire.decode_message(b"\x02\xFF\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\xFF\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: CrdtOps with empty payload" {
-  let msg = @wire.decode_message(b"\x02\x01\x00")
+  let msg = @wire.decode_message(b"\x03\x01\x00")
   inspect(msg is Some(CrdtOps(_)), content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate missing namespace byte returns None" {
   // Header only, no namespace byte after it
-  inspect(@wire.decode_message(b"\x02\x02\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\x02\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: EphemeralUpdate invalid namespace returns None" {
   // Header + invalid namespace byte 0xFF
-  inspect(@wire.decode_message(b"\x02\x02\x00\xFF") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\x02\x00\xFF") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined missing sub_type returns None" {
   // Header for peer message (0x05) but no sub_type byte
-  inspect(@wire.decode_message(b"\x02\x05\x00") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\x05\x00") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined truncated peer_id returns None" {
   // Header + sub_type Join (0x01) but no peer_id string
-  inspect(@wire.decode_message(b"\x02\x05\x00\x01") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\x05\x00\x01") is None, content="true")
 }
 
 ///|
 test "decode_message: PeerJoined unknown sub_type returns None" {
   // Header + unknown sub_type 0xFF
-  inspect(@wire.decode_message(b"\x02\x05\x00\xFF") is None, content="true")
+  inspect(@wire.decode_message(b"\x03\x05\x00\xFF") is None, content="true")
 }
 
 ///|
