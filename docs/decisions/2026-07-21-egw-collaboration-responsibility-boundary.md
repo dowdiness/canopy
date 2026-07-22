@@ -2,15 +2,17 @@
 
 **Date:** 2026-07-21
 
-**Status:** Accepted target architecture; migration planned but not started
-(2026-07-22)
+**Status:** Accepted target architecture; Canopy migration blocked by the
+confirmed EGW 0.3/0.4 wire incompatibility (2026-07-22)
 
 **Related:**
-[Library API boundary](2026-06-11-library-api-boundary.md) ·
-[EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
-[Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md) ·
-[Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md) ·
-[Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+
+- [Library API boundary](2026-06-11-library-api-boundary.md)
+- [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md)
+- [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md)
+- [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md)
+- [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+- [EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
 
 **Reader:** Maintainers designing or reviewing CRDT synchronization,
 collaboration sessions, transport providers, or collaborative applications
@@ -254,6 +256,17 @@ older text API.
 Therefore gates 1–3 have supporting evidence. Publication and Canopy migration
 remain blocked at gate 4 until version and compatibility work is verified
 without a workspace override.
+
+A follow-up fixture exchange confirmed that EGW 0.3 and 0.4 are wire
+incompatible in both directions. Each release accepted and applied its own
+version, full-sync, and incremental JSON, but rejected every corresponding
+cross-version fixture.
+
+Canopy protocol-v2 outer frames carried both payload families without
+corruption; the incompatibility is the enclosed EGW identity and JSON schema.
+The Canopy dependency migration must now wait for an explicit protocol-version
+cutover or supported-bridge decision. A bridge is not implied by the companion
+contract.
 
 ## Migration gates
 

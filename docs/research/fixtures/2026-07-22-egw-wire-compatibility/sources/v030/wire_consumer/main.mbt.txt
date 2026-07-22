@@ -1,0 +1,58 @@
+///|
+fn consume_version(payload : String) -> String raise {
+  @text.Version::from_json_string(payload).to_json_string()
+}
+
+///|
+fn consume_sync(payload : String) -> String raise {
+  let receiver = @text.TextState::new("v030-receiver")
+  let message = @text.SyncMessage::from_json_string(payload)
+  receiver.sync().apply(message)
+  receiver.text()
+}
+
+///|
+fn check_version(label : String, payload : String) -> Unit {
+  try consume_version(payload) catch {
+    _ => println(label + "\tREJECT")
+  } noraise {
+    normalized => println(label + "\tACCEPT\t" + normalized)
+  }
+}
+
+///|
+fn check_sync(label : String, payload : String) -> Unit {
+  try consume_sync(payload) catch {
+    _ => println(label + "\tREJECT")
+  } noraise {
+    text => println(label + "\tACCEPT\t" + text)
+  }
+}
+
+///|
+fn main {
+  check_version(
+    "v040_empty_version",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-version\",\"entries\":[]}",
+  )
+  check_version(
+    "v040_base_version",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-version\",\"entries\":[{\"replica_id\":\"alice\",\"sequence\":1}]}",
+  )
+  check_version(
+    "v040_final_version",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-version\",\"entries\":[{\"replica_id\":\"alice\",\"sequence\":2}]}",
+  )
+  check_sync(
+    "v040_full_sync",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"alice\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"H\",\"origin_left\":null,\"origin_right\":null},{\"id\":{\"replica_id\":\"alice\",\"sequence\":1},\"parents\":[{\"replica_id\":\"alice\",\"sequence\":0}],\"kind\":\"insert\",\"content\":\"i\",\"origin_left\":{\"replica_id\":\"alice\",\"sequence\":0},\"origin_right\":null}],\"heads\":[{\"replica_id\":\"alice\",\"sequence\":1}]}",
+  )
+  check_sync(
+    "v040_incremental_sync",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"alice\",\"sequence\":2},\"parents\":[{\"replica_id\":\"alice\",\"sequence\":1}],\"kind\":\"insert\",\"content\":\"!\",\"origin_left\":{\"replica_id\":\"alice\",\"sequence\":1},\"origin_right\":null}],\"heads\":[{\"replica_id\":\"alice\",\"sequence\":2}]}",
+  )
+  check_sync(
+    "v040_empty_incremental_sync",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[],\"heads\":[{\"replica_id\":\"alice\",\"sequence\":2}]}",
+  )
+}

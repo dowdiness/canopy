@@ -111,7 +111,9 @@ proving-ground mode.
 - [ ] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
   Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
   Plan: `docs/plans/2026-07-22-egw-companion-canopy-migration.md`
-  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 interfaces remain byte-for-byte compatible.
+  Status: blocked before the Canopy bump. Separate EGW 0.3 and 0.4 processes rejected every cross-version version/full/incremental fixture in both directions, while Canopy v2 outer frames preserved both payload families. An explicit protocol-version cutover or supported bridge must be chosen first.
+  Evidence: `docs/research/2026-07-22-egw-03-04-wire-compatibility.md`
+  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 interfaces remain byte-for-byte compatible, and the selected wire policy rejects or bridges mixed-version peers explicitly.
 
 ---
 
