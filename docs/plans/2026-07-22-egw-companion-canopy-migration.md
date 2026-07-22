@@ -2,13 +2,14 @@
 
 **Date:** 2026-07-22
 
-**Status:** Reviewed and ready; execution is stopped at repository-specific
-source and publication gates
+**Status:** Canopy migration is blocked at the wire compatibility gate;
+EGW companion source remains separately approval-gated
 
 **Related:**
 [Collaboration responsibility ADR](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md) ·
-[Typed-spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md)
+[Typed-spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
+[EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
 
 **Reader:** Maintainers migrating EGW, Loom, and Canopy without hiding version
 skew behind a workspace override or breaking Tier 1 collaboration APIs.
@@ -255,6 +256,15 @@ Before adding each definition, inspect exact APIs with `moon ide`:
 requires incompatible semantics, or cross-version payloads are incompatible.
 An incompatible payload result requires an explicit bridge or wire-version
 plan before Phase 5; unchanged `.mbti` and outer-frame bytes are insufficient.
+
+**Result, 2026-07-22:** The gate failed. Real EGW 0.3 and 0.4 text processes
+rejected every cross-version version, full-sync, incremental-sync, and empty
+incremental fixture in both directions.
+
+Canopy v2 outer frames preserved both payload families exactly, so the embedded
+EGW schema is the incompatibility. See the linked wire evidence. Phase 5 must
+not begin until a separate decision chooses a protocol-version cutover or a
+supported bridge.
 
 ### Phase 1 — split the private proof before designing public API
 

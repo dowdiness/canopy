@@ -108,6 +108,9 @@ Only needed if you are modifying Canopy itself.
 - [EGW companion and Canopy compatibility migration](plans/2026-07-22-egw-companion-canopy-migration.md)
   — aligns EGW, Loom, and Canopy versions, preserves Tier 1 interfaces, and
   splits EGW policy from payload-opaque session mechanics before transport.
+  - [EGW 0.3/0.4 wire compatibility evidence](research/2026-07-22-egw-03-04-wire-compatibility.md)
+    — confirms that outer v2 frames remain intact while embedded version and
+    sync JSON are incompatible in both directions.
 
 **Performance:**
 

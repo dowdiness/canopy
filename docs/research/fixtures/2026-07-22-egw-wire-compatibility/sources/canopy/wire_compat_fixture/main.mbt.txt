@@ -1,0 +1,62 @@
+///|
+fn utf16le(payload : String) -> Bytes {
+  let buffer = Buffer()
+  buffer.write_string_utf16le(payload.view())
+  buffer.to_bytes()
+}
+
+///|
+fn emit(label : String, bytes : Bytes) -> Unit {
+  guard @wire.decode_message(bytes) is Some(_) else {
+    abort("wire round-trip failed: " + label)
+  }
+  let decimal = bytes
+    .to_array()
+    .map(byte => byte.to_int().to_string())
+    .join(",")
+  println(label + "\t" + decimal)
+}
+
+///|
+fn emit_frames(
+  version : String,
+  version_json : String,
+  sync_json : String,
+) -> Unit {
+  let payload = utf16le(sync_json)
+  emit(version + "_crdt_ops", @wire.encode_message(CrdtOps(payload)))
+  emit(
+    version + "_relayed_crdt_ops",
+    @wire.encode_relayed_crdt_ops("alice", payload),
+  )
+  emit(
+    version + "_sync_request",
+    @wire.encode_sync_request(
+      target="bob",
+      request_id="42",
+      version_json~,
+    ),
+  )
+  emit(
+    version + "_sync_response",
+    @wire.encode_sync_response(
+      target="alice",
+      request_id="42",
+      sync_json~,
+    ),
+  )
+}
+
+///|
+fn main {
+  emit_frames(
+    "v030",
+    "[\"Frontier\",[1]]",
+    "{\"runs\":[{\"start_lv\":0,\"agent\":\"alice\",\"start_seq\":0,\"content\":{\"Inserts\":\"Hi\"},\"parents\":[],\"origin_left\":null,\"origin_right\":null,\"count\":2}],\"heads\":[{\"agent\":\"alice\",\"seq\":1}]}",
+  )
+  emit_frames(
+    "v040",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-version\",\"entries\":[{\"replica_id\":\"alice\",\"sequence\":1}]}",
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"alice\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"H\",\"origin_left\":null,\"origin_right\":null},{\"id\":{\"replica_id\":\"alice\",\"sequence\":1},\"parents\":[{\"replica_id\":\"alice\",\"sequence\":0}],\"kind\":\"insert\",\"content\":\"i\",\"origin_left\":{\"replica_id\":\"alice\",\"sequence\":0},\"origin_right\":null}],\"heads\":[{\"replica_id\":\"alice\",\"sequence\":1}]}",
+  )
+}
