@@ -14,6 +14,8 @@ import {
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/lang/json/companion" @json_companion,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/sync",
   "dowdiness/incr",
   "dowdiness/json" @_json_lang,
   "dowdiness/lambda/ast",

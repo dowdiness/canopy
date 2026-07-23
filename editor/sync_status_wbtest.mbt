@@ -155,16 +155,14 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
       return
     }
   }
-  // Apply the orphan delta — must raise TextError::SyncFailed with
-  // SyncFailure::MissingDependency specifically. Any other exception
-  // (or no exception) would mean the test isn't exercising what it claims.
-  let mut raised_missing_dep = false
+  // EGW owns and reports the pending operation. The editor normalizes that
+  // report to the legacy retryable VersionNotFound error for SyncHost.
+  let mut raised_pending = false
   editor_b.apply_sync(orphan_delta) catch {
-    @text.TextError::SyncFailed(@text.SyncFailure::MissingDependency(..)) =>
-      raised_missing_dep = true
-    other => fail("expected MissingDependency, got: \{other}")
+    @text.TextError::VersionNotFound => raised_pending = true
+    other => fail("expected pending dependency, got: \{other}")
   }
-  inspect(raised_missing_dep, content="true")
+  inspect(raised_pending, content="true")
   // Error must persist — the catch branch in apply_sync must not hit the
   // auto-clear tail.
   inspect(

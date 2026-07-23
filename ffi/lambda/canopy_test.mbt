@@ -1,6 +1,13 @@
 // Test simulating the exact web editor scenario
 
 ///|
+test "sync JSON fallback is a valid empty v0.5 envelope" {
+  let all = @text.SyncMessage::from_json_string(export_all_json(-1))
+  let since = @text.SyncMessage::from_json_string(export_since_json(-1, ""))
+  inspect((all.op_count(), since.op_count()), content="(0, 0)")
+}
+
+///|
 test "Web scenario: error persistence bug" {
   // Simulate web editor usage
   let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None }

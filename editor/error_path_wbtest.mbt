@@ -195,11 +195,9 @@ test "ws_on_message: malformed message after valid sync preserves text" {
 test "apply_sync: empty SyncMessage is safe" {
   let editor = @probe.new_test_editor("alice")
   editor.set_text("hello")
-  let empty_msg = @text.SyncMessage::from_json_string(
-    "{\"runs\":[],\"heads\":[]}",
-  ) catch {
+  let empty_msg = @probe.new_test_editor("empty-message").export_all() catch {
     _ => {
-      fail("from_json_string failed")
+      fail("export_all failed")
       return
     }
   }
@@ -241,8 +239,7 @@ test "export_since: empty version exports all" {
   try {
     let msg = editor.export_since(fresh_version)
     // Should contain ops (alice's edits)
-    let json = msg.to_json_string()
-    inspect(json.contains("runs"), content="true")
+    inspect(msg.op_count() > 0, content="true")
   } catch {
     _ => () // VersionNotFound is acceptable
   }

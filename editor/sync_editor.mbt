@@ -61,7 +61,7 @@ pub fn[T] SyncEditor::new_generic(
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
-    doc: @text.TextState::new(agent_id),
+    doc: try! @text.TextState::new(agent_id),
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
     parser,
     cursor: 0,
@@ -444,22 +444,27 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
-  self.doc.sync().apply(msg) catch {
-    e => {
-      self.undo.set_tracking(true)
-      // Reconcile derived state in case apply partially mutated the doc
-      let new_source = self.doc.text()
-      self.adjust_cursor()
-      self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-      self.sync_parser_after_text_change(old_source, new_source, None)
-      raise e
-    }
+  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
+    self.doc.sync().apply(msg),
+  ) catch {
+    error => Err(error)
   }
   self.undo.set_tracking(true)
+  // Reconcile derived state even when apply reports an error, because the
+  // document may have been partially mutated before the failure surfaced.
   let new_source = self.doc.text()
   self.adjust_cursor()
   self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
   self.sync_parser_after_text_change(old_source, new_source, None)
+  // Keep the legacy Unit-raising SyncHost seam while EGW remains the sole
+  // owner of causally pending operations.
+  let report = match report_result {
+    Ok(report) => report
+    Err(error) => raise error
+  }
+  if report.pending_operations() > 0 {
+    raise @text.TextError::VersionNotFound
+  }
   // Clear a prior Error status once any sync applies — another peer
   // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
   self.session.note_sync_applied()
