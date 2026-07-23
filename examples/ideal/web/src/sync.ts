@@ -239,6 +239,7 @@ export class SyncClient {
       if (!delta) return;
       const parsed = JSON.parse(delta);
       const hasOps =
+        (Array.isArray(parsed.operations) && parsed.operations.length > 0) ||
         (Array.isArray(parsed.ops) && parsed.ops.length > 0) ||
         (Array.isArray(parsed.runs) && parsed.runs.length > 0) ||
         (Array.isArray(parsed.tree_ops) && parsed.tree_ops.length > 0) ||

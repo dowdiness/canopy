@@ -142,11 +142,12 @@ fn build_eval_annotations(
 
 ///|
 /// Create a lambda editor with its companion.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_lambda_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
+) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise @text.TextError {
   let analysis_projection = AnalysisProjection::new()
   // Reconciliation trace accumulator. Populated on every reconcile pass;
   // the caller reads `trace_ref.val` after projection changes.

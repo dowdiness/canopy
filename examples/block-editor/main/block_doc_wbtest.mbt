@@ -23,8 +23,8 @@ test "children order is insertion order" {
   let b = doc.create_block(Paragraph)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="2")
-  inspect(@container.tree_node_id_eq(children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(children[1], b), content="true")
+  inspect(children[0] == a, content="true")
+  inspect(children[1] == b, content="true")
 }
 
 ///|
@@ -35,7 +35,7 @@ test "delete block removes from children" {
   doc.delete_block(a)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="1")
-  inspect(@container.tree_node_id_eq(children[0], b), content="true")
+  inspect(children[0] == b, content="true")
   inspect(doc.is_alive(a), content="false")
 }
 
@@ -67,9 +67,9 @@ test "create_block_after inserts at correct position" {
   let c = doc.create_block_after(a, Paragraph)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(children[1], c), content="true")
-  inspect(@container.tree_node_id_eq(children[2], b), content="true")
+  inspect(children[0] == a, content="true")
+  inspect(children[1] == c, content="true")
+  inspect(children[2] == b, content="true")
 }
 
 ///|
@@ -80,9 +80,9 @@ test "create_block_after appends when after_id is last" {
   let c = doc.create_block_after(b, Paragraph)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(children[1], b), content="true")
-  inspect(@container.tree_node_id_eq(children[2], c), content="true")
+  inspect(children[0] == a, content="true")
+  inspect(children[1] == b, content="true")
+  inspect(children[2] == c, content="true")
 }
 
 // ── Markdown export tests ─────────────────────────────────────────────────
@@ -483,9 +483,9 @@ test "move_block After: move first block after second" {
   doc.move_block(a, b, @canopy_core.DropPosition::After)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], b), content="true")
-  inspect(@container.tree_node_id_eq(children[1], a), content="true")
-  inspect(@container.tree_node_id_eq(children[2], c), content="true")
+  inspect(children[0] == b, content="true")
+  inspect(children[1] == a, content="true")
+  inspect(children[2] == c, content="true")
 }
 
 ///|
@@ -501,9 +501,9 @@ test "move_block Before: move last block before first" {
   doc.move_block(c, a, @canopy_core.DropPosition::Before)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], c), content="true")
-  inspect(@container.tree_node_id_eq(children[1], a), content="true")
-  inspect(@container.tree_node_id_eq(children[2], b), content="true")
+  inspect(children[0] == c, content="true")
+  inspect(children[1] == a, content="true")
+  inspect(children[2] == b, content="true")
 }
 
 ///|
@@ -516,9 +516,9 @@ test "move_block Before: move to before middle" {
   doc.move_block(c, b, @canopy_core.DropPosition::Before)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(children[1], c), content="true")
-  inspect(@container.tree_node_id_eq(children[2], b), content="true")
+  inspect(children[0] == a, content="true")
+  inspect(children[1] == c, content="true")
+  inspect(children[2] == b, content="true")
 }
 
 ///|
@@ -531,9 +531,9 @@ test "move_block After: move to after last" {
   doc.move_block(a, c, @canopy_core.DropPosition::After)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="3")
-  inspect(@container.tree_node_id_eq(children[0], b), content="true")
-  inspect(@container.tree_node_id_eq(children[1], c), content="true")
-  inspect(@container.tree_node_id_eq(children[2], a), content="true")
+  inspect(children[0] == b, content="true")
+  inspect(children[1] == c, content="true")
+  inspect(children[2] == a, content="true")
 }
 
 ///|
@@ -547,8 +547,8 @@ test "move_block preserves text after reorder" {
   inspect(doc.get_text(a), content="alpha")
   inspect(doc.get_text(b), content="beta")
   let children = doc.children(root_block_id)
-  inspect(@container.tree_node_id_eq(children[0], b), content="true")
-  inspect(@container.tree_node_id_eq(children[1], a), content="true")
+  inspect(children[0] == b, content="true")
+  inspect(children[1] == a, content="true")
 }
 
 // ── Legality tests ───────────────────────────────────────────────────
@@ -563,8 +563,8 @@ test "move_block: self-drop is a silent no-op" {
   doc.move_block(a, a, @canopy_core.DropPosition::After)
   let children = doc.children(root_block_id)
   inspect(children.length(), content="2")
-  inspect(@container.tree_node_id_eq(children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(children[1], b), content="true")
+  inspect(children[0] == a, content="true")
+  inspect(children[1] == b, content="true")
 }
 
 ///|
@@ -605,13 +605,13 @@ test "move_block Before: cross-parent reparents nested block to ref's parent" {
   let root_children = doc.children(root_block_id)
   // Root should have: A, child-1, B (child-1 inserted before B)
   inspect(root_children.length(), content="3")
-  inspect(@container.tree_node_id_eq(root_children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(root_children[1], child1), content="true")
-  inspect(@container.tree_node_id_eq(root_children[2], b), content="true")
+  inspect(root_children[0] == a, content="true")
+  inspect(root_children[1] == child1, content="true")
+  inspect(root_children[2] == b, content="true")
   // A should still have child-2 only
   let a_children = doc.children(a)
   inspect(a_children.length(), content="1")
-  inspect(@container.tree_node_id_eq(a_children[0], child2), content="true")
+  inspect(a_children[0] == child2, content="true")
   // Text preserved
   inspect(doc.get_text(child1), content="child-1")
   inspect(doc.get_text(b), content="B")
@@ -632,9 +632,9 @@ test "move_block After: cross-parent reparents nested block to ref's parent" {
   let root_children = doc.children(root_block_id)
   // Root should have: A, B, child-1 (child-1 now under root after B)
   inspect(root_children.length(), content="3")
-  inspect(@container.tree_node_id_eq(root_children[0], a), content="true")
-  inspect(@container.tree_node_id_eq(root_children[1], b), content="true")
-  inspect(@container.tree_node_id_eq(root_children[2], child1), content="true")
+  inspect(root_children[0] == a, content="true")
+  inspect(root_children[1] == b, content="true")
+  inspect(root_children[2] == child1, content="true")
   // A should have no children
   let a_children = doc.children(a)
   inspect(a_children.length(), content="0")

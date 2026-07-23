@@ -2,7 +2,7 @@
 
 ///|
 test "ws_on_close: clears ws reference" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
   inspect(editor.ws is None, content="false")
@@ -12,7 +12,7 @@ test "ws_on_close: clears ws reference" {
 
 ///|
 test "ws_send: does nothing when disconnected" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   // ws is None by default — should not panic
   editor.ws_send(Bytes::new(0))
   inspect(editor.ws is None, content="true")
@@ -20,7 +20,7 @@ test "ws_send: does nothing when disconnected" {
 
 ///|
 test "ws_on_message: PeerLeft removes peer from hub" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   // Inject remote cursor presence for "bob" the way it arrives over the wire:
   // encode it from bob's own hub and apply to alice's editor hub.
   let bob_hub = EphemeralHub::new("bob")
@@ -37,8 +37,8 @@ test "ws_on_message: PeerLeft removes peer from hub" {
 
 ///|
 test "ws_on_message: CrdtOps applies remote edits" {
-  let editor_a = @probe.new_test_editor("alice")
-  let editor_b = @probe.new_test_editor("bob")
+  let editor_a = try! @probe.new_test_editor("alice")
+  let editor_b = try! @probe.new_test_editor("bob")
   // Alice types some text
   editor_a.set_text("hello")
   // Export alice's state as JSON bytes
@@ -59,7 +59,7 @@ test "ws_on_message: CrdtOps applies remote edits" {
 
 ///|
 test "ws_on_message: EphemeralUpdate applies to hub" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   // Create some ephemeral data from a different hub
   let other_hub = EphemeralHub::new("bob")
   other_hub.set_cursor(42)
@@ -74,8 +74,8 @@ test "ws_on_message: EphemeralUpdate applies to hub" {
 
 ///|
 test "ws_on_message: RelayedCrdtOps applies remote edits with sender" {
-  let editor_a = @probe.new_test_editor("alice")
-  let editor_b = @probe.new_test_editor("bob")
+  let editor_a = try! @probe.new_test_editor("alice")
+  let editor_b = try! @probe.new_test_editor("bob")
   editor_a.set_text("hello")
   let crdt_msg = editor_a.export_all() catch {
     _ => {

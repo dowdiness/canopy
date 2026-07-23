@@ -10,8 +10,9 @@ pub struct Editor {
 } derive(Debug)
 
 ///|
-/// Create a new editor for an agent
-pub fn Editor::new(agent_id : String) -> Editor {
+/// Create a new editor for a non-empty agent identifier.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
+pub fn Editor::new(agent_id : String) -> Editor raise @text.TextError {
   { doc: @text.TextState::new(agent_id), cursor: 0 }
 }
 
@@ -140,6 +141,9 @@ pub fn Editor::export_since(
 ///|
 /// Sync: Apply a SyncMessage from a peer
 pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise {
-  self.doc.sync().apply(msg)
+  let report = self.doc.sync().apply(msg)
+  if report.pending_operations() > 0 {
+    raise @text.TextError::VersionNotFound
+  }
   self.adjust_cursor()
 }

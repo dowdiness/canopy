@@ -11,7 +11,7 @@
 
 ///|
 test "apply_json_edit message pin: unwrap root scalar -> compute error" {
-  let editor = new_json_editor("target")
+  let editor = try! new_json_editor("target")
   editor.set_text("42")
   let root_id = match editor.get_proj_node() {
     Some(p) => p.id()
@@ -36,7 +36,7 @@ test "apply_json_edit message pin: unwrap root scalar -> compute error" {
 test "apply_json_edit message pin: absent node id -> compute error" {
   // Take a high child id from a donor with many nodes, then apply against a
   // single-scalar editor whose id space cannot contain it.
-  let donor = new_json_editor("donor")
+  let donor = try! new_json_editor("donor")
   donor.set_text("{\"a\": 1, \"b\": 2, \"c\": 3}")
   let absent_id = match donor.get_proj_node() {
     Some(p) => p.children[p.children.length() - 1].id()
@@ -45,7 +45,7 @@ test "apply_json_edit message pin: absent node id -> compute error" {
       return
     }
   }
-  let editor = new_json_editor("target")
+  let editor = try! new_json_editor("target")
   editor.set_text("42")
   match apply_json_edit(editor, JsonEditOp::Delete(node_id=absent_id), 0) {
     Err(msg) =>

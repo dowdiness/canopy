@@ -9,7 +9,7 @@
 // runtime_id; cells from different runtimes have distinct runtime_id values.
 test "SyncEditor::new_generic threads parent_runtime through to Parser" {
   let shared = @incr.Runtime()
-  let editor = @probe.new_test_editor("test", parent_runtime=shared)
+  let editor = try! @probe.new_test_editor("test", parent_runtime=shared)
   let parser_rt = editor.parser_runtime()
   // Allocate an Input on each runtime to read their CellId.runtime_id.
   let sig_shared = @incr.Input(shared, 0, label="probe_shared")
@@ -20,8 +20,8 @@ test "SyncEditor::new_generic threads parent_runtime through to Parser" {
 ///|
 // Regression guard: without parent_runtime, each editor gets its own runtime.
 test "SyncEditor::new_generic without parent_runtime allocates private runtime" {
-  let editor_a = @probe.new_test_editor("a")
-  let editor_b = @probe.new_test_editor("b")
+  let editor_a = try! @probe.new_test_editor("a")
+  let editor_b = try! @probe.new_test_editor("b")
   let rt_a = editor_a.parser_runtime()
   let rt_b = editor_b.parser_runtime()
   let sig_a = @incr.Input(rt_a, 0, label="probe_a")

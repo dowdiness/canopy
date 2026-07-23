@@ -1,6 +1,6 @@
 ///|
 test "semantic overlay annotations appear in lambda view tree" {
-  let editor = new_lambda_editor("semantic-overlay-view").0
+  let editor = (try! new_lambda_editor("semantic-overlay-view")).0
   editor.set_text("(x) => x")
   let view = editor.get_view_tree()
   guard view is Some(root)

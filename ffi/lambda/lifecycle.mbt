@@ -33,8 +33,9 @@ let last_created_handle : Ref[Int?] = { val: None }
 ///|
 /// Build a Lambda editor + companion on the shared runtime, then
 /// atomically register them with the coordinator. Returns
-/// the freshly-allocated `EditorId`. Aborting at any step leaves
-/// `lambda_registry` untouched (atomic-boundary observation, spec §8.3).
+/// the freshly-allocated `EditorId`, or `EditorId(-1)` when construction
+/// fails. A failed construction leaves `lambda_registry` untouched
+/// (atomic-boundary observation, spec §8.3).
 fn assemble_lambda_handle(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
@@ -43,7 +44,12 @@ fn assemble_lambda_handle(
     agent_id,
     capture_timeout_ms~,
     parent_runtime=coordinator.runtime(),
-  )
+  ) catch {
+    error => {
+      println("assemble_lambda_handle failed: \{error.message()}")
+      return @workspace.EditorId(-1)
+    }
+  }
   let cells = LambdaProtectedCells::LambdaProtectedCells(editor, companion)
   let editor_id = coordinator.register_editor(
     agent_id,
@@ -81,7 +87,8 @@ pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
 }
 
 ///|
-/// Create a new SyncEditor instance. Returns a unique handle.
+/// Create a new SyncEditor instance.
+/// Returns a unique handle, or `-1` when `agent_id` is invalid.
 pub fn create_editor(agent_id : String) -> Int {
   assemble_lambda_handle(agent_id).0
 }
