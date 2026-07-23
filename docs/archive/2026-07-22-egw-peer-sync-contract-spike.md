@@ -2,11 +2,10 @@
 
 **Date:** 2026-07-22
 
-**Status:** Evidence complete — GO WITH CONDITIONS; close-out awaits a
-separately reviewed migration plan that decides whether to adopt the private
-spike code
+**Status:** Completed and archived — GO WITH CONDITIONS
 
 **Related:**
+[EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
 [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Typed spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
 [Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md)
@@ -18,12 +17,13 @@ and container drivers before assigning a public package boundary.
 moving Canopy code, publishing a companion, changing dependency versions, or
 implementing room transport.
 
-**Keep until:** The collaboration ADR records the result and a follow-up
-migration plan decides whether to adopt or delete the private spike code.
+**Keep until:** Complete. The ADR records the result and the follow-up migration
+plan adopts the private spike as semantic evidence.
 
-**Disposition:** On completion, update the ADR with the evidence and move this
-plan to `docs/archive/`. Delete private spike code unless a separately reviewed
-migration plan adopts it.
+**Disposition:** Archived after the collaboration ADR recorded the conditional
+GO. The follow-up migration plan keeps the private package until its scenarios
+have one canonical production owner, then deletes it. No additional ADR was
+needed because the existing collaboration ADR owns this decision.
 
 ## Why
 
