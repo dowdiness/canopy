@@ -6,13 +6,13 @@
 
 ///|
 test "pending_transforms starts empty" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   inspect(editor.pending_transforms.val.is_empty(), content="true")
 }
 
 ///|
 test "apply_span_edits with Wrap hint pushes hint" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let inner_id = @core.NodeId::from_int(42)
   let edits : Array[@core.SpanEdit] = [
@@ -37,7 +37,7 @@ test "apply_span_edits with Wrap hint pushes hint" {
 
 ///|
 test "apply_span_edits without hint leaves pending_transforms unchanged" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let edits : Array[@core.SpanEdit] = [
     { start: 0, delete_len: 0, inserted: "x" },
@@ -48,7 +48,7 @@ test "apply_span_edits without hint leaves pending_transforms unchanged" {
 
 ///|
 test "apply_span_edits with empty edits does not push hint (T4)" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   let fake_id = @core.NodeId::from_int(7)
   let edits : Array[@core.SpanEdit] = []
   editor.apply_span_edits(
@@ -66,7 +66,7 @@ test "apply_span_edits with net-no-op edits does not push hint (T4)" {
   // change, so sync_parser_after_text_change returns early without triggering
   // a reparse. The hint must not be queued — otherwise it becomes stale and
   // corrupts the next structural op's hint map.
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("x")
   let replace_id = @core.NodeId::from_int(5)
   let edits : Array[@core.SpanEdit] = [
@@ -83,7 +83,7 @@ test "apply_span_edits with net-no-op edits does not push hint (T4)" {
 
 ///|
 test "T2: set_text taints if pending_transforms non-empty" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   let fake_id = @core.NodeId::from_int(1)
   editor.pending_transforms.val.push(
     @core.IdentityTransform::Wrap(inner=fake_id),
@@ -98,14 +98,14 @@ test "T2: set_text taints if pending_transforms non-empty" {
 
 ///|
 test "T2: set_text does NOT taint when pending_transforms empty" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("hello")
   inspect(editor.pending_transforms.val.is_empty(), content="true")
 }
 
 ///|
 test "T2: insert taints if pending_transforms non-empty" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   let fake_id = @core.NodeId::from_int(2)
   editor.pending_transforms.val.push(
     @core.IdentityTransform::Wrap(inner=fake_id),
@@ -122,7 +122,7 @@ test "T2: insert taints if pending_transforms non-empty" {
 
 ///|
 test "multiple structural hints accumulate in order" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("ab")
   let id1 = @core.NodeId::from_int(10)
   let id2 = @core.NodeId::from_int(20)
@@ -159,7 +159,7 @@ test "multiple structural hints accumulate in order" {
 
 ///|
 test "move_node taints pending_transforms (Finding 3: Move is not identity-preserving)" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x) y")
   let _ = editor.get_proj_node() // force first parse
   let fake_id = @core.NodeId::from_int(5)

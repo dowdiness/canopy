@@ -5,7 +5,7 @@ using @md_edits {type MarkdownEditOp}
 
 ///|
 test "round-trip: new_markdown_editor + apply_markdown_edit" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("# Hello\n\nWorld\n")
   // Force a reparse/projection cycle
   let state = @editor.ViewUpdateState::ViewUpdateState()
@@ -24,7 +24,7 @@ test "round-trip: new_markdown_editor + apply_markdown_edit" {
 
 ///|
 test "generic view path preserves ordered list kind" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("1. one\n2. two\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, ed)
@@ -37,7 +37,7 @@ test "generic view path preserves ordered list kind" {
 
 ///|
 test "move_block: unordered list item move preserves identity" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("- A\n- B\n- C\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -61,7 +61,7 @@ test "move_block: unordered list item move preserves identity" {
 
 ///|
 test "move_block: ordered list item move preserves identity across renumbering" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("1. A\n2. B\n3. C\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -85,7 +85,7 @@ test "move_block: ordered list item move preserves identity across renumbering" 
 
 ///|
 test "split_block: middle of paragraph" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("Hello World\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -105,7 +105,7 @@ test "split_block: middle of paragraph" {
 
 ///|
 test "split_block: offset 0 inserts before" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("# Title\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -123,7 +123,7 @@ test "split_block: offset 0 inserts before" {
 
 ///|
 test "split_block: end of block inserts after" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("Hello\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -140,7 +140,7 @@ test "split_block: end of block inserts after" {
 
 ///|
 test "insert_block_after: ZWSP present in raw text, absent in export" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("Hello\n")
   // Force projection cycle
   let state = @editor.ViewUpdateState::ViewUpdateState()
@@ -163,7 +163,7 @@ test "insert_block_after: ZWSP present in raw text, absent in export" {
 
 ///|
 test "export preserves legitimate ZWSP in user content" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   // Simulate user content with ZWSP inside text (e.g., pasted from another tool)
   ed.set_text("Hello\u200Bworld\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
@@ -178,7 +178,7 @@ test "export preserves legitimate ZWSP in user content" {
 /// must round-trip unchanged. The previous blind `replace_all("\n\u200B\n",
 /// "\n\n")` mangled this case.
 test "export preserves ZWSP-only line inside a code block" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("```\nfoo\n\u200B\nbar\n```\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)
@@ -191,7 +191,7 @@ test "export preserves ZWSP-only line inside a code block" {
 
 ///|
 test "merge cleans up ZWSP from empty block" {
-  let ed = new_markdown_editor("test")
+  let ed = try! new_markdown_editor("test")
   ed.set_text("Hello\n")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, ed)

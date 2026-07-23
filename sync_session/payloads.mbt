@@ -57,9 +57,7 @@ fn parse_sync_response_payload(
 ///|
 fn should_retry_sync_error(err : Error) -> Bool {
   match err {
-    @text.TextError::SyncFailed(@text.SyncFailure::MissingDependency(..)) =>
-      true
-    @text.TextError::SyncFailed(@text.SyncFailure::Timeout(..)) => true
+    @text.TextError::SyncFailed(@sync.Failure::MissingDependency(..)) => true
     @text.TextError::VersionNotFound => true
     _ => false
   }

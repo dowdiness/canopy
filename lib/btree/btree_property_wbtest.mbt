@@ -400,7 +400,7 @@ fn QueryCase::to_stable_witness(self : QueryCase) -> QueryCase {
     let current_score = current.shrink_score()
     let mut next_case : QueryCase? = None
     let mut next_score = current_score
-    for candidate in QueryCase::shrink(current) {
+    for candidate in @qc.Shrink::shrink(current) {
       if candidate.is_minimal_witness() {
         return candidate
       }

@@ -3,7 +3,7 @@
 
 ///|
 /// Create a new SyncEditor with undo support.
-/// Returns a unique handle for this editor.
+/// Returns a unique handle for this editor, or `-1` when `agent_id` is invalid.
 pub fn create_editor_with_undo(
   agent_id : String,
   capture_timeout_ms : Int,
@@ -19,7 +19,10 @@ pub fn insert_and_record(
   timestamp_ms : Int,
 ) -> Unit {
   match lambda_registry.get(handle) {
-    Some(h) => try! h.editor.insert_and_record(text, timestamp_ms)
+    Some(h) =>
+      h.editor.insert_and_record(text, timestamp_ms) catch {
+        error => println("insert_and_record failed: \{error.to_string()}")
+      }
     None => ()
   }
 }

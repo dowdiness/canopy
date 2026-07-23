@@ -29,13 +29,19 @@ let json_registry : @host.HostRegistry[JsonHandle] = @host.HostRegistry::HostReg
 ///|
 /// Build a JSON editor on the shared runtime, then atomically register its
 /// protected cells with the coordinator. Returns the freshly-allocated
-/// `EditorId`. Aborting at any step leaves `json_registry` untouched
+/// `EditorId`, or `EditorId(-1)` when construction fails. A failed
+/// construction leaves `json_registry` untouched
 /// (atomic-boundary observation, spec §3.6).
 fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
   let editor = @json_companion.new_json_editor(
     agent_id,
     parent_runtime=coordinator.runtime(),
-  )
+  ) catch {
+    error => {
+      println("assemble_json_handle failed: \{error.message()}")
+      return @workspace.EditorId(-1)
+    }
+  }
   let cells = JsonProtectedCells::JsonProtectedCells(editor)
   let editor_id = coordinator.register_editor(
     agent_id,
@@ -51,7 +57,8 @@ fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
 }
 
 ///|
-/// Create a new JSON SyncEditor instance. Returns a unique handle.
+/// Create a new JSON SyncEditor instance.
+/// Returns a unique handle, or `-1` when `agent_id` is invalid.
 pub fn create_json_editor(agent_id : String) -> Int {
   assemble_json_handle(agent_id).0
 }
