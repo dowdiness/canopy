@@ -15,7 +15,8 @@ test "editor creation rejects an empty agent identifier before registration" {
 test "sync JSON fallback is a valid empty v0.5 envelope" {
   let all = @text.SyncMessage::from_json_string(export_all_json(-1))
   let since = @text.SyncMessage::from_json_string(export_since_json(-1, ""))
-  inspect((all.op_count(), since.op_count()), content="(0, 0)")
+  inspect(all.op_count(), content="0")
+  inspect(since.op_count(), content="0")
 }
 
 ///|

@@ -56,7 +56,7 @@ priv struct JsxSessionResultJson {
 ///|
 impl ToJson for JsxSessionResultJson with fn to_json(self) {
   let error_json = match self.error {
-    Some(error) => error.to_json()
+    Some(error) => ToJson::to_json(error)
     None => Json::null()
   }
   Json::object({
@@ -84,16 +84,14 @@ fn render_result_json(
     Some((code, message)) => Some(JsxSessionErrorJson::{ code, message })
     None => None
   }
-  JsxSessionResultJson::{
+  ToJson::to_json(JsxSessionResultJson::{
     schema_version: 1,
     success,
     revision,
     mounted_ids: mounted_ids.map(id => id.to_string()),
     diagnostics,
     error: error_json,
-  }
-  .to_json()
-  .stringify()
+  }).stringify()
 }
 
 ///|

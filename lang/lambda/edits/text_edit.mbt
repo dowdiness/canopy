@@ -37,7 +37,7 @@ pub fn compute_text_edit(
   op : TreeEditOp,
   ctx : EditContext[@ast.Term],
 ) -> EditResult raise EditError {
-  ValidateNodeExists::{  }.apply(core_dispatch, op, ctx)
+  EditMiddleware::apply(ValidateNodeExists::{  }, core_dispatch, op, ctx)
 }
 
 ///|
