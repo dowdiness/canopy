@@ -196,7 +196,7 @@ fn parse_test_expr(ctx : @loomcore.ParserContext[TestToken, TestKind]) -> Unit {
 
 ///|
 fn test_node_ident(node : @seam.SyntaxNode) -> String {
-  match node.direct_token_of_kind(IdentToken.to_raw()) {
+  match node.direct_token_of_kind(@seam.ToRawKind::to_raw(IdentToken)) {
     Some(tok) => tok.text()
     None => ""
   }

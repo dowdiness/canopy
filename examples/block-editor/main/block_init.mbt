@@ -40,9 +40,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
     return @container.root_id
   }
   guard rest[agent_length] == ':' else { return @container.root_id }
-  let agent = rest[:agent_length].to_owned() catch {
-    _ => return @container.root_id
-  }
+  let agent = rest[:agent_length].to_owned()
   let sequence : Int = @strconv.from_str(rest[agent_length + 1:]) catch {
     _ => return @container.root_id
   }
