@@ -8,7 +8,7 @@
 [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
 [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Typed spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
-[Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md)
+[Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
 **Reader:** Maintainers proving the first peer-sync contract shared by EGW text
 and container drivers before assigning a public package boundary.

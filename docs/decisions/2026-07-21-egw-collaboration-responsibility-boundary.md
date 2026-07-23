@@ -2,15 +2,14 @@
 
 **Date:** 2026-07-21
 
-**Status:** Accepted target architecture; protocol v3 cutover selected while
-EGW companion publication and dependency migration remain gated (2026-07-22)
+**Status:** Accepted target architecture; protocol v3 cutover, EGW peer-sync
+publication, and EGW v0.5 dependency convergence completed (2026-07-23)
 
 **Related:**
 
 - [Library API boundary](2026-06-11-library-api-boundary.md)
 - [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md)
 - [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md)
-- [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md)
 - [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 - [EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
 - [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
