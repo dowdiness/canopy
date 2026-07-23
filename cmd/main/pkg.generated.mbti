@@ -1,10 +1,14 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/canopy/cmd/main"
 
-// Values
-pub fn run_convergence_demo() -> Unit
+import {
+  "dowdiness/event-graph-walker/text",
+}
 
-pub fn run_repl(String) -> Unit
+// Values
+pub fn run_convergence_demo() -> Unit raise
+
+pub fn run_repl(String) -> Unit raise @text.TextError
 
 // Errors
 
