@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-22
 
-**Status:** Accepted target architecture. The repository currently retains
-FugueTree persistently; this record describes the intended separation, not
-completed implementation.
+**Status:** Proposed feasibility hypothesis. The repository currently retains
+FugueTree persistently; this record describes a candidate separation, not
+completed implementation or an accepted lifecycle change.
 
 **Related:**
 
@@ -19,11 +19,12 @@ completed implementation.
 projection materialization, merge lifecycle, or indexed-position queries in
 EGW and Canopy.
 
-**Decision:** Separate canonical state (event graph, oplog, frontier) from
-two distinct projections: a lightweight indexed visible state for normal
-operations, and a FugueTree materialization used only during concurrent merge
-and replay. Normal operations update indexed state and oplog directly; merge
-materializes FugueTree, then regenerates indexed state afterward.
+**Hypothesis under evaluation:** Separate canonical state (event graph, oplog,
+frontier) from two distinct projections: a lightweight indexed visible state
+for normal operations, and a FugueTree materialization used only during
+concurrent merge and replay. Normal operations would update indexed state and
+oplog directly; merge would materialize FugueTree, then regenerate indexed
+state afterward.
 
 **Keep until:** Permanently. ADRs are superseded rather than deleted.
 
