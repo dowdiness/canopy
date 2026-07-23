@@ -103,15 +103,15 @@ proving-ground mode.
 
 ## 2. Collaboration Features
 
-- [ ] Complete WebSocket client integration.
-  Why: the wire protocol exists, but the supported browser-side integration path is not yet treated as a finished, documented workflow.
-  Plan: `docs/plans/2026-03-29-websocket-client-integration.md`
-  Exit: one canonical client flow is implemented, documented, and validated.
+- [x] Prove the cross-driver EGW peer-sync contract before transport productization.
+  Result: a private EGW 0.4 package produced identical text/container decision traces while EGW remained the sole causal pending owner; targeted 15/15 and full 681/681 tests passed.
+  Plan: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
+  Exit: met; the collaboration ADR records a conditional GO.
 
-- [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` do not leave peers diverged silently.
-  Why: now unblocked — container Phase 3 (unified sync) shipped via egw#21, so retry/buffering/failure semantics can be aligned against the Document-level sync boundary.
-  Plan: `docs/plans/2026-03-29-sync-recovery-followup.md`
-  Exit: malformed/incompatible ops trigger defined recovery (retry, buffering, or surfaced failure) against the Document sync boundary rather than silent divergence.
+- [ ] Reconcile EGW versions and Tier 1 text compatibility before companion migration.
+  Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
+  Evidence: `docs/plans/2026-07-22-egw-peer-sync-contract-spike.md`
+  Exit: a reviewed migration plan defines EGW-first release order, Loom fixture updates, `sync_session` compatibility, and verification without a workspace override.
 
 ---
 

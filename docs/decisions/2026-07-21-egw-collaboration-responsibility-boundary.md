@@ -6,6 +6,7 @@
 
 **Related:**
 [Library API boundary](2026-06-11-library-api-boundary.md) ·
+[EGW peer-sync contract spike](../plans/2026-07-22-egw-peer-sync-contract-spike.md) ·
 [Plan 013: Typed spreadsheet EGW boundary experiment](../../loom/incr/plans/013-typed-spreadsheet-egw-boundary-experiment.md) ·
 [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
@@ -214,11 +215,43 @@ unless multiple projection drivers establish a reusable contract.
 - The collaboration runtime must become payload-opaque before it can serve both
   text and container drivers.
 - Existing consumers require deprecation shims or adapters during migration.
+- Parent `moon.mod` currently requests EGW 0.3 while the workspace selects the
+  checked EGW 0.4 submodule. External collaboration behavior is therefore
+  unverified until the manifest is reconciled and tested without a workspace
+  override before publication.
 - The current binary relay and the separate JSON-history relay must not be
   treated as one protocol without an explicit convergence or retirement plan.
 - Functional-core/imperative-shell boundaries apply at every layer: protocol
   and session decisions are deterministic; scheduling and I/O stay in
   providers and application shells.
+
+## Spike evidence
+
+The 2026-07-22 private EGW 0.4 spike established one deterministic
+peer-sync event/decision contract for real text and container drivers. Its
+payload-free state covers admission, version exchange, incremental send,
+full-sync recovery, bounded retry, disconnect/reconnect, peer departure, and
+terminal failures.
+
+Both façades produced identical decision traces. Their EGW document state
+remained the sole owner of causal pending operations.
+
+The private test package has an empty generated interface. EGW validation passed
+15/15 targeted and 681/681 full tests with deny-warn checks.
+
+Independent MoonBit review passed. Independent `qwen3.8-max-preview` review
+returned GO WITH CONDITIONS and found no spike defect after multi-peer send
+fan-out was pinned.
+
+The contract result stands; its condition concerns consumer compatibility.
+Parent Canopy full checks and Tier 1 `sync_session` fail when the workspace
+selects EGW 0.4 because Loom's text fixture and `sync_session` still use the
+older text API.
+
+`protocol/wire`, `relay`, and the nested exact-EGW-0.4 container adapter pass.
+Therefore gates 1–3 have supporting evidence. Publication and Canopy migration
+remain blocked at gate 4 until version and compatibility work is verified
+without a workspace override.
 
 ## Migration gates
 
