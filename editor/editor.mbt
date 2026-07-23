@@ -10,9 +10,10 @@ pub struct Editor {
 } derive(Debug)
 
 ///|
-/// Create a new editor for an agent
-pub fn Editor::new(agent_id : String) -> Editor {
-  { doc: try! @text.TextState::new(agent_id), cursor: 0 }
+/// Create a new editor for a non-empty agent identifier.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
+pub fn Editor::new(agent_id : String) -> Editor raise @text.TextError {
+  { doc: @text.TextState::new(agent_id), cursor: 0 }
 }
 
 ///|

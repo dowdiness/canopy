@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/core",
+  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/loom",
   "dowdiness/loom/core" @loomcore,

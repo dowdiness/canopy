@@ -12,7 +12,7 @@ struct ReplState {
 
 ///|
 /// Create a new REPL state
-fn ReplState::new(agent_id : String) -> ReplState {
+fn ReplState::new(agent_id : String) -> ReplState raise @text.TextError {
   { editor: @editor.Editor::new(agent_id) }
 }
 
@@ -128,7 +128,12 @@ fn execute_command(state : ReplState, line : String) -> Bool {
       for i = 2; i < parts.length(); i = i + 1 {
         text = text + " " + parts[i]
       }
-      try! state.editor.insert(text)
+      state.editor.insert(text) catch {
+        error => {
+          println("Insert failed: \{error.to_string()}")
+          return true
+        }
+      }
       println("Inserted: \"\{text}\"")
     }
     return true
@@ -185,7 +190,9 @@ fn execute_command(state : ReplState, line : String) -> Bool {
     return true
   }
   if command == "ops" || command == "o" {
-    show_sync_info(state.editor)
+    show_sync_info(state.editor) catch {
+      error => println("Operation log export failed: \{error.to_string()}")
+    }
     return true
   }
   println("Unknown command: '\{command}'")
@@ -195,7 +202,7 @@ fn execute_command(state : ReplState, line : String) -> Bool {
 
 ///|
 /// Run the REPL - simple demo mode (non-interactive for now)
-pub fn run_repl(agent_id : String) -> Unit {
+pub fn run_repl(agent_id : String) -> Unit raise @text.TextError {
   println("Eg-walker CRDT Editor v0.1.0")
   println("Agent: \{agent_id}")
   println("")

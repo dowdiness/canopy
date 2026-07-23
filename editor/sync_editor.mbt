@@ -33,6 +33,7 @@ pub struct SyncEditor[T] {
 
 ///|
 /// Generic constructor for all languages.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 /// `make_parser` builds a `@loom.Parser[T]` from an initial source string.
 /// `build_memos` receives the parser handle and returns the 3 projection memos
 /// (ProjNode, registry, SourceMap) it wants SyncEditor to own.
@@ -52,7 +53,8 @@ pub fn[T] SyncEditor::new_generic(
   // build_memos so the reconcile_node closure can consume+clear it. Callers
   // that don't use hints omit this; they get an isolated Ref that is never read.
   identity_hints? : Ref[Array[@core.IdentityTransform]],
-) -> SyncEditor[T] {
+) -> SyncEditor[T] raise @text.TextError {
+  let doc = @text.TextState::new(agent_id)
   let pending_transforms = match identity_hints {
     Some(r) => r
     None => Ref([])
@@ -61,7 +63,7 @@ pub fn[T] SyncEditor::new_generic(
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
-    doc: try! @text.TextState::new(agent_id),
+    doc,
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
     parser,
     cursor: 0,

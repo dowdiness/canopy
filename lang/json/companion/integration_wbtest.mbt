@@ -5,14 +5,14 @@ using @json_edits {type JsonEditOp, type JsonType}
 
 ///|
 test "new_json_editor — create and get text" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   inspect(editor.get_text(), content="{\"a\": 1}")
 }
 
 ///|
 test "new_json_editor — projection pipeline works" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1, \"b\": true}")
   let proj = editor.get_proj_node()
   inspect(proj is Some(_), content="true")
@@ -27,7 +27,7 @@ test "new_json_editor — projection pipeline works" {
 
 ///|
 test "new_json_editor — source map positions" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("[1, 2, 3]")
   let sm = editor.get_source_map()
   let proj = editor.get_proj_node()
@@ -39,7 +39,7 @@ test "new_json_editor — source map positions" {
 
 ///|
 test "new_json_editor — reconcile preserves IDs" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1, \"b\": 2}")
   let id1 = match editor.get_proj_node() {
     Some(p) => p.node_id
@@ -61,7 +61,7 @@ test "new_json_editor — reconcile preserves IDs" {
 
 ///|
 test "apply WrapInArray" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("42")
   match editor.get_proj_node() {
     Some(p) => {
@@ -79,7 +79,7 @@ test "apply WrapInArray" {
 
 ///|
 test "apply WrapInObject" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("42")
   match editor.get_proj_node() {
     Some(p) => {
@@ -97,7 +97,7 @@ test "apply WrapInObject" {
 
 ///|
 test "apply AddMember to empty object" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -117,7 +117,7 @@ test "apply AddMember to empty object" {
 
 ///|
 test "apply AddMember to non-empty object" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -137,7 +137,7 @@ test "apply AddMember to non-empty object" {
 
 ///|
 test "apply AddElement to empty array" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("[]")
   match editor.get_proj_node() {
     Some(p) => {
@@ -155,7 +155,7 @@ test "apply AddElement to empty array" {
 
 ///|
 test "apply AddElement to non-empty array" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("[1]")
   match editor.get_proj_node() {
     Some(p) => {
@@ -173,7 +173,7 @@ test "apply AddElement to non-empty array" {
 
 ///|
 test "apply ChangeType" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("null")
   match editor.get_proj_node() {
     Some(p) => {
@@ -191,7 +191,7 @@ test "apply ChangeType" {
 
 ///|
 test "apply ChangeType to object" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("123")
   match editor.get_proj_node() {
     Some(p) => {
@@ -209,7 +209,7 @@ test "apply ChangeType to object" {
 
 ///|
 test "apply CommitEdit" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("42")
   match editor.get_proj_node() {
     Some(p) => {
@@ -227,14 +227,14 @@ test "apply CommitEdit" {
 
 ///|
 test "error recovery — malformed JSON still produces projection" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": }")
   inspect(editor.get_proj_node() is Some(_), content="true")
 }
 
 ///|
 test "CommitEdit on value inside object preserves key" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -259,7 +259,7 @@ test "CommitEdit on value inside object preserves key" {
 
 ///|
 test "ChangeType on value inside object preserves key" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -286,7 +286,7 @@ test "ChangeType on value inside object preserves key" {
 
 ///|
 test "WrapInArray on value inside object preserves key" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -310,7 +310,7 @@ test "WrapInArray on value inside object preserves key" {
 
 ///|
 test "WrapInObject on value inside object preserves key" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -334,7 +334,7 @@ test "WrapInObject on value inside object preserves key" {
 
 ///|
 test "Delete member from object with two members" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1, \"b\": 2}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -354,7 +354,7 @@ test "Delete member from object with two members" {
 
 ///|
 test "Delete second member from object" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"a\": 1, \"b\": 2}")
   match editor.get_proj_node() {
     Some(p) => {
@@ -374,7 +374,7 @@ test "Delete second member from object" {
 
 ///|
 test "RenameKey on object" {
-  let editor = new_json_editor("test")
+  let editor = try! new_json_editor("test")
   editor.set_text("{\"old\": 1}")
   match editor.get_proj_node() {
     Some(p) => {
