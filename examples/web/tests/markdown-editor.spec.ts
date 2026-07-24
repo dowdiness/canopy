@@ -91,6 +91,39 @@ test.describe('Markdown Block Editor', () => {
     expect(afterCycle).toEqual(originalTexts);
   });
 
+  test('surface-only heading rewrite preserves the same block handle', async ({ page }) => {
+    await switchMode(page, 'Raw');
+    await page.locator('#raw-editor').fill('  # Title\n\n## Other\n');
+    await switchMode(page, 'Block');
+
+    const titleBefore = page.locator('#block-container .block').filter({ hasText: 'Title' });
+    const otherBefore = page.locator('#block-container .block').filter({ hasText: 'Other' });
+    await expect(titleBefore).toHaveCount(1);
+    await expect(otherBefore).toHaveCount(1);
+    const titleId = await titleBefore.getAttribute('data-node-id');
+    const otherId = await otherBefore.getAttribute('data-node-id');
+    expect(titleId).not.toBeNull();
+    expect(otherId).not.toBeNull();
+
+    await switchMode(page, 'Raw');
+    await page.locator('#raw-editor').fill('Title\n=====\n\n## Other\n');
+    await switchMode(page, 'Block');
+    await switchMode(page, 'Raw');
+    await expect(page.locator('#raw-editor')).toHaveValue('Title\n=====\n\n## Other\n');
+
+    await switchMode(page, 'Preview');
+    await expect(page.locator('#preview-container h1', { hasText: 'Title' })).toHaveCount(1);
+    await expect(page.locator('#preview-container h2', { hasText: 'Other' })).toHaveCount(1);
+    await switchMode(page, 'Block');
+
+    const titleAfter = page.locator('#block-container .block').filter({ hasText: 'Title' });
+    const otherAfter = page.locator('#block-container .block').filter({ hasText: 'Other' });
+    await expect(titleAfter).toHaveCount(1);
+    await expect(otherAfter).toHaveCount(1);
+    await expect(titleAfter).toHaveAttribute('data-node-id', titleId!);
+    await expect(otherAfter).toHaveAttribute('data-node-id', otherId!);
+  });
+
   test('block mode preserves ordered list markers', async ({ page }) => {
     await switchMode(page, 'Raw');
     await page.locator('#raw-editor').fill('3. three\n4. four\n');

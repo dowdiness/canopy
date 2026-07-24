@@ -83,14 +83,32 @@ fn populate_block(
     }
     Heading(_, _) => {
       set_token_span(source_map, syntax_node, id, "marker", HeadingMarkerToken)
-      // Full inline content after the heading marker
-      set_content_span(
-        source_map,
-        syntax_node,
-        id,
-        "text",
-        Some(HeadingMarkerToken),
-      )
+      match
+        syntax_node.find_token(
+          @markdown.SyntaxKind::HeadingMarkerToken.to_raw(),
+        ) {
+        // ATX marker prefixes its inline content; setext underline follows it.
+        // Inspect the marker itself because an IndentationToken may precede an
+        // ATX marker inside the same HeadingNode.
+        Some(marker) if marker.text().trim_start().has_prefix("#") =>
+          set_content_span(
+            source_map,
+            syntax_node,
+            id,
+            "text",
+            Some(HeadingMarkerToken),
+          )
+        Some(_) =>
+          set_content_span(
+            source_map,
+            syntax_node,
+            id,
+            "text",
+            None,
+            suffix_kind=Some(@markdown.SyntaxKind::HeadingMarkerToken),
+          )
+        None => ()
+      }
     }
     Paragraph(_) =>
       // Full inline content (no prefix to skip)
