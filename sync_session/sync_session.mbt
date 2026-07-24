@@ -250,16 +250,15 @@ pub fn SyncSession::on_message(
     }
     SyncResponse(payload) => {
       guard parse_sync_response_payload(payload)
-        is Ok((_sender, request_id, sync_json)) else {
+        is Ok((sender, request_id, sync_json)) else {
         return
       }
       guard self.recovery is Some(ctx) else { // Not recovering, ignore
         return
       }
-      // Stale response check
-      if !ctx.matches_request_id(request_id) {
-        return
-      }
+      // Request IDs are peer-local, so both authenticated sender and ID must
+      // match before this response can advance recovery.
+      guard ctx.matches_response(sender, request_id) else { return }
       // Empty response = responder can't help
       if sync_json == "" {
         self.handle_recovery_retry(host.io)

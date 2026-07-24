@@ -69,3 +69,12 @@ test "RecoveryContext: matches_request_id" {
   inspect(ctx.matches_request_id("42"), content="true")
   inspect(ctx.matches_request_id("99"), content="false")
 }
+
+///|
+test "RecoveryContext: matches response sender and request ID" {
+  let msg = make_empty_sync_message()
+  let ctx = RecoveryContext::new("alice", msg, 42)
+  inspect(ctx.matches_response("alice", "42"), content="true")
+  inspect(ctx.matches_response("bob", "42"), content="false")
+  inspect(ctx.matches_response("alice", "99"), content="false")
+}
