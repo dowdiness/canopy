@@ -1,7 +1,0 @@
-import {
-  "dowdiness/event-graph-walker/text",
-}
-
-options(
-  is_main: true,
-)

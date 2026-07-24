@@ -107,6 +107,25 @@ test "cursor bounds checking" {
 }
 
 ///|
+test "pending sync clamps cursor after applying ready delete" {
+  let editor = try! Editor::new("receiver")
+  let initial = try! @text.SyncMessage::from_json_string(
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"A\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":0}]}",
+  )
+  try! editor.apply_sync(initial)
+  editor.move_cursor(1)
+  let mixed = try! @text.SyncMessage::from_json_string(
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":1},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":0}],\"kind\":\"delete\",\"content\":null,\"origin_left\":{\"replica_id\":\"remote\",\"sequence\":0},\"origin_right\":null},{\"id\":{\"replica_id\":\"remote\",\"sequence\":3},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":2}],\"kind\":\"insert\",\"content\":\"X\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":3}]}",
+  )
+  let result : Result[Unit, Error] = Ok(editor.apply_sync(mixed)) catch {
+    error => Err(error)
+  }
+  inspect(result is Err(@text.TextError::VersionNotFound), content="true")
+  inspect(editor.get_text(), content="")
+  inspect(editor.get_cursor(), content="0")
+}
+
+///|
 test "concurrent edits from two editors" {
   // Create two editors
   let alice = try! Editor::new("alice")

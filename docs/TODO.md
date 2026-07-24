@@ -108,13 +108,18 @@ proving-ground mode.
   Plan: `docs/archive/2026-07-22-egw-peer-sync-contract-spike.md`
   Exit: met; the collaboration ADR records a conditional GO.
 
-- [ ] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
-  Why: parent `moon.mod` requests EGW 0.3 while the workspace selects 0.4; parent full checks and `sync_session` fail on removed text APIs even though wire, relay, and the exact-0.4 container adapter pass.
-  Plan: `docs/plans/2026-07-22-egw-companion-canopy-migration.md`
-  Status: the wire decision is resolved by a protocol v3 hard cut. Endpoint decoders and the relay reject complete v2 frames; no bridge or mixed-version room mode is retained. EGW companion publication and the dependency migration remain separately gated.
-  Evidence: `docs/research/2026-07-22-egw-03-04-wire-compatibility.md`
+- [x] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
+  Result: EGW v0.5 published the peer-sync companion; Loom, parent Canopy, and the nested typed spreadsheet converged through the required bottom-up sequence. Protocol v3 rejects complete v2 frames at endpoints and the relay, Tier 1 generated interfaces remained unchanged, and clean published-resolution checks passed.
+  Plan: `docs/archive/2026-07-22-egw-companion-canopy-migration.md`
   Decision: `docs/decisions/2026-07-22-protocol-v3-hard-cutover.md`
-  Exit: EGW, Loom, parent Canopy, and the nested adapter use intentional published versions without a workspace override; Tier 1 source interfaces remain compatible, and mixed-version peers fail before EGW payload decoding.
+  Exit: met for the compatibility and release scope.
+
+- [ ] Build the payload-opaque collaboration runtime and smallest provider-backed product slice.
+  Why: EGW now owns reusable peer-sync semantics, but Canopy still needs a transport-agnostic runtime boundary and a two-browser spreadsheet path that keeps committed cells authoritative without synchronizing drafts, selection, or focus.
+  Decision: `docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md`
+  Product behavior: `docs/superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md`
+  Status: deferred until the compatibility migration lands. Prototype the smallest browser slice before writing a broader UI implementation plan.
+  Exit: two browsers converge through one local/remote projection path; the runtime treats EGW payloads as opaque, providers own transport and room concerns, and EGW core remains the sole causal pending-operation queue.
 
 ---
 

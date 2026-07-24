@@ -51,6 +51,7 @@ fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId {
 }
 
 ///|
+/// Create a new Markdown SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
 pub fn create_markdown_editor(agent_id : String) -> Int {
   assemble_markdown_handle(agent_id).0

@@ -2,14 +2,14 @@
 
 **Date:** 2026-07-22
 
-**Status:** Protocol v3 hard cutover selected; EGW companion source and the
-Canopy dependency migration remain separately approval-gated
+**Status:** Completed and archived (2026-07-24). The compatibility and release
+scope shipped; payload-opaque runtime extraction and provider productization
+were transferred to active follow-up work.
 
 **Related:**
 [Collaboration responsibility ADR](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
-[Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md) ·
+[Archived peer-sync contract spike](2026-07-22-egw-peer-sync-contract-spike.md) ·
 [Typed-spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
-[EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md) ·
 [Protocol v3 hard cutover](../decisions/2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers migrating EGW, Loom, and Canopy without hiding version
@@ -19,17 +19,33 @@ skew behind a workspace override or breaking Tier 1 collaboration APIs.
 consumes it. Migrate Loom and Canopy to that published EGW version.
 
 Preserve the current Tier 1 `protocol/wire`, `sync_session`, and `ephemeral`
-interfaces, then extract payload-opaque session mechanics behind the existing
-`sync_session` façade. Transport productization remains a later plan.
+interfaces. Payload-opaque session extraction remains the next architectural
+step, but is not part of the completed compatibility release.
 
-**Keep until:** EGW, Loom, and Canopy resolve the same published EGW version
-without a workspace override, compatibility validation passes, and the private
-spike package has been adopted into production tests or deleted.
+**Keep until:** Complete.
 
-**Disposition:** When complete, update the collaboration ADR with release and
-compatibility evidence, then move this plan to `docs/archive/`. Keep durable API
-and release decisions in the ADR; delete temporary compatibility snapshots and
-worktrees.
+**Disposition:** Archived after EGW, Loom, and Canopy converged on the published
+EGW v0.5 release and compatibility validation passed. The collaboration and
+protocol v3 ADRs retain the durable decisions; temporary wire fixtures and the
+research report were deleted.
+
+## Completion record
+
+- EGW v0.5 published `peer_sync`, `peer_sync/text`, and
+  `peer_sync/container` without moving causal pending-operation ownership out
+  of EGW core.
+- Loom and Canopy migrated to the published release through the required
+  bottom-up dependency sequence.
+- Protocol v3 made the incompatible payload migration a hard cut; endpoints and
+  the relay reject complete v2 frames.
+- Tier 1 `protocol/wire`, `sync_session`, and `ephemeral` generated interfaces
+  remained unchanged, and clean published-resolution checks passed.
+- Phase 6 was not implemented. The payload-opaque runtime and provider-backed
+  product slice are tracked separately in `docs/TODO.md`.
+
+No ADR was needed for archival: the responsibility-boundary ADR already owns
+the target runtime boundary, and deferral changes scheduling rather than
+architecture.
 
 ## Why
 
@@ -263,7 +279,8 @@ rejected every cross-version version, full-sync, incremental-sync, and empty
 incremental fixture in both directions.
 
 Canopy v2 outer frames preserved both payload families exactly, so the embedded
-EGW schema is the incompatibility. See the linked wire evidence.
+EGW schema is the incompatibility. The protocol v3 ADR retains this durable
+conclusion.
 
 **Resolution:** The protocol v3 ADR chooses a coordinated hard cut with no
 bridge or dual decoder. Endpoint decoders and the relay reject v2 complete
@@ -374,7 +391,7 @@ merely to compile against EGW.
 **Gate:** stop if `protocol/wire`, `sync_session`, or `ephemeral` public
 interfaces drift, even when all current callers compile.
 
-### Phase 6 — extract the payload-opaque Canopy runtime
+### Phase 6 — extract the payload-opaque Canopy runtime (deferred)
 
 34. Pin the current `sync_session` transition and callback behavior with
     characterization tests before moving code.
@@ -489,35 +506,37 @@ Canopy version compatibility, private runtime extraction, and documentation.
 
 ## Acceptance criteria
 
-- [ ] One published EGW version supplies the reviewed companion and both façade
+- [x] One published EGW version supplies the reviewed companion and both façade
       adapters.
-- [ ] The public companion state contains no peer map, transport lifecycle,
+- [x] The public companion state contains no peer map, transport lifecycle,
       room, provider, application, `incr`, or CRDT payload queue.
-- [ ] Text and container retain the 15 proven semantic scenarios and identical
+- [x] Text and container retain the 15 proven semantic scenarios and identical
       decision traces.
-- [ ] EGW core remains the only causal pending-operation owner.
-- [ ] The private spike package is deleted after its tests have one canonical
+- [x] EGW core remains the only causal pending-operation owner.
+- [x] The private spike package is deleted after its tests have one canonical
       production owner.
-- [ ] Loom compiles and its lambda text/parse convergence test passes against
+- [x] Loom compiles and its lambda text/parse convergence test passes against
       the published EGW release.
-- [ ] Parent Canopy and nested typed spreadsheet resolve intended published EGW
+- [x] Parent Canopy and nested typed spreadsheet resolve intended published EGW
       versions without accidental workspace substitution.
-- [ ] `protocol/wire`, `sync_session`, and `ephemeral` generated interfaces are
+- [x] `protocol/wire`, `sync_session`, and `ephemeral` generated interfaces are
       byte-for-byte unchanged.
-- [ ] Golden outer frames remain byte-identical, and embedded EGW payloads are
-      either cross-version compatible or covered by an approved bridge or
-      protocol-version migration before release.
-- [ ] `scripts/check-egw-resolver-identity.sh` passes in normal and
+- [x] Golden outer frames remain byte-identical, and embedded EGW payloads are
+      covered by the approved protocol-version migration.
+- [x] `scripts/check-egw-resolver-identity.sh` passes in normal and
       no-EGW-workspace-member resolution checks.
-- [ ] `sync_session` preserves existing wire frames, retries, watchdog epochs,
+- [x] `sync_session` preserves existing wire frames, retries, watchdog epochs,
       stale-request handling, bounded buffering, callbacks, and status changes.
-- [ ] The private Canopy runtime imports no EGW or application schema.
-- [ ] Wire, relay, in-memory session, editor, ideal collaboration, and nested
+- [ ] Deferred: the private Canopy runtime imports no EGW or application schema.
+- [x] Wire, relay, in-memory session, editor, ideal collaboration, and nested
       typed-spreadsheet validations pass.
-- [ ] No room, provider, presence, persistence, reset, performance, or
+- [x] No room, provider, presence, persistence, reset, performance, or
       `egw_incr` work enters the migration.
-- [ ] EGW and Loom commits are pushed before parent pointers reference them.
-- [ ] ADR, READMEs, TODO, and plan disposition match the released code.
+- [x] EGW and Loom commits are pushed before parent pointers reference them.
+- [x] ADR, READMEs, TODO, and plan disposition match the released code.
+
+The deferred runtime criterion moved to the active collaboration TODO. It does
+not block closure of the compatibility and release scope.
 
 ## Rollback and failure strategy
 

@@ -109,7 +109,7 @@ jobs:
         run: echo "No MoonBit benchmark-relevant changes detected; skipping base benchmarks."
 
       - name: Restore base benchmark cache
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' && github.event_name == 'pull_request'
         id: base-benchmark-cache
         uses: actions/cache/restore@v6
         with:
@@ -158,7 +158,7 @@ jobs:
 
 
       - name: Save base benchmark cache
-        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true' && steps.base-benchmark.outputs.complete == 'true'
+        if: always() && needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' && github.event_name == 'pull_request' && steps.base-cache-files.outputs.complete != 'true' && steps.base-benchmark.outputs.complete == 'true'
         continue-on-error: true
         uses: actions/cache/save@v6
         with:

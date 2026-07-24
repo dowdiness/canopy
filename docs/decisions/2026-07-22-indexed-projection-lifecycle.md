@@ -10,7 +10,7 @@ completed implementation.
 
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
 - [Library API boundary](2026-06-11-library-api-boundary.md)
-- [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md)
+- [Archived EGW companion and Canopy migration](../archive/2026-07-22-egw-companion-canopy-migration.md)
 - [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
 - [Eg-walker formal specification](../../event-graph-walker/docs/FORMAL_SPECIFICATION.md)
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252)

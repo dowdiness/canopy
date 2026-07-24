@@ -6,10 +6,9 @@
 
 **Related:**
 
-- [EGW 0.3/0.4 wire compatibility evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
 - [Library API boundary](2026-06-11-library-api-boundary.md)
-- [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md)
+- [Archived EGW companion and Canopy migration](../archive/2026-07-22-egw-companion-canopy-migration.md)
 
 **Reader:** Maintainers changing Canopy collaboration frames, relays, clients,
 or the EGW dependency used inside those frames.

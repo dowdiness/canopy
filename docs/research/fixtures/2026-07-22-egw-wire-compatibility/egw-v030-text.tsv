@@ -1,7 +1,0 @@
-empty_version	["Frontier",[]]
-full_sync	{"runs":[{"start_lv":0,"agent":"alice","start_seq":0,"content":{"Inserts":"Hi"},"parents":[],"origin_left":null,"origin_right":null,"count":2}],"heads":[{"agent":"alice","seq":1}]}
-base_version	["Frontier",[1]]
-incremental_sync	{"runs":[{"start_lv":2,"agent":"alice","start_seq":2,"content":{"Inserts":"!"},"parents":[{"agent":"alice","seq":1}],"origin_left":[{"agent":"alice","seq":1}],"origin_right":null,"count":1}],"heads":[{"agent":"alice","seq":2}]}
-final_version	["Frontier",[2]]
-empty_incremental_sync	{"runs":[],"heads":[{"agent":"alice","seq":2}]}
-self_roundtrip_text	Hi!

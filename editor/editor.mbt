@@ -141,9 +141,19 @@ pub fn Editor::export_since(
 ///|
 /// Sync: Apply a SyncMessage from a peer
 pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise {
-  let report = self.doc.sync().apply(msg)
+  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
+    self.doc.sync().apply(msg),
+  ) catch {
+    error => Err(error)
+  }
+  // EGW may apply ready operations before reporting an error or retaining
+  // causal orphans, so repair shell state before propagating either outcome.
+  self.adjust_cursor()
+  let report = match report_result {
+    Ok(report) => report
+    Err(error) => raise error
+  }
   if report.pending_operations() > 0 {
     raise @text.TextError::VersionNotFound
   }
-  self.adjust_cursor()
 }

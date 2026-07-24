@@ -8,10 +8,9 @@ publication, and EGW v0.5 dependency convergence completed (2026-07-23)
 **Related:**
 
 - [Library API boundary](2026-06-11-library-api-boundary.md)
-- [EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md)
+- [Archived EGW companion and Canopy migration](../archive/2026-07-22-egw-companion-canopy-migration.md)
 - [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md)
 - [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
-- [EGW 0.3/0.4 wire evidence](../research/2026-07-22-egw-03-04-wire-compatibility.md)
 - [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers designing or reviewing CRDT synchronization,
@@ -219,10 +218,8 @@ unless multiple projection drivers establish a reusable contract.
 - The collaboration runtime must become payload-opaque before it can serve both
   text and container drivers.
 - Existing consumers require deprecation shims or adapters during migration.
-- Parent `moon.mod` currently requests EGW 0.3 while the workspace selects the
-  checked EGW 0.4 submodule. External collaboration behavior is therefore
-  unverified until the manifest is reconciled and tested without a workspace
-  override before publication.
+- Published dependency convergence must be verified without a workspace
+  override before a compatibility release is considered complete.
 - The current binary relay and the separate JSON-history relay must not be
   treated as one protocol without an explicit convergence or retirement plan.
 - Functional-core/imperative-shell boundaries apply at every layer: protocol
@@ -247,15 +244,9 @@ Independent MoonBit review passed. Independent `qwen3.8-max-preview` review
 returned GO WITH CONDITIONS and found no spike defect after multi-peer send
 fan-out was pinned.
 
-The contract result stands; its condition concerns consumer compatibility.
-Parent Canopy full checks and Tier 1 `sync_session` fail when the workspace
-selects EGW 0.4 because Loom's text fixture and `sync_session` still use the
-older text API.
-
-`protocol/wire`, `relay`, and the nested exact-EGW-0.4 container adapter pass.
-Therefore gates 1–3 have supporting evidence. Publication and Canopy migration
-remain blocked at gate 4 until version and compatibility work is verified
-without a workspace override.
+The contract result stood with one original condition: consumer compatibility
+still had to be proven across EGW, Loom, Canopy, and Tier 1 `sync_session`.
+That condition was resolved by the shipped migration evidence below.
 
 A follow-up fixture exchange confirmed that EGW 0.3 and 0.4 are wire
 incompatible in both directions. Each release accepted and applied its own
@@ -267,12 +258,31 @@ corruption; the incompatibility is the enclosed EGW identity and JSON schema.
 
 The protocol v3 ADR resolves this gate with a coordinated hard cut. Endpoint
 decoders and the relay reject v2 complete frames, and no bridge is implied by
-the companion contract. The remaining dependency migration gates are unchanged.
+the companion contract.
+
+## Shipped evidence
+
+The EGW v0.5 release publishes `peer_sync`, `peer_sync/text`, and
+`peer_sync/container`. The companion state remains payload-free, and EGW core
+remains the sole owner of causal pending-operation storage and replay.
+
+Loom and Canopy migrated to that published release through the required
+bottom-up sequence. Clean-resolution checks passed without a workspace
+override, while generated interfaces for Tier 1 `protocol/wire`,
+`sync_session`, and `ephemeral` remained unchanged.
+
+Protocol v3 shipped as the required hard cut. Endpoint decoders and the relay
+reject complete v2 frames; no dual decoder, identity bridge, or mixed-version
+room mode was retained.
+
+The payload-opaque runtime, infrastructure provider, and two-browser product
+slice remain deferred. Their ownership continues to follow Layers C–E of this
+ADR.
 
 ## Migration gates
 
-This ADR does not authorize an immediate cross-repository rewrite. A migration
-plan must satisfy these gates in order:
+The compatibility release satisfied gates 1–4 and 6. Gates 5 and 7–9 remain
+constraints for the deferred runtime and provider product work:
 
 1. Pin text and container sync fixtures, pending-operation behavior, and failure
    semantics against their owning EGW versions.

@@ -1,8 +1,0 @@
-import {
-  "dowdiness/canopy/protocol/wire" @wire,
-  "moonbitlang/core/buffer",
-}
-
-options(
-  is_main: true,
-)

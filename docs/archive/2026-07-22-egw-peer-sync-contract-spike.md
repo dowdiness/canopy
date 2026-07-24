@@ -5,7 +5,7 @@
 **Status:** Completed and archived — GO WITH CONDITIONS
 
 **Related:**
-[EGW companion and Canopy migration](../plans/2026-07-22-egw-companion-canopy-migration.md) ·
+[Archived EGW companion and Canopy migration](2026-07-22-egw-companion-canopy-migration.md) ·
 [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Typed spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md) ·
 [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
