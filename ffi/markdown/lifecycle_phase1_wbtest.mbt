@@ -157,6 +157,32 @@ test "workstream 2 (md): compute_view_patches initial render emits FullTree with
 }
 
 ///|
+test "markdown set_text keeps setext heading in view patches" {
+  reset_markdown_coordinator_for_phase1_tests()
+  let handle = create_markdown_editor("md_setext_heading_agent")
+  markdown_set_text(handle, "# Title\n\n## Other\n")
+  let _ = markdown_compute_view_patches_json(handle)
+  let target = "Title\n=====\n\n## Other\n"
+  markdown_set_text(handle, target)
+  assert_eq(markdown_get_text(handle), target)
+  let h = markdown_registry.get(handle).unwrap()
+  let projection = h.editor.get_proj_node().unwrap()
+  let projection_text = @debug.to_string(projection)
+  if !projection_text.contains("Title") || !projection_text.contains("Other") {
+    fail(
+      "expected current projection to retain both headings, got \{projection_text}",
+    )
+  }
+  let patches = markdown_compute_view_patches_json(handle)
+  if !patches.contains("Title") || !patches.contains("Other") {
+    fail(
+      "expected setext heading view patch to retain both headings, got \{patches}",
+    )
+  }
+  destroy_markdown_editor(handle)
+}
+
+///|
 test "workstream 2 (md): compute_view_patches preserves ordered list kind" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_view_ordered_list_agent")

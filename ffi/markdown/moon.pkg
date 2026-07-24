@@ -12,6 +12,7 @@ import {
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "dowdiness/markdown" @md,
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
 
