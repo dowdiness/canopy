@@ -93,7 +93,7 @@ test.describe('Markdown Block Editor', () => {
 
   test('surface-only heading rewrite preserves the same block handle', async ({ page }) => {
     await switchMode(page, 'Raw');
-    await page.locator('#raw-editor').fill('# Title\n\n## Other\n');
+    await page.locator('#raw-editor').fill('  # Title\n\n## Other\n');
     await switchMode(page, 'Block');
 
     const titleBefore = page.locator('#block-container .block').filter({ hasText: 'Title' });

@@ -88,7 +88,9 @@ fn populate_block(
           @markdown.SyntaxKind::HeadingMarkerToken.to_raw(),
         ) {
         // ATX marker prefixes its inline content; setext underline follows it.
-        Some(marker) if marker.start() == syntax_node.start() =>
+        // Inspect the marker itself because an IndentationToken may precede an
+        // ATX marker inside the same HeadingNode.
+        Some(marker) if marker.text().trim_start().has_prefix("#") =>
           set_content_span(
             source_map,
             syntax_node,
