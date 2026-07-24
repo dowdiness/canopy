@@ -318,9 +318,11 @@ document.addEventListener('keydown', (e) => {
 document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const text = btn.dataset.example ?? DEFAULT_TEXT;
+    blockInput.clearSelection();
     crdt.markdown_set_text(handle, text);
     syncRawFromModel();
     activeNodeId = null;
+    savedBlockSelection = null;
     refresh();
     updateToolbar();
   });

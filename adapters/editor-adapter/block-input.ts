@@ -132,6 +132,11 @@ export class BlockInput implements EditorAdapter {
     return true;
   }
 
+  /** Clear transient block selection before replacing the document. */
+  clearSelection(): void {
+    this.deactivate();
+  }
+
   destroy(): void {
     this.deactivate();
     this.container.removeEventListener('click', this.onContainerClick);

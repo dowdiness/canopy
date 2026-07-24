@@ -114,6 +114,20 @@ test.describe('Markdown Block Editor', () => {
     await expect(textarea).toHaveJSProperty('selectionEnd', 4);
   });
 
+  test('example replacement discards a saved block selection', async ({ page }) => {
+    await page.locator('#block-container .block').first().click();
+    const textarea = page.locator('.block-textarea');
+    await expect(textarea).toBeVisible();
+    await textarea.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(1, 3));
+
+    await switchMode(page, 'Preview');
+    await page.locator('button.example-btn:has-text("List")').click();
+    await switchMode(page, 'Block');
+
+    await expect(textarea).toHaveCount(0);
+    await expect(page.locator('#h1-btn')).toBeDisabled();
+  });
+
   test('surface-only heading rewrite preserves the same block handle', async ({ page }) => {
     await switchMode(page, 'Raw');
     await page.locator('#raw-editor').fill('  # Title\n\n## Other\n');
