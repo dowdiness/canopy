@@ -108,6 +108,8 @@ test.describe('Markdown Block Editor', () => {
     await switchMode(page, 'Raw');
     await page.locator('#raw-editor').fill('Title\n=====\n\n## Other\n');
     await switchMode(page, 'Block');
+    await switchMode(page, 'Raw');
+    await expect(page.locator('#raw-editor')).toHaveValue('Title\n=====\n\n## Other\n');
 
     await switchMode(page, 'Preview');
     await expect(page.locator('#preview-container h1', { hasText: 'Title' })).toHaveCount(1);
