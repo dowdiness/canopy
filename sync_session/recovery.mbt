@@ -69,3 +69,13 @@ fn RecoveryContext::matches_request_id(
 ) -> Bool {
   self.request_id.to_string() == id
 }
+
+///|
+/// Match a relay-authenticated response to this peer-local recovery request.
+fn RecoveryContext::matches_response(
+  self : RecoveryContext,
+  sender : String,
+  request_id : String,
+) -> Bool {
+  self.peer_id == sender && self.matches_request_id(request_id)
+}

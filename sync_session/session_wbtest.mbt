@@ -140,6 +140,50 @@ test "SyncSession: SyncResponse with stale request_id is ignored" {
 }
 
 ///|
+test "SyncSession: SyncResponse from wrong sender is ignored" {
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  let applied : Array[@text.SyncMessage] = []
+  let sent : Array[Bytes] = []
+  let host = SyncHost(
+    io=test_io(sent),
+    apply_sync=msg => applied.push(msg),
+    export_all=() => empty_msg_or_fail(),
+    export_since=_ => empty_msg_or_fail(),
+    apply_ephemeral=(_, _) => (),
+    encode_ephemeral=_ => Bytes::new(0),
+    on_peer_leave=_ => (),
+  )
+  // Relay delivery replaces the target with authenticated sender "bob".
+  // The request ID collides with the active request to "alice".
+  let wire = @wire.encode_sync_response(
+    target="bob",
+    request_id="1",
+    sync_json=empty_msg.to_json_string(),
+  )
+  session.on_message(wire, host)
+  inspect(applied.length(), content="0")
+  inspect(sent.length(), content="0")
+  inspect(session.recovery_epoch, content="1")
+  inspect(session.recovery is Some(_), content="true")
+  let recovery = session.recovery.unwrap()
+  inspect(recovery.peer_id, content="alice")
+  inspect(recovery.request_id, content="1")
+  inspect(recovery.retries, content="0")
+  inspect(recovery.deferred.length(), content="0")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=1)
+    ),
+  )
+}
+
+///|
 test "SyncSession: SyncResponse with empty delta increments retries" {
   let session = SyncSession()
   let empty_msg = empty_msg_or_fail()
