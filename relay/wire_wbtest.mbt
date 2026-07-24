@@ -1,7 +1,7 @@
 ///|
-test "encode_peer_joined starts with version byte 0x02" {
+test "encode_peer_joined starts with version byte 0x03" {
   let bytes = encode_peer_joined("alice")
-  inspect(bytes[0], content="b'\\x02'")
+  inspect(bytes[0], content="b'\\x03'")
 }
 
 ///|
@@ -29,9 +29,9 @@ test "encode_peer_left has sub_type 0x02 for leave" {
 }
 
 ///|
-test "encode_peer_left starts with version byte 0x02" {
+test "encode_peer_left starts with version byte 0x03" {
   let bytes = encode_peer_left("bob")
-  inspect(bytes[0], content="b'\\x02'")
+  inspect(bytes[0], content="b'\\x03'")
 }
 
 ///|

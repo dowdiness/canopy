@@ -196,7 +196,7 @@ fn parse_test_expr(ctx : @loomcore.ParserContext[TestToken, TestKind]) -> Unit {
 
 ///|
 fn test_node_ident(node : @seam.SyntaxNode) -> String {
-  match node.direct_token_of_kind(IdentToken.to_raw()) {
+  match node.direct_token_of_kind(@seam.ToRawKind::to_raw(IdentToken)) {
     Some(tok) => tok.text()
     None => ""
   }
@@ -292,11 +292,12 @@ fn build_test_projection_memos(
 ///|
 /// Construct a language-agnostic editor over the neutral TestExpr grammar,
 /// with all-None capabilities (no eval / decorations / annotations).
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_test_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[TestExpr] {
+) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
   @editor.SyncEditor::new_generic(
     agent_id,
     fn(s, rt) { @loom.new_parser(s, test_grammar, runtime?=rt) },

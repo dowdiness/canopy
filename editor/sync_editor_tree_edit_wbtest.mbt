@@ -9,7 +9,7 @@
 
 ///|
 test "delete_node replaces span with placeholder" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -21,7 +21,7 @@ test "delete_node replaces span with placeholder" {
 
 ///|
 test "commit_edit replaces span with new text" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -34,7 +34,7 @@ test "commit_edit replaces span with new text" {
 
 ///|
 test "apply_text_transform wraps node" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -51,7 +51,7 @@ test "apply_text_transform wraps node" {
 
 ///|
 test "delete_node returns error for unknown node_id" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let _ = editor.get_proj_node()
   let bad_id = @core.NodeId::from_int(99999)
@@ -61,7 +61,7 @@ test "delete_node returns error for unknown node_id" {
 
 ///|
 test "commit_edit returns error for unknown node_id" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let _ = editor.get_proj_node()
   let bad_id = @core.NodeId::from_int(99999)
@@ -71,14 +71,14 @@ test "commit_edit returns error for unknown node_id" {
 
 ///|
 test "is_dirty set after set_text" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   inspect(editor.is_dirty(), content="true")
 }
 
 ///|
 test "is_dirty set after insert/backspace" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   // Consume initial dirty from construction
   editor.refresh()
   inspect(editor.is_dirty(), content="false")
@@ -97,7 +97,7 @@ test "is_dirty set after insert/backspace" {
 
 ///|
 test "refresh clears dirty flag and further edits are accepted" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   inspect(editor.is_dirty(), content="true")
   editor.refresh()
@@ -119,7 +119,7 @@ test "move_node moves source before target and adjusts text" {
   // Move Leaf("b") Before Leaf("a"):
   //   step 1: replace b's span with placeholder("?")
   //   step 2: insert "b " at the target start
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a b")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -149,7 +149,7 @@ test "move_node moves source before target and adjusts text" {
 ///|
 test "move_node exchange (Inside) swaps two leaves" {
   // "a b" -> root Branch("", [Leaf("a"), Leaf("b")])
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a b")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -170,7 +170,7 @@ test "move_node exchange (Inside) swaps two leaves" {
 ///|
 test "move_node exchange moves whole branches" {
   // "f(a) g(b)" -> root with two Branch children
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(a) g(b)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -191,7 +191,7 @@ test "move_node exchange moves whole branches" {
 ///|
 test "move_node exchange: short and long leaf" {
   // "p qrs" -> root Branch("", [Leaf("p"), Leaf("qrs")])
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("p qrs")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -212,7 +212,7 @@ test "move_node exchange: short and long leaf" {
 ///|
 test "move_node exchange: branch and leaf" {
   // "f(x) y" -> root Branch("", [Branch("f", [Leaf("x")]), Leaf("y")])
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x) y")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")
@@ -234,7 +234,7 @@ test "move_node exchange: branch and leaf" {
 test "move_node exchange: nested siblings" {
   // "h(p q)" -> root Branch("", [Branch("h", [Leaf("p"), Leaf("q")])])
   // Exchange the two leaves inside the branch.
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("h(p q)")
   let root = match editor.get_proj_node() {
     None => fail("no proj node")

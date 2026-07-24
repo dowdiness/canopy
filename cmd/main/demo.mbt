@@ -20,18 +20,14 @@ fn show_editor(agent_name : String, editor : @editor.Editor) -> Unit {
 
 ///|
 /// Show sync info (op count via SyncMessage)
-fn show_sync_info(editor : @editor.Editor) -> Unit {
-  try {
-    let msg = editor.export_all()
-    println("Operations (\{msg.op_count()} total in sync message)")
-  } catch {
-    _ => ()
-  }
+fn show_sync_info(editor : @editor.Editor) -> Unit raise {
+  let msg = editor.export_all()
+  println("Operations (\{msg.op_count()} total in sync message)")
 }
 
 ///|
 /// Run CRDT editor demo
-pub fn run_convergence_demo() -> Unit {
+pub fn run_convergence_demo() -> Unit raise {
   println("Eg-walker CRDT Editor - Feature Demo")
   print_separator()
   println("")
@@ -42,16 +38,16 @@ pub fn run_convergence_demo() -> Unit {
   println("")
   let alice = @editor.Editor::new("alice")
   println("1. Alice types 'Hello'")
-  try! alice.insert("Hello")
+  alice.insert("Hello")
   show_editor("Alice", alice)
   println("")
   println("2. Alice types ' World'")
-  try! alice.insert(" World")
+  alice.insert(" World")
   show_editor("Alice", alice)
   println("")
   println("3. Alice moves cursor to position 6 and inserts 'CRDT '")
   alice.move_cursor(6)
-  try! alice.insert("CRDT ")
+  alice.insert("CRDT ")
   show_editor("Alice", alice)
   println("")
   println("4. View operation log:")
@@ -59,7 +55,7 @@ pub fn run_convergence_demo() -> Unit {
   println("")
   println("5. Alice moves cursor to position 0 and inserts 'Hey! '")
   alice.move_cursor(0)
-  try! alice.insert("Hey! ")
+  alice.insert("Hey! ")
   show_editor("Alice", alice)
   println("")
   println("6. Final operation log:")

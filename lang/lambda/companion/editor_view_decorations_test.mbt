@@ -8,7 +8,7 @@
 
 ///|
 test "get_view_tree returns Unit for empty editor" {
-  let editor = new_lambda_editor("test").0
+  let editor = (try! new_lambda_editor("test")).0
   let tree = editor.get_view_tree()
   guard tree is Some(node) else { fail("expected Unit projection") }
   inspect(node.kind_tag, content="Unit")
@@ -16,7 +16,7 @@ test "get_view_tree returns Unit for empty editor" {
 
 ///|
 test "FullTree emitted for empty editor then updated after text" {
-  let editor = new_lambda_editor("test").0
+  let editor = (try! new_lambda_editor("test")).0
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches1 = @editor.compute_view_patches(state, editor)
   let full_tree_unit = patches1
@@ -45,7 +45,7 @@ test "FullTree emitted for empty editor then updated after text" {
 
 ///|
 test "semantic decorations are emitted and stable" {
-  let editor = new_lambda_editor("test-semantic-decorations").0
+  let editor = (try! new_lambda_editor("test-semantic-decorations")).0
   editor.set_text("(x) => x")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
@@ -77,7 +77,7 @@ test "semantic decorations are emitted and stable" {
 
 ///|
 test "analysis projection combines semantic and pattern decorations" {
-  let (editor, companion) = new_lambda_editor("test-analysis-projection")
+  let (editor, companion) = try! new_lambda_editor("test-analysis-projection")
   editor.set_text("(x) => x")
   let source = editor.get_text()
   let snapshot = @facts.SourceSnapshot::SourceSnapshot(
@@ -118,7 +118,7 @@ test "analysis projection combines semantic and pattern decorations" {
 
 ///|
 test "analysis projection drops stale pattern decorations but keeps semantic decorations" {
-  let (editor, companion) = new_lambda_editor(
+  let (editor, companion) = try! new_lambda_editor(
     "test-analysis-stale-keeps-semantic",
   )
   editor.set_text("(x) => x")

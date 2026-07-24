@@ -108,6 +108,9 @@ Only needed if you are modifying Canopy itself.
 - [EGW companion and Canopy compatibility migration](plans/2026-07-22-egw-companion-canopy-migration.md)
   — aligns EGW, Loom, and Canopy versions, preserves Tier 1 interfaces, and
   splits EGW policy from payload-opaque session mechanics before transport.
+  - [EGW 0.3/0.4 wire compatibility evidence](research/2026-07-22-egw-03-04-wire-compatibility.md)
+    — confirms that outer v2 frames remain intact while embedded version and
+    sync JSON are incompatible in both directions.
 
 **Performance:**
 
@@ -169,6 +172,9 @@ behavior** — check the code before relying on any specific detail.
 - [EGW collaboration responsibility boundary](decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
   — separates EGW core, its peer-sync companion, a payload-opaque collaboration
   runtime, infrastructure providers, and application policy.
+- [Protocol v3 hard cutover](decisions/2026-07-22-protocol-v3-hard-cutover.md)
+  — rejects v2 frames at endpoints and the relay rather than bridging the
+  incompatible EGW 0.3 and 0.4 identity schemas.
 
 ## Historical / Archive
 

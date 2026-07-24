@@ -1,0 +1,6 @@
+v040_empty_version	REJECT
+v040_base_version	REJECT
+v040_final_version	REJECT
+v040_full_sync	REJECT
+v040_incremental_sync	REJECT
+v040_empty_incremental_sync	REJECT

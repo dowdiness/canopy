@@ -83,7 +83,7 @@ pub fn[T : TreeNode + Renderable] reconcile_hinted(
     // to fresh ids rather than leaving the preserved id on the new wrapper.
     Unlocatable => assign_fresh_ids(new, counter)
     NoStructuralHint =>
-      if T::same_kind(old.kind, new.kind) {
+      if @loomcore.TreeNode::same_kind(old.kind, new.kind) {
         let reconciled_children = reconcile_children(
           old.children,
           new.children,
@@ -121,7 +121,7 @@ fn[T : TreeNode + Renderable] reconcile_children(
     Array::makei(old_len, oi => lcs_excluded(hints, old_children[oi].id()))
   }
   let lcs_match = fn(oi : Int, nj : Int) -> Bool {
-    T::same_kind(old_children[oi].kind, new_children[nj].kind) &&
+    @loomcore.TreeNode::same_kind(old_children[oi].kind, new_children[nj].kind) &&
     (excluded_old.length() == 0 || excluded_old[oi] == false)
   }
   // Each row must be a fresh array — use makei (called per row), not
@@ -186,7 +186,7 @@ fn[T : TreeNode + Renderable] reconcile_children(
             new_matched[k],
             k,
             reconciled.id(),
-            T::kind_tag(reconciled.kind),
+            @loomcore.Renderable::kind_tag(reconciled.kind),
           ),
         )
         reconciled
@@ -194,7 +194,12 @@ fn[T : TreeNode + Renderable] reconcile_children(
         let fresh = assign_fresh_ids(new_children[k], counter)
         emit_trace(
           trace_ref,
-          Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+          Inserted(
+            parent_id,
+            k,
+            fresh.id(),
+            @loomcore.Renderable::kind_tag(fresh.kind),
+          ),
         )
         fresh
       } else {
@@ -212,7 +217,13 @@ fn[T : TreeNode + Renderable] reconcile_children(
           Some(node) => {
             emit_trace(
               trace_ref,
-              Matched(parent_id, -1, k, node.id(), T::kind_tag(node.kind)),
+              Matched(
+                parent_id,
+                -1,
+                k,
+                node.id(),
+                @loomcore.Renderable::kind_tag(node.kind),
+              ),
             )
             node
           }
@@ -220,7 +231,12 @@ fn[T : TreeNode + Renderable] reconcile_children(
             let fresh = assign_fresh_ids(new_children[k], counter)
             emit_trace(
               trace_ref,
-              Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+              Inserted(
+                parent_id,
+                k,
+                fresh.id(),
+                @loomcore.Renderable::kind_tag(fresh.kind),
+              ),
             )
             fresh
           }
@@ -236,7 +252,7 @@ fn[T : TreeNode + Renderable] reconcile_children(
           parent_id,
           oi,
           old_children[oi].id(),
-          T::kind_tag(old_children[oi].kind),
+          @loomcore.Renderable::kind_tag(old_children[oi].kind),
         ),
       )
     }
@@ -297,7 +313,10 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
   let new_len = new_children.length()
   let match_base_score = old_len.min(new_len) + 1
   let match_score = fn(oi : Int, nj : Int) -> Int {
-    if !T::same_kind(old_children[oi].kind, new_children[nj].kind) {
+    if !@loomcore.TreeNode::same_kind(
+        old_children[oi].kind,
+        new_children[nj].kind,
+      ) {
       0
     } else if old_fingerprints[old_children[oi].id()] ==
       new_fingerprints[new_children[nj].id()] {
@@ -359,7 +378,7 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
             new_matched[k],
             k,
             reconciled.id(),
-            T::kind_tag(reconciled.kind),
+            @loomcore.Renderable::kind_tag(reconciled.kind),
           ),
         )
         reconciled
@@ -367,7 +386,12 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
         let fresh = assign_fresh_ids(new_children[k], counter)
         emit_trace(
           trace_ref,
-          Inserted(parent_id, k, fresh.id(), T::kind_tag(fresh.kind)),
+          Inserted(
+            parent_id,
+            k,
+            fresh.id(),
+            @loomcore.Renderable::kind_tag(fresh.kind),
+          ),
         )
         fresh
       }
@@ -381,7 +405,7 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
           parent_id,
           oi,
           old_children[oi].id(),
-          T::kind_tag(old_children[oi].kind),
+          @loomcore.Renderable::kind_tag(old_children[oi].kind),
         ),
       )
     }
@@ -398,7 +422,7 @@ fn[T : TreeNode + Renderable] reconcile_exact(
   new_fingerprints : Map[NodeId, Int],
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
-  if T::same_kind(old.kind, new.kind) {
+  if @loomcore.TreeNode::same_kind(old.kind, new.kind) {
     let reconciled_children = reconcile_children_exact(
       old.children,
       new.children,
@@ -444,7 +468,11 @@ fn[T : TreeNode + Renderable] structural_pair(
         Some(node) => {
           emit_trace(
             trace_ref,
-            Wrapped(old.id(), node.id(), T::kind_tag(node.kind)),
+            Wrapped(
+              old.id(),
+              node.id(),
+              @loomcore.Renderable::kind_tag(node.kind),
+            ),
           )
           Applied(node)
         }
@@ -455,7 +483,11 @@ fn[T : TreeNode + Renderable] structural_pair(
         Some(node) => {
           emit_trace(
             trace_ref,
-            Unwrapped(old.id(), node.id(), T::kind_tag(old.kind)),
+            Unwrapped(
+              old.id(),
+              node.id(),
+              @loomcore.Renderable::kind_tag(old.kind),
+            ),
           )
           Applied(node)
         }
@@ -577,7 +609,10 @@ fn[T : TreeNode + Renderable] apply_wrap(
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T]? {
   let targets = [
-    for idx, c in wrapper.children if T::same_kind(c.kind, old.kind) => idx
+    for idx, c in wrapper.children if @loomcore.TreeNode::same_kind(
+      c.kind,
+      old.kind,
+    ) => idx
   ]
   match targets {
     [target] => {

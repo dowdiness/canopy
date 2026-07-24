@@ -67,10 +67,10 @@ pub fn BlockDoc::move_block(
   position : @canopy_core.DropPosition,
 ) -> Unit raise @container.DocumentError {
   // Legality: self-drop and root-move are rejected at the model boundary.
-  if @container.tree_node_id_eq(id, ref_id) {
+  if id == ref_id {
     return
   }
-  if @container.tree_node_id_eq(id, root_block_id) {
+  if id == root_block_id {
     raise @container.DocumentError::Internal(detail="cannot move root block")
   }
   match position {

@@ -1,0 +1,42 @@
+///|
+fn emit(label : String, payload : String) -> Unit {
+  println(label + "\t" + payload)
+}
+
+///|
+fn run() -> Unit raise {
+  let alice = @text.TextState::new("alice")
+  let empty_version_json = alice.version().to_json_string()
+  let _ = @text.Version::from_json_string(empty_version_json)
+  emit("empty_version", empty_version_json)
+  alice.insert(@text.Pos::at(0), "H")
+  alice.insert(@text.Pos::at(1), "i")
+  let full_json = alice.sync().export_all().to_json_string()
+  emit("full_sync", full_json)
+  emit("base_version", alice.version().to_json_string())
+
+  let bob = @text.TextState::new("bob")
+  bob.sync().apply(@text.SyncMessage::from_json_string(full_json))
+  let shared = bob.version()
+  alice.insert(@text.Pos::at(2), "!")
+  let incremental_json = alice.sync().export_since(shared).to_json_string()
+  emit("incremental_sync", incremental_json)
+  bob.sync().apply(@text.SyncMessage::from_json_string(incremental_json))
+  emit("final_version", alice.version().to_json_string())
+  let empty_incremental_json = alice
+    .sync()
+    .export_since(alice.version())
+    .to_json_string()
+  let _ = @text.SyncMessage::from_json_string(empty_incremental_json)
+  emit("empty_incremental_sync", empty_incremental_json)
+  emit("self_roundtrip_text", bob.text())
+}
+
+///|
+fn main {
+  try run() catch {
+    _ => abort("v0.3 fixture generation failed")
+  } noraise {
+    _ => ()
+  }
+}

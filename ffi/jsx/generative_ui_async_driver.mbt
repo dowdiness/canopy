@@ -203,10 +203,10 @@ fn GenerativeUiAsyncDriver::GenerativeUiAsyncDriver(
 }
 
 ///|
-let async_driver_registry : Map[Int, GenerativeUiAsyncDriver] = {}
+let async_driver_registry : Map[Int, GenerativeUiAsyncDriver] = Map([])
 
 ///|
-let async_provider_registry : Map[Int, AsyncProviderPending] = {}
+let async_provider_registry : Map[Int, AsyncProviderPending] = Map([])
 
 ///|
 let next_async_driver_handle : Ref[Int] = Ref(1)
@@ -374,7 +374,7 @@ fn async_start_driver(
     @cognition.GenerativeUiTransition::Started(generation_id~) => generation_id
     _ => abort("async lifecycle did not start")
   }
-  let generation_ids : Map[Int, @cognition.GenerativeUiGenerationId] = {}
+  let generation_ids : Map[Int, @cognition.GenerativeUiGenerationId] = Map([])
   generation_ids[generation_id.to_int()] = generation_id
   let driver = GenerativeUiAsyncDriver(
     session_handle,
