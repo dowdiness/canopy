@@ -231,19 +231,10 @@ test "apply_sync: error does not corrupt editor state" {
 ///|
 test "export_since: empty version exports all" {
   let editor = try! @probe.new_test_editor("alice")
-  editor.set_text("hello")
   let empty_version = editor.get_version()
-  // Create a fresh editor to get an empty version
-  let fresh = try! @probe.new_test_editor("bob")
-  let fresh_version = fresh.get_version()
-  try {
-    let msg = editor.export_since(fresh_version)
-    // Should contain ops (alice's edits)
-    inspect(msg.op_count() > 0, content="true")
-  } catch {
-    _ => () // VersionNotFound is acceptable
-  }
-  let _ = empty_version
+  editor.set_text("hello")
+  let msg = try! editor.export_since(empty_version)
+  inspect(msg.op_count() > 0, content="true")
 }
 
 // ============================================================================

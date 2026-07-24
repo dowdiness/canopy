@@ -6,7 +6,9 @@ This package contains no logic — it delegates entirely to `editor`, `lang/mark
 
 ## Public API
 
-- `create_markdown_editor(agent_id) -> Int` / `destroy_markdown_editor(handle)`
+- `create_markdown_editor(agent_id) -> Int` — returns `-1` for an invalid ID;
+  failed construction registers no editor. `destroy_markdown_editor(handle)`
+  destroys a valid handle.
 - `markdown_get_text(handle)` / `markdown_set_text(handle, text)`
 - `markdown_export_text(handle) -> String` — export canonical Markdown (may differ from raw source)
 - `markdown_empty_paragraph_sentinel() -> String` — expose the canonical empty-paragraph placeholder

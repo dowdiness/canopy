@@ -118,7 +118,7 @@ proving-ground mode.
   Why: EGW now owns reusable peer-sync semantics, but Canopy still needs a transport-agnostic runtime boundary and a two-browser spreadsheet path that keeps committed cells authoritative without synchronizing drafts, selection, or focus.
   Decision: `docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md`
   Product behavior: `docs/superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md`
-  Status: deferred until the compatibility migration lands. Prototype the smallest browser slice before writing a broader UI implementation plan.
+  Status: deferred after the completed compatibility migration. Prototype the smallest browser slice before writing a broader UI implementation plan.
   Exit: two browsers converge through one local/remote projection path; the runtime treats EGW payloads as opaque, providers own transport and room concerns, and EGW core remains the sole causal pending-operation queue.
 
 ---

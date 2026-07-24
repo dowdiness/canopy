@@ -75,10 +75,9 @@ A current package name or API tier is not an ownership argument by itself.
 
 ### A. EGW core
 
-EGW core owns CRDT operations, causal validation, document-local pending
-operation storage and replay, façade-specific `Version` and `SyncMessage`
-values, strict JSON transport codecs, canonical bytes for hashing or signing,
-and document-bound export/apply semantics.
+EGW core owns document-level CRDT synchronization and causal validation
+semantics. It remains the sole owner of document-local pending-operation
+storage and replay.
 
 It does not own peers, rooms, presence, connection sessions, physical
 transports, persistence policy, projection, or UI state.
@@ -281,8 +280,8 @@ ADR.
 
 ## Migration gates
 
-The compatibility release satisfied gates 1–4 and 6. Gates 5 and 7–9 remain
-constraints for the deferred runtime and provider product work:
+The compatibility release satisfied gates 1–4. Gates 5–9 remain constraints
+for the deferred runtime and provider product work:
 
 1. Pin text and container sync fixtures, pending-operation behavior, and failure
    semantics against their owning EGW versions.
