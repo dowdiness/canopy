@@ -1,7 +1,7 @@
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
 import * as crdt from '@moonbit/crdt-markdown';
-import { BlockInput } from '@canopy/editor-adapter/block-input';
+import { BlockInput, type BlockSelection } from '@canopy/editor-adapter/block-input';
 import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
 import '@canopy/editor-adapter/block-input.css';
 import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
@@ -30,6 +30,7 @@ const handle = crdt.create_markdown_editor(agentId);
 
 let activeMode: Mode = 'block';
 let activeNodeId: number | null = null;
+let savedBlockSelection: BlockSelection | null = null;
 let rawSyncScheduled = false;
 let rawDirty = false;
 
@@ -187,6 +188,11 @@ rawEditor.addEventListener('input', () => {
 function setMode(mode: Mode): void {
   if (mode === activeMode) return;
 
+  if (activeMode === 'block') {
+    savedBlockSelection = blockInput.getSelection();
+    if (savedBlockSelection === null) activeNodeId = null;
+  }
+
   // Sync from current mode before switching — only if user edited in raw mode.
   // If they just viewed raw mode without editing, don't write back the
   // ZWSP-stripped display text (which would destroy empty block placeholders).
@@ -209,6 +215,11 @@ function setMode(mode: Mode): void {
     syncRawFromModel();
     rawDirty = false;
     rawEditor.focus();
+  } else if (mode === 'block' && savedBlockSelection !== null) {
+    if (!blockInput.restoreSelection(savedBlockSelection)) {
+      savedBlockSelection = null;
+      activeNodeId = null;
+    }
   }
 
   // Update tab styles
@@ -307,9 +318,11 @@ document.addEventListener('keydown', (e) => {
 document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const text = btn.dataset.example ?? DEFAULT_TEXT;
+    blockInput.clearSelection();
     crdt.markdown_set_text(handle, text);
     syncRawFromModel();
     activeNodeId = null;
+    savedBlockSelection = null;
     refresh();
     updateToolbar();
   });

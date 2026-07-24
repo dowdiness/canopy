@@ -39,6 +39,13 @@ type FlattenedBlock = {
   listContext?: ListContext;
 };
 
+/** Ephemeral caret state for restoring a selected block after a mode switch. */
+export type BlockSelection = {
+  nodeId: number;
+  start: number;
+  end: number;
+};
+
 // ---------------------------------------------------------------------------
 // BlockInput
 // ---------------------------------------------------------------------------
@@ -99,6 +106,35 @@ export class BlockInput implements EditorAdapter {
 
   onIntent(callback: (intent: UserIntent) => void): void {
     this.intentCb = callback;
+  }
+
+  /** Return the active block and its textarea selection, if any. */
+  getSelection(): BlockSelection | null {
+    if (this.activeBlockId === null || this.textarea === null) return null;
+    return {
+      nodeId: this.activeBlockId,
+      start: this.textarea.selectionStart,
+      end: this.textarea.selectionEnd,
+    };
+  }
+
+  /** Restore a saved selection when its editable block still exists. */
+  restoreSelection(selection: BlockSelection): boolean {
+    const node = this.findNode(selection.nodeId);
+    if (!node?.editable) return false;
+
+    this.activateBlock(selection.nodeId);
+    const textarea = this.textarea;
+    if (!textarea) return false;
+    const start = Math.min(selection.start, textarea.value.length);
+    const end = Math.max(start, Math.min(selection.end, textarea.value.length));
+    textarea.setSelectionRange(start, end);
+    return true;
+  }
+
+  /** Clear transient block selection before replacing the document. */
+  clearSelection(): void {
+    this.deactivate();
   }
 
   destroy(): void {
