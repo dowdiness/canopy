@@ -91,6 +91,29 @@ test.describe('Markdown Block Editor', () => {
     expect(afterCycle).toEqual(originalTexts);
   });
 
+  test('mode switching restores the selected block and caret range', async ({ page }) => {
+    await switchMode(page, 'Raw');
+    await page.locator('#raw-editor').fill('# Title\n\nParagraph\n');
+    await switchMode(page, 'Block');
+
+    await page.locator('#block-container .block').filter({ hasText: 'Title' }).click();
+    const textarea = page.locator('.block-textarea');
+    await expect(textarea).toHaveValue('Title');
+    await textarea.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(1, 4));
+
+    await switchMode(page, 'Raw');
+    await switchMode(page, 'Block');
+    await expect(textarea).toHaveValue('Title');
+    await expect(textarea).toHaveJSProperty('selectionStart', 1);
+    await expect(textarea).toHaveJSProperty('selectionEnd', 4);
+
+    await switchMode(page, 'Preview');
+    await switchMode(page, 'Block');
+    await expect(textarea).toHaveValue('Title');
+    await expect(textarea).toHaveJSProperty('selectionStart', 1);
+    await expect(textarea).toHaveJSProperty('selectionEnd', 4);
+  });
+
   test('surface-only heading rewrite preserves the same block handle', async ({ page }) => {
     await switchMode(page, 'Raw');
     await page.locator('#raw-editor').fill('  # Title\n\n## Other\n');
@@ -104,6 +127,10 @@ test.describe('Markdown Block Editor', () => {
     const otherId = await otherBefore.getAttribute('data-node-id');
     expect(titleId).not.toBeNull();
     expect(otherId).not.toBeNull();
+    await titleBefore.click();
+    const textarea = page.locator('.block-textarea');
+    await expect(textarea).toHaveValue('Title');
+    await textarea.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(1, 4));
 
     await switchMode(page, 'Raw');
     await page.locator('#raw-editor').fill('Title\n=====\n\n## Other\n');
@@ -122,6 +149,9 @@ test.describe('Markdown Block Editor', () => {
     await expect(otherAfter).toHaveCount(1);
     await expect(titleAfter).toHaveAttribute('data-node-id', titleId!);
     await expect(otherAfter).toHaveAttribute('data-node-id', otherId!);
+    await expect(textarea).toHaveValue('Title');
+    await expect(textarea).toHaveJSProperty('selectionStart', 1);
+    await expect(textarea).toHaveJSProperty('selectionEnd', 4);
   });
 
   test('block mode preserves ordered list markers', async ({ page }) => {
