@@ -56,6 +56,7 @@ jobs:
     name: Benchmark PR Branch
     needs: benchmark-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Skip PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
@@ -73,14 +74,14 @@ jobs:
 
       - name: Run PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
-        # Targeted bench: compile only packages with benchmarks + their transitive
-        # deps, not all 37 workspace members. Covers EGW, btree, visualizer,
-        # editor, projection, json/companion, and loom lambda/json/markdown
-        # examples (captured when the loom submodule pointer changes).
+        # Targeted bench: measure Canopy-owned packages against their current
+        # transitive dependencies. EGW and Loom own their package benchmarks;
+        # running those suites here can include release-scale workloads that do
+        # not terminate within Canopy's PR job budget.
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > pr_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > pr_bench.txt 2>&1; then
             cat pr_bench.txt
           else
             cat pr_bench.txt
@@ -101,6 +102,7 @@ jobs:
     name: Benchmark Base Branch
     needs: benchmark-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Skip base benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
@@ -113,7 +115,7 @@ jobs:
         with:
           path: |
             base_bench.txt
-          key: benchmark-base-v5-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v6-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Validate base benchmark cache
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
@@ -139,20 +141,24 @@ jobs:
 
       - name: Run base benchmarks
         if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
-        # Targeted bench: same -p flags as PR branch for apples-to-apples comparison.
+        id: base-benchmark
+        # Targeted bench: same Canopy-owned packages as the PR branch for an
+        # apples-to-apples comparison.
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/event-graph-walker -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion -p dowdiness/lambda/benchmarks -p dowdiness/json -p dowdiness/markdown; } > base_bench.txt 2>&1; then
+          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > base_bench.txt 2>&1; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
             cat base_bench.txt
           else
-            echo "(base branch benchmark failed — may not compile)" > base_bench.txt
+            echo "complete=false" >> "$GITHUB_OUTPUT"
             cat base_bench.txt
+            echo "(base branch benchmark failed — may not compile)" | tee -a base_bench.txt
           fi
 
 
       - name: Save base benchmark cache
-        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true' && steps.base-benchmark.outputs.complete == 'true'
         continue-on-error: true
         uses: actions/cache/save@v6
         with:
