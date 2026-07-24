@@ -1,8 +1,22 @@
 # Markdown Semantic Identity Bridge — Feasibility Prototype Design
 
-**Status:** Design spike. No implementation approved.
+**Status:** Design spike complete; implementation deferred pending a qualifying consumer failure.
 **Issue:** #940
 **Date:** 2026-07-24
+
+## Outcome
+
+The observed Markdown browser failure was not a semantic-identity failure.
+Canopy #943 restored setext-heading text spans in the compatibility projection,
+and Canopy #944 preserves the selected block and caret range across mode
+switches using the existing reconciled `NodeId`. The current Markdown browser
+has no outline or drag/reorder consumer requiring a semantic identity layer.
+
+Do not begin this prototype unless a user-visible continuity failure remains
+after projection metadata and browser-shell state are correct. A qualifying
+failure must show that a logically continuous entity loses its reconciled
+`NodeId` and that an implemented consumer (for example selection, outline, or
+drag/reorder) cannot recover without semantic identity.
 
 ## Why
 
